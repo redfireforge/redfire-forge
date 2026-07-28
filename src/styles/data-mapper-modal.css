@@ -372,10 +372,23 @@
 }
 
 .dm-drift-btn--diff {
-  background: var(--surface-hover, #313244);
-  color: var(--text, #cdd6f4);
+  background: var(--bg, #0f172a);
+  color: var(--text, #f1f5f9);
   padding: 5px 12px;
-  border: 1px solid var(--border, #3b3f51);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3b4a60));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 6%, transparent);
+}
+
+.dm-drift-btn--diff:hover {
+  border-color: var(--primary, #3b82f6);
+  opacity: 1;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #3b82f6) 25%, transparent);
+}
+
+.dm-drift-btn--diff:focus-visible {
+  outline: none;
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #3b82f6) 20%, transparent);
 }
 
 /* ── Schema Diff Modal ────────────────────────── */
@@ -387,21 +400,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1100;
+  /* Above Test Editor (10080) / Data Mapper nested overlays; match Expression Editor. */
+  z-index: 10090;
   padding: 24px;
   animation: dm-drift-slide-in 0.15s ease-out;
 }
 
 .dm-diff-shell {
-  background: var(--surface, #1e1e2e);
-  border: 1px solid var(--border, #3b3f51);
+  position: relative;
+  background: color-mix(in srgb, var(--surface, #1e293b) 92%, white 8%);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3b4a60));
   border-radius: 10px;
   display: flex;
   flex-direction: column;
   width: min(85vw, 900px);
   max-height: min(80vh, 600px);
   overflow: hidden;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.dm-diff-shell--positioned {
+  position: fixed;
+  margin: 0;
 }
 
 .dm-diff-header {
@@ -409,8 +433,10 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border, #3b3f51);
+  border-bottom: 1px solid color-mix(in srgb, white 10%, var(--border, #3b4a60));
   flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg, #0f172a) 50%, var(--surface, #1e293b) 50%);
+  user-select: none;
 }
 
 .dm-diff-title {
@@ -459,7 +485,7 @@
   justify-content: flex-end;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border-subtle, rgba(59, 63, 81, 0.4));
-  background: color-mix(in srgb, var(--surface, #181825) 80%, var(--bg, #000) 20%);
+  background: color-mix(in srgb, var(--bg, #0f172a) 40%, var(--surface, #1e293b) 60%);
 }
 
 .dm-diff-table {
@@ -471,7 +497,7 @@
 .dm-diff-th {
   position: sticky;
   top: 0;
-  background: color-mix(in srgb, var(--surface, #181825) 80%, var(--bg, #000) 20%);
+  background: color-mix(in srgb, var(--bg, #0f172a) 70%, var(--surface, #1e293b) 30%);
   padding: 8px 12px;
   text-align: left;
   color: var(--text-secondary, #a6adc8);
@@ -530,9 +556,11 @@
 .dm-diff-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding: 10px 16px;
-  border-top: 1px solid var(--border, #3b3f51);
+  border-top: 1px solid color-mix(in srgb, white 10%, var(--border, #3b4a60));
   flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg, #0f172a) 50%, var(--surface, #1e293b) 50%);
 }
 
 /* ─── Repair UI ─────────────────────────────────────────── */

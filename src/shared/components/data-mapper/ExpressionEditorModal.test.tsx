@@ -135,10 +135,11 @@ describe('ExpressionEditorModal', () => {
     expect(screen.getByText(/UPPERCASE/)).toBeTruthy();
   });
 
-  it('inserts function template when clicked', async () => {
+  it('inserts function template via Insert button', async () => {
     renderModal();
     await flushMonacoMount();
     await act(async () => { fireEvent.click(screen.getByText('$upper')); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
     const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
     expect(editorTextarea.value).toContain('$upper(');
     expect(editorTextarea.value).toContain('name');
@@ -294,11 +295,12 @@ describe('ExpressionEditorModal – additional coverage', () => {
     expect(document.querySelector('.dm-expr-doc-sig')).toBeTruthy();
   });
 
-  it('inserts function template on click', async () => {
+  it('inserts function template on Insert button', async () => {
     renderModal();
     await flushMonacoMount();
     const fnItem = screen.getByText('$upper').closest('.dm-expr-fn-item')!;
     await act(async () => { fireEvent.click(fnItem); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
     const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
     expect(editorTextarea.value).toContain('$upper(');
     expect(editorTextarea.value).toContain('name');
@@ -375,11 +377,13 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     expect(screen.getByLabelText('Step-through debugger')).toBeTruthy();
   });
 
-  it('shows step counter', async () => {
+  it('shows step counter starting at Step 1', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-    expect(screen.getByText(/Step \d+ \/ \d+/)).toBeTruthy();
+    expect(screen.getByText(/Step 1 \/ \d+/)).toBeTruthy();
+    expect(screen.getByLabelText('Previous step')).toBeDisabled();
+    expect(screen.getByLabelText('Next step')).not.toBeDisabled();
   });
 
   it('has prev/next buttons', async () => {
@@ -436,13 +440,13 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     renderModal({ mapping: { ...baseMapping, expression: '$concat($.name, " test")' } });
     fireEvent.click(screen.getByText('Step Debug'));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-    const counter = screen.getByText(/Step \d+ \/ \d+/);
-    expect(counter).toBeTruthy();
+    expect(screen.getByText(/Step 1 \/ \d+/)).toBeTruthy();
     const prevBtn = screen.getByLabelText('Previous step');
     const nextBtn = screen.getByLabelText('Next step');
-    fireEvent.click(prevBtn);
     fireEvent.click(nextBtn);
-    expect(screen.getByText(/Step \d+ \/ \d+/)).toBeTruthy();
+    expect(screen.getByText(/Step 2 \/ \d+/)).toBeTruthy();
+    fireEvent.click(prevBtn);
+    expect(screen.getByText(/Step 1 \/ \d+/)).toBeTruthy();
   });
 
   it('allows clicking a step header to expand it', async () => {
@@ -520,6 +524,7 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     renderModal({ customFunctions: noArgFns });
     await flushMonacoMount();
     await act(async () => { fireEvent.click(screen.getByText('$myNoArgs')); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
     const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
     expect(editorTextarea.value).toContain('$myNoArgs()');
   });

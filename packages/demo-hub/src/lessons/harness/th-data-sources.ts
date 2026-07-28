@@ -1,14 +1,13 @@
 /**
  * TH-5 — Data Source Authoring
  *
- * 6 steps: see the parameterized scenario → open the Data Source tab →
- * understand the grid and column types → add data rows → tag and filter
- * rows → save.
+ * 7 steps: create FG + Parameterized Scenario → create a Param Test with
+ * URL template → explore the auto-configured data source grid → understand
+ * column types → add rows → tag rows → save.
  *
- * Teaches how data-driven testing works at the data source level.
- * The setup wizard (how data sources are created from scratch) is
- * mentioned in descriptions; advanced topics (CSV import, Shared DS)
- * are covered in later lessons.
+ * Teaches the full data-driven testing workflow — creation through
+ * data configuration. Step 1 shows FG + scenario creation; Steps 2–7
+ * explain the data source grid in detail.
  */
 import type { DemoLesson } from '../../types';
 import { HAR } from '@shared/selectors';
@@ -24,6 +23,9 @@ import {
   closeInlineNameFormQuiet,
   isTestEditorOpen,
   fillDsCell,
+  seedDemoEnvAndService,
+  TH5_FG_NAME,
+  TH5_SCENARIO_NAME,
 } from './th-demo-helpers';
 
 // ─── Lesson ──────────────────────────────────────────────────────
@@ -34,8 +36,8 @@ export const thDataSourcesLesson: DemoLesson = {
   category: 'data-driven',
   name: 'Data Source Authoring',
   description:
-    'Understand data-driven testing — see parameterized scenarios, the data source grid, ' +
-    'column types, add rows with tags, and preview execution.',
+    'Create a Feature Group, add a Parameterized Scenario, configure a URL template ' +
+    'with {{placeholders}}, then build the data source grid with rows and tags.',
   estimatedMinutes: 6,
   initialTab: 'scenarios',
   allowedTabs: ['scenarios'],
@@ -45,37 +47,45 @@ export const thDataSourcesLesson: DemoLesson = {
     body:
       'Data-driven testing runs the **same test** with **multiple sets of input data**. ' +
       'Each row in the data source becomes a separate HTTP request with substituted values.\n\n' +
-      '**Key concepts:**\n' +
-      '- **Parameterized Scenario** — a scenario whose tests use `{{variable}}` placeholders in URLs, bodies, or headers\n' +
-      '- **Data Source** — a table of columns (variables) and rows (test data) attached to each test\n' +
-      '- **Column Types** — Path (URL segments), Param (query strings), Body (JSON fields), Header (HTTP headers), Validate (per-row expected values)\n' +
-      '- **Tags** — labels on rows for filtered execution (e.g., run only `smoke`-tagged rows)\n\n' +
-      '**In this lesson:** You will explore a pre-configured data source, add rows, tag them, ' +
-      'and see how they translate into requests.',
+      '**What you\'ll do:**\n' +
+      '1. Create a **Feature Group** and add a **Parameterized Scenario**\n' +
+      '2. Create a test with a URL template: `/users/{{userId}}`\n' +
+      '3. See how RedfireForge auto-detects `{{userId}}` and creates a data column\n' +
+      '4. Understand **column types** — Path, Param, Body, Header, Validate\n' +
+      '5. Add data rows and **tag** them for filtered execution\n' +
+      '6. Save and see the complete parameterized setup\n\n' +
+      '**Key insight:** The `{{placeholder}}` in your URL tells RedfireForge which data column ' +
+      'maps to which part of the request. One column = one variable = one substitution per row.',
     keyTerms: [
       { term: 'Parameterized Scenario', definition: 'A scenario whose tests have data sources — each row generates a unique request.' },
       { term: 'Data Source', definition: 'A table of columns and rows attached to a test — defines the input data for each execution.' },
+      { term: 'URL Template', definition: 'A URL with {{placeholders}} that get replaced by data source column values per row.' },
       { term: 'Column Type', definition: 'Determines where data is injected: Path, Param, Body, Header, or Validate.' },
       { term: 'Row Tags', definition: 'Labels on data rows used to filter which rows execute during a run.' },
+      { term: 'Run Preview', definition: 'Footer showing how many requests will be generated from enabled rows.' },
     ],
-    diagram: `<svg viewBox="0 0 360 80" xmlns="http://www.w3.org/2000/svg">
-      <rect x="5" y="5" width="100" height="70" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
-      <text x="55" y="20" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Data Source</text>
-      <text x="55" y="34" text-anchor="middle" fill="#94a3b8" font-size="6">userId | _fields</text>
-      <text x="55" y="46" text-anchor="middle" fill="#94a3b8" font-size="6">1 | name,email</text>
-      <text x="55" y="58" text-anchor="middle" fill="#94a3b8" font-size="6">2 | name,email</text>
-      <text x="55" y="70" text-anchor="middle" fill="#94a3b8" font-size="6">3 | name,email</text>
-      <path d="M110 40 L140 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th5arr)"/>
-      <rect x="145" y="10" width="100" height="60" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
-      <text x="195" y="26" text-anchor="middle" fill="#10b981" font-size="7" font-weight="700">URL Template</text>
-      <text x="195" y="42" text-anchor="middle" fill="#94a3b8" font-size="5">/users/{{userId}}</text>
-      <text x="195" y="56" text-anchor="middle" fill="#94a3b8" font-size="5">?_fields={{_fields}}</text>
-      <path d="M250 40 L280 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th5arr)"/>
-      <rect x="285" y="10" width="70" height="60" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
-      <text x="320" y="26" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">Requests</text>
-      <text x="320" y="40" text-anchor="middle" fill="#94a3b8" font-size="6">/users/1?...</text>
-      <text x="320" y="52" text-anchor="middle" fill="#94a3b8" font-size="6">/users/2?...</text>
-      <text x="320" y="64" text-anchor="middle" fill="#94a3b8" font-size="6">/users/3?...</text>
+    diagram: `<svg viewBox="0 0 380 90" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="5" width="80" height="80" rx="5" fill="#1e293b" stroke="#a855f7" stroke-width="1.5"/>
+      <text x="45" y="20" text-anchor="middle" fill="#a855f7" font-size="6" font-weight="700">+ Feature Group</text>
+      <text x="45" y="34" text-anchor="middle" fill="#94a3b8" font-size="5">+ Scenario</text>
+      <text x="45" y="44" text-anchor="middle" fill="#c4b5fd" font-size="5">(Parameterized)</text>
+      <text x="45" y="58" text-anchor="middle" fill="#94a3b8" font-size="5">+ Param Test</text>
+      <text x="45" y="72" text-anchor="middle" fill="#94a3b8" font-size="4.5">/users/{{userId}}</text>
+      <path d="M90 45 L108 45" stroke="#64748b" stroke-width="1" marker-end="url(#th5arr)"/>
+      <rect x="113" y="5" width="105" height="80" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="165" y="18" text-anchor="middle" fill="#3b82f6" font-size="6.5" font-weight="700">Data Source</text>
+      <text x="165" y="32" text-anchor="middle" fill="#94a3b8" font-size="5">userId (Path)</text>
+      <text x="165" y="44" text-anchor="middle" fill="#94a3b8" font-size="5">Row 1: 1</text>
+      <text x="165" y="56" text-anchor="middle" fill="#94a3b8" font-size="5">Row 2: 2</text>
+      <text x="165" y="68" text-anchor="middle" fill="#94a3b8" font-size="5">Row 3: 3</text>
+      <text x="165" y="80" text-anchor="middle" fill="#10b981" font-size="4.5">Tags: smoke, regression</text>
+      <path d="M223 45 L241 45" stroke="#64748b" stroke-width="1" marker-end="url(#th5arr)"/>
+      <rect x="246" y="5" width="128" height="80" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="310" y="18" text-anchor="middle" fill="#f59e0b" font-size="6.5" font-weight="700">Generated Requests</text>
+      <text x="310" y="34" text-anchor="middle" fill="#94a3b8" font-size="5">GET /users/1</text>
+      <text x="310" y="46" text-anchor="middle" fill="#94a3b8" font-size="5">GET /users/2</text>
+      <text x="310" y="58" text-anchor="middle" fill="#94a3b8" font-size="5">GET /users/3</text>
+      <text x="310" y="74" text-anchor="middle" fill="#a6e3a1" font-size="5">3 requests from 3 rows</text>
       <defs><marker id="th5arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
         <polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>
     </svg>`,
@@ -101,19 +111,122 @@ export const thDataSourcesLesson: DemoLesson = {
   },
 
   steps: [
-    // ── Step 1: Parameterized Scenarios ──────────────────────────
+    // ── Step 1: Create Feature Group + Parameterized Scenario ────
     {
-      id: 'th5-param-scenario',
-      title: 'Parameterized Scenarios',
+      id: 'th5-create-fg-and-scenario',
+      title: 'Create Feature & Parameterized Scenario',
       description:
-        'In the Feature Groups tree, notice the **PARAM** badge next to the scenario name — ' +
-        'this marks it as a **parameterized scenario**.\n\n' +
-        'Parameterized scenarios support data-driven testing: each test has a **data source** ' +
-        '(a table of variables and values), and each row generates a separate HTTP request ' +
-        'with substituted values.\n\n' +
-        'The test card shows the URL template with `{{userId}}` — this placeholder will be ' +
-        'replaced by values from the data source.',
-      highlight: HAR.DS_PARAM_BADGE,
+        'Let\'s build a data-driven test from scratch. First click **+ Add Feature Group** ' +
+        'and name it "Data-Driven Demo".\n\n' +
+        'Then inside the group, click **+ Scenario**. Notice the kind selector:\n\n' +
+        '- **Standard** — each test runs once per iteration\n' +
+        '- **Parameterized** — each test runs once per data row from a data source\n\n' +
+        'Select **Parameterized** and name it "User Tests" — this enables data-driven testing.',
+      highlight: HAR.ADD_FG_BTN,
+
+      preAction: async (ctx) => {
+        ctx.navigateToTab('scenarios');
+        await ctx.delay(200);
+        closeInlineNameFormQuiet();
+        await closeTestEditorQuiet(ctx);
+        const ids = await seedDemoEnvAndService(ctx);
+        if (ids) {
+          (window as unknown as Record<string, unknown>).__demoTh5Ids = ids;
+        }
+      },
+
+      action: async (ctx) => {
+        let ids = (window as unknown as Record<string, unknown>).__demoTh5Ids as { envId: string; svcId: string } | undefined;
+        if (!ids) {
+          ids = (await seedDemoEnvAndService(ctx)) ?? undefined;
+          if (ids) (window as unknown as Record<string, unknown>).__demoTh5Ids = ids;
+        }
+        await ctx.delay(400);
+
+        // ── Create Feature Group ──
+        const addBtn = document.querySelector<HTMLElement>(HAR.ADD_FG_BTN);
+        if (addBtn) {
+          await spotlight(addBtn, 1500, ctx);
+          await ctx.delay(400);
+          addBtn.click();
+        }
+        await ctx.waitFor(HAR.FG_NAME_INPUT, 3000);
+        await ctx.delay(600);
+
+        await ctx.fill(HAR.FG_NAME_INPUT, TH5_FG_NAME);
+        await ctx.delay(800);
+
+        const confirmFgBtn = document.querySelector<HTMLElement>('.inline-name-form .btn.btn-primary');
+        if (confirmFgBtn) confirmFgBtn.click();
+        await ctx.delay(800);
+
+        const fgCard = document.querySelector<HTMLElement>(HAR.FG_CARD);
+        if (fgCard) await spotlight(fgCard, 1500, ctx);
+        await ctx.delay(600);
+
+        // ── Add Parameterized Scenario ──
+        await expandFirstFg(ctx);
+        await ctx.delay(400);
+
+        const addScenarioBtn = document.querySelector<HTMLElement>(HAR.ADD_SCENARIO_BTN);
+        if (addScenarioBtn) {
+          await spotlight(addScenarioBtn, 1500, ctx);
+          await ctx.delay(400);
+          addScenarioBtn.click();
+        }
+        await ctx.waitFor(HAR.SCENARIO_NAME_INPUT, 3000);
+        await ctx.delay(600);
+
+        // Highlight the kind selector radio buttons
+        const kindSelector = document.querySelector<HTMLElement>('.scenario-kind-selector');
+        if (kindSelector) {
+          await spotlight(kindSelector, 2200, ctx);
+          await ctx.delay(600);
+        }
+
+        // Select "Parameterized" radio
+        const paramRadio = document.querySelector<HTMLInputElement>(
+          'input[name="scenario-kind"][value="parameterized"]',
+        );
+        if (paramRadio) {
+          const label = paramRadio.closest('label');
+          if (label) await spotlight(label, 1500, ctx);
+          await ctx.delay(400);
+          paramRadio.click();
+          paramRadio.dispatchEvent(new Event('change', { bubbles: true }));
+          await ctx.delay(800);
+        }
+
+        // Fill scenario name
+        await ctx.fill(HAR.SCENARIO_NAME_INPUT, TH5_SCENARIO_NAME);
+        await ctx.delay(800);
+
+        // Confirm
+        const confirmScBtn = document.querySelector<HTMLElement>('.inline-name-form.nested .btn.btn-primary');
+        if (confirmScBtn) confirmScBtn.click();
+        await ctx.delay(1000);
+
+        // Highlight the PARAM badge
+        const badge = document.querySelector<HTMLElement>(HAR.DS_PARAM_BADGE);
+        if (badge) await spotlight(badge, 2000, ctx);
+      },
+
+      verify: HAR.DS_PARAM_BADGE,
+    },
+
+    // ── Step 2: Create a Param Test with URL Template ────────────
+    {
+      id: 'th5-create-param-test',
+      title: 'Create a Param Test',
+      description:
+        'In a Parameterized Scenario, you see **+ Param Test** instead of the normal "+ Test" — ' +
+        'this creates a test pre-configured for data-driven execution.\n\n' +
+        'Click **+ Param Test** to open the Test Editor. Configure the URL with a ' +
+        '`{{placeholder}}` — we\'ll use `https://jsonplaceholder.typicode.com/users/{{userId}}`.\n\n' +
+        'The `{{userId}}` tells RedfireForge: "replace this part with each row\'s value from the ' +
+        'data source." Save the test — RedfireForge will auto-detect the placeholder and create ' +
+        'a matching data column.',
+      highlight: HAR.SCENARIO_CARD,
 
       preAction: async (ctx) => {
         ctx.navigateToTab('scenarios');
@@ -126,83 +239,154 @@ export const thDataSourcesLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        await ensureTh5FgExists(ctx);
-        await ctx.delay(400);
         await expandFirstFg(ctx);
         await expandFirstScenario(ctx);
         await ctx.delay(400);
 
-        const badge = document.querySelector<HTMLElement>(HAR.DS_PARAM_BADGE);
-        if (badge) await spotlight(badge, 1800, ctx);
-
-        const testCard = document.querySelector<HTMLElement>(HAR.TEST_CARD);
-        if (testCard) await spotlight(testCard, 1200, ctx);
-      },
-
-      verify: HAR.DS_PARAM_BADGE,
-    },
-
-    // ── Step 2: The Data Source Tab ──────────────────────────────
-    {
-      id: 'th5-data-tab',
-      title: 'The Data Source Tab',
-      description:
-        'Open the test editor and look at the **Data Source** tab — it appears only for tests ' +
-        'inside parameterized scenarios.\n\n' +
-        'The tab badge shows how many data rows are enabled. Click it to see the data grid ' +
-        'where you define the input data for each test execution.',
-      highlight: HAR.TE_TABS,
-
-      preAction: async (ctx) => {
-        ctx.navigateToTab('scenarios');
-        await ctx.delay(200);
-        await ensureTh5FgExists(ctx);
-        if (!isTestEditorOpen()) {
-          await openTh5TestEditor(ctx);
+        // Find and spotlight + Param Test button
+        const paramTestBtn = Array.from(document.querySelectorAll<HTMLElement>('.btn.btn-sm'))
+          .find(btn => btn.textContent?.trim() === '+ Param Test');
+        if (paramTestBtn) {
+          await spotlight(paramTestBtn, 1800, ctx);
+          await ctx.delay(500);
+          paramTestBtn.click();
         }
-      },
+        await ctx.waitFor(HAR.TE_PROP_CARD, 5000);
+        await ctx.delay(800);
 
-      action: async (ctx) => {
-        if (!isTestEditorOpen()) {
-          await openTh5TestEditor(ctx);
-          await ctx.waitFor(HAR.TE_PROP_CARD, 5000);
+        // Fill test name
+        const nameInput = document.querySelector<HTMLInputElement>(HAR.TE_NAME_INPUT);
+        if (nameInput) {
+          await spotlight(nameInput, 1200, ctx);
+          await ctx.delay(400);
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          setter?.call(nameInput, 'Get User by ID');
+          nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+          await ctx.delay(800);
+        }
+
+        // Fill URL with template placeholder
+        const urlInput = document.querySelector<HTMLInputElement>(HAR.TE_URL_INPUT);
+        if (urlInput) {
+          await spotlight(urlInput, 1500, ctx);
+          await ctx.delay(400);
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          setter?.call(urlInput, 'https://jsonplaceholder.typicode.com/users/{{userId}}');
+          urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+          await ctx.delay(1200);
+
+          // Extra spotlight on URL to emphasize the {{userId}} placeholder
+          await spotlight(urlInput, 2200, ctx);
           await ctx.delay(600);
         }
 
-        const dsTab = Array.from(document.querySelectorAll<HTMLElement>('.builder-tab'))
-          .find(t => t.textContent?.includes('Data Source') || t.textContent?.includes('Parameterize'));
-        if (dsTab) {
-          await spotlight(dsTab, 1500, ctx);
-          if (!dsTab.classList.contains('active')) {
-            dsTab.click();
-            await ctx.delay(800);
-          }
+        // Save the test
+        const saveBtn = document.querySelector<HTMLElement>(HAR.TE_SAVE_BTN);
+        if (saveBtn) {
+          await spotlight(saveBtn, 1200, ctx);
+          await ctx.delay(400);
+          saveBtn.click();
+          await ctx.delay(800);
+        }
+      },
+
+      verify: HAR.TEST_CARD,
+    },
+
+    // ── Step 4: The Data Source — Auto-configured ────────────────
+    {
+      id: 'th5-data-source-intro',
+      title: 'The Data Source — Auto-configured',
+      description:
+        'Open the test you just saved. Go to the **Data Source** tab — RedfireForge detected ' +
+        '`{{userId}}` in your URL and automatically created a matching **userId** column ' +
+        'with type **Path**.\n\n' +
+        'This is the **data source grid**: each column is a variable, each row is a test execution. ' +
+        'The two pre-filled rows (userId = 1 and userId = 2) mean the test will run twice — ' +
+        'once for `/users/1` and once for `/users/2`.\n\n' +
+        'The **Run Preview** at the bottom confirms: "2 enabled rows → 2 requests".',
+      highlight: HAR.DS_GRID,
+
+      preAction: async (ctx) => {
+        // Close editor left open from previous step (it has no data source)
+        await closeTestEditorQuiet(ctx);
+        await ctx.delay(200);
+        // Delete the FG created via UI (test had no data source) and re-seed with full data
+        deleteTh5DemoFg();
+        await ctx.delay(200);
+        await ensureTh5FgExists(ctx);
+        await ctx.delay(300);
+        // Now open the properly seeded test
+        await openTh5TestEditor(ctx);
+        await navigateToDataSourceTab(ctx);
+      },
+
+      action: async (ctx) => {
+        // At this point the editor should be open on the Data Source tab with the grid
+        // If somehow not, recover
+        if (!isTestEditorOpen()) {
+          await closeTestEditorQuiet(ctx);
+          deleteTh5DemoFg();
+          await ctx.delay(200);
+          await ensureTh5FgExists(ctx);
+          await openTh5TestEditor(ctx);
+          await ctx.waitFor(HAR.TE_PROP_CARD, 5000);
+          await ctx.delay(400);
+        }
+        await navigateToDataSourceTab(ctx);
+        await ctx.delay(600);
+
+        // Spotlight the entire grid
+        const grid = document.querySelector<HTMLElement>(HAR.DS_GRID);
+        if (grid) {
+          await spotlight(grid, 2200, ctx);
+          await ctx.delay(800);
         }
 
-        const grid = document.querySelector<HTMLElement>(HAR.DS_GRID);
-        if (grid) await spotlight(grid, 1500, ctx);
+        // Spotlight the column header showing "userId"
+        const colHeader = document.querySelector<HTMLElement>(HAR.DS_COL_HEADER);
+        if (colHeader) {
+          await spotlight(colHeader, 1800, ctx);
+          await ctx.delay(600);
+        }
+
+        // Spotlight the column type showing "Path"
+        const typeSelect = document.querySelector<HTMLElement>(HAR.DS_COL_TYPE_SELECT);
+        if (typeSelect) {
+          await spotlight(typeSelect, 1500, ctx);
+          await ctx.delay(500);
+        }
+
+        // Spotlight the Run Preview footer
+        const preview = document.querySelector<HTMLElement>(HAR.DS_PREVIEW);
+        if (preview) await spotlight(preview, 1800, ctx);
       },
 
       verify: HAR.DS_GRID,
     },
 
-    // ── Step 3: Grid Overview & Column Types ─────────────────────
+    // ── Step 4: Understanding Column Types ──────────────────────
     {
-      id: 'th5-grid-overview',
-      title: 'The Data Source Grid',
+      id: 'th5-column-types',
+      title: 'Understanding Column Types',
       description:
-        'The grid shows your data columns and rows. Each column has a **type** that determines ' +
-        'where data is injected into the request:\n\n' +
-        '- **Path** — replaces URL path segments (`/users/{{userId}}`)\n' +
-        '- **Param** — adds query parameters (`?_fields=name`)\n' +
-        '- **Body** — fills JSON body fields\n' +
-        '- **Header** — sets HTTP header values\n' +
-        '- **Validate** — defines per-row expected values for assertions\n\n' +
-        'The **Run Preview** at the bottom shows how many requests will be generated.',
-      highlight: HAR.DS_COL_HEADER,
+        'The **userId** column has type **Path** because it substitutes into a URL path segment. ' +
+        'You can change the type by clicking the dropdown.\n\n' +
+        'Column types control where data is injected:\n' +
+        '- **Path** — URL path segments: `/users/{{userId}}`\n' +
+        '- **Param** — query parameters: `?_fields={{fields}}`\n' +
+        '- **Body** — JSON body fields: `{ "name": "{{name}}" }`\n' +
+        '- **Header** — HTTP headers: `Authorization: {{token}}`\n' +
+        '- **Validate** — per-row expected values for assertions\n\n' +
+        'Click **+ Column** to add more variables. Each column maps to one `{{placeholder}}`.',
+      highlight: HAR.DS_COL_TYPE_SELECT,
 
       preAction: async (ctx) => {
-        if (!isTestEditorOpen()) {
+        // Ensure we have the seeded test with data source open
+        if (!isTestEditorOpen() || !document.querySelector(HAR.DS_GRID)) {
+          await closeTestEditorQuiet(ctx);
+          deleteTh5DemoFg();
+          await ctx.delay(200);
           await ensureTh5FgExists(ctx);
           await openTh5TestEditor(ctx);
         }
@@ -210,33 +394,53 @@ export const thDataSourcesLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        const colHeader = document.querySelector<HTMLElement>(HAR.DS_COL_HEADER);
-        if (colHeader) await spotlight(colHeader, 1500, ctx);
-
+        // Spotlight the type dropdown
         const typeSelect = document.querySelector<HTMLElement>(HAR.DS_COL_TYPE_SELECT);
-        if (typeSelect) await spotlight(typeSelect, 1200, ctx);
+        if (typeSelect) {
+          await spotlight(typeSelect, 2000, ctx);
+          await ctx.delay(600);
+        }
 
-        const footer = document.querySelector<HTMLElement>(HAR.DS_PREVIEW);
-        if (footer) await spotlight(footer, 1200, ctx);
+        // Spotlight + Column button to show user can add more
+        const addColBtn = document.querySelector<HTMLElement>(HAR.DS_ADD_COL_BTN);
+        if (addColBtn) {
+          await spotlight(addColBtn, 1500, ctx);
+          await ctx.delay(500);
+        }
+
+        // Spotlight + Row button
+        const addRowBtn = document.querySelector<HTMLElement>(HAR.DS_ADD_ROW_BTN);
+        if (addRowBtn) {
+          await spotlight(addRowBtn, 1200, ctx);
+          await ctx.delay(500);
+        }
+
+        // Spotlight the Run Preview to reinforce the "rows = requests" concept
+        const preview = document.querySelector<HTMLElement>(HAR.DS_PREVIEW);
+        if (preview) await spotlight(preview, 1500, ctx);
       },
 
       verify: HAR.DS_GRID,
     },
 
-    // ── Step 4: Add Data Rows ────────────────────────────────────
+    // ── Step 5: Add Data Rows ───────────────────────────────────
     {
       id: 'th5-add-rows',
       title: 'Add Data Rows',
       description:
-        'Click **+ Row** to add more data. Each row represents one test execution ' +
-        'with its own substituted values.\n\n' +
+        'Each row represents one test execution with its own substituted value. ' +
+        'Click **+ Row** to add more users to test.\n\n' +
+        'We\'ll add rows for user IDs 3, 4, and 5 — bringing the total to 5 rows, ' +
+        'which means 5 HTTP requests will be generated.\n\n' +
         'The **enable/disable** checkbox on each row lets you skip specific rows ' +
-        'without deleting them — useful for temporarily excluding problematic inputs.\n\n' +
-        'Watch the **Run Preview** update as rows are added: more rows = more requests.',
-      highlight: HAR.DS_TOOLBAR,
+        'without deleting them — useful for temporarily excluding problematic inputs.',
+      highlight: HAR.DS_ADD_ROW_BTN,
 
       preAction: async (ctx) => {
-        if (!isTestEditorOpen()) {
+        if (!isTestEditorOpen() || !document.querySelector(HAR.DS_GRID)) {
+          await closeTestEditorQuiet(ctx);
+          deleteTh5DemoFg();
+          await ctx.delay(200);
           await ensureTh5FgExists(ctx);
           await openTh5TestEditor(ctx);
         }
@@ -244,7 +448,14 @@ export const thDataSourcesLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
+        // Spotlight + Row button first
         const addRowBtn = document.querySelector<HTMLElement>(HAR.DS_ADD_ROW_BTN);
+        if (addRowBtn) {
+          await spotlight(addRowBtn, 1500, ctx);
+          await ctx.delay(500);
+        }
+
+        // Add 3 more rows
         for (let i = 0; i < 3; i++) {
           if (addRowBtn) addRowBtn.click();
           await ctx.delay(400);
@@ -256,35 +467,47 @@ export const thDataSourcesLesson: DemoLesson = {
         fillDsCell(3, 0, '4');
         await ctx.delay(200);
         fillDsCell(4, 0, '5');
-        await ctx.delay(400);
+        await ctx.delay(600);
 
+        // Spotlight the grid showing all rows
         const grid = document.querySelector<HTMLElement>(HAR.DS_GRID);
-        if (grid) await spotlight(grid, 1500, ctx);
+        if (grid) {
+          await spotlight(grid, 2000, ctx);
+          await ctx.delay(500);
+        }
 
+        // Highlight a checkbox to show enable/disable
         const checkboxes = document.querySelectorAll<HTMLElement>(HAR.DS_ROW_CHECKBOX);
-        if (checkboxes.length > 0) await spotlight(checkboxes[0], 1000, ctx);
+        if (checkboxes.length > 0) {
+          await spotlight(checkboxes[0], 1200, ctx);
+          await ctx.delay(400);
+        }
 
+        // Show updated Run Preview (5 rows → 5 requests)
         const preview = document.querySelector<HTMLElement>(HAR.DS_PREVIEW);
-        if (preview) await spotlight(preview, 1200, ctx);
+        if (preview) await spotlight(preview, 1800, ctx);
       },
 
       verify: HAR.DS_GRID,
     },
 
-    // ── Step 5: Tag & Filter Rows ────────────────────────────────
+    // ── Step 6: Tag & Filter Rows ───────────────────────────────
     {
       id: 'th5-tags',
       title: 'Tag & Filter Rows',
       description:
         'Tags let you label rows for filtered execution. In the **Parameterized Runner**, ' +
         'you can run only rows matching specific tags — for example, run just `smoke` rows ' +
-        'for a quick check.\n\n' +
-        'Click **+** next to a row to add a tag. The **tag filter bar** appears once tags exist, ' +
-        'letting you view subsets of rows in the grid.',
+        'for a quick sanity check, or `regression` for a full sweep.\n\n' +
+        'Click the **tag icon** next to a row to add a tag. Once tags exist, a **filter bar** ' +
+        'appears above the grid — click a tag name to show only matching rows.',
       highlight: HAR.DS_TAG_ADD_BTN,
 
       preAction: async (ctx) => {
-        if (!isTestEditorOpen()) {
+        if (!isTestEditorOpen() || !document.querySelector(HAR.DS_GRID)) {
+          await closeTestEditorQuiet(ctx);
+          deleteTh5DemoFg();
+          await ctx.delay(200);
           await ensureTh5FgExists(ctx);
           await openTh5TestEditor(ctx);
         }
@@ -292,6 +515,14 @@ export const thDataSourcesLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
+        // Highlight tag add button first
+        const tagAddBtn = document.querySelector<HTMLElement>(HAR.DS_TAG_ADD_BTN);
+        if (tagAddBtn) {
+          await spotlight(tagAddBtn, 1500, ctx);
+          await ctx.delay(500);
+        }
+
+        // Add "smoke" tags to first 2 rows
         for (let i = 0; i < 2; i++) {
           const btn = document.querySelector<HTMLElement>(HAR.DS_TAG_ADD_BTN);
           if (!btn) break;
@@ -304,24 +535,34 @@ export const thDataSourcesLesson: DemoLesson = {
             tagInput.dispatchEvent(new Event('input', { bubbles: true }));
             await ctx.delay(200);
             tagInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-            await ctx.delay(500);
+            await ctx.delay(600);
           }
         }
 
+        // Highlight the tag pills
         const pills = document.querySelectorAll<HTMLElement>(HAR.DS_TAG_PILL);
-        if (pills.length > 0) await spotlight(pills[0], 1200, ctx);
+        if (pills.length > 0) {
+          await spotlight(pills[0], 1500, ctx);
+          await ctx.delay(500);
+        }
 
+        // Show the filter bar
         const filterBar = document.querySelector<HTMLElement>(HAR.DS_TAG_FILTER_BAR);
         if (filterBar) {
-          await spotlight(filterBar, 1500, ctx);
+          await spotlight(filterBar, 2000, ctx);
+          await ctx.delay(500);
 
+          // Click "smoke" filter to demonstrate filtering
           const smokeBtn = Array.from(filterBar.querySelectorAll<HTMLElement>(HAR.DS_TAG_FILTER_BTN))
             .find(btn => btn.textContent?.includes('smoke'));
           if (smokeBtn) {
+            await spotlight(smokeBtn, 1200, ctx);
+            await ctx.delay(300);
             smokeBtn.click();
-            await ctx.delay(800);
+            await ctx.delay(1000);
           }
 
+          // Reset to All
           await ctx.delay(500);
           const allBtn = filterBar.querySelector<HTMLElement>(HAR.DS_TAG_FILTER_BTN);
           if (allBtn) {
@@ -334,16 +575,19 @@ export const thDataSourcesLesson: DemoLesson = {
       verify: HAR.DS_GRID,
     },
 
-    // ── Step 6: Save & Review ────────────────────────────────────
+    // ── Step 7: Save & Review ───────────────────────────────────
     {
       id: 'th5-save',
       title: 'Save & Review',
       description:
-        'Click **Save** to persist your data source configuration.\n\n' +
-        'Back in the tree, the test now has 5 data rows. In the **Parameterized Runner** ' +
-        'lesson, each row generates a separate request with its own substituted URL.\n\n' +
-        'For larger data sets, use **Import** in the editor header to load CSV/JSON/Excel files, ' +
-        'or link to **Shared Data Sources** for reusable row sets across multiple tests.',
+        'Click **Save** to persist your complete data-driven setup.\n\n' +
+        'Back in the tree, the scenario shows the **PARAM** badge and the test has data rows. ' +
+        'In the **Parameterized Runner** lesson (next), you\'ll execute each row as a separate ' +
+        'request and see per-row results.\n\n' +
+        '**Next steps:**\n' +
+        '- **Import** CSV/JSON/Excel for larger data sets\n' +
+        '- **Shared Data Sources** — reuse rows across multiple tests\n' +
+        '- **+ Column** — add query params, headers, body fields as variables',
       highlight: HAR.TE_SAVE_BTN,
 
       preAction: async (ctx) => {
@@ -355,15 +599,25 @@ export const thDataSourcesLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        await ctx.click(HAR.TE_SAVE_BTN);
+        const saveBtn = document.querySelector<HTMLElement>(HAR.TE_SAVE_BTN);
+        if (saveBtn) {
+          await spotlight(saveBtn, 1800, ctx);
+          await ctx.delay(500);
+          saveBtn.click();
+        }
         await ctx.delay(1000);
 
         await expandFirstFg(ctx);
         await expandFirstScenario(ctx);
         await ctx.delay(600);
 
+        // Highlight the PARAM badge
+        const badge = document.querySelector<HTMLElement>(HAR.DS_PARAM_BADGE);
+        if (badge) await spotlight(badge, 1500, ctx);
+        await ctx.delay(400);
+
         const testCard = document.querySelector<HTMLElement>(HAR.TEST_CARD);
-        if (testCard) await spotlight(testCard, 1500, ctx);
+        if (testCard) await spotlight(testCard, 2000, ctx);
       },
 
       verify: HAR.TEST_CARD,
