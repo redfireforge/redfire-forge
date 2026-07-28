@@ -435,7 +435,7 @@ export default function ValidationRulesModal({
           ? '\u25B8'
           : <><span className="vr-ref-edge-label">REF</span>{'\u25C2'}</>}
       </button>
-      {referenceVisible && <DslReferencePanel onInsert={handleInsert} onClose={toggleReference} />}
+      {referenceVisible && <DslReferencePanel onInsert={handleInsert} />}
     </div>
   );
 

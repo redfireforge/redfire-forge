@@ -84,6 +84,7 @@ export default function ExpressionEditorModal({
   const [snippets, setSnippets] = useState<ExpressionSnippet[]>([]);
   const [snippetName, setSnippetName] = useState('');
   const [snippetBusy, setSnippetBusy] = useState(false);
+  const debuggerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
   const completionDisposableRef = useRef<IDisposable | null>(null);
   const prevMappingIdRef = useRef(mapping.id);
@@ -194,7 +195,8 @@ export default function ExpressionEditorModal({
       if (showDebugger) {
         const debugResult = debugExpression(expression, effectiveSources, activeSourceId, customFunctions);
         setDebugSteps(debugResult.steps);
-        setActiveStep(debugResult.steps.length - 1);
+        // Always start at the first step so the user can walk forward through the evaluation.
+        setActiveStep(0);
       }
     }, 250);
     return () => clearTimeout(timer);
@@ -210,7 +212,11 @@ export default function ExpressionEditorModal({
       if (!expression.trim()) return false;
       const debugResult = debugExpression(expression, sources, activeSourceId, customFunctions);
       setDebugSteps(debugResult.steps);
-      setActiveStep(debugResult.steps.length - 1);
+      // Start at step 1 so the user can step forward through the evaluation.
+      setActiveStep(0);
+      setTimeout(() => {
+        debuggerRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
       return true;
     });
   }, [expression, sources, activeSourceId, customFunctions]);
@@ -225,10 +231,9 @@ export default function ExpressionEditorModal({
       return;
     }
 
-    const currentExpr = expression.trim();
-    const baseInput = currentExpr
-      ? currentExpr
-      : toExpressionReference(mapping.sourcePath);
+    // Insert always builds a fresh template from the mapping source path.
+    // Use "Compose with current" to wrap the existing expression.
+    const baseInput = toExpressionReference(mapping.sourcePath);
 
     const lambdaTemplate = LAMBDA_INSERT_TEMPLATES[fnCall];
     if (lambdaTemplate) {
@@ -246,7 +251,11 @@ export default function ExpressionEditorModal({
     });
 
     setExpression(`${fnCall}(${args.join(', ')})`);
-  }, [expression, mapping.sourcePath]);
+  }, [mapping.sourcePath]);
+
+  const handleSelectFunction = useCallback((fn: ExpressionFunction) => {
+    setSelectedFn(fn);
+  }, []);
 
   const handleInsertTemplate = useCallback((template: string) => {
     const sourceRef = toExpressionReference(mapping.sourcePath);
@@ -488,8 +497,8 @@ export default function ExpressionEditorModal({
                     <button
                       key={fn.name}
                       className={`dm-expr-fn-item ${selectedFn?.name === fn.name ? 'dm-expr-fn-item--active' : ''}`}
-                      onClick={() => handleInsertFunction(fn)}
-                      title="Click to insert template (see documentation on the right)"
+                      onClick={() => handleSelectFunction(fn)}
+                      title="Show documentation — use Insert or Compose with current to apply"
                     >
                       <span className="dm-expr-fn-name">{fn.name}</span>
                       {fn.args.some(a => a.type === 'function') && (
@@ -637,15 +646,17 @@ export default function ExpressionEditorModal({
               )}
             </div>
             {showDebugger && debugSteps && debugSteps.length > 0 && (
-              <ExpressionEditorStepDebugger
-                debugSteps={debugSteps}
-                activeStep={activeStep}
-                expandedSteps={expandedSteps}
-                onActiveStepChange={setActiveStep}
-                onToggleStepExpand={toggleStepExpand}
-                onToggleExpandAll={toggleExpandAll}
-                onDetailStep={setDetailStep}
-              />
+              <div ref={debuggerRef}>
+                <ExpressionEditorStepDebugger
+                  debugSteps={debugSteps}
+                  activeStep={activeStep}
+                  expandedSteps={expandedSteps}
+                  onActiveStepChange={setActiveStep}
+                  onToggleStepExpand={toggleStepExpand}
+                  onToggleExpandAll={toggleExpandAll}
+                  onDetailStep={setDetailStep}
+                />
+              </div>
             )}
           </div>
 

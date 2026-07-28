@@ -175,25 +175,44 @@ export function findFirstVisibleElement(selector: string): HTMLElement | null {
   return null;
 }
 
-const APP_MODAL_OVERLAY_SELECTORS = '.modal-overlay, .dm-modal-overlay, .ws-tls-overlay';
+const APP_MODAL_OVERLAY_SELECTORS =
+  '.modal-overlay, .dm-modal-overlay, .dm-expr-overlay, .dm-diff-overlay, .ws-tls-overlay';
 
-/** Topmost visible app modal dialog (excludes demo-player floating panels). */
+/**
+ * Topmost visible app modal dialog (excludes demo-player floating panels).
+ * When modals are stacked (Edit Test → Data Mapper → Expression Editor),
+ * returns the last visible overlay in document order so spotlight targets
+ * behind a covering modal are suppressed (prevents ghost rings).
+ */
 export function findVisibleAppModal(): Element | null {
   const overlays = document.querySelectorAll(APP_MODAL_OVERLAY_SELECTORS);
+  let topmost: Element | null = null;
   for (const overlay of overlays) {
     if (!(overlay instanceof HTMLElement)) continue;
     if (!isDemoElementVisible(overlay)) continue;
-    return overlay.querySelector('[role="dialog"][aria-modal="true"]') ?? overlay;
+    topmost = overlay.querySelector('[role="dialog"][aria-modal="true"]') ?? overlay;
   }
-  return null;
+  return topmost;
 }
 
 /** Hide spotlight when a modal is open and the target element is behind it. */
 export function isSpotlightSuppressedForModal(target: Element | null): boolean {
   if (!target) return false;
   const modal = findVisibleAppModal();
-  if (!modal) return false;
-  return !modal.contains(target);
+  if (modal && !modal.contains(target)) return true;
+
+  // Floating Validation Rules panel sits inside the Data Mapper overlay but covers
+  // toolbar targets (e.g. Rules button) — treat it as a covering layer too.
+  const vrPanel = document.querySelector('.vr-modal-panel');
+  if (
+    vrPanel
+    && isDemoElementVisible(vrPanel)
+    && !vrPanel.contains(target)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 /** True when the user is selecting copyable text in a demo hub floating panel. */

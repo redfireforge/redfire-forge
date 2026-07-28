@@ -112,6 +112,7 @@ export default function DataMapperModal<TOutput = unknown>({
   const [driftEntries, setDriftEntries] = useState<ClassifiedDrift[]>([]);
   const [showDriftBanner, setShowDriftBanner] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
+  const [acceptAfterDiff, setAcceptAfterDiff] = useState(false);
   const currentMappingsRef = useRef<Mapping[]>([]);
   const currentAssertionsRef = useRef<import('../../types').Assertion[]>([]);
   const mapperFlushRef = useRef<(() => void) | null>(null);
@@ -142,18 +143,24 @@ export default function DataMapperModal<TOutput = unknown>({
 
       const overrides = sourceSampleOverridesRef.current;
       for (const savedSource of savedPair.source) {
-        const adapterSrc = adapter.sources.find((s) => s.id === savedSource.sourceId);
-        const sourceData = overrides[savedSource.sourceId ?? ''] ?? adapterSrc?.sampleData;
+        // Prefer an exact sourceId match; fall back to the first adapter source when
+        // legacy snapshots omit sourceId (otherwise drift is silently skipped).
+        const adapterSrc = adapter.sources.find((s) => s.id === savedSource.sourceId)
+          ?? (savedSource.sourceId == null || savedSource.sourceId === ''
+            ? adapter.sources[0]
+            : undefined);
+        const resolvedSourceId = savedSource.sourceId ?? adapterSrc?.id ?? '';
+        const sourceData = overrides[resolvedSourceId] ?? adapterSrc?.sampleData;
         if (sourceData == null) continue;
-        const currentSnap = captureSchemaSnapshot(scopedContextId, 'source', sourceData, savedSource.sourceId);
+        const currentSnap = captureSchemaSnapshot(scopedContextId, 'source', sourceData, resolvedSourceId || savedSource.sourceId);
         const rawDrifts = diffSchemas(savedSource, currentSnap);
         if (rawDrifts.length > 0) {
-          const tagged = rawDrifts.map((d) => ({ ...d, sourceId: savedSource.sourceId }));
+          const tagged = rawDrifts.map((d) => ({ ...d, sourceId: resolvedSourceId || savedSource.sourceId }));
           const withMappings = findAffectedMappings(tagged, currentMappingsRef.current, 'source');
           allDrifts.push(...classifyDrift(withMappings));
           snapPairs.push({
             side: 'source',
-            sourceId: savedSource.sourceId,
+            sourceId: resolvedSourceId || savedSource.sourceId,
             saved: savedSource,
             current: currentSnap,
           });
@@ -210,6 +217,11 @@ export default function DataMapperModal<TOutput = unknown>({
   }, []);
 
   const handleAcceptDrift = useCallback(() => {
+    setShowDiffModal(true);
+    setAcceptAfterDiff(true);
+  }, []);
+
+  const performAcceptSnapshot = useCallback(() => {
     const overrides = sourceSampleOverridesRef.current;
     const effectiveSources = adapter.sources.map((s) => ({
       id: s.id,
@@ -236,7 +248,14 @@ export default function DataMapperModal<TOutput = unknown>({
 
   const handleCloseDiff = useCallback(() => {
     setShowDiffModal(false);
+    setAcceptAfterDiff(false);
   }, []);
+
+  const handleConfirmAcceptDiff = useCallback(() => {
+    setShowDiffModal(false);
+    setAcceptAfterDiff(false);
+    performAcceptSnapshot();
+  }, [performAcceptSnapshot]);
 
   const driftMap = useMemo(() => {
     if (driftEntries.length === 0) return undefined;
@@ -599,9 +618,11 @@ export default function DataMapperModal<TOutput = unknown>({
         <SchemaDiffModal
           drifts={driftEntries}
           onClose={handleCloseDiff}
+          onAccept={acceptAfterDiff ? handleConfirmAcceptDiff : undefined}
           repairSuggestions={repairSuggestions}
           onApplyRepair={handleRepairMapping}
           onApplyRepairBatch={handleRepairBatch}
+          acceptMode={acceptAfterDiff}
         />
       )}
     </div>
