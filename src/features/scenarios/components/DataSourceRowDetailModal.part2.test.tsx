@@ -45,6 +45,9 @@ vi.mock('../../../shared/components/data-mapper', () => ({
       <button type="button" data-testid="set-boolean-path-field" onClick={() =>
         onSave({ selectiveMode: 'include', expectedFields: [{ jsonPath: 'enabled', expectedValue: '"prior"' }], excludedPaths: [] })
       }>Set enabled path</button>
+      <button type="button" data-testid="set-root-path-field" onClick={() =>
+        onSave({ selectiveMode: 'include', expectedFields: [{ jsonPath: '$', expectedValue: '"root"' }], excludedPaths: [] })
+      }>Set root path</button>
     </div>
   ),
   createValidationAdapter: () => ({}),
@@ -373,6 +376,36 @@ describe('DataSourceRowDetailModal', () => {
       fireEvent.click(screen.getByTestId('add-field'));
       fireEvent.click(screen.getByText('Save'));
       expect(onSave).toHaveBeenCalled();
+    });
+
+    it('normalizes quoted expected value to plain string for new dynamic columns', async () => {
+      const dt = createDataTable();
+      dt.validationContract = ['$.new'];
+      const row: DataSourceRow = { id: 'r1', values: { c1: '1', c2: 'Alice', c3: '' }, enabled: true };
+      const onSave = vi.fn();
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} onSave={onSave} />);
+      await fetchAndOpenMapper();
+      fireEvent.click(screen.getByTestId('add-field'));
+      fireEvent.click(screen.getByText('Save'));
+
+      const newColumns = onSave.mock.calls[0][1] as Array<{ id: string }>;
+      const newColId = newColumns[0].id;
+      const savedRow = onSave.mock.calls[0][0] as { values: Record<string, string> };
+      expect(savedRow.values[newColId]).toBe('val');
+    });
+
+    it('uses fallback column name "field" when jsonPath sanitizes to empty', async () => {
+      const dt = createDataTable();
+      dt.validationContract = ['$'];
+      const row: DataSourceRow = { id: 'r1', values: { c1: '1', c2: 'Alice', c3: '' }, enabled: true };
+      const onSave = vi.fn();
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} onSave={onSave} />);
+      await fetchAndOpenMapper();
+      fireEvent.click(screen.getByTestId('set-root-path-field'));
+      fireEvent.click(screen.getByText('Save'));
+
+      const newColumns = onSave.mock.calls[0][1] as Array<{ name: string }>;
+      expect(newColumns[0].name).toBe('field');
     });
   });
 });

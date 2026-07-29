@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createColumnMappingAdapter,
+  buildColumnSourceKeys,
   parseScenarioTemplate,
   type ColumnMappingOutput,
 } from './columnMappingAdapter';
@@ -34,10 +35,10 @@ const COLUMNS: DataSourceColumn[] = [
 ];
 
 const MAPPINGS: Mapping[] = [
-  { id: 'colmap-0', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'path::vin' },
-  { id: 'colmap-1', sourceId: 'data-source-columns', sourcePath: 'c2', targetPath: 'param::channel' },
-  { id: 'colmap-2', sourceId: 'data-source-columns', sourcePath: 'c3', targetPath: 'header::token' },
-  { id: 'colmap-3', sourceId: 'data-source-columns', sourcePath: 'c4', targetPath: 'validate::$.status' },
+  { id: 'colmap-0', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'path::vin' },
+  { id: 'colmap-1', sourceId: 'data-source-columns', sourcePath: 'Channel', targetPath: 'param::channel' },
+  { id: 'colmap-2', sourceId: 'data-source-columns', sourcePath: 'Token', targetPath: 'header::token' },
+  { id: 'colmap-3', sourceId: 'data-source-columns', sourcePath: 'Status', targetPath: 'validate::$.status' },
 ];
 
 // ─── parseScenarioTemplate ───────────────────────────────────
@@ -283,14 +284,32 @@ describe('createColumnMappingAdapter', () => {
     expect(adapter.category).toBe('data-source');
   });
 
-  it('creates source from column ids with name values', () => {
+  it('creates source from column display names with mapping values', () => {
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
     expect(adapter.sources).toHaveLength(1);
     expect(adapter.sources[0].id).toBe('data-source-columns');
     const sample = adapter.sources[0].sampleData as Record<string, string>;
-    expect(Object.keys(sample)).toEqual(['c1', 'c2', 'c3', 'c4']);
-    expect(sample['c1']).toBe('VIN');
-    expect(sample['c2']).toBe('Channel');
+    expect(Object.keys(sample)).toEqual(['VIN', 'Channel', 'Token', 'Status']);
+    expect(sample['VIN']).toBe('vin');
+    expect(sample['Channel']).toBe('channel');
+  });
+
+  it('disambiguates duplicate column names in the source tree', () => {
+    const cols = [
+      makeColumn({ id: 'a', name: 'id', type: 'path', mapping: 'id' }),
+      makeColumn({ id: 'b', name: 'id', type: 'validate', mapping: '$.id' }),
+    ];
+    const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
+    const sample = adapter.sources[0].sampleData as Record<string, string>;
+    expect(Object.keys(sample)).toEqual(['id (1)', 'id (2)']);
+  });
+
+  it('falls back to column id when name is empty', () => {
+    const cols = [makeColumn({ id: 'col-empty', name: '  ', type: 'path', mapping: '' })];
+    const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
+    const sample = adapter.sources[0].sampleData as Record<string, string>;
+    expect(Object.keys(sample)).toEqual(['col-empty']);
+    expect(sample['col-empty']).toBe('URL Path');
   });
 
   it('does not support live fetch', () => {
@@ -321,16 +340,20 @@ describe('createColumnMappingAdapter', () => {
     expect(adapter.target.allowCustomFields).toBe(true);
   });
 
-  it('adds validate catch-all when no validate slots exist', () => {
+  it('adds validate catch-all and existing validate column slots', () => {
     const scenario = makeScenario({
       url: 'https://api.com/{{vin}}',
       body: '',
       headers: [],
     });
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario });
-    const validateFields = adapter.target.fields!.filter(f => f.type === 'validate');
-    expect(validateFields).toHaveLength(1);
-    expect(validateFields[0].path).toBe('validate::__custom__');
+    const validateFields = adapter.target.fields!.filter(f => f.path.startsWith('validate::'));
+    expect(validateFields.map(f => f.path).sort()).toEqual([
+      'validate::$.status',
+      'validate::__custom__',
+    ]);
+    // Slot kinds must not be used as JSON field types (avoids false string→path mismatches)
+    expect(adapter.target.fields!.every(f => f.type === 'string')).toBe(true);
   });
 
   it('handles empty columns', () => {
@@ -338,6 +361,21 @@ describe('createColumnMappingAdapter', () => {
     expect(adapter.sources[0].sampleData).toEqual({});
   });
 });
+
+describe('buildColumnSourceKeys', () => {
+  it('uses display names and disambiguates duplicates', () => {
+    const cols = [
+      makeColumn({ id: 'a', name: 'id', type: 'path', mapping: 'id' }),
+      makeColumn({ id: 'b', name: 'id', type: 'validate', mapping: '$.id' }),
+      makeColumn({ id: 'c', name: 'userId', type: 'path', mapping: 'userId' }),
+    ];
+    const { keyByColId } = buildColumnSourceKeys(cols);
+    expect(keyByColId.get('a')).toBe('id (1)');
+    expect(keyByColId.get('b')).toBe('id (2)');
+    expect(keyByColId.get('c')).toBe('userId');
+  });
+});
+
 
 // ─── Serialize ───────────────────────────────────────────────
 
@@ -349,8 +387,8 @@ describe('serialize', () => {
     ];
     const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'path::vin' },
-      { id: 'm2', sourceId: 'data-source-columns', sourcePath: 'c2', targetPath: 'param::channel' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'path::vin' },
+      { id: 'm2', sourceId: 'data-source-columns', sourcePath: 'Channel', targetPath: 'param::channel' },
     ];
     const output = adapter.serialize(mappings);
     expect(output[0].type).toBe('path');
@@ -366,7 +404,7 @@ describe('serialize', () => {
     ];
     const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'path::vin' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'path::vin' },
     ];
     const output = adapter.serialize(mappings);
     expect(output[1]).toEqual(cols[1]);
@@ -387,11 +425,11 @@ describe('serialize', () => {
     });
     const adapter = createColumnMappingAdapter({ columns: cols, scenario });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'path::pathVar' },
-      { id: 'm2', sourceId: 'data-source-columns', sourcePath: 'c2', targetPath: 'param::paramVar' },
-      { id: 'm3', sourceId: 'data-source-columns', sourcePath: 'c3', targetPath: 'body::bodyVar' },
-      { id: 'm4', sourceId: 'data-source-columns', sourcePath: 'c4', targetPath: 'header::headerVar' },
-      { id: 'm5', sourceId: 'data-source-columns', sourcePath: 'c5', targetPath: 'validate::$.status' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'A', targetPath: 'path::pathVar' },
+      { id: 'm2', sourceId: 'data-source-columns', sourcePath: 'B', targetPath: 'param::paramVar' },
+      { id: 'm3', sourceId: 'data-source-columns', sourcePath: 'C', targetPath: 'body::bodyVar' },
+      { id: 'm4', sourceId: 'data-source-columns', sourcePath: 'D', targetPath: 'header::headerVar' },
+      { id: 'm5', sourceId: 'data-source-columns', sourcePath: 'E', targetPath: 'validate::$.status' },
     ];
     const output = adapter.serialize(mappings);
     expect(output[0].type).toBe('path');
@@ -411,7 +449,7 @@ describe('serialize', () => {
     const cols = [makeColumn({ id: 'c1', name: 'MyVal', type: 'path', mapping: '$.response.code' })];
     const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'validate::__custom__' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'MyVal', targetPath: 'validate::__custom__' },
     ];
     const output = adapter.serialize(mappings);
     expect(output[0].type).toBe('validate');
@@ -422,7 +460,7 @@ describe('serialize', () => {
     const cols = [makeColumn({ id: 'c1', name: 'VIN', type: 'path', mapping: '', description: 'Vehicle ID' })];
     const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'path::vin' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'path::vin' },
     ];
     const output = adapter.serialize(mappings);
     expect(output[0].id).toBe('c1');
@@ -433,7 +471,7 @@ describe('serialize', () => {
     const cols = [makeColumn({ id: 'c1', name: 'VIN', type: 'path', mapping: 'old' })];
     const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'invalid-no-separator' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'invalid-no-separator' },
     ];
     const output = adapter.serialize(mappings);
     expect(output[0].type).toBe('path');
@@ -448,13 +486,13 @@ describe('deserialize', () => {
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
     const mappings = adapter.deserialize(COLUMNS);
     expect(mappings).toHaveLength(4);
-    expect(mappings[0].sourcePath).toBe('c1');
+    expect(mappings[0].sourcePath).toBe('VIN');
     expect(mappings[0].targetPath).toBe('path::vin');
-    expect(mappings[1].sourcePath).toBe('c2');
+    expect(mappings[1].sourcePath).toBe('Channel');
     expect(mappings[1].targetPath).toBe('param::channel');
-    expect(mappings[2].sourcePath).toBe('c3');
+    expect(mappings[2].sourcePath).toBe('Token');
     expect(mappings[2].targetPath).toBe('header::token');
-    expect(mappings[3].sourcePath).toBe('c4');
+    expect(mappings[3].sourcePath).toBe('Status');
     expect(mappings[3].targetPath).toBe('validate::$.status');
   });
 
@@ -466,7 +504,7 @@ describe('deserialize', () => {
     const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
     const mappings = adapter.deserialize(cols);
     expect(mappings).toHaveLength(1);
-    expect(mappings[0].sourcePath).toBe('c1');
+    expect(mappings[0].sourcePath).toBe('VIN');
   });
 
   it('generates stable mapping ids', () => {
@@ -549,7 +587,7 @@ describe('validate', () => {
   it('reports error for empty target path', () => {
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
     const issues = adapter.validate!([
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: '' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: '' },
     ]);
     expect(issues.some(i => i.severity === 'error' && i.message.includes('No target slot'))).toBe(true);
   });
@@ -557,7 +595,7 @@ describe('validate', () => {
   it('reports error for invalid target path format', () => {
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
     const issues = adapter.validate!([
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'no-separator' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'no-separator' },
     ]);
     expect(issues.some(i => i.severity === 'error' && i.message.includes('Invalid target path'))).toBe(true);
   });
@@ -565,8 +603,8 @@ describe('validate', () => {
   it('warns on duplicate source column', () => {
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
     const issues = adapter.validate!([
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'path::vin' },
-      { id: 'm2', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'param::other' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'path::vin' },
+      { id: 'm2', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'param::other' },
     ]);
     expect(issues.some(i => i.severity === 'warning' && i.message.includes('mapped multiple times'))).toBe(true);
   });
@@ -574,8 +612,8 @@ describe('validate', () => {
   it('warns on duplicate target slot', () => {
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
     const issues = adapter.validate!([
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'path::vin' },
-      { id: 'm2', sourceId: 'data-source-columns', sourcePath: 'c2', targetPath: 'path::vin' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'path::vin' },
+      { id: 'm2', sourceId: 'data-source-columns', sourcePath: 'Channel', targetPath: 'path::vin' },
     ]);
     expect(issues.some(i => i.severity === 'warning' && i.message.includes('multiple columns mapped'))).toBe(true);
   });
@@ -583,7 +621,7 @@ describe('validate', () => {
   it('reports info about unmapped template placeholders', () => {
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
     const issues = adapter.validate!([
-      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'c1', targetPath: 'path::vin' },
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'path::vin' },
     ]);
     const infoIssue = issues.find(i => i.severity === 'info' && i.message.includes('not mapped'));
     expect(infoIssue).toBeDefined();
