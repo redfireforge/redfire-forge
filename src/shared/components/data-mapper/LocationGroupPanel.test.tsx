@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import LocationGroupPanel from './LocationGroupPanel';
+import { withTypedSlotPath } from './LocationGroupPanel.helpers';
 import type { TargetField, Mapping } from './types';
 
 function makeFields(locations: Array<{ path: string; location: TargetField['location']; defaultValue?: string }>): TargetField[] {
@@ -33,6 +34,37 @@ function renderPanel(fields: TargetField[], overrides: Record<string, unknown> =
 }
 
 describe('LocationGroupPanel', () => {
+  describe('withTypedSlotPath', () => {
+    it('returns original field when typed slots are not used', () => {
+      const field: TargetField = { path: 'foo', label: 'foo', type: 'string', location: 'query' };
+      const out = withTypedSlotPath(field, 'query', [{ path: 'plain', label: 'plain', type: 'string', location: 'query' }]);
+      expect(out).toBe(field);
+    });
+
+    it('returns original field when path is already typed', () => {
+      const field: TargetField = { path: 'header::x', label: 'header::x', type: 'string', location: 'header' };
+      const out = withTypedSlotPath(field, 'header', [{ path: 'path::id', label: 'path::id', type: 'string', location: 'path' }]);
+      expect(out).toBe(field);
+    });
+
+    it('uses fallback body type for unknown location value', () => {
+      const field: TargetField = { path: 'x', label: 'x', type: 'string' };
+      const out = withTypedSlotPath(
+        field,
+        'query',
+        [{ path: 'path::id', label: 'path::id', type: 'string', location: 'path' }],
+      );
+      expect(out.path).toBe('param::x');
+    });
+
+    it('keeps explicit non-plain labels when prefixing typed paths', () => {
+      const field: TargetField = { path: 'x', label: 'Custom Label', type: 'string', location: 'body' };
+      const out = withTypedSlotPath(field, 'body', [{ path: 'path::id', label: 'path::id', type: 'string', location: 'path' }]);
+      expect(out.label).toBe('Custom Label');
+      expect(out.path).toBe('body::x');
+    });
+  });
+
   it('renders group headers for fields with locations', () => {
     const fields = makeFields([
       { path: 'userId', location: 'path' },
@@ -136,6 +168,55 @@ describe('LocationGroupPanel', () => {
     );
   });
 
+  it('prefixes custom fields with type:: when Map Columns style paths are present', () => {
+    const fields = makeFields([
+      { path: 'path::userId', location: 'path' },
+      { path: 'validate::$.name', location: 'body' },
+    ]);
+    const onAdd = vi.fn();
+    renderPanel(fields, { allowCustomFields: true, onAddCustomField: onAdd });
+    const bodyAdd = screen.getAllByText('+ Add Field')[1]; // Body section
+    fireEvent.click(bodyAdd);
+    fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'aaaa' } });
+    fireEvent.click(screen.getByLabelText('Confirm add field'));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: 'body::aaaa',
+        label: 'aaaa (Request Body)',
+        location: 'body',
+      }),
+    );
+  });
+
+  it('wires drag-drop onto Add Field in location groups', () => {
+    const fields = makeFields([
+      { path: 'path::userId', location: 'path' },
+    ]);
+    const onAdd = vi.fn();
+    const onDrop = vi.fn();
+    renderPanel(fields, {
+      allowCustomFields: true,
+      onAddCustomField: onAdd,
+      onDrop,
+      getDraggedSource: () => ({ path: 'name', sourceId: 'data-source-columns' }),
+    });
+    const addBtn = screen.getByText('+ Add Field');
+    const dt = {
+      effectAllowed: 'link',
+      dropEffect: 'link',
+      getData: () => '',
+      types: [],
+    };
+    fireEvent.dragOver(addBtn, { dataTransfer: dt });
+    fireEvent.drop(addBtn, { dataTransfer: dt, preventDefault: () => {} });
+    expect(onAdd).toHaveBeenCalled();
+    expect(onDrop).toHaveBeenCalledWith(
+      expect.stringMatching(/^path::/),
+      'name',
+      'data-source-columns',
+    );
+  });
+
   it('renders nodes with data-path attributes for connection lines', () => {
     const fields = makeFields([
       { path: 'userId', location: 'path' },
@@ -222,5 +303,14 @@ describe('LocationGroupPanel', () => {
       fireEvent.click(collapseBtn[0]);
       expect(screen.queryAllByLabelText('Expand').length).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  it('toggle group path exercises re-add branch', () => {
+    const fields = makeFields([{ path: 'Authorization', location: 'header' }]);
+    renderPanel(fields);
+    const header = screen.getByRole('button', { name: /Headers section/i });
+    fireEvent.click(header);
+    fireEvent.click(header);
+    expect(header.getAttribute('aria-expanded')).toBe('true');
   });
 });

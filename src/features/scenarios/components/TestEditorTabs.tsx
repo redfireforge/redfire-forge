@@ -63,12 +63,12 @@ export function TestEditorTabs({
         </button>
       )}
       {scenarioKind !== 'standard' && draft.dataSource && (
-        <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')}>
+        <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')} data-testid="har-te-ds-tab">
           Data Source {(draft.dataSource.rows.filter((r) => r.enabled).length ?? 0) > 0 && <span className="tab-badge">{draft.dataSource.rows.filter((r) => r.enabled).length}</span>}
         </button>
       )}
       {!isNew && (
-        <button type="button" className={`builder-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => onActiveTabChange('history')}>
+        <button type="button" className={`builder-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => onActiveTabChange('history')} data-testid="har-te-history-tab">
           History {defVersionCount > 0 && <span className="tab-badge">{defVersionCount}</span>}
         </button>
       )}

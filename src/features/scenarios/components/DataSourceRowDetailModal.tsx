@@ -10,6 +10,7 @@ import {
   createValidationAdapter,
 } from '../../../shared/components/data-mapper';
 import { prettyJson, toErrorMessage, tryParseJson } from '../../../shared/utils/helpers';
+import { getByPath, setByPath } from '../../../shared/utils/jsonPath';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 interface DataSourceRowDetailModalProps {
@@ -26,7 +27,34 @@ interface DataSourceRowDetailModalProps {
 function normalizeExpectedFieldValue(raw: string): string {
   if (!raw.startsWith('"') || !raw.endsWith('"')) return raw;
   const parsed = tryParseJson(raw);
-  return typeof parsed === 'string' ? parsed : raw;
+  if (typeof parsed === 'string') return parsed;
+  return raw;
+}
+
+/** Build a minimal sample JSON tree from expected fields so Data Mapper can open without a live fetch. */
+function buildSampleFromExpectedFields(fields: ExpectedField[]): string {
+  if (fields.length === 0) return '';
+  const root: Record<string, unknown> = {};
+  for (const f of fields) {
+    const path = f.jsonPath?.trim();
+    if (!path) continue;
+    let value: unknown = f.expectedValue;
+    const asText = typeof value === 'string' ? value : String(value ?? '');
+    const parsed = tryParseJson(asText);
+    if (parsed !== undefined) {
+      value = parsed;
+    } else if (typeof value === 'string') {
+      value = normalizeExpectedFieldValue(value);
+    }
+    try {
+      const normalizedPath = (path.startsWith('$.') || path.startsWith('$[')) ? path : `$.${path}`;
+      setByPath(root, normalizedPath, value);
+    } catch {
+      // Skip malformed paths
+    }
+  }
+  if (Object.keys(root).length === 0) return '';
+  return JSON.stringify(root, null, 2);
 }
 
 export default function DataSourceRowDetailModal({
@@ -49,16 +77,23 @@ export default function DataSourceRowDetailModal({
     return dataTable.columns
       .filter(c => c.type === 'validate')
       .filter(c => row.values[c.id]?.trim())
-      .map(c => ({ jsonPath: c.mapping, expectedValue: row.values[c.id] }));
+      .map(c => ({ jsonPath: c.mapping, expectedValue: row.values[c.id]! }));
   });
   const [mapperOpen, setMapperOpen] = useState(false);
 
+  /** Prefer live fetch sample; fall back to a tree built from existing expected fields. */
+  const effectiveSampleJson = useMemo(
+    () => sampleJson || buildSampleFromExpectedFields(expectedFields),
+    [sampleJson, expectedFields],
+  );
+  const canOpenMapper = effectiveSampleJson.length > 0;
+
   const validationAdapter = useMemo(
     () => createValidationAdapter({
-      sampleResponseBody: sampleJson || undefined,
+      sampleResponseBody: effectiveSampleJson || undefined,
       selectiveMode: 'include',
     }),
-    [sampleJson],
+    [effectiveSampleJson],
   );
 
   const mapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
@@ -265,8 +300,8 @@ export default function DataSourceRowDetailModal({
       case 'body': return 'row-detail-type-body';
       case 'header': return 'row-detail-type-header';
       case 'validate': return 'row-detail-type-validate';
-      default: return '';
     }
+    return '';
   };
 
   // ─── Resolved URL preview ──────────────────────────────────
@@ -287,10 +322,12 @@ export default function DataSourceRowDetailModal({
       onClose={onClose}
       overlayClassName="row-detail-modal-overlay"
       dialogClassName="wf-config-modal row-detail-modal"
-      initialExpanded={true}
+      initialExpanded={false}
       expandMode="fullscreen"
-      minWidth={700}
-      minHeight={500}
+      minWidth={480}
+      minHeight={280}
+      constrainDragToViewport
+      dragViewportPadding={12}
       footer={
         <>
           <div style={{ flex: 1 }} />
@@ -311,7 +348,7 @@ export default function DataSourceRowDetailModal({
           >
             {fetching ? '⏳ Fetching…' : 'Fetch Response'}
           </button>
-          <div className="row-detail-url-preview">
+          <div className="row-detail-url-preview" title={resolvedUrl}>
             <span className="row-detail-method">{draft.method}</span>
             <span className="row-detail-url-text">{resolvedUrl}</span>
           </div>
@@ -323,10 +360,18 @@ export default function DataSourceRowDetailModal({
         {/* Fetch confirmation bar — shown when response arrives but user already has selections */}
         {pendingFetchBody && (
           <div className="fetch-confirm-bar">
-            <span className="fetch-confirm-msg">New response fetched. You have <strong>{expectedFields.length}</strong> existing rule(s).</span>
+            <span className="fetch-confirm-msg">New response fetched. You have <strong>{expectedFields.length}</strong> existing validation rule(s).</span>
             <div className="fetch-confirm-actions">
-              <button type="button" className="btn btn-sm btn-accent" onClick={handleFetchKeepRules}>Keep Rules &amp; Update Response</button>
-              <button type="button" className="btn btn-sm btn-danger" onClick={handleFetchReplaceAll}>Replace All</button>
+              <button
+                type="button"
+                className="btn btn-sm btn-accent"
+                data-testid="row-detail-keep-rules"
+                onClick={handleFetchKeepRules}
+                title="Keep the same JSON paths and refresh expected values from this response"
+              >
+                Keep Rules &amp; Update Values
+              </button>
+              <button type="button" className="btn btn-sm btn-danger" onClick={handleFetchReplaceAll} title="Discard existing validation rules and start fresh with the new response">Clear Rules</button>
               <button type="button" className="btn btn-sm" onClick={handleFetchCancel}>Cancel</button>
             </div>
           </div>
@@ -360,7 +405,7 @@ export default function DataSourceRowDetailModal({
                 </label>
                 <input
                   className="params-input row-detail-input"
-                  value={editedValues[col.id] ?? ''}
+                  value={editedValues[col.id]}
                   onChange={(e) => updateValue(col.id, e.target.value)}
                   placeholder={col.name}
                 />
@@ -376,8 +421,8 @@ export default function DataSourceRowDetailModal({
               type="button"
               className="btn btn-sm btn-accent"
               onClick={() => setMapperOpen(true)}
-              disabled={!sampleJson}
-              title={sampleJson ? 'Open Data Mapper' : 'Fetch response first'}
+              disabled={!canOpenMapper}
+              title={canOpenMapper ? 'Open Data Mapper' : 'Fetch response or add expected fields first'}
             >
               ⚡ Data Mapper
             </button>
@@ -386,19 +431,33 @@ export default function DataSourceRowDetailModal({
             <div className="validation-fields-summary">
               <table className="validation-fields-table">
                 <thead>
-                  <tr><th>JSON Path</th><th>Expected Value</th><th /></tr>
+                  <tr>
+                    <th>JSON Path</th>
+                    <th>Expected Value</th>
+                    <th aria-label="Actions" />
+                  </tr>
                 </thead>
                 <tbody>
                   {expectedFields.map((f: ExpectedField, idx: number) => (
                     <tr key={idx}>
                       <td><code>{f.jsonPath}</code></td>
                       <td><code>{f.expectedValue}</code></td>
-                      <td>
-                        <button type="button" className="btn-icon-sm" title="Remove" onClick={() => {
-                          const next = [...expectedFields];
-                          next.splice(idx, 1);
-                          setExpectedFields(next);
-                        }}>×</button>
+                      <td className="validation-fields-actions-cell">
+                        <button
+                          type="button"
+                          className="validation-fields-remove-btn"
+                          title={`Remove ${f.jsonPath}`}
+                          aria-label={`Remove ${f.jsonPath}`}
+                          onClick={() => {
+                            const next = [...expectedFields];
+                            next.splice(idx, 1);
+                            setExpectedFields(next);
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                            <path d="M3 3 L9 9 M9 3 L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -421,33 +480,24 @@ export default function DataSourceRowDetailModal({
   );
 }
 
-/** Resolve a value from a parsed JSON object using dot/bracket path. */
+/** Resolve a value from a parsed JSON object using JSONPath (supports $.name, name, a.b[0]). */
 function getValueAtJsonPath(obj: unknown, path: string): unknown {
-  const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
-  let current: unknown = obj;
-  for (const part of parts) {
-    if (current == null || typeof current !== 'object') return undefined;
-    current = (current as Record<string, unknown>)[part];
-  }
-  return current;
+  return getByPath(obj, path);
 }
 
 /**
  * Derive a human-readable column name from a JSON path.
- * e.g. "offers[3].associatedOfferingCode" → "offer3_associatedOfferingCode"
- * Ensures uniqueness against existing columns.
+ * e.g. "$.name" → "name", "offers[3].code" → "offers3_code"
  */
 function deriveColumnName(jsonPath: string, existingCols: DataSourceColumn[]): string {
   const existingNames = new Set(existingCols.map(c => c.name));
-  // Convert path like "offers[2].offerName" to "offer2_offerName"
   let name = jsonPath
-    .replace(/\[(\d+)\]/g, '$1')  // offers[2] → offers2
-    .replace(/\./g, '_');           // offers2.offerName → offers2_offerName
-  // Trim leading/trailing underscores
+    .replace(/^\$\.?/, '')          // $.name → name
+    .replace(/\[(\d+)\]/g, '$1')    // offers[2] → offers2
+    .replace(/\./g, '_');             // a.b → a_b
   name = name.replace(/^_+|_+$/g, '');
-  // If already unique, use it
+  if (!name) name = 'field';
   if (!existingNames.has(name)) return name;
-  // Otherwise append a suffix
   let i = 2;
   while (existingNames.has(`${name}_${i}`)) i++;
   return `${name}_${i}`;

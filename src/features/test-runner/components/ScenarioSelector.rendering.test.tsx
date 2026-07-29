@@ -8,7 +8,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import {
   selectOptionByIndex,
-  getCustomSelectValue,
   isCustomSelectDisabled,
 } from '../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
@@ -67,6 +66,18 @@ describe('ScenarioSelector - Rendering', () => {
     // "2 tests" appears in both header and as count badge, check for the header version
     const filterCount = screen.getByText(/scenario.*selected.*2 test/i);
     expect(filterCount).toBeInTheDocument();
+  });
+
+  it('ignores stale scenario IDs that are not in current feature groups', () => {
+    render(
+      <ScenarioSelector
+        {...defaultProps}
+        selectedScenarios={new Set(['sc1', 'deleted-from-other-env'])}
+      />
+    );
+
+    expect(screen.getByText(/1 scenario.*selected/)).toBeInTheDocument();
+    expect(screen.queryByText(/2 scenarios? selected/)).not.toBeInTheDocument();
   });
 
   it('deselect all button clears selection', () => {

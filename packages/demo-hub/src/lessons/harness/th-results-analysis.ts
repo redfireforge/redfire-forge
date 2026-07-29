@@ -181,7 +181,10 @@ export const thResultsAnalysisLesson: DemoLesson = {
         const groupBy = document.querySelector<HTMLElement>(HAR.GROUP_BY);
         if (groupBy) await spotlight(groupBy, 1500, ctx);
 
-        await ctx.delay(800);
+        await ctx.delay(400);
+
+        // End on the Request Details tab so the viewer sees where this view lives
+        if (reqTab) await spotlight(reqTab, 1600, ctx);
       },
 
       verify: HAR.TAB_REQUESTS,
@@ -227,11 +230,14 @@ export const thResultsAnalysisLesson: DemoLesson = {
       id: 'th7-sla',
       title: 'SLA Status',
       description:
-        'The **SLA** tab evaluates performance targets defined on your Feature Groups ' +
-        'or Scenarios.\n\n' +
-        'Targets like **P95 < 500ms** or **Error Rate < 1%** are checked automatically ' +
-        'after each run. Pass/warn/fail indicators show at a glance whether your API ' +
-        'meets its service level agreements. See the **SLA Targets & Acceptance Criteria** lesson for defining SLA targets.',
+        'The **SLA** tab evaluates performance targets that were attached to this run.\n\n' +
+        'This demo run includes four targets so you can see all three outcomes:\n' +
+        '- **Passing** — P95 under 500ms, Error rate under 1%\n' +
+        '- **Warning** — Avg response approaching its threshold\n' +
+        '- **Failing** — P99 under 200ms (this run\'s slowest request exceeds it)\n\n' +
+        'Pass/warn/fail pills at the top summarize the run at a glance. ' +
+        'Each row shows the actual value next to the threshold. ' +
+        'See the **SLA Targets & Acceptance Criteria** lesson for defining targets on tests.',
       highlight: HAR.TAB_SLA,
 
       preAction: async (ctx) => {
@@ -243,20 +249,30 @@ export const thResultsAnalysisLesson: DemoLesson = {
       action: async (ctx) => {
         const slaTab = document.querySelector<HTMLElement>(HAR.TAB_SLA);
         if (slaTab) {
+          await spotlight(slaTab, 1000, ctx);
           slaTab.click();
-          await ctx.delay(600);
+          await ctx.delay(800);
         }
 
         const slaPanel = document.querySelector<HTMLElement>(HAR.SLA_PANEL);
         if (slaPanel) {
-          await spotlight(slaPanel, 1500, ctx);
+          await spotlight(slaPanel, 1600, ctx);
+
+          const summaryBar = slaPanel.querySelector<HTMLElement>('.sla-summary-bar');
+          if (summaryBar) await spotlight(summaryBar, 1400, ctx);
+
+          const checks = Array.from(slaPanel.querySelectorAll<HTMLElement>('.sla-check-row'));
+          for (const row of checks.slice(0, 4)) {
+            await spotlight(row, 900, ctx);
+            await ctx.delay(200);
+          }
         } else {
           const emptyState = document.querySelector<HTMLElement>('#results-panel-sla .empty-state');
           if (emptyState) await spotlight(emptyState, 1500, ctx);
         }
       },
 
-      verify: HAR.TAB_SLA,
+      verify: HAR.SLA_PANEL,
     },
 
     // ── Step 6: Export Reports ───────────────────────────────────
@@ -280,14 +296,37 @@ export const thResultsAnalysisLesson: DemoLesson = {
           overviewTab.click();
           await ctx.delay(300);
         }
+        // Close report dropdown if left open from a prior run
+        if (document.querySelector(HAR.REPORT_DROPDOWN)) {
+          document.querySelector<HTMLElement>(HAR.REPORT_MENU_BTN)?.click();
+          await ctx.delay(200);
+        }
       },
 
       action: async (ctx) => {
         const exportBtn = document.querySelector<HTMLElement>(HAR.EXPORT_JSON);
-        if (exportBtn) await spotlight(exportBtn, 1200, ctx);
+        if (exportBtn) await spotlight(exportBtn, 1000, ctx);
 
-        const reportMenu = document.querySelector<HTMLElement>(HAR.REPORT_MENU);
-        if (reportMenu) await spotlight(reportMenu, 1500, ctx);
+        const reportBtn = document.querySelector<HTMLElement>(HAR.REPORT_MENU_BTN);
+        if (reportBtn) {
+          await spotlight(reportBtn, 800, ctx);
+          reportBtn.click();
+          await ctx.delay(500);
+
+          const dropdown = document.querySelector<HTMLElement>(HAR.REPORT_DROPDOWN);
+          if (dropdown) {
+            await spotlight(dropdown, 800, ctx);
+
+            const items = dropdown.querySelectorAll<HTMLElement>(HAR.REPORT_MENU_ITEM);
+            for (const item of items) {
+              await spotlight(item, 900, ctx);
+            }
+
+            // Close the menu so the next step / Complete doesn't leave it open
+            reportBtn.click();
+            await ctx.delay(300);
+          }
+        }
       },
 
       verify: HAR.EXPORT_JSON,

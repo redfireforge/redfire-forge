@@ -11,12 +11,30 @@ import type { HttpResponse } from '../../../shared/utils/httpClient';
 import type { VerifyResult } from '../hooks/useVerifyEngine';
 
 vi.mock('../../../shared/components/AppModalFrame', () => ({
-  default: ({ title, children, footer, headerActions }: {
-    title: string; children: React.ReactNode; footer?: React.ReactNode; headerActions?: React.ReactNode;
+  default: ({ title, children, footer, headerActions, headerContent }: {
+    title: string;
+    children: React.ReactNode;
+    footer?: React.ReactNode;
+    headerActions?: React.ReactNode;
+    headerContent?: (state: {
+      headerDragStyle?: React.CSSProperties;
+      onHeaderMouseDown?: () => void;
+      onHeaderPointerDown?: () => void;
+      headerExpandButton: null;
+    }) => React.ReactNode;
   }) => (
     <div data-testid="modal-frame">
-      <div data-testid="modal-title">{title}</div>
-      {headerActions && <div data-testid="modal-header-actions">{headerActions}</div>}
+      {headerContent ? (
+        <>
+          <div data-testid="modal-title">{title}</div>
+          {headerContent({ headerExpandButton: null })}
+        </>
+      ) : (
+        <>
+          <div data-testid="modal-title">{title}</div>
+          {headerActions && <div data-testid="modal-header-actions">{headerActions}</div>}
+        </>
+      )}
       <div data-testid="modal-body">{children}</div>
       {footer && <div data-testid="modal-footer">{footer}</div>}
     </div>

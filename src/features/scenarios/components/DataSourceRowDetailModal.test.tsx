@@ -203,6 +203,18 @@ describe('DataSourceRowDetailModal', () => {
       expect(screen.getByDisplayValue('Alice')).toBeInTheDocument();
     });
 
+    it('renders empty string for non-validate column value when row value is missing', () => {
+      const row: DataSourceRow = {
+        id: 'r1',
+        values: { c1: '1', c3: 'active' },
+        enabled: true,
+      };
+      render(<DataSourceRowDetailModal {...defaultProps} row={row} />);
+      const input = document.querySelector('input[placeholder="name"]') as HTMLInputElement | null;
+      expect(input).toBeTruthy();
+      expect(input?.value).toBe('');
+    });
+
     it('renders input columns section', () => {
       render(<DataSourceRowDetailModal {...defaultProps} />);
       expect(screen.getByText('Input Columns')).toBeInTheDocument();
@@ -258,6 +270,36 @@ describe('DataSourceRowDetailModal', () => {
       expect(screen.getByText('Save')).toBeInTheDocument();
       expect(screen.getByText('Cancel')).toBeInTheDocument();
       expect(screen.getByText('Close')).toBeInTheDocument();
+    });
+
+    it('builds sample from quoted expected field string for mapper enablement', () => {
+      const dt = createDataTable();
+      const row: DataSourceRow = {
+        id: 'r1',
+        values: { c1: '1', c2: 'Alice', c3: '"active"' },
+        enabled: true,
+      };
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      expect(screen.getByText('⚡ Data Mapper')).not.toBeDisabled();
+    });
+
+    it('skips malformed expected field paths while still enabling mapper when valid paths exist', () => {
+      const dt = createDataTable();
+      dt.columns.push({ id: 'c4', name: 'bad', type: 'validate', mapping: '$.[', });
+      const row: DataSourceRow = {
+        id: 'r1',
+        values: { c1: '1', c2: 'Alice', c3: 'ok', c4: 'bad' },
+        enabled: true,
+      };
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      expect(screen.getByText('⚡ Data Mapper')).not.toBeDisabled();
+    });
+
+    it('ignores validate rows with empty mapping when building initial expected fields', () => {
+      const dt = createDataTable();
+      dt.columns[2] = { ...dt.columns[2], mapping: '' };
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} />);
+      expect(screen.queryByText('$.status')).not.toBeInTheDocument();
     });
   });
 
@@ -506,6 +548,23 @@ describe('DataSourceRowDetailModal', () => {
       });
     });
 
+    it('shows HTTP status timing for non-2xx responses', async () => {
+      mockProxyFetch.mockResolvedValue({
+        status: 500,
+        statusText: 'Internal Server Error',
+        body: '{"error":"fail"}',
+        headers: {},
+        timing: { total: 123 },
+      });
+      render(<DataSourceRowDetailModal {...defaultProps} />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Fetch Response'));
+      });
+      await waitFor(() => {
+        expect(screen.getByText(/123ms/)).toBeInTheDocument();
+      });
+    });
+
     it('shows error for network failure', async () => {
       mockProxyFetch.mockRejectedValue(new Error('Network timeout'));
       render(<DataSourceRowDetailModal {...defaultProps} />);
@@ -578,7 +637,8 @@ describe('DataSourceRowDetailModal', () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
       await waitFor(() => {
-        expect(screen.getByText(/existing rule/)).toBeInTheDocument();
+        expect(screen.getByText(/Keep Rules & Update Values/)).toBeInTheDocument();
+        expect(screen.getByText(/Clear Rules/)).toBeInTheDocument();
       });
     });
 
@@ -600,10 +660,10 @@ describe('DataSourceRowDetailModal', () => {
         expect(screen.getByText(/Keep Rules/)).toBeInTheDocument();
       });
       fireEvent.click(screen.getByText(/Keep Rules/));
-      expect(screen.queryByText(/existing rule/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Keep Rules & Update Values/)).not.toBeInTheDocument();
     });
 
-    it('Replace All clears fields', async () => {
+    it('Clear Rules clears fields', async () => {
       const dt = createDataTable();
       const row = createRow();
       row.values.c3 = 'active';
@@ -618,10 +678,10 @@ describe('DataSourceRowDetailModal', () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
       await waitFor(() => {
-        expect(screen.getByText(/Replace All/)).toBeInTheDocument();
+        expect(screen.getByText(/Clear Rules/)).toBeInTheDocument();
       });
-      fireEvent.click(screen.getByText(/Replace All/));
-      expect(screen.queryByText(/existing rule/)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText(/Clear Rules/));
+      expect(screen.queryByText(/Clear Rules/)).not.toBeInTheDocument();
       expect(document.querySelector('.validation-fields-table')).toBeFalsy();
     });
 
@@ -754,6 +814,48 @@ describe('DataSourceRowDetailModal', () => {
       });
       fireEvent.click(screen.getByText(/Keep Rules/));
       expect(screen.queryByText(/existing rule/)).not.toBeInTheDocument();
+    });
+
+    it('keeps no-op when Keep Rules clicked after bar dismiss path', async () => {
+      const dt = createDataTable();
+      const row = createRow();
+      row.values.c3 = 'active';
+      mockProxyFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: '{"status":"new-value"}',
+        headers: {},
+      });
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Fetch Response'));
+      });
+      await waitFor(() => {
+        expect(screen.getByText(/Keep Rules/)).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText(/Keep Rules/));
+      expect(screen.queryByText(/Keep Rules/)).not.toBeInTheDocument();
+    });
+
+    it('keeps no-op when Clear Rules clicked after bar dismiss path', async () => {
+      const dt = createDataTable();
+      const row = createRow();
+      row.values.c3 = 'active';
+      mockProxyFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: '{"status":"new-value"}',
+        headers: {},
+      });
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Fetch Response'));
+      });
+      await waitFor(() => {
+        expect(screen.getByText(/Clear Rules/)).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText(/Clear Rules/));
+      expect(screen.queryByText(/Clear Rules/)).not.toBeInTheDocument();
     });
   });
 
