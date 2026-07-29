@@ -396,8 +396,8 @@ export default function TestEditorModal({
         overlayClassName="rf-builder-overlay"
         dialogClassName="rf-builder-modal"
         expandMode="fullscreen"
-        minWidth={520}
-        minHeight={340}
+        minWidth={640}
+        minHeight={420}
         constrainDragToViewport
         dragViewportPadding={8}
         headerActions={

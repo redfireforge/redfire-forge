@@ -602,11 +602,13 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
   return (
     <FullPanelModal
       title={(
-        <div>
-          <h3>{isParamMode ? 'Create Parameterized Copy' : mode === 'export' ? 'Export Template' : 'Configure Data Source'}</h3>
-          <span className="csv-export-subtitle">
+        <div className="ds-setup-title-block">
+          <div className="ds-setup-title">
+            {isParamMode ? 'Create Parameterized Copy' : mode === 'export' ? 'Export Template' : 'Configure Data Source'}
+          </div>
+          <span className="csv-export-subtitle ds-setup-subtitle">
             <span className={`method-badge method-${test.method.toLowerCase()}`}>{test.method}</span>
-            {test.name}
+            <span className="ds-setup-subtitle-name">{test.name}</span>
           </span>
         </div>
       )}
@@ -615,8 +617,9 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
       dialogClassName="ds-setup-dialog"
       movable
       resizable
-      minWidth={700}
-      minHeight={450}
+      bodyScrollable={false}
+      minWidth={640}
+      minHeight={420}
       footer={(
         <>
           {prevStep && (
@@ -666,113 +669,125 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
         </>
       )}
     >
-      <div className="excel-steps-bar">
-        {stepLabels.map((s, i) => (
-          <div key={s.key} className={`excel-step-indicator ${step === s.key ? 'active' : ''} ${stepLabels.findIndex(x => x.key === step) > i ? 'done' : ''}`}>
-            <span className="excel-step-num">{s.num}</span>
-            <span className="excel-step-label">{s.label}</span>
-          </div>
-        ))}
-      </div>
+      <div className="ds-setup-layout">
+        <nav className="ds-setup-steps" aria-label="Setup steps">
+          {stepLabels.map((s, i) => {
+            const isActive = step === s.key;
+            const isDone = currentStepIdx > i;
+            return (
+              <div key={s.key} className="ds-setup-step-wrap">
+                {i > 0 && <div className={`ds-setup-step-connector ${isDone || isActive ? 'is-complete' : ''}`} aria-hidden />}
+                <div
+                  className={`ds-setup-step ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`}
+                  aria-current={isActive ? 'step' : undefined}
+                >
+                  <span className="ds-setup-step-num">{isDone ? '✓' : s.num}</span>
+                  <span className="ds-setup-step-label">{s.label}</span>
+                </div>
+              </div>
+            );
+          })}
+        </nav>
 
-      <div className="csv-export-body">
-        {/* ==================== Step 1: Path Variables ==================== */}
-        {step === 'variables' && (
-          <SetupStepVariables
-            analysis={analysis}
-            selections={selections}
-            toggleSegment={toggleSegment}
-            setVarName={setVarName}
-            autoUrlTemplate={autoUrlTemplate}
-            urlTemplateInput={urlTemplateInput}
-            setUrlTemplateInput={setUrlTemplateInput}
-            isTemplateCustomized={isTemplateCustomized}
-            setIsTemplateCustomized={setIsTemplateCustomized}
-            urlParams={urlParams}
-            paramSelections={paramSelections}
-            setParamSelection={setParamSelection}
-            headerCandidates={headerCandidates}
-            headerSelections={headerSelections}
-            setHeaderSelection={setHeaderSelection}
-            bodyVariableCandidates={bodyVariableCandidates}
-            bodySelections={bodySelections}
-            setBodySelection={setBodySelection}
-            workingAuth={workingAuth}
-            setWorkingAuthType={setWorkingAuthType}
-            patchWorkingAuth={patchWorkingAuth}
-            test={test}
-          />
-        )}
+        <div className="ds-setup-content csv-export-body">
+          {/* ==================== Step 1: Path Variables ==================== */}
+          {step === 'variables' && (
+            <SetupStepVariables
+              analysis={analysis}
+              selections={selections}
+              toggleSegment={toggleSegment}
+              setVarName={setVarName}
+              autoUrlTemplate={autoUrlTemplate}
+              urlTemplateInput={urlTemplateInput}
+              setUrlTemplateInput={setUrlTemplateInput}
+              isTemplateCustomized={isTemplateCustomized}
+              setIsTemplateCustomized={setIsTemplateCustomized}
+              urlParams={urlParams}
+              paramSelections={paramSelections}
+              setParamSelection={setParamSelection}
+              headerCandidates={headerCandidates}
+              headerSelections={headerSelections}
+              setHeaderSelection={setHeaderSelection}
+              bodyVariableCandidates={bodyVariableCandidates}
+              bodySelections={bodySelections}
+              setBodySelection={setBodySelection}
+              workingAuth={workingAuth}
+              setWorkingAuthType={setWorkingAuthType}
+              patchWorkingAuth={patchWorkingAuth}
+              test={test}
+            />
+          )}
 
-        {/* ==================== Step 2: Columns ==================== */}
-        {step === 'columns' && (
-          <DataSourceSetupColumnsStep
-            columnDefs={columnDefs}
-            duplicateNames={duplicateNames}
-            contractPatterns={contractPatterns}
-            setContractPatterns={setContractPatterns}
-            showColOrder={showColOrder}
-            setShowColOrder={setShowColOrder}
-            updateColumnName={updateColumnName}
-            setColumnDefs={setColumnDefs}
-          />
-        )}
+          {/* ==================== Step 2: Columns ==================== */}
+          {step === 'columns' && (
+            <DataSourceSetupColumnsStep
+              columnDefs={columnDefs}
+              duplicateNames={duplicateNames}
+              contractPatterns={contractPatterns}
+              setContractPatterns={setContractPatterns}
+              showColOrder={showColOrder}
+              setShowColOrder={setShowColOrder}
+              updateColumnName={updateColumnName}
+              setColumnDefs={setColumnDefs}
+            />
+          )}
 
-        {/* ==================== Step 3: Validate Fields (parameterize mode) ==================== */}
-        {step === 'validate' && isParamMode && (
-          <SetupStepValidate
-            validationMode={validationMode}
-            setValidationMode={setValidationMode}
-            validateFields={validateFields}
-            setValidateFields={setValidateFields}
-            validateExcluded={validateExcluded}
-            setValidateExcluded={setValidateExcluded}
-            sampleJson={sampleJson}
-            setSampleJson={setSampleJson}
-            handleFetchForValidate={handleFetchForValidate}
-            fetching={fetching}
-            fetchError={fetchError}
-            arrayPrefixes={arrayPrefixes}
-            arrayModes={arrayModes}
-            setArrayModes={setArrayModes}
-            test={test}
-          />
-        )}
+          {/* ==================== Step 3: Validate Fields (parameterize mode) ==================== */}
+          {step === 'validate' && isParamMode && (
+            <SetupStepValidate
+              validationMode={validationMode}
+              setValidationMode={setValidationMode}
+              validateFields={validateFields}
+              setValidateFields={setValidateFields}
+              validateExcluded={validateExcluded}
+              setValidateExcluded={setValidateExcluded}
+              sampleJson={sampleJson}
+              setSampleJson={setSampleJson}
+              handleFetchForValidate={handleFetchForValidate}
+              fetching={fetching}
+              fetchError={fetchError}
+              arrayPrefixes={arrayPrefixes}
+              arrayModes={arrayModes}
+              setArrayModes={setArrayModes}
+              test={test}
+            />
+          )}
 
-        {/* ==================== Step 4: Column Order (parameterize mode) ==================== */}
-        {step === 'order' && isParamMode && (
-          <DataSourceSetupColumnOrderStep
-            columnDefs={columnDefs}
-            setColumnDefs={setColumnDefs}
-          />
-        )}
+          {/* ==================== Step 4: Column Order (parameterize mode) ==================== */}
+          {step === 'order' && isParamMode && (
+            <DataSourceSetupColumnOrderStep
+              columnDefs={columnDefs}
+              setColumnDefs={setColumnDefs}
+            />
+          )}
 
-        {/* ==================== Step 5: Review & Create (parameterize mode) ==================== */}
-        {step === 'create' && isParamMode && (
-          <SetupStepReview
-            copyName={copyName}
-            setCopyName={setCopyName}
-            featureGroups={featureGroups}
-            targetFgId={targetFgId}
-            setTargetFgId={setTargetFgId}
-            targetScenarioId={targetScenarioId}
-            setTargetScenarioId={setTargetScenarioId}
-            targetFg={targetFg}
-            targetScenario={targetScenario}
-            workingAuth={workingAuth}
-            validationModeLabel={validationModeLabel}
-            validateFieldCount={validateFields.length}
-            reviewPathVariables={reviewPathVariables}
-            queryParamsForReview={queryParamsForReview}
-            inputColumnsForReview={inputColumnsForReview}
-            validateColumnsForReview={validateColumnsForReview}
-            buildUrlTemplate={() => buildUrlTemplate(urlTemplateInput, columnDefs, previewUrl, urlParams)}
-            arrayPrefixes={arrayPrefixes}
-            arrayModes={arrayModes}
-            testName={test.name}
-            columnDefs={columnDefs}
-          />
-        )}
+          {/* ==================== Step 5: Review & Create (parameterize mode) ==================== */}
+          {step === 'create' && isParamMode && (
+            <SetupStepReview
+              copyName={copyName}
+              setCopyName={setCopyName}
+              featureGroups={featureGroups}
+              targetFgId={targetFgId}
+              setTargetFgId={setTargetFgId}
+              targetScenarioId={targetScenarioId}
+              setTargetScenarioId={setTargetScenarioId}
+              targetFg={targetFg}
+              targetScenario={targetScenario}
+              workingAuth={workingAuth}
+              validationModeLabel={validationModeLabel}
+              validateFieldCount={validateFields.length}
+              reviewPathVariables={reviewPathVariables}
+              queryParamsForReview={queryParamsForReview}
+              inputColumnsForReview={inputColumnsForReview}
+              validateColumnsForReview={validateColumnsForReview}
+              buildUrlTemplate={() => buildUrlTemplate(urlTemplateInput, columnDefs, previewUrl, urlParams)}
+              arrayPrefixes={arrayPrefixes}
+              arrayModes={arrayModes}
+              testName={test.name}
+              columnDefs={columnDefs}
+            />
+          )}
+        </div>
       </div>
     </FullPanelModal>
   );

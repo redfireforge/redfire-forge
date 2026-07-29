@@ -7,7 +7,6 @@ import {
   selectOption,
   getCustomSelectValue,
   getCustomSelectOptionLabels,
-  isCustomSelectDisabled,
 } from '../../../test-utils/customSelectHelper';
 import RunnerSlaOverridePanel from './RunnerSlaOverridePanel';
 import type { SlaTarget } from '../../../shared/types';
@@ -288,6 +287,13 @@ describe('RunnerSlaOverridePanel', () => {
       render(<RunnerSlaOverridePanel {...defaultProps} />);
       fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
       expect(screen.queryByRole('button', { name: /Expand modal|Shrink modal/ })).toBeNull();
+    });
+
+    it('shows resize handles for movable/resizable modal', () => {
+      const { container } = render(<RunnerSlaOverridePanel {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
+      expect(container.querySelector('.modal-resize-edge-right')).toBeTruthy();
+      expect(container.querySelector('.modal-resize-corner')).toBeTruthy();
     });
 
     it('does not show close (×) button in modal header', () => {

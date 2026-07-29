@@ -18,6 +18,7 @@ import {
   selectFirstScenarioInRunner,
   setIterationsValue,
   fillNativeInput,
+  scrollRunnerProgressIntoView,
 } from './th-demo-helpers';
 
 /**
@@ -113,7 +114,7 @@ export const thParameterizedRunnerLesson: DemoLesson = {
         'the ones with `{{variable}}` placeholders and data sources.\n\n' +
         'Notice the **📊 rows** badge next to the scenario — it shows the total number of ' +
         'data rows across all tests, telling you how many requests each iteration will generate.',
-      highlight: HAR.PARAM_PAGE_HEADER,
+      highlight: HAR.NAV_PARAM_RUNNER,
 
       preAction: async (ctx) => {
         ctx.navigateToTab('param-runner');
@@ -125,14 +126,14 @@ export const thParameterizedRunnerLesson: DemoLesson = {
         await ensureTh6FgExists(ctx);
         await ctx.delay(400);
 
-        const header = document.querySelector<HTMLElement>(HAR.PARAM_PAGE_HEADER);
-        if (header) await spotlight(header, 1500, ctx);
+        const tab = document.querySelector<HTMLElement>(HAR.NAV_PARAM_RUNNER);
+        if (tab) await spotlight(tab, 1500, ctx);
 
         const selector = document.querySelector<HTMLElement>(pr(HAR.SCENARIO_SELECTOR));
         if (selector) await spotlight(selector, 1500, ctx);
       },
 
-      verify: HAR.PARAM_PAGE_HEADER,
+      verify: HAR.NAV_PARAM_RUNNER,
     },
 
     // ── Step 2: Select & Review Weights ──────────────────────────
@@ -269,30 +270,34 @@ export const thParameterizedRunnerLesson: DemoLesson = {
 
         await ctx.click(pr(HAR.RUN_BTN));
 
-        // Wait for Live Progress to mount, then scroll it into view immediately
-        // so the viewer sees bar + per-test rows + metrics without manual scroll.
+        const scope = () => document.querySelector(PR) ?? document;
+
+        // Scroll as soon as Live Progress mounts so the full monitor is visible.
         const start = Date.now();
         while (Date.now() - start < 3000) {
-          if (document.querySelector(pr(HAR.LIVE_PROGRESS))) break;
-          await ctx.delay(100);
+          if (document.querySelector(pr(HAR.LIVE_PROGRESS))) {
+            scrollRunnerProgressIntoView(scope());
+            break;
+          }
+          await ctx.delay(50);
         }
 
         const progress = document.querySelector<HTMLElement>(pr(HAR.LIVE_PROGRESS));
         if (progress) {
-          progress.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          await ctx.delay(800);
+          await ctx.delay(400);
+          scrollRunnerProgressIntoView(scope());
           await spotlight(progress, 1200, ctx);
         }
 
         const perTest = document.querySelector<HTMLElement>(pr(HAR.PER_TEST_PROGRESS));
         if (perTest) {
-          perTest.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          scrollRunnerProgressIntoView(scope());
           await spotlight(perTest, 1200, ctx);
         }
 
         const metrics = document.querySelector<HTMLElement>(pr(HAR.LIVE_METRICS));
         if (metrics) {
-          metrics.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          scrollRunnerProgressIntoView(scope());
           await spotlight(metrics, 1200, ctx);
         }
 
@@ -304,7 +309,7 @@ export const thParameterizedRunnerLesson: DemoLesson = {
 
         const completion = document.querySelector<HTMLElement>(pr(HAR.COMPLETION));
         if (completion) {
-          completion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          scrollRunnerProgressIntoView(scope());
           await ctx.delay(400);
           await spotlight(completion, 1500, ctx);
         }

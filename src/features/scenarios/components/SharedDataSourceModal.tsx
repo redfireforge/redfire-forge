@@ -212,8 +212,10 @@ export default function SharedDataSourceModal({
       showExpandButton={false}
       closeButtonKind="none"
       closeOnOverlayClick={false}
-      disableDrag
-      showResizeHandles={false}
+      constrainDragToViewport
+      dragViewportPadding={12}
+      minWidth={980}
+      minHeight={560}
       footerContent={() => (
         <div className="shared-ds-footer">
           <span className="shared-ds-footer-stats">

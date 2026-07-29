@@ -7,6 +7,12 @@ interface Props {
   disabled?: boolean;
   /** If true, show gallery hint instead of host selector */
   isGalleryEnv?: boolean;
+  /**
+   * Unique radio `name` prefix — required because Test Runner and Parameterized
+   * Runner stay mounted together; shared `name="hostMode"` merges them into one
+   * browser radio group and breaks selection.
+   */
+  namePrefix?: string;
 }
 
 export default function HostSelector({
@@ -17,7 +23,10 @@ export default function HostSelector({
   resolvedBaseUrl,
   disabled = false,
   isGalleryEnv = false,
+  namePrefix = 'runner',
 }: Props) {
+  const radioName = `${namePrefix}-hostMode`;
+
   if (isGalleryEnv) {
     return (
       <div className="runner-host-selector" data-testid="har-host-selector">
@@ -33,7 +42,7 @@ export default function HostSelector({
       <label className="radio-label">
         <input
           type="radio"
-          name="hostMode"
+          name={radioName}
           checked={hostMode === 'hardcoded'}
           onChange={() => onHostModeChange('hardcoded')}
           disabled={disabled}
@@ -43,7 +52,7 @@ export default function HostSelector({
       <label className={`radio-label ${!resolvedBaseUrl ? 'disabled' : ''}`}>
         <input
           type="radio"
-          name="hostMode"
+          name={radioName}
           checked={hostMode === 'settings'}
           onChange={() => onHostModeChange('settings')}
           disabled={disabled || !resolvedBaseUrl}
@@ -57,7 +66,7 @@ export default function HostSelector({
       <label className="radio-label">
         <input
           type="radio"
-          name="hostMode"
+          name={radioName}
           checked={hostMode === 'custom'}
           onChange={() => onHostModeChange('custom')}
           disabled={disabled}
