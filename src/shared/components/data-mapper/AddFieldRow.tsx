@@ -80,6 +80,11 @@ export default function AddFieldRow({ existingPaths, onAdd, location, onDrop, ge
       setError('Field already exists');
       return;
     }
+    // Map Columns uses `type::name` paths — treat those as collisions too
+    if ([...existingPaths].some((p) => p.endsWith(`::${trimmed}`))) {
+      setError('Field already exists');
+      return;
+    }
     onAdd({
       path: trimmed,
       label: trimmed.includes('.') ? trimmed.split('.').pop()! : trimmed,

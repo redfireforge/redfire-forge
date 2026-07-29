@@ -462,13 +462,24 @@ export async function ensureTh4FgExists(ctx: DemoActionContext): Promise<boolean
 
 /**
  * Select the first scenario in the scenario selector by clicking its checkbox.
+ * Deselects all first so stale selections from prior runs don't inflate the count.
  * @param scope Optional CSS ancestor scope (e.g. `.param-runner-page`) to
  *              avoid hitting the hidden twin runner page.
  */
 export async function selectFirstScenarioInRunner(ctx: DemoActionContext, scope = ''): Promise<void> {
   const prefix = scope ? `${scope} ` : '';
-  const checkbox = document.querySelector<HTMLInputElement>(
-    `${prefix}${HAR.SCENARIO_SELECTOR} .selection-scenario input[type="checkbox"]`,
+  const root = document.querySelector(`${prefix}${HAR.SCENARIO_SELECTOR}`);
+  if (!root) return;
+
+  const deselectBtn = Array.from(root.querySelectorAll<HTMLElement>('button'))
+    .find(b => b.textContent?.trim() === 'Deselect All');
+  if (deselectBtn) {
+    deselectBtn.click();
+    await ctx.delay(200);
+  }
+
+  const checkbox = root.querySelector<HTMLInputElement>(
+    '.selection-scenario input[type="checkbox"]',
   );
   if (checkbox && !checkbox.checked) {
     checkbox.click();
@@ -510,9 +521,15 @@ export function deleteTh5DemoFg(): void {
 
 /**
  * Seed TH-5 FG with a parameterized scenario containing a test that already
- * has a data source (one Path column `userId`, 2 pre-filled rows).
+ * has a data source (one Path column `userId`).
+ * @param rowMode `empty` — one blank row for the demo to fill then + Row;
+ *                `filled` — Admin/Regular with 1/2 (recovery for later steps).
  */
-export async function seedTh5FeatureGroup(ctx: DemoActionContext): Promise<void> {
+export async function seedTh5FeatureGroup(
+  ctx: DemoActionContext,
+  opts?: { rowMode?: 'empty' | 'filled' },
+): Promise<void> {
+  const rowMode = opts?.rowMode ?? 'filled';
   const w = getDemoBridgeWindow();
   let ids = (window as unknown as Record<string, unknown>).__demoTh5Ids as { envId: string; svcId: string } | undefined;
   if (!ids) {
@@ -524,6 +541,15 @@ export async function seedTh5FeatureGroup(ctx: DemoActionContext): Promise<void>
     }
   }
   if (!ids) return;
+
+  const rows = rowMode === 'filled'
+    ? [
+        { id: 'row-1', label: 'Admin User', values: { 'col-userid': '1' }, enabled: true },
+        { id: 'row-2', label: 'Regular User', values: { 'col-userid': '2' }, enabled: true },
+      ]
+    : [
+        { id: 'row-1', label: '', values: { 'col-userid': '' }, enabled: true },
+      ];
 
   w.__demoSeedFeatureGroup?.({
     id: 'demo-th5-fg',
@@ -555,10 +581,7 @@ export async function seedTh5FeatureGroup(ctx: DemoActionContext): Promise<void>
             type: 'path' as const,
             mapping: 'userId',
           }],
-          rows: [
-            { id: 'row-1', label: '', values: { 'col-userid': '1' }, enabled: true },
-            { id: 'row-2', label: '', values: { 'col-userid': '2' }, enabled: true },
-          ],
+          rows,
           source: { type: 'inline' as const },
           urlTemplate: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
         },
@@ -568,11 +591,15 @@ export async function seedTh5FeatureGroup(ctx: DemoActionContext): Promise<void>
   await ctx.delay(400);
 }
 
-export async function ensureTh5FgExists(ctx: DemoActionContext): Promise<boolean> {
+export async function ensureTh5FgExists(
+  ctx: DemoActionContext,
+  opts?: { rowMode?: 'empty' | 'filled'; force?: boolean },
+): Promise<boolean> {
   const cards = document.querySelectorAll<HTMLElement>(HAR.FG_NAME);
   const found = Array.from(cards).some(el => el.textContent?.trim() === TH5_FG_NAME);
-  if (found) return false;
-  await seedTh5FeatureGroup(ctx);
+  if (found && !opts?.force) return false;
+  if (found && opts?.force) deleteTh5DemoFg();
+  await seedTh5FeatureGroup(ctx, { rowMode: opts?.rowMode ?? 'filled' });
   return true;
 }
 
@@ -604,20 +631,179 @@ export async function navigateToDataSourceTab(ctx: DemoActionContext): Promise<v
 }
 
 /**
- * Fill a data source cell by row/col index.
- * Uses the native setter to work with React controlled inputs.
+ * Set a React-controlled input value via the native setter + input/change events.
  */
-export function fillDsCell(rowIdx: number, colIdx: number, value: string): void {
+function setNativeInputValue(input: HTMLInputElement, value: string): void {
+  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  nativeSetter?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * Fill a data source Row Name (label) by row index.
+ */
+export function fillDsRowLabel(rowIdx: number, value: string): void {
   const rows = document.querySelectorAll<HTMLElement>('.data-source-row');
   const row = rows[rowIdx];
   if (!row) return;
-  const cells = row.querySelectorAll<HTMLInputElement>('.data-source-cell-input');
-  const cell = cells[colIdx];
+  const input = row.querySelector<HTMLInputElement>('.data-source-label-input');
+  if (!input) return;
+  setNativeInputValue(input, value);
+}
+
+/**
+ * Fill a data source data-column cell by row index and data-column index
+ * (0 = first data column / userId — does NOT include Row Name).
+ */
+export function fillDsDataCell(rowIdx: number, dataColIdx: number, value: string): void {
+  const cell = document.querySelector<HTMLInputElement>(
+    `input.data-source-cell-input[data-row="${rowIdx}"][data-col="${dataColIdx}"]`,
+  );
   if (!cell) return;
-  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  nativeSetter?.call(cell, value);
-  cell.dispatchEvent(new Event('input', { bubbles: true }));
-  cell.dispatchEvent(new Event('change', { bubbles: true }));
+  setNativeInputValue(cell, value);
+}
+
+/**
+ * Fill a data source cell by row/col index within `.data-source-cell-input` nodes
+ * (0 = Row Name label, 1+ = data columns). Prefer fillDsRowLabel / fillDsDataCell.
+ */
+export function fillDsCell(rowIdx: number, colIdx: number, value: string): void {
+  if (colIdx === 0) {
+    fillDsRowLabel(rowIdx, value);
+    return;
+  }
+  fillDsDataCell(rowIdx, colIdx - 1, value);
+}
+
+/** Scroll the last data-source row into view (vertical) and/or the scroll pane to the end (horizontal). */
+export function scrollDsGridIntoView(opts?: { horizontal?: boolean; vertical?: boolean }): void {
+  const horizontal = opts?.horizontal ?? false;
+  const vertical = opts?.vertical ?? true;
+  const scroll = document.querySelector<HTMLElement>('.data-source-scroll');
+  if (horizontal && scroll) {
+    scroll.scrollLeft = scroll.scrollWidth;
+  }
+  if (vertical) {
+    const rows = document.querySelectorAll<HTMLElement>('.data-source-row');
+    const last = rows[rows.length - 1];
+    last?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
+}
+
+/**
+ * Scroll the Test Editor tab pane so the Data Source footer / Run Preview
+ * is fully visible below the grid (not clipped by the modal chrome).
+ */
+export function scrollDsFooterIntoView(): void {
+  const footer =
+    document.querySelector<HTMLElement>('.data-source-footer')
+    ?? document.querySelector<HTMLElement>('.data-source-preview');
+  if (!footer) return;
+  const tab = footer.closest<HTMLElement>('.builder-tab-content');
+  if (tab) {
+    tab.scrollTop = tab.scrollHeight;
+  }
+  footer.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+}
+
+/**
+ * Scroll the Test Runner Live Progress monitor into view so bar, metrics,
+ * charts, and (when present) the completion banner are visible after Run.
+ */
+export function scrollRunnerProgressIntoView(root: ParentNode = document): void {
+  const monitor =
+    root.querySelector<HTMLElement>('[data-testid="har-runner-monitor"]')
+    ?? root.querySelector<HTMLElement>('[data-testid="har-live-progress"]');
+  if (!monitor) return;
+
+  const progress =
+    monitor.getAttribute('data-testid') === 'har-live-progress'
+      ? monitor
+      : monitor.querySelector<HTMLElement>('[data-testid="har-live-progress"]') ?? monitor;
+  const completion =
+    root.querySelector<HTMLElement>('[data-testid="har-completion"]')
+    ?? monitor.querySelector<HTMLElement>('[data-testid="har-completion"]');
+  const metrics = progress.querySelector<HTMLElement>('.live-charts, .live-metrics');
+  const bottom = completion ?? metrics ?? progress;
+
+  if (typeof progress.scrollIntoView === 'function') {
+    progress.scrollIntoView({
+      behavior: 'instant' as ScrollBehavior,
+      block: 'start',
+      inline: 'nearest',
+    });
+  }
+
+  const findScrollParent = (el: HTMLElement): HTMLElement | null => {
+    let node: HTMLElement | null = el.parentElement;
+    while (node && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      const oy = style.overflowY;
+      if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && node.scrollHeight > node.clientHeight + 1) {
+        return node;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  };
+
+  const pane = findScrollParent(progress);
+  if (pane && bottom) {
+    const paneRect = pane.getBoundingClientRect();
+    const bottomRect = bottom.getBoundingClientRect();
+    if (bottomRect.bottom > paneRect.bottom - 12) {
+      pane.scrollTop += bottomRect.bottom - paneRect.bottom + 24;
+    }
+  } else if (bottom && bottom !== progress && typeof bottom.scrollIntoView === 'function') {
+    bottom.scrollIntoView({
+      behavior: 'instant' as ScrollBehavior,
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  }
+}
+
+/** Column type labels shown in the Data Source grid type CustomSelect. */
+export const DS_COLUMN_TYPE_LABELS = ['Path', 'Param', 'Body', 'Header', 'Validate'] as const;
+
+/**
+ * Open the first column-type dropdown and spotlight the whole menu
+ * (Path / Param / Body / Header / Validate together), then close without
+ * changing the selection. Matches TH-5 "Understanding Column Types" narration.
+ */
+export async function tourDsColumnTypeDropdown(
+  ctx: DemoActionContext,
+  opts?: { holdMs?: number },
+): Promise<void> {
+  const holdMs = opts?.holdMs ?? 2800;
+  const wrap = document.querySelector<HTMLElement>(HAR.DS_COL_TYPE_SELECT);
+  if (!wrap) return;
+
+  wrap.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  await spotlight(wrap, 800, ctx);
+  await ctx.delay(250);
+
+  const trigger = wrap.querySelector<HTMLElement>('.cs-trigger');
+  if (!trigger) return;
+
+  // Open the menu so the viewer can see all five types at once
+  if (!wrap.querySelector('.cs-menu')) {
+    trigger.click();
+    await ctx.delay(500);
+  }
+
+  const menu = wrap.querySelector<HTMLElement>('.cs-menu');
+  if (menu) {
+    await spotlight(menu, holdMs, ctx);
+    await ctx.delay(400);
+  }
+
+  // Close without changing the current type (still Path)
+  if (wrap.querySelector('.cs-menu')) {
+    trigger.click();
+    await ctx.delay(400);
+  }
 }
 
 // ─── TH-6 helpers ────────────────────────────────────────────────
@@ -801,17 +987,127 @@ export function clickRadioByLabel(container: string, labelText: string): void {
   }
 }
 
+/** Host mode radio labels: Original | Settings | Custom (Settings label may include a URL). */
+export type HostModeLabel = 'Original' | 'Settings' | 'Custom';
+
+/** Prefer the Host selector that is not inside a `hidden` runner mount. */
+export function getVisibleHostSelector(): HTMLElement | null {
+  const all = document.querySelectorAll<HTMLElement>(HAR.HOST_SELECTOR);
+  for (const el of all) {
+    if (!el.closest('[hidden]')) return el;
+  }
+  return all[0] ?? null;
+}
+
+export function findHostModeLabel(modeLabel: HostModeLabel): HTMLElement | null {
+  const root = getVisibleHostSelector();
+  if (!root) return null;
+  const labels = root.querySelectorAll<HTMLElement>('label.radio-label');
+  return (
+    Array.from(labels).find((lbl) => {
+      const text = lbl.textContent?.trim() ?? '';
+      return text === modeLabel || text.startsWith(modeLabel);
+    }) ?? null
+  );
+}
+
+export function clickHostMode(modeLabel: HostModeLabel): void {
+  const label = findHostModeLabel(modeLabel);
+  const radio = label?.querySelector<HTMLInputElement>('input[type="radio"]');
+  if (!radio || radio.disabled) return;
+  if (radio.checked) return;
+  // Prefer clicking the label so React receives a real user-like activation.
+  label?.click();
+  if (!radio.checked) {
+    radio.click();
+    radio.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+/**
+ * Click a host mode, then spotlight that option (and Custom URL input when relevant).
+ */
+export async function tourHostMode(
+  ctx: DemoActionContext,
+  modeLabel: HostModeLabel,
+  opts?: { holdLabel?: number; holdCustomInput?: number },
+): Promise<void> {
+  const root = getVisibleHostSelector();
+  root?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+
+  clickHostMode(modeLabel);
+  await ctx.delay(500);
+
+  const label = findHostModeLabel(modeLabel);
+  if (!label) return;
+  await spotlight(label, opts?.holdLabel ?? 1600, ctx);
+
+  if (modeLabel === 'Custom') {
+    const input = root?.querySelector<HTMLElement>(HAR.HOST_CUSTOM_INPUT)
+      ?? document.querySelector<HTMLElement>(HAR.HOST_CUSTOM_INPUT);
+    if (input && !input.closest('[hidden]')) {
+      await spotlight(input, opts?.holdCustomInput ?? 1400, ctx);
+    }
+  }
+
+  await ctx.delay(300);
+}
+
+/**
+ * Find a profile type button (Ramp-Up, Sustained, Spike) by label text.
+ */
+export function findProfileTypeBtn(label: string): HTMLElement | null {
+  const btns = document.querySelectorAll<HTMLElement>(HAR.PROFILE_TYPE_BTN);
+  return Array.from(btns).find((btn) => btn.textContent?.trim() === label) ?? null;
+}
+
 /**
  * Click a profile type button (Ramp-Up, Sustained, Spike) by label text.
  */
 export function clickProfileType(label: string): void {
-  const btns = document.querySelectorAll<HTMLElement>(HAR.PROFILE_TYPE_BTN);
-  for (const btn of btns) {
-    if (btn.textContent?.trim() === label && !btn.classList.contains('active')) {
-      btn.click();
-      return;
-    }
+  const btn = findProfileTypeBtn(label);
+  if (btn && !btn.classList.contains('active')) btn.click();
+}
+
+/**
+ * Tour one load-profile type in viewer order:
+ * type button → description → parameter fields → SVG preview.
+ */
+export async function tourLoadProfileType(
+  ctx: DemoActionContext,
+  label: string,
+  opts?: {
+    holdBtn?: number;
+    holdDesc?: number;
+    holdFields?: number;
+    holdPreview?: number;
+  },
+): Promise<void> {
+  const section = document.querySelector<HTMLElement>(HAR.LOAD_PROFILE_SEC);
+  section?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+
+  const btn = findProfileTypeBtn(label);
+  if (!btn) return;
+
+  if (!btn.classList.contains('active')) {
+    btn.click();
+    await ctx.delay(500);
+  } else {
+    await ctx.delay(200);
   }
+
+  await spotlight(btn, opts?.holdBtn ?? 1400, ctx);
+
+  const desc = document.querySelector<HTMLElement>(HAR.PROFILE_TYPE_DESC);
+  if (desc) await spotlight(desc, opts?.holdDesc ?? 1800, ctx);
+
+  const fields = document.querySelector<HTMLElement>(HAR.PROFILE_FIELDS);
+  if (fields) await spotlight(fields, opts?.holdFields ?? 1600, ctx);
+
+  const preview = document.querySelector<HTMLElement>(HAR.PROFILE_PREVIEW);
+  if (preview) await spotlight(preview, opts?.holdPreview ?? 1600, ctx);
+
+  await ctx.delay(500);
 }
 
 /**
@@ -864,12 +1160,17 @@ function makeDemoResult(
 ): Record<string, unknown> {
   return {
     id: `${TH7_RUN_PREFIX}-r${idx}`,
+    scenarioId: `${TH7_RUN_PREFIX}-sc`,
     testName: name,
     method,
     url,
     httpStatus: status,
-    responseTime: responseTimeMs,
+    responseTimeMs,
+    responseBody: '{}',
+    timestamp: Date.now() - (5 - idx) * 200,
     passed,
+    validationMode: 'selective',
+    failureDetails: passed ? [] : ['Validation failed: $.name expected "Alice" but got "Leanne Graham"'],
     error: passed ? undefined : 'Validation failed: $.name expected "Alice" but got "Leanne Graham"',
     timing: {
       dnsMs: 2 + Math.random() * 3,
@@ -901,6 +1202,14 @@ function buildDemoTestRun(): Record<string, unknown> {
   const times = [145, 198, 167, 312, 156];
   const avg = times.reduce((a, b) => a + b, 0) / times.length;
   const sorted = [...times].sort((a, b) => a - b);
+  // Aggregate SLA targets chosen to demo pass / warn / fail against this run:
+  //   p95=312 → pass (≤500), avg≈196 → warn (180–250), errorRate=0 → pass (≤1%), p99=312 → fail (≤200)
+  const slaTargets = [
+    { id: 'demo-th7-sla-p95', metric: 'p95', operator: 'lte', value: 500, label: 'P95 under 500ms' },
+    { id: 'demo-th7-sla-avg', metric: 'avg', operator: 'lte', value: 250, warnAt: 180, label: 'Avg under 250ms' },
+    { id: 'demo-th7-sla-err', metric: 'errorRate', operator: 'lte', value: 1, label: 'Error rate under 1%' },
+    { id: 'demo-th7-sla-p99', metric: 'p99', operator: 'lte', value: 200, label: 'P99 under 200ms' },
+  ];
   return {
     id: `${TH7_RUN_PREFIX}-${now}`,
     timestamp: now,
@@ -913,6 +1222,7 @@ function buildDemoTestRun(): Record<string, unknown> {
       iterations: 1,
       scenarioWeights: [],
       executionMode: 'sequential',
+      slaTargets,
     },
     summary: {
       tps: +(5 / (0.978)).toFixed(1),
@@ -2192,7 +2502,20 @@ export function deleteTh18DemoFg(): void {
   getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(TH18_FG_NAME);
 }
 
-export async function seedTh18FeatureGroup(ctx: DemoActionContext): Promise<void> {
+export interface SeedTh18Options {
+  /**
+   * When true (default), seed includes the Validate `name` / `$.name` column
+   * with jsonplaceholder expected values. When false, only `userId` — used so
+   * TH-18 step 1 can demo **+ Column** live.
+   */
+  includeNameColumn?: boolean;
+}
+
+export async function seedTh18FeatureGroup(
+  ctx: DemoActionContext,
+  opts?: SeedTh18Options,
+): Promise<void> {
+  const includeNameColumn = opts?.includeNameColumn !== false;
   const w = getDemoBridgeWindow();
   let ids = (window as unknown as Record<string, unknown>).__demoTh18Ids as { envId: string; svcId: string } | undefined;
   if (!ids) {
@@ -2204,6 +2527,28 @@ export async function seedTh18FeatureGroup(ctx: DemoActionContext): Promise<void
     }
   }
   if (!ids) return;
+
+  const columns = includeNameColumn
+    ? [
+        { id: 'col-uid', name: 'userId', type: 'path' as const, mapping: 'userId' },
+        // Column label "name" + mapping "$.name" → compare against response.name
+        { id: 'col-name', name: 'name', type: 'validate' as const, mapping: '$.name' },
+      ]
+    : [
+        { id: 'col-uid', name: 'userId', type: 'path' as const, mapping: 'userId' },
+      ];
+
+  const rows = includeNameColumn
+    ? [
+        { id: 'row-1', label: 'Admin User', values: { 'col-uid': '1', 'col-name': 'Leanne Graham' }, enabled: true },
+        { id: 'row-2', label: 'Regular User', values: { 'col-uid': '2', 'col-name': 'Ervin Howell' }, enabled: true },
+        { id: 'row-3', label: 'Power User', values: { 'col-uid': '3', 'col-name': 'Clementine Bauch' }, enabled: true },
+      ]
+    : [
+        { id: 'row-1', label: 'Admin User', values: { 'col-uid': '1' }, enabled: true },
+        { id: 'row-2', label: 'Regular User', values: { 'col-uid': '2' }, enabled: true },
+        { id: 'row-3', label: 'Power User', values: { 'col-uid': '3' }, enabled: true },
+      ];
 
   w.__demoSeedFeatureGroup?.({
     id: 'demo-th18-fg',
@@ -2227,22 +2572,17 @@ export async function seedTh18FeatureGroup(ctx: DemoActionContext): Promise<void
             validation: {
               mode: 'selective' as const,
               assertions: [{ type: 'status' as const, expected: '200' }],
-              expectedFields: [
-                { jsonPath: '$.name', operator: 'equals', expectedValue: '{{expectedName}}' },
-              ],
+              expectedFields: includeNameColumn
+                ? [
+                    { jsonPath: '$.name', operator: 'equals', expectedValue: '{{name}}' },
+                  ]
+                : [],
             },
             dataSource: {
               id: 'demo-th18-ds',
               label: 'User IDs',
-              columns: [
-                { id: 'col-uid', name: 'userId', type: 'path' as const, mapping: 'userId' },
-                { id: 'col-name', name: 'expectedName', type: 'validate' as const, mapping: 'expectedName' },
-              ],
-              rows: [
-                { id: 'row-1', label: 'Admin User', values: { 'col-uid': '1', 'col-name': 'Leanne Graham' }, enabled: true },
-                { id: 'row-2', label: 'Regular User', values: { 'col-uid': '2', 'col-name': 'Ervin Howell' }, enabled: true },
-                { id: 'row-3', label: 'Power User', values: { 'col-uid': '3', 'col-name': 'Clementine Bauch' }, enabled: true },
-              ],
+              columns,
+              rows,
               source: { type: 'inline' as const },
               urlTemplate: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
             },
@@ -2254,12 +2594,56 @@ export async function seedTh18FeatureGroup(ctx: DemoActionContext): Promise<void
   await ctx.delay(400);
 }
 
-export async function ensureTh18FgExists(ctx: DemoActionContext): Promise<boolean> {
+export async function ensureTh18FgExists(
+  ctx: DemoActionContext,
+  opts?: { force?: boolean; includeNameColumn?: boolean },
+): Promise<boolean> {
   const cards = document.querySelectorAll<HTMLElement>(HAR.FG_NAME);
   const found = Array.from(cards).some(el => el.textContent?.trim() === TH18_FG_NAME);
-  if (found) return false;
-  await seedTh18FeatureGroup(ctx);
+  if (found && !opts?.force) return false;
+  if (found) deleteTh18DemoFg();
+  await seedTh18FeatureGroup(ctx, { includeNameColumn: opts?.includeNameColumn });
   return true;
+}
+
+/** Select a column type on the last (newest) Data Source column CustomSelect. */
+export async function selectLastDsColumnType(
+  ctx: DemoActionContext,
+  label: string,
+  opts?: { spotlightOptionMs?: number; quiet?: boolean },
+): Promise<void> {
+  const wraps = document.querySelectorAll<HTMLElement>(HAR.DS_COL_TYPE_SELECT);
+  const wrap = wraps[wraps.length - 1];
+  if (!wrap) return;
+
+  wrap.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const trigger = wrap.querySelector<HTMLElement>('.cs-trigger');
+  if (!trigger) return;
+
+  if (!wrap.querySelector('.cs-menu')) {
+    trigger.click();
+    await ctx.delay(opts?.quiet ? 350 : 500);
+  }
+
+  const menu = wrap.querySelector<HTMLElement>('.cs-menu');
+  if (!menu) return;
+
+  if (!opts?.quiet) {
+    // Show the full menu briefly so the viewer sees all types
+    await spotlight(menu, opts?.spotlightOptionMs ? Math.min(1200, opts.spotlightOptionMs) : 1200, ctx);
+    await ctx.delay(400);
+  }
+
+  const option = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'))
+    .find(el => el.textContent?.trim().startsWith(label));
+  if (option) {
+    if (!opts?.quiet) {
+      await spotlight(option, opts?.spotlightOptionMs ?? 1800, ctx);
+      await ctx.delay(600);
+    }
+    option.click();
+    await ctx.delay(opts?.quiet ? 450 : 700);
+  }
 }
 
 /** Find a Data Source toolbar button by its title attribute. */
@@ -2293,8 +2677,8 @@ export function closeVerifyModal(): void {
       .find(b => b.textContent?.trim() === 'Close');
     if (closeBtn) { closeBtn.click(); return; }
   }
-  const overlay = document.querySelector<HTMLElement>('.verify-modal-overlay');
-  if (overlay) overlay.click();
+  // Fallback: Escape closes AppModalFrame via useModalEscapeClose
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 }
 
 /** Close the Shared DS Modal if open. */
@@ -2307,6 +2691,119 @@ export function closeSharedDsModal(): void {
       btn.click(); return;
     }
   }
+}
+
+// ─── TH-21 Shared Data Sources helpers ────────────────────────────
+
+export const TH21_FG_NAME = 'Shared DS Demo';
+export const TH21_SC_NAME = 'User Directory';
+export const TH21_SHARED_DS_NAME = 'User Directory';
+
+const TH21_SHARED_DS_ID = 'demo-th21-sds-users';
+
+export function buildTh21SharedDataSource(): Record<string, unknown> {
+  return {
+    id: TH21_SHARED_DS_ID,
+    name: TH21_SHARED_DS_NAME,
+    tags: ['users', 'directory'],
+    createdAt: Date.now() - 86400000,
+    updatedAt: Date.now(),
+    dataSource: {
+      id: 'ds-th21-users',
+      columns: [
+        { id: 'c-user-id', name: 'userId', type: 'path', mapping: 'userId', description: 'User ID (path variable)' },
+        { id: 'c-name', name: 'name', type: 'validate', mapping: '$.name', description: 'Expected full name' },
+        { id: 'c-username', name: 'username', type: 'validate', mapping: '$.username', description: 'Expected username' },
+        { id: 'c-email', name: 'email', type: 'validate', mapping: '$.email', description: 'Expected email address' },
+      ],
+      rows: [
+        { id: 'r1', values: { 'c-user-id': '1', 'c-name': 'Leanne Graham', 'c-username': 'Bret', 'c-email': 'Sincere@april.biz' }, enabled: true, label: 'Team lead' },
+        { id: 'r2', values: { 'c-user-id': '2', 'c-name': 'Ervin Howell', 'c-username': 'Antonette', 'c-email': 'Shanna@melissa.tv' }, enabled: true, label: 'Senior developer' },
+        { id: 'r3', values: { 'c-user-id': '3', 'c-name': 'Clementine Bauch', 'c-username': 'Samantha', 'c-email': 'Nathan@yesenia.net' }, enabled: true, label: 'Product designer' },
+        { id: 'r4', values: { 'c-user-id': '4', 'c-name': 'Patricia Lebsack', 'c-username': 'Karianne', 'c-email': 'Julianne.OConner@kory.org' }, enabled: true, label: 'QA engineer' },
+        { id: 'r5', values: { 'c-user-id': '5', 'c-name': 'Chelsey Dietrich', 'c-username': 'Kamren', 'c-email': 'Lucio_Hettinger@annie.ca' }, enabled: false, label: 'Contractor (disabled)' },
+      ],
+      source: { type: 'inline' },
+      distribution: 'sequential',
+      urlTemplate: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
+    },
+    fetchConfig: {
+      url: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
+      method: 'GET',
+      headers: [
+        { key: 'Accept', value: 'application/json' },
+      ],
+      auth: { type: 'bearer', prefix: 'Bearer', token: '{{apiToken}}' },
+    },
+  };
+}
+
+export function buildTh21FeatureGroup(envId: string, svcId: string): Record<string, unknown> {
+  return {
+    id: 'demo-fg-th21-shared-ds',
+    name: TH21_FG_NAME,
+    environmentId: envId,
+    microserviceId: svcId,
+    scenarios: [
+      {
+        id: 'demo-sc-th21-users',
+        name: TH21_SC_NAME,
+        kind: 'parameterized',
+        tests: [
+          {
+            id: 'demo-t-th21-get-user',
+            name: 'GET /users/{{userId}}',
+            method: 'GET',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'bearer', prefix: 'Bearer', token: '{{apiToken}}' },
+            sharedDataSourceId: TH21_SHARED_DS_ID,
+            assertions: { statusCode: '200' },
+          },
+          {
+            id: 'demo-t-th21-user-todos',
+            name: 'GET /users/{{userId}}/todos',
+            method: 'GET',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/todos',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'bearer', prefix: 'Bearer', token: '{{apiToken}}' },
+            sharedDataSourceId: TH21_SHARED_DS_ID,
+            assertions: { statusCode: '200' },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function seedTh21SharedDs(): void {
+  getDemoBridgeWindow().__demoSeedSharedDataSources?.([buildTh21SharedDataSource()]);
+}
+
+export function deleteTh21SharedDs(): void {
+  getDemoBridgeWindow().__demoDeleteSharedDataSourcesByName?.(TH21_SHARED_DS_NAME);
+}
+
+export function deleteTh21DemoFg(): void {
+  getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(TH21_FG_NAME);
+}
+
+export async function seedTh21Full(ctx: DemoActionContext): Promise<void> {
+  const ids = await seedDemoEnvAndService(ctx);
+  if (!ids) return;
+  seedTh21SharedDs();
+  await ctx.delay(200);
+  const fg = buildTh21FeatureGroup(ids.envId, ids.svcId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getDemoBridgeWindow().__demoSeedFeatureGroup?.(fg as any);
+  await ctx.delay(200);
+}
+
+export function cleanupTh21(): void {
+  deleteTh21DemoFg();
+  deleteTh21SharedDs();
 }
 
 /** Toggle the Contract panel off (click Contract button if panel is open). */

@@ -461,7 +461,7 @@ export default function FeatureGroupCard({
                   )}
                   {sc.kind !== 'standard' && (
                     <>
-                      <button className="btn btn-sm" onClick={() => startNewParameterizedTest(fg.id, sc.id)} title="Create a new parameterized test with inline data">+ Param Test</button>
+                      <button className="btn btn-sm" data-testid="har-add-param-test-btn" onClick={() => startNewParameterizedTest(fg.id, sc.id)} title="Create a new parameterized test with inline data">+ Param Test</button>
                       <button
                         className="btn btn-sm"
                         onClick={() => setShowFromSharedDsPicker({ fgId: fg.id, scId: sc.id })}

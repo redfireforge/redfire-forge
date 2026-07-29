@@ -520,17 +520,62 @@
   line-height: 1.4;
 }
 
-/* Auth config — redesigned */
+/* Auth config — name / value two-tone rows */
 .ds-auth-config {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
+}
+.ds-auth-fields {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.ds-auth-field-row {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  max-height: 74px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.ds-auth-field-row:last-child {
+  border-bottom: none;
+}
+.ds-auth-field-label {
+  flex: 0 0 120px;
+  padding: 0 14px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border);
+}
+.ds-auth-field-ctrl {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px 10px;
+  min-width: 0;
+  background: var(--surface);
+}
+.ds-auth-field-row:focus-within {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+.ds-auth-field-row:focus-within .ds-auth-field-ctrl {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
 .ds-auth-select {
   width: 100%;
 }
 .ds-auth-select .cs-trigger {
-  padding: 7px 10px;
+  padding: 6px 10px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -540,16 +585,10 @@
 .ds-auth-select .cs-trigger:hover {
   border-color: var(--primary);
 }
-.ds-auth-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
 .ds-auth-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--bg);
@@ -557,14 +596,17 @@
   font-size: 0.82rem;
   transition: border-color 0.15s;
 }
+.ds-auth-input:hover {
+  border-color: var(--primary);
+}
 .ds-auth-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 .ds-auth-input::placeholder {
   color: var(--text-muted);
-  opacity: 0.6;
+  opacity: 0.55;
   font-style: italic;
 }
 
@@ -1661,3 +1703,495 @@
   margin: 0;
   cursor: pointer;
 }
+
+/* ─── Data Source Setup Dialog (movable/resizable centered dialog) ────────── */
+
+.ds-setup-overlay.full-panel-overlay.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  align-items: center;
+  justify-content: center;
+  z-index: 10100;
+  pointer-events: none;
+  background: transparent;
+}
+.ds-setup-overlay > * {
+  pointer-events: auto;
+}
+.modal.ram-modal.wf-config-modal.full-panel-modal.ds-setup-dialog {
+  width: min(880px, 92vw);
+  max-width: 880px;
+  height: min(72vh, 680px);
+  max-height: 82vh;
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Header */
+.ds-setup-dialog .ram-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid color-mix(in srgb, white 10%, var(--border));
+  background: color-mix(in srgb, var(--bg) 50%, var(--surface));
+  border-radius: 10px 10px 0 0;
+  cursor: move;
+  user-select: none;
+  flex-shrink: 0;
+}
+.ds-setup-dialog .ram-header > h3 {
+  margin: 0;
+  width: 100%;
+}
+.ds-setup-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ds-setup-title,
+.ds-setup-dialog .ram-header .ds-setup-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.ds-setup-dialog .csv-export-subtitle,
+.ds-setup-subtitle {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  min-width: 0;
+}
+.ds-setup-subtitle-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-setup-dialog .csv-export-subtitle .method-badge {
+  font-size: 0.64rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Layout: sticky horizontal steps + scrollable content */
+.ds-setup-dialog .wf-config-modal-body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  background: color-mix(in srgb, var(--bg) 40%, var(--surface));
+}
+.ds-setup-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Horizontal wizard steps */
+.ds-setup-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  padding: 12px 20px;
+  background: color-mix(in srgb, var(--bg) 35%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.ds-setup-step-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.ds-setup-step-wrap:first-child {
+  flex: 0 1 auto;
+}
+.ds-setup-step-connector {
+  flex: 1 1 16px;
+  height: 2px;
+  margin: 0 8px;
+  min-width: 12px;
+  background: var(--border);
+  border-radius: 1px;
+}
+.ds-setup-step-connector.is-complete {
+  background: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+.ds-setup-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 4px 2px;
+  color: var(--text-muted);
+}
+.ds-setup-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.ds-setup-step-label {
+  font-size: 0.76rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ds-setup-step.is-active {
+  color: var(--primary);
+}
+.ds-setup-step.is-active .ds-setup-step-num {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.ds-setup-step.is-active .ds-setup-step-label {
+  font-weight: 600;
+}
+.ds-setup-step.is-done {
+  color: var(--success, #27ae60);
+}
+.ds-setup-step.is-done .ds-setup-step-num {
+  background: var(--success, #27ae60);
+  color: #fff;
+}
+
+/* Scrollable step body */
+.ds-setup-content.csv-export-body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+.ds-setup-content .excel-step-content {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+}
+.ds-setup-content .excel-step-content.excel-step-columns,
+.ds-setup-content .excel-step-content.parameterize-order-step,
+.ds-setup-content .excel-step-content.parameterize-create-step {
+  overflow-y: auto;
+  flex-direction: column;
+}
+
+/* Left and right columns */
+.ds-setup-dialog .csv-export-left {
+  padding: 16px 20px;
+  border-right: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.ds-setup-dialog .csv-export-right {
+  padding: 16px 20px;
+}
+
+/* Section cards */
+.ds-setup-dialog .ds-section {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+.ds-setup-dialog .ds-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.ds-setup-dialog .ds-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ds-setup-dialog .ds-section-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.ds-setup-dialog .ds-section-badge {
+  font-size: 0.66rem;
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg));
+  color: var(--primary);
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.ds-setup-dialog .ds-section-hint {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+/* ─── Vertical layout for Detect Variables step ─── */
+.ds-setup-content .excel-step-content.ds-step-variables-vertical {
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 20px;
+  gap: 6px;
+}
+.ds-setup-dialog .ds-section.ds-section-collapsible {
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  border-radius: 8px;
+  background: var(--surface);
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.ds-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  transition: background 0.12s ease;
+  border-radius: 8px;
+}
+.ds-section-toggle:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+.ds-section-arrow {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  width: 14px;
+  flex-shrink: 0;
+}
+.ds-section-collapsible .ds-section-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.ds-section-collapsible .ds-section-badge {
+  font-size: 0.66rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  color: var(--accent, var(--primary));
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  margin-left: auto;
+}
+.ds-section-body {
+  padding: 0 14px 14px;
+}
+.ds-step-variables-vertical .ds-section.ds-section--muted {
+  flex-shrink: 0;
+  margin-top: 4px;
+  margin-bottom: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  border-bottom: none;
+  background: color-mix(in srgb, var(--bg) 60%, var(--surface));
+}
+
+/* Path segments */
+.ds-setup-dialog .path-segment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ds-setup-dialog .path-seg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  background: var(--bg);
+  transition: all 0.15s ease;
+}
+.ds-setup-dialog .path-seg-active {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 5%, var(--bg));
+}
+.ds-setup-dialog .path-seg-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.ds-setup-dialog .path-seg-label code {
+  font-size: 0.76rem;
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.ds-setup-dialog .path-var-input {
+  font-size: 0.76rem;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  width: 140px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  transition: border-color 0.15s ease;
+}
+.ds-setup-dialog .path-var-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+/* URL template */
+.ds-setup-dialog .url-pattern-box {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  word-break: break-all;
+  line-height: 1.5;
+  min-height: 88px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.ds-setup-dialog .url-template-input {
+  width: 100%;
+  font-size: 0.76rem;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.5;
+  transition: border-color 0.15s ease;
+}
+.ds-setup-dialog .url-template-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+/* Query/header/body variable items */
+.ds-setup-dialog .csv-fixed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ds-setup-dialog .csv-fixed-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  font-size: 0.76rem;
+}
+.ds-setup-dialog .csv-variable-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.ds-setup-dialog .csv-fixed-key {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.74rem;
+  color: var(--text);
+}
+.ds-setup-dialog .csv-variable-name-input {
+  font-size: 0.74rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 80%, var(--surface));
+  color: var(--text);
+  width: 120px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.ds-setup-dialog .csv-variable-name-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+.ds-setup-dialog .csv-variable-name-input:disabled {
+  opacity: 0.4;
+}
+
+/* Footer */
+.ds-setup-dialog .wf-config-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid color-mix(in srgb, white 10%, var(--border));
+  background: color-mix(in srgb, var(--bg) 50%, var(--surface));
+  border-radius: 0 0 10px 10px;
+  gap: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.ds-setup-dialog .wf-config-modal-footer .btn {
+  font-size: 0.76rem;
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ds-setup-dialog .wf-config-modal-footer .btn:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+}
+.ds-setup-dialog .wf-config-modal-footer .btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+.ds-setup-dialog .wf-config-modal-footer .btn-primary:hover {
+  background: color-mix(in srgb, var(--primary) 85%, white);
+  border-color: color-mix(in srgb, var(--primary) 85%, white);
+}
+.ds-setup-dialog .wf-config-modal-footer .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Resize handle */
+.ds-setup-dialog .modal-resize-corner::after { opacity: 0.35; }
+.ds-setup-dialog .modal-resize-corner:hover::after { opacity: 1; }

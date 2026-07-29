@@ -159,4 +159,32 @@ describe('HostSelector', () => {
     expect(screen.getByText(/Gallery samples use their own hardcoded URLs/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Original')).not.toBeInTheDocument();
   });
+
+  it('uses a unique radio name from namePrefix so parallel runners do not share a group', () => {
+    const { container } = render(
+      <>
+        <HostSelector
+          hostMode="hardcoded"
+          onHostModeChange={vi.fn()}
+          customBaseUrl=""
+          onCustomBaseUrlChange={vi.fn()}
+          namePrefix="test-runner"
+        />
+        <HostSelector
+          hostMode="settings"
+          onHostModeChange={vi.fn()}
+          customBaseUrl=""
+          onCustomBaseUrlChange={vi.fn()}
+          resolvedBaseUrl="https://api.example.com"
+          namePrefix="param-runner"
+        />
+      </>,
+    );
+
+    const names = Array.from(container.querySelectorAll<HTMLInputElement>('input[type="radio"]'))
+      .map((r) => r.name);
+    expect(names.filter((n) => n === 'test-runner-hostMode')).toHaveLength(3);
+    expect(names.filter((n) => n === 'param-runner-hostMode')).toHaveLength(3);
+    expect(names.includes('hostMode')).toBe(false);
+  });
 });

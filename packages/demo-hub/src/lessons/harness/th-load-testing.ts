@@ -20,6 +20,7 @@ import {
   spotlightSel,
   clickRadioByLabel,
   clickProfileType,
+  tourLoadProfileType,
   setFieldByLabel,
   setThinkTimeMs,
 } from './th-demo-helpers';
@@ -127,14 +128,12 @@ export const thLoadTestingLesson: DemoLesson = {
         'The **Execution Mode** row offers five modes. Switch to **Load Profile** to reveal ' +
         'the profile configurator — a time-based execution model where concurrency follows a ' +
         'defined shape. The SVG preview chart shows exactly how concurrency scales over the run duration.',
-      highlight: HAR.EXEC_CONFIG,
+      highlight: HAR.EXEC_MODE_LOAD_PROFILE,
       action: async (ctx) => {
         await ensureTh8Ready(ctx);
 
         switchExecMode('Load Profile');
         await ctx.delay(800);
-
-        await spotlightSel(ctx, HAR.PROFILE_TYPE_SEL, 1500);
 
         setFieldByLabel(HAR.LOAD_PROFILE_SEC, 'Duration (sec)', 10);
         await ctx.delay(300);
@@ -143,8 +142,8 @@ export const thLoadTestingLesson: DemoLesson = {
         setFieldByLabel(HAR.LOAD_PROFILE_SEC, 'Ramp (sec)', 5);
         await ctx.delay(500);
 
-        await spotlightSel(ctx, HAR.PROFILE_FIELDS, 1200);
-        await spotlightSel(ctx, HAR.PROFILE_PREVIEW, 1500);
+        // Spotlight the whole load-profile configurator (type tabs + fields + chart)
+        await spotlightSel(ctx, HAR.LOAD_PROFILE_SEC, 2200);
       },
       preAction: async (ctx) => {
         await ensureTh8Ready(ctx);
@@ -157,30 +156,44 @@ export const thLoadTestingLesson: DemoLesson = {
       id: 'th8-profile-types',
       title: 'Profile Types',
       description:
-        'Three profile types shape the load curve differently. **Ramp-Up** gradually increases ' +
-        'concurrency from 1 to your max — ideal for capacity testing. **Sustained** holds steady ' +
-        'concurrency for endurance testing. **Spike** creates a burst pattern to test how your system handles sudden traffic surges.',
+        'We will walk each profile type in order — **Ramp-Up**, then **Sustained**, then **Spike**.\n\n' +
+        'For every type, watch the **button**, the **description**, the **parameter fields**, ' +
+        'and the **preview chart** update together.\n\n' +
+        '- **Ramp-Up** — gradually increase concurrency from 1 to max (capacity testing)\n' +
+        '- **Sustained** — hold steady concurrency (endurance testing)\n' +
+        '- **Spike** — base load with a short burst (sudden traffic surges)',
       highlight: HAR.PROFILE_TYPE_SEL,
-      action: async (ctx) => {
-        await ctx.delay(400);
+      pauseAfter: true,
 
-        clickProfileType('Sustained');
-        await ctx.delay(600);
-        await spotlightSel(ctx, HAR.PROFILE_PREVIEW, 1000);
-
-        clickProfileType('Spike');
-        await ctx.delay(600);
-        await spotlightSel(ctx, HAR.PROFILE_FIELDS, 1200);
-        await spotlightSel(ctx, HAR.PROFILE_PREVIEW, 1000);
-
-        clickProfileType('Ramp-Up');
-        await ctx.delay(400);
-        await spotlightSel(ctx, HAR.PROFILE_PREVIEW, 800);
-      },
       preAction: async (ctx) => {
         await ensureTh8Ready(ctx);
         await ensureLoadProfileMode(ctx);
+        // Start from Ramp-Up so the ordered tour matches narration.
+        clickProfileType('Ramp-Up');
+        await ctx.delay(200);
       },
+
+      action: async (ctx) => {
+        const section = document.querySelector<HTMLElement>(HAR.LOAD_PROFILE_SEC);
+        section?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+        await ctx.delay(400);
+
+        // 1) Ramp-Up — button → description → fields (Duration / Max / Ramp) → chart
+        await tourLoadProfileType(ctx, 'Ramp-Up');
+
+        // 2) Sustained — fewer fields; chart flattens
+        await tourLoadProfileType(ctx, 'Sustained');
+
+        // 3) Spike — Spike Concurrency / Start / Duration fields appear
+        await tourLoadProfileType(ctx, 'Spike');
+
+        // Leave Ramp-Up selected as the practical default for the rest of the lesson.
+        clickProfileType('Ramp-Up');
+        await ctx.delay(400);
+        const rampBtn = document.querySelector<HTMLElement>(`${HAR.PROFILE_TYPE_BTN}.active`);
+        if (rampBtn) await spotlight(rampBtn, 1000, ctx);
+      },
+
       verify: HAR.PROFILE_TYPE_SEL,
     },
 
@@ -190,25 +203,90 @@ export const thLoadTestingLesson: DemoLesson = {
       title: 'Think Time Delays',
       description:
         'Think Time adds realistic delays between requests, simulating how real users pause ' +
-        'between actions. Choose **Constant** for a fixed delay, **Uniform** for a random range, ' +
-        'or **Gaussian** for bell-curve variation around a mean.',
+        'between actions.\n\n' +
+        'We will click each option so you can see the inline controls:\n' +
+        '- **None** — no delay (default)\n' +
+        '- **Constant** — fixed delay in ms\n' +
+        '- **Uniform** — random delay between min and max\n' +
+        '- **Gaussian** — bell-curve around a mean (μ) with spread (σ)',
       highlight: HAR.THINK_TIME_SEC,
       action: async (ctx) => {
-        clickRadioByLabel(THINK_TIME_BOX, 'Constant');
-        await ctx.delay(500);
-
-        setThinkTimeMs(200);
+        const section = document.querySelector<HTMLElement>(HAR.THINK_TIME_SEC);
+        section?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
         await ctx.delay(400);
 
-        const hint = document.querySelector<HTMLElement>('.think-time-section .exec-mode-hint');
-        if (hint) await spotlight(hint, 1000, ctx);
+        await spotlightSel(ctx, HAR.THINK_TIME_SEC, 1400);
+        await ctx.delay(400);
 
+        const findThinkLabel = (name: string): HTMLElement | null => {
+          const root = document.querySelector<HTMLElement>(THINK_TIME_BOX);
+          if (!root) return null;
+          return Array.from(root.querySelectorAll<HTMLElement>('.radio-label'))
+            .find((l) => l.textContent?.trim() === name) ?? null;
+        };
+
+        // 1) None — starting point
+        const noneLabel = findThinkLabel('None');
+        if (noneLabel) {
+          clickRadioByLabel(THINK_TIME_BOX, 'None');
+          await spotlight(noneLabel, 1400, ctx);
+          await ctx.delay(500);
+        }
+
+        // 2) Constant — fixed ms delay
+        const constantLabel = findThinkLabel('Constant');
+        if (constantLabel) {
+          await spotlight(constantLabel, 1600, ctx);
+          await ctx.delay(300);
+          clickRadioByLabel(THINK_TIME_BOX, 'Constant');
+          await ctx.delay(700);
+          setThinkTimeMs(500);
+          await ctx.delay(500);
+          const params = document.querySelector<HTMLElement>('.think-time-inline-params');
+          if (params) await spotlight(params, 1600, ctx);
+          const hint = document.querySelector<HTMLElement>('.think-time-section .exec-mode-hint');
+          if (hint) await spotlight(hint, 1400, ctx);
+          await ctx.delay(500);
+        }
+
+        // 3) Uniform — min–max range
+        const uniformLabel = findThinkLabel('Uniform');
+        if (uniformLabel) {
+          await spotlight(uniformLabel, 1600, ctx);
+          await ctx.delay(300);
+          clickRadioByLabel(THINK_TIME_BOX, 'Uniform');
+          await ctx.delay(700);
+          const params = document.querySelector<HTMLElement>('.think-time-inline-params');
+          if (params) await spotlight(params, 1800, ctx);
+          const hint = document.querySelector<HTMLElement>('.think-time-section .exec-mode-hint');
+          if (hint) await spotlight(hint, 1400, ctx);
+          await ctx.delay(500);
+        }
+
+        // 4) Gaussian — μ / σ
+        const gaussianLabel = findThinkLabel('Gaussian');
+        if (gaussianLabel) {
+          await spotlight(gaussianLabel, 1600, ctx);
+          await ctx.delay(300);
+          clickRadioByLabel(THINK_TIME_BOX, 'Gaussian');
+          await ctx.delay(700);
+          const params = document.querySelector<HTMLElement>('.think-time-inline-params');
+          if (params) await spotlight(params, 1800, ctx);
+          const hint = document.querySelector<HTMLElement>('.think-time-section .exec-mode-hint');
+          if (hint) await spotlight(hint, 1400, ctx);
+          await ctx.delay(500);
+        }
+
+        // Reset to None for the rest of the lesson
         clickRadioByLabel(THINK_TIME_BOX, 'None');
-        await ctx.delay(300);
+        await ctx.delay(500);
+        if (noneLabel) await spotlight(noneLabel, 1200, ctx);
       },
       preAction: async (ctx) => {
         await ensureTh8Ready(ctx);
         await ensureLoadProfileMode(ctx);
+        clickRadioByLabel(THINK_TIME_BOX, 'None');
+        await ctx.delay(100);
       },
       verify: HAR.THINK_TIME_SEC,
     },

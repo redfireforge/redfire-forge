@@ -2,6 +2,7 @@
  * DataSourceToolbar — Unified toolbar for DataSourceEditor.
  * Extracted to reduce DataSourceEditor.tsx line count.
  */
+import { useRef } from 'react';
 import type { DataSource, SharedDataSource } from '../../../shared/types';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import ColumnOrderPopover from './ColumnOrderPopover';
@@ -73,6 +74,8 @@ export default function DataSourceToolbar({
   onOpenSharedDsModal,
   onPromoteToShared,
 }: DataSourceToolbarProps) {
+  const columnOrderBtnRef = useRef<HTMLButtonElement>(null);
+
   return (
     <div className="data-source-toolbar-unified">
       <div className="data-source-toolbar-title">
@@ -225,6 +228,7 @@ export default function DataSourceToolbar({
           {dt.columns.length > 1 && (
             <div style={{ position: 'relative' }}>
               <button
+                ref={columnOrderBtnRef}
                 type="button"
                 className={`data-source-toolbar-btn ${showColumnOrder ? 'active' : ''}`}
                 onClick={() => setShowColumnOrder(!showColumnOrder)}
@@ -238,6 +242,7 @@ export default function DataSourceToolbar({
                   items={dt.columns}
                   onApply={onColumnOrderApply}
                   onClose={() => setShowColumnOrder(false)}
+                  anchorRef={columnOrderBtnRef}
                 />
               )}
             </div>

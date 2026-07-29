@@ -628,6 +628,13 @@ tr:hover td { background: var(--surface-hover); }
   margin-left: auto;
   font-style: italic;
 }
+.exec-mode-desktop-only {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+}
 
 /* Execution Group (Mode + Config row) */
 .execution-group {
@@ -696,6 +703,13 @@ tr:hover td { background: var(--surface-hover); }
   gap: 12px;
   align-items: flex-start;
   flex-wrap: nowrap;
+}
+.resilience-group {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
 }
 .resilience-field {
   display: flex;
@@ -1437,6 +1451,7 @@ tr:hover td { background: var(--surface-hover); }
 /* 4.2: Expansion summary */
 .runner-expansion-summary {
   margin-top: 12px;
+  margin-bottom: 16px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;

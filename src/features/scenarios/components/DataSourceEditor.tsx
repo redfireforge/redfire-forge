@@ -199,6 +199,35 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
     onDraftChange({ ...draft, dataSource: undefined });
   }, [draft, onDraftChange]);
 
+  const handleAddRow = useCallback(() => {
+    addRow();
+    requestAnimationFrame(() => {
+      const rows = document.querySelectorAll<HTMLElement>('.data-source-row');
+      rows[rows.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [addRow]);
+
+  const handleAddSampleRow = useCallback(() => {
+    addSampleRow();
+    requestAnimationFrame(() => {
+      const rows = document.querySelectorAll<HTMLElement>('.data-source-row');
+      rows[rows.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [addSampleRow]);
+
+  const handleAddColumn = useCallback(() => {
+    addColumn();
+    // Scroll horizontally so the new column is visible
+    requestAnimationFrame(() => {
+      const scroll = document.querySelector<HTMLElement>('.data-source-scroll');
+      if (scroll) scroll.scrollLeft = scroll.scrollWidth;
+      const headers = document.querySelectorAll<HTMLElement>(
+        '.data-source-th:not(.data-source-th-checkbox):not(.data-source-th-actions):not(.data-source-th-label)',
+      );
+      headers[headers.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'end' });
+    });
+  }, [addColumn]);
+
 
 
   // ─── Fetch / re-fetch (via hook) ──────────────────────────
@@ -364,9 +393,9 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
         onDetachWithCopy={detachWithCopy}
         onDetachUnlinkOnly={detachUnlinkOnly}
         onLinkSharedDs={linkSharedDs}
-        onAddRow={addRow}
-        onAddSampleRow={addSampleRow}
-        onAddColumn={addColumn}
+        onAddRow={handleAddRow}
+        onAddSampleRow={handleAddSampleRow}
+        onAddColumn={handleAddColumn}
         onShowPopulateModal={() => setShowPopulateModal(true)}
         onShowColumnMapper={() => setShowColumnMapper(true)}
         onShowVerifyModal={() => setShowVerifyModal(true)}

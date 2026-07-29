@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import LiveProgressPanel from './LiveProgressPanel';
@@ -28,6 +28,10 @@ vi.mock('../../../shared/utils/executionMode', () => ({
 }));
 
 describe('LiveProgressPanel', () => {
+  beforeEach(() => {
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
   const baseProps = {
     isRunning: true,
     completed: 50,
@@ -609,5 +613,20 @@ describe('LiveProgressPanel', () => {
     );
     const progressText = container.querySelector('.progress-text');
     expect(progressText!.textContent).toMatch(/0s.*\/.*45s/);
+  });
+
+  it('scrolls the progress section into view when a run is active', () => {
+    render(<LiveProgressPanel {...baseProps} isRunning={true} />);
+
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('does not scroll when progress is shown for a finished saved run', () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    render(<LiveProgressPanel {...baseProps} isRunning={false} />);
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });

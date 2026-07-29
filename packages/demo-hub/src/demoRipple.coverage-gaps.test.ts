@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   getManualSpotlightEventName,
   isManualSpotlightActive,
+  purgeAllSpotlightRings,
   showClickRipple,
   showSpotlightRing,
 } from './demoRipple';
@@ -94,5 +95,33 @@ describe('demoRipple', () => {
     expect(() => showSpotlightRing(fakeEl)).toThrow();
 
     vi.stubGlobal('document', originalDocument);
+  });
+
+  it('purges tracked spotlight disposers on interrupted step cleanup', () => {
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 12,
+      left: 16,
+      width: 40,
+      height: 24,
+      right: 56,
+      bottom: 36,
+      x: 16,
+      y: 12,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const dispose = showSpotlightRing(target);
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
+    expect(isManualSpotlightActive()).toBe(true);
+
+    purgeAllSpotlightRings();
+    expect(document.querySelector('.demo-spotlight-ring')).toBeNull();
+    expect(isManualSpotlightActive()).toBe(false);
+
+    // Ensure no counter underflow or throw when disposer runs after purge.
+    expect(() => dispose()).not.toThrow();
+    expect(isManualSpotlightActive()).toBe(false);
   });
 });
