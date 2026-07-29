@@ -136,6 +136,55 @@ describe('LocationGroupPanel', () => {
     );
   });
 
+  it('prefixes custom fields with type:: when Map Columns style paths are present', () => {
+    const fields = makeFields([
+      { path: 'path::userId', location: 'path' },
+      { path: 'validate::$.name', location: 'body' },
+    ]);
+    const onAdd = vi.fn();
+    renderPanel(fields, { allowCustomFields: true, onAddCustomField: onAdd });
+    const bodyAdd = screen.getAllByText('+ Add Field')[1]; // Body section
+    fireEvent.click(bodyAdd);
+    fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'aaaa' } });
+    fireEvent.click(screen.getByLabelText('Confirm add field'));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: 'body::aaaa',
+        label: 'aaaa (Request Body)',
+        location: 'body',
+      }),
+    );
+  });
+
+  it('wires drag-drop onto Add Field in location groups', () => {
+    const fields = makeFields([
+      { path: 'path::userId', location: 'path' },
+    ]);
+    const onAdd = vi.fn();
+    const onDrop = vi.fn();
+    renderPanel(fields, {
+      allowCustomFields: true,
+      onAddCustomField: onAdd,
+      onDrop,
+      getDraggedSource: () => ({ path: 'name', sourceId: 'data-source-columns' }),
+    });
+    const addBtn = screen.getByText('+ Add Field');
+    const dt = {
+      effectAllowed: 'link',
+      dropEffect: 'link',
+      getData: () => '',
+      types: [],
+    };
+    fireEvent.dragOver(addBtn, { dataTransfer: dt });
+    fireEvent.drop(addBtn, { dataTransfer: dt, preventDefault: () => {} });
+    expect(onAdd).toHaveBeenCalled();
+    expect(onDrop).toHaveBeenCalledWith(
+      expect.stringMatching(/^path::/),
+      'name',
+      'data-source-columns',
+    );
+  });
+
   it('renders nodes with data-path attributes for connection lines', () => {
     const fields = makeFields([
       { path: 'userId', location: 'path' },

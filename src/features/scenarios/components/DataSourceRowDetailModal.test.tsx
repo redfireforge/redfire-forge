@@ -578,7 +578,8 @@ describe('DataSourceRowDetailModal', () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
       await waitFor(() => {
-        expect(screen.getByText(/existing rule/)).toBeInTheDocument();
+        expect(screen.getByText(/Keep Rules & Update Values/)).toBeInTheDocument();
+        expect(screen.getByText(/Clear Rules/)).toBeInTheDocument();
       });
     });
 
@@ -600,10 +601,10 @@ describe('DataSourceRowDetailModal', () => {
         expect(screen.getByText(/Keep Rules/)).toBeInTheDocument();
       });
       fireEvent.click(screen.getByText(/Keep Rules/));
-      expect(screen.queryByText(/existing rule/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Keep Rules & Update Values/)).not.toBeInTheDocument();
     });
 
-    it('Replace All clears fields', async () => {
+    it('Clear Rules clears fields', async () => {
       const dt = createDataTable();
       const row = createRow();
       row.values.c3 = 'active';
@@ -618,10 +619,10 @@ describe('DataSourceRowDetailModal', () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
       await waitFor(() => {
-        expect(screen.getByText(/Replace All/)).toBeInTheDocument();
+        expect(screen.getByText(/Clear Rules/)).toBeInTheDocument();
       });
-      fireEvent.click(screen.getByText(/Replace All/));
-      expect(screen.queryByText(/existing rule/)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText(/Clear Rules/));
+      expect(screen.queryByText(/Clear Rules/)).not.toBeInTheDocument();
       expect(document.querySelector('.validation-fields-table')).toBeFalsy();
     });
 
