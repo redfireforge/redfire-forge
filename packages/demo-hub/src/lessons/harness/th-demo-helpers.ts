@@ -510,9 +510,15 @@ export function deleteTh5DemoFg(): void {
 
 /**
  * Seed TH-5 FG with a parameterized scenario containing a test that already
- * has a data source (one Path column `userId`, 2 pre-filled rows).
+ * has a data source (one Path column `userId`).
+ * @param rowMode `empty` — one blank row for the demo to fill then + Row;
+ *                `filled` — Admin/Regular with 1/2 (recovery for later steps).
  */
-export async function seedTh5FeatureGroup(ctx: DemoActionContext): Promise<void> {
+export async function seedTh5FeatureGroup(
+  ctx: DemoActionContext,
+  opts?: { rowMode?: 'empty' | 'filled' },
+): Promise<void> {
+  const rowMode = opts?.rowMode ?? 'filled';
   const w = getDemoBridgeWindow();
   let ids = (window as unknown as Record<string, unknown>).__demoTh5Ids as { envId: string; svcId: string } | undefined;
   if (!ids) {
@@ -524,6 +530,15 @@ export async function seedTh5FeatureGroup(ctx: DemoActionContext): Promise<void>
     }
   }
   if (!ids) return;
+
+  const rows = rowMode === 'filled'
+    ? [
+        { id: 'row-1', label: 'Admin User', values: { 'col-userid': '1' }, enabled: true },
+        { id: 'row-2', label: 'Regular User', values: { 'col-userid': '2' }, enabled: true },
+      ]
+    : [
+        { id: 'row-1', label: '', values: { 'col-userid': '' }, enabled: true },
+      ];
 
   w.__demoSeedFeatureGroup?.({
     id: 'demo-th5-fg',
@@ -555,10 +570,7 @@ export async function seedTh5FeatureGroup(ctx: DemoActionContext): Promise<void>
             type: 'path' as const,
             mapping: 'userId',
           }],
-          rows: [
-            { id: 'row-1', label: '', values: { 'col-userid': '1' }, enabled: true },
-            { id: 'row-2', label: '', values: { 'col-userid': '2' }, enabled: true },
-          ],
+          rows,
           source: { type: 'inline' as const },
           urlTemplate: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
         },
@@ -568,11 +580,15 @@ export async function seedTh5FeatureGroup(ctx: DemoActionContext): Promise<void>
   await ctx.delay(400);
 }
 
-export async function ensureTh5FgExists(ctx: DemoActionContext): Promise<boolean> {
+export async function ensureTh5FgExists(
+  ctx: DemoActionContext,
+  opts?: { rowMode?: 'empty' | 'filled'; force?: boolean },
+): Promise<boolean> {
   const cards = document.querySelectorAll<HTMLElement>(HAR.FG_NAME);
   const found = Array.from(cards).some(el => el.textContent?.trim() === TH5_FG_NAME);
-  if (found) return false;
-  await seedTh5FeatureGroup(ctx);
+  if (found && !opts?.force) return false;
+  if (found && opts?.force) deleteTh5DemoFg();
+  await seedTh5FeatureGroup(ctx, { rowMode: opts?.rowMode ?? 'filled' });
   return true;
 }
 
@@ -604,20 +620,122 @@ export async function navigateToDataSourceTab(ctx: DemoActionContext): Promise<v
 }
 
 /**
- * Fill a data source cell by row/col index.
- * Uses the native setter to work with React controlled inputs.
+ * Set a React-controlled input value via the native setter + input/change events.
  */
-export function fillDsCell(rowIdx: number, colIdx: number, value: string): void {
+function setNativeInputValue(input: HTMLInputElement, value: string): void {
+  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  nativeSetter?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * Fill a data source Row Name (label) by row index.
+ */
+export function fillDsRowLabel(rowIdx: number, value: string): void {
   const rows = document.querySelectorAll<HTMLElement>('.data-source-row');
   const row = rows[rowIdx];
   if (!row) return;
-  const cells = row.querySelectorAll<HTMLInputElement>('.data-source-cell-input');
-  const cell = cells[colIdx];
+  const input = row.querySelector<HTMLInputElement>('.data-source-label-input');
+  if (!input) return;
+  setNativeInputValue(input, value);
+}
+
+/**
+ * Fill a data source data-column cell by row index and data-column index
+ * (0 = first data column / userId — does NOT include Row Name).
+ */
+export function fillDsDataCell(rowIdx: number, dataColIdx: number, value: string): void {
+  const cell = document.querySelector<HTMLInputElement>(
+    `input.data-source-cell-input[data-row="${rowIdx}"][data-col="${dataColIdx}"]`,
+  );
   if (!cell) return;
-  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  nativeSetter?.call(cell, value);
-  cell.dispatchEvent(new Event('input', { bubbles: true }));
-  cell.dispatchEvent(new Event('change', { bubbles: true }));
+  setNativeInputValue(cell, value);
+}
+
+/**
+ * Fill a data source cell by row/col index within `.data-source-cell-input` nodes
+ * (0 = Row Name label, 1+ = data columns). Prefer fillDsRowLabel / fillDsDataCell.
+ */
+export function fillDsCell(rowIdx: number, colIdx: number, value: string): void {
+  if (colIdx === 0) {
+    fillDsRowLabel(rowIdx, value);
+    return;
+  }
+  fillDsDataCell(rowIdx, colIdx - 1, value);
+}
+
+/** Scroll the last data-source row into view (vertical) and/or the scroll pane to the end (horizontal). */
+export function scrollDsGridIntoView(opts?: { horizontal?: boolean; vertical?: boolean }): void {
+  const horizontal = opts?.horizontal ?? false;
+  const vertical = opts?.vertical ?? true;
+  const scroll = document.querySelector<HTMLElement>('.data-source-scroll');
+  if (horizontal && scroll) {
+    scroll.scrollLeft = scroll.scrollWidth;
+  }
+  if (vertical) {
+    const rows = document.querySelectorAll<HTMLElement>('.data-source-row');
+    const last = rows[rows.length - 1];
+    last?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
+}
+
+/**
+ * Scroll the Test Editor tab pane so the Data Source footer / Run Preview
+ * is fully visible below the grid (not clipped by the modal chrome).
+ */
+export function scrollDsFooterIntoView(): void {
+  const footer =
+    document.querySelector<HTMLElement>('.data-source-footer')
+    ?? document.querySelector<HTMLElement>('.data-source-preview');
+  if (!footer) return;
+  const tab = footer.closest<HTMLElement>('.builder-tab-content');
+  if (tab) {
+    tab.scrollTop = tab.scrollHeight;
+  }
+  footer.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+}
+
+/** Column type labels shown in the Data Source grid type CustomSelect. */
+export const DS_COLUMN_TYPE_LABELS = ['Path', 'Param', 'Body', 'Header', 'Validate'] as const;
+
+/**
+ * Open the first column-type dropdown and spotlight the whole menu
+ * (Path / Param / Body / Header / Validate together), then close without
+ * changing the selection. Matches TH-5 "Understanding Column Types" narration.
+ */
+export async function tourDsColumnTypeDropdown(
+  ctx: DemoActionContext,
+  opts?: { holdMs?: number },
+): Promise<void> {
+  const holdMs = opts?.holdMs ?? 2800;
+  const wrap = document.querySelector<HTMLElement>(HAR.DS_COL_TYPE_SELECT);
+  if (!wrap) return;
+
+  wrap.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  await spotlight(wrap, 800, ctx);
+  await ctx.delay(250);
+
+  const trigger = wrap.querySelector<HTMLElement>('.cs-trigger');
+  if (!trigger) return;
+
+  // Open the menu so the viewer can see all five types at once
+  if (!wrap.querySelector('.cs-menu')) {
+    trigger.click();
+    await ctx.delay(500);
+  }
+
+  const menu = wrap.querySelector<HTMLElement>('.cs-menu');
+  if (menu) {
+    await spotlight(menu, holdMs, ctx);
+    await ctx.delay(400);
+  }
+
+  // Close without changing the current type (still Path)
+  if (wrap.querySelector('.cs-menu')) {
+    trigger.click();
+    await ctx.delay(400);
+  }
 }
 
 // ─── TH-6 helpers ────────────────────────────────────────────────
@@ -2192,7 +2310,20 @@ export function deleteTh18DemoFg(): void {
   getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(TH18_FG_NAME);
 }
 
-export async function seedTh18FeatureGroup(ctx: DemoActionContext): Promise<void> {
+export interface SeedTh18Options {
+  /**
+   * When true (default), seed includes the Validate `name` / `$.name` column
+   * with jsonplaceholder expected values. When false, only `userId` — used so
+   * TH-18 step 1 can demo **+ Column** live.
+   */
+  includeNameColumn?: boolean;
+}
+
+export async function seedTh18FeatureGroup(
+  ctx: DemoActionContext,
+  opts?: SeedTh18Options,
+): Promise<void> {
+  const includeNameColumn = opts?.includeNameColumn !== false;
   const w = getDemoBridgeWindow();
   let ids = (window as unknown as Record<string, unknown>).__demoTh18Ids as { envId: string; svcId: string } | undefined;
   if (!ids) {
@@ -2204,6 +2335,28 @@ export async function seedTh18FeatureGroup(ctx: DemoActionContext): Promise<void
     }
   }
   if (!ids) return;
+
+  const columns = includeNameColumn
+    ? [
+        { id: 'col-uid', name: 'userId', type: 'path' as const, mapping: 'userId' },
+        // Column label "name" + mapping "$.name" → compare against response.name
+        { id: 'col-name', name: 'name', type: 'validate' as const, mapping: '$.name' },
+      ]
+    : [
+        { id: 'col-uid', name: 'userId', type: 'path' as const, mapping: 'userId' },
+      ];
+
+  const rows = includeNameColumn
+    ? [
+        { id: 'row-1', label: 'Admin User', values: { 'col-uid': '1', 'col-name': 'Leanne Graham' }, enabled: true },
+        { id: 'row-2', label: 'Regular User', values: { 'col-uid': '2', 'col-name': 'Ervin Howell' }, enabled: true },
+        { id: 'row-3', label: 'Power User', values: { 'col-uid': '3', 'col-name': 'Clementine Bauch' }, enabled: true },
+      ]
+    : [
+        { id: 'row-1', label: 'Admin User', values: { 'col-uid': '1' }, enabled: true },
+        { id: 'row-2', label: 'Regular User', values: { 'col-uid': '2' }, enabled: true },
+        { id: 'row-3', label: 'Power User', values: { 'col-uid': '3' }, enabled: true },
+      ];
 
   w.__demoSeedFeatureGroup?.({
     id: 'demo-th18-fg',
@@ -2227,22 +2380,17 @@ export async function seedTh18FeatureGroup(ctx: DemoActionContext): Promise<void
             validation: {
               mode: 'selective' as const,
               assertions: [{ type: 'status' as const, expected: '200' }],
-              expectedFields: [
-                { jsonPath: '$.name', operator: 'equals', expectedValue: '{{expectedName}}' },
-              ],
+              expectedFields: includeNameColumn
+                ? [
+                    { jsonPath: '$.name', operator: 'equals', expectedValue: '{{name}}' },
+                  ]
+                : [],
             },
             dataSource: {
               id: 'demo-th18-ds',
               label: 'User IDs',
-              columns: [
-                { id: 'col-uid', name: 'userId', type: 'path' as const, mapping: 'userId' },
-                { id: 'col-name', name: 'expectedName', type: 'validate' as const, mapping: 'expectedName' },
-              ],
-              rows: [
-                { id: 'row-1', label: 'Admin User', values: { 'col-uid': '1', 'col-name': 'Leanne Graham' }, enabled: true },
-                { id: 'row-2', label: 'Regular User', values: { 'col-uid': '2', 'col-name': 'Ervin Howell' }, enabled: true },
-                { id: 'row-3', label: 'Power User', values: { 'col-uid': '3', 'col-name': 'Clementine Bauch' }, enabled: true },
-              ],
+              columns,
+              rows,
               source: { type: 'inline' as const },
               urlTemplate: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
             },
@@ -2254,12 +2402,45 @@ export async function seedTh18FeatureGroup(ctx: DemoActionContext): Promise<void
   await ctx.delay(400);
 }
 
-export async function ensureTh18FgExists(ctx: DemoActionContext): Promise<boolean> {
+export async function ensureTh18FgExists(
+  ctx: DemoActionContext,
+  opts?: { force?: boolean; includeNameColumn?: boolean },
+): Promise<boolean> {
   const cards = document.querySelectorAll<HTMLElement>(HAR.FG_NAME);
   const found = Array.from(cards).some(el => el.textContent?.trim() === TH18_FG_NAME);
-  if (found) return false;
-  await seedTh18FeatureGroup(ctx);
+  if (found && !opts?.force) return false;
+  if (found) deleteTh18DemoFg();
+  await seedTh18FeatureGroup(ctx, { includeNameColumn: opts?.includeNameColumn });
   return true;
+}
+
+/** Select a column type on the last (newest) Data Source column CustomSelect. */
+export async function selectLastDsColumnType(
+  ctx: DemoActionContext,
+  label: string,
+): Promise<void> {
+  const wraps = document.querySelectorAll<HTMLElement>(HAR.DS_COL_TYPE_SELECT);
+  const wrap = wraps[wraps.length - 1];
+  if (!wrap) return;
+
+  wrap.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const trigger = wrap.querySelector<HTMLElement>('.cs-trigger');
+  if (!trigger) return;
+
+  if (!wrap.querySelector('.cs-menu')) {
+    trigger.click();
+    await ctx.delay(400);
+  }
+
+  const menu = wrap.querySelector<HTMLElement>('.cs-menu');
+  if (!menu) return;
+
+  const option = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'))
+    .find(el => el.textContent?.trim().startsWith(label));
+  if (option) {
+    option.click();
+    await ctx.delay(400);
+  }
 }
 
 /** Find a Data Source toolbar button by its title attribute. */
@@ -2293,8 +2474,8 @@ export function closeVerifyModal(): void {
       .find(b => b.textContent?.trim() === 'Close');
     if (closeBtn) { closeBtn.click(); return; }
   }
-  const overlay = document.querySelector<HTMLElement>('.verify-modal-overlay');
-  if (overlay) overlay.click();
+  // Fallback: Escape closes AppModalFrame via useModalEscapeClose
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 }
 
 /** Close the Shared DS Modal if open. */

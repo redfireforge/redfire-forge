@@ -385,4 +385,54 @@ describe('ColumnOrderPopover', () => {
     expect(panel.querySelector('.modal-resize-corner')).toBeNull();
     expect(panel.querySelector('.col-order-move-hint')).toBeNull();
   });
+
+  it('does not close when clicking inside anchor element', () => {
+    const anchor = document.createElement('button');
+    anchor.textContent = 'anchor';
+    document.body.appendChild(anchor);
+    const ref = { current: anchor };
+
+    render(<ColumnOrderPopover {...defaultProps} anchorRef={ref} />);
+    fireEvent.mouseDown(anchor);
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
+
+    document.body.removeChild(anchor);
+  });
+
+  it('closes on Escape keydown', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(defaultProps.onClose).toHaveBeenCalled();
+  });
+
+  it('ignores header drag start from interactive child', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    const panel = screen.getByTestId('col-order-popover');
+    const beforeTop = panel.style.top;
+    const beforeLeft = panel.style.left;
+    const cancelBtn = screen.getByTestId('col-order-close');
+
+    fireEvent.mouseDown(cancelBtn, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(window, { clientX: 160, clientY: 160 });
+    fireEvent.mouseUp(window);
+
+    expect(panel.style.top).toBe(beforeTop);
+    expect(panel.style.left).toBe(beforeLeft);
+  });
+
+  it('renders unnamed fallback label when name is empty', () => {
+    render(
+      <ColumnOrderPopover
+        {...defaultProps}
+        items={[{ mapping: 'foo', name: '', type: 'validate' }]}
+      />,
+    );
+    expect(screen.getByText('(unnamed)')).toBeInTheDocument();
+  });
+
+  it('returns inline panel branch explicitly', () => {
+    render(<ColumnOrderPopover {...defaultProps} variant="inline" />);
+    const panel = screen.getByTestId('col-order-popover');
+    expect(panel.parentElement).not.toBe(document.body);
+  });
 });

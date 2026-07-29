@@ -221,7 +221,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
             Trash
             {trash.trashCount > 0 && <span className="count-badge">{trash.trashCount}</span>}
           </button>
-          <button className="btn" onClick={() => setShowSharedDsModal(true)} disabled={!selectedSvcId || !selectedEnvId} style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
+          <button className="btn" onClick={() => setShowSharedDsModal(true)} disabled={!selectedSvcId || !selectedEnvId} style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }} data-testid="har-shared-ds-btn">
             📦 Shared Data Sources
             {sharedDataSources && sharedDataSources.length > 0 && <span className="count-badge" style={{ background: 'var(--accent)' }}>{sharedDataSources.length}</span>}
           </button>

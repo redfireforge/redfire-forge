@@ -374,6 +374,16 @@ describe('buildColumnSourceKeys', () => {
     expect(keyByColId.get('b')).toBe('id (2)');
     expect(keyByColId.get('c')).toBe('userId');
   });
+
+  it('falls back to id when names are empty/whitespace', () => {
+    const cols = [
+      makeColumn({ id: 'x-1', name: '', type: 'path', mapping: '' }),
+      makeColumn({ id: 'x-2', name: '  ', type: 'path', mapping: '' }),
+    ];
+    const { keyByColId } = buildColumnSourceKeys(cols);
+    expect(keyByColId.get('x-1')).toBe('x-1');
+    expect(keyByColId.get('x-2')).toBe('x-2');
+  });
 });
 
 
@@ -477,6 +487,38 @@ describe('serialize', () => {
     expect(output[0].type).toBe('path');
     expect(output[0].mapping).toBe('old');
   });
+
+  it('ignores mappings with unsupported target type', () => {
+    const cols = [makeColumn({ id: 'c1', name: 'VIN', type: 'path', mapping: 'old' })];
+    const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'cookie::x' },
+    ];
+    const output = adapter.serialize(mappings);
+    expect(output[0].type).toBe('path');
+    expect(output[0].mapping).toBe('old');
+  });
+
+  it('ignores mappings with empty right side of target path', () => {
+    const cols = [makeColumn({ id: 'c1', name: 'VIN', type: 'path', mapping: 'old' })];
+    const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'VIN', targetPath: 'path::' },
+    ];
+    const output = adapter.serialize(mappings);
+    expect(output[0].mapping).toBe('old');
+  });
+
+  it('uses column name fallback for __custom__ when existing mapping is empty', () => {
+    const cols = [makeColumn({ id: 'c1', name: 'MyCustom', type: 'path', mapping: '' })];
+    const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourceId: 'data-source-columns', sourcePath: 'MyCustom', targetPath: 'validate::__custom__' },
+    ];
+    const output = adapter.serialize(mappings);
+    expect(output[0].type).toBe('validate');
+    expect(output[0].mapping).toBe('MyCustom');
+  });
 });
 
 // ─── Deserialize ─────────────────────────────────────────────
@@ -529,6 +571,17 @@ describe('deserialize', () => {
   it('handles null/undefined input', () => {
     const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
     expect(adapter.deserialize(null as unknown as ColumnMappingOutput)).toEqual([]);
+  });
+
+  it('skips whitespace-only mapping values', () => {
+    const cols = [
+      makeColumn({ id: 'c1', name: 'A', type: 'path', mapping: '   ' }),
+      makeColumn({ id: 'c2', name: 'B', type: 'param', mapping: 'b' }),
+    ];
+    const adapter = createColumnMappingAdapter({ columns: cols, scenario: makeScenario() });
+    const mappings = adapter.deserialize(cols);
+    expect(mappings).toHaveLength(1);
+    expect(mappings[0].sourcePath).toBe('B');
   });
 });
 

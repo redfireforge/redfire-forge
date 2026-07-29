@@ -7,6 +7,7 @@
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { HAR } from '@shared/selectors';
+import { loadExpressionSnippets, deleteExpressionSnippet } from '@shared/components/data-mapper/utils/expressionSnippets';
 import {
   seedDemoEnvAndService,
   seedTh17FeatureGroup,
@@ -27,6 +28,7 @@ import {
   closeRulesModal,
   clickRulesToolbarButton,
 } from './th-demo-helpers';
+import { showSpotlightRing } from '../../demoRipple';
 
 /* ── local helpers ──────────────────────────────────────────── */
 
@@ -67,6 +69,24 @@ function openExpressionEditorViaDoubleClick(): void {
   const badge = document.querySelector<HTMLElement>('.dm-mapped-badge');
   if (badge) {
     badge.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  }
+}
+
+/** Demo-only snippet name — must be removed on setup and cleanup. */
+const DEMO_SNIPPET_NAME = 'Uppercase Name';
+
+/** Delete every leftover "Uppercase Name" snippet from storage. */
+async function removeDemoExpressionSnippets(): Promise<void> {
+  try {
+    const snippets = await loadExpressionSnippets();
+    const demos = snippets.filter(
+      (s) => s.name.trim().toLowerCase() === DEMO_SNIPPET_NAME.toLowerCase(),
+    );
+    for (const demo of demos) {
+      await deleteExpressionSnippet(demo.id);
+    }
+  } catch {
+    /* best effort — never block lesson flow */
   }
 }
 
@@ -139,6 +159,51 @@ function setDslEditorValue(value: string): void {
       if (model) model.setValue(value);
     }
   }
+}
+
+/**
+ * Spotlight just the rendered code lines in the DSL editor — not the
+ * entire editor pane. Computes the union bounding rect of only
+ * `.view-line` elements that have text content, then creates a fixed
+ * proxy div over that tight area.
+ */
+async function spotlightDslCodeTight(
+  ctx: DemoActionContext,
+  holdMs = 3000,
+): Promise<void> {
+  const allLines = document.querySelectorAll<HTMLElement>(HAR.VR_VIEW_LINE);
+  const lines = Array.from(allLines).filter(
+    (el) => (el.textContent?.trim().length ?? 0) > 0,
+  );
+  if (lines.length === 0) return;
+
+  let top = Infinity, left = Infinity, bottom = -Infinity, right = -Infinity;
+  for (const line of lines) {
+    const r = line.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    if (r.top < top) top = r.top;
+    if (r.left < left) left = r.left;
+    if (r.bottom > bottom) bottom = r.bottom;
+    if (r.right > right) right = r.right;
+  }
+  if (top >= bottom) return;
+
+  // Include the line-number gutter by extending left to the editor pane edge
+  const editorPane = document.querySelector<HTMLElement>('.vr-modal-editor-pane .monaco-editor');
+  if (editorPane) {
+    const paneRect = editorPane.getBoundingClientRect();
+    left = paneRect.left;
+    right = paneRect.right;
+  }
+
+  const proxy = document.createElement('div');
+  proxy.style.cssText =
+    `position:fixed;top:${top - 4}px;left:${left}px;` +
+    `width:${right - left}px;height:${bottom - top + 8}px;` +
+    `pointer-events:none;opacity:0;`;
+  document.body.appendChild(proxy);
+  const removeRing = showSpotlightRing(proxy);
+  try { await ctx.delay(holdMs); } finally { removeRing(); proxy.remove(); }
 }
 
 /** Find and spotlight the Rules toolbar button. */
@@ -221,6 +286,8 @@ export const thMapperExpressionsDslLesson: DemoLesson = {
   setup: async (ctx) => {
     deleteTh17DemoFg();
     await ctx.delay(200);
+    // Always start clean — leftover snippet from prior incomplete runs must not appear
+    await removeDemoExpressionSnippets();
     await seedDemoEnvAndService(ctx);
     await seedTh17FeatureGroup(ctx);
     await ctx.delay(300);
@@ -240,6 +307,8 @@ export const thMapperExpressionsDslLesson: DemoLesson = {
     await ctx.delay(100);
     deleteTh17DemoFg();
     await ctx.delay(200);
+    // Demo closed → remove "Uppercase Name" so next open starts empty
+    await removeDemoExpressionSnippets();
   },
 
   steps: [
@@ -441,20 +510,20 @@ export const thMapperExpressionsDslLesson: DemoLesson = {
         if (templateItem) await spotlight(templateItem, 1500, ctx);
         await ctx.delay(800);
 
-        // ── Reusable Snippets demo: type name → Save → show saved snippet ──
+        // ── Reusable Snippets: type name → Save → highlight saved card ──
 
         // Highlight the snippet save row (input + Save button)
         const snippetSave = document.querySelector<HTMLElement>('.dm-expr-snippet-save');
         if (snippetSave) await spotlight(snippetSave, 1500, ctx);
         await ctx.delay(600);
 
-        // Type "Uppercase Name" into the snippet name input
+        // Type "Uppercase Name" into the snippet name input (React-controlled)
         const snippetInput = document.querySelector<HTMLInputElement>('.dm-expr-snippet-name');
         if (snippetInput) {
           const nativeSetter = Object.getOwnPropertyDescriptor(
             window.HTMLInputElement.prototype, 'value',
           )?.set;
-          nativeSetter?.call(snippetInput, 'Uppercase Name');
+          nativeSetter?.call(snippetInput, DEMO_SNIPPET_NAME);
           snippetInput.dispatchEvent(new Event('input', { bubbles: true }));
           snippetInput.dispatchEvent(new Event('change', { bubbles: true }));
           await ctx.delay(600);
@@ -462,16 +531,21 @@ export const thMapperExpressionsDslLesson: DemoLesson = {
           await ctx.delay(800);
         }
 
-        // Click the Save button next to the snippet input
-        const snippetSaveBtn = snippetSave?.querySelector<HTMLElement>('button');
-        if (snippetSaveBtn && !snippetSaveBtn.hasAttribute('disabled')) {
+        // Click Save — persists the snippet and shows it in the list
+        const snippetSaveBtn = snippetSave?.querySelector<HTMLButtonElement>('button');
+        if (snippetSaveBtn && !snippetSaveBtn.disabled) {
           await spotlight(snippetSaveBtn, 1200, ctx);
           await ctx.delay(400);
           snippetSaveBtn.click();
-          await ctx.delay(1200);
+          // Wait until the saved card appears in the list
+          for (let i = 0; i < 20; i++) {
+            if (document.querySelector('.dm-expr-snippet-item')) break;
+            await ctx.delay(100);
+          }
+          await ctx.delay(400);
         }
 
-        // Highlight the newly saved snippet item showing name + expression
+        // Highlight the newly saved snippet card (name + expression)
         const savedSnippet = document.querySelector<HTMLElement>('.dm-expr-snippet-item');
         if (savedSnippet) {
           await spotlight(savedSnippet, 2200, ctx);
@@ -548,9 +622,8 @@ export const thMapperExpressionsDslLesson: DemoLesson = {
         setDslEditorValue(rules);
         await ctx.delay(1200);
 
-        // Spotlight the code lines area (all 3 rules as one group)
-        const viewLines = document.querySelector<HTMLElement>('.vr-modal-editor-pane .view-lines');
-        if (viewLines) await spotlight(viewLines, 3000, ctx);
+        // Spotlight just the 3 rule lines tightly (not the whole editor box)
+        await spotlightDslCodeTight(ctx, 3000);
         await ctx.delay(800);
 
         // Highlight the Reference button before clicking
@@ -628,9 +701,8 @@ export const thMapperExpressionsDslLesson: DemoLesson = {
         if (statsEl) await spotlight(statsEl, 2200, ctx);
         await ctx.delay(800);
 
-        // Spotlight the code lines area (all 3 verified rules as one group)
-        const viewLines = document.querySelector<HTMLElement>('.vr-modal-editor-pane .view-lines');
-        if (viewLines) await spotlight(viewLines, 3000, ctx);
+        // Spotlight just the 3 verified rule lines tightly (not the whole editor box)
+        await spotlightDslCodeTight(ctx, 3000);
         await ctx.delay(800);
         // Stay in the Rules modal — do not close or return to Data Mapper
       },

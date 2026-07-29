@@ -155,7 +155,6 @@ export default function ColumnOrderPopover<T extends OrderableItem>({
   }, [isInline, position]);
 
   const onHeaderMouseDown = useCallback((e: React.MouseEvent) => {
-    if (isInline) return;
     // Don't start move-drag from interactive children (none today, but safe)
     if ((e.target as HTMLElement).closest('button, input, a')) return;
     e.preventDefault();
@@ -186,7 +185,7 @@ export default function ColumnOrderPopover<T extends OrderableItem>({
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [isInline, position]);
+  }, [position]);
 
   const quickSort = useCallback((mode: 'by-index' | 'by-field') => {
     setOrderedItems(prev => {
@@ -374,6 +373,5 @@ export default function ColumnOrderPopover<T extends OrderableItem>({
   );
 
   if (isInline) return panel;
-  if (typeof document === 'undefined') return panel;
   return createPortal(panel, document.body);
 }

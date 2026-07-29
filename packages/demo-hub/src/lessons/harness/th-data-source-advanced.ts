@@ -1,9 +1,12 @@
 /**
  * TH-18: Data Source Advanced Features
  *
- * 5 steps: Row Detail Modal → Verify & Inspect Modal →
+ * 6 steps: Add Validate Column → Row Detail (Admin User) → Verify & Inspect →
  * Validation Contract Panel → Toolbar Data Mapper integrations →
  * Shared Data Sources.
+ *
+ * Transition rule: never open/close a modal or panel silently.
+ * Always spotlight the control → pause → click → pause on the outcome.
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { HAR } from '@shared/selectors';
@@ -24,12 +27,26 @@ import {
   closeContractPanel,
   closeSharedDsModal,
   findDsToolbarBtn,
+  fillDsDataCell,
+  selectLastDsColumnType,
+  scrollDsGridIntoView,
+  fillNativeInput,
 } from './th-demo-helpers';
 
 /* ── local helpers ──────────────────────────────────────────── */
 
-async function ensureTh18Ready(ctx: DemoActionContext): Promise<void> {
-  await ensureTh18FgExists(ctx);
+async function ensureTh18Ready(
+  ctx: DemoActionContext,
+  opts?: { forceSeed?: boolean; includeNameColumn?: boolean },
+): Promise<void> {
+  if (opts?.forceSeed) {
+    await ensureTh18FgExists(ctx, {
+      force: true,
+      includeNameColumn: opts.includeNameColumn,
+    });
+  } else {
+    await ensureTh18FgExists(ctx);
+  }
   if (!document.querySelector(HAR.FG_CARD)) {
     ctx.navigateToTab('scenarios');
     await ctx.delay(500);
@@ -64,6 +81,89 @@ function closeAllModals(): void {
   closeVerifyModal();
   closeContractPanel();
   closeSharedDsModal();
+  const mapperCancel = document.querySelector<HTMLElement>(HAR.MAPPER_CANCEL_BTN);
+  mapperCancel?.click();
+}
+
+/** First-row ✎ Edit button in the data source grid. */
+function findFirstRowEditBtn(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(HAR.ROW_EDIT_BTN);
+}
+
+/** Spotlight a control, pause, then click — the canonical open/close path. */
+async function highlightPauseClick(
+  el: HTMLElement,
+  ctx: DemoActionContext,
+  highlightMs = 2800,
+  afterPauseMs = 900,
+): Promise<void> {
+  el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+  await ctx.delay(200);
+  await spotlight(el, highlightMs, ctx);
+  await ctx.delay(afterPauseMs);
+  el.click();
+}
+
+async function waitUntilGone(selector: string, ctx: DemoActionContext, attempts = 12): Promise<void> {
+  for (let i = 0; i < attempts && document.querySelector(selector); i++) {
+    await ctx.delay(120);
+  }
+}
+
+async function closeMapperVisibly(ctx: DemoActionContext): Promise<void> {
+  const cancel = document.querySelector<HTMLElement>(HAR.MAPPER_CANCEL_BTN);
+  if (!cancel) return;
+  await highlightPauseClick(cancel, ctx, 1600, 500);
+  await waitUntilGone(HAR.MAPPER_SHELL, ctx);
+  await ctx.delay(600);
+}
+
+async function closeVerifyVisibly(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector<HTMLElement>(HAR.VERIFY_MODAL);
+  if (!modal) return;
+  const closeBtn = Array.from(modal.querySelectorAll<HTMLElement>('.verify-modal-footer button'))
+    .find(b => b.textContent?.trim() === 'Close');
+  if (closeBtn) {
+    await highlightPauseClick(closeBtn, ctx, 1600, 500);
+  } else {
+    closeVerifyModal();
+  }
+  await waitUntilGone(HAR.VERIFY_MODAL, ctx);
+  await ctx.delay(500);
+}
+
+async function closeRowDetailVisibly(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector<HTMLElement>(HAR.ROW_DETAIL_MODAL);
+  if (!modal) return;
+  const footerBtns = modal.querySelectorAll<HTMLElement>('.modal-footer button, .wf-config-modal-footer button');
+  const closeBtn = Array.from(footerBtns).find(b => {
+    const t = b.textContent?.trim();
+    return t === 'Close' || t === 'Cancel';
+  });
+  if (closeBtn) {
+    await highlightPauseClick(closeBtn, ctx, 1600, 500);
+  } else {
+    closeRowDetailModal();
+  }
+  await waitUntilGone(HAR.ROW_DETAIL_MODAL, ctx);
+  await ctx.delay(500);
+}
+
+async function closeSharedDsVisibly(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector<HTMLElement>(HAR.SHARED_DS_MODAL);
+  if (!modal) return;
+  const closeBtn = Array.from(modal.querySelectorAll<HTMLElement>('.shared-ds-footer button, .modal-footer button'))
+    .find(b => {
+      const t = b.textContent?.trim();
+      return t === 'Close' || t === 'Cancel';
+    });
+  if (closeBtn) {
+    await highlightPauseClick(closeBtn, ctx, 1600, 500);
+  } else {
+    closeSharedDsModal();
+  }
+  await waitUntilGone(HAR.SHARED_DS_MODAL, ctx);
+  await ctx.delay(500);
 }
 
 /* ── lesson definition ──────────────────────────────────────── */
@@ -76,7 +176,7 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
   description:
     'Explore advanced data source capabilities — per-row detail editing, batch verification, ' +
     'validation contracts, Data Mapper integrations, and shared data sources.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 8,
   initialTab: 'scenarios',
   allowedTabs: ['scenarios'],
 
@@ -84,6 +184,7 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
     title: 'Advanced Data Source Tools',
     body:
       'Beyond basic column/row editing, RedfireForge offers powerful data source features:\n\n' +
+      '**Validate columns** — add a column typed Validate with a JSON path (e.g. `$.name`) to store expected values\n' +
       '**Row Detail Modal** — inspect, label, and fetch individual rows with URL preview\n' +
       '**Verify & Inspect** — batch-verify all rows against live API responses\n' +
       '**Validation Contract** — enforce array consistency across data rows (Dynamic vs Fixed, Ordered vs Unordered)\n' +
@@ -91,6 +192,7 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
       '**Map Columns** — visually connect columns to request template slots\n' +
       '**Shared Data Sources** — maintain one dataset used by multiple tests, with fetch config and cURL import',
     keyTerms: [
+      { term: 'Validate Column', definition: 'A data-source column typed Validate — stores expected values compared to a JSON path in the response.' },
       { term: 'Row Detail', definition: 'Per-row modal showing all column values, URL preview, and per-row fetch.' },
       { term: 'Verify All', definition: 'Batch verification — sends every enabled row and compares validate columns.' },
       { term: 'Validation Contract', definition: 'Enforces array size and order consistency across data rows.' },
@@ -128,7 +230,8 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
     await closeTestEditorQuiet(ctx);
     await ctx.delay(200);
     await seedDemoEnvAndService(ctx);
-    await seedTh18FeatureGroup(ctx);
+    // Start without the Validate `name` column — step 1 demos + Column live
+    await seedTh18FeatureGroup(ctx, { includeNameColumn: false });
     await ctx.delay(300);
     await expandFirstFg(ctx);
     await expandFirstScenario(ctx);
@@ -146,126 +249,370 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
   },
 
   steps: [
-    // ── Step 1: Row Detail Modal ──────────────────────────────────
+    // ── Step 1: Add Validate `name` column ────────────────────────
+    {
+      id: 'th18-add-name-column',
+      title: 'Add Validate Column',
+      description:
+        'Start with only a **userId** path column. Click **+ Column**, rename it to `name`, ' +
+        'and set the type to **Validate**.\n\n' +
+        'The JSON path **`$.name`** appears under the header — that is the field in the API ' +
+        'response this column will compare against. Then fill expected names for each row ' +
+        '(Admin User → `Leanne Graham`, and so on).',
+      highlight: HAR.DS_ADD_COL_BTN,
+      pauseAfter: 4000,
+
+      preAction: async (ctx) => {
+        // Fresh grid without the name column so + Column is a real beat
+        await ensureTh18Ready(ctx, { forceSeed: true, includeNameColumn: false });
+        closeAllModals();
+        await ensureOnDataTab(ctx);
+        closeRowDetailModal();
+        await ctx.delay(300);
+      },
+
+      action: async (ctx) => {
+        const addColBtn =
+          document.querySelector<HTMLElement>(HAR.DS_ADD_COL_BTN)
+          ?? findDsToolbarBtn('Add a new column')
+          ?? findDsToolbarBtn('+ Column');
+        if (!addColBtn) return;
+
+        await highlightPauseClick(addColBtn, ctx, 2800, 900);
+        await ctx.delay(700);
+        scrollDsGridIntoView({ horizontal: true, vertical: false });
+        await ctx.delay(400);
+
+        // Rename the new column to "name"
+        const nameSpans = document.querySelectorAll<HTMLElement>('.data-source-col-name');
+        const newColName = nameSpans[nameSpans.length - 1];
+        if (newColName) {
+          await spotlight(newColName, 1600, ctx);
+          await ctx.delay(400);
+          newColName.click();
+          await ctx.delay(400);
+          const input = document.querySelector<HTMLInputElement>('.data-source-col-name-input');
+          if (input) {
+            fillNativeInput('.data-source-col-name-input', 'name');
+            await ctx.delay(500);
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+            input.blur();
+            await ctx.delay(500);
+          }
+        }
+
+        // Set type → Validate (last column's type select)
+        const typeWraps = document.querySelectorAll<HTMLElement>(HAR.DS_COL_TYPE_SELECT);
+        const lastType = typeWraps[typeWraps.length - 1];
+        if (lastType) {
+          await spotlight(lastType, 1600, ctx);
+          await ctx.delay(500);
+        }
+        await selectLastDsColumnType(ctx, 'Validate');
+        await ctx.delay(800);
+
+        // Outcome: name + $.name under Validate header
+        const mappingEl = document.querySelector<HTMLElement>(HAR.DS_COL_MAPPING);
+        if (mappingEl) {
+          const header = mappingEl.closest<HTMLElement>('.data-source-col-header') ?? mappingEl;
+          await spotlight(header, 3000, ctx);
+          await ctx.delay(1000);
+        }
+
+        // Fill expected values (data col index 1 = name, after userId)
+        const expectedNames = ['Leanne Graham', 'Ervin Howell', 'Clementine Bauch'];
+        for (let i = 0; i < expectedNames.length; i++) {
+          fillDsDataCell(i, 1, expectedNames[i]);
+          await ctx.delay(350);
+        }
+        await ctx.delay(400);
+
+        const firstNameCell = document.querySelector<HTMLElement>(
+          'input.data-source-cell-input[data-row="0"][data-col="1"]',
+        );
+        if (firstNameCell) {
+          await spotlight(firstNameCell, 2000, ctx);
+          await ctx.delay(700);
+        }
+      },
+
+      verify: HAR.DS_COL_MAPPING,
+    },
+
+    // ── Step 2: Row Detail — Admin User ───────────────────────────
     {
       id: 'th18-row-detail',
-      title: 'Row Detail Modal',
+      title: 'Row Detail — Admin User',
       description:
-        'Click the **✎ edit** button on any data row to open the **Row Detail Modal** — ' +
-        'a per-row view showing all column values grouped by type (path, validate) with ' +
-        'colored type badges.\n\n' +
-        'The modal includes a **Row Name** field for labeling rows (e.g., "Admin User"), ' +
-        'a **URL Preview** showing the resolved method + URL with substituted values, ' +
-        'and a **Fetch Response** button to send the request for just this one row.\n\n' +
-        'Row detail is useful for debugging why a specific data row fails — inspect its ' +
-        'substituted URL, fetch its response, and verify its validate columns.',
-      highlight: HAR.ROW_DETAIL_MODAL,
+        'Focus on **Row 1 — Admin User**. Open **✎ edit** → **Fetch Response**. ' +
+        'When the purple banner appears, choose **Keep Rules & Update Values** (not Clear Rules).\n\n' +
+        'Watch what happens: the banner closes, `$.name` stays selected, and the expected value ' +
+        'refreshes from the live response. Then **Save** to write it back to the grid.',
+      highlight: HAR.ROW_EDIT_BTN,
+      pauseAfter: 4500,
 
       preAction: async (ctx) => {
         await ensureTh18Ready(ctx);
         closeAllModals();
         await ensureOnDataTab(ctx);
-        if (!document.querySelector(HAR.ROW_DETAIL_MODAL)) {
-          const editBtns = document.querySelectorAll<HTMLElement>(HAR.ROW_EDIT_BTN);
-          for (const btn of editBtns) {
-            if (btn.title?.includes('Edit row') || btn.title?.includes('edit')) {
-              btn.click();
-              await ctx.delay(600);
-              break;
-            }
-          }
+        // Rapid-Next / skip path: ensure Validate name column exists
+        if (!document.querySelector(HAR.DS_COL_MAPPING)) {
+          await ensureTh18Ready(ctx, { forceSeed: true, includeNameColumn: true });
+          await ensureOnDataTab(ctx);
         }
+        closeRowDetailModal();
+        await ctx.delay(300);
+        await waitUntilGone(HAR.ROW_DETAIL_MODAL, ctx);
       },
 
       action: async (ctx) => {
+        if (document.querySelector(HAR.ROW_DETAIL_MODAL)) {
+          closeRowDetailModal();
+          await ctx.delay(400);
+        }
+
+        // Spotlight Admin User row label so the viewer knows which row
+        const adminLabel = Array.from(
+          document.querySelectorAll<HTMLElement>('.data-source-label-input, .data-source-row'),
+        ).find(el => /Admin User/i.test((el as HTMLInputElement).value || el.textContent || ''));
+        if (adminLabel) {
+          const row = adminLabel.closest<HTMLElement>('.data-source-row') ?? adminLabel;
+          await spotlight(row, 2200, ctx);
+          await ctx.delay(700);
+        }
+
+        const editBtn = findFirstRowEditBtn();
+        if (!editBtn) return;
+        await highlightPauseClick(editBtn, ctx, 2800, 900);
+        await ctx.waitFor(HAR.ROW_DETAIL_MODAL, 5000);
+        await ctx.delay(1200);
+
         const modal = document.querySelector<HTMLElement>(HAR.ROW_DETAIL_MODAL);
         if (!modal) return;
 
-        const fields = modal.querySelectorAll<HTMLElement>(HAR.ROW_DETAIL_FIELD);
-        if (fields.length > 0) {
-          await spotlight(fields[0], 1200, ctx);
+        // Show existing $.name rule before fetch
+        const rulesBefore = modal.querySelector<HTMLElement>(HAR.ROW_DETAIL_VALIDATION_TABLE);
+        if (rulesBefore) {
+          await spotlight(rulesBefore, 2000, ctx);
+          await ctx.delay(600);
         }
 
         const urlPreview = modal.querySelector<HTMLElement>(HAR.ROW_DETAIL_URL);
         if (urlPreview) {
-          await spotlight(urlPreview, 1200, ctx);
+          await spotlight(urlPreview, 1600, ctx);
+          await ctx.delay(500);
         }
 
         const fetchBtn = modal.querySelector<HTMLElement>(HAR.ROW_DETAIL_FETCH);
         if (fetchBtn) {
-          await spotlight(fetchBtn, 1000, ctx);
+          await highlightPauseClick(fetchBtn, ctx, 2600, 800);
+
+          // Wait for 200 OK / error, then the confirm banner
+          await ctx.delay(1500);
+          const statusEl =
+            modal.querySelector<HTMLElement>('.row-detail-fetch-status')
+            ?? modal.querySelector<HTMLElement>('.row-detail-fetch-error');
+          if (statusEl) {
+            await spotlight(statusEl, 1600, ctx);
+            await ctx.delay(500);
+          }
+
+          // Wait for the purple confirm banner (existing rules → Keep / Clear choice)
+          let confirmBar: HTMLElement | null = null;
+          for (let i = 0; i < 40 && !confirmBar; i++) {
+            confirmBar = modal.querySelector<HTMLElement>(HAR.ROW_DETAIL_FETCH_CONFIRM);
+            if (!confirmBar) await ctx.delay(200);
+          }
+
+          if (confirmBar) {
+            // Let the viewer read the banner + three choices
+            await spotlight(confirmBar, 3200, ctx);
+            await ctx.delay(1000);
+
+            const keepBtn =
+              modal.querySelector<HTMLElement>(HAR.ROW_DETAIL_KEEP_RULES)
+              ?? Array.from(modal.querySelectorAll<HTMLElement>('button'))
+                .find(b => /Keep Rules/i.test(b.textContent ?? ''))
+              ?? null;
+
+            if (keepBtn) {
+              // Climax: click Keep Rules & Update Values and show the outcome
+              await highlightPauseClick(keepBtn, ctx, 3000, 1000);
+              await waitUntilGone(HAR.ROW_DETAIL_FETCH_CONFIRM, ctx, 20);
+              await ctx.delay(800);
+
+              // Outcome: banner gone; $.name rule still present with refreshed value
+              const rulesAfter = modal.querySelector<HTMLElement>(HAR.ROW_DETAIL_VALIDATION_TABLE);
+              if (rulesAfter) {
+                await spotlight(rulesAfter, 3000, ctx);
+                await ctx.delay(1000);
+              }
+              const pathCell = Array.from(modal.querySelectorAll<HTMLElement>('code'))
+                .find(c => (c.textContent ?? '').includes('$.name') || c.textContent === 'name');
+              if (pathCell) {
+                const row = pathCell.closest('tr') ?? pathCell;
+                await spotlight(row as HTMLElement, 2800, ctx);
+                await ctx.delay(900);
+              }
+            }
+          }
         }
 
-        closeRowDetailModal();
-        await ctx.delay(600);
+        // Save so the grid picks up refreshed values
+        const saveBtn = Array.from(modal.querySelectorAll<HTMLElement>('button'))
+          .find(b => b.textContent?.trim() === 'Save');
+        if (saveBtn) {
+          await highlightPauseClick(saveBtn, ctx, 2200, 700);
+          await waitUntilGone(HAR.ROW_DETAIL_MODAL, ctx);
+          await ctx.delay(700);
+          // Outcome on the grid: validate cell still shows Leanne Graham
+          const nameCell = Array.from(
+            document.querySelectorAll<HTMLElement>('.data-source-cell-input, .data-source-cell'),
+          ).find(el => /Leanne Graham/i.test((el as HTMLInputElement).value || el.textContent || ''));
+          if (nameCell) {
+            await spotlight(nameCell, 2200, ctx);
+            await ctx.delay(800);
+          }
+        } else {
+          await closeRowDetailVisibly(ctx);
+        }
       },
 
       verify: HAR.DS_GRID,
     },
 
-    // ── Step 2: Verify & Inspect Modal ────────────────────────────
+    // ── Step 3: Verify & Inspect Modal ────────────────────────────
     {
       id: 'th18-verify-modal',
       title: 'Verify & Inspect Modal',
       description:
-        'Click **▶ Verify All** in the toolbar to open the **Data Source — Verify & Inspect** ' +
-        'modal. It shows a summary of enabled rows and columns.\n\n' +
-        'Two primary actions:\n' +
-        '- **▶ Verify All** — sends each row\'s request and compares validate columns against ' +
-        'actual responses (green ✓ for match, red ✗ for mismatch)\n' +
-        '- **⬇ Run & Capture** — fetches all rows and populates validate columns from live responses\n\n' +
-        'The progress bar tracks batch execution, and per-row cards show individual results. ' +
-        'This catches stale test data when the API changes.',
-      highlight: HAR.VERIFY_MODAL,
+        'Look at **▶ Verify All** in the Data Source toolbar — click it to open the ' +
+        '**Data Source — Verify & Inspect** modal.\n\n' +
+        'The **Validate** column stores expected values (e.g. `Leanne Graham`). Its mapping is ' +
+        '`$.name` — that is the field in the live API response ' +
+        '(`https://jsonplaceholder.typicode.com/users/1` returns `"name": "Leanne Graham"`).\n\n' +
+        'Inside the modal we click **▶ Verify All** to fetch each row and compare:\n' +
+        '- green **✓** when expected matches `$.name` from the response\n' +
+        '- red **✗** when values differ\n\n' +
+        '**⬇ Run & Capture** can also populate validate columns from live responses.',
+      highlight: HAR.DS_VERIFY_OPEN_BTN,
+      pauseAfter: 4500,
 
       preAction: async (ctx) => {
-        await ensureTh18Ready(ctx);
+        // Force re-seed so validate column maps to $.name (live jsonplaceholder names)
+        await ensureTh18Ready(ctx, { forceSeed: true, includeNameColumn: true });
         closeRowDetailModal();
         closeContractPanel();
         closeSharedDsModal();
+        closeVerifyModal();
         await ensureOnDataTab(ctx);
-        if (!document.querySelector(HAR.VERIFY_MODAL)) {
-          const verifyBtn = findDsToolbarBtn('Verify');
-          if (verifyBtn) {
-            verifyBtn.click();
-            await ctx.delay(600);
-          }
+        closeVerifyModal();
+        await ctx.delay(300);
+        for (let i = 0; i < 12 && document.querySelector(HAR.VERIFY_MODAL); i++) {
+          closeVerifyModal();
+          await ctx.delay(120);
         }
+        const verifyBtn =
+          document.querySelector<HTMLElement>(HAR.DS_VERIFY_OPEN_BTN) ?? findDsToolbarBtn('Verify');
+        verifyBtn?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
       },
 
       action: async (ctx) => {
+        if (document.querySelector(HAR.VERIFY_MODAL)) {
+          closeVerifyModal();
+          await ctx.delay(500);
+          await waitUntilGone(HAR.VERIFY_MODAL, ctx);
+        }
+
+        // Show the Validate column — mapping is $.name (API field), not a fake response key
+        const validateHeader = Array.from(
+          document.querySelectorAll<HTMLElement>('.data-source-col-header'),
+        ).find(h => {
+          const name = h.querySelector('.data-source-col-name')?.textContent ?? '';
+          return name.includes('name') || name.includes('expected');
+        });
+        if (validateHeader) {
+          await spotlight(validateHeader, 2800, ctx);
+          await ctx.delay(900);
+        }
+
+        // 1) Open modal from toolbar
+        const openBtn =
+          document.querySelector<HTMLElement>(HAR.DS_VERIFY_OPEN_BTN) ?? findDsToolbarBtn('Verify');
+        if (!openBtn) return;
+
+        await highlightPauseClick(openBtn, ctx, 3000, 1000);
+        await ctx.waitFor(HAR.VERIFY_MODAL, 5000);
+        await ctx.delay(1200);
+
         const modal = document.querySelector<HTMLElement>(HAR.VERIFY_MODAL);
         if (!modal) return;
 
-        const header = modal.querySelector<HTMLElement>('.verify-modal-header');
-        if (header) {
-          await spotlight(header, 1200, ctx);
-        }
-
-        const footer = modal.querySelector<HTMLElement>('.verify-modal-footer');
-        if (footer) {
-          await spotlight(footer, 1200, ctx);
-        }
-
+        // Brief look at pending cards (Actual still —)
         const rowCards = modal.querySelector<HTMLElement>(HAR.VERIFY_ROW_CARDS);
         if (rowCards) {
-          await spotlight(rowCards, 1200, ctx);
+          await spotlight(rowCards, 1600, ctx);
+          await ctx.delay(600);
         }
 
-        closeVerifyModal();
-        await ctx.delay(600);
+        // 2) Click ▶ Verify All inside the modal to run live validation
+        const runBtn = Array.from(modal.querySelectorAll<HTMLElement>('.verify-modal-footer button'))
+          .find(b => /Verify All|Re-verify/i.test(b.textContent ?? ''));
+        if (!runBtn) return;
+
+        runBtn.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
+        await highlightPauseClick(runBtn, ctx, 2800, 900);
+
+        // Wait for verification to finish (3 live API calls)
+        for (let i = 0; i < 50; i++) {
+          const done =
+            document.querySelector(HAR.VERIFY_STATS)
+            || document.querySelector('.verify-stat-fail')
+            || document.querySelector('.verify-stat-error')
+            || Array.from(document.querySelectorAll('.verify-modal-footer button'))
+              .some(b => b.textContent?.includes('Re-verify'));
+          if (done) break;
+          await ctx.delay(400);
+        }
+        await ctx.delay(1000);
+
+        // 3) Highlight live results — summary + passed cards + actual values
+        const summary = document.querySelector<HTMLElement>(HAR.VERIFY_SUMMARY);
+        if (summary) {
+          await spotlight(summary, 2500, ctx);
+          await ctx.delay(800);
+        }
+
+        const passCard = document.querySelector<HTMLElement>(HAR.VERIFY_CARD_PASS);
+        if (passCard) {
+          passCard.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
+          await spotlight(passCard, 2500, ctx);
+          await ctx.delay(800);
+        }
+
+        const actualPass = document.querySelector<HTMLElement>(HAR.VERIFY_ACTUAL_PASS);
+        if (actualPass) {
+          await spotlight(actualPass, 2200, ctx);
+          await ctx.delay(800);
+        } else if (rowCards) {
+          // Fallback: show cards after run even if status classes differ
+          await spotlight(rowCards, 2000, ctx);
+          await ctx.delay(700);
+        }
+
+        await closeVerifyVisibly(ctx);
       },
 
-      verify: HAR.DS_GRID,
+      verify: HAR.DS_VERIFY_OPEN_BTN,
     },
 
-    // ── Step 3: Validation Contract Panel ─────────────────────────
+    // ── Step 4: Validation Contract Panel ─────────────────────────
     {
       id: 'th18-contract-panel',
       title: 'Validation Contract Panel',
       description:
-        'Click the **Contract** button in the toolbar to toggle the **Validation Contract Panel** ' +
-        'below the grid.\n\n' +
+        'Look at the **Contract** button in the Data Source toolbar. After a pause we click it ' +
+        'to toggle the **Validation Contract Panel** below the grid.\n\n' +
         'Two mode pairs control how arrays are validated across data rows:\n' +
         '- **⚡ Dynamic** — array sizes can vary between rows (flexible)\n' +
         '- **📌 Fixed** — all rows must return the same array structure (strict)\n' +
@@ -273,7 +620,8 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
         '- **⟳ Unordered** — elements can appear in any order\n\n' +
         'This prevents flaky tests from server-side shuffling — e.g., "every row must return ' +
         'exactly 3 items in any order."',
-      highlight: HAR.CONTRACT_PANEL,
+      highlight: HAR.CONTRACT_BTN,
+      pauseAfter: 4000,
 
       preAction: async (ctx) => {
         await ensureTh18Ready(ctx);
@@ -281,18 +629,36 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
         closeVerifyModal();
         closeSharedDsModal();
         await ensureOnDataTab(ctx);
-        if (!document.querySelector(HAR.CONTRACT_PANEL)) {
-          const contractBtn = findDsToolbarBtn('Contract');
-          if (contractBtn) {
-            contractBtn.click();
-            await ctx.delay(500);
-          }
+        closeContractPanel();
+        await ctx.delay(300);
+        for (let i = 0; i < 10 && document.querySelector(HAR.CONTRACT_PANEL); i++) {
+          closeContractPanel();
+          await ctx.delay(100);
         }
+        const contractBtn =
+          document.querySelector<HTMLElement>(HAR.CONTRACT_BTN) ?? findDsToolbarBtn('Contract');
+        contractBtn?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
       },
 
       action: async (ctx) => {
+        if (document.querySelector(HAR.CONTRACT_PANEL)) {
+          closeContractPanel();
+          await ctx.delay(400);
+        }
+
+        const contractBtn =
+          document.querySelector<HTMLElement>(HAR.CONTRACT_BTN) ?? findDsToolbarBtn('Contract');
+        if (!contractBtn) return;
+
+        await highlightPauseClick(contractBtn, ctx, 3000, 1000);
+        await ctx.waitFor(HAR.CONTRACT_PANEL, 4000);
+        await ctx.delay(1200);
+
         const panel = document.querySelector<HTMLElement>(HAR.CONTRACT_PANEL);
         if (!panel) return;
+
+        await spotlight(panel, 2200, ctx);
+        await ctx.delay(800);
 
         const modeBtns = panel.querySelectorAll<HTMLElement>(HAR.CONTRACT_MODE_BTN);
         const sizeRow = Array.from(modeBtns).filter(b => {
@@ -301,8 +667,8 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
         });
         if (sizeRow.length > 0) {
           const parent = sizeRow[0].parentElement;
-          if (parent) await spotlight(parent, 1200, ctx);
-          else await spotlight(sizeRow[0], 1200, ctx);
+          await spotlight(parent ?? sizeRow[0], 1500, ctx);
+          await ctx.delay(500);
         }
 
         const orderRow = Array.from(modeBtns).filter(b => {
@@ -311,56 +677,87 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
         });
         if (orderRow.length > 0) {
           const parent = orderRow[0].parentElement;
-          if (parent) await spotlight(parent, 1000, ctx);
-          else await spotlight(orderRow[0], 1000, ctx);
+          await spotlight(parent ?? orderRow[0], 1400, ctx);
+          await ctx.delay(500);
         }
 
-        closeContractPanel();
-        await ctx.delay(600);
+        // Toggle Contract off via the same button so the viewer sees how to dismiss it
+        const stillBtn =
+          document.querySelector<HTMLElement>(HAR.CONTRACT_BTN) ?? findDsToolbarBtn('Contract');
+        if (stillBtn && document.querySelector(HAR.CONTRACT_PANEL)) {
+          await highlightPauseClick(stillBtn, ctx, 2000, 700);
+          await waitUntilGone(HAR.CONTRACT_PANEL, ctx);
+          await ctx.delay(500);
+        }
       },
 
-      verify: HAR.DS_GRID,
+      verify: HAR.CONTRACT_BTN,
     },
 
-    // ── Step 4: Data Mapper Integrations ──────────────────────────
+    // ── Step 5: Data Mapper Integrations ──────────────────────────
     {
       id: 'th18-toolbar-mappers',
       title: 'Data Mapper Integrations',
       description:
-        'The toolbar offers three powerful data management controls:\n\n' +
+        'The toolbar offers three powerful data management controls. We open each one so you ' +
+        'see exactly where it lives:\n\n' +
         '**⬇ From API** — opens the Data Mapper in populate mode: fetch an API response and ' +
-        'map array items into data rows automatically. No manual data entry needed for ' +
-        'API-driven parameterized tests.\n\n' +
+        'map array items into data rows automatically.\n\n' +
         '**🔗 Map Columns** — opens the Data Mapper in column mapping mode: visually connect ' +
-        'data columns to where they\'re used in the request template (path params, query params, ' +
-        'body fields, headers).\n\n' +
-        '**Distribution** — controls how rows are assigned to iterations: Sequential (in order), ' +
-        'Random (shuffled), or Round Robin (even cycling).',
-      highlight: HAR.DS_TOOLBAR,
+        'data columns to path, query, body, or header slots.\n\n' +
+        '**Distribution** — controls how rows are assigned to iterations: Sequential, Random, ' +
+        'or Round Robin.',
+      highlight: HAR.DS_FROM_API_BTN,
+      pauseAfter: 4000,
 
       preAction: async (ctx) => {
         await ensureTh18Ready(ctx);
         closeAllModals();
         await ensureOnDataTab(ctx);
+        const fromApi =
+          document.querySelector<HTMLElement>(HAR.DS_FROM_API_BTN) ?? findDsToolbarBtn('From API');
+        fromApi?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
       },
 
       action: async (ctx) => {
-        const fromApiBtn = findDsToolbarBtn('From API');
+        // ── From API → Data Mapper → Cancel ──
+        const fromApiBtn =
+          document.querySelector<HTMLElement>(HAR.DS_FROM_API_BTN) ?? findDsToolbarBtn('From API');
         if (fromApiBtn) {
-          await spotlight(fromApiBtn, 1200, ctx);
+          await highlightPauseClick(fromApiBtn, ctx, 2800, 900);
+          await ctx.waitFor(HAR.MAPPER_SHELL, 5000);
+          await ctx.delay(1400);
+          const shell = document.querySelector<HTMLElement>(HAR.MAPPER_SHELL);
+          if (shell) {
+            await spotlight(shell, 2000, ctx);
+            await ctx.delay(700);
+          }
+          await closeMapperVisibly(ctx);
         }
 
-        const mapColumnsBtn = findDsToolbarBtn('Map Columns');
+        // ── Map Columns → Data Mapper → Cancel ──
+        const mapColumnsBtn =
+          document.querySelector<HTMLElement>(HAR.DS_MAP_COLUMNS_BTN) ?? findDsToolbarBtn('Map Columns');
         if (mapColumnsBtn) {
-          await spotlight(mapColumnsBtn, 1200, ctx);
+          await highlightPauseClick(mapColumnsBtn, ctx, 2800, 900);
+          await ctx.waitFor(HAR.MAPPER_SHELL, 5000);
+          await ctx.delay(1400);
+          const shell = document.querySelector<HTMLElement>(HAR.MAPPER_SHELL);
+          if (shell) {
+            await spotlight(shell, 2000, ctx);
+            await ctx.delay(700);
+          }
+          await closeMapperVisibly(ctx);
         }
 
+        // ── Distribution dropdown (spotlight only — no modal) ──
         const distSelects = document.querySelectorAll<HTMLElement>('.data-source-toolbar-select');
         for (const sel of distSelects) {
           const trigger = sel.querySelector<HTMLElement>('.cs-trigger');
           const text = trigger?.textContent ?? sel.textContent ?? '';
           if (text.includes('Sequential') || text.includes('Random') || text.includes('Round Robin')) {
-            await spotlight(sel, 1200, ctx);
+            await spotlight(sel, 2200, ctx);
+            await ctx.delay(800);
             break;
           }
         }
@@ -369,12 +766,13 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
       verify: HAR.DS_TOOLBAR,
     },
 
-    // ── Step 5: Shared Data Sources ───────────────────────────────
+    // ── Step 6: Shared Data Sources ───────────────────────────────
     {
       id: 'th18-shared-ds',
       title: 'Shared Data Sources',
       description:
-        'Open the **📦 Shared Data Sources** modal from the header to manage reusable datasets.\n\n' +
+        'Look at **📦 Shared Data Sources** in the page header. After a pause we click it to open ' +
+        'the modal for reusable datasets.\n\n' +
         'The **list panel** on the left shows all shared data sources with search and **+ New**. ' +
         'Select one to see the **editor panel** on the right with the full data grid.\n\n' +
         'The **Fetch Panel** shows the configured API endpoint (method, URL, mapping chips), ' +
@@ -382,54 +780,77 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
         'command, or **Populate Rows from API** to fetch and map via Data Mapper.\n\n' +
         'The **Used by** section shows which tests are linked — when you re-fetch, all ' +
         'linked tests get updated data automatically.',
-      highlight: HAR.SHARED_DS_MODAL,
+      highlight: HAR.SHARED_DS_BTN,
+      pauseAfter: 4500,
 
       preAction: async (ctx) => {
         await ensureTh18Ready(ctx);
         closeRowDetailModal();
         closeVerifyModal();
         closeContractPanel();
+        // Close test editor so the page header Shared DS button is visible
         await closeTestEditorQuiet(ctx);
-        if (!document.querySelector(HAR.SHARED_DS_MODAL)) {
-          const sharedBtn = document.querySelector<HTMLElement>(HAR.SHARED_DS_BTN) ??
-            Array.from(document.querySelectorAll<HTMLElement>('button'))
-              .find(b => b.textContent?.includes('Shared Data Sources'));
-          if (sharedBtn) {
-            sharedBtn.click();
-            await ctx.delay(600);
-          }
+        closeSharedDsModal();
+        await ctx.delay(400);
+        for (let i = 0; i < 12 && document.querySelector(HAR.SHARED_DS_MODAL); i++) {
+          closeSharedDsModal();
+          await ctx.delay(120);
         }
+        const sharedBtn =
+          document.querySelector<HTMLElement>(HAR.SHARED_DS_BTN)
+          ?? Array.from(document.querySelectorAll<HTMLElement>('button'))
+            .find(b => b.textContent?.includes('Shared Data Sources'));
+        sharedBtn?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
       },
 
       action: async (ctx) => {
+        if (document.querySelector(HAR.SHARED_DS_MODAL)) {
+          closeSharedDsModal();
+          await ctx.delay(500);
+          await waitUntilGone(HAR.SHARED_DS_MODAL, ctx);
+        }
+
+        const sharedBtn =
+          document.querySelector<HTMLElement>(HAR.SHARED_DS_BTN)
+          ?? Array.from(document.querySelectorAll<HTMLElement>('button'))
+            .find(b => b.textContent?.includes('Shared Data Sources'));
+        if (!sharedBtn) return;
+
+        await highlightPauseClick(sharedBtn, ctx, 3200, 1100);
+        await ctx.waitFor(HAR.SHARED_DS_MODAL, 5000);
+        await ctx.delay(1500);
+
         const modal = document.querySelector<HTMLElement>(HAR.SHARED_DS_MODAL);
         if (!modal) return;
 
         const listPanel = modal.querySelector<HTMLElement>(HAR.SHARED_DS_LIST);
         if (listPanel) {
-          await spotlight(listPanel, 1200, ctx);
+          await spotlight(listPanel, 1800, ctx);
+          await ctx.delay(700);
         }
 
         const editorPanel = modal.querySelector<HTMLElement>(HAR.SHARED_DS_EDITOR);
         if (editorPanel) {
-          await spotlight(editorPanel, 1200, ctx);
+          await spotlight(editorPanel, 1800, ctx);
+          await ctx.delay(700);
         }
 
         const fetchPanel = modal.querySelector<HTMLElement>(HAR.SHARED_DS_FETCH);
         if (fetchPanel) {
-          await spotlight(fetchPanel, 1500, ctx);
-
-          const usedBy = modal.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY);
-          if (usedBy) {
-            await spotlight(usedBy, 1000, ctx);
-          }
+          await spotlight(fetchPanel, 1800, ctx);
+          await ctx.delay(700);
         }
 
-        closeSharedDsModal();
-        await ctx.delay(600);
+        const usedBy = modal.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY);
+        if (usedBy) {
+          await spotlight(usedBy, 1500, ctx);
+          await ctx.delay(600);
+        }
+
+        await closeSharedDsVisibly(ctx);
       },
 
-      verify: HAR.FG_CARD,
+      verify: HAR.SHARED_DS_BTN,
     },
   ],
 };

@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { useRef, type Dispatch, type SetStateAction } from 'react';
 import ColumnOrderPopover from './ColumnOrderPopover';
 import type { ColumnDef } from '../utils/csvTemplate';
 
@@ -31,6 +31,8 @@ export function DataSourceSetupColumnsStep({
   updateColumnName: (idx: number, name: string) => void;
   setColumnDefs: Dispatch<SetStateAction<ColumnDef[]>>;
 }) {
+  const colOrderBtnRef = useRef<HTMLButtonElement>(null);
+
   return (
     <div className="excel-step-content excel-step-columns">
       <div className="step-columns-header">
@@ -50,6 +52,7 @@ export function DataSourceSetupColumnsStep({
       {columnDefs.length > 1 && (
         <div className="excel-col-order-controls" style={{ position: 'relative' }}>
           <button
+            ref={colOrderBtnRef}
             type="button"
             className="btn btn-sm"
             onClick={() => setShowColOrder((value) => value === 'step2' ? false : 'step2')}
@@ -61,6 +64,7 @@ export function DataSourceSetupColumnsStep({
               items={columnDefs.map((d, i) => ({ ...d, name: d.customName, _idx: i }))}
               onApply={(reordered) => applyReorderedColumns(reordered, setColumnDefs)}
               onClose={() => setShowColOrder(false)}
+              anchorRef={colOrderBtnRef}
             />
           )}
         </div>
@@ -152,6 +156,7 @@ export function DataSourceSetupColumnOrderStep({
           onApply={(reordered) => applyReorderedColumns(reordered, setColumnDefs)}
           onClose={() => { /* no-op: inline, not a popover */ }}
           autoApply
+          variant="inline"
         />
       </div>
     </div>
