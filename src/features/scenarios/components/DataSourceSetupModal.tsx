@@ -611,6 +611,8 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
         </div>
       )}
       onClose={handleClose}
+      overlayClassName="ds-setup-overlay"
+      dialogClassName="ds-setup-dialog"
       movable
       resizable
       minWidth={700}
