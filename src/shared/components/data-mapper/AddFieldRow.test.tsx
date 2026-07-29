@@ -129,6 +129,14 @@ describe('AddFieldRow', () => {
     fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'a' } });
     expect(screen.queryByRole('alert')).toBeNull();
   });
+
+  it('rejects names that collide with typed type::name paths', () => {
+    renderRow({ existingPaths: new Set(['body::aaaa']) });
+    fireEvent.click(screen.getByText('+ Add Field'));
+    fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'aaaa' } });
+    fireEvent.keyDown(screen.getByLabelText('Field name'), { key: 'Enter' });
+    expect(screen.getByRole('alert').textContent).toMatch(/already exists/i);
+  });
 });
 
 describe('AddFieldRow – drag-and-drop auto-create', () => {

@@ -1,5 +1,7 @@
+import { useLayoutEffect, useRef } from 'react';
 import type { FeatureGroup, GlobalAuthProfile, Scenario, SharedDataSource } from '../../../shared/types';
 import { useRunnerOrchestration } from '../hooks/useRunnerOrchestration';
+import { scrollRunnerMonitorIntoView } from '../utils/scrollRunnerMonitor';
 import RunnerExecutionConfig from './RunnerExecutionConfig';
 import HostSelector from './HostSelector';
 import LiveProgressPanel from './LiveProgressPanel';
@@ -61,6 +63,20 @@ export default function RunnerPage({
   const { isRunning, liveResults, error, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = execution;
 
   const hasContent = variant.hasContent(featureGroups);
+  const monitorRef = useRef<HTMLDivElement>(null);
+  const showCompletion = !!(finalRun && !isRunning) || !!(!isRunning && !finalRun && savedProgress);
+
+  // Keep the Progress monitor (bar + metrics + charts + completion) in view as
+  // the run starts and as the panel grows — content mounts below the Run button.
+  useLayoutEffect(() => {
+    if (!isRunning && !showCompletion) return;
+    const monitor = monitorRef.current;
+    if (!monitor) return;
+    const completion = monitor.querySelector<HTMLElement>('[data-testid="har-completion"]');
+    const metrics = monitor.querySelector<HTMLElement>('.live-metrics');
+    const bottom = completion ?? metrics ?? monitor;
+    scrollRunnerMonitorIntoView(monitor, bottom, isRunning ? 'smooth' : 'smooth');
+  }, [isRunning, showCompletion, displaySummary, displayCompleted, showProgress]);
 
   return (
     <div className={`page ${variant.namePrefix}-page`}>
@@ -80,6 +96,7 @@ export default function RunnerPage({
         resolvedBaseUrl={resolvedBaseUrl}
         disabled={isRunning}
         isGalleryEnv={isGalleryEnv}
+        namePrefix={variant.namePrefix}
       />
 
       <RunnerExecutionConfig
@@ -149,7 +166,7 @@ export default function RunnerPage({
 
           {selectedTests.length > 0 && (
             <div className="config-form" style={{ marginTop: 16 }}>
-              <fieldset>
+              <fieldset data-testid="har-weights-section">
                 <legend className="collapsible-legend" onClick={() => setWeightsExpanded((v) => !v)}>
                   <span className={`collapse-arrow ${weightsExpanded ? 'expanded' : ''}`}>▶</span>
                   Test Distribution (weights)
@@ -158,8 +175,8 @@ export default function RunnerPage({
                 {weightsExpanded && (
                   <>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                      <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 1); setWeights(w); }}>Reset All to 1</button>
-                      <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 0); setWeights(w); }}>Reset All to 0</button>
+                      <button type="button" className="btn btn-xs" data-testid="har-weights-reset-1" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 1); setWeights(w); }}>Reset All to 1</button>
+                      <button type="button" className="btn btn-xs" data-testid="har-weights-reset-0" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 0); setWeights(w); }}>Reset All to 0</button>
                     </div>
                     {selectedTests.map((t, idx) => (
                       <div key={t.id} className="weight-row">
@@ -236,45 +253,49 @@ export default function RunnerPage({
             </div>
           )}
 
-          {showProgress && (
-            <LiveProgressPanel
-              isRunning={isRunning}
-              completed={displayCompleted}
-              total={displayTotal}
-              summary={displaySummary}
-              timeSeries={displayTimeSeries}
-              profileMeta={displayProfileMeta}
-              executionMode={displayExecMode}
-              concurrency={displayConc}
-              loadProfile={displayLoadProfile}
-              arrivalRate={displayArrivalRate}
-              thinkTime={displayThinkTime}
-              hostLabel={hostLabel}
-              liveResults={liveResults}
-              selectedTests={selectedTests as Scenario[]}
-              weights={weights}
-              onClear={!isRunning && savedProgress ? handleClearProgress : undefined}
-            />
-          )}
+          {(showProgress || showCompletion) && (
+            <div ref={monitorRef} data-testid="har-runner-monitor">
+              {showProgress && (
+                <LiveProgressPanel
+                  isRunning={isRunning}
+                  completed={displayCompleted}
+                  total={displayTotal}
+                  summary={displaySummary}
+                  timeSeries={displayTimeSeries}
+                  profileMeta={displayProfileMeta}
+                  executionMode={displayExecMode}
+                  concurrency={displayConc}
+                  loadProfile={displayLoadProfile}
+                  arrivalRate={displayArrivalRate}
+                  thinkTime={displayThinkTime}
+                  hostLabel={hostLabel}
+                  liveResults={liveResults}
+                  selectedTests={selectedTests as Scenario[]}
+                  weights={weights}
+                  onClear={!isRunning && savedProgress ? handleClearProgress : undefined}
+                />
+              )}
 
-          {finalRun && !isRunning && (
-            <div className="completion-section" data-testid="har-completion">
-              <div className="completion-banner">
-                Test completed — {finalRun.results.length} requests in {(finalRun.summary.totalDurationMs / 1000).toFixed(2)}s
-              </div>
-              <button className="btn btn-primary" data-testid="har-view-results" onClick={() => onComplete('test')}>
-                View Full Results →
-              </button>
-            </div>
-          )}
-          {!isRunning && !finalRun && savedProgress && (
-            <div className="completion-section" data-testid="har-completion">
-              <div className="completion-banner">
-                Last run — {savedProgress.resultCount} requests in {(savedProgress.durationMs / 1000).toFixed(2)}s
-              </div>
-              <button className="btn btn-primary" data-testid="har-view-results" onClick={() => onComplete('test')}>
-                View Full Results →
-              </button>
+              {finalRun && !isRunning && (
+                <div className="completion-section" data-testid="har-completion">
+                  <div className="completion-banner">
+                    Test completed — {finalRun.results.length} requests in {(finalRun.summary.totalDurationMs / 1000).toFixed(2)}s
+                  </div>
+                  <button className="btn btn-primary" data-testid="har-view-results" onClick={() => onComplete('test')}>
+                    View Full Results →
+                  </button>
+                </div>
+              )}
+              {!isRunning && !finalRun && savedProgress && (
+                <div className="completion-section" data-testid="har-completion">
+                  <div className="completion-banner">
+                    Last run — {savedProgress.resultCount} requests in {(savedProgress.durationMs / 1000).toFixed(2)}s
+                  </div>
+                  <button className="btn btn-primary" data-testid="har-view-results" onClick={() => onComplete('test')}>
+                    View Full Results →
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

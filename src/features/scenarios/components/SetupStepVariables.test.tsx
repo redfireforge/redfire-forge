@@ -344,7 +344,7 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'bearer', prefix: 'Bearer' },
       })} />);
-      expect(screen.getByPlaceholderText('Token')).toHaveValue('');
+      expect(screen.getByPlaceholderText('eyJhbGciOi...')).toHaveValue('');
     });
 
     it('patches bearer prefix input on change', () => {
@@ -353,7 +353,7 @@ describe('SetupStepVariables', () => {
         workingAuth: { type: 'bearer', token: 'x', prefix: 'Bearer' },
         patchWorkingAuth,
       })} />);
-      fireEvent.change(screen.getByPlaceholderText('Prefix (Bearer)'), { target: { value: 'Token' } });
+      fireEvent.change(screen.getByPlaceholderText('Bearer'), { target: { value: 'Token' } });
       expect(patchWorkingAuth).toHaveBeenCalledWith({ prefix: 'Token' });
     });
 
@@ -372,8 +372,8 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'basic' },
       })} />);
-      expect(screen.getByPlaceholderText('Username')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Password')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Enter username')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Enter password')).toHaveValue('');
     });
 
     it('edits basic auth password', () => {
@@ -411,8 +411,8 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'apikey' },
       })} />);
-      expect(screen.getByPlaceholderText('Key Name')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Key Value')).toHaveValue('');
+      expect(screen.getByPlaceholderText('X-API-Key')).toHaveValue('');
+      expect(screen.getByPlaceholderText('your-api-key')).toHaveValue('');
     });
 
     it('edits apikey name', () => {
@@ -472,9 +472,9 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'oauth2' },
       })} />);
-      expect(screen.getByPlaceholderText('Token URL')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Client ID')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Client Secret')).toHaveValue('');
+      expect(screen.getByPlaceholderText('https://auth.example.com/oauth/token')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Enter client ID')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Enter client secret')).toHaveValue('');
     });
   });
 

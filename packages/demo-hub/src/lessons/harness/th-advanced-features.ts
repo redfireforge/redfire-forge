@@ -188,51 +188,68 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
       id: 'th9-versioning',
       title: 'Test Definition Versions',
       description:
-        'RedfireForge automatically snapshots test definitions when you save changes. The **History** tab ' +
-        'in the Test Editor shows all snapshots with timestamps and change summaries. Select two versions ' +
-        'to **Compare** them, or click **↩ Restore** to load an older snapshot into the editor.',
+        'RedfireForge automatically snapshots test definitions when you save changes.\n\n' +
+        '**Where to look:** click **Edit** on a test card, then open the **History** tab ' +
+        'in the Test Editor.\n\n' +
+        'History shows every snapshot with a timestamp and change summary. Select two ' +
+        'versions to **Compare** them, or click **↩ Restore** to load an older snapshot ' +
+        'back into the editor.',
       highlight: HAR.TEST_EDIT_BTN,
-      action: async (ctx) => {
-        if (!isTestEditorOpen()) {
-          await expandFirstFg(ctx);
-          await expandFirstScenario(ctx);
-          await ctx.delay(300);
-          const editBtn = document.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
-          if (editBtn) {
-            editBtn.click();
-            await ctx.delay(700);
-          }
-        }
-
-        const historyTab = Array.from(document.querySelectorAll<HTMLElement>('.builder-tab'))
-          .find(t => t.textContent?.includes('History'));
-        if (historyTab) {
-          historyTab.click();
-          await ctx.delay(600);
-        }
-
-        await spotlightSel(ctx, HAR.VERSION_PANEL, 1500);
-
-        const items = document.querySelectorAll<HTMLElement>(HAR.VERSION_ITEM);
-        if (items.length > 0) {
-          await spotlight(items[0], 800, ctx);
-          if (items.length > 1) {
-            await spotlight(items[1], 800, ctx);
-          }
-        }
-
-        const restoreBtn = document.querySelector<HTMLElement>(HAR.VERSION_RESTORE_BTN);
-        if (restoreBtn) await spotlight(restoreBtn, 1000, ctx);
-
-        await closeTestEditorQuiet(ctx);
-        await ctx.delay(300);
-      },
       preAction: async (ctx) => {
         await ensureTh9Ready(ctx);
         clearSearchBar();
         if (isTestEditorOpen()) await closeTestEditorQuiet(ctx);
+        // Expand so the Edit button is visible during the reading highlight
+        await expandFirstFg(ctx);
+        await expandFirstScenario(ctx);
+        await ctx.delay(400);
       },
-      verify: HAR.FG_CARD,
+      action: async (ctx) => {
+        await expandFirstFg(ctx);
+        await expandFirstScenario(ctx);
+        await ctx.delay(500);
+
+        // 1) Show where to click — Edit on the test card
+        const editBtn = document.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
+        if (editBtn) {
+          await spotlight(editBtn, 2200, ctx);
+          await ctx.delay(500);
+          editBtn.click();
+          await ctx.delay(1200);
+        }
+
+        // 2) Point at the History tab before opening it
+        await ctx.waitFor(HAR.TE_HISTORY_TAB);
+        await spotlightSel(ctx, HAR.TE_HISTORY_TAB, 2200);
+        await ctx.delay(500);
+        await ctx.click(HAR.TE_HISTORY_TAB);
+        await ctx.delay(1000);
+
+        // 3) Definition History panel + each snapshot
+        await spotlightSel(ctx, HAR.VERSION_PANEL, 2000);
+        await ctx.delay(600);
+
+        const items = document.querySelectorAll<HTMLElement>(HAR.VERSION_ITEM);
+        if (items.length > 0) {
+          await spotlight(items[0], 1600, ctx);
+          await ctx.delay(500);
+          if (items.length > 1) {
+            await spotlight(items[1], 1600, ctx);
+            await ctx.delay(500);
+          }
+        }
+
+        // 4) Restore action
+        const restoreBtn = document.querySelector<HTMLElement>(HAR.VERSION_RESTORE_BTN);
+        if (restoreBtn) {
+          await spotlight(restoreBtn, 1800, ctx);
+          await ctx.delay(600);
+        }
+
+        await closeTestEditorQuiet(ctx);
+        await ctx.delay(700);
+      },
+      verify: HAR.TEST_EDIT_BTN,
     },
 
     // ── Step 4: Delete & Undo ────────────────────────────────────

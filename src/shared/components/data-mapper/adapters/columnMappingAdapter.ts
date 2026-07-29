@@ -83,10 +83,9 @@ function extractTokens(value: string | undefined): string[] {
     decoded = decodeTemplateBraces(value);
   }
   const matches = decoded.match(/\{\{\s*(\w+)\s*\}\}/g) ?? [];
-  const names = matches.map(m => {
-    const inner = m.match(/\{\{\s*(\w+)\s*\}\}/);
-    return inner ? inner[1] : '';
-  }).filter(Boolean);
+  const names = matches
+    .map(m => m.replace(/^\{\{\s*(\w+)\s*\}\}$/, '$1'))
+    .filter(Boolean);
   return [...new Set(names)];
 }
 
@@ -206,6 +205,41 @@ function parseTargetPath(targetPath: string): { type: DataSourceColumn['type']; 
   return { type, mapping };
 }
 
+/**
+ * Build unique Source-tree keys from column display names.
+ * Unique names → the name itself (e.g. `userId`).
+ * Duplicate names → `name (1)`, `name (2)`, …
+ * Empty names fall back to the internal column id.
+ */
+export function buildColumnSourceKeys(columns: DataSourceColumn[]): {
+  keyByColId: Map<string, string>;
+  colIdByKey: Map<string, string>;
+} {
+  const nameCounts = new Map<string, number>();
+  for (const col of columns) {
+    const base = (col.name || '').trim() || col.id;
+    nameCounts.set(base, (nameCounts.get(base) ?? 0) + 1);
+  }
+
+  const seen = new Map<string, number>();
+  const keyByColId = new Map<string, string>();
+  const colIdByKey = new Map<string, string>();
+
+  for (const col of columns) {
+    const base = (col.name || '').trim() || col.id;
+    let key = base;
+    if ((nameCounts.get(base) ?? 0) > 1) {
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
+      key = `${base} (${n})`;
+    }
+    keyByColId.set(col.id, key);
+    colIdByKey.set(key, col.id);
+  }
+
+  return { keyByColId, colIdByKey };
+}
+
 // ─── Adapter Factory ──────────────────────────────────────
 
 export function createColumnMappingAdapter(
@@ -213,13 +247,14 @@ export function createColumnMappingAdapter(
 ): MapperAdapter<ColumnMappingOutput> {
   const { columns, scenario } = opts;
 
-  // Source: each column is a leaf node keyed by column id (avoids collisions
-  // when multiple columns share the same name).
+  // Source: leaf nodes keyed by column display name (not internal col-uid ids).
+  const { keyByColId } = buildColumnSourceKeys(columns);
   const sourceData: Record<string, string> = {};
-  const colIdToName = new Map<string, string>();
   for (const col of columns) {
-    sourceData[col.id] = col.name;
-    colIdToName.set(col.id, col.name);
+    const key = keyByColId.get(col.id)!;
+    sourceData[key] = col.mapping?.trim()
+      ? col.mapping
+      : (TYPE_LABELS[col.type] ?? col.type);
   }
 
   const source: MapperSource = {
@@ -231,23 +266,42 @@ export function createColumnMappingAdapter(
   };
 
   // Target: template slots parsed from the scenario + a validate group.
+  // Field `type` must be a JSON type (`string`) — NOT path/param/body/header.
+  // Those slot kinds live in `location` + the label; using them as `type`
+  // falsely triggers Data Mapper "string → path" type-mismatch warnings.
   const templateSlots = parseScenarioTemplate(scenario);
   const targetFields: TargetField[] = templateSlots.map(p => ({
     path: p.targetPath,
     label: p.label,
-    type: p.type,
+    type: 'string',
     required: false,
     location: p.location,
   }));
 
-  // Add a "Validation" catch-all field group so users can also map
-  // columns to validate type (for expected-value checking).
-  // Only add if there are columns that could be validate-type.
-  if (!templateSlots.some(p => p.type === 'validate')) {
+  // Surface existing column mappings as target slots so deserialize lines
+  // (e.g. validate::$.name) are not flagged as "Missing target".
+  for (const col of columns) {
+    if (!col.mapping?.trim()) continue;
+    const targetPath = buildTargetPath(col.type, col.mapping);
+    if (targetFields.some(f => f.path === targetPath)) continue;
+    targetFields.push({
+      path: targetPath,
+      label: `${col.mapping} (${TYPE_LABELS[col.type] ?? col.type})`,
+      type: 'string',
+      required: false,
+      location: col.type === 'param' ? 'query'
+        : col.type === 'path' ? 'path'
+        : col.type === 'header' ? 'header'
+        : 'body',
+    });
+  }
+
+  // Always offer a Validation catch-all so new columns can be mapped to validate.
+  if (!targetFields.some(f => f.path === `validate${TARGET_TYPE_SEPARATOR}__custom__`)) {
     targetFields.push({
       path: `validate${TARGET_TYPE_SEPARATOR}__custom__`,
       label: 'Validation Field (custom)',
-      type: 'validate',
+      type: 'string',
       required: false,
       location: 'body',
     });
@@ -275,7 +329,8 @@ export function createColumnMappingAdapter(
       }
 
       return columns.map(col => {
-        const m = mappingBySource.get(col.id);
+        const sourceKey = keyByColId.get(col.id)!;
+        const m = mappingBySource.get(sourceKey);
         if (!m) return col;
 
         const parsed = parseTargetPath(m.targetPath);
@@ -297,7 +352,7 @@ export function createColumnMappingAdapter(
         .map((col, i) => ({
           id: `colmap-${i}`,
           sourceId: SOURCE_ID,
-          sourcePath: col.id,
+            sourcePath: keyByColId.get(col.id)!,
           targetPath: buildTargetPath(col.type, col.mapping),
         }));
     },
@@ -317,7 +372,7 @@ export function createColumnMappingAdapter(
       const sourceNames = new Set<string>();
 
       for (const m of mappings) {
-        const displayName = colIdToName.get(m.sourcePath) ?? m.sourcePath;
+        const displayName = m.sourcePath;
 
         if (!m.sourcePath.trim()) {
           issues.push({

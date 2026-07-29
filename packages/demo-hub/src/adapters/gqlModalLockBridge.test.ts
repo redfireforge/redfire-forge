@@ -7,9 +7,11 @@ import {
   getEnvIntroStepIndex,
   getProfileIntroStepIndex,
   openGqlProfileModal,
+  readGqlModalLockState,
   resolveGqlModalLockForLessonStep,
   resolveGqlModalLockForStep,
   resolveGqlModalLockForStepHighlight,
+  syncGqlModalLock,
 } from './gqlModalLockBridge';
 import { GQL } from '@shared/selectors';
 
@@ -66,6 +68,62 @@ describe('gqlModalLockBridge', () => {
     });
   });
 
+  it('allows env modal when verify targets the env modal', () => {
+    expect(resolveGqlModalLockForStep({
+      highlight: GQL.EXECUTE_BTN,
+      verify: GQL.ENV_MODAL,
+    })).toEqual({
+      envAllowed: true,
+      profileAllowed: false,
+    });
+  });
+
+  it('allows both modals when both env and profile are in verify', () => {
+    expect(resolveGqlModalLockForStep({
+      highlight: GQL.EXECUTE_BTN,
+      verify: `${GQL.ENV_MODAL} ${GQL.PROFILE_MODAL}`,
+    })).toEqual({
+      envAllowed: true,
+      profileAllowed: true,
+    });
+  });
+
+  it('locks all modals when no highlight, verify, or id provided', () => {
+    expect(resolveGqlModalLockForStep({})).toEqual({
+      envAllowed: false,
+      profileAllowed: false,
+    });
+  });
+
+  it('allows env when highlight is env-badge and verify is unrelated', () => {
+    expect(resolveGqlModalLockForStep({
+      highlight: GQL.ENV_BADGE,
+      verify: GQL.EXECUTE_BTN,
+    })).toEqual({
+      envAllowed: true,
+      profileAllowed: false,
+    });
+  });
+
+  it('allows profile when highlight is profile-badge and verify is unrelated', () => {
+    expect(resolveGqlModalLockForStep({
+      highlight: GQL.PROFILE_BADGE,
+      verify: GQL.EXECUTE_BTN,
+    })).toEqual({
+      envAllowed: false,
+      profileAllowed: true,
+    });
+  });
+
+  it('handles step with only id (no highlight or verify)', () => {
+    expect(resolveGqlModalLockForStep({
+      id: 'gql6-env',
+    })).toEqual({
+      envAllowed: false,
+      profileAllowed: false,
+    });
+  });
+
   it('finds profile intro step index for gql-auth-headers', () => {
     expect(getProfileIntroStepIndex('gql-auth-headers', GQL6_STEPS)).toBe(11);
   });
@@ -107,19 +165,6 @@ describe('gqlModalLockBridge', () => {
     });
   });
 
-  describe('syncGqlModalLock', () => {
-    it('always publishes open lock even when caller passes false', async () => {
-      const { syncGqlModalLock, normalizeGqlModalLockForPublish } = await import('./gqlModalLockBridge');
-      expect(normalizeGqlModalLockForPublish({ envAllowed: false, profileAllowed: false })).toEqual(
-        GQL_MODAL_LOCK_OPEN,
-      );
-      syncGqlModalLock({ envAllowed: false, profileAllowed: false });
-      expect((window as unknown as Record<string, unknown>).__demoGqlModalLockState).toEqual(
-        GQL_MODAL_LOCK_OPEN,
-      );
-    });
-  });
-
   describe('openGqlProfileModal', () => {
     beforeEach(() => {
       delete (window as unknown as Record<string, unknown>).__demoOpenGqlProfileModal;
@@ -138,6 +183,74 @@ describe('gqlModalLockBridge', () => {
       (window as unknown as Record<string, unknown>).__demoOpenGqlProfileModal = open;
       expect(openGqlProfileModal()).toBe(true);
       expect(open).toHaveBeenCalled();
+    });
+
+    it('returns false when bridge function returns false', () => {
+      (window as unknown as Record<string, unknown>).__demoOpenGqlProfileModal = () => false;
+      expect(openGqlProfileModal()).toBe(false);
+    });
+  });
+
+  describe('readGqlModalLockState', () => {
+    beforeEach(() => {
+      delete (window as unknown as Record<string, unknown>).__demoGqlModalLockState;
+    });
+
+    afterEach(() => {
+      delete (window as unknown as Record<string, unknown>).__demoGqlModalLockState;
+    });
+
+    it('returns default open lock when state is not set', () => {
+      expect(readGqlModalLockState()).toEqual(GQL_MODAL_LOCK_OPEN);
+    });
+
+    it('returns stored lock state from window', () => {
+      const customLock = { envAllowed: false, profileAllowed: true };
+      (window as unknown as Record<string, unknown>).__demoGqlModalLockState = customLock;
+      expect(readGqlModalLockState()).toEqual(customLock);
+    });
+  });
+
+  describe('syncGqlModalLock', () => {
+    beforeEach(() => {
+      delete (window as unknown as Record<string, unknown>).__demoGqlModalLockState;
+      delete (window as unknown as Record<string, unknown>).__demoSetGqlModalLock;
+    });
+
+    afterEach(() => {
+      delete (window as unknown as Record<string, unknown>).__demoGqlModalLockState;
+      delete (window as unknown as Record<string, unknown>).__demoSetGqlModalLock;
+    });
+
+    it('syncs open lock to window even when caller passes restricted lock', () => {
+      const setSpy = vi.fn();
+      (window as unknown as Record<string, unknown>).__demoSetGqlModalLock = setSpy;
+
+      syncGqlModalLock({ envAllowed: false, profileAllowed: false });
+
+      expect((window as unknown as Record<string, unknown>).__demoGqlModalLockState).toEqual(
+        GQL_MODAL_LOCK_OPEN,
+      );
+      expect(setSpy).toHaveBeenCalledWith(GQL_MODAL_LOCK_OPEN);
+    });
+
+    it('calls setGqlModalLock bridge function when available', () => {
+      const setSpy = vi.fn();
+      (window as unknown as Record<string, unknown>).__demoSetGqlModalLock = setSpy;
+
+      syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
+
+      expect(setSpy).toHaveBeenCalledWith(GQL_MODAL_LOCK_OPEN);
+    });
+
+    it('sets state even when bridge function is not available', () => {
+      delete (window as unknown as Record<string, unknown>).__demoSetGqlModalLock;
+
+      syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
+
+      expect((window as unknown as Record<string, unknown>).__demoGqlModalLockState).toEqual(
+        GQL_MODAL_LOCK_OPEN,
+      );
     });
   });
 });
