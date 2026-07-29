@@ -16,7 +16,8 @@ describe('RunnerExecutionConfig - Rendering', () => {
     expect(screen.getByLabelText('Batch')).toBeTruthy();
     expect(screen.getByLabelText('Continuous Pool')).toBeTruthy();
     expect(screen.getByLabelText('Load Profile')).toBeTruthy();
-    expect(screen.getByLabelText('Constant Arrival')).toBeTruthy();
+    expect(screen.getByLabelText(/Constant Arrival/)).toBeTruthy();
+    expect(screen.getByText('(only desktop)')).toBeTruthy();
     expect(screen.queryByLabelText('Workflow')).toBeNull();
   });
 

@@ -222,57 +222,114 @@ export default function SharedDsFetchPanel({
           {/* Auth tab */}
           {editorPanel.fetchTab === 'auth' && (
             <div className="shared-ds-auth-tab" ref={editorPanel.fetchAuthRef}>
-              <CustomSelect
-                className="shared-ds-fetch-auth-type"
-                value={selected.fetchConfig?.auth?.type ?? 'none'}
-                onChange={(v) => fetchConfig.handleFetchAuthTypeChange(v as 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2')}
-                options={[
-                  { value: 'inherit', label: 'Inherit' },
-                  { value: 'none', label: 'No Auth' },
-                  { value: 'bearer', label: 'Bearer Token' },
-                  { value: 'basic', label: 'Basic Auth' },
-                  { value: 'apikey', label: 'API Key' },
-                  { value: 'oauth2', label: 'OAuth2 Client Credentials' },
-                ]}
-              />
-
-              {(selected.fetchConfig?.auth?.type ?? 'none') === 'bearer' && (
-                <div className="shared-ds-fetch-auth-fields">
-                  <input className="shared-ds-fetch-auth-input" type="text" placeholder="Prefix (Bearer)" value={selected.fetchConfig?.auth?.prefix ?? 'Bearer'} onChange={e => fetchConfig.handleFetchAuthPatch({ prefix: e.target.value })} />
-                  <input className="shared-ds-fetch-auth-input" type="text" placeholder="Token" value={selected.fetchConfig?.auth?.token ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ token: e.target.value })} />
+              <div className="shared-ds-fetch-auth-fields">
+                <div className="shared-ds-fetch-auth-row">
+                  <span className="shared-ds-fetch-auth-label">Type</span>
+                  <div className="shared-ds-fetch-auth-ctrl">
+                    <CustomSelect
+                      className="shared-ds-fetch-auth-type"
+                      value={selected.fetchConfig?.auth?.type ?? 'none'}
+                      onChange={(v) => fetchConfig.handleFetchAuthTypeChange(v as 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2')}
+                      options={[
+                        { value: 'inherit', label: 'Inherit' },
+                        { value: 'none', label: 'No Auth' },
+                        { value: 'bearer', label: 'Bearer Token' },
+                        { value: 'basic', label: 'Basic Auth' },
+                        { value: 'apikey', label: 'API Key' },
+                        { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+                      ]}
+                    />
+                  </div>
                 </div>
-              )}
 
-              {(selected.fetchConfig?.auth?.type ?? 'none') === 'basic' && (
-                <div className="shared-ds-fetch-auth-fields">
-                  <input className="shared-ds-fetch-auth-input" type="text" placeholder="Username" value={selected.fetchConfig?.auth?.username ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ username: e.target.value })} />
-                  <input className="shared-ds-fetch-auth-input" type="password" placeholder="Password" value={selected.fetchConfig?.auth?.password ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ password: e.target.value })} />
-                </div>
-              )}
+                {(selected.fetchConfig?.auth?.type ?? 'none') === 'bearer' && (
+                  <>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Prefix</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="text" placeholder="Bearer" value={selected.fetchConfig?.auth?.prefix ?? 'Bearer'} onChange={e => fetchConfig.handleFetchAuthPatch({ prefix: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Token</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="text" placeholder="eyJhbGciOi..." value={selected.fetchConfig?.auth?.token ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ token: e.target.value })} />
+                      </div>
+                    </div>
+                  </>
+                )}
 
-              {(selected.fetchConfig?.auth?.type ?? 'none') === 'apikey' && (
-                <div className="shared-ds-fetch-auth-fields">
-                  <input className="shared-ds-fetch-auth-input" type="text" placeholder="Key Name" value={selected.fetchConfig?.auth?.apiKeyName ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ apiKeyName: e.target.value })} />
-                  <input className="shared-ds-fetch-auth-input" type="text" placeholder="Key Value" value={selected.fetchConfig?.auth?.apiKeyValue ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ apiKeyValue: e.target.value })} />
-                  <CustomSelect
-                    className="shared-ds-fetch-auth-type"
-                    value={selected.fetchConfig?.auth?.apiKeyIn ?? 'header'}
-                    onChange={(v) => fetchConfig.handleFetchAuthPatch({ apiKeyIn: v as 'header' | 'query' })}
-                    options={[
-                      { value: 'header', label: 'Header' },
-                      { value: 'query', label: 'Query String' },
-                    ]}
-                  />
-                </div>
-              )}
+                {(selected.fetchConfig?.auth?.type ?? 'none') === 'basic' && (
+                  <>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Username</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="text" placeholder="Enter username" value={selected.fetchConfig?.auth?.username ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ username: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Password</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="password" placeholder="Enter password" value={selected.fetchConfig?.auth?.password ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ password: e.target.value })} />
+                      </div>
+                    </div>
+                  </>
+                )}
 
-              {(selected.fetchConfig?.auth?.type ?? 'none') === 'oauth2' && (
-                <div className="shared-ds-fetch-auth-fields">
-                  <input className="shared-ds-fetch-auth-input" type="text" placeholder="Token URL" value={selected.fetchConfig?.auth?.tokenUrl ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ tokenUrl: e.target.value })} />
-                  <input className="shared-ds-fetch-auth-input" type="text" placeholder="Client ID" value={selected.fetchConfig?.auth?.clientId ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ clientId: e.target.value })} />
-                  <input className="shared-ds-fetch-auth-input" type="password" placeholder="Client Secret" value={selected.fetchConfig?.auth?.clientSecret ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ clientSecret: e.target.value })} />
-                </div>
-              )}
+                {(selected.fetchConfig?.auth?.type ?? 'none') === 'apikey' && (
+                  <>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Key Name</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="text" placeholder="X-API-Key" value={selected.fetchConfig?.auth?.apiKeyName ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ apiKeyName: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Key Value</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="text" placeholder="your-api-key" value={selected.fetchConfig?.auth?.apiKeyValue ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ apiKeyValue: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Add to</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <CustomSelect
+                          className="shared-ds-fetch-auth-type"
+                          value={selected.fetchConfig?.auth?.apiKeyIn ?? 'header'}
+                          onChange={(v) => fetchConfig.handleFetchAuthPatch({ apiKeyIn: v as 'header' | 'query' })}
+                          options={[
+                            { value: 'header', label: 'Header' },
+                            { value: 'query', label: 'Query String' },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {(selected.fetchConfig?.auth?.type ?? 'none') === 'oauth2' && (
+                  <>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Token URL</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="text" placeholder="https://auth.example.com/oauth/token" value={selected.fetchConfig?.auth?.tokenUrl ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ tokenUrl: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Client ID</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="text" placeholder="Enter client ID" value={selected.fetchConfig?.auth?.clientId ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ clientId: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="shared-ds-fetch-auth-row">
+                      <span className="shared-ds-fetch-auth-label">Client Secret</span>
+                      <div className="shared-ds-fetch-auth-ctrl">
+                        <input className="shared-ds-fetch-auth-input" type="password" placeholder="Enter client secret" value={selected.fetchConfig?.auth?.clientSecret ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ clientSecret: e.target.value })} />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 

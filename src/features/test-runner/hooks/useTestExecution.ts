@@ -56,6 +56,49 @@ function capResults(results: RequestResult[]): RequestResult[] {
   return [...failed, ...sampled];
 }
 
+/**
+ * LiveCharts needs ≥2 samples. Short demo runs often finish in &lt;1s and only
+ * get 0–1 per-second snapshots — synthesize start/end points from the summary.
+ */
+export function ensureChartableTimeSeries(
+  series: TimeSeriesPoint[],
+  summary: Pick<TestSummary, 'avgResponseTime' | 'tps' | 'errorRate'>,
+  durationMs: number,
+): TimeSeriesPoint[] {
+  if (series.length >= 2) return series;
+
+  const endSec = Math.max(1, Math.round(durationMs / 1000) || 1);
+  const endPoint: TimeSeriesPoint = {
+    elapsedSec: endSec,
+    avgResponseTime: summary.avgResponseTime,
+    tps: summary.tps,
+    errorRate: summary.errorRate,
+    concurrency: series[series.length - 1]?.concurrency ?? 0,
+  };
+
+  if (series.length === 1) {
+    const first = series[0];
+    return [
+      first,
+      {
+        ...endPoint,
+        elapsedSec: Math.max(first.elapsedSec + 1, endSec),
+      },
+    ];
+  }
+
+  return [
+    {
+      elapsedSec: 0,
+      avgResponseTime: summary.avgResponseTime,
+      tps: 0,
+      errorRate: 0,
+      concurrency: 0,
+    },
+    endPoint,
+  ];
+}
+
 export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
   const publishConfigRef = useRef(publishConfig);
   publishConfigRef.current = publishConfig;
@@ -434,6 +477,11 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         : finalCompleted;
 
       if (saveResult.quotaError) {
+        timeSeriesRef.current = ensureChartableTimeSeries(
+          timeSeriesRef.current,
+          summary,
+          summary.totalDurationMs,
+        );
         setState((prev) => ({
           ...prev,
           isRunning: false,
@@ -442,8 +490,14 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
           pendingRun: testRun,
           liveSummary: summary,
           liveResults: capResults(testResult.results),
+          timeSeries: timeSeriesRef.current,
         }));
       } else {
+        timeSeriesRef.current = ensureChartableTimeSeries(
+          timeSeriesRef.current,
+          summary,
+          summary.totalDurationMs,
+        );
         setState((prev) => ({
           ...prev,
           isRunning: false,
@@ -453,6 +507,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
           liveSummary: summary,
           liveResults: capResults(testResult.results),
           pendingRun: null,
+          timeSeries: timeSeriesRef.current,
         }));
       }
     } catch (err) {
@@ -607,6 +662,11 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       }
 
       if (saveResult.quotaError) {
+        timeSeriesRef.current = ensureChartableTimeSeries(
+          timeSeriesRef.current,
+          summary,
+          summary.totalDurationMs,
+        );
         setState((prev) => ({
           ...prev,
           isRunning: false,
@@ -615,8 +675,14 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
           pendingRun: testRun,
           liveSummary: summary,
           liveResults: capResults(allResults),
+          timeSeries: timeSeriesRef.current,
         }));
       } else {
+        timeSeriesRef.current = ensureChartableTimeSeries(
+          timeSeriesRef.current,
+          summary,
+          summary.totalDurationMs,
+        );
         setState((prev) => ({
           ...prev,
           isRunning: false,
@@ -626,6 +692,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
           liveSummary: summary,
           liveResults: capResults(allResults),
           pendingRun: null,
+          timeSeries: timeSeriesRef.current,
         }));
       }
     };

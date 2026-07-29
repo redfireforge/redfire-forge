@@ -587,23 +587,23 @@ describe('SharedDataSourceModal', () => {
 
       selectOption(authType, 'Bearer Token');
       await waitFor(() => {
-        expect(authPanel.querySelector('input[placeholder="Token"]')).toBeTruthy();
+        expect(authPanel.querySelector('input[placeholder="eyJhbGciOi..."]')).toBeTruthy();
       });
 
       selectOption(authType, 'Basic Auth');
       await waitFor(() => {
-        expect(authPanel.querySelector('input[placeholder="Password"]')).toBeTruthy();
+        expect(authPanel.querySelector('input[placeholder="Enter password"]')).toBeTruthy();
       });
 
       selectOption(authType, 'API Key');
       await waitFor(() => {
-        expect(authPanel.querySelector('input[placeholder="Key Name"]')).toBeTruthy();
+        expect(authPanel.querySelector('input[placeholder="X-API-Key"]')).toBeTruthy();
       });
 
       const typeSelects = authPanel.querySelectorAll('.shared-ds-fetch-auth-type');
       selectOption(typeSelects[0]!, 'OAuth2 Client Credentials');
       await waitFor(() => {
-        expect(authPanel.querySelector('input[placeholder="Token URL"]')).toBeTruthy();
+        expect(authPanel.querySelector('input[placeholder="https://auth.example.com/oauth/token"]')).toBeTruthy();
       });
     });
 

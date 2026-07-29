@@ -1,5 +1,5 @@
 /**
- * RunnerSlaOverridePanel — compact SLA trigger bar + full-screen modal.
+ * RunnerSlaOverridePanel — compact SLA trigger bar + movable/resizable modal.
  *
  * Runner page shows a single-line trigger bar with stats (configured / overrides / new).
  * Clicking "Configure" opens a modal with:
@@ -212,8 +212,10 @@ export default function RunnerSlaOverridePanel({
           closeOnOverlayClick={false}
           closeButtonKind="none"
           showExpandButton={false}
-          showResizeHandles={false}
-          disableDrag
+          constrainDragToViewport
+          dragViewportPadding={12}
+          minWidth={680}
+          minHeight={260}
           footer={
             <>
               <div className="sla-modal-footer-summary">

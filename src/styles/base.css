@@ -4351,10 +4351,9 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .sla-trigger-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* ── SLA Override Modal ── */
-/* Solid backdrop covers everything below the header. Respects sidebar via .sidebar-visible
-   (the global `.sidebar-visible .modal-overlay { left: 300px }` rule kicks in). */
+/* Transparent overlay — modal chrome stays opaque; drag header / resize edges. */
 .sla-modal-overlay {
-  background: rgba(0, 0, 0, 0.55) !important;
+  background: transparent !important;
   justify-content: center;
   align-items: flex-start;
   padding: 40px 24px;
@@ -4378,6 +4377,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   flex-direction: column;
   overflow: hidden;
   padding: 0;
+  position: relative;
 }
 
 /* Header layout (AppModalFrame uses `.modal-header` for title + controls row) */
@@ -4386,10 +4386,14 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0,0,0,0.08);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
   flex-shrink: 0;
-  cursor: default;
+  cursor: grab;
+  user-select: none;
+}
+.sla-override-modal .modal-header:active {
+  cursor: grabbing;
 }
 .sla-override-modal .modal-header h3 {
   margin: 0;
