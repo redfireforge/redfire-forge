@@ -116,40 +116,51 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
                 onDrop={(e) => handleColDrop(col.id, e)}
               >
                 <div className="data-source-col-header">
-                  <button
-                    type="button"
-                    className="data-source-col-drag-handle"
-                    draggable
-                    onDragStart={(e) => handleColDragStart(col.id, e)}
-                    onDragEnd={handleColDragEnd}
-                    title="Drag to reorder column"
-                  >⠿</button>
-                  {editingColId === col.id ? (
-                    <input
-                      className="params-input data-source-col-name-input"
-                      autoFocus
-                      value={col.name}
-                      onChange={(e) => updateColumn(col.id, { name: e.target.value })}
-                      onBlur={() => setEditingColId(null)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') setEditingColId(null); }}
-                    />
-                  ) : (
-                    <span
-                      className="data-source-col-name"
-                      onClick={() => setEditingColId(col.id)}
-                      title="Click to rename"
+                  <div className="data-source-col-title-row">
+                    <button
+                      type="button"
+                      className="data-source-col-drag-handle"
+                      draggable
+                      onDragStart={(e) => handleColDragStart(col.id, e)}
+                      onDragEnd={handleColDragEnd}
+                      title="Drag to reorder column"
+                    >⠿</button>
+                    {editingColId === col.id ? (
+                      <input
+                        className="params-input data-source-col-name-input"
+                        autoFocus
+                        value={col.name}
+                        onChange={(e) => updateColumn(col.id, { name: e.target.value })}
+                        onBlur={() => setEditingColId(null)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') setEditingColId(null); }}
+                      />
+                    ) : (
+                      <span
+                        className="data-source-col-name"
+                        onClick={() => setEditingColId(col.id)}
+                        title="Click to rename"
+                      >
+                        {col.name || '(unnamed)'}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className={`data-source-sort-btn ${sortCol === col.id ? 'active' : ''}`}
+                      onClick={() => handleSortColumn(col.id)}
+                      title="Sort by this column"
                     >
-                      {col.name || '(unnamed)'}
+                      {sortCol === col.id ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                    </button>
+                  </div>
+                  {col.type === 'validate' && col.mapping ? (
+                    <span
+                      className="data-source-col-mapping"
+                      data-testid="ds-col-mapping"
+                      title="JSON path in the API response — compared against cell values"
+                    >
+                      {col.mapping.startsWith('$') ? col.mapping : `$.${col.mapping}`}
                     </span>
-                  )}
-                  <button
-                    type="button"
-                    className={`data-source-sort-btn ${sortCol === col.id ? 'active' : ''}`}
-                    onClick={() => handleSortColumn(col.id)}
-                    title="Sort by this column"
-                  >
-                    {sortCol === col.id ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                  </button>
+                  ) : null}
                   <div className="data-source-col-controls">
                     <CustomSelect
                       className="data-source-col-type-select"
@@ -160,11 +171,14 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
                     />
                     <button
                       type="button"
-                      className="params-delete"
+                      className="data-source-col-remove-btn"
                       onClick={() => removeColumn(col.id)}
                       title="Remove column"
+                      aria-label={`Remove column ${col.name || 'unnamed'}`}
                     >
-                      ×
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                        <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -204,7 +218,7 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
                     />
                   </label>
                   {!linkedSharedDs && <div className="data-source-row-hover-actions">
-                    <button type="button" className="data-source-row-action-btn" onClick={(e) => { e.stopPropagation(); setEditingRowId(row.id); }} disabled={!row.enabled} title="Edit row details">
+                    <button type="button" className="data-source-row-action-btn" data-testid="ds-row-edit-btn" onClick={(e) => { e.stopPropagation(); setEditingRowId(row.id); }} disabled={!row.enabled} title="Edit row details">
                       ✎
                     </button>
                     <button type="button" className="data-source-row-action-btn" onClick={(e) => { e.stopPropagation(); void fetchRowResponse(row.id); }} disabled={fetchingRowId === row.id || !row.enabled} title="Fetch response">
@@ -260,6 +274,7 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
                         if (e.key === 'Enter' && tagInput.trim()) {
                           addTagToRow(row.id, tagInput);
                           setTagInput('');
+                          setEditingTagRowId(null);
                         } else if (e.key === 'Escape') {
                           setEditingTagRowId(null);
                           setTagInput('');
