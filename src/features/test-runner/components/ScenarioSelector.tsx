@@ -170,6 +170,19 @@ export default function ScenarioSelector({
     envFallbackAuth,
   ), [featureGroups, selectedScenarios, hostMode, customBaseUrl, resolvedBaseUrl, skipValidation, skipAssertions, validationOverride, forceUnordered, globalAuthProfiles, envFallbackAuth]);
 
+  /** Count selected scenarios that still exist under the current kind filter.
+   *  Tag-hidden selections still count (user may re-enable the tag).
+   *  Stale IDs from deleted FGs / other envs do not. */
+  const selectedScenarioCount = useMemo(() => {
+    let count = 0;
+    for (const fg of kindFilteredGroups) {
+      for (const sc of fg.scenarios) {
+        if (sc.tests.length > 0 && selectedScenarios.has(sc.id)) count++;
+      }
+    }
+    return count;
+  }, [kindFilteredGroups, selectedScenarios]);
+
   const renderFeatureGroup = (fg: FeatureGroup) => {
     if (fg.scenarios.length === 0) return null;
     const allSelected = fg.scenarios.length > 0 && fg.scenarios.every((sc) => selectedScenarios.has(sc.id));
@@ -315,7 +328,7 @@ export default function ScenarioSelector({
             )}
           </label>
           <span className="filter-count">
-            {selectedScenarios.size} scenario{selectedScenarios.size !== 1 ? 's' : ''} selected
+            {selectedScenarioCount} scenario{selectedScenarioCount !== 1 ? 's' : ''} selected
             ({selectedTests.length} test{selectedTests.length !== 1 ? 's' : ''})
           </span>
         </div>

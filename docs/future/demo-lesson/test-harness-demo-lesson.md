@@ -56,7 +56,7 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | TH-15 | `th-import-export-curl` | Import, Export & cURL | 7 | 7 min | cURL Import/Export (with OAuth2 tokens), FG/scenario/test JSON export with version checkboxes, CSV/Excel/JSON template import wizard, results import, auto-report |
 | TH-16 | `th-advanced-search` | Advanced Search & Drag-Drop | 6 | 6 min | Query syntax (AND/OR/NOT, parentheses, phrases), search across all fields, match count, drag-drop reorder (scenarios/tests), copy/move modals |
 | TH-17 | `th-mapper-expressions-dsl` | Data Mapper Expressions & DSL Editor | 8 | 9 min | Expression editor (Monaco), function catalog, live preview, step-through debugger, expression snippets, DSL editor with syntax highlighting/autocomplete, DSL Reference Panel (39 entries), visual↔code sync |
-| TH-18 | `th-data-source-advanced` | Data Source Advanced Features | 7 | 7 min | Row detail modal, verify all modal, validation contract panel, populate from API (Data Mapper), map columns, row distribution modes, shared DS fetch configuration, create test from shared DS |
+| TH-18 | `th-data-source-advanced` | Data Source Advanced Features | 5 | 6 min | Validate column, row detail modal, verify all modal, validation contract panel, Data Mapper integrations, row distribution and validation modes |
 | TH-19 | `th-schema-drift-repair` | Schema Drift & Contract Testing | 6 | 6 min | Schema snapshots, drift detection (added/removed/type changes), severity classification, drift banner, diff modal with repair suggestions, schema contract modes (strict/lenient lock), mapping health dashboard |
 | TH-20 | `th-baseline-regression` | Baseline & Regression Analysis | 6 | 6 min | Baseline management (mark/unmark/rename/list), regression thresholds (configurable warn/critical), regression status per run, trend charts, per-scenario trends, comparison report export (JSON/Markdown), overlay histograms |
 | TH-21 | `th-workflow-runner` | The Workflow Runner | 7 | 8 min | Workflow picker (searchable tree), variables editor, trace options, run config presets (save/load), correlation wait config, multi-webhook testing panel, webhook load driver, live progress |
@@ -82,7 +82,7 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | Field | Value |
 |---|---|
 | `id` | `th-overview-structure` |
-| `estimatedMinutes` | 5 |
+| `estimatedMinutes` | 6 |
 | Steps | 5 |
 | `initialTab` | `scenarios` |
 | `allowedTabs` | `['scenarios', 'runner', 'param-runner', 'workflow-runner', 'results']` |
@@ -671,11 +671,13 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th18-row-detail` | Row Detail Modal | `.row-detail-modal` | In the data grid, click the **✎** (edit) button on a row → spotlight the **Row Detail Modal** (1000ms): shows column values grouped by type (path, validate) with type badges, **Row Name** input field for labeling, **URL Preview** showing the resolved method + URL with substitutions, and a **Fetch Response** button for single-row API fetch → spotlight the Fetch Response button (`.row-detail-fetch-btn`, 800ms) → close the modal |
-| 2 | `th18-verify-modal` | Verify & Inspect Modal | `.verify-modal` | Spotlight the **▶ Verify All** button in the toolbar (`.data-source-toolbar-btn-primary`, 800ms) → click to open the **Data Source — Verify & Inspect** modal → spotlight the modal header with row/column summary (1000ms) → spotlight the progress bar area and the action buttons: **▶ Verify All** (compare) and **⬇ Run & Capture** (populate validate columns from live responses) → spotlight per-row verify cards (`.verify-row-cards`, 1200ms, explain: Verify All sends the request for every enabled row and checks validate columns against actual responses — catches stale test data) → close the modal |
-| 3 | `th18-contract-panel` | Validation Contract Panel | `.data-source-contract-panel` | Click the **Contract** button in the toolbar → spotlight the **Validation Contract Panel** (1200ms) → spotlight the **Dynamic vs Fixed** mode buttons: Dynamic allows array sizes to vary between rows, Fixed enforces all rows to have the same structure → spotlight the **Ordered vs Unordered** toggle for array matching (1000ms, explain: validation contracts enforce consistency across parameterized data — "every row must return exactly 3 items in any order" prevents flaky tests from server-side shuffling) → click Contract button again to close the panel |
-| 4 | `th18-toolbar-mappers` | Data Mapper Integrations | `HAR.DS_TOOLBAR` | Spotlight the **⬇ From API** button (800ms, explain: opens the Data Mapper in populate mode — fetch an API response and map array items into data rows automatically, no manual data entry) → spotlight the **🔗 Map Columns** button (800ms, explain: opens the Data Mapper in column mapping mode — visually connect data columns to where they're used in the request template: path params, query params, body fields, headers) → spotlight the **Distribution** dropdown showing 3 modes: Sequential, Random, Round Robin (1000ms, explain: distribution controls how rows are assigned to iterations — random simulates real-world usage, sequential is predictable for debugging, round-robin ensures even coverage) |
-| 5 | `th18-shared-ds` | Shared Data Sources | `.shared-ds-modal` | Open the **Shared Data Sources** modal from the toolbar badge or header button → spotlight the modal with list panel on the left and editor panel on the right (1200ms) → spotlight the **Fetch Panel** (`.shared-ds-fetch-panel`) showing: URL bar, method, mapping chips preview, Params/Auth/Headers tabs, **cURL Import** button, and **Populate Rows from API** button → spotlight the **Used by** section showing tests linked to this shared data source (1000ms, explain: shared data sources let you maintain one dataset used by multiple tests — when the API changes, re-fetch updates all linked tests automatically) → close the modal |
+| 1 | `th18-add-name-column` | Add Validate Column | `HAR.DS_ADD_COLUMN_BTN` | Add a Validate column for `$.name`, populate expected values, and spotlight the Column Order control. |
+| 2 | `th18-row-detail` | Row Detail — Admin User | `HAR.ROW_EDIT_BTN` | Open the first row detail, spotlight the Admin User row values and URL preview, then close the modal. |
+| 3 | `th18-verify-modal` | Verify & Inspect Modal | `HAR.DS_VERIFY_OPEN_BTN` | Open Verify & Inspect, demonstrate verification controls and row cards, then close the modal. |
+| 4 | `th18-contract-panel` | Validation Contract Panel | `HAR.CONTRACT_BTN` | Demonstrate Dynamic/Fixed and Ordered/Unordered validation contract controls, then close the panel. |
+| 5 | `th18-toolbar-mappers` | Data Mapper Integrations | `HAR.DS_FROM_API_BTN` | Open From API and Map Columns, then demonstrate Distribution and Validate dropdown options. This is the final step. |
+
+**Implementation note (2026-07-29):** Removed the former Shared Data Sources final step. Shared Data Sources is covered by the dedicated TH-21 lesson, and TH-18 now completes after Data Mapper Integrations.
 
 **Cleanup:** Close all open modals. Delete seeded data.
 

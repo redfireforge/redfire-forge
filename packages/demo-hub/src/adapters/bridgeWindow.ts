@@ -104,6 +104,10 @@ export type DemoBridgeWindow = Window &
     __demoRemoveSettingsSvc?: (name: string) => void;
     /** Delete all feature groups whose name matches (demo cleanup). */
     __demoDeleteFeatureGroupsByName?: (name: string) => void;
+    /** Seed shared data sources (idempotent — skips existing IDs). */
+    __demoSeedSharedDataSources?: (sources: Array<Record<string, unknown>>) => void;
+    /** Delete shared data sources whose name matches (demo cleanup). */
+    __demoDeleteSharedDataSourcesByName?: (name: string) => void;
     /** Delete all request collections whose name matches exactly (demo cleanup). Returns count deleted. */
     __demoDeleteCollectionsByName?: (name: string) => number;
     /** Remove all workflow preview endpoints from storage (demo cleanup). */

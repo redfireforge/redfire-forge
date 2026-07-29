@@ -28,6 +28,8 @@ export const DEMO_VERIFY_ABSORB_MS = 1100;
 /** Cap how long Verifying can poll for a selector (fail fast when missing). */
 export const DEMO_VERIFY_WAIT_MS = 3_200;
 export const DEMO_VERIFY_WAIT_FROM_READING_MS = 3_600;
+/** Hard cap for lesson action execution to avoid deadlocks on interrupted UI flows. */
+export const DEMO_ACTION_TIMEOUT_MS = 16_000;
 
 export interface UseDemoHubStepPipelineOptions {
   navigateToTab: (tab: string) => void;
@@ -166,7 +168,18 @@ export function useDemoHubStepPipeline({
 
       if (step.action) {
         setStepPhase('action');
-        try { await step.action(visibleCtx); } catch (e) { console.warn('[DemoHub] action failed:', e); }
+        try {
+          await Promise.race([
+            step.action(visibleCtx),
+            abortableSleep(DEMO_ACTION_TIMEOUT_MS, signal).then(() => {
+              if (!signal.aborted) {
+                console.warn(`[DemoHub] action timed out after ${DEMO_ACTION_TIMEOUT_MS}ms for step ${step.id}`);
+              }
+            }),
+          ]);
+        } catch (e) {
+          console.warn('[DemoHub] action failed:', e);
+        }
         await abortableSleep(scaleMs(DEMO_POST_ACTION_SETTLE_MS), signal);
         if (signal.aborted) return;
       }
@@ -217,7 +230,18 @@ export function useDemoHubStepPipeline({
     try {
       if (step.action) {
         setStepPhase('action');
-        try { await step.action(visibleCtx); } catch (e) { console.warn('[DemoHub] action failed:', e); }
+        try {
+          await Promise.race([
+            step.action(visibleCtx),
+            abortableSleep(DEMO_ACTION_TIMEOUT_MS, signal).then(() => {
+              if (!signal.aborted) {
+                console.warn(`[DemoHub] action timed out after ${DEMO_ACTION_TIMEOUT_MS}ms for step ${step.id}`);
+              }
+            }),
+          ]);
+        } catch (e) {
+          console.warn('[DemoHub] action failed:', e);
+        }
         await abortableSleep(scaleMs(DEMO_POST_ACTION_SETTLE_MS), signal);
         if (signal.aborted) return;
       }

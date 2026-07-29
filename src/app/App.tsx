@@ -89,7 +89,7 @@ export default function App() {
     initialTheme,
   } = useProjects();
   useDemoWorkspaceDefaultsBridge(setWorkspaceDefaults);
-  useDemoHarnessBridge(environments, microservices, setEnvironments, setMicroservices, setFeatureGroups, setSelectedEnvId, setSelectedSvcId);
+  useDemoHarnessBridge(environments, microservices, setEnvironments, setMicroservices, setFeatureGroups, setSelectedEnvId, setSelectedSvcId, setSharedDataSources);
 
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
 

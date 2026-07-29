@@ -1,9 +1,9 @@
 /**
  * TH-4 — The Test Runner
  *
- * 6 steps: see the host selector → configure execution mode & iterations →
- * select scenarios → preview the execution plan → run & monitor live
- * progress → navigate to results.
+ * 7 steps: see the host selector → configure execution mode & iterations →
+ * select scenarios → review test distribution weights → preview the execution
+ * plan → run & monitor live progress → navigate to results.
  *
  * Teaches the standard Test Runner workflow end-to-end.
  */
@@ -11,10 +11,15 @@ import type { DemoLesson } from '../../types';
 import { HAR } from '@shared/selectors';
 import {
   spotlight,
+  spotlightSel,
   deleteTh4DemoFg,
   ensureTh4FgExists,
   selectFirstScenarioInRunner,
   setIterationsValue,
+  scrollRunnerProgressIntoView,
+  tourHostMode,
+  clickHostMode,
+  findHostModeLabel,
 } from './th-demo-helpers';
 
 // ─── Lesson ──────────────────────────────────────────────────────
@@ -26,8 +31,8 @@ export const thTestRunnerLesson: DemoLesson = {
   name: 'The Test Runner',
   description:
     'Execute your test suite — configure the host, set execution mode and iterations, ' +
-    'preview the plan, run, and monitor live progress.',
-  estimatedMinutes: 6,
+    'review weights, preview the plan, run, and monitor live progress.',
+  estimatedMinutes: 7,
   initialTab: 'runner',
   allowedTabs: ['scenarios', 'runner', 'results'],
 
@@ -52,6 +57,7 @@ export const thTestRunnerLesson: DemoLesson = {
       { term: 'Host Mode', definition: 'Controls URL resolution: Original (as authored), Settings (microservice base URL), or Custom (override).' },
       { term: 'Execution Mode', definition: 'Determines how requests are scheduled: sequential, batched, pooled, or load-shaped.' },
       { term: 'Iterations', definition: 'How many times each test runs. 2 iterations × 3 tests = 6 total requests.' },
+      { term: 'Test Weight', definition: 'Per-test control: 0 skips the test; equal weights run each once per iteration; higher weights increase share in load modes.' },
       { term: 'Execution Plan', definition: 'Preview showing the exact request count before you commit to running.' },
     ],
     diagram: `<svg viewBox="0 0 360 70" xmlns="http://www.w3.org/2000/svg">
@@ -101,35 +107,36 @@ export const thTestRunnerLesson: DemoLesson = {
       description:
         'At the top of the Test Runner is the **Host** selector — it controls how ' +
         'request URLs are resolved.\n\n' +
-        'Three modes:\n' +
+        'We will click each mode in order and watch what changes:\n' +
         '- **Original** — uses URLs exactly as written in each test (best for absolute URLs)\n' +
         '- **Settings** — replaces the host portion with the microservice\'s base URL from Settings\n' +
         '- **Custom** — lets you type any override URL\n\n' +
-        'Since our tests use absolute JSONPlaceholder URLs, **Original** is the correct choice.',
+        'Since our tests use absolute JSONPlaceholder URLs, we finish on **Original**.',
       highlight: HAR.HOST_SELECTOR,
+      pauseAfter: true,
 
       preAction: async (ctx) => {
         ctx.navigateToTab('runner');
         await ctx.delay(300);
         await ensureTh4FgExists(ctx);
+        clickHostMode('Original');
+        await ctx.delay(150);
       },
 
       action: async (ctx) => {
         await ensureTh4FgExists(ctx);
+        await ctx.delay(300);
+
+        // Tour each mode: click → spotlight that option (not the whole row twice).
+        await tourHostMode(ctx, 'Original');
+        await tourHostMode(ctx, 'Settings');
+        await tourHostMode(ctx, 'Custom');
+
+        // Restore Original — correct for absolute JSONPlaceholder URLs.
+        clickHostMode('Original');
         await ctx.delay(400);
-
-        const hostSelector = document.querySelector<HTMLElement>(HAR.HOST_SELECTOR);
-        if (hostSelector) await spotlight(hostSelector, 2000, ctx);
-
-        const labels = hostSelector?.querySelectorAll<HTMLElement>('label.radio-label');
-        const originalLabel = Array.from(labels || []).find(l =>
-          l.textContent?.trim()?.startsWith('Original'),
-        );
-        const originalRadio = originalLabel?.querySelector<HTMLInputElement>('input[type="radio"]');
-        if (originalRadio && !originalRadio.checked) {
-          originalRadio.click();
-          await ctx.delay(500);
-        }
+        const originalLabel = findHostModeLabel('Original');
+        if (originalLabel) await spotlight(originalLabel, 1200, ctx);
       },
 
       verify: HAR.HOST_SELECTOR,
@@ -141,16 +148,15 @@ export const thTestRunnerLesson: DemoLesson = {
       title: 'Execution Mode & Iterations',
       description:
         'The **Execution Config** panel controls how requests are scheduled.\n\n' +
-        'Five execution modes:\n' +
-        '- **Sequential** — one at a time, in order\n' +
-        '- **Batch** — fires N requests in parallel, waits for all, then fires the next batch\n' +
-        '- **Continuous Pool** — keeps N requests in-flight at all times\n' +
-        '- **Load Profile** — time-based with ramp-up/sustained/spike shaping\n' +
-        '- **Constant Arrival** — fires N requests/second (Desktop only)\n\n' +
+        'Four areas to know:\n' +
+        '1. **Execution Mode** — Sequential, Batch, Continuous Pool, Load Profile, or Constant Arrival\n' +
+        '2. **Runtime params** — Concurrency, Iterations, Timeout, and Retry\n' +
+        '3. **On Error** — Continue, Stop 1st, or Threshold (with Max Errors / Error Rate)\n' +
+        '4. **Think Time** — optional delay between requests (None, Constant, Uniform, Gaussian)\n\n' +
         '**Batch** is the default and a great starting point. ' +
         'Set **Iterations** to **2** so each test runs twice — ' +
         'this gives us 6 total requests to observe.',
-      highlight: HAR.EXEC_CONFIG,
+      highlight: HAR.EXEC_MODE_ROW,
 
       preAction: async (ctx) => {
         ctx.navigateToTab('runner');
@@ -159,18 +165,23 @@ export const thTestRunnerLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        const execConfig = document.querySelector<HTMLElement>(HAR.EXEC_CONFIG);
-        if (execConfig) {
-          const modeBox = execConfig.querySelector<HTMLElement>('.runner-option-box');
-          if (modeBox) await spotlight(modeBox, 1500, ctx);
-        }
+        // 1) Execution Mode
+        await spotlightSel(ctx, HAR.EXEC_MODE_ROW, 1600);
+        await ctx.delay(400);
+
+        // 2) Concurrency / Iterations / Timeout / Retry
+        await spotlightSel(ctx, HAR.RUNTIME_PARAMS, 1600);
+        await ctx.delay(300);
 
         await setIterationsValue(ctx, 2);
         await ctx.delay(500);
 
-        const iterField = Array.from(document.querySelectorAll<HTMLElement>('.resilience-field'))
-          .find(f => f.querySelector('label')?.textContent?.includes('Iterations'));
-        if (iterField) await spotlight(iterField, 1200, ctx);
+        // 3) On Error / Max Errors / Error Rate
+        await spotlightSel(ctx, HAR.ERROR_POLICY_ROW, 1600);
+        await ctx.delay(400);
+
+        // 4) Think Time
+        await spotlightSel(ctx, HAR.THINK_TIME_SEC, 1600);
       },
 
       verify: HAR.EXEC_CONFIG,
@@ -211,7 +222,70 @@ export const thTestRunnerLesson: DemoLesson = {
       verify: HAR.SCENARIO_SELECTOR,
     },
 
-    // ── Step 4: Execution Plan Preview ───────────────────────────
+    // ── Step 4: Test Distribution (weights) ──────────────────────
+    {
+      id: 'th4-weights',
+      title: 'Test Distribution (Weights)',
+      description:
+        'Once scenarios are selected, **Test Distribution (weights)** lists every ' +
+        'included test with a numeric weight.\n\n' +
+        'What weights do:\n' +
+        '- **Weight 1** (default) — the test runs once per iteration\n' +
+        '- **Weight 0** — skip this test without unchecking the scenario\n' +
+        '- **Higher weights** — increase that test\'s share during Load Profile, ' +
+        'Continuous Pool, and Constant Arrival modes\n\n' +
+        'Use **Reset All to 1** to restore equal distribution, or **Reset All to 0** ' +
+        'to clear everything and enable only the tests you care about.\n\n' +
+        'For this Batch demo, leave all weights at **1** so each of the 3 tests ' +
+        'runs twice (with 2 iterations) for 6 total requests.',
+      highlight: HAR.WEIGHTS_FIELDSET,
+
+      preAction: async (ctx) => {
+        ctx.navigateToTab('runner');
+        await ctx.delay(200);
+        await ensureTh4FgExists(ctx);
+        await selectFirstScenarioInRunner(ctx);
+        await setIterationsValue(ctx, 2);
+        // Ensure the weights section is expanded
+        const legend = document.querySelector<HTMLElement>(HAR.WEIGHTS_LEGEND);
+        const arrow = legend?.querySelector<HTMLElement>('.collapse-arrow');
+        if (legend && arrow && !arrow.classList.contains('expanded')) {
+          legend.click();
+          await ctx.delay(300);
+        }
+      },
+
+      action: async (ctx) => {
+        await selectFirstScenarioInRunner(ctx);
+        await ctx.delay(400);
+
+        // Expand if collapsed
+        const legend = document.querySelector<HTMLElement>(HAR.WEIGHTS_LEGEND);
+        const arrow = legend?.querySelector<HTMLElement>('.collapse-arrow');
+        if (legend && arrow && !arrow.classList.contains('expanded')) {
+          await ctx.click(HAR.WEIGHTS_LEGEND);
+          await ctx.delay(500);
+        }
+
+        await spotlightSel(ctx, HAR.WEIGHTS_FIELDSET, 1600);
+        await ctx.delay(400);
+
+        // Spotlight each weight row so the viewer sees method + name + weight
+        const rows = Array.from(document.querySelectorAll<HTMLElement>(HAR.WEIGHT_ROW));
+        for (const row of rows) {
+          await spotlight(row, 900, ctx);
+          await ctx.delay(200);
+        }
+
+        await spotlightSel(ctx, HAR.WEIGHT_RESET_1, 1000);
+        await ctx.delay(300);
+        await spotlightSel(ctx, HAR.WEIGHT_RESET_0, 1000);
+      },
+
+      verify: HAR.WEIGHTS_FIELDSET,
+    },
+
+    // ── Step 5: Execution Plan Preview ───────────────────────────
     {
       id: 'th4-exec-plan',
       title: 'Execution Plan Preview',
@@ -239,7 +313,7 @@ export const thTestRunnerLesson: DemoLesson = {
       verify: HAR.EXEC_PLAN,
     },
 
-    // ── Step 5: Run & Monitor Progress ───────────────────────────
+    // ── Step 6: Run & Monitor Progress ───────────────────────────
     {
       id: 'th4-run',
       title: 'Run & Monitor Progress',
@@ -265,25 +339,28 @@ export const thTestRunnerLesson: DemoLesson = {
       action: async (ctx) => {
         await ctx.click(HAR.RUN_BTN);
 
-        // Wait briefly for the Live Progress panel to mount, then scroll it
-        // into view immediately so the viewer sees bar + metrics + completion.
+        // Scroll as soon as Live Progress mounts so the viewer sees the full
+        // monitor (bar + metrics + charts + completion) without manual scroll.
         const start = Date.now();
         while (Date.now() - start < 3000) {
-          if (document.querySelector(HAR.LIVE_PROGRESS)) break;
-          await ctx.delay(100);
+          if (document.querySelector(HAR.LIVE_PROGRESS)) {
+            scrollRunnerProgressIntoView();
+            break;
+          }
+          await ctx.delay(50);
         }
 
         const progress = document.querySelector<HTMLElement>(HAR.LIVE_PROGRESS);
         if (progress) {
-          progress.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          await ctx.delay(800);
+          await ctx.delay(400);
+          scrollRunnerProgressIntoView();
 
           const bar = progress.querySelector<HTMLElement>('.progress-bar-container');
           if (bar) await spotlight(bar, 1200, ctx);
 
           const metrics = progress.querySelector<HTMLElement>('.live-metrics');
           if (metrics) {
-            metrics.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            scrollRunnerProgressIntoView();
             await spotlight(metrics, 1800, ctx);
           }
         }
@@ -297,7 +374,7 @@ export const thTestRunnerLesson: DemoLesson = {
 
         const completion = document.querySelector<HTMLElement>(HAR.COMPLETION);
         if (completion) {
-          completion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          scrollRunnerProgressIntoView();
           await ctx.delay(400);
           await spotlight(completion, 1800, ctx);
         }
@@ -306,7 +383,7 @@ export const thTestRunnerLesson: DemoLesson = {
       verify: HAR.RUN_BTN,
     },
 
-    // ── Step 6: View Full Results ────────────────────────────────
+    // ── Step 7: View Full Results ────────────────────────────────
     {
       id: 'th4-results',
       title: 'View Full Results',

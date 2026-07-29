@@ -14,14 +14,14 @@
   justify-content: center !important;
   background: transparent !important;
 }
-/* Edit Test modal — default size, centered, white edges, resizable */
+/* Edit Test modal — large default size matching workspace layout, centered, white edges, resizable */
 .rf-builder-overlay .rf-builder-modal.modal.ram-modal {
-  width: min(920px, 94vw);
+  width: min(1180px, 80vw);
   max-width: none;
-  height: min(82vh, 860px);
+  height: min(84vh, 920px);
   max-height: none;
-  min-width: 520px;
-  min-height: 340px;
+  min-width: 640px;
+  min-height: 420px;
   border-radius: 10px !important;
   overflow: hidden;
   background: var(--surface);
@@ -1439,6 +1439,22 @@
   overflow-x: auto;
   margin: 0 -4px;
   padding: 0 4px 4px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, white 26%, transparent) transparent;
+}
+.data-source-scroll::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.data-source-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.data-source-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, white 24%, transparent);
+  border-radius: 999px;
+}
+.data-source-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, white 34%, transparent);
 }
 /* Column-type CustomSelect menu must escape the scroll/clip container */
 .data-source-scroll:has(.data-source-col-type-select .cs-menu) {

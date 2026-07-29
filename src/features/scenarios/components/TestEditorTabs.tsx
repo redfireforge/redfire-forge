@@ -68,7 +68,7 @@ export function TestEditorTabs({
         </button>
       )}
       {!isNew && (
-        <button type="button" className={`builder-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => onActiveTabChange('history')}>
+        <button type="button" className={`builder-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => onActiveTabChange('history')} data-testid="har-te-history-tab">
           History {defVersionCount > 0 && <span className="tab-badge">{defVersionCount}</span>}
         </button>
       )}

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DS_COLUMN_TYPE_LABELS,
   tourDsColumnTypeDropdown,
+  selectLastDsColumnType,
 } from './th-demo-helpers';
 import type { DemoActionContext } from '../../types';
 import { HAR } from '@shared/selectors';
@@ -90,5 +91,48 @@ describe('tourDsColumnTypeDropdown', () => {
 
   it('is a no-op when the type select is missing', async () => {
     await expect(tourDsColumnTypeDropdown(makeCtx(), { holdMs: 5 })).resolves.toBeUndefined();
+  });
+});
+
+describe('selectLastDsColumnType', () => {
+  it('opens the last column type menu and clicks the matching option', async () => {
+    mountTypeSelect(false);
+    const last = mountTypeSelect(false);
+    let selected: string | null = null;
+
+    // After the built-in open handler creates the menu, wire option clicks
+    last.querySelector('.cs-trigger')!.addEventListener('click', () => {
+      queueMicrotask(() => {
+        last.querySelectorAll('.cs-item').forEach((item) => {
+          item.addEventListener('click', () => {
+            selected = (item.textContent ?? '').trim();
+          });
+        });
+      });
+    });
+
+    await selectLastDsColumnType(makeCtx(), 'Validate');
+    expect(selected).toBe('Validate');
+  });
+
+  it('is a no-op when no type select exists', async () => {
+    await expect(selectLastDsColumnType(makeCtx(), 'Validate')).resolves.toBeUndefined();
+  });
+
+  it('selects quietly without spotlighting the menu or option', async () => {
+    const last = mountTypeSelect(false);
+    let selected: string | null = null;
+    last.querySelector('.cs-trigger')!.addEventListener('click', () => {
+      queueMicrotask(() => {
+        last.querySelectorAll('.cs-item').forEach((item) => {
+          item.addEventListener('click', () => {
+            selected = (item.textContent ?? '').trim();
+          });
+        });
+      });
+    });
+
+    await selectLastDsColumnType(makeCtx(), 'Validate', { quiet: true });
+    expect(selected).toBe('Validate');
   });
 });
