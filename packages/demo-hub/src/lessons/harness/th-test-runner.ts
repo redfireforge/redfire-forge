@@ -230,14 +230,12 @@ export const thTestRunnerLesson: DemoLesson = {
         'Once scenarios are selected, **Test Distribution (weights)** lists every ' +
         'included test with a numeric weight.\n\n' +
         'What weights do:\n' +
-        '- **Weight 1** (default) — the test runs once per iteration\n' +
         '- **Weight 0** — skip this test without unchecking the scenario\n' +
-        '- **Higher weights** — increase that test\'s share during Load Profile, ' +
-        'Continuous Pool, and Constant Arrival modes\n\n' +
-        'Use **Reset All to 1** to restore equal distribution, or **Reset All to 0** ' +
-        'to clear everything and enable only the tests you care about.\n\n' +
-        'For this Batch demo, leave all weights at **1** so each of the 3 tests ' +
-        'runs twice (with 2 iterations) for 6 total requests.',
+        '- **Weight ≥ 1** — include the test; higher values increase its share ' +
+        'during Load Profile, Continuous Pool, and Constant Arrival\n\n' +
+        'Watch us change the three weights to **1**, **2**, and **3** — you can ' +
+        'tune distribution anytime before you run.\n\n' +
+        '**Reset All to 1** restores equal weights; **Reset All to 0** clears them.',
       highlight: HAR.WEIGHTS_FIELDSET,
 
       preAction: async (ctx) => {
@@ -270,15 +268,29 @@ export const thTestRunnerLesson: DemoLesson = {
         await spotlightSel(ctx, HAR.WEIGHTS_FIELDSET, 1600);
         await ctx.delay(400);
 
-        // Spotlight each weight row so the viewer sees method + name + weight
+        // Set each row to 1, 2, 3 so viewers see weights change live
+        const targetWeights = [1, 2, 3];
         const rows = Array.from(document.querySelectorAll<HTMLElement>(HAR.WEIGHT_ROW));
-        for (const row of rows) {
-          await spotlight(row, 900, ctx);
-          await ctx.delay(200);
+        const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+
+        for (let i = 0; i < Math.min(rows.length, targetWeights.length); i++) {
+          const row = rows[i];
+          const input = row.querySelector<HTMLInputElement>(HAR.WEIGHT_INPUT);
+          await spotlight(row, 1200, ctx);
+          await ctx.delay(300);
+
+          if (input && nativeSetter) {
+            nativeSetter.call(input, String(targetWeights[i]));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            await ctx.delay(700);
+            await spotlight(input, 1000, ctx);
+            await ctx.delay(400);
+          }
         }
 
-        await spotlightSel(ctx, HAR.WEIGHT_RESET_1, 1000);
-        await ctx.delay(300);
+        await spotlightSel(ctx, HAR.WEIGHT_RESET_1, 1200);
+        await ctx.delay(400);
         await spotlightSel(ctx, HAR.WEIGHT_RESET_0, 1000);
       },
 

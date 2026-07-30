@@ -346,14 +346,26 @@
   border-bottom: 1px solid var(--border);
 }
 
-.shared-ds-fetch-curl-badge {
-  font-size: 11px;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 7px;
+.shared-ds-curl-view {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
   background: var(--bg);
-  margin-left: auto;
+}
+
+.shared-ds-curl-view-pre {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font-mono, 'Monaco', 'Menlo', monospace);
+  line-height: 1.45;
 }
 
 .shared-ds-fetch-url-bar {

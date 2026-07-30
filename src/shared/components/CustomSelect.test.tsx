@@ -39,6 +39,19 @@ describe('CustomSelect', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument();
   });
 
+  it('shows selected detail in trigger when requested', () => {
+    render(
+      <CustomSelect
+        value="c"
+        onChange={vi.fn()}
+        options={simpleOptions}
+        showDetailInTrigger
+      />,
+    );
+    expect(screen.getByText('Gamma')).toBeInTheDocument();
+    expect(screen.getByText('(Third letter)')).toBeInTheDocument();
+  });
+
   it('opens dropdown on click and shows all options', () => {
     render(<CustomSelect value="" onChange={vi.fn()} options={simpleOptions} />);
     fireEvent.click(screen.getByRole('button'));
@@ -182,6 +195,102 @@ describe('CustomSelect', () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       value: original,
       configurable: true,
+    });
+  });
+
+  it('closes other open CustomSelect menus when opening a different one', () => {
+    render(
+      <>
+        <CustomSelect value="" onChange={vi.fn()} options={simpleOptions} aria-label="Distribution" />
+        <CustomSelect value="" onChange={vi.fn()} options={simpleOptions} aria-label="Validation" />
+      </>,
+    );
+
+    const [firstTrigger, secondTrigger] = screen.getAllByRole('button', { name: /Distribution|Validation/ });
+
+    fireEvent.click(firstTrigger);
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.click(secondTrigger);
+
+    expect(screen.getAllByRole('listbox')).toHaveLength(1);
+    expect(firstTrigger).toHaveAttribute('aria-expanded', 'false');
+    expect(secondTrigger).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('positions menu upward when there is not enough space below', () => {
+    const originalInnerHeight = window.innerHeight;
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+
+    Object.defineProperty(window, 'innerHeight', { value: 180, configurable: true });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        return {
+          left: 20,
+          width: 120,
+          top: 160,
+          bottom: 170,
+          right: 140,
+          height: 10,
+          x: 20,
+          y: 160,
+          toJSON: () => ({}),
+        };
+      },
+    });
+
+    render(<CustomSelect value="" onChange={vi.fn()} options={simpleOptions} aria-label="up-select" />);
+    fireEvent.click(screen.getByRole('button', { name: 'up-select' }));
+
+    const menu = document.querySelector('.cs-menu') as HTMLElement;
+    expect(menu).toBeTruthy();
+    expect(menu.classList.contains('cs-menu-up')).toBe(true);
+    expect(menu.style.bottom).not.toBe('');
+
+    Object.defineProperty(window, 'innerHeight', { value: originalInnerHeight, configurable: true });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: originalGetBoundingClientRect,
+    });
+  });
+
+  it('recomputes anchored position on resize while open', () => {
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    let top = 100;
+
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        return {
+          left: 10,
+          width: 130,
+          top,
+          bottom: top + 20,
+          right: 140,
+          height: 20,
+          x: 10,
+          y: top,
+          toJSON: () => ({}),
+        };
+      },
+    });
+
+    render(<CustomSelect value="" onChange={vi.fn()} options={simpleOptions} aria-label="resize-select" />);
+    fireEvent.click(screen.getByRole('button', { name: 'resize-select' }));
+
+    const menuBefore = document.querySelector('.cs-menu') as HTMLElement;
+    const beforeTop = menuBefore.style.top;
+
+    top = 150;
+    fireEvent(window, new Event('resize'));
+
+    const menuAfter = document.querySelector('.cs-menu') as HTMLElement;
+    expect(menuAfter.style.top).not.toBe(beforeTop);
+
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: originalGetBoundingClientRect,
     });
   });
 });

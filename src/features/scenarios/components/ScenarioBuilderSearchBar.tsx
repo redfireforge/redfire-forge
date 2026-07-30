@@ -29,7 +29,15 @@ export function ScenarioBuilderSearchBar({
             <button className="btn btn-xs btn-ghost" onClick={() => onSearchQueryChange('')}>Clear</button>
           </>
         )}
-        <button className="btn btn-xs btn-ghost" onClick={onToggleSearchHelp} title="Search syntax help">?</button>
+        <button
+          type="button"
+          className="btn btn-xs btn-ghost"
+          onClick={onToggleSearchHelp}
+          title="Search syntax help"
+          data-testid="har-search-help-btn"
+        >
+          ?
+        </button>
       </div>
       {showSearchHelp && (
         <div className="search-help">

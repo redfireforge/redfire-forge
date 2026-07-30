@@ -42,7 +42,7 @@ export function withTypedSlotPath(
 
   const type = locationToSlotType(location);
   const name = field.path;
-  const typeLabel = SLOT_TYPE_LABELS[type] ?? type;
+  const typeLabel = SLOT_TYPE_LABELS[type];
   const plainLabel = !field.label || field.label === name;
 
   return {

@@ -4,7 +4,7 @@ import { isWsActionType } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
 import { getBaseUrl, parseQueryParams, rebuildUrl } from '../utils/testEditorUtils';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage, formatJson } from '../../../shared/utils/helpers';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
 import { toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
@@ -64,6 +64,8 @@ export interface TestEditorModalProps {
   ) => string;
   /** Called when user clicks the shared DS badge to open the modal */
   onOpenSharedDsModal?: () => void;
+  /** When true at mount, immediately switches to the Data tab and opens the setup/parameterize wizard */
+  initialOpenDataSourceWizard?: boolean;
 }
 
 export default function TestEditorModal({
@@ -90,10 +92,29 @@ export default function TestEditorModal({
   sharedDataSources,
   onPromoteToShared,
   onOpenSharedDsModal,
+  initialOpenDataSourceWizard,
 }: TestEditorModalProps) {
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const toast = useToast();
+
+  // Seeds the Data tab's setup modal open on mount (from the shared-DS "Create + Open Parameterize Wizard"
+  // flow), or imperatively via the header "Parameterize" shortcut. Reset shortly after the Data tab is
+  // showing so revisiting the tab later doesn't reopen the wizard.
+  const [openDataSetupOnMount, setOpenDataSetupOnMount] = useState(() => !!initialOpenDataSourceWizard);
+  useEffect(() => {
+    if (activeTab !== 'data' || !openDataSetupOnMount) return;
+    const t = setTimeout(() => setOpenDataSetupOnMount(false), 0);
+    return () => clearTimeout(t);
+  }, [activeTab, openDataSetupOnMount]);
+  const handleOpenParameterizeWizard = useCallback(() => {
+    // Must leave cURL Import/Export view — builder is the only mode that
+    // renders the Data / Parameterize tab content.
+    onInputModeChange('builder');
+    setOpenDataSetupOnMount(true);
+    onActiveTabChange('data');
+  }, [onInputModeChange, onActiveTabChange]);
+  const canParameterize = !!onCreateParameterizedCopy && !draft.dataSource && !draft.sharedDataSourceId;
 
   const [importDropdownOpen, setImportDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
@@ -210,7 +231,13 @@ export default function TestEditorModal({
     const cur = draftRef.current;
     // Preserve cur.id so the React key doesn't change and cause a remount
     const { id: _discardId, ...parsedWithoutId } = parsed;
-    onDraftChange({ ...cur, ...parsedWithoutId, validation: cur.validation });
+    // Pretty-print JSON bodies so the Body tab is readable after import
+    let body = parsed.body ?? '';
+    if ((parsed.bodyType === 'json' || (!parsed.bodyType && body.trim().startsWith('{'))) && body.trim()) {
+      const pretty = formatJson(body);
+      if (pretty) body = pretty;
+    }
+    onDraftChange({ ...cur, ...parsedWithoutId, body, validation: cur.validation });
     syncParamsFromUrl(parsed.url || '');
     onInputModeChange('builder');
     setCurlText('');
@@ -420,6 +447,8 @@ export default function TestEditorModal({
             onCancel={onCancel}
             onSave={onSave}
             canSave={canSave}
+            canParameterize={canParameterize}
+            onOpenParameterizeWizard={handleOpenParameterizeWizard}
           />
         }
       >
@@ -581,6 +610,7 @@ export default function TestEditorModal({
               sharedDataSources={sharedDataSources}
               onPromoteToShared={onPromoteToShared}
               onOpenSharedDsModal={onOpenSharedDsModal}
+              openSetupModalOnMount={openDataSetupOnMount}
               defVersions={defVersions}
               onVersionRestore={onVersionRestore}
               onVersionDelete={onVersionDelete}

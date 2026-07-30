@@ -25,14 +25,14 @@ test('SLA modal layout and resize', async ({ page }) => {
   await expect(modal).toBeVisible();
 
   // Add two SLA target rows so we can see the column layout
-  const addBtn = modal.locator('button.sla-add-btn');
+  const addBtn = modal.locator('button.test-sla-add-btn');
   await addBtn.click();
   await page.waitForTimeout(200);
   await addBtn.click();
   await page.waitForTimeout(200);
 
   // Fill in labels to test Label column width
-  const labelInputs = modal.locator('.sla-editor-input-label');
+  const labelInputs = modal.locator('.test-sla-input--label');
   if (await labelInputs.count() >= 2) {
     await labelInputs.nth(0).fill('Users P95 Response Time');
     await labelInputs.nth(1).fill('Error Rate Threshold');

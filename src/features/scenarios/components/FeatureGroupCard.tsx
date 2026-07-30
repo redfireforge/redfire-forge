@@ -255,7 +255,14 @@ export default function FeatureGroupCard({
 
           <button className="btn btn-sm" onClick={() => importScenariosInto(fg.id)} title="Import scenarios into this feature group">Import</button>
           <span className="export-opts-anchor">
-            <button className="btn btn-sm" onClick={() => setExportPopover({ id: fg.id, data: fg, exportFn: (o) => { exportFeatureGroup(fg, o); setExportPopover(null); } })} title="Export this feature group">Export</button>
+            <button
+              className="btn btn-sm"
+              data-testid="har-fg-export-btn"
+              onClick={() => setExportPopover({ id: fg.id, data: fg, exportFn: (o) => { exportFeatureGroup(fg, o); setExportPopover(null); } })}
+              title="Export this feature group"
+            >
+              Export
+            </button>
             {exportPopover?.id === fg.id && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
           </span>
           <button
@@ -584,17 +591,18 @@ export default function FeatureGroupCard({
                       <div className="test-card-actions">
                         <button
                           className={`btn btn-sm${(t.slaTargets?.length ?? 0) > 0 ? ' btn-sla-active' : ''}`}
+                          data-testid="har-test-sla-btn"
                           onClick={() => setSlaModalTest({ fgId: fg.id, scId: sc.id, test: t })}
                           title="Configure SLA targets for this test"
                         >
                           🎯{(t.slaTargets?.length ?? 0) > 0 ? ` ${t.slaTargets!.length}` : ''}
                         </button>
                         <button className="btn btn-sm" data-testid="har-test-edit-btn" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
-                        <button className="btn btn-sm" onClick={() => startCopyTest(fg.id, sc.id, t)} title="Copy to another scenario">Copy</button>
+                        <button className="btn btn-sm" data-testid="har-test-copy-btn" onClick={() => startCopyTest(fg.id, sc.id, t)} title="Copy to another scenario">Copy</button>
                         {!t.dataSource && sc.kind !== 'standard' && (
                           <button className="btn btn-sm" onClick={() => createParameterizedCopy(fg.id, sc.id, t)} title="Create a parameterized copy with data source">Parameterize</button>
                         )}
-                        <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'test', itemName: t.name || t.url, fgId: fg.id, scenarioId: sc.id, testId: t.id })} title="Move to another scenario">Move</button>
+                        <button className="btn btn-sm" data-testid="har-test-move-btn" onClick={() => setMoveDialog({ type: 'test', itemName: t.name || t.url, fgId: fg.id, scenarioId: sc.id, testId: t.id })} title="Move to another scenario">Move</button>
                         <span className="export-opts-anchor">
                           <button className="btn btn-sm" onClick={() => setExportPopover({ id: t.id, data: t, exportFn: (o) => { exportTest(t, o); setExportPopover(null); } })} title="Export this test">Export</button>
                           {exportPopover?.id === t.id && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
