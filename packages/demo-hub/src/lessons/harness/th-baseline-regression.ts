@@ -13,6 +13,7 @@ import {
   seedTh20TestRuns,
   deleteTh20TestRuns,
   ensureTh20RunsExist,
+  ensureTh20BaselinesExist,
   ensureResultsRunSelected,
   switchToAnalysisTab,
   closeExportMenu,
@@ -20,12 +21,63 @@ import {
 
 // ─── Local helpers ─────────────────────────────────────────────────
 
+const TH20_RUN_PREFIX = 'demo-th20-run';
+
+async function hasTh20Baselines(minCount = 1): Promise<boolean> {
+  const blMod = await import('../../../../../src/features/results/utils/runBaselines');
+  const baselines = await blMod.loadBaselines();
+  const th20Count = baselines.filter((b) => b.runId.startsWith(TH20_RUN_PREFIX)).length;
+  return th20Count >= minCount;
+}
+
 async function ensureTh20Ready(ctx: import('../../types').DemoActionContext): Promise<void> {
   ctx.navigateToTab('results');
   await ctx.delay(400);
   const seeded = await ensureTh20RunsExist();
   if (seeded) await ctx.delay(800);
   else await ctx.delay(300);
+  const repaired = await ensureTh20BaselinesExist();
+  if (repaired) await ctx.delay(300);
+
+  // If users unmark all baselines (or storage was left in a bad state),
+  // hard-reset the TH-20 demo dataset so Step 1 always starts with baselines.
+  if (!(await hasTh20Baselines(2))) {
+    await deleteTh20TestRuns();
+    await seedTh20TestRuns();
+    await ctx.delay(700);
+  }
+
+  await ensureTh20RunSelected(ctx);
+}
+
+async function ensureTh20RunSelected(ctx: import('../../types').DemoActionContext): Promise<void> {
+  const trigger = document.querySelector<HTMLElement>(HAR.RUN_SELECT_TRIGGER);
+  if (!trigger) return;
+
+  if (trigger.textContent?.includes('TH-20 Baseline Demo')) return;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    trigger.click();
+    await ctx.delay(250);
+
+    for (let probe = 0; probe < 5; probe += 1) {
+      const options = Array.from(document.querySelectorAll<HTMLElement>(HAR.RUN_SELECT_OPTION));
+      const th20Option = options.find((opt) => opt.textContent?.includes('TH-20 Baseline Demo'));
+      if (th20Option) {
+        th20Option.click();
+        await ctx.delay(450);
+        return;
+      }
+      await ctx.delay(120);
+    }
+
+    document.body.click();
+    await ctx.delay(120);
+    if (trigger.textContent?.includes('TH-20 Baseline Demo')) return;
+  }
+
+  document.body.click();
+  await ctx.delay(150);
   await ensureResultsRunSelected(ctx);
 }
 
@@ -250,8 +302,18 @@ export const thBaselineRegressionLesson: DemoLesson = {
           }
         }
 
-        const chart = document.querySelector<HTMLElement>(HAR.TREND_CONTAINER);
+        // The trend toolbar sits above the chart and can pull the viewport up.
+        // Re-anchor the viewport to the actual chart before spotlighting details.
+        let chart: HTMLElement | null = null;
+        for (let i = 0; i < 8; i += 1) {
+          chart = document.querySelector<HTMLElement>(HAR.TREND_CONTAINER);
+          if (chart) break;
+          await ctx.delay(120);
+        }
+
         if (chart) {
+          chart.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          await ctx.delay(350);
           await spotlight(chart, 1500, ctx);
 
           const trendTabs = chart.querySelector<HTMLElement>(HAR.TREND_TABS);
@@ -259,6 +321,8 @@ export const thBaselineRegressionLesson: DemoLesson = {
 
           const scopeSelect = chart.querySelector<HTMLElement>(HAR.TREND_SCOPE_SELECT);
           if (scopeSelect) await spotlight(scopeSelect, 800, ctx);
+        } else {
+          await spotlightSel(ctx, HAR.COMPARISON_PANEL, 1000);
         }
       },
 

@@ -471,6 +471,16 @@ export async function selectFirstScenarioInRunner(ctx: DemoActionContext, scope 
   const root = document.querySelector(`${prefix}${HAR.SCENARIO_SELECTOR}`);
   if (!root) return;
 
+  const scenarioCheckboxes = Array.from(root.querySelectorAll<HTMLInputElement>(
+    '.selection-scenario input[type="checkbox"]',
+  ));
+  if (scenarioCheckboxes.length === 0) return;
+
+  const first = scenarioCheckboxes[0];
+  // Already in the desired state — skip Deselect All / re-click (avoids UI flashing).
+  const onlyFirstSelected = first.checked && scenarioCheckboxes.slice(1).every(c => !c.checked);
+  if (onlyFirstSelected) return;
+
   const deselectBtn = Array.from(root.querySelectorAll<HTMLElement>('button'))
     .find(b => b.textContent?.trim() === 'Deselect All');
   if (deselectBtn) {
@@ -478,11 +488,8 @@ export async function selectFirstScenarioInRunner(ctx: DemoActionContext, scope 
     await ctx.delay(200);
   }
 
-  const checkbox = root.querySelector<HTMLInputElement>(
-    '.selection-scenario input[type="checkbox"]',
-  );
-  if (checkbox && !checkbox.checked) {
-    checkbox.click();
+  if (!first.checked) {
+    first.click();
     await ctx.delay(400);
   }
 }
@@ -1276,6 +1283,21 @@ export async function deleteTh7TestRuns(): Promise<void> {
   await w.__demoDeleteTestRuns(TH7_RUN_PREFIX);
 }
 
+/**
+ * Re-seed the TH-7 demo run if the user deleted it (or it never persisted).
+ * Safe to call from every step preAction — no-op when the run already exists.
+ */
+export async function ensureTh7TestRun(ctx: DemoActionContext): Promise<void> {
+  const w = getDemoBridgeWindow();
+  const has = w.__demoHasTestRuns
+    ? await w.__demoHasTestRuns(TH7_RUN_PREFIX)
+    : false;
+  if (!has) {
+    await seedTh7TestRun();
+    await ctx.delay(400);
+  }
+}
+
 // ─── TH-9 helpers ────────────────────────────────────────────────
 
 export const TH9_FG_NAME = 'Organization Demo';
@@ -1935,6 +1957,11 @@ export function deleteTh13DemoFg(): void {
   getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(TH13_FG_NAME);
 }
 
+/** Clear in-memory Test Runner / Param Runner SLA overrides (lesson setup/cleanup). */
+export function clearRunnerSlaOverrides(): void {
+  window.dispatchEvent(new CustomEvent('demo-clear-runner-sla-overrides'));
+}
+
 export async function seedTh13FeatureGroup(ctx: DemoActionContext): Promise<void> {
   const w = getDemoBridgeWindow();
   let ids = (window as unknown as Record<string, unknown>).__demoTh13Ids as { envId: string; svcId: string } | undefined;
@@ -1994,19 +2021,14 @@ export async function ensureTh13FgExists(ctx: DemoActionContext): Promise<boolea
 
 /** Find the SLA button on the first test card. */
 export function findSlaButton(): HTMLElement | null {
-  const cards = document.querySelectorAll<HTMLElement>('[data-testid="har-test-card"]');
-  for (const card of cards) {
-    const btn = card.querySelector<HTMLElement>('.test-card-actions .btn');
-    if (btn?.textContent?.includes('🎯')) return btn;
-  }
-  return null;
+  return document.querySelector<HTMLElement>(HAR.TEST_SLA_BTN);
 }
 
 /** Close the TestSlaModal if open. */
 export function closeSlaModal(): void {
   const modal = document.querySelector<HTMLElement>(HAR.SLA_MODAL);
   if (!modal) return;
-  const btns = modal.querySelectorAll<HTMLElement>('.sla-editor-actions .btn');
+  const btns = modal.querySelectorAll<HTMLElement>(`${HAR.SLA_FOOTER_ACTIONS} .btn`);
   for (const btn of btns) {
     if (btn.textContent?.trim() === 'Cancel') { btn.click(); return; }
   }
@@ -2016,7 +2038,7 @@ export function closeSlaModal(): void {
 export function saveSlaModal(): void {
   const modal = document.querySelector<HTMLElement>(HAR.SLA_MODAL);
   if (!modal) return;
-  const btns = modal.querySelectorAll<HTMLElement>('.sla-editor-actions .btn');
+  const btns = modal.querySelectorAll<HTMLElement>(`${HAR.SLA_FOOTER_ACTIONS} .btn`);
   for (const btn of btns) {
     if (btn.textContent?.trim() === 'Save') { btn.click(); return; }
   }
@@ -2038,8 +2060,23 @@ export function closeSlaOverrideModal(): void {
 
 export const TH14_FG_NAME = 'Auth Demo';
 export const TH14_SC_NAME = 'User Endpoints';
-export const TH14_PROFILE_NAME = 'Corp OAuth2';
+export const TH14_PROFILE_NAME = 'Corp API Bearer';
 export const TH14_PROFILE_ID = 'demo-th14-profile';
+/** Legacy name from earlier OAuth2 seed — purge so restarts don't leave a dead profile. */
+const TH14_LEGACY_PROFILE_NAMES = ['Corp OAuth2'];
+
+/** Realistic-looking demo JWT (signature is not verified — Verify Auth only checks the token is set). */
+function buildTh14DemoBearerToken(): string {
+  const enc = (obj: Record<string, unknown>) => btoa(JSON.stringify(obj));
+  const header = enc({ alg: 'HS256', typ: 'JWT' });
+  const payload = enc({
+    sub: 'corp-demo-user',
+    scope: 'users.read users.write',
+    iat: 1_700_000_000,
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365,
+  });
+  return `${header}.${payload}.demo-corp-signature`;
+}
 
 export function deleteTh14DemoFg(): void {
   getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(TH14_FG_NAME);
@@ -2050,17 +2087,16 @@ export function seedTh14GlobalProfile(): void {
     id: TH14_PROFILE_ID,
     name: TH14_PROFILE_NAME,
     auth: {
-      type: 'oauth2' as const,
-      tokenUrl: 'https://auth.example.com/oauth/token',
-      clientId: 'demo-client-id',
-      clientSecret: 'demo-client-secret',
+      type: 'bearer' as const,
+      prefix: 'Bearer',
+      token: buildTh14DemoBearerToken(),
     },
   });
 }
 
 export function purgeTh14GlobalProfile(): void {
   getDemoBridgeWindow().__demoPurgeGlobalAuthProfiles?.(
-    [TH14_PROFILE_NAME],
+    [TH14_PROFILE_NAME, ...TH14_LEGACY_PROFILE_NAMES],
     [TH14_PROFILE_ID],
   );
 }
@@ -2099,6 +2135,11 @@ export async function seedTh14FeatureGroup(ctx: DemoActionContext): Promise<void
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
             auth: { type: 'inherit' as const },
+            validation: {
+              mode: 'none' as const,
+              assertions: [],
+              expectedFields: [],
+            },
           },
           {
             id: 'demo-th14-t2',
@@ -2108,6 +2149,11 @@ export async function seedTh14FeatureGroup(ctx: DemoActionContext): Promise<void
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
             auth: { type: 'inherit' as const },
+            validation: {
+              mode: 'none' as const,
+              assertions: [],
+              expectedFields: [],
+            },
           },
         ],
       },
@@ -2203,7 +2249,7 @@ export async function seedTh15FeatureGroup(ctx: DemoActionContext): Promise<void
               { key: 'Content-Type', value: 'application/json' },
               { key: 'Authorization', value: 'Bearer demo-token-xyz' },
             ],
-            body: JSON.stringify({ name: 'Alice', email: 'alice@example.com' }),
+            body: JSON.stringify({ name: 'Alice', email: 'alice@example.com' }, null, 2),
             auth: { type: 'none' as const },
             validation: {
               mode: 'selective' as const,
@@ -2260,6 +2306,10 @@ export function closeExportPopover(): void {
 
 export const TH16_FG1_NAME = 'User API Tests';
 export const TH16_FG2_NAME = 'Admin API Tests';
+export const TH16_SC_USER = 'User Endpoints';
+export const TH16_SC_PROFILE = 'Profile Endpoints';
+export const TH16_SC_ADMIN = 'Admin Operations';
+export const TH16_TEST_GET_USER = 'Get User by ID';
 
 export function deleteTh16DemoFgs(): void {
   const w = getDemoBridgeWindow();
@@ -2292,9 +2342,9 @@ export async function seedTh16FeatureGroups(ctx: DemoActionContext): Promise<voi
         kind: 'standard',
         tags: ['smoke', 'regression'],
         tests: [
-          { id: 'demo-th16-t1', name: 'Get User by ID', method: 'GET', url: '/users/1', headers: [{ key: 'Accept', value: 'application/json' }], body: '', auth: { type: 'none' as const } },
-          { id: 'demo-th16-t2', name: 'Create User', method: 'POST', url: '/users', headers: [{ key: 'Content-Type', value: 'application/json' }], body: '{"name":"Alice"}', auth: { type: 'bearer' as const, token: 'tok' } },
-          { id: 'demo-th16-t3', name: 'Update User', method: 'PUT', url: '/users/1', headers: [{ key: 'Content-Type', value: 'application/json' }], body: '{"name":"Bob"}', auth: { type: 'bearer' as const, token: 'tok' } },
+          { id: 'demo-th16-t1', name: 'Get User by ID', method: 'GET', url: '/users/1', headers: [{ key: 'Accept', value: 'application/json' }], body: '', auth: { type: 'none' as const }, validation: { mode: 'none' as const } },
+          { id: 'demo-th16-t2', name: 'Create User', method: 'POST', url: '/users', headers: [{ key: 'Content-Type', value: 'application/json' }], body: '{"name":"Alice"}', auth: { type: 'bearer' as const, token: 'tok' }, validation: { mode: 'none' as const } },
+          { id: 'demo-th16-t3', name: 'Update User', method: 'PUT', url: '/users/1', headers: [{ key: 'Content-Type', value: 'application/json' }], body: '{"name":"Bob"}', auth: { type: 'bearer' as const, token: 'tok' }, validation: { mode: 'none' as const } },
         ],
       },
       {
@@ -2303,7 +2353,7 @@ export async function seedTh16FeatureGroups(ctx: DemoActionContext): Promise<voi
         kind: 'standard',
         tags: ['regression'],
         tests: [
-          { id: 'demo-th16-t4', name: 'Get Profile', method: 'GET', url: '/profile', headers: [], body: '', auth: { type: 'none' as const } },
+          { id: 'demo-th16-t4', name: 'Get Profile', method: 'GET', url: '/profile', headers: [], body: '', auth: { type: 'none' as const }, validation: { mode: 'none' as const } },
         ],
       },
     ],
@@ -2321,8 +2371,8 @@ export async function seedTh16FeatureGroups(ctx: DemoActionContext): Promise<voi
         kind: 'standard',
         tags: ['critical'],
         tests: [
-          { id: 'demo-th16-t5', name: 'List Admin Users', method: 'GET', url: '/admin/users', headers: [], body: '', auth: { type: 'none' as const } },
-          { id: 'demo-th16-t6', name: 'Delete User', method: 'DELETE', url: '/admin/users/1', headers: [], body: '', auth: { type: 'bearer' as const, token: 'admin-tok' } },
+          { id: 'demo-th16-t5', name: 'List Admin Users', method: 'GET', url: '/admin/users', headers: [], body: '', auth: { type: 'none' as const }, validation: { mode: 'none' as const } },
+          { id: 'demo-th16-t6', name: 'Delete User', method: 'DELETE', url: '/admin/users/1', headers: [], body: '', auth: { type: 'bearer' as const, token: 'admin-tok' }, validation: { mode: 'none' as const } },
         ],
       },
     ],
@@ -2964,6 +3014,7 @@ export function isDiffModalOpen(): boolean {
 // ─── TH-20 helpers ────────────────────────────────────────────────
 
 const TH20_RUN_PREFIX = 'demo-th20-run';
+const TH20_PROJECT_NAME = 'TH-20 Baseline Demo';
 
 function makeTh20Result(
   idx: number,
@@ -3047,7 +3098,7 @@ function buildTh20Run(runIdx: number, timeMultiplier: number, errorRate: number)
   return {
     id: `${TH20_RUN_PREFIX}-${runIdx}-${now}`,
     timestamp: now - (2 - runIdx) * 3_600_000,
-    projectName: 'Demo Project',
+    projectName: TH20_PROJECT_NAME,
     envName: 'demo',
     svcName: 'jsonplaceholder',
     baseUrl: 'https://jsonplaceholder.typicode.com',
@@ -3069,6 +3120,7 @@ export async function seedTh20TestRuns(): Promise<void> {
 
   const baselines = await import('../../../../../src/features/results/utils/runBaselines');
   await baselines.markAsBaseline(run1.id as string, 'Fast baseline');
+  await baselines.markAsBaseline(run2.id as string, 'Slow baseline');
 }
 
 export async function deleteTh20TestRuns(): Promise<void> {
@@ -3089,6 +3141,31 @@ export async function ensureTh20RunsExist(): Promise<boolean> {
   if (found) return false;
   await seedTh20TestRuns();
   return true;
+}
+
+/** Ensure TH-20 seeded runs have baseline marks (self-heals if baselines were cleared). */
+export async function ensureTh20BaselinesExist(): Promise<boolean> {
+  const storageMod = await import('../../../../../src/shared/utils/storage');
+  const allRuns = await storageMod.loadTestRuns();
+  const th20Runs = allRuns
+    .filter((r) => r.id.startsWith(TH20_RUN_PREFIX))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  if (th20Runs.length === 0) return false;
+
+  const baselines = await import('../../../../../src/features/results/utils/runBaselines');
+  const existing = await baselines.loadBaselines();
+  const existingIds = new Set(existing.map((b) => b.runId));
+
+  let changed = false;
+  const labels = ['Fast baseline', 'Slow baseline'];
+  for (let i = 0; i < Math.min(2, th20Runs.length); i += 1) {
+    const run = th20Runs[i];
+    if (!existingIds.has(run.id)) {
+      await baselines.markAsBaseline(run.id, labels[i] ?? `Baseline ${i + 1}`);
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 /** Ensure we're on the Comparison & Trends tab. */

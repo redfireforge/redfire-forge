@@ -46,6 +46,24 @@ function findUndoButton(): HTMLElement | null {
   return Array.from(btns).find(b => b.textContent?.trim() === 'Undo') ?? btns[0] ?? null;
 }
 
+/** Find the danger confirm action inside popup confirm modals (e.g., Move to Trash). */
+function findPopupConfirmButton(): HTMLElement | null {
+  const btns = document.querySelectorAll<HTMLElement>('.popup-modal .popup-modal-footer .btn');
+  return Array.from(btns).find((b) => {
+    const label = b.textContent?.trim() ?? '';
+    return b.classList.contains('btn-danger') || /move to trash|delete|confirm/i.test(label);
+  }) ?? null;
+}
+
+/** Close any leftover popup confirm modal by pressing Cancel. */
+function closePopupConfirmIfOpen(): void {
+  const modal = document.querySelector<HTMLElement>('.popup-modal');
+  if (!modal) return;
+  const btns = modal.querySelectorAll<HTMLElement>('.popup-modal-footer .btn');
+  const cancelBtn = Array.from(btns).find((b) => /cancel|close/i.test(b.textContent?.trim() ?? ''));
+  cancelBtn?.click();
+}
+
 export const thAdvancedFeaturesLesson: DemoLesson = {
   id: 'th-advanced-features',
   domainId: 'harness',
@@ -133,8 +151,10 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
         const count = document.querySelector<HTMLElement>(HAR.SEARCH_COUNT);
         if (count) await spotlight(count, 1200, ctx);
 
-        const match = document.querySelector<HTMLElement>(HAR.SEARCH_MATCH);
-        if (match) await spotlight(match, 1500, ctx);
+        const matches = document.querySelectorAll<HTMLElement>(HAR.SEARCH_MATCH);
+        for (const match of matches) {
+          await spotlight(match, 1200, ctx);
+        }
 
         clearSearchBar();
         await ctx.delay(500);
@@ -207,25 +227,23 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
       action: async (ctx) => {
         await expandFirstFg(ctx);
         await expandFirstScenario(ctx);
-        await ctx.delay(500);
+        await ctx.delay(400);
 
-        // 1) Show where to click — Edit on the test card
+        // Reading phase already spotlights Edit — just click it (no re-highlight)
         const editBtn = document.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
         if (editBtn) {
-          await spotlight(editBtn, 2200, ctx);
-          await ctx.delay(500);
           editBtn.click();
           await ctx.delay(1200);
         }
 
-        // 2) Point at the History tab before opening it
+        // Point at the History tab before opening it
         await ctx.waitFor(HAR.TE_HISTORY_TAB);
         await spotlightSel(ctx, HAR.TE_HISTORY_TAB, 2200);
         await ctx.delay(500);
         await ctx.click(HAR.TE_HISTORY_TAB);
         await ctx.delay(1000);
 
-        // 3) Definition History panel + each snapshot
+        // Definition History panel + each snapshot
         await spotlightSel(ctx, HAR.VERSION_PANEL, 2000);
         await ctx.delay(600);
 
@@ -239,7 +257,7 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
           }
         }
 
-        // 4) Restore action
+        // Restore action
         const restoreBtn = document.querySelector<HTMLElement>(HAR.VERSION_RESTORE_BTN);
         if (restoreBtn) {
           await spotlight(restoreBtn, 1800, ctx);
@@ -271,7 +289,7 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
           deleteBtn.click();
           await ctx.delay(500);
 
-          const confirmBtn = document.querySelector<HTMLElement>('.confirm-modal .btn-danger');
+          const confirmBtn = findPopupConfirmButton();
           if (confirmBtn) {
             confirmBtn.click();
             await ctx.delay(800);
@@ -292,6 +310,8 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
       preAction: async (ctx) => {
         await ensureTh9Ready(ctx);
         clearSearchBar();
+        closePopupConfirmIfOpen();
+        await ctx.delay(150);
         if (isTestEditorOpen()) await closeTestEditorQuiet(ctx);
       },
       verify: HAR.TEST_CARD,
@@ -322,7 +342,7 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
         if (lastDeleteBtn) {
           lastDeleteBtn.click();
           await ctx.delay(500);
-          const confirmBtn = document.querySelector<HTMLElement>('.confirm-modal .btn-danger');
+          const confirmBtn = findPopupConfirmButton();
           if (confirmBtn) {
             confirmBtn.click();
             await ctx.delay(6000);
@@ -351,6 +371,8 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
       preAction: async (ctx) => {
         await ensureTh9Ready(ctx);
         clearSearchBar();
+        closePopupConfirmIfOpen();
+        await ctx.delay(150);
         if (isTestEditorOpen()) await closeTestEditorQuiet(ctx);
         closeTrashPanel();
       },

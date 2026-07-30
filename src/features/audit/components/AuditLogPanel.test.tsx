@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AuditLogPanel from './AuditLogPanel';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 
 // Mock platform
 vi.mock('../../../shared/utils/platform', () => ({ isTauri: () => false }));
@@ -76,10 +77,7 @@ describe('AuditLogPanel', () => {
     await waitFor(() => expect(screen.getByText('prod')).toBeTruthy());
 
     const filterWrappers = document.querySelectorAll('.audit-log-filter');
-    fireEvent.click(filterWrappers[0].querySelector('.cs-trigger')!);
-    const typeItem = Array.from(filterWrappers[0].querySelectorAll('.cs-item'))
-      .find(el => el.querySelector('.cs-item-label')?.textContent === 'Microservice')!;
-    fireEvent.click(typeItem);
+    selectOption(filterWrappers[0], 'Microservice');
     expect(screen.queryByText('prod')).toBeNull();
     expect(screen.getByText('api-svc')).toBeTruthy();
   });
@@ -93,10 +91,7 @@ describe('AuditLogPanel', () => {
     await waitFor(() => expect(screen.getByText('env-a')).toBeTruthy());
 
     const filterWrappers = document.querySelectorAll('.audit-log-filter');
-    fireEvent.click(filterWrappers[1].querySelector('.cs-trigger')!);
-    const actionItem = Array.from(filterWrappers[1].querySelectorAll('.cs-item'))
-      .find(el => el.querySelector('.cs-item-label')?.textContent === 'Deleted')!;
-    fireEvent.click(actionItem);
+    selectOption(filterWrappers[1], 'Deleted');
     expect(screen.queryByText('env-a')).toBeNull();
     expect(screen.getByText('env-b')).toBeTruthy();
   });

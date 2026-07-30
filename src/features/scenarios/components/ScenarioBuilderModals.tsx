@@ -21,6 +21,7 @@ interface EditingTestState {
   scenarioId: string;
   testId: string;
   parameterized?: boolean;
+  openDataSourceWizard?: boolean;
 }
 
 interface CopyingTestState {
@@ -88,7 +89,7 @@ export interface ScenarioBuilderModalsProps {
   sharedDsModalSelectedId: string | undefined;
   setSharedDsModalSelectedId: (v: string | undefined) => void;
   currentEditingDraft?: { fgName: string; scenarioName: string; test: Scenario };
-  handleCreateTestFromSharedDs: (sharedDs: SharedDataSource, fgId: string, scId: string, testName: string) => void;
+  handleCreateTestFromSharedDs: (sharedDs: SharedDataSource, fgId: string, scId: string, testName: string, openWizard?: boolean) => void;
 
   showFromSharedDsPicker: { fgId: string; scId: string } | null;
   setShowFromSharedDsPicker: (v: { fgId: string; scId: string } | null) => void;
@@ -160,6 +161,7 @@ export default function ScenarioBuilderModals(props: ScenarioBuilderModalsProps)
           sharedDataSources={sharedDataSources}
           onPromoteToShared={handlePromoteToShared}
           onOpenSharedDsModal={onOpenSharedDsModal}
+          initialOpenDataSourceWizard={editingTest.openDataSourceWizard ?? false}
         />
       )}
 

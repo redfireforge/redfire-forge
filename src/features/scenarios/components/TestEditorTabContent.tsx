@@ -72,6 +72,7 @@ export interface TestEditorTabContentProps {
     fetchConfig?: { url: string; method: string; headers: KeyValue[]; auth?: AuthConfig }
   ) => string;
   onOpenSharedDsModal?: () => void;
+  openSetupModalOnMount?: boolean;
   defVersions: TestDefinitionVersion[];
   onVersionRestore: (version: TestDefinitionVersion) => void;
   onVersionDelete: (versionId: string) => void;
@@ -124,6 +125,7 @@ export default function TestEditorTabContent({
   sharedDataSources,
   onPromoteToShared,
   onOpenSharedDsModal,
+  openSetupModalOnMount,
   defVersions,
   onVersionRestore,
   onVersionDelete,
@@ -248,6 +250,7 @@ export default function TestEditorTabContent({
           sharedDataSources={sharedDataSources}
           onPromoteToShared={onPromoteToShared}
           onOpenSharedDsModal={onOpenSharedDsModal}
+          openSetupModalOnMount={openSetupModalOnMount}
         />
       )}
 

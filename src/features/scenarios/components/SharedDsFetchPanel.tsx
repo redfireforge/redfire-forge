@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react';
 import type { SharedDataSource, SharedDataSourceFetchConfig } from '../../../shared/types';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { useSharedDsFetchConfig } from '../hooks/useSharedDsFetchConfig';
@@ -36,11 +37,47 @@ export default function SharedDsFetchPanel({
   onShowPopulateFromApi,
   onOpenCreateTestModal,
 }: SharedDsFetchPanelProps) {
+  const storedCurl = selected.fetchConfig?.rawCurl?.trim() ?? '';
+  const [curlViewExpanded, setCurlViewExpanded] = useState(false);
+  const [curlCopied, setCurlCopied] = useState(false);
+
+  useEffect(() => {
+    setCurlViewExpanded(false);
+    setCurlCopied(false);
+  }, [selected.id]);
+
+  useEffect(() => {
+    if (!storedCurl) setCurlViewExpanded(false);
+  }, [storedCurl]);
+
+  const openCurlImport = useCallback(() => {
+    setCurlViewExpanded(false);
+    setCurlCopied(false);
+    fetchConfig.setCurlImportExpanded(v => !v);
+  }, [fetchConfig]);
+
+  const toggleCurlView = useCallback(() => {
+    fetchConfig.setCurlImportExpanded(false);
+    setCurlCopied(false);
+    setCurlViewExpanded(v => !v);
+  }, [fetchConfig]);
+
+  const handleCopyCurl = useCallback(async () => {
+    if (!storedCurl) return;
+    try {
+      await navigator.clipboard.writeText(storedCurl);
+      setCurlCopied(true);
+      window.setTimeout(() => setCurlCopied(false), 1500);
+    } catch {
+      setCurlCopied(false);
+    }
+  }, [storedCurl]);
+
   return (
     <div className="shared-ds-fetch-panel">
       {/* ─── Action bar ─── */}
       <div className="shared-ds-fetch-actions">
-        <button className="btn btn-sm" onClick={() => fetchConfig.setCurlImportExpanded(v => !v)}>
+        <button className="btn btn-sm" onClick={openCurlImport}>
           cURL Import
         </button>
         <button
@@ -56,8 +93,17 @@ export default function SharedDsFetchPanel({
         >
           Configure Variables + Auth…
         </button>
-        {selected.fetchConfig?.rawCurl?.trim() && (
-          <span className="shared-ds-fetch-curl-badge">cURL template</span>
+        {storedCurl && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            data-testid="shared-ds-view-curl"
+            onClick={toggleCurlView}
+            title="Show the stored cURL command from import"
+            aria-expanded={curlViewExpanded}
+          >
+            View cURL
+          </button>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
           <button
@@ -79,6 +125,20 @@ export default function SharedDsFetchPanel({
           )}
         </div>
       </div>
+
+      {/* ─── View stored cURL ─── */}
+      {curlViewExpanded && storedCurl && (
+        <div className="shared-ds-curl-view" data-testid="shared-ds-curl-view">
+          <label className="shared-ds-fetch-label">Stored cURL command</label>
+          <pre className="shared-ds-curl-view-pre">{storedCurl}</pre>
+          <div className="shared-ds-curl-actions">
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => void handleCopyCurl()}>
+              {curlCopied ? 'Copied' : 'Copy'}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => setCurlViewExpanded(false)}>Close</button>
+          </div>
+        </div>
+      )}
 
       {/* ─── cURL Import section ─── */}
       {fetchConfig.curlImportExpanded && (
