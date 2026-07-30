@@ -40,6 +40,8 @@ export const HAR = {
   ADD_TEST_BTN:        '[data-testid="har-add-test-btn"]',
   ADD_PARAM_TEST_BTN:  '[data-testid="har-add-param-test-btn"]',
   TEST_EDIT_BTN:       '[data-testid="har-test-edit-btn"]',
+  TEST_COPY_BTN:       '[data-testid="har-test-copy-btn"]',
+  TEST_MOVE_BTN:       '[data-testid="har-test-move-btn"]',
 
   // ── Test Editor Modal ─────────────────────────────────────────
   TE_PROP_CARD:        '.te-prop-card',
@@ -253,14 +255,16 @@ export const HAR = {
   VERSION_DIFF_TABS:     '.version-diff-tabs',
 
   // ── SLA Targets (TH-13) ─────────────────────────────────
+  TEST_SLA_BTN:          '[data-testid="har-test-sla-btn"]',
   SLA_MODAL:             '.test-sla-modal',
-  SLA_EMPTY_HINT:        '.sla-empty-hint',
-  SLA_ADD_BTN:           '.sla-add-btn',
-  SLA_TABLE:             '.sla-editor-table',
-  SLA_METRIC_SELECT:     '.sla-editor-select',
-  SLA_OPERATOR:          '.sla-operator-display',
-  SLA_INPUT:             '.sla-editor-input',
-  SLA_DELETE_BTN:        '.sla-delete-btn',
+  SLA_EMPTY_HINT:        '.test-sla-empty-hint',
+  SLA_ADD_BTN:           '.test-sla-add-btn',
+  SLA_TABLE:             '.test-sla-table',
+  SLA_METRIC_SELECT:     '.test-sla-select',
+  SLA_OPERATOR:          '.test-sla-operator',
+  SLA_INPUT:             '.test-sla-input',
+  SLA_DELETE_BTN:        '.test-sla-delete-btn',
+  SLA_FOOTER_ACTIONS:    '.test-sla-footer-actions',
   SLA_SUMMARY_PANEL:     '.scenario-sla-panel',
   SLA_SUMMARY_TABLE:     '.sla-summary-table',
   SLA_TRIGGER:           '.sla-trigger',
@@ -286,6 +290,8 @@ export const HAR = {
   MODE_DROPDOWN_ITEM:    '.mode-btn-dropdown-item',
   EXPORT_POPOVER:        '.export-opts-popover',
   EXPORT_POPOVER_CHECK:  '.export-opts-check',
+  /** Feature Group card Export (version options) — not scenario/test/toolbar Export */
+  FG_EXPORT_BTN:         '[data-testid="har-fg-export-btn"]',
   CSV_IMPORT_MODAL:      '.csv-import-modal',
   AUTO_REPORT_LABEL:     '.selection-actions .checkbox-label',
 
@@ -293,7 +299,7 @@ export const HAR = {
   DRAG_HANDLE:           '.drag-handle',
   DROP_ZONE:             '.drop-zone-end',
   SEARCH_HELP:           '.search-help',
-  SEARCH_HELP_BTN:       '.builder-search-bar .btn-ghost',
+  SEARCH_HELP_BTN:       '[data-testid="har-search-help-btn"]',
   COPY_MODAL:            '.popup-modal',
   MOVE_MODAL:            '.popup-modal',
   UNASSOCIATED_SECTION:  '.unassociated-section',
@@ -348,6 +354,9 @@ export const HAR = {
   SHARED_DS_EDITOR:      '.shared-ds-editor-panel',
   SHARED_DS_FETCH:       '.shared-ds-fetch-panel',
   SHARED_DS_USED_BY:     '.shared-ds-used-by',
+  SHARED_DS_GRID:        '.shared-ds-editor-content .data-source-scroll',
+  SHARED_DS_USED_BY_TOGGLE: '.shared-ds-used-by-toggle',
+  SHARED_DS_USED_BY_LIST: '.shared-ds-used-by-list',
 
   // ── Schema Drift & Repair (TH-19) ───────────────────────
   DRIFT_BANNER:          '.dm-drift-banner',

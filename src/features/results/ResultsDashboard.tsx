@@ -78,6 +78,16 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     loadRegressionThresholds().then(setThresholds);
   }, []);
 
+  // Demo lessons seed/delete runs in storage while this page may already be mounted —
+  // reload when the harness bridge notifies.
+  useEffect(() => {
+    const onDemoRunsChanged = () => {
+      void loadTestRunsLite().then(setAllRuns);
+    };
+    window.addEventListener('demo-test-runs-changed', onDemoRunsChanged);
+    return () => window.removeEventListener('demo-test-runs-changed', onDemoRunsChanged);
+  }, []);
+
   // Auto-refresh when a re-run completes
   useEffect(() => {
     if (prevRerunning.current && !isRerunning) {

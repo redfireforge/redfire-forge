@@ -47,14 +47,44 @@ describe('LocationGroupPanel', () => {
       expect(out).toBe(field);
     });
 
-    it('uses fallback body type for unknown location value', () => {
-      const field: TargetField = { path: 'x', label: 'x', type: 'string' };
+    it('maps header location to header typed path', () => {
+      const field: TargetField = { path: 'auth', label: 'auth', type: 'string', location: 'header' };
+      const out = withTypedSlotPath(
+        field,
+        'header',
+        [{ path: 'path::id', label: 'path::id', type: 'string', location: 'path' }],
+      );
+      expect(out.path).toBe('header::auth');
+    });
+
+    it('maps query location to param typed path', () => {
+      const field: TargetField = { path: 'page', label: 'page', type: 'string', location: 'query' };
       const out = withTypedSlotPath(
         field,
         'query',
         [{ path: 'path::id', label: 'path::id', type: 'string', location: 'path' }],
       );
-      expect(out.path).toBe('param::x');
+      expect(out.path).toBe('param::page');
+    });
+
+    it('maps bodyForm location to body typed path', () => {
+      const field: TargetField = { path: 'payload', label: 'payload', type: 'string', location: 'bodyForm' };
+      const out = withTypedSlotPath(
+        field,
+        'bodyForm',
+        [{ path: 'path::id', label: 'path::id', type: 'string', location: 'path' }],
+      );
+      expect(out.path).toBe('body::payload');
+    });
+
+    it('uses fallback body type for unknown location value', () => {
+      const field: TargetField = { path: 'x', label: 'x', type: 'string' };
+      const out = withTypedSlotPath(
+        field,
+        'unknown-location' as unknown as TargetField['location'],
+        [{ path: 'path::id', label: 'path::id', type: 'string', location: 'path' }],
+      );
+      expect(out.path).toBe('body::x');
     });
 
     it('keeps explicit non-plain labels when prefixing typed paths', () => {

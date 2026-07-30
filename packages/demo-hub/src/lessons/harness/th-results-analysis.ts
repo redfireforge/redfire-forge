@@ -11,6 +11,7 @@ import {
   spotlight,
   seedTh7TestRun,
   deleteTh7TestRuns,
+  ensureTh7TestRun,
   ensureResultsRunSelected,
 } from './th-demo-helpers';
 
@@ -92,8 +93,10 @@ export const thResultsAnalysisLesson: DemoLesson = {
       highlight: HAR.RESULTS_TOP,
 
       preAction: async (ctx) => {
+        await ensureTh7TestRun(ctx);
         ctx.navigateToTab('results');
         await ctx.delay(400);
+        await ensureResultsRunSelected(ctx);
       },
 
       action: async (ctx) => {
@@ -135,6 +138,7 @@ export const thResultsAnalysisLesson: DemoLesson = {
       highlight: HAR.METRICS_CARDS,
 
       preAction: async (ctx) => {
+        await ensureTh7TestRun(ctx);
         ctx.navigateToTab('results');
         await ctx.delay(400);
         await ensureResultsRunSelected(ctx);
@@ -166,6 +170,7 @@ export const thResultsAnalysisLesson: DemoLesson = {
       highlight: HAR.TAB_REQUESTS,
 
       preAction: async (ctx) => {
+        await ensureTh7TestRun(ctx);
         ctx.navigateToTab('results');
         await ctx.delay(400);
         await ensureResultsRunSelected(ctx);
@@ -202,6 +207,7 @@ export const thResultsAnalysisLesson: DemoLesson = {
       highlight: HAR.BASELINE_TOGGLE,
 
       preAction: async (ctx) => {
+        await ensureTh7TestRun(ctx);
         ctx.navigateToTab('results');
         await ctx.delay(400);
         await ensureResultsRunSelected(ctx);
@@ -241,6 +247,7 @@ export const thResultsAnalysisLesson: DemoLesson = {
       highlight: HAR.TAB_SLA,
 
       preAction: async (ctx) => {
+        await ensureTh7TestRun(ctx);
         ctx.navigateToTab('results');
         await ctx.delay(400);
         await ensureResultsRunSelected(ctx);
@@ -288,6 +295,7 @@ export const thResultsAnalysisLesson: DemoLesson = {
       highlight: HAR.EXPORT_JSON,
 
       preAction: async (ctx) => {
+        await ensureTh7TestRun(ctx);
         ctx.navigateToTab('results');
         await ctx.delay(400);
         await ensureResultsRunSelected(ctx);

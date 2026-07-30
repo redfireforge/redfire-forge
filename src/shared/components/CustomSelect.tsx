@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useId } from 'react';
+import { createPortal } from 'react-dom';
+
+const CUSTOM_SELECT_OPEN_EVENT = 'custom-select:open';
 
 export interface CustomSelectOption {
   value: string;
@@ -56,6 +59,7 @@ export function CustomSelect({
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const selectId = useId();
 
   const testId = rest['data-testid'];
   const ariaLabel = rest['aria-label'];
@@ -63,7 +67,14 @@ export function CustomSelect({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      // The menu is portaled to document.body, so it's no longer a DOM
+      // descendant of wrapperRef — it must be checked separately or every
+      // click on an option would be treated as an "outside click" and close
+      // the menu before the option's onClick can fire.
+      const inWrapper = wrapperRef.current && wrapperRef.current.contains(target);
+      const inMenu = menuRef.current && menuRef.current.contains(target);
+      if (!inWrapper && !inMenu) {
         setOpen(false);
       }
     };
@@ -71,30 +82,76 @@ export function CustomSelect({
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const [openUp, setOpenUp] = useState(false);
-
   useEffect(() => {
-    if (!open || !wrapperRef.current) { setOpenUp(false); return; }
+    const closeIfAnotherSelectOpened = (event: Event) => {
+      const customEvent = event as CustomEvent<{ id?: string }>;
+      if (customEvent.detail?.id !== selectId) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener(CUSTOM_SELECT_OPEN_EVENT, closeIfAnotherSelectOpened as EventListener);
+    return () => {
+      document.removeEventListener(CUSTOM_SELECT_OPEN_EVENT, closeIfAnotherSelectOpened as EventListener);
+    };
+  }, [selectId]);
+
+  const [openUp, setOpenUp] = useState(false);
+  // Menu is rendered via a portal into document.body and positioned with
+  // `position: fixed` so it can never be clipped by an ancestor's
+  // `overflow: hidden`/`auto` (e.g. a scrollable modal body or a table
+  // wrapper with rounded corners). These are viewport-relative coordinates
+  // computed from the trigger's rect.
+  const [menuPos, setMenuPos] = useState<{ left: number; minWidth: number; top?: number; bottom?: number } | null>(null);
+
+  const recomputeMenuPos = useCallback(() => {
+    if (!wrapperRef.current) return;
     const rect = wrapperRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
-    setOpenUp(spaceBelow < 200);
-  }, [open]);
+    const up = spaceBelow < 200;
+    setOpenUp(up);
+    setMenuPos(up
+      ? { left: rect.left, minWidth: rect.width, bottom: window.innerHeight - rect.top + 3 }
+      : { left: rect.left, minWidth: rect.width, top: rect.bottom + 3 });
+  }, []);
 
   useEffect(() => {
-    if (!open || !menuRef.current) return;
+    if (!open) { setMenuPos(null); return; }
+    recomputeMenuPos();
+    // Keep the menu anchored to the trigger if the page (or any scrollable
+    // ancestor, e.g. a modal body) scrolls or the window resizes while open.
+    const onScrollOrResize = () => recomputeMenuPos();
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [open, recomputeMenuPos]);
+
+  useEffect(() => {
+    // Depends on menuPos (not just `open`) because the menu is portaled and
+    // only actually mounts (menuRef.current populated) once menuPos is set
+    // by the effect above — that happens one render after `open` flips true.
+    if (!open || !menuPos || !menuRef.current) return;
     const active = menuRef.current.querySelector('.cs-item.active');
     if (active && typeof active.scrollIntoView === 'function') active.scrollIntoView({ block: 'nearest' });
-  }, [open]);
+  }, [open, menuPos]);
+
+  const announceOpen = useCallback(() => {
+    document.dispatchEvent(new CustomEvent(CUSTOM_SELECT_OPEN_EVENT, { detail: { id: selectId } }));
+  }, [selectId]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (disabled) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      setOpen(o => !o);
+      const nextOpen = !open;
+      if (nextOpen) announceOpen();
+      setOpen(nextOpen);
     } else if (e.key === 'Escape') {
       setOpen(false);
     }
-  }, [disabled]);
+  }, [announceOpen, disabled, open]);
 
   const flat = flattenItems(options);
   const selected = flat.find(o => o.value === value);
@@ -132,7 +189,12 @@ export function CustomSelect({
       <button
         type="button"
         className={`cs-trigger${isPlaceholder ? ' cs-placeholder' : ''}${disabled ? ' cs-disabled' : ''}`}
-        onClick={() => { if (!disabled) setOpen(o => !o); }}
+        onClick={() => {
+          if (disabled) return;
+          const nextOpen = !open;
+          if (nextOpen) announceOpen();
+          setOpen(nextOpen);
+        }}
         onKeyDown={handleKeyDown}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -147,8 +209,19 @@ export function CustomSelect({
         </span>
         <span className="cs-arrow">{open ? '▲' : '▼'}</span>
       </button>
-      {open && (
-        <div className={`cs-menu${openUp ? ' cs-menu-up' : ''}`} role="listbox" ref={menuRef}>
+      {open && menuPos && createPortal(
+        <div
+          className={`cs-menu${openUp ? ' cs-menu-up' : ''}`}
+          role="listbox"
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            left: menuPos.left,
+            minWidth: menuPos.minWidth,
+            ...(menuPos.top !== undefined ? { top: menuPos.top } : {}),
+            ...(menuPos.bottom !== undefined ? { bottom: menuPos.bottom } : {}),
+          }}
+        >
           {isGrouped(options)
             ? options.map(g => (
                 <div key={g.label} className="cs-group">
@@ -158,7 +231,8 @@ export function CustomSelect({
               ))
             : options.map(renderOption)
           }
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

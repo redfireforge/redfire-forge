@@ -23,24 +23,36 @@ export function selectOption(
   match: string,
   matchBy: 'label' | 'value' = 'label',
 ): void {
-  const trigger = container.querySelector('.cs-trigger');
+  const trigger = (container instanceof Element && container.classList.contains('cs-trigger'))
+    ? container
+    : container.querySelector('.cs-trigger');
   if (!trigger) throw new Error(`selectOption: no .cs-trigger found in container`);
   fireEvent.click(trigger);
 
   const wrapper = trigger.closest('.cs-wrapper') ?? container;
-  const items = Array.from(wrapper.querySelectorAll<HTMLElement>('.cs-item'));
+  // Menu is portaled to document.body by CustomSelect.
+  const portalItems = Array.from(document.querySelectorAll<HTMLElement>('body > .cs-menu .cs-item, body > .cs-menu [role="option"]'));
+  const localItems = Array.from(wrapper.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'));
+  const items = portalItems.length > 0 ? portalItems : localItems;
+
+  const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
 
   let target: HTMLElement | undefined;
   if (matchBy === 'label') {
-    const labelText = (el: HTMLElement) => (el.querySelector('.cs-item-label') ?? el).textContent ?? '';
-    target = items.find(el => labelText(el) === match)
-      ?? items.find(el => labelText(el).includes(match));
+    const labelText = (el: HTMLElement) => normalize((el.querySelector('.cs-item-label') ?? el).textContent ?? '');
+    const wanted = normalize(match);
+    target = items.find(el => labelText(el) === wanted)
+      ?? items.find(el => labelText(el).includes(wanted));
   } else {
-    target = items.find(el => el.getAttribute('aria-selected') !== null && el.textContent?.includes(match));
+    const wanted = normalize(match);
+    target = items.find(el => normalize(el.getAttribute('data-value') ?? '') === wanted)
+      ?? items.find(el => normalize(el.textContent ?? '').includes(wanted));
   }
 
   if (!target) {
-    const available = items.map(el => (el.querySelector('.cs-item-label') ?? el).textContent).join(', ');
+    const available = items
+      .map(el => normalize((el.querySelector('.cs-item-label') ?? el).textContent ?? ''))
+      .join(', ');
     throw new Error(`selectOption: no option matching "${match}" (by ${matchBy}). Available: ${available}`);
   }
   fireEvent.click(target);
@@ -79,9 +91,12 @@ export function getCustomSelectOptionLabels(container: Element | Document, index
   const trigger = wrapper.querySelector('.cs-trigger');
   if (!trigger) return [];
   fireEvent.click(trigger);
-  const labels = Array.from(wrapper.querySelectorAll('.cs-item-label')).map(el => el.textContent ?? '');
+  const portalLabels = Array.from(document.querySelectorAll<HTMLElement>('body > .cs-menu .cs-item-label, body > .cs-menu .cs-item, body > .cs-menu [role="option"]'));
+  const labels = (portalLabels.length > 0 ? portalLabels : Array.from(wrapper.querySelectorAll<HTMLElement>('.cs-item-label, .cs-item, [role="option"]')))
+    .map(el => (el.querySelector('.cs-item-label') ?? el).textContent?.replace(/\s+/g, ' ').trim() ?? '')
+    .filter(Boolean);
   fireEvent.click(trigger);
-  return labels;
+  return Array.from(new Set(labels));
 }
 
 /** Whether the CustomSelect trigger button is disabled. */

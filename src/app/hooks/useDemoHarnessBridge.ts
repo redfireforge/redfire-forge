@@ -2,6 +2,13 @@ import { useEffect, useCallback, type Dispatch, type SetStateAction } from 'reac
 import type { Environment, Microservice, FeatureGroup, SharedDataSource, TestRun } from '../../shared/types';
 import { saveTestRun, loadTestRuns, deleteTestRun } from '../../shared/utils/storage';
 
+/** Fired after demo seed/delete so ResultsDashboard can reload without a remount. */
+export const DEMO_TEST_RUNS_CHANGED_EVENT = 'demo-test-runs-changed';
+
+function notifyDemoTestRunsChanged(): void {
+  window.dispatchEvent(new CustomEvent(DEMO_TEST_RUNS_CHANGED_EVENT));
+}
+
 /**
  * Demo-player bridge for seeding a target environment + microservice
  * so Send-to-Harness cascade selects have at least one option,
@@ -58,6 +65,7 @@ export function useDemoHarnessBridge(
 
   const seedDemoTestRun = useCallback(async (run: TestRun) => {
     await saveTestRun(run);
+    notifyDemoTestRunsChanged();
   }, []);
 
   const deleteDemoTestRuns = useCallback(async (prefix: string) => {
@@ -65,6 +73,12 @@ export function useDemoHarnessBridge(
     for (const r of all) {
       if (r.id.startsWith(prefix)) await deleteTestRun(r.id);
     }
+    notifyDemoTestRunsChanged();
+  }, []);
+
+  const hasDemoTestRuns = useCallback(async (prefix: string) => {
+    const all = await loadTestRuns();
+    return all.some(r => r.id.startsWith(prefix));
   }, []);
 
   const seedSharedDataSources = useCallback((sources: SharedDataSource[]) => {
@@ -87,6 +101,7 @@ export function useDemoHarnessBridge(
     w.__demoSelectEnvSvc = selectEnvSvc;
     w.__demoSeedTestRun = seedDemoTestRun;
     w.__demoDeleteTestRuns = deleteDemoTestRuns;
+    w.__demoHasTestRuns = hasDemoTestRuns;
     w.__demoSeedSharedDataSources = seedSharedDataSources;
     w.__demoDeleteSharedDataSourcesByName = deleteSharedDataSourcesByName;
     return () => {
@@ -96,8 +111,9 @@ export function useDemoHarnessBridge(
       delete w.__demoSelectEnvSvc;
       delete w.__demoSeedTestRun;
       delete w.__demoDeleteTestRuns;
+      delete w.__demoHasTestRuns;
       delete w.__demoSeedSharedDataSources;
       delete w.__demoDeleteSharedDataSourcesByName;
     };
-  }, [seedTarget, deleteFeatureGroupsByName, seedFeatureGroup, selectEnvSvc, seedDemoTestRun, deleteDemoTestRuns, seedSharedDataSources, deleteSharedDataSourcesByName]);
+  }, [seedTarget, deleteFeatureGroupsByName, seedFeatureGroup, selectEnvSvc, seedDemoTestRun, deleteDemoTestRuns, hasDemoTestRuns, seedSharedDataSources, deleteSharedDataSourcesByName]);
 }

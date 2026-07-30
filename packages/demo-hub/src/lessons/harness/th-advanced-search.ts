@@ -18,6 +18,11 @@ import {
   clearSearchBar,
   closePopupModal,
   findTestCardAction,
+  TH16_SC_USER,
+  TH16_SC_PROFILE,
+  TH16_SC_ADMIN,
+  TH16_FG2_NAME,
+  TH16_TEST_GET_USER,
 } from './th-demo-helpers';
 
 /* ── local helpers ──────────────────────────────────────────── */
@@ -48,6 +53,103 @@ function isPopupModalOpen(): boolean {
 
 function getFirstTestCard(): HTMLElement | null {
   return document.querySelector<HTMLElement>(HAR.TEST_CARD);
+}
+
+function findScenarioCardByName(name: string): HTMLElement | null {
+  return Array.from(document.querySelectorAll<HTMLElement>(HAR.SCENARIO_CARD))
+    .find((card) => {
+      const header = card.querySelector(HAR.SCENARIO_HEADER);
+      return header?.textContent?.includes(name) ?? false;
+    }) ?? null;
+}
+
+async function expandScenarioByName(ctx: DemoActionContext, name: string): Promise<void> {
+  const card = findScenarioCardByName(name);
+  if (!card) return;
+  const header = card.querySelector<HTMLElement>(HAR.SCENARIO_HEADER);
+  if (!header) return;
+  const expandIcon = header.querySelector('.expand-icon');
+  if (expandIcon && !expandIcon.classList.contains('expanded')) {
+    header.click();
+    await ctx.delay(400);
+  }
+}
+
+function findTestCardInScenario(scenarioName: string, testName: string): HTMLElement | null {
+  const sc = findScenarioCardByName(scenarioName);
+  if (!sc) return null;
+  return Array.from(sc.querySelectorAll<HTMLElement>(HAR.TEST_CARD))
+    .find((card) => card.textContent?.includes(testName)) ?? null;
+}
+
+/** Pick a CustomSelect option inside the open Copy/Move popup modal. */
+async function selectPopupFieldOption(
+  ctx: DemoActionContext,
+  fieldLabel: string,
+  optionLabel: string,
+): Promise<void> {
+  const modal = document.querySelector<HTMLElement>('.popup-modal');
+  if (!modal) return;
+  const field = Array.from(modal.querySelectorAll<HTMLElement>('.popup-modal-field'))
+    .find((f) => f.querySelector('label')?.textContent?.includes(fieldLabel));
+  if (!field) return;
+
+  const trigger = field.querySelector<HTMLElement>('.cs-trigger');
+  if (!trigger) return;
+  await spotlight(trigger, 800, ctx);
+  trigger.click();
+  await ctx.delay(350);
+
+  const menu = document.querySelector<HTMLElement>('body > .cs-menu');
+  const options = Array.from(
+    (menu ?? document).querySelectorAll<HTMLElement>('.cs-item, [role="option"]'),
+  );
+  const option = options.find((opt) => {
+    const text = opt.textContent?.trim() ?? '';
+    return text === optionLabel || text.startsWith(optionLabel);
+  });
+  if (option) {
+    await spotlight(option, 700, ctx);
+    option.click();
+    await ctx.delay(400);
+  }
+}
+
+async function confirmCopyHere(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector<HTMLElement>('.popup-modal');
+  if (!modal) return;
+  const btn = Array.from(modal.querySelectorAll<HTMLElement>('.btn'))
+    .find((b) => b.textContent?.trim() === 'Copy Here');
+  if (btn && !(btn as HTMLButtonElement).disabled) {
+    await spotlight(btn, 900, ctx);
+    btn.click();
+    await ctx.delay(700);
+  }
+}
+
+async function confirmMove(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector<HTMLElement>('.popup-modal');
+  if (!modal) return;
+  const btn = Array.from(modal.querySelectorAll<HTMLElement>('button.btn-primary, .btn'))
+    .find((b) => b.textContent?.trim() === 'Move');
+  if (btn && !(btn as HTMLButtonElement).disabled) {
+    await spotlight(btn, 900, ctx);
+    btn.click();
+    await ctx.delay(700);
+  }
+}
+
+async function expandFgByName(ctx: DemoActionContext, name: string): Promise<void> {
+  const cards = Array.from(document.querySelectorAll<HTMLElement>(HAR.FG_CARD));
+  const card = cards.find((c) => c.querySelector(HAR.FG_NAME)?.textContent?.trim() === name);
+  if (!card) return;
+  const expand = card.querySelector<HTMLElement>(HAR.FG_EXPAND);
+  if (!expand) return;
+  const expandIcon = expand.querySelector('.expand-icon');
+  if (expandIcon && !expandIcon.classList.contains('expanded')) {
+    expand.click();
+    await ctx.delay(400);
+  }
 }
 
 /* ── lesson definition ──────────────────────────────────────── */
@@ -133,26 +235,50 @@ export const thAdvancedSearchLesson: DemoLesson = {
         'covers name, URL, method, headers, body, auth type, and tags.',
       highlight: HAR.SEARCH_INPUT,
       action: async (ctx) => {
+        // ── Simple term: "user" ──────────────────────────────────
         fillSearchBar('user');
-        await ctx.delay(800);
+        await ctx.delay(1400); // let the tree filter settle so the viewer can see it
 
         const matchCount = document.querySelector<HTMLElement>(HAR.SEARCH_COUNT);
-        if (matchCount) await spotlight(matchCount, 800, ctx);
+        if (matchCount) {
+          await spotlight(matchCount, 1600, ctx);
+          await ctx.delay(400);
+        }
 
-        const firstMatch = document.querySelector<HTMLElement>(HAR.SEARCH_MATCH);
-        if (firstMatch) await spotlight(firstMatch, 1000, ctx);
+        const userMatches = Array.from(
+          document.querySelectorAll<HTMLElement>(HAR.SEARCH_MATCH),
+        ).slice(0, 3);
+        for (const match of userMatches) {
+          await spotlight(match, 1500, ctx);
+          await ctx.delay(450);
+        }
 
         clearSearchBar();
-        await ctx.delay(400);
+        await ctx.delay(900); // show the full tree return before the boolean query
+
+        // ── Boolean: "POST AND users" ────────────────────────────
+        const searchInput = document.querySelector<HTMLElement>(HAR.SEARCH_INPUT);
+        if (searchInput) await spotlight(searchInput, 1000, ctx);
 
         fillSearchBar('POST AND users');
-        await ctx.delay(800);
+        await ctx.delay(1600);
 
-        const postMatch = document.querySelector<HTMLElement>(HAR.SEARCH_MATCH);
-        if (postMatch) await spotlight(postMatch, 1200, ctx);
+        const booleanCount = document.querySelector<HTMLElement>(HAR.SEARCH_COUNT);
+        if (booleanCount) {
+          await spotlight(booleanCount, 1600, ctx);
+          await ctx.delay(400);
+        }
+
+        const postMatches = Array.from(
+          document.querySelectorAll<HTMLElement>(HAR.SEARCH_MATCH),
+        ).slice(0, 3);
+        for (const match of postMatches) {
+          await spotlight(match, 1600, ctx);
+          await ctx.delay(500);
+        }
 
         clearSearchBar();
-        await ctx.delay(400);
+        await ctx.delay(800);
       },
       preAction: async (ctx) => {
         await ensureTh16Ready(ctx);
@@ -172,10 +298,26 @@ export const thAdvancedSearchLesson: DemoLesson = {
         'It shows all supported operators: substring match, **"exact phrase"** with word ' +
         'boundaries, **AND**/**OR**/**NOT** boolean operators, parentheses for grouping, ' +
         'and **-term** exclusion shorthand.',
-      highlight: HAR.SEARCH_HELP,
+      highlight: HAR.SEARCH_HELP_BTN,
       action: async (ctx) => {
+        // Ensure the help panel starts closed so viewers see ? → open
+        if (isSearchHelpOpen()) {
+          closeSearchHelp();
+          await ctx.delay(300);
+        }
+
+        const helpBtn = document.querySelector<HTMLElement>(HAR.SEARCH_HELP_BTN);
+        if (helpBtn) {
+          await spotlight(helpBtn, 1200, ctx);
+          helpBtn.click();
+          await ctx.delay(800);
+        }
+
         const helpPanel = document.querySelector<HTMLElement>(HAR.SEARCH_HELP);
-        if (helpPanel) await spotlight(helpPanel, 1500, ctx);
+        if (helpPanel) {
+          await spotlight(helpPanel, 1800, ctx);
+          await ctx.delay(400);
+        }
 
         closeSearchHelp();
         await ctx.delay(400);
@@ -184,13 +326,9 @@ export const thAdvancedSearchLesson: DemoLesson = {
         await ensureTh16Ready(ctx);
         closePopupModal();
         clearSearchBar();
-        if (!isSearchHelpOpen()) {
-          const btn = document.querySelector<HTMLElement>(HAR.SEARCH_HELP_BTN);
-          if (btn) {
-            btn.click();
-            await ctx.delay(400);
-          }
-        }
+        // Keep closed during reading so the spotlight targets the ? badge
+        if (isSearchHelpOpen()) closeSearchHelp();
+        await ctx.delay(100);
       },
       verify: HAR.SEARCH_WRAPPER,
     },
@@ -200,46 +338,77 @@ export const thAdvancedSearchLesson: DemoLesson = {
       id: 'th16-copy-test',
       title: 'Copy Test to Another Scenario',
       description:
-        'The **Copy** button on a test card opens a modal where you choose the target ' +
-        '**Feature Group** and **Scenario**. Copy creates an independent duplicate — ' +
-        'changes to the copy don\'t affect the original. This is useful for creating ' +
-        'variations of a test across different scenarios.',
-      highlight: '.popup-modal',
+        'Click **Copy** on **Get User by ID**, then choose target scenario **Profile Endpoints** ' +
+        'and confirm with **Copy Here**.\n\n' +
+        'Copy creates an independent duplicate in the other scenario — changes to the copy ' +
+        'don\'t affect the original. We then expand **Profile Endpoints** and highlight the ' +
+        'new test card so you can see where it landed.',
+      highlight: HAR.TEST_COPY_BTN,
       action: async (ctx) => {
-        const modal = document.querySelector<HTMLElement>('.popup-modal');
-        if (modal) {
-          const banner = modal.querySelector<HTMLElement>('.popup-modal-banner');
-          if (banner) await spotlight(banner, 800, ctx);
+        if (isPopupModalOpen()) {
+          closePopupModal();
+          await ctx.delay(300);
+        }
 
-          const fields = modal.querySelectorAll<HTMLElement>('.popup-modal-field');
-          for (const field of fields) {
-            await spotlight(field, 800, ctx);
+        // Skip re-copy if a prior run already placed Get User by ID in Profile Endpoints
+        let copied = findTestCardInScenario(TH16_SC_PROFILE, TH16_TEST_GET_USER);
+        if (!copied) {
+          await expandScenarioByName(ctx, TH16_SC_USER);
+
+          const sourceCard = Array.from(document.querySelectorAll<HTMLElement>(HAR.TEST_CARD))
+            .find((c) => c.textContent?.includes(TH16_TEST_GET_USER)
+              && findScenarioCardByName(TH16_SC_USER)?.contains(c));
+          const copyBtn = sourceCard
+            ? (sourceCard.querySelector<HTMLElement>(HAR.TEST_COPY_BTN) ?? findTestCardAction(sourceCard, 'Copy'))
+            : document.querySelector<HTMLElement>(HAR.TEST_COPY_BTN);
+
+          if (copyBtn) {
+            copyBtn.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+            await spotlight(copyBtn, 1400, ctx);
+            copyBtn.click();
+            await ctx.delay(700);
+          }
+
+          const modal = document.querySelector<HTMLElement>('.popup-modal');
+          if (modal) {
+            await spotlight(modal, 900, ctx);
+            const banner = modal.querySelector<HTMLElement>('.popup-modal-banner');
+            if (banner) await spotlight(banner, 700, ctx);
+
+            await selectPopupFieldOption(ctx, 'Scenario', TH16_SC_PROFILE);
+            await confirmCopyHere(ctx);
           }
         }
 
-        closePopupModal();
+        await expandScenarioByName(ctx, TH16_SC_PROFILE);
         await ctx.delay(400);
+
+        copied = findTestCardInScenario(TH16_SC_PROFILE, TH16_TEST_GET_USER);
+        if (copied) {
+          copied.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+          await spotlight(copied, 2400, ctx);
+          await ctx.delay(500);
+
+          const scHeader = findScenarioCardByName(TH16_SC_PROFILE)
+            ?.querySelector<HTMLElement>(HAR.SCENARIO_HEADER);
+          if (scHeader) {
+            await spotlight(scHeader, 1200, ctx);
+            await ctx.delay(300);
+          }
+          await spotlight(copied, 1600, ctx);
+        }
       },
       preAction: async (ctx) => {
         await ensureTh16Ready(ctx);
         clearSearchBar();
         closeSearchHelp();
         if (isPopupModalOpen()) {
-          const modalText = document.querySelector<HTMLElement>('.popup-modal')?.textContent ?? '';
-          if (modalText.includes('Copy Test')) return;
           closePopupModal();
-          await ctx.delay(300);
+          await ctx.delay(200);
         }
-        const card = getFirstTestCard();
-        if (card) {
-          const copyBtn = findTestCardAction(card, 'Copy');
-          if (copyBtn) {
-            copyBtn.click();
-            await ctx.delay(500);
-          }
-        }
+        await expandScenarioByName(ctx, TH16_SC_USER);
       },
-      verify: HAR.FG_CARD,
+      verify: HAR.TEST_CARD,
     },
 
     // ── Step 4: Move Test Between Scenarios ─────────────────────
@@ -247,25 +416,71 @@ export const thAdvancedSearchLesson: DemoLesson = {
       id: 'th16-move-test',
       title: 'Move Test Between Scenarios',
       description:
-        'The **Move** button opens a modal to relocate the test permanently. Select a ' +
-        '**Target Feature Group** and **Target Scenario** — the test disappears from its ' +
-        'original location and appears in the new one. Same-location moves are blocked ' +
-        'with a warning. This is how you reorganize as your suite grows.',
-      highlight: '.popup-modal',
+        'Click **Move** on **Get User by ID** (still under **User Endpoints**), choose ' +
+        '**Admin API Tests** → **Admin Operations**, then confirm **Move**.\n\n' +
+        'The test leaves its original scenario permanently and appears in the new one. ' +
+        'Same-location moves are blocked with a warning. We then expand the Admin group ' +
+        'and highlight the moved test card.',
+      highlight: HAR.TEST_MOVE_BTN,
       action: async (ctx) => {
-        const modal = document.querySelector<HTMLElement>('.popup-modal');
-        if (modal) {
-          const banner = modal.querySelector<HTMLElement>('.popup-modal-banner');
-          if (banner) await spotlight(banner, 800, ctx);
+        if (isPopupModalOpen()) {
+          closePopupModal();
+          await ctx.delay(300);
+        }
 
-          const fields = modal.querySelectorAll<HTMLElement>('.popup-modal-field');
-          for (const field of fields) {
-            await spotlight(field, 800, ctx);
+        // Expand Admin first so a prior-run relocate is visible when the FG was collapsed
+        await expandFgByName(ctx, TH16_FG2_NAME);
+        await expandScenarioByName(ctx, TH16_SC_ADMIN);
+
+        // Skip re-move if a prior run already relocated Get User by ID into Admin Operations
+        let moved = findTestCardInScenario(TH16_SC_ADMIN, TH16_TEST_GET_USER);
+        if (!moved) {
+          await expandScenarioByName(ctx, TH16_SC_USER);
+
+          const sourceCard = Array.from(document.querySelectorAll<HTMLElement>(HAR.TEST_CARD))
+            .find((c) => c.textContent?.includes(TH16_TEST_GET_USER)
+              && findScenarioCardByName(TH16_SC_USER)?.contains(c));
+          const moveBtn = sourceCard
+            ? (sourceCard.querySelector<HTMLElement>(HAR.TEST_MOVE_BTN) ?? findTestCardAction(sourceCard, 'Move'))
+            : document.querySelector<HTMLElement>(HAR.TEST_MOVE_BTN);
+
+          if (moveBtn) {
+            moveBtn.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+            await spotlight(moveBtn, 1400, ctx);
+            moveBtn.click();
+            await ctx.delay(700);
+          }
+
+          const modal = document.querySelector<HTMLElement>('.popup-modal');
+          if (modal) {
+            await spotlight(modal, 900, ctx);
+            const banner = modal.querySelector<HTMLElement>('.popup-modal-banner');
+            if (banner) await spotlight(banner, 700, ctx);
+
+            await selectPopupFieldOption(ctx, 'Target Feature Group', TH16_FG2_NAME);
+            await selectPopupFieldOption(ctx, 'Target Scenario', TH16_SC_ADMIN);
+            await confirmMove(ctx);
           }
         }
 
-        closePopupModal();
+        await expandFgByName(ctx, TH16_FG2_NAME);
+        await expandScenarioByName(ctx, TH16_SC_ADMIN);
         await ctx.delay(400);
+
+        moved = findTestCardInScenario(TH16_SC_ADMIN, TH16_TEST_GET_USER);
+        if (moved) {
+          moved.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+          await spotlight(moved, 2400, ctx);
+          await ctx.delay(500);
+
+          const scHeader = findScenarioCardByName(TH16_SC_ADMIN)
+            ?.querySelector<HTMLElement>(HAR.SCENARIO_HEADER);
+          if (scHeader) {
+            await spotlight(scHeader, 1200, ctx);
+            await ctx.delay(300);
+          }
+          await spotlight(moved, 1600, ctx);
+        }
       },
       preAction: async (ctx) => {
         await ensureTh16Ready(ctx);
@@ -273,18 +488,11 @@ export const thAdvancedSearchLesson: DemoLesson = {
         closeSearchHelp();
         if (isPopupModalOpen()) {
           closePopupModal();
-          await ctx.delay(300);
+          await ctx.delay(200);
         }
-        const card = getFirstTestCard();
-        if (card) {
-          const moveBtn = findTestCardAction(card, 'Move');
-          if (moveBtn) {
-            moveBtn.click();
-            await ctx.delay(500);
-          }
-        }
+        await expandScenarioByName(ctx, TH16_SC_USER);
       },
-      verify: HAR.FG_CARD,
+      verify: HAR.TEST_CARD,
     },
 
     // ── Step 5: Test Card Action Bar & Drag Handle ──────────────

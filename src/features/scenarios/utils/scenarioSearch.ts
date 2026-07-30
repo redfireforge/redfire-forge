@@ -95,14 +95,18 @@ export function evaluateQuery(node: QNode, text: string): boolean {
 }
 
 export function buildSearchText(t: Scenario): string {
+  // Demo seeds and legacy imports may omit auth/validation/headers — never throw from search.
+  const headers = t.headers ?? [];
+  const auth = t.auth;
+  const validation = t.validation;
   const parts = [
     t.name, t.url, t.method, t.body,
-    ...t.headers.flatMap((h) => [h.key, h.value]),
-    t.auth.type,
-    t.auth.tokenUrl ?? '', t.auth.clientId ?? '', t.auth.username ?? '',
-    t.validation.mode,
-    ...(t.validation.expectedFields ?? []).flatMap((f) => [f.jsonPath ?? '', f.expectedValue ?? '']),
-    t.validation.expectedJson ?? '',
+    ...headers.flatMap((h) => [h.key, h.value]),
+    auth?.type ?? '',
+    auth?.tokenUrl ?? '', auth?.clientId ?? '', auth?.username ?? '',
+    validation?.mode ?? '',
+    ...(validation?.expectedFields ?? []).flatMap((f) => [f.jsonPath ?? '', f.expectedValue ?? '']),
+    validation?.expectedJson ?? '',
     ...(t.scenarioTags ?? []),
   ];
   return parts.join(' ');

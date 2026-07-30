@@ -108,6 +108,27 @@ describe('SetupStepVariables', () => {
       })} />);
       expect(screen.getByText('1 selected')).toBeInTheDocument();
     });
+
+    it('collapses and re-expands each variables section', () => {
+      render(<SetupStepVariables {...makeProps()} />);
+
+      const sectionButtons = [
+        screen.getByRole('button', { name: /Path Variables/i }),
+        screen.getByRole('button', { name: /URL Template Preview/i }),
+        screen.getByRole('button', { name: /Query Variables/i }),
+        screen.getByRole('button', { name: /Header Variables/i }),
+        screen.getByRole('button', { name: /Body Variables/i }),
+        screen.getByRole('button', { name: /Auth Configuration/i }),
+      ];
+
+      for (const button of sectionButtons) {
+        expect(button).toHaveAttribute('aria-expanded', 'true');
+        fireEvent.click(button);
+        expect(button).toHaveAttribute('aria-expanded', 'false');
+        fireEvent.click(button);
+        expect(button).toHaveAttribute('aria-expanded', 'true');
+      }
+    });
   });
 
   describe('URL template', () => {

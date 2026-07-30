@@ -267,17 +267,30 @@ describe('SharedDataSourceModal', () => {
       auth: { type: 'none' as const },
     };
 
-    it('shows cURL template badge when rawCurl is set', () => {
+    it('shows View cURL and reveals the stored command', async () => {
       const sources = [
         makeSharedDs('s1', 'T', {
           fetchConfig: {
             ...baseFetch,
-            rawCurl: "curl https://x.com",
+            rawCurl: 'curl https://x.com',
           },
         }),
       ];
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
-      expect(screen.getByText('cURL template')).toBeInTheDocument();
+      expect(screen.getByTestId('shared-ds-view-curl')).toHaveTextContent('View cURL');
+      expect(screen.queryByTestId('shared-ds-curl-view')).not.toBeInTheDocument();
+      await userEvent.click(screen.getByTestId('shared-ds-view-curl'));
+      const view = screen.getByTestId('shared-ds-curl-view');
+      expect(view).toBeInTheDocument();
+      expect(view).toHaveTextContent('curl https://x.com');
+      await userEvent.click(within(view).getByRole('button', { name: /^close$/i }));
+      expect(screen.queryByTestId('shared-ds-curl-view')).not.toBeInTheDocument();
+    });
+
+    it('hides View cURL when rawCurl is absent', () => {
+      const sources = [makeSharedDs('s1', 'T', { fetchConfig: { ...baseFetch } })];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      expect(screen.queryByTestId('shared-ds-view-curl')).not.toBeInTheDocument();
     });
 
     it('toggles cURL import section and cancels it', async () => {

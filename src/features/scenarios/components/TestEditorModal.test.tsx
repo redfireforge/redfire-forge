@@ -50,7 +50,14 @@ vi.mock('../utils/testEditorUtils', () => ({
   rebuildUrl: (base: string) => base,
   unwrapImport: (raw: unknown) => raw,
 }));
-vi.mock('../../../shared/utils/helpers', () => ({ toErrorMessage: (e: unknown) => String(e) }));
+vi.mock('../../../shared/utils/helpers', () => ({
+  toErrorMessage: (e: unknown) => String(e),
+  formatJson: (str?: string) => {
+    if (!str) return '';
+    try { return JSON.stringify(JSON.parse(str), null, 2); }
+    catch { return str; }
+  },
+}));
 vi.mock('../utils/testDefinitionVersioning', () => ({ createSnapshot: () => ({}) }));
 vi.mock('../../../shared/utils/fileSaver', () => ({ saveFile: vi.fn(() => Promise.resolve()) }));
 vi.mock('papaparse', () => ({
@@ -339,6 +346,25 @@ describe('TestEditorModal — transport switching', () => {
       draft: makeDraft({ actionType: 'wsReceive', method: 'WEBSOCKET', wsReceiveAction: { connectionRef: 'c', matchCriteria: { jsonPathValue: 'v' } } as Scenario['wsReceiveAction'] }),
     })} />);
     expect(screen.getByText('Save')).toBeDisabled();
+
+    rerender(<TestEditorModal {...makeProps({
+      draft: makeDraft({ actionType: 'wsReceive', method: 'WEBSOCKET', wsReceiveAction: { connectionRef: 'c', matchCriteria: { jsonPathValue: 'v', jsonPathMatch: '$.value' } } as Scenario['wsReceiveAction'] }),
+    })} />);
+    expect(screen.getByText('Save')).toBeEnabled();
+  });
+});
+
+describe('TestEditorModal — setup wizard seed', () => {
+  it('cleans up initial data setup timeout on unmount', () => {
+    vi.useFakeTimers();
+    const { unmount } = render(<TestEditorModal {...makeProps({
+      activeTab: 'data',
+      scenarioKind: 'parameterized',
+      initialOpenDataSourceWizard: true,
+    })} />);
+    unmount();
+    vi.runAllTimers();
+    vi.useRealTimers();
   });
 });
 
@@ -443,6 +469,22 @@ describe('TestEditorModal — cURL modes', () => {
     expect(onActiveTabChange).toHaveBeenCalledWith('body');
   });
 
+  it('pretty-prints JSON body on cURL import', () => {
+    const onDraftChange = vi.fn();
+    h.parsedCurl = {
+      ...(h.parsedCurl as Scenario),
+      body: '{"name":"Alice","email":"alice@example.com"}',
+      bodyType: 'json',
+    };
+    render(<TestEditorModal {...makeProps({ inputMode: 'curlImport', onDraftChange })} />);
+    const textarea = screen.getByPlaceholderText(/curl -X POST/);
+    fireEvent.change(textarea, { target: { value: 'curl -d "{}" https://x' } });
+    fireEvent.click(screen.getByText('Import & Switch to Builder'));
+    expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+      body: '{\n  "name": "Alice",\n  "email": "alice@example.com"\n}',
+    }));
+  });
+
   it('does nothing on empty cURL import', () => {
     const onDraftChange = vi.fn();
     render(<TestEditorModal {...makeProps({ inputMode: 'curlImport', onDraftChange })} />);
@@ -471,6 +513,22 @@ describe('TestEditorModal — cURL modes', () => {
     h.effectiveAuth = { auth: { type: 'oauth2' }, source: 'inline' };
     render(<TestEditorModal {...makeProps({ inputMode: 'curlExport' })} />);
     await waitFor(() => expect(screen.getByText(/OAuth2 token above is a real token/)).toBeInTheDocument());
+  });
+
+  it('Parameterize from cURL Export switches back to Builder and opens the Data tab', () => {
+    const onInputModeChange = vi.fn();
+    const onActiveTabChange = vi.fn();
+    render(<TestEditorModal {...makeProps({
+      inputMode: 'curlExport',
+      onInputModeChange,
+      onActiveTabChange,
+      onCreateParameterizedCopy: vi.fn(),
+    })} />);
+
+    fireEvent.click(screen.getByTestId('te-parameterize-btn'));
+
+    expect(onInputModeChange).toHaveBeenCalledWith('builder');
+    expect(onActiveTabChange).toHaveBeenCalledWith('data');
   });
 
   it('shows empty-state in export mode when url is blank', () => {

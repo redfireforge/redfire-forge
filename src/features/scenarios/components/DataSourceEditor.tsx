@@ -48,10 +48,12 @@ interface DataSourceEditorProps {
   ) => string;
   /** Called when user clicks the shared DS badge to open the modal */
   onOpenSharedDsModal?: () => void;
+  /** When true at mount, immediately opens the setup/parameterize wizard (skips the extra click) */
+  openSetupModalOnMount?: boolean;
 }
 
-export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onCreateParameterizedCopy, featureGroups, editingTest, sharedDataSources, onPromoteToShared, onOpenSharedDsModal }: DataSourceEditorProps) {
-  const [showSetupModal, setShowSetupModal] = useState(false);
+export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onCreateParameterizedCopy, featureGroups, editingTest, sharedDataSources, onPromoteToShared, onOpenSharedDsModal, openSetupModalOnMount }: DataSourceEditorProps) {
+  const [showSetupModal, setShowSetupModal] = useState(() => !!openSetupModalOnMount);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [showContract, setShowContract] = useState(false);
   const [showPromoteModal, setShowPromoteModal] = useState(false);

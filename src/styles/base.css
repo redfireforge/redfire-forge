@@ -3402,7 +3402,9 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .baseline-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .baseline-toggle { border-color: var(--border); transition: all 0.15s; }
 .baseline-toggle.baseline-active { background: rgba(245, 158, 11, 0.15); border-color: #f59e0b; color: #f59e0b; }
-.baseline-compare-select { max-width: 350px; font-size: 0.82rem; padding: 4px 8px; }
+.baseline-compare-select { max-width: 350px; min-width: 220px; }
+/* className lands on .cs-wrapper — bordered box is .cs-trigger; do not pad the wrapper (double box / "shadow"). */
+.baseline-compare-select .cs-trigger { font-size: 0.82rem; }
 
 /* Comparison & Trends workspace layout */
 .results-comparison-trends-layout {
@@ -4142,7 +4144,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .test-sla-table-wrap {
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 .test-sla-table {
   width: 100%;
@@ -4188,6 +4190,11 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   font-weight: 600;
   color: var(--text-muted);
   opacity: 0.6;
+}
+
+.test-sla-cell-metric {
+  position: relative;
+  z-index: 4;
 }
 
 /* Operator */
@@ -4250,6 +4257,9 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 
 /* Select */
 .test-sla-select { font-size: 0.8rem; width: 100%; }
+.test-sla-select .cs-menu {
+  z-index: 320;
+}
 
 /* Delete button */
 .test-sla-delete-btn {
@@ -4284,10 +4294,23 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+.test-sla-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 .test-sla-footer-actions {
   display: flex;
   gap: 8px;
+}
+.test-sla-ux-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.85;
+  white-space: nowrap;
 }
 .test-sla-add-btn {
   display: inline-flex;
@@ -4312,6 +4335,35 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1;
+}
+
+.test-sla-modal .modal-resize-edge-right:hover,
+.test-sla-modal .modal-resize-edge-bottom:hover {
+  background: color-mix(in srgb, var(--primary) 55%, transparent);
+}
+
+.test-sla-modal .modal-resize-corner::after {
+  opacity: 0.5;
+}
+
+.test-sla-modal:hover .modal-resize-corner::after {
+  opacity: 0.9;
+}
+
+@media (max-width: 980px) {
+  .test-sla-footer-bar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .test-sla-footer-actions {
+    margin-left: auto;
+  }
+
+  .test-sla-ux-hint {
+    white-space: normal;
+    line-height: 1.35;
+  }
 }
 
 /* ── SLA Override Panel (RunnerPage) ── */
@@ -4917,7 +4969,10 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   min-width: 100%;
   width: max-content;
   max-width: min(460px, 92vw);
-  z-index: 200;
+  /* Rendered via a portal to document.body with position:fixed (see
+     CustomSelect.tsx), so this must out-rank any modal overlay (z-index 100)
+     it may visually sit above. */
+  z-index: 1000;
   background: var(--surface, #1e293b);
   border: 1px solid var(--border, #3b4a60);
   border-radius: 6px;
