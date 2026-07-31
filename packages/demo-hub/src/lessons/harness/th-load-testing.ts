@@ -130,17 +130,16 @@ export const thLoadTestingLesson: DemoLesson = {
         'defined shape. The SVG preview chart shows exactly how concurrency scales over the run duration.',
       highlight: HAR.EXEC_MODE_LOAD_PROFILE,
       action: async (ctx) => {
-        await ensureTh8Ready(ctx);
-
+        // preAction already ensured runner + scenario selection — don't re-toggle
+        // Deselect All / checkboxes here (that caused quick UI flashing).
         switchExecMode('Load Profile');
         await ctx.delay(800);
 
+        // Set profile fields in one pass, then settle once (avoids chart redraw flashes).
         setFieldByLabel(HAR.LOAD_PROFILE_SEC, 'Duration (sec)', 10);
-        await ctx.delay(300);
         setFieldByLabel(HAR.LOAD_PROFILE_SEC, 'Max Concurrency', 5);
-        await ctx.delay(300);
         setFieldByLabel(HAR.LOAD_PROFILE_SEC, 'Ramp (sec)', 5);
-        await ctx.delay(500);
+        await ctx.delay(700);
 
         // Spotlight the whole load-profile configurator (type tabs + fields + chart)
         await spotlightSel(ctx, HAR.LOAD_PROFILE_SEC, 2200);

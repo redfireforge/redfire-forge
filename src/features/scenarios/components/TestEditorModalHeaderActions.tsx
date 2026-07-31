@@ -21,6 +21,10 @@ interface TestEditorModalHeaderActionsProps {
   onCancel: () => void;
   onSave: () => void;
   canSave: boolean;
+  /** Whether the "Parameterize" shortcut should be shown (no data source attached yet) */
+  canParameterize?: boolean;
+  /** Jumps straight to the Data tab and opens the parameterize wizard, skipping the extra click */
+  onOpenParameterizeWizard?: () => void;
 }
 
 export default function TestEditorModalHeaderActions({
@@ -40,6 +44,8 @@ export default function TestEditorModalHeaderActions({
   onCancel,
   onSave,
   canSave,
+  canParameterize,
+  onOpenParameterizeWizard,
 }: TestEditorModalHeaderActionsProps) {
   return (
     <>
@@ -110,6 +116,17 @@ export default function TestEditorModalHeaderActions({
             </div>
           )}
         </div>
+        {canParameterize && onOpenParameterizeWizard && (
+          <button
+            type="button"
+            className="mode-btn"
+            data-testid="te-parameterize-btn"
+            onClick={onOpenParameterizeWizard}
+            title="Jump to the Data tab and open the parameterize wizard"
+          >
+            📋 Parameterize
+          </button>
+        )}
       </div>
       <button type="button" className="btn" data-testid="te-cancel-btn" onClick={onCancel}>Cancel</button>
       <button type="button" className="btn btn-primary" data-testid="te-save-btn" onClick={onSave} disabled={!canSave}>Save</button>
