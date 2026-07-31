@@ -8,6 +8,7 @@ interface EditingTest {
   scenarioId: string;
   testId: string;
   parameterized?: boolean;
+  openDataSourceWizard?: boolean;
 }
 
 interface UseSharedDataSourceHandlersParams {
@@ -76,7 +77,8 @@ export function useSharedDataSourceHandlers({
     sharedDs: SharedDataSource,
     targetFgId: string,
     targetScenarioId: string,
-    testName: string
+    testName: string,
+    openWizard?: boolean
   ) => {
     const newTest: Scenario = {
       id: uuidv4(),
@@ -100,7 +102,7 @@ export function useSharedDataSourceHandlers({
       };
     }));
     setDraft(newTest);
-    setEditingTest({ featureId: targetFgId, scenarioId: targetScenarioId, testId: newTest.id, parameterized: true });
+    setEditingTest({ featureId: targetFgId, scenarioId: targetScenarioId, testId: newTest.id, parameterized: true, openDataSourceWizard: !!openWizard });
     setInputMode('builder');
     setActiveTab('data');
   }, [setFeatureGroups, setDraft, setEditingTest, setInputMode, setActiveTab]);

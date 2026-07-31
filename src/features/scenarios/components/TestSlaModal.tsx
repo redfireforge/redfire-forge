@@ -78,19 +78,23 @@ export default function TestSlaModal({ test, onSave, onClose }: TestSlaModalProp
       dialogClassName="test-sla-modal"
       closeButtonKind="none"
       showExpandButton={false}
+      showResizeHandles
       closeOnOverlayClick={false}
       constrainDragToViewport
       dragViewportPadding={12}
-      minWidth={680}
-      minHeight={260}
+      minWidth={720}
+      minHeight={300}
       bodyClassName="test-sla-modal-body"
       footerClassName="test-sla-modal-footer"
       footer={
         <div className="test-sla-footer-bar">
-          <button className="btn btn-sm test-sla-add-btn" onClick={addRow}>
-            <span className="test-sla-add-icon">+</span>
-            Add Target
-          </button>
+          <div className="test-sla-footer-left">
+            <button className="btn btn-sm test-sla-add-btn" onClick={addRow}>
+              <span className="test-sla-add-icon">+</span>
+              Add Target
+            </button>
+            <span className="test-sla-ux-hint">Drag header to move • drag bottom-right corner to resize</span>
+          </div>
           <div className="test-sla-footer-actions">
             <button className="btn btn-sm" onClick={onClose}>
               Cancel

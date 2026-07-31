@@ -13,6 +13,8 @@ import {
   deleteTh14DemoFg,
   purgeTh14GlobalProfile,
   ensureTh14FgExists,
+  TH14_FG_NAME,
+  TH14_SC_NAME,
   expandFirstFg,
   expandFirstScenario,
   spotlight,
@@ -23,6 +25,9 @@ import {
 import { fillControlledInput } from '../setup-helpers';
 
 const TEST_EDITOR_SEL = '.rf-builder-modal';
+const TEST_EDITOR_AUTH_TYPE_SELECT = '.auth-tab-type-select';
+const TEST_EDITOR_AUTH_INHERIT_HINT = '.auth-tab-inherit-hint';
+const TEST_EDITOR_AUTH_INPUT = '.auth-tab-input';
 
 /* ── local helpers ──────────────────────────────────────────── */
 
@@ -32,6 +37,39 @@ async function ensureTh14Ready(ctx: DemoActionContext): Promise<void> {
     ctx.navigateToTab('scenarios');
     await ctx.delay(500);
   }
+
+  const fgCards = Array.from(document.querySelectorAll<HTMLElement>(HAR.FG_CARD));
+  const th14Card = fgCards.find((card) => {
+    const nameEl = card.querySelector<HTMLElement>(HAR.FG_NAME);
+    return nameEl?.textContent?.trim() === TH14_FG_NAME;
+  }) ?? fgCards[0] ?? null;
+
+  if (th14Card) {
+    const fgHeader = th14Card.querySelector<HTMLElement>(HAR.FG_EXPAND);
+    const fgExpandIcon = fgHeader?.querySelector('.expand-icon');
+    if (fgHeader && fgExpandIcon && !fgExpandIcon.classList.contains('expanded')) {
+      fgHeader.click();
+      await ctx.delay(400);
+    }
+
+    const scenarioCards = Array.from(th14Card.querySelectorAll<HTMLElement>(HAR.SCENARIO_CARD));
+    const th14Scenario = scenarioCards.find((card) => {
+      const header = card.querySelector<HTMLElement>(HAR.SCENARIO_HEADER);
+      return header?.textContent?.includes(TH14_SC_NAME);
+    }) ?? scenarioCards[0] ?? null;
+
+    if (th14Scenario) {
+      const scHeader = th14Scenario.querySelector<HTMLElement>(HAR.SCENARIO_HEADER);
+      const scExpandIcon = scHeader?.querySelector('.expand-icon');
+      if (scHeader && scExpandIcon && !scExpandIcon.classList.contains('expanded')) {
+        scHeader.click();
+        await ctx.delay(400);
+      }
+      return;
+    }
+  }
+
+  // Fallback keeps previous behavior if name-based lookup misses due transient render.
   await expandFirstFg(ctx);
   await expandFirstScenario(ctx);
 }
@@ -77,21 +115,75 @@ function clickAuthTab(): void {
   }
 }
 
+function findTestEditorSaveButton(): HTMLElement | null {
+  const explicit = document.querySelector<HTMLElement>(HAR.TE_SAVE_BTN);
+  if (explicit) return explicit;
+  const modal = document.querySelector<HTMLElement>(TEST_EDITOR_SEL);
+  if (!modal) return null;
+  const btns = Array.from(modal.querySelectorAll<HTMLElement>('button'));
+  return btns.find((btn) => btn.textContent?.trim() === 'Save') ?? null;
+}
+
+async function openTh14FirstTestEditor(ctx: DemoActionContext): Promise<boolean> {
+  if (isTestEditorOpen()) return true;
+
+  const fgCards = Array.from(document.querySelectorAll<HTMLElement>(HAR.FG_CARD));
+  const th14Card = fgCards.find((card) => {
+    const nameEl = card.querySelector<HTMLElement>(HAR.FG_NAME);
+    return nameEl?.textContent?.trim() === TH14_FG_NAME;
+  }) ?? fgCards[0] ?? null;
+  if (!th14Card) return false;
+
+  const scenarioCards = Array.from(th14Card.querySelectorAll<HTMLElement>(HAR.SCENARIO_CARD));
+  const th14Scenario = scenarioCards.find((card) => {
+    const header = card.querySelector<HTMLElement>(HAR.SCENARIO_HEADER);
+    return header?.textContent?.includes(TH14_SC_NAME);
+  }) ?? scenarioCards[0] ?? null;
+  if (!th14Scenario) return false;
+
+  const clickAndWait = async (el: HTMLElement | null | undefined): Promise<boolean> => {
+    if (!el) return false;
+    el.click();
+    for (let i = 0; i < 8; i += 1) {
+      if (isTestEditorOpen()) return true;
+      await ctx.delay(120);
+    }
+    return false;
+  };
+
+  const primary = th14Scenario.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
+  if (await clickAndWait(primary)) return true;
+
+  const fallbackEdit = Array.from(th14Scenario.querySelectorAll<HTMLElement>('button'))
+    .find((btn) => btn.textContent?.trim() === 'Edit' || btn.getAttribute('aria-label')?.toLowerCase().includes('edit'));
+  if (await clickAndWait(fallbackEdit)) return true;
+
+  const fallbackTestTitle = th14Scenario.querySelector<HTMLElement>('.test-name, .test-title, [data-testid="har-test-name"]');
+  if (await clickAndWait(fallbackTestTitle)) return true;
+
+  const fallbackRow = th14Scenario.querySelector<HTMLElement>('.test-row, .test-card, [data-testid="har-test-card"]');
+  if (await clickAndWait(fallbackRow)) return true;
+
+  return false;
+}
+
 /** Select an auth type from the CustomSelect in the auth panel or test editor. */
 async function selectAuthType(ctx: DemoActionContext, label: string, scope?: HTMLElement): Promise<void> {
   const container = scope ?? document.querySelector<HTMLElement>(HAR.AUTH_TYPE_SELECT);
   if (!container) return;
-  const select = container.querySelector<HTMLElement>('.custom-select') ?? container;
-  select.click();
+  const trigger = container.querySelector<HTMLElement>('.cs-trigger') ?? container;
+  trigger.click();
   await ctx.delay(300);
 
-  const options = document.querySelectorAll<HTMLElement>('.custom-select-option');
-  for (const opt of options) {
-    if (opt.textContent?.trim() === label) {
-      opt.click();
-      await ctx.delay(200);
-      return;
-    }
+  // CustomSelect portals `.cs-menu` to document.body
+  const menu = document.querySelector<HTMLElement>('body > .cs-menu');
+  const options = Array.from(
+    (menu ?? document).querySelectorAll<HTMLElement>('.cs-item, [role="option"]'),
+  );
+  const option = options.find((opt) => opt.textContent?.trim() === label);
+  if (option) {
+    option.click();
+    await ctx.delay(200);
   }
 }
 
@@ -182,20 +274,47 @@ export const thAuthInheritanceLesson: DemoLesson = {
         'The **Auth** button on a Feature Group card opens a panel where you can link a ' +
         '**global auth profile** — defined in Settings and shared across Feature Groups. ' +
         'This forms the bottom of the 4-level inheritance chain: all tests in this FG ' +
-        'inherit the profile\'s credentials unless overridden at a lower level.',
+        'inherit the profile\'s credentials unless overridden at a lower level.\n\n' +
+        'Click **Verify Auth** to confirm the linked profile resolves — here a real Bearer ' +
+        'token from **Corp API Bearer** verifies successfully.',
       highlight: HAR.FEATURE_AUTH_PANEL,
       action: async (ctx) => {
         const profileSelect = document.querySelector<HTMLElement>(HAR.AUTH_PROFILE_SELECT);
         if (profileSelect) await spotlight(profileSelect, 1200, ctx);
 
         const hint = document.querySelector<HTMLElement>(`${HAR.FEATURE_AUTH_PANEL} ${HAR.AUTH_INHERIT_HINT}`);
-        if (hint) await spotlight(hint, 800, ctx);
+        if (hint) await spotlight(hint, 1000, ctx);
+
+        const verifyBtn = document.querySelector<HTMLElement>(
+          `${HAR.FEATURE_AUTH_PANEL} ${HAR.AUTH_VERIFY_BTN}`,
+        );
+        if (verifyBtn) {
+          await spotlight(verifyBtn, 1000, ctx);
+          verifyBtn.click();
+          await ctx.delay(700);
+
+          // Wait briefly for the sync verify result to render
+          for (let i = 0; i < 10; i++) {
+            if (document.querySelector(`${HAR.FEATURE_AUTH_PANEL} ${HAR.AUTH_VERIFY_RESULT}`)) break;
+            await ctx.delay(100);
+          }
+
+          const result = document.querySelector<HTMLElement>(
+            `${HAR.FEATURE_AUTH_PANEL} ${HAR.AUTH_VERIFY_RESULT}`,
+          );
+          if (result) {
+            await spotlight(result, 1800, ctx);
+            await ctx.delay(500);
+          }
+        }
 
         closeFgAuthPanel();
         await ctx.delay(400);
       },
       preAction: async (ctx) => {
         await ensureTh14Ready(ctx);
+        // Re-seed profile so Verify Auth always has a working Bearer token
+        seedTh14GlobalProfile();
         if (isTestEditorOpen()) closeTestEditor();
         if (isScAuthOpen()) closeScenarioAuthPanel();
         await ctx.delay(100);
@@ -299,30 +418,28 @@ export const thAuthInheritanceLesson: DemoLesson = {
         'Open a test\'s **Auth** tab to override at the test level — the highest priority. ' +
         'Change from **Inherit from Scenario** to **API Key** and fill in the credentials. ' +
         'After saving, this test shows a **green** badge while its sibling still shows blue.',
-      highlight: HAR.AUTH_TYPE_SELECT,
+      highlight: `${TEST_EDITOR_SEL} ${TEST_EDITOR_AUTH_TYPE_SELECT}`,
       action: async (ctx) => {
-        const typeSelect = document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${HAR.AUTH_TYPE_SELECT}`);
+        const typeSelect = document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${TEST_EDITOR_AUTH_TYPE_SELECT}`)
+          ?? document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${HAR.AUTH_TYPE_SELECT}`);
         if (typeSelect) await spotlight(typeSelect, 1000, ctx);
 
-        const hint = document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${HAR.AUTH_INHERIT_HINT}`);
+        const hint = document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${TEST_EDITOR_AUTH_INHERIT_HINT}`)
+          ?? document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${HAR.AUTH_INHERIT_HINT}`);
         if (hint) await spotlight(hint, 800, ctx);
 
         await selectAuthType(ctx, 'API Key', typeSelect ?? undefined);
         await ctx.delay(400);
 
-        const formRows = document.querySelectorAll<HTMLElement>(`${TEST_EDITOR_SEL} .form-row.two-col`);
-        const lastRow = formRows[formRows.length - 1];
-        if (lastRow) {
-          const inputs = lastRow.querySelectorAll<HTMLInputElement>('input');
-          if (inputs.length >= 2) {
-            fillControlledInput(inputs[0], 'X-API-Key');
-            await ctx.delay(300);
-            fillControlledInput(inputs[1], 'demo-key-123');
-            await ctx.delay(500);
-          }
+        const authInputs = document.querySelectorAll<HTMLInputElement>(`${TEST_EDITOR_SEL} ${TEST_EDITOR_AUTH_INPUT}`);
+        if (authInputs.length >= 2) {
+          fillControlledInput(authInputs[0], 'X-API-Key');
+          await ctx.delay(300);
+          fillControlledInput(authInputs[1], 'demo-key-123');
+          await ctx.delay(500);
         }
 
-        const saveBtn = document.querySelector<HTMLElement>('[data-testid="te-save-btn"]');
+        const saveBtn = findTestEditorSaveButton();
         if (saveBtn) {
           saveBtn.click();
           await ctx.delay(500);
@@ -342,15 +459,15 @@ export const thAuthInheritanceLesson: DemoLesson = {
         if (isScAuthOpen()) closeScenarioAuthPanel();
         await ctx.delay(100);
 
-        if (!isTestEditorOpen()) {
-          const editBtn = document.querySelector<HTMLElement>('[data-testid="har-test-edit-btn"]');
-          if (editBtn) {
-            editBtn.click();
-            await ctx.delay(600);
-          }
-        }
+        await openTh14FirstTestEditor(ctx);
+        await ctx.delay(250);
         clickAuthTab();
-        await ctx.delay(300);
+        await ctx.delay(350);
+        // Re-click if needed — tab activation can lag after modal mount.
+        if (!document.querySelector(`${TEST_EDITOR_SEL} .builder-tab.active`)?.textContent?.trim().startsWith('Auth')) {
+          clickAuthTab();
+          await ctx.delay(250);
+        }
       },
       verify: HAR.FG_CARD,
     },
@@ -403,24 +520,20 @@ export const thAuthInheritanceLesson: DemoLesson = {
           }
 
           if (!hasOwn) {
-            const editBtn = document.querySelector<HTMLElement>('[data-testid="har-test-edit-btn"]');
-            if (editBtn) {
-              editBtn.click();
-              await ctx.delay(400);
+            const opened = await openTh14FirstTestEditor(ctx);
+            if (opened) {
+              await ctx.delay(250);
               clickAuthTab();
               await ctx.delay(200);
-              const typeSelect = document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${HAR.AUTH_TYPE_SELECT}`);
+              const typeSelect = document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${TEST_EDITOR_AUTH_TYPE_SELECT}`)
+                ?? document.querySelector<HTMLElement>(`${TEST_EDITOR_SEL} ${HAR.AUTH_TYPE_SELECT}`);
               if (typeSelect) await selectAuthType(ctx, 'API Key', typeSelect);
-              const formRows = document.querySelectorAll<HTMLElement>(`${TEST_EDITOR_SEL} .form-row.two-col`);
-              const lastRow = formRows[formRows.length - 1];
-              if (lastRow) {
-                const inputs = lastRow.querySelectorAll<HTMLInputElement>('input');
-                if (inputs.length >= 2) {
-                  fillControlledInput(inputs[0], 'X-API-Key');
-                  fillControlledInput(inputs[1], 'demo-key-123');
-                }
+              const authInputs = document.querySelectorAll<HTMLInputElement>(`${TEST_EDITOR_SEL} ${TEST_EDITOR_AUTH_INPUT}`);
+              if (authInputs.length >= 2) {
+                fillControlledInput(authInputs[0], 'X-API-Key');
+                fillControlledInput(authInputs[1], 'demo-key-123');
               }
-              const saveBtn = document.querySelector<HTMLElement>('[data-testid="te-save-btn"]');
+              const saveBtn = findTestEditorSaveButton();
               if (saveBtn) saveBtn.click();
               await ctx.delay(300);
             }

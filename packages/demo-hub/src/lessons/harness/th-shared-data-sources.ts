@@ -18,15 +18,17 @@ import {
   closeSharedDsModal,
   closeInlineNameFormQuiet,
   closeTestEditorQuiet,
+  isTestEditorOpen,
   expandFirstFg,
   expandFirstScenario,
   TH21_SHARED_DS_NAME,
+  TH21_SC_NAME,
 } from './th-demo-helpers';
 
 /* ── Local constants ─────────────────────────────────────────── */
 
 const CURL_COMMAND =
-  'curl -X GET "https://jsonplaceholder.typicode.com/users/1" ' +
+  'curl -X GET "https://jsonplaceholder.typicode.com/users/{{userId}}" ' +
   '-H "Authorization: Bearer sk_live_4eC39HqLyjWDarjtT1zdp7dc" ' +
   '-H "Accept: application/json"';
 
@@ -339,10 +341,11 @@ export const thSharedDataSourcesLesson: DemoLesson = {
       description:
         'Click **cURL Import** to expand the import section. Paste any cURL command — ' +
         'RedfireForge extracts the method, URL, headers, and authentication automatically.\n\n' +
-        'This is the fastest way to configure a shared data source from an existing API call. ' +
-        'Copy a cURL from your browser DevTools, Postman, or API docs and paste it here.\n\n' +
-        'After clicking **Import & Apply**, the fetch configuration updates instantly — ' +
-        'URL, method, headers, and auth are all populated from the parsed cURL.',
+        'Because this data source maps a **Path** column to `userId`, the URL must keep ' +
+        'the `{{userId}}` placeholder (not a hardcoded `/users/1`). Otherwise you get a ' +
+        '**Mapping issues** warning: `path:userId has no matching URL placeholder`.\n\n' +
+        'After **Import & Apply**, the fetch config updates — URL, method, headers, and auth ' +
+        'are all populated from the parsed cURL.',
       highlight: HAR.SHARED_DS_FETCH,
       pauseAfter: true,
 
@@ -480,7 +483,7 @@ export const thSharedDataSourcesLesson: DemoLesson = {
         'linked tests get the changes automatically**. No need to update each test individually.\n\n' +
         'Disabled rows (like the "Contractor") are skipped during execution but preserved for ' +
         'documentation and future re-enablement.',
-      highlight: HAR.SHARED_DS_EDITOR,
+      highlight: HAR.SHARED_DS_GRID,
       pauseAfter: true,
 
       preAction: async (ctx) => {
@@ -510,25 +513,26 @@ export const thSharedDataSourcesLesson: DemoLesson = {
           if (parent) { tab.click(); await ctx.delay(300); break; }
         }
 
-        // Spotlight the data editor content (the grid)
-        const editorContent = document.querySelector<HTMLElement>('.shared-ds-editor-content');
-        if (editorContent) {
-          editorContent.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-          await spotlight(editorContent, 3000, ctx);
+        // Spotlight the data grid viewport directly.
+        const dataGrid = document.querySelector<HTMLElement>(HAR.SHARED_DS_GRID);
+        if (dataGrid) {
+          dataGrid.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+          await spotlight(dataGrid, 3000, ctx);
           await ctx.delay(1200);
         }
 
         // Expand and spotlight the "Used By" section
-        const usedByToggle = document.querySelector<HTMLElement>('.shared-ds-used-by-toggle');
+        const usedByToggle = document.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY_TOGGLE);
         if (usedByToggle) {
           usedByToggle.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+          await spotlight(usedByToggle, 2000, ctx);
+          await ctx.delay(500);
           usedByToggle.click();
           await ctx.delay(600);
-          const usedBySection = document.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY);
+          const usedBySection = document.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY_LIST)
+            ?? document.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY);
           if (usedBySection) {
-            // This section sits at the very bottom of the scroll body, just above
-            // the modal footer. `block: 'end'` pins its full content (test chips +
-            // "Run Preview" line) clear of the footer so nothing is clipped.
+            // Keep the chips clear of the modal footer before spotlighting.
             usedBySection.scrollIntoView({ block: 'end', behavior: 'instant' as ScrollBehavior });
             await ctx.delay(300);
             await spotlight(usedBySection, 2800, ctx);
@@ -545,17 +549,16 @@ export const thSharedDataSourcesLesson: DemoLesson = {
       id: 'th21-create-test',
       title: '+ Create Test from Shared DS',
       description:
-        'Click **+ Create Test** to generate a new parameterized test that is automatically ' +
-        'linked to this shared data source.\n\n' +
-        'The created test inherits the URL template, columns, and auth from the shared ' +
-        'data source — you get a ready-to-run test with zero configuration. This is the ' +
-        'fastest path from "I have API data" to "I have a running test suite".\n\n' +
-        'Multiple tests can share the same data source — update the source once, and every ' +
-        'linked test picks up the changes on the next run.',
+        'Click **+ Create Test** to open the create dialog, then confirm with **Create Test**.\n\n' +
+        'The new parameterized test is added to **Shared DS Demo → User Directory** and ' +
+        'linked to this shared data source — it inherits the URL template, columns, and auth.\n\n' +
+        'After creating, we close the editor and highlight the new test card in the Feature ' +
+        'Groups tree so you can see exactly where it landed.',
       highlight: HAR.SHARED_DS_FETCH,
       pauseAfter: true,
 
       preAction: async (ctx) => {
+        if (isTestEditorOpen()) await closeTestEditorQuiet(ctx);
         if (!document.querySelector(HAR.SHARED_DS_MODAL)) {
           await ensureModalOpen(ctx);
         }
@@ -569,7 +572,7 @@ export const thSharedDataSourcesLesson: DemoLesson = {
           await ensureSharedDsSelected(ctx);
         }
 
-        // Find the "+ Create Test" button in the fetch actions bar
+        // 1) Open the create-test dialog
         const actionBar = document.querySelector<HTMLElement>('.shared-ds-fetch-actions');
         const createTestBtn = actionBar
           ? Array.from(actionBar.querySelectorAll<HTMLElement>('button'))
@@ -578,32 +581,68 @@ export const thSharedDataSourcesLesson: DemoLesson = {
 
         if (createTestBtn) {
           createTestBtn.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-          await spotlight(createTestBtn, 3000, ctx);
-          await ctx.delay(1200);
+          await spotlight(createTestBtn, 2200, ctx);
+          await ctx.delay(600);
           createTestBtn.click();
-          await ctx.delay(1000);
+          await ctx.delay(900);
+        }
 
-          // If a create-test modal/popup appeared, spotlight it briefly
-          const popup = document.querySelector<HTMLElement>('.popup-modal, .create-test-modal');
-          if (popup) {
-            await spotlight(popup, 2500, ctx);
-            await ctx.delay(1200);
-            // Close the popup
-            const cancelBtn = Array.from(popup.querySelectorAll<HTMLElement>('button'))
-              .find(b => {
-                const t = b.textContent?.trim();
-                return t === 'Cancel' || t === 'Close';
-              });
-            cancelBtn?.click();
+        // 2) Spotlight the create dialog, then click Create Test
+        const createModal = document.querySelector<HTMLElement>('.create-test-modal');
+        if (createModal) {
+          await spotlight(createModal, 2000, ctx);
+          await ctx.delay(600);
+
+          const confirmBtn = Array.from(createModal.querySelectorAll<HTMLElement>('button'))
+            .find(b => b.textContent?.trim() === 'Create Test');
+          if (confirmBtn) {
+            await spotlight(confirmBtn, 1600, ctx);
             await ctx.delay(500);
+            confirmBtn.click();
+            await ctx.delay(1200);
           }
         }
 
-        // Close the shared DS modal visibly
-        await closeSharedDsVisibly(ctx);
+        // Create Test opens the Test Editor — close it so we can show the card in the tree
+        if (isTestEditorOpen()) {
+          await closeTestEditorQuiet(ctx);
+          await ctx.delay(500);
+        }
+
+        // Shared DS modal should already be closed by Create Test; belt-and-suspenders
+        if (document.querySelector(HAR.SHARED_DS_MODAL)) {
+          await closeSharedDsVisibly(ctx);
+        }
+
+        // 3) Show where the test was created in Feature Groups
+        ctx.navigateToTab('scenarios');
+        await ctx.delay(500);
+        await expandFirstFg(ctx);
+        await expandFirstScenario(ctx);
+        await ctx.delay(600);
+
+        const createdName = `Test from ${TH21_SHARED_DS_NAME}`;
+        const testCards = Array.from(document.querySelectorAll<HTMLElement>(HAR.TEST_CARD));
+        const createdCard = testCards.find(c => c.textContent?.includes(createdName))
+          ?? testCards[testCards.length - 1];
+
+        if (createdCard) {
+          createdCard.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+          await spotlight(createdCard, 2800, ctx);
+          await ctx.delay(800);
+        }
+
+        // Also spotlight the parent scenario so the location is clear
+        const scHeaders = Array.from(document.querySelectorAll<HTMLElement>(HAR.SCENARIO_HEADER));
+        const scHeader = scHeaders.find(h => h.textContent?.includes(TH21_SC_NAME));
+        if (scHeader) {
+          await spotlight(scHeader, 1600, ctx);
+          await ctx.delay(500);
+        }
+        if (createdCard) await spotlight(createdCard, 1800, ctx);
       },
 
-      verify: HAR.SHARED_DS_BTN,
+      verify: HAR.TEST_CARD,
     },
   ],
 };

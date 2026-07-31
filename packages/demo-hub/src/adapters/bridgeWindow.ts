@@ -82,6 +82,8 @@ export type DemoBridgeWindow = Window &
     __demoSeedTestRun?: (run: Record<string, unknown>) => Promise<void>;
     /** Delete TestRuns whose IDs start with the given prefix (demo cleanup). */
     __demoDeleteTestRuns?: (prefix: string) => Promise<void>;
+    /** True when any stored TestRun ID starts with the given prefix. */
+    __demoHasTestRuns?: (prefix: string) => Promise<boolean>;
     /** Seed a Swagger 2.0 spec as a Catalog entry (idempotent by name). Returns the entry id. */
     __demoSeedCatalogSwagger2?: (name: string, rawSpec: string) => Promise<string | null>;
     /** Remove a Catalog entry by display name (demo cleanup). */
