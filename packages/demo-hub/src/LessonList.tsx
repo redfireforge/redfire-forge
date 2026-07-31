@@ -16,7 +16,7 @@ interface LessonListProps {
   onSelect: (lesson: DemoLesson) => void;
   onBack: () => void;
   onResetLesson: (lessonId: string) => void;
-  onResetAll: () => void;
+  onResetAll: (lessonIds: string[]) => void;
   /** When navigating back from a lesson, pre-select this category so the
    *  user lands on the tab that contains the lesson they came from. */
   initialCategory?: string;
@@ -64,7 +64,15 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
     ? domain.categories!.find(c => c.id === activeCategory)
     : null;
 
-  const anyCompleted = domain.lessons.some(l =>
+  // When viewing a category tab, scoping reset to that tab's lessons only.
+  const resetScopeLessons = hasCategories && activeCategory
+    ? visibleLessons
+    : domain.lessons;
+  const resetScopeLabel = hasCategories && activeCategory
+    ? (domain.categories!.find(c => c.id === activeCategory)?.label ?? 'tab')
+    : null;
+
+  const anyCompleted = resetScopeLessons.some(l =>
     progress.completedLessons.includes(l.id) ||
     progress.lessonSteps[l.id] !== undefined,
   );
@@ -75,7 +83,7 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
   };
 
   const handleResetAll = () => {
-    onResetAll();
+    onResetAll(resetScopeLessons.map(l => l.id));
     setConfirmResetAll(false);
   };
 
@@ -276,7 +284,9 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
         {anyCompleted && (
           confirmResetAll ? (
             <div className="demo-reset-all-confirm" data-testid="reset-all-confirm">
-              <span className="demo-reset-all-confirm-label">Reset all progress?</span>
+              <span className="demo-reset-all-confirm-label">
+                {resetScopeLabel ? `Reset ${resetScopeLabel} progress?` : 'Reset all progress?'}
+              </span>
               <button
                 className="demo-reset-all-yes"
                 onClick={handleResetAll}
@@ -298,7 +308,7 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
               onClick={() => setConfirmResetAll(true)}
               data-testid="reset-all-btn"
             >
-              ↺ Reset all progress
+              {resetScopeLabel ? `↺ Reset ${resetScopeLabel} progress` : '↺ Reset all progress'}
             </button>
           )
         )}

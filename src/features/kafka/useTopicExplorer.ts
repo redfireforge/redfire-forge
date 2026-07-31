@@ -132,7 +132,12 @@ export function useTopicExplorer(
       }
       if (healthFilter !== 'all') {
         const detail = cache.get(t.name);
-        if (detail && detail.healthStatus !== healthFilter) return false;
+        if (detail) {
+          if (detail.healthStatus !== healthFilter) return false;
+        } else {
+          // No detail loaded yet — treat as 'unknown'; exclude from healthy/degraded filters
+          if (healthFilter !== 'unknown') return false;
+        }
       }
       if (retentionFilter !== 'any') {
         const detail = cache.get(t.name);

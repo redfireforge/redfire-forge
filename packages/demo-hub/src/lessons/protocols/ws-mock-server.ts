@@ -1,22 +1,42 @@
 /** Lesson 1: Mock Server — zero-friction start, instant WebSocket success */
 import type { DemoLesson, DemoActionContext } from '../../types';
-import { switchToClientMode, disconnectWebSocket, stopMockServer } from '../setup-helpers';
+import { switchToClientMode, disconnectWebSocket, stopMockServer, closeExtraConnectionTabs } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { showSpotlightRing } from '../../demoRipple';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 // ─── Module-level state flags ────────────────────────────────────────────────
 // Reset in setup so each lesson run starts clean and skip-to-step works reliably.
 let _mockRunning = false;
 let _clientConnected = false;
+let _mockPort = '9876'; // actual port read from the Mock Server panel at runtime
+const BROADCAST_MESSAGE = 'Server broadcast: welcome everyone!';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Reads the tab's actual assigned mock port from the DOM, if the Mock panel is visible. */
+function captureMockPort(): void {
+  // Other open WS Studio tabs may also have a Mock panel mounted (hidden) in the DOM,
+  // so a plain querySelector can grab a different tab's port input. Scope to the
+  // currently VISIBLE one so we always capture the active tab's real port.
+  const portInput = firstVisibleElement<HTMLInputElement>(WS.MOCK_PORT_INPUT);
+  if (portInput?.value?.trim()) _mockPort = portInput.value.trim();
+}
+
 /** Silently ensures the mock server is running. Leaves UI in Mock mode. */
 async function ensureMockRunning(ctx: DemoActionContext): Promise<void> {
-  if (_mockRunning) return;
+  if (_mockRunning) {
+    // Server already running from a previous step — still refresh the port in case
+    // the Mock panel is visible (it may have gone stale since it was first captured).
+    captureMockPort();
+    return;
+  }
   await ctx.click(WS.MODE_MOCK);
   // Wait for mock panel to render (start OR stop button visible)
   await ctx.waitFor(WS.MOCK_BTN_ANY, 2000);
-  const startBtn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
+  // Capture the actual running port while the Mock panel is in the DOM
+  captureMockPort();
+  const startBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_START_BTN);
   if (startBtn && !startBtn.disabled) {
     await ctx.click(WS.MOCK_START_BTN);
     await ctx.waitFor(WS.MOCK_STOP_BTN, 3000);
@@ -25,17 +45,39 @@ async function ensureMockRunning(ctx: DemoActionContext): Promise<void> {
   _mockRunning = true;
 }
 
+function isClientActuallyConnected(): boolean {
+  // Client mode signal
+  if (firstVisibleElement(WS.STATUS_CONNECTED)) return true;
+
+  // Mock mode signal ("N clients")
+  const countNode = firstVisibleElement<HTMLElement>(WS.MOCK_CLIENT_COUNT);
+  const raw = countNode?.textContent ?? '';
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0;
+}
+
 /** Silently ensures mock server is running AND client is connected. */
 async function ensureClientConnected(ctx: DemoActionContext): Promise<void> {
   await ensureMockRunning(ctx);
-  if (_clientConnected) return;
+  if (_clientConnected && isClientActuallyConnected()) return;
+  _clientConnected = false;
   await ctx.click(WS.MODE_CLIENT);
   await ctx.waitFor(WS.CONNECT_BTN, 2000);
   await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+  await ctx.fill(WS.URL_INPUT, `ws://localhost:${_mockPort}`);
   await ctx.click(WS.CONNECT_BTN);
   await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
   _clientConnected = true;
+}
+
+function hasBroadcastMessageReceived(): boolean {
+  // Scope to visible rows only — an inactive tab's message log may also be mounted
+  // (hidden) in the DOM and shouldn't count toward the active tab's broadcast check.
+  const rows = Array.from(document.querySelectorAll<HTMLElement>('.ws-message-received')).filter((row) => {
+    const rect = row.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
+  return rows.some((row) => row.textContent?.includes(BROADCAST_MESSAGE));
 }
 
 // ─── Lesson definition ───────────────────────────────────────────────────────
@@ -53,8 +95,14 @@ export const wsMockServerLesson: DemoLesson = {
   setup: async (ctx) => {
     _mockRunning = false;
     _clientConnected = false;
+    _mockPort = '9876';
+    // Close any extra WS Studio tabs left behind by other lessons/manual testing so this
+    // tab's Mock Server panel is the only one mounted — avoids querySelector ambiguity
+    // (an inactive tab's hidden panel can otherwise be mistaken for the active one).
+    await closeExtraConnectionTabs(ctx);
+    await ctx.delay(200);
     // Disconnect any active client session
-    const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+    const disconnectBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
     if (disconnectBtn && !disconnectBtn.disabled) {
       disconnectBtn.click();
       await ctx.delay(300);
@@ -62,13 +110,19 @@ export const wsMockServerLesson: DemoLesson = {
     // Navigate to Mock mode and stop the server if it's already running
     await ctx.click(WS.MODE_MOCK);
     await ctx.delay(200);
-    const stopBtn = document.querySelector(WS.MOCK_STOP_BTN) as HTMLButtonElement | null;
+    // Capture this tab's real assigned port (may be 9877/9878 if other tabs existed)
+    // BEFORE returning to Client — so the Connect URL matches from the first screen.
+    captureMockPort();
+    const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_STOP_BTN);
     if (stopBtn && !stopBtn.disabled) {
       stopBtn.click();
       await ctx.delay(400);
     }
-    // Return to Client mode so step 1 can demonstrate the switch
+    // Return to Client mode with the correct mock port already in the URL field
     await ctx.click(WS.MODE_CLIENT);
+    await ctx.waitFor(WS.CONNECT_BTN, 2000);
+    await ctx.click(WS.LEFT_TAB_CONNECT);
+    await ctx.fill(WS.URL_INPUT, `ws://localhost:${_mockPort}`);
     await ctx.delay(200);
   },
 
@@ -97,11 +151,14 @@ WebSocket Studio has two modes accessible via toggle buttons at the top:
 - **Client mode**: Connect to any WebSocket server
 - **Mock mode**: Start/stop the built-in echo server
 
-You'll switch between them during this lesson.`,
+You'll switch between them during this lesson.
+
+**Port isolation:** every connection tab gets its own Mock Server port (9876, 9877, 9878, …) so tabs never interfere with each other. Always connect the Client to the exact port shown in this tab's Mock Server panel — if you connect to a different port, your messages will go to a different server instance, and this tab's Activity Log will stay empty even though your client works fine. RedFire Forge shows a warning banner in the Mock Server panel whenever it detects that mismatch.`,
     keyTerms: [
       { term: 'Echo', definition: 'The server sends back exactly what it received. Perfect for verifying your client is working.' },
       { term: 'Broadcast', definition: 'The server sends a message to ALL connected clients simultaneously.' },
       { term: 'Mock Server', definition: 'A lightweight WebSocket server running in your browser — no external processes needed.' },
+      { term: 'Port Isolation', definition: 'Each tab\'s Mock Server runs on its own port. Connecting the Client to the wrong port means you\'re talking to a different server instance — that tab\'s Activity Log won\'t show your traffic.' },
     ],
     diagram: `<svg viewBox="0 0 400 140" xmlns="http://www.w3.org/2000/svg">
   <rect x="20" y="50" width="100" height="40" rx="6" fill="var(--primary)" opacity="0.2" stroke="var(--primary)" stroke-width="1.5"/>
@@ -135,14 +192,17 @@ You'll switch between them during this lesson.`,
     {
       id: 'mock-start',
       title: 'Start the Mock Server',
-      description: 'Click Start to launch the echo server on port 9876. It starts instantly — no Docker, no terminal, no waiting. Watch the status indicator change to "Listening".',
+      description: 'Click Start to launch the echo server on the port shown above. It starts instantly — no Docker, no terminal, no waiting. Watch the status indicator change to "Listening".',
       highlight: WS.MOCK_START_BTN,
       action: async (ctx) => {
-        const btn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
+        const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_START_BTN);
         if (btn && !btn.disabled) {
           await ctx.click(WS.MOCK_START_BTN);
           await ctx.waitFor(WS.MOCK_STOP_BTN, 3000);
         }
+        // Capture the tab's actual assigned port now that the server is confirmed running —
+        // this step bypasses ensureMockRunning(), so it must capture the port itself.
+        captureMockPort();
         // Server is now running (started or was already running)
         _mockRunning = true;
       },
@@ -151,7 +211,7 @@ You'll switch between them during this lesson.`,
     {
       id: 'mock-status',
       title: 'Server Status',
-      description: 'The status indicator shows the server is Listening on port 9876 with 0 connected clients. The client count updates in real-time as connections come and go.',
+      description: 'The status indicator shows the server is Listening on this tab\'s assigned port with 0 connected clients. The client count updates in real-time as connections come and go. Remember this port — you\'ll need it in the next step.',
       highlight: WS.MOCK_STATUS_LABEL,
       // Rule 4: ensure mock server is running and we're in Mock mode if this step is skipped to
       preAction: async (ctx) => {
@@ -164,7 +224,7 @@ You'll switch between them during this lesson.`,
     {
       id: 'mock-connect',
       title: 'Connect to Your Server',
-      description: 'Now switch to Client mode and connect to your mock server. The URL is pre-filled with ws://localhost:9876. Click Connect — the status dot turns green and your mock server shows "1 client".',
+      description: 'Now switch to Client mode and connect to your mock server. The URL is pre-filled with this tab\'s own mock port. Click Connect — the status dot turns green and your mock server shows "1 client".',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         // Rule 4: ensure mock server is running before we try to connect
@@ -173,7 +233,7 @@ You'll switch between them during this lesson.`,
         // Rule 5: wait for connect button instead of fixed delay
         await ctx.waitFor(WS.CONNECT_BTN, 2000);
         await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${_mockPort}`);
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
@@ -207,23 +267,38 @@ You'll switch between them during this lesson.`,
     {
       id: 'mock-broadcast',
       title: 'Broadcast Mode — Send from Server',
-      description: 'Switch to **Mock** mode to reach the broadcast panel. Type a server-push message and click **Broadcast** — it\'s sent simultaneously to every connected client. This simulates real-world server-push patterns: live score updates, chat messages, notification bursts.',
+      description: 'Switch to **Mock** mode to reach the broadcast panel. Watch the demo open the **Server Log** tab, type a server-push message, and click **Broadcast** — it\'s sent simultaneously to every connected client. The new entry lights up at the top of the log. This simulates real-world server-push patterns: live score updates, chat messages, notification bursts.',
       highlight: WS.MOCK_BROADCAST_BTN,
       preAction: async (ctx) => {
-        // Rule 4: server must be running to access broadcast panel
-        await ensureMockRunning(ctx);
+        // Rule 4: ensure both server and at least one client are connected
+        // so the broadcast can be observed in the next step.
+        await ensureClientConnected(ctx);
         // Ensure we're in Mock mode even if _mockRunning was already true
         await ctx.click(WS.MODE_MOCK);
+        // Switch to the Server Log tab before broadcasting so the viewer already
+        // sees the log panel when the new entry appears.
+        await ctx.waitFor(WS.MOCK_TAB_LOG, 2000);
+        await ctx.click(WS.MOCK_TAB_LOG);
+        await ctx.delay(300);
         // Rule 5: wait for broadcast input to appear instead of fixed delay
         await ctx.waitFor(WS.MOCK_BROADCAST_INPUT, 2000);
         await ctx.delay(500);
-        await ctx.fill(WS.MOCK_BROADCAST_INPUT, 'Server broadcast: welcome everyone!');
+        await ctx.fill(WS.MOCK_BROADCAST_INPUT, BROADCAST_MESSAGE);
         await ctx.delay(600);
       },
       action: async (ctx) => {
         // Click Broadcast so the message actually goes out — this is what the viewer sees
         await ctx.click(WS.MOCK_BROADCAST_BTN);
-        await ctx.delay(800);
+        await ctx.delay(500);
+        // The Activity Log renders newest-first (reversedLogs), so the entry that
+        // just appeared is always the first child — spotlight it for the viewer.
+        await ctx.waitFor(`${WS.MOCK_LOG} .ws-mock-log-entry`, 1500);
+        const entry = firstVisibleElement<HTMLElement>(`${WS.MOCK_LOG} .ws-mock-log-entry:first-child`);
+        if (entry) {
+          const removeRing = showSpotlightRing(entry);
+          await ctx.delay(900);
+          removeRing();
+        }
       },
       verify: WS.MOCK_BROADCAST_BTN,
     },
@@ -231,21 +306,26 @@ You'll switch between them during this lesson.`,
       id: 'mock-broadcast-receive',
       title: 'Client Receives the Broadcast',
       description: 'Switch back to **Client** mode — you\'ll see the broadcast message arrive in the Events log as a received (↓) frame. Every connected client receives the same message at the same time. This is exactly how push notifications, live sports scores, and chat rooms work over WebSocket.',
-      highlight: '.ws-message-received',
+      // Rows are virtualized: each MessageRow is the sole child of its own absolutely-
+      // positioned wrapper div, so a plain `.ws-message-received` selector grabs the
+      // FIRST matching row in DOM order (an earlier echoed reply), not the broadcast
+      // that just arrived. Scope to the last rendered wrapper so we highlight the
+      // newest received frame instead.
+      highlight: '.ws-message-list-inner > div:last-child .ws-message-received',
       preAction: async (ctx) => {
         // Rule 4: must have a connected client and a running server
         await ensureClientConnected(ctx);
-        // Switch to Mock mode and broadcast silently if no received message is visible yet
-        const hasReceived = document.querySelector('.ws-message-received');
-        if (!hasReceived) {
+        // Switch to Mock mode and broadcast silently if this step's broadcast
+        // payload is not visible yet (ignore older echo/received frames).
+        if (!hasBroadcastMessageReceived()) {
           await ctx.click(WS.MODE_MOCK);
           await ctx.waitFor(WS.MOCK_BROADCAST_INPUT, 2000);
-          const input = document.querySelector(WS.MOCK_BROADCAST_INPUT) as HTMLInputElement | null;
+          const input = firstVisibleElement<HTMLInputElement>(WS.MOCK_BROADCAST_INPUT);
           if (input && !input.value.trim()) {
-            input.value = 'Server broadcast: welcome everyone!';
+            input.value = BROADCAST_MESSAGE;
             input.dispatchEvent(new Event('input', { bubbles: true }));
           }
-          const broadcastBtn = document.querySelector(WS.MOCK_BROADCAST_BTN) as HTMLButtonElement | null;
+          const broadcastBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_BROADCAST_BTN);
           if (broadcastBtn && !broadcastBtn.disabled) broadcastBtn.click();
           await ctx.delay(600);
         }
@@ -263,7 +343,7 @@ You'll switch between them during this lesson.`,
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(700);
       },
-      verify: '.ws-message-received',
+      verify: '.ws-message-list-inner > div:last-child .ws-message-received',
     },
     {
       id: 'mock-stop',
@@ -278,7 +358,7 @@ You'll switch between them during this lesson.`,
         await ctx.waitFor(WS.MOCK_STOP_BTN, 2000);
       },
       action: async (ctx) => {
-        const btn = document.querySelector(WS.MOCK_STOP_BTN) as HTMLButtonElement | null;
+        const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_STOP_BTN);
         if (btn && !btn.disabled) {
           await ctx.click(WS.MOCK_STOP_BTN);
           _mockRunning = false;

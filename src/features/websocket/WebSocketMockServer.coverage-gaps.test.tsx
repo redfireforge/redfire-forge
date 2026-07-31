@@ -41,9 +41,12 @@ function makeRules(): WsMockRule[] {
   ];
 }
 
-function UiBarHarness({ mock }: { mock: UseWebSocketMockServerReturn }) {
+function UiBarHarness({ mock, clientPortMismatch }: {
+  mock: UseWebSocketMockServerReturn;
+  clientPortMismatch?: { connectedUrl: string; clientPort: number } | null;
+}) {
   const ui = useMockServerUi(mock);
-  return <WebSocketMockServerBar ui={ui} onPortChange={vi.fn()} />;
+  return <WebSocketMockServerBar ui={ui} onPortChange={vi.fn()} clientPortMismatch={clientPortMismatch} />;
 }
 
 function UiClientsHarness({ mock }: { mock: UseWebSocketMockServerReturn }) {
@@ -210,6 +213,29 @@ describe('WebSocketMockServer coverage gaps', () => {
     const urlInput = screen.getByLabelText('Mock server URL') as HTMLInputElement;
     fireEvent.change(portInput, { target: { value: 'not-a-port' } });
     expect(urlInput.value).toBe('ws://localhost:9876');
+  });
+
+  it('shows a warning banner when the client is connected to a different local port', () => {
+    const mock = makeMockReturn({
+      status: { running: true, port: 9878, clientCount: 0, clients: [] },
+    });
+    render(
+      <UiBarHarness
+        mock={mock}
+        clientPortMismatch={{ connectedUrl: 'ws://localhost:9876', clientPort: 9876 }}
+      />,
+    );
+    const banner = screen.getByTestId('mock-port-mismatch');
+    expect(banner.textContent).toContain('port 9876');
+    expect(banner.textContent).toContain('port 9878');
+  });
+
+  it('does not show the mismatch banner when clientPortMismatch is not provided', () => {
+    const mock = makeMockReturn({
+      status: { running: true, port: 9878, clientCount: 0, clients: [] },
+    });
+    render(<UiBarHarness mock={mock} />);
+    expect(screen.queryByTestId('mock-port-mismatch')).toBeNull();
   });
 
   it('shows stopped clients empty state', () => {

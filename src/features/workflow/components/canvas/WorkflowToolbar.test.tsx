@@ -144,7 +144,7 @@ describe('WorkflowToolbar', () => {
     expect(screen.getByTitle(/Missing config/)).toBeTruthy();
     const envWrap = document.querySelector('.wf-toolbar-env-select')!;
     fireEvent.click(envWrap.querySelector('.cs-trigger')!);
-    const items = envWrap.querySelectorAll('.cs-item');
+    const items = document.querySelectorAll('.cs-item');
     const opt = [...items].find(o => (o.querySelector('.cs-item-label') ?? o).textContent?.includes('Dev'));
     expect(opt?.textContent).toMatch(/missing/);
   });

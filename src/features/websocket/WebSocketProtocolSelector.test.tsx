@@ -48,7 +48,8 @@ describe('WebSocketProtocolSelector', () => {
     render(<WebSocketProtocolSelector {...defaultProps} />);
     const wrapper = screen.getByTestId('protocol-select');
     fireEvent.click(wrapper.querySelector('.cs-trigger')!);
-    const items = wrapper.querySelectorAll('.cs-item');
+    // CustomSelect portals its menu to document.body, not into the trigger's wrapper.
+    const items = document.querySelectorAll('.cs-menu .cs-item');
     expect(items).toHaveLength(5);
     items.forEach((item) => {
       expect(item.classList.contains('disabled')).toBe(false);

@@ -93,10 +93,15 @@ describe('kafka-consume lesson', () => {
     );
   });
 
-  it('step con-position action demonstrates position selection via DOM interaction', async () => {
+  it('step con-position action opens the dropdown via .cs-trigger for portal-aware selection', async () => {
     const step = kafkaConsumeLesson.steps.find((s) => s.id === 'con-position')!;
     expect(step.action).toBeDefined();
     expect(step.highlight).toContain('con-position-select');
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('con-position-select'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('.cs-trigger'));
+    expect(ctx.waitFor).toHaveBeenCalledWith('.cs-menu', expect.any(Number));
   });
 
   it('step con-max action fills max messages', async () => {

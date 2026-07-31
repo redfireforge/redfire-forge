@@ -13,13 +13,14 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 // ── Constants ──────────────────────────────────────────────────
 const STOMP_URL = 'ws://localhost:15674/ws';
 
 /** Reset STOMP command select back to SEND. */
 async function resetStompCommand(ctx: DemoActionContext) {
-  const cmd = document.querySelector(WS.STOMP_COMMAND) as HTMLSelectElement | null;
+  const cmd = firstVisibleElement<HTMLSelectElement>(WS.STOMP_COMMAND);
   if (cmd) {
     cmd.value = 'SEND';
     cmd.dispatchEvent(new Event('change', { bubbles: true }));
@@ -33,7 +34,7 @@ async function resetStompCommand(ctx: DemoActionContext) {
  * Called only when the user skips directly to a late step.
  */
 async function ensureStompSession(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WS.STATUS_CONNECTED)) return;
+  if (firstVisibleElement(WS.STATUS_CONNECTED)) return;
   // Establish WebSocket transport
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
@@ -251,7 +252,7 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       action: async (ctx: DemoActionContext) => {
         // ── Step 1: Open the WebSocket transport ───────────────────
         // Replay guard: skip WS connect if already open from a prior pass.
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
         }
         await ctx.waitFor(WS.STATUS_CONNECTED); // wait for green status dot (Rule 5)

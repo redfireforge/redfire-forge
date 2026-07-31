@@ -116,18 +116,31 @@ export async function ensureWsDemoProtocolReady(ctx: DemoActionContext): Promise
 /**
  * Recreate the WebSocket Demo environment + ws-demo microservice with WebSocket endpoint configured.
  * WebSocket-only — does not add an HTTP protocol tab.
+ *
+ * @param baseUrl The endpoint URL to save. Defaults to `WS_DEMO_BASE_URL` (`ws://localhost:9876`),
+ * but callers should pass the tab's *actual* assigned mock port (e.g. via `getLastMockPort()` from
+ * `setup-helpers` or a lesson-local `captureMockPort()`) since a tab is not guaranteed to be on 9876
+ * — `closeExtraConnectionTabs()` reduces the tab count to 1 but does not renumber the surviving tab's
+ * already-assigned port.
  */
-export async function ensureWsDemoEndpointConfigured(ctx: DemoActionContext): Promise<void> {
+export async function ensureWsDemoEndpointConfigured(
+  ctx: DemoActionContext,
+  baseUrl: string = WS_DEMO_BASE_URL,
+): Promise<void> {
   await ensureWsDemoProtocolReady(ctx);
-  await editNamedProtocolEndpoint(ctx, WS_DEMO_ENV_NAME, WS_DEMO_BASE_URL);
+  await editNamedProtocolEndpoint(ctx, WS_DEMO_ENV_NAME, baseUrl);
 }
 
-/** Ensure demo env/svc exist and are selected in the app header so {{wsBaseUrl}} resolves. */
-export async function ensureWsDemoHeaderContext(ctx: DemoActionContext): Promise<void> {
+/** Ensure demo env/svc exist and are selected in the app header so {{wsBaseUrl}} resolves.
+ * See `ensureWsDemoEndpointConfigured` for why `baseUrl` should reflect the tab's real mock port. */
+export async function ensureWsDemoHeaderContext(
+  ctx: DemoActionContext,
+  baseUrl: string = WS_DEMO_BASE_URL,
+): Promise<void> {
   const envReady = isNamedHeaderOptionAvailable(APP.HEADER_ENV_SELECT, WS_DEMO_ENV_NAME);
   const svcReady = isNamedHeaderOptionAvailable(APP.HEADER_SVC_SELECT, WS_DEMO_SVC_NAME);
   if (!envReady || !svcReady) {
-    await ensureWsDemoEndpointConfigured(ctx);
+    await ensureWsDemoEndpointConfigured(ctx, baseUrl);
   }
   await selectEnvInHeader(ctx, WS_DEMO_ENV_NAME);
   await selectSvcInHeader(ctx, WS_DEMO_SVC_NAME);

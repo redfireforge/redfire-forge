@@ -187,7 +187,7 @@ describe('WorkflowConsolePanel', () => {
     const wrap = container.querySelector('.wf-console-mode-select')!;
     expect(wrap).toBeTruthy();
     fireEvent.click(wrap.querySelector('.cs-trigger')!);
-    expect(wrap.querySelectorAll('.cs-item').length).toBe(3);
+    expect(document.querySelectorAll('.cs-item').length).toBe(3);
   });
 
   it('renders plain lines without prefix icon or timestamp', () => {

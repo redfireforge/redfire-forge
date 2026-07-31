@@ -11,10 +11,12 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WS } from '@shared/selectors';
-import { wsSetup, wsCleanup, connectToMockServer, disconnectWebSocket } from '../setup-helpers';
+import { wsSetup, wsCleanup, connectToMockServer, disconnectWebSocket, getLastMockPort } from '../setup-helpers';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 // ── Constants ──────────────────────────────────────────────────
-const MOCK_URL = 'ws://localhost:9876';
+// NOTE: this is only a fallback description string; the actual connect URL
+// is resolved dynamically via getLastMockPort() (each tab gets its own port).
 
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
@@ -396,13 +398,13 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       id: 'rel-connect',
       title: 'Connect to the Mock Server',
       description:
-        'First, let\'s establish a connection to the built-in mock echo server. The demo fills in `ws://localhost:9876` and clicks **Connect**. Watch the status bar turn green with a latency measurement and uptime counter.',
+        'First, let\'s establish a connection to the built-in mock echo server. The demo fills in this tab\'s mock server URL and clicks **Connect**. Watch the status bar turn green with a latency measurement and uptime counter.',
       highlight: WS.CONNECT_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
-        await ctx.fill(WS.URL_INPUT, MOCK_URL);
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
         await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
@@ -441,7 +443,7 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // Guard: must be connected to show the spike; reconnect silently if needed.
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await connectToMockServer(ctx);
         }
         // Switch to Send, send a burst, then back to Stats
@@ -479,7 +481,7 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       },
       action: async (ctx: DemoActionContext) => {
         // Scroll the reconnect settings into view
-        const settings = document.querySelector(WS.RECONNECT_SETTINGS);
+        const settings = firstVisibleElement(WS.RECONNECT_SETTINGS);
         if (settings) settings.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await ctx.delay(1200);
       },
@@ -495,7 +497,7 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // Guard: caret is disabled when disconnected; reconnect silently if needed.
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await connectToMockServer(ctx);
         }
         await ctx.click(WS.LEFT_TAB_CONNECT);
@@ -541,7 +543,7 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       id: 'rel-history',
       title: 'URL History',
       description:
-        'Back on the Connect tab, the URL field has a **history dropdown** (▾) showing recently connected URLs. After connecting to `ws://localhost:9876`, it appears in the list with its protocol badge. Click any history entry to instantly fill the URL field — great for reconnecting to servers you use frequently.',
+        'Back on the Connect tab, the URL field has a **history dropdown** (▾) showing recently connected URLs. After connecting to this tab\'s mock server, it appears in the list with its protocol badge. Click any history entry to instantly fill the URL field — great for reconnecting to servers you use frequently.',
       highlight: WS.URL_HISTORY_TRIGGER,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {

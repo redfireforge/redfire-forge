@@ -39,7 +39,7 @@ export default function DemoHub({ hub }: DemoHubProps) {
             onSelect={hub.selectLesson}
             onBack={hub.goBack}
             onResetLesson={hub.resetLesson}
-            onResetAll={hub.resetProgress}
+            onResetAll={hub.resetLessons}
             initialCategory={progress.lastCategory ?? state.selectedLesson?.category}
             onCategoryChange={hub.setLastCategory}
           />

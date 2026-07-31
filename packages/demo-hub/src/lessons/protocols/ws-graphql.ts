@@ -14,6 +14,7 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 // ── Constants ──────────────────────────────────────────────────
 const GQL_URL = 'ws://localhost:4100/graphql';
@@ -220,7 +221,7 @@ GraphQL-WS needs two settings:
       },
       action: async (ctx: DemoActionContext) => {
         // Skip CONNECT_BTN if already connected (replay guard)
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
         }
         // Wait for WS to open (more robust than fixed 1500ms delay)
@@ -277,7 +278,7 @@ GraphQL-WS needs two settings:
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // Ensure WebSocket is connected before trying to send (skip-to-step guard)
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.LEFT_TAB_CONNECT);
           await ctx.delay(200);
           await ctx.click(WS.CONNECT_BTN);
