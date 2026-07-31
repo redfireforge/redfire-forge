@@ -90,6 +90,10 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
             const completedCount = catLessons.filter(l =>
               progress.completedLessons.includes(l.id),
             ).length;
+            const hasUpdated = catLessons.some(l =>
+              progress.completedLessons.includes(l.id)
+              && (l.contentVersion ?? 1) > (progress.completedVersions?.[l.id] ?? 1),
+            );
             const needsDocker = catLessons.some(
               (l) => Boolean(l.dockerEndpoint) || Boolean(l.dockerEndpoints?.length),
             );
@@ -121,8 +125,9 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 </span>
                 <span className="demo-category-label">{cat.label}</span>
                 {catLessons.length > 0 && (
-                  <span className={`demo-category-count${completedCount === catLessons.length ? ' all-done' : ''}`}>
+                  <span className={`demo-category-count${completedCount === catLessons.length ? ' all-done' : ''}${hasUpdated ? ' has-updated' : ''}`}>
                     {completedCount}/{catLessons.length}
+                    {hasUpdated && <span className="demo-category-updated-dot" aria-label="Has updated lessons" />}
                   </span>
                 )}
                 {isEmpty && (
@@ -145,6 +150,8 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
           const isComplete = progress.completedLessons.includes(lesson.id);
           const lastStep = progress.lessonSteps[lesson.id];
           const isInProgress = lastStep !== undefined && !isComplete;
+          const isUpdated = isComplete
+            && (lesson.contentVersion ?? 1) > (progress.completedVersions?.[lesson.id] ?? 1);
           const isPendingReset = pendingResetId === lesson.id;
           const desktopBlocked = isLessonDesktopOnlyBlocked(lesson);
 
@@ -183,6 +190,7 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 <span className={`demo-lesson-status ${statusClass}`}>
                   <span className="demo-lesson-number">{idx + 1}</span>
                   {isComplete && <span className="demo-lesson-check" aria-label="Completed">✓</span>}
+                  {isComplete && isUpdated && <span className="demo-lesson-updated-dot" aria-label="Updated content" />}
                   {isInProgress && <span className="demo-lesson-progress-dot" aria-label="In progress">▶</span>}
                 </span>
                 <div className="demo-lesson-info">
@@ -204,6 +212,8 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                     <span className="demo-lesson-resume-badge">Resume</span>
                   ) : !isComplete ? (
                     <span className="demo-lesson-start-badge">Start</span>
+                  ) : isUpdated ? (
+                    <span className="demo-lesson-updated-badge">Updated</span>
                   ) : !isPendingReset ? (
                     <span className="demo-lesson-restart-badge">Restart</span>
                   ) : null}

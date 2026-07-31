@@ -33,6 +33,11 @@ vi.mock('../utils/testDefinitionVersioning', () => ({
   autoSaveVersion: vi.fn((t: Scenario) => t as unknown as TestDefinitionVersion[] | null),
 }));
 
+const toastShow = vi.hoisted(() => vi.fn());
+vi.mock('../../../shared/hooks/useToast', () => ({
+  useToast: () => ({ show: toastShow, dismiss: vi.fn() }),
+}));
+
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
 import { logTestRenamed } from '../utils/structureChangeLog';
 import {
@@ -248,6 +253,36 @@ describe('useScenarioMutations', () => {
       act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
       expect(result.current.editingTest?.testId).toBe('t-1');
       expect(result.current.draft.name).toBe('Test');
+    });
+
+    it('startEditTest defaults to the data tab for a parameterized test', () => {
+      const test = scenarioFixture({
+        id: 't-ds',
+        name: 'Param Test',
+        url: '/api/{{userId}}',
+        validation: { mode: 'none', expectedFields: [] },
+        dataSource: {
+          columns: [{ id: 'c1', name: 'userId', type: 'param' as const, mapping: 'userId' }],
+          rows: [{ id: 'r1', values: { c1: '{{userId}}' }, enabled: true }],
+          source: { type: 'inline' as const },
+        },
+      });
+      const { result } = setup();
+      act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
+      expect(result.current.editingTest?.parameterized).toBe(true);
+      expect(result.current.activeTab).toBe('data');
+    });
+
+    it('startEditTest defaults to params for a non-parameterized HTTP test', () => {
+      const test = scenarioFixture({
+        id: 't-plain',
+        name: 'Plain Test',
+        url: '/api',
+        validation: { mode: 'none', expectedFields: [] },
+      });
+      const { result } = setup();
+      act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
+      expect(result.current.activeTab).toBe('params');
     });
 
     it('saveTest does nothing if no editing or missing name', () => {
@@ -468,6 +503,7 @@ describe('useScenarioMutations', () => {
 
   describe('version restore', () => {
     it('handleVersionRestore replaces draft fields from snapshot', () => {
+      toastShow.mockClear();
       const test = scenarioFixture({
         id: 't-1',
         name: 'Old',
@@ -497,6 +533,38 @@ describe('useScenarioMutations', () => {
       expect(result.current.draft.name).toBe('New');
       expect(result.current.draft.url).toBe('/new');
       expect(result.current.draft.method).toBe('POST');
+      expect(toastShow).toHaveBeenCalledWith('success', 'Version restored', 'v1');
+    });
+
+    it('handleVersionRestore toasts timestamp when label is empty', () => {
+      toastShow.mockClear();
+      const test = scenarioFixture({ id: 't-1', name: 'Old', url: '/old' });
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
+      const { result } = setup([fg]);
+      act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
+      const timestamp = Date.UTC(2026, 0, 15, 12, 0, 0);
+      const version: TestDefinitionVersion = {
+        id: 'v2',
+        label: '',
+        timestamp,
+        snapshot: {
+          name: 'Restored',
+          url: '/restored',
+          method: 'GET',
+          headers: [],
+          body: '',
+          bodyType: 'none',
+          bodyForm: [],
+          auth: { type: 'none' },
+          extractions: [],
+        },
+      };
+      act(() => { result.current.handleVersionRestore(version); });
+      expect(toastShow).toHaveBeenCalledWith(
+        'success',
+        'Version restored',
+        new Date(timestamp).toLocaleString(),
+      );
     });
   });
 

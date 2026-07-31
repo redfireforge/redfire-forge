@@ -884,6 +884,34 @@ describe('ResultsDashboard', () => {
     });
   });
 
+  it('reloads runs and baselines on demo-test-runs-changed', async () => {
+    const run = makeTestRun({ id: 'demo-a', results: [makeResult()] });
+    storageMocks.loadTestRunsLite.mockResolvedValue([run]);
+    runBaselineMocks.loadBaselines.mockResolvedValue([]);
+
+    render(<ResultsDashboard />);
+    await waitFor(() => {
+      expect(storageMocks.loadTestRunsLite).toHaveBeenCalledTimes(1);
+      expect(runBaselineMocks.loadBaselines).toHaveBeenCalledTimes(1);
+    });
+
+    storageMocks.loadTestRunsLite.mockResolvedValue([
+      run,
+      makeTestRun({ id: 'demo-b', results: [makeResult()] }),
+    ]);
+    runBaselineMocks.loadBaselines.mockResolvedValue([
+      { runId: 'demo-a', markedAt: 1, label: 'Fast baseline' },
+      { runId: 'demo-b', markedAt: 2, label: 'Slow baseline' },
+    ]);
+
+    window.dispatchEvent(new CustomEvent('demo-test-runs-changed'));
+
+    await waitFor(() => {
+      expect(storageMocks.loadTestRunsLite).toHaveBeenCalledTimes(2);
+      expect(runBaselineMocks.loadBaselines).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('deleting a baseline-marked selected run also unmarks it', async () => {
     const run = makeTestRun({ id: 'baseline-delete-run', results: [makeResult()] });
     storageMocks.loadTestRunsLite.mockResolvedValue([run]);

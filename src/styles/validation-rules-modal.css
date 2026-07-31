@@ -189,22 +189,7 @@
   margin: 0 2px;
 }
 
-.vr-modal-mode-select {
-  font-size: 11px;
-  padding: 3px 6px;
-  border-radius: 4px;
-  background: var(--bg, #161b22);
-  border: 1px solid var(--border, #30363d);
-  color: var(--text-muted, #8b949e);
-  cursor: pointer;
-  outline: none;
-  font-family: inherit;
-}
-
-.vr-modal-mode-select:hover {
-  border-color: var(--accent, #89b4fa);
-  color: var(--text, #cdd6f4);
-}
+.vr-modal-mode-select { /* box styling handled by CustomSelect */ }
 
 /* ─── Footer Actions (Cancel / Save) ─────────────────────── */
 

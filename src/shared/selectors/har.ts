@@ -32,6 +32,7 @@ export const HAR = {
   // ── Scenario Card ───────────────────────────────────────────────
   SCENARIO_CARD:       '[data-testid="har-scenario-card"]',
   SCENARIO_HEADER:     '[data-testid="har-scenario-header"]',
+  SCENARIO_BODY:       '.scenario-group-body',
   ADD_SCENARIO_BTN:    '[data-testid="har-add-scenario-btn"]',
   SCENARIO_NAME_INPUT: '[data-testid="har-scenario-name-input"]',
 
@@ -56,6 +57,7 @@ export const HAR = {
   TE_RESPONSE_PREVIEW: '.validation-response-preview',
   TE_SAVE_BTN:         '[data-testid="te-save-btn"]',
   TE_CANCEL_BTN:       '[data-testid="te-cancel-btn"]',
+  TE_PARAMETERIZE_BTN: '[data-testid="te-parameterize-btn"]',
 
   // ── Validation Tab (TH-3) ─────────────────────────────────────
   TE_RADIO_GROUP:      '.body-validation-section .radio-group',
@@ -183,11 +185,27 @@ export const HAR = {
   VERSION_ITEM:        '[data-testid="version-item"]',
   VERSION_COMPARE_BTN: '[data-testid="version-compare-btn"]',
   VERSION_RESTORE_BTN: '[data-testid="version-restore-btn"]',
+  VERSION_CLEAR_SELECTION: '.test-def-version-footer-clear',
+  /** App-wide workflow toast stack (e.g. version restore confirmation). */
+  WF_TOAST:            '.wf-toast',
+  /** Test-definition version compare modal (History tab → Compare). */
+  TEST_DEF_DIFF_MODAL: '.test-def-diff-modal',
+  TEST_DEF_DIFF_ROW:   '.test-def-diff-row',
+  TEST_DEF_DIFF_TAB:   '.test-def-diff-tab',
+  TEST_DEF_DIFF_FOOTER:'.test-def-diff-footer',
+  TEST_DEF_DIFF_HEADERS_ROW: '.test-def-diff-headers-tr',
   TRASH_TOAST:         '.trash-toast',
-  TRASH_TOAST_UNDO:    '.trash-toast button',
+  TRASH_TOAST_UNDO:    '.trash-toast-undo',
+  TRASH_TOAST_DISMISS: '.trash-toast-dismiss',
   TRASH_PANEL:         '.trash-panel-modal',
-  TRASH_ITEM:          '.trash-item',
-  TRASH_ITEM_RESTORE:  '.trash-item-restore',
+  TRASH_ITEM:          '.trash-card',
+  TRASH_ITEM_RESTORE:  '.trash-card-restore',
+  TRASH_ITEM_DELETE:   '.trash-card-delete',
+  TRASH_RETENTION_SELECT: '[data-testid="har-trash-retention"]',
+  TRASH_MAX_ITEMS_SELECT: '[data-testid="har-trash-max-items"]',
+  TRASH_SELECT_MENU:   '.cs-menu',
+  TRASH_EMPTY_BTN:     '[data-testid="har-trash-empty-btn"]',
+  TRASH_CONFIRM_MODAL: '.popup-modal',
   TEST_DELETE_BTN:     '.test-card-actions .btn-danger',
   TEST_ACTIONS:        '.test-card-actions',
 

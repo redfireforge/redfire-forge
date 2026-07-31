@@ -79,6 +79,14 @@ export interface DemoLesson {
   tabBudget?: number;
   /** When true, the live demo can only run in the Tauri desktop app — web shows a gate and disables Start Demo. */
   desktopOnly?: boolean;
+  /** Bumped when lesson content changes meaningfully (new steps, rewritten
+   *  content). Users who completed an older version see an "Updated" badge.
+   *  Defaults to 1 when omitted. */
+  contentVersion?: number;
+  /** How many steps the previous contentVersion had.
+   *  Used as fallback for users who completed before step-count tracking
+   *  was added — tells the UI which steps are genuinely new. */
+  previousStepCount?: number;
 }
 
 export interface ConceptContent {
@@ -140,6 +148,13 @@ export interface DemoHubState {
 export interface DemoProgress {
   completedLessons: string[];
   lessonSteps: Record<string, number>;
+  /** Maps lesson id → contentVersion the user completed at.
+   *  When a lesson's contentVersion exceeds the stored value the UI
+   *  shows an "Updated" indicator so the user knows to re-review. */
+  completedVersions: Record<string, number>;
+  /** Maps lesson id → number of steps the lesson had when the user completed it.
+   *  Steps beyond this count are shown as "new" in the sidebar. */
+  completedStepCounts: Record<string, number>;
   lastDomain?: string;
   lastLesson?: string;
   /** Last navigation view the user was on — used to restore position after a hard refresh.

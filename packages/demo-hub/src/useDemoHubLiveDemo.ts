@@ -454,7 +454,7 @@ export function useDemoHubLiveDemo({
       if (isGrpcStudioLesson(lesson)) {
         completeGrpcStudioLessonRun();
       }
-      progress.markLessonComplete(lesson.id);
+      progress.markLessonComplete(lesson.id, lesson.contentVersion ?? 1, lesson.steps.length);
     }
   }, [state.selectedLesson, progress]);
 

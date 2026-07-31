@@ -3,9 +3,9 @@
  *
  * 6 steps: create FG + Parameterized Scenario → create a Param Test with
  * URL template → fill the data source grid (5 rows) → understand column
- * types → tag rows → save.
+ * types → tag rows → save & review.
  *
- * Teaches the full data-driven testing workflow — creation through
+ * Teaches the core data-driven testing workflow — creation through
  * data configuration.
  */
 import type { DemoLesson } from '../../types';
@@ -40,10 +40,11 @@ export const thDataSourcesLesson: DemoLesson = {
   name: 'Data Source Authoring',
   description:
     'Create a Feature Group, add a Parameterized Scenario, configure a URL template ' +
-    'with {{placeholders}}, then build the data source grid with rows and tags.',
-  estimatedMinutes: 6,
+    'with {{placeholders}}, build the data source grid with rows and tags, then save.',
+  estimatedMinutes: 5,
   initialTab: 'scenarios',
   allowedTabs: ['scenarios'],
+  contentVersion: 10,
 
   concept: {
     title: 'Data-Driven Testing',
@@ -238,50 +239,50 @@ export const thDataSourcesLesson: DemoLesson = {
           ?? null;
         if (paramTestBtn) {
           await spotlight(paramTestBtn, 1800, ctx);
-          await ctx.delay(500);
+          await ctx.delay(300);
           paramTestBtn.click();
         }
         await ctx.waitFor(HAR.TE_PROP_CARD, 5000);
-        await ctx.delay(800);
+        await ctx.delay(400);
 
         // Fill test name
         const nameInput = document.querySelector<HTMLInputElement>(HAR.TE_NAME_INPUT);
         if (nameInput) {
           await spotlight(nameInput, 1200, ctx);
-          await ctx.delay(400);
+          await ctx.delay(250);
           const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
           setter?.call(nameInput, 'Get User by ID');
           nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-          await ctx.delay(800);
+          await ctx.delay(400);
         }
 
         // Fill URL with template placeholder
         const urlInput = document.querySelector<HTMLInputElement>(HAR.TE_URL_INPUT);
         if (urlInput) {
           await spotlight(urlInput, 1500, ctx);
-          await ctx.delay(400);
+          await ctx.delay(300);
           const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
           setter?.call(urlInput, 'https://jsonplaceholder.typicode.com/users/{{userId}}');
           urlInput.dispatchEvent(new Event('input', { bubbles: true }));
-          await ctx.delay(1200);
+          await ctx.delay(600);
 
           // Extra spotlight on URL to emphasize the {{userId}} placeholder
-          await spotlight(urlInput, 2200, ctx);
-          await ctx.delay(600);
+          await spotlight(urlInput, 1400, ctx);
+          await ctx.delay(300);
         }
 
         // Save the test (product closes the editor on Save)
         const saveBtn = document.querySelector<HTMLElement>(HAR.TE_SAVE_BTN);
         if (saveBtn) {
-          await spotlight(saveBtn, 1200, ctx);
-          await ctx.delay(400);
+          await spotlight(saveBtn, 1000, ctx);
+          await ctx.delay(250);
           saveBtn.click();
-          await ctx.delay(800);
+          await ctx.delay(500);
         }
 
         // Leave editor closed — next step opens it on the Data Source tab
         const editBtn = document.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
-        if (editBtn) await spotlight(editBtn, 1500, ctx);
+        if (editBtn) await spotlight(editBtn, 1000, ctx);
       },
 
       verify: HAR.TEST_EDIT_BTN,

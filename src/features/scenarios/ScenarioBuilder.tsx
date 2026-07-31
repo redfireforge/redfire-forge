@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup } from '../../shared/types';
 import type { ScenarioBuilderProps } from './scenarioBuilderTypes';
 import type { MoveType, MoveTarget } from './components/MoveModal';
@@ -106,30 +107,45 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
   const [tagInputValue, setTagInputValue] = useState('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; fgId: string; scId: string } | null>(null);
 
-  const handleCreateParameterizedCopy = useCallback((copy: Scenario, targetFgId?: string, targetScenarioId?: string) => {
+  const handleCreateParameterizedCopy = useCallback((copy: Scenario, targetFgId?: string, targetScenarioId?: string, newScenarioName?: string) => {
     const fgId = targetFgId || editingTest?.featureId;
-    const scId = targetScenarioId || editingTest?.scenarioId;
-    if (!fgId || !scId) return;
+    if (!fgId) return;
 
-    // Add the copy to the target scenario's tests
     setFeatureGroups(prev => prev.map(fg => {
       if (fg.id !== fgId) return fg;
-      return {
-        ...fg,
-        scenarios: fg.scenarios.map(sc => {
+
+      let scId: string;
+      let updatedScenarios: typeof fg.scenarios;
+
+      if (newScenarioName) {
+        // Create a new Parameterized scenario and add the copy to it.
+        scId = uuidv4();
+        const newScenario = {
+          id: scId,
+          name: newScenarioName,
+          kind: 'parameterized' as const,
+          tests: [copy],
+        };
+        updatedScenarios = [...fg.scenarios, newScenario];
+      } else {
+        scId = targetScenarioId || editingTest?.scenarioId || '';
+        if (!scId) return fg;
+        updatedScenarios = fg.scenarios.map(sc => {
           if (sc.id !== scId) return sc;
           return { ...sc, tests: [...sc.tests, copy] };
-        }),
-      };
-    }));
+        });
+      }
 
-    // Close current editor, then open the new test
-    setEditingTest(null);
-    setTimeout(() => {
-      setDraft(copy);
-      setEditingTest({ featureId: fgId, scenarioId: scId, testId: copy.id, parameterized: true });
-      setActiveTab('data');
-    }, 0);
+      // Close current editor, then open the new test
+      setEditingTest(null);
+      setTimeout(() => {
+        setDraft(copy);
+        setEditingTest({ featureId: fgId, scenarioId: scId, testId: copy.id, parameterized: true });
+        setActiveTab('data');
+      }, 0);
+
+      return { ...fg, scenarios: updatedScenarios };
+    }));
   }, [editingTest, setFeatureGroups, setEditingTest, setDraft, setActiveTab]);
 
   const [moveDialog, setMoveDialog] = useState<{
@@ -217,7 +233,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
             {exportPopover?.id === '__all__' && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
           </span>
           <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>Import Template</button>
-          <button className="btn" onClick={() => setShowTrashPanel(true)} style={{ borderColor: 'var(--text-muted)', color: 'var(--text-muted)' }}>
+          <button className="btn" onClick={() => setShowTrashPanel(true)} style={{ borderColor: 'var(--text-muted)', color: 'var(--text-muted)' }} data-testid="har-trash-btn">
             Trash
             {trash.trashCount > 0 && <span className="count-badge">{trash.trashCount}</span>}
           </button>

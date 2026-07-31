@@ -1741,25 +1741,7 @@
   min-width: 140px;
 }
 
-.grpc-compression-select {
-  width: 100%;
-  max-width: 280px;
-  background: color-mix(in srgb, var(--bg) 90%, #0e1f3b 10%);
-  border: 1px solid color-mix(in srgb, var(--border) 86%, #89a8d7 14%);
-  color: var(--text);
-  border-radius: 5px;
-  padding: 6px 10px;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a8b8cc' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-}
-
-.grpc-compression-select:focus-visible {
-  outline: none;
-  border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent);
-}
+.grpc-compression-select { width: 100%; max-width: 280px; /* box styling handled by CustomSelect */ }
 
 .grpc-compression-toggle-row {
   justify-content: flex-start;
@@ -2543,7 +2525,6 @@
   border: 0;
 }
 
-.grpc-auth-select,
 .grpc-auth-text-input {
   width: 100%;
   max-width: 420px;
@@ -2554,21 +2535,13 @@
   padding: 6px 10px;
   font-size: 0.78rem;
 }
-
-.grpc-auth-select:focus,
 .grpc-auth-text-input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--primary) 64%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 26%, transparent);
 }
-
-.grpc-auth-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a8b8cc' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 28px;
-}
+/* CustomSelect wrapper */
+.grpc-auth-select { width: 100%; max-width: 420px; /* box styling handled by CustomSelect */ }
 
 .grpc-auth-oauth-notice {
   margin: 0;
@@ -7762,6 +7735,14 @@
   padding: 6px 10px;
   font-size: 0.72rem;
 }
+/* __sort is a CustomSelect — reset box on the wrapper */
+.grpc-console-wire-controls__sort.cs-wrapper {
+  border: none; background: transparent; padding: 0; border-radius: 0;
+}
+.grpc-console-wire-controls__sort.cs-wrapper .cs-trigger {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 5px; padding: 6px 10px; font-size: 0.72rem;
+}
 
 .grpc-console-wire-controls__search::placeholder {
   color: var(--text-muted);
@@ -8380,25 +8361,9 @@
   border-bottom: 1px solid var(--border);
 }
 
-.grpc-history-filters__select {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 5px;
-  padding: 6px 10px;
-  font-size: 0.72rem;
-}
+.grpc-history-filters__select { width: 100%; /* box styling handled by CustomSelect */ }
 
-.grpc-console-filters__select {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 5px;
-  padding: 6px 10px;
-  font-size: 0.72rem;
-}
+.grpc-console-filters__select { width: 100%; /* box styling handled by CustomSelect */ }
 
 .grpc-console-row {
   display: flex;
@@ -8819,6 +8784,14 @@
   border-radius: 5px;
   padding: 6px 10px;
   font-size: 0.74rem;
+}
+/* When used as CustomSelect wrapper, reset box styling */
+.grpc-form-row__input.cs-wrapper {
+  border: none; background: transparent; padding: 0; border-radius: 0;
+}
+.grpc-form-row__input.cs-wrapper .cs-trigger {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 5px; padding: 6px 10px; font-size: 0.74rem;
 }
 
 .grpc-btn {
@@ -9362,7 +9335,6 @@
 }
 
 .grpc-advanced-input,
-.grpc-advanced-select,
 .grpc-advanced-textarea {
   background: var(--bg);
   border: 1px solid color-mix(in srgb, var(--border) 80%, #5a7a9f 20%);
@@ -9374,20 +9346,13 @@
 }
 
 .grpc-advanced-input:focus,
-.grpc-advanced-select:focus,
 .grpc-advanced-textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
 }
-
-.grpc-advanced-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 28px;
-}
+/* CustomSelect wrapper */
+.grpc-advanced-select { /* box styling handled by CustomSelect */ }
 
 .grpc-advanced-select--compact {
   min-width: 220px;
@@ -11281,6 +11246,15 @@
   font-size: 0.76rem;
   min-width: 0;
   transition: border-color 0.15s, box-shadow 0.15s;
+}
+/* When used as CustomSelect wrapper, reset box styling */
+.grpc-mock-builder-input.cs-wrapper {
+  border: none; background: transparent; padding: 0; border-radius: 0;
+}
+.grpc-mock-builder-input.cs-wrapper .cs-trigger {
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, #5a7a9f 20%);
+  color: var(--text); border-radius: 6px; padding: 7px 11px; font-size: 0.76rem;
 }
 
 .grpc-mock-builder-input:focus,

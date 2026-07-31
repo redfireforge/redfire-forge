@@ -71,6 +71,29 @@ export async function spotlightSel(ctx: DemoActionContext, sel: string, holdMs: 
   if (el) await spotlight(el, holdMs, ctx);
 }
 
+/**
+ * Scenario test-list bodies that currently contain at least one `.search-match`.
+ * Prefers `.scenario-group-body` so the ring wraps the matching tests as one
+ * group (not each test card, and not the scenario action header).
+ */
+export function findSearchMatchScenarioGroups(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(HAR.SCENARIO_CARD))
+    .filter((card) => card.querySelector(HAR.SEARCH_MATCH))
+    .map((card) => card.querySelector<HTMLElement>(HAR.SCENARIO_BODY) ?? card);
+}
+
+/** Spotlight each scenario that has search matches, as one group per scenario. */
+export async function spotlightSearchMatchGroups(
+  ctx: DemoActionContext,
+  holdMs = 1800,
+): Promise<void> {
+  const groups = findSearchMatchScenarioGroups();
+  for (const group of groups) {
+    await spotlight(group, holdMs, ctx);
+    await ctx.delay(400);
+  }
+}
+
 // ─── Seeding / teardown ─────────────────────────────────────────
 
 /**
@@ -198,8 +221,22 @@ export function closeInlineNameFormQuiet(): void {
   });
 }
 
+/** Close the test-definition version Compare modal if open. */
+export function closeTestDefDiffModal(): void {
+  const footer = document.querySelector<HTMLElement>(HAR.TEST_DEF_DIFF_FOOTER);
+  if (!footer) return;
+  const btns = footer.querySelectorAll<HTMLElement>('.btn');
+  for (const btn of btns) {
+    if (btn.textContent?.trim() === 'Close') {
+      btn.click();
+      return;
+    }
+  }
+}
+
 /** Close the Test Editor modal if it's open (quiet — no ripple). */
 export async function closeTestEditorQuiet(ctx: DemoActionContext): Promise<void> {
+  closeTestDefDiffModal();
   const cancelBtn = document.querySelector<HTMLElement>(HAR.TE_CANCEL_BTN);
   if (cancelBtn) {
     cancelBtn.click();
@@ -520,10 +557,53 @@ export async function setIterationsValue(ctx: DemoActionContext, value: number, 
 
 export const TH5_FG_NAME = 'Data-Driven Demo';
 export const TH5_SCENARIO_NAME = 'User Tests';
+export const TH5_PARAM_SCENARIO_NAME = `${TH5_SCENARIO_NAME} (Parameterized)`;
 export const TH5_TEST_NAME = 'Get User by ID';
 
 export function deleteTh5DemoFg(): void {
   getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(TH5_FG_NAME);
+}
+
+/** Remove all TH-5 demo scenarios from ANY feature group (prevents cross-FG residue). */
+export function deleteTh5DemoScenarios(): void {
+  const w = getDemoBridgeWindow();
+  w.__demoDeleteScenariosByName?.(TH5_SCENARIO_NAME);
+  w.__demoDeleteScenariosByName?.(TH5_PARAM_SCENARIO_NAME);
+  w.__demoDeleteScenariosByName?.('Parameterized Tests');
+}
+
+/** Expand the Data-Driven Demo FG specifically (avoids expanding the first FG in the list). */
+export async function expandTh5Fg(ctx: DemoActionContext): Promise<void> {
+  const th5Card = Array.from(document.querySelectorAll<HTMLElement>(HAR.FG_CARD))
+    .find(c => c.querySelector(HAR.FG_NAME)?.textContent?.trim() === TH5_FG_NAME);
+  if (!th5Card) return;
+  const expandBtn = th5Card.querySelector<HTMLElement>(HAR.FG_EXPAND);
+  if (!expandBtn) return;
+  const expandIcon = expandBtn.querySelector('.expand-icon');
+  if (expandIcon && !expandIcon.classList.contains('expanded')) {
+    expandBtn.click();
+    await ctx.delay(400);
+  }
+}
+
+/**
+ * Seed the TH-5 FG shell with no scenarios — used to set up the starting
+ * state for the "Convert to Parameterized Test" demo before step 1 opens
+ * the "+ Scenario" form.
+ */
+export async function seedTh5EmptyFg(
+  ctx: DemoActionContext,
+  ids: { envId: string; svcId: string },
+): Promise<void> {
+  const w = getDemoBridgeWindow();
+  w.__demoSeedFeatureGroup?.({
+    id: 'demo-th5-std-fg',
+    name: TH5_FG_NAME,
+    environmentId: ids.envId,
+    microserviceId: ids.svcId,
+    scenarios: [],
+  });
+  await ctx.delay(400);
 }
 
 /**
@@ -607,6 +687,68 @@ export async function ensureTh5FgExists(
   if (found && !opts?.force) return false;
   if (found && opts?.force) deleteTh5DemoFg();
   await seedTh5FeatureGroup(ctx, { rowMode: opts?.rowMode ?? 'filled' });
+  return true;
+}
+
+/**
+ * Seed a STANDARD (non-parameterized) scenario inside the TH-5 FG.
+ * The test has a URL with a `{{userId}}` template but NO data source —
+ * exactly the state needed to demonstrate the Parameterize button flow.
+ */
+export async function seedTh5StandardScenario(ctx: DemoActionContext): Promise<void> {
+  const w = getDemoBridgeWindow();
+  let ids = (window as unknown as Record<string, unknown>).__demoTh5Ids as { envId: string; svcId: string } | undefined;
+  if (!ids) {
+    const fresh = w.__demoSeedHarnessTarget?.();
+    if (fresh) {
+      w.__demoSelectEnvSvc?.(fresh.envId, fresh.svcId);
+      ids = fresh;
+      (window as unknown as Record<string, unknown>).__demoTh5Ids = ids;
+    }
+  }
+  if (!ids) return;
+
+  w.__demoSeedFeatureGroup?.({
+    id: 'demo-th5-std-fg',
+    name: TH5_FG_NAME,
+    environmentId: ids.envId,
+    microserviceId: ids.svcId,
+    scenarios: [{
+      id: 'demo-th5-std-sc',
+      name: TH5_SCENARIO_NAME,
+      kind: 'standard',
+      tests: [{
+        id: 'demo-th5-std-test',
+        name: TH5_TEST_NAME,
+        method: 'GET',
+        url: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
+        headers: [{ key: 'Accept', value: 'application/json' }],
+        body: '',
+        auth: { type: 'none' as const },
+        validation: {
+          mode: 'none' as const,
+          assertions: [{ type: 'status' as const, expected: '200' }],
+        },
+        // NO dataSource — this is the key: test is normal, not yet parameterized
+      }],
+    }],
+  });
+  await ctx.delay(400);
+}
+
+/**
+ * Ensure a standard-scenario TH-5 FG exists for the Parameterize button demo.
+ * Deletes any existing TH-5 FG first if `force` is set.
+ */
+export async function ensureTh5StandardFgExists(
+  ctx: DemoActionContext,
+  opts?: { force?: boolean },
+): Promise<boolean> {
+  const cards = document.querySelectorAll<HTMLElement>(HAR.FG_NAME);
+  const found = Array.from(cards).some(el => el.textContent?.trim() === TH5_FG_NAME);
+  if (found && !opts?.force) return false;
+  if (found) deleteTh5DemoFg();
+  await seedTh5StandardScenario(ctx);
   return true;
 }
 
@@ -794,20 +936,41 @@ export async function tourDsColumnTypeDropdown(
   const trigger = wrap.querySelector<HTMLElement>('.cs-trigger');
   if (!trigger) return;
 
+  const findMenuForTrigger = (): HTMLElement | null => {
+    const menus = Array.from(document.querySelectorAll<HTMLElement>('.cs-menu'));
+    if (!menus.length) return null;
+    const tr = trigger.getBoundingClientRect();
+
+    let best: { menu: HTMLElement; score: number } | null = null;
+    for (const menu of menus) {
+      const mr = menu.getBoundingClientRect();
+      const horizontal = Math.abs(mr.left - tr.left);
+      const vertical = Math.min(
+        Math.abs(mr.top - (tr.bottom + 3)),
+        Math.abs(mr.bottom - (tr.top - 3)),
+      );
+      const score = horizontal + vertical * 1.5;
+      if (!best || score < best.score) best = { menu, score };
+    }
+    return best?.menu ?? null;
+  };
+
   // Open the menu so the viewer can see all five types at once
-  if (!wrap.querySelector('.cs-menu')) {
+  if (!findMenuForTrigger()) {
     trigger.click();
     await ctx.delay(500);
   }
 
-  const menu = wrap.querySelector<HTMLElement>('.cs-menu');
+  const menu = findMenuForTrigger();
   if (menu) {
+    // Keep emphasis on the entire list (not one item) to avoid a
+    // misleading "single selected option" visual during narration.
     await spotlight(menu, holdMs, ctx);
     await ctx.delay(400);
   }
 
   // Close without changing the current type (still Path)
-  if (wrap.querySelector('.cs-menu')) {
+  if (findMenuForTrigger()) {
     trigger.click();
     await ctx.delay(400);
   }
@@ -1303,9 +1466,70 @@ export async function ensureTh7TestRun(ctx: DemoActionContext): Promise<void> {
 export const TH9_FG_NAME = 'Organization Demo';
 export const TH9_SC1_NAME = 'User Endpoints';
 export const TH9_SC2_NAME = 'Post Endpoints';
+export const TH9_VERSIONED_TEST_NAME = 'Get User by ID';
 
 export function deleteTh9DemoFg(): void {
   getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(TH9_FG_NAME);
+}
+
+/** Expand a Feature Group card by its display name. */
+export async function expandFgByName(ctx: DemoActionContext, name: string): Promise<void> {
+  const cards = Array.from(document.querySelectorAll<HTMLElement>(HAR.FG_CARD));
+  const card = cards.find((c) => c.querySelector(HAR.FG_NAME)?.textContent?.trim() === name);
+  if (!card) return;
+  const expand = card.querySelector<HTMLElement>(HAR.FG_EXPAND);
+  if (!expand) return;
+  const expandIcon = expand.querySelector('.expand-icon');
+  if (expandIcon && !expandIcon.classList.contains('expanded')) {
+    expand.click();
+    await ctx.delay(400);
+  }
+}
+
+/** Expand a scenario card by its header name. */
+export async function expandScenarioByName(ctx: DemoActionContext, name: string): Promise<void> {
+  const card = Array.from(document.querySelectorAll<HTMLElement>(HAR.SCENARIO_CARD))
+    .find((c) => {
+      const header = c.querySelector(HAR.SCENARIO_HEADER);
+      return header?.textContent?.includes(name) ?? false;
+    });
+  if (!card) return;
+  const header = card.querySelector<HTMLElement>(HAR.SCENARIO_HEADER);
+  if (!header) return;
+  const expandIcon = header.querySelector('.expand-icon');
+  if (expandIcon && !expandIcon.classList.contains('expanded')) {
+    header.click();
+    await ctx.delay(400);
+  }
+}
+
+/** Find a test card by name within an (already expanded) scenario. */
+export function findTestCardByName(scenarioName: string, testName: string): HTMLElement | null {
+  const sc = Array.from(document.querySelectorAll<HTMLElement>(HAR.SCENARIO_CARD))
+    .find((c) => {
+      const header = c.querySelector(HAR.SCENARIO_HEADER);
+      return header?.textContent?.includes(scenarioName) ?? false;
+    });
+  if (!sc) return null;
+  return Array.from(sc.querySelectorAll<HTMLElement>(HAR.TEST_CARD))
+    .find((card) => card.querySelector('strong')?.textContent?.trim() === testName) ?? null;
+}
+
+/**
+ * Ensure demo/jsonplaceholder is selected and Organization Demo is seeded
+ * with definition version history on Get User by ID.
+ */
+export async function ensureTh9EnvSelected(): Promise<void> {
+  const w = getDemoBridgeWindow();
+  let ids = (window as unknown as Record<string, unknown>).__demoTh9Ids as { envId: string; svcId: string } | undefined;
+  if (!ids) {
+    const fresh = w.__demoSeedHarnessTarget?.();
+    if (fresh) {
+      ids = fresh;
+      (window as unknown as Record<string, unknown>).__demoTh9Ids = ids;
+    }
+  }
+  if (ids) w.__demoSelectEnvSvc?.(ids.envId, ids.svcId);
 }
 
 /**
@@ -1348,9 +1572,11 @@ function buildVersionEntries(): Array<Record<string, unknown>> {
 
 /**
  * Seed TH-9 FG with 2 scenarios, 3 tests, tags, and version history.
+ * Upserts Organization Demo (bridge replaces by name) so History versions stay fresh.
  */
 export async function seedTh9FeatureGroup(ctx: DemoActionContext): Promise<void> {
   const w = getDemoBridgeWindow();
+  await ensureTh9EnvSelected();
   let ids = (window as unknown as Record<string, unknown>).__demoTh9Ids as { envId: string; svcId: string } | undefined;
   if (!ids) {
     const fresh = w.__demoSeedHarnessTarget?.();
@@ -1362,6 +1588,7 @@ export async function seedTh9FeatureGroup(ctx: DemoActionContext): Promise<void>
   }
   if (!ids) return;
 
+  w.__demoSelectEnvSvc?.(ids.envId, ids.svcId);
   w.__demoSeedFeatureGroup?.({
     id: 'demo-th9-fg',
     name: TH9_FG_NAME,
@@ -1376,7 +1603,7 @@ export async function seedTh9FeatureGroup(ctx: DemoActionContext): Promise<void>
         tests: [
           {
             id: 'demo-th9-t1',
-            name: 'Get User by ID',
+            name: TH9_VERSIONED_TEST_NAME,
             method: 'GET',
             url: 'https://jsonplaceholder.typicode.com/users/1',
             headers: [{ key: 'Accept', value: 'application/json' }],
@@ -1429,11 +1656,48 @@ export async function seedTh9FeatureGroup(ctx: DemoActionContext): Promise<void>
 }
 
 export async function ensureTh9FgExists(ctx: DemoActionContext): Promise<boolean> {
+  await ensureTh9EnvSelected();
+  await ctx.delay(200);
   const cards = document.querySelectorAll<HTMLElement>(HAR.FG_NAME);
   const found = Array.from(cards).some(el => el.textContent?.trim() === TH9_FG_NAME);
   if (found) return false;
   await seedTh9FeatureGroup(ctx);
   return true;
+}
+
+/**
+ * Force-refresh Organization Demo so History has the 2 seeded definition versions.
+ * Used by the versioning step — upsert replaces a stale FG that has 0 versions.
+ */
+export async function ensureTh9VersionHistory(ctx: DemoActionContext): Promise<void> {
+  await seedTh9FeatureGroup(ctx);
+  // Collapse unrelated FGs so TEST_EDIT_BTN / reading highlight can't land on "test1"
+  for (const card of Array.from(document.querySelectorAll<HTMLElement>(HAR.FG_CARD))) {
+    const name = card.querySelector(HAR.FG_NAME)?.textContent?.trim();
+    if (name === TH9_FG_NAME) continue;
+    const expand = card.querySelector<HTMLElement>(HAR.FG_EXPAND);
+    if (expand?.querySelector('.expand-icon')?.classList.contains('expanded')) {
+      expand.click();
+      await ctx.delay(150);
+    }
+  }
+  await expandFgByName(ctx, TH9_FG_NAME);
+  await expandScenarioByName(ctx, TH9_SC1_NAME);
+  await ctx.delay(300);
+}
+
+/** Open the seeded versioned test editor (Get User by ID). */
+export async function openTh9VersionedTestEditor(ctx: DemoActionContext): Promise<void> {
+  await expandFgByName(ctx, TH9_FG_NAME);
+  await expandScenarioByName(ctx, TH9_SC1_NAME);
+  await ctx.delay(300);
+  const card = findTestCardByName(TH9_SC1_NAME, TH9_VERSIONED_TEST_NAME);
+  const editBtn = card?.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN)
+    ?? document.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
+  if (editBtn) {
+    editBtn.click();
+    await ctx.delay(1200);
+  }
 }
 
 /** Fill the search bar with the given query text. */
@@ -3112,15 +3376,28 @@ export async function seedTh20TestRuns(): Promise<void> {
   const w = getDemoBridgeWindow();
   if (!w.__demoSeedTestRun) return;
 
+  // Always start clean so accidental deletes / partial datasets cannot leave
+  // orphan baseline marks pointing at missing run IDs.
+  if (w.__demoDeleteTestRuns) {
+    await w.__demoDeleteTestRuns(TH20_RUN_PREFIX);
+  }
+  const blMod = await import('../../../../../src/features/results/utils/runBaselines');
+  const baselines = await blMod.loadBaselines();
+  const filtered = baselines.filter((b) => !b.runId.startsWith(TH20_RUN_PREFIX));
+  if (filtered.length !== baselines.length) await blMod.saveBaselines(filtered);
+
   const run1 = buildTh20Run(0, 1.0, 0);
   const run2 = buildTh20Run(1, 1.45, 0.2);
 
   await w.__demoSeedTestRun(run1 as never);
   await w.__demoSeedTestRun(run2 as never);
 
-  const baselines = await import('../../../../../src/features/results/utils/runBaselines');
-  await baselines.markAsBaseline(run1.id as string, 'Fast baseline');
-  await baselines.markAsBaseline(run2.id as string, 'Slow baseline');
+  await blMod.markAsBaseline(run1.id as string, 'Fast baseline');
+  await blMod.markAsBaseline(run2.id as string, 'Slow baseline');
+
+  // Baselines are written outside React — notify again so ResultsDashboard
+  // reloads baseline marks after both marks land.
+  window.dispatchEvent(new CustomEvent('demo-test-runs-changed'));
 }
 
 export async function deleteTh20TestRuns(): Promise<void> {
@@ -3134,11 +3411,29 @@ export async function deleteTh20TestRuns(): Promise<void> {
   if (filtered.length !== baselines.length) await blMod.saveBaselines(filtered);
 }
 
-export async function ensureTh20RunsExist(): Promise<boolean> {
+const TH20_EXPECTED_RUNS = 2;
+
+/** True when ≥2 TH-20 runs exist and both have live baseline marks. */
+export async function isTh20DatasetHealthy(): Promise<boolean> {
   const storageMod = await import('../../../../../src/shared/utils/storage');
   const all = await storageMod.loadTestRuns();
-  const found = all.some(r => r.id.startsWith(TH20_RUN_PREFIX));
-  if (found) return false;
+  const th20Runs = all.filter((r) => r.id.startsWith(TH20_RUN_PREFIX));
+  if (th20Runs.length < TH20_EXPECTED_RUNS) return false;
+
+  const runIds = new Set(th20Runs.map((r) => r.id));
+  const blMod = await import('../../../../../src/features/results/utils/runBaselines');
+  const baselines = await blMod.loadBaselines();
+  const validMarks = baselines.filter((b) => runIds.has(b.runId));
+  return validMarks.length >= TH20_EXPECTED_RUNS;
+}
+
+/**
+ * Ensure the full TH-20 demo dataset is present (2 runs + 2 baselines).
+ * Re-seeds whenever the user deleted a run, unmarked baselines, or left
+ * orphan marks — so every lesson step starts from a known-good state.
+ */
+export async function ensureTh20RunsExist(): Promise<boolean> {
+  if (await isTh20DatasetHealthy()) return false;
   await seedTh20TestRuns();
   return true;
 }
@@ -3150,7 +3445,7 @@ export async function ensureTh20BaselinesExist(): Promise<boolean> {
   const th20Runs = allRuns
     .filter((r) => r.id.startsWith(TH20_RUN_PREFIX))
     .sort((a, b) => a.timestamp - b.timestamp);
-  if (th20Runs.length === 0) return false;
+  if (th20Runs.length < TH20_EXPECTED_RUNS) return false;
 
   const baselines = await import('../../../../../src/features/results/utils/runBaselines');
   const existing = await baselines.loadBaselines();
@@ -3158,12 +3453,15 @@ export async function ensureTh20BaselinesExist(): Promise<boolean> {
 
   let changed = false;
   const labels = ['Fast baseline', 'Slow baseline'];
-  for (let i = 0; i < Math.min(2, th20Runs.length); i += 1) {
+  for (let i = 0; i < Math.min(TH20_EXPECTED_RUNS, th20Runs.length); i += 1) {
     const run = th20Runs[i];
     if (!existingIds.has(run.id)) {
       await baselines.markAsBaseline(run.id, labels[i] ?? `Baseline ${i + 1}`);
       changed = true;
     }
+  }
+  if (changed) {
+    window.dispatchEvent(new CustomEvent('demo-test-runs-changed'));
   }
   return changed;
 }

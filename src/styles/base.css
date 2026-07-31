@@ -205,15 +205,7 @@
   color: var(--primary);
   font-weight: 600;
 }
-.tc-base-select {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  width: 100%;
-}
+.tc-base-select { width: 100%; /* box styling handled by CustomSelect */ }
 .tc-slider {
   width: 100%;
   accent-color: var(--primary);
@@ -3546,7 +3538,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .trend-chart-container { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; }
 .trend-chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .trend-chart-header h4 { margin: 0; font-size: 0.95rem; }
-.trend-metric-select { max-width: 200px; font-size: 0.82rem; padding: 4px 8px; }
+.trend-metric-select { max-width: 200px; }
 
 /* ── Histogram ── */
 .histogram-container { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; }
@@ -4638,12 +4630,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .sla-ovr-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
 .sla-ovr-input.sla-input-error { border-color: var(--danger, #ef4444); }
-.sla-ovr-select {
-  font-size: 0.78rem; width: 100%; padding: 5px 8px;
-  background: var(--input-bg, #263549); border: 1px solid var(--border);
-  border-radius: 4px; color: var(--text); transition: border-color 0.12s;
-}
-.sla-ovr-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.sla-ovr-select { width: 100%; /* box styling handled by CustomSelect */ }
 .sla-ovr-error { color: #f87171; font-size: 0.68rem; margin-top: 2px; }
 .sla-was-hint { font-size: 0.66rem; color: var(--text-muted); margin-left: 6px; white-space: nowrap; font-style: italic; opacity: 0.7; }
 .sla-readonly { color: var(--text-muted); }
@@ -4900,8 +4887,8 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .trend-chart-tab.active { background: var(--primary, #6366f1); color: #fff; border-color: var(--primary, #6366f1); }
 
 .trend-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.trend-scope-select { padding: 3px 6px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 3px; background: var(--input-bg); color: var(--text); cursor: pointer; }
-.trend-metric-select2 { padding: 3px 6px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 3px; background: var(--input-bg); color: var(--text); cursor: pointer; }
+.trend-scope-select { max-width: 160px; }
+.trend-metric-select2 { max-width: 200px; }
 
 /* ── CustomSelect — reusable styled dropdown ── */
 .cs-wrapper {
@@ -4969,10 +4956,10 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   min-width: 100%;
   width: max-content;
   max-width: min(460px, 92vw);
-  /* Rendered via a portal to document.body with position:fixed (see
-     CustomSelect.tsx), so this must out-rank any modal overlay (z-index 100)
-     it may visually sit above. */
-  z-index: 1000;
+    /* Rendered via a portal to document.body with position:fixed (see
+      CustomSelect.tsx). Keep this above editor/tool overlays so opened menus
+      remain both visible and clickable even when they open upward. */
+    z-index: 20000;
   background: var(--surface, #1e293b);
   border: 1px solid var(--border, #3b4a60);
   border-radius: 6px;

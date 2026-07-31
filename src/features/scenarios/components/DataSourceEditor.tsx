@@ -32,7 +32,7 @@ interface DataSourceEditorProps {
   /** Auth-aware fetch: resolves effective auth, acquires tokens, fires request. */
   onFetchRow?: (url: string, method: string, headers: Record<string, string>, body?: string) => Promise<HttpResponse>;
   /** Called when user wants to create a parameterized copy from the Parameterize tab */
-  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
+  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string, newScenarioName?: string) => void;
   /** All feature groups for destination picker */
   featureGroups?: FeatureGroup[];
   /** Current editing context */
