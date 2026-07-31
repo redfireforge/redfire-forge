@@ -778,14 +778,13 @@
   outline: none;
   transition: border-color 0.15s;
 }
-
-.ws-connect-subprotocols:focus {
-  border-color: var(--accent-color, #4fc3f7);
-  box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.15);
+/* When used as CustomSelect wrapper, reset box styling */
+.ws-connect-subprotocols.cs-wrapper {
+  border: none; background: transparent; padding: 0; border-radius: 0;
 }
-
-.ws-connect-subprotocols:disabled {
-  opacity: 0.6;
+.ws-connect-subprotocols.cs-wrapper .cs-trigger {
+  flex: 1; background: var(--input-bg, #2a2a2a); border: 1px solid var(--border-color, #444);
+  border-radius: 6px; color: var(--text-primary, #e0e0e0); font-size: 13px; padding: 8px 12px;
 }
 
 .ws-connect-actions {
@@ -3051,33 +3050,7 @@
   gap: 8px;
 }
 
-.ws-protocol-select {
-  flex: 1;
-  padding: 8px 12px;
-  background: var(--bg-input, #1e1e2e);
-  color: var(--text-primary, #cdd6f4);
-  border: 1px solid var(--border-primary, #45475a);
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-
-.ws-protocol-select:focus {
-  border-color: var(--accent-color, #4fc3f7);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.15);
-}
-
-.ws-protocol-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ws-protocol-select option:disabled {
-  color: var(--text-tertiary, #6c7086);
-}
+.ws-protocol-select { flex: 1; /* box styling handled by CustomSelect */ }
 
 .ws-protocol-detected-badge {
   flex-shrink: 0;
@@ -3297,22 +3270,7 @@
   padding: 6px 10px 0;
 }
 
-.ws-stomp-command-select {
-  width: 130px;
-  padding: 5px 8px;
-  background: var(--bg-input, #1e1e2e);
-  color: var(--text-primary, #cdd6f4);
-  border: 1px solid var(--border-primary, #45475a);
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  cursor: pointer;
-}
-
-.ws-stomp-command-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.ws-stomp-command-select { width: 130px; /* box styling handled by CustomSelect */ }
 
 .ws-stomp-destination-input {
   flex: 1;
@@ -4615,20 +4573,7 @@
   white-space: nowrap;
 }
 
-.ws-replay-speed {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 12px;
-  padding: 2px 4px;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-
-.ws-replay-speed:hover {
-  border-color: rgba(255, 255, 255, 0.28);
-}
+.ws-replay-speed { /* box styling handled by CustomSelect */ }
 
 /* Center: progress track + event counter */
 .ws-replay-center {
@@ -5034,25 +4979,7 @@
   flex-shrink: 0;
 }
 
-.ws-filter-select {
-  padding: 4px 8px;
-  font-size: 11px;
-  background: var(--input-bg, #2a2a2a);
-  color: var(--text-primary, #eee);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-
-.ws-filter-select:hover {
-  border-color: var(--text-secondary, #999);
-}
-
-.ws-filter-select:focus {
-  border-color: var(--accent-color, #4fc3f7);
-  outline: none;
-}
+.ws-filter-select { /* layout only — box styling handled by CustomSelect */ }
 
 .ws-filter-clear-btn {
   padding: 3px 8px;
@@ -5603,17 +5530,7 @@
   outline: none;
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.25);
 }
-.ws-mock-fallback-select {
-  padding: 2px 6px;
-  font-size: 11px;
-  background: var(--bg-secondary, #2a2a2a);
-  color: var(--text-primary, #eee);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 3px;
-}
-.ws-mock-fallback-select:disabled {
-  opacity: 0.5;
-}
+.ws-mock-fallback-select { /* box styling handled by CustomSelect */ }
 
 /* Connected clients */
 .ws-mock-clients {
@@ -6043,21 +5960,7 @@
   border-color: var(--accent-color, #4fc3f7);
   outline: none;
 }
-.ws-mock-editor-select {
-  padding: 4px 8px;
-  font-size: 11px;
-  background: var(--bg-secondary, #2a2a2a);
-  color: var(--text-primary, #eee);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 5px;
-  height: 28px;
-  box-sizing: border-box;
-  transition: border-color 0.15s;
-}
-.ws-mock-editor-select:focus {
-  border-color: var(--accent-color, #4fc3f7);
-  outline: none;
-}
+.ws-mock-editor-select { /* box styling handled by CustomSelect */ }
 .ws-mock-editor-row {
   display: flex;
   align-items: flex-start;

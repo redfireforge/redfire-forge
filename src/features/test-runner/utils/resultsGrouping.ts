@@ -23,7 +23,7 @@ export function computeStats(results: RequestResult[]): Omit<GroupNode, 'key' | 
   const times = results.map((r) => r.responseTimeMs).sort((a, b) => a - b);
   const n = times.length;
   const passedCount = results.filter((r) => r.passed).length;
-  const valFailed = results.filter((r) => !r.passed && r.failureDetails.length > 0).length;
+  const valFailed = results.filter((r) => !r.passed && (r.failureDetails?.length ?? 0) > 0).length;
   return {
     total: results.length,
     passed: passedCount,

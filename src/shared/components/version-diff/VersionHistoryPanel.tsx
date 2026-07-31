@@ -13,6 +13,7 @@ export interface VersionHistoryPanelProps<V extends DefinitionVersionBase> {
   emptyHint: string;
   versions: V[];
   currentSnapshot: unknown;
+  currentVersionId?: string;
   onRestore: (version: V) => void;
   onDelete: (versionId: string) => void;
   onRename: (versionId: string, label: string) => void;
@@ -26,6 +27,7 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
   emptyHint,
   versions,
   currentSnapshot: _currentSnapshot,
+  currentVersionId,
   onRestore,
   onDelete,
   onRename,
@@ -108,7 +110,7 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
           {versions.map((v) => (
             <div
               key={v.id}
-              className={`test-def-version-item ${selectedIds.has(v.id) ? 'selected' : ''}`}
+              className={`test-def-version-item ${selectedIds.has(v.id) ? 'selected' : ''} ${currentVersionId === v.id ? 'current' : ''}`}
               data-testid="version-item"
               data-version-id={v.id}
               onClick={() => toggleSelect(v.id)}
@@ -136,8 +138,13 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
                       placeholder="Version label…"
                     />
                   ) : (
-                    <span className="test-def-version-item-label" onDoubleClick={(e) => { e.stopPropagation(); handleStartRename(v); }}>
-                      {v.label || formatTimestamp(v.timestamp)}
+                    <span className="test-def-version-item-title">
+                      <span className="test-def-version-item-label" onDoubleClick={(e) => { e.stopPropagation(); handleStartRename(v); }}>
+                        {v.label || formatTimestamp(v.timestamp)}
+                      </span>
+                      {currentVersionId === v.id && (
+                        <span className="test-def-version-current-badge">CURRENT</span>
+                      )}
                     </span>
                   )}
                   <span className="test-def-version-item-time">

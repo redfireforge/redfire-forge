@@ -1,29 +1,63 @@
 /**
  * TH-21 — The Workflow Runner
  *
- * 5 steps: workflow picker, variables & presets, trace/execution config,
- * CorrelationWait support, then run button & completion flow.
+ * 6 steps: Designer canvas + Run in Harness, workflow picker, variables &
+ * presets, trace/execution config, CorrelationWait support, then run button
+ * & completion flow.
  *
  * This lesson includes a real runner click so viewers can see progress and
  * completion flow on-screen after configuration.
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
-import { HAR } from '@shared/selectors';
+import { HAR, WF } from '@shared/selectors';
 import { spotlight, spotlightSel } from './th-demo-helpers';
-import { deleteWorkflowByName, seedNamedWorkflow, selectRunnerWorkflowByName, triggerRunnerWorkflowRun } from '../../adapters';
+import {
+  deleteWorkflowByName,
+  seedNamedWorkflow,
+  selectRunnerWorkflowByName,
+  selectWorkflowByName,
+  triggerRunnerWorkflowRun,
+} from '../../adapters';
+import { collapseWfDemoAppSidebar, expandWfDemoAppSidebar, selectWorkflowFromAppSidebar } from '../wf-demo-helpers';
 import { fillControlledInput } from '../setup-helpers';
 
 // ─── Local helpers ─────────────────────────────────────────────────
 
-function ensureOnWfRunnerTab(ctx: DemoActionContext): void {
-  ctx.navigateToTab('workflow-runner');
+function ensureOnWorkflowTab(ctx: DemoActionContext): void {
+  ctx.navigateToTab('workflow');
 }
 
-const TH21_WORKFLOW_NAME = 'TH-21 Workflow Runner Demo';
+async function ensureOnWfRunnerTab(ctx: DemoActionContext): Promise<void> {
+  ctx.navigateToTab('workflow-runner');
+  // Keep the Environments left panel visible on the runner (Designer tours may collapse it)
+  await expandWfDemoAppSidebar(ctx);
+}
+
+async function spotlightCanvasNode(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return;
+  el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+  await spotlight(el, holdMs, ctx);
+}
+
+/** Click Designer Fit View once so the seeded graph is centered (quiet — no spotlight). */
+async function fitTh21CanvasView(ctx: DemoActionContext): Promise<void> {
+  const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
+  if (!fitBtn) return;
+  fitBtn.click();
+  // Fit View may run auto-layout + animated fit — wait for the viewport to settle
+  await ctx.delay(500);
+}
+
+const TH21_WORKFLOW_NAME = 'Workflow Runner Demo';
 
 const TH21_VAR_VALUES: Record<string, string> = {
   baseUrl: 'https://jsonplaceholder.typicode.com',
-  correlationId: 'th21-demo-001',
+  correlationId: 'demo-001',
 };
 
 function createTh21WorkflowRunnerDemo(): Record<string, unknown> {
@@ -152,7 +186,7 @@ async function fillTh21Variables(
 
 /** Ensure a workflow is selected in the picker via dropdown click. */
 async function ensureWorkflowSelected(ctx: DemoActionContext): Promise<void> {
-  ensureOnWfRunnerTab(ctx);
+  await ensureOnWfRunnerTab(ctx);
   await ctx.delay(400);
 
   // Bridge-first selection keeps the runner on this lesson's deterministic seed.
@@ -216,18 +250,19 @@ export const thWorkflowRunnerLesson: DemoLesson = {
   category: 'runner',
   name: 'The Workflow Runner',
   description:
-    'Run workflows as performance tests — select a workflow, configure ' +
-    'variables, set trace level, manage variable presets, and learn ' +
-    'about CorrelationWait support.',
-  estimatedMinutes: 5,
-  initialTab: 'workflow-runner',
-  allowedTabs: ['workflow-runner'],
+    'See a workflow on the Designer canvas, promote it with Run in Harness, ' +
+    'then configure variables, trace level, presets, and CorrelationWait support.',
+  estimatedMinutes: 6,
+  initialTab: 'workflow',
+  allowedTabs: ['workflow', 'workflow-runner'],
 
   concept: {
     title: 'Workflow Runner',
     body:
       'The **Workflow Runner** tab lets you execute Designer workflows as ' +
       'performance test runs.\n\n' +
+      '- **Designer → Run in Harness** — open a workflow on the canvas, then promote ' +
+      'it into the runner with one toolbar click\n' +
       '- **Workflow Picker** — searchable dropdown with folder navigation and ' +
       'gallery samples\n' +
       '- **Initial Variables** — editable inputs for `{{variableName}}` placeholders ' +
@@ -240,6 +275,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       'After execution, the completion banner links to the Results Dashboard ' +
       'filtered to workflow runs.',
     keyTerms: [
+      { term: 'Run in Harness', definition: 'Designer toolbar action that opens Workflow Runner with the current workflow pre-selected for load/performance runs.' },
       { term: 'Workflow Picker', definition: 'Searchable dropdown with folder drill-down for selecting which workflow to run.' },
       { term: 'Trace Level', definition: 'Controls data capture depth: Minimal (timing only) → Debug (everything). Sampling captures every Nth iteration.' },
       { term: 'Variable Presets', definition: 'Named snapshots of variable values — save, label, restore, and delete.' },
@@ -275,11 +311,15 @@ export const thWorkflowRunnerLesson: DemoLesson = {
     await seedNamedWorkflow(ctx, TH21_WORKFLOW_NAME, createTh21WorkflowRunnerDemo(), {
       deleteDelayMs: 0,
       insertPreDelayMs: 100,
-      insertDelayMs: 0,
+      insertDelayMs: 200,
+      // Select in Designer so step 1 can tour the canvas immediately
+      selectAfterSeed: true,
     });
-    ctx.navigateToTab('workflow-runner');
+    ensureOnWorkflowTab(ctx);
     await ctx.delay(700);
-    // Do not pre-select — step 1 demonstrates picking the workflow and filling variables live
+    selectWorkflowByName(TH21_WORKFLOW_NAME);
+    await collapseWfDemoAppSidebar(ctx);
+    await ctx.delay(200);
   },
 
   // ── Cleanup ────────────────────────────────────────────────────
@@ -290,33 +330,106 @@ export const thWorkflowRunnerLesson: DemoLesson = {
   },
 
   steps: [
-    // ── Step 1: Workflow Picker ──────────────────────────────────
+    // ── Step 1: Designer canvas + promote to Workflow Runner ─────
+    {
+      id: 'th21-designer-promote',
+      title: 'From Designer to Workflow Runner',
+      description:
+        'First, see how the workflow looks on the **Designer** canvas — ' +
+        '**Start → Create Post (HTTP) → Wait for Callback (CorrelationWait) → End**.\n\n' +
+        'Then promote it to the **Workflow Runner**: click **Run in Harness** in the ' +
+        'Designer toolbar. That opens the runner with this workflow already selected — ' +
+        'ready for variables, load config, and performance runs (saved to Results).',
+      highlight: WF.NODE_START,
+
+      preAction: async (ctx) => {
+        ensureOnWorkflowTab(ctx);
+        await ctx.delay(300);
+        await selectWorkflowFromAppSidebar(ctx, TH21_WORKFLOW_NAME);
+        await collapseWfDemoAppSidebar(ctx);
+        // Fit View once as soon as the workflow is open (before Reading)
+        await fitTh21CanvasView(ctx);
+      },
+
+      action: async (ctx) => {
+        ensureOnWorkflowTab(ctx);
+        // Keep the Fit View from preAction — do not re-select (that resets the viewport)
+        await collapseWfDemoAppSidebar(ctx);
+        await ctx.delay(250);
+
+        // Tour individual nodes — no whole-canvas ring, no second Fit View
+        await spotlightCanvasNode(ctx, WF.NODE_START, 1000);
+        await ctx.delay(300);
+        await spotlightCanvasNode(ctx, WF.NODE_HTTP, 1400);
+        await ctx.delay(300);
+        await spotlightCanvasNode(ctx, WF.NODE_CORRELATION_WAIT, 1400);
+        await ctx.delay(300);
+        await spotlightCanvasNode(ctx, WF.NODE_END, 1000);
+        await ctx.delay(400);
+
+        // Promote: Run in Harness → Workflow Runner with this workflow selected
+        const harnessBtn = document.querySelector<HTMLElement>(WF.RUN_IN_HARNESS_BTN);
+        if (harnessBtn) {
+          await spotlight(harnessBtn, 1800, ctx);
+          await ctx.delay(400);
+          harnessBtn.click();
+          await ctx.delay(1000);
+        }
+
+        if (!document.querySelector(HAR.WF_PICKER)) {
+          await ensureOnWfRunnerTab(ctx);
+          await ctx.delay(700);
+          selectRunnerWorkflowByName(TH21_WORKFLOW_NAME);
+          await ctx.delay(400);
+        }
+
+        // Designer tour collapsed the env sidebar for canvas space — restore it on the runner
+        await expandWfDemoAppSidebar(ctx);
+
+        const summary = document.querySelector<HTMLElement>(HAR.WF_PICKER_SUMMARY);
+        if (summary) {
+          await spotlight(summary, 1600, ctx);
+          await ctx.delay(500);
+        } else {
+          await spotlightSel(ctx, HAR.WF_PICKER, 1400);
+        }
+      },
+
+      verify: HAR.WF_PICKER,
+    },
+
+    // ── Step 2: Workflow Picker ──────────────────────────────────
     {
       id: 'th21-picker',
       title: 'Workflow Picker',
       description:
-        'The **Workflow Picker** is a searchable dropdown at the top of the Workflow Runner.\n\n' +
+        'You can also start from an empty runner — click **Select a workflow…** to open the searchable picker.\n\n' +
         'It shows your workflow library organized by **folders** with drill-down navigation. ' +
         'When no workflow is selected, **gallery samples** (Simple, Branching, Parallel) offer ' +
         'quick-start options.\n\n' +
         'After selecting a workflow, a **summary** appears and **Initial Variables** show as ' +
         'empty rows — fill `baseUrl` and `correlationId` so `{{variable}}` placeholders resolve at runtime.',
-      highlight: HAR.WF_PICKER,
+      highlight: HAR.WF_PICKER_TRIGGER,
 
       preAction: async (ctx) => {
-        ensureOnWfRunnerTab(ctx);
+        await ensureOnWfRunnerTab(ctx);
         await ctx.delay(300);
         closePickerDropdown();
         closeHistoryPanel();
+        // Always start from the empty "Select a workflow…" screen
+        const clearBtn = document.querySelector<HTMLElement>('.wfp-clear-btn');
+        if (clearBtn) {
+          clearBtn.click();
+          await ctx.delay(350);
+        }
       },
 
       action: async (ctx) => {
         const trigger = document.querySelector<HTMLElement>(HAR.WF_PICKER_TRIGGER);
         if (trigger) {
-          await spotlight(trigger, 1000, ctx);
-
+          // Reading ring is already on the trigger — click to open the picker
           trigger.click();
-          await ctx.delay(600);
+          await ctx.delay(700);
 
           const panel = document.querySelector<HTMLElement>(HAR.WF_PICKER_PANEL);
           if (panel) {
@@ -351,7 +464,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       verify: HAR.WF_PICKER,
     },
 
-    // ── Step 2: Initial Variables & Presets ──────────────────────
+    // ── Step 3: Initial Variables & Presets ──────────────────────
     {
       id: 'th21-variables',
       title: 'Initial Variables & Presets',
@@ -363,7 +476,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       highlight: HAR.WF_VARS_ACTIONS,
 
       preAction: async (ctx) => {
-        ensureOnWfRunnerTab(ctx);
+        await ensureOnWfRunnerTab(ctx);
         await ctx.delay(300);
         closePickerDropdown();
         closeHistoryPanel();
@@ -373,7 +486,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       action: async (ctx) => {
         const section = document.querySelector<HTMLElement>(HAR.WF_VARS_SECTION);
         if (section) {
-          // Confirm the values filled in step 1, then focus Save / Presets
+          // Confirm the values filled in the picker step, then focus Save / Presets
           const firstRow = section.querySelector<HTMLElement>(HAR.WF_VAR_ROW);
           if (firstRow) await spotlight(firstRow, 900, ctx);
 
@@ -406,7 +519,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       verify: HAR.WF_VARS_SECTION,
     },
 
-    // ── Step 3: Trace Level & Execution Config ──────────────────
+    // ── Step 4: Trace Level & Execution Config ──────────────────
     {
       id: 'th21-trace-config',
       title: 'Trace Level & Execution Config',
@@ -422,7 +535,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       highlight: HAR.WF_TRACE_OPTIONS,
 
       preAction: async (ctx) => {
-        ensureOnWfRunnerTab(ctx);
+        await ensureOnWfRunnerTab(ctx);
         await ctx.delay(300);
         closePickerDropdown();
         closeHistoryPanel();
@@ -450,24 +563,22 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       verify: HAR.WF_TRACE_OPTIONS,
     },
 
-    // ── Step 4: CorrelationWait Support ─────────────────────────
+    // ── Step 5: CorrelationWait Support ─────────────────────────
     {
       id: 'th21-correlation',
       title: 'CorrelationWait Support',
       description:
         'When a workflow includes **CorrelationWait** nodes, a dedicated config panel appears ' +
         'with 3 runner modes:\n\n' +
-        '- **Auto-Resume** \u2014 skips the wait for fast load testing\n' +
+        '- **Auto-Resume** \u2014 skips the wait for fast load testing (selected here)\n' +
         '- **Synthetic Inject (Delayed)** \u2014 fires a mock payload after a configurable delay\n' +
         '- **Wait for Real Webhook** \u2014 pauses until an external callback arrives ' +
         '(enables the Multi-Webhook Testing Panel)\n\n' +
-        'The **Multi-Webhook Testing Panel** (Wait-for-Real mode only) provides per-node ' +
-        'state tracking, payload editors, fire buttons, and saved webhook scenarios \u2014 ' +
-        'essential for testing async workflows with external integrations.',
+        'Leave **Auto-Resume** on for performance runs so waits never block the load test.',
       highlight: HAR.WF_CORR_SECTION,
 
       preAction: async (ctx) => {
-        ensureOnWfRunnerTab(ctx);
+        await ensureOnWfRunnerTab(ctx);
         await ctx.delay(300);
         closePickerDropdown();
         closeHistoryPanel();
@@ -475,27 +586,26 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
+        // Keep Auto-Resume selected — only spotlight modes in place.
+        // Switching modes makes Synthetic/MWT panels appear and disappear
+        // ("moving parts") which distracts from the teaching beat.
+        await setCorrelationMode(ctx, 0);
+
         const corrSection = document.querySelector<HTMLElement>(HAR.WF_CORR_SECTION);
         if (corrSection) {
-          await spotlight(corrSection, 1200, ctx);
+          corrSection.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
+          await spotlight(corrSection, 1400, ctx);
 
           const modeCards = corrSection.querySelectorAll<HTMLElement>(HAR.WF_CORR_MODE);
-          if (modeCards.length > 0) {
-            await spotlight(modeCards[0], 900, ctx);
-            await setCorrelationMode(ctx, 1);
-            if (modeCards[1]) await spotlight(modeCards[1], 900, ctx);
+          for (const card of Array.from(modeCards)) {
+            await spotlight(card, 1100, ctx);
+            await ctx.delay(350);
+          }
 
-            await setCorrelationMode(ctx, 2);
-            if (modeCards[2]) await spotlight(modeCards[2], 900, ctx);
-
-            const mwtPanel = document.querySelector<HTMLElement>(HAR.WF_MWT_PANEL);
-            if (mwtPanel) {
-              await spotlight(mwtPanel, 1200, ctx);
-            }
-
-            // Restore Auto-Resume so the next run step does not block.
-            await setCorrelationMode(ctx, 0);
-            if (modeCards[0]) await spotlight(modeCards[0], 800, ctx);
+          // Brief hold on Auto-Resume as the recommended load-test default
+          if (modeCards[0]) {
+            await spotlight(modeCards[0], 1200, ctx);
+            await ctx.delay(400);
           }
         } else {
           await spotlightSel(ctx, HAR.WF_RUN_BTN, 1000);
@@ -506,7 +616,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       verify: HAR.WF_CORR_SECTION,
     },
 
-    // ── Step 5: Run Button & Completion Flow ────────────────────
+    // ── Step 6: Run Button & Completion Flow ────────────────────
     {
       id: 'th21-run-button',
       title: 'Run & Completion Flow',
@@ -522,7 +632,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       highlight: HAR.WF_RUN_BTN,
 
       preAction: async (ctx) => {
-        ensureOnWfRunnerTab(ctx);
+        await ensureOnWfRunnerTab(ctx);
         await ctx.delay(300);
         closePickerDropdown();
         closeHistoryPanel();
