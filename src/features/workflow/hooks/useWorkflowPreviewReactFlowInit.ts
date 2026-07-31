@@ -20,7 +20,6 @@ type MeasuredRfInstance = {
  */
 export function useWorkflowPreviewReactFlowInit(
   previewWorkflow: Workflow | null,
-  selectedWorkflow: Workflow | null,
   setLaidOutId: Dispatch<SetStateAction<string | null>>,
 ) {
   return useCallback(
@@ -47,12 +46,6 @@ export function useWorkflowPreviewReactFlowInit(
             setLaidOutId(currentPreviewId);
           }
         }, 150);
-      } else if (selectedWorkflow?.savedViewport) {
-        setTimeout(() => {
-          requestAnimationFrame(() => {
-            instance.setViewport(selectedWorkflow.savedViewport!, { duration: 0 });
-          });
-        }, 150);
       } else {
         setTimeout(() => {
           const measuredNodes = instance.getNodes();
@@ -65,6 +58,6 @@ export function useWorkflowPreviewReactFlowInit(
         }, 150);
       }
     },
-    [previewWorkflow, selectedWorkflow, setLaidOutId],
+    [previewWorkflow, setLaidOutId],
   );
 }

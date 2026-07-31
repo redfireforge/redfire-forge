@@ -42,7 +42,7 @@ describe('useWorkflowPreviewReactFlowInit', () => {
     const setLaidOutId = vi.fn();
     const workflow = makeWorkflow();
     const { result, rerender } = renderHook(() =>
-      useWorkflowPreviewReactFlowInit(workflow, null, setLaidOutId),
+      useWorkflowPreviewReactFlowInit(workflow, setLaidOutId),
     );
     const first = result.current;
     rerender();
@@ -54,7 +54,7 @@ describe('useWorkflowPreviewReactFlowInit', () => {
       const setLaidOutId = vi.fn();
       const preview = makeWorkflow({ id: 'preview-1', nodes: [] });
       const { result } = renderHook(() =>
-        useWorkflowPreviewReactFlowInit(preview, null, setLaidOutId),
+        useWorkflowPreviewReactFlowInit(preview, setLaidOutId),
       );
       const instance = makeMockInstance();
       instance.getNodes.mockReturnValue([]);
@@ -70,7 +70,7 @@ describe('useWorkflowPreviewReactFlowInit', () => {
       const setLaidOutId = vi.fn();
       const preview = makeWorkflow({ id: 'preview-2' });
       const { result } = renderHook(() =>
-        useWorkflowPreviewReactFlowInit(preview, null, setLaidOutId),
+        useWorkflowPreviewReactFlowInit(preview, setLaidOutId),
       );
       const mockNode = { id: 'n1', position: { x: 0, y: 0 }, data: {}, type: 'http' } as never;
       const instance = makeMockInstance();
@@ -87,7 +87,7 @@ describe('useWorkflowPreviewReactFlowInit', () => {
       const setLaidOutId = vi.fn();
       const preview = makeWorkflow({ id: 'preview-3' });
       const { result } = renderHook(() =>
-        useWorkflowPreviewReactFlowInit(preview, null, setLaidOutId),
+        useWorkflowPreviewReactFlowInit(preview, setLaidOutId),
       );
       const instance = makeMockInstance();
 
@@ -99,25 +99,21 @@ describe('useWorkflowPreviewReactFlowInit', () => {
   });
 
   describe('saved viewport path', () => {
-    it('restores exact viewport when selectedWorkflow has savedViewport', () => {
+    it('auto-layouts and fits view even when selectedWorkflow has savedViewport', () => {
       const setLaidOutId = vi.fn();
-      const saved = makeWorkflow({
-        savedViewport: { x: 100, y: 200, zoom: 1.5 },
-      });
       const { result } = renderHook(() =>
-        useWorkflowPreviewReactFlowInit(null, saved, setLaidOutId),
+        useWorkflowPreviewReactFlowInit(null, setLaidOutId),
       );
+      const mockNode = { id: 'n1', position: { x: 0, y: 0 }, data: {}, type: 'http' } as never;
       const instance = makeMockInstance();
+      instance.getNodes.mockReturnValue([mockNode]);
 
       result.current(instance);
       vi.advanceTimersByTime(150);
-      // requestAnimationFrame inside setTimeout — flush it
       vi.runAllTimers();
 
-      expect(instance.setViewport).toHaveBeenCalledWith(
-        { x: 100, y: 200, zoom: 1.5 },
-        { duration: 0 },
-      );
+      expect(instance.setViewport).not.toHaveBeenCalled();
+      expect(instance.setNodes).toHaveBeenCalled();
       expect(setLaidOutId).not.toHaveBeenCalled();
     });
   });
@@ -125,9 +121,8 @@ describe('useWorkflowPreviewReactFlowInit', () => {
   describe('first-load path (no preview, no saved viewport)', () => {
     it('auto-layouts and fits view on first load when nodes are present', () => {
       const setLaidOutId = vi.fn();
-      const workflow = makeWorkflow({ savedViewport: undefined });
       const { result } = renderHook(() =>
-        useWorkflowPreviewReactFlowInit(null, workflow, setLaidOutId),
+        useWorkflowPreviewReactFlowInit(null, setLaidOutId),
       );
       const mockNode = { id: 'n1', position: { x: 0, y: 0 }, data: {}, type: 'http' } as never;
       const instance = makeMockInstance();
@@ -143,7 +138,7 @@ describe('useWorkflowPreviewReactFlowInit', () => {
     it('does not call setNodes when no nodes present on first load', () => {
       const setLaidOutId = vi.fn();
       const { result } = renderHook(() =>
-        useWorkflowPreviewReactFlowInit(null, null, setLaidOutId),
+        useWorkflowPreviewReactFlowInit(null, setLaidOutId),
       );
       const instance = makeMockInstance();
       instance.getNodes.mockReturnValue([]);
