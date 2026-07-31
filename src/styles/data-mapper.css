@@ -1591,14 +1591,7 @@
   border-color: #eb6f92;
 }
 
-.dm-add-field-type {
-  background: var(--bg-input, rgba(255, 255, 255, 0.06));
-  border: 1px solid rgba(137, 180, 250, 0.2);
-  color: var(--text, #cdd6f4);
-  border-radius: 3px;
-  font-size: 0.7rem;
-  padding: 2px 4px;
-}
+.dm-add-field-type { /* box styling handled by CustomSelect */ }
 
 .dm-add-field-confirm,
 .dm-add-field-cancel {
@@ -2005,19 +1998,7 @@
 }
 
 /* Confidence threshold selector */
-.dm-toolbar-threshold {
-  height: 26px;
-  padding: 0 6px;
-  border: 1px solid var(--border, #313244);
-  border-radius: 4px;
-  background: var(--surface, #1e1e2e);
-  color: var(--text, #cdd6f4);
-  font-size: 0.72rem;
-  cursor: pointer;
-}
-.dm-toolbar-threshold:focus {
-  outline: 1px solid var(--accent, #cba6f7);
-}
+.dm-toolbar-threshold { /* box styling handled by CustomSelect */ }
 
 .dm-remove-btn circle {
   fill: #f38ba8;
@@ -4850,6 +4831,14 @@ button.dm-mismatch-badge {
   font-family: inherit;
   margin-left: 4px;
 }
+/* When used as CustomSelect wrapper, reset box props to avoid double-box */
+.dm-operator-value-input.cs-wrapper {
+  border: none; background: transparent; padding: 0; border-radius: 0; width: auto; margin-left: 4px;
+}
+.dm-operator-value-input.cs-wrapper .cs-trigger {
+  background: var(--bg, #1e1e2e); border: 1px solid var(--border, #313244);
+  border-radius: 4px; color: var(--text, #cdd6f4); font-size: 11px; padding: 1px 6px;
+}
 
 .dm-operator-value-input:focus {
   border-color: #89b4fa;
@@ -5211,16 +5200,10 @@ button.dm-mismatch-badge {
 }
 
 .dm-array-assertion-op-select {
-  background: transparent;
-  border: 1px solid var(--surface2, #45475a);
-  border-radius: 3px;
-  color: var(--text, #cdd6f4);
-  font-size: 11px;
-  padding: 1px 2px;
-  cursor: pointer;
   flex-shrink: 0;
   width: auto;
   max-width: 50px;
+  /* box styling handled by CustomSelect */
 }
 
 .dm-array-assertion-op-select:focus {

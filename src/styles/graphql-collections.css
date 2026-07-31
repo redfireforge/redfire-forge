@@ -2655,8 +2655,7 @@
   color: var(--text-muted);
   margin-top: 6px;
 }
-.gql-save-col-input,
-.gql-save-col-select {
+.gql-save-col-input {
   width: 100%;
   padding: 7px 10px;
   background: var(--bg);
@@ -2668,8 +2667,9 @@
   appearance: none;
   box-sizing: border-box;
 }
-.gql-save-col-input:focus,
-.gql-save-col-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
+/* CustomSelect wrapper — reset box styling; box lives on .cs-trigger */
+.gql-save-col-select { width: 100%; /* box styling handled by CustomSelect */ }
+.gql-save-col-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
 .gql-save-col-empty {
   font-size: 0.78rem;
   color: var(--text-muted);

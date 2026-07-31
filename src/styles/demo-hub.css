@@ -414,6 +414,18 @@
   line-height: 1;
 }
 
+/* Small amber dot overlaid on the green check when lesson content has been updated */
+.demo-lesson-updated-dot {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  background: #f59e0b;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg, #0f172a);
+}
+
 .demo-lesson-info {
   flex: 1;
   min-width: 0;
@@ -463,7 +475,8 @@
 
 .demo-lesson-resume-badge,
 .demo-lesson-start-badge,
-.demo-lesson-restart-badge {
+.demo-lesson-restart-badge,
+.demo-lesson-updated-badge {
   font-size: 10px;
   padding: 2px 8px;
   border-radius: 10px;
@@ -483,6 +496,11 @@
 .demo-lesson-restart-badge {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-muted, #a8b8cc);
+}
+
+.demo-lesson-updated-badge {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
 }
 
 /* ─── In-progress lesson state ───────────────────────────────── */
@@ -522,6 +540,21 @@
 .demo-category-tab.active .demo-category-count.all-done {
   background: rgba(34, 197, 94, 0.25);
   color: #22c55e;
+}
+
+.demo-category-count.has-updated {
+  position: relative;
+}
+
+.demo-category-updated-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  background: #f59e0b;
+  border-radius: 50%;
+  border: 1px solid var(--bg, #0f172a);
 }
 
 /* ─── Lesson row wrapper (item + reset zone side-by-side) ──────── */
@@ -864,6 +897,18 @@
 .demo-sidebar-nav-item.active .demo-sidebar-step-num {
   background: rgba(59, 130, 246, 0.2);
   color: var(--primary, #3b82f6);
+}
+
+.demo-sidebar-new-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  line-height: 1.3;
+  letter-spacing: 0.3px;
 }
 
 /* ─── Step Detail Panel (right side when a step is selected) ──── */

@@ -14,6 +14,7 @@ import {
   expandFirstFg,
   expandFirstScenario,
   spotlight,
+  spotlightSearchMatchGroups,
   fillSearchBar,
   clearSearchBar,
   closePopupModal,
@@ -79,7 +80,42 @@ function findTestCardInScenario(scenarioName: string, testName: string): HTMLEle
   const sc = findScenarioCardByName(scenarioName);
   if (!sc) return null;
   return Array.from(sc.querySelectorAll<HTMLElement>(HAR.TEST_CARD))
-    .find((card) => card.textContent?.includes(testName)) ?? null;
+    .find((card) => {
+      const name = card.querySelector('strong')?.textContent?.trim() ?? '';
+      return name === testName || card.textContent?.includes(testName);
+    }) ?? null;
+}
+
+/** Wait for a test card after Copy/Move (React re-render). */
+async function waitForTestCardInScenario(
+  ctx: DemoActionContext,
+  scenarioName: string,
+  testName: string,
+  attempts = 20,
+): Promise<HTMLElement | null> {
+  for (let i = 0; i < attempts; i++) {
+    const card = findTestCardInScenario(scenarioName, testName);
+    if (card) return card;
+    await ctx.delay(200);
+  }
+  return null;
+}
+
+/** Scroll to and spotlight a test card, re-querying so the ring is never on a stale node. */
+async function spotlightTestCardInScenario(
+  ctx: DemoActionContext,
+  scenarioName: string,
+  testName: string,
+  holdMs: number,
+): Promise<boolean> {
+  const card = await waitForTestCardInScenario(ctx, scenarioName, testName);
+  if (!card) return false;
+  card.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+  await ctx.delay(300);
+  const fresh = findTestCardInScenario(scenarioName, testName);
+  if (!fresh) return false;
+  await spotlight(fresh, holdMs, ctx);
+  return true;
 }
 
 /** Pick a CustomSelect option inside the open Copy/Move popup modal. */
@@ -231,7 +267,8 @@ export const thAdvancedSearchLesson: DemoLesson = {
       description:
         'The **search bar** filters the entire tree in real time. Type a term and only matching ' +
         'Feature Groups, scenarios, and tests remain visible — matches highlighted with an accent ' +
-        'border. Use **AND**, **OR**, **NOT**, and parentheses for precise filtering. The search ' +
+        'border. Use boolean operators for precise filtering — for example **`POST AND users`** ' +
+        'matches only tests that contain both terms. Parentheses and **NOT** work too. Search ' +
         'covers name, URL, method, headers, body, auth type, and tags.',
       highlight: HAR.SEARCH_INPUT,
       action: async (ctx) => {
@@ -245,23 +282,22 @@ export const thAdvancedSearchLesson: DemoLesson = {
           await ctx.delay(400);
         }
 
-        const userMatches = Array.from(
-          document.querySelectorAll<HTMLElement>(HAR.SEARCH_MATCH),
-        ).slice(0, 3);
-        for (const match of userMatches) {
-          await spotlight(match, 1500, ctx);
-          await ctx.delay(450);
-        }
+        // Spotlight each scenario's matches as one group (e.g. 3 User + 2 Admin)
+        await spotlightSearchMatchGroups(ctx, 2000);
 
         clearSearchBar();
         await ctx.delay(900); // show the full tree return before the boolean query
 
         // ── Boolean: "POST AND users" ────────────────────────────
-        const searchInput = document.querySelector<HTMLElement>(HAR.SEARCH_INPUT);
-        if (searchInput) await spotlight(searchInput, 1000, ctx);
-
         fillSearchBar('POST AND users');
-        await ctx.delay(1600);
+        await ctx.delay(700);
+
+        // Spotlight the query itself so viewers can read the AND expression
+        const searchInput = document.querySelector<HTMLElement>(HAR.SEARCH_INPUT);
+        if (searchInput) {
+          await spotlight(searchInput, 2400, ctx);
+          await ctx.delay(500);
+        }
 
         const booleanCount = document.querySelector<HTMLElement>(HAR.SEARCH_COUNT);
         if (booleanCount) {
@@ -269,13 +305,7 @@ export const thAdvancedSearchLesson: DemoLesson = {
           await ctx.delay(400);
         }
 
-        const postMatches = Array.from(
-          document.querySelectorAll<HTMLElement>(HAR.SEARCH_MATCH),
-        ).slice(0, 3);
-        for (const match of postMatches) {
-          await spotlight(match, 1600, ctx);
-          await ctx.delay(500);
-        }
+        await spotlightSearchMatchGroups(ctx, 2000);
 
         clearSearchBar();
         await ctx.delay(800);
@@ -433,7 +463,7 @@ export const thAdvancedSearchLesson: DemoLesson = {
         await expandScenarioByName(ctx, TH16_SC_ADMIN);
 
         // Skip re-move if a prior run already relocated Get User by ID into Admin Operations
-        let moved = findTestCardInScenario(TH16_SC_ADMIN, TH16_TEST_GET_USER);
+        const moved = findTestCardInScenario(TH16_SC_ADMIN, TH16_TEST_GET_USER);
         if (!moved) {
           await expandScenarioByName(ctx, TH16_SC_USER);
 
@@ -463,24 +493,18 @@ export const thAdvancedSearchLesson: DemoLesson = {
           }
         }
 
+        // Payoff: expand destination and ring the moved test (re-query after React updates)
         await expandFgByName(ctx, TH16_FG2_NAME);
         await expandScenarioByName(ctx, TH16_SC_ADMIN);
-        await ctx.delay(400);
+        await ctx.delay(500);
 
-        moved = findTestCardInScenario(TH16_SC_ADMIN, TH16_TEST_GET_USER);
-        if (moved) {
-          moved.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-          await spotlight(moved, 2400, ctx);
-          await ctx.delay(500);
-
-          const scHeader = findScenarioCardByName(TH16_SC_ADMIN)
-            ?.querySelector<HTMLElement>(HAR.SCENARIO_HEADER);
-          if (scHeader) {
-            await spotlight(scHeader, 1200, ctx);
-            await ctx.delay(300);
-          }
-          await spotlight(moved, 1600, ctx);
-        }
+        const highlighted = await spotlightTestCardInScenario(
+          ctx,
+          TH16_SC_ADMIN,
+          TH16_TEST_GET_USER,
+          2800,
+        );
+        if (highlighted) await ctx.delay(700);
       },
       preAction: async (ctx) => {
         await ensureTh16Ready(ctx);

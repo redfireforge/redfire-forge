@@ -108,6 +108,7 @@ export const WF = {
   WF_GQL_SUBSCRIPTION_ENDPOINT:'[data-testid="gql-wf-endpoint-input"]',
   NODE_START:          '.react-flow__node-start',
   NODE_END:            '.react-flow__node-end',
+  NODE_CORRELATION_WAIT: '.react-flow__node-correlationWait',
   NODE_LOOP:           '.react-flow__node-loop',
   NODE_FORK:           '.react-flow__node-fork',
   NODE_JOIN:           '.react-flow__node-join',

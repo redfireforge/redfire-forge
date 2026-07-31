@@ -734,6 +734,19 @@
   font-weight: 600;
   color: var(--text);
 }
+/* Primary action links (Import from URL, Bulk Edit) — must not look disabled */
+.btn-link-sm--action {
+  color: var(--primary);
+  font-weight: 500;
+}
+.btn-link-sm--action:hover {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--text);
+}
+.btn-link-sm--action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
 
 .params-actions {
   display: flex;
@@ -1075,6 +1088,39 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+.params-bulk-mode-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: 999px;
+  padding: 2px 8px;
+  letter-spacing: 0.02em;
+}
+
+.params-bulk-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.params-bulk-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.params-bulk-hint code {
+  font-size: 0.7rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
 .params-bulk-editor {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.84rem;
@@ -1082,13 +1128,22 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--bg);
   color: var(--text);
   resize: vertical;
+  min-height: 160px;
+  max-height: 320px;
 }
 .params-bulk-editor:focus {
   border-color: var(--primary);
   outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.params-bulk-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* ─── Path Params Editor ─── */
@@ -1497,10 +1552,13 @@
 /* Column resize handle */
 .data-source-col-resize {
   position: absolute;
-  right: -3px;
-  top: 0;
-  bottom: 0;
-  width: 7px;
+  right: -2px;
+  /* Keep the resize grabber near the title band so it doesn't sit on top
+     of the column-type select controls below. */
+  top: 1px;
+  bottom: auto;
+  height: 12px;
+  width: 4px;
   cursor: col-resize;
   background: transparent;
   transition: background 0.15s;
@@ -1517,6 +1575,8 @@
   gap: 3px;
   min-width: 120px;
   overflow: visible;
+  position: relative;
+  z-index: 3;
 }
 
 .data-source-col-title-row {
@@ -1559,6 +1619,8 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  position: relative;
+  z-index: 3;
 }
 .data-source-col-remove-btn {
   display: inline-flex;
@@ -2037,6 +2099,8 @@
 .data-source-col-type-select {
   flex: 1;
   min-width: 0;
+  position: relative;
+  z-index: 5;
 }
 .data-source-col-type-select .cs-trigger {
   font-size: 0.7rem;
@@ -2047,6 +2111,8 @@
   background: color-mix(in srgb, var(--bg) 70%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  z-index: 6;
 }
 .data-source-col-type-select .cs-trigger:hover {
   border-color: var(--primary);
@@ -2059,7 +2125,7 @@
   margin-left: 4px;
 }
 .data-source-col-type-select .cs-menu {
-  z-index: 1200;
+  z-index: 20000;
   min-width: 140px;
   max-height: none;
 }
@@ -5065,6 +5131,10 @@
   border-left: 3px solid var(--primary);
 }
 
+.test-def-version-item.current {
+  border-left: 3px solid var(--accent, #22c55e);
+}
+
 .test-def-version-item-check {
   display: flex;
   align-items: flex-start;
@@ -5092,6 +5162,14 @@
   gap: 6px;
 }
 
+.test-def-version-item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
 .test-def-version-item-label {
   font-size: 0.8rem;
   font-weight: 600;
@@ -5100,6 +5178,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: text;
+  min-width: 0;
+}
+
+.test-def-version-current-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent, #22c55e);
+  background: color-mix(in srgb, var(--accent, #22c55e) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #22c55e) 35%, transparent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
 }
 
 .test-def-version-label-input {
@@ -7283,18 +7375,7 @@
   justify-content: flex-end;
   gap: 8px;
 }
-.populate-api-mode-select {
-  font-size: 12px;
-  padding: 5px 8px;
-  border-radius: var(--radius-sm, 4px);
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-}
-.populate-api-mode-select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
+.populate-api-mode-select { /* box styling handled by CustomSelect */ }
 .populate-api-dedup-info {
   color: var(--accent);
   font-weight: 500;

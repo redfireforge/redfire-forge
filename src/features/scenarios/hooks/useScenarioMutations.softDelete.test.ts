@@ -30,6 +30,10 @@ vi.mock('../utils/testDefinitionVersioning', () => ({
   autoSaveVersion: vi.fn((t: Scenario) => t as unknown as TestDefinitionVersion[] | null),
 }));
 
+vi.mock('../../../shared/hooks/useToast', () => ({
+  useToast: () => ({ show: vi.fn(), dismiss: vi.fn() }),
+}));
+
 import {
   scenarioFixture,
   makeFg,

@@ -5,6 +5,7 @@ import { thAuthorTestsLesson } from './th-author-tests';
 import { thValidationAssertionsLesson } from './th-validation-assertions';
 import { thTestRunnerLesson } from './th-test-runner';
 import { thDataSourcesLesson } from './th-data-sources';
+import { thDataSourcesConvertLesson } from './th-data-sources-convert';
 import { thParameterizedRunnerLesson } from './th-parameterized-runner';
 import { thResultsAnalysisLesson } from './th-results-analysis';
 import { thLoadTestingLesson } from './th-load-testing';
@@ -29,6 +30,7 @@ export const harnessLessons: DemoLesson[] = [
   thValidationAssertionsLesson,
   thTestRunnerLesson,
   thDataSourcesLesson,
+  thDataSourcesConvertLesson,
   thParameterizedRunnerLesson,
   thResultsAnalysisLesson,
   thLoadTestingLesson,
