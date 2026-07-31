@@ -67,7 +67,7 @@ export function useScenarioMutations({
   const [editingFeatureAuth, setEditingFeatureAuth] = useState<string | null>(null);
   const [editingScenarioAuth, setEditingScenarioAuth] = useState<string | null>(null);
 
-  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new'; parameterized?: boolean } | null>(null);
+  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new'; parameterized?: boolean; openDataSourceWizard?: boolean } | null>(null);
   const [draft, setDraft] = useState<Scenario>(emptyTest());
   const [inputMode, setInputMode] = useState<TestEditorInputMode>('builder');
   const [activeTab, setActiveTab] = useState<TestEditorTab>('params');

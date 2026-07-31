@@ -14,6 +14,7 @@ import {
   expandFirstFg,
   expandFirstScenario,
   spotlight,
+  spotlightSel,
   findModeButton,
   closeExportPopover,
 } from './th-demo-helpers';
@@ -75,6 +76,14 @@ function closeDropdowns(): void {
   const wrapper = openDropdown.closest<HTMLElement>('.mode-btn-dropdown-wrapper');
   const trigger = wrapper?.querySelector<HTMLElement>(HAR.MODE_BTN);
   if (trigger) trigger.click();
+}
+
+function findAutoReportLabel(): HTMLElement | null {
+  const labels = document.querySelectorAll<HTMLElement>('.selection-actions .checkbox-label');
+  for (const label of labels) {
+    if (label.textContent?.includes('Auto-report')) return label;
+  }
+  return null;
 }
 
 /* ── lesson definition ──────────────────────────────────────── */
@@ -153,11 +162,33 @@ export const thImportExportCurlLesson: DemoLesson = {
       id: 'th15-curl-import',
       title: 'cURL Import',
       description:
-        'Switch to **cURL Import** mode in the test editor header to paste a cURL command. ' +
-        'The parser fills in **method**, **URL**, **headers**, and **body** automatically — ' +
-        'no manual field-by-field entry needed. Click **Import & Switch to Builder** to apply.',
-      highlight: HAR.CURL_MODE_PANEL,
+        'Start on the **Create User** test row — click **Edit** (the test action, not Import/Export).\n\n' +
+        'In the Test Editor header, switch to **cURL Import** and paste a command. The parser ' +
+        'fills in **method**, **URL**, **headers**, and **body** automatically. Then click ' +
+        '**Import & Switch to Builder** inside the cURL panel (not the top **Import** toolbar ' +
+        'button and not the **Import ▾** menu).',
+      highlight: HAR.TEST_EDIT_BTN,
       action: async (ctx) => {
+        if (!isEditorOpen()) {
+          const editBtn = document.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
+          if (editBtn) {
+            editBtn.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+            await spotlight(editBtn, 2000, ctx);
+            await ctx.delay(400);
+            editBtn.click();
+            await ctx.delay(700);
+          }
+        }
+
+        const curlModeBtn = findModeButton('cURL Import');
+        if (curlModeBtn) {
+          await spotlight(curlModeBtn, 900, ctx);
+          if (!curlModeBtn.classList.contains('active')) {
+            curlModeBtn.click();
+            await ctx.delay(500);
+          }
+        }
+
         const textarea = document.querySelector<HTMLTextAreaElement>(`${HAR.CURL_MODE_PANEL} textarea`);
         if (textarea) {
           await spotlight(textarea, 1000, ctx);
@@ -167,23 +198,32 @@ export const thImportExportCurlLesson: DemoLesson = {
 
         const importBtn = document.querySelector<HTMLElement>(`${HAR.CURL_MODE_PANEL} .btn-primary`);
         if (importBtn) {
-          await spotlight(importBtn, 800, ctx);
+          await spotlight(importBtn, 1200, ctx);
+          await ctx.delay(250);
           importBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(700);
         }
 
         const urlInput = document.querySelector<HTMLElement>(HAR.TE_URL_INPUT);
-        if (urlInput) await spotlight(urlInput, 1200, ctx);
+        if (urlInput) await spotlight(urlInput, 1000, ctx);
+
+        // Body tab opens automatically for JSON imports — show the pretty-printed payload
+        const bodyEditor = document.querySelector<HTMLElement>(
+          `${TEST_EDITOR_SEL} .body-code-textarea, ${TEST_EDITOR_SEL} textarea.body-code-textarea`,
+        );
+        if (bodyEditor) {
+          await spotlight(bodyEditor, 1600, ctx);
+          await ctx.delay(400);
+        }
       },
       preAction: async (ctx) => {
         await ensureTh15Ready(ctx);
         closeDropdowns();
         closeExportPopover();
-        await openTestEditor(ctx);
-        const curlBtn = findModeButton('cURL Import');
-        if (curlBtn && !curlBtn.classList.contains('active')) {
-          curlBtn.click();
-          await ctx.delay(400);
+        // Keep the test Edit button visible for the reading spotlight
+        if (isEditorOpen()) {
+          closeEditor();
+          await ctx.delay(300);
         }
       },
       verify: HAR.TE_URL_INPUT,
@@ -244,10 +284,13 @@ export const thImportExportCurlLesson: DemoLesson = {
       id: 'th15-editor-menus',
       title: 'Import & Export Menus',
       description:
-        'The **Import ▾** dropdown provides two paths: load a saved **Test Definition** (.json) ' +
-        'or import **Data Rows** (CSV/JSON) into the Data Source tab. The **Export ▾** dropdown ' +
-        'offers four options: **Test Definition**, **Excel Template** (.xlsx), and raw ' +
-        '**Data as CSV** or **Data as JSON** — giving you full control over what to share.',
+        'Still in the **Test Editor** toolbar: **Import ▾** and **Export ▾** sit next to ' +
+        'Builder / cURL.\n\n' +
+        '**Import ▾** can load a saved **Test Definition** (.json) or import **Data Rows** ' +
+        '(CSV/JSON) into the Data Source tab.\n\n' +
+        '**Export ▾** offers **Test Definition**, **Excel Template** (.xlsx), and raw ' +
+        '**Data as CSV** / **Data as JSON**.\n\n' +
+        'We stay in the editor for this step — Feature Group export comes next.',
       highlight: HAR.MODE_TOGGLE,
       action: async (ctx) => {
         const importTrigger = findModeButton('Import ▾');
@@ -272,8 +315,8 @@ export const thImportExportCurlLesson: DemoLesson = {
           await ctx.delay(400);
         }
 
-        closeEditor();
-        await ctx.delay(400);
+        // Leave the editor open — closing here jumped to Feature Groups with no explanation.
+        await spotlightSel(ctx, HAR.MODE_TOGGLE, 900);
       },
       preAction: async (ctx) => {
         await ensureTh15Ready(ctx);
@@ -282,7 +325,7 @@ export const thImportExportCurlLesson: DemoLesson = {
         if (!isEditorOpen()) await openTestEditor(ctx);
         await switchToBuilderMode(ctx);
       },
-      verify: HAR.FG_CARD,
+      verify: TEST_EDITOR_SEL,
     },
 
     // ── Step 4: FG Export with Version Options ───────────────────
@@ -290,12 +333,34 @@ export const thImportExportCurlLesson: DemoLesson = {
       id: 'th15-fg-export-versions',
       title: 'FG Export with Version Options',
       description:
-        'The **Export** button on a Feature Group card opens a **version options popover** when ' +
-        'version data exists. Checkboxes let you include or exclude **Response Versions**, ' +
-        '**Rules Versions**, **Definition Versions**, and **Structure History** — each showing ' +
-        'a count. Uncheck to reduce file size when sharing or archiving.',
-      highlight: HAR.EXPORT_POPOVER,
+        'On the **Import Export Demo** Feature Group row — the top card actions, not the ' +
+        'scenario, test, or toolbar — click **Export**.\n\n' +
+        'That button opens a **version options popover** when version data exists. Checkboxes ' +
+        'let you include or exclude **Response Versions**, **Rules Versions**, **Definition ' +
+        'Versions**, and **Structure History** — each showing a count. Uncheck to reduce file ' +
+        'size when sharing or archiving.',
+      highlight: HAR.FG_EXPORT_BTN,
       action: async (ctx) => {
+        if (isEditorOpen()) {
+          closeEditor();
+          await ctx.delay(500);
+        }
+
+        closeExportPopover();
+        await ctx.delay(200);
+
+        const fgExportBtn = document.querySelector<HTMLElement>(HAR.FG_EXPORT_BTN)
+          ?? document.querySelector<HTMLElement>('.feature-group-actions .export-opts-anchor .btn');
+
+        if (fgExportBtn) {
+          fgExportBtn.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+          // Hold long enough that the correct Export is unmistakable among the many on screen
+          await spotlight(fgExportBtn, 2400, ctx);
+          await ctx.delay(500);
+          fgExportBtn.click();
+          await ctx.delay(700);
+        }
+
         const popover = document.querySelector<HTMLElement>(HAR.EXPORT_POPOVER);
         if (popover) {
           await spotlight(popover, 1500, ctx);
@@ -311,23 +376,18 @@ export const thImportExportCurlLesson: DemoLesson = {
       },
       preAction: async (ctx) => {
         await ensureTh15Ready(ctx);
+        closeDropdowns();
+        closeExportPopover();
+        // Close editor quietly so the FG Export button is visible for the reading spotlight
         if (isEditorOpen()) {
           closeEditor();
           await ctx.delay(400);
         }
-
-        if (!document.querySelector(HAR.EXPORT_POPOVER)) {
-          const fgActions = document.querySelector<HTMLElement>('.feature-group-actions');
-          if (fgActions) {
-            const exportBtn = fgActions.querySelector<HTMLElement>('.export-opts-anchor .btn');
-            if (exportBtn) {
-              exportBtn.click();
-              await ctx.delay(500);
-            }
-          }
-        }
+        await expandFirstFg(ctx);
+        await expandFirstScenario(ctx);
+        await ctx.delay(200);
       },
-      verify: HAR.FG_CARD,
+      verify: HAR.FG_EXPORT_BTN,
     },
 
     // ── Step 5: Auto-Report Toggle ──────────────────────────────
@@ -341,38 +401,61 @@ export const thImportExportCurlLesson: DemoLesson = {
         'integration or sharing results with your team.',
       highlight: HAR.AUTO_REPORT_LABEL,
       action: async (ctx) => {
-        const labels = document.querySelectorAll<HTMLElement>('.selection-actions .checkbox-label');
-        let autoReportLabel: HTMLElement | null = null;
-        for (const label of labels) {
-          if (label.textContent?.includes('Auto-report')) {
-            autoReportLabel = label;
-            break;
-          }
+        const autoReportLabel = findAutoReportLabel();
+        if (!autoReportLabel) {
+          await spotlightSel(ctx, HAR.SCENARIO_SELECTOR, 900);
+          await ctx.delay(300);
+          return;
         }
-        if (!autoReportLabel) return;
 
         await spotlight(autoReportLabel, 1000, ctx);
 
         const checkbox = autoReportLabel.querySelector<HTMLInputElement>('input[type="checkbox"]');
-        if (checkbox && !checkbox.checked) {
+        if (checkbox) {
+          // Always create a visible interaction even when already enabled.
           checkbox.click();
-          await ctx.delay(600);
+          await ctx.delay(350);
+          if (!checkbox.checked) {
+            checkbox.click();
+            await ctx.delay(500);
+          }
         }
 
-        const formatSelect = autoReportLabel.querySelector<HTMLElement>('.custom-select');
+        const formatSelect = autoReportLabel.querySelector<HTMLElement>('.cs-wrapper, .custom-select');
         if (formatSelect) {
           await spotlight(formatSelect, 1000, ctx);
+
+          const trigger = formatSelect.querySelector<HTMLElement>('.cs-trigger') ?? formatSelect;
+          trigger.click();
+          await ctx.delay(300);
+
+          const menuItems = Array.from(document.querySelectorAll<HTMLElement>('body > .cs-menu .cs-item, body > .cs-menu [role="option"]'));
+          const jsonOption = menuItems.find((item) => item.textContent?.trim() === 'JSON')
+            ?? menuItems[1];
+          if (jsonOption) {
+            jsonOption.click();
+            await ctx.delay(400);
+          }
         }
       },
       preAction: async (ctx) => {
-        if (!document.querySelector(HAR.SCENARIO_SELECTOR)) {
-          ctx.navigateToTab('runner');
-          await ctx.delay(600);
-        }
         closeExportPopover();
         if (isEditorOpen()) {
           closeEditor();
-          await ctx.delay(300);
+          await ctx.delay(450);
+        }
+
+        // Move to Test Runner after editor closes; retry if another panel blocked the first attempt.
+        for (let i = 0; i < 3; i++) {
+          ctx.navigateToTab('runner');
+          await ctx.delay(450);
+          if (document.querySelector(HAR.SCENARIO_SELECTOR)) break;
+        }
+
+        // Ensure runner selector and auto-report control are present before interaction.
+        for (let i = 0; i < 14; i++) {
+          if (document.querySelector(HAR.SCENARIO_SELECTOR) && findAutoReportLabel()) break;
+          await ctx.delay(120);
         }
       },
       verify: HAR.SCENARIO_SELECTOR,

@@ -18,6 +18,7 @@ describe('useDemoHarnessBridge', () => {
       '__demoSelectEnvSvc',
       '__demoSeedTestRun',
       '__demoDeleteTestRuns',
+      '__demoHasTestRuns',
       '__demoSeedSharedDataSources',
       '__demoDeleteSharedDataSourcesByName',
     ];
@@ -43,6 +44,7 @@ describe('useDemoHarnessBridge', () => {
     expect(typeof w.__demoSelectEnvSvc).toBe('function');
     expect(typeof w.__demoSeedTestRun).toBe('function');
     expect(typeof w.__demoDeleteTestRuns).toBe('function');
+    expect(typeof w.__demoHasTestRuns).toBe('function');
     expect(typeof w.__demoSeedSharedDataSources).toBe('function');
     expect(typeof w.__demoDeleteSharedDataSourcesByName).toBe('function');
   });

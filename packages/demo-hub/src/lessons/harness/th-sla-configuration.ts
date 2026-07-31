@@ -10,9 +10,11 @@ import {
   seedDemoEnvAndService,
   seedTh13FeatureGroup,
   deleteTh13DemoFg,
+  clearRunnerSlaOverrides,
   ensureTh13FgExists,
   expandFirstFg,
   expandFirstScenario,
+  TH13_SC_NAME,
   spotlight,
   spotlightSel,
   findSlaButton,
@@ -28,7 +30,7 @@ async function ensureTh13Ready(ctx: DemoActionContext): Promise<void> {
   await ensureTh13FgExists(ctx);
   if (!document.querySelector(HAR.FG_CARD)) {
     ctx.navigateToTab('scenarios');
-    await ctx.delay(500);
+    await ctx.delay(300);
   }
   await expandFirstFg(ctx);
   await expandFirstScenario(ctx);
@@ -40,6 +42,106 @@ function isSlaModalOpen(): boolean {
 
 function isSlaOverrideOpen(): boolean {
   return !!document.querySelector(HAR.SLA_OVERRIDE_MODAL);
+}
+
+function hasAtLeastTwoSlaTargetsOnCard(): boolean {
+  const slaBtn = findSlaButton();
+  if (!slaBtn) return false;
+  const count = Number(slaBtn.textContent?.match(/\d+/)?.[0] ?? 0);
+  return count >= 2;
+}
+
+const TH13_PACE_MULTIPLIER = 1.0;
+const pace = (ms: number): number => Math.round(ms * TH13_PACE_MULTIPLIER);
+const TH13_HIGHLIGHT_SETTLE_MS = 220;
+
+async function spotlightWithPause(
+  ctx: DemoActionContext,
+  el: HTMLElement,
+  holdMs: number,
+): Promise<void> {
+  await spotlight(el, pace(holdMs), ctx);
+  await ctx.delay(pace(TH13_HIGHLIGHT_SETTLE_MS));
+}
+
+async function spotlightSelWithPause(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  await spotlightSel(ctx, selector, pace(holdMs));
+  await ctx.delay(pace(TH13_HIGHLIGHT_SETTLE_MS));
+}
+
+async function ensureTh13RunnerSelection(ctx: DemoActionContext): Promise<void> {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const root = document.querySelector<HTMLElement>(HAR.SCENARIO_SELECTOR);
+    if (!root) {
+      await ctx.delay(pace(100));
+      continue;
+    }
+
+    const scenarios = Array.from(root.querySelectorAll<HTMLElement>('.selection-scenario'));
+    if (scenarios.length === 0) {
+      await ctx.delay(pace(100));
+      continue;
+    }
+
+    const deselectBtn = Array.from(root.querySelectorAll<HTMLElement>('button'))
+      .find((b) => b.textContent?.trim() === 'Deselect All');
+    deselectBtn?.click();
+    await ctx.delay(pace(80));
+
+    const preferred = scenarios.find((row) =>
+      row.textContent?.toLowerCase().includes(TH13_SC_NAME.toLowerCase()),
+    );
+
+    const target = preferred ?? scenarios[0];
+    const cb = target?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (cb && !cb.checked) cb.click();
+    await ctx.delay(pace(140));
+
+    const hasSelectedScenario = !!root.querySelector('.selection-scenario input[type="checkbox"]:checked');
+    if (hasSelectedScenario) return;
+  }
+}
+
+async function ensureTh13SlaTargets(ctx: DemoActionContext): Promise<void> {
+  await ensureTh13Ready(ctx);
+
+  const slaBtn = findSlaButton();
+  if (!slaBtn) return;
+
+  slaBtn.click();
+  await ctx.delay(pace(280));
+
+  const addBtn = document.querySelector<HTMLElement>(HAR.SLA_ADD_BTN);
+  if (!addBtn) return;
+
+  // Remove any leftover targets from prior lesson runs so we always start clean.
+  let deleteBtns = document.querySelectorAll<HTMLElement>(HAR.SLA_DELETE_BTN);
+  while (deleteBtns.length > 0) {
+    deleteBtns[0].click();
+    await ctx.delay(pace(60));
+    deleteBtns = document.querySelectorAll<HTMLElement>(HAR.SLA_DELETE_BTN);
+  }
+
+  addBtn.click();
+  await ctx.delay(pace(160));
+  await selectSlaMetric(ctx, 0, 'P95 Response Time');
+  fillSlaInput(0, 0, '500');
+  fillSlaInput(0, 1, '300');
+  await ctx.delay(pace(120));
+
+  addBtn.click();
+  await ctx.delay(pace(160));
+  await selectSlaMetric(ctx, 1, 'Error Rate');
+  fillSlaInput(1, 0, '1');
+  fillSlaInput(1, 1, '0.5');
+  await ctx.delay(pace(120));
+
+  saveSlaModal();
+  await ctx.delay(pace(200));
 }
 
 /** Fill an SLA editor input by column index within a row. */
@@ -62,18 +164,24 @@ async function selectSlaMetric(ctx: DemoActionContext, rowIdx: number, label: st
   const rows = table.querySelectorAll<HTMLElement>('tbody tr');
   const row = rows[rowIdx];
   if (!row) return;
-  const select = row.querySelector<HTMLElement>(HAR.SLA_METRIC_SELECT);
-  if (!select) return;
-  select.click();
-  await ctx.delay(300);
+  const wrap = row.querySelector<HTMLElement>(HAR.SLA_METRIC_SELECT);
+  if (!wrap) return;
+  const trigger = wrap.querySelector<HTMLElement>('.cs-trigger') ?? wrap;
+  trigger.click();
+  await ctx.delay(pace(200));
 
-  const options = document.querySelectorAll<HTMLElement>('.custom-select-option');
-  for (const opt of options) {
-    if (opt.textContent?.trim() === label) {
-      opt.click();
-      await ctx.delay(200);
-      return;
-    }
+  // CustomSelect portals `.cs-menu` to document.body — options are not inside the row wrap.
+  const menu = document.querySelector<HTMLElement>('body > .cs-menu');
+  const options = Array.from(
+    (menu ?? document).querySelectorAll<HTMLElement>('.cs-item, [role="option"]'),
+  );
+  const option = options.find((opt) => {
+    const text = opt.textContent?.trim() ?? '';
+    return text === label || text.startsWith(label);
+  });
+  if (option) {
+    option.click();
+    await ctx.delay(pace(120));
   }
 }
 
@@ -131,6 +239,7 @@ export const thSlaConfigurationLesson: DemoLesson = {
   },
 
   setup: async (ctx) => {
+    clearRunnerSlaOverrides();
     deleteTh13DemoFg();
     await ctx.delay(200);
     await seedDemoEnvAndService(ctx);
@@ -146,6 +255,7 @@ export const thSlaConfigurationLesson: DemoLesson = {
     if (isSlaModalOpen()) closeSlaModal();
     if (isSlaOverrideOpen()) closeSlaOverrideModal();
     await ctx.delay(200);
+    clearRunnerSlaOverrides();
     deleteTh13DemoFg();
     await ctx.delay(200);
   },
@@ -156,26 +266,31 @@ export const thSlaConfigurationLesson: DemoLesson = {
       id: 'th13-open-sla-modal',
       title: 'The SLA Targets Modal',
       description:
-        'The **🎯** button on each test card opens the SLA Targets modal. SLA targets define ' +
-        'absolute acceptance criteria like "P95 must always be ≤ 500ms" or "error rate must be ' +
-        '≤ 1%" — these are hard contracts, not relative comparisons between runs.',
-      highlight: HAR.SLA_MODAL,
-      action: async (ctx) => {
-        const emptyHint = document.querySelector<HTMLElement>(HAR.SLA_EMPTY_HINT);
-        if (emptyHint) await spotlight(emptyHint, 1200, ctx);
-
-        const addBtn = document.querySelector<HTMLElement>(HAR.SLA_ADD_BTN);
-        if (addBtn) await spotlight(addBtn, 800, ctx);
-      },
+        'Look for the **🎯** button on each test card — that opens the SLA Targets modal.\n\n' +
+        'SLA targets define absolute acceptance criteria like "P95 must always be ≤ 500ms" ' +
+        'or "error rate must be ≤ 1%" — hard contracts, not relative comparisons between runs.',
+      highlight: HAR.TEST_SLA_BTN,
       preAction: async (ctx) => {
         await ensureTh13Ready(ctx);
         if (isSlaModalOpen()) closeSlaModal();
         await ctx.delay(100);
+      },
+      action: async (ctx) => {
+        // Reading ring already on 🎯 — click without re-spotlighting
         const slaBtn = findSlaButton();
         if (slaBtn) {
+          slaBtn.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+          await ctx.delay(pace(280));
           slaBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(pace(500));
         }
+
+        await ctx.waitFor(HAR.SLA_MODAL);
+        await spotlightSelWithPause(ctx, HAR.SLA_MODAL, 900);
+        await ctx.delay(pace(200));
+
+        const addBtn = document.querySelector<HTMLElement>(HAR.SLA_ADD_BTN);
+        if (addBtn) await spotlightWithPause(ctx, addBtn, 800);
       },
       verify: HAR.SLA_MODAL,
     },
@@ -195,40 +310,49 @@ export const thSlaConfigurationLesson: DemoLesson = {
 
         if (addBtn) {
           addBtn.click();
-          await ctx.delay(500);
+          await ctx.delay(pace(280));
         }
 
         const firstRow = document.querySelector<HTMLElement>(`${HAR.SLA_TABLE} tbody tr`);
-        if (firstRow) await spotlight(firstRow, 1200, ctx);
+        if (firstRow) await spotlightWithPause(ctx, firstRow, 700);
 
         await selectSlaMetric(ctx, 0, 'P95 Response Time');
-        await ctx.delay(400);
+        await ctx.delay(pace(200));
         fillSlaInput(0, 0, '500');
-        await ctx.delay(300);
+        await ctx.delay(pace(160));
         fillSlaInput(0, 1, '300');
-        await ctx.delay(500);
+        await ctx.delay(pace(240));
 
         const operator = document.querySelector<HTMLElement>(HAR.SLA_OPERATOR);
-        if (operator) await spotlight(operator, 800, ctx);
+        if (operator) await spotlightWithPause(ctx, operator, 500);
 
         if (addBtn) {
           addBtn.click();
-          await ctx.delay(400);
+          await ctx.delay(pace(220));
         }
         await selectSlaMetric(ctx, 1, 'Error Rate');
-        await ctx.delay(300);
+        await ctx.delay(pace(160));
         fillSlaInput(1, 0, '1');
-        await ctx.delay(200);
+        await ctx.delay(pace(120));
         fillSlaInput(1, 1, '0.5');
-        await ctx.delay(500);
+        await ctx.delay(pace(280));
 
+        // Pause on both configured rows before closing — viewer absorbs the contract
         const rows = document.querySelectorAll<HTMLElement>(`${HAR.SLA_TABLE} tbody tr`);
-        if (rows.length > 0) {
-          await spotlight(rows[rows.length - 1], 800, ctx);
+        if (rows[0]) {
+          await spotlightWithPause(ctx, rows[0], 1200);
+          await ctx.delay(pace(400));
         }
+        if (rows[1]) {
+          await spotlightWithPause(ctx, rows[1], 1200);
+          await ctx.delay(pace(500));
+        }
+        const table = document.querySelector<HTMLElement>(HAR.SLA_TABLE);
+        if (table) await spotlightWithPause(ctx, table, 900);
+        await ctx.delay(pace(400));
 
         saveSlaModal();
-        await ctx.delay(500);
+        await ctx.delay(pace(280));
       },
       preAction: async (ctx) => {
         await ensureTh13Ready(ctx);
@@ -236,7 +360,7 @@ export const thSlaConfigurationLesson: DemoLesson = {
           const slaBtn = findSlaButton();
           if (slaBtn) {
             slaBtn.click();
-            await ctx.delay(600);
+            await ctx.delay(pace(280));
           }
         }
       },
@@ -254,24 +378,24 @@ export const thSlaConfigurationLesson: DemoLesson = {
       highlight: HAR.SLA_SUMMARY_PANEL,
       action: async (ctx) => {
         const slaBtn = findSlaButton();
-        if (slaBtn) await spotlight(slaBtn, 800, ctx);
+        if (slaBtn) await spotlightWithPause(ctx, slaBtn, 500);
 
         const panel = document.querySelector<HTMLElement>(HAR.SLA_SUMMARY_PANEL);
         if (panel) {
           panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          await ctx.delay(400);
+          await ctx.delay(pace(220));
 
           const header = panel.querySelector<HTMLElement>('.scenario-sla-panel-header');
           if (header) {
             const expanded = header.getAttribute('aria-expanded');
             if (expanded === 'false') {
               header.click();
-              await ctx.delay(400);
+              await ctx.delay(pace(220));
             }
           }
 
           const table = panel.querySelector<HTMLElement>(HAR.SLA_SUMMARY_TABLE);
-          if (table) await spotlight(table, 1500, ctx);
+          if (table) await spotlightWithPause(ctx, table, 900);
         }
       },
       preAction: async (ctx) => {
@@ -304,70 +428,67 @@ export const thSlaConfigurationLesson: DemoLesson = {
       verify: HAR.SLA_SUMMARY_PANEL,
     },
 
-    // ── Step 4: Runner SLA Override Trigger ───────────────────────
+    // ── Step 4: Runner SLA Override + Create Override ─────────────
     {
       id: 'th13-runner-trigger',
-      title: 'Runner SLA Override',
+      title: 'Runner SLA Override & Create Override',
       description:
         'The **🎯 SLA Override** trigger bar on the Test Runner shows how many targets are ' +
         'configured and how many overrides are active. Click **Configure** to open the override ' +
-        'modal — runner overrides are temporary, applying only to the current run.',
+        'modal, then click **Override** on a configured target to clone it into the overrides ' +
+        'section with editable thresholds. Runner overrides are temporary and apply only to the current run.',
       highlight: HAR.SLA_TRIGGER,
       action: async (ctx) => {
-        await spotlightSel(ctx, HAR.SLA_TRIGGER, 1200);
+        if (!document.querySelector(HAR.SLA_TRIGGER)) {
+          await ensureTh13RunnerSelection(ctx);
+          await ctx.delay(pace(140));
+        }
+
+        await spotlightSelWithPause(ctx, HAR.SLA_TRIGGER, 700);
 
         const configBtn = document.querySelector<HTMLElement>(HAR.SLA_TRIGGER_BTN);
         if (configBtn) {
-          await spotlight(configBtn, 800, ctx);
+          await spotlightWithPause(ctx, configBtn, 500);
           configBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(pace(320));
         }
 
         const modal = document.querySelector<HTMLElement>(HAR.SLA_OVERRIDE_MODAL);
-        if (modal) await spotlight(modal, 1200, ctx);
-      },
-      preAction: async (ctx) => {
-        if (isSlaModalOpen()) closeSlaModal();
-        if (isSlaOverrideOpen()) closeSlaOverrideModal();
-        await ctx.delay(100);
-        ctx.navigateToTab('runner');
-        await ctx.delay(600);
-      },
-      verify: HAR.SLA_TRIGGER,
-    },
-
-    // ── Step 5: Create an Override ────────────────────────────────
-    {
-      id: 'th13-override-target',
-      title: 'Create an Override',
-      description:
-        'Click **Override** on a target to clone it into the overrides section with the metric ' +
-        'locked but thresholds editable. This lets you experiment with tighter thresholds ' +
-        'without editing the test definition — overrides apply only to the current run.',
-      highlight: HAR.SLA_OVERRIDE_MODAL,
-      action: async (ctx) => {
-        const modal = document.querySelector<HTMLElement>(HAR.SLA_OVERRIDE_MODAL);
         if (!modal) return;
+        await spotlightWithPause(ctx, modal, 700);
 
         const defsToggle = modal.querySelector<HTMLElement>('.sla-defs-toggle');
         if (defsToggle) {
           const chevron = defsToggle.querySelector('.sla-chevron');
           if (chevron?.textContent?.trim() === '▼') {
             defsToggle.click();
-            await ctx.delay(400);
+            await ctx.delay(pace(220));
           }
         }
 
         const overrideBtns = modal.querySelectorAll<HTMLElement>('.sla-btn-override');
         if (overrideBtns.length > 0) {
-          await spotlight(overrideBtns[0], 800, ctx);
+          await spotlightWithPause(ctx, overrideBtns[0], 500);
           overrideBtns[0].click();
-          await ctx.delay(600);
+          await ctx.delay(pace(500));
+        }
+
+        // Let the viewer absorb the cloned override row before closing
+        const overriddenBadge = modal.querySelector<HTMLElement>('.sla-btn-overridden');
+        if (overriddenBadge) {
+          await spotlightWithPause(ctx, overriddenBadge, 900);
+        }
+
+        const overrideRow = modal.querySelector<HTMLElement>('.sla-ovr-table tbody tr');
+        if (overrideRow) {
+          await spotlightWithPause(ctx, overrideRow, 1400);
+          await ctx.delay(pace(400));
         }
 
         const overrideSection = modal.querySelector<HTMLElement>('.sla-overrides-section');
         if (overrideSection) {
-          await spotlight(overrideSection, 1000, ctx);
+          await spotlightWithPause(ctx, overrideSection, 1200);
+          await ctx.delay(pace(350));
         }
 
         const footerActions = modal.querySelector<HTMLElement>('.sla-modal-footer-actions');
@@ -377,22 +498,23 @@ export const thSlaConfigurationLesson: DemoLesson = {
             if (btn.textContent?.trim() === 'Save') { btn.click(); break; }
           }
         }
-        await ctx.delay(400);
+        await ctx.delay(pace(220));
 
         const trigger = document.querySelector<HTMLElement>(HAR.SLA_TRIGGER);
-        if (trigger) await spotlight(trigger, 800, ctx);
+        if (trigger) await spotlightWithPause(ctx, trigger, 500);
       },
       preAction: async (ctx) => {
         if (isSlaModalOpen()) closeSlaModal();
-        if (!isSlaOverrideOpen()) {
-          ctx.navigateToTab('runner');
-          await ctx.delay(500);
-          const configBtn = document.querySelector<HTMLElement>(HAR.SLA_TRIGGER_BTN);
-          if (configBtn) {
-            configBtn.click();
-            await ctx.delay(600);
-          }
+        if (isSlaOverrideOpen()) closeSlaOverrideModal();
+        clearRunnerSlaOverrides();
+        if (!hasAtLeastTwoSlaTargetsOnCard()) {
+          await ensureTh13SlaTargets(ctx);
         }
+        await ctx.delay(60);
+        ctx.navigateToTab('runner');
+        await ctx.delay(pace(280));
+        await ensureTh13RunnerSelection(ctx);
+        await ctx.delay(pace(220));
       },
       verify: HAR.SLA_TRIGGER,
     },

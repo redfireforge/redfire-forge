@@ -37,7 +37,7 @@ interface SharedDataSourceModalProps {
   onClose: () => void;
   initialSelectedId?: string;
   currentEditingDraft?: { fgName: string; scenarioName: string; test: Scenario };
-  onCreateTestFromSharedDs?: (sharedDs: SharedDataSource, targetFgId: string, targetScenarioId: string, testName: string) => void;
+  onCreateTestFromSharedDs?: (sharedDs: SharedDataSource, targetFgId: string, targetScenarioId: string, testName: string, openWizard?: boolean) => void;
   moveToTrash?: import('../hooks/useTrash').MoveToTrashFn;
 }
 
@@ -462,6 +462,18 @@ export default function SharedDataSourceModal({
             <>
               <div style={{ flex: 1 }} />
               <button className="btn" onClick={() => setShowCreateTestModal(false)}>Cancel</button>
+              <button
+                className="btn"
+                disabled={!createTestName.trim() || !createTestTargetFgId || !createTestTargetScId}
+                onClick={() => {
+                  onCreateTestFromSharedDs(selected, createTestTargetFgId, createTestTargetScId, createTestName.trim(), true);
+                  setShowCreateTestModal(false);
+                  onClose();
+                }}
+                title="Create the test, then immediately open the Configure wizard to review path variables and columns"
+              >
+                Create + Open Parameterize Wizard
+              </button>
               <button
                 className="btn btn-primary"
                 disabled={!createTestName.trim() || !createTestTargetFgId || !createTestTargetScId}
