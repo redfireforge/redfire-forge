@@ -66,7 +66,7 @@ export interface ScenarioBuilderModalsProps {
   handleVersionRestore: (version: TestDefinitionVersion) => void;
   handleVersionDelete: (versionId: string) => void;
   handleVersionRename: (versionId: string, label: string) => void;
-  handleCreateParameterizedCopy: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
+  handleCreateParameterizedCopy: (copy: Scenario, targetFgId?: string, targetScenarioId?: string, newScenarioName?: string) => void;
   handlePromoteToShared: (dataSource: DataSource, name: string, tags?: string[], fetchConfig?: { url: string; method: string; headers: KeyValue[]; auth?: AuthConfig }) => string;
   onOpenSharedDsModal: () => void;
 

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import SetupStepReview from './SetupStepReview';
 import type { SetupStepReviewProps } from './SetupStepReview';
 
@@ -185,7 +185,7 @@ describe('SetupStepReview', () => {
     expect(screen.queryByText('Feature Group')).not.toBeInTheDocument();
   });
 
-  it('does not reset scenario when new feature group has no scenarios', () => {
+  it('resets scenario to CREATE_NEW when new feature group has no parameterized scenarios', () => {
     const setTargetFgId = vi.fn();
     const setTargetScenarioId = vi.fn();
     const fgA = { id: 'fg-a', name: 'A', scenarios: [{ id: 's1', name: 'S1', tests: [] }] };
@@ -205,7 +205,8 @@ describe('SetupStepReview', () => {
     );
     selectOptionByIndex(document.body, 0, 'B');
     expect(setTargetFgId).toHaveBeenCalledWith('fg-b');
-    expect(setTargetScenarioId).not.toHaveBeenCalled();
+    // Component always resets to CREATE_NEW when no parameterized scenario found
+    expect(setTargetScenarioId).toHaveBeenCalledWith('__new__');
   });
 
   it('hides file location tree when targetFg or targetScenario missing', () => {
@@ -216,11 +217,12 @@ describe('SetupStepReview', () => {
     expect(screen.queryByText('File Location')).not.toBeInTheDocument();
   });
 
-  it('resets scenario when feature group changes', () => {
+  it('resets scenario when feature group changes to one with a parameterized scenario', () => {
     const setTargetFgId = vi.fn();
     const setTargetScenarioId = vi.fn();
     const fgA = { id: 'fg-a', name: 'A', scenarios: [{ id: 's1', name: 'S1', tests: [] }] };
-    const fgB = { id: 'fg-b', name: 'B', scenarios: [{ id: 's2', name: 'S2', tests: [] }] };
+    // fgB has a parameterized scenario so firstParam.id branch is taken (line 91)
+    const fgB = { id: 'fg-b', name: 'B', scenarios: [{ id: 's2', name: 'S2', tests: [], kind: 'parameterized' as const }] };
     render(
       <SetupStepReview
         {...createDefaultProps({
@@ -236,17 +238,20 @@ describe('SetupStepReview', () => {
     );
     selectOptionByIndex(document.body, 0, 'B');
     expect(setTargetFgId).toHaveBeenCalledWith('fg-b');
+    // firstParam.id branch: resets to the first parameterized scenario's id
     expect(setTargetScenarioId).toHaveBeenCalledWith('s2');
   });
 
-  it('updates scenario from scenario select', () => {
+  it('updates scenario from scenario select (paramScenarios map callback + onChange)', () => {
     const setTargetScenarioId = vi.fn();
     const fg = {
       id: 'fg-1',
       name: 'FG',
+      // Both scenarios have kind: 'parameterized' so they appear in the dropdown
+      // This exercises the paramScenarios.map() callback (line 54) and onChange (line 101)
       scenarios: [
-        { id: 'sc-1', name: 'Scenario 1', tests: [] },
-        { id: 'sc-2', name: 'Scenario 2', tests: [] },
+        { id: 'sc-1', name: 'Scenario 1', tests: [], kind: 'parameterized' as const },
+        { id: 'sc-2', name: 'Scenario 2', tests: [], kind: 'parameterized' as const },
       ],
     };
     render(
@@ -263,5 +268,24 @@ describe('SetupStepReview', () => {
     );
     selectOptionByIndex(document.body, 1, 'Scenario 2');
     expect(setTargetScenarioId).toHaveBeenCalledWith('sc-2');
+  });
+
+  it('shows new scenario name input when targetScenarioId is __new__ (isCreatingNew branch + onChange)', () => {
+    const setNewScenarioName = vi.fn();
+    render(
+      <SetupStepReview
+        {...createDefaultProps({
+          targetScenarioId: '__new__',
+          newScenarioName: '',
+          setNewScenarioName,
+        })}
+      />,
+    );
+    // isCreatingNew = true → input renders (line 106)
+    const input = screen.getByTestId('param-new-scenario-name-input');
+    expect(input).toBeInTheDocument();
+    // Fire change to cover line 113: onChange={(e) => setNewScenarioName(e.target.value)}
+    fireEvent.change(input, { target: { value: 'My Suite' } });
+    expect(setNewScenarioName).toHaveBeenCalledWith('My Suite');
   });
 });

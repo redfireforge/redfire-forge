@@ -47,7 +47,7 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | TH-6 | `th-parameterized-runner` | The Parameterized Runner | 8 | 9 min | Parameterized Runner tab, scenario filter, row count badges, execution plan (iterations × rows), tag filter, run, per-row live progress, re-run failed rows, data row results analysis |
 | TH-7 | `th-results-analysis` | Results & Analysis | 6 | 6 min | Results Dashboard, metrics cards, waterfall, grouping, SLA, baselines, run comparison, export |
 | TH-8 | `th-load-testing` | Load Profiles & Performance | 5 | 5 min | Load profile modes (ramp-up, sustained, spike), constant arrival rate, think time, error policies, performance regression |
-| TH-9 | `th-advanced-features` | Advanced: Versioning, Trash & Organization | 5 | 5 min | Test versioning, tags, structure log, Trash/Undo, search, move/copy |
+| TH-9 | `th-advanced-features` | Advanced: Versioning, Trash & Organization | 5 | 6 min | Test versioning + compare, tags, structure log, Trash/Undo, search, move/copy |
 | TH-10 | `th-assertions-deep-dive` | Assertions Deep Dive | 7 | 8 min | All 6 assertion categories (Response, Field, Array, Schema, WS, Kafka), NOT modifier, 24+ types, Presets, Generate from Response, Regex Builder |
 | TH-11 | `th-data-mapper-validation` | Data Mapper for Validation | 8 | 9 min | Source/Target panels, auto-map (coverage %), drag-to-map, operator pills, custom predicates, Code/Preview/Table/Rules views, subtree ops, Verify All, Fetch & Verify |
 | TH-12 | `th-validation-versioning` | Validation Versioning | 6 | 6 min | Response Versions (save/preview/restore/delete/compare), Rules Versions, version badges, version diff, baseline tracking |
@@ -59,7 +59,7 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | TH-18 | `th-data-source-advanced` | Data Source Advanced Features | 5 | 6 min | Validate column, row detail modal, verify all modal, validation contract panel, Data Mapper integrations, row distribution and validation modes |
 | TH-19 | `th-schema-drift-repair` | Schema Drift & Contract Testing | 6 | 6 min | Schema snapshots, drift detection (added/removed/type changes), severity classification, drift banner, diff modal with repair suggestions, schema contract modes (strict/lenient lock), mapping health dashboard |
 | TH-20 | `th-baseline-regression` | Baseline & Regression Analysis | 6 | 6 min | Baseline management (mark/unmark/rename/list), regression thresholds (configurable warn/critical), regression status per run, trend charts, per-scenario trends, comparison report export (JSON/Markdown), overlay histograms |
-| TH-21 | `th-workflow-runner` | The Workflow Runner | 7 | 8 min | Workflow picker (searchable tree), variables editor, trace options, run config presets (save/load), correlation wait config, multi-webhook testing panel, webhook load driver, live progress |
+| TH-21 | `th-workflow-runner` | The Workflow Runner | 6 | 6 min | Designer canvas tour + Run in Harness promote, workflow picker, variables editor, trace options, correlation wait config, live progress |
 | **Total** | | | **144** | **~150 min** | |
 
 ---
@@ -332,7 +332,7 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | Field | Value |
 |---|---|
 | `id` | `th-advanced-features` |
-| `estimatedMinutes` | 5 |
+| `estimatedMinutes` | 6 |
 | Steps | 5 |
 | `initialTab` | `scenarios` |
 | `allowedTabs` | `['scenarios']` |
@@ -353,11 +353,11 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th9-search` | Search & Filter | `.builder-search-wrapper` | Spotlight the **Search Bar** at top of the Feature Groups tree → type "user" → spotlight the **match count** `.builder-search-count` and test cards with `.search-match` highlight (1500ms, explain: search matches test name, URL, method, and scenario tags) → clear the search → tree restores to full view |
+| 1 | `th9-search` | Search & Filter | `.builder-search-wrapper` | Spotlight the **Search Bar** → type "user" → spotlight the **match count** → spotlight each **scenario's matching tests as one group** (not per-card) → clear the search → tree restores to full view |
 | 2 | `th9-tags` | Scenario Tags | `.scenario-tag-pill` | Spotlight the seeded scenario's existing **smoke** tag pill (1200ms) → click the **+** button (`.scenario-tag-add-btn`) → type "regression" in the inline input → press Enter → spotlight the new tag pill appearing (1000ms, explain: tags organize scenarios for filtered runs in the Parameterized Runner and are searchable) |
-| 3 | `th9-versioning` | Test Definition Versions | `[data-testid="version-history-panel"]` | Open the seeded test (click Edit) → click the **History** tab → spotlight the **version list** with 2 entries showing timestamps and change summaries (1500ms) → spotlight the **↩ Restore** button on the older version (1000ms, explain: Restore loads that snapshot into the editor draft — you must Save to persist) → close the editor |
-| 4 | `th9-delete-undo` | Delete & Undo | `.trash-toast` | Click the **Delete** button on a test card → confirm in the dialog → spotlight the **Undo Toast** with its 5-second countdown bar (1500ms, explain: you have 5 seconds to undo before the item moves to Trash) → click **Undo** → test reappears in its original location |
-| 5 | `th9-trash-panel` | The Trash Panel | `.trash-panel-modal` | Delete a different test → let the undo toast expire → spotlight the **Trash** button in the header showing count badge (1200ms) → click it → Trash Panel opens → spotlight the deleted item row with Restore and Permanent Delete buttons (1500ms) → click **Restore** → item returns to tree → close Trash panel |
+| 3 | `th9-versioning` | Test Definition Versions | `[data-testid="version-history-panel"]` | Open the seeded test (click Edit) → click the **History** tab → spotlight the **version panel** once (do not pre-spotlight each row) → select both version **checkboxes** → spotlight **Compare** → click it → tour the **Definition Comparison** modal (Overview diff rows for name/URL, then **Headers** tab for the Accept header) → close Compare → **Clear selection** → spotlight older version **↩ Restore** → toast → close the editor |
+| 4 | `th9-delete-undo` | Delete & Undo | `.trash-toast` | Click the **Delete** button on a test card → confirm in the dialog → spotlight the **Undo Toast** with its 5-second countdown bar → spotlight the **Undo** button on the toast → click **Undo** → test reappears in its original location |
+| 5 | `th9-trash-panel` | The Trash Panel | `[data-testid="har-trash-btn"]` | Reading spotlights **Trash** → Acting clicks it immediately (no re-highlight) → prefer a **TEST** trash row → spotlight **Permanent Delete** then **Restore** → click **Restore** → Retention menu → **Empty Trash** confirm → Cancel → close Trash → expand the tree and spotlight the **restored test** back in Feature Groups. Seed ≥2 trash items quietly in `preAction`. |
 
 **Cleanup:** Restore any trashed items, remove added tags, delete seeded FG.
 
@@ -615,10 +615,10 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th16-search-filter` | Search & Boolean Operators | `HAR.SEARCH_INPUT` | Spotlight the **Search bar** (`.builder-search-input`, 800ms) → type "user" → spotlight the tree filtering: only matching items visible, tests highlighted with `.search-match` accent border (1200ms) → spotlight the **match count** badge (`.builder-search-count`, 800ms) → clear → type `POST AND users` → spotlight results filtering to POST tests with "users" (1200ms, explain: search uses boolean AND/OR/NOT with parentheses, searching across name, URL, method, headers, body, auth type, and tags) → clear search |
+| 1 | `th16-search-filter` | Search & Boolean Operators | `HAR.SEARCH_INPUT` | Spotlight the **Search bar** → type "user" → spotlight match count → spotlight each **scenario group** of matches as one ring (User Endpoints ×3, Admin Operations ×2) — not individual test cards → clear → type `POST AND users` → **spotlight the search input showing that query** → spotlight match count → spotlight matching scenario group(s) → clear search |
 | 2 | `th16-search-help` | Search Syntax Help Panel | `.search-help` | Spotlight the **?** help icon button (800ms) → click to open the syntax help panel → spotlight the panel showing: substring, "exact phrase", AND/OR/NOT, grouping with parentheses, `-term` exclusion (1200ms) → close the help panel |
 | 3 | `th16-copy-test` | Copy Test to Another Scenario | `.popup-modal` | Spotlight the **Copy** button on a test card (`.test-card-actions`, 800ms) → click to open the **Copy Test To...** modal → spotlight the modal with FG and Scenario dropdowns (1200ms, explain: copy creates an independent duplicate in the target location — changes to the copy don't affect the original) → close the modal |
-| 4 | `th16-move-test` | Move Test Between Scenarios | `.popup-modal` | Spotlight the **Move** button on a test card (800ms) → click to open the **Move Test** modal → spotlight the Target Feature Group dropdown and Target Scenario dropdown (1200ms, explain: move relocates the test permanently — the original location loses it. This is useful for reorganizing as your suite grows) → close the modal |
+| 4 | `th16-move-test` | Move Test Between Scenarios | `.popup-modal` | Spotlight **Move** on **Get User by ID** → open **Move Test** modal → choose **Admin API Tests** → **Admin Operations** → confirm **Move** → expand Admin destination → scroll to and spotlight the **moved test card** (payoff; wait for React re-render) |
 | 5 | `th16-test-actions` | Test Card Action Bar | `.test-card-actions` | Spotlight the full action bar on a test card showing all available actions: **Edit**, **Copy**, **Move**, **Export**, **Delete** (1500ms, explain: every test card has inline action buttons for quick access. The drag handle ⠿ on the left lets you reorder tests within a scenario or drag between scenarios and Feature Groups) → spotlight the drag handle (`.drag-handle`, 800ms) |
 
 **Cleanup:** Clear search. Close any open modals. Delete seeded FGs.
@@ -734,7 +734,7 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
 | 1 | `th20-baseline-list` | Baseline List & Management | `HAR.TAB_ANALYSIS` | Navigate to Comparison & Trends tab → spotlight the **Baseline List Panel** in the sidebar (1200ms): shows the pre-marked baseline with ★ star, label, and timestamp → spotlight the **Rename** action (click label to edit inline) and **Unmark** button → spotlight the **Set Compare Target** button that opens the CompareActionModal (1000ms, explain: baselines are named reference points stored in the sidebar — rename them for clarity, unmark when no longer needed, and set them as the comparison target for side-by-side analysis) |
-| 2 | `th20-thresholds` | Regression Thresholds | `.thresholds-panel` | Spotlight the **Regression Thresholds Panel** in the sidebar (1200ms) — 7 configurable metrics: Avg, P50, P95, P99, P99.9 (% change), TPS drop (%), Error Rate (absolute pp) → spotlight the P95 input and explain the 2× critical multiplier (800ms, explain: set a warning threshold per metric — critical fires at 2× that value; e.g. P95 warn 10% means critical at 20% — tailor to your API's tolerance) → spotlight Save/Cancel actions (600ms) |
+| 2 | `th20-thresholds` | Regression Thresholds | `.thresholds-panel` | **Setup:** every step `preAction` requires 2 TH-20 runs + Fast/Slow baselines (`ensureTh20RunsExist` re-seeds after accidental delete; Results reloads runs **and** baselines on `demo-test-runs-changed`). Spotlight the **Regression Thresholds Panel** (1200ms) — 7 metrics with 2× critical multiplier → Save/Cancel (600ms) |
 | 3 | `th20-comparison` | Run Comparison Panel | `.run-comparison-panel` | Spotlight the **comparison toolbar**: mode badge (Baseline/Ad-hoc) + compare dropdown (1000ms) → the comparison auto-selects the baseline run → spotlight the **Run Comparison Panel** (1500ms): side-by-side metrics table with Baseline vs Current columns, delta % with color-coded indicators (green OK / amber warn / red critical) → spotlight the **sub-tabs**: Overview, Per-Scenario, Regressions, Distribution (1000ms, explain: the comparison panel evaluates every metric's delta against your configured thresholds and color-codes results at a glance) |
 | 4 | `th20-trends` | Trend Chart | `.trend-chart-container` | Spotlight the **Show Trend** button in the toolbar (800ms) → click to enable → spotlight the **multi-run trend chart** (1500ms): X-axis = runs over time, Y-axis = selected metric, baseline runs shown as larger orange dots → spotlight the **per-scenario tab** inside the trend chart (1000ms) → spotlight the **scope filter** dropdown: All runs / By service / By service+env (800ms, explain: trends visualize performance over time — baseline runs are highlighted so you can see regression patterns across multiple releases) |
 | 5 | `th20-export` | Export Comparison Report | `.run-comparison-export-btn` | Spotlight the **Export ▾** button in the comparison panel (800ms) → spotlight the dropdown menu with **JSON** and **Markdown** format options (1000ms, explain: comparison reports capture the baseline vs current analysis as a shareable document — JSON for CI pipelines, Markdown for PR reviews — includes summary table, per-scenario deltas, and threshold violations) |
@@ -745,17 +745,17 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 ## TH-21: The Workflow Runner
 
-**Goal:** Run workflows as performance tests — select a workflow, configure variables, set trace level, manage variable presets, explore execution config, and learn about CorrelationWait support.
+**Goal:** See a workflow on the Designer canvas, promote it with **Run in Harness**, then configure variables, trace level, presets, and CorrelationWait support — and run it.
 
 | Field | Value |
 |---|---|
 | `id` | `th-workflow-runner` |
-| `estimatedMinutes` | 5 |
-| Steps | 5 |
-| `initialTab` | `workflow-runner` |
-| `allowedTabs` | `['workflow-runner']` |
+| `estimatedMinutes` | 6 |
+| Steps | 6 |
+| `initialTab` | `workflow` |
+| `allowedTabs` | `['workflow', 'workflow-runner']` |
 
-**Prerequisite:** At least 1 workflow in the user's workflow list (seeded via demo bridge or gallery samples available). No live execution — focuses on UI tour and configuration.
+**Prerequisite:** Seeded `Workflow Runner Demo` workflow (Designer + Runner). Step 6 performs a real runner click so viewers see progress/completion.
 
 **Note — Plan vs Actual UI:** Trace levels are **Minimal/Standard/Full/Debug** (not Metrics/Sampled). Variable presets save **variables only** (not full run configs). The Multi-Webhook Testing Panel only appears when CorrelationWait mode is set to "Wait for Real Webhook" (conditional). The lesson covers what every user will see without requiring external webhook infrastructure.
 
@@ -763,13 +763,14 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th21-picker` | Workflow Picker | `.workflow-picker` | Navigate to **Workflow Runner** tab → spotlight the **Workflow Picker** dropdown trigger (1000ms) → open it → spotlight the **searchable dropdown panel** with folder navigation, workflow items, and gallery samples (1200ms) → spotlight the **search input** (800ms) → select a workflow → spotlight the **HTTP node summary** showing step count and node labels (1200ms, explain: the picker shows your workflow library with folder drill-down — after selecting, a summary shows the HTTP step pipeline at a glance) |
-| 2 | `th21-variables` | Initial Variables & Presets | `.workflow-vars-section` | Spotlight the **Initial Variables** section (1000ms) → spotlight the **editable variable rows**: each row shows variable name (code) + value input → spotlight the **variable actions bar**: Reset, Save preset, and Presets toggle (1000ms) → spotlight the **history panel** when open: saved variable presets with labels, relative timestamps ("2 min ago"), and Restore/Rename/Delete actions (1200ms, explain: variables are the workflow inputs — `{{variableName}}` placeholders in HTTP node URLs, headers, and bodies get replaced at runtime; save presets to quickly switch between test profiles) |
-| 3 | `th21-trace-config` | Trace Level & Execution Config | `.wf-runner-inline-options` | Spotlight the **Trace Level** radio buttons: Minimal, Standard, Full, Debug (1200ms) → spotlight the **Sampling** checkbox and threshold input that appear on Full/Debug (800ms, explain: trace level controls how much data is captured per node — Minimal for fast load tests, Full for debugging; Sampling captures every Nth iteration to reduce overhead) → spotlight the **execution config** section: iterations, concurrency, execution mode, think time, resilience settings (1200ms) |
-| 4 | `th21-run-button` | Run & Completion Flow | `[data-testid="workflow-runner-run-btn"]` | Spotlight the **▶ Run Workflow** button (1000ms, explain: clicking Run executes the selected workflow with the configured variables, trace level, and execution settings — the live progress panel shows iteration count, timing metrics, and error rate in real time) → spotlight the **completion section** below: banner with request count, duration, and **View Full Results →** link that navigates to the Results Dashboard filtered to workflow runs (1200ms) |
-| 5 | `th21-correlation` | CorrelationWait Support | `.wf-runner-correlation-section` | Spotlight the **CorrelationWait Behavior** panel (1200ms, explain: when a workflow includes CorrelationWait nodes, this panel appears with 3 modes — **Auto-Resume** skips the wait for fast testing, **Synthetic Inject** fires a delayed mock payload, **Wait for Real Webhook** pauses until an external callback arrives) → spotlight the **mode radio cards**: Auto-Resume, Synthetic Inject, Wait for Real Webhook (1000ms) → spotlight the **Multi-Webhook Testing Panel** that appears in Wait-for-Real mode: per-node state tracker, payload editor, fire button, and saved scenarios (1200ms) |
+| 1 | `th21-designer-promote` | From Designer to Workflow Runner | `.react-flow__node-start` | On **Workflow Designer**, select the seeded workflow → **Fit View once** (preAction, before Reading) → tour nodes **Start → Create Post → Wait for Callback → End** → spotlight **Run in Harness** → click it → land on **Workflow Runner** with the workflow pre-selected (Environments left panel shown) → spotlight the picker **summary** |
+| 2 | `th21-picker` | Workflow Picker | `.workflow-picker` | Clear selection → click **Select a workflow…** → spotlight the searchable picker panel → select the demo workflow → spotlight summary → fill **Initial Variables** (`baseUrl`, `correlationId`) live |
+| 3 | `th21-variables` | Initial Variables & Presets | `.workflow-vars-section` | Spotlight variable rows → **Save** / **Presets** actions → open presets history panel briefly |
+| 4 | `th21-trace-config` | Trace Level & Execution Config | `.wf-runner-inline-options` | Spotlight **Trace Level** radios → spotlight **execution config** (iterations, concurrency, think time, resilience) |
+| 5 | `th21-correlation` | CorrelationWait Support | `.wf-runner-correlation-section` | Keep **Auto-Resume** selected → spotlight the CorrelationWait section → spotlight each mode card in place (no mode switching / no Synthetic or Multi-Webhook panel thrash) → hold on Auto-Resume as the load-test default |
+| 6 | `th21-run-button` | Run & Completion Flow | `[data-testid="workflow-runner-run-btn"]` | Spotlight **▶ Run Workflow** → run → spotlight live progress / completion banner |
 
-**Cleanup:** None needed (no runs executed).
+**Cleanup:** Delete seeded `Workflow Runner Demo` workflow.
 
 ---
 
@@ -993,17 +994,16 @@ Every Test Harness feature mapped to its lesson:
 | **Per-scenario trend filter** | TH-20 | Step 5 |
 | **Response time overlay histogram (baseline vs current)** | TH-20 | Step 5 |
 | **Comparison report export (JSON/Markdown)** | TH-20 | Step 6 |
-| **Workflow Picker (searchable folder-tree)** | TH-21 | Step 1 |
-| **Workflow variables editor (initial values)** | TH-21 | Step 2 |
-| **HTTP node summary** | TH-21 | Step 1 |
-| **Trace options (Full/Metrics Only/Sampled)** | TH-21 | Step 3 |
-| **Run Config Presets (save/load/rename/delete)** | TH-21 | Step 4 |
-| **Workflow Runner live progress** | TH-21 | Step 5 |
-| **Results Explorer launch from runner** | TH-21 | Step 5 |
-| **Correlation Wait config (payload builder, cURL generator)** | TH-21 | Step 6 |
-| **Multi-Webhook Testing panel** | TH-21 | Step 7 |
-| **Webhook payload presets per node** | TH-21 | Step 7 |
-| **Saved webhook test scenarios** | TH-21 | Step 7 |
+| **Designer canvas tour + Run in Harness promote** | TH-21 | Step 1 |
+| **Workflow Picker (searchable folder-tree)** | TH-21 | Step 2 |
+| **Workflow variables editor (initial values)** | TH-21 | Step 2–3 |
+| **HTTP node summary** | TH-21 | Step 2 |
+| **Trace options (Minimal/Standard/Full/Debug)** | TH-21 | Step 4 |
+| **Variable Presets (save/load/rename/delete)** | TH-21 | Step 3 |
+| **Correlation Wait config (runner modes)** | TH-21 | Step 5 |
+| **Multi-Webhook Testing panel** | TH-21 | Step 5 |
+| **Workflow Runner live progress** | TH-21 | Step 6 |
+| **Results Explorer launch from runner** | TH-21 | Step 6 |
 
 ---
 

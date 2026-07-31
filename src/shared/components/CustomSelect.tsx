@@ -108,10 +108,22 @@ export function CustomSelect({
     const rect = wrapperRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const up = spaceBelow < 200;
-    setOpenUp(up);
-    setMenuPos(up
+    const next = up
       ? { left: rect.left, minWidth: rect.width, bottom: window.innerHeight - rect.top + 3 }
-      : { left: rect.left, minWidth: rect.width, top: rect.bottom + 3 });
+      : { left: rect.left, minWidth: rect.width, top: rect.bottom + 3 };
+    setOpenUp(up);
+    setMenuPos((prev) => {
+      if (
+        prev
+        && prev.left === next.left
+        && prev.minWidth === next.minWidth
+        && prev.top === next.top
+        && prev.bottom === next.bottom
+      ) {
+        return prev;
+      }
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -119,7 +131,22 @@ export function CustomSelect({
     recomputeMenuPos();
     // Keep the menu anchored to the trigger if the page (or any scrollable
     // ancestor, e.g. a modal body) scrolls or the window resizes while open.
-    const onScrollOrResize = () => recomputeMenuPos();
+    // Ignore scrolls that originate inside the menu itself — otherwise
+    // recompute → setMenuPos → scrollIntoView(active) fights the user and
+    // snaps the list back to the selected item on every wheel tick.
+    const onScrollOrResize = (event?: Event) => {
+      if (event?.type === 'scroll') {
+        const target = event.target;
+        if (
+          target instanceof Node
+          && menuRef.current
+          && (target === menuRef.current || menuRef.current.contains(target))
+        ) {
+          return;
+        }
+      }
+      recomputeMenuPos();
+    };
     window.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('resize', onScrollOrResize);
     return () => {
@@ -128,13 +155,20 @@ export function CustomSelect({
     };
   }, [open, recomputeMenuPos]);
 
+  // Scroll the selected option into view once when the menu opens — not on
+  // every menuPos recompute (that would yank the list while the user scrolls).
+  const didInitialScrollRef = useRef(false);
   useEffect(() => {
-    // Depends on menuPos (not just `open`) because the menu is portaled and
-    // only actually mounts (menuRef.current populated) once menuPos is set
-    // by the effect above — that happens one render after `open` flips true.
-    if (!open || !menuPos || !menuRef.current) return;
+    if (!open) {
+      didInitialScrollRef.current = false;
+      return;
+    }
+    if (!menuPos || !menuRef.current || didInitialScrollRef.current) return;
+    didInitialScrollRef.current = true;
     const active = menuRef.current.querySelector('.cs-item.active');
-    if (active && typeof active.scrollIntoView === 'function') active.scrollIntoView({ block: 'nearest' });
+    if (active && typeof active.scrollIntoView === 'function') {
+      active.scrollIntoView({ block: 'nearest' });
+    }
   }, [open, menuPos]);
 
   const announceOpen = useCallback(() => {

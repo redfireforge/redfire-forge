@@ -13,6 +13,7 @@ import {
   logTestRenamed,
 } from '../utils/structureChangeLog';
 import { saveFeatureGroups } from '../../../shared/utils/storage';
+import { useToast } from '../../../shared/hooks/useToast';
 import type { TestEditorInputMode, TestEditorTab } from '../components/TestEditorModal';
 
 export interface ConfirmDialog {
@@ -52,6 +53,7 @@ export function useScenarioMutations({
   clearAuthVerifyResult,
   moveToTrash,
 }: UseScenarioMutationsOpts) {
+  const { show: showToast } = useToast();
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
 
@@ -310,7 +312,11 @@ export function useScenarioMutations({
     });
     setEditingTest({ featureId, scenarioId, testId: test.id, parameterized: !!test.dataSource });
     setInputMode('builder');
-    const defaultTab = isWsActionType(test.actionType) ? 'validation' : 'params';
+    // Parameterized tests reopen on the Data Source tab so the data grid is
+    // visible immediately; otherwise fall back to the transport-appropriate tab.
+    const defaultTab: TestEditorTab = test.dataSource
+      ? 'data'
+      : isWsActionType(test.actionType) ? 'validation' : 'params';
     setActiveTab(defaultTab);
   };
 
@@ -414,7 +420,12 @@ export function useScenarioMutations({
       kafkaProduceAction: version.snapshot.kafkaProduceAction,
       kafkaConsumeAction: version.snapshot.kafkaConsumeAction,
     }));
-  }, []);
+    showToast(
+      'success',
+      'Version restored',
+      version.label || new Date(version.timestamp).toLocaleString(),
+    );
+  }, [showToast]);
 
   const handleVersionDelete = useCallback((versionId: string) => {
     setDraft((prev) => ({

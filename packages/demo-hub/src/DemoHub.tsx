@@ -48,6 +48,12 @@ export default function DemoHub({ hub }: DemoHubProps) {
           <LessonPlayer
             lesson={state.selectedLesson}
             onStartDemo={hub.startLiveDemo}
+            newStepsFrom={
+              progress.completedLessons.includes(state.selectedLesson.id)
+              && (state.selectedLesson.contentVersion ?? 1) > (progress.completedVersions?.[state.selectedLesson.id] ?? 1)
+                ? progress.completedStepCounts?.[state.selectedLesson.id] ?? state.selectedLesson.previousStepCount
+                : undefined
+            }
           />
         )}
         {state.view === 'live' && state.selectedLesson && (

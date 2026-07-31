@@ -108,6 +108,7 @@ export default function TrashPanel({
                 <span className="trash-footer-setting-label">Retention</span>
                 <CustomSelect
                   className="trash-footer-select"
+                  data-testid="har-trash-retention"
                   value={String(trashSettings.retentionDays)}
                   onChange={v => onUpdateSettings({ retentionDays: Number(v) })}
                   options={RETENTION_OPTIONS.map(d => ({ value: String(d), label: `${d} days` }))}
@@ -119,6 +120,7 @@ export default function TrashPanel({
                 <span className="trash-footer-setting-label">Max items</span>
                 <CustomSelect
                   className="trash-footer-select"
+                  data-testid="har-trash-max-items"
                   value={String(trashSettings.maxItems)}
                   onChange={v => onUpdateSettings({ maxItems: Number(v) })}
                   options={MAX_ITEMS_OPTIONS.map(n => ({ value: String(n), label: String(n) }))}
@@ -130,6 +132,7 @@ export default function TrashPanel({
             <div className="trash-footer-actions">
               <button
                 className="trash-empty-btn"
+                data-testid="har-trash-empty-btn"
                 onClick={() => setConfirmEmpty(true)}
                 disabled={trashItems.length === 0}
                 aria-label="Empty trash"

@@ -1020,27 +1020,7 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--gql-accent) 18%, transparent);
 }
 
-.gql-select {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 5px 28px 5px 10px;
-  font-size: 12px;
-  outline: none;
-  cursor: pointer;
-  appearance: none;
-  /* BUG-GQL-R7-8 fix: use CSS custom property so chevron color adapts to theme */
-  background-image: var(--gql-select-chevron);
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  transition: border-color 0.15s;
-}
-
-.gql-select:focus {
-  border-color: var(--gql-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gql-accent) 18%, transparent);
-}
+.gql-select { /* box styling handled by CustomSelect */ }
 
 /* ─── Buttons ───────────────────────────────────────────────────────────────── */
 
@@ -6359,40 +6339,7 @@
   flex-shrink: 0;
 }
 
-.gql-transport-select {
-  height: 30px;
-  padding: 0 24px 0 9px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  cursor: pointer;
-  flex-shrink: 0;
-  min-width: 90px;
-  /* Custom SVG arrow (dark theme consistent) */
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a8b8cc' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 7px center;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.gql-transport-select:hover:not(:disabled) {
-  border-color: var(--primary);
-}
-
-.gql-transport-select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
-}
-
-.gql-transport-select:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
+.gql-transport-select { flex-shrink: 0; min-width: 90px; /* box styling handled by CustomSelect */ }
 
 /* Auto-detect hint — shown next to the select when Auto mode will use SSE */
 .gql-transport-auto-hint {
@@ -7593,26 +7540,7 @@
   border-color: color-mix(in srgb, var(--gql-warning) 35%, transparent);
 }
 
-.gql-qb-arg-select {
-  padding: 2px 18px 2px 6px;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-family: var(--font-mono, monospace);
-  flex-shrink: 0;
-  appearance: none;
-  background-image: var(--gql-select-chevron);
-  background-repeat: no-repeat;
-  background-position: right 5px center;
-  cursor: pointer;
-}
-
-.gql-qb-arg-select:focus {
-  outline: none;
-  border-color: var(--gql-accent);
-}
+.gql-qb-arg-select { flex-shrink: 0; /* box styling handled by CustomSelect */ }
 
 .gql-qb-arg-type {
   font-size: 10px;
@@ -9173,22 +9101,7 @@
 .gql-assert-jsonpath { flex: 2; min-width: 0; }
 .gql-assert-expected { flex: 1.5; min-width: 0; }
 
-.gql-assert-select {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 0.72rem;
-  padding: 3px 20px 3px 6px;
-  flex: 1.2;
-  min-width: 0;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a8b8cc'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
-  cursor: pointer;
-}
-.gql-assert-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent); }
+.gql-assert-select { flex: 1.2; min-width: 0; /* box styling handled by CustomSelect */ }
 
 .gql-assert-delete {
   background: none;
@@ -9734,29 +9647,7 @@
   flex: 1;
   min-width: 0;
 }
-.gql-changelog-compare-select {
-  flex: 1;
-  min-width: 0;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--text);
-  font-size: 0.72rem;
-  padding: 6px 28px 6px 10px;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  cursor: pointer;
-}
-.gql-changelog-compare-select:hover {
-  border-color: var(--primary);
-}
-.gql-changelog-compare-select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
-}
+.gql-changelog-compare-select { flex: 1; min-width: 0; /* box styling handled by CustomSelect */ }
 .gql-changelog-diff-btn {
   background: var(--primary);
   border: 1px solid var(--primary);
@@ -11252,17 +11143,7 @@
 }
 .gql-mock-field-name  { flex: 1; color: var(--text); font-size: 0.78rem; font-weight: 500; }
 .gql-mock-field-type  { color: var(--text-muted); font-size: 0.72rem; font-family: monospace; }
-.gql-mock-resolver-select {
-  appearance: none;
-  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a8b8cc'/%3E%3C/svg%3E") no-repeat right 6px center;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 0.72rem;
-  padding: 3px 22px 3px 6px;
-  cursor: pointer;
-}
-.gql-mock-resolver-select:focus { border-color: var(--primary); outline: none; }
+.gql-mock-resolver-select { /* box styling handled by CustomSelect */ }
 .gql-mock-fixed-input, .gql-mock-script-input {
   margin-top: 4px;
   width: 100%;
@@ -13654,8 +13535,7 @@
 }
 
 .gql-qb-frag-name-input,
-.gql-qb-frag-type-input,
-.gql-qb-frag-type-select {
+.gql-qb-frag-type-input {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -13665,19 +13545,11 @@
   padding: 6px 10px;
   box-sizing: border-box;
 }
-
-.gql-qb-frag-type-select {
-  appearance: none;
-  background-image: var(--gql-select-chevron);
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 28px;
-  cursor: pointer;
-}
+/* CustomSelect wrapper — reset box styling; box lives on .cs-trigger */
+.gql-qb-frag-type-select { width: 100%; /* box styling handled by CustomSelect */ }
 
 .gql-qb-frag-name-input:focus,
-.gql-qb-frag-type-input:focus,
-.gql-qb-frag-type-select:focus {
+.gql-qb-frag-type-input:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);

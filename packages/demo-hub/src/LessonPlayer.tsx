@@ -13,11 +13,14 @@ import { useLessonNotesContext } from './LessonNotesContext';
 interface LessonPlayerProps {
   lesson: DemoLesson;
   onStartDemo: () => void;
+  /** Step index from which steps are "new" (added since user last completed).
+   *  When set, steps at index >= newStepsFrom show a "New" indicator. */
+  newStepsFrom?: number;
 }
 
 type SelectedPanel = 'concept' | 'notes' | number;
 
-export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps) {
+export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: LessonPlayerProps) {
   const { getNote, hasNote, saveNote } = useLessonNotesContext();
   const [dockerGateCleared, setDockerGateCleared] = useState(false);
   const [downServiceLabels, setDownServiceLabels] = useState<string[]>([]);
@@ -113,6 +116,9 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
             >
               <span className="demo-sidebar-step-num">{idx + 1}</span>
               <span className="demo-sidebar-nav-label">{step.title}</span>
+              {newStepsFrom != null && idx >= newStepsFrom && (
+                <span className="demo-sidebar-new-badge">New</span>
+              )}
             </button>
           ))}
         </div>

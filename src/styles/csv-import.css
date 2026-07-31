@@ -315,23 +315,7 @@
   align-items: center;
   gap: 10px;
 }
-.csv-dest-select {
-  flex: 1;
-  min-width: 0;
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.82rem;
-  transition: border-color 0.15s;
-  box-sizing: border-box;
-}
-.csv-dest-select:focus {
-  outline: none;
-  border-color: var(--accent, #3498db);
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.12);
-}
+.csv-dest-select { flex: 1; min-width: 0; /* box styling handled by CustomSelect */ }
 .csv-checkbox-label {
   display: flex;
   align-items: center;
@@ -1457,12 +1441,6 @@
 }
 .parameterize-select {
   width: 100%;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--input-bg);
-  color: var(--text);
-  font-size: 13px;
 }
 
 /* Summary */

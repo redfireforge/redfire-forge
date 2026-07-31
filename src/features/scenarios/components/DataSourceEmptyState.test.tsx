@@ -254,7 +254,7 @@ describe('DataSourceEmptyState', () => {
     expect(copy.name).toBe('Param Copy');
     expect(copy.sourceTestId).toBe('test-1');
     expect(copy.dataSource).toBeDefined();
-    expect(onCreate).toHaveBeenCalledWith(expect.any(Object), 'fg-1', 'sc-1');
+    expect(onCreate).toHaveBeenCalledWith(expect.any(Object), 'fg-1', 'sc-1', undefined);
   });
 
   it('configure apply uses handleSetupApply when not parameterizing', () => {
