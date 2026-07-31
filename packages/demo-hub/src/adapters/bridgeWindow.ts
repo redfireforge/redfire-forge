@@ -106,6 +106,7 @@ export type DemoBridgeWindow = Window &
     __demoRemoveSettingsSvc?: (name: string) => void;
     /** Delete all feature groups whose name matches (demo cleanup). */
     __demoDeleteFeatureGroupsByName?: (name: string) => void;
+    __demoDeleteScenariosByName?: (name: string) => void;
     /** Seed shared data sources (idempotent — skips existing IDs). */
     __demoSeedSharedDataSources?: (sources: Array<Record<string, unknown>>) => void;
     /** Delete shared data sources whose name matches (demo cleanup). */

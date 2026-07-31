@@ -3,7 +3,7 @@ import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSou
 import { isWsActionType } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
-import { getBaseUrl, parseQueryParams, rebuildUrl } from '../utils/testEditorUtils';
+import { parseQueryParams, rebuildUrl } from '../utils/testEditorUtils';
 import { toErrorMessage, formatJson } from '../../../shared/utils/helpers';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
@@ -52,7 +52,7 @@ export interface TestEditorModalProps {
   onVersionDelete: (versionId: string) => void;
   onVersionRename: (versionId: string, label: string) => void;
   /** Called when user wants to create a parameterized copy from the Parameterize tab */
-  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
+  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string, newScenarioName?: string) => void;
   /** Top-level shared data sources (for linking) */
   sharedDataSources?: SharedDataSource[];
   /** Called when user promotes inline data to a shared data source; returns new shared DS id */
@@ -114,7 +114,7 @@ export default function TestEditorModal({
     setOpenDataSetupOnMount(true);
     onActiveTabChange('data');
   }, [onInputModeChange, onActiveTabChange]);
-  const canParameterize = !!onCreateParameterizedCopy && !draft.dataSource && !draft.sharedDataSourceId;
+  const canParameterize = !isNew && !!onCreateParameterizedCopy && !draft.dataSource && !draft.sharedDataSourceId;
 
   const [importDropdownOpen, setImportDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
@@ -187,13 +187,22 @@ export default function TestEditorModal({
     setQueryParams(entries);
     const cur = draftRef.current;
     if (cur.url) {
-      onDraftChange({ ...cur, url: rebuildUrl(cur.url, fromParamEntries(entries)) });
+      const kv = fromParamEntries(entries);
+      const patch: Partial<Scenario> = { url: rebuildUrl(cur.url, kv) };
+      // Keep the parameterized urlTemplate (used for the URL Preview and runs)
+      // in sync so query params added here are reflected everywhere.
+      if (cur.dataSource?.urlTemplate) {
+        patch.dataSource = { ...cur.dataSource, urlTemplate: rebuildUrl(cur.dataSource.urlTemplate, kv) };
+      }
+      onDraftChange({ ...cur, ...patch });
     }
   }, [onDraftChange]);
 
   const handleImportFromUrl = useCallback(() => {
     const cur = draftRef.current;
-    setQueryParams(toParamEntries(parseQueryParams(cur.url)));
+    // Prefer the live URL (incl. query). For parameterized tests, urlTemplate may carry ?params.
+    const sourceUrl = cur.dataSource?.urlTemplate?.trim() || cur.url;
+    setQueryParams(toParamEntries(parseQueryParams(sourceUrl)));
   }, []);
 
   const updateHeader = (index: number, field: 'key' | 'value', val: string) => {
@@ -215,8 +224,13 @@ export default function TestEditorModal({
 
   const handleBaseUrlChange = (newBaseUrl: string) => {
     const cur = draftRef.current;
+    // If the user typed/pasted a query string, keep it — do not clobber with the params table.
+    // Path/host-only edits still preserve existing query params via rebuildUrl.
+    const typedHasQuery = newBaseUrl.includes('?');
     const enabledParams = fromParamEntries(queryParams);
-    const newUrl = enabledParams.length > 0 ? rebuildUrl(newBaseUrl, enabledParams) : newBaseUrl;
+    const newUrl = typedHasQuery || enabledParams.length === 0
+      ? newBaseUrl
+      : rebuildUrl(newBaseUrl, enabledParams);
     const patch: Partial<Scenario> = { url: newUrl };
     // Keep urlTemplate in sync when data source exists
     if (cur.dataSource?.urlTemplate) {
@@ -367,19 +381,34 @@ export default function TestEditorModal({
   const displayUrl = useMemo(() => {
     const dt = draft.dataSource;
     if (dt?.urlTemplate) {
-      // Start with the template (already has path {{variables}})
+      // Start with the template path (already has path {{variables}})
+      const base = dt.urlTemplate.split('?')[0];
       const paramCols = dt.columns.filter(c => c.type === 'param');
-      if (paramCols.length > 0) {
-        const base = dt.urlTemplate.split('?')[0];
-        const params = paramCols.map(c => `${c.mapping}={{${c.mapping}}}`).join('&');
-        return `${base}?${params}`;
+      const colKeys = new Set(paramCols.map(c => c.mapping));
+      // Preserve manual query params from BOTH the template and the live URL
+      // (the Params tab edits draft.url, which may be ahead of the template),
+      // skipping any that are backed by a param column.
+      const queryOf = (u: string) => (u.split('?')[1] ?? '').split('&').filter(Boolean);
+      const seen = new Set<string>();
+      const manual: string[] = [];
+      for (const pair of [...queryOf(dt.urlTemplate), ...queryOf(draft.url)]) {
+        const key = pair.split('=')[0];
+        if (!key || colKeys.has(key) || seen.has(key)) continue;
+        seen.add(key);
+        manual.push(pair);
       }
-      return dt.urlTemplate;
+      const parts = [
+        ...manual,
+        ...paramCols.map(c => `${c.mapping}={{${c.mapping}}}`),
+      ];
+      return parts.length > 0 ? `${base}?${parts.join('&')}` : base;
     }
     return draft.url;
   }, [draft.dataSource, draft.url]);
 
-  const baseUrl = useMemo(() => (displayUrl ? getBaseUrl(displayUrl) : ''), [displayUrl]);
+  // Show the full URL (including ?query) in the editor so "Import from URL" has something to parse
+  // and pasted query strings remain visible. Params table stays the structured editor for the same data.
+  const baseUrl = displayUrl;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- factory returns a stable handler; deps listed explicitly
   const importHandler = useCallback(

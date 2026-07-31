@@ -99,6 +99,36 @@ describe('useDemoHarnessBridge', () => {
     expect(setFg).toHaveBeenCalled();
   });
 
+  it('upserts feature group when name already exists', () => {
+    const setFg = vi.fn((cb) => {
+      const fgs: FeatureGroup[] = [
+        {
+          id: 'old-id',
+          name: 'Organization Demo',
+          scenarios: [],
+        } as unknown as FeatureGroup,
+      ];
+      const result = cb(fgs);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('demo-th9-fg');
+      expect(result[0].scenarios).toHaveLength(1);
+    });
+    const { envs, svcs } = setupMocks();
+
+    renderHook(() =>
+      useDemoHarnessBridge(envs, svcs, vi.fn(), vi.fn(), setFg),
+    );
+
+    const bridge = (window as unknown as Record<string, (fg: FeatureGroup) => void>).__demoSeedFeatureGroup;
+    bridge?.({
+      id: 'demo-th9-fg',
+      name: 'Organization Demo',
+      scenarios: [{ id: 'sc1', name: 'User Endpoints', tests: [] }],
+    } as unknown as FeatureGroup);
+
+    expect(setFg).toHaveBeenCalled();
+  });
+
   it('handles undefined setFeatureGroups gracefully', () => {
     const { envs, svcs } = setupMocks();
 

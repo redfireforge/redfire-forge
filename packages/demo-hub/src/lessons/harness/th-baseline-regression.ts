@@ -13,7 +13,6 @@ import {
   seedTh20TestRuns,
   deleteTh20TestRuns,
   ensureTh20RunsExist,
-  ensureTh20BaselinesExist,
   ensureResultsRunSelected,
   switchToAnalysisTab,
   closeExportMenu,
@@ -21,31 +20,15 @@ import {
 
 // ─── Local helpers ─────────────────────────────────────────────────
 
-const TH20_RUN_PREFIX = 'demo-th20-run';
-
-async function hasTh20Baselines(minCount = 1): Promise<boolean> {
-  const blMod = await import('../../../../../src/features/results/utils/runBaselines');
-  const baselines = await blMod.loadBaselines();
-  const th20Count = baselines.filter((b) => b.runId.startsWith(TH20_RUN_PREFIX)).length;
-  return th20Count >= minCount;
-}
-
 async function ensureTh20Ready(ctx: import('../../types').DemoActionContext): Promise<void> {
   ctx.navigateToTab('results');
   await ctx.delay(400);
-  const seeded = await ensureTh20RunsExist();
-  if (seeded) await ctx.delay(800);
-  else await ctx.delay(300);
-  const repaired = await ensureTh20BaselinesExist();
-  if (repaired) await ctx.delay(300);
 
-  // If users unmark all baselines (or storage was left in a bad state),
-  // hard-reset the TH-20 demo dataset so Step 1 always starts with baselines.
-  if (!(await hasTh20Baselines(2))) {
-    await deleteTh20TestRuns();
-    await seedTh20TestRuns();
-    await ctx.delay(700);
-  }
+  // Always require the full dataset (2 runs + 2 live baselines). If the user
+  // deleted a run or unmarked baselines, rebuild so Comparison & Trends has
+  // something to show (side-by-side panel / trend chart).
+  const repaired = await ensureTh20RunsExist();
+  await ctx.delay(repaired ? 900 : 300);
 
   await ensureTh20RunSelected(ctx);
 }

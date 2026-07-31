@@ -34,6 +34,8 @@ export function fromParamEntries(entries: ParamEntry[]): KeyValue[] {
 
 export function ParamsEditor({ params, onChange, onInsertVariable, variableHints = [], onImportFromUrl }: ParamsEditorProps) {
   const [bulkEdit, setBulkEdit] = useState(false);
+  const [bulkDraft, setBulkDraft] = useState('');
+  const [bulkSnapshot, setBulkSnapshot] = useState<ParamEntry[]>([]);
   const [showDesc, setShowDesc] = useState(false);
 
   const activeCount = useMemo(() => params.filter((p) => p.key.trim() && p.enabled).length, [params]);
@@ -74,26 +76,39 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
     }
   }, [onImportFromUrl]);
 
-  const bulkText = useMemo(() => {
-    return params
+  const paramsToBulkText = useCallback((entries: ParamEntry[]) => {
+    return entries
       .filter((p) => p.key.trim())
       .map((p) => `${p.key}=${p.value}`)
       .join('\n');
-  }, [params]);
+  }, []);
 
-  const handleBulkChange = useCallback(
-    (text: string) => {
-      const lines = text.split('\n');
-      const entries: ParamEntry[] = lines.map((line) => {
-        const eqIdx = line.indexOf('=');
-        if (eqIdx === -1) return { key: line.trim(), value: '', enabled: true, description: '' };
-        return { key: line.slice(0, eqIdx).trim(), value: line.slice(eqIdx + 1), enabled: true, description: '' };
-      });
-      if (entries.length === 0) entries.push({ ...EMPTY_ROW });
-      onChange(entries);
-    },
-    [onChange],
-  );
+  const parseBulkText = useCallback((text: string): ParamEntry[] => {
+    const lines = text.split('\n');
+    const entries: ParamEntry[] = lines.map((line) => {
+      const eqIdx = line.indexOf('=');
+      if (eqIdx === -1) return { key: line.trim(), value: '', enabled: true, description: '' };
+      return { key: line.slice(0, eqIdx).trim(), value: line.slice(eqIdx + 1), enabled: true, description: '' };
+    });
+    if (entries.length === 0) entries.push({ ...EMPTY_ROW });
+    return entries;
+  }, []);
+
+  const enterBulkEdit = useCallback(() => {
+    setBulkSnapshot(params.map((p) => ({ ...p })));
+    setBulkDraft(paramsToBulkText(params));
+    setBulkEdit(true);
+  }, [params, paramsToBulkText]);
+
+  const applyBulkAndExit = useCallback(() => {
+    onChange(parseBulkText(bulkDraft));
+    setBulkEdit(false);
+  }, [bulkDraft, onChange, parseBulkText]);
+
+  const cancelBulkEdit = useCallback(() => {
+    onChange(bulkSnapshot.map((p) => ({ ...p })));
+    setBulkEdit(false);
+  }, [bulkSnapshot, onChange]);
 
   return (
     <div className="params-editor">
@@ -101,31 +116,56 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
         <div className="params-toolbar-left">
           <span className="params-section-label">Query Parameters</span>
           {activeCount > 0 && <span className="tab-badge">{activeCount}</span>}
+          {bulkEdit && <span className="params-bulk-mode-badge">Bulk Edit</span>}
         </div>
         <div className="params-toolbar-right">
-          {onImportFromUrl && (
-            <button type="button" className="btn-link-sm" onClick={importFromUrl}>
+          {onImportFromUrl && !bulkEdit && (
+            <button
+              type="button"
+              className="btn-link-sm btn-link-sm--action"
+              data-testid="params-import-from-url"
+              onClick={importFromUrl}
+              title="Parse ?key=value pairs from the URL into this table"
+            >
               Import from URL
             </button>
           )}
-          <button
-            type="button"
-            className={`btn-link-sm ${bulkEdit ? 'active' : ''}`}
-            onClick={() => setBulkEdit(!bulkEdit)}
-          >
-            Bulk Edit
-          </button>
+          {!bulkEdit && (
+            <button
+              type="button"
+              className="btn-link-sm btn-link-sm--action"
+              onClick={enterBulkEdit}
+              title="Edit all parameters as key=value lines"
+            >
+              Bulk Edit
+            </button>
+          )}
         </div>
       </div>
 
       {bulkEdit ? (
-        <textarea
-          className="params-bulk-editor"
-          rows={10}
-          value={bulkText}
-          onChange={(e) => handleBulkChange(e.target.value)}
-          placeholder={'key=value\nanotherKey=anotherValue'}
-        />
+        <div className="params-bulk-panel">
+          <p className="params-bulk-hint">
+            One <code>key=value</code> per line. Click <strong>Done</strong> to return to the table, or{' '}
+            <strong>Cancel</strong> to discard changes.
+          </p>
+          <textarea
+            className="params-bulk-editor"
+            rows={10}
+            value={bulkDraft}
+            onChange={(e) => setBulkDraft(e.target.value)}
+            placeholder={'key=value\nanotherKey=anotherValue'}
+            aria-label="Bulk edit query parameters"
+          />
+          <div className="params-bulk-actions">
+            <button type="button" className="btn btn-sm" onClick={cancelBulkEdit}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-sm btn-primary" onClick={applyBulkAndExit}>
+              Done
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <div className="params-actions">

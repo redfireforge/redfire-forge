@@ -261,6 +261,8 @@ export async function seedNamedWorkflow(
     insertDelayMs?: number;
     bridgeTimeoutMs?: number;
     storeTimeoutMs?: number;
+    /** When false, skip selecting the workflow in Designer + Runner (default true). */
+    selectAfterSeed?: boolean;
   } = {},
 ): Promise<boolean> {
   const {
@@ -269,6 +271,7 @@ export async function seedNamedWorkflow(
     insertDelayMs = 300,
     bridgeTimeoutMs = 8000,
     storeTimeoutMs = 3000,
+    selectAfterSeed = true,
   } = opts;
 
   if (!(await waitForWorkflowBridge(ctx, bridgeTimeoutMs))) {
@@ -294,8 +297,10 @@ export async function seedNamedWorkflow(
     await ctx.delay(insertDelayMs);
   }
   await waitForWorkflowInStore(ctx, name, storeTimeoutMs);
-  selectWorkflowByName(name);
-  selectRunnerWorkflowByName(name);
+  if (selectAfterSeed) {
+    selectWorkflowByName(name);
+    selectRunnerWorkflowByName(name);
+  }
   return !!getWorkflowByName(name);
 }
 

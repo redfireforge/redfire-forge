@@ -2576,23 +2576,7 @@
   color: var(--primary, #818cf8);
   white-space: nowrap;
 }
-.spec-version-select {
-  font-size: 0.72rem;
-  background: var(--surface-1, #1e1e2e);
-  color: var(--text, #e2e2e8);
-  border: 1px solid var(--border, #3a3a4a);
-  border-radius: 4px;
-  padding: 2px 6px;
-  cursor: pointer;
-  outline: none;
-}
-.spec-version-select:hover {
-  border-color: var(--primary, #818cf8);
-}
-.spec-version-select:focus {
-  border-color: var(--primary, #818cf8);
-  box-shadow: 0 0 0 1px var(--primary, #818cf8);
-}
+.spec-version-select { /* box styling handled by CustomSelect */ }
 .spec-version-count {
   font-size: 0.62rem;
   font-weight: 700;

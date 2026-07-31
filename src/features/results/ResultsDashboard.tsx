@@ -78,11 +78,15 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     loadRegressionThresholds().then(setThresholds);
   }, []);
 
-  // Demo lessons seed/delete runs in storage while this page may already be mounted —
-  // reload when the harness bridge notifies.
+  // Demo lessons seed/delete runs (and mark baselines) in storage while this
+  // page may already be mounted — reload runs + baselines when notified.
   useEffect(() => {
     const onDemoRunsChanged = () => {
       void loadTestRunsLite().then(setAllRuns);
+      void loadBaselines().then(setBaselines);
+      // Demo reseeds should re-enable auto baseline anchoring (user may have
+      // cleared compare / deleted runs before the lesson repaired storage).
+      setCompareSelectionMode('auto');
     };
     window.addEventListener('demo-test-runs-changed', onDemoRunsChanged);
     return () => window.removeEventListener('demo-test-runs-changed', onDemoRunsChanged);
