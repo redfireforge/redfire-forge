@@ -2,6 +2,7 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents, connectToMockServer } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 /** Setup: start mock, connect, stay on Events tab so step 1 visibly opens Load Test. */
 async function loadTestSetup(ctx: DemoActionContext): Promise<void> {
@@ -22,15 +23,15 @@ async function loadTestSetup(ctx: DemoActionContext): Promise<void> {
  * Used by lt-results and lt-export preActions to ensure the results panel exists.
  */
 async function ensureTestResults(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WS.LT_RESULTS)) return;
+  if (firstVisibleElement(WS.LT_RESULTS)) return;
   // Navigate to tab if needed
-  if (!document.querySelector(WS.LT_CONFIG)) {
+  if (!firstVisibleElement(WS.LT_CONFIG)) {
     await ctx.click(WS.RIGHT_TAB_LOADTEST);
     await ctx.delay(400);
   }
-  if (document.querySelector(WS.LT_RESULTS)) return; // check again after nav
+  if (firstVisibleElement(WS.LT_RESULTS)) return; // check again after nav
   // Ensure template has content
-  const ta = document.querySelector(WS.LT_MESSAGE_TEMPLATE) as HTMLTextAreaElement | null;
+  const ta = firstVisibleElement<HTMLTextAreaElement>(WS.LT_MESSAGE_TEMPLATE);
   if (ta && !ta.value.trim()) {
     await ctx.fill(WS.LT_MESSAGE_TEMPLATE, '{"action":"ping","seq":{{counter}}}');
     await ctx.delay(200);
@@ -42,7 +43,7 @@ async function ensureTestResults(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(200);
   await ctx.fill(WS.LT_DURATION, '3');
   await ctx.delay(200);
-  const startBtn = document.querySelector(WS.LT_START_BTN) as HTMLButtonElement | null;
+  const startBtn = firstVisibleElement<HTMLButtonElement>(WS.LT_START_BTN);
   if (!startBtn || startBtn.disabled) return;
   startBtn.click(); // quiet — no ripple needed in guard
   await ctx.waitFor(WS.LT_RESULTS, 8000); // 3s test + 5s buffer (Rule 5)
@@ -51,13 +52,13 @@ async function ensureTestResults(ctx: DemoActionContext): Promise<void> {
 /** Cleanup: stop any running load test, clear results, disconnect, stop mock. */
 async function loadTestCleanup(ctx: DemoActionContext): Promise<void> {
   // Stop running test if active
-  const stopBtn = document.querySelector(WS.LT_STOP_BTN) as HTMLButtonElement | null;
+  const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.LT_STOP_BTN);
   if (stopBtn) {
     stopBtn.click();
     await ctx.delay(500);
   }
   // Clear results if present
-  const clearBtn = document.querySelector(WS.LT_CLEAR_BTN) as HTMLButtonElement | null;
+  const clearBtn = firstVisibleElement<HTMLButtonElement>(WS.LT_CLEAR_BTN);
   if (clearBtn) {
     clearBtn.click();
     await ctx.delay(300);
@@ -178,7 +179,7 @@ After completion, see a full results dashboard:
       highlight: WS.LT_MESSAGE_TEMPLATE,
       preAction: async (ctx) => {
         // Ensure Load Test tab is visible
-        if (!document.querySelector(WS.LT_CONFIG)) {
+        if (!firstVisibleElement(WS.LT_CONFIG)) {
           await ctx.click(WS.RIGHT_TAB_LOADTEST);
           await ctx.delay(300);
         }
@@ -202,7 +203,7 @@ After completion, see a full results dashboard:
         'steady fixed rate — the clearest baseline. We\'ll use Constant today.',
       highlight: WS.LT_PROFILE_PILLS,
       preAction: async (ctx) => {
-        if (!document.querySelector(WS.LT_CONFIG)) {
+        if (!firstVisibleElement(WS.LT_CONFIG)) {
           await ctx.click(WS.RIGHT_TAB_LOADTEST);
           await ctx.delay(300);
         }
@@ -231,7 +232,7 @@ After completion, see a full results dashboard:
         'bottom always shows the expected count so you know what you\'re committing to.',
       highlight: WS.LT_RATE,
       preAction: async (ctx) => {
-        if (!document.querySelector(WS.LT_CONFIG)) {
+        if (!firstVisibleElement(WS.LT_CONFIG)) {
           await ctx.click(WS.RIGHT_TAB_LOADTEST);
           await ctx.delay(300);
         }
@@ -263,19 +264,19 @@ After completion, see a full results dashboard:
       highlight: WS.LT_START_BTN,
       preAction: async (ctx) => {
         // Navigate to Load Test tab if neither config nor results are visible
-        if (!document.querySelector(WS.LT_CONFIG) && !document.querySelector(WS.LT_RESULTS)) {
+        if (!firstVisibleElement(WS.LT_CONFIG) && !firstVisibleElement(WS.LT_RESULTS)) {
           await ctx.click(WS.RIGHT_TAB_LOADTEST);
           await ctx.delay(400);
         }
         // If a previous test result is showing, clear it so the config form is visible
         // (user may have skipped here from step 6 or 7 — Rule 4 guard)
         // Re-query DOM here so we pick up any changes from the tab navigation above
-        if (!document.querySelector(WS.LT_CONFIG) && document.querySelector(WS.LT_CLEAR_BTN)) {
+        if (!firstVisibleElement(WS.LT_CONFIG) && firstVisibleElement(WS.LT_CLEAR_BTN)) {
           await ctx.click(WS.LT_CLEAR_BTN);
           await ctx.waitFor(WS.LT_CONFIG, 2000); // wait for React to re-render the config form
         }
         // Ensure template has content
-        const ta = document.querySelector(WS.LT_MESSAGE_TEMPLATE) as HTMLTextAreaElement | null;
+        const ta = firstVisibleElement<HTMLTextAreaElement>(WS.LT_MESSAGE_TEMPLATE);
         if (ta && !ta.value.trim()) {
           await ctx.fill(WS.LT_MESSAGE_TEMPLATE, '{"action":"ping","seq":{{counter}},"ts":"{{timestamp}}"}');
           await ctx.delay(200);
@@ -290,7 +291,7 @@ After completion, see a full results dashboard:
         await ctx.delay(200);
       },
       action: async (ctx) => {
-        const startBtn = document.querySelector(WS.LT_START_BTN) as HTMLButtonElement | null;
+        const startBtn = firstVisibleElement<HTMLButtonElement>(WS.LT_START_BTN);
         if (!startBtn || startBtn.disabled) return;
         // Use ctx.click for the ripple — user sees the Start button press
         await ctx.click(WS.LT_START_BTN);

@@ -274,7 +274,7 @@ describe('LessonList', () => {
     fireEvent.click(screen.getByTestId('reset-all-btn'));
     expect(screen.getByTestId('reset-all-confirm')).toBeTruthy();
     fireEvent.click(screen.getByTestId('reset-all-yes'));
-    expect(onResetAll).toHaveBeenCalled();
+    expect(onResetAll).toHaveBeenCalledWith(['l1']);
   });
 
   it('cancels Reset all without calling onResetAll', () => {

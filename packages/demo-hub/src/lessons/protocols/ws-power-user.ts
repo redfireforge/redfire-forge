@@ -11,6 +11,7 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { wsSetup, wsCleanup, closeExtraConnectionTabs, fillControlledInput } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 /**
  * Rename a specific tab by index (0-based).
@@ -91,7 +92,7 @@ async function ensureThreeNamedTabs(ctx: DemoActionContext): Promise<void> {
 async function powerUserSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
   // Disconnect if connected
-  const dcBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+  const dcBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
   if (dcBtn && !dcBtn.disabled) {
     dcBtn.click();
     await ctx.delay(300);

@@ -622,6 +622,30 @@ export const WsConnectionTabContent = forwardRef<
   // and rules pane (right) render from one source of truth (Phase 6b).
   const mockUi = useMockServerUi(mockServer);
 
+  // Detect the confusing case where the Client is connected to a *local* mock
+  // server on a DIFFERENT port than the one this tab's own Mock Server panel
+  // is running on (each tab gets its own isolated port — see assignNextPort in
+  // WebSocketStudioPage.tsx). When that happens, this tab's Activity Log
+  // legitimately shows no traffic, because the client is actually talking to
+  // a different server instance (e.g. another tab's, still running in the
+  // background). Surface a warning instead of silently confusing the user.
+  const clientPortMismatch = useMemo(() => {
+    if (studio.connection.state !== 'connected' || !mockServer.status.running) return null;
+    const connectedUrl = studio.connection.url;
+    if (!connectedUrl) return null;
+    let parsed: URL;
+    try {
+      parsed = new URL(connectedUrl);
+    } catch {
+      return null;
+    }
+    const isLocalHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '[::1]';
+    if (!isLocalHost) return null;
+    const clientPort = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'wss:' ? 443 : 80);
+    if (clientPort === mockServer.status.port) return null;
+    return { connectedUrl, clientPort };
+  }, [studio.connection.state, studio.connection.url, mockServer.status.running, mockServer.status.port]);
+
   // ── Split-pane shell render (composition inversion) ─────────────────────
   // This component owns the studio hook AND renders the shell, feeding the left
   // body via children and the right (Events) pane via the rightPane slot.
@@ -723,7 +747,7 @@ export const WsConnectionTabContent = forwardRef<
         profileCount={profilesHook.profiles.length}
         messageCount={studio.messages.length}
         mockRunning={mockServer.status.running}
-        topBar={controlledMode === 'mock' ? <WebSocketMockServerBar ui={mockUi} onPortChange={handleMockPortChange} /> : undefined}
+        topBar={controlledMode === 'mock' ? <WebSocketMockServerBar ui={mockUi} onPortChange={handleMockPortChange} clientPortMismatch={clientPortMismatch} /> : undefined}
         rightPane={rightBody}
       >
         {leftBody}

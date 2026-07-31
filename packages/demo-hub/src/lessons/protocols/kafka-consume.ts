@@ -296,7 +296,7 @@ export const kafkaConsumeLesson: DemoLesson = {
         '**Start Position** controls where reading begins in the partition log. `Earliest` starts from offset 0 — you will see every message ever written. `Latest` skips history and only reads new arrivals.',
       highlight: KAFKA.CON_POSITION_SELECT,
       action: async (ctx) => {
-        // Spotlight the Start Position dropdown
+        // Spotlight the Start Position wrapper
         const posSelect = document.querySelector<HTMLElement>(KAFKA.CON_POSITION_SELECT);
         if (posSelect) {
           posSelect.scrollIntoView({ block: 'nearest' });
@@ -304,33 +304,34 @@ export const kafkaConsumeLesson: DemoLesson = {
           posSelect.style.outlineOffset = '2px';
           posSelect.style.borderRadius = '6px';
           await ctx.delay(800);
-
-          // Open the dropdown
-          const trigger = posSelect.querySelector<HTMLElement>('.cs-trigger');
-          if (trigger) trigger.click();
-          await ctx.delay(600);
-
-          // Click "Earliest" option
-          const items = posSelect.querySelectorAll<HTMLElement>('.cs-item');
-          for (const item of items) {
-            if (item.textContent?.includes('Earliest')) {
-              item.style.outline = '2px solid var(--primary)';
-              item.style.outlineOffset = '1px';
-              item.style.borderRadius = '4px';
-              await ctx.delay(600);
-              item.click();
-              item.style.outline = '';
-              item.style.outlineOffset = '';
-              item.style.borderRadius = '';
-              break;
-            }
-          }
-          await ctx.delay(600);
-
           posSelect.style.outline = '';
           posSelect.style.outlineOffset = '';
           posSelect.style.borderRadius = '';
         }
+
+        // Open the dropdown via .cs-trigger (portals menu to document.body)
+        await ctx.click(`${KAFKA.CON_POSITION_SELECT} .cs-trigger`);
+        await ctx.waitFor('.cs-menu', 2000);
+        await ctx.delay(400);
+
+        // Click "Earliest" from the portalled menu
+        const menu = document.querySelector<HTMLElement>('.cs-menu');
+        if (!menu) return;
+        const items = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item'));
+        for (const item of items) {
+          if (item.textContent?.includes('Earliest')) {
+            item.style.outline = '2px solid var(--primary)';
+            item.style.outlineOffset = '1px';
+            item.style.borderRadius = '4px';
+            await ctx.delay(600);
+            item.style.outline = '';
+            item.style.outlineOffset = '';
+            item.style.borderRadius = '';
+            item.click();
+            break;
+          }
+        }
+        await ctx.delay(400);
       },
     },
 

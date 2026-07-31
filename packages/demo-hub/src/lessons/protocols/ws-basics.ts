@@ -1,7 +1,9 @@
 /** Lesson: WebSocket Basics — connect, send, receive */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsCleanup } from '../setup-helpers';
+import { wsCleanup, closeExtraConnectionTabs } from '../setup-helpers';
 import { APP, EM, WS } from '@shared/selectors';
+import { showSpotlightRing } from '../../demoRipple';
+import { firstVisibleElement } from '../../utils/domVisibility';
 import {
   cleanupDemoEnvironment,
   cleanupDemoMicroservice,
@@ -35,15 +37,33 @@ let _mockRunning = false;
 let _wsConnected = false;
 
 /**
+ * The tab's actual assigned mock port, read from the Mock Server panel at runtime.
+ * A tab is NOT guaranteed to land on 9876 — `closeExtraConnectionTabs()` reduces the
+ * tab count to 1 but doesn't renumber a surviving tab's already-assigned port — so
+ * this is captured live rather than assumed. Falls back to '9876' until captured.
+ */
+let _mockPort = '9876';
+
+/** Reads the tab's actual assigned mock port from the DOM, if the Mock panel is visible. */
+function captureMockPort(): void {
+  const portInput = firstVisibleElement<HTMLInputElement>(WS.MOCK_PORT_INPUT);
+  if (portInput?.value?.trim()) _mockPort = portInput.value.trim();
+}
+
+/**
  * Ensure the built-in mock echo server is running.
  * No-op if already started in this lesson session.
  * Always returns with Client mode active.
  */
 async function ensureMockRunning(ctx: DemoActionContext): Promise<void> {
-  if (_mockRunning) return;
+  if (_mockRunning) {
+    captureMockPort();
+    return;
+  }
   await ctx.click(WS.MODE_MOCK);
   await ctx.delay(200);
-  const startBtn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
+  captureMockPort();
+  const startBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_START_BTN);
   if (startBtn && !startBtn.disabled) {
     await ctx.click(WS.MOCK_START_BTN);
     await ctx.waitFor(WS.MOCK_STOP_BTN, 3000);
@@ -59,12 +79,12 @@ async function ensureMockRunning(ctx: DemoActionContext): Promise<void> {
  */
 async function ensureWsUrlTemplate(ctx: DemoActionContext): Promise<void> {
   await navigateToWebSocketStudio(ctx);
-  await ensureWsDemoHeaderContext(ctx);
+  await ensureWsDemoHeaderContext(ctx, `ws://localhost:${_mockPort}`);
   await ctx.click(WS.MODE_CLIENT);
   await ctx.delay(200);
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
-  const input = document.querySelector<HTMLInputElement>(WS.URL_INPUT);
+  const input = firstVisibleElement<HTMLInputElement>(WS.URL_INPUT);
   if (input && input.value.trim() !== WS_ENV_VAR_URL) {
     await ctx.fill(WS.URL_INPUT, WS_ENV_VAR_URL);
     await ctx.delay(400);
@@ -78,7 +98,7 @@ async function ensureWsUrlTemplate(ctx: DemoActionContext): Promise<void> {
  */
 async function ensureConnected(ctx: DemoActionContext): Promise<void> {
   if (_wsConnected) return;
-  if (document.querySelector(WS.STATUS_CONNECTED)) {
+  if (firstVisibleElement(WS.STATUS_CONNECTED)) {
     _wsConnected = true;
     return;
   }
@@ -96,20 +116,27 @@ export const wsBasicsLesson: DemoLesson = {
   category: 'websocket',
   name: 'WebSocket Basics',
   description: 'Connect to a WebSocket server, send messages, and see live responses.',
-  estimatedMinutes: 6,
+  estimatedMinutes: 5,
   initialTab: 'websocket-studio',
   allowedTabs: ['environments', 'websocket-studio'],
 
   setup: async (ctx) => {
     _mockRunning = false;
     _wsConnected = false;
+    _mockPort = '9876';
     // Remove stale ws-demo from prior runs (HTTP tab, d01 deploy, old step order).
     await cleanupDemoMicroservice(ctx, WS_DEMO_SVC_NAME);
     await cleanupDemoEnvironment(ctx, WS_DEMO_ENV_NAME);
     await navigateToWebSocketStudio(ctx);
     await ctx.delay(300);
+    // Close extra tabs so only this tab's mock server is in play. This does NOT
+    // guarantee port 9876 — the surviving tab keeps whatever port it was already
+    // assigned — so the real port is captured below and used for the endpoint
+    // config instead of assuming 9876.
+    await closeExtraConnectionTabs(ctx);
+    await ctx.delay(200);
     // Disconnect any active session so the connect step can demo from scratch
-    const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+    const disconnectBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
     if (disconnectBtn && !disconnectBtn.disabled) {
       disconnectBtn.click();
       await ctx.delay(400);
@@ -117,7 +144,9 @@ export const wsBasicsLesson: DemoLesson = {
     // Stop mock server if running so the mock step can demo starting it
     await ctx.click(WS.MODE_MOCK);
     await ctx.delay(300);
-    const stopBtn = document.querySelector(WS.MOCK_STOP_BTN) as HTMLButtonElement | null;
+    // Capture this tab's real assigned mock port while the Mock panel is visible.
+    captureMockPort();
+    const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_STOP_BTN);
     if (stopBtn && !stopBtn.disabled) {
       stopBtn.click();
       await ctx.delay(500);
@@ -201,7 +230,7 @@ export const wsBasicsLesson: DemoLesson = {
       highlight: EM.ADD_PROTOCOL_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        if (!document.querySelector(WS.URL_INPUT)) {
+        if (!firstVisibleElement(WS.URL_INPUT)) {
           await navigateToWebSocketStudio(ctx);
         }
       },
@@ -216,7 +245,8 @@ export const wsBasicsLesson: DemoLesson = {
       id: 'ws-env-config',
       title: 'Configure WebSocket Endpoint',
       description:
-        'On the **WebSocket** tab, click **Edit** on the **WebSocket Demo** row and enter `ws://localhost:9876`. ' +
+        'On the **WebSocket** tab, click **Edit** on the **WebSocket Demo** row and enter your mock server\'s ' +
+        'URL (e.g. `ws://localhost:9876` — the exact port depends on how many connection tabs you have open). ' +
         'Click **Save** — the status changes to **✓ set** and the derived-variables panel shows ' +
         '`{{wsBaseUrl}}` resolved to your endpoint. Only the **WebSocket** tab is present — no HTTP tab.',
       highlight: EM.PROTOCOL_TAB_WS,
@@ -225,7 +255,7 @@ export const wsBasicsLesson: DemoLesson = {
         await ensureWsDemoProtocolReady(ctx);
       },
       action: async (ctx: DemoActionContext) => {
-        await ensureWsDemoEndpointConfigured(ctx);
+        await ensureWsDemoEndpointConfigured(ctx, `ws://localhost:${_mockPort}`);
         await ctx.delay(1000);
       },
     },
@@ -236,18 +266,19 @@ export const wsBasicsLesson: DemoLesson = {
       title: 'Start the Mock Server',
       description:
         'The built-in **Mock Server** echoes every message you send — perfect for learning. ' +
-        'Switch to the **Mock Server** tab and click **Start Server**. The listen address `ws://localhost:9876` ' +
-        'matches the endpoint you saved in the Environment Manager. After the server is running, we switch to ' +
-        '**Client** mode to connect using `{{wsBaseUrl}}` instead of typing that address by hand.',
+        'Switch to the **Mock Server** tab and click **Start Server**. The listen address shown (e.g. ' +
+        '`ws://localhost:9876`) matches the endpoint you saved in the Environment Manager. After the server is ' +
+        'running, we switch to **Client** mode to connect using `{{wsBaseUrl}}` instead of typing that address by hand.',
       highlight: WS.MOCK_BTN_ANY,
       pauseAfter: true,
       preAction: async (ctx) => {
         await navigateToWebSocketStudio(ctx);
         await ctx.click(WS.MODE_MOCK);
         await ctx.delay(200);
+        captureMockPort();
       },
       action: async (ctx) => {
-        const btn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
+        const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_START_BTN);
         if (btn && !btn.disabled) {
           await ctx.click(WS.MOCK_START_BTN);
           await ctx.waitFor(WS.MOCK_STOP_BTN, 3000);
@@ -281,7 +312,21 @@ export const wsBasicsLesson: DemoLesson = {
         await selectEnvInHeader(ctx, DEMO_ENV_NAME);
         await ctx.delay(800);
         await selectSvcInHeader(ctx, DEMO_SVC_NAME);
-        await ctx.delay(1500);
+        await ctx.delay(600);
+        // Payoff: leave the ring on Environment + Service so the viewer confirms
+        // the header context (and resolved protocol indicator) before Next.
+        const envEl = document.querySelector<HTMLElement>(APP.HEADER_ENV_SELECT);
+        if (envEl) {
+          const remove = showSpotlightRing(envEl);
+          await ctx.delay(900);
+          remove();
+        }
+        const svcEl = document.querySelector<HTMLElement>(APP.HEADER_SVC_SELECT);
+        if (svcEl) {
+          const remove = showSpotlightRing(svcEl);
+          await ctx.delay(1100);
+          remove();
+        }
       },
     },
 
@@ -290,7 +335,8 @@ export const wsBasicsLesson: DemoLesson = {
       id: 'ws-env-vars',
       title: 'Environment Variables in URLs',
       description:
-        'On the **Connect** tab in **Client** mode, type `{{wsBaseUrl}}` instead of hardcoding `ws://localhost:9876`. ' +
+        'On the **Connect** tab in **Client** mode, type `{{wsBaseUrl}}` instead of hardcoding a literal address ' +
+        'like `ws://localhost:9876`. ' +
         'Watch **→ Resolved:** appear below the input — RedfireForge resolves `{{wsBaseUrl}}` from the **WebSocket** ' +
         'tab endpoint using the **WebSocket Demo** environment and **ws-demo** service you selected.',
       highlight: WS.URL_INPUT,
@@ -320,7 +366,7 @@ export const wsBasicsLesson: DemoLesson = {
         await ensureWsUrlTemplate(ctx);
       },
       action: async (ctx) => {
-        const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+        const disconnectBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
         if (disconnectBtn && !disconnectBtn.disabled) {
           await ctx.click(WS.DISCONNECT_BTN);
           await ctx.delay(400);
@@ -336,47 +382,38 @@ export const wsBasicsLesson: DemoLesson = {
       verify: WS.STATUS_CONNECTED,
     },
 
-    // ── 8. Compose message ───────────────────────────────────────
-    {
-      id: 'ws-compose',
-      title: 'Send a Message',
-      description:
-        'Switch to the **Send** tab to write messages. You can send plain text, JSON, or binary data. ' +
-        'The format pills let you switch between Text, JSON, and Base64 encoding.',
-      highlight: WS.COMPOSE_INPUT,
-      pauseAfter: true,
-      preAction: async (ctx) => {
-        await ensureConnected(ctx);
-        await ctx.click(WS.LEFT_TAB_SEND);
-      },
-      action: async (ctx) => {
-        await ctx.fill(WS.MESSAGE_INPUT, '{"hello": "world", "demo": true}');
-      },
-    },
-
-    // ── 9. Send ──────────────────────────────────────────────────
+    // ── 8. Compose + send ────────────────────────────────────────
     {
       id: 'ws-send',
-      title: 'Send Your Message',
+      title: 'Send a Message',
       description:
-        'Click Send to transmit the message. The mock server echoes it right back. Look at the Events panel on the right — ' +
+        'Open the **Send** tab and type a JSON payload — plain text, JSON, or Base64 via the format pills. ' +
+        'Click **Send** to transmit it. The mock server echoes it right back. Watch the **Events** panel — ' +
         'you\'ll see both the sent (↑) and received (↓) entries appear.',
       highlight: WS.SEND_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureConnected(ctx);
         await ctx.click(WS.LEFT_TAB_SEND);
-        await ctx.delay(100);
+        // Quiet pre-fill so rapid Next still has a payload ready to send
         await ctx.fill(WS.MESSAGE_INPUT, '{"hello": "world", "demo": true}');
-        await ctx.delay(100);
       },
       action: async (ctx) => {
+        await ctx.click(WS.LEFT_TAB_SEND);
+        await ctx.delay(500);
+        await ctx.fill(WS.MESSAGE_INPUT, '{"hello": "world", "demo": true}');
+        await ctx.delay(900); // viewer reads the composed message
         await ctx.click(WS.SEND_BTN);
+        await ctx.waitFor(WS.MESSAGE_ROW, 5000);
+        await ctx.delay(500);
+        // Show the Events payoff in the same step so compose+send aren't split from the result
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(1200);
       },
       verify: WS.MESSAGE_ROW,
     },
 
-    // ── 10. Monitor Events ───────────────────────────────────────
+    // ── 9. Monitor Events ───────────────────────────────────────
     {
       id: 'ws-events',
       title: 'Monitor Live Events',
@@ -387,13 +424,24 @@ export const wsBasicsLesson: DemoLesson = {
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureConnected(ctx);
+        // Belts for rapid Next: ensure a message exists and Events is open
+        await ctx.click(WS.LEFT_TAB_SEND);
+        await ctx.delay(100);
+        await ctx.fill(WS.MESSAGE_INPUT, '{"hello": "world", "demo": true}');
+        await ctx.delay(100);
+        if (!document.querySelector(WS.MESSAGE_ROW)) {
+          await ctx.click(WS.SEND_BTN);
+          await ctx.waitFor(WS.MESSAGE_ROW, 5000);
+        }
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
       },
       action: async (ctx) => {
         await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(800);
       },
     },
 
-    // ── 11. Multiple Connections ─────────────────────────────────
+    // ── 10. Multiple Connections ─────────────────────────────────
     {
       id: 'ws-tabs',
       title: 'Multiple Connections',
@@ -404,7 +452,7 @@ export const wsBasicsLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 12. Disconnect ───────────────────────────────────────────
+    // ── 11. Disconnect ───────────────────────────────────────────
     {
       id: 'ws-disconnect',
       title: 'Disconnect',

@@ -259,7 +259,18 @@ function MockUptime({ startedAt }: { startedAt: number }) {
   return <b>{formatUptime(now - startedAt)}</b>;
 }
 
-export function WebSocketMockServerBar({ ui, onPortChange }: { ui: MockUi; onPortChange?: (port: number) => void }) {
+export function WebSocketMockServerBar({
+  ui,
+  onPortChange,
+  clientPortMismatch,
+}: {
+  ui: MockUi;
+  onPortChange?: (port: number) => void;
+  /** Set when the Client (this same tab) is connected to a local WS server on
+   *  a different port than the one this Mock Server panel is running on —
+   *  see WsConnectionTabContent.tsx for the detection logic. */
+  clientPortMismatch?: { connectedUrl: string; clientPort: number } | null;
+}) {
   const { status, config, starting, enabledRuleCount, startedAt } = ui;
   const canEditPort = !status.running && !starting;
 
@@ -379,6 +390,16 @@ export function WebSocketMockServerBar({ ui, onPortChange }: { ui: MockUi; onPor
           {status.error}
         </div>
       )}
+
+      {clientPortMismatch && (
+        <div className="ws-mock-port-mismatch" role="alert" data-testid="mock-port-mismatch">
+          <span className="ws-mock-port-mismatch-icon" aria-hidden="true">⚠</span>
+          Client is connected to <strong>port {clientPortMismatch.clientPort}</strong>, not this
+          server (<strong>port {status.port}</strong>). Activity for that connection won't appear
+          here — connect the Client to <code>ws://localhost:{status.port}</code> to see it, or
+          check other tabs for a server running on port {clientPortMismatch.clientPort}.
+        </div>
+      )}
     </div>
   );
 }
@@ -426,7 +447,7 @@ export function WebSocketMockClientsPane({ ui }: { ui: MockUi }) {
           <button
             className="ws-mock-broadcast-btn"
             onClick={ui.handleBroadcast}
-            disabled={!broadcastText.trim() || status.clientCount === 0}
+            disabled={!broadcastText.trim()}
             data-testid="mock-broadcast-btn"
           >
             Send

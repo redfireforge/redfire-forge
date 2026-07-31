@@ -30,6 +30,7 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { closeExtraConnectionTabs, disconnectWebSocket, clearEvents, resetAuth, clearCustomHeaders } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 const TLS_URL   = 'wss://localhost:8766';
 const MTLS_URL  = 'wss://localhost:8768';
@@ -132,9 +133,9 @@ iAU+tJGKIkZm8s8ILh0GJWVcfQ==
  */
 async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.TLS_TOGGLE, 2000);
-  const alreadyOpen = !!document.querySelector(WS.TLS_BODY);
+  const alreadyOpen = !!firstVisibleElement(WS.TLS_BODY);
   if (!alreadyOpen) {
-    const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
+    const toggle = firstVisibleElement<HTMLElement>(WS.TLS_TOGGLE);
     if (toggle) {
       toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
       // Wait for the portal to actually render into document.body — not just a
@@ -153,13 +154,13 @@ async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
  * machines, leaving the overlay visible long enough to intercept clicks.
  */
 async function closeTlsModal(ctx: DemoActionContext): Promise<void> {
-  const closeBtn = document.querySelector('[data-testid="tls-close"]') as HTMLElement | null;
+  const closeBtn = firstVisibleElement<HTMLElement>('[data-testid="tls-close"]');
   if (!closeBtn) return; // already closed
   closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   // Poll until portal is unmounted (max 20 × 50 ms ≈ 1 s in real usage).
   // Bounded iteration count instead of a deadline so unit tests with mocked
   // ctx.delay (which resolves instantly) terminate after ≤20 iterations.
-  for (let i = 0; i < 20 && !!document.querySelector(WS.TLS_BODY); i++) {
+  for (let i = 0; i < 20 && !!firstVisibleElement(WS.TLS_BODY); i++) {
     await ctx.delay(50);
   }
   await ctx.delay(100); // Extra tick for React to stabilize
@@ -172,7 +173,7 @@ async function closeTlsModal(ctx: DemoActionContext): Promise<void> {
  */
 async function setSkipCert(ctx: DemoActionContext, checked: boolean): Promise<void> {
   await ctx.waitFor(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`, 2000);
-  const checkbox = document.querySelector(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`) as HTMLInputElement | null;
+  const checkbox = firstVisibleElement<HTMLInputElement>(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`);
   if (!checkbox || checkbox.checked === checked) return;
   checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   await ctx.delay(200);
@@ -435,7 +436,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
         await closeTlsModal(ctx);
         await ctx.delay(500);
         // Briefly highlight the transport badge so viewers see the Direct→Proxy change
-        const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
+        const badge = firstVisibleElement<HTMLElement>(WS.TRANSPORT_BADGE);
         if (badge) {
           badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
           badge.style.outline = '2px solid var(--accent-primary, #e96b3a)';
@@ -465,7 +466,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(2500);
-        const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
+        const isConnected = !!firstVisibleElement(WS.STATUS_CONNECTED);
         if (isConnected) {
           // Navigate to Send tab, send the echo, then return to Connect
           await ctx.click(WS.LEFT_TAB_SEND);
@@ -479,7 +480,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
           await ctx.delay(1500);
         }
         // Briefly outline the transport badge so viewers see the Proxy label
-        const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
+        const badge = firstVisibleElement<HTMLElement>(WS.TRANSPORT_BADGE);
         if (badge) {
           badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
           badge.style.outline = '2px solid var(--accent-primary, #e96b3a)';
@@ -516,7 +517,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
         // Wait for CA cert textarea to be in the DOM (it's inside the portal)
         await ctx.waitFor(WS.TLS_CA_CERT, 2000);
         // Pre-fill CA cert so it is visible while the user reads the description
-        const caField = document.querySelector(WS.TLS_CA_CERT) as HTMLTextAreaElement | null;
+        const caField = firstVisibleElement<HTMLTextAreaElement>(WS.TLS_CA_CERT);
         if (!caField?.value?.trim()) {
           await ctx.fill(WS.TLS_CA_CERT, DEV_CA_CERT);
         }
@@ -548,7 +549,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(2500);
-        const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
+        const isConnected = !!firstVisibleElement(WS.STATUS_CONNECTED);
         if (isConnected) {
           // Navigate to Send tab, send echo, then return to Connect
           await ctx.click(WS.LEFT_TAB_SEND);
@@ -561,7 +562,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
           await ctx.click(WS.LEFT_TAB_CONNECT);
           await ctx.delay(1500);
         }
-        const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
+        const badge = firstVisibleElement<HTMLElement>(WS.TRANSPORT_BADGE);
         if (badge) badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         await ctx.delay(400);
       },
@@ -621,14 +622,14 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
         // Wait for cert textareas to be in the DOM (portal renders async)
         await ctx.waitFor(WS.TLS_CA_CERT, 2000);
         // Guard: ensure CA cert is present (may be missing if user navigated back)
-        const caField = document.querySelector(WS.TLS_CA_CERT) as HTMLTextAreaElement | null;
+        const caField = firstVisibleElement<HTMLTextAreaElement>(WS.TLS_CA_CERT);
         if (!caField?.value?.trim()) {
           await ctx.fill(WS.TLS_CA_CERT, DEV_CA_CERT);
         }
         // Pre-fill client cert + key so the fields are visible while the user reads
         // the description — the action will re-animate them for the visual effect.
         await ctx.waitFor(WS.TLS_CLIENT_CERT, 2000);
-        const certField = document.querySelector(WS.TLS_CLIENT_CERT) as HTMLTextAreaElement | null;
+        const certField = firstVisibleElement<HTMLTextAreaElement>(WS.TLS_CLIENT_CERT);
         if (!certField?.value?.trim()) {
           await ctx.fill(WS.TLS_CLIENT_CERT, DEV_CLIENT_CERT);
           await ctx.fill(WS.TLS_CLIENT_KEY, DEV_CLIENT_KEY);
@@ -665,7 +666,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(2500);
-        const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
+        const isConnected = !!firstVisibleElement(WS.STATUS_CONNECTED);
         if (isConnected) {
           // Navigate to Send tab, send echo, then return to Connect
           await ctx.click(WS.LEFT_TAB_SEND);
@@ -679,7 +680,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
           await ctx.delay(1500);
         }
         // Highlight transport badge
-        const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
+        const badge = firstVisibleElement<HTMLElement>(WS.TRANSPORT_BADGE);
         if (badge) badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         await ctx.delay(400);
       },

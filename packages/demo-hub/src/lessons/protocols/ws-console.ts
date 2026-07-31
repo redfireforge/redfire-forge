@@ -1,7 +1,8 @@
 /** Lesson 3: Console & Debugging — slash commands, filters, structured logs */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsCleanup } from '../setup-helpers';
+import { wsSetup, wsCleanup, getLastMockPort } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 /**
  * Tracks whether the lesson's /connect command has already been run in the
@@ -26,8 +27,8 @@ async function ensureConnectedWithConsole(ctx: DemoActionContext): Promise<void>
   if (_consoleConnected) return;
   // Connect via console command — stays on Console tab and
   // populates it with lifecycle entries for subsequent demo steps.
-  await ctx.fill(WS.CONSOLE_CMD_INPUT, '/connect ws://localhost:9876');
-  const input = document.querySelector(WS.CONSOLE_CMD_INPUT);
+  await ctx.fill(WS.CONSOLE_CMD_INPUT, `/connect ws://localhost:${getLastMockPort()}`);
+  const input = firstVisibleElement(WS.CONSOLE_CMD_INPUT);
   if (input) {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   }
@@ -108,7 +109,7 @@ When debugging WebSocket issues, you need more than just message payloads. The C
     {
       id: 'console-connect',
       title: '/connect Command',
-      description: 'Type /connect ws://localhost:9876 in the command line to connect directly from the console. Watch lifecycle events appear: connection opened, handshake details, and protocol info.',
+      description: 'Type /connect ws://localhost:<port> (this tab\'s mock server port) in the command line to connect directly from the console. Watch lifecycle events appear: connection opened, handshake details, and protocol info.',
       highlight: WS.CONSOLE_CMD_INPUT,
       preAction: async (ctx) => {
         // Guard: ensure Console tab + Structured view so lifecycle entries
@@ -119,8 +120,8 @@ When debugging WebSocket issues, you need more than just message payloads. The C
         await ctx.delay(150);
       },
       action: async (ctx) => {
-        await ctx.fill(WS.CONSOLE_CMD_INPUT, '/connect ws://localhost:9876');
-        const input = document.querySelector(WS.CONSOLE_CMD_INPUT) as HTMLInputElement | null;
+        await ctx.fill(WS.CONSOLE_CMD_INPUT, `/connect ws://localhost:${getLastMockPort()}`);
+        const input = firstVisibleElement<HTMLInputElement>(WS.CONSOLE_CMD_INPUT);
         if (input) {
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         }
@@ -179,7 +180,7 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       },
       action: async (ctx) => {
         await ctx.fill(WS.CONSOLE_CMD_INPUT, '/send {"demo": "console command"}');
-        const input = document.querySelector(WS.CONSOLE_CMD_INPUT) as HTMLInputElement | null;
+        const input = firstVisibleElement<HTMLInputElement>(WS.CONSOLE_CMD_INPUT);
         if (input) {
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         }
@@ -201,7 +202,7 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       },
       action: async (ctx) => {
         await ctx.fill(WS.CONSOLE_CMD_INPUT, '/help');
-        const input = document.querySelector(WS.CONSOLE_CMD_INPUT) as HTMLInputElement | null;
+        const input = firstVisibleElement<HTMLInputElement>(WS.CONSOLE_CMD_INPUT);
         if (input) {
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         }

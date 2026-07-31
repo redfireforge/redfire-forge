@@ -968,9 +968,9 @@ describe('RequestsSidebar', () => {
     const sSelect = screen.getByTestId('req-subcol-env-select');
     const trigger = within(sSelect).getByRole('button');
     fireEvent.click(trigger);
-    expect(within(sSelect).getByRole('listbox')).toBeInTheDocument();
+    expect(document.body.querySelector('[role="listbox"]')).toBeInTheDocument();
     fireEvent.keyDown(trigger, { key: 'Escape' });
-    expect(within(sSelect).queryByRole('listbox')).not.toBeInTheDocument();
+    expect(document.body.querySelector('[role="listbox"]')).not.toBeInTheDocument();
     expect(screen.getByTestId('req-subcol-env-select')).toBeInTheDocument();
   });
 
@@ -1055,7 +1055,7 @@ describe('RequestsSidebar', () => {
     openCollectionCtx();
 
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
-    const select = screen.getByTestId('req-subcol-env-select');
+    screen.getByTestId('req-subcol-env-select');
     expect(props.onAddSubCollection).not.toHaveBeenCalled();
 
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });

@@ -45,9 +45,22 @@ async function mockFetch<T>(method: 'GET' | 'POST', path: string, body?: unknown
   }
   const resp = await fetch(path, init);
   let parsed: { ok: boolean; data?: T; error?: { message: string } };
+
   try {
-    parsed = await resp.json() as typeof parsed;
+    if (typeof resp.json === 'function') {
+      parsed = await resp.json() as typeof parsed;
+    } else if (typeof resp.text === 'function') {
+      const rawBody = await resp.text();
+      parsed = JSON.parse(rawBody) as typeof parsed;
+    } else {
+      throw new Error('No JSON body parser available');
+    }
   } catch {
+    if (resp.status === 502) {
+      throw new Error(
+        'Backend API is unreachable (HTTP 502). Start the local API server on port 3001 and retry.',
+      );
+    }
     throw new Error(`Server returned ${resp.status} (non-JSON response)`);
   }
   if (!parsed.ok) throw new Error(parsed.error?.message ?? 'Unknown mock server error');

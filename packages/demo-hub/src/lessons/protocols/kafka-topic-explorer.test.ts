@@ -5,6 +5,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaTopicExplorerLesson } from './kafka-topic-explorer';
 
+// kafkaPublishSetup performs its own network calls + UI fallback loops (up to
+// ~12 ctx.delay calls when no Kafka server/DOM is present) that are unrelated
+// to this lesson's own logic. Mock it to a fast no-op so delay-count
+// assertions below reflect only kafka-topic-explorer's own loops.
+vi.mock('../setup-helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../setup-helpers')>();
+  return {
+    ...actual,
+    kafkaPublishSetup: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 describe('kafka-topic-explorer lesson', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
 

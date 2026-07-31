@@ -759,16 +759,18 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 **Note — Plan vs Actual UI:** Trace levels are **Minimal/Standard/Full/Debug** (not Metrics/Sampled). Variable presets save **variables only** (not full run configs). The Multi-Webhook Testing Panel only appears when CorrelationWait mode is set to "Wait for Real Webhook" (conditional). The lesson covers what every user will see without requiring external webhook infrastructure.
 
+**Implementation note (2026-07-30):** TH-21 pacing was simplified to reduce rapid spotlight hops. Non-essential highlights were removed (for example, Step 6 no longer spotlights the transient Stop button), and each step now holds longer on the key teaching outcome so narration and visual focus stay synchronized.
+
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
 | 1 | `th21-designer-promote` | From Designer to Workflow Runner | `.react-flow__node-start` | On **Workflow Designer**, select the seeded workflow → **Fit View once** (preAction, before Reading) → tour nodes **Start → Create Post → Wait for Callback → End** → spotlight **Run in Harness** → click it → land on **Workflow Runner** with the workflow pre-selected (Environments left panel shown) → spotlight the picker **summary** |
-| 2 | `th21-picker` | Workflow Picker | `.workflow-picker` | Clear selection → click **Select a workflow…** → spotlight the searchable picker panel → select the demo workflow → spotlight summary → fill **Initial Variables** (`baseUrl`, `correlationId`) live |
-| 3 | `th21-variables` | Initial Variables & Presets | `.workflow-vars-section` | Spotlight variable rows → **Save** / **Presets** actions → open presets history panel briefly |
+| 2 | `th21-picker` | Workflow Picker | `.workflow-picker` | Clear selection → click **Select a workflow…** → spotlight the picker panel (single focus) → select the demo workflow → hold on summary → fill **Initial Variables** (`baseUrl`, `correlationId`) with deliberate pauses so each value entry is readable |
+| 3 | `th21-variables` | Initial Variables & Presets | `.workflow-vars-section` | Keep focus on the **variables actions bar** (reduced spotlight jumps) → open **Presets** briefly → hold on presets history panel → close and return to a stable runner surface |
 | 4 | `th21-trace-config` | Trace Level & Execution Config | `.wf-runner-inline-options` | Spotlight **Trace Level** radios → spotlight **execution config** (iterations, concurrency, think time, resilience) |
-| 5 | `th21-correlation` | CorrelationWait Support | `.wf-runner-correlation-section` | Keep **Auto-Resume** selected → spotlight the CorrelationWait section → spotlight each mode card in place (no mode switching / no Synthetic or Multi-Webhook panel thrash) → hold on Auto-Resume as the load-test default |
-| 6 | `th21-run-button` | Run & Completion Flow | `[data-testid="workflow-runner-run-btn"]` | Spotlight **▶ Run Workflow** → run → spotlight live progress / completion banner |
+| 5 | `th21-correlation` | CorrelationWait Support | `.wf-runner-correlation-section` | Keep **Auto-Resume** selected as the default → keep the view stable on the CorrelationWait section → pause on the selected mode long enough to read before advancing |
+| 6 | `th21-run-button` | Run & Completion Flow | `[data-testid="workflow-runner-run-btn"]` | Spotlight **▶ Run Workflow** → run → hold on **live progress** then **completion banner** (transient Stop highlight removed to avoid unnecessary motion) |
 
 **Cleanup:** Delete seeded `Workflow Runner Demo` workflow.
 

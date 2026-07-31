@@ -209,6 +209,8 @@ describe('DataSourceEditor', () => {
     useDataSourceTagsHarness.mismatchTagCounts = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+    // jsdom doesn't implement scrollIntoView; silence it globally for this suite
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
 
   describe('toolbar and grid interactions', () => {
@@ -308,7 +310,7 @@ describe('DataSourceEditor', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
       const handles = document.querySelectorAll('.data-source-col-resize');
       const addListener = vi.spyOn(document, 'addEventListener');
-      fireEvent.mouseDown(handles[1]);
+      fireEvent.mouseDown(handles[0]);
       expect(addListener).toHaveBeenCalledWith('mousemove', expect.any(Function));
       fireEvent.mouseUp(document);
       addListener.mockRestore();

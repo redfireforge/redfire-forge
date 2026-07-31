@@ -208,11 +208,11 @@ export async function executeConsumeOnce(
         ? computeDescSeekOffsets(partitionOffsets, maxMessages)
         : undefined);
 
-    if (effectiveSeekOffsets && effectiveSeekOffsets.length > 0) {
-      for (const so of effectiveSeekOffsets) {
-        consumer.seek(request.topic, so.partition, so.offset);
-      }
-    }
+    // NOTE: consumer.seek() must be called AFTER consumer.run() because KafkaJS
+    // initialises `this.runner` synchronously at the start of run() — calling seek
+    // before run() throws "Consumer group was not initialized, consumer#run must be
+    // called first". Seeks are applied inside the resultPromise constructor, right
+    // after `void consumer.run(...)` starts the runner.
 
     const resultPromise = new Promise<KafkaConsumeResult>((resolve, reject) => {
       settle = async (result) => {
@@ -287,6 +287,15 @@ export async function executeConsumeOnce(
         }
         reject(error);
       });
+
+      // Apply seek offsets AFTER consumer.run() has been called. KafkaJS sets
+      // this.runner synchronously at the start of run(), so by the time the
+      // line above executes, the runner is initialised and seek() is safe to call.
+      if (effectiveSeekOffsets && effectiveSeekOffsets.length > 0) {
+        for (const so of effectiveSeekOffsets) {
+          consumer.seek(request.topic, so.partition, so.offset);
+        }
+      }
     });
 
     const result = await resultPromise;

@@ -33,32 +33,20 @@ async function ensureOnWfRunnerTab(ctx: DemoActionContext): Promise<void> {
   await expandWfDemoAppSidebar(ctx);
 }
 
-async function spotlightCanvasNode(
-  ctx: DemoActionContext,
-  selector: string,
-  holdMs: number,
-): Promise<void> {
-  const el = document.querySelector<HTMLElement>(selector);
-  if (!el) return;
-  el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-  await spotlight(el, holdMs, ctx);
-}
-
-/** Click Designer Fit View once so the seeded graph is centered (quiet — no spotlight). */
-async function fitTh21CanvasView(ctx: DemoActionContext): Promise<void> {
-  const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
-  if (!fitBtn) return;
-  fitBtn.click();
-  // Fit View may run auto-layout + animated fit — wait for the viewport to settle
-  await ctx.delay(500);
-}
-
 const TH21_WORKFLOW_NAME = 'Workflow Runner Demo';
 
 const TH21_VAR_VALUES: Record<string, string> = {
   baseUrl: 'https://jsonplaceholder.typicode.com',
   correlationId: 'demo-001',
 };
+
+const TH21_PAUSE = {
+  settle: 800,
+  short: 600,
+  beat: 1000,
+  focus: 1300,
+  outcome: 1600,
+} as const;
 
 function createTh21WorkflowRunnerDemo(): Record<string, unknown> {
   const startId = crypto.randomUUID();
@@ -176,22 +164,22 @@ async function fillTh21Variables(
     if (input.value === value) continue;
 
     if (!opts?.quiet) {
-      await spotlight(row, 900, ctx);
-      await ctx.delay(250);
+      await spotlight(row, TH21_PAUSE.focus, ctx);
+      await ctx.delay(TH21_PAUSE.short);
     }
     fillControlledInput(input, value);
-    await ctx.delay(opts?.quiet ? 120 : 750);
+    await ctx.delay(opts?.quiet ? 180 : TH21_PAUSE.beat);
   }
 }
 
 /** Ensure a workflow is selected in the picker via dropdown click. */
 async function ensureWorkflowSelected(ctx: DemoActionContext): Promise<void> {
   await ensureOnWfRunnerTab(ctx);
-  await ctx.delay(400);
+  await ctx.delay(TH21_PAUSE.settle);
 
   // Bridge-first selection keeps the runner on this lesson's deterministic seed.
   if (selectRunnerWorkflowByName(TH21_WORKFLOW_NAME)) {
-    await ctx.delay(250);
+    await ctx.delay(TH21_PAUSE.short);
   }
 
   const summary = document.querySelector(HAR.WF_PICKER_SUMMARY);
@@ -199,15 +187,15 @@ async function ensureWorkflowSelected(ctx: DemoActionContext): Promise<void> {
     const trigger = document.querySelector<HTMLElement>(HAR.WF_PICKER_TRIGGER);
     if (trigger) {
       trigger.click();
-      await ctx.delay(400);
+      await ctx.delay(TH21_PAUSE.settle);
       const item = findWorkflowPickerItemByName(TH21_WORKFLOW_NAME)
         ?? document.querySelector<HTMLElement>(HAR.WF_PICKER_ITEM);
       if (item) {
         item.click();
-        await ctx.delay(500);
+        await ctx.delay(TH21_PAUSE.beat);
       } else {
         document.body.click();
-        await ctx.delay(200);
+        await ctx.delay(TH21_PAUSE.short);
       }
     }
   }
@@ -222,8 +210,10 @@ async function setCorrelationMode(ctx: DemoActionContext, index: number): Promis
   const cards = section.querySelectorAll<HTMLElement>(HAR.WF_CORR_MODE);
   const target = cards[index];
   if (!target) return;
+  const isAlreadySelected = !!target.querySelector<HTMLInputElement>('input[type="radio"]:checked');
+  if (isAlreadySelected) return;
   target.click();
-  await ctx.delay(300);
+  await ctx.delay(TH21_PAUSE.beat);
 }
 
 async function clickRunAndWaitForCompletion(ctx: DemoActionContext): Promise<void> {
@@ -233,7 +223,7 @@ async function clickRunAndWaitForCompletion(ctx: DemoActionContext): Promise<voi
   if (!triggerRunnerWorkflowRun()) {
     runBtn.click();
   }
-  await ctx.delay(500);
+  await ctx.delay(TH21_PAUSE.beat);
 
   // Wait up to ~20s for completion banner while allowing live progress to render.
   for (let i = 0; i < 40; i += 1) {
@@ -316,10 +306,10 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       selectAfterSeed: true,
     });
     ensureOnWorkflowTab(ctx);
-    await ctx.delay(700);
+    await ctx.delay(TH21_PAUSE.settle);
     selectWorkflowByName(TH21_WORKFLOW_NAME);
     await collapseWfDemoAppSidebar(ctx);
-    await ctx.delay(200);
+    await ctx.delay(TH21_PAUSE.short);
   },
 
   // ── Cleanup ────────────────────────────────────────────────────
@@ -344,43 +334,30 @@ export const thWorkflowRunnerLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         ensureOnWorkflowTab(ctx);
-        await ctx.delay(300);
+        await ctx.delay(TH21_PAUSE.short);
         await selectWorkflowFromAppSidebar(ctx, TH21_WORKFLOW_NAME);
         await collapseWfDemoAppSidebar(ctx);
-        // Fit View once as soon as the workflow is open (before Reading)
-        await fitTh21CanvasView(ctx);
       },
 
       action: async (ctx) => {
         ensureOnWorkflowTab(ctx);
-        // Keep the Fit View from preAction — do not re-select (that resets the viewport)
         await collapseWfDemoAppSidebar(ctx);
-        await ctx.delay(250);
-
-        // Tour individual nodes — no whole-canvas ring, no second Fit View
-        await spotlightCanvasNode(ctx, WF.NODE_START, 1000);
-        await ctx.delay(300);
-        await spotlightCanvasNode(ctx, WF.NODE_HTTP, 1400);
-        await ctx.delay(300);
-        await spotlightCanvasNode(ctx, WF.NODE_CORRELATION_WAIT, 1400);
-        await ctx.delay(300);
-        await spotlightCanvasNode(ctx, WF.NODE_END, 1000);
-        await ctx.delay(400);
+        await ctx.delay(TH21_PAUSE.short);
 
         // Promote: Run in Harness → Workflow Runner with this workflow selected
         const harnessBtn = document.querySelector<HTMLElement>(WF.RUN_IN_HARNESS_BTN);
         if (harnessBtn) {
-          await spotlight(harnessBtn, 1800, ctx);
-          await ctx.delay(400);
+          await spotlight(harnessBtn, TH21_PAUSE.outcome, ctx);
+          await ctx.delay(TH21_PAUSE.short);
           harnessBtn.click();
-          await ctx.delay(1000);
+          await ctx.delay(TH21_PAUSE.focus);
         }
 
         if (!document.querySelector(HAR.WF_PICKER)) {
           await ensureOnWfRunnerTab(ctx);
-          await ctx.delay(700);
+          await ctx.delay(TH21_PAUSE.settle);
           selectRunnerWorkflowByName(TH21_WORKFLOW_NAME);
-          await ctx.delay(400);
+          await ctx.delay(TH21_PAUSE.short);
         }
 
         // Designer tour collapsed the env sidebar for canvas space — restore it on the runner
@@ -388,10 +365,11 @@ export const thWorkflowRunnerLesson: DemoLesson = {
 
         const summary = document.querySelector<HTMLElement>(HAR.WF_PICKER_SUMMARY);
         if (summary) {
-          await spotlight(summary, 1600, ctx);
-          await ctx.delay(500);
+          await spotlight(summary, TH21_PAUSE.outcome, ctx);
+          await ctx.delay(TH21_PAUSE.beat);
         } else {
-          await spotlightSel(ctx, HAR.WF_PICKER, 1400);
+          await spotlightSel(ctx, HAR.WF_PICKER, TH21_PAUSE.focus);
+          await ctx.delay(TH21_PAUSE.beat);
         }
       },
 
@@ -413,51 +391,44 @@ export const thWorkflowRunnerLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         await ensureOnWfRunnerTab(ctx);
-        await ctx.delay(300);
+        await ctx.delay(TH21_PAUSE.short);
         closePickerDropdown();
         closeHistoryPanel();
         // Always start from the empty "Select a workflow…" screen
         const clearBtn = document.querySelector<HTMLElement>('.wfp-clear-btn');
         if (clearBtn) {
           clearBtn.click();
-          await ctx.delay(350);
+          await ctx.delay(TH21_PAUSE.short);
         }
       },
 
       action: async (ctx) => {
         const trigger = document.querySelector<HTMLElement>(HAR.WF_PICKER_TRIGGER);
         if (trigger) {
-          // Reading ring is already on the trigger — click to open the picker
+          // Keep this step simple: open picker, select workflow, then pause on summary.
           trigger.click();
-          await ctx.delay(700);
-
-          const panel = document.querySelector<HTMLElement>(HAR.WF_PICKER_PANEL);
-          if (panel) {
-            await spotlight(panel, 1200, ctx);
-
-            const search = document.querySelector<HTMLElement>(HAR.WF_PICKER_SEARCH);
-            if (search) await spotlight(search, 800, ctx);
-          }
+          await ctx.delay(TH21_PAUSE.settle);
 
           const item = findWorkflowPickerItemByName(TH21_WORKFLOW_NAME)
             ?? document.querySelector<HTMLElement>(HAR.WF_PICKER_ITEM);
           if (item) {
-            await spotlight(item, 900, ctx);
             item.click();
-            await ctx.delay(700);
+            await ctx.delay(TH21_PAUSE.beat);
           }
 
           const summary = document.querySelector<HTMLElement>(HAR.WF_PICKER_SUMMARY);
-          if (summary) await spotlight(summary, 1100, ctx);
+          if (summary) {
+            await spotlight(summary, TH21_PAUSE.outcome, ctx);
+            await ctx.delay(TH21_PAUSE.beat);
+          }
         }
 
-        // Lively configure Initial Variables (seeded empty on purpose)
+        // Fill Initial Variables quietly so the page remains stable.
         const varsSection = document.querySelector<HTMLElement>(HAR.WF_VARS_SECTION);
         if (varsSection) {
-          varsSection.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
-          await spotlight(varsSection, 1000, ctx);
-          await fillTh21Variables(ctx);
-          await ctx.delay(400);
+          await spotlight(varsSection, TH21_PAUSE.focus, ctx);
+          await fillTh21Variables(ctx, { quiet: true });
+          await ctx.delay(TH21_PAUSE.outcome);
         }
       },
 
@@ -477,7 +448,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         await ensureOnWfRunnerTab(ctx);
-        await ctx.delay(300);
+        await ctx.delay(TH21_PAUSE.short);
         closePickerDropdown();
         closeHistoryPanel();
         await ensureWorkflowSelected(ctx);
@@ -486,32 +457,11 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       action: async (ctx) => {
         const section = document.querySelector<HTMLElement>(HAR.WF_VARS_SECTION);
         if (section) {
-          // Confirm the values filled in the picker step, then focus Save / Presets
-          const firstRow = section.querySelector<HTMLElement>(HAR.WF_VAR_ROW);
-          if (firstRow) await spotlight(firstRow, 900, ctx);
-
+          // Keep this step static: show actions bar only (no panel toggling).
           const actions = section.querySelector<HTMLElement>(HAR.WF_VARS_ACTIONS);
           if (actions) {
-            await spotlight(actions, 1000, ctx);
-
-            const saveBtn = Array.from(actions.querySelectorAll<HTMLElement>('.wfp-action-btn'))
-              .find(b => b.textContent?.includes('Save'));
-            if (saveBtn) await spotlight(saveBtn, 900, ctx);
-
-            const presetsBtn = Array.from(actions.querySelectorAll<HTMLElement>('.wfp-action-btn'))
-              .find(b => b.textContent?.includes('Presets'));
-            if (presetsBtn) {
-              await spotlight(presetsBtn, 800, ctx);
-              presetsBtn.click();
-              await ctx.delay(600);
-
-              const histPanel = document.querySelector<HTMLElement>(HAR.WF_HISTORY_PANEL);
-              if (histPanel) {
-                await spotlight(histPanel, 1400, ctx);
-                presetsBtn.click();
-                await ctx.delay(400);
-              }
-            }
+            await spotlight(actions, TH21_PAUSE.focus, ctx);
+            await ctx.delay(TH21_PAUSE.outcome);
           }
         }
       },
@@ -536,28 +486,16 @@ export const thWorkflowRunnerLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         await ensureOnWfRunnerTab(ctx);
-        await ctx.delay(300);
+        await ctx.delay(TH21_PAUSE.short);
         closePickerDropdown();
         closeHistoryPanel();
         await ensureWorkflowSelected(ctx);
       },
 
       action: async (ctx) => {
-        const traceSection = document.querySelector<HTMLElement>(HAR.WF_TRACE_OPTIONS);
-        if (traceSection) {
-          await spotlight(traceSection, 1200, ctx);
-
-          const radios = traceSection.querySelectorAll<HTMLElement>('.radio-label');
-          if (radios.length > 0) {
-            const lastRadio = radios[radios.length - 1];
-            if (lastRadio) await spotlight(lastRadio, 800, ctx);
-          }
-        }
-
-        const configSection = document.querySelector<HTMLElement>(HAR.WF_CONFIG_SECTION);
-        if (configSection) {
-          await spotlight(configSection, 1200, ctx);
-        }
+        // Keep this step visually stable: no extra spotlight hops.
+        // The step's highlight selector already points to the Trace section.
+        await ctx.delay(TH21_PAUSE.outcome);
       },
 
       verify: HAR.WF_TRACE_OPTIONS,
@@ -579,38 +517,20 @@ export const thWorkflowRunnerLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         await ensureOnWfRunnerTab(ctx);
-        await ctx.delay(300);
+        await ctx.delay(TH21_PAUSE.short);
         closePickerDropdown();
         closeHistoryPanel();
         await ensureWorkflowSelected(ctx);
       },
 
       action: async (ctx) => {
-        // Keep Auto-Resume selected — only spotlight modes in place.
-        // Switching modes makes Synthetic/MWT panels appear and disappear
-        // ("moving parts") which distracts from the teaching beat.
+        // Keep this step visually stable: ensure mode quietly, then pause on section.
         await setCorrelationMode(ctx, 0);
-
         const corrSection = document.querySelector<HTMLElement>(HAR.WF_CORR_SECTION);
         if (corrSection) {
-          corrSection.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
-          await spotlight(corrSection, 1400, ctx);
-
-          const modeCards = corrSection.querySelectorAll<HTMLElement>(HAR.WF_CORR_MODE);
-          for (const card of Array.from(modeCards)) {
-            await spotlight(card, 1100, ctx);
-            await ctx.delay(350);
-          }
-
-          // Brief hold on Auto-Resume as the recommended load-test default
-          if (modeCards[0]) {
-            await spotlight(modeCards[0], 1200, ctx);
-            await ctx.delay(400);
-          }
-        } else {
-          await spotlightSel(ctx, HAR.WF_RUN_BTN, 1000);
-          await ctx.delay(800);
+          await spotlight(corrSection, TH21_PAUSE.focus, ctx);
         }
+        await ctx.delay(TH21_PAUSE.outcome);
       },
 
       verify: HAR.WF_CORR_SECTION,
@@ -633,7 +553,7 @@ export const thWorkflowRunnerLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         await ensureOnWfRunnerTab(ctx);
-        await ctx.delay(300);
+        await ctx.delay(TH21_PAUSE.short);
         closePickerDropdown();
         closeHistoryPanel();
         await ensureWorkflowSelected(ctx);
@@ -643,26 +563,18 @@ export const thWorkflowRunnerLesson: DemoLesson = {
       action: async (ctx) => {
         const runBtn = document.querySelector<HTMLElement>(HAR.WF_RUN_BTN);
         if (runBtn) {
-          await spotlight(runBtn, 1000, ctx);
+          await spotlight(runBtn, TH21_PAUSE.outcome, ctx);
+          await ctx.delay(TH21_PAUSE.short);
         }
 
         await clickRunAndWaitForCompletion(ctx);
 
-        const progress = document.querySelector<HTMLElement>(HAR.LIVE_PROGRESS);
-        if (progress) {
-          await spotlight(progress, 900, ctx);
-        }
-
-        const stopBtn = document.querySelector<HTMLElement>(HAR.WF_STOP_BTN);
-        if (stopBtn) {
-          await spotlight(stopBtn, 700, ctx);
-        }
-
         const completion = document.querySelector<HTMLElement>(HAR.WF_COMPLETION);
         if (completion) {
-          completion.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          await ctx.delay(300);
-          await spotlight(completion, 1200, ctx);
+          completion.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'center' });
+          await ctx.delay(TH21_PAUSE.short);
+          await spotlight(completion, TH21_PAUSE.outcome, ctx);
+          await ctx.delay(TH21_PAUSE.outcome);
         }
       },
 

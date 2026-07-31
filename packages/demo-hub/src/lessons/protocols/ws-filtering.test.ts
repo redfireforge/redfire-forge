@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsFilteringLesson } from './ws-filtering';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-filtering lesson', () => {
   beforeEach(() => {
@@ -86,6 +86,7 @@ describe('ws-filtering lesson', () => {
     const el = document.createElement('input');
     el.setAttribute('data-testid', 'search-input');
     document.body.appendChild(el);
+    makeVisible(el);
     const step = wsFilteringLesson.steps.find(s => s.id === 'filter-search')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -166,9 +167,11 @@ describe('ws-filtering lesson', () => {
     const search = document.createElement('input');
     search.setAttribute('data-testid', 'search-input');
     document.body.appendChild(search);
+    makeVisible(search);
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'filter-bar');
     document.body.appendChild(bar);
+    makeVisible(bar);
 
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-compare')!;
     const ctx = makeCtx();
@@ -207,6 +210,7 @@ describe('ws-filtering lesson', () => {
     const search = document.createElement('input');
     search.setAttribute('data-testid', 'search-input');
     document.body.appendChild(search);
+    makeVisible(search);
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -218,12 +222,15 @@ describe('ws-filtering lesson', () => {
     const search = document.createElement('input');
     search.setAttribute('data-testid', 'search-input');
     document.body.appendChild(search);
+    makeVisible(search);
     const modal = document.createElement('div');
     modal.setAttribute('data-testid', 'diff-modal');
     document.body.appendChild(modal);
+    makeVisible(modal);
     const closeBtn = document.createElement('button');
     closeBtn.setAttribute('data-testid', 'diff-close');
     document.body.appendChild(closeBtn);
+    makeVisible(closeBtn);
     const closeSpy = vi.fn();
     closeBtn.addEventListener('click', closeSpy);
 
@@ -238,9 +245,11 @@ describe('ws-filtering lesson', () => {
     const search = document.createElement('input');
     search.setAttribute('data-testid', 'search-input');
     document.body.appendChild(search);
+    makeVisible(search);
     const filterBar = document.createElement('div');
     filterBar.setAttribute('data-testid', 'filter-bar');
     document.body.appendChild(filterBar);
+    makeVisible(filterBar);
 
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
     const ctx = makeCtx();
@@ -255,6 +264,7 @@ describe('ws-filtering lesson', () => {
     search.setAttribute('data-testid', 'search-input');
     search.value = 'hello';
     document.body.appendChild(search);
+    makeVisible(search);
 
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
     const ctx = makeCtx();
@@ -271,6 +281,7 @@ describe('ws-filtering lesson', () => {
       const row = document.createElement('div');
       row.className = 'ws-message-row';
       document.body.appendChild(row);
+      makeVisible(row);
     }
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
     const ctx = makeCtx();
@@ -316,6 +327,7 @@ describe('ws-filtering lesson', () => {
     const search = document.createElement('input');
     search.setAttribute('data-testid', 'search-input');
     document.body.appendChild(search);
+    makeVisible(search);
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -326,9 +338,11 @@ describe('ws-filtering lesson', () => {
     const search = document.createElement('input');
     search.setAttribute('data-testid', 'search-input');
     document.body.appendChild(search);
+    makeVisible(search);
     const modal = document.createElement('div');
     modal.setAttribute('data-testid', 'diff-modal');
     document.body.appendChild(modal);
+    makeVisible(modal);
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -343,6 +357,8 @@ describe('ws-filtering lesson', () => {
     const filterBar = document.createElement('div');
     filterBar.setAttribute('data-testid', 'filter-bar');
     document.body.append(search, filterBar);
+    makeVisible(search);
+    makeVisible(filterBar);
 
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
     const ctx = makeCtx();
@@ -357,6 +373,7 @@ describe('ws-filtering lesson', () => {
     search.setAttribute('data-testid', 'search-input');
     search.value = 'hello';
     document.body.appendChild(search);
+    makeVisible(search);
 
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
     const ctx = makeCtx();
@@ -376,6 +393,8 @@ describe('ws-filtering lesson', () => {
     const banner = document.createElement('div');
     banner.setAttribute('data-testid', 'compare-banner');
     document.body.append(search, banner);
+    makeVisible(search);
+    makeVisible(banner);
     // Add 7 message rows
     const clickedRows: number[] = [];
     for (let i = 0; i < 7; i++) {
@@ -384,6 +403,7 @@ describe('ws-filtering lesson', () => {
       const idx = i;
       row.addEventListener('click', () => clickedRows.push(idx));
       document.body.appendChild(row);
+      makeVisible(row);
     }
 
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
@@ -413,12 +433,14 @@ describe('ws-filtering lesson', () => {
     const closeBtn = document.createElement('button');
     closeBtn.setAttribute('data-testid', 'diff-close');
     document.body.appendChild(closeBtn);
+    makeVisible(closeBtn);
     const closeSpy = vi.fn();
     closeBtn.addEventListener('click', closeSpy);
 
     const cancelBtn = document.createElement('button');
     cancelBtn.setAttribute('data-testid', 'compare-cancel');
     document.body.appendChild(cancelBtn);
+    makeVisible(cancelBtn);
     const cancelSpy = vi.fn();
     cancelBtn.addEventListener('click', cancelSpy);
 
@@ -450,6 +472,7 @@ describe('ws-filtering lesson', () => {
     toggle.setAttribute('data-testid', 'ws-validation-toggle');
     toggle.checked = false;
     document.body.appendChild(toggle);
+    makeVisible(toggle);
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -463,6 +486,7 @@ describe('ws-filtering lesson', () => {
     toggle.setAttribute('data-testid', 'ws-validation-toggle');
     toggle.checked = true;
     document.body.appendChild(toggle);
+    makeVisible(toggle);
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -490,6 +514,7 @@ describe('ws-filtering lesson', () => {
     toggle.setAttribute('data-testid', 'ws-validation-toggle');
     toggle.checked = false;
     document.body.appendChild(toggle);
+    makeVisible(toggle);
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-add')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -503,6 +528,7 @@ describe('ws-filtering lesson', () => {
     toggle.setAttribute('data-testid', 'ws-validation-toggle');
     toggle.checked = true;
     document.body.appendChild(toggle);
+    makeVisible(toggle);
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-add')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -547,11 +573,13 @@ describe('ws-filtering lesson', () => {
     const card = document.createElement('div');
     card.setAttribute('data-testid', 'ws-schema-card');
     document.body.appendChild(card);
+    makeVisible(card);
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
     toggle.setAttribute('data-testid', 'ws-validation-toggle');
     toggle.checked = false;
     document.body.appendChild(toggle);
+    makeVisible(toggle);
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -565,11 +593,13 @@ describe('ws-filtering lesson', () => {
     const card = document.createElement('div');
     card.setAttribute('data-testid', 'ws-schema-card');
     document.body.appendChild(card);
+    makeVisible(card);
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
     toggle.setAttribute('data-testid', 'ws-validation-toggle');
     toggle.checked = true; // already on
     document.body.appendChild(toggle);
+    makeVisible(toggle);
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -591,6 +621,7 @@ describe('ws-filtering lesson', () => {
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'diff-close');
     document.body.appendChild(btn);
+    makeVisible(btn);
     const clickSpy = vi.fn();
     btn.addEventListener('click', clickSpy);
 
@@ -603,6 +634,7 @@ describe('ws-filtering lesson', () => {
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'compare-cancel');
     document.body.appendChild(btn);
+    makeVisible(btn);
     const clickSpy = vi.fn();
     btn.addEventListener('click', clickSpy);
 
@@ -615,9 +647,11 @@ describe('ws-filtering lesson', () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'filter-bar');
     document.body.appendChild(bar);
+    makeVisible(bar);
     const toggle = document.createElement('button');
     toggle.setAttribute('data-testid', 'filter-toggle-btn');
     document.body.appendChild(toggle);
+    makeVisible(toggle);
     const clickSpy = vi.fn();
     toggle.addEventListener('click', clickSpy);
 
