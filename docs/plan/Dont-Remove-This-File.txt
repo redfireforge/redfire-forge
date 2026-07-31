@@ -5,6 +5,10 @@ Please always run E2E with report so that I can see progress. Keep in mind.
 --------------------------------------------------------------------------
 Only Unit Tests and Monorithic Class Definition Review
 
+Based on entire code bases including this feature branch, please fix code coverage issue file under 90% except demo, css, script, and test files.
+You have fast full report scripts with 4 shards. You should run one clean full coverage snapshot now, freeze that as the baseline, and fix code coverage issue. After then, run full code coverage script again to verify it. Don't run this script in background. If you do in background, it will cause problem. Please go ahead. 
+
+
 Consider all of files for unit test including this branch. 
 Please thoroughly review this feature branch and if there is any monorithic class which is above 900 lines or it requires refactoring, make module for common codes. And also fix any existing bug or issues even though you didn't touch. Please remove any redundant codes and make module. And add unit tests. Test code quality is very important and also code coverage should be above 90 %. Repeat several rounds of these processes until there is no issue found. Make sure you should not break any existing logic. And alwasy show max lines for 10 classes and lowest 10 code coverage codes. Also fix eslint issues. 
 Keep in mind that we should not have any monorithic class which is above 900 lines. All of classes should have above 90 % code coverages. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel. 
