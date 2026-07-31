@@ -113,10 +113,13 @@ describe('kafka-publish lesson', () => {
     );
   });
 
-  it('step pub-acks has no action (informational)', () => {
+  it('step pub-acks opens the dropdown so options can be highlighted', async () => {
     const step = kafkaPublishLesson.steps.find((s) => s.id === 'pub-acks')!;
-    expect(step.action).toBeUndefined();
-    expect(step.preAction).toBeUndefined();
+    expect(typeof step.action).toBe('function');
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('pub-acks-select'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('.cs-trigger'));
   });
 
   it('step pub-format action clicks the format button', async () => {

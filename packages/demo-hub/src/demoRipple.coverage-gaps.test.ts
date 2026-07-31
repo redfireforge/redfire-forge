@@ -124,4 +124,32 @@ describe('demoRipple', () => {
     expect(() => dispose()).not.toThrow();
     expect(isManualSpotlightActive()).toBe(false);
   });
+
+  it('auto-disposes when the tracked element is detached from the DOM', () => {
+    vi.useFakeTimers();
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 12,
+      left: 16,
+      width: 40,
+      height: 24,
+      right: 56,
+      bottom: 36,
+      x: 16,
+      y: 12,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    showSpotlightRing(target);
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
+    expect(isManualSpotlightActive()).toBe(true);
+
+    target.remove();
+    vi.advanceTimersByTime(150);
+
+    expect(document.querySelector('.demo-spotlight-ring')).toBeNull();
+    expect(isManualSpotlightActive()).toBe(false);
+    vi.useRealTimers();
+  });
 });

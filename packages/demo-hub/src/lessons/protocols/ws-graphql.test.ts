@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { wsGraphqlLesson } from './ws-graphql';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-graphql lesson', () => {
   beforeEach(() => {
@@ -149,6 +149,7 @@ describe('ws-graphql lesson', () => {
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
+    makeVisible(dot);
     await step.action!(ctx);
     // Should NOT click connect button again
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));

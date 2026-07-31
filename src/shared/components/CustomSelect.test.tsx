@@ -285,6 +285,47 @@ describe('CustomSelect', () => {
     });
   });
 
+  it('anchors menu to the right edge when trigger is in right half of viewport, overriding CSS left:0 default', () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+
+    Object.defineProperty(window, 'innerWidth', { value: 1000, configurable: true });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        return {
+          left: 880,
+          width: 80,
+          top: 50,
+          bottom: 60,
+          right: 960,
+          height: 10,
+          x: 880,
+          y: 50,
+          toJSON: () => ({}),
+        };
+      },
+    });
+
+    render(<CustomSelect value="" onChange={vi.fn()} options={simpleOptions} aria-label="right-select" />);
+    fireEvent.click(screen.getByRole('button', { name: 'right-select' }));
+
+    const menu = document.querySelector('.cs-menu') as HTMLElement;
+    expect(menu).toBeTruthy();
+    // right-anchored: right must be the distance from viewport's right edge
+    expect(menu.style.right).toBe('40px'); // 1000 - 960
+    // left MUST be explicitly 'auto' — otherwise the .cs-menu class's
+    // hardcoded `left: 0` wins the left/right/width over-constraint and
+    // pins the menu to the far-left of the viewport (the reported bug).
+    expect(menu.style.left).toBe('auto');
+
+    Object.defineProperty(window, 'innerWidth', { value: originalInnerWidth, configurable: true });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: originalGetBoundingClientRect,
+    });
+  });
+
   it('recomputes anchored position on resize while open', () => {
     const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
     let top = 100;

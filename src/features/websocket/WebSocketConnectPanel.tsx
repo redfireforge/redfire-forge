@@ -210,6 +210,8 @@ export function WebSocketConnectPanel({
   const isCodeValid = closeCode >= 1000 && closeCode <= 4999;
   const isReasonValid = reasonBytes <= MAX_REASON_BYTES;
   const canCloseWithCode = isConnected && isCodeValid && isReasonValid;
+  const codeDescription = WS_CLOSE_CODE_PRESETS.find((p) => p.code === closeCode)?.description
+    ?? (isCodeValid ? 'Custom application-defined code' : '');
 
   const handleUrlChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setDraft({ url: e.target.value }),
@@ -593,20 +595,35 @@ export function WebSocketConnectPanel({
           </button>
           {closeDropdownOpen && (
             <div className="ws-close-code-dropdown" data-testid="close-code-dropdown">
-              <div className="ws-close-code-title">Close Connection with Code</div>
+              {/* Header */}
+              <div className="ws-close-code-header">
+                <span className="ws-close-code-title">Close Connection with Code</span>
+              </div>
+
+              {/* Code input + live description */}
               <div className="ws-close-code-field">
                 <label className="ws-close-code-label" htmlFor="ws-close-code-input">Code</label>
-                <input
-                  id="ws-close-code-input"
-                  type="number"
-                  className="ws-close-code-input"
-                  value={closeCode}
-                  onChange={(e) => setCloseCode(parseInt(e.target.value, 10) || 1000)}
-                  min={1000}
-                  max={4999}
-                  data-testid="close-code-input"
-                />
+                <div className="ws-close-code-input-row">
+                  <input
+                    id="ws-close-code-input"
+                    type="number"
+                    className="ws-close-code-input"
+                    value={closeCode}
+                    onChange={(e) => setCloseCode(parseInt(e.target.value, 10) || 1000)}
+                    min={1000}
+                    max={4999}
+                    data-testid="close-code-input"
+                  />
+                  {codeDescription && isCodeValid && (
+                    <span className="ws-close-code-desc">{codeDescription}</span>
+                  )}
+                </div>
+                {!isCodeValid && (
+                  <span className="ws-close-code-error">Code must be between 1000 and 4999</span>
+                )}
               </div>
+
+              {/* Preset grid */}
               <div className="ws-close-code-presets" data-testid="close-code-presets">
                 {WS_CLOSE_CODE_PRESETS.map((p) => (
                   <button
@@ -615,29 +632,33 @@ export function WebSocketConnectPanel({
                     onClick={() => setCloseCode(p.code)}
                     title={p.description}
                   >
-                    {p.code} {p.label}
+                    <span className="ws-close-preset-code">{p.code}</span>
+                    <span className="ws-close-preset-label">{p.label}</span>
                   </button>
                 ))}
               </div>
+
+              {/* Reason */}
               <div className="ws-close-code-field">
-                <label className="ws-close-code-label" htmlFor="ws-close-reason-input">Reason</label>
-                <input
+                <label className="ws-close-code-label" htmlFor="ws-close-reason-input">
+                  Reason <span className="ws-close-reason-optional">(optional)</span>
+                </label>
+                <textarea
                   id="ws-close-reason-input"
-                  type="text"
                   className="ws-close-reason-input"
                   value={closeReason}
                   onChange={(e) => setCloseReason(e.target.value)}
-                  placeholder="Optional close reason..."
+                  placeholder="Optional close reason…"
                   maxLength={123}
+                  rows={2}
                   data-testid="close-reason-input"
                 />
                 <span className={`ws-close-reason-counter ${!isReasonValid ? 'over' : ''}`}>
                   {reasonBytes}/{MAX_REASON_BYTES} bytes
                 </span>
               </div>
-              {!isCodeValid && (
-                <span className="ws-close-code-error">Code must be 1000–4999</span>
-              )}
+
+              {/* Actions */}
               <div className="ws-close-code-actions">
                 <button
                   className="ws-connect-btn ws-connect-btn-secondary"

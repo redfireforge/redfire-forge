@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { wsStompLesson } from './ws-stomp';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-stomp lesson', () => {
   beforeEach(() => {
@@ -150,6 +150,7 @@ describe('ws-stomp lesson', () => {
   it('step stomp-connect-ws action skips WS connect when already connected (replay guard)', async () => {
     // Simulate already-connected state: STATUS_CONNECTED element (.ws-status-dot.connected) exists
     document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    makeVisible(document.querySelector('.ws-status-dot.connected')!);
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-connect-ws')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -379,6 +380,7 @@ describe('ws-stomp lesson', () => {
     const changeSpy = vi.fn();
     select.addEventListener('change', changeSpy);
     document.body.appendChild(select);
+    makeVisible(select);
 
     const ctx = makeCtx();
     await wsStompLesson.cleanup!(ctx);

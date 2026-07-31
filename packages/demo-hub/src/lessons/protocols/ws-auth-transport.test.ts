@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsAuthTransportLesson } from './ws-auth-transport';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-auth-transport lesson', () => {
   beforeEach(() => {
@@ -167,6 +167,7 @@ describe('ws-auth-transport lesson', () => {
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
+    makeVisible(dot);
 
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-connect')!;
     const ctx = makeCtx();
@@ -218,6 +219,7 @@ describe('ws-auth-transport lesson', () => {
     inner.value = 'bearer';
     select.appendChild(inner);
     document.body.appendChild(select);
+    makeVisible(select);
 
     const wrapper = document.createElement('div');
     wrapper.className = 'ws-auth-pane';
@@ -225,6 +227,8 @@ describe('ws-auth-transport lesson', () => {
     // leave input.value = '' so the branch fires
     wrapper.appendChild(input);
     document.body.appendChild(wrapper);
+    makeVisible(wrapper);
+    makeVisible(input);
 
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
     const ctx = makeCtx();
@@ -241,6 +245,7 @@ describe('ws-auth-transport lesson', () => {
     sel.value = 'bearer';
     authPane.appendChild(sel);
     document.body.appendChild(authPane);
+    makeVisible(authPane);
 
     // Provide a filled token input (skip nativeSet branch)
     const pane = document.createElement('div');
@@ -249,6 +254,8 @@ describe('ws-auth-transport lesson', () => {
     Object.defineProperty(input, 'value', { get: () => 'existing-token', configurable: true });
     pane.appendChild(input);
     document.body.appendChild(pane);
+    makeVisible(pane);
+    makeVisible(input);
 
     // Provide a non-disabled connect button → covers lines 70-71
     const btn = document.createElement('button');
@@ -257,6 +264,7 @@ describe('ws-auth-transport lesson', () => {
     const clickSpy = vi.fn();
     btn.addEventListener('click', clickSpy);
     document.body.appendChild(btn);
+    makeVisible(btn);
 
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
     const ctx = makeCtx();

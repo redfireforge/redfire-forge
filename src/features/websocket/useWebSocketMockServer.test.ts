@@ -459,12 +459,37 @@ describe('useWebSocketMockServer', () => {
     unmount();
   });
 
-  it('start surfaces non-JSON backend responses', async () => {
+  it('start surfaces actionable message when proxy returns 502 non-JSON response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/start')) {
+        return Promise.resolve({
+          status: 502,
+          text: () => Promise.resolve('Bad Gateway'),
+        } as Response);
+      }
+      return mockFetchResponse({});
+    }));
+
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
+    await act(async () => { await vi.runAllTimersAsync(); });
+
+    let caught: Error | null = null;
+    await act(async () => {
+      try {
+        await result.current.start();
+      } catch (err) {
+        caught = err as Error;
+      }
+    });
+    expect(caught?.message).toContain('Backend API is unreachable');
+  });
+
+  it('start still surfaces generic non-JSON response for non-502 statuses', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
       if (typeof url === 'string' && url.includes('/start')) {
         return Promise.resolve({
           status: 500,
-          json: () => Promise.reject(new Error('not json')),
+          text: () => Promise.resolve('Internal Server Error'),
         } as Response);
       }
       return mockFetchResponse({});

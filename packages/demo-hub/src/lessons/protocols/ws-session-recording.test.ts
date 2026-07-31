@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsSessionRecordingLesson } from './ws-session-recording';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-session-recording lesson', () => {
   beforeEach(() => {
@@ -87,6 +87,7 @@ describe('ws-session-recording lesson', () => {
     disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
     // Not disabled = genuinely connected
     document.body.appendChild(disconnectBtn);
+    makeVisible(disconnectBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
@@ -102,6 +103,7 @@ describe('ws-session-recording lesson', () => {
     disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
     disconnectBtn.disabled = true;
     document.body.appendChild(disconnectBtn);
+    makeVisible(disconnectBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
@@ -114,6 +116,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const clickSpy = vi.fn();
     stopBtn.addEventListener('click', clickSpy);
@@ -156,6 +159,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-start')!;
     const ctx = makeCtx();
@@ -183,6 +187,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-capture')!;
     const ctx = makeCtx();
@@ -198,6 +203,7 @@ describe('ws-session-recording lesson', () => {
     const startBtn = document.createElement('button');
     startBtn.setAttribute('data-testid', 'start-recording-btn');
     document.body.appendChild(startBtn);
+    makeVisible(startBtn);
 
     const clickSpy = vi.fn();
     startBtn.addEventListener('click', clickSpy);
@@ -230,6 +236,7 @@ describe('ws-session-recording lesson', () => {
     const startBtn = document.createElement('button');
     startBtn.setAttribute('data-testid', 'start-recording-btn');
     document.body.appendChild(startBtn);
+    makeVisible(startBtn);
 
     const clickSpy = vi.fn();
     startBtn.addEventListener('click', clickSpy);
@@ -244,6 +251,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-stop')!;
     const ctx = makeCtx();
@@ -275,6 +283,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const clickSpy = vi.fn();
     stopBtn.addEventListener('click', clickSpy);
@@ -289,6 +298,7 @@ describe('ws-session-recording lesson', () => {
     const exitBtn = document.createElement('button');
     exitBtn.setAttribute('data-testid', 'replay-exit-btn');
     document.body.appendChild(exitBtn);
+    makeVisible(exitBtn);
 
     const clickSpy = vi.fn();
     exitBtn.addEventListener('click', clickSpy);
@@ -304,6 +314,7 @@ describe('ws-session-recording lesson', () => {
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
     document.body.appendChild(input);
+    makeVisible(input);
 
     const changeSpy = vi.fn();
     input.addEventListener('change', changeSpy);
@@ -323,6 +334,7 @@ describe('ws-session-recording lesson', () => {
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
     document.body.appendChild(input);
+    makeVisible(input);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-import')!;
     const ctx = makeCtx();
@@ -353,6 +365,7 @@ describe('ws-session-recording lesson', () => {
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
     document.body.appendChild(input);
+    makeVisible(input);
 
     const changeSpy = vi.fn();
     input.addEventListener('change', changeSpy);
@@ -367,11 +380,13 @@ describe('ws-session-recording lesson', () => {
     const playBtn = document.createElement('button');
     playBtn.setAttribute('data-testid', 'start-replay-btn');
     document.body.appendChild(playBtn);
+    makeVisible(playBtn);
 
     const input = document.createElement('input');
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
     document.body.appendChild(input);
+    makeVisible(input);
 
     const changeSpy = vi.fn();
     input.addEventListener('change', changeSpy);
@@ -409,6 +424,7 @@ describe('ws-session-recording lesson', () => {
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
     document.body.appendChild(input);
+    makeVisible(input);
 
     const changeSpy = vi.fn(() => {
       // Simulate React re-render: file loaded → play button appears
@@ -419,15 +435,19 @@ describe('ws-session-recording lesson', () => {
         const bar = document.createElement('div');
         bar.setAttribute('data-testid', 'replay-bar');
         document.body.appendChild(bar);
+        makeVisible(bar);
         const exitEl = document.createElement('button');
         exitEl.setAttribute('data-testid', 'replay-exit-btn');
         document.body.appendChild(exitEl);
+        makeVisible(exitEl);
         const ppBtn = document.createElement('button');
         ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
         ppBtn.textContent = '⏸';
         document.body.appendChild(ppBtn);
+        makeVisible(ppBtn);
       });
       document.body.appendChild(playBtn);
+      makeVisible(playBtn);
     });
     input.addEventListener('change', changeSpy);
 
@@ -449,16 +469,20 @@ describe('ws-session-recording lesson', () => {
       const bar = document.createElement('div');
       bar.setAttribute('data-testid', 'replay-bar');
       document.body.appendChild(bar);
+      makeVisible(bar);
       const exitEl = document.createElement('button');
       exitEl.setAttribute('data-testid', 'replay-exit-btn');
       document.body.appendChild(exitEl);
+      makeVisible(exitEl);
       const ppBtn = document.createElement('button');
       ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
       ppBtn.textContent = '⏸';
       document.body.appendChild(ppBtn);
+      makeVisible(ppBtn);
     });
     playBtn.addEventListener('click', playClickSpy);
     document.body.appendChild(playBtn);
+    makeVisible(playBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-exit')!;
     const ctx = makeCtx();
@@ -473,11 +497,13 @@ describe('ws-session-recording lesson', () => {
     const exitBtn = document.createElement('button');
     exitBtn.setAttribute('data-testid', 'replay-exit-btn');
     document.body.appendChild(exitBtn);
+    makeVisible(exitBtn);
 
     const ppBtn = document.createElement('button');
     ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
     ppBtn.textContent = '⏸'; // Currently playing
     document.body.appendChild(ppBtn);
+    makeVisible(ppBtn);
 
     const ppClickSpy = vi.fn();
     ppBtn.addEventListener('click', ppClickSpy);
@@ -493,11 +519,13 @@ describe('ws-session-recording lesson', () => {
     const exitBtn = document.createElement('button');
     exitBtn.setAttribute('data-testid', 'replay-exit-btn');
     document.body.appendChild(exitBtn);
+    makeVisible(exitBtn);
 
     const ppBtn = document.createElement('button');
     ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
     ppBtn.textContent = '▶'; // Already paused
     document.body.appendChild(ppBtn);
+    makeVisible(ppBtn);
 
     const ppClickSpy = vi.fn();
     ppBtn.addEventListener('click', ppClickSpy);
@@ -518,6 +546,7 @@ describe('ws-session-recording lesson', () => {
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'replay-exit-btn');
     document.body.appendChild(btn);
+    makeVisible(btn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-exit')!;
     const ctx = makeCtx();
@@ -590,10 +619,12 @@ describe('ws-session-recording lesson', () => {
       const bar = document.createElement('div');
       bar.setAttribute('data-testid', 'replay-bar');
       document.body.appendChild(bar);
+      makeVisible(bar);
       // NOTE: no replay-playpause-btn added → pauseBtn will be null at line 433
     });
     playBtn.addEventListener('click', playClickSpy);
     document.body.appendChild(playBtn);
+    makeVisible(playBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-exit')!;
     const ctx = makeCtx();

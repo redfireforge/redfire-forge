@@ -1,7 +1,8 @@
 /** Lesson: Auth & Transport — authentication and connection modes */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsAuthCleanup, resetAuth, disconnectWebSocket, clearEvents } from '../setup-helpers';
+import { wsSetup, wsAuthCleanup, resetAuth, disconnectWebSocket, clearEvents, getLastMockPort } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 /** Setup: reset auth state, disconnect, clear events, then start mock + switch to client. */
 async function authSetup(ctx: DemoActionContext): Promise<void> {
@@ -27,7 +28,7 @@ async function authSetup(ctx: DemoActionContext): Promise<void> {
 async function ensureBearerAuth(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.LEFT_TAB_AUTH);
   await ctx.delay(200);
-  const sel = document.querySelector(WS.AUTH_TYPE_DROPDOWN) as HTMLSelectElement | null;
+  const sel = firstVisibleElement<HTMLSelectElement>(WS.AUTH_TYPE_DROPDOWN);
   if (!sel || sel.value !== 'bearer') {
     await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
     await ctx.delay(200);
@@ -40,18 +41,18 @@ async function ensureBearerAuth(ctx: DemoActionContext): Promise<void> {
  * If already connected, this is a fast no-op.
  */
 async function ensureConnected(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WS.STATUS_CONNECTED)) return;
+  if (firstVisibleElement(WS.STATUS_CONNECTED)) return;
 
   // Silently set up bearer auth if not already configured
   await ctx.click(WS.LEFT_TAB_AUTH);
   await ctx.delay(150);
-  const sel = document.querySelector(WS.AUTH_TYPE_DROPDOWN) as HTMLSelectElement | null;
+  const sel = firstVisibleElement<HTMLSelectElement>(WS.AUTH_TYPE_DROPDOWN);
   if (!sel || sel.value !== 'bearer') {
     await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
     await ctx.delay(150);
   }
   // Fill bearer token if the field is empty
-  const tokenInput = document.querySelector(WS.AUTH_PANE_INPUTS) as HTMLInputElement | null;
+  const tokenInput = firstVisibleElement<HTMLInputElement>(WS.AUTH_PANE_INPUTS);
   if (tokenInput && !tokenInput.value) {
     const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     nativeSet?.call(tokenInput, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo-token');
@@ -63,9 +64,9 @@ async function ensureConnected(ctx: DemoActionContext): Promise<void> {
   // Navigate to Connect tab, fill URL, and connect
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(150);
-  await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+  await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
   await ctx.delay(150);
-  const connectBtn = document.querySelector(WS.CONNECT_BTN) as HTMLButtonElement | null;
+  const connectBtn = firstVisibleElement<HTMLButtonElement>(WS.CONNECT_BTN);
   if (connectBtn && !connectBtn.disabled) {
     connectBtn.click();
     await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
@@ -202,14 +203,14 @@ export const wsAuthTransportLesson: DemoLesson = {
     {
       id: 'auth-connect-setup',
       title: 'Set Up the Connection',
-      description: 'Switch to the Connect tab and set the URL to the Mock Server address (ws://localhost:9876). The mock server accepts any auth — perfect for testing.',
+      description: 'Switch to the Connect tab and set the URL to this tab\'s Mock Server address. The mock server accepts any auth — perfect for testing.',
       highlight: WS.URL_INPUT,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
       },
       action: async (ctx) => {
-        await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
         await ctx.delay(300);
       },
       pauseAfter: true,
@@ -227,7 +228,7 @@ export const wsAuthTransportLesson: DemoLesson = {
       },
       action: async (ctx) => {
         // Guard: skip click if already connected to avoid toggling disconnect
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
           // Wait for the status dot to appear rather than using a fixed delay
           await ctx.waitFor(WS.STATUS_CONNECTED, 3000);

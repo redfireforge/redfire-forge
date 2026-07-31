@@ -268,7 +268,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     }
   }, [state.view, state.selectedLesson, progress, runLiveLessonCleanup]);
 
-  const { resetLesson, resetProgress } = progress;
+  const { resetLesson, resetProgress, resetLessons } = progress;
 
   return {
     state: {
@@ -295,6 +295,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     confirmLessonComplete,
     resetLesson,
     resetProgress,
+    resetLessons,
     setLastCategory: progress.setLastCategory,
     skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),
     suppressLiveTabExitRef,

@@ -64,7 +64,27 @@ export function showSpotlightRing(el: HTMLElement): () => void {
   const ring = document.createElement('div');
   ring.className = 'demo-spotlight-ring';
 
+  let disposed = false;
+  let interval: ReturnType<typeof setInterval> | null = null;
+
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    activeSpotlightDisposers.delete(dispose);
+    if (interval) clearInterval(interval);
+    window.removeEventListener('resize', onLayoutChange);
+    window.removeEventListener('scroll', onLayoutChange, true);
+    ring.remove();
+    endManualSpotlight();
+  };
+
   const position = () => {
+    // Drop ghost rings when React replaces the node mid-step (filter clears,
+    // results mount, etc.) — a detached node's rect is 0,0 and looks random.
+    if (!el.isConnected) {
+      dispose();
+      return;
+    }
     const rect = el.getBoundingClientRect();
     // Match DemoSpotlight's 6px breathing room around the target.
     ring.style.top = `${rect.top - 6}px`;
@@ -73,25 +93,14 @@ export function showSpotlightRing(el: HTMLElement): () => void {
     ring.style.height = `${rect.height + 12}px`;
   };
 
+  const onLayoutChange = () => position();
+
   position();
   document.body.appendChild(ring);
 
-  const interval = setInterval(position, SPOTLIGHT_RING_TRACK_INTERVAL_MS);
-  const onLayoutChange = () => position();
+  interval = setInterval(position, SPOTLIGHT_RING_TRACK_INTERVAL_MS);
   window.addEventListener('resize', onLayoutChange);
   window.addEventListener('scroll', onLayoutChange, true);
-
-  let disposed = false;
-  const dispose = () => {
-    if (disposed) return;
-    disposed = true;
-    activeSpotlightDisposers.delete(dispose);
-    clearInterval(interval);
-    window.removeEventListener('resize', onLayoutChange);
-    window.removeEventListener('scroll', onLayoutChange, true);
-    ring.remove();
-    endManualSpotlight();
-  };
 
   activeSpotlightDisposers.add(dispose);
   return dispose;
@@ -109,8 +118,12 @@ export function purgeAllSpotlightRings(): void {
   }
   activeSpotlightDisposers.clear();
 
-  const rings = document.querySelectorAll<HTMLElement>('body > .demo-spotlight-ring');
-  rings.forEach(r => r.remove());
+  // Imperative rings are appended to body; also sweep any strays elsewhere.
+  const rings = document.querySelectorAll<HTMLElement>('.demo-spotlight-ring');
+  rings.forEach(r => {
+    // Keep React-managed DemoSpotlight rings (inside the live overlay tree).
+    if (r.parentElement === document.body) r.remove();
+  });
   if (readManualSpotlightCount() > 0) {
     setManualSpotlightCount(0);
   }

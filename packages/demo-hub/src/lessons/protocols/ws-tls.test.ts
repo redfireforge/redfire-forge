@@ -93,6 +93,7 @@ describe('ws-tls lesson', () => {
     urlInput.setAttribute('aria-label', 'WebSocket URL');
     urlInput.value = 'wss://echo.websocket.org';
     document.body.appendChild(urlInput);
+    makeVisible(urlInput);
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -105,6 +106,7 @@ describe('ws-tls lesson', () => {
     const clickSpy = vi.fn();
     closeBtn.addEventListener('click', clickSpy);
     document.body.appendChild(closeBtn);
+    makeVisible(closeBtn);
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
     await step.preAction!(makeCtx());
     expect(clickSpy).toHaveBeenCalled();
@@ -145,6 +147,7 @@ describe('ws-tls lesson', () => {
     urlInput.setAttribute('aria-label', 'WebSocket URL');
     urlInput.value = 'wss://echo.websocket.org';
     document.body.appendChild(urlInput);
+    makeVisible(urlInput);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
     const ctx = makeCtx();
@@ -161,6 +164,7 @@ describe('ws-tls lesson', () => {
     toggle.setAttribute('aria-expanded', 'false');
     toggle.onclick = vi.fn();
     document.body.appendChild(toggle);
+    makeVisible(toggle);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
     const ctx = makeCtx();
@@ -175,6 +179,7 @@ describe('ws-tls lesson', () => {
     toggle.setAttribute('aria-expanded', 'true');
     toggle.onclick = vi.fn();
     document.body.appendChild(toggle);
+    makeVisible(toggle);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
     const ctx = makeCtx();
@@ -208,6 +213,7 @@ describe('ws-tls lesson', () => {
     const clickSpy = vi.fn();
     closeBtn.addEventListener('click', clickSpy);
     document.body.appendChild(closeBtn);
+    makeVisible(closeBtn);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
     await step.preAction!(makeCtx());
@@ -219,6 +225,7 @@ describe('ws-tls lesson', () => {
     discBtn.setAttribute('data-testid', 'disconnect-btn');
     makeVisible(discBtn);
     document.body.appendChild(discBtn);
+    makeVisible(discBtn);
     const clickSpy = vi.spyOn(discBtn, 'click');
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
@@ -270,6 +277,7 @@ describe('ws-tls lesson', () => {
     const statusDot = document.createElement('div');
     statusDot.className = 'ws-status-dot connected';
     document.body.appendChild(statusDot);
+    makeVisible(statusDot);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
     const ctx = makeCtx();
@@ -303,6 +311,7 @@ describe('ws-tls lesson', () => {
     discBtn.setAttribute('data-testid', 'disconnect-btn');
     makeVisible(discBtn);
     document.body.appendChild(discBtn);
+    makeVisible(discBtn);
     const discClickSpy = vi.spyOn(discBtn, 'click');
 
     // ensureTlsPanelExpanded uses dispatchEvent(MouseEvent('click')), not element.click()
@@ -311,6 +320,7 @@ describe('ws-tls lesson', () => {
     tlsToggle.setAttribute('data-testid', 'tls-toggle');
     tlsToggle.setAttribute('aria-expanded', 'false');
     document.body.appendChild(tlsToggle);
+    makeVisible(tlsToggle);
     const tlsClickEvents: Event[] = [];
     tlsToggle.addEventListener('click', (e) => tlsClickEvents.push(e));
 
@@ -340,6 +350,8 @@ describe('ws-tls lesson', () => {
     checkbox.addEventListener('click', clickSpy);
     label.appendChild(checkbox);
     document.body.appendChild(label);
+    makeVisible(label);
+    makeVisible(checkbox);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-skip-cert')!;
     const ctx = makeCtx();
@@ -363,6 +375,7 @@ describe('ws-tls lesson', () => {
     tlsToggle.setAttribute('aria-expanded', 'false');
     tlsToggle.onclick = vi.fn();
     document.body.appendChild(tlsToggle);
+    makeVisible(tlsToggle);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-certs')!;
     const ctx = makeCtx();
@@ -382,6 +395,7 @@ describe('ws-tls lesson', () => {
     tlsToggle.setAttribute('aria-expanded', 'true');
     tlsToggle.onclick = vi.fn();
     document.body.appendChild(tlsToggle);
+    makeVisible(tlsToggle);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-certs')!;
     const ctx = makeCtx();
@@ -395,6 +409,7 @@ describe('ws-tls lesson', () => {
     caCert.setAttribute('data-testid', 'tls-ca-cert');
     caCert.focus = vi.fn();
     document.body.appendChild(caCert);
+    makeVisible(caCert);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-certs')!;
     const ctx = makeCtx();
@@ -425,11 +440,14 @@ describe('ws-tls lesson', () => {
     checkbox.addEventListener('click', clickSpy);
     label.appendChild(checkbox);
     document.body.appendChild(label);
+    makeVisible(label);
 
     // Simulate connected status so preAction skips reconnect
     const statusEl = document.createElement('span');
     statusEl.className = 'ws-status-dot connected';
     document.body.appendChild(statusEl);
+    makeVisible(statusEl);
+    makeVisible(checkbox);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
     const ctx = makeCtx();
@@ -449,6 +467,7 @@ describe('ws-tls lesson', () => {
     toggle.setAttribute('data-testid', 'tls-toggle');
     toggle.setAttribute('aria-expanded', 'true');
     document.body.appendChild(toggle);
+    makeVisible(toggle);
 
     const label = document.createElement('label');
     label.setAttribute('data-testid', 'tls-skip-cert');
@@ -457,12 +476,14 @@ describe('ws-tls lesson', () => {
     checkbox.checked = true;
     label.appendChild(checkbox);
     document.body.appendChild(label);
+    makeVisible(label);
 
     const closeBtn = document.createElement('button');
     closeBtn.setAttribute('data-testid', 'tls-close');
     const closeSpy = vi.fn();
     closeBtn.addEventListener('click', closeSpy);
     document.body.appendChild(closeBtn);
+    makeVisible(closeBtn);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
     await step.preAction!(makeCtx());
@@ -489,6 +510,7 @@ describe('ws-tls lesson', () => {
     const spy = vi.fn();
     badge.addEventListener('mouseover', spy);
     document.body.appendChild(badge);
+    makeVisible(badge);
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
     const ctx = makeCtx();
@@ -524,6 +546,7 @@ describe('ws-tls lesson', () => {
     toggle.setAttribute('aria-expanded', 'false');
     toggle.onclick = vi.fn(() => toggle.setAttribute('aria-expanded', 'true'));
     document.body.appendChild(toggle);
+    makeVisible(toggle);
 
     const label = document.createElement('label');
     label.setAttribute('data-testid', 'tls-skip-cert');
@@ -534,6 +557,8 @@ describe('ws-tls lesson', () => {
     checkbox.addEventListener('click', skipCertClickSpy);
     label.appendChild(checkbox);
     document.body.appendChild(label);
+    makeVisible(label);
+    makeVisible(checkbox);
 
     const ctx = makeCtx();
     await wsTlsLesson.setup!(ctx);

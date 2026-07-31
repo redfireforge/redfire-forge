@@ -318,12 +318,20 @@ describe('WebSocketMockServer', () => {
     expect(broadcastFn).not.toHaveBeenCalled();
   });
 
-  it('disables broadcast button when no clients', () => {
+  it('enables broadcast button with text even when no clients are connected', () => {
     const mock = makeMockReturn({
       status: { running: true, port: 9876, clientCount: 0, clients: [] },
     });
     render(<WebSocketMockServer mock={mock} />);
     fireEvent.change(screen.getByTestId('mock-broadcast-input'), { target: { value: 'msg' } });
+    expect((screen.getByTestId('mock-broadcast-btn') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('disables broadcast button when text is empty regardless of client count', () => {
+    const mock = makeMockReturn({
+      status: { running: true, port: 9876, clientCount: 0, clients: [] },
+    });
+    render(<WebSocketMockServer mock={mock} />);
     expect((screen.getByTestId('mock-broadcast-btn') as HTMLButtonElement).disabled).toBe(true);
   });
 
