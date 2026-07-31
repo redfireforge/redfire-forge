@@ -146,6 +146,7 @@ describe('ws-reliability lesson', () => {
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
+    makeVisible(dot);
     const ctx = makeCtx();
     await step.preAction!(ctx);
     const connectBtnCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
@@ -191,14 +192,9 @@ describe('ws-reliability lesson', () => {
     const scrollSpy = vi.fn();
     settings.scrollIntoView = scrollSpy;
     document.body.appendChild(settings);
+    makeVisible(settings);
 
     const ctx = makeCtx();
-    // Override querySelector to return our element for reconnect-settings selector
-    const origQuery = document.querySelector.bind(document);
-    vi.spyOn(document, 'querySelector').mockImplementation((sel: string) => {
-      if (sel.includes('reconnect-settings')) return settings;
-      return origQuery(sel);
-    });
 
     await step.action!(ctx);
     expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
@@ -249,6 +245,7 @@ describe('ws-reliability lesson', () => {
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
+    makeVisible(dot);
     const ctx = makeCtx();
     await step.preAction!(ctx);
     const connectBtnCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls

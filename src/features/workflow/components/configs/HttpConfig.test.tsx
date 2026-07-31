@@ -88,7 +88,7 @@ describe('HttpConfig — basic rendering', () => {
     const { container } = render(<HttpConfig {...defaultProps} />);
     const wrap = container.querySelector('.wf-config-method-select')!;
     fireEvent.click(wrap.querySelector('.cs-trigger')!);
-    const labels = Array.from(wrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toEqual(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
   });
 
@@ -157,7 +157,7 @@ describe('HttpConfig — basic rendering', () => {
     const { container } = render(<HttpConfig {...defaultProps} />);
     const wrap = container.querySelector('.wf-config-service-select')!;
     fireEvent.click(wrap.querySelector('.cs-trigger')!);
-    const labels = Array.from(wrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toContain('None (raw URL)');
   });
 
@@ -168,7 +168,7 @@ describe('HttpConfig — basic rendering', () => {
     const { container } = render(<HttpConfig {...defaultProps} workflowServices={services} />);
     const wrap = container.querySelector('.wf-config-service-select')!;
     fireEvent.click(wrap.querySelector('.cs-trigger')!);
-    const labels = Array.from(wrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toContain('Users API');
   });
 
@@ -481,7 +481,7 @@ describe('HttpConfig — service binding and env override', () => {
     expect(screen.getByText('Environment')).toBeTruthy();
     const envWrap = container.querySelector('.wf-config-env-override')!;
     fireEvent.click(envWrap.querySelector('.cs-trigger')!);
-    const labels = Array.from(envWrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels.some(t => t?.includes('Use global (Development)'))).toBe(true);
     expect(labels).toContain('Production');
     expect(labels).toContain('adhoc');
@@ -499,7 +499,7 @@ describe('HttpConfig — service binding and env override', () => {
     );
     const envWrap = container.querySelector('.wf-config-env-override')!;
     fireEvent.click(envWrap.querySelector('.cs-trigger')!);
-    const labels = Array.from(envWrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels.some(t => t?.includes('Use global (global)'))).toBe(true);
   });
 

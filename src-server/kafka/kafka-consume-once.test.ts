@@ -336,6 +336,36 @@ describe('executeConsumeOnce — seekOffsets (pagination)', () => {
     expect(result.ok).toBe(true);
     expect(result.data?.messages).toHaveLength(2);
   });
+  it('seek is called AFTER consumer.run — regression guard for Load More bug', async () => {
+    // KafkaJS throws "Consumer group was not initialized, consumer#run must be
+    // called first" if seek() is called before run(). This test enforces the
+    // correct ordering by making seek throw unless run has already been called.
+    const records = [makeRecord(5)];
+    const { runtimeAdapter, consumer } = createMockRuntimeAdapter({ consumeRecords: records });
+    let runCalled = false;
+    vi.mocked(consumer.run).mockImplementation(async (eachMessage) => {
+      runCalled = true;
+      for (const record of records) await eachMessage(record);
+    });
+    vi.mocked(consumer.seek).mockImplementation(() => {
+      if (!runCalled) {
+        throw new Error('Consumer group was not initialized, consumer#run must be called first');
+      }
+    });
+
+    const result = await executeConsumeOnce(
+      runtimeAdapter,
+      makeConnection(),
+      baseRequest({
+        sortOrder: 'asc',
+        seekOffsets: [{ partition: 0, offset: '5' }],
+        maxMessages: 1,
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(consumer.seek).toHaveBeenCalled();
+  });
 });
 
 // ── error handling ─────────────────────────────────────────────────────────

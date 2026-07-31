@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import ScriptConfig from './ScriptConfig';
 import type { ScriptNodeData } from '../../types/workflow';
 
@@ -101,7 +101,7 @@ describe('ScriptConfig', () => {
   it('renders all mode options', () => {
     const { container } = render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
     fireEvent.click(container.querySelector('.cs-trigger')!);
-    const labels = Array.from(container.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toContain('Transform');
     expect(labels).toContain('Validate');
     expect(labels).toContain('Generate');

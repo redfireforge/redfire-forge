@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsMockServerLesson } from './ws-mock-server';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-mock-server lesson', () => {
   beforeEach(async () => {
@@ -37,11 +37,12 @@ describe('ws-mock-server lesson', () => {
 
   it('has key terms defined', () => {
     expect(wsMockServerLesson.concept.keyTerms).toBeDefined();
-    expect(wsMockServerLesson.concept.keyTerms!.length).toBe(3);
+    expect(wsMockServerLesson.concept.keyTerms!.length).toBe(4);
     const termNames = wsMockServerLesson.concept.keyTerms!.map(t => t.term);
     expect(termNames).toContain('Echo');
     expect(termNames).toContain('Broadcast');
     expect(termNames).toContain('Mock Server');
+    expect(termNames).toContain('Port Isolation');
   });
 
   it('has a diagram', () => {
@@ -71,6 +72,21 @@ describe('ws-mock-server lesson', () => {
     await wsMockServerLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+  });
+
+  it('setup fills Client URL with the tab mock port captured from Mock panel', async () => {
+    const portInput = document.createElement('input');
+    portInput.setAttribute('data-testid', 'mock-port-input');
+    portInput.value = '9878';
+    makeVisible(portInput);
+    document.body.appendChild(portInput);
+
+    const ctx = makeCtx();
+    await wsMockServerLesson.setup!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      'ws://localhost:9878',
+    );
   });
 
   it('setup stops mock server if already running', async () => {
@@ -132,6 +148,7 @@ describe('ws-mock-server lesson', () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-start')!;
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'mock-start-btn');
+    makeVisible(btn);
     document.body.appendChild(btn);
 
     const ctx = makeCtx();
@@ -143,6 +160,27 @@ describe('ws-mock-server lesson', () => {
     );
   });
 
+  it('ensureMockRunning reads port from mock-port-input and uses it when connecting client', async () => {
+    // Reset lesson state via setup (resets _mockRunning and _mockPort)
+    await wsMockServerLesson.setup!(makeCtx());
+
+    // Inject a port input with a non-default port
+    const portInput = document.createElement('input');
+    portInput.setAttribute('data-testid', 'mock-port-input');
+    portInput.value = '9999';
+    makeVisible(portInput);
+    document.body.appendChild(portInput);
+
+    // mock-connect preAction calls ensureMockRunning then fills the URL
+    const connectStep = wsMockServerLesson.steps.find(s => s.id === 'mock-connect')!;
+    const ctx = makeCtx();
+    await connectStep.preAction!(ctx);
+
+    // URL must use the port captured from the DOM, not the hardcoded default
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9999');
+    portInput.remove();
+  });
+
   it('ensureMockRunning clicks mock-start-btn when it is not disabled (lines 21-22 true branch)', async () => {
     // Reset _mockRunning via setup
     await wsMockServerLesson.setup!(makeCtx());
@@ -150,6 +188,7 @@ describe('ws-mock-server lesson', () => {
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'mock-start-btn');
     btn.disabled = false;
+    makeVisible(btn);
     document.body.appendChild(btn);
 
     // Access ensureMockRunning via a step preAction that calls it
@@ -330,6 +369,51 @@ describe('ws-mock-server lesson', () => {
     );
   });
 
+  it('step mock-broadcast preAction reconnects when connected flag is stale and no client is actually connected', async () => {
+    // Mark internal flag true via step 4 action, but do not provide actual
+    // connected markers in DOM (.connected dot or mock client count > 0).
+    const connectStep = wsMockServerLesson.steps.find(s => s.id === 'mock-connect')!;
+    await connectStep.action!(makeCtx());
+
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-broadcast')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    const calls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0] as string);
+    expect(calls.some(c => c.includes('connect-btn'))).toBe(true);
+  });
+
+  it('step mock-broadcast preAction switches to the Server Log tab before broadcasting', async () => {
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-broadcast')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-tab-log'), expect.any(Number));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-tab-log'));
+  });
+
+  it('step mock-broadcast action spotlights the newest Server Log entry after broadcasting', async () => {
+    document.body.innerHTML = `
+      <div data-testid="mock-log">
+        <div class="ws-mock-log-entry ws-mock-log-response-out" data-testid="mock-log-1">broadcast to 1</div>
+        <div class="ws-mock-log-entry ws-mock-log-message-in" data-testid="mock-log-2">older entry</div>
+      </div>
+    `;
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-broadcast')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    const firstEntry = document.querySelector('[data-testid="mock-log-1"]');
+    expect(firstEntry?.querySelector('.demo-spotlight-ring')).toBeNull();
+    // Ring is added then removed after the hold delay — assert waitFor was used
+    // to confirm a log entry before attempting to spotlight it.
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-mock-log-entry'), expect.any(Number));
+  });
+
+  it('step mock-broadcast action does not throw when no Server Log entry exists yet', async () => {
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-broadcast')!;
+    const ctx = makeCtx();
+    await expect(step.action!(ctx)).resolves.not.toThrow();
+  });
+
   // ─── Step: mock-broadcast-receive ───────────────────────────
 
   it('step mock-broadcast-receive exists with correct structure', () => {
@@ -337,8 +421,8 @@ describe('ws-mock-server lesson', () => {
     expect(step).toBeDefined();
     expect(step.title).toBeTruthy();
     expect(step.description).toBeTruthy();
-    expect(step.highlight).toBe('.ws-message-received');
-    expect(step.verify).toBe('.ws-message-received');
+    expect(step.highlight).toBe('.ws-message-list-inner > div:last-child .ws-message-received');
+    expect(step.verify).toBe('.ws-message-list-inner > div:last-child .ws-message-received');
   });
 
   it('step mock-broadcast-receive action switches to Client mode and opens Events tab', async () => {
@@ -391,6 +475,7 @@ describe('ws-mock-server lesson', () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-stop')!;
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'mock-stop-btn');
+    makeVisible(btn);
     document.body.appendChild(btn);
 
     const ctx = makeCtx();
@@ -448,10 +533,12 @@ describe('ws-mock-server lesson', () => {
     const broadcastInput = document.createElement('input');
     broadcastInput.setAttribute('data-testid', 'mock-broadcast-input');
     broadcastInput.value = '';
+    makeVisible(broadcastInput);
     document.body.appendChild(broadcastInput);
     const broadcastBtn = document.createElement('button');
     broadcastBtn.setAttribute('data-testid', 'mock-broadcast-btn');
     broadcastBtn.disabled = false;
+    makeVisible(broadcastBtn);
     const broadcastClickSpy = vi.fn();
     broadcastBtn.addEventListener('click', broadcastClickSpy);
     document.body.appendChild(broadcastBtn);

@@ -13,6 +13,7 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WS } from '@shared/selectors';
 import { wsSetup, wsCleanup, closeExtraConnectionTabs } from '../setup-helpers';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 // ── Constants ──────────────────────────────────────────────────
 const MOCK_URL = 'ws://localhost:9876';
@@ -70,7 +71,7 @@ function buildDemoRecording(): string {
  * picker — this helper injects straight to the hidden <input type="file">.
  */
 async function injectRecordingFile(ctx: DemoActionContext): Promise<void> {
-  const input = document.querySelector(WS.REC_FILE_INPUT) as HTMLInputElement | null;
+  const input = firstVisibleElement<HTMLInputElement>(WS.REC_FILE_INPUT);
   if (!input) return;
 
   const json = buildDemoRecording();
@@ -100,7 +101,7 @@ async function injectRecordingFile(ctx: DemoActionContext): Promise<void> {
 async function ensureConnected(ctx: DemoActionContext): Promise<void> {
   // The Disconnect button is always in the DOM (just disabled when not connected),
   // so we must check !disabled rather than mere presence.
-  const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+  const disconnectBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
   const alreadyConnected = !!disconnectBtn && !disconnectBtn.disabled;
   if (!alreadyConnected) {
     await ctx.click(WS.LEFT_TAB_CONNECT);
@@ -115,7 +116,7 @@ async function ensureConnected(ctx: DemoActionContext): Promise<void> {
 
 /** Stop an active recording silently (no-op if not recording). */
 async function ensureNotRecording(ctx: DemoActionContext): Promise<void> {
-  const stopBtn = document.querySelector(WS.REC_STOP_BTN) as HTMLElement | null;
+  const stopBtn = firstVisibleElement<HTMLElement>(WS.REC_STOP_BTN);
   if (stopBtn) {
     stopBtn.click();
     await ctx.delay(500);
@@ -124,7 +125,7 @@ async function ensureNotRecording(ctx: DemoActionContext): Promise<void> {
 
 /** Exit replay mode silently (no-op if not replaying). */
 async function ensureNotReplaying(ctx: DemoActionContext): Promise<void> {
-  const exitBtn = document.querySelector(WS.REPLAY_EXIT) as HTMLElement | null;
+  const exitBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_EXIT);
   if (exitBtn) {
     exitBtn.click();
     await ctx.delay(400);
@@ -531,7 +532,7 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // If already recording, we're good — nothing to do
-        const alreadyRecording = !!document.querySelector(WS.REC_STOP_BTN);
+        const alreadyRecording = !!firstVisibleElement(WS.REC_STOP_BTN);
         if (alreadyRecording) return;
         // Stop any active replay first
         await ensureNotReplaying(ctx);
@@ -556,13 +557,13 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // Ensure recording is active
-        const isRecording = !!document.querySelector(WS.REC_STOP_BTN);
+        const isRecording = !!firstVisibleElement(WS.REC_STOP_BTN);
         if (!isRecording) {
           await ensureNotReplaying(ctx);
           await ensureConnected(ctx);
           await ctx.click(WS.RIGHT_TAB_EVENTS);
           await ctx.delay(200);
-          const startBtn = document.querySelector(WS.REC_START_BTN) as HTMLElement | null;
+          const startBtn = firstVisibleElement<HTMLElement>(WS.REC_START_BTN);
           if (startBtn) {
             startBtn.click();
             await ctx.delay(600);
@@ -597,13 +598,13 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // Ensure recording is active so the Stop button is visible
-        const isRecording = !!document.querySelector(WS.REC_STOP_BTN);
+        const isRecording = !!firstVisibleElement(WS.REC_STOP_BTN);
         if (!isRecording) {
           await ensureNotReplaying(ctx);
           await ensureConnected(ctx);
           await ctx.click(WS.RIGHT_TAB_EVENTS);
           await ctx.delay(200);
-          const startBtn = document.querySelector(WS.REC_START_BTN) as HTMLElement | null;
+          const startBtn = firstVisibleElement<HTMLElement>(WS.REC_START_BTN);
           if (startBtn) {
             startBtn.click();
             await ctx.delay(600);
@@ -646,7 +647,7 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // If the Play button is already visible, we're ready
-        const playBtn = document.querySelector(WS.REPLAY_START_BTN);
+        const playBtn = firstVisibleElement(WS.REPLAY_START_BTN);
         if (playBtn) return;
         // Exit any active replay first
         await ensureNotReplaying(ctx);
@@ -675,17 +676,17 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
         // By the time this step starts, the 4.9-second replay from rec-play may
         // have already completed. Ensure a replay is active and paused so the
         // ✕ Exit button remains visible throughout the entire reading phase.
-        const exitBtn = document.querySelector(WS.REPLAY_EXIT);
+        const exitBtn = firstVisibleElement(WS.REPLAY_EXIT);
         if (!exitBtn) {
           // Replay has auto-completed (or was never started).
           await ensureNotRecording(ctx);
           // After auto-completion, loadedRecording is cleared → Play button is gone.
           // Inject a fresh recording so Play reappears.
-          let playBtn = document.querySelector(WS.REPLAY_START_BTN) as HTMLElement | null;
+          let playBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_START_BTN);
           if (!playBtn) {
             await injectRecordingFile(ctx);
             await ctx.delay(400);
-            playBtn = document.querySelector(WS.REPLAY_START_BTN) as HTMLElement | null;
+            playBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_START_BTN);
           }
           if (playBtn) {
             playBtn.click();
@@ -693,7 +694,7 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
             // We just started replay so it is guaranteed to be playing.
             await ctx.waitFor(WS.REPLAY_BAR);
             await ctx.delay(200);
-            const pauseBtn = document.querySelector(WS.REPLAY_PLAYPAUSE) as HTMLElement | null;
+            const pauseBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_PLAYPAUSE);
             if (pauseBtn) {
               pauseBtn.click();
               await ctx.delay(300);
@@ -703,7 +704,7 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
           // Replay is still active from step 6. Pause if currently playing.
           // Use includes('▶') — the paused state — rather than exact '⏸' comparison
           // to avoid any Unicode encoding mismatch across source files.
-          const playpauseBtn = document.querySelector(WS.REPLAY_PLAYPAUSE) as HTMLElement | null;
+          const playpauseBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_PLAYPAUSE);
           if (playpauseBtn && !playpauseBtn.textContent?.includes('▶')) {
             playpauseBtn.click();
             await ctx.delay(300);
@@ -712,7 +713,7 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       },
       action: async (ctx: DemoActionContext) => {
         // Exit replay if still active (may have finished naturally in long demos)
-        const exitBtn = document.querySelector(WS.REPLAY_EXIT) as HTMLElement | null;
+        const exitBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_EXIT);
         if (exitBtn) {
           await ctx.click(WS.REPLAY_EXIT);
           await ctx.delay(600);

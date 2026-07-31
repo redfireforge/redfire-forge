@@ -14,6 +14,7 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 // ── Selectors (Socket.IO specific) ────────────────────────────
 const SIO_URL = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
@@ -32,7 +33,7 @@ async function resetProtocol(ctx: DemoActionContext) {
  * (SIO_SERVER_PARAMS, compose fields, etc.) that only render when connected.
  */
 async function ensureSioConnected(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WS.STATUS_CONNECTED)) return;
+  if (firstVisibleElement(WS.STATUS_CONNECTED)) return;
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
   await ctx.click(WS.CONNECT_BTN);
@@ -221,7 +222,7 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       },
       action: async (ctx: DemoActionContext) => {
         // Replay guard: skip WS connect if already open from a prior pass.
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
         }
         await ctx.waitFor(WS.STATUS_CONNECTED); // wait for green dot (Rule 5)
@@ -312,7 +313,7 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
         await ctx.delay(500);
         // Scroll the namespace field into view so the highlight box is visible.
         // Do NOT focus() it — an INPUT with focus blocks ArrowRight keyboard navigation.
-        const ns = document.querySelector(WS.SIO_NAMESPACE) as HTMLElement | null;
+        const ns = firstVisibleElement<HTMLElement>(WS.SIO_NAMESPACE);
         if (ns) ns.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         await ctx.delay(800);
       },

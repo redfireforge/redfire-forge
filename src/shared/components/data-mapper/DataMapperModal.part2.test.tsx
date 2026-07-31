@@ -87,7 +87,7 @@ describe('DataMapperModal', () => {
         allowCustomFields: false,
       },
     });
-    render(
+    const { container } = render(
       <DataMapperModal
         adapter={adapter}
         initialData={initialMappings}
@@ -353,8 +353,10 @@ describe('DataMapperModal', () => {
     });
     vi.mocked(saveSnapshot).mockRejectedValueOnce(new Error('disk full'));
     const adapter = createAdapter();
+    let container: HTMLElement;
     await act(async () => {
-      return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+      const result = render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+      container = result.container;
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByText('Accept & Update')); });
@@ -365,7 +367,7 @@ describe('DataMapperModal', () => {
       .find((btn) => /Accept/.test(btn.textContent ?? '')) as HTMLElement;
     expect(modalAcceptBtn).toBeTruthy();
     await act(async () => { fireEvent.click(modalAcceptBtn); });
-    expect(container.querySelector('.dm-drift-banner')).toBeNull();
+    expect(container!.querySelector('.dm-drift-banner')).toBeNull();
   });
 
   it('closes schema diff via Close button', async () => {
