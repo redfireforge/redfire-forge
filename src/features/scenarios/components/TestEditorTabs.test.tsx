@@ -136,6 +136,25 @@ describe('TestEditorTabs', () => {
     expect(onActiveTabChange).toHaveBeenCalledWith('data');
   });
 
+  it('shows the Data Source tab for a standard scenario when the test has a dataSource (converted copy)', () => {
+    const { onActiveTabChange } = renderTabs({
+      scenarioKind: 'standard',
+      draft: makeDraft({
+        dataSource: {
+          columns: [{ key: 'userId', type: 'param' }],
+          rows: [{ id: 'r1', enabled: true, values: { userId: '{{userId}}' } }],
+          source: { type: 'inline' },
+        } as Scenario['dataSource'],
+      }),
+    });
+
+    // No "Parameterize" empty-state tab, but the Data Source tab is present.
+    expect(screen.queryByRole('button', { name: /Parameterize/i })).toBeNull();
+    const dataSourceBtn = screen.getByRole('button', { name: /Data Source/i });
+    fireEvent.click(dataSourceBtn);
+    expect(onActiveTabChange).toHaveBeenCalledWith('data');
+  });
+
   it('hides validation and extract tabs when data source contains validate column', () => {
     renderTabs({
       draft: makeDraft({

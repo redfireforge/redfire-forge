@@ -63,7 +63,7 @@ export interface TestEditorTabContentProps {
   handleFetchReplaceAll: TestEditorValidationTabProps['onFetchReplaceAll'];
   handleFetchCancel: TestEditorValidationTabProps['onFetchCancel'];
   handleFetchRow: (url: string, method: string, headers: Record<string, string>, body?: string) => Promise<HttpResponse>;
-  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
+  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string, newScenarioName?: string) => void;
   sharedDataSources?: SharedDataSource[];
   onPromoteToShared?: (
     dataSource: DataSource,

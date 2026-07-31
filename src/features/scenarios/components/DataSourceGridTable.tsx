@@ -108,7 +108,7 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
               Row Name
               <div className="data-source-col-resize" onMouseDown={(e) => handleColResize(e, -1)} />
             </th>
-            {dt.columns.map((col, colIdx) => (
+            {dt.columns.map((col) => (
               <th
                 key={col.id}
                 className={`data-source-th${dragOverColId === col.id ? ' col-drag-over' : ''}`}
@@ -182,7 +182,6 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
                     </button>
                   </div>
                 </div>
-                <div className="data-source-col-resize" onMouseDown={(e) => handleColResize(e, colIdx)} />
               </th>
             ))}
             <th className="data-source-th data-source-th-actions" />

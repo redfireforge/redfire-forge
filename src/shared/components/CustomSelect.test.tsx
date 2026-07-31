@@ -198,6 +198,36 @@ describe('CustomSelect', () => {
     });
   });
 
+  it('does not re-scroll the active option when the user scrolls inside the menu', () => {
+    const scrollIntoView = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+    });
+
+    const manyOptions = Array.from({ length: 20 }, (_, i) => ({
+      value: `v${i}`,
+      label: `Option ${i}`,
+    }));
+    render(<CustomSelect value="v19" onChange={vi.fn()} options={manyOptions} />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    const menu = screen.getByRole('listbox');
+    fireEvent.scroll(menu);
+    fireEvent.scroll(menu);
+
+    // Menu-internal scrolls must not trigger another scrollIntoView snap-back
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      value: original,
+      configurable: true,
+    });
+  });
+
   it('closes other open CustomSelect menus when opening a different one', () => {
     render(
       <>

@@ -1494,11 +1494,7 @@ label.kafka-editor-checkbox {
   background: var(--bg-input, #181825); color: var(--text, #cdd6f4);
   font-size: 0.82rem;
 }
-.audit-log-filter {
-  padding: 5px 8px; border: 1px solid var(--border, #444); border-radius: 6px;
-  background: var(--bg-input, #181825); color: var(--text, #cdd6f4);
-  font-size: 0.82rem; cursor: pointer;
-}
+.audit-log-filter { /* box styling handled by CustomSelect */ }
 .audit-log-actions {
   display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;
 }
@@ -3970,19 +3966,7 @@ label.kafka-editor-checkbox {
 
 /* ── Version dropdown ── */
 
-.kafka-schema-version-select {
-  padding: 5px 10px;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 5px;
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
-  font-size: 0.8rem;
-  outline: none;
-  cursor: pointer;
-}
-.kafka-schema-version-select:focus {
-  border-color: rgba(95,177,255,0.45);
-}
+.kafka-schema-version-select { /* box styling handled by CustomSelect */ }
 
 /* ── Schema content ── */
 

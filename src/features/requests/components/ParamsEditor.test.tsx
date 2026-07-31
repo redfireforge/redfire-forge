@@ -99,30 +99,44 @@ describe('ParamsEditor', () => {
     expect(onChange.mock.calls[0][0][0].key).toBe('limit');
   });
 
-  it('toggles bulk edit mode', () => {
+  it('opens bulk edit mode with current params', () => {
     render(<ParamsEditor params={makeParams()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('Bulk Edit'));
+    fireEvent.click(screen.getByRole('button', { name: 'Bulk Edit' }));
     expect(screen.getByPlaceholderText(/key=value/)).toBeTruthy();
-  });
-
-  it('bulk edit textarea shows current params', () => {
-    render(<ParamsEditor params={makeParams()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('Bulk Edit'));
+    expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
     const textarea = screen.getByPlaceholderText(/key=value/) as HTMLTextAreaElement;
     expect(textarea.value).toBe('page=1\nlimit=10');
   });
 
-  it('parses bulk edit text on change', () => {
+  it('applies bulk edit text on Done and returns to table', () => {
     const onChange = vi.fn();
     render(<ParamsEditor params={makeParams()} onChange={onChange} />);
-    fireEvent.click(screen.getByText('Bulk Edit'));
+    fireEvent.click(screen.getByRole('button', { name: 'Bulk Edit' }));
     const textarea = screen.getByPlaceholderText(/key=value/);
     fireEvent.change(textarea, { target: { value: 'foo=bar\nbaz=qux' } });
+    // Draft mode — no onChange until Done
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     expect(onChange).toHaveBeenCalledTimes(1);
     const result = onChange.mock.calls[0][0];
     expect(result[0].key).toBe('foo');
     expect(result[0].value).toBe('bar');
     expect(result[1].key).toBe('baz');
+    expect(screen.queryByPlaceholderText(/key=value/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Bulk Edit' })).toBeTruthy();
+  });
+
+  it('Cancel discards bulk edits and returns to table', () => {
+    const onChange = vi.fn();
+    render(<ParamsEditor params={makeParams()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Bulk Edit' }));
+    const textarea = screen.getByPlaceholderText(/key=value/);
+    fireEvent.change(textarea, { target: { value: 'foo=bar' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toEqual(makeParams());
+    expect(screen.queryByPlaceholderText(/key=value/)).toBeNull();
   });
 
   it('toggles description column', () => {
@@ -201,18 +215,20 @@ describe('ParamsEditor', () => {
   it('bulk edit treats lines without "=" as key-only rows', () => {
     const onChange = vi.fn();
     render(<ParamsEditor params={makeParams()} onChange={onChange} />);
-    fireEvent.click(screen.getByText('Bulk Edit'));
+    fireEvent.click(screen.getByRole('button', { name: 'Bulk Edit' }));
     const textarea = screen.getByPlaceholderText(/key=value/) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'bareKey' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     expect(onChange.mock.calls[0][0][0]).toMatchObject({ key: 'bareKey', value: '' });
   });
 
   it('bulk edit empty text yields a single empty row', () => {
     const onChange = vi.fn();
     render(<ParamsEditor params={makeParams()} onChange={onChange} />);
-    fireEvent.click(screen.getByText('Bulk Edit'));
+    fireEvent.click(screen.getByRole('button', { name: 'Bulk Edit' }));
     const textarea = screen.getByPlaceholderText(/key=value/) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     expect(onChange.mock.calls[0][0]).toEqual([
       expect.objectContaining({ key: '', value: '', enabled: true }),
     ]);

@@ -51,9 +51,23 @@ export function useDemoHarnessBridge(
     setFeatureGroups?.(prev => prev.filter(fg => fg.name !== name));
   }, [setFeatureGroups]);
 
+  const deleteScenariosByName = useCallback((name: string) => {
+    setFeatureGroups?.(prev => prev.map(fg => ({
+      ...fg,
+      scenarios: fg.scenarios.filter(sc => sc.name !== name),
+    })));
+  }, [setFeatureGroups]);
+
   const seedFeatureGroup = useCallback((fg: FeatureGroup) => {
     setFeatureGroups?.(prev => {
-      if (prev.some(existing => existing.name === fg.name)) return prev;
+      const idx = prev.findIndex(
+        (existing) => existing.id === fg.id || existing.name === fg.name,
+      );
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = fg;
+        return next;
+      }
       return [...prev, fg];
     });
   }, [setFeatureGroups]);
@@ -97,6 +111,7 @@ export function useDemoHarnessBridge(
     const w = window as unknown as Record<string, unknown>;
     w.__demoSeedHarnessTarget = seedTarget;
     w.__demoDeleteFeatureGroupsByName = deleteFeatureGroupsByName;
+    w.__demoDeleteScenariosByName = deleteScenariosByName;
     w.__demoSeedFeatureGroup = seedFeatureGroup;
     w.__demoSelectEnvSvc = selectEnvSvc;
     w.__demoSeedTestRun = seedDemoTestRun;
@@ -107,6 +122,7 @@ export function useDemoHarnessBridge(
     return () => {
       delete w.__demoSeedHarnessTarget;
       delete w.__demoDeleteFeatureGroupsByName;
+      delete w.__demoDeleteScenariosByName;
       delete w.__demoSeedFeatureGroup;
       delete w.__demoSelectEnvSvc;
       delete w.__demoSeedTestRun;
@@ -115,5 +131,5 @@ export function useDemoHarnessBridge(
       delete w.__demoSeedSharedDataSources;
       delete w.__demoDeleteSharedDataSourcesByName;
     };
-  }, [seedTarget, deleteFeatureGroupsByName, seedFeatureGroup, selectEnvSvc, seedDemoTestRun, deleteDemoTestRuns, hasDemoTestRuns, seedSharedDataSources, deleteSharedDataSourcesByName]);
+  }, [seedTarget, deleteFeatureGroupsByName, deleteScenariosByName, seedFeatureGroup, selectEnvSvc, seedDemoTestRun, deleteDemoTestRuns, hasDemoTestRuns, seedSharedDataSources, deleteSharedDataSourcesByName]);
 }
