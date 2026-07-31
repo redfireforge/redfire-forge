@@ -269,7 +269,7 @@ export function useWorkflowDesignerControllerPartB(
     persistWorkflow({ services: svcs, rfNodes: syncedNodes });
   }, [setWorkflowServices, nodes, setNodes, persistWorkflow]);
 
-  const handleReactFlowInit = useWorkflowPreviewReactFlowInit(previewWorkflow, selected, setLaidOutId);
+  const handleReactFlowInit = useWorkflowPreviewReactFlowInit(previewWorkflow, setLaidOutId);
 
   const detailModalDerived = useMemo(
     () => {

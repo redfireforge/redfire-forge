@@ -40,7 +40,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
   it('returns a stable onInit callback', () => {
     const setLaidOutId = vi.fn();
     const { result, rerender } = renderHook(
-      ({ w }) => useWorkflowPreviewReactFlowInit(w, null, setLaidOutId),
+      ({ w }) => useWorkflowPreviewReactFlowInit(w, setLaidOutId),
       { initialProps: { w: wf as Workflow | null } },
     );
     const first = result.current;
@@ -64,7 +64,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
       setViewport: vi.fn(),
     };
 
-    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(wf, null, setLaidOutId));
+    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(wf, setLaidOutId));
 
     await act(async () => {
       result.current(instance);
@@ -97,7 +97,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
       setViewport: vi.fn(),
     };
 
-    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(wf, null, setLaidOutId));
+    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(wf, setLaidOutId));
 
     await act(async () => {
       result.current(instance);
@@ -122,7 +122,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
       setViewport: vi.fn(),
     };
 
-    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(null, null, setLaidOutId));
+    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(null, setLaidOutId));
 
     await act(async () => {
       result.current(instance);
@@ -154,9 +154,8 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
       setViewport: vi.fn(),
     };
 
-    const selectedNoViewport = { ...wf, id: 'no-vp', savedViewport: undefined };
     const { result } = renderHook(() =>
-      useWorkflowPreviewReactFlowInit(null, selectedNoViewport, setLaidOutId),
+      useWorkflowPreviewReactFlowInit(null, setLaidOutId),
     );
 
     await act(async () => {
@@ -171,20 +170,20 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
     expect(setLaidOutId).not.toHaveBeenCalled();
   });
 
-  it('restores saved viewport when selectedWorkflow has savedViewport', async () => {
+  it('auto-layouts and fits view even when selectedWorkflow has savedViewport', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const setLaidOutId = vi.fn();
-    const savedVp = { x: 100, y: 200, zoom: 0.8 };
-    const selectedWf = { ...wf, id: 'saved-1', savedViewport: savedVp };
+    const laid: WorkflowRFNode[] = [{ id: 'x', type: 'start', position: { x: 10, y: 20 }, data: {} as never }];
+    mockGetAutoLayout.mockReturnValue(laid);
     const instance = {
-      getNodes: vi.fn(() => []),
-      getEdges: vi.fn(() => []),
+      getNodes: vi.fn(() => [{ id: 'x', type: 'start', position: { x: 0, y: 0 }, data: {} as never }] as WorkflowRFNode[]),
+      getEdges: vi.fn(() => [] as WorkflowRFEdge[]),
       setNodes: vi.fn(),
       fitView: vi.fn(),
       setViewport: vi.fn(),
     };
 
-    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(null, selectedWf, setLaidOutId));
+    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(null, setLaidOutId));
 
     await act(async () => {
       result.current(instance);
@@ -192,7 +191,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
     });
 
-    expect(instance.setViewport).toHaveBeenCalledWith(savedVp, { duration: 0 });
-    expect(instance.fitView).not.toHaveBeenCalled();
+    expect(instance.setViewport).not.toHaveBeenCalled();
+    expect(instance.setNodes).toHaveBeenCalledWith(laid);
   });
 });

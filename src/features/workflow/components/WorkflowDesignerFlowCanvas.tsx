@@ -149,20 +149,12 @@ export function WorkflowDesignerFlowCanvas({
     if (!selected) return;
     if (prevWorkflowIdRef.current === selected.id) return;
     prevWorkflowIdRef.current = selected.id;
-    if (selected.savedViewport) {
-      setTimeout(() => {
-        requestAnimationFrame(() => {
-          setViewport(selected.savedViewport!, { duration: 0 });
-        });
-      }, 120);
-    } else {
-      setTimeout(() => {
-        requestAnimationFrame(() => {
-          // Keep nodes readable — tall graphs used to zoom out below ~0.5×.
-          fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
-        });
-      }, 120);
-    }
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        // Always fit on workflow open — keeps nodes visible at a good zoom level.
+        fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
+      });
+    }, 120);
   }, [selected, previewWorkflow, setViewport, fitView]);
 
   // Expose demo-player bridge helpers so lesson actions can manipulate the canvas
