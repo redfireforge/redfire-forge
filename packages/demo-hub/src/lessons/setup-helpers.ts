@@ -25,6 +25,20 @@ const firstVisibleEl = firstVisibleElement;
  */
 let _demoStartedMock = false;
 
+/**
+ * Port captured from the Mock Server panel the last time startMockServer() ran.
+ * Each connection tab gets its own dynamically-assigned port (9876, 9877, …), so
+ * lessons must never assume a fixed port — they should read this after starting
+ * the mock server (while still in Mock mode) and reuse it for the Client URL.
+ * Falls back to '9876' if startMockServer() was never called.
+ */
+let _lastMockPort = '9876';
+
+/** Returns the tab's actual assigned mock port, as last captured by startMockServer(). */
+export function getLastMockPort(): string {
+  return _lastMockPort;
+}
+
 /** Start the built-in mock echo server (no-op if already running).
  * Waits for the Stop button to appear rather than a fixed delay so the
  * server is guaranteed to be listening before the caller proceeds.
@@ -32,6 +46,10 @@ let _demoStartedMock = false;
 export async function startMockServer(ctx: DemoActionContext) {
   await ctx.click(WS.MODE_MOCK);
   await ctx.delay(400);
+  // Capture the tab's actual assigned port while the Mock panel is visible —
+  // must happen regardless of whether the server was already running.
+  const portInput = firstVisibleEl<HTMLInputElement>(WS.MOCK_PORT_INPUT);
+  if (portInput?.value?.trim()) _lastMockPort = portInput.value.trim();
   // Already running? Record that WE did not start it — cleanup must leave it alone.
   if (firstVisibleEl(WS.MOCK_STOP_BTN)) {
     _demoStartedMock = false;
@@ -199,15 +217,18 @@ export function fillControlledInput(el: HTMLInputElement | HTMLTextAreaElement, 
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-/** Connect to the mock server (fill URL, click Connect, wait for connection). */
+/** Connect to the mock server (fill URL, click Connect, wait for connection).
+ * When no url is passed, uses the tab's actual assigned mock port (captured by
+ * startMockServer()) instead of assuming a fixed port. */
 export async function connectToMockServer(
   ctx: DemoActionContext,
-  url = 'ws://localhost:9876',
+  url?: string,
   delayMs = 1500,
 ) {
+  const resolvedUrl = url ?? `ws://localhost:${_lastMockPort}`;
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
-  await ctx.fill(WS.URL_INPUT, url);
+  await ctx.fill(WS.URL_INPUT, resolvedUrl);
   await ctx.delay(200);
   await ctx.click(WS.CONNECT_BTN);
   await ctx.delay(delayMs);

@@ -2,6 +2,7 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents, connectToMockServer } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement, visibleElements } from '../../utils/domVisibility';
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ async function sendMessage(ctx: DemoActionContext, message: string): Promise<voi
  * buttons inaccessible.
  */
 async function ensureEventsTab(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector(WS.SEARCH_INPUT)) {
+  if (!firstVisibleElement(WS.SEARCH_INPUT)) {
     await ctx.click(WS.RIGHT_TAB_EVENTS);
     await ctx.delay(300);
   }
@@ -33,12 +34,12 @@ async function ensureEventsTab(ctx: DemoActionContext): Promise<void> {
  * Used by steps that need a clean state before navigating away from Events.
  */
 async function closeDiffAndCompare(ctx: DemoActionContext): Promise<void> {
-  const diffClose = document.querySelector(WS.DIFF_CLOSE) as HTMLButtonElement | null;
+  const diffClose = firstVisibleElement<HTMLButtonElement>(WS.DIFF_CLOSE);
   if (diffClose) {
     diffClose.click();
     await ctx.delay(300);
   }
-  const cancelBtn = document.querySelector(WS.COMPARE_CANCEL) as HTMLButtonElement | null;
+  const cancelBtn = firstVisibleElement<HTMLButtonElement>(WS.COMPARE_CANCEL);
   if (cancelBtn) {
     cancelBtn.click();
     await ctx.delay(200);
@@ -53,7 +54,7 @@ async function closeDiffAndCompare(ctx: DemoActionContext): Promise<void> {
 async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
   await ensureEventsTab(ctx);
   // Close filter bar if open — rows must be fully visible for row clicks
-  if (document.querySelector(WS.FILTER_BAR)) {
+  if (firstVisibleElement(WS.FILTER_BAR)) {
     await ctx.click(WS.FILTER_TOGGLE_BTN);
     await ctx.delay(200);
   }
@@ -61,18 +62,18 @@ async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
   // After clearing, wait for the virtualizer to re-render all rows — 150ms is
   // not enough when switching from a filtered view (e.g. 2 rows) to unfiltered
   // (9 rows), because the virtual list needs a layout recalc before rows appear.
-  const searchEl = document.querySelector(WS.SEARCH_INPUT) as HTMLInputElement | null;
+  const searchEl = firstVisibleElement<HTMLInputElement>(WS.SEARCH_INPUT);
   if (searchEl && searchEl.value) {
     await ctx.fill(WS.SEARCH_INPUT, '');
     await ctx.delay(400); // allow virtualizer to recalculate and render all rows
   }
   // If diff already open, nothing to do
-  if (document.querySelector(WS.DIFF_MODAL)) return;
+  if (firstVisibleElement(WS.DIFF_MODAL)) return;
   // Enter compare mode if not already active.
   // The unconditional delay gives React a macrotask cycle to commit any pending
   // state changes (e.g. stepIndex update from goToStep) before el.click() fires —
   // without it the state update from toggleCompare can be lost in concurrent mode.
-  if (!document.querySelector(WS.COMPARE_BANNER)) {
+  if (!firstVisibleElement(WS.COMPARE_BANNER)) {
     await ctx.delay(200);
     await ctx.click(WS.COMPARE_BTN);
     await ctx.waitFor(WS.COMPARE_BANNER, 3000);
@@ -82,15 +83,15 @@ async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
   // rows may be in the DOM immediately. Polling here avoids the fragile
   // index-out-of-bounds case where rows[5] is undefined.
   for (let _i = 0; _i < 30; _i++) {
-    if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
+    if (visibleElements(WS.MESSAGE_ROW).length >= 6) break;
     await ctx.delay(100);
   }
   // Click the two greeting rows (rows[1] and rows[5]) to open the diff
-  const rows = document.querySelectorAll(WS.MESSAGE_ROW);
+  const rows = visibleElements(WS.MESSAGE_ROW);
   if (rows.length >= 6) {
-    (rows[1] as HTMLElement).click();
+    rows[1].click();
     await ctx.delay(600); // allow React to register first selection before second click
-    (rows[5] as HTMLElement).click();
+    rows[5].click();
     await ctx.waitFor(WS.DIFF_MODAL, 4000);
   }
 }
@@ -126,21 +127,21 @@ async function filteringSetup(ctx: DemoActionContext): Promise<void> {
 /** Cleanup: close diff/compare mode, disconnect, clear, stop mock. */
 async function filteringCleanup(ctx: DemoActionContext): Promise<void> {
   // Close diff modal if open
-  const diffClose = document.querySelector(WS.DIFF_CLOSE) as HTMLButtonElement | null;
+  const diffClose = firstVisibleElement<HTMLButtonElement>(WS.DIFF_CLOSE);
   if (diffClose) {
     diffClose.click();
     await ctx.delay(300);
   }
   // Exit compare mode if active
-  const cancelBtn = document.querySelector(WS.COMPARE_CANCEL) as HTMLButtonElement | null;
+  const cancelBtn = firstVisibleElement<HTMLButtonElement>(WS.COMPARE_CANCEL);
   if (cancelBtn) {
     cancelBtn.click();
     await ctx.delay(200);
   }
   // Close filter bar if open
-  const filterBar = document.querySelector(WS.FILTER_BAR);
+  const filterBar = firstVisibleElement(WS.FILTER_BAR);
   if (filterBar) {
-    const toggleBtn = document.querySelector(WS.FILTER_TOGGLE_BTN) as HTMLButtonElement | null;
+    const toggleBtn = firstVisibleElement<HTMLButtonElement>(WS.FILTER_TOGGLE_BTN);
     if (toggleBtn) {
       toggleBtn.click();
       await ctx.delay(200);
@@ -324,7 +325,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Ensure Events tab is visible so the toolbar is accessible
         await ensureEventsTab(ctx);
         // Close filter bar if open
-        if (document.querySelector(WS.FILTER_BAR)) {
+        if (firstVisibleElement(WS.FILTER_BAR)) {
           await ctx.click(WS.FILTER_TOGGLE_BTN);
           await ctx.delay(300);
         }
@@ -350,28 +351,28 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Handles skip-to-step from any earlier or later step. (Rule 4)
         await ensureEventsTab(ctx);
         // Close filter bar if open — rows must be unobstructed
-        if (document.querySelector(WS.FILTER_BAR)) {
+        if (firstVisibleElement(WS.FILTER_BAR)) {
           await ctx.click(WS.FILTER_TOGGLE_BTN);
           await ctx.delay(200);
         }
         // Clear search so all 9 rows are visible (row indices must match expectations).
         // Use a 400ms delay — the virtualizer needs time to recalculate row layout
         // after switching from a filtered view back to the full unfiltered list.
-        const searchEl = document.querySelector(WS.SEARCH_INPUT) as HTMLInputElement | null;
+        const searchEl = firstVisibleElement<HTMLInputElement>(WS.SEARCH_INPUT);
         if (searchEl && searchEl.value) {
           await ctx.fill(WS.SEARCH_INPUT, '');
           await ctx.delay(400);
         }
         // Close diff if already open — viewer should see the selection, not a stale diff
-        if (document.querySelector(WS.DIFF_MODAL)) {
-          const closeBtn = document.querySelector(WS.DIFF_CLOSE) as HTMLButtonElement | null;
+        if (firstVisibleElement(WS.DIFF_MODAL)) {
+          const closeBtn = firstVisibleElement<HTMLButtonElement>(WS.DIFF_CLOSE);
           if (closeBtn) closeBtn.click();
           await ctx.delay(300);
         }
         // Ensure compare mode is active so row clicks select for comparison.
         // The unconditional delay gives React a macrotask cycle to commit any
         // pending stepIndex state before the compare button click fires.
-        if (!document.querySelector(WS.COMPARE_BANNER)) {
+        if (!firstVisibleElement(WS.COMPARE_BANNER)) {
           await ctx.delay(200);
           await ctx.click(WS.COMPARE_BTN);
           await ctx.waitFor(WS.COMPARE_BANNER, 3000);
@@ -385,14 +386,14 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Wait for the virtualizer to render at least 6 rows — without this the
         // querySelectorAll may return fewer items and rows[5] would be undefined.
         for (let _i = 0; _i < 30; _i++) {
-          if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
+          if (visibleElements(WS.MESSAGE_ROW).length >= 6) break;
           await ctx.delay(100);
         }
-        const rows = document.querySelectorAll(WS.MESSAGE_ROW);
+        const rows = visibleElements(WS.MESSAGE_ROW);
         if (rows.length >= 6) {
-          (rows[1] as HTMLElement).click();
+          rows[1].click();
           await ctx.delay(600);
-          (rows[5] as HTMLElement).click();
+          rows[5].click();
           // Wait for diff modal to appear — more robust than a fixed delay (Rule 5)
           await ctx.waitFor(WS.DIFF_MODAL, 5000);
           await ctx.delay(600); // brief pause so user sees the diff rendered
@@ -441,7 +442,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         await ctx.waitFor(WS.VALIDATION_TOGGLE);
         await ctx.delay(800);
         // Enable the Validate toggle with ripple — arms the validation engine
-        const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.VALIDATION_TOGGLE);
         if (toggle && !toggle.checked) {
           await ctx.click(WS.VALIDATION_TOGGLE);
           await ctx.delay(600);
@@ -467,7 +468,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         await closeDiffAndCompare(ctx);
         await ctx.click(WS.RIGHT_TAB_SCHEMA);
         await ctx.waitFor(WS.VALIDATION_TOGGLE);
-        const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.VALIDATION_TOGGLE);
         if (toggle && !toggle.checked) {
           await ctx.click(WS.VALIDATION_TOGGLE);
           await ctx.delay(300);
@@ -526,18 +527,18 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Guard: if user skipped steps 7–8 (clicked Next during reading),
         // the schema may not exist. Create it quietly so this step works.
         // Also ensure the validation toggle is enabled even if schema already exists.
-        if (!document.querySelector(WS.VALIDATION_TOGGLE)) {
+        if (!firstVisibleElement(WS.VALIDATION_TOGGLE)) {
           await ctx.click(WS.RIGHT_TAB_SCHEMA);
           await ctx.waitFor(WS.VALIDATION_TOGGLE);
         }
         // Enable validation toggle regardless of whether schema exists
-        const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.VALIDATION_TOGGLE);
         if (toggle && !toggle.checked) {
           await ctx.click(WS.VALIDATION_TOGGLE);
           await ctx.delay(300);
         }
         // Create schema if absent
-        if (!document.querySelector(WS.SCHEMA_CARD)) {
+        if (!firstVisibleElement(WS.SCHEMA_CARD)) {
           await ctx.click(WS.SCHEMA_ADD_BTN);
           await ctx.waitFor(WS.SCHEMA_NAME_INPUT);
           await ctx.fill(WS.SCHEMA_NAME_INPUT, 'Greeting Schema');

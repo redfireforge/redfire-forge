@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsSocketIoLesson } from './ws-socketio';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-socketio lesson', () => {
   beforeEach(() => {
@@ -143,6 +143,7 @@ describe('ws-socketio lesson', () => {
 
   it('step sio-connect action skips WS connect when already connected (replay guard)', async () => {
     document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    makeVisible(document.querySelector('.ws-status-dot.connected')!);
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-connect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -170,6 +171,7 @@ describe('ws-socketio lesson', () => {
 
   it('step sio-inspect-params preAction skips connect when already connected', async () => {
     document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    makeVisible(document.querySelector('.ws-status-dot.connected')!);
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-inspect-params')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -201,6 +203,7 @@ describe('ws-socketio lesson', () => {
 
   it('step sio-compose-event preAction only navigates to compose when already connected', async () => {
     document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    makeVisible(document.querySelector('.ws-status-dot.connected')!);
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-compose-event')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -273,6 +276,7 @@ describe('ws-socketio lesson', () => {
     nsEl.setAttribute('data-testid', 'sio-namespace');
     nsEl.scrollIntoView = vi.fn();
     document.body.appendChild(nsEl);
+    makeVisible(nsEl);
     await step.action!(ctx);
     // Action does not call click(left-tab-send) — that's preAction's job
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));

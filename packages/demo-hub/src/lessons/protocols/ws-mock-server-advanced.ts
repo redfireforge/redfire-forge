@@ -2,6 +2,7 @@
 import type { DemoLesson } from '../../types';
 import { startMockServer, stopMockServer, switchToClientMode, disconnectWebSocket } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 export const wsMockServerAdvancedLesson: DemoLesson = {
   id: 'ws-mock-server-advanced',
@@ -18,7 +19,7 @@ export const wsMockServerAdvancedLesson: DemoLesson = {
     await ctx.delay(500); // allow async rule-load from storage to settle
     // Delete any leftover rules one at a time to avoid React stale-closure issues
     const deleteFirstRule = (): boolean => {
-      const btn = document.querySelector<HTMLButtonElement>(WS.MOCK_RULE_DELETE_ANY);
+      const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_RULE_DELETE_ANY);
       if (btn) { btn.click(); return true; }
       return false;
     };
@@ -34,7 +35,7 @@ export const wsMockServerAdvancedLesson: DemoLesson = {
     await ctx.click(WS.MODE_MOCK);
     await ctx.delay(400);
     const deleteFirstRule = (): boolean => {
-      const btn = document.querySelector<HTMLButtonElement>(WS.MOCK_RULE_DELETE_ANY);
+      const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_RULE_DELETE_ANY);
       if (btn) { btn.click(); return true; }
       return false;
     };
@@ -167,16 +168,16 @@ Change the **Match type** dropdown to **Contains**, then type \`ping\` in the **
         await ctx.waitFor(WS.MOCK_TAB_RULES);
         await ctx.click(WS.MOCK_TAB_RULES);
         await ctx.delay(200);
-        if (!document.querySelector(WS.MOCK_RULE_RESPONSE_TYPE_FIRST)) {
+        if (!firstVisibleElement(WS.MOCK_RULE_RESPONSE_TYPE_FIRST)) {
           // Rule card closed or no rule — open/create one
-          const ruleNameBtn = document.querySelector('.ws-mock-rule-name') as HTMLElement | null;
+          const ruleNameBtn = firstVisibleElement<HTMLElement>('.ws-mock-rule-name');
           if (ruleNameBtn) {
             ruleNameBtn.click();
             await ctx.delay(200);
           } else {
-            const addBtn = document.querySelector(WS.MOCK_ADD_RULE) as HTMLButtonElement | null;
+            const addBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_ADD_RULE);
             if (addBtn) { addBtn.click(); await ctx.delay(200); }
-            const matchSel = document.querySelector(WS.MOCK_RULE_MATCH_TYPE_FIRST) as HTMLSelectElement | null;
+            const matchSel = firstVisibleElement<HTMLSelectElement>(WS.MOCK_RULE_MATCH_TYPE_FIRST);
             if (matchSel) {
               matchSel.value = 'contains';
               matchSel.dispatchEvent(new Event('change', { bubbles: true }));
@@ -212,15 +213,15 @@ This is useful for:
         await ctx.waitFor(WS.MOCK_TAB_RULES);
         await ctx.click(WS.MOCK_TAB_RULES);
         await ctx.delay(200);
-        if (!document.querySelector(WS.MOCK_RULE_RESPONSE_TYPE_FIRST)) {
-          const ruleNameBtn = document.querySelector('.ws-mock-rule-name') as HTMLElement | null;
+        if (!firstVisibleElement(WS.MOCK_RULE_RESPONSE_TYPE_FIRST)) {
+          const ruleNameBtn = firstVisibleElement<HTMLElement>('.ws-mock-rule-name');
           if (ruleNameBtn) {
             ruleNameBtn.click();
             await ctx.delay(200);
           } else {
-            const addBtn = document.querySelector(WS.MOCK_ADD_RULE) as HTMLButtonElement | null;
+            const addBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_ADD_RULE);
             if (addBtn) { addBtn.click(); await ctx.delay(200); }
-            const matchSel = document.querySelector(WS.MOCK_RULE_MATCH_TYPE_FIRST) as HTMLSelectElement | null;
+            const matchSel = firstVisibleElement<HTMLSelectElement>(WS.MOCK_RULE_MATCH_TYPE_FIRST);
             if (matchSel) {
               matchSel.value = 'contains';
               matchSel.dispatchEvent(new Event('change', { bubbles: true }));
@@ -272,8 +273,8 @@ This is much safer than deleting a rule you might need again. Toggle the rule of
         await ctx.waitFor(WS.MOCK_TAB_RULES);
         await ctx.click(WS.MOCK_TAB_RULES);
         await ctx.delay(200);
-        if (!document.querySelector(WS.MOCK_RULE_TOGGLE_LABEL_FIRST)) {
-          const addBtn = document.querySelector(WS.MOCK_ADD_RULE) as HTMLButtonElement | null;
+        if (!firstVisibleElement(WS.MOCK_RULE_TOGGLE_LABEL_FIRST)) {
+          const addBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_ADD_RULE);
           if (addBtn) { addBtn.click(); await ctx.delay(200); }
         }
       },
@@ -311,7 +312,7 @@ Leave it on \`echo\` — unmatched messages still get a response, so your app wo
       description: `Push the rules to the server and verify them live.
 
 **What happens:**
-1. Switch to **Client mode**, connect to \`ws://localhost:9876\`
+1. Switch to **Client mode**, connect to this tab's mock server
 2. Send \`ping\` — the rule fires and responds with \`{"type":"pong","ts":"…"}\` after 200ms
 3. Send a non-matching message — the fallback (echo) responds immediately
 
@@ -322,20 +323,26 @@ Watch the Events panel to see rule-matched vs fallback responses side by side.`,
         // Ensure mock server is running before connecting
         await ctx.click(WS.MODE_MOCK);
         await ctx.delay(300);
-        const startBtn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
+        const startBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_START_BTN);
         if (startBtn && !startBtn.disabled) {
           startBtn.click();
           await ctx.delay(800);
         }
+        // Read the tab's actual assigned port while the Mock panel is still visible —
+        // never assume a fixed port, since each tab is dynamically assigned one. Scope to
+        // the VISIBLE port input — other open WS Studio tabs may have their own (hidden)
+        // Mock panel mounted in the DOM with a different port.
+        const portInput = firstVisibleElement<HTMLInputElement>(WS.MOCK_PORT_INPUT);
+        const port = portInput?.value?.trim() || '9876';
         // Switch to client mode and connect
         await ctx.click(WS.MODE_CLIENT);
         await ctx.delay(300);
         await ctx.click(WS.LEFT_TAB_CONNECT);
         // Wait for the URL input to be in the DOM before filling
         await ctx.waitFor(WS.URL_INPUT);
-        await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${port}`);
         // Only click Connect if not already connected (guard for replay)
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
         }
         // Wait for connection (more robust than fixed delay)

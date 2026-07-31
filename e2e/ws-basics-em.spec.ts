@@ -20,10 +20,10 @@ import {
 } from './demo-player-helpers';
 
 test.describe('WebSocket Basics — lesson shell', () => {
-  test('lesson has 12 steps', async ({ page }) => {
+  test('lesson has 11 steps', async ({ page }) => {
     await launchLesson(page, 'WebSocket', 'WebSocket Basics');
     const counter = await page.locator('.demo-live-step-counter').textContent();
-    expect(counter).toMatch(/1\s*[/]\s*12/);
+    expect(counter).toMatch(/1\s*[/]\s*11/);
     const { title } = await getStepInfo(page);
     expect(title).toMatch(/Welcome/i);
   });

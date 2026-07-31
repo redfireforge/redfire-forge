@@ -165,7 +165,7 @@ describe('ExtractionEditor', () => {
     render(<ExtractionEditor extractions={[makeExtraction()]} onChange={vi.fn()} />);
     const trigger = document.querySelector('.ext-cell-source .cs-trigger')!;
     fireEvent.click(trigger);
-    const items = Array.from(document.querySelectorAll('.ext-cell-source .cs-item'));
+    const items = Array.from(document.querySelectorAll('.cs-item'));
     const labels = items.map(el => el.querySelector('.cs-item-label')?.textContent);
     expect(labels).toEqual(['Body', 'Header', 'Status']);
   });
@@ -470,7 +470,7 @@ describe('ExtractionEditor', () => {
     );
     const trigger = document.querySelector('.ext-cell-source .cs-trigger')!;
     fireEvent.click(trigger);
-    const items = Array.from(document.querySelectorAll('.ext-cell-source .cs-item'));
+    const items = Array.from(document.querySelectorAll('.cs-item'));
     expect(items).toHaveLength(1);
     expect(items[0].querySelector('.cs-item-label')?.textContent).toBe('Body');
   });

@@ -13,6 +13,7 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { closeExtraConnectionTabs, disconnectWebSocket, clearEvents, resetAuth, clearCustomHeaders } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
 const WSS_ECHO_URL = 'wss://echo.websocket.org';
 
@@ -31,7 +32,7 @@ async function ensureTlsPanelReady(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(200);
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
-  const urlInput = document.querySelector(WS.URL_INPUT) as HTMLInputElement | null;
+  const urlInput = firstVisibleElement<HTMLInputElement>(WS.URL_INPUT);
   if (!urlInput?.value?.startsWith('wss://')) {
     await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
     await ctx.delay(300);
@@ -47,7 +48,7 @@ async function ensureTlsPanelReady(ctx: DemoActionContext): Promise<void> {
  */
 async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.TLS_TOGGLE, 2000);
-  const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
+  const toggle = firstVisibleElement<HTMLElement>(WS.TLS_TOGGLE);
   // Use aria-expanded as the canonical "is open" check — it's always in sync
   // with the component state regardless of animation or lazy rendering.
   const isOpen = toggle?.getAttribute('aria-expanded') === 'true';
@@ -62,7 +63,7 @@ async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
  * Uses the Close button (not Cancel) to avoid reverting unsaved changes.
  */
 async function closeTlsModal(ctx: DemoActionContext): Promise<void> {
-  const closeBtn = document.querySelector(WS.TLS_CLOSE) as HTMLElement | null;
+  const closeBtn = firstVisibleElement<HTMLElement>(WS.TLS_CLOSE);
   if (closeBtn) {
     closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     await ctx.delay(300);
@@ -81,7 +82,7 @@ async function closeTlsModal(ctx: DemoActionContext): Promise<void> {
  */
 async function setSkipCert(ctx: DemoActionContext, checked: boolean): Promise<void> {
   await ctx.waitFor(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`, 2000);
-  const checkbox = document.querySelector(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`) as HTMLInputElement | null;
+  const checkbox = firstVisibleElement<HTMLInputElement>(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`);
   if (!checkbox || checkbox.checked === checked) return;
   checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   await ctx.delay(200);
@@ -364,7 +365,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         // Pre-fill the wss:// URL silently so the TLS bar is visible during the
         // reading phase (the viewer reads the description while seeing the result).
         // If already set correctly, leave it alone.
-        const urlInput = document.querySelector(WS.URL_INPUT) as HTMLInputElement | null;
+        const urlInput = firstVisibleElement<HTMLInputElement>(WS.URL_INPUT);
         if (!urlInput?.value?.startsWith('wss://')) {
           await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
           await ctx.delay(300);
@@ -393,7 +394,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         await ensureTlsPanelReady(ctx);
       },
       action: async (ctx) => {
-        const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
+        const toggle = firstVisibleElement<HTMLElement>(WS.TLS_TOGGLE);
         if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
           toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
           await ctx.delay(800);
@@ -432,7 +433,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'Switch to **Send** and send a message. The echo server mirrors it back — proving the encrypted round-trip works. The data travels through the TLS tunnel: encrypted in transit, decrypted at each end. This is identical to a plain ws:// connection from the application\'s perspective.',
       highlight: WS.SEND_BTN,
       preAction: async (ctx) => {
-        const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
+        const isConnected = !!firstVisibleElement(WS.STATUS_CONNECTED);
         if (!isConnected) {
           await ensureTlsPanelReady(ctx);
           await ctx.click(WS.CONNECT_BTN);
@@ -491,7 +492,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       },
       action: async (ctx) => {
         // Briefly focus the CA cert textarea to draw attention
-        const caCert = document.querySelector(WS.TLS_CA_CERT) as HTMLTextAreaElement | null;
+        const caCert = firstVisibleElement<HTMLTextAreaElement>(WS.TLS_CA_CERT);
         if (caCert) {
           caCert.focus();
           await ctx.delay(800);
@@ -520,7 +521,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         await closeTlsModal(ctx);
         await ctx.delay(200);
         // Ensure connected so the transport badge is visible and showing "Direct"
-        const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
+        const isConnected = !!firstVisibleElement(WS.STATUS_CONNECTED);
         if (!isConnected) {
           await ctx.click(WS.CONNECT_BTN);
           await ctx.delay(2500);
@@ -533,7 +534,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       },
       action: async (ctx) => {
         // Draw the viewer's eye to the transport badge showing "Direct"
-        const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
+        const badge = firstVisibleElement<HTMLElement>(WS.TRANSPORT_BADGE);
         if (badge) {
           badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         }

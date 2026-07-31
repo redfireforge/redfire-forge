@@ -121,6 +121,20 @@ export function useDemoProgress() {
     update(() => DEFAULT_PROGRESS);
   }, [update]);
 
+  const resetLessons = useCallback((lessonIds: string[]) => {
+    update(prev => {
+      const lessonSteps = { ...prev.lessonSteps };
+      for (const id of lessonIds) {
+        delete lessonSteps[id];
+      }
+      return {
+        ...prev,
+        completedLessons: prev.completedLessons.filter(id => !lessonIds.includes(id)),
+        lessonSteps,
+      };
+    });
+  }, [update]);
+
   return {
     data,
     markLessonComplete,
@@ -135,6 +149,7 @@ export function useDemoProgress() {
     getLessonStatus,
     resetLesson,
     resetProgress,
+    resetLessons,
     isLessonUpdated,
   };
 }

@@ -11,7 +11,8 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { EM, WS, APP } from '@shared/selectors';
-import { wsSetup, wsCleanup } from '../setup-helpers';
+import { wsSetup, wsCleanup, closeExtraConnectionTabs, getLastMockPort } from '../setup-helpers';
+import { firstVisibleElement, visibleElements } from '../../utils/domVisibility';
 import {
   cleanupDemoEnvironment,
   cleanupDemoMicroservice,
@@ -22,8 +23,7 @@ import {
   WS_DEMO_SVC_NAME,
 } from '../env-manager-lesson-helpers';
 
-// ── Constants ──────────────────────────────────────────────────
-const DEMO_URL = 'ws://localhost:9876';
+// ── Constants ──────────────────────────────────────
 const DEMO_PROFILE_NAME = 'Demo Echo Server';
 const DEMO_TEMPLATE_NAME = 'greeting';
 const DEMO_TEMPLATE_BODY = '{"action":"greet","name":"RedfireForge"}';
@@ -38,16 +38,16 @@ async function clearSavedProfiles(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
   // Delete profiles one by one via the detail pane's delete flow
   for (let i = 0; i < 10; i++) {
-    const card = document.querySelector('[data-testid^="profile-card-"]') as HTMLElement | null;
+    const card = firstVisibleElement<HTMLElement>('[data-testid^="profile-card-"]');
     if (!card) break;
     card.click();
     await ctx.delay(300);
     const id = card.getAttribute('data-testid')!.replace('profile-card-', '');
-    const deleteBtn = document.querySelector(`[data-testid="delete-btn-${id}"]`) as HTMLElement | null;
+    const deleteBtn = firstVisibleElement<HTMLElement>(`[data-testid="delete-btn-${id}"]`);
     if (deleteBtn) {
       deleteBtn.click();
       await ctx.delay(200);
-      const confirm = document.querySelector(`[data-testid="confirm-delete-${id}"]`) as HTMLElement | null;
+      const confirm = firstVisibleElement<HTMLElement>(`[data-testid="confirm-delete-${id}"]`);
       confirm?.click();
       await ctx.delay(300);
     }
@@ -61,21 +61,21 @@ async function clearTemplates(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.LEFT_TAB_SEND);
   await ctx.delay(500);
   await ctx.waitFor(WS.TEMPLATE_TRIGGER);
-  const trigger = document.querySelector(WS.TEMPLATE_TRIGGER) as HTMLElement | null;
+  const trigger = firstVisibleElement<HTMLElement>(WS.TEMPLATE_TRIGGER);
   if (!trigger) return;
   trigger.click();
   await ctx.delay(400);
   for (let i = 0; i < 10; i++) {
-    const delBtn = document.querySelector('[data-testid^="template-delete-"]') as HTMLElement | null;
+    const delBtn = firstVisibleElement<HTMLElement>('[data-testid^="template-delete-"]');
     if (!delBtn) break;
     const btnTestId = delBtn.getAttribute('data-testid')!;
     delBtn.click();
     for (let w = 0; w < 30; w++) {
       await ctx.delay(100);
-      if (!document.querySelector(`[data-testid="${btnTestId}"]`)) break;
+      if (!firstVisibleElement(`[data-testid="${btnTestId}"]`)) break;
     }
   }
-  if (document.querySelector(WS.TEMPLATE_DROPDOWN)) {
+  if (firstVisibleElement(WS.TEMPLATE_DROPDOWN)) {
     trigger.click();
     await ctx.delay(200);
   }
@@ -85,6 +85,12 @@ async function clearTemplates(ctx: DemoActionContext): Promise<void> {
 
 async function workspaceSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
+  // Close any extra connection tabs left behind by previous lessons. Note this does
+  // NOT guarantee port 9876 for the surviving tab — wsSetup() below captures this
+  // tab's *actual* assigned port (via getLastMockPort()), which is what's used for
+  // the profile URL and the Environment Manager endpoint later in this lesson.
+  await closeExtraConnectionTabs(ctx);
+  await ctx.delay(200);
   // Start mock server + switch to client mode
   await wsSetup(ctx);
   await ctx.delay(200);
@@ -369,7 +375,7 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.MODE_SAVED);
         await ctx.delay(300);
-        document.querySelectorAll('.ws-saved-rail-item.selected, .ws-saved-card.selected').forEach((el) => {
+        visibleElements('.ws-saved-rail-item.selected, .ws-saved-card.selected').forEach((el) => {
           el.classList.remove('selected');
         });
       },
@@ -391,7 +397,7 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         await ctx.delay(300);
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
-        await ctx.fill(WS.URL_INPUT, DEMO_URL);
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
         await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
@@ -423,7 +429,7 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
       },
       action: async (ctx: DemoActionContext) => {
         // Click the first profile card to select it (with visual ripple)
-        const card = document.querySelector('[data-testid^="profile-card-"]') as HTMLElement | null;
+        const card = firstVisibleElement<HTMLElement>('[data-testid^="profile-card-"]');
         if (!card) return;
         const id = card.getAttribute('data-testid')!.replace('profile-card-', '');
         await ctx.click(`[data-testid="profile-card-${id}"]`);
@@ -467,8 +473,8 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         // Close modal if still open from previous step
-        if (document.querySelector(WS.TEMPLATE_DROPDOWN)) {
-          const trigger = document.querySelector(WS.TEMPLATE_TRIGGER) as HTMLElement | null;
+        if (firstVisibleElement(WS.TEMPLATE_DROPDOWN)) {
+          const trigger = firstVisibleElement<HTMLElement>(WS.TEMPLATE_TRIGGER);
           if (trigger) trigger.click();
           await ctx.delay(200);
         }
@@ -500,8 +506,8 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         await ctx.fill(WS.MESSAGE_INPUT, '');
         await ctx.delay(200);
         // Close modal if still open from previous step
-        if (document.querySelector(WS.TEMPLATE_DROPDOWN)) {
-          const trigger = document.querySelector(WS.TEMPLATE_TRIGGER) as HTMLElement | null;
+        if (firstVisibleElement(WS.TEMPLATE_DROPDOWN)) {
+          const trigger = firstVisibleElement<HTMLElement>(WS.TEMPLATE_TRIGGER);
           if (trigger) trigger.click();
           await ctx.delay(200);
         }
@@ -521,13 +527,14 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
       title: 'Configure WebSocket Endpoint',
       description:
         'Open **Settings → Environments** and create **"WebSocket Demo"** and **"ws-demo"**. Expand the microservice — it starts with **no protocol tabs**. ' +
-        'Click **+ Add protocol** and choose **WebSocket**, deploy the **WebSocket Demo** row, then **Edit** and enter `ws://localhost:9876`. ' +
+        'Click **+ Add protocol** and choose **WebSocket**, deploy the **WebSocket Demo** row, then **Edit** and enter your mock server\'s URL ' +
+        '(shown in the **Mock Server** tab, e.g. `ws://localhost:9876` — the exact port depends on how many connection tabs you have open). ' +
         'After **Save**, the derived-variables panel shows `{{wsBaseUrl}}` resolved for this microservice.',
       highlight: EM.PROTOCOL_TAB_WS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        if (!document.querySelector(EM.MANAGER)) {
-          if (!document.querySelector('[data-testid="ws-studio"]')) {
+        if (!firstVisibleElement(EM.MANAGER)) {
+          if (!firstVisibleElement('[data-testid="ws-studio"]')) {
             await navigateToWebSocketStudio(ctx);
             await ctx.click(WS.MODE_CLIENT);
             await ctx.delay(200);
@@ -535,7 +542,7 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         }
       },
       action: async (ctx: DemoActionContext) => {
-        await ensureWsDemoEndpointConfigured(ctx);
+        await ensureWsDemoEndpointConfigured(ctx, `ws://localhost:${getLastMockPort()}`);
         await ctx.delay(1500);
       },
     },
@@ -557,7 +564,7 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
-        await ensureWsDemoHeaderContext(ctx);
+        await ensureWsDemoHeaderContext(ctx, `ws://localhost:${getLastMockPort()}`);
         await ctx.delay(1500);
       },
     },
@@ -567,12 +574,13 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
       id: 'ws-env-resolve',
       title: 'Resolved WebSocket URL',
       description:
-        'Type `{{wsBaseUrl}}/ws` in the URL field. Watch the **→ Resolved:** preview update to `ws://localhost:9876/ws` with a green ✓ — using the endpoint and header selections you just configured.',
+        'Type `{{wsBaseUrl}}/ws` in the URL field. Watch the **→ Resolved:** preview update to your mock server\'s ' +
+        'URL (e.g. `ws://localhost:9876/ws`) with a green ✓ — using the endpoint and header selections you just configured.',
       highlight: WS.URL_INPUT,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await navigateToWebSocketStudio(ctx);
-        await ensureWsDemoHeaderContext(ctx);
+        await ensureWsDemoHeaderContext(ctx, `ws://localhost:${getLastMockPort()}`);
         await ctx.click(WS.MODE_CLIENT);
         await ctx.delay(300);
         await ctx.click(WS.LEFT_TAB_CONNECT);
@@ -596,7 +604,7 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         // Guard for skip-to-step: only navigate if URL input is not already visible.
         // Do NOT click MODE_CLIENT or LEFT_TAB_CONNECT when already on Connect tab —
         // those clicks trigger React re-renders that interfere with the fill in the action.
-        if (!document.querySelector(WS.URL_INPUT)) {
+        if (!firstVisibleElement(WS.URL_INPUT)) {
           ctx.navigateToTab('websocket-studio');
           await ctx.delay(500);
           await ctx.click(WS.MODE_CLIENT);

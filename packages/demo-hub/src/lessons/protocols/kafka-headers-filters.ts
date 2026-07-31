@@ -1,6 +1,6 @@
 /** Lesson K4: Headers & Filters — annotate messages with headers and consume selectively */
 import type { DemoLesson } from '../../types';
-import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
+import { fillControlledInput, kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '@shared/selectors';
 import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
 
@@ -64,23 +64,44 @@ async function seedHeaderMessage(): Promise<void> {
 }
 
 /**
- * Select "Earliest" in the Start Position CustomSelect by clicking the
- * trigger and then the "Earliest" menu item. `ctx.selectOption` does not
- * work with CustomSelect components.
+ * Select "Earliest" in the Start Position CustomSelect.
+ * Menu is portaled to `document.body` (not inside the select wrapper) — query `.cs-menu`
+ * after opening the trigger. `ctx.selectOption` does not work with CustomSelect.
  */
-async function selectEarliestPosition(ctx: { delay: (ms: number) => Promise<void> }): Promise<void> {
+async function selectEarliestPosition(ctx: {
+  delay: (ms: number) => Promise<void>;
+  click?: (sel: string) => Promise<void>;
+  waitFor?: (sel: string, timeoutMs?: number) => Promise<void>;
+}): Promise<void> {
   const posSelect = document.querySelector<HTMLElement>(KAFKA.CON_POSITION_SELECT);
   if (!posSelect) return;
-  const currentValue = posSelect.querySelector('.cs-trigger')?.textContent?.trim();
-  if (currentValue === 'Earliest') return; // already set
+  const currentValue = posSelect.querySelector('.cs-trigger')?.textContent?.trim() ?? '';
+  if (currentValue.includes('Earliest')) return;
+
   const trigger = posSelect.querySelector<HTMLElement>('.cs-trigger');
-  if (trigger) trigger.click();
-  await ctx.delay(200);
-  const items = posSelect.querySelectorAll<HTMLElement>('.cs-item');
-  for (const item of items) {
-    if (item.textContent?.includes('Earliest')) { item.click(); break; }
+  if (!trigger) return;
+  if (ctx.click) {
+    await ctx.click(`${KAFKA.CON_POSITION_SELECT} .cs-trigger`);
+  } else {
+    trigger.click();
   }
-  await ctx.delay(200);
+  if (ctx.waitFor) {
+    try { await ctx.waitFor('.cs-menu', 2000); } catch { /* menu may already be open */ }
+  } else {
+    await ctx.delay(200);
+  }
+  await ctx.delay(150);
+
+  const menu = document.querySelector<HTMLElement>('body > .cs-menu, .cs-menu');
+  if (!menu) return;
+  const items = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'));
+  for (const item of items) {
+    if (item.textContent?.includes('Earliest')) {
+      item.click();
+      await ctx.delay(200);
+      return;
+    }
+  }
 }
 
 // ── File-private selectors ────────────────────────────────────────────────────
@@ -94,6 +115,30 @@ const HEADER_ROW_VAL = '.kafka-ms-kv-row:last-child input[placeholder="value"]';
 const HEADER_REMOVE_BTN = '.kafka-ms-remove-btn';
 /** The Filters section container — used as a highlight target. */
 const FILTERS_SECTION = '.kafka-ms-con-filters';
+
+const CONSUME_FILTER_SELECTORS = [
+  KAFKA.CON_KEY_FILTER_INPUT,
+  KAFKA.CON_HEADER_FILTER_INPUT,
+  KAFKA.CON_JSONPATH_INPUT,
+  KAFKA.CON_JSONVAL_INPUT,
+  KAFKA.CON_BODY_CONTAINS_INPUT,
+] as const;
+
+/**
+ * Clear all consume filters without visible ripples/focus.
+ * Visible `ctx.fill` on Body Contains during Key/Header steps left that field
+ * looking like it was spotlighted (focus + leftover rings).
+ */
+function clearConsumeFiltersQuiet(): void {
+  for (const sel of CONSUME_FILTER_SELECTORS) {
+    const el = document.querySelector(sel);
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      fillControlledInput(el, '');
+    }
+  }
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) active.blur();
+}
 
 export const kafkaHeadersFiltersLesson: DemoLesson = {
   id: 'kafka-headers-filters',
@@ -351,16 +396,8 @@ Filters are applied server-side before messages are returned — you never downl
         // first match instead of waiting the full 10-second timeout.
         await ctx.fill(KAFKA.CON_MAX_INPUT, '1');
         await ctx.delay(100);
-        // Clear every filter input before the filter steps begin.
-        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
-        await ctx.delay(100);
-        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
-        await ctx.delay(100);
-        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
-        await ctx.delay(100);
-        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
-        await ctx.delay(100);
-        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
+        // Clear every filter input before the filter steps begin (quiet — no Body Contains flash).
+        clearConsumeFiltersQuiet();
         await ctx.delay(100);
       },
     },
@@ -373,17 +410,15 @@ Filters are applied server-side before messages are returned — you never downl
         `Type \`${DEMO_KEY}\` in **Key Equals**, then click **Consume Once**. Only messages whose key matches exactly are returned — watch the result appear below.`,
       highlight: KAFKA.CON_KEY_FILTER_INPUT,
       preAction: async (ctx) => {
+        const { purgeAllSpotlightRings } = await import('../../demoRipple');
+        purgeAllSpotlightRings();
+
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
         await ctx.delay(100);
         await selectEarliestPosition(ctx);
         await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
         await ctx.delay(100);
-        // Clear all filters first
-        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
-        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
-        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
-        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
-        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
+        clearConsumeFiltersQuiet();
         await ctx.delay(100);
         await seedHeaderMessage();
         await ctx.delay(100);
@@ -392,38 +427,47 @@ Filters are applied server-side before messages are returned — you never downl
         if (clearBtn) { clearBtn.click(); await ctx.delay(200); }
       },
       action: async (ctx) => {
-        const { showSpotlightRing } = await import('../../demoRipple');
+        const { showSpotlightRing, purgeAllSpotlightRings } = await import('../../demoRipple');
+        purgeAllSpotlightRings();
 
-        // 1. Spotlight and fill the Key filter
-        const keyInput = document.querySelector<HTMLElement>(KAFKA.CON_KEY_FILTER_INPUT);
-        if (keyInput) {
-          keyInput.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(keyInput);
-          await ctx.delay(800);
-          rm();
-        }
-        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, DEMO_KEY);
-        await ctx.delay(600);
+        try {
+          // Ensure Earliest + only the key filter — Latest ignores the pre-seeded message
+          await selectEarliestPosition(ctx);
+          clearConsumeFiltersQuiet();
 
-        // 2. Spotlight and click Consume Once
-        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.CON_CONSUME_BTN);
-        if (consumeBtn) {
-          consumeBtn.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(consumeBtn);
-          await ctx.delay(600);
-          rm();
-        }
-        await ctx.click(KAFKA.CON_CONSUME_BTN);
-        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
-        await ctx.delay(500);
+          // Only spotlight Key Equals — never Body Contains / Consume Once / other filters
+          const keyInput = document.querySelector<HTMLElement>(KAFKA.CON_KEY_FILTER_INPUT);
+          if (keyInput) {
+            keyInput.scrollIntoView({ block: 'nearest' });
+            const rm = showSpotlightRing(keyInput);
+            try {
+              await ctx.delay(800);
+              await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, DEMO_KEY);
+              await ctx.delay(700);
+            } finally {
+              rm();
+            }
+          } else {
+            await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, DEMO_KEY);
+            await ctx.delay(600);
+          }
 
-        // 3. Spotlight the results so the viewer sees the filtered message
-        const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
-        if (results) {
-          results.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(results);
-          await ctx.delay(1500);
-          rm();
+          await ctx.click(KAFKA.CON_CONSUME_BTN);
+          await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
+          await ctx.delay(500);
+
+          const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
+          if (results) {
+            results.scrollIntoView({ block: 'nearest' });
+            const rm = showSpotlightRing(results);
+            try {
+              await ctx.delay(1500);
+            } finally {
+              rm();
+            }
+          }
+        } finally {
+          purgeAllSpotlightRings();
         }
       },
       pauseAfter: true,
@@ -437,17 +481,15 @@ Filters are applied server-side before messages are returned — you never downl
         `Key filter cleared. Type \`${HEADER_KEY}=${HEADER_VALUE}\` in **Header Match**, then **Consume Once**. Only messages carrying that exact header are returned.`,
       highlight: KAFKA.CON_HEADER_FILTER_INPUT,
       preAction: async (ctx) => {
+        const { purgeAllSpotlightRings } = await import('../../demoRipple');
+        purgeAllSpotlightRings();
+
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
         await ctx.delay(100);
         await selectEarliestPosition(ctx);
         await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
         await ctx.delay(100);
-        // Clear all filters
-        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
-        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
-        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
-        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
-        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
+        clearConsumeFiltersQuiet();
         await ctx.delay(100);
         await seedHeaderMessage();
         await ctx.delay(100);
@@ -456,38 +498,46 @@ Filters are applied server-side before messages are returned — you never downl
         if (clearBtn) { clearBtn.click(); await ctx.delay(200); }
       },
       action: async (ctx) => {
-        const { showSpotlightRing } = await import('../../demoRipple');
+        const { showSpotlightRing, purgeAllSpotlightRings } = await import('../../demoRipple');
+        purgeAllSpotlightRings();
 
-        // 1. Spotlight and fill Header Match
-        const headerInput = document.querySelector<HTMLElement>(KAFKA.CON_HEADER_FILTER_INPUT);
-        if (headerInput) {
-          headerInput.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(headerInput);
-          await ctx.delay(800);
-          rm();
-        }
-        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, `${HEADER_KEY}=${HEADER_VALUE}`);
-        await ctx.delay(600);
+        try {
+          await selectEarliestPosition(ctx);
+          clearConsumeFiltersQuiet();
 
-        // 2. Spotlight and click Consume Once
-        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.CON_CONSUME_BTN);
-        if (consumeBtn) {
-          consumeBtn.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(consumeBtn);
-          await ctx.delay(600);
-          rm();
-        }
-        await ctx.click(KAFKA.CON_CONSUME_BTN);
-        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
-        await ctx.delay(500);
+          // Only spotlight Header Match — never Body Contains / Consume Once
+          const headerInput = document.querySelector<HTMLElement>(KAFKA.CON_HEADER_FILTER_INPUT);
+          if (headerInput) {
+            headerInput.scrollIntoView({ block: 'nearest' });
+            const rm = showSpotlightRing(headerInput);
+            try {
+              await ctx.delay(800);
+              await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, `${HEADER_KEY}=${HEADER_VALUE}`);
+              await ctx.delay(700);
+            } finally {
+              rm();
+            }
+          } else {
+            await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, `${HEADER_KEY}=${HEADER_VALUE}`);
+            await ctx.delay(600);
+          }
 
-        // 3. Spotlight the results
-        const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
-        if (results) {
-          results.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(results);
-          await ctx.delay(1500);
-          rm();
+          await ctx.click(KAFKA.CON_CONSUME_BTN);
+          await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
+          await ctx.delay(500);
+
+          const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
+          if (results) {
+            results.scrollIntoView({ block: 'nearest' });
+            const rm = showSpotlightRing(results);
+            try {
+              await ctx.delay(1500);
+            } finally {
+              rm();
+            }
+          }
+        } finally {
+          purgeAllSpotlightRings();
         }
       },
       pauseAfter: true,
@@ -499,19 +549,18 @@ Filters are applied server-side before messages are returned — you never downl
       title: 'JSONPath Filter',
       description:
         'All other filters cleared. Set **JSONPath** to `$.status` and **JSONPath Equals** to `CREATED`, then **Consume Once**. Only messages where `status == "CREATED"` are returned.',
-      highlight: KAFKA.CON_JSONPATH_INPUT,
+      // Spotlight the path+equals pair only — never Body Contains below it.
+      highlight: KAFKA.CON_JSONPATH_PAIR,
       preAction: async (ctx) => {
+        const { purgeAllSpotlightRings } = await import('../../demoRipple');
+        purgeAllSpotlightRings();
+
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
         await ctx.delay(100);
         await selectEarliestPosition(ctx);
         await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
         await ctx.delay(100);
-        // Clear ALL filters
-        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
-        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
-        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
-        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
-        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
+        clearConsumeFiltersQuiet();
         await ctx.delay(100);
         await seedHeaderMessage();
         await ctx.delay(100);
@@ -520,49 +569,51 @@ Filters are applied server-side before messages are returned — you never downl
         if (clearBtn) { clearBtn.click(); await ctx.delay(200); }
       },
       action: async (ctx) => {
-        const { showSpotlightRing } = await import('../../demoRipple');
+        const { showSpotlightRing, purgeAllSpotlightRings } = await import('../../demoRipple');
+        purgeAllSpotlightRings();
 
-        // 1. Spotlight and fill JSONPath
-        const jpInput = document.querySelector<HTMLElement>(KAFKA.CON_JSONPATH_INPUT);
-        if (jpInput) {
-          jpInput.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(jpInput);
-          await ctx.delay(800);
-          rm();
-        }
-        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '$.status');
-        await ctx.delay(500);
+        try {
+          await selectEarliestPosition(ctx);
+          clearConsumeFiltersQuiet();
 
-        // Spotlight and fill JSONPath Equals
-        const jpValInput = document.querySelector<HTMLElement>(KAFKA.CON_JSONVAL_INPUT);
-        if (jpValInput) {
-          jpValInput.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(jpValInput);
-          await ctx.delay(600);
-          rm();
-        }
-        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, 'CREATED');
-        await ctx.delay(600);
+          // One ring on the JSONPath pair while both fields fill — keeps the
+          // spotlight off Body Contains (immediately below this tall row).
+          const pair = document.querySelector<HTMLElement>(KAFKA.CON_JSONPATH_PAIR);
+          if (pair) {
+            pair.scrollIntoView({ block: 'nearest' });
+            const rm = showSpotlightRing(pair);
+            try {
+              await ctx.delay(800);
+              await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '$.status');
+              await ctx.delay(600);
+              await ctx.fill(KAFKA.CON_JSONVAL_INPUT, 'CREATED');
+              await ctx.delay(800);
+            } finally {
+              rm();
+            }
+          } else {
+            await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '$.status');
+            await ctx.delay(500);
+            await ctx.fill(KAFKA.CON_JSONVAL_INPUT, 'CREATED');
+            await ctx.delay(600);
+          }
 
-        // 2. Spotlight and click Consume Once
-        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.CON_CONSUME_BTN);
-        if (consumeBtn) {
-          consumeBtn.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(consumeBtn);
-          await ctx.delay(600);
-          rm();
-        }
-        await ctx.click(KAFKA.CON_CONSUME_BTN);
-        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
-        await ctx.delay(500);
+          await ctx.click(KAFKA.CON_CONSUME_BTN);
+          await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
+          await ctx.delay(500);
 
-        // 3. Spotlight the results
-        const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
-        if (results) {
-          results.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(results);
-          await ctx.delay(1500);
-          rm();
+          const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
+          if (results) {
+            results.scrollIntoView({ block: 'nearest' });
+            const rm = showSpotlightRing(results);
+            try {
+              await ctx.delay(1500);
+            } finally {
+              rm();
+            }
+          }
+        } finally {
+          purgeAllSpotlightRings();
         }
       },
       pauseAfter: true,
@@ -578,17 +629,15 @@ Filters are applied server-side before messages are returned — you never downl
         'perfect for quickly finding messages by any keyword, ID, or error code without writing a JSONPath.',
       highlight: KAFKA.CON_BODY_CONTAINS_INPUT,
       preAction: async (ctx) => {
+        const { purgeAllSpotlightRings } = await import('../../demoRipple');
+        purgeAllSpotlightRings();
+
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
         await ctx.delay(100);
         await selectEarliestPosition(ctx);
         await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
         await ctx.delay(100);
-        // Clear ALL filters
-        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
-        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
-        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
-        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
-        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
+        clearConsumeFiltersQuiet();
         await ctx.delay(100);
         await seedHeaderMessage();
         await ctx.delay(100);
@@ -597,38 +646,43 @@ Filters are applied server-side before messages are returned — you never downl
         if (clearBtn) { clearBtn.click(); await ctx.delay(200); }
       },
       action: async (ctx) => {
-        const { showSpotlightRing } = await import('../../demoRipple');
+        const { showSpotlightRing, purgeAllSpotlightRings } = await import('../../demoRipple');
+        purgeAllSpotlightRings();
 
-        // 1. Spotlight and fill Body Contains
-        const bodyInput = document.querySelector<HTMLElement>(KAFKA.CON_BODY_CONTAINS_INPUT);
-        if (bodyInput) {
-          bodyInput.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(bodyInput);
-          await ctx.delay(800);
-          rm();
-        }
-        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, 'us-east');
-        await ctx.delay(600);
+        try {
+          // 1. Spotlight and fill Body Contains (this step's teaching field)
+          const bodyInput = document.querySelector<HTMLElement>(KAFKA.CON_BODY_CONTAINS_INPUT);
+          if (bodyInput) {
+            bodyInput.scrollIntoView({ block: 'nearest' });
+            const rm = showSpotlightRing(bodyInput);
+            try {
+              await ctx.delay(800);
+              await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, 'us-east');
+              await ctx.delay(700);
+            } finally {
+              rm();
+            }
+          } else {
+            await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, 'us-east');
+            await ctx.delay(600);
+          }
 
-        // 2. Spotlight and click Consume Once
-        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.CON_CONSUME_BTN);
-        if (consumeBtn) {
-          consumeBtn.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(consumeBtn);
-          await ctx.delay(600);
-          rm();
-        }
-        await ctx.click(KAFKA.CON_CONSUME_BTN);
-        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
-        await ctx.delay(500);
+          await ctx.click(KAFKA.CON_CONSUME_BTN);
+          await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
+          await ctx.delay(500);
 
-        // 3. Spotlight the results
-        const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
-        if (results) {
-          results.scrollIntoView({ block: 'nearest' });
-          const rm = showSpotlightRing(results);
-          await ctx.delay(1500);
-          rm();
+          const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
+          if (results) {
+            results.scrollIntoView({ block: 'nearest' });
+            const rm = showSpotlightRing(results);
+            try {
+              await ctx.delay(1500);
+            } finally {
+              rm();
+            }
+          }
+        } finally {
+          purgeAllSpotlightRings();
         }
       },
       pauseAfter: true,

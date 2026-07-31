@@ -101,21 +101,37 @@ export function CustomSelect({
   // `overflow: hidden`/`auto` (e.g. a scrollable modal body or a table
   // wrapper with rounded corners). These are viewport-relative coordinates
   // computed from the trigger's rect.
-  const [menuPos, setMenuPos] = useState<{ left: number; minWidth: number; top?: number; bottom?: number } | null>(null);
+  const [menuPos, setMenuPos] = useState<{
+    left?: number;
+    right?: number;
+    minWidth: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
 
   const recomputeMenuPos = useCallback(() => {
     if (!wrapperRef.current) return;
     const rect = wrapperRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const up = spaceBelow < 200;
-    const next = up
-      ? { left: rect.left, minWidth: rect.width, bottom: window.innerHeight - rect.top + 3 }
-      : { left: rect.left, minWidth: rect.width, top: rect.bottom + 3 };
+    // When the trigger centre is in the right half of the viewport, anchor the
+    // menu to the trigger's right edge so it opens leftward and never clips.
+    const rightHalf = rect.left + rect.width / 2 > window.innerWidth / 2;
+    const hPos = rightHalf
+      ? { right: window.innerWidth - rect.right }
+      : { left: rect.left };
+    const vPos = up
+      ? { bottom: window.innerHeight - rect.top + 3 }
+      : { top: rect.bottom + 3 };
+    const next: { left?: number; right?: number; minWidth: number; top?: number; bottom?: number } = {
+      ...hPos, minWidth: rect.width, ...vPos,
+    };
     setOpenUp(up);
     setMenuPos((prev) => {
       if (
         prev
         && prev.left === next.left
+        && prev.right === next.right
         && prev.minWidth === next.minWidth
         && prev.top === next.top
         && prev.bottom === next.bottom
@@ -124,7 +140,7 @@ export function CustomSelect({
       }
       return next;
     });
-  }, []);
+  }, []); 
 
   useEffect(() => {
     if (!open) { setMenuPos(null); return; }
@@ -250,7 +266,14 @@ export function CustomSelect({
           ref={menuRef}
           style={{
             position: 'fixed',
-            left: menuPos.left,
+            // .cs-menu (base.css) hardcodes `left: 0; right: auto;` as its
+            // default (non-portaled) position. We must explicitly set BOTH
+            // left and right here — even to 'auto' — otherwise the CSS
+            // class's `left: 0` wins the over-constrained left/right/width
+            // resolution and the menu renders pinned to the viewport's left
+            // edge regardless of where the trigger actually is.
+            left: menuPos.left !== undefined ? menuPos.left : 'auto',
+            right: menuPos.right !== undefined ? menuPos.right : 'auto',
             minWidth: menuPos.minWidth,
             ...(menuPos.top !== undefined ? { top: menuPos.top } : {}),
             ...(menuPos.bottom !== undefined ? { bottom: menuPos.bottom } : {}),

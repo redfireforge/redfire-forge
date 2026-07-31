@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsPowerUserLesson } from './ws-power-user';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-power-user lesson', () => {
   beforeEach(() => {
@@ -601,6 +601,7 @@ describe('ws-power-user lesson', () => {
     dcBtn.setAttribute('data-testid', 'disconnect-btn');
     const clickSpy = vi.spyOn(dcBtn, 'click');
     document.body.appendChild(dcBtn);
+    makeVisible(dcBtn);
 
     const ctx = makeCtx();
     await wsPowerUserLesson.setup!(ctx);

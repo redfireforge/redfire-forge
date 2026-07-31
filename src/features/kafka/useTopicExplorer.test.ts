@@ -98,7 +98,7 @@ describe('useTopicExplorer', () => {
     expect(result.current.filteredTopics.map((t) => t.name)).toEqual(['payments.settled']);
   });
 
-  it('healthFilter filters by detailCache health; unloaded topics always shown', async () => {
+  it('healthFilter filters by detailCache health; unloaded topics treated as unknown', async () => {
     const dispatch = vi.fn().mockImplementation((op: string, body: { topicName?: string }) => {
       if (op === 'topic-detail' && body.topicName === 'orders.created') {
         return Promise.resolve({ ok: true, data: makeDetail('orders.created', { healthStatus: 'healthy' }) });
@@ -118,14 +118,23 @@ describe('useTopicExplorer', () => {
       await result.current.selectTopic('payments.settled');
     });
 
+    // 'healthy' filter: only cached-healthy topics pass; unloaded (orders.updated) excluded
     act(() => {
       result.current.setHealthFilter('healthy');
     });
+    const healthyNames = result.current.filteredTopics.map((t) => t.name);
+    expect(healthyNames).toContain('orders.created');
+    expect(healthyNames).not.toContain('orders.updated');
+    expect(healthyNames).not.toContain('payments.settled');
 
-    const names = result.current.filteredTopics.map((t) => t.name);
-    expect(names).toContain('orders.created');
-    expect(names).toContain('orders.updated');
-    expect(names).not.toContain('payments.settled');
+    // 'unknown' filter: unloaded topics pass; cached topics excluded
+    act(() => {
+      result.current.setHealthFilter('unknown');
+    });
+    const unknownNames = result.current.filteredTopics.map((t) => t.name);
+    expect(unknownNames).toContain('orders.updated');
+    expect(unknownNames).not.toContain('orders.created');
+    expect(unknownNames).not.toContain('payments.settled');
   });
 
   it('partitionFilter 12+ includes topics with more than 12 partitions', () => {

@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsLoadTestingLesson } from './ws-load-testing';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-load-testing lesson', () => {
   beforeEach(() => {
@@ -120,6 +120,7 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-settings')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -142,6 +143,7 @@ describe('ws-load-testing lesson', () => {
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'lt-start-btn');
     document.body.appendChild(btn);
+    makeVisible(btn);
 
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -156,6 +158,7 @@ describe('ws-load-testing lesson', () => {
     btn.setAttribute('data-testid', 'lt-start-btn');
     btn.disabled = true;
     document.body.appendChild(btn);
+    makeVisible(btn);
 
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -167,9 +170,11 @@ describe('ws-load-testing lesson', () => {
     const results = document.createElement('div');
     results.setAttribute('data-testid', 'lt-results');
     document.body.appendChild(results);
+    makeVisible(results);
     const clearBtn = document.createElement('button');
     clearBtn.setAttribute('data-testid', 'lt-clear-btn');
     document.body.appendChild(clearBtn);
+    makeVisible(clearBtn);
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-run')!;
     const ctx = makeCtx();
@@ -185,10 +190,12 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
     const ta = document.createElement('textarea');
     ta.setAttribute('data-testid', 'lt-message-template');
     ta.value = '{"action":"ping","seq":{{counter}}}'; // non-empty
     document.body.appendChild(ta);
+    makeVisible(ta);
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-run')!;
     const ctx = makeCtx();
@@ -205,10 +212,12 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
     const ta = document.createElement('textarea');
     ta.setAttribute('data-testid', 'lt-message-template');
     ta.value = '';
     document.body.appendChild(ta);
+    makeVisible(ta);
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-run')!;
     const ctx = makeCtx();
@@ -228,6 +237,7 @@ describe('ws-load-testing lesson', () => {
     const results = document.createElement('div');
     results.setAttribute('data-testid', 'lt-results');
     document.body.appendChild(results);
+    makeVisible(results);
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-results')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -248,6 +258,7 @@ describe('ws-load-testing lesson', () => {
     const results = document.createElement('div');
     results.setAttribute('data-testid', 'lt-results');
     document.body.appendChild(results);
+    makeVisible(results);
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-export')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -265,6 +276,7 @@ describe('ws-load-testing lesson', () => {
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'lt-stop-btn');
     document.body.appendChild(btn);
+    makeVisible(btn);
     const clickSpy = vi.fn();
     btn.addEventListener('click', clickSpy);
 
@@ -277,6 +289,7 @@ describe('ws-load-testing lesson', () => {
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'lt-clear-btn');
     document.body.appendChild(btn);
+    makeVisible(btn);
     const clickSpy = vi.fn();
     btn.addEventListener('click', clickSpy);
 
@@ -295,14 +308,17 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
     const ta = document.createElement('textarea');
     ta.setAttribute('data-testid', 'lt-message-template');
     ta.value = '{"test":true}';
     document.body.appendChild(ta);
+    makeVisible(ta);
     const startBtn = document.createElement('button');
     startBtn.setAttribute('data-testid', 'lt-start-btn');
     startBtn.disabled = true;
     document.body.appendChild(startBtn);
+    makeVisible(startBtn);
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-results')!;
     const ctx = makeCtx();
@@ -321,6 +337,7 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-export')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -345,10 +362,12 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
     const ta = document.createElement('textarea');
     ta.setAttribute('data-testid', 'lt-message-template');
     ta.value = '';
     document.body.appendChild(ta);
+    makeVisible(ta);
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-results')!;
     const ctx = makeCtx();
@@ -360,13 +379,16 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
     const ta = document.createElement('textarea');
     ta.setAttribute('data-testid', 'lt-message-template');
     ta.value = '{"test":true}';
     document.body.appendChild(ta);
+    makeVisible(ta);
     const startBtn = document.createElement('button');
     startBtn.setAttribute('data-testid', 'lt-start-btn');
     document.body.appendChild(startBtn);
+    makeVisible(startBtn);
     const clickSpy = vi.spyOn(startBtn, 'click');
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-results')!;
@@ -380,6 +402,7 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-settings')!;
     const ctx = makeCtx();
@@ -394,10 +417,12 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
     const ta = document.createElement('textarea');
     ta.setAttribute('data-testid', 'lt-message-template');
     ta.value = '{"filled":true}';
     document.body.appendChild(ta);
+    makeVisible(ta);
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-run')!;
     const ctx = makeCtx();
@@ -411,6 +436,7 @@ describe('ws-load-testing lesson', () => {
     const config = document.createElement('div');
     config.setAttribute('data-testid', 'lt-config');
     document.body.appendChild(config);
+    makeVisible(config);
 
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-template')!;
     const ctx = makeCtx();

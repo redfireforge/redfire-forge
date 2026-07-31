@@ -10,7 +10,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import type { Scenario } from '../../../../shared/types';
 import type { WorkflowService } from '../../types/workflow';
@@ -73,7 +73,7 @@ describe('HttpConfig — auth tab', () => {
     const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
     const wrap = container.querySelector('.auth-type-select')!;
     fireEvent.click(wrap.querySelector('.cs-trigger')!);
-    const labels = Array.from(wrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toContain('Inherit from Service');
     expect(labels).toContain('No Auth');
     expect(labels).toContain('Basic Auth');

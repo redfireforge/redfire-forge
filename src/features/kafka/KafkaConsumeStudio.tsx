@@ -327,7 +327,7 @@ export function KafkaConsumeStudio({
             <div className="kafka-ms-form-row kafka-ms-form-row--tall">
               <label className="kafka-ms-form-label" htmlFor="kms-con-jsonpath">JSONPath Filter</label>
               <div className="kafka-ms-form-ctrl">
-                <div className="kafka-ms-jsonpath-pair">
+                <div className="kafka-ms-jsonpath-pair" data-testid="con-jsonpath-pair">
                   <input
                     id="kms-con-jsonpath"
                     className="kafka-ms-form-input kafka-ms-form-input--mono"
@@ -335,6 +335,7 @@ export function KafkaConsumeStudio({
                     placeholder="$.status"
                     value={consumeDraft.jsonPath}
                     onChange={(e) => setConsumeDraft({ jsonPath: e.target.value })}
+                    data-testid="con-jsonpath-input"
                     aria-label="JSONPath expression"
                   />
                   <span className="kafka-ms-jsonpath-eq" aria-hidden="true">=</span>
@@ -345,6 +346,7 @@ export function KafkaConsumeStudio({
                     placeholder="CREATED"
                     value={consumeDraft.jsonPathEquals}
                     onChange={(e) => setConsumeDraft({ jsonPathEquals: e.target.value })}
+                    data-testid="con-jsonval-input"
                     aria-label="JSONPath expected value"
                   />
                 </div>

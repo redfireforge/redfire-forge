@@ -69,8 +69,10 @@ export const KAFKA = {
   CON_SORT_ORDER:           '[data-testid="con-sort-order"]',
   CON_KEY_FILTER_INPUT:     '#kms-con-key',
   CON_HEADER_FILTER_INPUT:  '#kms-con-header',
-  CON_JSONPATH_INPUT:       '#kms-con-jsonpath',
-  CON_JSONVAL_INPUT:        '#kms-con-jsonval',
+  CON_JSONPATH_INPUT:       '[data-testid="con-jsonpath-input"]',
+  CON_JSONVAL_INPUT:        '[data-testid="con-jsonval-input"]',
+  /** Path + equals pair — prefer this for JSONPath demo spotlights (keeps ring off Body Contains). */
+  CON_JSONPATH_PAIR:        '[data-testid="con-jsonpath-pair"]',
   CON_BODY_CONTAINS_INPUT:  '[data-testid="con-body-contains-input"]',
   CON_MODE_TABS:            '[data-testid="con-mode-tabs"]',
   CON_MODE_ONCE:            '[data-testid="con-mode-once"]',

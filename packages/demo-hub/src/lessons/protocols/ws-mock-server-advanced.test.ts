@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsMockServerAdvancedLesson } from './ws-mock-server-advanced';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-mock-server-advanced lesson', () => {
   beforeEach(() => {
@@ -143,6 +143,7 @@ describe('ws-mock-server-advanced lesson', () => {
     const clickSpy = vi.fn();
     ruleNameBtn.addEventListener('click', clickSpy);
     document.body.appendChild(ruleNameBtn);
+    makeVisible(ruleNameBtn);
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
@@ -156,12 +157,14 @@ describe('ws-mock-server-advanced lesson', () => {
     const addClickSpy = vi.fn();
     addBtn.addEventListener('click', addClickSpy);
     document.body.appendChild(addBtn);
+    makeVisible(addBtn);
 
     const matchSel = document.createElement('select');
     matchSel.setAttribute('data-testid', 'rule-match-type-0');
     const changeListener = vi.fn();
     matchSel.addEventListener('change', changeListener);
     document.body.appendChild(matchSel);
+    makeVisible(matchSel);
 
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -178,6 +181,7 @@ describe('ws-mock-server-advanced lesson', () => {
     const clickSpy = vi.fn();
     ruleNameBtn.addEventListener('click', clickSpy);
     document.body.appendChild(ruleNameBtn);
+    makeVisible(ruleNameBtn);
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
@@ -191,12 +195,14 @@ describe('ws-mock-server-advanced lesson', () => {
     const addClickSpy = vi.fn();
     addBtn.addEventListener('click', addClickSpy);
     document.body.appendChild(addBtn);
+    makeVisible(addBtn);
 
     const matchSel = document.createElement('select');
     matchSel.setAttribute('data-testid', 'rule-match-type-0');
     const changeListener = vi.fn();
     matchSel.addEventListener('change', changeListener);
     document.body.appendChild(matchSel);
+    makeVisible(matchSel);
 
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -310,6 +316,7 @@ describe('ws-mock-server-advanced lesson', () => {
     const clickSpy = vi.fn();
     addBtn.addEventListener('click', clickSpy);
     document.body.appendChild(addBtn);
+    makeVisible(addBtn);
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-toggle')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -385,6 +392,7 @@ describe('ws-mock-server-advanced lesson', () => {
     // Add STATUS_CONNECTED element so guard triggers (already connected)
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
+    makeVisible(dot);
     document.body.appendChild(dot);
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -442,6 +450,7 @@ describe('ws-mock-server-advanced lesson', () => {
       btn.remove(); // Remove from DOM so deleteFirstRule() returns false next iteration
     });
     document.body.appendChild(btn);
+    makeVisible(btn);
 
     const ctx = makeCtx();
     await wsMockServerAdvancedLesson.cleanup!(ctx);

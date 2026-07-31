@@ -46,6 +46,8 @@ export const WS = {
   MOCK_BROADCAST_INPUT: '[data-testid="mock-broadcast-input"]',
   MOCK_BROADCAST_BTN:   '[data-testid="mock-broadcast-btn"]',
   MOCK_FALLBACK_SELECT: '[data-testid="mock-fallback-select"]',
+  MOCK_PORT_INPUT:      '[data-testid="mock-port-input"]',
+  MOCK_PORT_MISMATCH:   '[data-testid="mock-port-mismatch"]',
   // Mock rules pane
   MOCK_TAB_RULES:       '[data-testid="mock-tab-rules"]',
   MOCK_TAB_LOG:         '[data-testid="mock-tab-log"]',
