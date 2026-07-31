@@ -531,6 +531,47 @@ describe('WsConnectionTabContent', () => {
       expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
     });
 
+    it('warns when the client is connected to a different local port than this tab\'s mock server', () => {
+      mockStudio = makeStudioReturn({
+        connection: { state: 'connected', url: 'ws://localhost:9876' },
+      });
+      mockMockServerReturn = makeMockServerReturn({
+        status: { running: true, port: 9878, clientCount: 0, clients: [] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      vi.spyOn(mockServerModule, 'useWebSocketMockServer').mockReturnValue(mockMockServerReturn);
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'mock' })} />);
+      const banner = screen.getByTestId('mock-port-mismatch');
+      expect(banner.textContent).toContain('port 9876');
+      expect(banner.textContent).toContain('port 9878');
+    });
+
+    it('does not warn when the client is connected to this tab\'s own mock server port', () => {
+      mockStudio = makeStudioReturn({
+        connection: { state: 'connected', url: 'ws://localhost:9878' },
+      });
+      mockMockServerReturn = makeMockServerReturn({
+        status: { running: true, port: 9878, clientCount: 1, clients: [] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      vi.spyOn(mockServerModule, 'useWebSocketMockServer').mockReturnValue(mockMockServerReturn);
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'mock' })} />);
+      expect(screen.queryByTestId('mock-port-mismatch')).toBeNull();
+    });
+
+    it('does not warn when the client is connected to a non-local (external) server', () => {
+      mockStudio = makeStudioReturn({
+        connection: { state: 'connected', url: 'wss://jsonplaceholder.typicode.com' },
+      });
+      mockMockServerReturn = makeMockServerReturn({
+        status: { running: true, port: 9878, clientCount: 0, clients: [] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      vi.spyOn(mockServerModule, 'useWebSocketMockServer').mockReturnValue(mockMockServerReturn);
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'mock' })} />);
+      expect(screen.queryByTestId('mock-port-mismatch')).toBeNull();
+    });
+
     it('renders Saved mode as a rail + detail split with a divider', () => {
       render(<WsConnectionTabContent {...makeProps({ controlledMode: 'saved' })} />);
       expect(screen.getByTestId('mode-saved')).toBeTruthy();

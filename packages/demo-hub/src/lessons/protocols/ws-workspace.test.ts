@@ -12,6 +12,7 @@ function stubMockServerRunning(): void {
   stopBtn.setAttribute('data-testid', 'mock-stop-btn');
   makeVisible(stopBtn);
   document.body.appendChild(stopBtn);
+  makeVisible(stopBtn);
 }
 
 describe('ws-workspace lesson', () => {
@@ -103,6 +104,8 @@ describe('ws-workspace lesson', () => {
     document.body.innerHTML = `
       <div class="ws-saved-rail-item selected"></div>
       <div class="ws-saved-card selected"></div>`;
+    makeVisible(document.querySelector('.ws-saved-rail-item.selected')!);
+    makeVisible(document.querySelector('.ws-saved-card.selected')!);
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-intro')!;
     await step.preAction!(makeCtx());
     expect(document.querySelector('.ws-saved-rail-item.selected')).toBeNull();
@@ -222,7 +225,9 @@ describe('ws-workspace lesson', () => {
     document.body.innerHTML = `
       <div data-testid="template-dropdown"></div>
       <button data-testid="template-trigger">Templates</button>`;
+    makeVisible(document.querySelector('[data-testid="template-dropdown"]')!);
     const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
+    makeVisible(trigger);
     const clickSpy = vi.spyOn(trigger, 'click');
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-save')!;
     await step.preAction!(makeCtx());
@@ -298,7 +303,9 @@ describe('ws-workspace lesson', () => {
     document.body.innerHTML = `
       <div data-testid="template-dropdown"></div>
       <button data-testid="template-trigger">Templates</button>`;
+    makeVisible(document.querySelector('[data-testid="template-dropdown"]')!);
     const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
+    makeVisible(trigger);
     const clickSpy = vi.spyOn(trigger, 'click');
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-load')!;
     await step.preAction!(makeCtx());
@@ -390,6 +397,7 @@ describe('ws-workspace lesson', () => {
   it('step ws-env-warn preAction is a no-op when URL input already visible', async () => {
     // Coming from ws-template-load: URL input present → preAction skips all navigation.
     document.body.innerHTML = '<div aria-label="WebSocket URL"></div>';
+    makeVisible(document.querySelector('[aria-label="WebSocket URL"]')!);
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-warn')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -450,6 +458,9 @@ describe('ws-workspace lesson', () => {
     stubMockServerRunning();
     const card = document.querySelector('[data-testid="profile-card-abc"]')!;
     const confirm = document.querySelector('[data-testid="confirm-delete-abc"]')!;
+    makeVisible(card as HTMLElement);
+    makeVisible(document.querySelector('[data-testid="delete-btn-abc"]') as HTMLElement);
+    makeVisible(confirm as HTMLElement);
     confirm.addEventListener('click', () => card.remove());
 
     const ctx = makeCtx();
@@ -464,6 +475,8 @@ describe('ws-workspace lesson', () => {
       <button data-testid="template-delete-1">Del</button>`;
     stubMockServerRunning();
     const delBtn = document.querySelector('[data-testid="template-delete-1"]')!;
+    makeVisible(document.querySelector('[data-testid="template-trigger"]') as HTMLElement);
+    makeVisible(delBtn as HTMLElement);
     delBtn.addEventListener('click', () => delBtn.remove());
 
     const ctx = makeCtx();
@@ -485,6 +498,8 @@ describe('ws-workspace lesson', () => {
       <div data-testid="template-dropdown"></div>`;
     stubMockServerRunning();
     const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
+    makeVisible(trigger);
+    makeVisible(document.querySelector('[data-testid="template-dropdown"]') as HTMLElement);
     const clickSpy = vi.spyOn(trigger, 'click');
 
     await wsWorkspaceLesson.setup!(makeCtx());
@@ -502,6 +517,8 @@ describe('ws-workspace lesson', () => {
     document.body.innerHTML = `
       <div data-testid="profile-card-abc">Profile</div>
       <button data-testid="load-btn-abc">Load</button>`;
+    makeVisible(document.querySelector('[data-testid="profile-card-abc"]') as HTMLElement);
+    makeVisible(document.querySelector('[data-testid="load-btn-abc"]') as HTMLElement);
 
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-load')!;
     const ctx = makeCtx();
@@ -526,6 +543,7 @@ describe('ws-workspace lesson', () => {
       <button data-testid="template-trigger">T</button>`;
 
     const card = document.querySelector('[data-testid="profile-card-no-btn"]')!;
+    makeVisible(card as HTMLElement);
     card.addEventListener('click', () => card.remove()); // remove on click so loop terminates
 
     const ctx = makeCtx();
@@ -541,6 +559,8 @@ describe('ws-workspace lesson', () => {
       <button data-testid="delete-btn-y2">Delete</button>
       <button data-testid="template-trigger">T</button>`;
     const deleteBtn = document.querySelector('[data-testid="delete-btn-y2"]')!;
+    makeVisible(document.querySelector('[data-testid="profile-card-y2"]') as HTMLElement);
+    makeVisible(deleteBtn as HTMLElement);
     deleteBtn.addEventListener('click', () => {
       document.querySelector('[data-testid="profile-card-y2"]')?.remove();
     });
@@ -564,6 +584,9 @@ describe('ws-workspace lesson', () => {
     const confirmSpy = vi.fn();
     const deleteBtn = document.querySelector('[data-testid="delete-btn-x1"]')!;
     const confirmBtn = document.querySelector('[data-testid="confirm-delete-x1"]')!;
+    makeVisible(document.querySelector('[data-testid="profile-card-x1"]') as HTMLElement);
+    makeVisible(deleteBtn as HTMLElement);
+    makeVisible(confirmBtn as HTMLElement);
     deleteBtn.addEventListener('click', deleteSpy);
     confirmBtn.addEventListener('click', () => {
       // Remove the card so the loop terminates after one iteration

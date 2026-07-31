@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsTlsLocalLesson } from './ws-tls-local';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-tls-local lesson', () => {
   beforeEach(() => {
@@ -118,6 +118,7 @@ describe('ws-tls-local lesson', () => {
     ta.setAttribute('data-testid', 'tls-ca-cert');
     ta.value = '';
     document.body.appendChild(ta);
+    makeVisible(ta);
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-intro')!;
     if (step.preAction) await step.preAction(ctx);
     // Pre-fill guard fires because textarea is empty
@@ -131,6 +132,7 @@ describe('ws-tls-local lesson', () => {
     ta.setAttribute('data-testid', 'tls-ca-cert');
     ta.value = '-----BEGIN CERTIFICATE-----\nALREADY_SET\n-----END CERTIFICATE-----';
     document.body.appendChild(ta);
+    makeVisible(ta);
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-intro')!;
     if (step.preAction) await step.preAction(ctx);
     // Guard skips because textarea already has a value
@@ -172,6 +174,7 @@ describe('ws-tls-local lesson', () => {
     certTa.setAttribute('data-testid', 'tls-client-cert');
     certTa.value = '';
     document.body.appendChild(certTa);
+    makeVisible(certTa);
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-creds')!;
     if (step.preAction) await step.preAction(ctx);
     // Pre-fill guard fires because textarea is empty
@@ -186,10 +189,12 @@ describe('ws-tls-local lesson', () => {
     caTa.setAttribute('data-testid', 'tls-ca-cert');
     caTa.value = '-----BEGIN CERTIFICATE-----\nCA_ALREADY_SET\n-----END CERTIFICATE-----';
     document.body.appendChild(caTa);
+    makeVisible(caTa);
     const certTa = document.createElement('textarea');
     certTa.setAttribute('data-testid', 'tls-client-cert');
     certTa.value = '-----BEGIN CERTIFICATE-----\nALREADY_SET\n-----END CERTIFICATE-----';
     document.body.appendChild(certTa);
+    makeVisible(certTa);
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-creds')!;
     if (step.preAction) await step.preAction(ctx);
     // Both guards skip — no ctx.fill calls at all
@@ -235,6 +240,7 @@ describe('ws-tls-local lesson', () => {
     skipCert.setAttribute('data-testid', 'tls-skip-cert');
     skipCert.checked = true;
     document.body.appendChild(skipCert);
+    makeVisible(skipCert);
     await expect(wsTlsLocalLesson.setup!(ctx)).resolves.not.toThrow();
     skipCert.remove();
   });
@@ -258,6 +264,7 @@ describe('ws-tls-local lesson', () => {
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
+    makeVisible(dot);
 
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect')!;
     const ctx = makeCtx();
@@ -282,6 +289,7 @@ describe('ws-tls-local lesson', () => {
     const mouseoverSpy = vi.fn();
     badge.addEventListener('mouseover', mouseoverSpy);
     document.body.appendChild(badge);
+    makeVisible(badge);
 
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-skip-cert')!;
     const ctx = makeCtx();
@@ -302,6 +310,8 @@ describe('ws-tls-local lesson', () => {
     const mouseoverSpy = vi.fn();
     badge.addEventListener('mouseover', mouseoverSpy);
     document.body.append(dot, badge);
+    makeVisible(dot);
+    makeVisible(badge);
 
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-connect')!;
     const ctx = makeCtx();
@@ -321,6 +331,8 @@ describe('ws-tls-local lesson', () => {
     const mouseoverSpy = vi.fn();
     badge.addEventListener('mouseover', mouseoverSpy);
     document.body.append(dot, badge);
+    makeVisible(dot);
+    makeVisible(badge);
 
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-connect')!;
     const ctx = makeCtx();
@@ -339,6 +351,7 @@ describe('ws-tls-local lesson', () => {
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
+    makeVisible(dot);
 
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-connect')!;
     const ctx = makeCtx();
@@ -368,6 +381,7 @@ describe('ws-tls-local lesson', () => {
     toggle.setAttribute('aria-expanded', 'false');
     const clickSpy = vi.spyOn(toggle, 'dispatchEvent');
     document.body.appendChild(toggle);
+    makeVisible(toggle);
 
     const ctx = makeCtx();
     await wsTlsLocalLesson.setup!(ctx);
@@ -392,6 +406,8 @@ describe('ws-tls-local lesson', () => {
     wrapper.appendChild(cb);
     const clickSpy = vi.spyOn(cb, 'dispatchEvent');
     document.body.appendChild(wrapper);
+    makeVisible(wrapper);
+    makeVisible(cb);
 
     const ctx = makeCtx();
     await wsTlsLocalLesson.setup!(ctx);
@@ -407,6 +423,7 @@ describe('ws-tls-local lesson', () => {
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
+    makeVisible(dot);
 
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-connect')!;
     const ctx = makeCtx();
@@ -430,6 +447,7 @@ describe('ws-tls-local lesson', () => {
     let clicked = false;
     closeBtn.addEventListener('click', () => { clicked = true; });
     document.body.appendChild(closeBtn);
+    makeVisible(closeBtn);
 
     // Use a step that calls closeTlsModal via preAction (local-tls-connect)
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect')!;
@@ -444,6 +462,7 @@ describe('ws-tls-local lesson', () => {
     const badge = document.createElement('div');
     badge.setAttribute('data-testid', 'transport-badge');
     document.body.appendChild(badge);
+    makeVisible(badge);
 
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect')!;
     const ctx = makeCtx();

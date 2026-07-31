@@ -150,7 +150,7 @@ describe('WebhookConfig', () => {
   it('renders all three HTTP method options', () => {
     const { container } = render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
     fireEvent.click(container.querySelector('.cs-trigger')!);
-    const labels = Array.from(container.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toEqual(['POST', 'PUT', 'PATCH']);
   });
 

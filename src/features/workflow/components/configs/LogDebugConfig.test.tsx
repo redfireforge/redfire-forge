@@ -76,7 +76,7 @@ describe('LogDebugConfig', () => {
   it('renders all log level options', () => {
     const { container } = render(<LogDebugConfig data={makeData()} onChange={vi.fn()} />);
     fireEvent.click(container.querySelector('.cs-trigger')!);
-    const labels = Array.from(container.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toContain('Info');
     expect(labels).toContain('Warning');
     expect(labels).toContain('Error');

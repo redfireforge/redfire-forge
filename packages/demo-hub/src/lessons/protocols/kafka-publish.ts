@@ -239,7 +239,46 @@ export const kafkaPublishLesson: DemoLesson = {
       description:
         '**Acks** controls durability. `all (–1)` waits for the leader AND all in-sync replicas to confirm — maximum safety. `leader (1)` waits for the leader only — faster, slight risk. `none (0)` is fire-and-forget. Leave it at `all` for reliable production use.',
       highlight: KAFKA.PUB_ACKS_SELECT,
-      // Informational — no action. Acks stays at default `all (–1)`.
+      action: async (ctx) => {
+        const ring = (el: HTMLElement) => {
+          el.style.outline = '2px solid var(--primary)';
+          el.style.outlineOffset = '2px';
+          el.style.borderRadius = '6px';
+        };
+        const unring = (el: HTMLElement) => {
+          el.style.outline = '';
+          el.style.outlineOffset = '';
+          el.style.borderRadius = '';
+        };
+
+        // Open the actual trigger button so the menu is guaranteed to render.
+        const triggerSelector = `${KAFKA.PUB_ACKS_SELECT} .cs-trigger`;
+        await ctx.click(triggerSelector);
+        await ctx.waitFor('.cs-menu', 2000);
+        await ctx.delay(900);
+
+        const menu = document.querySelector<HTMLElement>('.cs-menu');
+        if (!menu) return;
+
+        const options = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item'));
+        for (const option of options) {
+          option.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
+          ring(option);
+          await ctx.delay(1200);
+          unring(option);
+          await ctx.delay(300);
+        }
+
+        // Keep the default safety profile selected and close the dropdown.
+        const selected = menu.querySelector<HTMLElement>('.cs-item.active') ?? options[0];
+        if (selected) {
+          ring(selected);
+          await ctx.delay(1100);
+          unring(selected);
+          selected.click();
+          await ctx.delay(700);
+        }
+      },
     },
     {
       id: 'pub-format',

@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsConsoleLesson } from './ws-console';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-console lesson', () => {
   beforeEach(() => {
@@ -127,6 +127,7 @@ describe('ws-console lesson', () => {
     const input = document.createElement('input');
     input.setAttribute('data-testid', 'ws-console-cmd-input');
     document.body.appendChild(input);
+    makeVisible(input);
     const spy = vi.spyOn(input, 'dispatchEvent');
 
     const ctx = makeCtx();
@@ -186,6 +187,7 @@ describe('ws-console lesson', () => {
     const input = document.createElement('input');
     input.setAttribute('data-testid', 'ws-console-cmd-input');
     document.body.appendChild(input);
+    makeVisible(input);
     const spy = vi.spyOn(input, 'dispatchEvent');
 
     // Reset lesson session flag via setup
@@ -284,6 +286,7 @@ describe('ws-console lesson', () => {
     const input = document.createElement('input');
     input.setAttribute('data-testid', 'ws-console-cmd-input');
     document.body.appendChild(input);
+    makeVisible(input);
     const spy = vi.spyOn(input, 'dispatchEvent');
 
     const ctx = makeCtx();
@@ -327,6 +330,7 @@ describe('ws-console lesson', () => {
     const input = document.createElement('input');
     input.setAttribute('data-testid', 'ws-console-cmd-input');
     document.body.appendChild(input);
+    makeVisible(input);
     const spy = vi.spyOn(input, 'dispatchEvent');
 
     const ctx = makeCtx();

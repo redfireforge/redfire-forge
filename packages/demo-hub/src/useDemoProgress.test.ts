@@ -91,6 +91,19 @@ describe('useDemoProgress', () => {
     expect(result.current.getLessonStep('lesson-1')).toBe(7);
   });
 
+  it('resetLessons clears only the specified lessons', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => {
+      result.current.markLessonComplete('lesson-1');
+      result.current.setLessonStep('lesson-2', 3);
+      result.current.markLessonComplete('lesson-3');
+    });
+    act(() => result.current.resetLessons(['lesson-1', 'lesson-2']));
+    expect(result.current.data.completedLessons).not.toContain('lesson-1');
+    expect(result.current.data.lessonSteps['lesson-2']).toBeUndefined();
+    expect(result.current.data.completedLessons).toContain('lesson-3');
+  });
+
   it('resetProgress clears all data', () => {
     const { result } = renderHook(() => useDemoProgress());
     act(() => {
