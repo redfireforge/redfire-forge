@@ -1,8 +1,12 @@
 /** Lesson 3: Console & Debugging — slash commands, filters, structured logs */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsCleanup, getLastMockPort } from '../setup-helpers';
+import { wsSetup, wsCleanup } from '../setup-helpers';
 import { WS } from '@shared/selectors';
-import { firstVisibleElement } from '../../utils/domVisibility';
+
+const COMMAND_TYPE_INITIAL_PAUSE_MS = 220;
+const COMMAND_READ_PAUSE_MIN_MS = 1800;
+const COMMAND_READ_PAUSE_MAX_MS = 3200;
+const COMMAND_READ_MS_PER_CHAR = 36;
 
 /**
  * Tracks whether the lesson's /connect command has already been run in the
@@ -15,23 +19,106 @@ import { firstVisibleElement } from '../../utils/domVisibility';
  */
 let _consoleConnected = false;
 
+const DEFAULT_WS_DEMO_URL = 'ws://localhost:9876';
+const WS_CONSOLE_DEMO_PORT = 9876;
+
+function isAriaSelected(selector: string): boolean {
+  const el = document.querySelector<HTMLElement>(selector);
+  return el?.getAttribute('aria-selected') === 'true';
+}
+
+async function clickIfNotSelected(ctx: DemoActionContext, selector: string, settleMs = 150): Promise<void> {
+  if (isAriaSelected(selector)) return;
+  await ctx.click(selector);
+  if (settleMs > 0) await ctx.delay(settleMs);
+}
+
+async function ensureWsConsoleDemoPort(ctx: DemoActionContext): Promise<void> {
+  const targetUrl = `ws://localhost:${WS_CONSOLE_DEMO_PORT}`;
+  // Only switch to Mock mode if not already there — avoids visible flash
+  const alreadyMock = !!document.querySelector('[data-testid="mode-mock"].active, [data-testid="mode-mock"][aria-selected="true"]');
+  if (!alreadyMock) {
+    await ctx.click(WS.MODE_MOCK);
+    await ctx.delay(200);
+  }
+
+  const statusLabel = document.querySelector<HTMLElement>(WS.MOCK_STATUS_LABEL)?.textContent ?? '';
+  const alreadyOnTargetPort = statusLabel.includes(`:${WS_CONSOLE_DEMO_PORT}`);
+
+  if (!alreadyOnTargetPort) {
+    const stopBtn = document.querySelector<HTMLButtonElement>(WS.MOCK_STOP_BTN);
+    if (stopBtn && !stopBtn.disabled) {
+      stopBtn.click();
+      await ctx.delay(350);
+    }
+
+    const portInput = document.querySelector<HTMLInputElement>('[data-testid="mock-port-input"]');
+    if (portInput) {
+      const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      nativeSet?.call(portInput, String(WS_CONSOLE_DEMO_PORT));
+      portInput.dispatchEvent(new Event('input', { bubbles: true }));
+      portInput.dispatchEvent(new Event('change', { bubbles: true }));
+      portInput.blur();
+      await ctx.delay(180);
+    }
+
+    const startBtn = document.querySelector<HTMLButtonElement>(WS.MOCK_START_BTN);
+    if (startBtn && !startBtn.disabled) {
+      startBtn.click();
+      await ctx.delay(450);
+    }
+  }
+
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(250);
+  await ctx.fill(WS.URL_INPUT, targetUrl);
+  await ctx.delay(150);
+}
+
+function resolveConnectUrlFromUi(): string {
+  const urlInput = document.querySelector<HTMLInputElement>(WS.URL_INPUT);
+  const rawUrl = urlInput?.value?.trim();
+  if (rawUrl && /^wss?:\/\//i.test(rawUrl)) return rawUrl;
+
+  const portInput = document.querySelector<HTMLInputElement>('[data-testid="mock-port-input"]');
+  const port = portInput?.value?.trim();
+  if (port && /^\d+$/.test(port)) return `ws://localhost:${port}`;
+
+  return DEFAULT_WS_DEMO_URL;
+}
+
+/**
+ * Render command text in the console input long enough for viewers to read it
+ * before Enter submits and the input clears.
+ */
+async function typeAndSubmitConsoleCommand(ctx: DemoActionContext, command: string): Promise<void> {
+  // Keep command rendering simple (single fill) and pause for readability
+  // before submission so users can see what is being sent.
+  await ctx.delay(COMMAND_TYPE_INITIAL_PAUSE_MS);
+  await ctx.fill(WS.CONSOLE_CMD_INPUT, command);
+  const readPause = Math.min(
+    COMMAND_READ_PAUSE_MAX_MS,
+    Math.max(COMMAND_READ_PAUSE_MIN_MS, command.length * COMMAND_READ_MS_PER_CHAR),
+  );
+  await ctx.delay(readPause);
+  const input = document.querySelector(WS.CONSOLE_CMD_INPUT);
+  if (input) {
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  }
+}
+
 /**
  * Ensure the Console tab is active (in Structured view) and a connection exists.
  * No-op for all steps after the first successful connect in this lesson session.
  */
 async function ensureConnectedWithConsole(ctx: DemoActionContext): Promise<void> {
-  await ctx.click(WS.RIGHT_TAB_CONSOLE);
-  await ctx.delay(150);
-  await ctx.click(WS.CONSOLE_VIEW_STRUCTURED);
-  await ctx.delay(200);
+  await clickIfNotSelected(ctx, WS.MODE_CLIENT, 120);
+  await clickIfNotSelected(ctx, WS.RIGHT_TAB_CONSOLE, 120);
+  await clickIfNotSelected(ctx, WS.CONSOLE_VIEW_STRUCTURED, 150);
   if (_consoleConnected) return;
   // Connect via console command — stays on Console tab and
   // populates it with lifecycle entries for subsequent demo steps.
-  await ctx.fill(WS.CONSOLE_CMD_INPUT, `/connect ws://localhost:${getLastMockPort()}`);
-  const input = firstVisibleElement(WS.CONSOLE_CMD_INPUT);
-  if (input) {
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  }
+  await typeAndSubmitConsoleCommand(ctx, `/connect ${resolveConnectUrlFromUi()}`);
   await ctx.waitFor(WS.CONSOLE_ENTRY, 3000);
   _consoleConnected = true;
   await ctx.delay(200);
@@ -49,6 +136,7 @@ export const wsConsoleLesson: DemoLesson = {
   setup: async (ctx) => {
     _consoleConnected = false;
     await wsSetup(ctx);
+    await ensureWsConsoleDemoPort(ctx);
   },
   cleanup: async (ctx) => {
     _consoleConnected = false;
@@ -93,15 +181,12 @@ When debugging WebSocket issues, you need more than just message payloads. The C
     {
       id: 'console-intro',
       title: 'The Console Tab',
-      description: 'Click the Console tab on the right pane. This is your debugging command center — it logs every connection event and lets you type slash commands.',
+      description: 'This is the Console tab on the right pane. It is your debugging command center — it logs connection events and lets you type slash commands.',
       highlight: WS.RIGHT_TAB_CONSOLE,
-      preAction: async (ctx) => {
-        // Ensure client mode is active so the WS studio left panel is visible
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(200);
-      },
       action: async (ctx) => {
-        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await clickIfNotSelected(ctx, WS.MODE_CLIENT, 700);
+        await clickIfNotSelected(ctx, WS.RIGHT_TAB_CONSOLE, 800);
+        await clickIfNotSelected(ctx, WS.CONSOLE_VIEW_STRUCTURED, 600);
       },
     },
 
@@ -109,22 +194,17 @@ When debugging WebSocket issues, you need more than just message payloads. The C
     {
       id: 'console-connect',
       title: '/connect Command',
-      description: 'Type /connect ws://localhost:<port> (this tab\'s mock server port) in the command line to connect directly from the console. Watch lifecycle events appear: connection opened, handshake details, and protocol info.',
+      description: 'Type /connect with the current connection URL and port from the URL field (for example ws://localhost:9876 when that tab uses 9876) to connect directly from the console. Watch lifecycle events appear: connection opened, handshake details, and protocol info.',
       highlight: WS.CONSOLE_CMD_INPUT,
       preAction: async (ctx) => {
         // Guard: ensure Console tab + Structured view so lifecycle entries
         // are rendered with data-testid attributes and the command input is in DOM.
-        await ctx.click(WS.RIGHT_TAB_CONSOLE);
-        await ctx.delay(150);
-        await ctx.click(WS.CONSOLE_VIEW_STRUCTURED);
-        await ctx.delay(150);
+        await clickIfNotSelected(ctx, WS.MODE_CLIENT, 120);
+        await clickIfNotSelected(ctx, WS.RIGHT_TAB_CONSOLE, 120);
+        await clickIfNotSelected(ctx, WS.CONSOLE_VIEW_STRUCTURED, 120);
       },
       action: async (ctx) => {
-        await ctx.fill(WS.CONSOLE_CMD_INPUT, `/connect ws://localhost:${getLastMockPort()}`);
-        const input = firstVisibleElement<HTMLInputElement>(WS.CONSOLE_CMD_INPUT);
-        if (input) {
-          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        }
+        await typeAndSubmitConsoleCommand(ctx, `/connect ${resolveConnectUrlFromUi()}`);
         // Wait for a console entry to confirm the command was processed.
         // STATUS_CONNECTED is inside the Connect panel which may be unmounted
         // when the Send tab activates after a successful connection, so use
@@ -162,7 +242,9 @@ When debugging WebSocket issues, you need more than just message payloads. The C
         await ensureConnectedWithConsole(ctx);
       },
       action: async (ctx) => {
-        await ctx.selectOption(WS.CONSOLE_CATEGORY, 'lifecycle');
+        await ctx.click(WS.CONSOLE_CATEGORY);
+        await ctx.delay(120);
+        await ctx.click(WS.CONSOLE_CATEGORY_OPT_LIFECYCLE);
       },
     },
 
@@ -175,15 +257,13 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       preAction: async (ctx) => {
         // Guard: ensure connected so /send succeeds; reset category filter to show all
         await ensureConnectedWithConsole(ctx);
-        await ctx.selectOption(WS.CONSOLE_CATEGORY, 'all');
+        await ctx.click(WS.CONSOLE_CATEGORY);
+        await ctx.delay(120);
+        await ctx.click(WS.CONSOLE_CATEGORY_OPT_ALL);
         await ctx.delay(150);
       },
       action: async (ctx) => {
-        await ctx.fill(WS.CONSOLE_CMD_INPUT, '/send {"demo": "console command"}');
-        const input = firstVisibleElement<HTMLInputElement>(WS.CONSOLE_CMD_INPUT);
-        if (input) {
-          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        }
+        await typeAndSubmitConsoleCommand(ctx, '/send {"demo": "console command"}');
       },
     },
 
@@ -197,15 +277,13 @@ When debugging WebSocket issues, you need more than just message payloads. The C
         // Guard: ensure Console tab active with entries visible.
         // Reset category filter (step 4 may have set it to 'lifecycle') so /help output is visible.
         await ensureConnectedWithConsole(ctx);
-        await ctx.selectOption(WS.CONSOLE_CATEGORY, 'all');
+        await ctx.click(WS.CONSOLE_CATEGORY);
+        await ctx.delay(120);
+        await ctx.click(WS.CONSOLE_CATEGORY_OPT_ALL);
         await ctx.delay(150);
       },
       action: async (ctx) => {
-        await ctx.fill(WS.CONSOLE_CMD_INPUT, '/help');
-        const input = firstVisibleElement<HTMLInputElement>(WS.CONSOLE_CMD_INPUT);
-        if (input) {
-          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        }
+        await typeAndSubmitConsoleCommand(ctx, '/help');
       },
     },
 
@@ -230,7 +308,9 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       preAction: async (ctx) => {
         // Guard: ensure Console tab active with entries to search; reset category filter
         await ensureConnectedWithConsole(ctx);
-        await ctx.selectOption(WS.CONSOLE_CATEGORY, 'all');
+        await ctx.click(WS.CONSOLE_CATEGORY);
+        await ctx.delay(120);
+        await ctx.click(WS.CONSOLE_CATEGORY_OPT_ALL);
         await ctx.delay(150);
       },
       action: async (ctx) => {

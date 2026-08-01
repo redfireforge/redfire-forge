@@ -173,10 +173,10 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 1: gql6-intro ────────────────────────────────────────────────────
 
-  it('gql6-intro has an action (opens auth panel) and preAction guard', () => {
+  it('gql6-intro has an action (opens auth panel) and no preAction (avoids pre-step movement)', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-intro')!;
     expect(typeof step.action).toBe('function');
-    expect(step.preAction).toBeTypeOf('function');
+    expect(step.preAction).toBeUndefined();
   });
 
   it('gql6-intro highlights the auth badge', () => {

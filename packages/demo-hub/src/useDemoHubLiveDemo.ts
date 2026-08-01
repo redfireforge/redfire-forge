@@ -114,9 +114,19 @@ export function useDemoHubLiveDemo({
   const runLiveLessonCleanup = useCallback(async (lesson: DemoLesson | null | undefined) => {
     if (!lesson) return;
     purgeAllSpotlightRings();
+    // Block DemoShellHost's live→initialTab bounce while we pin Contents.
+    suppressLiveTabExitRef.current = true;
     try {
       expandAppSidebar();
-      const ctx = buildQuietContext();
+      // Keep Demo Hub / Contents stable — cleanup must not flash Environments/Studio.
+      navigateToTab('demo-hub');
+      const baseCtx = buildQuietContext();
+      const ctx = {
+        ...baseCtx,
+        navigateToTab: (tab: string) => {
+          if (tab === 'demo-hub') navigateToTab(tab);
+        },
+      };
       if (isGraphqlStudioLesson(lesson)) {
         await runGqlStudioLessonTeardown(lesson, ctx);
       } else if (isGrpcStudioLesson(lesson)) {
@@ -128,8 +138,11 @@ export function useDemoHubLiveDemo({
       }
     } finally {
       await closeIsolatedStudioDemoTabSession();
+      purgeAllSpotlightRings();
+      navigateToTab('demo-hub');
+      suppressLiveTabExitRef.current = false;
     }
-  }, [buildQuietContext, closeIsolatedStudioDemoTabSession]);
+  }, [buildQuietContext, closeIsolatedStudioDemoTabSession, navigateToTab, suppressLiveTabExitRef]);
 
   const runLiveDemoSetup = useCallback(async (lesson: DemoLesson, gen: number): Promise<boolean> => {
     suppressLiveTabExitRef.current = true;
@@ -397,6 +410,10 @@ export function useDemoHubLiveDemo({
       state.selectedLesson
       ?? (liveSession ? findLessonById(liveSession.lessonId)?.lesson ?? null : null);
 
+    // Must be set BEFORE navigateToTab('demo-hub'): DemoShellHost redirects
+    // live+demo-hub → lesson.initialTab, which flashes Studio/header on Exit.
+    suppressLiveTabExitRef.current = true;
+
     resetGqlModalSessionFlags();
     clearDemoLiveSession();
     closeWorkflowConfigModal();
@@ -408,45 +425,59 @@ export function useDemoHubLiveDemo({
     abortRef.current?.abort();
     skipReadingRef.current?.();
     skipReadingRef.current = null;
+    // Drop any lingering spotlight rings before Contents is shown.
+    purgeAllSpotlightRings();
     setState(prev => ({ ...prev, view: 'concept', isPlaying: false }));
     progress.setLastView('concept');
     setStepPhase('done');
     void syncDemoLiveGuard(false);
     navigateToTab('demo-hub');
 
-    await pause(60);
-
-    if (lesson) {
-      expandAppSidebar();
-      const ctx = buildQuietContext();
-      if (isGraphqlStudioLesson(lesson)) {
-        try { await runGqlStudioLessonTeardown(lesson, ctx); } catch (e) {
-          console.warn('[DemoHub] Lesson cleanup failed:', e);
-        }
-      } else if (isGrpcStudioLesson(lesson)) {
-        try { await runGrpcStudioLessonTeardown(lesson, ctx); } catch (e) {
-          console.warn('[DemoHub] Lesson cleanup failed:', e);
-        }
-      } else if (lesson.cleanup) {
-        try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
-      }
-    }
-
-    await closeIsolatedStudioDemoTabSession();
-
     try {
-      const gqlSession = await loadDemoSession();
-      if (gqlSession) {
-        await closeGraphqlDemoWorkspaceQuiet(gqlSession.lessonId);
+      await pause(60);
+
+      if (lesson) {
+        expandAppSidebar();
+        // Lesson cleanup historically navigates to Environments / Studio tabs.
+        // Swallow those navigations so Contents stays stable (no flashing UI).
+        const baseCtx = buildQuietContext();
+        const ctx = {
+          ...baseCtx,
+          navigateToTab: (tab: string) => {
+            if (tab === 'demo-hub') navigateToTab(tab);
+          },
+        };
+        if (isGraphqlStudioLesson(lesson)) {
+          try { await runGqlStudioLessonTeardown(lesson, ctx); } catch (e) {
+            console.warn('[DemoHub] Lesson cleanup failed:', e);
+          }
+        } else if (isGrpcStudioLesson(lesson)) {
+          try { await runGrpcStudioLessonTeardown(lesson, ctx); } catch (e) {
+            console.warn('[DemoHub] Lesson cleanup failed:', e);
+          }
+        } else if (lesson.cleanup) {
+          try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
+        }
       }
-      await purgeOrphanDemoTabs();
-      dispatchGqlTabsReload();
-    } catch (e) {
-      console.warn('[DemoHub] GQL workspace force cleanup failed:', e);
+
+      await closeIsolatedStudioDemoTabSession();
+
+      try {
+        const gqlSession = await loadDemoSession();
+        if (gqlSession) {
+          await closeGraphqlDemoWorkspaceQuiet(gqlSession.lessonId);
+        }
+        await purgeOrphanDemoTabs();
+        dispatchGqlTabsReload();
+      } catch (e) {
+        console.warn('[DemoHub] GQL workspace force cleanup failed:', e);
+      }
     } finally {
+      purgeAllSpotlightRings();
       navigateToTab('demo-hub');
+      suppressLiveTabExitRef.current = false;
     }
-  }, [state.selectedLesson, buildQuietContext, closeIsolatedStudioDemoTabSession, progress, pause, navigateToTab, resetGqlModalSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, setState, setStepPhase]);
+  }, [state.selectedLesson, buildQuietContext, closeIsolatedStudioDemoTabSession, progress, pause, navigateToTab, resetGqlModalSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, setState, setStepPhase, suppressLiveTabExitRef]);
 
   const confirmLessonComplete = useCallback(() => {
     const lesson = state.selectedLesson;

@@ -104,6 +104,9 @@ export function useDemoHubStudioIsolation(pause: (ms: number) => Promise<void>) 
   }, [findDemoTabByLabel, pause]);
 
   const resolveStudioIsolationKind = useCallback((lesson: DemoLesson): StudioIsolationKind | null => {
+    // Tab-bar lessons must keep the user's real connection tabs — creating a
+    // temporary "demo" tab (add → rename → later close) is visible flashing.
+    if (lesson.skipStudioTabIsolation) return null;
     if (lesson.category === 'grpc') return 'grpc';
     if (lesson.category === 'websocket') return 'websocket';
     return null;

@@ -360,16 +360,8 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'The difference between ws:// and wss:// is just like http:// vs https:// — the "s" means TLS encryption. Type a wss:// URL and the **TLS / mTLS** configuration bar instantly appears at the bottom of the Connect tab. It only shows when the URL scheme is wss://, and stays collapsed until you choose to configure it.',
       highlight: WS.TLS_TOGGLE,
       preAction: async (ctx) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
-        // Pre-fill the wss:// URL silently so the TLS bar is visible during the
-        // reading phase (the viewer reads the description while seeing the result).
-        // If already set correctly, leave it alone.
-        const urlInput = firstVisibleElement<HTMLInputElement>(WS.URL_INPUT);
-        if (!urlInput?.value?.startsWith('wss://')) {
-          await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
-          await ctx.delay(300);
-        }
+        const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+        connectTab?.click();
         // Ensure TLS modal is closed — never open at the start of this step.
         await closeTlsModal(ctx);
       },

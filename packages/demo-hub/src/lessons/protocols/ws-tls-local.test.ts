@@ -68,13 +68,12 @@ describe('ws-tls-local lesson', () => {
 
   // ── Step actions ─────────────────────────────────────────────────
 
-  it('step 1 (local-tls-url) preAction clicks mode client and connect tab', async () => {
+  it('step 1 (local-tls-url) preAction remains guard-only', async () => {
     const ctx = makeCtx();
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-url');
     expect(step).toBeDefined();
     if (step?.preAction) await step.preAction(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step 1 (local-tls-url) action fills URL with wss://localhost', async () => {

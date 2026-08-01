@@ -59,11 +59,11 @@ describe('kafka-topic-explorer lesson', () => {
     expect(typeof kafkaTopicExplorerLesson.cleanup).toBe('function');
   });
 
-  it('step te-intro has a preAction that clicks topics tab', async () => {
+  it('step te-intro action clicks topics tab', async () => {
     const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-intro')!;
     expect(step).toBeDefined();
     const ctx = makeCtx();
-    if (step.preAction) await step.preAction(ctx);
+    if (step.action) await step.action(ctx);
     expect(ctx.click).toHaveBeenCalled();
   });
 

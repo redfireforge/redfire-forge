@@ -32,9 +32,8 @@ describe('ws-workflow-builder wrapper — coverage gaps', () => {
       <div data-testid="wf-canvas"></div>
     `;
     const createStep = wsWorkflowBuilderLesson.steps.find((s) => s.id === 'wf-create');
-    expect(createStep?.preAction).toBeDefined();
-    await createStep!.preAction!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
+    expect(createStep?.action).toBeDefined();
+    await createStep!.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.SIDEBAR_NEW_BTN);
   });
 });

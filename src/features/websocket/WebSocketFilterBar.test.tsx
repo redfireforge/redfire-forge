@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketFilterBar } from './WebSocketFilterBar';
 
 describe('WebSocketFilterBar', () => {
@@ -34,19 +33,22 @@ describe('WebSocketFilterBar', () => {
 
   it('updates size filter on change', () => {
     render(<WebSocketFilterBar {...defaultProps} />);
-    selectOption(screen.getByTestId('size-filter'), '< 1KB');
+    fireEvent.click(screen.getByTestId('size-filter'));
+    fireEvent.click(screen.getByTestId('size-filter-opt-lt1k'));
     expect(defaultProps.setSizeFilter).toHaveBeenCalledWith('lt1k');
   });
 
   it('updates time filter on change', () => {
     render(<WebSocketFilterBar {...defaultProps} />);
-    selectOption(screen.getByTestId('time-filter'), 'Last 30s');
+    fireEvent.click(screen.getByTestId('time-filter'));
+    fireEvent.click(screen.getByTestId('time-filter-opt-last30s'));
     expect(defaultProps.setTimeFilter).toHaveBeenCalledWith('last30s');
   });
 
   it('updates content type filter on change', () => {
     render(<WebSocketFilterBar {...defaultProps} />);
-    selectOption(screen.getByTestId('content-type-filter'), 'JSON');
+    fireEvent.click(screen.getByTestId('content-type-filter'));
+    fireEvent.click(screen.getByTestId('content-type-filter-opt-json'));
     expect(defaultProps.setContentTypeFilter).toHaveBeenCalledWith('json');
   });
 
@@ -154,5 +156,47 @@ describe('WebSocketFilterBar', () => {
     render(<WebSocketFilterBar {...defaultProps} presetDropdownOpen={true} filterPresets={presets} />);
     const applyBtn = screen.getByTestId('preset-apply-fp-1');
     expect(applyBtn.getAttribute('title')).toBe('text: (empty)');
+  });
+
+  it('Escape closes an open filter dropdown', () => {
+    render(<WebSocketFilterBar {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('size-filter'));
+    expect(screen.getByTestId('size-filter-opt-lt1k')).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('size-filter-opt-lt1k')).toBeNull();
+  });
+
+  it('clicking outside closes an open filter dropdown', () => {
+    render(<WebSocketFilterBar {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('time-filter'));
+    expect(screen.getByTestId('time-filter-opt-last30s')).toBeTruthy();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId('time-filter-opt-last30s')).toBeNull();
+  });
+
+  it('clicking the same filter button again closes the dropdown (toggle-null path)', () => {
+    const setSize = vi.fn();
+    render(<WebSocketFilterBar {...defaultProps} setSizeFilter={setSize} />);
+    fireEvent.click(screen.getByTestId('size-filter'));
+    expect(screen.getByTestId('size-filter-opt-lt1k')).toBeTruthy();
+    // Second click on same button toggles it closed
+    fireEvent.click(screen.getByTestId('size-filter'));
+    expect(screen.queryByTestId('size-filter-opt-lt1k')).toBeNull();
+  });
+
+  it('clicking time filter trigger twice toggles it closed', () => {
+    render(<WebSocketFilterBar {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('time-filter'));
+    expect(screen.getByTestId('time-filter-opt-last30s')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('time-filter'));
+    expect(screen.queryByTestId('time-filter-opt-last30s')).toBeNull();
+  });
+
+  it('clicking content type trigger twice toggles it closed', () => {
+    render(<WebSocketFilterBar {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('content-type-filter'));
+    expect(screen.getByTestId('content-type-filter-opt-json')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('content-type-filter'));
+    expect(screen.queryByTestId('content-type-filter-opt-json')).toBeNull();
   });
 });

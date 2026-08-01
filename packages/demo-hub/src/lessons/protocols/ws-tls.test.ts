@@ -77,15 +77,11 @@ describe('ws-tls lesson', () => {
     expect(step.highlight).toContain('tls-toggle');
   });
 
-  it('step tls-intro preAction switches to Connect tab and pre-fills wss URL when empty', async () => {
+  it('step tls-intro preAction keeps startup quiet and does not pre-fill URL', async () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.stringContaining('WebSocket URL'),
-      expect.stringContaining('wss://'),
-    );
+    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
   it('step tls-intro preAction skips URL fill when wss:// already set', async () => {

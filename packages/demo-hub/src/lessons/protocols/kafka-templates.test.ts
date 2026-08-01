@@ -100,7 +100,7 @@ describe('kafka-templates lesson', () => {
   it('step tmpl-intro highlights the template controls container', () => {
     const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-intro')!;
     expect(step.highlight).toContain('kafka-ms-template-controls');
-    expect(step.action).toBeUndefined();
+    expect(typeof step.action).toBe('function');
   });
 
   it('step tmpl-fill-pub action fills topic and body', async () => {

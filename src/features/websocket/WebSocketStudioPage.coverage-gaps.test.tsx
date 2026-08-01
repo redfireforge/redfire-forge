@@ -4,7 +4,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { WebSocketStudioPage } from './WebSocketStudioPage';
+import { WebSocketStudioPage, deriveTabLabel } from './WebSocketStudioPage';
 
 const {
   mockLoadWsTabState,
@@ -86,10 +86,12 @@ vi.mock('./WsConnectionTabBar', () => ({
         <button data-testid="mock-ws-add" type="button" onClick={() => (props.onAdd as (() => void) | undefined)?.()}>add</button>
         <button data-testid="mock-ws-add-url" type="button" onClick={() => (props.onAddWithUrl as ((url: string, protocol?: string) => void) | undefined)?.('ws://my%server:1234', 'graphql-ws')}>add-url</button>
         <button data-testid="mock-ws-add-url-empty" type="button" onClick={() => (props.onAddWithUrl as ((url: string, protocol?: string) => void) | undefined)?.('ws://', undefined)}>add-url-empty</button>
-        {tabs.map((tab) => (
+        {tabs.map((tab, index) => (
           <div key={tab.id} data-testid={`mock-ws-tab-${tab.id}`}>
             <span>{tab.label}</span>
             <button data-testid={`mock-ws-duplicate-${tab.id}`} type="button" onClick={() => (props.onDuplicate as ((id: string) => void) | undefined)?.(tab.id)}>duplicate</button>
+            <button data-testid={`mock-ws-rename-${tab.id}`} type="button" onClick={() => (props.onRename as ((id: string, label: string) => void) | undefined)?.(tab.id, 'Renamed Tab')}>rename</button>
+            <button data-testid={`mock-ws-reorder-${tab.id}`} type="button" onClick={() => (props.onReorder as ((fromIndex: number, toIndex: number) => void) | undefined)?.(index, 0)}>reorder</button>
             <button data-testid={`mock-ws-close-${tab.id}`} type="button" onClick={() => (props.onClose as ((id: string) => void) | undefined)?.(tab.id)}>close</button>
           </div>
         ))}
@@ -299,5 +301,154 @@ describe('WebSocketStudioPage coverage gaps', () => {
     });
     const tabs = capturedTabBarPropsRef.current.tabs as Array<{ label: string }>;
     expect(tabs[0].label).toBe('Keep Me');
+  });
+
+  it('renames and reorders tabs via tab-bar callbacks', async () => {
+    await renderPage({
+      tabs: [
+        { id: 'ws-tab-1', label: 'First', url: '', viewTab: 'connect' },
+        { id: 'ws-tab-2', label: 'Second', url: '', viewTab: 'connect' },
+      ],
+      activeTabId: 'ws-tab-2',
+      renamedTabIds: [],
+    });
+
+    fireEvent.click(screen.getByTestId('mock-ws-rename-ws-tab-2'));
+    let tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; label: string }>;
+    expect(tabs.find((t) => t.id === 'ws-tab-2')?.label).toBe('Renamed Tab');
+
+    fireEvent.click(screen.getByTestId('mock-ws-reorder-ws-tab-2'));
+    tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; label: string }>;
+    expect(tabs[0].id).toBe('ws-tab-2');
+  });
+
+  it('normalizes survivor localhost URL to base port after closing sibling', async () => {
+    await renderPage({
+      tabs: [
+        { id: 'ws-tab-1', label: 'A', url: 'ws://localhost:9881/path', viewTab: 'connect', mockPort: 9881 },
+        { id: 'ws-tab-2', label: 'B', url: 'ws://localhost:9877/path', viewTab: 'connect', mockPort: 9877 },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    });
+
+    fireEvent.click(screen.getByTestId('mock-ws-close-ws-tab-2'));
+    const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; url?: string }>;
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].url).toBe('ws://localhost:9876/path');
+    expect((capturedContentProps['ws-tab-1'].mockPort as number)).toBe(9876);
+  });
+
+  it('reassigns conflicting mock ports and preserves existing owner where applicable', async () => {
+    await renderPage({
+      tabs: [
+        { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect', mockPort: 9879 },
+        { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect', mockPort: 9880 },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    });
+
+    act(() => {
+      (capturedContentProps['ws-tab-1'].onMockPortChange as (tabId: string, port: number) => void)('ws-tab-1', 9880);
+    });
+
+    const firstPort = capturedContentProps['ws-tab-1'].mockPort as number;
+    const secondPort = capturedContentProps['ws-tab-2'].mockPort as number;
+    expect(firstPort).toBe(9880);
+    expect(secondPort).not.toBe(9880);
+  });
+
+  it('keeps single tab when close is invoked on last tab (guard branch)', async () => {
+    await renderPage({
+      tabs: [{ id: 'ws-tab-1', label: 'Solo', url: '', viewTab: 'connect' }],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    });
+
+    fireEvent.click(screen.getByTestId('mock-ws-close-ws-tab-1'));
+    const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string }>;
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].id).toBe('ws-tab-1');
+  });
+
+  it('pins first New Connection tab to base port on load and handles base-port conflict reassignment', async () => {
+    await renderPage({
+      tabs: [
+        { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9882/path', viewTab: 'connect', mockPort: 9882 },
+        { id: 'ws-tab-2', label: 'Other', url: 'ws://localhost:9876/other', viewTab: 'connect', mockPort: 9876 },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    });
+
+    const tab1 = capturedContentProps['ws-tab-1'];
+    const tab2 = capturedContentProps['ws-tab-2'];
+    expect(tab1.mockPort).toBe(9876);
+    expect(tab2.mockPort).toBe(9882);
+
+    const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; url?: string }>;
+    expect(tabs.find((t) => t.id === 'ws-tab-1')?.url).toBe('ws://localhost:9876/path');
+  });
+
+  it('duplicate callback can hit MAX_TABS guard inside setTabs callback', async () => {
+    await renderPage({
+      tabs: Array.from({ length: 7 }, (_, index) => ({
+        id: `ws-tab-${index + 1}`,
+        label: index === 0 ? 'DupMe' : `Tab ${index + 1}`,
+        url: '',
+        viewTab: 'connect',
+      })),
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: ['ws-tab-1'],
+    });
+
+    fireEvent.click(screen.getByTestId('mock-ws-duplicate-ws-tab-1'));
+    fireEvent.click(screen.getByTestId('mock-ws-duplicate-ws-tab-1'));
+    const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; label: string }>;
+    expect(tabs.length).toBeLessThanOrEqual(8);
+  });
+
+  it('relabels tab when URL becomes valid websocket host', async () => {
+    await renderPage({
+      tabs: [{ id: 'ws-tab-1', label: 'Initial', url: '', viewTab: 'connect' }],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    });
+
+    act(() => {
+      (capturedContentProps['ws-tab-1'].onUrlChange as (tabId: string, url: string) => void)('ws-tab-1', 'ws://example.org:1234/path');
+    });
+
+    const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; label: string }>;
+    expect(tabs[0].label).toBe('example.org:1234');
+  });
+
+  it('deriveTabLabel returns null for short hosts and invalid non-regex fallback URLs', () => {
+    // Hits parsed-host-length guard inside try{}.
+    expect(deriveTabLabel('ws://a:1')).toBeNull();
+    // Hits catch{} + regex miss fallback.
+    expect(deriveTabLabel('ws://a b')).toBeNull();
+  });
+
+  it('confirming close after tabs changed can hit doCloseTab single-tab guard', async () => {
+    await renderPage({
+      tabs: [
+        { id: 'ws-tab-1', label: 'Conn', url: 'ws://a', viewTab: 'connect' },
+        { id: 'ws-tab-2', label: 'Other', url: '', viewTab: 'connect' },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    });
+
+    act(() => {
+      (capturedContentProps['ws-tab-1'].onConnectionStateChange as (tabId: string, state: string) => void)('ws-tab-1', 'connected');
+    });
+    fireEvent.click(screen.getByTestId('mock-ws-close-ws-tab-1'));
+    fireEvent.click(screen.getByTestId('mock-ws-close-ws-tab-2'));
+    fireEvent.click(screen.getByTestId('ws-confirm-confirm'));
+
+    const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string }>;
+    expect(tabs).toHaveLength(1);
   });
 });

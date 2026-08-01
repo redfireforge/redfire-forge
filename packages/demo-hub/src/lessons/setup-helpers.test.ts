@@ -9,14 +9,18 @@ vi.mock('@shared/kafka/kafkaClient', () => ({
   dispatchKafkaOperation: vi.fn().mockResolvedValue({
     ok: true,
     op: 'status',
-    data: { state: 'connected', clusterId: 'demo-plaintext' },
+    data: { state: 'connected', clusterId: 'demo-cluster' },
   }),
 }));
 
 import {
   startMockServer,
+  startMockServerQuiet,
   stopMockServer,
+  stopMockServerQuiet,
+  pinActiveMockPortQuiet,
   switchToClientMode,
+  switchToClientModeQuiet,
   disconnectWebSocket,
   clearEvents,
   resetAuth,
@@ -25,6 +29,7 @@ import {
   fillControlledInput,
   setControlledCheckbox,
   connectToMockServer,
+  getLastMockPort,
   wsSetup,
   wsCleanup,
   wsAuthCleanup,
@@ -56,7 +61,7 @@ describe('setup-helpers', () => {
     vi.mocked(dispatchKafkaOperation).mockResolvedValue({
       ok: true,
       op: 'status',
-      data: { state: 'connected', clusterId: 'demo-plaintext' },
+      data: { state: 'connected', clusterId: 'demo-cluster' },
     } as Awaited<ReturnType<typeof dispatchKafkaOperation>>);
   });
 
@@ -148,6 +153,42 @@ describe('setup-helpers', () => {
     await switchToClientMode(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.any(String));
     expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('switchToClientMode ignores a hidden tab already in Client mode', async () => {
+    // Hidden "New Connection" tab looks Client-active — must not skip the visible tab.
+    const hiddenClient = document.createElement('button');
+    hiddenClient.setAttribute('data-testid', 'mode-client');
+    hiddenClient.classList.add('active');
+    hiddenClient.setAttribute('aria-selected', 'true');
+    // zero-size → not visible
+    Object.defineProperty(hiddenClient, 'getBoundingClientRect', {
+      value: () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) }),
+    });
+    document.body.appendChild(hiddenClient);
+
+    const visibleClient = document.createElement('button');
+    visibleClient.setAttribute('data-testid', 'mode-client');
+    makeVisible(visibleClient);
+    document.body.appendChild(visibleClient);
+
+    await switchToClientMode(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    hiddenClient.remove();
+    visibleClient.remove();
+  });
+
+  it('switchToClientMode is a no-op when the visible tab is already Client', async () => {
+    const visibleClient = document.createElement('button');
+    visibleClient.setAttribute('data-testid', 'mode-client');
+    visibleClient.classList.add('active');
+    visibleClient.setAttribute('aria-selected', 'true');
+    makeVisible(visibleClient);
+    document.body.appendChild(visibleClient);
+
+    await switchToClientMode(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+    visibleClient.remove();
   });
 
   // ─── disconnectWebSocket ──────────────────────────────────────
@@ -498,27 +539,36 @@ describe('setup-helpers', () => {
 
   // ─── kafkaSchemaSetup ─────────────────────────────────────────────
 
-  it('kafkaSchemaSetup navigates to kafka-message-studio and clicks schema tab', async () => {
+  it('kafkaSchemaSetup navigates to kafka-message-studio without clicking schema tab', async () => {
+    // Schema tab click is the lesson's first visible teaching beat (sr-intro) —
+    // setup must not flash it before narration starts.
     await kafkaSchemaSetup(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
     expect(ctx.delay).toHaveBeenCalled();
   });
 
   // ─── startMockServer — already-running fast path ────────────────
 
-  it('startMockServer returns early when MOCK_STOP_BTN is already visible', async () => {
+  it('startMockServer returns early when MOCK_STOP_BTN is already visible on 9876', async () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'mock-stop-btn');
     makeVisible(stopBtn);
     document.body.appendChild(stopBtn);
+    const portInput = document.createElement('input');
+    portInput.setAttribute('data-testid', 'mock-port-input');
+    portInput.value = '9876';
+    makeVisible(portInput);
+    document.body.appendChild(portInput);
 
     const clickSpy = vi.spyOn(ctx, 'click');
     await startMockServer(ctx);
 
     // Should still navigate to mock mode but return early without clicking start
     expect(clickSpy).toHaveBeenCalledWith(expect.stringContaining('mock'));
+    expect(getLastMockPort()).toBe('9876');
     stopBtn.remove();
+    portInput.remove();
   });
 
   it('startMockServer returns when server starts successfully after clicking start', async () => {
@@ -539,6 +589,83 @@ describe('setup-helpers', () => {
 
     stopBtn.remove();
     startBtn.remove();
+  });
+
+  it('startMockServerQuiet starts via REST without UI clicks', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/status')) {
+        return { ok: true, json: async () => ({ running: false }) } as Response;
+      }
+      return { ok: true, json: async () => ({ running: true }) } as Response;
+    });
+    await startMockServerQuiet(ctx, 9876);
+    expect(ctx.click).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/ws/mock/start',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(getLastMockPort()).toBe('9876');
+    fetchSpy.mockRestore();
+  });
+
+  it('startMockServerQuiet skips start when status reports already running', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ running: true }),
+    } as Response);
+    await startMockServerQuiet(ctx, 9876);
+    expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/status'));
+    expect(fetchSpy).not.toHaveBeenCalledWith(
+      '/api/ws/mock/start',
+      expect.anything(),
+    );
+    fetchSpy.mockRestore();
+  });
+
+  it('stopMockServerQuiet is a no-op when quiet start did not own the server', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ running: true }),
+    } as Response);
+    await startMockServerQuiet(ctx, 9876); // already running → no ownership
+    fetchSpy.mockClear();
+    await stopMockServerQuiet(ctx, 9876);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('switchToClientModeQuiet clicks mode-client without ctx.click', async () => {
+    const clientBtn = document.createElement('button');
+    clientBtn.setAttribute('data-testid', 'mode-client');
+    makeVisible(clientBtn);
+    document.body.appendChild(clientBtn);
+    const clickSpy = vi.spyOn(clientBtn, 'click');
+    await switchToClientModeQuiet(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
+    clientBtn.remove();
+  });
+
+  it('pinActiveMockPortQuiet rewrites sticky 9878 to 9876 without ctx.click', async () => {
+    const mockBtn = document.createElement('button');
+    mockBtn.setAttribute('data-testid', 'mode-mock');
+    makeVisible(mockBtn);
+    document.body.appendChild(mockBtn);
+    const clientBtn = document.createElement('button');
+    clientBtn.setAttribute('data-testid', 'mode-client');
+    makeVisible(clientBtn);
+    document.body.appendChild(clientBtn);
+    const portInput = document.createElement('input');
+    portInput.setAttribute('data-testid', 'mock-port-input');
+    portInput.value = '9878';
+    makeVisible(portInput);
+    document.body.appendChild(portInput);
+
+    await pinActiveMockPortQuiet(ctx, 9876);
+    expect(portInput.value).toBe('9876');
+    expect(getLastMockPort()).toBe('9876');
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   // ─── setControlledCheckbox ──────────────────────────────────────
@@ -630,8 +757,14 @@ describe('setup-helpers', () => {
     stopBtn.setAttribute('data-testid', 'mock-stop-btn');
     makeVisible(stopBtn);
     document.body.appendChild(stopBtn);
+    const portInput = document.createElement('input');
+    portInput.setAttribute('data-testid', 'mock-port-input');
+    portInput.value = '9876';
+    makeVisible(portInput);
+    document.body.appendChild(portInput);
     await startMockServer(ctx);
     stopBtn.remove();
+    portInput.remove();
 
     vi.mocked(ctx.click).mockClear();
     await stopMockServer(ctx);
@@ -659,7 +792,7 @@ describe('setup-helpers', () => {
     vi.mocked(dispatchKafkaOperation).mockResolvedValueOnce({
       ok: true,
       op: 'status',
-      data: { state: 'connected', clusterId: 'demo-plaintext' },
+      data: { state: 'connected', clusterId: 'demo-cluster' },
     } as Awaited<ReturnType<typeof dispatchKafkaOperation>>);
     await ensureKafkaConnected();
     expect(dispatchKafkaOperation).toHaveBeenCalledTimes(1);
@@ -689,7 +822,7 @@ describe('setup-helpers', () => {
       .mockResolvedValueOnce({
         ok: true,
         op: 'status',
-        data: { state: 'connected', clusterId: 'demo-plaintext' },
+        data: { state: 'connected', clusterId: 'demo-cluster' },
       } as Awaited<ReturnType<typeof dispatchKafkaOperation>>)
       .mockResolvedValueOnce({
         ok: true,

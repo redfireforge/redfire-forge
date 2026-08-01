@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import { ConsolePanel } from './ConsolePanel';
 import { WS_CONSOLE_DEFAULT_SETTINGS, type WsConsoleEntry, type WsConsoleSettings } from './wsConsoleTypes';
@@ -156,9 +155,10 @@ describe('ConsolePanel', () => {
     expect(body.scrollTop).toBe(0);
   });
 
-  it('changes the category filter via the select', () => {
+  it('changes the category filter via the custom dropdown', () => {
     const { onSettingsChange } = renderPanel();
-    selectOption(screen.getByTestId('ws-console-category'), 'Reconnect');
+    fireEvent.click(screen.getByTestId('ws-console-category'));
+    fireEvent.click(screen.getByTestId('ws-console-category-opt-reconnect'));
     expect(onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ categoryFilter: 'reconnect' }));
   });
 
@@ -218,6 +218,31 @@ describe('ConsolePanel', () => {
     );
     expect(screen.getByText('TRACE')).toBeInTheDocument();
   });
+
+  it('shows help detail inline without requiring row expansion', () => {
+    const helpEntry: WsConsoleEntry = {
+      id: 'help-1',
+      level: 'info',
+      direction: 'info',
+      category: 'command',
+      message: 'Available commands (2)',
+      detail: '/help  List commands.\n/connect [url]  Connect.',
+      timestamp: new Date().toISOString(),
+    };
+
+    render(
+      <ConsolePanel
+        entries={[helpEntry]}
+        settings={WS_CONSOLE_DEFAULT_SETTINGS}
+        onSettingsChange={vi.fn()}
+        onClear={vi.fn()}
+        variant="ws"
+      />,
+    );
+
+    expect(screen.getByText(/\/help\s+List commands\./)).toBeInTheDocument();
+    expect(screen.getByText(/\/connect \[url\]\s+Connect\./)).toBeInTheDocument();
+  });
 });
 
 describe('ConsolePanel — command line (Phase 10)', () => {
@@ -273,6 +298,22 @@ describe('ConsolePanel — command line (Phase 10)', () => {
     // Down past newest → live (empty)
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     expect(input.value).toBe('');
+  });
+
+  it('Escape closes the category dropdown', () => {
+    renderPanel();
+    fireEvent.click(screen.getByTestId('ws-console-category'));
+    expect(screen.getByTestId('ws-console-category-opt-reconnect')).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('ws-console-category-opt-reconnect')).toBeNull();
+  });
+
+  it('clicking outside closes the category dropdown', () => {
+    renderPanel();
+    fireEvent.click(screen.getByTestId('ws-console-category'));
+    expect(screen.getByTestId('ws-console-category-opt-reconnect')).toBeTruthy();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId('ws-console-category-opt-reconnect')).toBeNull();
   });
 
   it('ArrowUp is a no-op when there is no history', () => {

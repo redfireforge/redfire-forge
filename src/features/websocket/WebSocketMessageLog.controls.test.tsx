@@ -4,7 +4,6 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { getCustomSelectOptionLabels } from '../../test-utils/customSelectHelper';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
 import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
 
@@ -399,8 +398,8 @@ describe('WebSocketMessageLog', () => {
 
     it('shows bookmarked direction filter option', () => {
       render(<WebSocketMessageLog {...defaultProps({ bookmarkCount: 3 })} />);
-      const labels = getCustomSelectOptionLabels(screen.getByLabelText('Direction filter').closest('.cs-wrapper')!);
-      expect(labels.some((label) => label.includes('Bookmarked (3)'))).toBe(true);
+      fireEvent.click(screen.getByLabelText('Direction filter'));
+      expect(screen.getByTestId('direction-filter-opt-bookmarked').textContent).toContain('Bookmarked (3)');
     });
   });
 

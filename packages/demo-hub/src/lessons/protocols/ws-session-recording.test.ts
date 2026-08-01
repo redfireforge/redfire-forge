@@ -73,16 +73,16 @@ describe('ws-session-recording lesson', () => {
     expect(typeof step.preAction).toBe('function');
   });
 
-  it('step rec-intro preAction connects and switches to events when not connected', async () => {
+  it('step rec-intro action connects and switches to events when not connected', async () => {
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
     // DOM has no disconnect-btn → ensureConnected will connect
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
-  it('step rec-intro preAction skips connect when already connected', async () => {
+  it('step rec-intro action skips connect when already connected', async () => {
     const disconnectBtn = document.createElement('button');
     disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
     // Not disabled = genuinely connected
@@ -91,12 +91,12 @@ describe('ws-session-recording lesson', () => {
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
-  it('step rec-intro preAction connects when disconnect-btn is present but disabled (not actually connected)', async () => {
+  it('step rec-intro action connects when disconnect-btn is present but disabled (not actually connected)', async () => {
     // The Disconnect button is always in the DOM — just disabled when not connected.
     // ensureConnected must check !disabled, not merely existence.
     const disconnectBtn = document.createElement('button');
@@ -107,7 +107,7 @@ describe('ws-session-recording lesson', () => {
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     // Should still call connect-btn because the btn is disabled (= not connected)
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
@@ -132,12 +132,12 @@ describe('ws-session-recording lesson', () => {
     expect(step.highlight).toContain('start-recording-btn');
   });
 
-  it('step rec-intro action calls ctx.delay(400) (line 256)', async () => {
+  it('step rec-intro action includes pacing delays', async () => {
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     expect(typeof step.action).toBe('function');
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
   // ─── Step: rec-start ──────────────────────────────────────

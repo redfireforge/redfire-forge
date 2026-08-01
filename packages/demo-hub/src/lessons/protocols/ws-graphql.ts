@@ -26,24 +26,27 @@ const GQL_VARIABLES_JSON = '{\n  "start": 5\n}';
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
 async function gqlSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(300);
+  // Ensure client mode FIRST — left-tab buttons only exist in client mode
+  const isClient = !!document.querySelector('[data-testid="mode-client"].active, [data-testid="mode-client"][aria-selected="true"]');
+  if (!isClient) {
+    await ctx.click(WS.MODE_CLIENT);
+    await ctx.delay(120);
+  }
   await disconnectWebSocket(ctx);
-  await ctx.delay(200);
   await clearEvents(ctx);
-  await ctx.delay(200);
-  // Ensure client mode
-  await ctx.click(WS.MODE_CLIENT);
-  await ctx.delay(300);
   // Navigate to Connect tab and pre-populate URL + subprotocol + protocol
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
+  const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+  if (connectTab?.getAttribute('aria-selected') !== 'true') {
+    connectTab?.click();
+    await ctx.delay(120);
+  }
   await ctx.fill(WS.URL_INPUT, GQL_URL);
-  await ctx.delay(200);
+  await ctx.delay(120);
   // Fill subprotocol — required by the graphql-transport-ws server
   await ctx.fill(WS.SUBPROTOCOLS_INPUT, GQL_SUBPROTOCOL);
-  await ctx.delay(200);
+  await ctx.delay(120);
   await ctx.selectOption(WS.PROTOCOL_SELECT, 'graphql-ws');
-  await ctx.delay(200);
+  await ctx.delay(120);
 }
 
 async function gqlCleanup(ctx: DemoActionContext): Promise<void> {
@@ -192,8 +195,8 @@ GraphQL-WS needs two settings:
       highlight: WS.LEFT_TAB_CONNECT,
       pauseAfter: true,
       action: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(400);
+        await ctx.waitFor(WS.LEFT_TAB_CONNECT, 3000);
+        await ctx.delay(500);
       },
     },
     {
@@ -204,7 +207,11 @@ GraphQL-WS needs two settings:
       pauseAfter: true,
       // preAction ensures Connect panel (which contains PROTOCOL_SELECT) is in the DOM before spotlight
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+        if (connectTab?.getAttribute('aria-selected') !== 'true') {
+          connectTab?.click();
+          await ctx.delay(120);
+        }
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.delay(300);
@@ -217,7 +224,11 @@ GraphQL-WS needs two settings:
       highlight: WS.RIGHT_TAB_EVENTS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+        if (connectTab?.getAttribute('aria-selected') !== 'true') {
+          connectTab?.click();
+          await ctx.delay(120);
+        }
       },
       action: async (ctx: DemoActionContext) => {
         // Skip CONNECT_BTN if already connected (replay guard)

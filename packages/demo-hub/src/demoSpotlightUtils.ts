@@ -168,7 +168,12 @@ export function scrollDemoTargetIntoView(
 }
 
 export function findFirstVisibleElement(selector: string): HTMLElement | null {
-  const all = document.querySelectorAll(selector);
+  let all: NodeListOf<Element>;
+  try {
+    all = document.querySelectorAll(selector);
+  } catch {
+    return null;
+  }
   for (const el of all) {
     if (el instanceof HTMLElement && isDemoElementVisible(el)) return el;
   }

@@ -84,26 +84,27 @@ async function clearTemplates(ctx: DemoActionContext): Promise<void> {
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
 async function workspaceSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(400);
   // Close any extra connection tabs left behind by previous lessons. Note this does
   // NOT guarantee port 9876 for the surviving tab — wsSetup() below captures this
   // tab's *actual* assigned port (via getLastMockPort()), which is what's used for
   // the profile URL and the Environment Manager endpoint later in this lesson.
   await closeExtraConnectionTabs(ctx);
-  await ctx.delay(200);
   // Start mock server + switch to client mode
   await wsSetup(ctx);
-  await ctx.delay(200);
   // Clear any existing profiles and templates for a clean demo
   await clearSavedProfiles(ctx);
-  await ctx.delay(200);
   await clearTemplates(ctx);
-  await ctx.delay(200);
   // Return to Client mode on Connect tab
-  await ctx.click(WS.MODE_CLIENT);
-  await ctx.delay(200);
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
+  const isClient = !!document.querySelector('[data-testid="mode-client"].active, [data-testid="mode-client"][aria-selected="true"]');
+  if (!isClient) {
+    await ctx.click(WS.MODE_CLIENT);
+    await ctx.delay(120);
+  }
+  const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+  if (connectTab?.getAttribute('aria-selected') !== 'true') {
+    connectTab?.click();
+    await ctx.delay(120);
+  }
 }
 
 async function workspaceCleanup(ctx: DemoActionContext): Promise<void> {
@@ -372,15 +373,14 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         'The **Saved** tab in the top mode bar opens the profiles panel — a searchable library of named connection configurations. Each profile stores URL, auth, headers, and query params. Right now it\'s empty because the demo started with a clean slate. Let\'s create our first profile.',
       highlight: WS.MODE_SAVED,
       pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.MODE_SAVED);
-        await ctx.delay(300);
+      preAction: async () => {
         visibleElements('.ws-saved-rail-item.selected, .ws-saved-card.selected').forEach((el) => {
           el.classList.remove('selected');
         });
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(400);
+        await ctx.click(WS.MODE_SAVED);
+        await ctx.delay(500);
       },
     },
 

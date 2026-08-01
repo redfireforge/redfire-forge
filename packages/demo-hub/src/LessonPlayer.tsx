@@ -22,7 +22,10 @@ type SelectedPanel = 'concept' | 'notes' | number;
 
 export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: LessonPlayerProps) {
   const { getNote, hasNote, saveNote } = useLessonNotesContext();
-  const [dockerGateCleared, setDockerGateCleared] = useState(false);
+  const gateKey = `prereq-gate-cleared:${lesson.id}`;
+  const [dockerGateCleared, setDockerGateCleared] = useState(
+    () => sessionStorage.getItem(gateKey) === '1',
+  );
   const [downServiceLabels, setDownServiceLabels] = useState<string[]>([]);
   const [tabGateCleared, setTabGateCleared] = useState(false);
   const [selected, setSelected] = useState<SelectedPanel>('concept');
@@ -42,7 +45,10 @@ export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: Less
       prev.length === down.length && prev.every((v, i) => v === down[i]) ? prev : down
     ));
   }, []);
-  const handleServerReady = useCallback(() => setDockerGateCleared(true), []);
+  const handleServerReady = useCallback(() => {
+    setDockerGateCleared(true);
+    try { sessionStorage.setItem(gateKey, '1'); } catch { /* quota */ }
+  }, [gateKey]);
   const handleTabCapacityReady = useCallback(() => setTabGateCleared(true), []);
   const tabBudget = lesson.tabBudget ?? 1;
   const needsTabGate = isGraphqlStudioLesson(lesson) && tabBudget > 1;
@@ -169,6 +175,7 @@ export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: Less
             onProbeStatusChange={handleProbeStatus}
             tabBudget={needsTabGate ? tabBudget : undefined}
             onTabCapacityReady={needsTabGate ? handleTabCapacityReady : undefined}
+            initiallyCleared={dockerGateCleared}
           />
         )}
 

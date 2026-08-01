@@ -14,9 +14,12 @@ export const wsMockServerAdvancedLesson: DemoLesson = {
   initialTab: 'websocket-studio',
 
   setup: async (ctx) => {
-    // Switch to Mock mode so the rules pane is accessible
-    await ctx.click(WS.MODE_MOCK);
-    await ctx.delay(500); // allow async rule-load from storage to settle
+    // Switch to Mock mode so the rules pane is accessible (skip if already there)
+    const alreadyMock = !!document.querySelector('[data-testid="mode-mock"].active, [data-testid="mode-mock"][aria-selected="true"]');
+    if (!alreadyMock) {
+      document.querySelector<HTMLElement>(WS.MODE_MOCK)?.click();
+    }
+    await ctx.delay(300); // allow async rule-load from storage to settle
     // Delete any leftover rules one at a time to avoid React stale-closure issues
     const deleteFirstRule = (): boolean => {
       const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_RULE_DELETE_ANY);
@@ -113,9 +116,9 @@ Switch to **Mock mode**, then click the **Rules** tab in the right panel. You'll
         await ctx.click(WS.MODE_MOCK);
         // MOCK_TAB_RULES only renders in Mock mode — wait before clicking
         await ctx.waitFor(WS.MOCK_TAB_RULES);
-        await ctx.delay(400); // let user observe the mode switch
+        await ctx.delay(900); // let user observe the mode switch
         await ctx.click(WS.MOCK_TAB_RULES);
-        await ctx.delay(300);
+        await ctx.delay(700);
       },
     },
     {

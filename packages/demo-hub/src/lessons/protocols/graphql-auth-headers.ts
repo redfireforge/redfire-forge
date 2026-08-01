@@ -27,7 +27,6 @@ import {
   markProfileDone,
   demonstrateSaveConnectionProfile,
   preEnvStep,
-  preIntroStep,
   preProfileStep,
   prepareBearerConfigReading,
   prepareBearerObserveReading,
@@ -285,7 +284,6 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       description:
         `Most GraphQL APIs require credentials — but **where** you put them matters. In GraphQL Studio, all auth lives on the **connection bar**, not buried in a settings page. Click the **🔒 Auth badge** to open the **Auth** bottom tab — a docked panel with five modes: **Bearer Token**, **API Key**, **Basic Auth**, **OAuth 2.0 (Client Credentials)**, and **Inherit from Auth Profile**. Notice the **Env badge** beside it — the next step opens that modal to configure a **Demo** environment with \`authToken\` and \`apiKey\` variables so auth fields can use \`{{authToken}}\` placeholders instead of hardcoded secrets.`,
       highlight: GQL.AUTH_BADGE_BTN,
-      preAction: preIntroStep,
       action: async (ctx) => {
         // Seed Demo env silently — step 2 opens the Env modal to show the values
         await ensureEnvReady(ctx);

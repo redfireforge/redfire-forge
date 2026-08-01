@@ -8,8 +8,16 @@ import type { AuthConfig, GlobalAuthProfile } from '../../shared/types';
 // Mock the heavy shared panel — we only need to observe that it renders and to
 // trigger its profile-change callback.
 vi.mock('../requests/components/AuthConfigPanel', () => ({
-  default: (props: { onProfileChange?: (id: string | undefined) => void }) => (
+  default: (props: {
+    onProfileChange?: (id: string | undefined) => void;
+    useCustomTypeDropdown?: boolean;
+    useStackedBearerFields?: boolean;
+    useStackedAuthFields?: boolean;
+  }) => (
     <div data-testid="auth-config-panel">
+      <span data-testid="auth-panel-custom-type">{String(!!props.useCustomTypeDropdown)}</span>
+      <span data-testid="auth-panel-stacked-bearer">{String(!!props.useStackedBearerFields)}</span>
+      <span data-testid="auth-panel-stacked-auth">{String(!!props.useStackedAuthFields)}</span>
       <button data-testid="trigger-profile-change" onClick={() => props.onProfileChange?.('gp-1')}>
         change profile
       </button>
@@ -43,6 +51,9 @@ describe('SseAuthPanel', () => {
   it('renders the wrapped AuthConfigPanel inside the SSE auth pane', () => {
     const { container } = render(<SseAuthPanel auth={{ type: 'none' }} onChange={vi.fn()} />);
     expect(screen.getByTestId('auth-config-panel')).toBeTruthy();
+    expect(screen.getByTestId('auth-panel-custom-type').textContent).toBe('true');
+    expect(screen.getByTestId('auth-panel-stacked-bearer').textContent).toBe('true');
+    expect(screen.getByTestId('auth-panel-stacked-auth').textContent).toBe('true');
     expect(container.querySelector('.sse-auth-pane')).toBeTruthy();
   });
 

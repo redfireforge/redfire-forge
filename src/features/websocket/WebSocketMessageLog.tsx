@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { WsFrame, WsReplaySpeed, WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
+import { formatUptime } from '../../shared/websocket/types';
 import type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter } from './useWebSocketStudioTypes';
 import { WebSocketMessageDetail } from './WebSocketMessageDetail';
 import { useDropdownClose } from './useDropdownClose';
@@ -16,11 +17,11 @@ import { WebSocketSchemaPanel } from './WebSocketSchemaPanel';
 import { MessageRow } from './WebSocketMessageRow';
 import { useWebSocketFilterPresets } from './useWebSocketFilterPresets';
 import { WebSocketFilterBar } from './WebSocketFilterBar';
-import { WebSocketCompareBanner, WebSocketMessagesStatusBar, WebSocketReplayBar } from './WebSocketMessageLogBars';
-import { WebSocketMessageLogToolbar } from './WebSocketMessageLogToolbar';
 
 const ROW_HEIGHT = 26;
 const VIRTUALIZER_OVERSCAN = 15;
+
+type ToolbarDropdownKey = 'direction' | 'validation';
 
 interface WebSocketMessageLogProps {
   messages: WsFrame[];
@@ -188,6 +189,7 @@ export function WebSocketMessageLog({
   const [showStats, setShowStats] = useState(false);
   const [showFilterBar, setShowFilterBar] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [openToolbarDropdown, setOpenToolbarDropdown] = useState<ToolbarDropdownKey | null>(null);
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
   const presetDropdownRef = useDropdownClose(
     presetDropdownOpen,
@@ -226,6 +228,57 @@ export function WebSocketMessageLog({
     if (contentTypeFilter !== 'all') count++;
     return count;
   }, [sizeFilter, timeFilter, contentTypeFilter]);
+
+  useEffect(() => {
+    if (!openToolbarDropdown) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('.ws-filter-select-dropdown')) {
+        setOpenToolbarDropdown(null);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenToolbarDropdown(null);
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [openToolbarDropdown]);
+
+  const directionOptions = useMemo(
+    () => [
+      { value: 'all' as WsDirectionFilter, label: 'All' },
+      { value: 'sent' as WsDirectionFilter, label: 'Sent' },
+      { value: 'received' as WsDirectionFilter, label: 'Received' },
+      {
+        value: 'bookmarked' as WsDirectionFilter,
+        label: bookmarkCount > 0 ? `Bookmarked (${bookmarkCount})` : 'Bookmarked',
+      },
+    ],
+    [bookmarkCount],
+  );
+
+  const selectedDirectionLabel = useMemo(
+    () => directionOptions.find((opt) => opt.value === directionFilter)?.label ?? 'All',
+    [directionFilter, directionOptions],
+  );
+
+  const validationOptions = useMemo(
+    () => [
+      { value: 'all' as WsValidationFilter, label: 'Validation: All' },
+      { value: 'valid' as WsValidationFilter, label: 'Valid only' },
+      { value: 'invalid' as WsValidationFilter, label: 'Invalid only' },
+    ],
+    [],
+  );
+
+  const selectedValidationLabel = useMemo(
+    () => validationOptions.find((opt) => opt.value === validationFilter)?.label ?? 'Validation: All',
+    [validationFilter, validationOptions],
+  );
 
   const handleClearFilters = useCallback(() => {
     setSizeFilter('all');
@@ -447,60 +500,251 @@ export function WebSocketMessageLog({
     return false;
   }, [selectedFrame, allMessages]);
 
+  const statusDotClass = isConnected ? 'connected' : 'disconnected';
+
   return (
     <div className="ws-message-log-container">
       {showStatusBar && (
-        <WebSocketMessagesStatusBar
-          isConnected={isConnected}
-          connectionUrl={connectionUrl}
-          uptime={uptime}
-          sentCount={sentCount}
-          receivedCount={receivedCount}
-        />
+        <div className="ws-messages-status-bar" data-testid="messages-status-bar">
+          <span className={`ws-status-dot ${statusDotClass}`} aria-hidden="true" />
+          <span className="ws-messages-status-label">{isConnected ? 'Connected' : 'Disconnected'}</span>
+          {connectionUrl && (
+            <span className="ws-messages-status-url" title={connectionUrl}>{connectionUrl}</span>
+          )}
+          {uptime != null && (
+            <span className="ws-messages-status-metric">Uptime: {formatUptime(uptime)}</span>
+          )}
+          <span className="ws-messages-status-metric">↑ {sentCount} &nbsp; ↓ {receivedCount}</span>
+          <span className="ws-messages-status-hints">↑↓ navigate · Esc close detail</span>
+        </div>
       )}
 
-      <WebSocketMessageLogToolbar
-        searchMode={searchMode}
-        setSearchMode={setSearchMode}
-        searchText={searchText}
-        onSearchChange={handleSearchChange}
-        isRegexInvalid={isRegexInvalid}
-        totalCount={totalCount}
-        displayMessageCount={displayMessages.length}
-        directionFilter={directionFilter}
-        setDirectionFilter={setDirectionFilter}
-        bookmarkCount={bookmarkCount}
-        validationEnabled={validationEnabled}
-        hasEnabledSchemas={hasEnabledSchemas}
-        validationFilter={validationFilter}
-        setValidationFilter={setValidationFilter}
-        showFilterBar={showFilterBar}
-        onToggleFilterBar={() => setShowFilterBar((v) => !v)}
-        activeFilterCount={activeFilterCount}
-        compareMode={compareMode}
-        onToggleCompare={toggleCompare}
-        showAuxPanels={showAuxPanels}
-        onToggleSchemasVisible={onToggleSchemasVisible}
-        schemasVisible={schemasVisible}
-        onClear={onClear}
-        onExportMessages={handleExportMessages}
-        allMessagesCount={allMessages.length}
-        showStats={showStats}
-        onToggleStats={() => setShowStats((v) => !v)}
-        metrics={metrics}
-        onToggleLoadTest={onToggleLoadTest}
-        loadTestActive={loadTestActive}
-        recordingState={recordingState}
-        hasLoadedRecording={hasLoadedRecording}
-        onStartRecording={onStartRecording}
-        onStopRecording={onStopRecording}
-        recordingFileInputRef={recordingFileInputRef}
-        onRecordingFileChange={handleRecordingFileChange}
-        importError={importError}
-        onStartReplay={onStartReplay}
-        isMaxReached={isMaxReached}
-        maxMessages={maxMessages}
-      />
+      {/* Toolbar */}
+      <div className="ws-message-log-toolbar">
+        <div className="ws-message-log-toolbar-row ws-message-log-toolbar-row-search">
+        <div className="ws-search-mode-pills" data-testid="search-mode-pills">
+          {(['text', 'regex', 'jsonpath'] as const).map((mode) => (
+            <button
+              key={mode}
+              className={`ws-search-mode-pill ${searchMode === mode ? 'ws-search-mode-pill-active' : ''}`}
+              onClick={() => setSearchMode(mode)}
+              data-testid={`search-mode-${mode}`}
+              title={mode === 'text' ? 'Text search' : mode === 'regex' ? 'Regex search' : 'JSONPath query'}
+            >
+              {mode === 'text' ? 'Text' : mode === 'regex' ? 'Regex' : 'JSONPath'}
+            </button>
+          ))}
+        </div>
+        <input
+          className={`ws-message-search ${isRegexInvalid ? 'ws-search-invalid' : ''}`}
+          type="text"
+          value={searchText}
+          onChange={handleSearchChange}
+          placeholder={searchMode === 'jsonpath' ? '$.path or $.path=value' : searchMode === 'regex' ? 'regex pattern\u2026' : 'Search messages\u2026'}
+          aria-label="Search messages"
+          data-testid="search-input"
+          title={isRegexInvalid ? 'Invalid regex' : undefined}
+        />
+        {totalCount > 0 && displayMessages.length < totalCount && (
+          <span className="ws-filter-match-counter" data-testid="match-counter">
+            {displayMessages.length} of {totalCount}
+          </span>
+        )}
+        <div className="ws-filter-select-dropdown ws-message-direction-dropdown">
+          <button
+            type="button"
+            className="ws-filter-select ws-message-direction-filter"
+            aria-label="Direction filter"
+            aria-haspopup="listbox"
+            aria-expanded={openToolbarDropdown === 'direction'}
+            onClick={() => setOpenToolbarDropdown((current) => (current === 'direction' ? null : 'direction'))}
+            data-testid="direction-filter"
+          >
+            <span>{selectedDirectionLabel}</span>
+            <span className="ws-filter-select-chevron" aria-hidden>▾</span>
+          </button>
+          {openToolbarDropdown === 'direction' && (
+            <div className="ws-filter-select-menu" role="listbox" aria-label="Direction filter options">
+              {directionOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`ws-filter-select-option${opt.value === directionFilter ? ' active' : ''}`}
+                  role="option"
+                  aria-selected={opt.value === directionFilter}
+                  onClick={() => {
+                    setDirectionFilter(opt.value);
+                    setOpenToolbarDropdown(null);
+                  }}
+                  data-testid={`direction-filter-opt-${opt.value}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {validationEnabled && hasEnabledSchemas && setValidationFilter && (
+          <div className="ws-filter-select-dropdown ws-validation-filter-dropdown">
+            <button
+              type="button"
+              className="ws-filter-select ws-validation-filter"
+              aria-label="Validation filter"
+              aria-haspopup="listbox"
+              aria-expanded={openToolbarDropdown === 'validation'}
+              onClick={() => setOpenToolbarDropdown((current) => (current === 'validation' ? null : 'validation'))}
+              data-testid="validation-filter"
+            >
+              <span>{selectedValidationLabel}</span>
+              <span className="ws-filter-select-chevron" aria-hidden>▾</span>
+            </button>
+            {openToolbarDropdown === 'validation' && (
+              <div className="ws-filter-select-menu" role="listbox" aria-label="Validation filter options">
+                {validationOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`ws-filter-select-option${opt.value === validationFilter ? ' active' : ''}`}
+                    role="option"
+                    aria-selected={opt.value === validationFilter}
+                    onClick={() => {
+                      setValidationFilter(opt.value);
+                      setOpenToolbarDropdown(null);
+                    }}
+                    data-testid={`validation-filter-opt-${opt.value}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        </div>
+        <div className="ws-message-log-toolbar-row ws-message-log-toolbar-row-actions">
+        <button
+          className={`ws-filter-toggle-btn ${showFilterBar ? 'ws-filter-toggle-active' : ''}`}
+          onClick={() => setShowFilterBar((v) => !v)}
+          data-testid="filter-toggle-btn"
+          title={showFilterBar ? 'Hide filters' : 'Show filters'}
+        >
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+        </button>
+        <button
+          className={`ws-filter-toggle-btn ${compareMode ? 'ws-filter-toggle-active' : ''}`}
+          onClick={toggleCompare}
+          disabled={totalCount < 2}
+          data-testid="compare-btn"
+          title={compareMode ? 'Exit compare mode' : 'Compare two messages'}
+        >
+          Compare
+        </button>
+        {showAuxPanels && onToggleSchemasVisible && (
+          <button
+            className={`ws-filter-toggle-btn ${schemasVisible ? 'ws-filter-toggle-active' : ''}`}
+            onClick={onToggleSchemasVisible}
+            data-testid="schema-toggle-btn"
+            title={schemasVisible ? 'Hide schema panel' : 'Show schema panel'}
+          >
+            Schema{hasEnabledSchemas && validationEnabled ? ' ●' : ''}
+          </button>
+        )}
+        <button
+          className="ws-message-clear-btn"
+          onClick={onClear}
+          disabled={totalCount === 0}
+          data-testid="clear-btn"
+        >
+          Clear
+        </button>
+        <button
+          className="ws-message-export-btn"
+          onClick={handleExportMessages}
+          disabled={allMessages.length === 0}
+          data-testid="export-messages-btn"
+        >
+          Export
+        </button>
+        {showAuxPanels && metrics && (
+          <button
+            className={`ws-stats-toggle-btn ${showStats ? 'ws-stats-toggle-active' : ''}`}
+            onClick={() => setShowStats((v) => !v)}
+            data-testid="stats-toggle-btn"
+            title={showStats ? 'Hide stats' : 'Show stats'}
+          >
+            Stats
+          </button>
+        )}
+        {showAuxPanels && onToggleLoadTest && (
+          <button
+            className={`ws-stats-toggle-btn ${loadTestActive ? 'ws-stats-toggle-active' : ''}`}
+            onClick={onToggleLoadTest}
+            data-testid="load-test-toggle-btn"
+            title={loadTestActive ? 'Hide load test' : 'Show load test'}
+          >
+            Load Test
+          </button>
+        )}
+        {recordingState === 'idle' && !hasLoadedRecording && (
+          <button
+            className="ws-recording-btn"
+            onClick={onStartRecording}
+            data-testid="start-recording-btn"
+            title="Start recording session"
+          >
+            ● Rec
+          </button>
+        )}
+        {recordingState === 'recording' && (
+          <button
+            className="ws-recording-btn ws-recording-active"
+            onClick={onStopRecording}
+            data-testid="stop-recording-btn"
+            title="Stop recording and save"
+          >
+            ■ Stop
+          </button>
+        )}
+        {recordingState === 'idle' && !hasLoadedRecording && (
+          <>
+            <button
+              className="ws-recording-import-btn"
+              onClick={() => recordingFileInputRef.current?.click()}
+              data-testid="import-recording-btn"
+              title="Import recording"
+            >
+              Import
+            </button>
+            <input
+              ref={recordingFileInputRef}
+              type="file"
+              accept=".json,.wsrecording.json"
+              style={{ display: 'none' }}
+              onChange={handleRecordingFileChange}
+              data-testid="recording-file-input"
+            />
+            {importError && (
+              <span className="ws-import-error" data-testid="import-error">{importError}</span>
+            )}
+          </>
+        )}
+        {hasLoadedRecording && recordingState === 'idle' && (
+          <button
+            className="ws-replay-start-btn"
+            onClick={onStartReplay}
+            data-testid="start-replay-btn"
+            title="Start replay"
+          >
+            ▶ Play
+          </button>
+        )}
+        {isMaxReached && (
+          <span className="ws-message-max-reached" data-testid="max-reached">
+            {totalCount}/{maxMessages} — max reached
+          </span>
+        )}
+        </div>
+      </div>
 
       {/* Filter Bar */}
       {showFilterBar && (
@@ -524,20 +768,86 @@ export function WebSocketMessageLog({
       )}
 
       {isReplaying && (
-        <WebSocketReplayBar
-          recordingState={recordingState}
-          replaySpeed={replaySpeed}
-          onSetReplaySpeed={onSetReplaySpeed}
-          replayProgress={replayProgress}
-          onResumeReplay={onResumeReplay}
-          onPauseReplay={onPauseReplay}
-          onStopReplay={onStopReplay}
-        />
+        <div className="ws-replay-bar" data-testid="replay-bar">
+          {/* Left: mode badge + playback controls */}
+          <div className="ws-replay-bar-left">
+            <span className="ws-replay-badge">
+              <span className="ws-replay-dot" />
+              REPLAY
+            </span>
+            <button
+              className="ws-replay-playpause"
+              onClick={recordingState === 'paused' ? onResumeReplay : onPauseReplay}
+              data-testid="replay-playpause-btn"
+              title={recordingState === 'paused' ? 'Resume replay' : 'Pause replay'}
+              aria-label={recordingState === 'paused' ? 'Resume replay' : 'Pause replay'}
+            >
+              {recordingState === 'paused' ? '▶' : '⏸'}
+            </button>
+            <div className="ws-replay-speed-group">
+              <span className="ws-replay-speed-label">Speed</span>
+              <select
+                className="ws-replay-speed"
+                value={replaySpeed}
+                onChange={(e) => onSetReplaySpeed?.(Number(e.target.value) as WsReplaySpeed)}
+                data-testid="replay-speed-select"
+                aria-label="Replay speed"
+              >
+                <option value={1}>1×</option>
+                <option value={2}>2×</option>
+                <option value={5}>5×</option>
+                <option value={10}>10×</option>
+                <option value={0}>Max</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Center: progress track + counter */}
+          {replayProgress && (
+            <div className="ws-replay-center" data-testid="replay-progress">
+              <div className="ws-replay-track">
+                <div
+                  className="ws-replay-fill"
+                  style={{ width: `${Math.min(100, (replayProgress.current / Math.max(replayProgress.total, 1)) * 100)}%` }}
+                />
+              </div>
+              <span className="ws-replay-counter">
+                <span className="ws-replay-counter-current">{replayProgress.current}</span>
+                <span className="ws-replay-counter-sep">/</span>
+                <span className="ws-replay-counter-total">{replayProgress.total}</span>
+                <span className="ws-replay-counter-label">events</span>
+              </span>
+            </div>
+          )}
+
+          {/* Right: exit */}
+          <button
+            className="ws-replay-exit-btn"
+            onClick={onStopReplay}
+            data-testid="replay-exit-btn"
+            title="Stop replay and return to live view"
+            aria-label="Exit replay"
+          >
+            <span className="ws-replay-exit-icon">✕</span>
+            Exit Replay
+          </button>
+        </div>
       )}
 
       {/* Compare mode banner */}
       {compareMode && (
-        <WebSocketCompareBanner compareIds={compareIds} onCancel={toggleCompare} />
+        <div className="ws-compare-banner" data-testid="compare-banner">
+          <span>
+            {compareIds[0] === null
+              ? 'Click a message to select it for comparison'
+              : compareIds[1] === null
+                ? 'Click a second message to compare'
+                : 'Comparison ready'}
+          </span>
+          <button className="ws-compare-banner-cancel" onClick={toggleCompare} data-testid="compare-cancel">
+            Cancel
+          </button>
+        </div>
       )}
 
       {/* Virtualized message list */}

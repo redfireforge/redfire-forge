@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOptionByIndex } from '../../test-utils/customSelectHelper';
 import { KafkaTopicDetailPanel } from './KafkaTopicDetailPanel';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';
@@ -306,7 +305,7 @@ describe('KafkaTopicDetailPanel', () => {
     expect(screen.getByTestId('detail-results')).toBeTruthy();
     expect(screen.getByText('timed out')).toBeTruthy();
     expect(screen.getByTestId('detail-row-0')).toBeTruthy();
-    expect(screen.getByTestId('kafka-message-detail-modal')).toBeTruthy();
+    expect(screen.getByTestId('detail-msg-pane')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('detail-row-0'));
     expect(browser.selectMessage).toHaveBeenCalled();
@@ -376,13 +375,13 @@ describe('KafkaTopicDetailPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(browser.clearResult).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTestId('kmd-copy-key'));
-    fireEvent.click(screen.getByTestId('kmd-copy-payload'));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Key' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Value' }));
     expect(writeText).toHaveBeenCalledWith('my-key');
-    expect(writeText).toHaveBeenCalledWith(JSON.stringify({ id: 1 }, null, 2));
+    expect(writeText).toHaveBeenCalledWith('{"id":1}');
 
     expect(screen.getByText('x-trace')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('kmd-close-btn'));
+    fireEvent.click(screen.getByLabelText('Close detail'));
     expect(browser.selectMessage).toHaveBeenCalledWith(null);
   });
 
@@ -398,25 +397,19 @@ describe('KafkaTopicDetailPanel', () => {
     );
 
     const tab = screen.getByTestId('detail-messages-tab');
+    const inputs = tab.querySelectorAll('input');
 
-    // Browse bar selects
-    selectOptionByIndex(tab, 0, 'Last 1h');
-    selectOptionByIndex(tab, 1, 'Partition 0');
-
-    // Max messages input is in the browse bar
-    const maxInput = tab.querySelector<HTMLInputElement>('.td-max-input')!;
-    fireEvent.change(maxInput, { target: { value: '25' } });
-
-    // Open the collapsible filters
-    fireEvent.click(screen.getByLabelText('Show filters'));
-
-    // Filter inputs inside the collapsible section
-    const filterInputs = tab.querySelectorAll('.td-filter-field input');
-    fireEvent.change(filterInputs[0], { target: { value: 'order-1' } });
-    fireEvent.change(filterInputs[1], { target: { value: 'x-trace=abc' } });
-    fireEvent.change(filterInputs[2], { target: { value: '$.name' } });
-    fireEvent.change(filterInputs[3], { target: { value: 'expected-value' } });
-    fireEvent.change(filterInputs[4], { target: { value: 'search-body' } });
+    fireEvent.click(screen.getByTestId('detail-time-window-trigger'));
+    fireEvent.click(screen.getByTestId('detail-time-window-opt-last-1h'));
+    fireEvent.click(screen.getByTestId('detail-partition-trigger'));
+    fireEvent.click(screen.getByTestId('detail-partition-opt-0'));
+    fireEvent.click(screen.getByTestId('detail-sort-order-trigger'));
+    fireEvent.click(screen.getByTestId('detail-sort-order-opt-desc'));
+    fireEvent.change(inputs[0], { target: { value: 'order-1' } });
+    fireEvent.change(inputs[1], { target: { value: 'x-trace=abc' } });
+    fireEvent.change(inputs[2], { target: { value: '$.name' } });
+    fireEvent.change(inputs[3], { target: { value: 'expected-value' } });
+    fireEvent.change(inputs[4], { target: { value: '25' } });
 
     expect(browser.setDraft).toHaveBeenCalledWith({ timeWindow: 'last-1h' });
     expect(browser.setDraft).toHaveBeenCalledWith({ partition: '0' });
@@ -424,8 +417,8 @@ describe('KafkaTopicDetailPanel', () => {
     expect(browser.setDraft).toHaveBeenCalledWith({ headerMatch: 'x-trace=abc' });
     expect(browser.setDraft).toHaveBeenCalledWith({ jsonPath: '$.name' });
     expect(browser.setDraft).toHaveBeenCalledWith({ jsonPathEquals: 'expected-value' });
-    expect(browser.setDraft).toHaveBeenCalledWith({ bodyContains: 'search-body' });
     expect(browser.setDraft).toHaveBeenCalledWith({ maxMessages: '25' });
+    expect(browser.setDraft).toHaveBeenCalledWith({ sortOrder: 'desc' });
   });
 
   it('messages tab: shows Consuming… while loading', () => {
@@ -498,44 +491,89 @@ describe('KafkaTopicDetailPanel', () => {
         })}
       />,
     );
-    expect(screen.getByTestId('kmd-body')?.textContent).toBe('not-json');
+    expect(screen.getByTestId('detail-msg-pane').querySelector('.kafka-ms-detail-body')?.textContent).toBe('not-json');
   });
 
-  it('messages tab: invalid numeric timestamp renders em dash', () => {
-    const rows = [{ topic: 't', partition: 0, offset: '1', value: '{}', timestamp: '0' }];
+  it('messages tab: invalid or non-positive timestamps render em dash', () => {
+    const rows = [
+      { topic: 't', partition: 0, offset: '1', value: '{}', timestamp: '0' },
+      { topic: 't', partition: 0, offset: '2', value: '{}', timestamp: 'not-a-number' },
+    ];
     render(
       <KafkaTopicDetailPanel
         detail={makeDetail()}
         loading={false}
         error={null}
-        browser={makeBrowser({ result: rows, messageCount: 1 })}
+        browser={makeBrowser({ result: rows, messageCount: 2 })}
       />,
     );
     expect(screen.getByTestId('detail-row-0').textContent).toContain('—');
+    expect(screen.getByTestId('detail-row-1').textContent).toContain('—');
   });
 
-  it('messages tab: load-more calls browser.loadMore and shows loading label states', () => {
-    const row = { topic: 'orders.created', partition: 0, offset: '10', value: '{}' };
-    const loadMore = vi.fn().mockResolvedValue(undefined);
+  it('messages tab: each filter trigger toggles closed on second click', () => {
+    render(
+      <KafkaTopicDetailPanel
+        detail={makeDetail()}
+        loading={false}
+        error={null}
+        browser={makeBrowser()}
+      />,
+    );
 
+    fireEvent.click(screen.getByTestId('detail-time-window-trigger'));
+    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(screen.getByTestId('detail-time-window-trigger'));
+    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(screen.getByTestId('detail-partition-trigger'));
+    expect(screen.getByTestId('detail-partition-trigger').getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(screen.getByTestId('detail-partition-trigger'));
+    expect(screen.getByTestId('detail-partition-trigger').getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(screen.getByTestId('detail-sort-order-trigger'));
+    expect(screen.getByTestId('detail-sort-order-trigger').getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(screen.getByTestId('detail-sort-order-trigger'));
+    expect(screen.getByTestId('detail-sort-order-trigger').getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('messages tab: click selected row toggles selection back to null', () => {
+    const row = { topic: 't', partition: 0, offset: '1', value: '{}' };
+    const browser = makeBrowser({
+      result: [row],
+      messageCount: 1,
+      selectedIndex: 0,
+      selectedMessage: row,
+    });
+    render(
+      <KafkaTopicDetailPanel
+        detail={makeDetail()}
+        loading={false}
+        error={null}
+        browser={browser}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('detail-row-0'));
+    expect(browser.selectMessage).toHaveBeenCalledWith(null);
+  });
+
+  it('messages tab: load more button calls loadMore and shows loading label', () => {
+    const loadMore = vi.fn().mockResolvedValue(undefined);
+    const browser = makeBrowser({
+      result: [{ topic: 't', partition: 0, offset: '1', value: '{}' }],
+      messageCount: 1,
+      hasMore: true,
+      loadMore,
+    });
     const { rerender } = render(
       <KafkaTopicDetailPanel
         detail={makeDetail()}
         loading={false}
         error={null}
-        browser={makeBrowser({
-          result: [row],
-          messageCount: 1,
-          hasMore: true,
-          loadMore,
-          loadMoreLoading: false,
-        } as unknown as Partial<UseTopicMessageBrowserReturn>)}
+        browser={browser}
       />,
     );
-
-    const enabledLoadMoreBtn = screen.getByTestId('detail-load-more-btn');
-    expect(enabledLoadMoreBtn.textContent).toBe('Load More');
-    fireEvent.click(enabledLoadMoreBtn);
+    fireEvent.click(screen.getByTestId('detail-load-more-btn'));
     expect(loadMore).toHaveBeenCalledOnce();
 
     rerender(
@@ -544,36 +582,44 @@ describe('KafkaTopicDetailPanel', () => {
         loading={false}
         error={null}
         browser={makeBrowser({
-          result: [row],
+          result: [{ topic: 't', partition: 0, offset: '1', value: '{}' }],
           messageCount: 1,
           hasMore: true,
-          loadMore,
           loadMoreLoading: true,
-        } as unknown as Partial<UseTopicMessageBrowserReturn>)}
+        })}
       />,
     );
-
     expect(screen.getByTestId('detail-load-more-btn').textContent).toBe('Loading…');
   });
 
-  it('messages tab: selected row click toggles to null selection', () => {
-    const rows = [{ topic: 'orders.created', partition: 0, offset: '10', value: '{}' }];
-    const browser = makeBrowser({ result: rows, messageCount: 1, selectedIndex: 0 });
-
+  it('dropdown global listeners handle non-Escape key, Escape close, and non-Element target', () => {
     render(
       <KafkaTopicDetailPanel
         detail={makeDetail()}
         loading={false}
         error={null}
-        browser={browser}
+        browser={makeBrowser()}
       />,
     );
 
-    fireEvent.click(screen.getByTestId('detail-row-0'));
-    expect(browser.selectMessage).toHaveBeenCalledWith(null);
+    fireEvent.click(screen.getByTestId('detail-time-window-trigger'));
+    fireEvent.keyDown(document, { key: 'Enter' });
+    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('true');
+
+    const fakeMouseDown = new MouseEvent('mousedown');
+    Object.defineProperty(fakeMouseDown, 'target', { value: { notElement: true } });
+    document.dispatchEvent(fakeMouseDown);
+    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.mouseDown(document.body);
+    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(screen.getByTestId('detail-partition-trigger'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByTestId('detail-partition-trigger').getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('messages tab: active filter badge count reflects all non-empty filter fields', () => {
+  it('falls back to default selected labels for unknown draft values and marks active desc option', () => {
     render(
       <KafkaTopicDetailPanel
         detail={makeDetail()}
@@ -581,39 +627,19 @@ describe('KafkaTopicDetailPanel', () => {
         error={null}
         browser={makeBrowser({
           draft: {
-            groupId: 'rf',
-            timeWindow: 'latest',
-            partition: '',
-            timeoutMs: '10000',
-            maxMessages: '50',
-            keyEquals: 'k',
-            headerMatch: 'h=v',
-            jsonPath: '$.id',
-            jsonPathEquals: '',
-            bodyContains: 'text',
+            ...makeBrowser().draft,
+            timeWindow: 'not-real' as never,
+            partition: '99',
             sortOrder: 'desc',
           },
-        } as unknown as Partial<UseTopicMessageBrowserReturn>)}
+        })}
       />,
     );
 
-    const filterBtn = screen.getByRole('button', { name: 'Show filters' });
-    expect(filterBtn.textContent).toContain('Filters (4)');
-    expect(filterBtn.className).toContain('td-filter-toggle--active');
-  });
-
-  it('messages tab: sort order select updates draft', () => {
-    const browser = makeBrowser();
-    render(
-      <KafkaTopicDetailPanel
-        detail={makeDetail()}
-        loading={false}
-        error={null}
-        browser={browser}
-      />,
-    );
-
-    selectOptionByIndex(screen.getByTestId('detail-messages-tab'), 2, 'Newest first');
-    expect(browser.setDraft).toHaveBeenCalledWith({ sortOrder: 'desc' });
+    expect(screen.getByTestId('detail-time-window-trigger').textContent).toContain('Latest');
+    expect(screen.getByTestId('detail-partition-trigger').textContent).toContain('Any');
+    fireEvent.click(screen.getByTestId('detail-sort-order-trigger'));
+    const descOpt = screen.getByTestId('detail-sort-order-opt-desc');
+    expect(descOpt.className).toContain('active');
   });
 });

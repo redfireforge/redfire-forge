@@ -3,7 +3,7 @@
  * auto-reconnect with Last-Event-ID, and event collection.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { resolveEnvVars } from '../websocket/wsMessageUtils';
+import { hasUnresolvedVars, resolveEnvVars } from '../websocket/wsMessageUtils';
 import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from '../websocket/wsAuthResolve';
 import type { GlobalAuthProfile } from '../../shared/types';
 import type {
@@ -109,6 +109,10 @@ export function useSseConnection(
       updateState('error', 'URL is required');
       return;
     }
+    if (hasUnresolvedVars(baseUrl)) {
+      updateState('error', `Unresolved URL variable in: ${baseUrl}`);
+      return;
+    }
 
     // Mark connecting + arm the abort controller synchronously (before the
     // async auth resolve) so the re-entrancy guard in connect() sees the
@@ -189,6 +193,16 @@ export function useSseConnection(
             lastEventIdRef.current,
           );
           appendEvent(event);
+          // Keep connection.lastEventId in sync for the status strip.
+          // (Previously only updateState() refreshed it — so the top badge
+          // froze at the ID from the last connect/disconnect transition.)
+          if (parsed.lastEventId) {
+            setConnection((prev) => (
+              prev.lastEventId === parsed.lastEventId
+                ? prev
+                : { ...prev, lastEventId: parsed.lastEventId }
+            ));
+          }
         },
         onRetry: (ms) => {
           retryMsRef.current = ms;

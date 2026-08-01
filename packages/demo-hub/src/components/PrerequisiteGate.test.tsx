@@ -296,6 +296,35 @@ describe('PrerequisiteGate', () => {
     });
   });
 
+  it('does not flash back to checking on subsequent polls while server stays down', async () => {
+    // First probe settles to down, then a follow-up poll is held in-flight so we
+    // can assert the UI stays on "down" (no ✗ → ⏳ → ✗ flicker every 3s).
+    let resolveSecond: (v: boolean) => void;
+    let call = 0;
+    mockCheck.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          call += 1;
+          if (call === 1) resolve(false);
+          else resolveSecond = resolve;
+        }),
+    );
+    render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+
+    await act(() => vi.advanceTimersByTimeAsync(3100));
+    // Second probe is in-flight — status must still show down, not checking.
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+    expect(screen.queryByLabelText('Checking server…')).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveSecond(false);
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+  });
+
   it('interval probe exits early via line 30 guard when component is already unmounted', async () => {
     // Fast-resolving check so initial probe completes, then unmount, then interval fires
     mockCheck.mockResolvedValue(false);

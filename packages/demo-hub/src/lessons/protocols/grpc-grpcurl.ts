@@ -311,15 +311,10 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
       highlight: GRPC.IMPORT_GRPCURL_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
+        // Setup already normalizes Studio and clears history. Keep intro guard
+        // minimal so lesson start does not visibly re-run prep choreography.
         await ensureStudioNav(ctx);
         await closeImportModalQuiet(ctx);
-        // Full clear once the Studio page is confirmed mounted so the
-        // GRPC_CALL_HISTORY_UPDATED_EVENT reaches the live useGrpcCallHistory
-        // listener and the badge resets to 0 before the viewer sees it.
-        try { await clearGrpcCallHistory(); } catch { /* best-effort */ }
-        // Second pulse after a tick so React's batched state update flushes.
-        await ctx.delay(120);
-        dispatchGrpcCallHistoryReload();
       },
       action: async (ctx) => {
         // Spotlight the Import grpcurl button first so the viewer lands on the exact control.

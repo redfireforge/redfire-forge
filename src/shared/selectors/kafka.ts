@@ -99,6 +99,10 @@ export const KAFKA = {
   STREAM_EXPORT_BTN:        '[data-testid="stream-export-btn"]',
   STREAM_CLEAR_BTN:         '[data-testid="stream-clear-btn"]',
   STREAM_RESULTS_ZONE:      '[data-testid="stream-results-zone"]',
+  STREAM_TABLE_WRAP:        '[data-testid="stream-table-wrap"]',
+  STREAM_SCROLL_BOTTOM_BTN: '[data-testid="stream-scroll-bottom-btn"]',
+  /** First stream result row (0-based index in data-testid). */
+  STREAM_ROW_FIRST:         '[data-testid="stream-row-0"]',
   STREAM_COUNT:             '[data-testid="stream-count"]',
   STREAM_LIVE_BADGE:        '[data-testid="stream-live-badge"]',
   STREAM_CURSOR_GAP:        '[data-testid="stream-cursor-gap"]',
