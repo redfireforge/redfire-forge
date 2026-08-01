@@ -511,14 +511,13 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
         // Ensure recording/replay state is clean before connecting
         await ensureNotReplaying(ctx);
         await ensureNotRecording(ctx);
-        // Connect if not already connected
-        await ensureConnected(ctx);
-        // Switch to Events tab so the Rec button is visible
-        await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(300);
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(400);
+        // Keep the first step instructional and visible: connect + show toolbar.
+        await ensureConnected(ctx);
+        await ctx.delay(700);
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(700);
       },
     },
 

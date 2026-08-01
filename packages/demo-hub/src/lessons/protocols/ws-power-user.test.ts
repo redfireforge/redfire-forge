@@ -67,7 +67,7 @@ describe('ws-power-user lesson', () => {
 
   // ─── Step: pu-setup-tabs ──────────────────────────────────
 
-  it('step pu-setup-tabs preAction creates tabs and renames them', async () => {
+  it('step pu-setup-tabs action creates tabs and renames them', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab1 = document.createElement('div');
@@ -82,9 +82,9 @@ describe('ws-power-user lesson', () => {
     document.body.appendChild(bar);
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-setup-tabs')!;
-    expect(typeof step.preAction).toBe('function');
+    expect(typeof step.action).toBe('function');
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     // Should add new tabs
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
@@ -108,8 +108,8 @@ describe('ws-power-user lesson', () => {
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-setup-tabs')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    // After closing extras, should have tried to add 2 new tabs
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    // Guard-only preAction should run without tab creation clicks.
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
   it('step pu-setup-tabs highlights tab bar', () => {

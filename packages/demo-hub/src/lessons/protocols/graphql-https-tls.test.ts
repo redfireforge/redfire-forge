@@ -138,8 +138,10 @@ describe('gql-https-tls lesson', () => {
     });
   });
 
-  it('intro and endpoint steps reset to plain HTTP before display', () => {
-    expect(gqlHttpsTlsLesson.steps[0].preAction).toBeDefined();
+  it('endpoint step resets to plain HTTP before display (intro is a pure narration step)', () => {
+    // gqlt-intro intentionally has no preAction — the plain-HTTP baseline is already
+    // guaranteed by lesson setup, avoiding a visible reset before step 1 narrates.
+    expect(gqlHttpsTlsLesson.steps[0].preAction).toBeUndefined();
     expect(gqlHttpsTlsLesson.steps[1].preAction).toBeDefined();
   });
 
@@ -245,7 +247,7 @@ describe('gql-https-tls lesson', () => {
   it('gqlt-intro highlights the connection bar (credentials-in-transit context)', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-intro')!;
     expect(step.highlight).toBe(GQL.CONNECTION_BAR);
-    expect(step.preAction).toBeDefined();
+    expect(step.preAction).toBeUndefined();
   });
 
   it('gqlt-endpoint highlights endpoint input and verifies TLS_TOGGLE appears', () => {
@@ -440,12 +442,12 @@ describe('gql-https-tls lesson', () => {
     expect(ctx.delay).toHaveBeenCalled();
   });
 
-  it('gqlt-intro preAction resets endpoint to plain HTTP', async () => {
+  it('gqlt-endpoint preAction resets endpoint to plain HTTP before the switch is demonstrated', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
     `;
-    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-intro')!;
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-endpoint')!;
     await step.preAction!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_PLAIN_HTTP);
   });

@@ -320,21 +320,22 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Close extra tabs first — guards against step-back adding duplicates
+        // Guard only: collapse extra tabs quietly before the visible setup beat.
         await closeExtraConnectionTabs(ctx);
-        await ctx.delay(200);
+      },
+      action: async (ctx: DemoActionContext) => {
         // Add tab 2 and tab 3
         await ctx.click(WS.CONN_TAB_ADD);
-        await ctx.delay(600);
+        await ctx.delay(800);
         await ctx.click(WS.CONN_TAB_ADD);
-        await ctx.delay(600);
+        await ctx.delay(800);
         // Rename each tab by index: 0=Server A, 1=Server B, 2=Staging
         await renameTabByIndex(ctx, 0, 'Server A');
         await renameTabByIndex(ctx, 1, 'Server B');
         await renameTabByIndex(ctx, 2, 'Staging');
         // Switch back to first tab
         await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(400);
+        await ctx.delay(700);
       },
     },
 

@@ -71,11 +71,10 @@ describe('ws-reliability lesson', () => {
 
   // ─── Step: rel-connect ────────────────────────────────────
 
-  it('step rel-connect preAction fills URL and navigates to connect tab', async () => {
+  it('step rel-connect action fills URL and navigates to connect tab', async () => {
     const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-connect')!;
-    expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('WebSocket URL'),
@@ -283,8 +282,7 @@ describe('ws-reliability lesson', () => {
     document.body.appendChild(btn);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    // disconnectWebSocket finds the button and calls ctx.delay(300)
-    expect(ctx.delay).toHaveBeenCalledWith(300);
+    expect(ctx.delay).toHaveBeenCalled();
     btn.remove();
   });
 

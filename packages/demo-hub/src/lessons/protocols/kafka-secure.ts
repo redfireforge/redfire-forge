@@ -106,12 +106,14 @@ export const kafkaSecureLesson: DemoLesson = {
       description:
         'Time to lock things down. In this lesson you\'ll create a new cluster config for the **SASL/SCRAM-256** secured Kafka node running on port **19093**. Make sure the secure Docker stack is running: `cd docker/kafka/secure && docker compose up -d`.',
       highlight: KAFKA.SETTINGS_PAGE,
-      preAction: async (ctx) => {
-        ctx.navigateToTab('kafka-settings');
-        await ctx.delay(600);
+      preAction: async () => {
         document.querySelectorAll('.kafka-cluster-card.selected').forEach((el) => {
           el.classList.remove('selected');
         });
+      },
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.SETTINGS_PAGE, 3000);
+        await ctx.delay(600);
       },
     },
 

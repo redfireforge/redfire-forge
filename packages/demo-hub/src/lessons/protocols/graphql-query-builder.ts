@@ -310,9 +310,10 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       highlight: GQL.MODE_BUILDER,
       preAction: async (ctx) => {
         await closeGqlActivityPanelIfOpen(ctx);
-        await ensureIntrospectedOnDirectEndpoint(ctx);
       },
       action: async (ctx) => {
+        await ensureIntrospectedOnDirectEndpoint(ctx);
+        await ctx.delay(700);
         await ensureBuilderMode(ctx);
         await ctx.delay(800);
       },

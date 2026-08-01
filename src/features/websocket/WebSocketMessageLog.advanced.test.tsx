@@ -4,7 +4,6 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
 import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
 
@@ -530,7 +529,7 @@ describe('WebSocketMessageLog', () => {
         onStopReplay: vi.fn(),
         onSetReplaySpeed: onSetSpeed,
       })} />);
-      selectOption(screen.getByTestId('replay-speed-select'), '5×');
+      fireEvent.change(screen.getByTestId('replay-speed-select'), { target: { value: '5' } });
       expect(onSetSpeed).toHaveBeenCalledWith(5);
     });
 
@@ -717,29 +716,31 @@ describe('WebSocketMessageLog', () => {
   });
 
   describe('direction filter rendering', () => {
-    it('renders direction filter select', () => {
+    it('renders direction filter dropdown trigger', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      const select = screen.getByLabelText('Direction filter');
-      expect(select).toBeTruthy();
+      const trigger = screen.getByLabelText('Direction filter');
+      expect(trigger).toBeTruthy();
     });
 
-    it('calls setDirectionFilter on change', () => {
+    it('calls setDirectionFilter on option click', () => {
       const setDir = vi.fn();
       render(<WebSocketMessageLog {...defaultProps({ setDirectionFilter: setDir })} />);
-      selectOption(screen.getByLabelText('Direction filter').closest('.cs-wrapper')!, 'Sent');
+      fireEvent.click(screen.getByLabelText('Direction filter'));
+      fireEvent.click(screen.getByTestId('direction-filter-opt-sent'));
       expect(setDir).toHaveBeenCalledWith('sent');
     });
   });
 
   describe('validation filter change', () => {
-    it('calls setValidationFilter on change', () => {
+    it('calls setValidationFilter on option click', () => {
       const setFilter = vi.fn();
       render(<WebSocketMessageLog {...defaultProps({
         validationEnabled: true,
         hasEnabledSchemas: true,
         setValidationFilter: setFilter,
       })} />);
-      selectOption(screen.getByTestId('validation-filter'), 'Invalid only');
+      fireEvent.click(screen.getByTestId('validation-filter'));
+      fireEvent.click(screen.getByTestId('validation-filter-opt-invalid'));
       expect(setFilter).toHaveBeenCalledWith('invalid');
     });
   });

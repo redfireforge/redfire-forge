@@ -77,6 +77,12 @@ export interface DemoLesson {
   gateLabel?: string;
   /** GraphQL Studio demo tabs this lesson needs (default 1). User cap = 8 − tabBudget. */
   tabBudget?: number;
+  /**
+   * When true, skip creating a dedicated WebSocket/gRPC "demo" connection tab
+   * at live-demo start. Use for lessons that teach the tab bar itself (e.g. Tabs
+   * & Multi-Connection) — isolation add/rename/close flashes must not run.
+   */
+  skipStudioTabIsolation?: boolean;
   /** When true, the live demo can only run in the Tauri desktop app — web shows a gate and disables Start Demo. */
   desktopOnly?: boolean;
   /** Bumped when lesson content changes meaningfully (new steps, rewritten

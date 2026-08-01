@@ -91,7 +91,10 @@ export const wsMockServerLesson: DemoLesson = {
   estimatedMinutes: 3,
   initialTab: 'websocket-studio',
 
-  /** Ensure a clean slate so step 1 can visibly demonstrate switching to Mock mode. */
+  /** Ensure a clean slate so step 1 can visibly demonstrate switching to Mock mode.
+   *  Keeps the lesson's starting UI stable — no mode toggling before step 1 narrates.
+   *  The actual mock port is captured naturally in step 1's action, the first time
+   *  Mock mode is genuinely entered (a lesson-visible, intentional transition). */
   setup: async (ctx) => {
     _mockRunning = false;
     _clientConnected = false;
@@ -100,30 +103,32 @@ export const wsMockServerLesson: DemoLesson = {
     // tab's Mock Server panel is the only one mounted — avoids querySelector ambiguity
     // (an inactive tab's hidden panel can otherwise be mistaken for the active one).
     await closeExtraConnectionTabs(ctx);
-    await ctx.delay(200);
-    // Disconnect any active client session
+    // Disconnect any active client session (invisible if button not shown)
     const disconnectBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
     if (disconnectBtn && !disconnectBtn.disabled) {
       disconnectBtn.click();
-      await ctx.delay(300);
     }
-    // Navigate to Mock mode and stop the server if it's already running
-    await ctx.click(WS.MODE_MOCK);
-    await ctx.delay(200);
-    // Capture this tab's real assigned port (may be 9877/9878 if other tabs existed)
-    // BEFORE returning to Client — so the Connect URL matches from the first screen.
-    captureMockPort();
-    const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_STOP_BTN);
-    if (stopBtn && !stopBtn.disabled) {
-      stopBtn.click();
-      await ctx.delay(400);
+    // Only touch mode/mock state if we're recovering from a mid-lesson restart where
+    // the server was left running in Mock mode — this correction is rare and necessary.
+    // In the common case (fresh start, already in Client mode) nothing is touched here,
+    // so step 1 is the very first visible mode change the viewer sees.
+    const mockModeActive = document.querySelector(WS.MODE_MOCK + '.active, ' + WS.MODE_MOCK + '[aria-selected="true"]');
+    if (mockModeActive) {
+      captureMockPort();
+      const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_STOP_BTN);
+      if (stopBtn && !stopBtn.disabled) {
+        stopBtn.click();
+      }
+      document.querySelector<HTMLButtonElement>(WS.MODE_CLIENT)?.click();
     }
-    // Return to Client mode with the correct mock port already in the URL field
-    await ctx.click(WS.MODE_CLIENT);
-    await ctx.waitFor(WS.CONNECT_BTN, 2000);
-    await ctx.click(WS.LEFT_TAB_CONNECT);
-    await ctx.fill(WS.URL_INPUT, `ws://localhost:${_mockPort}`);
-    await ctx.delay(200);
+    // Ensure Client mode with the default URL — the resting state step 1 starts from.
+    document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+    const urlInput = document.querySelector<HTMLInputElement>(WS.URL_INPUT);
+    if (urlInput) {
+      urlInput.value = `ws://localhost:${_mockPort}`;
+      urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+      urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   },
 
   cleanup: async (ctx) => {
@@ -153,7 +158,7 @@ WebSocket Studio has two modes accessible via toggle buttons at the top:
 
 You'll switch between them during this lesson.
 
-**Port isolation:** every connection tab gets its own Mock Server port (9876, 9877, 9878, …) so tabs never interfere with each other. Always connect the Client to the exact port shown in this tab's Mock Server panel — if you connect to a different port, your messages will go to a different server instance, and this tab's Activity Log will stay empty even though your client works fine. RedFire Forge shows a warning banner in the Mock Server panel whenever it detects that mismatch.`,
+**Port isolation:** every connection tab gets its own Mock Server port (starting at 9876, then 9877, …) so tabs never interfere with each other. Always connect the Client to the exact port shown in this tab's Mock Server panel — if you connect to a different port, your messages will go to a different server instance, and this tab's Activity Log will stay empty even though your client works fine. RedFire Forge shows a warning banner in the Mock Server panel whenever it detects that mismatch.`,
     keyTerms: [
       { term: 'Echo', definition: 'The server sends back exactly what it received. Perfect for verifying your client is working.' },
       { term: 'Broadcast', definition: 'The server sends a message to ALL connected clients simultaneously.' },
@@ -187,6 +192,10 @@ You'll switch between them during this lesson.
         await ctx.click(WS.MODE_MOCK);
         // Wait for the mock panel to confirm the mode switch — Rule 5
         await ctx.waitFor(WS.MOCK_BTN_ANY, 2000);
+        // Capture this tab's actual assigned port now that the Mock panel is
+        // visible for the first time — this is the lesson's own intentional
+        // mode transition, so no extra setup-time peek is needed.
+        captureMockPort();
       },
     },
     {

@@ -79,13 +79,68 @@ function buildAuthHeader(config: KafkaSchemaConfig): Record<string, string> {
 async function registryGet<T>(
   config: KafkaSchemaConfig,
   path: string,
+  timeoutMs = 10_000,
 ): Promise<T> {
   const url = `${config.registryUrl.replace(/\/$/, '')}${path}`;
   const headers = { Accept: 'application/json', ...buildAuthHeader(config) };
 
   let response: Response;
   try {
-    response = await fetch(url, { headers });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    response = await fetch(url, { headers, signal: controller.signal });
+    clearTimeout(timer);
+  } catch (networkError) {
+    const message = networkError instanceof Error ? networkError.message : String(networkError);
+    throw new SchemaRegistryError(
+      SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
+      `Schema registry unreachable: ${message}`,
+    );
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    throw new SchemaRegistryError(
+      SCHEMA_ERROR_CODES.REGISTRY_AUTH_FAILURE,
+      `Schema registry auth failure: HTTP ${response.status}`,
+    );
+  }
+
+  if (!response.ok) {
+    throw new SchemaRegistryError(
+      SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
+      `Schema registry returned HTTP ${response.status} for ${path}`,
+    );
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new SchemaRegistryError(
+      SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
+      `Schema registry returned non-JSON response for ${path}`,
+    );
+  }
+}
+
+async function registryPost<T>(
+  config: KafkaSchemaConfig,
+  path: string,
+  payload: unknown,
+): Promise<T> {
+  const url = `${config.registryUrl.replace(/\/$/, '')}${path}`;
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/vnd.schemaregistry.v1+json',
+    ...buildAuthHeader(config),
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
   } catch (networkError) {
     const message = networkError instanceof Error ? networkError.message : String(networkError);
     throw new SchemaRegistryError(
@@ -201,6 +256,31 @@ export async function listSubjects(config: KafkaSchemaConfig): Promise<string[]>
   return Array.isArray(result) ? result : [];
 }
 
+export interface SubjectWithFormat {
+  name: string;
+  schemaType?: string;
+}
+
+/**
+ * List all subjects with their schema format (fetched from latest version).
+ * Best-effort: if fetching a subject's latest schema fails, format is omitted.
+ * Uses a short per-subject timeout (5s) so a slow registry doesn't block indefinitely.
+ */
+export async function listSubjectsWithFormat(config: KafkaSchemaConfig): Promise<SubjectWithFormat[]> {
+  const names = await listSubjects(config);
+  const results = await Promise.allSettled(
+    names.map(async (name): Promise<SubjectWithFormat> => {
+      const encoded = encodeURIComponent(name);
+      interface LatestResponse { schemaType?: string }
+      const raw = await registryGet<LatestResponse>(config, `/subjects/${encoded}/versions/latest`, 5_000);
+      return { name, schemaType: raw.schemaType ?? 'AVRO' };
+    }),
+  );
+  return results.map((r, i) =>
+    r.status === 'fulfilled' ? r.value : { name: names[i] },
+  );
+}
+
 /**
  * List all schema versions for a subject.
  * Throws `SchemaRegistryError` on connectivity or auth failures.
@@ -259,6 +339,26 @@ export async function fetchSchema(
 
   // Cache by the concrete version resolved from the response (immutable).
   subjectVersionCache.set(subjectVersionKey(subject, raw.version), result);
+  return result;
+}
+
+/**
+ * Register a schema under a subject.
+ * Returns the registered schema ID and (when provided by the registry) version.
+ */
+export async function registerSchemaVersion(
+  config: KafkaSchemaConfig,
+  subject: string,
+  schema: string,
+  schemaType: 'AVRO' | 'PROTOBUF' | 'JSON' = 'AVRO',
+): Promise<{ id: number; version?: number }> {
+  const encoded = encodeURIComponent(subject);
+  const payload = { schema, schemaType };
+  const result = await registryPost<{ id: number; version?: number }>(
+    config,
+    `/subjects/${encoded}/versions`,
+    payload,
+  );
   return result;
 }
 

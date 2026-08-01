@@ -264,13 +264,13 @@ Filters are applied server-side before messages are returned — you never downl
         'They are ideal for correlation IDs, source tags, and environment markers.',
       highlight: KAFKA.PUB_HEADER_ADD_BTN,
       preAction: async (ctx) => {
-        await ctx.click(KAFKA.PUBLISH_TAB);
-        await ctx.delay(300);
+        document.querySelector<HTMLElement>(KAFKA.PUBLISH_TAB)?.click();
+        await ctx.delay(120);
         // Clear any header rows left over from a previous lesson run.
-        await ctx.click(HEADER_REMOVE_BTN);
-        await ctx.delay(150);
-        await ctx.click(HEADER_REMOVE_BTN);
-        await ctx.delay(150);
+        document.querySelector<HTMLElement>(HEADER_REMOVE_BTN)?.click();
+        await ctx.delay(80);
+        document.querySelector<HTMLElement>(HEADER_REMOVE_BTN)?.click();
+        await ctx.delay(80);
       },
       action: async (ctx) => {
         const { showSpotlightRing } = await import('../../demoRipple');

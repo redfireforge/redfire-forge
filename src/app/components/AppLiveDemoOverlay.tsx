@@ -12,9 +12,22 @@ interface AppLiveDemoOverlayProps {
 export default function AppLiveDemoOverlay({ demoHub, navigateToTab }: AppLiveDemoOverlayProps) {
   if (demoHub.state.view !== 'live' || !demoHub.state.selectedLesson) return null;
 
-  const exitToConcept = () => {
+  const pinDemoHubTab = () => {
     navigateToTab('demo-hub');
-    void demoHub.exitLiveDemo();
+  };
+
+  const exitToConcept = () => {
+    // exitLiveDemo sets suppressLiveTabExitRef before pinning demo-hub so
+    // DemoShellHost cannot bounce live+demo-hub → initialTab (Studio flash).
+    if (demoHub.suppressLiveTabExitRef) {
+      demoHub.suppressLiveTabExitRef.current = true;
+    }
+    const exitPromise = Promise.resolve(demoHub.exitLiveDemo());
+    pinDemoHubTab();
+    void exitPromise.finally(() => {
+      // Lesson cleanup may navigate to protocol/workflow tabs; pin final destination.
+      pinDemoHubTab();
+    });
   };
 
   return (

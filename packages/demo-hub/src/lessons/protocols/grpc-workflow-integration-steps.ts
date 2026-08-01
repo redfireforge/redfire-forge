@@ -89,25 +89,24 @@ export const grpcWorkflowIntegrationSteps: GrpcDemoLesson['steps'] = [
       await closeWfConfigModalIfOpen(ctx);
       if (!document.querySelector(WF.PAL_SEARCH) || !isWorkflowPresent()) {
         ctx.navigateToTab('workflow');
-        await ctx.delay(150);
+        await ctx.delay(300);
         if (!isWorkflowPresent()) await seedCompleteWorkflowQuiet(ctx);
         await expandWfDemoAppSidebar(ctx);
         wf14Session.sidebarCollapsed = false;
         await ctx.waitFor(WF.PAL_SEARCH, 5000);
       }
-      if (document.querySelector<HTMLInputElement>(WF.PAL_SEARCH)?.value) {
-        await ctx.fill(WF.PAL_SEARCH, '');
+      const palInput = document.querySelector<HTMLInputElement>(WF.PAL_SEARCH);
+      if (palInput && palInput.value) {
+        palInput.value = '';
+        palInput.dispatchEvent(new Event('input', { bubbles: true }));
+        palInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
-      // Silent Fit View — setup already fitted; just reapply padding for LiveDemo card.
-      fitWorkflowCanvasView();
-      document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN)?.click();
-      await ctx.delay(120);
     },
     action: async (ctx) => {
       // Reading already rings the Blocks palette — type grpc and hold the filter.
       await spotlightAndPause(ctx, WF.PAL_SEARCH, 450);
       await ctx.fill(WF.PAL_SEARCH, 'grpc');
-      await ctx.delay(300);
+      await ctx.delay(700);
       await ctx.waitFor(WF.PAL_GRPC_UNARY, 2000);
       await ctx.waitFor(WF.PAL_GRPC_SERVER_STREAM, 2000);
       await ctx.waitFor(WF.PAL_GRPC_ASSERT, 2000);

@@ -125,9 +125,9 @@ export const kafkaTemplatesLesson: DemoLesson = {
       description:
         'The Publish tab has two template buttons in the card header: **Load ▾** (opens a dropdown of saved templates) and **Save** (captures the current form state). No broker connection is required — templates work entirely in the browser.',
       highlight: TEMPLATE_CONTROLS,
-      preAction: async (ctx) => {
+      action: async (ctx) => {
         await ctx.click(KAFKA.PUBLISH_TAB);
-        await ctx.delay(300);
+        await ctx.delay(800);
       },
     },
     {

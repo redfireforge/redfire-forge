@@ -92,11 +92,18 @@ describe('ws-workspace lesson', () => {
 
   // ─── Step: ws-profile-intro ────────────────────────────────────
 
-  it('step ws-profile-intro has preAction that clicks saved mode', async () => {
+  it('step ws-profile-intro preAction only clears stale selection (mode click happens visibly in action)', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-intro')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('step ws-profile-intro action clicks saved mode', async () => {
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-intro')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-saved'));
   });
 
@@ -437,11 +444,17 @@ describe('ws-workspace lesson', () => {
 
   it('setup starts mock server and switches to client mode', async () => {
     stubMockServerRunning();
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const connectClickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await wsWorkspaceLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    // Final connect-tab switch uses a plain DOM click (not ctx.click) — no ripple during setup.
+    expect(connectClickSpy).toHaveBeenCalled();
   });
 
   it('cleanup switches to client mode', async () => {
@@ -510,7 +523,7 @@ describe('ws-workspace lesson', () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(ctx.delay).toHaveBeenCalledWith(500);
   });
 
   it('step ws-profile-load action selects card and clicks load button', async () => {

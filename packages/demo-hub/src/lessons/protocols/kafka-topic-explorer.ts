@@ -88,8 +88,6 @@ export const kafkaTopicExplorerLesson: DemoLesson = {
     await kafkaPublishSetup(ctx);
     // Seed messages into audit.login so the detail panel has data
     await seedAuditLoginMessages();
-    await ctx.click(KAFKA.TOPICS_TAB);
-    await ctx.delay(600);
 
     // Wait for the KafkaStudioGuard to disappear (React connection state updates
     // asynchronously via status polling after kafkaPublishSetup connects).
@@ -202,12 +200,16 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       description:
         'The **Topics** tab gives you a live view of your entire cluster — topics, health, traffic, and consumer groups — all without opening a terminal. Click it to see the two-panel layout: a searchable topic list on the left and a detail panel on the right.',
       highlight: KAFKA.TOPICS_TAB,
-      preAction: async (ctx) => {
-        await ctx.click(KAFKA.TOPICS_TAB);
-        await ctx.delay(400);
+      preAction: async () => {
         document.querySelectorAll('.kafka-explorer-topic-table tbody tr.selected').forEach((el) => {
           el.classList.remove('selected');
         });
+      },
+      action: async (ctx) => {
+        await ctx.click(KAFKA.TOPICS_TAB);
+        await ctx.delay(800);
+        await ctx.waitFor(KAFKA.TOPICS_TAB, 3000);
+        await ctx.delay(600);
       },
     },
 

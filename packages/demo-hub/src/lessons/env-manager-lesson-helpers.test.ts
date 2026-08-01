@@ -269,6 +269,58 @@ describe('env-manager-lesson-helpers', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
   });
 
+  it('ensureSseDemoHeaderContext uses bridge without opening header selects', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="">Select env</option>
+        <option value="e1">SSE Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="">Select svc</option>
+        <option value="s1">sse-demo</option>
+      </select>`;
+    const ensureEnv = vi.fn(() => 'e1');
+    const ensureSvc = vi.fn(() => 's1');
+    const selectEnvSvc = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = ensureEnv;
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = ensureSvc;
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = selectEnvSvc;
+    try {
+      const ctx = makeCtx();
+      await ensureSseDemoHeaderContext(ctx);
+      expect(ensureEnv).toHaveBeenCalledWith('SSE Demo');
+      expect(ensureSvc).toHaveBeenCalledWith('sse-demo', { e1: 'http://localhost:3001' });
+      expect(selectEnvSvc).toHaveBeenCalledWith('e1', 's1');
+      // Bridge path must not open Environment/Service dropdowns (viewer flash).
+      expect(ctx.selectOption).not.toHaveBeenCalled();
+      expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+    } finally {
+      delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+      delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc;
+      delete (window as unknown as Record<string, unknown>).__demoSelectEnvSvc;
+    }
+  });
+
+  it('ensureSseDemoHeaderContext is a no-op when env and svc are already selected', async () => {
+    document.body.innerHTML = `
+      <div data-testid="header-env-select"><span class="cs-text">SSE Demo</span></div>
+      <div data-testid="header-svc-select"><span class="cs-text">sse-demo</span></div>`;
+    const ensureEnv = vi.fn(() => 'e1');
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = ensureEnv;
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = vi.fn(() => 's1');
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = vi.fn();
+    try {
+      const ctx = makeCtx();
+      await ensureSseDemoHeaderContext(ctx);
+      expect(ensureEnv).not.toHaveBeenCalled();
+      expect(ctx.selectOption).not.toHaveBeenCalled();
+    } finally {
+      delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+      delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc;
+      delete (window as unknown as Record<string, unknown>).__demoSelectEnvSvc;
+    }
+  });
+
   it('ensureProtocolDisabled clicks remove when HTTP tab is present (no viewer ripple)', async () => {
     document.body.innerHTML = `
       <div data-testid="microservice-protocol-panel">
@@ -773,7 +825,18 @@ describe('env-manager-lesson-helpers', () => {
 
   // ── cleanupDemoMicroservice ──────────────────────────────────────
 
+  it('cleanupDemoMicroservice uses settings bridge when available (no EM navigation)', async () => {
+    const remove = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc = remove;
+    const ctx = makeCtx();
+    await cleanupDemoMicroservice(ctx, 'sse-demo');
+    expect(remove).toHaveBeenCalledWith('sse-demo');
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
+  });
+
   it('cleanupDemoMicroservice is no-op when svc not in DOM', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
     document.body.innerHTML = '<div class="env-manager"></div>';
     const ctx = makeCtx();
     await cleanupDemoMicroservice(ctx, 'sse-demo');
@@ -783,6 +846,7 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('cleanupDemoMicroservice clicks Delete and confirms when svc card is present', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
     document.body.innerHTML = `
       <div class="env-manager">
         <div data-svc-name="sse-demo">
@@ -799,6 +863,7 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('cleanupDemoMicroservice collapses expanded panel before deleting', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
     document.body.innerHTML = `
       <div class="env-manager">
         <div data-svc-name="sse-demo">
@@ -815,7 +880,18 @@ describe('env-manager-lesson-helpers', () => {
 
   // ── cleanupDemoEnvironment ───────────────────────────────────────
 
+  it('cleanupDemoEnvironment uses settings bridge when available (no EM navigation)', async () => {
+    const remove = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv = remove;
+    const ctx = makeCtx();
+    await cleanupDemoEnvironment(ctx, 'SSE Demo');
+    expect(remove).toHaveBeenCalledWith('SSE Demo');
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv;
+  });
+
   it('cleanupDemoEnvironment is no-op when env chip not in DOM', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv;
     document.body.innerHTML = '<div class="env-manager"></div>';
     const ctx = makeCtx();
     await cleanupDemoEnvironment(ctx, 'SSE Demo');
@@ -825,6 +901,7 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('cleanupDemoEnvironment clicks × and confirms when chip is present', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv;
     document.body.innerHTML = `
       <div class="env-manager">
         <div data-env-name="SSE Demo" class="settings-chip">

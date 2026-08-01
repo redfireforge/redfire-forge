@@ -12,8 +12,12 @@ export const SSE = {
   MESSAGE_LOG:         '[data-testid="sse-message-log"]',
   EVENT_ROW:           '[data-testid="sse-event-row"]',
   EVENT_DETAIL:        '[data-testid="sse-event-detail"]',
+  /** Last-Event-ID row inside the Event Detail panel. */
+  EVENT_DETAIL_LAST_ID:'[data-testid="sse-event-detail-last-id"]',
   SEARCH_INPUT:        '[data-testid="sse-search"]',
   TYPE_FILTER:         '[data-testid="sse-type-filter"]',
+  /** Per-row star toggle (☆ / ★). */
+  BOOKMARK_BTN:        '[data-testid="sse-bookmark-btn"]',
   BOOKMARK_FILTER:     '[data-testid="sse-bookmark-filter"]',
   EXPORT_BTN:          '[data-testid="sse-export-btn"]',
   CLEAR_BTN:           '[data-testid="sse-clear-btn"]',

@@ -259,7 +259,6 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       description:
         'Every GraphQL API you call in production is served over **HTTPS**. In GQL-4 you configured Bearer tokens and API Keys — but without encryption those credentials travel in **plain text** across every router and switch between your machine and the server. Anyone on the same network can read them. HTTPS wraps the entire HTTP exchange in a **TLS tunnel**: the request, response, and every header (including `Authorization`) are encrypted before leaving your machine. The demo tab still points at plain `http://localhost:4010/graphql` — the next step switches to a **real local TLS server** on port 4443.',
       highlight: GQL.CONNECTION_BAR,
-      preAction: ensurePlainHttpEndpoint,
       pauseAfter: true,
     },
 

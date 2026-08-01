@@ -100,7 +100,10 @@ export function useWebSocketMockServer(port: number, active: boolean): UseWebSoc
       if (cancelled) return;
       setRulesState(savedRules);
       if (saved) {
-        setConfigState({ port: saved.port, fallback: saved.fallback as WsMockFallbackMode });
+        // Always keep the tab-assigned port — never let a stale saved.port
+        // (e.g. 9878 stored under a 9876 key) override the prop and desync
+        // the URL preview from the port field.
+        setConfigState({ port, fallback: saved.fallback as WsMockFallbackMode });
       }
     })();
     return () => { cancelled = true; };

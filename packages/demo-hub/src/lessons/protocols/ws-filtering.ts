@@ -1,19 +1,60 @@
 /** Lesson 6: Filtering, Diff & Schema — search modes, compare, and JSON schema validation */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents, connectToMockServer } from '../setup-helpers';
+import {
+  clearEvents,
+  disconnectWebSocket,
+  fillControlledInput,
+  firstVisibleEl,
+  getLastMockPort,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
 import { WS } from '@shared/selectors';
 import { firstVisibleElement, visibleElements } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
+
+/** Seed payloads for search / direction / diff steps. */
+const FILTER_SEED_MESSAGES = [
+  '{"type": "greeting", "message": "Hello WebSocket!"}',
+  '{"type": "status", "code": 200, "online": true}',
+  '{"type": "greeting", "message": "Hello again!"}',
+  '{"type": "error", "code": 500, "message": "Something went wrong"}',
+] as const;
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-/** Send a message via the Send panel and wait for echo. */
-async function sendMessage(ctx: DemoActionContext, message: string): Promise<void> {
-  await ctx.click(WS.LEFT_TAB_SEND);
-  await ctx.delay(200);
-  await ctx.fill(WS.MESSAGE_INPUT, message);
-  await ctx.delay(100);
-  await ctx.click(WS.SEND_BTN);
-  await ctx.delay(800);
+/** Quiet connect — no demo ripples (setup runs under the live overlay). */
+async function connectToMockServerQuiet(ctx: DemoActionContext): Promise<void> {
+  const url = `ws://localhost:${getLastMockPort()}`;
+  firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+  await ctx.delay(60);
+  const input = firstVisibleEl<HTMLInputElement>(WS.URL_INPUT);
+  if (input) fillControlledInput(input, url);
+  await ctx.delay(40);
+  const connectBtn = firstVisibleEl<HTMLButtonElement>(WS.CONNECT_BTN);
+  if (connectBtn && !connectBtn.disabled) connectBtn.click();
+  for (let i = 0; i < 40; i++) {
+    const dc = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+    if (dc && !dc.disabled) break;
+    await ctx.delay(80);
+  }
+  await ctx.delay(80);
+}
+
+/** Quietly seed messages on Send once, then land on Events (no ripples). */
+async function seedFilteringMessagesQuiet(ctx: DemoActionContext): Promise<void> {
+  firstVisibleEl<HTMLElement>(WS.LEFT_TAB_SEND)?.click();
+  await ctx.delay(60);
+  for (const message of FILTER_SEED_MESSAGES) {
+    const input = firstVisibleEl<HTMLTextAreaElement | HTMLInputElement>(WS.MESSAGE_INPUT);
+    if (input) fillControlledInput(input, message);
+    firstVisibleEl<HTMLButtonElement>(WS.SEND_BTN)?.click();
+    await ctx.delay(220);
+  }
+  firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+  await ctx.delay(80);
+  (document.activeElement as HTMLElement | null)?.blur?.();
 }
 
 /**
@@ -97,61 +138,53 @@ async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
 }
 
 /**
- * Setup: start mock, connect, send 4 varied messages for filtering/diff demos.
- * Messages have different structures to make search/filter/diff interesting.
+ * Setup: quiet REST mock + client, connect/seed without demo ripples.
+ * Runs under the live overlay — visible Mock/Send tours flash step 1.
  */
 async function filteringSetup(ctx: DemoActionContext): Promise<void> {
-  // Wait for UI
-  await ctx.delay(500);
-  // Disconnect any existing connection
-  await disconnectWebSocket(ctx);
-  await ctx.delay(200);
-  // Clear leftover events
-  await clearEvents(ctx);
-  await ctx.delay(200);
-  // Start mock + switch to client
-  await wsSetup(ctx);
-  await ctx.delay(300);
-  // Connect
-  await connectToMockServer(ctx);
-  // Send 4 varied messages for filtering/diff demos
-  await sendMessage(ctx, '{"type": "greeting", "message": "Hello WebSocket!"}');
-  await sendMessage(ctx, '{"type": "status", "code": 200, "online": true}');
-  await sendMessage(ctx, '{"type": "greeting", "message": "Hello again!"}');
-  await sendMessage(ctx, '{"type": "error", "code": 500, "message": "Something went wrong"}');
-  // Switch to Events tab so the user sees the messages
-  await ctx.click(WS.RIGHT_TAB_EVENTS);
-  await ctx.delay(300);
+  await startMockServerQuiet(ctx);
+  await switchToClientModeQuiet(ctx);
+  // Quiet disconnect/clear (no ripples)
+  const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(60);
+  }
+  const clearBtn = firstVisibleEl<HTMLButtonElement>(WS.CLEAR_BTN);
+  if (clearBtn && !clearBtn.disabled) {
+    clearBtn.click();
+    await ctx.delay(60);
+  }
+  await connectToMockServerQuiet(ctx);
+  await seedFilteringMessagesQuiet(ctx);
 }
 
-/** Cleanup: close diff/compare mode, disconnect, clear, stop mock. */
+/** Cleanup: close diff/compare mode, disconnect, clear, stop mock quietly. */
 async function filteringCleanup(ctx: DemoActionContext): Promise<void> {
   // Close diff modal if open
   const diffClose = firstVisibleElement<HTMLButtonElement>(WS.DIFF_CLOSE);
   if (diffClose) {
     diffClose.click();
-    await ctx.delay(300);
+    await ctx.delay(120);
   }
   // Exit compare mode if active
   const cancelBtn = firstVisibleElement<HTMLButtonElement>(WS.COMPARE_CANCEL);
   if (cancelBtn) {
     cancelBtn.click();
-    await ctx.delay(200);
+    await ctx.delay(80);
   }
   // Close filter bar if open
   const filterBar = firstVisibleElement(WS.FILTER_BAR);
   if (filterBar) {
-    const toggleBtn = firstVisibleElement<HTMLButtonElement>(WS.FILTER_TOGGLE_BTN);
-    if (toggleBtn) {
-      toggleBtn.click();
-      await ctx.delay(200);
-    }
+    firstVisibleEl<HTMLButtonElement>(WS.FILTER_TOGGLE_BTN)?.click();
+    await ctx.delay(80);
   }
-  // Switch back to events tab
-  await ctx.click(WS.RIGHT_TAB_EVENTS);
-  await ctx.delay(200);
-  // Standard cleanup
-  await wsCleanup(ctx);
+  firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+  await ctx.delay(60);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx);
+  await switchToClientModeQuiet(ctx);
 }
 
 export const wsFilteringLesson: DemoLesson = {
@@ -258,14 +291,19 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       description:
         'The search bar supports three modes: Text (simple substring), Regex (pattern matching), and JSONPath (query JSON structure). Let\'s try a text search to find "greeting" messages.',
       highlight: WS.SEARCH_MODE_PILLS,
-      preAction: async (ctx) => {
-        // Ensure we're on Events tab
-        await ensureEventsTab(ctx);
-      },
       action: async (ctx) => {
-        // Type a search term
+        await ensureEventsTab(ctx);
+        await ctx.delay(400);
         await ctx.fill(WS.SEARCH_INPUT, 'greeting');
-        await ctx.delay(800);
+        // Spotlight the search box so the viewer sees what was typed
+        const searchEl = firstVisibleElement<HTMLElement>(WS.SEARCH_INPUT);
+        if (searchEl) {
+          const dispose = showSpotlightRing(searchEl);
+          await ctx.delay(900);
+          dispose();
+        } else {
+          await ctx.delay(900);
+        }
       },
       pauseAfter: true,
     },
@@ -283,7 +321,9 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       },
       action: async (ctx) => {
         // Select "Sent" to show only sent messages
-        await ctx.selectOption(WS.DIRECTION_FILTER, 'sent');
+        await ctx.click(WS.DIRECTION_FILTER);
+        await ctx.delay(120);
+        await ctx.click(WS.DIRECTION_FILTER_OPT_SENT);
         await ctx.delay(800);
       },
       pauseAfter: true,
@@ -300,7 +340,9 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Ensure Events tab is visible before touching toolbar controls
         await ensureEventsTab(ctx);
         // Reset direction filter to "All" and clear search
-        await ctx.selectOption(WS.DIRECTION_FILTER, 'all');
+        await ctx.click(WS.DIRECTION_FILTER);
+        await ctx.delay(120);
+        await ctx.click(WS.DIRECTION_FILTER_OPT_ALL);
         await ctx.delay(200);
         await ctx.fill(WS.SEARCH_INPUT, '');
         await ctx.delay(200);
@@ -308,7 +350,16 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       action: async (ctx) => {
         // Toggle filter bar open
         await ctx.click(WS.FILTER_TOGGLE_BTN);
-        await ctx.delay(800);
+        await ctx.delay(600);
+        // Spotlight each dropdown in turn so the viewer sees all three filters
+        for (const sel of [WS.FILTER_SIZE, WS.FILTER_TIME, WS.FILTER_CONTENT_TYPE]) {
+          const el = document.querySelector<HTMLElement>(sel);
+          if (!el) continue;
+          const dispose = showSpotlightRing(el);
+          await ctx.delay(500);
+          dispose();
+        }
+        await ctx.delay(300);
       },
       verify: WS.FILTER_BAR,
       pauseAfter: true,
@@ -560,6 +611,18 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Switch back to events tab — user sees validation badges on each message
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(800);
+        // Spotlight a valid badge (✓) and an invalid badge (✗) so the user notices them
+        const allBadges = Array.from(document.querySelectorAll<HTMLElement>(WS.VALIDATION_BADGE));
+        const validBadge   = allBadges.find((b) => b.classList.contains('ws-validation-valid'));
+        const invalidBadge = allBadges.find((b) => b.classList.contains('ws-validation-invalid'));
+        for (const badge of [validBadge, invalidBadge]) {
+          if (!badge) continue;
+          const dispose = showSpotlightRing(badge);
+          await ctx.delay(700);
+          dispose();
+          await ctx.delay(100);
+        }
+        await ctx.delay(300);
       },
       pauseAfter: true,
     },

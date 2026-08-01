@@ -1,30 +1,173 @@
 /** Lesson K8: Stream Mode — watch Kafka messages arrive in real time */
 import type { DemoLesson, DemoActionContext } from '../../types';
-import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
+import { kafkaSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '@shared/selectors';
+import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
+import { findScrollableParent } from '../../demoSpotlightUtils';
+import { showSpotlightRing } from '../../demoRipple';
 
 /** Topic used for the live stream demo — same topic K2 published to. */
 const STREAM_TOPIC = 'orders.created';
 
 /**
- * Stream mode setup: ensure cluster is connected, then publish a test message
- * so the results table is non-empty when the stream starts from `earliest`.
+ * Select "Earliest" in the Start Position CustomSelect with visible pauses:
+ * 1. Open trigger (ripple)
+ * 2. Spotlight the open menu so the viewer can see the options
+ * 3. Spotlight + pause on the "Earliest" item before clicking
+ * 4. Click "Earliest", then spotlight the position select to confirm the new value
+ *
+ * The menu is portaled to `document.body` — query `.cs-menu` after opening.
+ * `ctx.selectOption` does NOT work with CustomSelect components.
+ */
+async function selectEarliestPosition(ctx: {
+  delay: (ms: number) => Promise<void>;
+  click?: (sel: string) => Promise<void>;
+  waitFor?: (sel: string, timeoutMs?: number) => Promise<void>;
+}): Promise<void> {
+  const posSelect = document.querySelector<HTMLElement>(KAFKA.CON_POSITION_SELECT);
+  if (!posSelect) return;
+  const currentText = posSelect.querySelector('.cs-trigger')?.textContent?.trim() ?? '';
+  if (currentText.includes('Earliest')) return;
+
+  const trigger = posSelect.querySelector<HTMLElement>('.cs-trigger');
+  if (!trigger) return;
+  if (ctx.click) {
+    await ctx.click(`${KAFKA.CON_POSITION_SELECT} .cs-trigger`);
+  } else {
+    trigger.click();
+  }
+  if (ctx.waitFor) {
+    try { await ctx.waitFor('.cs-menu', 2000); } catch { /* menu may already be open */ }
+  } else {
+    await ctx.delay(200);
+  }
+  await ctx.delay(150);
+
+  const menu = document.querySelector<HTMLElement>('body > .cs-menu, .cs-menu');
+  if (!menu) return;
+
+  // Spotlight the open menu so the viewer can read the options
+  const disposeMenuSpotlight = showSpotlightRing(menu);
+  await ctx.delay(600);
+  disposeMenuSpotlight();
+
+  // Find the "Earliest" item and spotlight it before clicking
+  const items = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'));
+  const earliestItem = items.find((item) => item.textContent?.includes('Earliest'));
+  if (!earliestItem) return;
+
+  const disposeItemSpotlight = showSpotlightRing(earliestItem);
+  await ctx.delay(500);
+  disposeItemSpotlight();
+  earliestItem.click();
+
+  // Spotlight the position select to confirm the new value is displayed
+  await ctx.delay(300);
+  const disposeConfirmSpotlight = showSpotlightRing(posSelect);
+  await ctx.delay(600);
+  disposeConfirmSpotlight();
+}
+
+function setFieldValueQuiet(
+  selector: string,
+  value: string,
+): void {
+  const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
+  if (!el) return;
+  if (el.value === value) return;
+  // Native setter so React controlled inputs pick up the change.
+  const proto = el instanceof HTMLSelectElement
+    ? HTMLSelectElement.prototype
+    : HTMLInputElement.prototype;
+  const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+  desc?.set?.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/** Quietly open the Consume tab (no demo ripple / tab-tour flash). */
+async function ensureConsumeTabQuiet(ctx: DemoActionContext): Promise<void> {
+  const already =
+    document.querySelector<HTMLElement>(KAFKA.CONSUME_TAB)?.getAttribute('aria-selected') === 'true'
+    || document.querySelector<HTMLElement>(KAFKA.CONSUME_TAB)?.classList.contains('active');
+  if (!already) {
+    document.querySelector<HTMLElement>(KAFKA.CONSUME_TAB)?.click();
+    await ctx.delay(120);
+  }
+  // Drop any leftover focus ring on primary CTAs (reads as a second "spotlight").
+  (document.activeElement as HTMLElement | null)?.blur?.();
+}
+
+/** Clear leftover filter values + scroll position from prior Kafka lessons. */
+function calmConsumeFormSurface(): void {
+  for (const sel of [
+    KAFKA.CON_KEY_FILTER_INPUT,
+    KAFKA.CON_HEADER_FILTER_INPUT,
+    KAFKA.CON_JSONPATH_INPUT,
+    KAFKA.CON_JSONVAL_INPUT,
+    KAFKA.CON_BODY_CONTAINS_INPUT,
+  ]) {
+    setFieldValueQuiet(sel, '');
+  }
+  const modeTabs = document.querySelector<HTMLElement>(KAFKA.CON_MODE_TABS);
+  const scrollParent = modeTabs ? findScrollableParent(modeTabs) : null;
+  if (scrollParent) scrollParent.scrollTop = 0;
+  (document.activeElement as HTMLElement | null)?.blur?.();
+}
+
+/** Produce N messages to the stream topic via REST (visible in LIVE table). */
+async function produceStreamDemoMessages(
+  count: number,
+  label: string,
+): Promise<void> {
+  try {
+    const status = await dispatchKafkaOperation<{ state: string; clusterId?: string }>('status');
+    const clusterId = status.data?.state === 'connected' ? status.data.clusterId : undefined;
+    if (!clusterId) return;
+    const messages = Array.from({ length: count }, (_, i) => ({
+      key: `${label}-${i + 1}`,
+      value: JSON.stringify({ streamDemo: true, seq: `${label}-${i + 1}`, at: Date.now() + i }),
+    }));
+    await dispatchKafkaOperation('produce', {
+      clusterId,
+      topic: STREAM_TOPIC,
+      messages,
+    });
+  } catch { /* broker may be down */ }
+}
+
+/**
+ * Stream mode setup: quiet connect (no Settings UI tour under the live overlay),
+ * seed one message via REST, land on Consume with a calm form surface.
  */
 async function kafkaStreamModeSetup(ctx: DemoActionContext): Promise<void> {
-  await kafkaPublishSetup(ctx);
-  // Publish one test message so the stream immediately shows a row.
-  await ctx.click(KAFKA.PUBLISH_TAB);
-  await ctx.delay(200);
-  await ctx.fill(KAFKA.PUB_TOPIC_INPUT, STREAM_TOPIC);
-  await ctx.delay(100);
-  await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, '{"streamDemo":true}');
-  await ctx.delay(100);
-  await ctx.click(KAFKA.PUB_SEND_BTN);
-  await ctx.waitFor(KAFKA.PUB_RESULT, 5000);
-  await ctx.delay(300);
-  // Return to Consume tab for the lesson start.
-  await ctx.click(KAFKA.CONSUME_TAB);
-  await ctx.delay(300);
+  await kafkaSetup(ctx);
+  await produceStreamDemoMessages(1, 'seed');
+  await ensureConsumeTabQuiet(ctx);
+  calmConsumeFormSurface();
+  await ctx.delay(80);
+}
+
+/** Ensure Stream mode is active and the LIVE consumer is running. */
+async function ensureStreamLive(ctx: DemoActionContext): Promise<void> {
+  await ensureConsumeTabQuiet(ctx);
+  const streamBtn = document.querySelector<HTMLElement>(KAFKA.CON_MODE_STREAM);
+  if (streamBtn && !streamBtn.classList.contains('active')) {
+    streamBtn.click();
+    await ctx.delay(200);
+  }
+  setFieldValueQuiet(KAFKA.CON_TOPIC_INPUT, STREAM_TOPIC);
+  calmConsumeFormSurface();
+  if (!document.querySelector(KAFKA.STREAM_LIVE_BADGE)) {
+    const startBtn = document.querySelector<HTMLButtonElement>(KAFKA.STREAM_START_BTN);
+    if (startBtn && !startBtn.disabled) {
+      startBtn.click();
+      try {
+        await ctx.waitFor(KAFKA.STREAM_LIVE_BADGE, 8000);
+      } catch { /* broker may be down */ }
+      await ctx.delay(300);
+    }
+  }
 }
 
 export const kafkaStreamModeLesson: DemoLesson = {
@@ -34,7 +177,7 @@ export const kafkaStreamModeLesson: DemoLesson = {
   name: 'Stream Mode',
   description:
     'Switch the Consume Studio to live-stream mode, watch messages arrive in real time with the LIVE badge, then stop and export the captured session.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 3,
   initialTab: 'kafka-message-studio',
   allowedTabs: ['kafka-settings'],
 
@@ -113,35 +256,38 @@ Key UI elements in Stream mode:
   },
 
   steps: [
-    // Step 1: Navigate to Consume tab and show the form
+    // Step 1 (combined): introduce Stream Mode and immediately switch to it.
+    // The narration lands during the reading pause; the action then clicks
+    // Stream and fills the topic — visible teaching beats, no pre-step flash.
     {
       id: 'sm-intro',
-      title: 'Stream Mode',
+      title: 'Switch to Stream Mode',
       description:
-        'The **Consume** tab has a shared form at the top for Topic, Consumer Group, Start Position, and filters. Scroll to the bottom of the form to find two mode buttons: **Consume Once** (a bounded batch fetch) and **Stream** (an unbounded live consumer). Stream mode is the diagnostic superpower — use it whenever you need to watch messages arrive in real time.',
-      highlight: KAFKA.CONSUME_TAB,
+        `The **Consume** tab has two mode buttons at the bottom of the form: **Consume Once** (a bounded batch fetch) and **Stream** (an unbounded live consumer). Click **Stream** to switch from batch mode to live streaming, then set **Topic** to \`${STREAM_TOPIC}\` — the same topic the Publish lesson wrote to.`,
+      highlight: KAFKA.CON_MODE_STREAM,
       preAction: async (ctx) => {
-        await ctx.click(KAFKA.CONSUME_TAB);
-        await ctx.delay(300);
+        await ensureConsumeTabQuiet(ctx);
+        calmConsumeFormSurface();
+        await ctx.waitFor(KAFKA.CON_MODE_TABS, 3000);
+      },
+      action: async (ctx) => {
+        await ctx.click(KAFKA.CON_MODE_STREAM);
+        await ctx.delay(900);
+        await ctx.fill(KAFKA.CON_TOPIC_INPUT, STREAM_TOPIC);
+        await ctx.delay(500);
       },
     },
 
-    // Step 2: Switch to Stream mode, fill topic, set position
+    // Step 3: Set Start Position to Earliest
     {
-      id: 'sm-topic',
-      title: 'Switch to Stream Mode & Set Topic',
+      id: 'sm-position',
+      title: 'Set Start Position to Earliest',
       description:
-        `Scroll down to the mode strip and click **Stream**. Then set **Topic** to \`${STREAM_TOPIC}\` and **Start Position** to **Earliest** — this replays any previously published messages immediately when the stream opens, so you see real rows right away.`,
-      highlight: KAFKA.CON_MODE_TABS,
-      preAction: async (ctx) => {
-        // Switch to stream mode
-        await ctx.click(KAFKA.CON_MODE_STREAM);
-        await ctx.delay(300);
-        // Fill topic and set earliest position
-        await ctx.fill(KAFKA.CON_TOPIC_INPUT, STREAM_TOPIC);
-        await ctx.delay(200);
-        await ctx.selectOption(KAFKA.CON_POSITION_SELECT, 'earliest');
-        await ctx.delay(200);
+        'Change **Start Position** to **Earliest** — this tells the consumer to replay all messages from the very beginning of the partition log. Since setup already published a message, you will see it appear the moment the stream opens.',
+      highlight: KAFKA.CON_POSITION_SELECT,
+      action: async (ctx) => {
+        await selectEarliestPosition(ctx);
+        await ctx.delay(400);
       },
     },
 
@@ -151,12 +297,32 @@ Key UI elements in Stream mode:
       title: 'Start Stream',
       description:
         'Scroll down past the mode strip and click **Start Stream**. The consumer connects to the broker and the **LIVE badge** appears — a pulsing green dot that confirms messages are being received. Any messages produced to this topic will appear in the table below.',
-      highlight: KAFKA.STREAM_ACTION_ROW,
+      highlight: KAFKA.STREAM_START_BTN,
+      preAction: async (ctx) => {
+        // Quietly recover required state when users rapid-skip prior steps.
+        const streamBtn = document.querySelector<HTMLElement>(KAFKA.CON_MODE_STREAM);
+        if (streamBtn && !streamBtn.classList.contains('active')) {
+          streamBtn.click();
+        }
+        setFieldValueQuiet(KAFKA.CON_TOPIC_INPUT, STREAM_TOPIC);
+        await selectEarliestPosition(ctx);
+      },
       action: async (ctx) => {
         await ctx.click(KAFKA.STREAM_START_BTN);
         // Wait for LIVE badge — confirms broker connection established
         await ctx.waitFor(KAFKA.STREAM_LIVE_BADGE, 8000);
         await ctx.delay(500);
+        // Scroll down to reveal the results table in the scrollable pane
+        const resultsZone = document.querySelector<HTMLElement>(KAFKA.STREAM_RESULTS_ZONE);
+        if (resultsZone) {
+          const scrollParent = findScrollableParent(resultsZone);
+          if (scrollParent) {
+            scrollParent.scrollTo({ top: scrollParent.scrollHeight, behavior: 'smooth' });
+          } else {
+            resultsZone.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        await ctx.delay(800);
       },
     },
 
@@ -169,45 +335,133 @@ Key UI elements in Stream mode:
       highlight: KAFKA.STREAM_LIVE_BADGE,
     },
 
-    // Step 5: Auto-scroll behaviour
+    // Step 5: Auto-scroll behaviour — must show new rows, pause, and ↓ Newest
     {
       id: 'sm-scroll',
       title: 'Auto-Scroll',
       description:
-        'The results table below the LIVE badge **auto-scrolls** to the newest row as messages arrive. Scrolling up pauses auto-scroll so you can read earlier messages — a scroll-to-bottom button appears. Scroll back down (or click it) to resume.',
-      highlight: KAFKA.STREAM_RESULTS_ZONE,
+        'The results table below the LIVE badge **auto-scrolls** to the newest row as messages arrive. ' +
+        'Scrolling up pauses auto-scroll so you can read earlier messages — a **↓ Newest** button appears. ' +
+        'Click it (or scroll back down) to resume following the live tip of the stream.',
+      // Highlights the Newest button once it appears (after the action scrolls up).
+      // Falls back gracefully during reading if the button is not yet visible.
+      highlight: KAFKA.STREAM_SCROLL_BOTTOM_BTN,
+      preAction: async (ctx) => {
+        await ensureStreamLive(ctx);
+      },
+      action: async (ctx) => {
+        const zone = document.querySelector<HTMLElement>(KAFKA.STREAM_RESULTS_ZONE);
+        zone?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        await ctx.delay(500);
+
+        // Beat 1: produce a burst so the table overflows and auto-scrolls to newest
+        const rowsBefore = document.querySelectorAll(`${KAFKA.STREAM_RESULTS_ZONE} tbody tr`).length;
+        await produceStreamDemoMessages(10, 'auto');
+        for (let i = 0; i < 40; i++) {
+          const n = document.querySelectorAll(`${KAFKA.STREAM_RESULTS_ZONE} tbody tr`).length;
+          if (n >= rowsBefore + 3) break;
+          await ctx.delay(150);
+        }
+        await ctx.delay(900);
+
+        const tableWrap = document.querySelector<HTMLElement>(KAFKA.STREAM_TABLE_WRAP)
+          ?? document.querySelector<HTMLElement>('.kafka-ms-stream-table-wrap');
+        if (tableWrap && tableWrap.scrollHeight > tableWrap.clientHeight + 8) {
+          // Beat 2: scroll up — pauses auto-scroll; ↓ Newest appears
+          tableWrap.scrollTop = 0;
+          tableWrap.dispatchEvent(new Event('scroll', { bubbles: true }));
+          await ctx.delay(500);
+
+          try {
+            await ctx.waitFor(KAFKA.STREAM_SCROLL_BOTTOM_BTN, 3000);
+          } catch { /* button may already be visible */ }
+
+          const scrollBtn = document.querySelector<HTMLElement>(KAFKA.STREAM_SCROLL_BOTTOM_BTN);
+          if (scrollBtn) {
+            const dispose = showSpotlightRing(scrollBtn);
+            await ctx.delay(1400);
+            dispose();
+            await ctx.click(KAFKA.STREAM_SCROLL_BOTTOM_BTN);
+            await ctx.delay(1000);
+          } else {
+            // Fallback: resume by scrolling to bottom manually
+            tableWrap.scrollTop = tableWrap.scrollHeight;
+            tableWrap.dispatchEvent(new Event('scroll', { bubbles: true }));
+            await ctx.delay(800);
+          }
+        } else {
+          // Not enough rows for overflow — still pause so narration can land
+          await ctx.delay(800);
+        }
+
+        // Beat 3: one more produce so the viewer sees auto-scroll resume
+        await produceStreamDemoMessages(2, 'resume');
+        await ctx.delay(1200);
+      },
+      pauseAfter: true,
     },
 
-    // Step 6: Click a message row
+    // Step 6: Click a message row → Message Detail modal
     {
       id: 'sm-row',
       title: 'Inspect a Streamed Message',
       description:
-        'The stream table already has the message published during setup. Click any **row** to open the **Detail Pane** on the right — showing partition, offset, timestamp, key, headers, and formatted payload. The stream continues running in the background while you read.',
-      highlight: KAFKA.STREAM_RESULTS_ZONE,
+        'Click any **row** in the stream table to open the **Message Detail** dialog — partition, offset, timestamp, key, headers, and a pretty-printed payload. The stream keeps running in the background while you inspect.',
+      // Reading spotlight on the first row (not the whole results zone).
+      highlight: KAFKA.STREAM_ROW_FIRST,
       preAction: async (ctx) => {
-        // Ensure stream mode is active — re-apply in case earlier steps were skipped
-        const streamBtn = document.querySelector<HTMLElement>(KAFKA.CON_MODE_STREAM);
-        if (streamBtn && !streamBtn.classList.contains('active')) {
-          streamBtn.click();
-          await ctx.delay(300);
+        await ensureStreamLive(ctx);
+        // Close a leftover detail dialog so this step can open a fresh one.
+        const closeBtn = document.querySelector<HTMLElement>(KAFKA.CON_DETAIL_CLOSE);
+        if (closeBtn) {
+          closeBtn.click();
+          await ctx.delay(200);
         }
-        // Scroll stream results zone into view
+        // Scroll the TABLE WRAPPER to the top so the first row is fully visible
+        // (not just nudged into view at the edge). Use smooth so the viewer
+        // sees the table animate to the start position.
+        const tableWrap = document.querySelector<HTMLElement>(KAFKA.STREAM_TABLE_WRAP)
+          ?? document.querySelector<HTMLElement>('.kafka-ms-stream-table-wrap');
+        if (tableWrap) {
+          tableWrap.scrollTo({ top: 0, behavior: 'smooth' });
+          await ctx.delay(400);
+        }
+        // Also make the results zone itself visible in the page.
         const zone = document.querySelector<HTMLElement>(KAFKA.STREAM_RESULTS_ZONE);
-        if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        zone?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await ctx.delay(400);
       },
       action: async (ctx) => {
-        // Click first available stream row
-        const row = document.querySelector<HTMLElement>(
-          `${KAFKA.STREAM_RESULTS_ZONE} tbody tr`,
-        );
-        if (row) {
+        // After scrolling to top, the first row is now fully visible — pick it.
+        const row =
+          document.querySelector<HTMLElement>(KAFKA.STREAM_ROW_FIRST)
+          ?? document.querySelector<HTMLElement>(`${KAFKA.STREAM_RESULTS_ZONE} tbody tr`);
+        if (!row) return;
+
+        // If this row is already selected, click once to clear, then open again.
+        if (row.classList.contains('selected')) {
           row.click();
-          await ctx.delay(500);
+          await ctx.delay(200);
+        }
+
+        // Spotlight the row — it's already at the top of the visible table.
+        const disposeRow = showSpotlightRing(row);
+        await ctx.delay(900);
+        disposeRow();
+
+        row.click();
+        await ctx.waitFor(KAFKA.CON_DETAIL_MODAL, 5000);
+        await ctx.delay(500);
+
+        const modal = document.querySelector<HTMLElement>(KAFKA.CON_DETAIL_MODAL);
+        if (modal) {
+          const disposeModal = showSpotlightRing(modal);
+          await ctx.delay(2000);
+          disposeModal();
         }
       },
       verify: KAFKA.CON_DETAIL_MODAL,
+      pauseAfter: true,
     },
 
     // Step 7: Stop the stream
@@ -217,6 +471,14 @@ Key UI elements in Stream mode:
       description:
         'Click **Stop Stream** to close the consumer. All messages captured during the session remain in the table — you can keep reading, clicking rows, and filtering. The LIVE badge disappears and the **Export Stream** button becomes available.',
       highlight: KAFKA.STREAM_STOP_BTN,
+      preAction: async (ctx) => {
+        // Close detail dialog so Stop Stream is visible/clickable.
+        const closeBtn = document.querySelector<HTMLElement>(KAFKA.CON_DETAIL_CLOSE);
+        if (closeBtn) {
+          closeBtn.click();
+          await ctx.delay(250);
+        }
+      },
       action: async (ctx) => {
         await ctx.click(KAFKA.STREAM_STOP_BTN);
         await ctx.delay(600);

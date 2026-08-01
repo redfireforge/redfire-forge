@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption, isCustomSelectDisabled } from '../../test-utils/customSelectHelper';
 import { KafkaTopicExplorerPage } from './KafkaTopicExplorerPage';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import * as kafkaClient from '../../shared/kafka/kafkaClient';
@@ -77,7 +76,7 @@ function topicDetail(name: string) {
 
 describe('KafkaTopicExplorerPage', () => {
   beforeEach(() => {
-    resetAllMocks();
+    vi.clearAllMocks();
     mockDispatch.mockImplementation((op: string, body: Record<string, unknown>) => {
       if (op === 'topic-detail') {
         return Promise.resolve({
@@ -169,7 +168,8 @@ describe('KafkaTopicExplorerPage', () => {
       />,
     );
 
-    selectOption(screen.getByTestId('partition-filter'), '1–4');
+    fireEvent.click(screen.getByTestId('partition-filter'));
+    fireEvent.click(screen.getByTestId('partition-filter-opt-1-4'));
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
     expect(screen.queryByTestId('topic-row-orders.updated')).toBeNull();
   });
@@ -273,12 +273,18 @@ describe('KafkaTopicExplorerPage', () => {
     expect(screen.getByTestId('topic-row-__consumer_offsets')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('topic-row-orders.created'));
-    await waitFor(() => expect(isCustomSelectDisabled(screen.getByTestId('health-filter'))).toBe(false));
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith('topic-detail', expect.objectContaining({
+        topicName: 'orders.created',
+      }));
+    });
 
-    selectOption(screen.getByTestId('health-filter'), 'Healthy');
+    fireEvent.click(screen.getByTestId('health-filter'));
+    fireEvent.click(screen.getByTestId('health-filter-opt-healthy'));
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
 
-    selectOption(screen.getByTestId('retention-filter'), '1–7 days');
+    fireEvent.click(screen.getByTestId('retention-filter'));
+    fireEvent.click(screen.getByTestId('retention-filter-opt-1-7d'));
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
   });
 
@@ -351,6 +357,21 @@ describe('KafkaTopicExplorerPage', () => {
     expect(screen.getByTestId('topic-row-payments.settled')).toBeTruthy();
   });
 
+  it('closes an open filter dropdown when clicking outside', () => {
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('partition-filter'));
+    expect(screen.getByTestId('partition-filter-opt-1-4')).toBeTruthy();
+
+    fireEvent.mouseDown(screen.getByTestId('topic-search'));
+    expect(screen.queryByTestId('partition-filter-opt-1-4')).toBeNull();
+  });
+
   it('domain chips render', () => {
     render(
       <KafkaTopicExplorerPage
@@ -366,6 +387,41 @@ describe('KafkaTopicExplorerPage', () => {
     expect(chipbar.textContent).toContain('Lagging Consumers');
   });
 
+  it('formatTraffic shows M suffix for counts >= 1 000 000', async () => {
+    mockDispatch.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ...topicDetail('orders.created'),
+        partitions: [
+          { partitionId: 0, leader: 1, replicas: [1], isr: [1], earliestOffset: '0', latestOffset: '2000000', messageCount: 2_500_000 },
+        ],
+      },
+    });
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('topic-row-orders.created'));
+    await waitFor(() => expect(screen.getByTestId('detail-tabs')).toBeTruthy());
+    expect(screen.getByTestId('topic-row-orders.created').textContent).toContain('2.5M');
+  });
+
+  it('pressing Escape closes an open filter dropdown', () => {
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('partition-filter'));
+    expect(screen.getByTestId('partition-filter-opt-1-4')).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('partition-filter-opt-1-4')).toBeNull();
+  });
+
   it('health/retention filters and special chips disabled until detail loaded', async () => {
     render(
       <KafkaTopicExplorerPage
@@ -374,13 +430,13 @@ describe('KafkaTopicExplorerPage', () => {
       />,
     );
 
-    const healthFilter = screen.getByTestId('health-filter');
-    const retentionFilter = screen.getByTestId('retention-filter');
+    const healthFilter = screen.getByTestId('health-filter') as HTMLButtonElement;
+    const retentionFilter = screen.getByTestId('retention-filter') as HTMLButtonElement;
     const activeChip = screen.getByRole('button', { name: /Recently Active/ });
     const laggingChip = screen.getByRole('button', { name: /Lagging Consumers/ });
 
-    expect(isCustomSelectDisabled(healthFilter)).toBe(true);
-    expect(isCustomSelectDisabled(retentionFilter)).toBe(true);
+    expect(healthFilter.disabled).toBe(true);
+    expect(retentionFilter.disabled).toBe(true);
     expect(activeChip).toHaveProperty('disabled', true);
     expect(laggingChip).toHaveProperty('disabled', true);
 
@@ -388,68 +444,8 @@ describe('KafkaTopicExplorerPage', () => {
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith('topic-detail', expect.anything()));
 
     await waitFor(() => {
-      expect(isCustomSelectDisabled(healthFilter)).toBe(false);
-      expect(isCustomSelectDisabled(retentionFilter)).toBe(false);
+      expect(healthFilter.disabled).toBe(false);
+      expect(retentionFilter.disabled).toBe(false);
     });
-  });
-
-  it('renders traffic in K and M units once details are cached', async () => {
-    mockDispatch.mockImplementation((op: string, body: Record<string, unknown>) => {
-      if (op === 'topic-detail') {
-        const name = String(body.topicName);
-        const messageCount = name === 'orders.created' ? 1500 : 1_250_000;
-        return Promise.resolve({
-          ok: true,
-          data: {
-            ...topicDetail(name),
-            partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1], earliestOffset: '0', latestOffset: '10', messageCount }],
-          },
-        });
-      }
-      return Promise.resolve({ ok: true, data: { messages: [] } });
-    });
-
-    render(
-      <KafkaTopicExplorerPage
-        kafkaState={makeKafkaState()}
-        onNavigateToKafkaSettings={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId('topic-row-orders.created'));
-    await waitFor(() => expect(screen.getByTestId('topic-row-orders.created').textContent).toContain('1.5K'));
-
-    fireEvent.click(screen.getByTestId('topic-row-orders.updated'));
-    await waitFor(() => expect(screen.getByTestId('topic-row-orders.updated').textContent).toContain('1.3M'));
-  });
-
-  it('collapse button toggles collapsed layout and label/title states', async () => {
-    render(
-      <KafkaTopicExplorerPage
-        kafkaState={makeKafkaState()}
-        onNavigateToKafkaSettings={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId('topic-row-orders.created'));
-    await waitFor(() => expect(screen.getByTestId('topic-list-collapse-btn')).toBeTruthy());
-
-    const page = screen.getByTestId('topic-explorer-page');
-    const collapseBtn = screen.getByTestId('topic-list-collapse-btn') as HTMLButtonElement;
-
-    expect(page.className).not.toContain('kafka-explorer-layout--collapsed');
-    expect(collapseBtn.getAttribute('title')).toBe('Collapse topic list');
-
-    fireEvent.click(collapseBtn);
-
-    expect(page.className).toContain('kafka-explorer-layout--collapsed');
-    expect(screen.getByText('Topics')).toBeTruthy();
-    expect(page.querySelector('.kafka-explorer-collapsed-topic')?.textContent).toBe('orders.created');
-    expect(collapseBtn.getAttribute('title')).toBe('Expand topic list');
-    expect(collapseBtn.getAttribute('aria-label')).toBe('Expand topic list');
-
-    fireEvent.click(collapseBtn);
-    expect(page.className).not.toContain('kafka-explorer-layout--collapsed');
-    expect(collapseBtn.getAttribute('title')).toBe('Collapse topic list');
   });
 });

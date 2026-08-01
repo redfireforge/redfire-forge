@@ -89,6 +89,7 @@ const ALL_DOCKER_SPECS = DOCKER_SPECS;
  */
 const DEMO_STEPTHROUGH_SPECS = [
   '**/demo-ws-workflow-builder.spec.ts',
+  '**/demo-kafka-schema-registry.spec.ts',
   '**/ws-basics-em.spec.ts',
   '**/demo-cat-convert-openapi.spec.ts',
   // GQL-1 has its own isolated project — see demo-gql1 below.

@@ -55,31 +55,24 @@ async function ensureSseConnected(ctx: DemoActionContext): Promise<void> {
 
 /** Setup: navigate to SSE Studio and ensure clean state. */
 async function sseSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(500);
   // Disconnect if already connected
   const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
   if (connectBtn?.textContent?.includes('Disconnect')) {
     connectBtn.click();
-    await ctx.delay(500);
+    await ctx.delay(120);
   }
   await closeExtraSseConnectionTabs(ctx);
   // Clear any existing events
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
     clearBtn.click();
-    await ctx.delay(200);
-  }
-  // Switch to events tab
-  const eventsTab = document.querySelector(SSE.RIGHT_TAB_EVENTS) as HTMLButtonElement | null;
-  if (eventsTab) {
-    eventsTab.click();
-    await ctx.delay(200);
+    await ctx.delay(120);
   }
   // Switch to connect tab
   const connectTab = document.querySelector(SSE.LEFT_TAB_CONNECT) as HTMLButtonElement | null;
   if (connectTab) {
     connectTab.click();
-    await ctx.delay(200);
+    await ctx.delay(120);
   }
 }
 

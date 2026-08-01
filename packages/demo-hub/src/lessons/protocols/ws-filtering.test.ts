@@ -2,6 +2,9 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../../demoRipple', () => ({ showSpotlightRing: vi.fn(() => vi.fn()), purgeAllSpotlightRings: vi.fn() }));
+
 import { wsFilteringLesson } from './ws-filtering';
 import { makeCtx, makeVisible } from './ws-test-utils';
 
@@ -73,15 +76,20 @@ describe('ws-filtering lesson', () => {
 
   // ── filter-search ──────────────────────────────────────────────
 
-  it('step filter-search preAction navigates to Events tab', async () => {
+  it('step filter-search highlights the search mode pills group', () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'filter-search')!;
+    expect(step.highlight).toContain('search-mode-pills');
+  });
+
+  it('step filter-search action navigates to Events tab when needed', async () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'filter-search')!;
     const ctx = makeCtx();
     // No SEARCH_INPUT in DOM → ensureEventsTab clicks events tab
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
-  it('step filter-search preAction skips tab click when already on Events tab', async () => {
+  it('step filter-search action skips tab click when already on Events tab', async () => {
     // Add search input to simulate Events tab being active
     const el = document.createElement('input');
     el.setAttribute('data-testid', 'search-input');
@@ -89,7 +97,7 @@ describe('ws-filtering lesson', () => {
     makeVisible(el);
     const step = wsFilteringLesson.steps.find(s => s.id === 'filter-search')!;
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalled();
   });
 
@@ -119,7 +127,8 @@ describe('ws-filtering lesson', () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'filter-direction')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'sent');
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('direction-filter'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('direction-filter-opt-sent'));
   });
 
   // ── filter-bar ─────────────────────────────────────────────────
@@ -136,7 +145,8 @@ describe('ws-filtering lesson', () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'filter-bar')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'all');
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('direction-filter'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('direction-filter-opt-all'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), '');
   });
 
@@ -612,9 +622,9 @@ describe('ws-filtering lesson', () => {
 
   it('cleanup handles missing DOM elements gracefully', async () => {
     const ctx = makeCtx();
-    await wsFilteringLesson.cleanup!(ctx);
-    // No diff modal, compare banner, or filter bar — should not throw
-    expect(ctx.click).toHaveBeenCalled();
+    await expect(wsFilteringLesson.cleanup!(ctx)).resolves.not.toThrow();
+    // Quiet cleanup uses DOM clicks — no demo ripple ctx.click tour
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('cleanup clicks diff close when present', async () => {
@@ -660,10 +670,15 @@ describe('ws-filtering lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('setup is callable', async () => {
+  it('setup is quiet (no demo ripple clicks)', async () => {
     const ctx = makeCtx();
-    await wsFilteringLesson.setup!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ running: true }),
+    } as Response);
+    await expect(wsFilteringLesson.setup!(ctx)).resolves.not.toThrow();
+    expect(ctx.click).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });
 

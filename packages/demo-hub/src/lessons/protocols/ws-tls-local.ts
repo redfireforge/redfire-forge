@@ -391,13 +391,11 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       description:
         'Type `wss://localhost:8766` — the local nginx reverse proxy with a self-signed certificate. Notice the **TLS / mTLS Configuration** panel appears the moment you enter a `wss://` URL. This is your signal that encrypted transport is involved and configuration is available.',
       highlight: WS.URL_INPUT,
-      preAction: async (ctx) => {
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(200);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
-      },
       action: async (ctx) => {
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(700);
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(700);
         // Type the URL character-by-character feel is handled by ctx.fill;
         // the TLS panel mounts as soon as value starts with wss://.
         await ctx.fill(WS.URL_INPUT, TLS_URL);

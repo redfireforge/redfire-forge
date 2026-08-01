@@ -4,7 +4,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
 import { SseStudioPage } from './SseStudioPage';
 import type { UseSseConnectionReturn } from './useSseConnection';
 import type { SseConnectionConfig, SseConnectionSnapshot, SseStats, SseEvent } from './sseTypes';
@@ -389,6 +388,32 @@ describe('SseStudioPage', () => {
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Last-Event-ID: evt-42');
   });
 
+  it('status strip Last-Event-ID follows the newest event (not a stale connection snapshot)', async () => {
+    mockSseReturn.connection = makeDefaultConnection({ lastEventId: '23' });
+    mockSseReturn.events = [
+      {
+        id: 'e1',
+        eventType: 'message',
+        data: '{"n":1}',
+        lastEventId: '23',
+        size: 7,
+        timestamp: new Date().toISOString(),
+      },
+      {
+        id: 'e2',
+        eventType: 'update',
+        data: '{"n":49}',
+        lastEventId: '49',
+        size: 7,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+    mockSseReturn.stats = { ...makeDefaultStats(), eventCount: 2 };
+    await renderPage();
+    // Top status strip must follow tip-of-stream, not the stale connection snapshot ("23").
+    expect(screen.getByTestId('sse-last-event-id').textContent).toContain('Last-Event-ID: 49');
+  });
+
   // ── Headers editor behavior (always-visible left pane) ─────────────
 
   it('shows header count in the headers label', async () => {
@@ -678,7 +703,8 @@ describe('SseStudioPage', () => {
   it('calls setConfig when the auth type changes in the auth pane', async () => {
     await renderPage();
     fireEvent.click(screen.getByTestId('sse-left-tab-auth'));
-    selectOption(configBody().querySelector('.sse-auth-pane .auth-type-select .cs-wrapper')!, 'Bearer Token');
+    fireEvent.click(screen.getByTestId('auth-type-trigger'));
+    fireEvent.click(screen.getByTestId('auth-type-opt-bearer'));
     expect(mockSseReturn.setConfig).toHaveBeenCalledWith({
       auth: expect.objectContaining({ type: 'bearer' }),
     });

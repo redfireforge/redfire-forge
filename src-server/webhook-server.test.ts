@@ -157,6 +157,59 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.body.source).toBe('spring-actuator');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
     });
+
+    it('returns down with http_ reason when actuator responds non-ok', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('Service Unavailable', { status: 503 }),
+      );
+      const res = await request(app).get('/health/spring');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.reason).toBe('http_503');
+    });
+
+    it('handles non-JSON actuator response (json() throws) gracefully', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('not-json-at-all', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        }),
+      );
+      const res = await request(app).get('/health/spring');
+      // payload = null branch → falls back to UP
+      expect(res.status).toBe(200);
+      expect(res.body.source).toBe('spring-actuator');
+    });
+  });
+
+  describe('GET /health/schema-registry', () => {
+    it('returns ok when registry /subjects responds with 200', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('[]', { status: 200 }),
+      );
+      const res = await request(app).get('/health/schema-registry?url=http://localhost:8085');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(res.body.source).toBe('schema-registry');
+    });
+
+    it('returns down when registry responds non-ok', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('forbidden', { status: 403 }),
+      );
+      const res = await request(app).get('/health/schema-registry?url=http://localhost:8085');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.reason).toBe('http_403');
+    });
+
+    it('returns down when registry is unreachable (network error)', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('ECONNREFUSED'));
+      const res = await request(app).get('/health/schema-registry');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(String(res.body.reason)).toContain('ECONNREFUSED');
+    });
   });
 
   describe('GET /api/executions', () => {

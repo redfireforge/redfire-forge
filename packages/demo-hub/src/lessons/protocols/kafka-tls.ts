@@ -112,12 +112,14 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
       description:
         'Adding TLS on top of SASL gives you encryption in transit — no one can sniff your messages or credentials on the network. In this lesson you\'ll configure a new cluster for the TLS-enabled stack running on port **19095**. Make sure the TLS Docker stack is up: `cd docker/kafka/tls && docker compose up -d`.',
       highlight: KAFKA.SETTINGS_PAGE,
-      preAction: async (ctx) => {
-        ctx.navigateToTab('kafka-settings');
-        await ctx.delay(600);
+      preAction: async () => {
         document.querySelectorAll('.kafka-cluster-card.selected').forEach((el) => {
           el.classList.remove('selected');
         });
+      },
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.SETTINGS_PAGE, 3000);
+        await ctx.delay(600);
       },
     },
 
