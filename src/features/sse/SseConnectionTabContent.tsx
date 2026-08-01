@@ -129,7 +129,7 @@ export const SseConnectionTabContent = forwardRef<SseConnectionTabContentHandle,
       getConnectionState: () => connection.state,
     }), [disconnect, connection.state]);
 
-    const sseConsole = useSseConsole({ connection, config, authProfiles: globalAuthProfiles });
+    const sseConsole = useSseConsole({ connection, config, authProfiles: globalAuthProfiles, envVarMap });
 
     const isConnected = connection.state === 'connected';
     const isConnecting = connection.state === 'connecting';
@@ -279,6 +279,16 @@ export const SseConnectionTabContent = forwardRef<SseConnectionTabContentHandle,
       />
     );
 
+    // Tip-of-stream ID — same source for status strip + footer (not the selected event).
+    const streamLastEventId = (() => {
+      if (events.length === 0) return connection.lastEventId;
+      for (let i = events.length - 1; i >= 0; i--) {
+        const id = events[i]?.lastEventId;
+        if (id) return id;
+      }
+      return connection.lastEventId;
+    })();
+
     const messageLog = (
       <SseMessageLog
         events={events}
@@ -286,7 +296,7 @@ export const SseConnectionTabContent = forwardRef<SseConnectionTabContentHandle,
         bookmarkedIds={sse.bookmarkedIds}
         onToggleBookmark={sse.toggleBookmark}
         onClear={sse.clearEvents}
-        lastEventId={events.length > 0 ? events[events.length - 1].lastEventId : connection.lastEventId}
+        lastEventId={streamLastEventId}
         uptime={stats.startedAt}
       />
     );
@@ -311,9 +321,9 @@ export const SseConnectionTabContent = forwardRef<SseConnectionTabContentHandle,
               Auto-reconnect: {config.autoReconnect ? 'On' : 'Off'}
             </span>
             <span className="sse-auto-reconnect-badge">Events: {stats.eventCount}</span>
-            {connection.lastEventId && (
-              <span className="sse-auto-reconnect-badge">
-                Last-Event-ID: {connection.lastEventId}
+            {streamLastEventId && (
+              <span className="sse-auto-reconnect-badge" data-testid="sse-last-event-id">
+                Last-Event-ID: {streamLastEventId}
               </span>
             )}
           </div>

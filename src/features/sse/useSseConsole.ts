@@ -16,6 +16,7 @@ import type { GlobalAuthProfile } from '../../shared/types';
 import { describeResolvedAuth } from '../websocket/wsAuthResolve';
 import { useConsoleBuffer, type UseConsoleBufferReturn } from '../websocket/useConsoleBuffer';
 import { SSE_CONSOLE_SETTINGS_KEY } from '../websocket/wsConsoleStorage';
+import { resolveEnvVars } from '../websocket/wsMessageUtils';
 import {
   buildSseClosedEntry,
   buildSseConnectingEntry,
@@ -28,10 +29,11 @@ export interface UseSseConsoleParams {
   connection: SseConnectionSnapshot;
   config: SseConnectionConfig;
   authProfiles: GlobalAuthProfile[];
+  envVarMap?: Record<string, string>;
 }
 
 export function useSseConsole(params: UseSseConsoleParams): UseConsoleBufferReturn {
-  const { connection, config, authProfiles } = params;
+  const { connection, config, authProfiles, envVarMap } = params;
   const buffer = useConsoleBuffer(SSE_CONSOLE_SETTINGS_KEY);
   const { append } = buffer;
 
@@ -39,6 +41,13 @@ export function useSseConsole(params: UseSseConsoleParams): UseConsoleBufferRetu
   configRef.current = config;
   const profilesRef = useRef(authProfiles);
   profilesRef.current = authProfiles;
+  const envVarMapRef = useRef<Record<string, string>>(envVarMap ?? {});
+  envVarMapRef.current = envVarMap ?? {};
+
+  const resolveUrlForConsole = (url: string): string => {
+    const resolved = resolveEnvVars(url, envVarMapRef.current);
+    return resolved || url;
+  };
 
   // ── Connection lifecycle + handshake ───────────────────────────────
   const prevStateRef = useRef<SseConnectionState | null>(null);
@@ -52,13 +61,13 @@ export function useSseConsole(params: UseSseConsoleParams): UseConsoleBufferRetu
     if (state !== prev) {
       switch (state) {
         case 'connecting':
-          append(buildSseConnectingEntry(configRef.current.url));
+          append(buildSseConnectingEntry(resolveUrlForConsole(configRef.current.url)));
           break;
         case 'connected': {
           const cfg = configRef.current;
           append(
             buildSseHandshakeEntry({
-              url: cfg.url,
+              url: resolveUrlForConsole(cfg.url),
               authSummary: describeResolvedAuth(cfg.auth, profilesRef.current),
               lastEventId: connection.lastEventId || undefined,
               extraHeaders: (cfg.headers ?? [])

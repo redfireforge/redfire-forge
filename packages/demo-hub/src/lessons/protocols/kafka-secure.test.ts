@@ -40,11 +40,15 @@ describe('kafka-secure lesson', () => {
     expect(kafkaSecureLesson.dockerCommand).toContain('secure');
   });
 
-  it('step sec-intro has preAction navigating to kafka-settings', async () => {
+  it('step sec-intro action waits for the settings page (navigation already done by setup)', async () => {
     const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-intro')!;
     const ctx = makeCtx();
+    // preAction only clears stale card selection — no navigation/click choreography,
+    // avoiding a visible re-navigate flash before step 1 narrates.
     await step.preAction!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('kafka-settings-page'), expect.any(Number));
   });
 
   it('step sec-auth action selects SCRAM-SHA-256', async () => {

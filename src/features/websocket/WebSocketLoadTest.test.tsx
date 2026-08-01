@@ -181,7 +181,7 @@ describe('WebSocketLoadTest', () => {
     expect(screen.getByTestId('lt-histogram')).toBeTruthy();
   });
 
-  it('renders export and new test buttons in results', () => {
+  it('renders export and edit-configuration controls in results', () => {
     const clearFn = vi.fn();
     const result = makeResult();
     const lt = makeLT({ state: 'done', result, clearResult: clearFn });
@@ -339,7 +339,7 @@ describe('WebSocketLoadTest', () => {
     const lt = makeLT({ setConfig });
     render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
     // Click the 30s preset
-    const btns = screen.getByTestId('lt-config').querySelectorAll('.ws-lt-duration-btn');
+    const btns = screen.getByTestId('lt-config').querySelectorAll('.ws-lt-seg-btn');
     const btn30 = Array.from(btns).find((b) => b.textContent === '30s');
     expect(btn30).toBeTruthy();
     fireEvent.click(btn30!);
@@ -560,7 +560,7 @@ describe('WebSocketLoadTest', () => {
   it('shows high rate warning in summary for constant profile > 100', () => {
     const lt = makeLT({ config: { ...createDefaultLoadTestConfig(), rate: 200 } });
     render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
-    expect(screen.getByTestId('lt-summary').textContent).toContain('high rate');
+    expect(screen.getByTestId('lt-summary').textContent).toMatch(/high rate/i);
   });
 
   it('renders statsPanel while running when provided', () => {
@@ -668,5 +668,52 @@ describe('WebSocketLoadTest', () => {
     fireEvent.click(screen.getByTestId('lt-format-btn'));
     vi.advanceTimersByTime(1600);
     vi.useRealTimers();
+  });
+
+  it('inserts a token into message template and keeps cursor logic path', () => {
+    const setConfig = vi.fn();
+    const lt = makeLT({
+      setConfig,
+      config: { ...createDefaultLoadTestConfig(), messageTemplate: '{"value":""}' },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+
+    fireEvent.click(screen.getByTitle('Insert {{counter}}'));
+    expect(setConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ messageTemplate: expect.stringContaining('{{counter}}') }),
+    );
+  });
+
+  it('returns early on export when result is null', () => {
+    const lt = makeLT({ state: 'done', result: null });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect(screen.queryByTestId('lt-export-btn')).toBeNull();
+  });
+
+  it('uses minimum fallback when ramp end/duration/burst inputs are cleared', () => {
+    const setConfig = vi.fn();
+    const lt = makeLT({
+      setConfig,
+      config: { ...createDefaultLoadTestConfig(), profile: 'ramp', rateEnd: 20, durationSec: 15, burstCount: 300 },
+    });
+    const { rerender } = render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+
+    fireEvent.change(screen.getByTestId('lt-rate-end'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('lt-duration'), { target: { value: '' } });
+
+    rerender(
+      <WebSocketLoadTest
+        loadTest={makeLT({
+          setConfig,
+          config: { ...createDefaultLoadTestConfig(), profile: 'burst', burstCount: 300 },
+        })}
+        isConnected={true}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('lt-burst-count'), { target: { value: '' } });
+
+    expect(setConfig).toHaveBeenCalledWith({ rateEnd: 1 });
+    expect(setConfig).toHaveBeenCalledWith({ durationSec: 1 });
+    expect(setConfig).toHaveBeenCalledWith({ burstCount: 1 });
   });
 });

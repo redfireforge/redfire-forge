@@ -19,6 +19,8 @@ export const WS = {
   // Console panel (variant=ws)
   CONSOLE_CMD_INPUT:      '[data-testid="ws-console-cmd-input"]',
   CONSOLE_CATEGORY:       '[data-testid="ws-console-category"]',
+  CONSOLE_CATEGORY_OPT_ALL: '[data-testid="ws-console-category-opt-all"]',
+  CONSOLE_CATEGORY_OPT_LIFECYCLE: '[data-testid="ws-console-category-opt-lifecycle"]',
   CONSOLE_SEARCH:         '[data-testid="ws-console-search"]',
   CONSOLE_VIEW_STRUCTURED:'[data-testid="ws-console-view-structured"]',
   CONSOLE_VIEW_RAW:       '[data-testid="ws-console-view-raw"]',
@@ -167,9 +169,17 @@ export const WS = {
   SEARCH_MODE_JSONPATH: '[data-testid="search-mode-jsonpath"]',
   SEARCH_INPUT:      '[data-testid="search-input"]',
   MATCH_COUNTER:     '[data-testid="match-counter"]',
-  DIRECTION_FILTER:  '[aria-label="Direction filter"]',
-  FILTER_TOGGLE_BTN: '[data-testid="filter-toggle-btn"]',
-  FILTER_BAR:        '[data-testid="filter-bar"]',
+  DIRECTION_FILTER:  '[data-testid="direction-filter"]',
+  DIRECTION_FILTER_OPT_ALL: '[data-testid="direction-filter-opt-all"]',
+  DIRECTION_FILTER_OPT_SENT: '[data-testid="direction-filter-opt-sent"]',
+  DIRECTION_FILTER_OPT_RECEIVED: '[data-testid="direction-filter-opt-received"]',
+  DIRECTION_FILTER_OPT_BOOKMARKED: '[data-testid="direction-filter-opt-bookmarked"]',
+  FILTER_TOGGLE_BTN:    '[data-testid="filter-toggle-btn"]',
+  FILTER_BAR:           '[data-testid="filter-bar"]',
+  FILTER_SIZE:          '[data-testid="size-filter"]',
+  FILTER_TIME:          '[data-testid="time-filter"]',
+  FILTER_CONTENT_TYPE:  '[data-testid="content-type-filter"]',
+  VALIDATION_BADGE:     '.ws-validation-badge',
 
   // Compare / Diff
   COMPARE_BTN:       '[data-testid="compare-btn"]',
@@ -250,6 +260,12 @@ export const WS = {
   // Auth panel
   AUTH_TYPE_SELECT:   '.auth-type-select',
   AUTH_TYPE_DROPDOWN: '.auth-type-select select',
+  /** Custom auth-type trigger (opens the option menu). */
+  AUTH_TYPE_TRIGGER:  '[data-testid="ws-auth-type-trigger"]',
+  /** Open auth-type options menu (listbox). */
+  AUTH_TYPE_MENU:     '.ws-auth-pane .auth-type-menu',
+  /** Auth-type option by value — e.g. authTypeOpt('bearer'). */
+  authTypeOpt: (value: string) => `[data-testid="ws-auth-type-opt-${value}"]`,
   AUTH_PANEL:         '.ws-auth-panel',
   AUTH_PANE_INPUTS:   '.ws-auth-pane input',
   AUTH_CALLOUT:       '.ws-auth-callout',
@@ -263,6 +279,7 @@ export const WS = {
   LT_PROFILE_RAMP:     '[data-testid="lt-profile-ramp"]',
   LT_PROFILE_BURST:    '[data-testid="lt-profile-burst"]',
   LT_MESSAGE_TEMPLATE: '[data-testid="lt-message-template"]',
+  LT_FORMAT_BTN:       '[data-testid="lt-format-btn"]',
   LT_RATE:             '[data-testid="lt-rate"]',
   LT_DURATION:         '[data-testid="lt-duration"]',
   LT_SUMMARY:          '[data-testid="lt-summary"]',

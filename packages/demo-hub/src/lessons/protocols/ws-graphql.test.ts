@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { wsGraphqlLesson } from './ws-graphql';
 import { makeCtx, makeVisible } from './ws-test-utils';
 
@@ -87,11 +87,11 @@ describe('ws-graphql lesson', () => {
     expect(step.description).toContain('GraphQL-WS');
   });
 
-  it('step gql-intro action navigates to connect tab', async () => {
+  it('step gql-intro action waits for the connect tab (already active from setup)', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'), expect.any(Number));
   });
 
   // ─── Step: gql-protocol ─────────────────────────────────────
@@ -101,12 +101,34 @@ describe('ws-graphql lesson', () => {
     expect(step.highlight).toContain('protocol-select');
   });
 
-  it('step gql-protocol has a preAction that navigates to connect tab', async () => {
+  it('step gql-protocol preAction silently switches to connect tab only if not already selected', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
     expect(typeof step.preAction).toBe('function');
+
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const clickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    // Uses a plain DOM click (not ctx.click) to avoid a visible ripple for this
+    // silent correction — it only fires when the tab isn't already selected.
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('step gql-protocol preAction does nothing when connect tab is already selected', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    connectTab.setAttribute('aria-selected', 'true');
+    document.body.appendChild(connectTab);
+    const clickSpy = vi.spyOn(connectTab, 'click');
+
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(clickSpy).not.toHaveBeenCalled();
   });
 
   it('step gql-protocol action calls ctx.delay (observation pause)', async () => {
@@ -124,12 +146,19 @@ describe('ws-graphql lesson', () => {
 
   // ─── Step: gql-connect ──────────────────────────────────────
 
-  it('step gql-connect has a preAction that navigates to connect tab', async () => {
+  it('step gql-connect preAction silently switches to connect tab only if not already selected', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-connect')!;
     expect(typeof step.preAction).toBe('function');
+
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const clickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step gql-connect action clicks connect button when not connected and switches to events tab', async () => {
@@ -346,10 +375,16 @@ describe('ws-graphql lesson', () => {
   // ─── Setup / Cleanup ─────────────────────────────────────────
 
   it('setup fills GraphQL URL, subprotocol, and selects graphql-ws protocol', async () => {
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const connectClickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await wsGraphqlLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    // Connect tab switch uses a plain DOM click (not ctx.click) — no ripple during setup.
+    expect(connectClickSpy).toHaveBeenCalled();
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('localhost:4100'),

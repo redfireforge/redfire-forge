@@ -123,11 +123,9 @@ export const kafkaPublishLesson: DemoLesson = {
       description:
         'The **Publish** tab is your Kafka producer. It has four key fields: **Topic** (the destination), **Key** (determines which partition), **Body** (the message payload), and **Acks** (durability guarantee). The next steps will walk through each one.',
       highlight: KAFKA.PUBLISH_TAB,
-      // Navigate to the Publish tab before spotlighting it — setup returns to the
-      // studio but doesn't guarantee the Publish tab is the active one.
-      preAction: async (ctx) => {
-        await ctx.click(KAFKA.PUBLISH_TAB);
-        await ctx.delay(300);
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.PUBLISH_TAB, 3000);
+        await ctx.delay(600);
       },
     },
     {

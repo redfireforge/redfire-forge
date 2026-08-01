@@ -203,10 +203,6 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
         'Welcome to **gRPC Studio**. This lesson walks three regions: the **connection row** (target + Reflect + Send), the **Service Explorer** on the left, and the **call workspace** on the right where **Form Input** and the response live.',
       highlight: GRPC.CONNECTION_BAR,
       pauseAfter: true,
-      preAction: async (ctx) => {
-        await navigateToGrpcStudio(ctx);
-        await closeGrpcSettingsDrawerQuiet(ctx);
-      },
       action: async (ctx) => {
         await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 850);
         await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);

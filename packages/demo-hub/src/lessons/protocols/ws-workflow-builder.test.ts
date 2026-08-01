@@ -108,12 +108,12 @@ describe('ws-workflow-builder lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'WS Echo Demo');
   });
 
-  it('create step action is no-op when canvas already exists', async () => {
+  it('create step action still performs visible create flow when canvas exists', async () => {
     document.body.innerHTML = '<div class="wf-canvas-area"></div>';
     const ctx = makeCtx();
     const createStep = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-create')!;
     await createStep.action!(ctx);
-    expect(ctx.click).not.toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalled();
   });
 
   it('add-connect step clicks palette item', async () => {

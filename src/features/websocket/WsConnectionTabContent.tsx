@@ -145,9 +145,12 @@ export const WsConnectionTabContent = forwardRef<
   const { recordMessage, recordStateChange, state: recordingState } = recording;
   const metrics = useWebSocketMetrics(studio.messages, studio.connection.state);
   // Each tab has its own mock server scoped to its assigned port.
-  // The user may change the port while the server is stopped; we track it in local state
-  // so the hook immediately picks up the new port for polling and API calls.
+  // Local state lets an in-progress edit apply immediately; sync from the parent
+  // prop so conflict swaps / restore / demo pinning actually reach this tab.
   const [localMockPort, setLocalMockPort] = useState(mockPort);
+  useEffect(() => {
+    setLocalMockPort(mockPort);
+  }, [mockPort]);
   const handleMockPortChange = useCallback((newPort: number) => {
     setLocalMockPort(newPort);
     onMockPortChange?.(tabId, newPort);

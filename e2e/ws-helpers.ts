@@ -10,6 +10,8 @@ import { expect, type Page, type Browser } from '@playwright/test';
 export const WS_STUDIO_BASE = 'http://localhost:5173/?tab=websocket-studio';
 export const WS_DEFAULT_MOCK_PORT = 9876;
 export const WS_DEFAULT_MOCK_URL = `ws://localhost:${WS_DEFAULT_MOCK_PORT}`;
+export const WS_SECONDARY_MOCK_PORT = WS_DEFAULT_MOCK_PORT + 1;
+export const WS_TERTIARY_MOCK_PORT = WS_DEFAULT_MOCK_PORT + 2;
 
 /** Navigate to the WebSocket Studio tab and wait for the mode selector. */
 export async function gotoWsStudio(page: Page, opts?: { timeout?: number }): Promise<void> {
@@ -162,7 +164,10 @@ export async function stopWsMockFromUI(page: Page): Promise<void> {
  * Reset mock server to a stopped state (UI + backend API).
  * Stops common mock ports used across WS E2E specs.
  */
-export async function ensureWsMockStopped(page: Page, ports: number[] = [WS_DEFAULT_MOCK_PORT, 9877, 9878]): Promise<void> {
+export async function ensureWsMockStopped(
+  page: Page,
+  ports: number[] = [WS_DEFAULT_MOCK_PORT, WS_SECONDARY_MOCK_PORT, WS_TERTIARY_MOCK_PORT],
+): Promise<void> {
   for (const port of ports) {
     await page.request.post('http://localhost:3001/api/ws/mock/stop', { data: { port } }).catch(() => {});
   }

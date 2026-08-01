@@ -12,6 +12,9 @@ import {
   startWsMockFromUI,
   stopWsMockFromUI,
   ensureWsMockStopped,
+  WS_DEFAULT_MOCK_PORT,
+  WS_SECONDARY_MOCK_PORT,
+  WS_TERTIARY_MOCK_PORT,
 } from './ws-helpers';
 
 /* ── local aliases ───────────────────────────────────── */
@@ -22,7 +25,7 @@ const startMockServer = (page: Page) => startWsMockFromUI(page);
 const stopMockServer = (page: Page) => stopWsMockFromUI(page);
 
 test.beforeAll(async ({ request }) => {
-  for (const port of [9876, 9877, 9878]) {
+  for (const port of [WS_DEFAULT_MOCK_PORT, WS_SECONDARY_MOCK_PORT, WS_TERTIARY_MOCK_PORT]) {
     await request.post('http://localhost:3001/api/ws/mock/stop', { data: { port } }).catch(() => {});
   }
 });

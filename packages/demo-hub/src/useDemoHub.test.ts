@@ -335,6 +335,27 @@ describe('useDemoHub', () => {
     expect(result.current.state.view).toBe('concept');
     expect(result.current.state.isPlaying).toBe(false);
     expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
+    // Cleared after exit so future live sessions can redirect to initialTab.
+    expect(result.current.suppressLiveTabExitRef.current).toBe(false);
+  });
+
+  it('exitLiveDemo suppresses live→initialTab bounce while cleanup runs', async () => {
+    let sawSuppressedDuringCleanup = false;
+    const cleanup = vi.fn().mockImplementation(async () => {
+      // Ref is exposed on the hook result — read via navigate spy closure below.
+    });
+    const lesson = makeLesson({ cleanup });
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    act(() => { result.current.selectLesson(lesson); });
+    cleanup.mockImplementation(async () => {
+      sawSuppressedDuringCleanup = result.current.suppressLiveTabExitRef.current === true;
+    });
+    await act(async () => {
+      result.current.exitLiveDemo();
+      await vi.runAllTimersAsync();
+    });
+    expect(sawSuppressedDuringCleanup).toBe(true);
+    expect(result.current.suppressLiveTabExitRef.current).toBe(false);
   });
 
   it('exitLiveDemo runs cleanup when lesson has cleanup', async () => {

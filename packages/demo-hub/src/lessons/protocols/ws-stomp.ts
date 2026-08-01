@@ -60,12 +60,13 @@ async function ensureStompSession(ctx: DemoActionContext): Promise<void> {
 
 async function stompSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
+  // Ensure client mode FIRST — left-tab buttons only exist in client mode
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(300);
   await disconnectWebSocket(ctx);
   await ctx.delay(200);
   await clearEvents(ctx);
   await ctx.delay(200);
-  // Ensure client mode
-  await ctx.click(WS.MODE_CLIENT);
   await ctx.delay(300);
   // Navigate to Connect tab and pre-populate URL + protocol.
   // Always clear the Subprotocols field — a previous lesson (e.g. GraphQL) may have

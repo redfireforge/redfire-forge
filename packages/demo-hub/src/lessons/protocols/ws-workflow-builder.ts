@@ -186,9 +186,12 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       description:
         'Click "+ New" in the sidebar to create a blank workflow. We\'ll name it "WS Echo Demo".',
       highlight: WF.SIDEBAR_NEW_BTN,
-      preAction: ensureWsEchoDemoWorkflow,
       action: async (ctx) => {
-        if (document.querySelector(WF.CANVAS)) return;
+        await dismissWorkflowOnboarding(ctx);
+        await expandWfDemoAppSidebar(ctx);
+        await ctx.delay(700);
+        deleteWorkflowByName('WS Echo Demo');
+        await ctx.delay(300);
         await ctx.click(WF.SIDEBAR_NEW_BTN);
         await ctx.waitFor('.wf-new-dropdown');
         await ctx.delay(400);

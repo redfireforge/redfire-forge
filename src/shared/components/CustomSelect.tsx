@@ -58,6 +58,7 @@ export function CustomSelect({
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const selectId = useId();
 
@@ -110,8 +111,9 @@ export function CustomSelect({
   } | null>(null);
 
   const recomputeMenuPos = useCallback(() => {
-    if (!wrapperRef.current) return;
-    const rect = wrapperRef.current.getBoundingClientRect();
+    const anchor = triggerRef.current ?? wrapperRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const up = spaceBelow < 200;
     // When the trigger centre is in the right half of the viewport, anchor the
@@ -238,6 +240,7 @@ export function CustomSelect({
     >
       <button
         type="button"
+        ref={triggerRef}
         className={`cs-trigger${isPlaceholder ? ' cs-placeholder' : ''}${disabled ? ' cs-disabled' : ''}`}
         onClick={() => {
           if (disabled) return;

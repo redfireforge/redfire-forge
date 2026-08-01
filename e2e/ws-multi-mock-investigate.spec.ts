@@ -13,7 +13,7 @@ import { gotoWsStudio } from './ws-helpers';
 
 const PORT1 = 9876;
 const PORT2 = 9877;
-const PORT3 = 9878;
+const PORT3 = PORT1 + 2;
 
 // ─── Low-level helpers ────────────────────────────────────────────
 
@@ -191,7 +191,7 @@ test.beforeAll(async ({ request }) => {
   await Promise.allSettled([
     request.post('http://localhost:3001/api/ws/mock/stop', { data: { port: 9876 } }),
     request.post('http://localhost:3001/api/ws/mock/stop', { data: { port: 9877 } }),
-    request.post('http://localhost:3001/api/ws/mock/stop', { data: { port: 9878 } }),
+    request.post('http://localhost:3001/api/ws/mock/stop', { data: { port: PORT3 } }),
   ]);
 });
 
@@ -659,7 +659,7 @@ test.describe('MM-11: Three tabs — simultaneous operations', () => {
     await switchMode(page, 'mock');
     await startMock(page);
 
-    // Tab3: mock on 9878
+    // Tab3: mock on PORT3
     await addTab(page);
     await switchMode(page, 'mock');
     await startMock(page);
@@ -674,7 +674,7 @@ test.describe('MM-11: Three tabs — simultaneous operations', () => {
     await connectClient(page, `ws://localhost:${PORT2}`);
     await sendMessage(page, 'MSG-TAB2');
 
-    // Connect Tab3 client to 9878, send message
+    // Connect Tab3 client to PORT3, send message
     await clickTab(page, 2);
     await connectClient(page, `ws://localhost:${PORT3}`);
     await sendMessage(page, 'MSG-TAB3');
@@ -849,7 +849,7 @@ test.describe('MM-14: Port edit — server starts on user-specified port', () =>
       await page.waitForTimeout(300);
     }
 
-    // Change port from 9876 to PORT3 (9878) while stopped
+    // Change port from PORT1 to PORT3 while stopped
     const portInput = pane.locator('[data-testid="mock-port-input"]');
     await expect(portInput).toBeEditable({ timeout: 5000 });
     await portInput.click({ clickCount: 3 });

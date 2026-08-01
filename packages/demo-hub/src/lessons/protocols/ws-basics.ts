@@ -1,6 +1,6 @@
 /** Lesson: WebSocket Basics — connect, send, receive */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsCleanup, closeExtraConnectionTabs } from '../setup-helpers';
+import { fillControlledInput, wsCleanup } from '../setup-helpers';
 import { APP, EM, WS } from '@shared/selectors';
 import { showSpotlightRing } from '../../demoRipple';
 import { firstVisibleElement } from '../../utils/domVisibility';
@@ -43,11 +43,47 @@ let _wsConnected = false;
  * this is captured live rather than assumed. Falls back to '9876' until captured.
  */
 let _mockPort = '9876';
+const LESSON_MOCK_PORT = '9876';
 
-/** Reads the tab's actual assigned mock port from the DOM, if the Mock panel is visible. */
-function captureMockPort(): void {
+function setMockPort(port: string): void {
   const portInput = firstVisibleElement<HTMLInputElement>(WS.MOCK_PORT_INPUT);
-  if (portInput?.value?.trim()) _mockPort = portInput.value.trim();
+  if (!portInput) return;
+  // Use the React-aware setter — assigning `.value` alone desyncs the readonly
+  // URL preview (React state) from the number input (native DOM).
+  portInput.focus();
+  fillControlledInput(portInput, port);
+  portInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  portInput.blur();
+  portInput.dispatchEvent(new Event('blur', { bubbles: true }));
+  _mockPort = port;
+}
+
+async function quietNormalizeLessonMockPort(ctx: DemoActionContext, port: string): Promise<void> {
+  // Open Mock mode quietly so the port input and start/stop controls are mounted.
+  document.querySelector<HTMLElement>(WS.MODE_MOCK)?.click();
+  await ctx.delay(120);
+
+  // Stop any running server first — port edits are only allowed while stopped.
+  const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_STOP_BTN);
+  if (stopBtn && !stopBtn.disabled) {
+    stopBtn.click();
+    await ctx.delay(150);
+  }
+
+  // Wait until the port field is editable (Stop clears readOnly asynchronously).
+  for (let i = 0; i < 30; i++) {
+    const portInput = firstVisibleElement<HTMLInputElement>(WS.MOCK_PORT_INPUT);
+    if (portInput && !portInput.readOnly && !firstVisibleElement(WS.MOCK_STOP_BTN)) {
+      setMockPort(port);
+      break;
+    }
+    await ctx.delay(50);
+  }
+  _mockRunning = false;
+
+  // Return to Client mode so lesson opening state stays consistent.
+  document.querySelector<HTMLElement>(WS.MODE_CLIENT)?.click();
+  await ctx.delay(100);
 }
 
 /**
@@ -57,12 +93,12 @@ function captureMockPort(): void {
  */
 async function ensureMockRunning(ctx: DemoActionContext): Promise<void> {
   if (_mockRunning) {
-    captureMockPort();
+    _mockPort = LESSON_MOCK_PORT;
     return;
   }
   await ctx.click(WS.MODE_MOCK);
   await ctx.delay(200);
-  captureMockPort();
+  setMockPort(LESSON_MOCK_PORT);
   const startBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_START_BTN);
   if (startBtn && !startBtn.disabled) {
     await ctx.click(WS.MOCK_START_BTN);
@@ -123,37 +159,11 @@ export const wsBasicsLesson: DemoLesson = {
   setup: async (ctx) => {
     _mockRunning = false;
     _wsConnected = false;
-    _mockPort = '9876';
-    // Remove stale ws-demo from prior runs (HTTP tab, d01 deploy, old step order).
-    await cleanupDemoMicroservice(ctx, WS_DEMO_SVC_NAME);
-    await cleanupDemoEnvironment(ctx, WS_DEMO_ENV_NAME);
+    _mockPort = LESSON_MOCK_PORT;
+    // Keep lesson startup visually stable: avoid mutating connection tabs,
+    // mode, or connection state before step 1 narration starts.
     await navigateToWebSocketStudio(ctx);
-    await ctx.delay(300);
-    // Close extra tabs so only this tab's mock server is in play. This does NOT
-    // guarantee port 9876 — the surviving tab keeps whatever port it was already
-    // assigned — so the real port is captured below and used for the endpoint
-    // config instead of assuming 9876.
-    await closeExtraConnectionTabs(ctx);
-    await ctx.delay(200);
-    // Disconnect any active session so the connect step can demo from scratch
-    const disconnectBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
-    if (disconnectBtn && !disconnectBtn.disabled) {
-      disconnectBtn.click();
-      await ctx.delay(400);
-    }
-    // Stop mock server if running so the mock step can demo starting it
-    await ctx.click(WS.MODE_MOCK);
-    await ctx.delay(300);
-    // Capture this tab's real assigned mock port while the Mock panel is visible.
-    captureMockPort();
-    const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_STOP_BTN);
-    if (stopBtn && !stopBtn.disabled) {
-      stopBtn.click();
-      await ctx.delay(500);
-    }
-    // Return to Mock mode with server stopped so step 1 introduces the mock-first flow
-    await ctx.click(WS.MODE_MOCK);
-    await ctx.delay(200);
+    await quietNormalizeLessonMockPort(ctx, LESSON_MOCK_PORT);
   },
   cleanup: async (ctx) => {
     _mockRunning = false;
@@ -273,11 +283,12 @@ export const wsBasicsLesson: DemoLesson = {
       pauseAfter: true,
       preAction: async (ctx) => {
         await navigateToWebSocketStudio(ctx);
-        await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(200);
-        captureMockPort();
+        await quietNormalizeLessonMockPort(ctx, LESSON_MOCK_PORT);
       },
       action: async (ctx) => {
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.delay(500);
+        setMockPort(LESSON_MOCK_PORT);
         const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_START_BTN);
         if (btn && !btn.disabled) {
           await ctx.click(WS.MOCK_START_BTN);
@@ -303,10 +314,6 @@ export const wsBasicsLesson: DemoLesson = {
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await navigateToWebSocketStudio(ctx);
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(200);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
         await selectEnvInHeader(ctx, DEMO_ENV_NAME);

@@ -210,7 +210,6 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       description:
         `The **GraphQL Subscription node** (teal **S** badge) is the workflow equivalent of Kafka's **consume-wait** pattern: trigger an action, then wait for the system to emit the corresponding event before asserting the outcome.\n\nUnlike GQL-18's synchronous read-back query, subscriptions use a **persistent WebSocket connection**. The server pushes events as they happen — no polling loop, no repeated HTTP requests. This is the most powerful real-time testing pattern and the natural next step after GQL-18's mutation chain.\n\nPrerequisite: **GQL-18** showed create → verify with a Query node. Here, the Query is replaced by a **Subscription** that waits for status events.\n\nThe seeded **${LESSON19_WF_NAME}** workflow is loaded: Start → Create Order → Watch Order Status → Assert Complete → End.`,
       highlight: WF.PAL_GQL_SUBSCRIPTION,
-      preAction: gqlWorkflowSubscriptionLessonSetup,
       pauseAfter: true,
     },
 

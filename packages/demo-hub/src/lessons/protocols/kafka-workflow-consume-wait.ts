@@ -50,7 +50,7 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
         position: { x: 250, y: 130 },
         data: {
           label: 'Produce Order',
-          clusterId: 'demo-plaintext',
+          clusterId: 'demo-cluster',
           topic: '{{topic}}',
           keyTemplate: '{{orderId}}',
           partition: undefined,
@@ -67,7 +67,7 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
         position: { x: 250, y: 240 },
         data: {
           label: 'Consume Orders',
-          clusterId: 'demo-plaintext',
+          clusterId: 'demo-cluster',
           topic: '{{topic}}',
           keyRegex: '',
           headerFilters: [],
@@ -85,7 +85,7 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
         position: { x: 250, y: 350 },
         data: {
           label: 'Wait for Confirmation',
-          clusterId: 'demo-plaintext',
+          clusterId: 'demo-cluster',
           topic: 'payments.confirmed',
           correlationIdExpression: '{{orderId}}',
           correlationSource: 'body',

@@ -87,7 +87,8 @@ describe('src-server/index startup and shutdown paths', () => {
     expect(initSchedulerMock).toHaveBeenCalled();
     expect(createCorrelationStoreMock).toHaveBeenCalled();
     expect(setCorrelationStoreMock).toHaveBeenCalled();
-    expect(wsPoolStartMock).toHaveBeenCalled();
+    // WS mock is no longer auto-started at boot — tabs start on demand.
+    expect(wsPoolStartMock).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
     expect(serverErrorHandler).toBeTypeOf('function');
 
@@ -240,30 +241,6 @@ describe('src-server/index startup and shutdown paths', () => {
     expect(exitSpy).toHaveBeenCalledWith(0);
 
     logSpy.mockRestore();
-  });
-
-  it('treats ws EADDRINUSE mock startup as non-fatal', async () => {
-    vi.resetModules();
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    wsPoolStartMock.mockRejectedValueOnce(new Error('EADDRINUSE'));
-
-    await import('./index');
-
-    expect(logSpy).toHaveBeenCalledWith('  ⚠️  ws://127.0.0.1:9876 already in use — skipping mock server start');
-    expect(warnSpy).not.toHaveBeenCalled();
-  });
-
-  it('warns when ws mock startup fails for other errors', async () => {
-    vi.resetModules();
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    wsPoolStartMock.mockRejectedValueOnce(new Error('network down'));
-
-    await import('./index');
-
-    expect(warnSpy).toHaveBeenCalledWith('  ⚠️  WS echo mock server failed to start:', 'Error: network down');
   });
 
   it('logs and exits when listen throws during startup catch path', async () => {

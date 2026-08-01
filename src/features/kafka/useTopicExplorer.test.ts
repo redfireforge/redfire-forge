@@ -70,7 +70,7 @@ function makeDetail(name: string, overrides?: Partial<KafkaTopicDetail>): KafkaT
 
 describe('useTopicExplorer', () => {
   beforeEach(() => {
-    resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('initial state: all filters default, filteredTopics matches topics minus internals', () => {
@@ -98,7 +98,7 @@ describe('useTopicExplorer', () => {
     expect(result.current.filteredTopics.map((t) => t.name)).toEqual(['payments.settled']);
   });
 
-  it('healthFilter filters by detailCache health; unloaded topics treated as unknown', async () => {
+  it('healthFilter keeps healthy/degraded strict, but unknown includes unloaded topics', async () => {
     const dispatch = vi.fn().mockImplementation((op: string, body: { topicName?: string }) => {
       if (op === 'topic-detail' && body.topicName === 'orders.created') {
         return Promise.resolve({ ok: true, data: makeDetail('orders.created', { healthStatus: 'healthy' }) });
@@ -118,19 +118,19 @@ describe('useTopicExplorer', () => {
       await result.current.selectTopic('payments.settled');
     });
 
-    // 'healthy' filter: only cached-healthy topics pass; unloaded (orders.updated) excluded
     act(() => {
       result.current.setHealthFilter('healthy');
     });
-    const healthyNames = result.current.filteredTopics.map((t) => t.name);
-    expect(healthyNames).toContain('orders.created');
-    expect(healthyNames).not.toContain('orders.updated');
-    expect(healthyNames).not.toContain('payments.settled');
 
-    // 'unknown' filter: unloaded topics pass; cached topics excluded
+    const names = result.current.filteredTopics.map((t) => t.name);
+    expect(names).toContain('orders.created');
+    expect(names).not.toContain('orders.updated');
+    expect(names).not.toContain('payments.settled');
+
     act(() => {
       result.current.setHealthFilter('unknown');
     });
+
     const unknownNames = result.current.filteredTopics.map((t) => t.name);
     expect(unknownNames).toContain('orders.updated');
     expect(unknownNames).not.toContain('orders.created');
@@ -169,18 +169,14 @@ describe('useTopicExplorer', () => {
     expect(result.current.filteredTopics.map((t) => t.name)).toEqual(['__consumer_offsets']);
   });
 
-  it('retentionFilter leaves unloaded topics visible', () => {
+  it('retentionFilter is strict and hides topics without loaded detail', () => {
     const { result } = renderHook(() => useTopicExplorer(makeKafkaState()));
 
     act(() => {
       result.current.setRetentionFilter('<1d');
     });
 
-    expect(result.current.filteredTopics.map((t) => t.name)).toEqual([
-      'orders.created',
-      'orders.updated',
-      'payments.settled',
-    ]);
+    expect(result.current.filteredTopics.map((t) => t.name)).toEqual([]);
   });
 
   it('retentionFilter bucket correctly categorizes retention.ms values', async () => {

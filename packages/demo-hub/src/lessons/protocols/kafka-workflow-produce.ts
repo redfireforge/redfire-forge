@@ -41,7 +41,7 @@ function createKafkaProduceDemoWorkflow(): Record<string, unknown> {
         position: { x: 250, y: 160 },
         data: {
           label: 'Kafka Produce',
-          clusterId: 'demo-plaintext',
+          clusterId: 'demo-cluster',
           topic: '{{topic}}',
           keyTemplate: '',
           partition: undefined,
@@ -240,7 +240,7 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
       id: 'wp-fields',
       title: 'Config Fields',
       description:
-        'The **Cluster ID** field is set to `demo-plaintext` — the cluster created during setup. **Topic** uses `{{topic}}` syntax which resolves to `orders.created` at run time. The **Body Template** also uses `{{variable}}` placeholders: `{{runId}}` is resolved from the workflow\'s variable map.',
+        'The **Cluster ID** field is set to `demo-cluster` — the cluster created during setup. **Topic** uses `{{topic}}` syntax which resolves to `orders.created` at run time. The **Body Template** also uses `{{variable}}` placeholders: `{{runId}}` is resolved from the workflow\'s variable map.',
       highlight: 'input[placeholder="cluster-a"]',
     },
 

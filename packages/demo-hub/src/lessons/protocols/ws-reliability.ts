@@ -401,13 +401,11 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
         'First, let\'s establish a connection to the built-in mock echo server. The demo fills in this tab\'s mock server URL and clicks **Connect**. Watch the status bar turn green with a latency measurement and uptime counter.',
       highlight: WS.CONNECT_BTN,
       pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
-        await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
-        await ctx.delay(200);
-      },
       action: async (ctx: DemoActionContext) => {
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(700);
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
+        await ctx.delay(500);
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(1200);
         await ctx.click(WS.RIGHT_TAB_EVENTS);

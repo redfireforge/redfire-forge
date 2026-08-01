@@ -72,10 +72,11 @@ async function sseTabsSetup(ctx: DemoActionContext): Promise<void> {
 }
 
 async function sseTabsCleanup(ctx: DemoActionContext): Promise<void> {
+  // Quiet teardown only — Exit → Contents pins navigateToTab to demo-hub, so
+  // do not force a Studio/header tour here (that was the Contents-page flash).
   await disconnectSseIfConnected(ctx);
   await closeExtraSseConnectionTabs(ctx);
   await clearSseEvents(ctx);
-  await navigateToSseStudio(ctx);
 }
 
 export const sseTabsLesson: DemoLesson = {
