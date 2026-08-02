@@ -6,7 +6,9 @@
  * the secure cluster is fully functional.
  */
 import type { DemoLesson } from '../../types';
-import { kafkaSecureSetup, kafkaCleanup } from '../setup-helpers';
+import { kafkaSecureSetup } from '../setup-helpers';
+import { deleteKafkaClusterByName } from '../../adapters/kafkaStudioAdapter';
+import { showSpotlightRing } from '../../demoRipple';
 import { KAFKA } from '@shared/selectors';
 
 export const kafkaSecureLesson: DemoLesson = {
@@ -16,7 +18,7 @@ export const kafkaSecureLesson: DemoLesson = {
   name: 'Secure Cluster (SASL)',
   description:
     'Configure a SASL/SCRAM-256 authenticated Kafka cluster, test the connection, save, connect, and publish a message — no plain-text traffic.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 4,
   initialTab: 'kafka-settings',
   allowedTabs: ['kafka-settings', 'kafka-message-studio'],
 
@@ -25,7 +27,7 @@ export const kafkaSecureLesson: DemoLesson = {
   tag: '🐳 Docker',
 
   setup: kafkaSecureSetup,
-  cleanup: kafkaCleanup,
+  cleanup: async () => { deleteKafkaClusterByName('Local Secure'); },
 
   concept: {
     title: 'SASL Authentication for Kafka',
@@ -99,32 +101,21 @@ export const kafkaSecureLesson: DemoLesson = {
   },
 
   steps: [
-    // Step 1: Navigate to Settings
+    // Step 1: Navigate to Settings and open the Cluster Editor
     {
       id: 'sec-intro',
       title: 'Secure Kafka Cluster',
       description:
-        'Time to lock things down. In this lesson you\'ll create a new cluster config for the **SASL/SCRAM-256** secured Kafka node running on port **19093**. Make sure the secure Docker stack is running: `cd docker/kafka/secure && docker compose up -d`.',
-      highlight: KAFKA.SETTINGS_PAGE,
+        'Time to lock things down. In this lesson you\'ll create a new cluster config for the **SASL/SCRAM-256** secured Kafka node running on port **19093**. Make sure the secure Docker stack is running: `cd docker/kafka/secure && docker compose up -d`.\n\nClick **New Cluster** (or the + button) to open the Cluster Editor with a blank form — this is where you\'ll configure the broker address and authentication settings.',
+      highlight: KAFKA.NEW_CLUSTER_BTN,
       preAction: async () => {
         document.querySelectorAll('.kafka-cluster-card.selected').forEach((el) => {
           el.classList.remove('selected');
         });
       },
       action: async (ctx) => {
-        await ctx.waitFor(KAFKA.SETTINGS_PAGE, 3000);
-        await ctx.delay(600);
-      },
-    },
-
-    // Step 2: Create new cluster
-    {
-      id: 'sec-new',
-      title: 'Create Secure Cluster',
-      description:
-        'Click **New Cluster** (or the + button) to open the Cluster Editor with a blank form. This is where you\'ll configure the broker address and authentication settings.',
-      highlight: KAFKA.NEW_CLUSTER_BTN,
-      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.NEW_CLUSTER_BTN, 3000);
+        await ctx.delay(400);
         await ctx.click(KAFKA.NEW_CLUSTER_BTN);
         await ctx.delay(400);
       },
@@ -171,12 +162,14 @@ export const kafkaSecureLesson: DemoLesson = {
       title: 'Enter Credentials',
       description:
         'Fill in the pre-created credentials: **Username** `redfireforge-app`, **Password** `app-password`. These match the SASL user pre-configured in the secure Docker stack. In a real cluster you\'d use your Kafka admin\'s issued credentials.',
-      highlight: KAFKA.AUTH_USER_INPUT,
+      highlight: `${KAFKA.AUTH_USER_INPUT}, ${KAFKA.AUTH_PASS_INPUT}`,
       preAction: async (ctx) => {
         await ctx.fill(KAFKA.AUTH_USER_INPUT, 'redfireforge-app');
         await ctx.delay(100);
+      },
+      action: async (ctx) => {
         await ctx.fill(KAFKA.AUTH_PASS_INPUT, 'app-password');
-        await ctx.delay(200);
+        await ctx.delay(300);
       },
     },
 
@@ -185,12 +178,23 @@ export const kafkaSecureLesson: DemoLesson = {
       id: 'sec-test',
       title: 'Test Connection',
       description:
-        'Click **Test Connection** to verify the broker is reachable and the credentials are accepted. RedfireForge performs the full SASL handshake and shows a success indicator (green) or an error message (red) — before saving anything.',
+        'Click **Test Connection** to verify the broker is reachable and the credentials are accepted. RedfireForge performs the full SASL handshake and shows a **Connected** indicator (green) or an error message (red) — before saving anything.',
       highlight: KAFKA.TEST_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.TEST_BTN);
-        await ctx.delay(1500);
+        // Wait for the test result badge to appear.
+        await ctx.waitFor('[data-testid="kafka-test-result"]', 8000);
+        await ctx.delay(400);
+        // Spotlight the result so the viewer sees the Connected/Failed status.
+        const result = document.querySelector<HTMLElement>('[data-testid="kafka-test-result"]');
+        if (result) {
+          result.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          const dispose = showSpotlightRing(result);
+          await ctx.delay(1500);
+          dispose();
+        }
       },
+      verify: '[data-testid="kafka-test-result"]',
     },
 
     // Step 7: Save and connect

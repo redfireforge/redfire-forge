@@ -9,9 +9,28 @@
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { ensureKafkaConnected, kafkaCleanup } from '../setup-helpers';
-import { closeWfConsoleIfOpen, openWfConsoleIfClosed, collapseWfDemoAppSidebar, selectWorkflowFromAppSidebar, openWfNodeConfigModal } from '../wf-demo-helpers';
+import {
+  closeWfConfigModalIfOpen,
+  closeWfConsoleIfOpen,
+  collapseWfDemoAppSidebar,
+  ensureLessonWorkflowShown,
+  ensureWfNodeConfigModalOpen,
+  getWfConfigDemoTiming,
+  openWfConsoleIfClosed,
+  openWfNodeConfigModal,
+  pauseWfConfigSection,
+  scrollWfConfigFieldIntoView,
+  scrollWfConfigModalToTop,
+  selectWorkflowFromAppSidebar,
+  setWfConfigDemoTiming,
+  waitForWfConfigPanel,
+  WF_CONFIG_DEMO_TIMING_BRISK,
+} from '../wf-demo-helpers';
 import { deleteWorkflowByName, seedNamedWorkflow } from '../../adapters';
+import { showSpotlightRing } from '../../demoRipple';
 import { WF, KAFKA } from '@shared/selectors';
+
+const DEMO_WF_NAME = 'Kafka Produce Demo';
 
 // ── Seeded workflow factory ────────────────────────────────────────
 
@@ -22,7 +41,7 @@ function createKafkaProduceDemoWorkflow(): Record<string, unknown> {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    name: 'Kafka Produce Demo',
+    name: DEMO_WF_NAME,
     schemaVersion: 6,
     variables: { topic: 'orders.created', runId: 'demo-run-1' },
     services: [],
@@ -46,10 +65,15 @@ function createKafkaProduceDemoWorkflow(): Record<string, unknown> {
           keyTemplate: '',
           partition: undefined,
           headers: [],
-          bodyTemplate: '{"demo":"workflow","runId":"{{runId}}"}',
+          bodyTemplate: [
+            '{',
+            '  "demo": "workflow",',
+            '  "runId": "{{runId}}"',
+            '}',
+          ].join('\n'),
           ackMode: 'leader',
           timeoutMs: 10000,
-          outputBindings: [{ source: 'partition', targetVariable: 'sentPartition' }],
+          outputBindings: [{ id: 'b1', source: 'partition', targetVariable: 'sentPartition', enabled: true }],
         },
       },
       {
@@ -73,26 +97,26 @@ function createKafkaProduceDemoWorkflow(): Record<string, unknown> {
 async function kafkaWorkflowProduceSetup(ctx: DemoActionContext): Promise<void> {
   try { await ensureKafkaConnected(); } catch { /* server may not be running */ }
 
-  await seedNamedWorkflow(ctx, 'Kafka Produce Demo', createKafkaProduceDemoWorkflow(), {
+  await seedNamedWorkflow(ctx, DEMO_WF_NAME, createKafkaProduceDemoWorkflow(), {
     deleteDelayMs: 0,
     insertPreDelayMs: 100,
     insertDelayMs: 0,
   });
 
   ctx.navigateToTab('workflow');
-  await ctx.delay(900);
+  await ctx.delay(450);
 
   await closeWfConsoleIfOpen(ctx);
-
-  const fitBtn = document.querySelector('button[title="Fit view"]') as HTMLElement | null;
-  if (fitBtn) { fitBtn.click(); await ctx.delay(400); }
+  await closeWfConfigModalIfOpen(ctx);
   await collapseWfDemoAppSidebar(ctx);
 }
 
 async function kafkaWorkflowProduceCleanup(ctx: DemoActionContext): Promise<void> {
+  await closeDefaultsModalIfOpen(ctx);
+  await closeWfConfigModalIfOpen(ctx);
   await closeWfConsoleIfOpen(ctx);
 
-  deleteWorkflowByName('Kafka Produce Demo');
+  deleteWorkflowByName(DEMO_WF_NAME);
   await kafkaCleanup(ctx);
 }
 
@@ -100,12 +124,84 @@ async function kafkaWorkflowProduceCleanup(ctx: DemoActionContext): Promise<void
 
 /** Select the "Kafka Produce Demo" workflow from the sidebar. */
 async function selectKafkaProduceDemoWorkflow(ctx: DemoActionContext): Promise<void> {
-  await selectWorkflowFromAppSidebar(ctx, 'Kafka Produce Demo');
+  await selectWorkflowFromAppSidebar(ctx, DEMO_WF_NAME);
+}
+
+/** Close the Workflow Variables (defaults) modal via Cancel when open. */
+async function closeDefaultsModalIfOpen(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector<HTMLElement>(WF.DEFAULTS_MODAL);
+  if (!modal) return;
+  const cancel = modal.querySelector<HTMLElement>('.btn-ghost');
+  cancel?.click();
+  await ctx.delay(300);
+}
+
+/** Find an existing variable row in the Variables modal by key name. */
+function findDefaultsVarRow(key: string): HTMLElement | null {
+  const rows = document.querySelectorAll<HTMLElement>(
+    `${WF.DEFAULTS_MODAL} .wf-config-kv-row-vars:not(.wf-config-kv-header)`,
+  );
+  for (const row of rows) {
+    const input = row.querySelector<HTMLInputElement>('.wf-var-key-input');
+    if (input?.value === key) return row;
+  }
+  return null;
+}
+
+/** Spotlight a variable row (key + value) inside the Variables modal. */
+async function spotlightDefaultsVarRow(
+  ctx: DemoActionContext,
+  key: string,
+  holdMs = 700,
+): Promise<void> {
+  const row = findDefaultsVarRow(key);
+  if (!row) return;
+  row.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  const dispose = showSpotlightRing(row);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    dispose();
+  }
 }
 
 /** Double-click the kafkaProduce node on the canvas to open its config modal. */
 async function openProduceNodeConfig(ctx: DemoActionContext): Promise<void> {
+  await closeDefaultsModalIfOpen(ctx);
   await openWfNodeConfigModal(ctx, { nodeSelector: KAFKA.NODE_PRODUCE });
+  await waitForWfConfigPanel(ctx, KAFKA.PRODUCE_CONFIG);
+}
+
+/** Keep / reopen Produce config for field-tour steps (idempotent). */
+async function ensureProduceConfigOpen(ctx: DemoActionContext): Promise<void> {
+  const state = await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME);
+  if (state === 'selected') {
+    await collapseWfDemoAppSidebar(ctx);
+  }
+  await closeDefaultsModalIfOpen(ctx);
+  await ensureWfNodeConfigModalOpen(ctx, {
+    nodeSelector: KAFKA.NODE_PRODUCE,
+    panelSelector: KAFKA.PRODUCE_CONFIG,
+  });
+}
+
+/** Spotlight a config field, hold so the viewer can read the value, then clear. */
+async function spotlightConfigField(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs = 700,
+): Promise<void> {
+  await ctx.waitFor(selector, 5000);
+  await scrollWfConfigFieldIntoView(ctx, selector);
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return;
+  const dispose = showSpotlightRing(el);
+  try {
+    el.focus?.();
+    await ctx.delay(holdMs);
+  } finally {
+    dispose();
+  }
 }
 
 export const kafkaWorkflowProduceLesson: DemoLesson = {
@@ -114,8 +210,8 @@ export const kafkaWorkflowProduceLesson: DemoLesson = {
   category: 'kafka',
   name: 'Workflow: Produce Node',
   description:
-    'Add a kafkaProduce node to a workflow, configure cluster + topic + body template with {{variables}}, add output bindings, and run a Quick Test.',
-  estimatedMinutes: 5,
+    'Add a kafkaProduce node to a workflow, define workflow Variables (topic / runId), configure cluster + topic + body templates with {{variables}}, add output bindings, and run a Quick Test.',
+  estimatedMinutes: 6,
   // No initialTab — setup navigates to workflow directly
 
   dockerEndpoint: 'http://localhost:18080',
@@ -198,9 +294,19 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
       description:
         '**⚠️ Prerequisite:** To run Quick Test, ensure the Redpanda stack is running: `cd docker/kafka/plaintext && docker compose up -d`\n\n' +
         'You\'re in the **Workflow Designer**. The sidebar on the left lists all saved workflows. The canvas shows a workflow graph — nodes connected by edges. Kafka nodes let you produce and consume messages as part of automated test sequences.',
-      highlight: '.wf-canvas-area',
+      // No canvas-wide reading highlight — the pulsing ring feels like flashing chrome.
       preAction: async (ctx) => {
         await selectKafkaProduceDemoWorkflow(ctx);
+        await closeDefaultsModalIfOpen(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+      },
+      action: async (ctx) => {
+        const fitBtn = document.querySelector<HTMLElement>('button[title="Fit view"]');
+        if (fitBtn) {
+          fitBtn.click();
+          await ctx.delay(120);
+        }
+        await ctx.delay(300);
       },
     },
 
@@ -209,109 +315,362 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
       id: 'wp-canvas',
       title: 'The Produce Demo Workflow',
       description:
-        'The **Kafka Produce Demo** workflow is a three-node chain: **Start → Kafka Produce → End**. The `Kafka Produce` node in the middle is the one we\'ll explore — its Cluster ID, Topic, Body Template, and Output Bindings are already pre-configured by setup.',
+        'The **Kafka Produce Demo** workflow is a three-node chain: **Start → Kafka Produce → End**. The middle node is pre-configured — next we\'ll see the workflow **Variables** that feed its `{{topic}}` and `{{runId}}` placeholders, then open the Produce config.',
       highlight: KAFKA.NODE_PRODUCE,
+      preAction: async (ctx) => {
+        await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME);
+        await closeDefaultsModalIfOpen(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+        await collapseWfDemoAppSidebar(ctx);
+      },
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.NODE_PRODUCE, 5000);
+        const produce = document.querySelector<HTMLElement>(KAFKA.NODE_PRODUCE);
+        if (produce) {
+          const dispose = showSpotlightRing(produce);
+          await ctx.delay(700);
+          dispose();
+        }
+        await ctx.delay(200);
+      },
+      verify: KAFKA.NODE_PRODUCE,
     },
 
-    // Step 3: Open the palette
+    // Step 3: Introduce workflow Variables (topic + runId) before using {{…}} in config
+    {
+      id: 'wp-variables',
+      title: 'Workflow Variables',
+      description:
+        'Open **Variables** in the toolbar (badge **2**). This demo defines two workflow-level values available everywhere as `{{name}}`:\n\n' +
+        '- `topic` → `orders.created`\n' +
+        '- `runId` → `demo-run-1`\n\n' +
+        'The Produce node will reference these as `{{topic}}` and `{{runId}}` — change a variable once, and every placeholder updates at run time.',
+      highlight: WF.VARIABLES_BTN,
+      preAction: async (ctx) => {
+        await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME);
+        await closeWfConfigModalIfOpen(ctx);
+        await collapseWfDemoAppSidebar(ctx);
+        // Leave Variables closed so the action opens it visibly.
+        await closeDefaultsModalIfOpen(ctx);
+      },
+      action: async (ctx) => {
+        await ctx.waitFor(WF.VARIABLES_BTN, 5000);
+        const varsBtn = document.querySelector<HTMLElement>(WF.VARIABLES_BTN);
+        if (varsBtn) {
+          const dispose = showSpotlightRing(varsBtn);
+          await ctx.delay(500);
+          dispose();
+        }
+
+        await ctx.click(WF.VARIABLES_BTN);
+        await ctx.waitFor(WF.DEFAULTS_MODAL, 5000);
+        await ctx.delay(450);
+
+        await spotlightDefaultsVarRow(ctx, 'topic', 750);
+        await ctx.delay(180);
+        await spotlightDefaultsVarRow(ctx, 'runId', 750);
+        await ctx.delay(250);
+
+        // Close without saving — values are already seeded; Cancel dismisses cleanly.
+        await closeDefaultsModalIfOpen(ctx);
+        await ctx.delay(250);
+
+        // Re-spotlight the toolbar badge so the viewer connects modal ↔ Variables (2).
+        const badgeBtn = document.querySelector<HTMLElement>(WF.VARIABLES_BTN);
+        if (badgeBtn) {
+          const dispose = showSpotlightRing(badgeBtn);
+          await ctx.delay(450);
+          dispose();
+        }
+      },
+      verify: WF.VARIABLES_BTN,
+    },
+
+    // Step 4: Open the palette and search for Kafka nodes
     {
       id: 'wp-palette',
       title: 'Node Palette',
       description:
-        'New nodes come from the **Blocks Palette** — the panel on the **left sidebar** of the canvas. It groups nodes by category: Triggers, Actions, and Connections. Scroll down to the **Actions** section to find Kafka-specific nodes: **Kafka Produce**, **Kafka Consume**, **Kafka Wait**.',
-      highlight: '.wf-palette',
+        'New nodes come from the **Blocks Palette** — the panel on the **left sidebar** of the canvas. Type **kafka** in the search box to instantly filter to Kafka-specific nodes: **Kafka Trigger**, **Kafka Produce**, **Kafka Consume**, and **Kafka Wait**.',
+      highlight: WF.PAL_SEARCH,
+      preAction: async (ctx) => {
+        await closeDefaultsModalIfOpen(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+        const search = document.querySelector<HTMLInputElement>(WF.PAL_SEARCH);
+        if (search && search.value !== '') {
+          search.value = '';
+          search.dispatchEvent(new Event('input', { bubbles: true }));
+          await ctx.delay(80);
+        }
+      },
+      action: async (ctx) => {
+        await ctx.waitFor(WF.PAL_SEARCH, 3000);
+        await ctx.fill(WF.PAL_SEARCH, 'kafka');
+        await ctx.delay(250);
+
+        // Highlight all Kafka node cards with one combined ring.
+        const kafkaPaletteSelectors = [
+          WF.PAL_KAFKA_TRIGGER,
+          WF.PAL_KAFKA_PRODUCE,
+          WF.PAL_KAFKA_CONSUME,
+          WF.PAL_KAFKA_WAIT,
+        ];
+        const nodes = kafkaPaletteSelectors
+          .map((selector) => document.querySelector<HTMLElement>(selector))
+          .filter((node): node is HTMLElement => Boolean(node));
+
+        if (nodes.length > 0) {
+          const rects = nodes.map((node) => node.getBoundingClientRect());
+          const left = Math.min(...rects.map((rect) => rect.left));
+          const top = Math.min(...rects.map((rect) => rect.top));
+          const right = Math.max(...rects.map((rect) => rect.right));
+          const bottom = Math.max(...rects.map((rect) => rect.bottom));
+
+          const groupAnchor = document.createElement('div');
+          groupAnchor.style.position = 'fixed';
+          groupAnchor.style.left = `${left}px`;
+          groupAnchor.style.top = `${top}px`;
+          groupAnchor.style.width = `${Math.max(0, right - left)}px`;
+          groupAnchor.style.height = `${Math.max(0, bottom - top)}px`;
+          groupAnchor.style.pointerEvents = 'none';
+          groupAnchor.style.opacity = '0';
+          document.body.appendChild(groupAnchor);
+
+          const disposeGroupSpotlight = showSpotlightRing(groupAnchor);
+          await ctx.delay(500);
+          disposeGroupSpotlight();
+          groupAnchor.remove();
+        } else {
+          await ctx.delay(500);
+        }
+
+        // Scroll the first kafka node into view if possible
+        const produce = document.querySelector<HTMLElement>(WF.PAL_KAFKA_PRODUCE);
+        if (produce && typeof produce.scrollIntoView === 'function') {
+          produce.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        await ctx.delay(300);
+      },
+      verify: WF.PAL_KAFKA_PRODUCE,
     },
 
-    // Step 4: Double-click the produce node to open config modal
+    // Step 5: Double-click the produce node to open config modal — leave it open
     {
       id: 'wp-config',
       title: 'Open Node Config',
       description:
-        'The **Kafka Produce** node is double-clicked to open its configuration panel. The panel appears on the right with tabs: **Config**, **Input**, **Output**, and **Logs**. The Config tab shows all fields: Label, Cluster ID, Topic, Key Template, Headers, Body Template, Ack Mode, and Output Bindings.',
-      highlight: '.wf-config-modal-scroll',
+        'Double-click the **Kafka Produce** node to open its configuration panel. The panel appears with tabs: **Config**, **Input**, **Output**, and **Logs**. Keep this panel open — next we\'ll connect the Variables you just saw to Topic and Body Template.',
+      highlight: KAFKA.NODE_PRODUCE,
       preAction: async (ctx) => {
-        await openProduceNodeConfig(ctx);
+        await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME);
+        await collapseWfDemoAppSidebar(ctx);
+        await closeDefaultsModalIfOpen(ctx);
+        // Close only if a *different* config is open so the visible open is a clean Produce open.
+        if (document.querySelector(WF.NODE_CONFIG) && !document.querySelector(KAFKA.PRODUCE_CONFIG)) {
+          await closeWfConfigModalIfOpen(ctx);
+        }
       },
-      verify: '.wf-config-modal',
+      action: async (ctx) => {
+        if (document.querySelector(KAFKA.PRODUCE_CONFIG)) {
+          await waitForWfConfigPanel(ctx, KAFKA.PRODUCE_CONFIG);
+        } else {
+          // Use brisk modal pacing only for this step so Acting doesn't linger.
+          const priorTiming = getWfConfigDemoTiming();
+          setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
+          try {
+            await openProduceNodeConfig(ctx);
+          } finally {
+            setWfConfigDemoTiming(priorTiming);
+          }
+        }
+        await scrollWfConfigModalToTop(ctx);
+        // Keep this step snappy while still showing that config is ready.
+        await ctx.delay(220);
+      },
+      verify: KAFKA.PRODUCE_CONFIG,
     },
 
-    // Step 5: Show config fields (config modal is open from step 4)
+    // Step 6: Tour Cluster / Topic / Body — modal must stay open
     {
       id: 'wp-fields',
       title: 'Config Fields',
       description:
-        'The **Cluster ID** field is set to `demo-cluster` — the cluster created during setup. **Topic** uses `{{topic}}` syntax which resolves to `orders.created` at run time. The **Body Template** also uses `{{variable}}` placeholders: `{{runId}}` is resolved from the workflow\'s variable map.',
-      highlight: 'input[placeholder="cluster-a"]',
+        'Watch the highlighted fields. **Cluster ID** is `demo-cluster`. **Topic** is `{{topic}}` — the same `topic` variable from the Variables panel (`orders.created` at run time). **Body Template** embeds `{{runId}}` from that same map. The **Available variables** section at the bottom of the panel also lists those two names.',
+      highlight: KAFKA.PRODUCE_CLUSTER_INPUT,
+      preAction: async (ctx) => {
+        await ensureProduceConfigOpen(ctx);
+        await scrollWfConfigModalToTop(ctx);
+      },
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.PRODUCE_CONFIG, 5000);
+        await scrollWfConfigModalToTop(ctx);
+
+        await spotlightConfigField(ctx, KAFKA.PRODUCE_CLUSTER_INPUT, 700);
+        await pauseWfConfigSection(ctx);
+
+        await spotlightConfigField(ctx, KAFKA.PRODUCE_TOPIC_INPUT, 700);
+        await pauseWfConfigSection(ctx);
+
+        await spotlightConfigField(ctx, KAFKA.PRODUCE_BODY_TEXTAREA, 800);
+        // Keep modal open for the bindings step.
+        await ctx.delay(250);
+      },
+      verify: KAFKA.PRODUCE_BODY_TEXTAREA,
     },
 
-    // Step 6: Output bindings — scroll down in config
+    // Step 7: Output bindings — scroll down, spotlight On checkbox, toggle to demonstrate
     {
       id: 'wp-bindings',
       title: 'Output Bindings',
       description:
-        'Scroll down in the Config panel to find **Output Bindings**. They extract values from the produce result and store them as workflow variables. This demo binds `partition` → `sentPartition`, making the partition number available to downstream nodes. Click **+ Add Binding** to add more (e.g., `offset`, `timestamp`).',
-      highlight: '[data-testid="output-bindings-section"]',
+        'Scroll down to **Output Bindings**. Each binding has an **On** checkbox — the binding only fires when it is **checked**. This demo has `partition` → `sentPartition` already on. Watch the **On** checkbox toggle off then back on to see how it controls the binding.',
+      highlight: KAFKA.OUTPUT_BINDINGS_SECTION,
       preAction: async (ctx) => {
-        const section = document.querySelector<HTMLElement>('[data-testid="output-bindings-section"]');
-        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(400);
+        await ensureProduceConfigOpen(ctx);
+        // Ensure the binding checkbox starts checked so the toggle demo is meaningful.
+        const checkbox = document.querySelector<HTMLInputElement>(
+          `${KAFKA.OUTPUT_BINDINGS_SECTION} .wf-kafka-bindings-col-on input[type="checkbox"]`,
+        );
+        if (checkbox && !checkbox.checked) {
+          checkbox.click();
+          await ctx.delay(80);
+        }
       },
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.OUTPUT_BINDINGS_SECTION, 5000);
+        await scrollWfConfigFieldIntoView(ctx, KAFKA.OUTPUT_BINDINGS_SECTION);
+        await spotlightConfigField(ctx, KAFKA.OUTPUT_BINDINGS_SECTION, 600);
+
+        const checkbox = document.querySelector<HTMLInputElement>(
+          `${KAFKA.OUTPUT_BINDINGS_SECTION} .wf-kafka-bindings-col-on input[type="checkbox"]`,
+        );
+        if (checkbox) {
+          // Spotlight the checkbox itself so the viewer sees it.
+          const toggleWrap = checkbox.closest<HTMLElement>('.wf-kafka-bindings-col-on') ?? checkbox;
+          const disposeToggle = showSpotlightRing(toggleWrap);
+          await ctx.delay(450);
+          disposeToggle();
+
+          // Uncheck — viewer sees a disabled (off) binding.
+          checkbox.click();
+          await ctx.delay(350);
+
+          // Re-check — binding is active again.
+          checkbox.click();
+          await ctx.delay(350);
+        }
+
+        // Keep modal open until the console step closes it.
+        await ctx.delay(150);
+      },
+      verify: KAFKA.OUTPUT_BINDINGS_SECTION,
     },
 
-    // Step 7: Close config modal and open Console
+    // Step 8: Close config modal and open Console
     {
       id: 'wp-open-console',
       title: 'Open the Console',
       description:
-        'The config panel is closed. Before running Quick Test, open the **Console** by clicking the Console badge in the status bar. It opens in **Floating** mode on the left of the canvas. The Console must be open *before* execution so it captures the full log — opening it afterwards shows an empty panel.',
-      highlight: '.wf-console-badge',
+        'Close the config panel, then open the **Console** via the Console badge in the status bar. It docks so you can watch the execution log. Open it *before* Quick Test so it captures the full run — opening afterwards shows an empty panel.',
+      highlight: WF.CONSOLE_BADGE,
       preAction: async (ctx) => {
-        const footer = document.querySelector<HTMLElement>('.wf-config-modal-footer-actions');
-        const closeBtn = footer?.querySelector<HTMLElement>('.btn-ghost');
-        if (closeBtn) {
-          closeBtn.click();
-          await ctx.delay(800);
-        }
+        await closeDefaultsModalIfOpen(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+        await ctx.delay(200);
       },
       action: async (ctx) => {
         await openWfConsoleIfClosed(ctx);
+        await ctx.delay(350);
       },
+      verify: WF.CONSOLE,
     },
 
-    // Step 8: Quick Test
+    // Step 9: Quick Test
     {
       id: 'wp-quicktest',
       title: 'Quick Test',
       description:
-        'Click **Quick Test** (▶ in the toolbar) to run the workflow once. The Designer executes each node in sequence, showing a real-time progress indicator on each node. Watch the **Console** — it fills with the execution log in real time. The status bar at the bottom shows pass/fail and duration.',
+        'Click **Quick Test** (▶ in the toolbar) to run the workflow once. The Designer resolves `{{topic}}` / `{{runId}}` from Variables, then executes each node. Watch the **Console** — it fills with the execution log in real time. The status bar shows pass/fail and duration.',
       highlight: WF.QUICK_TEST_BTN,
+      preAction: async (ctx) => {
+        await closeDefaultsModalIfOpen(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+        await openWfConsoleIfClosed(ctx);
+      },
       action: async (ctx) => {
         await ctx.click(WF.QUICK_TEST_BTN);
         await ctx.waitFor('.wf-status-bar', 5000);
-        await ctx.delay(3000);
+        await ctx.delay(1500);
       },
     },
 
-    // Step 9: Console output
+    // Step 10: Console output — spotlight the two lines showing resolved variables
     {
       id: 'wp-result',
       title: 'Read the Console',
       description:
-        'The **Console** now shows the execution log. For a produce node you\'ll see: cluster, topic, message key, partition, offset, and the `sentPartition` variable value. If the cluster isn\'t connected, the error is also shown here with a clear message.',
+        'The **Console** shows the execution log. Find **`PRODUCE orders.created`** — that\'s `{{topic}}` resolved from Variables. Find **`Body: {...,"runId":"demo-run-1"}`** — that\'s `{{runId}}` resolved. Watch as those two lines are highlighted to confirm that variable substitution happened at run time.',
       highlight: '.wf-console-body',
+      preAction: async (ctx) => {
+        await openWfConsoleIfClosed(ctx);
+      },
       action: async (ctx) => {
-        await ctx.delay(800);
-        await closeWfConsoleIfOpen(ctx);
+        // Helper: find the first .wf-cl-line whose text content includes a substring.
+        function findConsoleLine(substring: string): HTMLElement | null {
+          const lines = document.querySelectorAll<HTMLElement>('.wf-cl-line');
+          for (const line of lines) {
+            if (line.textContent?.includes(substring)) return line;
+          }
+          return null;
+        }
+
+        // 1. Spotlight the whole console body so the viewer orients.
+        const body = document.querySelector<HTMLElement>('.wf-console-body');
+        if (body) {
+          const d = showSpotlightRing(body);
+          await ctx.delay(800);
+          d();
+        }
+
+        // 2. Spotlight the "PRODUCE orders.created" line — {{topic}} resolved.
+        const produceLine = findConsoleLine('PRODUCE orders.created')
+          ?? findConsoleLine('orders.created');
+        if (produceLine) {
+          produceLine.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          await ctx.delay(300);
+          const d = showSpotlightRing(produceLine);
+          await ctx.delay(1200);
+          d();
+        }
+
+        // 3. Spotlight the "Body" line — {{runId}} resolved.
+        const bodyLine = findConsoleLine('runId')
+          ?? findConsoleLine('Body:');
+        if (bodyLine) {
+          bodyLine.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          await ctx.delay(300);
+          const d = showSpotlightRing(bodyLine);
+          await ctx.delay(1200);
+          d();
+        }
       },
     },
 
-    // Step 10: Summary
+    // Step 11: Summary
     {
       id: 'wp-summary',
       title: 'Produce Node Summary',
       description:
-        'You now know how to: add a `kafkaProduce` node, configure it with `{{variable}}` topic and body templates, bind the output partition to a variable, and Quick Test the workflow. In the next lesson, you\'ll add `kafkaConsume` and `kafkaWait` nodes to complete the event-driven round-trip.',
-      highlight: '.wf-canvas-area',
+        'You now know how to: define workflow **Variables** (`topic`, `runId`), wire them into a `kafkaProduce` node as `{{topic}}` / `{{runId}}`, bind the output partition to a variable, and Quick Test the workflow. In the next lesson, you\'ll add `kafkaConsume` and `kafkaWait` nodes to complete the event-driven round-trip.',
+      // No canvas-wide pulse on the last step either.
+      preAction: async (ctx) => {
+        await closeDefaultsModalIfOpen(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+        await closeWfConsoleIfOpen(ctx);
+      },
+      action: async (ctx) => {
+        await ctx.delay(350);
+      },
     },
   ],
 };

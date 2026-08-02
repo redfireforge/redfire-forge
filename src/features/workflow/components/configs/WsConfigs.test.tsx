@@ -181,7 +181,7 @@ describe('WsConnectConfig', () => {
     fireEvent.change(screen.getByDisplayValue('proto'), { target: { value: 'myProto' } });
     expect(onChange).toHaveBeenCalled();
     // Change field select
-    selectOption(screen.getByDisplayValue('proto').closest('.wf-config-kv-row')!, 'extensions');
+    selectOption(screen.getByDisplayValue('proto').closest('.wf-kafka-bindings-row')!, 'extensions');
     expect(onChange).toHaveBeenCalled();
     // Toggle binding enabled
     const checkbox = screen.getByRole('checkbox');
@@ -319,7 +319,7 @@ describe('WsSendConfig', () => {
     const bindingCheckbox = checkboxes.find(cb => cb !== screen.getByRole('checkbox', { name: /wait/i }));
     if (bindingCheckbox) fireEvent.click(bindingCheckbox);
     // Change binding field
-    const bindingRow = screen.getByDisplayValue('body').closest('.wf-config-kv-row')!;
+    const bindingRow = screen.getByDisplayValue('body').closest('.wf-kafka-bindings-row')!;
     selectOption(bindingRow, 'latencyMs');
     expect(onChange).toHaveBeenCalled();
     // Remove binding
@@ -479,7 +479,7 @@ describe('WsReceiveConfig', () => {
     rerender(<WsReceiveConfig data={withBinding} onChange={onChange} />);
     fireEvent.change(screen.getByDisplayValue('msg'), { target: { value: 'respVar' } });
     expect(onChange).toHaveBeenCalled();
-    const bindingRow = screen.getByDisplayValue('msg').closest('.wf-config-kv-row')!;
+    const bindingRow = screen.getByDisplayValue('msg').closest('.wf-kafka-bindings-row')!;
     selectOption(bindingRow, 'latencyMs');
     expect(onChange).toHaveBeenCalled();
     const checkbox = screen.getByRole('checkbox');

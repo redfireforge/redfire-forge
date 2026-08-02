@@ -31,9 +31,15 @@ describe('kafka-workflow-consume-wait wrapper — coverage gaps', () => {
     document.body.innerHTML = `
       <div data-testid="wf-canvas"></div>
       <div class="wf-config-modal"></div>
+      <div data-testid="kafka-wait-config"></div>
+      <div data-testid="wait-correlation-section"></div>
+      <textarea data-testid="wait-sample-payload"></textarea>
+      <div data-testid="wait-load-mode"></div>
       <button data-testid="wf-config-save-btn"></button>
     `;
-    const configSteps = kafkaWorkflowConsumeWaitLesson.steps.filter((s) => s.id.includes('config'));
+    const configSteps = kafkaWorkflowConsumeWaitLesson.steps.filter((s) =>
+      ['cw-wait-config', 'cw-sample-payload', 'cw-load-mode'].includes(s.id),
+    );
     for (const step of configSteps) {
       if (step.preAction) await step.preAction(ctx);
       if (step.action) await step.action(ctx);
@@ -45,6 +51,9 @@ describe('kafka-workflow-consume-wait wrapper — coverage gaps', () => {
     document.body.innerHTML = `
       <div data-testid="wf-canvas"></div>
       <div class="wf-config-modal"></div>
+      <div data-testid="kafka-consume-config"></div>
+      <div data-testid="output-bindings-section"></div>
+      <div data-testid="kafka-wait-config"></div>
     `;
     for (const step of kafkaWorkflowConsumeWaitLesson.steps) {
       if (step.preAction) await step.preAction(ctx);
@@ -80,7 +89,12 @@ describe('kafka-workflow-consume-wait wrapper — coverage gaps', () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <div data-testid="wf-canvas"></div>
-      <div data-testid="kafka-wait-config"></div>
+      <div class="wf-config-modal">
+        <div data-testid="kafka-wait-config"></div>
+        <div data-testid="wait-correlation-section"></div>
+        <textarea data-testid="wait-sample-payload"></textarea>
+        <div data-testid="wait-load-mode"></div>
+      </div>
     `;
     for (const id of ['cw-wait-config', 'cw-sample-payload', 'cw-load-mode']) {
       const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === id)!;
@@ -89,25 +103,41 @@ describe('kafka-workflow-consume-wait wrapper — coverage gaps', () => {
     expect(ctx.delay).toHaveBeenCalled();
   });
 
-  it('scrollWfConfigSectionIntoView no-ops when section element missing', async () => {
-    const ctx = makeCtx();
+  it('cw-consume-node preAction closes an already-open consume modal', async () => {
+    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-consume-node')!;
     document.body.innerHTML = `
-      <div data-testid="wf-canvas"></div>
-      <div data-testid="kafka-wait-config"></div>
+      <div class="wf-config-modal">
+        <div data-testid="kafka-consume-config"></div>
+        <div class="wf-config-modal-footer-actions">
+          <button class="btn-ghost">Close</button>
+        </div>
+      </div>
     `;
-    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-wait-config')!;
+    const closeBtn = document.querySelector<HTMLButtonElement>('.btn-ghost')!;
+    const closeSpy = vi.spyOn(closeBtn, 'click');
+    const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(closeSpy).toHaveBeenCalled();
   });
 
-  it('ensureKafkaNodeConfigOpen skips modal open when config modal already open', async () => {
+  it('cw-load-mode action closes open cs-menu by second click', async () => {
+    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-load-mode')!;
+    const select = document.createElement('div');
+    select.setAttribute('data-testid', 'wait-load-mode');
+    document.body.appendChild(select);
+    const menu = document.createElement('div');
+    menu.className = 'cs-menu';
+    document.body.appendChild(menu);
+    const card = document.createElement('section');
+    card.className = 'wf-kafka-card';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'wf-kafka-card-title-text';
+    titleEl.textContent = 'Load test';
+    card.appendChild(titleEl);
+    document.body.appendChild(card);
+
     const ctx = makeCtx();
-    document.body.innerHTML = `
-      <div data-testid="wf-canvas"></div>
-      <div class="wf-config-modal"></div>
-      <div data-testid="kafka-wait-config"></div>
-    `;
-    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-wait-config')!;
-    await expect(step.preAction!(ctx)).resolves.toBeUndefined();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="wait-load-mode"]');
   });
 });

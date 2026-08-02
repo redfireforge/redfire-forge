@@ -214,60 +214,67 @@ describe('kafka-stream-mode lesson', () => {
     expect(called).toBe(true);
   });
 
-  it('step sm-row highlights the first stream row', () => {
+  it('step sm-row highlights the stream results zone (not a specific row index)', () => {
     const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-row')!;
-    expect(step.highlight).toContain('stream-row-0');
+    expect(step.highlight).toContain('stream-results-zone');
   });
 
-  it('step sm-row action clicks first stream row and waits for detail modal', async () => {
+  it('step sm-row action clicks the LAST stream row and waits for detail modal', async () => {
     const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-row')!;
     expect(step).toBeDefined();
-    const zone = document.createElement('div');
-    zone.setAttribute('data-testid', 'stream-results-zone');
-    const row = document.createElement('tr');
-    row.setAttribute('data-testid', 'stream-row-0');
-    row.scrollIntoView = vi.fn();
-    const clickSpy = vi.fn();
-    row.addEventListener('click', clickSpy);
-    zone.appendChild(row);
-    document.body.appendChild(zone);
+    // Seed three rows so we can verify the LAST one is clicked
+    const row0 = document.createElement('tr');
+    row0.setAttribute('data-testid', 'stream-row-0');
+    const row1 = document.createElement('tr');
+    row1.setAttribute('data-testid', 'stream-row-1');
+    const row2 = document.createElement('tr');
+    row2.setAttribute('data-testid', 'stream-row-2');
+    const clickSpy0 = vi.fn();
+    const clickSpy2 = vi.fn();
+    row0.addEventListener('click', clickSpy0);
+    row2.addEventListener('click', clickSpy2);
+    document.body.appendChild(row0);
+    document.body.appendChild(row1);
+    document.body.appendChild(row2);
     const modal = document.createElement('div');
     modal.setAttribute('data-testid', 'kafka-message-detail-modal');
     document.body.appendChild(modal);
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
+    // The LAST row (row2) must be clicked; row0 must not be clicked
+    expect(clickSpy2).toHaveBeenCalled();
+    expect(clickSpy0).not.toHaveBeenCalled();
     expect(ctx.waitFor).toHaveBeenCalledWith(
       expect.stringContaining('kafka-message-detail-modal'),
       expect.any(Number),
     );
+    document.body.removeChild(row0);
+    document.body.removeChild(row1);
+    document.body.removeChild(row2);
+    document.body.removeChild(modal);
   });
 
-  it('step sm-row preAction clicks streamBtn when not active and scrolls table to top', async () => {
+  it('step sm-row preAction scrolls table to bottom so last row is visible', async () => {
     const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-row')!;
-    // Create a stream mode button WITHOUT 'active' class
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'con-mode-stream');
-    const clickSpy = vi.fn();
-    btn.addEventListener('click', clickSpy);
+    btn.className = 'active';
     document.body.appendChild(btn);
-    // Create stream results zone with the table wrapper
-    const zone = document.createElement('div');
-    zone.setAttribute('data-testid', 'stream-results-zone');
-    zone.scrollIntoView = vi.fn();
     const tableWrap = document.createElement('div');
     tableWrap.setAttribute('data-testid', 'stream-table-wrap');
     tableWrap.className = 'kafka-ms-stream-table-wrap';
     const scrollToSpy = vi.fn();
     tableWrap.scrollTo = scrollToSpy;
-    zone.appendChild(tableWrap);
-    document.body.appendChild(zone);
+    Object.defineProperty(tableWrap, 'scrollHeight', { value: 800, configurable: true });
+    document.body.appendChild(tableWrap);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
-    // Table wrapper is scrolled to top so the first row is fully visible
-    expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
-    expect(zone.scrollIntoView).toHaveBeenCalled();
+    // Table is scrolled to the BOTTOM (scrollHeight) so the last row is in view
+    expect(scrollToSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ top: 800 }),
+    );
+    document.body.removeChild(btn);
+    document.body.removeChild(tableWrap);
   });
   it('has Docker badge tag', () => {
     expect(kafkaStreamModeLesson.tag).toBe('🐳 Docker');

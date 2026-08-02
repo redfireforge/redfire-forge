@@ -29,7 +29,7 @@ describe('ws-workflow-builder wrapper — coverage gaps', () => {
       <button data-testid="wf-new-blank-item"></button>
       <input data-testid="wf-create-input" />
       <button data-testid="wf-create-ok"></button>
-      <div data-testid="wf-canvas"></div>
+      <div class="wf-canvas-area"></div>
     `;
     const createStep = wsWorkflowBuilderLesson.steps.find((s) => s.id === 'wf-create');
     expect(createStep?.action).toBeDefined();

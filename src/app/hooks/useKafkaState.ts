@@ -589,6 +589,26 @@ export function useKafkaState(): UseKafkaStateReturn {
     }));
   }, []);
 
+  // Demo-player bridge: lets lesson setup/cleanup delete clusters by ID or name.
+  const removeClusterRef = useRef(removeCluster);
+  removeClusterRef.current = removeCluster;
+  const clustersRef = useRef(clusters);
+  clustersRef.current = clusters;
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__demoDeleteKafkaClusterById = (clusterId: string) => {
+      removeClusterRef.current(clusterId);
+    };
+    w.__demoDeleteKafkaClusterByName = (name: string) => {
+      const cluster = clustersRef.current.find((c) => c.name === name);
+      if (cluster) removeClusterRef.current(cluster.clusterId);
+    };
+    return () => {
+      delete w.__demoDeleteKafkaClusterById;
+      delete w.__demoDeleteKafkaClusterByName;
+    };
+  }, []);
+
   return {
     loaded,
     clusters,

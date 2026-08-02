@@ -282,9 +282,9 @@ describe('KafkaConsumeConfig', () => {
     expect(screen.getByDisplayValue('prefix-{{snippet}}')).toBeTruthy();
   });
 
-  it('renders the Enable Schema Registry section', () => {
+  it('renders the Schema Registry section', () => {
     render(<Host />);
-    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
+    expect(screen.getByText('Schema Registry')).toBeTruthy();
   });
 
   it('passes schemaConfig to onChange when schema registry is enabled', () => {
@@ -384,6 +384,6 @@ describe('KafkaConsumeConfig', () => {
     // Covers the `data.topic ?? ''` null-coalescing false branch
     const onChange = vi.fn();
     render(<KafkaConsumeConfig data={makeData({ topic: undefined })} onChange={onChange} variableHints={[]} />);
-    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
+    expect(screen.getByText('Schema Registry')).toBeTruthy();
   });
 });

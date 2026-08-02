@@ -257,12 +257,21 @@ export function buildDemoActionContext(navigateToTab: (tab: string) => void): De
       showClickRipple(trigger);
       await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
       trigger.click();
-      await new Promise(r => setTimeout(r, 40));
+      // The CustomSelect menu is rendered via a React portal into document.body,
+      // so we must search document — not wrapper — for the option item.
+      // Pause so the user can see all available options before we select one.
+      await new Promise(r => setTimeout(r, 700));
       const escValue = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
         ? CSS.escape(value)
         : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const item = wrapper.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
-      item?.click();
+      const item = document.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
+      if (!item) return;
+      // Highlight the target item so the user can see it before it's selected.
+      item.classList.add('cs-item--demo-highlight');
+      showClickRipple(item);
+      await new Promise(r => setTimeout(r, 500));
+      item.classList.remove('cs-item--demo-highlight');
+      item.click();
     },
     waitFor: async (selector: string, timeout = 5000) => {
       const start = Date.now();
@@ -307,11 +316,12 @@ export function buildQuietDemoActionContext(navigateToTab: (tab: string) => void
       const trigger = wrapper.querySelector<HTMLButtonElement>('.cs-trigger');
       if (!trigger || trigger.disabled) return;
       trigger.click();
-      await new Promise(r => setTimeout(r, 20));
+      // Menu is portaled to document.body — search document, not wrapper.
+      await new Promise(r => setTimeout(r, 40));
       const escValue = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
         ? CSS.escape(value)
         : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const item = wrapper.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
+      const item = document.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
       item?.click();
     },
     waitFor: async (selector: string, timeout = 5000) => {

@@ -5,6 +5,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import { WsMatchCriteriaSection, WsExtractionRulesSection } from './WsConfigShared';
+import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 
 export default function WsTriggerConfig({
   data,
@@ -25,36 +26,46 @@ export default function WsTriggerConfig({
   const hintSet = useMemo(() => variableHints, [variableHints]);
 
   return (
-    <div className="wf-config-body" data-testid="ws-trigger-config">
-      <div className="wf-config-field--row">
-        <label>Label</label>
-        <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
-      </div>
+    <div className="wf-config-body wf-ws-trigger-config" data-testid="ws-trigger-config">
+      <KafkaCard
+        title="Connection"
+        hint="Listen URL and connection identity for this trigger subscription."
+      >
+        <div className="wf-kafka-form wf-kafka-form--connection">
+          <KafkaFormRow label="Label" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={data.label}
+              onChange={(e) => update({ label: e.target.value })}
+              placeholder="WS Trigger"
+            />
+          </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>URL</label>
-        <InsertVarField
-          onRequestVariableInsert={onRequestVariableInsert}
-          shortRef
-          onInsert={(snippet) => update({ url: `${data.url}${snippet}` })}
-        >
-          <ExpressionInput
-            value={data.url}
-            onChange={(value) => update({ url: value })}
-            placeholder="wss://example.com/ws"
-            variableHints={hintSet}
-          />
-        </InsertVarField>
-      </div>
+          <KafkaFormRow label="URL" hint={<>e.g. <code>wss://…</code></>}>
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              shortRef
+              onInsert={(snippet) => update({ url: `${data.url}${snippet}` })}
+            >
+              <ExpressionInput
+                value={data.url}
+                onChange={(value) => update({ url: value })}
+                placeholder="wss://example.com/ws"
+                variableHints={hintSet}
+              />
+            </InsertVarField>
+          </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>Connection ID</label>
-        <input
-          value={data.connectionId}
-          onChange={(e) => update({ connectionId: e.target.value })}
-          placeholder="ws1"
-        />
-      </div>
+          <KafkaFormRow label="Connection ID" hint="Stable ID for this trigger socket" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={data.connectionId}
+              onChange={(e) => update({ connectionId: e.target.value })}
+              placeholder="ws1"
+            />
+          </KafkaFormRow>
+        </div>
+      </KafkaCard>
 
       <WsMatchCriteriaSection
         matchCriteria={mc}
@@ -72,22 +83,25 @@ export default function WsTriggerConfig({
         addLabel="+ Add Variable"
       />
 
-      <div className="wf-ws-section">
-        <div className="wf-ws-section-title">Test Payload (Quick Test)</div>
-        <span className="wf-config-hint">
-          Provide a sample WebSocket message body so Quick Test uses real values instead of dry-running with empty variables.
-        </span>
-        <div className="wf-config-field">
-          <label>Sample Payload</label>
+      <KafkaCard
+        title="Quick Test"
+        hint="Sample message so Quick Test uses real values instead of empty variables."
+      >
+        <div className="wf-kafka-subsection wf-kafka-subsection--body-template">
+          <div className="wf-kafka-subsection-toolbar">
+            <span className="wf-kafka-subsection-label">Sample payload</span>
+            <span className="wf-kafka-subsection-meta">JSON or text body</span>
+          </div>
           <textarea
-            className="wf-config-textarea"
+            className="wf-config-textarea wf-kafka-form-textarea"
             rows={5}
             value={data.samplePayload ?? ''}
             onChange={(e) => update({ samplePayload: e.target.value || undefined })}
             placeholder={'{\n  "event": "order.created",\n  "orderId": "order-123",\n  "amount": 99.99\n}'}
+            aria-label="Sample Payload"
           />
         </div>
-      </div>
+      </KafkaCard>
 
       <AvailableVariables hints={variableHints} />
     </div>

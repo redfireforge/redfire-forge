@@ -273,7 +273,14 @@ Key UI elements in Stream mode:
       action: async (ctx) => {
         await ctx.click(KAFKA.CON_MODE_STREAM);
         await ctx.delay(900);
+
+        // After switching modes, move spotlight to Topic while we teach + apply the value.
+        const topicInput = document.querySelector<HTMLElement>(KAFKA.CON_TOPIC_INPUT);
+        const disposeTopicSpotlight = topicInput ? showSpotlightRing(topicInput) : null;
+        await ctx.delay(500);
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, STREAM_TOPIC);
+        await ctx.delay(350);
+        disposeTopicSpotlight?.();
         await ctx.delay(500);
       },
     },
@@ -407,8 +414,9 @@ Key UI elements in Stream mode:
       title: 'Inspect a Streamed Message',
       description:
         'Click any **row** in the stream table to open the **Message Detail** dialog — partition, offset, timestamp, key, headers, and a pretty-printed payload. The stream keeps running in the background while you inspect.',
-      // Reading spotlight on the first row (not the whole results zone).
-      highlight: KAFKA.STREAM_ROW_FIRST,
+      // Highlight the results zone during reading — individual rows accumulate
+      // rapidly so targeting a specific row index is unreliable.
+      highlight: KAFKA.STREAM_RESULTS_ZONE,
       preAction: async (ctx) => {
         await ensureStreamLive(ctx);
         // Close a leftover detail dialog so this step can open a fresh one.
@@ -417,34 +425,32 @@ Key UI elements in Stream mode:
           closeBtn.click();
           await ctx.delay(200);
         }
-        // Scroll the TABLE WRAPPER to the top so the first row is fully visible
-        // (not just nudged into view at the edge). Use smooth so the viewer
-        // sees the table animate to the start position.
+        // Scroll the table wrapper to the BOTTOM so the last (most recently
+        // streamed) row is visible — that's where the viewer's eye already is.
         const tableWrap = document.querySelector<HTMLElement>(KAFKA.STREAM_TABLE_WRAP)
           ?? document.querySelector<HTMLElement>('.kafka-ms-stream-table-wrap');
         if (tableWrap) {
-          tableWrap.scrollTo({ top: 0, behavior: 'smooth' });
+          tableWrap.scrollTo({ top: tableWrap.scrollHeight, behavior: 'smooth' });
           await ctx.delay(400);
         }
-        // Also make the results zone itself visible in the page.
-        const zone = document.querySelector<HTMLElement>(KAFKA.STREAM_RESULTS_ZONE);
-        zone?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(400);
       },
       action: async (ctx) => {
-        // After scrolling to top, the first row is now fully visible — pick it.
-        const row =
-          document.querySelector<HTMLElement>(KAFKA.STREAM_ROW_FIRST)
-          ?? document.querySelector<HTMLElement>(`${KAFKA.STREAM_RESULTS_ZONE} tbody tr`);
+        // Pick the LAST row in the table — it is the most recently streamed
+        // message and is always visible at the bottom of the table after the
+        // preAction scroll. No index assumption is made.
+        const allRows = document.querySelectorAll<HTMLElement>(KAFKA.STREAM_ROW_ANY);
+        const row = allRows.length > 0
+          ? allRows[allRows.length - 1]
+          : document.querySelector<HTMLElement>(`${KAFKA.STREAM_RESULTS_ZONE} tbody tr:last-child`);
         if (!row) return;
 
-        // If this row is already selected, click once to clear, then open again.
+        // Deselect if already selected so the modal opens fresh.
         if (row.classList.contains('selected')) {
           row.click();
           await ctx.delay(200);
         }
 
-        // Spotlight the row — it's already at the top of the visible table.
+        // Spotlight the last row before clicking it.
         const disposeRow = showSpotlightRing(row);
         await ctx.delay(900);
         disposeRow();
