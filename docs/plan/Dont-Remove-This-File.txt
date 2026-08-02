@@ -6,7 +6,11 @@ Please always run E2E with report so that I can see progress. Keep in mind.
 Only Unit Tests and Monorithic Class Definition Review
 
 Based on entire code bases including this feature branch, please fix code coverage issue file under 90% except demo, css, script, and test files.
-You have fast full report scripts with 4 shards. You should run one clean full coverage snapshot now, freeze that as the baseline, and fix code coverage issue. After then, run full code coverage script again to verify it. Don't run this script in background. If you do in background, it will cause problem. Please go ahead. 
+You have fast full report scripts with 4 shards. You should run one clean full coverage snapshot now, freeze that as the baseline, and fix code coverage issue. After then, run full code coverage script again to verify it. Here is command. 
+bash scripts/run-product-coverage-fast.sh 2>&1. 
+You should switch to strict one-by-one execution: fix one coverage file, run its targeted tests, check that file’s gap status, then move to the next file. 
+
+Please go ahead. 
 
 
 Consider all of files for unit test including this branch. 

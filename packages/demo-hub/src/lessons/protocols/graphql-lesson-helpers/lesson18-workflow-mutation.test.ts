@@ -87,10 +87,11 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     document.body.innerHTML = `
       <div class="wf-canvas-area"></div>
       <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Other Workflow</span></div>
-      <button title="New workflow"></button>
-      <div class="wf-new-dropdown-item"></div>
-      <input class="req-confirm-input" />
-      <button class="req-confirm-ok"></button>
+      <button data-testid="wf-sidebar-new-btn" title="New workflow"></button>
+      <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item" class="wf-new-dropdown-item"></button>
+      <input data-testid="wf-create-input" class="req-confirm-input" />
+      <button data-testid="wf-create-ok" class="req-confirm-ok"></button>
       <button title="Fit view"></button>
     `;
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => null;

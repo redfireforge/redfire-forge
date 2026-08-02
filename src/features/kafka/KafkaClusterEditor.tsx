@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { CustomSelect } from '../../shared/components/CustomSelect';
 import {
   clusterIdFromName,
@@ -42,6 +43,9 @@ export function KafkaClusterEditor({
   removeBrokerRow,
   confirmDelete,
 }: KafkaClusterEditorProps) {
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [showTlsPassphrase, setShowTlsPassphrase] = useState(false);
+
   return (
     <section
       className="kafka-shell-card kafka-editor-panel"
@@ -234,13 +238,24 @@ export function KafkaClusterEditor({
                       </div>
                       <div className="kafka-editor-field">
                         <label htmlFor="kafka-auth-password">Password</label>
-                        <input
-                          id="kafka-auth-password"
-                          type="password"
-                          value={draft.authPassword}
-                          onChange={(event) => updateDraft({ authPassword: event.target.value })}
-                          placeholder="Enter broker password"
-                        />
+                        <div className="kafka-password-wrapper">
+                          <input
+                            id="kafka-auth-password"
+                            type={showAuthPassword ? 'text' : 'password'}
+                            value={draft.authPassword}
+                            onChange={(event) => updateDraft({ authPassword: event.target.value })}
+                            placeholder="Enter broker password"
+                          />
+                          <button
+                            type="button"
+                            className="kafka-password-reveal"
+                            onClick={() => setShowAuthPassword((v) => !v)}
+                            title={showAuthPassword ? 'Hide password' : 'Show password'}
+                            aria-label={showAuthPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showAuthPassword ? '🙈' : '👁'}
+                          </button>
+                        </div>
                         {draftErrors.authPassword && (
                           <div className="kafka-editor-error">{draftErrors.authPassword}</div>
                         )}
@@ -333,13 +348,24 @@ export function KafkaClusterEditor({
                       </div>
                       <div className="kafka-editor-field kafka-editor-field-full">
                         <label htmlFor="kafka-tls-passphrase">Key Passphrase</label>
-                        <input
-                          id="kafka-tls-passphrase"
-                          type="password"
-                          value={draft.tlsPassphrase}
-                          onChange={(event) => updateDraft({ tlsPassphrase: event.target.value })}
-                          placeholder="Optional key passphrase"
-                        />
+                        <div className="kafka-password-wrapper">
+                          <input
+                            id="kafka-tls-passphrase"
+                            type={showTlsPassphrase ? 'text' : 'password'}
+                            value={draft.tlsPassphrase}
+                            onChange={(event) => updateDraft({ tlsPassphrase: event.target.value })}
+                            placeholder="Optional key passphrase"
+                          />
+                          <button
+                            type="button"
+                            className="kafka-password-reveal"
+                            onClick={() => setShowTlsPassphrase((v) => !v)}
+                            title={showTlsPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+                            aria-label={showTlsPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+                          >
+                            {showTlsPassphrase ? '🙈' : '👁'}
+                          </button>
+                        </div>
                         {draftErrors.tlsPassphrase && (
                           <div className="kafka-editor-error">{draftErrors.tlsPassphrase}</div>
                         )}

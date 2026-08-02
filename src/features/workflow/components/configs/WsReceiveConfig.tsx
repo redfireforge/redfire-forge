@@ -4,6 +4,7 @@ import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { useListCrud } from '../../../../shared/hooks/useListCrud';
 import AvailableVariables from '../expression/AvailableVariables';
 import { WsConnectionIdField, WsMatchCriteriaSection, WsExtractionRulesSection, WsOutputBindingsSection } from './WsConfigShared';
+import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 
 const OUTPUT_FIELD_OPTIONS: WsReceiveOutputBinding['field'][] = ['messageBody', 'messageType', 'matchedAt', 'latencyMs'];
 
@@ -31,27 +32,38 @@ export default function WsReceiveConfig({
   const hintSet = useMemo(() => variableHints, [variableHints]);
 
   return (
-    <div className="wf-config-body" data-testid="ws-receive-config">
-      <div className="wf-config-field--row">
-        <label>Label</label>
-        <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
-      </div>
+    <div className="wf-config-body wf-ws-receive-config" data-testid="ws-receive-config">
+      <KafkaCard
+        title="Receive"
+        hint="Wait on an open connection for the next matching inbound message."
+      >
+        <div className="wf-kafka-form wf-kafka-form--connection">
+          <KafkaFormRow label="Label" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={data.label}
+              onChange={(e) => update({ label: e.target.value })}
+              placeholder="WS Receive"
+            />
+          </KafkaFormRow>
 
-      <WsConnectionIdField
-        connectionId={data.connectionId}
-        onChange={(value) => update({ connectionId: value })}
-        availableConnectionIds={availableConnectionIds}
-      />
+          <WsConnectionIdField
+            connectionId={data.connectionId}
+            onChange={(value) => update({ connectionId: value })}
+            availableConnectionIds={availableConnectionIds}
+          />
 
-      <div className="wf-config-field--row">
-        <label>Timeout (ms)</label>
-        <input
-          type="number"
-          value={data.timeoutMs}
-          onChange={(e) => update({ timeoutMs: Number(e.target.value) || 30000 })}
-          placeholder="30000"
-        />
-      </div>
+          <KafkaFormRow label="Timeout (ms)" hint="Fail if no match in time" compact>
+            <input
+              className="wf-kafka-form-input"
+              type="number"
+              value={data.timeoutMs}
+              onChange={(e) => update({ timeoutMs: Number(e.target.value) || 30000 })}
+              placeholder="30000"
+            />
+          </KafkaFormRow>
+        </div>
+      </KafkaCard>
 
       <WsMatchCriteriaSection
         matchCriteria={mc}
@@ -74,6 +86,7 @@ export default function WsReceiveConfig({
         fieldOptions={OUTPUT_FIELD_OPTIONS}
         bindingCrud={bindingCrud}
         onAdd={() => update({ outputBindings: [...outputBindings, { field: 'messageBody' as const, variableName: '', enabled: true }] })}
+        hint="Map message body, type, matched-at, or latency into workflow variables."
       />
 
       <AvailableVariables hints={variableHints} />

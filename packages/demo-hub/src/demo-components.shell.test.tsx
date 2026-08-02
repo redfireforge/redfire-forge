@@ -338,6 +338,62 @@ describe('DemoHubHeader', () => {
     expect(screen.getByText('Lesson 1')).toBeTruthy();
   });
 
+  it('shows category between domain and lesson when lesson has a category', () => {
+    const domain = makeDomain({
+      categories: [
+        { id: 'websocket', label: 'WebSocket', icon: '🔌' },
+        { id: 'kafka', label: 'Kafka', icon: '📨' },
+      ],
+    });
+    const lesson = makeLesson({ name: 'Load Testing', category: 'websocket' });
+    render(
+      <DemoHubHeader
+        view="concept"
+        domain={domain}
+        lesson={lesson}
+        onBack={vi.fn()}
+        onBackToDomains={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Protocols/)).toBeTruthy();
+    expect(screen.getByText(/WebSocket/)).toBeTruthy();
+    expect(screen.getByText('Load Testing')).toBeTruthy();
+  });
+
+  it('category breadcrumb calls onBack', () => {
+    const onBack = vi.fn();
+    const domain = makeDomain({
+      categories: [{ id: 'websocket', label: 'WebSocket', icon: '🔌' }],
+    });
+    const lesson = makeLesson({ category: 'websocket' });
+    render(
+      <DemoHubHeader
+        view="concept"
+        domain={domain}
+        lesson={lesson}
+        onBack={onBack}
+        onBackToDomains={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Category WebSocket'));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it('omits category crumb when domain has no matching category meta', () => {
+    const lesson = makeLesson({ category: 'websocket' });
+    render(
+      <DemoHubHeader
+        view="concept"
+        domain={makeDomain()}
+        lesson={lesson}
+        onBack={vi.fn()}
+        onBackToDomains={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/WebSocket/)).toBeNull();
+    expect(screen.getByText('Lesson 1')).toBeTruthy();
+  });
+
   it('back button is disabled on domains view', () => {
     render(<DemoHubHeader view="domains" domain={null} lesson={null} onBack={vi.fn()} onBackToDomains={vi.fn()} />);
     const btn = screen.getByText('🎓 Learning Hub');

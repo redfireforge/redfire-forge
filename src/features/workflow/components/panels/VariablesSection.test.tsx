@@ -240,6 +240,15 @@ describe('VariablesSection', () => {
     expect(screen.getByText('Value')).toBeTruthy();
   });
 
+  it('hides Source column when showSourceColumn is false', () => {
+    const { container } = renderVars({ showSourceColumn: false, variables: { a: '1' } });
+    expect(screen.getByText('Name')).toBeTruthy();
+    expect(screen.getByText('Value')).toBeTruthy();
+    expect(screen.queryByText('Source')).toBeNull();
+    expect(container.querySelector('.wf-config-vars--no-source')).toBeTruthy();
+    expect(container.querySelector('.wf-var-source-cell')).toBeNull();
+  });
+
   it('handles resize drag on divider', () => {
     renderVars({ variables: { k: 'v' } });
     const divider = document.querySelector('.wf-var-col-resize:not(.wf-var-col-resize-inert)') as HTMLElement;

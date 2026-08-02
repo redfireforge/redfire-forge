@@ -115,6 +115,10 @@ export type DemoBridgeWindow = Window &
     __demoDeleteCollectionsByName?: (name: string) => number;
     /** Remove all workflow preview endpoints from storage (demo cleanup). */
     __demoClearAllWorkflowPreviews?: () => Promise<void>;
+    /** Delete a Kafka cluster by ID (demo lesson cleanup). */
+    __demoDeleteKafkaClusterById?: (clusterId: string) => void;
+    /** Delete a Kafka cluster by display name (demo lesson cleanup). */
+    __demoDeleteKafkaClusterByName?: (name: string) => void;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {
