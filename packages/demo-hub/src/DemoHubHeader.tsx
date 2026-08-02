@@ -12,6 +12,12 @@ interface DemoHubHeaderProps {
 }
 
 export default function DemoHubHeader({ view, domain, lesson, onBack, onBackToDomains }: DemoHubHeaderProps) {
+  const categoryMeta = lesson?.category && domain?.categories
+    ? domain.categories.find(c => c.id === lesson.category)
+    : undefined;
+  const showLessonCrumb = !!lesson && (view === 'concept' || view === 'live');
+  const showCategoryCrumb = showLessonCrumb && !!categoryMeta;
+
   return (
     <div className="demo-hub-header">
       <div className="demo-hub-breadcrumb">
@@ -36,11 +42,23 @@ export default function DemoHubHeader({ view, domain, lesson, onBack, onBackToDo
             </button>
           </>
         )}
-        {lesson && (view === 'concept' || view === 'live') && (
+        {showCategoryCrumb && categoryMeta && (
+          <>
+            <span className="demo-hub-breadcrumb-sep">›</span>
+            <button
+              className="demo-hub-breadcrumb-item"
+              onClick={onBack}
+              aria-label={`Category ${categoryMeta.label}`}
+            >
+              {categoryMeta.icon} {categoryMeta.label}
+            </button>
+          </>
+        )}
+        {showLessonCrumb && (
           <>
             <span className="demo-hub-breadcrumb-sep">›</span>
             <span className="demo-hub-breadcrumb-item active">
-              {lesson.name}
+              {lesson!.name}
             </span>
           </>
         )}

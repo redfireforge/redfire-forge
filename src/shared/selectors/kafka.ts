@@ -36,7 +36,7 @@ export const KAFKA = {
   CONFIRM_DELETE_BTN:       '[data-testid="kafka-confirm-delete-btn"]',
   AUTO_CONNECT_TOGGLE:      '[data-testid="kafka-auto-connect-toggle"]',
   BROKER_INPUT:             'input[placeholder="127.0.0.1:19092"]',
-  AUTH_TYPE_SELECT:         '#kafka-auth-mode',
+  AUTH_TYPE_SELECT:         '#kafka-auth-mode, button[aria-label="Mechanism"]',
   AUTH_USER_INPUT:          '#kafka-auth-username',
   AUTH_PASS_INPUT:          '#kafka-auth-password',
   // TODO(K12): add data-testid to TLS checkbox labels in KafkaClusterEditor
@@ -103,6 +103,8 @@ export const KAFKA = {
   STREAM_SCROLL_BOTTOM_BTN: '[data-testid="stream-scroll-bottom-btn"]',
   /** First stream result row (0-based index in data-testid). */
   STREAM_ROW_FIRST:         '[data-testid="stream-row-0"]',
+  /** Any stream result row — used to select the last visible one. */
+  STREAM_ROW_ANY:           '[data-testid^="stream-row-"]',
   STREAM_COUNT:             '[data-testid="stream-count"]',
   STREAM_LIVE_BADGE:        '[data-testid="stream-live-badge"]',
   STREAM_CURSOR_GAP:        '[data-testid="stream-cursor-gap"]',
@@ -158,11 +160,18 @@ export const KAFKA = {
   NODE_CONSUME:             '.wf-node-kafkaConsume',
   NODE_WAIT:                '.wf-node-kafkaWait',
   TRIGGER_CONFIG:           '[data-testid="kafka-trigger-config"]',
+  PRODUCE_CONFIG:           '[data-testid="kafka-produce-config"]',
+  PRODUCE_CLUSTER_INPUT:    '[data-testid="kafka-produce-cluster-input"]',
+  PRODUCE_TOPIC_INPUT:      '[data-testid="kafka-produce-topic-input"]',
+  PRODUCE_BODY_TEXTAREA:    '[data-testid="kafka-produce-body-textarea"]',
+  CONSUME_CONFIG:           '[data-testid="kafka-consume-config"]',
+  CONSUME_CLUSTER_INPUT:    '[data-testid="kafka-consume-cluster-input"]',
+  CONSUME_TOPIC_INPUT:      '[data-testid="kafka-consume-topic-input"]',
   WAIT_CONFIG:              '[data-testid="kafka-wait-config"]',
   WAIT_CORRELATION_SECTION: '[data-testid="wait-correlation-section"]',
   NODE_TOPIC_INPUT:         'input[placeholder="orders.events"]',
-  // TODO(K9): add data-testid="node-binding-add-btn" to the binding add button
   NODE_BINDING_ADD_BTN:     '[data-testid="node-binding-add-btn"]',
+  OUTPUT_BINDINGS_SECTION:  '[data-testid="output-bindings-section"]',
   WAIT_SAMPLE_TEXTAREA:     '[data-testid="wait-sample-payload"]',
   WAIT_LOAD_MODE_SELECT:    '[data-testid="wait-load-mode"]',
 } as const;

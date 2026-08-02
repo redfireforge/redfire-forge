@@ -150,28 +150,28 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
   return (
     <div className="extraction-editor">
       <p className="extraction-hint">
-        Extract response values into <code>{'{{variables}}'}</code> for workflow/chained steps. In a single standalone request, extractions are optional unless you reference them later.
+        Extract response values into <code>{'{{variables}}'}</code> for workflow/chained steps.
+        Optional on a standalone request unless you reference them later.
       </p>
 
-      {/* ── Fetch Response + Data Mapper bar ── */}
       <div className="ext-fetch-section">
         <div className="ext-fetch-bar">
           {fetchSample && (
             <button
               type="button"
-              className="btn btn-sm btn-accent ext-fetch-btn"
+              className="ext-toolbar-btn ext-toolbar-btn--primary"
               onClick={() => void fetchSample.onFetch()}
               disabled={fetchSample.fetching}
             >
-              {fetchSample.fetching ? 'Fetching...' : 'Fetch Response'}
+              {fetchSample.fetching ? 'Fetching…' : 'Fetch Response'}
             </button>
           )}
           <button
             type="button"
-            className="btn btn-sm btn-accent ext-fetch-btn"
+            className="ext-toolbar-btn"
             onClick={() => setMapperOpen(true)}
           >
-            ⚡ Data Mapper
+            Data Mapper
           </button>
           {fetchSample?.host && (
             <label className="checkbox-label ext-host-toggle">
@@ -203,24 +203,27 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
         )}
         {sampleResponseBody && (
           <span className="ext-sample-status">
-            ✓ Sample response loaded ({Math.round(sampleResponseBody.length / 1024)}KB)
+            Sample response loaded ({Math.round(sampleResponseBody.length / 1024)} KB)
           </span>
         )}
       </div>
 
-      {extractions.length === 0 && (
-        <p className="extraction-empty">No extractions configured. Add one to capture response values.</p>
-      )}
-
-      {extractions.length > 0 && (
-        <div className="ext-table" role="table">
+      {extractions.length === 0 ? (
+        <div className="extraction-empty">
+          <p className="extraction-empty-title">No extractions yet</p>
+          <p className="extraction-empty-text">
+            Map response fields into variables — for example <code>orderId</code> from <code>$.data.id</code>.
+          </p>
+        </div>
+      ) : (
+        <div className="ext-table" role="table" aria-label="Extractions">
           <div className="ext-thead" role="row">
             <span className="ext-th ext-th-grip" />
             <span className="ext-th ext-th-var">Variable</span>
             <span className="ext-th ext-th-source">Source</span>
             <span className="ext-th ext-th-expr">Expression</span>
             <span className="ext-th ext-th-fb">Fallback</span>
-            <span className="ext-th ext-th-del" />
+            <span className="ext-th ext-th-del" aria-hidden />
           </div>
 
           {extractions.map((ext, i) => {
@@ -247,7 +250,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                     onChange={(e) => update(i, { name: e.target.value.replace(/[{}]/g, '') })}
                     placeholder="variableName"
                     className="ext-input"
-                    aria-label="Variable name"
+                    aria-label={`Variable name ${i + 1}`}
                   />
                 </span>
 
@@ -257,7 +260,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                     onChange={(v) => update(i, { source: v as ExtractionSource })}
                     options={activeSources}
                     className="ext-select"
-                    aria-label="Source"
+                    aria-label={`Source ${i + 1}`}
                   />
                 </span>
 
@@ -268,7 +271,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                     placeholder={sourceInfo.hint}
                     disabled={ext.source === 'status'}
                     className="ext-input"
-                    aria-label="Expression"
+                    aria-label={`Expression ${i + 1}`}
                     variableHints={variableHints}
                     jsonPathHints={ext.source === 'body' ? jsonPathHints : undefined}
                   />
@@ -278,6 +281,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                       className="ext-pick-btn"
                       onClick={() => setPickerIdx(i)}
                       title="Browse JSON and pick a path"
+                      aria-label={`Pick JSON path for extraction ${i + 1}`}
                     >
                       ⋯
                     </button>
@@ -290,7 +294,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                     onChange={(val) => update(i, { fallback: val || undefined })}
                     placeholder="default"
                     className="ext-input"
-                    aria-label="Fallback"
+                    aria-label={`Fallback ${i + 1}`}
                     variableHints={variableHints}
                   />
                 </span>
@@ -312,9 +316,11 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
         </div>
       )}
 
-      <button type="button" className="btn btn-sm ext-add-btn" onClick={add}>
-        + Add Extraction
-      </button>
+      <div className="ext-footer">
+        <button type="button" className="ext-add-btn" onClick={add}>
+          + Add Extraction
+        </button>
+      </div>
 
       {pickerIdx !== null && pickerInitialData && extractions[pickerIdx]?.source === 'body' && pickerAdapter && (
         <DataMapperModal

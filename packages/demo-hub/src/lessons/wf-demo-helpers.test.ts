@@ -12,7 +12,12 @@ import {
   closeWfConsoleIfOpen,
   cleanupWorkflowDemoRunUi,
   collapseWfDemoAppSidebar,
+  buildBlankLessonWorkflow,
+  createBlankWorkflowFromSidebar,
+  ensureLessonBlankWorkflow,
   ensureLessonWorkflowShown,
+  isLessonWorkflowDisplayed,
+  waitForLessonWorkflowSelected,
   resetWorkflowRunStateQuiet,
   ensureWfNodeConfigModalOpen,
   fillWfConfigField,
@@ -76,30 +81,36 @@ describe('wf-demo-helpers', () => {
       expect(select).not.toHaveBeenCalled();
     });
 
-    it('returns "ready" when a canvas is shown but the selected name is unknown', async () => {
+    it('returns "missing" when a canvas is shown but selected name is unknown and workflow is absent', async () => {
       document.body.innerHTML = '<div class="wf-canvas-area"></div>';
-      // no __wfGetSelectedName bridge → undefined
+      // no __wfGetSelectedName bridge → undefined — do not treat foreign/unknown canvas as ready
+      win().__wfGetWorkflowByName = () => null;
       const select = vi.fn(() => true);
       win().__wfSelectByName = select;
 
       const result = await ensureLessonWorkflowShown(makeCtx(), 'Variables Demo');
 
-      expect(result).toBe('ready');
+      expect(result).toBe('missing');
       expect(select).not.toHaveBeenCalled();
     });
 
     it('switches to this lesson\'s workflow when a foreign one is displayed', async () => {
       document.body.innerHTML = '<div class="wf-canvas-area"></div>';
-      win().__wfGetSelectedName = () => 'Conditional Demo';
+      let selected = 'Conditional Demo';
+      win().__wfGetSelectedName = () => selected;
       win().__wfGetWorkflowByName = (name: string) =>
         name === 'Variables Demo' ? { id: 'v1', name } : null;
-      const select = vi.fn(() => true);
+      const select = vi.fn((name: string) => {
+        selected = name;
+        return true;
+      });
       win().__wfSelectByName = select;
 
       const result = await ensureLessonWorkflowShown(makeCtx(), 'Variables Demo');
 
       expect(result).toBe('selected');
       expect(select).toHaveBeenCalledWith('Variables Demo');
+      expect(selected).toBe('Variables Demo');
     });
 
     it('returns "missing" when a foreign workflow is displayed and ours is not in the store', async () => {
@@ -122,6 +133,129 @@ describe('wf-demo-helpers', () => {
 
       expect(result).toBe('missing');
     });
+  });
+
+  describe('ensureLessonBlankWorkflow', () => {
+    const win = () => window as unknown as Record<string, unknown>;
+
+    beforeEach(() => {
+      document.body.innerHTML = '';
+      delete win().__wfGetSelectedName;
+      delete win().__wfGetWorkflowByName;
+      delete win().__wfSelectByName;
+      delete win().__demoExpandAppSidebar;
+      delete win().__demoCollapseAppSidebar;
+    });
+
+    it('skips create when lesson workflow is already selected', async () => {
+      document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+      win().__wfGetSelectedName = () => 'Echo';
+      const ctx = makeCtx();
+      await ensureLessonBlankWorkflow(ctx, 'Echo');
+      expect(ctx.click).not.toHaveBeenCalled();
+    });
+
+    it('seeds a blank workflow when a foreign workflow is open (quiet Preparing path)', async () => {
+      document.body.innerHTML = `
+        <div class="wf-canvas-area"></div>
+        <button data-testid="wf-toolbar-select"><span class="wft-dropdown-text">Other</span></button>
+      `;
+      let selected = 'Other';
+      const store = new Map<string, { name: string }>();
+      win().__wfGetSelectedName = () => selected;
+      win().__wfGetWorkflowByName = (name: string) => store.get(name) ?? null;
+      win().__wfSelectByName = (name: string) => { selected = name; return true; };
+      win().__wfInsertWorkflow = (wf: { name: string }) => { store.set(wf.name, wf); };
+      win().__wfWorkflowsLoaded = true;
+      win().__wfDeleteByName = (name: string) => { store.delete(name); };
+      win().__demoExpandAppSidebar = vi.fn();
+      win().__demoCollapseAppSidebar = vi.fn();
+      const ctx = makeCtx();
+      await ensureLessonBlankWorkflow(ctx, 'Echo');
+      // Quiet ensure must seed — not walk the slow sidebar + New UI.
+      expect(ctx.click).not.toHaveBeenCalled();
+      expect(store.has('Echo')).toBe(true);
+      expect(selected).toBe('Echo');
+    });
+  });
+
+  it('isLessonWorkflowDisplayed reads toolbar label when bridge lags', () => {
+    document.body.innerHTML =
+      '<button data-testid="wf-toolbar-select"><span class="wft-dropdown-text">WS Echo Demo</span></button>';
+    expect(isLessonWorkflowDisplayed('WS Echo Demo')).toBe(true);
+    expect(isLessonWorkflowDisplayed('Other')).toBe(false);
+  });
+
+  it('buildBlankLessonWorkflow is Start-only with the given name', () => {
+    const wf = buildBlankLessonWorkflow('Echo');
+    expect(wf.name).toBe('Echo');
+    expect((wf.nodes as Array<{ type: string }>)).toHaveLength(1);
+    expect((wf.nodes as Array<{ type: string }>)[0]?.type).toBe('start');
+  });
+
+  it('createBlankWorkflowFromSidebar walks + New → Blank → Create and requires selection', async () => {
+    document.body.innerHTML = `
+      <button data-testid="wf-sidebar-new-btn"></button>
+      <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item"></button>
+      <input data-testid="wf-create-input" />
+      <button data-testid="wf-create-ok"></button>
+      <div class="wf-canvas-area"></div>
+    `;
+    for (const el of document.querySelectorAll('button, input')) {
+      (el as HTMLElement).getBoundingClientRect = () =>
+        ({ width: 40, height: 20, top: 0, left: 0, bottom: 20, right: 40, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    }
+    let selected = 'Foreign';
+    (window as unknown as Record<string, unknown>).__demoExpandAppSidebar = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = () => selected;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => null;
+    (window as unknown as Record<string, unknown>).__wfSelectByName = (name: string) => {
+      selected = name;
+      return true;
+    };
+    const ctx = makeCtx();
+    ctx.fill.mockImplementation(async (_sel: string, value: string) => {
+      const input = document.querySelector<HTMLInputElement>('[data-testid="wf-create-input"]');
+      if (input) input.value = value;
+    });
+    ctx.click.mockImplementation(async (sel: string) => {
+      if (sel.includes('wf-create-ok')) selected = 'My Flow';
+    });
+    const ok = await createBlankWorkflowFromSidebar(ctx, 'My Flow');
+    expect(ok).toBe(true);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="wf-sidebar-new-btn"]');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="wf-new-blank-item"]');
+    expect(ctx.fill).toHaveBeenCalledWith('[data-testid="wf-create-input"]', 'My Flow');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="wf-create-ok"]');
+  });
+
+  it('createBlankWorkflowFromSidebar returns false when + New is not available', async () => {
+    document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+    (window as unknown as Record<string, unknown>).__demoExpandAppSidebar = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = () => 'SLA Pipeline';
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => null;
+    const ctx = makeCtx();
+    const ok = await createBlankWorkflowFromSidebar(ctx, 'My Flow');
+    expect(ok).toBe(false);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('waitForLessonWorkflowSelected selects from store when bridge name differs', async () => {
+    let selected = 'Other';
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = () => selected;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === 'Echo' ? { name } : null;
+    (window as unknown as Record<string, unknown>).__wfSelectByName = (name: string) => {
+      selected = name;
+      return true;
+    };
+    const ctx = makeCtx();
+    const ok = await waitForLessonWorkflowSelected(ctx, 'Echo', 1000);
+    expect(ok).toBe(true);
+    expect(selected).toBe('Echo');
   });
 
   it('openWfConsoleIfClosed uses floating mode on the left before opening', async () => {
@@ -249,12 +383,14 @@ describe('wf-demo-helpers', () => {
     expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.modalOpen);
   });
 
-  it('fillWfConfigField fills and pauses for reading', async () => {
+  it('fillWfConfigField quietly fills (no ripple) and pauses for reading', async () => {
     document.body.innerHTML = '<input data-testid="field" />';
     const ctx = makeCtx();
     await fillWfConfigField(ctx, '[data-testid="field"]', 'hello');
     expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="field"]', 8000);
-    expect(ctx.fill).toHaveBeenCalledWith('[data-testid="field"]', 'hello');
+    // Quiet fill — ctx.fill would show a click ripple inside the highlight.
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(document.querySelector<HTMLInputElement>('[data-testid="field"]')!.value).toBe('hello');
     expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.afterFill);
   });
 

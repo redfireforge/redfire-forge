@@ -35,6 +35,8 @@ import GrpcUnaryConfig from '../configs/GrpcUnaryConfig';
 import GrpcServerStreamConfig from '../configs/GrpcServerStreamConfig';
 import GrpcAssertConfig from '../configs/GrpcAssertConfig';
 import VariablesSection from '../panels/VariablesSection';
+import StartConfig from '../configs/StartConfig';
+import { KafkaCard } from '../configs/KafkaConfigUi';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import type { Environment, GlobalAuthProfile } from '../../../../shared/types';
 import type {
@@ -192,11 +194,9 @@ export default function WorkflowNodeConfigTypePanels({
       )}
 
       {draftNode.type === 'start' && (
-        <VariablesSection
-          title="Trigger input variables"
-          hint="Variables seeded when the workflow starts. Available as {{name}} in all downstream steps."
-          variables={(draftNode.data as StartNodeData).inputVariables ?? {}}
-          onUpdateVariables={(vars) => updateDraft({ inputVariables: vars })}
+        <StartConfig
+          data={draftNode.data as StartNodeData}
+          onChange={(patch) => updateDraft(patch)}
           newVarKey={newVarKey}
           setNewVarKey={setNewVarKey}
           newVarValue={newVarValue}
@@ -514,19 +514,31 @@ export default function WorkflowNodeConfigTypePanels({
       )}
 
       {isHttpWorkflowNode(draftNode) && (
-        <VariablesSection
-          title="Initial Variables (this step)"
-          hint="Per-step values override upstream for the same name."
-          variables={(draftNode.data as HttpNodeData).initialVariables ?? {}}
-          onUpdateVariables={(vars) => updateDraft({ initialVariables: vars })}
-          newVarKey={newVarKey}
-          setNewVarKey={setNewVarKey}
-          newVarValue={newVarValue}
-          setNewVarValue={setNewVarValue}
-          onRequestVariableInsert={requestVariableInsert}
-          variableHints={draftVariableHints}
-          workflowVariables={workflowVariables}
-        />
+        <div className="wf-http-initial-vars">
+          <KafkaCard
+            title="Initial Variables (this step)"
+            hint={
+              <>
+                Per-step values override upstream for the same name. Reference them as <code>{'{{name}}'}</code> in
+                this step.
+              </>
+            }
+          >
+            <VariablesSection
+              title=""
+              hint=""
+              variables={(draftNode.data as HttpNodeData).initialVariables ?? {}}
+              onUpdateVariables={(vars) => updateDraft({ initialVariables: vars })}
+              newVarKey={newVarKey}
+              setNewVarKey={setNewVarKey}
+              newVarValue={newVarValue}
+              setNewVarValue={setNewVarValue}
+              onRequestVariableInsert={requestVariableInsert}
+              variableHints={draftVariableHints}
+              workflowVariables={workflowVariables}
+            />
+          </KafkaCard>
+        </div>
       )}
     </>
   );

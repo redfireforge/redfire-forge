@@ -395,22 +395,23 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByTestId('schedule-config')).toBeTruthy();
   });
 
-  it('renders VariablesSection for start node', () => {
+  it('renders StartConfig for start node', () => {
     const node = makeNode('start', { inputVariables: {} });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByTestId('start-config')).toBeTruthy();
     expect(screen.getByText('Trigger input variables')).toBeTruthy();
   });
 
-  it('updates start node trigger input variables via VariablesSection', () => {
+  it('updates start node trigger input variables via StartConfig', () => {
     const onUpdateNode = vi.fn();
     const node = makeNode('start', { inputVariables: {} });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
-    const section = screen.getByText('Trigger input variables').closest('.wf-config-vars')!;
+    const section = screen.getByTestId('start-config');
     const nameInput = within(section).getByPlaceholderText('name');
     const valueInput = within(section).getByPlaceholderText('value');
     fireEvent.change(nameInput, { target: { value: 'triggerKey' } });
     fireEvent.change(valueInput, { target: { value: 'triggerVal' } });
-    fireEvent.click(within(section).getByRole('button', { name: '+' }));
+    fireEvent.click(within(section).getByRole('button', { name: 'Add variable' }));
     fireEvent.click(screen.getByText('Save'));
     expect(onUpdateNode).toHaveBeenCalledWith(
       'node-1',
@@ -614,7 +615,7 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByDisplayValue('My Trigger')).toBeTruthy();
     expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
     expect(screen.getByDisplayValue('orders.created')).toBeTruthy();
-    expect(screen.getByText('Max Concurrent')).toBeTruthy();
+    expect(screen.getByText('Max concurrent')).toBeTruthy();
     expect(screen.getByText('Extract Variables')).toBeTruthy();
   });
 
@@ -861,12 +862,12 @@ describe('WorkflowNodeConfigModal', () => {
   it('updates HTTP initial variables via VariablesSection', () => {
     const onUpdateNode = vi.fn();
     render(<WorkflowNodeConfigModal {...defaultProps} onUpdateNode={onUpdateNode} />);
-    const section = screen.getByText('Initial Variables (this step)').closest('.wf-config-vars')!;
+    const section = screen.getByText('Initial Variables (this step)').closest('.wf-http-initial-vars')!;
     const nameInput = within(section).getByPlaceholderText('name');
     const valueInput = within(section).getByPlaceholderText('value');
     fireEvent.change(nameInput, { target: { value: 'myKey' } });
     fireEvent.change(valueInput, { target: { value: 'myVal' } });
-    fireEvent.click(within(section).getByRole('button', { name: '+' }));
+    fireEvent.click(within(section).getByRole('button', { name: 'Add variable' }));
     fireEvent.click(screen.getByText('Save'));
     expect(onUpdateNode).toHaveBeenCalledWith(
       'node-1',

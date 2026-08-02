@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaSecureLesson } from './kafka-secure';
+import { KAFKA } from '@shared/selectors';
 
 describe('kafka-secure lesson', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
@@ -24,15 +25,15 @@ describe('kafka-secure lesson', () => {
     expect(kafkaSecureLesson.concept.diagram).toContain('<svg');
   });
 
-  it('has exactly 9 steps with unique IDs', () => {
-    expect(kafkaSecureLesson.steps.length).toBe(9);
+  it('has exactly 8 steps with unique IDs', () => {
+    expect(kafkaSecureLesson.steps.length).toBe(8);
     const ids = kafkaSecureLesson.steps.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('has expected step IDs in order', () => {
+  it('has expected step IDs in order (sec-new merged into sec-intro)', () => {
     const ids = kafkaSecureLesson.steps.map((s) => s.id);
-    expect(ids).toEqual(['sec-intro', 'sec-new', 'sec-broker', 'sec-auth', 'sec-creds', 'sec-test', 'sec-save', 'sec-publish', 'sec-result']);
+    expect(ids).toEqual(['sec-intro', 'sec-broker', 'sec-auth', 'sec-creds', 'sec-test', 'sec-save', 'sec-publish', 'sec-result']);
   });
 
   it('has dockerEndpoint and dockerCommand', () => {
@@ -40,15 +41,15 @@ describe('kafka-secure lesson', () => {
     expect(kafkaSecureLesson.dockerCommand).toContain('secure');
   });
 
-  it('step sec-intro action waits for the settings page (navigation already done by setup)', async () => {
+  it('step sec-intro action waits for the New Cluster button and clicks it', async () => {
     const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-intro')!;
     const ctx = makeCtx();
-    // preAction only clears stale card selection — no navigation/click choreography,
-    // avoiding a visible re-navigate flash before step 1 narrates.
+    // preAction only clears stale card selection — no navigation/click choreography.
     await step.preAction!(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
     await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('kafka-settings-page'), expect.any(Number));
+    expect(ctx.waitFor).toHaveBeenCalledWith(KAFKA.NEW_CLUSTER_BTN, expect.any(Number));
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.NEW_CLUSTER_BTN);
   });
 
   it('step sec-auth action selects SCRAM-SHA-256', async () => {
@@ -58,19 +59,41 @@ describe('kafka-secure lesson', () => {
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'scram-sha-256');
   });
 
-  it('step sec-creds preAction fills username and password', async () => {
+  it('step sec-creds preAction fills username', async () => {
     const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-creds')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('username'), 'redfireforge-app');
+    expect(ctx.fill).not.toHaveBeenCalledWith(expect.stringContaining('password'), expect.any(String));
+  });
+
+  it('step sec-creds action fills password', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-creds')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('password'), 'app-password');
   });
 
-  it('step sec-test action clicks test button', async () => {
+  it('step sec-test action clicks test button and spotlights the result badge', async () => {
     const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-test')!;
+    expect(step.verify).toBe('[data-testid="kafka-test-result"]');
+
+    // Seed a result badge so waitFor and spotlight find it.
+    const badge = document.createElement('div');
+    badge.setAttribute('data-testid', 'kafka-test-result');
+    badge.className = 'kafka-test-result kafka-test-result--ok';
+    badge.textContent = 'Verified';
+    badge.scrollIntoView = vi.fn();
+    document.body.appendChild(badge);
+
     const ctx = makeCtx();
     await step.action!(ctx);
+
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('test-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="kafka-test-result"]', expect.any(Number));
+    expect(badge.scrollIntoView).toHaveBeenCalled();
+
+    document.body.removeChild(badge);
   });
 
   it('step sec-publish action clicks send button', async () => {

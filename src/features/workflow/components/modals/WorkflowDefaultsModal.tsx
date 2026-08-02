@@ -45,9 +45,9 @@ export default function WorkflowDefaultsModal({
   useEffect(() => {
     if (open) {
       originalRef.current = snapshot(workflowVariables);
-      setDraft(snapshot(workflowVariables));  
+      setDraft(snapshot(workflowVariables));
       originalErrorRef.current = errorConfig ? snapshot(errorConfig) : undefined;
-      setErrorDraft(errorConfig ? snapshot(errorConfig) : undefined);  
+      setErrorDraft(errorConfig ? snapshot(errorConfig) : undefined);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -86,80 +86,96 @@ export default function WorkflowDefaultsModal({
           </>
         )}
       >
-        <div className="wf-defaults-vars-section">
-          <div className="wf-defaults-section-header">
-            <h4 className="wf-defaults-section-title">Variables</h4>
-            <p className="wf-defaults-section-hint">
-              Available as <code>{'{{name}}'}</code> on every HTTP step unless that step overrides it.
-              Save the workflow to persist changes.
-            </p>
-          </div>
-          <VariablesSection
-            title=""
-            hint=""
-            variables={draft}
-            onUpdateVariables={setDraft}
-            newVarKey={newVarKey}
-            setNewVarKey={setNewVarKey}
-            newVarValue={newVarValue}
-            setNewVarValue={setNewVarValue}
-            onRequestVariableInsert={requestVariableInsert}
-            deprecatedKeys={workflowServices.length > 0 ? ['baseUrl'] : []}
-          />
-        </div>
-
-        <div className="wf-defaults-error-section">
-          <div className="wf-defaults-section-header">
-            <h4 className="wf-defaults-section-title">Error Handling</h4>
-          </div>
-          <div className="wf-defaults-error-field">
-            <label className="wf-defaults-field-label">On Unhandled Error</label>
-            <WfDarkSelect
-              aria-label="On Unhandled Error"
-              testId="wf-defaults-error-mode"
-              value={errorDraft?.mode ?? 'stop'}
-              options={ERROR_MODE_OPTIONS}
-              onChange={(next) => {
-                const mode = next as WorkflowErrorMode;
-                if (mode === 'stop') {
-                  setErrorDraft(undefined);
-                } else {
-                  setErrorDraft({ mode, handlerEntryNodeId: errorDraft?.handlerEntryNodeId });
-                }
-              }}
-            />
-            <span className="wf-defaults-field-hint">
-              {(!errorDraft || errorDraft.mode === 'stop')
-                ? 'Workflow stops when any step fails without a node-level Error Handler'
-                : errorDraft.mode === 'continue'
-                  ? 'Workflow continues even when steps fail'
-                  : 'Executes a handler node when an unhandled error occurs'}
-            </span>
-          </div>
-
-          {errorDraft?.mode === 'run-handler' && (
-            <div className="wf-defaults-error-field">
-              <label className="wf-defaults-field-label">Handler Entry Node</label>
-              <WfDarkSelect
-                aria-label="Handler Entry Node"
-                testId="wf-defaults-handler-node"
-                value={errorDraft.handlerEntryNodeId ?? ''}
-                options={[
-                  { value: '', label: 'Select a node…' },
-                  ...workflowNodes
-                    .filter((n) => n.type !== 'start' && n.type !== 'end')
-                    .map((n) => ({
-                      value: n.id,
-                      label: `${(n.data as { label?: string }).label || n.type} (${n.type})`,
-                    })),
-                ]}
-                onChange={(next) => setErrorDraft({ ...errorDraft, handlerEntryNodeId: next || undefined })}
+        <div className="wf-defaults-body">
+          <section className="wf-defaults-card">
+            <header className="wf-defaults-card-header">
+              <h4 className="wf-defaults-card-title">Variables</h4>
+              <p className="wf-defaults-card-hint">
+                Available as <code>{'{{name}}'}</code> on every HTTP step unless that step overrides it.
+                Save the workflow to persist changes.
+              </p>
+            </header>
+            <div className="wf-defaults-card-body wf-defaults-vars-section">
+              <VariablesSection
+                title=""
+                hint=""
+                variables={draft}
+                onUpdateVariables={setDraft}
+                newVarKey={newVarKey}
+                setNewVarKey={setNewVarKey}
+                newVarValue={newVarValue}
+                setNewVarValue={setNewVarValue}
+                onRequestVariableInsert={requestVariableInsert}
+                deprecatedKeys={workflowServices.length > 0 ? ['baseUrl'] : []}
+                showSourceColumn={false}
               />
-              <span className="wf-defaults-field-hint">
-                This node will execute with <code>{'{{error.message}}'}</code> and <code>{'{{error.statusCode}}'}</code> variables set
-              </span>
             </div>
-          )}
+          </section>
+
+          <section className="wf-defaults-card">
+            <header className="wf-defaults-card-header">
+              <h4 className="wf-defaults-card-title">Error Handling</h4>
+              <p className="wf-defaults-card-hint">
+                What happens when a step fails without a node-level Error Handler.
+              </p>
+            </header>
+            <div className="wf-defaults-card-body wf-defaults-error-section">
+              <div className="wf-defaults-form-row">
+                <div className="wf-defaults-form-label">On unhandled error</div>
+                <div className="wf-defaults-form-ctrl">
+                  <WfDarkSelect
+                    aria-label="On Unhandled Error"
+                    testId="wf-defaults-error-mode"
+                    value={errorDraft?.mode ?? 'stop'}
+                    options={ERROR_MODE_OPTIONS}
+                    onChange={(next) => {
+                      const mode = next as WorkflowErrorMode;
+                      if (mode === 'stop') {
+                        setErrorDraft(undefined);
+                      } else {
+                        setErrorDraft({ mode, handlerEntryNodeId: errorDraft?.handlerEntryNodeId });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <p className="wf-defaults-form-hint">
+                {(!errorDraft || errorDraft.mode === 'stop')
+                  ? 'Workflow stops when any step fails without a node-level Error Handler.'
+                  : errorDraft.mode === 'continue'
+                    ? 'Workflow continues even when steps fail.'
+                    : 'Executes a handler node when an unhandled error occurs.'}
+              </p>
+
+              {errorDraft?.mode === 'run-handler' && (
+                <>
+                  <div className="wf-defaults-form-row">
+                    <div className="wf-defaults-form-label">Handler entry node</div>
+                    <div className="wf-defaults-form-ctrl">
+                      <WfDarkSelect
+                        aria-label="Handler Entry Node"
+                        testId="wf-defaults-handler-node"
+                        value={errorDraft.handlerEntryNodeId ?? ''}
+                        options={[
+                          { value: '', label: 'Select a node…' },
+                          ...workflowNodes
+                            .filter((n) => n.type !== 'start' && n.type !== 'end')
+                            .map((n) => ({
+                              value: n.id,
+                              label: `${(n.data as { label?: string }).label || n.type} (${n.type})`,
+                            })),
+                        ]}
+                        onChange={(next) => setErrorDraft({ ...errorDraft, handlerEntryNodeId: next || undefined })}
+                      />
+                    </div>
+                  </div>
+                  <p className="wf-defaults-form-hint">
+                    This node runs with <code>{'{{error.message}}'}</code> and <code>{'{{error.statusCode}}'}</code> set.
+                  </p>
+                </>
+              )}
+            </div>
+          </section>
         </div>
       </WorkflowEditorModalFrame>
 

@@ -45,10 +45,11 @@ describe('gql-workflow-integration lesson — actions', () => {
   it('gql11-create creates blank workflow', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button title="New workflow"></button>
-      <div class="wf-new-dropdown-item"></div>
-      <input class="req-confirm-input" />
-      <button class="req-confirm-ok"></button>
+      <button data-testid="wf-sidebar-new-btn" title="New workflow"></button>
+      <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item" class="wf-new-dropdown-item"></button>
+      <input data-testid="wf-create-input" class="req-confirm-input" />
+      <button data-testid="wf-create-ok" class="req-confirm-ok"></button>
       <div class="wf-canvas-area"></div>
     `;
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-create')!;
@@ -74,10 +75,11 @@ describe('gql-workflow-integration lesson — actions', () => {
         <button class="btn-ghost">Cancel</button>
         <button class="btn-primary">Save</button>
       </div>
-      <button title="New workflow"></button>
-      <div class="wf-new-dropdown-item"></div>
-      <input class="req-confirm-input" />
-      <button class="req-confirm-ok"></button>
+      <button data-testid="wf-sidebar-new-btn" title="New workflow"></button>
+      <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item" class="wf-new-dropdown-item"></button>
+      <input data-testid="wf-create-input" class="req-confirm-input" />
+      <button data-testid="wf-create-ok" class="req-confirm-ok"></button>
     `;
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-workflow-variables')!;
     await step.preAction!(ctx);
@@ -97,10 +99,11 @@ describe('gql-workflow-integration lesson — actions', () => {
       <div class="react-flow__node-graphqlQuery" data-id="q1">
         <div data-testid="gql-canvas-query-node"></div>
       </div>
-      <button title="New workflow"></button>
-      <div class="wf-new-dropdown-item"></div>
-      <input class="req-confirm-input" />
-      <button class="req-confirm-ok"></button>
+      <button data-testid="wf-sidebar-new-btn" title="New workflow"></button>
+      <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item" class="wf-new-dropdown-item"></button>
+      <input data-testid="wf-create-input" class="req-confirm-input" />
+      <button data-testid="wf-create-ok" class="req-confirm-ok"></button>
     `;
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-query-node')!;
@@ -354,8 +357,9 @@ describe('gql-workflow-integration lesson — actions', () => {
   it('ensureLesson11WorkflowCreated guard skips when canvas exists', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button title="New workflow"></button>
-      <div class="wf-new-dropdown-item"></div>
+      <button data-testid="wf-sidebar-new-btn" title="New workflow"></button>
+      <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item" class="wf-new-dropdown-item"></button>
       <div class="wf-canvas-area"></div>
     `;
     await ensureLesson11WorkflowCreated(ctx);
@@ -378,8 +382,9 @@ describe('gql-workflow-integration lesson — actions', () => {
     document.body.innerHTML = `
       <div class="wf-canvas-area"></div>
       <button data-testid="wf-toolbar-variables-btn"></button>
-      <button title="New workflow"></button>
-      <div class="wf-new-dropdown-item"></div>
+      <button data-testid="wf-sidebar-new-btn" title="New workflow"></button>
+      <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item" class="wf-new-dropdown-item"></button>
     `;
     mockLesson11WorkflowBridge('2000');
     await ensureLesson11WorkflowCreated(ctx);
@@ -485,8 +490,9 @@ describe('gql-workflow-integration lesson — actions', () => {
   it('dismissWorkflowOnboarding clicks skip when tooltip visible', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button title="New workflow"></button>
-      <div class="wf-new-dropdown-item"></div>
+      <button data-testid="wf-sidebar-new-btn" title="New workflow"></button>
+      <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item" class="wf-new-dropdown-item"></button>
       <div class="wf-canvas-area"></div>
       <button class="onboarding-tooltip-skip"></button>
     `;

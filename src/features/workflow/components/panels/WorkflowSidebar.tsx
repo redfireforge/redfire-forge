@@ -326,10 +326,21 @@ export default function WorkflowSidebar({
       <div className="wf-sidebar-header">
         <span className="wf-sidebar-title">Workflows</span>
         <div className="wf-new-dropdown-wrap" ref={newMenuRef}>
-          <button className="btn btn-sm btn-primary" onClick={() => setShowNewMenu(v => !v)} title="New workflow">+ New</button>
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={() => setShowNewMenu(v => !v)}
+            title="New workflow"
+            data-testid="wf-sidebar-new-btn"
+          >
+            + New
+          </button>
           {showNewMenu && (
             <div className="wf-new-dropdown">
-              <button className="wf-new-dropdown-item" onClick={() => { setShowCreateDialog(true); setShowNewMenu(false); }}>
+              <button
+                className="wf-new-dropdown-item"
+                data-testid="wf-new-blank-item"
+                onClick={() => { setShowCreateDialog(true); setShowNewMenu(false); }}
+              >
                 <span className="wf-new-dropdown-icon">📄</span>
                 <div>
                   <div className="wf-new-dropdown-label">Blank Workflow</div>
@@ -682,6 +693,7 @@ export default function WorkflowSidebar({
             <input
               ref={createInputRef}
               className="req-confirm-input"
+              data-testid="wf-create-input"
               autoFocus
               placeholder="Workflow name"
               onKeyDown={(e) => {
@@ -693,10 +705,16 @@ export default function WorkflowSidebar({
             />
             <div className="req-confirm-actions">
               <button className="req-confirm-cancel" onClick={() => setShowCreateDialog(false)}>Cancel</button>
-              <button className="req-confirm-ok req-confirm-ok-primary" onClick={() => {
-                const val = createInputRef.current?.value.trim();
-                if (val) { onNew(val); setShowCreateDialog(false); }
-              }}>Create</button>
+              <button
+                className="req-confirm-ok req-confirm-ok-primary"
+                data-testid="wf-create-ok"
+                onClick={() => {
+                  const val = createInputRef.current?.value.trim();
+                  if (val) { onNew(val); setShowCreateDialog(false); }
+                }}
+              >
+                Create
+              </button>
             </div>
           </div>
         </div>

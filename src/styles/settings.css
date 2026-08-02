@@ -857,6 +857,39 @@
   grid-column: 1 / -1;
 }
 
+.kafka-password-wrapper {
+  position: relative;
+}
+
+.kafka-password-wrapper input {
+  width: 100%;
+  padding-right: 2.4rem;
+}
+
+.kafka-password-reveal {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  padding: 0;
+  line-height: 1;
+}
+
+.kafka-password-reveal:hover {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
 .kafka-editor-section-header {
   display: flex;
   justify-content: space-between;

@@ -75,7 +75,7 @@ describe('WorkflowDefaultsModal', () => {
   it('reflects existing errorConfig mode', () => {
     render(<WorkflowDefaultsModal {...baseProps} errorConfig={{ mode: 'continue' }} />);
     expect(screen.getByTestId('wf-defaults-error-mode').textContent).toContain('Continue (ignore errors)');
-    expect(screen.getByText('Workflow continues even when steps fail')).toBeTruthy();
+    expect(screen.getByText(/Workflow continues even when steps fail/)).toBeTruthy();
   });
 
   it('switching to run-handler shows handler node select (filters start/end)', async () => {

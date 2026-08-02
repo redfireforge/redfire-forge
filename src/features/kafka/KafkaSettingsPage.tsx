@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
 import { normalizeKafkaClusterConfig } from '../../shared/kafka/kafkaConfig';
 import { saveJsonFile } from '../../shared/utils/fileSaver';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
@@ -57,6 +58,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
   const [pendingDeleteClusterId, setPendingDeleteClusterId] = useState<string | null>(null);
   const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, confirmDialogElement } = useConfirmDialog();
 
   const handleExport = async () => {
     const date = new Date().toISOString().slice(0, 10);
@@ -256,8 +258,21 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
     setDraftErrors(EMPTY_ERRORS);
   };
 
+  const deleteCluster = (clusterId: string, clusterName: string) => {
+    confirm(`Delete "${clusterName}"?`, () => {
+      removeCluster(clusterId);
+      if (editingClusterId === clusterId) {
+        setEditorMode(null);
+        setEditingClusterId(null);
+        setIsCreateClusterIdCustomized(false);
+        setDraftErrors(EMPTY_ERRORS);
+      }
+    });
+  };
+
   return (
     <div className="settings-page kafka-settings-page" data-testid="kafka-settings-page">
+      {confirmDialogElement}
       <div className="settings-page-header">
         <h2>Kafka Cluster Studio</h2>
         <p className="settings-section-desc">
@@ -408,6 +423,14 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                           onClick={() => startEdit(cluster.clusterId)}
                         >
                           Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => deleteCluster(cluster.clusterId, cluster.name)}
+                          title="Delete cluster"
+                        >
+                          Delete
                         </button>
                       </div>
                     </div>

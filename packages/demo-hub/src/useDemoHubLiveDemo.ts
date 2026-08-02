@@ -150,7 +150,8 @@ export function useDemoHubLiveDemo({
       await closeIsolatedStudioDemoTabSession({ restorePreviousTab: false });
       if (lesson.initialTab) navigateToTab(lesson.initialTab);
       expandAppSidebar();
-      await new Promise(r => setTimeout(r, 350));
+      // Short settle — long waits belong in step preAction/action, not Preparing.
+      await new Promise(r => setTimeout(r, 120));
       if (isGraphqlStudioLesson(lesson)) {
         await runGqlDemoStorageHygiene();
       }
@@ -214,6 +215,8 @@ export function useDemoHubLiveDemo({
     const gen = autoPlayGenRef.current;
 
     resetGqlModalSessionFlags();
+    // Lock Next immediately — prevents accidental skip during lesson setup.
+    setStepPhase('pre');
     setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
 
     const ok = await runLiveDemoSetup(lesson, gen);
@@ -223,7 +226,7 @@ export function useDemoHubLiveDemo({
       await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
       progress.setLessonStep(lesson.id, 0);
     }
-  }, [state.selectedLesson, state.speed, runLiveDemoSetup, executeCurrentStep, progress, resetGqlModalSessionFlags, autoPlayGenRef, isMountedRef, setState]);
+  }, [state.selectedLesson, state.speed, runLiveDemoSetup, executeCurrentStep, progress, resetGqlModalSessionFlags, autoPlayGenRef, isMountedRef, setState, setStepPhase]);
 
   const goToStep = useCallback(async (index: number) => {
     const lesson = state.selectedLesson;

@@ -64,7 +64,9 @@ function writeKafkaBindings(
       log({ prefix: '~', text: `[${label}] Output binding "${b.targetVariable}" ← empty (no message received)` });
       ctx.set(b.targetVariable, '');
     } else {
-      ctx.set(b.targetVariable, getKafkaSourceValue(b.source, meta));
+      const value = getKafkaSourceValue(b.source, meta);
+      ctx.set(b.targetVariable, value);
+      log({ prefix: '*', text: `[${label}]   ${b.source} → ${b.targetVariable} = ${value}` });
     }
   }
   if (active.length > 0) {

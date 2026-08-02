@@ -22,7 +22,7 @@ async function spotlightSel(
 ): Promise<void> {
   const el = firstVisibleElement<HTMLElement>(selector);
   if (!el) return;
-  el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  // Prefer no scroll jump — ring follows the element where it already is
   const remove = showSpotlightRing(el);
   try {
     await ctx.delay(holdMs);
@@ -38,30 +38,43 @@ async function ensureEventsTabQuiet(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(80);
 }
 
+function isAlreadyConnectedToMock(): boolean {
+  const dc = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  return Boolean(dc && !dc.disabled);
+}
+
 /** Quiet connect — no demo ripples (setup runs under the live overlay). */
 async function connectToMockServerQuiet(ctx: DemoActionContext): Promise<void> {
   const url = `ws://localhost:${getLastMockPort()}`;
-  firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
-  await ctx.delay(60);
+  if (isAlreadyConnectedToMock()) {
+    // Already live — avoid disconnect/reconnect flash
+    return;
+  }
+  // Only open Connect pane if the URL field is not already visible
+  if (!firstVisibleEl(WS.URL_INPUT)) {
+    firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+    await ctx.delay(60);
+  }
   const input = firstVisibleEl<HTMLInputElement>(WS.URL_INPUT);
-  if (input) fillControlledInput(input, url);
-  await ctx.delay(40);
+  if (input && input.value.trim() !== url) {
+    fillControlledInput(input, url);
+    await ctx.delay(40);
+  }
   const connectBtn = firstVisibleEl<HTMLButtonElement>(WS.CONNECT_BTN);
   if (connectBtn && !connectBtn.disabled) connectBtn.click();
   for (let i = 0; i < 40; i++) {
-    const dc = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
-    if (dc && !dc.disabled) break;
+    if (isAlreadyConnectedToMock()) break;
     await ctx.delay(80);
   }
-  await ctx.delay(80);
+  await ctx.delay(60);
 }
 
-/** Clear the default product template so step 2 can fill it live. */
-async function clearMessageTemplate(ctx: DemoActionContext): Promise<void> {
-  const ta = firstVisibleElement<HTMLTextAreaElement>(WS.LT_MESSAGE_TEMPLATE);
+/** Quietly wipe the product default template so step 2 can fill it live (no ripple). */
+async function clearMessageTemplateQuiet(ctx: DemoActionContext): Promise<void> {
+  const ta = firstVisibleEl<HTMLTextAreaElement>(WS.LT_MESSAGE_TEMPLATE);
   if (!ta || !ta.value.trim()) return;
-  await ctx.fill(WS.LT_MESSAGE_TEMPLATE, '');
-  await ctx.delay(150);
+  fillControlledInput(ta, '');
+  await ctx.delay(40);
 }
 
 /** Quietly select Constant only when another profile is active (avoids reading-phase flash). */
@@ -83,26 +96,16 @@ const LT_DEMO_TEMPLATE = `{
 }`;
 
 /**
- * Setup: quiet REST mock + client connect — no Mock/Client ripples under the live overlay.
- * Lands on Events so step 1 can calmly open Load Test.
+ * Setup: quiet REST mock + client connect. No Mock/Client ripples, no disconnect
+ * churn, no demo-tab add/rename (skipStudioTabIsolation). Lands on Events.
  */
 async function loadTestSetup(ctx: DemoActionContext): Promise<void> {
   await startMockServerQuiet(ctx);
   await switchToClientModeQuiet(ctx);
-  const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
-  if (disconnectBtn && !disconnectBtn.disabled) {
-    disconnectBtn.click();
-    await ctx.delay(60);
-  }
-  const clearBtn = firstVisibleEl<HTMLButtonElement>(WS.CLEAR_BTN);
-  if (clearBtn && !clearBtn.disabled) {
-    clearBtn.click();
-    await ctx.delay(60);
-  }
   await connectToMockServerQuiet(ctx);
   await ensureEventsTabQuiet(ctx);
   (document.activeElement as HTMLElement | null)?.blur?.();
-  await ctx.delay(80);
+  await ctx.delay(40);
 }
 
 /**
@@ -136,24 +139,24 @@ async function ensureTestResults(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.LT_RESULTS, 8000); // 3s test + 5s buffer (Rule 5)
 }
 
-/** Cleanup: stop any running load test, clear results, disconnect, stop mock. */
+/** Cleanup: stop any running load test, clear results, disconnect, stop mock quietly. */
 async function loadTestCleanup(ctx: DemoActionContext): Promise<void> {
-  // Stop running test if active
   const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.LT_STOP_BTN);
   if (stopBtn) {
     stopBtn.click();
     await ctx.delay(500);
   }
-  // Clear results if present
   const clearBtn = firstVisibleElement<HTMLButtonElement>(WS.LT_CLEAR_BTN);
   if (clearBtn) {
     clearBtn.click();
     await ctx.delay(300);
   }
-  // Switch back to events tab
-  await ctx.click(WS.RIGHT_TAB_EVENTS);
-  await ctx.delay(200);
-  await wsCleanup(ctx);
+  firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+  await ctx.delay(80);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx);
+  await switchToClientModeQuiet(ctx);
 }
 
 export const wsLoadTestingLesson: DemoLesson = {
@@ -164,6 +167,8 @@ export const wsLoadTestingLesson: DemoLesson = {
   description: 'Run load tests with constant, ramp, and burst profiles — then analyze real-time metrics.',
   estimatedMinutes: 4,
   initialTab: 'websocket-studio',
+  // Avoid add→rename "demo" connection tab flash at live start
+  skipStudioTabIsolation: true,
 
   setup: loadTestSetup,
   cleanup: loadTestCleanup,
@@ -246,13 +251,13 @@ After completion, see a full results dashboard:
         (document.activeElement as HTMLElement | null)?.blur?.();
       },
       action: async (ctx) => {
-        // Visible beat: spotlight Load Test, then open it (Events is already shown)
+        // Single visible beat: spotlight Load Test, then open
         await spotlightSel(ctx, WS.RIGHT_TAB_LOADTEST, 900);
         await ctx.click(WS.RIGHT_TAB_LOADTEST);
         await ctx.waitFor(WS.LT_CONFIG, 3000);
-        // Clear product default — step 2 fills a pretty template live
-        await clearMessageTemplate(ctx);
-        await ctx.delay(900); // viewer sees the empty Message Template
+        // Wipe product default immediately (quiet) so step 2 starts from empty
+        await clearMessageTemplateQuiet(ctx);
+        await ctx.delay(700);
       },
       pauseAfter: true,
     },
@@ -268,12 +273,11 @@ After completion, see a full results dashboard:
         'message gets unique values you can trace.',
       highlight: WS.LT_MESSAGE_TEMPLATE,
       preAction: async (ctx) => {
-        // Ensure Load Test tab is visible with an empty template
         if (!firstVisibleElement(WS.LT_CONFIG)) {
-          await ctx.click(WS.RIGHT_TAB_LOADTEST);
-          await ctx.delay(300);
+          firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_LOADTEST)?.click();
+          await ctx.delay(200);
         }
-        await clearMessageTemplate(ctx);
+        await clearMessageTemplateQuiet(ctx);
       },
       action: async (ctx) => {
         // Spotlight empty field, then fill pretty JSON live
@@ -297,12 +301,11 @@ After completion, see a full results dashboard:
       highlight: WS.LT_PROFILE_CONSTANT,
       preAction: async (ctx) => {
         if (!firstVisibleElement(WS.LT_CONFIG)) {
-          await ctx.click(WS.RIGHT_TAB_LOADTEST);
-          await ctx.delay(300);
+          firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_LOADTEST)?.click();
+          await ctx.delay(200);
         }
-        // Reading must start on Constant — a prior tour / skip can leave Burst selected
-        await ctx.click(WS.LT_PROFILE_CONSTANT);
-        await ctx.delay(200);
+        // Quiet reset only when needed — avoids Constant ripple flash during reading
+        await ensureConstantProfileQuiet(ctx);
       },
       action: async (ctx) => {
         // Tour each profile with spotlight so the viewer can follow the form change

@@ -114,7 +114,7 @@ describe('ExtractionEditor', () => {
 
   it('renders empty state when no extractions', () => {
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
-    expect(screen.getByText(/No extractions configured/)).toBeTruthy();
+    expect(screen.getByText(/No extractions yet/)).toBeTruthy();
   });
 
   it('renders hint text about variables', () => {
@@ -210,19 +210,19 @@ describe('ExtractionEditor', () => {
 
   it('does not show empty state when extractions exist', () => {
     render(<ExtractionEditor extractions={[makeExtraction()]} onChange={vi.fn()} />);
-    expect(screen.queryByText(/No extractions configured/)).toBeNull();
+    expect(screen.queryByText(/No extractions yet/)).toBeNull();
   });
 
   // Data Mapper section
   it('renders Data Mapper button always', () => {
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
-    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
+    expect(screen.getByText('Data Mapper')).toBeTruthy();
   });
 
   it('renders Data Mapper button with fetchSample', () => {
     const fetchSample = { onFetch: vi.fn(), fetching: false, error: null };
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
-    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
+    expect(screen.getByText('Data Mapper')).toBeTruthy();
   });
 
   it('shows fetch error when present', () => {
@@ -305,21 +305,21 @@ describe('ExtractionEditor', () => {
   // Full mapper modal
   it('opens mapper modal when Data Mapper clicked', () => {
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    fireEvent.click(screen.getByText('Data Mapper'));
     expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
   });
 
   it('applies mapper results', () => {
     const onChange = vi.fn();
     render(<ExtractionEditor extractions={[]} onChange={onChange} />);
-    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    fireEvent.click(screen.getByText('Data Mapper'));
     fireEvent.click(screen.getByText('Apply Map'));
     expect(onChange).toHaveBeenCalledWith([{ name: 'mapped', source: 'body', expression: '$.x' }]);
   });
 
   it('closes mapper modal on cancel', () => {
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    fireEvent.click(screen.getByText('Data Mapper'));
     fireEvent.click(screen.getByText('Close Modal'));
     expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
   });
@@ -356,14 +356,14 @@ describe('ExtractionEditor', () => {
         onChange={vi.fn()}
       />,
     );
-    const exprInputs = screen.getAllByLabelText('Expression') as HTMLInputElement[];
+    const exprInputs = screen.getAllByLabelText(/^Expression/) as HTMLInputElement[];
     expect(exprInputs[0].placeholder).toBe('$.data.id');
   });
 
   it('clears fallback to undefined when expression field emptied', () => {
     const onChange = vi.fn();
     render(<ExtractionEditor extractions={[makeExtraction({ fallback: 'x' })]} onChange={onChange} />);
-    const fb = screen.getByLabelText('Fallback');
+    const fb = screen.getByLabelText('Fallback 1');
     fireEvent.change(fb, { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ fallback: undefined })]);
   });
@@ -371,7 +371,7 @@ describe('ExtractionEditor', () => {
   it('updates expression field value', () => {
     const onChange = vi.fn();
     render(<ExtractionEditor extractions={[makeExtraction({ expression: '$.a' })]} onChange={onChange} />);
-    const [expressionRow] = screen.getAllByLabelText('Expression');
+    const [expressionRow] = screen.getAllByLabelText(/^Expression/);
     fireEvent.change(expressionRow, { target: { value: '$.b' } });
     expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ expression: '$.b' })]);
   });
@@ -412,10 +412,10 @@ describe('ExtractionEditor', () => {
     expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
   });
 
-  it('shows Fetching... when fetchSample.fetching is true', () => {
+  it('shows Fetching… when fetchSample.fetching is true', () => {
     const fetchSample = { onFetch: vi.fn(), fetching: true, error: null };
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
-    expect(screen.getByText('Fetching...')).toBeTruthy();
+    expect(screen.getByText('Fetching…')).toBeTruthy();
   });
 
   it('calls fetchSample.onFetch when the Fetch Response button is clicked', () => {
@@ -497,6 +497,6 @@ describe('ExtractionEditor', () => {
         onChange={vi.fn()}
       />,
     );
-    expect((screen.getByLabelText('Fallback') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('Fallback 1') as HTMLInputElement).value).toBe('');
   });
 });
