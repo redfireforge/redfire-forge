@@ -1089,6 +1089,11 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.demo-concept-table th:first-child,
+.demo-concept-table td:first-child {
+  white-space: nowrap;
+}
+
 .demo-concept-table th {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text, #f1f5f9);
@@ -1096,6 +1101,7 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  position: static;
 }
 
 .demo-concept-table td {

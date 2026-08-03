@@ -30,10 +30,20 @@ export default function WebSocketAuthPanel({
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
 
-  const authTypeOptions = useMemo(
-    () => buildFeatureAuthTypeOptions(globalAuthProfiles),
-    [globalAuthProfiles],
-  );
+  const authTypeOptions = useMemo(() => {
+    const base = buildFeatureAuthTypeOptions(globalAuthProfiles);
+    // Shorten long labels so the custom dropdown fits on one line without wrapping.
+    const SHORT: Record<string, string> = {
+      inherit: 'Inherit from Profile',
+      none:    'No Auth',
+      basic:   'Basic Auth',
+      bearer:  'Bearer Token',
+      apikey:  'API Key',
+      digest:  'Digest Auth',
+      oauth2:  'OAuth2',
+    };
+    return base.map((opt) => ({ ...opt, label: SHORT[opt.value] ?? opt.label }));
+  }, [globalAuthProfiles]);
 
   const resolvedDescription = useMemo(
     () => describeResolvedAuth(auth, globalAuthProfiles),
@@ -69,6 +79,8 @@ export default function WebSocketAuthPanel({
         showSecret={showSecret}
         setShowSecret={setShowSecret}
         authTypeOptions={authTypeOptions}
+        useCustomTypeDropdown
+        customTypeDropdownTestIdPrefix="ws-auth-type"
       />
 
       {resolvedDescription && (

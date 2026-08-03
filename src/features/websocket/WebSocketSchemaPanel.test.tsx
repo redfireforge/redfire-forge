@@ -35,7 +35,7 @@ describe('WebSocketSchemaPanel', () => {
   it('renders empty state when no schemas', () => {
     render(<WebSocketSchemaPanel {...defaultProps} />);
     expect(screen.getByTestId('ws-schema-empty')).toBeInTheDocument();
-    expect(screen.getByText(/No Schemas Defined/)).toBeInTheDocument();
+    expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
   });
 
   it('renders schema cards', () => {
@@ -127,7 +127,9 @@ describe('WebSocketSchemaPanel', () => {
     fireEvent.click(screen.getByTestId('ws-schema-add-btn'));
     fireEvent.click(screen.getByTestId('ws-schema-generate-btn'));
     expect(onGenerate).toHaveBeenCalled();
-    expect(screen.getByTestId('ws-schema-textarea')).toHaveValue('{"type": "object", "properties": {"x": {"type": "number"}}}');
+    expect(screen.getByTestId('ws-schema-textarea')).toHaveValue(
+      '{\n  "type": "object",\n  "properties": {\n    "x": {\n      "type": "number"\n    }\n  }\n}',
+    );
   });
 
   it('shows error when generate finds no JSON messages', () => {
@@ -146,9 +148,9 @@ describe('WebSocketSchemaPanel', () => {
     ];
     render(<WebSocketSchemaPanel {...defaultProps} schemas={schemas} />);
     const badges = screen.getAllByTestId('ws-schema-direction');
-    expect(badges[0]).toHaveTextContent('↓ received');
-    expect(badges[1]).toHaveTextContent('↑ sent');
-    expect(badges[2]).toHaveTextContent('↕ both');
+    expect(badges[0]).toHaveTextContent('↓ Received');
+    expect(badges[1]).toHaveTextContent('↑ Sent');
+    expect(badges[2]).toHaveTextContent('↕ Both');
   });
 
   it('applies disabled style to disabled schemas', () => {

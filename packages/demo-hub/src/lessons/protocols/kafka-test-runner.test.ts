@@ -214,14 +214,7 @@ describe('kafka-test-runner lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('step kr-badges preAction switches to Request Details tab and flat groupBy view', async () => {
-    const requestTab = document.createElement('button');
-    requestTab.className = 'results-view-tab';
-    requestTab.textContent = 'Request Details';
-    const tabSpy = vi.fn();
-    requestTab.addEventListener('click', tabSpy);
-    document.body.appendChild(requestTab);
-
+  it('step kr-badges preAction sets flat groupBy view silently (tab click moved to action)', async () => {
     const groupBySelect = document.createElement('select');
     const opt = document.createElement('option');
     opt.value = 'test';
@@ -236,9 +229,25 @@ describe('kafka-test-runner lesson', () => {
     const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-badges')!;
     await step.preAction!(makeCtx());
 
-    expect(tabSpy).toHaveBeenCalled();
     expect(changeSpy).toHaveBeenCalled();
     expect(groupBySelect.value).toBe('test');
+  });
+
+  it('step kr-badges action spotlights Request Details tab then clicks it', async () => {
+    const requestTab = document.createElement('button');
+    requestTab.id = 'results-tab-requests';
+    const tabClickSpy = vi.fn();
+    requestTab.addEventListener('click', tabClickSpy);
+    document.body.appendChild(requestTab);
+
+    const row = document.createElement('tr');
+    row.className = 'clickable-row';
+    document.body.appendChild(row);
+
+    const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-badges')!;
+    await step.action!(makeCtx());
+
+    expect(tabClickSpy).toHaveBeenCalled();
   });
 
   it('selectKafkaProduceDemo skips click when dropdown item is absent', async () => {

@@ -207,7 +207,6 @@ Integration tests that create data without cleaning up pollute shared environmen
       description:
         `The **GraphQL Mutation node** (amber **M** badge) is the workflow equivalent of Kafka's **produce node**: it writes data to the server and binds returned fields as variables for downstream nodes.\n\nUnlike the Query node (blue **Q**), the Mutation node validates write operations at config time and exposes **Extraction** and **Output** tabs for binding response fields. This lesson builds the standard integration-test chain: **create → read back → assert → delete** — starting from a **blank canvas**, adding each node from the palette, and configuring it step by step.\n\nPrerequisite: **GQL-16 Workflow Integration** showed the Query + Assert pattern. Here we extend it with a write step at the front and a teardown step at the end.`,
       highlight: WF.PAL_GQL_MUTATION,
-      preAction: gqlWorkflowMutationLessonSetup,
       pauseAfter: true,
     },
 

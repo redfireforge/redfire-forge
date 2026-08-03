@@ -109,7 +109,6 @@ describe('handleKafkaProduceNode', () => {
       key: 'k1',
     };
     const ops = mockKafkaOps({ produce: vi.fn<KafkaNodeOperations['produce']>().mockResolvedValue(result) });
-    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, kafkaOperations: ops });
     const passed = makePassedFlag();
     const node = produceNode('p1', {
       outputBindings: [
@@ -119,11 +118,20 @@ describe('handleKafkaProduceNode', () => {
       ],
     });
 
-    await handleKafkaProduceNode('p1', node, hCtx, passed);
+    const logSpy = vi.fn();
+    const hCtxWithLog = makeHandlerContext({ callbacks: cbResult.callbacks, kafkaOperations: ops, log: logSpy });
+    await handleKafkaProduceNode('p1', node, hCtxWithLog, passed);
 
-    expect(hCtx.ctx.get('outPart')).toBe('2');
-    expect(hCtx.ctx.get('outOff')).toBe('100');
-    expect(hCtx.ctx.get('skip')).toBeUndefined();
+    expect(hCtxWithLog.ctx.get('outPart')).toBe('2');
+    expect(hCtxWithLog.ctx.get('outOff')).toBe('100');
+    expect(hCtxWithLog.ctx.get('skip')).toBeUndefined();
+
+    // Per-binding log lines: "source → targetVariable = value"
+    const logs = logSpy.mock.calls.map((c: [{ text: string }]) => c[0].text);
+    expect(logs.some((l) => l.includes('partition → outPart = 2'))).toBe(true);
+    expect(logs.some((l) => l.includes('offset → outOff = 100'))).toBe(true);
+    // Summary line still present
+    expect(logs.some((l) => l.includes('Wrote 2 output binding(s)'))).toBe(true);
   });
 
   it('fails when topic is blank', async () => {

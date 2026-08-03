@@ -138,7 +138,7 @@ export function KafkaMessageStudioPage({
             connected={isConnected}
           />
         )}
-        {(activeTab === 'topics' || activeTab === 'schema') && !isConnected && (
+        {activeTab === 'topics' && !isConnected && (
           <KafkaStudioGuard
             connection={kafkaState.connection}
             hasClusters={kafkaState.clusters.length > 0}
@@ -148,7 +148,7 @@ export function KafkaMessageStudioPage({
         {activeTab === 'topics' && isConnected && (
           <KafkaTopicExplorerContent kafkaState={kafkaState} />
         )}
-        {activeTab === 'schema' && isConnected && (
+        {activeTab === 'schema' && (
           <KafkaSchemaRegistryContent kafkaState={kafkaState} />
         )}
       </div>

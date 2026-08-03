@@ -37,7 +37,6 @@ import {
   grpcEchoComposerFieldSelector,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
-  guardGrpcTargetQuiet,
   isGrpcEchoComposerReady,
   isGrpcHybridComposerActive,
   openGrpcSettingsDrawerQuiet,
@@ -368,9 +367,8 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
       highlight: GRPC.CONNECTION_SETTINGS_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
+        // Setup already normalizes transport baseline; keep intro guard minimal.
         await ensureStudioNav(ctx);
-        await guardGrpcTargetQuiet(ctx);
-        await reflectAndSelectEchoSilent(ctx);
       },
       action: async (ctx) => {
         await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 1_150);

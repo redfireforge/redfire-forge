@@ -9,42 +9,57 @@
  * No Docker required — uses the built-in mock echo server.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsCleanup, closeExtraConnectionTabs, fillControlledInput } from '../setup-helpers';
+import {
+  clearEvents,
+  closeExtraConnectionTabs,
+  disconnectWebSocket,
+  fillControlledInput,
+  firstVisibleEl,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
 import { WS } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 
 /**
  * Rename a specific tab by index (0-based).
  * click → focus → F2 → fill → Enter
+ * @param paceMs base delay between beats — keep low for quiet setup/guards.
  */
-async function renameTabByIndex(ctx: DemoActionContext, index: number, name: string): Promise<void> {
+async function renameTabByIndex(
+  ctx: DemoActionContext,
+  index: number,
+  name: string,
+  paceMs = 300,
+): Promise<void> {
   const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
   const tab = tabs[index] as HTMLElement | null;
   if (!tab) return;
 
   tab.click();
-  await ctx.delay(500);
+  await ctx.delay(paceMs);
   tab.focus();
-  await ctx.delay(200);
+  await ctx.delay(Math.min(100, paceMs));
   const f2Event = new KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true });
   (f2Event as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
   tab.dispatchEvent(f2Event);
-  await ctx.delay(500);
+  await ctx.delay(paceMs);
 
   let input = document.querySelector(WS.CONN_TAB_RENAME) as HTMLInputElement | null;
   if (!input) {
     tab.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await ctx.delay(400);
+    await ctx.delay(Math.min(200, paceMs));
     input = document.querySelector(WS.CONN_TAB_RENAME) as HTMLInputElement | null;
   }
   if (!input) return;
 
   fillControlledInput(input, name);
-  await ctx.delay(300);
+  await ctx.delay(Math.min(120, paceMs));
   const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
   (enterEvent as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
   input.dispatchEvent(enterEvent);
-  await ctx.delay(300);
+  await ctx.delay(Math.min(120, paceMs));
 }
 
 /** Get a tab by index (0-based) from the connection tab bar */
@@ -71,44 +86,64 @@ async function pressKeyOnTab(ctx: DemoActionContext, key: string, tab: HTMLEleme
 /**
  * Ensure exactly 3 named tabs exist: Server A, Server B, Staging.
  * Idempotent — closes extras first, adds if fewer than 3, then renames all.
+ * Uses quiet DOM clicks + short pacing so setup/guards do not flash Mock mode
+ * or a long rename tour while Live is already visible.
  */
-async function ensureThreeNamedTabs(ctx: DemoActionContext): Promise<void> {
+async function ensureThreeNamedTabs(ctx: DemoActionContext, paceMs = 80): Promise<void> {
   await closeExtraConnectionTabs(ctx);
-  await ctx.delay(200);
+  await ctx.delay(40);
   const count = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`).length;
   for (let i = count; i < 3; i++) {
-    await ctx.click(WS.CONN_TAB_ADD);
-    await ctx.delay(400);
+    firstVisibleEl<HTMLElement>(WS.CONN_TAB_ADD)?.click();
+    await ctx.delay(paceMs);
   }
-  await renameTabByIndex(ctx, 0, 'Server A');
-  await renameTabByIndex(ctx, 1, 'Server B');
-  await renameTabByIndex(ctx, 2, 'Staging');
-  await ctx.click(WS.CONN_TAB_FIRST);
-  await ctx.delay(200);
+  await renameTabByIndex(ctx, 0, 'Server A', paceMs);
+  await renameTabByIndex(ctx, 1, 'Server B', paceMs);
+  await renameTabByIndex(ctx, 2, 'Staging', paceMs);
+  firstVisibleEl<HTMLElement>(WS.CONN_TAB_FIRST)?.click();
+  await ctx.delay(40);
+}
+
+function threeNamedTabsReady(): boolean {
+  const labels = Array.from(
+    document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"] .ws-conn-tab-label`),
+  ).map((el) => el.textContent?.trim());
+  return labels.length >= 3
+    && labels[0] === 'Server A'
+    && labels[1] === 'Server B'
+    && labels[2] === 'Staging';
 }
 
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
+/**
+ * Quiet setup — REST mock + three named tabs ready before step 1 reading.
+ * Must not open Mock mode or run a long visible rename tour during setup.
+ */
 async function powerUserSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(400);
-  // Disconnect if connected
   const dcBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
   if (dcBtn && !dcBtn.disabled) {
     dcBtn.click();
-    await ctx.delay(300);
+    await ctx.delay(40);
   }
-  // Close extra tabs so we start with exactly 1
   await closeExtraConnectionTabs(ctx);
-  await ctx.delay(200);
-  // Start mock server
-  await wsSetup(ctx);
-  await ctx.delay(200);
+  await startMockServerQuiet(ctx, 9876);
+  await switchToClientModeQuiet(ctx);
+  await ensureThreeNamedTabs(ctx, 70);
+  // Always start on Events tab so persisted Stats/Console/etc. doesn't bleed in
+  const eventsTab = firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_EVENTS);
+  if (eventsTab?.getAttribute('aria-selected') !== 'true') {
+    eventsTab?.click();
+    await ctx.delay(40);
+  }
 }
 
 async function powerUserCleanup(ctx: DemoActionContext): Promise<void> {
   await closeExtraConnectionTabs(ctx);
-  await ctx.delay(200);
-  await wsCleanup(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx, 9876);
+  await switchToClientModeQuiet(ctx);
 }
 
 // ── Lesson ──────────────────────────────────────────────────────
@@ -320,21 +355,16 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Close extra tabs first — guards against step-back adding duplicates
-        await closeExtraConnectionTabs(ctx);
-        await ctx.delay(200);
-        // Add tab 2 and tab 3
-        await ctx.click(WS.CONN_TAB_ADD);
-        await ctx.delay(600);
-        await ctx.click(WS.CONN_TAB_ADD);
-        await ctx.delay(600);
-        // Rename each tab by index: 0=Server A, 1=Server B, 2=Staging
-        await renameTabByIndex(ctx, 0, 'Server A');
-        await renameTabByIndex(ctx, 1, 'Server B');
-        await renameTabByIndex(ctx, 2, 'Staging');
-        // Switch back to first tab
-        await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(400);
+        // Quiet guard if the viewer skipped setup / restarted mid-lesson.
+        if (!threeNamedTabsReady()) {
+          await ensureThreeNamedTabs(ctx, 70);
+        }
+      },
+      action: async (ctx: DemoActionContext) => {
+        // Tabs were prepared quietly in setup — observe only (no add/rename tour).
+        await ctx.waitFor(WS.CONN_TAB_BAR);
+        firstVisibleEl<HTMLElement>(WS.CONN_TAB_FIRST)?.click();
+        await ctx.delay(900);
       },
     },
 

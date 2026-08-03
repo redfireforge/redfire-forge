@@ -19,11 +19,11 @@ export const WF = {
   VARIABLES_BTN:       '[data-testid="wf-toolbar-variables-btn"]',
   // Sidebar
   SIDEBAR:             '.wf-sidebar',
-  SIDEBAR_NEW_BTN:     'button[title="New workflow"]',
+  SIDEBAR_NEW_BTN:     '[data-testid="wf-sidebar-new-btn"]',
   FIT_VIEW_BTN:        '.wf-designer button[title="Fit view"]',
-  NEW_BLANK_ITEM:      '.wf-new-dropdown-item:first-child',
-  CREATE_INPUT:        '.req-confirm-input',
-  CREATE_OK:           '.req-confirm-ok',
+  NEW_BLANK_ITEM:      '[data-testid="wf-new-blank-item"]',
+  CREATE_INPUT:        '[data-testid="wf-create-input"]',
+  CREATE_OK:           '[data-testid="wf-create-ok"]',
   // Palette tabs
   PAL_TAB_BLOCKS:      '[data-testid="wf-palette-tab-blocks"]',
   PAL_TAB_REQUESTS:    '[data-testid="wf-palette-tab-requests"]',
@@ -170,6 +170,6 @@ export const WF = {
   DEFAULTS_NEW_VAL:    '.wf-defaults-modal .wf-var-new-row-value .wf-var-value-input',
   /** Value input on an existing variable row (not the blank add row). */
   DEFAULTS_EXISTING_VALUE: '.wf-defaults-modal .wf-config-kv-row-vars:not(:last-child) .wf-var-value-input',
-  DEFAULTS_ADD_BTN:    '.wf-defaults-modal .wf-config-vars > div:last-child > button[type="button"]:last-of-type',
+  DEFAULTS_ADD_BTN:    '.wf-defaults-modal [aria-label="Add variable"]',
   DEFAULTS_SAVE_BTN:   '.wf-defaults-modal .btn-primary',
 } as const;

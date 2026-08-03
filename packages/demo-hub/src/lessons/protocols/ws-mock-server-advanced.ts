@@ -1,8 +1,38 @@
 /** Lesson 13: Advanced Mock Server — rules engine, delays, template variables */
-import type { DemoLesson } from '../../types';
-import { startMockServer, stopMockServer, switchToClientMode, disconnectWebSocket } from '../setup-helpers';
+import type { DemoActionContext, DemoLesson } from '../../types';
+import {
+  startMockServer,
+  stopMockServer,
+  switchToClientMode,
+  disconnectWebSocket,
+  clearAllMockRules,
+} from '../setup-helpers';
 import { WS } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
+
+/** Port captured quietly in mock-adv-live preAction for the visible Connect beat. */
+let _advLivePort = '9876';
+
+/** Spotlight a visible element, hold so the viewer can read, then clear. */
+async function spotlightAndPause(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  const el = firstVisibleElement<HTMLElement>(selector);
+  if (!el) {
+    await ctx.delay(holdMs);
+    return;
+  }
+  el.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  const dispose = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    dispose();
+  }
+}
 
 export const wsMockServerAdvancedLesson: DemoLesson = {
   id: 'ws-mock-server-advanced',
@@ -10,20 +40,19 @@ export const wsMockServerAdvancedLesson: DemoLesson = {
   category: 'websocket',
   name: 'Advanced Mock Server',
   description: 'Go beyond echo — write response rules, set delays, use template variables, and test rules before going live.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'websocket-studio',
 
   setup: async (ctx) => {
-    // Switch to Mock mode so the rules pane is accessible
-    await ctx.click(WS.MODE_MOCK);
-    await ctx.delay(500); // allow async rule-load from storage to settle
-    // Delete any leftover rules one at a time to avoid React stale-closure issues
-    const deleteFirstRule = (): boolean => {
-      const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_RULE_DELETE_ANY);
-      if (btn) { btn.click(); return true; }
-      return false;
-    };
-    while (deleteFirstRule()) await ctx.delay(250);
+    // Switch to Mock mode so the rules pane is accessible (skip if already there)
+    const alreadyMock = !!document.querySelector('[data-testid="mode-mock"].active, [data-testid="mode-mock"][aria-selected="true"]');
+    if (!alreadyMock) {
+      document.querySelector<HTMLElement>(WS.MODE_MOCK)?.click();
+    }
+    // Wait for async per-port rule hydrate from storage, then clear leftovers.
+    // clearAllMockRules retries so a late hydrate cannot resurrect old cards.
+    await ctx.delay(600);
+    await clearAllMockRules(ctx);
     // Start the server and go to client mode for a clean starting position
     await startMockServer(ctx);
     await switchToClientMode(ctx);
@@ -34,12 +63,7 @@ export const wsMockServerAdvancedLesson: DemoLesson = {
     // Delete rules created during the demo so they don't leak into the next run
     await ctx.click(WS.MODE_MOCK);
     await ctx.delay(400);
-    const deleteFirstRule = (): boolean => {
-      const btn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_RULE_DELETE_ANY);
-      if (btn) { btn.click(); return true; }
-      return false;
-    };
-    while (deleteFirstRule()) await ctx.delay(250);
+    await clearAllMockRules(ctx);
     await stopMockServer(ctx);
     await switchToClientMode(ctx);
   },
@@ -113,7 +137,7 @@ Switch to **Mock mode**, then click the **Rules** tab in the right panel. You'll
         await ctx.click(WS.MODE_MOCK);
         // MOCK_TAB_RULES only renders in Mock mode — wait before clicking
         await ctx.waitFor(WS.MOCK_TAB_RULES);
-        await ctx.delay(400); // let user observe the mode switch
+        await ctx.delay(400);
         await ctx.click(WS.MOCK_TAB_RULES);
         await ctx.delay(300);
       },
@@ -131,16 +155,27 @@ Change the **Match type** dropdown to **Contains**, then type \`ping\` in the **
       highlight: WS.MOCK_ADD_RULE,
       pauseAfter: true,
       preAction: async (ctx) => {
-        // Guard: ensure Mock mode + Rules tab active for direct navigation
+        // Guard: Mock mode + Rules tab + empty list (no leftover Rule 1/2 from prior runs)
         await ctx.click(WS.MODE_MOCK);
         await ctx.delay(300);
         await ctx.waitFor(WS.MOCK_TAB_RULES);
         await ctx.click(WS.MOCK_TAB_RULES);
         await ctx.delay(200);
+        await clearAllMockRules(ctx);
       },
       action: async (ctx) => {
-        await ctx.click(WS.MOCK_ADD_RULE);
-        await ctx.delay(800); // let the user see the card expand
+        // Only create a rule when the list is empty — never stack a "Rule 2"
+        // on top of an uncleared leftover.
+        if (!firstVisibleElement(WS.MOCK_RULE_FIRST)) {
+          await ctx.click(WS.MOCK_ADD_RULE);
+          await ctx.delay(800); // let the user see the card expand
+        } else {
+          // Expand the existing single card if somehow one remains
+          const expand = firstVisibleElement<HTMLElement>('[data-testid^="rule-expand-"]')
+            ?? firstVisibleElement<HTMLElement>('.ws-mock-rule-header');
+          expand?.click();
+          await ctx.delay(500);
+        }
         // Change match type from 'any' → 'contains' so the pattern input appears in the DOM
         await ctx.selectOption(WS.MOCK_RULE_MATCH_TYPE_FIRST, 'contains');
         await ctx.delay(500); // let user see the dropdown change
@@ -277,9 +312,18 @@ This is much safer than deleting a rule you might need again. Toggle the rule of
           const addBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_ADD_RULE);
           if (addBtn) { addBtn.click(); await ctx.delay(200); }
         }
+        // Scroll the rule card into view so the toggle is fully visible
+        firstVisibleElement<HTMLElement>(WS.MOCK_RULE_TOGGLE_LABEL_FIRST)
+          ?.closest('[data-testid^="rule-card-"], .ws-mock-rule-card')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        await ctx.delay(300);
       },
       action: async (ctx) => {
-        // Click the visible toggle label (not the CSS-hidden checkbox) for correct ripple positioning
+        // Ensure the rule card is fully visible before spotlighting the toggle
+        firstVisibleElement<HTMLElement>(WS.MOCK_RULE_TOGGLE_LABEL_FIRST)
+          ?.closest('[data-testid^="rule-card-"], .ws-mock-rule-card')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        await ctx.delay(400);
         await ctx.click(WS.MOCK_RULE_TOGGLE_LABEL_FIRST);
         await ctx.delay(1200); // let user see the disabled/dimmed state
         await ctx.click(WS.MOCK_RULE_TOGGLE_LABEL_FIRST);
@@ -304,66 +348,146 @@ Leave it on \`echo\` — unmatched messages still get a response, so your app wo
         // Guard: MOCK_FALLBACK_SELECT only renders in Mock mode
         await ctx.click(WS.MODE_MOCK);
         await ctx.delay(300);
+        // Remove any orphaned CustomSelect portal left by a prior pass
+        document.querySelectorAll('body > .cs-menu').forEach((m) => m.remove());
+      },
+      action: async (ctx) => {
+        // Must use the *visible* Fallback select — inactive WS tabs keep their own
+        // Mock chrome mounted (display:none). Opening a hidden select portals the
+        // menu at (0,0) → floating Echo/Ignore/Close in the corner.
+        const selectEl = firstVisibleElement<HTMLElement>(WS.MOCK_FALLBACK_SELECT);
+        if (selectEl) {
+          const dispose = showSpotlightRing(selectEl);
+          await ctx.delay(600);
+          dispose();
+          const trigger = selectEl.querySelector<HTMLElement>('.cs-trigger');
+          trigger?.click();
+          await ctx.delay(300);
+          // Prefer the menu belonging to this trigger (aria-controls / nearest open).
+          const menu = document.querySelector<HTMLElement>('body > .cs-menu');
+          if (menu) {
+            const disposeMenu = showSpotlightRing(menu);
+            await ctx.delay(1800);
+            disposeMenu();
+          } else {
+            await ctx.delay(1800);
+          }
+          // Close without a bare Escape on document (that exits the live demo).
+          // Mark synthetic Escape so useDemoShortcuts ignores it, and fire on the
+          // trigger so CustomSelect's key handler collapses the menu.
+          if (trigger) {
+            const esc = new KeyboardEvent('keydown', {
+              key: 'Escape',
+              bubbles: true,
+              cancelable: true,
+            });
+            (esc as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
+            trigger.dispatchEvent(esc);
+            await ctx.delay(100);
+            // Belt: toggle-close if still expanded
+            if (trigger.getAttribute('aria-expanded') === 'true') {
+              trigger.click();
+              await ctx.delay(100);
+            }
+          }
+          // Belt: strip any leftover portaled menus so they cannot stick in the corner
+          document.querySelectorAll('body > .cs-menu').forEach((m) => m.remove());
+          await ctx.delay(150);
+        } else {
+          await ctx.delay(600);
+        }
       },
     },
     {
       id: 'mock-adv-live',
       title: 'Rules Fire Live — Connect and Test',
-      description: `Push the rules to the server and verify them live.
-
-**What happens:**
-1. Switch to **Client mode**, connect to this tab's mock server
-2. Send \`ping\` — the rule fires and responds with \`{"type":"pong","ts":"…"}\` after 200ms
-3. Send a non-matching message — the fallback (echo) responds immediately
-
-Watch the Events panel to see rule-matched vs fallback responses side by side.`,
-      highlight: WS.SEND_BTN,
+      description:
+        'Watch the full live path, one beat at a time:\n\n' +
+        '1. **Connect** — open the Connect panel, set this tab\'s mock URL, click **Connect** (status turns green)\n' +
+        '2. **Events** — confirm the Connected system row\n' +
+        '3. **Send `ping`** — the rule replies with `{"type":"pong","ts":"…"}` after the 200ms delay\n' +
+        '4. **Send `hello world`** — no rule matches, so **Fallback: echo** returns the same text\n\n' +
+        'Keep your eyes on the Events log for rule-matched vs echo responses.',
+      // Reading spotlight: Connect panel — Connect beats run first in action().
+      highlight: WS.LEFT_TAB_CONNECT,
       pauseAfter: true,
       preAction: async (ctx) => {
-        // Ensure mock server is running before connecting
-        await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(300);
+        // Quiet only: ensure mock is listening and capture port. Visible Connect/Send
+        // beats belong in action() so the viewer can follow them.
+        document.querySelectorAll('body > .cs-menu').forEach((m) => m.remove());
+        const mockActive = !!document.querySelector(
+          '[data-testid="mode-mock"].active, [data-testid="mode-mock"][aria-selected="true"]',
+        );
+        if (!mockActive) {
+          document.querySelector<HTMLElement>(WS.MODE_MOCK)?.click();
+          await ctx.delay(160);
+        }
         const startBtn = firstVisibleElement<HTMLButtonElement>(WS.MOCK_START_BTN);
         if (startBtn && !startBtn.disabled) {
           startBtn.click();
-          await ctx.delay(800);
+          await ctx.delay(400);
         }
-        // Read the tab's actual assigned port while the Mock panel is still visible —
-        // never assume a fixed port, since each tab is dynamically assigned one. Scope to
-        // the VISIBLE port input — other open WS Studio tabs may have their own (hidden)
-        // Mock panel mounted in the DOM with a different port.
         const portInput = firstVisibleElement<HTMLInputElement>(WS.MOCK_PORT_INPUT);
-        const port = portInput?.value?.trim() || '9876';
-        // Switch to client mode and connect
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(300);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        // Wait for the URL input to be in the DOM before filling
-        await ctx.waitFor(WS.URL_INPUT);
-        await ctx.fill(WS.URL_INPUT, `ws://localhost:${port}`);
-        // Only click Connect if not already connected (guard for replay)
-        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
-          await ctx.click(WS.CONNECT_BTN);
-        }
-        // Wait for connection (more robust than fixed delay)
-        await ctx.waitFor(WS.STATUS_CONNECTED);
-        await ctx.delay(300);
-        // Navigate to Events tab so user sees messages arrive in real time
-        await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(200);
-        await ctx.click(WS.LEFT_TAB_SEND);
+        _advLivePort = portInput?.value?.trim() || '9876';
+        // Land on Client → Connect so the reading spotlight matches the UI.
+        document.querySelector<HTMLElement>(WS.MODE_CLIENT)?.click();
+        await ctx.delay(120);
+        document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+        await ctx.delay(120);
       },
       action: async (ctx) => {
-        // Send ping — rule fires with template response + 200ms delay
+        // ── 1. Connect configuration (visible) ─────────────────────────
+        await spotlightAndPause(ctx, WS.MODE_CLIENT, 700);
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(500);
+        await spotlightAndPause(ctx, WS.LEFT_TAB_CONNECT, 900);
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.waitFor(WS.URL_INPUT);
+        await ctx.delay(500);
+
+        await spotlightAndPause(ctx, WS.URL_INPUT, 1000);
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${_advLivePort}`);
+        await spotlightAndPause(ctx, WS.URL_INPUT, 1200);
+
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await spotlightAndPause(ctx, WS.CONNECT_BTN, 1100);
+          await ctx.click(WS.CONNECT_BTN);
+          await ctx.waitFor(WS.STATUS_CONNECTED);
+          await spotlightAndPause(ctx, WS.STATUS_CONNECTED, 1000);
+        } else {
+          await spotlightAndPause(ctx, WS.STATUS_CONNECTED, 800);
+        }
+
+        // ── 2. Events — connection row ─────────────────────────────────
+        await spotlightAndPause(ctx, WS.RIGHT_TAB_EVENTS, 800);
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(900);
+
+        // ── 3. Send ping (rule match) ──────────────────────────────────
+        await spotlightAndPause(ctx, WS.LEFT_TAB_SEND, 900);
+        await ctx.click(WS.LEFT_TAB_SEND);
+        await ctx.waitFor(WS.MESSAGE_INPUT);
+        await ctx.delay(500);
+
         await ctx.fill(WS.MESSAGE_INPUT, 'ping');
-        await ctx.delay(400);
+        await spotlightAndPause(ctx, WS.MESSAGE_INPUT, 1100);
+        await spotlightAndPause(ctx, WS.SEND_BTN, 800);
         await ctx.click(WS.SEND_BTN);
-        await ctx.delay(1500); // let user see the rule-matched pong response
-        // Send a non-matching message — fallback echo fires immediately
+        // Rule delay 200ms + Events settle — let viewer see pong arrive
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(1600);
+
+        // ── 4. Send non-match (echo fallback) ──────────────────────────
+        await ctx.click(WS.LEFT_TAB_SEND);
+        await ctx.delay(500);
         await ctx.fill(WS.MESSAGE_INPUT, 'hello world');
-        await ctx.delay(400);
+        await spotlightAndPause(ctx, WS.MESSAGE_INPUT, 1100);
+        await spotlightAndPause(ctx, WS.SEND_BTN, 800);
         await ctx.click(WS.SEND_BTN);
-        await ctx.delay(1200); // let user see the fallback echo response
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(1400);
+        // Leave Events visible for the step outcome / verify
+        await spotlightAndPause(ctx, WS.MESSAGE_ROW, 1000);
       },
       verify: WS.MESSAGE_ROW,
     },

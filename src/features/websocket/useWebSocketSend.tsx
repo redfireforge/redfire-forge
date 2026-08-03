@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CustomSelect } from '../../shared/components/CustomSelect';
+import StandardProfessionalModal from '../../shared/components/StandardProfessionalModal';
 import type { WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
 import type { WsProtocolMode } from '../../shared/websocket/protocols/protocolTypes';
 import { isValidJson, isValidBase64 } from './wsMessageUtils';
@@ -51,6 +52,7 @@ export function useWebSocketSend({
   const [stompDestination, setStompDestination] = useState('');
   const [stompLogin, setStompLogin] = useState('');
   const [stompPasscode, setStompPasscode] = useState('');
+  const [showStompPasscode, setShowStompPasscode] = useState(false);
   const [gqlVariables, setGqlVariables] = useState('');
   const [gqlOperationName, setGqlOperationName] = useState('');
   const [gqlOperationId, setGqlOperationId] = useState(1);
@@ -234,64 +236,106 @@ export function useWebSocketSend({
         </div>
       )}
       {isStompMode && (
-        <div className="ws-stomp-compose-fields" data-testid="stomp-compose-fields">
-          <CustomSelect
-            className="ws-stomp-command-select"
-            value={stompCommand}
-            onChange={setStompCommand}
-            disabled={!isConnected}
-            options={[
-              { value: 'SEND', label: 'SEND' },
-              { value: 'SUBSCRIBE', label: 'SUBSCRIBE' },
-              { value: 'UNSUBSCRIBE', label: 'UNSUBSCRIBE' },
-              { value: 'CONNECT', label: 'CONNECT' },
-              { value: 'DISCONNECT', label: 'DISCONNECT' },
-              { value: 'ACK', label: 'ACK' },
-              { value: 'NACK', label: 'NACK' },
-            ]}
-            aria-label="STOMP command"
-            data-testid="stomp-command"
-          />
-          <input
-            className="ws-stomp-destination-input"
-            type="text"
-            value={stompDestination}
-            onChange={(e) => setStompDestination(e.target.value)}
-            placeholder={
-              stompCommand === 'CONNECT' ? 'Virtual host (e.g. /)'
-              : (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') ? 'ID (e.g. sub-0 or msg-42)'
-              : 'Destination (e.g. /topic/chat)'
-            }
-            disabled={!isConnected}
-            aria-label={
-              stompCommand === 'CONNECT' ? 'STOMP host'
-              : (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') ? 'STOMP ID'
-              : 'STOMP destination'
-            }
-            data-testid="stomp-destination"
-          />
+        <div
+          className={`ws-stomp-compose-fields${stompCommand === 'CONNECT' || stompCommand === 'STOMP' ? ' ws-stomp-compose-fields--auth' : ''}`}
+          data-testid="stomp-compose-fields"
+        >
+          <div className="ws-stomp-compose-row">
+            <CustomSelect
+              className="ws-stomp-command-select"
+              value={stompCommand}
+              onChange={(v) => {
+                setStompCommand(v);
+                if (v !== 'CONNECT' && v !== 'STOMP') setShowStompPasscode(false);
+              }}
+              disabled={!isConnected}
+              options={[
+                { value: 'SEND', label: 'SEND' },
+                { value: 'SUBSCRIBE', label: 'SUBSCRIBE' },
+                { value: 'UNSUBSCRIBE', label: 'UNSUBSCRIBE' },
+                { value: 'CONNECT', label: 'CONNECT' },
+                { value: 'DISCONNECT', label: 'DISCONNECT' },
+                { value: 'ACK', label: 'ACK' },
+                { value: 'NACK', label: 'NACK' },
+              ]}
+              aria-label="STOMP command"
+              data-testid="stomp-command"
+            />
+            <input
+              className="ws-stomp-destination-input"
+              type="text"
+              value={stompDestination}
+              onChange={(e) => setStompDestination(e.target.value)}
+              placeholder={
+                stompCommand === 'CONNECT' ? 'Virtual host (e.g. /)'
+                : (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') ? 'ID (e.g. sub-0 or msg-42)'
+                  : 'Destination (e.g. /topic/chat)'
+              }
+              disabled={!isConnected}
+              aria-label={
+                stompCommand === 'CONNECT' ? 'STOMP host'
+                : (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') ? 'STOMP ID'
+                  : 'STOMP destination'
+              }
+              data-testid="stomp-destination"
+            />
+          </div>
           {(stompCommand === 'CONNECT' || stompCommand === 'STOMP') && (
             <>
-              <input
-                className="ws-stomp-auth-input"
-                type="text"
-                value={stompLogin}
-                onChange={(e) => setStompLogin(e.target.value)}
-                placeholder="Login (e.g. guest)"
-                disabled={!isConnected}
-                aria-label="STOMP login"
-                data-testid="stomp-login"
-              />
-              <input
-                className="ws-stomp-auth-input ws-stomp-passcode-input"
-                type="password"
-                value={stompPasscode}
-                onChange={(e) => setStompPasscode(e.target.value)}
-                placeholder="Passcode"
-                disabled={!isConnected}
-                aria-label="STOMP passcode"
-                data-testid="stomp-passcode"
-              />
+              <div className="ws-stomp-compose-row ws-stomp-auth-row">
+                <label className="ws-stomp-auth-label" htmlFor="stomp-login-input">Login</label>
+                <input
+                  id="stomp-login-input"
+                  className="ws-stomp-auth-input"
+                  type="text"
+                  value={stompLogin}
+                  onChange={(e) => setStompLogin(e.target.value)}
+                  placeholder="Login (e.g. guest)"
+                  disabled={!isConnected}
+                  aria-label="STOMP login"
+                  data-testid="stomp-login"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="ws-stomp-compose-row ws-stomp-auth-row">
+                <label className="ws-stomp-auth-label" htmlFor="stomp-passcode-input">Passcode</label>
+                <div className="ws-stomp-passcode-wrap">
+                  <input
+                    id="stomp-passcode-input"
+                    className="ws-stomp-auth-input ws-stomp-passcode-input"
+                    type={showStompPasscode ? 'text' : 'password'}
+                    value={stompPasscode}
+                    onChange={(e) => setStompPasscode(e.target.value)}
+                    placeholder="Passcode"
+                    disabled={!isConnected}
+                    aria-label="STOMP passcode"
+                    data-testid="stomp-passcode"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    type="button"
+                    className="ws-stomp-passcode-toggle"
+                    onClick={() => setShowStompPasscode((v) => !v)}
+                    disabled={!isConnected}
+                    aria-label={showStompPasscode ? 'Hide passcode' : 'Show passcode'}
+                    title={showStompPasscode ? 'Hide passcode' : 'Show passcode'}
+                    data-testid="stomp-passcode-toggle"
+                  >
+                    {showStompPasscode ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -485,63 +529,43 @@ export function useWebSocketSend({
             </button>
           </div>
           {templateModalOpen && createPortal(
-            <div className="ws-tpl-modal-overlay" data-testid="template-dropdown" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setTemplateModalOpen(false); }}>
-              <div className="ws-tpl-modal" role="dialog" aria-modal="true" aria-label="Message templates" onClick={(e) => e.stopPropagation()}>
-                <div className="ws-tpl-modal-header">
-                  <div className="ws-tpl-modal-title">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                    Message Templates
-                    {templates.length > 0 && (
-                      <span className="ws-tpl-modal-badge">{templates.length}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="ws-tpl-modal-body">
-                  {templates.length === 0 ? (
-                    <div className="ws-template-empty" data-testid="template-empty">
-                      <span className="ws-template-empty-icon" aria-hidden="true">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                      </span>
-                      <p className="ws-template-empty-title">No saved templates</p>
-                      <p className="ws-template-empty-hint">Type a message in the compose area, enter a name below, and click Save to create your first template.</p>
-                    </div>
-                  ) : (
-                    <div className="ws-template-list" role="listbox" aria-label="Templates" data-testid="template-list">
-                      {templates.map((tpl) => (
-                        <div className="ws-template-item" key={tpl.id} data-testid={`template-item-${tpl.id}`} role="option">
-                          <button
-                            className="ws-template-item-load"
-                            onClick={() => handleTemplateLoad(tpl.id)}
-                            title={`Load template: ${tpl.name}`}
-                          >
-                            <span className="ws-template-item-head">
-                              <span className="ws-template-item-name">{tpl.name}</span>
-                              <span className={`ws-template-item-format ws-template-item-format-${tpl.format}`}>
-                                {tpl.format}
-                              </span>
-                            </span>
-                            <span className="ws-template-item-preview">
-                              {tpl.body.length > 120 ? tpl.body.slice(0, 120) + '\u2026' : tpl.body}
-                            </span>
-                          </button>
-                          <button
-                            className="ws-template-item-delete"
-                            onClick={() => handleTemplateDelete(tpl.id)}
-                            title="Delete template"
-                            aria-label={`Delete template: ${tpl.name}`}
-                            data-testid={`template-delete-${tpl.id}`}
-                          >
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+            <StandardProfessionalModal
+              open
+              title={
+                <span className="ws-tpl-modal-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  Message Templates
+                  {templates.length > 0 && (
+                    <span className="ws-tpl-modal-badge">{templates.length}</span>
                   )}
-                </div>
-
-                <div className="ws-tpl-modal-footer">
-                  <span className="ws-template-save-label">Save current message as</span>
+                </span>
+              }
+              titleId="ws-message-templates-title"
+              onClose={() => setTemplateModalOpen(false)}
+              overlayClassName="ws-tpl-modal-overlay"
+              dialogClassName="ws-tpl-modal"
+              overlayTestId="template-dropdown"
+              closeButtonKind="icon"
+              closeButtonLabel="Close message templates"
+              closeOnOverlayClick
+              showExpandButton={false}
+              showResizeHandles
+              constrainDragToViewport
+              dragViewportPadding={12}
+              minWidth={380}
+              minHeight={320}
+              bodyClassName="ws-tpl-modal-body"
+              footerClassName="ws-tpl-modal-footer"
+              footer={
+                <div className="ws-tpl-save-card">
+                  <div className="ws-tpl-save-card-head">
+                    <span className="ws-template-save-label">Save current message</span>
+                    <span className="ws-tpl-save-hint">
+                      {composeText.trim()
+                        ? `${composeFormat.toUpperCase()} · ${composeText.trim().length.toLocaleString()} chars`
+                        : 'Write a message in Compose first'}
+                    </span>
+                  </div>
                   <div className="ws-template-save-controls">
                     <input
                       className="ws-template-save-input"
@@ -555,6 +579,7 @@ export function useWebSocketSend({
                       aria-label="Template name"
                     />
                     <button
+                      type="button"
                       className="ws-template-save-btn"
                       onClick={handleTemplateSave}
                       disabled={!templateSaveName.trim() || !composeText.trim()}
@@ -564,10 +589,61 @@ export function useWebSocketSend({
                       Save
                     </button>
                   </div>
-                  <button type="button" className="btn btn-primary ws-tpl-close-btn" onClick={() => setTemplateModalOpen(false)}>Close</button>
                 </div>
-              </div>
-            </div>,
+              }
+            >
+              {templates.length === 0 ? (
+                <div className="ws-template-empty" data-testid="template-empty">
+                  <span className="ws-template-empty-icon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  </span>
+                  <p className="ws-template-empty-title">No saved templates</p>
+                  <p className="ws-template-empty-hint">
+                    Type a message in Compose, name it below, then click <strong>Save</strong>.
+                    Click a template later to load it instantly.
+                  </p>
+                </div>
+              ) : (
+                <div className="ws-tpl-section">
+                  <div className="ws-tpl-section-head">
+                    <span className="ws-tpl-section-title">Saved templates</span>
+                    <span className="ws-tpl-section-meta">Click to load into Compose</span>
+                  </div>
+                  <div className="ws-template-list" role="listbox" aria-label="Templates" data-testid="template-list">
+                    {templates.map((tpl) => (
+                      <div className="ws-template-item" key={tpl.id} data-testid={`template-item-${tpl.id}`} role="option">
+                        <button
+                          type="button"
+                          className="ws-template-item-load"
+                          onClick={() => handleTemplateLoad(tpl.id)}
+                          title={`Load template: ${tpl.name}`}
+                        >
+                          <span className="ws-template-item-head">
+                            <span className="ws-template-item-name">{tpl.name}</span>
+                            <span className={`ws-template-item-format ws-template-item-format-${tpl.format}`}>
+                              {tpl.format}
+                            </span>
+                          </span>
+                          <span className="ws-template-item-preview">
+                            {tpl.body.length > 120 ? tpl.body.slice(0, 120) + '\u2026' : tpl.body}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="ws-template-item-delete"
+                          onClick={() => handleTemplateDelete(tpl.id)}
+                          title="Delete template"
+                          aria-label={`Delete template: ${tpl.name}`}
+                          data-testid={`template-delete-${tpl.id}`}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </StandardProfessionalModal>,
             document.body,
           )}
 

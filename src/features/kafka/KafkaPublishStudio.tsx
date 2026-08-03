@@ -57,6 +57,9 @@ export function KafkaPublishStudio({
   const topicEmpty = publishDraft.topic.trim() === '';
   const bodyEmpty = publishDraft.body.trim() === '';
   const canSend = !topicEmpty && !publishLoading && connected;
+  const publishAcksValue = ['-1', '0', '1'].includes(String(publishDraft.acks))
+    ? String(publishDraft.acks)
+    : '-1';
 
   const handleSend = useCallback(() => {
     void studio.sendOnce();
@@ -160,7 +163,7 @@ export function KafkaPublishStudio({
             <div className="kafka-ms-form-ctrl">
               <CustomSelect
                 className="kafka-ms-form-select kafka-ms-form-select--acks"
-                value={String(publishDraft.acks)}
+                value={publishAcksValue}
                 onChange={(v) => setPublishDraft({ acks: Number(v) as -1 | 0 | 1 })}
                 options={[
                   { value: '-1', label: 'All (–1)', detail: 'Wait for all in-sync replicas — strongest durability' },

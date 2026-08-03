@@ -55,7 +55,70 @@
   color: #fff;
 }
 
-.ws-console-category-filter { /* box styling handled by CustomSelect */ }
+.ws-console-category-filter {
+  padding: 5px 10px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 160px;
+  cursor: pointer;
+}
+.ws-console-category-filter:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-console-category-dropdown {
+  position: relative;
+}
+
+.ws-console-category-chevron {
+  color: var(--text-secondary, #999);
+  font-size: 11px;
+}
+
+.ws-console-category-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 240px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #444);
+  background: var(--surface, #1f2739);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 40;
+}
+
+.ws-console-category-option {
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary, #e0e0e0);
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ws-console-category-option:hover {
+  background: var(--hover-bg, #333);
+}
+
+.ws-console-category-option.active {
+  background: var(--accent-color, #4fc3f7);
+  color: #fff;
+}
 
 .ws-console-search {
   flex: 1 1 160px;

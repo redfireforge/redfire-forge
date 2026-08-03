@@ -1,9 +1,10 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaSecureLesson } from './kafka-secure';
+import { KAFKA } from '@shared/selectors';
 
 describe('kafka-secure lesson', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
@@ -30,9 +31,20 @@ describe('kafka-secure lesson', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('has expected step IDs in order', () => {
+  it('saves before testing (Test Connection needs a saved selected cluster)', () => {
     const ids = kafkaSecureLesson.steps.map((s) => s.id);
-    expect(ids).toEqual(['sec-intro', 'sec-new', 'sec-broker', 'sec-auth', 'sec-creds', 'sec-test', 'sec-save', 'sec-publish', 'sec-result']);
+    expect(ids).toEqual([
+      'sec-intro',
+      'sec-broker',
+      'sec-auth',
+      'sec-creds',
+      'sec-save',
+      'sec-test',
+      'sec-connect',
+      'sec-publish',
+      'sec-result',
+    ]);
+    expect(ids.indexOf('sec-save')).toBeLessThan(ids.indexOf('sec-test'));
   });
 
   it('has dockerEndpoint and dockerCommand', () => {
@@ -40,11 +52,15 @@ describe('kafka-secure lesson', () => {
     expect(kafkaSecureLesson.dockerCommand).toContain('secure');
   });
 
-  it('step sec-intro has preAction navigating to kafka-settings', async () => {
+  it('step sec-intro action waits for the New Cluster button and clicks it', async () => {
     const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-intro')!;
     const ctx = makeCtx();
+    // preAction only clears stale card selection — no navigation/click choreography.
     await step.preAction!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(KAFKA.NEW_CLUSTER_BTN, expect.any(Number));
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.NEW_CLUSTER_BTN);
   });
 
   it('step sec-auth action selects SCRAM-SHA-256', async () => {
@@ -54,19 +70,66 @@ describe('kafka-secure lesson', () => {
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'scram-sha-256');
   });
 
-  it('step sec-creds preAction fills username and password', async () => {
+  it('step sec-creds highlights user field and fills username/password in preAction', async () => {
     const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-creds')!;
+    expect(step.highlight).toBe(KAFKA.AUTH_USER_INPUT);
+    document.body.innerHTML = '<input id="kafka-auth-username" /><input id="kafka-auth-password" />';
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('username'), 'redfireforge-app');
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('password'), 'app-password');
+    expect(ctx.fill).toHaveBeenCalledWith(KAFKA.AUTH_USER_INPUT, 'redfireforge-app');
+    expect(ctx.fill).toHaveBeenCalledWith(KAFKA.AUTH_PASS_INPUT, 'app-password');
   });
 
-  it('step sec-test action clicks test button', async () => {
-    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-test')!;
+  it('step sec-save clicks Save Cluster', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-save')!;
+    expect(step.highlight).toBe(KAFKA.SAVE_BTN);
+    document.body.innerHTML = '<button data-testid="kafka-save-cluster-btn"></button><button data-testid="kafka-test-btn"></button>';
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('test-btn'));
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.SAVE_BTN);
+  });
+
+  it('step sec-test action clicks test button and spotlights the Verified badge', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-test')!;
+    expect(step.highlight).toBe(KAFKA.TEST_BTN);
+    expect(step.verify).toBe(KAFKA.TEST_RESULT);
+
+    document.body.innerHTML = `
+      <button data-testid="kafka-test-btn"></button>
+      <span data-testid="kafka-test-result" class="kafka-test-result--ok">✓ Verified</span>
+    `;
+
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.TEST_BTN);
+    expect(ctx.waitFor).toHaveBeenCalledWith(KAFKA.TEST_RESULT, expect.any(Number));
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
+  });
+
+  it('step sec-test skips click when Test Connection is disabled', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-test')!;
+    document.body.innerHTML = '<button data-testid="kafka-test-btn" disabled></button>';
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('step sec-connect clicks Connect when enabled', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-connect')!;
+    expect(step.highlight).toBe(KAFKA.CONNECT_BTN);
+    document.body.innerHTML = `
+      <button data-testid="kafka-connect-btn"></button>
+      <button data-testid="kafka-disconnect-btn" disabled></button>
+    `;
+    const ctx = makeCtx();
+    // After click, enable disconnect so the wait loop exits.
+    ctx.click = vi.fn(async () => {
+      const dc = document.querySelector<HTMLButtonElement>('[data-testid="kafka-disconnect-btn"]');
+      if (dc) dc.disabled = false;
+    });
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.CONNECT_BTN);
   });
 
   it('step sec-publish action clicks send button', async () => {
@@ -136,24 +199,17 @@ describe('kafka-secure lesson', () => {
     expect(ctx.fill).toHaveBeenCalled();
   });
 
-  it('step sec-save action clicks connectBtn when not disabled (if(connectBtn) true branch)', async () => {
+  it('step sec-save clicks Save and proceeds when Test Connection is already enabled', async () => {
     const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-save')!;
-    expect(step).toBeDefined();
-    const connectBtn = document.createElement('button');
-    connectBtn.setAttribute('data-testid', 'kafka-connect-btn');
-    const clickSpy = vi.fn();
-    connectBtn.addEventListener('click', clickSpy);
-    document.body.appendChild(connectBtn);
-    // Disconnect button starts disabled; poll loop waits for it to become enabled
-    const disconnectBtn = document.createElement('button');
-    disconnectBtn.setAttribute('data-testid', 'kafka-disconnect-btn');
-    disconnectBtn.disabled = true;
-    document.body.appendChild(disconnectBtn);
-    setTimeout(() => { disconnectBtn.disabled = false; }, 100);
+    document.body.innerHTML = `
+      <button data-testid="kafka-save-cluster-btn"></button>
+      <button data-testid="kafka-test-btn"></button>
+    `;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.SAVE_BTN);
   });
+
   it('has Docker badge tag', () => {
     expect(kafkaSecureLesson.tag).toBe('🐳 Docker');
   });

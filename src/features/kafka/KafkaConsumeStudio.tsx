@@ -49,8 +49,12 @@ export function KafkaConsumeStudio({
 
   const [mode, setMode] = useState<ConsumeMode>('once');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [formCollapsed, setFormCollapsed] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const topicEmpty = consumeDraft.topic.trim() === '';
   const canConsume = !topicEmpty && !consumeLoading && connected;
+  const startPositionValue = consumeDraft.startPosition === 'earliest' ? 'earliest' : 'latest';
+  const sortOrderValue = consumeDraft.sortOrder === 'desc' ? 'desc' : 'asc';
 
   // E2E test bridge: __kafkaInjectConsumeResults(rows) injects mock rows directly
   // into the consume results without needing a real Kafka cluster.
@@ -75,27 +79,66 @@ export function KafkaConsumeStudio({
   }, []);
 
   const streamListRef = useRef<HTMLDivElement>(null);
-  const userScrolledRef = useRef(false);
+  const streamActionRowRef = useRef<HTMLDivElement>(null);
+  const streamResultsZoneRef = useRef<HTMLDivElement>(null);
+  /** When true, new messages pin the list to the newest row. */
+  const [streamPinnedToBottom, setStreamPinnedToBottom] = useState(true);
 
-  // Auto-scroll stream list to bottom when new messages arrive
+  // Auto-scroll stream list to bottom when new messages arrive (unless user scrolled up)
   useEffect(() => {
     const el = streamListRef.current;
-    if (!el || userScrolledRef.current) return;
+    if (!el || !streamPinnedToBottom) return;
     el.scrollTop = el.scrollHeight;
-  }, [streamMode.streamMessages.length]);
+  }, [streamMode.streamMessages.length, streamPinnedToBottom]);
 
   const handleStreamScroll = useCallback(() => {
     const el = streamListRef.current;
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    userScrolledRef.current = !atBottom;
+    setStreamPinnedToBottom(atBottom);
+  }, []);
+
+  const scrollStreamToBottom = useCallback(() => {
+    const el = streamListRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    setStreamPinnedToBottom(true);
   }, []);
 
   // Reset auto-scroll when stream starts
   useEffect(() => {
     if (streamMode.isStreaming) {
-      userScrolledRef.current = false;
+      setStreamPinnedToBottom(true);
     }
+  }, [streamMode.isStreaming]);
+
+  // Scroll the results zone into view when streaming starts.
+  // We walk up from the results zone to find the nearest scrollable ancestor
+  // (the app content pane) and scroll that directly, which works regardless
+  // of whether the browser honours scrollIntoView on nested overflow containers.
+  useEffect(() => {
+    if (!streamMode.isStreaming) return;
+    const target = streamResultsZoneRef.current;
+    if (!target) return;
+
+    // Find nearest scrollable ancestor
+    const findScrollParent = (el: HTMLElement): HTMLElement | null => {
+      let node: HTMLElement | null = el.parentElement;
+      while (node && node !== document.body) {
+        const style = getComputedStyle(node);
+        if (/auto|scroll/.test(style.overflowY)) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+
+    const scrollParent = findScrollParent(target) ?? document.documentElement;
+    const targetTop = target.getBoundingClientRect().top
+      - scrollParent.getBoundingClientRect().top
+      + scrollParent.scrollTop
+      - 8; // small gap so the zone header is visible
+
+    scrollParent.scrollTo({ top: targetTop, behavior: 'smooth' });
   }, [streamMode.isStreaming]);
 
   const handleConsume = useCallback(() => {
@@ -182,6 +225,23 @@ export function KafkaConsumeStudio({
 
       <div className="kafka-ms-body">
         {/* ── Main settings form ── */}
+        <div className="kafka-ms-section-header kafka-ms-form-section-header">
+          <span className="kafka-ms-section-title">Configuration</span>
+          <button
+            className="kafka-ms-collapse-btn"
+            onClick={() => setFormCollapsed((v) => !v)}
+            aria-expanded={!formCollapsed}
+            aria-controls="kafka-con-form-body"
+            data-testid="con-form-collapse-btn"
+          >
+            {formCollapsed ? 'Show' : 'Hide'}
+            <span className={`kafka-ms-collapse-chevron${formCollapsed ? ' collapsed' : ''}`} aria-hidden="true">▾</span>
+          </button>
+        </div>
+        <div
+          id="kafka-con-form-body"
+          className={`kafka-ms-collapsible${formCollapsed ? ' kafka-ms-collapsible--hidden' : ''}`}
+        >
         <div className="kafka-ms-form">
 
           {/* Topic */}
@@ -229,7 +289,7 @@ export function KafkaConsumeStudio({
               <CustomSelect
                 className="kafka-ms-form-select kafka-ms-form-select--acks"
                 data-testid="con-position-select"
-                value={consumeDraft.startPosition}
+                value={startPositionValue}
                 onChange={(v) => setConsumeDraft({ startPosition: v as 'latest' | 'earliest' })}
                 options={[
                   { value: 'latest', label: 'Latest', detail: 'Start from newest messages' },
@@ -274,7 +334,7 @@ export function KafkaConsumeStudio({
             <div className="kafka-ms-form-ctrl">
               <CustomSelect
                 className="kafka-ms-form-select kafka-ms-form-select--acks"
-                value={consumeDraft.sortOrder ?? 'asc'}
+                value={sortOrderValue}
                 onChange={(v) => setConsumeDraft({ sortOrder: v as 'asc' | 'desc' })}
                 data-testid="con-sort-order"
                 options={[
@@ -287,13 +347,28 @@ export function KafkaConsumeStudio({
           </div>
 
         </div>
+        </div>{/* end collapsible form wrapper */}
 
         {/* ── Filters ── */}
         <div className="kafka-ms-con-filters">
           <div className="kafka-ms-section-header kafka-ms-con-filters-header">
             <span className="kafka-ms-section-title">Filters</span>
             <span className="kafka-ms-form-hint">All filters are optional — leave blank to receive all messages</span>
+            <button
+              className="kafka-ms-collapse-btn"
+              onClick={() => setFiltersCollapsed((v) => !v)}
+              aria-expanded={!filtersCollapsed}
+              aria-controls="kafka-con-filters-body"
+              data-testid="con-filters-collapse-btn"
+            >
+              {filtersCollapsed ? 'Show' : 'Hide'}
+              <span className={`kafka-ms-collapse-chevron${filtersCollapsed ? ' collapsed' : ''}`} aria-hidden="true">▾</span>
+            </button>
           </div>
+          <div
+            id="kafka-con-filters-body"
+            className={`kafka-ms-collapsible${filtersCollapsed ? ' kafka-ms-collapsible--hidden' : ''}`}
+          >
           <div className="kafka-ms-form">
 
             <div className="kafka-ms-form-row">
@@ -371,6 +446,7 @@ export function KafkaConsumeStudio({
             </div>
 
           </div>
+          </div>{/* end collapsible filters wrapper */}
         </div>
 
         {/* Schema Registry */}
@@ -515,7 +591,7 @@ export function KafkaConsumeStudio({
         {/* ═════════ STREAM mode ═════════ */}
         {mode === 'stream' && (
           <>
-            <div className="kafka-ms-action-row" data-testid="stream-action-row">
+            <div className="kafka-ms-action-row" ref={streamActionRowRef} data-testid="stream-action-row">
               {!streamMode.isStreaming ? (
                 <button
                   className="kafka-ms-primary-btn"
@@ -563,7 +639,7 @@ export function KafkaConsumeStudio({
               </div>
             )}
 
-            <div className="kafka-ms-results-zone" data-testid="stream-results-zone">
+            <div className="kafka-ms-results-zone" ref={streamResultsZoneRef} data-testid="stream-results-zone">
               <div className="kafka-ms-results-header">
                 <span className="kafka-ms-results-count" data-testid="stream-count">
                   {streamMode.streamMessages.length} message{streamMode.streamMessages.length !== 1 ? 's' : ''}
@@ -584,41 +660,55 @@ export function KafkaConsumeStudio({
                   {streamMode.isStreaming ? 'Waiting for messages…' : 'No stream messages'}
                 </p>
               ) : (
-                <div
-                  className="kafka-ms-results-table-wrap kafka-ms-stream-table-wrap"
-                  ref={streamListRef}
-                  onScroll={handleStreamScroll}
-                >
-                  <table className="kafka-ms-results-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Offset</th>
-                        <th>Partition</th>
-                        <th className="kafka-ts-th">Timestamp</th>
-                        <th>Key</th>
-                        <th>Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {streamMode.streamMessages.map((row, idx) => (
-                        <tr
-                          key={`s-${row.partition}-${row.offset}-${idx}`}
-                          className={`${streamMode.selectedStreamIndex === idx ? 'selected' : ''} kafka-ms-stream-row`}
-                          onClick={() => streamMode.selectStreamMessage(streamMode.selectedStreamIndex === idx ? null : idx)}
-                          style={{ cursor: 'pointer' }}
-                          data-testid={`stream-row-${idx}`}
-                        >
-                          <td>{idx + 1}</td>
-                          <td>{row.offset}</td>
-                          <td>{row.partition}</td>
-                          {renderTimestampCell(row.timestamp)}
-                          <td>{row.key ?? '—'}</td>
-                          <td>{valuePreview(row.value)}</td>
+                <div className="kafka-ms-stream-table-shell">
+                  <div
+                    className="kafka-ms-results-table-wrap kafka-ms-stream-table-wrap"
+                    ref={streamListRef}
+                    onScroll={handleStreamScroll}
+                    data-testid="stream-table-wrap"
+                  >
+                    <table className="kafka-ms-results-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Offset</th>
+                          <th>Partition</th>
+                          <th className="kafka-ts-th">Timestamp</th>
+                          <th>Key</th>
+                          <th>Value</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {streamMode.streamMessages.map((row, idx) => (
+                          <tr
+                            key={`s-${row.partition}-${row.offset}-${idx}`}
+                            className={`${streamMode.selectedStreamIndex === idx ? 'selected' : ''} kafka-ms-stream-row`}
+                            onClick={() => streamMode.selectStreamMessage(streamMode.selectedStreamIndex === idx ? null : idx)}
+                            style={{ cursor: 'pointer' }}
+                            data-testid={`stream-row-${idx}`}
+                          >
+                            <td>{idx + 1}</td>
+                            <td>{row.offset}</td>
+                            <td>{row.partition}</td>
+                            {renderTimestampCell(row.timestamp)}
+                            <td>{row.key ?? '—'}</td>
+                            <td>{valuePreview(row.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!streamPinnedToBottom && (
+                    <button
+                      type="button"
+                      className="kafka-ms-scroll-bottom-btn"
+                      data-testid="stream-scroll-bottom-btn"
+                      onClick={scrollStreamToBottom}
+                      aria-label="Scroll to newest messages"
+                    >
+                      ↓ Newest
+                    </button>
+                  )}
                 </div>
               )}
             </div>

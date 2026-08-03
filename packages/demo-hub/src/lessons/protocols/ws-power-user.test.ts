@@ -67,7 +67,7 @@ describe('ws-power-user lesson', () => {
 
   // ─── Step: pu-setup-tabs ──────────────────────────────────
 
-  it('step pu-setup-tabs preAction creates tabs and renames them', async () => {
+  it('step pu-setup-tabs action only observes — tabs are prepared in setup', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab1 = document.createElement('div');
@@ -76,40 +76,38 @@ describe('ws-power-user lesson', () => {
     tab1.setAttribute('data-testid', 'conn-tab-1');
     const label = document.createElement('span');
     label.className = 'ws-conn-tab-label';
-    label.textContent = 'New Connection';
+    label.textContent = 'Server A';
     tab1.appendChild(label);
     bar.appendChild(tab1);
     document.body.appendChild(bar);
+    makeVisible(bar);
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-setup-tabs')!;
-    expect(typeof step.preAction).toBe('function');
+    expect(typeof step.action).toBe('function');
     const ctx = makeCtx();
-    await step.preAction!(ctx);
-    // Should add new tabs
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('conn-tab-bar'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-setup-tabs preAction closes extra tabs first (idempotent guard)', async () => {
-    // Simulate 3 tabs already existing (step-back scenario)
+  it('step pu-setup-tabs preAction is a no-op when three named tabs already exist', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
-    for (let i = 1; i <= 3; i++) {
+    for (const name of ['Server A', 'Server B', 'Staging']) {
       const t = document.createElement('div');
       t.setAttribute('role', 'tab');
-      t.setAttribute('data-testid', `conn-tab-${i}`);
+      const label = document.createElement('span');
+      label.className = 'ws-conn-tab-label';
+      label.textContent = name;
+      t.appendChild(label);
       bar.appendChild(t);
-
-      const close = document.createElement('button');
-      close.setAttribute('data-testid', `conn-tab-close-${i}`);
-      document.body.appendChild(close);
     }
     document.body.appendChild(bar);
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-setup-tabs')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    // After closing extras, should have tried to add 2 new tabs
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
   it('step pu-setup-tabs highlights tab bar', () => {
@@ -148,11 +146,17 @@ describe('ws-power-user lesson', () => {
     t.setAttribute('role', 'tab');
     bar.appendChild(t);
     document.body.appendChild(bar);
+    const addBtn = document.createElement('button');
+    addBtn.setAttribute('data-testid', 'conn-tab-add');
+    document.body.appendChild(addBtn);
+    makeVisible(addBtn);
+    const addSpy = vi.spyOn(addBtn, 'click');
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-drag-reorder')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    // Quiet ensureThreeNamedTabs uses DOM click (not ctx.click)
+    expect(addSpy).toHaveBeenCalled();
   });
 
   it('step pu-drag-reorder highlights tab bar', () => {
@@ -181,11 +185,16 @@ describe('ws-power-user lesson', () => {
     t.setAttribute('role', 'tab');
     bar.appendChild(t);
     document.body.appendChild(bar);
+    const addBtn = document.createElement('button');
+    addBtn.setAttribute('data-testid', 'conn-tab-add');
+    document.body.appendChild(addBtn);
+    makeVisible(addBtn);
+    const addSpy = vi.spyOn(addBtn, 'click');
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-kbd-arrow')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    expect(addSpy).toHaveBeenCalled();
   });
 
   it('step pu-kbd-arrow preAction is a no-op when 2+ tabs already exist', async () => {
@@ -275,12 +284,16 @@ describe('ws-power-user lesson', () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     document.body.appendChild(bar);
+    const addBtn = document.createElement('button');
+    addBtn.setAttribute('data-testid', 'conn-tab-add');
+    document.body.appendChild(addBtn);
+    makeVisible(addBtn);
+    const addSpy = vi.spyOn(addBtn, 'click');
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-kbd-rename')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    // ensureThreeNamedTabs calls conn-tab-add at least once to create tabs
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    expect(addSpy).toHaveBeenCalled();
   });
 
   it('step pu-kbd-rename action renames last tab (dispatches F2 + Enter)', async () => {
@@ -588,15 +601,23 @@ describe('ws-power-user lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────
 
-  it('setup starts mock server', async () => {
+  it('setup uses quiet REST mock without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/ws/mock/status')) {
+        return new Response(JSON.stringify({ running: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }));
     const ctx = makeCtx();
     await wsPowerUserLesson.setup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 
   it('setup clicks disconnect button when it is present and enabled', async () => {
-    // Add an enabled disconnect button so the dcBtn branch fires
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({ running: true }), { status: 200 }),
+    ));
     const dcBtn = document.createElement('button');
     dcBtn.setAttribute('data-testid', 'disconnect-btn');
     const clickSpy = vi.spyOn(dcBtn, 'click');
@@ -688,11 +709,13 @@ describe('ws-power-user lesson', () => {
     expect(arrowCalls.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('cleanup stops mock server', async () => {
+  it('cleanup stops mock quietly without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ));
     const ctx = makeCtx();
     await wsPowerUserLesson.cleanup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 });
 

@@ -97,8 +97,11 @@ export function DemoShellHost({
   }, [activeTab]);
 
   // Live demos render in the active lesson tab — an empty Learning Hub pane is just blue.
+  // Skip while exit/cleanup pins Demo Hub: otherwise live+demo-hub briefly redirects
+  // to lesson.initialTab and the user sees Studio/header flashing on Contents.
   useEffect(() => {
     if (demoHub.state.view !== 'live' || activeTab !== 'demo-hub') return;
+    if (demoHub.suppressLiveTabExitRef?.current) return;
     const target = demoHub.state.selectedLesson?.initialTab;
     if (target && target !== 'demo-hub') {
       navigateToTab(target);
@@ -106,6 +109,7 @@ export function DemoShellHost({
   }, [
     demoHub.state.view,
     demoHub.state.selectedLesson,
+    demoHub.suppressLiveTabExitRef,
     activeTab,
     navigateToTab,
   ]);

@@ -16,11 +16,14 @@ import { WebSocketSchemaPanel } from './WebSocketSchemaPanel';
 import { MessageRow } from './WebSocketMessageRow';
 import { useWebSocketFilterPresets } from './useWebSocketFilterPresets';
 import { WebSocketFilterBar } from './WebSocketFilterBar';
-import { WebSocketCompareBanner, WebSocketMessagesStatusBar, WebSocketReplayBar } from './WebSocketMessageLogBars';
-import { WebSocketMessageLogToolbar } from './WebSocketMessageLogToolbar';
+import { WebSocketStatusBar } from './WebSocketStatusBar';
+import { WebSocketReplayBar } from './WebSocketReplayBar';
+import { WebSocketMessageToolbar } from './WebSocketMessageToolbar';
 
 const ROW_HEIGHT = 26;
 const VIRTUALIZER_OVERSCAN = 15;
+
+type ToolbarDropdownKey = 'direction' | 'validation';
 
 interface WebSocketMessageLogProps {
   messages: WsFrame[];
@@ -188,6 +191,7 @@ export function WebSocketMessageLog({
   const [showStats, setShowStats] = useState(false);
   const [showFilterBar, setShowFilterBar] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [openToolbarDropdown, setOpenToolbarDropdown] = useState<ToolbarDropdownKey | null>(null);
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
   const presetDropdownRef = useDropdownClose(
     presetDropdownOpen,
@@ -226,6 +230,57 @@ export function WebSocketMessageLog({
     if (contentTypeFilter !== 'all') count++;
     return count;
   }, [sizeFilter, timeFilter, contentTypeFilter]);
+
+  useEffect(() => {
+    if (!openToolbarDropdown) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('.ws-filter-select-dropdown')) {
+        setOpenToolbarDropdown(null);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenToolbarDropdown(null);
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [openToolbarDropdown]);
+
+  const directionOptions = useMemo(
+    () => [
+      { value: 'all' as WsDirectionFilter, label: 'All' },
+      { value: 'sent' as WsDirectionFilter, label: 'Sent' },
+      { value: 'received' as WsDirectionFilter, label: 'Received' },
+      {
+        value: 'bookmarked' as WsDirectionFilter,
+        label: bookmarkCount > 0 ? `Bookmarked (${bookmarkCount})` : 'Bookmarked',
+      },
+    ],
+    [bookmarkCount],
+  );
+
+  const selectedDirectionLabel = useMemo(
+    () => directionOptions.find((opt) => opt.value === directionFilter)?.label ?? 'All',
+    [directionFilter, directionOptions],
+  );
+
+  const validationOptions = useMemo(
+    () => [
+      { value: 'all' as WsValidationFilter, label: 'Validation: All' },
+      { value: 'valid' as WsValidationFilter, label: 'Valid only' },
+      { value: 'invalid' as WsValidationFilter, label: 'Invalid only' },
+    ],
+    [],
+  );
+
+  const selectedValidationLabel = useMemo(
+    () => validationOptions.find((opt) => opt.value === validationFilter)?.label ?? 'Validation: All',
+    [validationFilter, validationOptions],
+  );
 
   const handleClearFilters = useCallback(() => {
     setSizeFilter('all');
@@ -450,7 +505,7 @@ export function WebSocketMessageLog({
   return (
     <div className="ws-message-log-container">
       {showStatusBar && (
-        <WebSocketMessagesStatusBar
+        <WebSocketStatusBar
           isConnected={isConnected}
           connectionUrl={connectionUrl}
           uptime={uptime}
@@ -459,21 +514,35 @@ export function WebSocketMessageLog({
         />
       )}
 
-      <WebSocketMessageLogToolbar
+      <WebSocketMessageToolbar
         searchMode={searchMode}
         setSearchMode={setSearchMode}
+        isRegexInvalid={isRegexInvalid}
         searchText={searchText}
         onSearchChange={handleSearchChange}
-        isRegexInvalid={isRegexInvalid}
         totalCount={totalCount}
-        displayMessageCount={displayMessages.length}
+        displayCount={displayMessages.length}
         directionFilter={directionFilter}
-        setDirectionFilter={setDirectionFilter}
-        bookmarkCount={bookmarkCount}
+        selectedDirectionLabel={selectedDirectionLabel}
+        directionDropdownOpen={openToolbarDropdown === 'direction'}
+        onToggleDirectionDropdown={() => setOpenToolbarDropdown((current) => (current === 'direction' ? null : 'direction'))}
+        directionOptions={directionOptions}
+        onDirectionSelect={(value) => {
+          setDirectionFilter(value);
+          setOpenToolbarDropdown(null);
+        }}
         validationEnabled={validationEnabled}
         hasEnabledSchemas={hasEnabledSchemas}
-        validationFilter={validationFilter}
         setValidationFilter={setValidationFilter}
+        validationFilter={validationFilter}
+        selectedValidationLabel={selectedValidationLabel}
+        validationDropdownOpen={openToolbarDropdown === 'validation'}
+        onToggleValidationDropdown={() => setOpenToolbarDropdown((current) => (current === 'validation' ? null : 'validation'))}
+        validationOptions={validationOptions}
+        onValidationSelect={(value) => {
+          setValidationFilter?.(value);
+          setOpenToolbarDropdown(null);
+        }}
         showFilterBar={showFilterBar}
         onToggleFilterBar={() => setShowFilterBar((v) => !v)}
         activeFilterCount={activeFilterCount}
@@ -482,12 +551,13 @@ export function WebSocketMessageLog({
         showAuxPanels={showAuxPanels}
         onToggleSchemasVisible={onToggleSchemasVisible}
         schemasVisible={schemasVisible}
+        hasSchemaIndicator={hasEnabledSchemas && validationEnabled}
         onClear={onClear}
         onExportMessages={handleExportMessages}
-        allMessagesCount={allMessages.length}
+        allMessagesLength={allMessages.length}
+        metrics={metrics}
         showStats={showStats}
         onToggleStats={() => setShowStats((v) => !v)}
-        metrics={metrics}
         onToggleLoadTest={onToggleLoadTest}
         loadTestActive={loadTestActive}
         recordingState={recordingState}
@@ -529,15 +599,26 @@ export function WebSocketMessageLog({
           replaySpeed={replaySpeed}
           onSetReplaySpeed={onSetReplaySpeed}
           replayProgress={replayProgress}
-          onResumeReplay={onResumeReplay}
           onPauseReplay={onPauseReplay}
+          onResumeReplay={onResumeReplay}
           onStopReplay={onStopReplay}
         />
       )}
 
       {/* Compare mode banner */}
       {compareMode && (
-        <WebSocketCompareBanner compareIds={compareIds} onCancel={toggleCompare} />
+        <div className="ws-compare-banner" data-testid="compare-banner">
+          <span>
+            {compareIds[0] === null
+              ? 'Click a message to select it for comparison'
+              : compareIds[1] === null
+                ? 'Click a second message to compare'
+                : 'Comparison ready'}
+          </span>
+          <button className="ws-compare-banner-cancel" onClick={toggleCompare} data-testid="compare-cancel">
+            Cancel
+          </button>
+        </div>
       )}
 
       {/* Virtualized message list */}

@@ -20,7 +20,7 @@ import {
   cleanupWorkflowDemoRunUi,
   resetWfPaletteToBlocks,
   revealPaletteBlock,
-  ensureLessonWorkflowShown,
+  ensureLessonBlankWorkflow,
 } from '../wf-demo-helpers';
 import {
   deleteWorkflowByName,
@@ -66,28 +66,7 @@ async function dismissOnboarding(ctx: DemoActionContext): Promise<void> {
 
 /** Ensure canvas is showing (create workflow if needed — for preAction guards). */
 async function ensureWorkflowCanvas(ctx: DemoActionContext): Promise<void> {
-  // If this lesson's workflow is already shown (or an existing copy can be
-  // re-selected), we're done. This also switches away from a previous lesson's
-  // workflow that would otherwise satisfy the old "any canvas" check and cause
-  // this lesson's nodes to be added onto the wrong graph.
-  if ((await ensureLessonWorkflowShown(ctx, WF_NAME)) !== 'missing') return;
-
-  ctx.navigateToTab('workflow');
-  await ctx.delay(400);
-  await dismissOnboarding(ctx);
-  await expandWfDemoAppSidebar(ctx);
-  await ctx.click(WF.SIDEBAR_NEW_BTN);
-  await ctx.waitFor('.wf-new-dropdown');
-  await ctx.delay(300);
-  await ctx.click(WF.NEW_BLANK_ITEM);
-  await ctx.waitFor(WF.CREATE_INPUT);
-  await ctx.delay(300);
-  await ctx.fill(WF.CREATE_INPUT, WF_NAME);
-  await ctx.delay(200);
-  await ctx.click(WF.CREATE_OK);
-  await ctx.waitFor(WF.CANVAS, 8000);
-  await ctx.delay(600);
-  await collapseWfDemoAppSidebar(ctx);
+  await ensureLessonBlankWorkflow(ctx, WF_NAME, { dismissOnboarding: dismissOnboarding });
 }
 
 /** Get node id from a CSS selector targeting a React Flow node. */
@@ -192,6 +171,7 @@ export const wfFirstWorkflowLesson: DemoLesson = {
 
       action: async (ctx) => {
         await expandWfDemoAppSidebar(ctx);
+        await ctx.waitFor(WF.SIDEBAR_NEW_BTN, 5000);
         await ctx.delay(600);
 
         await spotlightSel(ctx, WF.SIDEBAR_NEW_BTN, 1200);
