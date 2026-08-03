@@ -44,6 +44,8 @@ export interface WsFrameProtocolMeta {
   eventName?: string;
   ackId?: number;
   isSystemPacket?: boolean;
+  /** Decoded payload body for frames that carry one (STOMP SEND/MESSAGE, etc.) */
+  body?: string;
 }
 
 export interface WsFrame {

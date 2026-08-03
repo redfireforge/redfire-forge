@@ -99,6 +99,7 @@ export const WS = {
   STOMP_DESTINATION:    '[data-testid="stomp-destination"]',
   STOMP_LOGIN:          '[data-testid="stomp-login"]',
   STOMP_PASSCODE:       '[data-testid="stomp-passcode"]',
+  STOMP_PASSCODE_TOGGLE:'[data-testid="stomp-passcode-toggle"]',
   STOMP_MODE_BADGE:     '[data-testid="stomp-mode-badge"]',
 
   // GraphQL-WS send-pane fields (shown when protocol = graphql-ws)

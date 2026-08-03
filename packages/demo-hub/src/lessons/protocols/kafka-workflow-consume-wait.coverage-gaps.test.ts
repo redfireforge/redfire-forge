@@ -120,24 +120,28 @@ describe('kafka-workflow-consume-wait wrapper — coverage gaps', () => {
     expect(closeSpy).toHaveBeenCalled();
   });
 
-  it('cw-load-mode action closes open cs-menu by second click', async () => {
+  it('cw-load-mode action closes Wait config once without dropdown churn', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-load-mode')!;
     const select = document.createElement('div');
     select.setAttribute('data-testid', 'wait-load-mode');
+    select.scrollIntoView = vi.fn();
     document.body.appendChild(select);
-    const menu = document.createElement('div');
-    menu.className = 'cs-menu';
-    document.body.appendChild(menu);
-    const card = document.createElement('section');
-    card.className = 'wf-kafka-card';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'wf-kafka-card-title-text';
-    titleEl.textContent = 'Load test';
-    card.appendChild(titleEl);
-    document.body.appendChild(card);
+
+    const modal = document.createElement('div');
+    modal.className = 'wf-config-modal';
+    const footer = document.createElement('div');
+    footer.className = 'wf-config-modal-footer-actions';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn-ghost';
+    closeBtn.addEventListener('click', () => modal.remove());
+    footer.appendChild(closeBtn);
+    modal.appendChild(footer);
+    document.body.appendChild(modal);
 
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="wait-load-mode"]');
+    expect(select.scrollIntoView).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="wait-load-mode"]');
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
   });
 });

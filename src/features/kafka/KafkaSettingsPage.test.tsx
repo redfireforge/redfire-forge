@@ -728,6 +728,18 @@ describe('KafkaSettingsPage', () => {
     expect(screen.getByText('Connected')).toBeTruthy();
   });
 
+  it('connectionSummary flags orphan server sessions with no matching saved profile', () => {
+    renderPage(makeState({
+      clusters: [CLUSTER_A],
+      selectedClusterId: 'cluster-a',
+      selectedCluster: CLUSTER_A,
+      connection: { state: 'connected', clusterId: 'demo-secure' },
+    }));
+    expect(screen.getByText('Connected to demo-secure (no matching saved profile)')).toBeTruthy();
+    // Cards stay Idle — Connected badge only when clusterId matches a profile.
+    expect(screen.getByTestId('kafka-cluster-card-cluster-a').textContent).toContain('Idle');
+  });
+
   it('shows verified and failed test result badges', () => {
     const { rerender } = renderPage(makeState({
       clusters: [CLUSTER_A],

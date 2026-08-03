@@ -563,20 +563,47 @@ describe('ws-session-recording lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────
 
-  it('setup starts mock server and clears protocol state', async () => {
+  it('setup uses quiet REST mock without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/ws/mock/status')) {
+        return new Response(JSON.stringify({ running: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }));
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    document.body.appendChild(bar);
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    makeVisible(connectTab);
+    const sub = document.createElement('input');
+    sub.setAttribute('aria-label', 'Subprotocols');
+    sub.value = 'stomp';
+    document.body.appendChild(sub);
+    makeVisible(sub);
+    const protocol = document.createElement('div');
+    protocol.setAttribute('data-testid', 'protocol-select');
+    protocol.className = 'cs-wrapper';
+    protocol.innerHTML = '<button class="cs-trigger">STOMP</button>';
+    document.body.appendChild(protocol);
+    makeVisible(protocol);
+
     const ctx = makeCtx();
     await wsSessionRecordingLesson.setup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(sub.value).toBe('');
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('protocol'), 'raw');
   });
 
-  it('cleanup stops mock server', async () => {
+  it('cleanup stops mock quietly without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ));
     const ctx = makeCtx();
     await wsSessionRecordingLesson.cleanup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 
   // ─── Additional branch coverage ──────────────────────────────

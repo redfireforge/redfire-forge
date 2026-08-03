@@ -14,9 +14,51 @@ import type { DemoActionContext, DemoLesson } from '../../types';
 import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
 
 // ── Constants ──────────────────────────────────────────────────
 const STOMP_URL = 'ws://localhost:15674/ws';
+
+/** Spotlight a field, hold so the viewer can read the change, then clear. */
+async function spotlightAndPause(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  const el = firstVisibleElement<HTMLElement>(selector);
+  if (!el) {
+    await ctx.delay(holdMs);
+    return;
+  }
+  const dispose = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    dispose();
+  }
+}
+
+/** Quietly open Connect panel (no ripple) — for preAction / setup. */
+async function ensureConnectPanel(ctx: DemoActionContext): Promise<void> {
+  if (!firstVisibleElement(WS.URL_INPUT)) {
+    document.querySelector<HTMLElement>(WS.MODE_CLIENT)?.click();
+    await ctx.delay(150);
+    document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+    await ctx.delay(200);
+  }
+}
+
+/**
+ * Quietly apply Connect settings when a later step is reached via Next/skip
+ * before the paced configure steps have run.
+ */
+async function ensureStompConnectConfig(ctx: DemoActionContext): Promise<void> {
+  await ensureConnectPanel(ctx);
+  await ctx.fill(WS.URL_INPUT, STOMP_URL);
+  await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
+  await ctx.selectOption(WS.PROTOCOL_SELECT, 'stomp');
+  await ctx.delay(100);
+}
 
 /** Reset STOMP command select back to SEND. */
 async function resetStompCommand(ctx: DemoActionContext) {
@@ -29,15 +71,14 @@ async function resetStompCommand(ctx: DemoActionContext) {
 }
 
 /**
- * Guard used by preActions of steps 5+ to ensure WS transport is open AND
+ * Guard used by preActions of later steps to ensure WS transport is open AND
  * a STOMP CONNECT frame has been sent (so the broker accepts SUBSCRIBE/SEND).
  * Called only when the user skips directly to a late step.
  */
 async function ensureStompSession(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(WS.STATUS_CONNECTED)) return;
+  await ensureStompConnectConfig(ctx);
   // Establish WebSocket transport
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
   await ctx.click(WS.CONNECT_BTN);
   await ctx.waitFor(WS.STATUS_CONNECTED);
   await ctx.delay(300);
@@ -66,20 +107,17 @@ async function stompSetup(ctx: DemoActionContext): Promise<void> {
   await disconnectWebSocket(ctx);
   await ctx.delay(200);
   await clearEvents(ctx);
-  await ctx.delay(200);
   await ctx.delay(300);
-  // Navigate to Connect tab and pre-populate URL + protocol.
-  // Always clear the Subprotocols field — a previous lesson (e.g. GraphQL) may have
-  // left "graphql-transport-ws" in it, which causes RabbitMQ to reject the connection
-  // with "Sent non-empty Sec-WebSocket-Protocol header but no response was received".
+  // Open Connect with a clean slate — URL / Subprotocols / Protocol are filled
+  // visibly in the first lesson steps (not pre-configured here).
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
-  await ctx.fill(WS.URL_INPUT, STOMP_URL);
-  await ctx.delay(200);
+  await ctx.fill(WS.URL_INPUT, '');
+  await ctx.delay(100);
   await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
+  await ctx.delay(100);
+  await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
   await ctx.delay(150);
-  await ctx.selectOption(WS.PROTOCOL_SELECT, 'stomp');
-  await ctx.delay(200);
 }
 
 async function stompCleanup(ctx: DemoActionContext): Promise<void> {
@@ -107,7 +145,7 @@ export const wsStompLesson: DemoLesson = {
   category: 'websocket',
   name: 'STOMP / RabbitMQ',
   description: 'Connect to RabbitMQ over STOMP, subscribe to a queue, publish a message, and watch the decoded frame log.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'websocket-studio',
   tag: '🐳 Docker',
   dockerEndpoint: STOMP_URL,
@@ -215,45 +253,80 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
 
   steps: [
     {
-      id: 'stomp-intro',
-      title: 'Connect Panel — Pre-Configured',
-      description: 'The Connect panel shows `ws://localhost:15674/ws` — **RabbitMQ\'s web-STOMP port** (the management UI is on 15672; this is the WebSocket STOMP endpoint). Protocol is set to **STOMP**, which tells RedfireForge to decode every message as a STOMP frame. Connecting here opens only the WebSocket transport — a STOMP CONNECT frame must follow.',
-      highlight: WS.LEFT_TAB_CONNECT,
+      id: 'stomp-url',
+      title: 'Set the RabbitMQ Web-STOMP URL',
+      description: 'Open **Connect** and enter `ws://localhost:15674/ws` — **RabbitMQ\'s web-STOMP port** (the management UI is on **15672**; this endpoint is the WebSocket STOMP path). Watch the URL field fill — this is only the transport address; a STOMP **CONNECT** frame still has to follow after we open the socket.',
+      highlight: WS.URL_INPUT,
       pauseAfter: true,
-      action: async (ctx: DemoActionContext) => {
+      preAction: async (ctx: DemoActionContext) => {
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(200);
         await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ctx.waitFor(WS.URL_INPUT);
+        await ctx.delay(500);
+        await ctx.fill(WS.URL_INPUT, STOMP_URL);
+        await spotlightAndPause(ctx, WS.URL_INPUT, 1200);
+      },
+    },
+    {
+      id: 'stomp-subprotocols',
+      title: 'Clear Subprotocols',
+      description: 'Leave **Subprotocols** empty for RabbitMQ. A leftover value like `graphql-transport-ws` from another lesson causes the broker to reject the handshake with *Sent non-empty Sec-WebSocket-Protocol header but no response was received*. Clearing the field keeps the WebSocket upgrade clean.',
+      highlight: WS.SUBPROTOCOLS_INPUT,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureConnectPanel(ctx);
+        // Guard: URL must be set if the viewer skipped the previous step
+        const url = firstVisibleElement<HTMLInputElement>(WS.URL_INPUT);
+        if (!url?.value?.includes('15674')) {
+          await ctx.fill(WS.URL_INPUT, STOMP_URL);
+        }
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ctx.waitFor(WS.SUBPROTOCOLS_INPUT);
         await ctx.delay(400);
+        await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
+        await spotlightAndPause(ctx, WS.SUBPROTOCOLS_INPUT, 1000);
       },
     },
     {
       id: 'stomp-protocol',
-      title: 'What "Protocol: STOMP" Does',
-      description: 'With **Protocol: STOMP** selected, RedfireForge decodes every frame in the Events tab. Instead of seeing raw null-byte-terminated text like `SEND↵destination:/queue/demo↵↵{"hello":"world"}↵\\0`, you see a clean row labeled **SEND → /queue/demo**. Incoming broker messages show as **MESSAGE ← /queue/demo**. System frames like **CONNECTED** and **HEARTBEAT (♥)** are visually distinguished.',
+      title: 'Select Protocol: STOMP',
+      description: 'Set **Protocol** to **STOMP**. RedfireForge then decodes every frame in the Events tab — instead of raw null-byte text, you get labeled rows like **SEND → /queue/demo**, **MESSAGE ← /queue/demo**, plus **CONNECTED** and **HEARTBEAT (♥)**.',
       highlight: WS.PROTOCOL_SELECT,
       pauseAfter: true,
-      // preAction ensures Connect tab is visible so PROTOCOL_SELECT is in the DOM
-      // before the spotlight renders (PROTOCOL_SELECT only exists inside the Connect panel).
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ensureConnectPanel(ctx);
+        const url = firstVisibleElement<HTMLInputElement>(WS.URL_INPUT);
+        if (!url?.value?.includes('15674')) {
+          await ctx.fill(WS.URL_INPUT, STOMP_URL);
+        }
+        await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(300);
+        await ctx.waitFor(WS.PROTOCOL_SELECT);
+        await ctx.delay(400);
+        await ctx.selectOption(WS.PROTOCOL_SELECT, 'stomp');
+        await spotlightAndPause(ctx, WS.PROTOCOL_SELECT, 1200);
       },
     },
     {
       id: 'stomp-connect-ws',
       title: 'The Two-Step Handshake: Connect + STOMP CONNECT',
-      description: 'STOMP uses a **two-step handshake**. Step 1 — clicking **Connect** opens the WebSocket transport (status turns **green**). Step 2 — immediately a **STOMP CONNECT** frame is sent with virtual host `/`, login `guest`, passcode `guest`. The broker replies with a **CONNECTED** frame. Both steps happen in sequence — watch the Events tab fill with three entries.',
-      highlight: WS.RIGHT_TAB_EVENTS,
+      description: `STOMP uses a **two-step handshake**:\n\n- **Step 1** — clicking **Connect** opens the WebSocket transport (status turns **green**).\n- **Step 2** — immediately a **STOMP CONNECT** frame is sent with virtual host \`/\`, login \`guest\`, passcode \`guest\`. The broker replies with a **CONNECTED** frame.\n\nBoth steps happen in sequence — watch the Events tab fill with three entries.`,
+      highlight: WS.CONNECT_BTN,
       pauseAfter: true,
-      // preAction ensures Connect tab is visible (for the highlight to make sense)
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ensureStompConnectConfig(ctx);
       },
       action: async (ctx: DemoActionContext) => {
         // ── Step 1: Open the WebSocket transport ───────────────────
         // Replay guard: skip WS connect if already open from a prior pass.
         if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await spotlightAndPause(ctx, WS.CONNECT_BTN, 700);
           await ctx.click(WS.CONNECT_BTN);
         }
         await ctx.waitFor(WS.STATUS_CONNECTED); // wait for green status dot (Rule 5)
@@ -265,16 +338,21 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
         await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(300);
         // Select CONNECT command — triggers React re-render showing login/passcode fields
+        await spotlightAndPause(ctx, WS.STOMP_COMMAND, 700);
         await ctx.selectOption(WS.STOMP_COMMAND, 'CONNECT');
-        await ctx.delay(400);
+        await ctx.delay(300);
         // "host" in STOMP is the virtual host, not the TCP hostname.
         // RabbitMQ's default virtual host is "/".
+        await spotlightAndPause(ctx, WS.STOMP_DESTINATION, 700);
         await ctx.fill(WS.STOMP_DESTINATION, '/');
-        await ctx.delay(300);
+        await spotlightAndPause(ctx, WS.STOMP_DESTINATION, 600);
+        await spotlightAndPause(ctx, WS.STOMP_LOGIN, 700);
         await ctx.fill(WS.STOMP_LOGIN, 'guest');
-        await ctx.delay(300);
+        await spotlightAndPause(ctx, WS.STOMP_LOGIN, 600);
+        await spotlightAndPause(ctx, WS.STOMP_PASSCODE, 700);
         await ctx.fill(WS.STOMP_PASSCODE, 'guest');
-        await ctx.delay(300);
+        await spotlightAndPause(ctx, WS.STOMP_PASSCODE, 600);
+        await spotlightAndPause(ctx, WS.SEND_BTN, 700);
         await ctx.click(WS.SEND_BTN);
         await ctx.delay(800); // allow CONNECTED reply from broker
         // Show Events to reveal CONNECTED frame
@@ -285,7 +363,13 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
     {
       id: 'stomp-handshake',
       title: 'Handshake in the Events Tab',
-      description: 'Look at the Events log: **SYS** (WebSocket transport opened), **CONNECT → /** (the STOMP frame you sent), and **CONNECTED (v1.2)** (broker\'s reply confirming auth and protocol version). The STOMP session is established. Only after receiving **CONNECTED** can you subscribe to queues or publish messages.',
+      description: `Look at the Events log — three entries appear in sequence:
+
+- **SYS** — WebSocket transport opened
+- **CONNECT → /** — the STOMP frame you sent (with credentials)
+- **CONNECTED (v1.2)** — broker's reply confirming auth and protocol version
+
+The STOMP session is now established. Only after receiving **CONNECTED** can you subscribe to queues or publish messages.`,
       highlight: WS.RIGHT_TAB_EVENTS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
@@ -337,21 +421,35 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
         await ctx.delay(300);
       },
       action: async (ctx: DemoActionContext) => {
+        // Spotlight destination field → fill → pause so viewer reads it
+        await spotlightAndPause(ctx, WS.STOMP_DESTINATION, 700);
         await ctx.fill(WS.STOMP_DESTINATION, '/queue/demo');
-        await ctx.delay(400);
+        await spotlightAndPause(ctx, WS.STOMP_DESTINATION, 800);
+        // Spotlight message input → fill → pause so viewer reads the payload
+        await spotlightAndPause(ctx, WS.MESSAGE_INPUT, 700);
         await ctx.fill(WS.MESSAGE_INPUT, '{"hello":"from RedfireForge!"}');
-        await ctx.delay(500);
+        await spotlightAndPause(ctx, WS.MESSAGE_INPUT, 1000);
+        // Spotlight Send button → click
+        await spotlightAndPause(ctx, WS.SEND_BTN, 700);
         await ctx.click(WS.SEND_BTN);
-        await ctx.delay(1400);
-        // Show Events so user sees SEND + MESSAGE rows
+        await ctx.delay(1200);
+        // Switch to Events so viewer sees SEND + MESSAGE rows appear
         await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(900);
+        await ctx.delay(1000);
       },
     },
     {
       id: 'stomp-frames',
       title: 'Events Tab — Decoded STOMP Frames',
-      description: 'Every STOMP frame type is labeled in the Events log: **CONNECTED** (broker accepted auth), **SUBSCRIBE** (subscription registered), **SEND → /queue/demo** (message published), **MESSAGE ← /queue/demo** (delivery from queue), and **HEARTBEAT (♥)** rows for the keep-alive pulses. Notice how each row\'s summary includes the destination path — no raw null-byte text.',
+      description: `Every STOMP frame type is labeled in the Events log — no raw null-byte text, just clean decoded rows:
+
+- **CONNECTED** — broker accepted auth
+- **SUBSCRIBE** — subscription registered
+- **SEND → /queue/demo** — message published
+- **MESSAGE ← /queue/demo** — delivery from queue
+- **HEARTBEAT (♥)** — keep-alive pulses
+
+Notice how each row's summary includes the destination path.`,
       highlight: WS.RIGHT_TAB_EVENTS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {

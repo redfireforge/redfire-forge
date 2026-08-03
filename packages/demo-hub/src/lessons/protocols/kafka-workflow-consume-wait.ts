@@ -4,12 +4,13 @@
  * Extends the Kafka Produce Demo workflow with kafkaConsume and kafkaWait nodes.
  * Shows how to configure consume settings, bind output variables, set up correlation,
  * and use a sample payload so Quick Test can resolve the Wait without a live event.
+ *
+ * Viewer rules: one sustained step `highlight` + pause per beat — no flash rings.
+ * Keep the Wait config modal open across correlation → sample → load-mode steps.
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { ensureKafkaConnected, kafkaCleanup } from '../setup-helpers';
-import { showSpotlightRing } from '../../demoRipple';
 import {
-  clickWfConfigControl,
   closeWfConfigModalIfOpen,
   closeWfConsoleIfOpen,
   collapseWfDemoAppSidebar,
@@ -17,15 +18,36 @@ import {
   ensureWfNodeConfigModalOpen,
   openWfConsoleIfClosed,
   openWfNodeConfigModal,
-  pauseWfConfigDemo,
+  setWfConfigDemoTiming,
+  WF_CONFIG_DEMO_TIMING_BRISK,
   scrollWfConfigFieldIntoView,
-  scrollWfConfigModalToTop,
   waitForWfConfigPanel,
 } from '../wf-demo-helpers';
 import { deleteWorkflowByName, seedNamedWorkflow, selectWorkflowByName } from '../../adapters';
+import { purgeAllSpotlightRings, showSpotlightRing } from '../../demoRipple';
 import { WF, KAFKA } from '@shared/selectors';
 
 const DEMO_WF_NAME = 'Kafka Consume & Wait Demo';
+/** Hold so the step highlight / outcome can be read (no flash rings). */
+const OUTCOME_PAUSE_MS = 650;
+
+/** Scroll a config field into view and leave a sustained ring for reading + pauseAfter. */
+async function holdConfigSpotlight(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs = OUTCOME_PAUSE_MS,
+): Promise<void> {
+  await ctx.waitFor(selector, 5000);
+  await scrollWfConfigFieldIntoView(ctx, selector);
+  const el = document.querySelector<HTMLElement>(selector);
+  if (el) {
+    // Replace any prior imperative ring so preAction + action don't stack.
+    purgeAllSpotlightRings();
+    // Leave active — purged again when the next step starts.
+    showSpotlightRing(el);
+  }
+  await ctx.delay(holdMs);
+}
 
 // ── Seeded workflow factory ────────────────────────────────────────
 
@@ -76,7 +98,9 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
           label: 'Consume Orders',
           clusterId: 'demo-cluster',
           topic: '{{topic}}',
-          keyRegex: '',
+          // Match only the key produced in this run — skips any stale messages in
+          // the topic that have a different or empty key.
+          keyRegex: '{{orderId}}',
           headerFilters: [],
           jsonPathFilters: [],
           timeoutMs: 5000,
@@ -105,7 +129,10 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
           extractVariables: [{ name: 'confirmedAmount', jsonPath: '$.amount' }],
           timeoutMs: 60000,
           headerFilters: [],
-          samplePayload: '{"orderId":"{{orderId}}","status":"CONFIRMED","amount":99.99}',
+          // Concrete value — Quick Test injects samplePayload as a literal string
+          // (no {{var}} interpolation) and skips live body↔correlation matching.
+          // Use ORDER-001 so the sample's $.orderId matches the resolved {{consumedKey}}.
+          samplePayload: '{"orderId":"ORDER-001","status":"CONFIRMED","amount":99.99}',
           loadTestBehavior: {
             mode: 'auto-resume',
           },
@@ -129,9 +156,10 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
   };
 }
 
-// ── Setup / Cleanup ────────────────────────────────────────────────
+// ── Setup / cleanup ────────────────────────────────────────────────
 
 async function kafkaWorkflowConsumeWaitSetup(ctx: DemoActionContext): Promise<void> {
+  setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
   try { await ensureKafkaConnected(); } catch { /* server may not be running */ }
 
   await seedNamedWorkflow(ctx, DEMO_WF_NAME, createKafkaConsumeWaitWorkflow(), {
@@ -141,17 +169,18 @@ async function kafkaWorkflowConsumeWaitSetup(ctx: DemoActionContext): Promise<vo
   });
 
   ctx.navigateToTab('workflow');
-  await ctx.delay(900);
+  await ctx.delay(320);
 
   await closeWfConsoleIfOpen(ctx);
   await closeWfConfigModalIfOpen(ctx);
 
   const fitBtn = document.querySelector('button[title="Fit view"]') as HTMLElement | null;
-  if (fitBtn) { fitBtn.click(); await ctx.delay(400); }
+  if (fitBtn) { fitBtn.click(); await ctx.delay(160); }
   await collapseWfDemoAppSidebar(ctx);
 }
 
 async function kafkaWorkflowConsumeWaitCleanup(ctx: DemoActionContext): Promise<void> {
+  setWfConfigDemoTiming(null);
   await closeWfConfigModalIfOpen(ctx);
   await closeWfConsoleIfOpen(ctx);
 
@@ -164,12 +193,17 @@ async function ensureConsumeWaitWorkflowQuiet(ctx: DemoActionContext): Promise<v
   const state = await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME);
   if (state === 'missing') {
     selectWorkflowByName(DEMO_WF_NAME);
-    await ctx.delay(300);
+    await ctx.delay(120);
   }
   await collapseWfDemoAppSidebar(ctx);
 }
 
+/** Idempotent: open Consume config only when it is not already showing. */
 async function ensureConsumeConfigOpen(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(KAFKA.CONSUME_CONFIG)) {
+    await ctx.delay(30);
+    return;
+  }
   await ensureConsumeWaitWorkflowQuiet(ctx);
   await ensureWfNodeConfigModalOpen(ctx, {
     nodeSelector: KAFKA.NODE_CONSUME,
@@ -177,7 +211,14 @@ async function ensureConsumeConfigOpen(ctx: DemoActionContext): Promise<void> {
   });
 }
 
+/** Idempotent: open Wait config only when it is not already showing (keeps modal across steps). */
 async function ensureWaitConfigOpen(ctx: DemoActionContext): Promise<void> {
+  // Check first — before any sidebar/workflow operations that cause a React
+  // re-render and briefly unmount the panel, triggering a spurious close+reopen.
+  if (document.querySelector(KAFKA.WAIT_CONFIG)) {
+    await ctx.delay(30);
+    return;
+  }
   await ensureConsumeWaitWorkflowQuiet(ctx);
   await ensureWfNodeConfigModalOpen(ctx, {
     nodeSelector: KAFKA.NODE_WAIT,
@@ -185,48 +226,15 @@ async function ensureWaitConfigOpen(ctx: DemoActionContext): Promise<void> {
   });
 }
 
-/** Spotlight a config field/section; hold so the viewer can read it. */
-async function spotlightConfigField(
+/** Scroll a field into view and pause on the step highlight (no flash ring). */
+async function focusConfigField(
   ctx: DemoActionContext,
   selector: string,
-  holdMs = 700,
+  holdMs = OUTCOME_PAUSE_MS,
 ): Promise<void> {
   await ctx.waitFor(selector, 5000);
   await scrollWfConfigFieldIntoView(ctx, selector);
-  const el = document.querySelector<HTMLElement>(selector);
-  if (!el) return;
-  const dispose = showSpotlightRing(el);
-  try {
-    await ctx.delay(holdMs);
-  } finally {
-    dispose();
-  }
-}
-
-/** Find a KafkaCard by its title text and spotlight it. */
-async function spotlightKafkaCard(
-  ctx: DemoActionContext,
-  titleText: string,
-  pauseMs = 1000,
-): Promise<void> {
-  const cards = document.querySelectorAll<HTMLElement>('.wf-kafka-card');
-  let card: HTMLElement | null = null;
-  for (const c of cards) {
-    const titleEl = c.querySelector('.wf-kafka-card-title-text');
-    if (titleEl?.textContent?.toLowerCase().includes(titleText.toLowerCase())) {
-      card = c;
-      break;
-    }
-  }
-  if (!card) return;
-  await scrollWfConfigFieldIntoView(ctx, card);
-  const dispose = showSpotlightRing(card);
-  try {
-    await ctx.delay(pauseMs);
-  } finally {
-    dispose();
-  }
-  await ctx.delay(200);
+  await ctx.delay(holdMs);
 }
 
 function findConsoleLine(substring: string): HTMLElement | null {
@@ -270,7 +278,7 @@ export const kafkaWorkflowConsumeWaitLesson: DemoLesson = {
 - If the message never arrives, the node fails after \`timeoutMs\`
 
 **Quick Test sample** (Load test mode \`Auto resume\`):
-During load tests or Quick Test, a real correlated event may never arrive. Setting a sample message body plus **Auto resume** makes the Wait resolve immediately using the sample — without hanging the test run.`,
+During load tests or Quick Test, a real correlated event may never arrive. Setting a sample message body plus **Auto resume** makes the Wait resolve immediately using the sample — without hanging the test run. The sample body is **not** template-interpolated and **does not** prove live \`$.orderId\` ↔ correlation matching; put a concrete id that matches \`{{consumedKey}}\`. To prove matching for real, switch Mode to **Wait for real** and publish to \`payments.confirmed\`.`,
     keyTerms: [
       {
         term: 'kafkaConsume',
@@ -322,225 +330,205 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
   },
 
   steps: [
-    // Step 1: Intro
+    // ── 1. Intro ─────────────────────────────────────────────────
     {
       id: 'cw-intro',
       title: 'Consume and Wait Nodes',
       description:
         '**⚠️ Prerequisite:** To run Quick Test, ensure the Redpanda stack is running: `cd docker/kafka/plaintext && docker compose up -d`\n\n' +
-        'The **Kafka Consume & Wait Demo** workflow shows the complete event-driven round-trip: produce an order → consume from the same topic → wait for a payment confirmation. Next we\'ll open each inbound node and walk its config.',
+        'The **Kafka Consume & Wait Demo** workflow is the full event-driven round-trip: produce an order → consume from the same topic → wait for a payment confirmation. ' +
+        'Next we open **kafkaConsume**, then keep the **kafkaWait** panel open while we walk correlation, sample payload, and load-test mode.',
+      highlight: KAFKA.NODE_CONSUME,
       preAction: async (ctx) => {
         await ensureConsumeWaitWorkflowQuiet(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+        await closeWfConsoleIfOpen(ctx);
         (document.activeElement as HTMLElement | null)?.blur?.();
       },
       action: async (ctx) => {
-        await ctx.delay(700);
+        await ctx.waitFor(KAFKA.NODE_CONSUME, 5000);
+        await ctx.delay(OUTCOME_PAUSE_MS);
       },
+      pauseAfter: true,
     },
 
-    // Step 2: Open kafkaConsume — visible dblclick/open, then tour cards
+    // ── 2. Open kafkaConsume (leave open for binding step) ───────
     {
       id: 'cw-consume-node',
       title: 'Open kafkaConsume',
       description:
-        'Double-click the **kafkaConsume** node to open its configuration panel. Watch each section get highlighted: **Connection**, **Filters**, **Consumption**, **Output bindings**, and **Schema Registry**.',
+        'Double-click the **kafkaConsume** node to open its configuration. ' +
+        'This node reads a bounded batch from `{{topic}}` (filtered by key `{{orderId}}`). ' +
+        'The panel stays open for the next step — **Output bindings**.',
       highlight: KAFKA.NODE_CONSUME,
       preAction: async (ctx) => {
         await ensureConsumeWaitWorkflowQuiet(ctx);
         await closeWfConsoleIfOpen(ctx);
-        // Leave closed so the action opens it visibly.
-        if (document.querySelector(KAFKA.CONSUME_CONFIG)) {
-          await closeWfConfigModalIfOpen(ctx);
-        } else if (document.querySelector(WF.NODE_CONFIG)) {
+        // Leave closed so the action opens it visibly once.
+        if (document.querySelector(WF.NODE_CONFIG)) {
           await closeWfConfigModalIfOpen(ctx);
         }
       },
       action: async (ctx) => {
         await openWfNodeConfigModal(ctx, { nodeSelector: KAFKA.NODE_CONSUME });
         await waitForWfConfigPanel(ctx, KAFKA.CONSUME_CONFIG);
-
-        await scrollWfConfigModalToTop(ctx);
-        await spotlightKafkaCard(ctx, 'Connection', 900);
-        await spotlightKafkaCard(ctx, 'Filters', 900);
-        await spotlightKafkaCard(ctx, 'Consumption', 900);
-        await spotlightKafkaCard(ctx, 'Output bindings', 900);
-        await spotlightKafkaCard(ctx, 'Schema Registry', 900);
+        // Do not close — step advance must keep this panel open for Output bindings.
+        await ctx.delay(OUTCOME_PAUSE_MS);
       },
       verify: KAFKA.CONSUME_CONFIG,
+      pauseAfter: true,
     },
 
-    // Step 3: Output binding — must be a visible action (not preAction-only)
+    // ── 3. Output binding (Consume modal already open) ───────────
     {
       id: 'cw-consume-binding',
       title: 'Output Binding: key → consumedKey',
       description:
         'Scroll to **Output bindings**. This demo maps message **`key`** → workflow variable **`consumedKey`** (Produce set the key from `{{orderId}}`). ' +
-        'The next **kafkaWait** step uses `{{consumedKey}}` as its correlation ID — so the key we just consumed drives which payment confirmation to wait for. ' +
+        'The next **kafkaWait** step uses `{{consumedKey}}` as its correlation ID. ' +
         'Bindings only fire when **On** is checked. Sources are metadata only: `topic`, `partition`, `offset`, `timestamp`, or `key`.',
-      highlight: KAFKA.OUTPUT_BINDINGS_SECTION,
+      highlight: KAFKA.CONSUME_OUTPUT_BINDINGS,
       preAction: async (ctx) => {
+        // Modal should still be open from the previous step — only reopen if missing.
         await ensureConsumeConfigOpen(ctx);
+        // Scroll before reading so the step highlight can land on the bindings card.
+        await scrollWfConfigFieldIntoView(ctx, KAFKA.CONSUME_OUTPUT_BINDINGS);
       },
       action: async (ctx) => {
-        await ctx.waitFor(KAFKA.OUTPUT_BINDINGS_SECTION, 5000);
-        await scrollWfConfigFieldIntoView(ctx, KAFKA.OUTPUT_BINDINGS_SECTION);
-        await spotlightConfigField(ctx, KAFKA.OUTPUT_BINDINGS_SECTION, 700);
+        await focusConfigField(ctx, KAFKA.CONSUME_OUTPUT_BINDINGS, OUTCOME_PAUSE_MS);
 
-        const row = document.querySelector<HTMLElement>(
-          `${KAFKA.OUTPUT_BINDINGS_SECTION} .wf-kafka-bindings-row`,
-        );
-        if (row) {
-          const dispose = showSpotlightRing(row);
-          await ctx.delay(900);
-          dispose();
-        }
-
+        // Brief visible confirmation that On is enabled (no flash ring, no toggle churn).
         const checkbox = document.querySelector<HTMLInputElement>(
-          `${KAFKA.OUTPUT_BINDINGS_SECTION} .wf-kafka-bindings-col-on input[type="checkbox"]`,
+          `${KAFKA.CONSUME_OUTPUT_BINDINGS} .wf-kafka-bindings-col-on input[type="checkbox"]`,
         );
-        if (checkbox) {
-          const toggleWrap = checkbox.closest<HTMLElement>('.wf-kafka-bindings-col-on') ?? checkbox;
-          const disposeToggle = showSpotlightRing(toggleWrap);
-          await ctx.delay(400);
-          disposeToggle();
-          if (!checkbox.checked) {
-            checkbox.click();
-            await ctx.delay(200);
-          }
+        if (checkbox && !checkbox.checked) {
           checkbox.click();
-          await ctx.delay(350);
-          checkbox.click();
-          await ctx.delay(350);
+          await ctx.delay(150);
         }
-
-        await ctx.delay(200);
+        await ctx.delay(250);
       },
-      verify: KAFKA.OUTPUT_BINDINGS_SECTION,
+      verify: KAFKA.CONSUME_OUTPUT_BINDINGS,
+      pauseAfter: true,
     },
 
-    // Step 4: Open kafkaWait — visible open
+    // ── 4. Switch to kafkaWait (leave open for correlation → sample → mode) ──
     {
       id: 'cw-wait-node',
       title: 'Open kafkaWait',
       description:
-        'Close the Consume panel, then double-click the **kafkaWait** node. It listens on `payments.confirmed` and waits until a message matches the correlation rules you\'ll inspect next.',
+        'Close the Consume panel, then double-click the **kafkaWait** node. ' +
+        'It listens on `payments.confirmed` and waits until a message matches the correlation rules. ' +
+        'We keep this panel open for the next three steps.',
       highlight: KAFKA.NODE_WAIT,
       preAction: async (ctx) => {
         await ensureConsumeWaitWorkflowQuiet(ctx);
-        await closeWfConfigModalIfOpen(ctx);
+        // Close Consume only — do not leave this step with Wait already open
+        // (action opens it once so the viewer sees the open).
+        if (!document.querySelector(KAFKA.WAIT_CONFIG)) {
+          await closeWfConfigModalIfOpen(ctx);
+        }
       },
       action: async (ctx) => {
-        await openWfNodeConfigModal(ctx, { nodeSelector: KAFKA.NODE_WAIT });
-        await waitForWfConfigPanel(ctx, KAFKA.WAIT_CONFIG);
-        await scrollWfConfigModalToTop(ctx);
-        await spotlightKafkaCard(ctx, 'Connection', 800);
-        await ctx.delay(300);
+        if (!document.querySelector(KAFKA.WAIT_CONFIG)) {
+          await openWfNodeConfigModal(ctx, { nodeSelector: KAFKA.NODE_WAIT });
+          await waitForWfConfigPanel(ctx, KAFKA.WAIT_CONFIG);
+        }
+        // Sustained ring on the open Wait panel — do not close before Next.
+        await holdConfigSpotlight(ctx, KAFKA.WAIT_CONFIG, OUTCOME_PAUSE_MS);
       },
       verify: KAFKA.WAIT_CONFIG,
+      pauseAfter: true,
     },
 
-    // Step 5: Correlation Matching — visible scroll + field spotlights
+    // ── 5. Correlation (Wait modal stays open) ───────────────────
     {
       id: 'cw-wait-config',
       title: 'Correlation Matching',
       description:
-        'Open the **Correlation Matching** card. **ID expression** is `{{consumedKey}}` — the variable filled by Consume\'s output binding. ' +
-        '**Source** is **Body (JSONPath)**. **JSONPath** is `$.orderId`. Together: wait on `payments.confirmed` until the body\'s `orderId` equals the Kafka key we just consumed.',
+        'Focus the **Correlation Matching** card. **ID expression** is `{{consumedKey}}` — filled by Consume\'s output binding. ' +
+        '**Source** is **Body (JSONPath)**. **JSONPath** is `$.orderId`. Together: wait until the body\'s `orderId` equals the Kafka key we just consumed.',
       highlight: KAFKA.WAIT_CORRELATION_SECTION,
       preAction: async (ctx) => {
         await ensureWaitConfigOpen(ctx);
+        // Scroll + ring before reading — DemoSpotlight alone often misses
+        // fields inside the modal scroll viewport.
+        await holdConfigSpotlight(ctx, KAFKA.WAIT_CORRELATION_SECTION, 80);
       },
       action: async (ctx) => {
-        await ctx.waitFor(KAFKA.WAIT_CORRELATION_SECTION, 5000);
-        await scrollWfConfigFieldIntoView(ctx, KAFKA.WAIT_CORRELATION_SECTION);
-        await spotlightConfigField(ctx, KAFKA.WAIT_CORRELATION_SECTION, 1000);
-
-        // Spotlight the three correlation controls inside the card.
-        const card = document.querySelector(KAFKA.WAIT_CORRELATION_SECTION);
-        const rows = card?.querySelectorAll<HTMLElement>('.wf-kafka-form-row') ?? [];
-        for (const row of Array.from(rows).slice(0, 3)) {
-          const dispose = showSpotlightRing(row);
-          await ctx.delay(700);
-          dispose();
-          await ctx.delay(150);
-        }
-
-        // Show Extract Variables briefly — confirmedAmount ← $.amount
-        await spotlightKafkaCard(ctx, 'Extract Variables', 1100);
+        await holdConfigSpotlight(ctx, KAFKA.WAIT_CORRELATION_SECTION, OUTCOME_PAUSE_MS + 200);
       },
       verify: KAFKA.WAIT_CORRELATION_SECTION,
+      pauseAfter: true,
     },
 
-    // Step 6: Quick Test sample payload — visible
+    // ── 6. Sample payload (same Wait modal) ──────────────────────
     {
       id: 'cw-sample-payload',
       title: 'Quick Test Sample',
       description:
-        'Scroll to the **Quick Test** card. The **Message body (JSON)** is the sample the Wait uses instead of a live broker message during Quick Test. It includes `orderId`, `status`, and `amount` so correlation and **Extract Variables** (`confirmedAmount`) both succeed.',
+        'Scroll to the **Quick Test** sample. The **Message body (JSON)** is injected as a literal (no `{{var}}` expansion) instead of waiting on the broker. ' +
+        'Use a concrete `orderId` that matches the resolved **`{{consumedKey}}`** (here `ORDER-001`). ' +
+        'Quick Test does **not** re-run live body matching — it trusts this sample. Extract Variables still read `amount` → `confirmedAmount`.',
       highlight: KAFKA.WAIT_SAMPLE_TEXTAREA,
       preAction: async (ctx) => {
         await ensureWaitConfigOpen(ctx);
+        await holdConfigSpotlight(ctx, KAFKA.WAIT_SAMPLE_TEXTAREA, 80);
       },
       action: async (ctx) => {
-        await ctx.waitFor(KAFKA.WAIT_SAMPLE_TEXTAREA, 5000);
-        await scrollWfConfigFieldIntoView(ctx, KAFKA.WAIT_SAMPLE_TEXTAREA);
-        await spotlightKafkaCard(ctx, 'Quick Test', 900);
-        await spotlightConfigField(ctx, KAFKA.WAIT_SAMPLE_TEXTAREA, 1200);
+        await holdConfigSpotlight(ctx, KAFKA.WAIT_SAMPLE_TEXTAREA, OUTCOME_PAUSE_MS + 200);
       },
       verify: KAFKA.WAIT_SAMPLE_TEXTAREA,
+      pauseAfter: true,
     },
 
-    // Step 7: Load test mode — visible click
+    // ── 7. Load test mode, then close Wait once ──────────────────
     {
       id: 'cw-load-mode',
       title: 'Load Test Mode',
       description:
-        'In the **Load test** card, **Mode** is set to **Auto resume** — the Wait resolves with the sample on every Quick Test / load iteration. **Wait for real** would block until a live correlated message arrives (better for integration tests, not load tests).',
+        'In **Load test**, **Mode** is **Auto resume** — the Wait resolves with the sample on every Quick Test / load iteration. ' +
+        '**Wait for real** would block until a live correlated message arrives. After you read the Mode control, we close the panel.',
       highlight: KAFKA.WAIT_LOAD_MODE_SELECT,
       preAction: async (ctx) => {
         await ensureWaitConfigOpen(ctx);
+        await holdConfigSpotlight(ctx, KAFKA.WAIT_LOAD_MODE_SELECT, 200);
       },
       action: async (ctx) => {
-        await ctx.waitFor(KAFKA.WAIT_LOAD_MODE_SELECT, 5000);
-        await scrollWfConfigFieldIntoView(ctx, KAFKA.WAIT_LOAD_MODE_SELECT);
-        await spotlightKafkaCard(ctx, 'Load test', 800);
-        await spotlightConfigField(ctx, KAFKA.WAIT_LOAD_MODE_SELECT, 600);
-        // Open the dropdown so the viewer sees the mode labels, then dismiss.
-        await clickWfConfigControl(ctx, KAFKA.WAIT_LOAD_MODE_SELECT);
-        await ctx.delay(800);
-        const openMenu = document.querySelector('.cs-menu');
-        if (openMenu) {
-          // Click the trigger again to close (keeps Auto resume selected).
-          await ctx.click(KAFKA.WAIT_LOAD_MODE_SELECT);
-          await ctx.delay(300);
-        }
+        await holdConfigSpotlight(ctx, KAFKA.WAIT_LOAD_MODE_SELECT, OUTCOME_PAUSE_MS + 800);
+        // Close once at the end of the Wait-config tour (not between steps).
+        await closeWfConfigModalIfOpen(ctx);
+        await ctx.delay(240);
       },
-      verify: KAFKA.WAIT_LOAD_MODE_SELECT,
+      verify: WF.QUICK_TEST_BTN,
+      pauseAfter: true,
     },
 
-    // Step 8: Close config + open Console
+    // ── 8. Open Console ──────────────────────────────────────────
     {
       id: 'cw-open-console',
       title: 'Open the Console',
       description:
-        'Close the Wait config panel, then open the **Console** via the Console badge in the status bar. It opens in **Floating** mode beside the canvas. Open it *before* Quick Test so the full execution log is captured.',
+        'Open the **Console** via the Console badge in the status bar (Floating mode beside the canvas). ' +
+        'Open it *before* Quick Test so the full execution log is captured.',
       highlight: WF.CONSOLE_BADGE,
       preAction: async (ctx) => {
         await closeWfConfigModalIfOpen(ctx);
       },
       action: async (ctx) => {
         await openWfConsoleIfClosed(ctx);
-        await ctx.delay(350);
+        await ctx.delay(OUTCOME_PAUSE_MS);
       },
       verify: WF.CONSOLE,
+      pauseAfter: true,
     },
 
-    // Step 9: Quick Test
+    // ── 9. Quick Test ────────────────────────────────────────────
     {
       id: 'cw-quicktest',
       title: 'Quick Test the Full Chain',
       description:
-        'Click **Quick Test** to run the full chain. With **Auto resume** and the sample body, the Wait resolves immediately. Watch the **Console** fill with each node\'s result — produce, consume, then wait with `confirmedAmount` extracted from the sample.',
+        'Click **Quick Test** to run the full chain. With **Auto resume** and the sample body, the Wait resolves immediately. ' +
+        'Watch the **Console** fill with each node\'s result — produce, consume, then wait with `confirmedAmount` from the sample.',
       highlight: WF.QUICK_TEST_BTN,
       preAction: async (ctx) => {
         await closeWfConfigModalIfOpen(ctx);
@@ -549,37 +537,32 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       action: async (ctx) => {
         await ctx.click(WF.QUICK_TEST_BTN);
         await ctx.waitFor('.wf-status-bar', 5000);
-        await ctx.delay(3000);
+        await ctx.delay(1500);
       },
+      pauseAfter: true,
     },
 
-    // Step 10: Read console — do NOT close here (description says look at results)
+    // ── 10. Read console (highlight body; scroll lines — no flash) ─
     {
       id: 'cw-console',
       title: 'Console: Full Chain Results',
       description:
-        'Read the **Console** log. Look for **CONSUME** (message batch) and **WAIT** resolving from the sample. The extracted `confirmedAmount` appears in the variable output when the Wait finishes.',
+        'Read the **Console** log. Look for **CONSUME** (message batch) and **WAIT** resolving from the sample. ' +
+        'The extracted `confirmedAmount` appears in the variable output when the Wait finishes.',
       highlight: '.wf-console-body',
       preAction: async (ctx) => {
         await openWfConsoleIfClosed(ctx);
       },
       action: async (ctx) => {
-        const body = document.querySelector<HTMLElement>('.wf-console-body');
-        if (body) {
-          const d = showSpotlightRing(body);
-          await ctx.delay(800);
-          d();
-        }
+        await ctx.waitFor('.wf-console-body', 5000);
+        await ctx.delay(300);
 
         const consumeLine = findConsoleLine('CONSUME')
           ?? findConsoleLine('Consume')
           ?? findConsoleLine('orders.created');
         if (consumeLine) {
           consumeLine.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-          await ctx.delay(300);
-          const d = showSpotlightRing(consumeLine);
-          await ctx.delay(1100);
-          d();
+          await ctx.delay(OUTCOME_PAUSE_MS);
         }
 
         const waitLine = findConsoleLine('WAIT')
@@ -588,30 +571,13 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
           ?? findConsoleLine('RESOLVED');
         if (waitLine) {
           waitLine.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-          await ctx.delay(300);
-          const d = showSpotlightRing(waitLine);
-          await ctx.delay(1100);
-          d();
+          await ctx.delay(OUTCOME_PAUSE_MS);
         }
 
-        await pauseWfConfigDemo(ctx, 'afterClick');
-      },
-      verify: '.wf-console-body',
-    },
-
-    // Step 11: Summary — close console quietly
-    {
-      id: 'cw-summary',
-      title: 'Consume & Wait Summary',
-      description:
-        'You now have the complete Kafka workflow toolkit: Produce → Consume → Wait. Combine these with HTTP and WebSocket nodes for end-to-end event-driven test workflows. Next up: configure a **Secure Cluster** with SASL/SCRAM authentication.',
-      preAction: async (ctx) => {
-        await closeWfConfigModalIfOpen(ctx);
         await closeWfConsoleIfOpen(ctx);
       },
-      action: async (ctx) => {
-        await ctx.delay(600);
-      },
+      verify: '.wf-console-body',
+      pauseAfter: true,
     },
   ],
 };

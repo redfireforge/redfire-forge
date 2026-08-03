@@ -2,12 +2,17 @@
  * Lesson K12: TLS-Encrypted Cluster
  *
  * Shows how to create a cluster config with TLS enabled (SASL + TLS),
- * how to disable certificate verification for self-signed certs, and
- * how to confirm the encrypted connection works.
+ * paste the demo CA PEM, disable certificate verification for the self-signed
+ * stack, save, test (✓ Verified), connect, and publish over TLS.
  */
 import type { DemoLesson } from '../../types';
-import { kafkaTlsSetup, kafkaCleanup } from '../setup-helpers';
+import { kafkaTlsSetup } from '../setup-helpers';
+import { deleteKafkaClusterByName } from '../../adapters/kafkaStudioAdapter';
+import { showSpotlightRing } from '../../demoRipple';
 import { KAFKA } from '@shared/selectors';
+
+/** Demo Root CA from \`docker/kafka/tls/certs/ca.crt\` (self-signed RedfireForge-CA). */
+export const KAFKA_TLS_DEMO_CA_PEM = "-----BEGIN CERTIFICATE-----\nMIIDmTCCAoGgAwIBAgIUa1QVO1efs/LhQm+eQEYoYDtlZhQwDQYJKoZIhvcNAQEL\nBQAwXDELMAkGA1UEBhMCVVMxDTALBgNVBAgMBFRlc3QxDTALBgNVBAcMBFRlc3Qx\nFTATBgNVBAoMDFJlZGZpcmVGb3JnZTEYMBYGA1UEAwwPUmVkZmlyZUZvcmdlLUNB\nMB4XDTI2MDYwNTExMDIxMFoXDTI3MDYwNTExMDIxMFowXDELMAkGA1UEBhMCVVMx\nDTALBgNVBAgMBFRlc3QxDTALBgNVBAcMBFRlc3QxFTATBgNVBAoMDFJlZGZpcmVG\nb3JnZTEYMBYGA1UEAwwPUmVkZmlyZUZvcmdlLUNBMIIBIjANBgkqhkiG9w0BAQEF\nAAOCAQ8AMIIBCgKCAQEAyWeoayBC+gLVKaXw+7gbdYOeEDjGHnHfcizcCHvOtD70\nqTqDOn1UF3P3mmUCc1ULWq4Vaswi9SHCPlVKPPo5e2LDkQHlvBeiDXDGNpcTnhoF\n3aAQx8mob1Qt5VXR4ZFYohTDeU/6JRCaIPy+Iz1VO2vHeibeSDRfxmn50mRcTmIW\n0Mf1lZAxR54SNrQ8iOApt2ziJWQ9Fu3BpfTYTi16bjGSL7ZRnCBhDudMu+nA706O\noRaC1N2K5PTtRhic5tEqGPdPFi567Gom95vMLiN3agxYPjXju/uo+Y46rWjuxWnw\nCIFrD4kIh+XOUg5qnDKKvwadVKJPiZTinfCLLR/LQQIDAQABo1MwUTAdBgNVHQ4E\nFgQUGw0Iyw4ha0FS7M5OXRod4PNXVBwwHwYDVR0jBBgwFoAUGw0Iyw4ha0FS7M5O\nXRod4PNXVBwwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAcLTc\n0oFGfNPTpl3ABhFCufRq8E+eIcTj+w/QToz9gwXgklJagyONDKZJI+5QjrHOBsDa\n93OqKi9o6JLJgA/LpZ14I+2cZugwYpEoxp2pmC+mNjFxn0FBVcxli454JPQ6RntO\nDyhhnETnLfokD+JiYaGymO1YxgZ2Yz0o20+WBPme1TvEt5cTDfvwBNrZoRbLid2b\nwY+fwEPxO5zezjxyfj5eM7EQErlhZnUeVGb7Om+OwrDLyKR1PqFwZqgXVvXNB5Es\n40E2fqHm8hUUVyG9N9OBdn2fUENLF3rmLPPnns6KKnAmubtToaC5u1XvKgYWObKQ\nLJS30H0KHSGj5EMQMQ==\n-----END CERTIFICATE-----";
 
 export const kafkaTlsLesson: DemoLesson = {
   id: 'kafka-tls',
@@ -15,7 +20,7 @@ export const kafkaTlsLesson: DemoLesson = {
   category: 'kafka',
   name: 'TLS-Encrypted Cluster',
   description:
-    'Add TLS encryption on top of SASL authentication: enable the TLS toggle, skip certificate verification for the self-signed demo cert, and confirm a successful encrypted publish.',
+    'Add TLS encryption on top of SASL authentication: enable the TLS toggle, paste the demo CA, skip certificate verification for the self-signed stack, save, test, connect, and publish over TLS.',
   estimatedMinutes: 5,
   initialTab: 'kafka-settings',
   allowedTabs: ['kafka-settings', 'kafka-message-studio'],
@@ -25,7 +30,7 @@ export const kafkaTlsLesson: DemoLesson = {
   tag: '🐳 Docker',
 
   setup: kafkaTlsSetup,
-  cleanup: kafkaCleanup,
+  cleanup: async () => { deleteKafkaClusterByName('Local TLS'); },
 
   concept: {
     title: 'TLS Encryption for Kafka',
@@ -38,7 +43,7 @@ export const kafkaTlsLesson: DemoLesson = {
 4. All data (including SASL credentials and message payloads) flows over that encrypted channel
 
 **Self-signed certificates (development):**
-The demo TLS stack uses a self-signed certificate — one not issued by a public CA. By default, certificate verification will fail for self-signed certs. RedfireForge provides a **Skip Certificate Verification** toggle that disables hostname and CA verification, allowing the TLS handshake to succeed with self-signed certs.
+The demo TLS stack uses a self-signed certificate — one not issued by a public CA. Paste the demo **CA PEM** and uncheck **Verify server certificate** so the handshake succeeds locally.
 
 > ⚠️ Skip cert verification only for development/local stacks. Production clusters should use certificates from a trusted CA (or your organisation's internal CA).
 
@@ -50,7 +55,7 @@ The demo TLS stack uses a self-signed certificate — one not issued by a public
 | TLS only | ✅ | ❌ |
 | SASL + TLS | ✅ | ✅ |
 
-The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — the most secure combination.`,
+The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — the most secure combination. Client certificate fields stay empty (the stack does not require mTLS).`,
     keyTerms: [
       {
         term: 'TLS',
@@ -63,36 +68,32 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
           'A digital certificate that proves the identity of the broker. Signed by a Certificate Authority (CA) — or self-signed for development.',
       },
       {
-        term: 'Skip Certificate Verification',
+        term: 'CA PEM',
         definition:
-          'A flag that disables CA validation and hostname checking during the TLS handshake. Use only with trusted self-signed development environments.',
+          'The Certificate Authority public certificate in PEM format. Paste it into the cluster editor so the client can trust the broker certificate chain.',
       },
       {
-        term: 'Self-Signed Certificate',
+        term: 'Skip Certificate Verification',
         definition:
-          'A TLS certificate signed by its own private key rather than a CA. Used in development and test environments. Browsers and Kafka clients reject these by default unless verification is disabled.',
+          'Unchecking Verify server certificate disables CA/hostname checking during the TLS handshake. Use only with trusted self-signed development environments.',
       },
     ],
     diagram: `<svg viewBox="0 0 380 130" xmlns="http://www.w3.org/2000/svg">
-  <!-- Client -->
   <rect x="8" y="25" width="100" height="80" rx="5" fill="var(--surface2,#1e1e2e)" stroke="var(--border,#45475a)" stroke-width="1.3"/>
   <text x="58" y="48" text-anchor="middle" fill="var(--text)" font-size="10">RedfireForge</text>
   <text x="58" y="62" text-anchor="middle" fill="var(--text-muted)" font-size="8">TLS handshake</text>
   <text x="58" y="74" text-anchor="middle" fill="var(--text-muted)" font-size="8">SCRAM-256 auth</text>
   <text x="58" y="86" text-anchor="middle" fill="var(--primary)" font-size="8">🔒 Encrypted</text>
-  <text x="58" y="98" text-anchor="middle" fill="var(--text-muted)" font-size="7">skip verify: ON</text>
-  <!-- Encrypted channel arrows -->
+  <text x="58" y="98" text-anchor="middle" fill="var(--text-muted)" font-size="7">CA PEM + skip verify</text>
   <line x1="108" y1="55" x2="200" y2="55" stroke="var(--success,#a6e3a1)" stroke-width="2" stroke-dasharray="5 2" marker-end="url(#tls-a)"/>
   <text x="154" y="48" text-anchor="middle" fill="var(--success,#a6e3a1)" font-size="7">Encrypted tunnel</text>
   <line x1="200" y1="75" x2="108" y2="75" stroke="var(--success,#a6e3a1)" stroke-width="2" stroke-dasharray="5 2" marker-end="url(#tls-b)"/>
   <text x="154" y="90" text-anchor="middle" fill="var(--success,#a6e3a1)" font-size="7">Broker response</text>
-  <!-- Broker -->
   <rect x="202" y="25" width="100" height="80" rx="5" fill="var(--surface2,#1e1e2e)" stroke="var(--success,#a6e3a1)" stroke-width="1.5"/>
   <text x="252" y="48" text-anchor="middle" fill="var(--text)" font-size="10">Redpanda</text>
   <text x="252" y="62" text-anchor="middle" fill="var(--text-muted)" font-size="8">:19095</text>
   <text x="252" y="76" text-anchor="middle" fill="var(--success,#a6e3a1)" font-size="8">SASL + TLS</text>
   <text x="252" y="90" text-anchor="middle" fill="var(--text-muted)" font-size="8">Self-signed cert</text>
-  <!-- Lock -->
   <rect x="314" y="40" width="58" height="50" rx="4" fill="var(--success,#a6e3a1)" opacity="0.1" stroke="var(--success,#a6e3a1)" stroke-width="1"/>
   <text x="343" y="62" text-anchor="middle" fill="var(--success,#a6e3a1)" font-size="12">🔐</text>
   <text x="343" y="76" text-anchor="middle" fill="var(--text-muted)" font-size="7">Auth +</text>
@@ -105,13 +106,13 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
   },
 
   steps: [
-    // Step 1: Navigate to Settings
     {
       id: 'tls-intro',
       title: 'TLS-Encrypted Cluster',
       description:
-        'Adding TLS on top of SASL gives you encryption in transit — no one can sniff your messages or credentials on the network. In this lesson you\'ll configure a new cluster for the TLS-enabled stack running on port **19095**. Make sure the TLS Docker stack is up: `cd docker/kafka/tls && docker compose up -d`.',
-      highlight: KAFKA.SETTINGS_PAGE,
+        'Adding TLS on top of SASL gives you encryption in transit — no one can sniff your messages or credentials on the network. In this lesson you\'ll configure a new cluster for the TLS-enabled stack running on port **19095**. Make sure the TLS Docker stack is up: `cd docker/kafka/tls && docker compose up -d`. ' +
+        'Click **New Cluster** to open a fresh Cluster Editor.',
+      highlight: KAFKA.NEW_CLUSTER_BTN,
       preAction: async () => {
         document.querySelectorAll('.kafka-cluster-card.selected').forEach((el) => {
           el.classList.remove('selected');
@@ -119,24 +120,11 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
       },
       action: async (ctx) => {
         await ctx.waitFor(KAFKA.SETTINGS_PAGE, 3000);
-        await ctx.delay(600);
-      },
-    },
-
-    // Step 2: New cluster
-    {
-      id: 'tls-new',
-      title: 'Create TLS Cluster',
-      description:
-        'Click **New Cluster** to open a fresh Cluster Editor. You\'ll configure this one with both SASL authentication AND TLS encryption.',
-      highlight: KAFKA.NEW_CLUSTER_BTN,
-      action: async (ctx) => {
         await ctx.click(KAFKA.NEW_CLUSTER_BTN);
         await ctx.delay(400);
       },
     },
 
-    // Step 3: Set broker and name
     {
       id: 'tls-broker',
       title: 'Set Broker and Name',
@@ -157,7 +145,6 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
       },
     },
 
-    // Step 4: SASL auth
     {
       id: 'tls-auth',
       title: 'Configure SASL Auth',
@@ -174,86 +161,153 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
       },
     },
 
-    // Step 5: Enable TLS toggle
     {
       id: 'tls-enable',
       title: 'Enable TLS',
       description:
-        'Click the **Enable TLS** toggle to turn on encryption. This tells the Kafka client to use a TLS-upgraded connection for all communication with the broker — credentials and message payloads travel over an encrypted channel.',
+        'Click the **Enable TLS** toggle to turn on encryption. This reveals the CA / client certificate fields and tells the Kafka client to use a TLS-upgraded connection.',
       highlight: KAFKA.TLS_TOGGLE,
       action: async (ctx) => {
         const toggle = document.querySelector<HTMLElement>(KAFKA.TLS_TOGGLE);
         if (toggle) {
-          // Only click if not already enabled
           const checked = toggle.getAttribute('aria-checked') === 'true' || (toggle as HTMLInputElement).checked;
           if (!checked) {
             toggle.click();
-            await ctx.delay(300);
+            await ctx.delay(400);
           }
         }
+        await ctx.waitFor(KAFKA.TLS_CA_PEM, 3000);
+        await ctx.delay(300);
       },
     },
 
-    // Step 6: Skip certificate verification
+    // Step 6: CA PEM + skip verify + Save (Test Connection needs a saved cluster)
     {
       id: 'tls-ca',
-      title: 'Skip Certificate Verification',
+      title: 'CA Certificate & Save',
       description:
-        'The demo TLS stack uses a **self-signed certificate** — one not issued by a public CA. Uncheck **Verify Certificate** (or enable **Skip Cert Verification**) to allow the TLS handshake to succeed. In production, leave this ON and provide a proper CA-signed certificate.',
-      highlight: KAFKA.TLS_VERIFY_TOGGLE,
-      action: async (ctx) => {
-        const verifyToggle = document.querySelector<HTMLElement>(KAFKA.TLS_VERIFY_TOGGLE);
-        if (verifyToggle) {
-          // Uncheck if currently enabled (disable verification for self-signed cert)
-          const checked = verifyToggle.getAttribute('aria-checked') === 'true' || (verifyToggle as HTMLInputElement).checked;
-          if (checked) {
-            verifyToggle.click();
-            await ctx.delay(300);
+        'Uncheck **Verify server certificate** (self-signed demo stack), then paste the demo **CA PEM** from `docker/kafka/tls/certs/ca.crt` into **CA PEM**. ' +
+        'Client Certificate / Key stay empty — this broker does not require mTLS. ' +
+        'Click **Save Cluster** so **Test Connection** becomes available (it only works against a saved selected profile).',
+      highlight: KAFKA.TLS_CA_PEM,
+      preAction: async (ctx) => {
+        const toggle = document.querySelector<HTMLElement>(KAFKA.TLS_TOGGLE);
+        if (toggle) {
+          const checked = toggle.getAttribute('aria-checked') === 'true' || (toggle as HTMLInputElement).checked;
+          if (!checked) {
+            toggle.click();
+            await ctx.waitFor(KAFKA.TLS_CA_PEM, 3000);
           }
         }
       },
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.TLS_VERIFY_TOGGLE, 3000);
+        const verifyToggle = document.querySelector<HTMLInputElement>(KAFKA.TLS_VERIFY_TOGGLE);
+        if (verifyToggle) {
+          const checked = verifyToggle.getAttribute('aria-checked') === 'true' || verifyToggle.checked;
+          if (checked) {
+            verifyToggle.click();
+            await ctx.delay(500);
+          }
+        }
+
+        await ctx.waitFor(KAFKA.TLS_CA_PEM, 3000);
+        await ctx.fill(KAFKA.TLS_CA_PEM, KAFKA_TLS_DEMO_CA_PEM);
+        const caEl = document.querySelector<HTMLElement>(KAFKA.TLS_CA_PEM);
+        if (caEl) showSpotlightRing(caEl);
+        await ctx.delay(1400);
+
+        await ctx.waitFor(KAFKA.SAVE_BTN, 3000);
+        const saveEl = document.querySelector<HTMLElement>(KAFKA.SAVE_BTN);
+        if (saveEl) {
+          saveEl.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+          const dispose = showSpotlightRing(saveEl);
+          await ctx.delay(1000);
+          dispose();
+        }
+        await ctx.click(KAFKA.SAVE_BTN);
+        const start = Date.now();
+        while (Date.now() - start < 8000) {
+          const testBtn = document.querySelector<HTMLButtonElement>(KAFKA.TEST_BTN);
+          if (testBtn && !testBtn.disabled) break;
+          await ctx.delay(100);
+        }
+        await ctx.delay(900);
+      },
+      verify: KAFKA.TEST_BTN,
+      pauseAfter: true,
     },
 
-    // Step 7: Test connection
+    // Step 7: Test Connection → ✓ Verified
     {
       id: 'tls-test',
       title: 'Test Connection',
       description:
-        'Click **Test Connection**. RedfireForge performs the full TLS handshake (using the self-signed cert) and then the SASL authentication. A success indicator confirms both TLS encryption and SASL authentication are working.',
+        'Click **Test Connection** on the saved **Local TLS** profile. RedfireForge performs the TLS handshake (with the pasted CA / skip-verify settings) and SASL authentication. Watch for **✓ Verified** next to the button.',
       highlight: KAFKA.TEST_BTN,
-      action: async (ctx) => {
-        await ctx.click(KAFKA.TEST_BTN);
-        await ctx.delay(1500);
+      preAction: async (ctx) => {
+        const testBtn = document.querySelector<HTMLButtonElement>(KAFKA.TEST_BTN);
+        if (!testBtn || testBtn.disabled) {
+          const saveBtn = document.querySelector<HTMLElement>(KAFKA.SAVE_BTN);
+          if (saveBtn) {
+            saveBtn.click();
+            await ctx.delay(400);
+          }
+        }
+        const start = Date.now();
+        while (Date.now() - start < 5000) {
+          const btn = document.querySelector<HTMLButtonElement>(KAFKA.TEST_BTN);
+          if (btn && !btn.disabled) break;
+          await ctx.delay(100);
+        }
       },
+      action: async (ctx) => {
+        const btn = document.querySelector<HTMLButtonElement>(KAFKA.TEST_BTN);
+        if (!btn || btn.disabled) {
+          console.warn('[DemoHub] kafka-tls: Test Connection still disabled — Save may have failed');
+          return;
+        }
+        await ctx.click(KAFKA.TEST_BTN);
+        await ctx.waitFor(KAFKA.TEST_RESULT, 15000);
+        const badge = document.querySelector<HTMLElement>(KAFKA.TEST_RESULT);
+        if (badge) showSpotlightRing(badge);
+        await ctx.delay(1800);
+      },
+      verify: KAFKA.TEST_RESULT,
+      pauseAfter: 2200,
     },
 
-    // Step 8: Save and connect
     {
-      id: 'tls-save',
-      title: 'Save and Connect',
+      id: 'tls-connect',
+      title: 'Connect',
       description:
-        'Click **Save** to persist the cluster, then **Connect** to activate it. You now have an encrypted, authenticated connection to the Kafka broker.',
-      highlight: KAFKA.SAVE_BTN,
+        'Click **Connect** to activate **Local TLS** as the live cluster. A green connected badge appears — Publish Studio will use this SASL + TLS connection.',
+      highlight: KAFKA.CONNECT_BTN,
+      preAction: async (ctx) => {
+        const start = Date.now();
+        while (Date.now() - start < 5000) {
+          const btn = document.querySelector<HTMLButtonElement>(KAFKA.CONNECT_BTN);
+          if (btn && !btn.disabled) break;
+          await ctx.delay(100);
+        }
+      },
       action: async (ctx) => {
-        await ctx.click(KAFKA.SAVE_BTN);
-        await ctx.delay(500);
-        const connectBtn = document.querySelector<HTMLElement>(KAFKA.CONNECT_BTN);
-        if (connectBtn && !(connectBtn as HTMLButtonElement).disabled) {
-          connectBtn.click();
-          // Wait for Disconnect button to become ENABLED (not just exist in DOM)
-          // — indicates the TLS+SASL handshake completed and connection is active.
+        const connectBtn = document.querySelector<HTMLButtonElement>(KAFKA.CONNECT_BTN);
+        if (connectBtn && !connectBtn.disabled) {
+          await ctx.click(KAFKA.CONNECT_BTN);
           const start = Date.now();
           while (Date.now() - start < 10000) {
             const dcBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
             if (dcBtn && !dcBtn.disabled) break;
-            await new Promise(r => setTimeout(r, 200));
+            await ctx.delay(200);
           }
-          await ctx.delay(400);
+          await ctx.delay(900);
         }
       },
+      verify: KAFKA.DISCONNECT_BTN,
+      pauseAfter: true,
     },
 
-    // Step 9: Publish to TLS topic
     {
       id: 'tls-publish',
       title: 'Publish Over TLS',
@@ -272,7 +326,6 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
       },
       action: async (ctx) => {
         await ctx.click(KAFKA.PUB_SEND_BTN);
-        // Wait for either a success result or an error banner — whichever appears first.
         await ctx.waitFor(`${KAFKA.PUB_RESULT}, ${KAFKA.PUB_ERROR}`, 15000);
         await ctx.delay(400);
       },

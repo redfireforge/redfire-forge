@@ -8,7 +8,8 @@
 import type { DemoActionContext } from '../types';
 import { WS, KAFKA } from '@shared/selectors';
 import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
-import { firstVisibleElement } from '../utils/domVisibility';
+import { firstVisibleElement, visibleElements } from '../utils/domVisibility';
+import { deleteKafkaClusterByName } from '../adapters/kafkaStudioAdapter';
 
 /** Re-export — see `domVisibility.ts` for implementation. */
 export { firstVisibleElement as firstVisibleEl } from '../utils/domVisibility';
@@ -143,6 +144,51 @@ export async function switchToClientMode(ctx: DemoActionContext) {
   if (!isVisibleStudioMode('client')) {
     firstVisibleEl<HTMLButtonElement>(WS.MODE_CLIENT)?.click();
     await ctx.delay(200);
+  }
+}
+
+/**
+ * Delete every visible mock rule card until the list is empty.
+ * Retries a few passes because:
+ *  - async storage load can repopulate rules after an early clear
+ *  - delete buttons live in the card (opacity 0 until hover, but still clickable)
+ *
+ * Call from lesson setup/cleanup and before "Add your first rule".
+ */
+export async function clearAllMockRules(ctx: DemoActionContext): Promise<void> {
+  if (!isVisibleStudioMode('mock')) {
+    await ctx.click(WS.MODE_MOCK);
+    await ctx.delay(250);
+  }
+  const rulesTab = firstVisibleEl<HTMLElement>(WS.MOCK_TAB_RULES);
+  if (rulesTab) {
+    rulesTab.click();
+    await ctx.delay(200);
+  }
+
+  for (let pass = 0; pass < 4; pass++) {
+    let guard = 0;
+    while (guard++ < 25) {
+      const cards = visibleElements<HTMLElement>(WS.MOCK_RULE_FIRST);
+      if (cards.length === 0) break;
+
+      const card = cards[0];
+      const deleteBtn =
+        card.querySelector<HTMLButtonElement>('[data-testid^="rule-delete-"]')
+        ?? firstVisibleEl<HTMLButtonElement>(WS.MOCK_RULE_DELETE_ANY);
+      if (!deleteBtn) {
+        // Expand so action chrome is focusable / present, then retry
+        (card.querySelector<HTMLElement>('[data-testid^="rule-expand-"]') ?? card.querySelector<HTMLElement>('.ws-mock-rule-header'))?.click();
+        await ctx.delay(150);
+        continue;
+      }
+      deleteBtn.click();
+      await ctx.delay(280);
+    }
+
+    // Allow a late storage hydrate to finish, then clear again if needed
+    await ctx.delay(pass === 0 ? 500 : 250);
+    if (visibleElements(WS.MOCK_RULE_FIRST).length === 0) return;
   }
 }
 
@@ -413,18 +459,47 @@ export async function kafkaSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(120);
 }
 
-/** Navigate to Kafka Settings and ensure SASL connection for the secure demo stack. */
+/**
+ * Warm the SASL broker for the secure lesson, then disconnect.
+ *
+ * Important: do NOT leave the API session connected under clusterId
+ * `demo-secure`. That id is not a saved UI profile, so the Clusters header
+ * would show Connected while every card shows Idle (orphan connection).
+ * The lesson itself teaches Save → Test → Connect for **Local Secure**.
+ */
 export async function kafkaSecureSetup(ctx: DemoActionContext): Promise<void> {
-  try { await ensureKafkaSaslConnected(); } catch { /* server may not be running */ }
+  deleteKafkaClusterByName('Local Secure');
+  try {
+    await ensureKafkaSaslConnected();
+    await dispatchKafkaOperation('disconnect', { clusterId: PROFILE_SASL.clusterId });
+  } catch { /* server may not be running */ }
   ctx.navigateToTab('kafka-settings');
   await ctx.delay(120);
+  // Sync React state if the status poll has not cleared the probe yet.
+  const disconnectBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(200);
+  }
 }
 
-/** Navigate to Kafka Settings and ensure TLS+SASL connection for the TLS demo stack. */
+/**
+ * Warm the TLS+SASL broker for the TLS lesson, then disconnect.
+ * Same orphan-connection guard as kafkaSecureSetup (`demo-tls` is not a saved profile).
+ */
 export async function kafkaTlsSetup(ctx: DemoActionContext): Promise<void> {
-  try { await ensureKafkaTlsConnected(); } catch { /* server may not be running */ }
+  deleteKafkaClusterByName('Local TLS');
+  try {
+    await ensureKafkaTlsConnected();
+    await dispatchKafkaOperation('disconnect', { clusterId: PROFILE_TLS.clusterId });
+  } catch { /* server may not be running */ }
   ctx.navigateToTab('kafka-settings');
   await ctx.delay(120);
+  const disconnectBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(200);
+  }
 }
 
 // ── API-based Kafka connection helpers ────────────────────────────

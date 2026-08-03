@@ -26,6 +26,17 @@ function flattenItems(items: CustomSelectItems): CustomSelectOption[] {
   return items;
 }
 
+/** True when the trigger (and ancestors) are not display:none / visibility:hidden. */
+function isSelectTriggerLaidOut(el: HTMLElement): boolean {
+  let cur: HTMLElement | null = el;
+  while (cur) {
+    const style = window.getComputedStyle(cur);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    cur = cur.parentElement;
+  }
+  return true;
+}
+
 export interface CustomSelectProps {
   value: string;
   onChange: (value: string) => void;
@@ -113,6 +124,13 @@ export function CustomSelect({
   const recomputeMenuPos = useCallback(() => {
     const anchor = triggerRef.current ?? wrapperRef.current;
     if (!anchor) return;
+    // Inactive WS / studio tabs keep chrome mounted with display:none. Opening
+    // those selects portals a menu with a zero/garbage anchor → corner ghost menu.
+    if (!isSelectTriggerLaidOut(anchor)) {
+      setMenuPos(null);
+      setOpen(false);
+      return;
+    }
     const rect = anchor.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const up = spaceBelow < 200;
@@ -245,7 +263,11 @@ export function CustomSelect({
         onClick={() => {
           if (disabled) return;
           const nextOpen = !open;
-          if (nextOpen) announceOpen();
+          if (nextOpen) {
+            const anchor = triggerRef.current ?? wrapperRef.current;
+            if (!anchor || !isSelectTriggerLaidOut(anchor)) return;
+            announceOpen();
+          }
           setOpen(nextOpen);
         }}
         onKeyDown={handleKeyDown}
