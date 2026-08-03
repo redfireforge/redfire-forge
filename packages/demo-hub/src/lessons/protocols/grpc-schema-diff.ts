@@ -189,11 +189,8 @@ const steps: DemoStep[] = [
       'acknowledge individual changes once reviewed.',
     highlight: GRPC.REFLECT_BTN,
     preAction: async (ctx) => {
-      // Skip the Manage Schemas draft reset — this lesson diffs live reflection
-      // against a captured baseline, never staged schema sources. Running it
-      // would cycle the Manage Schemas modal across every tab, flashing a burst
-      // of modals before step 1.
-      await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+      // setup already handled base Studio readiness; keep step-1 preAction to
+      // quiet guard-only cleanup to avoid extra startup motion before narration.
       await guardGrpcTargetQuiet(ctx);
       await ensureGrpcStudioSubNavQuiet(ctx);
       await clearGrpcSchemaDriftQuiet(ctx);

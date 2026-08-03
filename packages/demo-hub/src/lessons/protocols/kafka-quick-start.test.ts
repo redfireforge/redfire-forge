@@ -133,17 +133,9 @@ describe('kafka-quick-start lesson', () => {
     expect(step.preAction).toBeDefined();
   });
 
-  it('step ks-intro action clicks Settings then Kafka and waits for settings page', async () => {
+  it('step ks-intro action waits for the settings page (navigation already done by setup)', async () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-intro')!;
     const ctx = makeCtx();
-
-    const settingsBtn = document.createElement('button');
-    settingsBtn.setAttribute('data-testid', 'ab-settings');
-    document.body.appendChild(settingsBtn);
-
-    const kafkaTabBtn = document.createElement('button');
-    kafkaTabBtn.setAttribute('data-testid', 'nav-tab-kafka-settings');
-    document.body.appendChild(kafkaTabBtn);
 
     const page = document.createElement('div');
     page.setAttribute('data-testid', 'kafka-settings-page');
@@ -151,11 +143,10 @@ describe('kafka-quick-start lesson', () => {
 
     await step.action!(ctx);
 
-    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="ab-settings"]', 2500);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="ab-settings"]');
-    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="nav-tab-kafka-settings"]', 2500);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="nav-tab-kafka-settings"]');
+    // Intentionally no ab-settings/nav-tab click choreography here — that caused
+    // a visible flash before step 1 narrates. Setup already navigates silently.
     expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="kafka-settings-page"]', 2500);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step ks-create action clicks empty-state btn when present', async () => {

@@ -10,7 +10,7 @@
  */
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { selectOption } from '../../../../test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import { WorkflowService } from '../../types/workflow';
@@ -50,6 +50,10 @@ const defaultProps = makeDefaultProps();
 describe('HttpConfig — basic rendering', () => {
   beforeEach(() => {
     resetAllMocks();
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
   });
 
   it('renders label input with current value', () => {
@@ -437,13 +441,68 @@ describe('HttpConfig — basic rendering', () => {
     expect(badgeTexts).toContain('1');
   });
 
-  it('omits datatype chips for minimalist variable hints', () => {
+  it('shows empty type placeholder for minimalist variable hints', () => {
     const { container } = render(<HttpConfig {...defaultProps} activeTab="url" variableHints={[
       { ref: 'plain', label: 'Plain', description: 'no type' },
     ]} />);
     const row = container.querySelector('.wf-http-var-hints-item');
     expect(row).toBeTruthy();
-    expect(row?.querySelector('.wf-http-var-hints-type')).toBeNull();
+    expect(row?.querySelector('.wf-http-var-hints-type--empty')?.textContent).toBe('—');
+  });
+
+  it('renders nodeLabel-only source text without category separator', () => {
+    render(
+      <HttpConfig
+        {...defaultProps}
+        activeTab="url"
+        variableHints={[
+          {
+            ref: 'node:step1.value',
+            label: 'fallback label',
+            source: { nodeLabel: 'Step 1', nodeType: 'http' },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Step 1')).toBeTruthy();
+    expect(screen.queryByText('Step 1 ·')).toBeNull();
+  });
+
+  it('copies variable hint template and shows copied state', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    render(
+      <HttpConfig
+        {...defaultProps}
+        activeTab="url"
+        variableHints={[{ ref: 'userId', label: 'User ID', type: 'string' }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy {{userId}}' }));
+
+    expect(writeText).toHaveBeenCalledWith('{{userId}}');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Copied {{userId}}' })).toBeTruthy();
+    });
+  });
+
+  it('keeps copy button label when clipboard write fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard unavailable'));
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    render(
+      <HttpConfig
+        {...defaultProps}
+        activeTab="url"
+        variableHints={[{ ref: 'token', label: 'Token', type: 'string' }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy {{token}}' }));
+
+    expect(writeText).toHaveBeenCalledWith('{{token}}');
+    expect(screen.queryByRole('button', { name: 'Copied {{token}}' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Copy {{token}}' })).toBeTruthy();
   });
 });
 
@@ -642,31 +701,25 @@ describe('HttpConfig — auth fields with missing optional properties', () => {
 
   it('renders empty basic auth fields when username/password are undefined', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'basic' } as Scenario['auth'] }) });
-    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    const authSection = container.querySelector('.wf-config-auth-section')!;
-    const textInputs = authSection.querySelectorAll('input:not([type="password"])');
-    expect(textInputs.length).toBeGreaterThan(0);
-    expect(Array.from(textInputs).every(i => (i as HTMLInputElement).value === '')).toBe(true);
+    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    expect((screen.getByLabelText('Username') as HTMLTextAreaElement).value).toBe('');
+    expect((screen.getByLabelText('Password') as HTMLTextAreaElement).value).toBe('');
   });
 
   it('renders empty digest auth fields when credentials are undefined', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'digest' } as Scenario['auth'] }) });
-    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    const authSection = container.querySelector('.wf-config-auth-section')!;
-    const usernameInput = authSection.querySelector('input:not([type="password"])') as HTMLInputElement;
-    expect(usernameInput.value).toBe('');
-    expect(authSection.querySelector('input[type="password"]')).toBeTruthy();
+    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    expect((screen.getByLabelText('Username') as HTMLTextAreaElement).value).toBe('');
+    expect((screen.getByLabelText('Password') as HTMLTextAreaElement).value).toBe('');
+    expect(screen.getByLabelText('Show password')).toBeTruthy();
   });
 
   it('renders empty oauth2 client fields when values are undefined', () => {
     const data = makeHttpData({
       scenario: makeScenario({ auth: { type: 'oauth2', tokenUrl: '' } as Scenario['auth'] }),
     });
-    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    const authSection = container.querySelector('.wf-config-auth-section')!;
-    const clientIdInput = authSection.querySelector('.form-row.two-col input:not([type="password"])') as HTMLInputElement;
-    expect(clientIdInput.value).toBe('');
-    const secretInput = authSection.querySelector('input[type="password"]') as HTMLInputElement;
-    expect(secretInput.value).toBe('');
+    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    expect((screen.getByLabelText('Client ID') as HTMLTextAreaElement).value).toBe('');
+    expect((screen.getByLabelText('Client Secret') as HTMLTextAreaElement).value).toBe('');
   });
 });

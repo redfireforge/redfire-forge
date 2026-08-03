@@ -169,15 +169,15 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
       ) : (
         <>
           <div className="params-actions">
-            <button type="button" className="btn btn-sm" onClick={addRow}>
+            <button type="button" className="params-action-btn params-action-btn--primary" onClick={addRow}>
               + Add
             </button>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={deleteAll} title="Delete all">
+            <button type="button" className="params-action-btn" onClick={deleteAll} title="Delete all">
               Delete all
             </button>
             <button
               type="button"
-              className={`btn btn-sm btn-ghost ${showDesc ? 'active' : ''}`}
+              className={`params-action-btn ${showDesc ? 'is-active' : ''}`}
               onClick={() => setShowDesc(!showDesc)}
               title="Toggle descriptions"
             >
@@ -185,98 +185,113 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
             </button>
           </div>
 
-          <div className={`params-grid-header ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''}`}>
-            <span />
-            <span>Name</span>
-            {showSource && <span>Source</span>}
-            <span>Value</span>
-            {showDesc && <span>Description</span>}
-            <span />
-            <span />
-          </div>
-
-          {params.map((p, i) => {
-            const { source, displayValue } = resolveVariableSource(p.value, sourceMap);
-            return (
-            <div
-              key={i}
-              className={`params-row ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''} ${!p.enabled ? 'disabled' : ''} ${drag.isDragOver(i) ? 'is-drag-over' : ''} ${drag.isDragging(i) ? 'is-dragging' : ''}`}
-              onDragOver={(e) => drag.onDragOver(e, i)}
-              onDrop={(e) => drag.onDrop(e, i)}
-            >
-              <span
-                className="params-drag-handle"
-                title="Drag to reorder"
-                draggable
-                onDragStart={(e) => drag.onDragStart(e, i)}
-                onDragEnd={drag.onDragEnd}
-                role="button"
-                tabIndex={-1}
-                aria-label={`Reorder parameter ${i + 1}`}
-              >⠿</span>
-              <input
-                className="params-input"
-                value={p.key}
-                onChange={(e) => update(i, { key: e.target.value })}
-                placeholder="name"
-                disabled={!p.enabled}
-              />
-              {showSource && (
-                <input
-                  className="params-input params-source-cell"
-                  readOnly
-                  value={source}
-                  title={source}
-                  tabIndex={-1}
-                />
-              )}
-              <div className="params-value-with-insert">
-                <input
-                  className="params-input"
-                  value={displayValue}
-                  onChange={(e) => update(i, { value: e.target.value })}
-                  placeholder="value"
-                  disabled={!p.enabled}
-                />
-                {onInsertVariable && (
-                  <button
-                    type="button"
-                    className="btn btn-sm params-insert-var-btn"
-                    disabled={!p.enabled}
-                    title="Insert variable from workflow or upstream step"
-                    onClick={() => onInsertVariable(i, p.key)}
-                  >
-                    Insert…
-                  </button>
-                )}
-              </div>
-              {showDesc && (
-                <input
-                  className="params-input params-desc-input"
-                  value={p.description}
-                  onChange={(e) => update(i, { description: e.target.value })}
-                  placeholder="description"
-                  disabled={!p.enabled}
-                />
-              )}
-              <label className="params-toggle" title={p.enabled ? 'Disable parameter' : 'Enable parameter'}>
-                <input
-                  type="checkbox"
-                  checked={p.enabled}
-                  onChange={(e) => update(i, { enabled: e.target.checked })}
-                />
-              </label>
-              <button
-                type="button"
-                className="params-delete"
-                onClick={() => removeRow(i)}
-                title="Delete"
-              >
-                ×
-              </button>
+          <div className={`params-table${!showSource ? ' no-source' : ''}${showDesc ? ' with-desc' : ''}`}>
+            <div className={`params-grid-header ${!showSource ? 'no-source' : ''}`}>
+              <span />
+              <span>Name</span>
+              {showSource && <span>Source</span>}
+              <span>Value</span>
+              <span className="params-col-actions" aria-hidden />
             </div>
-            );
-          })}
+
+            {params.map((p, i) => {
+              const { source, displayValue } = resolveVariableSource(p.value, sourceMap);
+              return (
+                <div
+                  key={i}
+                  className={`params-row-group${!p.enabled ? ' is-disabled' : ''}${drag.isDragOver(i) ? ' is-drag-over' : ''}${drag.isDragging(i) ? ' is-dragging' : ''}`}
+                  onDragOver={(e) => drag.onDragOver(e, i)}
+                  onDrop={(e) => drag.onDrop(e, i)}
+                >
+                  <div className={`params-row ${!showSource ? 'no-source' : ''}`}>
+                    <span
+                      className="params-drag-handle"
+                      title="Drag to reorder"
+                      draggable
+                      onDragStart={(e) => drag.onDragStart(e, i)}
+                      onDragEnd={drag.onDragEnd}
+                      role="button"
+                      tabIndex={-1}
+                      aria-label={`Reorder parameter ${i + 1}`}
+                    >
+                      ⠿
+                    </span>
+                    <input
+                      className="params-input"
+                      value={p.key}
+                      onChange={(e) => update(i, { key: e.target.value })}
+                      placeholder="name"
+                      disabled={!p.enabled}
+                      aria-label={`Parameter name ${i + 1}`}
+                    />
+                    {showSource && (
+                      <input
+                        className="params-input params-source-cell"
+                        readOnly
+                        value={source}
+                        title={source}
+                        tabIndex={-1}
+                        aria-label={`Source for parameter ${i + 1}`}
+                      />
+                    )}
+                    <div className="params-value-with-insert">
+                      <input
+                        className="params-input"
+                        value={displayValue}
+                        onChange={(e) => update(i, { value: e.target.value })}
+                        placeholder="value"
+                        disabled={!p.enabled}
+                        aria-label={`Parameter value ${i + 1}`}
+                      />
+                      {onInsertVariable && (
+                        <button
+                          type="button"
+                          className="btn btn-sm params-insert-var-btn"
+                          disabled={!p.enabled}
+                          title="Insert variable from workflow or upstream step"
+                          onClick={() => onInsertVariable(i, p.key)}
+                        >
+                          Insert…
+                        </button>
+                      )}
+                    </div>
+                    <div className="params-row-actions">
+                      <label className="params-toggle" title={p.enabled ? 'Disable parameter' : 'Enable parameter'}>
+                        <input
+                          type="checkbox"
+                          checked={p.enabled}
+                          onChange={(e) => update(i, { enabled: e.target.checked })}
+                          aria-label={p.enabled ? `Disable parameter ${i + 1}` : `Enable parameter ${i + 1}`}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="params-delete"
+                        onClick={() => removeRow(i)}
+                        title="Delete"
+                        aria-label={`Delete parameter ${i + 1}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                  {showDesc && (
+                    <div className="params-desc-line">
+                      <span className="params-desc-label">Description</span>
+                      <input
+                        className="params-input params-desc-input"
+                        value={p.description}
+                        onChange={(e) => update(i, { description: e.target.value })}
+                        placeholder="Optional note for this parameter"
+                        disabled={!p.enabled}
+                        aria-label={`Description for parameter ${i + 1}`}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
     </div>

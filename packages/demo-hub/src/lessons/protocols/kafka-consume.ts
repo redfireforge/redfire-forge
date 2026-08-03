@@ -260,18 +260,11 @@ export const kafkaConsumeLesson: DemoLesson = {
       description:
         'The **Consume** tab is your Kafka consumer. Set a **Topic**, choose a **Start Position**, cap the batch with **Max Messages**, and click **Consume Once** to pull a snapshot of messages from the broker.',
       highlight: KAFKA.CONSUME_TAB,
-      preAction: async (ctx) => {
-        // Switch to the Consume tab first so the form is visible.
+      action: async (ctx) => {
         await ctx.click(KAFKA.CONSUME_TAB);
-        await ctx.delay(300);
-        // Ensure "Consume Once" mode is active — if the user previously switched
-        // to Stream mode, con-consume-btn won't be in the DOM and the consume
-        // step would silently fail.
-        await ctx.click(KAFKA.CON_MODE_ONCE);
-        await ctx.delay(200);
-        // Clear stale filters left by prior lessons (e.g. K4 Headers & Filters
-        // leaves JSONPath $.status = CREATED which silently filters out results)
-        await clearAllFilters(ctx);
+        await ctx.delay(800);
+        await ctx.waitFor(KAFKA.CONSUME_TAB, 3000);
+        await ctx.delay(600);
       },
     },
 
@@ -282,6 +275,12 @@ export const kafkaConsumeLesson: DemoLesson = {
       description:
         'Type the demo topic name — the topic our setup pre-seeded with varied order events. The Consume Studio will read messages from this topic.',
       highlight: KAFKA.CON_TOPIC_INPUT,
+      preAction: async (ctx) => {
+        // Normalize once-mode + clear stale filters here so lesson opening stays calm.
+        await ctx.click(KAFKA.CON_MODE_ONCE);
+        await ctx.delay(120);
+        await clearAllFilters(ctx);
+      },
       action: async (ctx) => {
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
         await ctx.delay(400);

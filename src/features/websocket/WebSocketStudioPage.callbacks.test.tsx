@@ -524,24 +524,25 @@ describe('WebSocketStudioPage internal callbacks', () => {
   });
 
   describe('handleMockPortChange', () => {
-    it('ignores port changes that conflict with another tab', async () => {
+    it('reassigns conflicting tab when applying an in-use port', async () => {
       vi.useFakeTimers();
       await renderPage({
         tabs: [
-          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect' },
-          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect' },
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect', mockPort: 9876 },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect', mockPort: 9877 },
         ],
         activeTabId: 'ws-tab-1',
         renamedTabIds: [],
       });
-      const onMockPortChange1 = capturedTabContentProps['ws-tab-1'].onMockPortChange as (id: string, port: number) => void;
       const onMockPortChange2 = capturedTabContentProps['ws-tab-2'].onMockPortChange as (id: string, port: number) => void;
-      act(() => { onMockPortChange1('ws-tab-1', 9876); });
-      act(() => { vi.advanceTimersByTime(350); });
       act(() => { onMockPortChange2('ws-tab-2', 9876); });
       act(() => { vi.advanceTimersByTime(350); });
       vi.useRealTimers();
-      expect(capturedTabContentProps['ws-tab-2'].mockPort).not.toBe(9876);
+      const saved = vi.mocked(storageModule.saveWsTabState).mock.calls.at(-1)?.[0];
+      const tab1 = saved?.tabs?.find((t) => t.id === 'ws-tab-1');
+      const tab2 = saved?.tabs?.find((t) => t.id === 'ws-tab-2');
+      expect(tab2?.mockPort).toBe(9876);
+      expect(tab1?.mockPort).toBe(9877);
     });
 
     it('restores persisted mockPort on tab load', async () => {
@@ -553,6 +554,99 @@ describe('WebSocketStudioPage internal callbacks', () => {
         renamedTabIds: [],
       });
       expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9999);
+    });
+
+    it('pins a single default New Connection tab to port 9876', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: '', viewTab: 'connect', mockPort: 9999 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9876);
+    });
+
+    it('normalizes single default tab localhost URL to port 9876', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9878', viewTab: 'connect', mockPort: 9999 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9876);
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string; url?: string }>;
+      expect(tabs[0]?.url).toBe('ws://localhost:9876');
+      expect(capturedTabContentProps['ws-tab-1'].initialUrl).toBe('ws://localhost:9876');
+    });
+
+    it('pins the demo tab to port 9876 when another tab holds the base port', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9876', viewTab: 'connect', mockPort: 9876 },
+          { id: 'ws-tab-2', label: 'demo', url: 'ws://localhost:9878', viewTab: 'mock', mockPort: 9878 },
+        ],
+        activeTabId: 'ws-tab-2',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-2'].mockPort).toBe(9876);
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9878);
+      expect(capturedTabContentProps['ws-tab-2'].initialUrl).toBe('ws://localhost:9876');
+    });
+
+    it('pins the first New Connection tab to 9876 even when persisted as 9878', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9878', viewTab: 'mock', mockPort: 9878 },
+          { id: 'ws-tab-2', label: 'New Connection', url: '', viewTab: 'connect', mockPort: 9879 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9876);
+      expect(capturedTabContentProps['ws-tab-1'].initialUrl).toBe('ws://localhost:9876');
+      expect(capturedTabContentProps['ws-tab-2'].mockPort).toBe(9879);
+    });
+
+    it('adding a second tab after sole sticky 9878 remaps Tab1→9876 and assigns Tab2→9877', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9878', viewTab: 'mock', mockPort: 9878 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      // Load already pins sole tab to 9876 — simulate sticky leftover mid-session.
+      const onMockPortChange = capturedTabContentProps['ws-tab-1'].onMockPortChange as (
+        id: string,
+        port: number,
+      ) => void;
+      act(() => { onMockPortChange('ws-tab-1', 9878); });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9878);
+
+      act(() => { capturedTabBarProps.onAdd(); });
+
+      const tabIds = Object.keys(capturedTabContentProps);
+      expect(tabIds.length).toBe(2);
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9876);
+      const newTabId = tabIds.find((id) => id !== 'ws-tab-1')!;
+      expect(capturedTabContentProps[newTabId].mockPort).toBe(9877);
+    });
+
+    it('reassigns conflicting tab mockPort prop after swap (state, not ref-only)', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect', mockPort: 9876 },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect', mockPort: 9877 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      const onMockPortChange2 = capturedTabContentProps['ws-tab-2'].onMockPortChange as (id: string, port: number) => void;
+      act(() => { onMockPortChange2('ws-tab-2', 9876); });
+      expect(capturedTabContentProps['ws-tab-2'].mockPort).toBe(9876);
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9877);
     });
 
     it('assigns alternate port when persisted mockPort conflicts', async () => {

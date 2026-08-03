@@ -72,10 +72,11 @@ async function sseTabsSetup(ctx: DemoActionContext): Promise<void> {
 }
 
 async function sseTabsCleanup(ctx: DemoActionContext): Promise<void> {
+  // Quiet teardown only — Exit → Contents pins navigateToTab to demo-hub, so
+  // do not force a Studio/header tour here (that was the Contents-page flash).
   await disconnectSseIfConnected(ctx);
   await closeExtraSseConnectionTabs(ctx);
   await clearSseEvents(ctx);
-  await navigateToSseStudio(ctx);
 }
 
 export const sseTabsLesson: DemoLesson = {
@@ -150,6 +151,7 @@ Real-world debugging often requires comparing event streams side by side — pro
         'You can **drag tabs** to reorder them, **right-click** for a context menu, or use the **+** button to add new connections.',
       highlight: SSE.CONN_TAB_BAR,
       preAction: async (ctx) => {
+        await ensureSseDemoHeaderContext(ctx);
         await navigateToSseStudio(ctx);
         await ctx.delay(300);
       },
@@ -165,6 +167,7 @@ Real-world debugging often requires comparing event streams side by side — pro
         'timestamp, and payload.',
       highlight: SSE.CONNECT_BTN,
       preAction: async (ctx) => {
+        await ensureSseDemoHeaderContext(ctx);
         await navigateToSseStudio(ctx);
         await switchToSseTab(ctx, 0);
         const connectTab = document.querySelector<HTMLElement>(SSE.LEFT_TAB_CONNECT);
@@ -191,6 +194,7 @@ Real-world debugging often requires comparing event streams side by side — pro
         'buffering events even while you\'re on Tab 2.',
       highlight: SSE.CONN_TAB_ADD,
       preAction: async (ctx) => {
+        await ensureSseDemoHeaderContext(ctx);
         await navigateToSseStudio(ctx);
         if (getSseTabCount() >= 2) return;
         await switchToSseTab(ctx, 0);
@@ -214,6 +218,7 @@ Real-world debugging often requires comparing event streams side by side — pro
         'but receiving **completely separate event streams**.',
       highlight: SSE.CONNECT_BTN,
       preAction: async (ctx) => {
+        await ensureSseDemoHeaderContext(ctx);
         await navigateToSseStudio(ctx);
         await ensureTwoSseTabs(ctx);
         await switchToSseTab(ctx, 1);

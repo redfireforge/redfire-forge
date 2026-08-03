@@ -368,7 +368,7 @@ export interface KafkaSchemaSubjectsRequest {
 }
 
 export interface KafkaSchemaSubjectsResult {
-  subjects: string[];
+  subjects: Array<{ name: string; schemaType?: string }>;
 }
 
 /**

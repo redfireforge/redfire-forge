@@ -612,9 +612,7 @@ describe('WebSocketConnectPanel', () => {
       })} />);
       fireEvent.click(screen.getByTestId('disconnect-caret'));
       expect(screen.getByTestId('close-code-dropdown')).toBeTruthy();
-      const cancelBtn = screen.getByTestId('close-code-dropdown').querySelectorAll('button');
-      const cancel = Array.from(cancelBtn).find(b => b.textContent === 'Cancel');
-      fireEvent.click(cancel!);
+      fireEvent.click(screen.getByTestId('close-code-cancel'));
       expect(screen.queryByTestId('close-code-dropdown')).toBeNull();
     });
 
@@ -971,7 +969,7 @@ describe('WebSocketConnectPanel', () => {
       expect(firstPreset).toBeTruthy();
       fireEvent.click(firstPreset!);
       // The selected preset becomes active
-      expect(firstPreset!.className).toContain('active');
+      expect(firstPreset!.className).toContain('is-active');
     });
   });
 });

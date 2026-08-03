@@ -64,7 +64,7 @@ describe('KafkaSchemaRegistryPage', () => {
     mockDispatch = vi.fn();
   });
 
-  it('renders KafkaStudioGuard when not connected', () => {
+  it('renders schema registry content even when cluster is disconnected', () => {
     render(
       <KafkaSchemaRegistryPage
         kafkaState={makeKafkaState({ connection: { state: 'disconnected' } as never })}
@@ -73,8 +73,8 @@ describe('KafkaSchemaRegistryPage', () => {
       />,
     );
 
-    expect(screen.getByText('Cluster is not connected')).toBeTruthy();
-    expect(screen.queryByTestId('schema-registry-page')).toBeNull();
+    // Schema Registry doesn't require a Kafka broker connection
+    expect(screen.getByTestId('schema-registry-page')).toBeTruthy();
   });
 
   it('renders URL prompt when connected but URL blank', () => {

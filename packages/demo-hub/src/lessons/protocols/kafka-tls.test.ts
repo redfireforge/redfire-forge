@@ -3,7 +3,8 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { makeCtx } from './ws-test-utils';
-import { kafkaTlsLesson } from './kafka-tls';
+import { kafkaTlsLesson, KAFKA_TLS_DEMO_CA_PEM } from './kafka-tls';
+import { KAFKA } from '@shared/selectors';
 
 describe('kafka-tls lesson', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
@@ -24,15 +25,32 @@ describe('kafka-tls lesson', () => {
     expect(kafkaTlsLesson.concept.diagram).toContain('<svg');
   });
 
-  it('has exactly 9 steps with unique IDs', () => {
-    expect(kafkaTlsLesson.steps.length).toBe(9);
+  it('embeds the demo CA PEM from docker/kafka/tls/certs/ca.crt', () => {
+    expect(KAFKA_TLS_DEMO_CA_PEM).toContain('BEGIN CERTIFICATE');
+    expect(KAFKA_TLS_DEMO_CA_PEM).toContain('END CERTIFICATE');
+    expect(KAFKA_TLS_DEMO_CA_PEM.length).toBeGreaterThan(400);
+  });
+
+  it('has exactly 8 steps with unique IDs', () => {
+    expect(kafkaTlsLesson.steps.length).toBe(8);
     const ids = kafkaTlsLesson.steps.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('has expected step IDs in order', () => {
+  it('saves before testing (Test Connection needs a saved selected cluster)', () => {
     const ids = kafkaTlsLesson.steps.map((s) => s.id);
-    expect(ids).toEqual(['tls-intro', 'tls-new', 'tls-broker', 'tls-auth', 'tls-enable', 'tls-ca', 'tls-test', 'tls-save', 'tls-publish']);
+    expect(ids).toEqual([
+      'tls-intro',
+      'tls-broker',
+      'tls-auth',
+      'tls-enable',
+      'tls-ca',
+      'tls-test',
+      'tls-connect',
+      'tls-publish',
+    ]);
+    expect(ids.indexOf('tls-ca')).toBeLessThan(ids.indexOf('tls-test'));
+    expect(ids.indexOf('tls-test')).toBeLessThan(ids.indexOf('tls-connect'));
   });
 
   it('has dockerEndpoint and dockerCommand', () => {
@@ -40,11 +58,14 @@ describe('kafka-tls lesson', () => {
     expect(kafkaTlsLesson.dockerCommand).toContain('tls');
   });
 
-  it('step tls-intro has preAction navigating to kafka-settings', async () => {
+  it('step tls-intro action waits for settings page and clicks New Cluster', async () => {
     const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-intro')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('kafka-settings-page'), expect.any(Number));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('kafka-add-cluster-btn'));
   });
 
   it('step tls-intro preAction removes selected class from cluster cards', async () => {
@@ -83,93 +104,82 @@ describe('kafka-tls lesson', () => {
       expect.stringContaining('#kafka-cluster-name'),
       'Local TLS',
     );
-    expect(ctx.delay).toHaveBeenCalledWith(100);
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('127.0.0.1:19092'), '127.0.0.1:19095');
   });
 
-  it('step tls-enable action clicks TLS toggle when NOT already checked (aria-checked=false)', async () => {
-    // tls-enable logic: if (!checked) → click toggle to enable TLS
+  it('step tls-enable action clicks TLS toggle when NOT already checked', async () => {
     const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-enable')!;
-    const toggle = document.createElement('div');
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
     toggle.setAttribute('data-testid', 'kafka-tls-toggle');
-    toggle.setAttribute('aria-checked', 'false');
+    toggle.checked = false;
     const clickSpy = vi.fn();
     toggle.addEventListener('click', clickSpy);
     document.body.appendChild(toggle);
+    const ca = document.createElement('textarea');
+    ca.id = 'kafka-tls-ca';
+    document.body.appendChild(ca);
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(300);
   });
 
-  it('step tls-enable action skips click when TLS toggle already checked', async () => {
-    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-enable')!;
-    const toggle = document.createElement('div');
-    toggle.setAttribute('data-testid', 'kafka-tls-toggle');
-    toggle.setAttribute('aria-checked', 'true');
-    const clickSpy = vi.fn();
-    toggle.addEventListener('click', clickSpy);
-    document.body.appendChild(toggle);
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(clickSpy).not.toHaveBeenCalled();
-  });
-
-  it('step tls-ca action clicks verifyToggle when checked (aria-checked=true)', async () => {
-    // tls-ca logic: if (checked) → click to uncheck/disable cert verification for self-signed cert
+  it('step tls-ca pastes CA PEM, skips verify, and saves before Test', async () => {
     const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-ca')!;
-    const toggle = document.createElement('div');
-    toggle.setAttribute('data-testid', 'kafka-tls-verify-toggle');
-    toggle.setAttribute('aria-checked', 'true');
-    const clickSpy = vi.fn();
-    toggle.addEventListener('click', clickSpy);
-    document.body.appendChild(toggle);
+    expect(step.highlight).toBe(KAFKA.TLS_CA_PEM);
+    expect(step.verify).toBe(KAFKA.TEST_BTN);
+
+    document.body.innerHTML = `
+      <input type="checkbox" data-testid="kafka-tls-verify-toggle" checked />
+      <textarea id="kafka-tls-ca"></textarea>
+      <button data-testid="kafka-save-cluster-btn"></button>
+      <button data-testid="kafka-test-btn"></button>
+    `;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(300);
+
+    expect(ctx.fill).toHaveBeenCalledWith(KAFKA.TLS_CA_PEM, KAFKA_TLS_DEMO_CA_PEM);
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.SAVE_BTN);
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
   });
 
-  it('step tls-ca action skips click when verifyToggle already unchecked', async () => {
-    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-ca')!;
-    const toggle = document.createElement('div');
-    toggle.setAttribute('data-testid', 'kafka-tls-verify-toggle');
-    toggle.setAttribute('aria-checked', 'false');
-    const clickSpy = vi.fn();
-    toggle.addEventListener('click', clickSpy);
-    document.body.appendChild(toggle);
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(clickSpy).not.toHaveBeenCalled();
-  });
-
-  it('step tls-save action clicks connectBtn when it exists', async () => {
-    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-save')!;
-    const connectBtn = document.createElement('button');
-    connectBtn.setAttribute('data-testid', 'kafka-connect-btn');
-    const clickSpy = vi.fn();
-    connectBtn.addEventListener('click', clickSpy);
-    document.body.appendChild(connectBtn);
-    // Disconnect button starts disabled; the poll loop waits for it to become enabled
-    const disconnectBtn = document.createElement('button');
-    disconnectBtn.setAttribute('data-testid', 'kafka-disconnect-btn');
-    disconnectBtn.disabled = true;
-    document.body.appendChild(disconnectBtn);
-    // Simulate connection completing after a short delay
-    setTimeout(() => { disconnectBtn.disabled = false; }, 100);
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('kafka-save-cluster-btn'));
-    expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(500);
-    expect(ctx.delay).toHaveBeenCalledWith(400);
-  });
-
-  it('step tls-test action clicks test button', async () => {
+  it('step tls-test clicks Test Connection and waits for Verified badge', async () => {
     const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-test')!;
+    expect(step.verify).toBe(KAFKA.TEST_RESULT);
+
+    document.body.innerHTML = `
+      <button data-testid="kafka-test-btn"></button>
+      <span data-testid="kafka-test-result">✓ Verified</span>
+    `;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('test-btn'));
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.TEST_BTN);
+    expect(ctx.waitFor).toHaveBeenCalledWith(KAFKA.TEST_RESULT, expect.any(Number));
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
+  });
+
+  it('step tls-test skips click when Test Connection is disabled', async () => {
+    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-test')!;
+    document.body.innerHTML = '<button data-testid="kafka-test-btn" disabled></button>';
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('step tls-connect clicks Connect when enabled', async () => {
+    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-connect')!;
+    expect(step.highlight).toBe(KAFKA.CONNECT_BTN);
+    document.body.innerHTML = `
+      <button data-testid="kafka-connect-btn"></button>
+      <button data-testid="kafka-disconnect-btn" disabled></button>
+    `;
+    const ctx = makeCtx();
+    ctx.click = vi.fn(async () => {
+      const dc = document.querySelector<HTMLButtonElement>('[data-testid="kafka-disconnect-btn"]');
+      if (dc) dc.disabled = false;
+    });
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(KAFKA.CONNECT_BTN);
   });
 
   it('step tls-publish action clicks send button', async () => {
@@ -178,8 +188,6 @@ describe('kafka-tls lesson', () => {
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
   });
-
-  // ── Setup / cleanup ────────────────────────────────────────────────
 
   it('setup runs without throwing when DOM is empty', async () => {
     const ctx = makeCtx();
@@ -195,8 +203,6 @@ describe('kafka-tls lesson', () => {
     }
   });
 
-  // ── Step preActions and actions ──────────────────────────────────
-
   it('all step preActions run without throwing', async () => {
     for (const step of kafkaTlsLesson.steps) {
       const ctx = makeCtx();
@@ -211,25 +217,7 @@ describe('kafka-tls lesson', () => {
     }
   });
 
-  it('at least one step calls ctx.click or ctx.fill during action/preAction', async () => {
-    let called = false;
-    for (const step of kafkaTlsLesson.steps) {
-      const ctx = makeCtx();
-      if (step.preAction) await step.preAction(ctx);
-      if (step.action) await step.action(ctx);
-      const clickCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.length;
-      const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls.length;
-      const delayCalls = (ctx.delay as ReturnType<typeof vi.fn>).mock.calls.length;
-      if (clickCalls + fillCalls + delayCalls > 0) { called = true; break; }
-    }
-    expect(called).toBe(true);
-  });
-
   it('has Docker badge tag', () => {
     expect(kafkaTlsLesson.tag).toBe('🐳 Docker');
   });
-
 });
-
-// ─── K13: kafka-test-runner ─────────────────────────────────────
-

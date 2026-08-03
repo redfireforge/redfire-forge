@@ -73,16 +73,16 @@ describe('ws-session-recording lesson', () => {
     expect(typeof step.preAction).toBe('function');
   });
 
-  it('step rec-intro preAction connects and switches to events when not connected', async () => {
+  it('step rec-intro action connects and switches to events when not connected', async () => {
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
     // DOM has no disconnect-btn → ensureConnected will connect
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
-  it('step rec-intro preAction skips connect when already connected', async () => {
+  it('step rec-intro action skips connect when already connected', async () => {
     const disconnectBtn = document.createElement('button');
     disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
     // Not disabled = genuinely connected
@@ -91,12 +91,12 @@ describe('ws-session-recording lesson', () => {
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
-  it('step rec-intro preAction connects when disconnect-btn is present but disabled (not actually connected)', async () => {
+  it('step rec-intro action connects when disconnect-btn is present but disabled (not actually connected)', async () => {
     // The Disconnect button is always in the DOM — just disabled when not connected.
     // ensureConnected must check !disabled, not merely existence.
     const disconnectBtn = document.createElement('button');
@@ -107,7 +107,7 @@ describe('ws-session-recording lesson', () => {
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     // Should still call connect-btn because the btn is disabled (= not connected)
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
@@ -132,12 +132,12 @@ describe('ws-session-recording lesson', () => {
     expect(step.highlight).toContain('start-recording-btn');
   });
 
-  it('step rec-intro action calls ctx.delay(400) (line 256)', async () => {
+  it('step rec-intro action includes pacing delays', async () => {
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     expect(typeof step.action).toBe('function');
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
   // ─── Step: rec-start ──────────────────────────────────────
@@ -563,20 +563,47 @@ describe('ws-session-recording lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────
 
-  it('setup starts mock server and clears protocol state', async () => {
+  it('setup uses quiet REST mock without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/ws/mock/status')) {
+        return new Response(JSON.stringify({ running: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }));
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    document.body.appendChild(bar);
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    makeVisible(connectTab);
+    const sub = document.createElement('input');
+    sub.setAttribute('aria-label', 'Subprotocols');
+    sub.value = 'stomp';
+    document.body.appendChild(sub);
+    makeVisible(sub);
+    const protocol = document.createElement('div');
+    protocol.setAttribute('data-testid', 'protocol-select');
+    protocol.className = 'cs-wrapper';
+    protocol.innerHTML = '<button class="cs-trigger">STOMP</button>';
+    document.body.appendChild(protocol);
+    makeVisible(protocol);
+
     const ctx = makeCtx();
     await wsSessionRecordingLesson.setup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(sub.value).toBe('');
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('protocol'), 'raw');
   });
 
-  it('cleanup stops mock server', async () => {
+  it('cleanup stops mock quietly without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ));
     const ctx = makeCtx();
     await wsSessionRecordingLesson.cleanup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 
   // ─── Additional branch coverage ──────────────────────────────

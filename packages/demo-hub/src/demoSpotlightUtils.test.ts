@@ -46,6 +46,10 @@ describe('demoSpotlightUtils', () => {
     expect(findFirstVisibleElement('.pick-me')).toBe(visible);
   });
 
+  it('findFirstVisibleElement returns null for invalid selector syntax', () => {
+    expect(findFirstVisibleElement(']invalid-selector[')).toBeNull();
+  });
+
   it('findFirstVisibleElement skips elements inside hidden ancestors', () => {
     const wrapper = document.createElement('div');
     wrapper.hidden = true;

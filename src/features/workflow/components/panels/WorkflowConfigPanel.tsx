@@ -21,6 +21,7 @@ import type { HttpTab } from '../configs/HttpConfig';
 import ConditionConfig from '../configs/ConditionConfig';
 import DelayConfig from '../configs/DelayConfig';
 import VariablesSection from './VariablesSection';
+import StartConfig from '../configs/StartConfig';
 import WorkflowModalScrollBody from '../modals/WorkflowModalScrollBody';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
@@ -179,11 +180,9 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
       )}
 
       {node.type === 'start' && (
-        <VariablesSection
-          title="Trigger input variables"
-          hint="Variables seeded when the workflow starts. Available as {{name}} in all downstream steps."
-          variables={(node.data as StartNodeData).inputVariables ?? {}}
-          onUpdateVariables={(vars) => onUpdateNode(node.id, { inputVariables: vars })}
+        <StartConfig
+          data={node.data as StartNodeData}
+          onChange={(patch) => onUpdateNode(node.id, patch)}
           newVarKey={newVarKey}
           setNewVarKey={setNewVarKey}
           newVarValue={newVarValue}

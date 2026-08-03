@@ -219,45 +219,30 @@ const steps: DemoStep[] = [
       '- **Native Diagnostics** — desktop-only gRPC connection diagnostics\n\n' +
       'This lesson focuses on **Load testing**.',
     highlight: GRPC.SUB_NAV_ADVANCED,
-    preAction: async (ctx) => {
-      // Skip the Manage Schemas draft reset — this lesson uses server reflection,
-      // never staged schema sources. Running it would cycle the Manage Schemas
-      // modal across every tab, flashing a burst of modals before step 1.
-      await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
-      await ensureGrpcReflected(ctx);
-      await ensureEchoMessageFilled(ctx, LOAD_TEST_BODY_MESSAGE);
-      await clearGrpcSchemaDriftQuiet(ctx);
-      await closeGrpcSettingsDrawerQuiet(ctx);
-    },
     action: async (ctx) => {
-      // Click Studio tab visibly so the viewer sees the starting context.
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 800);
-      await ctx.click(GRPC.SUB_NAV_STUDIO);
-      await ctx.delay(800);
-
       // Click the Advanced sub-nav tab.
       await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, 800);
       await ctx.click(GRPC.SUB_NAV_ADVANCED);
-      await ctx.delay(700);
+      await ctx.delay(1000);
 
       try {
         await ctx.waitFor(GRPC.ADVANCED_SHELL, 5_000);
       } catch {
         // Shell renders fast — continue.
       }
-      await ctx.delay(300);
+      await ctx.delay(700);
 
       // Tour the Advanced nav tabs so the viewer reads each name.
       await spotlightAndPause(ctx, GRPC.ADVANCED_NAV, 800);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('load_test'), 700);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('mock_server'), 700);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('schema_diff'), 700);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('rpc_statistics'), 700);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('native_diagnostics'), 700);
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('load_test'), 900);
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('mock_server'), 900);
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('schema_diff'), 900);
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('rpc_statistics'), 900);
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('native_diagnostics'), 900);
 
       // Land on Load testing.
       await ctx.click(GRPC.ADVANCED_TAB('load_test'));
-      await ctx.delay(500);
+      await ctx.delay(900);
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_PANEL, 900);
     },
     verify: GRPC.LOAD_TEST_PANEL,

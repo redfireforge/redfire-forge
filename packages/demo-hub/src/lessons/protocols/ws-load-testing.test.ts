@@ -5,6 +5,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsLoadTestingLesson } from './ws-load-testing';
 import { makeCtx, makeVisible } from './ws-test-utils';
 
+vi.mock('../../demoRipple', () => ({
+  showSpotlightRing: vi.fn(() => vi.fn()),
+  purgeAllSpotlightRings: vi.fn(),
+}));
+
 describe('ws-load-testing lesson', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -57,6 +62,10 @@ describe('ws-load-testing lesson', () => {
     expect(wsLoadTestingLesson.category).toBe('websocket');
   });
 
+  it('skips studio tab isolation so live start does not add/rename a demo tab', () => {
+    expect(wsLoadTestingLesson.skipStudioTabIsolation).toBe(true);
+  });
+
   it('has correct step IDs in order', () => {
     const ids = wsLoadTestingLesson.steps.map(s => s.id);
     expect(ids).toEqual([
@@ -69,19 +78,29 @@ describe('ws-load-testing lesson', () => {
     expect(wsLoadTestingLesson.estimatedMinutes).toBe(4);
   });
 
-  it('step lt-intro preAction navigates to Events tab quietly first', async () => {
+  it('step lt-intro opens Load Test without a reading highlight flash', async () => {
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-intro')!;
+    expect(step.highlight).toBeUndefined();
     expect(typeof step.preAction).toBe('function');
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('events'));
-  });
 
-  it('step lt-intro action clicks load test tab with ripple', async () => {
-    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-intro')!;
+    const events = document.createElement('button');
+    events.setAttribute('data-testid', 'right-tab-events');
+    events.classList.add('active');
+    document.body.appendChild(events);
+    makeVisible(events);
+    const loadTest = document.createElement('button');
+    loadTest.setAttribute('data-testid', 'right-tab-loadtest');
+    document.body.appendChild(loadTest);
+    makeVisible(loadTest);
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+    makeVisible(config);
+
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-loadtest'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('lt-config'), expect.any(Number));
   });
 
   it('step lt-template has a preAction guard for LT panel', () => {
@@ -89,23 +108,53 @@ describe('ws-load-testing lesson', () => {
     expect(typeof step.preAction).toBe('function');
   });
 
-  it('step lt-template action fills template with counter and timestamp', async () => {
+  it('step lt-template action fills pretty JSON template live', async () => {
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-template')!;
+    const ta = document.createElement('textarea');
+    ta.setAttribute('data-testid', 'lt-message-template');
+    document.body.appendChild(ta);
+    makeVisible(ta);
+
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('ping'));
     const fillArg: string = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls[0][1];
     expect(fillArg).toContain('{{counter}}');
     expect(fillArg).toContain('{{timestamp}}');
+    expect(fillArg).toContain('\n'); // pretty-printed, not minified
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('lt-format-btn'));
   });
 
-  it('step lt-profile has a preAction guard for LT panel', () => {
+  it('step lt-profile preAction quietly selects Constant only when not already active', async () => {
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-profile')!;
     expect(typeof step.preAction).toBe('function');
+    expect(step.highlight).toContain('lt-profile-constant');
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+    makeVisible(config);
+    const constant = document.createElement('button');
+    constant.setAttribute('data-testid', 'lt-profile-constant');
+    constant.classList.add('active');
+    document.body.appendChild(constant);
+    makeVisible(constant);
+    const clickSpy = vi.fn();
+    constant.addEventListener('click', clickSpy);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Already active — no flash click
+    expect(clickSpy).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('lt-profile-constant'));
   });
 
   it('step lt-profile action tours all three profiles (ramp → burst → constant)', async () => {
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-profile')!;
+    for (const id of ['lt-profile-ramp', 'lt-profile-burst', 'lt-profile-constant']) {
+      const btn = document.createElement('button');
+      btn.setAttribute('data-testid', id);
+      document.body.appendChild(btn);
+      makeVisible(btn);
+    }
     const ctx = makeCtx();
     await step.action!(ctx);
     // Should click: ramp, burst, constant
@@ -114,6 +163,8 @@ describe('ws-load-testing lesson', () => {
     expect(calls.some((s: string) => s.includes('ramp'))).toBe(true);
     expect(calls.some((s: string) => s.includes('burst'))).toBe(true);
     expect(calls.some((s: string) => s.includes('constant'))).toBe(true);
+    // Last click settles on Constant
+    expect(calls[calls.length - 1]).toContain('constant');
   });
 
   it('step lt-settings preAction ensures constant profile is selected', async () => {
@@ -268,8 +319,7 @@ describe('ws-load-testing lesson', () => {
 
   it('cleanup handles missing DOM elements gracefully', async () => {
     const ctx = makeCtx();
-    await wsLoadTestingLesson.cleanup!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    await expect(wsLoadTestingLesson.cleanup!(ctx)).resolves.toBeUndefined();
   });
 
   it('cleanup clicks stop button when present', async () => {
@@ -298,10 +348,11 @@ describe('ws-load-testing lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('setup is callable', async () => {
+  it('setup is callable without demo ripples', async () => {
     const ctx = makeCtx();
-    await wsLoadTestingLesson.setup!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    await expect(wsLoadTestingLesson.setup!(ctx)).resolves.toBeUndefined();
+    // Quiet setup uses REST + DOM clicks — no ctx.click ripples
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step lt-results preAction runs full ensureTestResults when no results', async () => {
@@ -344,18 +395,30 @@ describe('ws-load-testing lesson', () => {
     expect(ctx.click).toHaveBeenCalled();
   });
 
-  it('step lt-template preAction navigates to LT tab when config not visible', async () => {
+  it('step lt-template preAction quietly opens LT tab when config not visible', async () => {
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-template')!;
+    const loadTest = document.createElement('button');
+    loadTest.setAttribute('data-testid', 'right-tab-loadtest');
+    document.body.appendChild(loadTest);
+    makeVisible(loadTest);
+    const clickSpy = vi.fn();
+    loadTest.addEventListener('click', clickSpy);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('loadtest'));
+    expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('step lt-profile preAction navigates to LT tab when config not visible', async () => {
+  it('step lt-profile preAction quietly opens LT tab when config not visible', async () => {
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-profile')!;
+    const loadTest = document.createElement('button');
+    loadTest.setAttribute('data-testid', 'right-tab-loadtest');
+    document.body.appendChild(loadTest);
+    makeVisible(loadTest);
+    const clickSpy = vi.fn();
+    loadTest.addEventListener('click', clickSpy);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('loadtest'));
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   it('ensureTestResults fills empty template before running', async () => {

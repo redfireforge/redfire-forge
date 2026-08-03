@@ -105,7 +105,7 @@ describe('useDemoShortcuts', () => {
     expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
   });
 
-  it('Escape in live mode exits demo and navigates to demo-hub', () => {
+  it('Escape in live mode exits demo and pins demo-hub after cleanup', async () => {
     const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
     renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
 
@@ -115,10 +115,12 @@ describe('useDemoShortcuts', () => {
     });
     const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
     window.dispatchEvent(event);
+    await Promise.resolve();
 
     expect(preventDefaultSpy).toHaveBeenCalled();
     expect(hub.exitLiveDemo).toHaveBeenCalled();
     expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
+    expect(setActiveTab).toHaveBeenCalledTimes(2);
   });
 
   it('ArrowRight in live mode calls nextStep when in reading phase', () => {

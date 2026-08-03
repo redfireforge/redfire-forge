@@ -104,27 +104,8 @@ Once saved and connected, your cluster is available across the entire app: Publi
         });
       },
       action: async (ctx) => {
-        await ctx.waitFor(APP.AB_SETTINGS, 2500);
-
-        const settingsBtn = document.querySelector<HTMLElement>(APP.AB_SETTINGS);
-        if (settingsBtn) {
-          const remove = showSpotlightRing(settingsBtn);
-          await ctx.delay(500);
-          remove();
-        }
-        await ctx.click(APP.AB_SETTINGS);
-        await ctx.delay(250);
-
-        await ctx.waitFor(APP.NAV_TAB_KAFKA_SETTINGS, 2500);
-
-        const kafkaTab = document.querySelector<HTMLElement>(APP.NAV_TAB_KAFKA_SETTINGS);
-        if (kafkaTab) {
-          const remove = showSpotlightRing(kafkaTab);
-          await ctx.delay(500);
-          remove();
-        }
-        await ctx.click(APP.NAV_TAB_KAFKA_SETTINGS);
         await ctx.waitFor(KAFKA.SETTINGS_PAGE, 2500);
+        await ctx.delay(700);
       },
     },
 

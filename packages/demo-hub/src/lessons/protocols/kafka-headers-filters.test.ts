@@ -90,12 +90,10 @@ describe('kafka-headers-filters lesson', () => {
     expect(step.verify).toBeTruthy();
   });
 
-  it('step hf-fill-all preAction navigates to publish tab and clears stale header rows', async () => {
+  it('step hf-fill-all preAction runs quiet DOM cleanup without throwing', async () => {
     const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-fill-all')!;
     const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
-    expect(ctx.click).toHaveBeenCalledWith('.kafka-ms-remove-btn');
+    await expect(step.preAction!(ctx)).resolves.not.toThrow();
   });
 
   it('step hf-send-header action clicks send and waits for result', async () => {

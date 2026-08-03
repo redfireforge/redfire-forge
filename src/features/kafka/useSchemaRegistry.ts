@@ -234,11 +234,15 @@ export function useSchemaRegistry(
     setSelectedVersion(null);
     setSchemaDetail(null);
     try {
-      const envelope = await dispatch<{ subjects: string[] }>('schema-subjects', {
+      const envelope = await dispatch<{ subjects: Array<string | { name: string; schemaType?: string }> }>('schema-subjects', {
         schemaConfig: buildSchemaConfig(registryConfig),
       });
-      const names = envelope.data?.subjects ?? [];
-      setSubjects(names.map((name) => ({ name })));
+      const raw = envelope.data?.subjects ?? [];
+      setSubjects(raw.map((entry) => {
+        if (typeof entry === 'string') return { name: entry };
+        const fmt = deriveSchemaFormat(entry.schemaType, undefined);
+        return { name: entry.name, format: fmt };
+      }));
       setHasLoadedOnce(true);
     } catch (err) {
       setSubjectsError(toKafkaUiSafeError(err, 'schema-subjects'));

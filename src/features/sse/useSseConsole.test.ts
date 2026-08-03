@@ -47,6 +47,26 @@ describe('useSseConsole', () => {
     expect(handshake?.detail).toContain('X-Trace: t');
   });
 
+  it('resolves {{sseUrl}} template in connecting and handshake console entries', () => {
+    const cfg: SseConnectionConfig = {
+      ...config,
+      url: '{{sseUrl}}/api/sse-test',
+    };
+    const map = { sseUrl: 'http://localhost:3001' };
+    const { result, rerender } = renderHook((p: UseSseConsoleParams) => useSseConsole(p), {
+      initialProps: params(snap({ state: 'idle' }), { config: cfg, envVarMap: map }),
+    });
+    rerender(params(snap({ state: 'connecting' }), { config: cfg, envVarMap: map }));
+    rerender(params(snap({ state: 'connected' }), { config: cfg, envVarMap: map }));
+
+    const connecting = result.current.entries.find((e) => e.message.includes('Connecting to'));
+    expect(connecting?.message).toContain('http://localhost:3001/api/sse-test');
+    expect(connecting?.message).not.toContain('{{sseUrl}}');
+
+    const handshake = result.current.entries.find((e) => e.category === 'handshake');
+    expect(handshake?.detail).toContain('http://localhost:3001/api/sse-test');
+  });
+
   it('records stream close on disconnect', () => {
     const { result, rerender } = renderHook((p: UseSseConsoleParams) => useSseConsole(p), {
       initialProps: params(snap({ state: 'connected' })),

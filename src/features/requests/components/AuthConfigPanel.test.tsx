@@ -80,10 +80,10 @@ describe('AuthConfigPanel', () => {
   });
 
   it('changes auth type via the type selector', () => {
-    const { onChange } = setup({ auth: { type: 'none' } });
-    const trigger = document.querySelector('.auth-type-select .cs-trigger')!;
+    const { onChange } = setup({ auth: { type: 'none' }, useCustomTypeDropdown: true });
+    const trigger = document.querySelector('.auth-type-select .auth-type-trigger')!;
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByText('Basic'));
+    fireEvent.click(screen.getByTestId('auth-type-opt-basic'));
     expect(onChange).toHaveBeenCalledWith({ type: 'basic' });
   });
 
@@ -191,13 +191,14 @@ describe('AuthConfigPanel', () => {
     const onProfileChange = vi.fn();
     setup({
       auth: { type: 'inherit' },
+      useCustomTypeDropdown: true,
       showProfileSelector: true,
       allAuthProfiles: PROFILES,
       globalAuthProfileId: 'p1',
       onProfileChange,
     });
     expect(screen.getByText(/Using/)).toBeInTheDocument();
-    const profileTrigger = document.querySelector('.global-profile-selector .cs-trigger')!;
+    const profileTrigger = document.querySelector('.global-profile-selector .auth-profile-trigger')!;
     fireEvent.click(profileTrigger);
     fireEvent.click(screen.getByText('Staging Basic'));
     expect(onProfileChange).toHaveBeenCalledWith('p2');

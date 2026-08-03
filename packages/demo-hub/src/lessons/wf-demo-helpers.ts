@@ -1,5 +1,6 @@
 /** Shared Workflow Designer demo helpers (console panel, config modal, app sidebar, etc.). */
 import type { DemoActionContext } from '../types';
+import { showSpotlightRing } from '../demoRipple';
 import {
   collapseAppSidebar,
   deselectAllWorkflowNodes,
@@ -8,11 +9,14 @@ import {
   getWorkflowByName,
   openWorkflowNodeConfig,
   resetWorkflowRunState,
+  seedNamedWorkflow,
   selectWorkflowByName,
   setWorkflowConsoleFloatLayout,
 } from '../adapters';
+import { firstVisibleElement } from '../utils/domVisibility';
 import { WF } from '@shared/selectors';
 import { type PanelMode, savePanelMode } from '@shared/utils/panelMode';
+import { fillControlledInput } from './setup-helpers';
 
 /** localStorage key — must match WorkflowConsolePanel CONSOLE_MODE_KEY. */
 export const WF_CONSOLE_MODE_STORAGE_KEY = 'wf-console-default-mode';
@@ -84,24 +88,192 @@ export type LessonWorkflowState = 'ready' | 'selected' | 'missing';
  * when the lesson's own workflow is already shown, so in-progress live edits are
  * preserved across steps within a lesson.
  */
+/** True when Designer shows this lesson's workflow (bridge name and/or toolbar label). */
+export function isLessonWorkflowDisplayed(wfName: string): boolean {
+  if (getSelectedWorkflowName() === wfName) return true;
+  const toolbar = firstVisibleElement(WF.TOOLBAR_SELECT)
+    ?? document.querySelector<HTMLElement>(WF.TOOLBAR_SELECT);
+  const label = toolbar?.querySelector('.wft-dropdown-text')?.textContent?.trim()
+    ?? toolbar?.textContent?.replace(/[▲▼]/g, '').trim();
+  return label === wfName;
+}
+
+/** Poll until the lesson workflow is the one on the canvas. */
+export async function waitForLessonWorkflowSelected(
+  ctx: DemoActionContext,
+  wfName: string,
+  timeoutMs = 8000,
+): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (isLessonWorkflowDisplayed(wfName)) return true;
+    if (getWorkflowByName(wfName) && getSelectedWorkflowName() !== wfName) {
+      selectWorkflowByName(wfName);
+    }
+    await ctx.delay(100);
+  }
+  return isLessonWorkflowDisplayed(wfName);
+}
+
+/** Minimal Start-only workflow matching `useWorkflows().create`. */
+export function buildBlankLessonWorkflow(name: string): Record<string, unknown> {
+  const startId = `start-${Date.now()}`;
+  const now = Date.now();
+  return {
+    id: `wf-demo-${now}`,
+    name,
+    schemaVersion: 6,
+    variables: {},
+    hostProfiles: [],
+    authProfiles: [],
+    services: [],
+    nodes: [
+      {
+        id: startId,
+        type: 'start',
+        position: { x: 250, y: 50 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+    ],
+    edges: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export async function ensureLessonWorkflowShown(
   ctx: DemoActionContext,
   wfName: string,
 ): Promise<LessonWorkflowState> {
-  const selected = getSelectedWorkflowName();
   const canvasShown = !!document.querySelector(WF.CANVAS);
 
-  // Our workflow is already up (or the bridge can't tell but a canvas is shown and
-  // it's not a *known* foreign workflow) → leave the live canvas untouched.
-  if (canvasShown && (selected == null || selected === wfName)) return 'ready';
+  // Our workflow is already up → leave the live canvas untouched.
+  if (canvasShown && isLessonWorkflowDisplayed(wfName)) return 'ready';
 
   // A different workflow is displayed (or nothing is). Switch to ours if it exists.
   if (getWorkflowByName(wfName)) {
     selectWorkflowByName(wfName);
-    await ctx.delay(500);
-    return 'selected';
+    await waitForLessonWorkflowSelected(ctx, wfName, 1500);
+    return isLessonWorkflowDisplayed(wfName) ? 'selected' : 'missing';
   }
   return 'missing';
+}
+
+/**
+ * Wait until a selector is ready for demo interaction.
+ * Prefers a non-zero bounding box; if the node is mounted but layout is still
+ * 0×0 (common in jsdom), accept mount after a short settle so expands aren't stuck.
+ */
+export async function waitForVisibleSelector(
+  ctx: DemoActionContext,
+  selector: string,
+  timeout = 5000,
+): Promise<boolean> {
+  const start = Date.now();
+  let mountedAt: number | null = null;
+  while (Date.now() - start < timeout) {
+    if (firstVisibleElement(selector)) return true;
+    if (document.querySelector(selector)) {
+      if (mountedAt == null) mountedAt = Date.now();
+      // Real browsers usually get a non-zero box quickly after mount; jsdom never does.
+      if (Date.now() - mountedAt >= 300) return true;
+    }
+    await ctx.delay(100);
+  }
+  return !!document.querySelector(selector) || !!firstVisibleElement(selector);
+}
+
+/**
+ * Create a blank workflow via the sidebar **+ New → Blank Workflow** dialog.
+ * Waits for the + New control to be *visible* after expanding the sidebar
+ * (collapsed sidebars unmount the control; `ctx.click` is a silent no-op).
+ *
+ * Returns true only when this lesson's workflow is the one displayed — never
+ * treats an already-open foreign canvas (e.g. SLA pipeline) as success.
+ */
+export async function createBlankWorkflowFromSidebar(
+  ctx: DemoActionContext,
+  wfName: string,
+): Promise<boolean> {
+  await expandWfDemoAppSidebar(ctx);
+  if (!(await waitForVisibleSelector(ctx, WF.SIDEBAR_NEW_BTN, 2500))) {
+    console.warn('[DemoHub] + New not visible — cannot create', wfName);
+    return false;
+  }
+  await ctx.delay(150);
+  await ctx.click(WF.SIDEBAR_NEW_BTN);
+  await ctx.waitFor('.wf-new-dropdown', 2500);
+  if (!document.querySelector('.wf-new-dropdown')) {
+    console.warn('[DemoHub] New-workflow dropdown did not open');
+    return false;
+  }
+  await ctx.delay(200);
+  await ctx.click(WF.NEW_BLANK_ITEM);
+  if (!(await waitForVisibleSelector(ctx, WF.CREATE_INPUT, 2500))) {
+    // Dropdown click can miss; retry once.
+    await ctx.click(WF.SIDEBAR_NEW_BTN);
+    await ctx.waitFor('.wf-new-dropdown', 1500);
+    await ctx.click(WF.NEW_BLANK_ITEM);
+    if (!(await waitForVisibleSelector(ctx, WF.CREATE_INPUT, 2000))) {
+      console.warn('[DemoHub] Create-workflow dialog did not open');
+      return false;
+    }
+  }
+  await ctx.delay(200);
+  await ctx.fill(WF.CREATE_INPUT, wfName);
+  // Create reads the uncontrolled input via ref — belt-and-suspenders fill.
+  const input = (firstVisibleElement<HTMLInputElement>(WF.CREATE_INPUT)
+    ?? document.querySelector<HTMLInputElement>(WF.CREATE_INPUT));
+  if (input && input.value.trim() !== wfName) {
+    fillControlledInput(input, wfName);
+  }
+  if (!input || input.value.trim() !== wfName) {
+    console.warn('[DemoHub] Create input was not filled with', wfName);
+    return false;
+  }
+  await ctx.delay(150);
+  await ctx.click(WF.CREATE_OK);
+  // Do NOT treat any existing canvas as success — require this workflow by name.
+  const created = await waitForLessonWorkflowSelected(ctx, wfName, 4000);
+  await ctx.delay(250);
+  await collapseWfDemoAppSidebar(ctx);
+  if (!created) {
+    console.warn('[DemoHub] Sidebar create did not select', wfName);
+  }
+  return created;
+}
+
+/**
+ * Guarantee this lesson's blank workflow is on the canvas — select it if it
+ * already exists, otherwise seed via the bridge (quiet / Preparing path).
+ *
+ * Does **not** walk the sidebar + New UI — that belongs in the visible create
+ * step action. Sidebar create timeouts made Preparing hang for many seconds.
+ *
+ * Replaces the unsafe `if (document.querySelector(WF.CANVAS)) return` pattern,
+ * which treated *any* open workflow as success.
+ */
+export async function ensureLessonBlankWorkflow(
+  ctx: DemoActionContext,
+  wfName: string,
+  options?: { dismissOnboarding?: (ctx: DemoActionContext) => Promise<void> },
+): Promise<void> {
+  if ((await ensureLessonWorkflowShown(ctx, wfName)) !== 'missing') return;
+  ctx.navigateToTab('workflow');
+  await ctx.delay(100);
+  if (options?.dismissOnboarding) await options.dismissOnboarding(ctx);
+
+  const seeded = await seedNamedWorkflow(ctx, wfName, buildBlankLessonWorkflow(wfName), {
+    deleteDelayMs: 50,
+    insertDelayMs: 120,
+    bridgeTimeoutMs: 2000,
+    storeTimeoutMs: 1500,
+    selectAfterSeed: true,
+  });
+  if (seeded) {
+    await waitForLessonWorkflowSelected(ctx, wfName, 1500);
+  }
+  await collapseWfDemoAppSidebar(ctx);
 }
 
 let activeWfConfigTiming: WfConfigDemoTimingTable = WF_CONFIG_DEMO_TIMING;
@@ -250,8 +422,20 @@ export async function fillWfConfigField(
 ): Promise<void> {
   await ctx.waitFor(selector, 8000);
   await scrollWfConfigFieldIntoView(ctx, selector);
-  await ctx.fill(selector, value);
+  // Apply persistent highlight before filling so the viewer can see which field
+  // is targeted. Keep it through the afterFill pause, then remove it.
+  // Quiet fill (no click ripple) — a ripple centered in a large textarea looks
+  // like a blue blob inside the highlight box.
+  const el = document.querySelector<HTMLElement>(selector);
+  el?.classList.add('demo-field-highlight');
+  await ctx.delay(500);
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    fillControlledInput(el, value);
+  } else {
+    await ctx.fill(selector, value);
+  }
   await pauseWfConfigDemo(ctx, 'afterFill');
+  el?.classList.remove('demo-field-highlight');
 }
 
 export async function selectWfConfigOption(
@@ -389,7 +573,7 @@ const PALETTE_BLOCK_MAP: Record<string, { category: string; subGroup?: string }>
 export async function revealPaletteBlock(
   ctx: DemoActionContext,
   selector: string,
-  options?: { quiet?: boolean },
+  options?: { quiet?: boolean; showNav?: boolean; spotlightChip?: boolean },
 ): Promise<HTMLElement | null> {
   resetWfPaletteToBlocks();
 
@@ -407,8 +591,38 @@ export async function revealPaletteBlock(
   const mapping = PALETTE_BLOCK_MAP[blockType];
   if (!mapping) return null;
 
-  selectPaletteRailCategory(mapping.category);
-  if (!options?.quiet) await ctx.delay(200);
+  if (options?.showNav) {
+    // Visually navigate: click the rail category with ripple, then click the chip.
+    const railSel = `[data-testid="wf-palette-rail-${mapping.category}"]`;
+    const railBtn = document.querySelector<HTMLElement>(railSel);
+    if (railBtn && !railBtn.classList.contains('active')) {
+      // Spotlight the rail button so the viewer sees it before clicking.
+      if (options?.spotlightChip) {
+        const dispose = showSpotlightRing(railBtn);
+        await ctx.delay(900);
+        dispose();
+      }
+      await ctx.click(railSel);
+      await ctx.delay(300);
+    }
+    if (mapping.subGroup) {
+      const chipSel = `[data-testid="wf-palette-chip-${mapping.subGroup}"]`;
+      const chip = document.querySelector<HTMLElement>(chipSel);
+      if (chip && !chip.classList.contains('active')) {
+        // Spotlight the chip badge so the viewer sees it before clicking.
+        if (options?.spotlightChip) {
+          const dispose = showSpotlightRing(chip);
+          await ctx.delay(900);
+          dispose();
+        }
+        await ctx.click(chipSel);
+        await ctx.delay(300);
+      }
+    }
+  } else {
+    selectPaletteRailCategory(mapping.category);
+    if (!options?.quiet) await ctx.delay(200);
+  }
 
   for (let attempt = 0; attempt < 10; attempt++) {
     const el = document.querySelector<HTMLElement>(selector);
@@ -434,6 +648,11 @@ function selectPaletteRailCategory(categoryId: string): void {
 /** Show the Workflows sidebar (+ New, pick workflow) — only for create/select beats. */
 export async function expandWfDemoAppSidebar(ctx: DemoActionContext): Promise<void> {
   expandAppSidebar();
+  // Sidebar unmounts when collapsed — wait until + New is visible, not merely in the DOM.
+  if (await waitForVisibleSelector(ctx, WF.SIDEBAR_NEW_BTN, 3000)) {
+    await ctx.delay(150);
+    return;
+  }
   await ctx.delay(400);
 }
 

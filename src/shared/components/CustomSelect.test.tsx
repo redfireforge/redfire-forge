@@ -364,4 +364,66 @@ describe('CustomSelect', () => {
       value: originalGetBoundingClientRect,
     });
   });
+
+  it('bails out of setMenuPos when position is unchanged on resize (stable dimensions)', () => {
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+
+    // Fixed rect — every call returns the same dimensions.
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        return { left: 10, width: 130, top: 100, bottom: 120, right: 140, height: 20, x: 10, y: 100, toJSON: () => ({}) };
+      },
+    });
+
+    render(<CustomSelect value="" onChange={vi.fn()} options={simpleOptions} aria-label="stable-select" />);
+    fireEvent.click(screen.getByRole('button', { name: 'stable-select' }));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    // First resize: position changes from null → computed value.
+    fireEvent(window, new Event('resize'));
+    // Second resize: same rect → setMenuPos callback returns prev (line 159 bail-out).
+    fireEvent(window, new Event('resize'));
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: originalGetBoundingClientRect,
+    });
+  });
+
+  it('closes the menu and clears position when trigger becomes hidden during resize', () => {
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    const originalGetComputedStyle = window.getComputedStyle.bind(window);
+
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        return { left: 10, width: 130, top: 100, bottom: 120, right: 140, height: 20, x: 10, y: 100, toJSON: () => ({}) };
+      },
+    });
+
+    const { container } = render(<CustomSelect value="" onChange={vi.fn()} options={simpleOptions} aria-label="hide-select" />);
+    fireEvent.click(screen.getByRole('button', { name: 'hide-select' }));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    // Hide the wrapper so isSelectTriggerLaidOut returns false.
+    const wrapper = container.firstElementChild as HTMLElement;
+    wrapper.style.display = 'none';
+
+    // Trigger recomputeMenuPos via resize — should close the menu.
+    fireEvent(window, new Event('resize'));
+
+    expect(screen.queryByRole('listbox')).toBeNull();
+
+    // Restore
+    wrapper.style.display = '';
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: originalGetBoundingClientRect,
+    });
+    vi.spyOn(window, 'getComputedStyle').mockRestore?.();
+    Object.defineProperty(window, 'getComputedStyle', { configurable: true, value: originalGetComputedStyle });
+  });
 });

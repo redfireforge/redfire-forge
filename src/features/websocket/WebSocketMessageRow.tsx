@@ -33,7 +33,17 @@ export const MessageRow = memo(function MessageRow({ frame, isSelected, isBookma
 
   let contentDisplay: React.ReactNode;
   if (meta?.summary) {
-    contentDisplay = meta.summary;
+    const bodyPreview = meta.body
+      ? (meta.body.length > 100 ? meta.body.slice(0, 100) + '\u2026' : meta.body)
+      : null;
+    contentDisplay = (
+      <>
+        <span className="ws-msg-summary">{meta.summary}</span>
+        {bodyPreview && (
+          <span className="ws-msg-body-preview">&nbsp;·&nbsp;{bodyPreview}</span>
+        )}
+      </>
+    );
   } else if (isBinary) {
     contentDisplay = buildBinaryPreview(frame.data, frame.size);
   } else if (isJson && frame.data.length <= 500) {

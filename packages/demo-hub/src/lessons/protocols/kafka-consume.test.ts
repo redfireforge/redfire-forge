@@ -74,13 +74,12 @@ describe('kafka-consume lesson', () => {
     expect(typeof kafkaConsumeLesson.cleanup).toBe('function');
   });
 
-  it('step con-intro preAction clicks the Consume tab and ensures Consume Once mode', async () => {
+  it('step con-intro action clicks the Consume tab and waits', async () => {
     const step = kafkaConsumeLesson.steps.find((s) => s.id === 'con-intro')!;
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-consume'));
-    // Also resets to "Consume Once" mode so con-consume-btn is always in DOM.
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('con-mode-once'));
+    expect(ctx.waitFor).toHaveBeenCalled();
   });
 
   it('step con-topic action fills the topic input', async () => {

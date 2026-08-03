@@ -365,7 +365,7 @@ describe('sse-studio lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('setup switches to events and connect tabs', async () => {
+  it('setup switches to the connect tab (no Events-tab toggle — avoids pre-step flash)', async () => {
     const eventsTab = document.createElement('button');
     eventsTab.setAttribute('data-testid', 'sse-right-tab-events');
     const connectTab = document.createElement('button');
@@ -375,7 +375,7 @@ describe('sse-studio lesson', () => {
     const connectSpy = vi.spyOn(connectTab, 'click');
 
     await sseStudioLesson.setup!(makeCtx());
-    expect(eventsSpy).toHaveBeenCalled();
+    expect(eventsSpy).not.toHaveBeenCalled();
     expect(connectSpy).toHaveBeenCalled();
   });
 

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { wsGraphqlLesson } from './ws-graphql';
 import { makeCtx, makeVisible } from './ws-test-utils';
 
@@ -16,7 +16,8 @@ describe('ws-graphql lesson', () => {
     expect(wsGraphqlLesson.id).toBe('ws-graphql');
     expect(wsGraphqlLesson.domainId).toBe('protocols');
     expect(wsGraphqlLesson.name).toBe('GraphQL Subscriptions');
-    expect(wsGraphqlLesson.steps.length).toBe(7);
+    expect(wsGraphqlLesson.steps.length).toBe(8);
+    expect(wsGraphqlLesson.estimatedMinutes).toBe(4);
     expect(wsGraphqlLesson.concept.title).toBeTruthy();
     expect(wsGraphqlLesson.concept.body).toBeTruthy();
     expect(wsGraphqlLesson.initialTab).toBe('websocket-studio');
@@ -54,7 +55,7 @@ describe('ws-graphql lesson', () => {
     expect(wsGraphqlLesson.concept.diagram).toContain('complete');
   });
 
-  it('all 7 steps have pauseAfter: true', () => {
+  it('all 8 steps have pauseAfter: true', () => {
     wsGraphqlLesson.steps.forEach(step => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -63,7 +64,8 @@ describe('ws-graphql lesson', () => {
   it('has correct step IDs in order', () => {
     const ids = wsGraphqlLesson.steps.map(s => s.id);
     expect(ids).toEqual([
-      'gql-intro',
+      'gql-url',
+      'gql-subprotocols',
       'gql-protocol',
       'gql-connect',
       'gql-compose',
@@ -73,63 +75,98 @@ describe('ws-graphql lesson', () => {
     ]);
   });
 
-  // ─── Step: gql-intro ────────────────────────────────────────
+  // ─── Step: gql-url ──────────────────────────────────────────
 
-  it('step gql-intro highlights connect tab', () => {
-    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-intro')!;
-    expect(step.highlight).toContain('left-tab-connect');
-  });
-
-  it('step gql-intro description mentions URL, subprotocol, and protocol', () => {
-    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-intro')!;
+  it('step gql-url highlights URL input and fills the GraphQL endpoint', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-url')!;
+    expect(step.highlight).toContain('WebSocket URL');
     expect(step.description).toContain('localhost:4100');
-    expect(step.description).toContain('graphql-transport-ws');
-    expect(step.description).toContain('GraphQL-WS');
-  });
-
-  it('step gql-intro action navigates to connect tab', async () => {
-    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('localhost:4100'),
+    );
+  });
+
+  // ─── Step: gql-subprotocols ─────────────────────────────────
+
+  it('step gql-subprotocols fills graphql-transport-ws with spotlight', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-subprotocols')!;
+    expect(step.highlight).toContain('Subprotocols');
+    expect(step.description).toContain('graphql-transport-ws');
+    const url = document.createElement('input');
+    url.setAttribute('aria-label', 'WebSocket URL');
+    url.value = 'ws://localhost:4100/graphql';
+    document.body.appendChild(url);
+    makeVisible(url);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('Subprotocols'),
+      'graphql-transport-ws',
+    );
   });
 
   // ─── Step: gql-protocol ─────────────────────────────────────
 
-  it('step gql-protocol highlights protocol selector', () => {
+  it('step gql-protocol selects graphql-ws and explains handshake', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
     expect(step.highlight).toContain('protocol-select');
-  });
-
-  it('step gql-protocol has a preAction that navigates to connect tab', async () => {
-    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
-    expect(typeof step.preAction).toBe('function');
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-  });
-
-  it('step gql-protocol action calls ctx.delay (observation pause)', async () => {
-    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(300);
-  });
-
-  it('step gql-protocol description mentions connection_init and automatic handshake', () => {
-    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
     expect(step.description).toContain('connection_init');
     expect(step.description).toContain('GraphQL-WS');
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(
+      expect.stringContaining('protocol-select'),
+      'graphql-ws',
+    );
+  });
+
+  it('step gql-protocol preAction restores URL and subprotocol when missing', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
+    const url = document.createElement('input');
+    url.setAttribute('aria-label', 'WebSocket URL');
+    url.value = '';
+    document.body.appendChild(url);
+    makeVisible(url);
+    const sub = document.createElement('input');
+    sub.setAttribute('aria-label', 'Subprotocols');
+    sub.value = '';
+    document.body.appendChild(sub);
+    makeVisible(sub);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('localhost:4100'),
+    );
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('Subprotocols'),
+      'graphql-transport-ws',
+    );
   });
 
   // ─── Step: gql-connect ──────────────────────────────────────
 
-  it('step gql-connect has a preAction that navigates to connect tab', async () => {
+  it('step gql-connect preAction applies Connect config quietly', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-connect')!;
     expect(typeof step.preAction).toBe('function');
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const clickSpy = vi.spyOn(connectTab, 'click');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('localhost:4100'),
+    );
+    expect(ctx.selectOption).toHaveBeenCalledWith(
+      expect.stringContaining('protocol-select'),
+      'graphql-ws',
+    );
   });
 
   it('step gql-connect action clicks connect button when not connected and switches to events tab', async () => {
@@ -261,7 +298,10 @@ describe('ws-graphql lesson', () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-subscribe')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('localhost:4100'),
+    );
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
@@ -345,22 +385,22 @@ describe('ws-graphql lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────────
 
-  it('setup fills GraphQL URL, subprotocol, and selects graphql-ws protocol', async () => {
+  it('setup clears Connect fields for paced configure steps', async () => {
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const connectClickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await wsGraphqlLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.stringContaining('localhost:4100'),
-    );
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.stringContaining('Subprotocols'),
-      'graphql-transport-ws',
-    );
+    // Connect tab switch uses a plain DOM click (not ctx.click) — no ripple during setup.
+    expect(connectClickSpy).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'), '');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
     expect(ctx.selectOption).toHaveBeenCalledWith(
       expect.stringContaining('protocol-select'),
-      'graphql-ws',
+      'raw',
     );
   });
 
