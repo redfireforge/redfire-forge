@@ -110,6 +110,22 @@ export function WebSocketStudioPage({
   const templatesHook = useWebSocketTemplates();
   const historyHook = useWebSocketHistory();
 
+  // Quiet demo bridges — clear Saved profiles / message templates without
+  // thrashing Mock → Saved → Send UI during lesson setup (visible while Live).
+  useEffect(() => {
+    const w = window as Window & {
+      __demoClearWsProfiles?: () => Promise<void>;
+      __demoClearWsTemplates?: () => Promise<void>;
+    };
+    w.__demoClearWsProfiles = () => profilesHook.clearAllProfiles();
+    w.__demoClearWsTemplates = () => templatesHook.clearAllTemplates();
+    return () => {
+      delete w.__demoClearWsProfiles;
+      delete w.__demoClearWsTemplates;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profilesHook.clearAllProfiles, templatesHook.clearAllTemplates]);
+
   // Per-tab mock server port assignment.
   // Must be React state (not a ref): children read mockPort as a prop, and
   // conflict swaps / demo pinning only take effect after a re-render.

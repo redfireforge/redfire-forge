@@ -50,6 +50,25 @@ function isSchemaRegistryUrl(url: string): boolean {
   }
 }
 
+/**
+ * Redpanda Admin API ports used by demo Docker stacks.
+ * These are probed via the server-side proxy to avoid browser no-cors reliability issues
+ * (e.g. Tauri webview may restrict direct HTTP fetch to arbitrary localhost ports).
+ * Known ports: 19644 (plaintext), 19645 (secure), 19648 (TLS).
+ */
+const REDPANDA_ADMIN_PORTS = new Set(['19644', '19645', '19648']);
+
+function isRedpandaAdminUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    return isLoopback && REDPANDA_ADMIN_PORTS.has(parsed.port);
+  } catch {
+    return false;
+  }
+}
+
 /** Try an HTTP GET health check. Resolves true on any 2xx response. */
 async function checkHttp(url: string, timeoutMs: number): Promise<boolean> {
   const candidates = loopbackProbeCandidates(url);
@@ -140,6 +159,11 @@ export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<bool
         `/health/schema-registry?url=${encodeURIComponent(url)}`,
         timeoutMs,
       );
+    }
+    // Redpanda Admin API probes are routed through the server proxy for the same reason.
+    if (isRedpandaAdminUrl(url)) {
+      const port = new URL(url).port;
+      return checkHttpCors(`/health/kafka-admin?port=${port}`, timeoutMs);
     }
     return checkHttp(url, timeoutMs);
   }

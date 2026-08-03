@@ -164,6 +164,12 @@ export const wsBasicsLesson: DemoLesson = {
     // mode, or connection state before step 1 narration starts.
     await navigateToWebSocketStudio(ctx);
     await quietNormalizeLessonMockPort(ctx, LESSON_MOCK_PORT);
+    // Reset right tab to Events so persisted Stats/Console doesn't bleed in
+    const eventsTab = document.querySelector<HTMLElement>(WS.RIGHT_TAB_EVENTS);
+    if (eventsTab?.getAttribute('aria-selected') !== 'true') {
+      eventsTab?.click();
+      await ctx.delay(40);
+    }
   },
   cleanup: async (ctx) => {
     _mockRunning = false;

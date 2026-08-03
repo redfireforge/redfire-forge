@@ -652,34 +652,45 @@ export const WsConnectionTabContent = forwardRef<
   // ── Split-pane shell render (composition inversion) ─────────────────────
   // This component owns the studio hook AND renders the shell, feeding the left
   // body via children and the right (Events) pane via the rightPane slot.
-  const leftBody =
-    controlledMode === 'mock' ? (
-      <WebSocketMockClientsPane ui={mockUi} />
-    ) : controlledMode === 'saved' ? (
-      <WebSocketSavedRail ui={savedUi} />
-    ) : shellLeftTab === 'send' ? (
-      <div className="ws-studio-content">{sendPaneNode}</div>
-    ) : shellLeftTab === 'params' ? (
-      <div className="ws-studio-content">
-        {lockBannerNode}
-        {queryParamsEditorNode}
+  // Send pane is always mounted (never conditionally removed) so compose text,
+  // format selection, and STOMP fields survive tab switches.
+  const sendPaneVisible =
+    controlledMode !== 'mock' && controlledMode !== 'saved' && shellLeftTab === 'send';
+
+  const leftBody = (
+    <>
+      {/* Always mounted — hidden via CSS when not on Send tab */}
+      <div className="ws-studio-content" style={{ display: sendPaneVisible ? undefined : 'none' }}>
+        {sendPaneNode}
       </div>
-    ) : shellLeftTab === 'headers' ? (
-      <div className="ws-studio-content">
-        {lockBannerNode}
-        {headersEditorNode}
-      </div>
-    ) : shellLeftTab === 'auth' ? (
-      <div className="ws-studio-content">
-        {lockBannerNode}
-        {authPanelNode}
-      </div>
-    ) : (
-      <div className="ws-studio-content">
-        {lockBannerNode}
-        {connectPanelNode}
-      </div>
-    );
+
+      {controlledMode === 'mock' ? (
+        <WebSocketMockClientsPane ui={mockUi} />
+      ) : controlledMode === 'saved' ? (
+        <WebSocketSavedRail ui={savedUi} />
+      ) : shellLeftTab === 'params' ? (
+        <div className="ws-studio-content">
+          {lockBannerNode}
+          {queryParamsEditorNode}
+        </div>
+      ) : shellLeftTab === 'headers' ? (
+        <div className="ws-studio-content">
+          {lockBannerNode}
+          {headersEditorNode}
+        </div>
+      ) : shellLeftTab === 'auth' ? (
+        <div className="ws-studio-content">
+          {lockBannerNode}
+          {authPanelNode}
+        </div>
+      ) : shellLeftTab !== 'send' ? (
+        <div className="ws-studio-content">
+          {lockBannerNode}
+          {connectPanelNode}
+        </div>
+      ) : null}
+    </>
+  );
 
   const rightBody =
     controlledMode === 'saved' ? (

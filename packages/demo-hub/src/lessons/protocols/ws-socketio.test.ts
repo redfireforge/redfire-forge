@@ -136,6 +136,24 @@ describe('ws-socketio lesson', () => {
     expect(ctx.click).not.toHaveBeenCalled();
   });
 
+  it('step sio-enter-url action spotlights URL input and selects EIO=4 text', async () => {
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-enter-url')!;
+
+    const input = document.createElement('input');
+    input.setAttribute('aria-label', 'WebSocket URL');
+    input.value = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
+    const setSelectionSpy = vi.fn();
+    input.setSelectionRange = setSelectionSpy;
+    document.body.appendChild(input);
+
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    const eioStart = 'ws://localhost:3100/socket.io/?'.length;
+    expect(setSelectionSpy).toHaveBeenCalledWith(eioStart, eioStart + 'EIO=4'.length);
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
   // ─── Step: sio-connect ───────────────────────────────────────
 
   it('step sio-connect preAction silently switches to connect tab only if not already selected', async () => {

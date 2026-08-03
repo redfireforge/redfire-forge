@@ -71,15 +71,25 @@ describe('ws-reliability lesson', () => {
 
   // ─── Step: rel-connect ────────────────────────────────────
 
-  it('step rel-connect action fills URL and navigates to connect tab', async () => {
+  it('skips studio tab isolation to avoid demo-tab flash at live start', () => {
+    expect(wsReliabilityLesson.skipStudioTabIsolation).toBe(true);
+  });
+
+  it('step rel-connect preAction prepares connect panel quietly', async () => {
+    const url = document.createElement('input');
+    url.setAttribute('aria-label', 'WebSocket URL');
+    document.body.appendChild(url);
+    makeVisible(url);
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    makeVisible(connectTab);
+
     const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-connect')!;
     const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.stringContaining('WebSocket URL'),
-      expect.stringContaining('localhost:9876'),
-    );
+    await step.preAction!(ctx);
+    expect(url.value).toContain('localhost:9876');
+    expect(ctx.selectOption).not.toHaveBeenCalled();
   });
 
   it('step rel-connect action clicks connect and switches to events', async () => {
@@ -88,6 +98,7 @@ describe('ws-reliability lesson', () => {
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
   it('step rel-connect has verify for connected status', () => {
@@ -175,7 +186,7 @@ describe('ws-reliability lesson', () => {
 
   // ─── Step: rel-reconnect-settings ─────────────────────────
 
-  it('step rel-reconnect-settings preAction navigates to connect tab', async () => {
+  it('step rel-reconnect-settings preAction disconnects then navigates to connect tab', async () => {
     const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-reconnect-settings')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -193,11 +204,20 @@ describe('ws-reliability lesson', () => {
     document.body.appendChild(settings);
     makeVisible(settings);
 
+    // Add an unchecked, enabled toggle so the action's click branch is reached
+    const toggle = document.createElement('input') as HTMLInputElement;
+    toggle.type = 'checkbox';
+    toggle.setAttribute('data-testid', 'auto-reconnect-toggle');
+    toggle.checked = false;
+    toggle.disabled = false;
+    document.body.appendChild(toggle);
+    makeVisible(toggle);
+
     const ctx = makeCtx();
 
     await step.action!(ctx);
     expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
-    expect(ctx.delay).toHaveBeenCalledWith(1200);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('auto-reconnect-toggle'));
 
     vi.restoreAllMocks();
   });
@@ -207,7 +227,7 @@ describe('ws-reliability lesson', () => {
     document.body.innerHTML = '';
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(1200);
+    expect(ctx.delay).toHaveBeenCalledWith(600);
   });
 
   it('step rel-reconnect-settings highlights reconnect settings', () => {
@@ -333,22 +353,62 @@ describe('ws-reliability lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────
 
-  it('setup starts mock server, clears subprotocols and resets protocol', async () => {
+  it('setup uses quiet REST mock without Mock mode tour or protocol menu', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/ws/mock/status')) {
+        return new Response(JSON.stringify({ running: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }));
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    makeVisible(connectTab);
+    const urlInput = document.createElement('input');
+    urlInput.setAttribute('aria-label', 'WebSocket URL');
+    document.body.appendChild(urlInput);
+    makeVisible(urlInput);
+    const sub = document.createElement('input');
+    sub.setAttribute('aria-label', 'Subprotocols');
+    sub.value = 'stomp';
+    document.body.appendChild(sub);
+    makeVisible(sub);
+    const protocol = document.createElement('div');
+    protocol.setAttribute('data-testid', 'protocol-select');
+    protocol.className = 'cs-wrapper';
+    protocol.innerHTML = '<button class="cs-trigger">STOMP</button>';
+    document.body.appendChild(protocol);
+    makeVisible(protocol);
+
     const ctx = makeCtx();
     await wsReliabilityLesson.setup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('protocol'), 'raw');
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(sub.value).toBe('');
+    expect(urlInput.value).toContain('localhost:9876');
+    expect(ctx.selectOption).not.toHaveBeenCalled();
   });
 
-  it('cleanup resets protocol and stops mock server', async () => {
+  it('cleanup resets wire settings quietly without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ));
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    makeVisible(connectTab);
+    const protocol = document.createElement('div');
+    protocol.setAttribute('data-testid', 'protocol-select');
+    protocol.className = 'cs-wrapper';
+    protocol.innerHTML = '<button class="cs-trigger">Raw</button>';
+    document.body.appendChild(protocol);
+    makeVisible(protocol);
+
     const ctx = makeCtx();
     await wsReliabilityLesson.cleanup!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('protocol'), 'raw');
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    // Already Raw — skip opening the CustomSelect menu
+    expect(ctx.selectOption).not.toHaveBeenCalled();
   });
 });
 

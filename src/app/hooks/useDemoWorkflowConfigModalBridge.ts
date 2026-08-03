@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 
 /**
  * Demo-player bridge for the workflow node config modal.
- *   - `__wfCloseConfigModal()` — dismiss open node config when demo advances steps
+ *   - `__wfCloseConfigModal()` — dismiss open node config on demo restart/exit
+ *     (not on every step advance — multi-step config tours keep the panel open)
  */
 export function useDemoWorkflowConfigModalBridge(closeConfigModal: () => void): void {
   useEffect(() => {

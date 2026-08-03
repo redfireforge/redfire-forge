@@ -15,6 +15,7 @@ import type { DemoActionContext, DemoLesson } from '../../types';
 import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
 
 // ── Selectors (Socket.IO specific) ────────────────────────────
 const SIO_URL = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
@@ -214,7 +215,22 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
         }
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(300);
+        const urlInput = document.querySelector<HTMLInputElement>(WS.URL_INPUT);
+        if (urlInput) {
+          // Scroll the input to the end so the query params are visible, then
+          // select just 'EIO=4' to draw the eye to it before the ring fires.
+          urlInput.focus();
+          const val = urlInput.value || SIO_URL;
+          const eioStart = val.indexOf('EIO=4');
+          if (eioStart >= 0) {
+            urlInput.setSelectionRange(eioStart, eioStart + 'EIO=4'.length);
+          }
+          const dispose = showSpotlightRing(urlInput);
+          await ctx.delay(1400);
+          dispose();
+        } else {
+          await ctx.delay(300);
+        }
       },
     },
     {
