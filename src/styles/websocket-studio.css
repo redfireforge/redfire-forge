@@ -2404,10 +2404,17 @@
 
 .ws-compose-controls {
   display: flex;
-  align-items: center;
-  gap: 0;
+  flex-direction: column;
+  gap: 7px;
   flex-shrink: 0;
+}
+
+.ws-compose-format-row {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 6px;
+  min-height: 28px;
 }
 
 .ws-compose-controls-left {
@@ -2418,11 +2425,11 @@
   overflow: hidden;
 }
 
-.ws-compose-controls-right {
+.ws-compose-action-row {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 5px;
-  flex-shrink: 0;
 }
 
 .ws-compose-controls-divider {
