@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { WsMockRule, WsMockMatchType, WsMockResponseType, WsMockFallbackMode } from '../../shared/websocket/types';
 import { formatUptime } from '../../shared/websocket/types';
@@ -73,13 +73,18 @@ const FALLBACK_MODES: { value: WsMockFallbackMode; label: string }[] = [
   { value: 'close', label: 'Close connection' },
 ];
 
-let ruleCounter = 0;
+/** Next "Rule N" name that is not already used (does not stick after deletes). */
+function nextRuleName(existing: WsMockRule[]): string {
+  const used = new Set(existing.map((r) => r.name));
+  let n = 1;
+  while (used.has(`Rule ${n}`)) n += 1;
+  return `Rule ${n}`;
+}
 
-function createEmptyRule(): WsMockRule {
-  ruleCounter++;
+function createEmptyRule(existing: WsMockRule[]): WsMockRule {
   return {
-    id: `rule-${Date.now()}-${ruleCounter}`,
-    name: `Rule ${ruleCounter}`,
+    id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    name: nextRuleName(existing),
     enabled: true,
     match: { type: 'any', pattern: '' },
     response: { type: 'echo' },
@@ -96,6 +101,10 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
   const [searchQuery, setSearchQuery] = useState('');
   const [dragRuleId, setDragRuleId] = useState<string | null>(null);
   const [dragOverRuleId, setDragOverRuleId] = useState<string | null>(null);
+  // Keep a mutable snapshot so rapid delete/add loops (demo setup/cleanup) do
+  // not lose updates to a stale React closure of `rules`.
+  const rulesRef = useRef(rules);
+  rulesRef.current = rules;
   // Client-side uptime anchor: WsMockStatus carries no startedAt, so we stamp
   // the moment the server transitions to running. The per-second ticker lives
   // in the <MockUptime> leaf so it does not re-render the whole pane.
@@ -144,6 +153,7 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
   }, [mock, broadcastText]);
 
   const updateRules = useCallback((next: WsMockRule[]) => {
+    rulesRef.current = next;
     mock.setRules(next);
     if (status.running) {
       void mock.pushRulesToServer(next, config.fallback);
@@ -151,33 +161,36 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
   }, [mock, status.running, config.fallback]);
 
   const handleAddRule = useCallback(() => {
-    const newRule = createEmptyRule();
-    updateRules([...rules, newRule]);
+    const current = rulesRef.current;
+    const newRule = createEmptyRule(current);
+    updateRules([...current, newRule]);
     setEditingRuleId(newRule.id);
-  }, [updateRules, rules]);
+  }, [updateRules]);
 
   const handleDeleteRule = useCallback((id: string) => {
-    updateRules(rules.filter((r) => r.id !== id));
-    if (editingRuleId === id) setEditingRuleId(null);
-  }, [updateRules, rules, editingRuleId]);
+    const next = rulesRef.current.filter((r) => r.id !== id);
+    updateRules(next);
+    setEditingRuleId((prev) => (prev === id ? null : prev));
+  }, [updateRules]);
 
   const handleToggleRule = useCallback((id: string) => {
-    updateRules(rules.map((r) => r.id === id ? { ...r, enabled: !r.enabled } : r));
-  }, [updateRules, rules]);
+    updateRules(rulesRef.current.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)));
+  }, [updateRules]);
 
   const handleUpdateRule = useCallback((id: string, patch: Partial<WsMockRule>) => {
-    updateRules(rules.map((r) => r.id === id ? { ...r, ...patch } : r));
-  }, [updateRules, rules]);
+    updateRules(rulesRef.current.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }, [updateRules]);
 
   const handleMoveRule = useCallback((id: string, direction: 'up' | 'down') => {
-    const idx = rules.findIndex((r) => r.id === id);
+    const current = rulesRef.current;
+    const idx = current.findIndex((r) => r.id === id);
     if (idx < 0) return;
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= rules.length) return;
-    const next = [...rules];
+    if (swapIdx < 0 || swapIdx >= current.length) return;
+    const next = [...current];
     [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
     updateRules(next);
-  }, [updateRules, rules]);
+  }, [updateRules]);
 
   const handleDragStart = useCallback((ruleId: string) => {
     setDragRuleId(ruleId);
@@ -475,25 +488,57 @@ const RESPONSE_BADGE_CLASS: Record<WsMockResponseType, string> = {
 function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: number }) {
   const { editingRuleId, rules, dragRuleId, dragOverRuleId } = ui;
   const isOpen = editingRuleId === rule.id;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const toggleOpen = () => {
+    const nextOpen = !isOpen;
+    ui.setEditingRuleId(nextOpen ? rule.id : null);
+    if (nextOpen) {
+      // After expand, scroll the card so Body/Delay are reachable in the list scrollbar.
+      requestAnimationFrame(() => {
+        cardRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+  };
   return (
     <div
+      ref={cardRef}
       className={`ws-mock-rule mock-server-rule-card${rule.enabled ? ' mock-server-rule-card--enabled' : ' mock-server-rule-card--disabled'}${!rule.enabled ? ' disabled' : ''} ${isOpen ? 'editing' : ''}${dragRuleId === rule.id ? ' mock-server-rule-card--dragging' : ''}${dragOverRuleId === rule.id ? ' mock-server-rule-card--drop-target' : ''}`}
       data-testid={`mock-rule-${rule.id}`}
       onDragOver={(e) => ui.handleDragOver(e, rule.id)}
       onDrop={(e) => ui.handleDrop(e, rule.id)}
     >
-      <div className="ws-mock-rule-header">
+      <div
+        className="ws-mock-rule-header"
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
+        aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${rule.name}`}
+        data-testid={`rule-expand-${rule.id}`}
+        onClick={toggleOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleOpen();
+          }
+        }}
+      >
         {/* Drag handle */}
         <span
           className="mock-server-drag-handle"
           draggable
           data-testid={`ws-mock-drag-${rule.id}`}
+          onClick={(e) => e.stopPropagation()}
           onDragStart={() => ui.handleDragStart(rule.id)}
           onDragEnd={ui.handleDragEnd}
           title="Drag to reorder"
         >⠿</span>
         {/* Toggle (custom switch) */}
-        <label className="ws-mock-rule-toggle-switch" title={rule.enabled ? 'Enabled' : 'Disabled'} data-testid={`rule-toggle-label-${rule.id}`}>
+        <label
+          className="ws-mock-rule-toggle-switch"
+          title={rule.enabled ? 'Enabled' : 'Disabled'}
+          data-testid={`rule-toggle-label-${rule.id}`}
+          onClick={(e) => e.stopPropagation()}
+        >
           <input
             type="checkbox"
             checked={rule.enabled}
@@ -509,17 +554,11 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
           {idx + 1}
         </span>
 
-        {/* Rule name (click to expand/collapse) */}
-        <button
-          type="button"
-          className="ws-mock-rule-name"
-          onClick={() => ui.setEditingRuleId(isOpen ? null : rule.id)}
-          aria-expanded={isOpen}
-          aria-label={`Edit ${rule.name}`}
-        >
+        {/* Rule name + chevron */}
+        <span className="ws-mock-rule-name">
           {rule.name}
           <span className={`ws-mock-rule-chevron ${isOpen ? 'open' : ''}`}>›</span>
-        </button>
+        </span>
 
         {/* Type badges */}
         <span className="ws-mock-rule-badges">
@@ -549,7 +588,7 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
         </span>
 
         {/* Actions */}
-        <div className="ws-mock-rule-actions">
+        <div className="ws-mock-rule-actions" onClick={(e) => e.stopPropagation()}>
           <button
             className="ws-mock-rule-action-btn ws-mock-rule-move"
             onClick={() => ui.handleMoveRule(rule.id, 'up')}
@@ -582,114 +621,162 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
 
       {isOpen && (
         <div className="ws-mock-rule-editor" data-testid={`rule-editor-${rule.id}`}>
-          <div className="ws-mock-editor-grid">
-            <label className="ws-mock-editor-label">Name</label>
-            <input
-              className="ws-mock-editor-input"
-              type="text"
-              value={rule.name}
-              onChange={(e) => ui.handleUpdateRule(rule.id, { name: e.target.value })}
-              data-testid={`rule-name-${rule.id}`}
-            />
-
-            <label className="ws-mock-editor-label">Match</label>
-            <div className="ws-mock-editor-field-group">
-              <CustomSelect
-                className="ws-mock-editor-select"
-                value={rule.match.type}
-                onChange={(v) => ui.handleUpdateRule(rule.id, {
-                  match: { ...rule.match, type: v as WsMockMatchType },
-                })}
-                options={MATCH_TYPES}
-                data-testid={`rule-match-type-${rule.id}`}
-                aria-label="Match type"
-              />
-              {rule.match.type !== 'any' && (
+          <div className="ws-mock-editor-form">
+            <div className="ws-mock-editor-row">
+              <label className="ws-mock-editor-label" htmlFor={`rule-name-${rule.id}`}>Name</label>
+              <div className="ws-mock-editor-ctrl">
                 <input
-                  className="ws-mock-editor-input ws-mock-editor-pattern"
+                  id={`rule-name-${rule.id}`}
+                  className="ws-mock-editor-input"
                   type="text"
-                  value={rule.match.pattern}
-                  onChange={(e) => ui.handleUpdateRule(rule.id, {
-                    match: { ...rule.match, pattern: e.target.value },
-                  })}
-                  placeholder={
-                    rule.match.type === 'regex' ? 'e.g. hello.*'
-                      : rule.match.type === 'jsonpath' ? 'e.g. $.type=ping'
-                        : 'Pattern\u2026'
-                  }
-                  data-testid={`rule-match-pattern-${rule.id}`}
+                  value={rule.name}
+                  onChange={(e) => ui.handleUpdateRule(rule.id, { name: e.target.value })}
+                  data-testid={`rule-name-${rule.id}`}
+                  placeholder="Rule name"
                 />
-              )}
+              </div>
             </div>
 
-            <label className="ws-mock-editor-label">Response</label>
-            <div className="ws-mock-editor-field-group">
-              <CustomSelect
-                className="ws-mock-editor-select"
-                value={rule.response.type}
-                onChange={(v) => ui.handleUpdateRule(rule.id, {
-                  response: { ...rule.response, type: v as WsMockResponseType },
-                })}
-                options={RESPONSE_TYPES}
-                data-testid={`rule-response-type-${rule.id}`}
-                aria-label="Response type"
-              />
-              {(rule.response.type === 'static' || rule.response.type === 'template') && (
-                <textarea
-                  className="ws-mock-editor-textarea"
-                  value={rule.response.data ?? ''}
-                  onChange={(e) => ui.handleUpdateRule(rule.id, {
-                    response: { ...rule.response, data: e.target.value },
-                  })}
-                  placeholder={
-                    rule.response.type === 'template'
-                      ? '{"status":"ok","ts":"{{timestamp}}","client":"{{clientId}}"}'
-                      : 'Response data\u2026'
-                  }
-                  rows={2}
-                  data-testid={`rule-response-data-${rule.id}`}
-                />
-              )}
-              {rule.response.type === 'close' && (
-                <div className="ws-mock-editor-close-fields">
-                  <input
-                    className="ws-mock-editor-input ws-mock-editor-close-code"
-                    type="number"
-                    value={rule.response.closeCode ?? 1000}
-                    onChange={(e) => ui.handleUpdateRule(rule.id, {
-                      response: { ...rule.response, closeCode: parseInt(e.target.value, 10) || 1000 },
+            <div className="ws-mock-editor-section" data-section="match">
+              <div className="ws-mock-editor-section-head">
+                <span className="ws-mock-editor-section-title">Match</span>
+                <span className="ws-mock-editor-section-hint">When an inbound message matches</span>
+              </div>
+              <div className="ws-mock-editor-row">
+                <label className="ws-mock-editor-label">Type</label>
+                <div className="ws-mock-editor-ctrl">
+                  <CustomSelect
+                    className="ws-mock-editor-select"
+                    value={rule.match.type}
+                    onChange={(v) => ui.handleUpdateRule(rule.id, {
+                      match: { ...rule.match, type: v as WsMockMatchType },
                     })}
-                    placeholder="Code"
-                    data-testid={`rule-close-code-${rule.id}`}
+                    options={MATCH_TYPES}
+                    data-testid={`rule-match-type-${rule.id}`}
+                    aria-label="Match type"
                   />
-                  <input
-                    className="ws-mock-editor-input"
-                    type="text"
-                    value={rule.response.closeReason ?? ''}
-                    onChange={(e) => ui.handleUpdateRule(rule.id, {
-                      response: { ...rule.response, closeReason: e.target.value },
-                    })}
-                    placeholder="Reason"
-                    data-testid={`rule-close-reason-${rule.id}`}
-                  />
+                </div>
+              </div>
+              {rule.match.type !== 'any' && (
+                <div className="ws-mock-editor-row">
+                  <label className="ws-mock-editor-label" htmlFor={`rule-match-pattern-${rule.id}`}>Pattern</label>
+                  <div className="ws-mock-editor-ctrl">
+                    <input
+                      id={`rule-match-pattern-${rule.id}`}
+                      className="ws-mock-editor-input ws-mock-editor-pattern"
+                      type="text"
+                      value={rule.match.pattern}
+                      onChange={(e) => ui.handleUpdateRule(rule.id, {
+                        match: { ...rule.match, pattern: e.target.value },
+                      })}
+                      placeholder={
+                        rule.match.type === 'regex' ? 'e.g. hello.*'
+                          : rule.match.type === 'jsonpath' ? 'e.g. $.type=ping'
+                            : 'Pattern\u2026'
+                      }
+                      data-testid={`rule-match-pattern-${rule.id}`}
+                    />
+                  </div>
                 </div>
               )}
             </div>
 
-            <label className="ws-mock-editor-label">Delay</label>
-            <div className="ws-mock-editor-field-group ws-mock-editor-delay-group">
-              <input
-                className="ws-mock-editor-input ws-mock-editor-delay"
-                type="number"
-                value={rule.response.delay ?? 0}
-                onChange={(e) => ui.handleUpdateRule(rule.id, {
-                  response: { ...rule.response, delay: Math.max(0, Math.min(10000, parseInt(e.target.value, 10) || 0)) },
-                })}
-                min={0}
-                max={10000}
-                data-testid={`rule-delay-${rule.id}`}
-              />
-              <span className="ws-mock-editor-unit">ms</span>
+            <div className="ws-mock-editor-section" data-section="response">
+              <div className="ws-mock-editor-section-head">
+                <span className="ws-mock-editor-section-title">Response</span>
+                <span className="ws-mock-editor-section-hint">What the mock sends back</span>
+              </div>
+              <div className="ws-mock-editor-row">
+                <label className="ws-mock-editor-label">Type</label>
+                <div className="ws-mock-editor-ctrl">
+                  <CustomSelect
+                    className="ws-mock-editor-select"
+                    value={rule.response.type}
+                    onChange={(v) => ui.handleUpdateRule(rule.id, {
+                      response: { ...rule.response, type: v as WsMockResponseType },
+                    })}
+                    options={RESPONSE_TYPES}
+                    data-testid={`rule-response-type-${rule.id}`}
+                    aria-label="Response type"
+                  />
+                </div>
+              </div>
+              {/* Delay sits above Body so a tall template editor never buries it. */}
+              <div className="ws-mock-editor-row">
+                <label className="ws-mock-editor-label" htmlFor={`rule-delay-${rule.id}`}>Delay</label>
+                <div className="ws-mock-editor-ctrl ws-mock-editor-delay-group">
+                  <input
+                    id={`rule-delay-${rule.id}`}
+                    className="ws-mock-editor-input ws-mock-editor-delay"
+                    type="number"
+                    value={rule.response.delay ?? 0}
+                    onChange={(e) => ui.handleUpdateRule(rule.id, {
+                      response: { ...rule.response, delay: Math.max(0, Math.min(10000, parseInt(e.target.value, 10) || 0)) },
+                    })}
+                    min={0}
+                    max={10000}
+                    data-testid={`rule-delay-${rule.id}`}
+                  />
+                  <span className="ws-mock-editor-unit">ms</span>
+                  <span className="ws-mock-editor-hint" title="Wait 0–10000 ms before sending the response">before sending</span>
+                </div>
+              </div>
+              {(rule.response.type === 'static' || rule.response.type === 'template') && (
+                <div className="ws-mock-editor-row ws-mock-editor-row--stack">
+                  <label className="ws-mock-editor-label" htmlFor={`rule-response-data-${rule.id}`}>Body</label>
+                  <div className="ws-mock-editor-ctrl">
+                    <textarea
+                      id={`rule-response-data-${rule.id}`}
+                      className="ws-mock-editor-textarea"
+                      value={rule.response.data ?? ''}
+                      onChange={(e) => ui.handleUpdateRule(rule.id, {
+                        response: { ...rule.response, data: e.target.value },
+                      })}
+                      placeholder={
+                        rule.response.type === 'template'
+                          ? '{"status":"ok","ts":"{{timestamp}}","client":"{{clientId}}"}'
+                          : 'Response data\u2026'
+                      }
+                      rows={3}
+                      data-testid={`rule-response-data-${rule.id}`}
+                    />
+                    {rule.response.type === 'template' && (
+                      <span className="ws-mock-editor-hint">
+                        Tokens: {'{{timestamp}}'}, {'{{clientId}}'}, {'{{message}}'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {rule.response.type === 'close' && (
+                <div className="ws-mock-editor-row">
+                  <label className="ws-mock-editor-label">Close</label>
+                  <div className="ws-mock-editor-ctrl ws-mock-editor-close-fields">
+                    <input
+                      className="ws-mock-editor-input ws-mock-editor-close-code"
+                      type="number"
+                      value={rule.response.closeCode ?? 1000}
+                      onChange={(e) => ui.handleUpdateRule(rule.id, {
+                        response: { ...rule.response, closeCode: parseInt(e.target.value, 10) || 1000 },
+                      })}
+                      placeholder="Code"
+                      aria-label="Close code"
+                      data-testid={`rule-close-code-${rule.id}`}
+                    />
+                    <input
+                      className="ws-mock-editor-input"
+                      type="text"
+                      value={rule.response.closeReason ?? ''}
+                      onChange={(e) => ui.handleUpdateRule(rule.id, {
+                        response: { ...rule.response, closeReason: e.target.value },
+                      })}
+                      placeholder="Reason"
+                      aria-label="Close reason"
+                      data-testid={`rule-close-reason-${rule.id}`}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -703,7 +790,10 @@ function MockRuleList({ ui }: { ui: MockUi }) {
   return (
     <div className="ws-mock-rules-section">
       <div className="ws-mock-section-header">
-        <span className="ws-mock-section-title">Match incoming → respond automatically</span>
+        <div className="ws-mock-section-heading">
+          <span className="ws-mock-section-title">Rules</span>
+          <span className="ws-mock-section-subtitle">Match incoming messages → respond automatically</span>
+        </div>
         <button className="ws-mock-add-rule-btn" onClick={ui.handleAddRule} data-testid="mock-add-rule" title="Add a new match rule" aria-label="Add rule">
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
             <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
@@ -713,19 +803,27 @@ function MockRuleList({ ui }: { ui: MockUi }) {
       </div>
 
       {rules.length > 0 && (
-        <input
-          className="ws-mock-search"
-          data-testid="ws-mock-search"
-          type="search"
-          placeholder="Filter rules by name, type, pattern…"
-          value={searchQuery}
-          onChange={(e) => ui.setSearchQuery(e.target.value)}
-        />
+        <div className="ws-mock-search-wrap">
+          <input
+            className="ws-mock-search"
+            data-testid="ws-mock-search"
+            type="search"
+            placeholder="Filter rules by name, type, pattern…"
+            value={searchQuery}
+            onChange={(e) => ui.setSearchQuery(e.target.value)}
+            aria-label="Filter rules"
+          />
+        </div>
       )}
 
       {rules.length === 0 && (
         <div className="mock-server-empty" data-testid="mock-empty-rules">
-          <div className="mock-server-empty__icon" aria-hidden="true">📡</div>
+          <div className="mock-server-empty__icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M4 8h16M4 12h10M4 16h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="18" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+          </div>
           <div className="mock-server-empty__title">No mock rules yet</div>
           <div className="mock-server-empty__hint">
             Create your first rule to define how the mock server responds to incoming WebSocket messages.
@@ -734,9 +832,11 @@ function MockRuleList({ ui }: { ui: MockUi }) {
         </div>
       )}
 
-      {filteredRules.map((rule, idx) => (
-        <MockRuleCard key={rule.id} ui={ui} rule={rule} idx={idx} />
-      ))}
+      <div className="ws-mock-rule-list">
+        {filteredRules.map((rule, idx) => (
+          <MockRuleCard key={rule.id} ui={ui} rule={rule} idx={idx} />
+        ))}
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { stubWorkflowSeedBridge, clearWorkflowSeedBridge } from '../../test-utils/workflowBridgeStubs';
 import { kafkaWorkflowConsumeWaitLesson } from './kafka-workflow-consume-wait';
+import { KAFKA, WF } from '@shared/selectors';
 
 describe('kafka-workflow-consume-wait lesson', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
@@ -25,12 +26,11 @@ describe('kafka-workflow-consume-wait lesson', () => {
     expect(kafkaWorkflowConsumeWaitLesson.concept.body).not.toContain('firstMessageBody');
   });
 
-  it('has exactly 11 steps with unique IDs and visible actions where needed', () => {
-    expect(kafkaWorkflowConsumeWaitLesson.steps.length).toBe(11);
+  it('has exactly 10 steps with unique IDs and visible actions where needed', () => {
+    expect(kafkaWorkflowConsumeWaitLesson.steps.length).toBe(10);
     const ids = kafkaWorkflowConsumeWaitLesson.steps.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
 
-    // Steps that previously had only preAction must now have actions.
     for (const id of [
       'cw-consume-binding',
       'cw-wait-node',
@@ -44,15 +44,26 @@ describe('kafka-workflow-consume-wait lesson', () => {
     }
   });
 
+  it('config steps use field highlights (no flash-ring tours)', () => {
+    expect(kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-consume-binding')!.highlight)
+      .toBe(KAFKA.CONSUME_OUTPUT_BINDINGS);
+    expect(kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-wait-config')!.highlight)
+      .toBe(KAFKA.WAIT_CORRELATION_SECTION);
+    expect(kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-sample-payload')!.highlight)
+      .toBe(KAFKA.WAIT_SAMPLE_TEXTAREA);
+    expect(kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-load-mode')!.highlight)
+      .toBe(KAFKA.WAIT_LOAD_MODE_SELECT);
+  });
+
   it('has setup and cleanup functions', () => {
     expect(typeof kafkaWorkflowConsumeWaitLesson.setup).toBe('function');
     expect(typeof kafkaWorkflowConsumeWaitLesson.cleanup).toBe('function');
   });
 
-  it('step cw-consume-node opens consume config in action and spotlights cards', async () => {
+  it('step cw-consume-node opens consume config once without card flash tour', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-consume-node')!;
-    expect(step.highlight).toBe('.wf-node-kafkaConsume');
-    expect(step.verify).toBe('[data-testid="kafka-consume-config"]');
+    expect(step.highlight).toBe(KAFKA.NODE_CONSUME);
+    expect(step.verify).toBe(KAFKA.CONSUME_CONFIG);
 
     const node = document.createElement('div');
     node.className = 'wf-node-kafkaConsume';
@@ -62,36 +73,16 @@ describe('kafka-workflow-consume-wait lesson', () => {
 
     const modal = document.createElement('div');
     modal.className = 'wf-config-modal';
-    const scroll = document.createElement('div');
-    scroll.className = 'wf-config-modal-scroll';
-    scroll.scrollTo = vi.fn();
-    modal.appendChild(scroll);
     const consume = document.createElement('div');
     consume.setAttribute('data-testid', 'kafka-consume-config');
     modal.appendChild(consume);
     document.body.appendChild(modal);
 
-    const sections = ['Connection', 'Filters', 'Consumption', 'Output bindings', 'Schema Registry'];
-    const cards: HTMLElement[] = [];
-    for (const title of sections) {
-      const card = document.createElement('section');
-      card.className = 'wf-kafka-card';
-      const titleEl = document.createElement('span');
-      titleEl.className = 'wf-kafka-card-title-text';
-      titleEl.textContent = title;
-      card.appendChild(titleEl);
-      card.scrollIntoView = vi.fn();
-      document.body.appendChild(card);
-      cards.push(card);
-    }
-
     const ctx = makeCtx();
     await step.action!(ctx);
 
     expect(dblclickSpy).toHaveBeenCalled();
-    for (const card of cards) {
-      expect(card.scrollIntoView).toHaveBeenCalled();
-    }
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
   it('step cw-consume-binding explains consumedKey is used by kafkaWait correlation', () => {
@@ -107,21 +98,17 @@ describe('kafka-workflow-consume-wait lesson', () => {
     expect(kafkaWorkflowConsumeWaitLesson.concept.diagram).toContain('consumedKey');
   });
 
-  it('step cw-consume-binding action spotlights and toggles the On checkbox', async () => {
+  it('step cw-consume-binding focuses Output bindings without toggle churn', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-consume-binding')!;
     expect(step.title).toContain('consumedKey');
     expect(step.description).toContain('key');
     expect(step.description).not.toContain('firstMessageBody');
 
-    const modal = document.createElement('div');
-    modal.className = 'wf-config-modal';
-    const panel = document.createElement('div');
-    panel.setAttribute('data-testid', 'kafka-consume-config');
-    modal.appendChild(panel);
-    document.body.appendChild(modal);
-
+    const consume = document.createElement('div');
+    consume.setAttribute('data-testid', 'kafka-consume-config');
     const section = document.createElement('div');
     section.setAttribute('data-testid', 'output-bindings-section');
+    section.scrollIntoView = vi.fn();
     const row = document.createElement('div');
     row.className = 'wf-kafka-bindings-row';
     const toggleWrap = document.createElement('div');
@@ -134,72 +121,67 @@ describe('kafka-workflow-consume-wait lesson', () => {
     toggleWrap.appendChild(checkbox);
     row.appendChild(toggleWrap);
     section.appendChild(row);
-    document.body.appendChild(section);
+    consume.appendChild(section);
+    document.body.appendChild(consume);
 
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="output-bindings-section"]', 5000);
-    expect(clickSpy).toHaveBeenCalledTimes(2);
+    expect(ctx.waitFor).toHaveBeenCalledWith(KAFKA.CONSUME_OUTPUT_BINDINGS, 5000);
+    // Already On — do not flash toggle off/on.
+    expect(clickSpy).not.toHaveBeenCalled();
   });
 
   it('step cw-wait-node opens wait config in action (not only preAction)', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-wait-node')!;
-    expect(step.highlight).toBe('.wf-node-kafkaWait');
-    expect(step.verify).toBe('[data-testid="kafka-wait-config"]');
+    expect(step.highlight).toBe(KAFKA.NODE_WAIT);
+    expect(step.verify).toBe(KAFKA.WAIT_CONFIG);
 
     const node = document.createElement('div');
     node.className = 'wf-node-kafkaWait';
-    const dblclickSpy = vi.fn();
+    const dblclickSpy = vi.fn(() => {
+      const wait = document.createElement('div');
+      wait.setAttribute('data-testid', 'kafka-wait-config');
+      document.body.appendChild(wait);
+    });
     node.addEventListener('dblclick', dblclickSpy);
     document.body.appendChild(node);
-
-    const wait = document.createElement('div');
-    wait.setAttribute('data-testid', 'kafka-wait-config');
-    document.body.appendChild(wait);
-
-    const card = document.createElement('section');
-    card.className = 'wf-kafka-card';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'wf-kafka-card-title-text';
-    titleEl.textContent = 'Connection';
-    card.appendChild(titleEl);
-    card.scrollIntoView = vi.fn();
-    document.body.appendChild(card);
 
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(dblclickSpy).toHaveBeenCalled();
-    expect(card.scrollIntoView).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalledWith(KAFKA.WAIT_CONFIG, expect.any(Number));
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
   });
 
-  it('step cw-wait-config action spotlights correlation section', async () => {
+  it('step cw-wait-node keeps Wait open when panel already present', async () => {
+    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-wait-node')!;
+    const wait = document.createElement('div');
+    wait.setAttribute('data-testid', 'kafka-wait-config');
+    document.body.appendChild(wait);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+    expect(document.querySelector(KAFKA.WAIT_CONFIG)).toBeTruthy();
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
+  });
+
+  it('step cw-wait-config action focuses correlation section (no per-row flash)', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-wait-config')!;
     expect(step.description).toContain('ID expression');
     expect(step.description).toContain('Body (JSONPath)');
 
     const section = document.createElement('div');
     section.setAttribute('data-testid', 'wait-correlation-section');
-    const row = document.createElement('div');
-    row.className = 'wf-kafka-form-row';
-    section.appendChild(row);
+    section.scrollIntoView = vi.fn();
     document.body.appendChild(section);
-
-    const extract = document.createElement('section');
-    extract.className = 'wf-kafka-card';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'wf-kafka-card-title-text';
-    titleEl.textContent = 'Extract Variables';
-    extract.appendChild(titleEl);
-    extract.scrollIntoView = vi.fn();
-    document.body.appendChild(extract);
 
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="wait-correlation-section"]', 5000);
-    expect(extract.scrollIntoView).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalledWith(KAFKA.WAIT_CORRELATION_SECTION, 5000);
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
   });
 
-  it('step cw-sample-payload action spotlights Quick Test sample textarea', async () => {
+  it('step cw-sample-payload action focuses sample textarea', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-sample-payload')!;
     expect(step.title).toContain('Quick Test');
     expect(step.description).toContain('Message body');
@@ -209,42 +191,62 @@ describe('kafka-workflow-consume-wait lesson', () => {
     textarea.scrollIntoView = vi.fn();
     document.body.appendChild(textarea);
 
-    const card = document.createElement('section');
-    card.className = 'wf-kafka-card';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'wf-kafka-card-title-text';
-    titleEl.textContent = 'Quick Test';
-    card.appendChild(titleEl);
-    card.scrollIntoView = vi.fn();
-    document.body.appendChild(card);
-
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="wait-sample-payload"]', 5000);
-    expect(card.scrollIntoView).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalledWith(KAFKA.WAIT_SAMPLE_TEXTAREA, 5000);
+    expect(textarea.scrollIntoView).toHaveBeenCalled();
   });
 
-  it('step cw-load-mode action clicks the Mode select', async () => {
+  it('step cw-load-mode closes Wait config once at end of Wait tour', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-load-mode')!;
     expect(step.description).toContain('Auto resume');
+    expect(step.verify).toBe(WF.QUICK_TEST_BTN);
 
     const select = document.createElement('div');
     select.setAttribute('data-testid', 'wait-load-mode');
     select.scrollIntoView = vi.fn();
     document.body.appendChild(select);
 
-    const card = document.createElement('section');
-    card.className = 'wf-kafka-card';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'wf-kafka-card-title-text';
-    titleEl.textContent = 'Load test';
-    card.appendChild(titleEl);
-    card.scrollIntoView = vi.fn();
-    document.body.appendChild(card);
+    const modal = document.createElement('div');
+    modal.className = 'wf-config-modal';
+    const footer = document.createElement('div');
+    footer.className = 'wf-config-modal-footer-actions';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn-ghost';
+    const closeSpy = vi.fn(() => modal.remove());
+    closeBtn.addEventListener('click', closeSpy);
+    footer.appendChild(closeBtn);
+    modal.appendChild(footer);
+    document.body.appendChild(modal);
 
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="wait-load-mode"]');
+    expect(select.scrollIntoView).toHaveBeenCalled();
+    expect(closeSpy).toHaveBeenCalled();
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
+  });
+
+  it('Wait config preActions do not reopen when panel is already open', async () => {
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-config-modal">
+        <div data-testid="kafka-wait-config"></div>
+      </div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = () => 'Kafka Consume & Wait Demo';
+    (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar = vi.fn();
+
+    const node = document.createElement('div');
+    node.className = 'wf-node-kafkaWait';
+    const dblclickSpy = vi.fn();
+    node.addEventListener('dblclick', dblclickSpy);
+    document.body.appendChild(node);
+
+    for (const id of ['cw-wait-config', 'cw-sample-payload', 'cw-load-mode']) {
+      const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === id)!;
+      await step.preAction!(makeCtx());
+    }
+    expect(dblclickSpy).not.toHaveBeenCalled();
   });
 
   it('step cw-quicktest action clicks quick test button', async () => {
@@ -263,37 +265,27 @@ describe('kafka-workflow-consume-wait lesson', () => {
     const line = document.createElement('div');
     line.className = 'wf-cl-line';
     line.textContent = 'CONSUME orders.created';
+    line.scrollIntoView = vi.fn();
     body.appendChild(line);
     const waitLine = document.createElement('div');
     waitLine.className = 'wf-cl-line';
     waitLine.textContent = 'WAIT RESOLVED (sample)';
+    waitLine.scrollIntoView = vi.fn();
     body.appendChild(waitLine);
     panel.appendChild(body);
     document.body.appendChild(panel);
 
     const badge = document.createElement('button');
     badge.className = 'wf-console-badge';
-    const badgeClickSpy = vi.fn();
+    const badgeClickSpy = vi.fn(() => panel.remove());
     badge.addEventListener('click', badgeClickSpy);
     document.body.appendChild(badge);
 
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(badgeClickSpy).not.toHaveBeenCalled();
-    expect(document.querySelector('.wf-console-panel')).toBeTruthy();
-  });
-
-  it('cw-summary preAction closes the console', async () => {
-    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-summary')!;
-    const panel = document.createElement('div');
-    panel.className = 'wf-console-panel';
-    document.body.appendChild(panel);
-    const badge = document.createElement('button');
-    badge.className = 'wf-console-badge';
-    badge.addEventListener('click', () => panel.remove());
-    document.body.appendChild(badge);
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
+    expect(line.scrollIntoView).toHaveBeenCalled();
+    expect(waitLine.scrollIntoView).toHaveBeenCalled();
+    // After reading, the action closes the console.
     expect(document.querySelector('.wf-console-panel')).toBeNull();
   });
 
@@ -322,9 +314,9 @@ describe('kafka-workflow-consume-wait lesson', () => {
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
   });
 
-  it('cw-intro has no reading highlight and quietly ensures the workflow', async () => {
+  it('cw-intro highlights consume node and quietly ensures the workflow', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-intro')!;
-    expect(step.highlight).toBeUndefined();
+    expect(step.highlight).toBe(KAFKA.NODE_CONSUME);
 
     const expandSpy = vi.fn();
     const collapseSpy = vi.fn();
@@ -407,6 +399,6 @@ describe('kafka-workflow-consume-wait lesson', () => {
   });
 
   it('has Docker badge tag', () => {
-    expect(kafkaWorkflowConsumeWaitLesson.tag).toBe('🐳 Docker');
+    expect(kafkaWorkflowConsumeWaitLesson.tag).toContain('Docker');
   });
 });

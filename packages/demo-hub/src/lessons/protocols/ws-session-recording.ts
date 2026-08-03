@@ -12,7 +12,16 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WS } from '@shared/selectors';
-import { wsSetup, wsCleanup, closeExtraConnectionTabs } from '../setup-helpers';
+import {
+  clearEvents,
+  closeExtraConnectionTabs,
+  disconnectWebSocket,
+  fillControlledInput,
+  firstVisibleEl,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
 import { firstVisibleElement } from '../../utils/domVisibility';
 
 // ── Constants ──────────────────────────────────────────────────
@@ -132,31 +141,48 @@ async function ensureNotReplaying(ctx: DemoActionContext): Promise<void> {
   }
 }
 
+/** Quietly reset Connect wire settings without Mock/Client mode tours. */
+async function resetConnectWireSettingsQuiet(ctx: DemoActionContext): Promise<void> {
+  await switchToClientModeQuiet(ctx);
+  firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+  await ctx.delay(60);
+  const sub = firstVisibleEl<HTMLInputElement>(WS.SUBPROTOCOLS_INPUT);
+  if (sub && sub.value !== '') fillControlledInput(sub, '');
+  // Only open the protocol menu when it is not already Raw (avoids a dropdown flash).
+  const wrapper = firstVisibleEl<HTMLElement>(WS.PROTOCOL_SELECT);
+  const label = wrapper?.querySelector('.cs-trigger')?.textContent?.trim().toLowerCase() ?? '';
+  if (label !== 'raw') {
+    await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
+    await ctx.delay(40);
+  }
+}
+
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
+/**
+ * Quiet setup — REST mock + Client/Connect. Must not open Mock mode during
+ * setup: Live view is already visible and that tour flashes step 1.
+ */
 async function recordingSetup(ctx: DemoActionContext): Promise<void> {
-  // Wait for the WebSocket studio to fully mount before interacting with it.
   await ctx.waitFor(WS.CONN_TAB_BAR);
-  await ctx.delay(400);
-  // Close any extra connection tabs left behind by previous lessons (e.g. ws-power-user).
-  // Multiple tabs mean document.querySelector hits the wrong (hidden) panel.
+  const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(40);
+  }
+  // Close extras from prior lessons (e.g. ws-power-user) — quiet DOM closes only.
   await closeExtraConnectionTabs(ctx);
-  await ctx.delay(200);
-  await wsSetup(ctx);
-  await ctx.delay(200);
-  // Clear stale protocol state
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
-  await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
-  await ctx.delay(200);
-  await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
-  await ctx.delay(200);
+  await startMockServerQuiet(ctx, 9876);
+  await resetConnectWireSettingsQuiet(ctx);
 }
 
 async function recordingCleanup(ctx: DemoActionContext): Promise<void> {
-  // Exit replay if active
   await ensureNotReplaying(ctx);
-  await wsCleanup(ctx);
+  await ensureNotRecording(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx, 9876);
+  await switchToClientModeQuiet(ctx);
 }
 
 // ── Lesson ──────────────────────────────────────────────────────

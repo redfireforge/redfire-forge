@@ -31,6 +31,8 @@ export const KAFKA = {
   //           using these class-scoped text selectors (they throw in querySelector)
   CONNECT_BTN:              '[data-testid="kafka-connect-btn"]',
   TEST_BTN:                 '[data-testid="kafka-test-btn"]',
+  /** ✓ Verified / ✗ Failed badge next to Test Connection */
+  TEST_RESULT:              '[data-testid="kafka-test-result"]',
   DISCONNECT_BTN:           '[data-testid="kafka-disconnect-btn"]',
   DELETE_CLUSTER_BTN:       '[data-testid="kafka-delete-cluster-btn"]',
   CONFIRM_DELETE_BTN:       '[data-testid="kafka-confirm-delete-btn"]',
@@ -39,9 +41,12 @@ export const KAFKA = {
   AUTH_TYPE_SELECT:         '#kafka-auth-mode, button[aria-label="Mechanism"]',
   AUTH_USER_INPUT:          '#kafka-auth-username',
   AUTH_PASS_INPUT:          '#kafka-auth-password',
-  // TODO(K12): add data-testid to TLS checkbox labels in KafkaClusterEditor
   TLS_TOGGLE:               '[data-testid="kafka-tls-toggle"]',
   TLS_VERIFY_TOGGLE:        '[data-testid="kafka-tls-verify-toggle"]',
+  TLS_SERVER_NAME_INPUT:    '#kafka-tls-server-name',
+  TLS_CA_PEM:               '#kafka-tls-ca',
+  TLS_CLIENT_CERT_PEM:      '#kafka-tls-cert',
+  TLS_CLIENT_KEY_PEM:       '#kafka-tls-key',
 
   // ── Publish Studio ────────────────────────────────────────────
   PUB_TOPIC_INPUT:          '#kms-pub-topic',
@@ -172,6 +177,8 @@ export const KAFKA = {
   NODE_TOPIC_INPUT:         'input[placeholder="orders.events"]',
   NODE_BINDING_ADD_BTN:     '[data-testid="node-binding-add-btn"]',
   OUTPUT_BINDINGS_SECTION:  '[data-testid="output-bindings-section"]',
+  /** Output bindings card inside kafkaConsume config (not Produce). */
+  CONSUME_OUTPUT_BINDINGS:  '[data-testid="kafka-consume-config"] [data-testid="output-bindings-section"]',
   WAIT_SAMPLE_TEXTAREA:     '[data-testid="wait-sample-payload"]',
   WAIT_LOAD_MODE_SELECT:    '[data-testid="wait-load-mode"]',
 } as const;

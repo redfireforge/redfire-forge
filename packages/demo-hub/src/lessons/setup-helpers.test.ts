@@ -22,6 +22,7 @@ import {
   switchToClientMode,
   switchToClientModeQuiet,
   disconnectWebSocket,
+  clearAllMockRules,
   clearEvents,
   resetAuth,
   clearCustomHeaders,
@@ -218,6 +219,29 @@ describe('setup-helpers', () => {
     await disconnectWebSocket(ctx);
     expect(clickSpy).not.toHaveBeenCalled();
     vi.restoreAllMocks();
+  });
+
+  // ─── clearAllMockRules ───────────────────────────────────────
+
+  it('clearAllMockRules deletes visible rule cards until none remain', async () => {
+    const mode = document.createElement('button');
+    mode.setAttribute('data-testid', 'mode-mock');
+    mode.classList.add('active');
+    document.body.appendChild(mode);
+    makeVisible(mode);
+
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'mock-rule-x');
+    const del = document.createElement('button');
+    del.setAttribute('data-testid', 'rule-delete-x');
+    del.addEventListener('click', () => card.remove());
+    card.appendChild(del);
+    document.body.appendChild(card);
+    makeVisible(card);
+    makeVisible(del);
+
+    await clearAllMockRules(ctx);
+    expect(document.querySelector('[data-testid="mock-rule-x"]')).toBeNull();
   });
 
   // ─── clearEvents ─────────────────────────────────────────────
@@ -773,16 +797,55 @@ describe('setup-helpers', () => {
 
   // ─── kafka secure / tls setup ───────────────────────────────────
 
-  it('kafkaSecureSetup navigates to kafka-settings', async () => {
+  it('kafkaSecureSetup probes SASL then disconnects so no orphan Connected header remains', async () => {
+    vi.mocked(dispatchKafkaOperation).mockClear();
+    vi.mocked(dispatchKafkaOperation)
+      .mockResolvedValueOnce({
+        ok: true,
+        op: 'status',
+        data: { state: 'disconnected' },
+      } as Awaited<ReturnType<typeof dispatchKafkaOperation>>)
+      .mockResolvedValueOnce({
+        ok: true,
+        op: 'connect',
+        data: { state: 'connected', clusterId: 'demo-secure' },
+      } as Awaited<ReturnType<typeof dispatchKafkaOperation>>)
+      .mockResolvedValueOnce({
+        ok: true,
+        op: 'disconnect',
+        data: { state: 'disconnected' },
+      } as Awaited<ReturnType<typeof dispatchKafkaOperation>>);
+
     await kafkaSecureSetup(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(dispatchKafkaOperation).toHaveBeenCalledWith('connect', expect.objectContaining({
+      connection: expect.objectContaining({ clusterId: 'demo-secure' }),
+    }));
+    expect(dispatchKafkaOperation).toHaveBeenCalledWith('disconnect', { clusterId: 'demo-secure' });
   });
 
-  it('kafkaTlsSetup navigates to kafka-settings', async () => {
+  it('kafkaTlsSetup probes TLS then disconnects so no orphan Connected header remains', async () => {
+    vi.mocked(dispatchKafkaOperation).mockClear();
+    vi.mocked(dispatchKafkaOperation)
+      .mockResolvedValueOnce({
+        ok: true,
+        op: 'status',
+        data: { state: 'disconnected' },
+      } as Awaited<ReturnType<typeof dispatchKafkaOperation>>)
+      .mockResolvedValueOnce({
+        ok: true,
+        op: 'connect',
+        data: { state: 'connected', clusterId: 'demo-tls' },
+      } as Awaited<ReturnType<typeof dispatchKafkaOperation>>)
+      .mockResolvedValueOnce({
+        ok: true,
+        op: 'disconnect',
+        data: { state: 'disconnected' },
+      } as Awaited<ReturnType<typeof dispatchKafkaOperation>>);
+
     await kafkaTlsSetup(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(dispatchKafkaOperation).toHaveBeenCalledWith('disconnect', { clusterId: 'demo-tls' });
   });
 
   // ─── ensureKafka* connection helpers ─────────────────────────────

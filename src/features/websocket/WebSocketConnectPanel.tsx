@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   WsBackoffMultiplier,
   WsCloseDetail,
@@ -12,11 +13,11 @@ import { formatUptime, WS_CLOSE_CODE_PRESETS } from '../../shared/websocket/type
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import type { SioServerParams } from './wsProtocolHelpers';
 import { CustomSelect } from '../../shared/components/CustomSelect';
+import AppModalFrame from '../../shared/components/AppModalFrame';
 import { WebSocketProtocolSelector } from './WebSocketProtocolSelector';
 import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import { getProtocolInfo } from '../../shared/websocket/protocols/protocolTypes';
 import { isValidWsUrl, byteLength, hasUnresolvedVars, resolveEnvVars } from './wsMessageUtils';
-import { useDropdownClose } from './useDropdownClose';
 import { KeyValueEditor } from './KeyValueEditor';
 import type { EndpointRowStatus } from '../environments/utils/protocolEndpointUtils';
 import { ProtocolEndpointPreview } from '../../shared/components/ProtocolEndpointPreview';
@@ -193,10 +194,19 @@ export function WebSocketConnectPanel({
   const [closeDropdownOpen, setCloseDropdownOpen] = useState(false);
   const [closeCode, setCloseCode] = useState(1000);
   const [closeReason, setCloseReason] = useState('');
-  const closeDropdownRef = useDropdownClose(
-    closeDropdownOpen,
-    useCallback(() => setCloseDropdownOpen(false), []),
-  );
+
+  const closeCloseCodeModal = useCallback(() => {
+    setCloseDropdownOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!closeDropdownOpen) return;
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeCloseCodeModal();
+    };
+    document.addEventListener('keydown', handleEscKey);
+    return () => document.removeEventListener('keydown', handleEscKey);
+  }, [closeDropdownOpen, closeCloseCodeModal]);
 
   const handleCloseWithCode = useCallback(() => {
     const reason = closeReason.trim();
@@ -403,84 +413,95 @@ export function WebSocketConnectPanel({
         disabled={inputsDisabled}
       />
 
-      {/* Auto-Reconnect Settings */}
-      <div className="ws-reconnect-settings" data-testid="reconnect-settings">
-        <div className="ws-reconnect-settings-header">
-          <span className="ws-reconnect-settings-title">Auto-Reconnect Settings</span>
+      {/* Auto-Reconnect Settings — matches Connect field-row rhythm */}
+      <section className="ws-reconnect-settings" data-testid="reconnect-settings" aria-label="Auto-reconnect settings">
+        <header className="ws-reconnect-settings-header">
+          <h3 className="ws-reconnect-settings-title">Auto-Reconnect</h3>
           <span className="ws-reconnect-settings-subtitle">Saved with connection profile</span>
-        </div>
+        </header>
+
         <div className="ws-reconnect-settings-body">
-          <label className="ws-connect-label ws-reconnect-label">
+          <label className="ws-reconnect-toggle">
             <input
               type="checkbox"
               checked={autoReconnect}
               onChange={(e) => onAutoReconnectChange?.(e.target.checked)}
               disabled={inputsDisabled}
-              className="ws-connect-kv-checkbox"
+              className="ws-reconnect-toggle-checkbox"
               data-testid="auto-reconnect-toggle"
             />
-            <span>
-              Auto-reconnect on unexpected disconnect
+            <span className="ws-reconnect-toggle-text">
+              <span className="ws-reconnect-toggle-title">Enable auto-reconnect</span>
               <span className="ws-reconnect-label-sub">
-                Automatically retry when the connection drops (close code ≠ 1000)
+                Retry when the connection drops unexpectedly (close code ≠ 1000)
               </span>
             </span>
           </label>
 
-          <div
-            className={`ws-reconnect-settings-row${autoReconnect ? '' : ' ws-reconnect-settings-disabled'}`}
-          >
-            <div className="ws-reconnect-settings-field">
-              <label className="ws-connect-label" htmlFor="ws-max-attempts">Max Attempts</label>
-              <input
-                id="ws-max-attempts"
-                type="number"
-                className="ws-connect-subprotocols"
-                value={maxReconnectAttempts}
-                onChange={(e) => onMaxReconnectAttemptsChange?.(Number(e.target.value) || 5)}
-                min={1}
-                max={50}
-                disabled={inputsDisabled || !autoReconnect}
-                data-testid="max-reconnect-attempts"
-              />
-              <span className="ws-reconnect-field-hint">Stop retrying after this many failures</span>
+          <div className={`ws-reconnect-fields${autoReconnect ? '' : ' is-disabled'}`}>
+            <div className="ws-reconnect-field">
+              <label className="ws-reconnect-field-label" htmlFor="ws-max-attempts">Max attempts</label>
+              <div className="ws-reconnect-field-control">
+                <input
+                  id="ws-max-attempts"
+                  type="number"
+                  className="ws-reconnect-control"
+                  value={maxReconnectAttempts}
+                  onChange={(e) => onMaxReconnectAttemptsChange?.(Number(e.target.value) || 5)}
+                  min={1}
+                  max={50}
+                  disabled={inputsDisabled || !autoReconnect}
+                  data-testid="max-reconnect-attempts"
+                />
+                <p className="ws-reconnect-field-hint">Stop after this many failures</p>
+              </div>
             </div>
-            <div className="ws-reconnect-settings-field">
-              <label className="ws-connect-label" htmlFor="ws-retry-interval">Retry Interval (ms)</label>
-              <input
-                id="ws-retry-interval"
-                type="number"
-                className="ws-connect-subprotocols"
-                value={reconnectIntervalMs}
-                onChange={(e) => onReconnectIntervalMsChange?.(Number(e.target.value) || 3000)}
-                min={500}
-                max={60000}
-                step={500}
-                disabled={inputsDisabled || !autoReconnect}
-                data-testid="reconnect-interval-ms"
-              />
-              <span className="ws-reconnect-field-hint">Wait time between retry attempts</span>
+
+            <div className="ws-reconnect-field">
+              <label className="ws-reconnect-field-label" htmlFor="ws-retry-interval">Retry interval</label>
+              <div className="ws-reconnect-field-control">
+                <div className="ws-reconnect-input-with-unit">
+                  <input
+                    id="ws-retry-interval"
+                    type="number"
+                    className="ws-reconnect-control"
+                    value={reconnectIntervalMs}
+                    onChange={(e) => onReconnectIntervalMsChange?.(Number(e.target.value) || 3000)}
+                    min={500}
+                    max={60000}
+                    step={500}
+                    disabled={inputsDisabled || !autoReconnect}
+                    data-testid="reconnect-interval-ms"
+                    aria-label="Retry interval in milliseconds"
+                  />
+                  <span className="ws-reconnect-unit" aria-hidden="true">ms</span>
+                </div>
+                <p className="ws-reconnect-field-hint">Wait time between attempts</p>
+              </div>
             </div>
-            <div className="ws-reconnect-settings-field">
-              <label className="ws-connect-label" htmlFor="ws-backoff-multiplier">Backoff Multiplier</label>
-              <CustomSelect
-                className="ws-connect-subprotocols"
-                value={String(backoffMultiplier)}
-                onChange={(v) => onBackoffMultiplierChange?.(Number(v) as WsBackoffMultiplier)}
-                options={[
-                  { value: '1', label: 'None (fixed interval)' },
-                  { value: '1.5', label: '1.5×' },
-                  { value: '2', label: '2× (recommended)' },
-                ]}
-                disabled={inputsDisabled || !autoReconnect}
-                data-testid="backoff-multiplier"
-                aria-label="Backoff multiplier"
-              />
-              <span className="ws-reconnect-field-hint">Multiply interval after each failure</span>
+
+            <div className="ws-reconnect-field">
+              <label className="ws-reconnect-field-label" htmlFor="ws-backoff-multiplier">Backoff</label>
+              <div className="ws-reconnect-field-control">
+                <CustomSelect
+                  className="ws-backoff-select"
+                  value={String(backoffMultiplier)}
+                  onChange={(v) => onBackoffMultiplierChange?.(Number(v) as WsBackoffMultiplier)}
+                  options={[
+                    { value: '1', label: 'None', detail: 'Fixed interval' },
+                    { value: '1.5', label: '1.5×', detail: 'Gentle backoff' },
+                    { value: '2', label: '2×', detail: 'Recommended' },
+                  ]}
+                  disabled={inputsDisabled || !autoReconnect}
+                  data-testid="backoff-multiplier"
+                  aria-label="Backoff multiplier"
+                />
+                <p className="ws-reconnect-field-hint">Multiply interval after each failure</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Reconnect indicator */}
       {isReconnecting && reconnectState && (
@@ -574,7 +595,7 @@ export function WebSocketConnectPanel({
         >
           {isConnecting ? 'Connecting\u2026' : 'Connect'}
         </button>
-        <div className="ws-disconnect-group" ref={closeDropdownRef}>
+        <div className="ws-disconnect-group">
           <button
             className="ws-connect-btn ws-connect-btn-danger"
             onClick={() => onDisconnect()}
@@ -590,19 +611,57 @@ export function WebSocketConnectPanel({
             title="Close with code..."
             data-testid="disconnect-caret"
             aria-label="Close with code"
+            aria-haspopup="dialog"
+            aria-expanded={closeDropdownOpen}
           >
             ▾
           </button>
-          {closeDropdownOpen && (
-            <div className="ws-close-code-dropdown" data-testid="close-code-dropdown">
-              {/* Header */}
-              <div className="ws-close-code-header">
-                <span className="ws-close-code-title">Close Connection with Code</span>
-              </div>
+          {closeDropdownOpen && createPortal(
+            <AppModalFrame
+              open
+              title="Close with code"
+              titleId="ws-close-code-title"
+              onClose={closeCloseCodeModal}
+              overlayClassName="ws-close-code-overlay"
+              dialogClassName="ws-close-code-modal"
+              headerClassName="ws-close-code-header modal-header"
+              bodyClassName="ws-close-code-body"
+              footerClassName="ws-close-code-actions"
+              dialogTestId="close-code-dropdown"
+              overlayTestId="close-code-overlay"
+              showExpandButton={false}
+              showResizeHandles={false}
+              closeButtonKind="none"
+              footer={
+                <>
+                  <button
+                    type="button"
+                    className="ws-close-code-btn ws-close-code-btn-secondary"
+                    onClick={closeCloseCodeModal}
+                    data-testid="close-code-cancel"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="ws-close-code-btn ws-close-code-btn-danger"
+                    onClick={handleCloseWithCode}
+                    disabled={!canCloseWithCode}
+                    data-testid="close-with-code-btn"
+                  >
+                    Close with code
+                  </button>
+                </>
+              }
+            >
+              <p className="ws-close-code-subtitle">
+                Send a WebSocket close frame, then disconnect
+              </p>
 
-              {/* Code input + live description */}
               <div className="ws-close-code-field">
-                <label className="ws-close-code-label" htmlFor="ws-close-code-input">Code</label>
+                <label className="ws-close-code-label" htmlFor="ws-close-code-input">
+                  Status code
+                </label>
                 <div className="ws-close-code-input-row">
                   <input
                     id="ws-close-code-input"
@@ -613,69 +672,66 @@ export function WebSocketConnectPanel({
                     min={1000}
                     max={4999}
                     data-testid="close-code-input"
+                    aria-invalid={!isCodeValid}
+                    aria-describedby={isCodeValid ? 'ws-close-code-desc' : 'ws-close-code-error'}
                   />
-                  {codeDescription && isCodeValid && (
-                    <span className="ws-close-code-desc">{codeDescription}</span>
+                  {isCodeValid ? (
+                    <span id="ws-close-code-desc" className="ws-close-code-desc">
+                      {codeDescription}
+                    </span>
+                  ) : (
+                    <span id="ws-close-code-error" className="ws-close-code-error">
+                      Must be 1000–4999
+                    </span>
                   )}
                 </div>
-                {!isCodeValid && (
-                  <span className="ws-close-code-error">Code must be between 1000 and 4999</span>
-                )}
               </div>
 
-              {/* Preset grid */}
-              <div className="ws-close-code-presets" data-testid="close-code-presets">
-                {WS_CLOSE_CODE_PRESETS.map((p) => (
-                  <button
-                    key={p.code}
-                    className={`ws-close-preset-btn ${closeCode === p.code ? 'active' : ''}`}
-                    onClick={() => setCloseCode(p.code)}
-                    title={p.description}
-                  >
-                    <span className="ws-close-preset-code">{p.code}</span>
-                    <span className="ws-close-preset-label">{p.label}</span>
-                  </button>
-                ))}
+              <div className="ws-close-code-presets-block">
+                <span className="ws-close-code-section-label">Quick select</span>
+                <div className="ws-close-code-presets" data-testid="close-code-presets">
+                  {WS_CLOSE_CODE_PRESETS.map((p) => (
+                    <button
+                      key={p.code}
+                      type="button"
+                      className={`ws-close-preset-btn${closeCode === p.code ? ' is-active' : ''}`}
+                      onClick={() => setCloseCode(p.code)}
+                      title={p.description}
+                      aria-pressed={closeCode === p.code}
+                    >
+                      <span className="ws-close-preset-code">{p.code}</span>
+                      <span className="ws-close-preset-label">{p.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Reason */}
               <div className="ws-close-code-field">
-                <label className="ws-close-code-label" htmlFor="ws-close-reason-input">
-                  Reason <span className="ws-close-reason-optional">(optional)</span>
-                </label>
+                <div className="ws-close-reason-header">
+                  <label className="ws-close-code-label" htmlFor="ws-close-reason-input">
+                    Reason
+                    <span className="ws-close-reason-optional">Optional</span>
+                  </label>
+                  <span
+                    className={`ws-close-reason-counter${!isReasonValid ? ' is-over' : ''}`}
+                    aria-live="polite"
+                  >
+                    {reasonBytes}/{MAX_REASON_BYTES} bytes
+                  </span>
+                </div>
                 <textarea
                   id="ws-close-reason-input"
                   className="ws-close-reason-input"
                   value={closeReason}
                   onChange={(e) => setCloseReason(e.target.value)}
-                  placeholder="Optional close reason…"
+                  placeholder="Short explanation sent with the close frame…"
                   maxLength={123}
                   rows={2}
                   data-testid="close-reason-input"
                 />
-                <span className={`ws-close-reason-counter ${!isReasonValid ? 'over' : ''}`}>
-                  {reasonBytes}/{MAX_REASON_BYTES} bytes
-                </span>
               </div>
-
-              {/* Actions */}
-              <div className="ws-close-code-actions">
-                <button
-                  className="ws-connect-btn ws-connect-btn-secondary"
-                  onClick={() => setCloseDropdownOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="ws-connect-btn ws-connect-btn-danger"
-                  onClick={handleCloseWithCode}
-                  disabled={!canCloseWithCode}
-                  data-testid="close-with-code-btn"
-                >
-                  Close with Code
-                </button>
-              </div>
-            </div>
+            </AppModalFrame>,
+            document.body,
           )}
         </div>
         {onSaveAsProfile && (

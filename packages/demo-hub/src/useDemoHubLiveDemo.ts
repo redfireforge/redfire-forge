@@ -231,7 +231,9 @@ export function useDemoHubLiveDemo({
   const goToStep = useCallback(async (index: number) => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
-    closeWorkflowConfigModal();
+    // Do NOT close the workflow node config modal here. Multi-step config tours
+    // (e.g. kafka Consume → Output bindings, Wait correlation → sample → mode)
+    // keep the panel open across steps; lessons close it in preAction when needed.
     const clamped = Math.max(0, Math.min(index, lesson.steps.length - 1));
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     autoPlayGenRef.current++;
@@ -343,7 +345,7 @@ export function useDemoHubLiveDemo({
       }
       if (!isPlayingRef.current || autoPlayGenRef.current !== gen) return;
       /* v8 ignore stop */
-      closeWorkflowConfigModal();
+      // Keep open config modals across autoplay advances (same as goToStep).
       const nextIdx = state.stepIndex + 1;
       setStepPhase('pre');
       setState(prev => ({ ...prev, stepIndex: nextIdx }));

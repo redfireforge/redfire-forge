@@ -115,7 +115,14 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
     }
 
     if (connection.state === 'connected') {
-      return `Connected${connection.clusterId ? ` to ${connection.clusterId}` : ''}`;
+      if (!connection.clusterId) return 'Connected';
+      const matched = clusters.some((c) => c.clusterId === connection.clusterId);
+      // Orphan session: server is connected under an id with no saved profile
+      // (e.g. demo API probe). Cards correctly stay Idle — surface that clearly.
+      if (!matched) {
+        return `Connected to ${connection.clusterId} (no matching saved profile)`;
+      }
+      return `Connected to ${connection.clusterId}`;
     }
 
     if (connection.state === 'testing') {
@@ -127,7 +134,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
     }
 
     return 'Disconnected';
-  }, [loaded, connection]);
+  }, [loaded, connection, clusters]);
 
   const selectCluster = (clusterId: string) => {
     setSelectedClusterId(clusterId);

@@ -11,8 +11,19 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { EM, WS, APP } from '@shared/selectors';
-import { wsSetup, wsCleanup, closeExtraConnectionTabs, getLastMockPort } from '../setup-helpers';
+import {
+  closeExtraConnectionTabs,
+  disconnectWebSocket,
+  clearEvents,
+  firstVisibleEl,
+  getLastMockPort,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
 import { firstVisibleElement, visibleElements } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
+import { clearWsProfilesQuiet, clearWsTemplatesQuiet } from '../../adapters';
 import {
   cleanupDemoEnvironment,
   cleanupDemoMicroservice,
@@ -30,91 +41,86 @@ const DEMO_TEMPLATE_BODY = '{"action":"greet","name":"RedfireForge"}';
 const RESOLVED_WS_URL = '{{wsBaseUrl}}/ws';
 const UNRESOLVED_URL = '{{unknownHost}}/ws';
 
-// ── Helpers ─────────────────────────────────────────────────────
-
-/** Delete all saved profiles to ensure clean demo state. */
-async function clearSavedProfiles(ctx: DemoActionContext): Promise<void> {
-  await ctx.click(WS.MODE_SAVED);
-  await ctx.delay(400);
-  // Delete profiles one by one via the detail pane's delete flow
-  for (let i = 0; i < 10; i++) {
-    const card = firstVisibleElement<HTMLElement>('[data-testid^="profile-card-"]');
-    if (!card) break;
-    card.click();
-    await ctx.delay(300);
-    const id = card.getAttribute('data-testid')!.replace('profile-card-', '');
-    const deleteBtn = firstVisibleElement<HTMLElement>(`[data-testid="delete-btn-${id}"]`);
-    if (deleteBtn) {
-      deleteBtn.click();
-      await ctx.delay(200);
-      const confirm = firstVisibleElement<HTMLElement>(`[data-testid="confirm-delete-${id}"]`);
-      confirm?.click();
-      await ctx.delay(300);
-    }
+/** Spotlight a field so the viewer can read the change. */
+async function spotlightAndPause(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  const el = firstVisibleElement<HTMLElement>(selector);
+  if (!el) {
+    await ctx.delay(holdMs);
+    return;
+  }
+  el.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  const dispose = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    dispose();
   }
 }
 
-/** Delete all saved templates via the templates modal. */
-async function clearTemplates(ctx: DemoActionContext): Promise<void> {
+async function ensureClientConnect(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.MODE_CLIENT);
-  await ctx.delay(300);
-  await ctx.click(WS.LEFT_TAB_SEND);
-  await ctx.delay(500);
-  await ctx.waitFor(WS.TEMPLATE_TRIGGER);
+  await ctx.delay(200);
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+}
+
+async function ensureMockUrlFilled(ctx: DemoActionContext): Promise<void> {
+  await ensureClientConnect(ctx);
+  await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
+  await ctx.delay(100);
+}
+
+async function closeTemplateModalIfOpen(ctx: DemoActionContext): Promise<void> {
+  if (!firstVisibleElement(WS.TEMPLATE_DROPDOWN)) return;
   const trigger = firstVisibleElement<HTMLElement>(WS.TEMPLATE_TRIGGER);
-  if (!trigger) return;
-  trigger.click();
-  await ctx.delay(400);
-  for (let i = 0; i < 10; i++) {
-    const delBtn = firstVisibleElement<HTMLElement>('[data-testid^="template-delete-"]');
-    if (!delBtn) break;
-    const btnTestId = delBtn.getAttribute('data-testid')!;
-    delBtn.click();
-    for (let w = 0; w < 30; w++) {
-      await ctx.delay(100);
-      if (!firstVisibleElement(`[data-testid="${btnTestId}"]`)) break;
-    }
-  }
-  if (firstVisibleElement(WS.TEMPLATE_DROPDOWN)) {
-    trigger.click();
-    await ctx.delay(200);
-  }
+  trigger?.click();
+  await ctx.delay(200);
 }
 
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
+/**
+ * Quiet setup — REST mock + clear profiles/templates via bridge.
+ * Must not switch Mock/Saved/Send during setup: Live view is already visible
+ * and those tours flash step 1 for the viewer.
+ */
 async function workspaceSetup(ctx: DemoActionContext): Promise<void> {
-  // Close any extra connection tabs left behind by previous lessons. Note this does
-  // NOT guarantee port 9876 for the surviving tab — wsSetup() below captures this
-  // tab's *actual* assigned port (via getLastMockPort()), which is what's used for
-  // the profile URL and the Environment Manager endpoint later in this lesson.
-  await closeExtraConnectionTabs(ctx);
-  // Start mock server + switch to client mode
-  await wsSetup(ctx);
-  // Clear any existing profiles and templates for a clean demo
-  await clearSavedProfiles(ctx);
-  await clearTemplates(ctx);
-  // Return to Client mode on Connect tab
-  const isClient = !!document.querySelector('[data-testid="mode-client"].active, [data-testid="mode-client"][aria-selected="true"]');
-  if (!isClient) {
-    await ctx.click(WS.MODE_CLIENT);
-    await ctx.delay(120);
+  const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(40);
   }
-  const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+  await closeExtraConnectionTabs(ctx);
+  await startMockServerQuiet(ctx, 9876);
+  await clearWsProfilesQuiet();
+  await clearWsTemplatesQuiet();
+  await switchToClientModeQuiet(ctx);
+  const connectTab = firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT);
   if (connectTab?.getAttribute('aria-selected') !== 'true') {
     connectTab?.click();
-    await ctx.delay(120);
+    await ctx.delay(60);
+  }
+  // Always start on Events tab so persisted Stats/Console/etc. doesn't bleed in
+  const eventsTab = firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS);
+  if (eventsTab?.getAttribute('aria-selected') !== 'true') {
+    eventsTab?.click();
+    await ctx.delay(40);
   }
 }
 
 async function workspaceCleanup(ctx: DemoActionContext): Promise<void> {
-  await clearSavedProfiles(ctx);
-  await ctx.delay(200);
-  await clearTemplates(ctx);
-  await ctx.delay(200);
+  await clearWsProfilesQuiet();
+  await clearWsTemplatesQuiet();
   await cleanupDemoMicroservice(ctx, WS_DEMO_SVC_NAME);
   await cleanupDemoEnvironment(ctx, WS_DEMO_ENV_NAME);
-  await wsCleanup(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx, 9876);
+  await switchToClientModeQuiet(ctx);
 }
 
 // ── Lesson ──────────────────────────────────────────────────────
@@ -124,7 +130,7 @@ export const wsWorkspaceLesson: DemoLesson = {
   domainId: 'protocols',
   category: 'websocket',
   name: 'Profiles, Templates & Env Vars',
-  description: 'Save connection profiles, reuse message templates, and use environment variables in URLs.',
+  description: 'Save a connection profile, reuse message templates, then resolve {{wsBaseUrl}} from Environment Manager.',
   estimatedMinutes: 5,
   initialTab: 'websocket-studio',
   allowedTabs: ['environments', 'websocket-studio'],
@@ -134,25 +140,19 @@ export const wsWorkspaceLesson: DemoLesson = {
 
   concept: {
     title: 'Workspace: Your Saved Work',
-    body: `RedfireForge has three features that turn one-off testing into a **repeatable workflow**: saved profiles, message templates, and environment variables.
+    body: `This lesson teaches three "remember my work" features **in the order you'll use them**:
 
-**Saved Connection Profiles**
+1. **Connection profiles** — save the Connect form, then reload it from **Saved**
+2. **Message templates** — save a JSON body from **Send → Templates**, then load it back
+3. **Environment variables** — configure \`{{wsBaseUrl}}\` in Environment Manager and resolve it in the URL field
 
-The **Saved** mode tab stores named connection configurations — URL, auth, headers, query params — so you can switch between servers with one click. Every profile you save appears in a searchable rail with "Load & Connect" to instantly apply it.
+**Profiles** live under **Saved** (or **Save as Profile** on Connect). **Templates** live in the Send panel modal. **Env vars** resolve from the selected Environment × Service — with a live **→ Resolved:** preview (✓ / ⚠ / ✗) before you click Connect.
 
-**Message Templates**
-
-In the **Send** panel, the **Templates** button opens a modal where you can save the current message payload with a name (like "auth-handshake" or "order-create"). Next time, one click loads it back — no re-typing JSON. Templates persist across sessions.
-
-**Environment Variables**
-
-Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the **WebSocket** tab you configured per microservice × environment in the Environment Manager. Each protocol has its own endpoint table — WebSocket addresses are explicit \`ws://\` or \`wss://\` URLs, not derived from HTTP unless you leave them blank (fallback). A **→ Resolved:** preview appears below the input with ✓ (explicit), ⚠ (HTTP fallback), or ✗ (unresolved). If a variable can't be resolved, a warning badge appears immediately — you'll know before you click Connect.
-
-| Feature | Access | What it saves |
+| Feature | Where | What it stores |
 |---|---|---|
-| Profiles | **Saved** mode tab (top bar) or **Save as Profile** button | URL + auth + headers + params |
-| Templates | **Templates** button in **Send** panel (opens modal) | Message body text |
-| Env Vars | \`{{varName}}\` in URL/headers/params | Auto-resolved from selected environment |`,
+| Profiles | **Saved** / **Save as Profile** | URL + auth + headers + params |
+| Templates | **Send → Templates** | Message body text |
+| Env Vars | \`{{varName}}\` + Environment Manager | Values resolved at connect time |`,
     keyTerms: [
       {
         term: 'Connection Profile',
@@ -365,12 +365,58 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
   },
 
   steps: [
-    // ── 1. Saved Mode ────────────────────────────────────────
+    // ── Act I: Connection Profiles ─────────────────────────────
     {
-      id: 'ws-profile-intro',
-      title: 'The Saved Mode',
+      id: 'ws-url-ready',
+      title: 'Start with a Connection URL',
       description:
-        'The **Saved** tab in the top mode bar opens the profiles panel — a searchable library of named connection configurations. Each profile stores URL, auth, headers, and query params. Right now it\'s empty because the demo started with a clean slate. Let\'s create our first profile.',
+        'Open **Client → Connect** and set the URL to this tab\'s mock server ' +
+        '(`ws://localhost:9876` in a fresh session). Everything we save next — profiles and env vars — builds on a real address you can reload later.',
+      highlight: WS.URL_INPUT,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureClientConnect(ctx);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ctx.waitFor(WS.URL_INPUT);
+        await ctx.delay(400);
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
+        await spotlightAndPause(ctx, WS.URL_INPUT, 1200);
+      },
+    },
+    {
+      id: 'ws-profile-save',
+      title: 'Save as Profile',
+      description:
+        'Click **Save as Profile** under the URL field. Name it **Demo Echo Server** and save. ' +
+        'RedfireForge stores URL, auth, headers, and params as a named snapshot you can reload anytime.',
+      highlight: WS.SAVE_AS_PROFILE_BTN,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureMockUrlFilled(ctx);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await spotlightAndPause(ctx, WS.SAVE_AS_PROFILE_BTN, 900);
+        await ctx.click(WS.SAVE_AS_PROFILE_BTN);
+        await ctx.waitFor(WS.PROFILE_NAME_INPUT);
+        // Spotlight the whole modal so the viewer can read the pre-filled fields
+        await spotlightAndPause(ctx, WS.PROFILE_EDITOR_MODAL, 1400);
+        await ctx.fill(WS.PROFILE_NAME_INPUT, DEMO_PROFILE_NAME);
+        // Hold on the filled name so the viewer sees what was typed
+        await spotlightAndPause(ctx, WS.PROFILE_NAME_INPUT, 1400);
+        // Spotlight the URL field so the viewer sees it was captured too
+        await spotlightAndPause(ctx, WS.PROFILE_URL_INPUT, 1200);
+        await spotlightAndPause(ctx, WS.PROFILE_SAVE_BTN, 900);
+        await ctx.click(WS.PROFILE_SAVE_BTN);
+        await ctx.delay(800);
+      },
+    },
+    {
+      id: 'ws-profile-browse',
+      title: 'Browse Saved Profiles',
+      description:
+        'Open the **Saved** mode tab. Your **Demo Echo Server** profile appears in the rail — a searchable library of connection configs. ' +
+        'Select the card to open the detail pane (URL, badges, actions).',
       highlight: WS.MODE_SAVED,
       pauseAfter: true,
       preAction: async () => {
@@ -379,157 +425,107 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         });
       },
       action: async (ctx: DemoActionContext) => {
+        await spotlightAndPause(ctx, WS.MODE_SAVED, 800);
         await ctx.click(WS.MODE_SAVED);
-        await ctx.delay(500);
-      },
-    },
-
-    // ── 2. Save a Profile ──────────────────────────────────
-    {
-      id: 'ws-profile-save',
-      title: 'Save a Connection Profile',
-      description:
-        'Back in Client mode, the Connect panel shows a **Save as Profile** button below the URL field. The mock server URL is already filled in. Watch the demo click **Save as Profile** — a modal opens where you name the profile and confirm. The profile is now saved and appears in the Saved tab.',
-      highlight: WS.SAVE_AS_PROFILE_BTN,
-      pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(300);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
-        await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
-        await ctx.delay(200);
-      },
-      action: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.SAVE_AS_PROFILE_BTN);
-        // Rule 5: ProfileEditorModal is conditionally rendered — wait for it to mount.
-        // Clicking the button switches to Saved mode, sets prefillDraft, which triggers
-        // a useEffect that sets editorOpen = true, then the modal mounts.
-        await ctx.waitFor(WS.PROFILE_NAME_INPUT);
-        await ctx.delay(400);
-        // The profile editor modal is now open — fill name and save
-        await ctx.fill(WS.PROFILE_NAME_INPUT, DEMO_PROFILE_NAME);
-        await ctx.delay(400);
-        await ctx.click(WS.PROFILE_SAVE_BTN);
-        await ctx.delay(600);
-      },
-    },
-
-    // ── 3. Load a Profile ──────────────────────────────────
-    {
-      id: 'ws-profile-load',
-      title: 'Load a Saved Profile',
-      description:
-        'Switch to Saved mode and the profile we just created appears in the rail. Selecting it shows a detail pane with URL, auth badges, and action buttons. Clicking **Load & Connect** applies the profile to the Client connect form and switches you back — ready to connect in one click.',
-      highlight: WS.SAVED_CONNECTIONS,
-      pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.MODE_SAVED);
-        await ctx.delay(400);
-      },
-      action: async (ctx: DemoActionContext) => {
-        // Click the first profile card to select it (with visual ripple)
+        await ctx.delay(700);
         const card = firstVisibleElement<HTMLElement>('[data-testid^="profile-card-"]');
         if (!card) return;
         const id = card.getAttribute('data-testid')!.replace('profile-card-', '');
         await ctx.click(`[data-testid="profile-card-${id}"]`);
-        await ctx.delay(500);
-        // Click "Load & Connect" (with visual ripple)
-        await ctx.click(`[data-testid="load-btn-${id}"]`);
-        await ctx.delay(600);
+        await spotlightAndPause(ctx, `[data-testid="profile-card-${id}"]`, 1000);
       },
     },
-
-    // ── 4. Templates Introduction ──────────────────────────
     {
-      id: 'ws-template-intro',
-      title: 'Message Templates',
+      id: 'ws-profile-load',
+      title: 'Load & Connect',
       description:
-        'The **Send** panel has a **Templates** button in the compose controls. Clicking it opens a centered modal — a dedicated panel for managing your saved message templates. Templates store the raw message body and persist across sessions. Watch as the modal opens showing the empty state — no templates yet.',
-      highlight: WS.TEMPLATE_TRIGGER,
+        'With the profile selected, click **Load & Connect**. RedfireForge applies the saved URL (and other fields) to the Client Connect form and switches you back — ready to connect in one click.',
+      highlight: WS.SAVED_CONNECTIONS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_SEND);
+        await ctx.click(WS.MODE_SAVED);
         await ctx.delay(300);
-      },
-      action: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.TEMPLATE_TRIGGER);
-        await ctx.waitFor(WS.TEMPLATE_DROPDOWN);
-        await ctx.delay(1500);
-        await ctx.click(WS.TEMPLATE_TRIGGER);
-        await ctx.delay(300);
-      },
-    },
-
-    // ── 5. Save a Template ─────────────────────────────────
-    {
-      id: 'ws-template-save',
-      title: 'Save a Template',
-      description:
-        'Watch the demo type a JSON payload into the compose textarea, then open the Templates modal and enter a name in the **Save current message as** section at the bottom. Clicking **Save** stores the template — it\'s now available for instant reuse anytime.',
-      highlight: WS.TEMPLATE_SAVE_BTN,
-      pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_SEND);
-        await ctx.delay(200);
-        // Close modal if still open from previous step
-        if (firstVisibleElement(WS.TEMPLATE_DROPDOWN)) {
-          const trigger = firstVisibleElement<HTMLElement>(WS.TEMPLATE_TRIGGER);
-          if (trigger) trigger.click();
+        const card = firstVisibleElement<HTMLElement>('[data-testid^="profile-card-"]');
+        if (card && !card.classList.contains('selected')) {
+          card.click();
           await ctx.delay(200);
         }
       },
       action: async (ctx: DemoActionContext) => {
+        const card = firstVisibleElement<HTMLElement>('[data-testid^="profile-card-"]');
+        if (!card) return;
+        const id = card.getAttribute('data-testid')!.replace('profile-card-', '');
+        await ctx.click(`[data-testid="profile-card-${id}"]`);
+        await ctx.delay(400);
+        await spotlightAndPause(ctx, `[data-testid="load-btn-${id}"]`, 900);
+        await ctx.click(`[data-testid="load-btn-${id}"]`);
+        await ctx.delay(800);
+        await spotlightAndPause(ctx, WS.URL_INPUT, 1000);
+      },
+    },
+
+    // ── Act II: Message Templates ──────────────────────────────
+    {
+      id: 'ws-template-save',
+      title: 'Save a Message Template',
+      description:
+        'Switch to **Send**, type a JSON payload, then open **Templates**. Name it **greeting** and click **Save**. ' +
+        'Templates store the message body only — perfect for complex JSON you reuse across sessions.',
+      highlight: WS.TEMPLATE_TRIGGER,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(200);
+        await ctx.click(WS.LEFT_TAB_SEND);
+        await ctx.delay(200);
+        await closeTemplateModalIfOpen(ctx);
+      },
+      action: async (ctx: DemoActionContext) => {
         await ctx.fill(WS.MESSAGE_INPUT, DEMO_TEMPLATE_BODY);
-        await ctx.delay(500);
+        await spotlightAndPause(ctx, WS.MESSAGE_INPUT, 1100);
+        await spotlightAndPause(ctx, WS.TEMPLATE_TRIGGER, 800);
         await ctx.click(WS.TEMPLATE_TRIGGER);
         await ctx.waitFor(WS.TEMPLATE_SAVE_NAME);
         await ctx.delay(600);
         await ctx.fill(WS.TEMPLATE_SAVE_NAME, DEMO_TEMPLATE_NAME);
-        await ctx.delay(400);
+        await spotlightAndPause(ctx, WS.TEMPLATE_SAVE_NAME, 800);
         await ctx.click(WS.TEMPLATE_SAVE_BTN);
-        await ctx.delay(700);
+        await ctx.delay(800);
       },
     },
-
-    // ── 6. Load a Template ─────────────────────────────────
     {
       id: 'ws-template-load',
       title: 'Load a Template',
       description:
-        'The compose textarea is now empty. Watch the demo open the Templates modal — the saved **greeting** template appears in the list with its full payload preview. Clicking it loads the payload `{"action":"greet","name":"RedfireForge"}` back into the compose area instantly. Templates are great for complex JSON bodies you use repeatedly.',
+        'Clear the compose area, reopen **Templates**, and click **greeting**. ' +
+        'The payload `{"action":"greet","name":"RedfireForge"}` returns instantly — no retyping.',
       highlight: WS.TEMPLATE_TRIGGER,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         await ctx.fill(WS.MESSAGE_INPUT, '');
-        await ctx.delay(200);
-        // Close modal if still open from previous step
-        if (firstVisibleElement(WS.TEMPLATE_DROPDOWN)) {
-          const trigger = firstVisibleElement<HTMLElement>(WS.TEMPLATE_TRIGGER);
-          if (trigger) trigger.click();
-          await ctx.delay(200);
-        }
+        await ctx.delay(150);
+        await closeTemplateModalIfOpen(ctx);
       },
       action: async (ctx: DemoActionContext) => {
+        await spotlightAndPause(ctx, WS.TEMPLATE_TRIGGER, 800);
         await ctx.click(WS.TEMPLATE_TRIGGER);
         await ctx.waitFor('.ws-template-item-load');
-        await ctx.delay(600);
+        await ctx.delay(700);
         await ctx.click('.ws-template-item-load');
-        await ctx.delay(600);
+        await spotlightAndPause(ctx, WS.MESSAGE_INPUT, 1200);
       },
     },
 
-    // ── 7. Configure WebSocket Endpoint ─────────────────────────
+    // ── Act III: Environment Variables ─────────────────────────
     {
       id: 'ws-env-config',
       title: 'Configure WebSocket Endpoint',
       description:
-        'Open **Settings → Environments** and create **"WebSocket Demo"** and **"ws-demo"**. Expand the microservice — it starts with **no protocol tabs**. ' +
-        'Click **+ Add protocol** and choose **WebSocket**, deploy the **WebSocket Demo** row, then **Edit** and enter your mock server\'s URL ' +
-        '(shown in the **Mock Server** tab, e.g. `ws://localhost:9876` — the exact port depends on how many connection tabs you have open). ' +
-        'After **Save**, the derived-variables panel shows `{{wsBaseUrl}}` resolved for this microservice.',
+        'Profiles remember a fixed URL. For multi-environment work, store the host in Environment Manager instead. ' +
+        'Open **Settings → Environments**, create **"WebSocket Demo"** / **"ws-demo"**, add the **WebSocket** protocol, ' +
+        'and set the mock URL (e.g. `ws://localhost:9876`). After Save, `{{wsBaseUrl}}` appears in derived variables.',
       highlight: EM.PROTOCOL_TAB_WS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
@@ -546,76 +542,44 @@ Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the
         await ctx.delay(1500);
       },
     },
-
-    // ── 8. Select Environment & Service in Header ───────────────
-    {
-      id: 'ws-header-select',
-      title: 'Select Environment & Service',
-      description:
-        'Back in WebSocket Studio, choose **"WebSocket Demo"** in the **Environment** header dropdown and **"ws-demo"** in the **Service** dropdown. ' +
-        'The protocol indicator beside them confirms `{{wsBaseUrl}}` is resolved before you type a URL template.',
-      highlight: APP.HEADER_SELECTORS,
-      pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        await navigateToWebSocketStudio(ctx);
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(200);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
-      },
-      action: async (ctx: DemoActionContext) => {
-        await ensureWsDemoHeaderContext(ctx, `ws://localhost:${getLastMockPort()}`);
-        await ctx.delay(1500);
-      },
-    },
-
-    // ── 9. Resolved {{wsBaseUrl}} preview ────────────────────────
     {
       id: 'ws-env-resolve',
-      title: 'Resolved WebSocket URL',
+      title: 'Resolve {{wsBaseUrl}} in the URL',
       description:
-        'Type `{{wsBaseUrl}}/ws` in the URL field. Watch the **→ Resolved:** preview update to your mock server\'s ' +
-        'URL (e.g. `ws://localhost:9876/ws`) with a green ✓ — using the endpoint and header selections you just configured.',
+        'Back in WebSocket Studio, select **"WebSocket Demo"** and **"ws-demo"** in the header. ' +
+        'Type `{{wsBaseUrl}}/ws` in the URL field — the **→ Resolved:** preview shows your mock URL with a green ✓.',
       highlight: WS.URL_INPUT,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        await navigateToWebSocketStudio(ctx);
         await ensureWsDemoHeaderContext(ctx, `ws://localhost:${getLastMockPort()}`);
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(300);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
+        // ensureWsDemoHeaderContext may have navigated to Env Manager — go back
+        await navigateToWebSocketStudio(ctx);
+        await ensureClientConnect(ctx);
       },
       action: async (ctx: DemoActionContext) => {
+        await spotlightAndPause(ctx, APP.HEADER_SELECTORS, 1000);
         await ctx.fill(WS.URL_INPUT, RESOLVED_WS_URL);
-        await ctx.delay(1500);
+        await spotlightAndPause(ctx, WS.URL_INPUT, 1400);
       },
     },
-
-    // ── 10. Variable Placeholders & Warning ─────────────────────
     {
       id: 'ws-env-warn',
-      title: 'Variable Placeholders in URLs',
+      title: 'Catch Unresolved Variables',
       description:
-        'The URL field supports `{{varName}}` placeholders — type `{{unknownHost}}/ws` and RedfireForge immediately shows a **warning** below the field: the variable doesn\'t match any known variable. This instant feedback catches typos, missing environment config, or an unselected environment before you ever click Connect.',
+        'Type `{{unknownHost}}/ws` instead. RedfireForge immediately shows a **warning** under the field — ' +
+        'typos and missing env config are caught before you click Connect.',
       highlight: WS.URL_INPUT,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard for skip-to-step: only navigate if URL input is not already visible.
-        // Do NOT click MODE_CLIENT or LEFT_TAB_CONNECT when already on Connect tab —
-        // those clicks trigger React re-renders that interfere with the fill in the action.
         if (!firstVisibleElement(WS.URL_INPUT)) {
           ctx.navigateToTab('websocket-studio');
-          await ctx.delay(500);
-          await ctx.click(WS.MODE_CLIENT);
-          await ctx.delay(200);
-          await ctx.click(WS.LEFT_TAB_CONNECT);
-          await ctx.delay(200);
+          await ctx.delay(400);
+          await ensureClientConnect(ctx);
         }
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.fill(WS.URL_INPUT, UNRESOLVED_URL);
-        await ctx.delay(800);
+        await spotlightAndPause(ctx, WS.URL_INPUT, 1200);
       },
     },
   ],

@@ -9,7 +9,7 @@ import { useListCrud } from '../../../../shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
-import { createHeaderFilter, createExtractVariable } from './kafkaConfigFactories';
+import { createHeaderFilter } from './kafkaConfigFactories';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
 import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
@@ -41,7 +41,6 @@ export default function KafkaWaitConfig({
   variableHints?: WorkflowVariableHint[];
 }) {
   const headerFilters = data.headerFilters ?? [];
-  const extractVariables = data.extractVariables ?? [];
   const loadTestBehavior = data.loadTestBehavior ?? { mode: 'wait-for-real' as const };
   const [mockPayloadText, setMockPayloadText] = useState(() => stringifyMockPayload(loadTestBehavior.mockPayload));
   const update = (patch: Partial<KafkaWaitNodeData>) => onChange({ ...data, ...patch });
@@ -69,16 +68,6 @@ export default function KafkaWaitConfig({
   };
 
   const hintSet = useMemo(() => variableHints, [variableHints]);
-
-  const handleExtractChange = (index: number, field: 'name' | 'jsonPath', value: string) => {
-    const next = [...extractVariables];
-    next[index] = { ...next[index], [field]: value };
-    update({ extractVariables: next });
-  };
-
-  const handleExtractRemove = (index: number) => {
-    update({ extractVariables: extractVariables.filter((_, i) => i !== index) });
-  };
 
   const correlationSource = data.correlationSource ?? 'body';
 
@@ -279,62 +268,6 @@ export default function KafkaWaitConfig({
             </div>
           )}
         </div>
-      </KafkaCard>
-
-      <KafkaCard
-        title="Extract Variables"
-        hint="Pull fields from the correlated message body into workflow variables."
-        action={(
-          <KafkaAddButton
-            onClick={() => update({ extractVariables: [...extractVariables, createExtractVariable()] })}
-          />
-        )}
-      >
-        {extractVariables.length === 0 ? (
-          <KafkaEmptyState
-            title="No extractions"
-            text="Extract fields from the correlated message body into workflow variables."
-            actionLabel="+ Add extraction"
-            onAction={() => update({ extractVariables: [...extractVariables, createExtractVariable()] })}
-          />
-        ) : (
-          <div className="wf-kafka-extract-panel">
-            <div className="wf-kafka-extract-header" aria-hidden="true">
-              <span className="wf-kafka-extract-col-name">Variable name</span>
-              <span className="wf-kafka-extract-col-path">JSONPath</span>
-              <span className="wf-kafka-extract-col-del" />
-            </div>
-            <div className="wf-kafka-extract-list">
-              {extractVariables.map((ev, index) => (
-                <div key={index} className="wf-kafka-extract-row">
-                  <div className="wf-kafka-extract-col-name">
-                    <input
-                      value={ev.name}
-                      placeholder="Variable name"
-                      onChange={(e) => handleExtractChange(index, 'name', e.target.value)}
-                    />
-                  </div>
-                  <div className="wf-kafka-extract-col-path">
-                    <input
-                      value={ev.jsonPath}
-                      placeholder="$.field.path"
-                      onChange={(e) => handleExtractChange(index, 'jsonPath', e.target.value)}
-                    />
-                  </div>
-                  <div className="wf-kafka-extract-col-del">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleExtractRemove(index)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </KafkaCard>
 
       <KafkaCard
