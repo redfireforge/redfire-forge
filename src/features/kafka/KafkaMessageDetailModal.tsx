@@ -77,7 +77,9 @@ export default function KafkaMessageDetailModal({
           <div className="kmd-header-left">
             <span className="kmd-title">Message Detail</span>
             <span className="kmd-subtitle">
-              Partition {message.partition} · Offset {message.offset}
+              Partition {message.partition}
+              <span aria-hidden="true"> · </span>
+              Offset {message.offset}
             </span>
           </div>
         </div>

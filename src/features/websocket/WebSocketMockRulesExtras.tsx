@@ -4,25 +4,35 @@ export function MockRuleTester({ ui }: { ui: MockUi }) {
   const { testInput, testResult, config } = ui;
   return (
     <div className="ws-mock-test-section" data-testid="mock-test-section">
-      <div className="ws-mock-section-title">Rule Tester</div>
-      <div className="ws-mock-test-row">
-        <input
-          className="ws-mock-test-input"
-          type="text"
-          value={testInput}
-          onChange={(e) => ui.setTestInput(e.target.value)}
-          placeholder="Type a sample message to test rule matching…"
-          data-testid="mock-test-input"
-        />
-      </div>
-      {testResult && (
-        <div className={`ws-mock-test-result ${testResult.matched ? 'matched' : 'fallback'}`} data-testid="mock-test-result">
-          {testResult.matched
-            ? <>Matched rule: <strong>{testResult.rule?.name}</strong> → {testResult.response?.type}</>
-            : <>No rule matched → fallback: <strong>{config.fallback}</strong></>
-          }
+      <div className="ws-mock-section-header">
+        <div className="ws-mock-section-heading">
+          <span className="ws-mock-section-title">Rule Tester</span>
+          <span className="ws-mock-section-subtitle">Dry-run a sample message against the rule list</span>
         </div>
-      )}
+      </div>
+      <div className="ws-mock-test-card">
+        <div className="ws-mock-test-row">
+          <label className="ws-mock-test-label" htmlFor="mock-test-input">Sample message</label>
+          <input
+            id="mock-test-input"
+            className="ws-mock-test-input"
+            type="text"
+            value={testInput}
+            onChange={(e) => ui.setTestInput(e.target.value)}
+            placeholder="Type a sample message to test rule matching…"
+            data-testid="mock-test-input"
+          />
+        </div>
+        {testResult && (
+          <div className={`ws-mock-test-result ${testResult.matched ? 'matched' : 'fallback'}`} data-testid="mock-test-result">
+            <span className="ws-mock-test-result-dot" aria-hidden="true" />
+            {testResult.matched
+              ? <>Matched rule: <strong>{testResult.rule?.name}</strong> → {testResult.response?.type}</>
+              : <>No rule matched → fallback: <strong>{config.fallback}</strong></>
+            }
+          </div>
+        )}
+      </div>
     </div>
   );
 }

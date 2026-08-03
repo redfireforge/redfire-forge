@@ -24,7 +24,6 @@ import {
   ensureLesson15ReadyToExecute,
   ensureLesson15Executed,
   ensureLesson15PartialErrorExecuted,
-  ensureLesson15IntroReady,
   prepareGql15AddTabReading,
   prepareGql15WriteQueriesReading,
   prepareGql15BatchResultsReading,
@@ -156,9 +155,15 @@ describe('gql-batch-execution lesson', () => {
     });
   });
 
-  it('all steps have a preAction guard', () => {
+  it('all steps except gql15-intro have a preAction guard', () => {
+    // gql15-intro intentionally has no preAction — readiness is handled by
+    // lesson setup, avoiding a visible re-run of setup logic at step start.
     gqlBatchExecutionLesson.steps.forEach((step) => {
-      expect(step.preAction).toBeTypeOf('function');
+      if (step.id === 'gql15-intro') {
+        expect(step.preAction).toBeUndefined();
+      } else {
+        expect(step.preAction).toBeTypeOf('function');
+      }
     });
   });
 
@@ -250,9 +255,9 @@ describe('gql-batch-execution lesson', () => {
 
   // ── Step spotlights ────────────────────────────────────────────────────────
 
-  it('gql15-intro preAction is ensureLesson15IntroReady', () => {
+  it('gql15-intro has no preAction (readiness handled by lesson setup)', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-intro')!;
-    expect(step.preAction).toBe(ensureLesson15IntroReady);
+    expect(step.preAction).toBeUndefined();
   });
 
   it('gql15-intro highlights TAB_BAR', () => {
@@ -554,7 +559,7 @@ describe('gql-batch-execution lesson', () => {
     const ctx = makeCtx();
     stubBatchDom(1);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-intro')!;
-    await step.preAction!(ctx);
+    expect(step.preAction).toBeUndefined();
     await step.action!(ctx);
     expect(ctx.delay).toHaveBeenCalled();
   });

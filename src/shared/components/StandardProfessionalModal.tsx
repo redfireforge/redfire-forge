@@ -59,6 +59,11 @@ interface StandardProfessionalModalProps extends Omit<AppModalFrameProps, 'overl
    * Use for per-modal visual overrides (e.g. a stronger white edge).
    */
   dialogClassName?: string;
+  /**
+   * Extra class name appended to the professional overlay
+   * (e.g. higher z-index for studio-floating panels).
+   */
+  overlayClassName?: string;
 }
 
 export default function StandardProfessionalModal({
@@ -69,12 +74,15 @@ export default function StandardProfessionalModal({
   dragViewportPadding = 8,
   showExpandButton = false,
   dialogClassName,
+  overlayClassName,
   ...props
 }: StandardProfessionalModalProps) {
   return (
     <AppModalFrame
       {...props}
-      overlayClassName="professional-modal-overlay"
+      overlayClassName={overlayClassName
+        ? `professional-modal-overlay ${overlayClassName}`
+        : 'professional-modal-overlay'}
       dialogClassName={dialogClassName ? `professional-modal ${dialogClassName}` : 'professional-modal'}
       closeButtonKind={closeButtonKind}
       closeOnOverlayClick={closeOnOverlayClick}

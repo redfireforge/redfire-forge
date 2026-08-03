@@ -44,10 +44,11 @@ export function buildQueryConfigDom(): string {
     <div class="react-flow__node-graphqlQuery" data-id="q1">
       <div data-testid="gql-canvas-query-node"></div>
     </div>
-    <button title="New workflow"></button>
-    <div class="wf-new-dropdown-item"></div>
-    <input class="req-confirm-input" />
-    <button class="req-confirm-ok"></button>
+    <button data-testid="wf-sidebar-new-btn" title="New workflow"></button>
+    <div class="wf-new-dropdown"></div>
+      <button data-testid="wf-new-blank-item" class="wf-new-dropdown-item"></button>
+    <input data-testid="wf-create-input" class="req-confirm-input" />
+    <button data-testid="wf-create-ok" class="req-confirm-ok"></button>
     <div class="wf-config-modal">
       <div data-testid="gql-wf-query-panel">
         <button type="button" class="gql-wf-subtab"><span>Operation</span></button>

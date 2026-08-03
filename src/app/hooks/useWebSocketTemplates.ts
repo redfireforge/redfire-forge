@@ -16,6 +16,8 @@ export interface UseWebSocketTemplatesReturn {
   saveTemplate: (name: string, body: string, format: WsMessageFormat) => Promise<void>;
   updateTemplate: (id: string, patch: Partial<WsMessageTemplate>) => Promise<void>;
   deleteTemplate: (id: string) => Promise<void>;
+  /** Wipe all templates (storage + React state) — used by quiet demo setup. */
+  clearAllTemplates: () => Promise<void>;
   loadTemplate: (id: string) => { body: string; format: WsMessageFormat } | null;
 }
 
@@ -90,6 +92,10 @@ export function useWebSocketTemplates(): UseWebSocketTemplatesReturn {
     [templates, persist],
   );
 
+  const clearAllTemplates = useCallback(async () => {
+    await persist([]);
+  }, [persist]);
+
   const loadTemplate = useCallback(
     (id: string): { body: string; format: WsMessageFormat } | null => {
       const tpl = templates.find((t) => t.id === id);
@@ -106,6 +112,7 @@ export function useWebSocketTemplates(): UseWebSocketTemplatesReturn {
     saveTemplate,
     updateTemplate,
     deleteTemplate,
+    clearAllTemplates,
     loadTemplate,
   };
 }

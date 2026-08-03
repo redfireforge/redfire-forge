@@ -14,7 +14,6 @@ import {
   demonstrateLesson15RunBatch,
   demonstrateLesson15SelectBatchTabs,
   demonstrateLesson15WriteQueries,
-  ensureLesson15IntroReady,
   ensureLesson15ReadyToExecute,
   gqlBatchLessonCleanup,
   gqlBatchLessonSetup,
@@ -253,7 +252,6 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
         'Batch execution sends **multiple GraphQL operations as a single HTTP request** and receives an **array of results** in return. No sequential round-trips — all operations in the batch share one network round-trip.\n\n' +
         '**Why batch instead of individual requests?** Every HTTP request carries overhead: DNS resolution, TLS handshake, and queue time at the load balancer. For N queries, N individual requests multiply this overhead by N. Batch folds all of them into one request, paying the overhead only once. This is especially effective in integration test pipelines (where dozens of "query → assert" cycles run in sequence) and in dashboard pre-fetching (where 5–10 independent queries must all resolve before the page renders). The result is dramatically faster test suites and faster first meaningful paint for data-heavy UIs.',
       highlight: GQL.TAB_BAR,
-      preAction: ensureLesson15IntroReady,
       action: async (ctx) => {
         await ctx.delay(1000);
       },

@@ -177,22 +177,11 @@ describe('ws-tabs lesson', () => {
 
   // ─── Step actions ───────────────────────────────────────────
 
-  it('step tabs-intro has no action but has a preAction', () => {
+  it('step tabs-intro has no action and no preAction', () => {
     const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-intro')!;
     expect(step.action).toBeUndefined();
-    // preAction switches to Mock Server mode so the description claim
-    // ("Tab 1 is already running a mock echo server on :9876") is
-    // visually confirmed during the reading pause.
-    expect(step.preAction).toBeDefined();
-  });
-
-  it('step tabs-intro preAction switches to Mock Server mode', async () => {
-    buildTabBar(1);
-    const ctx = makeCtx();
-    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-intro')!;
-    await step.preAction!(ctx);
-    const clickCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls;
-    expect(clickCalls.some((c: [string]) => c[0].includes('mode-mock'))).toBe(true);
+    // No preAction — quiet setup starts mock via REST; step 1 is read-only.
+    expect(step.preAction).toBeUndefined();
   });
 
   it('step tabs-add action clicks CONN_TAB_ADD', async () => {
@@ -506,68 +495,30 @@ describe('ws-tabs lesson', () => {
 
   // ─── setup & cleanup ────────────────────────────────────────
 
-  it('setup (tabsSetup) runs without error when no extra tabs present', async () => {
-    const ctx = makeCtx();
-    await wsTabsLesson.setup!(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+  it('skips studio tab isolation so live start does not add/rename a demo tab', () => {
+    expect(wsTabsLesson.skipStudioTabIsolation).toBe(true);
   });
 
-  it('setup resets tab label when label is not "New Connection"', async () => {
-    // CONN_TAB_FIRST = '[data-testid="conn-tab-bar"] [role="tab"]:first-child'
-    const tabBar = document.createElement('div');
-    tabBar.setAttribute('data-testid', 'conn-tab-bar');
-    const tab = document.createElement('div');
-    tab.setAttribute('role', 'tab');
-    const label = document.createElement('span');
-    label.className = 'ws-conn-tab-label';
-    label.textContent = 'Custom Name';
-    tab.appendChild(label);
-    tabBar.appendChild(tab);
-    document.body.appendChild(tabBar);
-
-    const renameInput = document.createElement('input');
-    renameInput.setAttribute('data-testid', 'conn-tab-rename-1');  // matches [data-testid^="conn-tab-rename-"]
-    document.body.appendChild(renameInput);
-
-    const ctx = makeCtx();
-    await wsTabsLesson.setup!(ctx);
-    // Should have triggered double-click sequence
-    expect(ctx.delay).toHaveBeenCalled();
+  it('step tabs-intro spotlights the first tab only (not the whole bar)', () => {
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-intro')!;
+    expect(step.highlight).toContain('conn-tab-bar');
+    expect(step.highlight).toContain('first-child');
   });
 
-  it('setup resets tab label but skips fillControlledInput when renameInput is absent', async () => {
-    const tabBar = document.createElement('div');
-    tabBar.setAttribute('data-testid', 'conn-tab-bar');
-    const tab = document.createElement('div');
-    tab.setAttribute('role', 'tab');
-    const label = document.createElement('span');
-    label.className = 'ws-conn-tab-label';
-    label.textContent = 'Custom Name';
-    tab.appendChild(label);
-    tabBar.appendChild(tab);
-    document.body.appendChild(tabBar);
-    // No rename input in DOM
-
+  it('setup (tabsSetup) starts mock quietly without mode-tab clicks', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ running: false }),
+    } as Response);
     const ctx = makeCtx();
     await wsTabsLesson.setup!(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
-  });
-
-  it('setup skips rename when tab label is already "New Connection"', async () => {
-    const tabBar = document.createElement('div');
-    tabBar.setAttribute('data-testid', 'conn-tab-bar');
-    const tab = document.createElement('div');
-    tab.setAttribute('role', 'tab');
-    const label = document.createElement('span');
-    label.className = 'ws-conn-tab-label';
-    label.textContent = 'New Connection';
-    tab.appendChild(label);
-    tabBar.appendChild(tab);
-    document.body.appendChild(tabBar);
-
-    const ctx = makeCtx();
-    await wsTabsLesson.setup!(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    // Quiet REST start — no Mock/Client ripple tour at lesson open.
+    expect(ctx.click).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/ws/mock/start',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    fetchSpy.mockRestore();
   });
 
   // ─── tabs-mock-log-tab1 preAction ────────────────────────────

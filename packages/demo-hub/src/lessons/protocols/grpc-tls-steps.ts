@@ -4,7 +4,6 @@ import type { GrpcDemoLesson } from './grpc-lesson-contract';
 import { patchGrpcActiveTabExportContext } from '../../adapters';
 import {
   GRPC_DEMO_TARGET,
-  ensureGrpcTarget,
   spotlightAndPause,
   spotlightElementAndPause,
   spotlightResponseJsonContentTight,
@@ -51,15 +50,8 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
       highlight: GRPC.TLS_BADGE,
       pauseAfter: true,
       preAction: async (ctx) => {
+        // Setup already lands on a clean gRPC Studio baseline for lesson start.
         await ensureStudioNav(ctx);
-        await ensureGrpcTarget(ctx);
-        // Do NOT reflect + select the Echo method here. Step 1 teaches only the
-        // TLS badge and the mode modal — it never touches the service tree. Calling
-        // ensureEchoMethodSelected reflects (building the tree) and ctx.click()s the
-        // service + method, which the viewer sees as several quick unnecessary
-        // highlights/ripples flashing before the narration. Step 2 reflects visibly
-        // against the TLS server when it is actually needed.
-        await resetTlsToPlaintextQuiet(ctx);
       },
       action: async (ctx) => {
         await spotlightAndPause(ctx, GRPC.TLS_BADGE, 900);

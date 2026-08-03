@@ -29,7 +29,6 @@ import {
   closeGrpcSettingsDrawerQuiet,
   GRPC_DEMO_TARGET,
   ensureEchoMethodSelected,
-  ensureGrpcReflected,
   ensureGrpcStudioSubNavQuiet,
   fillGrpcRequestJsonBody,
   grpcFirstCallCleanup,
@@ -96,10 +95,7 @@ const steps: DemoStep[] = [
     highlight: GRPC.CONNECTION_SETTINGS_BTN,
     preAction: async (ctx) => {
       if (!isTauri()) return;
-      if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
-        await resetGrpcManageSchemasDraftsQuiet(ctx);
-      }
-      await ensureGrpcReflected(ctx);
+      // Setup already normalizes base session; keep intro guard minimal.
       await closeGrpcSettingsDrawerQuiet(ctx);
     },
     action: async (ctx) => {

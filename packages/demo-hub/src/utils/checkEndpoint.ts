@@ -37,6 +37,38 @@ function isSpringActuatorHealthUrl(url: string): boolean {
   }
 }
 
+/** Schema Registry endpoints (typically port 8081 or 8085) should be probed via server proxy. */
+function isSchemaRegistryUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    // Schema Registry commonly runs on 8081 or 8085; check if the path is root or /subjects
+    return isLoopback && (parsed.port === '8085' || parsed.port === '8081') && (parsed.pathname === '/' || parsed.pathname === '');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Redpanda Admin API ports used by demo Docker stacks.
+ * These are probed via the server-side proxy to avoid browser no-cors reliability issues
+ * (e.g. Tauri webview may restrict direct HTTP fetch to arbitrary localhost ports).
+ * Known ports: 19644 (plaintext), 19645 (secure), 19648 (TLS).
+ */
+const REDPANDA_ADMIN_PORTS = new Set(['19644', '19645', '19648']);
+
+function isRedpandaAdminUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    return isLoopback && REDPANDA_ADMIN_PORTS.has(parsed.port);
+  } catch {
+    return false;
+  }
+}
+
 /** Try an HTTP GET health check. Resolves true on any 2xx response. */
 async function checkHttp(url: string, timeoutMs: number): Promise<boolean> {
   const candidates = loopbackProbeCandidates(url);
@@ -55,6 +87,20 @@ async function checkHttp(url: string, timeoutMs: number): Promise<boolean> {
     }
   }
   return false;
+}
+
+/** Same-origin HTTP health check — uses normal fetch (not no-cors). Returns true on 2xx. */
+async function checkHttpCors(url: string, timeoutMs: number): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Try a WebSocket handshake. Resolves true on open, false on error or timeout. */
@@ -105,6 +151,19 @@ export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<bool
     if (isSpringActuatorHealthUrl(url)) {
       const proxied = await checkHttp('http://localhost:3001/health/spring', timeoutMs);
       if (proxied) return true;
+    }
+    // Schema Registry probes are unreliable via browser no-cors; route through server proxy.
+    // Use relative URL so Vite proxy handles it (same-origin, no CORS).
+    if (isSchemaRegistryUrl(url)) {
+      return checkHttpCors(
+        `/health/schema-registry?url=${encodeURIComponent(url)}`,
+        timeoutMs,
+      );
+    }
+    // Redpanda Admin API probes are routed through the server proxy for the same reason.
+    if (isRedpandaAdminUrl(url)) {
+      const port = new URL(url).port;
+      return checkHttpCors(`/health/kafka-admin?port=${port}`, timeoutMs);
     }
     return checkHttp(url, timeoutMs);
   }

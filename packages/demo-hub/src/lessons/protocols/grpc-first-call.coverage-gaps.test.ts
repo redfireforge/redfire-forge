@@ -73,8 +73,10 @@ describe('grpc-first-call coverage gaps', () => {
     await getStep('grpc1-fill-message').preAction?.(ctx);
     await getStep('grpc1-fill-message').action?.(ctx);
 
-    expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalledTimes(2);
-    expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalledTimes(2);
+    // grpc1-intro intentionally has no preAction (pure narration step) — navigation
+    // and drawer-close only happen once, in grpc1-target's preAction.
+    expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalledTimes(1);
+    expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalledTimes(1);
     expect(helperSpies.ensureGrpcTarget).toHaveBeenCalledTimes(1);
     expect(helperSpies.guardGrpcTargetQuiet).toHaveBeenCalledTimes(1);
     expect(helperSpies.ensureGrpcReflected).toHaveBeenCalledTimes(1);

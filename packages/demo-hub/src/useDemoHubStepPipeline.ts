@@ -21,9 +21,9 @@ import {
 import { purgeAllSpotlightRings } from './demoRipple';
 
 /** Step pipeline timing — tuned for snappy Preparing/Acting badges without skipping UI feedback. */
-export const DEMO_PRE_SETTLE_MS = 240;
+export const DEMO_PRE_SETTLE_MS = 80;
 export const DEMO_SPOTLIGHT_SETTLE_MS = 1200;
-export const DEMO_POST_ACTION_SETTLE_MS = 820;
+export const DEMO_POST_ACTION_SETTLE_MS = 350;
 export const DEMO_VERIFY_ABSORB_MS = 1100;
 /** Cap how long Verifying can poll for a selector (fail fast when missing). */
 export const DEMO_VERIFY_WAIT_MS = 3_200;

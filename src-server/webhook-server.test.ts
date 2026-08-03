@@ -157,6 +157,129 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.body.source).toBe('spring-actuator');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
     });
+
+    it('returns down with http_ reason when actuator responds non-ok', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('Service Unavailable', { status: 503 }),
+      );
+      const res = await request(app).get('/health/spring');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.reason).toBe('http_503');
+    });
+
+    it('handles non-JSON actuator response (json() throws) gracefully', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('not-json-at-all', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        }),
+      );
+      const res = await request(app).get('/health/spring');
+      // payload = null branch → falls back to UP
+      expect(res.status).toBe(200);
+      expect(res.body.source).toBe('spring-actuator');
+    });
+  });
+
+  describe('GET /health/schema-registry', () => {
+    it('returns ok when registry /subjects responds with 200', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('[]', { status: 200 }),
+      );
+      const res = await request(app).get('/health/schema-registry?url=http://localhost:8085');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(res.body.source).toBe('schema-registry');
+    });
+
+    it('returns down when registry responds non-ok', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('forbidden', { status: 403 }),
+      );
+      const res = await request(app).get('/health/schema-registry?url=http://localhost:8085');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.reason).toBe('http_403');
+    });
+
+    it('returns down when registry is unreachable (network error)', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('ECONNREFUSED'));
+      const res = await request(app).get('/health/schema-registry');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(String(res.body.reason)).toContain('ECONNREFUSED');
+    });
+  });
+
+  describe('GET /health/kafka-admin', () => {
+    it('returns ok when Admin API /v1 responds with 200', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('{"swagger":"2.0"}', { status: 200 }),
+      );
+      const res = await request(app).get('/health/kafka-admin?port=19648');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(res.body.source).toBe('kafka-admin');
+      expect(res.body.port).toBe(19648);
+    });
+
+    it('returns ok when Admin API /v1 responds with 404', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('not found', { status: 404 }),
+      );
+      const res = await request(app).get('/health/kafka-admin?port=19648');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+    });
+
+    it('returns down when Admin API is unreachable (network error)', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('ECONNREFUSED'));
+      const res = await request(app).get('/health/kafka-admin?port=19648');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(String(res.body.reason)).toContain('ECONNREFUSED');
+    });
+
+    it('defaults to port 19648 when no port is provided', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('{}', { status: 200 }),
+      );
+      await request(app).get('/health/kafka-admin');
+      expect(String(fetchSpy.mock.calls[0][0])).toContain(':19648/');
+    });
+
+    it('returns down when Admin API responds with a non-ok, non-404 status', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('Service Unavailable', { status: 503 }),
+      );
+      const res = await request(app).get('/health/kafka-admin?port=19648');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.reason).toBe('http_503');
+      expect(res.body.port).toBe(19648);
+    });
+
+    it('aborts the fetch and returns down when the 5s timeout fires', async () => {
+      // Fire the abort timer immediately so the fetch rejects with AbortError.
+      vi.spyOn(globalThis, 'setTimeout').mockImplementationOnce((fn: TimerHandler) => {
+        if (typeof fn === 'function') (fn as () => void)();
+        return 0 as unknown as ReturnType<typeof setTimeout>;
+      });
+      vi.spyOn(globalThis, 'fetch').mockImplementationOnce((_url, opts) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = (opts as RequestInit).signal!;
+          // Signal may already be aborted when setTimeout fires synchronously.
+          const onAbort = () => reject(new DOMException('The operation was aborted.', 'AbortError'));
+          if (signal.aborted) { onAbort(); return; }
+          signal.addEventListener('abort', onAbort);
+        }),
+      );
+      const res = await request(app).get('/health/kafka-admin?port=19648');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(String(res.body.reason)).toContain('aborted');
+    });
   });
 
   describe('GET /api/executions', () => {

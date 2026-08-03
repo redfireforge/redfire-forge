@@ -3,10 +3,6 @@
  */
 import { GRPC } from '@shared/selectors';
 import {
-  closeGrpcSettingsDrawerQuiet,
-  clearGrpcSchemaDriftQuiet,
-  ensureGrpcReflected,
-  grpcFirstCallSetup,
   spotlightAndPause,
   spotlightElementAndPause,
 } from './grpc-lesson-helpers';
@@ -58,14 +54,8 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       'Rules hot-swap while the runtime is running — add or remove them without restarting.',
     highlight: GRPC.MOCK_SERVER_PANEL,
     preAction: async (ctx) => {
-      // Skip the Manage Schemas draft reset — this lesson uses server reflection,
-      // never staged schema sources. Running it would cycle the Manage Schemas
-      // modal across every tab, flashing a burst of modals before step 1.
-      await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
-      await ensureGrpcReflected(ctx);
-      await clearGrpcSchemaDriftQuiet(ctx);
-      await closeGrpcSettingsDrawerQuiet(ctx);
-      // Navigate to mock server with an empty rule set.
+      // Setup already prepares reflection/session state. Keep intro guard
+      // lightweight so step 1 does not replay fast setup choreography.
       await navigateToMockServerPanelQuiet(ctx);
       await stopMockQuiet(ctx);
     },

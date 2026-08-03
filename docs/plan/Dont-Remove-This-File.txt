@@ -6,7 +6,11 @@ Please always run E2E with report so that I can see progress. Keep in mind.
 Only Unit Tests and Monorithic Class Definition Review
 
 Based on entire code bases including this feature branch, please fix code coverage issue file under 90% except demo, css, script, and test files.
-You have fast full report scripts with 4 shards. You should run one clean full coverage snapshot now, freeze that as the baseline, and fix code coverage issue. After then, run full code coverage script again to verify it. Don't run this script in background. If you do in background, it will cause problem. Please go ahead. 
+You have fast full report scripts with 4 shards. You should run one clean full coverage snapshot now, freeze that as the baseline, and fix code coverage issue. After then, run full code coverage script again to verify it. Here is command. 
+bash scripts/run-product-coverage-fast.sh 2>&1. 
+You should switch to strict one-by-one execution: fix one coverage file, run its targeted tests, check that file’s gap status, then move to the next file. 
+
+Please go ahead. 
 
 
 Consider all of files for unit test including this branch. 
@@ -356,3 +360,11 @@ Here is clear direction for code-coverage issue fixing guideline.
 First run full-report code coverage file as background. At the same time, do grep-fix loop batch pattern to fix issue files. After you fixing, then you do the next round grep-fix loop batch pattern, and so on. With this way, you can keep fixing probamatic code coverage issue files. 
 Don't wait until full code report file generated. 
 I will watch your action. 
+
+
+When I click x, it goes to Conents page. But it has a lot of flashing things shown. It should not show to user. Please make invisiable or remove them. 
+
+
+### At the begining
+At the begining in this step, it shows  flashing moving parts. It should not show them to user. Please fix it.
+

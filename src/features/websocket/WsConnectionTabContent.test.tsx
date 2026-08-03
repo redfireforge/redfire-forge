@@ -440,7 +440,12 @@ describe('WsConnectionTabContent', () => {
       );
       expect(screen.getByTestId('search-input')).toBeTruthy();
       expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
-      expect(screen.queryAllByTestId('send-btn')).toHaveLength(0);
+      // Send pane is always mounted (preserves compose text across tab switches),
+      // just hidden via CSS when not on the Send tab.
+      const sendBtns = screen.queryAllByTestId('send-btn');
+      if (sendBtns.length > 0) {
+        expect(sendBtns[0].closest('[style*="display: none"]') ?? sendBtns[0].closest('[hidden]')).toBeTruthy();
+      }
     });
 
     it('renders the composer in the Compose left tab alongside the events log on the right', () => {

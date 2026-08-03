@@ -107,14 +107,16 @@ describe('grpc-grpcurl coverage gaps', () => {
     Object.values(helperSpies).forEach((spy) => spy.mockClear());
   });
 
-  it('setup and intro clear call history twice for badge reset', async () => {
+  it('setup clears call history once for badge reset; intro has no duplicate preAction choreography', async () => {
     const ctx = makeCtx();
     await grpcGrpcurlLesson.setup?.(ctx);
     await getStep('grpc22-intro').preAction?.(ctx);
 
     expect(helperSpies.grpcFirstCallSetup).toHaveBeenCalledWith(ctx, { resetSchemaDrafts: false });
-    expect(adapterSpies.clearGrpcCallHistory).toHaveBeenCalledTimes(2);
-    expect(adapterSpies.dispatchGrpcCallHistoryReload).toHaveBeenCalledTimes(2);
+    // grpc22-intro intentionally has no preAction re-clear — avoids a visible
+    // duplicate reset at step start; setup already clears history once.
+    expect(adapterSpies.clearGrpcCallHistory).toHaveBeenCalledTimes(1);
+    expect(adapterSpies.dispatchGrpcCallHistoryReload).toHaveBeenCalledTimes(1);
   });
 
   it('setup tolerates clearGrpcCallHistory failures', async () => {

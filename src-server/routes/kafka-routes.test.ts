@@ -9,15 +9,19 @@ import { createKafkaErrorEnvelope, createKafkaSuccessEnvelope } from '../kafka/c
 import {
   SchemaRegistryError,
   listSubjects,
+  listSubjectsWithFormat,
   listVersions,
   fetchSchema,
+  registerSchemaVersion,
 } from '../kafka/schema-registry-client.js';
 
 // ── Mock schema-registry-client (schema routes delegate directly to these) ────
 vi.mock('../kafka/schema-registry-client.js', () => ({
   listSubjects: vi.fn(),
+  listSubjectsWithFormat: vi.fn(),
   listVersions: vi.fn(),
   fetchSchema: vi.fn(),
+  registerSchemaVersion: vi.fn(),
   SchemaRegistryError: class SchemaRegistryError extends Error {
     code: string;
     constructor(code: string, message: string) {
@@ -370,7 +374,10 @@ describe('kafka-routes', () => {
 
   describe('POST /api/kafka/schema-subjects', () => {
     it('returns subjects on success', async () => {
-      vi.mocked(listSubjects).mockResolvedValueOnce(['orders-value', 'payments-value']);
+      vi.mocked(listSubjectsWithFormat).mockResolvedValueOnce([
+        { name: 'orders-value', schemaType: 'AVRO' },
+        { name: 'payments-value', schemaType: 'AVRO' },
+      ]);
       const app = createApp(createMockService());
 
       const res = await request(app)
@@ -379,8 +386,11 @@ describe('kafka-routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
-      expect(res.body.data.subjects).toEqual(['orders-value', 'payments-value']);
-      expect(vi.mocked(listSubjects)).toHaveBeenCalledWith(schemaConfig);
+      expect(res.body.data.subjects).toEqual([
+        { name: 'orders-value', schemaType: 'AVRO' },
+        { name: 'payments-value', schemaType: 'AVRO' },
+      ]);
+      expect(vi.mocked(listSubjectsWithFormat)).toHaveBeenCalledWith(schemaConfig);
     });
 
     it('rejects missing schemaConfig.registryUrl with 400', async () => {
@@ -402,7 +412,7 @@ describe('kafka-routes', () => {
     });
 
     it('maps REGISTRY_AUTH_FAILURE to 401', async () => {
-      vi.mocked(listSubjects).mockRejectedValueOnce(
+      vi.mocked(listSubjectsWithFormat).mockRejectedValueOnce(
         new SchemaRegistryError('REGISTRY_AUTH_FAILURE', 'denied'),
       );
       const app = createApp(createMockService());
@@ -416,7 +426,7 @@ describe('kafka-routes', () => {
     });
 
     it('maps REGISTRY_UNREACHABLE to 503', async () => {
-      vi.mocked(listSubjects).mockRejectedValueOnce(
+      vi.mocked(listSubjectsWithFormat).mockRejectedValueOnce(
         new SchemaRegistryError('REGISTRY_UNREACHABLE', 'down'),
       );
       const app = createApp(createMockService());
@@ -723,6 +733,62 @@ describe('kafka-routes', () => {
         .send([{ schemaConfig: { registryUrl: 'http://r:8081' }, subject: 'my-topic-value', version: 1 }]);
 
       expect(res.status).toBe(400);
+      expect(res.body.ok).toBe(false);
+    });
+  });
+
+  // ── POST /api/kafka/schema-seed-sample ──────────────────────────────────
+  describe('POST /api/kafka/schema-seed-sample', () => {
+    const seedSchemaConfig = { registryUrl: 'http://localhost:8081' };
+
+    it('rejects non-object body with 400', async () => {
+      const service = createMockService();
+      const app = createApp(service);
+      const res = await request(app)
+        .post('/api/kafka/schema-seed-sample')
+        .send(['not', 'an', 'object']);
+      expect(res.status).toBe(400);
+      expect(res.body.ok).toBe(false);
+    });
+
+    it('rejects missing schemaConfig.registryUrl with 400', async () => {
+      const service = createMockService();
+      const app = createApp(service);
+      const res = await request(app)
+        .post('/api/kafka/schema-seed-sample')
+        .send({ schemaConfig: {} });
+      expect(res.status).toBe(400);
+      expect(res.body.ok).toBe(false);
+    });
+
+    it('seeds sample schemas and returns success envelope', async () => {
+      vi.mocked(registerSchemaVersion)
+        .mockResolvedValueOnce({ id: 1 })           // v1 registration
+        .mockResolvedValueOnce({ id: 1, version: 2 }) // v2 registration
+        .mockResolvedValue({ id: 99 });               // best-effort extras
+
+      const service = createMockService();
+      const app = createApp(service);
+      const res = await request(app)
+        .post('/api/kafka/schema-seed-sample')
+        .send({ schemaConfig: seedSchemaConfig, subject: 'orders-value' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.subject).toBe('orders-value');
+      expect(res.body.data.id).toBe(1);
+    });
+
+    it('returns error envelope when registration throws', async () => {
+      vi.mocked(registerSchemaVersion).mockRejectedValueOnce(
+        new SchemaRegistryError('REGISTRY_UNREACHABLE', 'down'),
+      );
+      const service = createMockService();
+      const app = createApp(service);
+      const res = await request(app)
+        .post('/api/kafka/schema-seed-sample')
+        .send({ schemaConfig: seedSchemaConfig });
+      expect(res.status).toBe(200);
       expect(res.body.ok).toBe(false);
     });
   });

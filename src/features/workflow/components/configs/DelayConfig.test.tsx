@@ -39,7 +39,20 @@ describe('DelayConfig', () => {
   it('shows delay input for fixed mode', () => {
     render(<DelayConfig data={makeData({ mode: 'fixed', delayMs: 1234 })} onChange={vi.fn()} />);
     expect(screen.getByDisplayValue('1234')).toBeTruthy();
-    expect(screen.getByText('Delay (ms)')).toBeTruthy();
+    expect(screen.getByLabelText('Delay (ms)')).toBeTruthy();
+  });
+
+  it('applies a quick preset in fixed mode', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData({ mode: 'fixed', delayMs: 100 })} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: '1 s' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ delayMs: 1000 }));
+  });
+
+  it('renders how-it-works tips', () => {
+    render(<DelayConfig data={makeData()} onChange={vi.fn()} />);
+    expect(screen.getByTestId('delay-config')).toBeTruthy();
+    expect(screen.getByText('How delay works')).toBeTruthy();
   });
 
   it('calls onChange when delay changes in fixed mode', () => {
@@ -58,15 +71,18 @@ describe('DelayConfig', () => {
 
   it('shows min/max inputs for random mode', () => {
     render(<DelayConfig data={makeData({ mode: 'random', minMs: 100, maxMs: 2000 })} onChange={vi.fn()} />);
-    expect(screen.getByText('Min (ms)')).toBeTruthy();
-    expect(screen.getByText('Max (ms)')).toBeTruthy();
+    expect(screen.getByText('Min')).toBeTruthy();
+    expect(screen.getByText('Max')).toBeTruthy();
+    expect(screen.getByLabelText('Min (ms)')).toBeTruthy();
+    expect(screen.getByLabelText('Max (ms)')).toBeTruthy();
     expect(screen.getByDisplayValue('100')).toBeTruthy();
     expect(screen.getByDisplayValue('2000')).toBeTruthy();
   });
 
   it('hides delay input in random mode', () => {
     render(<DelayConfig data={makeData({ mode: 'random', minMs: 0, maxMs: 1000 })} onChange={vi.fn()} />);
-    expect(screen.queryByText('Delay (ms)')).toBeNull();
+    expect(screen.queryByLabelText('Delay (ms)')).toBeNull();
+    expect(screen.queryByText('Quick presets')).toBeNull();
   });
 
   it('calls onChange when minMs changes', () => {

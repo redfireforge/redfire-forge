@@ -4,13 +4,55 @@ import { kafkaSchemaSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '@shared/selectors';
 
 const REGISTRY_URL = 'http://localhost:8085';
+const DEMO_SAMPLE_SUBJECT = 'orders-value';
+
+function hasSubjectRows(): boolean {
+  return document.querySelectorAll(`${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[data-testid^="subject-row-"]`).length > 0;
+}
+
+/** Returns true if the expected demo subjects (3) are already loaded. */
+function hasDemoSubjects(): boolean {
+  return document.querySelectorAll(`${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[data-testid^="subject-row-"]`).length >= 3;
+}
+
+async function seedDemoSampleSubject(config: {
+  registryUrl: string;
+  auth?: { username: string; password: string };
+}): Promise<boolean> {
+  if (typeof fetch !== 'function') return false;
+  try {
+    const response = await fetch('/api/kafka/schema-seed-sample', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schemaConfig: config,
+        subject: DEMO_SAMPLE_SUBJECT,
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Quietly ensure the Schema Registry tab is active (no ripple — for later-step guards). */
+async function ensureSchemaTabQuiet(ctx: DemoActionContext): Promise<void> {
+  const tab = document.querySelector<HTMLElement>(KAFKA.SCHEMA_TAB);
+  if (!tab) return;
+  const already =
+    tab.classList.contains('active') || tab.getAttribute('aria-selected') === 'true';
+  if (already) return;
+  tab.click();
+  await ctx.delay(120);
+}
 
 /**
  * Ensure the schema registry URL is filled and subjects are loaded.
  * Idempotent — skips if subjects are already visible.
  */
 async function ensureRegistryConnected(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(KAFKA.SCHEMA_SUBJECT_TABLE)) return;
+  await ensureSchemaTabQuiet(ctx);
+  if (document.querySelector(KAFKA.SCHEMA_SUBJECT_TABLE) && hasSubjectRows()) return;
 
   const urlInput = document.querySelector<HTMLInputElement>(KAFKA.SCHEMA_URL_INPUT);
   if (urlInput && !urlInput.value.trim()) {
@@ -26,6 +68,23 @@ async function ensureRegistryConnected(ctx: DemoActionContext): Promise<void> {
     } catch { /* subjects may not load if docker is down */ }
     await ctx.delay(400);
   }
+
+  if (!hasDemoSubjects()) {
+    const authUser = document.querySelector<HTMLInputElement>(KAFKA.SCHEMA_AUTH_USER)?.value?.trim() ?? '';
+    const authPass = document.querySelector<HTMLInputElement>(KAFKA.SCHEMA_AUTH_PASS)?.value?.trim() ?? '';
+    const seeded = await seedDemoSampleSubject({
+      registryUrl: urlInput?.value?.trim() || REGISTRY_URL,
+      auth: authUser || authPass ? { username: authUser, password: authPass } : undefined,
+    });
+
+    if (seeded && connectBtn && !connectBtn.disabled) {
+      await ctx.click(KAFKA.SCHEMA_CONNECT_BTN);
+      try {
+        await ctx.waitFor(KAFKA.SCHEMA_SUBJECT_TABLE, 10000);
+      } catch { /* no-op */ }
+      await ctx.delay(350);
+    }
+  }
 }
 
 /** Click the first visible subject row if none is selected. */
@@ -33,7 +92,10 @@ async function ensureSubjectSelected(ctx: DemoActionContext): Promise<void> {
   await ensureRegistryConnected(ctx);
   if (document.querySelector(KAFKA.SCHEMA_DETAIL_PANEL)) return;
 
+  // Prefer orders-value (has multiple versions for the version-switch demo)
   const row = document.querySelector<HTMLElement>(
+    `${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[data-testid="subject-row-orders-value"]`,
+  ) ?? document.querySelector<HTMLElement>(
     `${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[style]`,
   );
   if (row) {
@@ -147,38 +209,36 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       description:
         'The **Schema Registry** tab is where you connect to a Confluent-compatible registry, browse all registered subjects, and inspect schema versions. It starts empty — you need to enter a registry URL first.',
       highlight: KAFKA.SCHEMA_TAB,
-      preAction: async (ctx) => {
-        await ctx.click(KAFKA.SCHEMA_TAB);
-        await ctx.delay(400);
+      preAction: async () => {
         document.querySelectorAll('.kafka-schema-subject-table tbody tr.selected').forEach((el) => {
           el.classList.remove('selected');
         });
       },
-    },
-
-    // Step 2: Enter the registry URL
-    {
-      id: 'sr-url',
-      title: 'Enter the Registry URL',
-      description:
-        'Type the Schema Registry URL — for the local Docker stack it\'s `http://localhost:8085`. For Confluent Cloud, use the full HTTPS URL. You can also add HTTP Basic auth credentials for protected registries.',
-      highlight: KAFKA.SCHEMA_URL_INPUT,
-      preAction: async (ctx) => {
-        await ctx.fill(KAFKA.SCHEMA_URL_INPUT, REGISTRY_URL);
-        await ctx.delay(300);
+      // Visible teaching beat — setup intentionally does NOT click this tab
+      // (that caused a pre-narration flash at lesson start).
+      action: async (ctx) => {
+        await ctx.click(KAFKA.SCHEMA_TAB);
+        await ctx.waitFor(KAFKA.SCHEMA_URL_INPUT, 3000);
+        await ctx.delay(600);
       },
     },
 
-    // Step 3: Connect to registry
+    // Step 2: Enter registry URL and connect
     {
       id: 'sr-connect',
       title: 'Connect to Registry',
       description:
-        'Click **Connect to Registry**. RedfireForge queries the `/subjects` endpoint and loads the full subject list. The connection is read-only — it never writes to the registry.',
+        'Enter the Schema Registry URL — for the local Docker stack it\'s `http://localhost:8085`. Then click **Refresh Subjects**. RedfireForge queries the `/subjects` endpoint and loads the subject list. In Demo Hub, if the registry is empty, the lesson auto-seeds one sample subject so you can continue the walkthrough end-to-end.',
       highlight: KAFKA.SCHEMA_CONNECT_BTN,
+      preAction: async (ctx) => {
+        await ensureSchemaTabQuiet(ctx);
+        await ctx.fill(KAFKA.SCHEMA_URL_INPUT, REGISTRY_URL);
+        await ctx.delay(300);
+      },
       action: async (ctx) => {
         await ctx.click(KAFKA.SCHEMA_CONNECT_BTN);
         await ctx.waitFor(KAFKA.SCHEMA_SUBJECT_TABLE, 10000);
+        await ensureRegistryConnected(ctx);
         await ctx.delay(600);
       },
     },
@@ -188,7 +248,7 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       id: 'sr-list',
       title: 'Subject List',
       description:
-        'Each row shows the subject name and its **format badge** (Avro / Protobuf / JSON Schema). The naming convention `<topic>-value` and `<topic>-key` links each subject to its Kafka topic. The latest version is shown in the row.',
+        'Each row shows the subject name and its **format badge** (Avro / Protobuf / JSON Schema). The naming convention `<topic>-value` and `<topic>-key` links each subject to its Kafka topic. If you see no rows, the registry is reachable but currently has no registered subjects.',
       highlight: KAFKA.SCHEMA_SUBJECT_TABLE,
       preAction: async (ctx) => {
         await ensureRegistryConnected(ctx);
@@ -226,13 +286,19 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
         }
       },
       action: async (ctx) => {
-        const row = document.querySelector<HTMLElement>(
-          `${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[style]`,
+        // Select the orders-value subject specifically (the primary demo subject with multiple versions)
+        const ordersRow = document.querySelector<HTMLElement>(
+          `${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[data-testid="subject-row-orders-value"]`,
         );
-        if (row) {
-          row.click();
+        if (ordersRow) {
+          ordersRow.click();
         } else {
-          await ctx.click(KAFKA.SCHEMA_SUBJECT_TABLE);
+          // Fallback: click any visible row
+          const row = document.querySelector<HTMLElement>(
+            `${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[style]`,
+          );
+          if (row) row.click();
+          else await ctx.click(KAFKA.SCHEMA_SUBJECT_TABLE);
         }
         try {
           await ctx.waitFor(KAFKA.SCHEMA_DETAIL_PANEL, 5000);
@@ -264,8 +330,20 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
         await ensureSubjectSelected(ctx);
       },
       action: async (ctx) => {
-        await ctx.click(KAFKA.SCHEMA_VERSION_SELECT);
-        await ctx.delay(400);
+        // Open the version dropdown — must click the inner .cs-trigger button, not the wrapper div
+        const trigger = document.querySelector<HTMLButtonElement>(
+          `${KAFKA.SCHEMA_VERSION_SELECT} .cs-trigger`,
+        );
+        if (trigger) {
+          trigger.click();
+          await ctx.delay(500);
+          // Select v1 (the first/older version) to demonstrate switching
+          const v1Option = document.querySelector<HTMLButtonElement>('[role="option"][data-value="1"]');
+          if (v1Option) {
+            v1Option.click();
+            await ctx.delay(500);
+          }
+        }
       },
     },
 

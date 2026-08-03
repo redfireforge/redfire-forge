@@ -29,7 +29,7 @@ export function SseEventDetail({ event, onClose }: SseEventDetailProps) {
             <span className={`sse-type-badge sse-type-${event.eventType}`}>{event.eventType}</span>
           </div>
           {event.lastEventId && (
-            <div className="sse-detail-row">
+            <div className="sse-detail-row" data-testid="sse-event-detail-last-id">
               <span className="sse-detail-label">Last-Event-ID</span>
               <span className="sse-detail-value">{event.lastEventId}</span>
             </div>

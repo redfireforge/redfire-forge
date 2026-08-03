@@ -44,6 +44,7 @@ const SseRow = memo(function SseRow({
         className={`sse-bookmark-btn ${isBookmarked ? 'active' : ''}`}
         onClick={(e) => { e.stopPropagation(); onToggleBookmark(event.id); }}
         aria-label={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+        data-testid="sse-bookmark-btn"
       >
         {isBookmarked ? '★' : '☆'}
       </button>

@@ -12,6 +12,7 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { SSE } from '@shared/selectors';
+import { showSpotlightRing } from '../../demoRipple';
 import {
   cleanupDemoEnvironment,
   cleanupDemoMicroservice,
@@ -22,6 +23,22 @@ import {
 } from '../env-manager-lesson-helpers';
 import { closeExtraSseConnectionTabs } from '../setup-helpers';
 
+/** Spotlight an element, hold for the viewer, then remove the ring. */
+async function spotlightEl(
+  ctx: DemoActionContext,
+  el: HTMLElement | null,
+  holdMs: number,
+): Promise<void> {
+  if (!el) return;
+  el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  const remove = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    remove();
+  }
+}
+
 const SSE_ENV_VAR_URL = '{{sseUrl}}/api/sse-test';
 
 // ── Guard helpers ──────────────────────────────────────────────────
@@ -31,62 +48,75 @@ const SSE_ENV_VAR_URL = '{{sseUrl}}/api/sse-test';
  * and the right pane is on the Events tab.  Safe to call even when already
  * connected — it checks state before acting.
  */
+function isSseUrlResolvedInDom(): boolean {
+  const preview = document.querySelector('.studio-endpoint-preview-url')?.textContent ?? '';
+  if (preview && !preview.includes('{{') && /https?:\/\//i.test(preview)) return true;
+  const indicator = document.querySelector('[data-testid="header-protocol-indicator"]')?.textContent ?? '';
+  return Boolean(indicator && !/not resolved/i.test(indicator) && /https?:\/\//i.test(indicator));
+}
+
+/** Wait until the SSE URL preview no longer contains unresolved `{{…}}` tokens. */
+async function waitForSseUrlResolved(ctx: DemoActionContext, timeoutMs = 1200): Promise<boolean> {
+  if (isSseUrlResolvedInDom()) return true;
+  // Iteration-capped (not wall-clock) so unit tests with mocked delay stay fast.
+  const maxAttempts = Math.max(1, Math.ceil(timeoutMs / 50));
+  for (let i = 0; i < maxAttempts; i++) {
+    await ctx.delay(50);
+    if (isSseUrlResolvedInDom()) return true;
+  }
+  return false;
+}
+
 async function ensureConnectedWithEvents(ctx: DemoActionContext): Promise<void> {
-  // Always switch right pane to Events so the message log is visible
-  await ctx.click(SSE.RIGHT_TAB_EVENTS);
-  await ctx.delay(300);
+  // Quiet DOM click — no ripple. Events pane must be visible for bookmarks.
+  document.querySelector<HTMLElement>(SSE.RIGHT_TAB_EVENTS)?.click();
+  await ctx.delay(60);
 
   const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
   const isConnected = connectBtn?.textContent?.includes('Disconnect');
 
   if (!isConnected) {
-    await ensureSseDemoHeaderContext(ctx);
     await navigateToSseStudio(ctx);
+    // Bridge-only header select (no Environment/Service dropdown open/close).
+    await ensureSseDemoHeaderContext(ctx);
     await ctx.fill(SSE.URL_INPUT, SSE_ENV_VAR_URL);
-    await ctx.delay(300);
+    await ctx.delay(80);
+    const resolved = await waitForSseUrlResolved(ctx);
+    if (!resolved) {
+      // Fallback so the advanced lesson can still demonstrate bookmarks/stats
+      // when header selection races — concrete URL matches the demo endpoint.
+      await ctx.fill(SSE.URL_INPUT, 'http://localhost:3001/api/sse-test');
+      await ctx.delay(80);
+    }
     await ctx.click(SSE.CONNECT_BTN);
-    await ctx.delay(3000); // Wait for events to accumulate
+    await ctx.delay(1500); // Wait for events to accumulate
   } else if (!document.querySelector(SSE.EVENT_ROW)) {
-    await ctx.delay(2000); // Connected but no events yet — wait briefly
+    await ctx.delay(1200); // Connected but no events yet — wait briefly
   }
 }
 
 // ── Setup / Cleanup ────────────────────────────────────────────────
 
 async function sseAdvancedSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(500);
-
-  // Disconnect if already connected
+  // Quiet DOM-only cleanup — no ripples, no header dropdown tours.
   const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
   if (connectBtn?.textContent?.includes('Disconnect')) {
     connectBtn.click();
-    await ctx.delay(500);
+    await ctx.delay(40);
   }
 
   await closeExtraSseConnectionTabs(ctx);
 
-  // Clear existing events
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
     clearBtn.click();
-    await ctx.delay(200);
+    await ctx.delay(40);
   }
 
-  // Ensure Events tab is active
-  const eventsTab = document.querySelector(SSE.RIGHT_TAB_EVENTS) as HTMLButtonElement | null;
-  if (eventsTab) {
-    eventsTab.click();
-    await ctx.delay(200);
-  }
+  document.querySelector<HTMLElement>(SSE.RIGHT_TAB_EVENTS)?.click();
+  document.querySelector<HTMLElement>(SSE.LEFT_TAB_CONNECT)?.click();
 
-  // Ensure Connect tab is active on the left
-  const connectTab = document.querySelector(SSE.LEFT_TAB_CONNECT) as HTMLButtonElement | null;
-  if (connectTab) {
-    connectTab.click();
-    await ctx.delay(200);
-  }
-
-  // Basic SSE lesson cleanup removes SSE Demo / sse-demo — recreate and select them.
+  // Select SSE Demo / sse-demo via bridge only (no Environment/Service menu flash).
   await ensureSseDemoHeaderContext(ctx);
   await navigateToSseStudio(ctx);
 }
@@ -95,7 +125,7 @@ async function sseAdvancedCleanup(ctx: DemoActionContext): Promise<void> {
   const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
   if (connectBtn?.textContent?.includes('Disconnect')) {
     connectBtn.click();
-    await ctx.delay(500);
+    await ctx.delay(120);
   }
 
   await closeExtraSseConnectionTabs(ctx);
@@ -103,12 +133,14 @@ async function sseAdvancedCleanup(ctx: DemoActionContext): Promise<void> {
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
     clearBtn.click();
-    await ctx.delay(200);
+    await ctx.delay(120);
   }
 
-  // Remove demo data created during setup so the basic SSE Studio lesson starts fresh.
+  // Remove demo data via bridge when available (no Environments tab flash).
   await cleanupDemoMicroservice(ctx, SSE_DEMO_SVC_NAME);
   await cleanupDemoEnvironment(ctx, SSE_DEMO_ENV_NAME);
+  // Only return to SSE Studio when cleanup was allowed to navigate (restart path).
+  // On Exit → Contents, navigateToTab is pinned to demo-hub and this is a no-op.
   await navigateToSseStudio(ctx);
 }
 
@@ -193,20 +225,11 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
         'Welcome back to SSE Studio. In the SSE Studio lesson you learned the basics — connecting, viewing events, searching, and using the console. ' +
         'Each **connection tab** above is an independent workspace — bookmarks, filters, and stats are all per-tab. ' +
         'Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
-      highlight: SSE.STUDIO,
-      preAction: async (ctx) => {
+      highlight: SSE.NAV_TAB,
+      preAction: async () => {
         document.querySelectorAll('.sse-row-selected').forEach((el) => {
           el.classList.remove('sse-row-selected');
         });
-        const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
-        if (!connectBtn?.textContent?.includes('Disconnect')) {
-          await ensureSseDemoHeaderContext(ctx);
-          await navigateToSseStudio(ctx);
-          await ctx.fill(SSE.URL_INPUT, SSE_ENV_VAR_URL);
-          await ctx.delay(300);
-          await ctx.click(SSE.CONNECT_BTN);
-          await ctx.delay(3000);
-        }
       },
       pauseAfter: true,
     },
@@ -217,28 +240,39 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       title: 'Bookmark an Event',
       description:
         'Click the star icon (☆) on any event row to bookmark it. Bookmarked events show a filled star (★) and are tracked in the toolbar counter. Bookmarks persist for the current session — use them to flag events you want to revisit.',
-      highlight: SSE.EVENT_ROW,
+      // Reading phase: spotlight the star — not the whole event row.
+      highlight: SSE.BOOKMARK_BTN,
       preAction: async (ctx) => {
         await ensureConnectedWithEvents(ctx);
+        // Clear leftover bookmarks so this step starts from empty stars (☆).
+        document.querySelectorAll<HTMLElement>('.sse-bookmark-btn.active').forEach((btn) => {
+          btn.click();
+        });
+        await ctx.delay(200);
       },
       action: async (ctx) => {
         // Click the bookmark star on the first visible event row
         const firstRow = document.querySelector(SSE.EVENT_ROW) as HTMLElement | null;
-        if (firstRow) {
-          const starBtn = firstRow.querySelector('.sse-bookmark-btn') as HTMLElement | null;
-          if (starBtn) {
-            starBtn.click();
-            await ctx.delay(600);
-          }
+        const starBtn = firstRow?.querySelector('.sse-bookmark-btn') as HTMLElement | null;
+        if (starBtn) {
+          starBtn.click();
+          await ctx.delay(500); // React re-renders filled ★
+          // Payoff 1: filled star on the row
+          const filledStar =
+            (firstRow?.querySelector('.sse-bookmark-btn.active') as HTMLElement | null) ?? starBtn;
+          await spotlightEl(ctx, filledStar, 1200);
+          // Payoff 2: toolbar bookmark counter (★ N)
+          const counter = document.querySelector(SSE.BOOKMARK_FILTER) as HTMLElement | null;
+          await spotlightEl(ctx, counter, 1200);
         }
-        // Bookmark a second event for a better filter demo
+        // Quietly bookmark a second event so the next filter step has ≥2 items
         const rows = document.querySelectorAll(SSE.EVENT_ROW);
         if (rows.length >= 3) {
           const thirdRow = rows[2] as HTMLElement;
-          const starBtn = thirdRow.querySelector('.sse-bookmark-btn') as HTMLElement | null;
-          if (starBtn) {
-            starBtn.click();
-            await ctx.delay(600);
+          const secondStar = thirdRow.querySelector('.sse-bookmark-btn') as HTMLElement | null;
+          if (secondStar && !secondStar.classList.contains('active')) {
+            secondStar.click();
+            await ctx.delay(400);
           }
         }
       },
@@ -335,13 +369,37 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       highlight: SSE.STATE_LABEL,
       preAction: async (ctx) => {
         await ensureConnectedWithEvents(ctx);
+        // Close Event Detail if already open so the click below is visible.
+        const closeBtn = document.querySelector('.sse-detail-footer button') as HTMLElement | null;
+        if (closeBtn) {
+          closeBtn.click();
+          await ctx.delay(300);
+        }
       },
       action: async (ctx) => {
-        // Click an event to show the detail panel with Last-Event-ID
-        const row = document.querySelector(SSE.EVENT_ROW) as HTMLElement | null;
-        if (row) {
-          row.click();
-          await ctx.delay(1000);
+        // Click the LAST (most recent) row so the per-event ID in the detail
+        // panel matches the Last-Event-ID shown on the status strip.
+        const rows = document.querySelectorAll<HTMLElement>(SSE.EVENT_ROW);
+        const row = rows[rows.length - 1] ?? null;
+        if (!row) return;
+
+        // 1) Spotlight the status strip so the viewer reads the overall Last-Event-ID
+        const statusStrip = document.querySelector('[data-testid="sse-state-label"]') as HTMLElement | null;
+        await spotlightEl(ctx, statusStrip, 1200);
+        // 2) Spotlight the last event row the viewer is about to click
+        await spotlightEl(ctx, row, 800);
+        // 3) Click the last row (most recent event) to open its detail panel
+        row.click();
+        await ctx.waitFor(SSE.EVENT_DETAIL);
+        await ctx.delay(700); // panel paints
+        // 4) Spotlight Event Detail, then the per-event Last-Event-ID field
+        const detail = document.querySelector(SSE.EVENT_DETAIL) as HTMLElement | null;
+        await spotlightEl(ctx, detail, 1200);
+        const detailLastId = document.querySelector(SSE.EVENT_DETAIL_LAST_ID) as HTMLElement | null;
+        if (detailLastId) {
+          await spotlightEl(ctx, detailLastId, 1200);
+        } else {
+          await ctx.delay(800); // still pause on the panel when ID is absent
         }
       },
       pauseAfter: true,
@@ -352,24 +410,32 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       id: 'sse-adv-clear',
       title: 'Clear & Export',
       description:
-        'The Export button saves all events as a JSON file — perfect for offline analysis, sharing, or archival. The Clear button resets the event log and bookmarks while preserving the uptime counter. Both are essential for long-running SSE sessions where the event log grows large.',
+        'First, click **Clear** to reset the event log and bookmarks (uptime stays). ' +
+        'Then click **Export** to download the current log as JSON — useful for offline analysis, sharing, or archival. ' +
+        'Together they keep long-running SSE sessions manageable.',
+      // Reading opens on Clear — matches title order (Clear, then Export).
       highlight: SSE.CLEAR_BTN,
       preAction: async (ctx) => {
         await ensureConnectedWithEvents(ctx);
-      },
-      action: async (ctx) => {
-        // Close detail panel if open
+        // Close detail panel if open so Clear/Export are unobscured.
         const closeBtn = document.querySelector('.sse-detail-footer button') as HTMLElement | null;
         if (closeBtn) {
           closeBtn.click();
-          await ctx.delay(300);
+          await ctx.delay(200);
         }
-        // Demo export
+      },
+      action: async (ctx) => {
+        // Beat 1: spotlight Clear → pause → click → pause so the empty log is visible
+        const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLElement | null;
+        await spotlightEl(ctx, clearBtn, 1400);
+        await ctx.click(SSE.CLEAR_BTN);
+        await ctx.delay(1200);
+
+        // Beat 2: spotlight Export → pause → click → pause on the download outcome
+        const exportBtn = document.querySelector(SSE.EXPORT_BTN) as HTMLElement | null;
+        await spotlightEl(ctx, exportBtn, 1400);
         await ctx.click(SSE.EXPORT_BTN);
         await ctx.delay(1000);
-        // Demo clear
-        await ctx.click(SSE.CLEAR_BTN);
-        await ctx.delay(800);
       },
       pauseAfter: true,
     },

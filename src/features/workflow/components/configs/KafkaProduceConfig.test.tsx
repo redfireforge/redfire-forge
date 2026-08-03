@@ -125,7 +125,7 @@ describe('KafkaProduceConfig', () => {
     render(<Host initial={makeData({ headers: [{ id: 'h1', key: 'x-remove-me', value: 'val', enabled: true }] })} />);
 
     expect(screen.getByDisplayValue('x-remove-me')).toBeTruthy();
-    fireEvent.click(screen.getAllByRole('button', { name: '×' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Remove header/i }));
     expect(screen.queryByDisplayValue('x-remove-me')).toBeNull();
   });
 
@@ -133,7 +133,7 @@ describe('KafkaProduceConfig', () => {
     const onChange = vi.fn();
     render(<KafkaProduceConfig data={makeData({ bodyTemplate: '{"msg":"hi"}' })} onChange={onChange} variableHints={[]} />);
 
-    expect(screen.getByText('Body Template')).toBeDefined();
+    expect(screen.getByText('Body template')).toBeDefined();
 
     fireEvent.change(screen.getByDisplayValue('{"msg":"hi"}'), { target: { value: '{"msg":"bye"}' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ bodyTemplate: '{"msg":"bye"}' }));
@@ -166,7 +166,7 @@ describe('KafkaProduceConfig', () => {
     render(<Host initial={makeData({ outputBindings: [{ id: 'b1', source: 'timestamp', targetVariable: 'ts', enabled: true }] })} />);
 
     expect(screen.getByDisplayValue('ts')).toBeTruthy();
-    fireEvent.click(screen.getAllByRole('button', { name: '×' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Remove binding/i }));
     expect(screen.queryByDisplayValue('ts')).toBeNull();
   });
 
@@ -197,9 +197,9 @@ describe('KafkaProduceConfig', () => {
     expect((screen.getByDisplayValue('payload-{{snippet}}') as HTMLTextAreaElement).value).toBe('payload-{{snippet}}');
   });
 
-  it('renders the Enable Schema Registry section', () => {
+  it('renders the Schema Registry section', () => {
     render(<Host />);
-    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
+    expect(screen.getByText('Schema Registry')).toBeTruthy();
   });
 
   it('updates keyTemplate via ExpressionInput onChange', () => {
@@ -253,6 +253,6 @@ describe('KafkaProduceConfig', () => {
     const onChange = vi.fn();
     render(<KafkaProduceConfig data={makeData({ topic: undefined })} onChange={onChange} variableHints={[]} />);
     // Component renders without crash — topic ?? '' evaluates to ''
-    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
+    expect(screen.getByText('Schema Registry')).toBeTruthy();
   });
 });

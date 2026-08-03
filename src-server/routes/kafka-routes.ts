@@ -18,7 +18,9 @@ import {
 import {
   fetchSchema,
   listSubjects,
+  listSubjectsWithFormat,
   listVersions,
+  registerSchemaVersion,
   SchemaRegistryError,
 } from '../kafka/schema-registry-client.js';
 import type { LogLine } from '../../src/shared/types/server-api';
@@ -300,7 +302,7 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
     if (schemaSubjectsConfigError) return sendEnvelope(res, schemaSubjectsConfigError);
 
     try {
-      const subjects = await listSubjects(body.schemaConfig);
+      const subjects = await listSubjectsWithFormat(body.schemaConfig);
       return sendEnvelope(res, createKafkaSuccessEnvelope('schema-subjects', { subjects }));
     } catch (error) {
       return sendEnvelope(res, toSchemaErrorEnvelope('schema-subjects', error));
@@ -347,6 +349,97 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
       return sendEnvelope(res, createKafkaSuccessEnvelope('schema-fetch', result));
     } catch (error) {
       return sendEnvelope(res, toSchemaErrorEnvelope('schema-fetch', error));
+    }
+  });
+
+  // Demo helper: seed one sample subject for Schema Registry lessons when empty.
+  router.post('/api/kafka/schema-seed-sample', async (req: Request, res: Response) => {
+    const bodyError = requireBodyObject(req, 'schema-subjects');
+    if (bodyError) {
+      return sendEnvelope(res, bodyError);
+    }
+
+    const body = req.body as {
+      schemaConfig?: { registryUrl?: string; auth?: { username?: string; password?: string } };
+      subject?: string;
+    };
+    const schemaSeedConfigError = requireSchemaConfig('schema-subjects', body.schemaConfig);
+    if (schemaSeedConfigError) return sendEnvelope(res, schemaSeedConfigError);
+
+    const subject = (body.subject ?? 'orders-value').trim() || 'orders-value';
+    const sampleSchemaV1 = JSON.stringify({
+      type: 'record',
+      name: 'OrderCreated',
+      namespace: 'redfireforge.demo',
+      fields: [
+        { name: 'orderId', type: 'string' },
+        { name: 'customerId', type: 'string' },
+        { name: 'totalAmount', type: 'double' },
+        { name: 'status', type: 'string', default: 'NEW' },
+        { name: 'createdAt', type: 'string' },
+      ],
+    });
+    const sampleSchemaV2 = JSON.stringify({
+      type: 'record',
+      name: 'OrderCreated',
+      namespace: 'redfireforge.demo',
+      fields: [
+        { name: 'orderId', type: 'string' },
+        { name: 'customerId', type: 'string' },
+        { name: 'totalAmount', type: 'double' },
+        { name: 'currency', type: 'string', default: 'USD' },
+        { name: 'status', type: 'string', default: 'NEW' },
+        { name: 'createdAt', type: 'string' },
+      ],
+    });
+
+    try {
+      const config = body.schemaConfig as { registryUrl: string; auth?: { username: string; password: string } };
+      // Register v1 first, then v2 so the demo has multiple versions to switch between.
+      await registerSchemaVersion(config, subject, sampleSchemaV1, 'AVRO');
+      const registered = await registerSchemaVersion(config, subject, sampleSchemaV2, 'AVRO');
+
+      // Seed additional sample subjects with different formats for a richer demo.
+      const userProfileSchema = JSON.stringify({
+        $schema: 'http://json-schema.org/draft-07/schema#',
+        title: 'UserProfile',
+        type: 'object',
+        properties: {
+          userId: { type: 'string' },
+          email: { type: 'string', format: 'email' },
+          displayName: { type: 'string' },
+          tier: { type: 'string', enum: ['free', 'pro', 'enterprise'] },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+        required: ['userId', 'email', 'displayName'],
+      });
+      const inventoryEventSchema = [
+        'syntax = "proto3";',
+        'package redfireforge.demo;',
+        '',
+        'message InventoryEvent {',
+        '  string sku = 1;',
+        '  string warehouse_id = 2;',
+        '  int32 quantity_change = 3;',
+        '  string reason = 4;',
+        '  string timestamp = 5;',
+        '}',
+      ].join('\n');
+
+      // Best-effort — don't fail the whole seed if extras can't be registered.
+      await Promise.allSettled([
+        registerSchemaVersion(config, 'user-profile-value', userProfileSchema, 'JSON'),
+        registerSchemaVersion(config, 'inventory-events-value', inventoryEventSchema, 'PROTOBUF'),
+      ]);
+
+      return sendEnvelope(res, createKafkaSuccessEnvelope('schema-subjects', {
+        subject,
+        schemaType: 'AVRO',
+        id: registered.id,
+        version: registered.version,
+      }));
+    } catch (error) {
+      return sendEnvelope(res, toSchemaErrorEnvelope('schema-subjects', error));
     }
   });
 

@@ -410,6 +410,20 @@ describe('useWebSocketSend', () => {
       expect(encoded).toContain('passcode');
     });
 
+    it('stacks CONNECT login/passcode and toggles passcode visibility', () => {
+      renderCompose({ effectiveProtocol: 'stomp' });
+      selectOption(screen.getByTestId('stomp-command'), 'CONNECT');
+      const fields = screen.getByTestId('stomp-compose-fields');
+      expect(fields.className).toContain('ws-stomp-compose-fields--auth');
+      expect(screen.getByLabelText('STOMP login')).toBeInTheDocument();
+      const passcode = screen.getByTestId('stomp-passcode');
+      expect(passcode).toHaveAttribute('type', 'password');
+      fireEvent.click(screen.getByTestId('stomp-passcode-toggle'));
+      expect(passcode).toHaveAttribute('type', 'text');
+      fireEvent.click(screen.getByTestId('stomp-passcode-toggle'));
+      expect(passcode).toHaveAttribute('type', 'password');
+    });
+
     it('sends SUBSCRIBE frame with destination', () => {
       const onSend = vi.fn();
       renderCompose({ effectiveProtocol: 'stomp', onSend });
@@ -494,7 +508,7 @@ describe('useWebSocketSend', () => {
     it('closes via the header close button', () => {
       renderCompose();
       fireEvent.click(screen.getByTestId('template-trigger'));
-      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Close message templates' }));
       expect(screen.queryByTestId('template-dropdown')).not.toBeInTheDocument();
     });
 

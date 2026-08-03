@@ -92,7 +92,8 @@ describe('useWebSocketMockServer', () => {
     });
 
     expect(result.current.rules).toEqual(savedRules);
-    expect(result.current.config).toEqual({ port: 1234, fallback: 'ignore' });
+    // Assigned prop port wins over a stale saved.port value.
+    expect(result.current.config).toEqual({ port: 9876, fallback: 'ignore' });
   });
 
   // ── setRules ───────────────────────────────────────────────────────

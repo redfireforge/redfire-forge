@@ -1,21 +1,111 @@
 /** Lesson 7: Load Testing — configure profiles, run a load test, and analyze results */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents, connectToMockServer } from '../setup-helpers';
+import {
+  clearEvents,
+  disconnectWebSocket,
+  fillControlledInput,
+  firstVisibleEl,
+  getLastMockPort,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { showSpotlightRing } from '../../demoRipple';
 import { firstVisibleElement } from '../../utils/domVisibility';
 
-/** Setup: start mock, connect, stay on Events tab so step 1 visibly opens Load Test. */
+/** Spotlight a selector, hold for the viewer, then remove the ring. */
+async function spotlightSel(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  const el = firstVisibleElement<HTMLElement>(selector);
+  if (!el) return;
+  // Prefer no scroll jump — ring follows the element where it already is
+  const remove = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    remove();
+  }
+}
+
+/** Quietly ensure the right pane is on the Events tab (no ripple). */
+async function ensureEventsTabQuiet(ctx: DemoActionContext): Promise<void> {
+  if (firstVisibleElement(WS.RIGHT_TAB_EVENTS)?.classList.contains('active')) return;
+  firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+  await ctx.delay(80);
+}
+
+function isAlreadyConnectedToMock(): boolean {
+  const dc = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  return Boolean(dc && !dc.disabled);
+}
+
+/** Quiet connect — no demo ripples (setup runs under the live overlay). */
+async function connectToMockServerQuiet(ctx: DemoActionContext): Promise<void> {
+  const url = `ws://localhost:${getLastMockPort()}`;
+  if (isAlreadyConnectedToMock()) {
+    // Already live — avoid disconnect/reconnect flash
+    return;
+  }
+  // Only open Connect pane if the URL field is not already visible
+  if (!firstVisibleEl(WS.URL_INPUT)) {
+    firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+    await ctx.delay(60);
+  }
+  const input = firstVisibleEl<HTMLInputElement>(WS.URL_INPUT);
+  if (input && input.value.trim() !== url) {
+    fillControlledInput(input, url);
+    await ctx.delay(40);
+  }
+  const connectBtn = firstVisibleEl<HTMLButtonElement>(WS.CONNECT_BTN);
+  if (connectBtn && !connectBtn.disabled) connectBtn.click();
+  for (let i = 0; i < 40; i++) {
+    if (isAlreadyConnectedToMock()) break;
+    await ctx.delay(80);
+  }
+  await ctx.delay(60);
+}
+
+/** Quietly wipe the product default template so step 2 can fill it live (no ripple). */
+async function clearMessageTemplateQuiet(ctx: DemoActionContext): Promise<void> {
+  const ta = firstVisibleEl<HTMLTextAreaElement>(WS.LT_MESSAGE_TEMPLATE);
+  if (!ta || !ta.value.trim()) return;
+  fillControlledInput(ta, '');
+  await ctx.delay(40);
+}
+
+/** Quietly select Constant only when another profile is active (avoids reading-phase flash). */
+async function ensureConstantProfileQuiet(ctx: DemoActionContext): Promise<void> {
+  const constant = firstVisibleElement<HTMLElement>(WS.LT_PROFILE_CONSTANT);
+  if (!constant) return;
+  if (constant.classList.contains('active') || constant.getAttribute('aria-pressed') === 'true') {
+    return;
+  }
+  constant.click();
+  await ctx.delay(120);
+}
+
+/** Pretty JSON template filled visibly in step 2. */
+const LT_DEMO_TEMPLATE = `{
+  "action": "ping",
+  "seq": {{counter}},
+  "ts": "{{timestamp}}"
+}`;
+
+/**
+ * Setup: quiet REST mock + client connect. No Mock/Client ripples, no disconnect
+ * churn, no demo-tab add/rename (skipStudioTabIsolation). Lands on Events.
+ */
 async function loadTestSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(500);
-  await disconnectWebSocket(ctx);
-  await ctx.delay(200);
-  await clearEvents(ctx);
-  await ctx.delay(200);
-  await wsSetup(ctx);
-  await ctx.delay(300);
-  await connectToMockServer(ctx);
-  // Stay on Events tab — step 1's preAction will navigate here reliably before action fires
-  await ctx.delay(300);
+  await startMockServerQuiet(ctx);
+  await switchToClientModeQuiet(ctx);
+  await connectToMockServerQuiet(ctx);
+  await ensureEventsTabQuiet(ctx);
+  (document.activeElement as HTMLElement | null)?.blur?.();
+  await ctx.delay(40);
 }
 
 /**
@@ -49,24 +139,24 @@ async function ensureTestResults(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.LT_RESULTS, 8000); // 3s test + 5s buffer (Rule 5)
 }
 
-/** Cleanup: stop any running load test, clear results, disconnect, stop mock. */
+/** Cleanup: stop any running load test, clear results, disconnect, stop mock quietly. */
 async function loadTestCleanup(ctx: DemoActionContext): Promise<void> {
-  // Stop running test if active
   const stopBtn = firstVisibleElement<HTMLButtonElement>(WS.LT_STOP_BTN);
   if (stopBtn) {
     stopBtn.click();
     await ctx.delay(500);
   }
-  // Clear results if present
   const clearBtn = firstVisibleElement<HTMLButtonElement>(WS.LT_CLEAR_BTN);
   if (clearBtn) {
     clearBtn.click();
     await ctx.delay(300);
   }
-  // Switch back to events tab
-  await ctx.click(WS.RIGHT_TAB_EVENTS);
-  await ctx.delay(200);
-  await wsCleanup(ctx);
+  firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+  await ctx.delay(80);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx);
+  await switchToClientModeQuiet(ctx);
 }
 
 export const wsLoadTestingLesson: DemoLesson = {
@@ -77,6 +167,8 @@ export const wsLoadTestingLesson: DemoLesson = {
   description: 'Run load tests with constant, ramp, and burst profiles — then analyze real-time metrics.',
   estimatedMinutes: 4,
   initialTab: 'websocket-studio',
+  // Avoid add→rename "demo" connection tab flash at live start
+  skipStudioTabIsolation: true,
 
   setup: loadTestSetup,
   cleanup: loadTestCleanup,
@@ -149,20 +241,23 @@ After completion, see a full results dashboard:
       id: 'lt-intro',
       title: 'Load Test Tab',
       description:
-        'The **Load Test** tab lives in the right pane alongside Events and Schema. ' +
-        'It requires an active connection — the mock echo server is already running. ' +
-        'You configure a load profile, set rate and duration, fire the test, then ' +
-        'inspect results — all without leaving the studio. Let\'s switch there now.',
-      highlight: WS.RIGHT_TAB_LOADTEST,
+        'We start on the **Events** tab — the default right-pane view while connected. ' +
+        'The **Load Test** tab lives next to Events and Schema. It needs an active ' +
+        'connection (the mock echo server is already running). Watch as we switch ' +
+        'there to configure a profile, rate, and duration.',
+      // No reading highlight — avoids spotlight/scroll pulse while setup settles
       preAction: async (ctx) => {
-        // Quietly navigate to Events tab so the action produces a visible tab switch
-        await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(300);
+        await ensureEventsTabQuiet(ctx);
+        (document.activeElement as HTMLElement | null)?.blur?.();
       },
       action: async (ctx) => {
-        // Navigate with ripple — viewer watches the tab switch and sees the config form
+        // Single visible beat: spotlight Load Test, then open
+        await spotlightSel(ctx, WS.RIGHT_TAB_LOADTEST, 900);
         await ctx.click(WS.RIGHT_TAB_LOADTEST);
-        await ctx.delay(900); // user sees the full config form appear
+        await ctx.waitFor(WS.LT_CONFIG, 3000);
+        // Wipe product default immediately (quiet) so step 2 starts from empty
+        await clearMessageTemplateQuiet(ctx);
+        await ctx.delay(700);
       },
       pauseAfter: true,
     },
@@ -172,22 +267,24 @@ After completion, see a full results dashboard:
       id: 'lt-template',
       title: 'Message Template',
       description:
-        'Write a JSON template for each message. Three placeholders are available: ' +
-        '`{{counter}}` (message index, 0-based), `{{timestamp}}` (ISO timestamp), and ' +
-        '`{{random}}` (random float). Each message gets unique values — useful for ' +
-        'tracing latency or correlating sent/received pairs.',
+        'The Message Template starts empty — you define the JSON each load message sends. ' +
+        'Placeholders: `{{counter}}` (message index), `{{timestamp}}` (ISO timestamp), and ' +
+        '`{{random}}` (random float). Watch as we enter a pretty-printed template so every ' +
+        'message gets unique values you can trace.',
       highlight: WS.LT_MESSAGE_TEMPLATE,
       preAction: async (ctx) => {
-        // Ensure Load Test tab is visible
         if (!firstVisibleElement(WS.LT_CONFIG)) {
-          await ctx.click(WS.RIGHT_TAB_LOADTEST);
-          await ctx.delay(300);
+          firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_LOADTEST)?.click();
+          await ctx.delay(200);
         }
+        await clearMessageTemplateQuiet(ctx);
       },
       action: async (ctx) => {
-        const template = '{"action":"ping","seq":{{counter}},"ts":"{{timestamp}}"}';
-        await ctx.fill(WS.LT_MESSAGE_TEMPLATE, template);
-        await ctx.delay(700); // user reads the filled template
+        // Spotlight empty field, then fill pretty JSON live
+        await spotlightSel(ctx, WS.LT_MESSAGE_TEMPLATE, 900);
+        await ctx.fill(WS.LT_MESSAGE_TEMPLATE, LT_DEMO_TEMPLATE);
+        await ctx.delay(1500); // viewer reads the pretty-printed template
+        await spotlightSel(ctx, WS.LT_MESSAGE_TEMPLATE, 1100);
       },
       pauseAfter: true,
     },
@@ -197,26 +294,33 @@ After completion, see a full results dashboard:
       id: 'lt-profile',
       title: 'Choose a Load Profile',
       description:
-        'RedfireForge offers three load profiles. **Ramp** starts slow and accelerates ' +
-        '— great for finding the rate at which your server starts to strain. **Burst** ' +
-        'fires all messages at once, testing peak capacity. **Constant** sends at a ' +
-        'steady fixed rate — the clearest baseline. We\'ll use Constant today.',
-      highlight: WS.LT_PROFILE_PILLS,
+        'RedfireForge offers three load profiles. Watch as we preview each one: ' +
+        '**Ramp** starts slow and accelerates; **Burst** fires all messages at once; ' +
+        '**Constant** sends at a steady fixed rate — the clearest baseline. ' +
+        'We settle on **Constant** for today\'s run.',
+      highlight: WS.LT_PROFILE_CONSTANT,
       preAction: async (ctx) => {
         if (!firstVisibleElement(WS.LT_CONFIG)) {
-          await ctx.click(WS.RIGHT_TAB_LOADTEST);
-          await ctx.delay(300);
+          firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_LOADTEST)?.click();
+          await ctx.delay(200);
         }
+        // Quiet reset only when needed — avoids Constant ripple flash during reading
+        await ensureConstantProfileQuiet(ctx);
       },
       action: async (ctx) => {
-        // Tour each profile so the viewer sees the form change
+        // Tour each profile with spotlight so the viewer can follow the form change
+        await spotlightSel(ctx, WS.LT_PROFILE_RAMP, 700);
         await ctx.click(WS.LT_PROFILE_RAMP);
-        await ctx.delay(900); // user sees "Start Rate" + "End Rate" fields appear
+        await ctx.delay(1100); // Start rate + End rate rows appear
+
+        await spotlightSel(ctx, WS.LT_PROFILE_BURST, 700);
         await ctx.click(WS.LT_PROFILE_BURST);
-        await ctx.delay(900); // user sees "Total Messages" field appear
-        // Settle on Constant — clean baseline for the demo
+        await ctx.delay(1100); // Total messages row appears
+
+        // Settle on Constant — matches narration and next step's Rate/Duration fields
+        await spotlightSel(ctx, WS.LT_PROFILE_CONSTANT, 800);
         await ctx.click(WS.LT_PROFILE_CONSTANT);
-        await ctx.delay(600); // user sees Rate + Duration fields return
+        await ctx.delay(1200); // Rate + Duration rows return; hold so viewer sees Constant active
       },
       pauseAfter: true,
     },
@@ -257,7 +361,7 @@ After completion, see a full results dashboard:
       id: 'lt-run',
       title: 'Run the Load Test',
       description:
-        'Click **Start Load Test** to begin. Watch the live counter as 25 messages ' +
+        'Click **Start load test** to begin. Watch the live counter as 25 messages ' +
         'are sent at exactly 5/s. The progress bar tracks elapsed time; the live ' +
         'metrics show actual rate, total sent, total received, and elapsed time. ' +
         'The test completes automatically after 5 seconds.',
@@ -278,7 +382,7 @@ After completion, see a full results dashboard:
         // Ensure template has content
         const ta = firstVisibleElement<HTMLTextAreaElement>(WS.LT_MESSAGE_TEMPLATE);
         if (ta && !ta.value.trim()) {
-          await ctx.fill(WS.LT_MESSAGE_TEMPLATE, '{"action":"ping","seq":{{counter}},"ts":"{{timestamp}}"}');
+          await ctx.fill(WS.LT_MESSAGE_TEMPLATE, LT_DEMO_TEMPLATE);
           await ctx.delay(200);
         }
         // Always ensure Constant profile + rate=5, duration=5 so description is accurate
@@ -322,17 +426,18 @@ After completion, see a full results dashboard:
     // ── 7. Export & Reset ────────────────────────────────────────
     {
       id: 'lt-export',
-      title: 'Export & New Test',
+      title: 'Export & Edit Configuration',
       description:
-        'Click **Export JSON** to download the full result set — every latency sample, ' +
+        'Click **Export** to download the full result set — every latency sample, ' +
         'throughput snapshot, and summary metric in one file. Perfect for CI/CD ' +
-        'dashboards or offline analysis. Click **New Test** to reset the form and try ' +
-        'a different profile — Ramp or Burst are great next steps once you have a ' +
-        'Constant baseline.',
+        'dashboards or offline analysis. Use **← Edit configuration** to return to ' +
+        'the setup form and try a different profile — Ramp or Burst are great next ' +
+        'steps once you have a Constant baseline. Or click **Run again** to re-run ' +
+        'the same settings without leaving results.',
       highlight: WS.LT_EXPORT_BTN,
       preAction: async (ctx) => { await ensureTestResults(ctx); },
       action: async (ctx) => {
-        // Click Export JSON with ripple so the viewer sees the button press
+        // Click Export with ripple so the viewer sees the button press
         await ctx.click(WS.LT_EXPORT_BTN);
         await ctx.delay(600); // user sees the download triggered
       },
