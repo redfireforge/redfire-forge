@@ -473,31 +473,29 @@ export function useWebSocketSend({
         )}
       </div>
       <div className="ws-compose-controls">
-        {/* ── Left zone: format pills or protocol badge ── */}
-        <div className="ws-compose-controls-left">
-          {!isSioMode && !isStompMode && !isGqlMode && (
-            <div className="ws-format-pills" role="group" aria-label="Message format" data-testid="format-pills">
-              {(['text', 'json', 'binary'] as WsMessageFormat[]).map((fmt) => (
-                <button
-                  key={fmt}
-                  type="button"
-                  className={`ws-format-pill ${composeFormat === fmt ? 'ws-format-pill--active' : ''}`}
-                  onClick={() => setComposeFormat(fmt)}
-                  aria-pressed={composeFormat === fmt}
-                  data-testid={`format-pill-${fmt}`}
-                >
-                  {fmt === 'text' ? 'Text' : fmt === 'json' ? 'JSON' : 'Base64'}
-                </button>
-              ))}
-            </div>
-          )}
-          {isSioMode && <span className="ws-protocol-badge ws-protocol-badge--sio" data-testid="sio-mode-badge">Socket.IO</span>}
-          {isStompMode && <span className="ws-protocol-badge ws-protocol-badge--stomp" data-testid="stomp-mode-badge">STOMP</span>}
-          {isGqlMode && <span className="ws-protocol-badge ws-protocol-badge--gql" data-testid="gql-mode-badge">GraphQL-WS</span>}
-        </div>
-
-        {/* ── Right zone: utility actions + primary actions ── */}
-        <div className="ws-compose-controls-right">
+        {/* ── Row 1: format type selector + prettify action ── */}
+        <div className="ws-compose-format-row">
+          <div className="ws-compose-controls-left">
+            {!isSioMode && !isStompMode && !isGqlMode && (
+              <div className="ws-format-pills" role="group" aria-label="Message format" data-testid="format-pills">
+                {(['text', 'json', 'binary'] as WsMessageFormat[]).map((fmt) => (
+                  <button
+                    key={fmt}
+                    type="button"
+                    className={`ws-format-pill ${composeFormat === fmt ? 'ws-format-pill--active' : ''}`}
+                    onClick={() => setComposeFormat(fmt)}
+                    aria-pressed={composeFormat === fmt}
+                    data-testid={`format-pill-${fmt}`}
+                  >
+                    {fmt === 'text' ? 'Text' : fmt === 'json' ? 'JSON' : 'Base64'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {isSioMode && <span className="ws-protocol-badge ws-protocol-badge--sio" data-testid="sio-mode-badge">Socket.IO</span>}
+            {isStompMode && <span className="ws-protocol-badge ws-protocol-badge--stomp" data-testid="stomp-mode-badge">STOMP</span>}
+            {isGqlMode && <span className="ws-protocol-badge ws-protocol-badge--gql" data-testid="gql-mode-badge">GraphQL-WS</span>}
+          </div>
           {composeFormat === 'json' && !isSioMode && !isStompMode && !isGqlMode && (
             <button
               className="ws-pretty-format-btn"
@@ -511,7 +509,10 @@ export function useWebSocketSend({
               Format
             </button>
           )}
-          <div className="ws-compose-controls-divider" aria-hidden="true" />
+        </div>
+
+        {/* ── Row 2: send actions ── */}
+        <div className="ws-compose-action-row">
           <div className="ws-template-wrapper">
             <button
               className="ws-template-trigger"
