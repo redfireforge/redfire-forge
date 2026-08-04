@@ -711,7 +711,7 @@
   display: flex;
   align-items: center;
   gap: 0;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 5px;
   overflow: hidden;
@@ -773,22 +773,22 @@
 }
 
 .gql-auth-no-auth-hint {
-  padding: 9px 11px;
-  background: color-mix(in srgb, var(--border) 25%, transparent);
-  border: 1px dashed var(--border);
-  border-radius: 5px;
+  padding: 9px 14px;
+  background: var(--bg);
+  border: none;
+  border-radius: 0;
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
-  text-align: center;
+  text-align: left;
 }
 
 /* Info box for OAuth2 / Custom notes */
 .gql-auth-info-box {
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--gql-accent) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--gql-accent) 18%, transparent);
-  border-radius: 5px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--gql-accent) 6%, var(--bg));
+  border: none;
+  border-radius: 0;
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
@@ -854,12 +854,39 @@
   max-width: 480px;
 }
 
+/* Single card — kafka two-tone form (not a rounded card per row) */
+.gql-auth-panel-fields {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
 .gql-auth-panel-row {
   display: flex;
+  align-items: stretch;
   min-height: 48px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  max-height: 74px;
+  overflow: hidden;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
   background: var(--surface);
+  transition: background 0.12s;
+}
+
+.gql-auth-panel-row:last-child {
+  border-bottom: none;
+}
+
+.gql-auth-panel-row:hover {
+  background: var(--surface-hover);
+}
+
+.gql-auth-panel-row:focus-within {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
 
 .gql-auth-panel-label-col {
@@ -868,10 +895,12 @@
   border-right: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 14px 0 16px;
   font-size: 0.76rem;
   font-weight: 500;
   color: var(--text-muted);
+  white-space: nowrap;
+  user-select: none;
 }
 
 .gql-auth-panel-label-col label {
@@ -883,7 +912,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 6px 10px;
+  padding: 8px 12px;
   min-width: 0;
 }
 
@@ -891,6 +920,40 @@
 .gql-auth-panel-ctrl-col .gql-input,
 .gql-auth-panel-ctrl-col .gql-auth-pw-wrap {
   width: 100%;
+}
+
+/* Controls keep a single border; card border is on .gql-auth-panel-fields only */
+.gql-auth-panel-ctrl-col .gql-input {
+  background: var(--bg);
+  border-radius: 5px;
+}
+
+.gql-auth-panel-ctrl-col .gql-auth-type-select.cs-wrapper {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gql-auth-panel-ctrl-col .gql-auth-type-select .cs-trigger {
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.83rem;
+}
+
+.gql-auth-panel-ctrl-col .gql-auth-type-select .cs-trigger:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.gql-auth-panel-ctrl-col .gql-auth-type-select .cs-trigger:focus:not(:disabled),
+.gql-auth-panel-ctrl-col .gql-auth-type-select .cs-trigger[aria-expanded="true"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 .gql-auth-panel-override-banner {

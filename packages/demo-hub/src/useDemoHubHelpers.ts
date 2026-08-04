@@ -239,6 +239,7 @@ export function buildDemoActionContext(navigateToTab: (tab: string) => void): De
       if (!el) return;
 
       if (el instanceof HTMLSelectElement) {
+        if (el.value === value) return;
         showClickRipple(el);
         await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
         const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
@@ -251,6 +252,9 @@ export function buildDemoActionContext(navigateToTab: (tab: string) => void): De
         ? el
         : el.closest('.cs-wrapper');
       if (!wrapper) return;
+
+      // Already on the target — opening the menu would only flicker.
+      if (wrapper.getAttribute('data-value') === value) return;
 
       const trigger = wrapper.querySelector<HTMLButtonElement>('.cs-trigger');
       if (!trigger || trigger.disabled) return;
@@ -265,7 +269,11 @@ export function buildDemoActionContext(navigateToTab: (tab: string) => void): De
         ? CSS.escape(value)
         : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const item = document.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
-      if (!item) return;
+      if (!item) {
+        // Menu failed to open — close stray trigger state and bail (no silent flicker loop).
+        if (trigger.getAttribute('aria-expanded') === 'true') trigger.click();
+        return;
+      }
       // Highlight the target item so the user can see it before it's selected.
       item.classList.add('cs-item--demo-highlight');
       showClickRipple(item);
@@ -303,6 +311,7 @@ export function buildQuietDemoActionContext(navigateToTab: (tab: string) => void
       if (!el) return;
 
       if (el instanceof HTMLSelectElement) {
+        if (el.value === value) return;
         const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
         if (desc?.set) desc.set.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -313,16 +322,13 @@ export function buildQuietDemoActionContext(navigateToTab: (tab: string) => void
         ? el
         : el.closest('.cs-wrapper');
       if (!wrapper) return;
-      const trigger = wrapper.querySelector<HTMLButtonElement>('.cs-trigger');
-      if (!trigger || trigger.disabled) return;
-      trigger.click();
-      // Menu is portaled to document.body — search document, not wrapper.
-      await new Promise(r => setTimeout(r, 40));
-      const escValue = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-        ? CSS.escape(value)
-        : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const item = document.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
-      item?.click();
+      if (wrapper.getAttribute('data-value') === value) return;
+
+      // Quiet path: set value via CustomSelect event — never open the portal menu
+      // (open→pick→close in ~40ms is the "quick blink" viewers see during Preparing).
+      wrapper.dispatchEvent(
+        new CustomEvent('custom-select:set-value', { detail: { value } }),
+      );
     },
     waitFor: async (selector: string, timeout = 5000) => {
       const start = Date.now();

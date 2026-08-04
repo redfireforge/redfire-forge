@@ -37,7 +37,9 @@ describe('WebSocketTlsPanel', () => {
   it('shows proxy notice when not in proxy mode', () => {
     render(<WebSocketTlsPanel {...defaultProps({ isProxyMode: false })} />);
     fireEvent.click(screen.getByTestId('tls-toggle'));
-    expect(screen.getByTestId('tls-proxy-notice')).toBeTruthy();
+    const notice = screen.getByTestId('tls-proxy-notice');
+    expect(notice).toBeTruthy();
+    expect(notice.textContent).toContain('In browser Direct mode');
   });
 
   it('hides proxy notice in proxy mode', () => {

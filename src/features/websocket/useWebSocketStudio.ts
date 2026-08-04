@@ -137,7 +137,12 @@ export function useWebSocketStudio(
   }, []);
 
   const setTlsConfig = useCallback((patch: Partial<WsTlsConfig>) => {
-    setTlsConfigFull((prev) => ({ ...prev, ...patch }));
+    // Update the ref synchronously BEFORE setState. Connect reads tlsConfigRef,
+    // and React may defer functional updaters until render — so putting the ref
+    // write inside setState((prev) => …) still races apply-then-Connect demos.
+    const next = { ...tlsConfigRef.current, ...patch };
+    tlsConfigRef.current = next;
+    setTlsConfigFull(next);
   }, []);
 
   const appendMessage = useCallback((frame: WsFrame) => {

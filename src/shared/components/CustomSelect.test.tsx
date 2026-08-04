@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { CustomSelect } from './CustomSelect';
+import { CustomSelect, CUSTOM_SELECT_SET_VALUE_EVENT } from './CustomSelect';
 
 const simpleOptions = [
   { value: 'a', label: 'Alpha' },
@@ -74,6 +74,37 @@ describe('CustomSelect', () => {
     fireEvent.click(screen.getByText('Beta'));
     expect(onChange).toHaveBeenCalledWith('b');
     expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('exposes data-value on the wrapper for the current selection', () => {
+    const { container } = render(
+      <CustomSelect value="b" onChange={vi.fn()} options={simpleOptions} data-testid="cs-test" />,
+    );
+    expect(container.querySelector('.cs-wrapper')?.getAttribute('data-value')).toBe('b');
+  });
+
+  it('applies custom-select:set-value without opening the menu', () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <CustomSelect value="a" onChange={onChange} options={simpleOptions} />,
+    );
+    const wrapper = container.querySelector('.cs-wrapper')!;
+    wrapper.dispatchEvent(
+      new CustomEvent(CUSTOM_SELECT_SET_VALUE_EVENT, { detail: { value: 'b' } }),
+    );
+    expect(onChange).toHaveBeenCalledWith('b');
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('ignores custom-select:set-value when value is already selected', () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <CustomSelect value="b" onChange={onChange} options={simpleOptions} />,
+    );
+    container.querySelector('.cs-wrapper')!.dispatchEvent(
+      new CustomEvent(CUSTOM_SELECT_SET_VALUE_EVENT, { detail: { value: 'b' } }),
+    );
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('marks selected option as active with checkmark', () => {
