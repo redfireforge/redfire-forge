@@ -13,6 +13,8 @@ export type DemoBridgeWindow = Window &
     __demoExpandAppSidebar?: () => void;
     __demoUpsertGlobalAuthProfile?: (profile: GlobalAuthProfile) => void;
     __demoPurgeGlobalAuthProfiles?: (names: string[], ids: string[]) => void;
+    /** Clear per-tab auth override without opening the Auth panel (lesson setup). */
+    __demoClearActiveTabAuth?: () => boolean;
     __demoUpsertGqlEnv?: (name: string, envVars: Array<{ key: string; value: string; masked?: boolean }>) => void;
     __demoApplyGqlTlsSettings?: (patch: Partial<GqlTlsSettings>) => void;
     __demoSetGqlQuery?: (query: string) => void;
@@ -123,6 +125,26 @@ export type DemoBridgeWindow = Window &
     __demoClearWsProfiles?: () => Promise<void>;
     /** Clear all WebSocket message templates (quiet demo setup). */
     __demoClearWsTemplates?: () => Promise<void>;
+    /**
+     * Quietly replace the WS connection tab bar with the given labels
+     * (no add/rename UI flash — used by Power User / tab lessons).
+     */
+    __demoSeedWsConnectionTabs?: (labels: string[]) => boolean;
+    /**
+     * Quiet Secure WebSocket lesson prep — Client/Connect/Events, single tab,
+     * reset TLS/auth/headers/URL without flashing the TLS bar or modal.
+     */
+    __demoPrepareWsTlsLesson?: () => boolean;
+    /**
+     * Apply WebSocket Studio TLS config on the active tab (skip-cert / CA / mTLS PEMs)
+     * without fighting controlled inputs in the TLS modal.
+     */
+    __demoApplyWsTlsConfig?: (patch: {
+      rejectUnauthorized?: boolean;
+      caCert?: string;
+      clientCert?: string;
+      clientKey?: string;
+    }) => void;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

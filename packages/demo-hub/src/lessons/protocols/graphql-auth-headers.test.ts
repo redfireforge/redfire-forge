@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql4'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 import { gqlAuthHeadersLesson } from './graphql-auth-headers';
@@ -98,7 +99,7 @@ function buildLessonDom(): void {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
+describe('gql-auth-headers lesson (13-step config + observe splits)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     resetGqlLesson6SessionFlags();
@@ -122,12 +123,12 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(gqlAuthHeadersLesson.name).toBe('Authentication & Headers');
   });
 
-  it('has exactly 14 steps', () => {
-    expect(gqlAuthHeadersLesson.steps.length).toBe(14);
+  it('has exactly 13 steps', () => {
+    expect(gqlAuthHeadersLesson.steps.length).toBe(13);
   });
 
   it('has estimated minutes set', () => {
-    expect(gqlAuthHeadersLesson.estimatedMinutes).toBe(8);
+    expect(gqlAuthHeadersLesson.estimatedMinutes).toBe(7);
   });
 
   it('has tabBudget of 1', () => {
@@ -146,10 +147,9 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step IDs and order ─────────────────────────────────────────────────────
 
-  it('has correct step IDs in order', () => {
+  it('has correct step IDs in order (no Env modal tour)', () => {
     expect(gqlAuthHeadersLesson.steps.map((s) => s.id)).toEqual([
       'gql6-intro',
-      'gql6-env',
       'gql6-bearer-config',
       'gql6-bearer-observe',
       'gql6-apikey-config',
@@ -163,6 +163,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
       'gql6-subscription-exec',
       'gql6-subscription-observe',
     ]);
+    expect(gqlAuthHeadersLesson.steps.some((s) => s.id === 'gql6-env')).toBe(false);
   });
 
   it('all steps have pauseAfter: true', () => {
@@ -173,10 +174,10 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 1: gql6-intro ────────────────────────────────────────────────────
 
-  it('gql6-intro has an action (opens auth panel) and no preAction (avoids pre-step movement)', () => {
+  it('gql6-intro opens auth panel; Demo env already seeded in setup', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-intro')!;
     expect(typeof step.action).toBe('function');
-    expect(step.preAction).toBeUndefined();
+    expect(typeof step.preAction).toBe('function');
   });
 
   it('gql6-intro highlights the auth badge', () => {
@@ -189,13 +190,15 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(step.verify).toBe(GQL.AUTH_PANEL);
   });
 
-  it('gql6-intro description lists five auth modes including OAuth', () => {
+  it('gql6-intro description lists five auth modes and already-active Demo env', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-intro')!;
     expect(step.description).toContain('five modes');
     expect(step.description).toContain('OAuth 2.0');
     expect(step.description).toContain('Auth');
     expect(step.description).toContain('bottom tab');
+    expect(step.description).toMatch(/already active/i);
     expect(step.description).not.toContain('popover');
+    expect(step.description).not.toContain('next step opens');
   });
 
   it('gql6-intro action opens auth panel', async () => {
@@ -216,79 +219,11 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
-  // ── Step 2: gql6-env ──────────────────────────────────────────────────────
+  // ── Step 2: gql6-bearer-config ───────────────────────────────────────────
 
-  it('gql6-env highlights the env badge', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
-    expect(step.highlight).toBe(GQL.ENV_BADGE);
-  });
-
-  it('gql6-env has preAction and action', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
-    expect(typeof step.preAction).toBe('function');
-    expect(typeof step.action).toBe('function');
-  });
-
-  it('gql6-env description mentions authToken and resolved value', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
-    expect(step.description).toContain('authToken');
-    expect(step.description).toContain(LESSON6_AUTH_TOKEN_VALUE);
-  });
-
-  it('gql6-env description explains env variable purpose', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
-    expect(step.description).toContain('{{variableName}}');
-  });
-
-  it('gql6-env action opens env modal (calls ensureEnvReady)', async () => {
-    buildLessonDom();
-    // Env modal already in DOM (not auto-opened by click)
-    const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
-    await step.action!(ctx);
-    // Should have clicked Set Active (via ensureEnvReady)
-    const setActiveClicked = vi.mocked(ctx.click).mock.calls.some(
-      (c) => c[0] === GQL.ENV_BADGE,
-    );
-    expect(setActiveClicked || true).toBe(true); // ensureEnvReady handles idempotently
-  });
-
-  it('gql6-env action opens env modal when closed', async () => {
-    document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
-      <span data-testid="gql-schema-badge-ok"></span>
-      <button data-testid="gql-env-badge"></button>
-      <div data-testid="gql-env-modal" style="display:none">
-        <button data-testid="gql-env-set-active-btn"></button>
-        <button data-testid="gql-env-var-add-btn"></button>
-        <div data-testid="gql-env-var-row">
-          <input data-testid="gql-env-var-key" value="" />
-          <input class="gql-env-var-input" value="" />
-        </div>
-      </div>
-    `;
-    document.querySelector(GQL.ENV_MODAL)?.remove();
-    const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.ENV_BADGE);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENV_MODAL, 5000);
-  });
-
-  it('gql6-env action skips env badge when modal already open', async () => {
-    buildLessonDom();
-    const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
-    vi.mocked(ctx.click).mockClear();
-    await step.action!(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
-  });
-
-  // ── Step 3: gql6-bearer-config ───────────────────────────────────────────
-
-  it('gql6-bearer-config highlights the bearer input', () => {
+  it('gql6-bearer-config highlights the auth type select', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-config')!;
-    expect(step.highlight).toBe(GQL.AUTH_BEARER_INPUT);
+    expect(step.highlight).toBe(GQL.AUTH_TYPE_SELECT);
   });
 
   it('gql6-bearer-config description mentions LESSON6_BEARER_TEMPLATE', () => {
@@ -306,7 +241,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 4: gql6-bearer-observe ──────────────────────────────────────────
 
-  it('gql6-bearer-observe highlights Authorization header value row', () => {
+  it('gql6-bearer-observe highlights Authorization header value in Metadata', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-observe')!;
     expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
     expect(step.verify).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
@@ -330,9 +265,9 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 5: gql6-apikey-config ───────────────────────────────────────────
 
-  it('gql6-apikey-config highlights api key value input', () => {
+  it('gql6-apikey-config highlights the auth type select', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey-config')!;
-    expect(step.highlight).toBe(GQL.AUTH_APIKEY_VAL);
+    expect(step.highlight).toBe(GQL.AUTH_TYPE_SELECT);
   });
 
   it('gql6-apikey-config description mentions LESSON6_API_KEY_HEADER', () => {
@@ -369,9 +304,9 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 7: gql6-basic-config ────────────────────────────────────────────
 
-  it('gql6-basic-config highlights basic user input', () => {
+  it('gql6-basic-config highlights the auth type select', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic-config')!;
-    expect(step.highlight).toBe(GQL.AUTH_BASIC_USER);
+    expect(step.highlight).toBe(GQL.AUTH_TYPE_SELECT);
   });
 
   it('gql6-basic-config description mentions LESSON6_BASIC_USER and LESSON6_BASIC_PASS', () => {
@@ -392,7 +327,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 8: gql6-basic-observe ───────────────────────────────────────────
 
-  it('gql6-basic-observe highlights Authorization Basic value row', () => {
+  it('gql6-basic-observe highlights Authorization header value in Metadata', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic-observe')!;
     expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
   });
@@ -407,9 +342,9 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 6: gql6-oauth ────────────────────────────────────────────────────
 
-  it('gql6-oauth highlights oauth token URL input', () => {
+  it('gql6-oauth highlights the auth type select', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-oauth')!;
-    expect(step.highlight).toBe(GQL.AUTH_OAUTH_TOKEN_URL);
+    expect(step.highlight).toBe(GQL.AUTH_TYPE_SELECT);
   });
 
   it('gql6-oauth description mentions OAuth token URL and client credentials', () => {
@@ -438,9 +373,9 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 10–11: gql6-inherit ─────────────────────────────────────────────
 
-  it('gql6-inherit-config highlights profile select', () => {
+  it('gql6-inherit-config highlights the auth type select', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-config')!;
-    expect(step.highlight).toBe(GQL.AUTH_PROFILE_SELECT);
+    expect(step.highlight).toBe(GQL.AUTH_TYPE_SELECT);
   });
 
   it('gql6-inherit-config description mentions LESSON6_GLOBAL_AUTH_PROFILE_NAME', () => {
@@ -450,6 +385,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   it('gql6-inherit-config action switches to inherit type and selects profile', async () => {
     buildLessonDom();
+    document.querySelector<HTMLSelectElement>(GQL.AUTH_PROFILE_SELECT)!.value = '';
     const ctx = makeCtx();
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-config')!;
     await step.action!(ctx);
@@ -460,7 +396,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     );
   });
 
-  it('gql6-inherit-observe highlights Authorization bearer value row', () => {
+  it('gql6-inherit-observe highlights Authorization header value in Metadata', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-observe')!;
     expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
     expect(step.verify).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
@@ -580,7 +516,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(step.description.toLowerCase()).toContain('subscription');
   });
 
-  it('gql6-subscription-observe highlights inherit Authorization value row', () => {
+  it('gql6-subscription-observe highlights Authorization header value in Metadata', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-observe')!;
     expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
   });
@@ -591,21 +527,24 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(lower).toContain('subscription');
   });
 
-  it('gql6-subscription-exec action clicks execute', async () => {
+  it('gql6-subscription-exec action executes and opens Metadata Authorization row', async () => {
     buildLessonDom();
     const ctx = makeCtx();
     await preSubscriptionStep(ctx);
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-exec')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
+    expect(ctx.waitFor).toHaveBeenCalledWith(LESSON6_RV_METADATA_AUTHORIZATION_VAL, 5000);
   });
 
-  it('gql6-subscription-observe action opens Metadata tab', async () => {
+  it('gql6-subscription-observe action spotlights Authorization header value', async () => {
     buildLessonDom();
     const ctx = makeCtx();
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-observe')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
+    expect(ctx.waitFor).toHaveBeenCalledWith(LESSON6_RV_METADATA_AUTHORIZATION_VAL, 5000);
   });
 
   it('concept mentions per-tab auth override key term', () => {
@@ -655,10 +594,13 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── preActions reference new functions ────────────────────────────────────
 
-  it('gql6-env preAction runs without error on empty DOM', async () => {
+  it('gql6-intro preAction runs without error on studio shell', async () => {
+    buildLessonDom();
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = vi.fn(() => true);
     const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-intro')!;
     await expect(step.preAction!(ctx)).resolves.toBeUndefined();
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
   it('gql6-bearer-config preAction runs without error', async () => {

@@ -303,10 +303,34 @@ describe('graphql-lesson-helpers core', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.AUTH_RESET_INHERIT_BTN);
   });
 
-  it('configureDemoTabInheritPageAuth waits for auth badge then clears override', async () => {
+  it('configureDemoTabInheritPageAuth uses quiet bridge when available', async () => {
     document.body.innerHTML = `<button data-testid="gql-auth-badge-btn"></button>`;
+    const clear = vi.fn(() => true);
+    (window as unknown as { __demoClearActiveTabAuth?: () => boolean }).__demoClearActiveTabAuth = clear;
     const ctx = makeCtx();
     await configureDemoTabInheritPageAuth(ctx);
+    expect(clear).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
+    delete (window as unknown as { __demoClearActiveTabAuth?: () => boolean }).__demoClearActiveTabAuth;
+  });
+
+  it('configureDemoTabInheritPageAuth falls back to Auth panel when bridge missing', async () => {
+    document.body.innerHTML = `<button data-testid="gql-auth-badge-btn"></button>`;
+    delete (window as unknown as { __demoClearActiveTabAuth?: () => boolean }).__demoClearActiveTabAuth;
+    const ctx = {
+      ...makeCtx(),
+      // Keep the bridge wait short so the fallback path is exercised quickly.
+      delay: vi.fn(async () => {}),
+    };
+    // Collapse the 2.5s poll: first delay call advances "time" by stubbing Date.
+    const nowSpy = vi.spyOn(Date, 'now');
+    let t = 0;
+    nowSpy.mockImplementation(() => {
+      t += 3000;
+      return t;
+    });
+    await configureDemoTabInheritPageAuth(ctx);
+    nowSpy.mockRestore();
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN, 5000);
   });
 

@@ -13,6 +13,11 @@ export function upsertGlobalAuthProfile(profile: GlobalAuthProfile): void {
   getDemoBridgeWindow().__demoUpsertGlobalAuthProfile?.(profile);
 }
 
+/** Clear the active tab's auth override via React bridge — no Auth panel open/close. */
+export function clearActiveTabAuthQuiet(): boolean {
+  return getDemoBridgeWindow().__demoClearActiveTabAuth?.() ?? false;
+}
+
 /** Sync in-memory app state after storage purge (safe no-op when bridge is absent). */
 export function purgeGlobalAuthProfilesFromBridge(
   specs: readonly { id: string; name: string }[] = ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS,

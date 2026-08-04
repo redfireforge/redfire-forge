@@ -39,11 +39,12 @@ describe('ws-test-runner lesson', () => {
   });
 
   it('sets estimated minutes', () => {
-    expect(wsTestRunnerLesson.estimatedMinutes).toBe(4);
+    expect(wsTestRunnerLesson.estimatedMinutes).toBe(3);
   });
 
-  it('initialTab is not set (avoids auto-exit on tab switch to results)', () => {
-    expect(wsTestRunnerLesson.initialTab).toBeUndefined();
+  it('initialTab is workflow-runner; allowedTabs includes results (no empty Demo Hub / no auto-exit)', () => {
+    expect(wsTestRunnerLesson.initialTab).toBe('workflow-runner');
+    expect(wsTestRunnerLesson.allowedTabs).toEqual(['workflow-runner', 'results']);
   });
 
   // ── Concept ──
@@ -103,8 +104,14 @@ describe('ws-test-runner lesson', () => {
 
   // ── Steps ──
 
-  it('has 7 steps', () => {
-    expect(wsTestRunnerLesson.steps).toHaveLength(7);
+  it('has 4 steps (starts on Run — no Initial Variables tour)', () => {
+    expect(wsTestRunnerLesson.steps).toHaveLength(4);
+    expect(wsTestRunnerLesson.steps.map((s) => s.id)).toEqual([
+      'wfhr-run',
+      'wfhr-complete',
+      'wfhr-results',
+      'wfhr-request-details',
+    ]);
   });
 
   it('all steps have unique IDs', () => {
@@ -131,105 +138,34 @@ describe('ws-test-runner lesson', () => {
     }
   });
 
-  it('step 1 (wfhr-open) highlights workflow-picker', () => {
+  it('step 1 (wfhr-run) highlights Initial Variables, then runs', () => {
     const s = wsTestRunnerLesson.steps[0];
-    expect(s.id).toBe('wfhr-open');
-    expect(s.highlight).toBe('.workflow-picker');
-    expect(s.description).toContain('Workflow Runner');
-  });
-
-  it('step 2 (wfhr-pick) highlights workflow-select and verifies vars section', () => {
-    const s = wsTestRunnerLesson.steps[1];
-    expect(s.id).toBe('wfhr-pick');
-    expect(s.highlight).toContain('workflow-select');
-    expect(s.verify).toBe('.workflow-vars-section');
-    expect(s.description).toContain('WS Echo Demo');
-    expect(s.action).toBeDefined();
-  });
-
-  it('step 2 (wfhr-pick) action uses ctx.click for the trigger (shows ripple)', async () => {
-    const s = wsTestRunnerLesson.steps[1];
-    const ctx = makeCtx();
-    await s.action!(ctx);
-    // Trigger open uses ctx.click so the user sees the ripple
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="workflow-select"]');
-  });
-
-  it('step 2 (wfhr-pick) action uses ctx.waitFor for dropdown panel before selecting item', async () => {
-    const s = wsTestRunnerLesson.steps[1];
-    const ctx = makeCtx();
-    // Add item so selection succeeds
-    const panel = document.createElement('div');
-    panel.className = 'wfp-dropdown-panel';
-    const item = document.createElement('div');
-    item.className = 'wfp-dropdown-item';
-    item.textContent = 'WS Echo Demo';
-    panel.appendChild(item);
-    document.body.appendChild(panel);
-    await s.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith('.wfp-dropdown-panel');
-    document.body.removeChild(panel);
-  });
-
-  it('step 3 (wfhr-variables) highlights workflow-vars-section and has preAction guard', () => {
-    const s = wsTestRunnerLesson.steps[2];
-    expect(s.id).toBe('wfhr-variables');
-    expect(s.highlight).toBe('.workflow-vars-section');
-    expect(s.description).toContain('wsUrl');
-    expect(s.preAction).toBeDefined();
-  });
-
-  it('step 3 (wfhr-variables) preAction skips selection when a variable row is already present', async () => {
-    // Guard now checks for .wfp-var-row (at least one variable loaded), not just .workflow-vars-section
-    const row = document.createElement('div');
-    row.className = 'wfp-var-row';
-    document.body.appendChild(row);
-    const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[2].preAction!(ctx);
-    expect(ctx.click).not.toHaveBeenCalled();
-    document.body.removeChild(row);
-  });
-
-  it('step 3 (wfhr-variables) preAction selects WS Echo Demo when vars section is missing', async () => {
-    // No workflow-vars-section in DOM → preAction must open picker and select item
-    const trigger = document.createElement('div');
-    trigger.setAttribute('data-testid', 'workflow-select');
-    document.body.appendChild(trigger);
-    const panel = document.createElement('div');
-    panel.className = 'wfp-dropdown-panel';
-    const item = document.createElement('div');
-    item.className = 'wfp-dropdown-item';
-    item.textContent = 'WS Echo Demo';
-    panel.appendChild(item);
-    document.body.appendChild(panel);
-    const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[2].preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="workflow-select"]');
-    document.body.removeChild(trigger);
-    document.body.removeChild(panel);
-  });
-
-  it('step 4 (wfhr-run) has action, preAction guard, and verifies completion section', () => {
-    const s = wsTestRunnerLesson.steps[3];
     expect(s.id).toBe('wfhr-run');
-    expect(s.highlight).toContain('form-actions');
+    expect(s.highlight).toBe('.workflow-vars-section');
+    expect(s.title).toContain('Preconfigured');
     expect(s.verify).toBe('.completion-section');
+    expect(s.description).toContain('wsUrl');
+    expect(s.description).toContain('Initial Variables');
     expect(s.action).toBeDefined();
     expect(s.preAction).toBeDefined();
   });
 
-  it('step 4 (wfhr-run) preAction skips selection when config-form already exists', async () => {
+  it('step 1 (wfhr-run) preAction collapses sidebar and skips select when config-form exists', async () => {
+    const collapse = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar = collapse;
     const form = document.createElement('div');
     form.className = 'config-form';
     document.body.appendChild(form);
     const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[3].preAction!(ctx);
+    await wsTestRunnerLesson.steps[0].preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+    expect(collapse).toHaveBeenCalled();
     expect(ctx.click).not.toHaveBeenCalled();
     document.body.removeChild(form);
+    delete (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar;
   });
 
-  it('step 4 (wfhr-run) preAction selects WS Echo Demo when config-form is missing', async () => {
-    // No config-form in DOM → preAction must open picker and select item
+  it('step 1 (wfhr-run) preAction selects WS Echo Demo when config-form is missing', async () => {
     const trigger = document.createElement('div');
     trigger.setAttribute('data-testid', 'workflow-select');
     document.body.appendChild(trigger);
@@ -241,13 +177,13 @@ describe('ws-test-runner lesson', () => {
     panel.appendChild(item);
     document.body.appendChild(panel);
     const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[3].preAction!(ctx);
+    await wsTestRunnerLesson.steps[0].preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="workflow-select"]');
     document.body.removeChild(trigger);
     document.body.removeChild(panel);
   });
 
-  it('step 4 (wfhr-run) action scrolls completion section into view after workflow finishes', async () => {
+  it('step 1 (wfhr-run) action scrolls completion section into view after workflow finishes', async () => {
     const runBtn = document.createElement('button');
     runBtn.className = 'btn btn-primary';
     const formActions = document.createElement('div');
@@ -258,36 +194,31 @@ describe('ws-test-runner lesson', () => {
     configForm.appendChild(formActions);
     document.body.appendChild(configForm);
 
-    // Add completion section so polling terminates immediately
     const completion = document.createElement('div');
     completion.className = 'completion-section';
-    // jsdom does not implement scrollIntoView — define it before spying
     completion.scrollIntoView = vi.fn();
     document.body.appendChild(completion);
 
     const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[3].action!(ctx);
+    await wsTestRunnerLesson.steps[0].action!(ctx);
     expect(completion.scrollIntoView).toHaveBeenCalled();
 
     document.body.removeChild(configForm);
     document.body.removeChild(completion);
   });
 
-  it('step 5 (wfhr-complete) highlights completion banner and has action + verify', () => {
-    const s = wsTestRunnerLesson.steps[4];
+  it('step 2 (wfhr-complete) highlights completion banner and has action + verify', () => {
+    const s = wsTestRunnerLesson.steps[1];
     expect(s.id).toBe('wfhr-complete');
     expect(s.highlight).toBe('.completion-section');
     expect(s.description).toContain('View Full Results');
-    // action clicks "View Full Results →" with ripple
     expect(s.action).toBeDefined();
-    // verify waits for results tab to appear after navigation
     expect(s.verify).toBe('.results-run-filter-tabs');
-    // no preAction — navigation happens in action itself
     expect(s.preAction).toBeUndefined();
   });
 
-  it('step 5 (wfhr-complete) action uses ctx.click on completion-section btn-primary', async () => {
-    const s = wsTestRunnerLesson.steps[4];
+  it('step 2 (wfhr-complete) action uses ctx.click on completion-section btn-primary', async () => {
+    const s = wsTestRunnerLesson.steps[1];
     const btn = document.createElement('button');
     btn.className = 'btn btn-primary';
     const section = document.createElement('div');
@@ -299,50 +230,45 @@ describe('ws-test-runner lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith('.completion-section .btn-primary');
   });
 
-  it('step 6 (wfhr-results) has preAction guard and highlights results filter tabs', () => {
-    const s = wsTestRunnerLesson.steps[5];
+  it('step 3 (wfhr-results) has preAction guard and highlights results filter tabs', () => {
+    const s = wsTestRunnerLesson.steps[2];
     expect(s.id).toBe('wfhr-results');
-    expect(s.highlight).toBe('.results-run-filter-tabs');
+    expect(s.highlight).toBe('.run-filter-tab:nth-child(3)');
     expect(s.preAction).toBeDefined();
     expect(s.description).toContain('Results Dashboard');
   });
 
-  it('step 6 (wfhr-results) preAction skips navigation when results tab is already active', async () => {
+  it('step 3 (wfhr-results) preAction skips navigation when results tab is already active', async () => {
     const tabs = document.createElement('div');
     tabs.className = 'results-run-filter-tabs';
     document.body.appendChild(tabs);
     const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[5].preAction!(ctx);
+    await wsTestRunnerLesson.steps[2].preAction!(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
     document.body.removeChild(tabs);
   });
 
-  it('step 6 (wfhr-results) preAction navigates to results when results tab is absent', async () => {
-    // No results-run-filter-tabs → preAction must navigate
+  it('step 3 (wfhr-results) preAction navigates to results when results tab is absent', async () => {
     const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[5].preAction!(ctx);
+    await wsTestRunnerLesson.steps[2].preAction!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('results');
   });
 
-  it('step 3 description mentions mock server and ws://localhost:9876', () => {
-    const s = wsTestRunnerLesson.steps[2];
+  it('step 1 description mentions mock server URL and WS nodes', () => {
+    const s = wsTestRunnerLesson.steps[0];
     expect(s.description).toContain('ws://localhost:9876');
-  });
-
-  it('step 4 description mentions WS nodes executing', () => {
-    const s = wsTestRunnerLesson.steps[3];
     expect(s.description).toContain('Connect');
     expect(s.description).toContain('Send');
     expect(s.description).toContain('Receive');
   });
 
-  it('step 6 description mentions Workflow Results Explorer', () => {
-    const s = wsTestRunnerLesson.steps[5];
+  it('step 3 description mentions Workflow Results Explorer', () => {
+    const s = wsTestRunnerLesson.steps[2];
     expect(s.description).toContain('Workflow Results Explorer');
   });
 
-  it('step 7 (wfhr-request-details) has action, preAction, verify and highlights results-view-tabs', () => {
-    const s = wsTestRunnerLesson.steps[6];
+  it('step 4 (wfhr-request-details) has action, preAction, verify and highlights results-view-tabs', () => {
+    const s = wsTestRunnerLesson.steps[3];
     expect(s.id).toBe('wfhr-request-details');
     expect(s.highlight).toBe('.results-view-tabs');
     expect(s.action).toBeDefined();
@@ -352,45 +278,41 @@ describe('ws-test-runner lesson', () => {
     expect(s.description).toContain('Response Detail');
   });
 
-  it('step 7 (wfhr-request-details) preAction skips navigation when results tab is present', async () => {
+  it('step 4 (wfhr-request-details) preAction skips navigation when results tab is present', async () => {
     const tabs = document.createElement('div');
     tabs.className = 'results-view-tabs';
     document.body.appendChild(tabs);
     const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[6].preAction!(ctx);
+    await wsTestRunnerLesson.steps[3].preAction!(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
     document.body.removeChild(tabs);
   });
 
-  it('step 7 (wfhr-request-details) preAction navigates to results when results tab is absent', async () => {
+  it('step 4 (wfhr-request-details) preAction navigates to results when results tab is absent', async () => {
     const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[6].preAction!(ctx);
+    await wsTestRunnerLesson.steps[3].preAction!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('results');
   });
 
-  it('step 7 (wfhr-request-details) preAction activates Request Details sub-tab when not active', async () => {
+  it('step 4 (wfhr-request-details) preAction activates Request Details sub-tab when not active', async () => {
     const wrapper = document.createElement('div');
     wrapper.className = 'results-view-tabs';
     const btn = document.createElement('button');
-    btn.className = 'results-view-tab'; // not active
+    btn.className = 'results-view-tab';
     btn.textContent = 'Request Details';
     wrapper.appendChild(btn);
     document.body.appendChild(wrapper);
     const ctx = makeCtx();
-    await wsTestRunnerLesson.steps[6].preAction!(ctx);
+    await wsTestRunnerLesson.steps[3].preAction!(ctx);
     document.body.removeChild(wrapper);
-    // btn.click() was called since class doesn't contain 'active'
-    // (no ripple in preAction — direct DOM click)
     expect(btn.textContent).toBe('Request Details');
   });
 
-  it('step 7 (wfhr-request-details) action clicks Request Details tab then first clickable-row', async () => {
-    const s = wsTestRunnerLesson.steps[6];
-    // Set up results-tab-requests button
+  it('step 4 (wfhr-request-details) action clicks Request Details tab then first clickable-row', async () => {
+    const s = wsTestRunnerLesson.steps[3];
     const tabBtn = document.createElement('button');
     tabBtn.setAttribute('data-testid', 'results-tab-requests');
     document.body.appendChild(tabBtn);
-    // Set up a clickable row for action to click
     const row = document.createElement('tr');
     row.className = 'clickable-row';
     document.body.appendChild(row);
@@ -430,7 +352,13 @@ describe('ws-test-runner lesson', () => {
       }
       return Promise.resolve(new Response('{}', { headers: { 'Content-Type': 'application/json' } }));
     });
+    const collapse = vi.fn();
+    const win = window as unknown as Record<string, unknown>;
+    win.__demoCollapseAppSidebar = collapse;
     const { deleteByName: wfDelete, insertWorkflow: wfInsert } = stubWorkflowSeedBridge(WS_ECHO_WF_NAME);
+    const selectByName = win.__wfSelectByName as ReturnType<typeof vi.fn>;
+    const runnerApply = win.__wfRunnerApplySelection as ReturnType<typeof vi.fn>;
+    const runnerSelect = win.__wfRunnerSelectByName as ReturnType<typeof vi.fn>;
     const ctx = makeCtx();
     await wsTestRunnerLesson.setup!(ctx);
     expect(wfDelete).toHaveBeenCalledWith(WS_ECHO_WF_NAME);
@@ -439,6 +367,13 @@ describe('ws-test-runner lesson', () => {
     expect(seeded.name).toBe(WS_ECHO_WF_NAME);
     expect((seeded.variables as Record<string, string>).wsUrl).toBe('ws://localhost:9876');
     expect((seeded.nodes as unknown[]).length).toBeGreaterThanOrEqual(4);
+    // Auto-select in setup so step 1 opens on Run (workflow already picked).
+    expect(selectByName).toHaveBeenCalledWith(WS_ECHO_WF_NAME);
+    expect(runnerApply).toHaveBeenCalledWith(WS_ECHO_WF_NAME);
+    expect(collapse).toHaveBeenCalled();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+    void runnerSelect;
+    delete win.__demoCollapseAppSidebar;
   });
 
   it('setup gracefully skips seeding when bridge is not available', async () => {
@@ -498,7 +433,7 @@ describe('ws-test-runner lesson', () => {
   });
 
   it('selectWsEchoDemo falls back to startsWith match when exact name absent', async () => {
-    const step = wsTestRunnerLesson.steps.find((s) => s.id === 'wfhr-pick')!;
+    const step = wsTestRunnerLesson.steps.find((s) => s.id === 'wfhr-run')!;
     const panel = document.createElement('div');
     panel.className = 'wfp-dropdown-panel';
     const item = document.createElement('div');
@@ -509,7 +444,8 @@ describe('ws-test-runner lesson', () => {
     panel.appendChild(item);
     document.body.appendChild(panel);
     const ctx = makeCtx();
-    await step.action!(ctx);
+    // No .config-form → preAction calls selectWsEchoDemo
+    await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
     document.body.removeChild(panel);
   });
@@ -527,7 +463,7 @@ describe('ws-test-runner lesson', () => {
 
     const ctx = makeCtx();
     (ctx.delay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
-    await wsTestRunnerLesson.steps[3].action!(ctx);
+    await wsTestRunnerLesson.steps[0].action!(ctx);
     expect(document.querySelector('.completion-section')).toBeNull();
     document.body.removeChild(configForm);
   }, 20000);

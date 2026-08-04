@@ -28,7 +28,7 @@ async function enableSkipCertInWsStudio(page: import('@playwright/test').Page) {
   await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'networkidle' });
 
   // Fill wss:// URL so the TLS panel appears
-  await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
+  await visibleWsUrlInput(page).fill('wss://ws.postman-echo.com/raw');
   await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
 
   // Open TLS config modal when the skip-cert control is not rendered yet.
@@ -121,7 +121,7 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
 
     // STEP D: Ensure TLS controls are present, then open the TLS config modal.
     // The current UI exposes skip-cert inside the modal body.
-    await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
+    await visibleWsUrlInput(page).fill('wss://ws.postman-echo.com/raw');
     await page.waitForSelector(WS.TLS_PANEL, { timeout: 10_000 });
 
     const skipCertLocator = page.locator(SKIP_CERT_CHECKBOX);
@@ -170,7 +170,7 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
     console.log(`[test 2] Step 3: "${title}"`);
     expect(title).toContain('Connect Over TLS');
 
-    // Wait for step 3's action to complete (it connects to wss://echo.websocket.org)
+    // Wait for step 3's action to complete (it connects to wss://ws.postman-echo.com/raw)
     await page.waitForTimeout(5000); // step 3 preAction connects (2.5s) then has 1.5s delay
 
     // CRITICAL: Check there is no 504 error message in the WebSocket studio
@@ -232,67 +232,55 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
     expect(has504Text).toBe(false);
   });
 
-  test('4. full demo run through step 5 (skip-cert enabled) then cleanup resets it', async ({ page }) => {
+  test('4. full demo run through Proxy TLS round-trip then cleanup resets skip-cert', async ({ page }) => {
     test.slow();
-    // This covers the EXACT user scenario: demo runs step 5 which enables skip-cert,
-    // then the demo ends and tlsCleanup MUST reset it so the next connect works.
+    // Step 7 (tls-proxy-roundtrip) enables skip-cert for the public-echo Proxy path.
+    // After exit, tlsCleanup / prepareWsTlsLessonQuiet MUST leave skip-cert off.
     await gotoApp(page);
     await navigateToDemoHub(page);
     await waitForDemoOverlay(page);
 
-    // Advance through all 7 steps:
-    // step 1: wss:// vs ws://
-    // step 2: TLS Configuration Panel
-    // step 3: Connect Over TLS
-    // step 4: Send & Receive Over TLS
-    // step 5: Skip Certificate Validation  ← enables skip-cert!
-    // step 6: CA Certificate & mTLS
-    // step 7: Transport Modes & Desktop TLS
+    // 8-step viewer arc (see packages/demo-hub/.../ws-tls.ts)
     const steps = [
       'wss:// vs ws://',
       'TLS Configuration Panel',
       'Connect Over TLS',
       'Send & Receive Over TLS',
-      'Skip Certificate Validation',
-      'CA Certificate & mTLS',
-      'Transport Modes & Desktop TLS',
+      'CA Certificate',
+      'Client Certificate',
+      'Connect & Send with TLS',
+      'Transport Modes',
     ];
 
     await waitForReadingPhase(page, 30_000);
     for (let i = 0; i < steps.length - 2; i++) {
       const title = await getStepTitle(page);
       console.log(`[test 4] Step ${i + 1}: "${title}"`);
-      expect(title).toContain(steps[i].split(' ').slice(0, 3).join(' ')); // partial match
-      await runNextStep(page, 60_000);
+      expect(title).toContain(steps[i]!.split(' ').slice(0, 2).join(' '));
+      await runNextStep(page, 90_000);
     }
 
-    // Penultimate step (6/7)
+    // Penultimate step (7/8) — Proxy round-trip with skip-cert
     let title = await getStepTitle(page);
     console.log(`[test 4] Step ${steps.length - 1}: "${title}"`);
-    expect(title).toContain(steps[steps.length - 2]!.split(' ').slice(0, 3).join(' '));
-    await completeCurrentStepAction(page, 60_000);
+    expect(title).toContain(steps[steps.length - 2]!.split(' ').slice(0, 2).join(' '));
+    await completeCurrentStepAction(page, 90_000);
     await page.locator('[aria-label="Next step"]').click();
 
-    // Last step (7/7) — Next stays disabled; finish action then exit for cleanup.
+    // Last step (8/8) — Next stays disabled; finish action then exit for cleanup.
     title = await getStepTitle(page);
     console.log(`[test 4] Step ${steps.length}: "${title}"`);
-    expect(title).toContain(steps[steps.length - 1]!.split(' ').slice(0, 3).join(' '));
+    expect(title).toContain(steps[steps.length - 1]!.split(' ').slice(0, 2).join(' '));
     await finishDemoStep(page, 60_000);
 
-    // At step 5 skip-cert gets ENABLED by the demo. By step 7 it's still enabled.
-    // Now EXIT the demo → tlsCleanup runs and MUST reset skip-cert.
     await exitDemo(page);
-
-    // Wait for cleanup to finish
     await page.waitForTimeout(3000);
 
-    // Navigate back to WebSocket studio and check skip-cert state
     await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'networkidle' });
     await page.click(WS.MODE_CLIENT);
     await page.click(WS.LEFT_TAB_CONNECT);
 
-    // Fill wss:// URL so TLS panel renders
-    await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
+    await visibleWsUrlInput(page).fill('wss://ws.postman-echo.com/raw');
     await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
     const toggle = page.locator(WS.TLS_TOGGLE);
     if (await toggle.getAttribute('aria-expanded') !== 'true') {
@@ -302,9 +290,8 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
 
     const skipCertAfterCleanup = await page.locator(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`).isChecked();
     console.log(`[test 4] skip-cert after full demo + cleanup = ${skipCertAfterCleanup} (MUST be false)`);
-    expect(skipCertAfterCleanup).toBe(false); // THE CRITICAL CLEANUP ASSERTION
+    expect(skipCertAfterCleanup).toBe(false);
 
-    // Verify connection works (no 504)
     const proxyRequests: string[] = [];
     page.on('request', req => { if (req.url().includes('/api/ws/')) proxyRequests.push(req.url()); });
     await page.locator(WS.CONNECT_BTN).click();
@@ -339,7 +326,7 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
     await page.click(WS.LEFT_TAB_CONNECT);
 
     // Verify custom header triggers proxy mode (sanity check)
-    await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
+    await visibleWsUrlInput(page).fill('wss://ws.postman-echo.com/raw');
     await page.waitForTimeout(300);
     const proxyBeforeDemo: string[] = [];
     const proxyAfterDemo: string[] = [];

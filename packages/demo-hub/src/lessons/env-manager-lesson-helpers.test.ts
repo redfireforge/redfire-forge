@@ -41,9 +41,11 @@ import {
   cleanupDemoMicroservice,
   cleanupDemoEnvironment,
   cleanupGqlDemoLessonEnvironment,
+  selectEnvInHeaderVisible,
+  selectSvcInHeaderVisible,
 } from './env-manager-lesson-helpers';
 import { makeCtx } from './protocols/ws-test-utils';
-import { EM } from '@shared/selectors';
+import { APP, EM } from '@shared/selectors';
 
 function mockRect(el: Element, width: number, height: number): void {
   vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
@@ -931,5 +933,49 @@ describe('env-manager-lesson-helpers', () => {
     const ctx = makeCtx();
     await cleanupGqlDemoLessonEnvironment(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
+  });
+
+  // ── Visible header selects (live demo pacing) ───────────────────
+
+  it('selectEnvInHeaderVisible selects native option even when already chosen', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1" selected>GraphQL Demo</option>
+        <option value="e2">Other</option>
+      </select>`;
+    const ctx = makeCtx();
+    await selectEnvInHeaderVisible(ctx, 'GraphQL Demo');
+    expect(ctx.selectOption).toHaveBeenCalledWith(APP.HEADER_ENV_SELECT, 'e1');
+  });
+
+  it('selectSvcInHeaderVisible opens CustomSelect menu and picks the option', async () => {
+    document.body.innerHTML = `
+      <div data-testid="header-svc-select">
+        <button type="button" class="cs-trigger"><span class="cs-text">other</span></button>
+      </div>`;
+    const wrap = document.querySelector('[data-testid="header-svc-select"]')!;
+    const trigger = wrap.querySelector<HTMLElement>('.cs-trigger')!;
+    const itemClick = vi.fn();
+    trigger.addEventListener('click', () => {
+      if (document.querySelector('.cs-menu')) return;
+      const menu = document.createElement('div');
+      menu.className = 'cs-menu';
+      const item = document.createElement('div');
+      item.className = 'cs-item';
+      item.textContent = 'graphql-demo';
+      item.addEventListener('click', itemClick);
+      menu.appendChild(item);
+      document.body.appendChild(menu);
+    });
+    const ctx = makeCtx();
+    (ctx.click as ReturnType<typeof vi.fn>).mockImplementation(async (sel: string) => {
+      document.querySelector<HTMLElement>(sel)?.click();
+    });
+    (ctx.waitFor as ReturnType<typeof vi.fn>).mockImplementation(async (sel: string) => {
+      if (!document.querySelector(sel)) throw new Error(`missing ${sel}`);
+    });
+    await selectSvcInHeaderVisible(ctx, 'graphql-demo');
+    expect(ctx.click).toHaveBeenCalledWith(`${APP.HEADER_SVC_SELECT} .cs-trigger`);
+    expect(itemClick).toHaveBeenCalled();
   });
 });
