@@ -1,9 +1,9 @@
 import { GQL } from '../../src/shared/selectors';
 
-export const GQL1_LESSON = { name: 'Your First GraphQL Query', steps: 13 } as const;
-export const GQL2_LESSON = { name: 'Variables & Arguments', steps: 18 } as const;
-export const GQL3_LESSON = { name: 'Schema Exploration', steps: 10 } as const;
-export const GQL4_LESSON = { name: 'Authentication & Headers', steps: 14 } as const;
+export const GQL1_LESSON = { name: 'Your First GraphQL Query', steps: 12 } as const;
+export const GQL2_LESSON = { name: 'Variables & Arguments', steps: 16 } as const;
+export const GQL3_LESSON = { name: 'Schema Exploration', steps: 9 } as const;
+export const GQL4_LESSON = { name: 'Authentication & Headers', steps: 13 } as const;
 export const GQL5_LESSON = { name: 'HTTPS, TLS & Certificates', steps: 18 } as const;
 export const GQL6_LESSON = { name: 'Mutations — Create, Update, Delete', steps: 19 } as const;
 export const GQL7_LESSON = { name: 'Subscriptions — Real-Time Data', steps: 15 } as const;

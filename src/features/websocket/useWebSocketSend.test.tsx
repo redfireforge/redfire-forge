@@ -128,12 +128,12 @@ describe('useWebSocketSend', () => {
       expect(onSend).not.toHaveBeenCalled();
     });
 
-    it('clears input after sending', () => {
+    it('keeps input after sending so the message can be re-sent', () => {
       renderCompose();
       const input = screen.getByLabelText('Message input');
       fireEvent.change(input, { target: { value: 'msg' } });
       fireEvent.click(screen.getByTestId('send-btn'));
-      expect(input).toHaveValue('');
+      expect(input).toHaveValue('msg');
     });
   });
 

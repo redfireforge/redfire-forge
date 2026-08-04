@@ -6,6 +6,7 @@ import type { DemoActionContext } from '../types';
 import { APP, EM, emAddProtocolItemSel, emRemoveProtocolSel } from '@shared/selectors';
 import type { ProtocolKey } from '@shared/types';
 import { isDemoTargetVisible } from '../demoSpotlightUtils';
+import { showSpotlightRing } from '../demoRipple';
 import { fillControlledInput } from './setup-helpers';
 import { getDemoBridgeWindow } from '../adapters/bridgeWindow';
 
@@ -62,6 +63,68 @@ async function selectNamedHeaderOption(
     document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
   }
   await ctx.delay(50);
+}
+
+/**
+ * Live-demo paced header select — always opens the menu so viewers can follow
+ * Environment / Service picks even when setup already selected the value quietly.
+ */
+async function selectNamedHeaderOptionVisible(
+  ctx: DemoActionContext,
+  selectSelector: string,
+  label: string,
+): Promise<void> {
+  const target = document.querySelector<HTMLElement>(selectSelector);
+  if (!target) return;
+
+  if (target instanceof HTMLSelectElement) {
+    const option = Array.from(target.options).find((entry) => entry.text.trim() === label);
+    if (!option) return;
+    await ctx.selectOption(selectSelector, option.value);
+    await ctx.delay(800);
+    return;
+  }
+
+  const triggerSel = `${selectSelector} .cs-trigger`;
+  if (!document.querySelector(triggerSel)) return;
+
+  // Open menu with ripple so the dropdown change is visible.
+  await ctx.click(triggerSel);
+  await ctx.waitFor('.cs-menu', 3000);
+  await ctx.delay(1000);
+
+  const option = Array.from(document.querySelectorAll<HTMLElement>('.cs-menu .cs-item'))
+    .find((entry) => entry.textContent?.trim().includes(label));
+  if (option) {
+    option.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    const dispose = showSpotlightRing(option, { steady: true });
+    try {
+      await ctx.delay(900);
+      option.click();
+    } finally {
+      dispose();
+    }
+  } else {
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  }
+  // Hold on the closed control so the selected label can be read.
+  await ctx.delay(1000);
+}
+
+/** Visible Environment dropdown pick for live demo actions (not quiet setup). */
+export async function selectEnvInHeaderVisible(
+  ctx: DemoActionContext,
+  envName: string,
+): Promise<void> {
+  await selectNamedHeaderOptionVisible(ctx, APP.HEADER_ENV_SELECT, envName);
+}
+
+/** Visible Service dropdown pick for live demo actions (not quiet setup). */
+export async function selectSvcInHeaderVisible(
+  ctx: DemoActionContext,
+  svcName: string,
+): Promise<void> {
+  await selectNamedHeaderOptionVisible(ctx, APP.HEADER_SVC_SELECT, svcName);
 }
 
 /**
@@ -799,16 +862,35 @@ export async function ensureProtocolEnabled(
   if (document.querySelector(tabSel)) return; // already enabled
   // Open the "+ Add protocol" dropdown
   await ctx.click(EM.ADD_PROTOCOL_BTN);
-  await ctx.delay(120);
-  // Select the target protocol from the menu
+  await ctx.delay(200);
+  // Scroll the target item into view and spotlight it so viewers can read the selection
   const itemSel = emAddProtocolItemSel(protocol);
+  const item = document.querySelector<HTMLElement>(itemSel);
+  item?.scrollIntoView({ block: 'nearest' });
+  await ctx.delay(100);
+  if (item) {
+    const dispose = showSpotlightRing(item);
+    await ctx.delay(1600);
+    dispose();
+  } else {
+    await ctx.delay(1600);
+  }
   await ctx.click(itemSel);
   // Wait for the tab to appear in the DOM (max ~2 s)
   for (let i = 0; i < 20; i++) {
     if (document.querySelector(tabSel)) break;
     await ctx.delay(100);
   }
-  await ctx.delay(120);
+  // Spotlight the newly-added protocol tab so viewers can see it appeared
+  const tab = document.querySelector<HTMLElement>(tabSel);
+  if (tab) {
+    tab.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    const dispose = showSpotlightRing(tab);
+    await ctx.delay(1600);
+    dispose();
+  } else {
+    await ctx.delay(300);
+  }
 }
 
 /** Switch protocol tab inside the expanded microservice card. */

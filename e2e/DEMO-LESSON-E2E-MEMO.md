@@ -65,7 +65,7 @@ await finishDemoStep(page, timeout);
 
 | Lesson | Steps | Walk helper |
 |--------|-------|-------------|
-| GQL-1 | 13 | `walkFullGql1Lesson` |
+| GQL-1 | 12 | `walkFullGql1Lesson` |
 | GQL-2 | 16 | `walkFullGql2Lesson` |
 | GQL-3 | 15 | `walkFullGql3Lesson` |
 

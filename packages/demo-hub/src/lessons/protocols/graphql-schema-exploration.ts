@@ -2,10 +2,9 @@
 import type { DemoLesson } from '../../types';
 import { GQL } from '@shared/selectors';
 import {
-  GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
   GQL_STUDIO_LESSON_ALLOWED_TABS,
-  configureDemoTabEndpointOverride,
+  ensureDemoTabDirectHttpEndpoint,
   ensureEditorReadyForInsert,
   ensureIntrospected,
   ensureSchemaExplorerOpen,
@@ -16,10 +15,12 @@ import {
   gqlSchemaLessonSetup,
   markTryInsertDone,
   prepareGql4IntrospectReading,
+  setGqlRightTabSchema,
   syncGql4IntrospectSchemaTabDuringReading,
   searchSchemaTypes,
   selectSchemaType,
 } from './graphql-lesson-helpers';
+import { navigateToGraphqlStudio } from '../env-manager-lesson-helpers';
 
 export const gqlSchemaLesson: DemoLesson = {
   id: 'gql-schema-exploration',
@@ -28,7 +29,7 @@ export const gqlSchemaLesson: DemoLesson = {
   name: 'Schema Exploration',
   description:
     'Browse the introspected schema, search types, inspect fields and arguments, insert a field with Try →, execute the resulting query, and export SDL — everything you need to understand any GraphQL API without reading documentation.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 4,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -339,7 +340,7 @@ The test server schema used in this lesson has five types: **Query** (root entry
   },
 
   steps: [
-    // ── 1. Orientation ─────────────────────────────────────────────────────────
+    // ── 1. Orientation (endpoint wired quietly in setup — no EM / env tour) ──
     {
       id: 'gql4-intro',
       title: 'Schema Explorer',
@@ -351,32 +352,18 @@ The test server schema used in this lesson has five types: **Query** (root entry
         'that inserts the field directly into your Monaco editor. ' +
         'A **search box** at the top filters types as you type. ' +
         'The **SDL tab** on the detail panel shows the raw Schema Definition Language for any type. ' +
-        'This lesson builds on the quick schema glimpse from **GQL-1** — here you search, inspect field arguments, use Try →, execute, read the response, and export the full SDL.',
+        'The demo endpoint is already connected — next you introspect, then search, inspect field arguments, use Try →, execute, and export SDL.',
       highlight: GQL.RIGHT_TAB_SCHEMA,
       pauseAfter: true,
-    },
-
-    // ── 2. Set endpoint ────────────────────────────────────────────────────────
-    {
-      id: 'gql4-endpoint',
-      title: 'Set the Endpoint',
-      description:
-        `Connect to \`${GQL_DEMO_HTTP}\`. The local Docker test server exposes a schema with five types: ` +
-        '**Query** (root entry points into the API), **Mutation** (write operations), **User** and **Order** (domain object types), ' +
-        'and **OrderInput** (an input type for creating orders). You will browse all five through the Explorer in this lesson. ' +
-        'Confirm the endpoint field shows the full URL including the `/graphql` path — ' +
-        'GraphQL endpoints always use a path suffix, unlike REST where each resource lives at a different URL.',
-      highlight: GQL.ENDPOINT_INPUT,
       preAction: async (ctx) => {
-        await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
+        await navigateToGraphqlStudio(ctx);
+        await ensureDemoTabDirectHttpEndpoint(ctx);
+        await setGqlRightTabSchema(ctx);
+        await ctx.waitFor(GQL.RIGHT_TAB_SCHEMA, 5000);
       },
-      action: async (ctx) => {
-        await configureDemoTabEndpointOverride(ctx, GQL_DEMO_HTTP);
-      },
-      pauseAfter: true,
     },
 
-    // ── 3. Introspect ──────────────────────────────────────────────────────────
+    // ── 2. Introspect ──────────────────────────────────────────────────────────
     {
       id: 'gql4-introspect',
       title: 'Introspect the Schema',

@@ -77,9 +77,9 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
       bodyClassName="response-detail-body"
       footerClassName="response-detail-footer"
       expandMode="fullscreen"
+      hideExpandButton
       footer={
         <div className="rd-footer-inner">
-          <span className="rd-footer-hint">Esc to close</span>
           <button className="btn btn-primary" onClick={onClose}>Close</button>
         </div>
       }

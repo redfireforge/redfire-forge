@@ -48,6 +48,14 @@ export function getManualSpotlightEventName(): string {
 const SPOTLIGHT_RING_TRACK_INTERVAL_MS = 100;
 const activeSpotlightDisposers = new Set<() => void>();
 
+export type SpotlightRingOptions = {
+  /**
+   * When true, omit the pulse animation. Use for in-step "look here" holds —
+   * a steady ring is easier to fixate on than a flashing one.
+   */
+  steady?: boolean;
+};
+
 /**
  * Draw a sustained spotlight ring over an element, reusing the same visual as
  * the step-level DemoSpotlight so it reads as "the spotlight moved to here".
@@ -59,10 +67,12 @@ const activeSpotlightDisposers = new Set<() => void>();
  * shifts after the ring appears (modal open animations, toolbar reflow,
  * verification results pushing layout). Returns a disposer that removes it.
  */
-export function showSpotlightRing(el: HTMLElement): () => void {
+export function showSpotlightRing(el: HTMLElement, opts?: SpotlightRingOptions): () => void {
   beginManualSpotlight();
   const ring = document.createElement('div');
-  ring.className = 'demo-spotlight-ring';
+  ring.className = opts?.steady
+    ? 'demo-spotlight-ring demo-spotlight-ring--steady'
+    : 'demo-spotlight-ring';
 
   let disposed = false;
   let interval: ReturnType<typeof setInterval> | null = null;

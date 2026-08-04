@@ -117,7 +117,7 @@ export function WebSocketTlsPanel({
         testIdPrefix="tls"
         proxyNotice={
           !isProxyMode && !isTauri()
-            ? 'TLS options apply only when the proxy transport is active (connections with custom headers). Direct browser connections use built-in TLS.'
+            ? 'In browser Direct mode, TLS options are handled by the browser itself. Custom options (skip-cert, CA, mTLS) require the Proxy transport.'
             : undefined
         }
       />

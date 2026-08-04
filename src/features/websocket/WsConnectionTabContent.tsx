@@ -25,7 +25,14 @@ import { KeyValueEditor } from './KeyValueEditor';
 import WebSocketAuthPanel from './WebSocketAuthPanel';
 import type { AuthConfig, GlobalAuthProfile } from '../../shared/types';
 import type { EndpointRowStatus } from '../environments/utils/protocolEndpointUtils';
-import type { WsConnectionDraft, WsKeyValueEntry, WsLeftTab, WsRightTab, WsStudioMode } from '../../shared/websocket/types';
+import type {
+  WsConnectionDraft,
+  WsKeyValueEntry,
+  WsLeftTab,
+  WsRightTab,
+  WsStudioMode,
+  WsTlsConfig,
+} from '../../shared/websocket/types';
 import {
   createDefaultTlsConfig,
   deriveViewTabFromStudio,
@@ -61,6 +68,13 @@ export interface WsConnectionTabContentHandle {
   getMessageCount: () => number;
   /** Phase 8 — full draft snapshot for whole-draft persistence. */
   getDraft: () => WsConnectionDraft;
+  /**
+   * Quiet TLS-lesson prep: reset TLS/auth/headers/protocol/URL and clear
+   * messages without opening the TLS modal or flashing the Connect panel.
+   */
+  prepareForTlsLesson: () => void;
+  /** Demo bridge — merge TLS overrides on this tab (skip-cert / CA / mTLS). */
+  applyTlsConfig: (patch: Partial<WsTlsConfig>) => void;
 }
 
 export interface WsConnectionTabContentProps {
@@ -284,8 +298,32 @@ export const WsConnectionTabContent = forwardRef<
       getUrl: () => studio.draft.url,
       getMessageCount: () => studio.messages.length,
       getDraft: () => studio.draft,
+      prepareForTlsLesson: () => {
+        const state = studio.connection.state;
+        if (state === 'connected' || state === 'connecting' || state === 'closing') {
+          studio.disconnect();
+        }
+        studio.clearMessages();
+        studio.setProtocolMode('raw');
+        studio.setTlsConfig({
+          ...createDefaultTlsConfig(),
+          caCert: undefined,
+          clientCert: undefined,
+          clientKey: undefined,
+        });
+        studio.setDraft({
+          url: '',
+          subprotocols: '',
+          headers: [],
+          queryParams: [],
+          auth: { type: 'none' },
+        });
+      },
+      applyTlsConfig: (patch) => {
+        studio.setTlsConfig(patch);
+      },
     }),
-    [studio.connection.state, studio.messages.length, studio.draft],
+    [studio],
   );
 
   const resolvedUrl = useMemo(

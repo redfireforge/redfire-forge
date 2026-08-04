@@ -1,6 +1,20 @@
 /** Auth panel helpers for GraphQL Studio demo lessons. */
 import type { DemoActionContext } from '../../../types';
+import { clearActiveTabAuthQuiet, getDemoBridgeWindow } from '../../../adapters';
 import { GQL } from '@shared/selectors';
+
+/** Wait for lazy `DemoGqlStudioBridges` to expose the quiet auth-clear bridge. */
+async function waitForClearActiveTabAuthBridge(
+  ctx: DemoActionContext,
+  timeoutMs = 2500,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getDemoBridgeWindow().__demoClearActiveTabAuth) return true;
+    await ctx.delay(50);
+  }
+  return Boolean(getDemoBridgeWindow().__demoClearActiveTabAuth);
+}
 
 /** True when the bottom Auth tab is the active bottom-panel tab (Slice 7.3+). */
 export function isAuthEditorOpen(): boolean {
@@ -77,8 +91,14 @@ export async function selectAuthInPanel(
 ): Promise<void> {
   await openAuthPanel(ctx);
   await ctx.waitFor(GQL.AUTH_TYPE_SELECT, 5000);
-  await ctx.selectOption(GQL.AUTH_TYPE_SELECT, type);
-  await ctx.delay(400);
+  const typeEl = document.querySelector(GQL.AUTH_TYPE_SELECT);
+  const alreadySelected = typeEl instanceof HTMLSelectElement
+    ? typeEl.value === type
+    : typeEl?.getAttribute('data-value') === type;
+  if (!alreadySelected) {
+    await ctx.selectOption(GQL.AUTH_TYPE_SELECT, type);
+    await ctx.delay(400);
+  }
   await waitForAuthTypeFields(ctx, type);
 }
 
@@ -105,8 +125,12 @@ export async function clearActiveTabAuthOverride(ctx: DemoActionContext): Promis
 /**
  * Demo tab should inherit page-level auth without storing a per-tab override
  * (required when the user already has tabs open — §11.0).
+ *
+ * Prefers the React bridge so lesson setup does not open/close the Auth panel
+ * (avoids Preparing-phase UI flash before step 1).
  */
 export async function configureDemoTabInheritPageAuth(ctx: DemoActionContext): Promise<void> {
+  if (await waitForClearActiveTabAuthBridge(ctx) && clearActiveTabAuthQuiet()) return;
   await ctx.waitFor(GQL.AUTH_BADGE_BTN, 5000);
   await clearActiveTabAuthOverride(ctx);
 }

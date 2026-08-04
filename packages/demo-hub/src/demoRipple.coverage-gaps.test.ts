@@ -83,6 +83,18 @@ describe('demoRipple', () => {
     expect(isManualSpotlightActive()).toBe(false);
   });
 
+  it('showSpotlightRing({ steady: true }) adds the non-pulse modifier class', () => {
+    const target = document.createElement('button');
+    document.body.appendChild(target);
+    target.getBoundingClientRect = () =>
+      ({ top: 10, left: 10, width: 40, height: 20, right: 50, bottom: 30, x: 10, y: 10, toJSON: () => '' }) as DOMRect;
+
+    const dispose = showSpotlightRing(target, { steady: true });
+    const ring = document.querySelector('.demo-spotlight-ring');
+    expect(ring?.classList.contains('demo-spotlight-ring--steady')).toBe(true);
+    dispose();
+  });
+
   it('guards spotlight helpers when document is unavailable', () => {
     const originalDocument = globalThis.document;
     vi.stubGlobal('document', undefined);

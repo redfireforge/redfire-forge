@@ -34,7 +34,7 @@ describe('gql-first-query lesson', () => {
     expect(gqlFirstQueryLesson.domainId).toBe('protocols');
     expect(gqlFirstQueryLesson.category).toBe('graphql');
     expect(gqlFirstQueryLesson.name).toBe('Your First GraphQL Query');
-    expect(gqlFirstQueryLesson.steps.length).toBe(13);
+    expect(gqlFirstQueryLesson.steps.length).toBe(12);
     expect(gqlFirstQueryLesson.estimatedMinutes).toBe(7);
     expect(gqlFirstQueryLesson.initialTab).toBe('graphql-studio');
     expect(gqlFirstQueryLesson.tabBudget).toBe(1);
@@ -56,9 +56,8 @@ describe('gql-first-query lesson', () => {
   it('has correct step IDs in order', () => {
     const ids = gqlFirstQueryLesson.steps.map((s) => s.id);
     expect(ids).toEqual([
+      'gql1-env-setup',
       'gql1-intro',
-      'gql1-add-protocol',
-      'gql1-env-config',
       'gql1-header-select',
       'gql1-endpoint',
       'gql1-endpoint-resolved',
@@ -77,22 +76,16 @@ describe('gql-first-query lesson', () => {
     expect(gqlFirstQueryLesson.allowedTabs).toContain('graphql-studio');
   });
 
-  it('all 13 steps have pauseAfter: true', () => {
+  it('all 12 steps have pauseAfter: true', () => {
     gqlFirstQueryLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
   });
 
-  it('stateful steps 2–13 have preAction guards', () => {
-    const stateful = gqlFirstQueryLesson.steps.slice(1);
-    stateful.forEach((step) => {
-      expect(step.preAction).toBeTypeOf('function');
+  it('all steps have preAction guards (env setup first, then studio)', () => {
+    gqlFirstQueryLesson.steps.forEach((step) => {
+      expect(step.preAction, `step ${step.id} missing preAction`).toBeTypeOf('function');
     });
-  });
-
-  it('step gql1-intro has no preAction', () => {
-    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-intro')!;
-    expect(step.preAction).toBeUndefined();
   });
 
   it('concept keyTerms cover introspection, operation, schema, and history', () => {
@@ -168,20 +161,15 @@ describe('gql-first-query lesson', () => {
     expect(step.description).toContain('single endpoint');
   });
 
-  it('step gql1-add-protocol highlights add protocol button', () => {
-    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-add-protocol')!;
+  it('step gql1-env-setup combines add-protocol + endpoint config', () => {
+    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-env-setup')!;
     expect(step.highlight).toBe(EM.ADD_PROTOCOL_BTN);
+    expect(step.verify).toBe(EM.DERIVED_VARS_GQL);
     expect(step.description).toContain('GraphQL Demo');
     expect(step.description).toContain('graphql-demo');
     expect(step.description).toContain('no protocol tabs');
-  });
-
-  it('step gql1-env-config highlights graphql protocol tab', () => {
-    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-env-config')!;
-    expect(step.highlight).toBe(EM.PROTOCOL_TAB_GQL);
-    expect(step.description).toContain('GraphQL Demo');
     expect(step.description).toContain('{{graphqlUrl}}');
-    expect(step.description).toContain('no HTTP');
+    expect(step.description).toContain('/graphql');
   });
 
   it('step gql1-endpoint-resolved highlights endpoint preview', () => {
@@ -199,16 +187,7 @@ describe('gql-first-query lesson', () => {
 
   // ─── Step actions ────────────────────────────────────────────
 
-  it('step gql1-add-protocol action prepares GraphQL-only graphql-demo microservice', async () => {
-    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-add-protocol')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-graphql"]');
-    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="em-protocol-tab-http"]');
-  });
-
-  it('step gql1-env-config action saves graphql endpoint via configureNamedGraphqlEndpoint', async () => {
+  it('step gql1-env-setup action adds GraphQL protocol and saves endpoint', async () => {
     document.body.innerHTML = `
       <div class="env-manager"></div>
       <div data-env-name="GraphQL Demo"></div>
@@ -227,9 +206,12 @@ describe('gql-first-query lesson', () => {
         <input data-testid="em-graphql-path-input" />
       </div>
       <div data-testid="derived-vars-graphql"></div>`;
-    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-env-config')!;
+    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-env-setup')!;
     const ctx = makeCtx();
     await step.action!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-graphql"]');
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="em-protocol-tab-http"]');
     expect(ctx.fill).toHaveBeenCalledWith('[data-testid="em-endpoint-edit-input"]', GQL_DEMO_BASE_URL);
     expect(ctx.fill).toHaveBeenCalledWith(
       '[data-testid="microservice-protocol-panel"] [data-testid="em-graphql-path-input"]',
@@ -238,16 +220,19 @@ describe('gql-first-query lesson', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(EM.DERIVED_VARS_GQL, 5000);
   });
 
-  it('step gql1-env-config verifies derived variables panel', () => {
-    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-env-config')!;
-    expect(step.verify).toBe(EM.DERIVED_VARS_GQL);
-  });
-
-  it('step gql1-env-config preAction prepares graphql tab via ensureGqlDemoProtocolReady', async () => {
-    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-env-config')!;
+  it('step gql1-env-setup preAction opens env manager with demo microservice expanded', async () => {
+    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-env-setup')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
+  });
+
+  it('step gql1-intro preAction navigates to GraphQL Studio', async () => {
+    document.body.innerHTML = '<div data-testid="gql-connection-bar"></div>';
+    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
   });
 
   it('step gql1-header-select action selects GraphQL Demo and graphql-demo in header', async () => {
@@ -302,13 +287,6 @@ describe('gql-first-query lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
-  });
-
-  it('step gql1-add-protocol preAction opens env manager with demo microservice expanded', async () => {
-    const step = gqlFirstQueryLesson.steps.find((s) => s.id === 'gql1-add-protocol')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
   });
 

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 
 const CUSTOM_SELECT_OPEN_EVENT = 'custom-select:open';
+/** Demo / automation: set value without opening the menu (avoids flicker). */
+export const CUSTOM_SELECT_SET_VALUE_EVENT = 'custom-select:set-value';
 
 export interface CustomSelectOption {
   value: string;
@@ -233,6 +235,23 @@ export function CustomSelect({
     setOpen(false);
   };
 
+  // Quiet programmatic set (demo Preparing / skip-recovery) — no menu open/close flash.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const onDemoSetValue = (event: Event) => {
+      if (disabled) return;
+      const next = (event as CustomEvent<{ value?: string }>).detail?.value;
+      if (next === undefined || next === value) return;
+      const opt = flattenItems(options).find((o) => o.value === next);
+      if (!opt || opt.disabled) return;
+      onChange(next);
+      setOpen(false);
+    };
+    wrapper.addEventListener(CUSTOM_SELECT_SET_VALUE_EVENT, onDemoSetValue);
+    return () => wrapper.removeEventListener(CUSTOM_SELECT_SET_VALUE_EVENT, onDemoSetValue);
+  }, [disabled, onChange, options, value]);
+
   const renderOption = (o: CustomSelectOption) => (
     <button
       key={o.value}
@@ -255,6 +274,7 @@ export function CustomSelect({
       className={`cs-wrapper${className ? ` ${className}` : ''}${size === 'sm' ? ' cs-sm' : ''}`}
       ref={wrapperRef}
       data-testid={testId}
+      data-value={value}
     >
       <button
         type="button"
