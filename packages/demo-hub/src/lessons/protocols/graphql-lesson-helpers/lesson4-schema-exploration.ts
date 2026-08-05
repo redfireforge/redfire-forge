@@ -4,7 +4,7 @@ import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
   ensureEditorMode,
-  ensureIntrospected,
+  ensureIntrospectedOnDirectEndpoint,
   closeGqlActivityPanelIfOpen,
   fillGqlEditor,
   getGqlEditorQuery,
@@ -80,15 +80,16 @@ export async function ensureSchemaExplorerOpen(ctx: DemoActionContext): Promise<
   const hasTypeList = () => !!document.querySelector(GQL.SCHEMA_TYPE_LIST);
 
   // Fast path: schema already introspected, tab already open, type list already rendered.
-  // Skipping ensureIntrospected avoids the internal schema-tab click in waitForQueryType().
+  // Skipping introspect avoids the internal schema-tab click in waitForQueryType().
   if (hasBadgeOk() && schemaTabSelected() && hasTypeList()) {
-  await ctx.waitFor(GQL.SCHEMA_TYPE_LIST, 5000);
-  return;
+    await ctx.waitFor(GQL.SCHEMA_TYPE_LIST, 5000);
+    return;
   }
 
-  await ensureIntrospected(ctx);
+  // Direct HTTP — never open Environment Manager during Preparing.
+  await ensureIntrospectedOnDirectEndpoint(ctx);
 
-  // After ensureIntrospected, re-check whether the tab was clicked open internally.
+  // After introspect, re-check whether the tab was clicked open internally.
   if (!schemaTabSelected()) {
     await setGqlRightTabSchema(ctx);
     await ctx.waitFor(GQL.SCHEMA_EXPLORER, 5000);

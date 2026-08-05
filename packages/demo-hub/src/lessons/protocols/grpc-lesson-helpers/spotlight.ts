@@ -1,6 +1,6 @@
 import type { DemoActionContext } from '../../../types';
 import { GRPC } from '@shared/selectors';
-import { showSpotlightRing } from '../../../demoRipple';
+import { purgeAllSpotlightRings, showSpotlightRing } from '../../../demoRipple';
 import { firstVisibleElement } from '../../../utils/domVisibility';
 import { isGrpcHybridComposerActive } from './echoComposer';
 
@@ -27,13 +27,16 @@ async function waitForNonEmptyJsonText(
 }
 
 /**
- * Draw a persistent spotlight box around the element matching `selector`, hold
+ * Draw a steady spotlight box around the element matching `selector`, hold
  * for `holdMs` so the viewer can digest the target, then remove it.
+ *
+ * Uses `{ steady: true }` (no pulse) and purges any prior imperative rings so
+ * rapid multi-beat tours read as a moving highlight, not a flash.
  */
 export async function spotlightAndPause(
   ctx: DemoActionContext,
   selector: string,
-  holdMs = 700,
+  holdMs = 900,
 ): Promise<void> {
   const el = firstVisibleElement(selector) ?? document.querySelector<HTMLElement>(selector);
   if (!el) return;
@@ -44,9 +47,10 @@ export async function spotlightAndPause(
 export async function spotlightElementAndPause(
   ctx: DemoActionContext,
   el: HTMLElement,
-  holdMs = 700,
+  holdMs = 900,
 ): Promise<void> {
-  const removeRing = showSpotlightRing(el);
+  purgeAllSpotlightRings();
+  const removeRing = showSpotlightRing(el, { steady: true });
   try {
     await ctx.delay(holdMs);
   } finally {
@@ -73,7 +77,7 @@ export async function spotlightGrpcRequestComposer(ctx: DemoActionContext): Prom
  */
 export async function spotlightRequestJsonContentTight(
   ctx: DemoActionContext,
-  holdMs = 900,
+  holdMs = 1100,
 ): Promise<void> {
   const textarea = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
   if (!textarea) {
@@ -100,7 +104,8 @@ export async function spotlightRequestJsonContentTight(
     `pointer-events:none;opacity:0;`;
   document.body.appendChild(proxy);
 
-  const removeRing = showSpotlightRing(proxy);
+  purgeAllSpotlightRings();
+  const removeRing = showSpotlightRing(proxy, { steady: true });
   try {
     await ctx.delay(holdMs);
   } finally {
@@ -115,7 +120,7 @@ export async function spotlightRequestJsonContentTight(
  */
 export async function spotlightResponseJsonContentTight(
   ctx: DemoActionContext,
-  holdMs = 900,
+  holdMs = 1100,
 ): Promise<void> {
   const body = document.querySelector<HTMLElement>(GRPC.RESPONSE_BODY);
   if (!body) {
@@ -143,7 +148,8 @@ export async function spotlightResponseJsonContentTight(
     `pointer-events:none;opacity:0;`;
   document.body.appendChild(proxy);
 
-  const removeRing = showSpotlightRing(proxy);
+  purgeAllSpotlightRings();
+  const removeRing = showSpotlightRing(proxy, { steady: true });
   try {
     await ctx.delay(holdMs);
   } finally {
@@ -159,7 +165,7 @@ export async function spotlightResponseJsonContentTight(
 export async function spotlightAndPauseWithCallPanelHidden(
   ctx: DemoActionContext,
   selector: string,
-  holdMs = 700,
+  holdMs = 900,
 ): Promise<void> {
   const callPanel = document.querySelector<HTMLElement>(GRPC.CALL_PANEL);
   const wasCallPanelVisible = callPanel && callPanel.style.display !== 'none';

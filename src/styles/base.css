@@ -5265,6 +5265,11 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   font-size: 11px;
   color: var(--text-muted, #a8b8cc);
   flex-shrink: 0;
+  margin-left: 12px;
+  text-align: right;
+  max-width: 62%;
+  white-space: normal;
+  line-height: 1.35;
 }
 .cs-check {
   flex-shrink: 0;

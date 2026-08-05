@@ -5,6 +5,9 @@ import {
   fillGrpcRequestJsonBody,
   grpcFirstCallSetup,
   rebindGrpcMethodQuiet,
+  setInputValueAndDispatch,
+  spotlightAndPause,
+  spotlightAndPauseWithCallPanelHidden,
 } from './grpc-lesson-helpers';
 import type { GrpcDemoLesson } from './grpc-lesson-contract';
 
@@ -22,6 +25,19 @@ export const ELIZA_SERVICE_SEL = '[data-testid="grpc-service-connectrpc-eliza-v1
 export const LOOKUP_REQUEST_JSON_COMPACT = '{"ref": {"id": "A-100"}}';
 /** Pretty-printed form filled into the Form Input JSON editor. */
 export const LOOKUP_REQUEST_JSON = JSON.stringify({ ref: { id: 'A-100' } }, null, 2);
+
+/**
+ * Guided spotlight pacing for GRPC-16 — steady rings + holds long enough to read.
+ * Kept well under DEMO_ACTION_TIMEOUT_MS (45s) even on multi-beat steps.
+ */
+export const GRPC16_SPOTLIGHT = {
+  beat: 1000,
+  outcome: 1200,
+  brief: 850,
+  afterFill: 500,
+  afterClick: 700,
+  afterTab: 550,
+} as const;
 
 export const SAMPLE_COMMON_PROTO_CONTENT = `syntax = "proto3";
 
@@ -64,7 +80,7 @@ export async function ensureManageModalOpen(
   await ctx.waitFor(GRPC.MANAGE_SCHEMAS_BTN, 10_000);
   await ctx.click(GRPC.MANAGE_SCHEMAS_BTN);
   await ctx.waitFor(GRPC.PROTO_MANAGE_MODAL, 10_000);
-  await ctx.delay(350);
+  await ctx.delay(GRPC16_SPOTLIGHT.afterTab);
 }
 
 /** Quiet open for preAction guards — no viewer ripple. */
@@ -194,10 +210,162 @@ export async function recoverGrpcReflectionQuiet(
   }
 }
 
+/** Remove the "shared" virtual root and clear files from all roots so the modal starts clean. */
+export async function resetProtoRootsToDefault(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  const modal = document.querySelector<HTMLElement>(GRPC.PROTO_MANAGE_MODAL);
+  if (!modal) return;
+
+  // Switch to the Proto Files tab so root controls are visible.
+  const tab = modal.querySelector<HTMLElement>(GRPC.PROTO_TAB_PROTO_FILES);
+  if (tab && tab.getAttribute('aria-selected') !== 'true') {
+    tab.click();
+    await ctx.delay(200);
+  }
+
+  const rootButtons = () =>
+    Array.from(modal.querySelectorAll<HTMLElement>('[data-testid^="grpc-proto-root-item-"]'));
+
+  // Clear files from each root, then remove non-default roots.
+  for (const btn of rootButtons()) {
+    btn.click();
+    await ctx.delay(120);
+    const clearBtn = modal.querySelector<HTMLButtonElement>('[data-testid="grpc-proto-file-clear-all"]');
+    if (clearBtn && !clearBtn.disabled) {
+      clearBtn.click();
+      await ctx.delay(150);
+    }
+  }
+
+  for (const btn of rootButtons()) {
+    const name = btn.textContent?.trim().toLowerCase().replace(/\d+$/, '').trim() ?? '';
+    if (name === 'root') continue;
+    const testId = btn.getAttribute('data-testid') ?? '';
+    const id = testId.replace('grpc-proto-root-item-', '');
+    const removeBtn = modal.querySelector<HTMLButtonElement>(`[data-testid="grpc-proto-root-remove-${id}"]`);
+    if (removeBtn) {
+      removeBtn.click();
+      await ctx.delay(200);
+    }
+  }
+}
+
+/** Session flag — Proto Files Load already succeeded this lesson run. */
+let _lesson16ProtoFilesLoaded = false;
+
+export function resetGrpcSchemaDiscoverySessionFlags(): void {
+  _lesson16ProtoFilesLoaded = false;
+}
+
+export function markGrpcSchemaDiscoveryProtoFilesLoaded(): void {
+  _lesson16ProtoFilesLoaded = true;
+}
+
+export function wasGrpcSchemaDiscoveryProtoFilesLoaded(): boolean {
+  return _lesson16ProtoFilesLoaded;
+}
+
+/**
+ * Switch a Manage Schemas source tab without visible-click ripple (saves ~560ms each).
+ * Orientation / load steps must stay under DEMO_ACTION_TIMEOUT_MS (45s).
+ */
+export async function switchManageSchemasTabQuiet(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+  tabSelector: string,
+  contentSelector: string,
+  waitMs = 1_200,
+): Promise<void> {
+  const tab = document.querySelector<HTMLElement>(tabSelector);
+  tab?.click();
+  await ctx.delay(GRPC16_SPOTLIGHT.afterTab);
+  await ctx.waitFor(contentSelector, waitMs);
+}
+
+/**
+ * Visible orientation tour of Manage Schemas source tabs — steady highlight per tab.
+ */
+export async function performGrpc16TabsOrientation(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  const tabWait = 1_200;
+  const hold = GRPC16_SPOTLIGHT.beat;
+
+  await switchManageSchemasTabQuiet(ctx, GRPC.PROTO_TAB_PROTOSET, GRPC.PROTO_PROTOSET_ZONE, tabWait);
+  await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, hold);
+
+  await switchManageSchemasTabQuiet(ctx, GRPC.PROTO_TAB_URL, GRPC.PROTO_URL_INPUT, tabWait);
+  await spotlightAndPause(ctx, GRPC.PROTO_URL_INPUT, hold);
+
+  await switchManageSchemasTabQuiet(ctx, GRPC.PROTO_TAB_BSR, GRPC.PROTO_BSR_MODULE_INPUT, tabWait);
+  // Keep BSR empty so Load stays disabled during orientation.
+  const bsrModule = document.querySelector<HTMLInputElement>(GRPC.PROTO_BSR_MODULE_INPUT);
+  const bsrVersion = document.querySelector<HTMLInputElement>(GRPC.PROTO_BSR_VERSION_INPUT);
+  if (bsrModule?.value) setInputValueAndDispatch(bsrModule, '');
+  if (bsrVersion?.value) setInputValueAndDispatch(bsrVersion, '');
+  await spotlightAndPause(ctx, GRPC.PROTO_BSR_MODULE_INPUT, hold);
+
+  await switchManageSchemasTabQuiet(ctx, GRPC.PROTO_TAB_PROTO_FILES, GRPC.PROTO_UPLOAD_ZONE, tabWait);
+  await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, GRPC16_SPOTLIGHT.outcome);
+}
+
+/**
+ * Proto Files Load beat — review canonical paths, Load, then source badge outcome.
+ */
+export async function performGrpc16ProtoLoad(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  const modal = document.querySelector<HTMLElement>(GRPC.PROTO_MANAGE_MODAL);
+  const sharedRoot = modal
+    ? Array.from(modal.querySelectorAll<HTMLElement>('[data-testid^="grpc-proto-root-item-"]'))
+      .find((entry) => entry.textContent?.toLowerCase().includes('shared'))
+    : null;
+  if (sharedRoot) {
+    sharedRoot.click();
+    await ctx.delay(GRPC16_SPOTLIGHT.afterClick);
+  }
+  await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_CANONICAL_PREVIEW, GRPC16_SPOTLIGHT.outcome);
+  await ctx.waitFor(GRPC.PROTO_CANONICAL_PREVIEW, 1_500);
+
+  const loadBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_LOAD_BTN);
+  const loadBusy = loadBtn?.textContent?.toLowerCase().includes('loading') ?? false;
+  const hasFiles = (document.querySelector(GRPC.PROTO_FILE_LIST)?.children.length ?? 0) > 0;
+
+  await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_LOAD_BTN, GRPC16_SPOTLIGHT.beat);
+  if (
+    hasFiles
+    && loadBtn
+    && !loadBtn.disabled
+    && !loadBusy
+    && !wasGrpcSchemaDiscoveryProtoFilesLoaded()
+  ) {
+    // Native click — avoid 560ms ripple stacking on top of holds.
+    loadBtn.click();
+    markGrpcSchemaDiscoveryProtoFilesLoaded();
+    await ctx.delay(GRPC16_SPOTLIGHT.afterClick);
+  }
+  await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, GRPC16_SPOTLIGHT.outcome);
+}
+
+/** Drift explanation beat — steady holds on connection / banner / explorer. */
+export async function performGrpc16DriftExplain(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  await ctx.waitFor(GRPC.SERVICE_EXPLORER, 2_000);
+  await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, GRPC16_SPOTLIGHT.beat);
+  if (document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)) {
+    await spotlightAndPause(ctx, GRPC.SCHEMA_DRIFT_BANNER, GRPC16_SPOTLIGHT.outcome);
+  }
+  await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, GRPC16_SPOTLIGHT.beat);
+  await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, GRPC16_SPOTLIGHT.brief);
+}
+
 export async function grpcSchemaDiscoverySetup(
   ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
 ): Promise<void> {
-  await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+  resetGrpcSchemaDiscoverySessionFlags();
+  // Wipe persisted URL/BSR/proto drafts so orientation doesn't show leftover Eliza fields.
+  await grpcFirstCallSetup(ctx, { resetSchemaDrafts: true });
   await ensureManageModalClosed(ctx);
 }
 

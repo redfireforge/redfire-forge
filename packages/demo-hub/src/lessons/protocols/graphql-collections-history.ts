@@ -29,6 +29,7 @@ import {
   prepareGql8DeleteReading,
   prepareGql8ImportFileReading,
   prepareGql8ImportMergeReading,
+  spotlightAndPause,
 } from './graphql-lesson-helpers';
 
 export const gqlCollectionsHistoryLesson: DemoLesson = {
@@ -351,7 +352,8 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         'Open the **History** panel (📋 in the left activity bar) — a new entry appears with status code, latency, and timestamp.\n\n' +
         '**Why History auto-logs:** Every execution is captured automatically — including accidental queries that returned an interesting result, failed requests (useful for debugging), and baseline measurements. ' +
         'The log is stored in IndexedDB and survives page refreshes.',
-      highlight: GQL.HISTORY_ENTRY,
+      // Reading spotlight: activity tab (always present). Action then holds on the entry.
+      highlight: GQL.ACTIVITY_HISTORY,
       preAction: prepareGql8ObserveHistoryReading,
       action: async (ctx) => {
         await revealHistoryPanel(ctx);
@@ -368,7 +370,8 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         '**Single-click** a history row — the **Preview** panel opens with the query text and the formatted response JSON side by side. This view is **read-only** until you choose an action.\n\n' +
         '**Why preview is read-only:** Seeing the query and response together before deciding what to do prevents accidental re-execution. You might want to compare this response against a newer run, or just confirm the query text before editing it. ' +
         'The preview shows status code, latency, and timestamp — enough context to understand what happened without running anything.',
-      highlight: GQL.HISTORY_PREVIEW,
+      // Reading spotlight: history row (list must be visible). Action holds on the preview panel.
+      highlight: GQL.HISTORY_ENTRY,
       preAction: prepareGql8PreviewReading,
       action: async (ctx) => {
         await openHistoryPreview(ctx);
@@ -438,7 +441,8 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         '**Why right-click to rename (not double-click):** Double-clicking a collection item **loads** it into the editor — that\'s the primary action. ' +
         'Rename is a less frequent operation, deliberately placed in the context menu to prevent accidental renames. ' +
         'The context menu also offers **Delete** and **Duplicate** so you have full lifecycle control without cluttering the item row.',
-      highlight: GQL.COL_ITEM_RENAME,
+      // Reading spotlight: saved item row. Action opens rename and holds on the input.
+      highlight: GQL.COL_ITEM,
       preAction: prepareGql8RenameReading,
       action: async (ctx) => {
         await renameCollectionItem(ctx);
@@ -462,7 +466,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       preAction: prepareGql8ExportReading,
       action: async (ctx) => {
         await ctx.click(GQL.COLLECTIONS_EXPORT);
-        await ctx.delay(2000);
+        await spotlightAndPause(ctx, GQL.COLLECTIONS_EXPORT, 1400);
       },
       verify: GQL.COLLECTIONS_EXPORT,
       pauseAfter: true,
@@ -479,6 +483,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       preAction: prepareGql8DeleteReading,
       action: async (ctx) => {
         await deleteLesson8Collection(ctx);
+        await spotlightAndPause(ctx, GQL.COLLECTIONS_PANEL, 1200);
       },
       verify: GQL.COLLECTIONS_PANEL,
       pauseAfter: true,

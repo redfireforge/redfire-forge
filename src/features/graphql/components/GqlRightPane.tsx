@@ -125,17 +125,19 @@ export function GqlRightPane({
   const isPartialSuccess = hasErrors && hasData;
 
   // Accumulate latency history (capped at MAX_LATENCY_HISTORY) across tab switches.
-  // Tracks the last-seen response timestamp to avoid double-counting on re-render.
-  const latencyHistoryRef   = useRef<number[]>([]);
-  const lastTimestampRef    = useRef<number | undefined>(undefined);
+  // Deduplicate by response timestamp so switching back to a tab's cached response
+  // does not inflate "Session history" — only new Executes count.
+  const latencyHistoryRef = useRef<number[]>([]);
+  const seenResponseTimestampsRef = useRef<Set<number>>(new Set());
   const [latencyHistory, setLatencyHistory] = useState<number[]>([]);
 
   useEffect(() => {
     if (!response || response.latencyMs == null) return;
     // Batch slices use shared or per-op batch timing — skip histogram to avoid skewing Execute stats.
     if (response.batchContext) return;
-    if (response.timestamp === lastTimestampRef.current) return;
-    lastTimestampRef.current = response.timestamp;
+    const ts = response.timestamp;
+    if (ts == null || seenResponseTimestampsRef.current.has(ts)) return;
+    seenResponseTimestampsRef.current.add(ts);
     const next = [...latencyHistoryRef.current, response.latencyMs];
     if (next.length > MAX_LATENCY_HISTORY) next.splice(0, next.length - MAX_LATENCY_HISTORY);
     latencyHistoryRef.current = next;

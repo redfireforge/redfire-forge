@@ -60,21 +60,25 @@ export default function GrpcLoadTestConfig({
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <GrpcWorkflowCallTargetFields
-        data={data}
-        onChange={onChange}
-        callType="unary"
-        testIdPrefix="grpc-load-test-config"
-        workflowVariables={workflowVariables}
-      />
+      <div className="wf-kafka-form wf-kafka-form--grpc wf-kafka-form--flush-top">
+        <GrpcWorkflowCallTargetFields
+          data={data}
+          onChange={onChange}
+          callType="unary"
+          testIdPrefix="grpc-load-test-config"
+          workflowVariables={workflowVariables}
+        />
+      </div>
 
-      <GrpcWorkflowConnectionSecurityFields
-        data={data}
-        onChange={onChange}
-        testIdPrefix="grpc-load-test-config"
-        globalAuthProfiles={globalAuthProfiles}
-        defaultAuthProfileId={defaultAuthProfileId}
-      />
+      <div className="wf-kafka-form wf-kafka-form--grpc wf-kafka-form--flush-top">
+        <GrpcWorkflowConnectionSecurityFields
+          data={data}
+          onChange={onChange}
+          testIdPrefix="grpc-load-test-config"
+          globalAuthProfiles={globalAuthProfiles}
+          defaultAuthProfileId={defaultAuthProfileId}
+        />
+      </div>
 
       <div className="wf-config-field--row">
         <label>Profile ID</label>

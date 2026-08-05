@@ -533,6 +533,7 @@ describe('env-manager-lesson-helpers', () => {
 
   it('ensureGqlDemoHeaderContext selects header options when already present', async () => {
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <select data-testid="header-env-select">
         <option value="">Select env</option>
         <option value="e1">GraphQL Demo</option>
@@ -546,6 +547,31 @@ describe('env-manager-lesson-helpers', () => {
     expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
     expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
     expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
+  });
+
+  it('ensureGqlDemoHeaderContext uses settings bridge without Environment Manager', async () => {
+    document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
+      <div data-testid="header-env-select"><span class="cs-text">Other</span></div>
+      <div data-testid="header-svc-select"><span class="cs-text">Other</span></div>`;
+    const ensureEnv = vi.fn(() => 'env-gql');
+    const ensureSvc = vi.fn(() => 'svc-gql');
+    const selectEnvSvc = vi.fn(() => {
+      document.querySelector('[data-testid="header-env-select"] .cs-text')!.textContent = 'GraphQL Demo';
+      document.querySelector('[data-testid="header-svc-select"] .cs-text')!.textContent = 'graphql-demo';
+    });
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = ensureEnv;
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = ensureSvc;
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = selectEnvSvc;
+    const ctx = makeCtx();
+    await ensureGqlDemoHeaderContext(ctx);
+    expect(ensureEnv).toHaveBeenCalledWith('GraphQL Demo');
+    expect(ensureSvc).toHaveBeenCalledWith('graphql-demo', { 'env-gql': 'http://localhost:4010' });
+    expect(selectEnvSvc).toHaveBeenCalledWith('env-gql', 'svc-gql');
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+    delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+    delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc;
+    delete (window as unknown as Record<string, unknown>).__demoSelectEnvSvc;
   });
 
   it('editNamedProtocolEndpoint edits the row matching the environment name', async () => {

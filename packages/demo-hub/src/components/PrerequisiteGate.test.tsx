@@ -405,4 +405,44 @@ describe('PrerequisiteGate', () => {
     await act(() => vi.advanceTimersByTimeAsync(100));
     expect(screen.queryByTestId('prereq-service-list')).toBeNull();
   });
+
+  it('initiallyCleared seeds per-service rows as up (not stuck on checking…)', async () => {
+    mockCheck.mockResolvedValue(true);
+    render(
+      <PrerequisiteGate
+        endpoints={['http://127.0.0.1:4444/health', 'http://127.0.0.1:4446/health']}
+        dockerCommand="docker compose up"
+        onServerReady={vi.fn()}
+        initiallyCleared
+      />,
+    );
+    expect(screen.getByTestId('prereq-status').textContent).toContain('Server detected');
+    const rows = screen.getAllByTestId('prereq-service');
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.textContent).toContain('reachable');
+      expect(row.textContent).not.toContain('checking');
+    }
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    for (const row of screen.getAllByTestId('prereq-service')) {
+      expect(row.textContent).toContain('reachable');
+    }
+  });
+
+  it('initiallyCleared re-verify updates service rows when a probe is down', async () => {
+    mockCheck.mockImplementation(async (url: string) => url.includes('4444'));
+    render(
+      <PrerequisiteGate
+        endpoints={['http://127.0.0.1:4444/health', 'http://127.0.0.1:4446/health']}
+        dockerCommand="docker compose up"
+        onServerReady={vi.fn()}
+        initiallyCleared
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+    const rows = screen.getAllByTestId('prereq-service');
+    expect(rows[0].textContent).toContain('reachable');
+    expect(rows[1].textContent).toContain('not detected');
+  });
 });

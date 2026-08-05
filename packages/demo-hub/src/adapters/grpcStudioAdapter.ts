@@ -146,6 +146,16 @@ export function resetGrpcActiveTabRuntimeState(): boolean {
   return bridge();
 }
 
+/**
+ * Reset Manage Schemas draft inputs (proto files / protoset / URL / BSR) on the
+ * active tab via React state — no modal open/close flash.
+ */
+export function resetGrpcManageSchemasDraftsViaBridge(): boolean {
+  const bridge = getDemoBridgeWindow().__demoResetGrpcManageSchemasDrafts;
+  if (!bridge) return false;
+  return bridge();
+}
+
 /** Read the current reflected/imported descriptor key from the active gRPC Studio tab. */
 export function getGrpcActiveDescriptorKey(): string | null {
   const bridge = getDemoBridgeWindow().__demoGetGrpcActiveDescriptorKey;

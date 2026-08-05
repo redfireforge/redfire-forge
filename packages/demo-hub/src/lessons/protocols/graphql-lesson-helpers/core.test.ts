@@ -465,7 +465,7 @@ describe('graphql-lesson-helpers core', () => {
     document.body.innerHTML = `
       <div data-testid="gql-studio-page"></div>
       <input data-testid="gql-endpoint-input" value="" />
-      <span data-testid="gql-schema-badge-ok"></span>
+      <span data-testid="gql-schema-badge-ok">Schema (9)</span>
       <button data-testid="gql-right-tab-schema"></button>
       <div data-testid="gql-schema-type-query"></div>
     `;
@@ -473,5 +473,21 @@ describe('graphql-lesson-helpers core', () => {
     await ensureIntrospectedOnDirectEndpoint(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
+    // Usable badge must not open Schema tab (steals Tracing/Response focus mid-lesson).
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+  });
+
+  it('ensureIntrospectedOnDirectEndpoint clicks Introspect when schema badge is not yet loaded', async () => {
+    document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
+      <input data-testid="gql-endpoint-input" value="${GQL_DEMO_HTTP}" />
+      <button data-testid="gql-introspect-btn"></button>
+      <button data-testid="gql-right-tab-schema"></button>
+    `;
+    const ctx = makeCtx();
+    await ensureIntrospectedOnDirectEndpoint(ctx);
+    // No badge in the DOM — must actively trigger introspection instead of
+    // passively waiting for a badge that will never appear on its own.
+    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 });

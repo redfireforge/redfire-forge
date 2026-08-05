@@ -97,7 +97,7 @@ describe('LiveDemo', () => {
     render(<LiveDemo {...liveProps} stepIndex={1} />);
     // stepIndex 1 is the last step (2 steps total)
     expect(screen.getByText('2 / 2')).toBeTruthy();
-    expect(screen.getByTitle('Next (→)')).toHaveProperty('disabled', true);
+    expect(screen.getByTitle('Last step')).toHaveProperty('disabled', true);
   });
 
   it('disables next button when action is executing (non-reading phase)', () => {
@@ -106,8 +106,14 @@ describe('LiveDemo', () => {
     expect(nextBtn).toHaveProperty('disabled', true);
   });
 
-  it('enables next button during reading phase', () => {
+  it('disables next button during reading phase', () => {
     render(<LiveDemo {...liveProps} stepPhase="reading" stepIndex={0} />);
+    const nextBtn = screen.getByTitle('Finish reading first — click the badge to skip');
+    expect(nextBtn).toHaveProperty('disabled', true);
+  });
+
+  it('enables next button when step is done', () => {
+    render(<LiveDemo {...liveProps} stepPhase="done" stepIndex={0} />);
     const nextBtn = screen.getByTitle('Next (→)');
     expect(nextBtn).toHaveProperty('disabled', false);
   });
@@ -165,9 +171,16 @@ describe('LiveDemo', () => {
     expect(screen.getByText('Lesson 1')).toBeTruthy();
   });
 
-  it('calls onNext when next button is clicked during reading phase', () => {
+  it('does not call onNext when next is clicked during reading phase', () => {
     const onNext = vi.fn();
     render(<LiveDemo {...liveProps} stepPhase="reading" onNext={onNext} />);
+    fireEvent.click(screen.getByTitle('Finish reading first — click the badge to skip'));
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('calls onNext when next button is clicked after step is done', () => {
+    const onNext = vi.fn();
+    render(<LiveDemo {...liveProps} stepPhase="done" onNext={onNext} />);
     fireEvent.click(screen.getByTitle('Next (→)'));
     expect(onNext).toHaveBeenCalled();
   });

@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql12'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 import { gqlSchemaDiffLesson } from './graphql-schema-diff';
@@ -25,6 +26,7 @@ import {
   ensureLesson12DiffExported,
   ensureLesson12TypesTab,
   ensureLesson12BaselineSnapshot,
+  performLesson12ExportDiff,
   gqlSchemaDiffLessonSetup,
   gqlSchemaDiffLessonCleanup,
 } from './graphql-lesson-helpers';
@@ -99,6 +101,10 @@ const DIFF_MODAL_HTML = `
 function stubSchemaExplorerDom(options?: { withDiffModal?: boolean }): void {
   const withDiffModal = options?.withDiffModal ?? false;
   document.body.innerHTML = `
+    <div data-testid="gql-studio-page"></div>
+    <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+    <button data-testid="gql-right-tab-schema" aria-selected="true"></button>
+    <button data-testid="gql-env-badge"></button>
     <button data-testid="gql-se-tab-types" class="gql-se-main-tab--active"></button>
     <button data-testid="gql-se-save-snapshot"></button>
     <button data-testid="gql-se-tab-changelog"></button>
@@ -119,6 +125,7 @@ function stubSchemaExplorerDom(options?: { withDiffModal?: boolean }): void {
     ${withDiffModal ? DIFF_MODAL_HTML : ''}
     <div data-testid="gql-schema-explorer"></div>
     <div data-testid="gql-se-type-list"></div>
+    <div data-testid="gql-se-type-Query"></div>
     <span data-testid="gql-schema-badge-ok"></span>
     <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
   `;
@@ -305,7 +312,7 @@ describe('gql-schema-diff lesson', () => {
 
   it('gql12-compare uses capped reading pause', () => {
     const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-compare')!;
-    expect(step.pauseAfter).toBe(5500);
+    expect(step.pauseAfter).toBe(3500);
   });
 
   it('gql12-diff-modal highlights DIFF_CONTENT', () => {
@@ -414,6 +421,18 @@ describe('gql-schema-diff lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.CHANGELOG_DIFF_BTN);
   });
 
+  it('gql12-compare action uses performLesson12CompareDiff (not full ensureLesson12DiffOpen)', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    // Mark changelog as already open so action stays on the visible beat only.
+    document.querySelector(GQL.CHANGELOG_TAB)?.classList.add('gql-se-main-tab--active');
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-compare')!;
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.CHANGELOG_DIFF_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.CHANGELOG_TAB);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.SE_TAB_TYPES);
+  });
+
   it('gql12-filters cycles severity tabs and returns to All', async () => {
     const ctx = makeCtx();
     stubSchemaExplorerDom();
@@ -436,6 +455,17 @@ describe('gql-schema-diff lesson', () => {
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.DIFF_EXPORT_JSON);
     expect(document.querySelector(GQL.DIFF_MODAL)).toBeNull();
+  });
+
+  it('gql12-export action skips changelog reopen when modal is already open', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom({ withDiffModal: true });
+    const doneBtn = document.querySelector<HTMLButtonElement>(GQL.DIFF_DONE)!;
+    doneBtn.addEventListener('click', () => document.querySelector(GQL.DIFF_MODAL)?.remove());
+    await performLesson12ExportDiff(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.DIFF_EXPORT_JSON);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.CHANGELOG_TAB);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.CHANGELOG_DIFF_BTN);
   });
 
   it('gql12-export verify targets changelog diff button after modal closes', () => {
@@ -522,9 +552,11 @@ describe('gql-schema-diff lesson', () => {
     loadSpy.mockRestore();
   });
 
-  it('gqlSchemaDiffLessonSetup creates demo tab, introspects, and seeds baseline', async () => {
+  it('gqlSchemaDiffLessonSetup creates demo tab, introspects, and seeds baseline without Env Manager', async () => {
     const ctx = makeCtx();
     stubSchemaExplorerDom();
+    // Force introspect click path (badge present but Query type wait may still re-introspect).
+    document.querySelector(GQL.SCHEMA_BADGE_OK)?.remove();
     vi.spyOn(await import('../../adapters'), 'loadSnapshots')
       .mockResolvedValue([]);
     vi.spyOn(await import('../../adapters'), 'saveSnapshot')
@@ -536,7 +568,7 @@ describe('gql-schema-diff lesson', () => {
       'Schema Diff & Breaking Changes',
     );
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
-    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
   it('gqlSchemaDiffLessonCleanup closes demo tab', async () => {

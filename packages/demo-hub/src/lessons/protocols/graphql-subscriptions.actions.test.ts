@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql7'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 import {
@@ -35,13 +36,19 @@ describe('gql-subscriptions lesson — actions', () => {
 
 // ─── New step actions ────────────────────────────────────────────────────
 
-  it('gql5-connection-bar preAction seeds subscription editor for Subscribe UI', async () => {
-    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
-    stubMonacoEditor('query { }');
+  it('gql5-connection-bar preAction waits for Subscribe after subscription is written', async () => {
+    stubGqlStudioShell(`
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-subscribe-btn"></button>
+    `);
+    stubMonacoEditor(GQL_ORDER_STATUS_SUBSCRIPTION);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createOrder: { id: 'ord-bar' } } }),
+    }));
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-connection-bar')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SUBSCRIBE_BTN, 8000);
   });
 
   it('gql5-transport-select action calls ensureWsTransport', async () => {
@@ -69,8 +76,8 @@ describe('gql-subscriptions lesson — actions', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-subscription-auth')!;
     expect(step.description).toContain('connectionParams');
     expect(step.description).toContain('connection_init');
-    expect(step.description).toContain('auto-seeds');
-    expect(step.description).toContain('authToken');
+    expect(step.description).toContain('Auth preview');
+    expect(step.description).not.toContain('Environment Manager');
   });
 
   it('gql5-subscription-auth action configures bearer auth preview', async () => {
@@ -90,15 +97,17 @@ describe('gql-subscriptions lesson — actions', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, '{{authToken}}');
-    expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, 'lesson6-demo-jwt');
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
-  it('gql5-subscription-auth preAction seeds env and configures bearer auth preview', async () => {
+  it('gql5-subscription-auth preAction opens Auth without Env modal / Bearer fill', async () => {
     resetGqlLesson6SessionFlags();
     stubGqlStudioShell(`
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-env-badge"></button>
+      <button data-testid="gql-auth-badge-btn"></button>
       <div data-testid="gql-bottom-tab-auth" aria-selected="true"></div>
       <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
       <input data-testid="gql-auth-bearer-input" />
@@ -111,8 +120,9 @@ describe('gql-subscriptions lesson — actions', () => {
     (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = vi.fn();
     const ctx = makeCtx();
     await prepareGql5SubscriptionAuthReading(ctx);
-    expect((window as unknown as Record<string, unknown>).__demoUpsertGqlEnv).toHaveBeenCalled();
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, '{{authToken}}');
+    expect((window as unknown as Record<string, unknown>).__demoUpsertGqlEnv).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, expect.anything());
   });
 
   it('ensureSubscriptionAuthConfigured guard skips when auth already done', async () => {

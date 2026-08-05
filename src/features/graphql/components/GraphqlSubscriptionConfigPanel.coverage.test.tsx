@@ -103,6 +103,11 @@ describe('GraphqlSubscriptionConfigPanel coverage edges', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    const stopSection = screen.getByTestId('gql-wf-stop-section');
+    expect(stopSection).toBeTruthy();
+    expect(stopSection.querySelector('.gql-wf-stop-chip--active')?.textContent).toContain('1 message');
+    expect(stopSection.textContent).toContain('2s wall time');
+    expect(stopSection.querySelectorAll('.gql-wf-stop-chip--active')).toHaveLength(3);
     fireEvent.change(screen.getByTestId('gql-wf-stop-messages-input'), { target: { value: '0' } });
     fireEvent.change(screen.getByTestId('gql-wf-stop-secs-input'), { target: { value: '0' } });
     fireEvent.change(screen.getByTestId('mock-expression'), { target: { value: '' } });

@@ -123,7 +123,7 @@ describe('useDemoShortcuts', () => {
     expect(setActiveTab).toHaveBeenCalledTimes(2);
   });
 
-  it('ArrowRight in live mode calls nextStep when in reading phase', () => {
+  it('ArrowRight in live mode does NOT call nextStep during reading phase', () => {
     const hub = makeDemoHub({
       state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } },
       stepPhase: 'reading',
@@ -133,7 +133,7 @@ describe('useDemoShortcuts', () => {
     const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
     window.dispatchEvent(event);
 
-    expect(hub.nextStep).toHaveBeenCalled();
+    expect(hub.nextStep).not.toHaveBeenCalled();
   });
 
   it('ArrowRight in live mode calls nextStep when in done phase', () => {
@@ -250,7 +250,7 @@ describe('useDemoShortcuts', () => {
   it('does not fire ArrowRight next-step when Monaco editor is focused', () => {
     const hub = makeDemoHub({
       state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } },
-      stepPhase: 'reading',
+      stepPhase: 'done',
     });
     renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
 

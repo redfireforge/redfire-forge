@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql7'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 import {
@@ -33,7 +34,6 @@ import {
   ensureFilterDemo,
   ensureAssertionAdded,
   ensureWsTransport,
-  ensureEnvReady,
   gqlSubscriptionsLessonCleanup,
   resetGqlLesson3SessionFlags,
 } from './graphql-lesson-helpers';
@@ -337,15 +337,13 @@ it('ensureWsTransport skips when already graphql-transport-ws', async () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.ASSERTION_TOGGLE);
   });
 
-  it('gqlSubscriptionsLessonSetup resets lesson6 flags so ensureEnvReady runs again after restart', async () => {
+  it('gqlSubscriptionsLessonSetup closes stray Env modal without opening Environment Manager', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <input data-testid="gql-endpoint-input" value="${GQL_DEMO_HTTP}" />
       <button data-testid="gql-env-badge"></button>
       <div data-testid="gql-env-modal">
-        <button data-testid="gql-env-new-btn"></button>
-        <button data-testid="gql-env-var-add-btn"></button>
-        <button data-testid="gql-env-set-active-btn"></button>
         <button data-testid="gql-env-close-btn"></button>
       </div>
       <span data-testid="gql-schema-badge-ok"></span>
@@ -356,11 +354,9 @@ it('ensureWsTransport skips when already graphql-transport-ws', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       json: async () => ({ data: { createOrder: { id: 'ord-setup' } } }),
     }));
-    await ensureEnvReady(ctx);
-    vi.mocked(ctx.click).mockClear();
     await gqlSubscriptionsLessonSetup(ctx);
-    await ensureEnvReady(ctx);
-    expect(vi.mocked(ctx.click).mock.calls.length).toBeGreaterThan(0);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ENV_CLOSE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
   it('gqlSubscriptionsLessonCleanup closes demo tab and resets flags', async () => {
