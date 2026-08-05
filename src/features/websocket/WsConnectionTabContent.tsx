@@ -23,16 +23,11 @@ import {
 import { WebSocketTlsPanel } from './WebSocketTlsPanel';
 import { KeyValueEditor } from './KeyValueEditor';
 import WebSocketAuthPanel from './WebSocketAuthPanel';
-import type { AuthConfig, GlobalAuthProfile } from '../../shared/types';
-import type { EndpointRowStatus } from '../environments/utils/protocolEndpointUtils';
 import type {
   WsConnectionDraft,
   WsKeyValueEntry,
-  WsLeftTab,
-  WsRightTab,
-  WsStudioMode,
-  WsTlsConfig,
 } from '../../shared/websocket/types';
+import type { AuthConfig } from '../../shared/types';
 import {
   createDefaultTlsConfig,
   deriveViewTabFromStudio,
@@ -44,10 +39,8 @@ import {
 } from '../../shared/websocket/types';
 import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import { buildResolvedEffectiveUrl } from './wsMessageUtils';
-import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
-import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTemplates';
 import type { ConnectionStateHint } from './WsConnectionTabBar';
-import type { WsViewTab, WsConnectionHistoryEntry, WsProtocolMode } from '../../shared/websocket/types';
+import type { WsViewTab, WsProtocolMode } from '../../shared/websocket/types';
 import { useWebSocketRecording } from './useWebSocketRecording';
 import { useWebSocketRecordingBridge } from './useWebSocketRecordingBridge';
 import { useWebSocketMetrics } from './useWebSocketMetrics';
@@ -61,60 +54,10 @@ import { useWebSocketSchema } from './useWebSocketSchema';
 import { useConsoleCommands } from './useConsoleCommands';
 import { buildWsConsoleCapabilities } from './wsConsoleCapabilities';
 import { WS_CONSOLE_COMMANDS, WS_CONSOLE_HINT } from './wsConsoleCommands';
-
-export interface WsConnectionTabContentHandle {
-  getConnectionState: () => ConnectionStateHint;
-  getUrl: () => string;
-  getMessageCount: () => number;
-  /** Phase 8 — full draft snapshot for whole-draft persistence. */
-  getDraft: () => WsConnectionDraft;
-  /**
-   * Quiet TLS-lesson prep: reset TLS/auth/headers/protocol/URL and clear
-   * messages without opening the TLS modal or flashing the Connect panel.
-   */
-  prepareForTlsLesson: () => void;
-  /** Demo bridge — merge TLS overrides on this tab (skip-cert / CA / mTLS). */
-  applyTlsConfig: (patch: Partial<WsTlsConfig>) => void;
-}
-
-export interface WsConnectionTabContentProps {
-  tabId: string;
-  envVarMap: Record<string, string>;
-  endpointProtocolStatus?: EndpointRowStatus;
-  /** Phase 8 — global auth profiles available for the Auth tab inherit selector. */
-  globalAuthProfiles?: GlobalAuthProfile[];
-  profilesHook: UseWebSocketProfilesReturn;
-  templatesHook: UseWebSocketTemplatesReturn;
-  /** Unique port assigned to this tab's mock server (e.g. 9876, 9877, …).
-   *  Each tab gets its own port so mock servers are fully isolated. */
-  mockPort: number;
-  /** Called when the user changes the mock server port via the UI. */
-  onMockPortChange?: (tabId: string, newPort: number) => void;
-  onConnectionStateChange: (tabId: string, state: ConnectionStateHint, protocolMode?: WsProtocolMode) => void;
-  onUrlChange: (tabId: string, url: string) => void;
-  /** Phase 8 — fires when persistable draft fields (subprotocols/headers/
-   * queryParams/auth) change, so the parent can debounce-save the whole draft. */
-  onDraftChange?: (tabId: string) => void;
-  initialUrl?: string;
-  initialProtocol?: WsProtocolMode;
-  /** Phase 8 — seeds the draft (subprotocols/headers/queryParams/auth) on mount
-   * for whole-draft persistence restore. `initialUrl` still seeds the URL. */
-  initialDraft?: Partial<WsConnectionDraft>;
-  /** Selects which left-pane tab is shown (`connect` / `headers` / `params` /
-   * `send` / `auth`). When omitted, defaults to `connect`. */
-  controlledLeftTab?: WsLeftTab;
-  /** Drives the redesigned `WebSocketStudioShell` this component renders
-   * (composition inversion) so the studio-owning child can feed both panes from
-   * one hook instance. `mode` selects client/mock/saved; the left body follows
-   * `controlledLeftTab` and the right body follows `controlledRightTab`. */
-  controlledMode: WsStudioMode;
-  controlledRightTab?: WsRightTab;
-  onModeChange?: (mode: WsStudioMode) => void;
-  onLeftTabChange?: (tab: WsLeftTab) => void;
-  onRightTabChange?: (tab: WsRightTab) => void;
-  history?: WsConnectionHistoryEntry[];
-  onClearHistory?: () => void;
-}
+import type {
+  WsConnectionTabContentHandle,
+  WsConnectionTabContentProps,
+} from './WsConnectionTabContent.types';
 
 export const WsConnectionTabContent = forwardRef<
   WsConnectionTabContentHandle,
