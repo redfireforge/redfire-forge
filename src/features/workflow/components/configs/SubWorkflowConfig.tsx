@@ -1,12 +1,28 @@
+import type { ReactNode } from 'react';
 import type { SubWorkflowNodeData } from '../../types/workflow';
 import { parseClampedInteger } from './subWorkflowConfigUtils';
 import { addMappingEntry, removeMappingEntry, updateMappingEntry } from '../workflowMappingUtils';
-import ConfigSectionGroup from './ConfigSectionGroup';
 import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
 
 export interface WorkflowPickerItem {
   id: string;
   name: string;
+}
+
+/** Advanced row control: fixed field + reserved unit gutter for alignment. */
+function SubWfAdvCtrl({ unit, children }: { unit?: string; children: ReactNode }) {
+  return (
+    <div className="wf-subworkflow-adv-ctrl">
+      <div className="wf-subworkflow-adv-field">{children}</div>
+      <span
+        className={`wf-subworkflow-adv-unit${unit ? '' : ' wf-subworkflow-adv-unit--spacer'}`}
+        aria-hidden={!unit || undefined}
+      >
+        {unit ?? 'ms'}
+      </span>
+    </div>
+  );
 }
 
 export default function SubWorkflowConfig({
@@ -30,8 +46,6 @@ export default function SubWorkflowConfig({
     onChange({ ...data, workflowId: id, workflowName: wf?.name ?? '' });
   };
 
-  /* ── Input mapping helpers ── */
-
   const updateInputMapping = (
     idx: number,
     field: 'sourceExpression' | 'targetVariable',
@@ -51,8 +65,6 @@ export default function SubWorkflowConfig({
 
   const removeInputMapping = (idx: number) =>
     onChange({ ...data, inputMappings: removeMappingEntry(data.inputMappings, idx) });
-
-  /* ── Output mapping helpers ── */
 
   const updateOutputMapping = (
     idx: number,
@@ -75,129 +87,180 @@ export default function SubWorkflowConfig({
     onChange({ ...data, outputMappings: removeMappingEntry(data.outputMappings, idx) });
 
   return (
-    <div className="wf-config-body">
-      {/* Label */}
-      <div className="wf-config-field">
-        <label>Label</label>
-        <input
-          value={data.label}
-          onChange={(e) => onChange({ ...data, label: e.target.value })}
-        />
-      </div>
+    <div className="wf-config-body wf-subworkflow-config" data-testid="subworkflow-config">
+      <KafkaCard
+        title="Sub-Workflow"
+        hint="Run another workflow as a single step."
+      >
+        <div className="wf-kafka-form wf-kafka-form--subworkflow">
+          <KafkaFormRow label="Label" hint="Canvas node title" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={data.label}
+              onChange={(e) => onChange({ ...data, label: e.target.value })}
+              aria-label="Sub-Workflow label"
+            />
+          </KafkaFormRow>
 
-      <ConfigSectionGroup title="Workflow Selection">
-        <div className="wf-config-field">
-          <label>
-            Workflow
-            <button
-              type="button"
-              className="wf-subworkflow-mode-toggle"
-              onClick={() => onChange({ ...data, workflowId: isDynamic ? '' : '{{}}', workflowName: '' })}
-              title={isDynamic ? 'Switch to static picker' : 'Switch to dynamic expression'}
-            >
-              {isDynamic ? '⇄ Static' : '⇄ Expression'}
-            </button>
-          </label>
-          {isDynamic ? (
-            <>
-              <input
-                value={data.workflowId}
-                onChange={(e) => onChange({ ...data, workflowId: e.target.value, workflowName: '' })}
-                placeholder="{{workflowId}}"
-                className="wf-subworkflow-expression-input"
-              />
-              <span className="wf-config-hint">
-                Use a <code>{'{{variable}}'}</code> expression. Resolved at runtime to a workflow ID.
-              </span>
-            </>
-          ) : (
-            <>
-              <CustomSelect
-                value={data.workflowId}
-                onChange={(v) => handleWorkflowSelect(v)}
-                placeholder="— Select workflow —"
-                options={[
-                  { value: '', label: '— Select workflow —' },
-                  ...available.map((w) => ({ value: w.id, label: w.name })),
-                ]}
-              />
-              {available.length === 0 && (
-                <span className="wf-config-hint">No other workflows available. Create one first.</span>
+          <KafkaFormRow
+            label="Workflow"
+            hint={
+              isDynamic
+                ? 'Resolved at runtime to a workflow ID.'
+                : available.length === 0
+                  ? 'No other workflows available. Create one first.'
+                  : 'Child workflow to execute.'
+            }
+            compact
+          >
+            <div className="wf-subworkflow-workflow-ctrl">
+              {isDynamic ? (
+                <input
+                  value={data.workflowId}
+                  onChange={(e) =>
+                    onChange({ ...data, workflowId: e.target.value, workflowName: '' })
+                  }
+                  placeholder="{{workflowId}}"
+                  className="wf-kafka-form-input wf-kafka-form-input--mono wf-subworkflow-expression-input"
+                  aria-label="Workflow expression"
+                />
+              ) : (
+                <CustomSelect
+                  value={data.workflowId}
+                  onChange={(v) => handleWorkflowSelect(v)}
+                  placeholder="— Select workflow —"
+                  options={[
+                    { value: '', label: '— Select workflow —' },
+                    ...available.map((w) => ({ value: w.id, label: w.name })),
+                  ]}
+                  menuMatchTriggerWidth
+                  aria-label="Workflow"
+                />
               )}
-            </>
-          )}
-        </div>
-      </ConfigSectionGroup>
-
-      <ConfigSectionGroup title="Input Mappings" count={data.inputMappings.length}>
-        <div className="wf-config-field">
-          <span className="wf-config-hint">
-            Map parent variables/expressions to child workflow input variables.
-          </span>
-          {data.inputMappings.map((m, i) => (
-            <div key={i} className="wf-subworkflow-mapping-row">
-              <input
-                placeholder="Source expression"
-                value={m.sourceExpression}
-                onChange={(e) => updateInputMapping(i, 'sourceExpression', e.target.value)}
-              />
-              <span className="wf-subworkflow-mapping-arrow">→</span>
-              <input
-                placeholder="Target variable"
-                value={m.targetVariable}
-                onChange={(e) => updateInputMapping(i, 'targetVariable', e.target.value)}
-              />
               <button
                 type="button"
-                className="wf-subworkflow-mapping-remove"
-                onClick={() => removeInputMapping(i)}
-                title="Remove mapping"
+                className="wf-subworkflow-mode-toggle"
+                onClick={() =>
+                  onChange({
+                    ...data,
+                    workflowId: isDynamic ? '' : '{{}}',
+                    workflowName: '',
+                  })
+                }
+                title={isDynamic ? 'Switch to static picker' : 'Switch to dynamic expression'}
               >
-                ×
+                {isDynamic ? '⇄ Static' : '⇄ Expression'}
               </button>
             </div>
-          ))}
-          <button type="button" className="wf-subworkflow-mapping-add" onClick={addInputMapping}>
-            + Add input mapping
-          </button>
+          </KafkaFormRow>
         </div>
-      </ConfigSectionGroup>
+      </KafkaCard>
 
-      <ConfigSectionGroup title="Output Mappings" count={data.outputMappings.length}>
-        <div className="wf-config-field">
-          <span className="wf-config-hint">
-            Map child workflow output variables back to parent variables.
-          </span>
-          {data.outputMappings.map((m, i) => (
-            <div key={i} className="wf-subworkflow-mapping-row">
-              <input
-                placeholder="Source variable"
-                value={m.sourceVariable}
-                onChange={(e) => updateOutputMapping(i, 'sourceVariable', e.target.value)}
-              />
-              <span className="wf-subworkflow-mapping-arrow">→</span>
-              <input
-                placeholder="Target variable"
-                value={m.targetVariable}
-                onChange={(e) => updateOutputMapping(i, 'targetVariable', e.target.value)}
-              />
-              <button
-                type="button"
-                className="wf-subworkflow-mapping-remove"
-                onClick={() => removeOutputMapping(i)}
-                title="Remove mapping"
-              >
-                ×
-              </button>
+      <KafkaCard
+        title="Input Mappings"
+        hint="Map parent variables/expressions to child workflow input variables."
+        action={<KafkaAddButton label="+ Add input mapping" onClick={addInputMapping} />}
+      >
+        {data.inputMappings.length === 0 ? (
+          <KafkaEmptyState
+            title="No input mappings"
+            text="Add a row to pass parent values into the child workflow."
+          />
+        ) : (
+          <div className="wf-subworkflow-mappings-panel">
+            <div className="wf-subworkflow-mappings-header" aria-hidden="true">
+              <span>Source</span>
+              <span />
+              <span>Target</span>
+              <span />
             </div>
-          ))}
-          <button type="button" className="wf-subworkflow-mapping-add" onClick={addOutputMapping}>
-            + Add output mapping
-          </button>
-        </div>
+            {data.inputMappings.map((m, i) => (
+              <div key={i} className="wf-subworkflow-mapping-row">
+                <input
+                  className="wf-kafka-form-input wf-kafka-form-input--mono"
+                  placeholder="Source expression"
+                  value={m.sourceExpression}
+                  onChange={(e) => updateInputMapping(i, 'sourceExpression', e.target.value)}
+                  aria-label={`Input mapping ${i + 1} source`}
+                />
+                <span className="wf-subworkflow-mapping-arrow" aria-hidden="true">
+                  →
+                </span>
+                <input
+                  className="wf-kafka-form-input wf-kafka-form-input--mono"
+                  placeholder="Target variable"
+                  value={m.targetVariable}
+                  onChange={(e) => updateInputMapping(i, 'targetVariable', e.target.value)}
+                  aria-label={`Input mapping ${i + 1} target`}
+                />
+                <button
+                  type="button"
+                  className="wf-subworkflow-mapping-remove"
+                  onClick={() => removeInputMapping(i)}
+                  title="Remove mapping"
+                  aria-label={`Remove input mapping ${i + 1}`}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </KafkaCard>
 
-        <div className="wf-config-field">
-          <label className="wf-config-checkbox-label">
+      <KafkaCard
+        title="Output Mappings"
+        hint="Map child workflow output variables back to parent variables."
+        action={<KafkaAddButton label="+ Add output mapping" onClick={addOutputMapping} />}
+      >
+        {data.outputMappings.length === 0 ? (
+          <KafkaEmptyState
+            title="No output mappings"
+            text="Add a row, or enable Propagate all outputs below."
+          />
+        ) : (
+          <div className="wf-subworkflow-mappings-panel">
+            <div className="wf-subworkflow-mappings-header" aria-hidden="true">
+              <span>Source</span>
+              <span />
+              <span>Target</span>
+              <span />
+            </div>
+            {data.outputMappings.map((m, i) => (
+              <div key={i} className="wf-subworkflow-mapping-row">
+                <input
+                  className="wf-kafka-form-input wf-kafka-form-input--mono"
+                  placeholder="Source variable"
+                  value={m.sourceVariable}
+                  onChange={(e) => updateOutputMapping(i, 'sourceVariable', e.target.value)}
+                  aria-label={`Output mapping ${i + 1} source`}
+                />
+                <span className="wf-subworkflow-mapping-arrow" aria-hidden="true">
+                  →
+                </span>
+                <input
+                  className="wf-kafka-form-input wf-kafka-form-input--mono"
+                  placeholder="Target variable"
+                  value={m.targetVariable}
+                  onChange={(e) => updateOutputMapping(i, 'targetVariable', e.target.value)}
+                  aria-label={`Output mapping ${i + 1} target`}
+                />
+                <button
+                  type="button"
+                  className="wf-subworkflow-mapping-remove"
+                  onClick={() => removeOutputMapping(i)}
+                  title="Remove mapping"
+                  aria-label={`Remove output mapping ${i + 1}`}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="wf-subworkflow-propagate">
+          <label className="wf-subworkflow-checkbox">
             <input
               type="checkbox"
               checked={data.propagateAllOutputs ?? false}
@@ -205,103 +268,150 @@ export default function SubWorkflowConfig({
             />
             Propagate all outputs
           </label>
-          <span className="wf-config-hint">
+          <span className="wf-subworkflow-propagate-hint">
             Pass all child workflow final variables to the parent (ignores output mappings).
           </span>
         </div>
-      </ConfigSectionGroup>
+      </KafkaCard>
 
-      <ConfigSectionGroup title="Advanced" defaultOpen={false}>
-        <div className="wf-config-field">
-          <label>Max Depth</label>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={data.maxDepth ?? 10}
-            onChange={(e) =>
-              onChange({
-                ...data,
-                maxDepth: parseClampedInteger(e.target.value, { defaultValue: 10, min: 1, max: 100 }),
-              })
-            }
-          />
-          <span className="wf-config-hint">Maximum recursion depth for nested sub-workflows (default 10).</span>
-        </div>
-
-        <div className="wf-config-field">
-          <label>Timeout (ms)</label>
-          <input
-            type="number"
-            min={0}
-            max={600000}
-            step={1000}
-            value={data.timeoutMs ?? 0}
-            onChange={(e) =>
-              onChange({
-                ...data,
-                timeoutMs: parseClampedInteger(e.target.value, { defaultValue: 0, min: 0, max: 600000 }),
-              })
-            }
-          />
-          <span className="wf-config-hint">Abort child workflow if it takes longer than this (0 = unlimited).</span>
-        </div>
-
-        <div className="wf-config-field">
-          <label>Retry Count</label>
-          <input
-            type="number"
-            min={0}
-            max={10}
-            value={data.retryCount ?? 0}
-            onChange={(e) =>
-              onChange({
-                ...data,
-                retryCount: parseClampedInteger(e.target.value, { defaultValue: 0, min: 0, max: 10 }),
-              })
-            }
-          />
-          <span className="wf-config-hint">Number of retry attempts if the child workflow fails (0 = no retry).</span>
-        </div>
-
-        {(data.retryCount ?? 0) > 0 && (
+      <KafkaCard title="Advanced" hint="Depth, timeout, retries, and multi-instance options.">
+        <div className="wf-kafka-form wf-kafka-form--subworkflow wf-kafka-form--subworkflow-adv">
           <div className="wf-config-field">
-            <label>Retry Delay (ms)</label>
-            <input
-              type="number"
-              min={0}
-              max={60000}
-              step={500}
-              value={data.retryDelayMs ?? 1000}
-              onChange={(e) =>
-                onChange({
-                  ...data,
-                  retryDelayMs: parseClampedInteger(e.target.value, { defaultValue: 0, min: 0, max: 60000 }),
-                })
-              }
-            />
-            <span className="wf-config-hint">Delay between retry attempts in milliseconds.</span>
+            <KafkaFormRow label="Max Depth" hint="Max nested sub-workflow depth (default 10)." compact>
+              <SubWfAdvCtrl>
+                <input
+                  className="wf-kafka-form-input wf-subworkflow-adv-num"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={data.maxDepth ?? 10}
+                  onChange={(e) =>
+                    onChange({
+                      ...data,
+                      maxDepth: parseClampedInteger(e.target.value, {
+                        defaultValue: 10,
+                        min: 1,
+                        max: 100,
+                      }),
+                    })
+                  }
+                  aria-label="Max Depth"
+                />
+              </SubWfAdvCtrl>
+            </KafkaFormRow>
           </div>
-        )}
 
-        <div className="wf-config-field">
-          <label>On Child Failure</label>
-          <CustomSelect
-            value={data.onChildFailure ?? 'fail'}
-            onChange={(v) => onChange({ ...data, onChildFailure: v as 'fail' | 'continue' })}
-            options={[
-              { value: 'fail', label: 'Fail parent node' },
-              { value: 'continue', label: 'Continue (set __subWorkflowFailed variable)' },
-            ]}
-          />
-          <span className="wf-config-hint">
-            How to handle child workflow failure. &quot;Continue&quot; marks the node as passed and sets a
-            <code>__subWorkflowFailed</code> variable to &quot;true&quot;.
-          </span>
+          <div className="wf-config-field">
+            <span className="wf-subworkflow-sr-label">Timeout (ms)</span>
+            <KafkaFormRow label="Timeout" hint="Abort child if longer than this (0 = unlimited)." compact>
+              <SubWfAdvCtrl unit="ms">
+                <input
+                  className="wf-kafka-form-input wf-subworkflow-adv-num"
+                  type="number"
+                  min={0}
+                  max={600000}
+                  step={1000}
+                  value={data.timeoutMs ?? 0}
+                  onChange={(e) =>
+                    onChange({
+                      ...data,
+                      timeoutMs: parseClampedInteger(e.target.value, {
+                        defaultValue: 0,
+                        min: 0,
+                        max: 600000,
+                      }),
+                    })
+                  }
+                  aria-label="Timeout (ms)"
+                />
+              </SubWfAdvCtrl>
+            </KafkaFormRow>
+          </div>
+
+          <div className="wf-config-field">
+            <span className="wf-subworkflow-sr-label">Retry Count</span>
+            <KafkaFormRow label="Retries" hint="Retry attempts if the child fails (0 = none)." compact>
+              <SubWfAdvCtrl>
+                <input
+                  className="wf-kafka-form-input wf-subworkflow-adv-num"
+                  type="number"
+                  min={0}
+                  max={10}
+                  value={data.retryCount ?? 0}
+                  onChange={(e) =>
+                    onChange({
+                      ...data,
+                      retryCount: parseClampedInteger(e.target.value, {
+                        defaultValue: 0,
+                        min: 0,
+                        max: 10,
+                      }),
+                    })
+                  }
+                  aria-label="Retry Count"
+                />
+              </SubWfAdvCtrl>
+            </KafkaFormRow>
+          </div>
+
+          {(data.retryCount ?? 0) > 0 && (
+            <div className="wf-config-field">
+              <span className="wf-subworkflow-sr-label">Retry Delay (ms)</span>
+              <KafkaFormRow label="Retry delay" hint="Wait between retry attempts." compact>
+                <SubWfAdvCtrl unit="ms">
+                  <input
+                    className="wf-kafka-form-input wf-subworkflow-adv-num"
+                    type="number"
+                    min={0}
+                    max={60000}
+                    step={500}
+                    value={data.retryDelayMs ?? 1000}
+                    onChange={(e) =>
+                      onChange({
+                        ...data,
+                        retryDelayMs: parseClampedInteger(e.target.value, {
+                          defaultValue: 0,
+                          min: 0,
+                          max: 60000,
+                        }),
+                      })
+                    }
+                    aria-label="Retry Delay (ms)"
+                  />
+                </SubWfAdvCtrl>
+              </KafkaFormRow>
+            </div>
+          )}
+
+          <KafkaFormRow
+            label="On failure"
+            hint="Continue sets __subWorkflowFailed to true."
+            compact
+          >
+            <SubWfAdvCtrl>
+              <div className="wf-subworkflow-select-ctrl">
+                <CustomSelect
+                  value={data.onChildFailure ?? 'fail'}
+                  onChange={(v) => onChange({ ...data, onChildFailure: v as 'fail' | 'continue' })}
+                  options={[
+                    { value: 'fail', label: 'Fail parent node' },
+                    {
+                      value: 'continue',
+                      label: 'Continue',
+                      detail: 'set __subWorkflowFailed',
+                    },
+                  ]}
+                  menuMinWidth={300}
+                  menuMaxWidth={360}
+                  aria-label="On Child Failure"
+                />
+              </div>
+            </SubWfAdvCtrl>
+          </KafkaFormRow>
         </div>
 
-        <div className="wf-config-field">
-          <label className="wf-config-checkbox-label">
+        <div className="wf-subworkflow-multi">
+          <label className="wf-subworkflow-checkbox">
             <input
               type="checkbox"
               checked={!!data.multiInstance}
@@ -316,58 +426,78 @@ export default function SubWorkflowConfig({
             />
             Multi-Instance (forEach)
           </label>
-          <span className="wf-config-hint">
+          <span className="wf-subworkflow-propagate-hint">
             Run the child workflow once per item in a collection variable.
           </span>
+
+          {data.multiInstance && (
+            <div className="wf-kafka-form wf-kafka-form--subworkflow wf-kafka-form--subworkflow-adv">
+              <KafkaFormRow
+                label="Collection"
+                hint="Expression resolving to a JSON array."
+                compact
+              >
+                <input
+                  className="wf-kafka-form-input wf-kafka-form-input--mono wf-subworkflow-expression-input"
+                  value={data.multiInstance.collection}
+                  onChange={(e) =>
+                    onChange({
+                      ...data,
+                      multiInstance: { ...data.multiInstance!, collection: e.target.value },
+                    })
+                  }
+                  placeholder="{{users}}"
+                  aria-label="Collection Expression"
+                />
+              </KafkaFormRow>
+
+              <KafkaFormRow
+                label="Element var"
+                hint="Injected into each child run."
+                compact
+              >
+                <input
+                  className="wf-kafka-form-input wf-kafka-form-input--mono"
+                  value={data.multiInstance.elementVariable}
+                  onChange={(e) =>
+                    onChange({
+                      ...data,
+                      multiInstance: {
+                        ...data.multiInstance!,
+                        elementVariable: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="item"
+                  aria-label="Element Variable"
+                />
+              </KafkaFormRow>
+
+              <KafkaFormRow label="Mode" hint="Sequential or parallel execution." compact>
+                <div className="wf-subworkflow-select-ctrl wf-subworkflow-select-ctrl--sm">
+                  <CustomSelect
+                    value={data.multiInstance.mode}
+                    onChange={(v) =>
+                      onChange({
+                        ...data,
+                        multiInstance: {
+                          ...data.multiInstance!,
+                          mode: v as 'sequential' | 'parallel',
+                        },
+                      })
+                    }
+                    options={[
+                      { value: 'sequential', label: 'Sequential' },
+                      { value: 'parallel', label: 'Parallel' },
+                    ]}
+                    aria-label="Execution Mode"
+                  />
+                </div>
+              </KafkaFormRow>
+            </div>
+          )}
         </div>
-        {data.multiInstance && (
-          <>
-            <div className="wf-config-field">
-              <label>Collection Expression</label>
-              <input
-                value={data.multiInstance.collection}
-                onChange={(e) =>
-                  onChange({ ...data, multiInstance: { ...data.multiInstance!, collection: e.target.value } })
-                }
-                placeholder="{{users}}"
-                className="wf-subworkflow-expression-input"
-              />
-              <span className="wf-config-hint">
-                Expression resolving to a JSON array (e.g. <code>{'{{users}}'}</code>).
-              </span>
-            </div>
-            <div className="wf-config-field">
-              <label>Element Variable</label>
-              <input
-                value={data.multiInstance.elementVariable}
-                onChange={(e) =>
-                  onChange({ ...data, multiInstance: { ...data.multiInstance!, elementVariable: e.target.value } })
-                }
-                placeholder="item"
-              />
-              <span className="wf-config-hint">
-                Variable name injected into each child run with the current element value.
-              </span>
-            </div>
-            <div className="wf-config-field">
-              <label>Execution Mode</label>
-              <CustomSelect
-                value={data.multiInstance.mode}
-                onChange={(v) =>
-                  onChange({ ...data, multiInstance: { ...data.multiInstance!, mode: v as 'sequential' | 'parallel' } })
-                }
-                options={[
-                  { value: 'sequential', label: 'Sequential' },
-                  { value: 'parallel', label: 'Parallel' },
-                ]}
-              />
-              <span className="wf-config-hint">
-                Sequential runs items one-by-one; parallel runs all concurrently.
-              </span>
-            </div>
-          </>
-        )}
-      </ConfigSectionGroup>
+      </KafkaCard>
 
       <div className="wf-config-section wf-config-section-info">
         <div className="wf-config-info-title">How it works</div>

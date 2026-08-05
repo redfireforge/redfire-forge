@@ -133,9 +133,12 @@ export default function LiveDemo({
   const totalSteps = lesson.steps.length;
   const progressPct = ((stepIndex + 1) / totalSteps) * 100;
   const isLast = stepIndex >= totalSteps - 1;
-  // Lock next/arrow navigation while an action is actively executing;
-  // only allow advancement during reading pause or when a step is idle.
-  const canNavigate = stepPhase === 'reading' || stepPhase === 'done';
+  // Next / → only after the step finishes. During reading, skip via the phase badge
+  // ("Reading — click to skip") so the step action still runs.
+  const canNavigate = stepPhase === 'done';
+  const nextDisabledReason = stepPhase === 'reading'
+    ? 'Finish reading first — click the badge to skip'
+    : 'Please wait — action in progress';
 
   // Phase label for user feedback (pinned above controls — always visible)
   const phaseLabel = stepPhase === 'pre' ? '⏳ Preparing'
@@ -299,7 +302,7 @@ export default function LiveDemo({
             className="demo-live-btn"
             onClick={onNext}
             disabled={isLast || !canNavigate}
-            title={canNavigate ? 'Next (→)' : 'Please wait — action in progress'}
+            title={isLast ? 'Last step' : canNavigate ? 'Next (→)' : nextDisabledReason}
             aria-label="Next step"
           >
             ▶

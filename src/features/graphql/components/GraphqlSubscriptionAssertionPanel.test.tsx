@@ -57,7 +57,17 @@ describe('GraphqlSubscriptionAssertionPanel', () => {
 
   it('shows empty hint when no assertions', () => {
     render(<GraphqlSubscriptionAssertionPanel assertions={[]} onChange={() => {}} />);
-    expect(screen.getByText(/No assertions yet/i)).toBeInTheDocument();
+    expect(screen.getByTestId('gql-assertion-empty')).toHaveTextContent(/No assertions yet/i);
+  });
+
+  it('shows per-message hint when assertions exist', () => {
+    render(
+      <GraphqlSubscriptionAssertionPanel
+        assertions={[makeAssertion()]}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByText(/Evaluated on every subscription message/i)).toBeInTheDocument();
   });
 
   it('calls onChange with a new assertion when Add is clicked', () => {

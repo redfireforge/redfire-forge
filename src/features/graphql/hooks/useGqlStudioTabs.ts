@@ -196,7 +196,7 @@ export function useGqlStudioTabs({
       const filtered = filterTabsForPersistence(tabsRef.current, session);
       const activeId = pickPersistedActiveTabId(filtered, activeTabIdRef.current);
       await saveTabs(filtered, activeId);
-    })();
+    })().catch(() => { /* quota / storage unavailable */ });
   }, []);
 
   const reloadFromStorage = useCallback(async () => {
@@ -230,7 +230,7 @@ export function useGqlStudioTabs({
         void saveTabs(
           tabsToUse,
           nextActive,
-        );
+        ).catch(() => { /* quota / storage unavailable */ });
       }
     } else {
       const blank = makeBlankTab();
@@ -325,7 +325,7 @@ export function useGqlStudioTabs({
     setActiveTabId(tab.id);
 
     if (loadedRef.current) {
-      void persistTabsNow(nextTabs, tab.id);
+      void persistTabsNow(nextTabs, tab.id).catch(() => { /* quota / storage unavailable */ });
     }
   }, [tabs, persistTabsNow]);
 
@@ -529,7 +529,7 @@ export function useGqlStudioTabs({
       });
       return changed ? next : prev;
     });
-  }, [pageDefaultEndpoint, pageDefaultEndpointResolved, storageHydrated, fieldUpdaters.relabelTab]);
+  }, [pageDefaultEndpoint, pageDefaultEndpointResolved, storageHydrated, fieldUpdaters, fieldUpdaters.relabelTab]);
 
   // ─── Derived state ─────────────────────────────────────────────
 

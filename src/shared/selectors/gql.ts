@@ -320,6 +320,7 @@ export const GQL = {
   HISTORY_COMPARE_SLOT_B_FILLED: '[data-testid="gql-history-compare-slot-b"][data-filled="true"]',
   HISTORY_COMPARE_BTN_ENABLED: '[data-testid="gql-history-compare-btn"]:not([disabled])',
   HISTORY_PREVIEW:            '[data-testid="gql-history-preview"]',
+  HISTORY_PREVIEW_BACK:       '[data-testid="gql-history-preview-back"]',
   HISTORY_PREVIEW_VARS_TAB:   '[data-testid="gql-history-preview-tab-variables"]',
   HISTORY_PREVIEW_VARS_PANEL: '[data-testid="gql-history-preview-variables"]',
   HISTORY_LOAD:        '[data-testid="gql-history-load"]',

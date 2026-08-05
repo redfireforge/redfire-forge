@@ -82,7 +82,7 @@ async function waitForDemoOverlay(page: import('@playwright/test').Page) {
 
 /** Click "Next (→)" in the demo player. */
 async function clickNext(page: import('@playwright/test').Page) {
-  const nextBtn = page.locator('button[title="Next (→)"]');
+  const nextBtn = page.locator('[aria-label="Next step"], button[title="Next (→)"]').first();
   await nextBtn.waitFor({ timeout: 5000 });
   await nextBtn.click();
   await page.waitForTimeout(500);

@@ -1,7 +1,9 @@
 /** GRPC-16 Schema Discovery — lesson steps */
 import { GRPC } from '@shared/selectors';
 import type { GrpcDemoLesson } from './grpc-lesson-contract';
+import { resetGrpcManageSchemasDraftsViaBridge } from '../../adapters';
 import {
+  clearGrpcManageSchemasUrlBsrDraftsQuiet,
   clearGrpcSchemaDriftQuiet,
   closeGrpcSettingsDrawerQuiet,
   ensureEchoMethodSelected,
@@ -15,7 +17,6 @@ import {
   openFreshGrpcTabQuietWithOptions,
   spotlightAndPause,
   spotlightAndPauseWithCallPanelHidden,
-  spotlightElementAndPause,
   spotlightRequestJsonContentTight,
   spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
@@ -23,6 +24,7 @@ import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import {
   ECHO_SCHEMA_NODE_SEL,
   ELIZA_SERVICE_SEL,
+  GRPC16_SPOTLIGHT,
   LOOKUP_REQUEST_JSON,
   LOOKUP_REQUEST_JSON_COMPACT,
   LOOKUP_SCHEMA_NODE_SEL,
@@ -32,7 +34,6 @@ import {
   SAMPLE_PROTO_SHARED,
   SAMPLE_PROTOSET,
   SAMPLE_URL_PROTO,
-  ensureLookupCallReadyQuiet,
   ensureManageModalClosed,
   ensureManageModalOpen,
   ensureManageModalOpenQuiet,
@@ -41,7 +42,11 @@ import {
   injectProtosetIntoManageSchemas,
   isLookupCallPanelReady,
   isLookupResponseReady,
+  performGrpc16DriftExplain,
+  performGrpc16ProtoLoad,
+  performGrpc16TabsOrientation,
   recoverGrpcReflectionQuiet,
+  resetProtoRootsToDefault,
   selectSchemaBrowserMethodQuiet,
   waitForManageSchemasLoadSuccess,
 } from './grpc-schema-discovery-helpers';
@@ -62,10 +67,10 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await ensureManageModalClosed(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 850);
-        await spotlightAndPause(ctx, GRPC.MANAGE_SCHEMAS_BTN, 800);
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
-        await spotlightAndPause(ctx, GRPC.CALL_PANEL, 850);
+        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.MANAGE_SCHEMAS_BTN, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, GRPC16_SPOTLIGHT.outcome);
+        await spotlightAndPause(ctx, GRPC.CALL_PANEL, GRPC16_SPOTLIGHT.beat);
       },
     },
 
@@ -84,8 +89,8 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       },
       action: async (ctx) => {
         await ensureGrpcTarget(ctx);
-        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 800);
-        await spotlightAndPause(ctx, GRPC.TARGET_STATUS_OK, 900);
+        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.TARGET_STATUS_OK, GRPC16_SPOTLIGHT.outcome);
       },
       verify: GRPC.TARGET_STATUS_OK,
     },
@@ -104,10 +109,10 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await ensureManageModalClosed(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 750);
+        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, GRPC16_SPOTLIGHT.beat);
         await ensureGrpcReflected(ctx);
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
-        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 900);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, GRPC16_SPOTLIGHT.outcome);
       },
       verify: GRPC.EXPLORER_TREE,
     },
@@ -127,16 +132,16 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       },
       action: async (ctx) => {
         await ctx.waitFor(GRPC.EXPLORER_SOURCE, 10_000);
-        await spotlightAndPause(ctx, GRPC.EXPLORER_FOOTER, 750);
-        await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 850);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_FOOTER, GRPC16_SPOTLIGHT.brief);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, GRPC16_SPOTLIGHT.outcome);
         await ctx.waitFor(GRPC.EXPLORER_SEARCH, 10_000);
-        await spotlightAndPause(ctx, GRPC.EXPLORER_SEARCH, 750);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_SEARCH, GRPC16_SPOTLIGHT.beat);
         await ctx.fill(GRPC.EXPLORER_SEARCH, 'Echo');
         await ctx.waitFor(GRPC.EXPLORER_TREE, 5_000);
-        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 800);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, GRPC16_SPOTLIGHT.beat);
         await ctx.fill(GRPC.EXPLORER_SEARCH, '');
-        await ctx.delay(500);
-        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 750);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterFill);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, GRPC16_SPOTLIGHT.brief);
       },
       verify: GRPC.EXPLORER_SOURCE,
     },
@@ -156,14 +161,15 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await ensureManageModalClosed(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.MANAGE_SCHEMAS_BTN, 800);
+        await spotlightAndPause(ctx, GRPC.MANAGE_SCHEMAS_BTN, GRPC16_SPOTLIGHT.beat);
         await ensureManageModalOpen(ctx);
-        await spotlightAndPause(ctx, GRPC.PROTO_MANAGE_MODAL, 850);
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTO_FILES, 750);
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTOSET, 700);
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_URL, 700);
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_BSR, 700);
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_SCHEMA_BROWSER, 800);
+        await spotlightAndPause(ctx, GRPC.PROTO_MANAGE_MODAL, GRPC16_SPOTLIGHT.outcome);
+        // One steady hold per tab — long enough to read the label before moving on.
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTO_FILES, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTOSET, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_URL, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_BSR, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_SCHEMA_BROWSER, GRPC16_SPOTLIGHT.outcome);
       },
       verify: GRPC.PROTO_MANAGE_MODAL,
     },
@@ -183,31 +189,17 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       pauseAfter: true,
       preAction: async (ctx) => {
         await clearGrpcSchemaDriftQuiet(ctx);
-        await ensureManageModalOpenQuiet(ctx);
+        // Prefer React-state wipe — no URL/BSR tab cycling flash during reading.
+        if (!resetGrpcManageSchemasDraftsViaBridge()) {
+          await ensureManageModalOpenQuiet(ctx);
+          await clearGrpcManageSchemasUrlBsrDraftsQuiet(ctx);
+          await resetProtoRootsToDefault(ctx);
+        } else {
+          await ensureManageModalOpenQuiet(ctx);
+        }
       },
       action: async (ctx) => {
-        // Spotlight each tab as we cycle through them
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTO_FILES, 600);
-        
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTOSET, 600);
-        await ctx.click(GRPC.PROTO_TAB_PROTOSET);
-        await ctx.waitFor(GRPC.PROTO_PROTOSET_ZONE, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, 700);
-        
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_URL, 600);
-        await ctx.click(GRPC.PROTO_TAB_URL);
-        await ctx.waitFor(GRPC.PROTO_URL_INPUT, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_URL_INPUT, 700);
-        
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_BSR, 600);
-        await ctx.click(GRPC.PROTO_TAB_BSR);
-        await ctx.waitFor(GRPC.PROTO_BSR_MODULE_INPUT, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_BSR_MODULE_INPUT, 700);
-        
-        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTO_FILES, 600);
-        await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
-        await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, 850);
+        await performGrpc16TabsOrientation(ctx);
       },
       verify: GRPC.PROTO_UPLOAD_ZONE,
     },
@@ -236,22 +228,23 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       },
       action: async (ctx) => {
         await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
-        await ctx.waitFor(GRPC.PROTO_ROOT_MANAGER, 10_000);
+        await ctx.waitFor(GRPC.PROTO_ROOT_MANAGER, 4_000);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterTab);
         // Beat 1 — root-aware model: uploads land in a virtual root; keep "shared" selected.
-        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 900);
+        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, GRPC16_SPOTLIGHT.beat);
         // Beat 2 — drop the two sample files into the upload zone.
-        await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, 800);
+        await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, GRPC16_SPOTLIGHT.beat);
         const uploaded = await injectProtoFilesIntoManageSchemas(ctx);
         if (!uploaded) {
-          await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 10_000);
-          await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, 850);
+          await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 3_000);
+          await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, GRPC16_SPOTLIGHT.beat);
           return;
         }
-        await ctx.waitFor(GRPC.PROTO_FILE_LIST, 10_000);
+        await ctx.waitFor(GRPC.PROTO_FILE_LIST, 4_000);
         // Beat 3 — outcome: both files now sit in the selected root's file list.
-        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_FILE_LIST, 1_000);
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_FILE_LIST, GRPC16_SPOTLIGHT.outcome);
         // Beat 4 — outcome the step teaches: files normalize to canonical <mount>/<file> paths.
-        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 1_100);
+        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, GRPC16_SPOTLIGHT.outcome);
       },
       verify: GRPC.PROTO_FILE_LIST,
     },
@@ -274,54 +267,10 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureProtoFilesTabQuiet(ctx);
-        await ctx.waitFor(GRPC.PROTO_LOAD_BTN, 5_000).catch(() => undefined);
+        await ctx.waitFor(GRPC.PROTO_LOAD_BTN, 2_500).catch(() => undefined);
       },
       action: async (ctx) => {
-        // Beat 1 — click the "shared" virtual root to make it active.
-        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_ROOT_LIST, 900);
-        const modal = document.querySelector<HTMLElement>(GRPC.PROTO_MANAGE_MODAL);
-        const sharedRoot = modal
-          ? Array.from(modal.querySelectorAll<HTMLElement>('[data-testid^="grpc-proto-root-item-"]'))
-            .find((entry) => entry.textContent?.toLowerCase().includes('shared'))
-          : null;
-        if (sharedRoot) {
-          sharedRoot.click();
-          await ctx.delay(450);
-        }
-        // Beat 2 — the right side switches context to the selected root.
-        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_SELECTED_ROOT, 850);
-        await ctx.waitFor(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
-
-        // Beat 3 — review each normalized canonical path row, then the full panel.
-        const fileList = document.querySelector<HTMLElement>(GRPC.PROTO_FILE_LIST);
-        if (fileList) {
-          const fileRows = Array.from(fileList.querySelectorAll<HTMLElement>('li.grpc-proto-file-item'));
-          const callPanel = document.querySelector<HTMLElement>(GRPC.CALL_PANEL);
-          const wasCallPanelVisible = callPanel && callPanel.style.display !== 'none';
-          if (callPanel) {
-            callPanel.style.display = 'none';
-          }
-          try {
-            for (const fileRow of fileRows) {
-              await spotlightElementAndPause(ctx, fileRow, 750);
-            }
-          } finally {
-            if (callPanel && wasCallPanelVisible) {
-              callPanel.style.display = '';
-            }
-          }
-        }
-        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 1_000);
-
-        // Beat 4 — payoff: press Load to parse the files into an active descriptor source.
-        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_LOAD_BTN, 900);
-        const hasFiles = (document.querySelector(GRPC.PROTO_FILE_LIST)?.children.length ?? 0) > 0;
-        if (hasFiles) {
-          await ctx.click(GRPC.PROTO_LOAD_BTN);
-          await ctx.delay(800);
-          // Beat 5 — outcome: Schema Browser can now browse the loaded service.
-          await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 1_000);
-        }
+        await performGrpc16ProtoLoad(ctx);
       },
       verify: GRPC.PROTO_LOAD_BTN,
     },
@@ -343,30 +292,32 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
+        // Cap waits so Lookup+Echo miss paths stay under DEMO_ACTION_TIMEOUT_MS (45s).
         await ctx.click(GRPC.PROTO_TAB_SCHEMA_BROWSER);
-        await ctx.waitFor(GRPC.SCHEMA_BROWSER, 10_000);
-        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER, 800);
-        await ctx.waitFor(GRPC.SCHEMA_BROWSER_TREE, 10_000);
-        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_SEARCH, 750);
+        await ctx.waitFor(GRPC.SCHEMA_BROWSER, 2_500);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterTab);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER, GRPC16_SPOTLIGHT.beat);
+        await ctx.waitFor(GRPC.SCHEMA_BROWSER_TREE, 2_500);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_SEARCH, GRPC16_SPOTLIGHT.beat);
         await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Lookup');
-        try {
-          await ctx.waitFor(LOOKUP_SCHEMA_NODE_SEL, 8_000);
-          await spotlightAndPause(ctx, LOOKUP_SCHEMA_NODE_SEL, 800);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterFill);
+        await ctx.waitFor(LOOKUP_SCHEMA_NODE_SEL, 2_000);
+        if (document.querySelector(LOOKUP_SCHEMA_NODE_SEL)) {
+          await spotlightAndPause(ctx, LOOKUP_SCHEMA_NODE_SEL, GRPC16_SPOTLIGHT.beat);
           await ctx.click(LOOKUP_SCHEMA_NODE_SEL);
-          await ctx.delay(500);
-        } catch {
-          try {
-            await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Echo');
-            await ctx.waitFor(ECHO_SCHEMA_NODE_SEL, 4_000);
-            await spotlightAndPause(ctx, ECHO_SCHEMA_NODE_SEL, 800);
+          await ctx.delay(GRPC16_SPOTLIGHT.afterClick);
+        } else {
+          await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Echo');
+          await ctx.delay(GRPC16_SPOTLIGHT.afterFill);
+          await ctx.waitFor(ECHO_SCHEMA_NODE_SEL, 1_500);
+          if (document.querySelector(ECHO_SCHEMA_NODE_SEL)) {
+            await spotlightAndPause(ctx, ECHO_SCHEMA_NODE_SEL, GRPC16_SPOTLIGHT.beat);
             await ctx.click(ECHO_SCHEMA_NODE_SEL);
-            await ctx.delay(500);
-          } catch {
-            // Schema Browser node selection is best-effort; lesson stays navigable if slow to render.
+            await ctx.delay(GRPC16_SPOTLIGHT.afterClick);
           }
         }
-        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_DETAIL, 900);
-        await spotlightAndPause(ctx, GRPC.SCHEMA_METHOD_SIGNATURE, 850);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_DETAIL, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_METHOD_SIGNATURE, GRPC16_SPOTLIGHT.outcome);
       },
       verify: GRPC.SCHEMA_BROWSER,
     },
@@ -383,13 +334,13 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await selectSchemaBrowserMethodQuiet(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_DETAIL, 750);
-        await spotlightAndPause(ctx, GRPC.SCHEMA_METHOD_SIGNATURE, 800);
-        await spotlightAndPause(ctx, GRPC.SCHEMA_COPY_GRPCURL_BTN, 900);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_DETAIL, GRPC16_SPOTLIGHT.brief);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_METHOD_SIGNATURE, GRPC16_SPOTLIGHT.beat);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_COPY_GRPCURL_BTN, GRPC16_SPOTLIGHT.outcome);
         const copyBtn = document.querySelector<HTMLElement>(GRPC.SCHEMA_COPY_GRPCURL_BTN);
         if (copyBtn) {
           copyBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(GRPC16_SPOTLIGHT.afterClick);
         }
       },
       verify: GRPC.SCHEMA_COPY_GRPCURL_BTN,
@@ -404,44 +355,50 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       highlight: GRPC.SCHEMA_OPEN_TAB_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
+        // Ensure the Manage Schemas modal is OPEN with the Lookup method selected
+        // so the action can spotlight and click "Open in tab" visibly.
+        // Do NOT click "Open in tab" here — that visible beat belongs to the action.
+        const modalOpen = () => Boolean(document.querySelector(GRPC.PROTO_MANAGE_MODAL));
+        const openTabVisible = () => Boolean(document.querySelector(GRPC.SCHEMA_OPEN_TAB_BTN));
+        if (modalOpen() && openTabVisible()) return;
+        // If we got here the modal is either closed or doesn't show Open in tab yet.
+        // Re-open it and navigate to Schema Browser → Lookup.
         await ensureManageModalClosed(ctx);
-        await ensureLookupCallReadyQuiet(ctx);
+        await selectSchemaBrowserMethodQuiet(ctx);
       },
       action: async (ctx) => {
         if (document.querySelector(GRPC.PROTO_MANAGE_MODAL) && document.querySelector(GRPC.SCHEMA_OPEN_TAB_BTN)) {
-          await spotlightAndPause(ctx, GRPC.SCHEMA_OPEN_TAB_BTN, 700);
+          await spotlightAndPause(ctx, GRPC.SCHEMA_OPEN_TAB_BTN, GRPC16_SPOTLIGHT.outcome);
           await ctx.click(GRPC.SCHEMA_OPEN_TAB_BTN);
           await ensureManageModalClosed(ctx);
-          try {
-            await ctx.waitFor(GRPC.CALL_PANEL, 4_000);
-          } catch {
-            await ctx.delay(300);
-          }
+          await ctx.waitFor(GRPC.CALL_PANEL, 3_000);
+          await ctx.delay(GRPC16_SPOTLIGHT.afterClick);
         } else if (!isLookupCallPanelReady()) {
           await ensureEchoMethodSelected(ctx);
         }
 
         if (document.querySelector(GRPC.REQUEST_JSON)) {
-          await spotlightRequestJsonContentTight(ctx, 850);
+          await spotlightRequestJsonContentTight(ctx, GRPC16_SPOTLIGHT.beat);
         } else {
-          await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT_MESSAGE, 850);
+          await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT_MESSAGE, GRPC16_SPOTLIGHT.beat);
         }
 
         if (!document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON)?.value.includes('A-100')) {
           await fillGrpcRequestJsonBody(ctx, LOOKUP_REQUEST_JSON);
+          await ctx.delay(GRPC16_SPOTLIGHT.afterFill);
         }
 
-        await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);
+        await spotlightAndPause(ctx, GRPC.SEND_BTN, GRPC16_SPOTLIGHT.beat);
         if (!isLookupResponseReady()) {
           await ctx.click(GRPC.SEND_BTN);
-          try {
-            await ctx.waitFor(GRPC.RESPONSE_BODY, 8_000);
-          } catch {
-            await ctx.waitFor(GRPC.RESPONSE_STATUS, 10_000);
+          // Cap wait so failed calls cannot burn the full action timeout alone.
+          await ctx.waitFor(GRPC.RESPONSE_BODY, 4_000);
+          if (!document.querySelector(GRPC.RESPONSE_BODY)) {
+            await ctx.waitFor(GRPC.RESPONSE_STATUS, 2_500);
           }
         }
-        await ctx.delay(400);
-        await spotlightResponseJsonContentTight(ctx, 900);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterClick);
+        await spotlightResponseJsonContentTight(ctx, GRPC16_SPOTLIGHT.outcome);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -465,20 +422,21 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       action: async (ctx) => {
         await ctx.click(GRPC.PROTO_TAB_PROTOSET);
         await ctx.waitFor(GRPC.PROTO_PROTOSET_ZONE, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, 850);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterTab);
+        await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, GRPC16_SPOTLIGHT.outcome);
         const uploaded = await injectProtosetIntoManageSchemas(ctx);
         if (!uploaded) {
-          await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, 800);
+          await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, GRPC16_SPOTLIGHT.beat);
           return;
         }
-        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 800);
+        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, GRPC16_SPOTLIGHT.beat);
         const loadBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_LOAD_BTN);
         if (!loadBtn || loadBtn.disabled) return;
 
         loadBtn.click();
         const loaded = await waitForManageSchemasLoadSuccess(ctx, 'protoset');
         if (loaded) {
-          await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 850);
+          await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, GRPC16_SPOTLIGHT.outcome);
         }
       },
       verify: GRPC.PROTO_PROTOSET_ZONE,
@@ -507,14 +465,15 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       action: async (ctx) => {
         await ctx.click(GRPC.PROTO_TAB_URL);
         await ctx.waitFor(GRPC.PROTO_URL_INPUT, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_URL_INPUT, 800);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterTab);
+        await spotlightAndPause(ctx, GRPC.PROTO_URL_INPUT, GRPC16_SPOTLIGHT.beat);
         await ctx.fill(GRPC.PROTO_URL_INPUT, SAMPLE_URL_PROTO);
-        await ctx.delay(400);
-        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 800);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterFill);
+        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, GRPC16_SPOTLIGHT.beat);
         const loadBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_LOAD_BTN);
         if (loadBtn && !loadBtn.disabled) {
           loadBtn.click();
-          await ctx.delay(800);
+          await ctx.delay(GRPC16_SPOTLIGHT.outcome);
         }
       },
       verify: GRPC.PROTO_URL_INPUT,
@@ -543,24 +502,27 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
+        // Network BSR fetch can be slow — keep network wait capped; local spotlight
+        // holds are guided so viewers can follow fills before Load.
         await ctx.click(GRPC.PROTO_TAB_BSR);
-        await ctx.waitFor(GRPC.PROTO_BSR_MODULE_INPUT, 6_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_BSR_MODULE_INPUT, 750);
+        await ctx.waitFor(GRPC.PROTO_BSR_MODULE_INPUT, 2_500);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterTab);
+        await spotlightAndPause(ctx, GRPC.PROTO_BSR_MODULE_INPUT, GRPC16_SPOTLIGHT.beat);
         await ctx.fill(GRPC.PROTO_BSR_MODULE_INPUT, SAMPLE_BSR_MODULE);
-        await ctx.delay(300);
-        await spotlightAndPause(ctx, GRPC.PROTO_BSR_VERSION_INPUT, 650);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterFill);
+        await spotlightAndPause(ctx, GRPC.PROTO_BSR_VERSION_INPUT, GRPC16_SPOTLIGHT.beat);
         await ctx.fill(GRPC.PROTO_BSR_VERSION_INPUT, SAMPLE_BSR_VERSION);
-        await ctx.delay(300);
-        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 700);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterFill);
+        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, GRPC16_SPOTLIGHT.beat);
 
         const loadBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_LOAD_BTN);
         if (!loadBtn || loadBtn.disabled) return;
 
         loadBtn.click();
-        const loaded = await waitForManageSchemasLoadSuccess(ctx, 'bsr', 12_000);
+        const loaded = await waitForManageSchemasLoadSuccess(ctx, 'bsr', 6_000);
         if (!loaded) {
           if (document.querySelector(GRPC.PROTO_LOAD_ERROR)) {
-            await spotlightAndPause(ctx, GRPC.PROTO_LOAD_ERROR, 900);
+            await spotlightAndPause(ctx, GRPC.PROTO_LOAD_ERROR, GRPC16_SPOTLIGHT.outcome);
           }
           return;
         }
@@ -568,20 +530,20 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         // Fresh tab has no previous method → no drift expected after BSR
         // loads Eliza. Close modal and show outcomes.
         await ensureManageModalClosed(ctx);
-        await ctx.delay(200);
+        await ctx.delay(GRPC16_SPOTLIGHT.afterClick);
 
         // Safety net: clear any unexpected drift that may still appear.
         if (document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)) {
           await clearGrpcSchemaDriftQuiet(ctx);
-          await ctx.delay(100);
+          await ctx.delay(200);
         }
 
         // Outcome: a clean bsr/ElizaService state with no drift banner.
-        await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 900);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, GRPC16_SPOTLIGHT.outcome);
         if (document.querySelector(ELIZA_SERVICE_SEL)) {
-          await spotlightAndPause(ctx, ELIZA_SERVICE_SEL, 850);
+          await spotlightAndPause(ctx, ELIZA_SERVICE_SEL, GRPC16_SPOTLIGHT.beat);
         }
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, GRPC16_SPOTLIGHT.beat);
       },
       verify: GRPC.EXPLORER_SOURCE,
     },
@@ -604,15 +566,7 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await clearGrpcSchemaDriftQuiet(ctx);
       },
       action: async (ctx) => {
-        await ctx.waitFor(GRPC.SERVICE_EXPLORER, 6_000);
-        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 750);
-        const driftBanner = document.querySelector(GRPC.SCHEMA_DRIFT_BANNER);
-        if (driftBanner) {
-          await spotlightAndPause(ctx, GRPC.SCHEMA_DRIFT_BANNER, 900);
-          await spotlightAndPause(ctx, GRPC.SCHEMA_DRIFT_REBINDS, 800);
-        }
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
-        await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 800);
+        await performGrpc16DriftExplain(ctx);
       },
       verify: GRPC.SERVICE_EXPLORER,
     },

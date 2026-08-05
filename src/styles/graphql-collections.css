@@ -580,23 +580,32 @@
 }
 
 .gql-history-preview-actions {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--bg);
 }
 
+.gql-history-preview-actions-spacer {
+  display: block;
+  min-height: 34px;
+}
+
 .gql-history-preview-actions .gql-history-preview-btn {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  padding: 5px 6px;
-  font-size: 0.68rem;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 0.74rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-sizing: border-box;
 }
 
 .gql-history-preview-btn {
@@ -614,6 +623,11 @@
 .gql-history-preview-btn:hover {
   background: var(--surface-hover);
   border-color: var(--primary);
+}
+
+.gql-history-preview-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }
 
 .gql-history-preview-btn--primary {
@@ -1756,9 +1770,19 @@
   padding: 16px;
 }
 
+.gql-script-modal-backdrop--dragged {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
 .gql-script-modal {
+  position: relative;
   width: min(820px, 95vw);
-  max-height: min(92vh, 900px);
+  height: min(720px, 92vh);
+  min-width: 560px;
+  min-height: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -1770,6 +1794,12 @@
     0 24px 64px rgba(0, 0, 0, 0.45),
     0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
+}
+
+.gql-script-modal--dragged {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--primary) 18%, var(--border)),
+    0 20px 56px color-mix(in srgb, var(--bg) 75%, transparent);
 }
 
 .gql-script-modal-header {
@@ -1784,11 +1814,43 @@
   flex-shrink: 0;
 }
 
+.gql-script-modal-header--draggable {
+  cursor: move;
+  user-select: none;
+}
+
+.gql-script-modal-header--draggable:active {
+  cursor: grabbing;
+}
+
+.gql-script-modal-drag-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  margin-top: 4px;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.gql-script-modal-header--draggable:hover .gql-script-modal-drag-grip {
+  opacity: 0.9;
+  color: var(--primary);
+}
+
 .gql-script-modal-header-main {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  flex: 1;
+}
+
+.gql-script-modal-drag-hint {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.65;
 }
 
 .gql-script-modal-heading {
@@ -2051,7 +2113,8 @@
   border-radius: 8px;
   overflow: hidden;
   background: var(--bg);
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .gql-script-editor-toolbar {
@@ -2094,8 +2157,9 @@
 }
 
 .gql-script-editor-wrap {
-  flex-shrink: 0;
-  min-height: 280px;
+  flex: 1 1 auto;
+  min-height: 200px;
+  height: 100%;
   background: var(--bg);
 }
 

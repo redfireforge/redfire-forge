@@ -535,11 +535,13 @@ describe('gql-export-share lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_CTX_COPY_CURL);
   });
 
-  it('setup creates demo tab', async () => {
+  it('setup creates demo tab without Environment Manager / Env modal', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="http://old" />
-      <button data-testid="gql-mode-editor"></button>
+      <div data-testid="gql-studio-page"></div>
+      <input data-testid="gql-endpoint-input" value="${'http://localhost:4010/graphql'}" />
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-env-badge"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     `;
     stubMonacoEditor('');
@@ -554,6 +556,23 @@ describe('gql-export-share lesson', () => {
       'Export & Share Queries',
     );
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
+  });
+
+  it('gql9-builder preAction uses direct HTTP introspect (no Env Manager)', async () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-builder')!;
+    expect(step.preAction).toBeTypeOf('function');
+    document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-env-badge"></button>
+      <button data-testid="gql-right-tab-schema"></button>
+      <div data-testid="gql-se-type-Query"></div>
+    `;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
   it('gqlExportShareLessonCleanup closes demo tab', async () => {
@@ -565,8 +584,9 @@ describe('gql-export-share lesson', () => {
   it('gqlExportShareLessonSetup closes history and collections panels', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="" />
-      <button data-testid="gql-mode-editor"></button>
+      <div data-testid="gql-studio-page"></div>
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
       <div data-testid="gql-history-panel"></div>
       <button data-testid="gql-activity-collections"></button>

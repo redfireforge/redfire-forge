@@ -13,15 +13,20 @@ import {
 } from './spotlight';
 
 const removeRing = vi.hoisted(() => vi.fn());
+const showSpotlightRing = vi.hoisted(() => vi.fn(() => removeRing));
+const purgeAllSpotlightRings = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../demoRipple', () => ({
-  showSpotlightRing: () => removeRing,
+  showSpotlightRing,
+  purgeAllSpotlightRings,
 }));
 
 describe('grpc-lesson-helpers/spotlight', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     removeRing.mockClear();
+    showSpotlightRing.mockClear();
+    purgeAllSpotlightRings.mockClear();
   });
 
   it('spotlightAndPause uses first visible element when multiple matches exist', async () => {
@@ -35,6 +40,8 @@ describe('grpc-lesson-helpers/spotlight', () => {
 
     await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 500);
 
+    expect(purgeAllSpotlightRings).toHaveBeenCalled();
+    expect(showSpotlightRing).toHaveBeenCalledWith(visible, { steady: true });
     expect(removeRing).toHaveBeenCalledTimes(1);
     expect(ctx.delay).toHaveBeenCalledWith(500);
   });
@@ -42,6 +49,7 @@ describe('grpc-lesson-helpers/spotlight', () => {
   it('spotlightAndPause is a no-op when selector matches nothing', async () => {
     const ctx = makeCtx();
     await spotlightAndPause(ctx, GRPC.REFLECT_BTN);
+    expect(showSpotlightRing).not.toHaveBeenCalled();
     expect(removeRing).not.toHaveBeenCalled();
   });
 
@@ -52,6 +60,8 @@ describe('grpc-lesson-helpers/spotlight', () => {
 
     await spotlightElementAndPause(ctx, el, 250);
 
+    expect(purgeAllSpotlightRings).toHaveBeenCalled();
+    expect(showSpotlightRing).toHaveBeenCalledWith(el, { steady: true });
     expect(removeRing).toHaveBeenCalledTimes(1);
     expect(ctx.delay).toHaveBeenCalledWith(250);
   });

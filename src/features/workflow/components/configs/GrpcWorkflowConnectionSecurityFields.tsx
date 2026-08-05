@@ -7,6 +7,7 @@ import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import { useGrpcTls } from '../../../grpc/hooks/useGrpcTls';
 import { buildGrpcAuthPreviewWithProfiles } from '../../../grpc/utils/grpcAuthProfileResolve';
 import type { GrpcWorkflowBaseConfig } from '../../types/workflow/node-grpc';
+import { KafkaFormRow } from './KafkaConfigUi';
 
 const TLS_MODE_OPTIONS: Array<{ value: GrpcTlsMode; label: string }> = [
   { value: 'disabled', label: 'Plaintext' },
@@ -59,9 +60,12 @@ export default function GrpcWorkflowConnectionSecurityFields<T extends GrpcWorkf
 
   return (
     <>
-      <div className="wf-config-field--row">
-        <label>TLS mode</label>
-        <div className="wf-config-inline-ctrls">
+      <KafkaFormRow
+        label="TLS mode"
+        hint={tlsMode === 'disabled' ? 'No encryption' : 'Encrypted channel'}
+        compact
+      >
+        <div className="wf-grpc-tls-ctrl">
           <CustomSelect
             data-testid={`${testIdPrefix}-tls-mode`}
             value={tlsMode}
@@ -75,15 +79,15 @@ export default function GrpcWorkflowConnectionSecurityFields<T extends GrpcWorkf
               data-testid={`${testIdPrefix}-tls-configure`}
               onClick={() => setTlsExpanded((open) => !open)}
             >
-              {tlsExpanded ? 'Hide certificates' : 'Configure certificates'}
+              {tlsExpanded ? 'Hide certs' : 'Configure'}
             </button>
           )}
         </div>
-      </div>
+      </KafkaFormRow>
 
       {tlsMode !== 'disabled' && tlsExpanded && (
         <div
-          className="wf-config-field"
+          className="wf-kafka-card-pad wf-grpc-tls-panel"
           data-testid={`${testIdPrefix}-tls-panel`}
         >
           <GrpcTlsConfigBody
@@ -97,8 +101,7 @@ export default function GrpcWorkflowConnectionSecurityFields<T extends GrpcWorkf
         </div>
       )}
 
-      <div className="wf-config-field" data-testid={`${testIdPrefix}-auth-section`}>
-        <label>Authentication</label>
+      <div className="wf-grpc-auth-embed" data-testid={`${testIdPrefix}-auth-section`}>
         <GrpcAuthPanel
           auth={data.auth}
           preview={authPreviewState.preview}

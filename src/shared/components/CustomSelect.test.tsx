@@ -61,6 +61,46 @@ describe('CustomSelect', () => {
     expect(screen.getByText('Gamma')).toBeInTheDocument();
   });
 
+  it('locks menu width to the trigger when menuMatchTriggerWidth is set', () => {
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        return {
+          left: 40,
+          width: 180,
+          top: 80,
+          bottom: 108,
+          right: 220,
+          height: 28,
+          x: 40,
+          y: 80,
+          toJSON: () => ({}),
+        };
+      },
+    });
+
+    render(
+      <CustomSelect
+        value=""
+        onChange={vi.fn()}
+        options={simpleOptions}
+        menuMatchTriggerWidth
+        aria-label="match-width"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'match-width' }));
+    const menu = screen.getByRole('listbox');
+    expect(menu.style.width).toBe('180px');
+    expect(menu.style.maxWidth).toBe('180px');
+    expect(menu.style.minWidth).toBe('180px');
+
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: originalGetBoundingClientRect,
+    });
+  });
+
   it('shows detail text for options that have it', () => {
     render(<CustomSelect value="" onChange={vi.fn()} options={simpleOptions} />);
     fireEvent.click(screen.getByRole('button'));

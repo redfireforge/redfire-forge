@@ -392,6 +392,8 @@ describe('wf-demo-helpers', () => {
     expect(ctx.fill).not.toHaveBeenCalled();
     expect(document.querySelector<HTMLInputElement>('[data-testid="field"]')!.value).toBe('hello');
     expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.afterFill);
+    // Steady spotlight ring (not outline flash) remains through the afterFill hold.
+    expect(document.querySelector('.demo-spotlight-ring--steady')).toBeTruthy();
   });
 
   it('scrollWfConfigModalToTop scrolls the modal viewport to 0', async () => {

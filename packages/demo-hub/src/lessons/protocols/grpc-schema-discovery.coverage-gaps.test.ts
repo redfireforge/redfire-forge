@@ -157,10 +157,11 @@ describe('grpc-schema-discovery coverage gaps', () => {
     await getStep('grpc16-tabs').action?.(ctx);
 
     expect(helperSpies.guardGrpcReflectedQuiet).toHaveBeenCalled();
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_PROTOSET);
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_URL);
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_BSR);
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_PROTO_FILES);
+    // Orientation uses native tab.click() to stay under the 16s action budget.
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_PROTOSET_ZONE, 1_200);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_URL_INPUT, 1_200);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_BSR_MODULE_INPUT, 1_200);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_UPLOAD_ZONE, 1_200);
   });
 
   it('opens the manage modal when it is initially absent', async () => {
@@ -195,7 +196,7 @@ describe('grpc-schema-discovery coverage gaps', () => {
     await getStep('grpc16-proto-load').action?.(ctx);
 
     expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_UPLOAD_ZONE, 10_000);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_CANONICAL_PREVIEW, 1_500);
     expect(document.querySelector(GRPC.PROTO_FILE_LIST)).not.toBeNull();
   });
 
@@ -257,7 +258,7 @@ describe('grpc-schema-discovery coverage gaps', () => {
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_BSR);
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.PROTO_URL_INPUT, 'http://localhost:5173/grpc-samples/url/echo.proto');
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.PROTO_BSR_MODULE_INPUT, 'buf.build/connectrpc/eliza');
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.SERVICE_EXPLORER, 6_000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.SERVICE_EXPLORER, 2_000);
   });
 
   it('returns early from protoset load when manage schema load reports an error', async () => {
