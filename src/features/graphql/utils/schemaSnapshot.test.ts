@@ -246,10 +246,11 @@ describe('IDB error paths', () => {
     reqResult?: unknown;
     reqFails?: boolean;
     txFails?: boolean;
+    nullErrors?: boolean;
   } = {}) {
     const fakeReq = {
       result: opts.reqResult ?? undefined,
-      error: new DOMException('req error'),
+      error: opts.nullErrors ? null : new DOMException('req error'),
       onsuccess: null as (() => void) | null,
       onerror: null as (() => void) | null,
     };
@@ -267,7 +268,7 @@ describe('IDB error paths', () => {
           void _range;
           const allReq = {
             result: opts.reqResult ?? null, // null triggers ?? [] branch
-            error: new DOMException('all error'),
+            error: opts.nullErrors ? null : new DOMException('all error'),
             onsuccess: null as (() => void) | null,
             onerror: null as (() => void) | null,
           };
@@ -283,7 +284,7 @@ describe('IDB error paths', () => {
       delete: vi.fn(),
     };
     const fakeTx = {
-      error: new DOMException('tx error'),
+      error: opts.nullErrors ? null : new DOMException('tx error'),
       oncomplete: null as (() => void) | null,
       onerror: null as (() => void) | null,
       objectStore: () => fakeStore,
@@ -310,6 +311,16 @@ describe('IDB error paths', () => {
     }));
     const { loadSnapshots: load } = await import('./schemaSnapshot');
     await expect(load('test-conn')).rejects.toBeInstanceOf(DOMException);
+    vi.doUnmock('../../../shared/utils/idbOpen');
+  });
+
+  it('loadSnapshots uses fallback Error when req.error is null', async () => {
+    vi.resetModules();
+    vi.doMock('../../../shared/utils/idbOpen', () => ({
+      openDB: vi.fn().mockResolvedValue(makeFakeDb({ reqFails: true, nullErrors: true })),
+    }));
+    const { loadSnapshots: load } = await import('./schemaSnapshot');
+    await expect(load('test-conn')).rejects.toThrow('IndexedDB loadSnapshots failed');
     vi.doUnmock('../../../shared/utils/idbOpen');
   });
 
@@ -346,6 +357,23 @@ describe('IDB error paths', () => {
     vi.doUnmock('../../../shared/utils/idbOpen');
   }, 10000);
 
+  it('saveSnapshot uses fallback Error when tx.error is null', async () => {
+    vi.resetModules();
+    let callCount = 0;
+    vi.doMock('../../../shared/utils/idbOpen', () => ({
+      openDB: vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve(makeFakeDb({ txFails: true, nullErrors: true }));
+        }
+        return Promise.resolve(makeFakeDb({ reqResult: [] }));
+      }),
+    }));
+    const { saveSnapshot: save } = await import('./schemaSnapshot');
+    await expect(save(makeSnapshot())).rejects.toThrow('IndexedDB saveSnapshot failed');
+    vi.doUnmock('../../../shared/utils/idbOpen');
+  }, 10000);
+
   it('deleteSnapshot rejects when IDB transaction fails (tx.onerror)', async () => {
     vi.resetModules();
     vi.doMock('../../../shared/utils/idbOpen', () => ({
@@ -360,6 +388,20 @@ describe('IDB error paths', () => {
     vi.doUnmock('./schemaDiffAck');
   });
 
+  it('deleteSnapshot uses fallback Error when tx.error is null', async () => {
+    vi.resetModules();
+    vi.doMock('../../../shared/utils/idbOpen', () => ({
+      openDB: vi.fn().mockResolvedValue(makeFakeDb({ txFails: true, nullErrors: true })),
+    }));
+    vi.doMock('./schemaDiffAck', () => ({
+      deleteAcksForSnapshot: vi.fn().mockResolvedValue(undefined),
+    }));
+    const { deleteSnapshot: del } = await import('./schemaSnapshot');
+    await expect(del('any-id')).rejects.toThrow('IndexedDB deleteSnapshot failed');
+    vi.doUnmock('../../../shared/utils/idbOpen');
+    vi.doUnmock('./schemaDiffAck');
+  });
+
   it('relabelSnapshot rejects when IDB transaction fails (tx.onerror)', async () => {
     vi.resetModules();
     vi.doMock('../../../shared/utils/idbOpen', () => ({
@@ -367,6 +409,16 @@ describe('IDB error paths', () => {
     }));
     const { relabelSnapshot: relabel } = await import('./schemaSnapshot');
     await expect(relabel('any-id', 'label')).rejects.toBeInstanceOf(DOMException);
+    vi.doUnmock('../../../shared/utils/idbOpen');
+  });
+
+  it('relabelSnapshot uses fallback Error when tx.error is null', async () => {
+    vi.resetModules();
+    vi.doMock('../../../shared/utils/idbOpen', () => ({
+      openDB: vi.fn().mockResolvedValue(makeFakeDb({ txFails: true, nullErrors: true })),
+    }));
+    const { relabelSnapshot: relabel } = await import('./schemaSnapshot');
+    await expect(relabel('any-id', 'label')).rejects.toThrow('IndexedDB relabelSnapshot failed');
     vi.doUnmock('../../../shared/utils/idbOpen');
   });
 

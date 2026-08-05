@@ -9,12 +9,11 @@ import {
 } from './WsConnectionTabBar';
 import {
   WsConnectionTabContent,
-  type WsConnectionTabContentHandle,
 } from './WsConnectionTabContent';
+import type { WsConnectionTabContentHandle } from './WsConnectionTabContent.types';
 import { buildWsEnvVarMap } from './wsMessageUtils';
 import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
 import { getRowStatus } from '../environments/utils/protocolEndpointUtils';
-import type { GlobalAuthProfile, Microservice } from '../../shared/types';
 import type {
   WsConnectionDraft,
   WsPersistedTabState,
@@ -28,41 +27,19 @@ import {
 } from '../../shared/websocket/types';
 import { loadWsTabState, saveWsTabState } from '../../shared/websocket/websocketStorage';
 import ConfirmModal from '../../shared/components/ConfirmModal';
+import {
+  MAX_TABS,
+  MOCK_PORT_BASE,
+  isAutoMockPort,
+  LOCALHOST_WS_URL_RE,
+  generateTabId,
+  advanceSeqPastRestoredIds,
+  deriveTabLabel,
+} from './WebSocketStudioPage.helpers';
+import type { WebSocketStudioPageProps } from './WebSocketStudioPage.types';
+import { useWsDemoBridges } from './useWsDemoBridges';
 import '../../styles/websocket-studio.css';
 import '../../styles/mock-server-shared.css';
-
-const MAX_TABS = 8;
-const MOCK_PORT_BASE = 9876;
-/** Auto-assigned mock ports live in [9876, 9876+MAX_TABS). Leftovers in this
- *  range (e.g. sticky 9878 after closing tabs) should be compacted; custom
- *  ports outside it (e.g. 9999) are left alone. */
-const isAutoMockPort = (port: number): boolean =>
-  port >= MOCK_PORT_BASE && port < MOCK_PORT_BASE + MAX_TABS;
-const LOCALHOST_WS_URL_RE = /^ws:\/\/localhost:\d+(\/.*)?$/i;
-
-let nextTabSeq = 1;
-function generateTabId(): string {
-  return `ws-tab-${nextTabSeq++}`;
-}
-
-function advanceSeqPastRestoredIds(tabs: WsConnectionTabInfo[]): void {
-  for (const tab of tabs) {
-    const match = tab.id.match(/^ws-tab-(\d+)$/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (num >= nextTabSeq) nextTabSeq = num + 1;
-    }
-  }
-}
-
-interface WebSocketStudioPageProps {
-  resolvedBaseUrl?: string;
-  envName?: string;
-  svcName?: string;
-  selectedSvc?: Microservice;
-  selectedEnvId?: string;
-  globalAuthProfiles?: GlobalAuthProfile[];
-}
 
 export function WebSocketStudioPage({
   resolvedBaseUrl,
@@ -376,110 +353,24 @@ export function WebSocketStudioPage({
     }, 300);
   }, [buildPersistState]);
 
-  // Quiet demo bridges — clear Saved profiles / templates / seed named tabs
-  // without thrashing UI during lesson setup (visible while Live).
-  useEffect(() => {
-    const w = window as Window & {
-      __demoClearWsProfiles?: () => Promise<void>;
-      __demoClearWsTemplates?: () => Promise<void>;
-      __demoSeedWsConnectionTabs?: (labels: string[]) => boolean;
-      __demoPrepareWsTlsLesson?: () => boolean;
-      __demoApplyWsTlsConfig?: (patch: {
-        rejectUnauthorized?: boolean;
-        caCert?: string;
-        clientCert?: string;
-        clientKey?: string;
-      }) => void;
-    };
-    w.__demoClearWsProfiles = () => profilesHook.clearAllProfiles();
-    w.__demoClearWsTemplates = () => templatesHook.clearAllTemplates();
-    w.__demoSeedWsConnectionTabs = (labels: string[]) => {
-      const clean = labels.map((l) => l.trim()).filter(Boolean).slice(0, MAX_TABS);
-      if (clean.length === 0) return false;
-      setTabs((prev) => {
-        const next: WsConnectionTabInfo[] = clean.map((label, i) => {
-          const existing = prev[i];
-          const id = existing?.id ?? generateTabId();
-          renamedTabIds.current.add(id);
-          return { id, label, url: existing?.url };
-        });
-        const nextIds = new Set(next.map((t) => t.id));
-        const ports: Record<string, number> = {};
-        next.forEach((t, i) => {
-          ports[t.id] = MOCK_PORT_BASE + i;
-        });
-        mockPortsRef.current = ports;
-        setMockPorts(ports);
-        setActiveTabId(next[0]!.id);
-        setConnectionStates((curr) => {
-          const out: Record<string, ConnectionStateHint> = {};
-          for (const t of next) {
-            out[t.id] = curr[t.id] ?? 'disconnected';
-          }
-          return out;
-        });
-        for (const id of Object.keys(tabUrls.current)) {
-          if (!nextIds.has(id)) delete tabUrls.current[id];
-        }
-        for (const id of Object.keys(initialUrlsRef.current)) {
-          if (!nextIds.has(id)) delete initialUrlsRef.current[id];
-        }
-        debouncedSave();
-        return next;
-      });
-      return true;
-    };
-    /** Quiet Secure-WebSocket lesson setup — no TLS bar/modal flash. */
-    w.__demoPrepareWsTlsLesson = () => {
-      const id = activeTabIdRef.current;
-      if (!id) return false;
-      const keep = tabsRef.current.find((t) => t.id === id) ?? tabsRef.current[0];
-      if (!keep) return false;
-      const keepId = keep.id;
-
-      setStudioLoc((prev) => ({
-        ...prev,
-        [keepId]: { mode: 'client', leftTab: 'connect', rightTab: 'events' },
-      }));
-
-      if (tabsRef.current.length > 1) {
-        const nextIds = new Set([keepId]);
-        for (const tid of Object.keys(tabUrls.current)) {
-          if (!nextIds.has(tid)) delete tabUrls.current[tid];
-        }
-        for (const tid of Object.keys(initialUrlsRef.current)) {
-          if (!nextIds.has(tid)) delete initialUrlsRef.current[tid];
-        }
-        setTabs([keep]);
-        setActiveTabId(keepId);
-        setConnectionStates((curr) => ({ [keepId]: curr[keepId] ?? 'disconnected' }));
-        setMockPorts((ports) => {
-          const nextPorts = { [keepId]: ports[keepId] ?? MOCK_PORT_BASE };
-          mockPortsRef.current = nextPorts;
-          return nextPorts;
-        });
-        debouncedSave();
-      }
-
-      const handle = tabRefs.current.get(keepId)?.current;
-      handle?.prepareForTlsLesson();
-      return !!handle;
-    };
-    /** Apply TLS overrides on the active tab without opening the modal. */
-    w.__demoApplyWsTlsConfig = (patch) => {
-      const id = activeTabIdRef.current;
-      if (!id) return;
-      tabRefs.current.get(id)?.current?.applyTlsConfig(patch);
-    };
-    return () => {
-      delete w.__demoClearWsProfiles;
-      delete w.__demoClearWsTemplates;
-      delete w.__demoSeedWsConnectionTabs;
-      delete w.__demoPrepareWsTlsLesson;
-      delete w.__demoApplyWsTlsConfig;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useWsDemoBridges({
+    profilesHook,
+    templatesHook,
+    activeTabIdRef,
+    tabsRef,
+    tabRefs,
+    renamedTabIdsRef: renamedTabIds,
+    tabUrls,
+    initialUrlsRef,
+    mockPortsRef,
+    setStudioLoc,
+    setTabs,
+    setActiveTabId,
+    setConnectionStates,
+    setMockPorts,
+    debouncedSave,
+    generateTabId,
+  });
 
   // Clean up save timer on unmount + save immediately
   useEffect(() => {
@@ -869,21 +760,4 @@ export function WebSocketStudioPage({
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function deriveTabLabel(url: string): string | null {
-  const trimmed = url.trim();
-  if (!trimmed || trimmed.length < 6) return null;
-  if (!/^wss?:\/\/.{2,}/.test(trimmed)) return null;
-  try {
-    const parsed = new URL(trimmed);
-    const host = parsed.hostname;
-    if (!host || host.length < 2) return null;
-    const port = parsed.port;
-    return port ? `${host}:${port}` : host;
-  } catch {
-    const match = trimmed.match(/wss?:\/\/([^/:\s]{2,})(?::(\d+))?/);
-    if (match) {
-      return match[2] ? `${match[1]}:${match[2]}` : match[1];
-    }
-    return null;
-  }
-}
+export { deriveTabLabel } from './WebSocketStudioPage.helpers';
