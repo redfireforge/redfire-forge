@@ -315,10 +315,16 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
         }
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.SEND_BTN, 800);
+        await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);
         await ensureUnaryExecuted(ctx);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
-        await spotlightResponseJsonContentTight(ctx, 950);
+        // Only spotlight response elements when they are already in the DOM
+        // (avoids extra waitFor time that could breach the 16 s action budget).
+        if (document.querySelector(GRPC.RESPONSE_STATUS)) {
+          await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 700);
+        }
+        if (document.querySelector(GRPC.RESPONSE_BODY)) {
+          await spotlightResponseJsonContentTight(ctx, 800);
+        }
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -415,19 +421,19 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
         }
       },
       action: async (ctx) => {
-        try {
-          await ctx.waitFor(GRPC.SEND_BTN, 5_000);
-          await spotlightAndPause(ctx, GRPC.SEND_BTN, 900);
-          const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.SEND_BTN);
-          if (sendBtn && !sendBtn.disabled) {
-            sendBtn.click();
-            await ctx.waitFor(GRPC.RESPONSE_STATUS, 8_000);
-            await ctx.waitFor(GRPC.RESPONSE_BODY, 5_000);
-            await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
-            await spotlightResponseJsonContentTight(ctx, 950);
+        // Budget: 5s wait for Send btn + 700ms spotlight + click + 7s response + 700ms + 700ms = ~14s < 16s
+        await ctx.waitFor(GRPC.SEND_BTN, 5_000);
+        const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.SEND_BTN);
+        if (sendBtn && !sendBtn.disabled) {
+          await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);
+          sendBtn.click();
+          await ctx.waitFor(GRPC.RESPONSE_STATUS, 7_000);
+          if (document.querySelector(GRPC.RESPONSE_STATUS)) {
+            await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 700);
           }
-        } catch {
-          // Replay or send unavailable in some local runs — keep lesson stable.
+          if (document.querySelector(GRPC.RESPONSE_BODY)) {
+            await spotlightResponseJsonContentTight(ctx, 700);
+          }
         }
       },
       verify: GRPC.RESPONSE_BODY,

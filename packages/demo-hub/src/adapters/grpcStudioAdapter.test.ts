@@ -18,6 +18,7 @@ import {
   patchGrpcSchemaDiffReport,
   resetGrpcActiveTabTransport,
   resetGrpcActiveTabRuntimeState,
+  resetGrpcManageSchemasDraftsViaBridge,
 } from './grpcStudioAdapter';
 
 afterEach(() => {
@@ -26,6 +27,7 @@ afterEach(() => {
   delete (window as unknown as { __demoGetGrpcActiveDescriptorKey?: unknown }).__demoGetGrpcActiveDescriptorKey;
   delete (window as unknown as { __demoPatchGrpcActiveTab?: unknown }).__demoPatchGrpcActiveTab;
   delete (window as unknown as { __demoResetGrpcActiveTab?: unknown }).__demoResetGrpcActiveTab;
+  delete (window as unknown as { __demoResetGrpcManageSchemasDrafts?: unknown }).__demoResetGrpcManageSchemasDrafts;
   delete (window as unknown as { __demoPatchGrpcSchemaDiffReport?: unknown }).__demoPatchGrpcSchemaDiffReport;
 });
 
@@ -84,6 +86,14 @@ describe('grpcStudioAdapter', () => {
     expect(bridge).toHaveBeenCalledTimes(1);
   });
 
+  it('resetGrpcManageSchemasDraftsViaBridge calls draft-reset bridge when present', () => {
+    const bridge = vi.fn().mockReturnValue(true);
+    (window as unknown as { __demoResetGrpcManageSchemasDrafts?: () => boolean }).__demoResetGrpcManageSchemasDrafts = bridge;
+
+    expect(resetGrpcManageSchemasDraftsViaBridge()).toBe(true);
+    expect(bridge).toHaveBeenCalledTimes(1);
+  });
+
   it('getGrpcActiveDescriptorKey reads the descriptor key bridge when present', () => {
     const bridge = vi.fn().mockReturnValue('descriptor-live');
     (window as unknown as { __demoGetGrpcActiveDescriptorKey?: () => string | null }).__demoGetGrpcActiveDescriptorKey = bridge;
@@ -104,6 +114,7 @@ describe('grpcStudioAdapter', () => {
 
   it('bridge helpers return false when bridge is unavailable', () => {
     expect(resetGrpcActiveTabRuntimeState()).toBe(false);
+    expect(resetGrpcManageSchemasDraftsViaBridge()).toBe(false);
     expect(patchGrpcActiveTabExportContext({})).toBe(false);
     expect(resetGrpcActiveTabTransport()).toBe(false);
     expect(patchGrpcActiveTabBody('{"a":1}')).toBe(false);

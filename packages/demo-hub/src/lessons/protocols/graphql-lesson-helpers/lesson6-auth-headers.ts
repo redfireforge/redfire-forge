@@ -125,7 +125,8 @@ export async function selectInheritGlobalProfileInPanel(ctx: DemoActionContext):
 
 // ── Core DOM helpers ──────────────────────────────────────────────────────────
 
-async function closeEnvIfOpen(ctx: DemoActionContext): Promise<void> {
+/** Close GraphQL Studio Env modal if open (quiet recovery / lesson belts). */
+export async function closeEnvIfOpen(ctx: DemoActionContext): Promise<void> {
   if (!document.querySelector(GQL.ENV_MODAL)) return;
   const closeBtn = document.querySelector<HTMLElement>(GQL.ENV_CLOSE_BTN);
   if (closeBtn) {

@@ -55,9 +55,16 @@ function textareaByLabel(container: HTMLElement, labelText: string): HTMLTextAre
   return control as HTMLTextAreaElement;
 }
 
+function findRowLabel(container: HTMLElement, labelText: string): Element | undefined {
+  return Array.from(container.querySelectorAll('label, .wf-kafka-form-label')).find(
+    (l) => l.textContent?.trim() === labelText,
+  );
+}
+
 function rowSelectWrapper(container: HTMLElement, labelText: string): Element {
-  const label = Array.from(container.querySelectorAll('label')).find((l) => l.textContent?.trim() === labelText);
-  const wrapper = label?.parentElement?.querySelector('.cs-wrapper');
+  const label = findRowLabel(container, labelText);
+  const row = label?.closest('.wf-config-field--row, .wf-kafka-form-row') ?? label?.parentElement;
+  const wrapper = row?.querySelector('.cs-wrapper');
   if (!wrapper) {
     throw new Error(`Could not find CustomSelect for label "${labelText}"`);
   }

@@ -11,11 +11,11 @@ import {
   configureDemoTabEndpointOverride,
   ensureEditorMode,
   ensureGqlDemoPageDefaultEndpoint,
-  ensureIntrospectedWithPageDefault,
   fillGqlEditor,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
 } from './core';
+import { navigateToGraphqlStudio } from '../../env-manager-lesson-helpers';
 import { patchDemoTabConnection, patchDemoTabConnectionById, resetGqlDemoBatchDetection } from '../../../adapters';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
@@ -662,7 +662,12 @@ export async function ensureLesson15IntroReady(ctx: DemoActionContext): Promise<
   await ctx.waitFor(GQL.TAB_BAR, 5000);
 }
 
-/** Batch lesson setup (GQL-15) — demo tab with tabBudget 2. */
+/**
+ * Batch lesson setup (GQL-15) — demo tab with tabBudget 2.
+ * Keep this light: step 1 only needs the tab bar. Full introspection belongs in
+ * later preActions — stacking ensureIntrospectedWithPageDefault here froze
+ * Preparing for 25–70s when Docker/schema was slow or down.
+ */
 export async function gqlBatchLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -686,11 +691,14 @@ export async function gqlBatchLessonSetup(ctx: DemoActionContext): Promise<void>
   await closeGqlActivityPanelIfOpen(ctx);
   const responseTab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE);
   if (responseTab && responseTab.getAttribute('aria-selected') !== 'true') {
-    await ctx.click(GQL.RIGHT_TAB_RESPONSE);
-    await ctx.delay(200);
+    responseTab.click();
+    await ctx.delay(120);
   }
+  await navigateToGraphqlStudio(ctx);
   await ensureGqlDemoTab(ctx, GQL15_LESSON_ID, 'Batch Execution', 2);
-  await ensureIntrospectedWithPageDefault(ctx);
+  // Page-default endpoint only (same as GQL-14 setup) — no introspect wait.
+  await ensureGqlDemoPageDefaultEndpoint(ctx);
+  await patchDemoTabConnection({ endpoint: undefined });
   await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
 }
 

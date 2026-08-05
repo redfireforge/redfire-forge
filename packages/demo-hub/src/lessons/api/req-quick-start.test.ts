@@ -51,7 +51,68 @@ describe('req-quick-start lesson (v2)', () => {
     expect(terms).toContain('Response History');
   });
 
-  it('does not reference gallery in allowedTabs', () => {
-    expect(reqQuickStartLesson.allowedTabs).not.toContain('gallery');
+  it('step 2 action creates Get Users when only a leftover editor is open', async () => {
+    // Simulate an unrelated ENV request already open (has URL input) but no My API request yet.
+    document.body.innerHTML = `
+      <div data-testid="req-sidebar">
+        <div class="req-col-group">
+          <div data-testid="req-col-item" data-col-name="My API"></div>
+          <div class="req-req-list" style="display:block;height:40px"></div>
+        </div>
+      </div>
+      <div data-testid="req-tab-bar">
+        <div role="tab" aria-selected="true">
+          <span data-testid="req-tab-label">Rest RuleFact API</span>
+        </div>
+      </div>
+      <div data-testid="req-editor">
+        <div data-testid="req-method-select"><button>GET</button></div>
+        <input data-testid="req-url-input" value="/users" />
+      </div>
+      <div data-testid="req-context-menu" style="display:block;width:10px;height:10px">
+        <button>Add Request</button>
+      </div>
+      <div data-testid="req-new-request-prompt" style="display:block;width:10px;height:10px">
+        <input data-testid="req-new-request-name" />
+        <button class="btn-primary">Create</button>
+      </div>
+    `;
+
+    Element.prototype.scrollIntoView = () => {};
+
+    const ctx = makeCtx();
+    const makeVisible = (el: Element | null) => {
+      if (!el) return;
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({ width: 100, height: 20, top: 0, left: 0, bottom: 20, right: 100, x: 0, y: 0, toJSON: () => ({}) }),
+      });
+    };
+    makeVisible(document.querySelector('[data-col-name="My API"]'));
+    makeVisible(document.querySelector('[data-testid="req-context-menu"]'));
+    makeVisible(document.querySelector('[data-testid="req-new-request-prompt"]'));
+    makeVisible(document.querySelector('[data-testid="req-url-input"]'));
+    makeVisible(document.querySelector('[data-testid="req-method-select"]'));
+
+    // After Create, simulate the lesson request appearing under My API
+    const urlInput = document.querySelector('[data-testid="req-url-input"]') as HTMLInputElement;
+    const createBtn = document.querySelector('.btn-primary') as HTMLButtonElement;
+    createBtn.addEventListener('click', () => {
+      const list = document.querySelector('.req-req-list');
+      const item = document.createElement('div');
+      item.setAttribute('data-testid', 'req-req-item');
+      item.setAttribute('data-req-name', 'Get Users');
+      makeVisible(item);
+      list?.appendChild(item);
+      urlInput.value = '';
+      const tabLabel = document.querySelector('[data-testid="req-tab-label"]');
+      if (tabLabel) tabLabel.textContent = 'Get Users';
+    });
+
+    const step = reqQuickStartLesson.steps[1];
+    await step.action!(ctx);
+
+    expect(urlInput.value).toBe('https://jsonplaceholder.typicode.com/users');
+    expect(document.querySelector('[data-req-name="Get Users"]')).toBeTruthy();
   });
 });

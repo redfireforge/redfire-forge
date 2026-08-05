@@ -701,6 +701,25 @@ export async function closeExtraRequestTabs(ctx: DemoActionContext): Promise<voi
   }
 }
 
+/** Close every open request tab (including the last). Clears leftover product tabs before demos. */
+export async function closeAllRequestTabs(ctx: DemoActionContext): Promise<void> {
+  const closeAllBtn = document.querySelector<HTMLElement>(REQ.TAB_CLOSE_ALL);
+  if (closeAllBtn) {
+    closeAllBtn.click();
+    await ctx.delay(200);
+  }
+  let guard = 0;
+  while (getRequestTabCount() > 0 && guard < 12) {
+    const tabs = document.querySelectorAll<HTMLElement>(REQ_TAB_ROLE_SELECTOR);
+    const tab = tabs[tabs.length - 1];
+    const closeBtn = tab?.querySelector<HTMLElement>(REQ.TAB_CLOSE);
+    if (!closeBtn) break;
+    closeBtn.click();
+    await ctx.delay(200);
+    guard += 1;
+  }
+}
+
 /** Click a request tab by its 0-based index. */
 export async function clickRequestTabByIndex(
   ctx: DemoActionContext,

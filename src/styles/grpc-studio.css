@@ -7978,6 +7978,18 @@
   min-height: 0;
 }
 
+.grpc-collections-sidebar__hint {
+  margin: 16px 14px;
+  padding: 0;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .grpc-console-list {
   flex: 1;
   overflow-y: auto;
@@ -8149,9 +8161,13 @@
 
 .grpc-saved-request-detail__empty {
   margin: 16px;
+  font-family: var(--font);
   font-size: 0.86rem;
+  font-weight: 400;
+  font-style: normal;
   line-height: 1.45;
   color: var(--text-muted);
+  text-align: center;
 }
 
 .grpc-history-detail-split {

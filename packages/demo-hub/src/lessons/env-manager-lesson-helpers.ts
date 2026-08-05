@@ -307,8 +307,40 @@ export async function ensureGqlDemoEndpointConfigured(ctx: DemoActionContext): P
   );
 }
 
-/** Ensure demo env/svc exist and are selected in the app header so {{graphqlUrl}} resolves. */
+/**
+ * Ensure demo env/svc exist and are selected in the app header so {{graphqlUrl}} resolves.
+ * Prefer the settings bridge (zero UI churn). Never open Environment Manager when the bridge works.
+ */
 export async function ensureGqlDemoHeaderContext(ctx: DemoActionContext): Promise<void> {
+  if (
+    isNamedHeaderOptionSelected(APP.HEADER_ENV_SELECT, GQL_DEMO_ENV_NAME)
+    && isNamedHeaderOptionSelected(APP.HEADER_SVC_SELECT, GQL_DEMO_SVC_NAME)
+  ) {
+    await navigateToGraphqlStudio(ctx);
+    return;
+  }
+
+  // Prefer the demo bridge — creates env/svc + selects IDs without opening EM or header menus.
+  // httpBase falls back for graphqlUrl when no GraphQL protocol row exists yet.
+  const w = getDemoBridgeWindow();
+  if (w.__demoEnsureSettingsEnv && w.__demoEnsureSettingsSvc && w.__demoSelectEnvSvc) {
+    const envId = w.__demoEnsureSettingsEnv(GQL_DEMO_ENV_NAME);
+    const svcId = w.__demoEnsureSettingsSvc(GQL_DEMO_SVC_NAME, { [envId]: GQL_DEMO_BASE_URL });
+    w.__demoSelectEnvSvc(envId, svcId);
+    for (let i = 0; i < 16; i++) {
+      if (
+        isNamedHeaderOptionSelected(APP.HEADER_ENV_SELECT, GQL_DEMO_ENV_NAME)
+        && isNamedHeaderOptionSelected(APP.HEADER_SVC_SELECT, GQL_DEMO_SVC_NAME)
+      ) {
+        break;
+      }
+      await ctx.delay(40);
+    }
+    await navigateToGraphqlStudio(ctx);
+    return;
+  }
+
+  // No bridge (unit tests / degraded shell): configure via EM if needed, then select once.
   const envReady = isNamedHeaderOptionAvailable(APP.HEADER_ENV_SELECT, GQL_DEMO_ENV_NAME);
   const svcReady = isNamedHeaderOptionAvailable(APP.HEADER_SVC_SELECT, GQL_DEMO_SVC_NAME);
   if (!envReady || !svcReady) {
@@ -316,7 +348,6 @@ export async function ensureGqlDemoHeaderContext(ctx: DemoActionContext): Promis
   }
   await selectEnvInHeader(ctx, GQL_DEMO_ENV_NAME);
   await selectSvcInHeader(ctx, GQL_DEMO_SVC_NAME);
-  // EM setup uses navigateToTab('environments'); GraphQL lesson steps need Studio UI afterward.
   await navigateToGraphqlStudio(ctx);
 }
 

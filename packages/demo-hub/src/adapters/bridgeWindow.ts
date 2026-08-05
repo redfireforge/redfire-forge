@@ -8,6 +8,8 @@ export type DemoBridgeWindow = Window &
   typeof globalThis & {
     __demoPatchGrpcActiveTab?: (patch: { grpcurlExportContext?: GrpcGrpcurlExportContext }) => boolean;
     __demoResetGrpcActiveTab?: () => boolean;
+    /** Reset Manage Schemas draft state without opening the modal. */
+    __demoResetGrpcManageSchemasDrafts?: () => boolean;
     __demoGetGrpcActiveDescriptorKey?: () => string | null;
     __demoCollapseAppSidebar?: () => void;
     __demoExpandAppSidebar?: () => void;

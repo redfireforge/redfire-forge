@@ -24,7 +24,7 @@ Hard-won from GQL-1..3 (`demo-gql-first-query`, `demo-gql-variables`, `demo-gql-
 
 ## 1. Last step — Next is always disabled
 
-**Root cause:** `LiveDemo.tsx` sets `disabled={isLast || !canNavigate}` on the Next button. On the **final step**, Next is **never** enabled — even during reading. The **Complete lesson** button appears instead when `stepPhase === 'done'`.
+**Root cause:** `LiveDemo.tsx` sets `disabled={isLast || !canNavigate}` on the Next button (`canNavigate` only when `stepPhase === 'done'`). On the **final step**, Next is **never** enabled. The **Complete lesson** button appears instead when `stepPhase === 'done'`. Next is also disabled during **reading** on every step — skip reading via the phase badge.
 
 **Symptom:** Test hangs for 600s in `waitForReadingPhase()` inside `runNextStep()`.
 
@@ -59,7 +59,7 @@ await page.locator('[aria-label="Next step"]').click();
 await finishDemoStep(page, timeout);
 ```
 
-**GQL-1 nuance:** Next is disabled on the last step even **during reading**. Use `waitForGql1StepReady` (reading **or** done) after entering the final step — see `e2e/demo-gql-first-query.spec.ts` and `walkFullGql1Lesson` in `graphql-lesson-smoke-helpers.ts`.
+**GQL-1 nuance:** Next is disabled on the last step always (and during reading on every step). Use `waitForGql1StepReady` (reading **or** done) after entering the final step — see `e2e/demo-gql-first-query.spec.ts` and `walkFullGql1Lesson` in `graphql-lesson-smoke-helpers.ts`.
 
 **Reference implementations:**
 
@@ -179,7 +179,7 @@ npm run test:e2e:demo:gql3   # not npm run test:e2e
 
 ## 8. Synchronisation (always)
 
-Never click **Next** during reading — that skips the step `action()`.
+Never click **Next** during reading — Next is disabled; skip via the phase badge so `action()` still runs.
 
 ```typescript
 await completeCurrentStepAction(page);  // skip reading badge → wait data-step-phase=done

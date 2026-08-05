@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
+import { createDefaultProtoIngestState } from '../grpcStudioTypes';
 
 export function useGrpcStudioPageDemoBridges(
   studio: UseGrpcStudioReturn,
@@ -27,6 +28,18 @@ export function useGrpcStudioPageDemoBridges(
       });
       return true;
     };
+    /**
+     * Quietly wipe Manage Schemas draft inputs (proto/protoset/url/bsr) on the
+     * active tab without opening the modal — avoids setup-time UI flash.
+     */
+    w.__demoResetGrpcManageSchemasDrafts = () => {
+      const tabId = studio.activeTab?.id;
+      if (!tabId) return false;
+      studio.patchTabDescriptor(tabId, {
+        protoIngest: createDefaultProtoIngestState(),
+      });
+      return true;
+    };
     w.__demoGetGrpcActiveDescriptorKey = () => {
       const key = (studio.activeTabDescriptor.descriptor?.key ?? studio.activeTab?.descriptorKey ?? '').trim();
       return key || null;
@@ -34,6 +47,7 @@ export function useGrpcStudioPageDemoBridges(
     return () => {
       delete w.__demoPatchGrpcActiveTab;
       delete w.__demoResetGrpcActiveTab;
+      delete w.__demoResetGrpcManageSchemasDrafts;
       delete w.__demoGetGrpcActiveDescriptorKey;
     };
   }, [studio]);

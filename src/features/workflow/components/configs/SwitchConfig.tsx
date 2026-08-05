@@ -5,7 +5,7 @@ import { useListCrud } from '../../../../shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
-import ConfigSectionGroup from './ConfigSectionGroup';
+import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
 
 export default function SwitchConfig({
   data,
@@ -30,74 +30,116 @@ export default function SwitchConfig({
   };
 
   return (
-    <div className="wf-config-body wf-switch-config">
-      <div className="wf-config-field--row">
-        <label>Label</label>
-        <input value={data.label} onChange={(e) => onChange({ ...data, label: e.target.value })} />
-      </div>
+    <div className="wf-config-body wf-switch-config" data-testid="switch-config">
+      <KafkaCard
+        title="Switch"
+        hint="Evaluate an expression and route to the first matching case."
+      >
+        <div className="wf-kafka-form wf-kafka-form--switch">
+          <KafkaFormRow label="Label" hint="Canvas node title" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={data.label}
+              onChange={(e) => onChange({ ...data, label: e.target.value })}
+              aria-label="Switch label"
+            />
+          </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>Expression</label>
-        <InsertVarField
-          onRequestVariableInsert={onRequestVariableInsert}
-          onInsert={(snippet) => onChange({ ...data, expression: data.expression + snippet })}
-        >
-          <ExpressionInput
-            value={data.expression}
-            onChange={(val) => onChange({ ...data, expression: val })}
-            placeholder="e.g. {{status}} or {{category}}"
-            variableHints={variableHints}
-          />
-        </InsertVarField>
-      </div>
-
-      <ConfigSectionGroup title="Cases" count={cases.length}>
-        <div className="wf-switch-cases-list">
-          {cases.length === 0 && (
-            <div className="wf-switch-empty">No cases defined — only the Default path will be used</div>
-          )}
-          {cases.map((c, i) => (
-            <div key={c.id} className="wf-switch-case-row">
-              <span className="wf-switch-case-idx">{i + 1}</span>
-              <input
-                className="wf-switch-case-value"
-                value={c.value}
-                onChange={(e) => updateCaseByIdx(i, { value: e.target.value })}
-                placeholder="Match value"
+          <KafkaFormRow label="Expression" hint="Value compared to cases" compact>
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              shortRef
+              onInsert={(snippet) => onChange({ ...data, expression: data.expression + snippet })}
+            >
+              <ExpressionInput
+                value={data.expression}
+                onChange={(val) => onChange({ ...data, expression: val })}
+                placeholder="e.g. {{status}} or {{category}}"
+                variableHints={variableHints}
+                aria-label="Switch expression"
               />
-              <input
-                className="wf-switch-case-label"
-                value={c.label ?? ''}
-                onChange={(e) => updateCaseByIdx(i, { label: e.target.value })}
-                placeholder="Label (optional)"
-              />
-              <div className="wf-switch-case-actions">
-                <button
-                  type="button"
-                  className="wf-switch-case-btn"
-                  onClick={() => moveCase(i, -1)}
-                  disabled={i === 0}
-                  title="Move up"
-                >▲</button>
-                <button
-                  type="button"
-                  className="wf-switch-case-btn"
-                  onClick={() => moveCase(i, 1)}
-                  disabled={i === cases.length - 1}
-                  title="Move down"
-                >▼</button>
-                <button
-                  type="button"
-                  className="wf-switch-case-btn wf-switch-case-btn--del"
-                  onClick={() => removeCaseByIdx(i)}
-                  title="Remove case"
-                >×</button>
-              </div>
-            </div>
-          ))}
+            </InsertVarField>
+          </KafkaFormRow>
         </div>
-        <button type="button" className="wf-switch-add-case" onClick={addCase}>+ Add Case</button>
-      </ConfigSectionGroup>
+      </KafkaCard>
+
+      <KafkaCard
+        title="Cases"
+        hint="First match wins. Unmatched values take the Default path."
+        action={<KafkaAddButton label="+ Add Case" onClick={addCase} />}
+      >
+        {cases.length === 0 ? (
+          <KafkaEmptyState
+            title="No cases yet"
+            text="Use + Add Case to create an output handle. Until then, every run follows Default."
+          />
+        ) : (
+          <div className="wf-switch-cases-panel">
+            <div className="wf-switch-cases-header" aria-hidden="true">
+              <span className="wf-switch-col-idx">#</span>
+              <span className="wf-switch-col-value">Match value</span>
+              <span className="wf-switch-col-label">Handle label</span>
+              <span className="wf-switch-col-actions" />
+            </div>
+            <div className="wf-switch-cases-list">
+              {cases.map((c, i) => (
+                <div key={c.id} className="wf-switch-case-row">
+                  <span className="wf-switch-case-idx" aria-hidden="true">{i + 1}</span>
+                  <div className="wf-switch-col-value">
+                    <input
+                      className="wf-kafka-form-input wf-kafka-form-input--mono"
+                      value={c.value}
+                      onChange={(e) => updateCaseByIdx(i, { value: e.target.value })}
+                      placeholder="Match value"
+                      aria-label={`Case ${i + 1} match value`}
+                    />
+                  </div>
+                  <div className="wf-switch-col-label">
+                    <input
+                      className="wf-kafka-form-input"
+                      value={c.label ?? ''}
+                      onChange={(e) => updateCaseByIdx(i, { label: e.target.value })}
+                      placeholder="Optional"
+                      aria-label={`Case ${i + 1} label`}
+                    />
+                  </div>
+                  <div className="wf-switch-case-actions">
+                    <button
+                      type="button"
+                      className="wf-switch-case-btn"
+                      onClick={() => moveCase(i, -1)}
+                      disabled={i === 0}
+                      title="Move up"
+                      aria-label={`Move case ${i + 1} up`}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="wf-switch-case-btn"
+                      onClick={() => moveCase(i, 1)}
+                      disabled={i === cases.length - 1}
+                      title="Move down"
+                      aria-label={`Move case ${i + 1} down`}
+                    >
+                      ▼
+                    </button>
+                    <button
+                      type="button"
+                      className="wf-switch-case-btn wf-switch-case-btn--del"
+                      onClick={() => removeCaseByIdx(i)}
+                      title="Remove case"
+                      aria-label={`Remove case ${i + 1}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </KafkaCard>
 
       <div className="wf-config-section-info">
         <div className="wf-config-info-title">How it works</div>

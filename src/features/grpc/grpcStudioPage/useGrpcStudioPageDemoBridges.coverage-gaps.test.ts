@@ -7,16 +7,19 @@ import { useGrpcStudioPageDemoBridges } from './useGrpcStudioPageDemoBridges';
 
 function makeStudioStub() {
   const updateTab = vi.fn();
+  const patchTabDescriptor = vi.fn();
   return {
     studio: {
       activeTab: { id: 'tab-1', descriptorKey: 'desc-1' },
       activeTabDescriptor: { descriptor: { key: 'desc-live' } },
       updateTab,
+      patchTabDescriptor,
     },
     advancedFeatures: {
       applySchemaDiffComparison: vi.fn(),
     },
     updateTab,
+    patchTabDescriptor,
   };
 }
 
@@ -29,6 +32,7 @@ describe('useGrpcStudioPageDemoBridges', () => {
     const w = window as unknown as Record<string, unknown>;
     delete w.__demoPatchGrpcActiveTab;
     delete w.__demoResetGrpcActiveTab;
+    delete w.__demoResetGrpcManageSchemasDrafts;
     delete w.__demoGetGrpcActiveDescriptorKey;
     delete w.__demoPatchGrpcSchemaDiffReport;
     vi.unstubAllGlobals();
@@ -41,6 +45,7 @@ describe('useGrpcStudioPageDemoBridges', () => {
     const w = window as unknown as Record<string, unknown>;
     expect(typeof w.__demoPatchGrpcActiveTab).toBe('function');
     expect(typeof w.__demoResetGrpcActiveTab).toBe('function');
+    expect(typeof w.__demoResetGrpcManageSchemasDrafts).toBe('function');
     expect(typeof w.__demoGetGrpcActiveDescriptorKey).toBe('function');
     expect(typeof w.__demoPatchGrpcSchemaDiffReport).toBe('function');
 
@@ -60,6 +65,7 @@ describe('useGrpcStudioPageDemoBridges', () => {
     const w = window as unknown as Record<string, unknown>;
     expect(w.__demoPatchGrpcActiveTab).toBeUndefined();
     expect(w.__demoResetGrpcActiveTab).toBeUndefined();
+    expect(w.__demoResetGrpcManageSchemasDrafts).toBeUndefined();
     expect(w.__demoGetGrpcActiveDescriptorKey).toBeUndefined();
     expect(w.__demoPatchGrpcSchemaDiffReport).toBeUndefined();
   });
@@ -71,6 +77,7 @@ describe('useGrpcStudioPageDemoBridges', () => {
     const w = window as unknown as Record<string, unknown>;
     expect((w.__demoPatchGrpcActiveTab as (p: object) => boolean)({})).toBe(false);
     expect((w.__demoResetGrpcActiveTab as () => boolean)()).toBe(false);
+    expect((w.__demoResetGrpcManageSchemasDrafts as () => boolean)()).toBe(false);
     expect((w.__demoGetGrpcActiveDescriptorKey as () => string | null)()).toBe('desc-live');
   });
 
@@ -86,6 +93,19 @@ describe('useGrpcStudioPageDemoBridges', () => {
       auth: { type: 'none' },
       metadata: {},
       grpcurlExportContext: undefined,
+    });
+  });
+
+  it('manage-schemas drafts bridge resets protoIngest without UI', () => {
+    const { studio, advancedFeatures, patchTabDescriptor } = makeStudioStub();
+    renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
+    const w = window as unknown as Record<string, unknown>;
+    expect((w.__demoResetGrpcManageSchemasDrafts as () => boolean)()).toBe(true);
+    expect(patchTabDescriptor).toHaveBeenCalledWith('tab-1', {
+      protoIngest: expect.objectContaining({
+        source: 'proto_files',
+        protoRoots: [expect.objectContaining({ mountPath: 'root', files: [] })],
+      }),
     });
   });
 

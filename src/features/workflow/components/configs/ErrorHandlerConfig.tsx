@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { ErrorHandlerNodeData, ErrorFilter, RetryBackoffStrategy } from '../../types/workflow';
-import ConfigSectionGroup from './ConfigSectionGroup';
 import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 
 const FILTER_OPTIONS: { value: ErrorFilter; label: string; desc: string }[] = [
   { value: 'all', label: 'All Errors', desc: 'HTTP errors, assertion failures, and network errors' },
@@ -29,6 +29,7 @@ function RetryPreview({ count, delayMs, backoff }: { count: number; delayMs: num
 
   return (
     <div className="errh-retry-preview">
+      <div className="errh-retry-preview-title">Retry flow</div>
       <div className="errh-retry-flow">
         <span className="errh-retry-badge errh-retry-badge--start">Request</span>
         {steps.map((s, i) => (
@@ -48,6 +49,21 @@ function RetryPreview({ count, delayMs, backoff }: { count: number; delayMs: num
   );
 }
 
+/**
+ * Retry control cell: fixed field column + reserved unit gutter so Retries /
+ * Delay / Backoff / Timeout share one width and vertical axis.
+ */
+function ErrhCtrl({ unit, children }: { unit?: string; children: ReactNode }) {
+  return (
+    <div className="errh-ctrl errh-field-inline">
+      <div className="errh-ctrl-field">{children}</div>
+      <span className={`errh-unit${unit ? '' : ' errh-unit--spacer'}`} aria-hidden={!unit || undefined}>
+        {unit ?? 'ms'}
+      </span>
+    </div>
+  );
+}
+
 export default function ErrorHandlerConfig({
   data,
   onChange,
@@ -55,89 +71,151 @@ export default function ErrorHandlerConfig({
   data: ErrorHandlerNodeData;
   onChange: (d: ErrorHandlerNodeData) => void;
 }) {
-  const filterDesc = FILTER_OPTIONS.find(o => o.value === data.errorFilter)?.desc ?? '';
+  const filterDesc = FILTER_OPTIONS.find((o) => o.value === data.errorFilter)?.desc ?? '';
 
   return (
     <div className="wf-config-body wf-errhandler-config" data-testid="errhandler-config">
-      <div className="wf-config-field--row">
-        <label>Label</label>
-        <input value={data.label} onChange={(e) => onChange({ ...data, label: e.target.value })} />
-      </div>
+      <KafkaCard
+        title="Error Handler"
+        hint="Protect a Body path with retries, then Catch / Done."
+      >
+        <div className="wf-kafka-form wf-kafka-form--errhandler">
+          <KafkaFormRow label="Label" hint="Canvas node title" compact>
+            <ErrhCtrl>
+              <input
+                className="wf-kafka-form-input"
+                value={data.label}
+                onChange={(e) => onChange({ ...data, label: e.target.value })}
+                aria-label="Error Handler label"
+              />
+            </ErrhCtrl>
+          </KafkaFormRow>
 
-      <ConfigSectionGroup title="Error Handling">
-        <div className="wf-config-field--row">
-          <label>Error Filter</label>
-          <div className="wf-config-inline-ctrls">
-            <CustomSelect
-              value={data.errorFilter}
-              onChange={(v) => onChange({ ...data, errorFilter: v as ErrorFilter })}
-              options={FILTER_OPTIONS.map(o => ({ value: o.value, label: o.label, detail: o.desc }))}
-            />
-          </div>
+          <KafkaFormRow label="Error Filter" hint={filterDesc || undefined} compact>
+            <ErrhCtrl>
+              <div className="errh-filter-ctrl">
+                <CustomSelect
+                  value={data.errorFilter}
+                  onChange={(v) => onChange({ ...data, errorFilter: v as ErrorFilter })}
+                  options={FILTER_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                    detail: o.desc,
+                  }))}
+                  menuMinWidth={360}
+                  menuMaxWidth={420}
+                  aria-label="Error filter"
+                />
+              </div>
+            </ErrhCtrl>
+          </KafkaFormRow>
+          {!filterDesc && <span className="errh-filter-desc" />}
         </div>
-        <span className="errh-filter-desc">{filterDesc}</span>
-      </ConfigSectionGroup>
+      </KafkaCard>
 
-      <ConfigSectionGroup title="Retry Settings">
-        <div className="errh-retry-fields">
-          <div className="errh-field-inline">
-            <label>Retries</label>
-            <input
-              type="number"
-              className="errh-num"
-              min={0}
-              max={10}
-              value={data.retryCount}
-              onChange={(e) => onChange({ ...data, retryCount: Math.max(0, parseInt(e.target.value) || 0) })}
-            />
-          </div>
+      <KafkaCard
+        title="Retry Settings"
+        hint="Re-run Body before taking the Catch path."
+      >
+        <div className="wf-kafka-form wf-kafka-form--errhandler wf-kafka-form--errhandler-retry">
+          <KafkaFormRow label="Retries" hint="0 = no retries (Catch immediately)." compact>
+            <ErrhCtrl>
+              <input
+                type="number"
+                className="wf-kafka-form-input errh-num"
+                min={0}
+                max={10}
+                value={data.retryCount}
+                onChange={(e) =>
+                  onChange({ ...data, retryCount: Math.max(0, parseInt(e.target.value) || 0) })
+                }
+                aria-label="Retry count"
+              />
+            </ErrhCtrl>
+          </KafkaFormRow>
 
           {data.retryCount > 0 && (
             <>
-              <div className="errh-field-inline">
-                <label>Delay</label>
-                <input
-                  type="number"
-                  className="errh-num errh-num--wide"
-                  min={0}
-                  max={60000}
-                  step={100}
-                  value={data.retryDelayMs}
-                  onChange={(e) => onChange({ ...data, retryDelayMs: Math.max(0, parseInt(e.target.value) || 0) })}
-                />
-                <span className="errh-unit">ms</span>
-              </div>
+              <KafkaFormRow label="Delay" hint="Wait before each retry." compact>
+                <ErrhCtrl unit="ms">
+                  <input
+                    type="number"
+                    className="wf-kafka-form-input errh-num"
+                    min={0}
+                    max={60000}
+                    step={100}
+                    value={data.retryDelayMs}
+                    onChange={(e) =>
+                      onChange({
+                        ...data,
+                        retryDelayMs: Math.max(0, parseInt(e.target.value) || 0),
+                      })
+                    }
+                    aria-label="Retry delay"
+                  />
+                </ErrhCtrl>
+              </KafkaFormRow>
 
-              <div className="errh-field-inline">
-                <label>Backoff</label>
-                <CustomSelect
-                  value={data.retryBackoff}
-                  onChange={(v) => onChange({ ...data, retryBackoff: v as RetryBackoffStrategy })}
-                  options={BACKOFF_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
-                />
-              </div>
+              <KafkaFormRow label="Backoff" hint="Fixed or exponential delay growth." compact>
+                <ErrhCtrl>
+                  <div className="errh-backoff-ctrl">
+                    <CustomSelect
+                      value={data.retryBackoff}
+                      onChange={(v) =>
+                        onChange({ ...data, retryBackoff: v as RetryBackoffStrategy })
+                      }
+                      options={BACKOFF_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                      menuMatchTriggerWidth
+                      aria-label="Retry backoff"
+                    />
+                  </div>
+                </ErrhCtrl>
+              </KafkaFormRow>
 
-              <div className="errh-field-inline">
-                <label>Timeout</label>
-                <input
-                  type="number"
-                  className="errh-num errh-num--wide"
-                  min={0}
-                  max={300000}
-                  step={1000}
-                  value={data.retryTimeoutMs}
-                  onChange={(e) => onChange({ ...data, retryTimeoutMs: Math.max(0, parseInt(e.target.value) || 0) })}
-                />
-                <span className="errh-unit">{data.retryTimeoutMs === 0 ? 'ms (no limit)' : 'ms'}</span>
-              </div>
+              <KafkaFormRow
+                label="Timeout"
+                hint={
+                  data.retryTimeoutMs === 0 ? (
+                    <>
+                      <span className="errh-unit-note">no limit</span>
+                      {' · 0 = no cap on total retry time.'}
+                    </>
+                  ) : (
+                    'Total retry budget.'
+                  )
+                }
+                compact
+              >
+                <ErrhCtrl unit="ms">
+                  <input
+                    type="number"
+                    className="wf-kafka-form-input errh-num"
+                    min={0}
+                    max={300000}
+                    step={1000}
+                    value={data.retryTimeoutMs}
+                    onChange={(e) =>
+                      onChange({
+                        ...data,
+                        retryTimeoutMs: Math.max(0, parseInt(e.target.value) || 0),
+                      })
+                    }
+                    aria-label="Retry timeout"
+                  />
+                </ErrhCtrl>
+              </KafkaFormRow>
             </>
           )}
         </div>
 
-        <RetryPreview count={data.retryCount} delayMs={data.retryDelayMs} backoff={data.retryBackoff} />
-      </ConfigSectionGroup>
+        <RetryPreview
+          count={data.retryCount}
+          delayMs={data.retryDelayMs}
+          backoff={data.retryBackoff}
+        />
+      </KafkaCard>
 
-      <ConfigSectionGroup title="Behavior">
+      <div className="errh-footer-panel">
         <div className="errh-behavior-section">
           <label className="errh-checkbox-label">
             <input
@@ -153,25 +231,25 @@ export default function ErrorHandlerConfig({
               : 'Workflow marks this handler as failed after Catch executes'}
           </span>
         </div>
-      </ConfigSectionGroup>
 
-      <div className="errh-handles-guide">
-        <div className="errh-handles-title">Output Handles</div>
-        <div className="errh-handles-list">
-          <div className="errh-handle-item">
-            <span className="errh-handle-dot errh-handle-dot--body" />
-            <span className="errh-handle-name">Body</span>
-            <span className="errh-handle-desc">Protected nodes (the &ldquo;try&rdquo; path)</span>
-          </div>
-          <div className="errh-handle-item">
-            <span className="errh-handle-dot errh-handle-dot--catch" />
-            <span className="errh-handle-name">Catch</span>
-            <span className="errh-handle-desc">Fallback when all retries fail</span>
-          </div>
-          <div className="errh-handle-item">
-            <span className="errh-handle-dot errh-handle-dot--done" />
-            <span className="errh-handle-name">Done</span>
-            <span className="errh-handle-desc">Runs after either path completes</span>
+        <div className="errh-handles-guide">
+          <div className="errh-handles-title">Output Handles</div>
+          <div className="errh-handles-list">
+            <div className="errh-handle-item">
+              <span className="errh-handle-dot errh-handle-dot--body" />
+              <span className="errh-handle-name">Body</span>
+              <span className="errh-handle-desc">Protected nodes (the &ldquo;try&rdquo; path)</span>
+            </div>
+            <div className="errh-handle-item">
+              <span className="errh-handle-dot errh-handle-dot--catch" />
+              <span className="errh-handle-name">Catch</span>
+              <span className="errh-handle-desc">Fallback when all retries fail</span>
+            </div>
+            <div className="errh-handle-item">
+              <span className="errh-handle-dot errh-handle-dot--done" />
+              <span className="errh-handle-name">Done</span>
+              <span className="errh-handle-desc">Runs after either path completes</span>
+            </div>
           </div>
         </div>
       </div>
