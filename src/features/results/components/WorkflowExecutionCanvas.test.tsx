@@ -52,6 +52,10 @@ const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
     zoomIn: vi.fn(),
     zoomOut: vi.fn(),
     fitView: vi.fn(),
+    setViewport: vi.fn(),
+    getNodes: vi.fn(() => [
+      { id: 'n1', position: { x: 0, y: 0 }, width: 220, height: 80 },
+    ]),
   };
 
   function stub(

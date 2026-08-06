@@ -190,104 +190,113 @@ export default function WorkflowRunnerConfigSection({
         />
       )}
 
-      <div className="wf-runner-inline-options">
-        {!isWebhookTriggered && hasWaitForCondition && (
-          <div className="wf-inline-option">
-            <span className="wf-inline-label">Poll limit</span>
-            <input
-              type="number"
-              className="wf-inline-input"
-              min={1}
-              max={100}
-              value={maxConcurrentPolls}
-              onChange={(e) => onMaxConcurrentPollsChange(Math.max(1, parseInt(e.target.value) || 20))}
-              disabled={isRunning}
-            />
-            <span className="wf-inline-hint">— max concurrent polls across {concurrency} iterations</span>
-          </div>
-        )}
+      <div className="workflow-runner-exec-card">
+        <div className="workflow-runner-exec-card-header">
+          <span className="workflow-runner-exec-card-title">Run configuration</span>
+          <span className="workflow-runner-exec-card-sub">Trace depth, execution mode, and resilience</span>
+        </div>
 
-        <div className="wf-inline-option" style={{ flex: '0 0 auto' }}>
-          <span className="runner-exec-label">Trace Level:</span>
-          {(['minimal', 'standard', 'full', 'debug'] as const).map(level => (
-            <label key={level} className="radio-label">
+        <div className="wf-runner-inline-options wf-runner-inline-options--embedded">
+          {!isWebhookTriggered && hasWaitForCondition && (
+            <div className="wf-inline-option">
+              <span className="wf-inline-label">Poll limit</span>
               <input
-                type="radio"
-                name="wf-traceLevel"
-                checked={(traceOptions.traceLevel ?? (traceOptions.captureFullTrace ? 'full' : 'standard')) === level}
-                onChange={() => {
-                  onTraceOptionsChange(prev => ({
-                    ...prev,
-                    traceLevel: level,
-                    captureFullTrace: level === 'full' || level === 'debug',
-                  }));
-                }}
+                type="number"
+                className="wf-inline-input"
+                min={1}
+                max={100}
+                value={maxConcurrentPolls}
+                onChange={(e) => onMaxConcurrentPollsChange(Math.max(1, parseInt(e.target.value) || 20))}
                 disabled={isRunning}
               />
-              {level.charAt(0).toUpperCase() + level.slice(1)}
-            </label>
-          ))}
-          {(traceOptions.traceLevel === 'full' || traceOptions.traceLevel === 'debug' || (!traceOptions.traceLevel && traceOptions.captureFullTrace)) && (
-            <>
-              <label className="radio-label" style={{ marginLeft: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={traceOptions.samplingEnabled !== false}
-                  onChange={(e) => onTraceOptionsChange(prev => ({ ...prev, samplingEnabled: e.target.checked }))}
-                  disabled={isRunning}
-                />
-                Sampling
-              </label>
-              {traceOptions.samplingEnabled !== false && (
-                <input
-                  type="number"
-                  min={10}
-                  max={1000}
-                  step={10}
-                  value={traceOptions.samplingThreshold ?? 50}
-                  onChange={(e) => onTraceOptionsChange(prev => ({ ...prev, samplingThreshold: Math.max(10, parseInt(e.target.value) || 50) }))}
-                  disabled={isRunning}
-                  className="wf-sampling-threshold-input"
-                />
-              )}
-              <span className="exec-mode-hint">(≤100 iters recommended)</span>
-            </>
+              <span className="wf-inline-hint">max concurrent polls across {concurrency} iterations</span>
+            </div>
           )}
-        </div>
-      </div>
 
-      {(!isWebhookTriggered || webhookRunMode === 'single') && (
-        <div className="workflow-runner-config-section">
-          <RunnerExecutionConfig
-            executionMode={executionMode}
-            onExecutionModeChange={onExecutionModeChange}
-            concurrency={concurrency}
-            onConcurrencyChange={onConcurrencyChange}
-            iterations={iterations}
-            onIterationsChange={onIterationsChange}
-            timeoutSec={timeoutSec}
-            onTimeoutSecChange={onTimeoutSecChange}
-            retryCount={retryCount}
-            onRetryCountChange={onRetryCountChange}
-            retryDelayMs={retryDelayMs}
-            onRetryDelayMsChange={onRetryDelayMsChange}
-            errorPolicy={errorPolicy}
-            onErrorPolicyChange={onErrorPolicyChange}
-            maxErrors={maxErrors}
-            onMaxErrorsChange={onMaxErrorsChange}
-            maxErrorRate={maxErrorRate}
-            onMaxErrorRateChange={onMaxErrorRateChange}
-            loadProfile={loadProfile}
-            onLoadProfileChange={onLoadProfileChange}
-            thinkTime={thinkTime}
-            onThinkTimeChange={(patch) => onThinkTimeChange(patch)}
-            activeTestCount={1}
-            isRunning={isRunning}
-            forceSingleIteration={correlationWaitConfig?.mode === 'wait-for-real'}
-            namePrefix="workflow-runner"
-          />
+          <div className="wf-inline-option wf-inline-option--trace">
+            <span className="runner-exec-label">Trace Level:</span>
+            <div className="wf-inline-radio-group">
+              {(['minimal', 'standard', 'full', 'debug'] as const).map(level => (
+                <label key={level} className="radio-label">
+                  <input
+                    type="radio"
+                    name="wf-traceLevel"
+                    checked={(traceOptions.traceLevel ?? (traceOptions.captureFullTrace ? 'full' : 'standard')) === level}
+                    onChange={() => {
+                      onTraceOptionsChange(prev => ({
+                        ...prev,
+                        traceLevel: level,
+                        captureFullTrace: level === 'full' || level === 'debug',
+                      }));
+                    }}
+                    disabled={isRunning}
+                  />
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </label>
+              ))}
+            </div>
+            {(traceOptions.traceLevel === 'full' || traceOptions.traceLevel === 'debug' || (!traceOptions.traceLevel && traceOptions.captureFullTrace)) && (
+              <div className="wf-inline-trace-extras">
+                <label className="radio-label">
+                  <input
+                    type="checkbox"
+                    checked={traceOptions.samplingEnabled !== false}
+                    onChange={(e) => onTraceOptionsChange(prev => ({ ...prev, samplingEnabled: e.target.checked }))}
+                    disabled={isRunning}
+                  />
+                  Sampling
+                </label>
+                {traceOptions.samplingEnabled !== false && (
+                  <input
+                    type="number"
+                    min={10}
+                    max={1000}
+                    step={10}
+                    value={traceOptions.samplingThreshold ?? 50}
+                    onChange={(e) => onTraceOptionsChange(prev => ({ ...prev, samplingThreshold: Math.max(10, parseInt(e.target.value) || 50) }))}
+                    disabled={isRunning}
+                    className="wf-sampling-threshold-input"
+                  />
+                )}
+                <span className="exec-mode-hint">≤100 iters recommended</span>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
+        {(!isWebhookTriggered || webhookRunMode === 'single') && (
+          <div className="workflow-runner-config-section">
+            <RunnerExecutionConfig
+              executionMode={executionMode}
+              onExecutionModeChange={onExecutionModeChange}
+              concurrency={concurrency}
+              onConcurrencyChange={onConcurrencyChange}
+              iterations={iterations}
+              onIterationsChange={onIterationsChange}
+              timeoutSec={timeoutSec}
+              onTimeoutSecChange={onTimeoutSecChange}
+              retryCount={retryCount}
+              onRetryCountChange={onRetryCountChange}
+              retryDelayMs={retryDelayMs}
+              onRetryDelayMsChange={onRetryDelayMsChange}
+              errorPolicy={errorPolicy}
+              onErrorPolicyChange={onErrorPolicyChange}
+              maxErrors={maxErrors}
+              onMaxErrorsChange={onMaxErrorsChange}
+              maxErrorRate={maxErrorRate}
+              onMaxErrorRateChange={onMaxErrorRateChange}
+              loadProfile={loadProfile}
+              onLoadProfileChange={onLoadProfileChange}
+              thinkTime={thinkTime}
+              onThinkTimeChange={(patch) => onThinkTimeChange(patch)}
+              activeTestCount={1}
+              isRunning={isRunning}
+              forceSingleIteration={correlationWaitConfig?.mode === 'wait-for-real'}
+              namePrefix="workflow-runner"
+            />
+          </div>
+        )}
+      </div>
 
       {(!isWebhookTriggered || webhookRunMode === 'single') && kafkaLoadBanners.blockNodes.length > 0 && (
         <div className="kafka-load-warning--block">
@@ -308,7 +317,7 @@ export default function WorkflowRunnerConfigSection({
         </div>
       )}
 
-      <div className="config-form" style={{ marginTop: 16 }}>
+      <div className="workflow-runner-run-bar">
         <div className="form-actions">
           {!isRunning ? (
             <button
@@ -318,7 +327,7 @@ export default function WorkflowRunnerConfigSection({
               onClick={onRun}
             >
               {isWebhookTriggered
-                ? (webhookRunMode === 'load' ? '🔗 Run Webhook Load Test' : '▶ Run Workflow')
+                ? (webhookRunMode === 'load' ? 'Run Webhook Load Test' : '▶ Run Workflow')
                 : '▶ Run Workflow'}
             </button>
           ) : (

@@ -34,8 +34,8 @@ afterEach(() => {
     expect(gqlWorkflowIntegrationLesson.id).toBe('gql-workflow-integration');
     expect(gqlWorkflowIntegrationLesson.category).toBe('graphql');
     expect(gqlWorkflowIntegrationLesson.name).toBe('Workflow Integration');
-    expect(gqlWorkflowIntegrationLesson.steps.length).toBe(13);
-    expect(gqlWorkflowIntegrationLesson.estimatedMinutes).toBe(7);
+    expect(gqlWorkflowIntegrationLesson.steps.length).toBe(12);
+    expect(gqlWorkflowIntegrationLesson.estimatedMinutes).toBe(6);
   });
 
   it('allows workflow and workflow-runner tabs', () => {
@@ -51,8 +51,7 @@ afterEach(() => {
       'gql11-query-node',
       'gql11-config-query',
       'gql11-assert-node',
-      'gql11-assert-source',
-      'gql11-assert-rule',
+      'gql11-configure-assert',
       'gql11-console',
       'gql11-run-pass-exec',
       'gql11-observe-pass',
@@ -62,7 +61,7 @@ afterEach(() => {
     ]);
   });
 
-  it('all 13 steps have pauseAfter: true', () => {
+  it('all 12 steps have pauseAfter: true', () => {
     gqlWorkflowIntegrationLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -185,10 +184,11 @@ afterEach(() => {
     expect(step.description).toContain('{{name}}');
   });
 
-  it('gql11-query-node highlights palette search (type Graph)', () => {
+  it('gql11-query-node highlights GraphQL Query palette block (search prepared in preAction)', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-query-node')!;
-    expect(step.highlight).toBe(WF.PAL_SEARCH);
+    expect(step.highlight).toBe(WF.PAL_GQL_QUERY);
     expect(step.verify).toBe(GQL.WF_CANVAS_QUERY_NODE);
+    expect(step.description).toContain('GraphQL Query');
     expect(step.description).toContain('Graph');
   });
 
@@ -205,15 +205,9 @@ afterEach(() => {
     expect(step.verify).toBe(GQL.WF_CANVAS_ASSERT_NODE);
   });
 
-  it('gql11-assert-source highlights source variable input (modal opened in preAction)', () => {
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-source')!;
+  it('gql11-configure-assert highlights source variable (Source+Assertions combined)', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-configure-assert')!;
     expect(step.highlight).toBe(WF.WF_GQL_ASSERT_SOURCE);
-    expect(step.verify).toBe(GQL.WF_CANVAS_ASSERT_NODE);
-  });
-
-  it('gql11-assert-rule highlights assert row (created in preAction)', () => {
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-rule')!;
-    expect(step.highlight).toBe(GQL.WF_ASSERT_ROW);
     expect(step.verify).toBe(GQL.WF_CANVAS_ASSERT_NODE);
   });
 
@@ -240,9 +234,9 @@ afterEach(() => {
     expect(step.verify).toBe(GQL.WF_CANVAS_ASSERT_NODE);
   });
 
-  it('gql11-observe-failure highlights assert node and verifies assert node', () => {
+  it('gql11-observe-failure highlights Quick Test and verifies assert node', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-failure')!;
-    expect(step.highlight).toBe(GQL.WF_CANVAS_ASSERT_NODE);
+    expect(step.highlight).toBe(WF.QUICK_TEST_BTN);
     expect(step.verify).toBe(GQL.WF_CANVAS_ASSERT_NODE);
   });
 
@@ -279,16 +273,13 @@ afterEach(() => {
     expect(step.description).toContain('original GraphQL operation');
   });
 
-  it('gql11-assert-source description explains WHY source variable is live', () => {
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-source')!;
+  it('gql11-configure-assert description covers source binding and latency assertion', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-configure-assert')!;
     expect(step.description).toContain('Source variable');
     expect(step.description).toContain('live runtime');
-  });
-
-  it('gql11-assert-rule description explains JSONPath $ and pass threshold reasoning', () => {
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-rule')!;
     expect(step.description).toContain('less_than');
     expect(step.description).toContain('2000');
+    expect(step.description).toContain('Assertions');
   });
 
   it('gql11-console description explains WHY console must be opened before run', () => {
@@ -306,11 +297,12 @@ afterEach(() => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-tighten-threshold')!;
     expect(step.description).toContain('2000');
     expect(step.description).toContain('1');
-    expect(step.description).toContain('configures');
+    expect(step.description).toContain('configures the assertion');
   });
 
-  it('gql11-observe-failure description explains Console failure detail', () => {
+  it('gql11-observe-failure description explains Quick Test re-run and Console detail', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-failure')!;
+    expect(step.description).toContain('Quick Test');
     expect(step.description).toContain('red');
     expect(step.description).toContain('Console');
   });

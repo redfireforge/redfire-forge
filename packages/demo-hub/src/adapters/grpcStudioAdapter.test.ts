@@ -8,10 +8,12 @@ import {
   GRPC_DEMO_HEALTH_URL,
   GRPC_DEMO_PREREQUISITE_ENDPOINTS,
   GRPC_DEMO_TARGET,
+  GRPC_ENVOY_PROBE_URL,
   GRPC_EXPRESS_HEALTH_URL,
   GRPC_EXPRESS_ONLY_COMMAND,
   GRPC_SPRING_DOCKER_COMMAND,
   GRPC_STUDIO_LESSON_ALLOWED_TABS,
+  GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS,
   getGrpcActiveDescriptorKey,
   patchGrpcActiveTabBody,
   patchGrpcActiveTabExportContext,
@@ -45,9 +47,18 @@ describe('grpcStudioAdapter', () => {
     expect(GRPC_EXPRESS_ONLY_COMMAND).toBe('npm run server');
   });
 
+  it('documents Envoy sidecar probe for transport-modes lessons', () => {
+    expect(GRPC_ENVOY_PROBE_URL).toContain('50055');
+    expect(GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS).toEqual([
+      ...GRPC_DEMO_PREREQUISITE_ENDPOINTS,
+      GRPC_ENVOY_PROBE_URL,
+    ]);
+  });
+
   it('surfaces the one-command dev script alongside the manual steps', () => {
     expect(GRPC_DEMO_DOCKER_COMMAND).toContain('npm run dev:grpc');
     expect(GRPC_DEMO_DOCKER_COMMAND).toContain('docker compose up -d');
+    expect(GRPC_DEMO_DOCKER_COMMAND).toContain('Envoy');
     expect(GRPC_DEMO_DOCKER_COMMAND).toContain('npm run server');
   });
 

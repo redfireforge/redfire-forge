@@ -481,11 +481,11 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
 
     {
       id: 'grpc16-bsr',
-      title: 'BSR: Load Descriptor from Registry Module',
+      title: 'BSR (Buf Schema Registry): Load Descriptor from Registry Module',
       description:
-        'Switch to the **BSR** tab and fill the module + version fields. ' +
+        'Switch to the **BSR** (Buf Schema Registry) tab and fill the module + version fields. ' +
         `Use module \`${SAMPLE_BSR_MODULE}\` at version \`${SAMPLE_BSR_VERSION}\`, then click **Load**. ` +
-        'The companion server fetches the descriptor from Buf Schema Registry — direct when you are online, ' +
+        'The companion server fetches the descriptor from the registry — direct when you are online, ' +
         'or via your configured proxy when on a corporate network. If the proxy is unreachable, it retries ' +
         'direct automatically. After **Load**, the source badge should update to **bsr** and `ElizaService` ' +
         'appears in the Service Explorer.',

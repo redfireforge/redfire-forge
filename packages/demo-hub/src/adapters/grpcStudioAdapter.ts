@@ -18,13 +18,26 @@ export const GRPC_DEMO_PREREQUISITE_ENDPOINTS = [
   GRPC_EXPRESS_HEALTH_URL,
 ] as const;
 
+/**
+ * Envoy gRPC-Web sidecar probe (port 50055).
+ * Envoy has no dedicated /health route — any HTTP response (including 404/504)
+ * proves the listener is accepting connections for PrerequisiteGate.
+ */
+export const GRPC_ENVOY_PROBE_URL = 'http://localhost:50055/';
+
+/** Go echo + Express + Envoy — required for GRPC-19 Transport Modes. */
+export const GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS = [
+  ...GRPC_DEMO_PREREQUISITE_ENDPOINTS,
+  GRPC_ENVOY_PROBE_URL,
+] as const;
+
 /** Setup commands shown in the lesson prerequisite gate. */
 export const GRPC_DEMO_DOCKER_COMMAND = [
-  '# One command — Docker echo + Express proxy + Vite',
+  '# One command — Docker echo + Envoy grpc-web (:50055) + Express proxy + Vite',
   'npm run dev:grpc',
   '',
   '# — or start each dependency yourself —',
-  '# Terminal 1 — gRPC echo server (Docker)',
+  '# Terminal 1 — gRPC echo + Envoy sidecar (Docker)',
   'cd docker/grpc && docker compose up -d',
   '',
   '# Terminal 2 — Express gRPC proxy (browser Reflect/Send)',

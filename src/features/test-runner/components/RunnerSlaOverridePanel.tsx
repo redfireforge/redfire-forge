@@ -168,7 +168,7 @@ export default function RunnerSlaOverridePanel({
       {/* ── Compact trigger bar ── */}
       <div className={`sla-trigger${disabled ? ' sla-trigger--disabled' : ''}`}>
         <div className="sla-trigger-left">
-          🎯 SLA Override
+          SLA Override
           <span className="sla-trigger-badge-opt">optional</span>
         </div>
         <div className="sla-trigger-right">
