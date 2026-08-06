@@ -109,6 +109,7 @@ describe('gql-workflow-integration lesson — actions', () => {
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-query-node')!;
     await step.preAction!(ctx);
+    expect(document.querySelector<HTMLInputElement>(WF.PAL_SEARCH)?.value).toBe('Graph');
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_QUERY);
     // Search cleared so Action blocks do not keep purple match highlights.
@@ -163,7 +164,7 @@ describe('gql-workflow-integration lesson — actions', () => {
     expect(document.querySelector<HTMLInputElement>(WF.PAL_SEARCH)?.value).toBe('');
   });
 
-  it('gql11-assert-source configures assert source variable', async () => {
+  it('gql11-configure-assert sets source variable and less_than assertion', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
@@ -174,36 +175,14 @@ describe('gql-workflow-integration lesson — actions', () => {
       <div class="wf-config-modal">
         <div data-testid="gql-wf-assert-panel">
           <button type="button" class="gql-wf-subtab"><span>Source</span></button>
-          <input data-testid="gql-wf-assert-source-var" />
-        </div>
-        <div class="wf-config-modal-footer-actions"><button class="btn-ghost">Close</button><button class="btn-primary">Save</button></div>
-      </div>
-    `;
-    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
-    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
-    (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName = vi.fn(() => true);
-    (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType = vi.fn(() => true);
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-source')!;
-    await step.preAction!(ctx);
-    await step.action!(ctx);
-    expect(document.querySelector<HTMLInputElement>(WF.WF_GQL_ASSERT_SOURCE)?.value).toBe(LESSON11_LATENCY_VAR);
-  });
-
-  it('gql11-assert-rule adds less_than assertion', async () => {
-    const ctx = makeCtx();
-    document.body.innerHTML = `
-      ${buildQueryConfigDom()}
-      <div class="react-flow__node-graphqlAssert" data-id="a1">
-        <div data-testid="gql-canvas-assert-node"></div>
-      </div>
-      <div class="wf-config-modal">
-        <div data-testid="gql-wf-assert-panel">
           <button type="button" class="gql-wf-subtab"><span>Assertions</span></button>
+          <input data-testid="gql-wf-assert-source-var" />
           <button data-testid="gql-wf-assert-add-btn"></button>
           <div data-testid="gql-wf-assert-row">
             <input data-testid="gql-wf-assert-jsonpath" />
             <select data-testid="gql-wf-assert-operator"><option value="less_than">&lt;</option></select>
             <input data-testid="gql-wf-assert-expected" />
+            <input data-testid="gql-wf-assert-description" />
           </div>
         </div>
         <div class="wf-config-modal-footer-actions"><button class="btn-ghost">Close</button><button class="btn-primary">Save</button></div>
@@ -213,9 +192,10 @@ describe('gql-workflow-integration lesson — actions', () => {
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName = vi.fn(() => true);
     (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType = vi.fn(() => true);
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-rule')!;
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-configure-assert')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
+    expect(document.querySelector<HTMLInputElement>(WF.WF_GQL_ASSERT_SOURCE)?.value).toBe(LESSON11_LATENCY_VAR);
     expect(document.querySelector<HTMLInputElement>(GQL.WF_ASSERT_EXPECTED)?.value).toBe('2000');
   });
 
@@ -309,11 +289,12 @@ describe('gql-workflow-integration lesson — actions', () => {
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '2000');
   });
 
-  it('gql11-observe-failure preAction runs quick test; action only pauses', async () => {
+  it('gql11-observe-failure preAction is quiet; action runs Quick Test', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
       <button class="wf-quick-test-btn"></button>
+      <div data-testid="wf-exec-summary"></div>
       <div data-testid="wf-run-result-fail"></div>
       <div class="wf-console-badge"></div>
       <div class="wf-console-panel"></div>
@@ -324,10 +305,9 @@ describe('gql-workflow-integration lesson — actions', () => {
     mockLesson11WorkflowBridge('1');
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-failure')!;
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
-    vi.mocked(ctx.click).mockClear();
-    await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
   });
 
   it('gql11-debug-mode action starts debug and clicks each Step button', async () => {

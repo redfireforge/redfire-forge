@@ -15,7 +15,9 @@ function resolveViewport(containerEl: HTMLElement) {
 }
 
 function computeDimensions(nodes: Node[]) {
-  const nodesBounds = getNodesBounds(nodes);
+  // Pass nodeLookup so the standalone util does not warn about sub-flows.
+  const nodeLookup = new Map(nodes.map((node) => [node.id, node]));
+  const nodesBounds = getNodesBounds(nodes, { nodeLookup: nodeLookup as never });
 
   const paddedWidth = nodesBounds.width * (1 + PADDING * 2);
   const paddedHeight = nodesBounds.height * (1 + PADDING * 2);

@@ -11,16 +11,19 @@ import {
   dismissWorkflowExecSummary,
   expandWfDemoAppSidebar,
   fillWfConfigField,
+  holdWfSpotlight,
   openWfConsoleIfClosed,
   openWfNodeConfigModal,
   pauseWfConfigSection,
   revealPaletteBlock,
+  resetWfPaletteToBlocks,
   saveAndCloseWfConfigModal,
   selectWfConfigOption,
   selectWorkflowFromAppSidebar,
   closeWfConsoleIfOpen,
   waitForWfConfigPanel,
 } from '../../wf-demo-helpers';
+import { fillControlledInput } from '../../setup-helpers';
 import {
   GQL_DEMO_HTTP,
   LESSON18_CREATED_USER_ID_VAR,
@@ -37,6 +40,7 @@ import {
   LESSON18_NODE_DELETE,
   LESSON18_NODE_FETCH,
   LESSON18_QUERY_VARS,
+  LESSON18_TEST_NAME,
   LESSON18_TEST_NAME_VAR,
   LESSON18_WF_NAME,
 } from './lesson18-workflow-mutation.constants';
@@ -54,6 +58,7 @@ import {
   isLesson18NodeOnCanvas,
   isLesson18QuickTestPassVisible,
   isLesson18WorkflowActive,
+  isLesson18WorkflowVariablesConfigured,
   lesson18EdgeExists,
   lesson18Session,
   patchLesson18WorkflowVariablesQuiet,
@@ -118,6 +123,43 @@ async function collapseLesson18SidebarOnce(ctx: DemoActionContext): Promise<void
   lesson18Session.sidebarCollapsed = true;
 }
 
+/** Visible palette filter: type GraphQL, spotlight search, pause, then spotlight the block. */
+async function prepareLesson18GraphQLPaletteClick(
+  ctx: DemoActionContext,
+  paletteSelector: string,
+): Promise<void> {
+  resetWfPaletteToBlocks();
+  const search = document.querySelector<HTMLInputElement>(WF.PAL_SEARCH);
+  if (search) {
+    await holdWfSpotlight(ctx, WF.PAL_SEARCH, 500);
+    if (search.value !== 'GraphQL') {
+      fillControlledInput(search, 'GraphQL');
+    }
+    // Hold so the viewer can read the filtered list before the click.
+    await holdWfSpotlight(ctx, WF.PAL_SEARCH, 800);
+  } else {
+    await revealPaletteBlock(ctx, paletteSelector);
+  }
+
+  try {
+    await ctx.waitFor(paletteSelector, 5000);
+  } catch {
+    await revealPaletteBlock(ctx, paletteSelector);
+  }
+  await holdWfSpotlight(ctx, paletteSelector, 800);
+}
+
+async function clearLesson18PaletteSearch(ctx: DemoActionContext): Promise<void> {
+  const search = document.querySelector<HTMLInputElement>(WF.PAL_SEARCH);
+  if (!search?.value) return;
+  fillControlledInput(search, '');
+  await ctx.delay(200);
+}
+
+/**
+ * Human-paced GraphQL palette add: search "GraphQL" → pause → click block.
+ * Preset add is only a fallback when the click does not place the node.
+ */
 async function addLesson18PaletteNode(
   ctx: DemoActionContext,
   type: string,
@@ -126,11 +168,15 @@ async function addLesson18PaletteNode(
   position: { x: number; y: number },
   paletteSelector: string,
 ): Promise<void> {
-  await revealPaletteBlock(ctx, paletteSelector);
-  if (!addWorkflowNodeWithPreset(type, nodeId, label, position)) {
-    await ctx.click(paletteSelector);
-  }
+  await prepareLesson18GraphQLPaletteClick(ctx, paletteSelector);
+  await ctx.click(paletteSelector);
   await ctx.delay(600);
+
+  if (!isLesson18NodeOnCanvas(nodeId, type)) {
+    addWorkflowNodeWithPreset(type, nodeId, label, position);
+    await ctx.delay(400);
+  }
+  await clearLesson18PaletteSearch(ctx);
 }
 
 async function ensureLesson18WorkflowSelected(ctx: DemoActionContext): Promise<void> {
@@ -154,13 +200,11 @@ export async function ensureLesson18WorkflowCreated(ctx: DemoActionContext): Pro
 
   if (lesson18Session.created && getWorkflowByName(LESSON18_WF_NAME)) {
     await ensureLesson18WorkflowSelected(ctx);
-    patchLesson18WorkflowVariablesQuiet();
     return;
   }
 
   if (getWorkflowByName(LESSON18_WF_NAME)) {
     await ensureLesson18WorkflowSelected(ctx);
-    patchLesson18WorkflowVariablesQuiet();
     lesson18Session.created = true;
     return;
   }
@@ -175,7 +219,6 @@ export async function ensureLesson18WorkflowCreated(ctx: DemoActionContext): Pro
   await ctx.click(WF.CREATE_OK);
   await ctx.waitFor(WF.CANVAS, 8000);
   await ctx.delay(800);
-  patchLesson18WorkflowVariablesQuiet();
   await collapseLesson18SidebarOnce(ctx);
   await clickWfFitView(ctx);
   lesson18Session.created = true;
@@ -190,9 +233,92 @@ export async function ensureLesson18WorkflowLoaded(ctx: DemoActionContext): Prom
   await ensureLesson18WorkflowCreated(ctx);
 }
 
+async function closeWfDefaultsModalIfOpen(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(WF.DEFAULTS_MODAL)) return;
+  const cancel = document.querySelector<HTMLElement>(`${WF.DEFAULTS_MODAL} .btn-ghost`);
+  cancel?.click();
+  await ctx.delay(300);
+}
+
+function lesson18DefaultsModalHasKey(key: string): boolean {
+  const rows = document.querySelectorAll(`${WF.DEFAULTS_MODAL} .wf-config-kv-row-vars:not(:last-child)`);
+  for (const row of rows) {
+    const keyInput = row.querySelector<HTMLInputElement>('.wf-var-key-input');
+    if (keyInput?.value.trim() === key) return true;
+  }
+  return false;
+}
+
+async function upsertLesson18DefaultsVar(
+  ctx: DemoActionContext,
+  key: string,
+  value: string,
+): Promise<void> {
+  if (lesson18DefaultsModalHasKey(key)) {
+    const rows = document.querySelectorAll<HTMLElement>(
+      `${WF.DEFAULTS_MODAL} .wf-config-kv-row-vars:not(:last-child)`,
+    );
+    for (const row of rows) {
+      const keyInput = row.querySelector<HTMLInputElement>('.wf-var-key-input');
+      if (keyInput?.value.trim() !== key) continue;
+      const valInput = row.querySelector<HTMLInputElement>('.wf-var-value-input');
+      keyInput.scrollIntoView?.({ block: 'nearest' });
+      await holdWfSpotlight(ctx, WF.DEFAULTS_MODAL, 400);
+      if (valInput && valInput.value !== value) {
+        fillControlledInput(valInput, value);
+        await ctx.delay(450);
+      } else {
+        await ctx.delay(400);
+      }
+      return;
+    }
+  }
+
+  await holdWfSpotlight(ctx, WF.DEFAULTS_NEW_KEY, 500);
+  await ctx.fill(WF.DEFAULTS_NEW_KEY, key);
+  await ctx.delay(400);
+  await holdWfSpotlight(ctx, WF.DEFAULTS_NEW_VAL, 500);
+  await ctx.fill(WF.DEFAULTS_NEW_VAL, value);
+  await ctx.delay(400);
+  await ctx.click(WF.DEFAULTS_ADD_BTN);
+  await ctx.delay(500);
+}
+
+/**
+ * Open Workflow Variables and define testName / createdUserId / fetchedUser.
+ * Visible tour for humans — quiet patch only if the UI save does not stick.
+ */
+export async function ensureLesson18WorkflowVariablesConfigured(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson18WorkflowCreated(ctx);
+  if (lesson18Session.variablesConfigured && isLesson18WorkflowVariablesConfigured()) {
+    await closeWfDefaultsModalIfOpen(ctx);
+    return;
+  }
+
+  await holdWfSpotlight(ctx, WF.VARIABLES_BTN, 700);
+  await ctx.click(WF.VARIABLES_BTN);
+  await ctx.waitFor(WF.DEFAULTS_MODAL, 5000);
+  await ctx.delay(500);
+
+  // Seed value used by createUser; empty placeholders filled later by Extraction/Output.
+  await upsertLesson18DefaultsVar(ctx, LESSON18_TEST_NAME_VAR, LESSON18_TEST_NAME);
+  await upsertLesson18DefaultsVar(ctx, LESSON18_CREATED_USER_ID_VAR, '');
+  await upsertLesson18DefaultsVar(ctx, LESSON18_FETCHED_USER_VAR, '');
+
+  await holdWfSpotlight(ctx, WF.DEFAULTS_SAVE_BTN, 700);
+  await ctx.click(WF.DEFAULTS_SAVE_BTN);
+  await ctx.delay(500);
+  await closeWfDefaultsModalIfOpen(ctx);
+
+  if (!isLesson18WorkflowVariablesConfigured()) {
+    patchLesson18WorkflowVariablesQuiet();
+  }
+  lesson18Session.variablesConfigured = true;
+}
+
 /** Click GraphQL Mutation in the palette and wire Start → Create User. */
 export async function ensureLesson18MutationNodeAdded(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson18WorkflowCreated(ctx);
+  await ensureLesson18WorkflowVariablesConfigured(ctx);
   const startId = resolveLesson18StartNodeId();
   const createPresent = isLesson18NodeOnCanvas(LESSON18_NODE_CREATE, 'graphqlMutation');
   const startWired = Boolean(startId && lesson18EdgeExists(startId, LESSON18_NODE_CREATE));
@@ -482,15 +608,21 @@ export async function demonstrateLesson18DeleteNodeAdded(ctx: DemoActionContext)
     return;
   }
 
-  await revealPaletteBlock(ctx, WF.PAL_GQL_MUTATION);
+  await prepareLesson18GraphQLPaletteClick(ctx, WF.PAL_GQL_MUTATION);
   await ctx.click(WF.PAL_GQL_MUTATION);
-  await ctx.waitFor(LESSON18_DELETE_NODE_SELECTOR);
-  await ctx.delay(400);
+  try {
+    await ctx.waitFor(LESSON18_DELETE_NODE_SELECTOR, 5000);
+  } catch {
+    // Palette click may not create a selectable node in stubbed tests.
+  }
+  await ctx.delay(600);
 
   if (!isLesson18DeleteOnCanvas()) {
     addWorkflowNodeWithPreset('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 });
+    await ctx.delay(400);
   }
 
+  await clearLesson18PaletteSearch(ctx);
   wireLesson18DeleteNode();
   await ctx.delay(400);
   await clickWfFitView(ctx);

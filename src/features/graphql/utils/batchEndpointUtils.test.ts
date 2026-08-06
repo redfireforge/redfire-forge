@@ -333,4 +333,44 @@ describe('buildBatchGroups', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0]!.tabIds).toEqual(['d1', 'd2']);
   });
+
+  it('groups localhost and 127.0.0.1 as the same endpoint after normalize', () => {
+    const groups = buildBatchGroups(
+      [
+        makeTab('t1', { endpoint: 'http://localhost:4010/graphql' }),
+        makeTab('t2', { endpoint: 'http://127.0.0.1:4010/graphql' }),
+      ],
+      page,
+      null,
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.tabIds).toEqual(['t1', 't2']);
+  });
+
+  it('groups env-resolved graphqlUrl with a literal loopback override', () => {
+    const groups = buildBatchGroups(
+      [
+        makeTab('t1'), // inherits page default {{graphqlUrl}}
+        makeTab('t2', { endpoint: 'http://localhost:4010/graphql' }),
+      ],
+      '{{graphqlUrl}}',
+      null,
+      { graphqlUrl: 'http://127.0.0.1:4010/graphql' },
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.tabIds).toEqual(['t1', 't2']);
+  });
+
+  it('keeps unresolved {{graphqlUrl}} out of a literal localhost group', () => {
+    const groups = buildBatchGroups(
+      [
+        makeTab('t1'), // inherits unresolved template
+        makeTab('t2', { endpoint: 'http://localhost:4010/graphql' }),
+      ],
+      '{{graphqlUrl}}',
+      null,
+      {},
+    );
+    expect(groups).toHaveLength(2);
+  });
 });

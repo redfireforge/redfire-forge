@@ -408,7 +408,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   const hostLabel = selectedWorkflow ? `⚡ ${selectedWorkflow.name}` : undefined;
 
   return (
-    <div className="page">
+    <div className="page workflow-runner-page">
       <div className="page-header">
         <h2>Workflow Runner</h2>
       </div>

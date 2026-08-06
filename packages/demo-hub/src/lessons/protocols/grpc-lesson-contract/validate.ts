@@ -1,7 +1,9 @@
 /**
  * Phase 12A — validate shipped gRPC lessons and the canonical roster.
  */
-import { GRPC } from '@shared/selectors';
+import { GRPC, WF } from '@shared/selectors';
+import { RES } from '@shared/selectors/res';
+import { REX } from '@shared/selectors/rex';
 import type { DemoLesson, DemoStep } from '../../../types';
 import { GRPC_LESSON_ROSTER, GRPC_LESSON_ROSTER_BY_ID } from './roster';
 import type {
@@ -13,18 +15,27 @@ import type {
 import { assertRosterSchemaVersion } from './roster';
 import { assertGrpcLessonMigrationsComplete } from './versioning';
 import { buildGrpcContractMetaFromRoster, lessonShellDiffFromRoster } from './shell';
+import { buildGrpcScenarioSnapshotForLesson } from './runtime/snapshots';
 
-function collectGrpcSelectorStrings(): Set<string> {
+function collectSelectorStrings(...namespaces: Array<Record<string, unknown>>): Set<string> {
   const values = new Set<string>();
-  for (const value of Object.values(GRPC)) {
-    if (typeof value === 'string') {
-      values.add(value);
+  for (const ns of namespaces) {
+    for (const value of Object.values(ns)) {
+      if (typeof value === 'string') {
+        values.add(value);
+      }
     }
   }
   return values;
 }
 
-const GRPC_SELECTOR_VALUES = collectGrpcSelectorStrings();
+/** GRPC studio + cross-surface workflow/results selectors used by GRPC-11/24. */
+const GRPC_SELECTOR_VALUES = collectSelectorStrings(
+  GRPC as unknown as Record<string, unknown>,
+  WF as unknown as Record<string, unknown>,
+  RES as unknown as Record<string, unknown>,
+  REX as unknown as Record<string, unknown>,
+);
 const GRPC_DYNAMIC_SELECTOR_PATTERNS = [
   /^\[data-testid="grpc-service-[a-z0-9-]+"\]$/,
   /^\[data-testid="grpc-method-[a-z0-9-]+"\]$/,
@@ -67,7 +78,7 @@ function selectorUsesGrpcNamespace(value: string | undefined, path: string, issu
     issues.push(
       issue(
         path,
-        `Selector "${value}" is not a GRPC.* constant from src/shared/selectors/grpc.ts`,
+        `Selector "${value}" is not a GRPC/WF/RES/REX.* constant from src/shared/selectors`,
       ),
     );
   }
@@ -223,6 +234,11 @@ function validateRosterFixtureEndpoints(
       issue(`${prefix}.dockerEndpoints`, 'requireSpringBoot needs :8081 (actuator) health in dockerEndpoints'),
     );
   }
+  if (entry.fixtures.requireEnvoyGrpcWeb && hasDockerPrereqs && !endpoints.includes('50055')) {
+    issues.push(
+      issue(`${prefix}.dockerEndpoints`, 'requireEnvoyGrpcWeb needs :50055 probe in dockerEndpoints'),
+    );
+  }
 }
 
 /** Validate the canonical 18-lesson roster (metadata contract). */
@@ -290,6 +306,17 @@ export function validateGrpcLessonRoster(): GrpcLessonValidationResult {
     }
     if (entry.implementationStatus === 'shipped' && !entry.initialTab) {
       issues.push(issue(`${prefix}.initialTab`, 'Shipped lessons must define initialTab'));
+    }
+    if (
+      entry.implementationStatus === 'shipped'
+      && !buildGrpcScenarioSnapshotForLesson(entry.id)
+    ) {
+      issues.push(
+        issue(
+          `${prefix}.snapshot`,
+          'Shipped lessons must register a scenario snapshot in runtime/snapshots.ts',
+        ),
+      );
     }
     validateRosterFixtureEndpoints(entry, issues);
   }

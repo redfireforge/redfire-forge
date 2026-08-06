@@ -188,7 +188,7 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
   it('openAndFitResultsExplorer opens explorer and uses fit fallback button', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button title="Explore execution results">Explorer</button>
+      <button title="Explore execution results" data-testid="results-explorer-open-btn">Explorer</button>
       <button data-testid="results-explorer-fit-view-btn">Fit</button>
     `;
     vi.spyOn(adapters, 'waitForResultsExplorerBridge').mockResolvedValue(true);
@@ -357,7 +357,7 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
   it('tourResultsExplorerPanels opens explorer and rings diagram when present', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button title="Explore execution results">Explorer</button>
+      <button title="Explore execution results" data-testid="results-explorer-open-btn">Explorer</button>
       <div data-testid="results-explorer-diagram"></div>
       <div class="results-explorer-detail"></div>
       <div class="iteration-matrix"></div>

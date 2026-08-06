@@ -65,10 +65,10 @@ export function GrpcTlsConfigModal({
       footerClassName="ws-tls-modal-footer grpc-tls-config-modal-footer"
       titleId="grpc-tls-modal-title"
       showExpandButton={false}
-      showResizeHandles={false}
+      showResizeHandles
       closeButtonKind="none"
-      minWidth={520}
-      minHeight={360}
+      minWidth={720}
+      minHeight={520}
       footer={
         <>
           <div className="grpc-tls-modal-footer-group grpc-tls-modal-footer-group--left">

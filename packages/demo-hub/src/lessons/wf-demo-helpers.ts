@@ -784,46 +784,72 @@ export function applyWfDemoConsoleFloatLayout(): void {
  * Demos use floating so the workflow nodes stay visible beside the log panel.
  */
 export async function openWfConsoleIfClosed(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(WF.CONSOLE)) {
+    setWfConsolePanelMode('floating');
+    applyWfDemoConsoleFloatLayout();
+    return;
+  }
   setWfConsolePanelMode('floating');
-  if (!document.querySelector(WF.CONSOLE)) {
-    const badge = document.querySelector<HTMLElement>(WF.CONSOLE_BADGE);
-    if (badge) {
-      badge.click();
-      await ctx.delay(600);
-    }
+  const badge = document.querySelector<HTMLElement>(WF.CONSOLE_BADGE);
+  if (badge) {
+    badge.click();
+    await ctx.delay(600);
   }
   if (document.querySelector(WF.CONSOLE)) {
     setWfConsolePanelMode('floating');
     applyWfDemoConsoleFloatLayout();
+    await ctx.delay(400);
   }
-  await ctx.delay(400);
 }
 
+export type WfDebugDemoPacing = {
+  /** Delay after navigate, before clicking Debug (default 400). */
+  afterNavMs?: number;
+  /** Delay after clicking Debug so the bar can render (default 1200). */
+  afterClickMs?: number;
+  /** Hold before each Step click so viewers see the pause (default 900). */
+  beforeStepMs?: number;
+  /** Hold after each Step click for the node outcome (default 1200). */
+  afterStepMs?: number;
+  /** waitFor timeout for the next Step button (default 20000). */
+  stepWaitMs?: number;
+};
+
 /** Start a step-through Debug run (toolbar Debug button). */
-export async function startWfDebugRun(ctx: DemoActionContext): Promise<void> {
+export async function startWfDebugRun(
+  ctx: DemoActionContext,
+  pacing: WfDebugDemoPacing = {},
+): Promise<void> {
   ctx.navigateToTab('workflow');
-  await ctx.delay(400);
+  await ctx.delay(pacing.afterNavMs ?? 400);
   await ctx.click(WF.DEBUG_BTN);
-  await ctx.delay(1200);
+  await ctx.delay(pacing.afterClickMs ?? 1200);
 }
 
 /**
  * Click each per-node **Step** button as Debug mode pauses the workflow.
  * Returns how many Step clicks were performed.
  */
-export async function clickWfDebugStepButtons(ctx: DemoActionContext, maxSteps = 12): Promise<number> {
+export async function clickWfDebugStepButtons(
+  ctx: DemoActionContext,
+  maxSteps = 12,
+  pacing: WfDebugDemoPacing = {},
+): Promise<number> {
+  const beforeStepMs = pacing.beforeStepMs ?? 900;
+  const afterStepMs = pacing.afterStepMs ?? 1200;
+  const stepWaitMs = pacing.stepWaitMs ?? 20_000;
   let clicked = 0;
   for (let i = 0; i < maxSteps; i++) {
     try {
-      await ctx.waitFor(WF.DEBUG_STEP_BTN, 20000);
+      await ctx.waitFor(WF.DEBUG_STEP_BTN, stepWaitMs);
     } catch {
       break;
     }
     if (!document.querySelector(WF.DEBUG_STEP_BTN)) break;
-    await ctx.delay(900);
+    await ctx.delay(beforeStepMs);
     await ctx.click(WF.DEBUG_STEP_BTN);
     clicked++;
-    await ctx.delay(1200);
+    await ctx.delay(afterStepMs);
   }
   return clicked;
 }

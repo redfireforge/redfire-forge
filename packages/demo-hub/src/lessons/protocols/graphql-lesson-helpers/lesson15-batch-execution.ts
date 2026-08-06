@@ -5,7 +5,6 @@ import { GQL } from '@shared/selectors';
 import {
   GQL_DEMO_HTTP,
   GQL_DEMO_VAR,
-  GQL_HEALTH_QUERY,
   clearActiveTabEndpointOverride,
   closeGqlActivityPanelIfOpen,
   configureDemoTabEndpointOverride,
@@ -15,7 +14,7 @@ import {
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
 } from './core';
-import { navigateToGraphqlStudio } from '../../env-manager-lesson-helpers';
+import { ensureGqlDemoHeaderContext, navigateToGraphqlStudio } from '../../env-manager-lesson-helpers';
 import { patchDemoTabConnection, patchDemoTabConnectionById, resetGqlDemoBatchDetection } from '../../../adapters';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
@@ -37,6 +36,8 @@ const GQL15_LESSON_ID = 'gql-batch-execution';
 /** Demo-only tabs for GQL-15. */
 const GQL15_DEMO_TAB_SELECTOR = `${GQL.TAB_BAR} [role="tab"][data-demo-lesson="${GQL15_LESSON_ID}"]`;
 
+/** Tab 1 query — named operation so batch result cards are easy to tell apart. */
+export const LESSON15_TAB1_QUERY = 'query GetHealth { health }';
 /** A second query written on Tab 2 — different operation name to distinguish cards. */
 export const LESSON15_TAB2_QUERY = 'query CheckHealth { health }';
 /** Tab 2 direct URL — resolves to the same server as Tab 1's `{{graphqlUrl}}`. */
@@ -126,11 +127,15 @@ async function ensureLesson15Tab2DirectEndpoint(ctx: DemoActionContext): Promise
 
 /**
  * Guard: Tab 1 = `{{graphqlUrl}}`, Tab 2 = direct localhost — same **resolved** endpoint for batch.
+ * Seeds Demo env/svc first so `{{graphqlUrl}}` resolves (otherwise tabs split into two groups).
  */
 async function ensureLesson15BatchEndpointParity(ctx: DemoActionContext): Promise<void> {
   if (_lesson15EndpointParityDone) return;
+  await ensureGqlDemoHeaderContext(ctx);
   await ensureLesson15Tab1PageDefault(ctx);
   await ensureLesson15Tab2DirectEndpoint(ctx);
+  // Prefer Tab 1 active so Advanced Settings opens on the shared endpoint group.
+  await activateDemoTabByIndex(ctx, 0);
   _lesson15EndpointParityDone = true;
 }
 
@@ -274,7 +279,7 @@ async function writeLesson15DemoQueries(
     await ctx.click('[data-lesson-target="gql15-batch-tab-0"]');
     await ctx.delay(options.focus ? 600 : 800);
     if (options.focus) await ctx.waitFor(GQL.EDITOR, 5000);
-    await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: options.focus ?? false });
+    await fillGqlEditor(ctx, LESSON15_TAB1_QUERY, { focus: options.focus ?? false });
     await ctx.delay(400);
   }
 
@@ -287,6 +292,9 @@ async function writeLesson15DemoQueries(
     await fillGqlEditor(ctx, LESSON15_TAB2_QUERY, { focus: options.focus ?? false });
     await ctx.delay(400);
   }
+
+  // Return to Tab 1 so the Batch panel's active group is the shared endpoint.
+  if (tabs[0]) await activateDemoTabByIndex(ctx, 0);
 }
 
 /**
@@ -306,6 +314,7 @@ export async function ensureLesson15BatchEnabled(ctx: DemoActionContext): Promis
   await ensureLesson15QueriesWritten(ctx);
   if (_lesson15BatchEnabled && isBatchModeEnabledInStudio()) return;
 
+  await activateDemoTabByIndex(ctx, 0);
   await openAdvancedSettingsBatchTab(ctx);
 
   await clickAdvBatchEnableToggle(ctx);
@@ -340,17 +349,24 @@ export async function ensureLesson15BothTabsChecked(ctx: DemoActionContext): Pro
   await ensureLesson15TwoTabsSameEndpoint(ctx);
   if (_lesson15BothChecked && bothDemoTabsBatched()) return;
 
+  await activateDemoTabByIndex(ctx, 0);
   await openAdvancedSettingsBatchTab(ctx);
 
   await clickAdvBatchEnableToggle(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
 
-  for (const tabId of getDemoTabIds()) {
-    await clickAdvBatchTabInclusion(ctx, tabId);
+  if (document.querySelector(GQL.ADV_BATCH_SELECT_ALL)) {
+    await ctx.click(GQL.ADV_BATCH_SELECT_ALL);
+    await ctx.delay(200);
+  } else {
+    for (const tabId of getDemoTabIds()) {
+      await clickAdvBatchTabInclusion(ctx, tabId);
+    }
   }
 
   await saveAdvancedSettings(ctx);
   _lesson15BothChecked = true;
+  _lesson15BatchEnabled = true;
 }
 
 /**
@@ -359,6 +375,7 @@ export async function ensureLesson15BothTabsChecked(ctx: DemoActionContext): Pro
 export async function ensureLesson15ReadyToExecute(ctx: DemoActionContext): Promise<void> {
   await ensureLesson15BothTabsChecked(ctx);
   await ensureLesson15QueriesWritten(ctx);
+  await closeAdvancedSettingsIfOpen(ctx);
 }
 
 /** Step action: click Send Batch and wait for the results modal (step 6). */
@@ -444,19 +461,22 @@ export async function prepareGql15WriteQueriesReading(ctx: DemoActionContext): P
   await ctx.delay(400);
 }
 
-/** Step gql15-enable-batch reading — tabs + queries ready; Advanced settings open on Batch tab. */
+/** Step gql15-enable-batch reading — tabs + queries ready; gear visible (modal opens in action). */
 export async function prepareGql15EnableBatchReading(ctx: DemoActionContext): Promise<void> {
   await ensureLesson15QueriesWritten(ctx);
-  await openAdvancedSettingsBatchTab(ctx);
-  await ctx.waitFor(GQL.ADV_BATCH_ENABLE_TOGGLE, 5000);
+  await closeAdvancedSettingsIfOpen(ctx);
+  await activateDemoTabByIndex(ctx, 0);
+  await ctx.waitFor(GQL.ADV_SETTINGS_BTN, 5000);
   await ctx.delay(400);
 }
 
-/** Step gql15-batch-select reading — batch enabled, modal open on operation table. */
+/** Step gql15-batch-select reading — batch enabled, modal open on operation table with both tabs. */
 export async function prepareGql15BatchSelectReading(ctx: DemoActionContext): Promise<void> {
   await ensureLesson15BatchEnabled(ctx);
+  await activateDemoTabByIndex(ctx, 0);
   await openAdvancedSettingsBatchTab(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
+  await ctx.waitFor(GQL.ADV_BATCH_SELECT_ALL, 5000);
   await ctx.delay(400);
 }
 
@@ -466,26 +486,47 @@ export async function prepareGql15BatchSelectReading(ctx: DemoActionContext): Pr
 export async function demonstrateLesson15EnableBatch(ctx: DemoActionContext): Promise<void> {
   await ensureLesson15QueriesWritten(ctx);
   if (_lesson15BatchEnabled && isBatchModeEnabledInStudio()) {
-    await ctx.delay(1500);
+    // Already enabled — spotlight the chip so the viewer sees the outcome.
+    if (document.querySelector(GQL.BATCH_SUMMARY_CHIP)) {
+      await ctx.delay(1500);
+    }
     return;
   }
 
+  await closeAdvancedSettingsIfOpen(ctx);
+  await activateDemoTabByIndex(ctx, 0);
+
+  // Visible beat: gear → Batch tab → Enable toggle → confirm 2-tab group → Save → chip.
+  await ctx.click(GQL.ADV_SETTINGS_BTN);
+  await ctx.waitFor(GQL.ADV_SETTINGS_MODAL, 5000);
+  await ctx.delay(800);
+
   await openAdvancedSettingsBatchTab(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_ENABLE_TOGGLE, 5000);
-  await ctx.delay(1500);
+  await ctx.delay(1200);
 
   await clickAdvBatchEnableToggle(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
-  await ctx.delay(3500);
+  // Give viewers time to read the endpoint group chip ("2 tabs") before Save.
+  if (document.querySelector(GQL.ADV_BATCH_GROUP_LABEL) || document.querySelector(GQL.ADV_BATCH_GROUP_SELECT)) {
+    await ctx.delay(2000);
+  } else {
+    await ctx.delay(1500);
+  }
+  if (document.querySelector(GQL.ADV_BATCH_SELECTION_HINT)) {
+    await ctx.delay(1500);
+  }
 
   await saveAdvancedSettings(ctx);
   await ctx.waitFor(GQL.BATCH_SUMMARY_CHIP, 5000);
-  await ctx.delay(1200);
+  await ctx.delay(1400);
   _lesson15BatchEnabled = true;
 }
 
 /** Step action: add Tab 2 and set its direct localhost endpoint override. */
 export async function demonstrateLesson15AddSecondTab(ctx: DemoActionContext): Promise<void> {
+  await ensureGqlDemoHeaderContext(ctx);
+
   if (getDemoTabCount() < 2) {
     await ensureLesson15Tab1PageDefault(ctx);
     await ctx.click(GQL.TAB_ADD_BTN);
@@ -503,6 +544,10 @@ export async function demonstrateLesson15AddSecondTab(ctx: DemoActionContext): P
   const tabId = getDemoTabIdByIndex(1);
   if (tabId) await patchDemoTabConnectionById(tabId, { endpoint: LESSON15_TAB2_ENDPOINT });
   await ctx.delay(800);
+
+  // Show Tab 1 still using {{graphqlUrl}} (no :4010 override badge).
+  await activateDemoTabByIndex(ctx, 0);
+  await ctx.delay(800);
   _lesson15EndpointParityDone = true;
 }
 
@@ -515,18 +560,32 @@ export async function demonstrateLesson15SelectBatchTabs(ctx: DemoActionContext)
     return;
   }
 
+  await activateDemoTabByIndex(ctx, 0);
   await openAdvancedSettingsBatchTab(ctx);
+  await clickAdvBatchEnableToggle(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
-  await ctx.delay(1200);
+  await ctx.delay(1000);
 
-  for (const tabId of getDemoTabIds()) {
-    await clickAdvBatchTabInclusion(ctx, tabId);
+  // Prefer Select all (one clear beat) when both tabs share the endpoint group.
+  if (document.querySelector(GQL.ADV_BATCH_SELECT_ALL)) {
+    await ctx.click(GQL.ADV_BATCH_SELECT_ALL);
+    await ctx.delay(1500);
+  } else {
+    for (const tabId of getDemoTabIds()) {
+      await clickAdvBatchTabInclusion(ctx, tabId);
+    }
+    await ctx.delay(1200);
   }
 
-  await ctx.delay(2500);
+  if (document.querySelector(GQL.ADV_BATCH_SELECTION_HINT)) {
+    await ctx.delay(1600);
+  }
+
   await saveAdvancedSettings(ctx);
-  await ctx.delay(800);
+  await ctx.waitFor(GQL.BATCH_EXECUTE_BTN, 5000);
+  await ctx.delay(1200);
   _lesson15BothChecked = true;
+  _lesson15BatchEnabled = true;
 }
 
 /** Step action: write distinct queries on Tab 1 and Tab 2. */
@@ -695,11 +754,13 @@ export async function gqlBatchLessonSetup(ctx: DemoActionContext): Promise<void>
     await ctx.delay(120);
   }
   await navigateToGraphqlStudio(ctx);
+  // Seed Demo env/svc so {{graphqlUrl}} resolves — required for Tab 1 + Tab 2 batch grouping.
+  await ensureGqlDemoHeaderContext(ctx);
   await ensureGqlDemoTab(ctx, GQL15_LESSON_ID, 'Batch Execution', 2);
   // Page-default endpoint only (same as GQL-14 setup) — no introspect wait.
   await ensureGqlDemoPageDefaultEndpoint(ctx);
   await patchDemoTabConnection({ endpoint: undefined });
-  await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
+  await fillGqlEditor(ctx, LESSON15_TAB1_QUERY, { focus: false });
 }
 
 /** Batch lesson cleanup (GQL-15) — close sidebar panels and demo tabs. */

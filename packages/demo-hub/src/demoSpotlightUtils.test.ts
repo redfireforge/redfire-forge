@@ -13,6 +13,7 @@ import {
   isDemoTargetVisible,
   isSpotlightSuppressedForModal,
   pauseDemoAutoScroll,
+  resumeDemoAutoScroll,
   scrollDemoTargetIntoView,
 } from './demoSpotlightUtils';
 
@@ -382,6 +383,11 @@ describe('demoSpotlightUtils', () => {
     expect(isDemoAutoScrollPaused()).toBe(true);
     scrollDemoTargetIntoView(row, { block: 'center' });
     expect(scroll.scrollTo).not.toHaveBeenCalled();
+
+    resumeDemoAutoScroll();
+    expect(isDemoAutoScrollPaused()).toBe(false);
+    scrollDemoTargetIntoView(row, { block: 'center' });
+    expect(scroll.scrollTo).toHaveBeenCalled();
   });
 
   it('installDemoUserScrollListeners pauses auto-scroll on auth panel wheel', () => {

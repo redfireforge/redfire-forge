@@ -47,6 +47,11 @@ export function pauseDemoAutoScroll(durationMs = 10000): void {
   demoAutoScrollPausedUntil = Math.max(demoAutoScrollPausedUntil, Date.now() + durationMs);
 }
 
+/** Clear any active auto-scroll pause (e.g. before a new step needs a reading spotlight). */
+export function resumeDemoAutoScroll(): void {
+  demoAutoScrollPausedUntil = 0;
+}
+
 export function isDemoAutoScrollPaused(): boolean {
   return Date.now() < demoAutoScrollPausedUntil;
 }
