@@ -10,7 +10,7 @@ import {
   resetGqlLesson11SessionFlags,
 } from './graphql-lesson-helpers';
 
-export function mockLesson11WorkflowBridge(thresholdMs = '2000'): void {
+export function mockLesson11WorkflowBridge(thresholdMs = '15000'): void {
   (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) => {
     if (name !== LESSON11_WF_NAME) return null;
     return {

@@ -23,12 +23,12 @@ import {
   DEMO_OAUTH2_TOKEN_URL,
   DEMO_REQUEST_ID,
   addMetadataRowQuiet,
+  addMetadataRowVisible,
   clearAllMetadataRowsQuiet,
   ensureAuthReadyFast,
   ensureEchoReadyFast,
   isAuthStepAlreadyConfigured,
   openAuthTabQuiet,
-  openSettingsDrawerQuiet,
   removeMetadataRowsByKey,
   resetAuthToNoneQuiet,
   selectAuthType,
@@ -58,9 +58,20 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         '**Auth is not in gRPC session settings** — it lives in the **Auth tab** of the Call Panel below. ' +
         'Click the **Auth badge** in the connection bar (or the Auth tab) to open it. ' +
         'Auth settings apply per-tab — changing them on one gRPC tab does not affect others.',
+      highlight: GRPC.CONNECTION_SETTINGS_BTN,
       pauseAfter: true,
       action: async (ctx) => {
-        await openSettingsDrawerQuiet(ctx);
+        // Reading spotlight is the gear; Acting must click it visibly (not a quiet open)
+        // so viewers connect the narration to the control before the settings tour.
+        await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 1100);
+        if (!document.querySelector(GRPC.SETTINGS_DRAWER)) {
+          await ctx.click(GRPC.CONNECTION_SETTINGS_BTN);
+          try {
+            await ctx.waitFor(GRPC.SETTINGS_DRAWER, 5_000);
+          } catch {
+            // Best-effort — tour skips missing tabs below.
+          }
+        }
         // Hold on the open panel so viewers can orient before tab tour starts.
         await ctx.delay(2200);
 
@@ -466,11 +477,11 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         }
       },
       action: async (ctx) => {
-        // Start from Auth and spotlight the API key value that owns x-api-key.
+        // Beat 1 — Auth owns x-api-key (hold so viewers can read the fields).
         await openAuthTabQuiet(ctx);
         await waitForIfMissing(ctx, '[data-testid="grpc-auth-api-key-value"]', 3_000);
-        await spotlightAuthField(ctx, 'grpc-auth-api-key-name', 380);
-        await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 420);
+        await spotlightAuthField(ctx, 'grpc-auth-api-key-name', 900);
+        await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 1000);
 
         const authApiKeyValueInput = document.querySelector<HTMLInputElement>('[data-testid="grpc-auth-api-key-value"]');
         const authApiKeyValue = authApiKeyValueInput?.value.trim() ?? '';
@@ -478,20 +489,10 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           ? `${authApiKeyValue}-conflict`
           : 'conflicting-value';
 
-        // Close Auth panel so Metadata tab is reachable/clickable.
         await closeGrpcSettingsDrawerQuiet(ctx);
-        const authTabActive = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_AUTH)
-          ?.getAttribute('aria-pressed') === 'true';
-        if (authTabActive) {
-          const formTabBtn = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_FORM);
-          if (formTabBtn && !formTabBtn.disabled) {
-            formTabBtn.click();
-            await ctx.delay(40);
-          }
-        }
 
-        // Spotlight the Metadata tab before clicking so the viewer knows where to look.
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 450);
+        // Beat 2 — switch to Metadata (tab switch needs a human-readable pause).
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 800);
         await waitForIfMissing(ctx, GRPC.REQUEST_TAB_METADATA, 8_000);
         const metadataTabBtn = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_METADATA);
         if (metadataTabBtn && !metadataTabBtn.disabled) {
@@ -499,40 +500,33 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         }
         await waitForIfMissing(ctx, GRPC.METADATA_EDITOR, 5_000);
         await ctx.waitFor(GRPC.METADATA_EDITOR, 5_000);
-        await ctx.delay(20);
+        await ctx.delay(700);
 
-        // Spotlight the + Add row button before clicking.
-        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 420);
-
-        // Force a fresh x-api-key row so the conflict is deterministic and visible.
+        // Beat 3 — add a duplicate x-api-key row with a different value (visible fills).
         await removeMetadataRowsByKey(ctx, DEMO_API_KEY_NAME);
-        await ctx.delay(10);
-        await addMetadataRowQuiet(ctx, DEMO_API_KEY_NAME, conflictingMetadataValue);
-        await spotlightMetadataRowKeyValue(ctx, DEMO_API_KEY_NAME, 520);
-        // Hold briefly on Metadata after configuration before moving to Auth.
-        await ctx.delay(15);
+        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 700);
+        await addMetadataRowVisible(ctx, DEMO_API_KEY_NAME, conflictingMetadataValue);
+        await spotlightMetadataRowKeyValue(ctx, DEMO_API_KEY_NAME, 900);
+        await ctx.delay(800);
 
-        // Switch to Auth so the conflict warning is actually visible and highlight it.
+        // Beat 4 — outcome: Auth conflict warning (main teaching payoff).
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
         await ctx.click(GRPC.AUTH_BADGE);
         await waitForIfMissing(ctx, GRPC.AUTH_PANEL, 3_000);
-        await ctx.delay(15);
+        await ctx.delay(800);
 
-        // Spotlight the conflict warning as the key outcome of this step.
         try {
           await ctx.waitFor(GRPC.AUTH_CONFLICTS, 4_000);
-          await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 420);
-          await spotlightAndPause(ctx, GRPC.AUTH_CONFLICTS, 650);
-          // Also highlight the call-level block hint so viewers see conflict detection
-          // both inside Auth and in the global send block strip.
+          await spotlightAndPause(ctx, GRPC.AUTH_CONFLICTS, 1400);
           try {
             await ctx.waitFor(GRPC.SEND_BLOCK_HINT, 1_500);
-            await spotlightAndPause(ctx, GRPC.SEND_BLOCK_HINT, 650);
+            await spotlightAndPause(ctx, GRPC.SEND_BLOCK_HINT, 1000);
           } catch {
             // Optional visual strip can be hidden in compact/mocked layouts.
           }
         } catch {
           // Conflict indicator may appear asynchronously; continue the lesson.
-          await ctx.delay(60);
+          await ctx.delay(400);
         }
       },
       verify: GRPC.AUTH_PANEL,

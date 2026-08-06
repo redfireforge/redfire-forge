@@ -11815,9 +11815,13 @@
   min-height: min(440px, calc(100vh - 48px));
   max-height: min(780px, calc(100vh - 32px));
   background: var(--bg-elevated, var(--surface));
-  border: 1px solid var(--border);
+  /* Subtle light edge so the modal reads clearly against the dark studio chrome */
+  border: 1px solid color-mix(in srgb, white 22%, var(--border));
   border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 10%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   overflow: hidden;

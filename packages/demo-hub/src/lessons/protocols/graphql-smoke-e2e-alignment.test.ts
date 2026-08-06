@@ -96,7 +96,7 @@ const GQL15_LESSON_SOURCE = {
 
 const GQL16_LESSON_SOURCE = {
   name: 'Workflow Integration',
-  steps: 13,
+  steps: 12,
 } as const;
 
 const GQL17_LESSON_SOURCE = {
@@ -106,7 +106,7 @@ const GQL17_LESSON_SOURCE = {
 
 const GQL18_LESSON_SOURCE = {
   name: 'Mutation Node in Workflow',
-  steps: 15,
+  steps: 16,
 } as const;
 
 const GQL19_LESSON_SOURCE = {

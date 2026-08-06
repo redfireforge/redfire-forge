@@ -164,5 +164,5 @@ export const walkFullGql14Lesson = makeGqlLessonWalk(GQL14_LESSON, 2);
 export const walkFullGql15Lesson = makeGqlLessonWalk(GQL15_LESSON, 4);
 export const walkFullGql16Lesson = makeGqlLessonWalk(GQL16_LESSON, 7);
 export const walkFullGql17Lesson = makeGqlLessonWalk(GQL17_LESSON, 3);
-export const walkFullGql18Lesson = makeGqlLessonWalk(GQL18_LESSON, 11);
+export const walkFullGql18Lesson = makeGqlLessonWalk(GQL18_LESSON, 12);
 export const walkFullGql19Lesson = makeGqlLessonWalk(GQL19_LESSON, 6);

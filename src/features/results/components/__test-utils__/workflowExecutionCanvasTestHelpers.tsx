@@ -26,6 +26,8 @@ export interface CanvasFlowApi {
   zoomIn: Mock;
   zoomOut: Mock;
   fitView: Mock;
+  setViewport?: Mock;
+  getNodes?: Mock;
 }
 
 export interface MockReactFlowProps {
@@ -64,7 +66,8 @@ export function buildMockReactFlowRenderer(flowApi: CanvasFlowApi) {
       didInitRef.current = true;
       const instance = {
         fitView: flowApi.fitView,
-        getNodes: () => nodesRef.current ?? [],
+        setViewport: flowApi.setViewport ?? vi.fn(),
+        getNodes: flowApi.getNodes ?? (() => nodesRef.current ?? []),
       } as unknown as ReactFlowInstance<Node, Edge>;
       onInitRef.current?.(instance);
     }, []);

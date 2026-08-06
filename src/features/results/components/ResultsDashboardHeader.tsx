@@ -59,6 +59,7 @@ export function ResultsDashboardHeader({
                 onClick={onOpenResultsExplorer}
                 disabled={traceLoading}
                 title="Explore execution results"
+                data-testid="results-explorer-open-btn"
               >
                 {traceLoading ? '⏳ Loading trace…' : '📊 Results Explorer'}
               </button>

@@ -36,6 +36,7 @@ export type Lesson18WorkflowSnapshot = {
 export const lesson18Session = {
   created: false,
   sidebarCollapsed: false,
+  variablesConfigured: false,
   mutationAdded: false,
   mutationConfigured: false,
   outputBound: false,
@@ -54,6 +55,7 @@ export const lesson18Session = {
 export function resetGqlLesson18SessionFlags(): void {
   lesson18Session.created = false;
   lesson18Session.sidebarCollapsed = false;
+  lesson18Session.variablesConfigured = false;
   lesson18Session.mutationAdded = false;
   lesson18Session.mutationConfigured = false;
   lesson18Session.outputBound = false;
@@ -67,6 +69,13 @@ export function resetGqlLesson18SessionFlags(): void {
   lesson18Session.deleteAdded = false;
   lesson18Session.deleteConfigured = false;
   lesson18Session.finalQuickTestRun = false;
+}
+
+/** True when workflow store has testName = Demo User (CRUD seed variable). */
+export function isLesson18WorkflowVariablesConfigured(): boolean {
+  const wf = readLesson18Workflow() as { variables?: Record<string, unknown> } | null;
+  const vars = wf?.variables ?? {};
+  return String(vars[LESSON18_TEST_NAME_VAR] ?? '').trim() === LESSON18_TEST_NAME;
 }
 
 export function readLesson18Workflow(): Lesson18WorkflowSnapshot | null {

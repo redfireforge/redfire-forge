@@ -434,6 +434,8 @@ export const GQL = {
   ADV_BATCH_GROUP_SELECT: '[data-testid="gql-adv-batch-group-select"]',
   ADV_BATCH_GROUP_LABEL:  '[data-testid="gql-adv-batch-group-label"]',
   ADV_BATCH_SELECTION_HINT: '[data-testid="gql-adv-batch-selection-hint"]',
+  ADV_BATCH_SELECT_ALL: '[data-testid="gql-adv-batch-select-all"]',
+  ADV_BATCH_CLEAR_ALL: '[data-testid="gql-adv-batch-clear-all"]',
   advBatchTabRow:      (tabId: string) => `[data-testid="gql-adv-batch-tab-row-${tabId}"]`,
   advBatchTabCb:       (tabId: string) => `[data-testid="gql-adv-batch-tab-cb-${tabId}"]`,
   /** @deprecated Tab-bar checkboxes removed in 6G — use advBatchTabCb in Advanced Settings. */

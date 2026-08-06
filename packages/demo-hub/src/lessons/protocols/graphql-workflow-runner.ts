@@ -10,7 +10,6 @@ import {
   LESSON17_DOCKER_ENDPOINT,
   LESSON17_DEMO_ITERATIONS,
   LESSON17_DEMO_CONCURRENCY,
-  LESSON17_RESULTS_EXPLORER_DIAGRAM,
   selectGqlLatencyDemoWorkflow,
   runGqlLatencyWorkflow,
   ensureLesson17WorkflowSelected,
@@ -18,10 +17,13 @@ import {
   ensureLesson17OnResultsTab,
   openLesson17ResultsFromCompletionBanner,
   openLesson17RequestDetailsTab,
-  openAndFitLesson17ResultsExplorer,
-  fitLesson17ResultsExplorerDiagram,
-  showLesson17ResultsExplorerConsole,
   closeLesson17ResultsExplorerIfOpen,
+  openLesson17ResultsOverviewTab,
+  ensureLesson17MetricsCardsReady,
+  scrollLesson17MetricsCardsIntoView,
+  prepareLesson17ResultsExplorerButton,
+  tourLesson17MetricsCards,
+  tourLesson17ResultsExplorer,
   gqlWorkflowRunnerLessonSetup,
   gqlWorkflowRunnerLessonCleanup,
 } from './graphql-lesson-helpers/lesson17-workflow-runner';
@@ -269,8 +271,8 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
       id: 'gql17-open-runner',
       title: 'Select GraphQL Latency Demo',
       description:
-        `You are in the **Workflow Runner** — the Test Harness tab where visual workflows become **tracked test executions**. Unlike **Quick Test** in the Designer (one shot, no history), every run here is saved with a timestamp and appears in the **Results** tab.\n\n` +
-        `Open the **Workflow** dropdown at the top and select **${LESSON17_WF_NAME}** — the workflow you built in GQL-16. Once selected, the **Initial Variables** panel and **Execution Config** section appear below the picker.`,
+        `You are in the Workflow Runner — tracked test executions that are saved to Results (unlike Quick Test in the Designer).\n\n` +
+        `Open the **Workflow** dropdown and select **${LESSON17_WF_NAME}** (from GQL-16). Initial Variables and Execution Config appear below the picker.`,
       highlight: WF.WORKFLOW_SELECT,
       preAction: gqlWorkflowRunnerLessonSetup,
       action: async (ctx) => {
@@ -291,7 +293,7 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
       preAction: async (ctx) => {
         await ensureLesson17WorkflowSelected(ctx);
         if (!document.querySelector('.wfp-var-row')) {
-          await selectGqlLatencyDemoWorkflow(ctx);
+          await selectGqlLatencyDemoWorkflow(ctx, { quiet: true });
         }
       },
       pauseAfter: true,
@@ -356,9 +358,19 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
         `The **headline metric cards** at the top summarize the run in two rows:\n\n` +
         `- **Row 1** — **TPS** (throughput), avg/min/max response time\n` +
         `- **Row 2** — **P50 / P95 / P99** latency, **Error rate** (should be **0%** when all Assert nodes pass), total duration, and request count\n\n` +
-        `Scroll down for the **Workflow Execution Summary** — iteration chart, per-step metrics (**GraphQL Query**, **GraphQL Assert**), and the latency histogram.`,
-      highlight: RES.METRICS_CARDS,
-      preAction: ensureLesson17OnResultsTab,
+        `Below the cards: **Workflow Execution Summary** — iteration chart, per-step metrics (**GraphQL Query**, **GraphQL Assert**), and the latency histogram.`,
+      // Latency row is the teaching payoff (second screen). preAction pins scroll so
+      // reading-phase auto-scroll cannot shove cards under the sticky Results header.
+      highlight: RES.METRICS_LATENCY_ROW,
+      preAction: async (ctx) => {
+        await openLesson17ResultsOverviewTab(ctx);
+        await ensureLesson17MetricsCardsReady(ctx);
+        await scrollLesson17MetricsCardsIntoView(ctx);
+      },
+      action: async (ctx) => {
+        await tourLesson17MetricsCards(ctx);
+      },
+      verify: RES.METRICS_LATENCY_ROW,
       pauseAfter: true,
     },
 
@@ -389,18 +401,12 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
         `2. **Detail panel** — click a node to see variable snapshots (\`gqlLatency\`) and assertion results for that iteration\n` +
         `3. **Iteration matrix** — a grid of iteration × node; **GraphQL Query** rows show latency, **GraphQL Assert** rows show pass/fail\n\n` +
         `For this two-node chain the bottleneck is always **GraphQL Query** (the only HTTP step). In longer workflows (GQL-18) the matrix compares write vs read latency side by side.`,
-      highlight: REX.CONSOLE_BODY,
+      highlight: RES.RESULTS_EXPLORER_BTN,
       preAction: async (ctx) => {
-        await ensureLesson17OnResultsTab(ctx);
-        if (document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) {
-          await fitLesson17ResultsExplorerDiagram(ctx);
-          await showLesson17ResultsExplorerConsole(ctx);
-        }
+        await prepareLesson17ResultsExplorerButton(ctx);
       },
       action: async (ctx) => {
-        await openAndFitLesson17ResultsExplorer(ctx);
-        await showLesson17ResultsExplorerConsole(ctx);
-        await ctx.delay(800);
+        await tourLesson17ResultsExplorer(ctx);
       },
       verify: REX.CONSOLE_BODY,
       pauseAfter: true,

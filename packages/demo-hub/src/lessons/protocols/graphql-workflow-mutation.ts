@@ -8,7 +8,9 @@ import {
   LESSON18_CREATED_USER_ID_VAR,
   LESSON18_FETCHED_USER_VAR,
   LESSON18_NODE_DELETE,
+  LESSON18_TEST_NAME,
   ensureLesson18WorkflowCreated,
+  ensureLesson18WorkflowVariablesConfigured,
   ensureLesson18MutationNodeAdded,
   ensureLesson18MutationConfigured,
   ensureLesson18MutationOutputBound,
@@ -37,7 +39,7 @@ export const gqlWorkflowMutationLesson: DemoLesson = {
   name: 'Mutation Node in Workflow',
   description:
     'Chain create → read-back → assert in the Workflow Designer using GraphQL Mutation and Query nodes — the standard integration-test pattern for verifying server-side persistence.',
-  estimatedMinutes: 8,
+  estimatedMinutes: 9,
   initialTab: 'workflow',
   allowedTabs: ['workflow', 'workflow-runner'],
 
@@ -226,12 +228,31 @@ Integration tests that create data without cleaning up pollute shared environmen
     },
 
     {
+      id: 'gql18-workflow-variables',
+      title: 'Define Workflow Variables',
+      description:
+        `Open **Variables** in the Designer toolbar. In the Workflow Variables modal, add:\n\n` +
+        `- \`${LESSON18_TEST_NAME_VAR}\` = \`${LESSON18_TEST_NAME}\` — seed name for \`createUser\`\n` +
+        `- \`${LESSON18_CREATED_USER_ID_VAR}\` — empty placeholder; filled by Extraction after create\n` +
+        `- \`${LESSON18_FETCHED_USER_VAR}\` — empty placeholder; filled by Query Output after read-back\n\n` +
+        `Click **Save**. Every step can reference these as \`{{name}}\` placeholders. Defining them up front makes the mutation/query wiring readable — you will bind real values into \`${LESSON18_CREATED_USER_ID_VAR}\` and \`${LESSON18_FETCHED_USER_VAR}\` in later steps.`,
+      highlight: WF.VARIABLES_BTN,
+      preAction: ensureLesson18WorkflowCreated,
+      action: async (ctx) => {
+        await ensureLesson18WorkflowVariablesConfigured(ctx);
+        await ctx.delay(800);
+      },
+      verify: WF.CANVAS,
+      pauseAfter: true,
+    },
+
+    {
       id: 'gql18-add-mutation',
       title: 'Add the Create User Mutation Node',
       description:
-        `Click **GraphQL Mutation** in the palette **Actions** section. An amber **M** node lands on the canvas. Wire **Start → Create User** by dragging from the Start node's output handle.\n\nWatch the ripple on the palette block — that is the same click you use in production when dropping a new node. The node starts empty; the next steps open its config panel and fill in the \`createUser\` operation.`,
+        `In the Blocks palette, search for **GraphQL**, then click **GraphQL Mutation** under Actions. An amber **M** node lands on the canvas. Wire **Start → Create User** by dragging from the Start node's output handle.\n\nWatch the search filter the list, then the ripple on the palette block — that is the same click you use in production when dropping a new node. The node starts empty; the next steps open its config panel and fill in the \`createUser\` operation.`,
       highlight: WF.PAL_GQL_MUTATION,
-      preAction: ensureLesson18WorkflowCreated,
+      preAction: ensureLesson18WorkflowVariablesConfigured,
       action: async (ctx) => {
         await ensureLesson18MutationNodeAdded(ctx);
         await ctx.delay(800);
@@ -244,7 +265,7 @@ Integration tests that create data without cleaning up pollute shared environmen
       id: 'gql18-config-mutation',
       title: 'Configure the createUser Mutation',
       description:
-        `Double-click **Create User** to open its config panel. On the **Operation** tab:\n\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Mutation:** \`createUser(name: $name, email: $email) { id name }\`\n\nSwitch to the **Variables** tab and set:\n\`\`\`json\n{ "name": "{{${LESSON18_TEST_NAME_VAR}}}", "email": "demo@example.com" }\n\`\`\`\n\nThe demo pauses on each tab so you can read the filled fields before **Save**. The \`{{${LESSON18_TEST_NAME_VAR}}}\` token resolves at runtime from the workflow variable store (pre-set to "Demo User").`,
+        `Double-click **Create User** to open its config panel. On the **Operation** tab:\n\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Mutation:** \`createUser(name: $name, email: $email) { id name }\`\n\nSwitch to the **Variables** tab and set:\n\`\`\`json\n{ "name": "{{${LESSON18_TEST_NAME_VAR}}}", "email": "demo@example.com" }\n\`\`\`\n\nThe demo pauses on each tab so you can read the filled fields before **Save**. The \`{{${LESSON18_TEST_NAME_VAR}}}\` token resolves at runtime from the workflow variable you defined as **${LESSON18_TEST_NAME}**.`,
       highlight: GQL.WF_MUTATION_PANEL,
       preAction: ensureLesson18MutationNodeAdded,
       action: async (ctx) => {
@@ -274,7 +295,7 @@ Integration tests that create data without cleaning up pollute shared environmen
       id: 'gql18-add-query',
       title: 'Add the Fetch User Query Node',
       description:
-        `Click **GraphQL Query** in the palette. A purple **Q** node appears. Wire **Create User → Fetch User**.\n\nThe read-back query runs *after* the mutation and uses the ID you just bound — proving the server **persisted** the record, not just returned it in the mutation response.`,
+        `Search the palette for **GraphQL**, then click **GraphQL Query**. A purple **Q** node appears. Wire **Create User → Fetch User**.\n\nThe read-back query runs *after* the mutation and uses the ID you just bound — proving the server **persisted** the record, not just returned it in the mutation response.`,
       highlight: WF.PAL_GQL_QUERY,
       preAction: ensureLesson18MutationOutputBound,
       action: async (ctx) => {
@@ -319,7 +340,7 @@ Integration tests that create data without cleaning up pollute shared environmen
       id: 'gql18-add-assert',
       title: 'Add the Verify User Assert Node',
       description:
-        `Click **GraphQL Assert** in the palette **Logic** section. Wire **Fetch User → Verify User → End** to complete the main chain.\n\nThe assert node evaluates JSONPath rules against the **source variable** you choose — here, the query response bound in the previous step.`,
+        `Search the palette for **GraphQL**, then click **GraphQL Assert** under Logic. Wire **Fetch User → Verify User → End** to complete the main chain.\n\nThe assert node evaluates JSONPath rules against the **source variable** you choose — here, the query response bound in the previous step.`,
       highlight: WF.PAL_GQL_ASSERT,
       preAction: ensureLesson18QueryOutputBound,
       action: async (ctx) => {
@@ -379,7 +400,7 @@ Integration tests that create data without cleaning up pollute shared environmen
       id: 'gql18-add-delete',
       title: 'Add the Delete User Teardown Node',
       description:
-        `Integration tests must clean up. Click **GraphQL Mutation** in the palette again — watch the ripple on the amber **M** block. A second mutation node appears on the canvas; rename it **Delete User** if needed. Rewire: **Verify User → Delete User → End** (remove the old Assert → End edge).\n\nTeardown runs only after assertions pass — the same \`afterEach\` pattern CI pipelines use.`,
+        `Integration tests must clean up. Search the palette for **GraphQL** again, then click **GraphQL Mutation** — watch the ripple on the amber **M** block. A second mutation node appears on the canvas; rename it **Delete User** if needed. Rewire: **Verify User → Delete User → End** (remove the old Assert → End edge).\n\nTeardown runs only after assertions pass — the same \`afterEach\` pattern CI pipelines use.`,
       highlight: WF.PAL_GQL_MUTATION,
       preAction: prepareLesson18BeforeDeleteNode,
       action: async (ctx) => {

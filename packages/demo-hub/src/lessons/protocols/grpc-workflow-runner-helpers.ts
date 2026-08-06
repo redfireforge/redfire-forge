@@ -49,7 +49,7 @@ export const GRPCWR_CONCURRENCY = 1;
 export const GRPCWR_TRACE_LEVEL = 'standard' as const;
 
 export const WF_RUNNER_SELECT = '[data-testid="workflow-select"]';
-export const GRPCWR_EXPLORER_BTN = 'button[title="Explore execution results"]';
+export const GRPCWR_EXPLORER_BTN = ':is([data-testid="results-explorer-open-btn"], button[title="Explore execution results"])';
 export const GRPCWR_VARS_SECTION = '.workflow-vars-section';
 export const GRPCWR_CONFIG_SECTION = '.workflow-runner-config-section';
 export const GRPCWR_COMPLETION = '.completion-section';

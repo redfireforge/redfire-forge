@@ -4348,9 +4348,12 @@
 }
 
 .ws-tls-modal.modal {
-  width: min(540px, 100%);
-  max-width: 540px;
-  max-height: 90vh;
+  /* Large enough to show mode cards + CA/cert fields with less scrolling */
+  width: min(840px, 96vw);
+  max-width: min(960px, 96vw);
+  min-width: min(560px, 96vw);
+  height: min(720px, 90vh);
+  max-height: 92vh;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -4360,6 +4363,7 @@
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
   overflow: hidden;
+  position: relative;
 }
 
 .ws-tls-modal-header.modal-header {

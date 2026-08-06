@@ -10,13 +10,11 @@ import {
   LESSON11_PASS_THRESHOLD_MS,
   LESSON11_WF_NAME,
   ensureLesson11AssertNodeAdded,
-  ensureLesson11AssertRuleConfigured,
   ensureLesson11ConsoleOpen,
   ensureLesson11QueryNodeAdded,
   ensureLesson11WorkflowCreated,
   ensureLesson11WorkflowVariablesConfigured,
-  demonstrateLesson11AssertRuleConfigured,
-  demonstrateLesson11AssertSourceConfigured,
+  demonstrateLesson11AssertConfigured,
   demonstrateLesson11ConsoleOpen,
   demonstrateLesson11DebugRun,
   demonstrateLesson11ObserveFailure,
@@ -24,9 +22,9 @@ import {
   demonstrateLesson11PassExec,
   demonstrateLesson11QueryConfigured,
   demonstrateLesson11TightenThreshold,
+  prepareGql11AssertConfigReading,
   prepareGql11AssertNodeReading,
-  prepareGql11AssertRuleReading,
-  prepareGql11AssertSourceReading,
+  prepareGql11ConsoleReading,
   prepareGql11DebugReading,
   prepareGql11ObserveFailureReading,
   prepareGql11ObservePassReading,
@@ -44,7 +42,7 @@ export const gqlWorkflowIntegrationLesson: DemoLesson = {
   name: 'Workflow Integration',
   description:
     'Build a GraphQL Query + Assert workflow in the Designer, bind latency output, watch live console logs, and diagnose failures with step-through Debug Mode.',
-  estimatedMinutes: 7,
+  estimatedMinutes: 6,
   initialTab: 'workflow',
   allowedTabs: ['workflow', 'workflow-runner'],
 
@@ -293,31 +291,17 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
     },
 
     {
-      id: 'gql11-assert-source',
-      title: 'Point Assert at the Latency Variable',
+      id: 'gql11-configure-assert',
+      title: 'Configure Assert Source & Latency Rule',
       description:
-        `Open the GraphQL Assert node → **Source** tab. Set **Source variable** to \`${LESSON11_LATENCY_VAR}\` (bound from the Query Output tab).\n\n` +
-        `This is a live runtime value — each run uses the latency measured in that execution, not a hardcoded number.`,
-      highlight: WF.WF_GQL_ASSERT_SOURCE,
-      preAction: prepareGql11AssertSourceReading,
-      action: async (ctx) => {
-        await demonstrateLesson11AssertSourceConfigured(ctx);
-      },
-      verify: GQL.WF_CANVAS_ASSERT_NODE,
-      pauseAfter: true,
-    },
-
-    {
-      id: 'gql11-assert-rule',
-      title: 'Add a Latency Assertion',
-      description:
-        `Open the **Assertions** tab. Click **+ Add** and set JSONPath \`$\`, operator \`<\` (\`less_than\`), expected \`${LESSON11_PASS_THRESHOLD_MS}\`, description "Latency under ${LESSON11_PASS_THRESHOLD_MS}ms". Save.\n\n` +
+        `Open the GraphQL Assert node. On the **Source** tab, set **Source variable** to \`${LESSON11_LATENCY_VAR}\` (bound from the Query Output tab) — a live runtime value from each run, not a hardcoded number.\n\n` +
+        `Then open **Assertions**, click **+ Add**, and set JSONPath \`$\`, operator \`<\` (\`less_than\`), expected \`${LESSON11_PASS_THRESHOLD_MS}\`, description "Latency under ${LESSON11_PASS_THRESHOLD_MS}ms". Save.\n\n` +
         `\`$\` means "the source value itself." ${LESSON11_PASS_THRESHOLD_MS}ms is a generous local-dev threshold that still catches multi-second regressions.`,
-      // Row is created in preAction so reading spotlight lands on a real control.
-      highlight: GQL.WF_ASSERT_ROW,
-      preAction: prepareGql11AssertRuleReading,
+      // Source tab opened in preAction — reading spotlight starts on the variable control.
+      highlight: WF.WF_GQL_ASSERT_SOURCE,
+      preAction: prepareGql11AssertConfigReading,
       action: async (ctx) => {
-        await demonstrateLesson11AssertRuleConfigured(ctx, LESSON11_PASS_THRESHOLD_MS);
+        await demonstrateLesson11AssertConfigured(ctx, LESSON11_PASS_THRESHOLD_MS);
       },
       verify: GQL.WF_CANVAS_ASSERT_NODE,
       pauseAfter: true,
@@ -330,7 +314,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
         `Click **Console** in the Designer status bar. The log panel opens floating on the left so canvas nodes stay visible.\n\n` +
         `Open it **before** Quick Test — the Console streams live per-node logs. Opening it after a run shows an empty panel; completed entries are not buffered for late readers.`,
       highlight: WF.CONSOLE_BADGE,
-      preAction: ensureLesson11AssertRuleConfigured,
+      preAction: prepareGql11ConsoleReading,
       action: async (ctx) => {
         await demonstrateLesson11ConsoleOpen(ctx);
       },
@@ -387,9 +371,9 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       id: 'gql11-observe-failure',
       title: 'Assert Node Fails',
       description:
-        'After the tight-threshold run: GraphQL Query stays green (HTTP succeeded), but GraphQL Assert turns **red** — latency is not < 1ms.\n\n' +
-        'Check the **Console** for the failed assertion, actual value, expected threshold, and the GraphQL operation that produced it.',
-      highlight: GQL.WF_CANVAS_ASSERT_NODE,
+        'Click **Quick Test** again with the 1ms threshold. GraphQL Query stays green (HTTP succeeded), but GraphQL Assert turns **red** — latency is not < 1ms.\n\n' +
+        'Watch the **Console** for the failed assertion, actual value, expected threshold, and the GraphQL operation that produced it.',
+      highlight: WF.QUICK_TEST_BTN,
       preAction: prepareGql11ObserveFailureReading,
       action: async (ctx) => {
         await demonstrateLesson11ObserveFailure(ctx);

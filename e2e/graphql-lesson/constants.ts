@@ -15,9 +15,9 @@ export const GQL12_LESSON = { name: 'Schema Diff & Breaking Changes', steps: 7 }
 export const GQL13_LESSON = { name: 'Mock Server', steps: 15 } as const;
 export const GQL14_LESSON = { name: 'Multi-Tab Workspaces', steps: 12 } as const;
 export const GQL15_LESSON = { name: 'Batch Execution', steps: 10 } as const;
-export const GQL16_LESSON = { name: 'Workflow Integration', steps: 13 } as const;
+export const GQL16_LESSON = { name: 'Workflow Integration', steps: 12 } as const;
 export const GQL17_LESSON = { name: 'Workflow Runner & Results', steps: 9 } as const;
-export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 15 } as const;
+export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 16 } as const;
 export const GQL19_LESSON = { name: 'Subscription Node in Workflow', steps: 9 } as const;
 
 /** Bottom Auth panel selectors for GQL-4 / GQL-14 lesson walks (Slice 7.6 — Option D). */

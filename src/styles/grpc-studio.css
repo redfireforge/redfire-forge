@@ -2270,12 +2270,24 @@
 }
 
 .grpc-tls-config-modal.ws-tls-modal {
-  width: min(660px, 100%);
-  max-width: 660px;
+  /* Tri-mode + PEM fields need more room than the shared TLS default */
+  width: min(920px, 96vw);
+  max-width: min(1040px, 96vw);
+  min-width: min(720px, 96vw);
+  height: min(780px, 92vh);
+  max-height: 94vh;
 }
 
 .grpc-tls-config-modal .ws-tls-modal-body {
-  padding: 12px 14px 2px;
+  padding: 14px 16px 4px;
+}
+
+.grpc-tls-config-modal .modal-resize-corner::after {
+  opacity: 0.45;
+}
+
+.grpc-tls-config-modal:hover .modal-resize-corner::after {
+  opacity: 0.9;
 }
 
 .grpc-tls-config-modal .ws-tls-section-header {
