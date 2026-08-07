@@ -20,6 +20,9 @@ export {
   GRPC_DEMO_DOCKER_COMMAND,
 };
 
+/** Re-export so lesson modules can import session flags via the helpers barrel. */
+export { setGrpcLessonRunFlag } from '../grpc-lesson-contract/runtime';
+
 export const GRPC_STUDIO_LESSON_ALLOWED_TABS = GRPC_STUDIO_LESSON_ALLOWED_TABS_VALUES;
 
 export const GRPC_ECHO_SERVICE = 'echo.EchoService';
