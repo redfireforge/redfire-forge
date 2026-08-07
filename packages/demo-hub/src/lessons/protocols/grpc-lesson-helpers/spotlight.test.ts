@@ -23,10 +23,12 @@ vi.mock('../../../demoRipple', () => ({
 
 const resumeDemoAutoScroll = vi.hoisted(() => vi.fn());
 const scrollDemoTargetIntoView = vi.hoisted(() => vi.fn());
+const clearLiveDemoPanelFromTarget = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../demoSpotlightUtils', () => ({
   resumeDemoAutoScroll,
   scrollDemoTargetIntoView,
+  clearLiveDemoPanelFromTarget,
 }));
 
 describe('grpc-lesson-helpers/spotlight', () => {
@@ -37,6 +39,7 @@ describe('grpc-lesson-helpers/spotlight', () => {
     purgeAllSpotlightRings.mockClear();
     resumeDemoAutoScroll.mockClear();
     scrollDemoTargetIntoView.mockClear();
+    clearLiveDemoPanelFromTarget.mockClear();
   });
 
   it('spotlightAndPause uses first visible element when multiple matches exist', async () => {
@@ -80,6 +83,23 @@ describe('grpc-lesson-helpers/spotlight', () => {
     expect(removeRing).toHaveBeenCalledTimes(1);
     expect(ctx.delay).toHaveBeenCalledWith(280);
     expect(ctx.delay).toHaveBeenCalledWith(250);
+  });
+
+  it('spotlightElementAndPause with skipScroll clears panel instead of scrolling', async () => {
+    const el = document.createElement('div');
+    makeVisible(el);
+    const ctx = makeCtx();
+
+    await spotlightElementAndPause(ctx, el, 300, { skipScroll: true });
+
+    expect(purgeAllSpotlightRings).toHaveBeenCalled();
+    expect(resumeDemoAutoScroll).toHaveBeenCalled();
+    expect(scrollDemoTargetIntoView).not.toHaveBeenCalled();
+    expect(clearLiveDemoPanelFromTarget).toHaveBeenCalledWith(el);
+    expect(showSpotlightRing).toHaveBeenCalledWith(el, { steady: true });
+    expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(ctx.delay).toHaveBeenCalledWith(80);
+    expect(ctx.delay).toHaveBeenCalledWith(300);
   });
 
   it('spotlightGrpcRequestComposer spotlights hybrid JSON composer with tight ring', async () => {

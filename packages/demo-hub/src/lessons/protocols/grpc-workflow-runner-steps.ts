@@ -9,6 +9,7 @@ import {
   patchWorkflowByName,
   patchWorkflowNodeDataById,
 } from '../../adapters';
+import { fillControlledInput } from '../setup-helpers';
 import {
   cleanupWorkflowDemoRunUi,
   closeWfConsoleIfOpen,
@@ -16,13 +17,16 @@ import {
   collapseWfDemoAppSidebar,
   expandWfDemoAppSidebar,
   fillWfConfigField,
+  holdWfSpotlight,
   openWfConsoleIfClosed,
   openWfNodeConfigModal,
-  pauseWfConfigSection,
+  resetWfPaletteToBlocks,
   saveAndCloseWfConfigModal,
   scrollWfConfigFieldIntoView,
+  setWfConfigDemoTiming,
   revealPaletteBlock,
   waitForWfConfigPanel,
+  WF_CONFIG_DEMO_TIMING_BRISK,
 } from '../wf-demo-helpers';
 import {
   WF14_NAME,
@@ -34,9 +38,13 @@ import {
   ECHO_ASSERTIONS_JSON,
   clickWfFitView,
   isNodeOnCanvas,
+  isUnaryNodeOnCanvas,
   isWorkflowPresent,
+  quietWfFitView,
+  resolveWf14UnaryNodeId,
   selectGrpcUnaryServiceAndMethod,
   spotlightWfCanvasNode,
+  waitForGrpcUnaryReflectionReady,
 } from './grpc-workflow-integration-helpers';
 import { spotlightAndPause, spotlightElementAndPause, GRPC_DEMO_DOCKER_COMMAND } from './grpc-lesson-helpers';
 import type { DemoLesson } from '../../types';
@@ -68,10 +76,14 @@ import {
   openResultsOverviewTab,
   ensureFullResultsMetricsCards,
   scrollResultsMetricsCardsIntoView,
+  scrollResultsMetricsLatencyRowIntoView,
   tourResultsExplorerPanels,
   closeResultsExplorerIfOpen,
   spotlightGrpcTargetVarRow,
 } from './grpc-workflow-runner-helpers';
+
+/** Reading highlight for Echo Call — works for preset id or palette-minted UUID. */
+const ECHO_CALL_HIGHLIGHT = `${WF.NODE_GRPC_UNARY}, ${WF14_NODE_GRPC_SEL}`;
 
 /**
  * Numeric pauseAfter overrides calcReadingTime (4.5s floor + ~160 wpm), which
@@ -131,13 +143,11 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         grpcWRSession.sidebarCollapsed = true;
 
         // Payoff: ring the Start node only — not the whole canvas/design box.
+        // Palette search + gRPC Unary click are taught in the next add-node step.
         fitWorkflowCanvasView();
         await ctx.delay(300);
         await ctx.waitFor(WF.NODE_START, 3000);
         await spotlightAndPause(ctx, WF.NODE_START, 900);
-        // Narration mentions the three gRPC palette blocks — show Unary as the entry point.
-        await revealPaletteBlock(ctx, WF.PAL_GRPC_UNARY);
-        await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 700);
       },
       verify: WF.NODE_START,
     },
@@ -212,15 +222,18 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       verify: WF.CANVAS,
     },
 
-    // ── Step 3: Add gRPC Unary node ─────────────────────────────────────────
+    // ── Step 3: Search palette → highlight matches → click gRPC Unary ─────
     {
       id: 'grpc24-unary',
       title: 'Add a gRPC Unary Node',
       description:
-        `Click **gRPC Unary** in the palette. The demo wires **Start → Echo Call** and fits the view.\n\n` +
+        `Type **gRPC** in the Blocks search so the palette filters to the gRPC blocks. ` +
+        `Watch **gRPC Unary**, **gRPC Server Stream**, and **gRPC Assert** appear.\n\n` +
+        `Then click **gRPC Unary** to place **Echo Call**. The demo wires **Start → Echo Call** and fits the view.\n\n` +
         `Unary = one request → one response. At runtime it publishes response fields under the \`saveAs\` namespace for downstream nodes.`,
       pauseAfter: READ_STD_MS,
-      highlight: WF.PAL_GRPC_UNARY,
+      // Reading starts on the search box — action types, then clicks Unary.
+      highlight: WF.PAL_SEARCH,
       preAction: async (ctx) => {
         if (!grpcWRSession.workflowCreated || !isWorkflowPresent()) {
           await ensureOnWorkflowTab(ctx);
@@ -235,22 +248,69 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         }
         await closeWfConfigModalIfOpen(ctx);
         await ensureOnWorkflowTab(ctx);
-        if (grpcWRSession.unaryAdded && !isNodeOnCanvas(WF14_NODE_GRPC)) {
+        if (grpcWRSession.unaryAdded && !isUnaryNodeOnCanvas()) {
           grpcWRSession.unaryAdded = false;
+        }
+        // Clear search so the typed "gRPC" beat is visible.
+        resetWfPaletteToBlocks();
+        const palInput = document.querySelector<HTMLInputElement>(WF.PAL_SEARCH);
+        if (palInput?.value) {
+          fillControlledInput(palInput, '');
+          await ctx.delay(120);
         }
       },
       action: async (ctx) => {
-        await revealPaletteBlock(ctx, WF.PAL_GRPC_UNARY);
-        await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 800);
-        if (!isNodeOnCanvas(WF14_NODE_GRPC)) {
-          addWorkflowNodeWithPreset('grpcUnary', WF14_NODE_GRPC, 'Echo Call', { x: 320, y: 200 });
-          await ctx.delay(500);
+        resetWfPaletteToBlocks();
+
+        // 1. Type gRPC in search and hold so the viewer reads the filter.
+        await spotlightAndPause(ctx, WF.PAL_SEARCH, 800);
+        await ctx.fill(WF.PAL_SEARCH, 'gRPC');
+        await ctx.delay(500);
+        await spotlightAndPause(ctx, WF.PAL_SEARCH, 1_100);
+
+        try {
+          await ctx.waitFor(WF.PAL_GRPC_UNARY, 3_000);
+        } catch { /* palette may already show the block */ }
+
+        // Highlight the filtered gRPC matches as a group.
+        const blocksEl = document.querySelector<HTMLElement>('.wf-palette-blocks');
+        if (blocksEl) {
+          await spotlightAndPause(ctx, '.wf-palette-blocks', 1_300);
+        } else {
+          for (const sel of [WF.PAL_GRPC_UNARY, WF.PAL_GRPC_SERVER_STREAM, WF.PAL_GRPC_ASSERT]) {
+            if (document.querySelector(sel)) await spotlightAndPause(ctx, sel, 550);
+          }
+        }
+
+        // 2. Highlight gRPC Unary, then click it in the palette.
+        await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 1_100);
+        if (!isUnaryNodeOnCanvas()) {
+          await ctx.click(WF.PAL_GRPC_UNARY);
+          await ctx.delay(600);
+          try {
+            await ctx.waitFor(`${WF.NODE_GRPC_UNARY}, .react-flow__node-grpcUnary`, 5_000);
+          } catch { /* fall through to preset */ }
+
+          if (!isUnaryNodeOnCanvas()) {
+            addWorkflowNodeWithPreset('grpcUnary', WF14_NODE_GRPC, 'Echo Call', {
+              x: 320,
+              y: 200,
+            });
+            await ctx.delay(400);
+          } else {
+            patchWorkflowNodeDataById(resolveWf14UnaryNodeId(), { label: 'Echo Call' });
+            await ctx.delay(250);
+          }
           grpcWRSession.unaryAdded = true;
         }
+
+        const palInput = document.querySelector<HTMLInputElement>(WF.PAL_SEARCH);
+        if (palInput?.value) fillControlledInput(palInput, '');
+
         ensureChainConnected();
         await ctx.delay(350);
         await clickWfFitView(ctx);
-        await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 900);
+        await spotlightWfCanvasNode(ctx, resolveWf14UnaryNodeId(), 900);
       },
       verify: GRPC.CANVAS_UNARY_NODE,
     },
@@ -266,10 +326,10 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         `- **Body:** \`${ECHO_BODY_JSON}\` · **Save As:** \`echoReply\`\n\n` +
         `Click **Save**.`,
       pauseAfter: READ_TEACH_MS,
-      highlight: WF14_NODE_GRPC_SEL,
+      highlight: ECHO_CALL_HIGHLIGHT,
       preAction: async (ctx) => {
         await ensureOnWorkflowTab(ctx);
-        if (!isWorkflowPresent() || !isNodeOnCanvas(WF14_NODE_GRPC)) {
+        if (!isWorkflowPresent() || !isUnaryNodeOnCanvas()) {
           await seedGrpcWRWorkflowQuiet(ctx);
           return;
         }
@@ -282,42 +342,38 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await ctx.delay(200);
       },
       action: async (ctx) => {
-        await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 600);
-        await openWfNodeConfigModal(ctx, { nodeId: WF14_NODE_GRPC });
+        // Reading already ringed Echo Call — open without a second canvas tour.
+        await openWfNodeConfigModal(ctx, {
+          nodeId: resolveWf14UnaryNodeId(),
+          skipCanvasSpotlight: true,
+        });
         await waitForWfConfigPanel(ctx, GRPC.WF_UNARY_CONFIG);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CONFIG, 550);
 
-        // Target is the teaching beat — hold longer after fill.
-        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_TARGET);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_TARGET, 700);
+        // Beat 1 — templated Target
         await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_TARGET, GRPCWR_TARGET_EXPR);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_TARGET, 700);
+        await holdWfSpotlight(ctx, GRPC.WF_UNARY_CFG_TARGET, 1100);
 
-        // Schema status shows "(via localhost:50051)" while Target stays templated.
+        // Beat 2 — Schema Ready (shows resolved host while Target stays templated)
+        await waitForGrpcUnaryReflectionReady(ctx, 10_000);
         await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_REFLECT_STATUS);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_REFLECT_STATUS, 900);
+        await holdWfSpotlight(ctx, GRPC.WF_UNARY_CFG_REFLECT_STATUS, 1400);
 
-        await pauseWfConfigSection(ctx);
+        // Beats 3–4 — Service → Method
         await selectGrpcUnaryServiceAndMethod(ctx, 'echo.EchoService', 'Echo', { paced: true });
 
-        await pauseWfConfigSection(ctx);
-        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_SAVE_AS);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 550);
+        // Beat 5 — Save As + Body
         await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 'echoReply');
-        await ctx.delay(350);
-
-        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_BODY);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_BODY, 550);
+        await holdWfSpotlight(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 900);
         await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_BODY, ECHO_BODY_JSON);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_BODY, 700);
+        await holdWfSpotlight(ctx, GRPC.WF_UNARY_CFG_BODY, 1100);
 
         await ctx.waitFor(WF.CFG_SAVE, 3000);
-        await spotlightAndPause(ctx, WF.CFG_SAVE, 500);
+        await holdWfSpotlight(ctx, WF.CFG_SAVE, 700);
         await ctx.click(WF.CFG_SAVE);
         grpcWRSession.unaryConfigured = true;
         await ctx.delay(400);
 
-        patchWorkflowNodeDataById(WF14_NODE_GRPC, {
+        patchWorkflowNodeDataById(resolveWf14UnaryNodeId(), {
           target: GRPCWR_TARGET_EXPR,
           descriptorKey: resolveDescriptorKey(),
           service: 'echo.EchoService',
@@ -325,8 +381,8 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
           body: { message: 'workflow-test' },
           saveAs: 'echoReply',
         });
-        await clickWfFitView(ctx);
-        await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 700);
+        await quietWfFitView(ctx);
+        await spotlightWfCanvasNode(ctx, resolveWf14UnaryNodeId(), 700);
       },
       verify: GRPC.CANVAS_UNARY_NODE,
     },
@@ -342,12 +398,12 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       highlight: WF.PAL_GRPC_ASSERT,
       preAction: async (ctx) => {
         await ensureOnWorkflowTab(ctx);
-        if (!isWorkflowPresent() || !isNodeOnCanvas(WF14_NODE_GRPC)) {
+        if (!isWorkflowPresent() || !isUnaryNodeOnCanvas()) {
           await seedGrpcWRWorkflowQuiet(ctx);
           return;
         }
         if (!grpcWRSession.unaryConfigured) {
-          patchWorkflowNodeDataById(WF14_NODE_GRPC, {
+          patchWorkflowNodeDataById(resolveWf14UnaryNodeId(), {
             target: GRPCWR_TARGET_EXPR,
             descriptorKey: resolveDescriptorKey(),
             service: 'echo.EchoService',
@@ -386,13 +442,13 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         `Open **Assert Echo**. Set **Source** to \`echoReply\`, then assertions:\n\n` +
         `\`\`\`json\n${ECHO_ASSERTIONS_JSON}\n\`\`\`\n\n` +
         `\`grpcStatus: 0\` = OK; \`grpcField\` checks the echoed message. Click **Save**.`,
-      pauseAfter: READ_STD_MS,
+      pauseAfter: READ_BRIEF_MS,
       highlight: WF14_NODE_ASSERT_SEL,
       preAction: async (ctx) => {
         await ensureOnWorkflowTab(ctx);
         if (
           !isWorkflowPresent() ||
-          !isNodeOnCanvas(WF14_NODE_GRPC) ||
+          !isUnaryNodeOnCanvas() ||
           !isNodeOnCanvas(WF14_NODE_ASSERT)
         ) {
           await seedGrpcWRWorkflowQuiet(ctx);
@@ -401,39 +457,39 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         ensureChainConnected();
         await closeWfConfigModalIfOpen(ctx);
         fitWorkflowCanvasView();
-        await ctx.delay(150);
+        await ctx.delay(100);
       },
       action: async (ctx) => {
-        await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 550);
-        await openWfNodeConfigModal(ctx, { nodeId: WF14_NODE_ASSERT });
-        await waitForWfConfigPanel(ctx, GRPC.WF_ASSERT_CONFIG);
-        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CONFIG, 600);
+        // Two fields on one form — use brisk config pacing (default modal/save
+        // holds stack to ~8s+ of dead air for this short step).
+        setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
+        try {
+          if (!document.querySelector(GRPC.WF_ASSERT_CONFIG)) {
+            await openWfNodeConfigModal(ctx, {
+              nodeId: WF14_NODE_ASSERT,
+              skipCanvasSpotlight: true,
+            });
+            await waitForWfConfigPanel(ctx, GRPC.WF_ASSERT_CONFIG);
+          }
 
-        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_ASSERT_CFG_SOURCE);
-        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 600);
-        await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 'echoReply');
-        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 550);
-        await pauseWfConfigSection(ctx);
+          await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 'echoReply');
+          await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, ECHO_ASSERTIONS_JSON);
 
-        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS);
-        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 650);
-        await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, ECHO_ASSERTIONS_JSON);
-        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 800);
+          await saveAndCloseWfConfigModal(ctx);
+          grpcWRSession.assertConfigured = true;
+          await ctx.delay(200);
 
-        await spotlightAndPause(ctx, WF.CFG_SAVE, 450);
-        await saveAndCloseWfConfigModal(ctx);
-        grpcWRSession.assertConfigured = true;
-        await ctx.delay(350);
-
-        patchWorkflowNodeDataById(WF14_NODE_ASSERT, {
-          source: 'echoReply',
-          assertions: [
-            { grpcStatus: 0 },
-            { grpcField: 'message', equals: 'workflow-test' },
-          ],
-        });
-        await clickWfFitView(ctx);
-        await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 700);
+          patchWorkflowNodeDataById(WF14_NODE_ASSERT, {
+            source: 'echoReply',
+            assertions: [
+              { grpcStatus: 0 },
+              { grpcField: 'message', equals: 'workflow-test' },
+            ],
+          });
+          await quietWfFitView(ctx);
+        } finally {
+          setWfConfigDemoTiming(null);
+        }
       },
       verify: GRPC.CANVAS_ASSERT_NODE,
     },
@@ -450,7 +506,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       preAction: async (ctx) => {
         await ensureGrpcWRNodesPresent(ctx);
         if (!grpcWRSession.unaryConfigured) {
-          patchWorkflowNodeDataById(WF14_NODE_GRPC, {
+          patchWorkflowNodeDataById(resolveWf14UnaryNodeId(), {
             target: GRPCWR_TARGET_EXPR,
             descriptorKey: resolveDescriptorKey(),
             service: 'echo.EchoService',
@@ -489,7 +545,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         try { await ctx.waitFor('.wf-node-run-status', 4000); } catch { /* server may not be running */ }
         await ctx.delay(350);
         await spotlightAndPause(ctx, WF.CANVAS, 800);
-        await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 600);
+        await spotlightWfCanvasNode(ctx, resolveWf14UnaryNodeId(), 600);
         await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 600);
         await spotlightAndPause(ctx, WF.CONSOLE, 800);
         grpcWRSession.quickTestRun = true;
@@ -649,10 +705,9 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       action: async (ctx) => {
         await scrollResultsMetricsCardsIntoView(ctx);
         await spotlightAndPause(ctx, RES.METRICS_CARDS, 900);
-        const latencyRow = document.querySelector<HTMLElement>(RES.METRICS_LATENCY_ROW);
-        if (latencyRow) {
-          latencyRow.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
-          await ctx.delay(200);
+        if (document.querySelector(RES.METRICS_LATENCY_ROW)) {
+          // Sticky-aware scroll — native nearest scroll clips card values under `.results-top`.
+          await scrollResultsMetricsLatencyRowIntoView(ctx);
           await spotlightAndPause(ctx, RES.METRICS_LATENCY_ROW, 800);
         }
       },

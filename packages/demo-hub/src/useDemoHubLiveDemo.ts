@@ -33,6 +33,8 @@ import {
   runGrpcDemoStorageHygiene,
 } from './useDemoHubHelpers';
 import { purgeAllSpotlightRings } from './demoRipple';
+import { clearDemoBootFreeze, installDemoBootFreeze, revealDemoBootSurface } from './demoBootFreeze';
+import { clearDemoInitialSurface, setDemoInitialSurface } from '@shared/demoInitialSurface';
 import type { DemoStep } from './types';
 
 export interface UseDemoHubLiveDemoOptions {
@@ -150,6 +152,9 @@ export function useDemoHubLiveDemo({
   const runLiveDemoSetup = useCallback(async (lesson: DemoLesson, gen: number): Promise<boolean> => {
     suppressLiveTabExitRef.current = true;
     try {
+      // Land on the lesson tab immediately so Demo Hub does not paint the empty
+      // blue "live placeholder" while closeIsolated / hygiene await.
+      if (lesson.initialTab) navigateToTab(lesson.initialTab);
       await closeIsolatedStudioDemoTabSession({ restorePreviousTab: false });
       if (lesson.initialTab) navigateToTab(lesson.initialTab);
       expandAppSidebar();
@@ -189,6 +194,11 @@ export function useDemoHubLiveDemo({
     autoPlayGenRef.current++;
     const gen = autoPlayGenRef.current;
     abortRef.current?.abort();
+    setDemoInitialSurface(lesson.initialSurface ?? null);
+    installDemoBootFreeze();
+    flushSync(() => {
+      if (lesson.initialTab) navigateToTab(lesson.initialTab);
+    });
     flushSync(() => {
       setIsDemoBootstrapping(true);
       setStepPhase('pre');
@@ -211,9 +221,11 @@ export function useDemoHubLiveDemo({
         setStepPhase('done');
       }
     } finally {
+      clearDemoInitialSurface();
       setIsDemoBootstrapping(false);
+      revealDemoBootSurface();
     }
-  }, [state.selectedLesson, state.stepIndex, state.speed, runLiveDemoSetup, executeCurrentStep, progress, isMountedRef, autoPlayGenRef, abortRef, setState, setStepPhase, setIsDemoBootstrapping]);
+  }, [state.selectedLesson, state.stepIndex, state.speed, navigateToTab, runLiveDemoSetup, executeCurrentStep, progress, isMountedRef, autoPlayGenRef, abortRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
   useEffect(() => {
     if (!shouldResumeLiveRef.current) return;
@@ -234,9 +246,17 @@ export function useDemoHubLiveDemo({
     skipReadingRef.current = null;
 
     resetGqlModalSessionFlags();
-    // Enter live immediately and paint the guide panel before setup navigates.
-    // No full-screen Preparing / concept-cover — those blocked Start and looked
-    // like a hard refresh back to the same page.
+    // Arm BEFORE the tab mounts so GrpcStudio (etc.) initializes on step 1's
+    // sub-panel — not Studio/Load testing, then hop.
+    setDemoInitialSurface(lesson.initialSurface ?? null);
+    installDemoBootFreeze();
+    // CRITICAL ORDER: leave Demo Hub WHILE Concept is still mounted, THEN
+    // flip view→live. Doing both in one commit left an empty Demo Hub body
+    // (Concept gone, live placeholder hidden during boot) for the entire
+    // Preparing phase whenever the tab switch lagged one frame.
+    flushSync(() => {
+      if (lesson.initialTab) navigateToTab(lesson.initialTab);
+    });
     flushSync(() => {
       setIsDemoBootstrapping(true);
       setStepPhase('pre');
@@ -252,9 +272,11 @@ export function useDemoHubLiveDemo({
         progress.setLessonStep(lesson.id, 0);
       }
     } finally {
+      clearDemoInitialSurface();
       setIsDemoBootstrapping(false);
+      revealDemoBootSurface();
     }
-  }, [state.selectedLesson, state.speed, runLiveDemoSetup, executeCurrentStep, progress, resetGqlModalSessionFlags, autoPlayGenRef, abortRef, skipReadingRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
+  }, [state.selectedLesson, state.speed, navigateToTab, runLiveDemoSetup, executeCurrentStep, progress, resetGqlModalSessionFlags, autoPlayGenRef, abortRef, skipReadingRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
   const goToStep = useCallback(async (index: number) => {
     const lesson = state.selectedLesson;
@@ -403,9 +425,14 @@ export function useDemoHubLiveDemo({
     skipReadingRef.current?.();
     skipReadingRef.current = null;
     const gen = autoPlayGenRef.current;
+    setDemoInitialSurface(lesson.initialSurface ?? null);
+    installDemoBootFreeze();
     flushSync(() => {
-      setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
+      if (lesson.initialTab) navigateToTab(lesson.initialTab);
+    });
+    flushSync(() => {
       setIsDemoBootstrapping(true);
+      setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
       setStepPhase('pre');
     });
     const ctx = buildQuietContext();
@@ -415,7 +442,6 @@ export function useDemoHubLiveDemo({
       }
       suppressLiveTabExitRef.current = true;
       try {
-        if (lesson.initialTab) navigateToTab(lesson.initialTab);
         expandAppSidebar();
         await new Promise(r => setTimeout(r, 120));
         if (isGraphqlStudioLesson(lesson)) {
@@ -442,7 +468,9 @@ export function useDemoHubLiveDemo({
         progress.setLessonStep(lesson.id, 0);
       }
     } finally {
+      clearDemoInitialSurface();
       setIsDemoBootstrapping(false);
+      revealDemoBootSurface();
     }
   }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, ensureActiveDemoTabOrCreate, executeCurrentStep, progress, clearGqlIntroSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, suppressLiveTabExitRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
@@ -473,6 +501,7 @@ export function useDemoHubLiveDemo({
     progress.setLastView('concept');
     setStepPhase('done');
     setIsDemoBootstrapping(false);
+    clearDemoBootFreeze();
     void syncDemoLiveGuard(false);
     navigateToTab('demo-hub');
 
