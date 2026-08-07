@@ -359,17 +359,19 @@ describe('wf-demo-helpers', () => {
     expect(document.querySelector('.wf-console-panel')).toBeNull();
   });
 
-  it('openWfNodeConfigModal dblclicks node by data-id when bridge missing', async () => {
+  it('openWfNodeConfigModal spotlights the canvas node before dblclick when bridge missing', async () => {
     document.body.innerHTML = `<div class="react-flow__node" data-id="node-99"></div>`;
     const node = document.querySelector<HTMLElement>('.react-flow__node')!;
     const dispatchSpy = vi.spyOn(node, 'dispatchEvent');
     const ctx = makeCtx();
     await openWfNodeConfigModal(ctx, { nodeId: 'node-99' });
     expect(dispatchSpy).toHaveBeenCalled();
+    // Spotlight hold before open, then modalOpen settle.
+    expect(ctx.delay).toHaveBeenCalledWith(Math.max(1_100, Math.round(WF_CONFIG_DEMO_TIMING.modalOpen * 0.55)));
     expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.modalOpen);
   });
 
-  it('openWfNodeConfigModal uses bridge when available', async () => {
+  it('openWfNodeConfigModal spotlights then opens via bridge when available', async () => {
     const openSpy = vi.fn();
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = openSpy;
     document.body.innerHTML = `
@@ -380,6 +382,7 @@ describe('wf-demo-helpers', () => {
     const ctx = makeCtx();
     await openWfNodeConfigModal(ctx, { canvasTestId: '[data-testid="gql-canvas-query-node"]' });
     expect(openSpy).toHaveBeenCalledWith('node-1');
+    expect(ctx.delay).toHaveBeenCalledWith(Math.max(1_100, Math.round(WF_CONFIG_DEMO_TIMING.modalOpen * 0.55)));
     expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.modalOpen);
   });
 

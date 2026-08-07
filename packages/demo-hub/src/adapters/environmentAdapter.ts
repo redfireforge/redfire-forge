@@ -98,6 +98,18 @@ export function removeSettingsMicroservice(name: string): void {
 }
 
 /**
+ * Quietly clear protocol tabs, protocol endpoints, and global vars on a named
+ * Settings microservice. Prefer this over DOM × clicks during lesson setup —
+ * the remove control is `display:none` until the tab wrap is hovered/active.
+ */
+export function resetSettingsMicroserviceProtocols(
+  name: string,
+  options?: { clearProtocols?: boolean; clearGlobalVars?: boolean },
+): boolean {
+  return getDemoBridgeWindow().__demoResetSettingsSvcProtocols?.(name, options) ?? false;
+}
+
+/**
  * Clear cached "batch unsupported" for the demo server — live Studio state when mounted,
  * plus persisted per-connection detection keys in storage.
  */

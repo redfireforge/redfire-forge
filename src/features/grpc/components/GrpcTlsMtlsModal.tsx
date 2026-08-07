@@ -72,8 +72,8 @@ export function GrpcTlsMtlsModal({
       showExpandButton={false}
       showResizeHandles
       closeButtonKind="none"
-      minWidth={720}
-      minHeight={520}
+      minWidth={520}
+      minHeight={480}
       footer={
         <>
           <div className="grpc-tls-modal-footer-group grpc-tls-modal-footer-group--left">

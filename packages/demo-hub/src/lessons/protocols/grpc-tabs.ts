@@ -14,12 +14,16 @@ import {
   type GrpcDemoLesson,
 } from './grpc-lesson-contract';
 import {
-  grpcFirstCallSetup,
-  grpcFirstCallCleanup,
+  clearGrpcSchemaDriftQuiet,
   closeExtraGrpcTabsQuiet,
+  closeGrpcSettingsDrawerQuiet,
   ensureGrpcStudioSubNavQuiet,
+  grpcFirstCallCleanup,
+  resetGrpcConnectionSettingsQuiet,
+  resetGrpcLessonSessionFlags,
 } from './grpc-lesson-helpers';
 import { GRPC_DEMO_TARGET } from './grpc-lesson-helpers/constants';
+import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
 const GRPC25_ROSTER = getGrpcLessonRosterEntry('grpc-tabs')!;
 
@@ -42,13 +46,23 @@ export const grpcTabsLesson: GrpcDemoLesson = {
   ...buildGrpcLessonShellFromRoster(GRPC25_ROSTER),
   domainId: 'protocols',
   category: 'grpc',
+  // Teach the real tab bar — do not add/rename a temporary "demo" tab at start.
+  skipStudioTabIsolation: true,
   description:
     'Work with multiple gRPC method calls simultaneously. Each tab binds to its own method, ' +
     'request body, metadata, and streaming session — plus gRPC\'s unique Duplicate tab feature.',
   grpc: buildGrpcContractMetaFromRoster(GRPC25_ROSTER),
 
   setup: async (ctx) => {
-    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+    // Quiet land on Studio — no tab normalize/rename tour before the Tab Bar highlight.
+    resetGrpcLessonSessionFlags();
+    await navigateToGrpcStudio(ctx);
+    await closeGrpcSettingsDrawerQuiet(ctx);
+    await ensureGrpcStudioSubNavQuiet(ctx);
+    await resetGrpcConnectionSettingsQuiet(ctx);
+    await clearGrpcSchemaDriftQuiet(ctx);
+    // Collapse leftover tabs so step 1 rings a clean bar (Tab 1 only).
+    await closeExtraGrpcTabsQuiet(ctx);
   },
 
   cleanup: async (ctx) => {

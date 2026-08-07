@@ -12431,13 +12431,18 @@
 }
 
 .gql-batch-results {
-  width: 640px;
+  width: min(680px, calc(100vw - 32px));
   max-width: 95vw;
   max-height: 82vh;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 16px 48px color-mix(in srgb, var(--bg) 55%, transparent);
+  background: var(--bg-elevated, var(--surface));
+  /* Subtle light edge so the modal reads clearly against dark studio chrome */
+  border: 1px solid color-mix(in srgb, white 24%, var(--border));
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 12%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 6%, transparent),
+    0 20px 56px color-mix(in srgb, var(--bg) 70%, transparent),
+    0 4px 14px color-mix(in srgb, var(--bg) 45%, transparent);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -12456,10 +12461,10 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  gap: 14px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid color-mix(in srgb, white 16%, var(--border));
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
   flex-shrink: 0;
 }
 
@@ -12478,41 +12483,49 @@
   justify-content: center;
   flex-shrink: 0;
   width: 18px;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--text-muted);
-  opacity: 0.55;
+  opacity: 0.5;
+  transition: opacity 0.12s ease, color 0.12s ease;
 }
 
 .gql-batch-results-header--draggable:hover .gql-batch-results-drag-grip {
-  opacity: 0.9;
+  opacity: 0.95;
   color: var(--primary);
 }
 .gql-batch-results-heading {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
   min-width: 0;
 }
 .gql-batch-results-title {
   margin: 0;
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 650;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
 }
 .gql-batch-results-subtitle {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
-  opacity: 0.85;
+  line-height: 1.35;
 }
 .gql-batch-results-transport {
-  margin: 0;
+  margin: 2px 0 0;
+  padding: 5px 8px;
+  width: fit-content;
+  max-width: 100%;
   font-size: 0.68rem;
+  line-height: 1.4;
   color: var(--text-muted);
-  opacity: 0.75;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, white 14%, var(--border));
+  border-radius: 6px;
 }
 .gql-batch-results-badges {
   display: flex;
@@ -12521,32 +12534,34 @@
   justify-content: flex-end;
   gap: 6px;
   flex-shrink: 0;
+  padding-top: 1px;
 }
 .gql-batch-summary-pill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 600;
   line-height: 1.3;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 14%, var(--border));
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 .gql-batch-summary-pill--passed {
   color: #a6e3a1;
   background: color-mix(in srgb, #a6e3a1 12%, var(--surface));
-  border-color: color-mix(in srgb, #a6e3a1 35%, var(--border));
+  border-color: color-mix(in srgb, #a6e3a1 40%, color-mix(in srgb, white 12%, var(--border)));
 }
 .gql-batch-summary-pill--failed {
   color: #f38ba8;
   background: color-mix(in srgb, #f38ba8 12%, var(--surface));
-  border-color: color-mix(in srgb, #f38ba8 35%, var(--border));
+  border-color: color-mix(in srgb, #f38ba8 40%, color-mix(in srgb, white 12%, var(--border)));
 }
 .gql-batch-summary-pill--fallback {
   color: #f9e2af;
   background: color-mix(in srgb, #f9e2af 12%, var(--surface));
-  border-color: color-mix(in srgb, #f9e2af 35%, var(--border));
+  border-color: color-mix(in srgb, #f9e2af 40%, color-mix(in srgb, white 12%, var(--border)));
 }
 .gql-batch-results-footer {
   display: flex;
@@ -12554,12 +12569,12 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 18px;
-  border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--border) 8%, var(--bg));
+  border-top: 1px solid color-mix(in srgb, white 16%, var(--border));
+  background: color-mix(in srgb, var(--surface) 40%, var(--bg));
   flex-shrink: 0;
 }
 .gql-batch-results-close-btn {
-  min-width: 80px;
+  min-width: 88px;
   justify-content: center;
 }
 .gql-batch-results-close-btn:focus-visible {
@@ -12572,14 +12587,23 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg);
 }
 .gql-batch-card {
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, white 16%, var(--border));
   overflow: hidden;
-  background: var(--bg);
+  background: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, white 5%, transparent);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.gql-batch-card:hover {
+  border-color: color-mix(in srgb, white 26%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 6%, transparent),
+    0 2px 8px color-mix(in srgb, var(--bg) 35%, transparent);
 }
 .gql-batch-card--success {
   border-left: 3px solid #a6e3a1;
@@ -12590,16 +12614,16 @@
 .gql-batch-card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--surface);
+  gap: 9px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
   border: none;
   width: 100%;
   text-align: left;
   cursor: pointer;
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   color: var(--text);
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s ease;
 }
 .gql-batch-card-header:hover {
   background: var(--surface-hover);
@@ -12610,24 +12634,35 @@
 }
 .gql-batch-card-index {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  height: 1.35rem;
+  padding: 0 5px;
+  border-radius: 5px;
   font-size: 0.64rem;
-  font-weight: 600;
+  font-weight: 650;
   color: var(--text-muted);
-  opacity: 0.7;
-  min-width: 1.4rem;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, white 12%, var(--border));
+  font-variant-numeric: tabular-nums;
 }
 .gql-batch-card-indicator {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 .gql-batch-card-indicator--success { color: #a6e3a1; }
 .gql-batch-card-indicator--error { color: #f38ba8; }
 .gql-batch-card-name {
   flex: 1;
   min-width: 0;
-  font-weight: 500;
+  font-weight: 550;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -12635,65 +12670,81 @@
 .gql-batch-card-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex-shrink: 0;
 }
 .gql-batch-card-status {
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 5px;
   font-size: 0.64rem;
-  font-weight: 600;
-  border: 1px solid var(--border);
+  font-weight: 650;
+  border: 1px solid color-mix(in srgb, white 12%, var(--border));
   background: var(--bg);
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .gql-batch-card-status--success {
   color: #a6e3a1;
-  border-color: color-mix(in srgb, #a6e3a1 35%, var(--border));
+  border-color: color-mix(in srgb, #a6e3a1 40%, color-mix(in srgb, white 10%, var(--border)));
+  background: color-mix(in srgb, #a6e3a1 8%, var(--bg));
 }
 .gql-batch-card-status--error {
   color: #f38ba8;
-  border-color: color-mix(in srgb, #f38ba8 35%, var(--border));
+  border-color: color-mix(in srgb, #f38ba8 40%, color-mix(in srgb, white 10%, var(--border)));
+  background: color-mix(in srgb, #f38ba8 8%, var(--bg));
 }
 .gql-batch-card-latency {
   color: var(--text-muted);
   font-size: 0.66rem;
-  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2rem;
+  text-align: right;
 }
 .gql-batch-card-chevron-icon {
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: transform 0.15s ease;
+  opacity: 0.75;
+  transition: transform 0.15s ease, opacity 0.12s ease;
+}
+.gql-batch-card-header:hover .gql-batch-card-chevron-icon {
+  opacity: 1;
+  color: var(--text);
 }
 .gql-batch-card-chevron-icon--expanded {
   transform: rotate(90deg);
 }
 .gql-batch-card-body {
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: var(--bg);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid color-mix(in srgb, white 12%, var(--border));
 }
-.gql-batch-card-errors { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.gql-batch-card-errors { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .gql-batch-card-error-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px 6px;
+  padding: 6px 8px;
   background: color-mix(in srgb, #f38ba8 8%, var(--surface));
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #f38ba8 28%, color-mix(in srgb, white 8%, var(--border)));
   border-left: 2px solid #f38ba8;
 }
 .gql-batch-card-error-msg { font-size: 0.73rem; color: #f38ba8; }
 .gql-batch-card-error-path { font-size: 0.65rem; color: var(--text-muted); }
 .gql-batch-card-data {
-  font-size: 0.72rem;
+  font-size: 0.73rem;
+  line-height: 1.45;
   color: var(--text);
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
   margin: 0;
-  max-height: 200px;
+  max-height: 220px;
   overflow-y: auto;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--surface) 35%, var(--bg));
+  border: 1px solid color-mix(in srgb, white 12%, var(--border));
+  border-radius: 7px;
 }
 .gql-batch-card-empty { font-size: 0.72rem; color: var(--text-muted); margin: 0; }
 

@@ -3,7 +3,19 @@ import { GRPC } from '@shared/selectors';
 import { captureGrpcActiveDescriptorKey } from '../../../adapters';
 import { grpcLessonSession } from './constants';
 import { setGrpcLessonRunFlag } from '../grpc-lesson-contract/runtime';
-import { ensureGrpcTarget, resetGrpcConnectionSettingsQuiet } from './connection';
+import {
+  ensureGrpcPlaintextChannelReady,
+  ensureGrpcTarget,
+  resetGrpcConnectionSettingsQuiet,
+} from './connection';
+import { GRPC_DEMO_TARGET } from './constants';
+
+function isPlaintextDemoTargetAddress(): boolean {
+  const value = document.querySelector<HTMLInputElement>(GRPC.TARGET_INPUT)?.value.trim() ?? '';
+  if (!value || value === GRPC_DEMO_TARGET) return true;
+  // Common loopback forms of the plaintext fixture.
+  return /(?:localhost|127\.0\.0\.1):50051\b/i.test(value);
+}
 
 export async function ensureGrpcReflected(ctx: DemoActionContext): Promise<void> {
   await ensureGrpcTarget(ctx);
@@ -12,6 +24,12 @@ export async function ensureGrpcReflected(ctx: DemoActionContext): Promise<void>
 
   if (grpcLessonSession.reflected && hasExplorerReflectionData()) {
     return;
+  }
+
+  // Plaintext echo fixture (:50051) rejects TLS handshakes with HTTP 503.
+  // Always clear sticky TLS/mTLS (and wait for the demo bridge) before Reflect.
+  if (isPlaintextDemoTargetAddress()) {
+    await ensureGrpcPlaintextChannelReady(ctx);
   }
 
   let reflectBtn = document.querySelector<HTMLButtonElement>(GRPC.REFLECT_BTN);

@@ -30,6 +30,17 @@ import { resetGqlLesson13SessionFlags } from './lesson13-mock-server';
 import { resetGqlLesson14SessionFlags } from './lesson14-multi-tab';
 import { openHistoryPanel } from './lesson8-collections-history';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { resumeDemoAutoScroll, scrollDemoTargetIntoView } from '../../../demoSpotlightUtils';
+import { spotlightAndPause } from './gql-demo-spotlight';
+
+/** Hold times for visible teaching beats — spotlight, then act, then pause on outcome. */
+const HOLD = {
+  beat: 900,
+  outcome: 1_200,
+  tab: 850,
+  modal: 1_000,
+  payoff: 1_400,
+} as const;
 
 const GQL15_LESSON_ID = 'gql-batch-execution';
 
@@ -88,14 +99,30 @@ function bothDemoTabsBatched(): boolean {
   return ids.length >= 2 && ids.every((id) => !!document.querySelector(`[data-testid="gql-tab-batch-badge-${id}"]`));
 }
 
-/** Activate the Nth demo tab (0-based) for GQL-15. */
-async function activateDemoTabByIndex(ctx: DemoActionContext, index: number): Promise<void> {
+/** Demo-tab selector for the Nth GQL-15 tab (sets data-lesson-target). */
+function demoTabTargetSelector(index: number): string | null {
   const tab = document.querySelectorAll<HTMLElement>(GQL15_DEMO_TAB_SELECTOR)[index];
-  if (!tab) return;
+  if (!tab) return null;
   const attr = `gql15-demo-tab-${index}`;
   tab.setAttribute('data-lesson-target', attr);
-  await ctx.click(`[data-lesson-target="${attr}"]`);
-  await ctx.delay(800);
+  return `[data-lesson-target="${attr}"]`;
+}
+
+/** Activate the Nth demo tab (0-based) for GQL-15 — quiet (preAction / guards). */
+async function activateDemoTabByIndex(ctx: DemoActionContext, index: number): Promise<void> {
+  const sel = demoTabTargetSelector(index);
+  if (!sel) return;
+  await ctx.click(sel);
+  await ctx.delay(500);
+}
+
+/** Activate the Nth demo tab with a visible spotlight beat. */
+async function activateDemoTabByIndexVisible(ctx: DemoActionContext, index: number): Promise<void> {
+  const sel = demoTabTargetSelector(index);
+  if (!sel) return;
+  await spotlightAndPause(ctx, sel, HOLD.tab);
+  await ctx.click(sel);
+  await ctx.delay(HOLD.beat);
 }
 
 /** Return persisted demo tab id for the Nth GQL-15 tab (0-based). */
@@ -209,17 +236,17 @@ async function closeBatchResultsIfOpen(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(700);
 }
 
-/** Open Advanced Settings on the Batch tab (modal must be closed first). */
+/** Open Advanced Settings on the Batch tab — quiet (preAction / guards). */
 async function openAdvancedSettingsBatchTab(ctx: DemoActionContext): Promise<void> {
   if (!document.querySelector(GQL.ADV_SETTINGS_MODAL)) {
     await ctx.click(GQL.ADV_SETTINGS_BTN);
     await ctx.waitFor(GQL.ADV_SETTINGS_MODAL, 5000);
-    await ctx.delay(600);
+    await ctx.delay(400);
   }
 
   if (!document.querySelector(GQL.ADV_SETTINGS_TAB_BATCH)) {
     await ctx.waitFor(GQL.ADV_SETTINGS_TAB_BATCH, 5000);
-    await ctx.delay(400);
+    await ctx.delay(200);
   }
 
   const batchTab = document.querySelector<HTMLElement>(GQL.ADV_SETTINGS_TAB_BATCH);
@@ -229,31 +256,61 @@ async function openAdvancedSettingsBatchTab(ctx: DemoActionContext): Promise<voi
       if (tab.textContent?.trim() === 'Batch') {
         tab.setAttribute('data-lesson-target', 'gql15-settings-batch-tab');
         await ctx.click('[data-lesson-target="gql15-settings-batch-tab"]');
-        await ctx.delay(400);
+        await ctx.delay(300);
         break;
       }
     }
   } else if (!batchTab.classList.contains('active')) {
     await ctx.click(GQL.ADV_SETTINGS_TAB_BATCH);
-    await ctx.delay(500);
+    await ctx.delay(350);
   }
 }
 
-async function saveAdvancedSettings(ctx: DemoActionContext): Promise<void> {
-  const saveBtn = document.querySelector<HTMLElement>(GQL.ADV_SETTINGS_SAVE_BTN);
-  if (saveBtn) {
-    await ctx.click(GQL.ADV_SETTINGS_SAVE_BTN);
-    await ctx.delay(700);
+/** Open Advanced Settings → Batch with spotlight beats (visible lesson path). */
+async function openAdvancedSettingsBatchTabVisible(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.ADV_SETTINGS_MODAL)) {
+    await spotlightAndPause(ctx, GQL.ADV_SETTINGS_BTN, HOLD.beat);
+    await ctx.click(GQL.ADV_SETTINGS_BTN);
+    await ctx.waitFor(GQL.ADV_SETTINGS_MODAL, 5000);
+    await ctx.delay(HOLD.modal);
   }
+
+  await ctx.waitFor(GQL.ADV_SETTINGS_TAB_BATCH, 5000);
+  const batchTab = document.querySelector<HTMLElement>(GQL.ADV_SETTINGS_TAB_BATCH);
+  if (batchTab && !batchTab.classList.contains('active')) {
+    await spotlightAndPause(ctx, GQL.ADV_SETTINGS_TAB_BATCH, HOLD.beat);
+    await ctx.click(GQL.ADV_SETTINGS_TAB_BATCH);
+    await ctx.delay(HOLD.beat);
+  } else if (!batchTab) {
+    const settingsTabs = document.querySelectorAll<HTMLElement>('.gql-advsettings-tab');
+    for (const tab of settingsTabs) {
+      if (tab.textContent?.trim() === 'Batch') {
+        tab.setAttribute('data-lesson-target', 'gql15-settings-batch-tab');
+        await spotlightAndPause(ctx, '[data-lesson-target="gql15-settings-batch-tab"]', HOLD.beat);
+        await ctx.click('[data-lesson-target="gql15-settings-batch-tab"]');
+        await ctx.delay(HOLD.beat);
+        break;
+      }
+    }
+  }
+}
+
+async function saveAdvancedSettings(ctx: DemoActionContext, visible = false): Promise<void> {
+  const saveBtn = document.querySelector<HTMLElement>(GQL.ADV_SETTINGS_SAVE_BTN);
+  if (!saveBtn) return;
+  if (visible) await spotlightAndPause(ctx, GQL.ADV_SETTINGS_SAVE_BTN, HOLD.beat);
+  await ctx.click(GQL.ADV_SETTINGS_SAVE_BTN);
+  await ctx.delay(visible ? HOLD.outcome : 500);
 }
 
 /** Click the visible Enable query batching row (hidden checkbox is 0×0 — ctx.click skips it). */
-async function clickAdvBatchEnableToggle(ctx: DemoActionContext): Promise<void> {
+async function clickAdvBatchEnableToggle(ctx: DemoActionContext, visible = false): Promise<void> {
   const input = document.querySelector<HTMLInputElement>(GQL.ADV_BATCH_ENABLE);
   if (!input || input.checked) return;
   await ctx.waitFor(GQL.ADV_BATCH_ENABLE_TOGGLE, 5000);
+  if (visible) await spotlightAndPause(ctx, GQL.ADV_BATCH_ENABLE_TOGGLE, HOLD.beat);
   await ctx.click(GQL.ADV_BATCH_ENABLE_TOGGLE);
-  await ctx.delay(600);
+  await ctx.delay(visible ? HOLD.outcome : 400);
 }
 
 /** Click the visible batch-inclusion row for a tab (hidden checkbox is 0×0). */
@@ -266,35 +323,37 @@ async function clickAdvBatchTabInclusion(ctx: DemoActionContext, tabId: string):
 
 // ── Guard helpers ─────────────────────────────────────────────────────────────
 
-/** Write distinct health queries on Tab 1 and Tab 2 (quiet guard). */
+/** Write distinct health queries on Tab 1 and Tab 2. */
 async function writeLesson15DemoQueries(
   ctx: DemoActionContext,
-  options: { focus?: boolean } = {},
+  options: { focus?: boolean; visible?: boolean } = {},
 ): Promise<void> {
-  const tabs = document.querySelectorAll<HTMLElement>(GQL15_DEMO_TAB_SELECTOR);
+  const visible = options.visible ?? false;
+  const focus = options.focus ?? visible;
 
-  const tab0 = tabs[0];
-  if (tab0) {
-    tab0.setAttribute('data-lesson-target', 'gql15-batch-tab-0');
-    await ctx.click('[data-lesson-target="gql15-batch-tab-0"]');
-    await ctx.delay(options.focus ? 600 : 800);
-    if (options.focus) await ctx.waitFor(GQL.EDITOR, 5000);
-    await fillGqlEditor(ctx, LESSON15_TAB1_QUERY, { focus: options.focus ?? false });
-    await ctx.delay(400);
+  if (getDemoTabCount() >= 1) {
+    if (visible) await activateDemoTabByIndexVisible(ctx, 0);
+    else await activateDemoTabByIndex(ctx, 0);
+    if (focus) await ctx.waitFor(GQL.EDITOR, 5000);
+    if (visible) await spotlightAndPause(ctx, GQL.EDITOR, HOLD.beat);
+    await fillGqlEditor(ctx, LESSON15_TAB1_QUERY, { focus });
+    if (visible) await spotlightAndPause(ctx, GQL.EDITOR, HOLD.outcome);
+    else await ctx.delay(300);
   }
 
-  const tab1 = tabs[1];
-  if (tab1) {
-    tab1.setAttribute('data-lesson-target', 'gql15-batch-tab-1');
-    await ctx.click('[data-lesson-target="gql15-batch-tab-1"]');
-    await ctx.delay(options.focus ? 600 : 800);
-    if (options.focus) await ctx.waitFor(GQL.EDITOR, 5000);
-    await fillGqlEditor(ctx, LESSON15_TAB2_QUERY, { focus: options.focus ?? false });
-    await ctx.delay(400);
+  if (getDemoTabCount() >= 2) {
+    if (visible) await activateDemoTabByIndexVisible(ctx, 1);
+    else await activateDemoTabByIndex(ctx, 1);
+    if (focus) await ctx.waitFor(GQL.EDITOR, 5000);
+    if (visible) await spotlightAndPause(ctx, GQL.EDITOR, HOLD.beat);
+    await fillGqlEditor(ctx, LESSON15_TAB2_QUERY, { focus });
+    if (visible) await spotlightAndPause(ctx, GQL.EDITOR, HOLD.outcome);
+    else await ctx.delay(300);
   }
 
   // Return to Tab 1 so the Batch panel's active group is the shared endpoint.
-  if (tabs[0]) await activateDemoTabByIndex(ctx, 0);
+  if (visible) await activateDemoTabByIndexVisible(ctx, 0);
+  else await activateDemoTabByIndex(ctx, 0);
 }
 
 /**
@@ -383,14 +442,15 @@ export async function demonstrateLesson15RunBatch(ctx: DemoActionContext): Promi
   await ensureLesson15ReadyToExecute(ctx);
   if (markLesson15ExecutedIfEvidencePresent()) {
     await reopenBatchResultsIfDismissed(ctx);
-    await ctx.delay(900);
+    await spotlightAndPause(ctx, GQL.BATCH_RESULTS, HOLD.payoff);
     return;
   }
 
   await closeAdvancedSettingsIfOpen(ctx);
+  await spotlightAndPause(ctx, GQL.BATCH_EXECUTE_BTN, HOLD.beat);
   await ctx.click(GQL.BATCH_EXECUTE_BTN);
   await ctx.waitFor(GQL.BATCH_RESULTS, 15000);
-  await ctx.delay(1000);
+  await spotlightAndPause(ctx, GQL.BATCH_RESULTS, HOLD.payoff);
   _lesson15Executed = true;
 }
 
@@ -420,28 +480,63 @@ export async function ensureLesson15PartialErrorExecuted(ctx: DemoActionContext)
   _lesson15PartialError = true;
 }
 
+/**
+ * Dismiss the batch modal, open Metadata on the failing tab, and hold
+ * spotlight on Error Details (scroll into view first — it sits at the bottom).
+ */
+async function demonstrateLesson15ErrorDetails(ctx: DemoActionContext): Promise<void> {
+  await closeBatchResultsIfOpen(ctx);
+  await ensureResponsePaneVisible(ctx);
+  if (getDemoTabCount() >= 2) {
+    await activateDemoTabByIndexVisible(ctx, 1);
+  }
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, 5000);
+
+  await spotlightAndPause(ctx, GQL.RV_TAB_METADATA, HOLD.beat);
+  await ctx.click(GQL.RV_TAB_METADATA);
+  await ctx.waitFor(GQL.RESPONSE_ERROR_LIST, 8000);
+
+  // Error Details sits below request body / wire batch — scroll, pause, then ring.
+  resumeDemoAutoScroll();
+  const errorList = document.querySelector<HTMLElement>(GQL.RESPONSE_ERROR_LIST);
+  if (errorList) {
+    scrollDemoTargetIntoView(errorList, { block: 'center' });
+    await ctx.delay(700);
+  }
+  await spotlightAndPause(ctx, GQL.RESPONSE_ERROR_LIST, HOLD.payoff);
+}
+
 async function runPartialErrorBatch(
   ctx: DemoActionContext,
   options: { visible?: boolean } = {},
 ): Promise<void> {
-  const tabs = document.querySelectorAll<HTMLElement>(GQL15_DEMO_TAB_SELECTOR);
-  const tab1 = tabs[1];
-  if (tab1) {
-    tab1.setAttribute('data-lesson-target', 'gql15-error-tab');
-    await ctx.click('[data-lesson-target="gql15-error-tab"]');
-    await ctx.delay(800);
-    if (options.visible) {
+  const visible = options.visible ?? false;
+  if (getDemoTabCount() >= 2) {
+    if (visible) await activateDemoTabByIndexVisible(ctx, 1);
+    else await activateDemoTabByIndex(ctx, 1);
+    if (visible) {
       await ctx.waitFor(GQL.EDITOR, 5000);
-      await ctx.delay(600);
+      await spotlightAndPause(ctx, GQL.EDITOR, HOLD.beat);
     }
-    await fillGqlEditor(ctx, LESSON15_ERROR_QUERY, { focus: options.visible ?? false });
-    await ctx.delay(options.visible ? 700 : 500);
+    await fillGqlEditor(ctx, LESSON15_ERROR_QUERY, { focus: visible });
+    if (visible) await spotlightAndPause(ctx, GQL.EDITOR, HOLD.outcome);
+    else await ctx.delay(400);
   }
 
   await closeAdvancedSettingsIfOpen(ctx);
+  if (visible) await spotlightAndPause(ctx, GQL.BATCH_EXECUTE_BTN, HOLD.beat);
   await ctx.click(GQL.BATCH_EXECUTE_BTN);
   await ctx.waitFor(GQL.BATCH_RESULTS, 15000);
-  await ctx.delay(800);
+  if (visible) {
+    if (document.querySelector(GQL.BATCH_RESULTS_FAILED_PILL)) {
+      await spotlightAndPause(ctx, GQL.BATCH_RESULTS_FAILED_PILL, HOLD.payoff);
+    } else {
+      await spotlightAndPause(ctx, GQL.BATCH_RESULTS, HOLD.payoff);
+    }
+    await demonstrateLesson15ErrorDetails(ctx);
+  } else {
+    await ctx.delay(500);
+  }
 }
 
 // ── Reading-phase prep (quiet — no ripple) ───────────────────────────────────
@@ -480,15 +575,21 @@ export async function prepareGql15BatchSelectReading(ctx: DemoActionContext): Pr
   await ctx.delay(400);
 }
 
-// ── Visible lesson actions (human-paced) ──────────────────────────────────────
+// ── Visible lesson actions (spotlight → act → pause on outcome) ───────────────
+
+/** Step 1 — hold spotlight on the Demo: Batch Execution tab while the concept sinks in. */
+export async function demonstrateLesson15Intro(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson15IntroReady(ctx);
+  const demoTab = demoTabTargetSelector(0) ?? GQL.LESSON15_DEMO_TAB;
+  await spotlightAndPause(ctx, demoTab, HOLD.payoff);
+}
 
 /** Step action: enable batch mode via Advanced Settings (visible gear → Batch → Save). */
 export async function demonstrateLesson15EnableBatch(ctx: DemoActionContext): Promise<void> {
   await ensureLesson15QueriesWritten(ctx);
   if (_lesson15BatchEnabled && isBatchModeEnabledInStudio()) {
-    // Already enabled — spotlight the chip so the viewer sees the outcome.
     if (document.querySelector(GQL.BATCH_SUMMARY_CHIP)) {
-      await ctx.delay(1500);
+      await spotlightAndPause(ctx, GQL.BATCH_SUMMARY_CHIP, HOLD.payoff);
     }
     return;
   }
@@ -496,30 +597,25 @@ export async function demonstrateLesson15EnableBatch(ctx: DemoActionContext): Pr
   await closeAdvancedSettingsIfOpen(ctx);
   await activateDemoTabByIndex(ctx, 0);
 
-  // Visible beat: gear → Batch tab → Enable toggle → confirm 2-tab group → Save → chip.
-  await ctx.click(GQL.ADV_SETTINGS_BTN);
-  await ctx.waitFor(GQL.ADV_SETTINGS_MODAL, 5000);
-  await ctx.delay(800);
-
-  await openAdvancedSettingsBatchTab(ctx);
+  await openAdvancedSettingsBatchTabVisible(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_ENABLE_TOGGLE, 5000);
-  await ctx.delay(1200);
 
-  await clickAdvBatchEnableToggle(ctx);
+  await clickAdvBatchEnableToggle(ctx, true);
   await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
-  // Give viewers time to read the endpoint group chip ("2 tabs") before Save.
-  if (document.querySelector(GQL.ADV_BATCH_GROUP_LABEL) || document.querySelector(GQL.ADV_BATCH_GROUP_SELECT)) {
-    await ctx.delay(2000);
-  } else {
-    await ctx.delay(1500);
-  }
+
+  const groupSel = document.querySelector(GQL.ADV_BATCH_GROUP_LABEL)
+    ? GQL.ADV_BATCH_GROUP_LABEL
+    : document.querySelector(GQL.ADV_BATCH_GROUP_SELECT)
+      ? GQL.ADV_BATCH_GROUP_SELECT
+      : null;
+  if (groupSel) await spotlightAndPause(ctx, groupSel, HOLD.payoff);
   if (document.querySelector(GQL.ADV_BATCH_SELECTION_HINT)) {
-    await ctx.delay(1500);
+    await spotlightAndPause(ctx, GQL.ADV_BATCH_SELECTION_HINT, HOLD.outcome);
   }
 
-  await saveAdvancedSettings(ctx);
+  await saveAdvancedSettings(ctx, true);
   await ctx.waitFor(GQL.BATCH_SUMMARY_CHIP, 5000);
-  await ctx.delay(1400);
+  await spotlightAndPause(ctx, GQL.BATCH_SUMMARY_CHIP, HOLD.payoff);
   _lesson15BatchEnabled = true;
 }
 
@@ -529,25 +625,26 @@ export async function demonstrateLesson15AddSecondTab(ctx: DemoActionContext): P
 
   if (getDemoTabCount() < 2) {
     await ensureLesson15Tab1PageDefault(ctx);
+    await spotlightAndPause(ctx, GQL.TAB_ADD_BTN, HOLD.beat);
     await ctx.click(GQL.TAB_ADD_BTN);
     await ctx.waitFor(GQL15_DEMO_TAB_SELECTOR, 5000);
-    await ctx.delay(800);
+    await ctx.delay(HOLD.beat);
     _lesson15Tab2Added = true;
   } else {
     _lesson15Tab2Added = true;
-    await ctx.delay(400);
   }
 
-  await activateDemoTabByIndex(ctx, 1);
+  await activateDemoTabByIndexVisible(ctx, 1);
   await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
+  await spotlightAndPause(ctx, GQL.ENDPOINT_INPUT, HOLD.beat);
   await configureDemoTabEndpointOverride(ctx, LESSON15_TAB2_ENDPOINT);
   const tabId = getDemoTabIdByIndex(1);
   if (tabId) await patchDemoTabConnectionById(tabId, { endpoint: LESSON15_TAB2_ENDPOINT });
-  await ctx.delay(800);
+  await spotlightAndPause(ctx, GQL.ENDPOINT_INPUT, HOLD.outcome);
 
   // Show Tab 1 still using {{graphqlUrl}} (no :4010 override badge).
-  await activateDemoTabByIndex(ctx, 0);
-  await ctx.delay(800);
+  await activateDemoTabByIndexVisible(ctx, 0);
+  await spotlightAndPause(ctx, GQL.ENDPOINT_INPUT, HOLD.outcome);
   _lesson15EndpointParityDone = true;
 }
 
@@ -556,34 +653,40 @@ export async function demonstrateLesson15SelectBatchTabs(ctx: DemoActionContext)
   await ensureLesson15TwoTabsSameEndpoint(ctx);
 
   if (_lesson15BothChecked && bothDemoTabsBatched()) {
-    await ctx.delay(900);
+    await spotlightAndPause(ctx, GQL.BATCH_EXECUTE_BTN, HOLD.payoff);
     return;
   }
 
   await activateDemoTabByIndex(ctx, 0);
-  await openAdvancedSettingsBatchTab(ctx);
-  await clickAdvBatchEnableToggle(ctx);
+  await openAdvancedSettingsBatchTabVisible(ctx);
+  await clickAdvBatchEnableToggle(ctx, true);
   await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
-  await ctx.delay(1000);
+  await spotlightAndPause(ctx, GQL.ADV_BATCH_PANEL, HOLD.beat);
 
-  // Prefer Select all (one clear beat) when both tabs share the endpoint group.
   if (document.querySelector(GQL.ADV_BATCH_SELECT_ALL)) {
+    await spotlightAndPause(ctx, GQL.ADV_BATCH_SELECT_ALL, HOLD.beat);
     await ctx.click(GQL.ADV_BATCH_SELECT_ALL);
-    await ctx.delay(1500);
+    await ctx.delay(HOLD.beat);
   } else {
     for (const tabId of getDemoTabIds()) {
-      await clickAdvBatchTabInclusion(ctx, tabId);
+      const label = GQL.advBatchTabLabel(tabId);
+      if (document.querySelector(label)) {
+        await spotlightAndPause(ctx, label, HOLD.tab);
+        await clickAdvBatchTabInclusion(ctx, tabId);
+      }
     }
-    await ctx.delay(1200);
   }
 
   if (document.querySelector(GQL.ADV_BATCH_SELECTION_HINT)) {
-    await ctx.delay(1600);
+    await spotlightAndPause(ctx, GQL.ADV_BATCH_SELECTION_HINT, HOLD.payoff);
   }
 
-  await saveAdvancedSettings(ctx);
+  await saveAdvancedSettings(ctx, true);
   await ctx.waitFor(GQL.BATCH_EXECUTE_BTN, 5000);
-  await ctx.delay(1200);
+  if (document.querySelector(GQL.TAB_BATCH_BADGE)) {
+    await spotlightAndPause(ctx, GQL.TAB_BATCH_BADGE, HOLD.outcome);
+  }
+  await spotlightAndPause(ctx, GQL.BATCH_EXECUTE_BTN, HOLD.payoff);
   _lesson15BothChecked = true;
   _lesson15BatchEnabled = true;
 }
@@ -593,11 +696,11 @@ export async function demonstrateLesson15WriteQueries(ctx: DemoActionContext): P
   await ensureLesson15TwoTabsSameEndpoint(ctx);
 
   if (_lesson15QueriesWritten) {
-    await ctx.delay(900);
+    await spotlightAndPause(ctx, GQL.EDITOR, HOLD.outcome);
     return;
   }
 
-  await writeLesson15DemoQueries(ctx, { focus: true });
+  await writeLesson15DemoQueries(ctx, { visible: true });
   _lesson15QueriesWritten = true;
 }
 
@@ -623,42 +726,67 @@ export async function prepareGql15BatchResultsReading(ctx: DemoActionContext): P
 export async function demonstrateLesson15BatchResults(ctx: DemoActionContext): Promise<void> {
   await ensureLesson15Executed(ctx);
   await reopenBatchResultsIfDismissed(ctx);
+  await spotlightAndPause(ctx, GQL.BATCH_RESULTS, HOLD.beat);
   if (document.querySelector(GQL.BATCH_RESULTS_TRANSPORT)) {
     await ctx.waitFor(GQL.BATCH_RESULTS_TRANSPORT, 5000);
+    await spotlightAndPause(ctx, GQL.BATCH_RESULTS_TRANSPORT, HOLD.payoff);
+  } else {
+    await spotlightAndPause(ctx, GQL.BATCH_RESULTS, HOLD.payoff);
   }
-  await ctx.delay(2000);
 }
 
 /** Step action: close modal, inspect per-tab Response slice, reopen full batch. */
 export async function demonstrateLesson15BatchResponseSlice(ctx: DemoActionContext): Promise<void> {
   await ensureLesson15Executed(ctx);
+  if (batchResultsVisible() && document.querySelector(GQL.BATCH_RESULTS_CLOSE_BTN)) {
+    await spotlightAndPause(ctx, GQL.BATCH_RESULTS_CLOSE_BTN, HOLD.beat);
+  }
   await closeBatchResultsIfOpen(ctx);
   await ensureResponsePaneVisible(ctx);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 5000);
-  await ctx.delay(800);
 
-  await activateDemoTabByIndex(ctx, 0);
+  await activateDemoTabByIndexVisible(ctx, 0);
   await ctx.waitFor(GQL.RESPONSE_BATCH_BANNER, 5000);
-  await ctx.waitFor(GQL.RESPONSE_BATCH_PILL, 5000);
-  await ctx.delay(1200);
-
-  await ctx.click(GQL.RV_TAB_METADATA);
-  await ctx.waitFor(GQL.RESPONSE_BATCH_META, 5000);
-  await ctx.delay(800);
-  if (document.querySelector(GQL.RESPONSE_WIRE_BATCH_BODY_TOGGLE)) {
-    await ctx.click(GQL.RESPONSE_WIRE_BATCH_BODY_TOGGLE);
-    await ctx.waitFor(GQL.RESPONSE_WIRE_BATCH_BODY, 5000);
-    await ctx.delay(1200);
+  await spotlightAndPause(ctx, GQL.RESPONSE_BATCH_BANNER, HOLD.payoff);
+  if (document.querySelector(GQL.RESPONSE_BATCH_PILL)) {
+    await spotlightAndPause(ctx, GQL.RESPONSE_BATCH_PILL, HOLD.outcome);
   }
 
-  await activateDemoTabByIndex(ctx, 1);
+  await spotlightAndPause(ctx, GQL.RV_TAB_METADATA, HOLD.beat);
+  await ctx.click(GQL.RV_TAB_METADATA);
+  await ctx.waitFor(GQL.RESPONSE_BATCH_META, 5000);
+  await spotlightAndPause(ctx, GQL.RESPONSE_BATCH_META, HOLD.outcome);
+  if (document.querySelector(GQL.RESPONSE_WIRE_BATCH_BODY_TOGGLE)) {
+    // Wire batch body sits at the bottom of the Metadata scroller — scroll it
+    // fully into view first, pause so the eye relocates, then spotlight/expand.
+    resumeDemoAutoScroll();
+    const wireToggle = document.querySelector<HTMLElement>(GQL.RESPONSE_WIRE_BATCH_BODY_TOGGLE);
+    if (wireToggle) {
+      scrollDemoTargetIntoView(wireToggle, { block: 'center' });
+      await ctx.delay(700);
+    }
+    await spotlightAndPause(ctx, GQL.RESPONSE_WIRE_BATCH_BODY_TOGGLE, HOLD.payoff);
+    await ctx.click(GQL.RESPONSE_WIRE_BATCH_BODY_TOGGLE);
+    await ctx.waitFor(GQL.RESPONSE_WIRE_BATCH_BODY, 5000);
+    await ctx.delay(400);
+    const wireBody = document.querySelector<HTMLElement>(GQL.RESPONSE_WIRE_BATCH_BODY);
+    if (wireBody) {
+      resumeDemoAutoScroll();
+      scrollDemoTargetIntoView(wireBody, { block: 'center' });
+      await ctx.delay(600);
+    }
+    await spotlightAndPause(ctx, GQL.RESPONSE_WIRE_BATCH_BODY, HOLD.payoff);
+  }
+
+  await activateDemoTabByIndexVisible(ctx, 1);
   await ctx.waitFor(GQL.RESPONSE_BATCH_BANNER, 5000);
-  await ctx.delay(1200);
+  await spotlightAndPause(ctx, GQL.RESPONSE_BATCH_BANNER, HOLD.payoff);
 
   if (document.querySelector(GQL.RESPONSE_OPEN_BATCH_RESULTS)) {
+    await spotlightAndPause(ctx, GQL.RESPONSE_OPEN_BATCH_RESULTS, HOLD.beat);
     await ctx.click(GQL.RESPONSE_OPEN_BATCH_RESULTS);
     await ctx.waitFor(GQL.BATCH_RESULTS, 5000);
-    await ctx.delay(1000);
+    await spotlightAndPause(ctx, GQL.BATCH_RESULTS, HOLD.outcome);
     await closeBatchResultsIfOpen(ctx);
   }
 }
@@ -694,12 +822,16 @@ export async function demonstrateLesson15PartialError(ctx: DemoActionContext): P
 
   if (markLesson15PartialErrorIfEvidencePresent()) {
     await reopenBatchResultsIfDismissed(ctx);
-    await ctx.delay(1000);
+    if (document.querySelector(GQL.BATCH_RESULTS_FAILED_PILL)) {
+      await spotlightAndPause(ctx, GQL.BATCH_RESULTS_FAILED_PILL, HOLD.payoff);
+    } else {
+      await spotlightAndPause(ctx, GQL.BATCH_RESULTS, HOLD.payoff);
+    }
+    await demonstrateLesson15ErrorDetails(ctx);
     return;
   }
 
   await runPartialErrorBatch(ctx, { visible: true });
-  await ctx.delay(1000);
   _lesson15PartialError = true;
 }
 
@@ -708,9 +840,10 @@ export async function demonstrateLesson15OpenHistory(ctx: DemoActionContext): Pr
   await ensureLesson15PartialErrorExecuted(ctx);
   await closeBatchResultsIfOpen(ctx);
   await closeAdvancedSettingsIfOpen(ctx);
+  await spotlightAndPause(ctx, GQL.ACTIVITY_HISTORY, HOLD.beat);
   await openHistoryPanel(ctx);
   await ctx.waitFor(GQL.HISTORY_PANEL, 5000);
-  await ctx.delay(1000);
+  await spotlightAndPause(ctx, GQL.HISTORY_PANEL, HOLD.payoff);
 }
 
 // ── Setup / cleanup ───────────────────────────────────────────────────────────

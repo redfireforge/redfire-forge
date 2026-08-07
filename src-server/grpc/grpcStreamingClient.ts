@@ -1,6 +1,9 @@
 import { grpc } from './grpcJsLoader.js';
 import type { GrpcStreamingCallType, GrpcTlsConfig, GrpcTlsMode } from '../../src/shared/grpc/contracts.js';
-import { validateResolvedGrpcTargetAddress } from '../../src/shared/grpc/targetValidation.js';
+import {
+  preferIpv4LoopbackDialAddress,
+  validateResolvedGrpcTargetAddress,
+} from '../../src/shared/grpc/targetValidation.js';
 import { buildGrpcChannelCredentials } from './grpcChannelCredentials.js';
 
 export interface GrpcStreamTerminalResult {
@@ -80,7 +83,7 @@ export class GrpcJsStreamingClient {
       tlsMode: params.tlsMode,
       tlsConfig: params.tlsConfig,
     });
-    const client = new grpc.Client(check.normalized, credentials);
+    const client = new grpc.Client(preferIpv4LoopbackDialAddress(check.normalized), credentials);
     const path = `/${params.service}/${params.method}`;
     const metadata = recordToMetadata(params.metadata);
     const deadline = Date.now() + params.timeoutMs;

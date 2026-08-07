@@ -27,8 +27,9 @@ vi.mock('@redfireforge/demo-hub/LiveDemo', () => ({
 
 function makeDemoHub(overrides: Record<string, unknown> = {}) {
   return {
-    state: { view: 'live', selectedLesson: { id: 'gql-first-query' }, stepIndex: 0, isPlaying: false },
+    state: { view: 'live', selectedLesson: { id: 'gql-first-query', name: 'First Query' }, stepIndex: 0, isPlaying: false },
     stepPhase: 'reading',
+    isDemoBootstrapping: false,
     nextStep: vi.fn(),
     toggleAutoPlay: vi.fn(),
     skipReading: vi.fn(),
@@ -61,6 +62,18 @@ describe('AppLiveDemoOverlay', () => {
   it('renders LiveDemo when in live view with a lesson', () => {
     render(<AppLiveDemoOverlay demoHub={makeDemoHub()} navigateToTab={vi.fn()} />);
     expect(screen.getByTestId('live-demo')).toHaveAttribute('data-lesson', 'gql-first-query');
+  });
+
+  it('keeps LiveDemo mounted during boot (no concept-cover / Preparing screen)', () => {
+    render(
+      <AppLiveDemoOverlay
+        demoHub={makeDemoHub({ isDemoBootstrapping: true, stepPhase: 'pre' })}
+        navigateToTab={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('live-demo')).toBeInTheDocument();
+    expect(screen.queryByTestId('demo-content-veil')).toBeNull();
+    expect(screen.queryByTestId('demo-boot-concept-cover')).toBeNull();
   });
 
   it('onExit exits live mode before pinning demo-hub, then pins again after cleanup', async () => {

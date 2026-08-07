@@ -9,6 +9,7 @@ import {
   demonstrateLesson15BatchResults,
   demonstrateLesson15BatchResponseSlice,
   demonstrateLesson15EnableBatch,
+  demonstrateLesson15Intro,
   demonstrateLesson15OpenHistory,
   demonstrateLesson15PartialError,
   demonstrateLesson15RunBatch,
@@ -251,11 +252,9 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       description:
         'Batch execution sends **multiple GraphQL operations as a single HTTP request** and receives an **array of results** in return. No sequential round-trips — all operations in the batch share one network round-trip.\n\n' +
         '**Why batch instead of individual requests?** Every HTTP request carries overhead: DNS resolution, TLS handshake, and queue time at the load balancer. For N queries, N individual requests multiply this overhead by N. Batch folds all of them into one request, paying the overhead only once. This is especially effective in integration test pipelines (where dozens of "query → assert" cycles run in sequence) and in dashboard pre-fetching (where 5–10 independent queries must all resolve before the page renders). The result is dramatically faster test suites and faster first meaningful paint for data-heavy UIs.',
-      highlight: GQL.TAB_BAR,
-      action: async (ctx) => {
-        await ctx.delay(1000);
-      },
-      verify: GQL.TAB_BAR,
+      highlight: GQL.LESSON15_DEMO_TAB,
+      action: demonstrateLesson15Intro,
+      verify: GQL.LESSON15_DEMO_TAB,
       pauseAfter: true,
     },
 
@@ -365,11 +364,11 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       title: 'Partial Errors — Batch Does Not Fail-Fast',
       description:
         `On **Tab 2**, replace the query with \`${LESSON15_ERROR_QUERY}\` — a field that does not exist in the schema. Click **Send Batch** again. The header shows **1 passed / 1 failed**: Tab 1's card keeps ✓ data; Tab 2's card shows ✗ with an errors array.\n\n` +
-        '**Why is this important?** Most HTTP stacks fail the whole request when one part fails. GraphQL batch evaluates each operation independently — a schema error on operation 2 does not block operation 1\'s data. Dismiss the batch modal and switch tabs — each Response pane still shows its **Batch N/M** slice so you can inspect success and failure side by side. In integration tests, your setup query may have succeeded even when an assertion query failed — partial results, not a total blackout.',
+        '**Why is this important?** Most HTTP stacks fail the whole request when one part fails. GraphQL batch evaluates each operation independently — a schema error on operation 2 does not block operation 1\'s data. Dismiss the batch modal, open **Metadata** on the failing tab, and scroll to **Error Details** — message, location, and code for that operation only. Each Response pane still shows its **Batch N/M** slice so you can inspect success and failure side by side. In integration tests, your setup query may have succeeded even when an assertion query failed — partial results, not a total blackout.',
       highlight: GQL.BATCH_RESULTS,
       preAction: prepareGql15PartialErrorReading,
       action: demonstrateLesson15PartialError,
-      verify: GQL.BATCH_RESULTS,
+      verify: GQL.RESPONSE_ERROR_LIST,
       pauseAfter: true,
     },
 

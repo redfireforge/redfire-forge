@@ -2,7 +2,10 @@ import { grpc } from './grpcJsLoader.js';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import type { GrpcCallTimingBreakdown, GrpcTlsConfig, GrpcTlsMode } from '../../src/shared/grpc/contracts.js';
-import { validateResolvedGrpcTargetAddress } from '../../src/shared/grpc/targetValidation.js';
+import {
+  preferIpv4LoopbackDialAddress,
+  validateResolvedGrpcTargetAddress,
+} from '../../src/shared/grpc/targetValidation.js';
 import { buildGrpcChannelCredentials } from './grpcChannelCredentials.js';
 
 const LOOPBACK_NO_PROXY_TOKENS = ['127.0.0.1', 'localhost', '::1'];
@@ -110,7 +113,8 @@ export class GrpcJsClient implements GrpcClientPort {
       };
     }
 
-    const hostPort = parseHostPort(check.normalized);
+    const dialAddress = preferIpv4LoopbackDialAddress(check.normalized);
+    const hostPort = parseHostPort(dialAddress);
     if (!hostPort) {
       return { reachable: false, errorMessage: 'Invalid host:port address' };
     }
@@ -163,7 +167,8 @@ export class GrpcJsClient implements GrpcClientPort {
     }
 
     const timingBreakdown: GrpcCallTimingBreakdown = {};
-    const hostPort = parseHostPort(check.normalized);
+    const dialAddress = preferIpv4LoopbackDialAddress(check.normalized);
+    const hostPort = parseHostPort(dialAddress);
     if (hostPort) {
       const dnsStarted = Date.now();
       try {
@@ -179,7 +184,7 @@ export class GrpcJsClient implements GrpcClientPort {
       tlsConfig: params.tlsConfig,
     });
     const channelStarted = Date.now();
-    const client = new grpc.Client(check.normalized, credentials);
+    const client = new grpc.Client(dialAddress, credentials);
     const path = `/${params.service}/${params.method}`;
     const metadata = recordToMetadata(params.metadata);
     const deadline = Date.now() + params.timeoutMs;

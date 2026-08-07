@@ -18,7 +18,7 @@ export const GQL15_LESSON = { name: 'Batch Execution', steps: 10 } as const;
 export const GQL16_LESSON = { name: 'Workflow Integration', steps: 12 } as const;
 export const GQL17_LESSON = { name: 'Workflow Runner & Results', steps: 9 } as const;
 export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 16 } as const;
-export const GQL19_LESSON = { name: 'Subscription Node in Workflow', steps: 9 } as const;
+export const GQL19_LESSON = { name: 'Subscription Node in Workflow', steps: 10 } as const;
 
 /** Bottom Auth panel selectors for GQL-4 / GQL-14 lesson walks (Slice 7.6 — Option D). */
 export const GQL_LESSON_AUTH = {

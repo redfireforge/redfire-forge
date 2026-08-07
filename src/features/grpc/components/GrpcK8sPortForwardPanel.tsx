@@ -343,7 +343,7 @@ export function GrpcK8sPortForwardPanel({
                     </div>
                     <div className="grpc-settings-form-row__ctrl">
                       <CustomSelect
-                        className="grpc-compression-select grpc-settings-select"
+                        className="grpc-compression-select"
                         data-testid="grpc-k8s-target-type"
                         aria-label="Target type"
                         value={config.targetType}

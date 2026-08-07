@@ -42,6 +42,8 @@ function getDemoPanelRect(): DOMRect | null {
 
 /** Pause demo-driven auto-scroll after the user manually scrolls a panel. */
 let demoAutoScrollPausedUntil = 0;
+/** Ignore scroll/wheel events while demo code is programmatically scrolling. */
+let demoProgrammaticScrollUntil = 0;
 
 export function pauseDemoAutoScroll(durationMs = 10000): void {
   demoAutoScrollPausedUntil = Math.max(demoAutoScrollPausedUntil, Date.now() + durationMs);
@@ -50,10 +52,20 @@ export function pauseDemoAutoScroll(durationMs = 10000): void {
 /** Clear any active auto-scroll pause (e.g. before a new step needs a reading spotlight). */
 export function resumeDemoAutoScroll(): void {
   demoAutoScrollPausedUntil = 0;
+  demoProgrammaticScrollUntil = 0;
 }
 
 export function isDemoAutoScrollPaused(): boolean {
   return Date.now() < demoAutoScrollPausedUntil;
+}
+
+/** Mark an upcoming scroll as demo-driven so user-scroll listeners do not pause auto-scroll. */
+export function markDemoProgrammaticScroll(durationMs = 700): void {
+  demoProgrammaticScrollUntil = Math.max(demoProgrammaticScrollUntil, Date.now() + durationMs);
+}
+
+function isDemoProgrammaticScrollActive(): boolean {
+  return Date.now() < demoProgrammaticScrollUntil;
 }
 
 const DEMO_USER_SCROLL_SELECTOR =
@@ -62,6 +74,8 @@ const DEMO_USER_SCROLL_SELECTOR =
 /** Listen for manual scroll/wheel in studio panels — stops spotlight from fighting the user. */
 export function installDemoUserScrollListeners(): () => void {
   const onUserScrollIntent = (event: Event) => {
+    // Programmatic scrollTo/scrollIntoView also fires scroll events — ignore those.
+    if (isDemoProgrammaticScrollActive()) return;
     const target = event.target;
     if (!(target instanceof Element)) return;
     if (!target.closest(DEMO_USER_SCROLL_SELECTOR)) return;
@@ -137,6 +151,10 @@ export function scrollDemoTargetIntoView(
   const scrollParent = findScrollableParent(el);
   const demoPanel = getDemoPanelRect();
 
+  // Instant scroll keeps the spotlight ring aligned; mark programmatic so the
+  // resulting scroll events do not trip pauseDemoAutoScroll for later beats.
+  markDemoProgrammaticScroll(700);
+
   if (scrollParent) {
     const elRect = el.getBoundingClientRect();
     const parentRect = scrollParent.getBoundingClientRect();
@@ -162,13 +180,13 @@ export function scrollDemoTargetIntoView(
 
     scrollParent.scrollTo({
       top: Math.max(0, Math.min(targetScroll, scrollParent.scrollHeight - scrollParent.clientHeight)),
-      behavior: 'smooth',
+      behavior: 'instant',
     });
     return;
   }
 
   if (typeof el.scrollIntoView === 'function') {
-    el.scrollIntoView({ behavior: 'smooth', block: block === 'end' ? 'end' : 'center' });
+    el.scrollIntoView({ behavior: 'instant', block: block === 'end' ? 'end' : 'center' });
   }
 }
 

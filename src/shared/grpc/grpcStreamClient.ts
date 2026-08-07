@@ -36,6 +36,7 @@ import {
   mapBrowserTransportDecodeFailure,
   mapBrowserTransportFetchFailure,
 } from './grpcBrowserTransportErrorMapper';
+import { assertBrowserDirectTargetAllowsFetch } from './grpcWebNativeTargetGuard';
 import {
   decodeGrpcWebProtoMessage,
   encodeGrpcWebProtoMessage,
@@ -474,6 +475,10 @@ async function executeBrowserDirectServerStream(
 
     let response: Response;
     if (session.mode === 'grpc-web') {
+      const blocked = assertBrowserDirectTargetAllowsFetch('stream_start', 'grpc-web', request.target);
+      if (blocked) {
+        throw blocked;
+      }
       const encodedBody = encodeGrpcWebRequestBody(requestBytes, GRPC_WEB_CONTENT_TYPES.BINARY);
       const headers = buildGrpcWebStreamHeaders(request, encodedBody.contentType);
       scheduleBrowserDirectStreamTimeout(session, request.timeoutMs);
