@@ -22,6 +22,10 @@ import { purgeAllSpotlightRings } from './demoRipple';
 
 /** Step pipeline timing — tuned for snappy Preparing/Acting badges without skipping UI feedback. */
 export const DEMO_PRE_SETTLE_MS = 80;
+/** Paint settle before lifting the boot veil when a step has no highlight target. */
+export const DEMO_BOOT_SURFACE_MS = 120;
+/** Extra settle after the highlight is found so Studio chrome finishes committing. */
+export const DEMO_BOOT_REVEAL_SETTLE_MS = 220;
 export const DEMO_SPOTLIGHT_SETTLE_MS = 1200;
 export const DEMO_POST_ACTION_SETTLE_MS = 350;
 export const DEMO_VERIFY_ABSORB_MS = 1100;
@@ -84,6 +88,8 @@ export interface UseDemoHubStepPipelineOptions {
   stepIndex: number;
   view: string;
   setStepPhase: (phase: StepPhase) => void;
+  /** Fired when Preparing ends and Reading/Acting content should be visible. */
+  onPreparingComplete?: () => void;
   abortRef: MutableRefObject<AbortController | null>;
   executingRef: MutableRefObject<boolean>;
   skipReadingRef: MutableRefObject<(() => void) | null>;
@@ -97,12 +103,15 @@ export function useDemoHubStepPipeline({
   stepIndex,
   view,
   setStepPhase,
+  onPreparingComplete,
   abortRef,
   executingRef,
   skipReadingRef,
   profilesIntroducedInSessionRef,
   envIntroducedInSessionRef,
 }: UseDemoHubStepPipelineOptions) {
+  const onPreparingCompleteRef = useRef(onPreparingComplete);
+  onPreparingCompleteRef.current = onPreparingComplete;
   const buildContext = useCallback(
     () => buildDemoActionContext(navigateToTab),
     [navigateToTab],
@@ -198,6 +207,30 @@ export function useDemoHubStepPipeline({
           signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
         });
 
+      // Keep the boot veil up until the step surface has painted — lifting at the
+      // first Reading tick exposed empty Environments/Studio chrome (blue flash).
+      const revealBootSurface = (async () => {
+        if (step.highlight) {
+          try {
+            await waitForElement(step.highlight, 2_000, signal);
+          } catch { /* reveal anyway — don't trap the user under the veil */ }
+          if (signal.aborted) return;
+          const allHighlight = document.querySelectorAll(step.highlight);
+          const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
+          if (el instanceof HTMLElement) {
+            scrollDemoTargetIntoView(el, { block: 'center' });
+          }
+        } else {
+          await abortableSleep(DEMO_BOOT_SURFACE_MS, signal);
+        }
+        if (signal.aborted) return;
+        // Let Studio/Environments finish committing under the veil (tab rename,
+        // protocol panel, etc.) — 16ms was too short and still flashed blue.
+        await abortableSleep(DEMO_BOOT_REVEAL_SETTLE_MS, signal);
+        if (signal.aborted) return;
+        onPreparingCompleteRef.current?.();
+      })();
+
       const spotlightWork = (async () => {
         if (!step.highlight) return;
         await waitForElement(step.highlight, 2000, signal);
@@ -219,7 +252,7 @@ export function useDemoHubStepPipeline({
         }
       })();
 
-      await Promise.all([readingPause, spotlightWork, readingSyncWork]);
+      await Promise.all([readingPause, revealBootSurface, spotlightWork, readingSyncWork]);
       skipReadingRef.current = null;
       if (signal.aborted) return;
 
@@ -257,6 +290,8 @@ export function useDemoHubStepPipeline({
       setStepPhase('done');
     } finally {
       executingRef.current = false;
+      // Belt: never leave the boot veil stuck if revealBootSurface aborted early.
+      onPreparingCompleteRef.current?.();
       if (signal.aborted && abortRef.current === ac) {
         setStepPhase('done');
       }

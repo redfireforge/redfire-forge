@@ -339,6 +339,45 @@ function wfNodeIdFromCanvasTestId(testIdSelector: string): string | null {
   return rfNode?.getAttribute('data-id') ?? null;
 }
 
+function resolveWfCanvasNodeElement(
+  target: { canvasTestId?: string; nodeSelector?: string; nodeId?: string },
+  nodeId: string | null,
+): HTMLElement | null {
+  if (target.canvasTestId) {
+    const inner = document.querySelector<HTMLElement>(target.canvasTestId);
+    if (inner) return (inner.closest('.react-flow__node') as HTMLElement | null) ?? inner;
+  }
+  if (target.nodeSelector) {
+    const el = document.querySelector<HTMLElement>(target.nodeSelector);
+    if (el) return (el.closest('.react-flow__node') as HTMLElement | null) ?? el;
+  }
+  if (nodeId) {
+    return document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`);
+  }
+  return null;
+}
+
+/**
+ * Spotlight the canvas node before opening its config so viewers know which
+ * block is being configured (especially important on dense canvases).
+ */
+async function spotlightWfCanvasNodeBeforeConfig(
+  ctx: DemoActionContext,
+  node: HTMLElement | null,
+): Promise<void> {
+  if (!node) return;
+  node.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  purgeAllSpotlightRings();
+  const removeRing = showSpotlightRing(node, { steady: true });
+  // Long enough to read the node label before the modal covers the canvas.
+  const holdMs = Math.max(1_100, Math.round(activeWfConfigTiming.modalOpen * 0.55));
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    removeRing();
+  }
+}
+
 /** Open a node config modal and pause so the viewer can orient to the panel. */
 export async function openWfNodeConfigModal(
   ctx: DemoActionContext,
@@ -353,21 +392,31 @@ export async function openWfNodeConfigModal(
     nodeId = el?.getAttribute('data-id') ?? el?.closest('.react-flow__node')?.getAttribute('data-id') ?? null;
   }
 
+  const canvasNode = resolveWfCanvasNodeElement(target, nodeId);
+  await spotlightWfCanvasNodeBeforeConfig(ctx, canvasNode);
+
   if (nodeId && openWorkflowNodeConfig(nodeId)) {
     // opened via demo bridge
   } else {
     deselectAllWorkflowNodes();
-    const node =
-      (target.canvasTestId
+    const node = canvasNode
+      ?? (target.canvasTestId
         ? document.querySelector<HTMLElement>(target.canvasTestId)
         : target.nodeSelector
           ? document.querySelector<HTMLElement>(target.nodeSelector)
-          : null) ??
-      (nodeId ? document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`) : null);
+          : null)
+      ?? (nodeId ? document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`) : null);
     node?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     node?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
   }
 
+  // Wait for the panel to mount first — a blind modalOpen delay felt like
+  // "Acting" with no UI change when the bridge/open was still in flight.
+  try {
+    await ctx.waitFor(WF.NODE_CONFIG, 5_000);
+  } catch {
+    // Keep going; waitForWfConfigPanel / field waits catch real failures.
+  }
   await pauseWfConfigDemo(ctx, 'modalOpen');
 }
 

@@ -260,9 +260,10 @@ describe('gql-batch-execution lesson', () => {
     expect(step.preAction).toBeUndefined();
   });
 
-  it('gql15-intro highlights TAB_BAR', () => {
+  it('gql15-intro highlights Demo: Batch Execution tab', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-intro')!;
-    expect(step.highlight).toBe(GQL.TAB_BAR);
+    expect(step.highlight).toBe(GQL.LESSON15_DEMO_TAB);
+    expect(step.verify).toBe(GQL.LESSON15_DEMO_TAB);
   });
 
   it('gql15-add-tab preAction is prepareGql15AddTabReading', () => {
@@ -332,9 +333,9 @@ describe('gql-batch-execution lesson', () => {
     expect(step.verify).toBe(GQL.BATCH_RESULTS);
   });
 
-  it('gql15-partial-error verify is BATCH_RESULTS', () => {
+  it('gql15-partial-error verify is RESPONSE_ERROR_LIST', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-partial-error')!;
-    expect(step.verify).toBe(GQL.BATCH_RESULTS);
+    expect(step.verify).toBe(GQL.RESPONSE_ERROR_LIST);
   });
 
   // ── Step description WHY content ───────────────────────────────────────────
@@ -386,6 +387,7 @@ describe('gql-batch-execution lesson', () => {
     expect(step.description).toContain('independently');
     expect(step.description).toContain('partial');
     expect(step.description).toContain('Batch N/M');
+    expect(step.description).toContain('Error Details');
   });
 
   it('gql15-export-batch description explains batch history and sequential fallback for other servers', () => {
@@ -555,13 +557,15 @@ describe('gql-batch-execution lesson', () => {
 
   // ── Step actions ───────────────────────────────────────────────────────────
 
-  it('gql15-intro action calls delay (observation step)', async () => {
+  it('gql15-intro action spotlights the Demo: Batch Execution tab', async () => {
     const ctx = makeCtx();
     stubBatchDom(1);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-intro')!;
     expect(step.preAction).toBeUndefined();
     await step.action!(ctx);
     expect(ctx.delay).toHaveBeenCalled();
+    expect(document.querySelector('[data-lesson-target="gql15-demo-tab-0"]')).toBeTruthy();
+    expect(step.action).toBeTypeOf('function');
   });
 
   it('gql15-enable-batch action opens gear, enables batch, and saves', async () => {
@@ -648,7 +652,8 @@ describe('gql-batch-execution lesson', () => {
     await step.preAction!(ctx);
     vi.mocked(ctx.click).mockClear();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(2000);
+    // Spotlight holds on the results modal / transport line — never Close.
+    expect(ctx.delay).toHaveBeenCalled();
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
     expect(document.querySelector(GQL.BATCH_RESULTS)).not.toBeNull();
   });
@@ -694,6 +699,13 @@ describe('gql-batch-execution lesson', () => {
     const ctx = makeCtx();
     stubBatchDom(2, true, true);
     stubMonacoEditor('query { health }');
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+      <button data-testid="gql-rv-tab-metadata"></button>
+      <div data-testid="gql-rv-error-list"></div>
+    `,
+    );
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-partial-error')!;
     await step.preAction!(ctx);
@@ -703,6 +715,7 @@ describe('gql-batch-execution lesson', () => {
       (args) => args[0] === GQL.BATCH_EXECUTE_BTN,
     );
     expect(batchCalls.length).toBeGreaterThanOrEqual(1);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
   });
 
   it('gql15-export-batch action opens history panel', async () => {

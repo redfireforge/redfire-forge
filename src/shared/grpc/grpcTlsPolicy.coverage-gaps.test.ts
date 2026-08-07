@@ -61,7 +61,7 @@ describe('grpcTlsPolicy coverage gaps', () => {
 
   it('prepareGrpcTarget returns normalized mtls config when validation passes', () => {
     const prepared = prepareGrpcTarget({
-      address: 'localhost:50051',
+      address: 'localhost:50444',
       tlsMode: 'mtls',
       tlsConfig: {
         serverCaPem: VALID_CERT,
@@ -71,5 +71,20 @@ describe('grpcTlsPolicy coverage gaps', () => {
     });
     expect(prepared.issues).toEqual([]);
     expect(prepared.target.tlsConfig?.clientKeyPem).toBe(VALID_KEY);
+  });
+
+  it('prepareGrpcTarget coerces sticky mTLS on plaintext echo :50051 to disabled', () => {
+    const prepared = prepareGrpcTarget({
+      address: 'localhost:50051',
+      tlsMode: 'mtls',
+      tlsConfig: {
+        serverCaPem: VALID_CERT,
+        clientCertPem: VALID_CERT,
+        clientKeyPem: VALID_KEY,
+      },
+    });
+    expect(prepared.issues).toEqual([]);
+    expect(prepared.target.tlsMode).toBe('disabled');
+    expect(prepared.target.tlsConfig).toBeUndefined();
   });
 });

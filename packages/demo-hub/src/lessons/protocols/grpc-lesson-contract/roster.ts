@@ -336,7 +336,8 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     implementationStatus: 'shipped',
     introducedInSchemaVersion: 1,
     ...GO_ECHO_DOCKER,
-    initialTab: 'grpc-studio',
+    // Land on Environments — step 1 is EM; bouncing through Studio first flashes.
+    initialTab: 'environments',
     allowedTabs: [...STUDIO_TABS, 'environments'],
     estimatedMinutes: 6,
   },

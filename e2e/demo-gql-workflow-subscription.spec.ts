@@ -7,7 +7,7 @@
  * Full lesson needs Docker GraphQL on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 9 disables Next — use walkFullGql19Lesson, not runNextStep on the final step.
+ * Last-step rule: step 10 disables Next — use walkFullGql19Lesson, not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';
@@ -177,8 +177,8 @@ test.describe('GQL-19 — full lesson (Docker)', () => {
     }
 
     let { counter, title } = await getStepInfo(page);
-    // Rapid Next may land on 8/9 (action skipped) or 9/9 (reading only) — both valid.
-    expect(counter).toMatch(/(?:8|9)\s*[/]\s*9/);
+    // Rapid Next may land on 9/10 (action skipped) or 10/10 (reading only) — both valid.
+    expect(counter).toMatch(/(?:9|10)\s*[/]\s*10/);
 
     await finishDemoStep(page, MUTATION_TIMEOUT);
     ({ counter, title } = await getStepInfo(page));
@@ -191,7 +191,7 @@ test.describe('GQL-19 — full lesson (Docker)', () => {
     await expect(page.locator('[data-testid="gql-canvas-mutation-node"]')).toBeVisible({
       timeout: 15_000,
     });
-    await takeNamedScreenshot(page, 'gql19-rapid-next-step9-recovery');
+    await takeNamedScreenshot(page, 'gql19-rapid-next-step10-recovery');
     await exitLesson(page);
   });
 });

@@ -846,6 +846,15 @@ export async function ensureProtocolDisabled(
   ctx: DemoActionContext,
   protocol: ProtocolKey,
 ): Promise<void> {
+  const tabSel = PROTOCOL_TAB[protocol];
+  const tab = document.querySelector<HTMLElement>(tabSel);
+  if (!tab) return;
+  // Remove × is `display:none` until the tab wrap is hovered or active — activate
+  // first so the control is in the layout tree and clicks stick.
+  if (tab.getAttribute('aria-selected') !== 'true') {
+    tab.click();
+    await ctx.delay(80);
+  }
   const removeSel = emRemoveProtocolSel(protocol);
   const removeBtn = document.querySelector<HTMLElement>(removeSel);
   if (!removeBtn) return;
@@ -856,7 +865,6 @@ export async function ensureProtocolDisabled(
   // a burst of "quick unnecessary highlights" before step 1's narration begins.
   removeBtn.click();
   await ctx.delay(120);
-  const tabSel = PROTOCOL_TAB[protocol];
   for (let i = 0; i < 20; i++) {
     if (!document.querySelector(tabSel)) break;
     await ctx.delay(100);

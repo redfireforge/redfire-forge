@@ -1741,7 +1741,20 @@
   min-width: 140px;
 }
 
-.grpc-compression-select { width: 100%; max-width: 280px; /* box styling handled by CustomSelect */ }
+/* CustomSelect: border lives on .cs-trigger only — never box the wrapper. */
+.grpc-compression-select {
+  width: 100%;
+  max-width: 280px;
+}
+.grpc-compression-select.cs-wrapper {
+  border: none;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+.grpc-compression-select.cs-wrapper .cs-trigger {
+  width: 100%;
+}
 
 .grpc-compression-toggle-row {
   justify-content: flex-start;
@@ -2270,12 +2283,12 @@
 }
 
 .grpc-tls-config-modal.ws-tls-modal {
-  /* Tri-mode + PEM fields need more room than the shared TLS default */
-  width: min(920px, 96vw);
-  max-width: min(1040px, 96vw);
-  min-width: min(720px, 96vw);
-  height: min(780px, 92vh);
-  max-height: 94vh;
+  /* Compact column — tri-mode cards + PEM fields without spanning the studio */
+  width: min(620px, 94vw);
+  max-width: min(660px, 94vw);
+  min-width: min(520px, 94vw);
+  height: min(700px, 90vh);
+  max-height: 92vh;
 }
 
 .grpc-tls-config-modal .ws-tls-modal-body {
@@ -8052,27 +8065,34 @@
 
 .grpc-collection-group__rename-btn {
   flex-shrink: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
+  gap: 4px;
+  min-width: 22px;
   height: 22px;
   margin: 0 8px 0 4px;
-  padding: 0;
-  border: 1px solid transparent;
+  padding: 0 6px;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: transparent;
+  background: var(--bg);
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1;
   cursor: pointer;
 }
 
 .grpc-collection-group__rename-btn:hover,
 .grpc-collection-group__rename-btn:focus-visible {
   background: var(--surface-hover);
-  border-color: var(--border);
+  border-color: var(--primary);
   color: var(--text);
   outline: none;
+}
+
+.grpc-collection-group__rename-label {
+  font-size: 0.66rem;
 }
 
 .grpc-collection-service__header {

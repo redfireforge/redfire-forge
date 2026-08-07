@@ -11,6 +11,7 @@ import {
 
 import type { SubWorkflowNodeData, Workflow } from '../types/workflow';
 import type { WorkflowDesignerViewModel } from '../hooks/useWorkflowDesignerController';
+import { useHasLayoutSize } from '../hooks/useHasLayoutSize';
 import { nodeTypes, type WorkflowRFNode, type WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { WorkflowNodeRunContext, WorkflowDebugStepContext } from './panels/WorkflowNodeRunContext';
 import { PublishedCatalogContext } from '../contexts/PublishedCatalogContext';
@@ -106,6 +107,8 @@ export function WorkflowDesignerFlowCanvas({
   }, [catalogEntries]);
 
   const { getViewport, setViewport, fitView } = useReactFlow();
+  // Skip React Flow while the canvas box is 0×0 (hidden tab / maximized console).
+  const canvasHasSize = useHasLayoutSize(canvasAreaRef);
 
   // Track the last known viewport so we can restore it when the tab becomes visible again.
   const lastViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
@@ -145,6 +148,7 @@ export function WorkflowDesignerFlowCanvas({
   // Uses setTimeout to let ReactFlow finish measuring node dimensions first.
   const prevWorkflowIdRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!canvasHasSize) return;
     if (previewWorkflow) return;
     if (!selected) return;
     if (prevWorkflowIdRef.current === selected.id) return;
@@ -155,7 +159,20 @@ export function WorkflowDesignerFlowCanvas({
         fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
       });
     }, 120);
-  }, [selected, previewWorkflow, setViewport, fitView]);
+  }, [selected, previewWorkflow, setViewport, fitView, canvasHasSize]);
+
+  // After the canvas regains size (tab shown / console un-maximized), fit again.
+  const wasSizedRef = useRef(canvasHasSize);
+  useEffect(() => {
+    if (canvasHasSize && !wasSizedRef.current && !previewWorkflow) {
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
+        });
+      }, 50);
+    }
+    wasSizedRef.current = canvasHasSize;
+  }, [canvasHasSize, previewWorkflow, fitView]);
 
   // Expose demo-player bridge helpers so lesson actions can manipulate the canvas
   // without relying on synthetic mouse events (which ReactFlow ignores).
@@ -275,6 +292,9 @@ export function WorkflowDesignerFlowCanvas({
           </div>
         </div>
       )}
+      {/* Absolute host gives RF a definite 100% box (RF forces position:relative). */}
+      <div className="wf-react-flow-host">
+      {canvasHasSize && (
       <PublishedCatalogContext.Provider value={publishedCatalogKeys}>
       <WorkflowNodeRunContext.Provider value={nodeStatuses}>
       <WorkflowDebugStepContext.Provider value={isDebugMode ? handleDebugStep : null}>
@@ -343,6 +363,8 @@ export function WorkflowDesignerFlowCanvas({
       </WorkflowDebugStepContext.Provider>
       </WorkflowNodeRunContext.Provider>
       </PublishedCatalogContext.Provider>
+      )}
+      </div>
 
       {Object.keys(runVariableSnapshot ?? workflowVariables).length > 0 && (
         <VariableContextBadge variables={runVariableSnapshot ?? workflowVariables} />

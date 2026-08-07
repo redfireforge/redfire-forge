@@ -108,6 +108,14 @@ export type DemoBridgeWindow = Window &
     __demoEnsureSettingsSvc?: (name: string, baseUrls?: Record<string, string>) => string;
     /** Remove a Settings microservice by name (demo cleanup). */
     __demoRemoveSettingsSvc?: (name: string) => void;
+    /**
+     * Quietly clear protocol tabs / endpoints / global vars on a named Settings
+     * microservice (demo lesson boot). Returns false when the svc is missing.
+     */
+    __demoResetSettingsSvcProtocols?: (
+      name: string,
+      options?: { clearProtocols?: boolean; clearGlobalVars?: boolean },
+    ) => boolean;
     /** Delete all feature groups whose name matches (demo cleanup). */
     __demoDeleteFeatureGroupsByName?: (name: string) => void;
     __demoDeleteScenariosByName?: (name: string) => void;

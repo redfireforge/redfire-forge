@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createGrpcTlsTransportBlockedError,
   isGrpcTlsTransportBlocked,
+  isKnownEncryptedLoopbackGrpcTarget,
   looksLikePem,
   normalizeGrpcTlsConfig,
   prepareGrpcTarget,
@@ -89,7 +90,7 @@ describe('grpcTlsPolicy (Phase 4A)', () => {
 
   it('prepareGrpcTarget validates and normalizes TLS for execute snapshots (Phase 4B)', () => {
     const invalid = prepareGrpcTarget({
-      address: 'localhost:50051',
+      address: 'localhost:50443',
       tlsMode: 'mtls',
       tlsConfig: { serverCaPem: VALID_CERT },
     });
@@ -97,7 +98,7 @@ describe('grpcTlsPolicy (Phase 4A)', () => {
     expect(invalid.target.tlsConfig?.clientCertPem).toBeUndefined();
 
     const valid = prepareGrpcTarget({
-      address: 'localhost:50051',
+      address: 'localhost:50443',
       tlsMode: 'tls',
       tlsConfig: {
         serverCaPem: `  ${VALID_CERT}  `,
@@ -107,5 +108,22 @@ describe('grpcTlsPolicy (Phase 4A)', () => {
     expect(valid.issues).toEqual([]);
     expect(valid.target.tlsConfig?.serverCaPem).toBe(VALID_CERT);
     expect(valid.target.tlsConfig?.serverNameOverride).toBe('grpc.example.com');
+  });
+
+  it('prepareGrpcTarget coerces sticky TLS/mTLS on plaintext echo ports to disabled', () => {
+    const prepared = prepareGrpcTarget({
+      address: 'localhost:50051',
+      tlsMode: 'mtls',
+      tlsConfig: { serverCaPem: VALID_CERT, clientCertPem: VALID_CERT, clientKeyPem: VALID_CERT },
+    });
+    expect(prepared.issues).toEqual([]);
+    expect(prepared.target.tlsMode).toBe('disabled');
+    expect(prepared.target.tlsConfig).toBeUndefined();
+  });
+
+  it('detects known encrypted loopback demo ports used by TLS/mTLS fixtures', () => {
+    expect(isKnownEncryptedLoopbackGrpcTarget('localhost:50443')).toBe(true);
+    expect(isKnownEncryptedLoopbackGrpcTarget('127.0.0.1:50444')).toBe(true);
+    expect(isKnownEncryptedLoopbackGrpcTarget('localhost:50051')).toBe(false);
   });
 });

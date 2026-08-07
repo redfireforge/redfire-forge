@@ -15,6 +15,7 @@ import {
   createGqlMutationBlankWorkflow,
   resetGqlLesson18SessionFlags,
   gqlWorkflowMutationLessonSetup,
+  gqlWorkflowMutationLessonCleanup,
   ensureLesson18WorkflowCreated,
   ensureLesson18WorkflowLoaded,
   isLesson18WorkflowActive,
@@ -29,10 +30,17 @@ import {
   prepareLesson18BeforeFinalQuickTest,
   ensureLesson18FinalQuickTestRun,
   ensureLesson18DeleteConfigured,
+  resolveLesson18CreateNodeId,
   resolveLesson18DeleteNodeId,
   isLesson18DeleteNodeReady,
   selectGqlMutationDemoWorkflow,
 } from './lesson18-workflow-mutation';
+import {
+  getWfConfigDemoTiming,
+  setWfConfigDemoTiming,
+  WF_CONFIG_DEMO_TIMING,
+  WF_CONFIG_DEMO_TIMING_BRISK,
+} from '../../wf-demo-helpers';
 
 function seedLesson18WorkflowBridge(): void {
   (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
@@ -46,12 +54,14 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
   });
 
   afterEach(() => {
+    setWfConfigDemoTiming(null);
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
     delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
     delete (window as unknown as Record<string, unknown>).__wfConnect;
     delete (window as unknown as Record<string, unknown>).__wfAddNode;
+    delete (window as unknown as Record<string, unknown>).__wfPatchNodeDataById;
   });
 
   it('selectGqlMutationDemoWorkflow no-ops click when sidebar has no match', async () => {
@@ -144,6 +154,64 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     const ctx = makeCtx();
     await ensureLesson18MutationNodeAdded(ctx);
     expect(connectSpy).toHaveBeenCalledWith(uiStartId, LESSON18_NODE_CREATE, 'out', null);
+  });
+
+  it('ensureLesson18MutationNodeAdded does not preset-add after palette click places a node', async () => {
+    const uiStartId = 'ui-start-abc';
+    const paletteMutationId = 'ui-mutation-xyz';
+    const wf = createGqlMutationBlankWorkflow();
+    wf.nodes = [
+      {
+        id: uiStartId,
+        type: 'start',
+        position: { x: 100, y: 150 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      ...(wf.nodes as Array<{ id: string; type: string }>).filter((n) => n.type === 'end'),
+    ];
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === LESSON18_WF_NAME ? wf : null;
+    const connectSpy = vi.fn();
+    const addSpy = vi.fn(() => LESSON18_NODE_CREATE);
+    const patchSpy = vi.fn((id: string, patch: Record<string, unknown>) => {
+      const node = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === id);
+      if (node) node.data = { ...node.data, ...patch };
+      return true;
+    });
+    (window as unknown as Record<string, unknown>).__wfConnect = connectSpy;
+    (window as unknown as Record<string, unknown>).__wfAddNode = addSpy;
+    (window as unknown as Record<string, unknown>).__wfPatchNodeDataById = patchSpy;
+
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">${LESSON18_WF_NAME}</span></div>
+      <div class="react-flow__node-start" data-id="${uiStartId}"></div>
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      <button title="Fit view"></button>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
+      if (String(sel).includes('graphqlMutation')) {
+        (wf.nodes as Array<Record<string, unknown>>).push({
+          id: paletteMutationId,
+          type: 'graphqlMutation',
+          position: { x: 280, y: 150 },
+          data: { label: 'GraphQL Mutation' },
+        });
+        document.body.insertAdjacentHTML(
+          'beforeend',
+          `<div class="react-flow__node-graphqlMutation" data-id="${paletteMutationId}">GraphQL Mutation</div>`,
+        );
+      }
+    });
+
+    await ensureLesson18MutationNodeAdded(ctx);
+
+    expect(addSpy).not.toHaveBeenCalled();
+    expect(patchSpy).toHaveBeenCalledWith(paletteMutationId, { label: 'Create User' });
+    expect(connectSpy).toHaveBeenCalledWith(uiStartId, paletteMutationId, 'out', null);
+    expect(document.querySelectorAll('.react-flow__node-graphqlMutation')).toHaveLength(1);
   });
 
   it('ensureLesson18MutationConfigured skips on second call', async () => {
@@ -367,6 +435,16 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     expect(resolveLesson18DeleteNodeId(withoutPreset)).toBe('palette-delete');
   });
 
+  it('resolveLesson18CreateNodeId adopts palette-added create mutation id', () => {
+    const nodes = [
+      { id: 'ui-start', type: 'start', data: { label: 'Start' } },
+      { id: 'ui-create', type: 'graphqlMutation', data: { label: 'Create User' } },
+      { id: 'ui-end', type: 'end', data: { label: 'End' } },
+    ];
+    expect(resolveLesson18CreateNodeId(nodes)).toBe('ui-create');
+    expect(resolveLesson18DeleteNodeId(nodes)).toBe(LESSON18_NODE_DELETE);
+  });
+
   it('isLesson18DeleteNodeReady reads delete node by resolved id', () => {
     const wf = createGqlMutationDemoWorkflow();
     const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown> }>;
@@ -505,6 +583,14 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     const ctx = makeCtx();
     await gqlWorkflowMutationLessonSetup(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
+    expect(getWfConfigDemoTiming()).toEqual(WF_CONFIG_DEMO_TIMING_BRISK);
+  });
+
+  it('gqlWorkflowMutationLessonCleanup restores default config timing', async () => {
+    setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
+    const ctx = makeCtx();
+    await gqlWorkflowMutationLessonCleanup(ctx);
+    expect(getWfConfigDemoTiming()).toEqual(WF_CONFIG_DEMO_TIMING);
   });
 
   it('openWfNodeConfigModal falls back to dblclick on data-id node when bridge missing', async () => {

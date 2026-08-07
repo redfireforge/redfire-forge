@@ -4,9 +4,35 @@
 
 /* ── Layout ──────────────────────────────────────────── */
 
+/*
+ * Keep-mounted Workflow Designer (App.tsx). Must fill .app-main and override the
+ * generic `.app-main > *` padding rule. When `[hidden]`, do NOT use display:none
+ * (React Flow error #004 — parent needs width/height); park it off-interaction
+ * while preserving a measurable box.
+ */
+.app-main > .workflow-designer-mount {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+
+.app-main > .workflow-designer-mount[hidden] {
+  display: flex !important;
+  visibility: hidden;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
 .wf-designer {
   display: flex; flex-direction: column; height: 100%; min-height: 0;
   position: relative;
+  flex: 1;
 }
 
 .wf-body {
@@ -15,15 +41,31 @@
 }
 
 .wf-canvas-area {
-  flex: 1; position: relative; min-width: 0;
+  flex: 1; position: relative; min-width: 0; min-height: 0;
   background: var(--bg);
   background-image: radial-gradient(circle, var(--wf-grid-dot, rgba(148,163,184,0.08)) 1px, transparent 1px);
   background-size: 20px 20px;
   overflow: hidden;
   display: flex; flex-direction: column;
 }
-.wf-canvas-area .react-flow {
-  flex: 1; height: 0;
+/*
+ * Host for `<ReactFlow>`: RF sets inline `position:relative; width/height:100%`,
+ * so it cannot be absolutely positioned via CSS. Give it a definite containing
+ * block instead — absolute host sized to `.wf-canvas-area` — to avoid error #004
+ * when flex percentage height resolves to 0.
+ */
+.wf-react-flow-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  z-index: 0;
+}
+.wf-react-flow-host .react-flow {
+  width: 100% !important;
+  height: 100% !important;
   animation: wf-canvas-fade-in 220ms ease-out;
 }
 
@@ -32,8 +74,10 @@
   to { opacity: 1; }
 }
 
-/* Preview banner for sample workflows */
+/* Preview banner for sample workflows (above absolute-filled React Flow) */
 .wf-preview-banner {
+  position: relative;
+  z-index: 6;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -9022,9 +9066,19 @@
   z-index: 20;
 }
 
-/* When console is maximized, collapse the body and other siblings */
+/*
+ * Do NOT `display:none` the canvas body when the console is maximized — that
+ * collapses React Flow to 0×0 while it may still be mounted for one frame
+ * (error #004). Park the body off-interaction with a measurable box instead;
+ * the size gate still unmounts `<ReactFlow>` when the box is truly 0×0.
+ */
 .wf-designer:has(.wf-console-maximized) > .wf-body {
-  display: none;
+  display: flex !important;
+  visibility: hidden;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
 }
 .wf-console-maximized ~ .wf-status-bar { flex-shrink: 0; }
 

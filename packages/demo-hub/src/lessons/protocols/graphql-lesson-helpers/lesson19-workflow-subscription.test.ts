@@ -23,27 +23,44 @@ import {
   ensureLesson19QuickTestRun,
   performLesson19QuickTestRun,
   performLesson19SubscriptionConfigured,
+  performLesson19SubscriptionVariables,
   performLesson19SubscriptionTimeout,
   performLesson19SubscriptionCorrelation,
   performLesson19SubscriptionOutputBound,
+  prepareLesson19CreateOrderSpotlight,
   prepareLesson19SubscriptionSpotlight,
+  prepareLesson19VariablesSpotlight,
   prepareLesson19StopTimeoutSpotlight,
   prepareLesson19StopMessagesSpotlight,
   prepareLesson19OutputSpotlight,
   prepareLesson19QuickTestSpotlight,
   prepareLesson19SummarySpotlight,
+  performLesson19CreateOrderTour,
   selectGqlOrderFlowDemoWorkflow,
   isLesson19CreateNodeReady,
+  isLesson19SubOperationReady,
+  isLesson19SubVariablesReady,
   isLesson19SubQueryReady,
   isLesson19SubNodeReady,
   isLesson19AssertNodeReady,
+  LESSON19_SUBSCRIPTION_VARS,
 } from './lesson19-workflow-subscription';
+import {
+  getWfConfigDemoTiming,
+  setWfConfigDemoTiming,
+  WF_CONFIG_DEMO_TIMING_BRISK,
+} from '../../wf-demo-helpers';
 
 function seedLesson19WorkflowBridge(overrides?: Partial<Record<string, unknown>>): void {
   const wf = createGqlOrderFlowDemoWorkflow();
   if (overrides) Object.assign(wf, overrides);
   (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
     name === LESSON19_WF_NAME ? wf : null;
+}
+
+function fieldValue(selector: string): string {
+  const el = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector);
+  return el?.value ?? '';
 }
 
 function buildSubscriptionPanelDom(withStop = false, withOutput = false, activeTab = 'Subscription'): string {
@@ -86,6 +103,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
   afterEach(() => {
     clearWorkflowSeedBridge();
     delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
+    setWfConfigDemoTiming(null);
   });
 
   it('createGqlOrderFlowDemoWorkflow seeds mutation, subscription shell, and assert', () => {
@@ -103,6 +121,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
     sub.data.subscriptionQuery = 'subscription { orderStatus { status } }';
+    sub.data.variables = '{ "orderId": {{orderId}} }';
     sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
     sub.data.stopAfterMessages = Number(LESSON19_STOP_AFTER_MESSAGES);
     sub.data.outputBindings = [{ field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true }];
@@ -110,6 +129,14 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     expect(isLesson19SubQueryReady()).toBe(true);
     expect(isLesson19SubNodeReady()).toBe(true);
     expect(isLesson19AssertNodeReady()).toBe(true);
+  });
+
+  it('seeded subscription starts without Variables correlation', () => {
+    const wf = createGqlOrderFlowDemoWorkflow();
+    const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
+    expect(sub.data.variables).toBe('{}');
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => wf;
+    expect(isLesson19SubQueryReady()).toBe(false);
   });
 
   it('selectGqlOrderFlowDemoWorkflow skips click when no sidebar match', async () => {
@@ -151,7 +178,47 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     expect(openSpy).toHaveBeenCalledWith(LESSON19_NODE_SUB);
   });
 
-  it('performLesson19SubscriptionConfigured reuses open modal from reading phase', async () => {
+  it('setup enables brisk config timing', async () => {
+    stubWorkflowSeedBridge(LESSON19_WF_NAME);
+    document.body.innerHTML = buildWorkflowShellDom();
+    const ctx = makeCtx();
+    await gqlWorkflowSubscriptionLessonSetup(ctx);
+    expect(getWfConfigDemoTiming()).toEqual(WF_CONFIG_DEMO_TIMING_BRISK);
+    await gqlWorkflowSubscriptionLessonCleanup(ctx);
+    expect(getWfConfigDemoTiming()).not.toEqual(WF_CONFIG_DEMO_TIMING_BRISK);
+  });
+
+  it('performLesson19CreateOrderTour walks mutation tabs then closes', async () => {
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-sidebar-item">${LESSON19_WF_NAME}</div>
+      <div class="wf-config-modal">
+        <div data-testid="gql-wf-mutation-panel">
+          <button class="gql-wf-subtab active">Operation</button>
+          <button class="gql-wf-subtab">Variables</button>
+          <button class="gql-wf-subtab">Extraction</button>
+          <input data-testid="gql-wf-endpoint-input" />
+          <textarea data-testid="gql-wf-query-editor"></textarea>
+          <textarea data-testid="gql-wf-variables-editor"></textarea>
+          <input data-testid="gql-wf-extraction-jsonpath" />
+          <input data-testid="gql-wf-extraction-varname" />
+          <div class="wf-config-modal-footer-actions">
+            <button class="btn-ghost">Close</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.querySelector('.btn-ghost')?.addEventListener('click', () => {
+      document.querySelector('.wf-config-modal')?.remove();
+    });
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await prepareLesson19CreateOrderSpotlight(ctx);
+    await performLesson19CreateOrderTour(ctx);
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
+  });
+
+  it('performLesson19SubscriptionConfigured fills endpoint and query only', async () => {
     document.body.innerHTML = buildSubscriptionPanelDom();
     const openSpy = vi.fn();
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = openSpy;
@@ -159,7 +226,28 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await performLesson19SubscriptionConfigured(ctx);
     expect(openSpy).not.toHaveBeenCalled();
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_SUBSCRIPTION_QUERY_EDITOR, expect.any(String));
+    expect(fieldValue(GQL.WF_SUBSCRIPTION_QUERY_EDITOR).length).toBeGreaterThan(0);
+    expect(fieldValue(GQL.WF_SUB_VARIABLES_EDITOR)).toBe('');
+    // Keeps modal open for the next Watch config beats.
+    expect(document.querySelector(GQL.WF_SUBSCRIPTION_PANEL)).toBeTruthy();
+  });
+
+  it('performLesson19SubscriptionVariables fills correlation JSON', async () => {
+    document.body.innerHTML = buildSubscriptionPanelDom();
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await performLesson19SubscriptionVariables(ctx);
+    expect(fieldValue(GQL.WF_SUB_VARIABLES_EDITOR)).toBe(LESSON19_SUBSCRIPTION_VARS);
+  });
+
+  it('prepareLesson19VariablesSpotlight opens subscription panel', async () => {
+    document.body.innerHTML = buildSubscriptionPanelDom();
+    const openSpy = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = openSpy;
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await prepareLesson19VariablesSpotlight(ctx);
+    expect(openSpy).not.toHaveBeenCalled();
   });
 
   it('performLesson19SubscriptionTimeout fills stop seconds on Stop tab', async () => {
@@ -167,7 +255,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await performLesson19SubscriptionTimeout(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_STOP_SECS_INPUT, LESSON19_STOP_AFTER_SECS);
+    expect(fieldValue(GQL.WF_STOP_SECS_INPUT)).toBe(LESSON19_STOP_AFTER_SECS);
   });
 
   it('performLesson19SubscriptionCorrelation fills stop messages', async () => {
@@ -175,7 +263,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await performLesson19SubscriptionCorrelation(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_STOP_MESSAGES_INPUT, LESSON19_STOP_AFTER_MESSAGES);
+    expect(fieldValue(GQL.WF_STOP_MESSAGES_INPUT)).toBe(LESSON19_STOP_AFTER_MESSAGES);
   });
 
   it('performLesson19SubscriptionOutputBound adds output binding row when missing', async () => {
@@ -185,10 +273,10 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await performLesson19SubscriptionOutputBound(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.WF_OUTPUT_ADD_BTN);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_OUTPUT_VARNAME, LESSON19_FINAL_STATUS_VAR);
+    expect(fieldValue(GQL.WF_OUTPUT_VARNAME)).toBe(LESSON19_FINAL_STATUS_VAR);
   });
 
-  it('ensureLesson19SubscriptionConfigured skips when query already ready', async () => {
+  it('ensureLesson19SubscriptionConfigured skips when operation already ready', async () => {
     seedLesson19WorkflowBridge();
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
@@ -197,6 +285,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     document.body.innerHTML = buildSubscriptionPanelDom();
     const ctx = makeCtx();
     await performLesson19SubscriptionConfigured(ctx);
+    expect(isLesson19SubOperationReady()).toBe(true);
     vi.mocked(ctx.fill).mockClear();
     await ensureLesson19SubscriptionConfigured(ctx);
     expect(ctx.fill).not.toHaveBeenCalled();
@@ -207,12 +296,15 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
     sub.data.subscriptionQuery = 'subscription { orderStatus { status } }';
+    sub.data.variables = LESSON19_SUBSCRIPTION_VARS;
     sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => wf;
     document.body.innerHTML = buildSubscriptionPanelDom(true);
     const ctx = makeCtx();
     await performLesson19SubscriptionConfigured(ctx);
+    await performLesson19SubscriptionVariables(ctx);
     await performLesson19SubscriptionTimeout(ctx);
+    expect(isLesson19SubVariablesReady()).toBe(true);
     vi.mocked(ctx.fill).mockClear();
     await ensureLesson19SubscriptionTimeout(ctx);
     expect(ctx.fill).not.toHaveBeenCalled();
@@ -229,6 +321,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
     sub.data.subscriptionQuery = 'subscription { orderStatus { status } }';
+    sub.data.variables = LESSON19_SUBSCRIPTION_VARS;
     sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
     sub.data.stopAfterMessages = 3;
     sub.data.outputBindings = [{ field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true }];
@@ -302,6 +395,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
     sub.data.subscriptionQuery = 'subscription { orderStatus { status } }';
+    sub.data.variables = LESSON19_SUBSCRIPTION_VARS;
     sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
     sub.data.stopAfterMessages = Number(LESSON19_STOP_AFTER_MESSAGES);
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => wf;
@@ -309,6 +403,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await performLesson19SubscriptionConfigured(ctx);
+    await performLesson19SubscriptionVariables(ctx);
     await performLesson19SubscriptionTimeout(ctx);
     await performLesson19SubscriptionCorrelation(ctx);
     vi.mocked(ctx.fill).mockClear();
@@ -321,6 +416,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
     sub.data.subscriptionQuery = 'subscription { orderStatus { status } }';
+    sub.data.variables = LESSON19_SUBSCRIPTION_VARS;
     sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
     sub.data.stopAfterMessages = Number(LESSON19_STOP_AFTER_MESSAGES);
     sub.data.outputBindings = [{ field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true }];
@@ -329,6 +425,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await performLesson19SubscriptionConfigured(ctx);
+    await performLesson19SubscriptionVariables(ctx);
     await performLesson19SubscriptionTimeout(ctx);
     await performLesson19SubscriptionCorrelation(ctx);
     await performLesson19SubscriptionOutputBound(ctx);
@@ -348,6 +445,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
     sub.data.subscriptionQuery = 'subscription { orderStatus { status } }';
+    sub.data.variables = LESSON19_SUBSCRIPTION_VARS;
     sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
     sub.data.stopAfterMessages = 3;
     sub.data.outputBindings = [{ field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true }];
@@ -357,6 +455,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await selectGqlOrderFlowDemoWorkflow(ctx);
     await performLesson19SubscriptionConfigured(ctx);
+    await performLesson19SubscriptionVariables(ctx);
     await performLesson19SubscriptionTimeout(ctx);
     await performLesson19SubscriptionCorrelation(ctx);
     await performLesson19SubscriptionOutputBound(ctx);
@@ -408,7 +507,11 @@ function wireSubtabClicks(): void {
 
 function buildWorkflowShellDom(): string {
   return `
-    <div class="wf-canvas-area"></div>
+    <div class="wf-canvas-area">
+      <div class="react-flow__node" data-id="${LESSON19_NODE_SUB}">
+        <div data-testid="gql-canvas-subscription-node">Watch Order Status</div>
+      </div>
+    </div>
     <div class="wf-sidebar-item">${LESSON19_WF_NAME}</div>
     <button title="Fit view"></button>
   `;

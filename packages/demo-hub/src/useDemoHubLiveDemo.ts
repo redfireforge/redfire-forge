@@ -1,5 +1,6 @@
 /** Live demo runner — setup, teardown, auto-play, step navigation. */
 import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { flushSync } from 'react-dom';
 import type { DemoHubState, DemoLesson, SpeedMultiplier, StepPhase } from './types';
 import type { useDemoProgress } from './useDemoProgress';
 import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
@@ -40,6 +41,7 @@ export interface UseDemoHubLiveDemoOptions {
   state: DemoHubState;
   setState: Dispatch<SetStateAction<DemoHubState>>;
   setStepPhase: (phase: StepPhase) => void;
+  setIsDemoBootstrapping: (value: boolean) => void;
   stepPhaseRef: MutableRefObject<StepPhase>;
   progress: ReturnType<typeof useDemoProgress>;
   buildQuietContext: () => ReturnType<typeof import('./useDemoHubHelpers').buildQuietDemoActionContext>;
@@ -72,6 +74,7 @@ export function useDemoHubLiveDemo({
   state,
   setState,
   setStepPhase,
+  setIsDemoBootstrapping,
   stepPhaseRef,
   progress,
   buildQuietContext,
@@ -183,23 +186,34 @@ export function useDemoHubLiveDemo({
       lesson.steps.length - 1,
     );
     const resumePlaying = session?.isPlaying ?? false;
+    autoPlayGenRef.current++;
     const gen = autoPlayGenRef.current;
-    const ok = await runLiveDemoSetup(lesson, gen);
-    if (!ok || !isMountedRef.current) return;
+    abortRef.current?.abort();
+    flushSync(() => {
+      setIsDemoBootstrapping(true);
+      setStepPhase('pre');
+      setState(prev => ({ ...prev, view: 'live', stepIndex, isPlaying: false }));
+    });
+    try {
+      const ok = await runLiveDemoSetup(lesson, gen);
+      if (!ok || !isMountedRef.current) return;
 
-    const step = lesson.steps[stepIndex];
-    if (step) {
-      await executeCurrentStep(step, state.speed, { skipReading: true, stepIndex });
-      if (!isMountedRef.current || autoPlayGenRef.current !== gen) return;
-      progress.setLessonStep(lesson.id, stepIndex);
-    }
+      const step = lesson.steps[stepIndex];
+      if (step) {
+        await executeCurrentStep(step, state.speed, { skipReading: true, stepIndex });
+        if (!isMountedRef.current || autoPlayGenRef.current !== gen) return;
+        progress.setLessonStep(lesson.id, stepIndex);
+      }
 
-    if (resumePlaying && isMountedRef.current) {
-      setState(prev => ({ ...prev, isPlaying: true, stepIndex }));
-    } else {
-      setStepPhase('done');
+      if (resumePlaying && isMountedRef.current) {
+        setState(prev => ({ ...prev, isPlaying: true, stepIndex }));
+      } else {
+        setStepPhase('done');
+      }
+    } finally {
+      setIsDemoBootstrapping(false);
     }
-  }, [state.selectedLesson, state.stepIndex, state.speed, runLiveDemoSetup, executeCurrentStep, progress, isMountedRef, autoPlayGenRef, setState, setStepPhase]);
+  }, [state.selectedLesson, state.stepIndex, state.speed, runLiveDemoSetup, executeCurrentStep, progress, isMountedRef, autoPlayGenRef, abortRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
   useEffect(() => {
     if (!shouldResumeLiveRef.current) return;
@@ -212,21 +226,35 @@ export function useDemoHubLiveDemo({
     if (!lesson) return;
     if (isLessonDesktopOnlyBlocked(lesson)) return;
 
+    // Cancel any in-flight resume/restart so Start is not raced back to concept.
+    autoPlayGenRef.current++;
     const gen = autoPlayGenRef.current;
+    abortRef.current?.abort();
+    skipReadingRef.current?.();
+    skipReadingRef.current = null;
 
     resetGqlModalSessionFlags();
-    // Lock Next immediately — prevents accidental skip during lesson setup.
-    setStepPhase('pre');
-    setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
+    // Enter live immediately and paint the guide panel before setup navigates.
+    // No full-screen Preparing / concept-cover — those blocked Start and looked
+    // like a hard refresh back to the same page.
+    flushSync(() => {
+      setIsDemoBootstrapping(true);
+      setStepPhase('pre');
+      setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
+    });
 
-    const ok = await runLiveDemoSetup(lesson, gen);
-    if (!ok) return;
+    try {
+      const ok = await runLiveDemoSetup(lesson, gen);
+      if (!ok || !isMountedRef.current) return;
 
-    if (isMountedRef.current && lesson.steps[0]) {
-      await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
-      progress.setLessonStep(lesson.id, 0);
+      if (lesson.steps[0]) {
+        await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
+        progress.setLessonStep(lesson.id, 0);
+      }
+    } finally {
+      setIsDemoBootstrapping(false);
     }
-  }, [state.selectedLesson, state.speed, runLiveDemoSetup, executeCurrentStep, progress, resetGqlModalSessionFlags, autoPlayGenRef, isMountedRef, setState, setStepPhase]);
+  }, [state.selectedLesson, state.speed, runLiveDemoSetup, executeCurrentStep, progress, resetGqlModalSessionFlags, autoPlayGenRef, abortRef, skipReadingRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
   const goToStep = useCallback(async (index: number) => {
     const lesson = state.selectedLesson;
@@ -372,42 +400,51 @@ export function useDemoHubLiveDemo({
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     autoPlayGenRef.current++;
     abortRef.current?.abort();
-    setState(prev => ({ ...prev, stepIndex: 0, isPlaying: false }));
-    setStepPhase('done');
+    skipReadingRef.current?.();
+    skipReadingRef.current = null;
     const gen = autoPlayGenRef.current;
+    flushSync(() => {
+      setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
+      setIsDemoBootstrapping(true);
+      setStepPhase('pre');
+    });
     const ctx = buildQuietContext();
-    if (lesson.cleanup) {
-      try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] cleanup failed:', e); }
-    }
-    suppressLiveTabExitRef.current = true;
     try {
-      if (lesson.initialTab) navigateToTab(lesson.initialTab);
-      expandAppSidebar();
-      await new Promise(r => setTimeout(r, 120));
-      if (isGraphqlStudioLesson(lesson)) {
-        await runGqlDemoStorageHygiene();
+      if (lesson.cleanup) {
+        try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] cleanup failed:', e); }
       }
-      if (isGrpcStudioLesson(lesson)) {
-        await runGrpcDemoStorageHygiene();
-        try {
-          runGrpcStudioLessonSetup(lesson);
-        } catch (e) {
-          console.warn('[DemoHub] gRPC lesson runtime setup failed:', e);
+      suppressLiveTabExitRef.current = true;
+      try {
+        if (lesson.initialTab) navigateToTab(lesson.initialTab);
+        expandAppSidebar();
+        await new Promise(r => setTimeout(r, 120));
+        if (isGraphqlStudioLesson(lesson)) {
+          await runGqlDemoStorageHygiene();
         }
+        if (isGrpcStudioLesson(lesson)) {
+          await runGrpcDemoStorageHygiene();
+          try {
+            runGrpcStudioLessonSetup(lesson);
+          } catch (e) {
+            console.warn('[DemoHub] gRPC lesson runtime setup failed:', e);
+          }
+        }
+        await ensureActiveDemoTabOrCreate(lesson);
+        if (lesson.setup) {
+          try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] setup failed:', e); }
+        }
+        if (autoPlayGenRef.current !== gen) return;
+      } finally {
+        suppressLiveTabExitRef.current = false;
       }
-      await ensureActiveDemoTabOrCreate(lesson);
-      if (lesson.setup) {
-        try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] setup failed:', e); }
+      if (isMountedRef.current && lesson.steps[0]) {
+        await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
+        progress.setLessonStep(lesson.id, 0);
       }
-      if (autoPlayGenRef.current !== gen) return;
     } finally {
-      suppressLiveTabExitRef.current = false;
+      setIsDemoBootstrapping(false);
     }
-    if (isMountedRef.current && lesson.steps[0]) {
-      await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
-      progress.setLessonStep(lesson.id, 0);
-    }
-  }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, ensureActiveDemoTabOrCreate, executeCurrentStep, progress, clearGqlIntroSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, suppressLiveTabExitRef, isMountedRef, setState, setStepPhase]);
+  }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, ensureActiveDemoTabOrCreate, executeCurrentStep, progress, clearGqlIntroSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, suppressLiveTabExitRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
   const exitLiveDemo = useCallback(async () => {
     const liveSession = readDemoLiveSession();
@@ -435,6 +472,7 @@ export function useDemoHubLiveDemo({
     setState(prev => ({ ...prev, view: 'concept', isPlaying: false }));
     progress.setLastView('concept');
     setStepPhase('done');
+    setIsDemoBootstrapping(false);
     void syncDemoLiveGuard(false);
     navigateToTab('demo-hub');
 
@@ -482,7 +520,7 @@ export function useDemoHubLiveDemo({
       navigateToTab('demo-hub');
       suppressLiveTabExitRef.current = false;
     }
-  }, [state.selectedLesson, buildQuietContext, closeIsolatedStudioDemoTabSession, progress, pause, navigateToTab, resetGqlModalSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, setState, setStepPhase, suppressLiveTabExitRef]);
+  }, [state.selectedLesson, buildQuietContext, closeIsolatedStudioDemoTabSession, progress, pause, navigateToTab, resetGqlModalSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, setState, setStepPhase, setIsDemoBootstrapping, suppressLiveTabExitRef]);
 
   const confirmLessonComplete = useCallback(() => {
     const lesson = state.selectedLesson;

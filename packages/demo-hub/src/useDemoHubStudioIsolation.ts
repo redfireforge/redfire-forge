@@ -1,5 +1,6 @@
 /** gRPC / WebSocket studio tab isolation — dedicated demo tab per live lesson. */
 import { useCallback, useRef } from 'react';
+import { resetGrpcActiveTabRuntimeState } from './adapters';
 import type { DemoLesson } from './types';
 
 export type StudioIsolationKind = 'grpc' | 'websocket';
@@ -107,10 +108,19 @@ export function useDemoHubStudioIsolation(pause: (ms: number) => Promise<void>) 
     // Tab-bar lessons must keep the user's real connection tabs — creating a
     // temporary "demo" tab (add → rename → later close) is visible flashing.
     if (lesson.skipStudioTabIsolation) return null;
-    // Workflow Designer / Runner lessons never mount WS/gRPC studio chrome.
-    // Waiting for conn-tab-bar / grpc-tab-bar would burn ~3.5s in Preparing.
+    // Workflow Designer / Runner / Environment Manager lessons never mount
+    // WS/gRPC studio chrome. Waiting for conn-tab-bar / grpc-tab-bar would
+    // burn ~3.5s in Preparing and flash the wrong surface before step 1.
     const tab = lesson.initialTab;
-    if (tab === 'workflow' || tab === 'workflow-runner') return null;
+    if (
+      tab === 'workflow'
+      || tab === 'workflow-runner'
+      || tab === 'environments'
+      || tab === 'preferences'
+      || tab === 'kafka-settings'
+    ) {
+      return null;
+    }
     if (lesson.category === 'grpc') return 'grpc';
     if (lesson.category === 'websocket') return 'websocket';
     return null;
@@ -147,6 +157,18 @@ export function useDemoHubStudioIsolation(pause: (ms: number) => Promise<void>) 
         await pause(100);
       }
 
+      // Reused gRPC "demo" tabs keep prior TLS/auth — clear before lesson setup
+      // Reflect, or plaintext :50051 returns HTTP 503. Wait for the bridge
+      // (useEffect) so reset is not a silent no-op right after navigation.
+      if (kind === 'grpc') {
+        const bridgeStart = Date.now();
+        while (Date.now() - bridgeStart < 2500) {
+          if (resetGrpcActiveTabRuntimeState()) break;
+          await pause(50);
+        }
+        await pause(60);
+      }
+
       studioIsolationRef.current = {
         kind,
         previousActiveTabTestId,
@@ -169,6 +191,17 @@ export function useDemoHubStudioIsolation(pause: (ms: number) => Promise<void>) 
     const demoTabTestId = nextActive?.getAttribute('data-testid') ?? null;
 
     await renameStudioActiveTabToDemo(kind);
+
+    // New tabs can inherit sticky page/profile TLS from the prior active tab
+    // context until explicitly cleared.
+    if (kind === 'grpc') {
+      const bridgeStart = Date.now();
+      while (Date.now() - bridgeStart < 2500) {
+        if (resetGrpcActiveTabRuntimeState()) break;
+        await pause(50);
+      }
+      await pause(60);
+    }
 
     studioIsolationRef.current = { kind, previousActiveTabTestId, demoTabTestId };
   }, [findDemoTabsByLabel, pause, renameStudioActiveTabToDemo, resolveStudioIsolationKind, waitForStudioTabChrome]);

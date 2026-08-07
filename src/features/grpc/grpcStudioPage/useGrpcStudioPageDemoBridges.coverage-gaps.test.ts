@@ -8,18 +8,24 @@ import { useGrpcStudioPageDemoBridges } from './useGrpcStudioPageDemoBridges';
 function makeStudioStub() {
   const updateTab = vi.fn();
   const patchTabDescriptor = vi.fn();
+  const cancelUnaryCall = vi.fn().mockResolvedValue(undefined);
+  const cancelStreamCall = vi.fn().mockResolvedValue(undefined);
   return {
     studio: {
       activeTab: { id: 'tab-1', descriptorKey: 'desc-1' },
       activeTabDescriptor: { descriptor: { key: 'desc-live' } },
       updateTab,
       patchTabDescriptor,
+      cancelUnaryCall,
+      cancelStreamCall,
     },
     advancedFeatures: {
       applySchemaDiffComparison: vi.fn(),
     },
     updateTab,
     patchTabDescriptor,
+    cancelUnaryCall,
+    cancelStreamCall,
   };
 }
 
@@ -82,16 +88,22 @@ describe('useGrpcStudioPageDemoBridges', () => {
   });
 
   it('reset bridge clears tab connection state', () => {
-    const { studio, advancedFeatures, updateTab } = makeStudioStub();
+    const {
+      studio, advancedFeatures, updateTab, cancelUnaryCall, cancelStreamCall,
+    } = makeStudioStub();
     renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
     const w = window as unknown as Record<string, unknown>;
     expect((w.__demoResetGrpcActiveTab as () => boolean)()).toBe(true);
+    expect(cancelUnaryCall).toHaveBeenCalledWith('tab-1');
+    expect(cancelStreamCall).toHaveBeenCalledWith('tab-1');
     expect(updateTab).toHaveBeenCalledWith('tab-1', {
       connectionId: undefined,
+      target: 'localhost:50051',
       tlsMode: 'disabled',
       tlsConfig: undefined,
       auth: { type: 'none' },
       metadata: {},
+      transportMode: 'express',
       grpcurlExportContext: undefined,
     });
   });

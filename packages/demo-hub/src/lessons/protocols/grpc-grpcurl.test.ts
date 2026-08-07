@@ -6,11 +6,12 @@ import { validateGrpcDemoLesson, getGrpcLessonRosterEntry } from './grpc-lesson-
 import { grpcGrpcurlLesson } from './grpc-grpcurl';
 
 describe('grpc-grpcurl lesson', () => {
-  it('registers GRPC-22 metadata and 8 steps', () => {
+  it('registers GRPC-22 metadata and 7 steps', () => {
     expect(grpcGrpcurlLesson.id).toBe('grpc-grpcurl');
     expect(grpcGrpcurlLesson.category).toBe('grpc');
     expect(grpcGrpcurlLesson.grpc.rosterNumber).toBe(22);
-    expect(grpcGrpcurlLesson.steps).toHaveLength(8);
+    expect(grpcGrpcurlLesson.steps).toHaveLength(7);
+    expect(grpcGrpcurlLesson.steps[0]?.id).toBe('grpc22-open-modal');
     expect(grpcGrpcurlLesson.initialTab).toBe('grpc-studio');
     expect(grpcGrpcurlLesson.allowedTabs).toContain('demo-hub');
   });
