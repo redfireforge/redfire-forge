@@ -1,7 +1,11 @@
 import type { DemoActionContext } from '../../../types';
 import { GRPC } from '@shared/selectors';
 import { purgeAllSpotlightRings, showSpotlightRing } from '../../../demoRipple';
-import { resumeDemoAutoScroll, scrollDemoTargetIntoView } from '../../../demoSpotlightUtils';
+import {
+  clearLiveDemoPanelFromTarget,
+  resumeDemoAutoScroll,
+  scrollDemoTargetIntoView,
+} from '../../../demoSpotlightUtils';
 import { firstVisibleElement } from '../../../utils/domVisibility';
 import { isGrpcHybridComposerActive } from './echoComposer';
 
@@ -27,6 +31,11 @@ async function waitForNonEmptyJsonText(
   }
 }
 
+export type SpotlightPauseOptions = {
+  /** When true, skip scrollDemoTargetIntoView (caller already scrolled). */
+  skipScroll?: boolean;
+};
+
 /**
  * Draw a steady spotlight box around the element matching `selector`, hold
  * for `holdMs` so the viewer can digest the target, then remove it.
@@ -38,10 +47,11 @@ export async function spotlightAndPause(
   ctx: DemoActionContext,
   selector: string,
   holdMs = 900,
+  options?: SpotlightPauseOptions,
 ): Promise<void> {
   const el = firstVisibleElement(selector) ?? document.querySelector<HTMLElement>(selector);
   if (!el) return;
-  await spotlightElementAndPause(ctx, el, holdMs);
+  await spotlightElementAndPause(ctx, el, holdMs, options);
 }
 
 /** Same as {@link spotlightAndPause} but takes a resolved element directly. */
@@ -49,13 +59,19 @@ export async function spotlightElementAndPause(
   ctx: DemoActionContext,
   el: HTMLElement,
   holdMs = 900,
+  options?: SpotlightPauseOptions,
 ): Promise<void> {
   purgeAllSpotlightRings();
-  // Scroll nested modal/panel containers first — otherwise clipped targets
-  // (e.g. Client Key "Set" at the bottom of the TLS modal) draw rings off-screen.
   resumeDemoAutoScroll();
-  scrollDemoTargetIntoView(el, { block: 'center' });
-  await ctx.delay(280);
+  if (options?.skipScroll) {
+    clearLiveDemoPanelFromTarget(el);
+    await ctx.delay(80);
+  } else {
+    // Scroll nested modal/panel containers first — otherwise clipped targets
+    // (e.g. Client Key "Set" at the bottom of the TLS modal) draw rings off-screen.
+    scrollDemoTargetIntoView(el, { block: 'center' });
+    await ctx.delay(280);
+  }
   const removeRing = showSpotlightRing(el, { steady: true });
   try {
     await ctx.delay(holdMs);

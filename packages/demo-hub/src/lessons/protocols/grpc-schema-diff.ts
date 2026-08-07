@@ -5,7 +5,7 @@
  * server-side change, compare the old and new descriptors, read the three
  * severity levels, export the diff report, and acknowledge changes.
  *
- *   grpc14-intro        — Reflect on Studio; navigate to Advanced → Schema Diff; tour empty state
+ *   grpc14-intro        — Already on Schema Diff (quiet Reflect); tour empty state + Capture
  *   grpc14-baseline     — Click "Capture baseline"; see key + timestamp chip
  *   grpc14-compare      — Simulate server v2 + Compare; diff results appear
  *   grpc14-read-diff    — Read the change list: breaking row + informational row
@@ -22,18 +22,20 @@ import {
   type GrpcDemoLesson,
 } from './grpc-lesson-contract';
 import {
+  captureGrpcActiveDescriptorKey,
+  patchGrpcSchemaDiffReport,
+} from '../../adapters';
+import {
   clearGrpcSchemaDriftQuiet,
   closeGrpcSettingsDrawerQuiet,
-  ensureGrpcReflected,
+  ensureGrpcPlaintextChannelReady,
   ensureGrpcStudioSubNavQuiet,
   grpcFirstCallCleanup,
-  grpcFirstCallSetup,
-  guardGrpcTargetQuiet,
+  resetGrpcLessonSessionFlags,
   spotlightAndPause,
   spotlightElementAndPause,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
-import { patchGrpcSchemaDiffReport } from '../../adapters';
 import type { DemoActionContext } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -92,23 +94,44 @@ const DEMO_DIFF_REPORT = {
 // Private helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Quiet Reflect so Capture baseline has a live descriptor — DOM clicks only.
+ * Shared `ensureGrpcReflected` uses `ctx.click` ripples (visible during boot).
+ */
+async function prepareSchemaDiffReflectionQuiet(ctx: DemoActionContext): Promise<void> {
+  await ensureGrpcPlaintextChannelReady(ctx);
+  if (!document.querySelector(GRPC.EXPLORER_TREE) && !document.querySelector(GRPC.EXPLORER_SOURCE)) {
+    const reflectBtn = document.querySelector<HTMLButtonElement>(GRPC.REFLECT_BTN);
+    if (reflectBtn && !reflectBtn.disabled) reflectBtn.click();
+    try {
+      await ctx.waitFor(`${GRPC.EXPLORER_TREE}, ${GRPC.EXPLORER_SOURCE}`, 12_000);
+    } catch { /* remain navigable if reflection infra is down */ }
+  }
+  if (document.querySelector(GRPC.EXPLORER_TREE) || document.querySelector(GRPC.EXPLORER_SOURCE)) {
+    captureGrpcActiveDescriptorKey();
+  }
+}
+
 /** Navigate to Advanced sub-nav and open the Schema Diff tab quietly. */
 async function navigateToSchemaDiffPanelQuiet(ctx: DemoActionContext): Promise<void> {
   const advBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_ADVANCED);
   if (!advBtn) {
     await navigateToGrpcStudio(ctx);
-    await ctx.delay(400);
+    await ctx.delay(80);
   }
   const advEl = document.querySelector<HTMLElement>(GRPC.SUB_NAV_ADVANCED);
   if (advEl && advEl.getAttribute('aria-selected') !== 'true') {
     advEl.click();
-    await ctx.delay(500);
+    await ctx.delay(60);
   }
   const diffTab = document.querySelector<HTMLElement>(GRPC.ADVANCED_TAB('schema_diff'));
   if (diffTab && diffTab.getAttribute('aria-selected') !== 'true') {
     diffTab.click();
-    await ctx.delay(400);
+    await ctx.delay(60);
   }
+  try {
+    await ctx.waitFor(GRPC.SCHEMA_DIFF_PANEL, 4_000);
+  } catch { /* panel mounts with Advanced tab */ }
 }
 
 /** Quietly capture the baseline if not already captured. */
@@ -131,10 +154,27 @@ async function clearBaselineQuiet(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-/** Set the severity filter select value. */
+/**
+ * Set the severity filter quietly.
+ * The control is a CustomSelect (`.cs-wrapper`) — calling HTMLSelectElement's
+ * value setter on that div throws TypeError: Illegal invocation.
+ */
 function setSeverityFilter(value: 'all' | 'breaking' | 'non_breaking' | 'informational'): void {
-  const el = document.querySelector<HTMLSelectElement>(GRPC.SCHEMA_DIFF_SEVERITY_FILTER);
+  const el = document.querySelector(GRPC.SCHEMA_DIFF_SEVERITY_FILTER);
   if (!el) return;
+
+  const wrapper = el.classList.contains('cs-wrapper')
+    ? el
+    : el.closest('.cs-wrapper');
+  if (wrapper) {
+    if (wrapper.getAttribute('data-value') === value) return;
+    wrapper.dispatchEvent(
+      new CustomEvent('custom-select:set-value', { detail: { value }, bubbles: true }),
+    );
+    return;
+  }
+
+  if (!(el instanceof HTMLSelectElement)) return;
   const nativeSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
   nativeSetter?.call(el, value);
   el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -166,7 +206,7 @@ type DemoStep = GrpcDemoLesson['steps'][number];
 
 const steps: DemoStep[] = [
   // =========================================================================
-  // Step 1 — Reflect on Studio, then tour Schema Diff (empty state)
+  // Step 1 — Already on Schema Diff (quiet Reflect in setup); tour empty state
   // =========================================================================
   {
     id: 'grpc14-intro',
@@ -176,47 +216,32 @@ const steps: DemoStep[] = [
       'gRPC is strongly typed — but proto files change. When a field is removed or ' +
       'its type changes, **existing clients break silently**: they still compile and ' +
       'send requests, but the server no longer understands them.\n\n' +
-      'Before you can diff schemas, Studio needs the server\'s **current proto descriptor**. ' +
-      'That starts on the **Studio** tab: click **Reflect** and Studio queries the server\'s ' +
-      'reflection API — the **Service Explorer** fills with every service and method.\n\n' +
-      'Once reflection is loaded, open **Advanced → Schema diff**. **Capture baseline** ' +
-      'snapshots that descriptor as your reference point. Later, **Compare** re-reflects the ' +
-      'server and classifies every change:\n\n' +
+      'Studio already pulled the server\'s **current proto descriptor** via reflection ' +
+      '(Studio → **Reflect**). This lesson starts on **Advanced → Schema diff**, where ' +
+      '**Capture baseline** snapshots that descriptor as your reference point. Later, ' +
+      '**Compare** re-reflects the server and classifies every change:\n\n' +
       '- 🔴 **Breaking** — field removed, field number reused, type changed\n' +
       '- 🟡 **Non-breaking** — structural change existing clients can tolerate\n' +
       '- 🔵 **Informational** — pure additions: new optional fields, new methods\n\n' +
       'Export the report as JSON (for CI gates) or Markdown (for changelogs), and ' +
       'acknowledge individual changes once reviewed.',
-    highlight: GRPC.REFLECT_BTN,
+    // Quiet setup already lands here — ring Capture, not Studio Reflect behind Advanced.
+    highlight: GRPC.SCHEMA_DIFF_CAPTURE_BASELINE,
     preAction: async (ctx) => {
-      // setup already handled base Studio readiness; keep step-1 preAction to
-      // quiet guard-only cleanup to avoid extra startup motion before narration.
-      await guardGrpcTargetQuiet(ctx);
-      await ensureGrpcStudioSubNavQuiet(ctx);
-      await clearGrpcSchemaDriftQuiet(ctx);
+      // Recover Schema Diff only — never call clearGrpcSchemaDriftQuiet here
+      // (that helper used to force Studio sub-nav and undid the quiet land).
+      if (!document.querySelector(GRPC.SCHEMA_DIFF_PANEL)) {
+        await navigateToSchemaDiffPanelQuiet(ctx);
+      }
       await closeGrpcSettingsDrawerQuiet(ctx);
       await clearBaselineQuiet(ctx);
     },
     action: async (ctx) => {
-      // Beat 1 — Reflect: pull the live descriptor into Service Explorer.
-      await spotlightAndPause(ctx, GRPC.REFLECT_BTN, HOLD.beforeClick);
-      await ensureGrpcReflected(ctx);
-      await ctx.delay(HOLD.afterNav);
-      await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, HOLD.outcome);
+      // Stay on Schema Diff — no Studio Reflect / Advanced re-tour (that was the flash).
+      if (!document.querySelector(GRPC.SCHEMA_DIFF_PANEL)) {
+        await navigateToSchemaDiffPanelQuiet(ctx);
+      }
 
-      // Beat 2 — Advanced → Schema Diff (one path, no side tours).
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, HOLD.beforeClick);
-      await ctx.click(GRPC.SUB_NAV_ADVANCED);
-      await ctx.delay(HOLD.afterNav);
-
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('schema_diff'), HOLD.beforeClick);
-      await ctx.click(GRPC.ADVANCED_TAB('schema_diff'));
-      try {
-        await ctx.waitFor(GRPC.SCHEMA_DIFF_PANEL, 4_000);
-      } catch { /* panel renders quickly */ }
-      await ctx.delay(HOLD.afterNav);
-
-      // Beat 3 — empty panel + Capture baseline (next step's action).
       await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PANEL, HOLD.modal);
       await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CAPTURE_BASELINE, HOLD.outcome);
     },
@@ -402,7 +427,8 @@ const steps: DemoStep[] = [
     },
     action: async (ctx) => {
       await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_SEVERITY_FILTER, HOLD.beforeClick);
-      setSeverityFilter('breaking');
+      // Visible CustomSelect pick so the viewer sees Breaking only applied.
+      await ctx.selectOption(GRPC.SCHEMA_DIFF_SEVERITY_FILTER, 'breaking');
       await ctx.delay(HOLD.afterNav);
 
       // Outcome: only the breaking row remains.
@@ -509,6 +535,8 @@ export const grpcSchemaDiffLesson: GrpcDemoLesson = {
   ...buildGrpcLessonShellFromRoster(GRPC14_ROSTER),
   domainId: 'protocols',
   category: 'grpc',
+  // Avoid add-tab → rename-"demo" flashes before Schema Diff Reading.
+  skipStudioTabIsolation: true,
   grpc: buildGrpcContractMetaFromRoster(GRPC14_ROSTER),
   description:
     'Capture a proto schema baseline, simulate a breaking server-side change, compare ' +
@@ -646,15 +674,21 @@ export const grpcSchemaDiffLesson: GrpcDemoLesson = {
   },
   steps,
   setup: async (ctx) => {
-    // Skip the Manage Schemas draft reset — this lesson diffs live reflection
-    // against a captured baseline, never staged schema sources. Running it would
-    // open/close the Manage Schemas modal (cycling Proto Files/Protoset/URL/BSR
-    // sub-tabs) for every tab, which the viewer sees as a burst of modals
-    // flashing on and off before step 1.
-    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
-    await ensureGrpcStudioSubNavQuiet(ctx);
+    // Quiet land: Reflect on Studio (DOM only), clear drift while still there,
+    // then open Schema Diff last so Reading never opens on the Studio explorer.
+    resetGrpcLessonSessionFlags();
+    await navigateToGrpcStudio(ctx);
+    await closeGrpcSettingsDrawerQuiet(ctx);
+    await ensureGrpcPlaintextChannelReady(ctx);
+    await clearGrpcSchemaDriftQuiet(ctx);
+    await prepareSchemaDiffReflectionQuiet(ctx);
+    // Final surface — do not call Studio-only helpers after this.
+    await navigateToSchemaDiffPanelQuiet(ctx);
+    await clearBaselineQuiet(ctx);
   },
   cleanup: async (ctx) => {
+    await closeProtoModalQuiet(ctx);
+    await ensureGrpcStudioSubNavQuiet(ctx);
     await grpcFirstCallCleanup(ctx);
   },
 };

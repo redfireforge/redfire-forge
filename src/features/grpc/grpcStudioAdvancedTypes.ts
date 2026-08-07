@@ -13,6 +13,7 @@ import type {
   GrpcSchemaDiffReport,
   GrpcSchemaDiffSeverity,
 } from '../../shared/grpc/grpcSchemaDiffContracts';
+import { peekDemoInitialSurface } from '../../shared/demoInitialSurface';
 
 export const GRPC_ADVANCED_FEATURE_TABS = [
   'load_test',
@@ -87,7 +88,9 @@ export interface GrpcTabAdvancedFeaturesUiState {
 
 export function createInitialGrpcTabAdvancedFeaturesUiState(): GrpcTabAdvancedFeaturesUiState {
   return {
-    activeFeatureTab: 'load_test',
+    // Live demos arm this so the Advanced shell paints step 1's tab on mount
+    // instead of Load testing, avoiding a visible tab hop during lesson setup.
+    activeFeatureTab: peekDemoInitialSurface()?.grpcAdvancedTab ?? 'load_test',
     runtime: {
       loadTest: { status: 'idle', cancellationRequested: false },
       mockRuntime: { status: 'idle', cancellationRequested: false },

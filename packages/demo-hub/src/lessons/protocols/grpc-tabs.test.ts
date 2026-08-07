@@ -13,6 +13,7 @@ const helperSpies = vi.hoisted(() => ({
   clearGrpcSchemaDriftQuiet: vi.fn(async () => {}),
   closeExtraGrpcTabsQuiet: vi.fn(async () => {}),
   resetGrpcLessonSessionFlags: vi.fn(),
+  fillGrpcEchoMessage: vi.fn(async () => {}),
 }));
 
 vi.mock('../env-manager-lesson-helpers', () => ({
@@ -29,6 +30,7 @@ vi.mock('./grpc-lesson-helpers', async () => {
     clearGrpcSchemaDriftQuiet: helperSpies.clearGrpcSchemaDriftQuiet,
     closeExtraGrpcTabsQuiet: helperSpies.closeExtraGrpcTabsQuiet,
     resetGrpcLessonSessionFlags: helperSpies.resetGrpcLessonSessionFlags,
+    fillGrpcEchoMessage: helperSpies.fillGrpcEchoMessage,
   };
 });
 
@@ -53,5 +55,26 @@ describe('grpc-tabs lesson boot', () => {
     expect(helperSpies.resetGrpcLessonSessionFlags).toHaveBeenCalled();
     expect(helperSpies.closeExtraGrpcTabsQuiet).toHaveBeenCalledWith(ctx);
     expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('grpc25-send fills Hello from Tab 1 via hybrid-aware helper before Send', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div data-testid="grpc-tab-bar"><button role="tab" aria-selected="true"></button></div>
+      <button data-testid="grpc-request-tab-form"></button>
+      <button data-testid="grpc-send-btn"></button>
+      <div data-testid="grpc-response-body"></div>
+    `;
+    const step = grpcTabsLesson.steps.find((s) => s.id === 'grpc25-send')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+
+    expect(helperSpies.fillGrpcEchoMessage).toHaveBeenCalledWith(ctx, 'Hello from Tab 1');
+    expect(ctx.click).toHaveBeenCalledWith(GRPC.SEND_BTN);
+    // Must not use the obsolete form-row selector (hybrid composer has JSON only).
+    expect(ctx.fill).not.toHaveBeenCalledWith(
+      '.grpc-form-field input[type="text"]',
+      expect.anything(),
+    );
   });
 });

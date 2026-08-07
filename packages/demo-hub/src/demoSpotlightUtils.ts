@@ -40,6 +40,53 @@ function getDemoPanelRect(): DOMRect | null {
   return panel.getBoundingClientRect();
 }
 
+/** LiveDemo panel may nudge vertically when it covers a spotlight target (never left/right). */
+export const DEMO_PANEL_CLEAR_TARGET_EVENT = 'demo-live-panel:clear-target';
+
+export interface DemoPanelClearTargetDetail {
+  top: number;
+  left: number;
+  right: number;
+  bottom: number;
+}
+
+function rectsOverlap(
+  a: { top: number; left: number; right: number; bottom: number },
+  b: { top: number; left: number; right: number; bottom: number },
+  pad = 0,
+): boolean {
+  return !(
+    a.right + pad <= b.left
+    || a.left - pad >= b.right
+    || a.bottom + pad <= b.top
+    || a.top - pad >= b.bottom
+  );
+}
+
+/**
+ * If the floating LiveDemo panel covers the spotlight target, ask the panel
+ * layout hook for a vertical-only dodge. Horizontal jumps are intentionally
+ * avoided so the narration card stays in one place across steps.
+ */
+export function clearLiveDemoPanelFromTarget(el: HTMLElement, pad = 18): void {
+  const panel = getDemoPanelRect();
+  if (!panel) return;
+  const rect = el.getBoundingClientRect();
+  // Include spotlight ring inset (~6px) + glow.
+  const target = {
+    top: rect.top - 8,
+    left: rect.left - 8,
+    right: rect.right + 8,
+    bottom: rect.bottom + 8,
+  };
+  if (!rectsOverlap(target, panel, pad)) return;
+  window.dispatchEvent(
+    new CustomEvent<DemoPanelClearTargetDetail>(DEMO_PANEL_CLEAR_TARGET_EVENT, {
+      detail: target,
+    }),
+  );
+}
+
 /** Pause demo-driven auto-scroll after the user manually scrolls a panel. */
 let demoAutoScrollPausedUntil = 0;
 /** Ignore scroll/wheel events while demo code is programmatically scrolling. */
@@ -138,9 +185,12 @@ export interface ScrollDemoTargetOptions {
   block?: 'start' | 'center' | 'end';
 }
 
+/** Spotlight ring draws ~6–12px above the target — keep that band inside the scrollport. */
+const SPOTLIGHT_TOP_CLEARANCE_PX = 20;
+
 /**
  * Scroll a spotlight target into view inside nested scroll containers (Metadata, Auth panel)
- * and above the floating demo narration panel when it overlaps the right/bottom edge.
+ * and above the floating demo narration panel when it occludes the lower part of the scrollport.
  */
 export function scrollDemoTargetIntoView(
   el: HTMLElement,
@@ -160,34 +210,52 @@ export function scrollDemoTargetIntoView(
     const parentRect = scrollParent.getBoundingClientRect();
 
     let visibleBottom = parentRect.bottom;
+    // Only shrink the usable viewport when the LiveDemo panel actually cuts across
+    // the scrollport. A top-right floating panel often has panel.top < parent.top;
+    // treating that as the visible bottom made visibleHeight 0 and pinned targets
+    // flush to the clip edge (Runtime tab ring half-hidden under Advanced nav).
     if (demoPanel) {
-      if (parentRect.right > demoPanel.left && parentRect.bottom > demoPanel.top) {
+      const overlapsX = parentRect.right > demoPanel.left + 8 && parentRect.left < demoPanel.right;
+      const panelCutsScrollport =
+        overlapsX
+        && demoPanel.top > parentRect.top + 8
+        && demoPanel.top < parentRect.bottom;
+      if (panelCutsScrollport) {
         visibleBottom = Math.min(visibleBottom, demoPanel.top - 12);
       }
     }
 
-    const visibleHeight = Math.max(0, visibleBottom - parentRect.top);
+    const visibleHeight = Math.max(
+      SPOTLIGHT_TOP_CLEARANCE_PX * 2,
+      visibleBottom - parentRect.top,
+    );
     const offsetTop = elRect.top - parentRect.top + scrollParent.scrollTop;
 
     let targetScroll: number;
     if (block === 'start') {
-      targetScroll = offsetTop - 12;
+      targetScroll = offsetTop - SPOTLIGHT_TOP_CLEARANCE_PX;
     } else if (block === 'end') {
       targetScroll = offsetTop - visibleHeight + elRect.height + 12;
     } else {
       targetScroll = offsetTop - visibleHeight / 2 + elRect.height / 2;
     }
 
+    // Never leave the target (or its ring) flush against / under the top clip.
+    const maxScrollForTopClearance = Math.max(0, offsetTop - SPOTLIGHT_TOP_CLEARANCE_PX);
+    targetScroll = Math.min(targetScroll, maxScrollForTopClearance);
+
     scrollParent.scrollTo({
       top: Math.max(0, Math.min(targetScroll, scrollParent.scrollHeight - scrollParent.clientHeight)),
       behavior: 'instant',
     });
+    clearLiveDemoPanelFromTarget(el);
     return;
   }
 
   if (typeof el.scrollIntoView === 'function') {
     el.scrollIntoView({ behavior: 'instant', block: block === 'end' ? 'end' : 'center' });
   }
+  clearLiveDemoPanelFromTarget(el);
 }
 
 export function findFirstVisibleElement(selector: string): HTMLElement | null {

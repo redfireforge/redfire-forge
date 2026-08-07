@@ -251,6 +251,19 @@ describe('grpc-lesson-helpers', () => {
     expect(document.querySelector(GRPC.HISTORY_REPLAY_BTN)).toBeTruthy();
   });
 
+  it('clearGrpcSchemaDriftQuiet does not bounce to Studio when Advanced is active and no banner', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="false"></button>
+      <button data-testid="grpc-sub-nav-advanced" aria-selected="true"></button>
+    `;
+    const studioBtn = document.querySelector<HTMLButtonElement>('[data-testid="grpc-sub-nav-studio"]')!;
+    const clickSpy = vi.spyOn(studioBtn, 'click');
+    const ctx = makeCtx();
+    await clearGrpcSchemaDriftQuiet(ctx);
+    expect(clickSpy).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
   it('clearGrpcSchemaDriftQuiet clicks prune and dismiss for warning drift', async () => {
     document.body.innerHTML = `
       <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>

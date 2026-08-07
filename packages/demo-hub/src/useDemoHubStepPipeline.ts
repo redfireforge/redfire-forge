@@ -25,7 +25,8 @@ export const DEMO_PRE_SETTLE_MS = 80;
 /** Paint settle before lifting the boot veil when a step has no highlight target. */
 export const DEMO_BOOT_SURFACE_MS = 120;
 /** Extra settle after the highlight is found so Studio chrome finishes committing. */
-export const DEMO_BOOT_REVEAL_SETTLE_MS = 220;
+/** Two frames — longer settles kept a dark empty veil over an already-ready step 1. */
+export const DEMO_BOOT_REVEAL_SETTLE_MS = 32;
 export const DEMO_SPOTLIGHT_SETTLE_MS = 1200;
 export const DEMO_POST_ACTION_SETTLE_MS = 350;
 export const DEMO_VERIFY_ABSORB_MS = 1100;

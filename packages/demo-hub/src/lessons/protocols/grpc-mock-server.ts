@@ -9,7 +9,7 @@
  * from a loaded proto descriptor, and understand the Network Listener for
  * external gRPC clients.
  *
- *   grpc13-intro            — Advanced → Mock server; tour Builder / JSON / Runtime tabs
+ *   grpc13-intro            — Already on Mock server; tour Builder / JSON / Runtime tabs
  *   grpc13-rule-ping        — Add "Ping match" rule: body_path_equals message=ping → pong OK
  *   grpc13-rule-fallback    — Add "Fallback" rule: body_path_exists message → INTERNAL
  *   grpc13-builder-ux       — Collapse/expand, predicate summary, search bar, drag-to-reorder
@@ -28,13 +28,14 @@ import {
   getGrpcLessonRosterEntry,
   type GrpcDemoLesson,
 } from './grpc-lesson-contract';
+import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import {
   closeGrpcSettingsDrawerQuiet,
   clearGrpcSchemaDriftQuiet,
-  ensureGrpcReflected,
+  ensureGrpcPlaintextChannelReady,
   ensureGrpcStudioSubNavQuiet,
   grpcFirstCallCleanup,
-  grpcFirstCallSetup,
+  resetGrpcLessonSessionFlags,
 } from './grpc-lesson-helpers';
 import { markDemoMockRunning, navigateToMockServerPanelQuiet, stopMockQuiet } from './grpc-mock-server-helpers';
 import { grpcMockServerSteps } from './grpc-mock-server-steps';
@@ -45,6 +46,11 @@ export const grpcMockServerLesson: GrpcDemoLesson = {
   ...buildGrpcLessonShellFromRoster(GRPC13_ROSTER),
   domainId: 'protocols',
   category: 'grpc',
+  // Avoid add-tab → rename-"demo" flashes before Mock server Reading.
+  skipStudioTabIsolation: true,
+  // Step 1 targets Advanced → Mock server. Mount straight there so the viewer
+  // never sees the default Studio view hop away during setup.
+  initialSurface: { grpcPanelView: 'advanced', grpcAdvancedTab: 'mock_server' },
   description:
     'Build predicate-based mock rules in the visual Builder, explore collapse/expand, search, ' +
     'drag-to-reorder, and inline dry-run testing, start the in-process mock runtime, verify ' +
@@ -204,17 +210,16 @@ export const grpcMockServerLesson: GrpcDemoLesson = {
     // stale "running" flag from a previous run (the runtime is stopped on
     // cleanup, so the flag must start false).
     markDemoMockRunning(false);
-    // Skip the Manage Schemas draft reset — this lesson uses server reflection,
-    // never staged schema sources. Running it would open/close the Manage Schemas
-    // modal (cycling Proto Files/Protoset/URL/BSR sub-tabs) for every tab, which
-    // the viewer sees as a burst of modals flashing on and off before step 1.
-    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
-    await ensureGrpcReflected(ctx);
-    await clearGrpcSchemaDriftQuiet(ctx);
-    await closeGrpcSettingsDrawerQuiet(ctx);
-    // Land on Mock server under the Preparing veil so Reading opens on the
-    // intended surface — not a mid-hop Studio / Advanced flash.
+    // Land on Mock server immediately after Studio mounts — before any Studio
+    // prep that would flash the call panel. Bootstrapping hides `.app-main`
+    // until Reading finds MOCK_SERVER_PANEL. Echo/Reflect is deferred to later
+    // Studio test steps via ensureEchoMessageFilled.
+    resetGrpcLessonSessionFlags();
+    await navigateToGrpcStudio(ctx);
     await navigateToMockServerPanelQuiet(ctx);
+    await closeGrpcSettingsDrawerQuiet(ctx);
+    await ensureGrpcPlaintextChannelReady(ctx);
+    await clearGrpcSchemaDriftQuiet(ctx);
     await stopMockQuiet(ctx);
   },
   cleanup: async (ctx) => {
