@@ -245,7 +245,7 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
           <label className="grpc-advanced-field grpc-advanced-field--inline">
             <span className="grpc-advanced-field__label">Filter</span>
             <CustomSelect
-              className="grpc-advanced-select"
+              className="grpc-advanced-select grpc-sdiff-severity-filter"
               data-testid="grpc-schema-diff-severity-filter"
               value={advanced.schemaDiff.severityFilter}
               onChange={(v) => {
@@ -259,6 +259,7 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
                 { value: 'non_breaking', label: 'Non-breaking only' },
                 { value: 'informational', label: 'Informational only' },
               ]}
+              menuMatchTriggerWidth
             />
           </label>
           <label className="grpc-advanced-field grpc-advanced-field--inline">

@@ -274,6 +274,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
   const { resetLesson, resetProgress, resetLessons } = progress;
 
+  // Must be declared with other hooks — never inside the return object (HMR-safe).
+  const skipReading = useCallback(() => {
+    skipReadingRef.current?.();
+  }, []);
+
   return {
     state: {
       ...state,
@@ -302,7 +307,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     resetProgress,
     resetLessons,
     setLastCategory: progress.setLastCategory,
-    skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),
+    skipReading,
     suppressLiveTabExitRef,
   };
 }

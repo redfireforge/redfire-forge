@@ -6,7 +6,12 @@ import { renderHook, act } from '@testing-library/react';
 import { useDemoHub } from './useDemoHub';
 import type { DemoLesson } from './types';
 import { gqlFirstQueryLesson } from './lessons/protocols/graphql-first-query';
-import { persistDemoLiveSession, readDemoLiveSession, resetLiveDemoResumeConsumeForTests } from './demoLiveSession';
+import {
+  consumeLiveDemoResumeOnce,
+  persistDemoLiveSession,
+  readDemoLiveSession,
+  resetLiveDemoResumeConsumeForTests,
+} from './demoLiveSession';
 
 function makeLesson(overrides: Partial<DemoLesson> = {}): DemoLesson {
   return {
@@ -704,6 +709,9 @@ describe('useDemoHub', () => {
       speed: 1,
       savedAt: Date.now(),
     });
+    // Burn resume token so mount does not run resumeInterruptedLiveDemo, which
+    // briefly sets isPlaying:false during setup (covered in coverage-resume tests).
+    consumeLiveDemoResumeOnce();
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
     expect(result.current.state.view).toBe('live');
     expect(result.current.state.isPlaying).toBe(true);

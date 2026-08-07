@@ -381,7 +381,13 @@ async function spotlightWfCanvasNodeBeforeConfig(
 /** Open a node config modal and pause so the viewer can orient to the panel. */
 export async function openWfNodeConfigModal(
   ctx: DemoActionContext,
-  target: { canvasTestId?: string; nodeSelector?: string; nodeId?: string },
+  target: {
+    canvasTestId?: string;
+    nodeSelector?: string;
+    nodeId?: string;
+    /** Skip the pre-open canvas ring when Reading already highlighted the node. */
+    skipCanvasSpotlight?: boolean;
+  },
 ): Promise<void> {
   let nodeId = target.nodeId ?? null;
   if (!nodeId && target.canvasTestId) {
@@ -393,7 +399,9 @@ export async function openWfNodeConfigModal(
   }
 
   const canvasNode = resolveWfCanvasNodeElement(target, nodeId);
-  await spotlightWfCanvasNodeBeforeConfig(ctx, canvasNode);
+  if (!target.skipCanvasSpotlight) {
+    await spotlightWfCanvasNodeBeforeConfig(ctx, canvasNode);
+  }
 
   if (nodeId && openWorkflowNodeConfig(nodeId)) {
     // opened via demo bridge
@@ -524,11 +532,14 @@ export async function selectWfConfigOption(
   ctx: DemoActionContext,
   selector: string,
   value: string,
+  opts?: { spotlight?: boolean },
 ): Promise<void> {
   await ctx.waitFor(selector, 8000);
   await scrollWfConfigFieldIntoView(ctx, selector);
-  steadyWfConfigFieldRing(selector);
-  await ctx.delay(wfConfigFieldLookMs());
+  if (opts?.spotlight !== false) {
+    steadyWfConfigFieldRing(selector);
+    await ctx.delay(wfConfigFieldLookMs());
+  }
   await ctx.selectOption(selector, value);
   await pauseWfConfigDemo(ctx, 'afterSelect');
 }

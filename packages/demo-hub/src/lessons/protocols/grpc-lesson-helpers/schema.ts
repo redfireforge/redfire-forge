@@ -247,11 +247,22 @@ async function resetGrpcManageSchemasDraftsViaDom(ctx: DemoActionContext): Promi
  * Clears stale-method drift banners that can remain after source switching.
  */
 export async function clearGrpcSchemaDriftQuiet(ctx: DemoActionContext): Promise<void> {
-  await ensureGrpcStudioSubNavQuiet(ctx);
+  // Drift banner only mounts on the Studio explorer. If we are on Advanced /
+  // Collections / History and no banner is in the DOM, do NOT bounce to Studio
+  // just to poll — that undoes quiet lands (e.g. Schema Diff / Mock server)
+  // and flashes Studio before step 1 Reading.
+  const studioSelected =
+    document.querySelector(GRPC.SUB_NAV_STUDIO)?.getAttribute('aria-selected') === 'true';
+  let banner: HTMLElement | null = document.querySelector<HTMLElement>(GRPC.SCHEMA_DRIFT_BANNER);
+  if (!banner && !studioSelected) return;
+
+  if (!studioSelected) {
+    await ensureGrpcStudioSubNavQuiet(ctx);
+  }
   // Drift state can be applied a short moment after source/method updates.
   // Fast-path: if banner is absent immediately, return without polling.
   // Only start the poll loop when a banner is present on first check.
-  let banner: HTMLElement | null = document.querySelector<HTMLElement>(GRPC.SCHEMA_DRIFT_BANNER);
+  banner = document.querySelector<HTMLElement>(GRPC.SCHEMA_DRIFT_BANNER);
   if (!banner) {
     // Wait one short frame to catch banners that appear asynchronously.
     await ctx.delay(80);

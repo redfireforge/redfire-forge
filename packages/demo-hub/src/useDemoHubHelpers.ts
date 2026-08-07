@@ -182,7 +182,11 @@ export function isElementVisible(el: Element): boolean {
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return false;
   const style = getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  // During live-demo boot the elevated hub covers the workspace — still treat
+  // under-cover descendants as findable so revealBootSurface can wait for highlights.
+  if (document.body.getAttribute('data-demo-bootstrapping') === '1') return true;
+  return style.opacity !== '0';
 }
 
 import { showClickRipple } from './demoRipple';

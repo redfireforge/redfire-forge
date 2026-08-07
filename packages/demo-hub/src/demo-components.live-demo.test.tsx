@@ -69,7 +69,7 @@ describe('LiveDemo', () => {
       <LiveDemo
         {...liveProps}
         lesson={grpcWorkflowIntegrationLesson}
-        stepIndex={2}
+        stepIndex={1}
       />,
     );
 

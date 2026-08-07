@@ -18,6 +18,7 @@ import {
   closeExtraGrpcTabsQuiet,
   closeGrpcSettingsDrawerQuiet,
   ensureGrpcStudioSubNavQuiet,
+  fillGrpcEchoMessage,
   grpcFirstCallCleanup,
   resetGrpcConnectionSettingsQuiet,
   resetGrpcLessonSessionFlags,
@@ -26,6 +27,8 @@ import { GRPC_DEMO_TARGET } from './grpc-lesson-helpers/constants';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
 const GRPC25_ROSTER = getGrpcLessonRosterEntry('grpc-tabs')!;
+/** Tab 1 send payload — distinct so duplicated tabs can still show isolation. */
+const GRPC25_TAB1_MESSAGE = 'Hello from Tab 1';
 
 const GRPC_TAB_SELECTOR = `${GRPC.TAB_BAR} [role="tab"]`;
 
@@ -169,11 +172,13 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
       preAction: async (ctx) => {
         await ensureGrpcStudioSubNavQuiet(ctx);
         await switchToGrpcTab(ctx, 0);
+        // Quiet recover for rapid Next — hybrid composer uses JSON, not `.grpc-form-field`.
+        await fillGrpcEchoMessage(ctx, GRPC25_TAB1_MESSAGE);
       },
       action: async (ctx) => {
         await ctx.click(GRPC.REQUEST_TAB_FORM);
         await ctx.delay(400);
-        await ctx.fill('.grpc-form-field input[type="text"]', 'Hello from Tab 1');
+        await fillGrpcEchoMessage(ctx, GRPC25_TAB1_MESSAGE);
         await ctx.delay(500);
         await ctx.click(GRPC.SEND_BTN);
         await ctx.waitFor(GRPC.RESPONSE_BODY, 5000);

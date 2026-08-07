@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
+  clearLiveDemoPanelFromTarget,
   findFirstVisibleElement,
   findScrollableParent,
   findVisibleAppModal,
@@ -358,6 +359,72 @@ describe('demoSpotlightUtils', () => {
 
     scrollDemoTargetIntoView(row, { block: 'center' });
     expect(scroll.scrollTo).toHaveBeenCalled();
+  });
+
+  it('clearLiveDemoPanelFromTarget dispatches when the panel covers the target', () => {
+    const panel = document.createElement('div');
+    panel.className = 'demo-live-panel';
+    panel.getBoundingClientRect = () => ({
+      top: 80, left: 900, width: 360, height: 400,
+      right: 1260, bottom: 480, x: 900, y: 80, toJSON: () => ({}),
+    });
+    document.body.appendChild(panel);
+
+    const startBtn = document.createElement('button');
+    startBtn.getBoundingClientRect = () => ({
+      top: 200, left: 980, width: 140, height: 32,
+      right: 1120, bottom: 232, x: 980, y: 200, toJSON: () => ({}),
+    });
+    document.body.appendChild(startBtn);
+
+    const handler = vi.fn();
+    window.addEventListener('demo-live-panel:clear-target', handler);
+    clearLiveDemoPanelFromTarget(startBtn);
+    expect(handler).toHaveBeenCalled();
+    window.removeEventListener('demo-live-panel:clear-target', handler);
+  });
+
+  it('scrollDemoTargetIntoView ignores a top-right LiveDemo panel above the scrollport', () => {
+    resumeDemoAutoScroll();
+    const panel = document.createElement('div');
+    panel.className = 'demo-live-panel';
+    panel.getBoundingClientRect = () => ({
+      top: 40, left: 900, width: 320, height: 220,
+      right: 1220, bottom: 260, x: 900, y: 40, toJSON: () => ({}),
+    });
+    // Non-zero size so isDemoElementVisible accepts the panel.
+    Object.defineProperty(panel, 'offsetWidth', { value: 320 });
+    Object.defineProperty(panel, 'offsetHeight', { value: 220 });
+    document.body.appendChild(panel);
+
+    const scroll = document.createElement('div');
+    scroll.className = 'grpc-advanced-content';
+    scroll.style.overflowY = 'auto';
+    Object.defineProperty(scroll, 'scrollHeight', { value: 1200, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 500, configurable: true });
+    Object.defineProperty(scroll, 'scrollTop', { value: 200, writable: true, configurable: true });
+    scroll.getBoundingClientRect = () => ({
+      top: 220, left: 0, width: 1000, height: 500,
+      right: 1000, bottom: 720, x: 0, y: 220, toJSON: () => ({}),
+    });
+    scroll.scrollTo = vi.fn();
+
+    const runtimeTab = document.createElement('button');
+    runtimeTab.getBoundingClientRect = () => ({
+      // Currently flush at the scrollport top (clipped ring case).
+      top: 222, left: 40, width: 90, height: 28,
+      right: 130, bottom: 250, x: 40, y: 222, toJSON: () => ({}),
+    });
+    scroll.appendChild(runtimeTab);
+    document.body.appendChild(scroll);
+
+    scrollDemoTargetIntoView(runtimeTab, { block: 'center' });
+
+    expect(scroll.scrollTo).toHaveBeenCalled();
+    const arg = (scroll.scrollTo as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { top: number };
+    // Must scroll UP from 200 so the tab sits below the top clip with ring clearance —
+    // not stay pinned at offsetTop (flush). panel.top < parent.top must not zero height.
+    expect(arg.top).toBeLessThan(200);
   });
 
   it('pauseDemoAutoScroll blocks scrollDemoTargetIntoView', () => {

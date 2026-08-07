@@ -2,6 +2,7 @@
  * GRPC-13 Mock Server lesson — DOM helpers, demo constants, and quiet state guards.
  */
 import { GRPC } from '@shared/selectors';
+import { clearLiveDemoPanelFromTarget } from '../../demoSpotlightUtils';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import { spotlightElementAndPause } from './grpc-lesson-helpers';
 import type { DemoActionContext } from '../../types';
@@ -67,18 +68,21 @@ export async function navigateToMockServerPanelQuiet(ctx: DemoActionContext): Pr
   const advBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_ADVANCED);
   if (!advBtn) {
     await navigateToGrpcStudio(ctx);
-    await ctx.delay(400);
+    await ctx.delay(80);
   }
   const advEl = document.querySelector<HTMLElement>(GRPC.SUB_NAV_ADVANCED);
   if (advEl && advEl.getAttribute('aria-selected') !== 'true') {
     advEl.click();
-    await ctx.delay(500);
+    await ctx.delay(60);
   }
   const mockTab = document.querySelector<HTMLElement>(GRPC.ADVANCED_TAB('mock_server'));
   if (mockTab && mockTab.getAttribute('aria-selected') !== 'true') {
     mockTab.click();
-    await ctx.delay(400);
+    await ctx.delay(60);
   }
+  try {
+    await ctx.waitFor(GRPC.MOCK_SERVER_PANEL, 4_000);
+  } catch { /* panel mounts with Advanced tab */ }
 }
 
 /** Switch the mock authoring sub-tab (builder | json | runtime). */
@@ -97,10 +101,10 @@ export async function selectMockAuthoringTab(
 }
 
 /**
- * Clearance below the Advanced nav so the spotlight ring (≈6–10px) isn't
- * clipped when a control sits at the top of `.grpc-advanced-content`.
+ * Clearance below the Advanced nav so the spotlight ring isn't clipped when a
+ * control sits near the top of `.grpc-advanced-content`.
  */
-const MOCK_SCROLL_TOP_PAD_PX = 80;
+const MOCK_SCROLL_TOP_PAD_PX = 96;
 
 /**
  * Scroll a mock-server control into the advanced content viewport so Reading /
@@ -131,25 +135,28 @@ export async function scrollMockControlIntoView(
     if (block === 'end') {
       targetScroll = offsetTop - scrollParent.clientHeight + elRect.height + 24;
     } else if (block === 'nearest' || block === 'start') {
-      // Sit just below the Advanced nav with room for the spotlight ring.
+      // Sit below the Advanced nav with room for the spotlight ring.
       targetScroll = offsetTop - MOCK_SCROLL_TOP_PAD_PX;
     } else {
-      // Center-ish, but never flush to the top edge.
-      const centerScroll = offsetTop - scrollParent.clientHeight / 2 + elRect.height / 2;
-      const minScroll = offsetTop - MOCK_SCROLL_TOP_PAD_PX;
-      targetScroll = Math.min(centerScroll, minScroll);
+      targetScroll = offsetTop - scrollParent.clientHeight / 2 + elRect.height / 2;
     }
+    // Never pin the target (or its ring) flush under the Advanced nav clip.
+    const maxScrollForTopPad = Math.max(0, offsetTop - MOCK_SCROLL_TOP_PAD_PX);
+    targetScroll = Math.min(targetScroll, maxScrollForTopPad);
+
     const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
     scrollParent.scrollTo({
       top: Math.max(0, Math.min(targetScroll, maxScroll)),
       behavior: 'smooth',
     });
-    await ctx.delay(500);
+    await ctx.delay(350);
+    clearLiveDemoPanelFromTarget(el);
     return;
   }
 
   el.scrollIntoView({ behavior: 'smooth', block: block === 'nearest' ? 'center' : block, inline: 'nearest' });
-  await ctx.delay(500);
+  await ctx.delay(350);
+  clearLiveDemoPanelFromTarget(el);
 }
 
 /** Get the ruleId and leaf nodeId for the LAST rule in the builder. */
@@ -163,13 +170,62 @@ export function getLastRuleIds(): { ruleId: string; nodeId: string } | null {
   return { ruleId, nodeId };
 }
 
-/** Set a React-controlled select element value. */
+/**
+ * Set a select / CustomSelect value quietly.
+ * Predicate kind + status code in the Mock builder are CustomSelect
+ * (`.cs-wrapper`) — calling HTMLSelectElement's value setter on that div
+ * throws TypeError: Illegal invocation (and never updates React state).
+ */
 export function setSelectValue(selector: string, value: string): void {
-  const el = document.querySelector<HTMLSelectElement>(selector);
+  const el = document.querySelector(selector);
   if (!el) return;
+
+  // Prefer CustomSelect — data-testid lives on the `.cs-wrapper` div.
+  const wrapper = el.classList.contains('cs-wrapper')
+    ? el
+    : el.closest('.cs-wrapper');
+  if (wrapper) {
+    if (wrapper.getAttribute('data-value') === value) return;
+    wrapper.dispatchEvent(
+      new CustomEvent('custom-select:set-value', { detail: { value }, bubbles: true }),
+    );
+    return;
+  }
+
+  if (!(el instanceof HTMLSelectElement)) return;
   const nativeSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
   nativeSetter?.call(el, value);
   el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * True when the builder has the demo Ping + Fallback body-path rules.
+ * Count alone is not enough — failed CustomSelect writes leave two cards that
+ * still say Method equals Echo, and dry-run then reports No match.
+ */
+export function mockBuilderHasDemoBodyPathRules(): boolean {
+  const ruleCount = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE).length;
+  if (ruleCount < 2) return false;
+
+  const kindValues = Array.from(
+    document.querySelectorAll('[data-testid^="grpc-mock-builder-leaf-kind-"]'),
+  ).map((el) => el.getAttribute('data-value'));
+
+  if (kindValues.length > 0) {
+    return kindValues.includes('body_path_equals') && kindValues.includes('body_path_exists');
+  }
+
+  // Collapsed cards: leaf editors unmounted — use summary / method leftovers.
+  const stillDefaultMethod = Array.from(
+    document.querySelectorAll<HTMLInputElement>('[data-testid^="grpc-mock-builder-leaf-method-"]'),
+  ).some((el) => el.value.trim() === 'Echo');
+  if (stillDefaultMethod) return false;
+
+  const blob = Array.from(document.querySelectorAll(GRPC.MOCK_BUILDER_RULE))
+    .map((el) => el.textContent ?? '')
+    .join('\n');
+  return /body\.message|message\s*==\s*["']ping["']/i.test(blob)
+    && /body\.message\s+exists|path exists/i.test(blob);
 }
 
 /** Set a React-controlled input or textarea value. */
@@ -244,7 +300,26 @@ export async function scrollAndSpotlight(
   const el = document.querySelector<HTMLElement>(selector);
   if (!el) return;
   await scrollBelowMockAuthoringTabs(ctx, el);
-  await spotlightElementAndPause(ctx, el, holdMs);
+  clearLiveDemoPanelFromTarget(el);
+  await spotlightElementAndPause(ctx, el, holdMs, { skipScroll: true });
+}
+
+/**
+ * Scroll a mock control into the advanced viewport, then spotlight without
+ * a second scroll pass (avoids double-scroll delays in builder steps).
+ */
+export async function scrollMockAndSpotlight(
+  ctx: DemoActionContext,
+  selectorOrEl: string | HTMLElement,
+  holdMs: number,
+  block: ScrollLogicalPosition = 'center',
+): Promise<void> {
+  await scrollMockControlIntoView(ctx, selectorOrEl, block);
+  const el = typeof selectorOrEl === 'string'
+    ? document.querySelector<HTMLElement>(selectorOrEl)
+    : selectorOrEl;
+  if (!el) return;
+  await spotlightElementAndPause(ctx, el, holdMs, { skipScroll: true });
 }
 
 /** Quietly stop the mock runtime if it is running. */
@@ -291,8 +366,11 @@ export async function countMockBuilderRulesQuiet(ctx: DemoActionContext): Promis
  */
 export async function ensureDemoRulesQuiet(ctx: DemoActionContext): Promise<void> {
   await navigateToMockServerPanelQuiet(ctx);
-  // Already have the demo pair — stay on Builder, no JSON flash.
-  if ((await countMockBuilderRulesQuiet(ctx)) >= 2) return;
+  await selectMockAuthoringTab(ctx, 'builder');
+  await ctx.delay(80);
+  // Require the body-path predicates — not merely two cards. A failed
+  // CustomSelect write leaves Method-equals Echo stubs that dry-run rejects.
+  if (mockBuilderHasDemoBodyPathRules()) return;
 
   await selectMockAuthoringTab(ctx, 'json');
   await ctx.delay(120);
