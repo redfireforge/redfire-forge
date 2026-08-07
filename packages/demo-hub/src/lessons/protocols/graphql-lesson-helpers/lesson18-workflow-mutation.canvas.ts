@@ -3,6 +3,7 @@ import { GQL, WF } from '@shared/selectors';
 import {
   addWorkflowNodeWithPreset,
   getWorkflowByName,
+  patchWorkflowNodeDataById,
 } from '../../../adapters';
 import {
   clickWfConfigAddRow,
@@ -60,10 +61,14 @@ import {
   isLesson18WorkflowActive,
   isLesson18WorkflowVariablesConfigured,
   lesson18EdgeExists,
+  lesson18NodeIdsOfType,
   lesson18Session,
   patchLesson18WorkflowVariablesQuiet,
+  resolveLesson18AssertNodeId,
+  resolveLesson18CreateNodeId,
   resolveLesson18DeleteNodeId,
   resolveLesson18EndNodeId,
+  resolveLesson18FetchNodeId,
   resolveLesson18StartNodeId,
   wireLesson18DeleteNode,
 } from './lesson18-workflow-mutation.graph';
@@ -159,6 +164,8 @@ async function clearLesson18PaletteSearch(ctx: DemoActionContext): Promise<void>
 /**
  * Human-paced GraphQL palette add: search "GraphQL" → pause → click block.
  * Preset add is only a fallback when the click does not place the node.
+ * Never call preset after a successful palette click — that would leave two nodes
+ * (UI-generated id + lesson preset id).
  */
 async function addLesson18PaletteNode(
   ctx: DemoActionContext,
@@ -168,14 +175,38 @@ async function addLesson18PaletteNode(
   position: { x: number; y: number },
   paletteSelector: string,
 ): Promise<void> {
+  if (isLesson18NodeOnCanvas(nodeId, type)) {
+    return;
+  }
+
+  const beforeIds = new Set(lesson18NodeIdsOfType(type));
   await prepareLesson18GraphQLPaletteClick(ctx, paletteSelector);
   await ctx.click(paletteSelector);
   await ctx.delay(600);
 
-  if (!isLesson18NodeOnCanvas(nodeId, type)) {
-    addWorkflowNodeWithPreset(type, nodeId, label, position);
-    await ctx.delay(400);
+  if (isLesson18NodeOnCanvas(nodeId, type)) {
+    await clearLesson18PaletteSearch(ctx);
+    return;
   }
+
+  const afterIds = lesson18NodeIdsOfType(type);
+  const addedId = afterIds.find((id) => !beforeIds.has(id)) ?? afterIds.at(-1);
+  if (addedId && !beforeIds.has(addedId)) {
+    // Palette click placed a node with a UI-generated id — adopt it; do not preset-add.
+    patchWorkflowNodeDataById(addedId, { label });
+    await ctx.delay(400);
+    await clearLesson18PaletteSearch(ctx);
+    return;
+  }
+
+  if (afterIds.length > beforeIds.size) {
+    // Store lagged but count grew via DOM — still skip preset to avoid duplicates.
+    await clearLesson18PaletteSearch(ctx);
+    return;
+  }
+
+  addWorkflowNodeWithPreset(type, nodeId, label, position);
+  await ctx.delay(400);
   await clearLesson18PaletteSearch(ctx);
 }
 
@@ -320,8 +351,10 @@ export async function ensureLesson18WorkflowVariablesConfigured(ctx: DemoActionC
 export async function ensureLesson18MutationNodeAdded(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18WorkflowVariablesConfigured(ctx);
   const startId = resolveLesson18StartNodeId();
-  const createPresent = isLesson18NodeOnCanvas(LESSON18_NODE_CREATE, 'graphqlMutation');
-  const startWired = Boolean(startId && lesson18EdgeExists(startId, LESSON18_NODE_CREATE));
+  let createId = resolveLesson18CreateNodeId();
+  const createPresent = isLesson18NodeOnCanvas(createId, 'graphqlMutation')
+    || lesson18NodeIdsOfType('graphqlMutation').some((id) => id !== LESSON18_NODE_DELETE);
+  const startWired = Boolean(startId && lesson18EdgeExists(startId, createId));
   if (lesson18Session.mutationAdded && createPresent && startWired) {
     return;
   }
@@ -337,9 +370,10 @@ export async function ensureLesson18MutationNodeAdded(ctx: DemoActionContext): P
     );
   }
 
+  createId = resolveLesson18CreateNodeId();
   connectLesson18Edge(
     startId ?? resolveLesson18StartNodeId(),
-    LESSON18_NODE_CREATE,
+    createId,
     WF.NODE_START,
     WF.NODE_GQL_MUTATION,
     'out',
@@ -354,7 +388,7 @@ export async function ensureLesson18MutationConfigured(ctx: DemoActionContext): 
   await ensureLesson18MutationNodeAdded(ctx);
   if (lesson18Session.mutationConfigured && isLesson18CreateMutationOpReady()) return;
 
-  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_CREATE });
+  await openWfNodeConfigModal(ctx, { nodeId: resolveLesson18CreateNodeId() });
   await waitForWfConfigPanel(ctx, GQL.WF_MUTATION_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Operation');
   await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
@@ -372,7 +406,7 @@ export async function ensureLesson18MutationOutputBound(ctx: DemoActionContext):
   await ensureLesson18MutationConfigured(ctx);
   if (lesson18Session.outputBound && isLesson18CreateNodeReady()) return;
 
-  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_CREATE });
+  await openWfNodeConfigModal(ctx, { nodeId: resolveLesson18CreateNodeId() });
   await waitForWfConfigPanel(ctx, GQL.WF_MUTATION_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Extraction');
   if (!document.querySelector(GQL.WF_EXTRACTION_JSONPATH)) {
@@ -388,8 +422,11 @@ export async function ensureLesson18MutationOutputBound(ctx: DemoActionContext):
 /** Add Fetch User query node and wire Create → Query. */
 export async function ensureLesson18QueryNodeAdded(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18MutationOutputBound(ctx);
-  const fetchPresent = isLesson18NodeOnCanvas(LESSON18_NODE_FETCH, 'graphqlQuery');
-  const createToFetchWired = lesson18EdgeExists(LESSON18_NODE_CREATE, LESSON18_NODE_FETCH);
+  const createId = resolveLesson18CreateNodeId();
+  let fetchId = resolveLesson18FetchNodeId();
+  const fetchPresent = isLesson18NodeOnCanvas(fetchId, 'graphqlQuery')
+    || lesson18NodeIdsOfType('graphqlQuery').length > 0;
+  const createToFetchWired = lesson18EdgeExists(createId, fetchId);
   if (lesson18Session.queryAdded && fetchPresent && createToFetchWired) {
     return;
   }
@@ -404,9 +441,10 @@ export async function ensureLesson18QueryNodeAdded(ctx: DemoActionContext): Prom
       WF.PAL_GQL_QUERY,
     );
   }
+  fetchId = resolveLesson18FetchNodeId();
   connectLesson18Edge(
-    LESSON18_NODE_CREATE,
-    LESSON18_NODE_FETCH,
+    resolveLesson18CreateNodeId(),
+    fetchId,
     WF.NODE_GQL_MUTATION,
     WF.NODE_GQL_QUERY,
   );
@@ -420,7 +458,7 @@ export async function ensureLesson18QueryOperationConfigured(ctx: DemoActionCont
   await ensureLesson18QueryNodeAdded(ctx);
   if (lesson18Session.queryOpConfigured && isLesson18FetchQueryOpReady()) return;
 
-  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_FETCH });
+  await openWfNodeConfigModal(ctx, { nodeId: resolveLesson18FetchNodeId() });
   await waitForWfConfigPanel(ctx, GQL.WF_QUERY_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Operation');
   await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
@@ -438,7 +476,7 @@ export async function ensureLesson18QueryOutputBound(ctx: DemoActionContext): Pr
   await ensureLesson18QueryOperationConfigured(ctx);
   if (lesson18Session.queryOutputBound && isLesson18FetchNodeReady()) return;
 
-  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_FETCH });
+  await openWfNodeConfigModal(ctx, { nodeId: resolveLesson18FetchNodeId() });
   await waitForWfConfigPanel(ctx, GQL.WF_QUERY_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Output');
   if (!document.querySelector(GQL.WF_OUTPUT_FIELD_SELECT)) {
@@ -459,10 +497,13 @@ export async function ensureLesson18QueryConfigured(ctx: DemoActionContext): Pro
 /** Add Verify User assert node; wire Query → Assert → End. */
 export async function ensureLesson18AssertNodeAdded(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18QueryOutputBound(ctx);
-  const assertPresent = isLesson18NodeOnCanvas(LESSON18_NODE_ASSERT, 'graphqlAssert');
+  let assertId = resolveLesson18AssertNodeId();
+  const assertPresent = isLesson18NodeOnCanvas(assertId, 'graphqlAssert')
+    || lesson18NodeIdsOfType('graphqlAssert').length > 0;
   const endId = resolveLesson18EndNodeId();
-  const fetchToAssertWired = lesson18EdgeExists(LESSON18_NODE_FETCH, LESSON18_NODE_ASSERT);
-  const assertToEndWired = Boolean(endId && lesson18EdgeExists(LESSON18_NODE_ASSERT, endId));
+  const fetchId = resolveLesson18FetchNodeId();
+  const fetchToAssertWired = lesson18EdgeExists(fetchId, assertId);
+  const assertToEndWired = Boolean(endId && lesson18EdgeExists(assertId, endId));
   if (lesson18Session.assertAdded && assertPresent && fetchToAssertWired && (!endId || assertToEndWired)) {
     return;
   }
@@ -477,15 +518,16 @@ export async function ensureLesson18AssertNodeAdded(ctx: DemoActionContext): Pro
       WF.PAL_GQL_ASSERT,
     );
   }
+  assertId = resolveLesson18AssertNodeId();
   connectLesson18Edge(
-    LESSON18_NODE_FETCH,
-    LESSON18_NODE_ASSERT,
+    resolveLesson18FetchNodeId(),
+    assertId,
     WF.NODE_GQL_QUERY,
     WF.NODE_GQL_ASSERT,
   );
   if (endId) {
     connectLesson18Edge(
-      LESSON18_NODE_ASSERT,
+      assertId,
       endId,
       WF.NODE_GQL_ASSERT,
       WF.NODE_END,
@@ -503,7 +545,7 @@ export async function ensureLesson18AssertSourceConfigured(ctx: DemoActionContex
   await ensureLesson18AssertNodeAdded(ctx);
   if (lesson18Session.assertSourceConfigured && isLesson18AssertSourceReady()) return;
 
-  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_ASSERT });
+  await openWfNodeConfigModal(ctx, { nodeId: resolveLesson18AssertNodeId() });
   await waitForWfConfigPanel(ctx, GQL.WF_ASSERT_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Source');
   await fillWfConfigField(ctx, WF.WF_GQL_ASSERT_SOURCE, LESSON18_FETCHED_USER_VAR);
@@ -517,7 +559,7 @@ export async function ensureLesson18AssertRuleConfigured(ctx: DemoActionContext)
   await ensureLesson18AssertSourceConfigured(ctx);
   if (lesson18Session.assertRuleConfigured && isLesson18AssertNodeReady()) return;
 
-  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_ASSERT });
+  await openWfNodeConfigModal(ctx, { nodeId: resolveLesson18AssertNodeId() });
   await waitForWfConfigPanel(ctx, GQL.WF_ASSERT_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Assertions');
   if (!document.querySelector(GQL.WF_ASSERT_ROW)) {
@@ -608,6 +650,7 @@ export async function demonstrateLesson18DeleteNodeAdded(ctx: DemoActionContext)
     return;
   }
 
+  const beforeMutationIds = new Set(lesson18NodeIdsOfType('graphqlMutation'));
   await prepareLesson18GraphQLPaletteClick(ctx, WF.PAL_GQL_MUTATION);
   await ctx.click(WF.PAL_GQL_MUTATION);
   try {
@@ -617,7 +660,11 @@ export async function demonstrateLesson18DeleteNodeAdded(ctx: DemoActionContext)
   }
   await ctx.delay(600);
 
-  if (!isLesson18DeleteOnCanvas()) {
+  const addedMutationId = lesson18NodeIdsOfType('graphqlMutation').find((id) => !beforeMutationIds.has(id));
+  if (addedMutationId) {
+    patchWorkflowNodeDataById(addedMutationId, { label: 'Delete User' });
+  } else if (!isLesson18DeleteOnCanvas()) {
+    // Only preset-add when the palette click did not place a node.
     addWorkflowNodeWithPreset('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 });
     await ctx.delay(400);
   }

@@ -21,12 +21,22 @@ vi.mock('../../../demoRipple', () => ({
   purgeAllSpotlightRings,
 }));
 
+const resumeDemoAutoScroll = vi.hoisted(() => vi.fn());
+const scrollDemoTargetIntoView = vi.hoisted(() => vi.fn());
+
+vi.mock('../../../demoSpotlightUtils', () => ({
+  resumeDemoAutoScroll,
+  scrollDemoTargetIntoView,
+}));
+
 describe('grpc-lesson-helpers/spotlight', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     removeRing.mockClear();
     showSpotlightRing.mockClear();
     purgeAllSpotlightRings.mockClear();
+    resumeDemoAutoScroll.mockClear();
+    scrollDemoTargetIntoView.mockClear();
   });
 
   it('spotlightAndPause uses first visible element when multiple matches exist', async () => {
@@ -41,8 +51,11 @@ describe('grpc-lesson-helpers/spotlight', () => {
     await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 500);
 
     expect(purgeAllSpotlightRings).toHaveBeenCalled();
+    expect(resumeDemoAutoScroll).toHaveBeenCalled();
+    expect(scrollDemoTargetIntoView).toHaveBeenCalledWith(visible, { block: 'center' });
     expect(showSpotlightRing).toHaveBeenCalledWith(visible, { steady: true });
     expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(ctx.delay).toHaveBeenCalledWith(280);
     expect(ctx.delay).toHaveBeenCalledWith(500);
   });
 
@@ -53,7 +66,7 @@ describe('grpc-lesson-helpers/spotlight', () => {
     expect(removeRing).not.toHaveBeenCalled();
   });
 
-  it('spotlightElementAndPause always removes the ring after delay', async () => {
+  it('spotlightElementAndPause scrolls into view then removes the ring after delay', async () => {
     const el = document.createElement('div');
     makeVisible(el);
     const ctx = makeCtx();
@@ -61,8 +74,11 @@ describe('grpc-lesson-helpers/spotlight', () => {
     await spotlightElementAndPause(ctx, el, 250);
 
     expect(purgeAllSpotlightRings).toHaveBeenCalled();
+    expect(resumeDemoAutoScroll).toHaveBeenCalled();
+    expect(scrollDemoTargetIntoView).toHaveBeenCalledWith(el, { block: 'center' });
     expect(showSpotlightRing).toHaveBeenCalledWith(el, { steady: true });
     expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(ctx.delay).toHaveBeenCalledWith(280);
     expect(ctx.delay).toHaveBeenCalledWith(250);
   });
 

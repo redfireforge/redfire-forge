@@ -54,43 +54,53 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       'Rules hot-swap while the runtime is running — add or remove them without restarting.',
     highlight: GRPC.MOCK_SERVER_PANEL,
     preAction: async (ctx) => {
-      // Setup already prepares reflection/session state. Keep intro guard
-      // lightweight so step 1 does not replay fast setup choreography.
-      await navigateToMockServerPanelQuiet(ctx);
+      // Setup already lands on Mock server. Only recover if the panel is gone
+      // (restart / rapid Next) — never bounce Studio→Advanced during Preparing.
+      if (!document.querySelector(GRPC.MOCK_SERVER_PANEL)) {
+        await navigateToMockServerPanelQuiet(ctx);
+      }
       await stopMockQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight Studio first; only click when we are not already there.
-      const studioBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_STUDIO);
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 900);
-      if (studioBtn && studioBtn.getAttribute('aria-selected') !== 'true') {
-        await ctx.click(GRPC.SUB_NAV_STUDIO);
-        await ctx.delay(700);
+      // Prefer staying on Mock server (setup/preAction already navigated).
+      // Only run the Studio → Advanced → Mock tour when we are NOT already there —
+      // otherwise the viewer sees a pointless flash off and back onto this panel.
+      const alreadyOnMock = !!document.querySelector(GRPC.MOCK_SERVER_PANEL)
+        && document.querySelector(GRPC.ADVANCED_TAB('mock_server'))?.getAttribute('aria-selected') === 'true';
+
+      if (!alreadyOnMock) {
+        const studioBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_STUDIO);
+        await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 900);
+        if (studioBtn && studioBtn.getAttribute('aria-selected') !== 'true') {
+          await ctx.click(GRPC.SUB_NAV_STUDIO);
+          await ctx.delay(700);
+        } else {
+          await ctx.delay(450);
+        }
+
+        const advancedBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_ADVANCED);
+        await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, 950);
+        if (advancedBtn && advancedBtn.getAttribute('aria-selected') !== 'true') {
+          await ctx.click(GRPC.SUB_NAV_ADVANCED);
+          await ctx.delay(700);
+        } else {
+          await ctx.delay(450);
+        }
+
+        await spotlightAndPause(ctx, GRPC.ADVANCED_NAV, 850);
+        await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('mock_server'), 800);
+        await ctx.click(GRPC.ADVANCED_TAB('mock_server'));
+        await ctx.delay(650);
+        try {
+          await ctx.waitFor(GRPC.MOCK_SERVER_PANEL, 4_000);
+        } catch { /* panel renders fast */ }
+        await ctx.delay(300);
       } else {
-        await ctx.delay(450);
+        // Already on the destination — point at Advanced + Mock tab, no leave/return hop.
+        await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, 900);
+        await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('mock_server'), 850);
+        await ctx.delay(300);
       }
-
-      // Now spotlight Advanced and click it.
-      const advancedBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_ADVANCED);
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, 950);
-      if (advancedBtn && advancedBtn.getAttribute('aria-selected') !== 'true') {
-        await ctx.click(GRPC.SUB_NAV_ADVANCED);
-        await ctx.delay(700);
-      } else {
-        await ctx.delay(450);
-      }
-
-      // Spotlight the advanced nav, then click Mock server.
-      await spotlightAndPause(ctx, GRPC.ADVANCED_NAV, 850);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('mock_server'), 800);
-      await ctx.click(GRPC.ADVANCED_TAB('mock_server'));
-      await ctx.delay(650);
-
-      // Wait for the mock panel to render.
-      try {
-        await ctx.waitFor(GRPC.MOCK_SERVER_PANEL, 4_000);
-      } catch { /* panel renders fast */ }
-      await ctx.delay(300);
 
       // Spotlight the full panel.
       await spotlightAndPause(ctx, GRPC.MOCK_SERVER_PANEL, 1_050);

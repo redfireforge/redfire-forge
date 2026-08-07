@@ -111,7 +111,7 @@ const GQL18_LESSON_SOURCE = {
 
 const GQL19_LESSON_SOURCE = {
   name: 'Subscription Node in Workflow',
-  steps: 9,
+  steps: 10,
 } as const;
 
 describe('GQL smoke E2E — lesson metadata alignment', () => {

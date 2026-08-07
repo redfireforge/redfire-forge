@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
+import { useHasLayoutSize } from '../../workflow/hooks/useHasLayoutSize';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
 import {
@@ -106,6 +107,7 @@ export default function WorkflowExecutionCanvas({
   const hasFittedAfterMeasure = useRef(false);
   const rfInstanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasHasSize = useHasLayoutSize(containerRef);
 
   useEffect(() => {
     if (fitViewTrigger) {
@@ -581,6 +583,8 @@ export default function WorkflowExecutionCanvas({
 
   return (
     <div ref={containerRef} className="results-explorer-canvas-wrap">
+      <div className="results-explorer-flow-host">
+      {canvasHasSize && (
       <ReactFlow
         key={trace.workflowId}
         className="results-explorer-flow"
@@ -628,6 +632,8 @@ export default function WorkflowExecutionCanvas({
           />
         </Panel>
       </ReactFlow>
+      )}
+      </div>
       {hoveredNode && tooltipData && (
         <div
           className="replay-node-tooltip"

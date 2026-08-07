@@ -20,6 +20,7 @@ import {
   removeSettingsMicroservice,
   removeWorkspaceDefaults,
   resetGqlDemoBatchDetection,
+  resetSettingsMicroserviceProtocols,
   upsertGlobalAuthProfile,
   upsertGqlEnvironment,
   upsertWorkspaceDefaults,
@@ -171,5 +172,13 @@ describe('environmentAdapter', () => {
 
   it('removeSettingsMicroservice is a no-op when bridge missing', () => {
     expect(() => removeSettingsMicroservice('product-api')).not.toThrow();
+  });
+
+  it('resetSettingsMicroserviceProtocols calls bridge and returns false when missing', () => {
+    expect(resetSettingsMicroserviceProtocols('grpc-demo')).toBe(false);
+    const spy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__demoResetSettingsSvcProtocols = spy;
+    expect(resetSettingsMicroserviceProtocols('grpc-demo', { clearGlobalVars: true })).toBe(true);
+    expect(spy).toHaveBeenCalledWith('grpc-demo', { clearGlobalVars: true });
   });
 });

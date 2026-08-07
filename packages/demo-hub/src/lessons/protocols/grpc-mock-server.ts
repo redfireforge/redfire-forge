@@ -36,7 +36,6 @@ import {
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
 } from './grpc-lesson-helpers';
-import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import { markDemoMockRunning, navigateToMockServerPanelQuiet, stopMockQuiet } from './grpc-mock-server-helpers';
 import { grpcMockServerSteps } from './grpc-mock-server-steps';
 
@@ -213,7 +212,10 @@ export const grpcMockServerLesson: GrpcDemoLesson = {
     await ensureGrpcReflected(ctx);
     await clearGrpcSchemaDriftQuiet(ctx);
     await closeGrpcSettingsDrawerQuiet(ctx);
-    await navigateToGrpcStudio(ctx);
+    // Land on Mock server under the Preparing veil so Reading opens on the
+    // intended surface — not a mid-hop Studio / Advanced flash.
+    await navigateToMockServerPanelQuiet(ctx);
+    await stopMockQuiet(ctx);
   },
   cleanup: async (ctx) => {
     // Stop the mock so it doesn't affect the next lesson.

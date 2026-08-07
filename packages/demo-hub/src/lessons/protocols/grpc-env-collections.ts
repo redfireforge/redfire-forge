@@ -13,6 +13,7 @@ import {
   clearGrpcCallHistory,
   purgeEmptyGrpcDemoCollectionsByName,
   purgeGrpcDemoSavedRequests,
+  resetSettingsMicroserviceProtocols,
 } from '../../adapters';
 import {
   GRPC_DEMO_ENV_NAME,
@@ -21,11 +22,10 @@ import {
   ensureDemoMicroservice,
   expandNamedMicroservice,
   navigateToEnvironmentManager,
-  ensureProtocolDisabled,
 } from '../env-manager-lesson-helpers';
 import { grpcEnvCollectionsConcept } from './grpc-env-collections-concept';
 import { grpcEnvCollectionsSteps } from './grpc-env-collections-steps';
-import { clearProtocolVarsQuiet, DEMO_COLLECTION_NAME } from './grpc-env-collections-helpers';
+import { DEMO_COLLECTION_NAME } from './grpc-env-collections-helpers';
 
 const GRPC21_ROSTER = getGrpcLessonRosterEntry('grpc-env-collections')!;
 
@@ -33,6 +33,8 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
   ...buildGrpcLessonShellFromRoster(GRPC21_ROSTER),
   domainId: 'protocols',
   category: 'grpc',
+  // Step 1 is Environments — never create/rename a Studio "demo" tab on boot.
+  skipStudioTabIsolation: true,
   description:
     'Use `{{grpcHost}}` to drive the target address from the active environment, inject custom ' +
     'variables into metadata and request body, save calls to a named collection folder, and replay ' +
@@ -47,21 +49,27 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
     await purgeEmptyGrpcDemoCollectionsByName([DEMO_COLLECTION_NAME, 'Saved Requests']);
     await ensureDemoEnvironment(ctx, GRPC_DEMO_ENV_NAME);
     await ensureDemoMicroservice(ctx, GRPC_DEMO_SVC_NAME);
+    // Bridge wipe — not DOM × clicks. Prior runs leave gRPC tab + {{grpcHost}}
+    // + protocol vars; remove buttons are display:none until hover/active so
+    // ensureProtocolDisabled often no-ops and step 1 looks "already configured".
+    resetSettingsMicroserviceProtocols(GRPC_DEMO_SVC_NAME, {
+      clearProtocols: true,
+      clearGlobalVars: true,
+    });
     await navigateToEnvironmentManager(ctx);
     await expandNamedMicroservice(ctx, GRPC_DEMO_SVC_NAME);
-    await ensureProtocolDisabled(ctx, 'http');
-    await ensureProtocolDisabled(ctx, 'websocket');
-    await ensureProtocolDisabled(ctx, 'sse');
-    await ensureProtocolDisabled(ctx, 'graphql');
-    await ensureProtocolDisabled(ctx, 'grpc');
-    await clearProtocolVarsQuiet(ctx);
+    // Let React commit the empty protocol panel before Reading starts.
+    await ctx.delay(80);
   },
-  cleanup: async (ctx) => {
+  cleanup: async (_ctx) => {
     // Non-visual cleanup to avoid noisy close transitions.
     await clearGrpcCallHistory();
     await purgeGrpcDemoSavedRequests();
     await purgeEmptyGrpcDemoCollectionsByName([DEMO_COLLECTION_NAME, 'Saved Requests']);
-    await clearProtocolVarsQuiet(ctx);
+    resetSettingsMicroserviceProtocols(GRPC_DEMO_SVC_NAME, {
+      clearProtocols: true,
+      clearGlobalVars: true,
+    });
   },
   steps: grpcEnvCollectionsSteps,
 };

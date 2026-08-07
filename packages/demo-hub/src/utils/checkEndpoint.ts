@@ -50,6 +50,18 @@ function isSchemaRegistryUrl(url: string): boolean {
   }
 }
 
+/** Envoy gRPC-Web sidecar (:50055) — bare GET returns 415; probe via Express proxy. */
+function isEnvoyGrpcWebProbeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    return isLoopback && parsed.port === '50055';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Redpanda Admin API ports used by demo Docker stacks.
  * These are probed via the server-side proxy to avoid browser no-cors reliability issues
@@ -146,11 +158,11 @@ function wsToHttpHealth(wsUrl: string): string {
  */
 export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<boolean> {
   if (url.startsWith('http')) {
-    // Some environments block direct browser probes to Spring's actuator on :8081.
-    // Use the local Express server as a same-origin proxy health check first.
+    // Spring actuator (:8081) — probe via Express so the browser never hits :8081
+    // directly. Must use CORS fetch (res.ok): no-cors would treat Express's own
+    // HTTP 503 (Spring down) as success because the proxy host is reachable.
     if (isSpringActuatorHealthUrl(url)) {
-      const proxied = await checkHttp('http://localhost:3001/health/spring', timeoutMs);
-      if (proxied) return true;
+      return checkHttpCors('/health/spring', timeoutMs);
     }
     // Schema Registry probes are unreliable via browser no-cors; route through server proxy.
     // Use relative URL so Vite proxy handles it (same-origin, no CORS).
@@ -159,6 +171,11 @@ export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<bool
         `/health/schema-registry?url=${encodeURIComponent(url)}`,
         timeoutMs,
       );
+    }
+    // Envoy :50055 returns HTTP 415 on GET / — browser probes log Failed-to-load.
+    // Route through Express so PrerequisiteGate stays quiet in DevTools.
+    if (isEnvoyGrpcWebProbeUrl(url)) {
+      return checkHttpCors('/health/envoy', timeoutMs);
     }
     // Redpanda Admin API probes are routed through the server proxy for the same reason.
     if (isRedpandaAdminUrl(url)) {

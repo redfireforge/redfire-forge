@@ -34,6 +34,7 @@ function mockRect(el: Element, width: number, height: number): void {
 describe('demoSpotlightUtils', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    resumeDemoAutoScroll();
   });
 
   it('findFirstVisibleElement returns the first visible match', () => {
@@ -388,6 +389,38 @@ describe('demoSpotlightUtils', () => {
     expect(isDemoAutoScrollPaused()).toBe(false);
     scrollDemoTargetIntoView(row, { block: 'center' });
     expect(scroll.scrollTo).toHaveBeenCalled();
+  });
+
+  it('programmatic scroll does not pause auto-scroll via scroll listeners', () => {
+    vi.useFakeTimers();
+    resumeDemoAutoScroll();
+    const cleanup = installDemoUserScrollListeners();
+    const scroll = document.createElement('div');
+    scroll.className = 'gql-rv-metadata';
+    scroll.style.overflowY = 'auto';
+    Object.defineProperty(scroll, 'scrollHeight', { value: 800, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 200, configurable: true });
+    scroll.getBoundingClientRect = () => ({
+      top: 100, left: 0, width: 400, height: 200,
+      right: 400, bottom: 300, x: 0, y: 100, toJSON: () => ({}),
+    });
+    scroll.scrollTo = vi.fn(() => {
+      scroll.dispatchEvent(new Event('scroll', { bubbles: true }));
+    });
+    const row = document.createElement('td');
+    row.getBoundingClientRect = () => ({
+      top: 320, left: 20, width: 300, height: 24,
+      right: 320, bottom: 344, x: 20, y: 320, toJSON: () => ({}),
+    });
+    scroll.appendChild(row);
+    document.body.appendChild(scroll);
+
+    scrollDemoTargetIntoView(row, { block: 'center' });
+    expect(scroll.scrollTo).toHaveBeenCalled();
+    expect(isDemoAutoScrollPaused()).toBe(false);
+
+    cleanup();
+    vi.useRealTimers();
   });
 
   it('installDemoUserScrollListeners pauses auto-scroll on auth panel wheel', () => {

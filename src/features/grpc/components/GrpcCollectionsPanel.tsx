@@ -64,6 +64,7 @@ export function GrpcCollectionsPanel({
   const [search, setSearch] = useState('');
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [renamingCollection, setRenamingCollection] = useState<GrpcCollectionV1 | null>(null);
+  const [renamingSaved, setRenamingSaved] = useState<{ collectionId: string; saved: GrpcSavedRequest } | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -106,6 +107,7 @@ export function GrpcCollectionsPanel({
 
   const closeRenameModal = useCallback(() => {
     setRenamingCollection(null);
+    setRenamingSaved(null);
     setRenameDraft('');
   }, []);
 
@@ -121,8 +123,15 @@ export function GrpcCollectionsPanel({
   };
 
   const openRenameCollectionModal = (collection: GrpcCollectionV1) => {
+    setRenamingSaved(null);
     setRenamingCollection(collection);
     setRenameDraft(collection.name);
+  };
+
+  const openRenameSavedModal = (collectionId: string, saved: GrpcSavedRequest) => {
+    setRenamingCollection(null);
+    setRenamingSaved({ collectionId, saved });
+    setRenameDraft(saved.name);
   };
 
   const handleRenameCollection = async () => {
@@ -141,8 +150,29 @@ export function GrpcCollectionsPanel({
     }
   };
 
+  const handleRenameSavedRequest = async () => {
+    if (!renamingSaved) return;
+    const trimmed = renameDraft.trim();
+    if (!trimmed || trimmed === renamingSaved.saved.name) {
+      closeRenameModal();
+      return;
+    }
+    try {
+      await collections.updateSavedRequest(renamingSaved.collectionId, renamingSaved.saved.id, {
+        name: trimmed,
+      });
+    } catch {
+      /* error surfaced via collections.lastMutationError */
+    } finally {
+      closeRenameModal();
+    }
+  };
+
+  // Single boolean keeps the effect dependency array a fixed length (HMR-safe).
+  const renameModalOpen = renamingCollection !== null || renamingSaved !== null;
+
   useEffect(() => {
-    if (!renamingCollection) return;
+    if (!renameModalOpen) return;
     const onWindowKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         closeRenameModal();
@@ -150,7 +180,7 @@ export function GrpcCollectionsPanel({
     };
     window.addEventListener('keydown', onWindowKeyDown);
     return () => window.removeEventListener('keydown', onWindowKeyDown);
-  }, [closeRenameModal, renamingCollection]);
+  }, [closeRenameModal, renameModalOpen]);
 
   const handleExportCollections = async () => {
     try {
@@ -214,7 +244,8 @@ export function GrpcCollectionsPanel({
             title="Rename collection"
             onClick={() => { openRenameCollectionModal(collection); }}
           >
-            ✎
+            <span aria-hidden="true">✎</span>
+            <span className="grpc-collection-group__rename-label">Rename</span>
           </button>
         </div>
         {expanded && (
@@ -346,6 +377,10 @@ export function GrpcCollectionsPanel({
           && activeTab.method === selectedSaved.saved.method
           && (!selectedSaved.saved.descriptorKey || activeTab.descriptorKey === selectedSaved.saved.descriptorKey),
         )}
+        onRename={() => {
+          if (!selectedSaved) return;
+          openRenameSavedModal(selectedSaved.collectionId, selectedSaved.saved);
+        }}
         onDuplicate={() => {
           if (!selectedSaved) return;
           collections.clearLastMutationError();
@@ -414,7 +449,58 @@ export function GrpcCollectionsPanel({
               className="grpc-btn grpc-btn--primary"
               data-testid="grpc-collection-rename-save"
               onClick={() => { void handleRenameCollection(); }}
-              disabled={!renameDraft.trim() || renameDraft.trim() === renamingCollection.name}
+              disabled={!renameDraft.trim()}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+      {renamingSaved && (
+        <div
+          className="grpc-collection-rename-modal"
+          data-testid="grpc-saved-request-rename-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rename saved request"
+        >
+          <div className="grpc-collection-rename-modal__header">
+            <h2 className="grpc-collection-rename-modal__title">Rename saved request</h2>
+          </div>
+          <div className="grpc-collection-rename-modal__body">
+            <label className="grpc-label" htmlFor="grpc-saved-request-rename-input">
+              Request name
+            </label>
+            <input
+              id="grpc-saved-request-rename-input"
+              data-testid="grpc-saved-request-rename-input"
+              className="grpc-input"
+              value={renameDraft}
+              onChange={(event) => setRenameDraft(event.target.value)}
+              autoFocus
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void handleRenameSavedRequest();
+                }
+              }}
+            />
+          </div>
+          <div className="grpc-collection-rename-modal__footer">
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--ghost"
+              data-testid="grpc-saved-request-rename-cancel"
+              onClick={closeRenameModal}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--primary"
+              data-testid="grpc-saved-request-rename-save"
+              onClick={() => { void handleRenameSavedRequest(); }}
+              disabled={!renameDraft.trim()}
             >
               Save
             </button>

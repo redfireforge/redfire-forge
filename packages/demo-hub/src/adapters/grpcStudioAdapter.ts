@@ -20,8 +20,9 @@ export const GRPC_DEMO_PREREQUISITE_ENDPOINTS = [
 
 /**
  * Envoy gRPC-Web sidecar probe (port 50055).
- * Envoy has no dedicated /health route — any HTTP response (including 404/504)
- * proves the listener is accepting connections for PrerequisiteGate.
+ * Envoy has no dedicated /health route — bare GET / often returns 415.
+ * `checkEndpoint` routes this URL through Express `GET /health/envoy` so the
+ * browser never hits :50055 directly (avoids DevTools Failed-to-load noise).
  */
 export const GRPC_ENVOY_PROBE_URL = 'http://localhost:50055/';
 
@@ -151,7 +152,7 @@ export function patchGrpcActiveTabBody(body: string): boolean {
 
 /**
  * Reset active gRPC tab runtime state used by demos:
- * unlink profile, force plaintext, clear auth and metadata.
+ * unlink profile, force plaintext, Express transport, clear auth and metadata.
  */
 export function resetGrpcActiveTabRuntimeState(): boolean {
   const bridge = getDemoBridgeWindow().__demoResetGrpcActiveTab;

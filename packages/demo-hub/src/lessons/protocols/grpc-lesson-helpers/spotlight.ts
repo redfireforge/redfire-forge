@@ -1,6 +1,7 @@
 import type { DemoActionContext } from '../../../types';
 import { GRPC } from '@shared/selectors';
 import { purgeAllSpotlightRings, showSpotlightRing } from '../../../demoRipple';
+import { resumeDemoAutoScroll, scrollDemoTargetIntoView } from '../../../demoSpotlightUtils';
 import { firstVisibleElement } from '../../../utils/domVisibility';
 import { isGrpcHybridComposerActive } from './echoComposer';
 
@@ -50,6 +51,11 @@ export async function spotlightElementAndPause(
   holdMs = 900,
 ): Promise<void> {
   purgeAllSpotlightRings();
+  // Scroll nested modal/panel containers first — otherwise clipped targets
+  // (e.g. Client Key "Set" at the bottom of the TLS modal) draw rings off-screen.
+  resumeDemoAutoScroll();
+  scrollDemoTargetIntoView(el, { block: 'center' });
+  await ctx.delay(280);
   const removeRing = showSpotlightRing(el, { steady: true });
   try {
     await ctx.delay(holdMs);

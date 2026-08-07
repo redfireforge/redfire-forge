@@ -113,8 +113,8 @@ export function TlsConfigModal({
       showExpandButton={false}
       showResizeHandles
       closeButtonKind="none"
-      minWidth={p === 'grpc-tls' ? 720 : 560}
-      minHeight={p === 'grpc-tls' ? 520 : 420}
+      minWidth={p === 'grpc-tls' ? 520 : 560}
+      minHeight={p === 'grpc-tls' ? 480 : 420}
       footer={
         <>
           <div className="tls-modal-footer-group tls-modal-footer-group--left">
