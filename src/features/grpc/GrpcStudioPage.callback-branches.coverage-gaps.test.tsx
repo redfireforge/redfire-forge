@@ -34,6 +34,11 @@ const spies = {
   applySchemaDiffComparison: vi.fn(),
 };
 
+const demoSurfaceState = vi.hoisted(() => ({
+  queue: [] as Array<{ grpcPanelView?: 'studio' | 'collections' | 'history' | 'advanced'; grpcAdvancedTab?: string } | null>,
+  surface: null as { grpcPanelView?: 'studio' | 'collections' | 'history' | 'advanced'; grpcAdvancedTab?: string } | null,
+}));
+
 type SubNavView = 'studio' | 'collections' | 'history' | 'advanced';
 
 vi.mock('../../shared/components/ProtocolEndpointPreview', () => ({
@@ -199,6 +204,15 @@ vi.mock('../../shared/grpc/grpcApiClient', () => ({
   postGrpcDescriptorLookup: vi.fn(async () => ({ data: { key: 'descriptor' } })),
 }));
 
+vi.mock('../../shared/demoInitialSurface', () => ({
+  peekDemoInitialSurface: () => {
+    if (demoSurfaceState.queue.length > 0) {
+      return demoSurfaceState.queue.shift() ?? null;
+    }
+    return demoSurfaceState.surface;
+  },
+}));
+
 vi.mock('./hooks/useGrpcStudio', () => ({
   useGrpcStudio: () => ({
     tabs: [{ id: 'grpc-tab-1', descriptorKey: studioState.activeDescriptorKey, body: {}, metadata: {}, timeoutMs: 30000, tlsConfig: {}, auth: { type: 'none' }, lifecycle: 'idle', streamLifecycle: 'idle', maskedSecretFields: {}, connectionId: 'c1', envVarOverrides: {}, target: '', targetConnection: 'disconnected' }],
@@ -255,6 +269,8 @@ describe('GrpcStudioPage callback branch coverage', () => {
     studioState.historyDriftIntent = { baselineDescriptorKey: 'baseline-descriptor', currentDescriptorKey: 'current-descriptor', keysDiffer: true };
     studioState.compareResolveKey = undefined;
     studioState.historyResolveKey = undefined;
+    demoSurfaceState.queue = [];
+    demoSurfaceState.surface = null;
     Object.values(spies).forEach((spy) => spy.mockReset());
   });
 
@@ -353,5 +369,43 @@ describe('GrpcStudioPage callback branch coverage', () => {
 
     expect(spies.updateTab).toHaveBeenCalledWith('grpc-tab-1', { maxResponseSizeMb: 32 });
     expect(spies.updateTab).toHaveBeenCalledWith('grpc-tab-1', { keepaliveIntervalSec: 15 });
+  });
+
+  it('applies demo initial surface once and sets advanced feature tab', () => {
+    demoSurfaceState.queue = [
+      null,
+      { grpcPanelView: 'advanced', grpcAdvancedTab: 'mock_server' },
+    ];
+
+    const { rerender } = render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    expect(screen.getByTestId('mock-advanced-shell')).toBeTruthy();
+    expect(spies.setActiveFeatureTab).toHaveBeenCalledWith('mock_server');
+    expect(spies.setActiveFeatureTab).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles demo surface object without panel or advanced tab hints', () => {
+    demoSurfaceState.queue = [
+      null,
+      {},
+    ];
+
+    const { rerender } = render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    expect(screen.getByTestId('grpc-tab-bar')).toBeTruthy();
+    expect(spies.setActiveFeatureTab).not.toHaveBeenCalled();
+  });
+
+  it('skips panel update when demo panel hint matches current panel', () => {
+    demoSurfaceState.queue = [
+      { grpcPanelView: 'studio' },
+    ];
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    expect(screen.getByTestId('grpc-tab-bar')).toBeTruthy();
+    expect(spies.setActiveFeatureTab).not.toHaveBeenCalled();
   });
 });
