@@ -45,7 +45,7 @@ async function mockGraphqlHealthProbe(page: Parameters<typeof silenceLogStream>[
   );
 }
 
-/** Current 1-based step number from the live panel counter (e.g. "14 / 18" → 14). */
+/** Current 1-based step number from the live panel counter (e.g. "12 / 16" → 12). */
 async function currentStepNumber(page: Page): Promise<number> {
   const counter = await page.locator('.demo-live-step-counter').textContent();
   const match = counter?.match(/(\d+)\s*\/\s*\d+/);
@@ -96,7 +96,7 @@ test.describe('GQL-2 — lesson shell', () => {
 });
 
 test.describe('GQL-2 — endpoint & schema browse (Docker)', () => {
-  test('step 5 shows Query type after introspection — not empty schema', async ({
+  test('step 3 shows Query type after introspection — not empty schema', async ({
     page,
     request,
   }) => {
@@ -106,8 +106,8 @@ test.describe('GQL-2 — endpoint & schema browse (Docker)', () => {
     test.setTimeout(360_000);
     await prepareGql2DockerLesson(page, request);
 
-    // Steps 1–4: intro → endpoint → resolved preview → introspect
-    await advanceSteps(page, 4, DEMO_ACTION_TIMEOUT);
+    // Steps 1–2: intro → introspect (env/endpoint already quiet in setup)
+    await advanceSteps(page, 1, DEMO_ACTION_TIMEOUT);
     await completeCurrentStepAction(page, DEMO_ACTION_TIMEOUT);
 
     await expect(page.locator('[data-testid="gql-schema-badge-ok"]')).toBeVisible({ timeout: 30_000 });
@@ -117,7 +117,7 @@ test.describe('GQL-2 — endpoint & schema browse (Docker)', () => {
       GQL_HTTP.replace('http://', ''),
     );
 
-    // Step 5: Browse the Query Type
+    // Step 3: Browse the Query Type
     await completeCurrentStepAction(page, DEMO_ACTION_TIMEOUT);
 
     await expect(page.locator('[data-testid="gql-right-tab-schema"]')).toHaveAttribute(
@@ -127,12 +127,12 @@ test.describe('GQL-2 — endpoint & schema browse (Docker)', () => {
     await expect(page.locator('[data-testid="gql-se-type-Query"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-se-empty-idle"]')).toHaveCount(0);
 
-    await takeNamedScreenshot(page, 'gql2-step5-query-type');
+    await takeNamedScreenshot(page, 'gql2-step3-query-type');
   });
 });
 
 test.describe('GQL-2 — Alice & Bob execution (Docker)', () => {
-  test('steps 6–14 execute GetUser for Alice then Bob with variables panel', async ({
+  test('steps 4–12 execute GetUser for Alice then Bob with variables panel', async ({
     page,
     request,
   }) => {
@@ -142,8 +142,8 @@ test.describe('GQL-2 — Alice & Bob execution (Docker)', () => {
     test.setTimeout(600_000);
     await prepareGql2DockerLesson(page, request);
 
-    // Through step 14 (Read Bob's Response) — reading phase on step 15
-    await advanceToStep(page, 14, 300_000);
+    // Through step 12 (Read Bob's Response) — reading phase on step 13
+    await advanceToStep(page, 12, 300_000);
     await completeCurrentStepAction(page, 300_000);
 
     await expect(page.getByText(/Schema loaded/i)).toBeVisible({ timeout: 15_000 });
@@ -156,7 +156,7 @@ test.describe('GQL-2 — Alice & Bob execution (Docker)', () => {
 });
 
 test.describe('GQL-2 — history search & compare (Docker)', () => {
-  test('steps 15–18 open history, search GetUser, mark A/B, and show diff table', async ({
+  test('steps 13–16 open history, search GetUser, mark A/B, and show diff table', async ({
     page,
     request,
   }) => {
@@ -166,19 +166,19 @@ test.describe('GQL-2 — history search & compare (Docker)', () => {
     test.setTimeout(600_000);
     await prepareGql2DockerLesson(page, request);
 
-    // Through step 14 (Read Bob's Response) — reading phase on step 15
-    await advanceToStep(page, 15, 300_000);
+    // Through step 12 (Read Bob's Response) — reading phase on step 13
+    await advanceToStep(page, 13, 300_000);
     const bobBeforeHistory = await responseUserCardText(page);
     expect(bobBeforeHistory).toMatch(/Bob/i);
 
-    // Step 15: Open History
+    // Step 13: Open History
     await completeCurrentStepAction(page, 300_000);
     await expect(page.getByTestId('gql-history-panel')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('gql-history-entry').first()).toBeVisible({ timeout: 15_000 });
     const historyCount = await page.getByTestId('gql-history-entry').count();
     expect(historyCount).toBeGreaterThanOrEqual(2);
 
-    // Step 16: Search History
+    // Step 14: Search History
     await runNextStep(page, 300_000);
     await completeCurrentStepAction(page, 300_000);
     const search = page.getByTestId('gql-history-search');
@@ -189,7 +189,7 @@ test.describe('GQL-2 — history search & compare (Docker)', () => {
     const bobDuringSearch = await responseUserCardText(page);
     expect(bobDuringSearch).toMatch(/Bob/i);
 
-    // Step 17: Mark runs for comparison
+    // Step 15: Mark runs for comparison
     await runNextStep(page, 300_000);
     await completeCurrentStepAction(page, 300_000);
     await expect(page.getByTestId('gql-history-compare-toggle')).toHaveClass(/gql-history-compare-toggle--active/);
@@ -200,7 +200,7 @@ test.describe('GQL-2 — history search & compare (Docker)', () => {
     const bobDuringMark = await responseUserCardText(page);
     expect(bobDuringMark).toMatch(/Bob/i);
 
-    // Step 18: View comparison (last step — Next stays disabled; use finishDemoStep)
+    // Step 16: View comparison (last step — Next stays disabled; use finishDemoStep)
     await page.locator('[aria-label="Next step"]').click();
     await finishDemoStep(page, 300_000);
 

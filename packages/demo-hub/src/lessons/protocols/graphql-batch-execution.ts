@@ -9,6 +9,7 @@ import {
   demonstrateLesson15BatchResults,
   demonstrateLesson15BatchResponseSlice,
   demonstrateLesson15EnableBatch,
+  demonstrateLesson15Intro,
   demonstrateLesson15OpenHistory,
   demonstrateLesson15PartialError,
   demonstrateLesson15RunBatch,
@@ -251,11 +252,9 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       description:
         'Batch execution sends **multiple GraphQL operations as a single HTTP request** and receives an **array of results** in return. No sequential round-trips — all operations in the batch share one network round-trip.\n\n' +
         '**Why batch instead of individual requests?** Every HTTP request carries overhead: DNS resolution, TLS handshake, and queue time at the load balancer. For N queries, N individual requests multiply this overhead by N. Batch folds all of them into one request, paying the overhead only once. This is especially effective in integration test pipelines (where dozens of "query → assert" cycles run in sequence) and in dashboard pre-fetching (where 5–10 independent queries must all resolve before the page renders). The result is dramatically faster test suites and faster first meaningful paint for data-heavy UIs.',
-      highlight: GQL.TAB_BAR,
-      action: async (ctx) => {
-        await ctx.delay(1000);
-      },
-      verify: GQL.TAB_BAR,
+      highlight: GQL.LESSON15_DEMO_TAB,
+      action: demonstrateLesson15Intro,
+      verify: GQL.LESSON15_DEMO_TAB,
       pauseAfter: true,
     },
 
@@ -264,8 +263,8 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       id: 'gql15-add-tab',
       title: 'Add a Second Tab',
       description:
-        'Click the **+** button at the end of the tab bar to open a second workspace tab. On **Tab 2**, change the endpoint to `http://localhost:4010/graphql` — a direct URL override (you will see the **:4010** hostname badge on the tab). Switch back to **Tab 1** and confirm it still shows `{{graphqlUrl}}` with no override badge.\n\n' +
-        '**Why can batch use different *stored* URLs?** Batch cares about the **resolved** server, not the literal string in the connection bar. Tab 1\'s `{{graphqlUrl}}` and Tab 2\'s direct localhost URL both resolve to the same Docker server — so **Send Batch** stays enabled once you turn batch mode on. That is the opposite of GQL-14, where staging and production were genuinely different servers.',
+        'Click the **+** button at the end of the tab bar to open a second workspace tab. On **Tab 2**, change the endpoint to `http://localhost:4010/graphql` — a direct URL override (you will see the **:4010** hostname badge on the tab). Then switch back to **Tab 1** and confirm it still shows `{{graphqlUrl}}` with no override badge.\n\n' +
+        '**Why can batch use different *stored* URLs?** Batch cares about the **resolved** server, not the literal string in the connection bar. Tab 1\'s `{{graphqlUrl}}` and Tab 2\'s direct localhost URL both resolve to the same Docker server — so they share one endpoint group in Advanced Settings. That is the opposite of GQL-14, where staging and production were genuinely different servers.',
       highlight: GQL.TAB_ADD_BTN,
       preAction: prepareGql15AddTabReading,
       action: demonstrateLesson15AddSecondTab,
@@ -278,7 +277,7 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       id: 'gql15-write-queries',
       title: 'Write a Query on Each Tab',
       description:
-        'Switch to **Tab 1** and confirm `query { health }` is in the editor. Switch to **Tab 2** and enter `query CheckHealth { health }` — a different operation name so the batch result cards are easy to tell apart.\n\n' +
+        'On **Tab 1**, keep `query GetHealth { health }`. Switch to **Tab 2** and enter `query CheckHealth { health }` — a different operation name so the batch result cards are easy to tell apart.\n\n' +
         '**Why different operation names?** Batch results are labelled by operation name, not tab title. Distinct names (`GetHealth` vs `CheckHealth`) make the stacked cards self-explanatory in screenshots and CI logs — you can see which response came from which tab without cross-referencing the tab bar.',
       highlight: GQL.EDITOR,
       preAction: prepareGql15WriteQueriesReading,
@@ -292,9 +291,10 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       id: 'gql15-enable-batch',
       title: 'Enable Batch Mode',
       description:
-        'With both tabs configured, click the **⚙ gear** in the connection bar to open **Advanced settings**, switch to the **Batch** tab, and turn on **Enable query batching**. Review the operation table and timeout, then click **Save** — a batch summary chip appears on the connection bar and the **Send Batch** controls unlock once two operations are selected.\n\n' +
-        '**Why wait until both tabs exist?** Batching sends multiple operations in one HTTP request — you need at least two ready tabs on the same endpoint before the toggle appears. Keeping batch setup in Advanced Settings keeps the connection bar clean while still making batch mode one click away when you need it.',
-      highlight: GQL.ADV_BATCH_PANEL,
+        'Click the **⚙ gear** to open **Advanced settings**, open the **Batch** tab, and turn on **Enable query batching**.\n\n' +
+        'Watch the **Endpoint group** chip — it should say **2 tabs** for `localhost:4010` (both demo tabs resolve to the same server). The status line will say **0 of 2 selected** — that is expected. Click **Save**.\n\n' +
+        'A batch summary chip appears on the connection bar. **Send Batch is still hidden** until the next step selects both operations.',
+      highlight: GQL.ADV_SETTINGS_BTN,
       preAction: prepareGql15EnableBatchReading,
       action: demonstrateLesson15EnableBatch,
       verify: GQL.BATCH_SUMMARY_CHIP,
@@ -306,12 +306,13 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       id: 'gql15-batch-select',
       title: 'Select Operations for the Batch',
       description:
-        'Re-open **Advanced settings → Batch**. In the operation table, check **both** demo tabs — each row shows the operation letter, tab name, and the **full query on one line** (hover for the complete document). Click **Save**. A read-only **B** badge appears on each included tab in the tab bar.\n\n' +
-        '**Why a table instead of tab-bar checkboxes?** Grouping by endpoint prevents accidental cross-server batches. The status row shows **0/2 → 2/2** so you always know how many operations will fire before you click **Send Batch**. Use **Select all** when every tab in the group should participate.',
-      highlight: GQL.ADV_BATCH_PANEL,
+        'Re-open **Advanced settings → Batch**. Click **Select all** so both demo tabs are checked — the status updates to **2 of 2 selected** / **Ready — use Send Batch (2)**. Click **Save**.\n\n' +
+        'Each included tab gets a read-only **B** badge, and **⚡ Send Batch (2)** appears in the connection bar.\n\n' +
+        '**Why a table instead of tab-bar checkboxes?** Grouping by endpoint prevents accidental cross-server batches. You always see how many operations will fire before you click Send.',
+      highlight: GQL.ADV_BATCH_SELECT_ALL,
       preAction: prepareGql15BatchSelectReading,
       action: demonstrateLesson15SelectBatchTabs,
-      verify: GQL.TAB_BAR,
+      verify: GQL.BATCH_EXECUTE_BTN,
       pauseAfter: true,
     },
 
@@ -320,8 +321,8 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       id: 'gql15-batch-run',
       title: 'Send Batch Execute',
       description:
-        'The **⚡ Send Batch (2)** button in the connection bar reflects how many operations are checked. Click it — the connection bar shows **Batching…** while the proxy sends one request. Both queries are serialised into a JSON array for a single upstream HTTP POST when the server supports array batching.\n\n' +
-        '**Why does the button show a count?** The count updates live as you check or uncheck operations in Advanced Settings. Uncheck a tab and it drops out of the batch — handy for selective runs. The upstream body looks like `[{"query":"query { health }"},{"query":"query CheckHealth { health }"}]` — a standard array that RFC-compliant GraphQL servers handle natively.',
+        'Click **⚡ Send Batch (2)** in the connection bar — watch it flip to **Batching…** while the proxy sends one request. Both queries are serialised into a JSON array for a single upstream HTTP POST when the server supports array batching.\n\n' +
+        '**Why does the button show a count?** The count updates live as you check or uncheck operations in Advanced Settings. The upstream body looks like `[{"query":"query GetHealth { health }"},{"query":"query CheckHealth { health }"}]` — a standard array that RFC-compliant GraphQL servers handle natively.',
       highlight: GQL.BATCH_EXECUTE_BTN,
       preAction: ensureLesson15ReadyToExecute,
       action: demonstrateLesson15RunBatch,
@@ -363,11 +364,11 @@ The Docker demo server on port **4010** has JSON-array batching **enabled** — 
       title: 'Partial Errors — Batch Does Not Fail-Fast',
       description:
         `On **Tab 2**, replace the query with \`${LESSON15_ERROR_QUERY}\` — a field that does not exist in the schema. Click **Send Batch** again. The header shows **1 passed / 1 failed**: Tab 1's card keeps ✓ data; Tab 2's card shows ✗ with an errors array.\n\n` +
-        '**Why is this important?** Most HTTP stacks fail the whole request when one part fails. GraphQL batch evaluates each operation independently — a schema error on operation 2 does not block operation 1\'s data. Dismiss the batch modal and switch tabs — each Response pane still shows its **Batch N/M** slice so you can inspect success and failure side by side. In integration tests, your setup query may have succeeded even when an assertion query failed — partial results, not a total blackout.',
+        '**Why is this important?** Most HTTP stacks fail the whole request when one part fails. GraphQL batch evaluates each operation independently — a schema error on operation 2 does not block operation 1\'s data. Dismiss the batch modal, open **Metadata** on the failing tab, and scroll to **Error Details** — message, location, and code for that operation only. Each Response pane still shows its **Batch N/M** slice so you can inspect success and failure side by side. In integration tests, your setup query may have succeeded even when an assertion query failed — partial results, not a total blackout.',
       highlight: GQL.BATCH_RESULTS,
       preAction: prepareGql15PartialErrorReading,
       action: demonstrateLesson15PartialError,
-      verify: GQL.BATCH_RESULTS,
+      verify: GQL.RESPONSE_ERROR_LIST,
       pauseAfter: true,
     },
 

@@ -460,6 +460,35 @@ describe('useGraphqlConnectionSettings', () => {
       await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
       expect(result.current.tlsCaCert).toBeUndefined();
     });
+
+    it('handles loadAuth rejection on auth reload event silently', async () => {
+      vi.mocked(loadAuth)
+        .mockResolvedValueOnce({ type: 'bearer', token: 'initial' })
+        .mockRejectedValueOnce(new Error('auth reload failed'));
+      const { result } = renderHook(() => useGraphqlConnectionSettings());
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      expect(result.current.auth).toEqual({ type: 'bearer', token: 'initial' });
+
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent(GQL_PAGE_AUTH_RELOAD_EVENT));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      // Keep prior auth when reload fails.
+      expect(result.current.auth).toEqual({ type: 'bearer', token: 'initial' });
+    });
+
+    it('handles endpoint reload readKey rejection silently', async () => {
+      const { GQL_PAGE_ENDPOINT_RELOAD_EVENT: endpointEvent } = await import('../utils/gqlDemoWorkspace');
+      const { result } = renderHook(() => useGraphqlConnectionSettings('https://initial.example.com/graphql'));
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      vi.mocked(readKey).mockRejectedValue(new Error('endpoint reload failed'));
+
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent(endpointEvent));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(result.current.endpoint).toBe('https://initial.example.com/graphql');
+    });
   });
 });
 
@@ -501,6 +530,17 @@ describe('useGraphqlConnectionSettings — writeKey rejection catch handlers', (
       await new Promise((r) => setTimeout(r, 0));
     });
     expect(result.current.endpoint).toBe('https://new.test');
+  });
+
+  it('handles saveTlsCerts rejection in handleTlsCertsChange silently', async () => {
+    vi.mocked(saveTlsCerts).mockRejectedValue(new Error('tls cert save failed'));
+    const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
+    await act(async () => {
+      result.current.handleTlsCertsChange({ caCert: 'ca-pem' });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(result.current.tlsCaCert).toBe('ca-pem');
   });
 
   it('resolvedBaseUrl change that keeps manually-set endpoint (L85 return cur + L82 catch)', async () => {

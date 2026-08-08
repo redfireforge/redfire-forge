@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  completeCurrentStepAction,
   openDemoHub,
   openLesson,
   selectCategory,
@@ -29,8 +30,9 @@ test.describe('Kafka Schema Registry demo', () => {
 
     await startLesson(page);
 
-    await expect(page.locator('[data-testid="tab-schema"]')).toHaveClass(/active/);
     await expect(page.locator('.demo-live-step-title')).toHaveText('The Schema Registry Tab');
+    await completeCurrentStepAction(page);
+    await expect(page.locator('[data-testid="tab-schema"]')).toHaveClass(/active/);
     await expect.poll(() => page.evaluate(
       () => (window as Window & { __schemaTabClickCount?: number }).__schemaTabClickCount,
     )).toBe(1);

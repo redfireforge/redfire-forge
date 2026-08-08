@@ -30,7 +30,7 @@ export async function loadSnapshots(connectionId: string): Promise<GraphqlSchema
       rows.sort((a, b) => b.capturedAt - a.capturedAt);
       resolve(rows);
     };
-    req.onerror = () => reject(req.error);
+    req.onerror = () => reject(req.error ?? new Error('IndexedDB loadSnapshots failed'));
   });
 }
 
@@ -58,7 +58,7 @@ export async function saveSnapshot(snapshot: GraphqlSchemaSnapshot): Promise<voi
     for (const s of toEvict) store.delete(s.id);
     store.put(snapshot);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB saveSnapshot failed'));
   });
 }
 
@@ -71,7 +71,7 @@ export async function deleteSnapshot(id: string): Promise<void> {
     const tx = db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).delete(id);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB deleteSnapshot failed'));
   });
 }
 
@@ -89,6 +89,6 @@ export async function relabelSnapshot(id: string, label: string): Promise<void> 
       }
     };
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB relabelSnapshot failed'));
   });
 }

@@ -296,9 +296,9 @@ describe('GrpcWorkflowCallTargetFields', () => {
     });
 
     expect(screen.getByText('1 service loaded via reflection')).toBeTruthy();
-    expect(screen.getByText('Managed automatically:')).toBeTruthy();
+    expect(screen.getByText('Locked from reflection')).toBeTruthy();
 
-    const descriptor = screen.getByTestId('grpc-test-descriptor-key') as HTMLTextAreaElement;
+    const descriptor = screen.getByTestId('grpc-test-descriptor-key') as HTMLInputElement;
     expect(descriptor.readOnly).toBe(true);
 
     await act(async () => {
@@ -356,7 +356,7 @@ describe('GrpcWorkflowCallTargetFields', () => {
     );
 
     const editableDescriptor = screen.getByTestId('grpc-copy-skip-descriptor-key');
-    expect(editableDescriptor.tagName).toBe('TEXTAREA');
+    expect(editableDescriptor.tagName).toBe('INPUT');
     expect(writeText).not.toHaveBeenCalled();
   });
 

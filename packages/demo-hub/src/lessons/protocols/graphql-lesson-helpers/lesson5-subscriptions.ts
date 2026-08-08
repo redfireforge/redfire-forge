@@ -4,9 +4,9 @@ import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
   GQL_DEMO_HTTP,
-  ensureDemoEndpoint,
+  ensureDemoTabDirectHttpEndpoint,
   ensureEditorMode,
-  ensureIntrospected,
+  ensureIntrospectedOnDirectEndpoint,
   ensureResponseCreateOrderVisible,
   fillGqlEditor,
   fillGqlVariables,
@@ -15,6 +15,7 @@ import {
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
 } from './core';
+import { navigateToGraphqlStudio } from '../../env-manager-lesson-helpers';
 import {
   GQL_CREATE_ORDER_MUTATION,
   GQL_CREATE_ORDER_VARS,
@@ -23,12 +24,15 @@ import {
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
 import {
   LESSON6_AUTH_TOKEN_VALUE,
-  LESSON6_BEARER_TEMPLATE,
-  ensureEnvReady,
+  closeEnvIfOpen,
   resetGqlLesson6SessionFlags,
 } from './lesson6-auth-headers';
-import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { closeGqlDemoTabs, ensureGqlDemoTab, activateGqlDemoTabQuiet } from './gql-demo-tab';
 import { ensureAuthPanelVisible, selectAuthInPanel } from './core';
+import { patchDemoTabConnection } from '../../../adapters';
+
+/** Literal Bearer for WS handshake — avoids GraphQL Env modal / Demo-env badge churn. */
+const SUBSCRIPTION_BEARER_TOKEN = LESSON6_AUTH_TOKEN_VALUE;
 
 /** orderStatus subscription — requires `$orderId` from a prior createOrder. */
 export const GQL_ORDER_STATUS_SUBSCRIPTION = `subscription OrderUpdates($orderId: ID!) {
@@ -113,6 +117,7 @@ export async function createDemoOrder(): Promise<string> {
   const resp = await fetch(GQL_DEMO_HTTP, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(4000),
     body: JSON.stringify({
       query: 'mutation CreateDemoOrder($input: OrderInput!) { createOrder(input: $input) { id status } }',
       variables: {
@@ -203,11 +208,11 @@ export async function ensureWsTransport(ctx: DemoActionContext): Promise<void> {
 }
 
 async function configureSubscriptionBearerAuth(ctx: DemoActionContext): Promise<void> {
-  await ensureEnvReady(ctx);
+  await closeEnvIfOpen(ctx);
   await ensureAuthPanelVisible(ctx);
   await ctx.delay(800);
   await selectAuthInPanel(ctx, 'bearer');
-  await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
+  await ctx.fill(GQL.AUTH_BEARER_INPUT, SUBSCRIPTION_BEARER_TOKEN);
   await ctx.delay(500);
 }
 
@@ -221,30 +226,32 @@ async function waitForResolvedAuthPreview(ctx: DemoActionContext): Promise<void>
   await ctx.waitFor(GQL.AUTH_PREVIEW, 5000);
 }
 
-/** Step gql5-subscription-auth reading — transport + subscription query ready; env + auth preview armed. */
+/**
+ * Auth step Preparing — prior subscription state + Auth panel only.
+ * No Environment Manager / GraphQL Env modal (Bearer uses a literal demo token).
+ */
 export async function prepareGql5SubscriptionAuthReading(ctx: DemoActionContext): Promise<void> {
   await ensureSubscriptionVars(ctx);
   await ensureWsTransport(ctx);
-  await ensureEnvReady(ctx);
-  await configureSubscriptionBearerAuth(ctx);
-  await waitForResolvedAuthPreview(ctx);
+  await closeEnvIfOpen(ctx);
+  await ensureAuthPanelVisible(ctx);
 }
 
 /** Ensure Bearer auth is configured for the subscription WebSocket handshake. */
 export async function ensureSubscriptionAuthConfigured(ctx: DemoActionContext): Promise<void> {
   if (_lesson5AuthConfigured) return;
-  await prepareGql5SubscriptionAuthReading(ctx);
+  await ensureSubscriptionVars(ctx);
+  await ensureWsTransport(ctx);
   await configureSubscriptionBearerAuth(ctx);
+  await waitForResolvedAuthPreview(ctx);
   _lesson5AuthConfigured = true;
 }
 
-/** Visible auth setup for gql5-subscription-auth step action. */
+/** Visible auth setup for gql5-subscription-auth step action — leave Auth open on preview. */
 export async function demonstrateSubscriptionAuthHandshake(ctx: DemoActionContext): Promise<void> {
   await configureSubscriptionBearerAuth(ctx);
   await waitForResolvedAuthPreview(ctx);
-  await ctx.delay(800);
-  await ctx.click(GQL.AUTH_BADGE_BTN);
-  await ctx.delay(800);
+  await ctx.delay(1200);
   markSubscriptionAuthDone();
 }
 
@@ -252,28 +259,44 @@ export function markSubscriptionAuthDone(): void {
   _lesson5AuthConfigured = true;
 }
 
-/** Step 1 reading — demo endpoint ready; connection bar visible. */
+/**
+ * Step 1 reading — stay on Studio chrome only.
+ * Endpoint is seeded in setup; do not reconfigure here (no EM / Env modal thrash).
+ */
 export async function prepareGql5IntroReading(ctx: DemoActionContext): Promise<void> {
-  await ensureDemoEndpoint(ctx);
-}
-
-/** Step 2 reading — subscription query in editor so Subscribe button appears on connection bar. */
-export async function prepareGql5ConnectionBarReading(ctx: DemoActionContext): Promise<void> {
-  await ensureIntrospected(ctx);
+  await navigateToGraphqlStudio(ctx);
   await ensureEditorMode(ctx);
-  const current = getGqlEditorQuery();
-  if (!current.includes('subscription')) {
-    await fillGqlEditor(ctx, GQL_ORDER_STATUS_SUBSCRIPTION, { focus: false });
-  }
+  await closeEnvIfOpen(ctx);
 }
 
-/** Step 3 reading — endpoint field ready for literal URL. */
+/**
+ * Endpoint step reading — stay on Studio; visible fill + Introspect happen in the action.
+ * Never open Environment Manager or GraphQL Env modal during Preparing.
+ */
 export async function prepareGql5EndpointReading(ctx: DemoActionContext): Promise<void> {
-  await ensureDemoEndpoint(ctx);
+  await navigateToGraphqlStudio(ctx);
+  await activateGqlDemoTabQuiet(ctx);
+  await closeEnvIfOpen(ctx);
+}
+
+/**
+ * Connection-bar tour reading — runs *after* the subscription is written so
+ * Subscribe + Transport are visible for the right reason.
+ */
+export async function prepareGql5ConnectionBarReading(ctx: DemoActionContext): Promise<void> {
+  await ensureSubscriptionVars(ctx);
+  await ensureEditorMode(ctx);
+  await ctx.waitFor(GQL.SUBSCRIBE_BTN, 8000);
+}
+
+/** Create-order load reading — schema only; action shows the mutation fill. */
+export async function prepareGql5CreateOrderReading(ctx: DemoActionContext): Promise<void> {
+  await ensureIntrospectedOnDirectEndpoint(ctx);
+  await ensureEditorMode(ctx);
 }
 
 async function ensureCreateOrderMutationReady(ctx: DemoActionContext): Promise<void> {
-  await ensureIntrospected(ctx);
+  await ensureIntrospectedOnDirectEndpoint(ctx);
   await ensureEditorMode(ctx);
   const current = getGqlEditorQuery();
   if (!current.includes('createOrder')) {
@@ -282,11 +305,17 @@ async function ensureCreateOrderMutationReady(ctx: DemoActionContext): Promise<v
   await fillGqlVariables(ctx, GQL_CREATE_ORDER_VARS, { focus: false, openPanel: true });
 }
 
-/** Step 4 reading — createOrder mutation + vars loaded, not yet executed. */
+/** Execute-createOrder reading — mutation + vars loaded, not yet executed. */
 export async function prepareGql5ExecCreateOrderReading(ctx: DemoActionContext): Promise<void> {
   await ensureCreateOrderMutationReady(ctx);
   await ctx.click(GQL.RIGHT_TAB_RESPONSE);
   await ctx.delay(200);
+}
+
+/** Write-subscription reading — order id ready; do not paste subscription yet. */
+export async function prepareGql5WriteSubReading(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoOrderCreated(ctx);
+  await ensureEditorMode(ctx);
 }
 
 /** Step 4b reading — createOrder response with captured order id. */
@@ -297,7 +326,7 @@ export async function prepareGql5ObserveCreateOrderReading(ctx: DemoActionContex
 
 /** Ensure createOrder mutation ran and order id is stored. */
 export async function ensureDemoOrderCreated(ctx: DemoActionContext): Promise<void> {
-  await ensureIntrospected(ctx);
+  await ensureIntrospectedOnDirectEndpoint(ctx);
   await ensureEditorMode(ctx);
   if (_lesson5OrderCreated && _lesson5OrderId) return;
 
@@ -325,8 +354,17 @@ export async function ensureDemoOrderCreated(ctx: DemoActionContext): Promise<vo
 export async function ensureSubscriptionQueryWritten(ctx: DemoActionContext): Promise<void> {
   await ensureDemoOrderCreated(ctx);
   const current = getGqlEditorQuery();
-  if (_lesson5SubscriptionWritten && current.includes('orderStatus')) return;
+  if (current.includes('orderStatus')) {
+    _lesson5SubscriptionWritten = true;
+    return;
+  }
+  if (_lesson5SubscriptionWritten) return;
   await fillGqlEditor(ctx, GQL_ORDER_STATUS_SUBSCRIPTION, { focus: false });
+  _lesson5SubscriptionWritten = true;
+}
+
+/** Mark subscription query as written after a visible lesson action. */
+export function markSubscriptionQueryWritten(): void {
   _lesson5SubscriptionWritten = true;
 }
 
@@ -512,7 +550,10 @@ export async function ensureAssertionAdded(ctx: DemoActionContext): Promise<void
   _lesson5AssertionAdded = true;
 }
 
-/** Setup for Lesson 5 (GQL-7) — demo tab; seed order quietly when Docker is up. */
+/**
+ * Setup for Lesson 5 (GQL-7) — demo tab + direct HTTP.
+ * Never open Environment Manager or the GraphQL Env modal.
+ */
 export async function gqlSubscriptionsLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -520,6 +561,8 @@ export async function gqlSubscriptionsLessonSetup(ctx: DemoActionContext): Promi
   resetGqlLesson4SessionFlags();
   resetGqlLesson5SessionFlags();
   resetGqlLesson6SessionFlags();
+
+  await navigateToGraphqlStudio(ctx);
 
   const editorBtn = document.querySelector<HTMLElement>(GQL.MODE_EDITOR);
   if (editorBtn && !editorBtn.classList.contains('gql-mode-btn--active')) {
@@ -529,15 +572,28 @@ export async function gqlSubscriptionsLessonSetup(ctx: DemoActionContext): Promi
   if (responseTab && responseTab.getAttribute('aria-selected') !== 'true') {
     responseTab.click();
   }
-  await ctx.delay(200);
+  await ctx.delay(80);
 
   const historyBtn = document.querySelector<HTMLElement>(GQL.ACTIVITY_HISTORY);
   if (historyBtn?.classList.contains('gql-activity-tab--active')) {
     historyBtn.click();
-    await ctx.delay(200);
+    await ctx.delay(80);
   }
 
   await ensureGqlDemoTab(ctx, 'gql-subscriptions', 'Subscriptions — Real-Time Data');
+
+  // Clear stale TLS + pin direct HTTP via storage bridge (no Env Manager / {{graphqlUrl}} tour).
+  await patchDemoTabConnection({
+    endpoint: GQL_DEMO_HTTP,
+    skipTlsVerify: undefined,
+    tlsCaCert: undefined,
+    tlsClientCert: undefined,
+    tlsClientKey: undefined,
+  });
+  await activateGqlDemoTabQuiet(ctx);
+  await ensureDemoTabDirectHttpEndpoint(ctx);
+  await closeEnvIfOpen(ctx);
+
   await fillGqlEditor(ctx, 'subscription { }', { focus: false });
   await fillGqlVariables(ctx, '{\n  \n}', { focus: false, openPanel: false });
 

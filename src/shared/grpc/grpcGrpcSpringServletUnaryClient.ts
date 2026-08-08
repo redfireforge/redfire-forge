@@ -27,6 +27,7 @@ import {
   SPRING_SERVLET_TE_TRAILERS,
 } from './grpcSpringServletTransportContracts';
 import { buildBrowserTransportUserMetadataHeaders } from './grpcBrowserTransportMetadataNorm';
+import { assertBrowserDirectTargetAllowsFetch } from './grpcWebNativeTargetGuard';
 
 export type SpringServletUnaryFetchFn = (
   url: string,
@@ -232,6 +233,13 @@ export async function invokeGrpcSpringServletUnary(
   const signal = input.signal
     ? mergeAbortSignals(input.signal, controller.signal)
     : controller.signal;
+
+  if (!input.fetchFn) {
+    const blocked = assertBrowserDirectTargetAllowsFetch('call', 'spring-servlet', request.target);
+    if (blocked) {
+      throw blocked;
+    }
+  }
 
   const fetchFn = input.fetchFn ?? globalThis.fetch.bind(globalThis);
 

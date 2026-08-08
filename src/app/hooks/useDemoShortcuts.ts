@@ -64,9 +64,9 @@ export function useDemoShortcuts(
             });
             break;
           case 'ArrowRight':
-            // Only allow skipping to next step during reading or done phases;
-            // action/verify/pre phases must not be interrupted by keyboard.
-            if (demoHub.stepPhase === 'reading' || demoHub.stepPhase === 'done') {
+            // Next only after the step is done. During reading, skip via the
+            // phase badge — ArrowRight must not skip the step action.
+            if (demoHub.stepPhase === 'done') {
               e.preventDefault();
               demoHub.nextStep();
             }

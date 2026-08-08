@@ -10,7 +10,7 @@ import {
   resetGqlLesson11SessionFlags,
 } from './graphql-lesson-helpers';
 
-export function mockLesson11WorkflowBridge(thresholdMs = '2000'): void {
+export function mockLesson11WorkflowBridge(thresholdMs = '15000'): void {
   (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) => {
     if (name !== LESSON11_WF_NAME) return null;
     return {
@@ -39,6 +39,7 @@ export function mockLesson11WorkflowBridge(thresholdMs = '2000'): void {
 export function buildQueryConfigDom(): string {
   return `
     <div class="wf-canvas-area"></div>
+    <input class="wf-palette-search" />
     <button class="wf-palette-block-graphqlQuery"></button>
     <div class="react-flow__node-start" data-id="start1"></div>
     <div class="react-flow__node-graphqlQuery" data-id="q1">
@@ -104,9 +105,13 @@ export function setupGraphqlWorkflowIntegrationBeforeEach(): void {
 
 export async function teardownGraphqlWorkflowIntegrationAfterEach(): Promise<void> {
   vi.unstubAllGlobals();
-      delete (window as unknown as Record<string, unknown>).__wfConnect;
-      delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
-      delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
-      delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
-      delete (window as unknown as Record<string, unknown>).__wfQuickTest;
+  delete (window as unknown as Record<string, unknown>).__wfConnect;
+  delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
+  delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
+  delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
+  delete (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName;
+  delete (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType;
+  delete (window as unknown as Record<string, unknown>).__wfQuickTest;
+  const { setWfConfigDemoTiming } = await import('../wf-demo-helpers');
+  setWfConfigDemoTiming(null);
 }

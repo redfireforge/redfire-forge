@@ -84,7 +84,7 @@ describe('demoSpotlightUtils — coverage gaps', () => {
     el.scrollIntoView = vi.fn();
     document.body.appendChild(el);
     scrollDemoTargetIntoView(el, { block: 'end' });
-    expect(el.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'end' });
+    expect(el.scrollIntoView).toHaveBeenCalledWith({ behavior: 'instant', block: 'end' });
   });
 
   it('scrollDemoTargetIntoView adjusts visible bottom when demo panel overlaps scroll parent', () => {
@@ -134,7 +134,7 @@ describe('demoSpotlightUtils — coverage gaps', () => {
     el.scrollIntoView = vi.fn();
     document.body.appendChild(el);
     scrollDemoTargetIntoView(el, { block: 'center' });
-    expect(el.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    expect(el.scrollIntoView).toHaveBeenCalledWith({ behavior: 'instant', block: 'center' });
   });
 
   it('isElementVisibleInViewport returns true for in-bounds visible element in parent chain', () => {

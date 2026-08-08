@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   validateGrpcTargetAddress,
   validateResolvedGrpcTargetAddress,
+  preferIpv4LoopbackDialAddress,
   isValidGrpcTargetAddress,
   grpcTargetValidationMessage,
   withGrpcTargetValidationMessage,
@@ -43,6 +44,13 @@ describe('targetValidation (Phase 1A + 9D)', () => {
       expect(unresolved.reason).toContain('grpcHost');
     }
     expect(validateResolvedGrpcTargetAddress('localhost:50051').valid).toBe(true);
+  });
+
+  it('rewrites localhost/::1 dial targets to 127.0.0.1', () => {
+    expect(preferIpv4LoopbackDialAddress('localhost:9090')).toBe('127.0.0.1:9090');
+    expect(preferIpv4LoopbackDialAddress('[::1]:50051')).toBe('127.0.0.1:50051');
+    expect(preferIpv4LoopbackDialAddress('127.0.0.1:9090')).toBe('127.0.0.1:9090');
+    expect(preferIpv4LoopbackDialAddress('demo.example:50051')).toBe('demo.example:50051');
   });
 
   it('rejects illegal URL schemes (Phase 9D)', () => {

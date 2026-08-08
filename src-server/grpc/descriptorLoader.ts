@@ -8,6 +8,7 @@ import {
   classifyGrpcTransportFailure,
   type GrpcTransportErrorDetails,
 } from '../../src/shared/grpc/grpcTransportErrors.js';
+import { prepareGrpcTarget } from '../../src/shared/grpc/grpcTlsPolicy.js';
 import { validateResolvedGrpcTargetAddress } from '../../src/shared/grpc/targetValidation.js';
 import {
   buildDescriptorKey,
@@ -134,13 +135,20 @@ export class DescriptorLoader {
     }
 
     const timeoutMs = request.timeoutMs ?? 5_000;
+    // Coerce sticky TLS/mTLS against known plaintext echo ports (:50051/:50052)
+    // so demo hygiene / leftover tab state cannot 503 Reflect with SSL wrong-version.
+    const preparedTarget = prepareGrpcTarget({
+      address: targetCheck.normalized,
+      tlsMode: request.target.tlsMode,
+      tlsConfig: request.target.tlsConfig,
+    }).target;
     try {
       const reflection = await this.reflectionClient.fetchReflectionRoot({
         address: targetCheck.normalized,
         timeoutMs,
         serviceNames: request.serviceNames,
-        tlsMode: request.target.tlsMode,
-        tlsConfig: request.target.tlsConfig,
+        tlsMode: preparedTarget.tlsMode,
+        tlsConfig: preparedTarget.tlsConfig,
       });
       return finalizeDescriptorFromRoot(
         reflection.root,

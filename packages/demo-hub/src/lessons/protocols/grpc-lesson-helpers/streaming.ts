@@ -256,29 +256,23 @@ export async function highlightAndClickStreamControl(
  * Start stream → Send all → End stream.
  */
 export async function runClientStreamSendLifecycle(ctx: DemoActionContext): Promise<void> {
+  // Keep wall time well under DEMO_ACTION_TIMEOUT_MS (16s): each click already
+  // includes ~560ms visible ripple, and the lesson action adds status waits after this.
   await highlightAndClickStreamControl(ctx, GRPC.STREAM_START_BTN, {
-    holdMs: 1_100,
-    afterClickMs: 900,
+    holdMs: 700,
+    afterClickMs: 450,
   });
 
-  try {
-    await ctx.waitFor(GRPC.STREAM_SEND_ALL_BTN, 3_000);
-  } catch {
-    // Send all may be unavailable if the stream already ended.
-  }
+  await ctx.waitFor(GRPC.STREAM_SEND_ALL_BTN, 2_000).catch(() => undefined);
   await highlightAndClickStreamControl(ctx, GRPC.STREAM_SEND_ALL_BTN, {
-    holdMs: 1_100,
-    afterClickMs: 1_200,
+    holdMs: 700,
+    afterClickMs: 600,
   });
 
-  try {
-    await ctx.waitFor(GRPC.STREAM_PENDING_END_BTN, 2_000);
-  } catch {
-    // End button may be absent if the stream already finished.
-  }
+  await ctx.waitFor(GRPC.STREAM_PENDING_END_BTN, 1_500).catch(() => undefined);
   await highlightAndClickStreamControl(ctx, GRPC.STREAM_PENDING_END_BTN, {
-    holdMs: 1_100,
-    afterClickMs: 900,
+    holdMs: 700,
+    afterClickMs: 450,
   });
 }
 

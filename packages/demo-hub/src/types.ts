@@ -1,4 +1,7 @@
 /** Demo Player — type definitions */
+import type { DemoInitialSurface } from '@shared/demoInitialSurface';
+
+export type { DemoInitialSurface } from '@shared/demoInitialSurface';
 
 // ─── State Machine ───────────────────────────────────────────────
 export type HubView = 'domains' | 'lessons' | 'concept' | 'live';
@@ -53,6 +56,13 @@ export interface DemoLesson {
   description: string;
   estimatedMinutes: number;
   initialTab?: string;
+  /**
+   * Sub-panel the `initialTab` should mount on, armed before the tab-switch
+   * commit. Set this when step 1 targets a non-default sub-panel — otherwise
+   * the tab paints its default view and `setup()` visibly hops to the right
+   * one, which reads as a flash between Concept and step 1.
+   */
+  initialSurface?: DemoInitialSurface;
   /** Additional tabs the lesson may navigate to without triggering the auto-exit guard.
    *  Use when a lesson spans multiple app tabs (e.g. Workflow Builder → Workflow Runner). */
   allowedTabs?: string[];

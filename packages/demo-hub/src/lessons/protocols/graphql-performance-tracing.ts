@@ -5,14 +5,22 @@ import {
   GQL_DEMO_HEALTH,
   GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HTTP,
+  demonstrateGql10Complexity,
+  demonstrateGql10Expand,
+  demonstrateGql10Execute,
+  demonstrateGql10TracingBadge,
+  demonstrateGql10Waterfall,
   ensureLatencyHistogramVisible,
-  ensureTracingExecuted,
-  ensureTracingHealthQuery,
   ensureTracingResolverHovered,
   ensureTracingSortedByDuration,
-  ensureTracingUserQuery,
-  ensureTracingViewOpen,
-  getComplexityBadgeScore,
+  prepareGql10ComplexityReading,
+  prepareGql10ExpandReading,
+  prepareGql10ExecuteReading,
+  prepareGql10TracingBadgeReading,
+  prepareGql10WaterfallReading,
+  prepareGql10HoverReading,
+  prepareGql10SortReading,
+  prepareGql10HistogramReading,
   gqlPerformanceTracingLessonCleanup,
   gqlPerformanceTracingLessonSetup,
 } from './graphql-lesson-helpers';
@@ -305,11 +313,8 @@ After two or more executions, the **histogram strip** appears below the response
         'The goal is to surface expensive queries at authoring time, before they cause slow responses, rate-limit errors, or production incidents. ' +
         'Think of it as a fuel gauge before a trip — you see the cost before you commit.',
       highlight: GQL.COMPLEXITY_BADGE,
-      preAction: ensureTracingHealthQuery,
-      action: async (ctx) => {
-        await ensureTracingHealthQuery(ctx);
-        await ctx.delay(800);
-      },
+      preAction: prepareGql10ComplexityReading,
+      action: demonstrateGql10Complexity,
       verify: GQL.COMPLEXITY_BADGE,
       pauseAfter: true,
     },
@@ -323,17 +328,10 @@ After two or more executions, the **histogram strip** appears below the response
         '**Why the score increases:** Each additional field the server must resolve adds to the estimated cost. The `user` field requires a separate database lookup (or service call). Its subfields `id` and `name` each add to the resolver count. ' +
         'The badge helps you understand the trade-off before executing: is the extra data worth the extra server work? ' +
         'This is especially relevant with deeply nested queries where the N+1 problem can turn a single request into hundreds of resolver calls.',
-      highlight: GQL.COMPLEXITY_BADGE,
-      preAction: ensureTracingHealthQuery,
-      action: async (ctx) => {
-        const before = getComplexityBadgeScore();
-        await ensureTracingUserQuery(ctx);
-        const after = getComplexityBadgeScore();
-        if (after <= before && before > 0) {
-          await ensureTracingUserQuery(ctx);
-        }
-        await ctx.delay(800);
-      },
+      // Reading: editor (fields are added here). Action holds on the badge after it increases.
+      highlight: GQL.EDITOR,
+      preAction: prepareGql10ExpandReading,
+      action: demonstrateGql10Expand,
       verify: GQL.COMPLEXITY_BADGE,
       pauseAfter: true,
     },
@@ -347,16 +345,13 @@ After two or more executions, the **histogram strip** appears below the response
         '**Why the server must opt in:** Apollo Tracing is a server-side extension — the server has to be configured to collect and return resolver timings. Not every GraphQL server enables it. ' +
         'The Docker test server on port 4010 always returns Apollo Tracing v1, making this a reliable demo environment. In production, look for the `extensions.tracing` key in your raw response JSON; if it is absent, your server has not enabled the extension.',
       highlight: GQL.EXECUTE_BTN,
-      preAction: ensureTracingUserQuery,
-      action: async (ctx) => {
-        await ensureTracingExecuted(ctx);
-        await ctx.delay(800);
-      },
-      verify: GQL.RESPONSE_VIEWER,
+      preAction: prepareGql10ExecuteReading,
+      action: demonstrateGql10Execute,
+      verify: GQL.RV_TRACING_BADGE,
       pauseAfter: true,
     },
 
-    // ── Step 4: Tracing badge (NEW) ─────────────────────────────────────────
+    // ── Step 4: Tracing badge ───────────────────────────────────────────────
     {
       id: 'gql10-tracing-badge',
       title: 'The Tracing Badge — Trace Data Confirmed',
@@ -365,11 +360,8 @@ After two or more executions, the **histogram strip** appears below the response
         '**Why a badge instead of auto-opening?** Not every execution against every server will return tracing data. The badge is a conditional indicator: if the server returned trace data, it lights up and gives you a click target. If the server does not support tracing, no badge appears — you do not navigate to an empty panel. ' +
         'The badge also serves as a persistent indicator: even after you switch response tabs, the badge reminds you that trace data is available.',
       highlight: GQL.RV_TRACING_BADGE,
-      preAction: ensureTracingExecuted,
-      action: async (ctx) => {
-        await ensureTracingViewOpen(ctx);
-        await ctx.delay(800);
-      },
+      preAction: prepareGql10TracingBadgeReading,
+      action: demonstrateGql10TracingBadge,
       verify: GQL.TRACE_VIEW,
       pauseAfter: true,
     },
@@ -386,10 +378,8 @@ After two or more executions, the **histogram strip** appears below the response
         '- The **relative contribution** of each resolver to total query time\n\n' +
         'A query where `Query.user` takes 290ms out of a 300ms total is a very different performance profile from one where all 10 resolvers share 300ms evenly. The waterfall makes both patterns immediately visible.',
       highlight: GQL.TRACE_VIEW,
-      preAction: ensureTracingViewOpen,
-      action: async (ctx) => {
-        await ctx.delay(800);
-      },
+      preAction: prepareGql10WaterfallReading,
+      action: demonstrateGql10Waterfall,
       verify: GQL.TRACE_VIEW,
       pauseAfter: true,
     },
@@ -404,11 +394,8 @@ After two or more executions, the **histogram strip** appears below the response
         'The **Start offset** is equally important: a resolver that starts at t=200ms (because it depends on a parent resolver) tells a different story from one that starts at t=0. ' +
         'The color coding follows a traffic-light convention so you can identify slow resolvers without reading every number.',
       highlight: GQL.TRACE_RESOLVER_ROW,
-      preAction: ensureTracingViewOpen,
-      action: async (ctx) => {
-        await ensureTracingResolverHovered(ctx);
-        await ctx.delay(800);
-      },
+      preAction: prepareGql10HoverReading,
+      action: ensureTracingResolverHovered,
       verify: GQL.TRACE_RESOLVER_ROW,
       pauseAfter: true,
     },
@@ -423,12 +410,9 @@ After two or more executions, the **histogram strip** appears below the response
         'Sorting by duration puts your slowest resolver at the top immediately, regardless of when it ran. ' +
         'This is your first optimization target: fix the slowest resolver before worrying about the fast ones.',
       highlight: GQL.TRACE_SORT_DURATION,
-      preAction: ensureTracingViewOpen,
-      action: async (ctx) => {
-        await ensureTracingSortedByDuration(ctx);
-        await ctx.delay(800);
-      },
-      verify: GQL.TRACE_SORT_DURATION,
+      preAction: prepareGql10SortReading,
+      action: ensureTracingSortedByDuration,
+      verify: GQL.TRACE_RESOLVER_ROW,
       pauseAfter: true,
     },
 
@@ -443,12 +427,10 @@ After two or more executions, the **histogram strip** appears below the response
         '- A **right-skewed histogram with a long tail** means occasional spikes (your p95 is much worse than your average)\n' +
         '- A **bimodal histogram** (two peaks) means two distinct execution paths — possibly a cache hit vs. cache miss pattern\n\n' +
         'The **p95 line** (the value below which 95% of requests fall) is the metric to optimize for in production — it represents the worst experience your typical user encounters.',
-      highlight: GQL.HISTOGRAM_STRIP,
-      preAction: ensureTracingSortedByDuration,
-      action: async (ctx) => {
-        await ensureLatencyHistogramVisible(ctx);
-        await ctx.delay(800);
-      },
+      // Reading: Execute (histogram does not exist yet). Action holds on the strip after samples accumulate.
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareGql10HistogramReading,
+      action: ensureLatencyHistogramVisible,
       verify: GQL.HISTOGRAM_STRIP,
       pauseAfter: true,
     },

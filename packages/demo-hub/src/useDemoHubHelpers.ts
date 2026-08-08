@@ -182,7 +182,11 @@ export function isElementVisible(el: Element): boolean {
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return false;
   const style = getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  // During live-demo boot the elevated hub covers the workspace — still treat
+  // under-cover descendants as findable so revealBootSurface can wait for highlights.
+  if (document.body.getAttribute('data-demo-bootstrapping') === '1') return true;
+  return style.opacity !== '0';
 }
 
 import { showClickRipple } from './demoRipple';
@@ -215,32 +219,43 @@ export function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> 
 }
 
 /** Visible demo action context — click ripple and paced delays for live steps. */
-export function buildDemoActionContext(navigateToTab: (tab: string) => void): DemoActionContext {
+export function buildDemoActionContext(
+  navigateToTab: (tab: string) => void,
+  signal?: AbortSignal,
+): DemoActionContext {
+  const sleep = (ms: number) => abortableSleep(ms, signal);
   return {
     navigateToTab,
     click: async (selector: string) => {
+      if (signal?.aborted) return;
       const el = firstVisible(selector);
       if (el) {
         showClickRipple(el);
-        await new Promise(r => setTimeout(r, DEMO_VISIBLE_RIPPLE_MS));
+        await sleep(DEMO_VISIBLE_RIPPLE_MS);
+        if (signal?.aborted) return;
         el.click();
       }
     },
     fill: async (selector: string, value: string) => {
+      if (signal?.aborted) return;
       const el = firstVisible(selector);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         showClickRipple(el);
-        await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
+        await sleep(DEMO_VISIBLE_FILL_PAUSE_MS);
+        if (signal?.aborted) return;
         fillControlledInput(el, value);
       }
     },
     selectOption: async (selector: string, value: string) => {
+      if (signal?.aborted) return;
       const el = firstVisible(selector);
       if (!el) return;
 
       if (el instanceof HTMLSelectElement) {
+        if (el.value === value) return;
         showClickRipple(el);
-        await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
+        await sleep(DEMO_VISIBLE_FILL_PAUSE_MS);
+        if (signal?.aborted) return;
         const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
         nativeSet?.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -252,57 +267,76 @@ export function buildDemoActionContext(navigateToTab: (tab: string) => void): De
         : el.closest('.cs-wrapper');
       if (!wrapper) return;
 
+      // Already on the target — opening the menu would only flicker.
+      if (wrapper.getAttribute('data-value') === value) return;
+
       const trigger = wrapper.querySelector<HTMLButtonElement>('.cs-trigger');
       if (!trigger || trigger.disabled) return;
       showClickRipple(trigger);
-      await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
+      await sleep(DEMO_VISIBLE_FILL_PAUSE_MS);
+      if (signal?.aborted) return;
       trigger.click();
       // The CustomSelect menu is rendered via a React portal into document.body,
       // so we must search document — not wrapper — for the option item.
       // Pause so the user can see all available options before we select one.
-      await new Promise(r => setTimeout(r, 700));
+      await sleep(700);
+      if (signal?.aborted) return;
       const escValue = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
         ? CSS.escape(value)
         : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const item = document.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
-      if (!item) return;
+      if (!item) {
+        // Menu failed to open — close stray trigger state and bail (no silent flicker loop).
+        if (trigger.getAttribute('aria-expanded') === 'true') trigger.click();
+        return;
+      }
       // Highlight the target item so the user can see it before it's selected.
       item.classList.add('cs-item--demo-highlight');
       showClickRipple(item);
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(500);
+      if (signal?.aborted) return;
       item.classList.remove('cs-item--demo-highlight');
       item.click();
     },
     waitFor: async (selector: string, timeout = 5000) => {
       const start = Date.now();
       while (Date.now() - start < timeout) {
+        if (signal?.aborted) return;
         if (document.querySelector(selector)) return;
-        await new Promise(r => setTimeout(r, 100));
+        await sleep(100);
       }
     },
-    delay: (ms: number) => new Promise(r => setTimeout(r, ms)),
+    delay: (ms: number) => sleep(ms),
   };
 }
 
 /** Quiet demo action context — for preAction, setup, cleanup (scaled delays, no ripple). */
-export function buildQuietDemoActionContext(navigateToTab: (tab: string) => void): DemoActionContext {
+export function buildQuietDemoActionContext(
+  navigateToTab: (tab: string) => void,
+  signal?: AbortSignal,
+): DemoActionContext {
+  const sleep = (ms: number) => abortableSleep(scaleQuietDelay(ms), signal);
   return {
     navigateToTab,
     click: async (selector: string) => {
+      if (signal?.aborted) return;
       const el = firstVisible(selector);
       if (el) el.click();
     },
     fill: async (selector: string, value: string) => {
+      if (signal?.aborted) return;
       const el = firstVisible(selector);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         fillControlledInput(el, value);
       }
     },
     selectOption: async (selector: string, value: string) => {
+      if (signal?.aborted) return;
       const el = firstVisible(selector);
       if (!el) return;
 
       if (el instanceof HTMLSelectElement) {
+        if (el.value === value) return;
         const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
         if (desc?.set) desc.set.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -313,24 +347,24 @@ export function buildQuietDemoActionContext(navigateToTab: (tab: string) => void
         ? el
         : el.closest('.cs-wrapper');
       if (!wrapper) return;
-      const trigger = wrapper.querySelector<HTMLButtonElement>('.cs-trigger');
-      if (!trigger || trigger.disabled) return;
-      trigger.click();
-      // Menu is portaled to document.body — search document, not wrapper.
-      await new Promise(r => setTimeout(r, 40));
-      const escValue = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-        ? CSS.escape(value)
-        : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const item = document.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
-      item?.click();
+      if (wrapper.getAttribute('data-value') === value) return;
+
+      // Quiet path: set value via CustomSelect event — never open the portal menu
+      // (open→pick→close in ~40ms is the "quick blink" viewers see during Preparing).
+      wrapper.dispatchEvent(
+        new CustomEvent('custom-select:set-value', { detail: { value } }),
+      );
     },
     waitFor: async (selector: string, timeout = 5000) => {
       const start = Date.now();
       while (Date.now() - start < timeout) {
+        if (signal?.aborted) return;
         if (document.querySelector(selector)) return;
-        await new Promise(r => setTimeout(r, 100));
+        // Poll interval stays short; do not scaleQuietDelay here or long waits
+        // balloon when many polls stack during Preparing.
+        await abortableSleep(100, signal);
       }
     },
-    delay: (ms: number) => new Promise(r => setTimeout(r, scaleQuietDelay(ms))),
+    delay: (ms: number) => sleep(ms),
   };
 }

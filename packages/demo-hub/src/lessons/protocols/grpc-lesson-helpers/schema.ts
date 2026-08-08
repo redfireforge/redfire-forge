@@ -1,27 +1,119 @@
 import type { DemoActionContext } from '../../../types';
+import { resetGrpcManageSchemasDraftsViaBridge } from '../../../adapters';
 import { GRPC } from '@shared/selectors';
 import { GRPC_ECHO_METHOD_SEL } from './constants';
 import { setInputValueAndDispatch } from './dom';
 import { ensureGrpcStudioSubNavQuiet } from './navigation';
 
+const MANAGE_SCHEMAS_CLOAK_STYLE_ID = 'demo-hub-cloak-grpc-manage-schemas';
+
+/**
+ * Hide Manage Schemas chrome while quiet setup mutates it — prevents step-1 flash.
+ * Keeps elements queryable in the DOM (visibility:hidden, not display:none).
+ */
+function cloakManageSchemasUi(): () => void {
+  if (document.getElementById(MANAGE_SCHEMAS_CLOAK_STYLE_ID)) {
+    return () => undefined;
+  }
+  const style = document.createElement('style');
+  style.id = MANAGE_SCHEMAS_CLOAK_STYLE_ID;
+  style.textContent = `
+    [data-testid="grpc-proto-manage-modal"],
+    [data-testid="grpc-modal-overlay"] {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+  return () => {
+    style.remove();
+  };
+}
+
+/**
+ * Clear URL + BSR draft fields while Manage Schemas is open.
+ * Leaves the modal open and switches back to the Proto Files tab.
+ */
+export async function clearGrpcManageSchemasUrlBsrDraftsQuiet(
+  ctx: DemoActionContext,
+): Promise<void> {
+  const modal = document.querySelector<HTMLElement>(GRPC.PROTO_MANAGE_MODAL);
+  if (!modal) return;
+
+  const urlTab = modal.querySelector<HTMLElement>(GRPC.PROTO_TAB_URL);
+  urlTab?.click();
+  await ctx.delay(80);
+  const urlInput = modal.querySelector<HTMLInputElement>(GRPC.PROTO_URL_INPUT);
+  if (urlInput && urlInput.value) {
+    setInputValueAndDispatch(urlInput, '');
+  }
+
+  const bsrTab = modal.querySelector<HTMLElement>(GRPC.PROTO_TAB_BSR);
+  bsrTab?.click();
+  await ctx.delay(80);
+  const bsrModuleInput = modal.querySelector<HTMLInputElement>(GRPC.PROTO_BSR_MODULE_INPUT);
+  const bsrVersionInput = modal.querySelector<HTMLInputElement>(GRPC.PROTO_BSR_VERSION_INPUT);
+  const bsrTokenInput = modal.querySelector<HTMLInputElement>(GRPC.PROTO_BSR_TOKEN_INPUT);
+  if (bsrModuleInput && bsrModuleInput.value) setInputValueAndDispatch(bsrModuleInput, '');
+  if (bsrVersionInput && bsrVersionInput.value) setInputValueAndDispatch(bsrVersionInput, '');
+  if (bsrTokenInput && bsrTokenInput.value) setInputValueAndDispatch(bsrTokenInput, '');
+
+  const protoTab = modal.querySelector<HTMLElement>(GRPC.PROTO_TAB_PROTO_FILES);
+  protoTab?.click();
+  await ctx.delay(100);
+}
+
 /**
  * Best-effort cleanup for persisted Manage Schemas drafts.
  * Clears staged proto/protoset/url/bsr inputs so lessons start from a deterministic baseline.
+ * Prefers the React bridge (no modal). DOM path is cloaked so viewers never see the flash.
  */
 export async function resetGrpcManageSchemasDraftsQuiet(ctx: DemoActionContext): Promise<void> {
+  // Preferred: wipe draft state in React without opening Manage Schemas.
+  if (resetGrpcManageSchemasDraftsViaBridge()) {
+    if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
+      const uncloak = cloakManageSchemasUi();
+      try {
+        const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_CANCEL_BTN);
+        if (cancelBtn && !cancelBtn.disabled) {
+          cancelBtn.click();
+          await ctx.delay(120);
+        }
+        if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
+          document.querySelector<HTMLElement>('[data-testid="grpc-modal-overlay"]')?.click();
+          await ctx.delay(80);
+        }
+      } finally {
+        uncloak();
+      }
+    }
+    return;
+  }
+
+  const uncloak = cloakManageSchemasUi();
+  try {
+    await resetGrpcManageSchemasDraftsViaDom(ctx);
+  } finally {
+    uncloak();
+  }
+}
+
+/** DOM fallback when the demo bridge is unavailable (cloaked by caller). */
+async function resetGrpcManageSchemasDraftsViaDom(ctx: DemoActionContext): Promise<void> {
+  // If the modal is already open, clear drafts in place then close.
+  // (Previously we cancelled and returned — which left BSR/URL values in React state.)
   if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
+    await clearGrpcManageSchemasUrlBsrDraftsQuiet(ctx);
     const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_CANCEL_BTN);
     if (cancelBtn && !cancelBtn.disabled) {
       cancelBtn.click();
       await ctx.delay(200);
     }
-    // If the modal is still visible after cancel, dismiss it by clicking outside.
     if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
       const overlay = document.querySelector<HTMLElement>('[data-testid="grpc-modal-overlay"]');
-      if (overlay) {
-        overlay.click();
-        await ctx.delay(150);
-      }
+      overlay?.click();
+      await ctx.delay(150);
     }
     return;
   }
@@ -155,11 +247,22 @@ export async function resetGrpcManageSchemasDraftsQuiet(ctx: DemoActionContext):
  * Clears stale-method drift banners that can remain after source switching.
  */
 export async function clearGrpcSchemaDriftQuiet(ctx: DemoActionContext): Promise<void> {
-  await ensureGrpcStudioSubNavQuiet(ctx);
+  // Drift banner only mounts on the Studio explorer. If we are on Advanced /
+  // Collections / History and no banner is in the DOM, do NOT bounce to Studio
+  // just to poll — that undoes quiet lands (e.g. Schema Diff / Mock server)
+  // and flashes Studio before step 1 Reading.
+  const studioSelected =
+    document.querySelector(GRPC.SUB_NAV_STUDIO)?.getAttribute('aria-selected') === 'true';
+  let banner: HTMLElement | null = document.querySelector<HTMLElement>(GRPC.SCHEMA_DRIFT_BANNER);
+  if (!banner && !studioSelected) return;
+
+  if (!studioSelected) {
+    await ensureGrpcStudioSubNavQuiet(ctx);
+  }
   // Drift state can be applied a short moment after source/method updates.
   // Fast-path: if banner is absent immediately, return without polling.
   // Only start the poll loop when a banner is present on first check.
-  let banner: HTMLElement | null = document.querySelector<HTMLElement>(GRPC.SCHEMA_DRIFT_BANNER);
+  banner = document.querySelector<HTMLElement>(GRPC.SCHEMA_DRIFT_BANNER);
   if (!banner) {
     // Wait one short frame to catch banners that appear asynchronously.
     await ctx.delay(80);

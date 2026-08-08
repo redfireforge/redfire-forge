@@ -1,6 +1,6 @@
 /** Shared Workflow Designer demo helpers (console panel, config modal, app sidebar, etc.). */
 import type { DemoActionContext } from '../types';
-import { showSpotlightRing } from '../demoRipple';
+import { purgeAllSpotlightRings, showSpotlightRing } from '../demoRipple';
 import {
   collapseAppSidebar,
   deselectAllWorkflowNodes,
@@ -60,6 +60,24 @@ export const WF_CONFIG_DEMO_TIMING_BRISK = {
   modalClose: 450,
   sectionBreak: 500,
   afterSubFormOpen: 700,
+} as const satisfies Record<keyof typeof WF_CONFIG_DEMO_TIMING, number>;
+
+/**
+ * Guided pacing — brisk modal chrome, longer field holds so steady spotlights
+ * read as highlights (not flashes). Prefer for GraphQL Workflow Integration.
+ */
+export const WF_CONFIG_DEMO_TIMING_GUIDED = {
+  modalOpen: 1100,
+  panelReady: 700,
+  tabSwitch: 900,
+  afterClick: 550,
+  afterFill: 850,
+  afterSelect: 850,
+  beforeSave: 900,
+  afterSave: 800,
+  modalClose: 550,
+  sectionBreak: 800,
+  afterSubFormOpen: 850,
 } as const satisfies Record<keyof typeof WF_CONFIG_DEMO_TIMING, number>;
 
 export type WfConfigDemoTimingKey = keyof typeof WF_CONFIG_DEMO_TIMING;
@@ -303,16 +321,73 @@ function wfConfigScrollSettleMs(): number {
   return activeWfConfigTiming.panelReady <= WF_CONFIG_DEMO_TIMING_BRISK.panelReady ? 250 : 450;
 }
 
+/** Place a steady field ring (replaces any prior imperative ring — no pulse flash). */
+function steadyWfConfigFieldRing(selector: string): void {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return;
+  purgeAllSpotlightRings();
+  showSpotlightRing(el, { steady: true });
+}
+
+function wfConfigFieldLookMs(): number {
+  return Math.max(450, Math.round(activeWfConfigTiming.afterFill * 0.55));
+}
+
 function wfNodeIdFromCanvasTestId(testIdSelector: string): string | null {
   const inner = document.querySelector(testIdSelector);
   const rfNode = inner?.closest('.react-flow__node');
   return rfNode?.getAttribute('data-id') ?? null;
 }
 
+function resolveWfCanvasNodeElement(
+  target: { canvasTestId?: string; nodeSelector?: string; nodeId?: string },
+  nodeId: string | null,
+): HTMLElement | null {
+  if (target.canvasTestId) {
+    const inner = document.querySelector<HTMLElement>(target.canvasTestId);
+    if (inner) return (inner.closest('.react-flow__node') as HTMLElement | null) ?? inner;
+  }
+  if (target.nodeSelector) {
+    const el = document.querySelector<HTMLElement>(target.nodeSelector);
+    if (el) return (el.closest('.react-flow__node') as HTMLElement | null) ?? el;
+  }
+  if (nodeId) {
+    return document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`);
+  }
+  return null;
+}
+
+/**
+ * Spotlight the canvas node before opening its config so viewers know which
+ * block is being configured (especially important on dense canvases).
+ */
+async function spotlightWfCanvasNodeBeforeConfig(
+  ctx: DemoActionContext,
+  node: HTMLElement | null,
+): Promise<void> {
+  if (!node) return;
+  node.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  purgeAllSpotlightRings();
+  const removeRing = showSpotlightRing(node, { steady: true });
+  // Long enough to read the node label before the modal covers the canvas.
+  const holdMs = Math.max(1_100, Math.round(activeWfConfigTiming.modalOpen * 0.55));
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    removeRing();
+  }
+}
+
 /** Open a node config modal and pause so the viewer can orient to the panel. */
 export async function openWfNodeConfigModal(
   ctx: DemoActionContext,
-  target: { canvasTestId?: string; nodeSelector?: string; nodeId?: string },
+  target: {
+    canvasTestId?: string;
+    nodeSelector?: string;
+    nodeId?: string;
+    /** Skip the pre-open canvas ring when Reading already highlighted the node. */
+    skipCanvasSpotlight?: boolean;
+  },
 ): Promise<void> {
   let nodeId = target.nodeId ?? null;
   if (!nodeId && target.canvasTestId) {
@@ -323,21 +398,33 @@ export async function openWfNodeConfigModal(
     nodeId = el?.getAttribute('data-id') ?? el?.closest('.react-flow__node')?.getAttribute('data-id') ?? null;
   }
 
+  const canvasNode = resolveWfCanvasNodeElement(target, nodeId);
+  if (!target.skipCanvasSpotlight) {
+    await spotlightWfCanvasNodeBeforeConfig(ctx, canvasNode);
+  }
+
   if (nodeId && openWorkflowNodeConfig(nodeId)) {
     // opened via demo bridge
   } else {
     deselectAllWorkflowNodes();
-    const node =
-      (target.canvasTestId
+    const node = canvasNode
+      ?? (target.canvasTestId
         ? document.querySelector<HTMLElement>(target.canvasTestId)
         : target.nodeSelector
           ? document.querySelector<HTMLElement>(target.nodeSelector)
-          : null) ??
-      (nodeId ? document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`) : null);
+          : null)
+      ?? (nodeId ? document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`) : null);
     node?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     node?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
   }
 
+  // Wait for the panel to mount first — a blind modalOpen delay felt like
+  // "Acting" with no UI change when the bridge/open was still in flight.
+  try {
+    await ctx.waitFor(WF.NODE_CONFIG, 5_000);
+  } catch {
+    // Keep going; waitForWfConfigPanel / field waits catch real failures.
+  }
   await pauseWfConfigDemo(ctx, 'modalOpen');
 }
 
@@ -419,32 +506,40 @@ export async function fillWfConfigField(
   ctx: DemoActionContext,
   selector: string,
   value: string,
+  opts?: { spotlight?: boolean },
 ): Promise<void> {
   await ctx.waitFor(selector, 8000);
   await scrollWfConfigFieldIntoView(ctx, selector);
-  // Apply persistent highlight before filling so the viewer can see which field
-  // is targeted. Keep it through the afterFill pause, then remove it.
+  // Steady spotlight (not outline flash) — leave ring through afterFill so the
+  // viewer can read the value; the next fill/select replaces it.
+  // Skip for tall code editors — a ring on empty textarea reads as "background".
+  if (opts?.spotlight !== false) {
+    steadyWfConfigFieldRing(selector);
+    await ctx.delay(wfConfigFieldLookMs());
+  }
+  const el = document.querySelector<HTMLElement>(selector);
   // Quiet fill (no click ripple) — a ripple centered in a large textarea looks
   // like a blue blob inside the highlight box.
-  const el = document.querySelector<HTMLElement>(selector);
-  el?.classList.add('demo-field-highlight');
-  await ctx.delay(500);
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     fillControlledInput(el, value);
   } else {
     await ctx.fill(selector, value);
   }
   await pauseWfConfigDemo(ctx, 'afterFill');
-  el?.classList.remove('demo-field-highlight');
 }
 
 export async function selectWfConfigOption(
   ctx: DemoActionContext,
   selector: string,
   value: string,
+  opts?: { spotlight?: boolean },
 ): Promise<void> {
   await ctx.waitFor(selector, 8000);
   await scrollWfConfigFieldIntoView(ctx, selector);
+  if (opts?.spotlight !== false) {
+    steadyWfConfigFieldRing(selector);
+    await ctx.delay(wfConfigFieldLookMs());
+  }
   await ctx.selectOption(selector, value);
   await pauseWfConfigDemo(ctx, 'afterSelect');
 }
@@ -457,10 +552,38 @@ export async function clickWfConfigAddRow(
   timeout = 8000,
 ): Promise<void> {
   await scrollWfConfigFieldIntoView(ctx, addBtnSelector);
+  steadyWfConfigFieldRing(addBtnSelector);
+  await ctx.delay(wfConfigFieldLookMs());
   await ctx.click(addBtnSelector);
   await ctx.waitFor(rowSelector, timeout);
   await scrollWfConfigFieldIntoView(ctx, rowSelector);
+  steadyWfConfigFieldRing(rowSelector);
   await pauseWfConfigDemo(ctx, 'afterSubFormOpen');
+}
+
+/**
+ * Hold a steady spotlight on a selector (config field, canvas node, console…).
+ * Prefer this over outline flashes for outcome / reading beats inside actions.
+ */
+export async function holdWfSpotlight(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs?: number,
+): Promise<void> {
+  const ms = holdMs ?? Math.max(700, activeWfConfigTiming.afterFill);
+  try {
+    await ctx.waitFor(selector, 5000);
+  } catch {
+    await ctx.delay(ms);
+    return;
+  }
+  steadyWfConfigFieldRing(selector);
+  try {
+    await ctx.delay(ms);
+  } finally {
+    // Clear so reading-phase DemoSpotlight is not suppressed by a leftover ring.
+    purgeAllSpotlightRings();
+  }
 }
 
 export async function clickWfConfigControl(
@@ -721,46 +844,72 @@ export function applyWfDemoConsoleFloatLayout(): void {
  * Demos use floating so the workflow nodes stay visible beside the log panel.
  */
 export async function openWfConsoleIfClosed(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(WF.CONSOLE)) {
+    setWfConsolePanelMode('floating');
+    applyWfDemoConsoleFloatLayout();
+    return;
+  }
   setWfConsolePanelMode('floating');
-  if (!document.querySelector(WF.CONSOLE)) {
-    const badge = document.querySelector<HTMLElement>(WF.CONSOLE_BADGE);
-    if (badge) {
-      badge.click();
-      await ctx.delay(600);
-    }
+  const badge = document.querySelector<HTMLElement>(WF.CONSOLE_BADGE);
+  if (badge) {
+    badge.click();
+    await ctx.delay(600);
   }
   if (document.querySelector(WF.CONSOLE)) {
     setWfConsolePanelMode('floating');
     applyWfDemoConsoleFloatLayout();
+    await ctx.delay(400);
   }
-  await ctx.delay(400);
 }
 
+export type WfDebugDemoPacing = {
+  /** Delay after navigate, before clicking Debug (default 400). */
+  afterNavMs?: number;
+  /** Delay after clicking Debug so the bar can render (default 1200). */
+  afterClickMs?: number;
+  /** Hold before each Step click so viewers see the pause (default 900). */
+  beforeStepMs?: number;
+  /** Hold after each Step click for the node outcome (default 1200). */
+  afterStepMs?: number;
+  /** waitFor timeout for the next Step button (default 20000). */
+  stepWaitMs?: number;
+};
+
 /** Start a step-through Debug run (toolbar Debug button). */
-export async function startWfDebugRun(ctx: DemoActionContext): Promise<void> {
+export async function startWfDebugRun(
+  ctx: DemoActionContext,
+  pacing: WfDebugDemoPacing = {},
+): Promise<void> {
   ctx.navigateToTab('workflow');
-  await ctx.delay(400);
+  await ctx.delay(pacing.afterNavMs ?? 400);
   await ctx.click(WF.DEBUG_BTN);
-  await ctx.delay(1200);
+  await ctx.delay(pacing.afterClickMs ?? 1200);
 }
 
 /**
  * Click each per-node **Step** button as Debug mode pauses the workflow.
  * Returns how many Step clicks were performed.
  */
-export async function clickWfDebugStepButtons(ctx: DemoActionContext, maxSteps = 12): Promise<number> {
+export async function clickWfDebugStepButtons(
+  ctx: DemoActionContext,
+  maxSteps = 12,
+  pacing: WfDebugDemoPacing = {},
+): Promise<number> {
+  const beforeStepMs = pacing.beforeStepMs ?? 900;
+  const afterStepMs = pacing.afterStepMs ?? 1200;
+  const stepWaitMs = pacing.stepWaitMs ?? 20_000;
   let clicked = 0;
   for (let i = 0; i < maxSteps; i++) {
     try {
-      await ctx.waitFor(WF.DEBUG_STEP_BTN, 20000);
+      await ctx.waitFor(WF.DEBUG_STEP_BTN, stepWaitMs);
     } catch {
       break;
     }
     if (!document.querySelector(WF.DEBUG_STEP_BTN)) break;
-    await ctx.delay(900);
+    await ctx.delay(beforeStepMs);
     await ctx.click(WF.DEBUG_STEP_BTN);
     clicked++;
-    await ctx.delay(1200);
+    await ctx.delay(afterStepMs);
   }
   return clicked;
 }

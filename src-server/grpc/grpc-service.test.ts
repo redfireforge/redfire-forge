@@ -179,13 +179,31 @@ describe('GrpcService', () => {
       } as unknown as DescriptorLoader);
 
       const envelope = await reflectService.reflect({
-        target: { address: 'localhost:50051', tlsMode: 'tls' },
+        target: { address: 'localhost:50443', tlsMode: 'tls' },
       });
 
       expect(envelope.ok).toBe(true);
       expect(loadFromReflection).toHaveBeenCalledWith(
         expect.objectContaining({
           target: expect.objectContaining({ tlsMode: 'tls' }),
+        }),
+      );
+    });
+
+    it('reflect coerces sticky TLS on plaintext echo :50051 to disabled', async () => {
+      const loadFromReflection = vi.fn(async () => FIXTURE_DESCRIPTOR);
+      const reflectService = new GrpcService(mockClient, {
+        loadFromReflection,
+      } as unknown as DescriptorLoader);
+
+      const envelope = await reflectService.reflect({
+        target: { address: 'localhost:50051', tlsMode: 'tls' },
+      });
+
+      expect(envelope.ok).toBe(true);
+      expect(loadFromReflection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: expect.objectContaining({ tlsMode: 'disabled' }),
         }),
       );
     });
@@ -197,7 +215,7 @@ describe('GrpcService', () => {
         }),
       }));
       const envelope = await reflectService.reflect({
-        target: { address: 'localhost:50051', tlsMode: 'tls' },
+        target: { address: 'localhost:50443', tlsMode: 'tls' },
       });
       expect(envelope.ok).toBe(false);
       if (!envelope.ok) {
@@ -209,7 +227,8 @@ describe('GrpcService', () => {
 
     it('rejects incomplete mtls config on reflect before transport check (Phase 4A)', async () => {
       const envelope = await service.reflect({
-        target: { address: 'localhost:50051', tlsMode: 'mtls' },
+        // Use mTLS fixture port — :50051 is coerced to plaintext by prepareGrpcTarget.
+        target: { address: 'localhost:50444', tlsMode: 'mtls' },
       });
       expect(envelope.ok).toBe(false);
       if (!envelope.ok) {

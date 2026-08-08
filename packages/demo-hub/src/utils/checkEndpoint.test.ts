@@ -113,7 +113,40 @@ describe('checkEndpoint', () => {
     const promise = checkEndpoint('http://localhost:8081/actuator/health');
     await vi.advanceTimersByTimeAsync(100);
     expect(await promise).toBe(true);
-    expect(spy).toHaveBeenCalledWith('http://localhost:3001/health/spring', expect.any(Object));
+    expect(spy).toHaveBeenCalledWith('/health/spring', expect.any(Object));
+  });
+
+  it('treats Express /health/spring HTTP 503 as Spring down (not no-cors false-positive)', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'down' }), { status: 503 }));
+
+    const promise = checkEndpoint('http://localhost:8081/actuator/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(false);
+    expect(spy).toHaveBeenCalledWith('/health/spring', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://localhost:8081/actuator/health', expect.any(Object));
+  });
+
+  it('routes Envoy :50055 probes through Express /health/envoy (avoids browser 415 noise)', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+
+    const promise = checkEndpoint('http://localhost:50055/');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith('/health/envoy', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://localhost:50055/', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://127.0.0.1:50055/', expect.any(Object));
+  });
+
+  it('routes Envoy 127.0.0.1:50055 probes through the same Express proxy', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+
+    const promise = checkEndpoint('http://127.0.0.1:50055/');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith('/health/envoy', expect.any(Object));
   });
 
   it('settle guard prevents double-resolve when both timeout and open fire', async () => {

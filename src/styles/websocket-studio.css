@@ -797,7 +797,7 @@
 .ws-connect-actions {
   display: flex;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .ws-connect-btn {
@@ -898,83 +898,147 @@
 .ws-compose-bar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--border-color, #333);
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
   flex: 1;
   min-height: 0;
+}
+
+/* Editor card — format header + body + action footer as one surface */
+.ws-compose-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ws-compose-editor-header {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 10px 0 4px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ws-compose-editor-header-left,
+.ws-compose-editor-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ws-compose-editor-header-right {
+  flex-shrink: 0;
 }
 
 .ws-compose-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 12px;
-  background: var(--input-bg, #2a2a2a);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 6px;
-  color: var(--text-primary, #e0e0e0);
+  padding: 12px 14px;
+  background: var(--bg);
+  border: none;
+  border-radius: 0;
+  color: var(--text);
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 13px;
-  resize: vertical;
+  resize: none;
   min-height: 120px;
-  max-height: 600px;
   outline: none;
-  transition: border-color 0.15s;
   overflow: auto;
 }
 
 .ws-compose-input:focus {
-  border-color: var(--accent-color, #4fc3f7);
-  box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.15);
+  box-shadow: none;
 }
 
 .ws-compose-input:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
+}
+
+.ws-compose-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ws-compose-action-meta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 5.5rem;
+  flex-shrink: 0;
+  padding: 0 12px 0 2px;
+  margin-right: 2px;
+  border-right: 1px solid var(--border);
+  align-self: stretch;
+}
+
+.ws-compose-action-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .ws-compose-send-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 14px;
-  background: var(--primary, #4fc3f7);
-  color: #0d0d0d;
-  border: none;
+  gap: 6px;
+  margin-left: auto;
+  padding: 0 16px;
+  height: 34px;
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--primary) 70%, var(--border));
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary, #4fc3f7) 35%, transparent);
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
   white-space: nowrap;
-  height: 28px;
+  flex-shrink: 0;
 }
 
 .ws-compose-send-btn:disabled {
-  opacity: 0.38;
-  cursor: default;
-  box-shadow: none;
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .ws-compose-send-btn:hover:not(:disabled) {
-  filter: brightness(1.1);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary, #4fc3f7) 45%, transparent);
+  background: color-mix(in srgb, var(--primary) 88%, #fff);
+  border-color: var(--primary);
 }
 
 /* ⌘↵ hint inside Send button */
 .ws-send-kbd {
   display: inline-flex;
   align-items: center;
-  padding: 0 4px;
-  height: 15px;
-  font-size: 9px;
-  font-family: var(--font-sans, inherit);
+  padding: 0 5px;
+  height: 16px;
+  font-size: 0.65rem;
+  font-family: inherit;
   font-weight: 500;
-  background: rgba(0, 0, 0, 0.2);
+  background: color-mix(in srgb, #000 22%, transparent);
   border-radius: 3px;
   line-height: 1;
   letter-spacing: 0;
-  color: rgba(0,0,0,0.6);
+  color: color-mix(in srgb, #fff 85%, transparent);
   margin-left: 1px;
 }
 
@@ -1090,27 +1154,32 @@
 }
 
 .ws-compose-ping-btn {
-  padding: 6px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  height: 32px;
   background: transparent;
-  border: 1px solid var(--border-color, #444);
+  border: 1px solid transparent;
   border-radius: 6px;
-  color: var(--text-secondary, #999);
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .ws-compose-ping-btn:hover:not(:disabled) {
-  background: var(--hover-bg, #333);
-  color: var(--text-primary, #e0e0e0);
-  border-color: var(--text-secondary, #999);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .ws-compose-ping-btn:disabled {
   opacity: 0.4;
-  cursor: default;
+  cursor: not-allowed;
+  color: var(--text-muted);
 }
 
 .ws-message-max-reached {
@@ -2384,16 +2453,16 @@
 /* Char / line counter — bottom-right of textarea */
 .ws-compose-char-count {
   position: absolute;
-  bottom: 5px;
-  right: 7px;
+  bottom: 6px;
+  right: 8px;
   font-size: 10px;
   font-family: var(--font-mono, 'SF Mono', monospace);
-  color: var(--text-secondary, #666);
+  color: var(--text-muted);
   pointer-events: none;
-  background: var(--input-bg, #2a2a2a);
+  background: var(--bg);
   padding: 0 3px;
   border-radius: 3px;
-  opacity: 0.6;
+  opacity: 0.65;
   line-height: 1.4;
   user-select: none;
 }
@@ -2402,82 +2471,57 @@
   opacity: 1;
 }
 
-.ws-compose-controls {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex-shrink: 0;
-  justify-content: space-between;
-}
-
-.ws-compose-controls-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.ws-compose-controls-right {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.ws-compose-controls-divider {
-  width: 1px;
-  height: 18px;
-  background: var(--border-color, #3a3a3a);
-  margin: 0 2px;
-  flex-shrink: 0;
-}
-
 .ws-compose-mono {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace !important;
 }
 
-/* ── Format pills (replaces <select>) ── */
+/* Format as editor header tabs — not a boxed control competing with actions */
 .ws-format-pills {
   display: inline-flex;
-  align-items: center;
-  background: var(--panel-bg, #1e1e1e);
-  border: 1px solid var(--border-color, #3a3a3a);
-  border-radius: 7px;
-  overflow: hidden;
-  flex-shrink: 0;
-  /* Subtle inner shadow to make the container readable against any background */
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.15);
+  align-items: stretch;
+  height: 100%;
+  gap: 0;
+  flex: 0 0 auto;
 }
 
 .ws-format-pill {
-  padding: 4px 11px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary, #777);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s, color 0.12s;
-  border-right: 1px solid var(--border-color, #3a3a3a);
-  line-height: 1.5;
-  height: 28px;
+  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  min-width: 5rem;
+  height: 100%;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+  box-sizing: border-box;
 }
-.ws-format-pill:last-child { border-right: none; }
-.ws-format-pill:hover:not(.ws-format-pill--active) {
-  background: var(--hover-bg, #2a2a2a);
-  color: var(--text-primary, #ccc);
+.ws-format-pill:hover:not(.is-active):not(.ws-format-pill--active) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
 }
+.ws-format-pill.is-active,
 .ws-format-pill--active {
-  background: color-mix(in srgb, var(--primary, #4fc3f7) 22%, transparent);
-  color: var(--primary, #4fc3f7);
+  color: var(--text);
   cursor: default;
-  /* thin accent underline for the active state */
-  box-shadow: inset 0 -2px 0 var(--primary, #4fc3f7);
+}
+.ws-format-pill.is-active::after,
+.ws-format-pill--active::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--primary);
 }
 
 /* ── Protocol badges (unified) ── */
@@ -2485,55 +2529,60 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  border-radius: 10px;
-  font-size: 10.5px;
+  margin-left: 8px;
+  padding: 0 10px;
+  height: 26px;
+  border-radius: 999px;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.02em;
   white-space: nowrap;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
 }
 .ws-protocol-badge--gql {
-  background: rgba(166, 227, 161, 0.12);
-  color: #a6e3a1;
-  border: 1px solid rgba(166, 227, 161, 0.2);
+  color: var(--text);
+  border-color: color-mix(in srgb, #22c55e 40%, var(--border));
+  background: color-mix(in srgb, #22c55e 12%, var(--bg));
 }
 .ws-protocol-badge--sio {
-  background: rgba(137, 180, 250, 0.12);
-  color: #89b4fa;
-  border: 1px solid rgba(137, 180, 250, 0.2);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg));
 }
 .ws-protocol-badge--stomp {
-  background: rgba(250, 179, 135, 0.12);
-  color: #fab387;
-  border: 1px solid rgba(250, 179, 135, 0.2);
+  color: var(--text);
+  border-color: color-mix(in srgb, #f59e0b 40%, var(--border));
+  background: color-mix(in srgb, #f59e0b 12%, var(--bg));
 }
 
 .ws-pretty-format-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 9px;
-  font-size: 11px;
-  background: var(--input-bg, #1e1e1e);
-  color: var(--text-secondary, #aaa);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 6px;
+  gap: 5px;
+  padding: 0 10px;
+  height: 28px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 5px;
   cursor: pointer;
   white-space: nowrap;
-  height: 28px;
-  font-weight: 500;
-  transition: all 0.15s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
 
 .ws-pretty-format-btn:hover:not(:disabled) {
-  background: var(--hover-bg, #2a2d2e);
-  color: var(--text-primary, #e0e0e0);
-  border-color: var(--text-secondary, #999);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .ws-pretty-format-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* ── Template dropdown ── */
@@ -2546,15 +2595,15 @@
 .ws-template-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 0 10px;
-  height: 28px;
-  font-size: 11.5px;
+  height: 32px;
+  font-size: 0.8rem;
   font-weight: 500;
   font-family: inherit;
-  background: var(--bg, #0f172a);
-  color: var(--text-muted, #a8b8cc);
-  border: 1px solid var(--border, #3b4a60);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
   border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
@@ -2562,13 +2611,13 @@
 }
 
 .ws-template-trigger:hover {
-  background: var(--surface, #1e293b);
-  color: var(--text, #f1f5f9);
-  border-color: var(--primary, #3b82f6);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .ws-template-trigger-label {
-  font-size: 11.5px;
+  font-size: 0.8rem;
   letter-spacing: 0.01em;
 }
 
@@ -4223,7 +4272,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 4px;
   padding: 8px 12px;
   background: var(--bg-surface, #1e1e2e);
   border: 1px solid var(--border-primary, #45475a);
@@ -4299,18 +4348,22 @@
 }
 
 .ws-tls-modal.modal {
-  width: min(540px, 100%);
-  max-width: 540px;
-  max-height: 90vh;
+  /* Large enough to show mode cards + CA/cert fields with less scrolling */
+  width: min(840px, 96vw);
+  max-width: min(960px, 96vw);
+  min-width: min(560px, 96vw);
+  height: min(720px, 90vh);
+  max-height: 92vh;
   padding: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface, #252525);
-  border: 1px solid var(--border, #444);
+  border: 1px solid color-mix(in srgb, white 18%, var(--border, #444));
   border-radius: var(--radius, 10px);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
   overflow: hidden;
+  position: relative;
 }
 
 .ws-tls-modal-header.modal-header {
@@ -5701,19 +5754,44 @@
   white-space: nowrap;
 }
 
+/* CustomSelect: className lands on .cs-wrapper — border/bg only on .cs-trigger */
+.ws-replay-speed.cs-wrapper,
 .ws-replay-speed {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 12px;
-  padding: 2px 4px;
-  cursor: pointer;
-  transition: border-color 0.15s;
+  display: inline-flex;
+  width: auto;
+  min-width: 4.5rem;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
 }
 
-.ws-replay-speed:hover {
-  border-color: rgba(255, 255, 255, 0.28);
+.ws-replay-speed .cs-trigger {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 4.5rem;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ws-replay-speed .cs-trigger:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.ws-replay-speed .cs-trigger:focus:not(:disabled),
+.ws-replay-speed .cs-trigger[aria-expanded="true"] {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 /* Center: progress track + event counter */
@@ -5801,34 +5879,31 @@
 }
 
 .ws-compose-footer {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10.5px;
-  color: var(--text-secondary, #777);
-  padding-top: 5px;
-  overflow: hidden;
+  /* Legacy alias — count now lives in .ws-compose-action-meta */
+  display: none;
 }
 
 .ws-compose-msg-count {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
   z-index: 1;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .ws-compose-msg-bar {
   position: absolute;
-  left: 0;
-  bottom: 0;
+  left: 2px;
+  bottom: 6px;
   height: 2px;
-  background: linear-gradient(90deg, var(--primary, #4fc3f7) 0%, color-mix(in srgb, var(--primary, #4fc3f7) 40%, transparent) 100%);
+  max-width: calc(100% - 14px);
+  background: linear-gradient(90deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 35%, transparent) 100%);
   border-radius: 1px;
   transition: width 0.4s ease;
-  opacity: 0.45;
+  opacity: 0.55;
 }
 
 .ws-format-label {
@@ -5855,31 +5930,26 @@
   display: block;
 }
 
-/* Visual order within the Compose tab: controls (Format / Templates / Send /
-   Ping) first, then any protocol-specific fields, then the message text box,
-   then the message-count footer. */
-.ws-compose-bar > .ws-compose-controls {
-  order: 1;
-}
+/* Protocol fields above the editor card; editor fills remaining height. */
 .ws-compose-bar > .ws-sio-compose-fields,
 .ws-compose-bar > .ws-stomp-compose-fields,
 .ws-compose-bar > .ws-gql-compose-fields {
-  order: 2;
+  flex-shrink: 0;
 }
-.ws-compose-bar > .ws-compose-input-wrapper {
-  order: 3;
+.ws-compose-bar > .ws-compose-editor {
+  flex: 1;
+  min-height: 0;
+}
+.ws-compose-editor > .ws-compose-input-wrapper {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-.ws-compose-bar > .ws-compose-input-wrapper > .ws-compose-input {
+.ws-compose-editor > .ws-compose-input-wrapper > .ws-compose-input {
   flex: 1;
   min-height: 160px;
   height: 0; /* flex: 1 drives the actual height */
-}
-.ws-compose-bar > .ws-compose-footer {
-  order: 4;
 }
 
 /* ── Stats toggle button ── */

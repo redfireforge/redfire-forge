@@ -20,11 +20,11 @@ describe('replayCanvasFitView — coverage gaps', () => {
     expect(scheduleReplayFitView(null)).toBe(false);
   });
 
-  it('returns false when no nodes exist', () => {
+  it('falls back to fitView when getNodes is empty', () => {
     const fitView = vi.fn();
     const result = scheduleReplayFitView({ fitView, getNodes: () => [] });
     expect(result).toBe(true);
-    expect(fitView).not.toHaveBeenCalled();
+    expect(fitView).toHaveBeenCalled();
   });
 
   it('forces fitView after max attempts when bounds stay zero', () => {

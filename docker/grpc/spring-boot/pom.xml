@@ -21,7 +21,8 @@
     <grpc.version>1.66.0</grpc.version>
     <protobuf.version>3.25.3</protobuf.version>
     <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
-    <os.detected.classifier>osx-aarch_64</os.detected.classifier>
+    <!-- os.detected.classifier comes from os-maven-plugin (do NOT hardcode osx-* —
+         that breaks Docker Linux builds). Dockerfile may override via -D. -->
     <grpc-spring-boot-starter.version>3.1.0.RELEASE</grpc-spring-boot-starter.version>
   </properties>
 

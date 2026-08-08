@@ -2937,14 +2937,33 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .wf-var-add-key { max-width: 140px; }
 
+/* ═══ Workflow Runner page ═══ */
+/* Full-width like Test Runner / Parameterized Runner — no max-width column. */
+.workflow-runner-page {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+.workflow-runner-page .page-header {
+  margin-bottom: 18px;
+}
+.workflow-runner-page .page-header h2 {
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
 /* ═══ Workflow Picker (Harness) ═══ */
 
 .workflow-picker {
-  margin-bottom: 16px;
-  padding: 16px 20px;
+  margin-bottom: 14px;
+  padding: 16px 18px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
+    0 4px 16px color-mix(in srgb, #000 18%, transparent);
 }
 .workflow-picker-header {
   display: flex;
@@ -2963,27 +2982,28 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .workflow-picker-label {
   font-weight: 600;
-  font-size: 0.82rem;
-  color: var(--text);
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  letter-spacing: 0;
+  text-transform: none;
 }
 .wfp-clear-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  border: none;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 5px;
   color: var(--text-muted);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 .wfp-clear-btn:hover:not(:disabled) {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
 }
 .wfp-clear-btn:disabled {
   opacity: 0.5;
@@ -3027,14 +3047,13 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .wfp-dropdown-trigger:hover:not(:disabled) {
-  border-color: var(--text-muted);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary);
 }
 .wfp-dropdown-trigger.open {
   border-color: var(--primary);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  box-shadow: 0 0 0 1px var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 .wfp-dropdown-trigger:disabled {
   opacity: 0.5;
@@ -3190,8 +3209,8 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: rgba(59, 130, 246, 0.06);
-  border: 1px solid rgba(59, 130, 246, 0.15);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
   border-radius: 6px;
   margin-bottom: 12px;
   font-size: 0.82rem;
@@ -3209,42 +3228,42 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .workflow-vars-section {
   margin-top: 16px;
-  padding-top: 14px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
 }
 .workflow-vars-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .var-panel-title {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-weight: 600;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: var(--text);
-  margin-bottom: 8px;
+  font-size: 0.8rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  margin-bottom: 0;
 }
 .var-panel-title svg {
   color: var(--primary);
 }
 .workflow-vars-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
 }
 .wfp-action-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border: 1px solid var(--border);
-  background: transparent;
-  border-radius: 4px;
+  background: var(--bg);
+  border-radius: 5px;
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 500;
@@ -3253,41 +3272,45 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .wfp-action-btn:hover:not(:disabled) {
   color: var(--text);
-  border-color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
 }
 .wfp-action-btn.active {
   color: var(--primary);
   border-color: var(--primary);
-  background: rgba(59, 130, 246, 0.08);
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg));
 }
 .wfp-action-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 .wfp-vars-hint {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
   margin: 0 0 10px;
-  line-height: 1.5;
+  line-height: 1.45;
+  opacity: 0.9;
 }
 .wfp-vars-hint code {
   padding: 1px 5px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 3px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
+  color: var(--text);
 }
 .vars-modified-badge {
   display: inline-block;
   margin-left: 6px;
   padding: 1px 6px;
-  background: rgba(245, 158, 11, 0.12);
+  background: color-mix(in srgb, #f59e0b 14%, var(--bg));
   color: #f59e0b;
-  font-size: 0.68rem;
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--border));
+  font-size: 0.66rem;
   font-weight: 600;
-  border-radius: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  border-radius: 4px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 .empty-vars-hint {
   color: var(--text-muted);
@@ -3295,50 +3318,67 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   font-style: italic;
   margin: 8px 0;
 }
-/* Variable grid */
+/* Variable grid — two-tone rows aligned with form design system */
 .wfp-vars-grid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .wfp-var-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: stretch;
+  gap: 0;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
 }
 .wfp-var-label {
-  min-width: 100px;
-  flex-shrink: 0;
+  flex: 0 0 152px;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
 }
 .wfp-var-label code {
-  font-size: 0.78rem;
-  padding: 2px 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--accent, #58a6ff);
-  font-weight: 500;
+  font-size: 0.76rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--primary);
+  font-weight: 600;
 }
 .wfp-var-input {
   flex: 1;
-  padding: 6px 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px;
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
+  border: none;
+  border-radius: 0;
   color: var(--text);
   font-size: 0.82rem;
   outline: none;
-  transition: border-color 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.wfp-var-input:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 4%, var(--bg));
 }
 .wfp-var-input:focus {
-  border-color: var(--accent, #58a6ff);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+  box-shadow: inset 0 0 0 1px var(--primary);
 }
 .wfp-var-input:disabled {
   opacity: 0.5;
 }
 .wfp-var-input::placeholder {
   color: var(--text-muted);
-  opacity: 0.6;
+  opacity: 0.55;
+  font-style: italic;
 }
 .workflow-picker-hint {
   color: var(--text-muted);
@@ -4593,34 +4633,50 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-top: 12px;
+  border-radius: 10px;
+  margin-top: 0;
+  margin-bottom: 12px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
+    0 2px 10px color-mix(in srgb, #000 12%, transparent);
 }
 .sla-trigger--disabled { opacity: 0.5; pointer-events: none; }
 .sla-trigger-left {
   display: flex; align-items: center; gap: 10px;
-  font-size: 0.85rem; font-weight: 600;
+  font-size: 0.82rem; font-weight: 600; color: var(--text);
 }
 .sla-trigger-badge-opt {
-  background: rgba(255,255,255,0.08); color: var(--text-muted);
-  border-radius: 10px; padding: 1px 8px; font-size: 0.68rem; font-weight: 500;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.68rem;
+  font-weight: 500;
 }
 .sla-trigger-right { display: flex; align-items: center; gap: 12px; }
 .sla-trigger-stats { display: flex; gap: 12px; font-size: 0.78rem; color: var(--text-muted); }
 .sla-trigger-stat { display: flex; align-items: center; gap: 4px; }
 .sla-stat-dot { width: 6px; height: 6px; border-radius: 50%; }
-.sla-stat-dot-def { background: #3b82f6; }
+.sla-stat-dot-def { background: var(--primary); }
 .sla-stat-dot-ovr { background: #f59e0b; }
 .sla-stat-dot-new { background: #22c55e; }
 .sla-trigger-btn {
-  background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3);
-  color: #60a5fa; padding: 5px 14px; border-radius: 4px;
-  font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  background: color-mix(in srgb, var(--primary) 14%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--border));
+  color: var(--primary);
+  padding: 5px 14px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
 }
-.sla-trigger-btn:hover:not(:disabled) { background: rgba(59,130,246,0.2); }
+.sla-trigger-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 22%, var(--bg));
+}
 .sla-trigger-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* ── SLA Override Modal ── */
@@ -5265,6 +5321,11 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   font-size: 11px;
   color: var(--text-muted, #a8b8cc);
   flex-shrink: 0;
+  margin-left: 12px;
+  text-align: right;
+  max-width: 62%;
+  white-space: normal;
+  line-height: 1.35;
 }
 .cs-check {
   flex-shrink: 0;

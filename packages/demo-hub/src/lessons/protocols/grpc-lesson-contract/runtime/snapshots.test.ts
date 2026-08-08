@@ -3,9 +3,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  GRPC_ENVOY_PROBE_URL,
   GRPC_EXPRESS_HEALTH_URL,
   GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL,
+  GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS,
 } from '../../../../adapters/grpcStudioAdapter';
+import { shippedGrpcLessonRosterEntries } from '../roster';
 import {
   buildGrpcFirstCallScenarioSnapshot,
   buildGrpcMetadataAuthScenarioSnapshot,
@@ -13,9 +16,11 @@ import {
   buildGrpcSchemaDiscoveryScenarioSnapshot,
   buildGrpcScenarioSnapshotForLesson,
   buildGrpcSpringBootScenarioSnapshot,
+  buildGrpcTlsScenarioSnapshot,
   buildGrpcTransportModesScenarioSnapshot,
   buildGrpcStreamingScenarioSnapshot,
   buildGrpcWorkflowIntegrationScenarioSnapshot,
+  listGrpcScenarioSnapshotLessonIds,
 } from './snapshots';
 import { GRPC_DEMO_MESSAGE } from '../../grpc-lesson-helpers';
 
@@ -33,7 +38,22 @@ describe('buildGrpcScenarioSnapshotForLesson', () => {
   });
 
   it('returns null for unregistered lessons', () => {
-    expect(buildGrpcScenarioSnapshotForLesson('grpc-tls')).toBeNull();
+    expect(buildGrpcScenarioSnapshotForLesson('grpc-not-a-real-lesson')).toBeNull();
+  });
+
+  it('builds GRPC-5 TLS snapshot', () => {
+    const snap = buildGrpcTlsScenarioSnapshot();
+    expect(snap.lessonId).toBe('grpc-tls');
+    expect(buildGrpcScenarioSnapshotForLesson('grpc-tls')?.fingerprint).toBe(snap.fingerprint);
+  });
+
+  it('registers a snapshot for every shipped roster lesson', () => {
+    const shippedIds = shippedGrpcLessonRosterEntries().map((e) => e.id);
+    const registered = new Set(listGrpcScenarioSnapshotLessonIds());
+    for (const id of shippedIds) {
+      expect(registered.has(id), `missing snapshot for shipped lesson ${id}`).toBe(true);
+      expect(buildGrpcScenarioSnapshotForLesson(id)?.lessonId).toBe(id);
+    }
   });
 
   it('builds GRPC-16 schema discovery snapshot', () => {
@@ -82,11 +102,13 @@ describe('buildGrpcScenarioSnapshotForLesson', () => {
     expect(buildGrpcScenarioSnapshotForLesson('grpc-spring-boot')?.fingerprint).toBe(snap.fingerprint);
   });
 
-  it('builds GRPC-19 transport modes snapshot', () => {
+  it('builds GRPC-19 transport modes snapshot with Envoy fixture fingerprint', () => {
     const snap = buildGrpcTransportModesScenarioSnapshot();
     expect(snap.lessonId).toBe('grpc-transport-modes');
     expect(snap.target).toBe('localhost:50051');
     expect(snap.method).toBe('Echo');
+    expect(snap.fixtureFingerprint).toBe(GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS.join('|'));
+    expect(snap.fixtureFingerprint).toContain(GRPC_ENVOY_PROBE_URL);
     expect(buildGrpcScenarioSnapshotForLesson('grpc-transport-modes')?.fingerprint).toBe(snap.fingerprint);
   });
 });

@@ -150,11 +150,21 @@ export function GqlBatchSettingsPanel({
           </span>
           {groupTabs.length >= 2 && (
             <span className="gql-adv-batch-panel__list-actions">
-              <button type="button" className="gql-adv-batch-panel__link-btn" onClick={handleSelectAll}>
+              <button
+                type="button"
+                className="gql-adv-batch-panel__link-btn"
+                onClick={handleSelectAll}
+                data-testid="gql-adv-batch-select-all"
+              >
                 Select all
               </button>
               <span className="gql-adv-batch-panel__list-actions-sep" aria-hidden="true">·</span>
-              <button type="button" className="gql-adv-batch-panel__link-btn" onClick={handleClearAll}>
+              <button
+                type="button"
+                className="gql-adv-batch-panel__link-btn"
+                onClick={handleClearAll}
+                data-testid="gql-adv-batch-clear-all"
+              >
                 Clear
               </button>
             </span>

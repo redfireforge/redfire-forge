@@ -7,6 +7,7 @@ import { useGrpcWorkflowTargetReflection } from '../../hooks/useGrpcWorkflowTarg
 import type { GrpcWorkflowBaseConfig } from '../../types/workflow/node-grpc';
 import { buildGrpcWorkflowReflectionPatch, listGrpcWorkflowMethods } from '../../utils/grpcWorkflowReflection';
 import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { KafkaFormRow } from './KafkaConfigUi';
 
 type GrpcWorkflowCallConfig = Pick<
   GrpcWorkflowBaseConfig,
@@ -107,84 +108,88 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
             : 'Enter a valid host:port (or a workflow variable that resolves to one) to load services'
           : 'Service and method lists populate after reflection';
 
+  const statusTone = status === 'ready'
+    ? 'ready'
+    : status === 'loading'
+      ? 'loading'
+      : status === 'error' || (data.target.trim() && !targetValidation.valid)
+        ? 'error'
+        : 'idle';
+
   return (
     <>
-      <div className="wf-config-field--row">
-        <label>Target</label>
+      <KafkaFormRow label="Target" hint="host:port or {{var}}" compact>
         <input
+          className="wf-kafka-form-input"
           data-testid={`${testIdPrefix}-target`}
           value={data.target}
           onChange={(e) => update({ target: e.target.value } as Partial<T>)}
           placeholder="127.0.0.1:50051"
+          aria-label="gRPC target"
         />
-      </div>
+      </KafkaFormRow>
 
-      <div
-        className="wf-config-field--row"
-        data-testid={`${testIdPrefix}-reflect-status`}
-        data-status={status}
+      <KafkaFormRow
+        label="Schema"
+        hint={status === 'error' ? 'Retry reflection' : 'From server reflection'}
+        compact
       >
-        <label>Schema</label>
-        <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <span className="wf-config-hint-text">{statusLabel}</span>
+        <div
+          className="wf-grpc-schema-status"
+          data-testid={`${testIdPrefix}-reflect-status`}
+          data-status={status}
+        >
+          <span className={`wf-grpc-schema-chip wf-grpc-schema-chip--${statusTone}`}>
+            {status === 'ready' ? 'Ready' : status === 'loading' ? 'Loading' : status === 'error' ? 'Error' : 'Idle'}
+          </span>
+          <span className="wf-grpc-schema-detail">{statusLabel}</span>
           {status === 'error' && (
             <button
               type="button"
-              className="btn-ghost"
+              className="btn-ghost wf-grpc-schema-retry"
               data-testid={`${testIdPrefix}-reflect-retry`}
               onClick={() => { void reflectNow(); }}
             >
-              Retry reflect
+              Retry
             </button>
           )}
         </div>
-      </div>
+      </KafkaFormRow>
 
-      <div className="wf-config-field--row wf-config-field--row-top">
-        <label>Descriptor key</label>
-        <div className="wf-config-row-stack">
-          {descriptorAutoManaged ? (
-            <div className="wf-config-readonly-row">
-              <textarea
-                className="wf-config-textarea wf-config-descriptor-textarea wf-config-textarea--readonly"
-                data-testid={`${testIdPrefix}-descriptor-key`}
-                rows={1}
-                value={data.descriptorKey}
-                readOnly
-                aria-readonly="true"
-                title={data.descriptorKey}
-              />
-              <button
-                type="button"
-                className="btn-ghost wf-config-copy-btn"
-                onClick={() => { void handleCopyDescriptorKey(); }}
-                title="Copy descriptor key"
-              >
-                {descriptorCopied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-          ) : (
-            <textarea
-              className="wf-config-textarea wf-config-descriptor-textarea"
-              data-testid={`${testIdPrefix}-descriptor-key`}
-              rows={1}
-              value={data.descriptorKey}
-              onChange={(e) => {
-                update({ descriptorKey: e.target.value } as Partial<T>);
-              }}
-              placeholder="Auto-filled after reflection"
-            />
-          )}
+      <KafkaFormRow
+        label="Descriptor"
+        hint={descriptorAutoManaged ? 'Locked from reflection' : 'Auto-filled after reflect'}
+        compact
+      >
+        <div className="wf-grpc-descriptor-ctrl">
+          <input
+            className="wf-kafka-form-input"
+            data-testid={`${testIdPrefix}-descriptor-key`}
+            value={data.descriptorKey}
+            readOnly={descriptorAutoManaged}
+            aria-readonly={descriptorAutoManaged || undefined}
+            title={data.descriptorKey || undefined}
+            onChange={(e) => {
+              if (descriptorAutoManaged) return;
+              update({ descriptorKey: e.target.value } as Partial<T>);
+            }}
+            placeholder="Auto-filled after reflection"
+            aria-label="Descriptor key"
+          />
           {descriptorAutoManaged && (
-            <span className="wf-config-hint-text wf-config-hint-text--below">
-              <strong>Managed automatically:</strong> locked while schema is loaded from reflection
-            </span>
+            <button
+              type="button"
+              className="btn-ghost wf-config-copy-btn"
+              onClick={() => { void handleCopyDescriptorKey(); }}
+              title="Copy descriptor key"
+            >
+              {descriptorCopied ? 'Copied' : 'Copy'}
+            </button>
           )}
         </div>
-      </div>
+      </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>Connection profile</label>
+      <KafkaFormRow label="Profile" hint="Optional saved connection" compact>
         <CustomSelect
           data-testid={`${testIdPrefix}-connection-profile`}
           value={data.connectionId ?? ''}
@@ -198,10 +203,9 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
             })),
           ]}
         />
-      </div>
+      </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>Service</label>
+      <KafkaFormRow label="Service" hint={useServiceSelect ? 'From reflection' : 'package.Service'} compact>
         {useServiceSelect ? (
           <CustomSelect
             data-testid={`${testIdPrefix}-service`}
@@ -215,16 +219,17 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
           />
         ) : (
           <input
+            className="wf-kafka-form-input"
             data-testid={`${testIdPrefix}-service`}
             value={data.service}
             onChange={(e) => update({ service: e.target.value } as Partial<T>)}
             placeholder="package.Service"
+            aria-label="gRPC service"
           />
         )}
-      </div>
+      </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>Method</label>
+      <KafkaFormRow label="Method" hint={useMethodSelect ? 'Unary methods' : 'MethodName'} compact>
         {useMethodSelect ? (
           <CustomSelect
             data-testid={`${testIdPrefix}-method`}
@@ -241,13 +246,15 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
           />
         ) : (
           <input
+            className="wf-kafka-form-input"
             data-testid={`${testIdPrefix}-method`}
             value={data.method}
             onChange={(e) => update({ method: e.target.value } as Partial<T>)}
             placeholder="MethodName"
+            aria-label="gRPC method"
           />
         )}
-      </div>
+      </KafkaFormRow>
     </>
   );
 }

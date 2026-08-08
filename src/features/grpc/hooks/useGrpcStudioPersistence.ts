@@ -30,6 +30,7 @@ type PersistableTabState = Pick<
   | 'body'
   | 'envVarOverrides'
   | 'servicesCollapsed'
+  | 'transportMode'
 >;
 
 /**
@@ -89,6 +90,7 @@ function extractPersistableSession(session: GrpcStudioSessionState): GrpcStudioP
       body: tab.body,
       envVarOverrides: tab.envVarOverrides,
       servicesCollapsed: tab.servicesCollapsed,
+      transportMode: tab.transportMode,
     })),
     tabDescriptors: Object.fromEntries(
       Object.entries(tabDescriptors).map(([tabId, desc]) => [

@@ -711,7 +711,7 @@
   display: flex;
   align-items: center;
   gap: 0;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 5px;
   overflow: hidden;
@@ -773,22 +773,22 @@
 }
 
 .gql-auth-no-auth-hint {
-  padding: 9px 11px;
-  background: color-mix(in srgb, var(--border) 25%, transparent);
-  border: 1px dashed var(--border);
-  border-radius: 5px;
+  padding: 9px 14px;
+  background: var(--bg);
+  border: none;
+  border-radius: 0;
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
-  text-align: center;
+  text-align: left;
 }
 
 /* Info box for OAuth2 / Custom notes */
 .gql-auth-info-box {
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--gql-accent) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--gql-accent) 18%, transparent);
-  border-radius: 5px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--gql-accent) 6%, var(--bg));
+  border: none;
+  border-radius: 0;
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
@@ -854,12 +854,39 @@
   max-width: 480px;
 }
 
+/* Single card — kafka two-tone form (not a rounded card per row) */
+.gql-auth-panel-fields {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
 .gql-auth-panel-row {
   display: flex;
+  align-items: stretch;
   min-height: 48px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  max-height: 74px;
+  overflow: hidden;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
   background: var(--surface);
+  transition: background 0.12s;
+}
+
+.gql-auth-panel-row:last-child {
+  border-bottom: none;
+}
+
+.gql-auth-panel-row:hover {
+  background: var(--surface-hover);
+}
+
+.gql-auth-panel-row:focus-within {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
 
 .gql-auth-panel-label-col {
@@ -868,10 +895,12 @@
   border-right: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 14px 0 16px;
   font-size: 0.76rem;
   font-weight: 500;
   color: var(--text-muted);
+  white-space: nowrap;
+  user-select: none;
 }
 
 .gql-auth-panel-label-col label {
@@ -883,7 +912,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 6px 10px;
+  padding: 8px 12px;
   min-width: 0;
 }
 
@@ -891,6 +920,40 @@
 .gql-auth-panel-ctrl-col .gql-input,
 .gql-auth-panel-ctrl-col .gql-auth-pw-wrap {
   width: 100%;
+}
+
+/* Controls keep a single border; card border is on .gql-auth-panel-fields only */
+.gql-auth-panel-ctrl-col .gql-input {
+  background: var(--bg);
+  border-radius: 5px;
+}
+
+.gql-auth-panel-ctrl-col .gql-auth-type-select.cs-wrapper {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gql-auth-panel-ctrl-col .gql-auth-type-select .cs-trigger {
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.83rem;
+}
+
+.gql-auth-panel-ctrl-col .gql-auth-type-select .cs-trigger:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.gql-auth-panel-ctrl-col .gql-auth-type-select .cs-trigger:focus:not(:disabled),
+.gql-auth-panel-ctrl-col .gql-auth-type-select .cs-trigger[aria-expanded="true"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 .gql-auth-panel-override-banner {
@@ -8984,6 +9047,7 @@
 }
 
 /* ─── Sprint 8 (2C-5): Subscription Assertion Panel ──────────────────────── */
+/* Kafka / Auth two-tone: one card, darker index column, single-border controls */
 
 .gql-assertion-panel {
   background: var(--bg);
@@ -8991,14 +9055,14 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  max-height: 220px;
+  max-height: 260px;
 }
 
 .gql-assertion-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 8px;
+  padding: 6px 10px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -9007,117 +9071,249 @@
 .gql-assertion-toggle {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 500;
-  padding: 2px 4px;
-  border-radius: 3px;
+  padding: 4px 6px;
+  border-radius: 5px;
   flex: 1;
   text-align: left;
 }
 .gql-assertion-toggle:hover { color: var(--text); background: var(--surface-hover); }
 .gql-assertion-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
-.gql-assertion-chevron { transition: transform 0.15s; }
+.gql-assertion-chevron { transition: transform 0.15s; flex-shrink: 0; }
 .gql-assertion-chevron--collapsed { transform: rotate(-90deg); }
 
-.gql-assertion-header-label { letter-spacing: 0.04em; text-transform: uppercase; }
+.gql-assertion-header-label {
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
 
 .gql-assertion-count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  background: var(--primary);
-  color: #fff;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--primary) 22%, var(--surface));
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--border));
 }
 
 .gql-assertion-add-btn {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px 8px;
-  font-size: 0.72rem;
+  gap: 4px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
   font-weight: 500;
   border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
+  border-radius: 5px;
+  background: var(--bg);
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
   flex-shrink: 0;
 }
-.gql-assertion-add-btn:hover { background: var(--surface-hover); border-color: var(--primary); color: var(--text); }
+.gql-assertion-add-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+  color: var(--text);
+}
 .gql-assertion-add-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 .gql-assertion-body {
   overflow-y: auto;
   flex: 1;
-  padding: 4px 0;
+  padding: 8px 10px 10px;
 }
 
 .gql-assertion-empty {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  padding: 8px 12px;
   margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface);
 }
 
-.gql-assertion-rows {
+.gql-assertion-empty-title {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.gql-assertion-empty-text {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.gql-assertion-empty-text strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Single card — not a nested box per control */
+.gql-assertion-fields {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
 }
 
-/* Assertion row */
 .gql-assert-row {
   display: flex;
+  align-items: stretch;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transition: background 0.12s;
+}
+
+.gql-assert-row:last-child {
+  border-bottom: none;
+}
+
+.gql-assert-row:hover {
+  background: var(--surface-hover);
+}
+
+.gql-assert-row:focus-within {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.gql-assert-index {
+  flex: 0 0 36px;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 0;
+  justify-content: center;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.gql-assert-controls {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  min-width: 0;
 }
 
 .gql-assert-input {
+  box-sizing: border-box;
+  height: 32px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
   color: var(--text);
-  font-size: 0.72rem;
-  padding: 3px 6px;
-  font-family: 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  min-width: 0;
 }
-.gql-assert-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent); }
 
-.gql-assert-jsonpath { flex: 2; min-width: 0; }
-.gql-assert-expected { flex: 1.5; min-width: 0; }
+.gql-assert-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-style: italic;
+}
 
-.gql-assert-select { flex: 1.2; min-width: 0; /* box styling handled by CustomSelect */ }
+.gql-assert-input:hover {
+  border-color: var(--primary);
+}
+
+.gql-assert-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-assert-jsonpath { flex: 2.2; min-width: 0; }
+.gql-assert-expected { flex: 1.4; min-width: 0; }
+
+.gql-assert-select {
+  flex: 1.3;
+  min-width: 110px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gql-assert-select .cs-trigger {
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.gql-assert-select .cs-trigger:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.gql-assert-select .cs-trigger:focus:not(:disabled),
+.gql-assert-select .cs-trigger[aria-expanded="true"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
 
 .gql-assert-delete {
   background: none;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   color: var(--text-muted);
-  padding: 3px 4px;
-  border-radius: 3px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 5px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.12s, background 0.12s;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
 }
-.gql-assert-delete:hover { color: #ef4444; background: color-mix(in srgb, #ef4444 12%, transparent); }
-.gql-assert-delete:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+.gql-assert-delete:hover {
+  color: var(--text);
+  background: color-mix(in srgb, #ef4444 14%, var(--surface));
+  border-color: color-mix(in srgb, #ef4444 35%, var(--border));
+}
+
+.gql-assert-delete:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.gql-assertion-hint {
+  margin: 6px 2px 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
 
 /* Per-message assertion badge in the subscription log */
 .gql-assert-badge {
@@ -11619,9 +11815,13 @@
   min-height: min(440px, calc(100vh - 48px));
   max-height: min(780px, calc(100vh - 32px));
   background: var(--bg-elevated, var(--surface));
-  border: 1px solid var(--border);
+  /* Subtle light edge so the modal reads clearly against the dark studio chrome */
+  border: 1px solid color-mix(in srgb, white 22%, var(--border));
   border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 10%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -12231,13 +12431,18 @@
 }
 
 .gql-batch-results {
-  width: 640px;
+  width: min(680px, calc(100vw - 32px));
   max-width: 95vw;
   max-height: 82vh;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 16px 48px color-mix(in srgb, var(--bg) 55%, transparent);
+  background: var(--bg-elevated, var(--surface));
+  /* Subtle light edge so the modal reads clearly against dark studio chrome */
+  border: 1px solid color-mix(in srgb, white 24%, var(--border));
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 12%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 6%, transparent),
+    0 20px 56px color-mix(in srgb, var(--bg) 70%, transparent),
+    0 4px 14px color-mix(in srgb, var(--bg) 45%, transparent);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -12256,10 +12461,10 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  gap: 14px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid color-mix(in srgb, white 16%, var(--border));
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
   flex-shrink: 0;
 }
 
@@ -12278,41 +12483,49 @@
   justify-content: center;
   flex-shrink: 0;
   width: 18px;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--text-muted);
-  opacity: 0.55;
+  opacity: 0.5;
+  transition: opacity 0.12s ease, color 0.12s ease;
 }
 
 .gql-batch-results-header--draggable:hover .gql-batch-results-drag-grip {
-  opacity: 0.9;
+  opacity: 0.95;
   color: var(--primary);
 }
 .gql-batch-results-heading {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
   min-width: 0;
 }
 .gql-batch-results-title {
   margin: 0;
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 650;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
 }
 .gql-batch-results-subtitle {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
-  opacity: 0.85;
+  line-height: 1.35;
 }
 .gql-batch-results-transport {
-  margin: 0;
+  margin: 2px 0 0;
+  padding: 5px 8px;
+  width: fit-content;
+  max-width: 100%;
   font-size: 0.68rem;
+  line-height: 1.4;
   color: var(--text-muted);
-  opacity: 0.75;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, white 14%, var(--border));
+  border-radius: 6px;
 }
 .gql-batch-results-badges {
   display: flex;
@@ -12321,32 +12534,34 @@
   justify-content: flex-end;
   gap: 6px;
   flex-shrink: 0;
+  padding-top: 1px;
 }
 .gql-batch-summary-pill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 600;
   line-height: 1.3;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 14%, var(--border));
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 .gql-batch-summary-pill--passed {
   color: #a6e3a1;
   background: color-mix(in srgb, #a6e3a1 12%, var(--surface));
-  border-color: color-mix(in srgb, #a6e3a1 35%, var(--border));
+  border-color: color-mix(in srgb, #a6e3a1 40%, color-mix(in srgb, white 12%, var(--border)));
 }
 .gql-batch-summary-pill--failed {
   color: #f38ba8;
   background: color-mix(in srgb, #f38ba8 12%, var(--surface));
-  border-color: color-mix(in srgb, #f38ba8 35%, var(--border));
+  border-color: color-mix(in srgb, #f38ba8 40%, color-mix(in srgb, white 12%, var(--border)));
 }
 .gql-batch-summary-pill--fallback {
   color: #f9e2af;
   background: color-mix(in srgb, #f9e2af 12%, var(--surface));
-  border-color: color-mix(in srgb, #f9e2af 35%, var(--border));
+  border-color: color-mix(in srgb, #f9e2af 40%, color-mix(in srgb, white 12%, var(--border)));
 }
 .gql-batch-results-footer {
   display: flex;
@@ -12354,12 +12569,12 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 18px;
-  border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--border) 8%, var(--bg));
+  border-top: 1px solid color-mix(in srgb, white 16%, var(--border));
+  background: color-mix(in srgb, var(--surface) 40%, var(--bg));
   flex-shrink: 0;
 }
 .gql-batch-results-close-btn {
-  min-width: 80px;
+  min-width: 88px;
   justify-content: center;
 }
 .gql-batch-results-close-btn:focus-visible {
@@ -12372,14 +12587,23 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg);
 }
 .gql-batch-card {
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, white 16%, var(--border));
   overflow: hidden;
-  background: var(--bg);
+  background: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, white 5%, transparent);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.gql-batch-card:hover {
+  border-color: color-mix(in srgb, white 26%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 6%, transparent),
+    0 2px 8px color-mix(in srgb, var(--bg) 35%, transparent);
 }
 .gql-batch-card--success {
   border-left: 3px solid #a6e3a1;
@@ -12390,16 +12614,16 @@
 .gql-batch-card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--surface);
+  gap: 9px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
   border: none;
   width: 100%;
   text-align: left;
   cursor: pointer;
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   color: var(--text);
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s ease;
 }
 .gql-batch-card-header:hover {
   background: var(--surface-hover);
@@ -12410,24 +12634,35 @@
 }
 .gql-batch-card-index {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  height: 1.35rem;
+  padding: 0 5px;
+  border-radius: 5px;
   font-size: 0.64rem;
-  font-weight: 600;
+  font-weight: 650;
   color: var(--text-muted);
-  opacity: 0.7;
-  min-width: 1.4rem;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, white 12%, var(--border));
+  font-variant-numeric: tabular-nums;
 }
 .gql-batch-card-indicator {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 .gql-batch-card-indicator--success { color: #a6e3a1; }
 .gql-batch-card-indicator--error { color: #f38ba8; }
 .gql-batch-card-name {
   flex: 1;
   min-width: 0;
-  font-weight: 500;
+  font-weight: 550;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -12435,65 +12670,81 @@
 .gql-batch-card-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex-shrink: 0;
 }
 .gql-batch-card-status {
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 5px;
   font-size: 0.64rem;
-  font-weight: 600;
-  border: 1px solid var(--border);
+  font-weight: 650;
+  border: 1px solid color-mix(in srgb, white 12%, var(--border));
   background: var(--bg);
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .gql-batch-card-status--success {
   color: #a6e3a1;
-  border-color: color-mix(in srgb, #a6e3a1 35%, var(--border));
+  border-color: color-mix(in srgb, #a6e3a1 40%, color-mix(in srgb, white 10%, var(--border)));
+  background: color-mix(in srgb, #a6e3a1 8%, var(--bg));
 }
 .gql-batch-card-status--error {
   color: #f38ba8;
-  border-color: color-mix(in srgb, #f38ba8 35%, var(--border));
+  border-color: color-mix(in srgb, #f38ba8 40%, color-mix(in srgb, white 10%, var(--border)));
+  background: color-mix(in srgb, #f38ba8 8%, var(--bg));
 }
 .gql-batch-card-latency {
   color: var(--text-muted);
   font-size: 0.66rem;
-  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2rem;
+  text-align: right;
 }
 .gql-batch-card-chevron-icon {
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: transform 0.15s ease;
+  opacity: 0.75;
+  transition: transform 0.15s ease, opacity 0.12s ease;
+}
+.gql-batch-card-header:hover .gql-batch-card-chevron-icon {
+  opacity: 1;
+  color: var(--text);
 }
 .gql-batch-card-chevron-icon--expanded {
   transform: rotate(90deg);
 }
 .gql-batch-card-body {
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: var(--bg);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid color-mix(in srgb, white 12%, var(--border));
 }
-.gql-batch-card-errors { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.gql-batch-card-errors { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .gql-batch-card-error-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px 6px;
+  padding: 6px 8px;
   background: color-mix(in srgb, #f38ba8 8%, var(--surface));
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #f38ba8 28%, color-mix(in srgb, white 8%, var(--border)));
   border-left: 2px solid #f38ba8;
 }
 .gql-batch-card-error-msg { font-size: 0.73rem; color: #f38ba8; }
 .gql-batch-card-error-path { font-size: 0.65rem; color: var(--text-muted); }
 .gql-batch-card-data {
-  font-size: 0.72rem;
+  font-size: 0.73rem;
+  line-height: 1.45;
   color: var(--text);
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
   margin: 0;
-  max-height: 200px;
+  max-height: 220px;
   overflow-y: auto;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--surface) 35%, var(--bg));
+  border: 1px solid color-mix(in srgb, white 12%, var(--border));
+  border-radius: 7px;
 }
 .gql-batch-card-empty { font-size: 0.72rem; color: var(--text-muted); margin: 0; }
 

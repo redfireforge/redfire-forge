@@ -8,21 +8,40 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Runs before Vite client + app so dev overlay does not treat benign ResizeObserver noise as fatal. -->
+    <!--
+      Runs BEFORE @vite/client + app. Chrome fires window AT_TARGET listeners in
+      registration order (capture flag does not reorder), so this must precede Vite's
+      unhandledrejection → forward-console handler or Monaco cancelations still spam
+      the console as "Uncaught (in promise) Object".
+    -->
     <script>
       (function () {
-        function roMsg(e) {
+        function isResizeObserverNoise(value) {
+          var m = value && value.message ? value.message : String(value || '');
+          return String(m).indexOf('ResizeObserver') !== -1;
+        }
+        /** Monaco / @monaco-editor/react remount cancelations — plain object, not Error. */
+        function isMonacoCancelation(reason) {
+          if (!reason || typeof reason !== 'object') return false;
+          if (reason.type === 'cancelation' || reason.type === 'cancellation') return true;
+          if (reason.name === 'Canceled' || reason.name === 'Cancelled') return true;
+          var msg = String(reason.msg || reason.message || '');
+          return (
+            msg.indexOf('operation is manually canceled') !== -1
+            || msg.indexOf('operation is manually cancelled') !== -1
+          );
+        }
+        function isBenign(e) {
           if (e.type === 'unhandledrejection') {
             var r = e.reason;
-            var m = r && r.message ? r.message : String(r || '');
-            return String(m).indexOf('ResizeObserver') !== -1;
+            return isResizeObserverNoise(r) || isMonacoCancelation(r);
           }
           var ev = e;
           var m = ev.message || (ev.error && ev.error.message) || (ev.error != null ? String(ev.error) : '');
-          return String(m).indexOf('ResizeObserver') !== -1;
+          return isResizeObserverNoise(m) || isMonacoCancelation(ev.error);
         }
         function swallow(e) {
-          if (!roMsg(e)) return;
+          if (!isBenign(e)) return;
           e.preventDefault();
           e.stopImmediatePropagation();
         }

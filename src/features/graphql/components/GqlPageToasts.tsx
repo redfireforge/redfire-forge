@@ -12,7 +12,7 @@ interface GqlPageToastsProps {
   toastBaselineSnapshotId: string | null;
   schemaInfo: GraphqlSchemaInfo | null;
   onViewDiff: (snapshot: GraphqlSchemaSnapshot) => void;
-  onSaveSnapshot: () => void;
+  onSaveSnapshot: () => void | Promise<void>;
   onDismissSchemaDiff: () => void;
 
   // APQ unsupported
@@ -58,7 +58,7 @@ export function GqlPageToasts({
                 onClick={() => {
                   if (!schemaInfo?.sdl) return;
                   onDismissSchemaDiff();
-                  void onViewDiff(baseline);
+                  void Promise.resolve(onViewDiff(baseline)).catch(() => {});
                 }}
               >
                 View diff →
@@ -69,7 +69,7 @@ export function GqlPageToasts({
                 className="gql-schema-toast-link"
                 onClick={() => {
                   onDismissSchemaDiff();
-                  onSaveSnapshot();
+                  void Promise.resolve(onSaveSnapshot()).catch(() => {});
                 }}
               >
                 Save snapshot →

@@ -132,6 +132,24 @@ describe('GraphqlHistoryPreviewPanel', () => {
     expect(onSaveToCollection).toHaveBeenCalledWith(item);
   });
 
+  it('shows full action labels and closes from footer dismiss', () => {
+    const onClose = vi.fn();
+    render(
+      <GraphqlHistoryPreviewPanel
+        item={makeItem()}
+        onClose={onClose}
+        onLoadIntoEditor={vi.fn()}
+        onRunInEditor={vi.fn()}
+        onSaveToCollection={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('gql-history-run')).toHaveTextContent('Open & Run');
+    expect(screen.getByTestId('gql-history-load')).toHaveTextContent('Load into editor');
+    expect(screen.getByTestId('gql-history-save-to-col')).toHaveTextContent('Save to Collection');
+    fireEvent.click(screen.getByTestId('gql-history-preview-close'));
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('shows anonymous title and variables tab content', () => {
     render(
       <GraphqlHistoryPreviewPanel

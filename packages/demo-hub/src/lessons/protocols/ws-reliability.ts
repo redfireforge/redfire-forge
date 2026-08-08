@@ -447,14 +447,14 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       },
       action: async (ctx: DemoActionContext) => {
         // Reading ring is already on Connect — one visible beat, no URL/tab thrash.
-        await ctx.delay(500);
+        await ctx.delay(200);
         if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
           await ctx.waitFor(WS.STATUS_CONNECTED, 5000);
         }
-        await ctx.delay(1000);
+        await ctx.delay(400);
         await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(800);
+        await ctx.delay(300);
       },
       verify: WS.STATUS_CONNECTED,
     },
@@ -469,10 +469,10 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.RIGHT_TAB_STATS);
-        await ctx.delay(300);
+        await ctx.delay(150);
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(1000);
+        await ctx.delay(400);
       },
     },
 
@@ -491,22 +491,22 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
         }
         // Switch to Send, send a burst, then back to Stats
         await ctx.click(WS.LEFT_TAB_SEND);
-        await ctx.delay(200);
+        await ctx.delay(100);
         await ctx.fill(WS.MESSAGE_INPUT, '{"ping":1}');
-        await ctx.delay(200);
+        await ctx.delay(100);
       },
       action: async (ctx: DemoActionContext) => {
         // Send 5 messages — re-fill each time because Send clears the input
         for (let i = 0; i < 5; i++) {
           await ctx.fill(WS.MESSAGE_INPUT, `{"ping":${i + 1}}`);
-          await ctx.delay(200);
+          await ctx.delay(100);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(350);
+          await ctx.delay(180);
         }
-        await ctx.delay(600);
+        await ctx.delay(300);
         // Switch to Stats to observe the spike
         await ctx.click(WS.RIGHT_TAB_STATS);
-        await ctx.delay(1800);
+        await ctx.delay(800);
       },
     },
 
@@ -515,18 +515,22 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       id: 'rel-reconnect-settings',
       title: 'Auto-Reconnect Settings',
       description:
-        'Back on the Connect tab, scroll down to **Auto-Reconnect Settings**. ' +
-        'These settings must be configured **before** connecting — the checkbox is locked while a connection is active. ' +
-        'The checkbox enables automatic retries when a connection drops unexpectedly (close code ≠ 1000). ' +
-        'You configure **Max Attempts** (default 5), **Retry Interval** (default 3000ms), and **Backoff Multiplier** (1×, 1.5×, or 2× exponential). ' +
+        'Auto-reconnect can only be changed while **disconnected** — the Connect panel locks these controls while a session is active. ' +
+        'This step disconnects first, then enables **Enable auto-reconnect**. ' +
+        'That turns on automatic retries when a connection drops unexpectedly (close code ≠ 1000). ' +
+        'Configure **Max Attempts** (default 5), **Retry Interval** (default 3000ms), and **Backoff** (1×, 1.5×, or 2×). ' +
         'These settings are saved with connection profiles.',
       highlight: WS.RECONNECT_SETTINGS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // The toggle is disabled while connected — disconnect first to unlock it.
-        await disconnectWebSocket(ctx);
+        // Toggle is locked while connected — must fully disconnect before reading/action.
         await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(300);
+        await ctx.delay(100);
+        if (firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await disconnectWebSocket(ctx);
+          await ctx.waitFor(WS.STATUS_DISCONNECTED, 5000);
+        }
+        await ctx.delay(100);
       },
       action: async (ctx: DemoActionContext) => {
         const spotPause = async (selector: string, holdMs: number) => {
@@ -536,25 +540,38 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
           await ctx.delay(holdMs);
           dispose();
         };
-        // Scroll the reconnect settings into view
+        // Belt: still connected → disconnect again before enabling
+        if (firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await disconnectWebSocket(ctx);
+          await ctx.waitFor(WS.STATUS_DISCONNECTED, 5000);
+          await ctx.delay(200);
+        }
         firstVisibleElement(WS.RECONNECT_SETTINGS)
           ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(600);
-        // Enable the checkbox — only possible while disconnected (toggle is locked when connected)
+        await ctx.delay(300);
+        // Visible enable — this is the payoff of the step
+        await spotPause(WS.RECONNECT_TOGGLE, 1400);
         const toggle = firstVisibleElement<HTMLInputElement>(WS.RECONNECT_TOGGLE);
         if (toggle && !toggle.checked && !toggle.disabled) {
-          await spotPause(WS.RECONNECT_TOGGLE, 900);
           await ctx.click(WS.RECONNECT_TOGGLE);
-          await ctx.delay(400);
-        } else {
-          await spotPause(WS.RECONNECT_TOGGLE, 900);
+          await ctx.delay(500);
+        } else if (toggle && !toggle.checked) {
+          // Last resort: force enable via native click after another disconnect
+          await disconnectWebSocket(ctx);
+          await ctx.waitFor(WS.STATUS_DISCONNECTED, 5000);
+          await ctx.delay(100);
+          const unlocked = firstVisibleElement<HTMLInputElement>(WS.RECONNECT_TOGGLE);
+          if (unlocked && !unlocked.disabled) {
+            await ctx.click(WS.RECONNECT_TOGGLE);
+            await ctx.delay(500);
+          }
         }
-        // Spotlight each config field so the viewer can read the defaults
-        await spotPause(WS.RECONNECT_MAX, 1100);
-        await spotPause(WS.RECONNECT_INTERVAL, 1100);
-        await spotPause(WS.RECONNECT_BACKOFF, 1100);
-        // Leave toggle enabled; step 5 preAction disables it before close-with-code
+        await spotPause(WS.RECONNECT_MAX, 1200);
+        await spotPause(WS.RECONNECT_INTERVAL, 1200);
+        await spotPause(WS.RECONNECT_BACKOFF, 1200);
+        // Leave toggle enabled; step 5 turns it off before close-with-code
       },
+      verify: WS.RECONNECT_TOGGLE,
     },
 
     // ── 5. Close with Code ────────────────────────────────
@@ -566,33 +583,38 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       highlight: WS.DISCONNECT_CARET,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: caret is disabled when disconnected; reconnect silently if needed.
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(100);
+        // Turn off auto-reconnect while disconnected (locked when connected).
+        if (firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await disconnectWebSocket(ctx);
+          await ctx.waitFor(WS.STATUS_DISCONNECTED, 5000);
+        }
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.RECONNECT_TOGGLE);
+        if (toggle?.checked && !toggle.disabled) {
+          toggle.click();
+          await ctx.delay(100);
+        }
+        // Caret needs an active session
         if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await connectToMockServer(ctx);
         }
-        await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
-        // Disable auto-reconnect if the previous step left it on
-        const toggle = firstVisibleElement<HTMLInputElement>(WS.RECONNECT_TOGGLE);
-        if (toggle?.checked) {
-          toggle.click();
-          await ctx.delay(200);
-        }
       },
       action: async (ctx: DemoActionContext) => {
         // Open the close-with-code dropdown
         await ctx.click(WS.DISCONNECT_CARET);
         // Rule 5: the close panel is conditionally rendered — wait for it to appear.
         await ctx.waitFor(WS.CLOSE_CODE_INPUT);
-        await ctx.delay(400);
+        await ctx.delay(200);
         // Fill close code and reason
         await ctx.fill(WS.CLOSE_CODE_INPUT, '1001');
-        await ctx.delay(600);
+        await ctx.delay(300);
         await ctx.fill(WS.CLOSE_REASON_INPUT, 'Demo lesson complete');
-        await ctx.delay(600);
+        await ctx.delay(300);
         // Send the close frame
         await ctx.click(WS.CLOSE_WITH_CODE_BTN);
-        await ctx.delay(1200);
+        await ctx.delay(600);
       },
     },
 
@@ -610,7 +632,7 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.click(WS.RIGHT_TAB_STATS);
-        await ctx.delay(1400);
+        await ctx.delay(600);
       },
     },
 
@@ -624,13 +646,13 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(300);
+        await ctx.delay(150);
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.click(WS.URL_HISTORY_TRIGGER);
-        await ctx.delay(2000);
+        await ctx.delay(900);
         await ctx.click(WS.URL_HISTORY_TRIGGER);
-        await ctx.delay(600);
+        await ctx.delay(300);
       },
     },
   ],

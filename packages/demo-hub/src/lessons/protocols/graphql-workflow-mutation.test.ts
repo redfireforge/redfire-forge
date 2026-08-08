@@ -81,8 +81,8 @@ describe('gql-workflow-mutation lesson', () => {
     expect(gqlWorkflowMutationLesson.id).toBe('gql-workflow-mutation');
     expect(gqlWorkflowMutationLesson.category).toBe('graphql');
     expect(gqlWorkflowMutationLesson.name).toBe('Mutation Node in Workflow');
-    expect(gqlWorkflowMutationLesson.steps.length).toBe(15);
-    expect(gqlWorkflowMutationLesson.estimatedMinutes).toBe(8);
+    expect(gqlWorkflowMutationLesson.steps.length).toBe(16);
+    expect(gqlWorkflowMutationLesson.estimatedMinutes).toBe(9);
   });
 
   it('starts at workflow tab', () => {
@@ -94,6 +94,7 @@ describe('gql-workflow-mutation lesson', () => {
     expect(gqlWorkflowMutationLesson.steps.map((s) => s.id)).toEqual([
       'gql18-intro',
       'gql18-create',
+      'gql18-workflow-variables',
       'gql18-add-mutation',
       'gql18-config-mutation',
       'gql18-bind-extraction',
@@ -110,7 +111,7 @@ describe('gql-workflow-mutation lesson', () => {
     ]);
   });
 
-  it('all 15 steps have pauseAfter: true', () => {
+  it('all 16 steps have pauseAfter: true', () => {
     gqlWorkflowMutationLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -343,37 +344,91 @@ describe('gql-workflow-mutation lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(WF.SIDEBAR_NEW_BTN);
   });
 
-  it('gql18-add-mutation action adds mutation node to canvas', async () => {
+  it('gql18-workflow-variables highlights Variables button and configures testName', async () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-workflow-variables')!;
+    expect(step.highlight).toBe(WF.VARIABLES_BTN);
+    expect(step.description).toContain(LESSON18_TEST_NAME_VAR);
+    expect(step.description).toContain(LESSON18_CREATED_USER_ID_VAR);
+    expect(step.description).toContain(LESSON18_FETCHED_USER_VAR);
+  });
+
+  it('gql18-workflow-variables action opens Variables modal and saves testName', async () => {
+    const ctx = makeCtx();
+    stubLesson18BlankWorkflowInStore();
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <button data-testid="wf-toolbar-variables-btn"></button>
+      <div class="wf-config-modal wf-defaults-modal">
+        <div class="wf-config-vars">
+          <div class="wf-config-kv-row-vars">
+            <input class="wf-var-key-input" placeholder="name" />
+            <div class="wf-var-new-row-value"><input class="wf-var-value-input" placeholder="value" /></div>
+            <button type="button" aria-label="Add variable">+</button>
+          </div>
+        </div>
+        <button class="btn-ghost">Cancel</button>
+        <button class="btn-primary">Save</button>
+      </div>
+    `;
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-workflow-variables')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.VARIABLES_BTN);
+    expect(ctx.fill).toHaveBeenCalledWith(WF.DEFAULTS_NEW_KEY, LESSON18_TEST_NAME_VAR);
+    expect(ctx.fill).toHaveBeenCalledWith(WF.DEFAULTS_NEW_VAL, 'Demo User');
+    expect(ctx.click).toHaveBeenCalledWith(WF.DEFAULTS_SAVE_BTN);
+  });
+
+  it('gql18-add-mutation action searches GraphQL then clicks mutation palette', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
     stubLesson18BlankWorkflowInStore();
-    document.body.innerHTML = `${buildWorkflowDom()}<button class="wf-palette-block-graphqlMutation"></button>`;
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+    `;
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-mutation')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
+    expect(document.querySelector<HTMLInputElement>(WF.PAL_SEARCH)?.value ?? '').toBe('');
     expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_MUTATION);
   });
 
   it('gql18-config-mutation action fills mutation endpoint and query', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = buildMutationPanelDom();
+    stubLesson18BlankWorkflowInStore();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn((_t: string, id?: string) => id);
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      ${buildMutationPanelDom()}
+    `;
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-config-mutation')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(WF.WF_GQL_MUTATION_ENDPOINT, expect.stringContaining('4010'));
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, LESSON18_CREATE_MUTATION);
+    expect(document.querySelector<HTMLInputElement>(GQL.WF_ENDPOINT_INPUT)?.value).toContain('4010');
+    expect(document.querySelector<HTMLTextAreaElement>(GQL.WF_QUERY_EDITOR)?.value).toBe(LESSON18_CREATE_MUTATION);
   });
 
   it('gql18-bind-extraction action configures extraction rule', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = buildMutationPanelDom(true);
+    stubLesson18BlankWorkflowInStore();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn((_t: string, id?: string) => id);
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      ${buildMutationPanelDom(true)}
+    `;
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-bind-extraction')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_EXTRACTION_JSONPATH, LESSON18_EXTRACTION_JSONPATH);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_EXTRACTION_VARNAME, LESSON18_CREATED_USER_ID_VAR);
+    expect(document.querySelector<HTMLInputElement>(GQL.WF_EXTRACTION_JSONPATH)?.value).toBe(LESSON18_EXTRACTION_JSONPATH);
+    expect(document.querySelector<HTMLInputElement>(GQL.WF_EXTRACTION_VARNAME)?.value).toBe(LESSON18_CREATED_USER_ID_VAR);
   });
 
   it('gql18-quick-test action clicks Quick Test and waits for summary', async () => {
@@ -389,48 +444,87 @@ describe('gql-workflow-mutation lesson', () => {
   it('gql18-config-query action configures read-back query node', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = `${buildMutationPanelDom(true)}${buildQueryPanelDom()}`;
+    stubLesson18BlankWorkflowInStore();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn((_t: string, id?: string) => id);
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      <button class="wf-palette-block-graphqlQuery"></button>
+      ${buildMutationPanelDom(true)}
+      ${buildQueryPanelDom()}
+    `;
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-config-query')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, LESSON18_GET_USER_QUERY);
+    expect(document.querySelector<HTMLTextAreaElement>(GQL.WF_QUERY_EDITOR)?.value).toContain('user(id: $id)');
   });
 
   it('gql18-assert-rule action configures assert node on fetched user name', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = `${buildMutationPanelDom(true)}${buildQueryPanelDom(true)}${buildAssertPanelDom()}`;
+    stubLesson18BlankWorkflowInStore();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn((_t: string, id?: string) => id);
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      <button class="wf-palette-block-graphqlQuery"></button>
+      <button class="wf-palette-block-graphqlAssert"></button>
+      ${buildMutationPanelDom(true)}
+      ${buildQueryPanelDom(true)}
+      ${buildAssertPanelDom()}
+    `;
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-assert-rule')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_JSONPATH, '$.user.name');
+    expect(document.querySelector<HTMLInputElement>(GQL.WF_ASSERT_JSONPATH)?.value).toBe('$.user.name');
   });
 
   it('gql18-config-delete action configures delete mutation', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn();
-    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div>${buildMutationPanelDom()}<div class="react-flow__node" data-id="${LESSON18_NODE_DELETE}"></div>`;
+    stubLesson18BlankWorkflowInStore();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn((_t: string, id?: string) => id);
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <div data-testid="exec-summary"></div>
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      ${buildMutationPanelDom()}
+      <div class="react-flow__node" data-id="${LESSON18_NODE_DELETE}"></div>
+    `;
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-config-delete')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, LESSON18_DELETE_MUTATION);
+    expect(document.querySelector<HTMLTextAreaElement>(GQL.WF_QUERY_EDITOR)?.value).toBe(LESSON18_DELETE_MUTATION);
   });
 
   it('gql18-add-delete action clicks palette to add delete node', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div><button class="wf-palette-block-graphqlMutation"></button>`;
+    stubLesson18BlankWorkflowInStore();
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <div data-testid="exec-summary"></div>
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+    `;
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-delete')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_MUTATION);
   });
 
-  it('demonstrateLesson18DeleteNodeAdded always clicks mutation palette', async () => {
+  it('demonstrateLesson18DeleteNodeAdded searches GraphQL then clicks mutation palette', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = `${buildWorkflowDom()}<button class="wf-palette-block-graphqlMutation"></button>`;
+    stubLesson18BlankWorkflowInStore();
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+    `;
     await demonstrateLesson18DeleteNodeAdded(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_MUTATION);
   });
@@ -478,10 +572,17 @@ describe('gql-workflow-mutation lesson', () => {
     const ctx = makeCtx();
     const openSpy = vi.fn();
     stubNodeConfigBridge(openSpy);
-    document.body.innerHTML = buildMutationPanelDom();
+    stubLesson18BlankWorkflowInStore();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn((_t: string, id?: string) => id);
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      ${buildMutationPanelDom()}
+    `;
     await ensureLesson18MutationConfigured(ctx);
     expect(openSpy).toHaveBeenCalledWith(LESSON18_NODE_CREATE);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_VARIABLES_EDITOR, LESSON18_MUTATION_VARS);
+    expect(document.querySelector<HTMLTextAreaElement>(GQL.WF_VARIABLES_EDITOR)?.value).toContain(LESSON18_TEST_NAME_VAR);
   });
 
   it('ensureLesson18DeleteNodeAdded closes console and rewires assert to delete', async () => {
@@ -608,20 +709,39 @@ describe('gql-workflow-mutation lesson', () => {
   it('ensureLesson18QueryConfigured binds fetchedUser output', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = `${buildMutationPanelDom(true)}${buildQueryPanelDom()}`;
+    stubLesson18BlankWorkflowInStore();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn((_t: string, id?: string) => id);
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      <button class="wf-palette-block-graphqlQuery"></button>
+      ${buildMutationPanelDom(true)}
+      ${buildQueryPanelDom()}
+    `;
     await ensureLesson18QueryConfigured(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, LESSON18_GET_USER_QUERY);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_VARIABLES_EDITOR, LESSON18_QUERY_VARS);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_OUTPUT_VARNAME, LESSON18_FETCHED_USER_VAR);
+    expect(document.querySelector<HTMLTextAreaElement>(GQL.WF_QUERY_EDITOR)?.value).toContain('user(id: $id)');
+    expect(document.querySelector<HTMLTextAreaElement>(GQL.WF_VARIABLES_EDITOR)?.value).toContain(LESSON18_CREATED_USER_ID_VAR);
+    expect(document.querySelector<HTMLInputElement>(GQL.WF_OUTPUT_VARNAME)?.value).toBe(LESSON18_FETCHED_USER_VAR);
   });
 
   it('ensureLesson18AssertConfigured sets equals assertion on user name', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = `${buildMutationPanelDom(true)}${buildQueryPanelDom(true)}${buildAssertPanelDom()}`;
+    stubLesson18BlankWorkflowInStore();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn((_t: string, id?: string) => id);
+    document.body.innerHTML = `
+      ${buildWorkflowDom()}
+      <input class="wf-palette-search" />
+      <button class="wf-palette-block-graphqlMutation"></button>
+      <button class="wf-palette-block-graphqlQuery"></button>
+      <button class="wf-palette-block-graphqlAssert"></button>
+      ${buildMutationPanelDom(true)}
+      ${buildQueryPanelDom(true)}
+      ${buildAssertPanelDom()}
+    `;
     await ensureLesson18AssertConfigured(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(WF.WF_GQL_ASSERT_SOURCE, LESSON18_FETCHED_USER_VAR);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_JSONPATH, '$.user.name');
+    expect(document.querySelector<HTMLInputElement>(GQL.WF_ASSERT_JSONPATH)?.value).toBe('$.user.name');
     expect(ctx.selectOption).toHaveBeenCalledWith(GQL.WF_ASSERT_OPERATOR, 'equals');
   });
 
@@ -717,7 +837,7 @@ function buildAssertPanelDom(): string {
     <div data-testid="gql-wf-assert-panel">
       <button class="wf-config-tab">Source</button>
       <button class="wf-config-tab">Assertions</button>
-      <div class="wf-config-field"><div class="expr-input-wrapper"><input /></div></div>
+      <input data-testid="gql-wf-assert-source-var" />
       <div data-testid="gql-wf-assert-row">
         <input data-testid="gql-wf-assert-jsonpath" />
         <select data-testid="gql-wf-assert-operator"></select>

@@ -250,6 +250,7 @@ export const WS = {
   TLS_CLIENT_KEY:     '[data-testid="tls-client-key"]',
   TLS_CLOSE:          '[data-testid="tls-close"]',
   TLS_CANCEL:         '[data-testid="tls-cancel"]',
+  TLS_SAVE:           '[data-testid="tls-save"]',
 
   // Transport badge (shown when connected)
   TRANSPORT_BADGE:    '[data-testid="transport-badge"]',
@@ -257,6 +258,7 @@ export const WS = {
   // Status indicators
   STATUS_LABEL:      '.ws-messages-status-label',
   STATUS_CONNECTED:  '.ws-status-dot.connected',
+  STATUS_DISCONNECTED: '.ws-status-dot.disconnected',
 
   // Auth panel
   AUTH_TYPE_SELECT:   '.auth-type-select',

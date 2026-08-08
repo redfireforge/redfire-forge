@@ -1,10 +1,59 @@
 import type { DemoActionContext } from '../../../types';
 import { GRPC } from '@shared/selectors';
+import { resetGrpcActiveTabRuntimeState } from '../../../adapters';
 import { navigateToGrpcStudio } from '../../env-manager-lesson-helpers';
 import { GRPC_DEMO_TARGET, grpcLessonSession } from './constants';
 import { setGrpcLessonRunFlag } from '../grpc-lesson-contract/runtime';
 import { setInputValueAndDispatch } from './dom';
 import { closeGrpcSettingsDrawerQuiet, ensureGrpcStudioSubNavQuiet } from './navigation';
+
+/** True when the connection-bar TLS badge is Plaintext / unset. */
+export function isGrpcTlsBadgePlaintext(): boolean {
+  const badge = document.querySelector(GRPC.TLS_BADGE);
+  const text = (
+    badge?.getAttribute('aria-label')
+    || badge?.getAttribute('title')
+    || badge?.textContent
+    || ''
+  ).toLowerCase();
+  if (!text.trim()) return true;
+  // Badge copy often includes "TLS mode: Plaintext" — check plaintext before "tls".
+  if (text.includes('plaintext') || text.includes('disabled')) return true;
+  // Explicit encrypted modes (avoid matching the word "tls" inside "plaintext").
+  if (/\bmtls\b/.test(text) || /\btls\b/.test(text)) return false;
+  return false;
+}
+
+/**
+ * Force the active tab back to plaintext TLS + Express transport before Reflect/Send.
+ * Leftover TLS/mTLS → Reflect HTTP 503; leftover gRPC-Web → browser
+ * net::ERR_INVALID_HTTP_RESPONSE against plaintext :50051.
+ */
+export function forceGrpcPlaintextChannelQuiet(): boolean {
+  return resetGrpcActiveTabRuntimeState();
+}
+
+/**
+ * Wait for the gRPC demo bridge (mounted in a useEffect after Studio paints),
+ * then force plaintext. Calling reset before the bridge exists is a silent no-op
+ * and is the usual cause of Reflect → HTTP 503 against localhost:50051.
+ */
+export async function ensureGrpcPlaintextChannelReady(
+  ctx: DemoActionContext,
+  timeoutMs = 2_500,
+): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (forceGrpcPlaintextChannelQuiet()) {
+      // Let React commit sessionRef before the next Reflect click.
+      await ctx.delay(120);
+      return true;
+    }
+    await ctx.delay(50);
+  }
+  // Last attempt — may still be false when Studio is not mounted.
+  return forceGrpcPlaintextChannelQuiet();
+}
 
 export async function ensureGrpcTarget(ctx: DemoActionContext): Promise<void> {
   await navigateToGrpcStudio(ctx);
@@ -44,18 +93,23 @@ export async function ensureGrpcTarget(ctx: DemoActionContext): Promise<void> {
 }
 
 /**
- * Quietly reset auth → none.
- * Called during lesson setup and cleanup so leftover auth config
- * (e.g. OAuth2 from a previous lesson) does not bleed into a new lesson.
- * Auth is in the call-panel Auth tab — the settings drawer is not opened.
- * TLS is managed per-lesson via the TLS badge modal.
+ * Quietly reset channel security for demo lessons:
+ * - TLS/mTLS → Plaintext (prevents Reflect 503 against the plaintext echo fixture)
+ * - Auth → none
+ *
+ * TLS lessons that need TLS/mTLS re-enable it in their own steps after setup.
  */
 export async function resetGrpcConnectionSettingsQuiet(ctx: DemoActionContext): Promise<void> {
   // Close the settings drawer if it happens to be open (auth and TLS have moved
   // out of the settings drawer — no need to open it just to reset them).
   await closeGrpcSettingsDrawerQuiet(ctx);
 
-  // Reset auth → none via the call-panel Auth tab (auth moved out of settings drawer).
+  // Always clear sticky TLS/mTLS via the bridge (wait for mount). Badge text alone
+  // is not enough — Reflect reads sessionRef, which can still be TLS after a no-op reset.
+  await ensureGrpcPlaintextChannelReady(ctx);
+
+  // Reset auth → none via the call-panel Auth tab when the bridge is absent
+  // or the badge still shows a non-none mode.
   const authBadgeText = document.querySelector<HTMLElement>(GRPC.AUTH_BADGE)?.textContent ?? '';
   if (!/\bnone\b/i.test(authBadgeText)) {
     try {

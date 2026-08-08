@@ -47,6 +47,29 @@ describe('grpcGrpcWebUnaryClient (Phase 10C)', () => {
       .toBe('http://localhost:50051/echo.EchoService/Echo');
   });
 
+  it('blocks real browser fetch against native gRPC :50051 without calling fetch', async () => {
+    const fetchFn = vi.fn();
+    // No fetchFn override — uses global fetch path after guard. Stub global to detect leaks.
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchFn as unknown as typeof fetch;
+    try {
+      await expect(invokeGrpcWebUnary({
+        request: {
+          ...FIXTURE_UNARY_CALL_REQUEST,
+          target: FIXTURE_TARGET,
+          service: 'echo.EchoService',
+          method: 'Echo',
+          body: { message: 'ping' },
+        },
+        tabId: 'tab-native-block',
+        protosetBase64: buildEchoProtosetBase64(),
+      })).rejects.toBeInstanceOf(GrpcApiClientError);
+      expect(fetchFn).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('invokeGrpcWebUnary decodes framed success response', async () => {
     const protosetBase64 = buildEchoProtosetBase64();
     const responsePayload = encodeGrpcWebProtoMessage(

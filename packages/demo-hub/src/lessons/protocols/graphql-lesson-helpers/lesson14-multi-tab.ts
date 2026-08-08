@@ -46,6 +46,15 @@ import {
   purgeGqlDemoConnectionProfiles,
 } from '../../../adapters';
 import { openGqlProfileModal } from '../../../adapters/gqlModalLockBridge';
+import { spotlightAndPause } from './gql-demo-spotlight';
+
+/** Hold times for visible teaching beats — paced for human viewers within DEMO_ACTION_TIMEOUT_MS. */
+const HOLD = {
+  beat: 800,
+  outcome: 1_000,
+  tab: 750,
+  modal: 900,
+} as const;
 
 const GQL14_LESSON_ID = 'gql-multi-tab';
 
@@ -122,18 +131,34 @@ function hasSchemaBadge(): boolean {
 
 // ── Shared utility helpers (exported for test access) ────────────────────────
 
-/**
- * Activate the Nth workspace tab (0-based) by tagging it with a lesson-target
- * attribute and using ctx.click — following the same pattern as other lesson helpers.
- */
+/** Quiet tab switch for preAction/guards — native click, no ripple flash. */
 export async function activateGqlTabByIndex(ctx: DemoActionContext, index: number): Promise<void> {
   const tab = getDemoTabByIndex(index);
   if (!tab) return;
   if (tab.getAttribute('aria-selected') === 'true') return;
+  tab.click();
+  await ctx.delay(250);
+}
+
+/**
+ * Visible tab switch — spotlight the tab, click with ripple, pause on the active tab.
+ * Use only inside step `action()` teaching beats (not preAction).
+ */
+export async function activateGqlTabByIndexVisible(
+  ctx: DemoActionContext,
+  index: number,
+  holdMs = HOLD.tab,
+): Promise<void> {
+  const tab = getDemoTabByIndex(index);
+  if (!tab) return;
   const attr = `gql14-tab-${index}`;
   tab.setAttribute('data-lesson-target', attr);
-  await ctx.click(`[data-lesson-target="${attr}"]`);
-  await ctx.delay(800);
+  const sel = `[data-lesson-target="${attr}"]`;
+  await spotlightAndPause(ctx, sel, holdMs);
+  if (tab.getAttribute('aria-selected') !== 'true') {
+    await ctx.click(sel);
+    await ctx.delay(450);
+  }
 }
 
 /**
@@ -144,9 +169,9 @@ export async function ensureGqlTabCount(ctx: DemoActionContext, n: number): Prom
   let attempts = 0;
   while (count < n && attempts < n + 3) {
     attempts++;
-    await ctx.click(GQL.TAB_ADD_BTN);
+    document.querySelector<HTMLElement>(GQL.TAB_ADD_BTN)?.click();
     await ctx.waitFor(GQL14_DEMO_TAB_SELECTOR, 5000);
-    await ctx.delay(800);
+    await ctx.delay(250);
     count = getDemoTabCount();
   }
 }
@@ -186,9 +211,9 @@ function tagLesson14Tab2(): void {
  */
 export async function introspectActiveTabQuiet(ctx: DemoActionContext): Promise<void> {
   if (hasSchemaBadge()) return;
-  await ctx.click(GQL.INTROSPECT_BTN);
-  await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 15000);
-  await ctx.delay(1200);
+  document.querySelector<HTMLElement>(GQL.INTROSPECT_BTN)?.click();
+  await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 15_000).catch(() => undefined);
+  await ctx.delay(200);
 }
 
 /**
@@ -197,9 +222,9 @@ export async function introspectActiveTabQuiet(ctx: DemoActionContext): Promise<
 export async function executeOnActiveTabQuiet(ctx: DemoActionContext, query: string): Promise<void> {
   if (responseBodyText().includes('health')) return;
   await fillGqlEditor(ctx, query, { focus: false });
-  await ctx.click(GQL.EXECUTE_BTN);
-  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(1000);
+  document.querySelector<HTMLElement>(GQL.EXECUTE_BTN)?.click();
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15_000).catch(() => undefined);
+  await ctx.delay(200);
 }
 
 // ── Lesson-specific guard helpers ────────────────────────────────────────────
@@ -236,29 +261,88 @@ export async function ensureLesson14Tab2Added(ctx: DemoActionContext): Promise<v
     return;
   }
 
-  await ctx.click(GQL.TAB_ADD_BTN);
+  document.querySelector<HTMLElement>(GQL.TAB_ADD_BTN)?.click();
   await ctx.waitFor(GQL14_DEMO_TAB_SELECTOR, 5000);
-  await ctx.delay(500);
+  await ctx.delay(200);
   await patchDemoTabBlankEndpointQuiet(1);
   tagLesson14Tab2();
   _lesson14Tab2Added = true;
 }
 
-/** Step action: add the second demo tab with the + button (no tab-bar hopping). */
+/**
+ * Visible Tab 1 endpoint beat — introspect + execute with held spotlights.
+ * Quiet recovery for later steps uses {@link ensureLesson14Tab1Configured}.
+ */
+export async function demonstrateLesson14Tab1Endpoint(ctx: DemoActionContext): Promise<void> {
+  if (_lesson14Tab1Set) {
+    await spotlightAndPause(ctx, GQL.RESPONSE_BODY, HOLD.outcome);
+    return;
+  }
+  await navigateToGraphqlStudio(ctx);
+  if (graphQlHeaderSelectorsPresent()) {
+    await ensureGqlDemoHeaderContext(ctx);
+  }
+  await activateGqlTabByIndex(ctx, 0);
+  await configureDemoTabInheritPageDefault(ctx);
+
+  await spotlightAndPause(ctx, GQL.ENDPOINT_INPUT, HOLD.beat);
+  await spotlightAndPause(ctx, GQL.INTROSPECT_BTN, HOLD.beat);
+  await ctx.click(GQL.INTROSPECT_BTN);
+  await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 4_000).catch(() => undefined);
+  await spotlightAndPause(ctx, GQL.SCHEMA_BADGE_OK, HOLD.outcome);
+
+  await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
+  await spotlightAndPause(ctx, GQL.EXECUTE_BTN, HOLD.beat);
+  await ctx.click(GQL.EXECUTE_BTN);
+  await ctx.waitFor(GQL.RESPONSE_BODY, 4_000).catch(() => undefined);
+  await spotlightAndPause(ctx, GQL.RESPONSE_BODY, HOLD.outcome);
+  _lesson14Tab1Set = true;
+}
+
+/** Step action: add the second demo tab with the + button (spotlighted). */
 export async function demonstrateLesson14AddSecondTab(ctx: DemoActionContext): Promise<void> {
   if (getDemoTabCount() >= 2) {
     _lesson14Tab2Added = true;
     tagLesson14Tab2();
-    await ctx.delay(900);
+    await spotlightAndPause(ctx, GQL.LESSON14_TAB2, HOLD.outcome);
     return;
   }
 
+  await spotlightAndPause(ctx, GQL.TAB_ADD_BTN, HOLD.beat);
   await ctx.click(GQL.TAB_ADD_BTN);
   await ctx.waitFor(GQL14_DEMO_TAB_SELECTOR, 5000);
-  await ctx.delay(800);
+  await ctx.delay(400);
   await patchDemoTabBlankEndpointQuiet(1);
   tagLesson14Tab2();
   _lesson14Tab2Added = true;
+  await spotlightAndPause(ctx, GQL.LESSON14_TAB2, HOLD.outcome);
+  await spotlightAndPause(ctx, GQL.ENDPOINT_INPUT, HOLD.beat);
+}
+
+/**
+ * Visible Tab 2 override beat — set direct URL, introspect, pause on schema badge.
+ */
+export async function demonstrateLesson14Tab2Endpoint(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14Tab2Added(ctx);
+  if (_lesson14Tab2Set) {
+    await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+    await spotlightAndPause(ctx, GQL.SCHEMA_BADGE_OK, HOLD.outcome);
+    return;
+  }
+  await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+  await spotlightAndPause(ctx, GQL.ENDPOINT_INPUT, HOLD.beat);
+  await configureDemoTabEndpointOverride(ctx, LESSON14_TAB2_ENDPOINT);
+  await spotlightAndPause(ctx, GQL.ENDPOINT_INPUT, HOLD.beat);
+  await spotlightAndPause(ctx, GQL.INTROSPECT_BTN, HOLD.beat);
+  await ctx.click(GQL.INTROSPECT_BTN);
+  await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 4_000).catch(() => undefined);
+  await spotlightAndPause(ctx, GQL.SCHEMA_BADGE_OK, HOLD.outcome);
+  const tab2 = getDemoTabByIndex(1);
+  if (tab2) {
+    tab2.setAttribute('data-lesson-target', 'gql14-tab2-badge');
+    await spotlightAndPause(ctx, '[data-lesson-target="gql14-tab2-badge"]', HOLD.outcome);
+  }
+  _lesson14Tab2Set = true;
 }
 
 /**
@@ -286,26 +370,38 @@ export async function ensureLesson14Tab2Executed(ctx: DemoActionContext): Promis
   _lesson14Tab2Executed = true;
 }
 
-/** Visible tab-switch beat: execute on Tab 2, pause, then switch to Tab 1 cache. */
+/**
+ * Visible tab-switch beat: show Tab 2's cached response, switch to Tab 1, show its cache.
+ * Execute/config belong in preAction ({@link ensureLesson14Tab2Executed}) — this step
+ * teaches persistence, not a second round-trip.
+ */
 export async function demonstrateLesson14TabResponseSwitch(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14Tab2Configured(ctx);
-  await activateGqlTabByIndex(ctx, 1);
-
   if (!_lesson14Tab2Executed) {
+    await activateGqlTabByIndex(ctx, 1);
     await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
-    await ctx.delay(400);
-    await ctx.click(GQL.EXECUTE_BTN);
-    await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-    await ctx.delay(2500);
+    document.querySelector<HTMLElement>(GQL.EXECUTE_BTN)?.click();
+    await ctx.waitFor(GQL.RESPONSE_VIEWER, 2_500).catch(() => undefined);
     _lesson14Tab2Executed = true;
-  } else {
-    await ctx.delay(1200);
   }
 
-  await activateGqlTabByIndex(ctx, 0);
-  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
-  await ctx.delay(2500);
+  await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+  await spotlightAndPause(ctx, GQL.RESPONSE_BODY, HOLD.outcome);
+
+  await activateGqlTabByIndexVisible(ctx, 0, HOLD.tab);
+  await spotlightAndPause(ctx, GQL.RESPONSE_BODY, HOLD.outcome);
   _lesson14SwitchedToTab1 = true;
+}
+
+/**
+ * Visible Staging ↔ Production compare — tabs are already renamed in preAction.
+ * Holds the spotlight on each tab, then on its cached response.
+ */
+export async function demonstrateLesson14RenameAndCompare(ctx: DemoActionContext): Promise<void> {
+  await spotlightAndPause(ctx, GQL.TAB_BAR, HOLD.beat);
+  await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+  await spotlightAndPause(ctx, GQL.RESPONSE_BODY, HOLD.outcome);
+  await activateGqlTabByIndexVisible(ctx, 0, HOLD.tab);
+  await spotlightAndPause(ctx, GQL.RESPONSE_BODY, HOLD.outcome);
 }
 
 /** Guard: switched to Tab 1 with Tab 2 response cached (used by later steps). */
@@ -403,14 +499,14 @@ async function openProfileModal(ctx: DemoActionContext): Promise<void> {
     const opened = openGqlProfileModal();
     if (!opened) await ctx.click(GQL.PROFILE_BADGE);
   }
-  await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-  await ctx.delay(800);
+  await ctx.waitFor(GQL.PROFILE_MODAL, 2_500);
+  await ctx.delay(400);
 }
 
 async function closeProfileModalIfOpen(ctx: DemoActionContext): Promise<void> {
   if (!document.querySelector(GQL.PROFILE_MODAL)) return;
   await ctx.click(GQL.PROFILE_CLOSE_BTN);
-  await ctx.delay(300);
+  await ctx.delay(200);
 }
 
 /**
@@ -449,32 +545,35 @@ export async function ensureLesson14Tab2Bearer(ctx: DemoActionContext): Promise<
   await setActiveTabBearer(ctx, LESSON14_TAB2_BEARER_TOKEN);
 }
 
-/** Visible per-tab auth beat: No Auth on Staging, Bearer on Production, Metadata compare. */
+/**
+ * Visible per-tab auth beat: show Auth on Staging/Production, Execute, Metadata compare.
+ * Auth overrides should already be set in preAction ({@link ensureLesson14PerTabAuthConfigured}).
+ */
 export async function demonstrateLesson14PerTabAuth(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14TabsRenamed(ctx);
+  const responseWait = 3_000;
+  const metaWait = 1_500;
 
-  await activateGqlTabByIndex(ctx, 0);
-  await selectNoAuthInPanel(ctx);
-  await ctx.delay(1200);
-  await ctx.click(GQL.EXECUTE_BTN);
-  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(2000);
-  await ctx.click(GQL.RV_TAB_METADATA);
-  await ctx.waitFor(GQL.RV_AUTH_SENT, 5000);
-  await ctx.delay(2500);
+  await activateGqlTabByIndexVisible(ctx, 0, HOLD.tab);
   await ensureAuthPanelVisible(ctx);
-
-  await activateGqlTabByIndex(ctx, 1);
-  await ctx.delay(800);
-  await selectAuthInPanel(ctx, 'bearer');
-  await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON14_TAB2_BEARER_TOKEN);
-  await ctx.delay(1200);
+  await spotlightAndPause(ctx, GQL.AUTH_PANEL, HOLD.beat);
   await ctx.click(GQL.EXECUTE_BTN);
-  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(2000);
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, responseWait).catch(() => undefined);
   await ctx.click(GQL.RV_TAB_METADATA);
-  await ctx.waitFor(LESSON6_RV_AUTHORIZATION_VAL, 5000);
-  await ctx.delay(2500);
+  await ctx.waitFor(GQL.RV_AUTH_SENT, metaWait).catch(() => undefined);
+  await spotlightAndPause(ctx, GQL.RV_TAB_METADATA, HOLD.outcome);
+
+  await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+  await ensureAuthPanelVisible(ctx);
+  if (document.querySelector(GQL.AUTH_BEARER_INPUT)) {
+    await spotlightAndPause(ctx, GQL.AUTH_BEARER_INPUT, HOLD.beat);
+  } else {
+    await spotlightAndPause(ctx, GQL.AUTH_PANEL, HOLD.beat);
+  }
+  await ctx.click(GQL.EXECUTE_BTN);
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, responseWait).catch(() => undefined);
+  await ctx.click(GQL.RV_TAB_METADATA);
+  await ctx.waitFor(LESSON6_RV_AUTHORIZATION_VAL, metaWait).catch(() => undefined);
+  await spotlightAndPause(ctx, GQL.RV_TAB_METADATA, HOLD.outcome);
   await ensureAuthPanelVisible(ctx);
 
   _lesson14PerTabAuthConfigured = true;
@@ -493,75 +592,125 @@ export async function ensureLesson14PerTabAuthConfigured(ctx: DemoActionContext)
 async function saveCurrentTabAsProfile(
   ctx: DemoActionContext,
   name: string,
-  options?: { observeUnlinked?: boolean },
+  options?: { observeUnlinked?: boolean; visible?: boolean },
 ): Promise<void> {
+  const visible = options?.visible === true;
+  if (visible) {
+    await spotlightAndPause(ctx, GQL.PROFILE_BADGE, HOLD.beat);
+  }
   await openProfileModal(ctx);
   if (findProfileRowByName(name)) {
+    if (visible) await spotlightAndPause(ctx, GQL.PROFILE_MODAL, HOLD.beat);
     await closeProfileModalIfOpen(ctx);
     return;
   }
+  if (visible) await spotlightAndPause(ctx, GQL.PROFILE_NAME_INPUT, HOLD.beat);
   await ctx.fill(GQL.PROFILE_NAME_INPUT, name);
-  await ctx.delay(600);
+  await ctx.delay(visible ? 400 : 150);
+  if (visible) await spotlightAndPause(ctx, GQL.PROFILE_SAVE_BTN, HOLD.beat);
   await ctx.click(GQL.PROFILE_SAVE_BTN);
-  await ctx.delay(1200);
+  await ctx.delay(visible ? 500 : 200);
   if (options?.observeUnlinked) {
-    await ctx.delay(1500); // viewer reads "Not linked to any tab" on the new row
+    if (visible) {
+      await spotlightAndPause(ctx, GQL.PROFILE_MODAL, HOLD.modal);
+    } else {
+      await ctx.delay(200);
+    }
   }
   await closeProfileModalIfOpen(ctx);
 }
 
-async function loadProfileOntoActiveTab(ctx: DemoActionContext, name: string): Promise<boolean> {
+async function loadProfileOntoActiveTab(
+  ctx: DemoActionContext,
+  name: string,
+  options?: { visible?: boolean },
+): Promise<boolean> {
+  const visible = options?.visible === true;
+  if (visible) await spotlightAndPause(ctx, GQL.PROFILE_BADGE, HOLD.beat);
   await openProfileModal(ctx);
   const loadSel = GQL.profileLoadBtn(name);
   if (document.querySelector(loadSel)) {
+    if (visible) await spotlightAndPause(ctx, loadSel, HOLD.beat);
     await ctx.click(loadSel);
-    await ctx.delay(2500); // modal stays open — read Used by on the loaded row
+    if (visible) {
+      await spotlightAndPause(ctx, GQL.PROFILE_MODAL, HOLD.modal);
+    } else {
+      await ctx.delay(200);
+    }
   }
   const linked = isProfileRowLinked(name);
   await closeProfileModalIfOpen(ctx);
   return linked;
 }
 
-/** Visible save beat — each profile row shows "Not linked to any tab" until Load. */
+async function saveLesson14ProfilesQuiet(ctx: DemoActionContext): Promise<void> {
+  if (_lesson14ProfilesSaved) return;
+  await activateGqlTabByIndex(ctx, 0);
+  await saveCurrentTabAsProfile(ctx, LESSON14_STAGING_PROFILE_NAME);
+  await activateGqlTabByIndex(ctx, 1);
+  await saveCurrentTabAsProfile(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+  _lesson14ProfilesSaved = true;
+}
+
+async function loadLesson14ProfilesQuiet(ctx: DemoActionContext): Promise<void> {
+  if (_lesson14ProfilesLinked) return;
+  await activateGqlTabByIndex(ctx, 0);
+  const stagingLinked = await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME);
+  await activateGqlTabByIndex(ctx, 1);
+  const productionLinked = await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+  if (stagingLinked && productionLinked) {
+    _lesson14ProfilesLinked = true;
+  }
+}
+
+/**
+ * Visible save beat — each profile row shows "Not linked to any tab" until Load.
+ * Auth must already be configured (preAction).
+ */
 export async function demonstrateLesson14SaveProfiles(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14PerTabAuthConfigured(ctx);
   if (_lesson14ProfilesSaved) {
-    await ctx.delay(800);
+    await spotlightAndPause(ctx, GQL.PROFILE_BADGE, HOLD.beat);
     return;
   }
-  await activateGqlTabByIndex(ctx, 0);
-  await saveCurrentTabAsProfile(ctx, LESSON14_STAGING_PROFILE_NAME, { observeUnlinked: true });
-  await ctx.delay(1000);
-  await activateGqlTabByIndex(ctx, 1);
-  await saveCurrentTabAsProfile(ctx, LESSON14_PRODUCTION_PROFILE_NAME, { observeUnlinked: true });
+  await activateGqlTabByIndexVisible(ctx, 0, HOLD.tab);
+  await saveCurrentTabAsProfile(ctx, LESSON14_STAGING_PROFILE_NAME, {
+    observeUnlinked: true,
+    visible: true,
+  });
+  await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+  await saveCurrentTabAsProfile(ctx, LESSON14_PRODUCTION_PROFILE_NAME, {
+    observeUnlinked: true,
+    visible: true,
+  });
   _lesson14ProfilesSaved = true;
 }
 
 /** Guard: Staging + Production profiles saved from the current tab state. */
 export async function ensureLesson14ProfilesSaved(ctx: DemoActionContext): Promise<void> {
   if (_lesson14ProfilesSaved) return;
-  await demonstrateLesson14SaveProfiles(ctx);
+  await ensureLesson14PerTabAuthConfigured(ctx);
+  await saveLesson14ProfilesQuiet(ctx);
 }
 
-/** Visible load beat — click Load on each tab once, then read Used by (step 10). */
+/**
+ * Visible load beat — click Load on each tab once, then read Used by (step 10).
+ * Profiles must already be saved (preAction).
+ */
 export async function demonstrateLesson14LoadProfilesOnly(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14ProfilesSaved(ctx);
-
   if (_lesson14ProfilesLinked) {
-    await ctx.delay(800);
+    await spotlightAndPause(ctx, GQL.PROFILE_BADGE, HOLD.beat);
     return;
   }
 
-  await ctx.delay(800);
-  await activateGqlTabByIndex(ctx, 0);
-  await ctx.delay(800);
-  const stagingLinked = await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME);
-  await ctx.delay(1500);
+  await activateGqlTabByIndexVisible(ctx, 0, HOLD.tab);
+  const stagingLinked = await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME, {
+    visible: true,
+  });
 
-  await activateGqlTabByIndex(ctx, 1);
-  await ctx.delay(800);
-  const productionLinked = await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
-  await ctx.delay(1500);
+  await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+  const productionLinked = await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME, {
+    visible: true,
+  });
 
   if (stagingLinked && productionLinked) {
     _lesson14ProfilesLinked = true;
@@ -570,16 +719,16 @@ export async function demonstrateLesson14LoadProfilesOnly(ctx: DemoActionContext
 
 /** Visible auth beat — Production tab shows profile-linked auth editing (step 11). */
 export async function demonstrateLesson14ProfileAuthLink(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14ProfilesLinked(ctx);
-  await activateGqlTabByIndex(ctx, 1);
-  await ctx.delay(800);
+  await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+  await spotlightAndPause(ctx, GQL.BOTTOM_TAB_AUTH, HOLD.beat);
   await openAuthPanelQuiet(ctx);
-  await ctx.waitFor(GQL.AUTH_INHERIT_BANNER, 5000);
-  await ctx.delay(2500);
+  await ctx.waitFor(GQL.AUTH_INHERIT_BANNER, 2_500).catch(() => undefined);
+  await spotlightAndPause(ctx, GQL.AUTH_INHERIT_BANNER, HOLD.outcome);
 }
 
 /** Full load + auth beat (used by guards and E2E recovery). */
 export async function demonstrateLesson14LoadProfiles(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14ProfilesSaved(ctx);
   await demonstrateLesson14LoadProfilesOnly(ctx);
   await demonstrateLesson14ProfileAuthLink(ctx);
 }
@@ -589,22 +738,25 @@ export async function demonstrateLesson14LoadProfiles(ctx: DemoActionContext): P
  * Saves Staging + Production profiles, loads them onto tabs, then opens the inherit banner.
  */
 export async function demonstrateLesson14ProfileLinks(ctx: DemoActionContext): Promise<void> {
-  await demonstrateLesson14SaveProfiles(ctx);
-  await demonstrateLesson14LoadProfiles(ctx);
+  await ensureLesson14ProfilesSaved(ctx);
+  await demonstrateLesson14LoadProfilesOnly(ctx);
+  await demonstrateLesson14ProfileAuthLink(ctx);
 }
 
 /** Guard: both demo tabs are linked to their saved profiles (Load complete). */
 export async function ensureLesson14ProfilesLinked(ctx: DemoActionContext): Promise<void> {
   if (_lesson14ProfilesLinked) return;
-  await demonstrateLesson14LoadProfilesOnly(ctx);
+  await ensureLesson14ProfilesSaved(ctx);
+  await loadLesson14ProfilesQuiet(ctx);
 }
 
 /**
  * Link demo Tab 1 → Staging profile, Tab 2 → Production profile (Phase 6F / 7C).
+ * Quiet — used by polling preAction; never flash UI during reading.
  */
 export async function ensureLesson14TabProfileLinks(ctx: DemoActionContext): Promise<void> {
   if (_lesson14ProfilesLinked) return;
-  await demonstrateLesson14ProfileLinks(ctx);
+  await ensureLesson14ProfilesLinked(ctx);
 }
 
 /** Alias for plan §7C helper name. */
@@ -618,15 +770,15 @@ async function pollingConfigSelector(): Promise<string> {
 async function openPollingConfig(ctx: DemoActionContext): Promise<void> {
   const sel = await pollingConfigSelector();
   await ctx.click(sel);
-  await ctx.waitFor(GQL.POLLING_POPOVER, 5000);
-  await ctx.delay(400);
+  await ctx.waitFor(GQL.POLLING_POPOVER, 2_500);
+  await ctx.delay(300);
 }
 
 async function closePollingPopover(ctx: DemoActionContext): Promise<void> {
   if (!document.querySelector(GQL.POLLING_POPOVER)) return;
   const close = document.querySelector<HTMLElement>(GQL.POLLING_POPOVER_CLOSE);
   close?.click();
-  await ctx.delay(300);
+  await ctx.delay(200);
 }
 
 async function setActiveTabPolling(ctx: DemoActionContext, enabled: boolean): Promise<void> {
@@ -635,42 +787,47 @@ async function setActiveTabPolling(ctx: DemoActionContext, enabled: boolean): Pr
   const isOn = toggle?.getAttribute('aria-checked') === 'true';
   if (isOn !== enabled) {
     await ctx.click(GQL.POLLING_TOGGLE);
-    await ctx.delay(800);
+    await ctx.delay(500);
   }
 }
 
 /**
- * Visible polling beat: enable on Staging (Tab 1), confirm off on Production (Tab 2).
+ * Visible polling beat: show polling ON on Staging, OFF on Production.
+ * Enablement is done in preAction ({@link ensureLesson14TabPolling}).
+ * Leaves Production's popover open so step `verify` can see it.
  */
 export async function demonstrateLesson14TabPolling(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14TabProfileLinks(ctx);
-  if (_lesson14PollingConfigured) {
-    await activateGqlTabByIndex(ctx, 0);
-    await openPollingConfig(ctx);
-    await ctx.delay(1500);
-    await closePollingPopover(ctx);
-    return;
+  await activateGqlTabByIndexVisible(ctx, 0, HOLD.tab);
+  {
+    const sel = await pollingConfigSelector();
+    await spotlightAndPause(ctx, sel, HOLD.beat);
   }
-
-  await activateGqlTabByIndex(ctx, 0);
-  await setActiveTabPolling(ctx, true);
-  await ctx.delay(1500);
-  await closePollingPopover(ctx);
-
-  await activateGqlTabByIndex(ctx, 1);
   await openPollingConfig(ctx);
-  await ctx.delay(2000);
+  await spotlightAndPause(ctx, GQL.POLLING_POPOVER, HOLD.outcome);
   await closePollingPopover(ctx);
 
+  await activateGqlTabByIndexVisible(ctx, 1, HOLD.tab);
+  {
+    const sel = await pollingConfigSelector();
+    await spotlightAndPause(ctx, sel, HOLD.beat);
+  }
+  await openPollingConfig(ctx);
+  await spotlightAndPause(ctx, GQL.POLLING_POPOVER, HOLD.outcome);
+  // Keep popover open for verify — do not close.
   _lesson14PollingConfigured = true;
 }
 
 /**
  * Enable schema polling on demo Tab 1 only; Tab 2 inherits page default (off).
+ * Quiet — used by guards; visible tour is {@link demonstrateLesson14TabPolling}.
  */
 export async function ensureLesson14TabPolling(ctx: DemoActionContext): Promise<void> {
   if (_lesson14PollingConfigured) return;
-  await demonstrateLesson14TabPolling(ctx);
+  await ensureLesson14TabProfileLinks(ctx);
+  await activateGqlTabByIndex(ctx, 0);
+  await setActiveTabPolling(ctx, true);
+  await closePollingPopover(ctx);
+  _lesson14PollingConfigured = true;
 }
 
 /** Alias for plan §7C helper name. */

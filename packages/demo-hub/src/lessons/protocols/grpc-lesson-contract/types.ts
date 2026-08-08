@@ -20,6 +20,8 @@ export interface GrpcLessonFixtureRequirements {
   requireSpringBoot?: boolean;
   /** Express webhook server on :3001 for /api/grpc proxy (browser mode). */
   requireExpressProxy?: boolean;
+  /** Envoy gRPC-Web sidecar on :50055 (docker/grpc envoy-grpc-web) — GRPC-19. */
+  requireEnvoyGrpcWeb?: boolean;
   /**
    * Lesson requires the Tauri desktop runtime.
    * When true, the lesson is marked desktopOnly and blocked on web via

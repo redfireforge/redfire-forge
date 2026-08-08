@@ -8,6 +8,7 @@ import type { WebhookExtractionOutput } from '../../../../shared/components/data
 import { getByPath, setByPath } from '../../../../shared/utils/jsonPath';
 import { toErrorMessage } from '../../../../shared/utils/helpers';
 import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
 
 const EMPTY_EXTRACT_VARS: WebhookExtractionOutput = [];
 
@@ -34,25 +35,21 @@ export default function CorrelationWaitConfig({
   onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
   variableHints?: WorkflowVariableHint[];
 }) {
-  // ── Test Webhook state ──
   const [testPayload, setTestPayload] = useState<string>('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [pausedCorrelations, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
   const [loadingPaused, setLoadingPaused] = useState(false);
-
-  // ── Data Mapper state ──
   const [showMapper, setShowMapper] = useState(false);
 
-  // Fetch currently paused correlations from the server
   const fetchPausedCorrelations = useCallback(async () => {
     setLoadingPaused(true);
     try {
       const host = window.location.hostname || 'localhost';
       const res = await fetch(`http://${host}:3001/api/correlations`);
       if (res.ok) {
-        const data = await res.json();
-        setPausedCorrelations(data.correlations ?? []);
+        const json = await res.json();
+        setPausedCorrelations(json.correlations ?? []);
       }
     } catch {
       // Server may not be running
@@ -61,14 +58,12 @@ export default function CorrelationWaitConfig({
     }
   }, []);
 
-  // Poll for paused correlations while the panel is open
   useEffect(() => {
     fetchPausedCorrelations();
     const interval = setInterval(fetchPausedCorrelations, 3000);
     return () => clearInterval(interval);
   }, [fetchPausedCorrelations]);
 
-  // Build a default payload structure based on correlation source and extract variables
   const buildDefaultPayload = useCallback(() => {
     const payload: Record<string, unknown> = {};
     if (data.correlationSource === 'body' && data.correlationJsonPath) {
@@ -82,10 +77,10 @@ export default function CorrelationWaitConfig({
     return payload;
   }, [data.correlationSource, data.correlationJsonPath, data.correlationIdExpression, data.extractVariables]);
 
-  // Default payload for Test Webhook
-  const defaultPayload = useMemo(() => {
-    return JSON.stringify(buildDefaultPayload(), null, 2);
-  }, [buildDefaultPayload]);
+  const defaultPayload = useMemo(
+    () => JSON.stringify(buildDefaultPayload(), null, 2),
+    [buildDefaultPayload],
+  );
 
   const mapperAdapter = useMemo(
     () => createWebhookExtractionAdapter({
@@ -123,302 +118,329 @@ export default function CorrelationWaitConfig({
       setTestSending(false);
     }
   }, [testPayload, defaultPayload, data.correlationJsonPath, data.correlationIdExpression]);
+
+  const extractVariables = data.extractVariables ?? [];
+
+  const addExtractVar = () => {
+    onChange({ ...data, extractVariables: [...extractVariables, { name: '', jsonPath: '' }] });
+  };
+
+  const updateExtractVar = (index: number, field: 'name' | 'jsonPath', value: string) => {
+    const vars = [...extractVariables];
+    vars[index] = { ...vars[index], [field]: value };
+    onChange({ ...data, extractVariables: vars });
+  };
+
+  const removeExtractVar = (index: number) => {
+    onChange({
+      ...data,
+      extractVariables: extractVariables.filter((_, idx) => idx !== index),
+    });
+  };
+
+  const sourceHint = data.correlationSource === 'body'
+    ? 'From request body'
+    : data.correlationSource === 'header'
+      ? 'From HTTP header'
+      : 'From query string';
+
   return (
-    <div className="wf-config-body">
-      {/* ── Label ── */}
-      <div className="wf-config-field">
-        <label>Label</label>
-        <input
-          value={data.label}
-          onChange={(e) => onChange({ ...data, label: e.target.value })}
-        />
-      </div>
+    <div className="wf-config-body wf-correlation-wait-config" data-testid="correlation-wait-config">
+      <KafkaCard
+        title="Matching"
+        hint="How this step finds and resumes on an incoming webhook."
+      >
+        <div className="wf-kafka-form wf-kafka-form--correlation">
+          <KafkaFormRow label="Label" hint="Canvas node title" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={data.label}
+              onChange={(e) => onChange({ ...data, label: e.target.value })}
+              aria-label="Correlation Wait label"
+            />
+          </KafkaFormRow>
 
-      {/* ── Correlation ID Expression ── */}
-      <div className="wf-config-field">
-        <label>Correlation ID Expression</label>
-        <InsertVarField
-          onRequestVariableInsert={onRequestVariableInsert}
-          onInsert={(snippet) => onChange({ ...data, correlationIdExpression: data.correlationIdExpression + snippet })}
-        >
-          <input
-            value={data.correlationIdExpression}
-            onChange={(e) => onChange({ ...data, correlationIdExpression: e.target.value })}
-            placeholder="e.g. {{paymentId}}"
-          />
-        </InsertVarField>
-        <span className="wf-config-hint">
-          Expression that resolves to a unique correlation ID for matching incoming webhooks.
-        </span>
-      </div>
-
-      {/* ── Webhook Path ── */}
-      <div className="wf-config-field">
-        <label>Webhook Path</label>
-        <input
-          value={data.webhookPath}
-          onChange={(e) => onChange({ ...data, webhookPath: e.target.value })}
-          placeholder="/webhooks/callback"
-        />
-        <span className="wf-config-hint">
-          The webhook endpoint path that will receive callbacks.
-        </span>
-      </div>
-
-      {/* ── Correlation Source ── */}
-      <div className="wf-config-field">
-        <label>Correlation Source</label>
-        <CustomSelect
-          value={data.correlationSource}
-          onChange={(v) => onChange({ ...data, correlationSource: v as CorrelationWaitNodeData['correlationSource'] })}
-          options={SOURCE_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
-        />
-        <span className="wf-config-hint">
-          Where to extract the correlation ID from the incoming webhook.
-        </span>
-      </div>
-
-      {/* ── Source-specific fields ── */}
-      {data.correlationSource === 'body' && (
-        <div className="wf-config-field">
-          <label>Correlation JSONPath</label>
-          <input
-            value={data.correlationJsonPath ?? ''}
-            onChange={(e) => onChange({ ...data, correlationJsonPath: e.target.value })}
-            placeholder="$.correlationId"
-          />
-          <span className="wf-config-hint">
-            JSONPath expression to extract the correlation ID from the webhook body.
-          </span>
-        </div>
-      )}
-
-      {data.correlationSource === 'header' && (
-        <div className="wf-config-field">
-          <label>Header Name</label>
-          <input
-            value={data.correlationHeader ?? ''}
-            onChange={(e) => onChange({ ...data, correlationHeader: e.target.value })}
-            placeholder="X-Correlation-Id"
-          />
-        </div>
-      )}
-
-      {data.correlationSource === 'query' && (
-        <div className="wf-config-field">
-          <label>Query Parameter</label>
-          <input
-            value={data.correlationQueryParam ?? ''}
-            onChange={(e) => onChange({ ...data, correlationQueryParam: e.target.value })}
-            placeholder="correlationId"
-          />
-        </div>
-      )}
-
-      {/* ── Extract Variables ── */}
-      <div className="wf-config-field">
-        <label>Extract Variables</label>
-        <span className="wf-config-hint">
-          Variables to extract from the webhook payload into the workflow context.
-        </span>
-        <div className="wf-extract-vars-list">
-          {(data.extractVariables ?? []).map((ev, i) => (
-            <div key={i} className="wf-extract-var-row">
+          <KafkaFormRow label="Correlation ID" hint="Unique ID expression" compact>
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              shortRef
+              onInsert={(snippet) => onChange({
+                ...data,
+                correlationIdExpression: data.correlationIdExpression + snippet,
+              })}
+            >
               <input
-                className="wf-extract-var-name"
-                value={ev.name}
-                onChange={(e) => {
-                  const vars = [...(data.extractVariables ?? [])];
-                  vars[i] = { ...vars[i], name: e.target.value };
-                  onChange({ ...data, extractVariables: vars });
-                }}
-                placeholder="Variable name"
+                className="wf-kafka-form-input"
+                value={data.correlationIdExpression}
+                onChange={(e) => onChange({ ...data, correlationIdExpression: e.target.value })}
+                placeholder="e.g. {{paymentId}}"
+                aria-label="Correlation ID Expression"
               />
+            </InsertVarField>
+          </KafkaFormRow>
+
+          <KafkaFormRow label="Webhook Path" hint="Callback endpoint path" compact>
+            <input
+              className="wf-kafka-form-input wf-kafka-form-input--mono"
+              value={data.webhookPath}
+              onChange={(e) => onChange({ ...data, webhookPath: e.target.value })}
+              placeholder="/webhooks/callback"
+              aria-label="Webhook Path"
+            />
+          </KafkaFormRow>
+
+          <KafkaFormRow label="Source" hint={sourceHint} compact>
+            <CustomSelect
+              value={data.correlationSource}
+              onChange={(v) => onChange({
+                ...data,
+                correlationSource: v as CorrelationWaitNodeData['correlationSource'],
+              })}
+              options={SOURCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            />
+          </KafkaFormRow>
+
+          {data.correlationSource === 'body' && (
+            <KafkaFormRow label="Correlation JSONPath" hint="Path in webhook body" compact>
               <input
-                className="wf-extract-var-path"
-                value={ev.jsonPath}
-                onChange={(e) => {
-                  const vars = [...(data.extractVariables ?? [])];
-                  vars[i] = { ...vars[i], jsonPath: e.target.value };
-                  onChange({ ...data, extractVariables: vars });
-                }}
-                placeholder="$.path.to.value"
+                className="wf-kafka-form-input wf-kafka-form-input--mono"
+                value={data.correlationJsonPath ?? ''}
+                onChange={(e) => onChange({ ...data, correlationJsonPath: e.target.value })}
+                placeholder="$.correlationId"
+                aria-label="Correlation JSONPath"
               />
+            </KafkaFormRow>
+          )}
+
+          {data.correlationSource === 'header' && (
+            <KafkaFormRow label="Header Name" hint="Incoming header key" compact>
+              <input
+                className="wf-kafka-form-input"
+                value={data.correlationHeader ?? ''}
+                onChange={(e) => onChange({ ...data, correlationHeader: e.target.value })}
+                placeholder="X-Correlation-Id"
+                aria-label="Header Name"
+              />
+            </KafkaFormRow>
+          )}
+
+          {data.correlationSource === 'query' && (
+            <KafkaFormRow label="Query Parameter" hint="Query string key" compact>
+              <input
+                className="wf-kafka-form-input"
+                value={data.correlationQueryParam ?? ''}
+                onChange={(e) => onChange({ ...data, correlationQueryParam: e.target.value })}
+                placeholder="correlationId"
+                aria-label="Query Parameter"
+              />
+            </KafkaFormRow>
+          )}
+
+          <KafkaFormRow label="Timeout" hint="0 = no timeout" compact>
+            <div className="wf-corr-timeout-ctrl">
+              <input
+                className="wf-kafka-form-input"
+                type="number"
+                min={0}
+                max={3600000}
+                value={data.timeoutMs}
+                onChange={(e) => onChange({ ...data, timeoutMs: parseInt(e.target.value, 10) || 0 })}
+                aria-label="Timeout (ms)"
+              />
+              <span className="unit">ms</span>
+            </div>
+          </KafkaFormRow>
+
+          <KafkaFormRow label="Webhook Filter (optional)" hint="Extra match expression" compact>
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              shortRef
+              onInsert={(snippet) => onChange({
+                ...data,
+                webhookFilter: (data.webhookFilter ?? '') + snippet,
+              })}
+            >
+              <input
+                className="wf-kafka-form-input"
+                value={data.webhookFilter ?? ''}
+                onChange={(e) => onChange({ ...data, webhookFilter: e.target.value })}
+                placeholder='e.g. {{webhook.type}} == payment'
+                aria-label="Webhook Filter"
+              />
+            </InsertVarField>
+          </KafkaFormRow>
+        </div>
+      </KafkaCard>
+
+      <KafkaCard
+        title="Extract Variables"
+        hint="Pull fields from the webhook payload into workflow variables."
+        action={(
+          <div className="wf-webhook-extract-actions">
+            <button
+              type="button"
+              className="wf-webhook-mapper-btn"
+              onClick={() => setShowMapper(true)}
+              title="Open Data Mapper to drag-and-drop fields from the payload sample"
+            >
+              Data Mapper
+            </button>
+            <KafkaAddButton label="Add Variable" onClick={addExtractVar} />
+          </div>
+        )}
+      >
+        {extractVariables.length === 0 ? (
+          <KafkaEmptyState
+            title="No extractions"
+            text="Map payload fields to workflow variables, or open Data Mapper to pick paths visually."
+          />
+        ) : (
+          <div className="wf-kafka-extract-panel">
+            <div className="wf-kafka-extract-header" aria-hidden="true">
+              <span className="wf-kafka-extract-col-name">Variable name</span>
+              <span className="wf-kafka-extract-col-path">JSONPath</span>
+              <span className="wf-kafka-extract-col-del" />
+            </div>
+            <div className="wf-kafka-extract-list">
+              {extractVariables.map((ev, i) => (
+                <div key={i} className="wf-kafka-extract-row">
+                  <div className="wf-kafka-extract-col-name">
+                    <input
+                      className="wf-kafka-form-input"
+                      value={ev.name}
+                      onChange={(e) => updateExtractVar(i, 'name', e.target.value)}
+                      placeholder="Variable name"
+                    />
+                  </div>
+                  <div className="wf-kafka-extract-col-path">
+                    <input
+                      className="wf-kafka-form-input wf-kafka-form-input--mono"
+                      value={ev.jsonPath}
+                      onChange={(e) => updateExtractVar(i, 'jsonPath', e.target.value)}
+                      placeholder="$.path.to.value"
+                    />
+                  </div>
+                  <div className="wf-kafka-extract-col-del">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      onClick={() => removeExtractVar(i)}
+                      title="Remove variable"
+                      aria-label="Remove variable"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </KafkaCard>
+
+      <KafkaCard title="Notes" hint="Optional description for teammates.">
+        <div className="wf-kafka-card-pad">
+          <textarea
+            className="wf-config-textarea wf-kafka-form-textarea"
+            rows={2}
+            value={data.notes ?? ''}
+            onChange={(e) => onChange({ ...data, notes: e.target.value })}
+            placeholder="Optional notes about this correlation step"
+            aria-label="Notes"
+          />
+        </div>
+      </KafkaCard>
+
+      <KafkaCard
+        title="Test Webhook"
+        hint="Send a sample payload to resume a workflow paused at this node."
+        hintBelow
+        testId="test-webhook-section"
+      >
+        <div className="wf-corr-test">
+          <div className="wf-paused-correlations" data-testid="paused-correlations">
+            <div className="wf-paused-correlations-header">
+              <span>Currently paused workflows</span>
               <button
-                className="wf-extract-var-remove"
-                onClick={() => {
-                  const vars = (data.extractVariables ?? []).filter((_, idx) => idx !== i);
-                  onChange({ ...data, extractVariables: vars });
-                }}
-                title="Remove variable"
-                aria-label="Remove variable"
+                type="button"
+                className="wf-paused-refresh-btn"
+                onClick={fetchPausedCorrelations}
+                disabled={loadingPaused}
+                title="Refresh"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
+                  <path d="M23 4v6h-6M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
                 </svg>
               </button>
             </div>
-          ))}
-        </div>
-        <div className="wf-extract-var-actions">
-          <button
-            className="wf-extract-var-add"
-            onClick={() => {
-              const vars = [...(data.extractVariables ?? []), { name: '', jsonPath: '' }];
-              onChange({ ...data, extractVariables: vars });
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Add Variable
-          </button>
-          <button
-            className="wf-extract-var-mapper-btn"
-            onClick={() => setShowMapper(true)}
-            title="Open Data Mapper to drag-and-drop fields from the payload sample"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-              <path d="M10 7h4l-4 10h4" />
-            </svg>
-            Data Mapper
-          </button>
-        </div>
-      </div>
-
-      {/* ── Timeout ── */}
-      <div className="wf-config-field">
-        <label>Timeout (ms)</label>
-        <input
-          type="number"
-          min={0}
-          max={3600000}
-          value={data.timeoutMs}
-          onChange={(e) => onChange({ ...data, timeoutMs: parseInt(e.target.value) || 0 })}
-        />
-        <span className="wf-config-hint">
-          Maximum time to wait for a webhook callback. 0 = no timeout.
-        </span>
-      </div>
-
-      {/* ── Webhook Filter ── */}
-      <div className="wf-config-field">
-        <label>Webhook Filter (optional)</label>
-        <InsertVarField
-          onRequestVariableInsert={onRequestVariableInsert}
-          onInsert={(snippet) => onChange({ ...data, webhookFilter: (data.webhookFilter ?? '') + snippet })}
-        >
-          <input
-            value={data.webhookFilter ?? ''}
-            onChange={(e) => onChange({ ...data, webhookFilter: e.target.value })}
-            placeholder='e.g. {{webhook.type}} == payment'
-          />
-        </InsertVarField>
-        <span className="wf-config-hint">
-          Optional expression to filter matching webhooks.
-        </span>
-      </div>
-
-      {/* ── Notes ── */}
-      <div className="wf-config-field">
-        <label>Notes</label>
-        <textarea
-          className="wf-config-textarea"
-          rows={2}
-          value={data.notes ?? ''}
-          onChange={(e) => onChange({ ...data, notes: e.target.value })}
-          placeholder="Optional notes about this correlation step"
-        />
-      </div>
-
-      {/* ── Test Webhook ── */}
-      <div className="wf-test-webhook-section" data-testid="test-webhook-section">
-        <div className="wf-test-webhook-header">
-          <span className="wf-test-webhook-icon">🧪</span>
-          <span className="wf-test-webhook-title">Test Webhook</span>
-        </div>
-        <p className="wf-test-webhook-desc">
-          Send a test webhook payload to resume a paused workflow with this configuration.
-          <strong> Requires an active workflow paused at this node.</strong>
-        </p>
-
-        {/* Show currently paused correlations */}
-        <div className="wf-paused-correlations" data-testid="paused-correlations">
-          <div className="wf-paused-correlations-header">
-            <span>Currently Paused Workflows</span>
-            <button
-              className="wf-paused-refresh-btn"
-              onClick={fetchPausedCorrelations}
-              disabled={loadingPaused}
-              title="Refresh"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M23 4v6h-6M1 20v-6h6" />
-                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-              </svg>
-            </button>
+            {pausedCorrelations.length === 0 ? (
+              <div className="wf-paused-empty">
+                {loadingPaused ? 'Loading…' : 'No workflows currently paused. Run a workflow first.'}
+              </div>
+            ) : (
+              <div className="wf-paused-list">
+                {pausedCorrelations.map((pc) => (
+                  <button
+                    key={pc.correlationId}
+                    type="button"
+                    className="wf-paused-item"
+                    onClick={() => {
+                      try {
+                        const payloadObj = JSON.parse(testPayload || defaultPayload);
+                        setByPath(payloadObj, data.correlationJsonPath || '$.correlationId', pc.correlationId);
+                        setTestPayload(JSON.stringify(payloadObj, null, 2));
+                        setTestResult(null);
+                      } catch {
+                        setTestResult({ ok: false, message: 'Invalid JSON in test payload. Fix the payload first.' });
+                      }
+                    }}
+                    title="Click to use this correlation ID in the payload"
+                  >
+                    <span className="wf-paused-item-id">{pc.correlationId}</span>
+                    <span className="wf-paused-item-path">{pc.webhookPath}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {pausedCorrelations.length === 0 ? (
-            <div className="wf-paused-empty">
-              {loadingPaused ? 'Loading...' : 'No workflows currently paused. Run a workflow first.'}
-            </div>
-          ) : (
-            <div className="wf-paused-list">
-              {pausedCorrelations.map((pc) => (
-                <button
-                  key={pc.correlationId}
-                  className="wf-paused-item"
-                  onClick={() => {
-                    try {
-                      const payloadObj = JSON.parse(testPayload || defaultPayload);
-                      setByPath(payloadObj, data.correlationJsonPath || '$.correlationId', pc.correlationId);
-                      setTestPayload(JSON.stringify(payloadObj, null, 2));
-                      setTestResult(null);
-                    } catch {
-                      setTestResult({ ok: false, message: 'Invalid JSON in test payload. Fix the payload first.' });
-                    }
-                  }}
-                  title={`Click to use this correlation ID in the payload`}
-                >
-                  <span className="wf-paused-item-id">{pc.correlationId}</span>
-                  <span className="wf-paused-item-path">{pc.webhookPath}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
-        <textarea
-          className="wf-test-webhook-payload"
-          value={testPayload || defaultPayload}
-          onChange={(e) => setTestPayload(e.target.value)}
-          data-testid="test-webhook-payload"
-          rows={4}
-        />
-        <div className="wf-test-webhook-actions">
-          <button
-            className="wf-test-webhook-btn"
-            onClick={handleSendTestWebhook}
-            disabled={testSending}
-            data-testid="test-webhook-send"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M22 2L11 13" />
-              <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-            </svg>
-            {testSending ? 'Sending...' : 'Send Test Webhook'}
-          </button>
-          {testResult && (
-            <span
-              className={`wf-test-webhook-result ${testResult.ok ? 'wf-test-webhook-ok' : 'wf-test-webhook-err'}`}
-              data-testid="test-webhook-result"
+          <div className="wf-grpc-code-field">
+            <div className="wf-grpc-code-toolbar">
+              <span className="wf-grpc-code-toolbar-label">Test payload</span>
+              <span className="wf-grpc-code-toolbar-hint">JSON — must include the correlation ID</span>
+            </div>
+            <textarea
+              className="wf-config-textarea wf-grpc-code-editor"
+              value={testPayload || defaultPayload}
+              onChange={(e) => setTestPayload(e.target.value)}
+              data-testid="test-webhook-payload"
+              rows={4}
+              spellCheck={false}
+            />
+          </div>
+
+          <div className="wf-test-webhook-actions">
+            <button
+              type="button"
+              className="wf-test-webhook-btn"
+              onClick={handleSendTestWebhook}
+              disabled={testSending}
+              data-testid="test-webhook-send"
             >
-              {testResult.message}
-            </span>
-          )}
+              {testSending ? 'Sending…' : 'Send Test Webhook'}
+            </button>
+            {testResult && (
+              <span
+                className={`wf-test-webhook-result ${testResult.ok ? 'wf-test-webhook-ok' : 'wf-test-webhook-err'}`}
+                data-testid="test-webhook-result"
+              >
+                {testResult.message}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      </KafkaCard>
 
       <AvailableVariables hints={variableHints} />
 

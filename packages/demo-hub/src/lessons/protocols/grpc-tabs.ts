@@ -14,14 +14,21 @@ import {
   type GrpcDemoLesson,
 } from './grpc-lesson-contract';
 import {
-  grpcFirstCallSetup,
-  grpcFirstCallCleanup,
+  clearGrpcSchemaDriftQuiet,
   closeExtraGrpcTabsQuiet,
+  closeGrpcSettingsDrawerQuiet,
   ensureGrpcStudioSubNavQuiet,
+  fillGrpcEchoMessage,
+  grpcFirstCallCleanup,
+  resetGrpcConnectionSettingsQuiet,
+  resetGrpcLessonSessionFlags,
 } from './grpc-lesson-helpers';
 import { GRPC_DEMO_TARGET } from './grpc-lesson-helpers/constants';
+import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
 const GRPC25_ROSTER = getGrpcLessonRosterEntry('grpc-tabs')!;
+/** Tab 1 send payload — distinct so duplicated tabs can still show isolation. */
+const GRPC25_TAB1_MESSAGE = 'Hello from Tab 1';
 
 const GRPC_TAB_SELECTOR = `${GRPC.TAB_BAR} [role="tab"]`;
 
@@ -42,13 +49,23 @@ export const grpcTabsLesson: GrpcDemoLesson = {
   ...buildGrpcLessonShellFromRoster(GRPC25_ROSTER),
   domainId: 'protocols',
   category: 'grpc',
+  // Teach the real tab bar — do not add/rename a temporary "demo" tab at start.
+  skipStudioTabIsolation: true,
   description:
     'Work with multiple gRPC method calls simultaneously. Each tab binds to its own method, ' +
     'request body, metadata, and streaming session — plus gRPC\'s unique Duplicate tab feature.',
   grpc: buildGrpcContractMetaFromRoster(GRPC25_ROSTER),
 
   setup: async (ctx) => {
-    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+    // Quiet land on Studio — no tab normalize/rename tour before the Tab Bar highlight.
+    resetGrpcLessonSessionFlags();
+    await navigateToGrpcStudio(ctx);
+    await closeGrpcSettingsDrawerQuiet(ctx);
+    await ensureGrpcStudioSubNavQuiet(ctx);
+    await resetGrpcConnectionSettingsQuiet(ctx);
+    await clearGrpcSchemaDriftQuiet(ctx);
+    // Collapse leftover tabs so step 1 rings a clean bar (Tab 1 only).
+    await closeExtraGrpcTabsQuiet(ctx);
   },
 
   cleanup: async (ctx) => {
@@ -155,11 +172,13 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
       preAction: async (ctx) => {
         await ensureGrpcStudioSubNavQuiet(ctx);
         await switchToGrpcTab(ctx, 0);
+        // Quiet recover for rapid Next — hybrid composer uses JSON, not `.grpc-form-field`.
+        await fillGrpcEchoMessage(ctx, GRPC25_TAB1_MESSAGE);
       },
       action: async (ctx) => {
         await ctx.click(GRPC.REQUEST_TAB_FORM);
         await ctx.delay(400);
-        await ctx.fill('.grpc-form-field input[type="text"]', 'Hello from Tab 1');
+        await fillGrpcEchoMessage(ctx, GRPC25_TAB1_MESSAGE);
         await ctx.delay(500);
         await ctx.click(GRPC.SEND_BTN);
         await ctx.waitFor(GRPC.RESPONSE_BODY, 5000);
