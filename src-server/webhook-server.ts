@@ -62,7 +62,7 @@ app.get('/health', (req: Request, res: Response) => {
 // Spring fixture health proxy used by Demo Hub prerequisite checks.
 app.get('/health/spring', async (_req: Request, res: Response) => {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 2500);
+  const timer = setTimeout(controller.abort.bind(controller), 2500);
   try {
     const response = await fetch(GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL, {
       signal: controller.signal,
@@ -106,13 +106,40 @@ app.get('/health/spring', async (_req: Request, res: Response) => {
   }
 });
 
+// Envoy gRPC-Web sidecar probe (:50055) for Demo Hub prerequisites (GRPC-19).
+// Bare GET / returns HTTP 415 — that still means the listener is up. Probe from
+// the server so the browser console does not log two Failed-to-load 415s
+// (localhost + 127.0.0.1 loopback candidates).
+app.get('/health/envoy', async (_req: Request, res: Response) => {
+  const controller = new AbortController();
+  const timer = setTimeout(controller.abort.bind(controller), 2500);
+  try {
+    const response = await fetch('http://127.0.0.1:50055/', {
+      signal: controller.signal,
+    });
+    return res.status(200).json({
+      status: 'ok',
+      source: 'envoy-grpc-web',
+      httpStatus: response.status,
+    });
+  } catch (error) {
+    return res.status(503).json({
+      status: 'down',
+      source: 'envoy-grpc-web',
+      reason: toErrorMessage(error),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
 // Schema Registry health proxy used by Demo Hub prerequisite checks.
 // Probes the registry's /subjects endpoint (lightweight) from the server side
 // to avoid unreliable browser no-cors probes.
 app.get('/health/schema-registry', async (req: Request, res: Response) => {
   const registryUrl = (req.query.url as string) || 'http://localhost:8085';
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5000);
+  const timer = setTimeout(controller.abort.bind(controller), 5000);
   try {
     const response = await fetch(`${registryUrl.replace(/\/$/, '')}/subjects`, {
       signal: controller.signal,

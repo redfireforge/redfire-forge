@@ -90,10 +90,7 @@ describe('ErrorHandlerConfig', () => {
   it('calls onChange when retry delay changes', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Delay');
-    const field = label.closest('.errh-field-inline')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '2000' } });
+    fireEvent.change(screen.getByLabelText('Retry delay'), { target: { value: '2000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryDelayMs: 2000 }));
   });
 
@@ -147,10 +144,7 @@ describe('ErrorHandlerConfig', () => {
   it('calls onChange when retry timeout changes', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Timeout');
-    const field = label.closest('.errh-field-inline')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '30000' } });
+    fireEvent.change(screen.getByLabelText('Retry timeout'), { target: { value: '30000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryTimeoutMs: 30000 }));
   });
 
@@ -178,11 +172,23 @@ describe('ErrorHandlerConfig', () => {
   });
 
   it('shows plain timeout unit text when timeout is non-zero', () => {
-    render(<ErrorHandlerConfig data={makeData({ retryCount: 2, retryTimeoutMs: 1000 })} onChange={vi.fn()} />);
-    const label = screen.getByText('Timeout');
-    const field = label.closest('.errh-field-inline')!;
+    const { container } = render(
+      <ErrorHandlerConfig data={makeData({ retryCount: 2, retryTimeoutMs: 1000 })} onChange={vi.fn()} />,
+    );
+    const field = screen.getByLabelText('Retry timeout').closest('.errh-field-inline')!;
     expect(field.textContent).toContain('ms');
-    expect(field.textContent).not.toContain('ms (no limit)');
+    expect(field.textContent).not.toContain('no limit');
+    expect(container.querySelector('.errh-unit-note')).toBeNull();
+  });
+
+  it('shows no-limit badge in hint when timeout is zero', () => {
+    const { container } = render(
+      <ErrorHandlerConfig data={makeData({ retryCount: 2, retryTimeoutMs: 0 })} onChange={vi.fn()} />,
+    );
+    const field = screen.getByLabelText('Retry timeout').closest('.errh-field-inline')!;
+    expect(field.textContent).toContain('ms');
+    expect(field.textContent).not.toContain('no limit');
+    expect(container.querySelector('.errh-unit-note')?.textContent).toBe('no limit');
   });
 
   it('renders output handles guide', () => {
@@ -203,40 +209,28 @@ describe('ErrorHandlerConfig', () => {
   it('clamps retry timeout to 0 for NaN input', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Timeout');
-    const field = label.closest('.errh-field-inline')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'x' } });
+    fireEvent.change(screen.getByLabelText('Retry timeout'), { target: { value: 'x' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryTimeoutMs: 0 }));
   });
 
   it('clamps retry delay to 0 for NaN input', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Delay');
-    const field = label.closest('.errh-field-inline')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'abc' } });
+    fireEvent.change(screen.getByLabelText('Retry delay'), { target: { value: 'abc' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryDelayMs: 0 }));
   });
 
   it('clamps retry delay to 0 for negative input', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Delay');
-    const field = label.closest('.errh-field-inline')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '-100' } });
+    fireEvent.change(screen.getByLabelText('Retry delay'), { target: { value: '-100' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryDelayMs: 0 }));
   });
 
   it('clamps retry timeout to 0 for negative input', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Timeout');
-    const field = label.closest('.errh-field-inline')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '-1000' } });
+    fireEvent.change(screen.getByLabelText('Retry timeout'), { target: { value: '-1000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryTimeoutMs: 0 }));
   });
 

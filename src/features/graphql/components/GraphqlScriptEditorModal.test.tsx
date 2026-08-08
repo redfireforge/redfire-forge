@@ -162,6 +162,70 @@ describe('GraphqlScriptEditorModal — rendering', () => {
   });
 });
 
+// ─── Drag + resize ────────────────────────────────────────────────────────────
+
+describe('GraphqlScriptEditorModal — drag and resize', () => {
+  it('renders draggable header with grip', () => {
+    render(<GraphqlScriptEditorModal {...makeProps()} />);
+    const header = screen.getByTestId('gql-script-modal-header');
+    expect(header).toHaveClass('gql-script-modal-header--draggable');
+    expect(header.querySelector('.gql-script-modal-drag-grip')).toBeTruthy();
+  });
+
+  it('moves modal on header drag', () => {
+    render(<GraphqlScriptEditorModal {...makeProps()} />);
+    const modal = screen.getByTestId('gql-script-modal');
+    const header = screen.getByTestId('gql-script-modal-header');
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 80, width: 820, height: 600,
+      right: 920, bottom: 680, x: 100, y: 80, toJSON: () => ({}),
+    });
+    fireEvent.mouseDown(header, { clientX: 120, clientY: 90 });
+    fireEvent.mouseMove(window, { clientX: 170, clientY: 130 });
+    fireEvent.mouseUp(window);
+    expect(modal.style.left).toBeTruthy();
+    expect(modal.style.top).toBeTruthy();
+  });
+
+  it('does not start drag from the execution-order toggle', () => {
+    render(<GraphqlScriptEditorModal {...makeProps()} />);
+    const modal = screen.getByTestId('gql-script-modal');
+    const toggle = screen.getByTestId('gql-script-order-toggle');
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 80, width: 820, height: 600,
+      right: 920, bottom: 680, x: 100, y: 80, toJSON: () => ({}),
+    });
+    fireEvent.mouseDown(toggle, { clientX: 120, clientY: 90 });
+    fireEvent.mouseMove(window, { clientX: 220, clientY: 180 });
+    fireEvent.mouseUp(window);
+    expect(modal.style.left).toBeFalsy();
+    expect(modal.style.top).toBeFalsy();
+  });
+
+  it('renders modal resize handles', () => {
+    render(<GraphqlScriptEditorModal {...makeProps()} />);
+    const modal = screen.getByTestId('gql-script-modal');
+    expect(modal.querySelector('.modal-resize-corner')).toBeTruthy();
+    expect(modal.querySelector('.modal-resize-edge-right')).toBeTruthy();
+    expect(modal.querySelector('.modal-resize-edge-bottom')).toBeTruthy();
+  });
+
+  it('resizes modal from the corner handle', () => {
+    render(<GraphqlScriptEditorModal {...makeProps()} />);
+    const modal = screen.getByTestId('gql-script-modal');
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 80, width: 820, height: 600,
+      right: 920, bottom: 680, x: 100, y: 80, toJSON: () => ({}),
+    });
+    const corner = modal.querySelector('.modal-resize-corner')!;
+    fireEvent.mouseDown(corner, { clientX: 920, clientY: 680 });
+    fireEvent.mouseMove(window, { clientX: 980, clientY: 740 });
+    fireEvent.mouseUp(window);
+    expect(modal.style.width).toBeTruthy();
+    expect(modal.style.height).toBeTruthy();
+  });
+});
+
 // ─── Close behaviors ──────────────────────────────────────────────────────────
 
 describe('GraphqlScriptEditorModal — close behaviors', () => {

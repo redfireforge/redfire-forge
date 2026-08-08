@@ -8,6 +8,11 @@ vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   closeGqlDemoTabs: vi.fn(async () => {}),
 }));
 
+vi.mock('../../demoRipple', () => ({
+  showSpotlightRing: vi.fn(() => vi.fn()),
+  purgeAllSpotlightRings: vi.fn(),
+}));
+
 import { gqlVariablesLesson } from './graphql-variables';
 import { makeCtx } from './ws-test-utils';
 import { GQL } from '@shared/selectors';
@@ -36,8 +41,6 @@ function stubLesson2HistoryExecutionGuards(): void {
 
 const STEP_IDS = [
   'gql2-intro',
-  'gql2-endpoint',
-  'gql2-endpoint-resolved',
   'gql2-introspect',
   'gql2-schema',
   'gql2-write-query',
@@ -74,8 +77,8 @@ describe('gql-variables lesson', () => {
     expect(gqlVariablesLesson.category).toBe('graphql');
     expect(gqlVariablesLesson.name).toBe('Variables & Arguments');
     expect(gqlVariablesLesson.concept.title).toBe(gqlVariablesLesson.name);
-    expect(gqlVariablesLesson.steps.length).toBe(18);
-    expect(gqlVariablesLesson.estimatedMinutes).toBe(9);
+    expect(gqlVariablesLesson.steps.length).toBe(16);
+    expect(gqlVariablesLesson.estimatedMinutes).toBe(8);
     expect(gqlVariablesLesson.initialTab).toBe('graphql-studio');
     expect(gqlVariablesLesson.tabBudget).toBe(1);
   });
@@ -96,22 +99,16 @@ describe('gql-variables lesson', () => {
     expect(ids).toEqual(STEP_IDS);
   });
 
-  it('all 18 steps have pauseAfter: true', () => {
+  it('all 16 steps have pauseAfter: true', () => {
     gqlVariablesLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
   });
 
-  it('stateful steps 2–18 have preAction guards', () => {
-    const stateful = gqlVariablesLesson.steps.slice(1);
-    stateful.forEach((step) => {
+  it('all steps have preAction guards (intro keeps Studio; later steps recover state)', () => {
+    gqlVariablesLesson.steps.forEach((step) => {
       expect(step.preAction).toBeTypeOf('function');
     });
-  });
-
-  it('step gql2-intro has no preAction', () => {
-    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-intro')!;
-    expect(step.preAction).toBeUndefined();
   });
 
   it('concept keyTerms cover variable definition, value, argument, and required', () => {
@@ -140,16 +137,12 @@ describe('gql-variables lesson', () => {
     expect(step.highlight).toBe(GQL.BOTTOM_TAB_VARS);
   });
 
-  it('gql2-endpoint highlights endpoint input not preview', () => {
-    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-endpoint')!;
-    expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
-    expect(step.highlight).not.toBe(GQL.ENDPOINT_PREVIEW);
-    expect(step.description).not.toContain('↳ Resolved:');
-  });
-
-  it('gql2-endpoint-resolved highlights endpoint preview', () => {
-    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-endpoint-resolved')!;
-    expect(step.highlight).toBe(GQL.ENDPOINT_PREVIEW);
+  it('gql2-intro mentions GQL-1 endpoint already connected (no env setup steps)', () => {
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-intro')!;
+    expect(step.highlight).toBe(GQL.BOTTOM_TAB_VARS);
+    expect(step.description).toMatch(/already connected/i);
+    expect(gqlVariablesLesson.steps.some((s) => s.id === 'gql2-endpoint')).toBe(false);
+    expect(gqlVariablesLesson.steps.some((s) => s.id === 'gql2-endpoint-resolved')).toBe(false);
   });
 
   it('gql2-introspect highlights introspect button not schema tab', () => {
@@ -271,9 +264,7 @@ describe('gql-variables lesson', () => {
   /** Every step: highlight selector matches the primary UI element named in the description. */
   it('all steps have highlight aligned with description primary target', () => {
     const alignment: Array<{ id: string; highlight: string; includes: string[]; excludes?: RegExp[] }> = [
-      { id: 'gql2-intro', highlight: GQL.BOTTOM_TAB_VARS, includes: ['Variables'] },
-      { id: 'gql2-endpoint', highlight: GQL.ENDPOINT_INPUT, includes: ['endpoint field'] },
-      { id: 'gql2-endpoint-resolved', highlight: GQL.ENDPOINT_PREVIEW, includes: ['Resolved'] },
+      { id: 'gql2-intro', highlight: GQL.BOTTOM_TAB_VARS, includes: ['Variables', 'already connected'] },
       { id: 'gql2-introspect', highlight: GQL.INTROSPECT_BTN, includes: ['Introspect'] },
       { id: 'gql2-schema', highlight: GQL.RIGHT_TAB_SCHEMA, includes: ['Schema** tab'] },
       { id: 'gql2-write-query', highlight: GQL.EDITOR, includes: ['editor'] },
@@ -305,30 +296,19 @@ describe('gql-variables lesson', () => {
 
   // ─── Step actions ────────────────────────────────────────────
 
-  it('step gql2-endpoint preAction ensures header context and studio', async () => {
+  it('step gql2-intro preAction lands on Studio Variables tab', async () => {
     stubGqlStudioShell(`
       <div data-testid="gql-studio-page"></div>
-      <select data-testid="app-header-env-select"><option>GraphQL Demo</option></select>
-      <select data-testid="app-header-svc-select"><option>graphql-demo</option></select>
+      <div data-testid="header-env-select"><span class="cs-text">GraphQL Demo</span></div>
+      <div data-testid="header-svc-select"><span class="cs-text">graphql-demo</span></div>
+      <input data-testid="gql-endpoint-input" value="{{graphqlUrl}}" />
+      <button data-testid="gql-bottom-tab-variables"></button>
     `);
-    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-endpoint')!;
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-intro')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
-  });
-
-  it('step gql2-endpoint fills the {{graphqlUrl}} template', async () => {
-    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-endpoint')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
-  });
-
-  it('step gql2-endpoint-resolved waits for endpoint preview', async () => {
-    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-endpoint-resolved')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_PREVIEW, 5000);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS, 5000);
   });
 
   it('step gql2-introspect clicks introspect and waits for schema badge', async () => {

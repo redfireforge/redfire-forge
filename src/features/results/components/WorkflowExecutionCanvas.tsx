@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
+import { useHasLayoutSize } from '../../workflow/hooks/useHasLayoutSize';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
 import {
@@ -105,6 +106,8 @@ export default function WorkflowExecutionCanvas({
 }: Props) {
   const hasFittedAfterMeasure = useRef(false);
   const rfInstanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasHasSize = useHasLayoutSize(containerRef);
 
   useEffect(() => {
     if (fitViewTrigger) {
@@ -113,7 +116,7 @@ export default function WorkflowExecutionCanvas({
   }, [fitViewTrigger]);
 
   const performFitView = useCallback((): boolean => {
-    const ok = scheduleReplayFitView(rfInstanceRef.current);
+    const ok = scheduleReplayFitView(rfInstanceRef.current, undefined, containerRef.current);
     if (ok) hasFittedAfterMeasure.current = true;
     return ok;
   }, []);
@@ -432,7 +435,7 @@ export default function WorkflowExecutionCanvas({
         if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
         fitTimerRef.current = setTimeout(() => {
           hasFittedAfterMeasure.current = true;
-          scheduleReplayFitView(rfInstanceRef.current);
+          scheduleReplayFitView(rfInstanceRef.current, undefined, containerRef.current);
         }, 150);
       }
     },
@@ -441,7 +444,6 @@ export default function WorkflowExecutionCanvas({
 
   // Tooltip hover state
   const [hoveredNode, setHoveredNode] = useState<{ id: string; x: number; y: number } | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Re-fit when the diagram pane resizes (console open, detail panel toggle, matrix collapse)
   useEffect(() => {
@@ -451,7 +453,7 @@ export default function WorkflowExecutionCanvas({
     const observer = new ResizeObserver(() => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        scheduleReplayFitView(rfInstanceRef.current);
+        scheduleReplayFitView(rfInstanceRef.current, undefined, containerRef.current);
       }, 150);
     });
     observer.observe(el);
@@ -581,6 +583,8 @@ export default function WorkflowExecutionCanvas({
 
   return (
     <div ref={containerRef} className="results-explorer-canvas-wrap">
+      <div className="results-explorer-flow-host">
+      {canvasHasSize && (
       <ReactFlow
         key={trace.workflowId}
         className="results-explorer-flow"
@@ -595,7 +599,7 @@ export default function WorkflowExecutionCanvas({
         nodeTypes={nodeTypes}
         onInit={(instance) => {
           rfInstanceRef.current = instance;
-          scheduleReplayFitView(instance);
+          scheduleReplayFitView(instance, undefined, containerRef.current);
         }}
         nodesDraggable={true}
         nodesConnectable={false}
@@ -628,6 +632,8 @@ export default function WorkflowExecutionCanvas({
           />
         </Panel>
       </ReactFlow>
+      )}
+      </div>
       {hoveredNode && tooltipData && (
         <div
           className="replay-node-tooltip"

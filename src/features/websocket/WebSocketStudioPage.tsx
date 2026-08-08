@@ -9,12 +9,11 @@ import {
 } from './WsConnectionTabBar';
 import {
   WsConnectionTabContent,
-  type WsConnectionTabContentHandle,
 } from './WsConnectionTabContent';
+import type { WsConnectionTabContentHandle } from './WsConnectionTabContent.types';
 import { buildWsEnvVarMap } from './wsMessageUtils';
 import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
 import { getRowStatus } from '../environments/utils/protocolEndpointUtils';
-import type { GlobalAuthProfile, Microservice } from '../../shared/types';
 import type {
   WsConnectionDraft,
   WsPersistedTabState,
@@ -28,41 +27,19 @@ import {
 } from '../../shared/websocket/types';
 import { loadWsTabState, saveWsTabState } from '../../shared/websocket/websocketStorage';
 import ConfirmModal from '../../shared/components/ConfirmModal';
+import {
+  MAX_TABS,
+  MOCK_PORT_BASE,
+  isAutoMockPort,
+  LOCALHOST_WS_URL_RE,
+  generateTabId,
+  advanceSeqPastRestoredIds,
+  deriveTabLabel,
+} from './WebSocketStudioPage.helpers';
+import type { WebSocketStudioPageProps } from './WebSocketStudioPage.types';
+import { useWsDemoBridges } from './useWsDemoBridges';
 import '../../styles/websocket-studio.css';
 import '../../styles/mock-server-shared.css';
-
-const MAX_TABS = 8;
-const MOCK_PORT_BASE = 9876;
-/** Auto-assigned mock ports live in [9876, 9876+MAX_TABS). Leftovers in this
- *  range (e.g. sticky 9878 after closing tabs) should be compacted; custom
- *  ports outside it (e.g. 9999) are left alone. */
-const isAutoMockPort = (port: number): boolean =>
-  port >= MOCK_PORT_BASE && port < MOCK_PORT_BASE + MAX_TABS;
-const LOCALHOST_WS_URL_RE = /^ws:\/\/localhost:\d+(\/.*)?$/i;
-
-let nextTabSeq = 1;
-function generateTabId(): string {
-  return `ws-tab-${nextTabSeq++}`;
-}
-
-function advanceSeqPastRestoredIds(tabs: WsConnectionTabInfo[]): void {
-  for (const tab of tabs) {
-    const match = tab.id.match(/^ws-tab-(\d+)$/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (num >= nextTabSeq) nextTabSeq = num + 1;
-    }
-  }
-}
-
-interface WebSocketStudioPageProps {
-  resolvedBaseUrl?: string;
-  envName?: string;
-  svcName?: string;
-  selectedSvc?: Microservice;
-  selectedEnvId?: string;
-  globalAuthProfiles?: GlobalAuthProfile[];
-}
 
 export function WebSocketStudioPage({
   resolvedBaseUrl,
@@ -109,22 +86,6 @@ export function WebSocketStudioPage({
   const profilesHook = useWebSocketProfiles();
   const templatesHook = useWebSocketTemplates();
   const historyHook = useWebSocketHistory();
-
-  // Quiet demo bridges — clear Saved profiles / message templates without
-  // thrashing Mock → Saved → Send UI during lesson setup (visible while Live).
-  useEffect(() => {
-    const w = window as Window & {
-      __demoClearWsProfiles?: () => Promise<void>;
-      __demoClearWsTemplates?: () => Promise<void>;
-    };
-    w.__demoClearWsProfiles = () => profilesHook.clearAllProfiles();
-    w.__demoClearWsTemplates = () => templatesHook.clearAllTemplates();
-    return () => {
-      delete w.__demoClearWsProfiles;
-      delete w.__demoClearWsTemplates;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilesHook.clearAllProfiles, templatesHook.clearAllTemplates]);
 
   // Per-tab mock server port assignment.
   // Must be React state (not a ref): children read mockPort as a prop, and
@@ -391,6 +352,25 @@ export function WebSocketStudioPage({
       saveWsTabState(buildPersistState());
     }, 300);
   }, [buildPersistState]);
+
+  useWsDemoBridges({
+    profilesHook,
+    templatesHook,
+    activeTabIdRef,
+    tabsRef,
+    tabRefs,
+    renamedTabIdsRef: renamedTabIds,
+    tabUrls,
+    initialUrlsRef,
+    mockPortsRef,
+    setStudioLoc,
+    setTabs,
+    setActiveTabId,
+    setConnectionStates,
+    setMockPorts,
+    debouncedSave,
+    generateTabId,
+  });
 
   // Clean up save timer on unmount + save immediately
   useEffect(() => {
@@ -780,21 +760,4 @@ export function WebSocketStudioPage({
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function deriveTabLabel(url: string): string | null {
-  const trimmed = url.trim();
-  if (!trimmed || trimmed.length < 6) return null;
-  if (!/^wss?:\/\/.{2,}/.test(trimmed)) return null;
-  try {
-    const parsed = new URL(trimmed);
-    const host = parsed.hostname;
-    if (!host || host.length < 2) return null;
-    const port = parsed.port;
-    return port ? `${host}:${port}` : host;
-  } catch {
-    const match = trimmed.match(/wss?:\/\/([^/:\s]{2,})(?::(\d+))?/);
-    if (match) {
-      return match[2] ? `${match[1]}:${match[2]}` : match[1];
-    }
-    return null;
-  }
-}
+export { deriveTabLabel } from './WebSocketStudioPage.helpers';

@@ -116,12 +116,12 @@ describe('ws-reliability lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-stats'));
   });
 
-  it('step rel-stats-tab action calls ctx.delay(1000)', async () => {
+  it('step rel-stats-tab action calls ctx.delay(400)', async () => {
     const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-stats-tab')!;
     expect(typeof step.action).toBe('function');
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(1000);
+    expect(ctx.delay).toHaveBeenCalledWith(400);
   });
 
   it('step rel-stats-tab highlights stats tab', () => {
@@ -227,7 +227,7 @@ describe('ws-reliability lesson', () => {
     document.body.innerHTML = '';
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(ctx.delay).toHaveBeenCalledWith(1200);
   });
 
   it('step rel-reconnect-settings highlights reconnect settings', () => {
@@ -238,7 +238,8 @@ describe('ws-reliability lesson', () => {
   it('step rel-reconnect-settings description mentions max attempts and backoff', () => {
     const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-reconnect-settings')!;
     expect(step.description).toContain('Max Attempts');
-    expect(step.description).toContain('Backoff Multiplier');
+    expect(step.description).toContain('Backoff');
+    expect(step.description).toContain('disconnected');
   });
 
   // ─── Step: rel-close-code ─────────────────────────────────

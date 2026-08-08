@@ -102,4 +102,32 @@ describe('suppressResizeObserverError', () => {
     window.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(false);
   });
+
+  it('swallows Monaco cancelation unhandledrejection objects', () => {
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', {
+      value: { type: 'cancelation', msg: 'operation is manually canceled' },
+    });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('swallows Monaco Canceled Error unhandledrejection', () => {
+    const err = new Error('Canceled');
+    err.name = 'Canceled';
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', { value: err });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('does not swallow unrelated plain-object unhandledrejection', () => {
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', { value: { type: 'other', msg: 'boom' } });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
 });

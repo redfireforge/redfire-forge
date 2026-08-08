@@ -195,9 +195,18 @@
   flex-direction: column;
 }
 
-.results-explorer-canvas-wrap .results-explorer-flow {
-  flex: 1;
+/* Host gives React Flow a definite 100% box (RF forces position:relative inline). */
+.results-explorer-flow-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
+}
+.results-explorer-flow-host .results-explorer-flow {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .results-explorer-diagram .wf-pill-controls,

@@ -118,25 +118,29 @@ export default function RunnerExecutionConfig({
   return (
     <div className="execution-group" data-testid="har-exec-config">
       <div className="runner-option-boxes">
-        <div className="runner-option-box" style={{ flex: 1 }} data-testid="har-exec-mode">
-          <span className="runner-exec-label">Execution Mode:</span>
-          {testRunnerModes.map((mode) => {
-            const meta = getExecutionModeMeta(mode);
-            const isForceDisabled = forceSingleIteration && mode !== 'sequential';
-            const isDesktopOnly = mode === 'constant-arrival' && !isTauri();
-            const disabled = isRunning || isForceDisabled || isDesktopOnly;
-            const title = isDesktopOnly ? 'Requires desktop app (Tauri)'
-              : isForceDisabled ? 'Only Sequential allowed for Wait for Real Webhook mode'
-              : meta.title;
-            return (
-              <label key={mode} className="radio-label" data-testid={`har-exec-mode-${mode}`} title={title} style={isDesktopOnly ? { opacity: 0.5 } : undefined}>
-                <input type="radio" name={n('execMode')} checked={forceSingleIteration ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={disabled} />
-                {meta.label}
-                {isDesktopOnly && <span className="exec-mode-desktop-only"> (only desktop)</span>}
-              </label>
-            );
-          })}
-          <span className="exec-mode-hint">{forceSingleIteration ? 'Single iteration for real webhook testing' : modeMeta.hint}</span>
+        <div className="runner-option-box runner-option-box--stacked" style={{ flex: 1 }} data-testid="har-exec-mode">
+          <div className="runner-option-box-main">
+            <span className="runner-exec-label">Execution Mode:</span>
+            {testRunnerModes.map((mode) => {
+              const meta = getExecutionModeMeta(mode);
+              const isForceDisabled = forceSingleIteration && mode !== 'sequential';
+              const isDesktopOnly = mode === 'constant-arrival' && !isTauri();
+              const disabled = isRunning || isForceDisabled || isDesktopOnly;
+              const title = isDesktopOnly ? 'Requires desktop app (Tauri)'
+                : isForceDisabled ? 'Only Sequential allowed for Wait for Real Webhook mode'
+                : meta.title;
+              return (
+                <label key={mode} className="radio-label" data-testid={`har-exec-mode-${mode}`} title={title} style={isDesktopOnly ? { opacity: 0.5 } : undefined}>
+                  <input type="radio" name={n('execMode')} checked={forceSingleIteration ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={disabled} />
+                  {meta.label}
+                  {isDesktopOnly && <span className="exec-mode-desktop-only"> (only desktop)</span>}
+                </label>
+              );
+            })}
+          </div>
+          <p className="exec-mode-hint exec-mode-hint--below">
+            {forceSingleIteration ? 'Single iteration for real webhook testing' : modeMeta.hint}
+          </p>
         </div>
       </div>
 
@@ -220,7 +224,7 @@ export default function RunnerExecutionConfig({
       </div>
 
       <div className="think-time-section" data-testid="har-think-time">
-        <div className="runner-option-box" style={{ flex: 1 }}>
+        <div className="runner-option-box runner-option-box--think" style={{ flex: 1 }}>
           <span className="runner-exec-label">Think Time:</span>
           {(['none', 'constant', 'uniform', 'gaussian'] as ThinkTimeMode[]).map((m) => (
             <label key={m} className="radio-label">

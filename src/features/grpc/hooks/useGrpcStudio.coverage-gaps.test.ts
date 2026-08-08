@@ -419,8 +419,35 @@ describe('useGrpcStudio coverage gaps', () => {
       });
     });
 
-    expect(result.current.activeTab.tlsMode).toBeUndefined();
+    expect(result.current.activeTab.tlsMode).toBe('disabled');
     expect(result.current.resolveTabConnection('loopback-tab').tlsMode).toBe('disabled');
+  });
+
+  it('restorePersistedSession remaps leftover TLS demo ports to plaintext :50051', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'tls-port-tab',
+        tabs: [{
+          id: 'tls-port-tab',
+          title: 'TLS leftover',
+          target: 'localhost:50443',
+          tlsMode: 'tls',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: {},
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTab.target).toBe('localhost:50051');
+    expect(result.current.activeTab.tlsMode).toBe('disabled');
   });
 
   it('restorePersistedSession resets 127.0.0.1 loopback tabs from stale TLS to plaintext', () => {
@@ -446,7 +473,7 @@ describe('useGrpcStudio coverage gaps', () => {
       });
     });
 
-    expect(result.current.activeTab.tlsMode).toBeUndefined();
+    expect(result.current.activeTab.tlsMode).toBe('disabled');
   });
 
   it('restorePersistedSession resets bracketed IPv6 loopback tabs from stale TLS to plaintext', () => {
@@ -472,8 +499,87 @@ describe('useGrpcStudio coverage gaps', () => {
       });
     });
 
-    expect(result.current.activeTab.tlsMode).toBeUndefined();
+    expect(result.current.activeTab.tlsMode).toBe('disabled');
     expect(result.current.resolveTabConnection('ipv6-tab').tlsMode).toBe('disabled');
+  });
+
+  it('restorePersistedSession resets loopback tabs from stale mTLS to plaintext', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'mtls-tab',
+        tabs: [{
+          id: 'mtls-tab',
+          title: 'mTLS leftover',
+          target: 'localhost:50051',
+          tlsMode: 'mtls',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: {},
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTab.tlsMode).toBe('disabled');
+    expect(result.current.resolveTabConnection('mtls-tab').tlsMode).toBe('disabled');
+  });
+
+  it('restorePersistedSession resets loopback tabs from stale gRPC-Web to Express', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'web-tab',
+        tabs: [{
+          id: 'web-tab',
+          title: 'gRPC-Web leftover',
+          target: 'localhost:50051',
+          transportMode: 'grpc-web',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: {},
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTab.transportMode).toBe('express');
+  });
+
+  it('restorePersistedSession resets loopback spring-servlet leftovers to Express', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'servlet-tab',
+        tabs: [{
+          id: 'servlet-tab',
+          title: 'Servlet leftover',
+          target: 'localhost:50051',
+          transportMode: 'spring-servlet',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: {},
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTab.transportMode).toBe('express');
   });
 
   it('hydrates vault secrets outside test mode', async () => {

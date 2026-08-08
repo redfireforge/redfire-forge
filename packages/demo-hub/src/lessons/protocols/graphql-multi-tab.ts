@@ -5,20 +5,22 @@ import {
   GQL_DEMO_HEALTH,
   GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HTTP,
-  activateGqlTabByIndex,
   demonstrateLesson14PerTabAuth,
   demonstrateLesson14SaveProfiles,
   demonstrateLesson14LoadProfilesOnly,
   demonstrateLesson14ProfileAuthLink,
   demonstrateLesson14TabPolling,
   demonstrateLesson14TabResponseSwitch,
+  demonstrateLesson14Tab1Endpoint,
+  demonstrateLesson14Tab2Endpoint,
+  demonstrateLesson14RenameAndCompare,
   ensureLesson14Tab2BadgeHighlight,
   ensureLesson14TabsRenamed,
+  ensureLesson14Tab2Executed,
   demonstrateLesson14AddSecondTab,
-  ensureLesson14Tab1Configured,
   ensureLesson14Tab2Added,
   ensureLesson14Tab2Configured,
-  ensureLesson14TabProfileLinks,
+  ensureLesson14TabPolling,
   ensureLesson14ProfilesSaved,
   ensureLesson14ProfilesLinked,
   ensureLesson14PerTabAuthConfigured,
@@ -26,6 +28,7 @@ import {
   ensureLesson14Tab1EndpointReadingReady,
   gqlMultiTabLessonCleanup,
   gqlMultiTabLessonSetup,
+  spotlightAndPause,
 } from './graphql-lesson-helpers';
 
 export const gqlMultiTabLesson: DemoLesson = {
@@ -264,7 +267,7 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       highlight: GQL.TAB_BAR,
       preAction: ensureLesson14IntroReady,
       action: async (ctx) => {
-        await ctx.delay(1500);
+        await spotlightAndPause(ctx, GQL.TAB_BAR, 1_400);
       },
       verify: GQL.TAB_BAR,
       pauseAfter: true,
@@ -277,11 +280,10 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'On **Tab 1**, the endpoint field shows `{{graphqlUrl}}` once — inherited from the page-level default (the environment-managed value). Click **Introspect**, then run `query { health }`. The response is cached in Tab 1\'s workspace.\n\n' +
         '**Why inherit instead of typing it again?** `{{graphqlUrl}}` lives at the page level and resolves to whatever URL your Environment Manager has configured. Tab 1 does not store a duplicate per-tab copy, so you see a single clean value with no override badge. Later, when Tab 2 gets its own direct URL, that becomes a per-tab override and earns a badge. This distinction between page default and per-tab override is the core concept of multi-tab isolation.',
-      highlight: GQL.ENDPOINT_INPUT,
+      // Multi-beat action spotlights endpoint → Introspect → Execute → response.
+      highlight: undefined,
       preAction: ensureLesson14Tab1EndpointReadingReady,
-      action: async (ctx) => {
-        await ensureLesson14Tab1Configured(ctx);
-      },
+      action: demonstrateLesson14Tab1Endpoint,
       verify: GQL.RESPONSE_BODY,
       pauseAfter: 5500,
     },
@@ -309,12 +311,10 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         `On the newly active **Tab 2**, change the endpoint to \`${GQL_DEMO_HTTP}\` (a direct URL instead of the env variable). Click **Introspect** — Tab 2 now has its own independent schema loaded.\n\n` +
         '**Why is this a per-tab override now?** Because two tabs exist, changing the endpoint here only affects Tab 2 — the page-level default that Tab 1 uses remains unchanged. Tab 2\'s endpoint is now an **override**, signalled by a hostname badge that appears on the tab. Switching back to Tab 1 will show its original endpoint still intact. The schemas are completely separate — Tab 2\'s introspection does not cross-contaminate Tab 1\'s cached schema.',
-      highlight: GQL.ENDPOINT_INPUT,
+      // Multi-beat: endpoint fill → Introspect → badge.
+      highlight: undefined,
       preAction: ensureLesson14Tab2Added,
-      action: async (ctx) => {
-        await ensureLesson14Tab2Configured(ctx);
-        await ctx.delay(1200);
-      },
+      action: demonstrateLesson14Tab2Endpoint,
       verify: GQL.SCHEMA_BADGE_OK,
       pauseAfter: true,
     },
@@ -326,11 +326,12 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'Execute `query { health }` on **Tab 2**, then click **Tab 1** in the tab bar. Tab 1\'s response — from its own earlier execution — is restored instantly from cache. Tab 2\'s response stays in memory for when you switch back.\n\n' +
         '**Why cache responses per tab?** Without per-tab caching, switching tabs would blank the response panel — you would have to re-execute the query every time you switch back. With caching, the response panel preserves exactly what you saw before you switched. This makes side-by-side comparison practical: execute on Tab 2 (production), switch to Tab 1 (staging), compare the two results — both responses are visible in their respective tabs without re-running anything.',
-      highlight: GQL.TAB_BAR,
-      preAction: ensureLesson14Tab2Configured,
-      action: async (ctx) => {
-        await demonstrateLesson14TabResponseSwitch(ctx);
-      },
+      // Multi-beat action walks Execute → response → Tab 1 → cached response.
+      highlight: undefined,
+      // Quietly ensure Tab 2 is ready (and preferably already executed) so action
+      // can focus on the visible Execute/switch beats without stacked setup.
+      preAction: ensureLesson14Tab2Executed,
+      action: demonstrateLesson14TabResponseSwitch,
       verify: GQL.RESPONSE_BODY,
       pauseAfter: 6000,
     },
@@ -345,7 +346,7 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       highlight: GQL.LESSON14_TAB2_BADGE,
       preAction: ensureLesson14Tab2BadgeHighlight,
       action: async (ctx) => {
-        await ctx.delay(2000);
+        await spotlightAndPause(ctx, GQL.LESSON14_TAB2_BADGE, 1_600);
       },
       verify: GQL.LESSON14_TAB2_BADGE,
       pauseAfter: 5500,
@@ -356,17 +357,15 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       id: 'gql14-real-world',
       title: 'Staging vs. Production — Side by Side',
       description:
-        'Rename **Tab 1** to "Staging" and **Tab 2** to "Production". Switch between them — each tab still holds its own cached response and endpoint from the earlier steps, with no re-typing or re-execution needed.\n\n' +
+        'Tabs are labeled **Staging** and **Production**. Switch between them — each tab still holds its own cached response and endpoint from the earlier steps, with no re-typing or re-execution needed.\n\n' +
         '**Why this workflow matters in practice?** A very common engineering task is validating that a new deployment did not break existing API behavior. With multi-tab: open Staging on Tab 1, open Production on Tab 2, run the same query on both, and compare responses side by side. Any difference in schema, response shape, or data is immediately visible. This replaces the error-prone workflow of running a query, copying the result, switching tools, running again, and manually comparing — all without leaving the Studio.',
-      highlight: GQL.TAB_BAR,
-      preAction: ensureLesson14Tab2Configured,
-      action: async (ctx) => {
+      // Multi-beat: tab bar → Production response → Staging response.
+      highlight: undefined,
+      preAction: async (ctx) => {
+        await ensureLesson14Tab2Configured(ctx);
         await ensureLesson14TabsRenamed(ctx);
-        await activateGqlTabByIndex(ctx, 1);
-        await ctx.delay(1000);
-        await activateGqlTabByIndex(ctx, 0);
-        await ctx.delay(1200);
       },
+      action: demonstrateLesson14RenameAndCompare,
       verify: GQL.TAB_BAR,
       pauseAfter: true,
     },
@@ -378,11 +377,14 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         '**Staging** and **Production** can point at different endpoints, but auth is always **per-tab**. On **Staging** (Tab 1), open **Auth** and choose **No Auth** — an explicit override that sends no credentials. Switch to **Production** (Tab 2), set **Bearer** with a demo token, then **Execute** on each tab and compare **Metadata → Request headers**.\n\n' +
         '**Why per-tab auth matters?** Real teams often hit the same API gateway with different credentials per environment — a read-only public key on staging and a full-access token on production. Without per-tab auth you would constantly reconfigure the connection bar when switching tabs. Tab auth dots in the tab bar show at a glance which tabs carry an override.',
-      highlight: GQL.BOTTOM_TAB_AUTH,
-      preAction: ensureLesson14TabsRenamed,
-      action: async (ctx) => {
-        await demonstrateLesson14PerTabAuth(ctx);
+      // Multi-beat auth + Metadata tour — action spotlights each outcome.
+      highlight: undefined,
+      // Quietly rename + set auth overrides; action is the visible Execute/Metadata tour.
+      preAction: async (ctx) => {
+        await ensureLesson14TabsRenamed(ctx);
+        await ensureLesson14PerTabAuthConfigured(ctx);
       },
+      action: demonstrateLesson14PerTabAuth,
       verify: GQL.AUTH_PANEL,
       pauseAfter: 6500,
     },
@@ -394,11 +396,9 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'On **Staging** (Tab 1), click **Profiles** → name the preset **GQL-14 Staging** → **Save**. Switch to **Production** (Tab 2) and repeat as **GQL-14 Production**.\n\n' +
         'After each save, read the **Used by** row on the new profile — it says *Not linked to any tab*. **Saving does not connect the tab**; it only adds a reusable preset to the global catalog. The next step links each tab with **Load**.',
-      highlight: GQL.PROFILE_BADGE,
+      highlight: undefined,
       preAction: ensureLesson14PerTabAuthConfigured,
-      action: async (ctx) => {
-        await demonstrateLesson14SaveProfiles(ctx);
-      },
+      action: demonstrateLesson14SaveProfiles,
       verify: GQL.PROFILE_MODAL,
       pauseAfter: 6000,
     },
@@ -410,11 +410,9 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'Switch to **Staging** (Tab 1), open **Profiles**, and click **Load** on **GQL-14 Staging**. The modal stays open so you can read **Used by → Staging** on that row. Switch to **Production** (Tab 2) and repeat with **GQL-14 Production**.\n\n' +
         '**Load** sets `connectionId` on the active tab — that is what populates **Used by**. The same profile can appear on multiple tabs if you **Load** it on each one. Saving only adds a catalog preset; **Load** is what wires a tab to that preset.',
-      highlight: GQL.PROFILE_BADGE,
+      highlight: undefined,
       preAction: ensureLesson14ProfilesSaved,
-      action: async (ctx) => {
-        await demonstrateLesson14LoadProfilesOnly(ctx);
-      },
+      action: demonstrateLesson14LoadProfilesOnly,
       verify: GQL.PROFILE_MODAL,
       pauseAfter: 6500,
     },
@@ -428,9 +426,7 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
         '**Why does this matter?** Once a tab is linked via **Load**, endpoint and auth changes can flow back into the named profile so your team reuses the same Staging/Production presets across sessions. The inherit banner tells you which catalog entry owns the current auth fields.',
       highlight: GQL.AUTH_INHERIT_BANNER,
       preAction: ensureLesson14ProfilesLinked,
-      action: async (ctx) => {
-        await demonstrateLesson14ProfileAuthLink(ctx);
-      },
+      action: demonstrateLesson14ProfileAuthLink,
       verify: GQL.AUTH_INHERIT_BANNER,
       pauseAfter: 6000,
     },
@@ -442,12 +438,10 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'On **Staging** (Tab 1), click the **auto-refresh** (polling) control next to the schema badge → enable **Enable polling** and set an interval (e.g. 60s). Switch to **Production** (Tab 2) and confirm polling is **off** — each tab stores its own polling override.\n\n' +
         '**Why per-tab polling?** Staging schemas change frequently during development; production introspection is expensive and should stay manual. Polling follows the **active** tab only — switching tabs swaps both the schema cache and the polling schedule. You are not forced to poll every server just because one tab needs it.',
-      highlight: GQL.POLLING_POPOVER,
-      preAction: ensureLesson14TabProfileLinks,
-      action: async (ctx) => {
-        await demonstrateLesson14TabPolling(ctx);
-        await ctx.delay(1200);
-      },
+      highlight: undefined,
+      // Quietly link profiles + enable Staging polling; action is the visible compare tour.
+      preAction: ensureLesson14TabPolling,
+      action: demonstrateLesson14TabPolling,
       verify: GQL.POLLING_POPOVER,
       pauseAfter: 5500,
     },

@@ -3,6 +3,8 @@
 import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
+  GQL_DEMO_HTTP,
+  ensureDemoTabDirectHttpEndpoint,
   ensureEditorMode,
   fillGqlEditor,
   getDemoUserAId,
@@ -11,18 +13,20 @@ import {
   resetGqlLessonSessionFlags,
   seedDemoUsers,
 } from './core';
+import { navigateToGraphqlStudio } from '../../env-manager-lesson-helpers';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
 import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
-import { resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
+import { closeEnvIfOpen, resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
 import {
   ensureBuilderMode,
   getBuilderCodeText,
   resetGqlLesson7SessionFlags,
 } from './lesson7-query-builder';
 import { openHistoryPanel, resetGqlLesson8SessionFlags } from './lesson8-collections-history';
-import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { closeGqlDemoTabs, ensureGqlDemoTab, activateGqlDemoTabQuiet } from './gql-demo-tab';
 import { ensureResponseDataOnlyMode } from './response-viewer-mode';
+import { patchDemoTabConnection } from '../../../adapters';
 
 function findFieldRowByName(fieldName: string): HTMLElement | null {
   const rows = document.querySelectorAll<HTMLElement>('.gql-qb-field-row');
@@ -187,7 +191,10 @@ export async function ensureHistoryCopyAsCurl(ctx: DemoActionContext): Promise<v
   await copyHistoryAsCurl(ctx);
 }
 
-/** Setup for Lesson 9 (GQL-10) — demo tab; seed demo user for builder `id` arg. */
+/**
+ * Setup for Lesson 9 (GQL-10) — demo tab + direct HTTP.
+ * Never open Environment Manager or the GraphQL Env modal.
+ */
 export async function gqlExportShareLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -199,6 +206,7 @@ export async function gqlExportShareLessonSetup(ctx: DemoActionContext): Promise
   resetGqlLesson8SessionFlags();
   resetGqlLesson9SessionFlags();
 
+  await navigateToGraphqlStudio(ctx);
   await ensureEditorMode(ctx);
 
   if (document.querySelector(GQL.HISTORY_PANEL)) {
@@ -211,6 +219,17 @@ export async function gqlExportShareLessonSetup(ctx: DemoActionContext): Promise
   }
 
   await ensureGqlDemoTab(ctx, 'gql-export-share', 'Export & Share Queries');
+  await patchDemoTabConnection({
+    endpoint: GQL_DEMO_HTTP,
+    skipTlsVerify: undefined,
+    tlsCaCert: undefined,
+    tlsClientCert: undefined,
+    tlsClientKey: undefined,
+  });
+  await activateGqlDemoTabQuiet(ctx);
+  await ensureDemoTabDirectHttpEndpoint(ctx);
+  await closeEnvIfOpen(ctx);
+
   await fillGqlEditor(ctx, '', { focus: false });
   try {
     await seedDemoUsers();

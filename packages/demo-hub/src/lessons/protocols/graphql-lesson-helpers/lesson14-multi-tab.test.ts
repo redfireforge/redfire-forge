@@ -23,6 +23,7 @@ import {
   ensureLesson14IntroReady,
   ensureLesson14Tab1EndpointReadingReady,
   ensureLesson14PerTabAuthConfigured,
+  ensureLesson14ProfilesSaved,
   LESSON14_TAB2_BEARER_TOKEN,
   purgeLesson14ConnectionProfiles,
   LESSON14_STAGING_PROFILE_NAME,
@@ -204,10 +205,11 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
       }
     });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await ensureLesson14PerTabAuthConfigured(ctx);
     await demonstrateLesson14SaveProfiles(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON14_STAGING_PROFILE_NAME);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON14_PRODUCTION_PROFILE_NAME);
-    expect(ctx.delay).toHaveBeenCalledWith(1500);
+    expect(ctx.delay).toHaveBeenCalledWith(700);
   });
 
   it('demonstrateLesson14LoadProfiles clicks Load with ripple and pauses on Used by', async () => {
@@ -231,7 +233,7 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     await demonstrateLesson14LoadProfiles(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
     expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME));
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 2_500);
   });
 
   it('demonstrateLesson14LoadProfilesOnly clicks Load without opening Auth', async () => {
@@ -249,7 +251,7 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
       </li>
     `);
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
-    await demonstrateLesson14SaveProfiles(ctx);
+    await ensureLesson14ProfilesSaved(ctx);
     vi.mocked(ctx.click).mockClear();
     await demonstrateLesson14LoadProfilesOnly(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
@@ -287,7 +289,7 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
 
-    await demonstrateLesson14SaveProfiles(ctx);
+    await ensureLesson14ProfilesSaved(ctx);
     document.querySelector(GQL.PROFILE_MODAL)?.remove();
 
     const w = window as unknown as Record<string, unknown>;
@@ -316,11 +318,12 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
       <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span><button class="gql-profile-btn--load">Load</button></li>
       <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span><button class="gql-profile-btn--load">Load</button></li>`;
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await ensureLesson14ProfilesSaved(ctx);
     await demonstrateLesson14LoadProfilesOnly(ctx);
     vi.mocked(ctx.click).mockClear();
     await demonstrateLesson14ProfileAuthLink(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
-    expect(ctx.delay).toHaveBeenCalledWith(2500);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 2_500);
+    expect(ctx.delay).toHaveBeenCalledWith(800);
   });
 
   it('demonstrateLesson14ProfileLinks pauses on profile modal for Used by pills', async () => {
@@ -343,9 +346,9 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await demonstrateLesson14ProfileLinks(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.PROFILE_MODAL, 5000);
-    expect(ctx.delay).toHaveBeenCalledWith(2500);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.PROFILE_MODAL, 2_500);
+    expect(ctx.delay).toHaveBeenCalledWith(700);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 2_500);
   });
 
   it('ensureLesson14PerTabAuthConfigured sets No Auth on tab 1 and Bearer on tab 2', async () => {
@@ -356,11 +359,15 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
       <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select">
           <option value="none">No Auth</option>
-          <option value="bearer">Bearer</option>
+          <option value="bearer" selected>Bearer</option>
         </select>
         <input data-testid="gql-auth-bearer-input" value="" />
       </div>
     `);
+    vi.mocked(ctx.selectOption).mockImplementation(async (sel, value) => {
+      const el = document.querySelector<HTMLSelectElement>(sel);
+      if (el) el.value = String(value);
+    });
     const tab0 = document.querySelector('[data-testid="gql-tab-0"] .gql-tab-label')!;
     const tab1 = document.querySelector('[data-testid="gql-tab-1"] .gql-tab-label')!;
     tab0.textContent = 'Staging';
@@ -521,7 +528,7 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson14TabProfileLinks(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.PROFILE_MODAL, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.PROFILE_MODAL, 2_500);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
   });
 

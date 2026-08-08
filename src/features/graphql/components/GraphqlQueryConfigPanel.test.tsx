@@ -412,8 +412,8 @@ describe('GraphqlQueryConfigPanel — Headers tab', () => {
       />,
     );
     fireEvent.click(tabButton('Headers'));
-    // ExpressionInput for header value renders <input placeholder="value">
-    const valueInput = screen.getByPlaceholderText('value');
+    // ExpressionInput for header value
+    const valueInput = screen.getByPlaceholderText('value or {{variable}}');
     fireEvent.change(valueInput, { target: { value: 'updated-value' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({

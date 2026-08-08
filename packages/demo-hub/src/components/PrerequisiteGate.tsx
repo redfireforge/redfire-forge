@@ -131,17 +131,20 @@ export default function PrerequisiteGate({
       // Previously confirmed — do a single silent re-verification without visual flicker.
       // If the server went down since last session, reset to polling mode.
       notifiedRef.current = true;
+      // Seed per-service rows as up immediately. Otherwise serviceStates stays []
+      // and the breakdown shows "checking…" under "Server detected — ready to start".
+      setServiceStates(probeEndpoints.map(() => 'up' as ProbeState));
       void (async () => {
         if (probeEndpoints.length === 0) return;
         const results = await Promise.all(
           probeEndpoints.map((url) => checkEndpoint(url, 6000)),
         );
         if (!mountedRef.current) return;
+        setServiceStates(results.map((up) => (up ? 'up' : 'down')));
         if (!results.every(Boolean)) {
           // Server went down — reset state and start polling.
           notifiedRef.current = false;
           setProbeState('down');
-          setServiceStates(results.map((up) => (up ? 'up' : 'down')));
           intervalRef.current = setInterval(() => { void probe(); }, 3000);
         }
       })();
@@ -160,7 +163,7 @@ export default function PrerequisiteGate({
       mountedRef.current = false;
       clearInterval(intervalRef.current!);
     };
-  }, [probe, checkTabCapacity, initiallyCleared]);
+  }, [probe, checkTabCapacity, initiallyCleared, probeEndpoints]);
 
   const statusIcon = {
     idle:     '⏳',

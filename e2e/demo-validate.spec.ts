@@ -55,19 +55,19 @@ test('demo control simplification visual check', async ({ page }) => {
   expect(await liveSpeedBtns.count()).toBe(0);
   console.log('[PASS] LiveDemo controls: restart present, no prev/speed');
 
-  // Next button should be disabled during action phase, enabled in reading phase
+  // Next stays disabled during reading/action; enabled only when step is done
   const nextBtn = page.locator('[aria-label="Next step"]');
   await expect(nextBtn).toBeVisible();
   const isDisabled = await nextBtn.getAttribute('disabled');
-  console.log('[CHECK] Next disabled during action:', isDisabled !== null ? 'YES' : 'NO (already in reading)');
+  console.log('[CHECK] Next disabled during pipeline:', isDisabled !== null ? 'YES' : 'NO (step already done)');
 
-  // Wait for reading phase (next button enabled)
+  // Wait for reading phase via panel attribute (Next remains disabled while reading)
   await page.waitForFunction(() => {
-    const btn = document.querySelector('[aria-label="Next step"]') as HTMLButtonElement | null;
-    return btn && !btn.disabled;
-  }, { timeout: 15000 }).catch(() => console.log('[WARN] Next never became enabled'));
+    return document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase') === 'reading';
+  }, { timeout: 15000 }).catch(() => console.log('[WARN] Never reached reading phase'));
+  await expect(nextBtn).toBeDisabled();
   await page.screenshot({ path: '/tmp/05-reading.png' });
-  console.log('[PASS] Next button enabled in reading phase');
+  console.log('[PASS] Next button disabled in reading phase');
 
   // Pause auto-play so demo doesn't advance while we check controls
   const playBtn = page.locator('.demo-live-play-btn');

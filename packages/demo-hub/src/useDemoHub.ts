@@ -42,6 +42,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const [state, setState] = useState<DemoHubState>(() => restoreStateFromProgress(progress.data));
   const [hubOpen, setHubOpen] = useState(false);
   const [stepPhase, setStepPhase] = useState<StepPhase>('done');
+  /** True only during start/restart/resume setup — not every mid-lesson Preparing hop. */
+  const [isDemoBootstrapping, setIsDemoBootstrapping] = useState(false);
 
   const autoPlayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -77,6 +79,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     stepIndex: state.stepIndex,
     view: state.view,
     setStepPhase,
+    onPreparingComplete: () => setIsDemoBootstrapping(false),
     abortRef,
     executingRef,
     skipReadingRef,
@@ -99,6 +102,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     state,
     setState,
     setStepPhase,
+    setIsDemoBootstrapping,
     stepPhaseRef,
     progress,
     buildQuietContext,
@@ -270,6 +274,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
   const { resetLesson, resetProgress, resetLessons } = progress;
 
+  // Must be declared with other hooks — never inside the return object (HMR-safe).
+  const skipReading = useCallback(() => {
+    skipReadingRef.current?.();
+  }, []);
+
   return {
     state: {
       ...state,
@@ -279,6 +288,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     hubOpen,
     hubVisible,
     stepPhase,
+    isDemoBootstrapping,
     progress: progress.data,
     openHub,
     closeHub,
@@ -297,7 +307,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     resetProgress,
     resetLessons,
     setLastCategory: progress.setLastCategory,
-    skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),
+    skipReading,
     suppressLiveTabExitRef,
   };
 }

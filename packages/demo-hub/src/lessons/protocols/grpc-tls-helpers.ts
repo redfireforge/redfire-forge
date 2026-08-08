@@ -10,11 +10,12 @@ import {
   grpcEchoComposerFieldSelector,
   isGrpcEchoComposerReady,
   spotlightAndPause,
+  spotlightElementAndPause,
   spotlightGrpcRequestComposer,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import { closeModalByButtonQuiet } from '../modal-close-helpers';
-import { scrollDemoTargetIntoView } from '../../demoSpotlightUtils';
+import { resumeDemoAutoScroll, scrollDemoTargetIntoView } from '../../demoSpotlightUtils';
 import type { GrpcDemoLesson } from './grpc-lesson-contract';
 
 export type LessonCtx = Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0];
@@ -187,11 +188,47 @@ export async function scrollTlsFieldIntoView(
   selector: string,
   holdMs = 450,
 ): Promise<void> {
-  const field = document.querySelector<HTMLElement>(selector);
+  const modal = document.querySelector(GRPC.TLS_MODAL_BODY);
+  const field = (modal?.querySelector<HTMLElement>(selector)
+    ?? document.querySelector<HTMLElement>(selector));
   if (!field) return;
-  const scrollTarget = (field.closest('.ws-tls-field') ?? field) as HTMLElement;
+  const scrollTarget = (field.closest(GRPC.TLS_FIELD) ?? field) as HTMLElement;
+  resumeDemoAutoScroll();
   scrollDemoTargetIntoView(scrollTarget, { block: 'center' });
   await ctx.delay(holdMs);
+}
+
+/**
+ * Spotlight vault "Set" badges inside the open TLS modal only.
+ * Scrolls each PEM field into view first so Client Key is not clipped and rings
+ * stay on-modal (global `.ws-tls-field-set-badge` can also match SharedTlsConfigPanel).
+ */
+export async function spotlightTlsVaultSetBadges(
+  ctx: LessonCtx,
+  holdMs = 1_200,
+): Promise<void> {
+  const modal = document.querySelector(GRPC.TLS_MODAL_BODY);
+  if (!modal) return;
+
+  const fieldSelectors = [
+    GRPC.TLS_SERVER_CA,
+    GRPC.TLS_CLIENT_CERT,
+    GRPC.TLS_CLIENT_KEY,
+  ];
+
+  for (const fieldSel of fieldSelectors) {
+    const textarea = modal.querySelector<HTMLElement>(fieldSel);
+    if (!textarea) continue;
+    const field = textarea.closest(GRPC.TLS_FIELD);
+    if (!field) continue;
+    const badge = field.querySelector<HTMLElement>(GRPC.TLS_FIELD_SET_BADGE);
+    if (!badge) continue;
+
+    await scrollTlsFieldIntoView(ctx, fieldSel, 500);
+    const header = badge.closest(GRPC.TLS_FIELD_HEADER) as HTMLElement | null;
+    await spotlightElementAndPause(ctx, header ?? badge, holdMs);
+    await ctx.delay(250);
+  }
 }
 
 /**
@@ -255,10 +292,13 @@ export async function fillTargetQuiet(ctx: LessonCtx | PreCtx, target: string): 
 
 /**
  * Quietly ensure TLS mode is 'tls' with the demo CA cert in place and saved.
+ * Points at the TLS fixture (`:50443`) first so sticky TLS is never paired with
+ * plaintext `:50051` (Reflect → HTTP 503).
  * Skips (no modal flash) when the badge already reads TLS — the common case
  * during sequential playback after the configure-TLS step.
  */
 export async function ensureTlsConfiguredQuiet(ctx: LessonCtx | PreCtx): Promise<void> {
+  await fillTargetQuiet(ctx, GRPC_TLS_TARGET);
   if (currentTlsBadgeMode() === 'tls') return;
 
   await openTlsModalQuiet(ctx);
@@ -274,9 +314,12 @@ export async function ensureTlsConfiguredQuiet(ctx: LessonCtx | PreCtx): Promise
 
 /**
  * Quietly ensure mTLS mode is configured (CA + client cert + key) and saved.
- * Skips (no modal flash) when the badge already reads mTLS.
+ * Always points the tab at the mTLS fixture (`:50444`) first — configuring mTLS
+ * while the target is still plaintext `:50051` makes Reflect return HTTP 503.
+ * Skips (no modal flash) when the badge already reads mTLS on the mTLS target.
  */
 export async function ensureMtlsConfiguredQuiet(ctx: LessonCtx | PreCtx): Promise<void> {
+  await fillTargetQuiet(ctx, GRPC_MTLS_TARGET);
   if (currentTlsBadgeMode() === 'mtls') return;
 
   await openTlsModalQuiet(ctx);

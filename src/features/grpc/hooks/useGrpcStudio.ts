@@ -12,6 +12,10 @@ import {
   syncGrpcStudioTabTransport,
 } from '../utils/grpcStudioTransportSync';
 import { isGrpcExpressFallbackOffered } from '../../../shared/grpc/grpcTransportFallback';
+import {
+  GRPC_DEMO_PLAINTEXT_TARGET,
+  isKnownEncryptedLoopbackGrpcTarget,
+} from '../../../shared/grpc/grpcTlsPolicy';
 import { mountGrpcStudioNativeTransport, registerGrpcStudioAppLifecycle } from './grpcStudioTabLifecycle';
 import {
   detachStreamEventsForTab,
@@ -272,13 +276,17 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     );
   }, [vaultHydrationKey, core.activeTab, core.activeTabDescriptor, core.updateTab]);
 
+  // Re-sync the transport registry whenever tab state changes. Depending on
+  // tabsRef alone never re-ran after restore/updateTab — leftover grpc-web
+  // registrations then produced browser-direct calls to plaintext :50051
+  // (net::ERR_INVALID_HTTP_RESPONSE) during Demo Hub lesson setup.
   useEffect(() => {
-    for (const tab of core.tabsRef.current) {
+    for (const tab of core.tabs) {
       if (canChangeGrpcTabTransportMode(tab)) {
         syncGrpcStudioTabTransport(tab);
       }
     }
-  }, [core.tabsRef]);
+  }, [core.tabs]);
 
   const setTabTransportMode = useCallback((tabId: string, mode: GrpcStudioTransportMode) => {
     const tab = core.sessionRef.current.tabs.find((entry) => entry.id === tabId);
@@ -331,17 +339,39 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     }
 
     const restoredTabs = persistedTabs.reduce<typeof core.tabs>((acc, persistedTab) => {
+      const stickyEncryptedMode = persistedTab.tlsMode === 'tls' || persistedTab.tlsMode === 'mtls';
+      const loopback = isLoopbackTargetAddress(persistedTab.target);
+      const onEncryptedDemoPort = isKnownEncryptedLoopbackGrpcTarget(persistedTab.target ?? '');
+      // Leftover GRPC-5 tabs keep :50443/:50444 — plaintext Reflect → HTTP 503.
+      // Also clear sticky TLS/mTLS on loopback plaintext ports.
       const shouldResetToPlaintext = !persistedTab.connectionId
-        && persistedTab.tlsMode === 'tls'
-        && isLoopbackTargetAddress(persistedTab.target);
-      const normalizedPersistedTab = shouldResetToPlaintext
+        && loopback
+        && (stickyEncryptedMode || onEncryptedDemoPort);
+      // Browser-direct modes against plaintext :50051 fail with
+      // net::ERR_INVALID_HTTP_RESPONSE — restore Express for local fixtures.
+      const stickyBrowserDirect = persistedTab.transportMode === 'grpc-web'
+        || persistedTab.transportMode === 'spring-servlet';
+      const shouldResetTransport = loopback && stickyBrowserDirect;
+      const normalizedPersistedTab = (shouldResetToPlaintext || shouldResetTransport)
         ? {
           ...persistedTab,
-          tlsMode: undefined,
-          tlsConfig: undefined,
+          ...(shouldResetToPlaintext
+            ? {
+              // Explicit disabled — undefined falls through to profile/page TLS.
+              tlsMode: 'disabled' as const,
+              tlsConfig: undefined,
+              // Remap TLS/mTLS demo ports back to the plaintext echo fixture.
+              ...(onEncryptedDemoPort ? { target: GRPC_DEMO_PLAINTEXT_TARGET } : {}),
+            }
+            : {}),
+          ...(shouldResetTransport ? { transportMode: 'express' as const } : {}),
         }
         : persistedTab;
-      acc.push(createGrpcStudioTab(normalizedPersistedTab, acc));
+      const tab = createGrpcStudioTab(normalizedPersistedTab, acc);
+      // Keep the module-level transport registry in sync — invokeGrpcUnary falls
+      // back to resolveGrpcTransportForTab(tabId) when snapshot mode is omitted.
+      syncGrpcStudioTabTransport(tab);
+      acc.push(tab);
       return acc;
     }, []);
 

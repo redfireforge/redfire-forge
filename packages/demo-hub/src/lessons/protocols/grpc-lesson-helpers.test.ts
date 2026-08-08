@@ -91,6 +91,75 @@ describe('grpc-lesson-helpers', () => {
     expect(grpcLessonSession.reflected).toBe(true);
   });
 
+  it('ensureGrpcReflected clears leftover TLS before Reflect', async () => {
+    mountTargetUi(GRPC_DEMO_TARGET);
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <span data-testid="grpc-target-status-ok"></span>
+        <button data-testid="grpc-tls-badge" aria-label="TLS mode: TLS — configure">TLS</button>
+        <button data-testid="grpc-reflect-btn"></button>
+      `,
+    );
+    setGrpcLessonRunFlag('targetSet', true);
+    const resetSpy = vi.fn(() => {
+      const badge = document.querySelector('[data-testid="grpc-tls-badge"]');
+      if (badge) {
+        badge.setAttribute('aria-label', 'TLS mode: Plaintext — configure');
+        badge.textContent = 'Plaintext';
+      }
+      return true;
+    });
+    (window as unknown as Record<string, unknown>).__demoResetGrpcActiveTab = resetSpy;
+
+    const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GRPC.REFLECT_BTN) {
+        const tree = document.createElement('div');
+        tree.setAttribute('data-testid', 'grpc-explorer-tree');
+        document.body.appendChild(tree);
+      }
+    });
+    await ensureGrpcReflected(ctx);
+    expect(resetSpy).toHaveBeenCalled();
+    expect(document.querySelector(GRPC.EXPLORER_TREE)).toBeTruthy();
+    delete (window as unknown as Record<string, unknown>).__demoResetGrpcActiveTab;
+  });
+
+  it('ensureGrpcReflected waits for demo bridge before Reflect on plaintext target', async () => {
+    mountTargetUi(GRPC_DEMO_TARGET);
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <span data-testid="grpc-target-status-ok"></span>
+        <button data-testid="grpc-tls-badge" aria-label="TLS mode: Plaintext — configure">Plaintext</button>
+        <button data-testid="grpc-reflect-btn"></button>
+      `,
+    );
+    setGrpcLessonRunFlag('targetSet', true);
+    const resetSpy = vi.fn(() => true);
+    // Bridge appears after a few poll ticks (simulates Studio useEffect mount).
+    let attempts = 0;
+    const ctx = makeCtx();
+    vi.mocked(ctx.delay).mockImplementation(async () => {
+      attempts += 1;
+      if (attempts >= 2) {
+        (window as unknown as Record<string, unknown>).__demoResetGrpcActiveTab = resetSpy;
+      }
+    });
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GRPC.REFLECT_BTN) {
+        const tree = document.createElement('div');
+        tree.setAttribute('data-testid', 'grpc-explorer-tree');
+        document.body.appendChild(tree);
+      }
+    });
+    await ensureGrpcReflected(ctx);
+    expect(resetSpy).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(GRPC.REFLECT_BTN);
+    delete (window as unknown as Record<string, unknown>).__demoResetGrpcActiveTab;
+  });
+
   it('ensureEchoMethodSelected expands service and selects method', async () => {
     document.body.innerHTML = `
       <span data-testid="grpc-target-status-ok"></span>
@@ -180,6 +249,19 @@ describe('grpc-lesson-helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(GRPC.SUB_NAV_HISTORY);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.HISTORY_ENTRY_ROW);
     expect(document.querySelector(GRPC.HISTORY_REPLAY_BTN)).toBeTruthy();
+  });
+
+  it('clearGrpcSchemaDriftQuiet does not bounce to Studio when Advanced is active and no banner', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="false"></button>
+      <button data-testid="grpc-sub-nav-advanced" aria-selected="true"></button>
+    `;
+    const studioBtn = document.querySelector<HTMLButtonElement>('[data-testid="grpc-sub-nav-studio"]')!;
+    const clickSpy = vi.spyOn(studioBtn, 'click');
+    const ctx = makeCtx();
+    await clearGrpcSchemaDriftQuiet(ctx);
+    expect(clickSpy).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('clearGrpcSchemaDriftQuiet clicks prune and dismiss for warning drift', async () => {

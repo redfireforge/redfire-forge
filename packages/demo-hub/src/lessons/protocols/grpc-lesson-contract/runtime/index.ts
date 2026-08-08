@@ -17,6 +17,8 @@ export { computeGrpcScenarioFingerprint, freezeGrpcScenarioSnapshot } from './fi
 export {
   buildGrpcFirstCallScenarioSnapshot,
   buildGrpcScenarioSnapshotForLesson,
+  buildGrpcTlsScenarioSnapshot,
+  listGrpcScenarioSnapshotLessonIds,
 } from './snapshots';
 
 export {

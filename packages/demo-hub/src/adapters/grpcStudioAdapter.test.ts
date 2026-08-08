@@ -8,16 +8,19 @@ import {
   GRPC_DEMO_HEALTH_URL,
   GRPC_DEMO_PREREQUISITE_ENDPOINTS,
   GRPC_DEMO_TARGET,
+  GRPC_ENVOY_PROBE_URL,
   GRPC_EXPRESS_HEALTH_URL,
   GRPC_EXPRESS_ONLY_COMMAND,
   GRPC_SPRING_DOCKER_COMMAND,
   GRPC_STUDIO_LESSON_ALLOWED_TABS,
+  GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS,
   getGrpcActiveDescriptorKey,
   patchGrpcActiveTabBody,
   patchGrpcActiveTabExportContext,
   patchGrpcSchemaDiffReport,
   resetGrpcActiveTabTransport,
   resetGrpcActiveTabRuntimeState,
+  resetGrpcManageSchemasDraftsViaBridge,
 } from './grpcStudioAdapter';
 
 afterEach(() => {
@@ -26,6 +29,7 @@ afterEach(() => {
   delete (window as unknown as { __demoGetGrpcActiveDescriptorKey?: unknown }).__demoGetGrpcActiveDescriptorKey;
   delete (window as unknown as { __demoPatchGrpcActiveTab?: unknown }).__demoPatchGrpcActiveTab;
   delete (window as unknown as { __demoResetGrpcActiveTab?: unknown }).__demoResetGrpcActiveTab;
+  delete (window as unknown as { __demoResetGrpcManageSchemasDrafts?: unknown }).__demoResetGrpcManageSchemasDrafts;
   delete (window as unknown as { __demoPatchGrpcSchemaDiffReport?: unknown }).__demoPatchGrpcSchemaDiffReport;
 });
 
@@ -43,9 +47,18 @@ describe('grpcStudioAdapter', () => {
     expect(GRPC_EXPRESS_ONLY_COMMAND).toBe('npm run server');
   });
 
+  it('documents Envoy sidecar probe for transport-modes lessons', () => {
+    expect(GRPC_ENVOY_PROBE_URL).toContain('50055');
+    expect(GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS).toEqual([
+      ...GRPC_DEMO_PREREQUISITE_ENDPOINTS,
+      GRPC_ENVOY_PROBE_URL,
+    ]);
+  });
+
   it('surfaces the one-command dev script alongside the manual steps', () => {
     expect(GRPC_DEMO_DOCKER_COMMAND).toContain('npm run dev:grpc');
     expect(GRPC_DEMO_DOCKER_COMMAND).toContain('docker compose up -d');
+    expect(GRPC_DEMO_DOCKER_COMMAND).toContain('Envoy');
     expect(GRPC_DEMO_DOCKER_COMMAND).toContain('npm run server');
   });
 
@@ -84,6 +97,14 @@ describe('grpcStudioAdapter', () => {
     expect(bridge).toHaveBeenCalledTimes(1);
   });
 
+  it('resetGrpcManageSchemasDraftsViaBridge calls draft-reset bridge when present', () => {
+    const bridge = vi.fn().mockReturnValue(true);
+    (window as unknown as { __demoResetGrpcManageSchemasDrafts?: () => boolean }).__demoResetGrpcManageSchemasDrafts = bridge;
+
+    expect(resetGrpcManageSchemasDraftsViaBridge()).toBe(true);
+    expect(bridge).toHaveBeenCalledTimes(1);
+  });
+
   it('getGrpcActiveDescriptorKey reads the descriptor key bridge when present', () => {
     const bridge = vi.fn().mockReturnValue('descriptor-live');
     (window as unknown as { __demoGetGrpcActiveDescriptorKey?: () => string | null }).__demoGetGrpcActiveDescriptorKey = bridge;
@@ -104,6 +125,7 @@ describe('grpcStudioAdapter', () => {
 
   it('bridge helpers return false when bridge is unavailable', () => {
     expect(resetGrpcActiveTabRuntimeState()).toBe(false);
+    expect(resetGrpcManageSchemasDraftsViaBridge()).toBe(false);
     expect(patchGrpcActiveTabExportContext({})).toBe(false);
     expect(resetGrpcActiveTabTransport()).toBe(false);
     expect(patchGrpcActiveTabBody('{"a":1}')).toBe(false);
