@@ -19,6 +19,7 @@ export default function KafkaBodyEditorModal({ value, onChange, onClose, format 
   const modalRef = useRef<HTMLDivElement>(null);
 
   const isJson = format === 'json' || !format;
+  const formatLabel = (format || 'json').toUpperCase();
 
   // Drag & resize
   const { onDragStart, overlayStyle, modalStyle } = useModalDrag(true, {
@@ -26,7 +27,7 @@ export default function KafkaBodyEditorModal({ value, onChange, onClose, format 
     constrainToViewport: true,
     viewportPadding: 12,
   });
-  const { resizeStyle, onRightEdge, onCorner, onBottomEdge } = useModalResize(480, 320);
+  const { resizeStyle, onRightEdge, onCorner, onBottomEdge } = useModalResize(720, 520);
 
   const handlePretty = useCallback(() => {
     try {
@@ -53,7 +54,6 @@ export default function KafkaBodyEditorModal({ value, onChange, onClose, format 
   }, [draft, isJson]);
 
   const lineCount = useMemo(() => draft.split('\n').length, [draft]);
-
   const charCount = draft.length;
 
   // Search
@@ -113,24 +113,33 @@ export default function KafkaBodyEditorModal({ value, onChange, onClose, format 
       <div
         className="kbe-modal"
         role="dialog"
+        aria-modal="true"
         aria-label="Message Body Editor"
+        data-testid="kafka-body-editor-modal"
         ref={modalRef}
         style={combinedModalStyle}
       >
-        {/* Header — drag handle */}
-        <div className="kbe-header" onMouseDown={onDragStart} style={{ cursor: 'grab' }}>
+        {/* Header — drag handle (no close icon; Cancel/Apply live in footer) */}
+        <div className="kbe-header" onMouseDown={onDragStart}>
           <div className="kbe-header-left">
-            <span className="kbe-title">Message Body Editor</span>
-            <span className="kbe-stats">
-              {lineCount} lines · {charCount.toLocaleString()} chars
+            <div className="kbe-title-row">
+              <span className="kbe-title">Message body</span>
+              <span className="kbe-format-pill">{formatLabel}</span>
               {isJson && (
-                <span className={`kbe-json-badge ${validJson ? 'kbe-json-badge--ok' : 'kbe-json-badge--err'}`}>
-                  {validJson ? '✓ Valid JSON' : '✗ Invalid JSON'}
+                <span
+                  className={`kbe-json-badge ${validJson ? 'kbe-json-badge--ok' : 'kbe-json-badge--err'}`}
+                >
+                  {validJson ? 'Valid JSON' : 'Invalid JSON'}
                 </span>
               )}
+            </div>
+            <span className="kbe-stats">
+              {lineCount.toLocaleString()} {lineCount === 1 ? 'line' : 'lines'}
+              {' · '}
+              {charCount.toLocaleString()} chars
             </span>
           </div>
-          <div className="kbe-header-right">
+          <div className="kbe-header-right" onMouseDown={(e) => e.stopPropagation()}>
             <SearchMatchBar
               value={searchTerm}
               onChange={setSearchTerm}
@@ -151,13 +160,24 @@ export default function KafkaBodyEditorModal({ value, onChange, onClose, format 
         {isJson && (
           <div className="kbe-toolbar">
             <div className="kbe-toolbar-actions">
-              <button type="button" className="kbe-action-btn" onClick={handlePretty} title="Pretty-print JSON">
+              <button
+                type="button"
+                className="kbe-action-btn"
+                onClick={handlePretty}
+                title="Pretty-print JSON"
+              >
                 Pretty
               </button>
-              <button type="button" className="kbe-action-btn" onClick={handleMinify} title="Minify JSON">
+              <button
+                type="button"
+                className="kbe-action-btn"
+                onClick={handleMinify}
+                title="Minify JSON"
+              >
                 Minify
               </button>
             </div>
+            <span className="kbe-toolbar-hint">Drag the header to reposition</span>
           </div>
         )}
 
@@ -176,13 +196,14 @@ export default function KafkaBodyEditorModal({ value, onChange, onClose, format 
               onChange={(e) => setDraft(e.target.value)}
               spellCheck={false}
               autoFocus
+              aria-label="Message body content"
             />
           </div>
         </div>
 
         {/* Footer */}
         <div className="kbe-footer">
-          <span className="kbe-footer-hint">⌘F to search · Escape to close · Drag header to move</span>
+          <span className="kbe-footer-hint">⌘F search · Esc close</span>
           <div className="kbe-footer-actions">
             <button type="button" className="kbe-btn kbe-btn--secondary" onClick={onClose}>
               Cancel
@@ -193,7 +214,6 @@ export default function KafkaBodyEditorModal({ value, onChange, onClose, format 
           </div>
         </div>
 
-        {/* Resize handles */}
         <ModalResizeHandles
           onRightEdge={onRightEdge}
           onCorner={onCorner}
