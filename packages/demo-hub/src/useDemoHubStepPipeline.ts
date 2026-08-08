@@ -1,6 +1,6 @@
 /** Step execution pipeline — preAction, spotlight, reading, action, verify. */
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
-import type { DemoLesson, DemoStep, SpeedMultiplier, StepPhase } from './types';
+import type { DemoActionContext, DemoLesson, DemoStep, SpeedMultiplier, StepPhase } from './types';
 import { calcReadingTime } from './types';
 import {
   GQL_MODAL_LOCK_OPEN,
@@ -22,14 +22,66 @@ import { purgeAllSpotlightRings } from './demoRipple';
 
 /** Step pipeline timing — tuned for snappy Preparing/Acting badges without skipping UI feedback. */
 export const DEMO_PRE_SETTLE_MS = 80;
+/** Paint settle before lifting the boot veil when a step has no highlight target. */
+export const DEMO_BOOT_SURFACE_MS = 120;
+/** Extra settle after the highlight is found so Studio chrome finishes committing. */
+/** Two frames — longer settles kept a dark empty veil over an already-ready step 1. */
+export const DEMO_BOOT_REVEAL_SETTLE_MS = 32;
 export const DEMO_SPOTLIGHT_SETTLE_MS = 1200;
 export const DEMO_POST_ACTION_SETTLE_MS = 350;
 export const DEMO_VERIFY_ABSORB_MS = 1100;
 /** Cap how long Verifying can poll for a selector (fail fast when missing). */
 export const DEMO_VERIFY_WAIT_MS = 3_200;
 export const DEMO_VERIFY_WAIT_FROM_READING_MS = 3_600;
-/** Hard cap for lesson action execution to avoid deadlocks on interrupted UI flows. */
-export const DEMO_ACTION_TIMEOUT_MS = 16_000;
+/**
+ * Hard cap for lesson `action()` execution.
+ * Human-paced demos use spotlight holds (0.8–1.2s) plus network waits; multi-beat
+ * steps routinely need 20–35s. Keep this above that budget so Acting does not
+ * abort mid-tour and spam `[DemoHub] action timed out` warnings.
+ * Heavy prep belongs in uncapped `preAction` — not jammed into `action`.
+ */
+export const DEMO_ACTION_TIMEOUT_MS = 45_000;
+
+/**
+ * Race `step.action` against DEMO_ACTION_TIMEOUT_MS.
+ * Critical: cancel the timeout when the action settles — otherwise a completed
+ * action still logs `[DemoHub] action timed out` ~45s later while the user is
+ * on a later step (or parked on Done), which looked like every lesson was broken.
+ */
+export async function runActionWithTimeout(
+  step: DemoStep,
+  ctx: DemoActionContext,
+  signal: AbortSignal,
+  onTimeout: () => void,
+): Promise<void> {
+  if (!step.action) return;
+  let actionSettled = false;
+  const timeoutAc = new AbortController();
+  const onStepAbort = () => timeoutAc.abort();
+  signal.addEventListener('abort', onStepAbort, { once: true });
+
+  const actionPromise = Promise.resolve(step.action(ctx))
+    .catch((e) => {
+      if (!signal.aborted) console.warn('[DemoHub] action failed:', e);
+    })
+    .finally(() => {
+      actionSettled = true;
+      timeoutAc.abort();
+    });
+
+  let timedOut = false;
+  await Promise.race([
+    actionPromise,
+    abortableSleep(DEMO_ACTION_TIMEOUT_MS, timeoutAc.signal).then(() => {
+      if (!actionSettled && !signal.aborted) {
+        timedOut = true;
+        console.warn(`[DemoHub] action timed out after ${DEMO_ACTION_TIMEOUT_MS}ms for step ${step.id}`);
+      }
+    }),
+  ]);
+  signal.removeEventListener('abort', onStepAbort);
+  if (timedOut) onTimeout();
+}
 
 export interface UseDemoHubStepPipelineOptions {
   navigateToTab: (tab: string) => void;
@@ -37,6 +89,8 @@ export interface UseDemoHubStepPipelineOptions {
   stepIndex: number;
   view: string;
   setStepPhase: (phase: StepPhase) => void;
+  /** Fired when Preparing ends and Reading/Acting content should be visible. */
+  onPreparingComplete?: () => void;
   abortRef: MutableRefObject<AbortController | null>;
   executingRef: MutableRefObject<boolean>;
   skipReadingRef: MutableRefObject<(() => void) | null>;
@@ -50,12 +104,15 @@ export function useDemoHubStepPipeline({
   stepIndex,
   view,
   setStepPhase,
+  onPreparingComplete,
   abortRef,
   executingRef,
   skipReadingRef,
   profilesIntroducedInSessionRef,
   envIntroducedInSessionRef,
 }: UseDemoHubStepPipelineOptions) {
+  const onPreparingCompleteRef = useRef(onPreparingComplete);
+  onPreparingCompleteRef.current = onPreparingComplete;
   const buildContext = useCallback(
     () => buildDemoActionContext(navigateToTab),
     [navigateToTab],
@@ -112,8 +169,10 @@ export function useDemoHubStepPipeline({
     const { signal } = ac;
 
     executingRef.current = true;
-    const quietCtx = buildQuietContext();
-    const visibleCtx = buildContext();
+    // Bind AbortSignal into ctx so delay/waitFor/click bail when Acting times out
+    // or the user advances — otherwise orphaned awaits keep running for tens of seconds.
+    const quietCtx = buildQuietDemoActionContext(navigateToTab, signal);
+    const visibleCtx = buildDemoActionContext(navigateToTab, signal);
     const scaleMs = (ms: number) => Math.round(ms / speed);
 
     try {
@@ -125,7 +184,15 @@ export function useDemoHubStepPipeline({
 
       setStepPhase('pre');
       if (step.preAction) {
-        try { await step.preAction(quietCtx); } catch (e) { console.warn('[DemoHub] preAction failed:', e); }
+        try {
+          // Same late-rejection guard as actions — preAction can spawn work that
+          // rejects after the step has already moved on (Uncaught (in promise)).
+          await Promise.resolve(step.preAction(quietCtx)).catch((e) => {
+            if (!signal.aborted) console.warn('[DemoHub] preAction failed:', e);
+          });
+        } catch (e) {
+          console.warn('[DemoHub] preAction failed:', e);
+        }
         await abortableSleep(DEMO_PRE_SETTLE_MS, signal);
         if (signal.aborted) return;
       }
@@ -140,6 +207,30 @@ export function useDemoHubStepPipeline({
           const timer = setTimeout(resolve, scaleMs(readTime));
           signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
         });
+
+      // Keep the boot veil up until the step surface has painted — lifting at the
+      // first Reading tick exposed empty Environments/Studio chrome (blue flash).
+      const revealBootSurface = (async () => {
+        if (step.highlight) {
+          try {
+            await waitForElement(step.highlight, 2_000, signal);
+          } catch { /* reveal anyway — don't trap the user under the veil */ }
+          if (signal.aborted) return;
+          const allHighlight = document.querySelectorAll(step.highlight);
+          const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
+          if (el instanceof HTMLElement) {
+            scrollDemoTargetIntoView(el, { block: 'center' });
+          }
+        } else {
+          await abortableSleep(DEMO_BOOT_SURFACE_MS, signal);
+        }
+        if (signal.aborted) return;
+        // Let Studio/Environments finish committing under the veil (tab rename,
+        // protocol panel, etc.) — 16ms was too short and still flashed blue.
+        await abortableSleep(DEMO_BOOT_REVEAL_SETTLE_MS, signal);
+        if (signal.aborted) return;
+        onPreparingCompleteRef.current?.();
+      })();
 
       const spotlightWork = (async () => {
         if (!step.highlight) return;
@@ -162,21 +253,16 @@ export function useDemoHubStepPipeline({
         }
       })();
 
-      await Promise.all([readingPause, spotlightWork, readingSyncWork]);
+      await Promise.all([readingPause, revealBootSurface, spotlightWork, readingSyncWork]);
       skipReadingRef.current = null;
       if (signal.aborted) return;
 
       if (step.action) {
         setStepPhase('action');
         try {
-          await Promise.race([
-            step.action(visibleCtx),
-            abortableSleep(DEMO_ACTION_TIMEOUT_MS, signal).then(() => {
-              if (!signal.aborted) {
-                console.warn(`[DemoHub] action timed out after ${DEMO_ACTION_TIMEOUT_MS}ms for step ${step.id}`);
-              }
-            }),
-          ]);
+          await runActionWithTimeout(step, visibleCtx, signal, () => {
+            if (!signal.aborted) ac.abort();
+          });
         } catch (e) {
           console.warn('[DemoHub] action failed:', e);
         }
@@ -205,11 +291,13 @@ export function useDemoHubStepPipeline({
       setStepPhase('done');
     } finally {
       executingRef.current = false;
+      // Belt: never leave the boot veil stuck if revealBootSurface aborted early.
+      onPreparingCompleteRef.current?.();
       if (signal.aborted && abortRef.current === ac) {
         setStepPhase('done');
       }
     }
-  }, [buildContext, buildQuietContext, selectedLesson, stepIndex, syncGqlModalLockForLessonStep, abortRef, executingRef, skipReadingRef, setStepPhase]);
+  }, [navigateToTab, selectedLesson, stepIndex, syncGqlModalLockForLessonStep, abortRef, executingRef, skipReadingRef, setStepPhase]);
 
   const finishCurrentStepFromReading = useCallback(async (step: DemoStep, speed: SpeedMultiplier) => {
     abortRef.current?.abort();
@@ -222,7 +310,7 @@ export function useDemoHubStepPipeline({
     const { signal } = ac;
 
     executingRef.current = true;
-    const visibleCtx = buildContext();
+    const visibleCtx = buildDemoActionContext(navigateToTab, signal);
     const scaleMs = (ms: number) => Math.round(ms / speed);
     const lesson = selectedLesson;
     const currentStepIndex = stepIndex;
@@ -231,14 +319,9 @@ export function useDemoHubStepPipeline({
       if (step.action) {
         setStepPhase('action');
         try {
-          await Promise.race([
-            step.action(visibleCtx),
-            abortableSleep(DEMO_ACTION_TIMEOUT_MS, signal).then(() => {
-              if (!signal.aborted) {
-                console.warn(`[DemoHub] action timed out after ${DEMO_ACTION_TIMEOUT_MS}ms for step ${step.id}`);
-              }
-            }),
-          ]);
+          await runActionWithTimeout(step, visibleCtx, signal, () => {
+            if (!signal.aborted) ac.abort();
+          });
         } catch (e) {
           console.warn('[DemoHub] action failed:', e);
         }
@@ -271,7 +354,7 @@ export function useDemoHubStepPipeline({
         setStepPhase('done');
       }
     }
-  }, [buildContext, selectedLesson, stepIndex, abortRef, executingRef, skipReadingRef, setStepPhase]);
+  }, [navigateToTab, selectedLesson, stepIndex, abortRef, executingRef, skipReadingRef, setStepPhase]);
 
   const clearGqlIntroSessionFlags = useCallback(() => {
     profilesIntroducedInSessionRef.current = false;

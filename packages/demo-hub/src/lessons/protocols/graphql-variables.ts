@@ -5,11 +5,9 @@ import {
   GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
   GQL_STUDIO_LESSON_ALLOWED_TABS,
-  GQL_DEMO_VAR,
   GQL_USER_QUERY,
   ensureAliceVarsFilled,
   ensureBobVarsFilled,
-  fillActiveTabEndpoint,
   ensureDemoEndpoint,
   ensureExecutedWithAlice,
   ensureExecutedWithBob,
@@ -31,10 +29,7 @@ import {
   gqlVariablesLessonSetup,
   seedDemoUsers,
 } from './graphql-lesson-helpers';
-import {
-  ensureGqlDemoHeaderContext,
-  navigateToGraphqlStudio,
-} from '../env-manager-lesson-helpers';
+import { navigateToGraphqlStudio } from '../env-manager-lesson-helpers';
 
 /** Step 6 diagram — annotated query anatomy (signature, argument, selection set). */
 export const GQL2_QUERY_ANATOMY_DIAGRAM = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 300" style="display:block;width:100%;height:auto;font-family:system-ui,sans-serif">
@@ -142,7 +137,7 @@ export const gqlVariablesLesson: DemoLesson = {
   name: 'Variables & Arguments',
   description:
     'Write a parameterized GraphQL query, supply `$id` via the Variables panel, execute twice with different values, and compare how History stores each run.',
-  estimatedMinutes: 9,
+  estimatedMinutes: 8,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -328,7 +323,7 @@ This lesson creates two users — **Alice** and **Bob** — on the test server v
   },
 
   steps: [
-    // ── 1. Orientation ───────────────────────────────────────────
+    // ── 1. Orientation (env/endpoint already wired quietly in setup — same as GQL-1) ──
     {
       id: 'gql2-intro',
       title: 'The Variables Panel',
@@ -336,50 +331,19 @@ This lesson creates two users — **Alice** and **Bob** — on the test server v
         'Below the query editor are three tabs: **Variables**, **Headers**, and **Files**. ' +
         'The **Variables** tab holds a JSON object — one key per `$variable` declared in your query signature. ' +
         'Values are sent in a separate field of the HTTP POST body, **not** interpolated into the query string — this is what makes GraphQL variables injection-safe. ' +
-        'In this lesson you will write one parameterized query and execute it twice with different `id` values.',
+        'The GraphQL Demo endpoint from **GQL-1** is already connected — this lesson focuses on parameterized queries. ' +
+        'You will write one query and execute it twice with different `id` values.',
       highlight: GQL.BOTTOM_TAB_VARS,
       pauseAfter: true,
-    },
-
-    // ── 2. Endpoint ──────────────────────────────────────────────
-    {
-      id: 'gql2-endpoint',
-      title: 'Set the Endpoint',
-      description:
-        `Type \`${GQL_DEMO_VAR}\` into the endpoint field — the same Environment Manager variable from **GQL-1 (Your First GraphQL Query)** that resolves to \`${GQL_DEMO_HTTP}\`. ` +
-        'Continue from **GQL-1** — the next step verifies the endpoint variable resolves correctly before introspection. ' +
-        'This server exposes `user(id: ID!)` for queries and `createUser` for mutations — both needed in this lesson.',
-      highlight: GQL.ENDPOINT_INPUT,
       preAction: async (ctx) => {
-        await ensureGqlDemoHeaderContext(ctx);
+        // Stay on Studio — never leave the Variables panel spotlight for Environment Manager.
         await navigateToGraphqlStudio(ctx);
-        await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
+        await ensureDemoEndpoint(ctx);
+        await ctx.waitFor(GQL.BOTTOM_TAB_VARS, 5000);
       },
-      action: async (ctx) => {
-        await fillActiveTabEndpoint(ctx, GQL_DEMO_VAR);
-        await ctx.delay(500);
-      },
-      pauseAfter: true,
     },
 
-    // ── 3. Resolved endpoint preview ─────────────────────────────
-    {
-      id: 'gql2-endpoint-resolved',
-      title: 'Confirm the Resolved URL',
-      description:
-        `Watch **↳ Resolved:** appear below the endpoint field — RedfireForge resolves \`${GQL_DEMO_VAR}\` to \`${GQL_DEMO_HTTP}\` with a **✓** checkmark. ` +
-        'This confirms the variable, environment, and service from **GQL-1** are still wired before you introspect.',
-      highlight: GQL.ENDPOINT_PREVIEW,
-      preAction: ensureDemoEndpoint,
-      action: async (ctx) => {
-        await ctx.waitFor(GQL.ENDPOINT_PREVIEW, 5000);
-        await ctx.delay(1500);
-      },
-      verify: GQL.ENDPOINT_PREVIEW,
-      pauseAfter: true,
-    },
-
-    // ── 4. Introspect ────────────────────────────────────────────
+    // ── 2. Introspect ────────────────────────────────────────────
     {
       id: 'gql2-introspect',
       title: 'Introspect the Schema',
@@ -397,7 +361,7 @@ This lesson creates two users — **Alice** and **Bob** — on the test server v
       pauseAfter: true,
     },
 
-    // ── 5. Schema tab ────────────────────────────────────────────
+    // ── 3. Schema tab ────────────────────────────────────────────
     {
       id: 'gql2-schema',
       title: 'Browse the Query Type',
@@ -416,7 +380,7 @@ This lesson creates two users — **Alice** and **Bob** — on the test server v
       pauseAfter: true,
     },
 
-    // ── 6. Write parameterized query ─────────────────────────────
+    // ── 4. Write parameterized query ─────────────────────────────
     {
       id: 'gql2-write-query',
       title: 'Write a Parameterized Query',

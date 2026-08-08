@@ -18,6 +18,9 @@ import { resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
 import { resetGqlLesson7SessionFlags } from './lesson7-query-builder';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 import { purgeGqlLesson9WorkspaceArtifacts } from '../../../adapters';
+import { spotlightAndPause } from './gql-demo-spotlight';
+
+export { spotlightAndPause } from './gql-demo-spotlight';
 
 export const LESSON8_ITEM_NAME = 'Health Check';
 export const LESSON8_ITEM_RENAME = 'Lesson 8 Health';
@@ -182,29 +185,47 @@ export async function prepareGql8ExecHealthReading(ctx: DemoActionContext): Prom
   await ensureHealthQuery(ctx);
 }
 
-/** Step 2 reading — response ready; History panel opens on the next visible click. */
+/** Step 2 reading — History activity tab is the spotlight target; panel opens on the visible click. */
 export async function prepareGql8ObserveHistoryReading(ctx: DemoActionContext): Promise<void> {
   await executeLesson8HealthQuery(ctx);
+  // Keep History closed when possible so the reading spotlight stays on the activity tab
+  // (a stable control). Rapid-Next / already-open panel still works via revealHistoryPanel.
+  if (document.querySelector(GQL.HISTORY_PREVIEW)) {
+    const back = document.querySelector<HTMLElement>(GQL.HISTORY_PREVIEW_BACK);
+    back?.click();
+    await ctx.delay(200);
+  }
 }
 
-/** Step 3 reading — history entry visible; preview opens on the visible click. */
+/** Step 3 reading — History list + entry visible; preview opens on the visible click. */
 export async function prepareGql8PreviewReading(ctx: DemoActionContext): Promise<void> {
   await ensureHealthExecutedWithHistory(ctx);
+  await openHistoryPanel(ctx);
+  // Preview replaces the list — close it so HISTORY_ENTRY exists for the reading spotlight.
+  if (document.querySelector(GQL.HISTORY_PREVIEW)) {
+    const back = document.querySelector<HTMLElement>(GQL.HISTORY_PREVIEW_BACK);
+    back?.click();
+    await ctx.delay(300);
+  }
+  await ctx.waitFor(GQL.HISTORY_ENTRY, 8000);
 }
 
 /** Step 4 reading — preview visible; Load runs on the visible click. */
 export async function prepareGql8LoadReading(ctx: DemoActionContext): Promise<void> {
   await openHistoryPreviewIfMissing(ctx);
+  await ctx.waitFor(GQL.HISTORY_LOAD, 5000);
 }
 
 /** Step 5 reading — preview ready; Run executes on the visible click. */
 export async function prepareGql8RunReading(ctx: DemoActionContext): Promise<void> {
   await openHistoryPreviewIfMissing(ctx);
+  await ctx.waitFor(GQL.HISTORY_RUN, 5000);
 }
 
 /** Step 6 reading — history preview visible with Save to Collection; action opens the modal. */
 export async function prepareGql8SaveReading(ctx: DemoActionContext): Promise<void> {
   await openHistoryPreviewIfMissing(ctx);
+  await ctx.waitFor(GQL.HISTORY_SAVE_TO_COL, 5000);
   syncLesson8SavedFlagFromDom();
 }
 
@@ -217,6 +238,12 @@ export async function prepareGql8RenameReading(ctx: DemoActionContext): Promise<
   await openCollectionsPanel(ctx);
   await expandFirstCollection(ctx);
   await ctx.waitFor(GQL.COL_ITEM, 8000);
+  // Close any open rename input so the reading spotlight stays on the item row.
+  const renameInput = document.querySelector<HTMLInputElement>(GQL.COL_ITEM_RENAME);
+  if (renameInput) {
+    renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await ctx.delay(200);
+  }
 }
 
 /** Step 8 reading — renamed item in tree; Export runs on the visible click. */
@@ -293,11 +320,11 @@ export async function ensureHealthExecutedWithHistory(ctx: DemoActionContext): P
   await openHistoryPanelWithEntry(ctx);
 }
 
-/** Open History panel and pause so the new entry is readable (step 2 action). */
+/** Open History panel and hold a steady spotlight on the new entry (step 2 action). */
 export async function revealHistoryPanel(ctx: DemoActionContext): Promise<void> {
   await openHistoryPanel(ctx);
   await ctx.waitFor(GQL.HISTORY_ENTRY, 8000);
-  await ctx.delay(1000);
+  await spotlightAndPause(ctx, GQL.HISTORY_ENTRY, 1400);
   _lesson8HistoryReady = true;
 }
 
@@ -311,13 +338,16 @@ async function openHistoryPreviewIfMissing(ctx: DemoActionContext): Promise<void
   await ctx.delay(300);
 }
 
-/** Single-click history entry and open the preview panel (step 3 action). */
+/** Single-click history entry, open preview, then hold a steady spotlight (step 3 action). */
 export async function openHistoryPreview(ctx: DemoActionContext): Promise<void> {
   await ensureHealthExecutedWithHistory(ctx);
   await openHistoryPanel(ctx);
-  await ctx.click(GQL.HISTORY_ENTRY);
-  await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
-  await ctx.delay(1000);
+  if (!document.querySelector(GQL.HISTORY_PREVIEW)) {
+    await ctx.click(GQL.HISTORY_ENTRY);
+    await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
+    await ctx.delay(600);
+  }
+  await spotlightAndPause(ctx, GQL.HISTORY_PREVIEW, 1600);
 }
 
 /** @deprecated Use openHistoryPreview */
@@ -325,12 +355,16 @@ export const ensureHistoryPreviewOpen = openHistoryPreview;
 
 /** Load history entry into editor without executing (step 4 action). */
 export async function loadHistoryToEditor(ctx: DemoActionContext): Promise<void> {
-  if (_lesson8Loaded && getGqlEditorQuery().includes('health')) return;
+  if (_lesson8Loaded && getGqlEditorQuery().includes('health')) {
+    await spotlightAndPause(ctx, GQL.EDITOR, 1000);
+    return;
+  }
   if (!document.querySelector(GQL.HISTORY_PREVIEW)) {
     await openHistoryPreviewIfMissing(ctx);
   }
   await ctx.click(GQL.HISTORY_LOAD);
   await ctx.delay(700);
+  await spotlightAndPause(ctx, GQL.EDITOR, 1200);
   _lesson8Loaded = true;
 }
 
@@ -339,13 +373,17 @@ export const ensureHistoryLoadedToEditor = loadHistoryToEditor;
 
 /** Run history entry — loads query and executes immediately (step 5 action). */
 export async function runHistoryEntry(ctx: DemoActionContext): Promise<void> {
-  if (_lesson8Run) return;
+  if (_lesson8Run) {
+    await spotlightAndPause(ctx, GQL.RESPONSE_VIEWER, 1000);
+    return;
+  }
   if (!document.querySelector(GQL.HISTORY_PREVIEW)) {
     await openHistoryPreviewIfMissing(ctx);
   }
   await ctx.click(GQL.HISTORY_RUN);
-  // Response viewer unmounts during execute (loading spinner). Verify phase waits for the result.
-  await ctx.delay(400);
+  // Response viewer unmounts during execute (loading spinner). Wait, then hold on the result.
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+  await spotlightAndPause(ctx, GQL.RESPONSE_VIEWER, 1400);
   _lesson8Run = true;
 }
 
@@ -400,6 +438,7 @@ export async function saveHistoryToCollection(ctx: DemoActionContext): Promise<v
   await openCollectionsPanel(ctx);
   await expandFirstCollection(ctx);
   await ctx.waitFor(GQL.COL_ITEM, 8000);
+  await spotlightAndPause(ctx, GQL.COL_ITEM, 1400);
   _lesson8Saved = true;
 }
 
@@ -419,12 +458,13 @@ export async function renameCollectionItem(ctx: DemoActionContext): Promise<void
   await openFirstCollectionItemContextMenu(ctx);
   await clickContextMenuItem(ctx, 'Rename');
   await ctx.waitFor(GQL.COL_ITEM_RENAME, 5000);
-  await ctx.delay(600);
+  await spotlightAndPause(ctx, GQL.COL_ITEM_RENAME, 1100);
   await ctx.fill(GQL.COL_ITEM_RENAME, LESSON8_ITEM_RENAME);
   await ctx.delay(500);
   const input = document.querySelector<HTMLInputElement>(GQL.COL_ITEM_RENAME);
   input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   await ctx.delay(700);
+  await spotlightAndPause(ctx, GQL.COL_ITEM, 1000);
   _lesson8Renamed = true;
 }
 
@@ -460,7 +500,7 @@ export async function triggerCollectionsImportFile(ctx: DemoActionContext): Prom
   await ctx.delay(600);
   injectCollectionsImportFile(buildLesson8ImportPayload());
   await ctx.waitFor(GQL.IMPORT_MODE_DIALOG, 8000);
-  await ctx.delay(1000);
+  await spotlightAndPause(ctx, GQL.IMPORT_MODE_DIALOG, 1400);
 }
 
 /** Confirm Merge on the import mode dialog — restores the saved operation (step 11 action). */
@@ -471,12 +511,13 @@ export async function confirmImportWithMerge(ctx: DemoActionContext): Promise<vo
     await triggerCollectionsImportFile(ctx);
   }
   await ctx.waitFor(GQL.IMPORT_MODE_MERGE, 8000);
-  await ctx.delay(800);
+  await spotlightAndPause(ctx, GQL.IMPORT_MODE_MERGE, 1000);
   await ctx.click(GQL.IMPORT_MODE_MERGE);
   await ctx.delay(1500);
   await openCollectionsPanel(ctx);
   await expandFirstCollection(ctx);
   await ctx.waitFor(GQL.COL_ITEM, 8000);
+  await spotlightAndPause(ctx, GQL.COL_ITEM, 1400);
   _lesson8Restored = true;
 }
 

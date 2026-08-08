@@ -41,9 +41,11 @@ import {
   cleanupDemoMicroservice,
   cleanupDemoEnvironment,
   cleanupGqlDemoLessonEnvironment,
+  selectEnvInHeaderVisible,
+  selectSvcInHeaderVisible,
 } from './env-manager-lesson-helpers';
 import { makeCtx } from './protocols/ws-test-utils';
-import { EM } from '@shared/selectors';
+import { APP, EM } from '@shared/selectors';
 
 function mockRect(el: Element, width: number, height: number): void {
   vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
@@ -531,6 +533,7 @@ describe('env-manager-lesson-helpers', () => {
 
   it('ensureGqlDemoHeaderContext selects header options when already present', async () => {
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <select data-testid="header-env-select">
         <option value="">Select env</option>
         <option value="e1">GraphQL Demo</option>
@@ -544,6 +547,31 @@ describe('env-manager-lesson-helpers', () => {
     expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
     expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
     expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
+  });
+
+  it('ensureGqlDemoHeaderContext uses settings bridge without Environment Manager', async () => {
+    document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
+      <div data-testid="header-env-select"><span class="cs-text">Other</span></div>
+      <div data-testid="header-svc-select"><span class="cs-text">Other</span></div>`;
+    const ensureEnv = vi.fn(() => 'env-gql');
+    const ensureSvc = vi.fn(() => 'svc-gql');
+    const selectEnvSvc = vi.fn(() => {
+      document.querySelector('[data-testid="header-env-select"] .cs-text')!.textContent = 'GraphQL Demo';
+      document.querySelector('[data-testid="header-svc-select"] .cs-text')!.textContent = 'graphql-demo';
+    });
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = ensureEnv;
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = ensureSvc;
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = selectEnvSvc;
+    const ctx = makeCtx();
+    await ensureGqlDemoHeaderContext(ctx);
+    expect(ensureEnv).toHaveBeenCalledWith('GraphQL Demo');
+    expect(ensureSvc).toHaveBeenCalledWith('graphql-demo', { 'env-gql': 'http://localhost:4010' });
+    expect(selectEnvSvc).toHaveBeenCalledWith('env-gql', 'svc-gql');
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+    delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+    delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc;
+    delete (window as unknown as Record<string, unknown>).__demoSelectEnvSvc;
   });
 
   it('editNamedProtocolEndpoint edits the row matching the environment name', async () => {
@@ -931,5 +959,49 @@ describe('env-manager-lesson-helpers', () => {
     const ctx = makeCtx();
     await cleanupGqlDemoLessonEnvironment(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
+  });
+
+  // ── Visible header selects (live demo pacing) ───────────────────
+
+  it('selectEnvInHeaderVisible selects native option even when already chosen', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1" selected>GraphQL Demo</option>
+        <option value="e2">Other</option>
+      </select>`;
+    const ctx = makeCtx();
+    await selectEnvInHeaderVisible(ctx, 'GraphQL Demo');
+    expect(ctx.selectOption).toHaveBeenCalledWith(APP.HEADER_ENV_SELECT, 'e1');
+  });
+
+  it('selectSvcInHeaderVisible opens CustomSelect menu and picks the option', async () => {
+    document.body.innerHTML = `
+      <div data-testid="header-svc-select">
+        <button type="button" class="cs-trigger"><span class="cs-text">other</span></button>
+      </div>`;
+    const wrap = document.querySelector('[data-testid="header-svc-select"]')!;
+    const trigger = wrap.querySelector<HTMLElement>('.cs-trigger')!;
+    const itemClick = vi.fn();
+    trigger.addEventListener('click', () => {
+      if (document.querySelector('.cs-menu')) return;
+      const menu = document.createElement('div');
+      menu.className = 'cs-menu';
+      const item = document.createElement('div');
+      item.className = 'cs-item';
+      item.textContent = 'graphql-demo';
+      item.addEventListener('click', itemClick);
+      menu.appendChild(item);
+      document.body.appendChild(menu);
+    });
+    const ctx = makeCtx();
+    (ctx.click as ReturnType<typeof vi.fn>).mockImplementation(async (sel: string) => {
+      document.querySelector<HTMLElement>(sel)?.click();
+    });
+    (ctx.waitFor as ReturnType<typeof vi.fn>).mockImplementation(async (sel: string) => {
+      if (!document.querySelector(sel)) throw new Error(`missing ${sel}`);
+    });
+    await selectSvcInHeaderVisible(ctx, 'graphql-demo');
+    expect(ctx.click).toHaveBeenCalledWith(`${APP.HEADER_SVC_SELECT} .cs-trigger`);
+    expect(itemClick).toHaveBeenCalled();
   });
 });

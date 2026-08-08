@@ -11,6 +11,7 @@ describe('useDemoSettingsSvcBridge', () => {
   beforeEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc;
     delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
+    delete (window as unknown as Record<string, unknown>).__demoResetSettingsSvcProtocols;
   });
 
   it('exposes __demoEnsureSettingsSvc and __demoRemoveSettingsSvc on window', () => {
@@ -19,6 +20,7 @@ describe('useDemoSettingsSvcBridge', () => {
     const w = window as unknown as Record<string, unknown>;
     expect(w.__demoEnsureSettingsSvc).toBeTypeOf('function');
     expect(w.__demoRemoveSettingsSvc).toBeTypeOf('function');
+    expect(w.__demoResetSettingsSvcProtocols).toBeTypeOf('function');
   });
 
   it('returns existing svc id when name matches (case-insensitive)', () => {
@@ -86,5 +88,40 @@ describe('useDemoSettingsSvcBridge', () => {
     const w = window as unknown as Record<string, unknown>;
     expect(w.__demoEnsureSettingsSvc).toBeUndefined();
     expect(w.__demoRemoveSettingsSvc).toBeUndefined();
+    expect(w.__demoResetSettingsSvcProtocols).toBeUndefined();
+  });
+
+  it('__demoResetSettingsSvcProtocols clears protocols and global vars', () => {
+    type Row = {
+      id: string;
+      name: string;
+      baseUrls: Record<string, string>;
+      enabledProtocols?: string[];
+      protocolEndpoints?: Record<string, Record<string, { baseUrl: string }>>;
+      globalVars?: Record<string, string>;
+    };
+    const existing: Row[] = [{
+      id: 's1',
+      name: 'grpc-demo',
+      baseUrls: {},
+      enabledProtocols: ['grpc'],
+      protocolEndpoints: { grpc: { e1: { baseUrl: 'localhost:50051' } } },
+      globalVars: { requestId: 'req-demo-001', userId: 'user-42' },
+    }];
+    let captured: Row[] = [];
+    const setMicroservices = vi.fn((updater: unknown) => {
+      if (typeof updater === 'function') {
+        captured = (updater as (p: Row[]) => Row[])(existing);
+      }
+    });
+    renderHook(() => useDemoSettingsSvcBridge({ setMicroservices }));
+
+    const reset = (window as unknown as {
+      __demoResetSettingsSvcProtocols: (n: string) => boolean;
+    }).__demoResetSettingsSvcProtocols;
+    expect(reset('grpc-demo')).toBe(true);
+    expect(captured[0]?.enabledProtocols).toEqual([]);
+    expect(captured[0]?.protocolEndpoints).toEqual({});
+    expect(captured[0]?.globalVars).toEqual({});
   });
 });

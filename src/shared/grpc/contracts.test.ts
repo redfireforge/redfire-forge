@@ -93,6 +93,21 @@ describe('grpc contracts (Phase 1A)', () => {
         message: 'cancelled',
       }),
     ).toBe(409);
+    expect(
+      mapGrpcErrorCodeToHttpStatus({
+        code: GRPC_ERROR_CODES.CALL_FAILED,
+        category: 'call_failed',
+        message: 'auth denied',
+        details: { authFailure: 'auth_denied', grpcStatus: 16 },
+      }),
+    ).toBe(401);
+    expect(
+      mapGrpcErrorCodeToHttpStatus({
+        code: GRPC_ERROR_CODES.CALL_FAILED,
+        category: 'call_failed',
+        message: 'boom',
+      }),
+    ).toBe(500);
   });
 
   it('maps cancel tabId mismatch to HTTP 409 while keeping GRPC_INVALID_REQUEST', () => {

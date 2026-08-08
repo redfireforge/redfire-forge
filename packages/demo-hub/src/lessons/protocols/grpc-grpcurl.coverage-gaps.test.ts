@@ -11,10 +11,10 @@ const adapterSpies = vi.hoisted(() => ({
 }));
 
 const helperSpies = vi.hoisted(() => ({
-  grpcFirstCallSetup: vi.fn(async () => {}),
   navigateToGrpcStudio: vi.fn(async () => {}),
   closeGrpcSettingsDrawerQuiet: vi.fn(async () => {}),
   ensureGrpcStudioSubNavQuiet: vi.fn(async () => {}),
+  resetGrpcConnectionSettingsQuiet: vi.fn(async () => {}),
   ensureGrpcReflected: vi.fn(async () => {}),
   guardGrpcReflectedQuiet: vi.fn(async () => {}),
   clearGrpcSchemaDriftQuiet: vi.fn(async () => {}),
@@ -44,9 +44,9 @@ vi.mock('./grpc-lesson-helpers', async () => {
   const actual = await vi.importActual<typeof import('./grpc-lesson-helpers')>('./grpc-lesson-helpers');
   return {
     ...actual,
-    grpcFirstCallSetup: helperSpies.grpcFirstCallSetup,
     closeGrpcSettingsDrawerQuiet: helperSpies.closeGrpcSettingsDrawerQuiet,
     ensureGrpcStudioSubNavQuiet: helperSpies.ensureGrpcStudioSubNavQuiet,
+    resetGrpcConnectionSettingsQuiet: helperSpies.resetGrpcConnectionSettingsQuiet,
     ensureGrpcReflected: helperSpies.ensureGrpcReflected,
     guardGrpcReflectedQuiet: helperSpies.guardGrpcReflectedQuiet,
     clearGrpcSchemaDriftQuiet: helperSpies.clearGrpcSchemaDriftQuiet,
@@ -107,14 +107,15 @@ describe('grpc-grpcurl coverage gaps', () => {
     Object.values(helperSpies).forEach((spy) => spy.mockClear());
   });
 
-  it('setup clears call history once for badge reset; intro has no duplicate preAction choreography', async () => {
+  it('setup lands quietly on Studio and clears history once', async () => {
     const ctx = makeCtx();
     await grpcGrpcurlLesson.setup?.(ctx);
-    await getStep('grpc22-intro').preAction?.(ctx);
+    await getStep('grpc22-open-modal').preAction?.(ctx);
 
-    expect(helperSpies.grpcFirstCallSetup).toHaveBeenCalledWith(ctx, { resetSchemaDrafts: false });
-    // grpc22-intro intentionally has no preAction re-clear — avoids a visible
-    // duplicate reset at step start; setup already clears history once.
+    expect(grpcGrpcurlLesson.skipStudioTabIsolation).toBe(true);
+    expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.resetGrpcConnectionSettingsQuiet).toHaveBeenCalledWith(ctx);
+    // History cleared once in setup — first-step preAction must not re-clear.
     expect(adapterSpies.clearGrpcCallHistory).toHaveBeenCalledTimes(1);
     expect(adapterSpies.dispatchGrpcCallHistoryReload).toHaveBeenCalledTimes(1);
   });
@@ -126,35 +127,49 @@ describe('grpc-grpcurl coverage gaps', () => {
     expect(adapterSpies.dispatchGrpcCallHistoryReload).toHaveBeenCalledTimes(1);
   });
 
-  it('executes intro through paste-command callbacks', async () => {
+  it('combined open-modal step clicks Import then spotlights the modal', async () => {
     mountGrpcGrpcurlDom();
     const ctx = makeCtx();
 
-    await getStep('grpc22-intro').action?.(ctx);
     await getStep('grpc22-open-modal').preAction?.(ctx);
     await getStep('grpc22-open-modal').action?.(ctx);
     await getStep('grpc22-paste-command').preAction?.(ctx);
     await getStep('grpc22-paste-command').action?.(ctx);
 
-    expect(helperSpies.spotlightAndPause).toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(GRPC.IMPORT_GRPCURL_BTN);
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.IMPORT_GRPCURL_MODAL, 1_000);
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.IMPORT_GRPCURL_TEXTAREA, 1_100);
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.IMPORT_GRPCURL_TEXTAREA, expect.stringContaining('grpcurl -plaintext'));
   });
 
-  it('executes review-preview with and without warnings', async () => {
+  it('review-preview holds reading ring; only spotlights warnings when present', async () => {
     mountGrpcGrpcurlDom({ withWarnings: true });
     const ctx = makeCtx();
     await getStep('grpc22-review-preview').action?.(ctx);
 
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.IMPORT_GRPCURL_WARNINGS, 900);
+    expect(helperSpies.spotlightAndPause).not.toHaveBeenCalledWith(
+      ctx,
+      GRPC.IMPORT_GRPCURL_PREVIEW,
+      expect.any(Number),
+    );
+
+    helperSpies.spotlightAndPause.mockClear();
     mountGrpcGrpcurlDom({ withWarnings: false });
     await getStep('grpc22-review-preview').action?.(ctx);
 
-    expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.IMPORT_GRPCURL_PREVIEW, 1_400);
+    expect(helperSpies.spotlightAndPause).not.toHaveBeenCalled();
+    expect(getStep('grpc22-review-preview').highlight).toBe(GRPC.IMPORT_GRPCURL_PREVIEW);
   });
 
   it('executes import-fields when explorer is not yet loaded', async () => {
     mountGrpcGrpcurlDom();
     const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (selector) => {
+      if (selector === GRPC.IMPORT_GRPCURL_SUBMIT) {
+        document.querySelector('[data-testid="grpc-import-grpcurl-modal"]')?.remove();
+      }
+    });
     vi.mocked(ctx.waitFor).mockImplementation(async (selector) => {
       if (selector === GRPC.EXPLORER_TREE) {
         document.body.insertAdjacentHTML('beforeend', '<div data-testid="grpc-explorer-tree"></div>');
@@ -164,22 +179,44 @@ describe('grpc-grpcurl coverage gaps', () => {
     await getStep('grpc22-import-fields').preAction?.(ctx);
     await getStep('grpc22-import-fields').action?.(ctx);
 
+    expect(getStep('grpc22-import-fields').highlight).toBe(GRPC.IMPORT_GRPCURL_SUBMIT);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.IMPORT_GRPCURL_SUBMIT);
+    expect(document.querySelector(GRPC.IMPORT_GRPCURL_MODAL)).toBeNull();
     expect(helperSpies.ensureGrpcReflected).not.toHaveBeenCalled();
     expect(helperSpies.guardGrpcReflectedQuiet).toHaveBeenCalled();
     expect(helperSpies.clearGrpcSchemaDriftQuiet).toHaveBeenCalled();
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.TARGET_INPUT, 1_000);
+    expect(helperSpies.spotlightAndPause).not.toHaveBeenCalledWith(
+      ctx,
+      GRPC.CONNECTION_BAR,
+      expect.any(Number),
+    );
   });
 
-  it('import-fields preAction returns early when explorer is already loaded', async () => {
+  it('import-fields preAction returns early when explorer is loaded and modal is closed', async () => {
     mountGrpcGrpcurlDom({ withExplorer: true });
+    document.querySelector('[data-testid="grpc-import-grpcurl-modal"]')?.remove();
     const ctx = makeCtx();
     await getStep('grpc22-import-fields').preAction?.(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(GRPC.IMPORT_GRPCURL_BTN);
   });
 
+  it('import-fields preAction reopens modal when explorer exists but modal is still open', async () => {
+    mountGrpcGrpcurlDom({ withExplorer: true });
+    const ctx = makeCtx();
+    await getStep('grpc22-import-fields').preAction?.(ctx);
+    // Modal already open — ensureCommandPastedQuiet should keep it (no early skip).
+    expect(document.querySelector(GRPC.IMPORT_GRPCURL_MODAL)).toBeTruthy();
+  });
+
   it('import-fields action falls back to ensureGrpcReflected when tree wait fails', async () => {
     mountGrpcGrpcurlDom();
     const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (selector) => {
+      if (selector === GRPC.IMPORT_GRPCURL_SUBMIT) {
+        document.querySelector('[data-testid="grpc-import-grpcurl-modal"]')?.remove();
+      }
+    });
     vi.mocked(ctx.waitFor).mockRejectedValue(new Error('timeout'));
 
     await getStep('grpc22-import-fields').action?.(ctx);
@@ -187,7 +224,7 @@ describe('grpc-grpcurl coverage gaps', () => {
     expect(helperSpies.ensureGrpcReflected).toHaveBeenCalledWith(ctx);
   });
 
-  it('executes send-call and history-copy callbacks', async () => {
+  it('executes send-call and history-copy without panel/detail shell rings', async () => {
     mountGrpcGrpcurlDom({ withExplorer: true, withHistory: true });
     const ctx = makeCtx();
 
@@ -200,6 +237,17 @@ describe('grpc-grpcurl coverage gaps', () => {
     expect(ctx.click).toHaveBeenCalledWith(GRPC.SEND_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.SUB_NAV_HISTORY);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.HISTORY_COPY_GRPCURL);
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.HISTORY_COPY_GRPCURL, 1_200);
+    expect(helperSpies.spotlightAndPause).not.toHaveBeenCalledWith(
+      ctx,
+      GRPC.HISTORY_PANEL,
+      expect.any(Number),
+    );
+    expect(helperSpies.spotlightAndPause).not.toHaveBeenCalledWith(
+      ctx,
+      GRPC.HISTORY_DETAIL,
+      expect.any(Number),
+    );
   });
 
   it('executes secret-filtering preAction and action', async () => {
@@ -210,11 +258,21 @@ describe('grpc-grpcurl coverage gaps', () => {
     await getStep('grpc22-secret-filtering').action?.(ctx);
 
     expect(helperSpies.openGrpcHistoryPanelQuiet).toHaveBeenCalled();
-    expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.HISTORY_COPY_GRPCURL, 1_000);
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.HISTORY_COPY_GRPCURL, 1_200);
     expect(helperSpies.spotlightAndPause).toHaveBeenCalledWith(ctx, GRPC.HISTORY_REPLAY_BTN, 800);
+    expect(helperSpies.spotlightAndPause).not.toHaveBeenCalledWith(
+      ctx,
+      GRPC.HISTORY_PANEL,
+      expect.any(Number),
+    );
+    expect(helperSpies.spotlightAndPause).not.toHaveBeenCalledWith(
+      ctx,
+      GRPC.HISTORY_DETAIL,
+      expect.any(Number),
+    );
   });
 
-  it('secret-filtering preAction selects history row when detail is missing', async () => {
+  it('secret-filtering preAction selects history row when Copy btn is missing', async () => {
     mountGrpcGrpcurlDom({ withExplorer: true });
     document.body.insertAdjacentHTML('beforeend', '<div data-testid="grpc-history-entry-demo"></div>');
     const ctx = makeCtx();

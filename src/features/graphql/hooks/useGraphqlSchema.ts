@@ -428,18 +428,22 @@ export function useGraphqlSchema(
     let cancelled = false;
 
     void (async () => {
-      const cached = await loadCachedSchemaEntry(endpoint);
-      if (cancelled || loadSeq !== introspectionSeqRef.current) return;
-      setState({
-        status: cached ? 'loaded' : 'idle',
-        schemaInfo: cached?.schemaInfo ?? null,
-        rawIntrospection: cached?.rawIntrospection ?? null,
-        errorMessage: null,
-        introspecting: false,
-        pollErrorMessage: null,
-      });
-      if (cached) {
-        lastSdlHashRef.current = cached.sdlHash;
+      try {
+        const cached = await loadCachedSchemaEntry(endpoint);
+        if (cancelled || loadSeq !== introspectionSeqRef.current) return;
+        setState({
+          status: cached ? 'loaded' : 'idle',
+          schemaInfo: cached?.schemaInfo ?? null,
+          rawIntrospection: cached?.rawIntrospection ?? null,
+          errorMessage: null,
+          introspecting: false,
+          pollErrorMessage: null,
+        });
+        if (cached) {
+          lastSdlHashRef.current = cached.sdlHash;
+        }
+      } catch {
+        // IDB cache unavailable
       }
     })();
 

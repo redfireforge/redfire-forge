@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 
 const CUSTOM_SELECT_OPEN_EVENT = 'custom-select:open';
+/** Demo / automation: set value without opening the menu (avoids flicker). */
+export const CUSTOM_SELECT_SET_VALUE_EVENT = 'custom-select:set-value';
 
 export interface CustomSelectOption {
   value: string;
@@ -54,6 +56,20 @@ export interface CustomSelectProps {
    * the menu only — rendering that in the trigger would overflow it.
    */
   showDetailInTrigger?: boolean;
+  /**
+   * Minimum width (px) for the portaled menu. Useful when options include long
+   * `detail` descriptions but the closed trigger stays compact.
+   */
+  menuMinWidth?: number;
+  /**
+   * When true, the open menu width matches the trigger (no content growth).
+   * Long option labels ellipsis inside the menu. Overrides CSS `width: max-content`.
+   */
+  menuMatchTriggerWidth?: boolean;
+  /**
+   * Cap the open menu width (px). Ignored when `menuMatchTriggerWidth` is set.
+   */
+  menuMaxWidth?: number;
 }
 
 export function CustomSelect({
@@ -65,6 +81,9 @@ export function CustomSelect({
   className,
   size = 'default',
   showDetailInTrigger = false,
+  menuMinWidth,
+  menuMatchTriggerWidth = false,
+  menuMaxWidth,
   ...rest
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
@@ -117,6 +136,8 @@ export function CustomSelect({
     left?: number;
     right?: number;
     minWidth: number;
+    width?: number;
+    maxWidth?: number;
     top?: number;
     bottom?: number;
   } | null>(null);
@@ -143,8 +164,33 @@ export function CustomSelect({
     const vPos = up
       ? { bottom: window.innerHeight - rect.top + 3 }
       : { top: rect.bottom + 3 };
-    const next: { left?: number; right?: number; minWidth: number; top?: number; bottom?: number } = {
-      ...hPos, minWidth: rect.width, ...vPos,
+    // Lock width to the trigger so CSS `width: max-content` cannot balloon
+    // past the closed control (common in form rows with long option labels).
+    let minWidth = Math.max(rect.width, menuMinWidth ?? 0);
+    let width: number | undefined;
+    let maxWidth: number | undefined;
+    if (menuMatchTriggerWidth) {
+      minWidth = rect.width;
+      width = rect.width;
+      maxWidth = rect.width;
+    } else if (menuMaxWidth != null) {
+      maxWidth = menuMaxWidth;
+      minWidth = Math.min(minWidth, menuMaxWidth);
+    }
+    const next: {
+      left?: number;
+      right?: number;
+      minWidth: number;
+      width?: number;
+      maxWidth?: number;
+      top?: number;
+      bottom?: number;
+    } = {
+      ...hPos,
+      minWidth,
+      ...(width != null ? { width } : {}),
+      ...(maxWidth != null ? { maxWidth } : {}),
+      ...vPos,
     };
     setOpenUp(up);
     setMenuPos((prev) => {
@@ -153,6 +199,8 @@ export function CustomSelect({
         && prev.left === next.left
         && prev.right === next.right
         && prev.minWidth === next.minWidth
+        && prev.width === next.width
+        && prev.maxWidth === next.maxWidth
         && prev.top === next.top
         && prev.bottom === next.bottom
       ) {
@@ -160,7 +208,7 @@ export function CustomSelect({
       }
       return next;
     });
-  }, []); 
+  }, [menuMatchTriggerWidth, menuMaxWidth, menuMinWidth]);
 
   useEffect(() => {
     if (!open) { setMenuPos(null); return; }
@@ -233,6 +281,23 @@ export function CustomSelect({
     setOpen(false);
   };
 
+  // Quiet programmatic set (demo Preparing / skip-recovery) — no menu open/close flash.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const onDemoSetValue = (event: Event) => {
+      if (disabled) return;
+      const next = (event as CustomEvent<{ value?: string }>).detail?.value;
+      if (next === undefined || next === value) return;
+      const opt = flattenItems(options).find((o) => o.value === next);
+      if (!opt || opt.disabled) return;
+      onChange(next);
+      setOpen(false);
+    };
+    wrapper.addEventListener(CUSTOM_SELECT_SET_VALUE_EVENT, onDemoSetValue);
+    return () => wrapper.removeEventListener(CUSTOM_SELECT_SET_VALUE_EVENT, onDemoSetValue);
+  }, [disabled, onChange, options, value]);
+
   const renderOption = (o: CustomSelectOption) => (
     <button
       key={o.value}
@@ -255,6 +320,7 @@ export function CustomSelect({
       className={`cs-wrapper${className ? ` ${className}` : ''}${size === 'sm' ? ' cs-sm' : ''}`}
       ref={wrapperRef}
       data-testid={testId}
+      data-value={value}
     >
       <button
         type="button"
@@ -300,6 +366,8 @@ export function CustomSelect({
             left: menuPos.left !== undefined ? menuPos.left : 'auto',
             right: menuPos.right !== undefined ? menuPos.right : 'auto',
             minWidth: menuPos.minWidth,
+            ...(menuPos.width !== undefined ? { width: menuPos.width } : {}),
+            ...(menuPos.maxWidth !== undefined ? { maxWidth: menuPos.maxWidth } : {}),
             ...(menuPos.top !== undefined ? { top: menuPos.top } : {}),
             ...(menuPos.bottom !== undefined ? { bottom: menuPos.bottom } : {}),
           }}

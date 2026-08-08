@@ -544,8 +544,8 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       },
       action: async (ctx) => {
         await runClientStreamSendLifecycle(ctx);
-        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BADGE, 900);
-        await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 2_600);
+        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BADGE, 650);
+        await waitForStreamStatusText(ctx, /(finished|ended|complete|ending)/i, 1_800);
       },
       verify: GRPC.STREAM_STATUS_BAR,
     },

@@ -4,7 +4,7 @@ import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
   ensureEditorMode,
-  ensureIntrospected,
+  ensureIntrospectedOnDirectEndpoint,
   closeGqlActivityPanelIfOpen,
   fillGqlEditor,
   getGqlEditorQuery,
@@ -16,7 +16,11 @@ import {
 } from './core';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
-import { ensureGqlDemoHeaderContext } from '../../env-manager-lesson-helpers';
+import { navigateToGraphqlStudio } from '../../env-manager-lesson-helpers';
+import {
+  ensureDemoTabDirectHttpEndpoint,
+  resetDemoTabToPlainHttp,
+} from './gql-demo-core/endpoint';
 
 /** Minimal query template for Try → field insert demos. */
 export const GQL_INSERT_TEMPLATE_QUERY = `query {
@@ -76,15 +80,16 @@ export async function ensureSchemaExplorerOpen(ctx: DemoActionContext): Promise<
   const hasTypeList = () => !!document.querySelector(GQL.SCHEMA_TYPE_LIST);
 
   // Fast path: schema already introspected, tab already open, type list already rendered.
-  // Skipping ensureIntrospected avoids the internal schema-tab click in waitForQueryType().
+  // Skipping introspect avoids the internal schema-tab click in waitForQueryType().
   if (hasBadgeOk() && schemaTabSelected() && hasTypeList()) {
-  await ctx.waitFor(GQL.SCHEMA_TYPE_LIST, 5000);
-  return;
+    await ctx.waitFor(GQL.SCHEMA_TYPE_LIST, 5000);
+    return;
   }
 
-  await ensureIntrospected(ctx);
+  // Direct HTTP — never open Environment Manager during Preparing.
+  await ensureIntrospectedOnDirectEndpoint(ctx);
 
-  // After ensureIntrospected, re-check whether the tab was clicked open internally.
+  // After introspect, re-check whether the tab was clicked open internally.
   if (!schemaTabSelected()) {
     await setGqlRightTabSchema(ctx);
     await ctx.waitFor(GQL.SCHEMA_EXPLORER, 5000);
@@ -161,25 +166,33 @@ export async function ensureTryInsertDone(ctx: DemoActionContext): Promise<void>
   _tryInsertDone = true;
 }
 
-/** Setup for Lesson 4 (GQL-3) — demo tab with insert template query. */
+/**
+ * Setup for Lesson 4 (GQL-3) — demo tab with insert template query.
+ * Never opens Environment Manager during Preparing (no header env/svc tour).
+ * Uses a literal demo-tab URL so Studio stays stable for step 1.
+ */
 export async function gqlSchemaLessonSetup(ctx: DemoActionContext): Promise<void> {
-  await ensureGqlDemoHeaderContext(ctx);
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
   resetGqlLesson3SessionFlags();
   resetGqlLesson4SessionFlags();
+
+  await navigateToGraphqlStudio(ctx);
+  await closeGqlActivityPanelIfOpen(ctx);
+
   const editorBtn = document.querySelector<HTMLElement>(GQL.MODE_EDITOR);
   if (editorBtn && !editorBtn.classList.contains('gql-mode-btn--active')) {
     editorBtn.click();
   }
-  const responseTab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE);
-  if (responseTab && responseTab.getAttribute('aria-selected') !== 'true') {
-    responseTab.click();
-  }
-  await ctx.delay(200);
-  await closeGqlActivityPanelIfOpen(ctx);
+  await ctx.delay(80);
+
   await ensureGqlDemoTab(ctx, 'gql-schema-exploration', 'Schema Exploration');
+  // Clear TLS residue from prior lessons (https / SSL toggles) without EM UI.
+  await resetDemoTabToPlainHttp(ctx);
+  await ensureDemoTabDirectHttpEndpoint(ctx);
   await fillGqlEditor(ctx, GQL_INSERT_TEMPLATE_QUERY, { focus: false });
+  // Land on Schema so step 1 spotlight matches the visible panel (not Response).
+  await setGqlRightTabSchema(ctx);
 }
 
 /** Cleanup for Lesson 4 (GQL-3) — close demo tab and reset session flags. */

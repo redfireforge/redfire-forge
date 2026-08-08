@@ -17,16 +17,35 @@ import {
   dismissContextMenu,
   shrinkAllCollections,
   ensureCollectionExpanded,
-  closeExtraRequestTabs,
+  closeAllRequestTabs,
   fillNewRequestPrompt,
   dismissNewRequestPrompt,
   cleanupOtherRequestDemoCollections,
+  selectRequestByName,
+  getActiveRequestTabLabel,
 } from './req-demo-helpers';
 
 const COLLECTION_NAME = 'My API';
 const REQUEST_NAME = 'Get Users';
 const REQUEST_URL = 'https://jsonplaceholder.typicode.com/users';
 let activeSpotlightCleanup: (() => void) | null = null;
+
+/** True when the lesson's URL-collection request is the active editor (not a leftover ENV tab). */
+function isLessonRequestActive(): boolean {
+  if (!document.querySelector(REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME))) return false;
+  const tabLabel = getActiveRequestTabLabel()?.trim();
+  if (tabLabel === REQUEST_NAME) return true;
+  const nameEl = document.querySelector(REQ.NAME_DISPLAY);
+  return nameEl?.textContent?.trim() === REQUEST_NAME;
+}
+
+function fillLessonUrlIfNeeded(): void {
+  const urlInput = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
+  if (urlInput && urlInput.value !== REQUEST_URL) {
+    urlInput.focus();
+    fillControlledInput(urlInput, REQUEST_URL);
+  }
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -148,14 +167,18 @@ async function ensureCollectionAndRequest(ctx: DemoActionContext): Promise<void>
   dismissNewRequestPrompt();
 
   if (document.querySelector(REQ.colByName(COLLECTION_NAME))) {
-    if (document.querySelector(REQ.URL_INPUT)) return;
+    // Never treat an unrelated open editor (e.g. leftover ENV request) as "ready".
+    if (document.querySelector(REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME))) {
+      await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
+      fillLessonUrlIfNeeded();
+      return;
+    }
     const opened = await openCollectionContextMenu(ctx);
     if (opened) {
       await clickContextItemVisible(ctx, 'Add Request');
       await fillNewRequestPrompt(ctx, REQUEST_NAME);
       await ctx.waitFor(REQ.URL_INPUT, 2200);
-      const urlInput = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
-      if (urlInput) { urlInput.focus(); fillControlledInput(urlInput, REQUEST_URL); }
+      fillLessonUrlIfNeeded();
       await ctx.delay(100);
     }
     return;
@@ -181,8 +204,7 @@ async function ensureCollectionAndRequest(ctx: DemoActionContext): Promise<void>
       await fillNewRequestPrompt(ctx, REQUEST_NAME);
     }
     await ctx.waitFor(REQ.URL_INPUT, 2200);
-    const urlInput = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
-    if (urlInput) { urlInput.focus(); fillControlledInput(urlInput, REQUEST_URL); }
+    fillLessonUrlIfNeeded();
     await ctx.delay(100);
   }
 }
@@ -241,7 +263,7 @@ export const reqQuickStartLesson: DemoLesson = {
   setup: async (ctx) => {
     ctx.navigateToTab('requests');
     await ctx.delay(80);
-    await closeExtraRequestTabs(ctx);
+    await closeAllRequestTabs(ctx);
     await cleanupLessonCollections(ctx);
     await shrinkAllCollections();
     const sidebar = document.querySelector<HTMLElement>(REQ.SIDEBAR);
@@ -257,7 +279,7 @@ export const reqQuickStartLesson: DemoLesson = {
       const trigger = document.querySelector<HTMLElement>(REQ.HISTORY_TRIGGER);
       if (trigger) { trigger.click(); await ctx.delay(60); }
     }
-    await closeExtraRequestTabs(ctx);
+    await closeAllRequestTabs(ctx);
     await cleanupLessonCollections(ctx);
     ctx.navigateToTab('requests');
     await ctx.delay(60);
@@ -338,11 +360,22 @@ export const reqQuickStartLesson: DemoLesson = {
         dismissNewRequestPrompt();
         if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
           await ensureCollectionAndRequest(ctx);
+        } else if (document.querySelector(REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME))) {
+          // Quiet recover: open the lesson request so a leftover ENV tab is not used.
+          if (!isLessonRequestActive()) {
+            await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
+          }
+          fillLessonUrlIfNeeded();
         }
       },
       action: async (ctx) => {
-        const hasEditor = !!firstVisible(REQ.URL_INPUT);
-        if (!hasEditor) {
+        // Only skip the visible "Add Request" tour when the lesson request already exists.
+        // An unrelated open editor (ENV leftover) must NOT skip creation — filling JSONPlaceholder
+        // into a multi-env path field gets stripToRelative()'d back to `/users` + GM base URL.
+        const demoReqExists = !!document.querySelector(
+          REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME),
+        );
+        if (!demoReqExists) {
           const opened = await openCollectionContextMenu(ctx);
           if (!opened) {
             await ensureCollectionAndRequest(ctx);
@@ -368,6 +401,9 @@ export const reqQuickStartLesson: DemoLesson = {
             await ctx.waitFor(REQ.URL_INPUT, 2200);
             await ctx.delay(260);
           }
+        } else if (!isLessonRequestActive()) {
+          await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
+          await ctx.delay(200);
         }
 
         await spotlight(ctx, REQ.METHOD_SELECT, 1000);
@@ -404,13 +440,10 @@ export const reqQuickStartLesson: DemoLesson = {
       highlight: REQ.SEND_BTN,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
-        if (!document.querySelector(REQ.URL_INPUT)) {
+        if (!isLessonRequestActive()) {
           await ensureCollectionAndRequest(ctx);
         }
-        const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
-        if (urlInput && urlInput.value !== REQUEST_URL) {
-          fillControlledInput(urlInput, REQUEST_URL);
-        }
+        fillLessonUrlIfNeeded();
         await ctx.waitFor(REQ.SEND_BTN, 2000);
       },
       action: async (ctx) => {
@@ -466,9 +499,10 @@ export const reqQuickStartLesson: DemoLesson = {
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         if (!document.querySelector(REQ.STATUS_PILL)) {
-          if (!document.querySelector(REQ.URL_INPUT)) {
+          if (!isLessonRequestActive()) {
             await ensureCollectionAndRequest(ctx);
           }
+          fillLessonUrlIfNeeded();
           const sendBtn = document.querySelector<HTMLElement>(REQ.SEND_BTN);
           if (sendBtn) sendBtn.click();
           await ctx.waitFor(REQ.STATUS_PILL, 5000);

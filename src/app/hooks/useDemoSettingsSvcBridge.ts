@@ -6,6 +6,13 @@ interface Deps {
   setMicroservices: React.Dispatch<React.SetStateAction<Microservice[]>>;
 }
 
+export interface DemoResetSettingsSvcOptions {
+  /** Drop every protocol tab (default true). */
+  clearProtocols?: boolean;
+  /** Clear microservice global / protocol vars (default true). */
+  clearGlobalVars?: boolean;
+}
+
 /**
  * Demo-player bridge: exposes `__demoEnsureSettingsSvc(name, baseUrls)` on window so demo
  * lessons can guarantee a Settings microservice exists before interacting with collection
@@ -46,9 +53,41 @@ export function useDemoSettingsSvcBridge(deps: Deps): void {
       );
     };
 
+    /**
+     * Quietly wipe protocol tabs / endpoints / vars on a named microservice so
+     * lessons that teach "+ Add protocol" start from an empty panel — DOM ×
+     * clicks are unreliable (remove control is display:none until hover/active).
+     */
+    w.__demoResetSettingsSvcProtocols = (
+      name: string,
+      options?: DemoResetSettingsSvcOptions,
+    ): boolean => {
+      const clearProtocols = options?.clearProtocols !== false;
+      const clearGlobalVars = options?.clearGlobalVars !== false;
+      let found = false;
+      depsRef.current.setMicroservices((prev) => {
+        const idx = prev.findIndex((s) => s.name.toLowerCase() === name.toLowerCase());
+        if (idx < 0) return prev;
+        found = true;
+        const current = prev[idx]!;
+        const next: Microservice = {
+          ...current,
+          ...(clearProtocols
+            ? { enabledProtocols: [], protocolEndpoints: {} }
+            : {}),
+          ...(clearGlobalVars ? { globalVars: {} } : {}),
+        };
+        const copy = prev.slice();
+        copy[idx] = next;
+        return copy;
+      });
+      return found;
+    };
+
     return () => {
       delete w.__demoEnsureSettingsSvc;
       delete w.__demoRemoveSettingsSvc;
+      delete w.__demoResetSettingsSvcProtocols;
     };
   }, []);
 }

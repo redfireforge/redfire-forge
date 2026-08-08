@@ -140,15 +140,15 @@ afterEach(() => {
     expect(step.verify).toBe(GQL.RESPONSE_VIEWER);
   });
 
-  it('gql8-observe-history highlights history entry', () => {
+  it('gql8-observe-history highlights History activity tab (stable reading target)', () => {
     const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-observe-history')!;
-    expect(step.highlight).toBe(GQL.HISTORY_ENTRY);
+    expect(step.highlight).toBe(GQL.ACTIVITY_HISTORY);
     expect(step.verify).toBe(GQL.HISTORY_ENTRY);
   });
 
-  it('gql8-preview highlights history preview panel', () => {
+  it('gql8-preview highlights history entry during reading (preview opens in action)', () => {
     const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-preview')!;
-    expect(step.highlight).toBe(GQL.HISTORY_PREVIEW);
+    expect(step.highlight).toBe(GQL.HISTORY_ENTRY);
     expect(step.verify).toBe(GQL.HISTORY_PREVIEW);
   });
 
@@ -170,9 +170,9 @@ afterEach(() => {
     expect(step.verify).toBe(GQL.COL_ITEM);
   });
 
-  it('gql8-rename highlights rename input', () => {
+  it('gql8-rename highlights collection item during reading (rename input opens in action)', () => {
     const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-rename')!;
-    expect(step.highlight).toBe(GQL.COL_ITEM_RENAME);
+    expect(step.highlight).toBe(GQL.COL_ITEM);
     expect(step.verify).toBe(GQL.COL_ITEM);
   });
 

@@ -49,21 +49,25 @@ export default function GrpcServerStreamConfig({
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <GrpcWorkflowCallTargetFields
-        data={data}
-        onChange={onChange}
-        callType="server_streaming"
-        testIdPrefix="grpc-server-stream-config"
-        workflowVariables={workflowVariables}
-      />
+      <div className="wf-kafka-form wf-kafka-form--grpc wf-kafka-form--flush-top">
+        <GrpcWorkflowCallTargetFields
+          data={data}
+          onChange={onChange}
+          callType="server_streaming"
+          testIdPrefix="grpc-server-stream-config"
+          workflowVariables={workflowVariables}
+        />
+      </div>
 
-      <GrpcWorkflowConnectionSecurityFields
-        data={data}
-        onChange={onChange}
-        testIdPrefix="grpc-server-stream-config"
-        globalAuthProfiles={globalAuthProfiles}
-        defaultAuthProfileId={defaultAuthProfileId}
-      />
+      <div className="wf-kafka-form wf-kafka-form--grpc wf-kafka-form--flush-top">
+        <GrpcWorkflowConnectionSecurityFields
+          data={data}
+          onChange={onChange}
+          testIdPrefix="grpc-server-stream-config"
+          globalAuthProfiles={globalAuthProfiles}
+          defaultAuthProfileId={defaultAuthProfileId}
+        />
+      </div>
 
       <div className="wf-config-field--row">
         <label>Timeout (ms)</label>

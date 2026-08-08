@@ -20,6 +20,7 @@ import {
   mapBrowserTransportDecodeFailure,
 } from './grpcBrowserTransportErrorMapper';
 import { buildBrowserTransportUserMetadataHeaders } from './grpcBrowserTransportMetadataNorm';
+import { assertBrowserDirectTargetAllowsFetch } from './grpcWebNativeTargetGuard';
 
 export type GrpcWebUnaryFetchFn = (
   url: string,
@@ -102,6 +103,15 @@ export async function invokeGrpcWebUnary(
   const protoSerializationMs = Math.round(performance.now() - serializeStarted);
   const url = buildGrpcWebMethodUrl(request.target, request.service, request.method);
   const headers = buildGrpcWebRequestHeaders(request, encodedBody.contentType);
+
+  // Real browser fetch against native gRPC (:50051 etc.) → ERR_INVALID_HTTP_RESPONSE.
+  // Injected fetchFn (unit tests / custom transports) skips the guard.
+  if (!input.fetchFn) {
+    const blocked = assertBrowserDirectTargetAllowsFetch('call', 'grpc-web', request.target);
+    if (blocked) {
+      throw blocked;
+    }
+  }
 
   const controller = new AbortController();
   const key = inFlightKey(tabId, request.requestId);

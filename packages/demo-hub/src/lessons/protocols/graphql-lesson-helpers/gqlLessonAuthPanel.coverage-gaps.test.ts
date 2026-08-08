@@ -9,6 +9,8 @@ import { openAuthPanelQuiet, closeAuthPanelQuiet, isAuthEditorOpen } from './gql
 vi.mock('./gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql4'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
+  navigateToGraphqlStudio: vi.fn(async () => {}),
 }));
 
 describe('gqlLessonAuthPanel — coverage gaps', () => {

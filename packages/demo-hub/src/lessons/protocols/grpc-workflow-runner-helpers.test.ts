@@ -206,7 +206,25 @@ describe('grpc-workflow-runner-helpers (direct)', () => {
     await expect(waitForGrpcUnaryReflectionReady(ctx, 50)).resolves.toBe(false);
   });
 
-  it('selectGrpcUnaryServiceAndMethod uses dropdowns when reflection populated selects', async () => {
+  it('selectGrpcUnaryServiceAndMethod uses dropdowns for CustomSelect (workflow Unary UI)', async () => {
+    document.body.innerHTML = `
+      <div data-testid="grpc-unary-config-reflect-status" data-status="ready"></div>
+      <div class="cs-wrapper" data-testid="grpc-unary-config-service" data-value=""></div>
+      <div class="cs-wrapper" data-testid="grpc-unary-config-method" data-value=""></div>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    const selectSpy = vi.spyOn(wfDemoHelpers, 'selectWfConfigOption').mockResolvedValue(undefined);
+    const fillSpy = vi.spyOn(wfDemoHelpers, 'fillWfConfigField').mockResolvedValue(undefined);
+
+    await selectGrpcUnaryServiceAndMethod(ctx, 'echo.EchoService', 'Echo');
+
+    expect(selectSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_SERVICE, 'echo.EchoService');
+    expect(selectSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_METHOD, 'Echo');
+    expect(fillSpy).not.toHaveBeenCalled();
+  });
+
+  it('selectGrpcUnaryServiceAndMethod uses native selects when present', async () => {
     document.body.innerHTML = `
       <div data-testid="grpc-unary-config-reflect-status" data-status="ready"></div>
       <select data-testid="grpc-unary-config-service"></select>
@@ -242,23 +260,21 @@ describe('grpc-workflow-runner-helpers (direct)', () => {
     expect(selectSpy).not.toHaveBeenCalled();
   });
 
-  it('selectGrpcUnaryServiceAndMethod paced mode spotlights service and method around selects', async () => {
+  it('selectGrpcUnaryServiceAndMethod paced mode holds each landed control', async () => {
     document.body.innerHTML = `
       <div data-testid="grpc-unary-config-reflect-status" data-status="ready"></div>
-      <select data-testid="grpc-unary-config-service"></select>
-      <select data-testid="grpc-unary-config-method"></select>
+      <div class="cs-wrapper" data-testid="grpc-unary-config-service" data-value=""></div>
+      <div class="cs-wrapper" data-testid="grpc-unary-config-method" data-value=""></div>
     `;
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     const selectSpy = vi.spyOn(wfDemoHelpers, 'selectWfConfigOption').mockResolvedValue(undefined);
-    const scrollSpy = vi.spyOn(wfDemoHelpers, 'scrollWfConfigFieldIntoView').mockResolvedValue(undefined);
+    const holdSpy = vi.spyOn(wfDemoHelpers, 'holdWfSpotlight').mockResolvedValue(undefined);
 
     await selectGrpcUnaryServiceAndMethod(ctx, 'echo.EchoService', 'Echo', { paced: true });
 
     expect(selectSpy).toHaveBeenCalledTimes(2);
-    expect(scrollSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_SERVICE);
-    expect(scrollSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_METHOD);
-    // Pre/post holds on each control (4) plus waitForGrpcUnaryReflectionReady settle.
-    expect(vi.mocked(ctx.delay).mock.calls.length).toBeGreaterThanOrEqual(4);
+    expect(holdSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_SERVICE, 1100);
+    expect(holdSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_METHOD, 1200);
   });
 });

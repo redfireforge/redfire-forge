@@ -292,7 +292,7 @@ describe('SubWorkflowConfig', () => {
   it('calls onChange when on-child-failure is changed to continue', () => {
     const onChange = vi.fn();
     const { container } = render(<SubWorkflowConfig data={makeData()} onChange={onChange} workflows={sampleWorkflows} />);
-    selectOptionByIndex(container, 1, 'Continue (set __subWorkflowFailed variable)');
+    selectOptionByIndex(container, 1, 'Continue');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onChildFailure: 'continue' }));
   });
 
@@ -300,7 +300,9 @@ describe('SubWorkflowConfig', () => {
     render(
       <SubWorkflowConfig data={makeData({ onChildFailure: 'continue' })} onChange={vi.fn()} workflows={sampleWorkflows} />,
     );
-    expect(screen.getByText('Continue (set __subWorkflowFailed variable)')).toBeTruthy();
+    expect(screen.getByLabelText('On Child Failure').textContent).toContain('Continue');
+    fireEvent.click(screen.getByLabelText('On Child Failure'));
+    expect(screen.getByText('set __subWorkflowFailed')).toBeTruthy();
   });
 
   // ── E5: Dynamic Workflow ID ──

@@ -241,6 +241,68 @@ export async function addMetadataRowQuiet(ctx: LessonCtx | PreCtx, key: string, 
 }
 
 /**
+ * Visible Metadata row add for human viewers — click + Add, then paced key/value fills
+ * with spotlight on each field (unlike {@link addMetadataRowQuiet}).
+ */
+export async function addMetadataRowVisible(
+  ctx: LessonCtx | PreCtx,
+  key: string,
+  value: string,
+): Promise<void> {
+  const editor = document.querySelector<HTMLElement>(GRPC.METADATA_EDITOR);
+  if (!editor) return;
+
+  const setInputValue = (input: HTMLInputElement, next: string) => {
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    if (valueSetter) {
+      valueSetter.call(input, next);
+    } else {
+      input.value = next;
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
+  const getRows = () => Array.from(editor.querySelectorAll<HTMLElement>('.ws-connect-kv-row'));
+  const findEmptyRow = () =>
+    getRows().find((row) => {
+      const keyText = row.querySelector<HTMLInputElement>('input.ws-connect-kv-key')?.value.trim() ?? '';
+      const valueText = row.querySelector<HTMLInputElement>('input.ws-connect-kv-value')?.value.trim() ?? '';
+      return keyText === '' && valueText === '';
+    });
+
+  let targetRow = findEmptyRow();
+  if (!targetRow) {
+    const addBtn = document.querySelector<HTMLButtonElement>(GRPC.METADATA_ADD_BTN);
+    if (addBtn && !addBtn.disabled) {
+      await ctx.click(GRPC.METADATA_ADD_BTN);
+      await ctx.delay(600);
+    }
+    targetRow = findEmptyRow() ?? getRows().at(-1);
+  }
+  if (!targetRow) return;
+
+  const keyInput = targetRow.querySelector<HTMLInputElement>('input.ws-connect-kv-key');
+  const valInput = targetRow.querySelector<HTMLInputElement>('input.ws-connect-kv-value');
+
+  if (keyInput) {
+    await spotlightElementAndPause(ctx, keyInput, 500);
+    keyInput.focus();
+    setInputValue(keyInput, key);
+    await ctx.delay(500);
+  }
+  if (valInput) {
+    await spotlightElementAndPause(ctx, valInput, 500);
+    valInput.focus();
+    setInputValue(valInput, value);
+    await ctx.delay(500);
+  }
+}
+
+/**
  * Fill a labelled field in the auth panel by its exact data-testid.
  * Uses React-compatible input event dispatch so state updates correctly.
  */

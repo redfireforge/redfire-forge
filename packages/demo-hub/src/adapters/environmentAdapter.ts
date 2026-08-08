@@ -13,6 +13,11 @@ export function upsertGlobalAuthProfile(profile: GlobalAuthProfile): void {
   getDemoBridgeWindow().__demoUpsertGlobalAuthProfile?.(profile);
 }
 
+/** Clear the active tab's auth override via React bridge — no Auth panel open/close. */
+export function clearActiveTabAuthQuiet(): boolean {
+  return getDemoBridgeWindow().__demoClearActiveTabAuth?.() ?? false;
+}
+
 /** Sync in-memory app state after storage purge (safe no-op when bridge is absent). */
 export function purgeGlobalAuthProfilesFromBridge(
   specs: readonly { id: string; name: string }[] = ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS,
@@ -90,6 +95,18 @@ export function ensureSettingsMicroservice(name: string, baseUrls?: Record<strin
 /** Remove a Settings microservice by name (demo cleanup). */
 export function removeSettingsMicroservice(name: string): void {
   getDemoBridgeWindow().__demoRemoveSettingsSvc?.(name);
+}
+
+/**
+ * Quietly clear protocol tabs, protocol endpoints, and global vars on a named
+ * Settings microservice. Prefer this over DOM × clicks during lesson setup —
+ * the remove control is `display:none` until the tab wrap is hovered/active.
+ */
+export function resetSettingsMicroserviceProtocols(
+  name: string,
+  options?: { clearProtocols?: boolean; clearGlobalVars?: boolean },
+): boolean {
+  return getDemoBridgeWindow().__demoResetSettingsSvcProtocols?.(name, options) ?? false;
 }
 
 /**

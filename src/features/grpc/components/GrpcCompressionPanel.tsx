@@ -95,7 +95,7 @@ export function GrpcCompressionPanel({
                 </div>
                 <div className="grpc-settings-form-row__ctrl">
                   <CustomSelect
-                    className="grpc-compression-select grpc-settings-select"
+                    className="grpc-compression-select"
                     data-testid="grpc-compression-algorithm"
                     aria-label="Request compression algorithm"
                     value={config.algorithm}

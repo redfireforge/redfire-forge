@@ -168,6 +168,21 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.body.reason).toBe('http_503');
     });
 
+    it('returns down when Spring actuator reports non-UP status', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'DOWN' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const res = await request(app).get('/health/spring');
+
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.springStatus).toBe('DOWN');
+    });
+
     it('handles non-JSON actuator response (json() throws) gracefully', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response('not-json-at-all', {
@@ -180,6 +195,38 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.status).toBe(200);
       expect(res.body.source).toBe('spring-actuator');
     });
+
+  });
+
+  describe('GET /health/envoy', () => {
+    it('returns ok when Envoy responds (including HTTP 415)', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('Unsupported Media Type', { status: 415 }),
+      );
+
+      const res = await request(app).get('/health/envoy');
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(res.body.source).toBe('envoy-grpc-web');
+      expect(res.body.httpStatus).toBe(415);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'http://127.0.0.1:50055/',
+        expect.any(Object),
+      );
+    });
+
+    it('returns down when Envoy is unreachable', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
+
+      const res = await request(app).get('/health/envoy');
+
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.source).toBe('envoy-grpc-web');
+      expect(String(res.body.reason)).toContain('ECONNREFUSED');
+    });
+
   });
 
   describe('GET /health/schema-registry', () => {
@@ -209,6 +256,16 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.status).toBe(503);
       expect(res.body.status).toBe('down');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
+    });
+
+  });
+
+  describe('GET /__vitest_unhandled_error__', () => {
+    it('routes through the error middleware in Vitest mode', async () => {
+      const res = await request(app).get('/__vitest_unhandled_error__');
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Internal server error');
+      expect(res.body.message).toBe('vitest');
     });
   });
 

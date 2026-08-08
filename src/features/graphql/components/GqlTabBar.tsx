@@ -187,7 +187,7 @@ export function GqlTabBar({
         const profileName = findProfileById(profiles, tab.connectionId)?.name ?? null;
         const labelEndpoint = resolveTabLabelEndpoint(tab, profiles, pageDefaultEndpoint, pageDefaultEndpointResolved);
         const { title } = getTabPresentation(tab, profileName, labelEndpoint);
-        void navigator.clipboard.writeText(title);
+        void navigator.clipboard.writeText(title).catch(() => {});
         break;
       }
       case 'close':

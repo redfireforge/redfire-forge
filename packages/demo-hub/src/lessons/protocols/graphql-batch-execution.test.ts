@@ -260,9 +260,10 @@ describe('gql-batch-execution lesson', () => {
     expect(step.preAction).toBeUndefined();
   });
 
-  it('gql15-intro highlights TAB_BAR', () => {
+  it('gql15-intro highlights Demo: Batch Execution tab', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-intro')!;
-    expect(step.highlight).toBe(GQL.TAB_BAR);
+    expect(step.highlight).toBe(GQL.LESSON15_DEMO_TAB);
+    expect(step.verify).toBe(GQL.LESSON15_DEMO_TAB);
   });
 
   it('gql15-add-tab preAction is prepareGql15AddTabReading', () => {
@@ -275,9 +276,9 @@ describe('gql-batch-execution lesson', () => {
     expect(step.preAction).toBe(prepareGql15WriteQueriesReading);
   });
 
-  it('gql15-enable-batch highlights batch panel in Advanced settings', () => {
+  it('gql15-enable-batch highlights Advanced settings gear', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-enable-batch')!;
-    expect(step.highlight).toBe(GQL.ADV_BATCH_PANEL);
+    expect(step.highlight).toBe(GQL.ADV_SETTINGS_BTN);
   });
 
   it('gql15-add-tab highlights TAB_ADD_BTN', () => {
@@ -285,9 +286,9 @@ describe('gql-batch-execution lesson', () => {
     expect(step.highlight).toBe(GQL.TAB_ADD_BTN);
   });
 
-  it('gql15-batch-select highlights batch panel in Advanced settings', () => {
+  it('gql15-batch-select highlights Select all in the batch table', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-select')!;
-    expect(step.highlight).toBe(GQL.ADV_BATCH_PANEL);
+    expect(step.highlight).toBe(GQL.ADV_BATCH_SELECT_ALL);
   });
 
   it('gql15-write-queries highlights EDITOR', () => {
@@ -332,9 +333,9 @@ describe('gql-batch-execution lesson', () => {
     expect(step.verify).toBe(GQL.BATCH_RESULTS);
   });
 
-  it('gql15-partial-error verify is BATCH_RESULTS', () => {
+  it('gql15-partial-error verify is RESPONSE_ERROR_LIST', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-partial-error')!;
-    expect(step.verify).toBe(GQL.BATCH_RESULTS);
+    expect(step.verify).toBe(GQL.RESPONSE_ERROR_LIST);
   });
 
   // ── Step description WHY content ───────────────────────────────────────────
@@ -386,6 +387,7 @@ describe('gql-batch-execution lesson', () => {
     expect(step.description).toContain('independently');
     expect(step.description).toContain('partial');
     expect(step.description).toContain('Batch N/M');
+    expect(step.description).toContain('Error Details');
   });
 
   it('gql15-export-batch description explains batch history and sequential fallback for other servers', () => {
@@ -555,29 +557,35 @@ describe('gql-batch-execution lesson', () => {
 
   // ── Step actions ───────────────────────────────────────────────────────────
 
-  it('gql15-intro action calls delay (observation step)', async () => {
+  it('gql15-intro action spotlights the Demo: Batch Execution tab', async () => {
     const ctx = makeCtx();
     stubBatchDom(1);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-intro')!;
     expect(step.preAction).toBeUndefined();
     await step.action!(ctx);
     expect(ctx.delay).toHaveBeenCalled();
+    expect(document.querySelector('[data-lesson-target="gql15-demo-tab-0"]')).toBeTruthy();
+    expect(step.action).toBeTypeOf('function');
   });
 
-  it('gql15-enable-batch action enables batch without toggling modal closed', async () => {
+  it('gql15-enable-batch action opens gear, enables batch, and saves', async () => {
     const ctx = makeCtx();
     stubBatchDom(2, false, false);
-    stubMonacoEditor('query { health }');
-    document.body.insertAdjacentHTML('beforeend', `
-      <div data-testid="gql-adv-settings-modal">
-        <button data-testid="gql-adv-settings-tab-batch" class="active"></button>
-        <label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
-          <input type="checkbox" aria-label="Enable query batching" />
-        </label>
-        <button data-testid="gql-adv-settings-save-btn">Save</button>
-      </div>
-    `);
+    stubMonacoEditor('query GetHealth { health }');
     vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
+      if (sel === GQL.ADV_SETTINGS_BTN) {
+        document.body.insertAdjacentHTML('beforeend', `
+          <div data-testid="gql-adv-settings-modal">
+            <button data-testid="gql-adv-settings-tab-batch" class="active"></button>
+            <label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
+              <input type="checkbox" aria-label="Enable query batching" />
+            </label>
+            <span data-testid="gql-adv-batch-group-label">localhost:4010 · 2 tabs</span>
+            <div data-testid="gql-adv-batch-selection-hint">0 of 2 selected</div>
+            <button data-testid="gql-adv-settings-save-btn">Save</button>
+          </div>
+        `);
+      }
       if (sel === GQL.ADV_BATCH_ENABLE_TOGGLE) {
         const cb = document.querySelector<HTMLInputElement>(GQL.ADV_BATCH_ENABLE)!;
         cb.checked = true;
@@ -591,11 +599,11 @@ describe('gql-batch-execution lesson', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-enable-batch')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ADV_SETTINGS_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ADV_SETTINGS_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ADV_BATCH_ENABLE_TOGGLE);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ADV_SETTINGS_SAVE_BTN);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ADV_BATCH_PANEL, 5000);
-    expect(ctx.delay).toHaveBeenCalledWith(3500);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.BATCH_SUMMARY_CHIP, 5000);
   });
 
   it('gql15-add-tab action adds Tab 2 and sets direct localhost endpoint', async () => {
@@ -644,7 +652,8 @@ describe('gql-batch-execution lesson', () => {
     await step.preAction!(ctx);
     vi.mocked(ctx.click).mockClear();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(2000);
+    // Spotlight holds on the results modal / transport line — never Close.
+    expect(ctx.delay).toHaveBeenCalled();
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
     expect(document.querySelector(GQL.BATCH_RESULTS)).not.toBeNull();
   });
@@ -690,6 +699,13 @@ describe('gql-batch-execution lesson', () => {
     const ctx = makeCtx();
     stubBatchDom(2, true, true);
     stubMonacoEditor('query { health }');
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+      <button data-testid="gql-rv-tab-metadata"></button>
+      <div data-testid="gql-rv-error-list"></div>
+    `,
+    );
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-partial-error')!;
     await step.preAction!(ctx);
@@ -699,6 +715,7 @@ describe('gql-batch-execution lesson', () => {
       (args) => args[0] === GQL.BATCH_EXECUTE_BTN,
     );
     expect(batchCalls.length).toBeGreaterThanOrEqual(1);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
   });
 
   it('gql15-export-batch action opens history panel', async () => {

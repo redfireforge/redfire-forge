@@ -1,6 +1,11 @@
 import type { DemoActionContext } from '../../../types';
 import { GRPC } from '@shared/selectors';
-import { showSpotlightRing } from '../../../demoRipple';
+import { purgeAllSpotlightRings, showSpotlightRing } from '../../../demoRipple';
+import {
+  clearLiveDemoPanelFromTarget,
+  resumeDemoAutoScroll,
+  scrollDemoTargetIntoView,
+} from '../../../demoSpotlightUtils';
 import { firstVisibleElement } from '../../../utils/domVisibility';
 import { isGrpcHybridComposerActive } from './echoComposer';
 
@@ -26,27 +31,48 @@ async function waitForNonEmptyJsonText(
   }
 }
 
+export type SpotlightPauseOptions = {
+  /** When true, skip scrollDemoTargetIntoView (caller already scrolled). */
+  skipScroll?: boolean;
+};
+
 /**
- * Draw a persistent spotlight box around the element matching `selector`, hold
+ * Draw a steady spotlight box around the element matching `selector`, hold
  * for `holdMs` so the viewer can digest the target, then remove it.
+ *
+ * Uses `{ steady: true }` (no pulse) and purges any prior imperative rings so
+ * rapid multi-beat tours read as a moving highlight, not a flash.
  */
 export async function spotlightAndPause(
   ctx: DemoActionContext,
   selector: string,
-  holdMs = 700,
+  holdMs = 900,
+  options?: SpotlightPauseOptions,
 ): Promise<void> {
   const el = firstVisibleElement(selector) ?? document.querySelector<HTMLElement>(selector);
   if (!el) return;
-  await spotlightElementAndPause(ctx, el, holdMs);
+  await spotlightElementAndPause(ctx, el, holdMs, options);
 }
 
 /** Same as {@link spotlightAndPause} but takes a resolved element directly. */
 export async function spotlightElementAndPause(
   ctx: DemoActionContext,
   el: HTMLElement,
-  holdMs = 700,
+  holdMs = 900,
+  options?: SpotlightPauseOptions,
 ): Promise<void> {
-  const removeRing = showSpotlightRing(el);
+  purgeAllSpotlightRings();
+  resumeDemoAutoScroll();
+  if (options?.skipScroll) {
+    clearLiveDemoPanelFromTarget(el);
+    await ctx.delay(80);
+  } else {
+    // Scroll nested modal/panel containers first — otherwise clipped targets
+    // (e.g. Client Key "Set" at the bottom of the TLS modal) draw rings off-screen.
+    scrollDemoTargetIntoView(el, { block: 'center' });
+    await ctx.delay(280);
+  }
+  const removeRing = showSpotlightRing(el, { steady: true });
   try {
     await ctx.delay(holdMs);
   } finally {
@@ -73,7 +99,7 @@ export async function spotlightGrpcRequestComposer(ctx: DemoActionContext): Prom
  */
 export async function spotlightRequestJsonContentTight(
   ctx: DemoActionContext,
-  holdMs = 900,
+  holdMs = 1100,
 ): Promise<void> {
   const textarea = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
   if (!textarea) {
@@ -100,7 +126,8 @@ export async function spotlightRequestJsonContentTight(
     `pointer-events:none;opacity:0;`;
   document.body.appendChild(proxy);
 
-  const removeRing = showSpotlightRing(proxy);
+  purgeAllSpotlightRings();
+  const removeRing = showSpotlightRing(proxy, { steady: true });
   try {
     await ctx.delay(holdMs);
   } finally {
@@ -115,7 +142,7 @@ export async function spotlightRequestJsonContentTight(
  */
 export async function spotlightResponseJsonContentTight(
   ctx: DemoActionContext,
-  holdMs = 900,
+  holdMs = 1100,
 ): Promise<void> {
   const body = document.querySelector<HTMLElement>(GRPC.RESPONSE_BODY);
   if (!body) {
@@ -143,7 +170,8 @@ export async function spotlightResponseJsonContentTight(
     `pointer-events:none;opacity:0;`;
   document.body.appendChild(proxy);
 
-  const removeRing = showSpotlightRing(proxy);
+  purgeAllSpotlightRings();
+  const removeRing = showSpotlightRing(proxy, { steady: true });
   try {
     await ctx.delay(holdMs);
   } finally {
@@ -159,7 +187,7 @@ export async function spotlightResponseJsonContentTight(
 export async function spotlightAndPauseWithCallPanelHidden(
   ctx: DemoActionContext,
   selector: string,
-  holdMs = 700,
+  holdMs = 900,
 ): Promise<void> {
   const callPanel = document.querySelector<HTMLElement>(GRPC.CALL_PANEL);
   const wasCallPanelVisible = callPanel && callPanel.style.display !== 'none';

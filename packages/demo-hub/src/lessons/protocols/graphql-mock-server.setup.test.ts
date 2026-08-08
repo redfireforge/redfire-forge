@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql13'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 import {
@@ -41,21 +42,26 @@ describe('gql-mock-server lesson — setup', () => {
     await teardownGraphqlMockServerAfterEach();
   });
 
-it('gqlMockServerLessonSetup creates demo tab and loads health query', async () => {
+it('gqlMockServerLessonSetup creates demo tab and loads health query without Env Manager', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <input data-testid="gql-endpoint-input" value="" />
       <button data-testid="gql-introspect-btn"></button>
+      <button data-testid="gql-env-badge"></button>
       <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-se-type-Query"></div>
+      <button data-testid="gql-right-tab-schema"></button>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
-      <button data-testid="gql-right-tab-response"></button>
+      <button data-testid="gql-right-tab-response" aria-selected="true"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     `;
     stubMonacoEditor('');
     resetGqlLesson12SessionFlags();
     await gqlMockServerLessonSetup(ctx);
     expect(ensureGqlDemoTab).toHaveBeenCalledWith(ctx, 'gql-mock-server', 'Mock Server');
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '{{graphqlUrl}}');
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
   it('gqlMockServerLessonCleanup disables mock and closes demo tab', async () => {
@@ -201,11 +207,13 @@ it('gqlMockServerLessonSetup creates demo tab and loads health query', async () 
   it('gqlMockServerLessonSetup selects response tab when not active', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <button data-testid="gql-right-tab-response" aria-selected="false"></button>
-      <input data-testid="gql-endpoint-input" value="" />
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
       <button data-testid="gql-introspect-btn"></button>
       <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-se-type-Query"></div>
       <div data-testid="gql-editor"></div>
     `;
     stubMonacoEditor('query { health }');
@@ -288,11 +296,13 @@ it('gqlMockServerLessonSetup creates demo tab and loads health query', async () 
   it('gqlMockServerLessonSetup selects response tab when inactive', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <button data-testid="gql-right-tab-response" aria-selected="false"></button>
-      <input data-testid="gql-endpoint-input" value="" />
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
       <button data-testid="gql-introspect-btn"></button>
       <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-se-type-Query"></div>
       <div data-testid="gql-editor"></div>
     `;
     stubMonacoEditor('query { health }');
@@ -305,11 +315,13 @@ it('gqlMockServerLessonSetup creates demo tab and loads health query', async () 
   it('gqlMockServerLessonSetup skips response tab click when already selected', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <button data-testid="gql-right-tab-response" aria-selected="true"></button>
-      <input data-testid="gql-endpoint-input" value="" />
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
       <button data-testid="gql-introspect-btn"></button>
       <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-se-type-Query"></div>
       <div data-testid="gql-editor"></div>
     `;
     stubMonacoEditor('query { health }');

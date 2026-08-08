@@ -38,18 +38,18 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('GQL-18 — Delete User steps (manual validation)', () => {
-  test('step 13 adds Delete User node with visible palette click', async ({ page, request }) => {
+  test('step 14 adds Delete User node with visible palette click', async ({ page, request }) => {
     const healthy = await isGraphqlServerHealthy(request);
     test.skip(!healthy, 'GraphQL test server not running on port 4010');
 
     test.setTimeout(MUTATION_TIMEOUT);
     await prepareGql18DockerLesson(page, request);
 
-    // Steps 1–12 complete → land on step 13 (Add Delete User) reading phase.
-    await advanceSteps(page, 12, MUTATION_TIMEOUT);
+    // Steps 1–13 complete → land on step 14 (Add Delete User) reading phase.
+    await advanceSteps(page, 13, MUTATION_TIMEOUT);
 
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/13\s*[/]\s*15/);
+    expect(counter).toMatch(/14\s*[/]\s*16/);
     expect(title).toMatch(/Delete User/i);
 
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
@@ -62,21 +62,21 @@ test.describe('GQL-18 — Delete User steps (manual validation)', () => {
       timeout: 15_000,
     });
 
-    await takeNamedScreenshot(page, 'gql18-step13-delete-node-added');
+    await takeNamedScreenshot(page, 'gql18-step14-delete-node-added');
   });
 
-  test('step 14 configures deleteUser mutation on Delete User node', async ({ page, request }) => {
+  test('step 15 configures deleteUser mutation on Delete User node', async ({ page, request }) => {
     const healthy = await isGraphqlServerHealthy(request);
     test.skip(!healthy, 'GraphQL test server not running on port 4010');
 
     test.setTimeout(MUTATION_TIMEOUT);
     await prepareGql18DockerLesson(page, request);
 
-    // Through step 13 action → step 14 reading.
-    await advanceSteps(page, 13, MUTATION_TIMEOUT);
+    // Through step 14 action → step 15 reading.
+    await advanceSteps(page, 14, MUTATION_TIMEOUT);
 
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/14\s*[/]\s*15/);
+    expect(counter).toMatch(/15\s*[/]\s*16/);
     expect(title).toMatch(/deleteUser/i);
 
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
@@ -86,7 +86,7 @@ test.describe('GQL-18 — Delete User steps (manual validation)', () => {
     await expect(deleteNode).not.toContainText('No endpoint', { timeout: 15_000 });
     await expect(deleteNode).toContainText(/4010|graphql/i, { timeout: 15_000 });
 
-    await takeNamedScreenshot(page, 'gql18-step14-delete-configured');
+    await takeNamedScreenshot(page, 'gql18-step15-delete-configured');
   });
 });
 

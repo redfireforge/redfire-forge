@@ -9,6 +9,8 @@
  * No Docker required — uses the built-in mock echo server.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
+import { seedWsConnectionTabsQuiet } from '../../adapters';
+import { showSpotlightRing } from '../../demoRipple';
 import {
   clearEvents,
   closeExtraConnectionTabs,
@@ -22,6 +24,73 @@ import {
 import { WS } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 
+const POWER_USER_TAB_LABELS = ['Server A', 'Server B', 'Staging'] as const;
+const DEMO_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo-power-user';
+
+/** Steady spotlight holds — longer than a flash so the viewer can fixate. */
+const HOLD = {
+  look: 1100,
+  beat: 800,
+  outcome: 1300,
+};
+
+/**
+ * Steady (non-pulsing) spotlight + pause on one control.
+ * Prefer this over outline/opacity flashes — a held ring draws attention cleanly.
+ */
+async function spotlightHold(
+  ctx: DemoActionContext,
+  el: HTMLElement | null | undefined,
+  holdMs: number = HOLD.look,
+): Promise<void> {
+  if (!el) return;
+  el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  const remove = showSpotlightRing(el, { steady: true });
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    remove();
+  }
+}
+
+/** Dispatch a keyboard event marked so useDemoShortcuts ignores it. */
+function dispatchDemoKey(target: HTMLElement, key: string): void {
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+  (event as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
+  target.dispatchEvent(event);
+}
+
+/** Focus a tab for keyboard demos (spotlightHold provides the visible cue). */
+function focusTabVisible(tab: HTMLElement): void {
+  try {
+    tab.focus({ focusVisible: true } as FocusOptions);
+  } catch {
+    tab.focus();
+  }
+}
+
+/** Get a tab by index (0-based) from the connection tab bar */
+function getTabByIndex(index: number): HTMLElement | null {
+  const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
+  return (tabs[index] as HTMLElement) ?? null;
+}
+
+function getTabLabels(): string[] {
+  return Array.from(
+    document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"] .ws-conn-tab-label`),
+  ).map((el) => el.textContent?.trim() ?? '');
+}
+
+function findTabByLabel(label: string): HTMLElement | null {
+  const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
+  for (const t of tabs) {
+    if (t.querySelector('.ws-conn-tab-label')?.textContent?.trim() === label) {
+      return t as HTMLElement;
+    }
+  }
+  return null;
+}
+
 /**
  * Rename a specific tab by index (0-based).
  * click → focus → F2 → fill → Enter
@@ -32,64 +101,157 @@ async function renameTabByIndex(
   index: number,
   name: string,
   paceMs = 300,
+  opts: { spotlight?: boolean } = {},
 ): Promise<void> {
-  const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
-  const tab = tabs[index] as HTMLElement | null;
+  const tab = getTabByIndex(index);
   if (!tab) return;
+  const useSpotlight = opts.spotlight !== false && paceMs >= 400;
 
   tab.click();
   await ctx.delay(paceMs);
-  tab.focus();
-  await ctx.delay(Math.min(100, paceMs));
-  const f2Event = new KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true });
-  (f2Event as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
-  tab.dispatchEvent(f2Event);
+  if (useSpotlight) await spotlightHold(ctx, tab, HOLD.look);
+  else {
+    focusTabVisible(tab);
+    await ctx.delay(Math.max(120, Math.min(200, paceMs)));
+  }
+  focusTabVisible(tab);
+  dispatchDemoKey(tab, 'F2');
   await ctx.delay(paceMs);
 
   let input = document.querySelector(WS.CONN_TAB_RENAME) as HTMLInputElement | null;
   if (!input) {
     tab.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await ctx.delay(Math.min(200, paceMs));
+    await ctx.delay(Math.max(200, paceMs));
     input = document.querySelector(WS.CONN_TAB_RENAME) as HTMLInputElement | null;
   }
   if (!input) return;
 
+  // Hold the rename field so the viewer sees the input before typing.
+  if (useSpotlight) await spotlightHold(ctx, input, HOLD.beat);
+  fillControlledInput(input, '');
+  await ctx.delay(Math.max(200, paceMs));
   fillControlledInput(input, name);
-  await ctx.delay(Math.min(120, paceMs));
-  const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
-  (enterEvent as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
-  input.dispatchEvent(enterEvent);
-  await ctx.delay(Math.min(120, paceMs));
+  if (useSpotlight) await spotlightHold(ctx, input, HOLD.look);
+  else await ctx.delay(Math.max(500, paceMs));
+  dispatchDemoKey(input, 'Enter');
+  await ctx.delay(Math.max(300, paceMs));
+  // Outcome: renamed tab label
+  if (useSpotlight) {
+    const renamed = getTabByIndex(index);
+    await spotlightHold(ctx, renamed, HOLD.outcome);
+  }
 }
 
-/** Get a tab by index (0-based) from the connection tab bar */
-function getTabByIndex(index: number): HTMLElement | null {
-  const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
-  return (tabs[index] as HTMLElement) ?? null;
-}
-
-/** Focus a tab and dispatch a keyboard event on it */
-async function pressKeyOnTab(ctx: DemoActionContext, key: string, tab: HTMLElement | null): Promise<void> {
+/**
+ * Focus a tab, hold a steady spotlight, then dispatch a keyboard event.
+ */
+async function pressKeyOnTab(
+  ctx: DemoActionContext,
+  key: string,
+  tab: HTMLElement | null,
+  opts: { activateFirst?: boolean; paceMs?: number; spotlight?: boolean } = {},
+): Promise<void> {
   if (!tab) return;
-  tab.click();
-  await ctx.delay(200);
-  tab.focus();
-  await ctx.delay(100);
-  // Mark as demo-synthetic so useDemoShortcuts ignores it and does not
-  // accidentally advance/reverse the lesson step.
-  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
-  (event as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
-  tab.dispatchEvent(event);
-  await ctx.delay(300);
+  const paceMs = opts.paceMs ?? 350;
+  if (opts.activateFirst !== false) {
+    tab.click();
+    await ctx.delay(paceMs);
+  }
+  focusTabVisible(tab);
+  if (opts.spotlight !== false && paceMs >= 400) {
+    await spotlightHold(ctx, tab, HOLD.look);
+  } else {
+    await ctx.delay(Math.max(150, paceMs - 100));
+  }
+  dispatchDemoKey(tab, key);
+  await ctx.delay(paceMs);
+}
+
+/**
+ * Show drag feedback with steady spotlights, then reorder via the quiet seed bridge.
+ * Native HTML5 DnD cannot carry a synthetic DataTransfer in Chrome demos,
+ * so we paint the same opacity / drop-indicator classes the product uses.
+ */
+async function demonstrateTabReorder(
+  ctx: DemoActionContext,
+  fromIndex: number,
+  toIndex: number,
+): Promise<void> {
+  const source = getTabByIndex(fromIndex);
+  const target = getTabByIndex(toIndex);
+  if (!source || !target || fromIndex === toIndex) return;
+
+  const labels = getTabLabels();
+  if (labels.length < 2 || fromIndex >= labels.length || toIndex >= labels.length) return;
+
+  // 1) Look at the source tab (steady hold — not a flash)
+  await spotlightHold(ctx, source, HOLD.look);
+
+  source.classList.add('ws-conn-tab-dragging');
+  await spotlightHold(ctx, source, HOLD.beat);
+
+  const dropClass = fromIndex < toIndex ? 'ws-conn-tab-drop-after' : 'ws-conn-tab-drop-before';
+  target.classList.add(dropClass);
+  // 2) Look at the drop target / indicator
+  await spotlightHold(ctx, target, HOLD.outcome);
+
+  const next = [...labels];
+  const [moved] = next.splice(fromIndex, 1);
+  if (moved === undefined) {
+    source.classList.remove('ws-conn-tab-dragging');
+    target.classList.remove('ws-conn-tab-drop-before', 'ws-conn-tab-drop-after');
+    return;
+  }
+  next.splice(toIndex, 0, moved);
+
+  source.classList.remove('ws-conn-tab-dragging');
+  target.classList.remove('ws-conn-tab-drop-before', 'ws-conn-tab-drop-after');
+  seedWsConnectionTabsQuiet(next);
+  await ctx.delay(400);
+  // 3) Outcome — tab now at its new index
+  const landed = findTabByLabel(moved) ?? getTabByIndex(toIndex);
+  await spotlightHold(ctx, landed, HOLD.outcome);
+}
+
+/** Select Bearer auth type (visible) and return whether it succeeded. */
+async function selectBearerAuthVisible(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(WS.LEFT_TAB_AUTH);
+  await ctx.waitFor(WS.AUTH_TYPE_TRIGGER);
+  await ctx.delay(500);
+
+  const sel = firstVisibleEl<HTMLSelectElement>(WS.AUTH_TYPE_DROPDOWN);
+  if (sel?.value === 'bearer') return;
+
+  const trigger = firstVisibleEl<HTMLElement>(WS.AUTH_TYPE_TRIGGER);
+  if (trigger) {
+    await ctx.click(WS.AUTH_TYPE_TRIGGER);
+    await ctx.delay(400);
+    try {
+      await ctx.waitFor(WS.authTypeOpt('bearer'), 2000);
+      await ctx.click(WS.authTypeOpt('bearer'));
+      await ctx.delay(500);
+      return;
+    } catch {
+      /* fall through to selectOption */
+    }
+  }
+  if (sel) {
+    await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
+    await ctx.delay(400);
+  }
 }
 
 /**
  * Ensure exactly 3 named tabs exist: Server A, Server B, Staging.
- * Idempotent — closes extras first, adds if fewer than 3, then renames all.
- * Uses quiet DOM clicks + short pacing so setup/guards do not flash Mock mode
- * or a long rename tour while Live is already visible.
+ * Prefer the quiet seed bridge (no + Add / F2 flash). Falls back to DOM
+ * rename only when the bridge is unavailable (unit tests / early mount).
  */
-async function ensureThreeNamedTabs(ctx: DemoActionContext, paceMs = 80): Promise<void> {
+async function ensureThreeNamedTabs(ctx: DemoActionContext, paceMs = 40): Promise<void> {
+  if (seedWsConnectionTabsQuiet([...POWER_USER_TAB_LABELS])) {
+    await ctx.delay(80);
+    return;
+  }
+  // Fallback — quiet DOM path (tests without the studio bridge)
   await closeExtraConnectionTabs(ctx);
   await ctx.delay(40);
   const count = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`).length;
@@ -109,16 +271,16 @@ function threeNamedTabsReady(): boolean {
     document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"] .ws-conn-tab-label`),
   ).map((el) => el.textContent?.trim());
   return labels.length >= 3
-    && labels[0] === 'Server A'
-    && labels[1] === 'Server B'
-    && labels[2] === 'Staging';
+    && labels[0] === POWER_USER_TAB_LABELS[0]
+    && labels[1] === POWER_USER_TAB_LABELS[1]
+    && labels[2] === POWER_USER_TAB_LABELS[2];
 }
 
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
 /**
- * Quiet setup — REST mock + three named tabs ready before step 1 reading.
- * Must not open Mock mode or run a long visible rename tour during setup.
+ * Quiet setup — REST mock + three named tabs via seed bridge (no tab-bar flash).
+ * Must not open Mock mode or run add/rename tours while Live is visible.
  */
 async function powerUserSetup(ctx: DemoActionContext): Promise<void> {
   const dcBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
@@ -126,11 +288,9 @@ async function powerUserSetup(ctx: DemoActionContext): Promise<void> {
     dcBtn.click();
     await ctx.delay(40);
   }
-  await closeExtraConnectionTabs(ctx);
   await startMockServerQuiet(ctx, 9876);
   await switchToClientModeQuiet(ctx);
-  await ensureThreeNamedTabs(ctx, 70);
-  // Always start on Events tab so persisted Stats/Console/etc. doesn't bleed in
+  await ensureThreeNamedTabs(ctx, 40);
   const eventsTab = firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_EVENTS);
   if (eventsTab?.getAttribute('aria-selected') !== 'true') {
     eventsTab?.click();
@@ -154,8 +314,10 @@ export const wsPowerUserLesson: DemoLesson = {
   category: 'websocket',
   name: 'Power User: Tabs & Keyboard',
   description: 'Master tab drag-reorder, keyboard shortcuts, and per-tab persistence for a keyboard-first workflow.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 6,
   initialTab: 'websocket-studio',
+  // Teach the real tab bar — never add/rename a temporary "demo" tab at start.
+  skipStudioTabIsolation: true,
 
   setup: powerUserSetup,
   cleanup: powerUserCleanup,
@@ -351,20 +513,38 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       id: 'pu-setup-tabs',
       title: 'Three Tabs Ready',
       description:
-        'We start with three named tabs: **Server A**, **Server B**, and **Staging**. Each is an independent workspace. The active tab has a highlighted border and `tabIndex=0` — it\'s the keyboard focus anchor.',
+        'We start with three named tabs: **Server A**, **Server B**, and **Staging**. Watch us click through each one — every tab is its own workspace with its own URL draft and shell state. The active tab keeps `tabIndex=0` as the keyboard focus anchor.',
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Quiet guard if the viewer skipped setup / restarted mid-lesson.
         if (!threeNamedTabsReady()) {
-          await ensureThreeNamedTabs(ctx, 70);
+          await ensureThreeNamedTabs(ctx, 40);
         }
       },
       action: async (ctx: DemoActionContext) => {
-        // Tabs were prepared quietly in setup — observe only (no add/rename tour).
         await ctx.waitFor(WS.CONN_TAB_BAR);
-        firstVisibleEl<HTMLElement>(WS.CONN_TAB_FIRST)?.click();
-        await ctx.delay(900);
+        await ctx.delay(300);
+
+        // Tour each tab: steady spotlight → pause → click (no flashing outline).
+        const tabA = findTabByLabel('Server A') ?? getTabByIndex(0);
+        await spotlightHold(ctx, tabA, HOLD.look);
+        tabA?.click();
+        await ctx.delay(HOLD.beat);
+
+        const tabB = findTabByLabel('Server B') ?? getTabByIndex(1);
+        await spotlightHold(ctx, tabB, HOLD.look);
+        tabB?.click();
+        await ctx.delay(HOLD.beat);
+
+        const tabStaging = findTabByLabel('Staging') ?? getTabByIndex(2);
+        await spotlightHold(ctx, tabStaging, HOLD.look);
+        tabStaging?.click();
+        await ctx.delay(HOLD.beat);
+
+        const backToA = findTabByLabel('Server A') ?? getTabByIndex(0);
+        await spotlightHold(ctx, backToA, HOLD.look);
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(HOLD.outcome);
       },
     },
 
@@ -373,19 +553,24 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       id: 'pu-drag-reorder',
       title: 'Drag to Reorder',
       description:
-        '**Try it yourself right now!** Grab any tab and drag it to a new position. The source tab fades to 40% opacity while dragging, and a colored inset line appears on the target tab showing where the drop will land (left edge = before, right edge = after). Release to finalize — the new order is saved automatically.',
+        'Grab a tab and drag it to a new position. The demo **highlights Server A**, then holds on **Staging** with a drop indicator, then pauses on **Server A** in its new place. Order is saved automatically — you can drag any tab the same way.',
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: ensure 3 named tabs exist if user jumped directly to this step
-        const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
-        if (tabs.length < 3) {
-          await ensureThreeNamedTabs(ctx);
+        // Always restore canonical order so the drag demo is predictable.
+        if (!threeNamedTabsReady()) {
+          await ensureThreeNamedTabs(ctx, 40);
+        } else {
+          // Reseed if a prior drag left tabs out of order.
+          const labels = getTabLabels();
+          if (labels[0] !== 'Server A' || labels[1] !== 'Server B' || labels[2] !== 'Staging') {
+            await ensureThreeNamedTabs(ctx, 40);
+          }
         }
       },
       action: async (ctx: DemoActionContext) => {
-        // Drag can't be reliably automated; show the tabs and let user read
-        await ctx.delay(600);
+        // Move Server A (0) to the end (index 2) with visible drag feedback.
+        await demonstrateTabReorder(ctx, 0, 2);
       },
     },
 
@@ -394,27 +579,41 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       id: 'pu-kbd-arrow',
       title: 'Arrow Key Navigation',
       description:
-        'With a tab focused, press **→** to move focus to the next tab and **←** for the previous. Focus wraps around — pressing → on the last tab moves to the first. Note: arrow keys only move **focus**, not activation. Press **Enter** or **Space** to activate the focused tab.',
+        'With a tab focused, press **→** to move focus to the next tab (and **←** for the previous). Arrow keys move **focus only** — the active tab does not change until you press **Enter** or **Space**. Watch the steady highlight pause on each tab, then Enter activate it.',
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: ensure at least 2 tabs exist for meaningful arrow key demo
-        const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
-        if (tabs.length < 2) {
-          await ensureThreeNamedTabs(ctx);
+        if (!threeNamedTabsReady()) {
+          await ensureThreeNamedTabs(ctx, 40);
         }
+        // Start from the first tab so arrow navigation is easy to follow.
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
         const tab1 = getTabByIndex(0);
-        // Use index-based targeting: ArrowRight moves focus, not activation,
-        // so getActiveTab() would still return tab1 — target tab2 by index directly.
+        if (!tab1) return;
+
+        // Hold focus on Server A, then ArrowRight moves the ring to the next tab.
+        focusTabVisible(tab1);
+        await spotlightHold(ctx, tab1, HOLD.look);
+        dispatchDemoKey(tab1, 'ArrowRight');
+        await ctx.delay(HOLD.beat);
+
         const tab2 = getTabByIndex(1) ?? tab1;
-        if (tab1) {
-          await pressKeyOnTab(ctx, 'ArrowRight', tab1);
-          await ctx.delay(600);
-          await pressKeyOnTab(ctx, 'ArrowRight', tab2);
-          await ctx.delay(600);
-        }
+        focusTabVisible(tab2);
+        await spotlightHold(ctx, tab2, HOLD.look);
+        dispatchDemoKey(tab2, 'Enter');
+        await spotlightHold(ctx, tab2, HOLD.outcome);
+
+        // Arrow again → Enter activates the third tab.
+        dispatchDemoKey(tab2, 'ArrowRight');
+        await ctx.delay(HOLD.beat);
+        const tab3 = getTabByIndex(2) ?? tab2;
+        focusTabVisible(tab3);
+        await spotlightHold(ctx, tab3, HOLD.look);
+        dispatchDemoKey(tab3, 'Enter');
+        await spotlightHold(ctx, tab3, HOLD.outcome);
       },
     },
 
@@ -423,21 +622,20 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       id: 'pu-kbd-rename',
       title: 'F2 to Rename',
       description:
-        'Press **F2** on the focused tab to enter inline rename mode. Type a new name and press **Enter** to commit, or **Escape** to cancel. You can also **double-click** a tab label to start renaming. Watch as we rename the last tab to **Production**.',
+        'Press **F2** on the focused tab to enter inline rename mode. Watch the label turn into an input — we type **Production** and press **Enter** to commit. **Escape** cancels; **double-click** also starts rename.',
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: ensure tabs exist (if user jumped here directly)
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabs.length < 1) {
-          await ensureThreeNamedTabs(ctx);
+          await ensureThreeNamedTabs(ctx, 40);
         }
       },
       action: async (ctx: DemoActionContext) => {
-        // Rename the last tab to "Production" — viewer watches F2 → type → Enter
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabs.length > 0) {
-          await renameTabByIndex(ctx, tabs.length - 1, 'Production');
+          // Slower pacing so F2 → empty field → typed name → Enter is watchable.
+          await renameTabByIndex(ctx, tabs.length - 1, 'Production', 550);
         }
       },
     },
@@ -447,37 +645,25 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       id: 'pu-kbd-delete',
       title: 'Delete to Close',
       description:
-        'Press **Delete** on the focused tab to close it. If it has an active connection, a confirmation dialog appears first. Focus moves automatically to the nearest remaining tab. Watch as we close **Server B** with the Delete key.',
+        'Press **Delete** on the focused tab to close it. Watch **Server B** disappear — focus moves to a neighbor automatically. Connected tabs ask for confirmation first; ours are idle so the close is instant.',
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Ensure "Server B" exists — if it was already closed (step replay),
-        // add a fresh tab and rename it so the Delete demo is always meaningful.
-        const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
-        const hasSvrB = Array.from(tabs).some(t =>
-          t.querySelector('.ws-conn-tab-label')?.textContent === 'Server B'
-        );
+        const hasSvrB = !!findTabByLabel('Server B');
         if (!hasSvrB) {
           await ctx.click(WS.CONN_TAB_ADD);
-          await ctx.delay(300);
+          await ctx.delay(400);
           const newTabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
-          await renameTabByIndex(ctx, newTabs.length - 1, 'Server B');
+          await renameTabByIndex(ctx, newTabs.length - 1, 'Server B', 200);
         }
       },
       action: async (ctx: DemoActionContext) => {
-        // Find "Server B" and close it with the Delete keyboard shortcut
-        const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
-        let svrBTab: HTMLElement | null = null;
-        for (const t of tabs) {
-          if (t.querySelector('.ws-conn-tab-label')?.textContent === 'Server B') {
-            svrBTab = t as HTMLElement;
-            break;
-          }
-        }
-        if (svrBTab) {
-          await pressKeyOnTab(ctx, 'Delete', svrBTab);
-          await ctx.delay(600);
-        }
+        const svrBTab = findTabByLabel('Server B');
+        if (!svrBTab) return;
+        await pressKeyOnTab(ctx, 'Delete', svrBTab, { paceMs: 450, spotlight: true });
+        // Outcome — remaining tab bar after close
+        const bar = firstVisibleElement<HTMLElement>(WS.CONN_TAB_BAR);
+        await spotlightHold(ctx, bar, HOLD.outcome);
       },
     },
 
@@ -486,36 +672,55 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       id: 'pu-auth-persist',
       title: 'Auth Persists per Tab',
       description:
-        'Each tab remembers its own auth settings. Switch to the **Auth** tab — it shows the connection authentication config for this tab only. Switch to another connection tab, then come back — the auth draft is unchanged. This means you can configure different credentials per connection.',
-      highlight: WS.LEFT_TAB_AUTH,
+        'Each connection tab stores its own auth draft. On **Server A** we open **Auth**, pick **Bearer**, and paste a demo token. Switch to another tab — its Auth panel is still empty. Switch back — Server A\'s token is still there.',
+      highlight: WS.AUTH_PANEL,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: need at least 2 connection tabs for a meaningful cross-tab demo
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabs.length < 2) {
           await ctx.click(WS.CONN_TAB_ADD);
           await ctx.delay(400);
         }
-        // Reset left pane to Connect so the action visibly switches to Auth
         await ctx.click(WS.CONN_TAB_FIRST);
         await ctx.delay(200);
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
-        // Switch to Auth tab in current connection tab
-        await ctx.click(WS.LEFT_TAB_AUTH);
-        await ctx.delay(800);
-        // Switch to the other connection tab
+        const tabA = findTabByLabel('Server A') ?? getTabByIndex(0);
+        await spotlightHold(ctx, tabA, HOLD.look);
+
+        await selectBearerAuthVisible(ctx);
+        const authTrigger = firstVisibleElement<HTMLElement>(WS.AUTH_TYPE_TRIGGER);
+        await spotlightHold(ctx, authTrigger, HOLD.look);
+
+        const tokenInput = firstVisibleElement<HTMLElement>(WS.AUTH_PANE_INPUTS);
+        await spotlightHold(ctx, tokenInput, HOLD.beat);
+        await ctx.fill(WS.AUTH_PANE_INPUTS, DEMO_BEARER_TOKEN);
+        await spotlightHold(ctx, tokenInput ?? firstVisibleElement<HTMLElement>(WS.AUTH_PANEL), HOLD.outcome);
+
+        // Other tab — Auth should not show Server A's token.
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabs.length >= 2) {
-          const otherTab = tabs[tabs.length - 1] as HTMLElement;
-          otherTab.click();
-          await ctx.delay(800);
+          const other = tabs[tabs.length - 1] as HTMLElement;
+          await spotlightHold(ctx, other, HOLD.look);
+          other.click();
+          await ctx.delay(HOLD.beat);
+          await ctx.click(WS.LEFT_TAB_AUTH);
+          await spotlightHold(ctx, firstVisibleElement<HTMLElement>(WS.AUTH_PANEL), HOLD.outcome);
         }
-        // Switch back to first tab to show auth is preserved
+
+        // Back to Server A — token still present.
+        await spotlightHold(ctx, findTabByLabel('Server A') ?? getTabByIndex(0), HOLD.look);
         await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(800);
+        await ctx.delay(HOLD.beat);
+        await ctx.click(WS.LEFT_TAB_AUTH);
+        await spotlightHold(
+          ctx,
+          firstVisibleElement<HTMLElement>(WS.AUTH_PANE_INPUTS)
+            ?? firstVisibleElement<HTMLElement>(WS.AUTH_PANEL),
+          HOLD.outcome,
+        );
       },
     },
 
@@ -524,54 +729,67 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       id: 'pu-pane-persist',
       title: 'Shell Tabs Persist per Tab',
       description:
-        'The left and right pane tabs (Connect/Auth/Events/Console) are remembered **per connection tab**. Tab 1 can be on Console while Tab 2 shows Events. Switch between connection tabs — each returns to its last-used shell tab. This makes multi-environment comparison workflows natural.',
+        'Shell tabs (Connect / Auth / Events / Console) are remembered **per connection tab**. Watch: set **Server A** to **Console**, set the other tab to **Events**, then flip between them — each returns to its last shell tab.',
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
+      verify: WS.RIGHT_TAB_EVENTS,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: need at least 2 tabs to demonstrate cross-tab state persistence
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabs.length < 2) {
           await ctx.click(WS.CONN_TAB_ADD);
           await ctx.delay(400);
         }
-        // Pre-load independent state on both tabs so the viewer sees distinct
-        // left+right panes during the reading phase, matching the description.
-        // Last tab: Auth (left) + Events (right)
+        // Quiet baseline: both tabs on Connect + Events so the action's switches are obvious.
         const allTabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         const lastTab = allTabs[allTabs.length - 1] as HTMLElement | null;
         if (lastTab) {
           lastTab.click();
-          await ctx.delay(300);
-          await ctx.click(WS.LEFT_TAB_AUTH);
-          await ctx.delay(200);
-          await ctx.click(WS.RIGHT_TAB_EVENTS);
-          await ctx.delay(200);
+          await ctx.delay(150);
+          firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+          firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+          await ctx.delay(120);
         }
-        // First tab: Connect (left) + Console (right) — shown during reading
         await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(300);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
-        await ctx.click(WS.RIGHT_TAB_CONSOLE);
-        await ctx.delay(300);
+        await ctx.delay(150);
+        firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+        firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+        await ctx.delay(150);
       },
       action: async (ctx: DemoActionContext) => {
-        // Switch to last tab — Auth (left) + Events (right) prove per-tab memory
+        // Server A → Console (spotlight each shell control, then hold the outcome)
+        await spotlightHold(ctx, findTabByLabel('Server A') ?? getTabByIndex(0), HOLD.look);
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(HOLD.beat);
+        const consoleTab = firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_CONSOLE);
+        await spotlightHold(ctx, consoleTab, HOLD.look);
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await spotlightHold(ctx, consoleTab ?? firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_CONSOLE), HOLD.outcome);
+
+        // Other tab → Events
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabs.length >= 2) {
-          const lastTab = tabs[tabs.length - 1] as HTMLElement;
-          lastTab.click();
-          await ctx.delay(1000);
+          const other = tabs[tabs.length - 1] as HTMLElement;
+          await spotlightHold(ctx, other, HOLD.look);
+          other.click();
+          await ctx.delay(HOLD.beat);
+          const eventsTab = firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_EVENTS);
+          await spotlightHold(ctx, eventsTab, HOLD.look);
+          await ctx.click(WS.RIGHT_TAB_EVENTS);
+          await spotlightHold(ctx, eventsTab ?? firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_EVENTS), HOLD.outcome);
         }
-        // Switch back to first tab — Connect (left) + Console (right) are restored
+
+        // Back to Server A — Console restored
+        await spotlightHold(ctx, findTabByLabel('Server A') ?? getTabByIndex(0), HOLD.look);
         await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(1000);
-        // One final switch to last tab — Events is still active, proving persistence
+        await spotlightHold(ctx, firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_CONSOLE), HOLD.outcome);
+
+        // Other tab again — Events still selected
         const tabsAgain = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabsAgain.length >= 2) {
-          const lastTab = tabsAgain[tabsAgain.length - 1] as HTMLElement;
-          lastTab.click();
-          await ctx.delay(800);
+          const otherAgain = tabsAgain[tabsAgain.length - 1] as HTMLElement;
+          await spotlightHold(ctx, otherAgain, HOLD.look);
+          otherAgain.click();
+          await spotlightHold(ctx, firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_EVENTS), HOLD.outcome);
         }
       },
     },

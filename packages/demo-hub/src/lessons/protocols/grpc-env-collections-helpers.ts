@@ -61,12 +61,30 @@ export async function ensureStudioNavQuiet(ctx: DemoActionContext): Promise<void
 export async function clearProtocolVarsQuiet(ctx: DemoActionContext): Promise<void> {
   await navigateToEnvironmentManager(ctx);
   await expandNamedMicroservice(ctx, GRPC_DEMO_SVC_NAME);
+  // No badge ⇒ no protocol vars UI (e.g. gRPC protocol removed in setup). Skip
+  // so boot does not click a missing control / flash an empty modal.
+  const badge = document.querySelector('[data-testid="protocol-vars-badge"]');
+  if (!badge) {
+    customVarsSeededThisRun = false;
+    return;
+  }
   const modalOpen = !!document.querySelector('[data-testid="protocol-vars-modal"]');
   if (!modalOpen) {
     await ctx.click('[data-testid="protocol-vars-badge"]');
     await ctx.delay(200);
   }
+  if (!document.querySelector('[data-testid="protocol-vars-modal"]')) {
+    customVarsSeededThisRun = false;
+    return;
+  }
   const rowSelectors = Array.from(document.querySelectorAll<HTMLElement>('[data-testid^="protocol-var-row-"]'));
+  if (rowSelectors.length === 0) {
+    // Nothing to clear — dismiss quietly.
+    document.querySelector<HTMLButtonElement>('[data-testid="protocol-vars-close-btn"]')?.click();
+    await ctx.delay(120);
+    customVarsSeededThisRun = false;
+    return;
+  }
   for (let index = rowSelectors.length - 1; index >= 0; index -= 1) {
     const row = rowSelectors[index];
     const key = row?.getAttribute('data-testid')?.replace('protocol-var-row-', '') ?? '';

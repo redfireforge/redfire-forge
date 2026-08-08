@@ -22,6 +22,12 @@ describe('GQL selectors', () => {
     expect(GQL.LESSON14_TAB2_BADGE).toBe('[data-lesson-target="gql14-tab2-badge"]');
   });
 
+  it('exposes GQL-15 Demo: Batch Execution tab spotlight selector', () => {
+    expect(GQL.LESSON15_DEMO_TAB).toBe(
+      '[data-testid="gql-tab-bar"] [role="tab"][data-demo-lesson="gql-batch-execution"]',
+    );
+  });
+
   it('exposes polling and profile-link selectors for GQL-14 optional steps', () => {
     expect(GQL.POLLING_TOGGLE).toBe('[data-testid="gql-polling-toggle"]');
     expect(GQL.AUTH_PROFILE_HINT).toBe('[data-testid="gql-auth-profile-hint"]');
@@ -34,6 +40,7 @@ describe('GQL selectors', () => {
     expect(GQL.RESPONSE_OPEN_BATCH_RESULTS).toBe('[data-testid="gql-rv-open-batch-results"]');
     expect(GQL.RESPONSE_WIRE_BATCH_BODY).toBe('[data-testid="gql-rv-wire-batch-body"]');
     expect(GQL.RESPONSE_WIRE_BATCH_BODY_TOGGLE).toBe('[data-testid="gql-rv-wire-batch-body-toggle"]');
+    expect(GQL.RESPONSE_ERROR_LIST).toBe('[data-testid="gql-rv-error-list"]');
     expect(GQL.BATCH_RESULTS_FAILED_PILL).toBe('[data-testid="gql-batch-results-failed-pill"]');
   });
 

@@ -3,6 +3,27 @@
    z-index: 10101 (spotlight), 10110 (live panel)
    ============================================================ */
 
+/*
+ * Start Demo → step 1: no interstitial of any kind.
+ *
+ * Covers tried and rejected here: opacity:0 app-main, a --bg overlay, a
+ * blurred DOM clone, an elevated Demo Hub, a Concept portal, and a
+ * "Preparing lesson…" spinner veil. Each one is itself a screen the viewer
+ * should not see.
+ *
+ * The transient screens are removed at the source instead — lessons declare
+ * `initialSurface` so the lesson tab mounts on step 1's sub-panel directly
+ * (see src/shared/demoInitialSurface.ts). Only pointer blocking remains.
+ */
+body[data-demo-bootstrapping="1"] .app-main {
+  pointer-events: none;
+}
+
+/* Parked when another tab is active. */
+#demo-hub-mount[data-demo-hub-active="0"] {
+  display: none;
+}
+
 /* ─── Hub Pane (renders inside .app-tab-pane) ────────────────── */
 .demo-hub-pane {
   display: flex;

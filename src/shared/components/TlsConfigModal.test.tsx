@@ -92,4 +92,17 @@ describe('TlsConfigModal', () => {
     renderModal({ dirty: false });
     expect(screen.getByTestId('tls-save')).toBeDisabled();
   });
+
+  it('renders resize handles and gRPC size class', () => {
+    renderModal({
+      testIdPrefix: 'grpc-tls',
+      bodySlot: <div data-testid="grpc-tls-slot">body</div>,
+    });
+    // Portal-rendered into document.body
+    const dialog = document.querySelector('.ws-tls-modal.grpc-tls-config-modal');
+    expect(dialog).toBeTruthy();
+    expect(document.querySelector('.modal-resize-edge-right')).toBeTruthy();
+    expect(document.querySelector('.modal-resize-corner')).toBeTruthy();
+    expect(document.querySelector('.modal-resize-edge-bottom')).toBeTruthy();
+  });
 });

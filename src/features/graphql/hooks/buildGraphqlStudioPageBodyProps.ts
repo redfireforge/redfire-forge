@@ -153,6 +153,7 @@ export function buildGraphqlStudioPageBodyProps({
       setRightView: uiState.setRightView,
       handleAdvSettingsChange: advancedSettings.handleAdvSettingsChange,
       setBatchUnsupportedToast: advancedSettings.setBatchUnsupportedToast,
+      clearActiveTabAuth: tabsLayer.clearActiveTabAuth,
     },
     executionLayers: executionLayer.execution.executionLayers as ReactNode,
     toolbarSections,
