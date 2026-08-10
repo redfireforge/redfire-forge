@@ -13,4 +13,3 @@ mod tests;
 pub use catalog::build_dispatch_catalog;
 pub use server::start_mock_dispatch_server;
 pub use state::NativeMockDispatchState;
-pub use types::MockDispatchCatalog;

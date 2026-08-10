@@ -6,6 +6,7 @@
  * to reduce component size and enable independent unit testing.
  */
 import { v4 as uuidv4 } from 'uuid';
+import * as XLSX from 'xlsx-js-style';
 import type { DataSourceColumn, DataSourceRow } from '../../../shared/types';
 import type { CsvParseResult } from './csvTemplateTypes';
 
@@ -196,7 +197,6 @@ export async function parseExcelSimple(
   buffer: ArrayBuffer,
   existingColumns: DataSourceColumn[],
 ): Promise<{ columns: DataSourceColumn[]; rows: DataSourceRow[] }> {
-  const XLSX = await import('xlsx-js-style');
   const wb = XLSX.read(buffer, { type: 'array' });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return { columns: [], rows: [] };

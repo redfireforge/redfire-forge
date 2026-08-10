@@ -20,12 +20,8 @@ Let me emphasize no monorithc file and all of them should have code coverage ove
 
 --------------------------------------------------------------------------
 E2E Tests Review
-Consider all of files for E2E test including this branch. 
-Please full E2E tests and if there is any issue or bug, please fix them. 
-You should do consider entire codes for E2E tests. And any existing bug or issue should be fixed. 
-And if E2E tests need any docker environment, please use existing or create new docker environment and run E2E tests.
-And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel.
-Condider across the entire codebase, not just this branch. PERIOD. 
+I want you run only Test Harness E2E. But please run lesson by lesson and if you find any issue, please fix it. Then move forward to next lesson. After you fix all of the issue, plesse run this entire E2E.  Remember you should not change source code for E2E. 
+You can change E2E test file to fix issues, but don't change source code or demo scenarios codes. 
 --------------------------------------------------------------------------
 
 Plan Re-Summarization

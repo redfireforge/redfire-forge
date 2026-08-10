@@ -11,7 +11,6 @@ mod tests;
 
 pub use evaluation::{evaluate_grpc_mock_rule_set, validate_grpc_mock_rule_set};
 pub use types::{
-    GrpcMockDefaultResponse, GrpcMockEvaluationContext, GrpcMockPredicate,
-    GrpcMockRule, GrpcMockRuleEvaluationResult, GrpcMockRuleResponse, GrpcMockRuleSet,
-    GRPC_MOCK_DEFAULT_STATUS_CODE, GRPC_MOCK_DEFAULT_STATUS_MESSAGE,
+    GrpcMockEvaluationContext, GrpcMockRuleEvaluationResult, GrpcMockRuleResponse,
+    GrpcMockRuleSet,
 };
