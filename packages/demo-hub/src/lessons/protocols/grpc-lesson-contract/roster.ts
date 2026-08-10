@@ -9,6 +9,7 @@ import {
   GRPC_SPRING_DOCKER_COMMAND,
   GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL,
   GRPC_STUDIO_LESSON_ALLOWED_TABS,
+  GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS,
 } from '../../../adapters';
 import type { GrpcLessonRosterEntry } from './types';
 import { GRPC_LESSON_SCHEMA_VERSION } from './types';
@@ -181,7 +182,7 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     ...GO_ECHO_DOCKER,
     initialTab: 'workflow',
     allowedTabs: [...STUDIO_TABS, 'workflow'],
-    estimatedMinutes: 8,
+    estimatedMinutes: 7,
   },
   {
     number: 12,
@@ -262,7 +263,7 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     ...GO_ECHO_DOCKER,
     initialTab: 'grpc-studio',
     allowedTabs: STUDIO_TABS,
-    estimatedMinutes: 7,
+    estimatedMinutes: 9,
   },
   {
     number: 17,
@@ -298,10 +299,15 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     title: 'Transport Modes: Express, gRPC-Web & Spring Servlet',
     keyConcept: 'Browser proxy model, gRPC-Web/Spring Servlet browser-direct transports, Express retry fallback, per-tab config',
     phaseDependencies: [1, 10],
-    fixtures: GO_ECHO_FIXTURE,
+    fixtures: {
+      ...GO_ECHO_FIXTURE,
+      requireEnvoyGrpcWeb: true,
+    },
     implementationStatus: 'shipped',
     introducedInSchemaVersion: 1,
     ...GO_ECHO_DOCKER,
+    // Override: GRPC-19 also needs the Envoy grpc-web sidecar on :50055.
+    dockerEndpoints: [...GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS],
     initialTab: 'grpc-studio',
     allowedTabs: STUDIO_TABS,
     estimatedMinutes: 6,
@@ -330,7 +336,8 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     implementationStatus: 'shipped',
     introducedInSchemaVersion: 1,
     ...GO_ECHO_DOCKER,
-    initialTab: 'grpc-studio',
+    // Land on Environments — step 1 is EM; bouncing through Studio first flashes.
+    initialTab: 'environments',
     allowedTabs: [...STUDIO_TABS, 'environments'],
     estimatedMinutes: 6,
   },
@@ -378,6 +385,20 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     initialTab: 'workflow',
     allowedTabs: [...STUDIO_TABS, 'workflow', 'workflow-runner', 'results'],
     estimatedMinutes: 10,
+  },
+  {
+    number: 25,
+    id: 'grpc-tabs',
+    title: 'Multi-Tab gRPC Calls',
+    keyConcept: 'Per-tab method binding, duplicate tab, independent responses',
+    phaseDependencies: [5],
+    fixtures: GO_ECHO_FIXTURE,
+    implementationStatus: 'shipped',
+    introducedInSchemaVersion: 1,
+    ...GO_ECHO_DOCKER,
+    initialTab: 'grpc-studio',
+    allowedTabs: STUDIO_TABS,
+    estimatedMinutes: 4,
   },
 ] as const;
 

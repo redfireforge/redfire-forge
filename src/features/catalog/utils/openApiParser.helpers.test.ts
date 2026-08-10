@@ -190,6 +190,17 @@ describe('parseOpenApiSpec', () => {
       expect(countEndpoints(result.entry)).toBe(4);
     });
   });
+  describe('specFormat on parsed version', () => {
+    it('stores "OpenAPI 3.0.3" for an OpenAPI 3 spec', async () => {
+      const result = await parseOpenApiSpec(OPENAPI_3_MINIMAL);
+      expect(result.entry.versions[0].specFormat).toBe('OpenAPI 3.0.3');
+    });
+
+    it('stores "Swagger 2.0" for a Swagger 2 spec', async () => {
+      const result = await parseOpenApiSpec(SWAGGER_2_MINIMAL);
+      expect(result.entry.versions[0].specFormat).toBe('Swagger 2.0');
+    });
+  });
   describe('getSpecFormatLabel', () => {
     it('detects OpenAPI 3.x', () => {
       expect(getSpecFormatLabel(OPENAPI_3_MINIMAL)).toBe('OpenAPI 3.0.3');

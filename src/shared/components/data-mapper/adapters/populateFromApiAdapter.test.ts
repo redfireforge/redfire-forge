@@ -526,7 +526,8 @@ describe('validate', () => {
   it('reports error when response JSON exists but has no array path', () => {
     const adapter = createPopulateFromApiAdapter({
       dataSource: makeDataSource(),
-      responseJson: { name: 'test', value: 42 },
+      // Empty nested array → no detectable object-array path
+      responseJson: { items: [] },
     });
     const issues = adapter.validate!(MAPPINGS);
     expect(issues.some(i => i.severity === 'error' && i.message.includes('No array found'))).toBe(true);
@@ -595,8 +596,21 @@ describe('fetchSampleData', () => {
     expect(adapter.selectedArrayPath).toBe('large');
   });
 
-  it('returns undefined when response has no arrays', async () => {
-    const fetchFn = vi.fn().mockResolvedValue({ scalar: 42 });
+  it('wraps a plain object response as a single-item root array', async () => {
+    const user = { id: 1, name: 'Leanne Graham', email: 'leanne@test.com' };
+    const fetchFn = vi.fn().mockResolvedValue(user);
+    const adapter = createPopulateFromApiAdapter({
+      dataSource: makeDataSource(),
+      fetchSampleData: fetchFn,
+    });
+    const result = await adapter.fetchSampleData!();
+    expect(result).toEqual(user);
+    expect(adapter.selectedArrayPath).toBe('$');
+    expect(adapter.getResponseJson()).toEqual([user]);
+  });
+
+  it('returns undefined when response has no mappable object fields', async () => {
+    const fetchFn = vi.fn().mockResolvedValue({});
     const adapter = createPopulateFromApiAdapter({
       dataSource: makeDataSource(),
       fetchSampleData: fetchFn,
@@ -639,13 +653,16 @@ describe('edge cases', () => {
     expect(adapter.selectedArrayPath).toBe('');
   });
 
-  it('handles response with no arrays', () => {
+  it('wraps plain object responses with no nested arrays', () => {
     const response = { name: 'test', value: 42 };
     const adapter = createPopulateFromApiAdapter({
       dataSource: makeDataSource(),
       responseJson: response,
     });
-    expect(adapter.detectedArrays).toEqual([]);
+    expect(adapter.detectedArrays).toEqual([
+      expect.objectContaining({ path: '$', length: 1 }),
+    ]);
+    expect(adapter.sources[0].sampleData).toEqual(response);
   });
 
   it('handles array items with missing fields gracefully', () => {

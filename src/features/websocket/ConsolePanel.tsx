@@ -62,6 +62,7 @@ const LEVEL_BADGE_LABELS: Record<string, string> = {
 export function ConsolePanel(props: ConsolePanelProps): React.ReactElement {
   const { entries, settings, onSettingsChange, onClear, variant, onCommand, commandHint } = props;
   const [search, setSearch] = useState('');
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -108,6 +109,28 @@ export function ConsolePanel(props: ConsolePanelProps): React.ReactElement {
 
   const setView = (view: WsConsoleView) => patch({ view });
   const isRaw = settings.view === 'raw';
+  const categoryLabel = settings.categoryFilter === 'all'
+    ? 'All categories'
+    : WS_CONSOLE_CATEGORY_LABELS[settings.categoryFilter];
+
+  useEffect(() => {
+    if (!categoryOpen) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('.ws-console-category-dropdown')) {
+        setCategoryOpen(false);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCategoryOpen(false);
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [categoryOpen]);
 
   return (
     <div className="ws-console" data-testid={`${variant}-console`}>
@@ -140,22 +163,53 @@ export function ConsolePanel(props: ConsolePanelProps): React.ReactElement {
           ))}
         </div>
 
-        <select
-          className="ws-console-category-filter"
-          value={settings.categoryFilter}
-          onChange={(e) =>
-            patch({ categoryFilter: e.target.value as WsConsoleCategoryFilter })
-          }
-          aria-label="Category"
-          data-testid={`${variant}-console-category`}
-        >
-          <option value="all">All categories</option>
-          {WS_CONSOLE_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {WS_CONSOLE_CATEGORY_LABELS[c]}
-            </option>
-          ))}
-        </select>
+        <div className="ws-console-category-dropdown">
+          <button
+            type="button"
+            className="ws-console-category-filter"
+            aria-label="Category"
+            aria-haspopup="listbox"
+            aria-expanded={categoryOpen}
+            onClick={() => setCategoryOpen((open) => !open)}
+            data-testid={`${variant}-console-category`}
+          >
+            <span>{categoryLabel}</span>
+            <span className="ws-console-category-chevron" aria-hidden>▾</span>
+          </button>
+          {categoryOpen && (
+            <div className="ws-console-category-menu" role="listbox" aria-label="Console category options">
+              <button
+                type="button"
+                className={`ws-console-category-option${settings.categoryFilter === 'all' ? ' active' : ''}`}
+                role="option"
+                aria-selected={settings.categoryFilter === 'all'}
+                onClick={() => {
+                  patch({ categoryFilter: 'all' });
+                  setCategoryOpen(false);
+                }}
+                data-testid={`${variant}-console-category-opt-all`}
+              >
+                All categories
+              </button>
+              {WS_CONSOLE_CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`ws-console-category-option${settings.categoryFilter === c ? ' active' : ''}`}
+                  role="option"
+                  aria-selected={settings.categoryFilter === c}
+                  onClick={() => {
+                    patch({ categoryFilter: c as WsConsoleCategoryFilter });
+                    setCategoryOpen(false);
+                  }}
+                  data-testid={`${variant}-console-category-opt-${c}`}
+                >
+                  {WS_CONSOLE_CATEGORY_LABELS[c]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <input
           className="ws-console-search"
@@ -311,18 +365,19 @@ function StructuredView(props: {
     <div className="ws-console-list">
       {entries.map((e) => {
         const hasDetail = !!e.detail;
-        const expanded = expandedIds.has(e.id);
+        const isHelpEntry = e.category === 'command' && e.message.startsWith('Available commands');
+        const expanded = isHelpEntry || expandedIds.has(e.id);
         return (
           <div key={e.id} className="ws-console-row-group">
             <div
               className={`ws-console-row ws-console-${e.level}${
                 hasDetail ? ' ws-console-expandable' : ''
               }${expanded ? ' ws-console-expanded' : ''}`}
-              onClick={hasDetail ? () => onToggle(e.id) : undefined}
-              role={hasDetail ? 'button' : undefined}
-              tabIndex={hasDetail ? 0 : undefined}
+              onClick={hasDetail && !isHelpEntry ? () => onToggle(e.id) : undefined}
+              role={hasDetail && !isHelpEntry ? 'button' : undefined}
+              tabIndex={hasDetail && !isHelpEntry ? 0 : undefined}
               onKeyDown={
-                hasDetail
+                hasDetail && !isHelpEntry
                   ? (ev) => {
                       if (ev.key === 'Enter' || ev.key === ' ') {
                         ev.preventDefault();
@@ -339,7 +394,7 @@ function StructuredView(props: {
               </span>
               <span className="ws-console-cat">{e.category}</span>
               <span className="ws-console-msg">{e.message}</span>
-              {hasDetail && (
+              {hasDetail && !isHelpEntry && (
                 <span className="ws-console-chev">{expanded ? '⌄' : '›'}</span>
               )}
             </div>

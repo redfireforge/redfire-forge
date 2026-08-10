@@ -7,6 +7,10 @@ import '@testing-library/jest-dom';
 import ColumnOrderPopover from './ColumnOrderPopover';
 import { OrderableItem } from './ColumnOrderPopover';
 
+function fieldRows(): HTMLElement[] {
+  return Array.from(document.querySelectorAll('.col-order-field-item')) as HTMLElement[];
+}
+
 describe('ColumnOrderPopover', () => {
   const createItems = (): OrderableItem[] => [
     { mapping: 'userId', name: 'userId', type: 'path' },
@@ -21,7 +25,7 @@ describe('ColumnOrderPopover', () => {
   };
 
   beforeEach(() => {
-    resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders header with title', () => {
@@ -45,7 +49,7 @@ describe('ColumnOrderPopover', () => {
 
   it('shows close button', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    fireEvent.click(screen.getAllByText('×')[0]);
+    fireEvent.click(screen.getByText('Cancel'));
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 
@@ -119,13 +123,12 @@ describe('ColumnOrderPopover', () => {
 
   it('supports drag and drop reordering', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    const items = screen.getAllByText('⠿');
-    expect(items.length).toBe(3);
+    expect(fieldRows().length).toBe(3);
   });
 
   it('omits dragOver state branch when hovering the same slot twice', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    const items = screen.getAllByText('⠿').map(el => el.closest('.col-order-field-item') as HTMLElement);
+    const items = fieldRows();
     const dt = {
       effectAllowed: '',
       dropEffect: '',
@@ -144,7 +147,7 @@ describe('ColumnOrderPopover', () => {
 
   it('ends drag without reordering when dropped on same index', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    const items = screen.getAllByText('⠿').map(el => el.closest('.col-order-field-item') as HTMLElement);
+    const items = fieldRows();
     const dt = {
       effectAllowed: '',
       dropEffect: '',
@@ -194,7 +197,7 @@ describe('ColumnOrderPopover', () => {
 
   it('shows drag-to-reorder label', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    expect(screen.getByText('Drag to reorder:')).toBeInTheDocument();
+    expect(screen.getByText('Drag to reorder')).toBeInTheDocument();
   });
 
   it('calls onClose when mousedown occurs outside the popover', () => {
@@ -216,7 +219,7 @@ describe('ColumnOrderPopover', () => {
 
   it('reorders rows via drag and drop', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    const items = screen.getAllByText('⠿').map(el => el.closest('.col-order-field-item') as HTMLElement);
+    const items = fieldRows();
     expect(items.length).toBe(3);
     const dt = { effectAllowed: '', dropEffect: 'move', setData: vi.fn(), preventDefault: vi.fn() };
     fireEvent.dragStart(items[0], { dataTransfer: dt as unknown as DataTransfer });
@@ -301,7 +304,7 @@ describe('ColumnOrderPopover', () => {
 
   it('drops without reordering when drop fires with no active drag', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    const rows = screen.getAllByText('⠿').map(el => el.closest('.col-order-field-item') as HTMLElement);
+    const rows = fieldRows();
     const dt = { effectAllowed: '', dropEffect: '', preventDefault: vi.fn() };
     fireEvent.drop(rows[1], { dataTransfer: dt as unknown as DataTransfer, preventDefault: () => {} });
     const names = screen.getAllByText(/userId|status|name/).filter(el => el.classList.contains('col-order-field-name'));
@@ -310,7 +313,7 @@ describe('ColumnOrderPopover', () => {
 
   it('updates drag-over highlight when hovering a different row while dragging', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    const rows = screen.getAllByText('⠿').map(el => el.closest('.col-order-field-item') as HTMLElement);
+    const rows = fieldRows();
     const dt = {
       effectAllowed: '',
       dropEffect: '',
@@ -326,5 +329,110 @@ describe('ColumnOrderPopover', () => {
     fireEvent.dragOver(rows[2], { dataTransfer: dt, preventDefault: () => {} });
     expect(rows[2].className).toContain('drag-over');
     fireEvent.dragEnd(rows[0]);
+  });
+
+  it('portals a fixed panel with move header and resize handles', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    const panel = screen.getByTestId('col-order-popover');
+    expect(panel.className).toContain('col-order-popover--fixed');
+    expect(panel.parentElement).toBe(document.body);
+    expect(screen.getByTestId('col-order-header')).toBeInTheDocument();
+    expect(panel.querySelector('.modal-resize-edge-right')).toBeTruthy();
+    expect(panel.querySelector('.modal-resize-corner')).toBeTruthy();
+    expect(panel.querySelector('.modal-resize-edge-bottom')).toBeTruthy();
+  });
+
+  it('moves when dragging the header', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    const panel = screen.getByTestId('col-order-popover');
+    const header = screen.getByTestId('col-order-header');
+    const beforeTop = Number.parseFloat(panel.style.top || '0');
+    const beforeLeft = Number.parseFloat(panel.style.left || '0');
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(window, { clientX: 140, clientY: 130 });
+    fireEvent.mouseUp(window);
+    expect(Number.parseFloat(panel.style.top || '0')).toBe(beforeTop + 30);
+    expect(Number.parseFloat(panel.style.left || '0')).toBe(beforeLeft + 40);
+  });
+
+  it('resizes from the bottom-right corner', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    const panel = screen.getByTestId('col-order-popover');
+    const corner = panel.querySelector('.modal-resize-corner') as HTMLElement;
+    // jsdom getBoundingClientRect is 0×0 — stub a usable starting size
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+      width: 360,
+      height: 280,
+      top: 40,
+      left: 100,
+      bottom: 320,
+      right: 460,
+      x: 100,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.mouseDown(corner, { clientX: 460, clientY: 320 });
+    fireEvent.mouseMove(window, { clientX: 520, clientY: 380 });
+    fireEvent.mouseUp(window);
+    expect(Number.parseFloat(panel.style.width || '0')).toBe(420);
+    expect(Number.parseFloat(panel.style.height || '0')).toBe(340);
+  });
+
+  it('does not add move/resize chrome for inline variant', () => {
+    render(<ColumnOrderPopover {...defaultProps} variant="inline" />);
+    const panel = screen.getByTestId('col-order-popover');
+    expect(panel.className).toContain('col-order-popover--inline');
+    expect(panel.querySelector('.modal-resize-corner')).toBeNull();
+    expect(panel.querySelector('.col-order-move-hint')).toBeNull();
+  });
+
+  it('does not close when clicking inside anchor element', () => {
+    const anchor = document.createElement('button');
+    anchor.textContent = 'anchor';
+    document.body.appendChild(anchor);
+    const ref = { current: anchor };
+
+    render(<ColumnOrderPopover {...defaultProps} anchorRef={ref} />);
+    fireEvent.mouseDown(anchor);
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
+
+    document.body.removeChild(anchor);
+  });
+
+  it('closes on Escape keydown', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(defaultProps.onClose).toHaveBeenCalled();
+  });
+
+  it('ignores header drag start from interactive child', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    const panel = screen.getByTestId('col-order-popover');
+    const beforeTop = panel.style.top;
+    const beforeLeft = panel.style.left;
+    const cancelBtn = screen.getByTestId('col-order-close');
+
+    fireEvent.mouseDown(cancelBtn, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(window, { clientX: 160, clientY: 160 });
+    fireEvent.mouseUp(window);
+
+    expect(panel.style.top).toBe(beforeTop);
+    expect(panel.style.left).toBe(beforeLeft);
+  });
+
+  it('renders unnamed fallback label when name is empty', () => {
+    render(
+      <ColumnOrderPopover
+        {...defaultProps}
+        items={[{ mapping: 'foo', name: '', type: 'validate' }]}
+      />,
+    );
+    expect(screen.getByText('(unnamed)')).toBeInTheDocument();
+  });
+
+  it('returns inline panel branch explicitly', () => {
+    render(<ColumnOrderPopover {...defaultProps} variant="inline" />);
+    const panel = screen.getByTestId('col-order-popover');
+    expect(panel.parentElement).not.toBe(document.body);
   });
 });

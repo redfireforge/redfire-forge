@@ -68,6 +68,23 @@ describe('grpcReplayTabApply coverage gaps', () => {
     ]);
   });
 
+  it('mergeGrpcurlDescriptorIntoProtoIngest supports import-path only flags', () => {
+    const merged = mergeGrpcurlDescriptorIntoProtoIngest(
+      createDefaultProtoIngestState(),
+      { protoPaths: [], importPaths: ['./proto-only'] },
+    );
+    expect(merged?.source).toBe('proto_files');
+    expect(merged?.importPaths).toEqual(['./proto-only']);
+  });
+
+  it('mergeGrpcurlDescriptorIntoProtoIngest uses bare protoset file name fallback', () => {
+    const merged = mergeGrpcurlDescriptorIntoProtoIngest(
+      createDefaultProtoIngestState(),
+      { protoPaths: [], importPaths: [], protosetPath: 'echo.pb' },
+    );
+    expect(merged?.protosetFileName).toBe('echo.pb');
+  });
+
   it('grpcurlImportDescriptorStatePatch returns undefined when import has no descriptor flags', () => {
     const descriptorState = createEmptyTabDescriptorState();
     expect(grpcurlImportDescriptorStatePatch(descriptorState, {
@@ -111,6 +128,22 @@ describe('grpcReplayTabApply coverage gaps', () => {
     expect(next.descriptor).toBeUndefined();
     expect(next.descriptorKey).toBeUndefined();
     expect(next.loadState).toBe('idle');
+  });
+
+  it('resolveDescriptorStateAfterTabPatch falls back to tab descriptor key when patch key is missing', () => {
+    const tab = createGrpcStudioTab({ descriptorKey: FIXTURE_DESCRIPTOR_KEY });
+    const descriptorState = {
+      ...createEmptyTabDescriptorState(),
+      descriptor: FIXTURE_DESCRIPTOR,
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      loadState: 'loaded' as const,
+    };
+
+    const next = resolveDescriptorStateAfterTabPatch(tab, descriptorState, {
+      target: 'localhost:60000',
+      descriptorKey: undefined,
+    });
+    expect(next.descriptorKey).toBeUndefined();
   });
 
   it('buildDriftDescriptorPatchFromAnalysis captures warning baseline and rebind suggestions', () => {

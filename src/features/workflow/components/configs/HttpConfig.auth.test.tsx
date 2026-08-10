@@ -10,6 +10,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import type { Scenario } from '../../../../shared/types';
 import type { WorkflowService } from '../../types/workflow';
@@ -53,15 +54,17 @@ describe('HttpConfig — auth tab', () => {
 
   it('renders auth type select with inherit default', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'inherit' } }) });
-    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    expect(screen.getByDisplayValue('Inherit from Service')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    expect(container.querySelector('.auth-type-select .cs-text')?.textContent).toBe('Inherit from Service');
+    expect(screen.getByTestId('wf-http-auth-type')).toBeInTheDocument();
+    expect(screen.getByTestId('wf-http-auth-type-select')).toBeInTheDocument();
   });
 
   it('calls onChange when auth type changes', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'none' } }) });
-    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('No Auth'), { target: { value: 'basic' } });
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
+    selectOption(container.querySelector('.auth-type-select')!, 'Basic Auth');
     expect(onChange).toHaveBeenCalled();
     const call = onChange.mock.calls[0][0] as { scenario: Scenario };
     expect(call.scenario.auth.type).toBe('basic');
@@ -69,16 +72,17 @@ describe('HttpConfig — auth tab', () => {
 
   it('renders all auth type options', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'none' } }) });
-    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    const select = screen.getByDisplayValue('No Auth') as HTMLSelectElement;
-    const options = Array.from(select.options).map(o => o.value);
-    expect(options).toContain('inherit');
-    expect(options).toContain('none');
-    expect(options).toContain('basic');
-    expect(options).toContain('bearer');
-    expect(options).toContain('apikey');
-    expect(options).toContain('digest');
-    expect(options).toContain('oauth2');
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    const wrap = container.querySelector('.auth-type-select')!;
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toContain('Inherit from Service');
+    expect(labels).toContain('No Auth');
+    expect(labels).toContain('Basic Auth');
+    expect(labels).toContain('Bearer Token');
+    expect(labels).toContain('API Key');
+    expect(labels).toContain('Digest Auth');
+    expect(labels).toContain('OAuth2 Client Credentials');
   });
 
   describe('inherit auth', () => {
@@ -97,7 +101,21 @@ describe('HttpConfig — auth tab', () => {
         scenario: makeScenario({ auth: { type: 'inherit' } }),
       });
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} workflowServices={services} />);
-      expect(screen.getByText(/inherited from the selected service.*Users API/)).toBeTruthy();
+      const hint = screen.getByTestId('wf-http-auth-inherit-hint');
+      expect(hint.textContent).toMatch(/Users API/);
+      expect(hint.textContent).toMatch(/Bearer Token/);
+    });
+
+    it('prompts to switch to inherit when service has auth but node is No Auth', () => {
+      const services: WorkflowService[] = [
+        { id: 'svc1', name: 'Users API', baseUrl: 'http://api', auth: { type: 'bearer', token: 'tok' } },
+      ];
+      const data = makeHttpData({
+        serviceId: 'svc1',
+        scenario: makeScenario({ auth: { type: 'none' } }),
+      });
+      render(<HttpConfig {...defaultProps} activeTab="auth" data={data} workflowServices={services} />);
+      expect(screen.getByTestId('wf-http-auth-service-unused-hint').textContent).toMatch(/Bearer Token/);
     });
   });
 
@@ -109,6 +127,9 @@ describe('HttpConfig — auth tab', () => {
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
       expect(screen.getByDisplayValue('user')).toBeTruthy();
       expect(screen.getByDisplayValue('pass')).toBeTruthy();
+      expect(screen.getByLabelText('Username').tagName).toBe('TEXTAREA');
+      expect(screen.getByLabelText('Password').tagName).toBe('TEXTAREA');
+      expect(screen.getByLabelText('Show password')).toBeTruthy();
     });
 
     it('updates username on change', () => {
@@ -117,9 +138,7 @@ describe('HttpConfig — auth tab', () => {
         scenario: makeScenario({ auth: { type: 'basic', username: '', password: '' } }),
       });
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
-      const inputs = screen.getAllByRole('textbox');
-      const usernameInput = inputs.find(i => (i as HTMLInputElement).placeholder !== 'eyJhbGciOi...');
-      fireEvent.change(usernameInput!, { target: { value: 'newuser' } });
+      fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'newuser' } });
       expect(onChange).toHaveBeenCalled();
     });
 
@@ -129,9 +148,20 @@ describe('HttpConfig — auth tab', () => {
         scenario: makeScenario({ auth: { type: 'basic', username: 'user', password: '' } }),
       });
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
-      const passwordInput = document.querySelector('input[type="password"]');
-      fireEvent.change(passwordInput!, { target: { value: 'newpass' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'newpass' } });
       expect(onChange).toHaveBeenCalled();
+    });
+
+    it('toggles password visibility badge', () => {
+      const data = makeHttpData({
+        scenario: makeScenario({ auth: { type: 'basic', username: 'user', password: 'secret' } }),
+      });
+      render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+      const password = screen.getByLabelText('Password');
+      expect(password.classList.contains('wf-http-auth-textarea--masked')).toBe(true);
+      fireEvent.click(screen.getByLabelText('Show password'));
+      expect(screen.getByLabelText('Hide password')).toBeTruthy();
+      expect(password.classList.contains('wf-http-auth-textarea--masked')).toBe(false);
     });
   });
 
@@ -165,6 +195,18 @@ describe('HttpConfig — auth tab', () => {
       const prefixInput = screen.getByDisplayValue('Bearer');
       fireEvent.change(prefixInput, { target: { value: 'Token' } });
       expect(onChange).toHaveBeenCalled();
+    });
+
+    it('toggles bearer token visibility badge', () => {
+      const data = makeHttpData({
+        scenario: makeScenario({ auth: { type: 'bearer', token: 'secret-token', prefix: 'Bearer' } }),
+      });
+      render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+      const token = screen.getByLabelText('Token');
+      expect(token.classList.contains('wf-http-auth-textarea--masked')).toBe(true);
+      fireEvent.click(screen.getByLabelText('Show token'));
+      expect(screen.getByLabelText('Hide token')).toBeTruthy();
+      expect(token.classList.contains('wf-http-auth-textarea--masked')).toBe(false);
     });
   });
 
@@ -232,6 +274,18 @@ describe('HttpConfig — auth tab', () => {
       const call = onChange.mock.calls[0][0] as { scenario: Scenario };
       expect(call.scenario.auth.apiKeyIn).toBe('header');
     });
+
+    it('toggles api key value visibility badge', () => {
+      const data = makeHttpData({
+        scenario: makeScenario({ auth: { type: 'apikey', apiKeyName: 'X-API-Key', apiKeyValue: 'secret' } }),
+      });
+      render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+      const keyValue = screen.getByLabelText('Key Value');
+      expect(keyValue.classList.contains('wf-http-auth-textarea--masked')).toBe(true);
+      fireEvent.click(screen.getByLabelText('Show key value'));
+      expect(screen.getByLabelText('Hide key value')).toBeTruthy();
+      expect(keyValue.classList.contains('wf-http-auth-textarea--masked')).toBe(false);
+    });
   });
 
   describe('digest auth', () => {
@@ -242,6 +296,7 @@ describe('HttpConfig — auth tab', () => {
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
       expect(screen.getByDisplayValue('duser')).toBeTruthy();
       expect(screen.getByDisplayValue('dpass')).toBeTruthy();
+      expect(screen.getByLabelText('Show password')).toBeTruthy();
     });
 
     it('updates digest username on change', () => {
@@ -250,8 +305,7 @@ describe('HttpConfig — auth tab', () => {
         scenario: makeScenario({ auth: { type: 'digest', username: '', password: '' } }),
       });
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[0], { target: { value: 'digestuser' } });
+      fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'digestuser' } });
       expect(onChange).toHaveBeenCalled();
     });
 
@@ -261,9 +315,20 @@ describe('HttpConfig — auth tab', () => {
         scenario: makeScenario({ auth: { type: 'digest', username: 'u', password: '' } }),
       });
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
-      const passwordInput = document.querySelector('input[type="password"]');
-      fireEvent.change(passwordInput!, { target: { value: 'digestpass' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'digestpass' } });
       expect(onChange).toHaveBeenCalled();
+    });
+
+    it('toggles digest password visibility badge', () => {
+      const data = makeHttpData({
+        scenario: makeScenario({ auth: { type: 'digest', username: 'duser', password: 'dpass' } }),
+      });
+      render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+      const password = screen.getByLabelText('Password');
+      expect(password.classList.contains('wf-http-auth-textarea--masked')).toBe(true);
+      fireEvent.click(screen.getByLabelText('Show password'));
+      expect(screen.getByLabelText('Hide password')).toBeTruthy();
+      expect(password.classList.contains('wf-http-auth-textarea--masked')).toBe(false);
     });
   });
 
@@ -302,9 +367,7 @@ describe('HttpConfig — auth tab', () => {
         scenario: makeScenario({ auth: { type: 'oauth2', tokenUrl: 'url', clientId: '', clientSecret: '' } }),
       });
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
-      const inputs = screen.getAllByRole('textbox');
-      const clientIdInput = inputs.find(i => (i as HTMLInputElement).placeholder === '');
-      fireEvent.change(clientIdInput!, { target: { value: 'newclient' } });
+      fireEvent.change(screen.getByLabelText('Client ID'), { target: { value: 'newclient' } });
       expect(onChange).toHaveBeenCalled();
     });
 
@@ -314,9 +377,27 @@ describe('HttpConfig — auth tab', () => {
         scenario: makeScenario({ auth: { type: 'oauth2', tokenUrl: 'url', clientId: 'id', clientSecret: '' } }),
       });
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
-      const secretInput = document.querySelector('input[type="password"]');
-      fireEvent.change(secretInput!, { target: { value: 'newsecret' } });
+      fireEvent.change(screen.getByLabelText('Client Secret'), { target: { value: 'newsecret' } });
       expect(onChange).toHaveBeenCalled();
+    });
+
+    it('toggles client secret visibility badge', () => {
+      const data = makeHttpData({
+        scenario: makeScenario({
+          auth: {
+            type: 'oauth2',
+            tokenUrl: 'https://auth.example.com/oauth/token',
+            clientId: 'client123',
+            clientSecret: 'secret456',
+          },
+        }),
+      });
+      render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+      const clientSecret = screen.getByLabelText('Client Secret');
+      expect(clientSecret.classList.contains('wf-http-auth-textarea--masked')).toBe(true);
+      fireEvent.click(screen.getByLabelText('Show client secret'));
+      expect(screen.getByLabelText('Hide client secret')).toBeTruthy();
+      expect(clientSecret.classList.contains('wf-http-auth-textarea--masked')).toBe(false);
     });
   });
 
@@ -418,8 +499,7 @@ describe('HttpConfig — spec version mode', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ sourceSpecVersionId: 'v1', specVersionMode: 'latest' });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} />);
-    const select = screen.getByDisplayValue(/Latest/) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'pinned' } });
+    selectOption(document.querySelector('.wf-config-version-select')!, 'Pinned');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ specVersionMode: 'pinned' }));
   });
 });

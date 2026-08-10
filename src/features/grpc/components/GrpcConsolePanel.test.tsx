@@ -3,6 +3,7 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { prepareGrpcCallHistoryEntryForPersist } from '../../../shared/grpc/grpcPersistenceSchema';
 import type { UseGrpcCallHistoryResult } from '../hooks/useGrpcCallHistory';
 import { GrpcConsolePanel } from './GrpcConsolePanel';
@@ -89,7 +90,7 @@ describe('GrpcConsolePanel', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-console-filter-status'), { target: { value: 'error' } });
+    selectOption(screen.getByTestId('grpc-console-filter-status'), 'Errors');
     expect(screen.queryByTestId('grpc-console-entry-ok-1')).toBeNull();
     fireEvent.click(screen.getByTestId('grpc-console-entry-err-1'));
 
@@ -175,11 +176,11 @@ describe('GrpcConsolePanel', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-console-filter-status'), { target: { value: 'ok' } });
+    selectOption(screen.getByTestId('grpc-console-filter-status'), 'OK');
     expect(screen.getByTestId('grpc-console-entry-ok-1')).toBeTruthy();
     expect(screen.queryByTestId('grpc-console-entry-err-1')).toBeNull();
 
-    fireEvent.change(screen.getByTestId('grpc-console-filter-status'), { target: { value: 'all' } });
+    selectOption(screen.getByTestId('grpc-console-filter-status'), 'All statuses');
     fireEvent.change(screen.getByTestId('grpc-console-search'), { target: { value: '13' } });
     expect(screen.queryByTestId('grpc-console-entry-ok-1')).toBeNull();
     expect(screen.getByTestId('grpc-console-entry-err-1')).toBeTruthy();

@@ -2297,6 +2297,25 @@ describe('useWebSocketStudio', () => {
       expect(result.current.transportMode).toBe('proxy');
       expect(mockInstances.length).toBe(0); // No direct WebSocket
     });
+
+    it('uses proxy when mTLS PEMs are set in the same turn as Connect', async () => {
+      // Connect reads tlsConfigRef — must see PEMs before the next React render.
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'wss://echo.websocket.org' }));
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('proxy-mtls', 4));
+      await act(async () => {
+        result.current.setTlsConfig({
+          rejectUnauthorized: false,
+          caCert: '-----BEGIN CERTIFICATE-----\nca\n-----END CERTIFICATE-----',
+          clientCert: '-----BEGIN CERTIFICATE-----\nclient\n-----END CERTIFICATE-----',
+          clientKey: '-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----',
+        });
+        result.current.connect();
+      });
+
+      expect(result.current.transportMode).toBe('proxy');
+      expect(mockInstances.length).toBe(0);
+    });
   });
 
   describe('bookmarks', () => {

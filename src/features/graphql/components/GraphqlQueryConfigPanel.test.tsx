@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, within, fireEvent } from '@testing-library/react';
+import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import GraphqlQueryConfigPanel, { GqlAuthSection, GqlExtractionSection } from './GraphqlQueryConfigPanel';
 import type { GraphqlQueryNodeData } from '../../workflow/types/workflow';
 
@@ -411,8 +412,8 @@ describe('GraphqlQueryConfigPanel — Headers tab', () => {
       />,
     );
     fireEvent.click(tabButton('Headers'));
-    // ExpressionInput for header value renders <input placeholder="value">
-    const valueInput = screen.getByPlaceholderText('value');
+    // ExpressionInput for header value
+    const valueInput = screen.getByPlaceholderText('value or {{variable}}');
     fireEvent.change(valueInput, { target: { value: 'updated-value' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -427,7 +428,7 @@ describe('GraphqlQueryConfigPanel — Auth tab', () => {
     render(<GraphqlQueryConfigPanel data={makeValidData({ auth: undefined })} onChange={vi.fn()} />);
     fireEvent.click(tabButton('Auth'));
     const authTypeSelect = screen.getByTestId('gql-wf-auth-type-select');
-    expect(authTypeSelect).toHaveValue('none');
+    expect(getCustomSelectValue(authTypeSelect)).toBe('None');
   });
 
   it('shows Bearer Token fields when Bearer is selected', () => {
@@ -484,7 +485,7 @@ describe('GraphqlQueryConfigPanel — Auth tab', () => {
     render(<GraphqlQueryConfigPanel data={makeValidData({ auth: { type: 'bearer', token: 'token123' } })} onChange={onChange} />);
     fireEvent.click(tabButton('Auth'));
     const typeSelect = screen.getByTestId('gql-wf-auth-type-select');
-    fireEvent.change(typeSelect, { target: { value: 'none' } });
+    selectOption(typeSelect, 'None');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       auth: undefined,
     }));
@@ -648,8 +649,7 @@ describe('GraphqlQueryConfigPanel — Output tab', () => {
       />,
     );
     fireEvent.click(tabButton('Output'));
-    const fieldSelect = screen.getByTestId('gql-wf-output-field-select');
-    fireEvent.change(fieldSelect, { target: { value: 'errors' } });
+    selectOption(screen.getByTestId('gql-wf-output-field-select'), 'errors');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       outputBindings: [expect.objectContaining({ field: 'errors' })],
     }));
@@ -805,7 +805,9 @@ describe('GqlAuthSection — all auth type branches', () => {
         variableHints={[]}
       />,
     );
-    expect(screen.getByRole('option', { name: /OAuth 2.0 \(not yet supported\)/i })).toBeInTheDocument();
+    expect(getCustomSelectOptionLabels(screen.getByTestId('gql-wf-auth-type-select'))).toContain(
+      'OAuth 2.0 (not yet supported)',
+    );
   });
 
   it('renders bearer token input with existing token value', () => {
@@ -876,7 +878,7 @@ describe('GqlAuthSection — all auth type branches', () => {
         variableHints={[]}
       />,
     );
-    fireEvent.change(screen.getByTestId('gql-wf-auth-type-select'), { target: { value: 'bearer' } });
+    selectOption(screen.getByTestId('gql-wf-auth-type-select'), 'Bearer Token');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: 'bearer' }));
   });
 
@@ -889,7 +891,7 @@ describe('GqlAuthSection — all auth type branches', () => {
         variableHints={[]}
       />,
     );
-    fireEvent.change(screen.getByTestId('gql-wf-auth-type-select'), { target: { value: 'none' } });
+    selectOption(screen.getByTestId('gql-wf-auth-type-select'), 'None');
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
@@ -1041,7 +1043,7 @@ describe('GqlAuthSection — all auth type branches', () => {
     // With auth=undefined, type='none', no bearer fields visible → can't click Insert
     // This test covers the re-render branch path for auth=undefined
     // The onChange for setType to 'bearer' when auth=undefined covers L139[1]:
-    fireEvent.change(screen.getByTestId('gql-wf-auth-type-select'), { target: { value: 'bearer' } });
+    selectOption(screen.getByTestId('gql-wf-auth-type-select'), 'Bearer Token');
     // setType called with 'bearer' → onChange({ ...(auth ?? {}), type: 'bearer' })
     // auth=undefined → auth ?? {} = {} → [1] branch!
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: 'bearer' }));

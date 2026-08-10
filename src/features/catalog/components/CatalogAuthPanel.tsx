@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
 import type { CatalogSecurityScheme } from '../types/catalog';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
@@ -8,7 +9,7 @@ interface Props {
   onAuthChange: (auth: AuthConfig) => void;
   securitySchemes: Record<string, CatalogSecurityScheme>;
   globalAuthProfiles?: GlobalAuthProfile[];
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 type AuthMode = 'inherit' | 'global' | 'none' | 'bearer' | 'basic' | 'apikey' | 'oauth2';
@@ -33,7 +34,7 @@ function describeScheme(name: string, s: CatalogSecurityScheme): string {
   return parts.join(' ');
 }
 
-export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, globalAuthProfiles = [], onClose }: Props) {
+export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, globalAuthProfiles = [] }: Props) {
   const schemeEntries = useMemo(() => Object.entries(securitySchemes), [securitySchemes]);
   const hasSchemes = schemeEntries.length > 0;
   const hasGlobal = globalAuthProfiles.length > 0;
@@ -44,11 +45,13 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
       <div className="cep-tryit-field">
         <label className="cep-field-name">Token</label>
         <input className="cep-field-input" placeholder="JWT or access token"
+          data-testid="catalog-auth-token-input"
           value={auth.token ?? ''} onChange={e => onAuthChange({ ...auth, token: e.target.value })} />
       </div>
       <div className="cep-tryit-field">
         <label className="cep-field-name">Prefix</label>
         <input className="cep-field-input" placeholder="Bearer"
+          data-testid="catalog-auth-prefix-input"
           value={auth.prefix ?? 'Bearer'} onChange={e => onAuthChange({ ...auth, prefix: e.target.value })} />
       </div>
     </>
@@ -119,22 +122,27 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
   const currentSchemeName = auth.__schemeName;
 
   return (
-    <div className="ceb-auth-panel">
+    <div className="ceb-auth-panel" data-testid="catalog-auth-panel">
       <div className="ceb-auth-header">
         <h3>Authorization</h3>
-        <button className="cat-modal-close" onClick={onClose}>&times;</button>
       </div>
       <div className="ceb-auth-body">
         <div className="cep-tryit-field">
           <label className="cep-field-name">Type</label>
-          <select className="cep-field-input" value={mode} onChange={e => handleModeChange(e.target.value)}>
-            {hasSchemes && <option value="inherit">Inherit from Spec</option>}
-            {hasGlobal && <option value="global">From Environment</option>}
-            <option value="none">No Auth</option>
-            <option value="bearer">Bearer Token</option>
-            <option value="basic">Basic Auth</option>
-            <option value="apikey">API Key</option>
-          </select>
+          <CustomSelect
+            className="kafka-ms-form-select kafka-ms-form-select--acks"
+            data-testid="catalog-auth-type-select"
+            value={mode}
+            onChange={handleModeChange}
+            options={[
+              ...(hasSchemes ? [{ value: 'inherit', label: 'Inherit from Spec', detail: 'Use spec security schemes' }] : []),
+              ...(hasGlobal ? [{ value: 'global', label: 'From Environment', detail: 'Use global auth profile' }] : []),
+              { value: 'none', label: 'No Auth', detail: 'No authentication' },
+              { value: 'bearer', label: 'Bearer Token', detail: 'Authorization: Bearer <token>' },
+              { value: 'basic', label: 'Basic Auth', detail: 'Base64 username:password' },
+              { value: 'apikey', label: 'API Key', detail: 'Custom header or query param' },
+            ]}
+          />
         </div>
 
         {mode === 'inherit' && hasSchemes && (
@@ -142,13 +150,15 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
             {schemeEntries.length > 1 && (
               <div className="cep-tryit-field">
                 <label className="cep-field-name">Scheme</label>
-                <select className="cep-field-input"
+                <CustomSelect
+                  className="kafka-ms-form-select kafka-ms-form-select--acks"
                   value={currentSchemeName ?? schemeEntries[0][0]}
-                  onChange={e => handleSchemeSwitch(e.target.value)}>
-                  {schemeEntries.map(([name, s]) => (
-                    <option key={name} value={name}>{describeScheme(name, s)}</option>
-                  ))}
-                </select>
+                  onChange={handleSchemeSwitch}
+                  options={schemeEntries.map(([name, s]) => ({
+                    value: name,
+                    label: describeScheme(name, s),
+                  }))}
+                />
               </div>
             )}
             <div className="ceb-auth-inherit-info">
@@ -197,13 +207,12 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
           <>
             <div className="cep-tryit-field">
               <label className="cep-field-name">Profile</label>
-              <select className="cep-field-input"
-                value={auth.__globalProfileId ?? globalAuthProfiles[0]?.id}
-                onChange={e => handleGlobalProfileChange(e.target.value)}>
-                {globalAuthProfiles.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <CustomSelect
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={auth.__globalProfileId ?? globalAuthProfiles[0]?.id ?? ''}
+                onChange={handleGlobalProfileChange}
+                options={globalAuthProfiles.map(p => ({ value: p.id, label: p.name }))}
+              />
             </div>
             <div className="ceb-auth-inherit-info">
               <div className="ceb-scheme-badge">
@@ -243,10 +252,15 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
             </div>
             <div className="cep-tryit-field">
               <label className="cep-field-name">Add To</label>
-              <select className="cep-field-input" value={auth.apiKeyIn ?? 'header'} onChange={e => onAuthChange({ ...auth, apiKeyIn: e.target.value as 'header' | 'query' })}>
-                <option value="header">Header</option>
-                <option value="query">Query Parameter</option>
-              </select>
+              <CustomSelect
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={auth.apiKeyIn ?? 'header'}
+                onChange={(v) => onAuthChange({ ...auth, apiKeyIn: v as 'header' | 'query' })}
+                options={[
+                  { value: 'header', label: 'Header', detail: 'Add key to request headers' },
+                  { value: 'query', label: 'Query Parameter', detail: 'Add key to URL query string' },
+                ]}
+              />
             </div>
           </>
         )}
@@ -257,16 +271,21 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
               className="ceb-verify-btn"
               onClick={() => { setAuthVerifyResult(null); verifyAuth(auth); }}
               disabled={authVerifying}
+              data-testid="catalog-verify-auth-btn"
             >
               {authVerifying ? 'Verifying...' : 'Verify Auth'}
             </button>
             {authVerifyResult && (
               <div className={`ceb-verify-result ${authVerifyResult.ok ? 'ceb-verify-ok' : 'ceb-verify-fail'}`}>
                 <span className="ceb-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                <div className="ceb-verify-body">
-                  <span className="ceb-verify-msg">{authVerifyResult.message}</span>
-                  {authVerifyResult.detail && <pre className="ceb-verify-detail">{authVerifyResult.detail}</pre>}
-                </div>
+                <span className="ceb-verify-msg">{authVerifyResult.message}</span>
+                {authVerifyResult.detail && <span className="ceb-verify-detail-inline">{authVerifyResult.detail}</span>}
+                <button
+                  className="ceb-verify-close"
+                  onClick={() => setAuthVerifyResult(null)}
+                  aria-label="Dismiss verification result"
+                  data-testid="catalog-verify-close-btn"
+                >✕</button>
               </div>
             )}
           </div>

@@ -16,7 +16,7 @@ interface LessonListProps {
   onSelect: (lesson: DemoLesson) => void;
   onBack: () => void;
   onResetLesson: (lessonId: string) => void;
-  onResetAll: () => void;
+  onResetAll: (lessonIds: string[]) => void;
   /** When navigating back from a lesson, pre-select this category so the
    *  user lands on the tab that contains the lesson they came from. */
   initialCategory?: string;
@@ -64,7 +64,15 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
     ? domain.categories!.find(c => c.id === activeCategory)
     : null;
 
-  const anyCompleted = domain.lessons.some(l =>
+  // When viewing a category tab, scoping reset to that tab's lessons only.
+  const resetScopeLessons = hasCategories && activeCategory
+    ? visibleLessons
+    : domain.lessons;
+  const resetScopeLabel = hasCategories && activeCategory
+    ? (domain.categories!.find(c => c.id === activeCategory)?.label ?? 'tab')
+    : null;
+
+  const anyCompleted = resetScopeLessons.some(l =>
     progress.completedLessons.includes(l.id) ||
     progress.lessonSteps[l.id] !== undefined,
   );
@@ -75,7 +83,7 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
   };
 
   const handleResetAll = () => {
-    onResetAll();
+    onResetAll(resetScopeLessons.map(l => l.id));
     setConfirmResetAll(false);
   };
 
@@ -90,6 +98,10 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
             const completedCount = catLessons.filter(l =>
               progress.completedLessons.includes(l.id),
             ).length;
+            const hasUpdated = catLessons.some(l =>
+              progress.completedLessons.includes(l.id)
+              && (l.contentVersion ?? 1) > (progress.completedVersions?.[l.id] ?? 1),
+            );
             const needsDocker = catLessons.some(
               (l) => Boolean(l.dockerEndpoint) || Boolean(l.dockerEndpoints?.length),
             );
@@ -121,8 +133,9 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 </span>
                 <span className="demo-category-label">{cat.label}</span>
                 {catLessons.length > 0 && (
-                  <span className={`demo-category-count${completedCount === catLessons.length ? ' all-done' : ''}`}>
+                  <span className={`demo-category-count${completedCount === catLessons.length ? ' all-done' : ''}${hasUpdated ? ' has-updated' : ''}`}>
                     {completedCount}/{catLessons.length}
+                    {hasUpdated && <span className="demo-category-updated-dot" aria-label="Has updated lessons" />}
                   </span>
                 )}
                 {isEmpty && (
@@ -145,6 +158,8 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
           const isComplete = progress.completedLessons.includes(lesson.id);
           const lastStep = progress.lessonSteps[lesson.id];
           const isInProgress = lastStep !== undefined && !isComplete;
+          const isUpdated = isComplete
+            && (lesson.contentVersion ?? 1) > (progress.completedVersions?.[lesson.id] ?? 1);
           const isPendingReset = pendingResetId === lesson.id;
           const desktopBlocked = isLessonDesktopOnlyBlocked(lesson);
 
@@ -183,6 +198,7 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 <span className={`demo-lesson-status ${statusClass}`}>
                   <span className="demo-lesson-number">{idx + 1}</span>
                   {isComplete && <span className="demo-lesson-check" aria-label="Completed">✓</span>}
+                  {isComplete && isUpdated && <span className="demo-lesson-updated-dot" aria-label="Updated content" />}
                   {isInProgress && <span className="demo-lesson-progress-dot" aria-label="In progress">▶</span>}
                 </span>
                 <div className="demo-lesson-info">
@@ -204,6 +220,8 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                     <span className="demo-lesson-resume-badge">Resume</span>
                   ) : !isComplete ? (
                     <span className="demo-lesson-start-badge">Start</span>
+                  ) : isUpdated ? (
+                    <span className="demo-lesson-updated-badge">Updated</span>
                   ) : !isPendingReset ? (
                     <span className="demo-lesson-restart-badge">Restart</span>
                   ) : null}
@@ -266,7 +284,9 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
         {anyCompleted && (
           confirmResetAll ? (
             <div className="demo-reset-all-confirm" data-testid="reset-all-confirm">
-              <span className="demo-reset-all-confirm-label">Reset all progress?</span>
+              <span className="demo-reset-all-confirm-label">
+                {resetScopeLabel ? `Reset ${resetScopeLabel} progress?` : 'Reset all progress?'}
+              </span>
               <button
                 className="demo-reset-all-yes"
                 onClick={handleResetAll}
@@ -288,7 +308,7 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
               onClick={() => setConfirmResetAll(true)}
               data-testid="reset-all-btn"
             >
-              ↺ Reset all progress
+              {resetScopeLabel ? `↺ Reset ${resetScopeLabel} progress` : '↺ Reset all progress'}
             </button>
           )
         )}

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql7'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 import {
@@ -32,7 +33,7 @@ afterEach(() => {
     expect(gqlSubscriptionsLesson.category).toBe('graphql');
     expect(gqlSubscriptionsLesson.name).toBe('Subscriptions — Real-Time Data');
     expect(gqlSubscriptionsLesson.steps.length).toBe(15);
-    expect(gqlSubscriptionsLesson.estimatedMinutes).toBe(8);
+    expect(gqlSubscriptionsLesson.estimatedMinutes).toBe(9);
     expect(gqlSubscriptionsLesson.initialTab).toBe('graphql-studio');
     expect(gqlSubscriptionsLesson.tabBudget).toBe(1);
   });
@@ -52,12 +53,12 @@ afterEach(() => {
     const ids = gqlSubscriptionsLesson.steps.map((s) => s.id);
     expect(ids).toEqual([
       'gql5-intro',
-      'gql5-connection-bar',
       'gql5-endpoint',
       'gql5-create-order',
       'gql5-exec-create-order',
       'gql5-observe-create-order',
       'gql5-write-sub',
+      'gql5-connection-bar',
       'gql5-transport-select',
       'gql5-subscription-auth',
       'gql5-subscribe',
@@ -81,20 +82,20 @@ afterEach(() => {
     });
   });
 
-  it('step gql5-intro has preAction for demo endpoint', () => {
+  it('step gql5-intro has quiet Studio-only preAction (no env setup)', () => {
     expect(gqlSubscriptionsLesson.steps[0].preAction).toBeTypeOf('function');
   });
 
   // ─── Spotlight / highlight correctness ───────────────────────────────────
 
-  it('gql5-intro highlights connection bar (Subscribe orientation)', () => {
+  it('gql5-intro highlights editor (roadmap + stub subscription)', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-intro')!;
-    expect(step.highlight).toBe(GQL.CONNECTION_BAR);
+    expect(step.highlight).toBe(GQL.EDITOR);
   });
 
-  it('gql5-connection-bar highlights connection bar (Subscribe button tour)', () => {
+  it('gql5-connection-bar highlights Subscribe after subscription is written', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-connection-bar')!;
-    expect(step.highlight).toBe(GQL.CONNECTION_BAR);
+    expect(step.highlight).toBe(GQL.SUBSCRIBE_BTN);
   });
 
   it('gql5-endpoint highlights endpoint input for URL + introspect', () => {
@@ -107,9 +108,9 @@ afterEach(() => {
     expect(step.highlight).toBe(GQL.TRANSPORT_SELECT);
   });
 
-  it('gql5-subscription-auth highlights auth preview row', () => {
+  it('gql5-subscription-auth highlights auth type; verifies resolved preview', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-subscription-auth')!;
-    expect(step.highlight).toBe(GQL.AUTH_PREVIEW);
+    expect(step.highlight).toBe(GQL.AUTH_TYPE_SELECT);
     expect(step.verify).toBe(GQL.AUTH_PREVIEW);
   });
 
@@ -166,10 +167,12 @@ afterEach(() => {
 
   // ─── Step description content ────────────────────────────────────────────
 
-  it('gql5-intro description explains server-push and S badge', () => {
+  it('gql5-intro description is a clear end-to-end roadmap', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-intro')!;
-    expect(step.description).toContain('S');
-    expect(step.description).toContain('subscription');
+    expect(step.description).toContain('complete subscription workflow');
+    expect(step.description).toContain('Create an order');
+    expect(step.description).toContain('PENDING');
+    expect(step.description).toContain('Subscribe');
   });
 
   it('gql5-connection-bar description explains transport dropdown and Subscribe button', () => {

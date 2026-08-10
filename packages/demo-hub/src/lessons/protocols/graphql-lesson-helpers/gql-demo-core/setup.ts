@@ -1,5 +1,10 @@
 import type { DemoActionContext } from '../../../../types';
 import { GQL } from '@shared/selectors';
+import {
+  ensureGqlDemoEndpointConfigured,
+  ensureGqlDemoHeaderContext,
+  navigateToGraphqlStudio,
+} from '../../../env-manager-lesson-helpers';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from '../gql-demo-tab';
 import { GQL_HEALTH_QUERY } from './constants';
 import { configureDemoTabInheritPageDefault } from './endpoint';
@@ -88,10 +93,22 @@ export async function gqlFirstQueryCleanup(ctx: DemoActionContext): Promise<void
   await closeGqlDemoTabs(ctx, 'gql-first-query');
 }
 
-/** Setup for Lesson 2 — demo tab, seed Alice/Bob on the test server. */
+/** Setup for Lesson 2 — EM/header ready quietly, demo tab, seed Alice/Bob. */
 export async function gqlVariablesLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
+  // Prefer header context: skips Environment Manager when GraphQL Demo already exists
+  // (typical after GQL-1). Always land back on Studio before live step 1.
+  try {
+    await ensureGqlDemoHeaderContext(ctx);
+  } catch {
+    try {
+      await ensureGqlDemoEndpointConfigured(ctx);
+    } catch {
+      // Continue — intro preAction retries via ensureDemoEndpoint.
+    }
+  }
+  await navigateToGraphqlStudio(ctx);
   const editorBtn = document.querySelector<HTMLElement>(GQL.MODE_EDITOR);
   if (editorBtn && !editorBtn.classList.contains('gql-mode-btn--active')) {
     editorBtn.click();

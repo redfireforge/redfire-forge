@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useFloatingPanel } from '../../../shared/hooks/useFloatingPanel';
 import { useModalExpand } from '../../../shared/hooks/useModalExpand';
 import ModalExpandButton from '../../../shared/components/ModalExpandButton';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export interface GrpcConsoleWireEvent {
   id: string;
@@ -184,16 +185,17 @@ export function GrpcConsoleModal({
                 aria-label="Search console events"
                 data-testid="grpc-console-search"
               />
-              <select
+              <CustomSelect
                 className="grpc-console-wire-controls__sort"
                 value={sortOrder}
-                onChange={(event) => setSortOrder(event.target.value as 'asc' | 'desc')}
+                onChange={(v) => setSortOrder(v as 'asc' | 'desc')}
                 aria-label="Sort console events by time"
                 data-testid="grpc-console-sort-order"
-              >
-                <option value="desc">Time: Desc</option>
-                <option value="asc">Time: Asc</option>
-              </select>
+                options={[
+                  { value: 'desc', label: 'Time: Desc' },
+                  { value: 'asc', label: 'Time: Asc' },
+                ]}
+              />
             </div>
             <div className="grpc-console-wire-list" data-testid="grpc-console-wire-list">
             {visibleEvents.length === 0 ? (

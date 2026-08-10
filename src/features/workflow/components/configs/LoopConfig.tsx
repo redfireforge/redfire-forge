@@ -6,6 +6,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import DataSourceEditor from '../../../scenarios/components/DataSourceEditor';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const MODE_OPTIONS: { value: LoopMode; label: string; desc: string }[] = [
   { value: 'count', label: 'Repeat N times', desc: 'Execute the body a fixed number of times' },
@@ -56,24 +57,26 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
   };
 
   return (
-    <div className="wf-config-body">
-      <div className="wf-config-field">
+    <div className="wf-config-body wf-loop-config" data-testid="loop-config">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ ...data, label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Mode</label>
-        <select value={data.mode} onChange={(e) => onChange({ ...data, mode: e.target.value as LoopMode })}>
-          {MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <CustomSelect
+          value={data.mode}
+          onChange={(v) => onChange({ ...data, mode: v as LoopMode })}
+          options={MODE_OPTIONS.map(o => ({ value: o.value, label: o.label, detail: o.desc }))}
+        />
         <span className="wf-config-hint">{MODE_OPTIONS.find(o => o.value === data.mode)?.desc}</span>
       </div>
 
       {/* Count mode */}
       {data.mode === 'count' && (
         <>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Iterations</label>
             <input
               type="number"
@@ -83,7 +86,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               onChange={(e) => onChange({ ...data, count: parseInt(e.target.value) || 1 })}
             />
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Or expression</label>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
@@ -97,7 +100,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               />
             </InsertVarField>
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Index variable</label>
             <input
               value={data.indexVariable ?? 'i'}
@@ -112,7 +115,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
       {/* ForEach mode */}
       {data.mode === 'forEach' && (
         <>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Source array{hasDataSource ? ' (overridden by data source)' : ''}</label>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
@@ -128,7 +131,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
             </InsertVarField>
             <span className="wf-config-hint">{hasDataSource ? `Using data source (${enabledRowCount} enabled rows) — expression is ignored` : 'Expression that resolves to a JSON array'}</span>
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Item variable</label>
             <input
               value={data.itemVariable ?? 'item'}
@@ -137,7 +140,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
             />
             <span className="wf-config-hint">Each element available as {'{{item}}'}</span>
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Index variable</label>
             <input
               value={data.indexVariable ?? 'i'}
@@ -146,10 +149,29 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
             />
           </div>
 
-          <div className="wf-loop-datasource-section">
-            <button type="button" className="wf-loop-datasource-toggle" onClick={() => setDsOpen(o => !o)}>
-              <span>{dsOpen ? '▾' : '▸'}</span>
-              <svg className="wf-inline-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Data Source {enabledRowCount > 0 && <span className="tab-badge">{enabledRowCount}</span>}
+          <div className={`wf-loop-datasource-section${dsOpen ? ' wf-loop-datasource-section--open' : ''}`}>
+            <button
+              type="button"
+              className="wf-loop-datasource-toggle"
+              onClick={() => setDsOpen(o => !o)}
+              aria-expanded={dsOpen}
+            >
+              <span className={`wf-loop-datasource-chevron${dsOpen ? ' open' : ''}`} aria-hidden>▸</span>
+              <svg className="wf-inline-icon" viewBox="0 0 24 24" aria-hidden>
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+              </svg>
+              <span className="wf-loop-datasource-toggle-text">
+                <span className="wf-loop-datasource-title">Data Source</span>
+                <span className="wf-loop-datasource-hint">
+                  Optional table of rows — when set, replaces Source array
+                </span>
+              </span>
+              {enabledRowCount > 0 && (
+                <span className="wf-loop-datasource-count">{enabledRowCount}</span>
+              )}
             </button>
             {dsOpen && (
               <div className="wf-loop-datasource-editor">
@@ -166,7 +188,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
       {/* While mode */}
       {data.mode === 'while' && (
         <>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Left operand</label>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
@@ -180,16 +202,15 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               />
             </InsertVarField>
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Operator</label>
-            <select
+            <CustomSelect
               value={data.whileOperator ?? '=='}
-              onChange={(e) => onChange({ ...data, whileOperator: e.target.value as LoopNodeData['whileOperator'] })}
-            >
-              {OPERATORS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+              onChange={(v) => onChange({ ...data, whileOperator: v as LoopNodeData['whileOperator'] })}
+              options={OPERATORS.map(o => ({ value: o.value, label: o.label }))}
+            />
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Right operand</label>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
@@ -206,7 +227,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
         </>
       )}
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Max iterations (safety)</label>
         <input
           type="number"

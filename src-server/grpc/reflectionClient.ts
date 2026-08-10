@@ -2,14 +2,22 @@ import { grpc } from './grpcJsLoader.js';
 import { GrpcReflection } from 'grpc-js-reflection-client';
 import protobuf from 'protobufjs';
 import type { GrpcTlsConfig, GrpcTlsMode } from '../../src/shared/grpc/contracts.js';
-import { validateResolvedGrpcTargetAddress } from '../../src/shared/grpc/targetValidation.js';
+import {
+  preferIpv4LoopbackDialAddress,
+  validateResolvedGrpcTargetAddress,
+} from '../../src/shared/grpc/targetValidation.js';
 import { buildGrpcChannelCredentials } from './grpcChannelCredentials.js';
 import { mergeProtobufRoots } from './descriptorNormalizer.js';
+import { ensureLocalGrpcBypassesProxyEnv } from './grpcClient.js';
 import {
   formatReflectionFailureMessage,
   ReflectionFetchError,
   type ReflectionFailureDiagnostics,
 } from './reflectionDiagnostics.js';
+
+// Reflection dials grpc-js directly (no shared GrpcJsClient), so loopback
+// targets need the same NO_PROXY guarantee grpcClient.ts sets up on import.
+ensureLocalGrpcBypassesProxyEnv();
 
 export type ReflectionApiVersion = 'v1' | 'v1alpha';
 
@@ -141,7 +149,7 @@ export class GrpcReflectionClient implements ReflectionClientPort {
       throw new Error('in-process targets are not dialable from the Node server (Phase 1C)');
     }
 
-    const dialAddress = check.normalized;
+    const dialAddress = preferIpv4LoopbackDialAddress(check.normalized);
     const deadlineMs = Date.now() + params.timeoutMs;
     const credentials = buildGrpcChannelCredentials({
       tlsMode: params.tlsMode,

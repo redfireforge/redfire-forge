@@ -21,6 +21,10 @@ vi.mock('../utils/testDefinitionVersioning', () => ({
   autoSaveVersion: vi.fn((t: Scenario) => t as unknown as TestDefinitionVersion[] | null),
 }));
 
+vi.mock('../../../shared/hooks/useToast', () => ({
+  useToast: () => ({ show: vi.fn(), dismiss: vi.fn() }),
+}));
+
 import { useScenarioMutations } from './useScenarioMutations';
 import { logFgRenamed, logScenarioRenamed, logTestAdded, logTestRenamed } from '../utils/structureChangeLog';
 
@@ -441,7 +445,7 @@ describe('useScenarioMutations', () => {
       expect(result.current.newScenarioKind).toBe('standard');
     });
 
-    it('saveTest is blocked when parameterized scenario test has no data source', () => {
+    it('saveTest auto-creates data source when parameterized scenario test has none', () => {
       const fg = makeFg({
         scenarios: [{ id: 'sc-1', name: 'Param', kind: 'parameterized', tests: [] }],
       });
@@ -451,11 +455,14 @@ describe('useScenarioMutations', () => {
         result.current.setDraft({
           ...result.current.draft,
           name: 'Test Without DS',
-          url: '/api',
+          url: 'https://api.example.com/users/{{userId}}',
         });
       });
       act(() => { result.current.saveTest(); });
-      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+      const saved = getFeatureGroups()[0].scenarios[0].tests[0];
+      expect(saved).toBeTruthy();
+      expect(saved.dataSource).toBeTruthy();
+      expect(saved.dataSource!.columns.some((c) => c.name === 'userId')).toBe(true);
     });
 
     it('saveTest succeeds when parameterized scenario test has data source', () => {

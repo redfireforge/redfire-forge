@@ -10,7 +10,8 @@
  */
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import { WorkflowService } from '../../types/workflow';
 import { Scenario, KeyValue } from '../../../../shared/types';
@@ -49,10 +50,22 @@ const defaultProps = makeDefaultProps();
 describe('HttpConfig — basic rendering', () => {
   beforeEach(() => {
     resetAllMocks();
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
   });
 
   it('renders label input with current value', () => {
     render(<HttpConfig {...defaultProps} />);
+    expect(screen.getByDisplayValue('Get Users')).toBeTruthy();
+  });
+
+  it('does not crash when the scenario has no validation object', () => {
+    // Legacy / externally-seeded nodes may omit `scenario.validation` entirely.
+    // Accessing `s.validation.assertions` on undefined used to throw and blank the app.
+    const data = makeHttpData({ scenario: makeScenario({ validation: undefined }) });
+    expect(() => render(<HttpConfig {...defaultProps} data={data} />)).not.toThrow();
     expect(screen.getByDisplayValue('Get Users')).toBeTruthy();
   });
 
@@ -64,22 +77,23 @@ describe('HttpConfig — basic rendering', () => {
   });
 
   it('renders method select with current value', () => {
-    render(<HttpConfig {...defaultProps} />);
-    expect(screen.getByDisplayValue('GET')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} />);
+    expect(container.querySelector('.wf-config-method-select .cs-text')?.textContent).toBe('GET');
   });
 
   it('calls onChange when method changes', () => {
     const onChange = vi.fn();
-    render(<HttpConfig {...defaultProps} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('GET'), { target: { value: 'POST' } });
+    const { container } = render(<HttpConfig {...defaultProps} onChange={onChange} />);
+    selectOption(container.querySelector('.wf-config-method-select')!, 'POST');
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it('renders all 5 HTTP method options', () => {
-    render(<HttpConfig {...defaultProps} />);
-    const select = screen.getByDisplayValue('GET') as HTMLSelectElement;
-    const options = Array.from(select.options).map(o => o.value);
-    expect(options).toEqual(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+    const { container } = render(<HttpConfig {...defaultProps} />);
+    const wrap = container.querySelector('.wf-config-method-select')!;
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toEqual(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
   });
 
   it('renders tab buttons for url, headers, body, extract', () => {
@@ -99,7 +113,7 @@ describe('HttpConfig — basic rendering', () => {
 
   it('renders Params tab content when activeTab=url', () => {
     render(<HttpConfig {...defaultProps} activeTab="url" />);
-    expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
+    expect(screen.getByText('Query Parameters')).toBeTruthy();
   });
 
   it('renders headers tab content when activeTab=headers', () => {
@@ -144,16 +158,22 @@ describe('HttpConfig — basic rendering', () => {
   });
 
   it('renders Service select with None option', () => {
-    render(<HttpConfig {...defaultProps} />);
-    expect(screen.getByText('None (raw URL)')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} />);
+    const wrap = container.querySelector('.wf-config-service-select')!;
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toContain('None (raw URL)');
   });
 
   it('renders services in the select when provided', () => {
     const services: WorkflowService[] = [
       { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'none' } },
     ];
-    render(<HttpConfig {...defaultProps} workflowServices={services} />);
-    expect(screen.getByText('Users API')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} workflowServices={services} />);
+    const wrap = container.querySelector('.wf-config-service-select')!;
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toContain('Users API');
   });
 
   it('calls onChange with serviceId when service is selected', () => {
@@ -162,10 +182,38 @@ describe('HttpConfig — basic rendering', () => {
       { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'none' } },
     ];
     render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: 'svc1' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'Users API');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ serviceId: 'svc1' }));
     expect(onChange.mock.calls[0][0]).not.toHaveProperty('label');
+  });
+
+  it('sets auth to inherit when selecting a service while auth is none', () => {
+    const onChange = vi.fn();
+    const services: WorkflowService[] = [
+      { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'bearer', token: 't' } },
+    ];
+    const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'none' } }) });
+    render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} data={data} />);
+    selectOption(document.querySelector('.wf-config-service-select')!, 'Users API');
+    const patch = onChange.mock.calls[0][0] as { serviceId: string; scenario: { auth: { type: string } } };
+    expect(patch.serviceId).toBe('svc1');
+    expect(patch.scenario.auth.type).toBe('inherit');
+  });
+
+  it('clears inherit auth when service is set to None', () => {
+    const onChange = vi.fn();
+    const services: WorkflowService[] = [
+      { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'bearer', token: 't' } },
+    ];
+    const data = makeHttpData({
+      serviceId: 'svc1',
+      scenario: makeScenario({ auth: { type: 'inherit' } }),
+    });
+    render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} data={data} />);
+    selectOption(document.querySelector('.wf-config-service-select')!, 'None (raw URL)');
+    const patch = onChange.mock.calls[0][0] as { serviceId?: string; scenario: { auth: { type: string } } };
+    expect(patch.serviceId).toBeUndefined();
+    expect(patch.scenario.auth.type).toBe('none');
   });
 
   it('shows param count badge on Params tab when params exist', () => {
@@ -222,8 +270,8 @@ describe('HttpConfig — basic rendering', () => {
 
   it('updates body on textarea change', () => {
     const onChange = vi.fn();
-    render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} />);
-    const textarea = screen.getByTestId('expression-textarea');
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} />);
+    const textarea = container.querySelector('.wf-config-textarea') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: '{"key":"value"}' } });
     expect(onChange).toHaveBeenCalled();
   });
@@ -249,8 +297,7 @@ describe('HttpConfig — basic rendering', () => {
       { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'none' } },
     ];
     render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} data={makeHttpData({ serviceId: 'svc1' })} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'None (raw URL)');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ serviceId: undefined }));
   });
 
@@ -295,7 +342,7 @@ describe('HttpConfig — basic rendering', () => {
   it('parses query params from URL', () => {
     const data = makeHttpData({ scenario: makeScenario({ url: '/api/users?page=1&limit=10' }) });
     render(<HttpConfig {...defaultProps} activeTab="url" data={data} />);
-    expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
+    expect(screen.getByText('Query Parameters')).toBeTruthy();
   });
 
   it('shows absolute URL as-is in preview', () => {
@@ -339,12 +386,21 @@ describe('HttpConfig — basic rendering', () => {
     expect(urlPreview?.textContent).not.toContain('node:');
   });
 
+  it('resolves template-variable URL using variableHints defaults', () => {
+    const data = makeHttpData({ scenario: makeScenario({ url: '{{baseUrl}}/users/{{userId}}' }) });
+    const hints = [
+      { ref: 'baseUrl', label: 'baseUrl', defaultValue: 'https://api.example.com' },
+    ];
+    render(<HttpConfig {...defaultProps} data={data} variableHints={hints} effectiveQuickTestBaseUrl="http://localhost:3000" />);
+    const urlPreview = document.querySelector('.wf-config-last-req-url-value');
+    expect(urlPreview?.textContent).toBe('https://api.example.com/users/{{userId}}');
+  });
+
   it('renders service select label when service is selected', () => {
     const onChange = vi.fn();
     const services = [{ id: 'svc1', name: 'My API', baseUrl: 'http://my.api', auth: { type: 'none' as const } }];
     render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} />);
-    const select = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'svc1' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'My API');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ serviceId: 'svc1' }));
     expect(onChange.mock.calls[0][0]).not.toHaveProperty('label');
   });
@@ -362,7 +418,7 @@ describe('HttpConfig — basic rendering', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ scenario: makeScenario({ url: '/api?key=val' }) });
     render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-    expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
+    expect(screen.getByText('Query Parameters')).toBeTruthy();
   });
 
   it('does not show Services hint when services are provided', () => {
@@ -386,8 +442,8 @@ describe('HttpConfig — basic rendering', () => {
   });
 
   it('shows raw editor and Data Mapper button on body tab', () => {
-    render(<HttpConfig {...defaultProps} activeTab="body" />);
-    expect(screen.getByTestId('expression-textarea')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="body" />);
+    expect(container.querySelector('.wf-config-textarea')).toBeTruthy();
     expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
   });
 
@@ -414,13 +470,68 @@ describe('HttpConfig — basic rendering', () => {
     expect(badgeTexts).toContain('1');
   });
 
-  it('omits datatype chips for minimalist variable hints', () => {
+  it('shows empty type placeholder for minimalist variable hints', () => {
     const { container } = render(<HttpConfig {...defaultProps} activeTab="url" variableHints={[
       { ref: 'plain', label: 'Plain', description: 'no type' },
     ]} />);
     const row = container.querySelector('.wf-http-var-hints-item');
     expect(row).toBeTruthy();
-    expect(row?.querySelector('.wf-http-var-hints-type')).toBeNull();
+    expect(row?.querySelector('.wf-http-var-hints-type--empty')?.textContent).toBe('—');
+  });
+
+  it('renders nodeLabel-only source text without category separator', () => {
+    render(
+      <HttpConfig
+        {...defaultProps}
+        activeTab="url"
+        variableHints={[
+          {
+            ref: 'node:step1.value',
+            label: 'fallback label',
+            source: { nodeLabel: 'Step 1', nodeType: 'http' },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Step 1')).toBeTruthy();
+    expect(screen.queryByText('Step 1 ·')).toBeNull();
+  });
+
+  it('copies variable hint template and shows copied state', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    render(
+      <HttpConfig
+        {...defaultProps}
+        activeTab="url"
+        variableHints={[{ ref: 'userId', label: 'User ID', type: 'string' }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy {{userId}}' }));
+
+    expect(writeText).toHaveBeenCalledWith('{{userId}}');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Copied {{userId}}' })).toBeTruthy();
+    });
+  });
+
+  it('keeps copy button label when clipboard write fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard unavailable'));
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    render(
+      <HttpConfig
+        {...defaultProps}
+        activeTab="url"
+        variableHints={[{ ref: 'token', label: 'Token', type: 'string' }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy {{token}}' }));
+
+    expect(writeText).toHaveBeenCalledWith('{{token}}');
+    expect(screen.queryByRole('button', { name: 'Copied {{token}}' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Copy {{token}}' })).toBeTruthy();
   });
 });
 
@@ -446,7 +557,7 @@ describe('HttpConfig — service binding and env override', () => {
 
   it('shows environment override when service has multiple enabled endpoints', () => {
     const data = makeHttpData({ serviceId: 'svc-multi' });
-    render(
+    const { container } = render(
       <HttpConfig
         {...defaultProps}
         data={data}
@@ -456,14 +567,17 @@ describe('HttpConfig — service binding and env override', () => {
       />,
     );
     expect(screen.getByText('Environment')).toBeTruthy();
-    expect(screen.getByText(/Use global \(Development\)/)).toBeTruthy();
-    expect(screen.getByText('Production')).toBeTruthy();
-    expect(screen.getByText('adhoc')).toBeTruthy();
+    const envWrap = container.querySelector('.wf-config-env-override')!;
+    fireEvent.click(envWrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels.some(t => t?.includes('Use global (Development)'))).toBe(true);
+    expect(labels).toContain('Production');
+    expect(labels).toContain('adhoc');
   });
 
   it('uses global label when no selectedEnvId', () => {
     const data = makeHttpData({ serviceId: 'svc-multi' });
-    render(
+    const { container } = render(
       <HttpConfig
         {...defaultProps}
         data={data}
@@ -471,7 +585,10 @@ describe('HttpConfig — service binding and env override', () => {
         environments={environments}
       />,
     );
-    expect(screen.getByText(/Use global \(global\)/)).toBeTruthy();
+    const envWrap = container.querySelector('.wf-config-env-override')!;
+    fireEvent.click(envWrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels.some(t => t?.includes('Use global (global)'))).toBe(true);
   });
 
   it('shows env override badge and calls onChange when override is selected', () => {
@@ -488,8 +605,7 @@ describe('HttpConfig — service binding and env override', () => {
       />,
     );
     expect(screen.getAllByText('Production').length).toBeGreaterThan(0);
-    const envSelect = document.querySelector('.wf-config-env-override select') as HTMLSelectElement;
-    fireEvent.change(envSelect, { target: { value: 'env-dev' } });
+    selectOption(document.querySelector('.wf-config-env-override')!, 'Development');
     expect(onChange).toHaveBeenCalledWith({ envOverride: 'env-dev' });
   });
 
@@ -506,8 +622,7 @@ describe('HttpConfig — service binding and env override', () => {
         selectedEnvId="env-dev"
       />,
     );
-    const envSelect = document.querySelector('.wf-config-env-override select') as HTMLSelectElement;
-    fireEvent.change(envSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-config-env-override')!, 'Use global (Development)');
     expect(onChange).toHaveBeenCalledWith({ envOverride: undefined });
   });
 
@@ -536,8 +651,7 @@ describe('HttpConfig — service binding and env override', () => {
       scenario: makeScenario({ url: 'http://users.api/v1/users' }),
     });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} workflowServices={services} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: 'svc1' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'Users API');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       serviceId: 'svc1',
       envOverride: undefined,
@@ -557,8 +671,7 @@ describe('HttpConfig — service binding and env override', () => {
       scenario: makeScenario({ url: '/v1/users' }),
     });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} workflowServices={services} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'None (raw URL)');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       serviceId: undefined,
       scenario: expect.objectContaining({ url: 'http://users.api/v1/users' }),
@@ -577,8 +690,7 @@ describe('HttpConfig — service binding and env override', () => {
       scenario: makeScenario({ url: 'http://other.api/v1/users' }),
     });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} workflowServices={services} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'None (raw URL)');
     const patch = onChange.mock.calls[0][0] as { scenario?: Scenario };
     expect(patch.scenario?.url).toBeUndefined();
   });
@@ -618,31 +730,25 @@ describe('HttpConfig — auth fields with missing optional properties', () => {
 
   it('renders empty basic auth fields when username/password are undefined', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'basic' } as Scenario['auth'] }) });
-    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    const authSection = container.querySelector('.wf-config-auth-section')!;
-    const textInputs = authSection.querySelectorAll('input:not([type="password"])');
-    expect(textInputs.length).toBeGreaterThan(0);
-    expect(Array.from(textInputs).every(i => (i as HTMLInputElement).value === '')).toBe(true);
+    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    expect((screen.getByLabelText('Username') as HTMLTextAreaElement).value).toBe('');
+    expect((screen.getByLabelText('Password') as HTMLTextAreaElement).value).toBe('');
   });
 
   it('renders empty digest auth fields when credentials are undefined', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'digest' } as Scenario['auth'] }) });
-    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    const authSection = container.querySelector('.wf-config-auth-section')!;
-    const usernameInput = authSection.querySelector('input:not([type="password"])') as HTMLInputElement;
-    expect(usernameInput.value).toBe('');
-    expect(authSection.querySelector('input[type="password"]')).toBeTruthy();
+    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    expect((screen.getByLabelText('Username') as HTMLTextAreaElement).value).toBe('');
+    expect((screen.getByLabelText('Password') as HTMLTextAreaElement).value).toBe('');
+    expect(screen.getByLabelText('Show password')).toBeTruthy();
   });
 
   it('renders empty oauth2 client fields when values are undefined', () => {
     const data = makeHttpData({
       scenario: makeScenario({ auth: { type: 'oauth2', tokenUrl: '' } as Scenario['auth'] }),
     });
-    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    const authSection = container.querySelector('.wf-config-auth-section')!;
-    const clientIdInput = authSection.querySelector('.form-row.two-col input:not([type="password"])') as HTMLInputElement;
-    expect(clientIdInput.value).toBe('');
-    const secretInput = authSection.querySelector('input[type="password"]') as HTMLInputElement;
-    expect(secretInput.value).toBe('');
+    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    expect((screen.getByLabelText('Client ID') as HTMLTextAreaElement).value).toBe('');
+    expect((screen.getByLabelText('Client Secret') as HTMLTextAreaElement).value).toBe('');
   });
 });

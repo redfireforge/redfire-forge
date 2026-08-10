@@ -1,4 +1,4 @@
-import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData, SharedDataSource, DataSource } from '../types';
+import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, SharedDataSource, DataSource } from '../types';
 import { migrateScenarioKinds } from './scenarioMigration';
 import { ensureScenarioDefaults } from './wsScenarioDefaults';
 import { isTauri } from './platform';
@@ -27,14 +27,13 @@ import {
 } from './idbSharedDataSources';
 import { idbLoadWorkflows } from './idbWorkflows';
 import {
-  idbLoadRequests, idbSaveRequests, idbMigrateRequests,
+  idbLoadRequests,
 } from './idbRequests';
 import { idbLoadCatalogEntries } from './idbCatalog';
 import {
   idbLoadProjects,
 } from './idbProjects';
 import { compressTrace, sampleIterations } from './traceCompression';
-import { formatStorageDiagnostics } from './storageUiPrefs';
 import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, reclaimLocalStorageQuotaForWrite } from './storageCleanup';
 import {
   idbLoadRunnerConfig,
@@ -46,9 +45,6 @@ import {
   GLOBAL_AUTH_KEY,
   MAX_RUNS_KEY,
   RUNNER_CONFIG_KEY,
-  THEME_KEY,
-  REQUESTS_KEY,
-  LEGACY_WORKBENCH_KEY,
   FLAT_ENVS_KEY,
   FLAT_SVCS_KEY,
   FLAT_FGS_KEY,
@@ -755,115 +751,19 @@ export async function loadRunnerConfig(contextKey?: string): Promise<unknown | n
   }
 }
 
-// ---------- Theme ----------
-
-export async function saveTheme(theme: string): Promise<void> {
-  await writeKey(THEME_KEY, theme);
-}
-
-export async function loadTheme(): Promise<string> {
-  return (await readKey(THEME_KEY)) ?? 'dark';
-}
-
 export { loadPreviewSampleId, savePreviewSampleId } from './storageUiPrefs';
+export { saveTheme, loadTheme, getStorageDiagnostics } from './storageThemeDiagnostics';
+export {
+  loadRequests,
+  saveRequests,
+  loadSelectedWorkflowId,
+  saveSelectedWorkflowId,
+  loadWorkflowSampleDismissed,
+  saveWorkflowSampleDismissed,
+} from './storageRequestsWorkflow';
 
 // ---------- Requests ----------
-
-const EMPTY_REQUESTS: RequestsData = {
-  environments: [],
-  collections: [],
-};
-
-export async function loadRequests(): Promise<RequestsData> {
-  if (isTauri()) {
-    try {
-      const raw = await readKey(REQUESTS_KEY);
-      if (raw) return JSON.parse(raw) as RequestsData;
-      const legacy = await readKey(LEGACY_WORKBENCH_KEY);
-      if (legacy) {
-        const data = JSON.parse(legacy) as RequestsData;
-        await writeKey(REQUESTS_KEY, legacy);
-        await removeKey(LEGACY_WORKBENCH_KEY);
-        return data;
-      }
-    } catch { /* ignore */ }
-    return { ...EMPTY_REQUESTS, environments: [], collections: [] };
-  }
-  // Browser: IDB first, then localStorage fallback + migration
-  try {
-    const fromIdb = await idbLoadRequests();
-    if (fromIdb) return fromIdb;
-    const raw = await readKey(REQUESTS_KEY);
-    if (raw) {
-      const data = JSON.parse(raw) as RequestsData;
-      await idbMigrateRequests(REQUESTS_KEY);
-      return data;
-    }
-    const legacy = await readKey(LEGACY_WORKBENCH_KEY);
-    if (legacy) {
-      const data = JSON.parse(legacy) as RequestsData;
-      await idbSaveRequests(data);
-      await removeKey(LEGACY_WORKBENCH_KEY);
-      return data;
-    }
-  } catch { /* ignore */ }
-  return { ...EMPTY_REQUESTS, environments: [], collections: [] };
-}
-
-export async function saveRequests(data: RequestsData): Promise<void> {
-  if (isTauri()) {
-    await writeKey(REQUESTS_KEY, JSON.stringify(data));
-    return;
-  }
-  try {
-    await idbSaveRequests(data);
-    if (localStorage.getItem(REQUESTS_KEY)) localStorage.removeItem(REQUESTS_KEY);
-  } catch {
-    await writeKey(REQUESTS_KEY, JSON.stringify(data));
-  }
-}
-
-// ── Workflows (selection / UI prefs — core CRUD in storageWorkflows.ts) ──
-
-/** Last selected workflow id in the designer (survives refresh). */
-const WORKFLOWS_SELECTED_ID_KEY = 'workflows_selected_id';
-/** When true, do not auto-inject the built-in sample workflow on load (user removed it). */
-const WORKFLOWS_SAMPLE_DISMISSED_KEY = 'workflows_sample_dismissed';
-
-export async function loadSelectedWorkflowId(): Promise<string | null> {
-  try {
-    const r = await readKey(WORKFLOWS_SELECTED_ID_KEY);
-    return r?.trim() ? r.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function saveSelectedWorkflowId(id: string | null): Promise<void> {
-  if (id?.trim()) {
-    await writeKey(WORKFLOWS_SELECTED_ID_KEY, id.trim());
-  } else {
-    await removeKey(WORKFLOWS_SELECTED_ID_KEY);
-  }
-}
-
-export async function loadWorkflowSampleDismissed(): Promise<boolean> {
-  try {
-    const r = await readKey(WORKFLOWS_SAMPLE_DISMISSED_KEY);
-    return r === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export async function saveWorkflowSampleDismissed(dismissed: boolean): Promise<void> {
-  await writeKey(WORKFLOWS_SAMPLE_DISMISSED_KEY, dismissed ? 'true' : 'false');
-}
-
-export async function getStorageDiagnostics(): Promise<string> {
-  const usage = await getStorageUsage();
-  return formatStorageDiagnostics(usage);
-}
+// Requests/workflow selection storage functions are re-exported from storageRequestsWorkflow.
 
 // ---------- Re-exports (catalog & workflow CRUD live in dedicated modules) ----------
 

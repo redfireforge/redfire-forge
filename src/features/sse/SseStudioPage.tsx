@@ -1,20 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSseConnection } from './useSseConnection';
-import { useSseConsole } from './useSseConsole';
-import { ConsolePanel } from '../websocket/ConsolePanel';
-import { useConsoleCommands } from '../websocket/useConsoleCommands';
-import { SSE_CONSOLE_COMMANDS, SSE_CONSOLE_HINT } from '../websocket/wsConsoleCommands';
-import { SseMessageLog } from './SseMessageLog';
-import { SseStudioShell } from './SseStudioShell';
-import SseAuthPanel from './SseAuthPanel';
-import { loadSseConfig, saveSseConfig } from './sseStorage';
-import { KeyValueEditor } from '../websocket/KeyValueEditor';
-import type { WsKeyValueEntry } from '../../shared/websocket/types';
-import type { AuthConfig, GlobalAuthProfile, Microservice } from '../../shared/types';
-import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
-import { ProtocolEndpointPreview } from '../../shared/components/ProtocolEndpointPreview';
-import { getRowStatus } from '../environments/utils/protocolEndpointUtils';
-import type { SseLeftTab, SseRightTab } from './sseTypes';
+import { SseConnectionTabBar } from './SseConnectionTabBar';
+import { SseConnectionTabContent, type SseConnectionTabContentHandle } from './SseConnectionTabContent';
+import type { SseConnectionState, SseConnectionTab } from './sseTypes';
+import { SSE_MAX_TABS, createDefaultSseTab } from './sseTypes';
+import {
+  deriveSseTabLabel,
+  loadSseTabState,
+  migrateLegacySseConfig,
+  saveSseTabState,
+} from './sseStorage';
+import type { GlobalAuthProfile, Microservice } from '../../shared/types';
+import ConfirmModal from '../../shared/components/ConfirmModal';
 import '../../styles/sse-studio.css';
 
 interface SseStudioPageProps {
@@ -26,19 +22,18 @@ interface SseStudioPageProps {
   globalAuthProfiles?: GlobalAuthProfile[];
 }
 
-function buildLegacySseEnvVarMap(
-  resolvedBaseUrl?: string,
-  envName?: string,
-  svcName?: string,
-): Record<string, string> {
-  const map: Record<string, string> = {};
-  if (resolvedBaseUrl) {
-    map.baseUrl = resolvedBaseUrl;
-    map.sseUrl = resolvedBaseUrl;
+let _sseTabIdCounter = 0;
+function nextSseTabId(): string {
+  _sseTabIdCounter++;
+  return `sse-tab-${_sseTabIdCounter}`;
+}
+function syncCounterFromTabs(tabs: SseConnectionTab[]): void {
+  let max = 0;
+  for (const t of tabs) {
+    const m = t.id.match(/^sse-tab-(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
-  if (envName) map.envName = envName;
-  if (svcName) map.svcName = svcName;
-  return map;
+  if (max > _sseTabIdCounter) _sseTabIdCounter = max;
 }
 
 export function SseStudioPage({
@@ -49,290 +44,247 @@ export function SseStudioPage({
   selectedEnvId,
   globalAuthProfiles = [],
 }: SseStudioPageProps) {
-  const envVarMap = useMemo(() => {
-    if (selectedSvc && selectedEnvId) {
-      return buildEnvVarMap(selectedSvc, selectedEnvId, 'sse', envName);
-    }
-    return buildLegacySseEnvVarMap(resolvedBaseUrl, envName, svcName);
-  }, [selectedSvc, selectedEnvId, resolvedBaseUrl, envName, svcName]);
+  const [tabs, setTabs] = useState<SseConnectionTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState('');
+  const [connectionStates, setConnectionStates] = useState<Record<string, SseConnectionState>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [confirmCloseTabId, setConfirmCloseTabId] = useState<string | null>(null);
 
-  const endpointProtocolStatus = useMemo(() => {
-    if (selectedSvc && selectedEnvId) {
-      return getRowStatus(selectedSvc, 'sse', selectedEnvId);
-    }
-    return undefined;
-  }, [selectedSvc, selectedEnvId]);
+  const tabRefs = useRef<Map<string, SseConnectionTabContentHandle>>(new Map());
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedRef = useRef(false);
 
-  const sse = useSseConnection(envVarMap, globalAuthProfiles);
-  const { config, setConfig, connection, events, stats, connect, disconnect } = sse;
-  const sseConsole = useSseConsole({ connection, config, authProfiles: globalAuthProfiles });
-  // Phase 8 — left-pane tab (Connect / Auth) for the shell-v2 layout.
-  const [leftTab, setLeftTab] = useState<SseLeftTab>('connect');
-  // Phase 9 — right-pane tab (Events / Console) for the shell-v2 layout.
-  const [rightTab, setRightTab] = useState<SseRightTab>('events');
+  // ── Load persisted tabs (or migrate legacy) ────────────────────
 
-  // Phase 8: persist the whole SSE config (url/headers/reconnect/auth). Load
-  // once on mount; only start saving after the load resolves so we never
-  // overwrite a stored config with the initial defaults.
-  const sseConfigLoadedRef = useRef(false);
-  const sseSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     let cancelled = false;
-    loadSseConfig()
-      .then((stored) => {
-        if (cancelled) return;
-        if (stored) setConfig(stored);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) sseConfigLoadedRef.current = true;
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [setConfig]);
+    (async () => {
+      let state = await loadSseTabState();
+      if (!state) {
+        state = await migrateLegacySseConfig();
+      }
+      if (cancelled) return;
+      if (state && state.tabs.length > 0) {
+        syncCounterFromTabs(state.tabs);
+        setTabs(state.tabs);
+        setActiveTabId(state.activeTabId);
+      } else {
+        const firstTab = createDefaultSseTab(nextSseTabId());
+        setTabs([firstTab]);
+        setActiveTabId(firstTab.id);
+      }
+      loadedRef.current = true;
+      setLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
-  useEffect(() => {
-    if (!sseConfigLoadedRef.current) return;
-    if (sseSaveTimerRef.current) clearTimeout(sseSaveTimerRef.current);
-    sseSaveTimerRef.current = setTimeout(() => {
-      saveSseConfig(config);
+  // ── Save tabs (debounced) ──────────────────────────────────────
+
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
+
+  const scheduleSave = useCallback(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveSseTabState({ tabs: tabsRef.current, activeTabId: activeTabIdRef.current });
     }, 300);
-    return () => {
-      if (sseSaveTimerRef.current) clearTimeout(sseSaveTimerRef.current);
-    };
-  }, [config]);
+  }, []);
 
-  // Flush the latest config on unmount so an edit made within the 300ms debounce
-  // window isn't lost when navigating away (mirrors the WebSocket studio).
-  const configRef = useRef(config);
-  configRef.current = config;
+  useEffect(() => {
+    if (!loaded) return;
+    scheduleSave();
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [tabs, activeTabId, loaded, scheduleSave]);
+
+  // Flush on unmount — use loadedRef (not the state variable) because this
+  // effect has an empty dependency array and the closure would capture the
+  // initial `loaded = false` value from the first render.
   useEffect(() => {
     return () => {
-      if (sseSaveTimerRef.current) clearTimeout(sseSaveTimerRef.current);
-      if (!sseConfigLoadedRef.current) return;
-      saveSseConfig(configRef.current);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (loadedRef.current) {
+        saveSseTabState({ tabs: tabsRef.current, activeTabId: activeTabIdRef.current });
+      }
     };
   }, []);
 
+  // ── Tab operations ─────────────────────────────────────────────
 
-  const isConnected = connection.state === 'connected';
-  const isConnecting = connection.state === 'connecting';
-  const isBusy = isConnected || isConnecting;
+  const handleAddTab = useCallback(() => {
+    const newTab = createDefaultSseTab(nextSseTabId());
+    let added = false;
+    setTabs((prev) => {
+      if (prev.length >= SSE_MAX_TABS) return prev;
+      added = true;
+      return [...prev, newTab];
+    });
+    if (added) setActiveTabId(newTab.id);
+  }, []);
 
-  // Phase 10 — console command line (SSE: limited set — /connect /disconnect
-  // /clear /help; the one-way stream has no /ping /send /template).
-  const { runCommand: runConsoleCommand } = useConsoleCommands({
-    append: sseConsole.append,
-    clearConsole: sseConsole.clear,
-    commands: SSE_CONSOLE_COMMANDS,
-    capabilities: {
-      isConnected,
-      isConnecting,
-      connect: (url) => {
-        if (url) setConfig({ url });
-        connect();
-      },
-      disconnect: () => disconnect(),
-    },
-  });
+  const handleSelectTab = useCallback((id: string) => {
+    setActiveTabId(id);
+  }, []);
 
-  const handleConnect = useCallback(() => {
-    if (isBusy) {
-      disconnect();
-    } else {
-      connect();
+  const doCloseTab = useCallback((id: string) => {
+    const handle = tabRefs.current.get(id);
+    handle?.disconnect();
+    tabRefs.current.delete(id);
+
+    setTabs((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      if (next.length === 0) {
+        const fallback = createDefaultSseTab(nextSseTabId());
+        setActiveTabId(fallback.id);
+        return [fallback];
+      }
+      // Select an adjacent tab if the closed one was active
+      const closedIdx = prev.findIndex((t) => t.id === id);
+      setActiveTabId((prevActive) => {
+        if (prevActive !== id) return prevActive;
+        const nextIdx = Math.min(closedIdx, next.length - 1);
+        return next[nextIdx].id;
+      });
+      return next;
+    });
+
+    setConnectionStates((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setConfirmCloseTabId(null);
+  }, []);
+
+  const handleCloseTab = useCallback((id: string) => {
+    const handle = tabRefs.current.get(id);
+    const state = handle?.getConnectionState();
+    if (state === 'connected' || state === 'connecting') {
+      setConfirmCloseTabId(id);
+      return;
     }
-  }, [isBusy, connect, disconnect]);
+    doCloseTab(id);
+  }, [doCloseTab]);
 
-  const handleHeadersChange = useCallback(
-    (headers: WsKeyValueEntry[]) => {
-      setConfig({ headers });
-    },
-    [setConfig],
-  );
+  const handleRenameTab = useCallback((id: string, newLabel: string) => {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, label: newLabel, labelManual: true } : t)),
+    );
+  }, []);
 
-  const handleAuthChange = useCallback(
-    (auth: AuthConfig) => {
-      setConfig({ auth });
-    },
-    [setConfig],
-  );
+  const handleReorderTab = useCallback((fromIndex: number, toIndex: number) => {
+    setTabs((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
 
-  const authConfigured = !!config.auth && config.auth.type !== 'none';
+  const handleDuplicateTab = useCallback((tabId: string) => {
+    const src = tabsRef.current.find((t) => t.id === tabId);
+    if (!src) return;
+    const newTab: SseConnectionTab = {
+      ...src,
+      id: nextSseTabId(),
+      label: src.labelManual ? `${src.label} (copy)` : src.label,
+      labelManual: src.labelManual,
+      headers: src.headers.map((h) => ({ ...h })),
+      auth: src.auth ? { ...src.auth } : undefined,
+    };
+    let added = false;
+    setTabs((prev) => {
+      if (prev.length >= SSE_MAX_TABS) return prev;
+      added = true;
+      return [...prev, newTab];
+    });
+    if (added) setActiveTabId(newTab.id);
+  }, []);
 
-  const stateLabel = (() => {
-    switch (connection.state) {
-      case 'idle': return 'Disconnected';
-      case 'connecting': return 'Connecting…';
-      case 'connected': return 'Connected';
-      case 'disconnected':
-        return connection.reconnectAttempt > 0
-          ? `Reconnecting (${connection.reconnectAttempt})…`
-          : 'Disconnected';
-      case 'error': return `Error: ${connection.error ?? 'Unknown'}`;
-      default: return 'Disconnected';
-    }
-  })();
+  const handleConfigChange = useCallback((tabId: string, patch: Partial<SseConnectionTab>) => {
+    setTabs((prev) =>
+      prev.map((t) => {
+        if (t.id !== tabId) return t;
+        const updated = { ...t, ...patch };
+        if ('url' in patch && patch.url !== t.url && !t.labelManual) {
+          updated.label = deriveSseTabLabel(patch.url ?? '');
+        }
+        return updated;
+      }),
+    );
+  }, []);
 
-  const stateClass = (() => {
-    switch (connection.state) {
-      case 'connected': return 'sse-state-connected';
-      case 'connecting': return 'sse-state-connecting';
-      case 'error': return 'sse-state-error';
-      default: return 'sse-state-disconnected';
-    }
-  })();
+  const handleConnectionStateChange = useCallback((tabId: string, state: SseConnectionState) => {
+    setConnectionStates((prev) => ({ ...prev, [tabId]: state }));
+  }, []);
 
-  // Connection URL + state dot + connect/disconnect, shown in the shell's top bar.
-  const urlControls = (
-    <div className="sse-url-controls">
-      <span className={`sse-state-dot ${stateClass}`} title={stateLabel} />
-      <input
-        className="sse-url-input"
-        type="text"
-        placeholder="https://api.example.com/events or {{sseUrl}}/events"
-        value={config.url}
-        onChange={(e) => setConfig({ url: e.target.value })}
-        disabled={isBusy}
-        data-testid="sse-url-input"
-      />
-      <button
-        className={`sse-connect-btn ${isBusy ? 'sse-connect-btn-danger' : 'sse-connect-btn-primary'}`}
-        onClick={handleConnect}
-        disabled={!config.url.trim() && !isBusy}
-        data-testid="sse-connect-btn"
-      >
-        {isBusy ? 'Disconnect' : 'Connect'}
-      </button>
-    </div>
-  );
+  const setTabRef = useCallback((id: string, el: SseConnectionTabContentHandle | null) => {
+    if (el) tabRefs.current.set(id, el);
+    else tabRefs.current.delete(id);
+  }, []);
 
-  const headersSection = (
-    <KeyValueEditor
-      entries={config.headers}
-      onChange={handleHeadersChange}
-      onDeleteAll={() => handleHeadersChange([])}
-      disabled={isBusy}
-      label="Headers"
-      testIdPrefix="sse-headers"
-      sectionClassName="sse-config-section"
-      headerClassName="sse-config-section-head"
-      labelClassName="sse-config-section-title"
-    />
-  );
+  const closeConfirmTab = useMemo(() => {
+    if (!confirmCloseTabId) return null;
+    return tabs.find((t) => t.id === confirmCloseTabId) ?? null;
+  }, [confirmCloseTabId, tabs]);
 
-  const reconnectSection = (
-    <div className="sse-config-section">
-      <span className="sse-config-section-title">Reconnect</span>
-      <div className="sse-reconnect-card" data-testid="sse-reconnect-card">
-        <label className="sse-toggle-row">
-          <input
-            type="checkbox"
-            className="sse-toggle-checkbox"
-            data-testid="sse-reconnect-toggle"
-            checked={config.autoReconnect}
-            onChange={(e) => setConfig({ autoReconnect: e.target.checked })}
-            disabled={isBusy}
-          />
-          <span className="sse-toggle-text">
-            <span className="sse-toggle-title">Auto-reconnect</span>
-            <span className="sse-toggle-sub">Retry automatically on unexpected disconnect</span>
-          </span>
-        </label>
-        {config.autoReconnect && (
-          <div className="sse-retry-info">
-            Retry interval <strong>{connection.retryMs}ms</strong> · Max <strong>{config.maxRetries}</strong> attempts
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  if (!loaded) return null;
 
-  // Both config sections, stacked. Rendered in the shell's left pane where the
-  // config is always visible.
-  const configBody = (
-    <>
-      {headersSection}
-      {reconnectSection}
-    </>
-  );
-
-  const authBody = (
-    <SseAuthPanel
-      auth={config.auth ?? { type: 'none' }}
-      onChange={handleAuthChange}
-      globalAuthProfiles={globalAuthProfiles}
-    />
-  );
-
-  const messageLog = (
-    <SseMessageLog
-      events={events}
-      stats={stats}
-      bookmarkedIds={sse.bookmarkedIds}
-      onToggleBookmark={sse.toggleBookmark}
-      onClear={sse.clearEvents}
-      lastEventId={events.length > 0 ? events[events.length - 1].lastEventId : connection.lastEventId}
-      uptime={stats.startedAt}
-    />
-  );
-
-  // Phase 7 split-pane shell: config on the left, events on the right.
   return (
     <div className="sse-studio" data-testid="sse-studio">
-      <SseStudioShell
-        topBar={
-          <div className="sse-url-row">
-            {urlControls}
-            <ProtocolEndpointPreview
-              draftUrl={config.url}
-              envVarMap={envVarMap}
-              protocolRowStatus={endpointProtocolStatus}
-              testId="sse-endpoint-preview"
-            />
-          </div>
-        }
-        statusStrip={
-          <div className="sse-state-label" data-testid="sse-state-label">
-            <span className={stateClass}>{stateLabel}</span>
-            <span className="sse-auto-reconnect-badge">
-              Auto-reconnect: {config.autoReconnect ? 'On' : 'Off'}
-            </span>
-            <span className="sse-auto-reconnect-badge">Events: {stats.eventCount}</span>
-            {connection.lastEventId && (
-              <span className="sse-auto-reconnect-badge">
-                Last-Event-ID: {connection.lastEventId}
-              </span>
-            )}
-          </div>
-        }
-        left={
-          <div className="sse-config-body" data-testid="sse-config-body">
-            {leftTab === 'auth' ? authBody : configBody}
-          </div>
-        }
-        leftTab={leftTab}
-        onLeftTabChange={setLeftTab}
-        authConfigured={authConfigured}
-        rightTab={rightTab}
-        onRightTabChange={setRightTab}
-        right={
-          rightTab === 'console' ? (
-            <ConsolePanel
-              entries={sseConsole.entries}
-              settings={sseConsole.settings}
-              onSettingsChange={sseConsole.setSettings}
-              onClear={sseConsole.clear}
-              variant="sse"
-              onCommand={runConsoleCommand}
-              commandHint={SSE_CONSOLE_HINT}
-            />
-          ) : (
-            messageLog
-          )
-        }
+      <SseConnectionTabBar
+        tabs={tabs}
+        activeTabId={activeTabId}
+        connectionStates={connectionStates}
+        onSelect={handleSelectTab}
+        onAdd={handleAddTab}
+        onClose={handleCloseTab}
+        onDuplicate={handleDuplicateTab}
+        onRename={handleRenameTab}
+        onReorder={handleReorderTab}
       />
+
+      {tabs.map((tab) => (
+        <div
+          key={tab.id}
+          style={{
+            display: tab.id === activeTabId ? 'flex' : 'none',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+          }}
+          data-testid={`sse-conn-tab-pane-${tab.id}`}
+        >
+          <SseConnectionTabContent
+            ref={(el) => setTabRef(tab.id, el)}
+            tabId={tab.id}
+            tab={tab}
+            resolvedBaseUrl={resolvedBaseUrl}
+            envName={envName}
+            svcName={svcName}
+            selectedSvc={selectedSvc}
+            selectedEnvId={selectedEnvId}
+            globalAuthProfiles={globalAuthProfiles}
+            onConfigChange={handleConfigChange}
+            onConnectionStateChange={handleConnectionStateChange}
+          />
+        </div>
+      ))}
+
+      {closeConfirmTab && (
+        <ConfirmModal
+          title="Close Active Connection"
+          message={<>Tab <strong>{closeConfirmTab.label}</strong> has an active connection. Close and disconnect?</>}
+          confirmLabel="Close"
+          variant="danger"
+          onConfirm={() => doCloseTab(closeConfirmTab.id)}
+          onCancel={() => setConfirmCloseTabId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -314,10 +314,9 @@ describe('RequestEditor interaction branches', () => {
         environments={[{ id: 'env-1', name: 'Dev' }]}
         selectedEnvId="env-1"
         appMicroservices={[{
-          id: 'ms1', name: 'Users', baseUrls: { 'ae-dev': 'https://svcauth.example' },
-          customEnvs: [], authProfileIds: { 'ae-dev': 'prof-1' },
+          id: 'ms1', name: 'Users', baseUrls: { 'env-1': 'https://svcauth.example' },
+          customEnvs: [], authProfileIds: { 'env-1': 'prof-1' },
         }]}
-        appEnvironments={[{ id: 'ae-dev', name: 'Dev' }]}
         appGlobalAuthProfiles={[{
           id: 'prof-1', name: 'SvcAuth', auth: { type: 'bearer', token: 'svc-tok' },
         }]}
@@ -397,10 +396,9 @@ describe('RequestEditor interaction branches', () => {
         environments={[{ id: 'env-1', name: 'Dev' }]}
         appMicroservices={[{
           id: 'ms1', name: 'Svc',
-          baseUrls: { 'ae-dev': 'https://svc.example' },
+          baseUrls: { 'env-1': 'https://svc.example' },
           customEnvs: [],
         }]}
-        appEnvironments={[{ id: 'ae-dev', name: 'Dev' }]}
       />,
     );
     expect(screen.getByRole('button', { name: /Dev/ })).toBeInTheDocument();
@@ -458,7 +456,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /History/ }));
 
     const deleteButtons = screen.getAllByTitle('Delete this version');

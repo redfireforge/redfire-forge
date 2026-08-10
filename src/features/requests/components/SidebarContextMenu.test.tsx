@@ -40,6 +40,7 @@ function makeBaseCallbacks() {
     onMergeCollectionInto: vi.fn(),
     countAllRequests: vi.fn(() => 0),
     startAddFolder: vi.fn(),
+    getSubColEligibleCount: vi.fn(() => 1),
     startRenameFolder: vi.fn(),
     handleExportCollection: vi.fn(),
     handleExportFolder: vi.fn(),
@@ -205,7 +206,9 @@ describe('SidebarContextMenu', () => {
       [colA, colB],
       { showFolderMoveMenu: true, setShowFolderMoveMenu: vi.fn() },
     );
+    fireEvent.click(screen.getByRole('button', { name: /ColB/ }));
     fireEvent.click(screen.getByRole('button', { name: /TargetNest/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveFolderToCollection).toHaveBeenCalledWith('a', 'fx', 'b', 'nest');
   });
 
@@ -295,7 +298,7 @@ describe('SidebarContextMenu', () => {
     expect(baseCallbacks.onMoveFolder).toHaveBeenCalledWith('c1', folderId, 'down');
   });
 
-  it('request menu: move to folder and delete confirm', () => {
+  it('request menu: navigate into collection and move to folder', () => {
     const col: RequestCollection = {
       id: 'c1',
       name: 'C',
@@ -309,16 +312,56 @@ describe('SidebarContextMenu', () => {
       { showMoveMenu: true, setShowMoveMenu: vi.fn() },
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /📋 C/ }));
     fireEvent.click(screen.getByRole('button', { name: /F1/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveRequest).toHaveBeenCalledWith('c1', 'r9', 'fold1');
-
-    fireEvent.click(screen.getByText('Delete'));
-    expect(baseCallbacks.setConfirmDelete).toHaveBeenCalledWith(expect.objectContaining({
-      message: expect.stringContaining('Nine'),
-    }));
   });
 
-  it('request menu: move from folder to collection root', () => {
+  it('request menu: open in new tab action delegates and dismisses', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'direct',
+      requests: [req('r9', 'Nine')],
+      folders: [],
+    };
+    const onOpenInNewTab = vi.fn();
+    const dismiss = vi.fn();
+    renderMenu(
+      { x: 0, y: 0, type: 'request', colId: 'c1', reqId: 'r9' },
+      [col],
+      { onOpenInNewTab, dismiss },
+    );
+
+    fireEvent.click(screen.getByText('Open in New Tab'));
+    expect(onOpenInNewTab).toHaveBeenCalledWith('c1', 'r9');
+    expect(dismiss).toHaveBeenCalled();
+  });
+
+  it('folder menu: send-to-harness delegates and dismisses', () => {
+    const folderId = 'f1';
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'direct',
+      requests: [],
+      folders: [{ id: folderId, name: 'Sub', isSubCollection: true, requests: [], folders: [] }],
+    };
+    const onSendFolderToHarness = vi.fn();
+    const dismiss = vi.fn();
+    renderMenu(
+      { x: 0, y: 0, type: 'folder', colId: 'c1', folderId },
+      [col],
+      { onSendFolderToHarness, dismiss },
+    );
+
+    fireEvent.click(screen.getByText('Send to Harness'));
+    expect(onSendFolderToHarness).toHaveBeenCalledWith('c1', folderId);
+    expect(dismiss).toHaveBeenCalled();
+  });
+
+  it('request menu: move from folder to collection root via navigation', () => {
     const col: RequestCollection = {
       id: 'c1',
       name: 'C',
@@ -331,11 +374,12 @@ describe('SidebarContextMenu', () => {
       [col],
       { showMoveMenu: true, setShowMoveMenu: vi.fn() },
     );
-    fireEvent.click(screen.getByRole('button', { name: /Collection Root/ }));
+    fireEvent.click(screen.getByRole('button', { name: /📋 C/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveRequest).toHaveBeenCalledWith('c1', 'r9', null);
   });
 
-  it('request menu: deep nested folder request uses ancestor resolution', () => {
+  it('request menu: deep nested request can move to collection root', () => {
     const col: RequestCollection = {
       id: 'c1',
       name: 'C',
@@ -358,10 +402,9 @@ describe('SidebarContextMenu', () => {
       [col],
       { showMoveMenu: true, setShowMoveMenu: vi.fn() },
     );
-    fireEvent.click(screen.getByRole('button', { name: /Collection Root/ }));
+    fireEvent.click(screen.getByRole('button', { name: /📋 C/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveRequest).toHaveBeenCalledWith('c1', 'r99', null);
-    fireEvent.click(screen.getByText('Delete'));
-    expect(baseCallbacks.setConfirmDelete.mock.calls[0][0].message).toContain('DeepReq');
   });
 
   it('request menu: missing collection hides move submenu but duplicate still fires', () => {
@@ -380,7 +423,7 @@ describe('SidebarContextMenu', () => {
     expect(screen.queryByText('Duplicate')).toBeNull();
   });
 
-  it('request menu: no other non-group collections omits merge move targets', () => {
+  it('request menu: request at root of own collection shows current location after nav', () => {
     const col: RequestCollection = {
       id: 'c1', name: 'C', mode: 'direct', requests: [req('r1', 'R')], folders: [{ id: 'f1', name: 'F', requests: [], folders: [] }],
     };
@@ -389,7 +432,11 @@ describe('SidebarContextMenu', () => {
       [col],
       { showMoveMenu: true, setShowMoveMenu: vi.fn() },
     );
-    expect(screen.queryByRole('button', { name: /Collection Root/ })).toBeNull();
+    const btn = screen.getByRole('button', { name: /📋 C/ });
+    expect(btn).toBeTruthy();
+    fireEvent.click(btn);
+    expect(screen.getByText(/Current location/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /F/ })).toBeTruthy();
   });
 
   it('request menu: unknown request id resolves name to Untitled', () => {
@@ -412,7 +459,7 @@ describe('SidebarContextMenu', () => {
     expect(baseCallbacks.setConfirmDelete.mock.calls[0][0].message).toContain('Untitled');
   });
 
-  it('folder menu: move to collection root when folder is nested', () => {
+  it('folder menu: move to collection root via navigation', () => {
     const col: RequestCollection = {
       id: 'c1',
       name: 'C',
@@ -427,7 +474,8 @@ describe('SidebarContextMenu', () => {
       [col],
       { showFolderMoveMenu: true, setShowFolderMoveMenu: vi.fn() },
     );
-    fireEvent.click(screen.getByRole('button', { name: /Collection Root/ }));
+    fireEvent.click(screen.getByRole('button', { name: /📋 C/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveFolderTo).toHaveBeenCalledWith('c1', 'nested', null);
   });
 
@@ -469,7 +517,7 @@ describe('SidebarContextMenu', () => {
     }));
   });
 
-  it('folder menu: move into sibling folder', () => {
+  it('folder menu: move into sibling folder via navigation', () => {
     const col: RequestCollection = {
       id: 'c1',
       name: 'C',
@@ -485,7 +533,9 @@ describe('SidebarContextMenu', () => {
       [col],
       { showFolderMoveMenu: true, setShowFolderMoveMenu: vi.fn() },
     );
+    fireEvent.click(screen.getByRole('button', { name: /📋 C/ }));
     fireEvent.click(screen.getByRole('button', { name: /There/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveFolderTo).toHaveBeenCalledWith('c1', 'f1', 'f2');
   });
 
@@ -512,7 +562,7 @@ describe('SidebarContextMenu', () => {
     expect(screen.queryByRole('button', { name: /Child/ })).toBeNull();
   });
 
-  it('folder menu: move into another collection folder tree', () => {
+  it('folder menu: move into another collection folder tree via navigation', () => {
     const c1: RequestCollection = {
       id: 'c1',
       name: 'A',
@@ -534,6 +584,7 @@ describe('SidebarContextMenu', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /📦 B/ }));
     fireEvent.click(screen.getByRole('button', { name: /Dest/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveFolderToCollection).toHaveBeenLastCalledWith('c1', 'fx', 'c2', 'dest');
   });
 
@@ -630,6 +681,7 @@ describe('SidebarContextMenu', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /C2/ }));
     fireEvent.click(screen.getByRole('button', { name: /Inner/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveRequestToCollection).toHaveBeenCalledWith('c1', 'r1', 'c2', 'fx');
   });
 
@@ -686,7 +738,7 @@ describe('SidebarContextMenu', () => {
     expect(screen.queryByText('Move Down')).toBeNull();
   });
 
-  it('folder menu: three-level nesting still exposes Collection Root', () => {
+  it('folder menu: three-level nesting shows collection at top level', () => {
     const col: RequestCollection = {
       id: 'c1', name: 'C', mode: 'direct', requests: [],
       folders: [{
@@ -700,10 +752,10 @@ describe('SidebarContextMenu', () => {
       [col],
       { showFolderMoveMenu: true, setShowFolderMoveMenu: vi.fn() },
     );
-    expect(screen.getByRole('button', { name: /Collection Root/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /📋 C/ })).toBeTruthy();
   });
 
-  it('folder menu: nested folders appear in move targets', () => {
+  it('folder menu: nested folders appear after navigating into collection', () => {
     const col: RequestCollection = {
       id: 'c1',
       name: 'C',
@@ -724,7 +776,10 @@ describe('SidebarContextMenu', () => {
       [col],
       { showFolderMoveMenu: true, setShowFolderMoveMenu: vi.fn() },
     );
+    fireEvent.click(screen.getByRole('button', { name: /📋 C/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Parent/ }));
     fireEvent.click(screen.getByRole('button', { name: /Inner/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveFolderTo).toHaveBeenCalledWith('c1', 'peer', 'inner');
   });
 
@@ -751,7 +806,7 @@ describe('SidebarContextMenu', () => {
     expect(baseCallbacks.onDuplicateRequest).toHaveBeenCalledWith('c1', 'r1');
   });
 
-  it('request menu: move submenu excludes folder holding the request', () => {
+  it('request menu: navigating into collection shows current location marker', () => {
     const col: RequestCollection = {
       id: 'c1',
       name: 'C',
@@ -767,8 +822,12 @@ describe('SidebarContextMenu', () => {
       [col],
       { showMoveMenu: true, setShowMoveMenu: vi.fn() },
     );
-    expect(screen.queryByRole('button', { name: /Here/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /📋 C/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Here/ }));
+    expect(screen.getByText(/Current location/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }));
     fireEvent.click(screen.getByRole('button', { name: /There/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move here/ }));
     expect(baseCallbacks.onMoveRequest).toHaveBeenCalledWith('c1', 'rx', 'there');
   });
 

@@ -22,13 +22,6 @@ const ErrorPopover = forwardRef<HTMLDivElement, ErrorPopoverProps>(
         role="dialog"
         aria-label="Error details"
       >
-        <button
-          className="dm-error-popover-close"
-          onClick={onClose}
-          aria-label="Close error details"
-        >
-          ×
-        </button>
         <div className="dm-error-popover-title">Mapping Error</div>
         <div className="dm-error-popover-row">
           <span className="dm-error-popover-label">Source:</span>
@@ -59,6 +52,9 @@ const ErrorPopover = forwardRef<HTMLDivElement, ErrorPopoverProps>(
             {data.error}
           </div>
         )}
+        <div className="dm-error-popover-footer">
+          <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
+        </div>
       </div>
     );
   },

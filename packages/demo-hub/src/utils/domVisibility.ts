@@ -17,6 +17,24 @@ export function firstVisibleElement<T extends HTMLElement = HTMLElement>(
 }
 
 /**
+ * All matching elements with a non-zero bounding box, in DOM order.
+ * Use this instead of `document.querySelectorAll` whenever the selector could match
+ * elements belonging to multiple simultaneously-mounted tab panels (e.g. WebSocket
+ * Studio keeps every connection tab's content mounted, hiding inactive ones via
+ * `display: none`) — this filters out matches from any hidden panel.
+ */
+export function visibleElements<T extends HTMLElement = HTMLElement>(
+  selector: string,
+): T[] {
+  const all = document.querySelectorAll(selector);
+  return Array.from(all).filter((el): el is T => {
+    if (!(el instanceof HTMLElement)) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
+}
+
+/**
  * Returns `selector` when a visible match exists; otherwise returns `selector` if any
  * match exists (even hidden), or null when nothing matches.
  */

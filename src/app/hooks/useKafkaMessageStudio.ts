@@ -97,6 +97,7 @@ export function useKafkaMessageStudio(
     headerMatch: '',
     jsonPath: '',
     jsonPathEquals: '',
+    bodyContains: '',
   }));
 
   const [consumeLoading, setConsumeLoading] = useState(false);

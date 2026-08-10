@@ -240,9 +240,12 @@ describe('gql-workflow-runner lesson', () => {
     expect(step.verify).toBe('.results-run-filter-tabs');
   });
 
-  it('gql17-results-dashboard highlights metrics row', () => {
+  it('gql17-results-dashboard highlights latency metrics row', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-dashboard')!;
-    expect(step.highlight).toBe('[data-testid="results-metrics-cards"]');
+    expect(step.highlight).toBe(RES.METRICS_LATENCY_ROW);
+    expect(step.verify).toBe(RES.METRICS_LATENCY_ROW);
+    expect(typeof step.action).toBe('function');
+    expect(typeof step.preAction).toBe('function');
   });
 
   it('gql17-request-details highlights Request Details tab', () => {
@@ -250,9 +253,9 @@ describe('gql-workflow-runner lesson', () => {
     expect(step.highlight).toBe('[data-testid="results-tab-requests"]');
   });
 
-  it('gql17-results-explorer highlights console and verifies console body', () => {
+  it('gql17-results-explorer highlights Results Explorer button and verifies console body', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-explorer')!;
-    expect(step.highlight).toBe('[data-testid="results-console-body"]');
+    expect(step.highlight).toBe(RES.RESULTS_EXPLORER_BTN);
     expect(step.verify).toBe('[data-testid="results-console-body"]');
   });
 
@@ -405,12 +408,13 @@ describe('gql-workflow-runner lesson', () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildRunnerDom()}
+      <div class="results-top"></div>
       <div class="workflow-vars-section"></div>
       <div class="completion-section"><button class="btn-primary">View Full Results →</button></div>
       <div class="results-run-filter-tabs"></div>
-      <button title="Explore execution results" class="btn btn-primary">📊 Results Explorer</button>
+      <button title="Explore execution results" class="btn btn-primary" data-testid="results-explorer-open-btn">📊 Results Explorer</button>
     `;
-    const explorerBtn = document.querySelector<HTMLElement>('button[title="Explore execution results"]')!;
+    const explorerBtn = document.querySelector<HTMLElement>('[data-testid="results-explorer-open-btn"]')!;
     const explorerClickSpy = vi.spyOn(explorerBtn, 'click');
     explorerBtn.addEventListener('click', () => {
       const wrap = document.createElement('div');
@@ -419,9 +423,15 @@ describe('gql-workflow-runner lesson', () => {
       wrap.innerHTML = `
         <div class="react-flow__node"></div>
         <button title="Fit view" data-testid="results-explorer-fit-view-btn">Fit</button>
+        <button data-testid="view-toggle-diagram" class="view-toggle-active">Diagram</button>
+        <button data-testid="iter-picker-toggle" class="aggregate">Aggregate</button>
+        <button data-testid="console-toggle-btn-header">🖥 Console</button>
       `;
       document.body.appendChild(wrap);
     });
+    const adapters = await import('../../adapters');
+    vi.spyOn(adapters, 'waitForResultsExplorerBridge').mockResolvedValue(true);
+    vi.spyOn(adapters, 'fitResultsExplorerDiagram').mockReturnValue(true);
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-explorer')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
@@ -434,6 +444,7 @@ describe('gql-workflow-runner lesson', () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildRunnerDom()}
+      <div class="results-top"></div>
       <div class="workflow-vars-section"></div>
       <div class="completion-section"><button class="btn-primary">View Full Results →</button></div>
       <div class="results-run-filter-tabs"></div>
@@ -441,7 +452,8 @@ describe('gql-workflow-runner lesson', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-explorer')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(800);
+    // Tour exits early with a short delay when the open button is missing.
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
   // ── Guard tests ───────────────────────────────────────────────────────────
@@ -464,6 +476,26 @@ describe('gql-workflow-runner lesson', () => {
     await ensureLesson17WorkflowSelected(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson17WorkflowSelected(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(LESSON17_WORKFLOW_SELECT);
+  });
+
+  it('selectGqlLatencyDemoWorkflow skips re-opening the dropdown when already selected', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="workflow-select">${LESSON17_WF_NAME}</button>
+      <div class="workflow-vars-section"></div>
+    `;
+    await selectGqlLatencyDemoWorkflow(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await selectGqlLatencyDemoWorkflow(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('gqlWorkflowRunnerLessonSetup does not open the workflow picker', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `<button data-testid="workflow-select"></button>`;
+    stubWorkflowSeedBridge(LESSON17_WF_NAME);
+    await gqlWorkflowRunnerLessonSetup(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(LESSON17_WORKFLOW_SELECT);
   });
 

@@ -11,35 +11,74 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WS } from '@shared/selectors';
-import { wsSetup, wsCleanup, connectToMockServer, disconnectWebSocket } from '../setup-helpers';
+import {
+  clearEvents,
+  connectToMockServer,
+  disconnectWebSocket,
+  fillControlledInput,
+  firstVisibleEl,
+  getLastMockPort,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
+import { firstVisibleElement } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
 
 // ── Constants ──────────────────────────────────────────────────
-const MOCK_URL = 'ws://localhost:9876';
+// NOTE: this is only a fallback description string; the actual connect URL
+// is resolved dynamically via getLastMockPort() (each tab gets its own port).
+
+/** Park on Client → Connect and pre-fill the mock URL with no ripples / menus. */
+async function prepareConnectPanelQuiet(ctx: DemoActionContext): Promise<void> {
+  await switchToClientModeQuiet(ctx);
+  const connectTab = firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT);
+  if (connectTab && !connectTab.classList.contains('active') && connectTab.getAttribute('aria-selected') !== 'true') {
+    connectTab.click();
+    await ctx.delay(60);
+  }
+  const url = `ws://localhost:${getLastMockPort()}`;
+  const urlInput = firstVisibleEl<HTMLInputElement>(WS.URL_INPUT);
+  if (urlInput && urlInput.value !== url) {
+    fillControlledInput(urlInput, url);
+  }
+  const sub = firstVisibleEl<HTMLInputElement>(WS.SUBPROTOCOLS_INPUT);
+  if (sub && sub.value !== '') fillControlledInput(sub, '');
+  // Do NOT open the Protocol CustomSelect during setup — Live is already visible
+  // and the dropdown flash is what viewers report as "moving parts" on step 1.
+  await ctx.delay(40);
+}
 
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
+/**
+ * Quiet setup — REST mock + Connect panel ready (URL filled).
+ * Live view is already on screen during setup, so no Mock tour, no demo-tab
+ * add/rename, no protocol dropdown, no multi-spotlight hops.
+ */
 async function reliabilitySetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(400);
-  await wsSetup(ctx);
-  await ctx.delay(200);
-  // Clear stale subprotocols/protocol from previous lessons
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
-  await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
-  await ctx.delay(200);
-  await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
-  await ctx.delay(200);
+  const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(40);
+  }
+  await startMockServerQuiet(ctx, 9876);
+  await prepareConnectPanelQuiet(ctx);
+  (document.activeElement as HTMLElement | null)?.blur?.();
+  // Always start on Events tab so persisted Stats doesn't bleed in before the step that teaches it
+  const eventsTab = firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS);
+  if (eventsTab?.getAttribute('aria-selected') !== 'true') {
+    eventsTab?.click();
+    await ctx.delay(40);
+  }
 }
 
 async function reliabilityCleanup(ctx: DemoActionContext): Promise<void> {
-  // Reset protocol/subprotocols before standard cleanup
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
-  await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
-  await ctx.delay(200);
-  await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
-  await ctx.delay(200);
-  await wsCleanup(ctx);
+  await prepareConnectPanelQuiet(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx, 9876);
+  await switchToClientModeQuiet(ctx);
 }
 
 // ── Lesson ──────────────────────────────────────────────────────
@@ -52,6 +91,8 @@ export const wsReliabilityLesson: DemoLesson = {
   description: 'Monitor connection health with live stats, configure auto-reconnect, and use close-with-code for controlled disconnects.',
   estimatedMinutes: 3,
   initialTab: 'websocket-studio',
+  // Avoid add→rename "demo" connection tab flash at live start
+  skipStudioTabIsolation: true,
 
   setup: reliabilitySetup,
   cleanup: reliabilityCleanup,
@@ -396,20 +437,24 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       id: 'rel-connect',
       title: 'Connect to the Mock Server',
       description:
-        'First, let\'s establish a connection to the built-in mock echo server. The demo fills in `ws://localhost:9876` and clicks **Connect**. Watch the status bar turn green with a latency measurement and uptime counter.',
+        'The Connect panel is ready with this tab\'s mock server URL (`ws://localhost:9876`). ' +
+        'Click **Connect** and watch the status bar turn green with a latency measurement and uptime counter.',
       highlight: WS.CONNECT_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
-        await ctx.fill(WS.URL_INPUT, MOCK_URL);
-        await ctx.delay(200);
+        // Guard only — URL/panel already prepared in setup (or recover after rapid Next).
+        await prepareConnectPanelQuiet(ctx);
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.CONNECT_BTN);
-        await ctx.delay(1200);
+        // Reading ring is already on Connect — one visible beat, no URL/tab thrash.
+        await ctx.delay(200);
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await ctx.click(WS.CONNECT_BTN);
+          await ctx.waitFor(WS.STATUS_CONNECTED, 5000);
+        }
+        await ctx.delay(400);
         await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(800);
+        await ctx.delay(300);
       },
       verify: WS.STATUS_CONNECTED,
     },
@@ -424,10 +469,10 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.RIGHT_TAB_STATS);
-        await ctx.delay(300);
+        await ctx.delay(150);
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(1000);
+        await ctx.delay(400);
       },
     },
 
@@ -441,27 +486,27 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // Guard: must be connected to show the spike; reconnect silently if needed.
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await connectToMockServer(ctx);
         }
         // Switch to Send, send a burst, then back to Stats
         await ctx.click(WS.LEFT_TAB_SEND);
-        await ctx.delay(200);
+        await ctx.delay(100);
         await ctx.fill(WS.MESSAGE_INPUT, '{"ping":1}');
-        await ctx.delay(200);
+        await ctx.delay(100);
       },
       action: async (ctx: DemoActionContext) => {
         // Send 5 messages — re-fill each time because Send clears the input
         for (let i = 0; i < 5; i++) {
           await ctx.fill(WS.MESSAGE_INPUT, `{"ping":${i + 1}}`);
-          await ctx.delay(200);
+          await ctx.delay(100);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(350);
+          await ctx.delay(180);
         }
-        await ctx.delay(600);
+        await ctx.delay(300);
         // Switch to Stats to observe the spike
         await ctx.click(WS.RIGHT_TAB_STATS);
-        await ctx.delay(1800);
+        await ctx.delay(800);
       },
     },
 
@@ -470,19 +515,63 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       id: 'rel-reconnect-settings',
       title: 'Auto-Reconnect Settings',
       description:
-        'Back on the Connect tab, scroll down to **Auto-Reconnect Settings**. The checkbox enables automatic retries when a connection drops unexpectedly (close code ≠ 1000). You configure **Max Attempts** (default 5), **Retry Interval** (default 3000ms), and **Backoff Multiplier** (1×, 1.5×, or 2× exponential). These settings are saved with connection profiles.',
+        'Auto-reconnect can only be changed while **disconnected** — the Connect panel locks these controls while a session is active. ' +
+        'This step disconnects first, then enables **Enable auto-reconnect**. ' +
+        'That turns on automatic retries when a connection drops unexpectedly (close code ≠ 1000). ' +
+        'Configure **Max Attempts** (default 5), **Retry Interval** (default 3000ms), and **Backoff** (1×, 1.5×, or 2×). ' +
+        'These settings are saved with connection profiles.',
       highlight: WS.RECONNECT_SETTINGS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
+        // Toggle is locked while connected — must fully disconnect before reading/action.
         await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(300);
+        await ctx.delay(100);
+        if (firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await disconnectWebSocket(ctx);
+          await ctx.waitFor(WS.STATUS_DISCONNECTED, 5000);
+        }
+        await ctx.delay(100);
       },
       action: async (ctx: DemoActionContext) => {
-        // Scroll the reconnect settings into view
-        const settings = document.querySelector(WS.RECONNECT_SETTINGS);
-        if (settings) settings.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(1200);
+        const spotPause = async (selector: string, holdMs: number) => {
+          const el = firstVisibleElement<HTMLElement>(selector);
+          if (!el) { await ctx.delay(holdMs); return; }
+          const dispose = showSpotlightRing(el);
+          await ctx.delay(holdMs);
+          dispose();
+        };
+        // Belt: still connected → disconnect again before enabling
+        if (firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await disconnectWebSocket(ctx);
+          await ctx.waitFor(WS.STATUS_DISCONNECTED, 5000);
+          await ctx.delay(200);
+        }
+        firstVisibleElement(WS.RECONNECT_SETTINGS)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await ctx.delay(300);
+        // Visible enable — this is the payoff of the step
+        await spotPause(WS.RECONNECT_TOGGLE, 1400);
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.RECONNECT_TOGGLE);
+        if (toggle && !toggle.checked && !toggle.disabled) {
+          await ctx.click(WS.RECONNECT_TOGGLE);
+          await ctx.delay(500);
+        } else if (toggle && !toggle.checked) {
+          // Last resort: force enable via native click after another disconnect
+          await disconnectWebSocket(ctx);
+          await ctx.waitFor(WS.STATUS_DISCONNECTED, 5000);
+          await ctx.delay(100);
+          const unlocked = firstVisibleElement<HTMLInputElement>(WS.RECONNECT_TOGGLE);
+          if (unlocked && !unlocked.disabled) {
+            await ctx.click(WS.RECONNECT_TOGGLE);
+            await ctx.delay(500);
+          }
+        }
+        await spotPause(WS.RECONNECT_MAX, 1200);
+        await spotPause(WS.RECONNECT_INTERVAL, 1200);
+        await spotPause(WS.RECONNECT_BACKOFF, 1200);
+        // Leave toggle enabled; step 5 turns it off before close-with-code
       },
+      verify: WS.RECONNECT_TOGGLE,
     },
 
     // ── 5. Close with Code ────────────────────────────────
@@ -494,11 +583,22 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       highlight: WS.DISCONNECT_CARET,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: caret is disabled when disconnected; reconnect silently if needed.
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(100);
+        // Turn off auto-reconnect while disconnected (locked when connected).
+        if (firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await disconnectWebSocket(ctx);
+          await ctx.waitFor(WS.STATUS_DISCONNECTED, 5000);
+        }
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.RECONNECT_TOGGLE);
+        if (toggle?.checked && !toggle.disabled) {
+          toggle.click();
+          await ctx.delay(100);
+        }
+        // Caret needs an active session
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await connectToMockServer(ctx);
         }
-        await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
@@ -506,15 +606,15 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
         await ctx.click(WS.DISCONNECT_CARET);
         // Rule 5: the close panel is conditionally rendered — wait for it to appear.
         await ctx.waitFor(WS.CLOSE_CODE_INPUT);
-        await ctx.delay(400);
+        await ctx.delay(200);
         // Fill close code and reason
         await ctx.fill(WS.CLOSE_CODE_INPUT, '1001');
-        await ctx.delay(600);
+        await ctx.delay(300);
         await ctx.fill(WS.CLOSE_REASON_INPUT, 'Demo lesson complete');
-        await ctx.delay(600);
+        await ctx.delay(300);
         // Send the close frame
         await ctx.click(WS.CLOSE_WITH_CODE_BTN);
-        await ctx.delay(1200);
+        await ctx.delay(600);
       },
     },
 
@@ -532,7 +632,7 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.click(WS.RIGHT_TAB_STATS);
-        await ctx.delay(1400);
+        await ctx.delay(600);
       },
     },
 
@@ -541,18 +641,18 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       id: 'rel-history',
       title: 'URL History',
       description:
-        'Back on the Connect tab, the URL field has a **history dropdown** (▾) showing recently connected URLs. After connecting to `ws://localhost:9876`, it appears in the list with its protocol badge. Click any history entry to instantly fill the URL field — great for reconnecting to servers you use frequently.',
+        'Back on the Connect tab, the URL field has a **history dropdown** (▾) showing recently connected URLs. After connecting to this tab\'s mock server, it appears in the list with its protocol badge. Click any history entry to instantly fill the URL field — great for reconnecting to servers you use frequently.',
       highlight: WS.URL_HISTORY_TRIGGER,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(300);
+        await ctx.delay(150);
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.click(WS.URL_HISTORY_TRIGGER);
-        await ctx.delay(2000);
+        await ctx.delay(900);
         await ctx.click(WS.URL_HISTORY_TRIGGER);
-        await ctx.delay(600);
+        await ctx.delay(300);
       },
     },
   ],

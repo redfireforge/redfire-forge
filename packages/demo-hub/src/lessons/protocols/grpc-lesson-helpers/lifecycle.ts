@@ -1,8 +1,5 @@
 import type { DemoActionContext } from '../../../types';
-import {
-  purgeGrpcDemoCallHistory,
-  resetGrpcActiveTabRuntimeState,
-} from '../../../adapters';
+import { purgeGrpcDemoCallHistory } from '../../../adapters';
 import { navigateToGrpcStudio } from '../../env-manager-lesson-helpers';
 import { resetGrpcLessonSessionFlags } from './constants';
 import { resetGrpcConnectionSettingsQuiet } from './connection';
@@ -17,10 +14,14 @@ export async function grpcFirstCallSetup(
 ): Promise<void> {
   resetGrpcLessonSessionFlags();
   await navigateToGrpcStudio(ctx);
-  resetGrpcActiveTabRuntimeState();
+  // Bridge mounts in useEffect after Studio paints — wait instead of a no-op reset.
+  await resetGrpcConnectionSettingsQuiet(ctx);
   await closeGrpcSettingsDrawerQuiet(ctx);
   await ensureGrpcStudioSubNavQuiet(ctx);
   await normalizeGrpcDemoTabsQuiet(ctx);
+  // Normalize may switch onto the reused "demo" tab — reset THAT tab too so
+  // leftover TLS/mTLS from GRPC-5 does not make Reflect against :50051 return 503.
+  await resetGrpcConnectionSettingsQuiet(ctx);
   try {
     const { purgeGrpcDemoEphemeralStorage } = await import('../../grpc-demo-storage-cleanup');
     await purgeGrpcDemoEphemeralStorage();
@@ -31,8 +32,6 @@ export async function grpcFirstCallSetup(
     await resetGrpcManageSchemasDraftsQuiet(ctx);
   }
   await clearGrpcSchemaDriftQuiet(ctx);
-  // Always start with auth = none regardless of previous session state.
-  await resetGrpcConnectionSettingsQuiet(ctx);
 }
 
 export async function grpcFirstCallCleanup(ctx: DemoActionContext): Promise<void> {

@@ -5,6 +5,7 @@ import type { TypeMismatch } from './utils/typeMismatch';
 import type { TraceValueOverlay } from './types';
 import type { Assertion } from '../../types';
 import { buildTreeFromFields, collectAllPaths } from './utils/targetTreeBuilder';
+import { withTypedSlotPath } from './LocationGroupPanel.helpers';
 import TargetTreeNode from './TargetTreeNode';
 import AddFieldRow from './AddFieldRow';
 
@@ -216,8 +217,21 @@ export default function LocationGroupPanel({
             {allowCustomFields && onAddCustomField && (
               <AddFieldRow
                 existingPaths={existingPaths}
-                onAdd={onAddCustomField}
                 location={group.location}
+                getDraggedSource={getDraggedSource}
+                onAdd={(field) => {
+                  onAddCustomField(withTypedSlotPath(field, group.location, fields));
+                }}
+                onDrop={(targetPath, sourcePath, sourceId) => {
+                  const normalized = withTypedSlotPath(
+                    { path: targetPath, label: targetPath, type: 'string', location: group.location },
+                    group.location,
+                    fields,
+                  );
+                  // Ensure the drop target exists if Add Field created it in the same gesture
+                  onAddCustomField(normalized);
+                  onDrop(normalized.path, sourcePath, sourceId);
+                }}
               />
             )}
           </div>

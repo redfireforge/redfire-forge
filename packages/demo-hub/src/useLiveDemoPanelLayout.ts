@@ -1,5 +1,9 @@
 /** Live demo floating panel — drag + edge resize (top, left, right, bottom, corner) with persistence. */
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type RefObject } from 'react';
+import {
+  DEMO_PANEL_CLEAR_TARGET_EVENT,
+  type DemoPanelClearTargetDetail,
+} from './demoSpotlightUtils';
 
 export const DEMO_LIVE_PANEL_DEFAULT_WIDTH = 400;
 export const DEMO_LIVE_PANEL_DEFAULT_HEIGHT = 440;
@@ -98,26 +102,98 @@ export function useLiveDemoPanelLayout(): {
   ));
   const geometryRef = useRef(geometry);
   geometryRef.current = geometry;
+  /** Last user/default position — never overwritten by spotlight dodge. */
+  const anchorRef = useRef<LiveDemoPanelGeometry>(geometry);
+  /** True while showing a temporary vertical dodge away from a spotlight. */
+  const ephemeralDodgeRef = useRef(false);
 
-  const commitGeometry = useCallback((next: LiveDemoPanelGeometry) => {
+  const commitGeometry = useCallback((
+    next: LiveDemoPanelGeometry,
+    opts?: { persist?: boolean; ephemeral?: boolean },
+  ) => {
     const clamped = clampGeometry(next);
+    const persist = opts?.persist !== false;
     setGeometry((prev) => {
       if (isSameGeometry(prev, clamped)) {
         geometryRef.current = prev;
         return prev;
       }
       geometryRef.current = clamped;
-      saveGeometry(clamped);
+      if (persist) {
+        saveGeometry(clamped);
+        anchorRef.current = clamped;
+        ephemeralDodgeRef.current = false;
+      } else {
+        ephemeralDodgeRef.current = opts?.ephemeral !== false;
+      }
       return clamped;
     });
   }, []);
 
   useEffect(() => {
     const onResize = () => {
-      commitGeometry(geometryRef.current);
+      // Viewport change: clamp the user anchor (not a transient dodge).
+      commitGeometry(anchorRef.current);
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
+  }, [commitGeometry]);
+
+  // Spotlight targets under the narration card — nudge vertically only.
+  // Never slide left/right: that looked like the modal jumping between steps,
+  // and those moves used to persist into localStorage.
+  useEffect(() => {
+    const overlaps = (
+      panel: LiveDemoPanelGeometry,
+      target: DemoPanelClearTargetDetail,
+      pad = 16,
+    ): boolean => !(
+      panel.left + panel.width + pad <= target.left
+      || panel.left - pad >= target.right
+      || panel.top + panel.height + pad <= target.top
+      || panel.top - pad >= target.bottom
+    );
+
+    const onClearTarget = (event: Event) => {
+      const target = (event as CustomEvent<DemoPanelClearTargetDetail>).detail;
+      if (!target) return;
+
+      const anchor = anchorRef.current;
+      const { width, height, left } = anchor;
+
+      // Target clear of the user's place → snap back if we had dodged.
+      if (!overlaps(anchor, target)) {
+        if (ephemeralDodgeRef.current) {
+          commitGeometry(anchor, { persist: false, ephemeral: false });
+        }
+        return;
+      }
+
+      // Vertical-only candidates — keep the same left edge.
+      const candidates: LiveDemoPanelGeometry[] = [
+        { width, height, left, top: target.bottom + 20 },
+        { width, height, left, top: Math.max(8, target.top - height - 20) },
+      ];
+
+      for (const candidate of candidates) {
+        const clamped = clampGeometry(candidate);
+        // clampGeometry can shift left on tiny viewports; re-pin to anchor left.
+        const verticalOnly: LiveDemoPanelGeometry = {
+          ...clamped,
+          left: clamp(left, 8, window.innerWidth - clamped.width - 8),
+        };
+        if (!overlaps(verticalOnly, target)) {
+          commitGeometry(verticalOnly, { persist: false, ephemeral: true });
+          return;
+        }
+      }
+      // Cannot clear without changing left — stay put (panel is clickthrough).
+    };
+
+    window.addEventListener(DEMO_PANEL_CLEAR_TARGET_EVENT, onClearTarget as EventListener);
+    return () => {
+      window.removeEventListener(DEMO_PANEL_CLEAR_TARGET_EVENT, onClearTarget as EventListener);
+    };
   }, [commitGeometry]);
 
   const onDragMouseDown = useCallback((e: ReactMouseEvent) => {

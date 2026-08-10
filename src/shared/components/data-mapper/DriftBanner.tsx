@@ -59,14 +59,18 @@ export default function DriftBanner({ drifts, onAcceptAndUpdate, onDismiss, onSh
       <div className="dm-drift-banner-actions">
         {onShowDiff && (
           <button
+            type="button"
             className="dm-drift-btn dm-drift-btn--diff"
             onClick={onShowDiff}
             title="View detailed schema changes"
+            aria-label="Show schema diff"
+            data-testid="dm-drift-show-diff"
           >
             Show Diff
           </button>
         )}
         <button
+          type="button"
           className="dm-drift-btn dm-drift-btn--accept"
           onClick={onAcceptAndUpdate}
           title="Accept changes and update the saved schema snapshot"
@@ -74,6 +78,7 @@ export default function DriftBanner({ drifts, onAcceptAndUpdate, onDismiss, onSh
           Accept &amp; Update
         </button>
         <button
+          type="button"
           className="dm-drift-btn dm-drift-btn--dismiss"
           onClick={onDismiss}
           aria-label="Dismiss drift notification"

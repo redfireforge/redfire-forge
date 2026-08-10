@@ -15,6 +15,13 @@ export const GQL_HEALTH = 'http://localhost:4010/health';
 export const GQL_DEMO_ENV_NAME = 'GraphQL Demo';
 export const GQL_DEMO_SVC_NAME = 'graphql-demo';
 
+async function chooseCustomSelectByTestId(page: Page, testId: string, label: string): Promise<void> {
+  const wrapper = page.getByTestId(testId);
+  await wrapper.locator('.cs-trigger').click();
+  await page.locator('.cs-menu .cs-item', { hasText: label }).first().click();
+  await expect(wrapper.locator('.cs-text')).toContainText(label);
+}
+
 /** Seed GraphQL Demo env/svc so GQL-2 {{graphqlUrl}} resolves without running GQL-1 first. */
 export async function seedGqlDemoEnvironmentForE2e(page: Page): Promise<void> {
   await page.addInitScript(({ envName, svcName }) => {
@@ -43,8 +50,8 @@ export async function seedGqlDemoEnvironmentForE2e(page: Page): Promise<void> {
 
 /** Select GraphQL Demo / graphql-demo in the app header. */
 export async function ensureGqlDemoHeaderSelected(page: Page): Promise<void> {
-  await page.locator('[data-testid="header-env-select"]').selectOption({ label: GQL_DEMO_ENV_NAME });
-  await page.locator('[data-testid="header-svc-select"]').selectOption({ label: GQL_DEMO_SVC_NAME });
+  await chooseCustomSelectByTestId(page, 'header-env-select', GQL_DEMO_ENV_NAME);
+  await chooseCustomSelectByTestId(page, 'header-svc-select', GQL_DEMO_SVC_NAME);
 }
 
 /** Ensure studio endpoint uses {{graphqlUrl}} with a resolved preview (GQL-2 E2E bootstrap). */
@@ -74,7 +81,16 @@ export async function isGraphqlServerHealthy(request: APIRequestContext): Promis
     const res = await request.get(GQL_HEALTH, { timeout: 5_000 });
     if (!res.ok()) return false;
     const body = (await res.json()) as { status?: string };
-    return body.status === 'ok';
+    if (body.status !== 'ok') return false;
+
+    // Guard Docker-gated E2E against partial startup states where /health is up
+    // but /graphql still refuses connections.
+    const gql = await request.post(GQL_HTTP, {
+      timeout: 5_000,
+      headers: { 'Content-Type': 'application/json' },
+      data: { query: 'query __E2EHealth { __typename }' },
+    });
+    return gql.ok();
   } catch {
     return false;
   }

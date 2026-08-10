@@ -20,6 +20,7 @@ import {
   type GrpcK8sPortForwardSession,
   type GrpcK8sTargetType,
 } from '../utils/grpcK8sPortForward';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 function getK8sWorkflowStatusLabel(
   ready: boolean,
@@ -341,18 +342,19 @@ export function GrpcK8sPortForwardPanel({
                       <span className="grpc-settings-form-row__label-hint">Cluster resource to tunnel.</span>
                     </div>
                     <div className="grpc-settings-form-row__ctrl">
-                      <select
-                        id="grpc-k8s-target-type"
-                        className="grpc-compression-select grpc-settings-select"
+                      <CustomSelect
+                        className="grpc-compression-select"
                         data-testid="grpc-k8s-target-type"
+                        aria-label="Target type"
                         value={config.targetType}
                         disabled={fieldsDisabled}
-                        onChange={(event) => updateConfig({ targetType: event.target.value as GrpcK8sTargetType })}
-                      >
-                        <option value="service">service</option>
-                        <option value="pod">pod</option>
-                        <option value="deployment">deployment</option>
-                      </select>
+                        onChange={(v) => updateConfig({ targetType: v as GrpcK8sTargetType })}
+                        options={[
+                          { value: 'service', label: 'service' },
+                          { value: 'pod', label: 'pod' },
+                          { value: 'deployment', label: 'deployment' },
+                        ]}
+                      />
                     </div>
                   </div>
 

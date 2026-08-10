@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';
 import type { Assertion, Scenario } from '../../../shared/types';
@@ -207,8 +208,8 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
       expect(screen.getByText('TYPE')).toBeInTheDocument();
-      const select = screen.getByDisplayValue('number') as HTMLSelectElement;
-      expect(select).toBeInTheDocument();
+      const row = screen.getByText('TYPE').closest('.assertion-row')!;
+      expect(getCustomSelectValue(row.querySelector('.cs-wrapper')!)).toBe('number');
     });
 
     it('updates typeCheck jsonPath', () => {
@@ -237,8 +238,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      const select = screen.getByDisplayValue('string') as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'array' } });
+      const row = screen.getByText('TYPE').closest('.assertion-row')!;
+      selectOption(row.querySelector('.cs-wrapper')!, 'array');
       expect(onDraftChange).toHaveBeenCalled();
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       const assertion = updated.validation.assertions?.[0];
@@ -288,8 +289,8 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
       expect(screen.getByText('EXISTS')).toBeInTheDocument();
-      const select = screen.getByDisplayValue('exists') as HTMLSelectElement;
-      expect(select).toBeInTheDocument();
+      const row = screen.getByText('EXISTS').closest('.assertion-row')!;
+      expect(getCustomSelectValue(row.querySelector('.cs-wrapper')!)).toBe('exists');
     });
 
     it('updates existence jsonPath', () => {
@@ -318,8 +319,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      const select = screen.getByDisplayValue('exists') as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'not_exists' } });
+      const row = screen.getByText('EXISTS').closest('.assertion-row')!;
+      selectOption(row.querySelector('.cs-wrapper')!, 'does not exist');
       expect(onDraftChange).toHaveBeenCalled();
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       const assertion = updated.validation.assertions?.[0];
@@ -356,8 +357,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      const select = screen.getByDisplayValue('does not exist') as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'exists' } });
+      const row = screen.getByText('EXISTS').closest('.assertion-row')!;
+      selectOption(row.querySelector('.cs-wrapper')!, 'exists');
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'existence', expectExists: true });
     });
@@ -375,8 +376,8 @@ describe('TestEditorValidationTab', () => {
         });
         const draftRef = { current: draft };
         const { unmount } = render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-        const sel = screen.getByDisplayValue('string') as HTMLSelectElement;
-        fireEvent.change(sel, { target: { value: expectedType } });
+        const row = screen.getByText('TYPE').closest('.assertion-row')!;
+        selectOption(row.querySelector('.cs-wrapper')!, expectedType);
         expect(onDraftChange).toHaveBeenCalled();
         const next = onDraftChange.mock.calls[0][0] as Scenario;
         expect(next.validation.assertions?.[0]).toMatchObject({ type: 'typeCheck', expectedType });
@@ -500,7 +501,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.change(screen.getByDisplayValue('equals'), { target: { value: 'regex' } });
+      const row = screen.getByText('HEADER').closest('.assertion-row')!;
+      selectOption(row.querySelector('.cs-wrapper')!, 'regex');
       expect(onDraftChange).toHaveBeenCalled();
     });
   });

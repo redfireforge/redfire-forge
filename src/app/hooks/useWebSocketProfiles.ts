@@ -34,6 +34,8 @@ export interface UseWebSocketProfilesReturn {
   saveProfile: (fields: Omit<WsConnectionProfile, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateProfile: (id: string, patch: Partial<WsConnectionProfile>) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
+  /** Wipe all profiles (storage + React state) — used by quiet demo setup. */
+  clearAllProfiles: () => Promise<void>;
   duplicateProfile: (id: string) => Promise<void>;
   importProfiles: (json: string) => Promise<{ imported: number; errors: string[] }>;
   exportProfiles: () => string;
@@ -126,6 +128,10 @@ export function useWebSocketProfiles(): UseWebSocketProfilesReturn {
     },
     [profiles, persist],
   );
+
+  const clearAllProfiles = useCallback(async () => {
+    await persist([]);
+  }, [persist]);
 
   const duplicateProfile = useCallback(
     async (id: string) => {
@@ -232,6 +238,7 @@ export function useWebSocketProfiles(): UseWebSocketProfilesReturn {
     saveProfile,
     updateProfile,
     deleteProfile,
+    clearAllProfiles,
     duplicateProfile,
     importProfiles,
     exportProfiles,

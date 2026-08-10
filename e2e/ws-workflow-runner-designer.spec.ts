@@ -11,6 +11,14 @@ import {
   startMockServer,
 } from './helpers/ws-workflow-runner-helpers';
 
+async function openNodeConfig(page: import('@playwright/test').Page, nodeClass: string, configureTitle: string): Promise<void> {
+  const node = page.locator(`.${nodeClass}`).first();
+  await expect(node).toBeVisible({ timeout: 5000 });
+  const configureBtn = node.locator(`button[title="${configureTitle}"]`).first();
+  await expect(configureBtn).toBeVisible({ timeout: 5000 });
+  await configureBtn.click();
+}
+
 test.describe('Part A — Workflow Designer WS Nodes', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflow(page, makeWsWorkflow());
@@ -56,35 +64,38 @@ test.describe('Part A — Workflow Designer WS Nodes', () => {
   test('WR-04: WS Connect config dialog', async ({ page }) => {
     await addNodeFromPalette(page, 'WS Connect', 'wf-palette-block-wsConnect');
 
-    // Double-click the node to open config
-    await page.locator('.wf-node-wsConnect').dblclick();
+    // Open config from the node's configure badge
+    await openNodeConfig(page, 'wf-node-wsConnect', 'Configure WebSocket connection');
 
     // Config dialog should be visible
     const configPanel = page.locator('[data-testid="ws-connect-config"]');
     await expect(configPanel).toBeVisible({ timeout: 5000 });
 
-    // Verify key fields exist
-    await expect(page.getByLabel('URL', { exact: true }).or(page.locator('label:has-text("URL")')).first()).toBeVisible();
-    await expect(page.getByLabel('Connection ID').or(page.locator('label:has-text("Connection ID")')).first()).toBeVisible();
+    // Verify key fields exist using stable row text/placeholders (labels are div-based in current UI)
+    await expect(configPanel.getByText('URL', { exact: true })).toBeVisible();
+    await expect(configPanel.locator('input[placeholder="wss://example.com/ws"]')).toBeVisible();
+    await expect(configPanel.getByText('Connection ID', { exact: true })).toBeVisible();
+    await expect(configPanel.locator('input[placeholder="ws1"]')).toBeVisible();
   });
 
   test('WR-06: WS Send config dialog', async ({ page }) => {
     await addNodeFromPalette(page, 'WS Send', 'wf-palette-block-wsSend');
 
-    await page.locator('.wf-node-wsSend').dblclick();
+    await openNodeConfig(page, 'wf-node-wsSend', 'Configure WebSocket send');
 
     const configPanel = page.locator('[data-testid="ws-send-config"]');
     await expect(configPanel).toBeVisible({ timeout: 5000 });
 
     // Verify key fields
-    await expect(page.locator('label:has-text("Connection ID"), label:has-text("Connection Ref")').first()).toBeVisible();
-    await expect(page.locator('label:has-text("Message")').first()).toBeVisible();
+    await expect(configPanel.getByText('Connection ID', { exact: true })).toBeVisible();
+    await expect(configPanel.getByText('Message', { exact: true })).toBeVisible();
+    await expect(configPanel.locator('textarea[aria-label="Message"]')).toBeVisible();
   });
 
   test('WR-08: WS Receive config dialog with match criteria', async ({ page }) => {
     await addNodeFromPalette(page, 'WS Receive', 'wf-palette-block-wsReceive');
 
-    await page.locator('.wf-node-wsReceive').dblclick();
+    await openNodeConfig(page, 'wf-node-wsReceive', 'Configure WebSocket receive');
 
     const configPanel = page.locator('[data-testid="ws-receive-config"]');
     await expect(configPanel).toBeVisible({ timeout: 5000 });
@@ -96,13 +107,15 @@ test.describe('Part A — Workflow Designer WS Nodes', () => {
   test('WR-09: WS Trigger config dialog', async ({ page }) => {
     await addNodeFromPalette(page, 'WS Trigger', 'wf-palette-block-wsTrigger');
 
-    await page.locator('.wf-node-wsTrigger').dblclick();
+    await openNodeConfig(page, 'wf-node-wsTrigger', 'Configure WebSocket trigger');
 
     const configPanel = page.locator('[data-testid="ws-trigger-config"]');
     await expect(configPanel).toBeVisible({ timeout: 5000 });
 
     // Should show URL, Connection ID, Match Criteria
-    await expect(page.locator('label:has-text("URL")').first()).toBeVisible();
+    await expect(configPanel.getByText('URL', { exact: true })).toBeVisible();
+    await expect(configPanel.getByText('Connection ID', { exact: true })).toBeVisible();
+    await expect(configPanel.getByText('Match Criteria', { exact: true })).toBeVisible();
   });
 });
 
@@ -158,8 +171,8 @@ test.describe('Part A — Wired WS flow + Quick Test', () => {
     const failedText = page.getByText(/\d+ failed/i).first();
     await expect(passedText.or(failedText)).toBeVisible({ timeout: 25000 });
 
-    // Double-click the WS Connect node to open config
-    await page.locator('.wf-node-wsConnect').dblclick();
+    // Open config from the WS Connect node configure badge
+    await openNodeConfig(page, 'wf-node-wsConnect', 'Configure WebSocket connection');
     await page.waitForTimeout(500);
 
     // Check for Output tab

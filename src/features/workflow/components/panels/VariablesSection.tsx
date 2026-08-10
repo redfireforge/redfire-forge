@@ -5,11 +5,11 @@ import { buildVariableSourceMap, resolveVariableSource } from '../../utils/workf
 
 const VAR_NAME_COL_MIN = 100;
 const VAR_NAME_COL_MAX = 420;
-const VAR_NAME_COL_DEFAULT = 200;
+const VAR_NAME_COL_DEFAULT = 150;
 /** Values longer than this use View + modal instead of a cramped single-line input. */
 const VAR_VALUE_LONG = 100;
 
-export default function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey, setNewVarKey, newVarValue, setNewVarValue, onRequestVariableInsert, deprecatedKeys = [], variableHints = [], workflowVariables = {} }: {
+export default function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey, setNewVarKey, newVarValue, setNewVarValue, onRequestVariableInsert, deprecatedKeys = [], variableHints = [], workflowVariables = {}, showSourceColumn = true }: {
   title: string;
   hint: string;
   variables: Record<string, string>;
@@ -21,6 +21,8 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
   variableHints?: WorkflowVariableHint[];
   /** Workflow-level default variables — used to resolve SOURCE for simple refs like {{vin}}. */
   workflowVariables?: Record<string, string>;
+  /** When false, hide the Source column (e.g. workflow defaults are literals). Default true. */
+  showSourceColumn?: boolean;
 }) {
   const { openVariableDetail } = useWorkflowInspect();
   const entries = Object.entries(variables);
@@ -69,23 +71,25 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
   };
 
   return (
-    <div className="wf-config-vars">
+    <div className={`wf-config-vars${showSourceColumn ? '' : ' wf-config-vars--no-source'}`}>
       <div className="wf-config-vars-title">{title}</div>
       <p className="wf-config-hint-text" style={{ margin: '0 0 6px' }}>
         {hint} Drag the divider to resize the name column.
       </p>
       <div className="wf-config-kv-row wf-config-kv-row-vars wf-config-kv-header">
         <div className="wf-var-name-cell" style={{ width: nameColWidth }}>
-          <span className="wf-var-col-label">name</span>
+          <span className="wf-var-col-label">Name</span>
         </div>
         <div className="wf-var-col-resize wf-var-col-resize-inert" aria-hidden />
-        <div className="wf-var-source-cell-header">
-          <span className="wf-var-col-label">source</span>
-        </div>
+        {showSourceColumn && (
+          <div className="wf-var-source-cell-header">
+            <span className="wf-var-col-label">Source</span>
+          </div>
+        )}
         <div className="wf-var-value-with-insert">
-          <span className="wf-var-col-label">value</span>
+          <span className="wf-var-col-label">Value</span>
         </div>
-        <span className="wf-var-col-label wf-var-actions-label" />
+        <span className="wf-var-col-label wf-var-actions-label" aria-hidden />
       </div>
       {entries.map(([key, value], index) => {
         const isLong = value.length > VAR_VALUE_LONG || value.includes('\n');
@@ -108,12 +112,15 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
                 onUpdateVariables(next);
               }}
               title={isDeprecated ? `"${key}" is managed by the Service Registry and can be removed` : undefined}
+              aria-label={`Variable name ${key}`}
             />
           </div>
           <div className="wf-var-col-resize" onMouseDown={onResizeStart} title="Drag to resize name column" role="separator" aria-orientation="vertical" />
-          <div className="wf-var-source-cell">
-            <input className="wf-var-source-input" readOnly value={varSource} title={varSource} tabIndex={-1} />
-          </div>
+          {showSourceColumn && (
+            <div className="wf-var-source-cell">
+              <input className="wf-var-source-input" readOnly value={varSource} title={varSource} tabIndex={-1} aria-label={`Source for ${key}`} />
+            </div>
+          )}
           {isLong ? (
             <div className="wf-var-value-long-wrap">
               <input
@@ -122,6 +129,7 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
                 value={value.length > 72 ? `${value.slice(0, 72)}…` : value}
                 title={value}
                 onClick={() => openVariableDetail(key, value, (nv) => onUpdateVariables({ ...variables, [key]: nv }))}
+                aria-label={`Value for ${key}`}
               />
               {onRequestVariableInsert && (
                 <button
@@ -147,6 +155,7 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
                 onChange={(e) => {
                   onUpdateVariables({ ...variables, [key]: e.target.value });
                 }}
+                aria-label={`Value for ${key}`}
               />
               {onRequestVariableInsert && (
                 <button
@@ -162,20 +171,29 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
               )}
             </div>
           )}
-          <button type="button" className="btn btn-sm btn-danger" onClick={() => {
-            const next = { ...variables }; delete next[key]; onUpdateVariables(next);
-          }}>×</button>
+          <button
+            type="button"
+            className="btn btn-sm btn-danger wf-var-row-action"
+            aria-label={`Remove variable ${key}`}
+            onClick={() => {
+              const next = { ...variables }; delete next[key]; onUpdateVariables(next);
+            }}
+          >
+            ×
+          </button>
         </div>
         );
       })}
-      <div className="wf-config-kv-row wf-config-kv-row-vars" style={{ marginTop: 4 }}>
+      <div className="wf-config-kv-row wf-config-kv-row-vars wf-config-kv-row-vars--new">
         <div className="wf-var-name-cell" style={{ width: nameColWidth }}>
-          <input value={newVarKey} onChange={(e) => setNewVarKey(e.target.value)} placeholder="name" onKeyDown={(e) => e.key === 'Enter' && addVar()} className="wf-var-key-input" />
+          <input value={newVarKey} onChange={(e) => setNewVarKey(e.target.value)} placeholder="name" onKeyDown={(e) => e.key === 'Enter' && addVar()} className="wf-var-key-input" aria-label="New variable name" />
         </div>
         <div className="wf-var-col-resize wf-var-col-resize-inert" aria-hidden />
-        <div className="wf-var-source-cell">
-          <input className="wf-var-source-input" readOnly value="" tabIndex={-1} />
-        </div>
+        {showSourceColumn && (
+          <div className="wf-var-source-cell">
+            <input className="wf-var-source-input" readOnly value="" tabIndex={-1} aria-hidden />
+          </div>
+        )}
         <div className="wf-var-new-row-value">
           <input
             className="wf-var-value-input"
@@ -183,6 +201,7 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
             onChange={(e) => setNewVarValue(e.target.value)}
             placeholder="value"
             onKeyDown={(e) => e.key === 'Enter' && addVar()}
+            aria-label="New variable value"
           />
           {onRequestVariableInsert && (
             <button
@@ -195,7 +214,7 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
             </button>
           )}
         </div>
-        <button type="button" className="btn btn-sm" onClick={addVar}>+</button>
+        <button type="button" className="btn btn-sm wf-var-row-action" onClick={addVar} aria-label="Add variable">+</button>
       </div>
     </div>
   );

@@ -7,6 +7,9 @@ import { GQL_DEMO_HEALTH, GQL_DEMO_HTTP, GQL_DEMO_VAR } from './core';
 import { seedNamedWorkflow, applyRunnerBatchConfig, fitResultsExplorerDiagram, selectAndRunRunnerWorkflow, selectRunnerWorkflowByName, waitForRunnerBridge, waitForResultsExplorerBridge } from '../../../adapters';
 import { fillControlledInput } from '../../setup-helpers';
 import { showClickRipple } from '../../../demoRipple';
+import { findScrollableParent, pauseDemoAutoScroll, resumeDemoAutoScroll } from '../../../demoSpotlightUtils';
+import { spotlightAndPause } from './gql-demo-spotlight';
+import { RES } from '@shared/selectors/res';
 
 /** Workflow name shared with GQL-16 — Runner builds on the Designer lesson. */
 export const LESSON17_WF_NAME = 'GraphQL Latency Demo';
@@ -40,7 +43,7 @@ export const LESSON17_RESULTS_EXPLORER_DIAGRAM = REX.DIAGRAM;
 export const LESSON17_RESULTS_EXPLORER_FIT_VIEW = REX.FIT_VIEW_BTN;
 
 /** Results Explorer open button in the dashboard header. */
-export const LESSON17_RESULTS_EXPLORER_BTN = 'button[title="Explore execution results"]';
+export const LESSON17_RESULTS_EXPLORER_BTN = REX.OPEN_BTN;
 
 /** Request Details sub-tab on the Results Dashboard. */
 export const LESSON17_REQUEST_DETAILS_TAB = '[data-testid="results-tab-requests"]';
@@ -232,8 +235,38 @@ async function clickWorkflowRunnerRun(ctx: DemoActionContext): Promise<boolean> 
  * Open the workflow picker and select the "GraphQL Latency Demo" workflow.
  * Prefers an exact name match so user copies (e.g. "GraphQL Latency Demo (2)") are skipped.
  */
-export async function selectGqlLatencyDemoWorkflow(ctx: DemoActionContext): Promise<void> {
+function isLesson17WorkflowPickerShowingTarget(): boolean {
+  const trigger = document.querySelector(LESSON17_WORKFLOW_SELECT);
+  const text = trigger?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  return text === LESSON17_WF_NAME || text.startsWith(`${LESSON17_WF_NAME} `);
+}
+
+/**
+ * Select GraphQL Latency Demo in the Workflow Runner picker.
+ * @param quiet — bridge-only (no dropdown open / ripple). Use for later-step recovery.
+ *   Step 1 uses the visible path so the viewer sees the pick once.
+ */
+export async function selectGqlLatencyDemoWorkflow(
+  ctx: DemoActionContext,
+  opts?: { quiet?: boolean },
+): Promise<void> {
   selectRunnerWorkflowByName(LESSON17_WF_NAME);
+
+  if (opts?.quiet) {
+    _lesson17WorkflowSelected = true;
+    await ctx.delay(250);
+    return;
+  }
+
+  // Already showing the target — do not re-open the menu (causes spotlight flash).
+  if (isLesson17WorkflowPickerShowingTarget()) {
+    _lesson17WorkflowSelected = true;
+    return;
+  }
+  if (_lesson17WorkflowSelected && document.querySelector('.workflow-vars-section')) {
+    return;
+  }
+
   await ctx.click(LESSON17_WORKFLOW_SELECT);
   await ctx.waitFor('.wfp-dropdown-panel');
   await ctx.delay(400);
@@ -314,7 +347,13 @@ export async function ensureLesson17WorkflowSelected(ctx: DemoActionContext): Pr
   if (_lesson17WorkflowSelected && document.querySelector('.workflow-vars-section')) return;
   ctx.navigateToTab('workflow-runner');
   await ctx.delay(400);
-  await selectGqlLatencyDemoWorkflow(ctx);
+  // Quiet recovery — visible picker demo belongs to step gql17-open-runner only.
+  await selectGqlLatencyDemoWorkflow(ctx, { quiet: true });
+  if (!document.querySelector('.workflow-vars-section') && !isLesson17WorkflowPickerShowingTarget()) {
+    await selectGqlLatencyDemoWorkflow(ctx);
+  } else {
+    _lesson17WorkflowSelected = true;
+  }
 }
 
 /** Ensure the workflow has been run once — never re-runs after the session flag is set. */
@@ -393,15 +432,170 @@ export async function openLesson17RequestDetailsTab(ctx: DemoActionContext): Pro
   }
 }
 
-/** Open the Results Explorer modal from the dashboard header. */
+/** Ensure Overview tab so metric cards (not Request Details) are visible. */
+export async function openLesson17ResultsOverviewTab(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson17OnResultsTab(ctx);
+  const tab = Array.from(document.querySelectorAll<HTMLElement>('.results-view-tab')).find(
+    (el) => el.textContent?.trim() === 'Overview',
+  );
+  if (tab && !tab.classList.contains('active')) {
+    tab.click();
+    await ctx.delay(450);
+  }
+}
+
+/** Wait until both metric rows hydrate with numeric values. */
+export async function ensureLesson17MetricsCardsReady(ctx: DemoActionContext): Promise<void> {
+  for (let i = 0; i < 25; i++) {
+    const cards = document.querySelector<HTMLElement>(RES.METRICS_CARDS);
+    if (cards) {
+      const rows = cards.querySelectorAll<HTMLElement>('.metrics-row');
+      const hasTwoRows = rows.length >= 2;
+      const hasTps = Array.from(cards.querySelectorAll<HTMLElement>('.metric-label')).some(
+        (el) => el.textContent?.trim().toUpperCase() === 'TPS',
+      );
+      const metricValues = Array.from(cards.querySelectorAll<HTMLElement>('.metric-value'))
+        .map((el) => el.textContent?.trim() ?? '');
+      const hasEnoughValues = metricValues.length >= 10;
+      const coreValues = metricValues.slice(0, 8);
+      const coreFilled = coreValues.length >= 8 && coreValues.every((v) => v.length > 0);
+      const hasNumericCore = coreValues.some((v) => /\d/.test(v));
+      if (hasTwoRows && hasTps && hasEnoughValues && coreFilled && hasNumericCore) return;
+    }
+    await ctx.delay(250);
+  }
+}
+
+/**
+ * Pin the metrics card block just below the sticky Results header.
+ * Default spotlight auto-scroll pushes tall cards under the header so the ring
+ * lands on the action bar (Results Explorer) — the wrong "first screen".
+ */
+export async function scrollLesson17MetricsCardsIntoView(ctx: DemoActionContext): Promise<void> {
+  const cards = document.querySelector<HTMLElement>(RES.METRICS_CARDS);
+  if (!cards) return;
+
+  pauseDemoAutoScroll(4000);
+
+  const scrollParent = findScrollableParent(cards);
+  const stickyTop = document.querySelector<HTMLElement>('.results-top');
+  if (scrollParent && stickyTop) {
+    const cardsRect = cards.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const stickyRect = stickyTop.getBoundingClientRect();
+    const cardsTopInParent = cardsRect.top - parentRect.top + scrollParent.scrollTop;
+    const targetTop = Math.max(0, cardsTopInParent - stickyRect.height - 16);
+    scrollParent.scrollTo({ top: targetTop, behavior: 'instant' });
+    await ctx.delay(100);
+    return;
+  }
+
+  await ctx.delay(100);
+}
+
+/** Overview → hydrate → scroll metrics into view → spotlight latency row (second screen). */
+export async function tourLesson17MetricsCards(ctx: DemoActionContext): Promise<void> {
+  await openLesson17ResultsOverviewTab(ctx);
+  await ensureLesson17MetricsCardsReady(ctx);
+  await scrollLesson17MetricsCardsIntoView(ctx);
+  await spotlightAndPause(ctx, RES.METRICS_CARDS, 900);
+
+  const latencyRow = document.querySelector<HTMLElement>(RES.METRICS_LATENCY_ROW);
+  if (latencyRow) {
+    // Keep both rows on screen; emphasize P50/P95/error-rate as the second beat.
+    latencyRow.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+    await ctx.delay(200);
+    await scrollLesson17MetricsCardsIntoView(ctx);
+    await spotlightAndPause(ctx, RES.METRICS_LATENCY_ROW, 1100);
+  }
+}
+
+/** Resolve the Results Explorer open button (testid or title). */
+export function findLesson17ResultsExplorerBtn(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(LESSON17_RESULTS_EXPLORER_BTN);
+}
+
+/** Scroll the Results header into view so Results Explorer is spotlightable. */
+export async function prepareLesson17ResultsExplorerButton(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson17OnResultsTab(ctx);
+  if (document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) {
+    await closeLesson17ResultsExplorerIfOpen(ctx);
+  }
+  // Cancel metrics-step auto-scroll pause so the reading ring can settle on the button.
+  resumeDemoAutoScroll();
+  const top = document.querySelector<HTMLElement>('.results-top')
+    ?? findLesson17ResultsExplorerBtn();
+  if (top) {
+    const scrollParent = findScrollableParent(top);
+    if (scrollParent) {
+      scrollParent.scrollTo({ top: 0, behavior: 'instant' });
+    } else {
+      top.scrollIntoView?.({ behavior: 'instant', block: 'start' });
+    }
+  }
+  await ctx.delay(200);
+  // Hold auto-scroll so reading-phase ring stays on the header button.
+  pauseDemoAutoScroll(6000);
+}
+
+/** Open the Results Explorer modal from the dashboard header (visible click). */
 export async function openLesson17ResultsExplorer(ctx: DemoActionContext): Promise<void> {
   await ensureLesson17OnResultsTab(ctx);
   if (document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) return;
-  const explorerBtn = document.querySelector<HTMLElement>(LESSON17_RESULTS_EXPLORER_BTN);
-  if (explorerBtn) {
-    explorerBtn.click();
-    await ctx.delay(800);
+
+  const explorerBtn = findLesson17ResultsExplorerBtn();
+  if (!explorerBtn) return;
+
+  if (typeof explorerBtn.scrollIntoView === 'function') {
+    explorerBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    await ctx.delay(300);
   }
+  await spotlightAndPause(ctx, LESSON17_RESULTS_EXPLORER_BTN, 1400);
+  showClickRipple(explorerBtn);
+  await ctx.delay(150);
+  explorerBtn.click();
+
+  for (let i = 0; i < 40; i++) {
+    if (document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) {
+      await ctx.delay(500);
+      return;
+    }
+    await ctx.delay(100);
+  }
+
+  // Retry once if the first click was ignored (trace still hydrating).
+  const retryBtn = findLesson17ResultsExplorerBtn();
+  if (retryBtn && !document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) {
+    showClickRipple(retryBtn);
+    retryBtn.click();
+    for (let i = 0; i < 30; i++) {
+      if (document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) {
+        await ctx.delay(500);
+        return;
+      }
+      await ctx.delay(100);
+    }
+  }
+}
+
+/**
+ * Full Results Explorer beat: open button → Fit view → Console → iteration #1.
+ * Keeps every sub-action visible so Acting does not look like a no-op.
+ */
+export async function tourLesson17ResultsExplorer(ctx: DemoActionContext): Promise<void> {
+  await prepareLesson17ResultsExplorerButton(ctx);
+  await openLesson17ResultsExplorer(ctx);
+
+  if (!document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) {
+    // Modal never opened — stop here rather than spinning on Fit/Console.
+    await ctx.delay(400);
+    return;
+  }
+
+  await fitLesson17ResultsExplorerDiagram(ctx);
+  await spotlightAndPause(ctx, LESSON17_RESULTS_EXPLORER_DIAGRAM, 1000);
+  await showLesson17ResultsExplorerConsole(ctx);
+  await ctx.delay(800);
 }
 
 /** Collapse the detail panel so the diagram has full width before fit view. */
@@ -414,6 +608,9 @@ async function collapseLesson17ResultsExplorerDetailPanel(ctx: DemoActionContext
   }
 }
 
+/** Pause so the viewer can locate Fit view before the click. */
+const LESSON17_FIT_VIEW_SPOTLIGHT_MS = 1200;
+
 /** Fit the Results Explorer canvas so all workflow nodes are visible. */
 export async function fitLesson17ResultsExplorerDiagram(ctx: DemoActionContext): Promise<void> {
   await collapseLesson17ResultsExplorerDetailPanel(ctx);
@@ -424,24 +621,31 @@ export async function fitLesson17ResultsExplorerDiagram(ctx: DemoActionContext):
   await waitForResultsExplorerBridge(ctx);
   await ctx.delay(400);
 
-  for (let attempt = 0; attempt < 4; attempt++) {
-    if (fitResultsExplorerDiagram()) {
-      await ctx.delay(500);
-      continue;
+  const fitBtn = document.querySelector<HTMLElement>(LESSON17_RESULTS_EXPLORER_FIT_VIEW)
+    ?? document.querySelector<HTMLElement>('.results-explorer-diagram button[title="Fit view"]');
+
+  // Always show Fit view (spotlight → ripple → click). Do not take the silent
+  // bridge-only path — that made the toolbar control look broken during demos.
+  if (fitBtn) {
+    if (typeof fitBtn.scrollIntoView === 'function') {
+      fitBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      await ctx.delay(300);
     }
-    const fitBtn = document.querySelector<HTMLElement>(LESSON17_RESULTS_EXPLORER_FIT_VIEW)
-      ?? document.querySelector<HTMLElement>('.results-explorer-diagram button[title="Fit view"]');
-    if (fitBtn) {
-      if (typeof fitBtn.scrollIntoView === 'function') {
-        fitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(300);
-      }
-      showClickRipple(fitBtn);
-      fitBtn.click();
-    }
-    await ctx.delay(500);
+    await spotlightAndPause(ctx, LESSON17_RESULTS_EXPLORER_FIT_VIEW, LESSON17_FIT_VIEW_SPOTLIGHT_MS);
+    showClickRipple(fitBtn);
+    fitBtn.click();
+    await ctx.delay(700);
   }
-  await ctx.delay(800);
+
+  // Bridge retry as belt-and-suspenders after the visible click settles.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (fitResultsExplorerDiagram()) {
+      await ctx.delay(400);
+      break;
+    }
+    await ctx.delay(250);
+  }
+  await ctx.delay(600);
 }
 
 /** Open Results Explorer and fit the workflow diagram for the viewer. */
@@ -500,6 +704,9 @@ function consoleBodyHasIterationDetail(body: Element | null): boolean {
     || text.includes('GraphQL Assert');
 }
 
+/** Pause so the viewer can locate 🖥 Console before it opens. */
+const LESSON17_CONSOLE_SPOTLIGHT_MS = 1400;
+
 /** Open Console: aggregate overview, then iteration #1 for per-node detail. */
 export async function showLesson17ResultsExplorerConsole(ctx: DemoActionContext): Promise<void> {
   const diagramBtn = document.querySelector<HTMLElement>(REX.VIEW_DIAGRAM);
@@ -508,12 +715,16 @@ export async function showLesson17ResultsExplorerConsole(ctx: DemoActionContext)
     await ctx.delay(400);
   }
   await ensureLesson17ResultsExplorerAggregate(ctx);
+
   const consoleBtn = document.querySelector<HTMLElement>(REX.CONSOLE_TOGGLE);
   if (!consoleBtn) return;
+
+  // Spotlight Console in the header before opening so the click target is obvious.
   if (!consoleBtn.classList.contains('view-toggle-active')) {
+    await spotlightAndPause(ctx, REX.CONSOLE_TOGGLE, LESSON17_CONSOLE_SPOTLIGHT_MS);
     showClickRipple(consoleBtn);
     consoleBtn.click();
-    await ctx.delay(600);
+    await ctx.delay(800);
   }
   for (let i = 0; i < 30; i++) {
     const body = document.querySelector(REX.CONSOLE_BODY);
@@ -531,16 +742,35 @@ export async function showLesson17ResultsExplorerConsole(ctx: DemoActionContext)
     if (document.querySelector('[data-testid="results-console-disabled"]')) break;
     await ctx.delay(100);
   }
-  await fitLesson17ResultsExplorerDiagram(ctx);
-  await ctx.delay(1200);
+  // Quiet re-fit after console resize — do not re-tour the Fit view button.
+  fitResultsExplorerDiagram();
+  await ctx.delay(1000);
 }
 
 /** Close Results Explorer so the Export JSON header button is visible. */
 export async function closeLesson17ResultsExplorerIfOpen(ctx: DemoActionContext): Promise<void> {
-  const closeBtn = document.querySelector<HTMLElement>('.results-explorer-footer-actions .cat-btn');
-  if (closeBtn?.textContent?.trim() === 'Close') {
+  if (!document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) return;
+
+  let closeBtn = document.querySelector<HTMLElement>(
+    '.results-explorer-modal-close-btn, [data-testid="results-explorer-close-btn"], .results-explorer-footer-actions .cat-btn',
+  );
+  if (!closeBtn) {
+    closeBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (btn) =>
+        btn.offsetParent !== null
+        && btn.textContent?.trim().toLowerCase() === 'close'
+        && (btn.closest('.results-explorer-overlay')
+          || btn.closest('.results-explorer-modal')
+          || btn.closest('.results-explorer-footer')),
+    ) ?? null;
+  }
+  if (closeBtn) {
     closeBtn.click();
-    await ctx.delay(600);
+    await ctx.delay(500);
+  }
+  if (document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await ctx.delay(300);
   }
 }
 
@@ -555,8 +785,9 @@ export async function gqlWorkflowRunnerLessonSetup(ctx: DemoActionContext): Prom
   });
   ctx.navigateToTab('workflow-runner');
   await ctx.delay(600);
-  await selectGqlLatencyDemoWorkflow(ctx);
-  await ensureLesson17RunnerDemoConfig(ctx);
+  // Do not open the Workflow dropdown or apply Execution Config here.
+  // Step 1 owns the visible picker demo; step 3 owns iterations/concurrency.
+  // Pre-selecting in setup caused double open + spotlight flash on the picker.
 }
 
 /** Cleanup for Lesson 17. */

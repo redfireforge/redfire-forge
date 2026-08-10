@@ -17,6 +17,7 @@
 import { useState, useCallback } from 'react';
 import type { KafkaSchemaConfig } from '../../../../shared/kafka/kafkaClient';
 import { dispatchKafkaOperation } from '../../../../shared/kafka/kafkaClient';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const FORMAT_OPTIONS: { value: KafkaSchemaConfig['format']; label: string }[] = [
   { value: 'avro', label: 'Avro' },
@@ -34,7 +35,7 @@ interface KafkaSchemaConfigSectionProps {
 
 /**
  * Collapsible schema registry config section for Kafka produce/consume panels.
- * Renders an "Enable Schema Registry" toggle and the relevant fields when enabled.
+ * Renders a Schema Registry toggle and the relevant fields when enabled.
  */
 export default function KafkaSchemaConfigSection({
   value,
@@ -117,147 +118,197 @@ export default function KafkaSchemaConfigSection({
     }
   }, [value, topic]);
 
+  function patchVersionFromText(raw: string) {
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      patch({ version: undefined });
+      return;
+    }
+    // Digits only — plain text field, no spinner / step controls.
+    if (/^\d+$/.test(trimmed)) {
+      patch({ version: Number(trimmed) });
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="wf-kafka-section">
-      <div className="wf-kafka-section-title">
-        <label className="wf-config-checkbox-label">
+    <section className="wf-kafka-card wf-kafka-schema-card">
+      <header className="wf-kafka-card-header wf-kafka-schema-header">
+        <label className="wf-kafka-schema-toggle">
           <input
             type="checkbox"
             checked={enabled}
             onChange={(e) => handleToggle(e.target.checked)}
           />
-          Enable Schema Registry
+          <span className="wf-kafka-schema-toggle-copy">
+            <span className="wf-kafka-schema-toggle-title">Schema Registry</span>
+            <span className="wf-kafka-schema-toggle-hint">
+              Optional Avro / Protobuf / JSON Schema encoding
+            </span>
+          </span>
         </label>
-      </div>
+      </header>
 
       {enabled && value && (
-        <div className="wf-schema-config">
-          <div className="wf-config-field--row">
-            <label>Registry URL</label>
-            <input
-              value={value.registryUrl}
-              onChange={(e) => patch({ registryUrl: e.target.value })}
-              placeholder="http://schema-registry:8081"
-            />
-          </div>
-
-          <div className="wf-config-field--row">
-            <label>Format</label>
-            <select
-              data-testid="schema-format-select"
-              value={value.format}
-              onChange={(e) => patch({ format: e.target.value as KafkaSchemaConfig['format'] })}
-            >
-              {FORMAT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="wf-config-field-pair">
-            <div className="wf-config-field--row">
-              <label>Username</label>
-              <input
-                value={value.auth?.username ?? ''}
-                onChange={(e) => patchAuth({ username: e.target.value })}
-                placeholder="Optional"
-                autoComplete="off"
-                data-testid="schema-username"
-              />
-            </div>
-            <div className="wf-config-field--row">
-              <label>Password</label>
-              <input
-                type="password"
-                value={value.auth?.password ?? ''}
-                onChange={(e) => patchAuth({ password: e.target.value })}
-                placeholder="Optional"
-                autoComplete="new-password"
-                data-testid="schema-password"
-              />
-            </div>
-          </div>
-
-          <div className="wf-config-field-pair">
-            <div className="wf-config-field--row">
-              <label>Subject</label>
-              <div className="wf-config-field-with-insert" style={{ flex: 1, minWidth: 0 }}>
+        <div className="wf-kafka-card-body">
+          <div className="wf-kafka-form wf-kafka-form--schema">
+            <div className="wf-kafka-form-row wf-kafka-form-row--compact">
+              <div className="wf-kafka-form-label">Registry URL</div>
+              <div className="wf-kafka-form-control-slot">
                 <input
-                  data-testid="schema-subject-input"
+                  className="wf-kafka-form-input"
+                  value={value.registryUrl}
+                  onChange={(e) => patch({ registryUrl: e.target.value })}
+                  placeholder="http://schema-registry:8081"
+                />
+              </div>
+              <div className="wf-kafka-form-hint-slot" />
+            </div>
+
+            <div className="wf-kafka-form-row wf-kafka-form-row--compact">
+              <div className="wf-kafka-form-label">Format</div>
+              <div className="wf-kafka-form-control-slot wf-kafka-form-control-slot--format">
+                <CustomSelect
+                  data-testid="schema-format-select"
+                  value={value.format}
+                  onChange={(v) => patch({ format: v as KafkaSchemaConfig['format'] })}
+                  options={FORMAT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                />
+              </div>
+              <div className="wf-kafka-form-hint-slot">
+                <div className="wf-kafka-form-hint">Wire format for encode/decode</div>
+              </div>
+            </div>
+
+            <div className="wf-kafka-form-row wf-kafka-form-row--compact">
+              <div className="wf-kafka-form-label">Username</div>
+              <div className="wf-kafka-form-control-slot">
+                <input
+                  className="wf-kafka-form-input"
+                  value={value.auth?.username ?? ''}
+                  onChange={(e) => patchAuth({ username: e.target.value })}
+                  placeholder="Optional"
+                  autoComplete="off"
+                  data-testid="schema-username"
+                />
+              </div>
+              <div className="wf-kafka-form-hint-slot" />
+            </div>
+
+            <div className="wf-kafka-form-row wf-kafka-form-row--compact">
+              <div className="wf-kafka-form-label">Password</div>
+              <div className="wf-kafka-form-control-slot">
+                <input
+                  className="wf-kafka-form-input"
+                  type="password"
+                  value={value.auth?.password ?? ''}
+                  onChange={(e) => patchAuth({ password: e.target.value })}
+                  placeholder="Optional"
+                  autoComplete="new-password"
+                  data-testid="schema-password"
+                />
+              </div>
+              <div className="wf-kafka-form-hint-slot" />
+            </div>
+
+            <div className="wf-kafka-form-row wf-kafka-form-row--compact">
+              <div className="wf-kafka-form-label">Subject</div>
+              <div className="wf-kafka-form-control-slot">
+                <div className="wf-kafka-schema-combo">
+                  <input
+                    className="wf-kafka-form-input"
+                    data-testid="schema-subject-input"
+                    value={value.subject ?? ''}
+                    onChange={(e) => patch({ subject: e.target.value || undefined })}
+                    placeholder={topic ? `${topic}-value` : 'topic-value'}
+                  />
+                  <button
+                    type="button"
+                    className="wf-kafka-schema-load-btn"
+                    onClick={() => (subjects.length > 0 ? setSubjects([]) : loadSubjects())}
+                    disabled={loadingSubjects || !value.registryUrl?.trim()}
+                    title={subjects.length > 0 ? 'Hide subject list' : 'Load subjects from registry'}
+                  >
+                    {loadingSubjects ? '…' : '↓'}
+                  </button>
+                </div>
+              </div>
+              <div className="wf-kafka-form-hint-slot">
+                <div className="wf-kafka-form-hint">Defaults to topic-value</div>
+              </div>
+            </div>
+
+            <div className="wf-kafka-form-row wf-kafka-form-row--compact">
+              <div className="wf-kafka-form-label">Version</div>
+              <div className="wf-kafka-form-control-slot">
+                <div className="wf-kafka-schema-combo">
+                  <input
+                    className="wf-kafka-form-input"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={value.version != null ? String(value.version) : ''}
+                    onChange={(e) => patchVersionFromText(e.target.value)}
+                    placeholder="latest"
+                    data-testid="schema-version-input"
+                  />
+                  <button
+                    type="button"
+                    className="wf-kafka-schema-load-btn"
+                    onClick={() => (versions.length > 0 ? setVersions([]) : loadVersions())}
+                    disabled={loadingVersions || !value.registryUrl?.trim()}
+                    title={versions.length > 0 ? 'Hide version list' : 'Load versions from registry'}
+                  >
+                    {loadingVersions ? '…' : '↓'}
+                  </button>
+                </div>
+              </div>
+              <div className="wf-kafka-form-hint-slot">
+                <div className="wf-kafka-form-hint">Leave empty for latest</div>
+              </div>
+            </div>
+          </div>
+
+          {(subjectsError || versionsError || subjects.length > 0 || versions.length > 0) && (
+            <div className="wf-kafka-schema-aux">
+              {subjectsError && <span className="wf-config-error">{subjectsError}</span>}
+              {subjects.length > 0 && (
+                <CustomSelect
+                  data-testid="schema-subjects-dropdown"
+                  className="wf-schema-subjects-dropdown"
                   value={value.subject ?? ''}
-                  onChange={(e) => patch({ subject: e.target.value || undefined })}
-                  placeholder={topic ? `${topic}-value` : 'topic-value'}
-                  style={{ flex: 1, minWidth: 0 }}
+                  onChange={(v) => {
+                    patch({ subject: v || undefined });
+                    setSubjects([]);
+                  }}
+                  placeholder={topic ? `(default — ${topic}-value)` : '(default — topic-value)'}
+                  options={[
+                    { value: '', label: topic ? `(default — ${topic}-value)` : '(default — topic-value)' },
+                    ...subjects.map((s) => ({ value: s, label: s })),
+                  ]}
                 />
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => subjects.length > 0 ? setSubjects([]) : loadSubjects()}
-                  disabled={loadingSubjects || !value.registryUrl?.trim()}
-                  title={subjects.length > 0 ? 'Hide subject list' : 'Load subjects from registry'}
-                >
-                  {loadingSubjects ? '…' : '↓'}
-                </button>
-              </div>
-            </div>
-            <div className="wf-config-field--row">
-              <label>Version</label>
-              <div className="wf-config-field-with-insert" style={{ flex: 1, minWidth: 0 }}>
-                <input
-                  type="number"
-                  value={value.version ?? ''}
-                  onChange={(e) => patch({ version: e.target.value === '' ? undefined : Number(e.target.value) })}
-                  placeholder="latest"
-                  style={{ flex: 1, minWidth: 0 }}
+              )}
+              {versionsError && <span className="wf-config-error">{versionsError}</span>}
+              {versions.length > 0 && (
+                <CustomSelect
+                  data-testid="schema-versions-dropdown"
+                  className="wf-schema-versions-dropdown"
+                  value={value.version != null ? String(value.version) : ''}
+                  onChange={(v) => {
+                    patch({ version: v === '' ? undefined : Number(v) });
+                    setVersions([]);
+                  }}
+                  placeholder="(latest)"
+                  options={[
+                    { value: '', label: '(latest)' },
+                    ...versions.map((v) => ({ value: String(v), label: String(v) })),
+                  ]}
                 />
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => versions.length > 0 ? setVersions([]) : loadVersions()}
-                  disabled={loadingVersions || !value.registryUrl?.trim()}
-                  title={versions.length > 0 ? 'Hide version list' : 'Load versions from registry'}
-                >
-                  {loadingVersions ? '…' : '↓'}
-                </button>
-              </div>
+              )}
             </div>
-          </div>
-          {subjectsError && <span className="wf-config-error">{subjectsError}</span>}
-          {subjects.length > 0 && (
-            <select
-              data-testid="schema-subjects-dropdown"
-              size={Math.min(subjects.length + 1, 6)}
-              style={{ marginTop: 4, width: '100%' }}
-              onChange={(e) => {
-                patch({ subject: e.target.value || undefined });
-                setSubjects([]);
-              }}
-              value={value.subject ?? ''}
-            >
-              <option value="">(default — {topic ? `${topic}-value` : 'topic-value'})</option>
-              {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          )}
-          {versionsError && <span className="wf-config-error">{versionsError}</span>}
-          {versions.length > 0 && (
-            <select
-              data-testid="schema-versions-dropdown"
-              size={Math.min(versions.length + 1, 6)}
-              style={{ marginTop: 4, width: '100%' }}
-              onChange={(e) => {
-                patch({ version: e.target.value === '' ? undefined : Number(e.target.value) });
-                setVersions([]);
-              }}
-              value={value.version ?? ''}
-            >
-              <option value="">(latest)</option>
-              {versions.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

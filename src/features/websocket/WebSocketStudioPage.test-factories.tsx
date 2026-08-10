@@ -78,6 +78,7 @@ export function makeProfilesReturn(overrides?: Partial<UseWebSocketProfilesRetur
     saveProfile: vi.fn().mockResolvedValue(undefined),
     updateProfile: vi.fn().mockResolvedValue(undefined),
     deleteProfile: vi.fn().mockResolvedValue(undefined),
+    clearAllProfiles: vi.fn().mockResolvedValue(undefined),
     duplicateProfile: vi.fn().mockResolvedValue(undefined),
     importProfiles: vi.fn().mockResolvedValue({ imported: 0, errors: [] }),
     exportProfiles: vi.fn().mockReturnValue('[]'),
@@ -94,6 +95,7 @@ export function makeTemplatesReturn(overrides?: Partial<UseWebSocketTemplatesRet
     saveTemplate: vi.fn().mockResolvedValue(undefined),
     updateTemplate: vi.fn().mockResolvedValue(undefined),
     deleteTemplate: vi.fn().mockResolvedValue(undefined),
+    clearAllTemplates: vi.fn().mockResolvedValue(undefined),
     loadTemplate: vi.fn().mockReturnValue(null),
     ...overrides,
   };

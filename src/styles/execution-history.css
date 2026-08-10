@@ -98,16 +98,7 @@
 }
 .exh-btn-ghost:hover { color: var(--text); background: var(--surface-hover); }
 
-.exh-select {
-  padding: 7px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.85rem;
-  font-family: var(--font);
-  cursor: pointer;
-}
+.exh-select { /* box styling handled by CustomSelect */ }
 
 /* ── Empty state ─────────────────────────────────────────────────── */
 

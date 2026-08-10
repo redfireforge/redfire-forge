@@ -74,7 +74,7 @@ describe('GraphqlHistoryComparePanel', () => {
     render(
       <GraphqlHistoryComparePanel itemA={itemA} itemB={itemB} onClose={onClose} onBack={vi.fn()} />,
     );
-    fireEvent.click(screen.getByTestId('gql-history-compare-close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

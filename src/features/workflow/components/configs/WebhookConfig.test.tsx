@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import WebhookConfig from './WebhookConfig';
 import { WebhookTriggerNodeData } from '../../types/workflow';
 import { installClipboardMock } from '../../../../test-utils/clipboardMock';
@@ -28,14 +29,14 @@ describe('WebhookConfig', () => {
   });
 
   it('renders method select with current value', () => {
-    render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
-    expect(screen.getByDisplayValue('POST')).toBeTruthy();
+    const { container } = render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
+    expect(getCustomSelectValue(container)).toBe('POST');
   });
 
   it('calls onChange when method changes', () => {
     const onChange = vi.fn();
-    render(<WebhookConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('POST'), { target: { value: 'PUT' } });
+    const { container } = render(<WebhookConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'PUT');
     expect(onChange).toHaveBeenCalledWith({ method: 'PUT' });
   });
 
@@ -147,10 +148,10 @@ describe('WebhookConfig', () => {
   });
 
   it('renders all three HTTP method options', () => {
-    render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
-    const select = screen.getByDisplayValue('POST') as HTMLSelectElement;
-    const options = Array.from(select.options).map(o => o.value);
-    expect(options).toEqual(['POST', 'PUT', 'PATCH']);
+    const { container } = render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(container.querySelector('.cs-trigger')!);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toEqual(['POST', 'PUT', 'PATCH']);
   });
 
   it('selects URL text on focus', () => {
@@ -281,8 +282,8 @@ describe('WebhookConfig', () => {
 
   it('calls onChange with PATCH when method selected', () => {
     const onChange = vi.fn();
-    render(<WebhookConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('POST'), { target: { value: 'PATCH' } });
+    const { container } = render(<WebhookConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'PATCH');
     expect(onChange).toHaveBeenCalledWith({ method: 'PATCH' });
   });
 

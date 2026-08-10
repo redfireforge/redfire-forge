@@ -41,6 +41,9 @@ export const GQL = {
   LESSON14_TAB1: '[data-lesson-target="gql14-tab-0"]',
   /** GQL-14 lesson spotlight: demo Tab 2 workspace tab (set when Tab 2 is added). */
   LESSON14_TAB2: '[data-lesson-target="gql14-tab-1"]',
+  /** GQL-15 lesson spotlight: Demo: Batch Execution workspace tab (first demo tab). */
+  LESSON15_DEMO_TAB:
+    '[data-testid="gql-tab-bar"] [role="tab"][data-demo-lesson="gql-batch-execution"]',
 
   // ── Editor ─────────────────────────────────────────────────────────────────
   EDITOR:              '[data-testid="gql-editor"]',
@@ -320,6 +323,7 @@ export const GQL = {
   HISTORY_COMPARE_SLOT_B_FILLED: '[data-testid="gql-history-compare-slot-b"][data-filled="true"]',
   HISTORY_COMPARE_BTN_ENABLED: '[data-testid="gql-history-compare-btn"]:not([disabled])',
   HISTORY_PREVIEW:            '[data-testid="gql-history-preview"]',
+  HISTORY_PREVIEW_BACK:       '[data-testid="gql-history-preview-back"]',
   HISTORY_PREVIEW_VARS_TAB:   '[data-testid="gql-history-preview-tab-variables"]',
   HISTORY_PREVIEW_VARS_PANEL: '[data-testid="gql-history-preview-variables"]',
   HISTORY_LOAD:        '[data-testid="gql-history-load"]',
@@ -428,11 +432,15 @@ export const GQL = {
   /** Collapsible wire JSON-array body in Metadata (array batch only). */
   RESPONSE_WIRE_BATCH_BODY: '[data-testid="gql-rv-wire-batch-body"]',
   RESPONSE_WIRE_BATCH_BODY_TOGGLE: '[data-testid="gql-rv-wire-batch-body-toggle"]',
+  /** GraphQL error detail cards in Metadata (validation / field errors). */
+  RESPONSE_ERROR_LIST: '[data-testid="gql-rv-error-list"]',
   /** Phase 6G — batch configuration panel inside Advanced Settings → Batch. */
   ADV_BATCH_PANEL:     '[data-testid="gql-adv-batch-panel"]',
   ADV_BATCH_GROUP_SELECT: '[data-testid="gql-adv-batch-group-select"]',
   ADV_BATCH_GROUP_LABEL:  '[data-testid="gql-adv-batch-group-label"]',
   ADV_BATCH_SELECTION_HINT: '[data-testid="gql-adv-batch-selection-hint"]',
+  ADV_BATCH_SELECT_ALL: '[data-testid="gql-adv-batch-select-all"]',
+  ADV_BATCH_CLEAR_ALL: '[data-testid="gql-adv-batch-clear-all"]',
   advBatchTabRow:      (tabId: string) => `[data-testid="gql-adv-batch-tab-row-${tabId}"]`,
   advBatchTabCb:       (tabId: string) => `[data-testid="gql-adv-batch-tab-cb-${tabId}"]`,
   /** @deprecated Tab-bar checkboxes removed in 6G — use advBatchTabCb in Advanced Settings. */

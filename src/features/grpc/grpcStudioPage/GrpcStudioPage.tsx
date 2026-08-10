@@ -1,7 +1,7 @@
 import '../../../styles/grpc-studio.css';
 import '../../../styles/websocket-studio.css';
 import '../../../styles/mock-server-shared.css';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { GrpcTabBar } from '../components/GrpcTabBar';
 import { useGrpcStudio } from '../hooks/useGrpcStudio';
 import { useGrpcStudioPersistence } from '../hooks/useGrpcStudioPersistence';
@@ -28,6 +28,7 @@ import { useGrpcStudioPageDemoBridges } from './useGrpcStudioPageDemoBridges';
 import { useGrpcStudioPageDensity } from './useGrpcStudioPageDensity';
 import { useGrpcStudioPageEnvContext } from './useGrpcStudioPageEnvContext';
 import { useGrpcStudioPageHistoryActions } from './useGrpcStudioPageHistoryActions';
+import { peekDemoInitialSurface } from '../../../shared/demoInitialSurface';
 
 export type { GrpcStudioPageProps } from './grpcStudioPageTypes';
 
@@ -74,7 +75,12 @@ export function GrpcStudioPage({
 
   const collections = useGrpcCollections();
   const callHistory = useGrpcCallHistory();
-  const [panelView, setPanelView] = useState<GrpcStudioPanelView>('studio');
+  // Live demos arm an initial-surface hint before switching tabs so the first
+  // paint is already the panel step 1 targets. Without this the Studio view
+  // renders first and the lesson's setup() visibly hops to the right panel.
+  const [panelView, setPanelView] = useState<GrpcStudioPanelView>(
+    () => peekDemoInitialSurface()?.grpcPanelView ?? 'studio',
+  );
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -95,6 +101,24 @@ export function GrpcStudioPage({
     pageDefaults,
     enabled: panelView === 'advanced',
   });
+
+  // Persist the demo surface into advanced tab state on first paint. The
+  // useState initializer for panelView covers the top nav; advanced feature
+  // tab state is per-studio-tab and must be patched once the active tab id
+  // exists, or Load testing remains selected under Advanced.
+  const appliedDemoSurfaceRef = useRef(false);
+  useLayoutEffect(() => {
+    if (appliedDemoSurfaceRef.current) return;
+    const surface = peekDemoInitialSurface();
+    if (!surface) return;
+    appliedDemoSurfaceRef.current = true;
+    if (surface.grpcPanelView && surface.grpcPanelView !== panelView) {
+      setPanelView(surface.grpcPanelView);
+    }
+    if (surface.grpcAdvancedTab) {
+      advancedFeatures.setActiveFeatureTab(surface.grpcAdvancedTab);
+    }
+  }, [advancedFeatures, panelView]);
 
   useGrpcStudioPageDemoBridges(studio, advancedFeatures);
 
@@ -183,6 +207,9 @@ export function GrpcStudioPage({
           onClose={studio.closeTab}
           onDuplicate={studio.duplicateTab}
           onRename={studio.renameTab}
+          onReorder={studio.reorderTabs}
+          onCloseOthers={studio.closeOtherTabs}
+          onCloseRight={studio.closeTabsToRight}
         />
       )}
 

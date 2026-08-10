@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketMockServer, WebSocketMockRulesPane, useMockServerUi } from './WebSocketMockServer';
 import type { UseWebSocketMockServerReturn } from './useWebSocketMockServer';
 import type { WsMockRule, WsMockLogEntry } from '../../shared/websocket/types';
@@ -118,7 +119,24 @@ describe('WebSocketMockServer', () => {
     const mock = makeMockReturn({ setRules });
     render(<WebSocketMockServer mock={mock} />);
     fireEvent.click(screen.getByTestId('mock-add-rule'));
-    expect(setRules).toHaveBeenCalledWith([expect.objectContaining({ enabled: true })]);
+    expect(setRules).toHaveBeenCalledWith([expect.objectContaining({ enabled: true, name: 'Rule 1' })]);
+  });
+
+  it('reuses Rule 1 name after the previous Rule 1 was deleted', () => {
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'Rule 1', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules });
+    const { rerender } = render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByTestId('rule-delete-r1'));
+    expect(setRules).toHaveBeenCalledWith([]);
+
+    // Simulate parent applying the empty list, then add again
+    const emptyMock = makeMockReturn({ rules: [], setRules });
+    rerender(<WebSocketMockServer mock={emptyMock} />);
+    fireEvent.click(screen.getByTestId('mock-add-rule'));
+    expect(setRules).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'Rule 1' })]);
   });
 
   it('shows test result for matching rule', () => {
@@ -269,7 +287,7 @@ describe('WebSocketMockServer', () => {
     const setConfig = vi.fn();
     const mock = makeMockReturn({ setConfig });
     render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-fallback-select'), { target: { value: 'ignore' } });
+    selectOption(screen.getByTestId('mock-fallback-select'), 'Ignore');
     expect(setConfig).toHaveBeenCalledWith(expect.objectContaining({ fallback: 'ignore' }));
   });
 
@@ -284,7 +302,7 @@ describe('WebSocketMockServer', () => {
       rules,
     });
     render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-fallback-select'), { target: { value: 'close' } });
+    selectOption(screen.getByTestId('mock-fallback-select'), 'Close connection');
     expect(pushRulesToServer).toHaveBeenCalledWith(rules, 'close');
   });
 
@@ -317,18 +335,36 @@ describe('WebSocketMockServer', () => {
     expect(broadcastFn).not.toHaveBeenCalled();
   });
 
-  it('disables broadcast button when no clients', () => {
+  it('enables broadcast button with text even when no clients are connected', () => {
     const mock = makeMockReturn({
       status: { running: true, port: 9876, clientCount: 0, clients: [] },
     });
     render(<WebSocketMockServer mock={mock} />);
     fireEvent.change(screen.getByTestId('mock-broadcast-input'), { target: { value: 'msg' } });
+    expect((screen.getByTestId('mock-broadcast-btn') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('disables broadcast button when text is empty regardless of client count', () => {
+    const mock = makeMockReturn({
+      status: { running: true, port: 9876, clientCount: 0, clients: [] },
+    });
+    render(<WebSocketMockServer mock={mock} />);
     expect((screen.getByTestId('mock-broadcast-btn') as HTMLButtonElement).disabled).toBe(true);
   });
 
   // ── Rule editor interactions ────────────────────────────────────────
 
-  it('opens rule editor when rule name is clicked', () => {
+  it('opens rule editor when rule header is clicked', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'My Rule', enabled: true, match: { type: 'exact', pattern: 'hello' }, response: { type: 'static', data: 'world' } },
+    ];
+    const mock = makeMockReturn({ rules });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByTestId('rule-expand-r1'));
+    expect(screen.getByTestId('rule-editor-r1')).toBeTruthy();
+  });
+
+  it('opens rule editor when rule name text is clicked', () => {
     const rules: WsMockRule[] = [
       { id: 'r1', name: 'My Rule', enabled: true, match: { type: 'exact', pattern: 'hello' }, response: { type: 'static', data: 'world' } },
     ];
@@ -338,16 +374,28 @@ describe('WebSocketMockServer', () => {
     expect(screen.getByTestId('rule-editor-r1')).toBeTruthy();
   });
 
-  it('closes rule editor when clicked again', () => {
+  it('closes rule editor when header is clicked again', () => {
     const rules: WsMockRule[] = [
       { id: 'r1', name: 'Rule', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'echo' } },
     ];
     const mock = makeMockReturn({ rules });
     render(<WebSocketMockServer mock={mock} />);
-    fireEvent.click(screen.getByText('Rule'));
+    fireEvent.click(screen.getByTestId('rule-expand-r1'));
     expect(screen.getByTestId('rule-editor-r1')).toBeTruthy();
-    fireEvent.click(screen.getByText('Rule'));
+    fireEvent.click(screen.getByTestId('rule-expand-r1'));
     expect(screen.queryByTestId('rule-editor-r1')).toBeNull();
+  });
+
+  it('does not toggle expand when enable switch is clicked', () => {
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'Rule', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByTestId('rule-toggle-r1'));
+    expect(screen.queryByTestId('rule-editor-r1')).toBeNull();
+    expect(setRules).toHaveBeenCalled();
   });
 
   it('updates rule name in editor', () => {
@@ -370,7 +418,7 @@ describe('WebSocketMockServer', () => {
     const mock = makeMockReturn({ rules, setRules });
     render(<WebSocketMockServer mock={mock} />);
     fireEvent.click(screen.getByText('Rule'));
-    fireEvent.change(screen.getByTestId('rule-match-type-r1'), { target: { value: 'exact' } });
+    selectOption(screen.getByTestId('rule-match-type-r1'), 'Exact');
     expect(setRules).toHaveBeenCalledWith([expect.objectContaining({ match: { type: 'exact', pattern: '' } })]);
   });
 
@@ -823,7 +871,7 @@ describe('WebSocketMockServer', () => {
     const mock = makeMockReturn({ rules, setRules });
     render(<WebSocketMockServer mock={mock} />);
     fireEvent.click(screen.getByText('TypeRule'));
-    fireEvent.change(screen.getByTestId('rule-response-type-r1'), { target: { value: 'static' } });
+    selectOption(screen.getByTestId('rule-response-type-r1'), 'Static');
     expect(setRules).toHaveBeenCalled();
   });
 

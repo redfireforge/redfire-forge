@@ -257,6 +257,10 @@
   background: var(--primary);
 }
 
+.grpc-tab--dragging {
+  opacity: 0.4;
+}
+
 .grpc-tab--in-flight {
   border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
 }
@@ -995,10 +999,10 @@
   overflow: hidden;
   border-radius: 10px !important;
   background: var(--surface) !important;
-  border: 1px solid rgba(255, 255, 255, 0.30) !important;
+  border: 1px solid color-mix(in srgb, white 28%, var(--border)) !important;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
     0 20px 60px rgba(0, 0, 0, 0.55),
     0 4px 16px rgba(0, 0, 0, 0.3);
 }
@@ -1737,24 +1741,19 @@
   min-width: 140px;
 }
 
+/* CustomSelect: border lives on .cs-trigger only — never box the wrapper. */
 .grpc-compression-select {
   width: 100%;
   max-width: 280px;
-  background: color-mix(in srgb, var(--bg) 90%, #0e1f3b 10%);
-  border: 1px solid color-mix(in srgb, var(--border) 86%, #89a8d7 14%);
-  color: var(--text);
-  border-radius: 5px;
-  padding: 6px 10px;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a8b8cc' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
 }
-
-.grpc-compression-select:focus-visible {
-  outline: none;
-  border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent);
+.grpc-compression-select.cs-wrapper {
+  border: none;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+.grpc-compression-select.cs-wrapper .cs-trigger {
+  width: 100%;
 }
 
 .grpc-compression-toggle-row {
@@ -2284,12 +2283,24 @@
 }
 
 .grpc-tls-config-modal.ws-tls-modal {
-  width: min(660px, 100%);
-  max-width: 660px;
+  /* Compact column — tri-mode cards + PEM fields without spanning the studio */
+  width: min(620px, 94vw);
+  max-width: min(660px, 94vw);
+  min-width: min(520px, 94vw);
+  height: min(700px, 90vh);
+  max-height: 92vh;
 }
 
 .grpc-tls-config-modal .ws-tls-modal-body {
-  padding: 12px 14px 2px;
+  padding: 14px 16px 4px;
+}
+
+.grpc-tls-config-modal .modal-resize-corner::after {
+  opacity: 0.45;
+}
+
+.grpc-tls-config-modal:hover .modal-resize-corner::after {
+  opacity: 0.9;
 }
 
 .grpc-tls-config-modal .ws-tls-section-header {
@@ -2539,7 +2550,6 @@
   border: 0;
 }
 
-.grpc-auth-select,
 .grpc-auth-text-input {
   width: 100%;
   max-width: 420px;
@@ -2550,21 +2560,13 @@
   padding: 6px 10px;
   font-size: 0.78rem;
 }
-
-.grpc-auth-select:focus,
 .grpc-auth-text-input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--primary) 64%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 26%, transparent);
 }
-
-.grpc-auth-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a8b8cc' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 28px;
-}
+/* CustomSelect wrapper */
+.grpc-auth-select { width: 100%; max-width: 420px; /* box styling handled by CustomSelect */ }
 
 .grpc-auth-oauth-notice {
   margin: 0;
@@ -6051,12 +6053,12 @@
   width: min(920px, calc(100vw - 48px));
   height: min(640px, calc(100vh - 48px));
   max-height: min(640px, calc(100vh - 48px));
-  border: 1px solid rgba(255, 255, 255, 0.30);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
   background: var(--surface);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
     0 12px 40px color-mix(in srgb, var(--bg) 35%, transparent);
   overflow: hidden;
 }
@@ -7667,10 +7669,14 @@
   min-height: 260px;
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 24px);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
   background: var(--bg);
-  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.34);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 20px 42px rgba(0, 0, 0, 0.34),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -7753,6 +7759,14 @@
   border-radius: 5px;
   padding: 6px 10px;
   font-size: 0.72rem;
+}
+/* __sort is a CustomSelect — reset box on the wrapper */
+.grpc-console-wire-controls__sort.cs-wrapper {
+  border: none; background: transparent; padding: 0; border-radius: 0;
+}
+.grpc-console-wire-controls__sort.cs-wrapper .cs-trigger {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 5px; padding: 6px 10px; font-size: 0.72rem;
 }
 
 .grpc-console-wire-controls__search::placeholder {
@@ -7989,6 +8003,18 @@
   min-height: 0;
 }
 
+.grpc-collections-sidebar__hint {
+  margin: 16px 14px;
+  padding: 0;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .grpc-console-list {
   flex: 1;
   overflow-y: auto;
@@ -8039,27 +8065,34 @@
 
 .grpc-collection-group__rename-btn {
   flex-shrink: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
+  gap: 4px;
+  min-width: 22px;
   height: 22px;
   margin: 0 8px 0 4px;
-  padding: 0;
-  border: 1px solid transparent;
+  padding: 0 6px;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: transparent;
+  background: var(--bg);
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1;
   cursor: pointer;
 }
 
 .grpc-collection-group__rename-btn:hover,
 .grpc-collection-group__rename-btn:focus-visible {
   background: var(--surface-hover);
-  border-color: var(--border);
+  border-color: var(--primary);
   color: var(--text);
   outline: none;
+}
+
+.grpc-collection-group__rename-label {
+  font-size: 0.66rem;
 }
 
 .grpc-collection-service__header {
@@ -8160,9 +8193,13 @@
 
 .grpc-saved-request-detail__empty {
   margin: 16px;
+  font-family: var(--font);
   font-size: 0.86rem;
+  font-weight: 400;
+  font-style: normal;
   line-height: 1.45;
   color: var(--text-muted);
+  text-align: center;
 }
 
 .grpc-history-detail-split {
@@ -8372,25 +8409,9 @@
   border-bottom: 1px solid var(--border);
 }
 
-.grpc-history-filters__select {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 5px;
-  padding: 6px 10px;
-  font-size: 0.72rem;
-}
+.grpc-history-filters__select { width: 100%; /* box styling handled by CustomSelect */ }
 
-.grpc-console-filters__select {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 5px;
-  padding: 6px 10px;
-  font-size: 0.72rem;
-}
+.grpc-console-filters__select { width: 100%; /* box styling handled by CustomSelect */ }
 
 .grpc-console-row {
   display: flex;
@@ -8657,12 +8678,16 @@
   transform: translate(-50%, -50%);
   width: min(520px, calc(100vw - 32px));
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 8px;
   z-index: 1200;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px color-mix(in srgb, var(--bg) 40%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .grpc-import-grpcurl-modal {
@@ -8808,6 +8833,14 @@
   padding: 6px 10px;
   font-size: 0.74rem;
 }
+/* When used as CustomSelect wrapper, reset box styling */
+.grpc-form-row__input.cs-wrapper {
+  border: none; background: transparent; padding: 0; border-radius: 0;
+}
+.grpc-form-row__input.cs-wrapper .cs-trigger {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 5px; padding: 6px 10px; font-size: 0.74rem;
+}
 
 .grpc-btn {
   appearance: none;
@@ -8919,12 +8952,16 @@
   width: min(760px, calc(100vw - 32px));
   max-height: min(80vh, 720px);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 8px;
   z-index: 1300;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px color-mix(in srgb, var(--bg) 40%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .grpc-snapshot-diff-modal__header {
@@ -9103,6 +9140,8 @@
   min-height: 0;
   overflow-y: auto;
   padding: 20px;
+  /* Room for demo spotlight rings on controls near the top edge. */
+  scroll-padding-top: 28px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -9346,7 +9385,6 @@
 }
 
 .grpc-advanced-input,
-.grpc-advanced-select,
 .grpc-advanced-textarea {
   background: var(--bg);
   border: 1px solid color-mix(in srgb, var(--border) 80%, #5a7a9f 20%);
@@ -9358,20 +9396,13 @@
 }
 
 .grpc-advanced-input:focus,
-.grpc-advanced-select:focus,
 .grpc-advanced-textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
 }
-
-.grpc-advanced-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 28px;
-}
+/* CustomSelect wrapper */
+.grpc-advanced-select { /* box styling handled by CustomSelect */ }
 
 .grpc-advanced-select--compact {
   min-width: 220px;
@@ -10161,6 +10192,18 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
+}
+
+/* Fixed width so selecting a shorter label does not shrink the control. */
+.grpc-sdiff-controls .grpc-sdiff-severity-filter.cs-wrapper {
+  width: 13.75rem;
+  min-width: 13.75rem;
+  max-width: 13.75rem;
+  flex: 0 0 13.75rem;
+}
+.grpc-sdiff-controls .grpc-sdiff-severity-filter.cs-wrapper .cs-trigger {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .grpc-sdiff-controls__clear {
@@ -11266,6 +11309,15 @@
   min-width: 0;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+/* When used as CustomSelect wrapper, reset box styling */
+.grpc-mock-builder-input.cs-wrapper {
+  border: none; background: transparent; padding: 0; border-radius: 0;
+}
+.grpc-mock-builder-input.cs-wrapper .cs-trigger {
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, #5a7a9f 20%);
+  color: var(--text); border-radius: 6px; padding: 7px 11px; font-size: 0.76rem;
+}
 
 .grpc-mock-builder-input:focus,
 .grpc-mock-builder-textarea:focus {
@@ -11439,10 +11491,10 @@
 
 /* Dry-Run Tester — stronger subtle white edge, matching gRPC session settings. */
 .professional-modal.grpc-dry-run-tester-modal {
-  border: 1px solid rgba(255, 255, 255, 0.30);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
     0 20px 60px rgba(0, 0, 0, 0.55),
     0 4px 16px rgba(0, 0, 0, 0.3);
 }
@@ -11687,9 +11739,11 @@
   overflow: hidden;
   border-radius: 12px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.035) inset,
-              0 10px 28px rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
 .grpc-mock-tester-modal .modal-header {

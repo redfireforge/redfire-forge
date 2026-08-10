@@ -93,7 +93,56 @@ async function openConfigureModal(page: Page) {
 }
 
 function authSelect(page: Page) {
-  return page.locator('.csv-auth-select').first();
+  return page.locator('.ds-auth-select').first();
+}
+
+function authTypeLabel(type: string): string {
+  switch (type) {
+    case 'inherit':
+      return 'Inherit';
+    case 'none':
+      return 'No Auth';
+    case 'basic':
+      return 'Basic Auth';
+    case 'bearer':
+      return 'Bearer Token';
+    case 'apikey':
+      return 'API Key';
+    case 'oauth2':
+      return 'OAuth2 Client Credentials';
+    default:
+      return type.charAt(0).toUpperCase() + type.slice(1);
+  }
+}
+
+async function expectAuthType(page: Page, type: string) {
+  await expect(authSelect(page).locator('.cs-text')).toContainText(authTypeLabel(type));
+}
+
+async function setAuthType(page: Page, label: string) {
+  const select = authSelect(page);
+  await select.locator('.cs-trigger').click();
+  await page.locator('.cs-menu .cs-item', { hasText: label }).first().click();
+  await expect(select.locator('.cs-text')).toContainText(label);
+}
+
+function authTypeSelectInEditor(page: Page) {
+  return page.locator('.auth-type-select').first();
+}
+
+function sharedAuthTypeSelect(page: Page) {
+  return page.locator('.shared-ds-fetch-auth-type').first();
+}
+
+async function expectCustomAuthType(select: ReturnType<typeof authTypeSelectInEditor> | ReturnType<typeof sharedAuthTypeSelect>, type: string) {
+  await expect(select.locator('.cs-text')).toContainText(authTypeLabel(type));
+}
+
+async function setCustomAuthType(page: Page, select: ReturnType<typeof authTypeSelectInEditor> | ReturnType<typeof sharedAuthTypeSelect>, type: string) {
+  const label = authTypeLabel(type);
+  await select.locator('.cs-trigger').click();
+  await page.locator('.cs-menu .cs-item', { hasText: label }).first().click();
+  await expect(select.locator('.cs-text')).toContainText(label);
 }
 
 test.describe('Data Source Auth Inherit Persistence', () => {
@@ -106,8 +155,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await clickDataTab(page);
     await openConfigureModal(page);
 
-    await expect(authSelect(page)).toHaveValue('bearer');
-    await expect(page.locator('.step-section-count', { hasText: 'bearer' })).toBeVisible();
+    await expectAuthType(page, 'bearer');
   });
 
   test('changing auth to Inherit and applying persists across modal reopen', async ({ page }) => {
@@ -116,11 +164,10 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Verify initial state is Bearer Token
-    await expect(authSelect(page)).toHaveValue('bearer');
+    await expectAuthType(page, 'bearer');
 
     // Change to Inherit
-    await authSelect(page).selectOption('inherit');
-    await expect(authSelect(page)).toHaveValue('inherit');
+    await setAuthType(page, 'Inherit');
 
     // Advance to Columns and Apply
     await page.getByRole('button', { name: 'Next: Columns' }).click();
@@ -133,8 +180,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Auth should still be "Inherit" — not reverted to "Bearer Token"
-    await expect(authSelect(page)).toHaveValue('inherit');
-    await expect(page.locator('.step-section-count', { hasText: 'inherit' })).toBeVisible();
+    await expectAuthType(page, 'inherit');
   });
 
   test('Inherit auth persists after saving the test and reopening editor', async ({ page }) => {
@@ -143,7 +189,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Change to Inherit
-    await authSelect(page).selectOption('inherit');
+    await setAuthType(page, 'Inherit');
 
     // Apply
     await page.getByRole('button', { name: 'Next: Columns' }).click();
@@ -163,7 +209,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Auth should still be "Inherit"
-    await expect(authSelect(page)).toHaveValue('inherit');
+    await expectAuthType(page, 'inherit');
   });
 
   test('Inherit auth survives page reload (persistence)', async ({ page }) => {
@@ -173,7 +219,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Change to Inherit and apply
-    await authSelect(page).selectOption('inherit');
+    await setAuthType(page, 'Inherit');
     await page.getByRole('button', { name: 'Next: Columns' }).click();
     await page.getByRole('button', { name: 'Apply to Data Source' }).click();
     await expect(page.locator('.full-panel-modal')).not.toBeVisible({ timeout: 5_000 });
@@ -202,7 +248,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Auth should still be "Inherit" after reload
-    await expect(authSelect(page)).toHaveValue('inherit');
+    await expectAuthType(page, 'inherit');
   });
 
   test('Auth tab also reflects change when Configure Data Source sets to Inherit', async ({ page }) => {
@@ -210,20 +256,20 @@ test.describe('Data Source Auth Inherit Persistence', () => {
 
     // Verify Auth tab initially shows Bearer Token
     await page.locator('.builder-tab', { hasText: 'Auth' }).click();
-    const authTabSelect = page.locator('.auth-type-select select');
-    await expect(authTabSelect).toHaveValue('bearer');
+    const authTabSelect = authTypeSelectInEditor(page);
+    await expectCustomAuthType(authTabSelect, 'bearer');
 
     // Now go to Data Source and change auth to Inherit via Configure modal
     await clickDataTab(page);
     await openConfigureModal(page);
-    await authSelect(page).selectOption('inherit');
+    await setAuthType(page, 'Inherit');
     await page.getByRole('button', { name: 'Next: Columns' }).click();
     await page.getByRole('button', { name: 'Apply to Data Source' }).click();
     await expect(page.locator('.full-panel-modal')).not.toBeVisible({ timeout: 5_000 });
 
     // Auth tab should now show "inherit" (both share draft.auth)
     await page.locator('.builder-tab', { hasText: 'Auth' }).click();
-    await expect(authTabSelect).toHaveValue('inherit');
+    await expectCustomAuthType(authTabSelect, 'inherit');
   });
 
   test('switching auth types in Configure modal works for all types', async ({ page }) => {
@@ -231,12 +277,11 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await clickDataTab(page);
     await openConfigureModal(page);
 
-    const select = authSelect(page);
-
     for (const authType of ['inherit', 'none', 'basic', 'bearer']) {
-      await select.selectOption(authType);
-      await expect(select).toHaveValue(authType);
-      await expect(page.locator('.step-section-count', { hasText: authType })).toBeVisible();
+      await setAuthType(page, authTypeLabel(authType));
+      await expectAuthType(page, authType);
+
+      // Step badges are shown only for non-default sections; auth field text is the source of truth.
     }
   });
 
@@ -246,11 +291,11 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Initial is bearer
-    await expect(authSelect(page)).toHaveValue('bearer');
+    await expectAuthType(page, 'bearer');
 
     // Change to Inherit
-    await authSelect(page).selectOption('inherit');
-    await expect(authSelect(page)).toHaveValue('inherit');
+    await setAuthType(page, 'Inherit');
+    await expectAuthType(page, 'inherit');
 
     // Cancel inside the Configure Data Source modal (scoped to .full-panel-modal)
     await page.locator('.full-panel-modal').getByRole('button', { name: 'Cancel' }).click();
@@ -258,7 +303,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
 
     // Reopen — should still be bearer (change was NOT applied)
     await openConfigureModal(page);
-    await expect(authSelect(page)).toHaveValue('bearer');
+    await expectAuthType(page, 'bearer');
   });
 
   test('closing modal via X does NOT persist auth change', async ({ page }) => {
@@ -266,8 +311,8 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await clickDataTab(page);
     await openConfigureModal(page);
 
-    await expect(authSelect(page)).toHaveValue('bearer');
-    await authSelect(page).selectOption('inherit');
+    await expectAuthType(page, 'bearer');
+    await setAuthType(page, 'Inherit');
 
     // Close via Cancel inside the Configure Data Source modal
     await page.locator('.full-panel-modal').getByRole('button', { name: 'Cancel' }).click();
@@ -275,7 +320,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
 
     // Reopen — should still be bearer
     await openConfigureModal(page);
-    await expect(authSelect(page)).toHaveValue('bearer');
+    await expectAuthType(page, 'bearer');
   });
 
   test('BUG REPRO: auth change lost when user closes modal from Step 1 without Apply', async ({ page }) => {
@@ -284,11 +329,11 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Initial is bearer
-    await expect(authSelect(page)).toHaveValue('bearer');
+    await expectAuthType(page, 'bearer');
 
     // Change to Inherit on Step 1
-    await authSelect(page).selectOption('inherit');
-    await expect(authSelect(page)).toHaveValue('inherit');
+    await setAuthType(page, 'Inherit');
+    await expectAuthType(page, 'inherit');
 
     // User might expect that clicking "Next: Columns" then closing preserves auth.
     // Go to Step 2 but don't click Apply — just close
@@ -301,7 +346,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     // Reopen — auth change was NOT persisted (no Apply was clicked)
     await openConfigureModal(page);
     // This will be 'bearer' because the change was lost — no Apply was clicked
-    await expect(authSelect(page)).toHaveValue('bearer');
+    await expectAuthType(page, 'bearer');
   });
 
   test('Inherit persists in Shared Data Source auth tab', async ({ page }) => {
@@ -359,12 +404,12 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await authTab.click();
 
     // Auth should be "bearer"
-    const authTypeSelect = page.locator('.shared-ds-fetch-auth-type');
-    await expect(authTypeSelect).toHaveValue('bearer');
+    const authTypeSelect = sharedAuthTypeSelect(page);
+    await expectCustomAuthType(authTypeSelect, 'bearer');
 
     // Change to Inherit
-    await authTypeSelect.selectOption('inherit');
-    await expect(authTypeSelect).toHaveValue('inherit');
+    await setCustomAuthType(page, authTypeSelect, 'inherit');
+    await expectCustomAuthType(authTypeSelect, 'inherit');
 
     // Save changes first, then close
     await page.locator('.shared-ds-footer button', { hasText: 'Save' }).click();
@@ -379,7 +424,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await authTab.click();
 
     // Auth should still be "inherit" — NOT reverted to "bearer"
-    await expect(authTypeSelect).toHaveValue('inherit');
+    await expectCustomAuthType(authTypeSelect, 'inherit');
   });
 
   test('BUG FIX: Shared DS Configure button persists auth change to fetchConfig', async ({ page }) => {
@@ -436,12 +481,11 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await expect(page.getByText('Auth Configuration')).toBeVisible();
 
     // Auth should show Bearer Token (from fetchConfig)
-    const dsAuthSelect = page.locator('.csv-auth-select').first();
-    await expect(dsAuthSelect).toHaveValue('bearer');
+    await expectAuthType(page, 'bearer');
 
     // Change to Inherit
-    await dsAuthSelect.selectOption('inherit');
-    await expect(dsAuthSelect).toHaveValue('inherit');
+    await setAuthType(page, 'Inherit');
+    await expectAuthType(page, 'inherit');
 
     // Apply: Next: Columns → Apply to Data Source
     await page.getByRole('button', { name: 'Next: Columns' }).click();
@@ -451,7 +495,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     // Reopen Configure — auth should be Inherit, not Bearer Token
     await page.locator('button[title="Configure data source columns"]').click();
     await expect(page.locator('.full-panel-modal')).toBeVisible({ timeout: 10_000 });
-    await expect(dsAuthSelect).toHaveValue('inherit');
+    await expectAuthType(page, 'inherit');
 
     // Also verify the inline Auth tab shows inherit
     await page.locator('.full-panel-modal').getByRole('button', { name: 'Cancel' }).click();
@@ -459,8 +503,8 @@ test.describe('Data Source Auth Inherit Persistence', () => {
 
     const authTab = page.locator('.shared-ds-fetch-panel .builder-tab', { hasText: 'Auth' });
     await authTab.click();
-    const inlineAuthSelect = page.locator('.shared-ds-fetch-auth-type');
-    await expect(inlineAuthSelect).toHaveValue('inherit');
+    const inlineAuthSelect = sharedAuthTypeSelect(page);
+    await expectCustomAuthType(inlineAuthSelect, 'inherit');
   });
 
   test('Shared DS auth Inherit survives page reload', async ({ page }) => {
@@ -511,9 +555,9 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await expect(page.locator('.shared-ds-modal')).toBeVisible({ timeout: 10_000 });
     const authTab = page.locator('.shared-ds-fetch-panel .builder-tab', { hasText: 'Auth' });
     await authTab.click();
-    const authTypeSelect = page.locator('.shared-ds-fetch-auth-type');
-    await authTypeSelect.selectOption('inherit');
-    await expect(authTypeSelect).toHaveValue('inherit');
+    const authTypeSelect = sharedAuthTypeSelect(page);
+    await setCustomAuthType(page, authTypeSelect, 'inherit');
+    await expectCustomAuthType(authTypeSelect, 'inherit');
 
     // Save and close modal
     await page.locator('.shared-ds-footer button', { hasText: 'Save' }).click();
@@ -531,7 +575,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await authTab.click();
 
     // Auth should still be "inherit" after reload
-    await expect(authTypeSelect).toHaveValue('inherit');
+    await expectCustomAuthType(authTypeSelect, 'inherit');
   });
 
   test('Inherit persists when test had inherit auth initially', async ({ page }) => {
@@ -586,7 +630,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await openConfigureModal(page);
 
     // Should show Inherit from the start
-    await expect(authSelect(page)).toHaveValue('inherit');
+    await expectAuthType(page, 'inherit');
 
     // Apply without changing
     await page.getByRole('button', { name: 'Next: Columns' }).click();
@@ -595,6 +639,6 @@ test.describe('Data Source Auth Inherit Persistence', () => {
 
     // Reopen — should still be inherit
     await openConfigureModal(page);
-    await expect(authSelect(page)).toHaveValue('inherit');
+    await expectAuthType(page, 'inherit');
   });
 });

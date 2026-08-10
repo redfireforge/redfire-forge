@@ -293,8 +293,10 @@ export async function executeHttpNode(
 /** Compare two values with the given operator. Used by both Condition and WaitForCondition nodes. */
 export function compareValues(left: string, right: string, operator: string): boolean {
   switch (operator) {
-    case '==': return left === right;
-    case '!=': return left !== right;
+    case '==':
+    case '===': return left === right;
+    case '!=':
+    case '!==': return left !== right;
     case '>': return parseFloat(left) > parseFloat(right);
     case '<': return parseFloat(left) < parseFloat(right);
     case '>=': return parseFloat(left) >= parseFloat(right);

@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen, act } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import WorkflowConsolePanel from './WorkflowConsolePanel';
 import { ConsoleLine } from '../../../requests/hooks/useResponseCache';
 import { stubScrollIntoView } from '../../../../test-utils/domMocks';
@@ -183,10 +184,10 @@ describe('WorkflowConsolePanel', () => {
 
   it('has mode selector with docked/floating/fullscreen options', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-    expect(select).toBeTruthy();
-    const options = select.querySelectorAll('option');
-    expect(options.length).toBe(3);
+    const wrap = container.querySelector('.wf-console-mode-select')!;
+    expect(wrap).toBeTruthy();
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    expect(document.querySelectorAll('.cs-item').length).toBe(3);
   });
 
   it('renders plain lines without prefix icon or timestamp', () => {
@@ -280,22 +281,19 @@ describe('WorkflowConsolePanel', () => {
 
   it('changes mode via selector', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'floating' } });
+    selectOption(container.querySelector('.wf-console-mode-select')!, 'Floating');
     expect(container.querySelector('.wf-console-floating')).toBeTruthy();
   });
 
   it('changes to maximized mode via selector', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'maximized' } });
+    selectOption(container.querySelector('.wf-console-mode-select')!, 'Full Screen');
     expect(container.querySelector('.wf-console-maximized')).toBeTruthy();
   });
 
   it('renders floating grip and edge when in floating mode', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'floating' } });
+    selectOption(container.querySelector('.wf-console-mode-select')!, 'Floating');
     expect(container.querySelector('.wf-console-float-grip')).toBeTruthy();
     expect(container.querySelector('.wf-console-float-edge-right')).toBeTruthy();
   });
@@ -326,8 +324,7 @@ describe('WorkflowConsolePanel', () => {
 
   it('does not render docked resize handle in maximized mode', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'maximized' } });
+    selectOption(container.querySelector('.wf-console-mode-select')!, 'Full Screen');
     expect(container.querySelector('.wf-console-resize-handle')).toBeNull();
   });
 
@@ -531,8 +528,7 @@ describe('WorkflowConsolePanel', () => {
   describe('floating drag', () => {
     it('drags floating panel via header mousedown + mousemove', () => {
       const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-      const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'floating' } });
+      selectOption(container.querySelector('.wf-console-mode-select')!, 'Floating');
       const header = container.querySelector('.wf-console-header')!;
       fireEvent.mouseDown(header, { clientX: 100, clientY: 50 });
       fireEvent.mouseMove(window, { clientX: 150, clientY: 80 });
@@ -542,8 +538,7 @@ describe('WorkflowConsolePanel', () => {
 
     it('does not start drag when mousedown on button inside header', () => {
       const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-      const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'floating' } });
+      selectOption(container.querySelector('.wf-console-mode-select')!, 'Floating');
       const clearBtn = screen.getByTitle('Clear console');
       fireEvent.mouseDown(clearBtn, { clientX: 100, clientY: 50 });
       // Body cursor should not become grabbing
@@ -554,8 +549,7 @@ describe('WorkflowConsolePanel', () => {
   describe('floating resize (corner)', () => {
     it('resizes floating panel via grip mousedown + mousemove', () => {
       const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-      const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'floating' } });
+      selectOption(container.querySelector('.wf-console-mode-select')!, 'Floating');
       const grip = container.querySelector('.wf-console-float-grip')!;
       fireEvent.mouseDown(grip, { clientX: 500, clientY: 400 });
       fireEvent.mouseMove(window, { clientX: 600, clientY: 500 });
@@ -567,8 +561,7 @@ describe('WorkflowConsolePanel', () => {
   describe('floating resize (right edge)', () => {
     it('resizes floating panel width via right edge drag', () => {
       const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-      const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'floating' } });
+      selectOption(container.querySelector('.wf-console-mode-select')!, 'Floating');
       const edge = container.querySelector('.wf-console-float-edge-right')!;
       fireEvent.mouseDown(edge, { clientX: 500, clientY: 200 });
       fireEvent.mouseMove(window, { clientX: 600, clientY: 200 });

@@ -1,9 +1,9 @@
 import { GQL } from '../../src/shared/selectors';
 
-export const GQL1_LESSON = { name: 'Your First GraphQL Query', steps: 13 } as const;
-export const GQL2_LESSON = { name: 'Variables & Arguments', steps: 18 } as const;
-export const GQL3_LESSON = { name: 'Schema Exploration', steps: 10 } as const;
-export const GQL4_LESSON = { name: 'Authentication & Headers', steps: 14 } as const;
+export const GQL1_LESSON = { name: 'Your First GraphQL Query', steps: 12 } as const;
+export const GQL2_LESSON = { name: 'Variables & Arguments', steps: 16 } as const;
+export const GQL3_LESSON = { name: 'Schema Exploration', steps: 9 } as const;
+export const GQL4_LESSON = { name: 'Authentication & Headers', steps: 13 } as const;
 export const GQL5_LESSON = { name: 'HTTPS, TLS & Certificates', steps: 18 } as const;
 export const GQL6_LESSON = { name: 'Mutations — Create, Update, Delete', steps: 19 } as const;
 export const GQL7_LESSON = { name: 'Subscriptions — Real-Time Data', steps: 15 } as const;
@@ -15,10 +15,10 @@ export const GQL12_LESSON = { name: 'Schema Diff & Breaking Changes', steps: 7 }
 export const GQL13_LESSON = { name: 'Mock Server', steps: 15 } as const;
 export const GQL14_LESSON = { name: 'Multi-Tab Workspaces', steps: 12 } as const;
 export const GQL15_LESSON = { name: 'Batch Execution', steps: 10 } as const;
-export const GQL16_LESSON = { name: 'Workflow Integration', steps: 13 } as const;
+export const GQL16_LESSON = { name: 'Workflow Integration', steps: 12 } as const;
 export const GQL17_LESSON = { name: 'Workflow Runner & Results', steps: 9 } as const;
-export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 15 } as const;
-export const GQL19_LESSON = { name: 'Subscription Node in Workflow', steps: 9 } as const;
+export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 16 } as const;
+export const GQL19_LESSON = { name: 'Subscription Node in Workflow', steps: 10 } as const;
 
 /** Bottom Auth panel selectors for GQL-4 / GQL-14 lesson walks (Slice 7.6 — Option D). */
 export const GQL_LESSON_AUTH = {

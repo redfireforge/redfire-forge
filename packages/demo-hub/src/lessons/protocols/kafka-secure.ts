@@ -6,7 +6,9 @@
  * the secure cluster is fully functional.
  */
 import type { DemoLesson } from '../../types';
-import { kafkaSecureSetup, kafkaCleanup } from '../setup-helpers';
+import { kafkaSecureSetup } from '../setup-helpers';
+import { deleteKafkaClusterByName } from '../../adapters/kafkaStudioAdapter';
+import { showSpotlightRing } from '../../demoRipple';
 import { KAFKA } from '@shared/selectors';
 
 export const kafkaSecureLesson: DemoLesson = {
@@ -25,7 +27,7 @@ export const kafkaSecureLesson: DemoLesson = {
   tag: '🐳 Docker',
 
   setup: kafkaSecureSetup,
-  cleanup: kafkaCleanup,
+  cleanup: async () => { deleteKafkaClusterByName('Local Secure'); },
 
   concept: {
     title: 'SASL Authentication for Kafka',
@@ -99,30 +101,21 @@ export const kafkaSecureLesson: DemoLesson = {
   },
 
   steps: [
-    // Step 1: Navigate to Settings
+    // Step 1: Navigate to Settings and open the Cluster Editor
     {
       id: 'sec-intro',
       title: 'Secure Kafka Cluster',
       description:
-        'Time to lock things down. In this lesson you\'ll create a new cluster config for the **SASL/SCRAM-256** secured Kafka node running on port **19093**. Make sure the secure Docker stack is running: `cd docker/kafka/secure && docker compose up -d`.',
-      highlight: KAFKA.SETTINGS_PAGE,
-      preAction: async (ctx) => {
-        ctx.navigateToTab('kafka-settings');
-        await ctx.delay(600);
+        'Time to lock things down. In this lesson you\'ll create a new cluster config for the **SASL/SCRAM-256** secured Kafka node running on port **19093**. Make sure the secure Docker stack is running: `cd docker/kafka/secure && docker compose up -d`.\n\nClick **New Cluster** (or the + button) to open the Cluster Editor with a blank form — this is where you\'ll configure the broker address and authentication settings.',
+      highlight: KAFKA.NEW_CLUSTER_BTN,
+      preAction: async () => {
         document.querySelectorAll('.kafka-cluster-card.selected').forEach((el) => {
           el.classList.remove('selected');
         });
       },
-    },
-
-    // Step 2: Create new cluster
-    {
-      id: 'sec-new',
-      title: 'Create Secure Cluster',
-      description:
-        'Click **New Cluster** (or the + button) to open the Cluster Editor with a blank form. This is where you\'ll configure the broker address and authentication settings.',
-      highlight: KAFKA.NEW_CLUSTER_BTN,
       action: async (ctx) => {
+        await ctx.waitFor(KAFKA.NEW_CLUSTER_BTN, 3000);
+        await ctx.delay(400);
         await ctx.click(KAFKA.NEW_CLUSTER_BTN);
         await ctx.delay(400);
       },
@@ -163,66 +156,168 @@ export const kafkaSecureLesson: DemoLesson = {
       },
     },
 
-    // Step 5: Enter credentials
+    // Step 5: Credentials — one step with individual highlights for both fields
     {
       id: 'sec-creds',
       title: 'Enter Credentials',
       description:
-        'Fill in the pre-created credentials: **Username** `redfireforge-app`, **Password** `app-password`. These match the SASL user pre-configured in the secure Docker stack. In a real cluster you\'d use your Kafka admin\'s issued credentials.',
+        'Type the SASL credentials: **Username** `redfireforge-app`, then **Password** `app-password`. ' +
+        'Both fields are highlighted in sequence so each input is clearly visible. Together they complete the SCRAM-SHA-256 handshake against the secure broker.',
       highlight: KAFKA.AUTH_USER_INPUT,
       preAction: async (ctx) => {
+        // Ensure auth fields are visible.
+        if (!document.querySelector(KAFKA.AUTH_USER_INPUT) || !document.querySelector(KAFKA.AUTH_PASS_INPUT)) {
+          await ctx.selectOption(KAFKA.AUTH_TYPE_SELECT, 'scram-sha-256');
+          await ctx.waitFor(KAFKA.AUTH_USER_INPUT, 3000);
+          await ctx.waitFor(KAFKA.AUTH_PASS_INPUT, 3000);
+        }
+        // Fill both values immediately so they are visible during the narration phase.
         await ctx.fill(KAFKA.AUTH_USER_INPUT, 'redfireforge-app');
-        await ctx.delay(100);
         await ctx.fill(KAFKA.AUTH_PASS_INPUT, 'app-password');
-        await ctx.delay(200);
       },
+      action: async (ctx) => {
+        // Spotlight username, then password in sequence so each field is individually highlighted.
+        const userInput = document.querySelector<HTMLElement>(KAFKA.AUTH_USER_INPUT);
+        if (userInput) {
+          const disposeUser = showSpotlightRing(userInput);
+          await ctx.delay(600);
+          disposeUser();
+        }
+        await ctx.delay(200);
+        const passInput = document.querySelector<HTMLElement>(KAFKA.AUTH_PASS_INPUT);
+        if (passInput) {
+          const disposePass = showSpotlightRing(passInput);
+          await ctx.delay(600);
+          disposePass();
+        }
+        await ctx.delay(300);
+      },
+      verify: KAFKA.AUTH_PASS_INPUT,
+      pauseAfter: true,
     },
 
-    // Step 6: Test connection
+    // Step 6: Save first — Test Connection is disabled while the Create editor is open
+    // and only tests a *saved* selected cluster (see KafkaSettingsPage canRunConnectionAction).
+    {
+      id: 'sec-save',
+      title: 'Save Cluster',
+      description:
+        'Click **Save Cluster** to persist **Local Secure**. The editor closes and the new profile becomes the selected cluster in the sidebar. ' +
+        '**Test Connection** only works against a saved cluster — so we save before testing.',
+      highlight: KAFKA.SAVE_BTN,
+      preAction: async (ctx) => {
+        // Rapid Next may skip credential fills — restore quietly while editor is still open.
+        if (!document.querySelector(KAFKA.AUTH_USER_INPUT)) {
+          await ctx.selectOption(KAFKA.AUTH_TYPE_SELECT, 'scram-sha-256');
+          await ctx.waitFor(KAFKA.AUTH_USER_INPUT, 3000);
+        }
+        const user = document.querySelector<HTMLInputElement>(KAFKA.AUTH_USER_INPUT);
+        const pass = document.querySelector<HTMLInputElement>(KAFKA.AUTH_PASS_INPUT);
+        if (user && user.value !== 'redfireforge-app') {
+          await ctx.fill(KAFKA.AUTH_USER_INPUT, 'redfireforge-app');
+        }
+        if (pass && pass.value !== 'app-password') {
+          await ctx.fill(KAFKA.AUTH_PASS_INPUT, 'app-password');
+        }
+      },
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.SAVE_BTN, 3000);
+        await ctx.click(KAFKA.SAVE_BTN);
+        // Editor closes; wait until Test Connection is enabled for the saved cluster.
+        const start = Date.now();
+        while (Date.now() - start < 8000) {
+          const testBtn = document.querySelector<HTMLButtonElement>(KAFKA.TEST_BTN);
+          if (testBtn && !testBtn.disabled) break;
+          await ctx.delay(100);
+        }
+        await ctx.delay(900);
+      },
+      verify: KAFKA.TEST_BTN,
+      pauseAfter: true,
+    },
+
+    // Step 7: Test the saved Local Secure profile
     {
       id: 'sec-test',
       title: 'Test Connection',
       description:
-        'Click **Test Connection** to verify the broker is reachable and the credentials are accepted. RedfireForge performs the full SASL handshake and shows a success indicator (green) or an error message (red) — before saving anything.',
+        'Click **Test Connection** on the saved **Local Secure** profile. RedfireForge runs the full SASL handshake and shows **✓ Verified** (green) next to the button — or **✗ Failed** if the broker/credentials are wrong. Watch the spotlight move to the badge.',
       highlight: KAFKA.TEST_BTN,
-      action: async (ctx) => {
-        await ctx.click(KAFKA.TEST_BTN);
-        await ctx.delay(1500);
+      preAction: async (ctx) => {
+        // If Save was skipped, click it quietly so Test is enabled.
+        const testBtn = document.querySelector<HTMLButtonElement>(KAFKA.TEST_BTN);
+        if (!testBtn || testBtn.disabled) {
+          const saveBtn = document.querySelector<HTMLElement>(KAFKA.SAVE_BTN);
+          if (saveBtn) {
+            saveBtn.click();
+            await ctx.delay(400);
+          }
+        }
+        const start = Date.now();
+        while (Date.now() - start < 5000) {
+          const btn = document.querySelector<HTMLButtonElement>(KAFKA.TEST_BTN);
+          if (btn && !btn.disabled) break;
+          await ctx.delay(100);
+        }
       },
+      action: async (ctx) => {
+        const btn = document.querySelector<HTMLButtonElement>(KAFKA.TEST_BTN);
+        if (!btn || btn.disabled) {
+          console.warn('[DemoHub] kafka-secure: Test Connection still disabled — Save may have failed');
+          return;
+        }
+        await ctx.click(KAFKA.TEST_BTN);
+        await ctx.waitFor(KAFKA.TEST_RESULT, 15000);
+        // Move the spotlight from the button onto ✓ Verified / ✗ Failed.
+        // Leave the ring active through pauseAfter (purged on the next step).
+        const badge = document.querySelector<HTMLElement>(KAFKA.TEST_RESULT);
+        if (badge) {
+          showSpotlightRing(badge);
+        }
+        await ctx.delay(1800);
+      },
+      verify: KAFKA.TEST_RESULT,
+      pauseAfter: 2200,
     },
 
-    // Step 7: Save and connect
+    // Step 8: Connect the verified cluster
     {
-      id: 'sec-save',
-      title: 'Save and Connect',
+      id: 'sec-connect',
+      title: 'Connect',
       description:
-        'Click **Save** to persist the cluster config, then **Connect** to activate it. The cluster becomes the active cluster in the Studio. A green connected badge appears next to the cluster name in the sidebar.',
-      highlight: KAFKA.SAVE_BTN,
+        'Click **Connect** to activate **Local Secure** as the live cluster. A green connected badge appears in the sidebar — Publish Studio will use this SCRAM-authenticated connection.',
+      highlight: KAFKA.CONNECT_BTN,
+      preAction: async (ctx) => {
+        const start = Date.now();
+        while (Date.now() - start < 5000) {
+          const btn = document.querySelector<HTMLButtonElement>(KAFKA.CONNECT_BTN);
+          if (btn && !btn.disabled) break;
+          await ctx.delay(100);
+        }
+      },
       action: async (ctx) => {
-        await ctx.click(KAFKA.SAVE_BTN);
-        await ctx.delay(500);
-        const connectBtn = document.querySelector<HTMLElement>(KAFKA.CONNECT_BTN);
-        if (connectBtn && !(connectBtn as HTMLButtonElement).disabled) {
-          connectBtn.click();
-          // Wait for Disconnect button to become ENABLED (not just exist in DOM)
-          // — indicates the SASL handshake completed and connection is active.
+        const connectBtn = document.querySelector<HTMLButtonElement>(KAFKA.CONNECT_BTN);
+        if (connectBtn && !connectBtn.disabled) {
+          await ctx.click(KAFKA.CONNECT_BTN);
           const start = Date.now();
           while (Date.now() - start < 10000) {
             const dcBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
             if (dcBtn && !dcBtn.disabled) break;
-            await new Promise(r => setTimeout(r, 200));
+            await ctx.delay(200);
           }
-          await ctx.delay(400);
+          await ctx.delay(900);
         }
       },
+      verify: KAFKA.DISCONNECT_BTN,
+      pauseAfter: true,
     },
 
-    // Step 8: Publish to secure topic
+    // Step 9: Publish to secure topic
     {
       id: 'sec-publish',
       title: 'Publish to Secure Topic',
       description:
-        'Navigate back to the **Publish** tab, set Topic to `secure.demo.orders`, and send a message. This confirms end-to-end: connection → SASL authentication → topic write — all over the secured port 19093.',
+        'Navigate to the **Publish** tab, set Topic to `secure.demo.orders`, and send a message. This confirms end-to-end: connection → SASL authentication → topic write — all over the secured port 19093.',
       highlight: KAFKA.PUB_SEND_BTN,
       preAction: async (ctx) => {
         ctx.navigateToTab('kafka-message-studio');
@@ -239,15 +334,17 @@ export const kafkaSecureLesson: DemoLesson = {
         await ctx.waitFor(`${KAFKA.PUB_RESULT}, ${KAFKA.PUB_ERROR}`, 15000);
         await ctx.delay(400);
       },
+      pauseAfter: true,
     },
 
-    // Step 9: Verify result
+    // Step 11: Verify result
     {
       id: 'sec-result',
       title: 'Verify Secure Publish',
       description:
         'The **Publish Result** panel shows partition, offset, and timestamp — confirming the message was accepted by the secure broker. If you see an authentication error here, double-check that the Docker stack is running and the credentials match.',
       highlight: KAFKA.PUB_RESULT,
+      pauseAfter: true,
     },
   ],
 };

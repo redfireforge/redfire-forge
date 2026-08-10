@@ -3,7 +3,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsAuthTransportLesson } from './ws-auth-transport';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
+
+vi.mock('../../demoRipple', () => ({
+  showSpotlightRing: () => vi.fn(),
+}));
 
 describe('ws-auth-transport lesson', () => {
   beforeEach(() => {
@@ -47,11 +51,16 @@ describe('ws-auth-transport lesson', () => {
   });
 
   // ── auth-intro ───────────────────────────────────────────────
-  it('step auth-intro preAction navigates to auth tab', async () => {
+  it('step auth-intro preAction switches to Client mode before Auth spotlight', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-intro')!;
+    expect(step.preAction).toBeTypeOf('function');
+    const clientBtn = document.createElement('button');
+    clientBtn.setAttribute('data-testid', 'mode-client');
+    makeVisible(clientBtn);
+    document.body.appendChild(clientBtn);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
   });
 
   it('step auth-intro action clicks auth tab', async () => {
@@ -62,6 +71,11 @@ describe('ws-auth-transport lesson', () => {
   });
 
   // ── auth-type-selector ───────────────────────────────────────
+  it('step auth-type-selector highlights the auth type trigger', () => {
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-type-selector')!;
+    expect(step.highlight).toContain('ws-auth-type-trigger');
+  });
+
   it('step auth-type-selector preAction clicks auth tab', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-type-selector')!;
     const ctx = makeCtx();
@@ -69,11 +83,41 @@ describe('ws-auth-transport lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
   });
 
-  it('step auth-type-selector action selects bearer', async () => {
+  it('step auth-type-selector preAction resets type to none when not already none', async () => {
+    const pane = document.createElement('div');
+    pane.className = 'auth-type-select';
+    const sel = document.createElement('select');
+    Object.defineProperty(sel, 'value', { value: 'bearer', writable: true, configurable: true });
+    pane.appendChild(sel);
+    document.body.appendChild(pane);
+    makeVisible(sel);
+
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-type-selector')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'none');
+  });
+
+  it('step auth-type-selector action opens dropdown, spotlights the full menu, then clicks Bearer', async () => {
+    const pane = document.createElement('div');
+    pane.className = 'ws-auth-pane';
+    const menu = document.createElement('div');
+    menu.className = 'auth-type-menu';
+    const bearerOpt = document.createElement('button');
+    bearerOpt.setAttribute('data-testid', 'ws-auth-type-opt-bearer');
+    menu.appendChild(bearerOpt);
+    pane.appendChild(menu);
+    document.body.appendChild(pane);
+
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-type-selector')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'bearer');
+
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-auth-type-trigger'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-auth-type-opt-bearer'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-auth-type-opt-bearer'));
+    expect(ctx.delay).toHaveBeenCalledWith(1800); // full-menu spotlight
+    expect(ctx.delay).toHaveBeenCalledWith(800); // after Bearer click
   });
 
   // ── auth-bearer ──────────────────────────────────────────────
@@ -167,6 +211,7 @@ describe('ws-auth-transport lesson', () => {
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
+    makeVisible(dot);
 
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-connect')!;
     const ctx = makeCtx();
@@ -218,6 +263,7 @@ describe('ws-auth-transport lesson', () => {
     inner.value = 'bearer';
     select.appendChild(inner);
     document.body.appendChild(select);
+    makeVisible(select);
 
     const wrapper = document.createElement('div');
     wrapper.className = 'ws-auth-pane';
@@ -225,6 +271,8 @@ describe('ws-auth-transport lesson', () => {
     // leave input.value = '' so the branch fires
     wrapper.appendChild(input);
     document.body.appendChild(wrapper);
+    makeVisible(wrapper);
+    makeVisible(input);
 
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
     const ctx = makeCtx();
@@ -241,6 +289,7 @@ describe('ws-auth-transport lesson', () => {
     sel.value = 'bearer';
     authPane.appendChild(sel);
     document.body.appendChild(authPane);
+    makeVisible(authPane);
 
     // Provide a filled token input (skip nativeSet branch)
     const pane = document.createElement('div');
@@ -249,6 +298,8 @@ describe('ws-auth-transport lesson', () => {
     Object.defineProperty(input, 'value', { get: () => 'existing-token', configurable: true });
     pane.appendChild(input);
     document.body.appendChild(pane);
+    makeVisible(pane);
+    makeVisible(input);
 
     // Provide a non-disabled connect button → covers lines 70-71
     const btn = document.createElement('button');
@@ -257,6 +308,7 @@ describe('ws-auth-transport lesson', () => {
     const clickSpy = vi.fn();
     btn.addEventListener('click', clickSpy);
     document.body.appendChild(btn);
+    makeVisible(btn);
 
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
     const ctx = makeCtx();

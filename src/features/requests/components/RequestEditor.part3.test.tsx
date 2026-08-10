@@ -229,11 +229,10 @@ describe('RequestEditor interaction branches', () => {
         appMicroservices={[{
           id: 'svc-99',
           name: 'Bridge',
-          baseUrls: { 'ae-rem': 'https://bridge.example/api' },
+          baseUrls: { 'env-wb': 'https://bridge.example/api' },
           customEnvs: [],
-          authProfileIds: { 'ae-rem': 'gp-z' },
+          authProfileIds: { 'env-wb': 'gp-z' },
         }]}
-        appEnvironments={[{ id: 'ae-rem', name: 'WorkbenchEnv' }]}
         environments={[{ id: 'env-wb', name: 'WorkbenchEnv' }]}
         selectedEnvId="env-wb"
         request={makeRequest({ url: '/rel', auth: { type: 'inherit' } })}
@@ -499,7 +498,7 @@ describe('RequestEditor interaction branches', () => {
       />,
     );
 
-    const left = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const left = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(left).getByRole('button', { name: /^Headers\b/ }));
 
     fireEvent.click(within(left).getByTestId('req-headers-add-btn'));
@@ -572,10 +571,9 @@ describe('RequestEditor interaction branches', () => {
         appMicroservices={[{
           id: 'svc-x',
           name: 'X',
-          baseUrls: { 'ae-rem': 'https://ghost.example/api' },
-          authProfileIds: { 'ae-rem': 'missing-profile' },
+          baseUrls: { 'env-wb': 'https://ghost.example/api' },
+          authProfileIds: { 'env-wb': 'missing-profile' },
         }]}
-        appEnvironments={[{ id: 'ae-rem', name: 'WorkbenchEnv' }]}
         environments={[{ id: 'env-wb', name: 'WorkbenchEnv' }]}
         selectedEnvId="env-wb"
         appGlobalAuthProfiles={[]}
@@ -667,7 +665,7 @@ describe('RequestEditor interaction branches', () => {
 
   it('shows request auth inspector when the Auth tab is activated', () => {
     const onUpdateRequest = vi.fn();
-    const { container } = render(
+    render(
       <RequestEditor
         {...defaultProps}
         onUpdateRequest={onUpdateRequest}
@@ -676,9 +674,8 @@ describe('RequestEditor interaction branches', () => {
     );
     const requestTabs = document.querySelector('.req-pane-left .req-tabs');
     fireEvent.click(within(requestTabs as HTMLElement).getByRole('button', { name: /^Auth\b/ }));
-    const authSelect = container.querySelector('.req-auth-editor .req-select') as HTMLSelectElement;
-    expect(authSelect).toBeTruthy();
-    fireEvent.change(authSelect, { target: { value: 'none' } });
+    fireEvent.click(screen.getByRole('button', { name: /Bearer Token/i }));
+    fireEvent.click(screen.getByRole('option', { name: /No Auth/i }));
     expect(onUpdateRequest).toHaveBeenCalledWith({ auth: { type: 'none' } });
   });
 

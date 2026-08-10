@@ -23,7 +23,7 @@ export default function ResponseBodySearchBar({
   onExpandAll, onCollapseAll,
 }: Props) {
   return (
-    <div className="req-resp-search">
+    <div className="req-resp-search" data-testid="req-resp-search">
       <SearchMatchBar
         value={value}
         onChange={onChange}
@@ -38,8 +38,8 @@ export default function ResponseBodySearchBar({
         navClassName="req-resp-search-nav"
         clearClassName="req-resp-search-clear"
       />
-      <button className="jt-expand-collapse-btn" onClick={onExpandAll}>Expand All</button>
-      <button className="jt-expand-collapse-btn" onClick={onCollapseAll}>Collapse All</button>
+      <button className="jt-expand-collapse-btn" onClick={onExpandAll} data-testid="req-resp-expand-all">Expand All</button>
+      <button className="jt-expand-collapse-btn" onClick={onCollapseAll} data-testid="req-resp-collapse-all">Collapse All</button>
     </div>
   );
 }

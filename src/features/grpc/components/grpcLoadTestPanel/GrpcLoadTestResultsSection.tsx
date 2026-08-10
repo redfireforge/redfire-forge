@@ -17,6 +17,7 @@ import {
   safeFilePart,
   type GrpcLoadTestSummary,
 } from './grpcLoadTestPanelUtils';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 type StatusBreakdownEntry = ReturnType<typeof buildStatusBreakdown>[number];
 type LatencyHistogramBucket = ReturnType<typeof buildLatencyHistogram>[number];
@@ -76,20 +77,19 @@ export function GrpcLoadTestResultsSection({
           {summary && !advanced.loadTestRunning && (
           <div className="grpc-advanced-card__actions">
             {runHistory.length > 0 && (
-              <select
+              <CustomSelect
                 className="grpc-advanced-select grpc-advanced-select--compact"
+                size="sm"
                 data-testid="grpc-load-test-run-history-select"
                 value={selectedRunId ?? ''}
-                onChange={(event) => {
-                  advanced.selectLoadTestRunSummary(event.target.value);
+                onChange={(v) => {
+                  advanced.selectLoadTestRunSummary(v);
                 }}
-              >
-                {runHistory.map((entry, index) => (
-                  <option key={`${entry.summary.runId}-${index}`} value={entry.summary.runId}>
-                    {entry.summary.runId} · {new Date(entry.summary.completedAt).toLocaleTimeString()}
-                  </option>
-                ))}
-              </select>
+                options={runHistory.map((entry) => ({
+                  value: entry.summary.runId,
+                  label: `${entry.summary.runId} · ${new Date(entry.summary.completedAt).toLocaleTimeString()}`,
+                }))}
+              />
             )}
             <button
               type="button"
@@ -308,21 +308,23 @@ export function GrpcLoadTestResultsSection({
               <div className="grpc-load-test-chart-card" data-testid="grpc-load-test-run-compare">
                 <div className="grpc-load-test-compare-header">
                   <h4 className="grpc-load-test-chart-card__title">Run-to-run compare</h4>
-                  <select
+                  <CustomSelect
                     className="grpc-advanced-select grpc-advanced-select--compact"
+                    size="sm"
                     data-testid="grpc-load-test-run-compare-select"
                     value={compareRunId}
-                    onChange={(event) => setCompareRunId(event.target.value)}
-                  >
-                    <option value="">Select baseline run…</option>
-                    {runHistory
-                      .filter((entry) => entry.summary.runId !== summary.runId)
-                      .map((entry, index) => (
-                        <option key={`${entry.summary.runId}-${index}`} value={entry.summary.runId}>
-                          {entry.summary.runId}
-                        </option>
-                      ))}
-                  </select>
+                    placeholder="Select baseline run…"
+                    onChange={(v) => setCompareRunId(v)}
+                    options={[
+                      { value: '', label: 'Select baseline run…' },
+                      ...runHistory
+                        .filter((entry) => entry.summary.runId !== summary.runId)
+                        .map((entry) => ({
+                          value: entry.summary.runId,
+                          label: entry.summary.runId,
+                        })),
+                    ]}
+                  />
                 </div>
 
                 {compareSummary && compareDeltas && (

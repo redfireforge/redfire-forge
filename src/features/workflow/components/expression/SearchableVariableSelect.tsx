@@ -55,7 +55,6 @@ export default function SearchableVariableSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Build flat filtered list for keyboard nav
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
     if (!q) return hints;
@@ -70,7 +69,6 @@ export default function SearchableVariableSelect({
 
   const grouped = useMemo(() => groupBySource(filtered), [filtered]);
 
-  // Flat list for keyboard navigation
   const flatList = useMemo(() => {
     const items: { kind: 'hint'; hint: WorkflowVariableHint }[] = [];
     for (const g of grouped) {
@@ -79,12 +77,12 @@ export default function SearchableVariableSelect({
     return items;
   }, [grouped]);
 
-  // Reset selection when filtered list changes
   useEffect(() => { setSelectedIdx(0); }, [filtered]);
 
-  // Display text for the input when closed
   const selectedHint = hints.find((h) => h.ref === value);
-  const displayText = selectedHint ? `${displayName(selectedHint)} ← ${selectedHint.source?.nodeLabel ?? 'Workflow'}` : '';
+  const displayText = selectedHint
+    ? `${displayName(selectedHint)} ← ${selectedHint.source?.nodeLabel ?? 'Workflow'}`
+    : '';
 
   const handleSelect = useCallback((ref: string) => {
     onChange(ref);
@@ -129,37 +127,46 @@ export default function SearchableVariableSelect({
     }
   }, [open, flatList, selectedIdx, showCustom, handleSelect, onCustom]);
 
-  // Close when clicking outside
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery('');
-      }
+      const target = e.target as Node;
+      if (wrapperRef.current?.contains(target) || dropdownRef.current?.contains(target)) return;
+      setOpen(false);
+      setQuery('');
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Scroll selected into view
   useEffect(() => {
     if (!open || !dropdownRef.current) return;
     const el = dropdownRef.current.querySelector('[data-active="true"]') as HTMLElement | null;
     el?.scrollIntoView?.({ block: 'nearest' });
   }, [open, selectedIdx]);
 
-  // Dropdown position (portal to body, like ExpressionHintDropdown)
+  // Match dropdown width to the trigger — no forced min-width that overshoots the field.
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   useEffect(() => {
     if (!open || !inputRef.current) { setPos(null); return; }
-    const rect = inputRef.current.getBoundingClientRect();
-    const dropH = Math.min(flatList.length * 34 + 60, 320);
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const top = spaceBelow >= dropH || spaceBelow >= rect.top
-      ? rect.bottom + 2
-      : rect.top - dropH - 2;
-    setPos({ top, left: rect.left, width: Math.max(rect.width, 300) });
+    const update = () => {
+      const el = inputRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const dropH = Math.min(flatList.length * 34 + 60, 320);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top = spaceBelow >= dropH || spaceBelow >= rect.top
+        ? rect.bottom + 2
+        : Math.max(8, rect.top - dropH - 2);
+      setPos({ top, left: rect.left, width: rect.width });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
   }, [open, flatList.length]);
 
   let itemIdx = 0;
@@ -181,7 +188,13 @@ export default function SearchableVariableSelect({
         role="combobox"
         aria-haspopup="listbox"
       />
-      <span className="svs-chevron" onClick={() => { setOpen(!open); inputRef.current?.focus(); }}>▾</span>
+      <span
+        className="svs-chevron"
+        onClick={() => { setOpen(!open); inputRef.current?.focus(); }}
+        aria-hidden="true"
+      >
+        ▾
+      </span>
 
       {open && pos && createPortal(
         <div
@@ -189,20 +202,9 @@ export default function SearchableVariableSelect({
           ref={dropdownRef}
           role="listbox"
           style={{
-            position: 'fixed',
             top: pos.top,
             left: pos.left,
-            minWidth: pos.width,
-            maxWidth: 500,
-            maxHeight: 320,
-            overflowY: 'auto',
-            zIndex: 10100,
-            background: '#1e1e2e',
-            border: '1px solid #3a3a5c',
-            borderRadius: 6,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
-            padding: '4px 0',
-            fontSize: '0.82rem',
+            width: pos.width,
           }}
         >
           {grouped.length === 0 && (

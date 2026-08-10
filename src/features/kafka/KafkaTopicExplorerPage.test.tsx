@@ -76,7 +76,7 @@ function topicDetail(name: string) {
 
 describe('KafkaTopicExplorerPage', () => {
   beforeEach(() => {
-    resetAllMocks();
+    vi.clearAllMocks();
     mockDispatch.mockImplementation((op: string, body: Record<string, unknown>) => {
       if (op === 'topic-detail') {
         return Promise.resolve({
@@ -168,7 +168,8 @@ describe('KafkaTopicExplorerPage', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('partition-filter'), { target: { value: '1-4' } });
+    fireEvent.click(screen.getByTestId('partition-filter'));
+    fireEvent.click(screen.getByTestId('partition-filter-opt-1-4'));
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
     expect(screen.queryByTestId('topic-row-orders.updated')).toBeNull();
   });
@@ -253,7 +254,7 @@ describe('KafkaTopicExplorerPage', () => {
     expect(screen.queryByTestId('topic-row-orders.updated')).toBeNull();
   });
 
-  it('internal toggle and retention filter work', () => {
+  it('internal toggle and retention filter work', async () => {
     const state = makeKafkaState({
       topics: [
         { name: 'orders.created', partitions: 3, isInternal: false },
@@ -271,10 +272,19 @@ describe('KafkaTopicExplorerPage', () => {
     fireEvent.click(internalLabel.querySelector('input')!);
     expect(screen.getByTestId('topic-row-__consumer_offsets')).toBeTruthy();
 
-    fireEvent.change(screen.getByTestId('health-filter'), { target: { value: 'healthy' } });
+    fireEvent.click(screen.getByTestId('topic-row-orders.created'));
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith('topic-detail', expect.objectContaining({
+        topicName: 'orders.created',
+      }));
+    });
+
+    fireEvent.click(screen.getByTestId('health-filter'));
+    fireEvent.click(screen.getByTestId('health-filter-opt-healthy'));
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
 
-    fireEvent.change(screen.getByTestId('retention-filter'), { target: { value: '1-7d' } });
+    fireEvent.click(screen.getByTestId('retention-filter'));
+    fireEvent.click(screen.getByTestId('retention-filter-opt-1-7d'));
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
   });
 
@@ -347,6 +357,21 @@ describe('KafkaTopicExplorerPage', () => {
     expect(screen.getByTestId('topic-row-payments.settled')).toBeTruthy();
   });
 
+  it('closes an open filter dropdown when clicking outside', () => {
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('partition-filter'));
+    expect(screen.getByTestId('partition-filter-opt-1-4')).toBeTruthy();
+
+    fireEvent.mouseDown(screen.getByTestId('topic-search'));
+    expect(screen.queryByTestId('partition-filter-opt-1-4')).toBeNull();
+  });
+
   it('domain chips render', () => {
     render(
       <KafkaTopicExplorerPage
@@ -362,6 +387,41 @@ describe('KafkaTopicExplorerPage', () => {
     expect(chipbar.textContent).toContain('Lagging Consumers');
   });
 
+  it('formatTraffic shows M suffix for counts >= 1 000 000', async () => {
+    mockDispatch.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ...topicDetail('orders.created'),
+        partitions: [
+          { partitionId: 0, leader: 1, replicas: [1], isr: [1], earliestOffset: '0', latestOffset: '2000000', messageCount: 2_500_000 },
+        ],
+      },
+    });
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('topic-row-orders.created'));
+    await waitFor(() => expect(screen.getByTestId('detail-tabs')).toBeTruthy());
+    expect(screen.getByTestId('topic-row-orders.created').textContent).toContain('2.5M');
+  });
+
+  it('pressing Escape closes an open filter dropdown', () => {
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('partition-filter'));
+    expect(screen.getByTestId('partition-filter-opt-1-4')).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('partition-filter-opt-1-4')).toBeNull();
+  });
+
   it('health/retention filters and special chips disabled until detail loaded', async () => {
     render(
       <KafkaTopicExplorerPage
@@ -370,8 +430,8 @@ describe('KafkaTopicExplorerPage', () => {
       />,
     );
 
-    const healthFilter = screen.getByTestId('health-filter') as HTMLSelectElement;
-    const retentionFilter = screen.getByTestId('retention-filter') as HTMLSelectElement;
+    const healthFilter = screen.getByTestId('health-filter') as HTMLButtonElement;
+    const retentionFilter = screen.getByTestId('retention-filter') as HTMLButtonElement;
     const activeChip = screen.getByRole('button', { name: /Recently Active/ });
     const laggingChip = screen.getByRole('button', { name: /Lagging Consumers/ });
 

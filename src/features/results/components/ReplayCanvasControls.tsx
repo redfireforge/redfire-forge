@@ -6,7 +6,7 @@
  */
 import { useCallback, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { scheduleReplayFitView } from '../utils/replayCanvasFitView';
+import { runReplayFitView, scheduleReplayFitView } from '../utils/replayCanvasFitView';
 
 interface ReplayCanvasControlsProps {
   showMinimap?: boolean;
@@ -20,7 +20,11 @@ export function ReplayCanvasControls({ showMinimap, onToggleMinimap, onSaveLayou
   const [saveFlash, setSaveFlash] = useState(false);
 
   const handleFitView = useCallback(() => {
-    scheduleReplayFitView(rf);
+    // Immediate setViewport fit (Workflow Designer parity). Also schedule a
+    // deferred retry after layout settles — covers detail-panel / measure races.
+    const wrap = document.querySelector<HTMLElement>('.results-explorer-canvas-wrap');
+    runReplayFitView(rf, undefined, wrap);
+    scheduleReplayFitView(rf, undefined, wrap);
   }, [rf]);
 
   const handleSave = useCallback(() => {

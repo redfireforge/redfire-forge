@@ -86,6 +86,10 @@ export const GRPC = {
   TLS_SERVER_CA: '[data-testid="grpc-tls-server-ca"]',
   TLS_CLIENT_CERT: '[data-testid="grpc-tls-client-cert"]',
   TLS_CLIENT_KEY: '[data-testid="grpc-tls-client-key"]',
+  /** Vault "Set" badge on a PEM field header (scoped under TLS_MODAL_BODY). */
+  TLS_FIELD_SET_BADGE: '.ws-tls-field-set-badge',
+  TLS_FIELD: '.ws-tls-field',
+  TLS_FIELD_HEADER: '.ws-tls-field-header',
   SPRING_HINT: (hintId: string) => `[data-testid="grpc-spring-hint-${hintId}"]`,
   SPRING_HINT_DISMISS: (hintId: string) => `[data-testid="grpc-spring-hint-dismiss-${hintId}"]`,
   SECRET_FIELD_STORED_HINT: (testId: string) => `[data-testid="${testId}-stored-hint"]`,
@@ -384,6 +388,11 @@ export const GRPC = {
   SAVED_REQUEST_COPY_GRPCURL: '[data-testid="grpc-saved-request-copy-grpcurl"]',
   SAVED_REQUEST_DELETE: '[data-testid="grpc-saved-request-delete"]',
   SAVED_REQUEST_DUPLICATE: '[data-testid="grpc-saved-request-duplicate"]',
+  SAVED_REQUEST_RENAME: '[data-testid="grpc-saved-request-rename"]',
+  SAVED_REQUEST_RENAME_MODAL: '[data-testid="grpc-saved-request-rename-modal"]',
+  SAVED_REQUEST_RENAME_INPUT: '[data-testid="grpc-saved-request-rename-input"]',
+  SAVED_REQUEST_RENAME_SAVE: '[data-testid="grpc-saved-request-rename-save"]',
+  SAVED_REQUEST_RENAME_CANCEL: '[data-testid="grpc-saved-request-rename-cancel"]',
   HISTORY_PANEL: '[data-testid="grpc-history-panel"]',
   HISTORY_SEARCH: '[data-testid="grpc-history-search"]',
   HISTORY_FILTER_SERVICE: '[data-testid="grpc-history-filter-service"]',
@@ -464,6 +473,8 @@ export const GRPC = {
   LOAD_TEST_RUN_COMPARE: '[data-testid="grpc-load-test-run-compare"]',
   LOAD_TEST_RUN_COMPARE_SELECT: '[data-testid="grpc-load-test-run-compare-select"]',
   LOAD_TEST_RUN_COMPARE_DETAILS: '[data-testid="grpc-load-test-run-compare-details"]',
+  LOAD_TEST_RUN_COMPARE_STATUS: '[data-testid="grpc-load-test-run-compare-status-composition"]',
+  LOAD_TEST_COMPARE_GRID: '.grpc-load-test-compare-grid',
   LOAD_TEST_STATUS_BREAKDOWN: '[data-testid="grpc-load-test-status-breakdown"]',
   LOAD_TEST_LATENCY_HISTOGRAM: '[data-testid="grpc-load-test-latency-histogram"]',
   LOAD_TEST_THROUGHPUT_TIMELINE: '[data-testid="grpc-load-test-throughput-timeline"]',
@@ -547,6 +558,9 @@ export const GRPC = {
   WF_ASSERT_CONFIG: '[data-testid="grpc-assert-config"]',
   WF_ASSERT_CFG_SOURCE: '[data-testid="grpc-assert-config-source"]',
   WF_ASSERT_CFG_ASSERTIONS: '[data-testid="grpc-assert-config-assertions"]',
+  // Workflow Designer canvas nodes (gRPC unary / assert)
+  CANVAS_UNARY_NODE: '[data-testid="grpc-canvas-unary-node"]',
+  CANVAS_ASSERT_NODE: '[data-testid="grpc-canvas-assert-node"]',
   // GRPC-24 Workflow Runner lesson — cross-feature selectors (Workflow Runner / Results)
   LESSON24_WF_VARIABLES_BTN: '[data-testid="wf-toolbar-variables-btn"]',
   LESSON24_QUICK_TEST_VERIFY: '[data-testid="exec-summary"]',
@@ -555,4 +569,5 @@ export const GRPC = {
   LESSON24_REQUEST_DETAILS_TAB: '[data-testid="results-tab-requests"]',
   LESSON24_RESULTS_EXPLORER_DIAGRAM: '[data-testid="results-explorer-diagram"]',
   LESSON24_EXPORT_JSON_BTN: '[data-testid="results-export-json-btn"]',
+  WF_VIEW_RESULTS_BTN: '.completion-section .btn-primary, .wfp-view-results-btn, [data-testid="view-results-btn"]',
 } as const;

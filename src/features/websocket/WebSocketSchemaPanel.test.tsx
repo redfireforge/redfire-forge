@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom/vitest';
 import { WebSocketSchemaPanel } from './WebSocketSchemaPanel';
 import type { WsSchemaDefinition } from './wsSchemaTypes';
@@ -34,7 +35,7 @@ describe('WebSocketSchemaPanel', () => {
   it('renders empty state when no schemas', () => {
     render(<WebSocketSchemaPanel {...defaultProps} />);
     expect(screen.getByTestId('ws-schema-empty')).toBeInTheDocument();
-    expect(screen.getByText(/No Schemas Defined/)).toBeInTheDocument();
+    expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
   });
 
   it('renders schema cards', () => {
@@ -126,7 +127,9 @@ describe('WebSocketSchemaPanel', () => {
     fireEvent.click(screen.getByTestId('ws-schema-add-btn'));
     fireEvent.click(screen.getByTestId('ws-schema-generate-btn'));
     expect(onGenerate).toHaveBeenCalled();
-    expect(screen.getByTestId('ws-schema-textarea')).toHaveValue('{"type": "object", "properties": {"x": {"type": "number"}}}');
+    expect(screen.getByTestId('ws-schema-textarea')).toHaveValue(
+      '{\n  "type": "object",\n  "properties": {\n    "x": {\n      "type": "number"\n    }\n  }\n}',
+    );
   });
 
   it('shows error when generate finds no JSON messages', () => {
@@ -145,9 +148,9 @@ describe('WebSocketSchemaPanel', () => {
     ];
     render(<WebSocketSchemaPanel {...defaultProps} schemas={schemas} />);
     const badges = screen.getAllByTestId('ws-schema-direction');
-    expect(badges[0]).toHaveTextContent('↓ received');
-    expect(badges[1]).toHaveTextContent('↑ sent');
-    expect(badges[2]).toHaveTextContent('↕ both');
+    expect(badges[0]).toHaveTextContent('↓ Received');
+    expect(badges[1]).toHaveTextContent('↑ Sent');
+    expect(badges[2]).toHaveTextContent('↕ Both');
   });
 
   it('applies disabled style to disabled schemas', () => {
@@ -161,7 +164,7 @@ describe('WebSocketSchemaPanel', () => {
     const onAdd = vi.fn(() => ({ ok: true }));
     render(<WebSocketSchemaPanel {...defaultProps} onAddSchema={onAdd} />);
     fireEvent.click(screen.getByTestId('ws-schema-add-btn'));
-    fireEvent.change(screen.getByTestId('ws-schema-direction-select'), { target: { value: 'sent' } });
+    selectOption(screen.getByTestId('ws-schema-direction-select'), 'Sent');
     fireEvent.change(screen.getByTestId('ws-schema-name-input'), { target: { value: 'Sent Schema' } });
     fireEvent.change(screen.getByTestId('ws-schema-textarea'), { target: { value: '{"type":"object"}' } });
     fireEvent.click(screen.getByTestId('ws-schema-save-btn'));

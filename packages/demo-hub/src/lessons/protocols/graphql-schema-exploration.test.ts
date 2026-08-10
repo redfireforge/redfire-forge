@@ -6,13 +6,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql3'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 vi.mock('../env-manager-lesson-helpers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../env-manager-lesson-helpers')>();
   return {
     ...actual,
-    ensureGqlDemoHeaderContext: vi.fn().mockResolvedValue(undefined),
+    navigateToGraphqlStudio: vi.fn(async (ctx: { navigateToTab: (t: string) => void }) => {
+      ctx.navigateToTab('graphql-studio');
+    }),
   };
 });
 
@@ -42,7 +45,7 @@ import {
   searchSchemaTypes,
 } from './graphql-lesson-helpers';
 import { getDemoBridgeWindow } from '../../adapters/bridgeWindow';
-import { ensureGqlDemoHeaderContext } from '../env-manager-lesson-helpers';
+import { navigateToGraphqlStudio } from '../env-manager-lesson-helpers';
 import { stubSchemaExplorerDom, stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
 
 describe('gql-schema-exploration lesson', () => {
@@ -56,15 +59,14 @@ describe('gql-schema-exploration lesson', () => {
     expect(gqlSchemaLesson.id).toBe('gql-schema-exploration');
     expect(gqlSchemaLesson.category).toBe('graphql');
     expect(gqlSchemaLesson.name).toBe('Schema Exploration');
-    expect(gqlSchemaLesson.steps.length).toBe(10);
-    expect(gqlSchemaLesson.estimatedMinutes).toBe(5);
+    expect(gqlSchemaLesson.steps.length).toBe(9);
+    expect(gqlSchemaLesson.estimatedMinutes).toBe(4);
     expect(gqlSchemaLesson.tabBudget).toBe(1);
   });
 
-  it('has correct step IDs in order', () => {
+  it('has correct step IDs in order (no env/endpoint tour)', () => {
     expect(gqlSchemaLesson.steps.map((s) => s.id)).toEqual([
       'gql4-intro',
-      'gql4-endpoint',
       'gql4-introspect',
       'gql4-browse',
       'gql4-search',
@@ -74,16 +76,17 @@ describe('gql-schema-exploration lesson', () => {
       'gql4-sdl-view',
       'gql4-export-sdl',
     ]);
+    expect(gqlSchemaLesson.steps.some((s) => s.id === 'gql4-endpoint')).toBe(false);
   });
 
-  it('all 10 steps have pauseAfter: true', () => {
+  it('all 9 steps have pauseAfter: true', () => {
     gqlSchemaLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
   });
 
-  it('stateful steps 2–10 have preAction guards', () => {
-    gqlSchemaLesson.steps.slice(1).forEach((step) => {
+  it('all steps have preAction guards (intro keeps Studio on Schema tab)', () => {
+    gqlSchemaLesson.steps.forEach((step) => {
       expect(step.preAction).toBeTypeOf('function');
     });
   });
@@ -121,24 +124,19 @@ describe('gql-schema-exploration lesson', () => {
     expect(body).toContain('SDL tab + Export');
   });
 
-  it('step gql4-intro highlights schema tab', () => {
+  it('step gql4-intro highlights schema tab and mentions endpoint already connected', () => {
     const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-intro')!;
     expect(step.highlight).toBe(GQL.RIGHT_TAB_SCHEMA);
+    expect(step.description).toMatch(/already connected/i);
   });
 
-  it('step gql4-endpoint fills demo endpoint', async () => {
-    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-endpoint')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
-  });
-
-  it('step gql4-endpoint preAction waits for endpoint input', async () => {
+  it('step gql4-intro preAction lands on Studio Schema tab without EM', async () => {
     stubSchemaExplorerDom();
-    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-endpoint')!;
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-intro')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
+    expect(navigateToGraphqlStudio).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA, 5000);
   });
 
   it('step gql4-introspect preAction opens schema tab when badge is already ok', async () => {
@@ -475,11 +473,12 @@ describe('gql schema selector helpers', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_TYPE_LIST, 5000);
   });
 
-  it('ensureTryInsertDone completes without try button when health absent', async () => {
+  it('setup fills insert template when Schema tab is absent (falls back to click)', async () => {
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <input data-testid="gql-endpoint-input" value="" />
       <button data-testid="gql-mode-editor" class="gql-mode-btn gql-mode-btn--active"></button>
-      <button data-testid="gql-right-tab-response"></button>
+      <button data-testid="gql-right-tab-schema"></button>
       <div data-testid="gql-editor"></div>
     `;
     const setValue = vi.fn();
@@ -490,11 +489,10 @@ describe('gql schema selector helpers', () => {
         getEditors: () => [{ getModel: () => ({ uri: { toString: () => 'inmemory://graphql/tab-1' } }), setValue }],
       },
     };
-    const responseTab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE)!;
-    const clickSpy = vi.spyOn(responseTab, 'click');
     const ctx = makeCtx();
     await gqlSchemaLessonSetup(ctx);
-    expect(clickSpy).toHaveBeenCalled();
+    expect(setValue).toHaveBeenCalledWith(GQL_INSERT_TEMPLATE_QUERY);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
   });
 
   it('ensureEditorReadyForInsert skips template fill when query block exists', async () => {
@@ -543,20 +541,22 @@ describe('gql schema selector helpers', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_TYPE_LIST, 5000);
   });
 
-  it('setup selects response tab when not already active', async () => {
+  it('setup stays on Studio and opens Schema tab (no Environment Manager)', async () => {
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <button data-testid="gql-mode-editor"></button>
-      <button data-testid="gql-right-tab-response" aria-selected="false"></button>
+      <button data-testid="gql-right-tab-response" aria-selected="true"></button>
+      <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
       <input data-testid="gql-endpoint-input" value="" />
       <div data-testid="gql-editor"></div>
     `;
     stubMonacoEditor(GQL_INSERT_TEMPLATE_QUERY);
-    const tab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE)!;
-    const clickSpy = vi.spyOn(tab, 'click');
     const ctx = makeCtx();
     await gqlSchemaLessonSetup(ctx);
-    expect(ensureGqlDemoHeaderContext).toHaveBeenCalled();
-    expect(clickSpy).toHaveBeenCalled();
+    expect(navigateToGraphqlStudio).toHaveBeenCalled();
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.stringContaining('localhost:4010'));
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
   });
 
   it('setup closes mock activity panel when left open from a prior lesson', async () => {
@@ -613,10 +613,9 @@ describe('gql schema selector helpers', () => {
       <button data-testid="gql-right-tab-response" aria-selected="false"></button>
       <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
     `;
-    vi.mocked(ensureGqlDemoHeaderContext).mockClear();
     const ctx = makeCtx();
     await prepareGql4IntrospectReading(ctx);
-    expect(ensureGqlDemoHeaderContext).not.toHaveBeenCalled();
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
     expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
   });
 

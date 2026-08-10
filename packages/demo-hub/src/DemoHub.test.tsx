@@ -90,6 +90,7 @@ function makeHub(overrides: Partial<ReturnType<typeof useDemoHub>> = {}): Return
     hubOpen: true,
     hubVisible: true,
     stepPhase: 'done',
+    isDemoBootstrapping: false,
     progress: baseProgress,
     openHub: vi.fn(),
     closeHub: vi.fn(),
@@ -152,6 +153,32 @@ describe('DemoHub', () => {
       state: { view: 'concept', selectedDomain: makeDomain(), selectedLesson: null, stepIndex: 0, isPlaying: false, speed: 1 },
     });
     render(<DemoHub hub={hub} />);
+    expect(screen.queryByTestId('lesson-player')).toBeNull();
+  });
+
+  it('keeps LessonPlayer during boot if still on Demo Hub (no blank Preparing hole)', () => {
+    const domain = makeDomain();
+    const lesson = makeLesson();
+    const hub = makeHub({
+      isDemoBootstrapping: true,
+      state: { view: 'live', selectedDomain: domain, selectedLesson: lesson, stepIndex: 0, isPlaying: false, speed: 1 },
+    });
+    render(<DemoHub hub={hub} />);
+    // Belt only — Start navigates off Demo Hub first; this avoids an empty body
+    // if the tab switch lags one frame.
+    expect(screen.getByTestId('lesson-player')).toBeTruthy();
+    expect(screen.queryByTestId('demo-hub-live-placeholder')).toBeNull();
+  });
+
+  it('shows live placeholder after boot when still on Demo Hub', () => {
+    const domain = makeDomain();
+    const lesson = makeLesson();
+    const hub = makeHub({
+      isDemoBootstrapping: false,
+      state: { view: 'live', selectedDomain: domain, selectedLesson: lesson, stepIndex: 0, isPlaying: false, speed: 1 },
+    });
+    render(<DemoHub hub={hub} />);
+    expect(screen.getByTestId('demo-hub-live-placeholder')).toBeTruthy();
     expect(screen.queryByTestId('lesson-player')).toBeNull();
   });
 

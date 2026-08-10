@@ -3,6 +3,7 @@ import '@testing-library/jest-dom';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRef } from 'react';
+import { getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
 import VersionDiffModal from './VersionDiffModal';
 
 // Sub-components: mock heavy ones (json-diff-kit Viewer) to avoid jsdom issues
@@ -54,6 +55,114 @@ describe('VersionDiffModal', () => {
     expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
   });
 
+  describe('drag + resize', () => {
+    function mockRect(el: HTMLElement, left: number, top: number, width: number, height: number) {
+      el.getBoundingClientRect = () => ({
+        x: left, y: top, width, height,
+        left, top, right: left + width, bottom: top + height, toJSON: () => ({}),
+      }) as DOMRect;
+    }
+
+    it('exposes the modal box as the dialog with resize handles as direct children', () => {
+      const { container } = render(<VersionDiffModal {...defaultProps()} />);
+      const modal = container.querySelector('.version-diff-modal');
+      expect(modal?.getAttribute('role')).toBe('dialog');
+      expect(modal?.getAttribute('aria-modal')).toBe('true');
+      for (const cls of ['modal-resize-edge-right', 'modal-resize-edge-bottom', 'modal-resize-corner']) {
+        const handle = container.querySelector(`.${cls}`);
+        expect(handle).toBeTruthy();
+        // The resize hook measures the handle's parent for the drag origin.
+        expect(handle?.parentElement).toBe(modal);
+      }
+    });
+
+    it('marks the header as a drag handle', () => {
+      const { container } = render(<VersionDiffModal {...defaultProps()} />);
+      const header = container.querySelector('.version-diff-modal-header') as HTMLElement;
+      expect(header.style.cursor).toBe('move');
+    });
+
+    it('moves the modal when the header is dragged', () => {
+      const { container } = render(<VersionDiffModal {...defaultProps()} />);
+      const modal = container.querySelector('.version-diff-modal') as HTMLElement;
+      const header = container.querySelector('.version-diff-modal-header') as HTMLElement;
+      mockRect(modal, 150, 90, 500, 350);
+
+      fireEvent.mouseDown(header, { clientX: 250, clientY: 110 });
+      fireEvent(window, new MouseEvent('mousemove', { clientX: 210, clientY: 170 }));
+      fireEvent(window, new MouseEvent('mouseup'));
+
+      expect(modal.style.position).toBe('fixed');
+      expect(modal.style.left).toBe('110px'); // 150 - 40
+      expect(modal.style.top).toBe('150px');  // 90 + 60
+    });
+
+    it('does not drag from the header checkbox label', () => {
+      const { container } = render(
+        <VersionDiffModal
+          {...defaultProps({
+            headerControls: (
+              <label className="version-diff-toggle">
+                <input type="checkbox" readOnly checked={false} />
+                <span>Unordered Arrays</span>
+              </label>
+            ),
+          })}
+        />,
+      );
+      const modal = container.querySelector('.version-diff-modal') as HTMLElement;
+      const caption = container.querySelector('.version-diff-toggle span') as HTMLElement;
+
+      fireEvent.mouseDown(caption, { clientX: 300, clientY: 110 });
+      fireEvent(window, new MouseEvent('mousemove', { clientX: 400, clientY: 260 }));
+      fireEvent(window, new MouseEvent('mouseup'));
+
+      expect(modal.style.position).toBe('');
+    });
+
+    it('resizes from the corner by the drag delta', () => {
+      const { container } = render(<VersionDiffModal {...defaultProps()} />);
+      const modal = container.querySelector('.version-diff-modal') as HTMLElement;
+      const corner = container.querySelector('.modal-resize-corner') as HTMLElement;
+      mockRect(modal, 0, 0, 700, 500);
+
+      fireEvent.mouseDown(corner, { clientX: 700, clientY: 500 });
+      fireEvent(window, new MouseEvent('mousemove', { clientX: 820, clientY: 580 }));
+      fireEvent(window, new MouseEvent('mouseup'));
+
+      expect(modal.style.width).toBe('820px');
+      expect(modal.style.height).toBe('580px');
+    });
+
+    it('clamps resizing at the minimum size', () => {
+      const { container } = render(<VersionDiffModal {...defaultProps()} />);
+      const modal = container.querySelector('.version-diff-modal') as HTMLElement;
+      const corner = container.querySelector('.modal-resize-corner') as HTMLElement;
+      mockRect(modal, 0, 0, 700, 500);
+
+      fireEvent.mouseDown(corner, { clientX: 700, clientY: 500 });
+      fireEvent(window, new MouseEvent('mousemove', { clientX: -3000, clientY: -3000 }));
+      fireEvent(window, new MouseEvent('mouseup'));
+
+      expect(modal.style.width).toBe('640px');
+      expect(modal.style.height).toBe('360px');
+    });
+
+    it('clamps resizing at the viewport size', () => {
+      const { container } = render(<VersionDiffModal {...defaultProps()} />);
+      const modal = container.querySelector('.version-diff-modal') as HTMLElement;
+      const corner = container.querySelector('.modal-resize-corner') as HTMLElement;
+      mockRect(modal, 0, 0, 700, 500);
+
+      fireEvent.mouseDown(corner, { clientX: 700, clientY: 500 });
+      fireEvent(window, new MouseEvent('mousemove', { clientX: 9000, clientY: 9000 }));
+      fireEvent(window, new MouseEvent('mouseup'));
+
+      expect(modal.style.width).toBe(`${window.innerWidth - 16}px`);
+      expect(modal.style.height).toBe(`${window.innerHeight - 16}px`);
+    });
+  });
+
   it('calls onClose when clicking the Close button', () => {
     const onClose = vi.fn();
     render(<VersionDiffModal {...defaultProps({ onClose })} />);
@@ -101,9 +210,9 @@ describe('VersionDiffModal', () => {
       { id: 'v1', label: 'Version 1' },
       { id: 'v2', label: 'Version 2' },
     ];
-    render(<VersionDiffModal {...defaultProps({ options })} />);
-    // Options appear in both Left and Right selects
-    expect(screen.getAllByText('Version 1').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Version 2').length).toBeGreaterThanOrEqual(1);
+    const { container } = render(<VersionDiffModal {...defaultProps({ options })} />);
+    expect(container.querySelectorAll('.cs-wrapper')).toHaveLength(2);
+    expect(getCustomSelectOptionLabels(container, 0)).toEqual(['Select...', 'Version 1', 'Version 2']);
+    expect(getCustomSelectOptionLabels(container, 1)).toEqual(['Select...', 'Version 1', 'Version 2']);
   });
 });

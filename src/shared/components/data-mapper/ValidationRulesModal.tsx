@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect, useMemo, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { CustomSelect } from '../CustomSelect';
 import ValidationCodeEditor, { type LineVerifyResult } from './ValidationCodeEditor';
 import DslReferencePanel from './DslReferencePanel';
 import { useValidationRulesModal, type VrModalMode } from './hooks/useValidationRulesModal';
@@ -188,8 +189,8 @@ export default function ValidationRulesModal({
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [expandedStepKey, setExpandedStepKey] = useState<string | null>(null);
 
-  const handleModeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setMode(e.target.value as VrModalMode);
+  const handleModeChange = useCallback((value: string) => {
+    setMode(value as VrModalMode);
   }, [setMode]);
 
   // ── Shared sub-components ──
@@ -262,17 +263,17 @@ export default function ValidationRulesModal({
           Reference {referenceVisible ? '\u25C2' : '\u25B8'}
         </button>
         <span className="vr-modal-action-sep" />
-        <select
+        <CustomSelect
           className="vr-modal-mode-select"
           value={mode}
           onChange={handleModeChange}
-          title="Display mode (saved as default)"
+          options={[
+            { value: 'docked', label: '\u2B13 Bottom' },
+            { value: 'floating', label: '\u29C9 Floating' },
+            { value: 'maximized', label: '\u2B1C Full Screen' },
+          ]}
           aria-label="Modal display mode"
-        >
-          <option value="docked">{'\u2B13'} Bottom</option>
-          <option value="floating">{'\u29C9'} Floating</option>
-          <option value="maximized">{'\u2B1C'} Full Screen</option>
-        </select>
+        />
       </div>
     </div>
   );
@@ -434,7 +435,7 @@ export default function ValidationRulesModal({
           ? '\u25B8'
           : <><span className="vr-ref-edge-label">REF</span>{'\u25C2'}</>}
       </button>
-      {referenceVisible && <DslReferencePanel onInsert={handleInsert} onClose={toggleReference} />}
+      {referenceVisible && <DslReferencePanel onInsert={handleInsert} />}
     </div>
   );
 
@@ -458,7 +459,7 @@ export default function ValidationRulesModal({
   );
 
   // Portal into the closest modal overlay ancestor so the panel participates
-  // in the same stacking context (e.g. insomnia-modal-overlay z-index: 10080).
+  // in the same stacking context (e.g. rf-builder-overlay z-index: 10080).
   // Falls back to document.body when used outside a modal shell.
   const portalTarget = portalContainerRef?.current?.closest('.dm-modal-overlay')
     ?? portalContainerRef?.current?.closest('.modal-overlay')

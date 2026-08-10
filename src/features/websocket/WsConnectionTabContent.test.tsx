@@ -440,7 +440,12 @@ describe('WsConnectionTabContent', () => {
       );
       expect(screen.getByTestId('search-input')).toBeTruthy();
       expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
-      expect(screen.queryAllByTestId('send-btn')).toHaveLength(0);
+      // Send pane is always mounted (preserves compose text across tab switches),
+      // just hidden via CSS when not on the Send tab.
+      const sendBtns = screen.queryAllByTestId('send-btn');
+      if (sendBtns.length > 0) {
+        expect(sendBtns[0].closest('[style*="display: none"]') ?? sendBtns[0].closest('[hidden]')).toBeTruthy();
+      }
     });
 
     it('renders the composer in the Compose left tab alongside the events log on the right', () => {
@@ -529,6 +534,47 @@ describe('WsConnectionTabContent', () => {
       expect(screen.getByTestId('mock-server-panel')).toBeTruthy();
       expect(screen.queryByTestId('search-input')).toBeNull();
       expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
+    });
+
+    it('warns when the client is connected to a different local port than this tab\'s mock server', () => {
+      mockStudio = makeStudioReturn({
+        connection: { state: 'connected', url: 'ws://localhost:9876' },
+      });
+      mockMockServerReturn = makeMockServerReturn({
+        status: { running: true, port: 9878, clientCount: 0, clients: [] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      vi.spyOn(mockServerModule, 'useWebSocketMockServer').mockReturnValue(mockMockServerReturn);
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'mock' })} />);
+      const banner = screen.getByTestId('mock-port-mismatch');
+      expect(banner.textContent).toContain('port 9876');
+      expect(banner.textContent).toContain('port 9878');
+    });
+
+    it('does not warn when the client is connected to this tab\'s own mock server port', () => {
+      mockStudio = makeStudioReturn({
+        connection: { state: 'connected', url: 'ws://localhost:9878' },
+      });
+      mockMockServerReturn = makeMockServerReturn({
+        status: { running: true, port: 9878, clientCount: 1, clients: [] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      vi.spyOn(mockServerModule, 'useWebSocketMockServer').mockReturnValue(mockMockServerReturn);
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'mock' })} />);
+      expect(screen.queryByTestId('mock-port-mismatch')).toBeNull();
+    });
+
+    it('does not warn when the client is connected to a non-local (external) server', () => {
+      mockStudio = makeStudioReturn({
+        connection: { state: 'connected', url: 'wss://jsonplaceholder.typicode.com' },
+      });
+      mockMockServerReturn = makeMockServerReturn({
+        status: { running: true, port: 9878, clientCount: 0, clients: [] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      vi.spyOn(mockServerModule, 'useWebSocketMockServer').mockReturnValue(mockMockServerReturn);
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'mock' })} />);
+      expect(screen.queryByTestId('mock-port-mismatch')).toBeNull();
     });
 
     it('renders Saved mode as a rail + detail split with a divider', () => {

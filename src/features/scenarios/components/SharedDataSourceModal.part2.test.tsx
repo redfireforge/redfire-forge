@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { selectOption, selectOptionByIndex, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import SharedDataSourceModal from './SharedDataSourceModal';
 import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
 import { proxyFetch } from '../../../engine/executor';
@@ -326,10 +327,9 @@ describe('SharedDataSourceModal', () => {
       );
       await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
       const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
-      const fgSelect = within(popup).getAllByRole('combobox')[0];
-      await userEvent.selectOptions(fgSelect, 'fgB');
-      const scSelect = within(popup).getAllByRole('combobox')[1] as HTMLSelectElement;
-      expect(scSelect.value).toBe('sc-fgB-0');
+      selectOptionByIndex(popup, 0, 'Group B');
+      const scenarioWrapper = popup.querySelectorAll('.cs-wrapper')[1]!;
+      expect(getCustomSelectValue(scenarioWrapper)).toBe('Scenario 1');
     });
 
     it('shows not set for URL preview when fetch config is absent', async () => {
@@ -362,10 +362,9 @@ describe('SharedDataSourceModal', () => {
       );
       await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
       const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
-      const fgSelect = within(popup).getAllByRole('combobox')[0];
-      await userEvent.selectOptions(fgSelect, 'fgEmpty');
-      const scSelect = within(popup).getAllByRole('combobox')[1] as HTMLSelectElement;
-      expect(scSelect.value).toBe('');
+      selectOptionByIndex(popup, 0, 'No Scenarios');
+      const scenarioWrapper = popup.querySelectorAll('.cs-wrapper')[1]!;
+      expect(getCustomSelectValue(scenarioWrapper)).toBe('');
     });
   });
 
@@ -381,8 +380,7 @@ describe('SharedDataSourceModal', () => {
       const sources = [makeSharedDs('s1', 'Test', { fetchConfig: { url: 'https://api.test.com', method: 'GET', headers: [], auth: { type: 'none' } } })];
       const onUpdate = vi.fn();
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} onUpdate={onUpdate} />);
-      const methodSelect = document.querySelector('.shared-ds-fetch-method') as HTMLSelectElement;
-      fireEvent.change(methodSelect, { target: { value: 'POST' } });
+      selectOption(document.querySelector('.shared-ds-fetch-method')!, 'POST');
       expect(onUpdate).toHaveBeenCalled();
     });
 

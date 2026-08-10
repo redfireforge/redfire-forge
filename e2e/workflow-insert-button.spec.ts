@@ -157,8 +157,9 @@ test.describe('Insert Variable button in node configs', () => {
 
   test('logDebug node config shows Insert button', async ({ page }) => {
     const modal = await openNodeConfig(page, 'Log Info');
-    const insertBtn = modal.locator('button', { hasText: 'Insert…' });
-    await expect(insertBtn.first()).toBeVisible({ timeout: 3_000 });
+    // LogDebug uses MessageTemplateEditor which shows variable chips + "+ More" browse button
+    const moreBtn = modal.locator('button', { hasText: '+ More' });
+    await expect(moreBtn).toBeVisible({ timeout: 3_000 });
   });
 
   test('waitForCondition node config shows Insert button', async ({ page }) => {
@@ -169,11 +170,10 @@ test.describe('Insert Variable button in node configs', () => {
 
   test('condition node shows Insert buttons in expression mode', async ({ page }) => {
     const modal = await openNodeConfig(page, 'Check Status');
-    // Switch to expression mode
-    const exprRadio = modal.locator('label', { hasText: 'Expression' });
-    await exprRadio.click();
+    // Switch to expression mode via the segmented control button
+    const exprBtn = modal.locator('button', { hasText: 'Expression' });
+    await exprBtn.click();
     // Should have at least 2 Insert buttons in expression mode (left operand + right value)
-    // Additional Insert buttons come from the variables section
     const insertBtns = modal.locator('button', { hasText: 'Insert…' });
     const count = await insertBtns.count();
     expect(count).toBeGreaterThanOrEqual(2);

@@ -121,6 +121,10 @@ describe('serializeBody', () => {
     expect(serializeBody(makeScenario({ body: '{}', bodyType: 'json' }))).toBe('{}');
     expect(serializeBody(makeScenario({ method: 'GET' }))).toBeUndefined();
   });
+
+  it('returns undefined for none body type explicitly', () => {
+    expect(serializeBody(makeScenario({ bodyType: 'none', body: 'ignored' }))).toBeUndefined();
+  });
 });
 
 describe('getContentType', () => {
@@ -143,6 +147,11 @@ describe('bodyFormToString', () => {
 
   it('returns empty string for empty form', () => {
     expect(bodyFormToString([])).toBe('');
+  });
+
+  it('keeps original key spacing in bodyFormToString output', () => {
+    const form: KeyValue[] = [{ key: '  spaced  ', value: 'v' }];
+    expect(bodyFormToString(form)).toBe('  spaced  =v');
   });
 });
 
@@ -174,6 +183,10 @@ describe('stringToBodyForm', () => {
   it('returns empty entry when parse yields no key-value pairs', () => {
     expect(stringToBodyForm('&&')).toEqual([{ key: '', value: '' }]);
     expect(stringToBodyForm('?')).toEqual([{ key: '', value: '' }]);
+  });
+
+  it('parses key with empty value', () => {
+    expect(stringToBodyForm('k=')).toEqual([{ key: 'k', value: '' }]);
   });
 
   it('returns empty entry when URLSearchParams throws', () => {

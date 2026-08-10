@@ -3,6 +3,7 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../../shared/grpc/contracts';
 import {
   GrpcProtoAnyFieldRow,
@@ -70,7 +71,7 @@ describe('GrpcProtoWktRows coverage gaps', () => {
       </>,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-flag'), { target: { value: 'true' } });
+    selectOption(screen.getByTestId('grpc-proto-field-input-flag'), 'true');
     expect(onChange).toHaveBeenCalledWith({ value: true });
 
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: 'not-a-number' } });
@@ -114,16 +115,14 @@ describe('GrpcProtoWktRows coverage gaps', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-proto-any-type-select-payload'), {
-      target: { value: 'demo.OrderCreated' },
-    });
+    selectOption(screen.getByTestId('grpc-proto-any-type-select-payload'), 'demo.OrderCreated');
     expect(onChange).toHaveBeenCalledWith({
       '@type': 'type.googleapis.com/demo.OrderCreated',
     });
     expect(onFieldError).toHaveBeenCalledWith(false);
 
     onChange.mockClear();
-    fireEvent.change(screen.getByTestId('grpc-proto-any-type-select-payload'), { target: { value: '' } });
+    selectOption(screen.getByTestId('grpc-proto-any-type-select-payload'), 'Select message type…');
     expect(onChange).not.toHaveBeenCalled();
 
     rerender(

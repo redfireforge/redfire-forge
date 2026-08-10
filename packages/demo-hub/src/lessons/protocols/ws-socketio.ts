@@ -14,6 +14,8 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
 
 // ── Selectors (Socket.IO specific) ────────────────────────────
 const SIO_URL = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
@@ -32,7 +34,7 @@ async function resetProtocol(ctx: DemoActionContext) {
  * (SIO_SERVER_PARAMS, compose fields, etc.) that only render when connected.
  */
 async function ensureSioConnected(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WS.STATUS_CONNECTED)) return;
+  if (firstVisibleElement(WS.STATUS_CONNECTED)) return;
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
   await ctx.click(WS.CONNECT_BTN);
@@ -43,25 +45,28 @@ async function ensureSioConnected(ctx: DemoActionContext): Promise<void> {
 // ── Setup / Cleanup ────────────────────────────────────────────
 
 async function sioSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(400);
+  // Ensure client mode FIRST — left-tab buttons only exist in client mode
+  const isClient = !!document.querySelector('[data-testid="mode-client"].active, [data-testid="mode-client"][aria-selected="true"]');
+  if (!isClient) {
+    await ctx.click(WS.MODE_CLIENT);
+    await ctx.delay(120);
+  }
   await disconnectWebSocket(ctx);
-  await ctx.delay(200);
   await clearEvents(ctx);
-  await ctx.delay(200);
-  // Ensure we are in client mode
-  await ctx.click(WS.MODE_CLIENT);
-  await ctx.delay(300);
   // Navigate to Connect tab and pre-populate URL + protocol
   // so the user sees a complete, ready configuration from Step 1.
   // Clear Subprotocols — stale values from other lessons confuse the UI.
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
+  const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+  if (connectTab?.getAttribute('aria-selected') !== 'true') {
+    connectTab?.click();
+    await ctx.delay(120);
+  }
   await ctx.fill(WS.URL_INPUT, SIO_URL);
-  await ctx.delay(200);
+  await ctx.delay(120);
   await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
-  await ctx.delay(150);
+  await ctx.delay(100);
   await ctx.selectOption(WS.PROTOCOL_SELECT, 'socket-io');
-  await ctx.delay(200);
+  await ctx.delay(120);
 }
 
 async function sioCleanup(ctx: DemoActionContext): Promise<void> {
@@ -171,8 +176,8 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       highlight: WS.LEFT_TAB_CONNECT,
       pauseAfter: true,
       action: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(400);
+        await ctx.waitFor(WS.LEFT_TAB_CONNECT, 3000);
+        await ctx.delay(500);
       },
     },
     {
@@ -184,7 +189,11 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       // preAction ensures Connect tab is active so PROTOCOL_SELECT is in the DOM
       // before the spotlight renders (it lives inside the conditionally-rendered Connect panel).
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+        if (connectTab?.getAttribute('aria-selected') !== 'true') {
+          connectTab?.click();
+          await ctx.delay(120);
+        }
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.delay(300);
@@ -199,10 +208,29 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       // preAction ensures Connect tab is active so URL_INPUT is in the DOM
       // before the spotlight renders (it lives inside the conditionally-rendered Connect panel).
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+        if (connectTab?.getAttribute('aria-selected') !== 'true') {
+          connectTab?.click();
+          await ctx.delay(120);
+        }
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(300);
+        const urlInput = document.querySelector<HTMLInputElement>(WS.URL_INPUT);
+        if (urlInput) {
+          // Scroll the input to the end so the query params are visible, then
+          // select just 'EIO=4' to draw the eye to it before the ring fires.
+          urlInput.focus();
+          const val = urlInput.value || SIO_URL;
+          const eioStart = val.indexOf('EIO=4');
+          if (eioStart >= 0) {
+            urlInput.setSelectionRange(eioStart, eioStart + 'EIO=4'.length);
+          }
+          const dispose = showSpotlightRing(urlInput);
+          await ctx.delay(1400);
+          dispose();
+        } else {
+          await ctx.delay(300);
+        }
       },
     },
     {
@@ -217,11 +245,15 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       pauseAfter: true,
       // preAction navigates to Connect tab so CONNECT_BTN is in the DOM when the action fires.
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+        if (connectTab?.getAttribute('aria-selected') !== 'true') {
+          connectTab?.click();
+          await ctx.delay(120);
+        }
       },
       action: async (ctx: DemoActionContext) => {
         // Replay guard: skip WS connect if already open from a prior pass.
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
         }
         await ctx.waitFor(WS.STATUS_CONNECTED); // wait for green dot (Rule 5)
@@ -312,7 +344,7 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
         await ctx.delay(500);
         // Scroll the namespace field into view so the highlight box is visible.
         // Do NOT focus() it — an INPUT with focus blocks ArrowRight keyboard navigation.
-        const ns = document.querySelector(WS.SIO_NAMESPACE) as HTMLElement | null;
+        const ns = firstVisibleElement<HTMLElement>(WS.SIO_NAMESPACE);
         if (ns) ns.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         await ctx.delay(800);
       },

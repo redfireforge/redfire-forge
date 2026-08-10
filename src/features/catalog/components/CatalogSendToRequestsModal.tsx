@@ -1,10 +1,15 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
 import type { CatalogEntry, CatalogEndpoint, CatalogFolder, SavedEndpointValues } from '../types/catalog';
 import type { Environment, Microservice, RequestCollection } from '../../../shared/types';
 import { collectAllGroups } from '../../requests/utils/requestTree';
 import { toggleSetItem } from '../../../shared/utils/setToggle';
 import { buildVersionInfoMap } from '../utils/versionStatus';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { useModalResize } from '../../../shared/hooks/useModalResize';
+import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
 
 interface EnvOption {
   envId: string;
@@ -244,21 +249,28 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
                 <span className="cat-send-all-exported">all previously exported</span>
               )}
             </label>
-            <input className="cep-field-input" value={colName} onChange={e => setColName(e.target.value)} style={{ marginTop: 6 }} />
+            <input className="cep-field-input" data-testid="catalog-export-col-name" value={colName} onChange={e => setColName(e.target.value)} style={{ marginTop: 6 }} />
           </div>
 
           {/* Target Group */}
           <div className="cat-send-card">
             <label className="cat-send-label">Target Group</label>
-            <select className="cep-field-input" value={targetGroup} onChange={e => setTargetGroup(e.target.value)} style={{ marginTop: 6 }}>
-              <option value="">None (root level)</option>
-              {groupsFlat.map(({ group: g, depth }) => (
-                <option key={g.id} value={g.id}>
-                  {'\u00A0\u00A0'.repeat(depth)}&#128450;&#65039; {g.name}
-                </option>
-              ))}
-              <option value="__new__">+ New Group...</option>
-            </select>
+            <div style={{ marginTop: 6 }}>
+              <CustomSelect
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={targetGroup}
+                onChange={setTargetGroup}
+                options={[
+                  { value: '', label: 'None (root level)', detail: 'Add to collection root' },
+                  ...groupsFlat.map(({ group: g, depth }) => ({
+                    value: g.id,
+                    label: `${'\u00A0\u00A0'.repeat(depth)}📂 ${g.name}`,
+                  })),
+                  { value: '__new__', label: '+ New Group...', detail: 'Create a new group' },
+                ]}
+                aria-label="Target Group"
+              />
+            </div>
             {targetGroup === '__new__' && (
               <input className="cep-field-input" value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
                 placeholder="New group name" style={{ marginTop: 6 }} autoFocus />
@@ -278,7 +290,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
               </label>
             </div>
             {envOptions.length > 0 ? (
-              <table className="cat-send-env-table">
+              <table className="cat-send-env-table" data-testid="catalog-export-env-table">
                 <thead>
                   <tr>
                     <th style={{ width: 32 }}></th>
@@ -316,7 +328,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
               </label>
             </div>
             <div className="cat-send-ep-table-wrap">
-              <table className="cat-send-ep-table" style={{ tableLayout: 'fixed' }}>
+              <table className="cat-send-ep-table" data-testid="catalog-export-ep-table" style={{ tableLayout: 'fixed' }}>
                 <colgroup>
                   {epColWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
                 </colgroup>
@@ -379,7 +391,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
         {/* ── Right: Preview ── */}
         <div className="cat-send-right">
           <label className="cat-send-label">Preview</label>
-          <div className="cat-send-preview">
+          <div className="cat-send-preview" data-testid="catalog-export-preview">
             {canSend ? (
               <div className="cat-send-tree">
                 <div className="cat-send-tree-root">
@@ -423,26 +435,58 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
 
       <div className={inline ? 'cat-send-inline-footer' : 'cat-modal-footer'}>
         {!inline && <button className="cat-btn" onClick={onClose}>Cancel</button>}
-        <button className="cat-btn cat-btn-primary" onClick={handleSend} disabled={!canSend}>
+        <button className="cat-btn cat-btn-primary" data-testid="catalog-export-confirm-btn" onClick={handleSend} disabled={!canSend}>
           Export {totalRequests} request{totalRequests !== 1 ? 's' : ''}
         </button>
       </div>
     </>
   );
 
+  const modalRef = useRef<HTMLDivElement>(null);
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(true, {
+    modalRef,
+    constrainToViewport: true,
+    viewportPadding: 12,
+  });
+  const { resizeStyle, onRightEdge, onCorner, onBottomEdge } = useModalResize(560, 400);
+
+  const combinedModalStyle: React.CSSProperties = {
+    ...modalStyle,
+    ...resizeStyle,
+  };
+
   if (inline) {
-    return <div className="cat-send-inline">{renderBody()}</div>;
+    return <div className="cat-send-inline" data-testid="catalog-export-inline">{renderBody()}</div>;
   }
 
-  return (
-    <div className="cat-send-overlay" onClick={onClose}>
-      <div className="cat-send-modal" onClick={e => e.stopPropagation()}>
-        <div className="cat-modal-header">
+  return createPortal(
+    <div
+      className="cat-send-overlay"
+      data-testid="catalog-export-modal"
+      style={overlayStyle}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="cat-send-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Export to Requests"
+        ref={modalRef}
+        style={combinedModalStyle}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="cat-modal-header" onMouseDown={onDragStart} style={{ cursor: 'grab' }}>
           <h3>Export to Requests</h3>
-          <button className="cat-modal-close" onClick={onClose}>&times;</button>
+          <span className="cat-send-header-hint">Drag to move · Resize from edges</span>
         </div>
         {renderBody()}
+        <ModalResizeHandles
+          onRightEdge={onRightEdge}
+          onCorner={onCorner}
+          onBottomEdge={onBottomEdge}
+        />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

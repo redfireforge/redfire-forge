@@ -265,7 +265,7 @@ test.describe('Workflow Version Panel — With Versions', () => {
 
   test('close button (×) dismisses the panel', async ({ page }) => {
     await openVersionPanel(page);
-    await page.locator('.wfv-close-btn').click();
+    await page.locator('.wfv-footer-close').click();
     await expect(page.locator('.wfv-panel')).not.toBeVisible();
   });
 });
@@ -405,7 +405,7 @@ test.describe('Workflow Version Diff Modal', () => {
   });
 
   test('clicking × closes the diff modal', async ({ page }) => {
-    await page.locator('.wf-version-diff-header button').click();
+    await page.locator('.wf-version-diff-modal .btn-primary', { hasText: 'Close' }).click();
     await expect(page.locator('.wf-version-diff-modal')).not.toBeVisible();
   });
 

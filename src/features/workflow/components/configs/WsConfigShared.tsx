@@ -9,11 +9,15 @@ import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import { MSG_TYPE_FILTER_OPTIONS, createWsExtractionRule } from './wsConfigFactories';
+import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 // ── Key-Value Row Section (Headers / Query Parameters) ─────────────────────
 
 export function WsKeyValueSection({
   title,
+  hint,
+  emptyText,
   rows,
   keyPlaceholder,
   addLabel,
@@ -23,6 +27,8 @@ export function WsKeyValueSection({
   variableHints,
 }: {
   title: string;
+  hint?: string;
+  emptyText?: string;
   rows: WsNodeHeaderRow[];
   keyPlaceholder: string;
   addLabel: string;
@@ -32,41 +38,63 @@ export function WsKeyValueSection({
   variableHints: WorkflowVariableHint[];
 }) {
   return (
-    <div className="wf-ws-section">
-      <div className="wf-ws-section-title">{title}</div>
-      <div className="wf-config-kv-list">
-        {rows.map((row, index) => (
-          <div key={row.id} className="wf-config-kv-row">
-            <label className="wf-config-checkbox-label" style={{ minWidth: 72 }}>
-              <input type="checkbox" checked={row.enabled} onChange={(e) => crud.update(index, { enabled: e.target.checked })} />
-              Enabled
-            </label>
-            <input
-              value={row.key}
-              placeholder={keyPlaceholder}
-              onChange={(e) => crud.update(index, { key: e.target.value })}
-            />
-            <div className="wf-config-kv-val-wrap">
-              <InsertVarField
-                onRequestVariableInsert={onRequestVariableInsert}
-                shortRef
-                onInsert={(snippet) => crud.update(index, { value: `${row.value}${snippet}` })}
-                initialSearch={row.key}
-              >
-                <ExpressionInput
-                  value={row.value}
-                  placeholder="Value"
-                  onChange={(value) => crud.update(index, { value })}
-                  variableHints={variableHints}
-                />
-              </InsertVarField>
-            </div>
-            <button type="button" className="btn btn-sm btn-danger" onClick={() => crud.remove(index)}>×</button>
+    <KafkaCard
+      title={title}
+      hint={hint}
+      action={<KafkaAddButton label={addLabel} onClick={onAdd} />}
+    >
+      {rows.length === 0 ? (
+        <KafkaEmptyState text={emptyText ?? `No ${title.toLowerCase()} yet.`} />
+      ) : (
+        <div className="wf-kafka-kv-panel">
+          <div className="wf-config-kv-col-headers">
+            <span className="wf-kv-col-toggle">On</span>
+            <span className="wf-kv-col-fill">Name</span>
+            <span className="wf-kv-col-fill">Value</span>
+            <span className="wf-kv-col-del" />
           </div>
-        ))}
-      </div>
-      <button type="button" className="btn btn-sm" onClick={onAdd}>{addLabel}</button>
-    </div>
+          <div className="wf-config-kv-list">
+            {rows.map((row, index) => (
+              <div key={row.id} className="wf-config-kv-row">
+                <div className="wf-kv-toggle">
+                  <input
+                    type="checkbox"
+                    checked={row.enabled}
+                    onChange={(e) => crud.update(index, { enabled: e.target.checked })}
+                    aria-label={`Enable ${row.key || index + 1}`}
+                  />
+                </div>
+                <input
+                  value={row.key}
+                  placeholder={keyPlaceholder}
+                  onChange={(e) => crud.update(index, { key: e.target.value })}
+                />
+                <div className="wf-config-kv-val-wrap">
+                  <InsertVarField
+                    onRequestVariableInsert={onRequestVariableInsert}
+                    shortRef
+                    onInsert={(snippet) => crud.update(index, { value: `${row.value}${snippet}` })}
+                    initialSearch={row.key}
+                  >
+                    <ExpressionInput
+                      value={row.value}
+                      placeholder="Value"
+                      onChange={(value) => crud.update(index, { value })}
+                      variableHints={variableHints}
+                    />
+                  </InsertVarField>
+                </div>
+                <div className="wf-kv-del">
+                  <button type="button" className="btn btn-sm btn-danger" onClick={() => crud.remove(index)}>
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </KafkaCard>
   );
 }
 
@@ -88,32 +116,35 @@ export function WsConnectionIdField({
   );
 
   return (
-    <div className="wf-config-field--row">
-      <label>Connection ID</label>
-      {availableConnectionIds.length > 0 && (
-        <select
-          value={customConnId ? '__custom__' : connectionId}
-          onChange={(e) => {
-            if (e.target.value === '__custom__') {
-              setForceCustom(true);
-            } else {
-              setForceCustom(false);
-              onChange(e.target.value);
-            }
-          }}
-        >
-          {availableConnectionIds.map((id) => <option key={id} value={id}>{id}</option>)}
-          <option value="__custom__">(custom)</option>
-        </select>
-      )}
-      {(availableConnectionIds.length === 0 || customConnId) && (
-        <input
-          value={connectionId}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="ws1"
-        />
-      )}
-    </div>
+    <KafkaFormRow label="Connection ID" hint="From a WS Connect node" compact>
+      <div className="wf-ws-conn-id-ctrl">
+        {availableConnectionIds.length > 0 && (
+          <CustomSelect
+            value={customConnId ? '__custom__' : connectionId}
+            onChange={(v) => {
+              if (v === '__custom__') {
+                setForceCustom(true);
+              } else {
+                setForceCustom(false);
+                onChange(v);
+              }
+            }}
+            options={[
+              ...availableConnectionIds.map((id) => ({ value: id, label: id })),
+              { value: '__custom__', label: '(custom)' },
+            ]}
+          />
+        )}
+        {(availableConnectionIds.length === 0 || customConnId) && (
+          <input
+            className="wf-kafka-form-input"
+            value={connectionId}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="ws1"
+          />
+        )}
+      </div>
+    </KafkaFormRow>
   );
 }
 
@@ -134,69 +165,67 @@ export function WsMatchCriteriaSection({
 }) {
   const mc = matchCriteria;
   return (
-    <div className="wf-ws-section">
-      <div className="wf-ws-section-title">Match Criteria</div>
-      <span className="wf-config-hint">{hintText}</span>
-
-      <div className="wf-config-field">
-        <label>Message Type</label>
-        <select value={mc.messageType ?? 'any'} onChange={(e) => updateMatch({ messageType: e.target.value as WsMatchCriteria['messageType'] })}>
-          {MSG_TYPE_FILTER_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-        </select>
-      </div>
-
-      <div className="wf-config-field">
-        <label>Content Contains</label>
-        <InsertVarField
-          onRequestVariableInsert={onRequestVariableInsert}
-          shortRef
-          onInsert={(snippet) => updateMatch({ contentContains: `${mc.contentContains ?? ''}${snippet}` })}
-        >
-          <ExpressionInput
-            value={mc.contentContains ?? ''}
-            onChange={(value) => updateMatch({ contentContains: value || undefined })}
-            placeholder="Substring to match"
-            variableHints={variableHints}
+    <KafkaCard title="Match Criteria" hint={hintText}>
+      <div className="wf-kafka-form wf-kafka-form--ws-match">
+        <KafkaFormRow label="Message type" hint="Any · Text · Binary" compact>
+          <CustomSelect
+            value={mc.messageType ?? 'any'}
+            onChange={(v) => updateMatch({ messageType: v as WsMatchCriteria['messageType'] })}
+            options={MSG_TYPE_FILTER_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
           />
-        </InsertVarField>
-      </div>
+        </KafkaFormRow>
 
-      <div className="wf-config-field">
-        <label>Content Regex</label>
-        <input
-          value={mc.contentRegex ?? ''}
-          onChange={(e) => updateMatch({ contentRegex: e.target.value || undefined })}
-          placeholder="Regular expression pattern"
-        />
-      </div>
-
-      <div className="wf-config-field">
-        <label>JSONPath Match</label>
-        <input
-          value={mc.jsonPathMatch ?? ''}
-          onChange={(e) => updateMatch({ jsonPathMatch: e.target.value || undefined })}
-          placeholder="$.event.type"
-        />
-      </div>
-
-      {mc.jsonPathMatch && (
-        <div className="wf-config-field">
-          <label>Expected Value</label>
+        <KafkaFormRow label="Content contains" hint="Substring match">
           <InsertVarField
             onRequestVariableInsert={onRequestVariableInsert}
             shortRef
-            onInsert={(snippet) => updateMatch({ jsonPathValue: `${mc.jsonPathValue ?? ''}${snippet}` })}
+            onInsert={(snippet) => updateMatch({ contentContains: `${mc.contentContains ?? ''}${snippet}` })}
           >
             <ExpressionInput
-              value={mc.jsonPathValue ?? ''}
-              onChange={(value) => updateMatch({ jsonPathValue: value || undefined })}
-              placeholder="Expected value at JSONPath"
+              value={mc.contentContains ?? ''}
+              onChange={(value) => updateMatch({ contentContains: value || undefined })}
+              placeholder="Substring to match"
               variableHints={variableHints}
             />
           </InsertVarField>
-        </div>
-      )}
-    </div>
+        </KafkaFormRow>
+
+        <KafkaFormRow label="Content regex" hint="Optional pattern" compact>
+          <input
+            className="wf-kafka-form-input wf-kafka-form-input--mono"
+            value={mc.contentRegex ?? ''}
+            onChange={(e) => updateMatch({ contentRegex: e.target.value || undefined })}
+            placeholder="Regular expression pattern"
+          />
+        </KafkaFormRow>
+
+        <KafkaFormRow label="JSONPath match" hint="Path in JSON body" compact>
+          <input
+            className="wf-kafka-form-input wf-kafka-form-input--mono"
+            value={mc.jsonPathMatch ?? ''}
+            onChange={(e) => updateMatch({ jsonPathMatch: e.target.value || undefined })}
+            placeholder="$.event.type"
+          />
+        </KafkaFormRow>
+
+        {mc.jsonPathMatch ? (
+          <KafkaFormRow label="Expected value" hint="Value at JSONPath">
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              shortRef
+              onInsert={(snippet) => updateMatch({ jsonPathValue: `${mc.jsonPathValue ?? ''}${snippet}` })}
+            >
+              <ExpressionInput
+                value={mc.jsonPathValue ?? ''}
+                onChange={(value) => updateMatch({ jsonPathValue: value || undefined })}
+                placeholder="Expected value at JSONPath"
+                variableHints={variableHints}
+              />
+            </InsertVarField>
+          </KafkaFormRow>
+        ) : null}
+      </div>
+    </KafkaCard>
   );
 }
 
@@ -225,28 +254,57 @@ export function WsExtractionRulesSection({
   };
 
   return (
-    <div className="wf-ws-section">
-      <div className="wf-ws-section-title">{title}</div>
-      <span className="wf-config-hint">{hint}</span>
-      <div className="wf-config-kv-list">
-        {extractionRules.map((er, index) => (
-          <div key={index} className="wf-config-kv-row">
-            <input
-              value={er.variableName}
-              placeholder="Variable name"
-              onChange={(e) => handleChange(index, 'variableName', e.target.value)}
-            />
-            <input
-              value={er.jsonPath}
-              placeholder="$.field.path"
-              onChange={(e) => handleChange(index, 'jsonPath', e.target.value)}
-            />
-            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleRemove(index)}>×</button>
+    <KafkaCard
+      title={title}
+      hint={hint}
+      action={(
+        <KafkaAddButton
+          label={addLabel}
+          onClick={() => onChange([...extractionRules, createWsExtractionRule()])}
+        />
+      )}
+    >
+      {extractionRules.length === 0 ? (
+        <KafkaEmptyState text="No extractions yet. Add a variable name and JSONPath to pull fields from the message." />
+      ) : (
+        <div className="wf-kafka-extract-panel">
+          <div className="wf-kafka-extract-header" aria-hidden="true">
+            <span className="wf-kafka-extract-col-name">Variable name</span>
+            <span className="wf-kafka-extract-col-path">JSONPath</span>
+            <span className="wf-kafka-extract-col-del" />
           </div>
-        ))}
-      </div>
-      <button type="button" className="btn btn-sm" onClick={() => onChange([...extractionRules, createWsExtractionRule()])}>{addLabel}</button>
-    </div>
+          <div className="wf-kafka-extract-list">
+            {extractionRules.map((er, index) => (
+              <div key={index} className="wf-kafka-extract-row">
+                <div className="wf-kafka-extract-col-name">
+                  <input
+                    value={er.variableName}
+                    placeholder="Variable name"
+                    onChange={(e) => handleChange(index, 'variableName', e.target.value)}
+                  />
+                </div>
+                <div className="wf-kafka-extract-col-path">
+                  <input
+                    value={er.jsonPath}
+                    placeholder="$.field.path"
+                    onChange={(e) => handleChange(index, 'jsonPath', e.target.value)}
+                  />
+                </div>
+                <div className="wf-kafka-extract-col-del">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-danger"
+                    onClick={() => handleRemove(index)}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </KafkaCard>
   );
 }
 
@@ -257,6 +315,7 @@ export function WsOutputBindingsSection<F extends string>({
   fieldOptions,
   bindingCrud,
   onAdd,
+  hint = 'Map connection or message metadata into workflow variables.',
 }: {
   outputBindings: { field: F; variableName: string; enabled: boolean }[];
   fieldOptions: readonly F[];
@@ -265,30 +324,66 @@ export function WsOutputBindingsSection<F extends string>({
     remove: (index: number) => void;
   };
   onAdd: () => void;
+  hint?: string;
 }) {
   return (
-    <div className="wf-ws-section">
-      <div className="wf-ws-section-title">Output Bindings</div>
-      <div className="wf-config-kv-list">
-        {outputBindings.map((row, index) => (
-          <div key={index} className="wf-config-kv-row">
-            <label className="wf-config-checkbox-label" style={{ minWidth: 72 }}>
-              <input type="checkbox" checked={row.enabled} onChange={(e) => bindingCrud.update(index, { enabled: e.target.checked })} />
-              Enabled
-            </label>
-            <select value={row.field} onChange={(e) => bindingCrud.update(index, { field: e.target.value as F })}>
-              {fieldOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-            <input
-              value={row.variableName}
-              onChange={(e) => bindingCrud.update(index, { variableName: e.target.value })}
-              placeholder="Variable name"
-            />
-            <button type="button" className="btn btn-sm btn-danger" onClick={() => bindingCrud.remove(index)}>×</button>
+    <KafkaCard
+      title="Output Bindings"
+      hint={hint}
+      action={<KafkaAddButton label="+ Add Binding" onClick={onAdd} />}
+    >
+      {outputBindings.length === 0 ? (
+        <KafkaEmptyState
+          title="No output bindings"
+          text="Bind a field (protocol, extensions, latency, …) to a workflow variable."
+        />
+      ) : (
+        <div className="wf-kafka-bindings-panel">
+          <div className="wf-kafka-bindings-header" aria-hidden="true">
+            <span className="wf-kafka-bindings-col-on">On</span>
+            <span className="wf-kafka-bindings-col-source">Field</span>
+            <span className="wf-kafka-bindings-col-target">Target variable</span>
+            <span className="wf-kafka-bindings-col-del" />
           </div>
-        ))}
-      </div>
-      <button type="button" className="btn btn-sm" onClick={onAdd}>+ Add Binding</button>
-    </div>
+          <div className="wf-kafka-bindings-list">
+            {outputBindings.map((row, index) => (
+              <div key={index} className="wf-kafka-bindings-row">
+                <div className="wf-kafka-bindings-col-on">
+                  <input
+                    type="checkbox"
+                    checked={row.enabled}
+                    onChange={(e) => bindingCrud.update(index, { enabled: e.target.checked })}
+                    aria-label={`Enable binding ${row.variableName || index + 1}`}
+                  />
+                </div>
+                <div className="wf-kafka-bindings-col-source">
+                  <CustomSelect
+                    value={row.field}
+                    onChange={(v) => bindingCrud.update(index, { field: v as F })}
+                    options={fieldOptions.map((f) => ({ value: f, label: f }))}
+                  />
+                </div>
+                <div className="wf-kafka-bindings-col-target">
+                  <input
+                    value={row.variableName}
+                    onChange={(e) => bindingCrud.update(index, { variableName: e.target.value })}
+                    placeholder="Variable name"
+                  />
+                </div>
+                <div className="wf-kafka-bindings-col-del">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-danger"
+                    onClick={() => bindingCrud.remove(index)}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </KafkaCard>
   );
 }

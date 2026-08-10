@@ -25,7 +25,6 @@ export default function FolderPickerModal({ open, folders, title = 'Choose Desti
       <div className="fp-dialog" onClick={e => e.stopPropagation()}>
         <div className="fp-header">
           <h3 className="fp-title">{title}</h3>
-          <button className="fp-close" onClick={onCancel} aria-label="Close">&times;</button>
         </div>
         <div className="fp-body">
           <button

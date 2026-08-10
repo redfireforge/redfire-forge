@@ -3,6 +3,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import {
+  selectOptionByIndex,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+} from '../../../test-utils/customSelectHelper';
 import MoveModal from './MoveModal';
 import type { FeatureGroup } from '../../../shared/types';
 
@@ -74,9 +79,8 @@ describe('MoveModal', () => {
   });
 
   it('renders feature group select with placeholder', () => {
-    renderModal();
-    const select = screen.getByRole('combobox');
-    expect((select as HTMLSelectElement).value).toBe('');
+    const { container } = renderModal();
+    expect(getCustomSelectValue(container)).toBe('— Select Feature Group —');
     screen.getByText('— Select Feature Group —');
   });
 
@@ -86,23 +90,21 @@ describe('MoveModal', () => {
   });
 
   it('enables Move button when a different feature group is selected', () => {
-    renderModal();
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'fg-2' } });
+    const { container } = renderModal();
+    selectOptionByIndex(container, 0, 'Payments (1 scenarios)');
     expect((screen.getByText('Move') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('disables Move when same location is selected', () => {
-    renderModal();
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'fg-1' } });
+    const { container } = renderModal();
+    selectOptionByIndex(container, 0, 'Auth (2 scenarios) (current)');
     expect((screen.getByText('Move') as HTMLButtonElement).disabled).toBe(true);
     screen.getByText(/current location/i);
   });
 
   it('calls onMove with correct target for scenario', () => {
-    renderModal();
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'fg-2' } });
+    const { container } = renderModal();
+    selectOptionByIndex(container, 0, 'Payments (1 scenarios)');
     fireEvent.click(screen.getByText('Move'));
     expect(onMove).toHaveBeenCalledWith({ fgId: 'fg-2', scenarioId: undefined });
   });
@@ -114,28 +116,24 @@ describe('MoveModal', () => {
   });
 
   it('shows scenario select for test type when feature group is selected', () => {
-    renderModal({ type: 'test' });
-    const fgSelect = screen.getAllByRole('combobox')[0];
-    fireEvent.change(fgSelect, { target: { value: 'fg-2' } });
-    const selects = screen.getAllByRole('combobox');
-    expect(selects).toHaveLength(2);
+    const { container } = renderModal({ type: 'test' });
+    selectOptionByIndex(container, 0, 'Payments (1 scenarios)');
+    expect(container.querySelectorAll('.cs-wrapper')).toHaveLength(2);
   });
 
   it('disables Move for test type until both fg and scenario are selected', () => {
-    renderModal({ type: 'test' });
-    const fgSelect = screen.getAllByRole('combobox')[0];
-    fireEvent.change(fgSelect, { target: { value: 'fg-2' } });
+    const { container } = renderModal({ type: 'test' });
+    selectOptionByIndex(container, 0, 'Payments (1 scenarios)');
     expect((screen.getByText('Move') as HTMLButtonElement).disabled).toBe(true);
 
-    const scSelect = screen.getAllByRole('combobox')[1];
-    fireEvent.change(scSelect, { target: { value: 'sc-3' } });
+    selectOptionByIndex(container, 1, 'Checkout (0 tests)');
     expect((screen.getByText('Move') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('calls onMove with fgId and scenarioId for test type', () => {
-    renderModal({ type: 'test' });
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-2' } });
-    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'sc-3' } });
+    const { container } = renderModal({ type: 'test' });
+    selectOptionByIndex(container, 0, 'Payments (1 scenarios)');
+    selectOptionByIndex(container, 1, 'Checkout (0 tests)');
     fireEvent.click(screen.getByText('Move'));
     expect(onMove).toHaveBeenCalledWith({ fgId: 'fg-2', scenarioId: 'sc-3' });
   });
@@ -149,8 +147,8 @@ describe('MoveModal', () => {
     const fgs: FeatureGroup[] = [{
       id: 'fg-empty', name: 'Empty', microserviceId: 's', environmentId: 'e', scenarios: [],
     }];
-    renderModal({ type: 'test', featureGroups: fgs });
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-empty' } });
+    const { container } = renderModal({ type: 'test', featureGroups: fgs });
+    selectOptionByIndex(container, 0, 'Empty (0 scenarios)');
     screen.getByText('No scenarios in this feature group');
   });
 
@@ -169,14 +167,14 @@ describe('MoveModal', () => {
         },
       ],
     }];
-    renderModal({ type: 'test', sourceScenarioKind: 'parameterized', featureGroups: mixed });
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-mix' } });
+    const { container } = renderModal({ type: 'test', sourceScenarioKind: 'parameterized', featureGroups: mixed });
+    selectOptionByIndex(container, 0, 'Mixed (2 scenarios)');
 
-    screen.getByRole('option', { name: /Par \(1 tests\)/ });
-    expect(screen.queryByRole('option', { name: /Std/ })).toBeNull();
+    const scenarioLabels = getCustomSelectOptionLabels(container, 1);
+    expect(scenarioLabels.some(l => /Par \(1 tests\)/.test(l))).toBe(true);
+    expect(scenarioLabels.some(l => /Std/.test(l))).toBe(false);
 
-    const scSelect = screen.getAllByRole('combobox')[1] as HTMLSelectElement;
-    fireEvent.change(scSelect, { target: { value: 'sc-par' } });
+    selectOptionByIndex(container, 1, 'Par (1 tests)');
     fireEvent.click(screen.getByText('Move'));
     expect(onMove).toHaveBeenCalledWith({ fgId: 'fg-mix', scenarioId: 'sc-par' });
   });
@@ -186,8 +184,8 @@ describe('MoveModal', () => {
       id: 'fg-s', name: 'StandardsOnly', microserviceId: 's', environmentId: 'e',
       scenarios: [{ id: 'sc-std', name: 'Std', kind: 'standard', tests: [] }],
     }];
-    renderModal({ type: 'test', sourceScenarioKind: 'parameterized', featureGroups: onlyStandard });
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-s' } });
+    const { container } = renderModal({ type: 'test', sourceScenarioKind: 'parameterized', featureGroups: onlyStandard });
+    selectOptionByIndex(container, 0, 'StandardsOnly (1 scenarios)');
     screen.getByText('No parameterized scenarios in this feature group');
   });
 
@@ -196,26 +194,26 @@ describe('MoveModal', () => {
       id: 'fg-p', name: 'ParOnly', microserviceId: 's', environmentId: 'e',
       scenarios: [{ id: 'sc-par', name: 'Par', kind: 'parameterized', tests: [] }],
     }];
-    renderModal({ type: 'test', sourceScenarioKind: 'standard', featureGroups: onlyParameterized });
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-p' } });
+    const { container } = renderModal({ type: 'test', sourceScenarioKind: 'standard', featureGroups: onlyParameterized });
+    selectOptionByIndex(container, 0, 'ParOnly (1 scenarios)');
     screen.getByText('No standard scenarios in this feature group');
   });
 
   it('marks current feature group in dropdown', () => {
-    renderModal();
-    screen.getByText(/Auth.*current/);
+    const { container } = renderModal();
+    expect(getCustomSelectOptionLabels(container, 0).some(l => /Auth.*current/.test(l))).toBe(true);
   });
 
   it('marks current scenario when moving a test within the same feature group', () => {
-    renderModal({ type: 'test' });
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-1' } });
-    screen.getByText(/Login.*\(current\)/);
+    const { container } = renderModal({ type: 'test' });
+    selectOptionByIndex(container, 0, 'Auth (2 scenarios) (current)');
+    expect(getCustomSelectOptionLabels(container, 1).some(l => /Login.*\(current\)/.test(l))).toBe(true);
   });
 
   it('does not call onMove when Move is disabled at same test location', () => {
-    renderModal({ type: 'test' });
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-1' } });
-    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'sc-1' } });
+    const { container } = renderModal({ type: 'test' });
+    selectOptionByIndex(container, 0, 'Auth (2 scenarios) (current)');
+    selectOptionByIndex(container, 1, 'Login (1 tests) (current)');
     const moveBtn = screen.getByText('Move') as HTMLButtonElement;
     expect(moveBtn.disabled).toBe(true);
     fireEvent.click(moveBtn);

@@ -10,6 +10,7 @@ import type {
 import { DEFAULT_BACKOFF_MULTIPLIER, resolveBackoffMultiplier } from '../../shared/websocket/types';
 import { isValidWsUrl } from './wsMessageUtils';
 import { KeyValueEditor } from './KeyValueEditor';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 
 // ── Profile Editor Modal ─────────────────────────────────────────────
 
@@ -142,62 +143,79 @@ export function ProfileEditorModal({ initial, prefill, existingNames, onSave, on
       }
     >
       <div className="ws-editor-form" onKeyDown={handleKeyDown} data-testid="profile-editor-modal">
-          <div className="ws-editor-section-label">Connection Settings</div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">Profile Name</label>
-            <input
-              className="ws-editor-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="My WebSocket Server"
-              maxLength={100}
-              autoFocus
-              data-testid="profile-name-input"
-            />
-            {isDuplicateName && (
-              <span className="ws-editor-error">A profile with this name already exists</span>
-            )}
+          <div className="ws-editor-section-label">Connection settings</div>
+          <div className="ws-editor-form-card">
+            <div className={`ws-editor-form-row${isDuplicateName ? ' ws-editor-form-row--tall' : ''}`}>
+              <label className="ws-editor-form-label" htmlFor="ws-profile-name">Profile name</label>
+              <div className="ws-editor-form-ctrl">
+                <input
+                  id="ws-profile-name"
+                  className="ws-editor-input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="My WebSocket Server"
+                  maxLength={100}
+                  autoFocus
+                  data-testid="profile-name-input"
+                />
+                {isDuplicateName && (
+                  <span className="ws-editor-error">A profile with this name already exists</span>
+                )}
+              </div>
+            </div>
+            <div className={`ws-editor-form-row${url.trim().length > 0 && !urlValid ? ' ws-editor-form-row--tall' : ''}`}>
+              <label className="ws-editor-form-label" htmlFor="ws-profile-url">WebSocket URL</label>
+              <div className="ws-editor-form-ctrl">
+                <input
+                  id="ws-profile-url"
+                  className="ws-editor-input ws-editor-mono"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="wss://example.com/ws"
+                  data-testid="profile-url-input"
+                />
+                {url.trim().length > 0 && !urlValid && (
+                  <span className="ws-editor-error">URL must start with ws:// or wss://</span>
+                )}
+              </div>
+            </div>
+            <div className="ws-editor-form-row">
+              <label className="ws-editor-form-label" htmlFor="ws-profile-subprotocols">Subprotocols</label>
+              <div className="ws-editor-form-ctrl ws-editor-form-ctrl--inline">
+                <input
+                  id="ws-profile-subprotocols"
+                  className="ws-editor-input"
+                  value={subprotocols}
+                  onChange={(e) => setSubprotocols(e.target.value)}
+                  placeholder="e.g. graphql-ws, json"
+                />
+              </div>
+            </div>
           </div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">WebSocket URL</label>
-            <input
-              className="ws-editor-input ws-editor-mono"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="wss://example.com/ws"
-              data-testid="profile-url-input"
+
+          <div className="ws-editor-section-label">Headers &amp; parameters</div>
+          <div className="ws-editor-form-card ws-editor-form-card--padded">
+            <KeyValueEditor
+              entries={headers}
+              onChange={setHeaders}
+              onDeleteAll={() => setHeaders([])}
+              label="Headers"
+              sectionClassName="ws-editor-kv-section"
+              headerClassName="ws-editor-kv-header"
+              labelClassName="ws-editor-field-label"
             />
-            {url.trim().length > 0 && !urlValid && (
-              <span className="ws-editor-error">URL must start with ws:// or wss://</span>
-            )}
-          </div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">Subprotocols</label>
-            <input
-              className="ws-editor-input"
-              value={subprotocols}
-              onChange={(e) => setSubprotocols(e.target.value)}
-              placeholder="e.g. graphql-ws, json"
+            <KeyValueEditor
+              entries={queryParams}
+              onChange={setQueryParams}
+              onDeleteAll={() => setQueryParams([])}
+              label="Query parameters"
+              sectionClassName="ws-editor-kv-section ws-editor-kv-section--last"
+              headerClassName="ws-editor-kv-header"
+              labelClassName="ws-editor-field-label"
             />
           </div>
-          <KeyValueEditor
-            entries={headers}
-            onChange={setHeaders}
-            onDeleteAll={() => setHeaders([])}
-            label="Headers"
-            sectionClassName="ws-editor-kv-section"
-            headerClassName="ws-editor-kv-header"
-            labelClassName="ws-editor-field-label"
-          />
-          <KeyValueEditor
-            entries={queryParams}
-            onChange={setQueryParams}
-            onDeleteAll={() => setQueryParams([])}
-            label="Query Parameters"
-            sectionClassName="ws-editor-kv-section"
-            headerClassName="ws-editor-kv-header"
-            labelClassName="ws-editor-field-label"
-          />
+
+          <div className="ws-editor-section-label">Connection behavior</div>
           <div className="ws-editor-group">
             <label className="ws-editor-toggle">
               <input
@@ -215,7 +233,7 @@ export function ProfileEditorModal({ initial, prefill, existingNames, onSave, on
             </label>
             <div className={`ws-reconnect-settings-row ws-editor-reconnect-row${autoReconnect ? '' : ' ws-reconnect-settings-disabled'}`}>
               <div className="ws-editor-inline-field">
-                <label className="ws-editor-field-label">Max Attempts</label>
+                <label className="ws-editor-field-label">Max attempts</label>
                 <input
                   type="number"
                   className="ws-editor-input ws-editor-input-sm"
@@ -227,7 +245,7 @@ export function ProfileEditorModal({ initial, prefill, existingNames, onSave, on
                 />
               </div>
               <div className="ws-editor-inline-field">
-                <label className="ws-editor-field-label">Retry Interval (ms)</label>
+                <label className="ws-editor-field-label">Retry interval (ms)</label>
                 <input
                   type="number"
                   className="ws-editor-input ws-editor-input-sm"
@@ -240,41 +258,53 @@ export function ProfileEditorModal({ initial, prefill, existingNames, onSave, on
                 />
               </div>
               <div className="ws-editor-inline-field">
-                <label className="ws-editor-field-label">Backoff Multiplier</label>
-                <select
-                  className="ws-editor-input ws-editor-input-sm"
-                  value={backoffMultiplier}
-                  onChange={(e) => setBackoffMultiplier(Number(e.target.value) as WsBackoffMultiplier)}
+                <label className="ws-editor-field-label">Backoff multiplier</label>
+                <CustomSelect
+                  className="ws-editor-select"
+                  value={String(backoffMultiplier)}
+                  onChange={(v) => setBackoffMultiplier(Number(v) as WsBackoffMultiplier)}
+                  options={[
+                    { value: '1', label: 'None (fixed interval)' },
+                    { value: '1.5', label: '1.5×' },
+                    { value: '2', label: '2× (recommended)' },
+                  ]}
                   disabled={!autoReconnect}
-                >
-                  <option value={1}>None (fixed interval)</option>
-                  <option value={1.5}>1.5×</option>
-                  <option value={2}>2× (recommended)</option>
-                </select>
+                  aria-label="Backoff multiplier"
+                />
               </div>
             </div>
           </div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">Max Messages</label>
-            <input
-              type="number"
-              className="ws-editor-input ws-editor-input-sm"
-              value={maxMsgs}
-              onChange={(e) => setMaxMsgs(Number(e.target.value) || PROFILE_DEFAULTS.maxMessages)}
-              min={100}
-              max={50000}
-            />
-          </div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">Notes</label>
-            <textarea
-              className="ws-editor-textarea"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes..."
-              maxLength={500}
-              rows={2}
-            />
+
+          <div className="ws-editor-form-card">
+            <div className="ws-editor-form-row">
+              <label className="ws-editor-form-label" htmlFor="ws-profile-max-msgs">Max messages</label>
+              <div className="ws-editor-form-ctrl ws-editor-form-ctrl--inline">
+                <input
+                  id="ws-profile-max-msgs"
+                  type="number"
+                  className="ws-editor-input ws-editor-input-sm ws-editor-input--narrow"
+                  value={maxMsgs}
+                  onChange={(e) => setMaxMsgs(Number(e.target.value) || PROFILE_DEFAULTS.maxMessages)}
+                  min={100}
+                  max={50000}
+                />
+                <span className="ws-editor-hint">Kept in the message log (100–50,000)</span>
+              </div>
+            </div>
+            <div className="ws-editor-form-row ws-editor-form-row--notes">
+              <label className="ws-editor-form-label" htmlFor="ws-profile-notes">Notes</label>
+              <div className="ws-editor-form-ctrl">
+                <textarea
+                  id="ws-profile-notes"
+                  className="ws-editor-textarea"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Optional notes..."
+                  maxLength={500}
+                  rows={2}
+                />
+              </div>
+            </div>
           </div>
         </div>
     </AppModalFrame>,

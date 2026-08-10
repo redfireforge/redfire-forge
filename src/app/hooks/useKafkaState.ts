@@ -199,7 +199,12 @@ export function useKafkaState(): UseKafkaStateReturn {
       });
       setLastError(null);
       setLastErrorDetail(null);
+      const wasPaused = statusPollFailureStreakRef.current >= STATUS_POLL_MAX_FAILURE_STREAK;
       updateFailureStreak(0);
+      // Resume background polling after a paused (backend-down) streak recovers.
+      if (wasPaused) {
+        bumpRefreshNonce();
+      }
     } catch (error) {
       if (latestStatusRequestIdRef.current !== requestId) {
         return;
@@ -218,7 +223,7 @@ export function useKafkaState(): UseKafkaStateReturn {
     } finally {
       statusRequestInFlightCountRef.current = Math.max(statusRequestInFlightCountRef.current - 1, 0);
     }
-  }, [selectedClusterId, updateFailureStreak]);
+  }, [selectedClusterId, updateFailureStreak, bumpRefreshNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -335,6 +340,14 @@ export function useKafkaState(): UseKafkaStateReturn {
 
         await refreshConnectionStatus();
         if (cancelled) {
+          return;
+        }
+
+        // After repeated gateway/network failures (backend or Kafka down), stop
+        // polling. Chrome logs every failed fetch in DevTools and we cannot
+        // suppress that — silence means stop requesting. Resume when the
+        // cluster changes, connect/test succeeds, or refreshNonce bumps.
+        if (statusPollFailureStreakRef.current >= STATUS_POLL_MAX_FAILURE_STREAK) {
           return;
         }
 
@@ -463,6 +476,8 @@ export function useKafkaState(): UseKafkaStateReturn {
       setLastErrorDetail(null);
       connectOperationInFlightRef.current = false;
       await refreshConnectionStatus({ force: true });
+      // Restart status polling if it had paused after a failure streak.
+      bumpRefreshNonce();
       return true;
     } catch (error) {
       connectOperationInFlightRef.current = false;
@@ -477,7 +492,7 @@ export function useKafkaState(): UseKafkaStateReturn {
       updateFailureStreak(statusPollFailureStreakRef.current + 1);
       return false;
     }
-  }, [refreshConnectionStatus, selectedCluster, updateFailureStreak]);
+  }, [bumpRefreshNonce, refreshConnectionStatus, selectedCluster, updateFailureStreak]);
 
   const disconnectActiveCluster = useCallback(async () => {
     const activeClusterId = connection.clusterId ?? selectedClusterId;
@@ -536,7 +551,8 @@ export function useKafkaState(): UseKafkaStateReturn {
     if (connection.state === 'connected' && connection.clusterId === selectedCluster.clusterId) {
       await refreshConnectionStatus({ force: true });
       setLastTestResult({ ok: true, clusterId: selectedCluster.clusterId });
-      testResultTimerRef.current = setTimeout(() => setLastTestResult(null), 5_000);
+      // Keep Verified visible long enough for demos / reading pauses (was 5s).
+      testResultTimerRef.current = setTimeout(() => setLastTestResult(null), 15_000);
       return true;
     }
 
@@ -547,7 +563,7 @@ export function useKafkaState(): UseKafkaStateReturn {
       await new Promise<void>((resolve) => { setTimeout(resolve, 800); });
       await disconnectActiveCluster();
     }
-    testResultTimerRef.current = setTimeout(() => setLastTestResult(null), ok ? 5_000 : 10_000);
+    testResultTimerRef.current = setTimeout(() => setLastTestResult(null), ok ? 15_000 : 10_000);
     return ok;
   }, [connection, connectSelectedCluster, disconnectActiveCluster, refreshConnectionStatus, selectedCluster]);
 
@@ -584,6 +600,26 @@ export function useKafkaState(): UseKafkaStateReturn {
       lastError: undefined,
       state: prev.state === 'error' ? 'disconnected' : prev.state,
     }));
+  }, []);
+
+  // Demo-player bridge: lets lesson setup/cleanup delete clusters by ID or name.
+  const removeClusterRef = useRef(removeCluster);
+  removeClusterRef.current = removeCluster;
+  const clustersRef = useRef(clusters);
+  clustersRef.current = clusters;
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__demoDeleteKafkaClusterById = (clusterId: string) => {
+      removeClusterRef.current(clusterId);
+    };
+    w.__demoDeleteKafkaClusterByName = (name: string) => {
+      const cluster = clustersRef.current.find((c) => c.name === name);
+      if (cluster) removeClusterRef.current(cluster.clusterId);
+    };
+    return () => {
+      delete w.__demoDeleteKafkaClusterById;
+      delete w.__demoDeleteKafkaClusterByName;
+    };
   }, []);
 
   return {

@@ -7,6 +7,8 @@ const STORAGE_KEY = 'redfire-demo-progress-v2';
 const DEFAULT_PROGRESS: DemoProgress = {
   completedLessons: [],
   lessonSteps: {},
+  completedVersions: {},
+  completedStepCounts: {},
   speed: 1,
 };
 
@@ -38,12 +40,19 @@ export function useDemoProgress() {
     });
   }, []);
 
-  const markLessonComplete = useCallback((lessonId: string) => {
+  const markLessonComplete = useCallback((lessonId: string, contentVersion?: number, stepCount?: number) => {
     update(prev => ({
       ...prev,
       completedLessons: prev.completedLessons.includes(lessonId)
         ? prev.completedLessons
         : [...prev.completedLessons, lessonId],
+      completedVersions: {
+        ...prev.completedVersions,
+        [lessonId]: contentVersion ?? prev.completedVersions[lessonId] ?? 1,
+      },
+      completedStepCounts: stepCount != null
+        ? { ...prev.completedStepCounts, [lessonId]: stepCount }
+        : prev.completedStepCounts,
     }));
   }, [update]);
 
@@ -88,6 +97,14 @@ export function useDemoProgress() {
     return 'not_started';
   }, [data.completedLessons, data.lessonSteps]);
 
+  /** True when the user completed an older version of the lesson. */
+  const isLessonUpdated = useCallback((lessonId: string, currentVersion?: number): boolean => {
+    if (!data.completedLessons.includes(lessonId)) return false;
+    const ver = currentVersion ?? 1;
+    const completedVer = data.completedVersions[lessonId] ?? 1;
+    return ver > completedVer;
+  }, [data.completedLessons, data.completedVersions]);
+
   const resetLesson = useCallback((lessonId: string) => {
     update(prev => {
       const lessonSteps = { ...prev.lessonSteps };
@@ -104,6 +121,20 @@ export function useDemoProgress() {
     update(() => DEFAULT_PROGRESS);
   }, [update]);
 
+  const resetLessons = useCallback((lessonIds: string[]) => {
+    update(prev => {
+      const lessonSteps = { ...prev.lessonSteps };
+      for (const id of lessonIds) {
+        delete lessonSteps[id];
+      }
+      return {
+        ...prev,
+        completedLessons: prev.completedLessons.filter(id => !lessonIds.includes(id)),
+        lessonSteps,
+      };
+    });
+  }, [update]);
+
   return {
     data,
     markLessonComplete,
@@ -118,5 +149,7 @@ export function useDemoProgress() {
     getLessonStatus,
     resetLesson,
     resetProgress,
+    resetLessons,
+    isLessonUpdated,
   };
 }

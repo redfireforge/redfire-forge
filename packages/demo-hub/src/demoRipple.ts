@@ -45,31 +45,96 @@ export function getManualSpotlightEventName(): string {
   return MANUAL_SPOTLIGHT_EVENT;
 }
 
+const SPOTLIGHT_RING_TRACK_INTERVAL_MS = 100;
+const activeSpotlightDisposers = new Set<() => void>();
+
+export type SpotlightRingOptions = {
+  /**
+   * When true, omit the pulse animation. Use for in-step "look here" holds —
+   * a steady ring is easier to fixate on than a flashing one.
+   */
+  steady?: boolean;
+};
+
 /**
  * Draw a sustained spotlight ring over an element, reusing the same visual as
  * the step-level DemoSpotlight so it reads as "the spotlight moved to here".
  * Used to walk a viewer through a sequence of controls inside one step
  * (e.g. Start stream → Send all → End stream) with paced holds between each.
  *
- * Positions once at call time — intended for controls that do not move while
- * the ring is shown. Returns a disposer that removes the ring.
+ * Live-tracks the target for the ring's lifetime (interval + scroll/resize),
+ * mirroring DemoSpotlight — so the ring stays accurate even when the element
+ * shifts after the ring appears (modal open animations, toolbar reflow,
+ * verification results pushing layout). Returns a disposer that removes it.
  */
-export function showSpotlightRing(el: HTMLElement): () => void {
+export function showSpotlightRing(el: HTMLElement, opts?: SpotlightRingOptions): () => void {
   beginManualSpotlight();
   const ring = document.createElement('div');
-  ring.className = 'demo-spotlight-ring';
-  const rect = el.getBoundingClientRect();
-  // Match DemoSpotlight's 6px breathing room around the target.
-  ring.style.top = `${rect.top - 6}px`;
-  ring.style.left = `${rect.left - 6}px`;
-  ring.style.width = `${rect.width + 12}px`;
-  ring.style.height = `${rect.height + 12}px`;
-  document.body.appendChild(ring);
+  ring.className = opts?.steady
+    ? 'demo-spotlight-ring demo-spotlight-ring--steady'
+    : 'demo-spotlight-ring';
+
   let disposed = false;
-  return () => {
+  let interval: ReturnType<typeof setInterval> | null = null;
+
+  const dispose = () => {
     if (disposed) return;
     disposed = true;
+    activeSpotlightDisposers.delete(dispose);
+    if (interval) clearInterval(interval);
+    window.removeEventListener('resize', onLayoutChange);
+    window.removeEventListener('scroll', onLayoutChange, true);
     ring.remove();
     endManualSpotlight();
   };
+
+  const position = () => {
+    // Drop ghost rings when React replaces the node mid-step (filter clears,
+    // results mount, etc.) — a detached node's rect is 0,0 and looks random.
+    if (!el.isConnected) {
+      dispose();
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    // Match DemoSpotlight's 6px breathing room around the target.
+    ring.style.top = `${rect.top - 6}px`;
+    ring.style.left = `${rect.left - 6}px`;
+    ring.style.width = `${rect.width + 12}px`;
+    ring.style.height = `${rect.height + 12}px`;
+  };
+
+  const onLayoutChange = () => position();
+
+  position();
+  document.body.appendChild(ring);
+
+  interval = setInterval(position, SPOTLIGHT_RING_TRACK_INTERVAL_MS);
+  window.addEventListener('resize', onLayoutChange);
+  window.addEventListener('scroll', onLayoutChange, true);
+
+  activeSpotlightDisposers.add(dispose);
+  return dispose;
+}
+
+/**
+ * Remove ALL imperative spotlight ring elements from the DOM and reset the
+ * manual spotlight counter. Called on step transitions to prevent ghost rings
+ * from lingering when actions are interrupted.
+ */
+export function purgeAllSpotlightRings(): void {
+  // Dispose active tracked spotlights first so their intervals/listeners stop.
+  for (const dispose of Array.from(activeSpotlightDisposers)) {
+    dispose();
+  }
+  activeSpotlightDisposers.clear();
+
+  // Imperative rings are appended to body; also sweep any strays elsewhere.
+  const rings = document.querySelectorAll<HTMLElement>('.demo-spotlight-ring');
+  rings.forEach(r => {
+    // Keep React-managed DemoSpotlight rings (inside the live overlay tree).
+    if (r.parentElement === document.body) r.remove();
+  });
+  if (readManualSpotlightCount() > 0) {
+    setManualSpotlightCount(0);
+  }
 }

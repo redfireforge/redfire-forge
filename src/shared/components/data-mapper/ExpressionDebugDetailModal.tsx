@@ -12,7 +12,6 @@ export default function ExpressionDebugDetailModal({ step, onClose }: Props) {
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
     e.preventDefault();
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: drag.x, origY: drag.y };
     const handleMove = (ev: MouseEvent) => {
@@ -47,7 +46,6 @@ export default function ExpressionDebugDetailModal({ step, onClose }: Props) {
       >
         <div className="dm-expr-detail-header" onMouseDown={handleDragStart} style={{ cursor: 'grab' }}>
           <span className="dm-expr-detail-badge">{step.label}</span>
-          <button className="dm-expr-detail-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <div className="dm-expr-detail-body">
           <div className="dm-expr-detail-section">
@@ -60,6 +58,9 @@ export default function ExpressionDebugDetailModal({ step, onClose }: Props) {
               {prettyDebugValue(step.displayValue)}
             </pre>
           </div>
+        </div>
+        <div className="dm-expr-detail-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>

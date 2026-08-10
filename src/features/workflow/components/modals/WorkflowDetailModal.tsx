@@ -101,7 +101,7 @@ export default function WorkflowDetailModal({
       bodyScrollable={false}
       expandMode={isCompactChrome ? undefined : 'fullscreen'}
       hideExpandButton={isCompactChrome}
-      hideCloseButton={isCompactChrome}
+      hideCloseButton
       footerClassName={`ram-footer wf-detail-modal-footer${isCompactChrome ? ' wf-detail-modal-footer--end' : ''}`}
       footer={footer}
     >

@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { selectOption, selectOptionByIndex, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import SharedDataSourceModal from './SharedDataSourceModal';
 import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
 import { proxyFetch } from '../../../engine/executor';
@@ -321,10 +322,9 @@ describe('SharedDataSourceModal', () => {
       );
       await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
       const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
-      const fgSelect = within(popup).getAllByRole('combobox')[0];
-      fireEvent.change(fgSelect, { target: { value: 'fg2' } });
-      const scSelect = within(popup).getAllByRole('combobox')[1];
-      expect((scSelect as HTMLSelectElement).value).toBe(fg2.scenarios[0].id);
+      selectOptionByIndex(popup, 0, 'Beta');
+      const scenarioWrapper = popup.querySelectorAll('.cs-wrapper')[1]!;
+      expect(getCustomSelectValue(scenarioWrapper)).toBe(fg2.scenarios[0].name);
     });
 
     it('create-test: scenario dropdown onChange updates target scenario', async () => {
@@ -340,28 +340,28 @@ describe('SharedDataSourceModal', () => {
       );
       await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
       const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
-      const scSelect = within(popup).getAllByRole('combobox')[1];
+      const scenarioWrapper = popup.querySelectorAll('.cs-wrapper')[1]!;
       const secondSc = fg.scenarios[1];
-      fireEvent.change(scSelect, { target: { value: secondSc.id } });
-      expect((scSelect as HTMLSelectElement).value).toBe(secondSc.id);
+      selectOption(scenarioWrapper, secondSc.name);
+      expect(getCustomSelectValue(scenarioWrapper)).toBe(secondSc.name);
     });
 
-    it('create-test: invalid feature group id yields empty scenario options list', async () => {
+    it('create-test: feature group with zero scenarios yields empty scenario options list', async () => {
       const sources = [makeSharedDs('s1', 'D', { fetchConfig: { url: 'https://x.com', method: 'GET', headers: [], auth: { type: 'none' } } })];
+      const emptyFg = makeFeatureGroup('fgEmpty', 'Empty Group', 0);
       render(
         <SharedDataSourceModal
           {...defaultProps}
           sharedDataSources={sources}
-          featureGroups={[makeFeatureGroup('fg1', 'G')]}
+          featureGroups={[makeFeatureGroup('fg1', 'G'), emptyFg]}
           onCreateTestFromSharedDs={vi.fn()}
         />,
       );
       await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
       const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
-      const fgSelect = within(popup).getAllByRole('combobox')[0];
-      fireEvent.change(fgSelect, { target: { value: 'not-a-real-fg' } });
-      const scSelect = within(popup).getAllByRole('combobox')[1] as HTMLSelectElement;
-      expect(scSelect.querySelectorAll('option')).toHaveLength(0);
+      selectOptionByIndex(popup, 0, 'Empty Group');
+      const scenarioWrapper = popup.querySelectorAll('.cs-wrapper')[1]!;
+      expect(getCustomSelectOptionLabels(scenarioWrapper)).toHaveLength(0);
     });
 
     it('create-test popup: frame onClose dismisses modal', async () => {
@@ -392,10 +392,9 @@ describe('SharedDataSourceModal', () => {
       );
       await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
       const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
-      const fgSelect = within(popup).getAllByRole('combobox')[0] as HTMLSelectElement;
-      const scSelect = within(popup).getAllByRole('combobox')[1] as HTMLSelectElement;
-      expect(fgSelect.value).toBe('');
-      expect(scSelect.value).toBe('');
+      const wrappers = popup.querySelectorAll('.cs-wrapper');
+      expect(getCustomSelectValue(wrappers[0]!)).toBe('');
+      expect(getCustomSelectValue(wrappers[1]!)).toBe('');
       expect(within(popup).getByRole('button', { name: /^create test$/i })).toBeDisabled();
     });
 

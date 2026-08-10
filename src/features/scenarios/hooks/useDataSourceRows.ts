@@ -3,7 +3,7 @@
  *
  * Extracted from DataSourceEditor to enable reuse in SharedDataSourceModal.
  */
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { DataSource, DataSourceRow } from '../../../shared/types';
 import { createEmptyRow } from '../utils/dataSourceUtils';
@@ -58,6 +58,18 @@ export interface UseDataSourceRowsReturn {
 }
 
 export function useDataSourceRows({ dataSource: dt, onChange }: UseDataSourceRowsOptions): UseDataSourceRowsReturn {
+  // Keep a mutable mirror so rapid successive edits (label + cells) don't
+  // overwrite each other via stale `dt` closures.
+  const dtRef = useRef(dt);
+  useEffect(() => {
+    dtRef.current = dt;
+  }, [dt]);
+
+  const commit = useCallback((next: DataSource) => {
+    dtRef.current = next;
+    onChange(next);
+  }, [onChange]);
+
   // ─── Selection state ───────────────────────────────────────
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [lastClickedRowId, setLastClickedRowId] = useState<string | null>(null);
@@ -81,13 +93,18 @@ export function useDataSourceRows({ dataSource: dt, onChange }: UseDataSourceRow
 
   const updateCell = useCallback(
     (rowId: string, colId: string, value: string) => {
-      if (!dt) return;
-      const rows = dt.rows.map(r =>
-        r.id === rowId ? { ...r, values: { ...r.values, [colId]: value } } : r,
-      );
-      onChange({ ...dt, rows });
+      const current = dtRef.current;
+      if (!current) return;
+      const rows = current.rows.map(r => {
+        if (r.id !== rowId) return r;
+        const next = { ...r, values: { ...r.values, [colId]: value } };
+        // Typing a value into a blank starter row enables it for the run.
+        if (value.trim() && !next.enabled) next.enabled = true;
+        return next;
+      });
+      commit({ ...current, rows });
     },
-    [dt, onChange],
+    [commit],
   );
 
   const toggleRow = useCallback(
@@ -104,16 +121,19 @@ export function useDataSourceRows({ dataSource: dt, onChange }: UseDataSourceRow
   );
 
   const addRow = useCallback(() => {
-    if (!dt) return;
-    const row = createEmptyRow(dt.columns);
-    onChange({ ...dt, rows: [...dt.rows, row] });
-  }, [dt, onChange]);
+    const current = dtRef.current;
+    if (!current) return;
+    const row = createEmptyRow(current.columns);
+    commit({ ...current, rows: [...current.rows, row] });
+  }, [commit]);
 
   const addSampleRow = useCallback(() => {
-    if (!dt) return;
-    const row = { ...createEmptyRow(dt.columns), isSample: true };
-    onChange({ ...dt, rows: [...dt.rows, row] });
-  }, [dt, onChange]);
+    const current = dtRef.current;
+    if (!current) return;
+    // Sample rows stay enabled (validation / contract flows depend on them).
+    const row = { ...createEmptyRow(current.columns), isSample: true, enabled: true };
+    commit({ ...current, rows: [...current.rows, row] });
+  }, [commit]);
 
   const toggleSample = useCallback(
     (rowId: string) => {
@@ -175,13 +195,14 @@ export function useDataSourceRows({ dataSource: dt, onChange }: UseDataSourceRow
 
   const updateRowLabel = useCallback(
     (rowId: string, label: string) => {
-      if (!dt) return;
-      const rows = dt.rows.map(r =>
+      const current = dtRef.current;
+      if (!current) return;
+      const rows = current.rows.map(r =>
         r.id === rowId ? { ...r, label } : r,
       );
-      onChange({ ...dt, rows });
+      commit({ ...current, rows });
     },
-    [dt, onChange],
+    [commit],
   );
 
   const updateRowNote = useCallback(

@@ -5,6 +5,45 @@
  */
 import { test, expect } from '@playwright/test';
 
+/** Custom filter dropdown (button + opt-* items), not a native <select>. */
+async function selectFilterDropdown(page, testId, value) {
+  await page.getByTestId(testId).click();
+  await page.getByTestId(`${testId}-opt-${value}`).click();
+}
+
+/** CustomSelect via data-testid + option value/label. */
+async function selectCustomSelect(page, testId, { value, label }) {
+  const wrapper = page.getByTestId(testId);
+  await wrapper.locator('.cs-trigger').click();
+  const menu = page.locator('.cs-menu');
+  await menu.waitFor({ state: 'visible', timeout: 5000 });
+  if (value) await menu.locator(`.cs-item[data-value="${value}"]`).click();
+  else await menu.locator('.cs-item', { hasText: label }).first().click();
+}
+
+async function selectCustomSelectByAriaLabel(page, ariaLabel, label) {
+  await page.locator(`button[aria-label="${ariaLabel}"]`).first().click();
+  const menu = page.locator('.cs-menu');
+  await menu.waitFor({ state: 'visible', timeout: 5000 });
+  await menu.locator('.cs-item', { hasText: label }).first().click();
+}
+
+async function selectConsoleCategory(page, value) {
+  await page.getByTestId('ws-console-category').click();
+  await page.getByTestId(`ws-console-category-opt-${value}`).click();
+}
+
+/** Click the Validate label toggle (testid is on the label; checkbox is nested). */
+async function ensureValidationEnabled(page) {
+  const toggle = page.getByTestId('ws-validation-toggle');
+  const input = toggle.locator('input[type="checkbox"]');
+  if (!(await input.isChecked())) {
+    await toggle.click();
+    await page.waitForTimeout(200);
+  }
+}
+
+
 const BASE = 'http://localhost:5173/?tab=websocket-studio';
 // Use a dedicated port to avoid cross-spec mock server interference (ws-core-connect uses 9876)
 const MOCK_PORT = '9880';
@@ -264,15 +303,15 @@ test('WF-07: Size filter', async ({ page }) => {
 
   const sizeFilter = page.locator('[data-testid="size-filter"]');
   // Default: all
-  await expect(sizeFilter).toHaveValue('all');
+  await expect(sizeFilter).toContainText('Size: All');
 
   // Select < 1KB
-  await sizeFilter.selectOption('lt1k');
+  await selectFilterDropdown(page, 'size-filter', 'lt1k');
   await page.waitForTimeout(300);
   // Messages should still be visible (our test messages are small)
 
   // Select > 10KB — should filter out all small messages
-  await sizeFilter.selectOption('gt10k');
+  await selectFilterDropdown(page, 'size-filter', 'gt10k');
   await page.waitForTimeout(300);
   // Match counter should show fewer or 0
 });
@@ -284,10 +323,10 @@ test('WF-08: Time filter', async ({ page }) => {
   await page.waitForTimeout(300);
 
   const timeFilter = page.locator('[data-testid="time-filter"]');
-  await expect(timeFilter).toHaveValue('all');
+  await expect(timeFilter).toContainText('Time: All');
 
   // Select Last 30s — all messages are recent so should still show
-  await timeFilter.selectOption('last30s');
+  await selectFilterDropdown(page, 'time-filter', 'last30s');
   await page.waitForTimeout(300);
 });
 
@@ -298,29 +337,28 @@ test('WF-09: Content type filter', async ({ page }) => {
   await page.waitForTimeout(300);
 
   const ctFilter = page.locator('[data-testid="content-type-filter"]');
-  await expect(ctFilter).toHaveValue('all');
+  await expect(ctFilter).toContainText('Type: All');
 
   // Filter to JSON only
-  await ctFilter.selectOption('json');
+  await selectFilterDropdown(page, 'content-type-filter', 'json');
   await page.waitForTimeout(300);
 
   // Filter to Text only
-  await ctFilter.selectOption('text');
+  await selectFilterDropdown(page, 'content-type-filter', 'text');
   await page.waitForTimeout(300);
 });
 
 test('WF-10: Filter composition (AND logic)', async ({ page }) => {
   await setupWithMessages(page);
 
-  // Set direction to Sent
-  const dirFilter = page.locator('[aria-label="Direction filter"]');
-  await dirFilter.selectOption('sent');
+  // Set direction to Sent (toolbar filter dropdown, not CustomSelect)
+  await selectFilterDropdown(page, 'direction-filter', 'sent');
   await page.waitForTimeout(200);
 
   // Open filter bar and set size
   await page.click('[data-testid="filter-toggle-btn"]');
   await page.waitForTimeout(300);
-  await page.locator('[data-testid="size-filter"]').selectOption('lt1k');
+  await selectFilterDropdown(page, 'size-filter', 'lt1k');
   await page.waitForTimeout(200);
 
   // Set text search
@@ -344,8 +382,8 @@ test('WF-11: Active filter count badge', async ({ page }) => {
   // Open filters and set non-default values
   await filterBtn.click();
   await page.waitForTimeout(300);
-  await page.locator('[data-testid="size-filter"]').selectOption('lt1k');
-  await page.locator('[data-testid="time-filter"]').selectOption('last5m');
+  await selectFilterDropdown(page, 'size-filter', 'lt1k');
+  await selectFilterDropdown(page, 'time-filter', 'last5m');
   await page.waitForTimeout(500);
 
   // Filter button should show count — use expect with timeout for re-render
@@ -373,7 +411,7 @@ test('WF-12: Save current filters as preset', async ({ page }) => {
 
   await page.click('[data-testid="filter-toggle-btn"]');
   await page.waitForTimeout(300);
-  await page.locator('[data-testid="size-filter"]').selectOption('lt1k');
+  await selectFilterDropdown(page, 'size-filter', 'lt1k');
   await page.waitForTimeout(200);
 
   // Click presets button
@@ -399,7 +437,7 @@ test('WF-13+14: Apply and delete preset', async ({ page }) => {
 
   await page.click('[data-testid="filter-toggle-btn"]');
   await page.waitForTimeout(300);
-  await page.locator('[data-testid="size-filter"]').selectOption('lt1k');
+  await selectFilterDropdown(page, 'size-filter', 'lt1k');
   await page.waitForTimeout(200);
 
   const presetsBtn = page.locator('[data-testid="presets-btn"]');
@@ -631,13 +669,7 @@ test('WF-25: Add schema', async ({ page }) => {
   await page.click('[data-testid="right-tab-schema"]');
   await page.waitForTimeout(300);
 
-  // Enable validation
-  const valToggle = page.locator('[data-testid="ws-validation-toggle"]');
-  const isChecked = await valToggle.isChecked();
-  if (!isChecked) {
-    await valToggle.click();
-    await page.waitForTimeout(200);
-  }
+  await ensureValidationEnabled(page);
 
   // Click Add Schema
   await page.click('[data-testid="ws-schema-add-btn"]');
@@ -660,7 +692,7 @@ test('WF-25: Add schema', async ({ page }) => {
 
     const dirSelect = page.locator('[data-testid="ws-schema-direction-select"]');
     if (await dirSelect.isVisible()) {
-      await dirSelect.selectOption('both');
+      await selectCustomSelect(page, 'ws-schema-direction-select', { value: 'both', label: 'Both' });
     }
 
     // Save
@@ -680,12 +712,7 @@ test('WF-26: Edit and Delete schema', async ({ page }) => {
   await page.click('[data-testid="right-tab-schema"]');
   await page.waitForTimeout(300);
 
-  // Add schema first
-  const valToggle = page.locator('[data-testid="ws-validation-toggle"]');
-  if (!(await valToggle.isChecked())) {
-    await valToggle.click();
-    await page.waitForTimeout(200);
-  }
+  await ensureValidationEnabled(page);
 
   await page.click('[data-testid="ws-schema-add-btn"]');
   await page.waitForTimeout(300);
@@ -731,11 +758,7 @@ test('WF-28+29: Validation badges on messages', async ({ page }) => {
   await page.click('[data-testid="right-tab-schema"]');
   await page.waitForTimeout(300);
 
-  const valToggle = page.locator('[data-testid="ws-validation-toggle"]');
-  if (!(await valToggle.isChecked())) {
-    await valToggle.click();
-    await page.waitForTimeout(200);
-  }
+  await ensureValidationEnabled(page);
 
   await page.click('[data-testid="ws-schema-add-btn"]');
   await page.waitForTimeout(300);
@@ -774,11 +797,7 @@ test('WF-30: Validation filter dropdown', async ({ page }) => {
   await page.click('[data-testid="right-tab-schema"]');
   await page.waitForTimeout(300);
 
-  const valToggle = page.locator('[data-testid="ws-validation-toggle"]');
-  if (!(await valToggle.isChecked())) {
-    await valToggle.click();
-    await page.waitForTimeout(200);
-  }
+  await ensureValidationEnabled(page);
 
   await page.click('[data-testid="ws-schema-add-btn"]');
   await page.waitForTimeout(300);
@@ -798,11 +817,11 @@ test('WF-30: Validation filter dropdown', async ({ page }) => {
 
   const vFilter = page.locator('[data-testid="validation-filter"]');
   if (await vFilter.isVisible()) {
-    await vFilter.selectOption('valid');
+    await selectFilterDropdown(page, 'validation-filter', 'valid');
     await page.waitForTimeout(300);
-    await vFilter.selectOption('invalid');
+    await selectFilterDropdown(page, 'validation-filter', 'invalid');
     await page.waitForTimeout(300);
-    await vFilter.selectOption('all');
+    await selectFilterDropdown(page, 'validation-filter', 'all');
     await page.waitForTimeout(300);
   }
 });
@@ -938,7 +957,7 @@ test('WF-36: Console search does NOT affect Events', async ({ page }) => {
 
   const categoryFilter = page.locator('[data-testid="ws-console-category"]');
   if (await categoryFilter.isVisible()) {
-    await categoryFilter.selectOption('handshake');
+    await selectConsoleCategory(page, 'handshake');
     await page.waitForTimeout(300);
   }
 
@@ -972,11 +991,7 @@ test('WF-37: Schema validation only applies to Events', async ({ page }) => {
   await page.click('[data-testid="right-tab-schema"]');
   await page.waitForTimeout(300);
 
-  const valToggle = page.locator('[data-testid="ws-validation-toggle"]');
-  if (!(await valToggle.isChecked())) {
-    await valToggle.click();
-    await page.waitForTimeout(200);
-  }
+  await ensureValidationEnabled(page);
 
   await page.click('[data-testid="ws-schema-add-btn"]');
   await page.waitForTimeout(300);
@@ -1021,7 +1036,7 @@ test('WF-38: Filter presets are Events-only', async ({ page }) => {
 
   const contentFilter = page.locator('[data-testid="content-type-filter"]');
   if (await contentFilter.isVisible()) {
-    await contentFilter.selectOption('json');
+    await selectFilterDropdown(page, 'content-type-filter', 'json');
     await page.waitForTimeout(300);
   }
 

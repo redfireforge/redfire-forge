@@ -633,8 +633,8 @@ describe('WorkflowDesignerFlowCanvas', () => {
     expect(fn?.()).toBe(true);
     expect(mockFitView).toHaveBeenCalledWith({
       padding: { top: 0.08, right: 0.34, bottom: 0.1, left: 0.06 },
-      maxZoom: 1.35,
-      minZoom: 0.9,
+      maxZoom: 1,
+      minZoom: 0.4,
       duration: 250,
       includeHiddenNodes: true,
     });
@@ -647,6 +647,21 @@ describe('WorkflowDesignerFlowCanvas', () => {
       duration: 10,
       includeHiddenNodes: true,
     });
+  });
+
+  it('forces fitView duration 0 while demo bootstrapping', () => {
+    document.body.setAttribute('data-demo-bootstrapping', '1');
+    try {
+      render(<WorkflowDesignerFlowCanvas vm={makeVm()} selected={selected} />);
+      const fn = (window as unknown as Record<string, unknown>).__wfFitView as
+        | ((opts?: Record<string, unknown>) => boolean)
+        | undefined;
+      mockFitView.mockClear();
+      expect(fn?.({ duration: 300 })).toBe(true);
+      expect(mockFitView).toHaveBeenCalledWith(expect.objectContaining({ duration: 0 }));
+    } finally {
+      document.body.removeAttribute('data-demo-bootstrapping');
+    }
   });
 
   it('keeps non-target edges untouched when highlighting drop target edge', () => {
@@ -662,6 +677,60 @@ describe('WorkflowDesignerFlowCanvas', () => {
         selected={selected}
       />,
     );
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('builds published catalog key set from workflowPublication and legacy published flag', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          catalogEntries: [
+            {
+              id: 'entry-a',
+              endpoints: [
+                { id: 'ep-pub', workflowPublication: { publishedAt: Date.now(), publishedFromVersionId: 'v1' } },
+                { id: 'ep-legacy', workflowExposure: 'published' },
+                { id: 'ep-no' },
+              ],
+              folders: [],
+            },
+          ] as unknown as WorkflowDesignerViewModel['catalogEntries'],
+        })}
+        selected={selected}
+      />,
+    );
+
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('scans nested catalog folders when building published key set', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          catalogEntries: [
+            {
+              id: 'entry-b',
+              endpoints: [],
+              folders: [
+                {
+                  id: 'f1',
+                  endpoints: [{ id: 'ep-f1', workflowExposure: 'published' }],
+                  folders: [
+                    {
+                      id: 'f2',
+                      endpoints: [{ id: 'ep-f2', workflowPublication: { publishedAt: Date.now(), publishedFromVersionId: 'v1' } }],
+                      folders: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          ] as unknown as WorkflowDesignerViewModel['catalogEntries'],
+        })}
+        selected={selected}
+      />,
+    );
+
     expect(screen.getByTestId('rf')).toBeTruthy();
   });
 });

@@ -1,7 +1,9 @@
 /** Lesson K1: Kafka Quick Start — configure a cluster, connect, navigate to the Studio */
 import type { DemoLesson } from '../../types';
 import { KAFKA } from '@shared/selectors';
+import { APP } from '@shared/selectors/app';
 import { kafkaQuickStartSetup, kafkaQuickStartCleanup } from '../setup-helpers';
+import { showSpotlightRing } from '../../demoRipple';
 
 /** Default broker address for the plaintext demo stack. */
 const DEMO_BROKER = '127.0.0.1:19092';
@@ -95,11 +97,15 @@ Once saved and connected, your cluster is available across the entire app: Publi
       title: 'Kafka Cluster Studio',
       description:
         'This is **Settings → Kafka** — the Kafka Cluster Studio. Create and manage broker connection profiles here. The left panel lists your saved clusters; the right panel is the editor.',
-      highlight: KAFKA.SETTINGS_PAGE,
+      highlight: APP.AB_SETTINGS,
       preAction: async () => {
         document.querySelectorAll('.kafka-cluster-card.selected').forEach((el) => {
           el.classList.remove('selected');
         });
+      },
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.SETTINGS_PAGE, 2500);
+        await ctx.delay(700);
       },
     },
 
@@ -130,11 +136,18 @@ Once saved and connected, your cluster is available across the entire app: Publi
       id: 'ks-fill',
       title: 'Name Your Cluster',
       description:
-        `Give the cluster a recognisable name — **${DEMO_CLUSTER_NAME}**. The broker address \`${DEMO_BROKER}\` is already pre-filled for the local plaintext stack. Leave Auth as "No authentication".`,
-      highlight: KAFKA.CLUSTER_EDITOR,
+        `Give the cluster a recognisable name — **${DEMO_CLUSTER_NAME}**. Then verify **Bootstrap Brokers** is set to \`${DEMO_BROKER}\` for the local plaintext stack. You can also enter multiple brokers with commas (for example, \`host1:9092,host2:9092\`). Leave Auth as "No authentication".`,
+      highlight: KAFKA.BROKER_INPUT,
       action: async (ctx) => {
         await ctx.waitFor('#kafka-cluster-name', 3000);
         await ctx.fill('#kafka-cluster-name', DEMO_CLUSTER_NAME);
+        await ctx.waitFor(KAFKA.BROKER_INPUT, 3000);
+        const brokerInput = document.querySelector<HTMLElement>(KAFKA.BROKER_INPUT);
+        if (brokerInput) {
+          const remove = showSpotlightRing(brokerInput);
+          await ctx.delay(600);
+          remove();
+        }
         await ctx.delay(300);
       },
     },
@@ -192,12 +205,29 @@ Once saved and connected, your cluster is available across the entire app: Publi
       title: 'Into the Kafka Studio',
       description:
         'Head to **Protocols → Kafka**. You\'ll see four tabs: **Publish**, **Consume**, **Topics**, and **Schema Registry**. The next lessons cover each one.',
-      highlight: KAFKA.PUBLISH_TAB,
-      // preAction: navigate before the reading phase starts so the tab switch
-      // is already complete when the user reads the description.
-      preAction: async (ctx) => {
-        ctx.navigateToTab('kafka-message-studio');
-        await ctx.delay(400);
+      highlight: APP.AB_PROTOCOLS,
+      action: async (ctx) => {
+        await ctx.waitFor(APP.AB_PROTOCOLS, 2500);
+
+        const protocolsBtn = document.querySelector<HTMLElement>(APP.AB_PROTOCOLS);
+        if (protocolsBtn) {
+          const remove = showSpotlightRing(protocolsBtn);
+          await ctx.delay(500);
+          remove();
+        }
+        await ctx.click(APP.AB_PROTOCOLS);
+        await ctx.delay(250);
+
+        await ctx.waitFor('[data-testid="nav-tab-kafka-message-studio"]', 2500);
+
+        const kafkaTab = document.querySelector<HTMLElement>('[data-testid="nav-tab-kafka-message-studio"]');
+        if (kafkaTab) {
+          const remove = showSpotlightRing(kafkaTab);
+          await ctx.delay(500);
+          remove();
+        }
+        await ctx.click('[data-testid="nav-tab-kafka-message-studio"]');
+        await ctx.waitFor(KAFKA.PUBLISH_TAB, 2500);
       },
     },
   ],

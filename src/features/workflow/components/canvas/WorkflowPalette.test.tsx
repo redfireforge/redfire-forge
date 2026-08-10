@@ -6,6 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import WorkflowPalette from './WorkflowPalette';
 import type { RequestCollection } from '../../../../shared/types';
 import type { CatalogEntry } from '../../../catalog/types/catalog';
+import type { WorkflowPreviewEntry } from '../../../../shared/utils/workflowPreviewStorage';
 
 vi.mock('../nodes/NodeIcon', () => ({ NodeIcon: ({ type }: { type: string }) => <span data-testid={`icon-${type}`} /> }));
 
@@ -32,18 +33,22 @@ const catalogEntries: CatalogEntry[] = [
   {
     id: 'e1',
     name: 'Catalog One',
-    endpoints: [{ id: 'ep0', method: 'get', path: '/root', summary: 'Root EP', exposedToWorkflow: true }],
+    endpoints: [{ id: 'ep0', method: 'get', path: '/root', summary: 'Root EP', workflowExposure: 'published' }],
     folders: [
       {
         id: 'cf1',
         name: 'Cat Folder',
-        endpoints: [{ id: 'ep1', method: 'post', path: '/create', summary: 'Create thing', exposedToWorkflow: true }],
+        endpoints: [{ id: 'ep1', method: 'post', path: '/create', summary: 'Create thing', workflowExposure: 'published' }],
         folders: [
-          { id: 'cf2', name: 'Cat Nested', endpoints: [{ id: 'ep2', method: 'put', path: '/edit', summary: 'Edit thing', exposedToWorkflow: true }], folders: [] },
+          { id: 'cf2', name: 'Cat Nested', endpoints: [{ id: 'ep2', method: 'put', path: '/edit', summary: 'Edit thing', workflowExposure: 'published' }], folders: [] },
         ],
       },
     ],
   } as unknown as CatalogEntry,
+];
+
+const previewEndpoints: WorkflowPreviewEntry[] = [
+  { entryId: 'e1', endpointId: 'ep-prev', method: 'patch', path: '/preview-ep', summary: 'Preview EP', entryName: 'Catalog One', addedAt: Date.now() },
 ];
 
 function setup(over: Partial<Parameters<typeof WorkflowPalette>[0]> = {}) {
@@ -79,13 +84,13 @@ describe('WorkflowPalette', () => {
     expect(onAddNode).toHaveBeenCalledTimes(2);
   });
 
-  it('toggles a category open/closed', () => {
+  it('switches category via rail button', () => {
     setup();
-    const header = screen.getByText('Triggers').closest('button') as Element;
     expect(screen.getByText('Manual Start')).toBeTruthy();
-    fireEvent.click(header);
+    fireEvent.click(screen.getByTestId('wf-palette-rail-logic'));
     expect(screen.queryByText('Manual Start')).toBeNull();
-    fireEvent.click(header);
+    expect(screen.getByText('Condition')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('wf-palette-rail-triggers'));
     expect(screen.getByText('Manual Start')).toBeTruthy();
   });
 
@@ -102,27 +107,29 @@ describe('WorkflowPalette', () => {
 
   it('filters blocks by search and shows no-results message', () => {
     setup();
-    const search = screen.getByPlaceholderText('Search blocks…');
+    const search = screen.getByPlaceholderText('Search all blocks…');
     fireEvent.change(search, { target: { value: 'zzzznotfound' } });
     expect(screen.getByText(/No blocks matching/)).toBeTruthy();
   });
 
   it('filters blocks to a matching block and clears search', () => {
     setup();
-    const search = screen.getByPlaceholderText('Search blocks…');
+    const search = screen.getByPlaceholderText('Search all blocks…');
     fireEvent.change(search, { target: { value: 'kafka' } });
     expect(document.querySelector('.wf-palette-block-kafkaProduce')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Clear search'));
     expect(screen.getByText('Manual Start')).toBeTruthy();
   });
 
-  it('renders gRPC blocks and adds each gRPC non-advanced node type', () => {
+  it('renders gRPC blocks via Actions rail and adds each node type', () => {
     const { onAddNode } = setup();
+    fireEvent.click(screen.getByTestId('wf-palette-rail-actions'));
     fireEvent.click(screen.getByText('gRPC Unary'));
     fireEvent.click(screen.getByText('gRPC Server Stream'));
-    fireEvent.click(screen.getByText('gRPC Assert'));
     expect(onAddNode).toHaveBeenNthCalledWith(1, 'grpcUnary');
     expect(onAddNode).toHaveBeenNthCalledWith(2, 'grpcServerStream');
+    fireEvent.click(screen.getByTestId('wf-palette-rail-logic'));
+    fireEvent.click(screen.getByText('gRPC Assert'));
     expect(onAddNode).toHaveBeenNthCalledWith(3, 'grpcAssert');
   });
 
@@ -191,7 +198,7 @@ describe('WorkflowPalette', () => {
     const hiddenOnly: CatalogEntry[] = [{
       id: 'e2',
       name: 'Hidden Cat',
-      endpoints: [{ id: 'epH', method: 'get', path: '/hidden', summary: 'Hidden', exposedToWorkflow: false }],
+      endpoints: [{ id: 'epH', method: 'get', path: '/hidden', summary: 'Hidden' }],
       folders: [],
     } as unknown as CatalogEntry];
     setup({ catalogEntries: hiddenOnly });
@@ -218,10 +225,42 @@ describe('WorkflowPalette', () => {
     setup();
     fireEvent.click(screen.getByText('Requests'));
     fireEvent.click(screen.getByText('Blocks'));
-    const search = screen.getByPlaceholderText('Search blocks…');
+    const search = screen.getByPlaceholderText('Search all blocks…');
     fireEvent.change(search, { target: { value: 'cron-based' } });
     expect(screen.getByText('Schedule Trigger')).toBeTruthy();
     expect(document.querySelector('.wf-palette-match')).toBeTruthy();
+  });
+
+  it('shows protocol chips when Actions category is selected', () => {
+    setup();
+    fireEvent.click(screen.getByTestId('wf-palette-rail-actions'));
+    expect(screen.getByTestId('wf-palette-chip-http')).toBeTruthy();
+    expect(screen.getByTestId('wf-palette-chip-kafka')).toBeTruthy();
+    expect(screen.getByTestId('wf-palette-chip-websocket')).toBeTruthy();
+    expect(screen.getByTestId('wf-palette-chip-graphql')).toBeTruthy();
+    expect(screen.getByTestId('wf-palette-chip-grpc')).toBeTruthy();
+  });
+
+  it('filters by protocol chip', () => {
+    setup();
+    fireEvent.click(screen.getByTestId('wf-palette-rail-actions'));
+    fireEvent.click(screen.getByTestId('wf-palette-chip-kafka'));
+    expect(screen.getByText('Kafka Produce')).toBeTruthy();
+    expect(screen.queryByText('HTTP Request')).toBeNull();
+  });
+
+  it('search shows results across all categories', () => {
+    setup();
+    const search = screen.getByPlaceholderText('Search all blocks…');
+    fireEvent.change(search, { target: { value: 'fork' } });
+    expect(document.querySelector('.wf-palette-block-fork')).toBeTruthy();
+  });
+
+  it('does not show protocol chips for non-Actions categories', () => {
+    setup();
+    expect(screen.queryByTestId('wf-palette-chip-http')).toBeNull();
+    fireEvent.click(screen.getByTestId('wf-palette-rail-logic'));
+    expect(screen.queryByTestId('wf-palette-chip-http')).toBeNull();
   });
 
   it('shows no-results message when request search has no matches', () => {
@@ -255,11 +294,11 @@ describe('WorkflowPalette', () => {
     const noSummary: CatalogEntry[] = [{
       id: 'e3',
       name: 'Paths Only',
-      endpoints: [{ id: 'epP', method: 'delete', path: '/no-summary', exposedToWorkflow: true }],
+      endpoints: [{ id: 'epP', method: 'delete', path: '/no-summary', workflowExposure: 'published' }],
       folders: [{
         id: 'cfEmpty',
         name: 'Empty On Search',
-        endpoints: [{ id: 'epX', method: 'get', path: '/other', summary: 'Other', exposedToWorkflow: true }],
+        endpoints: [{ id: 'epX', method: 'get', path: '/other', summary: 'Other', workflowExposure: 'published' }],
         folders: [],
       }],
     } as unknown as CatalogEntry];
@@ -277,11 +316,11 @@ describe('WorkflowPalette', () => {
     const exotic: CatalogEntry[] = [{
       id: 'e4',
       name: 'Exotic',
-      endpoints: [{ id: 'epF', method: 'foo', path: '/exotic-path', exposedToWorkflow: true }],
+      endpoints: [{ id: 'epF', method: 'foo', path: '/exotic-path', workflowExposure: 'published' }],
       folders: [{
         id: 'cf1',
         name: 'Nested',
-        endpoints: [{ id: 'epN', method: 'bar', path: '/nested-path', summary: 'Nested EP', exposedToWorkflow: true }],
+        endpoints: [{ id: 'epN', method: 'bar', path: '/nested-path', summary: 'Nested EP', workflowExposure: 'published' }],
         folders: [],
       }],
     } as unknown as CatalogEntry];
@@ -325,5 +364,125 @@ describe('WorkflowPalette', () => {
     expect(screen.getByText('Create thing')).toBeTruthy();
     fireEvent.click(screen.getByText('Cat Folder'));
     expect(screen.queryByText('Create thing')).toBeNull();
+  });
+
+  it('renders preview endpoints in a separate Preview section', () => {
+    const { onAddFromCatalog } = setup({ previewEndpoints });
+    fireEvent.click(screen.getByText('Catalog'));
+    expect(screen.getByText('Preview (yours)')).toBeTruthy();
+    expect(screen.getByText('Preview EP')).toBeTruthy();
+    fireEvent.click(screen.getByText('Preview EP'));
+    expect(onAddFromCatalog).toHaveBeenCalledWith('e1', 'ep-prev');
+  });
+
+  it('shows both Published and Preview section headers when both exist', () => {
+    setup({ previewEndpoints });
+    fireEvent.click(screen.getByText('Catalog'));
+    expect(screen.getByText('Published')).toBeTruthy();
+    expect(screen.getByText('Preview (yours)')).toBeTruthy();
+  });
+
+  it('shows both section headers when only published endpoints exist (preview shows empty hint)', () => {
+    setup({ previewEndpoints: [] });
+    fireEvent.click(screen.getByText('Catalog'));
+    expect(screen.getByText('Published')).toBeTruthy();
+    expect(screen.getByText('Preview (yours)')).toBeTruthy();
+    expect(screen.getByTestId('wf-palette-preview-empty')).toBeTruthy();
+    expect(screen.getByText('No preview endpoints')).toBeTruthy();
+  });
+
+  it('shows both section headers when only previews exist (published shows empty hint)', () => {
+    setup({ catalogEntries: [], previewEndpoints });
+    fireEvent.click(screen.getByText('Catalog'));
+    expect(screen.getByText('Published')).toBeTruthy();
+    expect(screen.getByText('Preview (yours)')).toBeTruthy();
+    expect(screen.getByTestId('wf-palette-pub-empty')).toBeTruthy();
+    expect(screen.getByText('No published endpoints')).toBeTruthy();
+    expect(screen.getByText('Preview EP')).toBeTruthy();
+  });
+
+  it('collapses Published section when header is clicked', () => {
+    setup({ previewEndpoints });
+    fireEvent.click(screen.getByText('Catalog'));
+    expect(screen.getByText('Catalog One')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('wf-palette-pub-section'));
+    expect(screen.queryByText('Catalog One')).toBeNull();
+    expect(screen.getByText('Preview EP')).toBeTruthy();
+  });
+
+  it('collapses Preview section when header is clicked', () => {
+    setup({ previewEndpoints });
+    fireEvent.click(screen.getByText('Catalog'));
+    expect(screen.getByText('Preview EP')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('wf-palette-preview-section'));
+    expect(screen.queryByText('Preview EP')).toBeNull();
+    expect(screen.getByText('Catalog One')).toBeTruthy();
+  });
+
+  it('filters preview endpoints by search', () => {
+    setup({ previewEndpoints });
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.change(screen.getByPlaceholderText('Search catalog…'), { target: { value: 'preview' } });
+    expect(screen.getByText('Preview EP')).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText('Search catalog…'), { target: { value: 'zzzznotfound' } });
+    expect(screen.queryByText('Preview EP')).toBeNull();
+  });
+
+  it('filters preview endpoints by entryName', () => {
+    setup({ previewEndpoints });
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.change(screen.getByPlaceholderText('Search catalog…'), { target: { value: 'Catalog One' } });
+    expect(screen.getByText('Preview EP')).toBeTruthy();
+  });
+
+  it('shows endpoints published via workflowPublication (P2 field)', () => {
+    const p2Entries: CatalogEntry[] = [{
+      id: 'e5',
+      name: 'P2 API',
+      endpoints: [{
+        id: 'ep-p2', method: 'post', path: '/p2-endpoint', summary: 'P2 Published',
+        workflowPublication: { publishedAt: Date.now(), publishedFromVersionId: 'v1' },
+      }],
+      folders: [],
+    } as unknown as CatalogEntry];
+    const { onAddFromCatalog } = setup({ catalogEntries: p2Entries });
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.click(screen.getByText('P2 API'));
+    fireEvent.click(screen.getByText('P2 Published'));
+    expect(onAddFromCatalog).toHaveBeenCalledWith('e5', 'ep-p2');
+  });
+
+  it('shows stale badge for published endpoint when version differs', () => {
+    const staleEntries: CatalogEntry[] = [{
+      id: 'e6',
+      name: 'Stale API',
+      currentVersionId: 'v2',
+      endpoints: [{
+        id: 'ep-stale', method: 'get', path: '/stale', summary: 'Stale EP',
+        workflowPublication: { publishedAt: 1000, publishedFromVersionId: 'v1' },
+      }],
+      folders: [],
+    } as unknown as CatalogEntry];
+    setup({ catalogEntries: staleEntries });
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.click(screen.getByText('Stale API'));
+    expect(screen.getByTestId('wf-palette-stale-badge')).toBeTruthy();
+  });
+
+  it('does not show stale badge when version matches', () => {
+    const currentEntries: CatalogEntry[] = [{
+      id: 'e7',
+      name: 'Current API',
+      currentVersionId: 'v1',
+      endpoints: [{
+        id: 'ep-ok', method: 'get', path: '/current', summary: 'Current EP',
+        workflowPublication: { publishedAt: 1000, publishedFromVersionId: 'v1' },
+      }],
+      folders: [],
+    } as unknown as CatalogEntry];
+    setup({ catalogEntries: currentEntries });
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.click(screen.getByText('Current API'));
+    expect(screen.queryByTestId('wf-palette-stale-badge')).toBeNull();
   });
 });

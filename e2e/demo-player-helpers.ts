@@ -30,13 +30,14 @@
  *   });
  *
  * ─── KEY SYNCHRONISATION CONTRACT ───────────────────────────────────────────
- * The demo player has two phases per step:
- *   READING  — Next button enabled  (user reads the description)
- *   ACTION   — Next button disabled (the step's action() is running)
+ * Per step phases (see data-step-phase on [data-testid="demo-live-panel"]):
+ *   READING  — Next disabled; skip via ".demo-live-phase-badge.skippable"
+ *   ACTION / VERIFY / PRE — Next disabled (pipeline running)
+ *   DONE     — Next enabled (except last step)
  *
- * waitForReadingPhase() is the canonical gate for when the Next button is
- * enabled. To run a step's action(), use completeCurrentStepAction() or
- * runNextStep() — never click Next during reading (that aborts the action).
+ * waitForReadingPhase() waits for data-step-phase === 'reading'.
+ * To run a step's action(), use completeCurrentStepAction() or runNextStep() —
+ * skip reading via the badge, then click Next only after phase is done.
  */
 
 import { type Page, expect } from '@playwright/test';
@@ -232,19 +233,17 @@ export async function launchGrpcLesson(
 // ─── Step control ─────────────────────────────────────────────────────────────
 
 /**
- * Wait until the demo enters its READING phase (Next button enabled).
- * This is the canonical synchronisation gate — prefer it over any
- * page.waitForTimeout() calls.
+ * Wait until the demo enters its READING phase
+ * (`data-step-phase="reading"`). Next stays disabled during reading —
+ * skip via the phase badge, then advance after done.
  */
 export async function waitForReadingPhase(
   page: Page,
   timeout = STEP_TIMEOUT,
 ): Promise<void> {
   await page.waitForFunction(
-    () => {
-      const btn = document.querySelector('[aria-label="Next step"]') as HTMLButtonElement | null;
-      return btn !== null && !btn.disabled;
-    },
+    () =>
+      document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase') === 'reading',
     { timeout },
   );
 }
@@ -257,12 +256,14 @@ export async function skipReadingPause(page: Page): Promise<void> {
   }
 }
 
-/** Wait until the step action pipeline disables the Next button. */
+/** Wait until the step action pipeline is running (not reading/done). */
 export async function waitForActionPhase(page: Page, timeout = 5_000): Promise<void> {
   await page.waitForFunction(
     () => {
-      const btn = document.querySelector('[aria-label="Next step"]') as HTMLButtonElement | null;
-      return btn !== null && btn.disabled;
+      const phase = document
+        .querySelector('[data-testid="demo-live-panel"]')
+        ?.getAttribute('data-step-phase');
+      return phase === 'action' || phase === 'verify' || phase === 'pre';
     },
     { timeout },
   ).catch(() => { /* zero-action observation step */ });
@@ -272,8 +273,8 @@ export async function waitForActionPhase(page: Page, timeout = 5_000): Promise<v
  * Skip the reading pause (if skippable) and wait for the current step's action
  * to finish. Does not advance the step index — use runNextStep for that.
  *
- * IMPORTANT: Clicking the Next button during reading aborts the step before its
- * action runs. Always call this (or runNextStep) instead of clicking Next directly.
+ * Next is disabled during reading — always skip via the badge (or wait out the
+ * pause), then click Next only after phase is done.
  */
 export async function completeCurrentStepAction(
   page: Page,
@@ -301,8 +302,47 @@ export async function runNextStep(
   page: Page,
   actionTimeoutMs = STEP_TIMEOUT,
 ): Promise<void> {
+  const panelSel = '[data-testid="demo-live-panel"]';
+  const counterSel = '.demo-live-step-counter';
+  const nextBtn = page.locator('[aria-label="Next step"]');
+  let phase = await page.locator(panelSel).getAttribute('data-step-phase');
+  if (phase === 'done') {
+    await nextBtn.click();
+    await waitForReadingPhase(page, actionTimeoutMs);
+    return;
+  }
+
+  if (phase === 'reading') {
+    const beforeCounter = (await page.locator(counterSel).textContent().catch(() => null))?.trim() ?? '';
+    if (await nextBtn.isEnabled().catch(() => false)) {
+      await nextBtn.click();
+      const advanced = await page.waitForFunction(
+        ({ sel, before }) => {
+          const el = document.querySelector(sel);
+          return !!el && (el.textContent ?? '').trim() !== before;
+        },
+        { sel: counterSel, before: beforeCounter },
+        { timeout: actionTimeoutMs },
+      ).then(() => true).catch(() => false);
+      if (advanced) {
+        await waitForReadingPhase(page, actionTimeoutMs);
+        return;
+      }
+    }
+  }
+
+  if (phase !== 'reading') {
+    await waitForReadingPhase(page, actionTimeoutMs);
+    phase = await page.locator(panelSel).getAttribute('data-step-phase');
+    if (phase === 'done') {
+      await nextBtn.click();
+      await waitForReadingPhase(page, actionTimeoutMs);
+      return;
+    }
+  }
+
   await completeCurrentStepAction(page, actionTimeoutMs);
-  await page.locator('[aria-label="Next step"]').click();
+  await nextBtn.click();
   await waitForReadingPhase(page, actionTimeoutMs);
 }
 

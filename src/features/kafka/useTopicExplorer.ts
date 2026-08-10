@@ -132,14 +132,15 @@ export function useTopicExplorer(
       }
       if (healthFilter !== 'all') {
         const detail = cache.get(t.name);
-        if (detail && detail.healthStatus !== healthFilter) return false;
+        if (!detail) return healthFilter === 'unknown';
+        if (detail.healthStatus !== healthFilter) return false;
       }
       if (retentionFilter !== 'any') {
         const detail = cache.get(t.name);
-        if (detail) {
-          const ms = parseInt(detail.config['retention.ms'] ?? '', 10);
-          if (!isNaN(ms) && !matchesRetentionBucket(ms, retentionFilter)) return false;
-        }
+        if (!detail) return false;
+        const ms = parseInt(detail.config['retention.ms'] ?? '', 10);
+        if (isNaN(ms)) return false;
+        if (!matchesRetentionBucket(ms, retentionFilter)) return false;
       }
       return true;
     });

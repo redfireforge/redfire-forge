@@ -133,13 +133,14 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
   };
 
   return (
-    <div className="body-editor-panel">
+    <div className="body-editor-panel" data-testid="req-body-editor">
       {/* Dropdown trigger + body content header */}
       <div className="body-type-dropdown-wrapper" ref={dropdownRef}>
         <button
           ref={triggerRef}
           type="button"
           className="body-type-trigger"
+          data-testid="req-body-type-trigger"
           onClick={() => {
             setDropdownOpen(o => {
               if (!o) setDropdownStyle(computePosition());
@@ -153,7 +154,7 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
         </button>
 
         {dropdownOpen && (
-          <div className="body-type-dropdown" style={dropdownStyle}>
+          <div className="body-type-dropdown" data-testid="req-body-type-dropdown" style={dropdownStyle}>
             {BODY_TYPE_GROUPS.map((group) => (
               <div key={group.label} className="body-type-dropdown-group">
                 <span className="body-type-dropdown-label">

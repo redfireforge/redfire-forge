@@ -33,6 +33,13 @@ describe('CatalogSidebar', () => {
     expect(props.onImport).toHaveBeenCalled();
   });
 
+  it('fires onBatchConvertToOpenApi from the Batch Convert button when provided', async () => {
+    const props = { ...defaultProps(), onBatchConvertToOpenApi: vi.fn() };
+    render(<CatalogSidebar entries={[]} {...props} />);
+    await userEvent.click(screen.getByRole('button', { name: /Batch Convert/ }));
+    expect(props.onBatchConvertToOpenApi).toHaveBeenCalled();
+  });
+
   it('renders entries with version, endpoint count and method dots; selects on click', async () => {
     const props = defaultProps();
     const entry = makeEntry({
@@ -57,6 +64,20 @@ describe('CatalogSidebar', () => {
     const row = screen.getByRole('button', { name: /KbAPI/ });
     row.focus();
     await userEvent.keyboard('{Enter}');
+    expect(props.onSelectEntry).toHaveBeenCalledWith('e1');
+  });
+
+  it('selects an entry via keyboard (Space) and ignores other keys', async () => {
+    const props = defaultProps();
+    const entry = makeEntry({ id: 'e1', name: 'KbSpaceAPI' });
+    render(<CatalogSidebar entries={[entry]} {...props} />);
+    const row = screen.getByRole('button', { name: /KbSpaceAPI/ });
+    row.focus();
+
+    await userEvent.keyboard('{ArrowDown}');
+    expect(props.onSelectEntry).not.toHaveBeenCalled();
+
+    await userEvent.keyboard(' ');
     expect(props.onSelectEntry).toHaveBeenCalledWith('e1');
   });
 
@@ -120,5 +141,28 @@ describe('CatalogSidebar', () => {
     expect(screen.queryByText('Edit')).not.toBeInTheDocument();
     expect(screen.queryByText('Export Original Spec')).not.toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  it('renders and triggers Convert / Upgrade action when onConvertToOpenApi is provided', async () => {
+    const props = { ...defaultProps(), onConvertToOpenApi: vi.fn() };
+    const entry = makeEntry({ id: 'e1', name: 'ConvertableAPI' });
+    render(<CatalogSidebar entries={[entry]} {...props} />);
+
+    await userEvent.pointer({ keys: '[MouseRight]', target: screen.getByText('ConvertableAPI') });
+    await userEvent.click(screen.getByTestId('catalog-ctx-convert'));
+    expect(props.onConvertToOpenApi).toHaveBeenCalledWith('e1');
+  });
+
+  it('handles stale context menu entry ids by rendering no menu items', async () => {
+    const props = defaultProps();
+    const entry = makeEntry({ id: 'e1', name: 'StaleEntryAPI' });
+    const { rerender } = render(<CatalogSidebar entries={[entry]} {...props} />);
+
+    await userEvent.pointer({ keys: '[MouseRight]', target: screen.getByText('StaleEntryAPI') });
+    rerender(<CatalogSidebar entries={[]} {...props} />);
+
+    expect(screen.getByTestId('catalog-ctx-menu')).toBeInTheDocument();
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    expect(screen.queryByText('Version History')).not.toBeInTheDocument();
   });
 });

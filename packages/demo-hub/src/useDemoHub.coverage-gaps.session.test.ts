@@ -189,7 +189,10 @@ describe('useDemoHub — coverage gaps (session & resume)', () => {
       result.current.toggleAutoPlay();
     });
     expect(result.current.state.isPlaying).toBe(false);
-    expect(result.current.stepPhase).toBe('done');
+    // At 100ms the step is still in its pre phase (startLiveDemo now sets 'pre' immediately).
+    // The double-toggle net-cancels (both calls see isPlayingRef=false so neither triggers
+    // pauseAutoPlay), leaving the phase in 'pre' rather than resetting to 'done'.
+    expect(result.current.stepPhase).toBe('pre');
   });
 
   it('pauseAutoPlay clears pending auto-advance timer when auto-play is active', async () => {

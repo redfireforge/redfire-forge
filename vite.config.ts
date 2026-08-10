@@ -260,6 +260,30 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
 export default defineConfig({
   plugins: [demoHubRootImportsPlugin(), monacoDevNoisePlugin(), react(), proxyPlugin(), demoLiveGuardPlugin(), docsPlugin()],
   customLogger: createMonacoAwareLogger(),
+  define: {
+    'process.env': '{}',
+    '__dirname': '"/"',
+    '__filename': '"/index.js"',
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
+  optimizeDeps: {
+    include: [
+      '@scalar/openapi-upgrader',
+      '@scalar/openapi-upgrader/2.0-to-3.0',
+      'openapi-format',
+      'swagger2openapi',
+      'oas-validator',
+    ],
+    rolldownOptions: {
+      transform: {
+        define: {
+          'process.env': '{}',
+          '__dirname': '"/"',
+          '__filename': '"/index.js"',
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@redfireforge/demo-hub': resolve(__dirname, 'packages/demo-hub/src'),
@@ -273,6 +297,16 @@ export default defineConfig({
       'node:fs': resolve(__dirname, 'src/shims/fs-browser.ts'),
       stream: resolve(__dirname, 'src/shims/stream-browser.ts'),
       'node:stream': resolve(__dirname, 'src/shims/stream-browser.ts'),
+      // openapi-format (pretty-YAML normalization) eagerly requires these at load
+      // time for remote-$ref support we never use; stub them for the browser bundle.
+      path: resolve(__dirname, 'src/shims/path-browser.ts'),
+      'node:path': resolve(__dirname, 'src/shims/path-browser.ts'),
+      http: resolve(__dirname, 'src/shims/http-browser.ts'),
+      'node:http': resolve(__dirname, 'src/shims/http-browser.ts'),
+      https: resolve(__dirname, 'src/shims/https-browser.ts'),
+      'node:https': resolve(__dirname, 'src/shims/https-browser.ts'),
+      url: resolve(__dirname, 'src/shims/url-browser.ts'),
+      'node:url': resolve(__dirname, 'src/shims/url-browser.ts'),
     },
   },
   clearScreen: false,
@@ -318,8 +352,5 @@ export default defineConfig({
   },
   preview: {
     strictPort: true,
-  },
-  define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
   },
 })

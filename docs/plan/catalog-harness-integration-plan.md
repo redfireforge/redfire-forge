@@ -975,14 +975,14 @@ Thread catalog → harness promotion through App.tsx.
 
 **Effort: Small | Dependencies: 6A, 6C**
 
-In the Catalog "Try It Out" view, after successfully sending a request (200 response), offer a quick "Save as Test" button.
+In the Catalog "Try It Out" view, after successfully sending a request (200 response), offer a quick "Send to Harness" button.
 
-#### 6G.1 Add "Save as Test" Button After Successful Response
+#### 6G.1 Add "Send to Harness" Button After Successful Response
 
 **File:** `src/features/catalog/components/CatalogEndpointCard.tsx` (or the Try It Out response area)
 
 When the user sends a request and gets a 200 response:
-- Show a "Save as Test" button below the response
+- Show a "Send to Harness" button below the response
 - Pre-fills the scenario with the exact URL/headers/body that were used
 - Auto-sets validation preset to `status-200`
 - Opens the target picker (same as 6B but simplified — just group/scenario selection)
@@ -991,7 +991,7 @@ When the user sends a request and gets a 200 response:
 
 | # | Test Case |
 |---|-----------|
-| 1 | "Save as Test" only appears after successful response |
+| 1 | "Send to Harness" only appears after successful response |
 | 2 | Created scenario includes the actual request URL and status validation |
 
 ---
@@ -1146,7 +1146,7 @@ When the user sends a request and gets a 200 response:
 - [x] 6B.1 Create `SendToHarnessModal.tsx` with 2-step UI (target, preview with auth/validation options)
 - [x] 6B.2 Add "Send to Harness" button in RequestEditor name bar
 - [x] 6B.3 CSS styles for modal and button
-- [x] 6B.4 `defaultValidationPreset` prop for auto-presetting validation (used by "Save as Test")
+- [x] 6B.4 `defaultValidationPreset` prop for auto-presetting validation (used by "Send to Harness")
 - [x] 6B.5 Unit tests (5 cases)
 - [x] Run `npx tsc -b --noEmit`
 
@@ -1182,8 +1182,8 @@ When the user sends a request and gets a 200 response:
 - [x] Run `npx tsc -b --noEmit`
 
 #### 6G: "Try It Out" → Promote ✅
-- [x] 6G.1 Add "Save as Test" button after successful 2xx response in CatalogEndpointCard
-- [x] 6G.2 Auto-preset validation to `status-200` when promoted from "Save as Test" (`fromTryItOut` flag → `defaultValidationPreset`)
+- [x] 6G.1 Add "Send to Harness" button after successful 2xx response in CatalogEndpointCard
+- [x] 6G.2 Auto-preset validation to `status-200` when promoted from "Send to Harness" (`fromTryItOut` flag → `defaultValidationPreset`)
 - [x] 6G.3 Unit tests (3 cases)
 - [x] Run `npx tsc -b --noEmit`
 
@@ -1228,7 +1228,7 @@ During planning, we explored complex features that were rejected:
 |------|--------|
 | 2026-05-18 | **Post-implementation enhancements (not in original plan).** Schema-based body generation for Send to Harness (`sampleFromSchema` in `catalogEndpointToRequest.ts`). Host strategy & placeholder URL warning (amber banner in `CatalogEndpointCard`). Query parameter de-duplication in `requestToScenario.ts` (`bakeQueryParams` strips existing query string before appending). Additional environment amber indicators throughout UI. Workflow canvas viewport persistence (`IntersectionObserver` in `WorkflowDesignerFlowCanvas`). Plan status table corrected: Phase 6 marked ✅ Done, Phase 1 checklist marked [x]. |
 | 2026-05-17 | **Phase 5 deferred items completed.** 5E.4: Pinned/latest toggle in workflow HttpConfig. 5E.5: `resolveNodeSpecVersion.ts` utility + `detectNewerVersion` with 8 unit tests. 5F.3: Spec version badge in Test Runner ScenarioSelector. All Phase 5 sub-phases now fully implemented. |
-| 2026-05-17 | **Phase 6 gap fixes.** Wired `openEditorAfter` (pendingEditTest → ScenarioBuilder auto-opens editor), confirmation toast after promotion, clickable origin badge (navigate to source request with fallback), auto-preset validation to `status-200` for "Save as Test" from Try It Out. |
+| 2026-05-17 | **Phase 6 gap fixes.** Wired `openEditorAfter` (pendingEditTest → ScenarioBuilder auto-opens editor), confirmation toast after promotion, clickable origin badge (navigate to source request with fallback), auto-preset validation to `status-200` for "Send to Harness" from Try It Out. |
 | 2026-05-17 | **Phase 6 gaps addressed.** Added auth mode choice (concrete/inherit), FG scoping (auto-set env/microservice), post-promote "Open editor" option, Known Limitations table (no undo, standard-only, import portability, multi-env via replaceHost). All minor additions within existing sub-phases. |
 | 2026-05-17 | **Phase 6 plan redesigned.** Adopted "one-time snapshot" model (disconnected after promotion). Removed version sync complexity (6D old). Added batch promotion (6E), "Try It Out" → Promote (6G), origin badges (6D new), `promotedToHarness` flag. 7 sub-phases (6A–6G), 29 unit tests. Effort back to Medium. |
 | 2026-05-17 | **Phase 6 plan detailed.** Broke into 5 sub-phases (6A–6E) with 28 unit tests. Added architecture gap analysis covering data model, URL resolution, auth inheritance, validation, and state management differences between Requests and Harness. Upgraded effort from Medium to Large. |

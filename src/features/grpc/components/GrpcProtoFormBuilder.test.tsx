@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { useState } from 'react';
 import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
 import type { GrpcMessageSchema } from '../../../shared/grpc/contracts';
@@ -156,7 +157,7 @@ describe('GrpcProtoFormBuilder (Phase 1F)', () => {
     );
 
     expect(screen.getByTestId('grpc-proto-oneof-payload')).toBeTruthy();
-    fireEvent.change(screen.getByTestId('grpc-proto-oneof-select-payload'), { target: { value: 'id' } });
+    selectOption(screen.getByTestId('grpc-proto-oneof-select-payload'), 'id');
     expect(onChange).toHaveBeenCalledWith({ id: 0 });
   });
 
@@ -187,7 +188,7 @@ describe('GrpcProtoFormBuilder (Phase 1F)', () => {
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-id'), { target: { value: 'not-a-number' } });
     expect(onValidityChange).toHaveBeenLastCalledWith(false);
 
-    fireEvent.change(screen.getByTestId('grpc-proto-oneof-select-payload'), { target: { value: 'name' } });
+    selectOption(screen.getByTestId('grpc-proto-oneof-select-payload'), 'name');
     expect(onValidityChange).toHaveBeenLastCalledWith(true);
   });
 

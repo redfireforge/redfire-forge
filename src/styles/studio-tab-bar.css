@@ -1,0 +1,93 @@
+/* ── Shared Studio Tab Bar Utilities ─────────────────────────────── */
+
+/* ── Drop Indicators (drag-reorder) ─────────────────────────────── */
+
+.studio-tab-drop-before {
+  box-shadow: inset 3px 0 0 var(--primary, #3b82f6);
+}
+.studio-tab-drop-after {
+  box-shadow: inset -3px 0 0 var(--primary, #3b82f6);
+}
+
+/* ── Context Menu ───────────────────────────────────────────────── */
+
+.studio-tab-ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 180px;
+  padding: 4px 0;
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, #3b4a60);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
+  font-size: 0.78rem;
+}
+
+.studio-tab-ctx-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 14px;
+  background: none;
+  border: none;
+  color: var(--text, #f1f5f9);
+  cursor: pointer;
+  text-align: left;
+  font-size: inherit;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.studio-tab-ctx-item:hover:not(:disabled) {
+  background: var(--surface-hover, #2d3a4d);
+}
+.studio-tab-ctx-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.studio-tab-ctx-item--danger {
+  color: var(--error-color, #ef5350);
+}
+.studio-tab-ctx-item--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error-color, #ef5350) 12%, var(--surface, #1e293b));
+}
+
+.studio-tab-ctx-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--border, #3b4a60);
+}
+
+/* ── Shared Duplicate Button ────────────────────────────────────── */
+
+.studio-tab-duplicate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  color: var(--text-muted, #a8b8cc);
+  cursor: pointer;
+  font-size: 0.72rem;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+/* Show on parent tab hover */
+*:hover > .studio-tab-duplicate-btn,
+.studio-tab-duplicate-btn:focus-visible {
+  opacity: 0.7;
+}
+.studio-tab-duplicate-btn:hover:not(:disabled) {
+  opacity: 1;
+  background: var(--surface-hover, #2d3a4d);
+}
+.studio-tab-duplicate-btn:disabled,
+.studio-tab-duplicate-btn[aria-disabled="true"] {
+  opacity: 0 !important;
+  cursor: default;
+  pointer-events: none;
+}

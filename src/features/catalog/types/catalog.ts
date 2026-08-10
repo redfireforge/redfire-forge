@@ -45,6 +45,8 @@ export interface CatalogVersion {
   specHash: string;
   specSize: number;
   changelog?: string;
+  /** Human-readable spec schema format, e.g. "Swagger 2.0" or "OpenAPI 3.0.3". */
+  specFormat?: string;
 }
 
 // ─── Folders & Endpoints ─────────────────────────────────
@@ -67,6 +69,18 @@ export interface CatalogEndpointWorkflowValues {
   body?: string;
 }
 
+/** Rich metadata for a Published endpoint (P2+). Presence means the endpoint is published. */
+export interface WorkflowPublication {
+  /** When this endpoint was published. */
+  publishedAt: number;
+  /** The catalog version ID at time of publishing. */
+  publishedFromVersionId: string;
+  /** Captured parameter/header/body defaults for workflow nodes. */
+  values?: CatalogEndpointWorkflowValues;
+  /** Optional note from the publisher (e.g. "Approved for load testing"). */
+  note?: string;
+}
+
 export interface CatalogEndpoint {
   id: string;
   operationId?: string;
@@ -80,10 +94,22 @@ export interface CatalogEndpoint {
   security?: string[];
   deprecated?: boolean;
   tags: string[];
-  /** When true, this endpoint is visible in the Workflow Designer's CATALOG palette. */
+  /**
+   * @deprecated Use `workflowExposure` instead. Kept for migration only.
+   */
   exposedToWorkflow?: boolean;
-  /** Saved parameter/header/body values captured when exposing to workflow. */
+  /**
+   * @deprecated Use `workflowPublication` for Published state. Preview is user-local.
+   * Kept for migration from P0/P1. Cleared by P2 migration.
+   */
+  workflowExposure?: 'preview' | 'published';
+  /** @deprecated Superseded by `workflowPublication.values`. Kept for migration only. */
   workflowValues?: CatalogEndpointWorkflowValues;
+  /**
+   * Publication metadata. Present = endpoint is published to Workflow Designer.
+   * Absent = not published. Preview state is stored in user-local storage (P1).
+   */
+  workflowPublication?: WorkflowPublication;
 }
 
 // ─── Parameters ──────────────────────────────────────────
@@ -193,6 +219,7 @@ export interface CatalogSpecDiff {
   added: EndpointDiff[];
   removed: EndpointDiff[];
   changed: EndpointDiff[];
+  metadata?: string[];
   summary: {
     totalAdded: number;
     totalRemoved: number;

@@ -340,11 +340,9 @@ export default function TestEditorValidationTab({
       </div>
 
       {/* ── Body Validation Mode ──────────────────────── */}
-      <div className="body-validation-section">
-        <div className="body-validation-header">
-          <span className="body-validation-title">Body Validation</span>
-          <span className="body-validation-hint">Compare the response body against expected JSON</span>
-        </div>
+      <div className="body-validation-section body-validation-inline">
+        <span className="body-validation-title">Body Validation</span>
+        <span className="body-validation-hint">Compare the response body against expected JSON</span>
         <div className="radio-group">
           {(['none', 'full', 'selective'] as ValidationMode[]).map((m) => (
             <label key={m} className="radio-label">

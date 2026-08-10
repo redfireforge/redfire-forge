@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import KafkaTriggerConfig from './KafkaTriggerConfig';
 import type { KafkaTriggerNodeData } from '../../types/workflow';
 
@@ -99,16 +100,14 @@ describe('KafkaTriggerConfig', () => {
 
   // ── Offset policy ─────────────────────────────────────────────────────────
   it('renders offset policy select defaulting to latest', () => {
-    render(<Host />);
-    const sel = screen.getByDisplayValue('Latest (no replay)');
-    expect(sel).toBeTruthy();
+    const { container } = render(<Host />);
+    expect(getCustomSelectValue(container)).toBe('Latest (no replay)');
   });
 
   it('calls onChange when offset policy changes', () => {
     const onChange = vi.fn();
-    render(<KafkaTriggerConfig data={makeData()} onChange={onChange} variableHints={[]} />);
-    const sel = screen.getByDisplayValue('Latest (no replay)');
-    fireEvent.change(sel, { target: { value: 'earliest' } });
+    const { container } = render(<KafkaTriggerConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    selectOption(container, 'Earliest (replay all)');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ startPosition: 'earliest' }));
   });
 

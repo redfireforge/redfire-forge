@@ -1,5 +1,7 @@
 // ─── Results Explorer ────────────────────────────────────────────
 export const REX = {
+  /** Open button in the Results Dashboard header (testid + title fallback). */
+  OPEN_BTN: ':is([data-testid="results-explorer-open-btn"], button[title="Explore execution results"])',
   DIAGRAM: '[data-testid="results-explorer-diagram"]',
   FIT_VIEW_BTN: '[data-testid="results-explorer-fit-view-btn"]',
   VIEW_DIAGRAM: '[data-testid="view-toggle-diagram"]',

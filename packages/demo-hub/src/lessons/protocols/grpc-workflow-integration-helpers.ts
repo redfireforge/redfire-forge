@@ -4,6 +4,7 @@ import { GRPC, WF } from '@shared/selectors';
 import {
   getGrpcActiveDescriptorKey,
   connectWorkflowNodes,
+  deleteWorkflowByName,
   fitWorkflowCanvasView,
   getWorkflowByName,
   patchWorkflowNodeDataById,
@@ -13,13 +14,39 @@ import {
 import {
   collapseWfDemoAppSidebar,
   fillWfConfigField,
-  scrollWfConfigFieldIntoView,
+  holdWfSpotlight,
   selectWfConfigOption,
 } from '../wf-demo-helpers';
 import { spotlightAndPause, spotlightElementAndPause } from './grpc-lesson-helpers';
 import type { DemoActionContext } from '../../types';
 
+/** Native `<select>` or CustomSelect (`.cs-wrapper`) — both use selectOption. */
+function isSelectableGrpcConfigControl(el: Element | null): boolean {
+  if (!el) return false;
+  if (el instanceof HTMLSelectElement) return true;
+  return el.classList.contains('cs-wrapper') || !!el.closest('.cs-wrapper');
+}
+
+/** Confirm CustomSelect landed; retry via set-value if the menu pick missed. */
+async function ensureCustomSelectValue(
+  ctx: DemoActionContext,
+  selector: string,
+  value: string,
+): Promise<void> {
+  const el = document.querySelector(selector);
+  const wrapper = el?.classList.contains('cs-wrapper')
+    ? el
+    : el?.closest('.cs-wrapper');
+  if (!wrapper || wrapper.getAttribute('data-value') === value) return;
+  wrapper.dispatchEvent(
+    new CustomEvent('custom-select:set-value', { detail: { value } }),
+  );
+  await ctx.delay(200);
+}
+
 export const WF14_NAME = 'gRPC Echo Demo';
+/** Legacy scratch name — deleted on setup/cleanup if a prior build left it behind. */
+export const WF14_PALETTE_SCRATCH_NAME = 'gRPC Blocks Preview';
 export const WF14_NODE_START = 'grpc14-start';
 export const WF14_NODE_GRPC = 'grpc14-echo';
 export const WF14_NODE_ASSERT = 'grpc14-assert';
@@ -156,12 +183,42 @@ export function isNodeOnCanvas(nodeId: string): boolean {
   return !!document.querySelector(`.react-flow__node[data-id="${nodeId}"]`);
 }
 
+/** True when any gRPC Unary node is on the canvas (preset id or palette-generated id). */
+export function isUnaryNodeOnCanvas(): boolean {
+  return isNodeOnCanvas(WF14_NODE_GRPC)
+    || !!document.querySelector(`${WF.NODE_GRPC_UNARY}, .react-flow__node-grpcUnary`);
+}
+
+/**
+ * Resolve the live Echo Call node id — palette clicks mint a UUID, while seeds
+ * use `WF14_NODE_GRPC`. Prefer the preset id when present.
+ */
+export function resolveWf14UnaryNodeId(): string {
+  if (isNodeOnCanvas(WF14_NODE_GRPC)) return WF14_NODE_GRPC;
+  const el = document.querySelector<HTMLElement>(
+    `${WF.NODE_GRPC_UNARY}, .react-flow__node-grpcUnary`,
+  );
+  return el?.closest('.react-flow__node')?.getAttribute('data-id')
+    ?? el?.getAttribute('data-id')
+    ?? WF14_NODE_GRPC;
+}
+
 export function isWorkflowPresent(): boolean {
   return !!getWorkflowByName(WF14_NAME);
 }
 
 function isCanvasShowingWorkflow(): boolean {
   return !!document.querySelector(`${WF.CANVAS} .react-flow__node`);
+}
+
+/**
+ * Quiet fit after config save — no Fit-button spotlight tour (avoids extra motion
+ * when the viewer should stay focused on the node outcome).
+ */
+export async function quietWfFitView(ctx: DemoActionContext): Promise<void> {
+  document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN)?.click();
+  fitWorkflowCanvasView();
+  await ctx.delay(450);
 }
 
 /**
@@ -254,11 +311,20 @@ export async function ensureOnWorkflowTab(ctx: DemoActionContext): Promise<void>
   }
 }
 
+/** Remove leftover palette-scratch workflow from older lesson builds. */
+export async function clearPaletteScratchQuiet(ctx: DemoActionContext): Promise<void> {
+  if (getWorkflowByName(WF14_PALETTE_SCRATCH_NAME)) {
+    deleteWorkflowByName(WF14_PALETTE_SCRATCH_NAME);
+    await ctx.delay(80);
+  }
+}
+
 /**
  * Seed the complete workflow and mark all session flags — fast path for rapid-Next
  * users who skipped building steps.
  */
 export async function seedCompleteWorkflowQuiet(ctx: DemoActionContext): Promise<void> {
+  await clearPaletteScratchQuiet(ctx);
   await seedNamedWorkflow(ctx, WF14_NAME, buildCompleteGrpcEchoWorkflow(), {
     deleteDelayMs: 60,
     insertDelayMs: 160,
@@ -304,8 +370,11 @@ export async function waitForGrpcUnaryReflectionReady(
  * Pick Service/Method from reflection dropdowns when available; fall back to
  * typed inputs if reflection did not succeed (offline fixture / unresolved target).
  *
- * When `paced` is true, spotlight each control before/after so brisk lesson timing
- * still leaves readable beats for the viewer.
+ * Workflow Unary uses **CustomSelect** (`.cs-wrapper`), not native `<select>`.
+ * Always prefer `selectOption` for dropdowns — `fill` is a silent no-op on them.
+ *
+ * When `paced` is true: one select beat per control, then a hold on the landed value.
+ * Do not pre-spotlight (selectWfConfigOption already rings the field).
  */
 export async function selectGrpcUnaryServiceAndMethod(
   ctx: DemoActionContext,
@@ -316,40 +385,36 @@ export async function selectGrpcUnaryServiceAndMethod(
   const paced = options?.paced === true;
   await waitForGrpcUnaryReflectionReady(ctx);
 
-  if (paced) {
-    await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_SERVICE);
-    await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_SERVICE, 750);
-  }
-
   const serviceEl = document.querySelector(GRPC.WF_UNARY_CFG_SERVICE);
-  if (serviceEl?.tagName === 'SELECT') {
+  if (isSelectableGrpcConfigControl(serviceEl)) {
     await selectWfConfigOption(ctx, GRPC.WF_UNARY_CFG_SERVICE, service);
+    await ensureCustomSelectValue(ctx, GRPC.WF_UNARY_CFG_SERVICE, service);
   } else {
     await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_SERVICE, service);
   }
-
   if (paced) {
-    await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_SERVICE, 900);
-    await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_METHOD);
-    await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_METHOD, 750);
+    await holdWfSpotlight(ctx, GRPC.WF_UNARY_CFG_SERVICE, 1100);
   }
 
+  // Service change clears Method and rebuilds its options — pause before picking.
+  await ctx.delay(paced ? 500 : 200);
+
   const methodEl = document.querySelector(GRPC.WF_UNARY_CFG_METHOD);
-  if (methodEl?.tagName === 'SELECT') {
+  if (isSelectableGrpcConfigControl(methodEl)) {
     await selectWfConfigOption(ctx, GRPC.WF_UNARY_CFG_METHOD, method);
+    await ensureCustomSelectValue(ctx, GRPC.WF_UNARY_CFG_METHOD, method);
   } else {
     await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_METHOD, method);
   }
-
   if (paced) {
-    await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_METHOD, 1000);
+    await holdWfSpotlight(ctx, GRPC.WF_UNARY_CFG_METHOD, 1200);
   }
 }
 
 /** Ensure the unary node has target/service/method configured. */
 export function ensureUnaryConnectionConfig(): void {
   if (wf14Session.unaryConfigured && wf14Session.unarySecurityConfigured) return;
-  patchWorkflowNodeDataById(WF14_NODE_GRPC, {
+  patchWorkflowNodeDataById(resolveWf14UnaryNodeId(), {
     target: 'localhost:50051',
     descriptorKey: resolveWorkflowDescriptorKey(),
     service: 'echo.EchoService',
@@ -365,7 +430,7 @@ export function ensureUnaryConnectionConfig(): void {
 
 export function ensureUnarySecurityConfig(): void {
   if (wf14Session.unarySecurityConfigured) return;
-  patchWorkflowNodeDataById(WF14_NODE_GRPC, {
+  patchWorkflowNodeDataById(resolveWf14UnaryNodeId(), {
     metadata: { 'x-demo-run-id': 'workflow-demo' },
     auth: { type: 'bearer', bearerToken: ECHO_BEARER_TOKEN },
   });
@@ -390,7 +455,7 @@ export async function ensureFullWorkflowQuiet(ctx: DemoActionContext): Promise<v
   await ensureOnWorkflowTab(ctx);
   if (
     !isWorkflowPresent() ||
-    !isNodeOnCanvas(WF14_NODE_GRPC) ||
+    !isUnaryNodeOnCanvas() ||
     !isNodeOnCanvas(WF14_NODE_ASSERT)
   ) {
     await seedCompleteWorkflowQuiet(ctx);

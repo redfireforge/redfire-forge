@@ -37,6 +37,8 @@ interface PrerequisiteGateProps {
   tabBudget?: number;
   /** Called once when the user has closed enough tabs for this lesson. */
   onTabCapacityReady?: () => void;
+  /** When true, the gate starts in 'up' state and skips polling (server was already confirmed reachable). */
+  initiallyCleared?: boolean;
 }
 
 type ProbeState = 'idle' | 'checking' | 'up' | 'down';
@@ -52,6 +54,7 @@ export default function PrerequisiteGate({
   onProbeStatusChange,
   tabBudget,
   onTabCapacityReady,
+  initiallyCleared,
 }: PrerequisiteGateProps) {
   const probeEndpoints = useMemo(
     () => (endpoints?.length ? endpoints : endpoint ? [endpoint] : []),
@@ -61,13 +64,13 @@ export default function PrerequisiteGate({
     () => probeEndpoints.map((url, i) => endpointLabels?.[i] ?? deriveEndpointLabel(url)),
     [probeEndpoints, endpointLabels],
   );
-  const [probeState, setProbeState] = useState<ProbeState>('idle');
+  const [probeState, setProbeState] = useState<ProbeState>(initiallyCleared ? 'up' : 'idle');
   const [serviceStates, setServiceStates] = useState<ProbeState[]>([]);
   const [tabCapacityState, setTabCapacityState] = useState<TabCapacityState>('idle');
   const [tabsToClose, setTabsToClose] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
-  const notifiedRef = useRef(false);
+  const notifiedRef = useRef(initiallyCleared ?? false);
   const tabNotifiedRef = useRef(false);
   const budget = tabBudget ?? 1;
   const needsTabGate = budget > 0 && Boolean(onTabCapacityReady);
@@ -75,7 +78,9 @@ export default function PrerequisiteGate({
 
   const checkTabCapacity = useCallback(async () => {
     if (!needsTabGate || !mountedRef.current) return;
-    setTabCapacityState('checking');
+    // Keep last known blocked/ok state during re-checks — avoid a 3s flicker
+    // of the tab-capacity banner while the async count runs.
+    setTabCapacityState((prev) => (prev === 'idle' ? 'checking' : prev));
     const userCount = await countUserTabsInStorage();
     const toClose = userTabsToCloseForLesson(userCount, budget);
     if (!mountedRef.current) return;
@@ -93,9 +98,14 @@ export default function PrerequisiteGate({
 
   const probe = useCallback(async () => {
     if (!mountedRef.current || probeEndpoints.length === 0) return;
-    setProbeState('checking');
+    // Once confirmed up, stop polling — no need to re-check.
+    if (notifiedRef.current) return;
+    // Only show "Checking…" on the first probe (idle → checking). Subsequent
+    // polls must keep the last known status (usually "down") so the Concept
+    // page does not flash ✗ → ⏳ → ✗ every 3 seconds while Docker is offline.
+    setProbeState((prev) => (prev === 'idle' ? 'checking' : prev));
     const results = await Promise.all(
-      probeEndpoints.map((url) => checkEndpoint(url, 2500)),
+      probeEndpoints.map((url) => checkEndpoint(url, 6000)),
     );
     const ok = results.every(Boolean);
     if (!mountedRef.current) return;
@@ -107,11 +117,40 @@ export default function PrerequisiteGate({
     if (ok && !notifiedRef.current) {
       notifiedRef.current = true;
       onServerReady();
+      // Stop further polling now that all services are confirmed reachable.
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
   }, [probeEndpoints, probeLabels, onServerReady, onProbeStatusChange]);
 
   useEffect(() => {
     mountedRef.current = true;
+    if (initiallyCleared) {
+      // Previously confirmed — do a single silent re-verification without visual flicker.
+      // If the server went down since last session, reset to polling mode.
+      notifiedRef.current = true;
+      // Seed per-service rows as up immediately. Otherwise serviceStates stays []
+      // and the breakdown shows "checking…" under "Server detected — ready to start".
+      setServiceStates(probeEndpoints.map(() => 'up' as ProbeState));
+      void (async () => {
+        if (probeEndpoints.length === 0) return;
+        const results = await Promise.all(
+          probeEndpoints.map((url) => checkEndpoint(url, 6000)),
+        );
+        if (!mountedRef.current) return;
+        setServiceStates(results.map((up) => (up ? 'up' : 'down')));
+        if (!results.every(Boolean)) {
+          // Server went down — reset state and start polling.
+          notifiedRef.current = false;
+          setProbeState('down');
+          intervalRef.current = setInterval(() => { void probe(); }, 3000);
+        }
+      })();
+      void checkTabCapacity();
+      return () => { mountedRef.current = false; if (intervalRef.current) clearInterval(intervalRef.current); };
+    }
     notifiedRef.current = false;
     tabNotifiedRef.current = false;
     void probe();
@@ -124,7 +163,7 @@ export default function PrerequisiteGate({
       mountedRef.current = false;
       clearInterval(intervalRef.current!);
     };
-  }, [probe, checkTabCapacity]);
+  }, [probe, checkTabCapacity, initiallyCleared, probeEndpoints]);
 
   const statusIcon = {
     idle:     '⏳',

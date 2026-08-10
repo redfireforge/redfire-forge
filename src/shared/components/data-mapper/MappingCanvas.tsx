@@ -34,6 +34,8 @@ interface MappingCanvasProps {
   repairSuggestions?: Map<string, RepairSuggestion[]>;
   onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
   totalMappingCount?: number;
+  /** When true, lines are filtered to the focused tree node (Lines toolbar off). */
+  nodeFocusMode?: boolean;
   failedMappingIds?: Set<string>;
   highlightedMappingIds?: Set<string> | null;
   onRemapDragStart?: (mappingId: string) => void;
@@ -67,6 +69,7 @@ export default function MappingCanvas({
   repairSuggestions,
   onApplyRepair,
   totalMappingCount = 0,
+  nodeFocusMode = false,
   failedMappingIds,
   highlightedMappingIds,
   onRemapDragStart,
@@ -130,7 +133,11 @@ export default function MappingCanvas({
             y={Math.max(height, 100) / 2 - 6}
             textAnchor="middle"
           >
-            {totalMappingCount > 0 ? 'Lines hidden' : 'No mappings yet'}
+            {totalMappingCount === 0
+              ? 'No mappings yet'
+              : nodeFocusMode
+                ? 'Focus on'
+                : 'Lines hidden'}
           </text>
           <text
             className="dm-canvas-empty-guide-subtitle"
@@ -138,9 +145,11 @@ export default function MappingCanvas({
             y={Math.max(height, 100) / 2 + 12}
             textAnchor="middle"
           >
-            {totalMappingCount > 0
-              ? 'Click a node to show its connections'
-              : 'Drag fields from Source to Target to draw lines'}
+            {totalMappingCount === 0
+              ? 'Drag fields from Source to Target to draw lines'
+              : nodeFocusMode
+                ? 'Click a Source or Target field to show its lines'
+                : 'Turn on Focus, then click a field'}
           </text>
         </g>
       )}

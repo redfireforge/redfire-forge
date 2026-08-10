@@ -56,21 +56,25 @@ export function createExpressionInputModuleMock() {
 export function createExpressionTextareaModuleMock() {
   return {
     __esModule: true as const,
-    default: vi.fn().mockImplementation(
-      ({
-        value,
-        onChange,
-        placeholder,
-        rows,
-        className,
-      }: {
-        value: string;
-        onChange: (v: string) => void;
-        placeholder?: string;
-        rows?: number;
-        className?: string;
-      }) => (
+    default: React.forwardRef(
+      (
+        {
+          value,
+          onChange,
+          placeholder,
+          rows,
+          className,
+        }: {
+          value: string;
+          onChange: (v: string) => void;
+          placeholder?: string;
+          rows?: number;
+          className?: string;
+        },
+        ref: React.Ref<HTMLTextAreaElement>,
+      ) => (
         <textarea
+          ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -174,7 +178,7 @@ export function createParamsEditorModuleMock(options?: { captureProps?: boolean 
       if (options?.captureProps) {
         Object.assign(httpConfigMockState.lastParamsEditorProps, props);
       }
-      return <div data-testid="params-editor">QUERY PARAMETERS</div>;
+      return <div data-testid="params-editor">Query Parameters</div>;
     }),
   };
 }

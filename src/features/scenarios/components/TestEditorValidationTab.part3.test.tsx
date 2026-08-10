@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';
 import type { Assertion, Scenario } from '../../../shared/types';
@@ -143,9 +144,8 @@ describe('TestEditorValidationTab', () => {
       const onDraftChange = vi.fn();
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       fireEvent.change(screen.getByPlaceholderText('$.items'), { target: { value: '$.items[*]' } });
-      const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
-      const opSel = selects.find((s) => s.className.includes('assertion-select-operator'))!;
-      fireEvent.change(opSel, { target: { value: '=' } });
+      const row = screen.getByText('ARRAY').closest('.assertion-row')!;
+      selectOption(row.querySelectorAll('.cs-wrapper')[0]!, 'equals');
       fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '3' } });
       expect(onDraftChange).toHaveBeenCalled();
     });
@@ -162,8 +162,8 @@ describe('TestEditorValidationTab', () => {
       const onDraftChange = vi.fn();
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       fireEvent.change(screen.getByPlaceholderText('$.price'), { target: { value: '$.qty' } });
-      const opSel = screen.getByDisplayValue('equals (=)');
-      fireEvent.change(opSel, { target: { value: '>' } });
+      const row = screen.getByText('NUMBER').closest('.assertion-row')!;
+      selectOption(row.querySelectorAll('.cs-wrapper')[0]!, 'greater than');
       fireEvent.change(screen.getByDisplayValue('0'), { target: { value: '42.5' } });
       expect(onDraftChange).toHaveBeenCalled();
     });
@@ -254,8 +254,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      const kindSel = screen.getByDisplayValue('fixed date');
-      fireEvent.change(kindSel, { target: { value: 'today' } });
+      const row = screen.getByText('DATE').closest('.assertion-row')!;
+      selectOption(row.querySelectorAll('.cs-wrapper')[1]!, 'today');
       expect(onDraftChange).toHaveBeenCalledWith(
         expect.objectContaining({
           validation: expect.objectContaining({

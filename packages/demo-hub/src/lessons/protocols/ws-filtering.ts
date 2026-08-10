@@ -1,18 +1,60 @@
 /** Lesson 6: Filtering, Diff & Schema — search modes, compare, and JSON schema validation */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents, connectToMockServer } from '../setup-helpers';
+import {
+  clearEvents,
+  disconnectWebSocket,
+  fillControlledInput,
+  firstVisibleEl,
+  getLastMockPort,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement, visibleElements } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
+
+/** Seed payloads for search / direction / diff steps. */
+const FILTER_SEED_MESSAGES = [
+  '{"type": "greeting", "message": "Hello WebSocket!"}',
+  '{"type": "status", "code": 200, "online": true}',
+  '{"type": "greeting", "message": "Hello again!"}',
+  '{"type": "error", "code": 500, "message": "Something went wrong"}',
+] as const;
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-/** Send a message via the Send panel and wait for echo. */
-async function sendMessage(ctx: DemoActionContext, message: string): Promise<void> {
-  await ctx.click(WS.LEFT_TAB_SEND);
-  await ctx.delay(200);
-  await ctx.fill(WS.MESSAGE_INPUT, message);
-  await ctx.delay(100);
-  await ctx.click(WS.SEND_BTN);
-  await ctx.delay(800);
+/** Quiet connect — no demo ripples (setup runs under the live overlay). */
+async function connectToMockServerQuiet(ctx: DemoActionContext): Promise<void> {
+  const url = `ws://localhost:${getLastMockPort()}`;
+  firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+  await ctx.delay(60);
+  const input = firstVisibleEl<HTMLInputElement>(WS.URL_INPUT);
+  if (input) fillControlledInput(input, url);
+  await ctx.delay(40);
+  const connectBtn = firstVisibleEl<HTMLButtonElement>(WS.CONNECT_BTN);
+  if (connectBtn && !connectBtn.disabled) connectBtn.click();
+  for (let i = 0; i < 40; i++) {
+    const dc = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+    if (dc && !dc.disabled) break;
+    await ctx.delay(80);
+  }
+  await ctx.delay(80);
+}
+
+/** Quietly seed messages on Send once, then land on Events (no ripples). */
+async function seedFilteringMessagesQuiet(ctx: DemoActionContext): Promise<void> {
+  firstVisibleEl<HTMLElement>(WS.LEFT_TAB_SEND)?.click();
+  await ctx.delay(60);
+  for (const message of FILTER_SEED_MESSAGES) {
+    const input = firstVisibleEl<HTMLTextAreaElement | HTMLInputElement>(WS.MESSAGE_INPUT);
+    if (input) fillControlledInput(input, message);
+    firstVisibleEl<HTMLButtonElement>(WS.SEND_BTN)?.click();
+    await ctx.delay(220);
+  }
+  firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+  await ctx.delay(80);
+  (document.activeElement as HTMLElement | null)?.blur?.();
 }
 
 /**
@@ -22,7 +64,7 @@ async function sendMessage(ctx: DemoActionContext, message: string): Promise<voi
  * buttons inaccessible.
  */
 async function ensureEventsTab(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector(WS.SEARCH_INPUT)) {
+  if (!firstVisibleElement(WS.SEARCH_INPUT)) {
     await ctx.click(WS.RIGHT_TAB_EVENTS);
     await ctx.delay(300);
   }
@@ -33,12 +75,12 @@ async function ensureEventsTab(ctx: DemoActionContext): Promise<void> {
  * Used by steps that need a clean state before navigating away from Events.
  */
 async function closeDiffAndCompare(ctx: DemoActionContext): Promise<void> {
-  const diffClose = document.querySelector(WS.DIFF_CLOSE) as HTMLButtonElement | null;
+  const diffClose = firstVisibleElement<HTMLButtonElement>(WS.DIFF_CLOSE);
   if (diffClose) {
     diffClose.click();
     await ctx.delay(300);
   }
-  const cancelBtn = document.querySelector(WS.COMPARE_CANCEL) as HTMLButtonElement | null;
+  const cancelBtn = firstVisibleElement<HTMLButtonElement>(WS.COMPARE_CANCEL);
   if (cancelBtn) {
     cancelBtn.click();
     await ctx.delay(200);
@@ -53,7 +95,7 @@ async function closeDiffAndCompare(ctx: DemoActionContext): Promise<void> {
 async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
   await ensureEventsTab(ctx);
   // Close filter bar if open — rows must be fully visible for row clicks
-  if (document.querySelector(WS.FILTER_BAR)) {
+  if (firstVisibleElement(WS.FILTER_BAR)) {
     await ctx.click(WS.FILTER_TOGGLE_BTN);
     await ctx.delay(200);
   }
@@ -61,18 +103,18 @@ async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
   // After clearing, wait for the virtualizer to re-render all rows — 150ms is
   // not enough when switching from a filtered view (e.g. 2 rows) to unfiltered
   // (9 rows), because the virtual list needs a layout recalc before rows appear.
-  const searchEl = document.querySelector(WS.SEARCH_INPUT) as HTMLInputElement | null;
+  const searchEl = firstVisibleElement<HTMLInputElement>(WS.SEARCH_INPUT);
   if (searchEl && searchEl.value) {
     await ctx.fill(WS.SEARCH_INPUT, '');
     await ctx.delay(400); // allow virtualizer to recalculate and render all rows
   }
   // If diff already open, nothing to do
-  if (document.querySelector(WS.DIFF_MODAL)) return;
+  if (firstVisibleElement(WS.DIFF_MODAL)) return;
   // Enter compare mode if not already active.
   // The unconditional delay gives React a macrotask cycle to commit any pending
   // state changes (e.g. stepIndex update from goToStep) before el.click() fires —
   // without it the state update from toggleCompare can be lost in concurrent mode.
-  if (!document.querySelector(WS.COMPARE_BANNER)) {
+  if (!firstVisibleElement(WS.COMPARE_BANNER)) {
     await ctx.delay(200);
     await ctx.click(WS.COMPARE_BTN);
     await ctx.waitFor(WS.COMPARE_BANNER, 3000);
@@ -82,75 +124,67 @@ async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
   // rows may be in the DOM immediately. Polling here avoids the fragile
   // index-out-of-bounds case where rows[5] is undefined.
   for (let _i = 0; _i < 30; _i++) {
-    if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
+    if (visibleElements(WS.MESSAGE_ROW).length >= 6) break;
     await ctx.delay(100);
   }
   // Click the two greeting rows (rows[1] and rows[5]) to open the diff
-  const rows = document.querySelectorAll(WS.MESSAGE_ROW);
+  const rows = visibleElements(WS.MESSAGE_ROW);
   if (rows.length >= 6) {
-    (rows[1] as HTMLElement).click();
+    rows[1].click();
     await ctx.delay(600); // allow React to register first selection before second click
-    (rows[5] as HTMLElement).click();
+    rows[5].click();
     await ctx.waitFor(WS.DIFF_MODAL, 4000);
   }
 }
 
 /**
- * Setup: start mock, connect, send 4 varied messages for filtering/diff demos.
- * Messages have different structures to make search/filter/diff interesting.
+ * Setup: quiet REST mock + client, connect/seed without demo ripples.
+ * Runs under the live overlay — visible Mock/Send tours flash step 1.
  */
 async function filteringSetup(ctx: DemoActionContext): Promise<void> {
-  // Wait for UI
-  await ctx.delay(500);
-  // Disconnect any existing connection
-  await disconnectWebSocket(ctx);
-  await ctx.delay(200);
-  // Clear leftover events
-  await clearEvents(ctx);
-  await ctx.delay(200);
-  // Start mock + switch to client
-  await wsSetup(ctx);
-  await ctx.delay(300);
-  // Connect
-  await connectToMockServer(ctx);
-  // Send 4 varied messages for filtering/diff demos
-  await sendMessage(ctx, '{"type": "greeting", "message": "Hello WebSocket!"}');
-  await sendMessage(ctx, '{"type": "status", "code": 200, "online": true}');
-  await sendMessage(ctx, '{"type": "greeting", "message": "Hello again!"}');
-  await sendMessage(ctx, '{"type": "error", "code": 500, "message": "Something went wrong"}');
-  // Switch to Events tab so the user sees the messages
-  await ctx.click(WS.RIGHT_TAB_EVENTS);
-  await ctx.delay(300);
+  await startMockServerQuiet(ctx);
+  await switchToClientModeQuiet(ctx);
+  // Quiet disconnect/clear (no ripples)
+  const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(60);
+  }
+  const clearBtn = firstVisibleEl<HTMLButtonElement>(WS.CLEAR_BTN);
+  if (clearBtn && !clearBtn.disabled) {
+    clearBtn.click();
+    await ctx.delay(60);
+  }
+  await connectToMockServerQuiet(ctx);
+  await seedFilteringMessagesQuiet(ctx);
 }
 
-/** Cleanup: close diff/compare mode, disconnect, clear, stop mock. */
+/** Cleanup: close diff/compare mode, disconnect, clear, stop mock quietly. */
 async function filteringCleanup(ctx: DemoActionContext): Promise<void> {
   // Close diff modal if open
-  const diffClose = document.querySelector(WS.DIFF_CLOSE) as HTMLButtonElement | null;
+  const diffClose = firstVisibleElement<HTMLButtonElement>(WS.DIFF_CLOSE);
   if (diffClose) {
     diffClose.click();
-    await ctx.delay(300);
+    await ctx.delay(120);
   }
   // Exit compare mode if active
-  const cancelBtn = document.querySelector(WS.COMPARE_CANCEL) as HTMLButtonElement | null;
+  const cancelBtn = firstVisibleElement<HTMLButtonElement>(WS.COMPARE_CANCEL);
   if (cancelBtn) {
     cancelBtn.click();
-    await ctx.delay(200);
+    await ctx.delay(80);
   }
   // Close filter bar if open
-  const filterBar = document.querySelector(WS.FILTER_BAR);
+  const filterBar = firstVisibleElement(WS.FILTER_BAR);
   if (filterBar) {
-    const toggleBtn = document.querySelector(WS.FILTER_TOGGLE_BTN) as HTMLButtonElement | null;
-    if (toggleBtn) {
-      toggleBtn.click();
-      await ctx.delay(200);
-    }
+    firstVisibleEl<HTMLButtonElement>(WS.FILTER_TOGGLE_BTN)?.click();
+    await ctx.delay(80);
   }
-  // Switch back to events tab
-  await ctx.click(WS.RIGHT_TAB_EVENTS);
-  await ctx.delay(200);
-  // Standard cleanup
-  await wsCleanup(ctx);
+  firstVisibleEl<HTMLElement>(WS.RIGHT_TAB_EVENTS)?.click();
+  await ctx.delay(60);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx);
+  await switchToClientModeQuiet(ctx);
 }
 
 export const wsFilteringLesson: DemoLesson = {
@@ -257,14 +291,19 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       description:
         'The search bar supports three modes: Text (simple substring), Regex (pattern matching), and JSONPath (query JSON structure). Let\'s try a text search to find "greeting" messages.',
       highlight: WS.SEARCH_MODE_PILLS,
-      preAction: async (ctx) => {
-        // Ensure we're on Events tab
-        await ensureEventsTab(ctx);
-      },
       action: async (ctx) => {
-        // Type a search term
+        await ensureEventsTab(ctx);
+        await ctx.delay(400);
         await ctx.fill(WS.SEARCH_INPUT, 'greeting');
-        await ctx.delay(800);
+        // Spotlight the search box so the viewer sees what was typed
+        const searchEl = firstVisibleElement<HTMLElement>(WS.SEARCH_INPUT);
+        if (searchEl) {
+          const dispose = showSpotlightRing(searchEl);
+          await ctx.delay(900);
+          dispose();
+        } else {
+          await ctx.delay(900);
+        }
       },
       pauseAfter: true,
     },
@@ -282,7 +321,9 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       },
       action: async (ctx) => {
         // Select "Sent" to show only sent messages
-        await ctx.selectOption(WS.DIRECTION_FILTER, 'sent');
+        await ctx.click(WS.DIRECTION_FILTER);
+        await ctx.delay(120);
+        await ctx.click(WS.DIRECTION_FILTER_OPT_SENT);
         await ctx.delay(800);
       },
       pauseAfter: true,
@@ -299,7 +340,9 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Ensure Events tab is visible before touching toolbar controls
         await ensureEventsTab(ctx);
         // Reset direction filter to "All" and clear search
-        await ctx.selectOption(WS.DIRECTION_FILTER, 'all');
+        await ctx.click(WS.DIRECTION_FILTER);
+        await ctx.delay(120);
+        await ctx.click(WS.DIRECTION_FILTER_OPT_ALL);
         await ctx.delay(200);
         await ctx.fill(WS.SEARCH_INPUT, '');
         await ctx.delay(200);
@@ -307,7 +350,16 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       action: async (ctx) => {
         // Toggle filter bar open
         await ctx.click(WS.FILTER_TOGGLE_BTN);
-        await ctx.delay(800);
+        await ctx.delay(600);
+        // Spotlight each dropdown in turn so the viewer sees all three filters
+        for (const sel of [WS.FILTER_SIZE, WS.FILTER_TIME, WS.FILTER_CONTENT_TYPE]) {
+          const el = document.querySelector<HTMLElement>(sel);
+          if (!el) continue;
+          const dispose = showSpotlightRing(el);
+          await ctx.delay(500);
+          dispose();
+        }
+        await ctx.delay(300);
       },
       verify: WS.FILTER_BAR,
       pauseAfter: true,
@@ -324,7 +376,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Ensure Events tab is visible so the toolbar is accessible
         await ensureEventsTab(ctx);
         // Close filter bar if open
-        if (document.querySelector(WS.FILTER_BAR)) {
+        if (firstVisibleElement(WS.FILTER_BAR)) {
           await ctx.click(WS.FILTER_TOGGLE_BTN);
           await ctx.delay(300);
         }
@@ -350,28 +402,28 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Handles skip-to-step from any earlier or later step. (Rule 4)
         await ensureEventsTab(ctx);
         // Close filter bar if open — rows must be unobstructed
-        if (document.querySelector(WS.FILTER_BAR)) {
+        if (firstVisibleElement(WS.FILTER_BAR)) {
           await ctx.click(WS.FILTER_TOGGLE_BTN);
           await ctx.delay(200);
         }
         // Clear search so all 9 rows are visible (row indices must match expectations).
         // Use a 400ms delay — the virtualizer needs time to recalculate row layout
         // after switching from a filtered view back to the full unfiltered list.
-        const searchEl = document.querySelector(WS.SEARCH_INPUT) as HTMLInputElement | null;
+        const searchEl = firstVisibleElement<HTMLInputElement>(WS.SEARCH_INPUT);
         if (searchEl && searchEl.value) {
           await ctx.fill(WS.SEARCH_INPUT, '');
           await ctx.delay(400);
         }
         // Close diff if already open — viewer should see the selection, not a stale diff
-        if (document.querySelector(WS.DIFF_MODAL)) {
-          const closeBtn = document.querySelector(WS.DIFF_CLOSE) as HTMLButtonElement | null;
+        if (firstVisibleElement(WS.DIFF_MODAL)) {
+          const closeBtn = firstVisibleElement<HTMLButtonElement>(WS.DIFF_CLOSE);
           if (closeBtn) closeBtn.click();
           await ctx.delay(300);
         }
         // Ensure compare mode is active so row clicks select for comparison.
         // The unconditional delay gives React a macrotask cycle to commit any
         // pending stepIndex state before the compare button click fires.
-        if (!document.querySelector(WS.COMPARE_BANNER)) {
+        if (!firstVisibleElement(WS.COMPARE_BANNER)) {
           await ctx.delay(200);
           await ctx.click(WS.COMPARE_BTN);
           await ctx.waitFor(WS.COMPARE_BANNER, 3000);
@@ -385,14 +437,14 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Wait for the virtualizer to render at least 6 rows — without this the
         // querySelectorAll may return fewer items and rows[5] would be undefined.
         for (let _i = 0; _i < 30; _i++) {
-          if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
+          if (visibleElements(WS.MESSAGE_ROW).length >= 6) break;
           await ctx.delay(100);
         }
-        const rows = document.querySelectorAll(WS.MESSAGE_ROW);
+        const rows = visibleElements(WS.MESSAGE_ROW);
         if (rows.length >= 6) {
-          (rows[1] as HTMLElement).click();
+          rows[1].click();
           await ctx.delay(600);
-          (rows[5] as HTMLElement).click();
+          rows[5].click();
           // Wait for diff modal to appear — more robust than a fixed delay (Rule 5)
           await ctx.waitFor(WS.DIFF_MODAL, 5000);
           await ctx.delay(600); // brief pause so user sees the diff rendered
@@ -441,7 +493,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         await ctx.waitFor(WS.VALIDATION_TOGGLE);
         await ctx.delay(800);
         // Enable the Validate toggle with ripple — arms the validation engine
-        const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.VALIDATION_TOGGLE);
         if (toggle && !toggle.checked) {
           await ctx.click(WS.VALIDATION_TOGGLE);
           await ctx.delay(600);
@@ -467,7 +519,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         await closeDiffAndCompare(ctx);
         await ctx.click(WS.RIGHT_TAB_SCHEMA);
         await ctx.waitFor(WS.VALIDATION_TOGGLE);
-        const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.VALIDATION_TOGGLE);
         if (toggle && !toggle.checked) {
           await ctx.click(WS.VALIDATION_TOGGLE);
           await ctx.delay(300);
@@ -526,18 +578,18 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Guard: if user skipped steps 7–8 (clicked Next during reading),
         // the schema may not exist. Create it quietly so this step works.
         // Also ensure the validation toggle is enabled even if schema already exists.
-        if (!document.querySelector(WS.VALIDATION_TOGGLE)) {
+        if (!firstVisibleElement(WS.VALIDATION_TOGGLE)) {
           await ctx.click(WS.RIGHT_TAB_SCHEMA);
           await ctx.waitFor(WS.VALIDATION_TOGGLE);
         }
         // Enable validation toggle regardless of whether schema exists
-        const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
+        const toggle = firstVisibleElement<HTMLInputElement>(WS.VALIDATION_TOGGLE);
         if (toggle && !toggle.checked) {
           await ctx.click(WS.VALIDATION_TOGGLE);
           await ctx.delay(300);
         }
         // Create schema if absent
-        if (!document.querySelector(WS.SCHEMA_CARD)) {
+        if (!firstVisibleElement(WS.SCHEMA_CARD)) {
           await ctx.click(WS.SCHEMA_ADD_BTN);
           await ctx.waitFor(WS.SCHEMA_NAME_INPUT);
           await ctx.fill(WS.SCHEMA_NAME_INPUT, 'Greeting Schema');
@@ -559,6 +611,18 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // Switch back to events tab — user sees validation badges on each message
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(800);
+        // Spotlight a valid badge (✓) and an invalid badge (✗) so the user notices them
+        const allBadges = Array.from(document.querySelectorAll<HTMLElement>(WS.VALIDATION_BADGE));
+        const validBadge   = allBadges.find((b) => b.classList.contains('ws-validation-valid'));
+        const invalidBadge = allBadges.find((b) => b.classList.contains('ws-validation-invalid'));
+        for (const badge of [validBadge, invalidBadge]) {
+          if (!badge) continue;
+          const dispose = showSpotlightRing(badge);
+          await ctx.delay(700);
+          dispose();
+          await ctx.delay(100);
+        }
+        await ctx.delay(300);
       },
       pauseAfter: true,
     },

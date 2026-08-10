@@ -275,14 +275,30 @@ export default function DataSourceVerifyModal({ draft, dataTable, onDraftChange,
       bodyClassName="verify-modal-body"
       initialExpanded={false}
       closeButtonKind="none"
-      showExpandButton={false}
-      headerActions={
-        <div className="verify-modal-header-actions">
-          <span className="verify-modal-subtitle">
-            {enabledRows.length} enabled rows • {dt.columns.length} columns ({requestCols.length} request, {validateCols.length} validate)
-          </span>
+      showExpandButton
+      constrainDragToViewport
+      dragViewportPadding={12}
+      minWidth={480}
+      minHeight={360}
+      showResizeHandles
+      headerContent={({ headerDragStyle, onHeaderMouseDown, onHeaderPointerDown, headerExpandButton }) => (
+        <div
+          className="verify-modal-header"
+          style={headerDragStyle}
+          onMouseDown={onHeaderMouseDown}
+          onPointerDown={onHeaderPointerDown}
+        >
+          <div className="verify-modal-header-left">
+            <h3 className="verify-modal-title">Data Source — Verify & Inspect</h3>
+            <span className="verify-modal-subtitle">
+              {enabledRows.length} enabled rows • {dt.columns.length} columns ({requestCols.length} request, {validateCols.length} validate)
+            </span>
+          </div>
+          <div className="verify-modal-header-actions">
+            {headerExpandButton}
+          </div>
         </div>
-      }
+      )}
       footer={
         <div className="verify-modal-footer">
           {!verifying && !allDone && (

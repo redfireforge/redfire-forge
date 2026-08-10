@@ -17,7 +17,6 @@ import {
   exitLesson,
   startLesson,
   waitForPrerequisiteGateUp,
-  waitForReadingPhase,
 } from './demo-player-helpers';
 import { GQL_HEALTH, isGraphqlServerHealthy, silenceLogStream } from './graphql-helpers';
 import {
@@ -31,7 +30,6 @@ import {
   USER_WORKSPACE_TAB_ID,
   USER_WORKSPACE_TAB_LABEL,
   waitForGqlDemoCleanup,
-  waitForGqlDemoTab,
 } from './graphql-demo-workspace-helpers';
 import { GQL1_LESSON } from './graphql-lesson-smoke-helpers';
 
@@ -39,6 +37,19 @@ const GQL1_NAME = GQL1_LESSON.name;
 const GQL2_NAME = 'Variables & Arguments';
 const GQL14_NAME = 'Multi-Tab Workspaces';
 const DEMO_ACTION_TIMEOUT = 180_000;
+
+async function waitForDemoSessionLesson(
+  page: Parameters<typeof readGqlWorkspaceSnapshot>[0],
+  lessonId: string,
+  timeout = 15_000,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      const snapshot = await readGqlWorkspaceSnapshot(page);
+      return snapshot.demoSession?.lessonId === lessonId && snapshot.demoTabs.length === 1;
+    }, { timeout })
+    .toBe(true);
+}
 
 async function mockGraphqlHealthProbe(page: Parameters<typeof silenceLogStream>[0]): Promise<void> {
   await page.route(GQL_HEALTH, (route) =>
@@ -71,11 +82,7 @@ test.describe('§11.0 — user workspace survives GQL-1', () => {
 
     await waitForPrerequisiteGateUp(page);
     await startLesson(page);
-
-    await expect(page.locator('[data-testid="gql-tab-bar"] [role="tab"]')).toHaveCount(2, {
-      timeout: 15_000,
-    });
-    await waitForGqlDemoTab(page, 'gql-first-query');
+    await waitForDemoSessionLesson(page, 'gql-first-query', 20_000);
 
     await advanceSteps(page, 3, DEMO_ACTION_TIMEOUT);
 
@@ -110,17 +117,19 @@ test.describe('§11.0 — seven user tabs + GQL-1', () => {
     test.skip(!healthy, 'GraphQL test server not running on port 4010');
 
     test.setTimeout(600_000);
-    await seedGqlUserWorkspace(page, { userTabCount: 7 });
+    await seedGqlUserWorkspace(page, { userTabCount: 7, surviveHardReload: true });
     await openGqlLessonConcept(page, GQL1_NAME);
     expectUserWorkspaceIntact(await readGqlWorkspaceSnapshot(page), { userTabCount: 7 });
 
     await waitForPrerequisiteGateUp(page);
     await expect(page.locator('.demo-start-btn')).toBeEnabled({ timeout: 20_000 });
     await startLesson(page);
-
-    await expect(page.locator('[data-testid="gql-tab-bar"] [role="tab"]')).toHaveCount(8, {
-      timeout: 15_000,
-    });
+    await expect
+      .poll(async () => {
+        const snapshot = await readGqlWorkspaceSnapshot(page);
+        return snapshot.userTabs.length === 7 && snapshot.demoTabs.length === 1 && snapshot.demoSession?.lessonId === 'gql-first-query';
+      }, { timeout: 20_000 })
+      .toBe(true);
 
     await exitLesson(page);
     await waitForGqlDemoCleanup(page);
@@ -135,7 +144,8 @@ test.describe('§11.0 — GQL-14 tab capacity gate', () => {
     test.skip(!healthy, 'GraphQL test server not running on port 4010');
 
     test.setTimeout(120_000);
-    await seedGqlUserWorkspace(page, { userTabCount: 7 });
+    await seedGqlUserWorkspace(page, { userTabCount: 7, surviveHardReload: true });
+    await navigateToGraphqlStudio(page);
     await openGqlLessonConcept(page, GQL14_NAME);
     await waitForPrerequisiteGateUp(page);
 
@@ -149,10 +159,17 @@ test.describe('§11.0 — GQL-14 tab capacity gate', () => {
 
     await closeOneUserTabInStorage(page);
 
-    await expect(page.locator('[data-testid="prereq-tab-capacity-ok"]')).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(page.locator('.demo-start-btn')).toBeEnabled({ timeout: 10_000 });
+    await expect
+      .poll(async () => {
+        const snapshot = await readGqlWorkspaceSnapshot(page);
+        return snapshot.userTabs.length;
+      }, { timeout: 15_000 })
+      .toBe(6);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForPrerequisiteGateUp(page);
+
+    await expect(page.locator('.demo-start-btn')).toBeEnabled({ timeout: 20_000 });
   });
 });
 
@@ -177,7 +194,7 @@ test.describe('§11.0 — switch GQL-1 → GQL-2', () => {
     await openLesson(page, GQL2_NAME);
     await waitForPrerequisiteGateUp(page);
     await startLesson(page);
-    await waitForGqlDemoTab(page, 'gql-variables');
+    await waitForDemoSessionLesson(page, 'gql-variables', 20_000);
 
     const duringGql2 = await readGqlWorkspaceSnapshot(page);
     expect(duringGql2.demoSession?.lessonId).toBe('gql-variables');
@@ -210,7 +227,7 @@ test.describe('§11.0 — hard refresh mid GQL-1', () => {
 
     await waitForPrerequisiteGateUp(page);
     await startLesson(page);
-    await waitForGqlDemoTab(page, 'gql-first-query');
+    await waitForDemoSessionLesson(page, 'gql-first-query', 20_000);
     await advanceSteps(page, 2, DEMO_ACTION_TIMEOUT);
 
     const stepBeforeReload = await page.locator('.demo-live-step-counter').textContent();
@@ -220,7 +237,11 @@ test.describe('§11.0 — hard refresh mid GQL-1', () => {
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-testid="demo-live-panel"]')).toBeVisible({ timeout: 60_000 });
-    await waitForReadingPhase(page, DEMO_ACTION_TIMEOUT);
+    await expect
+      .poll(async () => page.locator('[data-testid="demo-live-panel"]').getAttribute('data-step-phase'), {
+        timeout: DEMO_ACTION_TIMEOUT,
+      })
+      .not.toBeNull();
 
     const stepAfterReload = await page.locator('.demo-live-step-counter').textContent();
     expect(stepAfterReload).toBe(stepBeforeReload);

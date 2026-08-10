@@ -20,7 +20,7 @@ import {
   type WsConnectionClosedPayload,
 } from '../../shared/websocket/websocketNativeTauriTransport';
 import { isTauri } from '../../shared/utils/platform';
-import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict, sanitizeNativeCloseCode } from './wsMessageUtils';
+import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict } from './wsMessageUtils';
 import { parseSubprotocolList, encodeWsMessageData, createSystemConnectFrame, runEarlyProtocolDetection, buildConnectHeadersMap } from './wsConnectionHelpers';
 import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from './wsAuthResolve';
 import type { GlobalAuthProfile } from '../../shared/types';
@@ -49,6 +49,8 @@ import {
   type WsTransportMode,
   type UseWebSocketStudioReturn,
 } from './useWebSocketStudioTypes';
+import { startWsProxyPolling } from './wsProxyPolling';
+import { disconnectWebSocketConnection } from './wsDisconnect';
 
 export type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter, WsTransportMode, UseWebSocketStudioReturn };
 
@@ -135,7 +137,12 @@ export function useWebSocketStudio(
   }, []);
 
   const setTlsConfig = useCallback((patch: Partial<WsTlsConfig>) => {
-    setTlsConfigFull((prev) => ({ ...prev, ...patch }));
+    // Update the ref synchronously BEFORE setState. Connect reads tlsConfigRef,
+    // and React may defer functional updaters until render — so putting the ref
+    // write inside setState((prev) => …) still races apply-then-Connect demos.
+    const next = { ...tlsConfigRef.current, ...patch };
+    tlsConfigRef.current = next;
+    setTlsConfigFull(next);
   }, []);
 
   const appendMessage = useCallback((frame: WsFrame) => {
@@ -196,89 +203,22 @@ export function useWebSocketStudio(
     stopProxyPolling();
     proxyCursorRef.current = 0;
 
-    proxyPollTimerRef.current = setInterval(async () => {
-      if (!mountedRef.current) return;
-      try {
-        const env = await dispatchWsOperation<{
-          messages: Array<{ data: string; type: string; receivedAt: string; size: number }>;
-          cursor: number;
-          state?: string;
-          closeCode?: number;
-          closeReason?: string;
-        }>('messages', {
-          connectionId,
-          sinceCursor: proxyCursorRef.current,
-        });
-
-        if (!mountedRef.current) return;
-
-        // Check if the server-side connection has been closed (e.g. mock server stopped).
-        // The messages response now includes the connection state so we can detect
-        // disconnects without waiting for a poll failure.
-        if (env.data?.state && env.data.state !== 'connected') {
-          const code = env.data.closeCode ?? 1006;
-          const reason = env.data.closeReason || undefined;
-          const ackMsg = formatCloseFrame('ACK', code, reason);
-          appendMessage(createFrame('received', 'close', ackMsg));
-          failProxyConnection({
-            state: env.data.state === 'error' ? 'error' : 'disconnected',
-            closeCode: code,
-            closeReason: reason,
-            closedAt: new Date().toISOString(),
-          });
-          return;
-        }
-
-        if (env.data && env.data.messages.length > 0) {
-          const allFrames: WsFrame[] = [];
-
-          for (const m of env.data.messages) {
-            const isBinary = m.type === 'binary';
-            const result = processReceivedMessage(
-              m.data, isBinary,
-              protocolModeRef.current, detectedProtocolRef.current,
-              messageDetectionDoneRef.current,
-              (r) => { updateDetectedProtocol(r); },
-            );
-            messageDetectionDoneRef.current = result.detectionNowDone;
-
-            if (result.autoRespond) {
-              allFrames.push(result.frame);
-              dispatchWsOperation('send', { connectionId, data: result.autoRespond.replyData, type: 'text' }).catch(() => {});
-              allFrames.push(result.autoRespond.replyFrame);
-              setSentCount((c) => c + 1);
-              if (result.autoRespond.sioServerParams) setSioServerParams(result.autoRespond.sioServerParams);
-              continue;
-            }
-
-            allFrames.push(result.frame);
-          }
-
-          appendMessages(allFrames);
-          setReceivedCount((c) => c + env.data!.messages.length);
-          proxyCursorRef.current = env.data.cursor;
-        }
-      } catch {
-        if (!mountedRef.current) return;
-        try {
-          const statusEnv = await dispatchWsOperation<{ state: string; lastError?: string }>(
-            'status',
-            { connectionId },
-          );
-          if (!mountedRef.current) return;
-          if (statusEnv.data && statusEnv.data.state !== 'connected') {
-            const statusData = statusEnv.data;
-            failProxyConnection({
-              state: statusData.state === 'error' ? 'error' : 'disconnected',
-              lastError: statusData.lastError,
-            });
-          }
-        } catch {
-          if (!mountedRef.current) return;
-          failProxyConnection({ state: 'disconnected' });
-        }
-      }
-    }, PROXY_POLL_INTERVAL_MS);
+    proxyPollTimerRef.current = startWsProxyPolling({
+      connectionId,
+      pollIntervalMs: PROXY_POLL_INTERVAL_MS,
+      mountedRef,
+      proxyCursorRef,
+      protocolModeRef,
+      detectedProtocolRef,
+      messageDetectionDoneRef,
+      appendMessage,
+      appendMessages,
+      setSentCount,
+      setReceivedCount,
+      setSioServerParams,
+      updateDetectedProtocol,
+      failProxyConnection,
+    });
   }, [stopProxyPolling, appendMessage, appendMessages, failProxyConnection, updateDetectedProtocol]);
 
   const startNativeListeners = useCallback(async (connectionId: string) => {
@@ -664,61 +604,19 @@ export function useWebSocketStudio(
   }, [connectDirect, connectProxy, updateDetectedProtocol, cancelReconnect, reconnectingRef]);
 
   const disconnect = useCallback((detail?: WsCloseDetail) => {
-    manualDisconnectRef.current = true;
-    cancelReconnect();
-
-    const code = detail?.code ?? 1000;
-    const reason = detail?.reason ?? 'User disconnected';
-    // The native browser `ws.close()` only accepts 1000 or 3000–4999; reserved
-    // codes fall back to 1000. The Tauri proxy (tungstenite) can send the code
-    // as-is over IPC, so only the native path is sanitized.
-    const nativeCode = sanitizeNativeCloseCode(code);
-
-    if (proxyConnectionIdRef.current) {
-      if (detail) {
-        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', code, reason)));
-      }
-      setConnection((prev) => ({ ...prev, state: 'closing' }));
-      const connId = proxyConnectionIdRef.current;
-      proxyConnectionIdRef.current = null;
-      stopProxyPolling();
-      stopNativeListeners();
-
-      dispatchWsOperation('disconnect', { connectionId: connId, code, reason })
-        .then(() => {
-          if (!mountedRef.current) return;
-          resetConnectionTiming();
-          appendMessage(createFrame('received', 'close', formatCloseFrame('ACK', code, reason)));
-          setConnection((prev) => ({
-            ...prev,
-            state: 'disconnected',
-            closedAt: new Date().toISOString(),
-            closeCode: code,
-            closeReason: reason,
-          }));
-        })
-        .catch(() => {
-          if (!mountedRef.current) return;
-          resetConnectionTiming();
-          setConnection((prev) => ({ ...prev, state: 'disconnected' }));
-        });
-    } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      if (detail) {
-        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', nativeCode, reason)));
-      }
-      setConnection((prev) => ({ ...prev, state: 'closing' }));
-      wsRef.current.close(nativeCode, reason);
-    } else if (wsRef.current) {
-      if (detail) {
-        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', nativeCode, reason)));
-      }
-      wsRef.current.close(nativeCode, reason);
-      resetConnectionTiming();
-      setConnection((prev) => ({ ...prev, state: 'disconnected' }));
-    } else {
-      resetConnectionTiming();
-      setConnection((prev) => prev.state === 'disconnected' ? prev : { ...prev, state: 'disconnected' });
-    }
+    disconnectWebSocketConnection({
+      detail,
+      mountedRef,
+      wsRef,
+      proxyConnectionIdRef,
+      manualDisconnectRef,
+      cancelReconnect,
+      appendMessage,
+      setConnection,
+      stopProxyPolling,
+      stopNativeListeners,
+      resetConnectionTiming,
+    });
   }, [stopProxyPolling, stopNativeListeners, resetConnectionTiming, cancelReconnect, appendMessage]);
 
   const send = useCallback(

@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import KafkaConsumeConfig from './KafkaConsumeConfig';
 import type { KafkaConsumeNodeData } from '../../types/workflow';
 
@@ -77,9 +78,9 @@ describe('KafkaConsumeConfig', () => {
 
   it('updates start position dropdown', () => {
     const onChange = vi.fn();
-    render(<KafkaConsumeConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    const { container } = render(<KafkaConsumeConfig data={makeData()} onChange={onChange} variableHints={[]} />);
 
-    fireEvent.change(screen.getByDisplayValue('Latest'), { target: { value: 'earliest' } });
+    selectOption(container, 'Earliest');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ startPosition: 'earliest' }));
   });
 
@@ -155,10 +156,11 @@ describe('KafkaConsumeConfig', () => {
   });
 
   it('updates output binding source', () => {
-    render(<Host initial={makeData({ outputBindings: [{ id: 'b1', source: 'topic', targetVariable: 'myVar', enabled: true }] })} />);
+    const { container } = render(<Host initial={makeData({ outputBindings: [{ id: 'b1', source: 'topic', targetVariable: 'myVar', enabled: true }] })} />);
 
-    fireEvent.change(screen.getByDisplayValue('topic'), { target: { value: 'partition' } });
-    expect(screen.getByDisplayValue('partition')).toBeTruthy();
+    const section = container.querySelector('[data-testid="output-bindings-section"]')!;
+    selectOption(section, 'partition');
+    expect(getCustomSelectValue(section)).toBe('partition');
   });
 
   it('updates output binding targetVariable', () => {
@@ -186,9 +188,9 @@ describe('KafkaConsumeConfig', () => {
   });
 
   it('reveals load-test fields when synthetic mode is selected', () => {
-    render(<Host />);
+    const { container } = render(<Host />);
 
-    fireEvent.change(screen.getByDisplayValue('Wait for real'), { target: { value: 'synthetic-inject' } });
+    selectOptionByIndex(container, 1, 'Synthetic inject');
     expect(screen.getByLabelText('Mock Payload')).toBeTruthy();
     expect(screen.getByLabelText('Synthetic Delay (ms)')).toBeTruthy();
     expect(screen.getByLabelText('Synthetic Jitter (ms)')).toBeTruthy();
@@ -245,9 +247,9 @@ describe('KafkaConsumeConfig', () => {
 
   it('switches load test mode to auto-resume', () => {
     const onChange = vi.fn();
-    render(<KafkaConsumeConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    const { container } = render(<KafkaConsumeConfig data={makeData()} onChange={onChange} variableHints={[]} />);
 
-    fireEvent.change(screen.getByDisplayValue('Wait for real'), { target: { value: 'auto-resume' } });
+    selectOptionByIndex(container, 1, 'Auto resume');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       loadTestBehavior: expect.objectContaining({ mode: 'auto-resume' }),
     }));
@@ -280,9 +282,9 @@ describe('KafkaConsumeConfig', () => {
     expect(screen.getByDisplayValue('prefix-{{snippet}}')).toBeTruthy();
   });
 
-  it('renders the Enable Schema Registry section', () => {
+  it('renders the Schema Registry section', () => {
     render(<Host />);
-    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
+    expect(screen.getByText('Schema Registry')).toBeTruthy();
   });
 
   it('passes schemaConfig to onChange when schema registry is enabled', () => {
@@ -382,6 +384,6 @@ describe('KafkaConsumeConfig', () => {
     // Covers the `data.topic ?? ''` null-coalescing false branch
     const onChange = vi.fn();
     render(<KafkaConsumeConfig data={makeData({ topic: undefined })} onChange={onChange} variableHints={[]} />);
-    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
+    expect(screen.getByText('Schema Registry')).toBeTruthy();
   });
 });

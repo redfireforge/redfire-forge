@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SubCollectionModal from './SubCollectionModal';
-import type { RequestFolder, RequestCollection, RequestEnv, GlobalAuthProfile } from '../../../shared/types';
+import type { RequestFolder, RequestCollection, RequestEnv, GlobalAuthProfile, Microservice } from '../../../shared/types';
 
 const ENVS: RequestEnv[] = [
   { id: 'e1', name: 'Dev' },
@@ -42,6 +42,7 @@ function setup(overrides: {
   subCollection?: RequestFolder;
   parentCollection?: RequestCollection;
   environments?: RequestEnv[];
+  microservices?: Microservice[];
   globalAuthProfiles?: GlobalAuthProfile[];
 } = {}) {
   const onSave = vi.fn();
@@ -51,12 +52,21 @@ function setup(overrides: {
       subCollection={overrides.subCollection ?? makeSub()}
       parentCollection={overrides.parentCollection ?? directCollection}
       environments={overrides.environments ?? ENVS}
+      microservices={overrides.microservices}
       globalAuthProfiles={overrides.globalAuthProfiles ?? PROFILES}
       onSave={onSave}
       onClose={onClose}
     />,
   );
   return { onSave, onClose };
+}
+
+const darkTrigger = (testId: string) =>
+  screen.getByTestId(testId).querySelector('.wf-dark-select__trigger') as HTMLButtonElement;
+
+function pickDark(testId: string, optionLabel: string | RegExp) {
+  fireEvent.click(darkTrigger(testId));
+  fireEvent.click(screen.getByRole('option', { name: optionLabel }));
 }
 
 describe('SubCollectionModal', () => {
@@ -108,8 +118,7 @@ describe('SubCollectionModal', () => {
   it('renders env selector for multi-env parent and saves selected env with override', () => {
     const { onSave } = setup({ parentCollection: multiEnvCollection });
     expect(screen.getByText('Environment')).toBeInTheDocument();
-    const envSelect = screen.getAllByRole('combobox')[0];
-    fireEvent.change(envSelect, { target: { value: 'e1' } });
+    pickDark('req-subcol-env-select', 'Dev');
     expect(screen.getByText('https://dev.example.com')).toBeInTheDocument();
     const overrideInput = screen.getByPlaceholderText('https://dev.example.com');
     fireEvent.change(overrideInput, { target: { value: 'https://override.example.com' } });
@@ -127,6 +136,47 @@ describe('SubCollectionModal', () => {
     expect(screen.queryByText('Environment')).toBeNull();
   });
 
+  it('lists envs from a linked microservice (resolved base URLs)', () => {
+    const linked: RequestCollection = {
+      id: 'c3', name: 'Linked', mode: 'multi-env', microserviceId: 'svc1', requests: [], folders: [],
+    };
+    const microservices: Microservice[] = [
+      { id: 'svc1', name: 'Svc', baseUrls: { e1: 'https://svc-dev', e2: 'https://svc-prod' } },
+    ];
+    const { onSave } = setup({ parentCollection: linked, microservices });
+    expect(screen.getByText('Environment')).toBeInTheDocument();
+    pickDark('req-subcol-env-select', 'Prod');
+    expect(screen.getByText('https://svc-prod')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ selectedEnvId: 'e2' }));
+  });
+
+  it('excludes an env already bound to a sibling sub-collection (one-per-env)', () => {
+    const parent: RequestCollection = {
+      ...multiEnvCollection,
+      folders: [
+        { id: 'sibling', name: 'Dev', requests: [], folders: [], isSubCollection: true, selectedEnvId: 'e1' },
+        makeSub(),
+      ],
+    };
+    setup({ parentCollection: parent });
+    fireEvent.click(darkTrigger('req-subcol-env-select'));
+    // e1 (Dev) is used by the sibling → hidden; only e2 (Prod) offered
+    expect(screen.queryByRole('option', { name: 'Dev' })).toBeNull();
+    expect(screen.getByRole('option', { name: 'Prod' })).toBeInTheDocument();
+  });
+
+  it('keeps its own bound env selectable even if it appears used', () => {
+    const sub = makeSub({ id: 'self', selectedEnvId: 'e1' });
+    const parent: RequestCollection = {
+      ...multiEnvCollection,
+      folders: [sub],
+    };
+    setup({ subCollection: sub, parentCollection: parent });
+    fireEvent.click(darkTrigger('req-subcol-env-select'));
+    expect(screen.getByRole('option', { name: 'Dev' })).toBeInTheDocument();
+  });
+
   it('initializes baseUrlOverride from existing sub baseUrls', () => {
     const sub = makeSub({ selectedEnvId: 'e1', baseUrls: { e1: 'https://existing.example.com' } });
     setup({ subCollection: sub, parentCollection: multiEnvCollection });
@@ -135,14 +185,14 @@ describe('SubCollectionModal', () => {
 
   it('saves none auth', () => {
     const { onSave } = setup();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'none' } });
+    pickDark('req-subcol-auth-type-select', 'No Auth');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ auth: { type: 'none' } }));
   });
 
   it('configures and saves bearer auth', () => {
     const { onSave } = setup();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'bearer' } });
+    pickDark('req-subcol-auth-type-select', 'Bearer Token');
     fireEvent.change(screen.getByPlaceholderText('Paste your token'), { target: { value: 'mytoken' } });
     fireEvent.change(screen.getByPlaceholderText('Bearer'), { target: { value: 'JWT' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -153,7 +203,7 @@ describe('SubCollectionModal', () => {
 
   it('configures and saves basic auth', () => {
     const { onSave } = setup();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'basic' } });
+    pickDark('req-subcol-auth-type-select', 'Basic Auth');
     fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'pw' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -164,11 +214,10 @@ describe('SubCollectionModal', () => {
 
   it('configures and saves api-key auth with query target', () => {
     const { onSave } = setup();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'api-key' } });
+    pickDark('req-subcol-auth-type-select', 'API Key');
     fireEvent.change(screen.getByPlaceholderText('e.g. X-API-Key'), { target: { value: 'X-Key' } });
     fireEvent.change(screen.getByPlaceholderText('Key value'), { target: { value: 'secret' } });
-    const addToSelect = screen.getAllByRole('combobox')[1];
-    fireEvent.change(addToSelect, { target: { value: 'query' } });
+    pickDark('req-subcol-apikey-in-select', 'Query String');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'secret', apiKeyIn: 'query' },
@@ -177,7 +226,7 @@ describe('SubCollectionModal', () => {
 
   it('configures and saves oauth2 auth', () => {
     const { onSave } = setup();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'oauth2' } });
+    pickDark('req-subcol-auth-type-select', 'OAuth2 Client Credentials');
     fireEvent.change(screen.getByPlaceholderText('https://auth.example.com/oauth/token'), { target: { value: 'https://t' } });
     fireEvent.change(screen.getByPlaceholderText('Client ID'), { target: { value: 'cid' } });
     fireEvent.change(screen.getByPlaceholderText('Client Secret'), { target: { value: 'sec' } });
@@ -189,9 +238,8 @@ describe('SubCollectionModal', () => {
 
   it('configures and saves global-profile auth resolving the profile', () => {
     const { onSave } = setup();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'global-profile' } });
-    const profileSelect = screen.getAllByRole('combobox')[1];
-    fireEvent.change(profileSelect, { target: { value: 'p2' } });
+    pickDark('req-subcol-auth-type-select', 'Global Auth Profile');
+    pickDark('req-subcol-profile-select', 'Basic (basic)');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       auth: { type: 'basic', username: 'u', globalProfileId: 'p2' },
@@ -208,6 +256,7 @@ describe('SubCollectionModal', () => {
 
   it('hides global-profile option when no profiles available', () => {
     setup({ globalAuthProfiles: [] });
+    fireEvent.click(darkTrigger('req-subcol-auth-type-select'));
     expect(screen.queryByRole('option', { name: 'Global Auth Profile' })).toBeNull();
   });
 

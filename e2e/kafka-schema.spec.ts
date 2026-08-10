@@ -10,7 +10,7 @@
  * Designer (seed a workflow → navigate to /?tab=workflow → dblclick the node).
  *
  * Coverage:
- *   1. "Enable Schema Registry" toggle shows/hides the config fields
+ *   1. "Schema Registry" toggle shows/hides the config fields
  *   2. Format dropdown exposes Avro, Protobuf, and JSON Schema options
  *   3. Auth fields (username + password) are visible when schema is enabled
  *   4. Subject load button calls /api/kafka/schema-subjects → populates dropdown
@@ -158,8 +158,12 @@ async function openNodeConfig(
 
 test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
+  async function getCustomSelectMenuLabels(page: import('@playwright/test').Page): Promise<string[]> {
+    return page.locator('.cs-menu .cs-item .cs-item-label').allTextContents();
+  }
+
   // ── 1. Toggle shows/hides fields ───────────────────────────────────────────
-  test('Enable Schema Registry toggle shows config fields when checked', async ({ page }) => {
+  test('Schema Registry toggle shows config fields when checked', async ({ page }) => {
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
 
@@ -167,7 +171,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await expect(page.locator('input[placeholder*="schema-registry"]')).not.toBeVisible();
 
     // Enable the toggle
-    const toggle = page.getByLabel('Enable Schema Registry');
+    const toggle = page.getByRole('checkbox', { name: /Schema Registry/ });
     await toggle.check();
 
     // Schema fields should now be visible
@@ -179,16 +183,18 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
 
-    const toggle = page.getByLabel('Enable Schema Registry');
+    const toggle = page.getByRole('checkbox', { name: /Schema Registry/ });
     await toggle.check();
 
     const formatSelect = page.locator('[data-testid="schema-format-select"]');
     await expect(formatSelect).toBeVisible();
 
-    const options = await formatSelect.locator('option').allTextContents();
+    await formatSelect.locator('.cs-trigger').click();
+    const options = await getCustomSelectMenuLabels(page);
     expect(options).toContain('Avro');
     expect(options).toContain('Protobuf');
     expect(options).toContain('JSON Schema');
+    await page.keyboard.press('Escape');
   });
 
   // ── 3. Auth fields ─────────────────────────────────────────────────────────
@@ -196,7 +202,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
 
-    await page.getByLabel('Enable Schema Registry').check();
+    await page.getByRole('checkbox', { name: /Schema Registry/ }).check();
 
     await expect(page.locator('[data-testid="schema-username"]')).toBeVisible();
     await expect(page.locator('[data-testid="schema-password"]')).toBeVisible();
@@ -219,7 +225,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
-    await page.getByLabel('Enable Schema Registry').check();
+    await page.getByRole('checkbox', { name: /Schema Registry/ }).check();
 
     // Fill registry URL so the load button becomes enabled
     await page.locator('input[placeholder*="schema-registry"]').fill(REGISTRY_URL);
@@ -230,8 +236,10 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     // Dropdown with loaded subjects should appear
     await expect(page.locator('[data-testid="schema-subjects-dropdown"]')).toBeVisible({ timeout: 6000 });
-    const subjectOptions = await page.locator('[data-testid="schema-subjects-dropdown"] option').allTextContents();
+    await page.locator('[data-testid="schema-subjects-dropdown"] .cs-trigger').click();
+    const subjectOptions = await getCustomSelectMenuLabels(page);
     expect(subjectOptions.some((o) => o.includes('orders.created-value'))).toBe(true);
+    await page.keyboard.press('Escape');
     expect(subjectsCalled).toBe(true);
   });
 
@@ -258,7 +266,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
-    await page.getByLabel('Enable Schema Registry').check();
+    await page.getByRole('checkbox', { name: /Schema Registry/ }).check();
     await page.locator('input[placeholder*="schema-registry"]').fill(REGISTRY_URL);
 
     const loadVersionsBtn = page.locator('button[title="Load versions from registry"]');
@@ -267,9 +275,11 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     // Dropdown with loaded versions should appear
     await expect(page.locator('[data-testid="schema-versions-dropdown"]')).toBeVisible({ timeout: 6000 });
-    const versionOptions = await page.locator('[data-testid="schema-versions-dropdown"] option').allTextContents();
+    await page.locator('[data-testid="schema-versions-dropdown"] .cs-trigger').click();
+    const versionOptions = await getCustomSelectMenuLabels(page);
     expect(versionOptions.some((o) => o.includes('1'))).toBe(true);
     expect(versionOptions.some((o) => o.includes('3'))).toBe(true);
+    await page.keyboard.press('Escape');
     expect(versionsCalled).toBe(true);
   });
 
@@ -286,7 +296,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
-    await page.getByLabel('Enable Schema Registry').check();
+    await page.getByRole('checkbox', { name: /Schema Registry/ }).check();
     await page.locator('input[placeholder*="schema-registry"]').fill(REGISTRY_URL);
 
     await page.locator('button[title="Load subjects from registry"]').click();
@@ -309,7 +319,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
-    await page.getByLabel('Enable Schema Registry').check();
+    await page.getByRole('checkbox', { name: /Schema Registry/ }).check();
     await page.locator('input[placeholder*="schema-registry"]').fill(REGISTRY_URL);
 
     await page.locator('button[title="Load versions from registry"]').click();
@@ -323,7 +333,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
 
-    const toggle = page.getByLabel('Enable Schema Registry');
+    const toggle = page.getByRole('checkbox', { name: /Schema Registry/ });
     await toggle.check();
     await expect(page.locator('input[placeholder*="schema-registry"]')).toBeVisible();
 
@@ -338,7 +348,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
   test('Subject placeholder shows topic-derived default when enabled', async ({ page }) => {
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaProduce');
-    await page.getByLabel('Enable Schema Registry').check();
+    await page.getByRole('checkbox', { name: /Schema Registry/ }).check();
 
     // The produce node has topic 'orders.created', so placeholder is 'orders.created-value'
     const subjectInput = page.locator('[data-testid="schema-subject-input"]');
@@ -352,11 +362,11 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
 test.describe('Kafka Schema Registry UX — KafkaConsumeConfig', () => {
 
-  test('KafkaConsumeConfig exposes Enable Schema Registry toggle', async ({ page }) => {
+  test('KafkaConsumeConfig exposes Schema Registry toggle', async ({ page }) => {
     await seedAndOpenDesigner(page, CONSUME_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaConsume');
 
-    const toggle = page.getByLabel('Enable Schema Registry');
+    const toggle = page.getByRole('checkbox', { name: /Schema Registry/ });
     await expect(toggle).toBeVisible();
     expect(await toggle.isChecked()).toBe(false);
   });
@@ -365,7 +375,7 @@ test.describe('Kafka Schema Registry UX — KafkaConsumeConfig', () => {
     await seedAndOpenDesigner(page, CONSUME_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaConsume');
 
-    await page.getByLabel('Enable Schema Registry').check();
+    await page.getByRole('checkbox', { name: /Schema Registry/ }).check();
 
     await expect(page.locator('input[placeholder*="schema-registry"]')).toBeVisible();
     await expect(page.locator('button[title="Load subjects from registry"]')).toBeVisible();
@@ -387,7 +397,7 @@ test.describe('Kafka Schema Registry UX — KafkaConsumeConfig', () => {
 
     await seedAndOpenDesigner(page, CONSUME_WORKFLOW);
     await openNodeConfig(page, '.wf-node-kafkaConsume');
-    await page.getByLabel('Enable Schema Registry').check();
+    await page.getByRole('checkbox', { name: /Schema Registry/ }).check();
     await page.locator('input[placeholder*="schema-registry"]').fill(REGISTRY_URL);
 
     await page.locator('button[title="Load subjects from registry"]').click();

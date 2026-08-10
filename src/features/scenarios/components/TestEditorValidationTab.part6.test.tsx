@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';
 import type { Assertion, Scenario } from '../../../shared/types';
@@ -205,9 +206,9 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       const onDraftChange = vi.fn();
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      const modeSelect = screen.getByDisplayValue('any (at least one)');
-      expect(modeSelect).toBeInTheDocument();
-      fireEvent.change(modeSelect, { target: { value: 'all' } });
+      const row = screen.getByText('CONTAINS').closest('.assertion-row')!;
+      expect(getCustomSelectValue(row.querySelector('.cs-wrapper')!)).toBe('any (at least one)');
+      selectOption(row.querySelector('.cs-wrapper')!, 'all (every item)');
       expect(onDraftChange).toHaveBeenCalled();
     });
 
@@ -220,7 +221,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
-      expect(screen.getByDisplayValue('>=')).toBeInTheDocument();
+      const row = screen.getByText('EACH').closest('.assertion-row')!;
+      expect(getCustomSelectValue(row.querySelector('.cs-wrapper')!)).toBe('>=');
     });
 
     it('renders JSON textarea for containsSubset', () => {
@@ -563,11 +565,11 @@ describe('TestEditorValidationTab', () => {
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       expect(screen.getByText('SIZE')).toBeInTheDocument();
       const row = screen.getByText('SIZE').closest('.assertion-row')!;
-      fireEvent.change(row.querySelector('.assertion-select--operator')!, { target: { value: '>' } });
+      selectOption(row.querySelector('.assertion-select--operator')!, 'more than');
       draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
       fireEvent.change(row.querySelector('input[type="number"]')!, { target: { value: '10' } });
       draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
-      fireEvent.change(row.querySelector('.assertion-select--unit')!, { target: { value: 'mb' } });
+      selectOption(row.querySelector('.assertion-select--unit')!, 'MB');
       expect(onDraftChange).toHaveBeenCalled();
       const last = onDraftChange.mock.calls.at(-1)![0] as Scenario;
       expect(last.validation.assertions?.[0]).toMatchObject({ type: 'bodySize', operator: '>', value: 10, unit: 'mb' });

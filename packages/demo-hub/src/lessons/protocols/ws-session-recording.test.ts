@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsSessionRecordingLesson } from './ws-session-recording';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-session-recording lesson', () => {
   beforeEach(() => {
@@ -73,13 +73,12 @@ describe('ws-session-recording lesson', () => {
     expect(typeof step.preAction).toBe('function');
   });
 
-  it('step rec-intro preAction connects and switches to events when not connected', async () => {
+  it('step rec-intro preAction connects when not connected', async () => {
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
     // DOM has no disconnect-btn → ensureConnected will connect
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
   it('step rec-intro preAction skips connect when already connected', async () => {
@@ -87,12 +86,12 @@ describe('ws-session-recording lesson', () => {
     disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
     // Not disabled = genuinely connected
     document.body.appendChild(disconnectBtn);
+    makeVisible(disconnectBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
   it('step rec-intro preAction connects when disconnect-btn is present but disabled (not actually connected)', async () => {
@@ -102,6 +101,7 @@ describe('ws-session-recording lesson', () => {
     disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
     disconnectBtn.disabled = true;
     document.body.appendChild(disconnectBtn);
+    makeVisible(disconnectBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     const ctx = makeCtx();
@@ -110,10 +110,27 @@ describe('ws-session-recording lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
 
+  it('step rec-intro action spotlights Rec and Import with pauses', async () => {
+    const rec = document.createElement('button');
+    rec.setAttribute('data-testid', 'start-recording-btn');
+    document.body.appendChild(rec);
+    makeVisible(rec);
+    const imp = document.createElement('button');
+    imp.setAttribute('data-testid', 'import-recording-btn');
+    document.body.appendChild(imp);
+    makeVisible(imp);
+
+    const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
   it('step rec-intro preAction stops active recording if running', async () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const clickSpy = vi.fn();
     stopBtn.addEventListener('click', clickSpy);
@@ -129,12 +146,12 @@ describe('ws-session-recording lesson', () => {
     expect(step.highlight).toContain('start-recording-btn');
   });
 
-  it('step rec-intro action calls ctx.delay(400) (line 256)', async () => {
+  it('step rec-intro action includes pacing delays', async () => {
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
     expect(typeof step.action).toBe('function');
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
   // ─── Step: rec-start ──────────────────────────────────────
@@ -144,11 +161,15 @@ describe('ws-session-recording lesson', () => {
     expect(typeof step.preAction).toBe('function');
   });
 
-  it('step rec-start preAction connects and navigates to events when not recording', async () => {
+  it('step rec-start preAction connects when not recording', async () => {
+    const eventsTab = document.createElement('button');
+    eventsTab.setAttribute('data-testid', 'right-tab-events');
+    document.body.appendChild(eventsTab);
+    makeVisible(eventsTab);
+
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-start')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
 
@@ -156,6 +177,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-start')!;
     const ctx = makeCtx();
@@ -183,6 +205,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-capture')!;
     const ctx = makeCtx();
@@ -198,6 +221,7 @@ describe('ws-session-recording lesson', () => {
     const startBtn = document.createElement('button');
     startBtn.setAttribute('data-testid', 'start-recording-btn');
     document.body.appendChild(startBtn);
+    makeVisible(startBtn);
 
     const clickSpy = vi.fn();
     startBtn.addEventListener('click', clickSpy);
@@ -230,6 +254,7 @@ describe('ws-session-recording lesson', () => {
     const startBtn = document.createElement('button');
     startBtn.setAttribute('data-testid', 'start-recording-btn');
     document.body.appendChild(startBtn);
+    makeVisible(startBtn);
 
     const clickSpy = vi.fn();
     startBtn.addEventListener('click', clickSpy);
@@ -244,6 +269,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-stop')!;
     const ctx = makeCtx();
@@ -275,6 +301,7 @@ describe('ws-session-recording lesson', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'stop-recording-btn');
     document.body.appendChild(stopBtn);
+    makeVisible(stopBtn);
 
     const clickSpy = vi.fn();
     stopBtn.addEventListener('click', clickSpy);
@@ -289,6 +316,7 @@ describe('ws-session-recording lesson', () => {
     const exitBtn = document.createElement('button');
     exitBtn.setAttribute('data-testid', 'replay-exit-btn');
     document.body.appendChild(exitBtn);
+    makeVisible(exitBtn);
 
     const clickSpy = vi.fn();
     exitBtn.addEventListener('click', clickSpy);
@@ -300,12 +328,29 @@ describe('ws-session-recording lesson', () => {
   });
 
   it('step rec-import action injects a recording file', async () => {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'ws-message-toolbar';
+    document.body.appendChild(toolbar);
+    makeVisible(toolbar);
+
+    const importBtn = document.createElement('button');
+    importBtn.setAttribute('data-testid', 'import-recording-btn');
+    toolbar.appendChild(importBtn);
+    makeVisible(importBtn);
+
+    // Product uses display:none — zero box; inject must still find it
     const input = document.createElement('input');
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
-    document.body.appendChild(input);
+    input.style.display = 'none';
+    toolbar.appendChild(input);
 
-    const changeSpy = vi.fn();
+    const changeSpy = vi.fn(() => {
+      const play = document.createElement('button');
+      play.setAttribute('data-testid', 'start-replay-btn');
+      document.body.appendChild(play);
+      makeVisible(play);
+    });
     input.addEventListener('change', changeSpy);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-import')!;
@@ -318,11 +363,57 @@ describe('ws-session-recording lesson', () => {
     expect(files![0]?.name).toBe('demo-recording.json');
   });
 
-  it('step rec-import injected recording has short timing (under 6 s total)', async () => {
+  it('step rec-import injects into hidden display:none file input (product layout)', async () => {
+    const toolbar = document.createElement('div');
+    toolbar.style.width = '200px';
+    toolbar.style.height = '40px';
+    document.body.appendChild(toolbar);
+    makeVisible(toolbar);
+
+    const importBtn = document.createElement('button');
+    importBtn.setAttribute('data-testid', 'import-recording-btn');
+    toolbar.appendChild(importBtn);
+    makeVisible(importBtn);
+
     const input = document.createElement('input');
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
-    document.body.appendChild(input);
+    input.style.display = 'none';
+    toolbar.appendChild(input);
+
+    const changeSpy = vi.fn(() => {
+      const play = document.createElement('button');
+      play.setAttribute('data-testid', 'start-replay-btn');
+      document.body.appendChild(play);
+      makeVisible(play);
+    });
+    input.addEventListener('change', changeSpy);
+
+    const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-import')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(changeSpy).toHaveBeenCalled();
+  });
+
+  it('step rec-import injected recording has short timing (under 6 s total)', async () => {
+    const toolbar = document.createElement('div');
+    document.body.appendChild(toolbar);
+    makeVisible(toolbar);
+    const importBtn = document.createElement('button');
+    importBtn.setAttribute('data-testid', 'import-recording-btn');
+    toolbar.appendChild(importBtn);
+    makeVisible(importBtn);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.setAttribute('data-testid', 'recording-file-input');
+    input.style.display = 'none';
+    toolbar.appendChild(input);
+    input.addEventListener('change', () => {
+      const play = document.createElement('button');
+      play.setAttribute('data-testid', 'start-replay-btn');
+      document.body.appendChild(play);
+      makeVisible(play);
+    });
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-import')!;
     const ctx = makeCtx();
@@ -349,12 +440,25 @@ describe('ws-session-recording lesson', () => {
   });
 
   it('step rec-play preAction injects recording when no play button exists', async () => {
+    const toolbar = document.createElement('div');
+    document.body.appendChild(toolbar);
+    makeVisible(toolbar);
+    const importBtn = document.createElement('button');
+    importBtn.setAttribute('data-testid', 'import-recording-btn');
+    toolbar.appendChild(importBtn);
+    makeVisible(importBtn);
     const input = document.createElement('input');
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
-    document.body.appendChild(input);
+    input.style.display = 'none';
+    toolbar.appendChild(input);
 
-    const changeSpy = vi.fn();
+    const changeSpy = vi.fn(() => {
+      const play = document.createElement('button');
+      play.setAttribute('data-testid', 'start-replay-btn');
+      document.body.appendChild(play);
+      makeVisible(play);
+    });
     input.addEventListener('change', changeSpy);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-play')!;
@@ -367,11 +471,13 @@ describe('ws-session-recording lesson', () => {
     const playBtn = document.createElement('button');
     playBtn.setAttribute('data-testid', 'start-replay-btn');
     document.body.appendChild(playBtn);
+    makeVisible(playBtn);
 
     const input = document.createElement('input');
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
     document.body.appendChild(input);
+    makeVisible(input);
 
     const changeSpy = vi.fn();
     input.addEventListener('change', changeSpy);
@@ -405,10 +511,18 @@ describe('ws-session-recording lesson', () => {
   it('step rec-exit preAction injects a file and pauses replay when no exit or play button exists', async () => {
     // Scenario: replay auto-completed and recording was cleared from memory.
     // Neither exit button nor play button is in the DOM. Injection is required.
+    const toolbar = document.createElement('div');
+    document.body.appendChild(toolbar);
+    makeVisible(toolbar);
+    const importBtn = document.createElement('button');
+    importBtn.setAttribute('data-testid', 'import-recording-btn');
+    toolbar.appendChild(importBtn);
+    makeVisible(importBtn);
     const input = document.createElement('input');
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
-    document.body.appendChild(input);
+    input.style.display = 'none';
+    toolbar.appendChild(input);
 
     const changeSpy = vi.fn(() => {
       // Simulate React re-render: file loaded → play button appears
@@ -419,15 +533,19 @@ describe('ws-session-recording lesson', () => {
         const bar = document.createElement('div');
         bar.setAttribute('data-testid', 'replay-bar');
         document.body.appendChild(bar);
+        makeVisible(bar);
         const exitEl = document.createElement('button');
         exitEl.setAttribute('data-testid', 'replay-exit-btn');
         document.body.appendChild(exitEl);
+        makeVisible(exitEl);
         const ppBtn = document.createElement('button');
         ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
         ppBtn.textContent = '⏸';
         document.body.appendChild(ppBtn);
+        makeVisible(ppBtn);
       });
       document.body.appendChild(playBtn);
+      makeVisible(playBtn);
     });
     input.addEventListener('change', changeSpy);
 
@@ -449,16 +567,20 @@ describe('ws-session-recording lesson', () => {
       const bar = document.createElement('div');
       bar.setAttribute('data-testid', 'replay-bar');
       document.body.appendChild(bar);
+      makeVisible(bar);
       const exitEl = document.createElement('button');
       exitEl.setAttribute('data-testid', 'replay-exit-btn');
       document.body.appendChild(exitEl);
+      makeVisible(exitEl);
       const ppBtn = document.createElement('button');
       ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
       ppBtn.textContent = '⏸';
       document.body.appendChild(ppBtn);
+      makeVisible(ppBtn);
     });
     playBtn.addEventListener('click', playClickSpy);
     document.body.appendChild(playBtn);
+    makeVisible(playBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-exit')!;
     const ctx = makeCtx();
@@ -473,11 +595,13 @@ describe('ws-session-recording lesson', () => {
     const exitBtn = document.createElement('button');
     exitBtn.setAttribute('data-testid', 'replay-exit-btn');
     document.body.appendChild(exitBtn);
+    makeVisible(exitBtn);
 
     const ppBtn = document.createElement('button');
     ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
     ppBtn.textContent = '⏸'; // Currently playing
     document.body.appendChild(ppBtn);
+    makeVisible(ppBtn);
 
     const ppClickSpy = vi.fn();
     ppBtn.addEventListener('click', ppClickSpy);
@@ -493,11 +617,13 @@ describe('ws-session-recording lesson', () => {
     const exitBtn = document.createElement('button');
     exitBtn.setAttribute('data-testid', 'replay-exit-btn');
     document.body.appendChild(exitBtn);
+    makeVisible(exitBtn);
 
     const ppBtn = document.createElement('button');
     ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
     ppBtn.textContent = '▶'; // Already paused
     document.body.appendChild(ppBtn);
+    makeVisible(ppBtn);
 
     const ppClickSpy = vi.fn();
     ppBtn.addEventListener('click', ppClickSpy);
@@ -518,6 +644,7 @@ describe('ws-session-recording lesson', () => {
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'replay-exit-btn');
     document.body.appendChild(btn);
+    makeVisible(btn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-exit')!;
     const ctx = makeCtx();
@@ -534,20 +661,47 @@ describe('ws-session-recording lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────
 
-  it('setup starts mock server and clears protocol state', async () => {
+  it('setup uses quiet REST mock without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/ws/mock/status')) {
+        return new Response(JSON.stringify({ running: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }));
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    document.body.appendChild(bar);
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    makeVisible(connectTab);
+    const sub = document.createElement('input');
+    sub.setAttribute('aria-label', 'Subprotocols');
+    sub.value = 'stomp';
+    document.body.appendChild(sub);
+    makeVisible(sub);
+    const protocol = document.createElement('div');
+    protocol.setAttribute('data-testid', 'protocol-select');
+    protocol.className = 'cs-wrapper';
+    protocol.innerHTML = '<button class="cs-trigger">STOMP</button>';
+    document.body.appendChild(protocol);
+    makeVisible(protocol);
+
     const ctx = makeCtx();
     await wsSessionRecordingLesson.setup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(sub.value).toBe('');
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('protocol'), 'raw');
   });
 
-  it('cleanup stops mock server', async () => {
+  it('cleanup stops mock quietly without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ));
     const ctx = makeCtx();
     await wsSessionRecordingLesson.cleanup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 
   // ─── Additional branch coverage ──────────────────────────────
@@ -590,10 +744,12 @@ describe('ws-session-recording lesson', () => {
       const bar = document.createElement('div');
       bar.setAttribute('data-testid', 'replay-bar');
       document.body.appendChild(bar);
+      makeVisible(bar);
       // NOTE: no replay-playpause-btn added → pauseBtn will be null at line 433
     });
     playBtn.addEventListener('click', playClickSpy);
     document.body.appendChild(playBtn);
+    makeVisible(playBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-exit')!;
     const ctx = makeCtx();

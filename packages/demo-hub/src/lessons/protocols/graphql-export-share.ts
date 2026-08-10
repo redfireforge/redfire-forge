@@ -14,7 +14,7 @@ import {
   prepareGql9CurlReading,
   ensureHistoryEntryVisible,
   copyHistoryAsCurl,
-  ensureIntrospected,
+  ensureIntrospectedOnDirectEndpoint,
   getBuilderCodeText,
   gqlExportShareLessonCleanup,
   gqlExportShareLessonSetup,
@@ -302,7 +302,8 @@ After executing a query, right-clicking a History entry reveals **Copy as cURL**
         'You cannot accidentally type an invalid field name or forget a required argument — the UI surfaces both problems immediately. ' +
         'This is especially valuable when exploring an unfamiliar API: you can discover available fields by browsing the tree rather than reading schema documentation.',
       highlight: GQL.QB_FIELD_TREE,
-      preAction: ensureIntrospected,
+      // Direct HTTP — never open Environment Manager during Preparing.
+      preAction: ensureIntrospectedOnDirectEndpoint,
       action: async (ctx) => {
         await ensureBuilderHealthAndUserSelected(ctx);
         await ctx.waitFor(GQL.QB_CODE, 5000);

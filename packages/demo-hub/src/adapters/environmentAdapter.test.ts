@@ -13,9 +13,15 @@ vi.mock('@graphql/utils/gqlDemoBatchDetectionCleanup', () => ({
 import {
   applyGqlTlsSettings,
   deleteGqlEnvironmentByName,
+  ensureSettingsEnvironment,
+  ensureSettingsMicroservice,
   purgeGqlDemoGlobalAuthProfiles,
+  removeSettingsEnvironment,
+  removeSettingsMicroservice,
   removeWorkspaceDefaults,
   resetGqlDemoBatchDetection,
+  resetSettingsMicroserviceProtocols,
+  selectSettingsEnvSvc,
   upsertGlobalAuthProfile,
   upsertGqlEnvironment,
   upsertWorkspaceDefaults,
@@ -33,6 +39,8 @@ describe('environmentAdapter', () => {
     delete (window as unknown as Record<string, unknown>).__demoUpsertWorkspaceDefaults;
     delete (window as unknown as Record<string, unknown>).__demoRemoveWorkspaceDefaults;
     delete (window as unknown as Record<string, unknown>).__demoResetGqlBatchDetection;
+    delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv;
     resetAllMocks();
   });
 
@@ -121,5 +129,71 @@ describe('environmentAdapter', () => {
     await expect(purgeGqlDemoGlobalAuthProfiles()).resolves.toBe(2);
     expect(purgeGqlDemoGlobalAuthProfilesFromStorage).toHaveBeenCalled();
     expect(spy).toHaveBeenCalledWith(['Lesson 6 Bearer'], ['lesson6-gql-profile']);
+  });
+
+  it('ensureSettingsEnvironment returns empty string when bridge missing', () => {
+    expect(ensureSettingsEnvironment('prod')).toBe('');
+  });
+
+  it('ensureSettingsEnvironment calls bridge and returns env id', () => {
+    const spy = vi.fn(() => 'env-123');
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = spy;
+    expect(ensureSettingsEnvironment('prod')).toBe('env-123');
+    expect(spy).toHaveBeenCalledWith('prod');
+  });
+
+  it('removeSettingsEnvironment calls bridge', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv = spy;
+    removeSettingsEnvironment('staging');
+    expect(spy).toHaveBeenCalledWith('staging');
+  });
+
+  it('removeSettingsEnvironment is a no-op when bridge missing', () => {
+    expect(() => removeSettingsEnvironment('staging')).not.toThrow();
+  });
+
+  it('ensureSettingsMicroservice returns empty string when bridge missing', () => {
+    expect(ensureSettingsMicroservice('svc')).toBe('');
+  });
+
+  it('ensureSettingsMicroservice calls bridge and returns svc id', () => {
+    const spy = vi.fn(() => 'svc-abc');
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = spy;
+    expect(ensureSettingsMicroservice('product-api', { e1: 'http://x' })).toBe('svc-abc');
+    expect(spy).toHaveBeenCalledWith('product-api', { e1: 'http://x' });
+  });
+
+  it('removeSettingsMicroservice calls bridge', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc = spy;
+    removeSettingsMicroservice('product-api');
+    expect(spy).toHaveBeenCalledWith('product-api');
+  });
+
+  it('removeSettingsMicroservice is a no-op when bridge missing', () => {
+    expect(() => removeSettingsMicroservice('product-api')).not.toThrow();
+  });
+
+  it('selectSettingsEnvSvc calls bridge when envId is set', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = spy;
+    selectSettingsEnvSvc('env-1', 'svc-1');
+    expect(spy).toHaveBeenCalledWith('env-1', 'svc-1');
+  });
+
+  it('selectSettingsEnvSvc is a no-op when envId is empty', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = spy;
+    selectSettingsEnvSvc('');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('resetSettingsMicroserviceProtocols calls bridge and returns false when missing', () => {
+    expect(resetSettingsMicroserviceProtocols('grpc-demo')).toBe(false);
+    const spy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__demoResetSettingsSvcProtocols = spy;
+    expect(resetSettingsMicroserviceProtocols('grpc-demo', { clearGlobalVars: true })).toBe(true);
+    expect(spy).toHaveBeenCalledWith('grpc-demo', { clearGlobalVars: true });
   });
 });

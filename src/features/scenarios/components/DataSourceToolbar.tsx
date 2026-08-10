@@ -2,7 +2,9 @@
  * DataSourceToolbar — Unified toolbar for DataSourceEditor.
  * Extracted to reduce DataSourceEditor.tsx line count.
  */
+import { useRef } from 'react';
 import type { DataSource, SharedDataSource } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import ColumnOrderPopover from './ColumnOrderPopover';
 
 interface DataSourceToolbarProps {
@@ -72,10 +74,12 @@ export default function DataSourceToolbar({
   onOpenSharedDsModal,
   onPromoteToShared,
 }: DataSourceToolbarProps) {
+  const columnOrderBtnRef = useRef<HTMLButtonElement>(null);
+
   return (
     <div className="data-source-toolbar-unified">
       <div className="data-source-toolbar-title">
-        <span className="params-section-label">DATA SOURCE</span>
+        <span className="params-section-label">Data Source</span>
         {linkedSharedDs && (
           <button
             type="button"
@@ -137,17 +141,16 @@ export default function DataSourceToolbar({
           ) : (
             <>
               {availableSharedDs.length > 0 && (
-                <select
+                <CustomSelect
                   className="data-source-toolbar-select"
                   value=""
-                  onChange={e => { if (e.target.value) onLinkSharedDs(e.target.value); }}
-                  title="Link to a shared data source"
-                >
-                  <option value="">📋 Use Shared…</option>
-                  {availableSharedDs.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.dataSource.rows.length} rows)</option>
-                  ))}
-                </select>
+                  onChange={(v) => { if (v) onLinkSharedDs(v); }}
+                  placeholder="📋 Use Shared…"
+                  options={availableSharedDs.map((s) => ({
+                    value: s.id,
+                    label: `${s.name} (${s.dataSource.rows.length} rows)`,
+                  }))}
+                />
               )}
               {onPromoteToShared && dt && dt.rows.length > 0 && (
                 <button
@@ -172,7 +175,7 @@ export default function DataSourceToolbar({
           <button type="button" className="data-source-toolbar-btn" onClick={onAddColumn} title="Add a new column" disabled={!!linkedSharedDs}>
             + Column
           </button>
-          <button type="button" className="data-source-toolbar-btn" onClick={onShowPopulateModal} title="Send a request and populate rows from an array in the response" disabled={!!linkedSharedDs}>
+          <button type="button" className="data-source-toolbar-btn" onClick={onShowPopulateModal} title="Fetch a live API response and map fields into data-source rows" disabled={!!linkedSharedDs}>
             ⬇ From API
           </button>
           <button type="button" className="data-source-toolbar-btn" onClick={onShowColumnMapper} title="Data Mapper: drag columns to URL path, query, body, header, or validate slots" disabled={!!linkedSharedDs || dt.columns.length === 0}>
@@ -200,31 +203,32 @@ export default function DataSourceToolbar({
           </button>
         </div>
         <div className="data-source-toolbar-group">
-          <select
+          <CustomSelect
             className="data-source-toolbar-select"
             value={dt.distribution ?? 'sequential'}
-            onChange={(e) => onDistributionChange(e.target.value as DataSource['distribution'])}
-            title="Row distribution strategy"
-          >
-            <option value="sequential">Sequential</option>
-            <option value="random">Random</option>
-            <option value="round-robin">Round Robin</option>
-          </select>
-          <select
+            onChange={(v) => onDistributionChange(v as DataSource['distribution'])}
+            options={[
+              { value: 'sequential', label: 'Sequential' },
+              { value: 'random', label: 'Random' },
+              { value: 'round-robin', label: 'Round Robin' },
+            ]}
+          />
+          <CustomSelect
             className="data-source-toolbar-select"
             value={dt.validationMode ?? 'selective'}
-            onChange={(e) => onValidationModeChange(e.target.value as DataSource['validationMode'])}
-            title="Which rows to validate — No Rows: skip validation, Sample Rows Only: validate 📌 sample rows, All Rows: validate every row"
-          >
-            <option value="none">Validate: No Rows</option>
-            <option value="selective">Validate: Sample Rows Only</option>
-            <option value="full">Validate: All Rows</option>
-          </select>
+            onChange={(v) => onValidationModeChange(v as DataSource['validationMode'])}
+            options={[
+              { value: 'none', label: 'Validate: No Rows' },
+              { value: 'selective', label: 'Validate: Sample Rows Only' },
+              { value: 'full', label: 'Validate: All Rows' },
+            ]}
+          />
         </div>
         <div className="data-source-toolbar-group data-source-toolbar-meta">
           {dt.columns.length > 1 && (
             <div style={{ position: 'relative' }}>
               <button
+                ref={columnOrderBtnRef}
                 type="button"
                 className={`data-source-toolbar-btn ${showColumnOrder ? 'active' : ''}`}
                 onClick={() => setShowColumnOrder(!showColumnOrder)}
@@ -238,6 +242,7 @@ export default function DataSourceToolbar({
                   items={dt.columns}
                   onApply={onColumnOrderApply}
                   onClose={() => setShowColumnOrder(false)}
+                  anchorRef={columnOrderBtnRef}
                 />
               )}
             </div>

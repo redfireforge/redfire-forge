@@ -237,7 +237,7 @@ describe('DataSourceEditor', () => {
           sharedDataSources={[shared]}
         />,
       );
-      expect(screen.getByText('DATA SOURCE')).toBeTruthy();
+      expect(screen.getByText('Data Source')).toBeTruthy();
       expect(screen.getByDisplayValue('1GYVUZ')).toBeTruthy();
     });
 
@@ -312,7 +312,7 @@ describe('DataSourceEditor', () => {
           onFetchRow={onFetchRow}
         />,
       );
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       await act(async () => {
         await expect(hoistedMocks.lastPopulateAdapter!.fetchSampleData!()).rejects.toMatchObject({
           name: 'MapperFetchError',
@@ -348,7 +348,7 @@ describe('DataSourceEditor', () => {
           onFetchRow={onFetchRow}
         />,
       );
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       await act(async () => {
         try {
           await hoistedMocks.lastPopulateAdapter!.fetchSampleData!();

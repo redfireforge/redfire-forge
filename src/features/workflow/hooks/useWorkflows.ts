@@ -52,7 +52,12 @@ export function useWorkflows() {
         loadSelectedWorkflowId(),
       ]);
       if (cancelled) return;
-      const next = wfs.map(migrateWorkflowSchema);
+      // Repair any legacy/seeded workflow persisted without an id (renders with a
+      // duplicate/undefined React key otherwise). Runs before migrate comparison so
+      // the healed ids get written back to storage.
+      const next = wfs
+        .map(migrateWorkflowSchema)
+        .map((wf) => (wf.id ? wf : { ...wf, id: uuidv4() }));
       const migrated = JSON.stringify(next) !== JSON.stringify(wfs);
       if (migrated) {
         await saveWorkflows(next);
@@ -164,15 +169,19 @@ export function useWorkflows() {
   }, []);
 
   const insert = useCallback((wf: Workflow) => {
+    // Seeded/imported workflows (e.g. demo lessons via the bridge) can arrive
+    // without an `id`. Guarantee one so React list keys stay unique — a missing
+    // id renders as key={undefined} and triggers the "unique key prop" warning.
+    const wfWithId: Workflow = wf.id ? wf : { ...wf, id: uuidv4() };
     setWorkflows((prev) => {
-      if (prev.some((w) => w.id === wf.id)) {
+      if (prev.some((w) => w.id === wfWithId.id)) {
         return prev;
       }
-      const next = [...prev, wf];
+      const next = [...prev, wfWithId];
       void saveWorkflows(next);
       return next;
     });
-    setSelectedId(wf.id);
+    setSelectedId(wfWithId.id);
   }, []);
 
   const reorder = useCallback((workflowId: string, newFolderId: string | null, newOrder: number) => {

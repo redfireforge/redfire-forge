@@ -1,6 +1,8 @@
 /** Lesson GQL-1: Your First GraphQL Query — endpoint, introspect, execute, history */
 import type { DemoLesson } from '../../types';
 import { EM, GQL, APP } from '@shared/selectors';
+import { showSpotlightRing } from '../../demoRipple';
+import { firstVisibleElement } from '../../utils/domVisibility';
 import {
   GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
@@ -268,28 +270,17 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
   },
 
   steps: [
-    // ── 1. Orientation ───────────────────────────────────────────
+    // ── 1. Add GraphQL protocol + configure endpoint (Environment Manager) ──
     {
-      id: 'gql1-intro',
-      title: 'GraphQL Studio',
-      description:
-        'Welcome to **GraphQL Studio**. Unlike REST — where every resource has its own URL — GraphQL uses a **single endpoint** for every operation. ' +
-        'The **connection bar** at the top holds the endpoint field, the **Introspect** button, the **✓ Schema** badge, and the **Execute** button. ' +
-        'The Monaco editor occupies the centre; the **Response** and **Schema** tabs are on the right. ' +
-        'The **Variables** and **Headers** panels live in the bottom strip. Every query is also a plain **HTTP POST** — the Metadata tab lets you inspect those raw request headers.',
-      highlight: GQL.CONNECTION_BAR,
-      pauseAfter: true,
-    },
-
-    // ── 2. Add GraphQL protocol ──────────────────────────────────
-    {
-      id: 'gql1-add-protocol',
-      title: 'Add GraphQL Protocol',
+      id: 'gql1-env-setup',
+      title: 'Add Protocol & Configure Endpoint',
       description:
         `Open **Settings → Environments**, add an environment called **"${GQL_DEMO_ENV_NAME}"** and a microservice ` +
         `called **"${GQL_DEMO_SVC_NAME}"** — separate from your real configs. Expand the microservice — it starts with ` +
-        `**no protocol tabs**. Click **+ Add protocol** and choose **GraphQL**. Only the **GraphQL** tab appears ` +
-        `(HTTP is not added by default). Check the deploy box for **${GQL_DEMO_ENV_NAME}** so the environment is active on this service.`,
+        `**no protocol tabs**. Click **+ Add protocol** and choose **GraphQL** (HTTP is not added by default). ` +
+        `Check the deploy box for **${GQL_DEMO_ENV_NAME}**, then on the **GraphQL** tab click **Edit** on the ` +
+        `**${GQL_DEMO_ENV_NAME}** row. Set the base URL to \`http://localhost:4010\` and the path to \`/graphql\`. ` +
+        `Click **Save** — status becomes **✓ set**, and \`{{graphqlUrl}}\` resolves to \`${GQL_DEMO_HTTP}\`.`,
       highlight: EM.ADD_PROTOCOL_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -301,37 +292,48 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
       action: async (ctx) => {
         await ensureGqlDemoProtocolReady(ctx);
         await ctx.delay(800);
-      },
-    },
-
-    // ── 3. Configure GraphQL endpoint ────────────────────────────
-    {
-      id: 'gql1-env-config',
-      title: 'Configure GraphQL Endpoint',
-      description:
-        `On the **GraphQL** tab, click **Edit** on the **${GQL_DEMO_ENV_NAME}** row. Set the base URL to ` +
-        `\`http://localhost:4010\` and the path to \`/graphql\`. Click **Save** — the status changes to **✓ set**. ` +
-        `The derived-variables panel below shows \`{{graphqlUrl}}\` resolving to \`${GQL_DEMO_HTTP}\` for this microservice. ` +
-        `Only the **GraphQL** tab is present — no HTTP tab.`,
-      highlight: EM.PROTOCOL_TAB_GQL,
-      pauseAfter: true,
-      preAction: async (ctx) => {
-        await ensureGqlDemoProtocolReady(ctx);
-      },
-      action: async (ctx) => {
         await configureNamedGraphqlEndpoint(
           ctx,
           GQL_DEMO_ENV_NAME,
           GQL_DEMO_BASE_URL,
           GQL_DEMO_GRAPHQL_PATH,
         );
+        const spotPause = async (selector: string, holdMs: number) => {
+          const el = firstVisibleElement<HTMLElement>(selector);
+          if (!el) { await ctx.delay(holdMs); return; }
+          el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+          const dispose = showSpotlightRing(el);
+          await ctx.delay(holdMs);
+          dispose();
+        };
+        await spotPause('.em-url-display', 1800);
+        await ctx.delay(300);
+        await spotPause(EM.GRAPHQL_PATH_INPUT, 1600);
         await ctx.waitFor(EM.DERIVED_VARS_GQL, 5000);
-        await ctx.delay(1500);
+        await ctx.delay(800);
       },
       verify: EM.DERIVED_VARS_GQL,
     },
 
-    // ── 4. Header env/svc selection ─────────────────────────────
+    // ── 2. Orientation in GraphQL Studio ─────────────────────────
+    {
+      id: 'gql1-intro',
+      title: 'GraphQL Studio',
+      description:
+        'Welcome to **GraphQL Studio**. Unlike REST — where every resource has its own URL — GraphQL uses a **single endpoint** for every operation. ' +
+        'The **connection bar** at the top holds the endpoint field, the **Introspect** button, the **✓ Schema** badge, and the **Execute** button. ' +
+        'The Monaco editor occupies the centre; the **Response** and **Schema** tabs are on the right. ' +
+        'The **Variables** and **Headers** panels live in the bottom strip. Every query is also a plain **HTTP POST** — the Metadata tab lets you inspect those raw request headers.',
+      highlight: GQL.CONNECTION_BAR,
+      pauseAfter: true,
+      preAction: async (ctx) => {
+        // Prior step leaves Environment Manager open — land on Studio for this beat.
+        await navigateToGraphqlStudio(ctx);
+        await ctx.waitFor(GQL.CONNECTION_BAR, 5000);
+      },
+    },
+
+    // ── 3. Header env/svc selection ─────────────────────────────
     {
       id: 'gql1-header-select',
       title: 'Select Environment & Service',
@@ -353,14 +355,25 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
         await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
       },
       action: async (ctx) => {
+        // Spotlight each dropdown so viewers can read it before it changes
+        const spotPause = async (selector: string, holdMs: number) => {
+          const el = firstVisibleElement<HTMLElement>(selector);
+          if (!el) { await ctx.delay(holdMs); return; }
+          el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+          const dispose = showSpotlightRing(el);
+          await ctx.delay(holdMs);
+          dispose();
+        };
+        await spotPause(APP.HEADER_ENV_SELECT, 1800);
         await selectEnvInHeader(ctx, GQL_DEMO_ENV_NAME);
-        await ctx.delay(800);
+        await ctx.delay(700);
+        await spotPause(APP.HEADER_SVC_SELECT, 1800);
         await selectSvcInHeader(ctx, GQL_DEMO_SVC_NAME);
-        await ctx.delay(1500);
+        await ctx.delay(1200);
       },
     },
 
-    // ── 5. Set endpoint variable ───────────────────────────────────
+    // ── 4. Set endpoint variable ───────────────────────────────────
     {
       id: 'gql1-endpoint',
       title: 'Set the Endpoint Variable',
@@ -382,7 +395,7 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
       pauseAfter: true,
     },
 
-    // ── 6. Resolved endpoint preview ─────────────────────────────
+    // ── 5. Resolved endpoint preview ─────────────────────────────
     {
       id: 'gql1-endpoint-resolved',
       title: 'Confirm the Resolved URL',

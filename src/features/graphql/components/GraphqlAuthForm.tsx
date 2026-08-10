@@ -5,6 +5,7 @@
  */
 
 import { useMemo, type ReactNode } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
 import {
@@ -170,36 +171,185 @@ export function GraphqlAuthForm({
         </p>
       )}
 
-      <AuthField label="Auth type" labelFor="gql-auth-type-select">
-        <select
-          id="gql-auth-type-select"
-          className="gql-select gql-auth-type-select"
-          value={selectedType}
-          onChange={(e) => handleTypeChange(e.target.value as GqlAuthPopoverSelectableType)}
-          data-testid="gql-auth-type-select"
-        >
-          {authTypeOptions.map((t) => (
-            <option key={t.value} value={t.value} disabled={t.disabled}>{t.label}</option>
-          ))}
-        </select>
-      </AuthField>
-
-      {storedAuth?.type === 'inherit' && globalAuthProfiles.length > 0 && (
-        <AuthField label="Auth profile" labelFor="gql-auth-profile-select">
-          <select
-            id="gql-auth-profile-select"
+      <div className="gql-auth-panel-fields">
+        <AuthField label="Auth type" labelFor="gql-auth-type-select">
+          <CustomSelect
             className="gql-select gql-auth-type-select"
-            value={storedAuth.globalProfileId ?? ''}
-            onChange={(e) => handleProfileChange(e.target.value)}
-            data-testid="gql-auth-profile-select"
-          >
-            <option value="">— Select a profile —</option>
-            {globalAuthProfiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+            value={selectedType}
+            onChange={(v) => handleTypeChange(v as GqlAuthPopoverSelectableType)}
+            options={authTypeOptions.map((t) => ({
+              value: t.value,
+              label: t.label,
+              disabled: t.disabled,
+            }))}
+            data-testid="gql-auth-type-select"
+          />
         </AuthField>
-      )}
+
+        {storedAuth?.type === 'inherit' && globalAuthProfiles.length > 0 && (
+          <AuthField label="Auth profile" labelFor="gql-auth-profile-select">
+            <CustomSelect
+              className="gql-select gql-auth-type-select"
+              value={storedAuth.globalProfileId ?? ''}
+              onChange={(v) => handleProfileChange(v)}
+              options={globalAuthProfiles.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="— Select a profile —"
+              data-testid="gql-auth-profile-select"
+            />
+          </AuthField>
+        )}
+
+        {selectedType === AUTH_TYPE_NONE && (
+          <div className="gql-auth-no-auth-hint">
+            No authentication headers will be sent.
+            Select a type above to add credentials.
+          </div>
+        )}
+
+        {storedAuth?.type === 'bearer' && (
+          <AuthField label="Token" labelFor="gql-auth-bearer-input">
+            <GraphqlAuthPasswordInput
+              value={storedAuth.token ?? ''}
+              onChange={(v) => onChange({ ...storedAuth, token: v })}
+              placeholder="Enter bearer token…"
+              testId="gql-auth-bearer-input"
+            />
+          </AuthField>
+        )}
+
+        {storedAuth?.type === 'basic' && (
+          <>
+            <AuthField label="Username" labelFor="gql-auth-basic-user">
+              <input
+                id="gql-auth-basic-user"
+                type="text"
+                className="gql-input gql-auth-input"
+                value={storedAuth.username ?? ''}
+                onChange={(e) => onChange({ ...storedAuth, username: e.target.value })}
+                placeholder="username"
+                autoComplete="off"
+                spellCheck={false}
+                data-testid="gql-auth-basic-user"
+              />
+            </AuthField>
+            <AuthField label="Password" labelFor="gql-auth-basic-pass">
+              <GraphqlAuthPasswordInput
+                value={storedAuth.password ?? ''}
+                onChange={(v) => onChange({ ...storedAuth, password: v })}
+                placeholder="password"
+                testId="gql-auth-basic-pass"
+              />
+            </AuthField>
+          </>
+        )}
+
+        {storedAuth?.type === 'apiKey' && (
+          <>
+            <AuthField label="Header" labelFor="gql-auth-apikey-name">
+              <input
+                id="gql-auth-apikey-name"
+                type="text"
+                className="gql-input gql-auth-input"
+                value={storedAuth.headerName ?? 'X-API-Key'}
+                onChange={(e) => onChange({ ...storedAuth, headerName: e.target.value })}
+                placeholder="X-API-Key"
+                autoComplete="off"
+                spellCheck={false}
+                data-testid="gql-auth-apikey-name"
+              />
+            </AuthField>
+            <AuthField label="Value" labelFor="gql-auth-apikey-val">
+              <GraphqlAuthPasswordInput
+                value={storedAuth.headerValue ?? ''}
+                onChange={(v) => onChange({ ...storedAuth, headerValue: v })}
+                placeholder="API key value"
+                testId="gql-auth-apikey-val"
+              />
+            </AuthField>
+          </>
+        )}
+
+        {storedAuth?.type === 'oauth2' && (
+          <>
+            <AuthField label="Token URL" labelFor="gql-auth-oauth-token-url">
+              <input
+                id="gql-auth-oauth-token-url"
+                type="url"
+                className="gql-input gql-auth-input"
+                value={storedAuth.oauth2?.tokenUrl ?? ''}
+                onChange={(e) =>
+                  onChange({
+                    ...storedAuth,
+                    oauth2: {
+                      tokenUrl: e.target.value,
+                      clientId: storedAuth.oauth2?.clientId ?? '',
+                      clientSecret: storedAuth.oauth2?.clientSecret ?? '',
+                      scope: storedAuth.oauth2?.scope,
+                      audience: storedAuth.oauth2?.audience,
+                    },
+                  })
+                }
+                placeholder="https://auth.example.com/oauth/token"
+                data-testid="gql-auth-oauth-token-url"
+              />
+            </AuthField>
+            <AuthField label="Client ID" labelFor="gql-auth-oauth-client-id">
+              <input
+                id="gql-auth-oauth-client-id"
+                type="text"
+                className="gql-input gql-auth-input"
+                value={storedAuth.oauth2?.clientId ?? ''}
+                onChange={(e) =>
+                  onChange({
+                    ...storedAuth,
+                    oauth2: {
+                      tokenUrl: storedAuth.oauth2?.tokenUrl ?? '',
+                      clientId: e.target.value,
+                      clientSecret: storedAuth.oauth2?.clientSecret ?? '',
+                      scope: storedAuth.oauth2?.scope,
+                      audience: storedAuth.oauth2?.audience,
+                    },
+                  })
+                }
+                placeholder="client-id"
+                data-testid="gql-auth-oauth-client-id"
+              />
+            </AuthField>
+            <AuthField label="Client secret" labelFor="gql-auth-oauth-client-secret">
+              <GraphqlAuthPasswordInput
+                value={storedAuth.oauth2?.clientSecret ?? ''}
+                onChange={(v) =>
+                  onChange({
+                    ...storedAuth,
+                    oauth2: {
+                      tokenUrl: storedAuth.oauth2?.tokenUrl ?? '',
+                      clientId: storedAuth.oauth2?.clientId ?? '',
+                      clientSecret: v,
+                      scope: storedAuth.oauth2?.scope,
+                      audience: storedAuth.oauth2?.audience,
+                    },
+                  })
+                }
+                placeholder="client-secret or {{oauth_secret}}"
+                testId="gql-auth-oauth-client-secret"
+              />
+            </AuthField>
+            <div className="gql-auth-info-box">
+              OAuth 2.0 client-credentials tokens are fetched at execute time via
+              pre-request scripts or Environment Manager OAuth profiles — the preview
+              shows the Bearer header that will be sent once a token is acquired.
+              Use <strong>Bearer Token</strong> if you already have an access token.
+            </div>
+          </>
+        )}
+
+        {storedAuth?.type === 'custom' && (
+          <div className="gql-auth-info-box">
+            Add your custom authentication headers directly in the
+            <strong> Headers</strong> panel below the query editor.
+          </div>
+        )}
+      </div>
 
       {showInheritBanner && (
         <button
@@ -210,157 +360,6 @@ export function GraphqlAuthForm({
         >
           Switch to explicit override…
         </button>
-      )}
-
-      {selectedType === AUTH_TYPE_NONE && (
-        <div className="gql-auth-no-auth-hint">
-          No authentication headers will be sent.
-          Select a type above to add credentials.
-        </div>
-      )}
-
-      {storedAuth?.type === 'bearer' && (
-        <AuthField label="Token" labelFor="gql-auth-bearer-input">
-          <GraphqlAuthPasswordInput
-            value={storedAuth.token ?? ''}
-            onChange={(v) => onChange({ ...storedAuth, token: v })}
-            placeholder="Enter bearer token…"
-            testId="gql-auth-bearer-input"
-          />
-        </AuthField>
-      )}
-
-      {storedAuth?.type === 'basic' && (
-        <>
-          <AuthField label="Username" labelFor="gql-auth-basic-user">
-            <input
-              id="gql-auth-basic-user"
-              type="text"
-              className="gql-input gql-auth-input"
-              value={storedAuth.username ?? ''}
-              onChange={(e) => onChange({ ...storedAuth, username: e.target.value })}
-              placeholder="username"
-              autoComplete="off"
-              spellCheck={false}
-              data-testid="gql-auth-basic-user"
-            />
-          </AuthField>
-          <AuthField label="Password" labelFor="gql-auth-basic-pass">
-            <GraphqlAuthPasswordInput
-              value={storedAuth.password ?? ''}
-              onChange={(v) => onChange({ ...storedAuth, password: v })}
-              placeholder="password"
-              testId="gql-auth-basic-pass"
-            />
-          </AuthField>
-        </>
-      )}
-
-      {storedAuth?.type === 'apiKey' && (
-        <>
-          <AuthField label="Header" labelFor="gql-auth-apikey-name">
-            <input
-              id="gql-auth-apikey-name"
-              type="text"
-              className="gql-input gql-auth-input"
-              value={storedAuth.headerName ?? 'X-API-Key'}
-              onChange={(e) => onChange({ ...storedAuth, headerName: e.target.value })}
-              placeholder="X-API-Key"
-              autoComplete="off"
-              spellCheck={false}
-              data-testid="gql-auth-apikey-name"
-            />
-          </AuthField>
-          <AuthField label="Value" labelFor="gql-auth-apikey-val">
-            <GraphqlAuthPasswordInput
-              value={storedAuth.headerValue ?? ''}
-              onChange={(v) => onChange({ ...storedAuth, headerValue: v })}
-              placeholder="API key value"
-              testId="gql-auth-apikey-val"
-            />
-          </AuthField>
-        </>
-      )}
-
-      {storedAuth?.type === 'oauth2' && (
-        <>
-          <AuthField label="Token URL" labelFor="gql-auth-oauth-token-url">
-            <input
-              id="gql-auth-oauth-token-url"
-              type="url"
-              className="gql-input gql-auth-input"
-              value={storedAuth.oauth2?.tokenUrl ?? ''}
-              onChange={(e) =>
-                onChange({
-                  ...storedAuth,
-                  oauth2: {
-                    tokenUrl: e.target.value,
-                    clientId: storedAuth.oauth2?.clientId ?? '',
-                    clientSecret: storedAuth.oauth2?.clientSecret ?? '',
-                    scope: storedAuth.oauth2?.scope,
-                    audience: storedAuth.oauth2?.audience,
-                  },
-                })
-              }
-              placeholder="https://auth.example.com/oauth/token"
-              data-testid="gql-auth-oauth-token-url"
-            />
-          </AuthField>
-          <AuthField label="Client ID" labelFor="gql-auth-oauth-client-id">
-            <input
-              id="gql-auth-oauth-client-id"
-              type="text"
-              className="gql-input gql-auth-input"
-              value={storedAuth.oauth2?.clientId ?? ''}
-              onChange={(e) =>
-                onChange({
-                  ...storedAuth,
-                  oauth2: {
-                    tokenUrl: storedAuth.oauth2?.tokenUrl ?? '',
-                    clientId: e.target.value,
-                    clientSecret: storedAuth.oauth2?.clientSecret ?? '',
-                    scope: storedAuth.oauth2?.scope,
-                    audience: storedAuth.oauth2?.audience,
-                  },
-                })
-              }
-              placeholder="client-id"
-              data-testid="gql-auth-oauth-client-id"
-            />
-          </AuthField>
-          <AuthField label="Client secret" labelFor="gql-auth-oauth-client-secret">
-            <GraphqlAuthPasswordInput
-              value={storedAuth.oauth2?.clientSecret ?? ''}
-              onChange={(v) =>
-                onChange({
-                  ...storedAuth,
-                  oauth2: {
-                    tokenUrl: storedAuth.oauth2?.tokenUrl ?? '',
-                    clientId: storedAuth.oauth2?.clientId ?? '',
-                    clientSecret: v,
-                    scope: storedAuth.oauth2?.scope,
-                    audience: storedAuth.oauth2?.audience,
-                  },
-                })
-              }
-              placeholder="client-secret or {{oauth_secret}}"
-              testId="gql-auth-oauth-client-secret"
-            />
-          </AuthField>
-          <div className="gql-auth-info-box">
-            OAuth 2.0 client-credentials tokens are fetched at execute time via
-            pre-request scripts or Environment Manager OAuth profiles — the preview
-            shows the Bearer header that will be sent once a token is acquired.
-            Use <strong>Bearer Token</strong> if you already have an access token.
-          </div>
-        </>
-      )}
-
-      {storedAuth?.type === 'custom' && (
-        <div className="gql-auth-info-box">
-          Add your custom authentication headers directly in the
-          <strong> Headers</strong> panel below the query editor.
-        </div>
       )}
     </div>
   );

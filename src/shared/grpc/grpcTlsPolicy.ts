@@ -117,15 +117,47 @@ export function validateGrpcTlsConfigContract(
   return issues;
 }
 
+/** Canonical plaintext echo target used by Demo Hub gRPC lessons. */
+export const GRPC_DEMO_PLAINTEXT_TARGET = 'localhost:50051';
+
+/**
+ * Docker plaintext echo fixtures (`:50051` / `:50052`). TLS handshakes against
+ * these ports always fail with UNAVAILABLE / HTTP 503 ("wrong version number").
+ */
+export function isKnownPlaintextLoopbackGrpcTarget(address: string): boolean {
+  const trimmed = address.trim().toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
+  return /^(?:localhost|127\.0\.0\.1|\[::1\]):5005[12](?:\/|$)/.test(trimmed);
+}
+
+/**
+ * Docker TLS/mTLS echo fixtures (`:50443` / `:50444`). Plaintext dials against
+ * these ports return UNAVAILABLE / HTTP 503 — common after GRPC-5 leftovers.
+ */
+export function isKnownEncryptedLoopbackGrpcTarget(address: string): boolean {
+  const trimmed = address.trim().toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
+  return /^(?:localhost|127\.0\.0\.1|\[::1\]):5044[34](?:\/|$)/.test(trimmed);
+}
+
 /** Validate + normalize TLS fields for target resolution and execute snapshots (Phase 4B). */
 export function prepareGrpcTarget(
   target: Pick<GrpcTarget, 'address' | 'tlsMode' | 'tlsConfig'>,
 ): { target: GrpcTarget; issues: GrpcTlsValidationIssue[] } {
-  const tlsMode = target.tlsMode ?? defaultGrpcTlsMode();
-  const issues = validateGrpcTlsConfigContract(tlsMode, target.tlsConfig);
+  const requestedTlsMode = target.tlsMode ?? defaultGrpcTlsMode();
+  const issues = validateGrpcTlsConfigContract(requestedTlsMode, target.tlsConfig);
+
+  let tlsMode = requestedTlsMode;
+  let rawTlsConfig = target.tlsConfig;
+  // Sticky TLS/mTLS from a prior tab (e.g. GRPC-5 demo) must not dial the
+  // plaintext echo fixture — coerce to plaintext before dialing, but only
+  // once the supplied config is itself valid; incomplete/invalid configs
+  // still surface as validation errors instead of being silently dropped.
+  if (issues.length === 0 && tlsMode !== 'disabled' && isKnownPlaintextLoopbackGrpcTarget(target.address)) {
+    tlsMode = 'disabled';
+    rawTlsConfig = undefined;
+  }
   const tlsConfig = issues.length === 0
-    ? normalizeGrpcTlsConfig(target.tlsConfig, tlsMode)
-    : target.tlsConfig;
+    ? normalizeGrpcTlsConfig(rawTlsConfig, tlsMode)
+    : rawTlsConfig;
   return {
     target: {
       address: target.address,

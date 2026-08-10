@@ -5,6 +5,7 @@
  * Phase 4 — Step 3 (4C-3)
  */
 import { useState } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type {
   GraphqlSubscriptionNodeData,
   GraphqlSubscriptionOutputBinding,
@@ -39,6 +40,132 @@ const OUTPUT_FIELD_OPTIONS: GraphqlSubscriptionOutputBinding['field'][] = [
 
 function makeHeaderId(): string {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function GqlStopSection({
+  data,
+  onChange,
+  variableHints,
+  onRequestVariableInsert,
+}: {
+  data: GraphqlSubscriptionNodeData;
+  onChange: (patch: Partial<GraphqlSubscriptionNodeData>) => void;
+  variableHints: WorkflowVariableHint[];
+  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+}) {
+  const messageLimit = data.stopAfterMessages ?? 0;
+  const timeSecs = data.stopAfterMs != null && data.stopAfterMs > 0
+    ? Math.round(data.stopAfterMs / 1000)
+    : '';
+  const expression = data.stopCondition ?? '';
+  const hasMessageLimit = messageLimit > 0;
+  const hasTimeLimit = typeof timeSecs === 'number' && timeSecs > 0;
+  const hasExpression = expression.trim().length > 0;
+  const hasAnyRule = hasMessageLimit || hasTimeLimit || hasExpression;
+
+  return (
+    <div className="gql-wf-stop" data-testid="gql-wf-stop-section">
+      <div className="gql-wf-section-toolbar">
+        <div className="gql-wf-section-toolbar-text">
+          <h4 className="gql-wf-section-title">Stop conditions</h4>
+          <p className="gql-wf-section-subtitle">
+            End collection when any rule is met — first match wins. Leave empty for unlimited.
+          </p>
+        </div>
+      </div>
+
+      <div
+        className="gql-wf-stop-summary"
+        role="status"
+        aria-label="Active stop conditions"
+      >
+        {!hasAnyRule && (
+          <span className="gql-wf-stop-chip gql-wf-stop-chip--idle">Runs until cancelled</span>
+        )}
+        {hasMessageLimit && (
+          <span className="gql-wf-stop-chip gql-wf-stop-chip--active">
+            {messageLimit} message{messageLimit === 1 ? '' : 's'}
+          </span>
+        )}
+        {hasTimeLimit && (
+          <span className="gql-wf-stop-chip gql-wf-stop-chip--active">
+            {timeSecs}s wall time
+          </span>
+        )}
+        {hasExpression && (
+          <span className="gql-wf-stop-chip gql-wf-stop-chip--active">Expression</span>
+        )}
+      </div>
+
+      <div className="gql-wf-form-card gql-wf-stop-card">
+        <GqlWfFormRow label="Message limit" htmlFor="gql-wf-stop-messages">
+          <div className="gql-wf-input-with-unit">
+            <input
+              id="gql-wf-stop-messages"
+              type="number"
+              min={0}
+              step={1}
+              value={messageLimit}
+              onChange={(e) => onChange({ stopAfterMessages: Number(e.target.value) })}
+              placeholder="0"
+              data-testid="gql-wf-stop-messages-input"
+              aria-describedby="gql-wf-stop-messages-hint"
+            />
+            <span className="gql-wf-input-unit">messages</span>
+            <span id="gql-wf-stop-messages-hint" className="gql-wf-input-hint">
+              0 = unlimited
+            </span>
+          </div>
+        </GqlWfFormRow>
+
+        <GqlWfFormRow label="Time limit" htmlFor="gql-wf-stop-secs">
+          <div className="gql-wf-input-with-unit">
+            <input
+              id="gql-wf-stop-secs"
+              type="number"
+              min={0}
+              step={1}
+              value={timeSecs}
+              onChange={(e) => {
+                const secs = Number(e.target.value);
+                onChange({ stopAfterMs: secs > 0 ? secs * 1000 : undefined });
+              }}
+              placeholder="—"
+              data-testid="gql-wf-stop-secs-input"
+              aria-describedby="gql-wf-stop-secs-hint"
+            />
+            <span className="gql-wf-input-unit">seconds</span>
+            <span id="gql-wf-stop-secs-hint" className="gql-wf-input-hint">
+              Blank = no limit
+            </span>
+          </div>
+        </GqlWfFormRow>
+
+        <GqlWfFormRow label="Expression" last>
+          <div className="gql-wf-stop-expression">
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              shortRef
+              onInsert={(snippet) =>
+                onChange({ stopCondition: `${expression}${snippet}` || undefined })
+              }
+            >
+              <ExpressionInput
+                value={expression}
+                onChange={(value) => onChange({ stopCondition: value || undefined })}
+                placeholder="$.status == 'done'"
+                variableHints={variableHints}
+                aria-label="Stop expression"
+              />
+            </InsertVarField>
+            <span className="gql-wf-input-hint">
+              JSONPath on the latest message — stop when truthy
+            </span>
+          </div>
+        </GqlWfFormRow>
+      </div>
+    </div>
+  );
 }
 
 type SubTab = 'subscription' | 'stop' | 'headers-auth' | 'extraction' | 'output';
@@ -120,18 +247,19 @@ export default function GraphqlSubscriptionConfigPanel({
               </GqlWfFormRow>
 
               <GqlWfFormRow label="Transport">
-                <select
+                <CustomSelect
                   value={data.subscriptionTransport ?? 'auto'}
-                  onChange={(e) =>
-                    update({ subscriptionTransport: e.target.value as GraphqlSubscriptionNodeData['subscriptionTransport'] })
+                  onChange={(v) =>
+                    update({ subscriptionTransport: v as GraphqlSubscriptionNodeData['subscriptionTransport'] })
                   }
+                  options={[
+                    { value: 'auto', label: 'Auto (detect)' },
+                    { value: 'graphql-transport-ws', label: 'graphql-transport-ws' },
+                    { value: 'graphql-ws', label: 'graphql-ws (legacy)' },
+                    { value: 'sse', label: 'SSE' },
+                  ]}
                   data-testid="gql-wf-sub-transport-select"
-                >
-                  <option value="auto">Auto (detect)</option>
-                  <option value="graphql-transport-ws">graphql-transport-ws</option>
-                  <option value="graphql-ws">graphql-ws (legacy)</option>
-                  <option value="sse">SSE</option>
-                </select>
+                />
               </GqlWfFormRow>
 
               <GqlWfCodeField
@@ -170,49 +298,14 @@ export default function GraphqlSubscriptionConfigPanel({
         )}
 
         {activeTab === 'stop' && (
-          <GqlWfFormCard>
-            <p className="gql-wf-section-intro gql-wf-section-intro--card">
-              Define when this node stops collecting messages. All conditions are checked; the first met wins.
-            </p>
-            <GqlWfFormRow label="After N messages" stack>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={data.stopAfterMessages ?? 0}
-                onChange={(e) => update({ stopAfterMessages: Number(e.target.value) })}
-                placeholder="0 = unlimited"
-                data-testid="gql-wf-stop-messages-input"
-              />
-              <span className="gql-wf-inline-hint">0 = unlimited</span>
-            </GqlWfFormRow>
-
-            <GqlWfFormRow label="After (seconds)" stack>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={data.stopAfterMs != null ? Math.round(data.stopAfterMs / 1000) : ''}
-                onChange={(e) => {
-                  const secs = Number(e.target.value);
-                  update({ stopAfterMs: secs > 0 ? secs * 1000 : undefined });
-                }}
-                placeholder="no wall-time limit"
-                data-testid="gql-wf-stop-secs-input"
-              />
-              <span className="gql-wf-inline-hint">Blank = no limit</span>
-            </GqlWfFormRow>
-
-            <GqlWfFormRow label="Stop condition" stack last>
-              <ExpressionInput
-                value={data.stopCondition ?? ''}
-                onChange={(value) => update({ stopCondition: value || undefined })}
-                placeholder="$.status == 'done'"
-                variableHints={variableHints}
-              />
-              <span className="gql-wf-inline-hint">JSONPath on latest message — stop when truthy</span>
-            </GqlWfFormRow>
-          </GqlWfFormCard>
+          <div className="gql-wf-section-body">
+            <GqlStopSection
+              data={data}
+              onChange={update}
+              variableHints={variableHints}
+              onRequestVariableInsert={onRequestVariableInsert}
+            />
+          </div>
         )}
 
         {activeTab === 'headers-auth' && (
@@ -225,14 +318,14 @@ export default function GraphqlSubscriptionConfigPanel({
                 variableHints={variableHints}
                 onRequestVariableInsert={onRequestVariableInsert}
               />
-              <div className="gql-wf-section-divider" />
-              <GqlAuthSection
-                auth={data.auth}
-                onChange={(auth) => update({ auth })}
-                variableHints={variableHints}
-                onRequestVariableInsert={onRequestVariableInsert}
-              />
             </div>
+            <div className="gql-wf-section-divider gql-wf-section-divider--flush" />
+            <GqlAuthSection
+              auth={data.auth}
+              onChange={(auth) => update({ auth })}
+              variableHints={variableHints}
+              onRequestVariableInsert={onRequestVariableInsert}
+            />
           </GqlWfFormCard>
         )}
 

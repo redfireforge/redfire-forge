@@ -50,7 +50,14 @@ vi.mock('../utils/testEditorUtils', () => ({
   rebuildUrl: (base: string) => base,
   unwrapImport: (raw: unknown) => raw,
 }));
-vi.mock('../../../shared/utils/helpers', () => ({ toErrorMessage: (e: unknown) => String(e) }));
+vi.mock('../../../shared/utils/helpers', () => ({
+  toErrorMessage: (e: unknown) => String(e),
+  formatJson: (str?: string) => {
+    if (!str) return '';
+    try { return JSON.stringify(JSON.parse(str), null, 2); }
+    catch { return str; }
+  },
+}));
 vi.mock('../utils/testDefinitionVersioning', () => ({ createSnapshot: () => ({}) }));
 vi.mock('../../../shared/utils/fileSaver', () => ({ saveFile: vi.fn(() => Promise.resolve()) }));
 vi.mock('papaparse', () => ({
@@ -167,12 +174,26 @@ function Harness() {
   return <TestEditorModal {...makeProps({ inputMode: mode, onInputModeChange: setMode })} />;
 }
 
+const TRANSPORT_LABELS: Record<string, string> = {
+  http: 'HTTP', wsConnect: 'WS Connect', wsSend: 'WS Send', wsReceive: 'WS Receive',
+  kafkaProduce: 'Kafka Produce', kafkaConsume: 'Kafka Consume',
+  grpcCall: 'gRPC',
+};
+
+function selectTransport(value: string) {
+  fireEvent.click(screen.getByLabelText('Transport type'));
+  const items = document.querySelectorAll<HTMLElement>('.te-dropdown-item');
+  const target = Array.from(items).find(el => el.textContent?.includes(TRANSPORT_LABELS[value]));
+  if (target) fireEvent.click(target);
+}
+
 describe('TestEditorModal — builder mode', () => {
   it('renders builder with name, transport, url-bar and tabs', () => {
     render(<TestEditorModal {...makeProps()} />);
     expect(screen.getByText('Edit Test')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('e.g. Get User Profile')).toHaveValue('My Test');
     expect(screen.getByLabelText('Transport type')).toBeInTheDocument();
+    expect(screen.getByText('HTTP')).toBeInTheDocument();
     expect(screen.getByTestId('params-editor')).toBeInTheDocument();
   });
 
@@ -200,8 +221,8 @@ describe('TestEditorModal — builder mode', () => {
     render(<TestEditorModal {...makeProps({ onDraftChange })} />);
     fireEvent.change(screen.getByPlaceholderText('e.g. Get User Profile'), { target: { value: 'New Name' } });
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ name: 'New Name' }));
-    const methodSelect = document.querySelector('.method-select') as HTMLSelectElement;
-    fireEvent.change(methodSelect, { target: { value: 'POST' } });
+    fireEvent.click(screen.getByLabelText('HTTP method'));
+    fireEvent.click(screen.getByText('POST'));
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ method: 'POST' }));
   });
 
@@ -232,6 +253,65 @@ describe('TestEditorModal — builder mode', () => {
     expect(onDraftChange).toHaveBeenCalled();
     fireEvent.click(screen.getByText('params-import'));
   });
+
+  it('syncs dataSource urlTemplate when params change', () => {
+    const onDraftChange = vi.fn();
+    render(<TestEditorModal {...makeProps({
+      onDraftChange,
+      draft: makeDraft({
+        dataSource: {
+          id: 'ds',
+          columns: [],
+          rows: [],
+          source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users',
+        },
+      }),
+    })} />);
+
+    fireEvent.click(screen.getByText('params-change'));
+
+    expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+      dataSource: expect.objectContaining({ urlTemplate: expect.any(String) }),
+    }));
+  });
+
+  it('keeps typed query string when base url input already includes query', () => {
+    const onDraftChange = vi.fn();
+    render(<TestEditorModal {...makeProps({ onDraftChange })} />);
+
+    const urlInput = document.querySelector('.url-input') as HTMLInputElement;
+    fireEvent.change(urlInput, { target: { value: 'https://new.example.com/users?mode=raw' } });
+
+    expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://new.example.com/users?mode=raw',
+    }));
+  });
+
+  it('deduplicates manual query params and keeps param-column placeholders in display URL', () => {
+    render(<TestEditorModal {...makeProps({
+      draft: makeDraft({
+        url: 'https://api.example.com/users?dup=1&source=url&param=live',
+        dataSource: {
+          id: 'ds',
+          source: { type: 'inline' },
+          columns: [
+            { id: 'pc', name: 'param', type: 'param', mapping: 'param' },
+          ],
+          rows: [],
+          urlTemplate: 'https://api.example.com/users?dup=1&source=template&param={{param}}',
+        },
+      }),
+    })} />);
+
+    const urlInput = document.querySelector('.url-input') as HTMLInputElement;
+    expect(urlInput.value).toContain('dup=1');
+    expect(urlInput.value).toContain('source=template');
+    expect(urlInput.value).not.toContain('source=url');
+    expect(urlInput.value).toContain('param={{param}}');
+    expect(urlInput.value).not.toContain('param=live');
+    expect(urlInput.value.match(/dup=1/g)?.length ?? 0).toBe(1);
+  });
 });
 
 describe('TestEditorModal — transport switching', () => {
@@ -239,7 +319,7 @@ describe('TestEditorModal — transport switching', () => {
     const onDraftChange = vi.fn();
     const onActiveTabChange = vi.fn();
     render(<TestEditorModal {...makeProps({ onDraftChange, onActiveTabChange, activeTab: 'params' })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'wsConnect' } });
+    selectTransport('wsConnect');
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ method: 'WEBSOCKET', actionType: 'wsConnect' }));
     expect(onActiveTabChange).toHaveBeenCalledWith('validation');
   });
@@ -247,17 +327,17 @@ describe('TestEditorModal — transport switching', () => {
   it('switches to wsSend and wsReceive', () => {
     const onDraftChange = vi.fn();
     const { rerender } = render(<TestEditorModal {...makeProps({ onDraftChange })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'wsSend' } });
+    selectTransport('wsSend');
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ actionType: 'wsSend' }));
     rerender(<TestEditorModal {...makeProps({ onDraftChange })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'wsReceive' } });
+    selectTransport('wsReceive');
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ actionType: 'wsReceive' }));
   });
 
   it('switches to kafka and renders placeholder', () => {
     const onDraftChange = vi.fn();
     render(<TestEditorModal {...makeProps({ onDraftChange })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'kafkaProduce' } });
+    selectTransport('kafkaProduce');
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ method: 'KAFKA', actionType: 'kafkaProduce' }));
   });
 
@@ -302,7 +382,7 @@ describe('TestEditorModal — transport switching', () => {
         },
       }),
     })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'http' } });
+    selectTransport('http');
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
       method: 'GET',
       actionType: undefined,
@@ -326,6 +406,25 @@ describe('TestEditorModal — transport switching', () => {
       draft: makeDraft({ actionType: 'wsReceive', method: 'WEBSOCKET', wsReceiveAction: { connectionRef: 'c', matchCriteria: { jsonPathValue: 'v' } } as Scenario['wsReceiveAction'] }),
     })} />);
     expect(screen.getByText('Save')).toBeDisabled();
+
+    rerender(<TestEditorModal {...makeProps({
+      draft: makeDraft({ actionType: 'wsReceive', method: 'WEBSOCKET', wsReceiveAction: { connectionRef: 'c', matchCriteria: { jsonPathValue: 'v', jsonPathMatch: '$.value' } } as Scenario['wsReceiveAction'] }),
+    })} />);
+    expect(screen.getByText('Save')).toBeEnabled();
+  });
+});
+
+describe('TestEditorModal — setup wizard seed', () => {
+  it('cleans up initial data setup timeout on unmount', () => {
+    vi.useFakeTimers();
+    const { unmount } = render(<TestEditorModal {...makeProps({
+      activeTab: 'data',
+      scenarioKind: 'parameterized',
+      initialOpenDataSourceWizard: true,
+    })} />);
+    unmount();
+    vi.runAllTimers();
+    vi.useRealTimers();
   });
 });
 
@@ -430,10 +529,39 @@ describe('TestEditorModal — cURL modes', () => {
     expect(onActiveTabChange).toHaveBeenCalledWith('body');
   });
 
+  it('pretty-prints JSON body on cURL import', () => {
+    const onDraftChange = vi.fn();
+    h.parsedCurl = {
+      ...(h.parsedCurl as Scenario),
+      body: '{"name":"Alice","email":"alice@example.com"}',
+      bodyType: 'json',
+    };
+    render(<TestEditorModal {...makeProps({ inputMode: 'curlImport', onDraftChange })} />);
+    const textarea = screen.getByPlaceholderText(/curl -X POST/);
+    fireEvent.change(textarea, { target: { value: 'curl -d "{}" https://x' } });
+    fireEvent.click(screen.getByText('Import & Switch to Builder'));
+    expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+      body: '{\n  "name": "Alice",\n  "email": "alice@example.com"\n}',
+    }));
+  });
+
   it('does nothing on empty cURL import', () => {
     const onDraftChange = vi.fn();
     render(<TestEditorModal {...makeProps({ inputMode: 'curlImport', onDraftChange })} />);
     expect(screen.getByText('Import & Switch to Builder')).toBeDisabled();
+  });
+
+  it('returns early on whitespace-only cURL import', () => {
+    const onDraftChange = vi.fn();
+    render(<TestEditorModal {...makeProps({ inputMode: 'curlImport', onDraftChange })} />);
+    const textarea = screen.getByPlaceholderText(/curl -X POST/);
+    fireEvent.change(textarea, { target: { value: '   ' } });
+
+    const importBtn = screen.getByText('Import & Switch to Builder') as HTMLButtonElement;
+    importBtn.removeAttribute('disabled');
+    fireEvent.click(importBtn);
+
+    expect(onDraftChange).not.toHaveBeenCalled();
   });
 
   it('generates a cURL command in export mode', async () => {
@@ -458,6 +586,22 @@ describe('TestEditorModal — cURL modes', () => {
     h.effectiveAuth = { auth: { type: 'oauth2' }, source: 'inline' };
     render(<TestEditorModal {...makeProps({ inputMode: 'curlExport' })} />);
     await waitFor(() => expect(screen.getByText(/OAuth2 token above is a real token/)).toBeInTheDocument());
+  });
+
+  it('Parameterize from cURL Export switches back to Builder and opens the Data tab', () => {
+    const onInputModeChange = vi.fn();
+    const onActiveTabChange = vi.fn();
+    render(<TestEditorModal {...makeProps({
+      inputMode: 'curlExport',
+      onInputModeChange,
+      onActiveTabChange,
+      onCreateParameterizedCopy: vi.fn(),
+    })} />);
+
+    fireEvent.click(screen.getByTestId('te-parameterize-btn'));
+
+    expect(onInputModeChange).toHaveBeenCalledWith('builder');
+    expect(onActiveTabChange).toHaveBeenCalledWith('data');
   });
 
   it('shows empty-state in export mode when url is blank', () => {
@@ -682,7 +826,7 @@ describe('TestEditorModal — coverage gaps', () => {
   it('returns early when transport is unchanged', () => {
     const onDraftChange = vi.fn();
     render(<TestEditorModal {...makeProps({ onDraftChange })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'http' } });
+    selectTransport('http');
     expect(onDraftChange).not.toHaveBeenCalled();
   });
 
@@ -692,7 +836,7 @@ describe('TestEditorModal — coverage gaps', () => {
       onDraftChange,
       draft: makeDraft({ actionType: 'wsConnect', method: 'WEBSOCKET', wsConnectAction: { url: 'wss://x' } as Scenario['wsConnectAction'] }),
     })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'http' } });
+    selectTransport('http');
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ method: 'GET', actionType: undefined }));
   });
 
@@ -702,7 +846,7 @@ describe('TestEditorModal — coverage gaps', () => {
       onDraftChange,
       draft: makeDraft({ extractions: [{ id: 'e1', source: 'header' }, { id: 'e2', source: 'body' }] as Scenario['extractions'] }),
     })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'wsConnect' } });
+    selectTransport('wsConnect');
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
       extractions: [{ id: 'e2', source: 'body' }],
     }));
@@ -711,7 +855,7 @@ describe('TestEditorModal — coverage gaps', () => {
   it('switches away from the extract tab when switching to Kafka', () => {
     const onActiveTabChange = vi.fn();
     render(<TestEditorModal {...makeProps({ onActiveTabChange, activeTab: 'extract' })} />);
-    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'kafkaProduce' } });
+    selectTransport('kafkaProduce');
     expect(onActiveTabChange).toHaveBeenCalledWith('validation');
   });
 
@@ -732,8 +876,42 @@ describe('TestEditorModal — coverage gaps', () => {
         },
       }),
     })} />);
-    const code = document.querySelector('.url-preview code') as HTMLElement;
+    const code = document.querySelector('.te-url-preview-code') as HTMLElement;
     expect(code.textContent).toContain('{{q}}');
+  });
+
+  it('preserves manual query params alongside param-column placeholders in the preview', () => {
+    render(<TestEditorModal {...makeProps({
+      draft: makeDraft({
+        dataSource: {
+          id: 'ds',
+          columns: [{ id: 'c1', name: 'q', type: 'param', mapping: 'q' }],
+          rows: [], source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users?aa=1',
+        },
+      }),
+    })} />);
+    const code = document.querySelector('.te-url-preview-code') as HTMLElement;
+    expect(code.textContent).toContain('aa=1');
+    expect(code.textContent).toContain('{{q}}');
+  });
+
+  it('shows a manual query param in the preview for a path-column parameterized test', () => {
+    render(<TestEditorModal {...makeProps({
+      draft: makeDraft({
+        url: 'https://api.example.com/users/{{userId}}?aa=1',
+        dataSource: {
+          id: 'ds',
+          columns: [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }],
+          rows: [{ id: 'r1', values: { c1: '1' }, enabled: true }],
+          source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users/{{userId}}',
+        },
+      }),
+    })} />);
+    const code = document.querySelector('.te-url-preview-code') as HTMLElement;
+    expect(code.textContent).toContain('{{userId}}');
+    expect(code.textContent).toContain('aa=1');
   });
 
   it('returns no sibling tests when the feature group is missing', () => {

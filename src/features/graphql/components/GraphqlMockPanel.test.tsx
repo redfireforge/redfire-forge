@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import { GraphqlMockPanel, FieldResolverRow } from './GraphqlMockPanel';
 import type { UseGraphqlMockServerResult } from '../hooks/useGraphqlMockServer';
 import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
@@ -351,7 +352,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     const server = makeMockServer();
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'fixed' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Fixed');
     // A fixed-value input should appear; setFieldResolver is called on blur/change of fixed input
     expect(screen.getByTestId('gql-mock-fixed-input')).toBeDefined();
   });
@@ -360,7 +361,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     const server = makeMockServer();
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'script' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Script');
     expect(screen.getByTestId('gql-mock-script-input')).toBeDefined();
   });
 
@@ -368,7 +369,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     const server = makeMockServer();
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'error' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Error');
     expect(screen.getByTestId('gql-mock-error-input')).toBeDefined();
   });
 
@@ -376,7 +377,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     const server = makeMockServer();
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'fixed' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Fixed');
     const fixedInput = screen.getByTestId('gql-mock-fixed-input');
     fireEvent.change(fixedInput, { target: { value: '"hello"' } });
     fireEvent.blur(fixedInput);
@@ -763,7 +764,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'random' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Random');
     expect(server.clearFieldResolver).toHaveBeenCalledWith('Query', 'hello');
   });
 
@@ -771,7 +772,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     const server = makeMockServer();
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'script' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Script');
     const scriptInput = screen.getByTestId('gql-mock-script-input');
     fireEvent.change(scriptInput, { target: { value: 'return "test"' } });
     fireEvent.blur(scriptInput);
@@ -782,7 +783,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     const server = makeMockServer();
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'error' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Error');
     const errorInput = screen.getByTestId('gql-mock-error-input');
     fireEvent.change(errorInput, { target: { value: 'Not found' } });
     fireEvent.blur(errorInput);
@@ -831,10 +832,8 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
-    fireEvent.change(screen.getByTestId('gql-mock-scalar-mode-select'), { target: { value: 'preset' } });
+    selectOption(screen.getByTestId('gql-mock-scalar-mode-select'), 'Preset');
     expect(screen.getByTestId('gql-mock-scalar-preset-select')).toBeDefined();
-    // Apply the preset
-    fireEvent.blur(screen.getByTestId('gql-mock-scalar-preset-select'));
     expect(server.setScalarFactory).toHaveBeenCalled();
   });
 
@@ -846,7 +845,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
-    fireEvent.change(screen.getByTestId('gql-mock-scalar-mode-select'), { target: { value: 'script' } });
+    selectOption(screen.getByTestId('gql-mock-scalar-mode-select'), 'Script');
     expect(screen.getByTestId('gql-mock-scalar-script-input')).toBeDefined();
     const scriptInput = screen.getByTestId('gql-mock-scalar-script-input');
     fireEvent.change(scriptInput, { target: { value: 'return "2026-01-01"' } });
@@ -868,7 +867,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
-    fireEvent.change(screen.getByTestId('gql-mock-scalar-mode-select'), { target: { value: 'random' } });
+    selectOption(screen.getByTestId('gql-mock-scalar-mode-select'), 'Random (default)');
     expect(server.removeScalarFactory).toHaveBeenCalledWith('DateTime');
   });
 
@@ -904,7 +903,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     const server = makeMockServer();
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'fixed' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Fixed');
     // Blur with empty value → applyResolver returns early
     fireEvent.blur(screen.getByTestId('gql-mock-fixed-input'));
     expect(server.setFieldResolver).not.toHaveBeenCalled();
@@ -914,7 +913,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     const server = makeMockServer();
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     fireEvent.click(screen.getByTestId('gql-mock-type-header'));
-    fireEvent.change(screen.getByTestId('gql-mock-resolver-select'), { target: { value: 'script' } });
+    selectOption(screen.getByTestId('gql-mock-resolver-select'), 'Script');
     // Blur with empty script → applyResolver returns early
     fireEvent.blur(screen.getByTestId('gql-mock-script-input'));
     expect(server.setFieldResolver).not.toHaveBeenCalled();
@@ -1142,8 +1141,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     // The scalar row starts in 'preset' mode since factory has preset
     expect(screen.getByTestId('gql-mock-scalar-preset-select')).toBeDefined();
-    fireEvent.change(screen.getByTestId('gql-mock-scalar-preset-select'), { target: { value: 'uuid' } });
-    fireEvent.blur(screen.getByTestId('gql-mock-scalar-preset-select'));
+    selectOption(screen.getByTestId('gql-mock-scalar-preset-select'), 'UUID v4');
     expect(server.setScalarFactory).toHaveBeenCalledWith({ scalarName: 'DateTime', preset: 'uuid' });
   });
 
@@ -1249,7 +1247,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     // Should start in script mode
-    expect((screen.getByTestId('gql-mock-scalar-mode-select') as HTMLSelectElement).value).toBe('script');
+    expect(getCustomSelectValue(screen.getByTestId('gql-mock-scalar-mode-select'))).toBe('Script');
     expect(screen.getByTestId('gql-mock-scalar-script-input')).toBeDefined();
   });
 
@@ -1261,7 +1259,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
-    fireEvent.change(screen.getByTestId('gql-mock-scalar-mode-select'), { target: { value: 'script' } });
+    selectOption(screen.getByTestId('gql-mock-scalar-mode-select'), 'Script');
     // Blur with empty script
     fireEvent.blur(screen.getByTestId('gql-mock-scalar-script-input'));
     expect(server.setScalarFactory).not.toHaveBeenCalled();
@@ -1332,7 +1330,7 @@ describe('FieldResolverRow — useEffect resolver prop changes (direct render)',
         />
       );
     });
-    await waitFor(() => expect(screen.getByTestId('gql-mock-resolver-select')).toHaveValue('fixed'));
+    await waitFor(() => expect(getCustomSelectValue(screen.getByTestId('gql-mock-resolver-select'))).toBe('Fixed'));
   });
 
   it('updates mode when resolver changes to script type (L470-471)', async () => {
@@ -1345,7 +1343,7 @@ describe('FieldResolverRow — useEffect resolver prop changes (direct render)',
         <FieldResolverRow typeName="Query" field={makeField()} resolver={{ type: 'script', code: 'return 42;' }} mockServer={server} />
       );
     });
-    await waitFor(() => expect(screen.getByTestId('gql-mock-resolver-select')).toHaveValue('script'));
+    await waitFor(() => expect(getCustomSelectValue(screen.getByTestId('gql-mock-resolver-select'))).toBe('Script'));
   });
 
   it('updates mode when resolver changes to error type (L472-473)', async () => {
@@ -1358,7 +1356,7 @@ describe('FieldResolverRow — useEffect resolver prop changes (direct render)',
         <FieldResolverRow typeName="Query" field={makeField()} resolver={{ type: 'error', message: 'oops' }} mockServer={server} />
       );
     });
-    await waitFor(() => expect(screen.getByTestId('gql-mock-resolver-select')).toHaveValue('error'));
+    await waitFor(() => expect(getCustomSelectValue(screen.getByTestId('gql-mock-resolver-select'))).toBe('Error'));
   });
 
   it('resets state when resolver changes back to random type (L474-477)', async () => {
@@ -1366,13 +1364,13 @@ describe('FieldResolverRow — useEffect resolver prop changes (direct render)',
     const { rerender } = render(
       <FieldResolverRow typeName="Query" field={makeField()} resolver={{ type: 'fixed', value: 'old' }} mockServer={server} />
     );
-    expect(screen.getByTestId('gql-mock-resolver-select')).toHaveValue('fixed');
+    expect(getCustomSelectValue(screen.getByTestId('gql-mock-resolver-select'))).toBe('Fixed');
     await act(async () => {
       rerender(
         <FieldResolverRow typeName="Query" field={makeField()} resolver={{ type: 'random' }} mockServer={server} />
       );
     });
-    await waitFor(() => expect(screen.getByTestId('gql-mock-resolver-select')).toHaveValue('random'));
+    await waitFor(() => expect(getCustomSelectValue(screen.getByTestId('gql-mock-resolver-select'))).toBe('Random'));
   });
 
   it('uses DOM value on fixed input blur when React state is stale', () => {

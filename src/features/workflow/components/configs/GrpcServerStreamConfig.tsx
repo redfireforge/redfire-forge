@@ -3,6 +3,7 @@ import type { GlobalAuthProfile } from '../../../../shared/types';
 import type { GrpcServerStreamNodeData } from '../../types/workflow/node-grpc';
 import GrpcWorkflowCallTargetFields from './GrpcWorkflowCallTargetFields';
 import GrpcWorkflowConnectionSecurityFields from './GrpcWorkflowConnectionSecurityFields';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export default function GrpcServerStreamConfig({
   data,
@@ -48,21 +49,25 @@ export default function GrpcServerStreamConfig({
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <GrpcWorkflowCallTargetFields
-        data={data}
-        onChange={onChange}
-        callType="server_streaming"
-        testIdPrefix="grpc-server-stream-config"
-        workflowVariables={workflowVariables}
-      />
+      <div className="wf-kafka-form wf-kafka-form--grpc wf-kafka-form--flush-top">
+        <GrpcWorkflowCallTargetFields
+          data={data}
+          onChange={onChange}
+          callType="server_streaming"
+          testIdPrefix="grpc-server-stream-config"
+          workflowVariables={workflowVariables}
+        />
+      </div>
 
-      <GrpcWorkflowConnectionSecurityFields
-        data={data}
-        onChange={onChange}
-        testIdPrefix="grpc-server-stream-config"
-        globalAuthProfiles={globalAuthProfiles}
-        defaultAuthProfileId={defaultAuthProfileId}
-      />
+      <div className="wf-kafka-form wf-kafka-form--grpc wf-kafka-form--flush-top">
+        <GrpcWorkflowConnectionSecurityFields
+          data={data}
+          onChange={onChange}
+          testIdPrefix="grpc-server-stream-config"
+          globalAuthProfiles={globalAuthProfiles}
+          defaultAuthProfileId={defaultAuthProfileId}
+        />
+      </div>
 
       <div className="wf-config-field--row">
         <label>Timeout (ms)</label>
@@ -101,10 +106,14 @@ export default function GrpcServerStreamConfig({
       </div>
       <div className="wf-config-field--row">
         <label>On Error</label>
-        <select value={data.onError ?? 'fail'} onChange={(e) => update({ onError: e.target.value as 'fail' | 'continue' })}>
-          <option value="fail">Fail workflow</option>
-          <option value="continue">Continue workflow</option>
-        </select>
+        <CustomSelect
+          value={data.onError ?? 'fail'}
+          onChange={(v) => update({ onError: v as 'fail' | 'continue' })}
+          options={[
+            { value: 'fail', label: 'Fail workflow' },
+            { value: 'continue', label: 'Continue workflow' },
+          ]}
+        />
       </div>
       <div className="wf-config-field--row">
         <label>Save As</label>

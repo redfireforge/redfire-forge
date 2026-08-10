@@ -11,7 +11,7 @@ export default function ExecutionPlanPreview({ allocation, concurrency }: Execut
   const { items, totalRequests, kind } = allocation;
 
   return (
-    <div className="runner-expansion-summary">
+    <div className="runner-expansion-summary" data-testid="har-exec-plan">
       <div className="runner-expansion-title">Execution Plan</div>
 
       {kind === 'standard' ? (

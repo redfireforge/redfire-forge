@@ -13,15 +13,33 @@ import {
 } from './spotlight';
 
 const removeRing = vi.hoisted(() => vi.fn());
+const showSpotlightRing = vi.hoisted(() => vi.fn(() => removeRing));
+const purgeAllSpotlightRings = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../demoRipple', () => ({
-  showSpotlightRing: () => removeRing,
+  showSpotlightRing,
+  purgeAllSpotlightRings,
+}));
+
+const resumeDemoAutoScroll = vi.hoisted(() => vi.fn());
+const scrollDemoTargetIntoView = vi.hoisted(() => vi.fn());
+const clearLiveDemoPanelFromTarget = vi.hoisted(() => vi.fn());
+
+vi.mock('../../../demoSpotlightUtils', () => ({
+  resumeDemoAutoScroll,
+  scrollDemoTargetIntoView,
+  clearLiveDemoPanelFromTarget,
 }));
 
 describe('grpc-lesson-helpers/spotlight', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     removeRing.mockClear();
+    showSpotlightRing.mockClear();
+    purgeAllSpotlightRings.mockClear();
+    resumeDemoAutoScroll.mockClear();
+    scrollDemoTargetIntoView.mockClear();
+    clearLiveDemoPanelFromTarget.mockClear();
   });
 
   it('spotlightAndPause uses first visible element when multiple matches exist', async () => {
@@ -35,25 +53,53 @@ describe('grpc-lesson-helpers/spotlight', () => {
 
     await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 500);
 
+    expect(purgeAllSpotlightRings).toHaveBeenCalled();
+    expect(resumeDemoAutoScroll).toHaveBeenCalled();
+    expect(scrollDemoTargetIntoView).toHaveBeenCalledWith(visible, { block: 'center' });
+    expect(showSpotlightRing).toHaveBeenCalledWith(visible, { steady: true });
     expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(ctx.delay).toHaveBeenCalledWith(280);
     expect(ctx.delay).toHaveBeenCalledWith(500);
   });
 
   it('spotlightAndPause is a no-op when selector matches nothing', async () => {
     const ctx = makeCtx();
     await spotlightAndPause(ctx, GRPC.REFLECT_BTN);
+    expect(showSpotlightRing).not.toHaveBeenCalled();
     expect(removeRing).not.toHaveBeenCalled();
   });
 
-  it('spotlightElementAndPause always removes the ring after delay', async () => {
+  it('spotlightElementAndPause scrolls into view then removes the ring after delay', async () => {
     const el = document.createElement('div');
     makeVisible(el);
     const ctx = makeCtx();
 
     await spotlightElementAndPause(ctx, el, 250);
 
+    expect(purgeAllSpotlightRings).toHaveBeenCalled();
+    expect(resumeDemoAutoScroll).toHaveBeenCalled();
+    expect(scrollDemoTargetIntoView).toHaveBeenCalledWith(el, { block: 'center' });
+    expect(showSpotlightRing).toHaveBeenCalledWith(el, { steady: true });
     expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(ctx.delay).toHaveBeenCalledWith(280);
     expect(ctx.delay).toHaveBeenCalledWith(250);
+  });
+
+  it('spotlightElementAndPause with skipScroll clears panel instead of scrolling', async () => {
+    const el = document.createElement('div');
+    makeVisible(el);
+    const ctx = makeCtx();
+
+    await spotlightElementAndPause(ctx, el, 300, { skipScroll: true });
+
+    expect(purgeAllSpotlightRings).toHaveBeenCalled();
+    expect(resumeDemoAutoScroll).toHaveBeenCalled();
+    expect(scrollDemoTargetIntoView).not.toHaveBeenCalled();
+    expect(clearLiveDemoPanelFromTarget).toHaveBeenCalledWith(el);
+    expect(showSpotlightRing).toHaveBeenCalledWith(el, { steady: true });
+    expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(ctx.delay).toHaveBeenCalledWith(80);
+    expect(ctx.delay).toHaveBeenCalledWith(300);
   });
 
   it('spotlightGrpcRequestComposer spotlights hybrid JSON composer with tight ring', async () => {
