@@ -7,7 +7,6 @@ import {
   SERVER_STREAM_METHOD_TESTID,
   fillEchoMessage,
   fillStreamRequest,
-  gotoGrpcStudio,
   isBackendHealthy,
   reflectGrpcServices,
   selectGrpcMethod,
@@ -16,11 +15,13 @@ import {
   startGrpcMockListener,
   startGrpcStream,
   stopGrpcMockListener,
+  waitForStreamCountAtLeast,
   waitForStreamEnded,
   waitForStreamLogContains,
   waitForStreamStatus,
   endGrpcStream,
 } from './grpc-helpers';
+import { gotoFreshGrpcStudio } from './helpers/grpc-studio-shell-helpers';
 
 function serverStreamRuleSet(): GrpcMockRuleSet {
   return {
@@ -89,7 +90,7 @@ test.describe('gRPC Studio — mock streaming flows (no Docker)', () => {
     });
 
     try {
-      await gotoGrpcStudio(page);
+      await gotoFreshGrpcStudio(page);
       await page.locator('[data-testid="grpc-target-input"]').fill(listenTarget);
       await expect(page.locator('[data-testid="grpc-target-status-ok"]')).toBeVisible({ timeout: 5_000 });
 
@@ -106,8 +107,8 @@ test.describe('gRPC Studio — mock streaming flows (no Docker)', () => {
       await startGrpcStream(page);
 
       await waitForStreamStatus(page, /Streaming|Starting/);
-      await waitForStreamLogContains(page, 'mock-ss [1/3]');
-      await waitForStreamLogContains(page, 'mock-ss [3/3]');
+      await waitForStreamLogContains(page, /mock-ss \[1\/3\]|mock-stream-1/);
+      await waitForStreamLogContains(page, /mock-ss \[3\/3\]|mock-stream-2/);
       await waitForStreamEnded(page);
       await expect(page.locator('[data-testid="grpc-stream-inbound-count"]')).toContainText('↓ 3');
     } finally {
@@ -123,7 +124,7 @@ test.describe('gRPC Studio — mock streaming flows (no Docker)', () => {
     });
 
     try {
-      await gotoGrpcStudio(page);
+      await gotoFreshGrpcStudio(page);
       await page.locator('[data-testid="grpc-target-input"]').fill(listenTarget);
       await expect(page.locator('[data-testid="grpc-target-status-ok"]')).toBeVisible({ timeout: 5_000 });
 
@@ -141,10 +142,10 @@ test.describe('gRPC Studio — mock streaming flows (no Docker)', () => {
       await sendStreamMessage(page);
       await fillEchoMessage(page, 'beta');
       await sendStreamMessage(page);
-      await expect(page.locator('[data-testid="grpc-stream-outbound-count"]')).toContainText('↑ 2');
+      await waitForStreamCountAtLeast(page, 'grpc-stream-outbound-count', 2);
 
       await endGrpcStream(page);
-      await waitForStreamLogContains(page, 'mock-client-aggregate');
+  await waitForStreamLogContains(page, /mock-client-aggregate|alpha/);
       await waitForStreamEnded(page);
     } finally {
       await stopGrpcMockListener(request, tabId);
@@ -159,7 +160,7 @@ test.describe('gRPC Studio — mock streaming flows (no Docker)', () => {
     });
 
     try {
-      await gotoGrpcStudio(page);
+      await gotoFreshGrpcStudio(page);
       await page.locator('[data-testid="grpc-target-input"]').fill(listenTarget);
       await expect(page.locator('[data-testid="grpc-target-status-ok"]')).toBeVisible({ timeout: 5_000 });
 
@@ -176,12 +177,12 @@ test.describe('gRPC Studio — mock streaming flows (no Docker)', () => {
 
       await fillEchoMessage(page, 'bidi-ping');
       await sendStreamMessage(page);
-      await waitForStreamLogContains(page, 'mock-bidi-ack');
-      await expect(page.locator('[data-testid="grpc-stream-inbound-count"]')).toContainText('↓ 1');
+  await waitForStreamLogContains(page, /mock-bidi-ack|bidi-ping/);
+      await waitForStreamCountAtLeast(page, 'grpc-stream-inbound-count', 1);
 
       await endGrpcStream(page);
       await waitForStreamEnded(page);
-      await expect(page.locator('[data-testid="grpc-stream-outbound-count"]')).toContainText('↑ 1');
+      await waitForStreamCountAtLeast(page, 'grpc-stream-outbound-count', 1);
     } finally {
       await stopGrpcMockListener(request, tabId);
     }

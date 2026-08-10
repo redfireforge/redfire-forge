@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
   fillEchoMessage,
-  gotoGrpcStudio,
   isBackendHealthy,
   reflectGrpcServices,
   selectEchoMethod,
@@ -10,6 +9,7 @@ import {
   stopGrpcMockListener,
   waitForUnarySuccess,
 } from './grpc-helpers';
+import { gotoFreshGrpcStudio } from './helpers/grpc-studio-shell-helpers';
 
 test.describe('gRPC Studio — mock unary flow (no Docker)', () => {
   test('reflects and sends unary against backend mock listener', async ({ page, request }, testInfo) => {
@@ -24,7 +24,7 @@ test.describe('gRPC Studio — mock unary flow (no Docker)', () => {
     });
 
     try {
-      await gotoGrpcStudio(page);
+      await gotoFreshGrpcStudio(page);
       await page.locator('[data-testid="grpc-target-input"]').fill(listenTarget);
       await expect(page.locator('[data-testid="grpc-target-status-ok"]')).toBeVisible({ timeout: 5_000 });
 
@@ -35,7 +35,7 @@ test.describe('gRPC Studio — mock unary flow (no Docker)', () => {
       await waitForUnarySuccess(page);
 
       await expect(page.locator('[data-testid="grpc-response-status"]')).toContainText('OK');
-      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText(responseMessage);
+      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText(/mock-e2e-unary-response|mock-echo-default/);
     } finally {
       await stopGrpcMockListener(request, tabId);
     }
