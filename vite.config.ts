@@ -260,6 +260,9 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
 export default defineConfig({
   plugins: [demoHubRootImportsPlugin(), monacoDevNoisePlugin(), react(), proxyPlugin(), demoLiveGuardPlugin(), docsPlugin()],
   customLogger: createMonacoAwareLogger(),
+  build: {
+    chunkSizeWarningLimit: 8000,
+  },
   define: {
     'process.env': '{}',
     '__dirname': '"/"',

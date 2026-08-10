@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense, useId } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { evaluateMapperExpression } from './utils/mapperExpressionEvaluator';
 import { debugExpression } from './utils/expressionStepDebugger';
@@ -14,6 +14,7 @@ import {
   type ExpressionSnippet,
 } from './utils/expressionSnippets';
 import type { MapperSource, Mapping } from './types';
+import Editor from '@monaco-editor/react';
 import type { editor as MonacoEditor, IDisposable } from 'monaco-editor';
 import {
   fixedValueToExpression,
@@ -26,8 +27,6 @@ import ExpressionEditorDocsPanel from './ExpressionEditorDocsPanel';
 import ExpressionEditorStepDebugger from './ExpressionEditorStepDebugger';
 import { useModalFrame } from '../../hooks/useModalFrame';
 import ModalResizeHandles from '../ModalResizeHandles';
-
-const Editor = lazy(() => import('@monaco-editor/react'));
 
 interface ExpressionEditorModalProps {
   mapping: Mapping;
@@ -364,19 +363,6 @@ export default function ExpressionEditorModal({
     }
   }, [handleSave, onCancel]);
 
-  /* v8 ignore next 10 */
-  const fallbackTextarea = (
-    <textarea
-      className="dm-expr-textarea"
-      value={expression}
-      onChange={(e) => setExpression(e.target.value)}
-      placeholder="Loading editor…"
-      aria-label="Expression"
-      spellCheck={false}
-      rows={4}
-    />
-  );
-
   // Portal to document.body so the editor can be dragged outside the Data Mapper shell
   // (shell uses overflow:hidden and would clip movement).
   const portalTarget = useMemo(() => document.body, []);
@@ -517,32 +503,30 @@ export default function ExpressionEditorModal({
 
           <div className="dm-expr-editor-area">
             <div className="dm-expr-editor-label">Expression</div>
-            <Suspense fallback={fallbackTextarea}>
-              <Editor
-                height="120px"
-                language="plaintext"
-                theme="vs-dark"
-                value={expression}
-                onChange={(val) => setExpression(val ?? /* v8 ignore next */ '')}
-                onMount={handleEditorDidMount}
-                options={{
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  lineNumbers: 'off',
-                  folding: false,
-                  wordWrap: 'on',
-                  fontSize: 13,
-                  renderLineHighlight: 'none',
-                  overviewRulerLanes: 0,
-                  hideCursorInOverviewRuler: true,
-                  scrollbar: { vertical: 'auto', horizontal: 'hidden' },
-                  padding: { top: 8, bottom: 8 },
-                  suggest: { showIcons: true },
-                  quickSuggestions: true,
-                  tabSize: 2,
-                }}
-              />
-            </Suspense>
+            <Editor
+              height="120px"
+              language="plaintext"
+              theme="vs-dark"
+              value={expression}
+              onChange={(val) => setExpression(val ?? /* v8 ignore next */ '')}
+              onMount={handleEditorDidMount}
+              options={{
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                lineNumbers: 'off',
+                folding: false,
+                wordWrap: 'on',
+                fontSize: 13,
+                renderLineHighlight: 'none',
+                overviewRulerLanes: 0,
+                hideCursorInOverviewRuler: true,
+                scrollbar: { vertical: 'auto', horizontal: 'hidden' },
+                padding: { top: 8, bottom: 8 },
+                suggest: { showIcons: true },
+                quickSuggestions: true,
+                tabSize: 2,
+              }}
+            />
             <div className="dm-expr-source-hint">
               Type <code>$.</code> for source fields, <code>$</code> for functions. <code>Ctrl+Enter</code> to save.
             </div>

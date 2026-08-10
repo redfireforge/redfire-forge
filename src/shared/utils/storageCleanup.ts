@@ -29,6 +29,8 @@ import {
   idbMigrateRunnerConfigsFromLocalStorage,
   purgeRunnerConfigLocalStorageKeys,
 } from './idbRunnerConfig';
+import { migrateCatalogKeysToIdb } from './storageCatalog';
+import { migrateWorkflowKeysToIdb } from './storageWorkflows';
 
 const WORKFLOW_RUN_CACHE_KEY = 'rfg-workflow-run-cache';
 const MAX_WORKFLOW_RUN_CACHE_ENTRIES = 6;
@@ -200,10 +202,6 @@ export function cleanupStaleStorageKeys(): { removed: number; freedKB: number } 
  * deleted from localStorage, freeing up the ~5 MB quota.
  */
 async function migrateRemainingLargeKeysToIdb(): Promise<void> {
-  const [{ migrateWorkflowKeysToIdb }, { migrateCatalogKeysToIdb }] = await Promise.all([
-    import('./storageWorkflows'),
-    import('./storageCatalog'),
-  ]);
   await migrateWorkflowKeysToIdb();
   const migrations: Array<{ check: string; fn: () => Promise<boolean | number> }> = [
     { check: REQUESTS_KEY, fn: () => idbMigrateRequests(REQUESTS_KEY) },
