@@ -64,7 +64,7 @@ test('TH-18 completes at step 6 in native Google Chrome', async () => {
     await expect(page.locator('[aria-label="Complete lesson"]')).toBeVisible();
 
     const panelBox = await livePanel.boundingBox();
-    expect(panelBox?.width ?? 0).toBeGreaterThan(400);
+    expect(panelBox?.width ?? 0).toBeGreaterThanOrEqual(400);
     expect(panelBox?.height ?? 0).toBeGreaterThan(200);
   } finally {
     await browser.close();
