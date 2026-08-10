@@ -1,6 +1,7 @@
 import type { Scenario } from '../../../shared/types';
 import type { ScenarioKind } from '../../../shared/types';
 import type { TestEditorTab } from './TestEditorModal';
+import { dataSourceRowHasValues } from '../utils/dataSourceUtils';
 
 export function TestEditorTabs({
   isHttp,
@@ -25,6 +26,14 @@ export function TestEditorTabs({
   isNew: boolean;
   defVersionCount: number;
 }) {
+  // Count only enabled rows that actually have request values — blank starter
+  // rows (checked + empty cells / column-name placeholders) should not badge.
+  const dataSourceReadyCount = draft.dataSource
+    ? draft.dataSource.rows.filter(
+      (r) => r.enabled && dataSourceRowHasValues(r, draft.dataSource!.columns),
+    ).length
+    : 0;
+
   return (
     <div className="builder-tabs">
       {isHttp && (
@@ -64,7 +73,7 @@ export function TestEditorTabs({
       )}
       {draft.dataSource && (
         <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')} data-testid="har-te-ds-tab">
-          Data Source {(draft.dataSource.rows.filter((r) => r.enabled).length ?? 0) > 0 && <span className="tab-badge">{draft.dataSource.rows.filter((r) => r.enabled).length}</span>}
+          Data Source {dataSourceReadyCount > 0 && <span className="tab-badge">{dataSourceReadyCount}</span>}
         </button>
       )}
       {!isNew && (

@@ -40,7 +40,7 @@ describe('PublishedEndpointsPanel', () => {
 
   it('shows empty state when no items', () => {
     render(<PublishedEndpointsPanel items={[]} onUnpublish={onUnpublish} onViewInCatalog={onViewInCatalog} />);
-    expect(screen.getByText('No Published Endpoints')).toBeInTheDocument();
+    expect(screen.getByText('No Workflow Exposure')).toBeInTheDocument();
   });
 
   it('renders table with items', () => {
@@ -62,7 +62,7 @@ describe('PublishedEndpointsPanel', () => {
       makeItem({ endpointId: 'ep2', isStale: true }),
     ];
     render(<PublishedEndpointsPanel items={items} onUnpublish={onUnpublish} onViewInCatalog={onViewInCatalog} />);
-    expect(screen.getByTestId('pub-status-current')).toBeInTheDocument();
+    expect(screen.getByTestId('pub-status-published')).toBeInTheDocument();
     expect(screen.getByTestId('pub-status-stale')).toBeInTheDocument();
   });
 
@@ -89,7 +89,7 @@ describe('PublishedEndpointsPanel', () => {
     fireEvent.click(screen.getByTestId('pub-filter-stale'));
     expect(screen.getAllByTestId('pub-row')).toHaveLength(1);
     
-    fireEvent.click(screen.getByTestId('pub-filter-current'));
+    fireEvent.click(screen.getByTestId('pub-filter-published'));
     expect(screen.getAllByTestId('pub-row')).toHaveLength(1);
     
     fireEvent.click(screen.getByTestId('pub-filter-all'));
@@ -228,6 +228,16 @@ describe('PublishedEndpointsPanel', () => {
     expect(screen.queryByTestId('pub-actions-menu')).not.toBeInTheDocument();
   });
 
+  it('closes menu when mouse leaves the dropdown', () => {
+    const items = [makeItem()];
+    render(<PublishedEndpointsPanel items={items} onUnpublish={onUnpublish} onViewInCatalog={onViewInCatalog} />);
+    fireEvent.click(screen.getByTestId('pub-actions-btn'));
+    const menu = screen.getByTestId('pub-actions-menu');
+    expect(menu).toBeInTheDocument();
+    fireEvent.mouseLeave(menu);
+    expect(screen.queryByTestId('pub-actions-menu')).not.toBeInTheDocument();
+  });
+
   it('displays filter pill counts correctly', () => {
     const items = [
       makeItem({ endpointId: 'ep1', isStale: false }),
@@ -236,7 +246,7 @@ describe('PublishedEndpointsPanel', () => {
     ];
     render(<PublishedEndpointsPanel items={items} onUnpublish={onUnpublish} onViewInCatalog={onViewInCatalog} />);
     expect(screen.getByTestId('pub-filter-all')).toHaveTextContent('All (3)');
-    expect(screen.getByTestId('pub-filter-current')).toHaveTextContent('Current (2)');
+    expect(screen.getByTestId('pub-filter-published')).toHaveTextContent('Published (2)');
     expect(screen.getByTestId('pub-filter-stale')).toHaveTextContent('Stale (1)');
   });
 
@@ -249,7 +259,7 @@ describe('PublishedEndpointsPanel', () => {
     fireEvent.click(screen.getByTestId('pub-select-all'));
     expect(screen.getByTestId('pub-bulk-unpublish')).toHaveTextContent('Unpublish 2 selected');
 
-    fireEvent.click(screen.getByTestId('pub-filter-current'));
+    fireEvent.click(screen.getByTestId('pub-filter-published'));
     expect(screen.getByTestId('pub-bulk-unpublish')).toHaveTextContent('Unpublish 1 selected');
   });
 
@@ -556,6 +566,54 @@ describe('PublishedEndpointsPanel', () => {
       expect(screen.getByTestId('pub-preview-table')).toBeInTheDocument();
       expect(screen.getByTestId('pub-preview-row')).toBeInTheDocument();
       expect(screen.getByText('/my-preview')).toBeInTheDocument();
+    });
+
+    it('shows published and preview rows together under All', () => {
+      const items = [makeItem({ method: 'GET', path: '/posts' })];
+      const previews = [makePreview({ method: 'PATCH', path: '/my-preview' })];
+      render(
+        <PublishedEndpointsPanel
+          items={items} previewItems={previews}
+          onUnpublish={onUnpublish} onViewInCatalog={onViewInCatalog}
+        />,
+      );
+      expect(screen.getByTestId('pub-filter-all')).toHaveTextContent('All (2)');
+      expect(screen.getByTestId('pub-published-section-label')).toHaveTextContent('Published Endpoints');
+      expect(screen.getByTestId('pub-table')).toBeInTheDocument();
+      expect(screen.getByTestId('pub-row')).toBeInTheDocument();
+      expect(screen.getByTestId('pub-preview-section-label')).toHaveTextContent('Workflow Previews');
+      expect(screen.getByTestId('pub-preview-table')).toBeInTheDocument();
+      expect(screen.getByTestId('pub-preview-row')).toBeInTheDocument();
+      expect(screen.getByText('/posts')).toBeInTheDocument();
+      expect(screen.getByText('/my-preview')).toBeInTheDocument();
+    });
+
+    it('shows Published Endpoints title when Published filter is active', () => {
+      const items = [makeItem()];
+      const previews = [makePreview()];
+      render(
+        <PublishedEndpointsPanel
+          items={items} previewItems={previews}
+          onUnpublish={onUnpublish} onViewInCatalog={onViewInCatalog}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('pub-filter-published'));
+      expect(screen.getByTestId('pub-published-section-label')).toHaveTextContent('Published Endpoints');
+      expect(screen.queryByTestId('pub-preview-section-label')).not.toBeInTheDocument();
+    });
+
+    it('shows Workflow Previews title when Previews filter is active', () => {
+      const items = [makeItem()];
+      const previews = [makePreview({ path: '/my-preview' })];
+      render(
+        <PublishedEndpointsPanel
+          items={items} previewItems={previews}
+          onUnpublish={onUnpublish} onViewInCatalog={onViewInCatalog}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('pub-filter-preview'));
+      expect(screen.getByTestId('pub-preview-section-label')).toHaveTextContent('Workflow Previews');
+      expect(screen.queryByTestId('pub-published-section-label')).not.toBeInTheDocument();
     });
 
     it('shows Promote to Published action for preview items', () => {

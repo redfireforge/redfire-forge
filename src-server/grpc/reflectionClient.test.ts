@@ -41,6 +41,7 @@ vi.mock('grpc-js-reflection-client', () => ({
 
 vi.mock('../../src/shared/grpc/targetValidation.js', () => ({
   validateResolvedGrpcTargetAddress: (...args: unknown[]) => mockValidateResolvedGrpcTargetAddress(...args),
+  preferIpv4LoopbackDialAddress: (address: string) => address,
 }));
 
 vi.mock('./grpcChannelCredentials.js', () => ({

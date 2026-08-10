@@ -322,7 +322,7 @@ export async function runNextStep(
           return !!el && (el.textContent ?? '').trim() !== before;
         },
         { sel: counterSel, before: beforeCounter },
-        { timeout: Math.min(8_000, actionTimeoutMs) },
+        { timeout: actionTimeoutMs },
       ).then(() => true).catch(() => false);
       if (advanced) {
         await waitForReadingPhase(page, actionTimeoutMs);

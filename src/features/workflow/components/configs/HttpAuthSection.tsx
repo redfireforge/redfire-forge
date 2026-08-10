@@ -1,12 +1,26 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { CustomSelect } from '../../../../shared/components/CustomSelect';
-import type { AuthType, Scenario } from '../../../../shared/types';
+import type { AuthConfig, AuthType, Scenario } from '../../../../shared/types';
 import type { WorkflowService } from '../../types/workflow';
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function effectiveAuthLabel(auth: AuthConfig | undefined): string {
+  if (!auth || auth.type === 'none') return 'No Auth';
+  if (auth.type === 'bearer') return 'Bearer Token';
+  if (auth.type === 'basic') return 'Basic Auth';
+  if (auth.type === 'apikey') return auth.apiKeyName ? `API Key (${auth.apiKeyName})` : 'API Key';
+  if (auth.type === 'digest') return 'Digest Auth';
+  if (auth.type === 'oauth2') return 'OAuth2 Client Credentials';
+  if (auth.type === 'inherit') return 'Inherit';
+  return auth.type;
+}
 
 interface HttpAuthSectionProps {
   auth: Scenario['auth'];
   serviceId?: string;
   workflowServices: WorkflowService[];
+  /** Resolved auth from the bound service (when available). */
+  resolvedServiceAuth?: AuthConfig;
   showAuthPassword: boolean;
   setShowAuthPassword: Dispatch<SetStateAction<boolean>>;
   onAuthChange: (auth: Scenario['auth']) => void;
@@ -16,17 +30,25 @@ export function HttpAuthSection({
   auth,
   serviceId,
   workflowServices,
+  resolvedServiceAuth,
   showAuthPassword,
   setShowAuthPassword,
   onAuthChange,
 }: HttpAuthSectionProps) {
+  const serviceName = serviceId
+    ? (workflowServices.find(ws => ws.id === serviceId)?.name || serviceId)
+    : undefined;
+  const serviceHasAuth = !!resolvedServiceAuth && resolvedServiceAuth.type !== 'none';
+
   return (
     <div className="wf-config-auth-section">
-      <div className="auth-type-select">
+      <div className="auth-type-select" data-testid="wf-http-auth-type">
         <label>Type</label>
         <CustomSelect
           value={auth.type}
           onChange={(v) => onAuthChange({ ...auth, type: v as AuthType })}
+          data-testid="wf-http-auth-type-select"
+          aria-label="Auth type"
           options={[
             { value: 'inherit', label: 'Inherit from Service' },
             { value: 'none', label: 'No Auth' },
@@ -39,10 +61,35 @@ export function HttpAuthSection({
         />
       </div>
       {auth.type === 'inherit' && (
-        <div className="auth-inherit-hint">
-          {serviceId
-            ? `Auth will be inherited from the selected service (${workflowServices.find(ws => ws.id === serviceId)?.name || serviceId}).`
-            : 'No service selected — auth will use the environment fallback or remain unauthenticated.'}
+        <div className="auth-inherit-hint" data-testid="wf-http-auth-inherit-hint">
+          {!serviceId && (
+            'No service selected — auth will use the environment fallback or remain unauthenticated.'
+          )}
+          {serviceId && serviceHasAuth && (
+            <>
+              Inherited from <strong>{serviceName}</strong>
+              {' — effective: '}
+              <strong>{effectiveAuthLabel(resolvedServiceAuth)}</strong>
+              .
+              {' Credentials stay on the service; they are applied at run time (not edited here).'}
+            </>
+          )}
+          {serviceId && !serviceHasAuth && (
+            <>
+              Auth will be inherited from the selected service ({serviceName}).
+              {' No auth is configured on that service for the current environment.'}
+            </>
+          )}
+        </div>
+      )}
+      {auth.type === 'none' && serviceId && serviceHasAuth && (
+        <div className="auth-inherit-hint" data-testid="wf-http-auth-service-unused-hint">
+          <strong>{serviceName}</strong>
+          {' provides '}
+          <strong>{effectiveAuthLabel(resolvedServiceAuth)}</strong>
+          {' — switch Type to '}
+          <strong>Inherit from Service</strong>
+          {' to use it on this step.'}
         </div>
       )}
       {auth.type === 'basic' && (

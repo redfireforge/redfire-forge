@@ -256,7 +256,7 @@ describe('WorkflowCanvasControls', () => {
     fireEvent.click(btn!);
     expect(mockFitView).toHaveBeenCalledWith({
       padding: 0.15,
-      maxZoom: 1.5,
+      maxZoom: 1,
       minZoom: 0.4,
       duration: 300,
       includeHiddenNodes: true,
@@ -274,7 +274,7 @@ describe('WorkflowCanvasControls', () => {
     fireEvent.click(btn!);
     expect(mockFitView).toHaveBeenCalledWith({
       padding: 0.15,
-      maxZoom: 1.5,
+      maxZoom: 1,
       minZoom: 0.4,
       duration: 300,
       includeHiddenNodes: true,
@@ -299,7 +299,7 @@ describe('WorkflowCanvasControls', () => {
     expect(onAutoLayout).toHaveBeenCalled();
     expect(mockFitView).toHaveBeenCalledWith({
       padding: 0.15,
-      maxZoom: 1.5,
+      maxZoom: 1,
       minZoom: 0.4,
       duration: 300,
       includeHiddenNodes: true,

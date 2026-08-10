@@ -19,7 +19,14 @@ import {
 } from '../../adapters';
 import { JSONPLACEHOLDER_API_SPEC } from '../../../../../src/data/galleries/catalog-specs/specs';
 
-export { seedCatalogEntry, deleteCatalogEntryByName, selectCatalogEntryByName, getCatalogEntryByName, deleteCollectionsByName };
+export {
+  seedCatalogEntry,
+  seedSwagger2CatalogEntry,
+  deleteCatalogEntryByName,
+  selectCatalogEntryByName,
+  getCatalogEntryByName,
+  deleteCollectionsByName,
+};
 
 /** Gallery spec YAML for the JSONPlaceholder API (OpenAPI 3.0.3, 12 endpoints). */
 export { JSONPLACEHOLDER_API_SPEC };
@@ -114,10 +121,19 @@ export async function spotlight(ctx: DemoActionContext, selector: string, holdMs
   await spotlightEl(ctx, el, holdMs);
 }
 
-export async function spotlightEl(ctx: DemoActionContext, el: HTMLElement, holdMs: number): Promise<void> {
+export async function spotlightEl(
+  ctx: DemoActionContext,
+  el: HTMLElement,
+  holdMs: number,
+  options?: { skipScroll?: boolean },
+): Promise<void> {
   activeSpotlightCleanup?.();
   activeSpotlightCleanup = null;
-  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  // Portaled CustomSelect items (.cs-menu) must not scrollIntoView — that can
+  // close the menu / detach the node so the ring sticks to the trigger behind it.
+  if (!options?.skipScroll && !el.closest('.cs-menu')) {
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
   const remove = showSpotlightRing(el);
   activeSpotlightCleanup = remove;
   try {

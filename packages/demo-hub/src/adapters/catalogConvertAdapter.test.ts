@@ -6,6 +6,7 @@ import {
   seedSwagger2CatalogEntry,
   deleteCatalogEntryByName,
   selectCatalogEntryByName,
+  publishCatalogEndpointByName,
   isCatalogLoaded,
 } from './catalogConvertAdapter';
 
@@ -16,6 +17,7 @@ describe('catalogConvertAdapter', () => {
     delete WIN().__demoSeedCatalogSwagger2;
     delete WIN().__demoDeleteCatalogByName;
     delete WIN().__demoSelectCatalogByName;
+    delete WIN().__demoPublishCatalogEndpoint;
     delete WIN().__demoCatalogLoaded;
   });
 
@@ -63,6 +65,19 @@ describe('catalogConvertAdapter', () => {
       expect(isCatalogLoaded()).toBe(false);
       WIN().__demoCatalogLoaded = true;
       expect(isCatalogLoaded()).toBe(true);
+    });
+  });
+
+  describe('publishCatalogEndpointByName', () => {
+    it('forwards to the bridge when present', () => {
+      const fn = vi.fn().mockReturnValue(true);
+      WIN().__demoPublishCatalogEndpoint = fn;
+      expect(publishCatalogEndpointByName('Demo', 'GET', '/posts/{id}')).toBe(true);
+      expect(fn).toHaveBeenCalledWith('Demo', 'GET', '/posts/{id}');
+    });
+
+    it('returns false when the bridge is absent', () => {
+      expect(publishCatalogEndpointByName('Demo', 'GET', '/x')).toBe(false);
     });
   });
 });

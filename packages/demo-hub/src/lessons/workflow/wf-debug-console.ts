@@ -94,7 +94,8 @@ const SEED_WORKFLOW = {
       data: {
         label: 'Title Exists?',
         left: '{{postTitle}}',
-        operator: '!==',
+        // Engine compareValues supports '!=' (not JS '!==') — !== always evaluates No.
+        operator: '!=',
         right: '',
       },
     },

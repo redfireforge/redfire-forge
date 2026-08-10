@@ -531,7 +531,7 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
         'to browse deleted items — each has **Restore** and **Permanent Delete** options. ' +
         'After **Restore**, the item reappears in the Feature Groups tree. ' +
         'At the bottom, open **Retention** and try **Empty Trash** — a confirmation modal asks before ' +
-        'permanently deleting everything.',
+        'permanently deleting everything. We spotlight **Cancel** and dismiss it so nothing is wiped.',
       highlight: HAR.TRASH_BTN,
       action: async (ctx) => {
         // Spotlight Trash button before clicking so the user sees it's the target
@@ -578,19 +578,44 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
           await ctx.delay(400);
         }
 
-        // Empty Trash → confirmation modal (Cancel — do not actually empty)
+        // Empty Trash → confirmation modal → Cancel (do not actually empty)
         const emptyBtn = document.querySelector<HTMLElement>(HAR.TRASH_EMPTY_BTN);
         if (emptyBtn && !(emptyBtn as HTMLButtonElement).disabled) {
           await spotlight(emptyBtn, 1400, ctx);
           emptyBtn.click();
           await ctx.waitFor(HAR.TRASH_CONFIRM_MODAL);
-          await ctx.delay(400);
+          await ctx.delay(500);
 
           const confirmModal = document.querySelector<HTMLElement>(HAR.TRASH_CONFIRM_MODAL);
-          if (confirmModal) await spotlight(confirmModal, 2200, ctx);
+          if (confirmModal) {
+            await spotlight(confirmModal, 1600, ctx);
+            await ctx.delay(400);
+          }
 
-          closePopupConfirmIfOpen();
-          await ctx.delay(400);
+          // Show the destructive confirm, then Cancel so the viewer sees both choices
+          const confirmEmpty =
+            document.querySelector<HTMLElement>(HAR.TRASH_CONFIRM_EMPTY)
+            ?? Array.from(
+              document.querySelectorAll<HTMLElement>(`${HAR.TRASH_CONFIRM_MODAL} .popup-modal-footer .btn`),
+            ).find((b) => /empty trash/i.test(b.textContent?.trim() ?? ''));
+          if (confirmEmpty) {
+            await spotlight(confirmEmpty, 1400, ctx);
+            await ctx.delay(350);
+          }
+
+          const cancelBtn =
+            document.querySelector<HTMLElement>(HAR.TRASH_CONFIRM_CANCEL)
+            ?? Array.from(
+              document.querySelectorAll<HTMLElement>(`${HAR.TRASH_CONFIRM_MODAL} .popup-modal-footer .btn`),
+            ).find((b) => /cancel/i.test(b.textContent?.trim() ?? ''));
+          if (cancelBtn) {
+            await spotlight(cancelBtn, 1800, ctx);
+            await ctx.delay(400);
+            cancelBtn.click();
+          } else {
+            closePopupConfirmIfOpen();
+          }
+          await ctx.delay(500);
         }
 
         closeTrashPanel();

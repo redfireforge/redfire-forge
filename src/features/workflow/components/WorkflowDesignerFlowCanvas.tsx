@@ -25,6 +25,11 @@ import OnboardingTooltip from './canvas/OnboardingTooltip';
 import type { EmptyCanvasTemplate } from '../data/emptyCanvasTemplates';
 import type { CatalogFolder } from '../../catalog/types/catalog';
 
+/** During Demo Hub Preparing, animate fits at duration 0 so nodes do not slide. */
+function demoBootFitDuration(preferred: number): number {
+  return document.body.getAttribute('data-demo-bootstrapping') === '1' ? 0 : preferred;
+}
+
 /** Drop overlay, preview banner, React Flow instance, variable badge, and node context menu. */
 export function WorkflowDesignerFlowCanvas({
   vm,
@@ -155,8 +160,13 @@ export function WorkflowDesignerFlowCanvas({
     prevWorkflowIdRef.current = selected.id;
     setTimeout(() => {
       requestAnimationFrame(() => {
-        // Always fit on workflow open — keeps nodes visible at a good zoom level.
-        fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
+        // Always fit on workflow open — never zoom past 100% (small graphs stay regular size).
+        fitView({
+          padding: 0.08,
+          maxZoom: 1,
+          minZoom: 0.4,
+          duration: demoBootFitDuration(200),
+        });
       });
     }, 120);
   }, [selected, previewWorkflow, setViewport, fitView, canvasHasSize]);
@@ -167,7 +177,12 @@ export function WorkflowDesignerFlowCanvas({
     if (canvasHasSize && !wasSizedRef.current && !previewWorkflow) {
       setTimeout(() => {
         requestAnimationFrame(() => {
-          fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
+          fitView({
+            padding: 0.08,
+            maxZoom: 1,
+            minZoom: 0.4,
+            duration: demoBootFitDuration(200),
+          });
         });
       }, 50);
     }
@@ -210,9 +225,10 @@ export function WorkflowDesignerFlowCanvas({
       // Default asymmetric padding: LiveDemo card covers the right side of the canvas.
       fitView({
         padding: opts?.padding ?? { top: 0.08, right: 0.34, bottom: 0.1, left: 0.06 },
-        maxZoom: opts?.maxZoom ?? 1.35,
-        minZoom: opts?.minZoom ?? 0.9,
-        duration: opts?.duration ?? 250,
+        // Default maxZoom 1 — demo small graphs must not inflate past 100%.
+        maxZoom: opts?.maxZoom ?? 1,
+        minZoom: opts?.minZoom ?? 0.4,
+        duration: demoBootFitDuration(opts?.duration ?? 250),
         includeHiddenNodes: true,
       });
       return true;
@@ -280,7 +296,7 @@ export function WorkflowDesignerFlowCanvas({
         />
       )}
       {previewWorkflow && (
-        <div className="wf-preview-banner">
+        <div className="wf-preview-banner" data-testid="wf-sample-preview-banner">
           <span>📚 Sample Preview: <strong>{previewWorkflow.name}</strong></span>
           <span className="wf-preview-desc">{previewWorkflow.description}</span>
           <div className="wf-preview-actions">
@@ -288,7 +304,13 @@ export function WorkflowDesignerFlowCanvas({
               const currentNodes = serializeNodes(nodes);
               onUseAsTemplate({ ...previewWorkflow, nodes: currentNodes });
             }}>Use as Template</button>
-            <button className="btn btn-sm" onClick={onClearPreview}>Close Preview</button>
+            <button
+              className="btn btn-sm"
+              data-testid="wf-sample-preview-close"
+              onClick={onClearPreview}
+            >
+              Close Preview
+            </button>
           </div>
         </div>
       )}

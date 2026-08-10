@@ -15,8 +15,13 @@ import {
   openWfNodeConfigModal,
   fillWfConfigField,
   clickWfConfigTab,
+  clickWfConfigAddRow,
+  scrollWfConfigFieldIntoView,
+  holdWfSpotlight,
   saveAndCloseWfConfigModal,
   closeWfConfigModalIfOpen,
+  closeWfDefaultsModalIfOpen,
+  closeWfSamplePreviewIfOpen,
   cleanupWorkflowDemoRunUi,
   resetWfPaletteToBlocks,
   revealPaletteBlock,
@@ -33,6 +38,7 @@ import {
   patchWorkflowByName,
   patchWorkflowNodeDataById,
   syncLiveWorkflowFromPatch,
+  clearWorkflowSamplePreview,
 } from '../../adapters';
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -103,16 +109,14 @@ async function spotlightSel(ctx: DemoActionContext, sel: string, holdMs: number)
 }
 
 /**
- * Fit the canvas using the REAL Fit View button (symmetric padding: 0.15 → nodes
- * centered), matching the manual control. The demo bridge fitWorkflowCanvasView()
- * uses asymmetric right:0.34 padding that shoves nodes to the left and looks
- * unfitted — never use it for a viewer-facing end state. Falls back to the bridge
- * only if the button isn't mounted yet.
+ * Fit at ≤100% zoom (regular node size). Prefer the Fit View control (symmetric
+ * padding); fall back to the bridge with an explicit maxZoom: 1 so 2-node demos
+ * never inflate past natural size.
  */
 function fitCanvasCentered(): void {
   const btn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
   if (btn) { btn.click(); return; }
-  fitWorkflowCanvasView();
+  fitWorkflowCanvasView({ padding: 0.15, maxZoom: 1, minZoom: 0.4 });
 }
 
 /**
@@ -145,6 +149,11 @@ function ensureBaseUrlVar(): void {
 
 async function ensureSeededWorkflow(ctx: DemoActionContext): Promise<void> {
   await waitForWorkflowBridge(ctx);
+  await closeWfSamplePreviewIfOpen(ctx);
+  // Going back / Restart mid-step can leave Variables or node-config open —
+  // dismiss before reading so the canvas (and step-1 Variables button) is visible.
+  await closeWfDefaultsModalIfOpen(ctx);
+  await closeWfConfigModalIfOpen(ctx);
 
   // Make sure THIS lesson's workflow is on screen — a previous lesson's graph may
   // still be displayed, in which case we must switch to (or re-seed) ours instead
@@ -155,9 +164,10 @@ async function ensureSeededWorkflow(ctx: DemoActionContext): Promise<void> {
     // different one. When it's already shown ('ready'), the canvas is exactly where
     // the previous step left it — re-fitting on every single step start is what made
     // the nodes visibly jump around between steps.
-    if (state === 'selected') {
-      const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
-      if (fitBtn) { fitBtn.click(); await ctx.delay(400); }
+    // Skip animated Fit during Preparing — setup already did a silent fit.
+    if (state === 'selected' && document.body.getAttribute('data-demo-bootstrapping') !== '1') {
+      fitCanvasCentered();
+      await ctx.delay(400);
     }
     return;
   }
@@ -167,9 +177,13 @@ async function ensureSeededWorkflow(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
   await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>);
   await ctx.delay(600);
-  const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
-  if (fitBtn) { fitBtn.click(); await ctx.delay(600); }
-  else { fitWorkflowCanvasView({ duration: 300 }); await ctx.delay(500); }
+  if (document.body.getAttribute('data-demo-bootstrapping') === '1') {
+    fitWorkflowCanvasView({ duration: 0, maxZoom: 1, minZoom: 0.4, padding: 0.15 });
+    await ctx.delay(120);
+  } else {
+    fitCanvasCentered();
+    await ctx.delay(600);
+  }
 }
 
 // ─── Lesson ─────────────────────────────────────────────────────────
@@ -185,6 +199,26 @@ export const wfVariablesExtractionLesson: DemoLesson = {
   estimatedMinutes: 5,
   initialTab: 'workflow',
   allowedTabs: ['workflow'],
+  // Avoid hub expand→collapse during Preparing (that reflows Fit View left↔right).
+  collapseAppSidebarOnStart: true,
+
+  // Seed + select BEFORE Workflow mounts so Start Demo never paints a stale
+  // Gallery Sample Preview or another lesson's canvas, then hops to Variables Demo.
+  prepareBeforeNavigate: async (ctx) => {
+    clearWorkflowSamplePreview();
+    await waitForWorkflowBridge(ctx);
+    deleteWorkflowByName(WF_NAME);
+    await ctx.delay(80);
+    await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>, {
+      deleteDelayMs: 50,
+      insertDelayMs: 120,
+      bridgeTimeoutMs: 4000,
+      storeTimeoutMs: 2500,
+      selectAfterSeed: true,
+    });
+    clearWorkflowSamplePreview();
+    await ctx.delay(40);
+  },
 
   concept: {
     title: 'Data Flows Between Nodes',
@@ -224,26 +258,36 @@ export const wfVariablesExtractionLesson: DemoLesson = {
   },
 
   setup: async (ctx) => {
-    ctx.navigateToTab('workflow');
-    await ctx.delay(200);
+    // Tab already shows Variables Demo from prepareBeforeNavigate — do not
+    // delete/reseed here (that flashes another canvas under Preparing).
+    await closeWfSamplePreviewIfOpen(ctx);
     resetWfPaletteToBlocks();
     await waitForWorkflowBridge(ctx);
-    deleteWorkflowByName(WF_NAME);
-    await ctx.delay(300);
-    await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>);
-    await ctx.delay(600);
-    const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
-    if (fitBtn) { fitBtn.click(); await ctx.delay(600); }
-    else { fitWorkflowCanvasView({ duration: 300 }); await ctx.delay(500); }
+    // Collapse BEFORE any fit — expand→collapse during boot otherwise reflows
+    // the canvas and slides nodes left↔right several times.
     await collapseWfDemoAppSidebar(ctx);
+    if ((await ensureLessonWorkflowShown(ctx, WF_NAME)) === 'missing') {
+      await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>, {
+        deleteDelayMs: 50,
+        insertDelayMs: 200,
+      });
+    }
+    // One silent fit at ≤100% after the final canvas width is settled.
+    fitWorkflowCanvasView({ duration: 0, maxZoom: 1, minZoom: 0.4, padding: 0.15 });
+    await ctx.delay(120);
   },
 
   cleanup: async (ctx) => {
+    await closeWfDefaultsModalIfOpen(ctx);
     await closeWfConfigModalIfOpen(ctx);
     await cleanupWorkflowDemoRunUi(ctx);
     deleteWorkflowByName(WF_NAME);
     await collapseWfDemoAppSidebar(ctx);
-    await ctx.delay(100);
+    // Skip Workflow navigate during Restart boot — prepareBeforeNavigate reseeds
+    // first, then the hub lands on Workflow once (avoids stale-canvas flash).
+    if (document.body.getAttribute('data-demo-bootstrapping') !== '1') {
+      await ctx.delay(100);
+    }
   },
 
   steps: [
@@ -375,20 +419,24 @@ export const wfVariablesExtractionLesson: DemoLesson = {
         await clickWfConfigTab(ctx, WF.NODE_CONFIG, 'Extract');
         await ctx.delay(800);
 
-        // Click + Add Extraction
-        await ctx.click(WF.CFG_EXT_ADD);
-        await ctx.delay(600);
+        // + Add Extraction — scroll the new row into the modal viewport
+        await clickWfConfigAddRow(ctx, WF.CFG_EXT_ADD, WF.CFG_EXT_VAR);
 
-        // Fill variable name
-        await ctx.fill(WF.CFG_EXT_VAR, 'userId');
-        await ctx.delay(500);
+        // Fill variable name + JSONPath (each fill scrolls the field into view)
+        await fillWfConfigField(ctx, WF.CFG_EXT_VAR, 'userId');
+        await fillWfConfigField(ctx, WF.CFG_EXT_EXPR, '$.userId');
 
-        // Fill JSONPath expression
-        await ctx.fill(WF.CFG_EXT_EXPR, '$.userId');
-        await ctx.delay(500);
-
-        // Spotlight the configured extraction row
-        await spotlightSel(ctx, WF.CFG_EXT_ROW, 1400);
+        // Scroll so the full configured row is visible (not clipped by the modal footer)
+        const configuredRow = document.querySelector<HTMLElement>(
+          '.extraction-editor .ext-row:last-child',
+        ) ?? document.querySelector<HTMLElement>(WF.CFG_EXT_ROW);
+        if (configuredRow) {
+          await scrollWfConfigFieldIntoView(ctx, configuredRow);
+          await holdWfSpotlight(ctx, '.extraction-editor .ext-row:last-child', 1600);
+        } else {
+          await scrollWfConfigFieldIntoView(ctx, WF.CFG_EXT_ROW);
+          await holdWfSpotlight(ctx, WF.CFG_EXT_ROW, 1600);
+        }
 
         // Save and close
         await saveAndCloseWfConfigModal(ctx);

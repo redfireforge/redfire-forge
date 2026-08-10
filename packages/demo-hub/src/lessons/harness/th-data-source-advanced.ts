@@ -1,8 +1,8 @@
 /**
  * TH-18: Data Source Advanced Features
  *
- * 5 steps: Add Validate Column → Row Detail (Admin User) → Verify & Inspect →
- * Validation Contract Panel → Toolbar Data Mapper integrations.
+ * 6 steps: Add Validate Column → Row Detail (Admin User) → Verify & Inspect →
+ * Validation Contract Panel → Populate From API → Map Columns & Row Modes.
  *
  * Transition rule: never open/close a modal or panel silently.
  * Always spotlight the control → pause → click → pause on the outcome.
@@ -75,11 +75,16 @@ async function ensureOnDataTab(ctx: DemoActionContext): Promise<void> {
   await navigateToDataSourceTab(ctx);
 }
 
+function dismissOpenCsMenus(): void {
+  document.querySelectorAll('.cs-menu').forEach((el) => el.remove());
+}
+
 function closeAllModals(): void {
   closeRowDetailModal();
   closeVerifyModal();
   closeContractPanel();
   closeSharedDsModal();
+  dismissOpenCsMenus();
   const mapperCancel = document.querySelector<HTMLElement>(HAR.MAPPER_CANCEL_BTN);
   mapperCancel?.click();
 }
@@ -118,24 +123,13 @@ async function closeMapperVisibly(ctx: DemoActionContext): Promise<void> {
 }
 
 async function closeVerifyVisibly(ctx: DemoActionContext): Promise<void> {
-  console.log('[closeVerifyVisibly] Starting');
   const modal = document.querySelector<HTMLElement>(HAR.VERIFY_MODAL);
-  if (!modal) {
-    console.log('[closeVerifyVisibly] Modal not found');
-    return;
-  }
-  // Close it
+  if (!modal) return;
   closeVerifyModal();
-  console.log('[closeVerifyVisibly] Called closeVerifyModal()');
-  // Wait for it to disappear
   for (let i = 0; i < 15; i++) {
-    if (!document.querySelector(HAR.VERIFY_MODAL)) {
-      console.log('[closeVerifyVisibly] Modal gone after', i, 'attempts');
-      return;
-    }
+    if (!document.querySelector(HAR.VERIFY_MODAL)) return;
     await ctx.delay(200);
   }
-  console.log('[closeVerifyVisibly] Timeout - modal did not close');
 }
 
 async function closeRowDetailVisibly(ctx: DemoActionContext): Promise<void> {
@@ -174,7 +168,7 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
   description:
     'Explore advanced data source capabilities — per-row detail editing, batch verification, ' +
     'validation contracts, and Data Mapper integrations.',
-  estimatedMinutes: 6,
+  estimatedMinutes: 7,
   initialTab: 'scenarios',
   allowedTabs: ['scenarios'],
 
@@ -186,7 +180,7 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
       '**Row Detail Modal** — inspect, label, and fetch individual rows with URL preview\n' +
       '**Verify & Inspect** — batch-verify all rows against live API responses\n' +
       '**Validation Contract** — enforce array consistency across data rows (Dynamic vs Fixed, Ordered vs Unordered)\n' +
-      '**From API** — populate rows from a live API response via Data Mapper\n' +
+      '**From API** — fetch a live API response and map fields into data rows\n' +
       '**Map Columns** — visually connect columns to request template slots',
     keyTerms: [
       { term: 'Validate Column', definition: 'A data-source column typed Validate — stores expected values compared to a JSON path in the response.' },
@@ -585,98 +579,70 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        console.log('[TH-18 Step 4] Starting action');
-        try {
-          if (document.querySelector(HAR.CONTRACT_PANEL)) {
-            console.log('[TH-18 Step 4] Panel already open, closing');
-            closeContractPanel();
-            await ctx.delay(250);
-          }
+        if (document.querySelector(HAR.CONTRACT_PANEL)) {
+          closeContractPanel();
+          await ctx.delay(250);
+        }
 
-          console.log('[TH-18 Step 4] Looking for Contract button');
-          const contractBtn =
-            document.querySelector<HTMLElement>(HAR.CONTRACT_BTN) ?? findDsToolbarBtn('Contract');
-          if (!contractBtn) {
-            console.log('[TH-18 Step 4] Contract button not found, returning early');
-            return;
-          }
+        const contractBtn =
+          document.querySelector<HTMLElement>(HAR.CONTRACT_BTN) ?? findDsToolbarBtn('Contract');
+        if (!contractBtn) return;
 
-          console.log('[TH-18 Step 4] Found Contract button, clicking');
-          await highlightPauseClick(contractBtn, ctx, 2100, 650);
-          console.log('[TH-18 Step 4] Waiting for CONTRACT_PANEL to appear');
-          await ctx.waitFor(HAR.CONTRACT_PANEL, 4000);
-          await ctx.delay(800);
+        await highlightPauseClick(contractBtn, ctx, 2100, 650);
+        await ctx.waitFor(HAR.CONTRACT_PANEL, 4000);
+        await ctx.delay(800);
 
-          const panel = document.querySelector<HTMLElement>(HAR.CONTRACT_PANEL);
-          if (!panel) {
-            console.log('[TH-18 Step 4] Contract panel did not appear, returning');
-            return;
-          }
-          console.log('[TH-18 Step 4] Panel found, spotlighting');
+        const panel = document.querySelector<HTMLElement>(HAR.CONTRACT_PANEL);
+        if (!panel) return;
 
-          await spotlight(panel, 1600, ctx);
-          await ctx.delay(500);
+        await spotlight(panel, 1600, ctx);
+        await ctx.delay(500);
 
-          console.log('[TH-18 Step 4] Finding mode buttons');
-          const modeBtns = panel.querySelectorAll<HTMLElement>(HAR.CONTRACT_MODE_BTN);
-          console.log(`[TH-18 Step 4] Found ${modeBtns.length} mode buttons`);
-          
-          const sizeRow = Array.from(modeBtns).filter(b => {
-            const t = b.textContent?.toLowerCase() ?? '';
-            return t.includes('dynamic') || t.includes('fixed');
-          });
-          if (sizeRow.length > 0) {
-            console.log('[TH-18 Step 4] Spotlighting size row');
-            const parent = sizeRow[0].parentElement;
-            await spotlight(parent ?? sizeRow[0], 1100, ctx);
-            await ctx.delay(350);
-          }
+        const modeBtns = panel.querySelectorAll<HTMLElement>(HAR.CONTRACT_MODE_BTN);
 
-          const orderRow = Array.from(modeBtns).filter(b => {
-            const t = b.textContent?.toLowerCase() ?? '';
-            return t.includes('ordered') || t.includes('unordered');
-          });
-          if (orderRow.length > 0) {
-            console.log('[TH-18 Step 4] Spotlighting order row');
-            const parent = orderRow[0].parentElement;
-            await spotlight(parent ?? orderRow[0], 1000, ctx);
-            await ctx.delay(350);
-          }
+        const sizeRow = Array.from(modeBtns).filter(b => {
+          const t = b.textContent?.toLowerCase() ?? '';
+          return t.includes('dynamic') || t.includes('fixed');
+        });
+        if (sizeRow.length > 0) {
+          const parent = sizeRow[0].parentElement;
+          await spotlight(parent ?? sizeRow[0], 1100, ctx);
+          await ctx.delay(350);
+        }
 
-          // Toggle Contract off via the same button so the viewer sees how to dismiss it
-          console.log('[TH-18 Step 4] Final cleanup - closing contract panel');
-          const stillBtn =
-            document.querySelector<HTMLElement>(HAR.CONTRACT_BTN) ?? findDsToolbarBtn('Contract');
-          if (stillBtn && document.querySelector(HAR.CONTRACT_PANEL)) {
-            console.log('[TH-18 Step 4] Closing via button click');
-            await highlightPauseClick(stillBtn, ctx, 1400, 450);
-            await waitUntilGone(HAR.CONTRACT_PANEL, ctx);
-            await ctx.delay(300);
-          }
-          console.log('[TH-18 Step 4] Action complete!');
-        } catch (err) {
-          console.error('[TH-18 Step 4] ERROR:', err);
-          throw err;
+        const orderRow = Array.from(modeBtns).filter(b => {
+          const t = b.textContent?.toLowerCase() ?? '';
+          return t.includes('ordered') || t.includes('unordered');
+        });
+        if (orderRow.length > 0) {
+          const parent = orderRow[0].parentElement;
+          await spotlight(parent ?? orderRow[0], 1000, ctx);
+          await ctx.delay(350);
+        }
+
+        // Toggle Contract off via the same button so the viewer sees how to dismiss it
+        const stillBtn =
+          document.querySelector<HTMLElement>(HAR.CONTRACT_BTN) ?? findDsToolbarBtn('Contract');
+        if (stillBtn && document.querySelector(HAR.CONTRACT_PANEL)) {
+          await highlightPauseClick(stillBtn, ctx, 1400, 450);
+          await waitUntilGone(HAR.CONTRACT_PANEL, ctx);
+          await ctx.delay(300);
         }
       },
 
       verify: HAR.CONTRACT_BTN,
     },
 
-    // ── Step 5: Data Mapper Integrations ──────────────────────────
+    // ── Step 5: Populate From API ─────────────────────────────────
     {
-      id: 'th18-toolbar-mappers',
-      title: 'Data Mapper Integrations',
+      id: 'th18-from-api',
+      title: 'Populate From API',
       description:
-        'The toolbar offers key data management controls. We open each one so you ' +
-        'see exactly where it lives:\n\n' +
-        '**⬇ From API** — opens the Data Mapper in populate mode: fetch an API response and ' +
-        'map array items into data rows automatically.\n\n' +
-        '**🔗 Map Columns** — opens the Data Mapper in column mapping mode: visually connect ' +
-        'data columns to path, query, body, or header slots.\n\n' +
-        '**Distribution** — controls how rows are assigned to iterations: Sequential, Random, ' +
-        'or Round Robin.\n\n' +
-        '**Validate** — controls row verification scope: No Rows, Sample Rows Only, or All Rows.',
+        '**⬇ From API** opens the Data Mapper to **pull a live response into rows**.\n\n' +
+        'Source starts empty until a sample is loaded — watch **Fetch sample** run ' +
+        '(using the first data row\'s values), then response fields appear on the left ' +
+        'so you can map them onto columns.\n\n' +
+        'We **Cancel** without saving so your existing grid stays intact — this step is a tour, not a replace.',
       highlight: HAR.DS_FROM_API_BTN,
       pauseAfter: true,
 
@@ -684,128 +650,159 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
         await ensureTh18Ready(ctx);
         closeAllModals();
         await ensureOnDataTab(ctx);
+        dismissOpenCsMenus();
         const fromApi =
           document.querySelector<HTMLElement>(HAR.DS_FROM_API_BTN) ?? findDsToolbarBtn('From API');
         fromApi?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
       },
 
       action: async (ctx) => {
-        console.log('[TH-18 Step 5] Starting action');
-        try {
-          // ── From API → Data Mapper → Cancel ──
-          console.log('[TH-18 Step 5] Looking for From API button');
-          const fromApiBtn =
-            document.querySelector<HTMLElement>(HAR.DS_FROM_API_BTN) ?? findDsToolbarBtn('From API');
-          if (fromApiBtn) {
-            console.log('[TH-18 Step 5] Found From API, clicking');
-            await highlightPauseClick(fromApiBtn, ctx, 1200, 400);
-            console.log('[TH-18 Step 5] Waiting for mapper shell');
-            await ctx.waitFor(HAR.MAPPER_SHELL, 4000);
-            await ctx.delay(500);
-            console.log('[TH-18 Step 5] Mapper opened, closing');
-            const shell = document.querySelector<HTMLElement>(HAR.MAPPER_SHELL);
-            if (shell) {
-              await spotlight(shell, 800, ctx);
-              await ctx.delay(300);
-            }
-            await closeMapperVisibly(ctx);
-            console.log('[TH-18 Step 5] From API complete');
-          }
+        const fromApiBtn =
+          document.querySelector<HTMLElement>(HAR.DS_FROM_API_BTN) ?? findDsToolbarBtn('From API');
+        if (!fromApiBtn) return;
 
-          // ── Map Columns → Data Mapper → Cancel ──
-          console.log('[TH-18 Step 5] Looking for Map Columns button');
-          const mapColumnsBtn =
-            document.querySelector<HTMLElement>(HAR.DS_MAP_COLUMNS_BTN) ?? findDsToolbarBtn('Map Columns');
-          if (mapColumnsBtn) {
-            console.log('[TH-18 Step 5] Found Map Columns, clicking');
-            await highlightPauseClick(mapColumnsBtn, ctx, 1200, 400);
-            console.log('[TH-18 Step 5] Waiting for mapper shell');
-            await ctx.waitFor(HAR.MAPPER_SHELL, 4000);
-            await ctx.delay(500);
-            console.log('[TH-18 Step 5] Mapper opened, closing');
-            const shell = document.querySelector<HTMLElement>(HAR.MAPPER_SHELL);
-            if (shell) {
-              await spotlight(shell, 800, ctx);
-              await ctx.delay(300);
-            }
-            await closeMapperVisibly(ctx);
-            console.log('[TH-18 Step 5] Map Columns complete');
-          }
+        await highlightPauseClick(fromApiBtn, ctx, 1400, 450);
+        await ctx.waitFor(HAR.MAPPER_SHELL, 4000);
+        await ctx.delay(500);
 
-          // ── Distribution dropdown: open and spotlight all options ──
-          console.log('[TH-18 Step 5] Processing distribution dropdown');
-          const distSelects = document.querySelectorAll<HTMLElement>('.data-source-toolbar-select');
-          for (const sel of distSelects) {
-            const trigger = sel.querySelector<HTMLElement>('.cs-trigger');
-            const text = trigger?.textContent ?? sel.textContent ?? '';
-            if (text.includes('Sequential') || text.includes('Random') || text.includes('Round Robin')) {
-              console.log('[TH-18 Step 5] Found distribution select, opening');
-              if (trigger) {
-                await highlightPauseClick(trigger, ctx, 800, 250);
-              } else {
-                await highlightPauseClick(sel, ctx, 800, 250);
-              }
-
-              const menu = document.querySelector<HTMLElement>('.cs-menu');
-              if (menu) {
-                console.log('[TH-18 Step 5] Distribution menu opened');
-                const options = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'))
-                  .filter((opt) => {
-                    const label = opt.textContent?.trim() ?? '';
-                    return label === 'Sequential' || label === 'Random' || label === 'Round Robin';
-                  });
-
-                for (const option of options) {
-                  await spotlight(option, 500, ctx);
-                  await ctx.delay(150);
-                }
-              }
-              break;
-            }
-          }
-          console.log('[TH-18 Step 5] Distribution complete');
-
-          // ── Validate dropdown: open and spotlight all options ──
-          console.log('[TH-18 Step 5] Processing validate dropdown');
-          for (const sel of distSelects) {
-            const trigger = sel.querySelector<HTMLElement>('.cs-trigger');
-            const text = trigger?.textContent ?? sel.textContent ?? '';
-            if (text.includes('Validate:')) {
-              console.log('[TH-18 Step 5] Found validate select, opening');
-              if (trigger) {
-                await highlightPauseClick(trigger, ctx, 800, 250);
-              } else {
-                await highlightPauseClick(sel, ctx, 800, 250);
-              }
-
-              const menu = document.querySelector<HTMLElement>('.cs-menu');
-              if (menu) {
-                console.log('[TH-18 Step 5] Validate menu opened');
-                const options = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'))
-                  .filter((opt) => {
-                    const label = opt.textContent?.trim() ?? '';
-                    return label === 'Validate: No Rows'
-                      || label === 'Validate: Sample Rows Only'
-                      || label === 'Validate: All Rows';
-                  });
-
-                for (const option of options) {
-                  await spotlight(option, 500, ctx);
-                  await ctx.delay(150);
-                }
-              }
-              break;
-            }
-          }
-
-          // Let CustomSelect menus close naturally via event handlers
-          console.log('[TH-18 Step 5] Delaying for UI to settle');
-          await ctx.delay(400);
-          console.log('[TH-18 Step 5] Action complete!');
-        } catch (err) {
-          console.error('[TH-18 Step 5] ERROR:', err);
-          throw err;
+        // Auto-fetch usually fills Source; if still empty, click Fetch sample.
+        for (let i = 0; i < 20 && !document.querySelector(HAR.MAPPER_SOURCE_TREE); i++) {
+          await ctx.delay(200);
         }
+        let sourceReady = !!document.querySelector(HAR.MAPPER_SOURCE_TREE);
+        if (!sourceReady) {
+          const fetchBtn = document.querySelector<HTMLElement>(HAR.MAPPER_FETCH_SAMPLE);
+          if (fetchBtn) {
+            await highlightPauseClick(fetchBtn, ctx, 1400, 400);
+            for (let i = 0; i < 40 && !document.querySelector(HAR.MAPPER_SOURCE_TREE); i++) {
+              await ctx.delay(200);
+            }
+            sourceReady = !!document.querySelector(HAR.MAPPER_SOURCE_TREE);
+          }
+        }
+
+        const sourcePanel = document.querySelector<HTMLElement>(HAR.MAPPER_SOURCE);
+        if (sourcePanel) {
+          await spotlight(sourcePanel, sourceReady ? 2400 : 1400, ctx);
+          await ctx.delay(800);
+        } else {
+          const shell = document.querySelector<HTMLElement>(HAR.MAPPER_SHELL);
+          if (shell) {
+            await spotlight(shell, 1000, ctx);
+            await ctx.delay(400);
+          }
+        }
+
+        await closeMapperVisibly(ctx);
+        await ctx.delay(300);
+      },
+
+      verify: HAR.DS_FROM_API_BTN,
+    },
+
+    // ── Step 6: Map Columns & row modes ───────────────────────────
+    {
+      id: 'th18-map-columns-modes',
+      title: 'Map Columns & Row Modes',
+      description:
+        'Three more toolbar controls shape how data drives the run:\n\n' +
+        '**🔗 Map Columns** — opens the Data Mapper in column mapping mode: visually connect ' +
+        'data columns to path, query, body, or header slots.\n\n' +
+        '**Distribution** — how rows are assigned across iterations: Sequential, Random, ' +
+        'or Round Robin.\n\n' +
+        '**Validate** — which rows run verification: No Rows, Sample Rows Only, or All Rows.',
+      highlight: HAR.DS_MAP_COLUMNS_BTN,
+      pauseAfter: true,
+
+      preAction: async (ctx) => {
+        await ensureTh18Ready(ctx);
+        closeAllModals();
+        await ensureOnDataTab(ctx);
+        dismissOpenCsMenus();
+        const mapColumns =
+          document.querySelector<HTMLElement>(HAR.DS_MAP_COLUMNS_BTN) ?? findDsToolbarBtn('Map Columns');
+        mapColumns?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+      },
+
+      action: async (ctx) => {
+        // ── Map Columns → Data Mapper → Cancel ──
+        const mapColumnsBtn =
+          document.querySelector<HTMLElement>(HAR.DS_MAP_COLUMNS_BTN) ?? findDsToolbarBtn('Map Columns');
+        if (mapColumnsBtn) {
+          await highlightPauseClick(mapColumnsBtn, ctx, 1400, 450);
+          await ctx.waitFor(HAR.MAPPER_SHELL, 4000);
+          await ctx.delay(500);
+          const shell = document.querySelector<HTMLElement>(HAR.MAPPER_SHELL);
+          if (shell) {
+            await spotlight(shell, 1200, ctx);
+            await ctx.delay(400);
+          }
+          await closeMapperVisibly(ctx);
+          await ctx.delay(300);
+        }
+
+        // ── Distribution dropdown ──
+        const toolbarSelects = document.querySelectorAll<HTMLElement>('.data-source-toolbar-select');
+        for (const sel of toolbarSelects) {
+          const trigger = sel.querySelector<HTMLElement>('.cs-trigger');
+          const text = trigger?.textContent ?? sel.textContent ?? '';
+          if (text.includes('Sequential') || text.includes('Random') || text.includes('Round Robin')) {
+            if (trigger) {
+              await highlightPauseClick(trigger, ctx, 900, 250);
+            } else {
+              await highlightPauseClick(sel, ctx, 900, 250);
+            }
+
+            const menu = document.querySelector<HTMLElement>('.cs-menu');
+            if (menu) {
+              const options = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'))
+                .filter((opt) => {
+                  const label = opt.textContent?.trim() ?? '';
+                  return label === 'Sequential' || label === 'Random' || label === 'Round Robin';
+                });
+              for (const option of options) {
+                await spotlight(option, 500, ctx);
+                await ctx.delay(150);
+              }
+            }
+            dismissOpenCsMenus();
+            await ctx.delay(300);
+            break;
+          }
+        }
+
+        // ── Validate dropdown ──
+        for (const sel of toolbarSelects) {
+          const trigger = sel.querySelector<HTMLElement>('.cs-trigger');
+          const text = trigger?.textContent ?? sel.textContent ?? '';
+          if (text.includes('Validate:')) {
+            if (trigger) {
+              await highlightPauseClick(trigger, ctx, 900, 250);
+            } else {
+              await highlightPauseClick(sel, ctx, 900, 250);
+            }
+
+            const menu = document.querySelector<HTMLElement>('.cs-menu');
+            if (menu) {
+              const options = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item, [role="option"]'))
+                .filter((opt) => {
+                  const label = opt.textContent?.trim() ?? '';
+                  return label === 'Validate: No Rows'
+                    || label === 'Validate: Sample Rows Only'
+                    || label === 'Validate: All Rows';
+                });
+              for (const option of options) {
+                await spotlight(option, 500, ctx);
+                await ctx.delay(150);
+              }
+            }
+            dismissOpenCsMenus();
+            await ctx.delay(300);
+            break;
+          }
+        }
+
+        await ctx.delay(300);
       },
 
       verify: HAR.DS_TOOLBAR,

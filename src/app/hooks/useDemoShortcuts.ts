@@ -64,9 +64,9 @@ export function useDemoShortcuts(
             });
             break;
           case 'ArrowRight':
-            // Next only after the step is done. During reading, skip via the
-            // phase badge — ArrowRight must not skip the step action.
-            if (demoHub.stepPhase === 'done') {
+            // Next when done, or during reading (nextStep finishes the action
+            // then advances). Block only while Preparing / Acting / Verifying.
+            if (demoHub.stepPhase === 'done' || demoHub.stepPhase === 'reading') {
               e.preventDefault();
               demoHub.nextStep();
             }

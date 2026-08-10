@@ -1,6 +1,7 @@
 /** Shared helpers for API Testing demo lessons (Requests + Catalog). */
 import type { DemoActionContext } from '../../types';
 import { REQ } from '@shared/selectors';
+import { deleteCollectionsByName, getDemoBridgeWindow } from '../../adapters';
 import { showSpotlightRing } from '../../demoRipple';
 import { fillControlledInput } from '../setup-helpers';
 
@@ -120,12 +121,10 @@ export function ensureRequestsTab(ctx: DemoActionContext): void {
 export async function shrinkAllCollections(): Promise<void> {
   const btn = document.querySelector<HTMLElement>(REQ.SIDEBAR_EXPAND_ALL);
   if (!btn) return;
-  const label = btn.getAttribute('aria-label') || '';
-  if (label.toLowerCase().includes('shrink')) {
-    btn.click();
-  } else {
-    btn.click();
-    await new Promise(r => setTimeout(r, 0));
+  const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+  // Only collapse when already expanded. Never expand-then-shrink — that
+  // flashes every collection tree during Start Demo setup / step 1 preAction.
+  if (label.includes('shrink')) {
     btn.click();
   }
 }
@@ -401,12 +400,28 @@ export async function cleanupLessonArtifacts(
  * incomplete run before capturing the baseline — otherwise the stale collection
  * is counted as pre-existing and `createCollectionViaModal` fails with a
  * "Name already exists" error.
+ *
+ * Prefer the silent `__demoDeleteCollectionsByName` bridge so Start Demo setup
+ * does not expand the sidebar or open context menus (visible flashing).
  */
 export async function forceDeleteCollectionsByExactName(
   ctx: DemoActionContext,
   name: string,
   maxDeletes = 8,
 ): Promise<void> {
+  const hasBridge = typeof getDemoBridgeWindow().__demoDeleteCollectionsByName === 'function';
+  if (hasBridge) {
+    let guard = 0;
+    while (countCollectionsByExactName(name) > 0 && guard < maxDeletes) {
+      const deleted = deleteCollectionsByName(name);
+      if (deleted === 0) break;
+      await ctx.delay(40);
+      guard++;
+    }
+    if (countCollectionsByExactName(name) === 0) return;
+  }
+
+  // Fallback when the bridge is absent (unit tests) or React DOM is still stale.
   ensureRequestsTab(ctx);
   await ctx.delay(80);
   await expandAllCollections();
@@ -752,6 +767,41 @@ export async function renameRequestTabByIndex(
     renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await ctx.delay(300);
   }
+}
+
+/** 0-based index of the tab whose label matches exactly, or -1. */
+export function findRequestTabIndexByLabel(label: string): number {
+  const tabs = document.querySelectorAll<HTMLElement>(REQ_TAB_ROLE_SELECTOR);
+  return Array.from(tabs).findIndex(
+    (tab) => tab.querySelector(REQ.TAB_LABEL)?.textContent?.trim() === label,
+  );
+}
+
+/**
+ * Rename a tab by its current label. Never falls back to index 0 — that would
+ * rename a leftover product tab (e.g. sales-product) instead of the demo request.
+ * Returns false when no matching tab is open.
+ */
+export async function renameRequestTabByLabel(
+  ctx: DemoActionContext,
+  currentLabel: string,
+  newName: string,
+): Promise<boolean> {
+  const index = findRequestTabIndexByLabel(currentLabel);
+  if (index < 0) return false;
+  await renameRequestTabByIndex(ctx, index, newName);
+  return true;
+}
+
+/**
+ * Close every tab except the active one (tab-bar "Close others" control).
+ * Use after selecting the lesson request so leftover product tabs are dropped.
+ */
+export async function closeOtherRequestTabsQuiet(ctx: DemoActionContext): Promise<void> {
+  const btn = document.querySelector<HTMLElement>(REQ.TAB_CLOSE_ALL);
+  if (!btn) return;
+  btn.click();
+  await ctx.delay(250);
 }
 
 /** Get the label text of the active request tab. */

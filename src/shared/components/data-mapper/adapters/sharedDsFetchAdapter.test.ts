@@ -643,15 +643,17 @@ describe('fetchSampleData', () => {
     expect(adapter.selectedArrayPath).toBe('large');
   });
 
-  it('returns undefined when response has no arrays', async () => {
-    const fetchFn = vi.fn().mockResolvedValue({ scalar: 42 });
+  it('wraps a plain object response as a single-item root array', async () => {
+    const row = { scalar: 42, name: 'solo' };
+    const fetchFn = vi.fn().mockResolvedValue(row);
     const adapter = createSharedDsFetchAdapter({
       dataSource: makeDataSource(),
       fetchSampleData: fetchFn,
     });
     const result = await adapter.fetchSampleData!();
-    expect(result).toBeUndefined();
-    expect(adapter.selectedArrayPath).toBe('');
+    expect(result).toEqual(row);
+    expect(adapter.selectedArrayPath).toBe('$');
+    expect(adapter.getResponseJson()).toEqual([row]);
   });
 
   it('is undefined when no callback provided', () => {
@@ -713,13 +715,16 @@ describe('edge cases', () => {
     expect(adapter.selectedArrayPath).toBe('');
   });
 
-  it('handles response with no arrays', () => {
+  it('wraps plain object responses with no nested arrays', () => {
     const response = { name: 'test', value: 42 };
     const adapter = createSharedDsFetchAdapter({
       dataSource: makeDataSource(),
       responseJson: response,
     });
-    expect(adapter.detectedArrays).toEqual([]);
+    expect(adapter.detectedArrays).toEqual([
+      expect.objectContaining({ path: '$', length: 1 }),
+    ]);
+    expect(adapter.sources[0].sampleData).toEqual(response);
   });
 
   it('handles array items with missing fields gracefully', () => {
@@ -803,7 +808,7 @@ describe('edge cases', () => {
   it('validate reports no-array-path when response exists but arrayPath is undefined', () => {
     const adapter = createSharedDsFetchAdapter({
       dataSource: makeDataSource(),
-      responseJson: { data: 'not array' },
+      responseJson: { items: [] },
       selectedArrayPath: undefined,
     });
     const mappings: Mapping[] = [

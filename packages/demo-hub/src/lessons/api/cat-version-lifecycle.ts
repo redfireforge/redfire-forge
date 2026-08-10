@@ -66,7 +66,23 @@ export const catVersionLifecycleLesson: DemoLesson = {
     'version history, compare changes, and restore previous versions.',
   estimatedMinutes: 5,
   initialTab: 'catalog',
+  initialSurface: { catalogView: 'overview' },
   allowedTabs: ['catalog'],
+
+  // Seed + select BEFORE Catalog mounts so Start/Restart never paints
+  // CatalogWelcome ("Design, explore…") or Endpoints before step 1 Overview.
+  prepareBeforeNavigate: async (ctx) => {
+    resetSecondVersionFlag();
+    deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await cleanupOtherRequestDemoCollections(ctx);
+    deleteCatalogEntryByName(DEMO_ENTRY_NAME);
+    await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
+    selectCatalogEntryByName(DEMO_ENTRY_NAME);
+    await ensureSecondVersionSeeded();
+    selectCatalogEntryByName(DEMO_ENTRY_NAME);
+    await ctx.delay(80);
+  },
 
   concept: {
     title: 'Track How Your API Evolves Over Time',
@@ -111,21 +127,10 @@ export const catVersionLifecycleLesson: DemoLesson = {
   },
 
   setup: async (ctx) => {
-    ensureCatalogTab(ctx);
-    await ctx.delay(80);
     closeVersionHistoryIfOpen();
-    deleteCatalogEntryByName(DEMO_ENTRY_NAME);
-    deleteCollectionsByName(DEMO_ENTRY_NAME);
-    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
-    await ctx.delay(200);
-    await cleanupOtherRequestDemoCollections(ctx);
-    await ctx.delay(400);
-    await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
-    await waitForSelector(CAT.entryByName(DEMO_ENTRY_NAME), 3000);
-    selectCatalogEntryByName(DEMO_ENTRY_NAME);
-    await ctx.delay(600);
-    await ensureSecondVersionSeeded();
-    await ctx.delay(300);
+    ensureCatalogTab(ctx);
+    await ensureDemoEntryOnOverview(ctx);
+    await ctx.delay(80);
   },
 
   cleanup: async (ctx) => {
@@ -135,7 +140,11 @@ export const catVersionLifecycleLesson: DemoLesson = {
     deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
     await cleanupOtherRequestDemoCollections(ctx);
     resetSecondVersionFlag();
-    ensureCatalogTab(ctx);
+    // Skip Catalog navigate during Restart boot — prepareBeforeNavigate reseeds
+    // first, then the hub lands on Catalog once (avoids Welcome flash).
+    if (document.body.getAttribute('data-demo-bootstrapping') !== '1') {
+      ensureCatalogTab(ctx);
+    }
     await ctx.delay(60);
   },
 

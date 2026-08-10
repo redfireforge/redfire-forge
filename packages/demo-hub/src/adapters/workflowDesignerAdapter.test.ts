@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   addWorkflowNode,
   addWorkflowNodeWithPreset,
+  clearWorkflowSamplePreview,
   connectWorkflowNodes,
   deleteWorkflowByName,
   deselectAllWorkflowNodes,
@@ -43,6 +44,18 @@ describe('workflowDesignerAdapter', () => {
     delete w.__wfQuickTest;
     delete w.__wfSetConsoleFloatLayout;
     delete w.__wfSelectByName;
+    delete w.__wfClearSamplePreview;
+  });
+
+  it('clearWorkflowSamplePreview calls bridge when present', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfClearSamplePreview = spy;
+    clearWorkflowSamplePreview();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('clearWorkflowSamplePreview is a no-op when bridge missing', () => {
+    expect(() => clearWorkflowSamplePreview()).not.toThrow();
   });
 
   it('deleteWorkflowByName returns false when bridge missing', () => {

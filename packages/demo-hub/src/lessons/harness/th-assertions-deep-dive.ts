@@ -275,10 +275,39 @@ export const thAssertionsDeepDiveLesson: DemoLesson = {
       title: 'Field & Type Assertions',
       description:
         'Add **Numeric Compare** with the **JSONPath picker** — a searchable tree of response ' +
-        'fields that lets you select paths visually instead of typing them. ' +
-        'Then add **Field Exists** to verify a field is present without checking its value.',
+        'fields that lets you select paths visually instead of typing them.\n\n' +
+        'Then add **Field Exists** and pick a path the same way. Exists only needs a path + ' +
+        '`exists` / `does not exist` — there is **no expected value**, because the check is ' +
+        'presence only. (The grey `$.metadata.tags` text is just a placeholder until you pick a path.)',
       highlight: HAR.TE_ASSERTIONS_ADD_BTN,
       action: async (ctx) => {
+        const pickJsonPathOnLastRow = async (match: (text: string) => boolean) => {
+          const rows = document.querySelectorAll<HTMLElement>(HAR.TE_ASSERTION_ROW);
+          const row = rows[rows.length - 1];
+          const jppBtn = row?.querySelector<HTMLElement>(HAR.TE_JPP_BTN);
+          if (!jppBtn) return;
+          await spotlight(jppBtn, 1200, ctx);
+          jppBtn.click();
+          await ctx.delay(600);
+
+          const jppMenu = document.querySelector<HTMLElement>(HAR.TE_JPP_MENU);
+          if (!jppMenu) return;
+          await spotlight(jppMenu, 2000, ctx);
+          const items = jppMenu.querySelectorAll<HTMLElement>(HAR.TE_JPP_ITEM);
+          for (const item of items) {
+            const text = item.textContent ?? '';
+            if (match(text)) {
+              await spotlight(item, 1200, ctx);
+              item.click();
+              await ctx.delay(800);
+              return;
+            }
+          }
+          // Close stray picker if nothing matched
+          jppBtn.click();
+          await ctx.delay(300);
+        };
+
         // Add Numeric Compare
         await openAssertionAddMenu(ctx);
         await ctx.delay(400);
@@ -288,32 +317,12 @@ export const thAssertionsDeepDiveLesson: DemoLesson = {
         await selectAssertionType(ctx, 'Numeric Compare');
         await ctx.delay(600);
 
-        // Demonstrate JSONPath picker on the new row
-        const rows = document.querySelectorAll<HTMLElement>(HAR.TE_ASSERTION_ROW);
-        const numRow = rows[rows.length - 1];
-        const jppBtn = numRow?.querySelector<HTMLElement>(HAR.TE_JPP_BTN);
-        if (jppBtn) {
-          await spotlight(jppBtn, 1200, ctx);
-          jppBtn.click();
-          await ctx.delay(600);
+        // Demonstrate JSONPath picker — pick geo.lat
+        await pickJsonPathOnLastRow(
+          (text) => text.includes('lat') || text.includes('geo.lat'),
+        );
 
-          const jppMenu = document.querySelector<HTMLElement>(HAR.TE_JPP_MENU);
-          if (jppMenu) {
-            await spotlight(jppMenu, 2000, ctx);
-            // Find and click the geo.lat item
-            const items = jppMenu.querySelectorAll<HTMLElement>(HAR.TE_JPP_ITEM);
-            for (const item of items) {
-              if (item.textContent?.includes('lat') || item.textContent?.includes('geo.lat')) {
-                await spotlight(item, 1200, ctx);
-                item.click();
-                await ctx.delay(800);
-                break;
-              }
-            }
-          }
-        }
-
-        // Add Field Exists
+        // Add Field Exists — path only (no value field by design)
         await openAssertionAddMenu(ctx);
         await ctx.delay(400);
         const existsItem = Array.from(document.querySelectorAll<HTMLElement>('.aam-grid-item'))
@@ -321,6 +330,15 @@ export const thAssertionsDeepDiveLesson: DemoLesson = {
         if (existsItem) await spotlight(existsItem, 1500, ctx);
         await selectAssertionType(ctx, 'Field Exists');
         await ctx.delay(600);
+
+        // Pick a real field — empty path with placeholder is not a configured assertion
+        await pickJsonPathOnLastRow(
+          (text) => /\bemail\b/i.test(text) || text.includes('$.email'),
+        );
+
+        const existsRows = document.querySelectorAll<HTMLElement>(HAR.TE_ASSERTION_ROW);
+        const existsRow = existsRows[existsRows.length - 1];
+        if (existsRow) await spotlight(existsRow, 1600, ctx);
 
         // Group highlight both assertions added in this step (Numeric + Exists)
         const allRows = document.querySelectorAll<HTMLElement>(HAR.TE_ASSERTION_ROW);

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useGrpcStudioPageDemoBridges } from './useGrpcStudioPageDemoBridges';
 
@@ -10,7 +10,6 @@ function makeStudioStub() {
   const patchTabDescriptor = vi.fn();
   const cancelUnaryCall = vi.fn().mockResolvedValue(undefined);
   const cancelStreamCall = vi.fn().mockResolvedValue(undefined);
-  const reflectTab = vi.fn().mockResolvedValue(undefined);
   return {
     studio: {
       activeTab: { id: 'tab-1', descriptorKey: 'desc-1' },
@@ -19,26 +18,18 @@ function makeStudioStub() {
       patchTabDescriptor,
       cancelUnaryCall,
       cancelStreamCall,
-      reflectTab,
     },
     advancedFeatures: {
       applySchemaDiffComparison: vi.fn(),
-      patchMockRulesJson: vi.fn(),
-      stopMockServer: vi.fn().mockResolvedValue(undefined),
     },
     updateTab,
     patchTabDescriptor,
     cancelUnaryCall,
     cancelStreamCall,
-    reflectTab,
   };
 }
 
 describe('useGrpcStudioPageDemoBridges', () => {
-  beforeEach(() => {
-    vi.stubGlobal('window', { ...window });
-  });
-
   afterEach(() => {
     const w = window as unknown as Record<string, unknown>;
     delete w.__demoPatchGrpcActiveTab;
@@ -49,11 +40,10 @@ describe('useGrpcStudioPageDemoBridges', () => {
     delete w.__demoPatchGrpcSchemaDiffReport;
     delete w.__demoPatchGrpcMockRulesJson;
     delete w.__demoStopGrpcMockRuntime;
-    vi.unstubAllGlobals();
   });
 
   it('registers demo patch and reset bridges on window', async () => {
-    const { studio, advancedFeatures, updateTab, reflectTab } = makeStudioStub();
+    const { studio, advancedFeatures, updateTab } = makeStudioStub();
     renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
 
     const w = window as unknown as Record<string, unknown>;
@@ -61,10 +51,7 @@ describe('useGrpcStudioPageDemoBridges', () => {
     expect(typeof w.__demoResetGrpcActiveTab).toBe('function');
     expect(typeof w.__demoResetGrpcManageSchemasDrafts).toBe('function');
     expect(typeof w.__demoGetGrpcActiveDescriptorKey).toBe('function');
-    expect(typeof w.__demoReflectGrpcActiveTab).toBe('function');
     expect(typeof w.__demoPatchGrpcSchemaDiffReport).toBe('function');
-    expect(typeof w.__demoPatchGrpcMockRulesJson).toBe('function');
-    expect(typeof w.__demoStopGrpcMockRuntime).toBe('function');
 
     const patched = (w.__demoPatchGrpcActiveTab as (p: { grpcurlExportContext?: unknown }) => boolean)({
       grpcurlExportContext: { target: 'localhost:50051' },
@@ -73,10 +60,6 @@ describe('useGrpcStudioPageDemoBridges', () => {
     expect(updateTab).toHaveBeenCalledWith('tab-1', { grpcurlExportContext: { target: 'localhost:50051' } });
 
     expect((w.__demoGetGrpcActiveDescriptorKey as () => string | null)()).toBe('desc-live');
-    await expect((w.__demoReflectGrpcActiveTab as () => Promise<boolean>)()).resolves.toBe(true);
-    expect(reflectTab).toHaveBeenCalledWith('tab-1');
-    await expect((w.__demoStopGrpcMockRuntime as () => Promise<boolean>)()).resolves.toBe(true);
-    expect(advancedFeatures.stopMockServer).toHaveBeenCalled();
   });
 
   it('cleans up window bridges on unmount', () => {
@@ -88,44 +71,7 @@ describe('useGrpcStudioPageDemoBridges', () => {
     expect(w.__demoResetGrpcActiveTab).toBeUndefined();
     expect(w.__demoResetGrpcManageSchemasDrafts).toBeUndefined();
     expect(w.__demoGetGrpcActiveDescriptorKey).toBeUndefined();
-    expect(w.__demoReflectGrpcActiveTab).toBeUndefined();
     expect(w.__demoPatchGrpcSchemaDiffReport).toBeUndefined();
-    expect(w.__demoPatchGrpcMockRulesJson).toBeUndefined();
-    expect(w.__demoStopGrpcMockRuntime).toBeUndefined();
-  });
-
-  it('quiet reflect bridge returns false without an active tab', async () => {
-    const { studio, advancedFeatures } = makeStudioStub();
-    studio.activeTab = undefined as never;
-    renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
-    const w = window as unknown as Record<string, unknown>;
-    await expect((w.__demoReflectGrpcActiveTab as () => Promise<boolean>)()).resolves.toBe(false);
-  });
-
-  it('quiet reflect bridge returns false when reflectTab throws', async () => {
-    const { studio, advancedFeatures, reflectTab } = makeStudioStub();
-    reflectTab.mockRejectedValueOnce(new Error('reflect failed'));
-    renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
-    const w = window as unknown as Record<string, unknown>;
-    await expect((w.__demoReflectGrpcActiveTab as () => Promise<boolean>)()).resolves.toBe(false);
-  });
-
-  it('patches mock rules JSON without requiring a descriptor', () => {
-    const { studio, advancedFeatures } = makeStudioStub();
-    renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
-    const w = window as unknown as Record<string, unknown>;
-    const ok = (w.__demoPatchGrpcMockRulesJson as (json: string) => boolean)('{"version":1,"rules":[]}');
-    expect(ok).toBe(true);
-    expect(advancedFeatures.patchMockRulesJson).toHaveBeenCalledWith('{"version":1,"rules":[]}');
-  });
-
-  it('returns false for mock rules patch when input is not a string', () => {
-    const { studio, advancedFeatures } = makeStudioStub();
-    renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
-    const w = window as unknown as Record<string, unknown>;
-    const ok = (w.__demoPatchGrpcMockRulesJson as (json: unknown) => boolean)({ rules: [] });
-    expect(ok).toBe(false);
-    expect(advancedFeatures.patchMockRulesJson).not.toHaveBeenCalled();
   });
 
   it('returns false when no active tab for patch helpers', () => {
@@ -206,6 +152,15 @@ describe('useGrpcStudioPageDemoBridges', () => {
     renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
     const w = window as unknown as Record<string, unknown>;
     expect((w.__demoGetGrpcActiveDescriptorKey as () => string | null)()).toBe('tab-key');
+  });
+
+  it('descriptor key prefers the active tab descriptor when present', () => {
+    const { studio, advancedFeatures } = makeStudioStub();
+    studio.activeTabDescriptor = { descriptor: { key: ' direct-key ' } } as never;
+    studio.activeTab = { id: 'tab-1', descriptorKey: 'fallback-key' } as never;
+    renderHook(() => useGrpcStudioPageDemoBridges(studio as never, advancedFeatures as never));
+    const w = window as unknown as Record<string, unknown>;
+    expect((w.__demoGetGrpcActiveDescriptorKey as () => string | null)()).toBe('direct-key');
   });
 
   it('descriptor key returns null when no descriptor key is available', () => {

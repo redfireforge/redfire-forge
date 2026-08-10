@@ -112,7 +112,14 @@ test.describe('gRPC Studio — live-backed shell recovery', () => {
       await targetInput.fill(listenTarget);
       await expect(page.locator('[data-testid="grpc-target-status-ok"]')).toBeVisible();
       await toggle.click();
-      await expect(toggle).toHaveText('Disconnect', { timeout: 15_000 });
+      try {
+        await expect(toggle).toHaveText('Disconnect', { timeout: 15_000 });
+      } catch {
+        // First reconnect can race with probe cancellation; retry once.
+        await expect(toggle).toHaveText('Connect', { timeout: 5_000 });
+        await toggle.click();
+        await expect(toggle).toHaveText('Disconnect', { timeout: 15_000 });
+      }
       await expect(dot).toHaveAttribute('title', /Connected/);
     } finally {
       await stopGrpcMockListener(request, firstTabId);

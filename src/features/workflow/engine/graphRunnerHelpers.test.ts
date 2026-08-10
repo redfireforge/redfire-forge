@@ -247,6 +247,12 @@ describe('compareValues', () => {
     expect(compareValues('a', 'b', '!=')).toBe(true);
     expect(compareValues('a', 'a', '!=')).toBe(false);
   });
+  it('accepts === / !== as aliases of == / !=', () => {
+    expect(compareValues('Debug Demo', '', '!==')).toBe(true);
+    expect(compareValues('Debug Demo', 'Debug Demo', '!==')).toBe(false);
+    expect(compareValues('a', 'a', '===')).toBe(true);
+    expect(compareValues('a', 'b', '===')).toBe(false);
+  });
   it('numeric comparisons', () => {
     expect(compareValues('10', '5', '>')).toBe(true);
     expect(compareValues('3', '7', '<')).toBe(true);

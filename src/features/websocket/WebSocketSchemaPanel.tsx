@@ -250,12 +250,16 @@ export function WebSocketSchemaPanel({
           )}
         </div>
         <div className="ws-schema-panel-toolbar">
-          <label className="ws-schema-validation-toggle" title="Validate messages against enabled schemas">
+          <label
+            className="ws-schema-validation-toggle"
+            title="Validate messages against enabled schemas"
+            data-testid="ws-validation-toggle"
+          >
             <input
               type="checkbox"
               checked={validationEnabled}
               onChange={(e) => onSetValidationEnabled(e.target.checked)}
-              data-testid="ws-validation-toggle"
+              aria-label="Validate messages against enabled schemas"
             />
             <span className="ws-schema-validation-track" aria-hidden="true" />
             <span className="ws-schema-validation-text">Validate</span>
