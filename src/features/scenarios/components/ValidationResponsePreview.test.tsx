@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ValidationResponsePreview from './ValidationResponsePreview';
@@ -119,5 +119,91 @@ describe('ValidationResponsePreview', () => {
     fireEvent.change(input, { target: { value: 'a' } });
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
     expect(input).toHaveValue('');
+  });
+
+  it('toggles the preview from the header click and keyboard handlers', () => {
+    render(<ValidationResponsePreview responsePreviewJson='{"ab":"ab"}' isPending={false} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sample response' }));
+    expect(screen.queryByLabelText('Search sample response')).toBeNull();
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Expand sample response' }), { key: ' ' });
+    expect(screen.getByLabelText('Search sample response')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Collapse sample response' }), { key: 'Enter' });
+    expect(screen.queryByLabelText('Search sample response')).toBeNull();
+  });
+
+  it('focuses and selects the active match when navigating results', () => {
+    render(<ValidationResponsePreview responsePreviewJson='line1\n{"ab":"ab"}' isPending={false} />);
+    const textarea = screen.getByLabelText('Current sample response') as HTMLTextAreaElement;
+    const focusSpy = vi.spyOn(textarea, 'focus');
+    const selectionSpy = vi.spyOn(textarea, 'setSelectionRange');
+    Object.defineProperty(textarea, 'clientHeight', { value: 48, configurable: true });
+
+    fireEvent.change(screen.getByLabelText('Search sample response'), { target: { value: 'ab' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next match' }));
+
+    expect(focusSpy).toHaveBeenCalled();
+    expect(selectionSpy).toHaveBeenCalledWith(expect.any(Number), expect.any(Number));
+  });
+
+  it('pretty-prints the sample response by default', () => {
+    render(<ValidationResponsePreview responsePreviewJson='{"a":1,"b":{"c":2}}' isPending={false} />);
+    const textarea = screen.getByLabelText('Current sample response') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('{\n  "a": 1,\n  "b": {\n    "c": 2\n  }\n}');
+    expect(textarea.rows).toBe(16);
+    expect(screen.getByRole('button', { name: 'Pretty-print JSON' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('falls back to the raw payload when pretty mode toggles off', () => {
+    render(<ValidationResponsePreview responsePreviewJson='{"a":1}' isPending={false} />);
+    const prettyBtn = screen.getByRole('button', { name: 'Pretty-print JSON' });
+
+    fireEvent.click(prettyBtn);
+
+    const textarea = screen.getByLabelText('Current sample response') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('{"a":1}');
+    expect(textarea.rows).toBe(8);
+    expect(prettyBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('shows the raw string when the payload is not valid JSON', () => {
+    render(<ValidationResponsePreview responsePreviewJson='not-json{' isPending={false} />);
+    const textarea = screen.getByLabelText('Current sample response') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('not-json{');
+  });
+
+  it('reports the raw payload size regardless of formatting', () => {
+    const raw = `{"pad":"${'x'.repeat(1024)}"}`;
+    render(<ValidationResponsePreview responsePreviewJson={raw} isPending={false} />);
+    // Formatting adds whitespace; the meta must reflect what came off the wire.
+    expect(screen.getByText(`${(raw.length / 1024).toFixed(1)} KB`)).toBeInTheDocument();
+  });
+
+  it('does not collapse the panel when the pretty toggle is clicked', () => {
+    render(<ValidationResponsePreview responsePreviewJson='{"a":1}' isPending={false} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pretty-print JSON' }));
+
+    expect(screen.getByLabelText('Search sample response')).toBeInTheDocument();
+  });
+
+  it('searches against the formatted text so match offsets line up', () => {
+    render(<ValidationResponsePreview responsePreviewJson='{"a":1}' isPending={false} />);
+    // `": 1` only exists once the payload is pretty-printed.
+    fireEvent.change(screen.getByLabelText('Search sample response'), { target: { value: '": 1' } });
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+  });
+
+  it('resets search index when search term changes', () => {
+    render(<ValidationResponsePreview responsePreviewJson='{"ab":"ab","xy":"z"}' isPending={false} />);
+    const input = screen.getByLabelText('Search sample response');
+    fireEvent.change(input, { target: { value: 'ab' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    // Change search term — should reset index (show count without position)
+    fireEvent.change(input, { target: { value: 'xy' } });
+    expect(screen.getByText('1 match')).toBeInTheDocument();
   });
 });

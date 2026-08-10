@@ -48,7 +48,8 @@ describe('descriptorLoader coverage gaps', () => {
     });
     await expect(loader.loadFromReflection({
       ...FIXTURE_REFLECT_REQUEST,
-      target: { address: 'localhost:50051', tlsMode: 'tls' },
+      // Use TLS fixture port — :50051 is coerced to plaintext by prepareGrpcTarget.
+      target: { address: 'localhost:50443', tlsMode: 'tls' },
     })).rejects.toSatisfy((error: unknown) => {
       expect(error).toBeInstanceOf(DescriptorLoaderError);
       const err = error as DescriptorLoaderError;
@@ -341,7 +342,7 @@ describe('descriptorLoader coverage gaps', () => {
     });
     await expect(loader.loadFromReflection({
       ...FIXTURE_REFLECT_REQUEST,
-      target: { address: 'localhost:50051', tlsMode: 'tls' },
+      target: { address: 'localhost:50443', tlsMode: 'tls' },
     })).rejects.toSatisfy((error: unknown) => {
       expect(error).toBeInstanceOf(DescriptorLoaderError);
       const err = error as DescriptorLoaderError;

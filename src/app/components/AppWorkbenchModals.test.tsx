@@ -13,6 +13,7 @@ import { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
 import AppWorkbenchModals from './AppWorkbenchModals';
 import { CatalogHarnessEndpointState } from '../hooks/useHarnessPromotion';
 import { PromotionContext } from '../../features/requests/utils/requestToScenario';
+import type { CatalogConvertTarget, SaveConvertedVersionArgs } from '../hooks/useCatalogState';
 
 const sendHarnessPropsSpy = vi.fn();
 
@@ -84,6 +85,30 @@ vi.mock('../../features/catalog/components/CatalogEditModal', () => ({
     <div data-testid="mock-edit">
       <button type="button" data-testid="mock-edit-close" onClick={() => onClose()}>c</button>
       <button type="button" data-testid="mock-edit-save" onClick={() => onSave({ name: 'edited' })}>s</button>
+    </div>
+  ),
+}));
+
+vi.mock('../../features/catalog/components/CatalogConvertOpenApiModal', () => ({
+  __esModule: true,
+  default: ({ specName, onClose, onSaveAsVersion }: {
+    specName: string;
+    onClose: () => void;
+    onSaveAsVersion?: (args: SaveConvertedVersionArgs) => void;
+  }) => (
+    <div data-testid="mock-convert">
+      {specName}
+      <button type="button" data-testid="mock-convert-close" onClick={() => onClose()}>c</button>
+      <button
+        type="button"
+        data-testid="mock-convert-save"
+        onClick={() => onSaveAsVersion?.({
+          yaml: 'openapi: 3.0.4\n',
+          openapiVersion: '3.0.4',
+          engineUsed: 'swagger2openapi',
+          mode: 'convert',
+        })}
+      >s</button>
     </div>
   ),
 }));
@@ -504,6 +529,41 @@ describe('AppWorkbenchModals', () => {
     expect(setEditId).toHaveBeenCalledWith(undefined);
   });
 
+  it('wires the Convert modal save + close into catalog state', () => {
+    const setConvert = vi.fn();
+    const handleSave = vi.fn();
+
+    render(
+      <AppWorkbenchModals
+        {...emptyShell({
+          catalogConvert: { entryId: 'conv-e', specName: 'Conv API', rawSpec: "swagger: '2.0'" },
+          setCatalogConvert: setConvert,
+          handleSaveConvertedVersion: handleSave,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('mock-convert')).toHaveTextContent('Conv API');
+
+    // Save forwards the held entryId together with the modal's result payload.
+    fireEvent.click(screen.getByTestId('mock-convert-save'));
+    expect(handleSave).toHaveBeenCalledWith('conv-e', {
+      yaml: 'openapi: 3.0.4\n',
+      openapiVersion: '3.0.4',
+      engineUsed: 'swagger2openapi',
+      mode: 'convert',
+    });
+
+    // Close clears the convert target so the modal unmounts.
+    fireEvent.click(screen.getByTestId('mock-convert-close'));
+    expect(setConvert).toHaveBeenCalledWith(undefined);
+  });
+
+  it('hides the Convert modal when no convert target is set', () => {
+    render(<AppWorkbenchModals {...emptyShell()} />);
+    expect(screen.queryByTestId('mock-convert')).toBeNull();
+  });
+
   it('drops batch Harness UI when referenced collection vanished', () => {
     render(
       <AppWorkbenchModals
@@ -681,6 +741,9 @@ function emptyShell(overrides: Partial<Parameters<typeof AppWorkbenchModals>[0]>
     setCatalogVersionHistoryId: noop as Dispatch<SetStateAction<string | undefined>>,
     catalogEditId: undefined,
     setCatalogEditId: noop as Dispatch<SetStateAction<string | undefined>>,
+    catalogConvert: undefined,
+    setCatalogConvert: noop as Dispatch<SetStateAction<CatalogConvertTarget | undefined>>,
+    handleSaveConvertedVersion: (async () => {}) as (entryId: string, args: SaveConvertedVersionArgs) => Promise<void>,
     ...overrides,
   };
 }

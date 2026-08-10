@@ -105,16 +105,16 @@ export function TlsConfigModal({
       }
       onClose={onClose}
       overlayClassName="ws-tls-overlay"
-      dialogClassName="ws-tls-modal"
+      dialogClassName={p === 'grpc-tls' ? 'ws-tls-modal grpc-tls-config-modal' : 'ws-tls-modal'}
       headerClassName="ws-tls-modal-header modal-header"
       bodyClassName="ws-tls-modal-body"
       footerClassName="ws-tls-modal-footer"
       titleId={`${p}-modal-title`}
       showExpandButton={false}
-      showResizeHandles={false}
+      showResizeHandles
       closeButtonKind="none"
-      minWidth={460}
-      minHeight={320}
+      minWidth={p === 'grpc-tls' ? 520 : 560}
+      minHeight={p === 'grpc-tls' ? 480 : 420}
       footer={
         <>
           <div className="tls-modal-footer-group tls-modal-footer-group--left">

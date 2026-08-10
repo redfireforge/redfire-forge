@@ -291,6 +291,21 @@ describe('useKafkaState', () => {
     expect(result.current.connection.state).toBe('disconnected');
   });
 
+  it('clearError preserves a connected state when nothing is in error', async () => {
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    act(() => {
+      result.current.setConnectionState('connected', { clusterId: 'cluster-b' });
+      result.current.clearError();
+    });
+
+    expect(result.current.lastError).toBeNull();
+    expect(result.current.lastErrorDetail).toBeNull();
+    expect(result.current.connection.state).toBe('connected');
+    expect(result.current.connection.clusterId).toBe('cluster-b');
+  });
+
   it('connectSelectedCluster triggers connect then refreshes status', async () => {
     mocks.dispatchKafkaOperation.mockImplementation(async (op: string) => {
       if (op === 'status') {
@@ -390,6 +405,50 @@ describe('useKafkaState', () => {
     expect(result.current.lastError).toContain('connect failed');
     expect(result.current.lastErrorDetail?.message).toContain('connect failed');
     expect(result.current.statusPollFailureStreak).toBe(1);
+  });
+
+  it('refreshConnectionStatus skips while connect is in flight', async () => {
+    let resolveConnect: ((value: unknown) => void) | null = null;
+    const connectPromise = new Promise((resolve) => {
+      resolveConnect = resolve;
+    });
+
+    mocks.dispatchKafkaOperation.mockImplementation(async (op: string) => {
+      if (op === 'connect') {
+        return connectPromise;
+      }
+      if (op === 'status') {
+        return {
+          ok: true,
+          op: 'status',
+          data: { state: 'connected', clusterId: 'cluster-b' },
+        };
+      }
+      return { ok: true, op, data: {} };
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    const statusCallsBefore = mocks.dispatchKafkaOperation.mock.calls.filter(([op]) => op === 'status').length;
+
+    let connectPromiseResult: Promise<boolean>;
+    await act(async () => {
+      connectPromiseResult = result.current.connectSelectedCluster();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await result.current.refreshConnectionStatus();
+    });
+
+    const statusCallsAfter = mocks.dispatchKafkaOperation.mock.calls.filter(([op]) => op === 'status').length;
+    expect(statusCallsAfter).toBe(statusCallsBefore);
+
+    await act(async () => {
+      resolveConnect?.({ ok: true, op: 'connect', data: { status: { state: 'connected', clusterId: 'cluster-b' } } });
+      await connectPromiseResult;
+    });
   });
 
   it('disconnectActiveCluster sets disconnected state and clears errors', async () => {
@@ -821,6 +880,17 @@ describe('useKafkaState', () => {
     expect(result.current.lastError).toBe('storage read failed');
   });
 
+  it('stores non-Error hydration failures as string messages', async () => {
+    mocks.loadKafkaClusters.mockRejectedValueOnce('storage unavailable');
+
+    const { result } = renderHook(() => useKafkaState());
+
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.clusters).toEqual([]);
+    expect(result.current.selectedClusterId).toBeNull();
+    expect(result.current.lastError).toBe('storage unavailable');
+  });
+
   it('ignores hydration success updates after unmount', async () => {
     const deferred = createDeferred<KafkaClusterConfig[]>();
     mocks.loadKafkaClusters.mockReturnValueOnce(deferred.promise);
@@ -974,6 +1044,40 @@ describe('useKafkaState', () => {
     expect(result.current.connection.clusterId).toBe('cluster-b');
     expect(result.current.topics).toEqual(TOPICS);
   });
+
+  it('demo delete bridges remove clusters by id and name', async () => {
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    const w = window as unknown as Record<string, unknown>;
+    expect(typeof w.__demoDeleteKafkaClusterById).toBe('function');
+    expect(typeof w.__demoDeleteKafkaClusterByName).toBe('function');
+
+    act(() => {
+      (w.__demoDeleteKafkaClusterById as (clusterId: string) => void)('cluster-a');
+    });
+    await waitFor(() => {
+      expect(result.current.clusters.some((cluster) => cluster.clusterId === 'cluster-a')).toBe(false);
+    });
+
+    act(() => {
+      result.current.upsertCluster({
+        ...CLUSTER_A,
+        clusterId: 'cluster-c',
+        name: 'Cluster C',
+      });
+    });
+    await waitFor(() => {
+      expect(result.current.clusters.some((cluster) => cluster.clusterId === 'cluster-c')).toBe(true);
+    });
+
+    act(() => {
+      (w.__demoDeleteKafkaClusterByName as (name: string) => void)('Cluster C');
+    });
+    await waitFor(() => {
+      expect(result.current.clusters.some((cluster) => cluster.clusterId === 'cluster-c')).toBe(false);
+    });
+  });
 });
 
 describe('useKafkaState – schedulePoll cancellation (lines 316-325)', () => {
@@ -1004,6 +1108,7 @@ describe('useKafkaState – schedulePoll cancellation (lines 316-325)', () => {
     const callCountAfterUnmount = mocks.dispatchKafkaOperation.mock.calls.length;
     expect(callCountAfterUnmount).toBe(callCountAfterLoad);
   });
+
 });
 
 describe('useKafkaState – race-boundary: poll suppression during connect/disconnect', () => {

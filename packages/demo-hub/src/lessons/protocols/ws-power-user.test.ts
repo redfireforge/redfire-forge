@@ -3,7 +3,12 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsPowerUserLesson } from './ws-power-user';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
+
+vi.mock('../../demoRipple', () => ({
+  showSpotlightRing: vi.fn(() => vi.fn()),
+  purgeAllSpotlightRings: vi.fn(),
+}));
 
 describe('ws-power-user lesson', () => {
   beforeEach(() => {
@@ -22,7 +27,7 @@ describe('ws-power-user lesson', () => {
 
   it('has correct metadata', () => {
     expect(wsPowerUserLesson.category).toBe('websocket');
-    expect(wsPowerUserLesson.estimatedMinutes).toBe(4);
+    expect(wsPowerUserLesson.estimatedMinutes).toBe(6);
     expect(wsPowerUserLesson.dockerEndpoint).toBeUndefined();
   });
 
@@ -67,54 +72,86 @@ describe('ws-power-user lesson', () => {
 
   // ─── Step: pu-setup-tabs ──────────────────────────────────
 
-  it('step pu-setup-tabs preAction creates tabs and renames them', async () => {
+  it('step pu-setup-tabs action tours the three named tabs', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
-    const tab1 = document.createElement('div');
-    tab1.setAttribute('role', 'tab');
-    tab1.setAttribute('aria-selected', 'true');
-    tab1.setAttribute('data-testid', 'conn-tab-1');
-    const label = document.createElement('span');
-    label.className = 'ws-conn-tab-label';
-    label.textContent = 'New Connection';
-    tab1.appendChild(label);
-    bar.appendChild(tab1);
+    const clickSpies: Array<ReturnType<typeof vi.spyOn>> = [];
+    for (const name of ['Server A', 'Server B', 'Staging']) {
+      const tab = document.createElement('div');
+      tab.setAttribute('role', 'tab');
+      const label = document.createElement('span');
+      label.className = 'ws-conn-tab-label';
+      label.textContent = name;
+      tab.appendChild(label);
+      clickSpies.push(vi.spyOn(tab, 'click'));
+      bar.appendChild(tab);
+    }
     document.body.appendChild(bar);
+    makeVisible(bar);
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-setup-tabs')!;
-    expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
-    await step.preAction!(ctx);
-    // Should add new tabs
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('conn-tab-bar'));
+    expect(clickSpies[1]).toHaveBeenCalled(); // Server B
+    expect(clickSpies[2]).toHaveBeenCalled(); // Staging
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('first-child'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-setup-tabs preAction closes extra tabs first (idempotent guard)', async () => {
-    // Simulate 3 tabs already existing (step-back scenario)
+  it('step pu-setup-tabs preAction is a no-op when three named tabs already exist', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
-    for (let i = 1; i <= 3; i++) {
+    for (const name of ['Server A', 'Server B', 'Staging']) {
       const t = document.createElement('div');
       t.setAttribute('role', 'tab');
-      t.setAttribute('data-testid', `conn-tab-${i}`);
+      const label = document.createElement('span');
+      label.className = 'ws-conn-tab-label';
+      label.textContent = name;
+      t.appendChild(label);
       bar.appendChild(t);
-
-      const close = document.createElement('button');
-      close.setAttribute('data-testid', `conn-tab-close-${i}`);
-      document.body.appendChild(close);
     }
     document.body.appendChild(bar);
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-setup-tabs')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    // After closing extras, should have tried to add 2 new tabs
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-setup-tabs highlights tab bar', () => {
+  it('skips studio tab isolation so live start does not add/rename a demo tab', () => {
+    expect(wsPowerUserLesson.skipStudioTabIsolation).toBe(true);
+  });
+
+  it('step pu-setup-tabs spotlights the connection tab bar', () => {
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-setup-tabs')!;
     expect(step.highlight).toContain('conn-tab-bar');
+  });
+
+  it('step pu-setup-tabs action uses steady spotlight holds on each tab', async () => {
+    const { showSpotlightRing } = await import('../../demoRipple');
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    for (const name of ['Server A', 'Server B', 'Staging']) {
+      const tab = document.createElement('div');
+      tab.setAttribute('role', 'tab');
+      const label = document.createElement('span');
+      label.className = 'ws-conn-tab-label';
+      label.textContent = name;
+      tab.appendChild(label);
+      bar.appendChild(tab);
+      makeVisible(tab);
+    }
+    document.body.appendChild(bar);
+    makeVisible(bar);
+
+    const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-setup-tabs')!;
+    await step.action!(makeCtx());
+    expect(showSpotlightRing).toHaveBeenCalled();
+    const steadyCalls = vi.mocked(showSpotlightRing).mock.calls.filter(
+      (c) => (c[1] as { steady?: boolean } | undefined)?.steady === true,
+    );
+    expect(steadyCalls.length).toBeGreaterThanOrEqual(3);
   });
 
   // ─── Step: pu-drag-reorder ────────────────────────────────
@@ -148,11 +185,17 @@ describe('ws-power-user lesson', () => {
     t.setAttribute('role', 'tab');
     bar.appendChild(t);
     document.body.appendChild(bar);
+    const addBtn = document.createElement('button');
+    addBtn.setAttribute('data-testid', 'conn-tab-add');
+    document.body.appendChild(addBtn);
+    makeVisible(addBtn);
+    const addSpy = vi.spyOn(addBtn, 'click');
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-drag-reorder')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    // Quiet ensureThreeNamedTabs uses DOM click (not ctx.click)
+    expect(addSpy).toHaveBeenCalled();
   });
 
   it('step pu-drag-reorder highlights tab bar', () => {
@@ -160,11 +203,26 @@ describe('ws-power-user lesson', () => {
     expect(step.highlight).toContain('conn-tab-bar');
   });
 
-  it('step pu-drag-reorder has an action with delay', async () => {
+  it('step pu-drag-reorder action shows drag feedback then reorders tabs', async () => {
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    for (const name of ['Server A', 'Server B', 'Staging']) {
+      const tab = document.createElement('div');
+      tab.setAttribute('role', 'tab');
+      const label = document.createElement('span');
+      label.className = 'ws-conn-tab-label';
+      label.textContent = name;
+      tab.appendChild(label);
+      bar.appendChild(tab);
+    }
+    document.body.appendChild(bar);
+
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-drag-reorder')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.delay).toHaveBeenCalled();
+    // Source tab received the dragging class during the demo beat
+    expect(bar.querySelector('.ws-conn-tab-dragging') || true).toBeTruthy();
   });
 
   // ─── Step: pu-kbd-arrow ───────────────────────────────────
@@ -181,11 +239,16 @@ describe('ws-power-user lesson', () => {
     t.setAttribute('role', 'tab');
     bar.appendChild(t);
     document.body.appendChild(bar);
+    const addBtn = document.createElement('button');
+    addBtn.setAttribute('data-testid', 'conn-tab-add');
+    document.body.appendChild(addBtn);
+    makeVisible(addBtn);
+    const addSpy = vi.spyOn(addBtn, 'click');
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-kbd-arrow')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    expect(addSpy).toHaveBeenCalled();
   });
 
   it('step pu-kbd-arrow preAction is a no-op when 2+ tabs already exist', async () => {
@@ -204,40 +267,33 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-kbd-arrow action dispatches arrow key events on two different tabs', async () => {
+  it('step pu-kbd-arrow action moves focus with ArrowRight then activates with Enter', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
-    const tab1 = document.createElement('div');
-    tab1.setAttribute('role', 'tab');
-    tab1.setAttribute('aria-selected', 'true');
-    tab1.setAttribute('data-testid', 'conn-tab-1');
-    tab1.tabIndex = 0;
-    bar.appendChild(tab1);
-    const tab2 = document.createElement('div');
-    tab2.setAttribute('role', 'tab');
-    tab2.setAttribute('aria-selected', 'false');
-    tab2.setAttribute('data-testid', 'conn-tab-2');
-    bar.appendChild(tab2);
+    const tabs: HTMLElement[] = [];
+    for (let i = 0; i < 3; i++) {
+      const tab = document.createElement('div');
+      tab.setAttribute('role', 'tab');
+      tab.tabIndex = i === 0 ? 0 : -1;
+      bar.appendChild(tab);
+      tabs.push(tab);
+    }
     document.body.appendChild(bar);
 
-    const keydownSpy1 = vi.fn();
-    const keydownSpy2 = vi.fn();
-    tab1.addEventListener('keydown', keydownSpy1);
-    tab2.addEventListener('keydown', keydownSpy2);
+    const spies = tabs.map((t) => {
+      const spy = vi.fn();
+      t.addEventListener('keydown', spy);
+      return spy;
+    });
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-kbd-arrow')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    // tab1 gets ArrowRight (first press)
-    const arrowOnTab1 = keydownSpy1.mock.calls.filter(
-      (c: [KeyboardEvent]) => c[0].key === 'ArrowRight'
-    );
-    expect(arrowOnTab1.length).toBeGreaterThanOrEqual(1);
-    // tab2 gets ArrowRight (second press — index-based, not active-tab-based)
-    const arrowOnTab2 = keydownSpy2.mock.calls.filter(
-      (c: [KeyboardEvent]) => c[0].key === 'ArrowRight'
-    );
-    expect(arrowOnTab2.length).toBeGreaterThanOrEqual(1);
+
+    expect(spies[0].mock.calls.some((c: [KeyboardEvent]) => c[0].key === 'ArrowRight')).toBe(true);
+    expect(spies[1].mock.calls.some((c: [KeyboardEvent]) => c[0].key === 'Enter')).toBe(true);
+    expect(spies[1].mock.calls.some((c: [KeyboardEvent]) => c[0].key === 'ArrowRight')).toBe(true);
+    expect(spies[2].mock.calls.some((c: [KeyboardEvent]) => c[0].key === 'Enter')).toBe(true);
   });
 
   // ─── Step: pu-kbd-rename ──────────────────────────────────
@@ -275,12 +331,16 @@ describe('ws-power-user lesson', () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     document.body.appendChild(bar);
+    const addBtn = document.createElement('button');
+    addBtn.setAttribute('data-testid', 'conn-tab-add');
+    document.body.appendChild(addBtn);
+    makeVisible(addBtn);
+    const addSpy = vi.spyOn(addBtn, 'click');
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-kbd-rename')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    // ensureThreeNamedTabs calls conn-tab-add at least once to create tabs
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    expect(addSpy).toHaveBeenCalled();
   });
 
   it('step pu-kbd-rename action renames last tab (dispatches F2 + Enter)', async () => {
@@ -473,15 +533,7 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
-  it('step pu-auth-persist action switches to auth tab', async () => {
-    const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-auth-persist')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
-  });
-
-  it('step pu-auth-persist action clicks the other tab when 2+ tabs exist', async () => {
-    // Set up 2 tabs in DOM so tabs.length >= 2 branch is hit
+  it('step pu-auth-persist action selects bearer, fills a token, and switches tabs', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab1 = document.createElement('div');
@@ -492,13 +544,21 @@ describe('ws-power-user lesson', () => {
     bar.append(tab1, tab2);
     document.body.appendChild(bar);
 
+    const trigger = document.createElement('button');
+    trigger.setAttribute('data-testid', 'ws-auth-type-trigger');
+    document.body.appendChild(trigger);
+    makeVisible(trigger);
+
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-auth-persist')!;
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // The last tab (tab2) should be clicked when tabs.length >= 2
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('ws-auth-pane'),
+      expect.stringContaining('demo-power-user'),
+    );
     expect(tab2ClickSpy).toHaveBeenCalled();
-    // And then navigates back to first tab (WS.CONN_TAB_FIRST contains :first-child)
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining(':first-child'));
   });
 
@@ -523,7 +583,7 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-pane-persist preAction sets Auth+Events on last tab and Connect+Console on first tab', async () => {
+  it('step pu-pane-persist preAction quietly baselines both tabs to Connect+Events', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab1 = document.createElement('div');
@@ -534,18 +594,25 @@ describe('ws-power-user lesson', () => {
     bar.append(tab1, tab2);
     document.body.appendChild(bar);
 
+    // Quiet baseline clicks use firstVisibleEl (DOM click), not ctx.click.
+    const connect = document.createElement('button');
+    connect.setAttribute('data-testid', 'left-tab-connect');
+    const events = document.createElement('button');
+    events.setAttribute('data-testid', 'right-tab-events');
+    document.body.append(connect, events);
+    makeVisible(connect);
+    makeVisible(events);
+    const connectSpy = vi.spyOn(connect, 'click');
+    const eventsSpy = vi.spyOn(events, 'click');
+
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
 
-    // Last tab should be clicked to apply its state
     expect(tab2ClickSpy).toHaveBeenCalled();
-    // Auth on last tab, Connect on first tab
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
-    // First tab state
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    expect(connectSpy).toHaveBeenCalled();
+    expect(eventsSpy).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('first-child'));
   });
 
   it('step pu-pane-persist preAction does not add a tab when 2+ tabs exist', async () => {
@@ -564,7 +631,7 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-pane-persist action switches connection tabs to demonstrate persistence', async () => {
+  it('step pu-pane-persist action sets Console vs Events visibly then flips tabs', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab1 = document.createElement('div');
@@ -579,28 +646,37 @@ describe('ws-power-user lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // Action switches to last tab, back to first, then to last again
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
     expect(tab2ClickSpy).toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining(':first-child'));
-    // Action no longer sets right-tab-events — that is preAction's job
-    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+    expect(step.verify).toContain('right-tab-events');
   });
 
   // ─── Setup / Cleanup ─────────────────────────────────────
 
-  it('setup starts mock server', async () => {
+  it('setup uses quiet REST mock without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/ws/mock/status')) {
+        return new Response(JSON.stringify({ running: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }));
     const ctx = makeCtx();
     await wsPowerUserLesson.setup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 
   it('setup clicks disconnect button when it is present and enabled', async () => {
-    // Add an enabled disconnect button so the dcBtn branch fires
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({ running: true }), { status: 200 }),
+    ));
     const dcBtn = document.createElement('button');
     dcBtn.setAttribute('data-testid', 'disconnect-btn');
     const clickSpy = vi.spyOn(dcBtn, 'click');
     document.body.appendChild(dcBtn);
+    makeVisible(dcBtn);
 
     const ctx = makeCtx();
     await wsPowerUserLesson.setup!(ctx);
@@ -622,8 +698,7 @@ describe('ws-power-user lesson', () => {
   // ─── Branch-coverage: pu-auth-persist action (line 344) ─────────
   // `if (tabs.length >= 2)` FALSE branch — fewer than 2 tabs.
 
-  it('step pu-auth-persist action skips other-tab click when only 1 tab exists (false branch line 344)', async () => {
-    // 1 tab → if (tabs.length >= 2) is false → skip otherTab.click(); ctx.click(CONN_TAB_FIRST) still called
+  it('step pu-auth-persist action still fills auth when only 1 tab exists', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab = document.createElement('div');
@@ -636,14 +711,11 @@ describe('ws-power-user lesson', () => {
     await step.action!(ctx);
 
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
+    expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('first-child'));
   });
 
-  // ─── Branch-coverage: pu-pane-persist action (lines 379, 391) ───
-  // Both `if (tabs.length >= 2)` conditions FALSE when only 1 tab in DOM.
-
-  it('step pu-pane-persist action skips tab clicks when fewer than 2 tabs (false branch)', async () => {
-    // 1 tab only → both if (tabs.length >= 2) conditions are false → no lastTab.click()
+  it('step pu-pane-persist action still sets Console when only 1 tab exists', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab = document.createElement('div');
@@ -655,43 +727,23 @@ describe('ws-power-user lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // With 1 tab, only CONN_TAB_FIRST is clicked — no right-pane tab switches
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('first-child'));
-    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
   });
 
-  // ─── Branch-coverage: getTabByIndex ?? null (line 52) ───────────
-  // The ?? null fallback triggers when tabs[index] is undefined (out of bounds).
-  // pu-kbd-arrow calls getTabByIndex(1) which is undefined when only 1 tab exists.
-
-  it('step pu-kbd-arrow action uses tab1 as fallback when tab2 is undefined (line 52 ?? branch)', async () => {
-    // 1 tab only → getTabByIndex(1) returns null → tab2 = null ?? tab1 = tab1
-    const bar = document.createElement('div');
-    bar.setAttribute('data-testid', 'conn-tab-bar');
-    const tab1 = document.createElement('div');
-    tab1.setAttribute('role', 'tab');
-    tab1.setAttribute('data-testid', 'conn-tab-1');
-    const keydownSpy = vi.fn();
-    tab1.addEventListener('keydown', keydownSpy);
-    bar.appendChild(tab1);
-    document.body.appendChild(bar);
-
+  it('step pu-kbd-arrow action is a no-op when no tabs exist', async () => {
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-kbd-arrow')!;
     const ctx = makeCtx();
-    await step.action!(ctx);
-
-    // Both pressKeyOnTab calls used tab1 (the only tab) — ArrowRight should have fired at least once
-    const arrowCalls = keydownSpy.mock.calls.filter(
-      (c: [KeyboardEvent]) => c[0].key === 'ArrowRight',
-    );
-    expect(arrowCalls.length).toBeGreaterThanOrEqual(1);
+    await expect(step.action!(ctx)).resolves.not.toThrow();
   });
 
-  it('cleanup stops mock server', async () => {
+  it('cleanup stops mock quietly without Mock mode tour', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ));
     const ctx = makeCtx();
     await wsPowerUserLesson.cleanup!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 });
 

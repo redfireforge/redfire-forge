@@ -218,14 +218,6 @@ function StepOverviewDrawer({ lesson, currentStepIndex, onGoToStep, onClose }: P
         <span className="demo-overview-modal-counter">
           {currentStepNumber} / {totalSteps}
         </span>
-        <button
-          className="demo-overview-modal-close"
-          onClick={onClose}
-          aria-label="Close steps overview"
-          title="Close (Esc)"
-        >
-          ✕
-        </button>
       </div>
 
       {/* ── Progress bar ── */}
@@ -247,9 +239,12 @@ function StepOverviewDrawer({ lesson, currentStepIndex, onGoToStep, onClose }: P
         ))}
       </div>
 
-      {/* ── Footer hint ── */}
+      {/* ── Footer ── */}
       <div className="demo-overview-modal-footer">
-        {onGoToStep ? 'Click a step to jump · ' : ''}Drag header to reposition · ✕ or Esc to close
+        <span className="demo-overview-modal-footer-hint">
+          {onGoToStep ? 'Click a step to jump · ' : ''}Drag header to reposition · Esc to close
+        </span>
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
 
       {/* ── Resize handle (bottom-right corner) ── */}

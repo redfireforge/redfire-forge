@@ -55,6 +55,45 @@ describe('useModalDrag', () => {
     document.body.removeChild(dialog);
   });
 
+  it.each([
+    ['label caption', () => {
+      const label = document.createElement('label');
+      const caption = document.createElement('span');
+      label.appendChild(document.createElement('input'));
+      label.appendChild(caption);
+      return { host: label, target: caption };
+    }],
+    ['anchor', () => {
+      const a = document.createElement('a');
+      a.setAttribute('href', '#x');
+      return { host: a, target: a };
+    }],
+    ['opted-out element', () => {
+      const el = document.createElement('div');
+      el.setAttribute('data-no-drag', '');
+      return { host: el, target: el };
+    }],
+  ])('ignores drag started on a %s', (_name, build) => {
+    const { result } = renderHook(() => useModalDrag(true));
+    const { host, target } = build();
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.appendChild(host);
+    document.body.appendChild(dialog);
+
+    const event = new MouseEvent('mousedown', { clientX: 50, clientY: 50, bubbles: true });
+    Object.defineProperty(event, 'target', { value: target });
+    Object.defineProperty(event, 'currentTarget', { value: dialog });
+    Object.defineProperty(event, 'preventDefault', { value: vi.fn() });
+
+    act(() => {
+      result.current.onDragStart(event as unknown as React.MouseEvent);
+    });
+
+    expect(result.current.isDragged).toBe(false);
+    document.body.removeChild(dialog);
+  });
+
   it('starts dragging from a valid header element', () => {
     const { result } = renderHook(() => useModalDrag(true));
     const header = document.createElement('div');

@@ -5,13 +5,14 @@
  *   Left:  Registry URL + auth → subject list with search filter
  *   Right: Subject detail with version dropdown, schema viewer, copy/export
  *
- * Reuses KafkaStudioGuard for cluster-not-connected state and shows a URL
- * prompt when connected but no registry URL has been entered.
+ * Does NOT require a Kafka broker connection — Schema Registry is an
+ * independent HTTP service. Shows a URL prompt when no registry URL has been entered.
  */
 
 import { useCallback, useRef } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
-import { KafkaStudioGuard } from './KafkaStudioGuard';
+
 import {
   useSchemaRegistry,
   deriveSchemaFormat,
@@ -196,7 +197,7 @@ export function KafkaSchemaRegistryContent({
                     <tr>
                       <td colSpan={3} className="kafka-ms-empty-state">
                         {reg.subjects.length === 0
-                          ? 'No subjects registered'
+                          ? 'Connected, but no subjects are registered yet. Produce/register a schema, then refresh.'
                           : 'No subjects match the filter'}
                       </td>
                     </tr>
@@ -240,19 +241,18 @@ export function KafkaSchemaRegistryContent({
                 <span className="kafka-schema-loading-text">Loading versions…</span>
               ) : (
                 <>
-                  <select
+                  <CustomSelect
                     className="kafka-schema-version-select"
-                    value={reg.selectedVersion ?? ''}
-                    onChange={(e) => reg.selectVersion(Number(e.target.value))}
+                    value={String(reg.selectedVersion ?? '')}
+                    onChange={(v) => reg.selectVersion(Number(v))}
                     disabled={reg.versions.length === 0}
                     data-testid="version-select"
-                  >
-                    {reg.versions.map((v, i) => (
-                      <option key={v} value={v}>
-                        v{v}{i === reg.versions.length - 1 ? ' (latest)' : ''}
-                      </option>
-                    ))}
-                  </select>
+                    options={reg.versions.map((v, i) => ({
+                      value: String(v),
+                      label: `v${v}${i === reg.versions.length - 1 ? ' (latest)' : ''}`,
+                    }))}
+                    aria-label="Schema version"
+                  />
                   {reg.schemaDetail && (
                     <span
                       className={`kafka-schema-format-badge kafka-schema-format-${deriveSchemaFormat(reg.schemaDetail.schemaType, reg.schemaDetail.schema) ?? 'unknown'}`}
@@ -324,24 +324,15 @@ export function KafkaSchemaRegistryContent({
 
 export function KafkaSchemaRegistryPage({
   kafkaState,
-  onNavigateToKafkaSettings,
+  onNavigateToKafkaSettings: _onNavigateToKafkaSettings,
   deps,
 }: KafkaSchemaRegistryPageProps) {
+  void _onNavigateToKafkaSettings;
   if (!kafkaState.loaded) {
     return <div className="kafka-message-studio-page"><p className="kafka-ms-loading">Loading Kafka settings…</p></div>;
   }
 
-  if (kafkaState.connection.state !== 'connected') {
-    return (
-      <div className="kafka-message-studio-page">
-        <KafkaStudioGuard
-          connection={kafkaState.connection}
-          hasClusters={kafkaState.clusters.length > 0}
-          onNavigateToSettings={onNavigateToKafkaSettings}
-        />
-      </div>
-    );
-  }
-
+  // Schema Registry talks directly to the registry HTTP endpoint —
+  // it does not require an active Kafka broker connection.
   return <KafkaSchemaRegistryContent kafkaState={kafkaState} deps={deps} />;
 }

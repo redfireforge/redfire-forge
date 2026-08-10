@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, isCustomSelectDisabled } from '../../test-utils/customSelectHelper';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
 import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
 
@@ -277,13 +278,13 @@ describe('WebSocketMessageLog', () => {
 
     it('does not require destination for DISCONNECT', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'stomp' })} />);
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'DISCONNECT' } });
+      selectOption(screen.getByTestId('stomp-command'), 'DISCONNECT');
       expect((screen.getByTestId('send-btn') as HTMLButtonElement).disabled).toBe(false);
     });
 
     it('requires destination for SUBSCRIBE', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'stomp' })} />);
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'SUBSCRIBE' } });
+      selectOption(screen.getByTestId('stomp-command'), 'SUBSCRIBE');
       expect((screen.getByTestId('send-btn') as HTMLButtonElement).disabled).toBe(true);
 
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: '/topic/news' } });
@@ -309,7 +310,7 @@ describe('WebSocketMessageLog', () => {
       const props = defaultProps({ effectiveProtocol: 'stomp' });
       render(<WebSocketMessageLog {...props} />);
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'DISCONNECT' } });
+      selectOption(screen.getByTestId('stomp-command'), 'DISCONNECT');
       fireEvent.click(screen.getByTestId('send-btn'));
 
       const sent = props.onSend.mock.calls[0][0] as string;
@@ -321,7 +322,7 @@ describe('WebSocketMessageLog', () => {
       const props = defaultProps({ effectiveProtocol: 'stomp' });
       render(<WebSocketMessageLog {...props} />);
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'CONNECT' } });
+      selectOption(screen.getByTestId('stomp-command'), 'CONNECT');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'my-broker' } });
       fireEvent.click(screen.getByTestId('send-btn'));
 
@@ -336,7 +337,7 @@ describe('WebSocketMessageLog', () => {
       const props = defaultProps({ effectiveProtocol: 'stomp' });
       render(<WebSocketMessageLog {...props} />);
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'SUBSCRIBE' } });
+      selectOption(screen.getByTestId('stomp-command'), 'SUBSCRIBE');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: '/topic/news' } });
       fireEvent.click(screen.getByTestId('send-btn'));
 
@@ -348,7 +349,7 @@ describe('WebSocketMessageLog', () => {
 
     it('disables inputs when not connected', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'stomp', isConnected: false })} />);
-      expect((screen.getByTestId('stomp-command') as HTMLSelectElement).disabled).toBe(true);
+      expect(isCustomSelectDisabled(screen.getByTestId('stomp-command'))).toBe(true);
       expect((screen.getByTestId('stomp-destination') as HTMLInputElement).disabled).toBe(true);
     });
 
@@ -356,7 +357,7 @@ describe('WebSocketMessageLog', () => {
       const props = defaultProps({ effectiveProtocol: 'stomp' });
       render(<WebSocketMessageLog {...props} />);
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'UNSUBSCRIBE' } });
+      selectOption(screen.getByTestId('stomp-command'), 'UNSUBSCRIBE');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'sub-0' } });
       fireEvent.click(screen.getByTestId('send-btn'));
 
@@ -368,7 +369,7 @@ describe('WebSocketMessageLog', () => {
 
     it('requires input for UNSUBSCRIBE', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'stomp' })} />);
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'UNSUBSCRIBE' } });
+      selectOption(screen.getByTestId('stomp-command'), 'UNSUBSCRIBE');
       expect((screen.getByTestId('send-btn') as HTMLButtonElement).disabled).toBe(true);
 
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'sub-0' } });
@@ -379,7 +380,7 @@ describe('WebSocketMessageLog', () => {
       const props = defaultProps({ effectiveProtocol: 'stomp' });
       render(<WebSocketMessageLog {...props} />);
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'ACK' } });
+      selectOption(screen.getByTestId('stomp-command'), 'ACK');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'msg-42' } });
       fireEvent.click(screen.getByTestId('send-btn'));
 
@@ -391,7 +392,7 @@ describe('WebSocketMessageLog', () => {
 
     it('requires input for ACK', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'stomp' })} />);
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'ACK' } });
+      selectOption(screen.getByTestId('stomp-command'), 'ACK');
       expect((screen.getByTestId('send-btn') as HTMLButtonElement).disabled).toBe(true);
 
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'msg-1' } });
@@ -402,7 +403,7 @@ describe('WebSocketMessageLog', () => {
       const props = defaultProps({ effectiveProtocol: 'stomp' });
       render(<WebSocketMessageLog {...props} />);
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'NACK' } });
+      selectOption(screen.getByTestId('stomp-command'), 'NACK');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'msg-99' } });
       fireEvent.click(screen.getByTestId('send-btn'));
 
@@ -415,13 +416,13 @@ describe('WebSocketMessageLog', () => {
     it('shows correct placeholder for UNSUBSCRIBE/ACK/NACK', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'stomp' })} />);
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'UNSUBSCRIBE' } });
+      selectOption(screen.getByTestId('stomp-command'), 'UNSUBSCRIBE');
       expect((screen.getByTestId('stomp-destination') as HTMLInputElement).placeholder).toContain('ID');
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'ACK' } });
+      selectOption(screen.getByTestId('stomp-command'), 'ACK');
       expect((screen.getByTestId('stomp-destination') as HTMLInputElement).placeholder).toContain('ID');
 
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'NACK' } });
+      selectOption(screen.getByTestId('stomp-command'), 'NACK');
       expect((screen.getByTestId('stomp-destination') as HTMLInputElement).placeholder).toContain('ID');
     });
   });

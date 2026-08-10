@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import SetupStepVariables from './SetupStepVariables';
 import { SetupStepVariablesProps } from './SetupStepVariables';
 
@@ -106,6 +107,27 @@ describe('SetupStepVariables', () => {
         selections: { 0: undefined as unknown as { checked: boolean; name: string }, 1: { checked: true, name: 'x' } },
       })} />);
       expect(screen.getByText('1 selected')).toBeInTheDocument();
+    });
+
+    it('collapses and re-expands each variables section', () => {
+      render(<SetupStepVariables {...makeProps()} />);
+
+      const sectionButtons = [
+        screen.getByRole('button', { name: /Path Variables/i }),
+        screen.getByRole('button', { name: /URL Template Preview/i }),
+        screen.getByRole('button', { name: /Query Variables/i }),
+        screen.getByRole('button', { name: /Header Variables/i }),
+        screen.getByRole('button', { name: /Body Variables/i }),
+        screen.getByRole('button', { name: /Auth Configuration/i }),
+      ];
+
+      for (const button of sectionButtons) {
+        expect(button).toHaveAttribute('aria-expanded', 'true');
+        fireEvent.click(button);
+        expect(button).toHaveAttribute('aria-expanded', 'false');
+        fireEvent.click(button);
+        expect(button).toHaveAttribute('aria-expanded', 'true');
+      }
     });
   });
 
@@ -310,14 +332,13 @@ describe('SetupStepVariables', () => {
   describe('auth configuration', () => {
     it('shows auth type select', () => {
       render(<SetupStepVariables {...makeProps()} />);
-      expect(screen.getByDisplayValue('No Auth')).toBeInTheDocument();
+      expect(getCustomSelectValue(document.body)).toBe('No Auth');
     });
 
     it('calls setWorkingAuthType on change', () => {
       const setWorkingAuthType = vi.fn();
       render(<SetupStepVariables {...makeProps({ setWorkingAuthType })} />);
-      const select = screen.getByDisplayValue('No Auth');
-      fireEvent.change(select, { target: { value: 'bearer' } });
+      selectOption(document.body, 'Bearer Token');
       expect(setWorkingAuthType).toHaveBeenCalledWith('bearer');
     });
 
@@ -344,7 +365,7 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'bearer', prefix: 'Bearer' },
       })} />);
-      expect(screen.getByPlaceholderText('Token')).toHaveValue('');
+      expect(screen.getByPlaceholderText('eyJhbGciOi...')).toHaveValue('');
     });
 
     it('patches bearer prefix input on change', () => {
@@ -353,7 +374,7 @@ describe('SetupStepVariables', () => {
         workingAuth: { type: 'bearer', token: 'x', prefix: 'Bearer' },
         patchWorkingAuth,
       })} />);
-      fireEvent.change(screen.getByPlaceholderText('Prefix (Bearer)'), { target: { value: 'Token' } });
+      fireEvent.change(screen.getByPlaceholderText('Bearer'), { target: { value: 'Token' } });
       expect(patchWorkingAuth).toHaveBeenCalledWith({ prefix: 'Token' });
     });
 
@@ -372,8 +393,8 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'basic' },
       })} />);
-      expect(screen.getByPlaceholderText('Username')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Password')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Enter username')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Enter password')).toHaveValue('');
     });
 
     it('edits basic auth password', () => {
@@ -395,8 +416,8 @@ describe('SetupStepVariables', () => {
       })} />);
       expect(screen.getByDisplayValue('X-Key')).toBeInTheDocument();
       expect(screen.getByDisplayValue('secret')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Header')).toBeInTheDocument();
-      fireEvent.change(screen.getByDisplayValue('Header'), { target: { value: 'query' } });
+      expect(screen.getByText('Header')).toBeInTheDocument();
+      selectOptionByIndex(document.body, 1, 'Query String');
       expect(patchWorkingAuth).toHaveBeenCalledWith({ apiKeyIn: 'query' });
     });
 
@@ -404,15 +425,15 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'apikey', apiKeyName: 'K', apiKeyValue: 'v' },
       })} />);
-      expect(screen.getByDisplayValue('Header')).toBeInTheDocument();
+      expect(screen.getByText('Header')).toBeInTheDocument();
     });
 
     it('shows empty api key name and value fields when omitted', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'apikey' },
       })} />);
-      expect(screen.getByPlaceholderText('Key Name')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Key Value')).toHaveValue('');
+      expect(screen.getByPlaceholderText('X-API-Key')).toHaveValue('');
+      expect(screen.getByPlaceholderText('your-api-key')).toHaveValue('');
     });
 
     it('edits apikey name', () => {
@@ -472,9 +493,9 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'oauth2' },
       })} />);
-      expect(screen.getByPlaceholderText('Token URL')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Client ID')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Client Secret')).toHaveValue('');
+      expect(screen.getByPlaceholderText('https://auth.example.com/oauth/token')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Enter client ID')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Enter client secret')).toHaveValue('');
     });
   });
 

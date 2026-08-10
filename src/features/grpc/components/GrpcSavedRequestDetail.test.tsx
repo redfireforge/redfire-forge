@@ -36,6 +36,7 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
         grpcurlCommand=""
         onOpenInStudio={vi.fn()}
         onCopyGrpcurl={vi.fn()}
+        onRename={vi.fn()}
         onDuplicate={vi.fn()}
         onDelete={vi.fn()}
       />,
@@ -45,18 +46,22 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
 
   it('renders saved request preview and action buttons', () => {
     const onOpenInStudio = vi.fn();
+    const onRename = vi.fn();
     render(
       <GrpcSavedRequestDetail
         saved={makeSaved()}
         grpcurlCommand="grpcurl -plaintext localhost:50051 echo.EchoService/Echo"
         onOpenInStudio={onOpenInStudio}
         onCopyGrpcurl={vi.fn()}
+        onRename={onRename}
         onDuplicate={vi.fn()}
         onDelete={vi.fn()}
       />,
     );
 
     expect(screen.getByText('My Echo')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-saved-request-rename'));
+    expect(onRename).toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('grpc-saved-request-open-studio'));
     expect(onOpenInStudio).toHaveBeenCalled();
     expect(screen.queryByTestId('grpc-saved-request-run-load-test')).toBeNull();
@@ -71,6 +76,7 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
         onOpenInStudio={vi.fn()}
         onRunLoadTest={onRunLoadTest}
         onCopyGrpcurl={vi.fn()}
+        onRename={vi.fn()}
         onDuplicate={vi.fn()}
         onDelete={vi.fn()}
       />,
@@ -89,6 +95,7 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
         onOpenInStudio={vi.fn()}
         onCompareSchema={onCompareSchema}
         onCopyGrpcurl={vi.fn()}
+        onRename={vi.fn()}
         onDuplicate={vi.fn()}
         onDelete={vi.fn()}
       />,
@@ -106,6 +113,7 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
         onOpenInStudio={vi.fn()}
         onRunLoadTest={vi.fn()}
         onCopyGrpcurl={vi.fn()}
+        onRename={vi.fn()}
         onDuplicate={vi.fn()}
         onDelete={vi.fn()}
         runLoadTestDisabled
@@ -125,6 +133,7 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
         grpcurlCommand="grpcurl -plaintext localhost:50051 echo.EchoService/Echo"
         onOpenInStudio={vi.fn()}
         onCopyGrpcurl={vi.fn()}
+        onRename={vi.fn()}
         onDuplicate={vi.fn()}
         onDelete={vi.fn()}
         onUpdateResponseBaseline={vi.fn()}
@@ -148,6 +157,7 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
         grpcurlCommand="grpcurl -plaintext localhost:50051 echo.EchoService/ServerStream"
         onOpenInStudio={vi.fn()}
         onCopyGrpcurl={vi.fn()}
+        onRename={vi.fn()}
         onDuplicate={vi.fn()}
         onDelete={vi.fn()}
         onUpdateResponseBaseline={vi.fn()}

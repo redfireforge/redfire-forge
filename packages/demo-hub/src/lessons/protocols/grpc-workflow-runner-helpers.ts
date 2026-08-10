@@ -1,6 +1,6 @@
 /** GRPC-24 Workflow Runner lesson — shared helpers, session, setup/cleanup */
 import type { DemoActionContext } from '../../types';
-import { WF } from '@shared/selectors';
+import { WF, GRPC } from '@shared/selectors';
 import { RES } from '@shared/selectors/res';
 import { REX } from '@shared/selectors/rex';
 import { FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
@@ -29,6 +29,7 @@ import {
   WF14_NODE_GRPC,
   WF14_NODE_ASSERT,
   isNodeOnCanvas,
+  isUnaryNodeOnCanvas,
   isWorkflowPresent,
 } from './grpc-workflow-integration-helpers';
 import { grpcFirstCallCleanup, spotlightAndPause, spotlightElementAndPause } from './grpc-lesson-helpers';
@@ -49,11 +50,11 @@ export const GRPCWR_CONCURRENCY = 1;
 export const GRPCWR_TRACE_LEVEL = 'standard' as const;
 
 export const WF_RUNNER_SELECT = '[data-testid="workflow-select"]';
-export const GRPCWR_EXPLORER_BTN = 'button[title="Explore execution results"]';
+export const GRPCWR_EXPLORER_BTN = ':is([data-testid="results-explorer-open-btn"], button[title="Explore execution results"])';
 export const GRPCWR_VARS_SECTION = '.workflow-vars-section';
 export const GRPCWR_CONFIG_SECTION = '.workflow-runner-config-section';
 export const GRPCWR_COMPLETION = '.completion-section';
-export const GRPCWR_VIEW_RESULTS_BTN = '.completion-section .btn-primary, .wfp-view-results-btn, [data-testid="view-results-btn"]';
+export const GRPCWR_VIEW_RESULTS_BTN = GRPC.WF_VIEW_RESULTS_BTN;
 export const GRPCWR_PROGRESS = '.progress-section';
 export const GRPCWR_REQUEST_ROW = '.clickable-row';
 export const GRPCWR_EXPLORER_DETAIL = '.results-explorer-detail';
@@ -222,7 +223,7 @@ export async function ensureGrpcWRNodesPresent(ctx: DemoActionContext): Promise<
   await ensureOnWorkflowTab(ctx);
   if (
     !isWorkflowPresent() ||
-    !isNodeOnCanvas(WF14_NODE_GRPC) ||
+    !isUnaryNodeOnCanvas() ||
     !isNodeOnCanvas(WF14_NODE_ASSERT)
   ) {
     await seedGrpcWRWorkflowQuiet(ctx);
@@ -430,22 +431,28 @@ export async function openRequestDetailsTab(ctx: DemoActionContext): Promise<voi
       (el) => el.textContent?.trim() === 'Request Details',
     );
   if (tab) {
-    await spotlightElementAndPause(ctx, tab, 550);
+    // Tab switch beat — hold long enough to read the label before the click.
+    await spotlightElementAndPause(ctx, tab, 1000);
+    showClickRipple(tab);
+    await ctx.delay(350);
     tab.click();
-    await ctx.delay(500);
+    await ctx.delay(800);
   }
+  // Flat group-by so Echo Call rows (and GRPC badges) render without expand clicks.
   const groupBySelect = document.querySelector<HTMLSelectElement>('.group-by-controls select');
   if (groupBySelect) {
     const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
     nativeSet?.call(groupBySelect, 'test');
     groupBySelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await ctx.delay(400);
+    await ctx.delay(500);
   }
 }
 
-/** Tour Request Details: GRPC badge row → open Response Detail → pause → close. */
+/** Tour Request Details: GRPC badge → row → Response Detail → pause → close. */
 export async function tourRequestDetailsRow(ctx: DemoActionContext): Promise<void> {
   await openRequestDetailsTab(ctx);
+  await ctx.waitFor(GRPCWR_REQUEST_ROW);
+  await ctx.delay(400);
   const row =
     Array.from(document.querySelectorAll<HTMLElement>(GRPCWR_REQUEST_ROW)).find((el) =>
       /grpc/i.test(el.textContent ?? ''),
@@ -453,29 +460,38 @@ export async function tourRequestDetailsRow(ctx: DemoActionContext): Promise<voi
     ?? document.querySelector<HTMLElement>(GRPCWR_REQUEST_ROW);
   if (!row) return;
   row.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-  await spotlightElementAndPause(ctx, row, 800);
+  await ctx.delay(400);
+
+  // Teaching payoff: the GRPC / GRPCUNARY method badge on the Echo Call row.
+  const badge = row.querySelector<HTMLElement>('.method-badge');
+  if (badge) {
+    await spotlightElementAndPause(ctx, badge, 1200);
+  }
+  await spotlightElementAndPause(ctx, row, 1100);
   showClickRipple(row);
-  await ctx.delay(150);
+  await ctx.delay(400);
   row.click();
-  await ctx.delay(700);
+  await ctx.delay(1000);
   const detail =
     document.querySelector<HTMLElement>('[data-testid="response-detail-modal"]')
     ?? document.querySelector<HTMLElement>('.response-detail-modal')
     ?? document.querySelector<HTMLElement>('.professional-modal');
   if (detail) {
-    await spotlightElementAndPause(ctx, detail, 1000);
+    await spotlightElementAndPause(ctx, detail, 1400);
     const closeBtn =
       detail.querySelector<HTMLElement>('button.btn-ghost, button.btn-primary, .ram-modal-close')
       ?? Array.from(detail.querySelectorAll<HTMLButtonElement>('button')).find(
         (b) => /close|cancel/i.test(b.textContent ?? ''),
       );
     if (closeBtn) {
-      await spotlightElementAndPause(ctx, closeBtn, 400);
+      await spotlightElementAndPause(ctx, closeBtn, 700);
+      showClickRipple(closeBtn);
+      await ctx.delay(300);
       closeBtn.click();
-      await ctx.delay(500);
+      await ctx.delay(800);
     } else {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      await ctx.delay(400);
+      await ctx.delay(700);
     }
   }
 }
@@ -514,32 +530,50 @@ export async function ensureFullResultsMetricsCards(ctx: DemoActionContext): Pro
   }
 }
 
-export async function scrollResultsMetricsCardsIntoView(ctx: DemoActionContext): Promise<void> {
-  const cards = document.querySelector<HTMLElement>(RES.METRICS_CARDS);
-  if (!cards) return;
-
-  // Pause the LiveDemo auto-scroll so it cannot override our manual position.
-  // The metrics cards (331px) are taller than the gap between sticky header and
-  // demo narration panel (~241px), so isElementVisibleInViewport always returns
-  // false and scrollDemoTargetIntoView would fire and push row 1 behind the
-  // sticky header if we don't suppress it here.
+/**
+ * Scroll a Results Dashboard element so its top sits just below the sticky
+ * `.results-top` chrome. Native `scrollIntoView({ block: 'nearest' })` often
+ * parks percentile cards under that header, clipping values at the viewport top.
+ */
+export async function scrollResultsStickyAwareIntoView(
+  ctx: DemoActionContext,
+  el: HTMLElement,
+): Promise<void> {
+  // Pause LiveDemo auto-scroll so it cannot override our manual position.
+  // Metrics blocks are taller than the gap between sticky header and the demo
+  // narration panel, so visibility checks stay false and auto-scroll would
+  // push content behind `.results-top` again.
   pauseDemoAutoScroll(4000);
 
-  const scrollParent = findScrollableParent(cards);
+  const scrollParent = findScrollableParent(el);
   const stickyTop = document.querySelector<HTMLElement>('.results-top');
   if (scrollParent && stickyTop) {
-    const cardsRect = cards.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
     const parentRect = scrollParent.getBoundingClientRect();
     const stickyRect = stickyTop.getBoundingClientRect();
-    const cardsTopInParent = cardsRect.top - parentRect.top + scrollParent.scrollTop;
-    const targetTop = Math.max(0, cardsTopInParent - stickyRect.height - 16);
+    const elTopInParent = elRect.top - parentRect.top + scrollParent.scrollTop;
+    const targetTop = Math.max(0, elTopInParent - stickyRect.height - 16);
     // Use 'instant' so the scroll completes before the spotlight ring measures.
     scrollParent.scrollTo({ top: targetTop, behavior: 'instant' });
-    await ctx.delay(100);
+    await ctx.delay(120);
     return;
   }
 
-  await ctx.delay(100);
+  el.scrollIntoView?.({ behavior: 'instant', block: 'start', inline: 'nearest' });
+  await ctx.delay(120);
+}
+
+export async function scrollResultsMetricsCardsIntoView(ctx: DemoActionContext): Promise<void> {
+  const cards = document.querySelector<HTMLElement>(RES.METRICS_CARDS);
+  if (!cards) return;
+  await scrollResultsStickyAwareIntoView(ctx, cards);
+}
+
+/** Scroll the p50/p95 latency row fully below the sticky Results header. */
+export async function scrollResultsMetricsLatencyRowIntoView(ctx: DemoActionContext): Promise<void> {
+  const latencyRow = document.querySelector<HTMLElement>(RES.METRICS_LATENCY_ROW);
+  if (!latencyRow) return;
+  await scrollResultsStickyAwareIntoView(ctx, latencyRow);
 }
 
 export async function openAndFitResultsExplorer(ctx: DemoActionContext): Promise<void> {

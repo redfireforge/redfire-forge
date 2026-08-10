@@ -62,13 +62,12 @@ export default function AppShellOverlays({
         <RequestCollectionModal
           collection={editingWbCollection}
           collections={wb.collections}
-          environments={wb.environments}
+          environments={environments}
           appEnvironments={environments}
           appMicroservices={microservices}
           globalAuthProfiles={appGlobalAuthProfiles}
           defaultMode={newColMode}
           onSave={handleWbSaveCollection}
-          onAddEnv={wb.addEnv}
           onClose={() => { setShowWbCollectionModal(false); setEditingWbCollection(null); setNewColGroupId(undefined); setNewColMode(undefined); }}
         />
       )}
@@ -77,7 +76,8 @@ export default function AppShellOverlays({
         <SubCollectionModal
           subCollection={subColForEdit.folder}
           parentCollection={subColForEdit.col}
-          environments={wb.environments}
+          environments={environments}
+          microservices={microservices}
           globalAuthProfiles={appGlobalAuthProfiles}
           onSave={(patch) => wb.updateSubCollection(editingSubCol.colId, editingSubCol.folderId, patch)}
           onClose={() => setEditingSubCol(null)}

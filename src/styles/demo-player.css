@@ -1,10 +1,11 @@
 /* ============================================================
    Demo Player — Professional spotlight-guided walkthrough UI
-   z-index range: 10300–10350 (above all modals at 10200)
+   z-index range: 20100+ (must sit above CustomSelect menus)
    Modal z-index reference:
      10100 — demo sidepanel
      10200 — ws-tls-overlay and other app modals
-     10300 — demo spotlight ring (must always be on top)
+     20000 — .cs-menu (CustomSelect portal)
+     20100 — demo spotlight ring (must always be on top of menus)
    ============================================================ */
 
 /* ---- Spotlight ---- */
@@ -13,19 +14,37 @@
 
 .demo-spotlight-ring {
   position: fixed;
-  z-index: 10301;
+  /* Above .cs-menu (20000) so Bearer/option spotlights aren't painted under the dropdown. */
+  z-index: 20100;
   border-radius: var(--radius, 8px);
   box-shadow:
+    0 0 0 9999px rgba(10, 14, 22, 0),
     0 0 0 4px var(--primary, #3b82f6),
-    0 0 24px 6px rgba(59, 130, 246, 0.4);
+    0 0 32px 8px rgba(59, 130, 246, 0.5);
   pointer-events: none;
   will-change: top, left, width, height;
   animation: demo-pulse 2s ease-in-out infinite;
 }
 
+/* Steady hold — no pulse. Prefer this inside step actions so the viewer can
+   fixate on one control without a flashing ring stealing attention. */
+.demo-spotlight-ring--steady {
+  animation: none;
+}
+
 @keyframes demo-pulse {
-  0%, 100% { box-shadow: 0 0 0 4px var(--primary, #3b82f6), 0 0 24px 6px rgba(59, 130, 246, 0.4); }
-  50%      { box-shadow: 0 0 0 6px var(--primary, #3b82f6), 0 0 32px 10px rgba(59, 130, 246, 0.55); }
+  0%, 100% {
+    box-shadow:
+      0 0 0 9999px rgba(10, 14, 22, 0),
+      0 0 0 4px var(--primary, #3b82f6),
+      0 0 32px 8px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 9999px rgba(10, 14, 22, 0),
+      0 0 0 6px var(--primary, #3b82f6),
+      0 0 40px 12px rgba(59, 130, 246, 0.62);
+  }
 }
 
 @keyframes demo-fade-in {
@@ -342,8 +361,12 @@
   max-height: calc(100vh - 80px);
   border-radius: 16px;
   background: var(--surface, #1e293b);
-  border: 1px solid var(--border, #3b4a60);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3b4a60));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   color: var(--text, #f1f5f9);
   font-family: var(--font, 'Inter'), sans-serif;
   overflow-y: auto;

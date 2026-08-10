@@ -511,7 +511,10 @@ describe('grpcGrpcSpringServletUnaryClient coverage gaps', () => {
     const result = await invokeGrpcSpringServletUnary({
       request: {
         ...FIXTURE_UNARY_CALL_REQUEST,
-        target: FIXTURE_TARGET,
+        // FIXTURE_TARGET's port 50051 is native-gRPC-only and is blocked by
+        // assertBrowserDirectTargetAllowsFetch when fetchFn is omitted (real
+        // browser-direct fetch path) — use the Spring servlet HTTP port instead.
+        target: { ...FIXTURE_TARGET, address: 'localhost:8081' },
         service: 'echo.EchoService',
         method: 'Echo',
         body: { message: 'ping' },
@@ -592,5 +595,48 @@ describe('grpcGrpcSpringServletUnaryClient coverage gaps', () => {
 
     expect(result.body).toEqual({ message: 'short-path' });
     expect(fetchFn.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('throws unreachable error when resolver returns no servlet URLs', async () => {
+    const protosetBase64 = buildEchoProtosetBase64();
+    const resolverSpy = vi
+      .spyOn(springServletPathResolver, 'buildSpringServletMethodUrls')
+      .mockReturnValue([]);
+
+    await expect(invokeGrpcSpringServletUnary({
+      request: {
+        ...FIXTURE_UNARY_CALL_REQUEST,
+        target: FIXTURE_TARGET,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'ping' },
+      },
+      tabId: 'tab-no-servlet-urls',
+      protosetBase64,
+      fetchFn: vi.fn(),
+    })).rejects.toMatchObject({ code: GRPC_ERROR_CODES.UNREACHABLE });
+
+    resolverSpy.mockRestore();
+  });
+
+  it('throws incompatible content-type error from browser transport mapper', async () => {
+    const protosetBase64 = buildEchoProtosetBase64();
+    const fetchFn = vi.fn(async () => new Response('<html></html>', {
+      status: 204,
+      headers: { 'content-type': 'text/html' },
+    }));
+
+    await expect(invokeGrpcSpringServletUnary({
+      request: {
+        ...FIXTURE_UNARY_CALL_REQUEST,
+        target: FIXTURE_TARGET,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'ping' },
+      },
+      tabId: 'tab-incompatible-content-type',
+      protosetBase64,
+      fetchFn,
+    })).rejects.toBeInstanceOf(GrpcApiClientError);
   });
 });

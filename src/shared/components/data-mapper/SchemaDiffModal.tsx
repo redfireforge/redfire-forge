@@ -1,35 +1,61 @@
 import { useMemo, useId, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ClassifiedDrift } from './utils/schemaDrift';
 import type { RepairSuggestion } from './utils/schemaRepair';
+import { useModalFrame } from '../../hooks/useModalFrame';
+import ModalResizeHandles from '../ModalResizeHandles';
 
 interface SchemaDiffModalProps {
   drifts: ClassifiedDrift[];
   onClose: () => void;
+  /** Confirm accept-and-update (only used when acceptMode is true). */
+  onAccept?: () => void;
   repairSuggestions?: Map<string, RepairSuggestion[]>;
   onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
   onApplyRepairBatch?: (repairs: Array<{ mappingId: string; suggestion: RepairSuggestion }>) => void;
+  /** When true, the footer shows Cancel + Accept & Update instead of just Close */
+  acceptMode?: boolean;
 }
 
 export default function SchemaDiffModal({
   drifts,
   onClose,
+  onAccept,
   repairSuggestions,
   onApplyRepair,
   onApplyRepairBatch,
+  acceptMode,
 }: SchemaDiffModalProps) {
   const titleId = useId();
-  const shellRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
+
+  const {
+    isDragged,
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    dialogRef,
+    onRightEdge,
+    onCorner,
+    onBottomEdge,
+  } = useModalFrame({
+    open: true,
+    minWidth: 500,
+    minHeight: 300,
+    constrainDragToViewport: true,
+    dragViewportPadding: 8,
+  });
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement;
-    shellRef.current?.focus();
+    dialogRef.current?.focus();
     return () => {
       if (previousFocusRef.current instanceof HTMLElement) {
         previousFocusRef.current.focus();
       }
     };
-  }, []);
+  }, [dialogRef]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,10 +105,22 @@ export default function SchemaDiffModal({
     }));
   }, [repairSuggestions, sorted]);
 
-  return (
-    <div className="dm-diff-overlay" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <div className="dm-diff-shell" ref={shellRef} tabIndex={-1}>
-        <div className="dm-diff-header">
+  return createPortal(
+    <div className="dm-diff-overlay" style={overlayStyle}>
+      <div
+        ref={dialogRef}
+        className={`dm-diff-shell${isDragged ? ' dm-diff-shell--positioned' : ''}`}
+        style={dialogStyle}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <div
+          className="dm-diff-header"
+          onMouseDown={onHeaderMouseDown}
+          style={headerDragStyle}
+        >
           <h3 id={titleId} className="dm-diff-title">Schema Changes</h3>
           <div className="dm-diff-summary-badges">
             {counts.breaking > 0 && (
@@ -95,7 +133,6 @@ export default function SchemaDiffModal({
               <span className="dm-diff-count dm-diff-count--info">{counts.info} info</span>
             )}
           </div>
-          <button className="dm-btn-icon" onClick={onClose} aria-label="Close schema diff">×</button>
         </div>
         {onApplyRepairBatch && batchRepairs.length > 0 && (
           <div className="dm-diff-batch-actions">
@@ -203,9 +240,37 @@ export default function SchemaDiffModal({
           </table>
         </div>
         <div className="dm-diff-footer">
-          <button className="dm-modal-btn dm-modal-btn--secondary" onClick={onClose}>Close</button>
+          {acceptMode ? (
+            <>
+              <button
+                type="button"
+                className="dm-modal-btn dm-modal-btn--secondary"
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="dm-modal-btn dm-modal-btn--primary"
+                onClick={onAccept ?? onClose}
+              >
+                Accept &amp; Update
+              </button>
+            </>
+          ) : (
+            <button type="button" className="dm-modal-btn dm-modal-btn--secondary" onClick={onClose}>
+              Close
+            </button>
+          )}
         </div>
+
+        <ModalResizeHandles
+          onRightEdge={onRightEdge}
+          onCorner={onCorner}
+          onBottomEdge={onBottomEdge}
+        />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

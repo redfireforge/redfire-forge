@@ -34,7 +34,10 @@ export function WebSocketMessageDetail({
   onDiffNext,
   validationResults,
 }: WebSocketMessageDetailProps) {
-  const jsonAvailable = useMemo(() => isValidJson(frame.data), [frame.data]);
+  // For protocol frames (STOMP SEND/MESSAGE, etc.) the raw data is a multi-line frame
+  // envelope, not JSON. Use the decoded body for JSON rendering when available.
+  const jsonSource = frame.protocolMeta?.body ?? frame.data;
+  const jsonAvailable = useMemo(() => isValidJson(jsonSource), [jsonSource]);
   const isBinary = frame.type === 'binary';
   const hasValidation = validationResults != null && validationResults.length > 0;
   const defaultTab: DetailTab = jsonAvailable ? 'json' : isBinary ? 'hex' : 'raw';
@@ -133,7 +136,7 @@ export function WebSocketMessageDetail({
       );
     }
     if (activeTab === 'json' && jsonAvailable) {
-      const pretty = prettyJson(frame.data);
+      const pretty = prettyJson(jsonSource);
       const tokens = tokenizeJson(pretty);
       return (
         <pre className={`ws-detail-body ${wordWrap ? 'wrap' : ''}`} data-testid="detail-content">
@@ -172,7 +175,7 @@ export function WebSocketMessageDetail({
         {frame.data}
       </pre>
     );
-  }, [activeTab, frame.data, isBinary, jsonAvailable, wordWrap, hasValidation, validationResults]);
+  }, [activeTab, frame.data, jsonSource, isBinary, jsonAvailable, wordWrap, hasValidation, validationResults]);
 
   const dirLabel = frame.direction === 'sent' ? '↑ Sent' : '↓ Received';
   const timeLabel = formatWsTimestamp(frame.timestamp);

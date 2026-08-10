@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AuditLogPanel from './AuditLogPanel';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 
 // Mock platform
 vi.mock('../../../shared/utils/platform', () => ({ isTauri: () => false }));
@@ -75,8 +76,8 @@ describe('AuditLogPanel', () => {
     render(<AuditLogPanel />);
     await waitFor(() => expect(screen.getByText('prod')).toBeTruthy());
 
-    const typeSelect = screen.getAllByRole('combobox')[0];
-    fireEvent.change(typeSelect, { target: { value: 'microservice' } });
+    const filterWrappers = document.querySelectorAll('.audit-log-filter');
+    selectOption(filterWrappers[0], 'Microservice');
     expect(screen.queryByText('prod')).toBeNull();
     expect(screen.getByText('api-svc')).toBeTruthy();
   });
@@ -89,8 +90,8 @@ describe('AuditLogPanel', () => {
     render(<AuditLogPanel />);
     await waitFor(() => expect(screen.getByText('env-a')).toBeTruthy());
 
-    const actionSelect = screen.getAllByRole('combobox')[1];
-    fireEvent.change(actionSelect, { target: { value: 'deleted' } });
+    const filterWrappers = document.querySelectorAll('.audit-log-filter');
+    selectOption(filterWrappers[1], 'Deleted');
     expect(screen.queryByText('env-a')).toBeNull();
     expect(screen.getByText('env-b')).toBeTruthy();
   });

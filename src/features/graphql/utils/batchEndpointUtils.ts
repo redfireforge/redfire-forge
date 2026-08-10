@@ -2,7 +2,7 @@ import type { GraphqlEnvironment } from '../../../shared/types/graphql';
 import type { ConnectionProfile } from './connectionProfileStorage';
 import type { GqlStudioTab } from './tabPersistence';
 import { resolveVars } from './envUtils';
-import { deriveEndpointHostnameBadge } from './graphqlEndpointUtils';
+import { deriveEndpointHostnameBadge, normalizeGraphqlEndpoint } from './graphqlEndpointUtils';
 import { resolveTabRawEndpoint } from './tabConnectionResolution';
 
 export { resolveTabRawEndpoint };
@@ -22,7 +22,11 @@ export interface BuildBatchGroupsOptions {
   demoLessonId?: string | null;
 }
 
-/** Resolve the endpoint a tab would use for batch execution (env vars applied). */
+/**
+ * Resolve + normalize the endpoint a tab would use for batch execution.
+ * Normalization (localhost ↔ 127.0.0.1, trim, strip BOM) keeps env-var tabs and
+ * literal overrides in the same group when they target the same server.
+ */
 export function resolveTabBatchEndpoint(
   tab: GqlStudioTab,
   pageDefaultEndpoint: string,
@@ -31,7 +35,10 @@ export function resolveTabBatchEndpoint(
   profiles: ConnectionProfile[],
 ): string {
   const raw = resolveTabRawEndpoint(tab, profiles, pageDefaultEndpoint);
-  return resolveVars(raw, activeEnvironment, globalEnvMap).trim();
+  const resolved = resolveVars(raw, activeEnvironment, globalEnvMap).trim();
+  // Keep unresolved templates as-is so they don't falsely merge with literals.
+  if (!resolved || /\{\{[^}]+\}\}/.test(resolved)) return resolved;
+  return normalizeGraphqlEndpoint(resolved);
 }
 
 /**
@@ -107,7 +114,7 @@ export function evaluateBatchEndpointParity(
   }
 
   const resolved = batchedTabs.map((tab) =>
-    resolveVars(resolveTabRawEndpoint(tab, profiles, pageDefaultEndpoint), activeEnvironment, globalEnvMap).trim(),
+    resolveTabBatchEndpoint(tab, pageDefaultEndpoint, activeEnvironment, globalEnvMap, profiles),
   );
 
   const first = resolved[0];

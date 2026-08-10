@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  *
- * Tests for WebSocketStudioPage internal callbacks (handleReorderTab,
- * handleConnectionStateChange, handleUrlChange, handleCloseTab confirm path).
+ * Tests for WebSocketStudioPage internal callbacks and page-owned tab state
+ * transitions.
  *
  * Child components are mocked to expose callback props for direct invocation.
  */
@@ -18,11 +18,16 @@ vi.mock('./WsConnectionTabBar', () => ({
   WsConnectionTabBar: (props: Record<string, unknown>) => {
     capturedTabBarProps = props;
     const tabs = props.tabs as Array<{ id: string; label: string }>;
+    const history = (props.history as Array<{ url: string }>) ?? [];
     return (
       <div data-testid="mock-tab-bar">
         {tabs.map((t) => (
           <span key={t.id} data-testid={`mock-tab-${t.id}`}>{t.label}</span>
         ))}
+        {history.map((entry) => (
+          <span key={entry.url} data-testid={`mock-history-${entry.url}`}>{entry.url}</span>
+        ))}
+        <button data-testid="mock-history-clear" type="button" onClick={() => (props.onClearHistory as (() => void) | undefined)?.()}>clear-history</button>
       </div>
     );
   },
@@ -47,7 +52,7 @@ vi.mock('@tanstack/react-virtual', () => ({
   }),
 }));
 
-import { WebSocketStudioPage } from './WebSocketStudioPage';
+import { WebSocketStudioPage, deriveTabLabel } from './WebSocketStudioPage';
 import * as hookModule from './useWebSocketStudio';
 import * as profilesModule from '../../app/hooks/useWebSocketProfiles';
 import * as templatesModule from '../../app/hooks/useWebSocketTemplates';
@@ -176,6 +181,27 @@ async function renderPage(tabState?: Parameters<typeof storageModule.loadWsTabSt
 }
 
 describe('WebSocketStudioPage internal callbacks', () => {
+  it('uses svc/env endpoint mapping when selected service and env are provided', async () => {
+    await act(async () => {
+      render(
+        <WebSocketStudioPage
+          envName="Dev"
+          selectedEnvId="env-1"
+          selectedSvc={{
+            id: 'svc-1',
+            name: 'Orders',
+            baseUrls: { 'env-1': 'https://api.example.com' },
+            wsUrl: 'wss://socket.example.com/ws',
+          } as never}
+        />,
+      );
+    });
+
+    const tabId = Object.keys(capturedTabContentProps)[0];
+    expect(capturedTabContentProps[tabId].envVarMap).toBeTruthy();
+    expect(capturedTabContentProps[tabId].endpointProtocolStatus).not.toBeUndefined();
+  });
+
   describe('handleReorderTab', () => {
     it('reorders tabs via onReorder callback', async () => {
       await renderPage({
@@ -498,24 +524,25 @@ describe('WebSocketStudioPage internal callbacks', () => {
   });
 
   describe('handleMockPortChange', () => {
-    it('ignores port changes that conflict with another tab', async () => {
+    it('reassigns conflicting tab when applying an in-use port', async () => {
       vi.useFakeTimers();
       await renderPage({
         tabs: [
-          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect' },
-          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect' },
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect', mockPort: 9876 },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect', mockPort: 9877 },
         ],
         activeTabId: 'ws-tab-1',
         renamedTabIds: [],
       });
-      const onMockPortChange1 = capturedTabContentProps['ws-tab-1'].onMockPortChange as (id: string, port: number) => void;
       const onMockPortChange2 = capturedTabContentProps['ws-tab-2'].onMockPortChange as (id: string, port: number) => void;
-      act(() => { onMockPortChange1('ws-tab-1', 9876); });
-      act(() => { vi.advanceTimersByTime(350); });
       act(() => { onMockPortChange2('ws-tab-2', 9876); });
       act(() => { vi.advanceTimersByTime(350); });
       vi.useRealTimers();
-      expect(capturedTabContentProps['ws-tab-2'].mockPort).not.toBe(9876);
+      const saved = vi.mocked(storageModule.saveWsTabState).mock.calls.at(-1)?.[0];
+      const tab1 = saved?.tabs?.find((t) => t.id === 'ws-tab-1');
+      const tab2 = saved?.tabs?.find((t) => t.id === 'ws-tab-2');
+      expect(tab2?.mockPort).toBe(9876);
+      expect(tab1?.mockPort).toBe(9877);
     });
 
     it('restores persisted mockPort on tab load', async () => {
@@ -527,6 +554,99 @@ describe('WebSocketStudioPage internal callbacks', () => {
         renamedTabIds: [],
       });
       expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9999);
+    });
+
+    it('pins a single default New Connection tab to port 9876', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: '', viewTab: 'connect', mockPort: 9999 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9876);
+    });
+
+    it('normalizes single default tab localhost URL to port 9876', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9878', viewTab: 'connect', mockPort: 9999 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9876);
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string; url?: string }>;
+      expect(tabs[0]?.url).toBe('ws://localhost:9876');
+      expect(capturedTabContentProps['ws-tab-1'].initialUrl).toBe('ws://localhost:9876');
+    });
+
+    it('pins the demo tab to port 9876 when another tab holds the base port', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9876', viewTab: 'connect', mockPort: 9876 },
+          { id: 'ws-tab-2', label: 'demo', url: 'ws://localhost:9878', viewTab: 'mock', mockPort: 9878 },
+        ],
+        activeTabId: 'ws-tab-2',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-2'].mockPort).toBe(9876);
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9878);
+      expect(capturedTabContentProps['ws-tab-2'].initialUrl).toBe('ws://localhost:9876');
+    });
+
+    it('pins the first New Connection tab to 9876 even when persisted as 9878', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9878', viewTab: 'mock', mockPort: 9878 },
+          { id: 'ws-tab-2', label: 'New Connection', url: '', viewTab: 'connect', mockPort: 9879 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9876);
+      expect(capturedTabContentProps['ws-tab-1'].initialUrl).toBe('ws://localhost:9876');
+      expect(capturedTabContentProps['ws-tab-2'].mockPort).toBe(9879);
+    });
+
+    it('adding a second tab after sole sticky 9878 remaps Tab1→9876 and assigns Tab2→9877', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'New Connection', url: 'ws://localhost:9878', viewTab: 'mock', mockPort: 9878 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      // Load already pins sole tab to 9876 — simulate sticky leftover mid-session.
+      const onMockPortChange = capturedTabContentProps['ws-tab-1'].onMockPortChange as (
+        id: string,
+        port: number,
+      ) => void;
+      act(() => { onMockPortChange('ws-tab-1', 9878); });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9878);
+
+      act(() => { capturedTabBarProps.onAdd(); });
+
+      const tabIds = Object.keys(capturedTabContentProps);
+      expect(tabIds.length).toBe(2);
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9876);
+      const newTabId = tabIds.find((id) => id !== 'ws-tab-1')!;
+      expect(capturedTabContentProps[newTabId].mockPort).toBe(9877);
+    });
+
+    it('reassigns conflicting tab mockPort prop after swap (state, not ref-only)', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect', mockPort: 9876 },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect', mockPort: 9877 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      const onMockPortChange2 = capturedTabContentProps['ws-tab-2'].onMockPortChange as (id: string, port: number) => void;
+      act(() => { onMockPortChange2('ws-tab-2', 9876); });
+      expect(capturedTabContentProps['ws-tab-2'].mockPort).toBe(9876);
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9877);
     });
 
     it('assigns alternate port when persisted mockPort conflicts', async () => {
@@ -642,6 +762,56 @@ describe('WebSocketStudioPage internal callbacks', () => {
       const added = tabs.find((t) => t.url === 'ws://localhost:9090/demo');
       expect(added?.label).toContain('localhost');
     });
+
+    it('falls back to "New Connection" when add-with-url cannot derive a label', async () => {
+      await renderPage();
+      const onAddWithUrl = capturedTabBarProps.onAddWithUrl as (url: string, protocol?: string) => void;
+      act(() => { onAddWithUrl('ws://', 'raw'); });
+      const tabs = capturedTabBarProps.tabs as Array<{ label: string; url?: string }>;
+      const added = tabs.find((t) => t.url === 'ws://');
+      expect(added?.label).toBe('New Connection');
+    });
+
+    it('duplicates a renamed tab and copies protocol, draft fields, and studio location', async () => {
+      await renderPage({
+        tabs: [
+          {
+            id: 'ws-tab-1',
+            label: 'Custom Name',
+            url: 'ws://demo.local/socket',
+            viewTab: 'mock',
+            mode: 'mock',
+            leftTab: 'send',
+            rightTab: 'stats',
+            subprotocols: 'graphql-ws',
+            protocolMode: 'graphql-ws',
+            headers: [{ key: 'X-Test', value: '1', enabled: true }],
+            queryParams: [{ key: 'q', value: 'v', enabled: true }],
+            auth: { type: 'bearer', token: 'secret' },
+            mockPort: 9988,
+          },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: ['ws-tab-1'],
+      });
+
+      const onDuplicate = capturedTabBarProps.onDuplicate as (id: string) => void;
+      act(() => { onDuplicate('ws-tab-1'); });
+
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string; url?: string }>;
+      expect(tabs).toHaveLength(2);
+      expect(tabs[1].label).toBe('Custom Name (copy)');
+      expect(tabs[1].url).toBe('ws://demo.local/socket');
+    });
+
+    it('does not duplicate when the source tab is missing', async () => {
+      await renderPage();
+      const onDuplicate = capturedTabBarProps.onDuplicate as (id: string) => void;
+      const before = (capturedTabBarProps.tabs as Array<{ id: string }>).length;
+      act(() => { onDuplicate('missing-tab'); });
+      const after = (capturedTabBarProps.tabs as Array<{ id: string }>).length;
+      expect(after).toBe(before);
+    });
   });
 
   describe('handleUrlChange and handleCloseTab edge cases', () => {
@@ -655,6 +825,18 @@ describe('WebSocketStudioPage internal callbacks', () => {
       act(() => { onUrlChange('ws-tab-1', 'ws://renamed.example.com:8080'); });
       const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string }>;
       expect(tabs[0].label).toBe('Custom');
+    });
+
+    it('auto-relabels unrenamed tabs via regex fallback when URL parsing fails', async () => {
+      await renderPage({
+        tabs: [{ id: 'ws-tab-1', label: 'New Connection', url: '', viewTab: 'connect' }],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      const onUrlChange = capturedTabContentProps['ws-tab-1'].onUrlChange as (id: string, url: string) => void;
+      act(() => { onUrlChange('ws-tab-1', 'ws://my%server:1234'); });
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string }>;
+      expect(tabs[0].label).toBe('my%server:1234');
     });
 
     it('does not close the last remaining tab', async () => {
@@ -686,6 +868,20 @@ describe('WebSocketStudioPage internal callbacks', () => {
       expect(tabs[0].id).toBe('ws-tab-2');
     });
 
+    it('closing a non-active tab preserves the active tab', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect' },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect' },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      const onClose = capturedTabBarProps.onClose as (id: string) => void;
+      act(() => { onClose('ws-tab-2'); });
+      expect(capturedTabBarProps.activeTabId).toBe('ws-tab-1');
+    });
+
     it('accepts mock port change when port is unique', async () => {
       vi.useFakeTimers();
       const saveSpy = vi.spyOn(storageModule, 'saveWsTabState');
@@ -702,5 +898,32 @@ describe('WebSocketStudioPage internal callbacks', () => {
       const saved = saveSpy.mock.calls.at(-1)?.[0];
       expect(saved?.tabs?.[0]?.mockPort).toBe(10001);
     });
+
+    it('renders history entries and clears them through the tab-bar callback', async () => {
+      mockHistoryReturn = makeHistoryReturn({
+        history: [
+          { url: 'ws://one.local/ws', protocol: 'auto', lastUsed: new Date().toISOString() },
+          { url: 'ws://two.local/ws', protocol: 'graphql-ws', lastUsed: new Date().toISOString() },
+        ],
+      });
+      vi.spyOn(historyModule, 'useWebSocketHistory').mockReturnValue(mockHistoryReturn);
+
+      await renderPage();
+      expect(screen.getByTestId('mock-history-ws://one.local/ws')).toBeTruthy();
+      expect(screen.getByTestId('mock-history-ws://two.local/ws')).toBeTruthy();
+
+      act(() => { screen.getByTestId('mock-history-clear').click(); });
+      expect(mockHistoryReturn.clearHistory).toHaveBeenCalledOnce();
+    });
+  });
+});
+
+describe('deriveTabLabel fallback branches', () => {
+  it('returns null when URL constructor succeeds but hostname is shorter than 2 chars', () => {
+    expect(deriveTabLabel('ws://x')).toBeNull();
+  });
+
+  it('returns null from regex fallback when the invalid URL does not match the host pattern', () => {
+    expect(deriveTabLabel('ws://  ')).toBeNull();
   });
 });

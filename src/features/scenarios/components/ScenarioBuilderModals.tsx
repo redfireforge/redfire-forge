@@ -21,6 +21,7 @@ interface EditingTestState {
   scenarioId: string;
   testId: string;
   parameterized?: boolean;
+  openDataSourceWizard?: boolean;
 }
 
 interface CopyingTestState {
@@ -65,7 +66,7 @@ export interface ScenarioBuilderModalsProps {
   handleVersionRestore: (version: TestDefinitionVersion) => void;
   handleVersionDelete: (versionId: string) => void;
   handleVersionRename: (versionId: string, label: string) => void;
-  handleCreateParameterizedCopy: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
+  handleCreateParameterizedCopy: (copy: Scenario, targetFgId?: string, targetScenarioId?: string, newScenarioName?: string) => void;
   handlePromoteToShared: (dataSource: DataSource, name: string, tags?: string[], fetchConfig?: { url: string; method: string; headers: KeyValue[]; auth?: AuthConfig }) => string;
   onOpenSharedDsModal: () => void;
 
@@ -88,7 +89,7 @@ export interface ScenarioBuilderModalsProps {
   sharedDsModalSelectedId: string | undefined;
   setSharedDsModalSelectedId: (v: string | undefined) => void;
   currentEditingDraft?: { fgName: string; scenarioName: string; test: Scenario };
-  handleCreateTestFromSharedDs: (sharedDs: SharedDataSource, fgId: string, scId: string, testName: string) => void;
+  handleCreateTestFromSharedDs: (sharedDs: SharedDataSource, fgId: string, scId: string, testName: string, openWizard?: boolean) => void;
 
   showFromSharedDsPicker: { fgId: string; scId: string } | null;
   setShowFromSharedDsPicker: (v: { fgId: string; scId: string } | null) => void;
@@ -160,6 +161,7 @@ export default function ScenarioBuilderModals(props: ScenarioBuilderModalsProps)
           sharedDataSources={sharedDataSources}
           onPromoteToShared={handlePromoteToShared}
           onOpenSharedDsModal={onOpenSharedDsModal}
+          initialOpenDataSourceWizard={editingTest.openDataSourceWizard ?? false}
         />
       )}
 

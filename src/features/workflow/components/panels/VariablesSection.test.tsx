@@ -235,9 +235,18 @@ describe('VariablesSection', () => {
 
   it('renders column headers', () => {
     renderVars();
-    expect(screen.getByText('name')).toBeTruthy();
-    expect(screen.getByText('source')).toBeTruthy();
-    expect(screen.getByText('value')).toBeTruthy();
+    expect(screen.getByText('Name')).toBeTruthy();
+    expect(screen.getByText('Source')).toBeTruthy();
+    expect(screen.getByText('Value')).toBeTruthy();
+  });
+
+  it('hides Source column when showSourceColumn is false', () => {
+    const { container } = renderVars({ showSourceColumn: false, variables: { a: '1' } });
+    expect(screen.getByText('Name')).toBeTruthy();
+    expect(screen.getByText('Value')).toBeTruthy();
+    expect(screen.queryByText('Source')).toBeNull();
+    expect(container.querySelector('.wf-config-vars--no-source')).toBeTruthy();
+    expect(container.querySelector('.wf-var-source-cell')).toBeNull();
   });
 
   it('handles resize drag on divider', () => {

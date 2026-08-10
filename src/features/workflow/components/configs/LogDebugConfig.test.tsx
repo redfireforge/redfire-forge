@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import LogDebugConfig from './LogDebugConfig';
 import type { LogDebugNodeData } from '../../types/workflow';
 
@@ -32,8 +33,8 @@ describe('LogDebugConfig', () => {
 
   it('calls onChange when log level is changed', () => {
     const onChange = vi.fn();
-    render(<LogDebugConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Info'), { target: { value: 'error' } });
+    const { container } = render(<LogDebugConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'Error');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ logLevel: 'error' }));
   });
 
@@ -73,9 +74,9 @@ describe('LogDebugConfig', () => {
   });
 
   it('renders all log level options', () => {
-    render(<LogDebugConfig data={makeData()} onChange={vi.fn()} />);
-    const options = screen.getAllByRole('option');
-    const labels = options.map(o => o.textContent);
+    const { container } = render(<LogDebugConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(container.querySelector('.cs-trigger')!);
+    const labels = Array.from(document.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toContain('Info');
     expect(labels).toContain('Warning');
     expect(labels).toContain('Error');

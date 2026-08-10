@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import GraphqlIntrospectConfigPanel from './GraphqlIntrospectConfigPanel';
 import GraphqlSubscriptionConfigPanel from './GraphqlSubscriptionConfigPanel';
 
@@ -273,7 +274,7 @@ describe('GraphqlSubscriptionConfigPanel', () => {
     };
     render(<GraphqlSubscriptionConfigPanel data={data} onChange={onChange} />);
 
-    fireEvent.change(screen.getByTestId('gql-wf-sub-transport-select'), { target: { value: 'sse' } });
+    selectOption(screen.getByTestId('gql-wf-sub-transport-select'), 'SSE');
     fireEvent.change(screen.getByTestId('gql-wf-subscription-query-editor'), { target: { value: 'subscription { pong }' } });
     fireEvent.change(screen.getByTestId('gql-wf-sub-variables-editor'), { target: { value: '{"id":1}' } });
 

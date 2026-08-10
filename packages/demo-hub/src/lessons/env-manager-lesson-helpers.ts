@@ -6,7 +6,9 @@ import type { DemoActionContext } from '../types';
 import { APP, EM, emAddProtocolItemSel, emRemoveProtocolSel } from '@shared/selectors';
 import type { ProtocolKey } from '@shared/types';
 import { isDemoTargetVisible } from '../demoSpotlightUtils';
+import { showSpotlightRing } from '../demoRipple';
 import { fillControlledInput } from './setup-helpers';
+import { getDemoBridgeWindow } from '../adapters/bridgeWindow';
 
 /** Shared SSE demo lesson identifiers and endpoint (basic + advanced lessons). */
 export const SSE_DEMO_ENV_NAME = 'SSE Demo';
@@ -14,9 +16,115 @@ export const SSE_DEMO_SVC_NAME = 'sse-demo';
 export const SSE_DEMO_BASE_URL = 'http://localhost:3001';
 
 function isNamedHeaderOptionAvailable(selectSelector: string, name: string): boolean {
-  const select = document.querySelector<HTMLSelectElement>(selectSelector);
-  if (!select) return false;
-  return Array.from(select.options).some((o) => o.text.trim() === name);
+  const target = document.querySelector<HTMLElement>(selectSelector);
+  if (!target) return false;
+
+  if (target instanceof HTMLSelectElement) {
+    return Array.from(target.options).some((option) => option.text.trim() === name);
+  }
+
+  // For CustomSelect we can only check if the option is already selected (label visible)
+  const selectedLabel = target.querySelector<HTMLElement>('.cs-text')?.textContent?.trim();
+  return selectedLabel === name;
+}
+
+async function selectNamedHeaderOption(
+  ctx: DemoActionContext,
+  selectSelector: string,
+  label: string,
+): Promise<void> {
+  const target = document.querySelector<HTMLElement>(selectSelector);
+  if (!target) return;
+
+  if (target instanceof HTMLSelectElement) {
+    const option = Array.from(target.options).find((entry) => entry.text.trim() === label);
+    if (!option || target.value === option.value) return;
+    await ctx.selectOption(selectSelector, option.value);
+    await ctx.delay(120);
+    return;
+  }
+
+  // CustomSelect — only confirm already selected; never open dropdown visually
+  const selectedLabel = target.querySelector<HTMLElement>('.cs-text')?.textContent?.trim();
+  if (selectedLabel === label) return;
+
+  // Not selected — click trigger, pick option, dismiss quickly
+  const trigger = target.querySelector<HTMLElement>('.cs-trigger');
+  if (!trigger) return;
+  trigger.click();
+  await ctx.delay(50);
+
+  const option = Array.from(document.querySelectorAll<HTMLElement>('.cs-menu .cs-item'))
+    .find((entry) => entry.textContent?.trim().includes(label));
+  if (option) {
+    option.click();
+  } else {
+    // Option not found — dismiss immediately
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  }
+  await ctx.delay(50);
+}
+
+/**
+ * Live-demo paced header select — always opens the menu so viewers can follow
+ * Environment / Service picks even when setup already selected the value quietly.
+ */
+async function selectNamedHeaderOptionVisible(
+  ctx: DemoActionContext,
+  selectSelector: string,
+  label: string,
+): Promise<void> {
+  const target = document.querySelector<HTMLElement>(selectSelector);
+  if (!target) return;
+
+  if (target instanceof HTMLSelectElement) {
+    const option = Array.from(target.options).find((entry) => entry.text.trim() === label);
+    if (!option) return;
+    await ctx.selectOption(selectSelector, option.value);
+    await ctx.delay(800);
+    return;
+  }
+
+  const triggerSel = `${selectSelector} .cs-trigger`;
+  if (!document.querySelector(triggerSel)) return;
+
+  // Open menu with ripple so the dropdown change is visible.
+  await ctx.click(triggerSel);
+  await ctx.waitFor('.cs-menu', 3000);
+  await ctx.delay(1000);
+
+  const option = Array.from(document.querySelectorAll<HTMLElement>('.cs-menu .cs-item'))
+    .find((entry) => entry.textContent?.trim().includes(label));
+  if (option) {
+    option.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    const dispose = showSpotlightRing(option, { steady: true });
+    try {
+      await ctx.delay(900);
+      option.click();
+    } finally {
+      dispose();
+    }
+  } else {
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  }
+  // Hold on the closed control so the selected label can be read.
+  await ctx.delay(1000);
+}
+
+/** Visible Environment dropdown pick for live demo actions (not quiet setup). */
+export async function selectEnvInHeaderVisible(
+  ctx: DemoActionContext,
+  envName: string,
+): Promise<void> {
+  await selectNamedHeaderOptionVisible(ctx, APP.HEADER_ENV_SELECT, envName);
+}
+
+/** Visible Service dropdown pick for live demo actions (not quiet setup). */
+export async function selectSvcInHeaderVisible(
+  ctx: DemoActionContext,
+  svcName: string,
+): Promise<void> {
+  await selectNamedHeaderOptionVisible(ctx, APP.HEADER_SVC_SELECT, svcName);
 }
 
 /**
@@ -27,7 +135,7 @@ export async function ensureSseDemoEndpointConfigured(ctx: DemoActionContext): P
   await ensureDemoEnvironment(ctx, SSE_DEMO_ENV_NAME);
   await ensureDemoMicroservice(ctx, SSE_DEMO_SVC_NAME);
   await navigateToEnvironmentManager(ctx);
-  await ctx.delay(400);
+  await ctx.delay(120);
   await expandNamedMicroservice(ctx, SSE_DEMO_SVC_NAME);
   await ensureProtocolDisabled(ctx, 'http');
   await ensureProtocolEnabled(ctx, 'sse');
@@ -35,8 +143,49 @@ export async function ensureSseDemoEndpointConfigured(ctx: DemoActionContext): P
   await ensureNamedEnvDeployedOnProtocol(ctx, 'sse', SSE_DEMO_ENV_NAME, SSE_DEMO_BASE_URL);
 }
 
+/** True when the header CustomSelect/native select currently shows `label`. */
+function isNamedHeaderOptionSelected(selectSelector: string, label: string): boolean {
+  const target = document.querySelector<HTMLElement>(selectSelector);
+  if (!target) return false;
+  if (target instanceof HTMLSelectElement) {
+    const selected = target.selectedOptions[0]?.text.trim();
+    return selected === label;
+  }
+  return target.querySelector<HTMLElement>('.cs-text')?.textContent?.trim() === label;
+}
+
 /** Ensure demo env/svc exist and are selected in the app header so {{sseUrl}} resolves. */
 export async function ensureSseDemoHeaderContext(ctx: DemoActionContext): Promise<void> {
+  // Already correct — never open Environment/Service dropdowns for no reason.
+  if (
+    isNamedHeaderOptionSelected(APP.HEADER_ENV_SELECT, SSE_DEMO_ENV_NAME)
+    && isNamedHeaderOptionSelected(APP.HEADER_SVC_SELECT, SSE_DEMO_SVC_NAME)
+  ) {
+    return;
+  }
+
+  // Prefer the demo bridge — creates env/svc + selects IDs with zero UI churn.
+  // Do NOT follow up with CustomSelect open/click: React labels can lag a tick
+  // and opening the menus is what viewers see as "flashing" header dropdowns.
+  const w = getDemoBridgeWindow();
+  if (w.__demoEnsureSettingsEnv && w.__demoEnsureSettingsSvc && w.__demoSelectEnvSvc) {
+    const envId = w.__demoEnsureSettingsEnv(SSE_DEMO_ENV_NAME);
+    const svcId = w.__demoEnsureSettingsSvc(SSE_DEMO_SVC_NAME, { [envId]: SSE_DEMO_BASE_URL });
+    w.__demoSelectEnvSvc(envId, svcId);
+    for (let i = 0; i < 16; i++) {
+      if (
+        isNamedHeaderOptionSelected(APP.HEADER_ENV_SELECT, SSE_DEMO_ENV_NAME)
+        && isNamedHeaderOptionSelected(APP.HEADER_SVC_SELECT, SSE_DEMO_SVC_NAME)
+      ) {
+        return;
+      }
+      await ctx.delay(40);
+    }
+    // IDs are selected even if labels lag — opening menus would only flash.
+    return;
+  }
+
+  // No bridge (unit tests / degraded shell): configure via EM if needed, then select once.
   const envReady = isNamedHeaderOptionAvailable(APP.HEADER_ENV_SELECT, SSE_DEMO_ENV_NAME);
   const svcReady = isNamedHeaderOptionAvailable(APP.HEADER_SVC_SELECT, SSE_DEMO_SVC_NAME);
   if (!envReady || !svcReady) {
@@ -44,6 +193,8 @@ export async function ensureSseDemoHeaderContext(ctx: DemoActionContext): Promis
   }
   await selectEnvInHeader(ctx, SSE_DEMO_ENV_NAME);
   await selectSvcInHeader(ctx, SSE_DEMO_SVC_NAME);
+  document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  await ctx.delay(80);
 }
 
 /** Shared GraphQL demo lesson identifiers and endpoint (GQL-1+ lessons). */
@@ -67,7 +218,7 @@ export async function ensureWsDemoProtocolReady(ctx: DemoActionContext): Promise
   await ensureDemoEnvironment(ctx, WS_DEMO_ENV_NAME);
   await ensureDemoMicroservice(ctx, WS_DEMO_SVC_NAME);
   await navigateToEnvironmentManager(ctx);
-  await ctx.delay(400);
+  await ctx.delay(120);
   await expandNamedMicroservice(ctx, WS_DEMO_SVC_NAME);
   await ensureProtocolDisabled(ctx, 'http');
   await ensureProtocolEnabled(ctx, 'websocket');
@@ -79,18 +230,31 @@ export async function ensureWsDemoProtocolReady(ctx: DemoActionContext): Promise
 /**
  * Recreate the WebSocket Demo environment + ws-demo microservice with WebSocket endpoint configured.
  * WebSocket-only — does not add an HTTP protocol tab.
+ *
+ * @param baseUrl The endpoint URL to save. Defaults to `WS_DEMO_BASE_URL` (`ws://localhost:9876`),
+ * but callers should pass the tab's *actual* assigned mock port (e.g. via `getLastMockPort()` from
+ * `setup-helpers` or a lesson-local `captureMockPort()`) since a tab is not guaranteed to be on 9876
+ * — `closeExtraConnectionTabs()` reduces the tab count to 1 but does not renumber the surviving tab's
+ * already-assigned port.
  */
-export async function ensureWsDemoEndpointConfigured(ctx: DemoActionContext): Promise<void> {
+export async function ensureWsDemoEndpointConfigured(
+  ctx: DemoActionContext,
+  baseUrl: string = WS_DEMO_BASE_URL,
+): Promise<void> {
   await ensureWsDemoProtocolReady(ctx);
-  await editNamedProtocolEndpoint(ctx, WS_DEMO_ENV_NAME, WS_DEMO_BASE_URL);
+  await editNamedProtocolEndpoint(ctx, WS_DEMO_ENV_NAME, baseUrl);
 }
 
-/** Ensure demo env/svc exist and are selected in the app header so {{wsBaseUrl}} resolves. */
-export async function ensureWsDemoHeaderContext(ctx: DemoActionContext): Promise<void> {
+/** Ensure demo env/svc exist and are selected in the app header so {{wsBaseUrl}} resolves.
+ * See `ensureWsDemoEndpointConfigured` for why `baseUrl` should reflect the tab's real mock port. */
+export async function ensureWsDemoHeaderContext(
+  ctx: DemoActionContext,
+  baseUrl: string = WS_DEMO_BASE_URL,
+): Promise<void> {
   const envReady = isNamedHeaderOptionAvailable(APP.HEADER_ENV_SELECT, WS_DEMO_ENV_NAME);
   const svcReady = isNamedHeaderOptionAvailable(APP.HEADER_SVC_SELECT, WS_DEMO_SVC_NAME);
   if (!envReady || !svcReady) {
-    await ensureWsDemoEndpointConfigured(ctx);
+    await ensureWsDemoEndpointConfigured(ctx, baseUrl);
   }
   await selectEnvInHeader(ctx, WS_DEMO_ENV_NAME);
   await selectSvcInHeader(ctx, WS_DEMO_SVC_NAME);
@@ -104,7 +268,7 @@ export async function ensureGqlDemoProtocolReady(ctx: DemoActionContext): Promis
   await ensureDemoEnvironment(ctx, GQL_DEMO_ENV_NAME);
   await ensureDemoMicroservice(ctx, GQL_DEMO_SVC_NAME);
   await navigateToEnvironmentManager(ctx);
-  await ctx.delay(400);
+  await ctx.delay(120);
   await expandNamedMicroservice(ctx, GQL_DEMO_SVC_NAME);
   await ensureProtocolDisabled(ctx, 'http');
   await ensureProtocolEnabled(ctx, 'graphql');
@@ -143,8 +307,40 @@ export async function ensureGqlDemoEndpointConfigured(ctx: DemoActionContext): P
   );
 }
 
-/** Ensure demo env/svc exist and are selected in the app header so {{graphqlUrl}} resolves. */
+/**
+ * Ensure demo env/svc exist and are selected in the app header so {{graphqlUrl}} resolves.
+ * Prefer the settings bridge (zero UI churn). Never open Environment Manager when the bridge works.
+ */
 export async function ensureGqlDemoHeaderContext(ctx: DemoActionContext): Promise<void> {
+  if (
+    isNamedHeaderOptionSelected(APP.HEADER_ENV_SELECT, GQL_DEMO_ENV_NAME)
+    && isNamedHeaderOptionSelected(APP.HEADER_SVC_SELECT, GQL_DEMO_SVC_NAME)
+  ) {
+    await navigateToGraphqlStudio(ctx);
+    return;
+  }
+
+  // Prefer the demo bridge — creates env/svc + selects IDs without opening EM or header menus.
+  // httpBase falls back for graphqlUrl when no GraphQL protocol row exists yet.
+  const w = getDemoBridgeWindow();
+  if (w.__demoEnsureSettingsEnv && w.__demoEnsureSettingsSvc && w.__demoSelectEnvSvc) {
+    const envId = w.__demoEnsureSettingsEnv(GQL_DEMO_ENV_NAME);
+    const svcId = w.__demoEnsureSettingsSvc(GQL_DEMO_SVC_NAME, { [envId]: GQL_DEMO_BASE_URL });
+    w.__demoSelectEnvSvc(envId, svcId);
+    for (let i = 0; i < 16; i++) {
+      if (
+        isNamedHeaderOptionSelected(APP.HEADER_ENV_SELECT, GQL_DEMO_ENV_NAME)
+        && isNamedHeaderOptionSelected(APP.HEADER_SVC_SELECT, GQL_DEMO_SVC_NAME)
+      ) {
+        break;
+      }
+      await ctx.delay(40);
+    }
+    await navigateToGraphqlStudio(ctx);
+    return;
+  }
+
+  // No bridge (unit tests / degraded shell): configure via EM if needed, then select once.
   const envReady = isNamedHeaderOptionAvailable(APP.HEADER_ENV_SELECT, GQL_DEMO_ENV_NAME);
   const svcReady = isNamedHeaderOptionAvailable(APP.HEADER_SVC_SELECT, GQL_DEMO_SVC_NAME);
   if (!envReady || !svcReady) {
@@ -152,7 +348,6 @@ export async function ensureGqlDemoHeaderContext(ctx: DemoActionContext): Promis
   }
   await selectEnvInHeader(ctx, GQL_DEMO_ENV_NAME);
   await selectSvcInHeader(ctx, GQL_DEMO_SVC_NAME);
-  // EM setup uses navigateToTab('environments'); GraphQL lesson steps need Studio UI afterward.
   await navigateToGraphqlStudio(ctx);
 }
 
@@ -171,7 +366,7 @@ export async function ensureGrpcDemoProtocolReady(ctx: DemoActionContext): Promi
   await ensureDemoEnvironment(ctx, GRPC_DEMO_ENV_NAME);
   await ensureDemoMicroservice(ctx, GRPC_DEMO_SVC_NAME);
   await navigateToEnvironmentManager(ctx);
-  await ctx.delay(400);
+  await ctx.delay(120);
   await expandNamedMicroservice(ctx, GRPC_DEMO_SVC_NAME);
   await ensureProtocolDisabled(ctx, 'http');
   await ensureProtocolEnabled(ctx, 'grpc');
@@ -300,13 +495,13 @@ async function clickDeleteAndConfirm(
   const deleteBtn = document.querySelector<HTMLElement>(deleteButtonSelector);
   if (!deleteBtn) return;
   deleteBtn.click();
-  await ctx.delay(300);
+  await ctx.delay(120);
   // Handle up to two-stage confirm dialog (warning → continue → delete permanently).
   for (let i = 0; i < 2; i++) {
     const dialogBtn = document.querySelector<HTMLElement>('.confirm-dialog .btn-danger');
     if (!dialogBtn) break;
     dialogBtn.click();
-    await ctx.delay(300);
+    await ctx.delay(120);
   }
 }
 
@@ -318,6 +513,14 @@ export async function cleanupDemoMicroservice(
   ctx: DemoActionContext,
   name: string,
 ): Promise<void> {
+  // Prefer the settings bridge — zero tab navigation / EM UI churn.
+  // Exit → Contents must not flash Environments while teardown runs.
+  const w = getDemoBridgeWindow();
+  if (typeof w.__demoRemoveSettingsSvc === 'function') {
+    w.__demoRemoveSettingsSvc(name);
+    return;
+  }
+
   await navigateToEnvironmentManager(ctx);
   const svcCard = document.querySelector<HTMLElement>(`[data-svc-name="${name}"]`);
   if (!svcCard) return;
@@ -325,10 +528,10 @@ export async function cleanupDemoMicroservice(
   const collapseBtn = svcCard.querySelector<HTMLElement>('[data-testid^="em-svc-configure-"]');
   if (collapseBtn?.textContent?.includes('Collapse')) {
     collapseBtn.click();
-    await ctx.delay(300);
+    await ctx.delay(120);
   }
   await clickDeleteAndConfirm(ctx, `[data-svc-name="${name}"] .btn-danger`);
-  await ctx.delay(400);
+  await ctx.delay(120);
 }
 
 /**
@@ -339,11 +542,18 @@ export async function cleanupDemoEnvironment(
   ctx: DemoActionContext,
   name: string,
 ): Promise<void> {
+  // Prefer the settings bridge — same reason as cleanupDemoMicroservice.
+  const w = getDemoBridgeWindow();
+  if (typeof w.__demoRemoveSettingsEnv === 'function') {
+    w.__demoRemoveSettingsEnv(name);
+    return;
+  }
+
   await navigateToEnvironmentManager(ctx);
   const chip = document.querySelector<HTMLElement>(`[data-env-name="${name}"]`);
   if (!chip) return;
   await clickDeleteAndConfirm(ctx, `[data-env-name="${name}"] .settings-chip-delete`);
-  await ctx.delay(400);
+  await ctx.delay(120);
 }
 
 /**
@@ -391,19 +601,19 @@ async function submitEmAddRow(
   name: string,
 ): Promise<void> {
   await ctx.waitFor(inputSelector);
-  await ctx.delay(200);
+  await ctx.delay(100);
   const input = document.querySelector<HTMLInputElement>(inputSelector);
   if (!input) return;
   fillControlledInput(input, name);
-  await ctx.delay(200);
+  await ctx.delay(100);
   let addBtn = await waitForEnabledButton(ctx, addButtonSelector);
   if (!addBtn) {
     fillControlledInput(input, name);
-    await ctx.delay(200);
+    await ctx.delay(100);
     addBtn = await waitForEnabledButton(ctx, addButtonSelector);
   }
   addBtn?.click();
-  await ctx.delay(400);
+  await ctx.delay(120);
 }
 
 /**
@@ -424,7 +634,7 @@ export async function ensureDemoEnvironment(
     if (document.querySelector(`[data-env-name="${name}"]`)) break;
     await ctx.delay(100);
   }
-  await ctx.delay(400);
+  await ctx.delay(120);
 }
 
 /**
@@ -442,7 +652,7 @@ export async function ensureDemoMicroservice(
     if (document.querySelector(`[data-svc-name="${name}"]`)) break;
     await ctx.delay(100);
   }
-  await ctx.delay(400);
+  await ctx.delay(120);
 }
 
 /** Collapse whichever microservice card currently has the protocol panel open. */
@@ -482,7 +692,7 @@ export async function expandNamedMicroservice(
   if (configBtn) {
     configBtn.click();
     await ctx.waitFor(EM.PROTOCOL_PANEL);
-    await ctx.delay(600);
+    await ctx.delay(150);
     return;
   }
   await expandFirstMicroservice(ctx);
@@ -513,7 +723,7 @@ function panelScoped(selector: string): string {
 export async function navigateToEnvironmentManager(ctx: DemoActionContext): Promise<void> {
   if (!isDemoTargetVisible(EM.MANAGER)) {
     ctx.navigateToTab('environments');
-    await ctx.delay(400);
+    await ctx.delay(120);
     await ctx.waitFor(EM.MANAGER);
   }
 }
@@ -525,7 +735,7 @@ export async function expandFirstMicroservice(ctx: DemoActionContext): Promise<v
   if (!configureSel) return;
   await ctx.click(configureSel);
   await ctx.waitFor(EM.PROTOCOL_PANEL);
-  await ctx.delay(600);
+  await ctx.delay(150);
 }
 
 /** Deploy the first environment row on a protocol tab; optionally save an endpoint URL. */
@@ -544,7 +754,7 @@ export async function ensureFirstEnvDeployedOnProtocol(
       if (document.querySelector(panelScoped(EM.ENDPOINT_EDIT))) break;
       await ctx.delay(100);
     }
-    await ctx.delay(300);
+    await ctx.delay(120);
   }
 
   if (!endpointUrl) return;
@@ -575,7 +785,7 @@ export async function ensureNamedEnvDeployedOnProtocol(
       if (findEditBtnForEnv(envName)) break;
       await ctx.delay(100);
     }
-    await ctx.delay(300);
+    await ctx.delay(120);
   }
 
   if (!endpointUrl) return;
@@ -613,11 +823,11 @@ export async function editNamedProtocolEndpoint(
   }
   editBtn.click();
   await ctx.waitFor(EM.ENDPOINT_EDIT_INPUT);
-  await ctx.delay(600);
+  await ctx.delay(220);
   await ctx.fill(EM.ENDPOINT_EDIT_INPUT, url);
-  await ctx.delay(400);
+  await ctx.delay(180);
   await ctx.click(EM.ENDPOINT_SAVE);
-  await ctx.delay(700);
+  await ctx.delay(220);
 }
 
 /** Ensure at least one environment is deployed on the HTTP tab with a base URL. */
@@ -636,6 +846,15 @@ export async function ensureProtocolDisabled(
   ctx: DemoActionContext,
   protocol: ProtocolKey,
 ): Promise<void> {
+  const tabSel = PROTOCOL_TAB[protocol];
+  const tab = document.querySelector<HTMLElement>(tabSel);
+  if (!tab) return;
+  // Remove × is `display:none` until the tab wrap is hovered or active — activate
+  // first so the control is in the layout tree and clicks stick.
+  if (tab.getAttribute('aria-selected') !== 'true') {
+    tab.click();
+    await ctx.delay(80);
+  }
   const removeSel = emRemoveProtocolSel(protocol);
   const removeBtn = document.querySelector<HTMLElement>(removeSel);
   if (!removeBtn) return;
@@ -645,13 +864,12 @@ export async function ensureProtocolDisabled(
   // (e.g. env-collections removes http/ws/sse/graphql/grpc) would otherwise flash
   // a burst of "quick unnecessary highlights" before step 1's narration begins.
   removeBtn.click();
-  await ctx.delay(400);
-  const tabSel = PROTOCOL_TAB[protocol];
+  await ctx.delay(120);
   for (let i = 0; i < 20; i++) {
     if (!document.querySelector(tabSel)) break;
     await ctx.delay(100);
   }
-  await ctx.delay(300);
+  await ctx.delay(120);
 }
 
 /** Uncheck deploy on every env row except the named one inside the open protocol panel. */
@@ -683,23 +901,42 @@ export async function ensureProtocolEnabled(
   if (document.querySelector(tabSel)) return; // already enabled
   // Open the "+ Add protocol" dropdown
   await ctx.click(EM.ADD_PROTOCOL_BTN);
-  await ctx.delay(400);
-  // Select the target protocol from the menu
+  await ctx.delay(200);
+  // Scroll the target item into view and spotlight it so viewers can read the selection
   const itemSel = emAddProtocolItemSel(protocol);
+  const item = document.querySelector<HTMLElement>(itemSel);
+  item?.scrollIntoView({ block: 'nearest' });
+  await ctx.delay(100);
+  if (item) {
+    const dispose = showSpotlightRing(item);
+    await ctx.delay(1600);
+    dispose();
+  } else {
+    await ctx.delay(1600);
+  }
   await ctx.click(itemSel);
   // Wait for the tab to appear in the DOM (max ~2 s)
   for (let i = 0; i < 20; i++) {
     if (document.querySelector(tabSel)) break;
     await ctx.delay(100);
   }
-  await ctx.delay(400);
+  // Spotlight the newly-added protocol tab so viewers can see it appeared
+  const tab = document.querySelector<HTMLElement>(tabSel);
+  if (tab) {
+    tab.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    const dispose = showSpotlightRing(tab);
+    await ctx.delay(1600);
+    dispose();
+  } else {
+    await ctx.delay(300);
+  }
 }
 
 /** Switch protocol tab inside the expanded microservice card. */
 export async function selectProtocolTab(ctx: DemoActionContext, protocol: ProtocolKey): Promise<void> {
   await ctx.waitFor(EM.PROTOCOL_PANEL);
   await ctx.click(PROTOCOL_TAB[protocol]);
-  await ctx.delay(600);
+  await ctx.delay(150);
 }
 
 /** Inline-edit the first endpoint row in the active protocol panel. */
@@ -708,11 +945,11 @@ export async function editFirstProtocolEndpoint(ctx: DemoActionContext, url: str
   const editSel = panelScoped(EM.ENDPOINT_EDIT);
   await ctx.click(editSel);
   await ctx.waitFor(EM.ENDPOINT_EDIT_INPUT);
-  await ctx.delay(600);
+  await ctx.delay(220);
   await ctx.fill(EM.ENDPOINT_EDIT_INPUT, url);
-  await ctx.delay(400);
+  await ctx.delay(180);
   await ctx.click(EM.ENDPOINT_SAVE);
-  await ctx.delay(700);
+  await ctx.delay(220);
 }
 
 /** Set GraphQL endpoint base URL and optional default path on the first deployed row. */
@@ -747,7 +984,7 @@ export async function configureProtocolEndpointInEnvManager(
   await navigateToEnvironmentManager(ctx);
   // Give React a repaint tick after tab navigation so the spotlight
   // binds to the Environment Manager DOM, not the previous page.
-  await ctx.delay(400);
+  await ctx.delay(120);
   if (options?.svcName) {
     await expandNamedMicroservice(ctx, options.svcName);
   } else {
@@ -776,13 +1013,7 @@ export async function selectEnvInHeader(
   ctx: DemoActionContext,
   envName: string,
 ): Promise<void> {
-  const select = document.querySelector<HTMLSelectElement>(APP.HEADER_ENV_SELECT);
-  if (!select) return;
-  const option = Array.from(select.options).find(o => o.text.trim() === envName);
-  if (!option) return;
-  if (select.value === option.value) return; // already selected — skip to prevent visible re-flash
-  await ctx.selectOption(APP.HEADER_ENV_SELECT, option.value);
-  await ctx.delay(300);
+  await selectNamedHeaderOption(ctx, APP.HEADER_ENV_SELECT, envName);
 }
 
 /**
@@ -794,19 +1025,13 @@ export async function selectSvcInHeader(
   ctx: DemoActionContext,
   svcName: string,
 ): Promise<void> {
-  const select = document.querySelector<HTMLSelectElement>(APP.HEADER_SVC_SELECT);
-  if (!select) return;
-  const option = Array.from(select.options).find(o => o.text.trim() === svcName);
-  if (!option) return;
-  if (select.value === option.value) return; // already selected — skip to prevent visible re-flash
-  await ctx.selectOption(APP.HEADER_SVC_SELECT, option.value);
-  await ctx.delay(300);
+  await selectNamedHeaderOption(ctx, APP.HEADER_SVC_SELECT, svcName);
 }
 
 export async function navigateToWebSocketStudio(ctx: DemoActionContext): Promise<void> {
   if (!isDemoTargetVisible('[data-testid="ws-studio"]')) {
     ctx.navigateToTab('websocket-studio');
-    await ctx.delay(400);
+    await ctx.delay(120);
     await ctx.waitFor('[data-testid="ws-studio"]');
   }
 }
@@ -814,7 +1039,7 @@ export async function navigateToWebSocketStudio(ctx: DemoActionContext): Promise
 export async function navigateToSseStudio(ctx: DemoActionContext): Promise<void> {
   if (!isDemoTargetVisible('[data-testid="sse-studio"]')) {
     ctx.navigateToTab('sse-studio');
-    await ctx.delay(400);
+    await ctx.delay(120);
     await ctx.waitFor('[data-testid="sse-studio"]');
   }
 }
@@ -822,7 +1047,7 @@ export async function navigateToSseStudio(ctx: DemoActionContext): Promise<void>
 export async function navigateToGraphqlStudio(ctx: DemoActionContext): Promise<void> {
   if (!isDemoTargetVisible('[data-testid="gql-studio-page"]')) {
     ctx.navigateToTab('graphql-studio');
-    await ctx.delay(400);
+    await ctx.delay(120);
     await ctx.waitFor('[data-testid="gql-studio-page"]');
   }
 }
@@ -830,7 +1055,7 @@ export async function navigateToGraphqlStudio(ctx: DemoActionContext): Promise<v
 export async function navigateToGrpcStudio(ctx: DemoActionContext): Promise<void> {
   if (!isDemoTargetVisible('[data-testid="grpc-studio-page"]')) {
     ctx.navigateToTab('grpc-studio');
-    await ctx.delay(200);
+    await ctx.delay(120);
     await ctx.waitFor('[data-testid="grpc-studio-page"]');
   }
 }

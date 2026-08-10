@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import ErrorHandlerConfig from './ErrorHandlerConfig';
 import type { ErrorHandlerNodeData } from '../../types/workflow';
 
@@ -33,8 +34,9 @@ describe('ErrorHandlerConfig', () => {
   });
 
   it('renders error filter dropdown with all options', () => {
-    render(<ErrorHandlerConfig data={makeData()} onChange={vi.fn()} />);
-    expect(screen.getByDisplayValue('All Errors')).toBeTruthy();
+    const { container } = render(<ErrorHandlerConfig data={makeData()} onChange={vi.fn()} />);
+    expect(getCustomSelectValue(container, 0)).toBe('All Errors');
+    fireEvent.click(container.querySelectorAll('.cs-trigger')[0]!);
     expect(screen.getByText('HTTP Errors')).toBeTruthy();
     expect(screen.getByText('Assertion Failures')).toBeTruthy();
     expect(screen.getByText('Network Errors')).toBeTruthy();
@@ -42,14 +44,14 @@ describe('ErrorHandlerConfig', () => {
 
   it('calls onChange when error filter changes', () => {
     const onChange = vi.fn();
-    render(<ErrorHandlerConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('All Errors'), { target: { value: 'http-error' } });
+    const { container } = render(<ErrorHandlerConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'HTTP Errors');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ errorFilter: 'http-error' }));
   });
 
-  it('shows hint text matching selected filter', () => {
+  it('shows description matching selected filter', () => {
     render(<ErrorHandlerConfig data={makeData({ errorFilter: 'network-error' })} onChange={vi.fn()} />);
-    expect(screen.getByText(/Catch network\/timeout errors/)).toBeTruthy();
+    expect(screen.getByText(/Network\/timeout errors/)).toBeTruthy();
   });
 
   it('renders retry count input', () => {
@@ -73,70 +75,89 @@ describe('ErrorHandlerConfig', () => {
 
   it('hides retry settings when retryCount is 0', () => {
     render(<ErrorHandlerConfig data={makeData({ retryCount: 0 })} onChange={vi.fn()} />);
-    expect(screen.queryByText('Retry Delay (ms)')).toBeNull();
-    expect(screen.queryByText('Backoff Strategy')).toBeNull();
-    expect(screen.queryByText('Retry Timeout (ms)')).toBeNull();
+    expect(screen.queryByText('Delay')).toBeNull();
+    expect(screen.queryByText('Backoff')).toBeNull();
+    expect(screen.queryByText('Timeout')).toBeNull();
   });
 
   it('shows retry settings when retryCount > 0', () => {
     render(<ErrorHandlerConfig data={makeData({ retryCount: 3 })} onChange={vi.fn()} />);
-    expect(screen.getByText('Retry Delay (ms)')).toBeTruthy();
-    expect(screen.getByText('Backoff Strategy')).toBeTruthy();
-    expect(screen.getByText('Retry Timeout (ms)')).toBeTruthy();
+    expect(screen.getByText('Delay')).toBeTruthy();
+    expect(screen.getByText('Backoff')).toBeTruthy();
+    expect(screen.getByText('Timeout')).toBeTruthy();
   });
 
   it('calls onChange when retry delay changes', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Retry Delay (ms)');
-    const field = label.closest('.wf-config-field')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '2000' } });
+    fireEvent.change(screen.getByLabelText('Retry delay'), { target: { value: '2000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryDelayMs: 2000 }));
   });
 
   it('renders backoff strategy selector', () => {
-    render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={vi.fn()} />);
-    expect(screen.getByDisplayValue('Fixed')).toBeTruthy();
+    const { container } = render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={vi.fn()} />);
+    expect(getCustomSelectValue(container, 1)).toBe('Fixed');
+    fireEvent.click(container.querySelectorAll('.cs-trigger')[1]!);
     expect(screen.getByText('Exponential')).toBeTruthy();
   });
 
   it('calls onChange when backoff strategy changes', () => {
     const onChange = vi.fn();
-    render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Fixed'), { target: { value: 'exponential' } });
+    const { container } = render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
+    selectOptionByIndex(container, 1, 'Exponential');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryBackoff: 'exponential' }));
   });
 
-  it('shows fixed backoff hint for fixed strategy', () => {
+  it('shows retry preview with fixed delays', () => {
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2, retryDelayMs: 500, retryBackoff: 'fixed' })} onChange={vi.fn()} />);
-    expect(screen.getByText(/Wait 500ms between each retry/)).toBeTruthy();
+    const preview = document.querySelector('.errh-retry-preview');
+    expect(preview).toBeTruthy();
+    expect(preview!.textContent).toContain('500ms');
+    expect(preview!.textContent).toContain('Retry 1');
+    expect(preview!.textContent).toContain('Retry 2');
   });
 
-  it('shows exponential backoff hint for exponential strategy', () => {
-    render(<ErrorHandlerConfig data={makeData({ retryCount: 2, retryDelayMs: 500, retryBackoff: 'exponential' })} onChange={vi.fn()} />);
-    expect(screen.getByText(/Wait 500ms, 1000ms, 2000ms/)).toBeTruthy();
+  it('shows retry preview with exponential delays', () => {
+    render(<ErrorHandlerConfig data={makeData({ retryCount: 3, retryDelayMs: 500, retryBackoff: 'exponential' })} onChange={vi.fn()} />);
+    const preview = document.querySelector('.errh-retry-preview');
+    expect(preview).toBeTruthy();
+    expect(preview!.textContent).toContain('500ms');
+    expect(preview!.textContent).toContain('1s');
+    expect(preview!.textContent).toContain('2s');
+  });
+
+  it('caps retry preview steps at 5 when retryCount is greater than 5', () => {
+    render(<ErrorHandlerConfig data={makeData({ retryCount: 6, retryDelayMs: 100, retryBackoff: 'fixed' })} onChange={vi.fn()} />);
+    const preview = document.querySelector('.errh-retry-preview');
+    expect(preview).toBeTruthy();
+    expect(preview!.textContent).toContain('Retry 5');
+    expect(preview!.textContent).not.toContain('Retry 6');
+  });
+
+  it('formats retry preview delay with decimal seconds when needed', () => {
+    render(<ErrorHandlerConfig data={makeData({ retryCount: 1, retryDelayMs: 1500, retryBackoff: 'fixed' })} onChange={vi.fn()} />);
+    const preview = document.querySelector('.errh-retry-preview');
+    expect(preview).toBeTruthy();
+    expect(preview!.textContent).toContain('1.5s');
   });
 
   it('calls onChange when retry timeout changes', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Retry Timeout (ms)');
-    const field = label.closest('.wf-config-field')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '30000' } });
+    fireEvent.change(screen.getByLabelText('Retry timeout'), { target: { value: '30000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryTimeoutMs: 30000 }));
   });
 
   it('renders continueOnError checkbox', () => {
     render(<ErrorHandlerConfig data={makeData()} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Continue workflow after catch/)).toBeTruthy();
+    expect(screen.getByText('Continue workflow after catch')).toBeTruthy();
   });
 
   it('calls onChange when continueOnError is toggled', () => {
     const onChange = vi.fn();
-    render(<ErrorHandlerConfig data={makeData()} onChange={onChange} />);
-    fireEvent.click(screen.getByLabelText(/Continue workflow after catch/));
+    const { container } = render(<ErrorHandlerConfig data={makeData()} onChange={onChange} />);
+    const checkbox = container.querySelector('.errh-checkbox-label input[type="checkbox"]') as HTMLInputElement;
+    fireEvent.click(checkbox);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ continueOnError: true }));
   });
 
@@ -150,9 +171,32 @@ describe('ErrorHandlerConfig', () => {
     expect(screen.getByText(/Workflow marks this handler as failed/)).toBeTruthy();
   });
 
-  it('renders "How it works" info section', () => {
+  it('shows plain timeout unit text when timeout is non-zero', () => {
+    const { container } = render(
+      <ErrorHandlerConfig data={makeData({ retryCount: 2, retryTimeoutMs: 1000 })} onChange={vi.fn()} />,
+    );
+    const field = screen.getByLabelText('Retry timeout').closest('.errh-field-inline')!;
+    expect(field.textContent).toContain('ms');
+    expect(field.textContent).not.toContain('no limit');
+    expect(container.querySelector('.errh-unit-note')).toBeNull();
+  });
+
+  it('shows no-limit badge in hint when timeout is zero', () => {
+    const { container } = render(
+      <ErrorHandlerConfig data={makeData({ retryCount: 2, retryTimeoutMs: 0 })} onChange={vi.fn()} />,
+    );
+    const field = screen.getByLabelText('Retry timeout').closest('.errh-field-inline')!;
+    expect(field.textContent).toContain('ms');
+    expect(field.textContent).not.toContain('no limit');
+    expect(container.querySelector('.errh-unit-note')?.textContent).toBe('no limit');
+  });
+
+  it('renders output handles guide', () => {
     render(<ErrorHandlerConfig data={makeData()} onChange={vi.fn()} />);
-    expect(screen.getByText('How it works')).toBeTruthy();
+    expect(screen.getByText('Output Handles')).toBeTruthy();
+    expect(screen.getByText('Body')).toBeTruthy();
+    expect(screen.getByText('Catch')).toBeTruthy();
+    expect(screen.getByText('Done')).toBeTruthy();
   });
 
   it('clamps retry count to 0 for NaN input', () => {
@@ -165,20 +209,43 @@ describe('ErrorHandlerConfig', () => {
   it('clamps retry timeout to 0 for NaN input', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Retry Timeout (ms)');
-    const field = label.closest('.wf-config-field')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'x' } });
+    fireEvent.change(screen.getByLabelText('Retry timeout'), { target: { value: 'x' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryTimeoutMs: 0 }));
   });
 
   it('clamps retry delay to 0 for NaN input', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    const label = screen.getByText('Retry Delay (ms)');
-    const field = label.closest('.wf-config-field')!;
-    const input = field.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'abc' } });
+    fireEvent.change(screen.getByLabelText('Retry delay'), { target: { value: 'abc' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryDelayMs: 0 }));
+  });
+
+  it('clamps retry delay to 0 for negative input', () => {
+    const onChange = vi.fn();
+    render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('Retry delay'), { target: { value: '-100' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryDelayMs: 0 }));
+  });
+
+  it('clamps retry timeout to 0 for negative input', () => {
+    const onChange = vi.fn();
+    render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('Retry timeout'), { target: { value: '-1000' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryTimeoutMs: 0 }));
+  });
+
+  it('shows empty filter description when errorFilter does not match options', () => {
+    const dataWithUnknownFilter = makeData({
+      errorFilter: 'unknown-filter' as unknown as ErrorHandlerNodeData['errorFilter'],
+    });
+    const { container } = render(<ErrorHandlerConfig data={dataWithUnknownFilter} onChange={vi.fn()} />);
+    const desc = container.querySelector('.errh-filter-desc');
+    expect(desc).toBeTruthy();
+    expect(desc!.textContent).toBe('');
+  });
+
+  it('does not show retry preview when retryCount is 0', () => {
+    render(<ErrorHandlerConfig data={makeData({ retryCount: 0 })} onChange={vi.fn()} />);
+    expect(document.querySelector('.errh-retry-preview')).toBeNull();
   });
 });

@@ -508,26 +508,43 @@ function SavedDetailCard({
   const hCount = headerCount(profile);
   const pCount = paramCount(profile);
   const protocolMode = profile.protocolMode ?? 'auto';
+  const hasEnv = profileHasEnvVars(profile);
+  const hasMtls = profileHasMtls(profile);
+  const scheme = profile.url.trim().toLowerCase().startsWith('wss://') ? 'wss' : 'ws';
+  const reconnectLabel = profile.autoReconnect
+    ? `${profile.maxReconnectAttempts ?? 5}× · ${profile.reconnectIntervalMs ?? 3000}ms`
+    : 'Off';
 
   return (
     <div className="ws-saved-detail-card" data-testid={`profile-detail-${profile.id}`}>
-      <div className="ws-saved-detail-head">
-        <div className="ws-saved-detail-titlewrap">
-          <span className="ws-saved-detail-name">{profile.name}</span>
-          {protocolMode !== 'auto' && <span className="ws-saved-tag">{protocolMode}</span>}
+      <header className="ws-saved-detail-hero">
+        <div className="ws-saved-detail-hero-main">
+          <div className="ws-saved-detail-titlewrap">
+            <h2 className="ws-saved-detail-name">{profile.name}</h2>
+            <div className="ws-saved-detail-badges">
+              <span className={`ws-saved-badge ws-saved-badge--scheme-${scheme}`}>{scheme}</span>
+              <span className="ws-saved-badge">{protocolMode}</span>
+              {hasEnv && <span className="ws-saved-badge ws-saved-badge--accent">env vars</span>}
+              {hasMtls && <span className="ws-saved-badge ws-saved-badge--accent">mTLS</span>}
+            </div>
+          </div>
+          <div className="ws-saved-detail-url-row">
+            <code className="ws-saved-detail-url" title={profile.url}>{profile.url}</code>
+          </div>
         </div>
         <button
-          className="ws-connect-btn ws-connect-btn-primary"
+          type="button"
+          className="ws-connect-btn ws-connect-btn-primary ws-saved-detail-load"
           onClick={() => handleLoad(profile.id)}
           data-testid={`load-btn-${profile.id}`}
         >
           Load &amp; Connect
         </button>
-      </div>
-      <div className="ws-saved-detail-url">{profile.url}</div>
+      </header>
 
-      <div className="ws-saved-detail-toolbar">
+      <div className="ws-saved-detail-toolbar" role="toolbar" aria-label="Profile actions">
         <button
+          type="button"
           className="ws-saved-action-btn"
           onClick={() => handleEdit(profile)}
           data-testid={`edit-btn-${profile.id}`}
@@ -535,31 +552,39 @@ function SavedDetailCard({
           Edit
         </button>
         <button
+          type="button"
           className="ws-saved-action-btn"
           onClick={() => onDuplicateProfile(profile.id)}
           data-testid={`dup-btn-${profile.id}`}
         >
           Duplicate
         </button>
-        <button className="ws-saved-action-btn" onClick={handleExport}>
+        <button type="button" className="ws-saved-action-btn" onClick={handleExport}>
           Export
         </button>
         <span className="ws-saved-detail-spacer" />
         {confirmDeleteId === profile.id ? (
           <>
+            <span className="ws-saved-detail-delete-prompt">Delete this profile?</span>
             <button
+              type="button"
               className="ws-saved-action-btn ws-saved-action-delete"
               onClick={() => handleDelete(profile.id)}
               data-testid={`confirm-delete-${profile.id}`}
             >
               Confirm
             </button>
-            <button className="ws-saved-action-btn" onClick={() => setConfirmDeleteId(null)}>
-              No
+            <button
+              type="button"
+              className="ws-saved-action-btn"
+              onClick={() => setConfirmDeleteId(null)}
+            >
+              Cancel
             </button>
           </>
         ) : (
           <button
+            type="button"
             className="ws-saved-action-btn ws-saved-action-delete"
             onClick={() => setConfirmDeleteId(profile.id)}
             data-testid={`delete-btn-${profile.id}`}
@@ -569,54 +594,71 @@ function SavedDetailCard({
         )}
       </div>
 
-      <div className="ws-saved-summary-grid">
-        <div className="ws-saved-summary-item">
-          <span className="ws-saved-summary-label">Subprotocols</span>
-          <span className="ws-saved-summary-value">{profile.subprotocols || '\u2014'}</span>
+      <section className="ws-saved-detail-section" aria-label="Connection settings">
+        <h3 className="ws-saved-detail-section-title">Connection</h3>
+        <div className="ws-saved-prop-card">
+          <div className="ws-saved-prop-row">
+            <span className="ws-saved-prop-label">Subprotocols</span>
+            <span className={`ws-saved-prop-value${profile.subprotocols ? '' : ' ws-saved-prop-value--muted'}`}>
+              {profile.subprotocols || 'None'}
+            </span>
+          </div>
+          <div className="ws-saved-prop-row">
+            <span className="ws-saved-prop-label">Headers</span>
+            <span className={`ws-saved-prop-value${hCount > 0 ? '' : ' ws-saved-prop-value--muted'}`}>
+              {hCount > 0 ? `${hCount} configured` : 'None'}
+            </span>
+          </div>
+          <div className="ws-saved-prop-row">
+            <span className="ws-saved-prop-label">Query params</span>
+            <span className={`ws-saved-prop-value${pCount > 0 ? '' : ' ws-saved-prop-value--muted'}`}>
+              {pCount > 0 ? `${pCount} configured` : 'None'}
+            </span>
+          </div>
         </div>
-        <div className="ws-saved-summary-item">
-          <span className="ws-saved-summary-label">Headers</span>
-          <span className="ws-saved-summary-value">
-            {hCount > 0 ? `${hCount} header${hCount > 1 ? 's' : ''}` : 'no headers'}
-          </span>
-        </div>
-        <div className="ws-saved-summary-item">
-          <span className="ws-saved-summary-label">Query params</span>
-          <span className="ws-saved-summary-value">
-            {pCount > 0 ? `${pCount} param${pCount > 1 ? 's' : ''}` : 'none'}
-          </span>
-        </div>
-        <div className="ws-saved-summary-item">
-          <span className="ws-saved-summary-label">Auto-reconnect</span>
-          <span className="ws-saved-summary-value">
-            {profile.autoReconnect ? 'auto-reconnect' : 'off'}
-          </span>
-        </div>
-        <div className="ws-saved-summary-item">
-          <span className="ws-saved-summary-label">Protocol mode</span>
-          <span className="ws-saved-summary-value">{protocolMode}</span>
-        </div>
-        <div className="ws-saved-summary-item">
-          <span className="ws-saved-summary-label">Max messages</span>
-          <span className="ws-saved-summary-value">{profile.maxMessages ?? '\u2014'}</span>
-        </div>
-      </div>
+      </section>
 
-      {(profileHasEnvVars(profile) || profileHasMtls(profile)) && (
-        <div className="ws-saved-detail-tags">
-          {profileHasEnvVars(profile) && <span className="ws-saved-tag">env vars</span>}
-          {profileHasMtls(profile) && <span className="ws-saved-tag">mTLS</span>}
+      <section className="ws-saved-detail-section" aria-label="Runtime settings">
+        <h3 className="ws-saved-detail-section-title">Runtime</h3>
+        <div className="ws-saved-prop-card">
+          <div className="ws-saved-prop-row">
+            <span className="ws-saved-prop-label">Auto-reconnect</span>
+            <span className="ws-saved-prop-value ws-saved-prop-value--inline">
+              <span
+                className={`ws-saved-status-pill${profile.autoReconnect ? ' ws-saved-status-pill--on' : ''}`}
+              >
+                {profile.autoReconnect ? 'On' : 'Off'}
+              </span>
+              {profile.autoReconnect && (
+                <span className="ws-saved-prop-hint">{reconnectLabel}</span>
+              )}
+            </span>
+          </div>
+          <div className="ws-saved-prop-row">
+            <span className="ws-saved-prop-label">Protocol mode</span>
+            <span className="ws-saved-prop-value">{protocolMode}</span>
+          </div>
+          <div className="ws-saved-prop-row">
+            <span className="ws-saved-prop-label">Max messages</span>
+            <span className="ws-saved-prop-value">
+              {(profile.maxMessages ?? 1000).toLocaleString()}
+            </span>
+          </div>
         </div>
-      )}
+      </section>
 
       {profile.notes && (
-        <div className="ws-saved-notes">
-          <span className="ws-saved-summary-label">Notes</span>
-          <p className="ws-saved-notes-text">{profile.notes}</p>
-        </div>
+        <section className="ws-saved-detail-section" aria-label="Notes">
+          <h3 className="ws-saved-detail-section-title">Notes</h3>
+          <div className="ws-saved-notes">
+            <p className="ws-saved-notes-text">{profile.notes}</p>
+          </div>
+        </section>
       )}
 
-      <span className="ws-saved-detail-updated">Updated {formatTimeAgo(profile.updatedAt)}</span>
+      <footer className="ws-saved-detail-footer">
+        <span className="ws-saved-detail-updated">Updated {formatTimeAgo(profile.updatedAt)}</span>
+      </footer>
     </div>
   );
 }

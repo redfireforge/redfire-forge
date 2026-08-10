@@ -39,18 +39,27 @@ export default function DemoHub({ hub }: DemoHubProps) {
             onSelect={hub.selectLesson}
             onBack={hub.goBack}
             onResetLesson={hub.resetLesson}
-            onResetAll={hub.resetProgress}
+            onResetAll={hub.resetLessons}
             initialCategory={progress.lastCategory ?? state.selectedLesson?.category}
             onCategoryChange={hub.setLastCategory}
           />
         )}
-        {state.view === 'concept' && state.selectedLesson && (
+        {/* Concept while reading Concept. Also keep it painted if Start has
+            flipped view→live but the app tab has not left Demo Hub yet —
+            otherwise the body is an empty blue hole during Preparing. */}
+        {(state.view === 'concept' || (state.view === 'live' && hub.isDemoBootstrapping)) && state.selectedLesson && (
           <LessonPlayer
             lesson={state.selectedLesson}
             onStartDemo={hub.startLiveDemo}
+            newStepsFrom={
+              progress.completedLessons.includes(state.selectedLesson.id)
+              && (state.selectedLesson.contentVersion ?? 1) > (progress.completedVersions?.[state.selectedLesson.id] ?? 1)
+                ? progress.completedStepCounts?.[state.selectedLesson.id] ?? state.selectedLesson.previousStepCount
+                : undefined
+            }
           />
         )}
-        {state.view === 'live' && state.selectedLesson && (
+        {state.view === 'live' && state.selectedLesson && !hub.isDemoBootstrapping && (
           <div className="demo-hub-live-placeholder" data-testid="demo-hub-live-placeholder">
             <p className="demo-hub-live-placeholder-title">Live demo in progress</p>
             <p className="demo-hub-live-placeholder-desc">

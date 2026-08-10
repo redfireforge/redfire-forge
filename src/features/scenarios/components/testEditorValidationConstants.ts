@@ -1,5 +1,6 @@
-import { createElement, type ChangeEvent, type SVGProps } from 'react';
+import { createElement, type SVGProps } from 'react';
 import type { ComparisonOperator, FieldOperator } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export function getAssertionTypeBadgeLabel(type: string): string {
   switch (type) {
@@ -25,22 +26,22 @@ export function getAssertionTypeBadgeLabel(type: string): string {
   }
 }
 
-export const NUMERIC_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
-  { value: '=', label: 'equals (=)' },
-  { value: '!=', label: 'not equals (≠)' },
-  { value: '>', label: 'greater than (>)' },
-  { value: '>=', label: 'at least (≥)' },
-  { value: '<', label: 'less than (<)' },
-  { value: '<=', label: 'at most (≤)' },
+export const NUMERIC_OP_OPTIONS: { value: ComparisonOperator; label: string; detail: string }[] = [
+  { value: '=', detail: '=', label: 'equals' },
+  { value: '!=', detail: '≠', label: 'not equals' },
+  { value: '>', detail: '>', label: 'greater than' },
+  { value: '>=', detail: '≥', label: 'at least' },
+  { value: '<', detail: '<', label: 'less than' },
+  { value: '<=', detail: '≤', label: 'at most' },
 ];
 
-export const DATE_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
-  { value: '=', label: 'equals (=)' },
-  { value: '!=', label: 'not equals (≠)' },
-  { value: '>', label: 'after (>)' },
-  { value: '>=', label: 'on or after (≥)' },
-  { value: '<', label: 'before (<)' },
-  { value: '<=', label: 'on or before (≤)' },
+export const DATE_OP_OPTIONS: { value: ComparisonOperator; label: string; detail: string }[] = [
+  { value: '=', detail: '=', label: 'equals' },
+  { value: '!=', detail: '≠', label: 'not equals' },
+  { value: '>', detail: '>', label: 'after' },
+  { value: '>=', detail: '≥', label: 'on or after' },
+  { value: '<', detail: '<', label: 'before' },
+  { value: '<=', detail: '≤', label: 'on or before' },
 ];
 
 export interface ComparisonSelectProps {
@@ -72,15 +73,15 @@ export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 export function ComparisonSelect({ value, onChange, options, className }: ComparisonSelectProps) {
-  return createElement(
-    'select',
-    {
-      value,
-      onChange: (e: ChangeEvent<HTMLSelectElement>) => onChange(e.target.value as ComparisonOperator),
-      className: className ?? 'assertion-select assertion-select-operator',
-    },
-    ...options.map((o) => createElement('option', { key: o.value, value: o.value }, o.label)),
-  );
+  return createElement(CustomSelect, {
+    value,
+    onChange: (v: string) => onChange(v as ComparisonOperator),
+    options,
+    className: className ?? 'assertion-select assertion-select-operator',
+    size: 'sm' as const,
+    // Operator details are single glyphs (=, ≠, ≥) — show them in the trigger.
+    showDetailInTrigger: true,
+  });
 }
 
 export const FIELD_OP_OPTIONS: { value: FieldOperator; label: string }[] = [

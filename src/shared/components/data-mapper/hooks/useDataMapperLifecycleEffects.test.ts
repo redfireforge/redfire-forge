@@ -97,4 +97,39 @@ describe('useDataMapperLifecycleEffects', () => {
     expect(fetchSampleData).toHaveBeenCalled();
     expect(setSourceSample).not.toHaveBeenCalled();
   });
+
+  it('auto-fetches source sample for populate-from-api without existing mappings', async () => {
+    const setSourceSample = vi.fn();
+    const sample = { id: 1, name: 'Leanne' };
+    const fetchSampleData = vi.fn().mockResolvedValue(sample);
+    const adapter = makeAdapter({
+      contextId: 'populate-from-api',
+      fetchSampleData,
+      sources: [{ id: 'api-response', label: 'API Response' }],
+    });
+
+    await act(async () => {
+      renderHook(() =>
+        useDataMapperLifecycleEffects({
+          mappings: [],
+          repairTick: undefined,
+          repairedMappingsRef: undefined,
+          setMappings: vi.fn(),
+          onChange: undefined,
+          autoMapScoresRef: { current: new Map() },
+          patternMappingIdsRef: { current: new Set() },
+          adapter,
+          activeSourceId: 'api-response',
+          sourceSampleOverrides: {},
+          setSourceSample,
+          clearIgnoredRepairIssues: vi.fn(),
+          toast: null,
+          setToast: vi.fn(),
+        }),
+      );
+    });
+
+    expect(fetchSampleData).toHaveBeenCalled();
+    expect(setSourceSample).toHaveBeenCalledWith('api-response', sample);
+  });
 });

@@ -90,7 +90,7 @@ describe('WorkflowVersionDiff', () => {
 
   it('calls onClose when close button clicked', () => {
     render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
-    fireEvent.click(screen.getByTitle('Close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -241,5 +241,155 @@ describe('WorkflowVersionDiff', () => {
     render(<WorkflowVersionDiff open older={olderVersion} newer={noServices} onClose={onClose} />);
     fireEvent.click(screen.getByText('Services'));
     expect(screen.getByText('API')).toBeTruthy();
+  });
+
+  // ── Removed edges ──
+
+  it('shows removed edges on Edges tab', () => {
+    const fewerEdges = makeVersion({
+      id: 'fewer-edges',
+      edges: [],
+      edgeCount: 0,
+    });
+    render(<WorkflowVersionDiff open older={olderVersion} newer={fewerEdges} onClose={onClose} />);
+    fireEvent.click(screen.getByText('Edges'));
+    // e1 (n1 → n2) was removed
+    expect(screen.getByText('n1')).toBeTruthy();
+    expect(screen.getByText('n2')).toBeTruthy();
+  });
+
+  it('shows removed edge labels', () => {
+    const withLabel = makeVersion({
+      id: 'with-lbl',
+      edges: [{ id: 'e1', source: 'n1', target: 'n2', label: 'ok' }],
+    });
+    const fewerEdges = makeVersion({
+      id: 'fewer-lbl',
+      edges: [],
+      edgeCount: 0,
+    });
+    render(<WorkflowVersionDiff open older={withLabel} newer={fewerEdges} onClose={onClose} />);
+    fireEvent.click(screen.getByText('Edges'));
+    expect(screen.getByText('ok')).toBeTruthy();
+  });
+
+  // ── Drag interaction ──
+
+  it('drags the modal via header mousedown + mousemove + mouseup', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const header = document.querySelector('.wf-version-diff-header')!;
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 50 });
+    fireEvent.mouseMove(document, { clientX: 120, clientY: 70 });
+    // Modal should now have fixed positioning
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.classList.contains('wf-version-diff-modal--positioned')).toBe(true);
+    fireEvent.mouseUp(document);
+    // After mouseup, further moves don't change position
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('drag skips when mousedown target is a button', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const closeBtn = screen.getByRole('button', { name: 'Close' });
+    fireEvent.mouseDown(closeBtn, { clientX: 100, clientY: 50 });
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.classList.contains('wf-version-diff-modal--positioned')).toBe(false);
+  });
+
+  // ── Resize interaction ──
+
+  it('resizes via SE handle', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const handle = document.querySelector('.wf-vd-resize-se')!;
+    fireEvent.mouseDown(handle, { clientX: 500, clientY: 400 });
+    fireEvent.mouseMove(document, { clientX: 600, clientY: 500 });
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.style.width).toBeTruthy();
+    expect(modal.style.height).toBeTruthy();
+    fireEvent.mouseUp(document);
+  });
+
+  it('resizes via NW handle (north + west)', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const handle = document.querySelector('.wf-vd-resize-nw')!;
+    fireEvent.mouseDown(handle, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(document, { clientX: 80, clientY: 80 });
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.style.width).toBeTruthy();
+    fireEvent.mouseUp(document);
+  });
+
+  it('resizes via E handle', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const handle = document.querySelector('.wf-vd-resize-e')!;
+    fireEvent.mouseDown(handle, { clientX: 500, clientY: 300 });
+    fireEvent.mouseMove(document, { clientX: 600, clientY: 300 });
+    fireEvent.mouseUp(document);
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.classList.contains('wf-version-diff-modal--positioned')).toBe(true);
+  });
+
+  it('resizes via N handle', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const handle = document.querySelector('.wf-vd-resize-n')!;
+    fireEvent.mouseDown(handle, { clientX: 300, clientY: 100 });
+    fireEvent.mouseMove(document, { clientX: 300, clientY: 80 });
+    fireEvent.mouseUp(document);
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.style.top).toBeTruthy();
+  });
+
+  it('resizes via W handle', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const handle = document.querySelector('.wf-vd-resize-w')!;
+    fireEvent.mouseDown(handle, { clientX: 100, clientY: 300 });
+    fireEvent.mouseMove(document, { clientX: 80, clientY: 300 });
+    fireEvent.mouseUp(document);
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.style.width).toBeTruthy();
+  });
+
+  it('resizes via S handle', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const handle = document.querySelector('.wf-vd-resize-s')!;
+    fireEvent.mouseDown(handle, { clientX: 300, clientY: 400 });
+    fireEvent.mouseMove(document, { clientX: 300, clientY: 500 });
+    fireEvent.mouseUp(document);
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.style.height).toBeTruthy();
+  });
+
+  // ── Positioned modal style ──
+
+  it('applies positioned styles after drag', () => {
+    render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
+    const header = document.querySelector('.wf-version-diff-header')!;
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 50 });
+    fireEvent.mouseMove(document, { clientX: 150, clientY: 80 });
+    fireEvent.mouseUp(document);
+    const modal = document.querySelector('.wf-version-diff-modal') as HTMLElement;
+    expect(modal.style.position).toBe('fixed');
+    expect(modal.style.left).toBeTruthy();
+    expect(modal.style.top).toBeTruthy();
+    expect(modal.style.maxWidth).toBe('none');
+    expect(modal.style.maxHeight).toBe('none');
+  });
+
+  // ── Total changes singular ──
+
+  it('shows "change" (singular) when only 1 change', () => {
+    const oneDiff = makeVersion({
+      id: 'one-diff',
+      nodes: [
+        { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Fetch' } },
+        { id: 'n2', type: 'script', position: { x: 200, y: 0 }, data: { label: 'Transform' } },
+        { id: 'n3', type: 'delay', position: { x: 400, y: 0 }, data: { label: 'New' } },
+      ],
+      edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+      variables: { baseUrl: 'https://api.example.com', token: 'abc' },
+      services: [{ id: 's1', name: 'API', endpoints: {}, defaultAuth: 'inherit' }],
+    });
+    render(<WorkflowVersionDiff open older={olderVersion} newer={oneDiff} onClose={onClose} />);
+    expect(document.querySelector('.wf-version-diff-summary-text')?.textContent).toBe('change');
   });
 });

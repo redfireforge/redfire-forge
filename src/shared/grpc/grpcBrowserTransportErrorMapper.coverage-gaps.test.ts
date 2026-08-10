@@ -76,6 +76,21 @@ describe('grpcBrowserTransportErrorMapper coverage gaps', () => {
     })).toBeUndefined();
   });
 
+  it('classifyBrowserTransportFetchFailure maps cors/protocol/network patterns', () => {
+    expect(classifyBrowserTransportFetchFailure({
+      error: new Error('CORS preflight request failed'),
+      transportMode: 'grpc-web',
+    })).toBe('cors');
+    expect(classifyBrowserTransportFetchFailure({
+      error: new Error('unexpected content-type text/html response'),
+      transportMode: 'spring-servlet',
+    })).toBe('protocol_mismatch');
+    expect(classifyBrowserTransportFetchFailure({
+      error: new Error('Network request failed'),
+      transportMode: 'grpc-web',
+    })).toBe('proxy_unreachable');
+  });
+
   it('classifyBrowserTransportFetchFailure stringifies non-Error values', () => {
     expect(classifyBrowserTransportFetchFailure({
       error: { reason: 'Failed to fetch' },
@@ -153,6 +168,21 @@ describe('grpcBrowserTransportErrorMapper coverage gaps', () => {
       bodyLength: 0,
       transportMode: 'grpc-web',
     })).toBe('protocol_mismatch');
+  });
+
+  it('classifyBrowserTransportHttpResponse maps 404 differently for browser vs non-browser modes', () => {
+    expect(classifyBrowserTransportHttpResponse({
+      httpStatus: 404,
+      contentType: 'application/grpc',
+      bodyLength: 0,
+      transportMode: 'grpc-web',
+    })).toBe('protocol_mismatch');
+    expect(classifyBrowserTransportHttpResponse({
+      httpStatus: 404,
+      contentType: 'application/grpc',
+      bodyLength: 0,
+      transportMode: 'express',
+    })).toBe('server_status');
   });
 
   it('resetGrpcBrowserTransportErrorMapperForTests is a no-op symmetry hook', () => {
@@ -235,6 +265,19 @@ describe('grpcBrowserTransportErrorMapper coverage gaps', () => {
       code: GRPC_ERROR_CODES.UNREACHABLE,
       details: { browserTransportFailure: 'unexpected' as 'cors', transportMode: 'grpc-web' },
     })).toBeUndefined();
+  });
+
+  it('formatBrowserTransportFailureHint covers proxy_unreachable and protocol_mismatch hints', () => {
+    expect(formatBrowserTransportFailureHint({
+      message: 'fail',
+      code: GRPC_ERROR_CODES.UNREACHABLE,
+      details: { browserTransportFailure: 'proxy_unreachable', transportMode: 'grpc-web' },
+    })).toMatch(/reachable/i);
+    expect(formatBrowserTransportFailureHint({
+      message: 'fail',
+      code: GRPC_ERROR_CODES.UNREACHABLE,
+      details: { browserTransportFailure: 'protocol_mismatch', transportMode: 'spring-servlet' },
+    })).toMatch(/transport mode/i);
   });
 
   it('mapBrowserTransportDecodeFailure returns undefined for non-browser transports', () => {

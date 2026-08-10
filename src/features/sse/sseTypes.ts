@@ -84,3 +84,38 @@ export function createSseEvent(
 export function resetSseIdCounter(): void {
   sseIdCounter = 0;
 }
+
+// ─── Multi-Tab Types (Phase 2) ────────────────────────────────────
+
+export const SSE_MAX_TABS = 8;
+
+export interface SseConnectionTab {
+  id: string;
+  label: string;
+  labelManual?: boolean;
+  url: string;
+  headers: WsKeyValueEntry[];
+  auth?: AuthConfig;
+  autoReconnect: boolean;
+  maxRetries: number;
+  leftTab: SseLeftTab;
+  rightTab: SseRightTab;
+}
+
+export interface SsePersistedTabState {
+  tabs: SseConnectionTab[];
+  activeTabId: string;
+}
+
+export function createDefaultSseTab(id: string, label = 'New Connection'): SseConnectionTab {
+  return {
+    id,
+    label,
+    url: '',
+    headers: [],
+    autoReconnect: true,
+    maxRetries: 10,
+    leftTab: 'connect',
+    rightTab: 'events',
+  };
+}

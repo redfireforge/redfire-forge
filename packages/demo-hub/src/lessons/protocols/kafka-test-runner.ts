@@ -16,6 +16,8 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { ensureKafkaConnected } from '../setup-helpers';
 import { deleteWorkflowByName, seedNamedWorkflow } from '../../adapters';
+import { HAR } from '@shared/selectors';
+import { showSpotlightRing } from '../../demoRipple';
 
 // ── Kafka Produce Demo Workflow Factory ────────────────────────────
 
@@ -279,6 +281,11 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
       description:
         'The **Initial Variables** row shows `topic = orders.created`. Try changing it to `payments.events` to produce to a different topic — the workflow definition stays untouched. Change it back to `orders.created` before running.',
       highlight: '.wfp-var-row, [data-testid="var-row"]',
+      preAction: async (ctx) => {
+        const row = document.querySelector<HTMLElement>('.wfp-var-row, [data-testid="var-row"]');
+        row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (row) await ctx.delay(300);
+      },
     },
 
     // Step 4: Set iterations
@@ -362,30 +369,42 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
       id: 'kr-badges',
       title: 'PRODUCE Badges',
       description:
-        'Click the **Request Details** tab to see individual result rows. Each row has a **PRODUCE** method badge — the Kafka equivalent of HTTP\'s GET/POST badges. The URL column shows the topic name (`kafka://orders.created`).\n\n' +
-        '**On success:** Click any row to see the partition, offset, and body that was produced. This is your audit trail for every Kafka message sent during the test.\n\n' +
-        '**On failure:** The status shows ERROR and the row contains the error message (e.g., "Connection refused", "Broker not available"). Check that Docker/Redpanda is running and retry.',
-      // Highlight the whole table row so the spotlight is large enough to see
-      highlight: '.clickable-row',
+        'Click the **Request Details** tab to see individual result rows. Each row has a **PRODUCE** method badge — the Kafka equivalent of HTTP\'s GET/POST badges. The URL column shows the topic name (`kafka://orders.created`).' +
+        '\n\n**On success:** Click any row to see the partition, offset, and body that was produced. This is your audit trail for every Kafka message sent during the test.' +
+        '\n\n**On failure:** The status shows ERROR and the row contains the error message (e.g., "Connection refused", "Broker not available"). Check that Docker/Redpanda is running and retry.',
+      highlight: HAR.TAB_REQUESTS,
       preAction: async (ctx) => {
-        // 1. Switch to Request Details tab
-        const requestDetailsTab = Array.from(
-          document.querySelectorAll<HTMLElement>('.results-view-tab'),
-        ).find((el) => el.textContent?.trim() === 'Request Details');
-        if (requestDetailsTab) {
-          requestDetailsTab.click();
-          await ctx.delay(400);
-        }
-        // 2. Switch to flat view (groupBy = "test") so rows render immediately
-        //    without needing to expand collapsed groups.
+        // Switch to flat view so rows render immediately without needing to
+        // expand collapsed groups — do this silently before narration.
         const groupBySelect = document.querySelector<HTMLSelectElement>('.group-by-controls select');
         if (groupBySelect) {
           const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
           nativeSet?.call(groupBySelect, 'test');
           groupBySelect.dispatchEvent(new Event('change', { bubbles: true }));
-          await ctx.delay(400);
+          await ctx.delay(300);
         }
       },
+      action: async (ctx) => {
+        // Spotlight the Request Details tab, then click it.
+        const tab = document.querySelector<HTMLElement>(HAR.TAB_REQUESTS);
+        if (tab) {
+          tab.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+          const disposeTab = showSpotlightRing(tab);
+          await ctx.delay(900);
+          disposeTab();
+          tab.click();
+          await ctx.delay(400);
+        }
+        // Spotlight the first result row so the PRODUCE badge is visible.
+        const firstRow = document.querySelector<HTMLElement>('.clickable-row');
+        if (firstRow) {
+          firstRow.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          const disposeRow = showSpotlightRing(firstRow);
+          await ctx.delay(1200);
+          disposeRow();
+        }
+      },
+      pauseAfter: true,
     },
   ],
 };

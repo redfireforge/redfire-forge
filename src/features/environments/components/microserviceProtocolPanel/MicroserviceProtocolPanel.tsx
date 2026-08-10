@@ -86,7 +86,7 @@ export function MicroserviceProtocolPanel({
               <td className="svc-env-td-check">
                 <input type="checkbox" checked={deployed} aria-label={`Deploy ${env.name}`} onChange={() => onToggleDeploy(env.id)} />
               </td>
-              <td className="svc-env-td-env"><span className="em-env-chip">{env.name}</span></td>
+              <td className="svc-env-td-env"><span className="em-env-chip" data-env-name={env.name}>{env.name}</span></td>
               <td className="svc-env-td-url">
                 {deployed && (
                   <UrlDisplayCell
@@ -139,7 +139,7 @@ export function MicroserviceProtocolPanel({
               <td className="svc-env-td-check">
                 <input type="checkbox" checked={deployed} aria-label={`Deploy ${cEnv.name}`} onChange={() => onToggleDeploy(cEnv.id)} />
               </td>
-              <td className="svc-env-td-env"><span className="em-env-chip svc-env-additional-tag">{cEnv.name}</span></td>
+              <td className="svc-env-td-env"><span className="em-env-chip svc-env-additional-tag" data-env-name={cEnv.name}>{cEnv.name}</span></td>
               <td className="svc-env-td-url">
                 {deployed && (
                   <UrlDisplayCell
@@ -229,7 +229,7 @@ export function MicroserviceProtocolPanel({
             />
           </td>
           <td className="svc-env-td-env">
-            <span className={`em-env-chip ${isAdditional ? 'svc-env-additional-tag' : ''}`}>{name}</span>
+            <span className={`em-env-chip ${isAdditional ? 'svc-env-additional-tag' : ''}`} data-env-name={name}>{name}</span>
           </td>
           <td className="svc-env-td-url">
             {deployed && (

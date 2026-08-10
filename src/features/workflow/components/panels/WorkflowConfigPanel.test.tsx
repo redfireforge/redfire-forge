@@ -41,6 +41,16 @@ vi.mock('./VariablesSection', () => ({
     </div>
   ),
 }));
+vi.mock('../configs/StartConfig', () => ({
+  default: ({ onChange }: { onChange: (p: Record<string, unknown>) => void }) => (
+    <div data-testid="start-config">
+      Trigger input variables
+      <button type="button" onClick={() => onChange({ inputVariables: { k: 'v' } })}>
+        update-Trigger input variables
+      </button>
+    </div>
+  ),
+}));
 vi.mock('../modals/WorkflowModalScrollBody', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="scroll-body">{children}</div>,
 }));
@@ -120,7 +130,7 @@ describe('WorkflowConfigPanel', () => {
     render(<WorkflowConfigPanel {...baseProps} onUpdateNode={onUpdateNode} node={makeNode('http', { label: 'Get' })} />);
     await user.click(screen.getByText('http-change'));
     expect(onUpdateNode).toHaveBeenCalledWith('n1', { label: 'x' });
-    await user.click(screen.getByText('update-Initial variables (this step)'));
+    await user.click(screen.getByText('update-Initial Variables (this step)'));
     expect(onUpdateNode).toHaveBeenCalledWith('n1', { initialVariables: { k: 'v' } });
   });
 

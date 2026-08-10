@@ -6,6 +6,7 @@
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import { SummaryPanel } from './SummaryPanel';
 import type { BuilderState } from '../../hooks/useGraphqlQueryBuilder';
 
@@ -929,7 +930,7 @@ describe('SummaryPanel', () => {
     );
 
     fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: 'UserFrag' } });
-    fireEvent.change(screen.getByTestId('gql-qb-frag-type-select'), { target: { value: 'User' } });
+    selectOption(screen.getByTestId('gql-qb-frag-type-select'), 'User');
     fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
 
     expect(onAddFragment).toHaveBeenCalledWith({
@@ -938,7 +939,7 @@ describe('SummaryPanel', () => {
       fieldPaths: ['id'],
     });
     expect(screen.getByTestId('gql-qb-frag-name-input')).toHaveValue('');
-    expect(screen.getByTestId('gql-qb-frag-type-select')).toHaveValue('');
+    expect(getCustomSelectValue(screen.getByTestId('gql-qb-frag-type-select'))).toBe('On type…');
   });
 
   it('falls back to text type input when schema has no object types', () => {

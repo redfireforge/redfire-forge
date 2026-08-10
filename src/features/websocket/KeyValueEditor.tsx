@@ -53,11 +53,15 @@ export function KeyValueEditor({
   };
 
   const lower = label.toLowerCase();
+  const rowCountLabel = `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`;
 
   return (
     <div className={sectionClassName} data-testid={testIdPrefix ? `${testIdPrefix}-section` : undefined}>
       <div className={headerClassName}>
-        <span className={labelClassName}>{label}</span>
+        <div className="ws-connect-kv-heading-group">
+          <span className={labelClassName}>{label}</span>
+          <span className="ws-connect-kv-count-badge" aria-label={`${label} count`}>{rowCountLabel}</span>
+        </div>
         <div className="ws-connect-kv-actions">
           {onDeleteAll && entries.length > 0 && (
             <button
@@ -89,7 +93,14 @@ export function KeyValueEditor({
           No {lower} yet. Click <strong>Add</strong> to create one.
         </div>
       ) : (
-        <div className="ws-connect-kv-table" role="list">
+        <div className="ws-connect-kv-table" role="list" data-dense={entries.length >= 10 ? 'true' : undefined}>
+          <div className="ws-connect-kv-table-head" aria-hidden="true">
+            <span className="ws-connect-kv-head-spacer" />
+            <span className="ws-connect-kv-head-cell ws-connect-kv-head-key">Key</span>
+            <span className="ws-connect-kv-head-cell ws-connect-kv-head-value">Value</span>
+            <span className="ws-connect-kv-head-cell ws-connect-kv-head-enabled">On</span>
+            <span className="ws-connect-kv-head-cell ws-connect-kv-head-remove" />
+          </div>
           {entries.map((entry, index) => {
             const rowClass = [
               'ws-connect-kv-row',

@@ -268,6 +268,118 @@ describe('GrpcCollectionsPanel coverage gaps (Phase 5H)', () => {
     expect(screen.queryByTestId('grpc-collection-saved-saved-1')).toBeNull();
   });
 
+  it('renames a saved request from the detail panel', async () => {
+    const collection = collectionWithSaved();
+    const updateSavedRequest = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { updateSavedRequest })}
+        selectedSavedId="saved-1"
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-saved-request-rename'));
+    expect(screen.getByTestId('grpc-saved-request-rename-modal')).toBeTruthy();
+    const input = screen.getByTestId('grpc-saved-request-rename-input');
+    fireEvent.change(input, { target: { value: 'Echo happy path' } });
+    fireEvent.click(screen.getByTestId('grpc-saved-request-rename-save'));
+
+    await waitFor(() => expect(updateSavedRequest).toHaveBeenCalledWith(
+      'col-1',
+      'saved-1',
+      { name: 'Echo happy path' },
+    ));
+    expect(screen.queryByTestId('grpc-saved-request-rename-modal')).toBeNull();
+  });
+
+  it('cancels saved-request rename without mutating', async () => {
+    const collection = collectionWithSaved();
+    const updateSavedRequest = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { updateSavedRequest })}
+        selectedSavedId="saved-1"
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-saved-request-rename'));
+    fireEvent.change(screen.getByTestId('grpc-saved-request-rename-input'), {
+      target: { value: 'Should not save' },
+    });
+    fireEvent.click(screen.getByTestId('grpc-saved-request-rename-cancel'));
+    expect(updateSavedRequest).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('grpc-saved-request-rename-modal')).toBeNull();
+  });
+
+  it('closes collection rename modal without mutating when name is unchanged', async () => {
+    const collection = collectionWithSaved();
+    const renameCollection = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { renameCollection })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Echo collection'));
+    fireEvent.click(screen.getByTestId('grpc-collection-group-rename-col-1'));
+    fireEvent.click(screen.getByTestId('grpc-collection-rename-save'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('grpc-collection-rename-modal')).toBeNull();
+    });
+    expect(renameCollection).not.toHaveBeenCalled();
+  });
+
+  it('submits saved-request rename with Enter and closes unchanged names without update', async () => {
+    const collection = collectionWithSaved();
+    const updateSavedRequest = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { updateSavedRequest })}
+        selectedSavedId="saved-1"
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-saved-request-rename'));
+    fireEvent.keyDown(screen.getByTestId('grpc-saved-request-rename-input'), { key: 'Enter' });
+    await waitFor(() => {
+      expect(screen.queryByTestId('grpc-saved-request-rename-modal')).toBeNull();
+    });
+    expect(updateSavedRequest).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('grpc-saved-request-rename'));
+    fireEvent.change(screen.getByTestId('grpc-saved-request-rename-input'), {
+      target: { value: 'Echo via enter' },
+    });
+    fireEvent.keyDown(screen.getByTestId('grpc-saved-request-rename-input'), { key: 'Enter' });
+    await waitFor(() => expect(updateSavedRequest).toHaveBeenCalledWith(
+      'col-1',
+      'saved-1',
+      { name: 'Echo via enter' },
+    ));
+  });
+
   it('updates and clears response baseline from detail panel', async () => {
     const savedWithBaseline = {
       ...makeSaved('saved-1', 'Echo call'),

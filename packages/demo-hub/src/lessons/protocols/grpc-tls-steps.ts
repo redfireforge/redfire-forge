@@ -4,7 +4,7 @@ import type { GrpcDemoLesson } from './grpc-lesson-contract';
 import { patchGrpcActiveTabExportContext } from '../../adapters';
 import {
   GRPC_DEMO_TARGET,
-  ensureGrpcTarget,
+  ensureGrpcPlaintextChannelReady,
   spotlightAndPause,
   spotlightElementAndPause,
   spotlightResponseJsonContentTight,
@@ -30,6 +30,7 @@ import {
   saveOrCloseTlsModalQuiet,
   scrollTlsFieldIntoView,
   selectTlsModeQuiet,
+  spotlightTlsVaultSetBadges,
 } from './grpc-tls-helpers';
 
 export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
@@ -42,7 +43,7 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
       description:
         'Every gRPC Studio tab shows a **TLS badge** (🔒) in the connection bar. ' +
         'Click it to open the **TLS / mTLS Configuration** modal — this is where you control channel encryption.\n\n' +
-        'The modal has **three mode buttons**, spotlighted one at a time below:\n\n' +
+        'The modal has **three mode cards**, spotlighted one at a time:\n\n' +
         '- 🔓 **Plaintext** — no encryption (default, HTTP/2 cleartext)\n' +
         '- 🔒 **TLS** — server certificate verified against a CA; optional custom CA cert field\n' +
         '- 🛡 **mTLS** — mutual TLS; server also verifies a client certificate + private key\n\n' +
@@ -51,28 +52,31 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
       highlight: GRPC.TLS_BADGE,
       pauseAfter: true,
       preAction: async (ctx) => {
+        // Setup already lands on a clean gRPC Studio baseline for lesson start.
         await ensureStudioNav(ctx);
-        await ensureGrpcTarget(ctx);
-        // Do NOT reflect + select the Echo method here. Step 1 teaches only the
-        // TLS badge and the mode modal — it never touches the service tree. Calling
-        // ensureEchoMethodSelected reflects (building the tree) and ctx.click()s the
-        // service + method, which the viewer sees as several quick unnecessary
-        // highlights/ripples flashing before the narration. Step 2 reflects visibly
-        // against the TLS server when it is actually needed.
-        await resetTlsToPlaintextQuiet(ctx);
+        if (document.querySelector(GRPC.TLS_MODAL_BODY)) {
+          await closeTlsModalQuiet(ctx);
+        }
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.TLS_BADGE, 900);
+        await spotlightAndPause(ctx, GRPC.TLS_BADGE, 1_100);
         await ctx.click(GRPC.TLS_BADGE);
         try {
           await ctx.waitFor(GRPC.TLS_MODAL_BODY, 5_000);
         } catch {
           await ctx.delay(400);
         }
-        // Let the viewer read the modal content; the three mode buttons
-        // (Plaintext / TLS / mTLS) are already described in the narration.
-        await spotlightAndPause(ctx, GRPC.TLS_MODAL_BODY, 1_200);
+        // Pause on the open modal shell before diving into mode cards.
+        await ctx.delay(900);
+        await spotlightAndPause(ctx, GRPC.TLS_MODAL_BODY, 1_000);
+
+        // Narration lists three modes — spotlight each so the viewer can read them.
+        await spotlightAndPause(ctx, GRPC.TLS_MODE('disabled'), 1_400);
+        await spotlightAndPause(ctx, GRPC.TLS_MODE('tls'), 1_100);
+        await spotlightAndPause(ctx, GRPC.TLS_MODE('mtls'), 1_100);
+
         await closeTlsModalQuiet(ctx);
+        await ctx.delay(700);
       },
       verify: GRPC.CONNECTION_BAR,
     },
@@ -84,29 +88,49 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
       id: 'grpc5-plaintext-fail',
       title: 'Plaintext Fails on a TLS Server',
       description:
-        'Changing the gRPC target to `localhost:50443` **clears** the service tree — Studio must **Reflect** again on the new server before any call.\n\n' +
+        'First, reopen **TLS / mTLS Configuration** and confirm the channel is still on **Plaintext** ' +
+        '(the active card) — that is the mode that will fail against a TLS-only server.\n\n' +
+        'Close the modal, then change the gRPC target to `localhost:50443`. Changing the target **clears** the service tree — ' +
+        'Studio must **Reflect** again before any call.\n\n' +
         'With **Plaintext** still active, click **Reflect**. The TLS-only fixture at `:50443` rejects the cleartext handshake, ' +
         'and the error appears in the **Services** panel (e.g. _14 UNAVAILABLE: No connection established_).\n\n' +
+        'A red **503** in the browser Network/Console for `/api/grpc/reflect` is **expected on this step only** — that is the handshake failure, not a Studio bug.\n\n' +
         'This is the failure you hit the first time you point gRPC Studio at a TLS-enforced server without configuring the channel.\n' +
         'The fix: switch the TLS badge to **TLS** mode and provide a CA cert (next step).',
-      highlight: GRPC.TARGET_INPUT,
+      highlight: GRPC.TLS_BADGE,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
+        // Quiet state only — do not flash the modal during reading/action.
         await resetTlsToPlaintextQuiet(ctx);
-        await fillTargetQuiet(ctx, GRPC_TLS_TARGET);
+        await fillTargetQuiet(ctx, GRPC_DEMO_TARGET);
+        if (document.querySelector(GRPC.TLS_MODAL_BODY)) {
+          await closeTlsModalQuiet(ctx);
+        }
       },
       action: async (ctx) => {
-        // Guard against stale TLS state so this step always demonstrates
-        // plaintext handshake failure exactly as described.
-        await resetTlsToPlaintextQuiet(ctx);
-        await ctx.fill(GRPC.TARGET_INPUT, GRPC_TLS_TARGET);
-        await ctx.delay(220);
+        // 1) Open the modal slowly and hold on Plaintext so the viewer sees why Reflect will fail.
+        await spotlightAndPause(ctx, GRPC.TLS_BADGE, 1_000);
+        await ctx.click(GRPC.TLS_BADGE);
+        try {
+          await ctx.waitFor(GRPC.TLS_MODAL_BODY, 5_000);
+        } catch {
+          await ctx.delay(400);
+        }
+        await ctx.delay(900); // modal open — viewer sees the three mode cards
+        await spotlightAndPause(ctx, GRPC.TLS_MODE('disabled'), 1_600);
+
+        await closeTlsModalQuiet(ctx);
+        await ctx.delay(700);
+
+        // 2) Point at the TLS-only fixture while still on Plaintext.
         await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 700);
+        await ctx.fill(GRPC.TARGET_INPUT, GRPC_TLS_TARGET);
+        await ctx.delay(500);
+        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 900);
 
-        await spotlightAndPause(ctx, GRPC.TLS_BADGE, 600);
-
-        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 700);
+        // 3) Reflect → handshake failure.
+        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 800);
         await ctx.click(GRPC.REFLECT_BTN);
 
         try {
@@ -118,7 +142,7 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
 
         const errorEl = document.querySelector<HTMLElement>(GRPC.EXPLORER_ERROR);
         if (errorEl) {
-          await spotlightElementAndPause(ctx, errorEl, 1_100);
+          await spotlightElementAndPause(ctx, errorEl, 1_200);
         } else {
           await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
         }
@@ -165,8 +189,9 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
         await spotlightAndPause(ctx, '[data-testid="grpc-tls-server-ca"]', 700);
         await fillPemTextarea(ctx, 'grpc-tls-server-ca', DEMO_CA_CERT);
         await ctx.delay(450);
-        // Show the "Set" badge that confirms vault storage.
-        await spotlightAndPause(ctx, '.ws-tls-field-set-badge', 700);
+        // Show the "Set" badge that confirms vault storage (modal-scoped + scrolled).
+        await scrollTlsFieldIntoView(ctx, GRPC.TLS_SERVER_CA, 400);
+        await spotlightAndPause(ctx, `${GRPC.TLS_MODAL_BODY} ${GRPC.TLS_FIELD_SET_BADGE}`, 700);
 
         // Run the local TLS validation test (power-user feature).
         await spotlightAndPause(ctx, GRPC.TLS_MODAL_TEST, 700);
@@ -430,6 +455,8 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx); // closes any stray modal
+        // Ensure vault still has PEM so Set badges exist when the modal reopens.
+        await ensureMtlsConfiguredQuiet(ctx);
       },
       action: async (ctx) => {
         await spotlightAndPause(ctx, GRPC.TLS_BADGE, 700);
@@ -441,16 +468,16 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
         }
         await ctx.delay(600);
 
-        // Spotlight the "Set" badges — vault-backed cert fields.
-        const setBadges = Array.from(document.querySelectorAll<HTMLElement>('.ws-tls-field-set-badge'));
-        for (const badge of setBadges.slice(0, 3)) {
-          await spotlightElementAndPause(ctx, badge, 1_200);
-          await ctx.delay(250);
-        }
+        // Modal-scoped Set badges; scroll each PEM field (esp. Client Key) into view
+        // so rings are not clipped below the modal body / drawn over the lesson panel.
+        await spotlightTlsVaultSetBadges(ctx, 1_200);
 
-        // Spotlight a "Clear stored" control if present.
-        const clearBtn = document.querySelector<HTMLElement>('[data-testid="grpc-tls-server-ca-clear"]');
-        if (clearBtn) {
+        // Spotlight a "Clear stored" control if present (after scrolling CA into view).
+        await scrollTlsFieldIntoView(ctx, GRPC.TLS_SERVER_CA, 400);
+        const clearBtn = document.querySelector<HTMLElement>(
+          GRPC.SECRET_FIELD_CLEAR('grpc-tls-server-ca'),
+        );
+        if (clearBtn && document.querySelector(GRPC.TLS_MODAL_BODY)?.contains(clearBtn)) {
           await spotlightElementAndPause(ctx, clearBtn, 1_200);
           await ctx.delay(250);
         }
@@ -464,7 +491,11 @@ export const grpcTlsSteps: GrpcDemoLesson['steps'] = [
         }
         await selectTlsModeQuiet(ctx, 'disabled');
         await saveOrCloseTlsModalQuiet(ctx);
-        await ctx.delay(550);
+        await ctx.delay(400);
+
+        // Bridge-level clear — UI Reset alone can leave sessionRef on mTLS, and the
+        // next Reflect against localhost:50051 then returns HTTP 503.
+        await ensureGrpcPlaintextChannelReady(ctx);
 
         // Restore the default echo target.
         await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 900);

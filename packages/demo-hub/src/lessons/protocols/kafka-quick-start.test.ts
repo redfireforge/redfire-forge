@@ -5,6 +5,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaQuickStartLesson } from './kafka-quick-start';
 
+vi.mock('../../demoRipple', () => ({ showSpotlightRing: () => () => {} }));
+
 describe('kafka-quick-start lesson', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -124,11 +126,27 @@ describe('kafka-quick-start lesson', () => {
     expect(card.classList.contains('selected')).toBe(false);
   });
 
-  it('step ks-intro has highlight and preAction that clears selected cards', () => {
+  it('step ks-intro has settings highlight and preAction that clears selected cards', () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-intro')!;
-    expect(step.highlight).toContain('kafka-settings-page');
-    expect(step.action).toBeUndefined();
+    expect(step.highlight).toContain('ab-settings');
+    expect(step.action).toBeDefined();
     expect(step.preAction).toBeDefined();
+  });
+
+  it('step ks-intro action waits for the settings page (navigation already done by setup)', async () => {
+    const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-intro')!;
+    const ctx = makeCtx();
+
+    const page = document.createElement('div');
+    page.setAttribute('data-testid', 'kafka-settings-page');
+    document.body.appendChild(page);
+
+    await step.action!(ctx);
+
+    // Intentionally no ab-settings/nav-tab click choreography here — that caused
+    // a visible flash before step 1 narrates. Setup already navigates silently.
+    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="kafka-settings-page"]', 2500);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step ks-create action clicks empty-state btn when present', async () => {
@@ -224,14 +242,32 @@ describe('kafka-quick-start lesson', () => {
     expect(step.preAction).toBeUndefined();
   });
 
-  it('step ks-studio uses preAction (not action) to navigate to kafka-message-studio', async () => {
+  it('step ks-studio uses action to navigate visibly via Protocols then Kafka', async () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-studio')!;
-    expect(typeof step.preAction).toBe('function');
-    expect(step.action).toBeUndefined();
+    expect(step.preAction).toBeUndefined();
+    expect(typeof step.action).toBe('function');
+
     const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+
+    const protocolsBtn = document.createElement('button');
+    protocolsBtn.setAttribute('data-testid', 'ab-protocols');
+    document.body.appendChild(protocolsBtn);
+
+    const kafkaTabBtn = document.createElement('button');
+    kafkaTabBtn.setAttribute('data-testid', 'nav-tab-kafka-message-studio');
+    document.body.appendChild(kafkaTabBtn);
+
+    const publishTab = document.createElement('button');
+    publishTab.setAttribute('data-testid', 'tab-publish');
+    document.body.appendChild(publishTab);
+
+    await step.action!(ctx);
+
+    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="ab-protocols"]', 2500);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="ab-protocols"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="nav-tab-kafka-message-studio"]', 2500);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="nav-tab-kafka-message-studio"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="tab-publish"]', 2500);
   });
   it('has Docker badge tag', () => {
     expect(kafkaQuickStartLesson.tag).toBe('🐳 Docker');

@@ -50,6 +50,9 @@ export default function SseAuthPanel({
         onChange={onChange}
         title="Connection Auth"
         hint="Applied when the connection is established"
+        useCustomTypeDropdown
+        useStackedBearerFields
+        useStackedAuthFields
         showProfileSelector
         globalAuthProfileId={auth.globalProfileId}
         onProfileChange={handleProfileChange}

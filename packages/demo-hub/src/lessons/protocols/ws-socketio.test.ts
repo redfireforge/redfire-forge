@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsSocketIoLesson } from './ws-socketio';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-socketio lesson', () => {
   beforeEach(() => {
@@ -72,22 +72,30 @@ describe('ws-socketio lesson', () => {
 
   // ─── Step: sio-intro ─────────────────────────────────────────
 
-  it('step sio-intro clicks connect tab', async () => {
+  it('step sio-intro action waits for the connect tab (already active from setup)', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'), expect.any(Number));
   });
 
   // ─── Step: sio-select-protocol ───────────────────────────────
 
-  it('step sio-select-protocol has a preAction that navigates to connect tab (Rule 4)', async () => {
+  it('step sio-select-protocol preAction silently switches to connect tab only if not already selected (Rule 4)', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-select-protocol')!;
     expect(typeof step.preAction).toBe('function');
+
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const clickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await step.preAction!(ctx);
     // PROTOCOL_SELECT lives inside the Connect panel — preAction ensures it is in the DOM
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    // via a plain DOM click (not ctx.click) to avoid a visible ripple for this guard.
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step sio-select-protocol action does NOT re-navigate (preAction handled it)', async () => {
@@ -104,13 +112,21 @@ describe('ws-socketio lesson', () => {
 
   // ─── Step: sio-enter-url ─────────────────────────────────────
 
-  it('step sio-enter-url has a preAction that navigates to connect tab (Rule 4)', async () => {
+  it('step sio-enter-url preAction silently switches to connect tab only if not already selected (Rule 4)', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-enter-url')!;
     expect(typeof step.preAction).toBe('function');
+
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const clickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await step.preAction!(ctx);
     // URL_INPUT lives inside the Connect panel — preAction ensures it is in the DOM
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    // via a plain DOM click (not ctx.click) to avoid a visible ripple for this guard.
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step sio-enter-url action does NOT re-navigate (preAction handled it)', async () => {
@@ -120,14 +136,39 @@ describe('ws-socketio lesson', () => {
     expect(ctx.click).not.toHaveBeenCalled();
   });
 
+  it('step sio-enter-url action spotlights URL input and selects EIO=4 text', async () => {
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-enter-url')!;
+
+    const input = document.createElement('input');
+    input.setAttribute('aria-label', 'WebSocket URL');
+    input.value = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
+    const setSelectionSpy = vi.fn();
+    input.setSelectionRange = setSelectionSpy;
+    document.body.appendChild(input);
+
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    const eioStart = 'ws://localhost:3100/socket.io/?'.length;
+    expect(setSelectionSpy).toHaveBeenCalledWith(eioStart, eioStart + 'EIO=4'.length);
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
   // ─── Step: sio-connect ───────────────────────────────────────
 
-  it('step sio-connect has a preAction that navigates to connect tab', async () => {
+  it('step sio-connect preAction silently switches to connect tab only if not already selected', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-connect')!;
     expect(typeof step.preAction).toBe('function');
+
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const clickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step sio-connect action uses waitFor instead of fixed delay (Rule 5)', async () => {
@@ -143,6 +184,7 @@ describe('ws-socketio lesson', () => {
 
   it('step sio-connect action skips WS connect when already connected (replay guard)', async () => {
     document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    makeVisible(document.querySelector('.ws-status-dot.connected')!);
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-connect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -170,6 +212,7 @@ describe('ws-socketio lesson', () => {
 
   it('step sio-inspect-params preAction skips connect when already connected', async () => {
     document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    makeVisible(document.querySelector('.ws-status-dot.connected')!);
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-inspect-params')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -201,6 +244,7 @@ describe('ws-socketio lesson', () => {
 
   it('step sio-compose-event preAction only navigates to compose when already connected', async () => {
     document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    makeVisible(document.querySelector('.ws-status-dot.connected')!);
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-compose-event')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -273,6 +317,7 @@ describe('ws-socketio lesson', () => {
     nsEl.setAttribute('data-testid', 'sio-namespace');
     nsEl.scrollIntoView = vi.fn();
     document.body.appendChild(nsEl);
+    makeVisible(nsEl);
     await step.action!(ctx);
     // Action does not call click(left-tab-send) — that's preAction's job
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
@@ -305,10 +350,16 @@ describe('ws-socketio lesson', () => {
   // ─── Setup / Cleanup ─────────────────────────────────────────
 
   it('setup navigates to client mode, connect tab, clears subprotocols, and pre-fills URL + protocol', async () => {
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const connectClickSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await wsSocketIoLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    // Connect tab switch uses a plain DOM click (not ctx.click) — no ripple during setup.
+    expect(connectClickSpy).toHaveBeenCalled();
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('localhost:3100'),

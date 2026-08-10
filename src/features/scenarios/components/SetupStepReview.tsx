@@ -6,6 +6,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { Scenario, FeatureGroup, TestScenario } from '../../../shared/types';
 import type { ColumnDef } from '../utils/csvTemplate';
 import { formatAuthLabel } from '../utils/dataSourceSetupUtils';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export interface SetupStepReviewProps {
   copyName: string;
@@ -15,6 +16,8 @@ export interface SetupStepReviewProps {
   setTargetFgId: Dispatch<SetStateAction<string>>;
   targetScenarioId: string;
   setTargetScenarioId: Dispatch<SetStateAction<string>>;
+  newScenarioName: string;
+  setNewScenarioName: Dispatch<SetStateAction<string>>;
   targetFg: FeatureGroup | undefined;
   targetScenario: TestScenario | undefined;
   workingAuth: Scenario['auth'];
@@ -35,6 +38,7 @@ export default function SetupStepReview({
   copyName, setCopyName,
   featureGroups, targetFgId, setTargetFgId,
   targetScenarioId, setTargetScenarioId,
+  newScenarioName, setNewScenarioName,
   targetFg, targetScenario,
   workingAuth, validationModeLabel, validateFieldCount,
   reviewPathVariables, queryParamsForReview,
@@ -43,6 +47,13 @@ export default function SetupStepReview({
   arrayPrefixes, arrayModes,
   testName, columnDefs,
 }: SetupStepReviewProps) {
+  const CREATE_NEW = '__new__';
+  const paramScenarios = (targetFg?.scenarios ?? []).filter(sc => sc.kind === 'parameterized');
+  const scenarioOptions = [
+    { value: CREATE_NEW, label: '+ Create new Parameterized Scenario' },
+    ...paramScenarios.map(sc => ({ value: sc.id, label: sc.name })),
+  ];
+  const isCreatingNew = targetScenarioId === CREATE_NEW;
   return (
     <div className="excel-step-content parameterize-create-step">
       <div className="review-page-header">
@@ -70,24 +81,40 @@ export default function SetupStepReview({
             <>
               <label className="parameterize-form-label">
                 Feature Group
-                <select className="parameterize-select" value={targetFgId} onChange={(e) => {
-                  setTargetFgId(e.target.value);
-                  const fg = featureGroups.find(f => f.id === e.target.value);
-                  if (fg && fg.scenarios.length > 0) setTargetScenarioId(fg.scenarios[0].id);
-                }}>
-                  {featureGroups.map(fg => (
-                    <option key={fg.id} value={fg.id}>{fg.name}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  className="parameterize-select"
+                  value={targetFgId}
+                  onChange={(v) => {
+                    setTargetFgId(v);
+                    const fg = featureGroups.find((f) => f.id === v);
+                    const firstParam = fg?.scenarios.find(sc => sc.kind === 'parameterized');
+                    setTargetScenarioId(firstParam ? firstParam.id : CREATE_NEW);
+                  }}
+                  options={featureGroups.map((fg) => ({ value: fg.id, label: fg.name }))}
+                />
               </label>
               <label className="parameterize-form-label">
-                Scenario
-                <select className="parameterize-select" value={targetScenarioId} onChange={(e) => setTargetScenarioId(e.target.value)}>
-                  {targetFg?.scenarios.map(sc => (
-                    <option key={sc.id} value={sc.id}>{sc.name}</option>
-                  ))}
-                </select>
+                Parameterized Scenario
+                <CustomSelect
+                  className="parameterize-select"
+                  value={targetScenarioId}
+                  onChange={(v) => setTargetScenarioId(v)}
+                  options={scenarioOptions}
+                />
               </label>
+              {isCreatingNew && (
+                <label className="parameterize-form-label">
+                  New Scenario Name
+                  <input
+                    data-testid="param-new-scenario-name-input"
+                    type="text"
+                    className="parameterize-name-input"
+                    value={newScenarioName}
+                    onChange={(e) => setNewScenarioName(e.target.value)}
+                    placeholder="Parameterized Scenario name"
+                  />
+                </label>
+              )}
             </>
           )}
         </div>

@@ -59,14 +59,14 @@ test.describe('GQL-1 — lesson shell', () => {
   test('concept slide unlocks Start after prerequisite gate', async ({ page }) => {
     await launchGqlLesson(page, LESSON_NAME);
     const { title } = await getStepInfo(page);
-    expect(title).toMatch(/GraphQL Studio/i);
+    expect(title).toMatch(/Add Protocol|Configure Endpoint/i);
     await takeNamedScreenshot(page, 'gql1-lesson-start');
   });
 
-  test('lesson has 13 steps', async ({ page }) => {
+  test('lesson has 12 steps', async ({ page }) => {
     await launchGqlLesson(page, LESSON_NAME);
     const counter = await page.locator('.demo-live-step-counter').textContent();
-    expect(counter).toMatch(/1\s*[/]\s*13/);
+    expect(counter).toMatch(/1\s*[/]\s*12/);
   });
 });
 
@@ -76,18 +76,17 @@ test.describe('GQL-1 — Environment Manager', () => {
     await launchGqlLesson(page, LESSON_NAME);
     await restartLesson(page);
 
-    await advanceSteps(page, 2, DEMO_ACTION_TIMEOUT);
-
+    // Step 1 is the combined add-protocol + configure-endpoint beat.
     await expect(page.locator('.env-manager')).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator(`[data-env-name="${GQL_DEMO_ENV}"]`)).toBeVisible();
-    await expect(page.locator(`[data-svc-name="${GQL_DEMO_SVC}"]`)).toBeVisible();
-    await expect(page.locator('[data-testid="em-protocol-tab-http"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="em-protocol-tab-graphql"]')).toBeVisible();
-
-    const gqlDemoRow = page.locator('tr').filter({ hasText: GQL_DEMO_ENV });
-    await expect(gqlDemoRow.locator('input[type="checkbox"]')).toBeChecked();
+    await expect(page.locator(`.settings-chip[data-env-name="${GQL_DEMO_ENV}"]`)).toBeVisible();
+    await expect(page.locator(`.settings-svc-card[data-svc-name="${GQL_DEMO_SVC}"]`).first()).toBeVisible();
 
     await completeCurrentStepAction(page, DEMO_ACTION_TIMEOUT);
+
+    await expect(page.locator('[data-testid="em-protocol-tab-http"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="em-protocol-tab-graphql"]')).toBeVisible();
+    const gqlDemoRow = page.locator('tr').filter({ hasText: GQL_DEMO_ENV });
+    await expect(gqlDemoRow.locator('input[type="checkbox"]')).toBeChecked();
     await expect(gqlDemoRow.locator('code.em-url-text')).toContainText('localhost:4010');
     await expect(page.locator('[data-testid="derived-vars-graphql"]')).toContainText('{{graphqlUrl}}');
 
@@ -101,7 +100,8 @@ test.describe('GQL-1 — endpoint variable resolution', () => {
     await launchGqlLesson(page, LESSON_NAME);
     await restartLesson(page);
 
-    await advanceSteps(page, 5, DEMO_ACTION_TIMEOUT);
+    // Complete steps 1–4 (env-setup → intro → header → endpoint); land on resolved preview.
+    await advanceSteps(page, 4, DEMO_ACTION_TIMEOUT);
     await completeCurrentStepAction(page, DEMO_ACTION_TIMEOUT);
 
     await expect(page.locator('[data-testid="gql-endpoint-input"]')).toHaveValue('{{graphqlUrl}}');
@@ -114,7 +114,7 @@ test.describe('GQL-1 — endpoint variable resolution', () => {
 });
 
 test.describe('GQL-1 — full lesson (Docker)', () => {
-  test('all 13 steps complete with schema badge, health response, and history entry', async ({
+  test('all 12 steps complete with schema badge, health response, and history entry', async ({
     page,
     request,
   }) => {
@@ -127,7 +127,7 @@ test.describe('GQL-1 — full lesson (Docker)', () => {
     await walkFullGql1Lesson(page);
 
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/13\s*[/]\s*13/);
+    expect(counter).toMatch(/12\s*[/]\s*12/);
     expect(title).toMatch(/History/i);
 
     // Assert studio outcomes while still in live demo (exit returns to concept — studio is hidden).

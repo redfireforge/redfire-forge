@@ -4,7 +4,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
-import { useResponseCache } from './useResponseCache';
+import {
+  useResponseCache,
+  pruneResponseCache,
+  pruneResponseCacheMany,
+  _resetResponseCache,
+  _getResponseCacheSize,
+} from './useResponseCache';
 
 function makeResponse(status = 200): HttpResponse {
   return { status, statusText: 'OK', headers: {}, body: 'ok', size: 2 } as unknown as HttpResponse;
@@ -12,7 +18,7 @@ function makeResponse(status = 200): HttpResponse {
 
 describe('useResponseCache', () => {
   beforeEach(() => {
-    // each test uses a fresh hook instance, cacheRef is per-instance
+    _resetResponseCache();
   });
 
   it('starts with empty state', () => {
@@ -97,5 +103,91 @@ describe('useResponseCache', () => {
     expect(result.current.response).toBeNull();
     rerender({ id: 'req-1' });
     expect(result.current.response?.status).toBe(200);
+  });
+
+  // ── Module singleton behavior ────────────────────────────────
+
+  describe('module singleton', () => {
+    it('persists data across hook unmount/remount', () => {
+      const { result, unmount } = renderHook(() => useResponseCache('req-persist'));
+      act(() => result.current.setResponse(makeResponse(201)));
+      act(() => result.current.setResponseTime(42));
+      unmount();
+
+      const { result: result2 } = renderHook(() => useResponseCache('req-persist'));
+      expect(result2.current.response?.status).toBe(201);
+      expect(result2.current.responseTime).toBe(42);
+    });
+
+    it('keeps separate caches for different request ids', () => {
+      const { result: h1 } = renderHook(() => useResponseCache('req-a'));
+      const { result: h2 } = renderHook(() => useResponseCache('req-b'));
+
+      act(() => h1.current.setResponse(makeResponse(200)));
+      act(() => h2.current.setResponse(makeResponse(404)));
+
+      expect(h1.current.response?.status).toBe(200);
+      expect(h2.current.response?.status).toBe(404);
+      expect(_getResponseCacheSize()).toBe(2);
+    });
+  });
+
+  // ── Pruning ──────────────────────────────────────────────────
+
+  describe('pruneResponseCache', () => {
+    it('removes a single request from the singleton', () => {
+      const { result, unmount } = renderHook(() => useResponseCache('req-prune'));
+      act(() => result.current.setResponse(makeResponse(200)));
+      expect(_getResponseCacheSize()).toBe(1);
+      unmount();
+
+      pruneResponseCache('req-prune');
+      expect(_getResponseCacheSize()).toBe(0);
+
+      const { result: result2 } = renderHook(() => useResponseCache('req-prune'));
+      expect(result2.current.response).toBeNull();
+    });
+
+    it('is a no-op for an unknown request id', () => {
+      pruneResponseCache('nonexistent');
+      expect(_getResponseCacheSize()).toBe(0);
+    });
+  });
+
+  describe('pruneResponseCacheMany', () => {
+    it('removes multiple requests at once', () => {
+      const { result: h1 } = renderHook(() => useResponseCache('r1'));
+      const { result: h2 } = renderHook(() => useResponseCache('r2'));
+      const { result: h3 } = renderHook(() => useResponseCache('r3'));
+
+      act(() => {
+        h1.current.setResponse(makeResponse(200));
+        h2.current.setResponse(makeResponse(201));
+        h3.current.setResponse(makeResponse(202));
+      });
+      expect(_getResponseCacheSize()).toBe(3);
+
+      pruneResponseCacheMany(['r1', 'r3']);
+      expect(_getResponseCacheSize()).toBe(1);
+
+      const { result: check } = renderHook(() => useResponseCache('r2'));
+      expect(check.current.response?.status).toBe(201);
+    });
+
+    it('handles empty iterable gracefully', () => {
+      pruneResponseCacheMany([]);
+      expect(_getResponseCacheSize()).toBe(0);
+    });
+  });
+
+  describe('_resetResponseCache', () => {
+    it('clears the entire singleton', () => {
+      const { result } = renderHook(() => useResponseCache('req-reset'));
+      act(() => result.current.setResponse(makeResponse()));
+      expect(_getResponseCacheSize()).toBe(1);
+
+      _resetResponseCache();
+      expect(_getResponseCacheSize()).toBe(0);
+    });
   });
 });

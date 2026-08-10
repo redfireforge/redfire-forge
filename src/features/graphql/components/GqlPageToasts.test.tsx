@@ -85,6 +85,24 @@ describe('GqlPageToasts — schema diff toast', () => {
     expect(props.onSaveSnapshot).toHaveBeenCalled();
   });
 
+  it('swallows rejected onSaveSnapshot promises', async () => {
+    const props = defaultProps();
+    props.onSaveSnapshot = vi.fn(async () => {
+      throw new Error('save failed');
+    });
+    render(
+      <GqlPageToasts
+        {...props}
+        schemaDiffToast={true}
+        toastBaselineSnapshotId={null}
+      />,
+    );
+    fireEvent.click(screen.getByText('Save snapshot →'));
+    await Promise.resolve();
+    expect(props.onDismissSchemaDiff).toHaveBeenCalled();
+    expect(props.onSaveSnapshot).toHaveBeenCalled();
+  });
+
   it('shows "View diff →" when baseline snapshot is found', () => {
     const snapshot = makeSnapshot({ id: 'snap-1' });
     render(
@@ -112,6 +130,27 @@ describe('GqlPageToasts — schema diff toast', () => {
       />,
     );
     fireEvent.click(screen.getByText('View diff →'));
+    expect(props.onDismissSchemaDiff).toHaveBeenCalled();
+    expect(props.onViewDiff).toHaveBeenCalledWith(snapshot);
+  });
+
+  it('swallows rejected onViewDiff promises', async () => {
+    const snapshot = makeSnapshot({ id: 'snap-1' });
+    const props = defaultProps();
+    props.onViewDiff = vi.fn(async () => {
+      throw new Error('diff failed');
+    });
+    render(
+      <GqlPageToasts
+        {...props}
+        schemaDiffToast={true}
+        snapshots={[snapshot]}
+        toastBaselineSnapshotId="snap-1"
+        schemaInfo={{ sdl: 'type Query { hello: String }', types: [], queryType: 'Query', mutationType: null, subscriptionType: null }}
+      />,
+    );
+    fireEvent.click(screen.getByText('View diff →'));
+    await Promise.resolve();
     expect(props.onDismissSchemaDiff).toHaveBeenCalled();
     expect(props.onViewDiff).toHaveBeenCalledWith(snapshot);
   });

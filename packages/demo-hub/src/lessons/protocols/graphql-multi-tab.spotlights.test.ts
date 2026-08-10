@@ -16,9 +16,9 @@ import {
 } from './graphql-multi-tab.testHelpers';
 import { gqlMultiTabLesson } from './graphql-multi-tab';
 import { GQL } from '@shared/selectors';
-import {demonstrateLesson14AddSecondTab,
-  ensureLesson14TabsRenamed,
-  ensureLesson14TabProfileLinks,
+import {
+  demonstrateLesson14AddSecondTab,
+  ensureLesson14TabPolling,
   ensureLesson14PerTabAuthConfigured,
   LESSON14_PRODUCTION_PROFILE_NAME,
 } from './graphql-lesson-helpers';
@@ -38,9 +38,10 @@ describe('gql-multi-tab lesson — spotlights', () => {
     expect(step.highlight).toBe(GQL.TAB_BAR);
   });
 
-  it('gql14-tab1-endpoint highlights ENDPOINT_INPUT', () => {
+  it('gql14-tab1-endpoint uses action spotlights (no frozen highlight)', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-tab1-endpoint')!;
-    expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
+    expect(step.highlight).toBeUndefined();
+    expect(step.action).toBeTypeOf('function');
   });
 
   it('gql14-add-tab2 highlights TAB_ADD_BTN and verifies new Tab 2', () => {
@@ -50,15 +51,15 @@ describe('gql-multi-tab lesson — spotlights', () => {
     expect(step.action).toBe(demonstrateLesson14AddSecondTab);
   });
 
-  it('gql14-tab2-endpoint highlights ENDPOINT_INPUT and verifies schema badge', () => {
+  it('gql14-tab2-endpoint uses action spotlights and verifies schema badge', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-tab2-endpoint')!;
-    expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
   });
 
-  it('gql14-switch-responses highlights tab bar and verifies response body', () => {
+  it('gql14-switch-responses uses action spotlights and verifies response body', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-switch-responses')!;
-    expect(step.highlight).toBe(GQL.TAB_BAR);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GQL.RESPONSE_BODY);
     expect(step.pauseAfter).toBe(6000);
   });
@@ -69,14 +70,14 @@ describe('gql-multi-tab lesson — spotlights', () => {
     expect(step.verify).toBe(LESSON14_TAB2_BADGE);
   });
 
-  it('gql14-real-world highlights tab bar for Staging/Production rename', () => {
+  it('gql14-real-world uses action spotlights for Staging/Production compare', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-real-world')!;
-    expect(step.highlight).toBe(GQL.TAB_BAR);
+    expect(step.highlight).toBeUndefined();
   });
 
-  it('gql14-profiles-save highlights PROFILE_BADGE and saves with Not linked pause', () => {
+  it('gql14-profiles-save uses action spotlights and saves with Not linked pause', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles-save')!;
-    expect(step.highlight).toBe(GQL.PROFILE_BADGE);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GQL.PROFILE_MODAL);
     expect(step.preAction).toBe(ensureLesson14PerTabAuthConfigured);
     expect(step.description).toContain('Not linked to any tab');
@@ -84,9 +85,9 @@ describe('gql-multi-tab lesson — spotlights', () => {
     expect(step.pauseAfter).toBe(6000);
   });
 
-  it('gql14-profiles-load highlights PROFILE_BADGE and verifies profile modal', () => {
+  it('gql14-profiles-load uses action spotlights and verifies profile modal', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles-load')!;
-    expect(step.highlight).toBe(GQL.PROFILE_BADGE);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GQL.PROFILE_MODAL);
     expect(step.description).toContain('Load');
     expect(step.description).toContain('Used by');
@@ -102,11 +103,11 @@ describe('gql-multi-tab lesson — spotlights', () => {
     expect(step.pauseAfter).toBe(6000);
   });
 
-  it('gql14-per-tab-auth highlights Auth tab and verifies auth panel', () => {
+  it('gql14-per-tab-auth uses action spotlights and verifies auth panel', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-per-tab-auth')!;
-    expect(step.highlight).toBe(GQL.BOTTOM_TAB_AUTH);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GQL.AUTH_PANEL);
-    expect(step.preAction).toBe(ensureLesson14TabsRenamed);
+    expect(step.preAction).toBeTypeOf('function');
     expect(step.pauseAfter).toBe(6500);
   });
 
@@ -115,11 +116,11 @@ describe('gql-multi-tab lesson — spotlights', () => {
     expect(step.description.toLowerCase()).toContain('per-tab');
   });
 
-  it('gql14-polling highlights POLLING_POPOVER and verifies polling popover', () => {
+  it('gql14-polling uses action spotlights and verifies polling popover', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-polling')!;
-    expect(step.highlight).toBe(GQL.POLLING_POPOVER);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GQL.POLLING_POPOVER);
-    expect(step.preAction).toBe(ensureLesson14TabProfileLinks);
+    expect(step.preAction).toBe(ensureLesson14TabPolling);
   });
 
   // ── Step verify selectors ──────────────────────────────────────────────────

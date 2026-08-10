@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import SharedDataSourceModal from './SharedDataSourceModal';
 import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
 import { proxyFetch } from '../../../engine/executor';
@@ -266,17 +267,30 @@ describe('SharedDataSourceModal', () => {
       auth: { type: 'none' as const },
     };
 
-    it('shows cURL template badge when rawCurl is set', () => {
+    it('shows View cURL and reveals the stored command', async () => {
       const sources = [
         makeSharedDs('s1', 'T', {
           fetchConfig: {
             ...baseFetch,
-            rawCurl: "curl https://x.com",
+            rawCurl: 'curl https://x.com',
           },
         }),
       ];
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
-      expect(screen.getByText('cURL template')).toBeInTheDocument();
+      expect(screen.getByTestId('shared-ds-view-curl')).toHaveTextContent('View cURL');
+      expect(screen.queryByTestId('shared-ds-curl-view')).not.toBeInTheDocument();
+      await userEvent.click(screen.getByTestId('shared-ds-view-curl'));
+      const view = screen.getByTestId('shared-ds-curl-view');
+      expect(view).toBeInTheDocument();
+      expect(view).toHaveTextContent('curl https://x.com');
+      await userEvent.click(within(view).getByRole('button', { name: /^close$/i }));
+      expect(screen.queryByTestId('shared-ds-curl-view')).not.toBeInTheDocument();
+    });
+
+    it('hides View cURL when rawCurl is absent', () => {
+      const sources = [makeSharedDs('s1', 'T', { fetchConfig: { ...baseFetch } })];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      expect(screen.queryByTestId('shared-ds-view-curl')).not.toBeInTheDocument();
     });
 
     it('toggles cURL import section and cancels it', async () => {
@@ -582,27 +596,27 @@ describe('SharedDataSourceModal', () => {
         expect(document.querySelector('.shared-ds-auth-tab')).toBeTruthy();
       });
       const authPanel = document.querySelector('.shared-ds-auth-tab') as HTMLElement;
-      const authType = authPanel.querySelector('.shared-ds-fetch-auth-type') as HTMLSelectElement;
+      const authType = authPanel.querySelector('.shared-ds-fetch-auth-type')!;
 
-      await userEvent.selectOptions(authType, 'bearer');
+      selectOption(authType, 'Bearer Token');
       await waitFor(() => {
-        expect(authPanel.querySelector('input[placeholder="Token"]')).toBeTruthy();
+        expect(authPanel.querySelector('input[placeholder="eyJhbGciOi..."]')).toBeTruthy();
       });
 
-      await userEvent.selectOptions(authType, 'basic');
+      selectOption(authType, 'Basic Auth');
       await waitFor(() => {
-        expect(authPanel.querySelector('input[placeholder="Password"]')).toBeTruthy();
+        expect(authPanel.querySelector('input[placeholder="Enter password"]')).toBeTruthy();
       });
 
-      await userEvent.selectOptions(authType, 'apikey');
+      selectOption(authType, 'API Key');
       await waitFor(() => {
-        expect(authPanel.querySelector('input[placeholder="Key Name"]')).toBeTruthy();
+        expect(authPanel.querySelector('input[placeholder="X-API-Key"]')).toBeTruthy();
       });
 
       const typeSelects = authPanel.querySelectorAll('.shared-ds-fetch-auth-type');
-      await userEvent.selectOptions(typeSelects[0] as HTMLSelectElement, 'oauth2');
+      selectOption(typeSelects[0]!, 'OAuth2 Client Credentials');
       await waitFor(() => {
-        expect(authPanel.querySelector('input[placeholder="Token URL"]')).toBeTruthy();
+        expect(authPanel.querySelector('input[placeholder="https://auth.example.com/oauth/token"]')).toBeTruthy();
       });
     });
 
@@ -683,27 +697,27 @@ describe('SharedDataSourceModal', () => {
         expect(document.querySelector('.shared-ds-auth-tab')).toBeTruthy();
       });
       const panel = document.querySelector('.shared-ds-auth-tab') as HTMLElement;
-      const typeSel = panel.querySelector('.shared-ds-fetch-auth-type') as HTMLSelectElement;
+      const typeSel = panel.querySelector('.shared-ds-fetch-auth-type')!;
 
-      await userEvent.selectOptions(typeSel, 'bearer');
+      selectOption(typeSel, 'Bearer Token');
       const [prefixInp, tokenInp] = panel.querySelectorAll('.shared-ds-fetch-auth-input');
       fireEvent.change(prefixInp, { target: { value: 'Custom' } });
       fireEvent.change(tokenInp, { target: { value: 'tok' } });
 
-      await userEvent.selectOptions(typeSel, 'basic');
+      selectOption(typeSel, 'Basic Auth');
       const basicInputs = panel.querySelectorAll('.shared-ds-fetch-auth-input');
       fireEvent.change(basicInputs[0], { target: { value: 'u' } });
       fireEvent.change(basicInputs[1], { target: { value: 'p' } });
 
-      await userEvent.selectOptions(typeSel, 'apikey');
+      selectOption(typeSel, 'API Key');
       const apiInputs = panel.querySelectorAll('.shared-ds-fetch-auth-input');
       fireEvent.change(apiInputs[0], { target: { value: 'kname' } });
       fireEvent.change(apiInputs[1], { target: { value: 'kval' } });
-      const inLoc = panel.querySelectorAll('.shared-ds-fetch-auth-type')[1] as HTMLSelectElement;
-      fireEvent.change(inLoc, { target: { value: 'query' } });
+      const inLoc = panel.querySelectorAll('.shared-ds-fetch-auth-type')[1]!;
+      selectOption(inLoc, 'Query String');
 
-      const typeSelOauth = panel.querySelectorAll('.shared-ds-fetch-auth-type')[0] as HTMLSelectElement;
-      await userEvent.selectOptions(typeSelOauth, 'oauth2');
+      const typeSelOauth = panel.querySelectorAll('.shared-ds-fetch-auth-type')[0]!;
+      selectOption(typeSelOauth, 'OAuth2 Client Credentials');
       const oa = panel.querySelectorAll('.shared-ds-fetch-auth-input');
       fireEvent.change(oa[0], { target: { value: 'https://tok' } });
       fireEvent.change(oa[1], { target: { value: 'cid' } });

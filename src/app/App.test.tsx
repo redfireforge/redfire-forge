@@ -80,8 +80,10 @@ const h = vi.hoisted(() => {
 
     wb: {
       loaded: true,
+      data: { environments: [] as unknown[], collections: [] as unknown[] },
       collections: [] as unknown[],
       environments: [] as unknown[],
+      reconcileEnvironmentKeys: vi.fn(() => [] as string[]),
       selectedCollection: { id: 'c1' },
       selectedRequest: { id: 'r1' },
       selectCollection: fn(),
@@ -109,11 +111,30 @@ const h = vi.hoisted(() => {
       deleteGroup: fn(),
       moveToGroup: fn(),
       duplicateGroup: fn(),
-      addEnv: fn(),
       addCollection: vi.fn(() => 'new-col'),
       addRequest: vi.fn(() => 'new-req'),
       updateRequest: fn(),
       updateSubCollection: fn(),
+    },
+
+    reqTabs: {
+      tabs: [] as unknown[],
+      activeTabId: '',
+      activeTab: null as unknown,
+      selectTab: fn(),
+      closeTab: fn(),
+      addTab: fn(),
+      renameTab: fn(),
+      envChange: fn(),
+      selectRequest: fn(),
+      openInNewTab: fn(),
+      openTabRequestIds: new Set<string>(),
+      removeRequest: fn(),
+      removeCollection: fn(),
+      removeStaleTab: fn(),
+      removeStaleTabsByCollection: fn(),
+      syncTabLabel: fn(),
+      updateTabUI: fn(),
     },
 
     catalog: {
@@ -276,6 +297,7 @@ const h = vi.hoisted(() => {
 /* ── Hook mocks ─────────────────────────────────────────────────────────── */
 vi.mock('../features/scenarios/hooks/useProjects', () => ({ useProjects: () => h.projects }));
 vi.mock('../features/requests/hooks/useRequests', () => ({ useRequests: () => h.wb }));
+vi.mock('../features/requests/hooks/useRequestTabCoordinator', () => ({ useRequestTabCoordinator: () => h.reqTabs }));
 vi.mock('../features/catalog/hooks/useCatalog', () => ({ useCatalog: () => h.catalog }));
 vi.mock('../features/workflow/hooks/useWorkflows', () => ({ useWorkflows: () => h.wfHook }));
 vi.mock('../features/workflow/hooks/useWorkflowFolders', () => ({ useWorkflowFolders: () => h.wfFolders }));
@@ -567,7 +589,6 @@ vi.mock('../features/requests/components/RequestCollectionModal', () => ({
     <div data-testid="request-collection-modal">
       <button data-testid="rcm-save" onClick={() => h.call(props, 'onSave', { name: 'x' })}>s</button>
       <button data-testid="rcm-close" onClick={() => h.call(props, 'onClose')}>c</button>
-      <button data-testid="rcm-addenv" onClick={() => h.call(props, 'onAddEnv', { name: 'e' })}>e</button>
     </div>
   ),
 }));
@@ -981,7 +1002,7 @@ describe('App — requests / catalog sidebar handlers', () => {
     fireEvent.click(screen.getByTestId('rs-select-col'));
     expect(h.wb.selectCollection).toHaveBeenCalledWith('c1');
     fireEvent.click(screen.getByTestId('rs-select-req'));
-    expect(h.wb.selectRequest).toHaveBeenCalledWith('c1', 'r1');
+    expect(h.reqTabs.selectRequest).toHaveBeenCalledWith('c1', 'r1');
     fireEvent.click(screen.getByTestId('rs-new-col'));
     expect(h.wbActions.handleWbNewCollection).toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('rs-edit-col'));
@@ -1035,7 +1056,7 @@ describe('App — ApiCatalog page handlers', () => {
     fireEvent.click(screen.getByTestId('ac-edit'));
     expect(h.catalogState.setCatalogEditId).toHaveBeenCalledWith('e1');
     fireEvent.click(screen.getByTestId('ac-navigate'));
-    expect(h.wb.selectRequest).toHaveBeenCalledWith('c1', 'r1');
+    expect(h.reqTabs.selectRequest).toHaveBeenCalledWith('c1', 'r1');
     fireEvent.click(screen.getByTestId('ac-send-harness'));
     expect(h.harness.setCatalogHarnessEndpoint).toHaveBeenCalled();
     expect(h.harness.setShowSendToHarness).toHaveBeenCalledWith(true);
@@ -1048,7 +1069,7 @@ describe('App — scenario builder handlers', () => {
     render(<App />);
     goto('scenarios');
     fireEvent.click(screen.getByTestId('sb-locate-found'));
-    expect(h.wb.selectRequest).toHaveBeenCalledWith('c1', 'req-1');
+    expect(h.reqTabs.selectRequest).toHaveBeenCalledWith('c1', 'req-1');
     expect(screen.getByTestId('requests-page')).toBeTruthy();
   });
 
@@ -1116,8 +1137,6 @@ describe('App — modals', () => {
     expect(screen.getByTestId('request-collection-modal')).toBeTruthy();
     fireEvent.click(screen.getByTestId('rcm-save'));
     expect(h.wbActions.handleWbSaveCollection).toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId('rcm-addenv'));
-    expect(h.wb.addEnv).toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('rcm-close'));
     expect(h.wbActions.setShowWbCollectionModal).toHaveBeenCalledWith(false);
   });
@@ -1220,7 +1239,7 @@ describe('App — locate request inside a collection folder', () => {
     render(<App />);
     goto('scenarios');
     fireEvent.click(screen.getByTestId('sb-locate-found'));
-    expect(h.wb.selectRequest).toHaveBeenCalledWith('c1', 'req-1');
+    expect(h.reqTabs.selectRequest).toHaveBeenCalledWith('c1', 'req-1');
     expect(screen.getByTestId('requests-page')).toBeTruthy();
   });
 });

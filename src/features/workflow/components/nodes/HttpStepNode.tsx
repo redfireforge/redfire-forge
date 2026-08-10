@@ -4,6 +4,7 @@ import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodePausedOverlay } from './NodePausedOverlay';
 import { NodeConfigureButton } from './NodeConfigureButton';
+import { usePublishedCatalogKeys } from '../../contexts/PublishedCatalogContext';
 
 import { WORKFLOW_METHOD_COLORS as METHOD_COLORS } from '../../../../shared/constants/httpMethodColors';
 
@@ -12,10 +13,12 @@ type Props = NodeProps<HttpWorkflowNode>;
 
 export default function HttpStepNode({ id, data, selected }: Props) {
   const { rs, stateClass, debugStep, handleConfigure, openStepDetail } = useNodeBase(id);
+  const publishedKeys = usePublishedCatalogKeys();
   const method = data.scenario?.method ?? 'GET';
   const url = data.scenario?.url ?? '';
   const extractCount = data.scenario?.extractions?.length ?? 0;
   const dataRowCount = data.scenario?.dataSource?.rows?.filter(r => r.enabled).length ?? 0;
+  const isOrphaned = !!(data.catalogRef && !publishedKeys.has(`${data.catalogRef.entryId}::${data.catalogRef.endpointId}`));
 
   const openDetail = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -33,6 +36,11 @@ export default function HttpStepNode({ id, data, selected }: Props) {
               <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
             </svg>
             SVC
+          </span>
+        )}
+        {isOrphaned && (
+          <span className="wf-source-badge wf-orphan-badge" title="Source catalog endpoint has been unpublished" data-testid="wf-orphan-badge">
+            ⚠
           </span>
         )}
         <span className="wf-method-badge" style={{ background: METHOD_COLORS[method] ?? '#6b7280' }}>

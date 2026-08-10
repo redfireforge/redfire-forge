@@ -6,7 +6,12 @@ import { renderHook, act } from '@testing-library/react';
 import { useDemoHub } from './useDemoHub';
 import type { DemoLesson } from './types';
 import { gqlFirstQueryLesson } from './lessons/protocols/graphql-first-query';
-import { persistDemoLiveSession, readDemoLiveSession, resetLiveDemoResumeConsumeForTests } from './demoLiveSession';
+import {
+  consumeLiveDemoResumeOnce,
+  persistDemoLiveSession,
+  readDemoLiveSession,
+  resetLiveDemoResumeConsumeForTests,
+} from './demoLiveSession';
 
 function makeLesson(overrides: Partial<DemoLesson> = {}): DemoLesson {
   return {
@@ -335,6 +340,27 @@ describe('useDemoHub', () => {
     expect(result.current.state.view).toBe('concept');
     expect(result.current.state.isPlaying).toBe(false);
     expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
+    // Cleared after exit so future live sessions can redirect to initialTab.
+    expect(result.current.suppressLiveTabExitRef.current).toBe(false);
+  });
+
+  it('exitLiveDemo suppresses live→initialTab bounce while cleanup runs', async () => {
+    let sawSuppressedDuringCleanup = false;
+    const cleanup = vi.fn().mockImplementation(async () => {
+      // Ref is exposed on the hook result — read via navigate spy closure below.
+    });
+    const lesson = makeLesson({ cleanup });
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    act(() => { result.current.selectLesson(lesson); });
+    cleanup.mockImplementation(async () => {
+      sawSuppressedDuringCleanup = result.current.suppressLiveTabExitRef.current === true;
+    });
+    await act(async () => {
+      result.current.exitLiveDemo();
+      await vi.runAllTimersAsync();
+    });
+    expect(sawSuppressedDuringCleanup).toBe(true);
+    expect(result.current.suppressLiveTabExitRef.current).toBe(false);
   });
 
   it('exitLiveDemo runs cleanup when lesson has cleanup', async () => {
@@ -683,6 +709,9 @@ describe('useDemoHub', () => {
       speed: 1,
       savedAt: Date.now(),
     });
+    // Burn resume token so mount does not run resumeInterruptedLiveDemo, which
+    // briefly sets isPlaying:false during setup (covered in coverage-resume tests).
+    consumeLiveDemoResumeOnce();
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
     expect(result.current.state.view).toBe('live');
     expect(result.current.state.isPlaying).toBe(true);

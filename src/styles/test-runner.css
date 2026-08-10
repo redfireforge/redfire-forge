@@ -566,8 +566,8 @@ tr:hover td { background: var(--surface-hover); }
 .runner-option-box {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 10px 14px;
+  gap: 10px 14px;
+  padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -583,10 +583,12 @@ tr:hover td { background: var(--surface-hover); }
   white-space: nowrap;
 }
 .runner-exec-label {
-  font-size: 0.8rem;
+  flex: 0 0 auto;
+  font-size: 0.76rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-muted);
   white-space: nowrap;
+  min-width: 108px;
 }
 .runner-option-box .radio-label {
   font-size: 0.8rem;
@@ -596,7 +598,7 @@ tr:hover td { background: var(--surface-hover); }
   cursor: pointer;
 }
 .runner-option-box .radio-label input[type="radio"] {
-  accent-color: #3b82f6;
+  accent-color: var(--primary);
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -605,54 +607,165 @@ tr:hover td { background: var(--surface-hover); }
 
 /* Global rule for all radio buttons in execution config */
 .execution-group input[type="radio"] {
-  accent-color: #3b82f6;
+  accent-color: var(--primary);
   width: 16px;
   height: 16px;
   cursor: pointer;
 }
 
-/* Ensure radio buttons have blue accent in all contexts (including Workflow Runner) */
+/* Ensure radio buttons have theme accent in all contexts (including Workflow Runner) */
 .runner-option-box input[type="radio"],
 .error-policy-options input[type="radio"],
 .think-time-options input[type="radio"],
 .resilience-config input[type="radio"],
 .radio-label input[type="radio"] {
-  accent-color: #3b82f6 !important;
+  accent-color: var(--primary) !important;
   width: 16px;
   height: 16px;
   cursor: pointer;
 }
 .exec-mode-hint {
   font-size: 0.72rem;
-  color: var(--text-secondary, #888);
+  color: var(--text-muted);
   margin-left: auto;
+  font-style: normal;
+  opacity: 0.85;
+  line-height: 1.35;
+}
+.exec-mode-hint--below {
+  margin: 2px 0 0;
+  margin-left: 108px; /* align under radios after label column */
+  padding: 0;
+  flex: 1 1 100%;
+  max-width: 52rem;
+}
+.exec-mode-desktop-only {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
   font-style: italic;
+  white-space: nowrap;
+}
+
+.runner-option-box--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.runner-option-box-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
 }
 
 /* Execution Group (Mode + Config row) */
 .execution-group {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 10px;
   padding: 0;
-  box-shadow: var(--card-shadow);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
+    0 4px 16px color-mix(in srgb, #000 16%, transparent);
   margin-bottom: 12px;
+  overflow: hidden;
 }
+
+.workflow-runner-config-section .execution-group {
+  margin-bottom: 0;
+}
+
+/* Unified Run configuration card (Workflow Runner) */
+.workflow-runner-exec-card {
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
+    0 4px 16px color-mix(in srgb, #000 16%, transparent);
+}
+.workflow-runner-exec-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.workflow-runner-exec-card-title {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.workflow-runner-exec-card-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.9;
+}
+.workflow-runner-exec-card .wf-runner-inline-options--embedded {
+  margin: 0;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
+}
+.workflow-runner-exec-card .workflow-runner-config-section {
+  margin: 0;
+}
+.workflow-runner-exec-card .execution-group {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.workflow-runner-exec-card .execution-group .runner-option-box {
+  padding: 12px 16px;
+}
+.workflow-runner-exec-card .execution-group .resilience-config {
+  padding: 0;
+}
+.workflow-runner-exec-card .execution-group .resilience-row {
+  padding: 14px 16px;
+  gap: 16px 24px;
+}
+.workflow-runner-exec-card .execution-group .think-time-section .runner-option-box {
+  padding: 12px 16px;
+}
+.workflow-runner-exec-card .field-hint,
+.workflow-runner-exec-card .exec-mode-hint {
+  color: var(--text-muted);
+  opacity: 0.8;
+  font-style: normal;
+}
+
 .execution-group .runner-option-boxes { margin-bottom: 0; }
 .execution-group .runner-option-box {
   border: none;
   box-shadow: none;
   border-radius: 0;
   border-bottom: 1px solid var(--border);
+  background: transparent;
 }
 .execution-group .resilience-config {
   border: none;
   box-shadow: none;
   border-radius: 0;
   margin-bottom: 0;
+  background: transparent;
 }
 .execution-group .think-time-section {
   border-top: 1px solid var(--border);
+}
+.execution-group .think-time-section .runner-option-box {
+  border-bottom: none;
 }
 .think-time-inline-params {
   display: inline-flex;
@@ -693,27 +806,36 @@ tr:hover td { background: var(--surface-hover); }
 }
 .resilience-row {
   display: flex;
-  gap: 12px;
+  gap: 14px 18px;
   align-items: flex-start;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+}
+.resilience-group {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 .resilience-field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
-.resilience-field-sm { flex: 0.8; min-width: 70px; }
-.resilience-field-xs { flex: 0.6; min-width: 60px; }
+.resilience-field-sm { flex: 0 0 88px; min-width: 72px; }
+.resilience-field-xs { flex: 0 0 72px; min-width: 64px; }
 .resilience-field > label {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  text-transform: none;
+  letter-spacing: 0;
   white-space: nowrap;
-  line-height: 1;
-  min-height: 12px;
+  line-height: 1.2;
+  min-height: 14px;
 }
 .resilience-field input[type="number"] {
   width: 100%;
@@ -732,8 +854,9 @@ tr:hover td { background: var(--surface-hover); }
 }
 .resilience-field .field-hint {
   font-size: 0.68rem;
-  color: var(--text-secondary, #888);
-  font-style: italic;
+  color: var(--text-muted);
+  font-style: normal;
+  opacity: 0.75;
   white-space: nowrap;
   min-height: 14px;
   line-height: 14px;
@@ -742,9 +865,19 @@ tr:hover td { background: var(--surface-hover); }
   width: 1px;
   min-height: 44px;
   background: var(--border);
-  margin: 0 10px;
+  margin: 0 4px;
   flex-shrink: 0;
-  align-self: center;
+  align-self: stretch;
+}
+.resilience-field input[type="number"]:hover:not(:disabled),
+.resilience-field .input-with-unit input:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+.resilience-field input[type="number"]:focus,
+.resilience-field .input-with-unit input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 .input-with-unit {
   display: flex;
@@ -1054,7 +1187,12 @@ tr:hover td { background: var(--surface-hover); }
   max-width: none;
   max-height: none;
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   min-width: 400px;
   min-height: 260px;
@@ -1432,6 +1570,7 @@ tr:hover td { background: var(--surface-hover); }
 /* 4.2: Expansion summary */
 .runner-expansion-summary {
   margin-top: 12px;
+  margin-bottom: 16px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -2022,11 +2161,15 @@ tr:hover td { background: var(--surface-hover); }
   max-width: 700px;
   max-height: 90vh;
   background: var(--panel-bg, #1a1a2e);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .wf-curl-modal-header {
   display: flex;
@@ -2318,23 +2461,69 @@ tr:hover td { background: var(--surface-hover); }
 /* ── Inline Options (Poll Throttle + Trace Level) ── */
 .wf-runner-inline-options {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  margin-bottom: 16px;
-  padding-left: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
+    0 2px 10px color-mix(in srgb, #000 12%, transparent);
 }
 
 .wf-inline-option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.wf-inline-option--trace {
+  align-items: flex-start;
+}
+
+.wf-inline-radio-group,
+.wf-inline-trace-extras {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
 }
 
 .wf-inline-label {
-  font-size: 0.8rem;
-  color: var(--text);
+  flex: 0 0 auto;
+  min-width: 108px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
   font-weight: 600;
+}
+
+.workflow-runner-run-bar {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
+    0 2px 10px color-mix(in srgb, #000 12%, transparent);
+}
+
+.workflow-runner-run-bar .form-actions {
+  margin: 0;
+  justify-content: flex-start;
+}
+
+.workflow-runner-run-bar .btn-lg {
+  min-width: 168px;
+  padding: 10px 22px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-radius: 8px;
 }
 
 .wf-inline-input {
@@ -3491,9 +3680,13 @@ tr:hover td { background: var(--surface-hover); }
   width: 420px;
   max-width: 90vw;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .mwt-modal-header {
   display: flex;

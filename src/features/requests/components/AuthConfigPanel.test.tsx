@@ -80,8 +80,10 @@ describe('AuthConfigPanel', () => {
   });
 
   it('changes auth type via the type selector', () => {
-    const { onChange } = setup({ auth: { type: 'none' } });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'basic' } });
+    const { onChange } = setup({ auth: { type: 'none' }, useCustomTypeDropdown: true });
+    const trigger = document.querySelector('.auth-type-select .auth-type-trigger')!;
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByTestId('auth-type-opt-basic'));
     expect(onChange).toHaveBeenCalledWith({ type: 'basic' });
   });
 
@@ -189,17 +191,17 @@ describe('AuthConfigPanel', () => {
     const onProfileChange = vi.fn();
     setup({
       auth: { type: 'inherit' },
+      useCustomTypeDropdown: true,
       showProfileSelector: true,
       allAuthProfiles: PROFILES,
       globalAuthProfileId: 'p1',
       onProfileChange,
     });
     expect(screen.getByText(/Using/)).toBeInTheDocument();
-    const profileSelect = screen.getAllByRole('combobox')[1];
-    fireEvent.change(profileSelect, { target: { value: 'p2' } });
+    const profileTrigger = document.querySelector('.global-profile-selector .auth-profile-trigger')!;
+    fireEvent.click(profileTrigger);
+    fireEvent.click(screen.getByText('Staging Basic'));
     expect(onProfileChange).toHaveBeenCalledWith('p2');
-    fireEvent.change(profileSelect, { target: { value: '' } });
-    expect(onProfileChange).toHaveBeenCalledWith(undefined);
   });
 
   it('warns when selected profile no longer exists', () => {
@@ -328,5 +330,49 @@ describe('AuthConfigPanel', () => {
     setup({ auth: { type: 'oauth2', clientSecret: 'sec' }, showSecret: true, setShowSecret });
     fireEvent.click(screen.getByTitle('Hide'));
     expect(setShowSecret).toHaveBeenCalled();
+  });
+
+  it('renders pre-filled values for basic auth fields', () => {
+    setup({ auth: { type: 'basic', username: 'usr', password: 'pw' } });
+    expect(screen.getByDisplayValue('usr')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('pw')).toBeInTheDocument();
+  });
+
+  it('renders pre-filled values for bearer auth fields', () => {
+    setup({ auth: { type: 'bearer', token: 'tok123', prefix: 'Token' } });
+    expect(screen.getByDisplayValue('tok123')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Token')).toBeInTheDocument();
+  });
+
+  it('renders pre-filled values for apikey auth fields', () => {
+    setup({ auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'val1', apiKeyIn: 'query' } });
+    expect(screen.getByDisplayValue('X-Key')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('val1')).toBeInTheDocument();
+  });
+
+  it('renders pre-filled values for digest auth fields', () => {
+    setup({ auth: { type: 'digest', username: 'dUser', password: 'dPass' } });
+    expect(screen.getByDisplayValue('dUser')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('dPass')).toBeInTheDocument();
+  });
+
+  it('renders pre-filled oauth2 fields', () => {
+    setup({ auth: { type: 'oauth2', tokenUrl: 'https://auth.io/token', clientId: 'cid', clientSecret: 'csecret' } });
+    expect(screen.getByDisplayValue('https://auth.io/token')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('cid')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('csecret')).toBeInTheDocument();
+  });
+
+  it('renders profile selector with selected profile showing hint', () => {
+    const onProfileChange = vi.fn();
+    setup({
+      auth: { type: 'inherit' },
+      showProfileSelector: true,
+      globalAuthProfileId: 'p1',
+      onProfileChange,
+      allAuthProfiles: PROFILES,
+    });
+    expect(screen.getByText(/Using/)).toBeInTheDocument();
+    expect(screen.getByText(/BEARER/)).toBeInTheDocument();
   });
 });

@@ -61,6 +61,16 @@ describe('protoDescriptorParser', () => {
     expect(normalized.importPaths).toEqual(['shared', 'api']);
   });
 
+  it('preserves explicit importPaths when protoRoots are absent', () => {
+    const normalized = normalizeDescribeProtoFilesInput({
+      importPaths: ['shared', 'api'],
+      protoRoots: [],
+    });
+
+    expect(normalized.protoFiles).toEqual([]);
+    expect(normalized.importPaths).toEqual(['shared', 'api']);
+  });
+
   it('round-trips protoset base64', () => {
     const root = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
     const protosetBase64 = encodeRootAsProtosetBase64(root);
@@ -135,6 +145,13 @@ service ApiService { rpc Call(Request) returns (Response); }`;
 
   it('throws for invalid protoset base64', () => {
     expect(() => parseProtosetBase64('!!!')).toThrow(/Invalid protosetBase64|Failed to decode protoset|empty buffer/);
+  });
+
+  it('throws when protoset source is selected without a payload', () => {
+    expect(() => parseDescribeRequestSource({
+      source: 'protoset',
+      protosetBase64: '   ',
+    })).toThrow(/protosetBase64 is required/i);
   });
 
   it('throws for duplicate proto file paths', () => {

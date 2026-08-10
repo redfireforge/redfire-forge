@@ -17,17 +17,41 @@
 /* ── Modal Container ────────────────────────────────────────────────────────── */
 
 .wf-version-diff-modal {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 90%;
   max-width: 720px;
   max-height: 85vh;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
+
+.wf-version-diff-modal--positioned {
+  margin: 0;
+}
+
+/* ── Resize Handles ────────────────────────────────────────────────────────── */
+
+.wf-vd-resize {
+  position: absolute;
+  z-index: 10;
+}
+.wf-vd-resize-n { top: 0; left: 8px; right: 8px; height: 5px; cursor: n-resize; }
+.wf-vd-resize-s { bottom: 0; left: 8px; right: 8px; height: 5px; cursor: s-resize; }
+.wf-vd-resize-e { top: 8px; right: 0; bottom: 8px; width: 5px; cursor: e-resize; }
+.wf-vd-resize-w { top: 8px; left: 0; bottom: 8px; width: 5px; cursor: w-resize; }
+.wf-vd-resize-ne { top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; }
+.wf-vd-resize-nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nw-resize; }
+.wf-vd-resize-se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: se-resize; }
+.wf-vd-resize-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; }
 
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 
@@ -252,6 +276,8 @@
   background: var(--border);
   border-radius: 3px;
 }
+
+.wf-version-diff-footer { display: flex; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid var(--border); }
 
 /* ── Section ────────────────────────────────────────────────────────────────── */
 

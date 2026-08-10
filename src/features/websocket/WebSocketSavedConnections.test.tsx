@@ -72,18 +72,18 @@ describe('WebSocketSavedConnections', () => {
     expect(screen.getAllByText('Beta').length).toBeGreaterThan(0);
   });
 
-  it('shows header count tag', () => {
+  it('shows header count in detail', () => {
     const profiles = [makeProfile({
       headers: [{ key: 'Auth', value: 'Bearer x', enabled: true }],
     })];
     render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
-    expect(screen.getByText('1 header')).toBeTruthy();
+    expect(screen.getByText('1 configured')).toBeTruthy();
   });
 
-  it('shows auto-reconnect tag', () => {
+  it('shows auto-reconnect status pill when enabled', () => {
     const profiles = [makeProfile({ autoReconnect: true })];
     render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
-    expect(screen.getByText('auto-reconnect')).toBeTruthy();
+    expect(screen.getByText('On')).toBeTruthy();
   });
 
   it('filters profiles by search', () => {
@@ -148,7 +148,7 @@ describe('WebSocketSavedConnections', () => {
     fireEvent.click(screen.getByTestId('delete-btn-p1'));
     expect(screen.getByTestId('confirm-delete-p1')).toBeTruthy();
 
-    fireEvent.click(screen.getByText('No'));
+    fireEvent.click(screen.getByText('Cancel'));
     expect(screen.queryByTestId('confirm-delete-p1')).toBeNull();
     expect(props.onDeleteProfile).not.toHaveBeenCalled();
   });
@@ -232,7 +232,7 @@ describe('WebSocketSavedConnections', () => {
       fireEvent.click(screen.getByTestId('new-profile-btn'));
       expect(screen.getByTestId('profile-editor-modal')).toBeTruthy();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      fireEvent.click(screen.getByTestId('profile-cancel-btn'));
       expect(screen.queryByTestId('profile-editor-modal')).toBeNull();
     });
   });
@@ -397,13 +397,13 @@ describe('WebSocketSavedConnections', () => {
         queryParams: [{ key: 'token', value: 'abc', enabled: true }],
       })];
       render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
-      expect(screen.getByText('1 param')).toBeTruthy();
+      expect(screen.getByText('1 configured')).toBeTruthy();
     });
 
-    it('shows no headers tag when empty', () => {
+    it('shows None for headers when empty', () => {
       const profiles = [makeProfile({ headers: [] })];
       render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
-      expect(screen.getByText('no headers')).toBeTruthy();
+      expect(screen.getAllByText('None').length).toBeGreaterThan(0);
     });
   });
 
@@ -618,7 +618,7 @@ describe('WebSocketSavedConnections', () => {
       expect(screen.getByText('mTLS')).toBeTruthy();
     });
 
-    it('shows param count tag', () => {
+    it('shows param count in detail', () => {
       const profiles = [makeProfile({
         queryParams: [
           { key: 'token', value: 'abc', enabled: true },
@@ -626,15 +626,15 @@ describe('WebSocketSavedConnections', () => {
         ],
       })];
       render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
-      expect(screen.getByText('2 params')).toBeTruthy();
+      expect(screen.getByText('2 configured')).toBeTruthy();
     });
 
-    it('shows single param without plural', () => {
+    it('shows single param count in detail', () => {
       const profiles = [makeProfile({
         queryParams: [{ key: 'token', value: 'abc', enabled: true }],
       })];
       render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
-      expect(screen.getByText('1 param')).toBeTruthy();
+      expect(screen.getByText('1 configured')).toBeTruthy();
     });
   });
 

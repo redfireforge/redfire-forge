@@ -65,25 +65,25 @@ test.describe('Workflow Trigger Nodes', () => {
 
   test('palette shows Triggers category with Manual Start block', async ({ page }) => {
     await openWorkflowBlocksTab(page);
+    await page.locator('[data-testid="wf-palette-rail-triggers"]').click();
 
-    // Should show Triggers category header
-    await expect(page.locator('.wf-palette-category-title', { hasText: 'Triggers' })).toBeVisible();
-
-    // Should show Manual Start block
+    await expect(page.locator('.wf-palette-rail-title', { hasText: 'Triggers' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-start .wf-pb-title')).toHaveText('Manual Start');
   });
 
   test('palette shows Flow category with Parallel Fork block', async ({ page }) => {
     await openWorkflowBlocksTab(page);
+    await page.locator('[data-testid="wf-palette-rail-flow"]').click();
 
-    await expect(page.locator('.wf-palette-category-title', { hasText: 'Flow' })).toBeVisible();
+    await expect(page.locator('.wf-palette-rail-title', { hasText: 'Flow' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-fork .wf-pb-title')).toHaveText('Parallel Fork');
   });
 
   test('palette shows Actions category with HTTP and Delay blocks', async ({ page }) => {
     await openWorkflowBlocksTab(page);
+    await page.locator('[data-testid="wf-palette-rail-actions"]').click();
 
-    await expect(page.locator('.wf-palette-category-title', { hasText: 'Actions' })).toBeVisible();
+    await expect(page.locator('.wf-palette-rail-title', { hasText: 'Actions' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-http .wf-pb-title')).toHaveText('HTTP Request');
     await expect(page.locator('.wf-palette-block-delay .wf-pb-title')).toHaveText('Delay');
   });
@@ -116,6 +116,7 @@ test.describe('Workflow Trigger Nodes', () => {
 
   test('adding Parallel Fork from palette creates a Fork node', async ({ page }) => {
     await openWorkflowBlocksTab(page);
+    await page.locator('[data-testid="wf-palette-rail-flow"]').click();
 
     // Click the Fork block to add it
     await page.locator('.wf-palette-block-fork').click();

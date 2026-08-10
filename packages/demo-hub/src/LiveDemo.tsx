@@ -133,9 +133,14 @@ export default function LiveDemo({
   const totalSteps = lesson.steps.length;
   const progressPct = ((stepIndex + 1) / totalSteps) * 100;
   const isLast = stepIndex >= totalSteps - 1;
-  // Lock next/arrow navigation while an action is actively executing;
-  // only allow advancement during reading pause or when a step is idle.
-  const canNavigate = stepPhase === 'reading' || stepPhase === 'done';
+  // Next / → when done, or during reading (runs the step action then advances).
+  // Disabled while Preparing / Acting / Verifying so the viewer cannot interrupt
+  // an in-flight spotlight tour.
+  const canNavigate = stepPhase === 'done' || stepPhase === 'reading';
+  const nextDisabledReason = 'Please wait — action in progress';
+  const nextTitle = stepPhase === 'reading'
+    ? 'Next (→) — finish this step then advance'
+    : 'Next (→)';
 
   // Phase label for user feedback (pinned above controls — always visible)
   const phaseLabel = stepPhase === 'pre' ? '⏳ Preparing'
@@ -147,7 +152,8 @@ export default function LiveDemo({
 
   return (
     <>
-      {/* Spotlight ring — hidden while steps overview is open */}
+      {/* Reading-phase ring only — hide during action/done so in-action spotlights never overlap
+          and finished steps don't leave a stale ring on the original target */}
       {targetFound && step.highlight && stepPhase === 'reading' && !overviewOpen && (
         <DemoSpotlight
           key={`${stepIndex}:${step.highlight}`}
@@ -298,10 +304,10 @@ export default function LiveDemo({
             className="demo-live-btn"
             onClick={onNext}
             disabled={isLast || !canNavigate}
-            title={canNavigate ? 'Next (→)' : 'Please wait — action in progress'}
+            title={isLast ? 'Last step' : canNavigate ? nextTitle : nextDisabledReason}
             aria-label="Next step"
           >
-            ▶
+            →
           </button>
           {isLast && canNavigate && (
             <button

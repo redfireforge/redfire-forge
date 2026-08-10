@@ -61,17 +61,12 @@ export function GalleryDetailPanel<T = unknown>({
   };
 
   return (
-    <div className="gallery-detail-panel">
+    <div className="gallery-detail-panel" data-testid="gallery-detail-panel">
       <div className="gallery-detail-header">
         <div className="gallery-detail-icon">{entry.icon}</div>
         <div className="gallery-detail-title-group">
           <div className="gallery-detail-name">{entry.name}</div>
         </div>
-        {onClose && (
-          <button className="gallery-detail-close" onClick={onClose} type="button" aria-label="Close detail panel">
-            ✕
-          </button>
-        )}
       </div>
 
       <div className="gallery-detail-desc">{entry.description}</div>
@@ -163,6 +158,7 @@ export function GalleryDetailPanel<T = unknown>({
             className="gallery-detail-btn gallery-detail-btn-primary"
             onClick={() => onAction(entry)}
             type="button"
+            data-testid="gallery-detail-action"
           >
             {actionLabel}
           </button>
@@ -172,9 +168,13 @@ export function GalleryDetailPanel<T = unknown>({
             className="gallery-detail-btn gallery-detail-btn-secondary"
             onClick={() => onSecondary(entry)}
             type="button"
+            data-testid="gallery-detail-secondary"
           >
             {secondaryLabel}
           </button>
+        )}
+        {onClose && (
+          <button type="button" className="btn btn-primary" onClick={onClose} data-testid="gallery-detail-close">Close</button>
         )}
       </div>
 

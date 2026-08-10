@@ -209,6 +209,7 @@ describe('buildSearchText', () => {
       },
     });
     const s = buildSearchText(t);
+    expect(s).toContain('oauth2');
     expect(s).toContain('https://idp/token');
     expect(s).toContain('cid');
     expect(s).toContain('user@example.com');
@@ -216,6 +217,19 @@ describe('buildSearchText', () => {
     expect(s).toContain('$.id');
     expect(s).toContain('42');
     expect(s).toContain('{"ok":true}');
+  });
+
+  it('does not throw when auth, validation, or headers are missing (demo / legacy seeds)', () => {
+    const incomplete = {
+      id: 's-partial',
+      name: 'Partial Test',
+      url: '/users',
+      method: 'GET',
+      body: '',
+    } as Scenario;
+    expect(() => buildSearchText(incomplete)).not.toThrow();
+    expect(buildSearchText(incomplete)).toContain('Partial Test');
+    expect(buildSearchText(incomplete)).toContain('/users');
   });
 });
 

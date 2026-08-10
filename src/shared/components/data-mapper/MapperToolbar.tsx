@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import type { Mapping, AdapterCapabilities } from './types';
 import type { MappingProfile } from './utils/mappingProfiles';
 import { loadProfiles, saveProfile, deleteProfile, renameProfile } from './utils/mappingProfiles';
@@ -316,6 +317,7 @@ export default function MapperToolbar({
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showCodeView ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleCodeView}
             title={showCodeView ? 'Hide code view' : 'Show code view'}
+            data-testid="dm-view-code"
           >
             Code
           </button>
@@ -325,6 +327,7 @@ export default function MapperToolbar({
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showPreview ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onTogglePreview}
             title={showPreview ? 'Hide preview' : 'Show preview'}
+            data-testid="dm-view-preview"
           >
             Preview
           </button>
@@ -334,12 +337,15 @@ export default function MapperToolbar({
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showTableView ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleTableView}
             title={showTableView ? 'Hide table view' : 'Show mapping table'}
+            data-testid="dm-view-table"
           >
             Table
           </button>
         )}
         {onToggleRulesView && (
           <button
+            type="button"
+            data-testid="dm-view-rules"
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showRulesView ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleRulesView}
             title={showRulesView ? 'Hide rules editor' : 'Edit validation rules as code'}
@@ -360,7 +366,13 @@ export default function MapperToolbar({
           <button
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${nodeFocusMode ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleNodeFocusMode}
+            aria-pressed={nodeFocusMode}
             title={nodeFocusMode ? 'Disable node-focus lines' : 'Enable node-focus lines'}
+            aria-label={
+              nodeFocusMode
+                ? 'Focus mode on — click a field to show only its lines'
+                : 'Enable focus mode — then click a Source or Target field to show its lines'
+            }
           >
             Focus
           </button>
@@ -506,20 +518,20 @@ export default function MapperToolbar({
           {advancedOpen && (
             <div className="dm-toolbar-advanced-panel">
               {hasConfidenceControl && onConfidenceThresholdChange && (
-                <select
+                <CustomSelect
                   className="dm-toolbar-threshold"
-                  value={confidenceThreshold ?? 50}
-                  onChange={(e) => onConfidenceThresholdChange(Number(e.target.value))}
-                  title="Minimum confidence for auto-map suggestions"
+                  value={String(confidenceThreshold ?? 50)}
+                  onChange={(v) => onConfidenceThresholdChange(Number(v))}
+                  options={[
+                    { value: '0', label: 'All' },
+                    { value: '50', label: '≥ 50%' },
+                    { value: '60', label: '≥ 60%' },
+                    { value: '75', label: '≥ 75%' },
+                    { value: '80', label: '≥ 80%' },
+                    { value: '90', label: '≥ 90%' },
+                  ]}
                   aria-label="Auto-map confidence threshold"
-                >
-                  <option value={0}>All</option>
-                  <option value={50}>≥ 50%</option>
-                  <option value={60}>≥ 60%</option>
-                  <option value={75}>≥ 75%</option>
-                  <option value={80}>≥ 80%</option>
-                  <option value={90}>≥ 90%</option>
-                </select>
+                />
               )}
               {onLearnFromExamples && (
                 <button

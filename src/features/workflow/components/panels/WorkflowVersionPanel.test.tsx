@@ -49,7 +49,7 @@ describe('WorkflowVersionPanel', () => {
   it('calls onClose when close button clicked', () => {
     const props = defaultProps();
     render(<WorkflowVersionPanel {...props} />);
-    fireEvent.click(screen.getByTitle('Close panel'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(props.onClose).toHaveBeenCalled();
   });
 

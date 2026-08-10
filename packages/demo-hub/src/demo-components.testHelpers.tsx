@@ -6,6 +6,8 @@ import type { DemoDomain, DemoLesson, DemoProgress } from './types';
 export const baseProgress: DemoProgress = {
   completedLessons: [],
   lessonSteps: {},
+  completedVersions: {},
+  completedStepCounts: {},
   speed: 1,
 };
 

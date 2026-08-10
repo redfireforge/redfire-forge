@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('./gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql6'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 vi.mock('../../../adapters', async (importOriginal) => {
@@ -34,7 +35,6 @@ import {
   LESSON6_GLOBAL_AUTH_PROFILE_NAME,
   LESSON6_PROFILE_NAME,
   LESSON6_RV_METADATA_AUTHORIZATION_VAL,
-  LESSON6_RV_METADATA_API_KEY_VAL,
   resetGqlLesson6SessionFlags,
   seedLesson6GlobalAuthProfile,
   upsertGqlDemoEnvVars,
@@ -53,6 +53,7 @@ import {
   markBasicDone,
   markOauthDone,
   markInheritDone,
+  markProfileDone,
   preIntroStep,
   preEnvStep,
   preBearerStep,
@@ -247,27 +248,19 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
 
   // ── ensureEnvReady ──────────────────────────────────────────────────────────
 
-  it('ensureEnvReady opens env modal and clicks Set Active', async () => {
+  it('ensureEnvReady seeds via bridge without opening Env badge', async () => {
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
-      <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-env-badge"></button>
-      <div data-testid="gql-env-modal">
-        <div data-testid="gql-env-var-row">
-          <input data-testid="gql-env-var-key" value="authToken" />
-          <input class="gql-env-var-input" value="${LESSON6_AUTH_TOKEN_VALUE}" />
-        </div>
-        <div data-testid="gql-env-var-row">
-          <input data-testid="gql-env-var-key" value="apiKey" />
-          <input class="gql-env-var-input" value="${LESSON6_API_KEY_VALUE}" />
-        </div>
-        <button data-testid="gql-env-set-active-btn"></button>
-      </div>
     `;
+    const bridge = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = bridge;
     const ctx = makeCtx();
     await ensureEnvReady(ctx);
-    // ctx.click is the mock — verify Set Active was clicked via ctx
-    expect(ctx.click).toHaveBeenCalledWith(GQL.ENV_SET_ACTIVE_BTN);
+    expect(bridge).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
   });
 
   it('ensureEnvReady is idempotent — skips on second call', async () => {
@@ -439,28 +432,30 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
   });
 
-  it('prepareBearerObserveReading keeps auth tab open while priming metadata spotlight', async () => {
+  it('prepareBearerObserveReading keeps auth tab open and does not Execute', async () => {
     buildFullDom();
     document.querySelector(GQL.BOTTOM_TAB_AUTH)?.setAttribute('aria-selected', 'true');
     const ctx = makeCtx();
     await prepareBearerObserveReading(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
   });
 
-  it('prepareMetadataRequestHeadersReading opens Metadata on the named header value row', async () => {
+  it('prepareMetadataRequestHeadersReading opens Metadata when a response already exists', async () => {
     buildFullDom();
+    document.querySelector(GQL.RV_TAB_METADATA)?.setAttribute('aria-selected', 'false');
     const ctx = makeCtx();
     await prepareMetadataRequestHeadersReading(ctx, 'Authorization');
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
-    expect(ctx.waitFor).toHaveBeenCalledWith(LESSON6_RV_METADATA_AUTHORIZATION_VAL, 5000);
   });
 
-  it('prepareMetadataRequestHeadersReading targets API Key row when named', async () => {
+  it('prepareMetadataRequestHeadersReading is a no-op when Metadata is already open', async () => {
     buildFullDom();
+    document.querySelector(GQL.RIGHT_TAB_RESPONSE)?.setAttribute('aria-selected', 'true');
+    document.querySelector(GQL.RV_TAB_METADATA)?.setAttribute('aria-selected', 'true');
     const ctx = makeCtx();
     await prepareMetadataRequestHeadersReading(ctx, LESSON6_API_KEY_HEADER);
-    expect(ctx.waitFor).toHaveBeenCalledWith(LESSON6_RV_METADATA_API_KEY_VAL, 5000);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
   });
 
   it('prepareMetadataRequestHeadersReading is no-op when response viewer is absent', async () => {
@@ -637,6 +632,8 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
     buildFullDom();
     const upsert = vi.fn();
     (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile = upsert;
+    // Native <select> defaults to the first option — clear so the helper must select it.
+    document.querySelector<HTMLSelectElement>(GQL.AUTH_PROFILE_SELECT)!.value = '';
     const ctx = makeCtx();
     await selectInheritGlobalProfileInPanel(ctx);
     expect(upsert).toHaveBeenCalled();
@@ -672,60 +669,63 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
 
   // ── prepare* reading helpers ────────────────────────────────────────────────
 
-  it('prepareBearerConfigReading selects bearer type in auth panel', async () => {
+  it('prepareBearerConfigReading does not switch auth type (action shows it once)', async () => {
     buildFullDom();
     const ctx = makeCtx();
     await prepareBearerConfigReading(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ENV_CLOSE_BTN);
-    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'bearer');
+    expect(ctx.selectOption).not.toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'bearer');
   });
 
-  it('prepareBearerObserveReading re-executes without reopening auth when bearer is already configured', async () => {
+  it('prepareBearerObserveReading does not Execute when bearer is already configured', async () => {
     buildFullDom();
     const ctx = makeCtx();
     await prepareBearerObserveReading(ctx);
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('prepareApiKeyObserveReading re-executes without reopening auth when api key is already configured', async () => {
+  it('prepareApiKeyObserveReading does not Execute when api key is already configured', async () => {
     buildFullDom();
     const ctx = makeCtx();
     markBearerDone();
     await prepareApiKeyObserveReading(ctx);
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('prepareBasicObserveReading re-executes without reopening auth when basic is already configured', async () => {
+  it('prepareBasicObserveReading does not Execute when basic is already configured', async () => {
     buildFullDom();
     const ctx = makeCtx();
     markBearerDone();
     markApiKeyDone();
     await prepareBasicObserveReading(ctx);
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('prepareOauthConfigReading selects oauth2 and scrolls token URL field', async () => {
+  it('prepareOauthConfigReading restores prior credentials without selecting oauth2', async () => {
     buildFullDom();
+    // Simulate Next-skip: Basic fields empty so Preparing quietly restores them.
+    document.querySelector<HTMLInputElement>(GQL.AUTH_BASIC_USER)!.value = '';
+    document.querySelector<HTMLInputElement>(GQL.AUTH_BASIC_PASS)!.value = '';
     const ctx = makeCtx();
     await prepareOauthConfigReading(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'oauth2');
+    expect(ctx.selectOption).not.toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'oauth2');
     expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
   });
 
-  it('prepareInheritConfigReading seeds global profile and selects inherit type', async () => {
+  it('prepareInheritConfigReading seeds global profile without selecting inherit', async () => {
     buildFullDom();
     const upsert = vi.fn();
     (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile = upsert;
     const ctx = makeCtx();
     await prepareInheritConfigReading(ctx);
     expect(upsert).toHaveBeenCalled();
-    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
+    expect(ctx.selectOption).not.toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
   });
 
-  it('prepareInheritObserveReading skips auth panel when inherit profile is already selected', async () => {
+  it('prepareInheritObserveReading does not Execute when inherit profile is already selected', async () => {
     buildFullDom();
     const ctx = makeCtx();
     markBearerDone();
@@ -740,15 +740,25 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
     vi.mocked(ctx.selectOption).mockClear();
     await prepareInheritObserveReading(ctx);
     expect(ctx.selectOption).not.toHaveBeenCalled();
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('prepareSubscriptionObserveReading executes with metadata', async () => {
+  it('prepareSubscriptionObserveReading does not Execute during Preparing', async () => {
     buildFullDom();
     const ctx = makeCtx();
+    markBearerDone();
+    markApiKeyDone();
+    markBasicDone();
+    markOauthDone();
+    markInheritDone();
+    markProfileDone();
+    const typeSelect = document.querySelector<HTMLSelectElement>(GQL.AUTH_TYPE_SELECT)!;
+    typeSelect.value = 'inherit';
+    const profileSelect = document.querySelector<HTMLSelectElement>(GQL.AUTH_PROFILE_SELECT)!;
+    profileSelect.value = LESSON6_GLOBAL_AUTH_PROFILE_ID;
+    vi.mocked(ctx.click).mockClear();
     await prepareSubscriptionObserveReading(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
   it('preIntroStep closes stale modals on empty endpoint DOM', async () => {
@@ -764,8 +774,10 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.any(String));
   });
 
-  it('preOauthStep runs after basic auth chain', async () => {
+  it('preOauthStep restores basic credentials when missing', async () => {
     buildFullDom();
+    document.querySelector<HTMLInputElement>(GQL.AUTH_BASIC_USER)!.value = '';
+    document.querySelector<HTMLInputElement>(GQL.AUTH_BASIC_PASS)!.value = '';
     const ctx = makeCtx();
     await preOauthStep(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
@@ -817,25 +829,40 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
     expect(ensureGqlDemoTab).toHaveBeenCalledWith(ctx, 'gql-auth-headers', 'Authentication & Headers');
   });
 
-  it('prepareApiKeyConfigReading runs preApiKeyStep chain', async () => {
+  it('prepareApiKeyConfigReading restores bearer when missing without selecting apiKey', async () => {
     buildFullDom();
+    document.querySelector<HTMLInputElement>(GQL.AUTH_BEARER_INPUT)!.value = '';
     const ctx = makeCtx();
     await prepareApiKeyConfigReading(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
+    expect(ctx.selectOption).not.toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'apiKey');
   });
 
-  it('prepareBasicConfigReading runs preBasicStep chain', async () => {
+  it('prepareBasicConfigReading restores api key when missing without selecting basic', async () => {
     buildFullDom();
+    document.querySelector<HTMLInputElement>(GQL.AUTH_APIKEY_VAL)!.value = '';
     const ctx = makeCtx();
     await prepareBasicConfigReading(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
+    expect(ctx.selectOption).not.toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'basic');
   });
 
-  it('prepareSubscriptionExecReading selects inherit profile', async () => {
+  it('prepareSubscriptionExecReading binds inherit only when missing', async () => {
     buildFullDom();
     const ctx = makeCtx();
+    markBearerDone();
+    markApiKeyDone();
+    markBasicDone();
+    markOauthDone();
+    markInheritDone();
+    markProfileDone();
+    const typeSelect = document.querySelector<HTMLSelectElement>(GQL.AUTH_TYPE_SELECT)!;
+    typeSelect.value = 'inherit';
+    const profileSelect = document.querySelector<HTMLSelectElement>(GQL.AUTH_PROFILE_SELECT)!;
+    profileSelect.value = LESSON6_GLOBAL_AUTH_PROFILE_ID;
+    vi.mocked(ctx.selectOption).mockClear();
     await prepareSubscriptionExecReading(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
+    expect(ctx.selectOption).not.toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
   });
 
   it('gqlAuthLessonSetup activates editor and response tabs when inactive', async () => {

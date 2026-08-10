@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RenderResult } from '@testing-library/react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
 
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import KafkaSettingsPage from './KafkaSettingsPage';
@@ -271,7 +272,7 @@ describe('KafkaSettingsPage', () => {
     await user.type(screen.getByLabelText('Cluster Name'), 'Secure Local Cluster');
     await user.type(screen.getByLabelText('Connection Timeout (ms)'), '5000');
     await user.type(screen.getByLabelText('Request Timeout (ms)'), '9000');
-    await user.selectOptions(screen.getByLabelText('Mechanism'), 'scram-sha-512');
+    selectOption(screen.getByLabelText('Mechanism').closest('.cs-wrapper')!, 'SCRAM-SHA-512');
     await user.type(screen.getByLabelText('Username'), 'svc-user');
     await user.type(screen.getByLabelText('Password'), 'svc-pass');
     await user.click(screen.getByLabelText('Enable TLS'));
@@ -319,7 +320,7 @@ describe('KafkaSettingsPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
 
-    expect((screen.getByLabelText('Mechanism') as HTMLSelectElement).value).toBe('scram-sha-512');
+    expect(getCustomSelectValue(screen.getByLabelText('Mechanism').closest('.cs-wrapper')!)).toBe('SCRAM-SHA-512');
     expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('svc-user');
     expect((screen.getByLabelText('TLS Server Name') as HTMLInputElement).value).toBe('kafka.local');
     expect((screen.getByLabelText('Connection Timeout (ms)') as HTMLInputElement).value).toBe('5000');
@@ -358,7 +359,7 @@ describe('KafkaSettingsPage', () => {
     }));
 
     await user.click(screen.getByTestId('kafka-add-cluster-btn'));
-    await user.selectOptions(screen.getByLabelText('Mechanism'), 'plain');
+    selectOption(screen.getByLabelText('Mechanism').closest('.cs-wrapper')!, 'SASL / PLAIN');
     await user.click(screen.getByLabelText('Enable TLS'));
     await user.type(screen.getByLabelText('Client Certificate PEM'), 'cert-only');
     await user.type(screen.getByLabelText('Key Passphrase'), 'secret');
@@ -725,6 +726,18 @@ describe('KafkaSettingsPage', () => {
       connection: { state: 'connected' },
     }));
     expect(screen.getByText('Connected')).toBeTruthy();
+  });
+
+  it('connectionSummary flags orphan server sessions with no matching saved profile', () => {
+    renderPage(makeState({
+      clusters: [CLUSTER_A],
+      selectedClusterId: 'cluster-a',
+      selectedCluster: CLUSTER_A,
+      connection: { state: 'connected', clusterId: 'demo-secure' },
+    }));
+    expect(screen.getByText('Connected to demo-secure (no matching saved profile)')).toBeTruthy();
+    // Cards stay Idle — Connected badge only when clusterId matches a profile.
+    expect(screen.getByTestId('kafka-cluster-card-cluster-a').textContent).toContain('Idle');
   });
 
   it('shows verified and failed test result badges', () => {

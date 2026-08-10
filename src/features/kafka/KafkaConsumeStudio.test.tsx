@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
 
 vi.mock('./kafkaMessageStudioUtils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./kafkaMessageStudioUtils')>();
@@ -204,10 +205,10 @@ describe('KafkaConsumeStudio — Consume Once', () => {
     expect(screen.getByTestId('con-max-reached').textContent).toContain('max reached');
   });
 
-  it('shows detail pane when selectedMessage is set', () => {
+  it('shows detail modal when selectedMessage is set', () => {
     renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0] } });
-    expect(screen.getByTestId('con-detail-pane')).toBeTruthy();
-    expect(screen.getByTestId('con-detail-body').textContent).toContain('"id"');
+    expect(screen.getByTestId('kafka-message-detail-modal')).toBeTruthy();
+    expect(screen.getByTestId('kmd-body').textContent).toContain('"id"');
   });
 
   it('calls selectMessage when a row is clicked', () => {
@@ -240,7 +241,7 @@ describe('KafkaConsumeStudio — Consume Once', () => {
 
   it('Copy Key button disabled when no key', () => {
     renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 1, selectedMessage: SAMPLE_MESSAGES[1] } });
-    expect((screen.getByTestId('con-copy-key-btn') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('kmd-copy-key') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('shows inline validation hint when topic is blurred while empty', () => {
@@ -273,14 +274,13 @@ describe('KafkaConsumeStudio — Consume Once', () => {
 describe('KafkaConsumeStudio — Sort Order', () => {
   it('renders Sort Order select', () => {
     renderConsume();
-    const select = screen.getByLabelText('Sort Order') as HTMLSelectElement;
-    expect(select.value).toBe('asc');
+    expect(getCustomSelectValue(screen.getByLabelText('Sort Order').closest('.cs-wrapper')!)).toBe('Oldest First');
   });
 
   it('calls setConsumeDraft when sort order changes to desc', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Sort Order'), { target: { value: 'desc' } });
+    selectOption(screen.getByLabelText('Sort Order').closest('.cs-wrapper')!, 'Newest First');
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ sortOrder: 'desc' });
   });
 });
@@ -454,8 +454,8 @@ describe('KafkaConsumeStudio — Stream Mode', () => {
         selectedStreamMessage: STREAM_MESSAGES[0],
       },
     });
-    expect(screen.getByTestId('con-detail-pane')).toBeTruthy();
-    expect(screen.getByTestId('con-detail-body').textContent).toContain('"seq"');
+    expect(screen.getByTestId('kafka-message-detail-modal')).toBeTruthy();
+    expect(screen.getByTestId('kmd-body').textContent).toContain('"seq"');
   });
 
   it('calls selectStreamMessage when a stream row is clicked', () => {
@@ -476,14 +476,14 @@ describe('KafkaConsumeStudio — Workflow Input', () => {
       studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0] },
       onUseAsWorkflowInput: handler,
     });
-    expect(screen.getByTestId('con-workflow-input-btn')).toBeTruthy();
+    expect(screen.getByTestId('kmd-workflow-btn')).toBeTruthy();
   });
 
   it('[Use as Workflow Input] hidden when prop not provided', () => {
     renderConsume({
       studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0] },
     });
-    expect(screen.queryByTestId('con-workflow-input-btn')).toBeNull();
+    expect(screen.queryByTestId('kmd-workflow-btn')).toBeNull();
   });
 
   it('clicking calls onUseAsWorkflowInput with correct payload + meta', () => {
@@ -492,7 +492,7 @@ describe('KafkaConsumeStudio — Workflow Input', () => {
       studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0] },
       onUseAsWorkflowInput: handler,
     });
-    fireEvent.click(screen.getByTestId('con-workflow-input-btn'));
+    fireEvent.click(screen.getByTestId('kmd-workflow-btn'));
     expect(handler).toHaveBeenCalledWith('{"id":1}', { topic: 'orders.events', partition: 0, offset: '10' });
   });
 
@@ -507,7 +507,7 @@ describe('KafkaConsumeStudio — Workflow Input', () => {
       onUseAsWorkflowInput: handler,
     });
     fireEvent.click(screen.getByTestId('con-mode-stream'));
-    fireEvent.click(screen.getByTestId('con-workflow-input-btn'));
+    fireEvent.click(screen.getByTestId('kmd-workflow-btn'));
     expect(handler).toHaveBeenCalledWith('{"seq":1}', { topic: 'orders.events', partition: 0, offset: '100' });
   });
 });
@@ -621,7 +621,7 @@ describe('KafkaConsumeStudio — Form Fields', () => {
   it('calls setConsumeDraft when start position changes to earliest', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Start Position'), { target: { value: 'earliest' } });
+    selectOption(screen.getByLabelText('Start Position').closest('.cs-wrapper')!, 'Earliest');
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ startPosition: 'earliest' });
   });
 
@@ -694,8 +694,8 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
         selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
       },
     });
-    fireEvent.click(screen.getByTestId('con-copy-payload-btn'));
-    await waitFor(() => expect(clipboardMock).toHaveBeenCalledWith('{"id":1}'));
+    fireEvent.click(screen.getByTestId('kmd-copy-payload'));
+    await waitFor(() => expect(clipboardMock).toHaveBeenCalledWith(JSON.stringify({ id: 1 }, null, 2)));
   });
 
   it('copies key to clipboard when Copy Key clicked with key present', async () => {
@@ -706,21 +706,21 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
         selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
       },
     });
-    fireEvent.click(screen.getByTestId('con-copy-key-btn'));
+    fireEvent.click(screen.getByTestId('kmd-copy-key'));
     await waitFor(() => expect(clipboardMock).toHaveBeenCalledWith('order-1'));
   });
 
-  it('close detail pane button deselects message', () => {
+  it('close detail modal button deselects message', () => {
     const studio = makeStudio({
       consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
       selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
     });
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.click(screen.getByLabelText('Close detail'));
+    fireEvent.click(screen.getByTestId('kmd-close-btn'));
     expect(studio.selectMessage).toHaveBeenCalledWith(null);
   });
 
-  it('close stream detail pane button deselects stream message', () => {
+  it('close detail modal button deselects stream message', () => {
     const sm = makeStreamMode({
       streamMessages: STREAM_MESSAGES,
       selectedStreamIndex: 0,
@@ -728,7 +728,7 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
     });
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={sm} {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTestId('con-mode-stream'));
-    fireEvent.click(screen.getByLabelText('Close detail'));
+    fireEvent.click(screen.getByTestId('kmd-close-btn'));
     expect(sm.selectStreamMessage).toHaveBeenCalledWith(null);
   });
 
@@ -742,7 +742,44 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
         selectedMessageIndex: 0, selectedMessage: rawMsg,
       },
     });
-    expect(screen.getByTestId('con-detail-body').textContent).toBe('not-json');
+    expect(screen.getByTestId('kmd-body').textContent).toBe('not-json');
+  });
+
+  it('pressing Escape in detail modal closes it', () => {
+    const studio = makeStudio({
+      consumeResult: SAMPLE_MESSAGES,
+      consumeMessageCount: 2,
+      selectedMessageIndex: 0,
+      selectedMessage: SAMPLE_MESSAGES[0],
+    });
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.keyDown(screen.getByTestId('kafka-message-detail-modal').parentElement as HTMLElement, { key: 'Escape' });
+    expect(studio.selectMessage).toHaveBeenCalledWith(null);
+  });
+
+  it('copy handlers clear copied state after timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const clipboardMock = installClipboardMock();
+      renderConsume({
+        studio: {
+          consumeResult: SAMPLE_MESSAGES,
+          consumeMessageCount: 2,
+          selectedMessageIndex: 0,
+          selectedMessage: SAMPLE_MESSAGES[0],
+        },
+      });
+
+      fireEvent.click(screen.getByTestId('kmd-copy-key'));
+      expect(clipboardMock).toHaveBeenCalledWith('order-1');
+      vi.advanceTimersByTime(1600);
+
+      fireEvent.click(screen.getByTestId('kmd-copy-payload'));
+      expect(clipboardMock).toHaveBeenCalledWith(JSON.stringify({ id: 1 }, null, 2));
+      vi.advanceTimersByTime(1600);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -825,16 +862,13 @@ describe('KafkaConsumeStudio — Stream scroll effects', () => {
   });
 
   it('auto-scroll useEffect: scrolls to bottom when new messages arrive and user has not scrolled', () => {
-    // Covers line 70: el.scrollTop = el.scrollHeight — runs when el is set and userScrolledRef is false
-    // Render with stream messages and switch to stream tab so streamListRef is attached
+    // Covers: el.scrollTop = el.scrollHeight — runs when pinned to bottom
     const { rerender } = renderConsume({ stream: { streamMessages: STREAM_MESSAGES } });
     fireEvent.click(screen.getByTestId('con-mode-stream'));
 
-    // Verify the stream list is in the DOM (ref is attached)
     const streamList = document.querySelector('.kafka-ms-stream-table-wrap');
     expect(streamList).not.toBeNull();
 
-    // Re-render with one more message — changes streamMessages.length, triggering useEffect
     const moreMessages = [
       ...STREAM_MESSAGES,
       { topic: 'orders.events', partition: 0, offset: '103', value: '{"seq":4}', key: 'sk-3' },
@@ -847,9 +881,27 @@ describe('KafkaConsumeStudio — Stream scroll effects', () => {
         {...defaultTemplateProps()}
       />,
     );
-    // useEffect ran, line 70 executed (el.scrollTop = el.scrollHeight in jsdom = 0)
-    // No assertion needed beyond no-crash — the ref/scrollTop path was exercised
     expect(document.querySelector('.kafka-ms-stream-table-wrap')).not.toBeNull();
+  });
+
+  it('shows ↓ Newest when scrolled up and resumes pin on click', () => {
+    renderConsume({ stream: { streamMessages: STREAM_MESSAGES, isStreaming: true } });
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+
+    const streamList = screen.getByTestId('stream-table-wrap');
+    Object.defineProperty(streamList, 'scrollHeight', { value: 800, configurable: true });
+    Object.defineProperty(streamList, 'clientHeight', { value: 200, configurable: true });
+    Object.defineProperty(streamList, 'scrollTop', { value: 0, writable: true, configurable: true });
+    const scrollTo = vi.fn();
+    streamList.scrollTo = scrollTo as unknown as typeof streamList.scrollTo;
+
+    fireEvent.scroll(streamList);
+    const btn = screen.getByTestId('stream-scroll-bottom-btn');
+    expect(btn.textContent).toMatch(/Newest/i);
+
+    fireEvent.click(btn);
+    expect(scrollTo).toHaveBeenCalled();
+    expect(screen.queryByTestId('stream-scroll-bottom-btn')).toBeNull();
   });
 });
 
@@ -1056,5 +1108,187 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
     fireEvent.click(screen.getByTestId('con-mode-stream'));
     const row = screen.getByTestId('stream-row-0');
     expect(row.textContent).toContain('my-key');
+  });
+
+  it('E2E bridge inject helper is registered, callable, and removed on unmount', () => {
+    const consumeOnce = vi.fn();
+    const setConsumeResult = vi.fn();
+    const studio = makeStudio({ consumeOnce }) as UseKafkaMessageStudioReturn & {
+      __setConsumeResult?: (rows: KafkaConsumeResultRow[]) => void;
+    };
+    studio.__setConsumeResult = setConsumeResult;
+
+    const { unmount } = render(
+      <KafkaConsumeStudio
+        studio={studio}
+        clusterId="c"
+        streamMode={makeStreamMode()}
+        {...defaultTemplateProps()}
+      />,
+    );
+
+    const helper = (window as unknown as { __kafkaInjectConsumeResults?: (rows: KafkaConsumeResultRow[]) => void }).__kafkaInjectConsumeResults;
+    expect(typeof helper).toBe('function');
+    helper?.(STREAM_MESSAGES);
+    expect(consumeOnce).toHaveBeenCalled();
+    expect(setConsumeResult).toHaveBeenCalledWith(STREAM_MESSAGES);
+
+    unmount();
+    expect((window as unknown as { __kafkaInjectConsumeResults?: unknown }).__kafkaInjectConsumeResults).toBeUndefined();
+  });
+
+  it('updates bodyContains filter input and uses sort-order fallback when draft has unknown value', () => {
+    const setConsumeDraft = vi.fn();
+    render(
+      <KafkaConsumeStudio
+        studio={makeStudio({
+          setConsumeDraft,
+          consumeDraft: { ...baseConsumeDraft(), sortOrder: 'unexpected' as 'asc' | 'desc' },
+        })}
+        clusterId="c"
+        streamMode={makeStreamMode()}
+        {...defaultTemplateProps()}
+      />,
+    );
+
+    // Unknown sort order should normalize to ascending option selection path.
+    expect(screen.getByTestId('con-sort-order').textContent?.toLowerCase()).toContain('oldest');
+    fireEvent.change(screen.getByTestId('con-body-contains-input'), { target: { value: 'trace-id' } });
+    expect(setConsumeDraft).toHaveBeenCalledWith({ bodyContains: 'trace-id' });
+  });
+
+  it('scrolls nearest scrollable parent when streaming starts with stream tab visible', () => {
+    const getStyle = vi.spyOn(window, 'getComputedStyle');
+    getStyle.mockImplementation(((element: Element) => {
+      const html = element as HTMLElement;
+      return {
+        overflowY: html.dataset.scrollParent === 'yes' ? 'auto' : 'visible',
+      } as CSSStyleDeclaration;
+    }) as typeof getComputedStyle);
+
+    const { rerender } = render(
+      <KafkaConsumeStudio
+        studio={makeStudio()}
+        clusterId="c"
+        streamMode={makeStreamMode({ isStreaming: false, streamMessages: STREAM_MESSAGES })}
+        {...defaultTemplateProps()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+
+    const streamTable = screen.getByTestId('stream-table-wrap');
+    const scrollParent = streamTable.parentElement as HTMLElement;
+    scrollParent.dataset.scrollParent = 'yes';
+    scrollParent.scrollTop = 10;
+    const scrollSpy = vi.fn();
+    const docScrollTo = vi.fn();
+    scrollParent.scrollTo = scrollSpy as unknown as typeof scrollParent.scrollTo;
+    (document.documentElement as unknown as { scrollTo: (opts: unknown) => void }).scrollTo = docScrollTo;
+    streamTable.getBoundingClientRect = vi.fn(() => ({ top: 220, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }));
+    scrollParent.getBoundingClientRect = vi.fn(() => ({ top: 100, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }));
+
+    rerender(
+      <KafkaConsumeStudio
+        studio={makeStudio()}
+        clusterId="c"
+        streamMode={makeStreamMode({ isStreaming: true, streamMessages: STREAM_MESSAGES })}
+        {...defaultTemplateProps()}
+      />,
+    );
+
+    expect(scrollSpy.mock.calls.length + docScrollTo.mock.calls.length).toBeGreaterThan(0);
+    getStyle.mockRestore();
+  });
+
+  it('covers form/filter collapse toggles and sort-order desc label path', () => {
+    renderConsume({ studio: { consumeDraft: { ...baseConsumeDraft(), sortOrder: 'desc' } } });
+
+    expect(screen.getByTestId('con-sort-order').textContent).toContain('Newest First');
+
+    const formBtn = screen.getByTestId('con-form-collapse-btn');
+    fireEvent.click(formBtn);
+    expect(formBtn.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(formBtn);
+    expect(formBtn.getAttribute('aria-expanded')).toBe('true');
+
+    const filtersBtn = screen.getByTestId('con-filters-collapse-btn');
+    fireEvent.click(filtersBtn);
+    expect(filtersBtn.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(filtersBtn);
+    expect(filtersBtn.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('covers stream pinning false path, scroll-to-bottom handler, and stream key fallback', () => {
+    renderConsume({
+      stream: {
+        isStreaming: true,
+        streamMessages: [
+          { topic: 'orders.events', partition: 0, offset: '200', value: '{"a":1}', key: undefined },
+        ],
+      },
+    });
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+
+    const streamList = screen.getByTestId('stream-table-wrap');
+    Object.defineProperty(streamList, 'scrollHeight', { value: 1000, configurable: true });
+    Object.defineProperty(streamList, 'clientHeight', { value: 200, configurable: true });
+    Object.defineProperty(streamList, 'scrollTop', { value: 0, writable: true, configurable: true });
+    const scrollTo = vi.fn();
+    streamList.scrollTo = scrollTo as unknown as typeof streamList.scrollTo;
+
+    fireEvent.scroll(streamList);
+    fireEvent.click(screen.getByTestId('stream-scroll-bottom-btn'));
+    expect(scrollTo).toHaveBeenCalled();
+    expect(screen.getByTestId('stream-row-0').textContent).toContain('—');
+  });
+
+  it('covers stream-start scroll effect fallback to documentElement and interval tick callback', () => {
+    vi.useFakeTimers();
+    const getStyle = vi.spyOn(window, 'getComputedStyle').mockImplementation(
+      () => ({ overflowY: 'visible' } as CSSStyleDeclaration),
+    );
+    const docScrollTo = vi.fn();
+    (document.documentElement as unknown as { scrollTo: (opts: unknown) => void }).scrollTo = docScrollTo;
+
+    const { rerender, unmount } = render(
+      <KafkaConsumeStudio
+        studio={makeStudio()}
+        clusterId="c"
+        streamMode={makeStreamMode({ isStreaming: false, streamMessages: STREAM_MESSAGES })}
+        {...defaultTemplateProps()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+
+    rerender(
+      <KafkaConsumeStudio
+        studio={makeStudio()}
+        clusterId="c"
+        streamMode={makeStreamMode({ isStreaming: true, streamMessages: STREAM_MESSAGES })}
+        {...defaultTemplateProps()}
+      />,
+    );
+
+    vi.advanceTimersByTime(31_000);
+    expect(docScrollTo).toHaveBeenCalled();
+
+    unmount();
+    getStyle.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('covers workflow-input callback call-site path in stream mode', () => {
+    const handler = vi.fn();
+    renderConsume({
+      stream: {
+        streamMessages: STREAM_MESSAGES,
+        selectedStreamIndex: 0,
+        selectedStreamMessage: STREAM_MESSAGES[0],
+      },
+      onUseAsWorkflowInput: handler,
+    });
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+    fireEvent.click(screen.getByTestId('kmd-workflow-btn'));
+    expect(handler).toHaveBeenCalledWith('{"seq":1}', { topic: 'orders.events', partition: 0, offset: '100' });
   });
 });

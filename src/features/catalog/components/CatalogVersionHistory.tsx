@@ -6,6 +6,13 @@ import { diffCatalogEntries } from '../utils/catalogSpecDiff';
 import CatalogVersionDiff from './CatalogVersionDiff';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
 
+const VERSION_ICON = (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="cat-vh-title-icon">
+    <path d="M8 1v2m0 10v2M1 8h2m10 0h2M3.05 3.05l1.41 1.41m7.08 7.08l1.41 1.41M3.05 12.95l1.41-1.41m7.08-7.08l1.41-1.41" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.3"/>
+  </svg>
+);
+
 interface Props {
   entry: CatalogEntry;
   onClose: () => void;
@@ -103,8 +110,31 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
 
   return (
     <FullPanelModal
-      title={`Version History — ${entry.name}`}
+      title={<span className="cat-vh-title-wrap">{VERSION_ICON}Version History — {entry.name}</span>}
       onClose={onClose}
+      dialogClassName="cat-vh-dialog"
+      movable
+      resizable
+      minWidth={640}
+      minHeight={400}
+      bodyScrollable={false}
+      data-testid="catalog-version-history-modal"
+      footer={
+        <div className="cat-vh-footer">
+          <span className="cat-vh-footer-hint">
+            {entry.versions.length} version{entry.versions.length !== 1 ? 's' : ''} tracked
+          </span>
+          <div className="cat-vh-footer-actions">
+            <button className="cat-vh-footer-btn cat-vh-footer-btn--import" onClick={() => { onReimport(); onClose(); }}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1v6m0 0L5.5 4.5M8 7l2.5-2.5M2 9v3a2 2 0 002 2h8a2 2 0 002-2V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Import New Version
+            </button>
+            <button className="cat-vh-footer-btn cat-vh-footer-btn--close" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      }
     >
       <div className="cat-vh-layout">
         {/* Left panel: version list */}
@@ -114,20 +144,19 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
               Versions
               <span className="cat-vh-count">{entry.versions.length}</span>
             </span>
-            <button className="cat-vh-reimport-btn" onClick={() => { onReimport(); onClose(); }}>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1v6m0 0L5.5 4.5M8 7l2.5-2.5M2 9v3a2 2 0 002 2h8a2 2 0 002-2V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Import
-            </button>
           </div>
 
           {selectedIds.size > 0 && (
             <div className="cat-vh-selection-bar">
-              <span>{selectedIds.size}/2 selected</span>
+              <span className="cat-vh-selection-label">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <path d="M13.5 2.5l-7 7L3 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {selectedIds.size}/2 selected
+              </span>
               <div className="cat-vh-selection-actions">
                 {selectedIds.size === 2 && (
-                  <button className="cat-vh-compare-btn" onClick={handleCompare} disabled={diffState.loading}>
+                  <button className="cat-vh-compare-btn" data-testid="catalog-version-compare-btn" onClick={handleCompare} disabled={diffState.loading}>
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                       <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 2h3a1 1 0 011 1v10a1 1 0 01-1 1h-3M8 1v14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
                     </svg>
@@ -139,7 +168,7 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
             </div>
           )}
 
-          <div className="cat-vh-versions">
+          <div className="cat-vh-versions" data-testid="catalog-version-list">
             {entry.versions.map((v, idx) => {
               const isCurrent = v.id === entry.currentVersionId;
               const isSelected = selectedIds.has(v.id);
@@ -147,9 +176,10 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
                 <div
                   key={v.id}
                   className={`cat-vh-card ${isCurrent ? 'cat-vh-card--current' : ''} ${isSelected ? 'cat-vh-card--selected' : ''}`}
+                  data-testid="catalog-version-item"
                 >
                   <div className="cat-vh-card-select" onClick={() => toggleSelection(v.id)}>
-                    <span className={`cat-vh-checkbox ${isSelected ? 'checked' : ''}`}>
+                    <span className={`cat-vh-checkbox ${isSelected ? 'checked' : ''}`} data-testid="catalog-version-checkbox">
                       {isSelected && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </span>
                   </div>
@@ -157,7 +187,8 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
                   <div className="cat-vh-card-body">
                     <div className="cat-vh-card-top">
                       <span className="cat-vh-card-version">v{v.version}</span>
-                      {isCurrent && <span className="cat-vh-badge-current">CURRENT</span>}
+                      {v.specFormat && <span className="cat-vh-badge-format">{v.specFormat}</span>}
+                      {isCurrent && <span className="cat-vh-badge-current cat-version-current">CURRENT</span>}
                       {idx === 0 && !isCurrent && <span className="cat-vh-badge-latest">LATEST</span>}
                     </div>
                     <div className="cat-vh-card-meta">
@@ -173,6 +204,7 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
                   <div className="cat-vh-card-actions">
                     {!isCurrent && (
                       <button className="cat-vh-action-btn cat-vh-action-restore" title="Restore this version"
+                        data-testid="catalog-version-restore-btn"
                         onClick={() => handleSwitch(v.id)}>
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                           <path d="M2 8a6 6 0 1111.3-2.8M2 3v5h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -206,8 +238,8 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
           {diffState.diff && <CatalogVersionDiff diff={diffState.diff} />}
           {!diffState.diff && !diffState.loading && !diffState.error && (
             <div className="cat-vh-state cat-vh-state--empty">
-              <svg width="40" height="40" viewBox="0 0 16 16" fill="none" opacity="0.3">
-                <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 2h3a1 1 0 011 1v10a1 1 0 01-1 1h-3M8 1v14" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+              <svg width="48" height="48" viewBox="0 0 16 16" fill="none" opacity="0.2">
+                <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 2h3a1 1 0 011 1v10a1 1 0 01-1 1h-3M8 1v14" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
               </svg>
               <span className="cat-vh-empty-title">Compare Versions</span>
               <span className="cat-vh-empty-desc">Select two versions to see what changed between them.</span>

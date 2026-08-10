@@ -4,25 +4,44 @@
  * Demonstrates the Workflow Runner in the Test Harness by running the
  * "WS Echo Demo" workflow (seeded in setup if not yet created by Lesson 8).
  * The user:
- *   1. Navigates to the Workflow Runner tab
- *   2. Selects the WS Echo Demo workflow from the picker
- *   3. Inspects the wsUrl Initial Variable (pre-set to ws://localhost:9876)
- *   4. Clicks ▶ Run Workflow and watches execution against the live mock server
- *   5. Reads the completion banner (timing, request count)
- *   6. Navigates to the Results Dashboard to explore the workflow run
+ *   1. Clicks ▶ Run Workflow (WS Echo Demo already selected; wsUrl preset)
+ *   2. Reads the completion banner (timing, request count)
+ *   3. Navigates to the Results Dashboard to explore the workflow run
+ *   4. Opens Request Details for a single WS exchange
  *
  * Setup:
  *   - Starts the mock server at ws://localhost:9876
- *   - Seeds "WS Echo Demo" workflow via workflow designer adapter (if bridge available)
+ *   - Seeds + selects "WS Echo Demo" via workflow designer adapter
  *
- * NOTE: initialTab intentionally NOT set. The auto-exit hook in
- * useDemoShortcuts exits the demo when activeTab !== initialTab.
- * This lesson navigates from workflow-runner → results, so setting
- * initialTab would trigger auto-exit on the final step. Setup
- * navigates to workflow-runner instead.
+ * initialTab = workflow-runner so Live never parks on the empty Demo Hub
+ * placeholder. allowedTabs includes results so Results steps do not auto-exit.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { seedNamedWorkflow } from '../../adapters';
+import { collapseWfDemoAppSidebar } from '../wf-demo-helpers';
+import { HAR } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
+
+/** Spotlight a target and hold so the viewer can read the preconfigured UI. */
+async function spotlightAndPause(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  const el = firstVisibleElement<HTMLElement>(selector);
+  if (!el) {
+    await ctx.delay(holdMs);
+    return;
+  }
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const dispose = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    dispose();
+  }
+}
 
 // ── WS Echo Demo Workflow Factory ─────────────────────────────────
 
@@ -78,14 +97,14 @@ const DEMO_MOCK_PORT = 9876;
 let _runnerStartedMock = false;
 
 async function harnessRunSetup(ctx: DemoActionContext): Promise<void> {
-  // Seed "WS Echo Demo" workflow so the Workflow Runner picker always has something to select.
-  // If the user already built it via Lesson 8, delete the old copy and re-seed a fresh one
-  // so the wsUrl variable is correctly set for this lesson.
+  // Seed + select quietly — no empty picker step for the viewer.
   await seedNamedWorkflow(ctx, 'WS Echo Demo', createWsEchoDemoWorkflow(), {
     deleteDelayMs: 0,
     insertPreDelayMs: 100,
     insertDelayMs: 0,
+    selectAfterSeed: true,
   });
+
   // Check whether the mock server is already running before starting it.
   // Only start (and later stop) if it was NOT already running — this prevents the
   // demo cleanup from destroying a server the user started independently.
@@ -109,9 +128,12 @@ async function harnessRunSetup(ctx: DemoActionContext): Promise<void> {
       clearTimeout(startTimer);
     }
   } catch { /* server may be unreachable — proceed anyway */ }
-  await ctx.delay(400);
+
+  // Land on Workflow Runner with WS Echo Demo already selected; hide Environments tree.
   ctx.navigateToTab('workflow-runner');
-  await ctx.delay(600);
+  await ctx.delay(200);
+  await collapseWfDemoAppSidebar(ctx);
+  await ctx.delay(100);
 }
 
 async function harnessRunCleanup(_ctx: DemoActionContext): Promise<void> {
@@ -180,8 +202,9 @@ export const wsTestRunnerLesson: DemoLesson = {
   category: 'websocket',
   name: 'Run WS Workflow in Harness',
   description: 'Run the WS Echo Demo workflow from the Test Harness Workflow Runner and explore the results.',
-  estimatedMinutes: 4,
-  // initialTab intentionally omitted — see file header comment
+  estimatedMinutes: 3,
+  initialTab: 'workflow-runner',
+  allowedTabs: ['workflow-runner', 'results'],
 
   setup: harnessRunSetup,
   cleanup: harnessRunCleanup,
@@ -278,69 +301,33 @@ The workflow uses \`{{wsUrl}}\` so you can point it at any WebSocket server — 
   },
 
   steps: [
-    // ── 1. Workflow Runner tab ─────────────────────────────────────
-    {
-      id: 'wfhr-open',
-      title: 'Workflow Runner',
-      description:
-        'You\'re now in the **Workflow Runner** — the Test Harness tab that runs visual workflows as fully tracked test executions. Unlike Quick Test (which runs inside the Designer and discards the result), every run here is saved to the Results Dashboard with timestamps, request details, and timing data. The picker at the top lets you choose any workflow you\'ve built.',
-      highlight: '.workflow-picker',
-      pauseAfter: true,
-    },
-
-    // ── 2. Select WS Echo Demo ─────────────────────────────────────
-    {
-      id: 'wfhr-pick',
-      title: 'Select the WS Echo Demo Workflow',
-      description:
-        'Click the **Workflow** dropdown and select "WS Echo Demo" — the workflow you built in Lesson 8 (Connect → Send → Receive). The demo seeds it automatically in setup, so it will always appear. Once selected, the workflow summary and Initial Variables panel appear below the picker.',
-      highlight: '[data-testid="workflow-select"]',
-      action: async (ctx) => {
-        await selectWsEchoDemo(ctx);
-      },
-      verify: '.workflow-vars-section',
-      pauseAfter: true,
-    },
-
-    // ── 3. Inspect Initial Variables ───────────────────────────────
-    {
-      id: 'wfhr-variables',
-      title: 'Initial Variables — Override wsUrl',
-      description:
-        'The **Initial Variables** panel shows every variable defined in the workflow. "WS Echo Demo" has one — `wsUrl`, pre-set to `ws://localhost:9876` (the mock server started in this lesson\'s setup). You can change it here to point the workflow at any other WebSocket server without touching the workflow definition itself. The mock server is already running, so leave it as-is.',
-      highlight: '.workflow-vars-section',
-      preAction: async (ctx: DemoActionContext) => {
-        // Guard: ensure the correct workflow is selected AND variables are populated.
-        // A workflow without variables also renders .workflow-vars-section (empty state),
-        // so we check for an actual .wfp-var-row to confirm variables loaded.
-        if (!document.querySelector('.wfp-var-row')) {
-          await selectWsEchoDemo(ctx);
-        }
-      },
-      pauseAfter: true,
-    },
-
-    // ── 4. Run the workflow ────────────────────────────────────────
+    // ── 1. Show preconfigured vars, then Run ───────────────────────
     {
       id: 'wfhr-run',
-      title: 'Run the Workflow',
+      title: 'Preconfigured Variables — then Run',
       description:
-        'After reading, the demo clicks **▶ Run Workflow** for you. Watch the live progress panel — the WS Connect node opens a connection to `ws://localhost:9876`, WS Send delivers the echo message, and WS Receive captures the reply. All three nodes complete in a second or two against the local mock server.',
-      highlight: '.config-form .form-actions',
+        '**Initial Variables** are already filled for this run — `wsUrl` points at `ws://localhost:9876` (the mock server from setup). Pause here and confirm the preset before running; you can override it without editing the workflow. Next the demo clicks **▶ Run Workflow**. Watch WS Connect, Send, and Receive complete against the mock server. Unlike Quick Test, this Harness run is saved to Results.',
+      highlight: HAR.WF_VARS_SECTION,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: ensure WS Echo Demo is selected so the Run Workflow button exists.
+        ctx.navigateToTab('workflow-runner');
+        await ctx.delay(120);
+        await collapseWfDemoAppSidebar(ctx);
         if (!document.querySelector('.config-form')) {
           await selectWsEchoDemo(ctx);
         }
       },
       action: async (ctx) => {
+        // Hold on the preconfigured Initial Variables so the viewer sees wsUrl.
+        await spotlightAndPause(ctx, HAR.WF_VARS_SECTION, 1600);
+        // Move the eye to Run, then click.
+        await spotlightAndPause(ctx, '.config-form .form-actions', 900);
         await runWorkflow(ctx);
       },
       verify: '.completion-section',
       pauseAfter: true,
     },
 
-    // ── 5. Completion banner → open Results ────────────────────────
+    // ── 2. Completion banner → open Results ────────────────────────
     {
       id: 'wfhr-complete',
       title: 'Run Complete — View Full Results',
@@ -356,15 +343,15 @@ The workflow uses \`{{wsUrl}}\` so you can point it at any WebSocket server — 
       pauseAfter: true,
     },
 
-    // ── 6. Results Dashboard ───────────────────────────────────────
+    // ── 3. Results Dashboard ───────────────────────────────────────
     {
       id: 'wfhr-results',
       title: 'Results Dashboard — Workflow Run',
       description:
         'The Results Dashboard is now filtered to **Workflow Runs**. The most recent entry at the top is the "WS Echo Demo" run — tagged **⚡ WS Echo Demo** with a pass/fail badge and duration. Click it to open the **Workflow Results Explorer**: a node-by-node diagram with status indicators, extracted values, and timing for every WS step. You can also export the full trace as JSON or PNG from the header toolbar.',
-      highlight: '.results-run-filter-tabs',
+      highlight: '.run-filter-tab:nth-child(3)',
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: navigate to results if step 5 was skipped.
+        // Guard: navigate to results if the prior step was skipped.
         if (!document.querySelector('.results-run-filter-tabs')) {
           ctx.navigateToTab('results');
           await ctx.delay(800);
@@ -373,7 +360,7 @@ The workflow uses \`{{wsUrl}}\` so you can point it at any WebSocket server — 
       pauseAfter: true,
     },
 
-    // ── 7. Request Details → Response Detail modal ─────────────────
+    // ── 4. Request Details → Response Detail modal ─────────────────
     {
       id: 'wfhr-request-details',
       title: 'Request Details — Inspect Each WS Exchange',

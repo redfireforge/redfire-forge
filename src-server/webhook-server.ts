@@ -62,7 +62,7 @@ app.get('/health', (req: Request, res: Response) => {
 // Spring fixture health proxy used by Demo Hub prerequisite checks.
 app.get('/health/spring', async (_req: Request, res: Response) => {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 2500);
+  const timer = setTimeout(controller.abort.bind(controller), 2500);
   try {
     const response = await fetch(GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL, {
       signal: controller.signal,
@@ -103,6 +103,80 @@ app.get('/health/spring', async (_req: Request, res: Response) => {
     });
   } finally {
     clearTimeout(timer);
+  }
+});
+
+// Envoy gRPC-Web sidecar probe (:50055) for Demo Hub prerequisites (GRPC-19).
+// Bare GET / returns HTTP 415 — that still means the listener is up. Probe from
+// the server so the browser console does not log two Failed-to-load 415s
+// (localhost + 127.0.0.1 loopback candidates).
+app.get('/health/envoy', async (_req: Request, res: Response) => {
+  const controller = new AbortController();
+  const timer = setTimeout(controller.abort.bind(controller), 2500);
+  try {
+    const response = await fetch('http://127.0.0.1:50055/', {
+      signal: controller.signal,
+    });
+    return res.status(200).json({
+      status: 'ok',
+      source: 'envoy-grpc-web',
+      httpStatus: response.status,
+    });
+  } catch (error) {
+    return res.status(503).json({
+      status: 'down',
+      source: 'envoy-grpc-web',
+      reason: toErrorMessage(error),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+// Schema Registry health proxy used by Demo Hub prerequisite checks.
+// Probes the registry's /subjects endpoint (lightweight) from the server side
+// to avoid unreliable browser no-cors probes.
+app.get('/health/schema-registry', async (req: Request, res: Response) => {
+  const registryUrl = (req.query.url as string) || 'http://localhost:8085';
+  const controller = new AbortController();
+  const timer = setTimeout(controller.abort.bind(controller), 5000);
+  try {
+    const response = await fetch(`${registryUrl.replace(/\/$/, '')}/subjects`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    clearTimeout(timer);
+    if (response.ok) {
+      return res.status(200).json({ status: 'ok', source: 'schema-registry' });
+    }
+    return res.status(503).json({ status: 'down', source: 'schema-registry', reason: `http_${response.status}` });
+  } catch (error) {
+    clearTimeout(timer);
+    return res.status(503).json({ status: 'down', source: 'schema-registry', reason: toErrorMessage(error) });
+  }
+});
+
+// Redpanda Admin API health proxy used by Demo Hub prerequisite checks.
+// Probes /v1 on the given port from the server side to avoid unreliable
+// browser no-cors probes (e.g. in Tauri webviews).
+app.get('/health/kafka-admin', async (req: Request, res: Response) => {
+  const port = parseInt((req.query.port as string) || '19648', 10);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(`http://localhost:${port}/v1`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    clearTimeout(timer);
+    // Admin API returns 200 with Swagger spec — any non-error is fine.
+    if (response.ok || response.status === 404) {
+      return res.status(200).json({ status: 'ok', source: 'kafka-admin', port });
+    }
+    return res.status(503).json({ status: 'down', source: 'kafka-admin', port, reason: `http_${response.status}` });
+  } catch (error) {
+    clearTimeout(timer);
+    return res.status(503).json({ status: 'down', source: 'kafka-admin', port, reason: toErrorMessage(error) });
   }
 });
 

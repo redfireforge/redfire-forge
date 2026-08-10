@@ -294,6 +294,26 @@ describe('useWorkflowExecution', () => {
       await waitFor(() => { expect(result.current.lastQuickTestRequestUrl).toBe('https://last'); });
     });
 
+    it('maps last request URL per node so each node shows its own URL', async () => {
+      const opts = createMockOptions();
+      opts.nodes = [createMockNode('post-1', 'http'), createMockNode('get-1', 'http')];
+      opts.nodesRef.current = opts.nodes;
+      mockRunGraph.mockImplementation(async (_a, _b, _c, cb) => {
+        cb.onComplete([
+          { url: 'https://api/posts', passed: true, statusCode: 201, responseTime: 1, workflowNodeId: 'post-1' },
+          { url: 'https://api/users/1', passed: true, statusCode: 200, responseTime: 1, workflowNodeId: 'get-1' },
+        ], true, 5);
+        return [];
+      });
+      const { result } = renderHook(() => useWorkflowExecution(opts));
+      await act(async () => { result.current.handleQuickTest(); });
+      await waitFor(() => {
+        // The POST node keeps its own URL — not the workflow's last (GET) step.
+        expect(result.current.lastQuickTestRequestUrlByNode['post-1']).toBe('https://api/posts');
+        expect(result.current.lastQuickTestRequestUrlByNode['get-1']).toBe('https://api/users/1');
+      });
+    });
+
     it('step summaries mark HTTP steps as skipped when applicable', async () => {
       const opts = createMockOptions();
       opts.nodes = [createMockNode('http-1', 'http')];

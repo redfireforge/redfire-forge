@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GalleryFilters } from './GalleryFilters';
 import { defaultFilterState, apiHostname, type GalleryFilterState } from './galleryFiltersUtils';
 import { GalleryDomainConfig } from '../../../data/galleries/registry';
@@ -183,9 +184,9 @@ describe('GalleryFilters', () => {
         trainingPaths={trainingPaths}
       />,
     );
-    fireEvent.change(screen.getByLabelText('Filter by category'), { target: { value: 'c1' } });
+    selectOption(screen.getByLabelText('Filter by category').closest('.cs-wrapper')!, 'c1');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ category: 'c1' }));
-    fireEvent.change(screen.getByLabelText('Filter by difficulty'), { target: { value: 'easy' } });
+    selectOption(screen.getByLabelText('Filter by difficulty').closest('.cs-wrapper')!, 'Easy');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ difficulty: 'easy' }));
   });
 
@@ -204,7 +205,7 @@ describe('GalleryFilters', () => {
         trainingPaths={trainingPaths}
       />,
     );
-    fireEvent.change(screen.getByLabelText('Filter by live API'), { target: { value: '' } });
+    selectOption(screen.getByLabelText('Filter by live API').closest('.cs-wrapper')!, 'All APIs');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ liveApi: '' }));
   });
 

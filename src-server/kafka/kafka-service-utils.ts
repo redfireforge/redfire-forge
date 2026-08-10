@@ -174,5 +174,11 @@ export function matchesKafkaConsumeFilter(record: KafkaConsumeRecord, filter?: K
     }
   }
 
+  if (filter.bodyContains != null && filter.bodyContains !== '') {
+    if (!record.value.toLowerCase().includes(filter.bodyContains.toLowerCase())) {
+      return false;
+    }
+  }
+
   return true;
 }

@@ -20,6 +20,7 @@ export function WorkflowDesignerBody({
     startDrag,
     collections,
     catalogEntries,
+    previewEndpoints,
     handleAddNode,
     handleAddFromRequest,
     handleAddFromCatalog,
@@ -39,6 +40,7 @@ export function WorkflowDesignerBody({
         <WorkflowPalette
           collections={collections}
           catalogEntries={catalogEntries}
+          previewEndpoints={previewEndpoints}
           onAddNode={handleAddNode}
           onAddFromRequest={handleAddFromRequest}
           onAddFromCatalog={handleAddFromCatalog}
@@ -52,7 +54,7 @@ export function WorkflowDesignerBody({
 
       <WorkflowDesignerFlowCanvas vm={vm} selected={selected} />
 
-      {serviceRegistryMode === 'panel' && (<>
+      {(serviceRegistryMode === 'panel' || serviceRegistryMode === 'fullscreen') && (<>
         <div className="wf-resize-handle" onMouseDown={(e) => startDrag('right', e)} />
         <div style={{ width: configWidth, flexShrink: 0 }}>
           <WorkflowServicesPanelInline
@@ -61,6 +63,7 @@ export function WorkflowDesignerBody({
             microservices={microservices}
             globalAuthProfiles={globalAuthProfiles}
             selectedEnvId={selectedEnvId}
+            modalOpen={serviceRegistryMode === 'fullscreen'}
             onExpand={() => setServiceRegistryMode('fullscreen')}
             onClose={() => setServiceRegistryMode('closed')}
           />

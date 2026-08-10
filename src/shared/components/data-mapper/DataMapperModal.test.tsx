@@ -158,31 +158,6 @@ describe('DataMapperModal', () => {
     // full DnD, but the callback pattern is verified by DataMapper.test.tsx.
   });
 
-  it('toggles full screen mode', () => {
-    const adapter = createAdapter();
-    const { container } = render(
-      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
-    );
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
-    fireEvent.click(screen.getByLabelText('Enter full screen'));
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Exit full screen'));
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
-  });
-
-  it('starts in full screen when fullScreenDefault is true', () => {
-    const adapter = createAdapter();
-    const { container } = render(
-      <DataMapperModal
-        adapter={adapter}
-        onSave={vi.fn()}
-        onCancel={vi.fn()}
-        fullScreenDefault
-      />,
-    );
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeTruthy();
-  });
-
   it('renders DataMapper inside the modal', () => {
     const adapter = createAdapter();
     const { container } = render(
@@ -399,6 +374,22 @@ describe('DataMapperModal', () => {
     container.removeChild(overlay);
   });
 
+  it('does NOT call onCancel when Escape is pressed with example overlay open', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />,
+    );
+    const overlay = document.createElement('div');
+    overlay.className = 'dm-example-overlay';
+    container.appendChild(overlay);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+
+    container.removeChild(overlay);
+  });
+
   it('does NOT call onCancel when non-Escape key is pressed', () => {
     const adapter = createAdapter();
     const onCancel = vi.fn();
@@ -417,6 +408,23 @@ describe('DataMapperModal', () => {
     fireEvent.keyDown(select, { key: 'Escape', bubbles: true });
     expect(onCancel).not.toHaveBeenCalled();
     document.body.removeChild(select);
+  });
+
+  it('does NOT call onCancel when Escape is pressed with focus inside Monaco editor', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+
+    const monaco = document.createElement('div');
+    monaco.className = 'monaco-editor';
+    const editorInput = document.createElement('div');
+    monaco.appendChild(editorInput);
+    document.body.appendChild(monaco);
+
+    fireEvent.keyDown(editorInput, { key: 'Escape', bubbles: true });
+    expect(onCancel).not.toHaveBeenCalled();
+
+    document.body.removeChild(monaco);
   });
 
   it('deduplicates required field warnings between fieldConstraints and fields', () => {
@@ -445,10 +453,27 @@ describe('DataMapperModal', () => {
     const { container } = render(
       <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
     );
+    // role="dialog" must sit on the modal box, not the full-viewport overlay —
+    // resize handles measure their parent box to compute the drag origin.
     const overlay = container.querySelector('.dm-modal-overlay');
-    expect(overlay?.getAttribute('role')).toBe('dialog');
-    expect(overlay?.getAttribute('aria-modal')).toBe('true');
-    expect(overlay?.getAttribute('aria-labelledby')).toBeTruthy();
+    expect(overlay?.getAttribute('role')).toBe('presentation');
+    const shell = container.querySelector('.dm-modal-shell');
+    expect(shell?.getAttribute('role')).toBe('dialog');
+    expect(shell?.getAttribute('aria-modal')).toBe('true');
+    expect(shell?.getAttribute('aria-labelledby')).toBeTruthy();
+  });
+
+  it('renders resize handles as direct children of the modal box', () => {
+    const adapter = createAdapter();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const shell = container.querySelector('.dm-modal-shell');
+    for (const cls of ['modal-resize-edge-right', 'modal-resize-edge-bottom', 'modal-resize-corner']) {
+      const handle = container.querySelector(`.${cls}`);
+      expect(handle).toBeTruthy();
+      expect(handle?.parentElement).toBe(shell);
+    }
   });
 
   it('saves schema snapshot on successful save', async () => {
@@ -568,6 +593,47 @@ describe('DataMapperModal', () => {
     expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
   });
 
+  it('shows DriftBanner when legacy snapshot omits sourceId', async () => {
+    const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
+
+    // Legacy demo/product snapshots sometimes omit sourceId. Drift detection must
+    // fall back to the first adapter source instead of skipping silently.
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [{
+        id: 'snap-src-legacy',
+        contextId: 'test',
+        side: 'source' as const,
+        fields: [
+          { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+          { path: 'userName', type: 'string', depth: 0, isArrayElement: false },
+        ],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 2,
+      }],
+      target: null,
+    });
+
+    vi.mocked(captureSchemaSnapshot).mockReturnValueOnce({
+      id: 'snap-current',
+      contextId: 'test',
+      side: 'source' as const,
+      sourceId: 's1',
+      fields: [
+        { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+        { path: 'user_name', type: 'string', depth: 0, isArrayElement: false },
+      ],
+      capturedAt: new Date().toISOString(),
+      topLevelKeyCount: 2,
+    });
+
+    const adapter = createAdapter();
+    const { container } = await act(async () => {
+      return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
+    expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
+  });
+
   it('dismisses DriftBanner when dismiss is clicked', async () => {
     const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
 
@@ -652,6 +718,13 @@ describe('DataMapperModal', () => {
 
     const acceptBtn = screen.getByText('Accept & Update');
     await act(async () => { fireEvent.click(acceptBtn); });
+    // Now the diff modal opens showing changes; confirm by clicking the modal's Accept button
+    const modalOverlay = document.body.querySelector('.dm-diff-overlay');
+    expect(modalOverlay).toBeTruthy();
+    const modalAcceptBtn = Array.from(modalOverlay!.querySelectorAll('.dm-diff-footer button'))
+      .find((btn) => /Accept/.test(btn.textContent ?? '')) as HTMLElement;
+    expect(modalAcceptBtn).toBeTruthy();
+    await act(async () => { fireEvent.click(modalAcceptBtn); });
     expect(container.querySelector('.dm-drift-banner')).toBeNull();
     expect(vi.mocked(saveSnapshot).mock.calls.length).toBeGreaterThan(saveCountBefore);
   });
@@ -696,7 +769,7 @@ describe('DataMapperModal', () => {
 
     const diffBtn = screen.getByText('Show Diff');
     await act(async () => { fireEvent.click(diffBtn); });
-    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+    expect(document.body.querySelector('.dm-diff-overlay')).toBeTruthy();
   });
 
   it('detects target-side breaking drift and blocks save until resolved', async () => {
@@ -753,7 +826,7 @@ describe('DataMapperModal', () => {
     fireEvent.click(screen.getByText('Save'));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText(/breaking schema drift issue/i)).toBeTruthy();
-    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+    expect(document.body.querySelector('.dm-diff-overlay')).toBeTruthy();
   });
 
 });

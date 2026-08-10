@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import HarnessOptionsGrid from './send-harness-shared/HarnessOptionsGrid';
 import type {
   Environment,
@@ -43,6 +44,7 @@ export default function SendToHarnessModal({
   request, promotionContext, featureGroups, environments, microservices, onConfirm, onClose, defaultValidationPreset,
 }: Props) {
   const [step, setStep] = useState<Step>('target');
+  const { modalStyle, onPointerDragStart } = useModalDrag(true, { constrainToViewport: true });
 
   // Cascade selections
   const [envId, setEnvId] = useState('');
@@ -168,9 +170,9 @@ export default function SendToHarnessModal({
 
   return (
     <div className="send-harness-overlay">
-      <div className="send-harness-modal" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="send-harness-header">
+      <div className="send-harness-modal" data-testid="req-send-harness-modal" role="dialog" style={modalStyle} onClick={e => e.stopPropagation()}>
+        {/* Header — draggable */}
+        <div className="send-harness-header" style={{ cursor: 'grab' }} onPointerDown={onPointerDragStart}>
           <div className="send-harness-title-row">
             <h3>Send to Harness</h3>
             <div className="send-harness-steps">
@@ -287,14 +289,15 @@ export default function SendToHarnessModal({
 
         {/* Footer */}
         <div className="send-harness-footer">
-          <button className="send-harness-cancel-btn" onClick={onClose}>Cancel</button>
+          <button className="send-harness-cancel-btn" data-testid="send-harness-cancel" onClick={onClose}>Cancel</button>
           <div className="send-harness-footer-right">
             {step === 'options' && (
-              <button className="send-harness-back-btn" onClick={() => setStep('target')}>Back</button>
+              <button className="send-harness-back-btn" data-testid="send-harness-back" onClick={() => setStep('target')}>Back</button>
             )}
             {step === 'target' && (
               <button
                 className="send-harness-next-btn"
+                data-testid="send-harness-next"
                 disabled={!canProceed}
                 onClick={() => setStep('options')}
               >
@@ -302,7 +305,7 @@ export default function SendToHarnessModal({
               </button>
             )}
             {step === 'options' && (
-              <button className="send-harness-confirm-btn" onClick={handleConfirm}>
+              <button className="send-harness-confirm-btn" data-testid="send-harness-confirm" onClick={handleConfirm}>
                 Send to Harness
               </button>
             )}

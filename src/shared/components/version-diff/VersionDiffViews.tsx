@@ -19,33 +19,42 @@ export function HeadersDiffView({ diff }: { diff: HeadersDiffData }) {
   if (!hasChanges) return <div className="test-def-diff-empty">No header changes</div>;
 
   return (
-    <div className="test-def-diff-section">
-      {diff.headersAdded.map((h) => (
-        <div key={`add-${h.key}`} className="test-def-diff-row added">
-          <span className="test-def-diff-badge added">+</span>
-          <span className="test-def-diff-field">{h.key}</span>
-          <span className="test-def-diff-val">{h.value}</span>
-        </div>
-      ))}
-      {diff.headersRemoved.map((h) => (
-        <div key={`rem-${h.key}`} className="test-def-diff-row removed">
-          <span className="test-def-diff-badge removed">−</span>
-          <span className="test-def-diff-field">{h.key}</span>
-          <span className="test-def-diff-val">{h.value}</span>
-        </div>
-      ))}
-      {diff.headersModified.map((h) => (
-        <div key={`mod-${h.key}`} className="test-def-diff-row modified">
-          <span className="test-def-diff-badge modified">~</span>
-          <span className="test-def-diff-field">{h.key}</span>
-          <span className="test-def-diff-val">
-            <span className="test-def-diff-old">{h.oldValue}</span>
-            <span className="test-def-diff-arrow">→</span>
-            <span className="test-def-diff-new">{h.newValue}</span>
-          </span>
-        </div>
-      ))}
-    </div>
+    <table className="test-def-diff-headers-table">
+      <thead>
+        <tr>
+          <th className="test-def-diff-headers-th-status" />
+          <th className="test-def-diff-headers-th">Header</th>
+          <th className="test-def-diff-headers-th">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {diff.headersAdded.map((h) => (
+          <tr key={`add-${h.key}`} className="test-def-diff-headers-tr added">
+            <td className="test-def-diff-headers-td-status"><span className="test-def-diff-badge added">+</span></td>
+            <td className="test-def-diff-headers-td-key"><code>{h.key}</code></td>
+            <td className="test-def-diff-headers-td-val"><span className="test-def-diff-new">{h.value}</span></td>
+          </tr>
+        ))}
+        {diff.headersRemoved.map((h) => (
+          <tr key={`rem-${h.key}`} className="test-def-diff-headers-tr removed">
+            <td className="test-def-diff-headers-td-status"><span className="test-def-diff-badge removed">−</span></td>
+            <td className="test-def-diff-headers-td-key"><code>{h.key}</code></td>
+            <td className="test-def-diff-headers-td-val"><span className="test-def-diff-old">{h.value}</span></td>
+          </tr>
+        ))}
+        {diff.headersModified.map((h) => (
+          <tr key={`mod-${h.key}`} className="test-def-diff-headers-tr modified">
+            <td className="test-def-diff-headers-td-status"><span className="test-def-diff-badge modified">~</span></td>
+            <td className="test-def-diff-headers-td-key"><code>{h.key}</code></td>
+            <td className="test-def-diff-headers-td-val">
+              <span className="test-def-diff-old">{h.oldValue}</span>
+              <span className="test-def-diff-arrow">→</span>
+              <span className="test-def-diff-new">{h.newValue}</span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

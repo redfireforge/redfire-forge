@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
 import { KafkaSchemaRegistryPage } from './KafkaSchemaRegistryPage';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 
@@ -63,7 +64,7 @@ describe('KafkaSchemaRegistryPage', () => {
     mockDispatch = vi.fn();
   });
 
-  it('renders KafkaStudioGuard when not connected', () => {
+  it('renders schema registry content even when cluster is disconnected', () => {
     render(
       <KafkaSchemaRegistryPage
         kafkaState={makeKafkaState({ connection: { state: 'disconnected' } as never })}
@@ -72,8 +73,8 @@ describe('KafkaSchemaRegistryPage', () => {
       />,
     );
 
-    expect(screen.getByText('Cluster is not connected')).toBeTruthy();
-    expect(screen.queryByTestId('schema-registry-page')).toBeNull();
+    // Schema Registry doesn't require a Kafka broker connection
+    expect(screen.getByTestId('schema-registry-page')).toBeTruthy();
   });
 
   it('renders URL prompt when connected but URL blank', () => {
@@ -176,7 +177,7 @@ describe('KafkaSchemaRegistryPage', () => {
 
     expect(screen.getByTestId('schema-content').textContent).toContain('V2');
 
-    fireEvent.change(screen.getByTestId('version-select'), { target: { value: '1' } });
+    selectOption(screen.getByTestId('version-select'), 'v1');
 
     await waitFor(() => {
       expect(screen.getByTestId('schema-content').textContent).toContain('V1');
@@ -554,8 +555,7 @@ describe('KafkaSchemaRegistryPage', () => {
 
     // Version list loaded but is empty → selectedVersion is null → select value = ''
     await waitFor(() => {
-      const select = screen.queryByTestId('version-select') as HTMLSelectElement | null;
-      if (select) expect(select.value).toBe('');
+      expect(getCustomSelectValue(screen.getByTestId('version-select'))).toBe('');
     });
   });
 });

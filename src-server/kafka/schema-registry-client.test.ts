@@ -19,6 +19,8 @@ import {
   clearSchemaCache,
   SchemaRegistryError,
   SCHEMA_ERROR_CODES,
+  registerSchemaVersion,
+  listSubjectsWithFormat,
 } from './schema-registry-client';
 import type { KafkaSchemaConfig } from './contracts';
 
@@ -544,6 +546,96 @@ describe('schema-registry-client', () => {
       // previously-cached (wrong-credential) instance.
       await encodeValue(configB, 'orders', { id: 2 });
       expect((vi.mocked(SchemaRegistryMock)).mock.calls.length).toBe(callsAfterFirst + 1);
+    });
+  });
+
+  // ── registryGet network error ──────────────────────────────────────────────
+  describe('registryGet network error path (covered via listSubjects)', () => {
+    it('throws SchemaRegistryError with REGISTRY_UNREACHABLE when fetch throws a non-Error', async () => {
+      mockFetch.mockRejectedValueOnce('string-error');
+      await expect(listSubjects(baseConfig)).rejects.toMatchObject({
+        code: 'REGISTRY_UNREACHABLE',
+      });
+    });
+  });
+
+  // ── registryPost ──────────────────────────────────────────────────────────
+  describe('registerSchemaVersion (exercises registryPost)', () => {
+    it('returns id and version on success', async () => {
+      mockFetch.mockResolvedValueOnce(okJson({ id: 7, version: 3 }));
+      const result = await registerSchemaVersion(baseConfig, 'orders-value', '{"type":"record","name":"X","fields":[]}');
+      expect(result).toEqual({ id: 7, version: 3 });
+    });
+
+    it('throws on 401 auth failure', async () => {
+      mockFetch.mockResolvedValueOnce(errResponse(401));
+      await expect(
+        registerSchemaVersion(baseConfig, 'orders-value', '{}'),
+      ).rejects.toMatchObject({ code: 'REGISTRY_AUTH_FAILURE' });
+    });
+
+    it('throws on non-ok response (not auth)', async () => {
+      mockFetch.mockResolvedValueOnce(errResponse(500));
+      await expect(
+        registerSchemaVersion(baseConfig, 'orders-value', '{}'),
+      ).rejects.toMatchObject({ code: 'REGISTRY_UNREACHABLE' });
+    });
+
+    it('throws on network error (fetch throws)', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+      await expect(
+        registerSchemaVersion(baseConfig, 'orders-value', '{}'),
+      ).rejects.toMatchObject({ code: 'REGISTRY_UNREACHABLE' });
+    });
+
+    it('throws on non-JSON response body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => { throw new SyntaxError('bad json'); },
+      } as unknown as Response);
+      await expect(
+        registerSchemaVersion(baseConfig, 'orders-value', '{}'),
+      ).rejects.toMatchObject({ code: 'REGISTRY_UNREACHABLE' });
+    });
+  });
+
+  // ── listSubjectsWithFormat ────────────────────────────────────────────────
+  describe('listSubjectsWithFormat', () => {
+    it('returns subjects with schemaType resolved from latest version', async () => {
+      // First call: listSubjects
+      mockFetch.mockResolvedValueOnce(okJson(['orders-value', 'payments-value']));
+      // Second call: latest for orders-value → AVRO
+      mockFetch.mockResolvedValueOnce(okJson({ schemaType: 'AVRO' }));
+      // Third call: latest for payments-value → PROTOBUF
+      mockFetch.mockResolvedValueOnce(okJson({ schemaType: 'PROTOBUF' }));
+
+      const result = await listSubjectsWithFormat(baseConfig);
+      expect(result).toEqual([
+        { name: 'orders-value', schemaType: 'AVRO' },
+        { name: 'payments-value', schemaType: 'PROTOBUF' },
+      ]);
+    });
+
+    it('omits schemaType when fetching latest for a subject fails (rejection path)', async () => {
+      // First call: listSubjects
+      mockFetch.mockResolvedValueOnce(okJson(['orders-value', 'bad-subject']));
+      // Second call: success for orders-value
+      mockFetch.mockResolvedValueOnce(okJson({ schemaType: 'AVRO' }));
+      // Third call: network error for bad-subject
+      mockFetch.mockRejectedValueOnce(new Error('timeout'));
+
+      const result = await listSubjectsWithFormat(baseConfig);
+      expect(result[0]).toEqual({ name: 'orders-value', schemaType: 'AVRO' });
+      // rejected subject: no schemaType
+      expect(result[1]).toEqual({ name: 'bad-subject' });
+    });
+
+    it('falls back to AVRO when schemaType is absent in the latest response', async () => {
+      mockFetch.mockResolvedValueOnce(okJson(['some-topic']));
+      mockFetch.mockResolvedValueOnce(okJson({})); // no schemaType field
+      const result = await listSubjectsWithFormat(baseConfig);
+      expect(result[0]).toEqual({ name: 'some-topic', schemaType: 'AVRO' });
     });
   });
 });

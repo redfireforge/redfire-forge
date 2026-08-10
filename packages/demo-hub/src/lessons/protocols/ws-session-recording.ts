@@ -12,10 +12,36 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WS } from '@shared/selectors';
-import { wsSetup, wsCleanup, closeExtraConnectionTabs } from '../setup-helpers';
+import {
+  clearEvents,
+  closeExtraConnectionTabs,
+  disconnectWebSocket,
+  fillControlledInput,
+  firstVisibleEl,
+  getLastMockPort,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
+import { firstVisibleElement } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
 
-// ── Constants ──────────────────────────────────────────────────
-const MOCK_URL = 'ws://localhost:9876';
+/** Hold a spotlight on one control so the viewer can read it (no flash-hop). */
+async function spotPause(ctx: DemoActionContext, selector: string, holdMs: number): Promise<void> {
+  const el = firstVisibleElement<HTMLElement>(selector);
+  if (!el) {
+    await ctx.delay(holdMs);
+    return;
+  }
+  el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  const dispose = showSpotlightRing(el);
+  await ctx.delay(holdMs);
+  dispose();
+}
+
+function mockUrl(): string {
+  return `ws://localhost:${getLastMockPort()}`;
+}
 
 /**
  * Build a synthetic ws-recording-v1 JSON recording.
@@ -40,7 +66,7 @@ function buildDemoRecording(): string {
   return JSON.stringify({
     _format: 'ws-recording-v1',
     metadata: {
-      url: MOCK_URL,
+      url: mockUrl(),
       protocol: 'raw',
       startedAt: now,
       durationMs: 5000,
@@ -64,14 +90,44 @@ function buildDemoRecording(): string {
 }
 
 /**
- * Programmatically inject a recording file into the hidden file input.
- * Uses DataTransfer to create a synthetic FileList.
- * We cannot click the Import button directly because it opens an OS file
- * picker — this helper injects straight to the hidden <input type="file">.
+ * Find the hidden recording file input.
+ * The input uses `display: none` (zero box) — `firstVisibleElement` never matches it.
+ * Prefer the input next to a visible Import button; else any input under a visible ancestor.
  */
-async function injectRecordingFile(ctx: DemoActionContext): Promise<void> {
-  const input = document.querySelector(WS.REC_FILE_INPUT) as HTMLInputElement | null;
-  if (!input) return;
+function findRecordingFileInput(): HTMLInputElement | null {
+  const importBtn = firstVisibleElement(WS.REC_IMPORT_BTN);
+  if (importBtn) {
+    const scoped =
+      importBtn.parentElement?.querySelector<HTMLInputElement>(WS.REC_FILE_INPUT)
+      ?? importBtn.closest('.ws-message-toolbar, .ws-messages-toolbar, .ws-log-toolbar')
+        ?.querySelector<HTMLInputElement>(WS.REC_FILE_INPUT);
+    if (scoped) return scoped;
+  }
+
+  const all = document.querySelectorAll<HTMLInputElement>(WS.REC_FILE_INPUT);
+  for (const input of Array.from(all)) {
+    let el: HTMLElement | null = input.parentElement;
+    while (el) {
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        el = el.parentElement;
+        continue;
+      }
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) return input;
+      el = el.parentElement;
+    }
+  }
+  return all[0] ?? null;
+}
+
+/**
+ * Programmatically inject a recording file into the hidden file input.
+ * Cannot click Import (opens OS file picker) — inject into the hidden input instead.
+ */
+async function injectRecordingFile(ctx: DemoActionContext): Promise<boolean> {
+  const input = findRecordingFileInput();
+  if (!input) return false;
 
   const json = buildDemoRecording();
   const blob = new Blob([json], { type: 'application/json' });
@@ -82,8 +138,6 @@ async function injectRecordingFile(ctx: DemoActionContext): Promise<void> {
     dt.items.add(file);
     input.files = dt.files;
   } catch {
-    // DataTransfer may not be available in test environments;
-    // fall back to defineProperty on the input
     Object.defineProperty(input, 'files', {
       value: [file],
       writable: true,
@@ -91,31 +145,45 @@ async function injectRecordingFile(ctx: DemoActionContext): Promise<void> {
     });
   }
   input.dispatchEvent(new Event('change', { bubbles: true }));
-  await ctx.delay(800);
+  await ctx.delay(400);
+  try {
+    await ctx.waitFor(WS.REPLAY_START_BTN, 4000);
+  } catch {
+    // Caller may already be in replay, or load failed — surface via return value
+  }
+  return !!firstVisibleElement(WS.REPLAY_START_BTN);
 }
 
 // ── Internal guard helpers ───────────────────────────────────────
 
 /** Ensure the WebSocket is connected (no-op if already connected). */
 async function ensureConnected(ctx: DemoActionContext): Promise<void> {
-  // The Disconnect button is always in the DOM (just disabled when not connected),
-  // so we must check !disabled rather than mere presence.
-  const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+  const disconnectBtn = firstVisibleElement<HTMLButtonElement>(WS.DISCONNECT_BTN);
   const alreadyConnected = !!disconnectBtn && !disconnectBtn.disabled;
-  if (!alreadyConnected) {
-    await ctx.click(WS.LEFT_TAB_CONNECT);
-    await ctx.waitFor(WS.URL_INPUT);
-    await ctx.delay(200);
-    await ctx.fill(WS.URL_INPUT, MOCK_URL);
-    await ctx.delay(200);
-    await ctx.click(WS.CONNECT_BTN);
-    await ctx.delay(1200);
+  if (alreadyConnected) return;
+
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.waitFor(WS.URL_INPUT);
+  await ctx.delay(200);
+  await ctx.fill(WS.URL_INPUT, mockUrl());
+  await ctx.delay(200);
+  await ctx.click(WS.CONNECT_BTN);
+  await ctx.waitFor(WS.STATUS_CONNECTED, 5000);
+  await ctx.delay(600);
+}
+
+/** Ensure Events right-tab is active. */
+async function ensureEventsTab(ctx: DemoActionContext): Promise<void> {
+  const tab = firstVisibleElement<HTMLElement>(WS.RIGHT_TAB_EVENTS);
+  if (tab && tab.getAttribute('aria-selected') !== 'true' && !tab.classList.contains('active')) {
+    tab.click();
+    await ctx.delay(300);
   }
 }
 
 /** Stop an active recording silently (no-op if not recording). */
 async function ensureNotRecording(ctx: DemoActionContext): Promise<void> {
-  const stopBtn = document.querySelector(WS.REC_STOP_BTN) as HTMLElement | null;
+  const stopBtn = firstVisibleElement<HTMLElement>(WS.REC_STOP_BTN);
   if (stopBtn) {
     stopBtn.click();
     await ctx.delay(500);
@@ -124,38 +192,61 @@ async function ensureNotRecording(ctx: DemoActionContext): Promise<void> {
 
 /** Exit replay mode silently (no-op if not replaying). */
 async function ensureNotReplaying(ctx: DemoActionContext): Promise<void> {
-  const exitBtn = document.querySelector(WS.REPLAY_EXIT) as HTMLElement | null;
+  const exitBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_EXIT);
   if (exitBtn) {
     exitBtn.click();
-    await ctx.delay(400);
+    await ctx.delay(500);
+  }
+}
+
+/** Quietly ensure recording is idle with Import available. */
+async function ensureImportReady(ctx: DemoActionContext): Promise<void> {
+  await ensureNotReplaying(ctx);
+  await ensureNotRecording(ctx);
+  await ensureEventsTab(ctx);
+  await ctx.delay(200);
+}
+
+/** Quietly reset Connect wire settings without Mock/Client mode tours. */
+async function resetConnectWireSettingsQuiet(ctx: DemoActionContext): Promise<void> {
+  await switchToClientModeQuiet(ctx);
+  firstVisibleEl<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+  await ctx.delay(60);
+  const sub = firstVisibleEl<HTMLInputElement>(WS.SUBPROTOCOLS_INPUT);
+  if (sub && sub.value !== '') fillControlledInput(sub, '');
+  const wrapper = firstVisibleEl<HTMLElement>(WS.PROTOCOL_SELECT);
+  const label = wrapper?.querySelector('.cs-trigger')?.textContent?.trim().toLowerCase() ?? '';
+  if (label !== 'raw') {
+    await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
+    await ctx.delay(40);
   }
 }
 
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
+/**
+ * Quiet setup — REST mock + Client/Connect. Must not open Mock mode during
+ * setup: Live view is already visible and that tour flashes step 1.
+ */
 async function recordingSetup(ctx: DemoActionContext): Promise<void> {
-  // Wait for the WebSocket studio to fully mount before interacting with it.
   await ctx.waitFor(WS.CONN_TAB_BAR);
-  await ctx.delay(400);
-  // Close any extra connection tabs left behind by previous lessons (e.g. ws-power-user).
-  // Multiple tabs mean document.querySelector hits the wrong (hidden) panel.
+  const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(40);
+  }
   await closeExtraConnectionTabs(ctx);
-  await ctx.delay(200);
-  await wsSetup(ctx);
-  await ctx.delay(200);
-  // Clear stale protocol state
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
-  await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
-  await ctx.delay(200);
-  await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
-  await ctx.delay(200);
+  await startMockServerQuiet(ctx, 9876);
+  await resetConnectWireSettingsQuiet(ctx);
 }
 
 async function recordingCleanup(ctx: DemoActionContext): Promise<void> {
-  // Exit replay if active
   await ensureNotReplaying(ctx);
-  await wsCleanup(ctx);
+  await ensureNotRecording(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServerQuiet(ctx, 9876);
+  await switchToClientModeQuiet(ctx);
 }
 
 // ── Lesson ──────────────────────────────────────────────────────
@@ -168,6 +259,8 @@ export const wsSessionRecordingLesson: DemoLesson = {
   description: 'Record a live session, save the file, import it later, and replay messages at the original pace.',
   estimatedMinutes: 4,
   initialTab: 'websocket-studio',
+  // Avoid add→rename "demo" connection tab flash at live start
+  skipStudioTabIsolation: true,
 
   setup: recordingSetup,
   cleanup: recordingCleanup,
@@ -503,21 +596,21 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       id: 'rec-intro',
       title: 'The Rec Button',
       description:
-        'In the Events toolbar — after Filters, Compare, Clear, and Export — you\'ll see the **● Rec** button. This starts a session recording that captures every message with millisecond-accurate timestamps. Next to it is **Import** for loading a saved recording. Let\'s start recording.',
+        'In the Events toolbar — after Filters, Compare, Clear, and Export — you\'ll see the **● Rec** button. ' +
+        'This starts a session recording that captures every message with millisecond-accurate timestamps. ' +
+        'Next to it is **Import** for loading a saved recording.',
       highlight: WS.REC_START_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Ensure recording/replay state is clean before connecting
         await ensureNotReplaying(ctx);
         await ensureNotRecording(ctx);
-        // Connect if not already connected
         await ensureConnected(ctx);
-        // Switch to Events tab so the Rec button is visible
-        await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(300);
+        await ensureEventsTab(ctx);
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(400);
+        await ensureEventsTab(ctx);
+        await spotPause(ctx, WS.REC_START_BTN, 1400);
+        await spotPause(ctx, WS.REC_IMPORT_BTN, 1200);
       },
     },
 
@@ -526,24 +619,27 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       id: 'rec-start',
       title: 'Start Recording',
       description:
-        'Clicking **● Rec** starts the recording. The button transforms into a pulsing red **■ Stop** — a clear indicator that every message is being captured. The recording includes direction (sent/received), payload data, size, and precise relative timestamps.',
+        'Click **● Rec** to start recording. Watch the button become a pulsing red **■ Stop** — every message is now being captured with direction, payload, size, and relative timestamps.',
       highlight: WS.REC_START_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // If already recording, we're good — nothing to do
-        const alreadyRecording = !!document.querySelector(WS.REC_STOP_BTN);
-        if (alreadyRecording) return;
-        // Stop any active replay first
+        if (firstVisibleElement(WS.REC_STOP_BTN)) return;
         await ensureNotReplaying(ctx);
-        // Ensure connected and on Events tab
         await ensureConnected(ctx);
-        await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(200);
+        await ensureEventsTab(ctx);
       },
       action: async (ctx: DemoActionContext) => {
+        if (firstVisibleElement(WS.REC_STOP_BTN)) {
+          await spotPause(ctx, WS.REC_STOP_BTN, 1200);
+          return;
+        }
+        await spotPause(ctx, WS.REC_START_BTN, 900);
         await ctx.click(WS.REC_START_BTN);
-        await ctx.delay(800);
+        await ctx.waitFor(WS.REC_STOP_BTN, 3000);
+        await ctx.delay(500);
+        await spotPause(ctx, WS.REC_STOP_BTN, 1400);
       },
+      verify: WS.REC_STOP_BTN,
     },
 
     // ── 3. Send During Recording ──────────────────────────
@@ -551,39 +647,38 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       id: 'rec-capture',
       title: 'Send During Recording',
       description:
-        'While recording is active (red ■ Stop pulsing), the demo sends three messages to the echo server. Each sent message and its echoed response is captured with a relative timestamp. The recording file will contain all six events (3 sent + 3 received) when we stop.',
+        'With recording active (**■ Stop** pulsing), the demo sends three messages to the echo server. ' +
+        'Watch each send, then switch back to Events to see the captured sent/received pairs.',
       highlight: WS.SEND_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Ensure recording is active
-        const isRecording = !!document.querySelector(WS.REC_STOP_BTN);
-        if (!isRecording) {
+        if (!firstVisibleElement(WS.REC_STOP_BTN)) {
           await ensureNotReplaying(ctx);
           await ensureConnected(ctx);
-          await ctx.click(WS.RIGHT_TAB_EVENTS);
-          await ctx.delay(200);
-          const startBtn = document.querySelector(WS.REC_START_BTN) as HTMLElement | null;
+          await ensureEventsTab(ctx);
+          const startBtn = firstVisibleElement<HTMLElement>(WS.REC_START_BTN);
           if (startBtn) {
             startBtn.click();
             await ctx.delay(600);
           }
         }
-        // Switch to Send tab and pre-fill the message
         await ctx.click(WS.LEFT_TAB_SEND);
-        await ctx.delay(200);
+        await ctx.waitFor(WS.MESSAGE_INPUT);
+        await ctx.delay(300);
         await ctx.fill(WS.MESSAGE_INPUT, '{"action":"demo","seq":1}');
         await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
-        // The message input clears after each send, so we must re-fill before every click.
         for (let i = 1; i <= 3; i++) {
           await ctx.fill(WS.MESSAGE_INPUT, `{"action":"demo","seq":${i}}`);
-          await ctx.delay(150);
+          await ctx.delay(400);
+          await spotPause(ctx, WS.SEND_BTN, 700);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(600);
+          await ctx.delay(900);
         }
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(800);
+        await spotPause(ctx, WS.REC_STOP_BTN, 1200);
       },
     },
 
@@ -592,28 +687,32 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       id: 'rec-stop',
       title: 'Stop & Save',
       description:
-        'Clicking **■ Stop** ends the recording. RedfireForge saves the session as a JSON file that downloads automatically. The file contains metadata (URL, protocol, duration, message count) and the full array of timestamped events. You can share this file with teammates — they can replay it without needing the original server.',
+        'Click **■ Stop** to end the recording. RedfireForge downloads a JSON file with metadata and timestamped events. ' +
+        'After stop, **● Rec** and **Import** return to the toolbar.',
       highlight: WS.REC_STOP_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Ensure recording is active so the Stop button is visible
-        const isRecording = !!document.querySelector(WS.REC_STOP_BTN);
-        if (!isRecording) {
-          await ensureNotReplaying(ctx);
-          await ensureConnected(ctx);
-          await ctx.click(WS.RIGHT_TAB_EVENTS);
-          await ctx.delay(200);
-          const startBtn = document.querySelector(WS.REC_START_BTN) as HTMLElement | null;
-          if (startBtn) {
-            startBtn.click();
-            await ctx.delay(600);
-          }
+        if (firstVisibleElement(WS.REC_STOP_BTN)) {
+          await ensureEventsTab(ctx);
+          return;
+        }
+        await ensureNotReplaying(ctx);
+        await ensureConnected(ctx);
+        await ensureEventsTab(ctx);
+        const startBtn = firstVisibleElement<HTMLElement>(WS.REC_START_BTN);
+        if (startBtn) {
+          startBtn.click();
+          await ctx.delay(600);
         }
       },
       action: async (ctx: DemoActionContext) => {
+        await spotPause(ctx, WS.REC_STOP_BTN, 1000);
         await ctx.click(WS.REC_STOP_BTN);
-        await ctx.delay(800);
+        await ctx.waitFor(WS.REC_IMPORT_BTN, 4000);
+        await ctx.delay(600);
+        await spotPause(ctx, WS.REC_IMPORT_BTN, 1200);
       },
+      verify: WS.REC_IMPORT_BTN,
     },
 
     // ── 5. Import a Recording ─────────────────────────────
@@ -621,19 +720,36 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       id: 'rec-import',
       title: 'Import a Recording',
       description:
-        'The **Import** button loads a previously saved recording file. Once loaded successfully, the ● Rec and Import buttons disappear and a **▶ Play** button takes their place — you\'re ready to replay. The demo loads a sample recording with 12 message events spanning 5 seconds.',
+        '**Import** loads a saved recording. After a successful load, **● Rec** and **Import** are replaced by **▶ Play**. ' +
+        'The demo injects a sample recording with 12 message events spanning about 5 seconds.',
       highlight: WS.REC_IMPORT_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Stop recording if active
-        await ensureNotRecording(ctx);
-        // Exit replay if active
-        await ensureNotReplaying(ctx);
+        await ensureImportReady(ctx);
+        // If a prior run already loaded a recording, exit so Import is visible again
+        if (!firstVisibleElement(WS.REC_IMPORT_BTN) && firstVisibleElement(WS.REPLAY_START_BTN)) {
+          // Play is showing — keep it; next step teaches Play. Nothing to do here.
+        }
       },
       action: async (ctx: DemoActionContext) => {
-        await injectRecordingFile(ctx);
-        await ctx.delay(600);
+        await ensureEventsTab(ctx);
+        // Already imported (rapid Next / guard) — show Play outcome
+        if (firstVisibleElement(WS.REPLAY_START_BTN)) {
+          await spotPause(ctx, WS.REPLAY_START_BTN, 1400);
+          return;
+        }
+        await spotPause(ctx, WS.REC_IMPORT_BTN, 1200);
+        const loaded = await injectRecordingFile(ctx);
+        if (!loaded) {
+          // Retry once after ensuring idle toolbar state
+          await ensureImportReady(ctx);
+          await injectRecordingFile(ctx);
+        }
+        await ctx.waitFor(WS.REPLAY_START_BTN, 5000);
+        await ctx.delay(500);
+        await spotPause(ctx, WS.REPLAY_START_BTN, 1600);
       },
+      verify: WS.REPLAY_START_BTN,
     },
 
     // ── 6. Replay at Original Pace ────────────────────────
@@ -641,26 +757,33 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       id: 'rec-play',
       title: 'Replay at Original Pace',
       description:
-        'Clicking **▶ Play** starts the replay. Messages appear in the Events log at their original timing — sent and received messages interleave just like the live session. The **replay bar** below the toolbar shows a pause button (⏸), speed selector (1×/2×/5×/10×/Max), progress counter, and an Exit button.',
+        'Click **▶ Play** to replay messages at their original timing. ' +
+        'Watch the **replay bar**: pause/resume, speed (1×/2×/5×/10×/Max), progress, and **✕ Exit**.',
       highlight: WS.REPLAY_START_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // If the Play button is already visible, we're ready
-        const playBtn = document.querySelector(WS.REPLAY_START_BTN);
-        if (playBtn) return;
-        // Exit any active replay first
-        await ensureNotReplaying(ctx);
-        // Stop any active recording
-        await ensureNotRecording(ctx);
-        // Inject the sample recording so the Play button appears
+        if (firstVisibleElement(WS.REPLAY_START_BTN)) return;
+        if (firstVisibleElement(WS.REPLAY_EXIT)) return;
+        await ensureImportReady(ctx);
         await injectRecordingFile(ctx);
-        await ctx.delay(400);
+        await ctx.delay(300);
       },
       action: async (ctx: DemoActionContext) => {
+        // If already replaying (rapid Next), pause on the bar instead of restarting
+        if (firstVisibleElement(WS.REPLAY_BAR)) {
+          await spotPause(ctx, WS.REPLAY_BAR, 1600);
+          return;
+        }
+        await spotPause(ctx, WS.REPLAY_START_BTN, 1000);
         await ctx.click(WS.REPLAY_START_BTN);
-        // Allow 4 s of replay so the viewer watches several events stream in
-        await ctx.delay(4000);
+        await ctx.waitFor(WS.REPLAY_BAR, 3000);
+        await ctx.delay(500);
+        await spotPause(ctx, WS.REPLAY_BAR, 1200);
+        // Watch events stream in at original pace
+        await ctx.delay(3500);
+        await spotPause(ctx, WS.REPLAY_PROGRESS, 1000);
       },
+      verify: WS.REPLAY_BAR,
     },
 
     // ── 7. Exit Replay ────────────────────────────────────
@@ -668,56 +791,51 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       id: 'rec-exit',
       title: 'Exit Replay',
       description:
-        'Clicking **✕ Exit** stops the replay and clears the message log — a clean slate. The ● Rec and Import buttons reappear, ready for another session. You can also let a replay finish naturally — when all events have played, it returns to idle automatically.',
+        'Click **✕ Exit** to stop replay and clear the log. **● Rec** and **Import** return for another session. ' +
+        'You can also let replay finish on its own — when all events play, it returns to idle.',
       highlight: WS.REPLAY_EXIT,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // By the time this step starts, the 4.9-second replay from rec-play may
-        // have already completed. Ensure a replay is active and paused so the
-        // ✕ Exit button remains visible throughout the entire reading phase.
-        const exitBtn = document.querySelector(WS.REPLAY_EXIT);
+        const exitBtn = firstVisibleElement(WS.REPLAY_EXIT);
         if (!exitBtn) {
-          // Replay has auto-completed (or was never started).
           await ensureNotRecording(ctx);
-          // After auto-completion, loadedRecording is cleared → Play button is gone.
-          // Inject a fresh recording so Play reappears.
-          let playBtn = document.querySelector(WS.REPLAY_START_BTN) as HTMLElement | null;
+          let playBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_START_BTN);
           if (!playBtn) {
+            await ensureImportReady(ctx);
             await injectRecordingFile(ctx);
-            await ctx.delay(400);
-            playBtn = document.querySelector(WS.REPLAY_START_BTN) as HTMLElement | null;
+            playBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_START_BTN);
           }
           if (playBtn) {
             playBtn.click();
-            // Wait for the replay bar to mount, then pause immediately.
-            // We just started replay so it is guaranteed to be playing.
-            await ctx.waitFor(WS.REPLAY_BAR);
-            await ctx.delay(200);
-            const pauseBtn = document.querySelector(WS.REPLAY_PLAYPAUSE) as HTMLElement | null;
+            await ctx.waitFor(WS.REPLAY_BAR, 3000);
+            await ctx.delay(250);
+            const pauseBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_PLAYPAUSE);
             if (pauseBtn) {
               pauseBtn.click();
-              await ctx.delay(300);
+              await ctx.delay(350);
             }
           }
         } else {
-          // Replay is still active from step 6. Pause if currently playing.
-          // Use includes('▶') — the paused state — rather than exact '⏸' comparison
-          // to avoid any Unicode encoding mismatch across source files.
-          const playpauseBtn = document.querySelector(WS.REPLAY_PLAYPAUSE) as HTMLElement | null;
+          const playpauseBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_PLAYPAUSE);
           if (playpauseBtn && !playpauseBtn.textContent?.includes('▶')) {
             playpauseBtn.click();
-            await ctx.delay(300);
+            await ctx.delay(350);
           }
         }
       },
       action: async (ctx: DemoActionContext) => {
-        // Exit replay if still active (may have finished naturally in long demos)
-        const exitBtn = document.querySelector(WS.REPLAY_EXIT) as HTMLElement | null;
-        if (exitBtn) {
-          await ctx.click(WS.REPLAY_EXIT);
-          await ctx.delay(600);
+        const exitBtn = firstVisibleElement<HTMLElement>(WS.REPLAY_EXIT);
+        if (!exitBtn) {
+          await spotPause(ctx, WS.REC_IMPORT_BTN, 1200);
+          return;
         }
+        await spotPause(ctx, WS.REPLAY_EXIT, 1100);
+        await ctx.click(WS.REPLAY_EXIT);
+        await ctx.waitFor(WS.REC_IMPORT_BTN, 4000);
+        await ctx.delay(600);
+        await spotPause(ctx, WS.REC_IMPORT_BTN, 1200);
       },
+      verify: WS.REC_IMPORT_BTN,
     },
   ],
 };

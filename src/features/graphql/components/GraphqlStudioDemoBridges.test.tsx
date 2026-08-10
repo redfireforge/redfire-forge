@@ -23,6 +23,7 @@ const bridgeProps = {
   setRightView: vi.fn(),
   handleAdvSettingsChange: vi.fn(),
   setBatchUnsupportedToast: vi.fn(),
+  clearActiveTabAuth: vi.fn(),
 };
 
 describe('GraphqlStudioDemoBridges', () => {

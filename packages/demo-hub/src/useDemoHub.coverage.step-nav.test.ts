@@ -102,12 +102,13 @@ describe('useDemoHub (branch coverage — step navigation)', () => {
     });
     act(() => result.current.selectLesson(lesson));
 
-    // Start the demo and immediately skip reading
+    // Start the demo, wait until reading phase is active, then skip
     await act(async () => {
-      result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(150); // past preAction settle, into reading
+      const livePromise = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(700); // past setup (350ms) + pre settle (240ms)
       result.current.skipReading();
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
+      await livePromise;
     });
 
     expect(result.current.stepPhase).toBe('done');

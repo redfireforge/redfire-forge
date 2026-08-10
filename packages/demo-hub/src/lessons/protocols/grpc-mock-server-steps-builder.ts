@@ -3,10 +3,6 @@
  */
 import { GRPC } from '@shared/selectors';
 import {
-  closeGrpcSettingsDrawerQuiet,
-  clearGrpcSchemaDriftQuiet,
-  ensureGrpcReflected,
-  grpcFirstCallSetup,
   spotlightAndPause,
   spotlightElementAndPause,
 } from './grpc-lesson-helpers';
@@ -28,11 +24,10 @@ import {
   navigateToMockServerPanelQuiet,
   scrollAndSpotlight,
   scrollBelowMockAuthoringTabs,
+  scrollMockAndSpotlight,
   scrollMockControlIntoView,
   selectMockAuthoringTab,
   setMockInputValue,
-  setSelectValue,
-  startMockQuiet,
   stopMockQuiet,
 } from './grpc-mock-server-helpers';
 
@@ -40,7 +35,7 @@ type DemoStep = GrpcDemoLesson['steps'][number];
 
 export const grpcMockServerBuilderSteps: DemoStep[] = [
   // =========================================================================
-  // Step 1 — Navigate to Advanced → Mock server; tour three tabs
+  // Step 1 — Already on Mock server (quiet setup); tour three authoring tabs
   // =========================================================================
   {
     id: 'grpc13-intro',
@@ -56,65 +51,31 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       '- **JSON** — syntax-highlighted JSON editor with live editing and export\n' +
       '- **Runtime** — global latency, mock status, and the Start / Stop controls\n\n' +
       'Rules hot-swap while the runtime is running — add or remove them without restarting.',
-    highlight: GRPC.MOCK_SERVER_PANEL,
+    // Quiet setup already lands here — Reading rings the Builder tab (no nav tour).
+    highlight: GRPC.MOCK_TAB_BUILDER,
     preAction: async (ctx) => {
-      // Skip the Manage Schemas draft reset — this lesson uses server reflection,
-      // never staged schema sources. Running it would cycle the Manage Schemas
-      // modal across every tab, flashing a burst of modals before step 1.
-      await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
-      await ensureGrpcReflected(ctx);
-      await clearGrpcSchemaDriftQuiet(ctx);
-      await closeGrpcSettingsDrawerQuiet(ctx);
-      // Navigate to mock server with an empty rule set.
-      await navigateToMockServerPanelQuiet(ctx);
+      // Setup already lands on Mock server. Only recover if the panel is gone
+      // (restart / rapid Next) — never bounce Studio→Advanced during Preparing.
+      if (!document.querySelector(GRPC.MOCK_SERVER_PANEL)) {
+        await navigateToMockServerPanelQuiet(ctx);
+      }
       await stopMockQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight Studio first; only click when we are not already there.
-      const studioBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_STUDIO);
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 900);
-      if (studioBtn && studioBtn.getAttribute('aria-selected') !== 'true') {
-        await ctx.click(GRPC.SUB_NAV_STUDIO);
-        await ctx.delay(700);
-      } else {
-        await ctx.delay(450);
+      // Stay put — setup already opened Mock server. Do not re-tour Studio /
+      // Advanced / Mock (that was the "quick flashing" before Reading settled).
+      if (!document.querySelector(GRPC.MOCK_SERVER_PANEL)) {
+        await navigateToMockServerPanelQuiet(ctx);
       }
 
-      // Now spotlight Advanced and click it.
-      const advancedBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_ADVANCED);
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, 950);
-      if (advancedBtn && advancedBtn.getAttribute('aria-selected') !== 'true') {
-        await ctx.click(GRPC.SUB_NAV_ADVANCED);
-        await ctx.delay(700);
-      } else {
-        await ctx.delay(450);
-      }
+      // Exact authoring tabs only (small targets) — no full-panel re-ring.
+      await spotlightAndPause(ctx, GRPC.MOCK_TAB_BUILDER, 800);
+      await spotlightAndPause(ctx, GRPC.MOCK_TAB_JSON, 800);
+      await spotlightAndPause(ctx, GRPC.MOCK_TAB_RUNTIME, 800);
 
-      // Spotlight the advanced nav, then click Mock server.
-      await spotlightAndPause(ctx, GRPC.ADVANCED_NAV, 850);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('mock_server'), 800);
-      await ctx.click(GRPC.ADVANCED_TAB('mock_server'));
-      await ctx.delay(650);
-
-      // Wait for the mock panel to render.
-      try {
-        await ctx.waitFor(GRPC.MOCK_SERVER_PANEL, 4_000);
-      } catch { /* panel renders fast */ }
-      await ctx.delay(300);
-
-      // Spotlight the full panel.
-      await spotlightAndPause(ctx, GRPC.MOCK_SERVER_PANEL, 1_050);
-
-      // Tour the three authoring tabs.
-      await spotlightAndPause(ctx, GRPC.MOCK_TAB_BUILDER, 900);
-      await spotlightAndPause(ctx, GRPC.MOCK_TAB_JSON, 900);
-      await spotlightAndPause(ctx, GRPC.MOCK_TAB_RUNTIME, 900);
-
-      // Return to Builder tab.
       await ctx.click(GRPC.MOCK_TAB_BUILDER);
       await ctx.delay(600);
-      await spotlightAndPause(ctx, GRPC.MOCK_BUILDER_PANEL, 900);
-      await ctx.delay(900);
+      await spotlightAndPause(ctx, GRPC.MOCK_BUILDER_PANEL, 1_100);
     },
     verify: GRPC.MOCK_SERVER_PANEL,
   },
@@ -162,44 +123,38 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       const ids = getLastRuleIds();
       if (!ids) return;
 
-      // Spotlight the new rule card.
       const ruleEl = document.querySelector<HTMLElement>(`[data-testid="grpc-mock-builder-rule-${ids.ruleId}"]`);
-      if (ruleEl) {
-        await spotlightElementAndPause(ctx, ruleEl, 800);
-      }
 
-      // Fill in the rule name.
-      await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-name-${ids.ruleId}"]`, 700);
+      // Fill in the rule name — scroll once, then spotlight without re-scroll.
+      await scrollAndSpotlight(ctx, `[data-testid="grpc-mock-builder-name-${ids.ruleId}"]`, 700);
       setMockInputValue(`[data-testid="grpc-mock-builder-name-${ids.ruleId}"]`, PING_RULE_NAME);
       await ctx.delay(500);
 
-      // Set the predicate kind to body_path_equals.
-      await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-leaf-kind-${ids.nodeId}"]`, 800);
-      setSelectValue(`[data-testid="grpc-mock-builder-leaf-kind-${ids.nodeId}"]`, 'body_path_equals');
-      await ctx.delay(600);
-
-      // Fill in the body path.
-      await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-leaf-path-${ids.nodeId}"]`, 700);
-      setMockInputValue(`[data-testid="grpc-mock-builder-leaf-path-${ids.nodeId}"]`, PING_BODY_PATH);
+      const kindSel = `[data-testid="grpc-mock-builder-leaf-kind-${ids.nodeId}"]`;
+      await scrollAndSpotlight(ctx, kindSel, 800);
+      await ctx.selectOption(kindSel, 'body_path_equals');
+      await ctx.waitFor(`[data-testid="grpc-mock-builder-leaf-path-${ids.nodeId}"]`, 3_000);
       await ctx.delay(400);
 
-      // Fill in the expected value.
-      await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-leaf-body-value-${ids.nodeId}"]`, 700);
-      setMockInputValue(`[data-testid="grpc-mock-builder-leaf-body-value-${ids.nodeId}"]`, PING_MATCH_VALUE);
+      const pathSel = `[data-testid="grpc-mock-builder-leaf-path-${ids.nodeId}"]`;
+      await scrollAndSpotlight(ctx, pathSel, 700);
+      setMockInputValue(pathSel, PING_BODY_PATH);
       await ctx.delay(400);
 
-      // Fill in the response body.
-      await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-body-${ids.ruleId}"]`, 800);
-      setMockInputValue(`[data-testid="grpc-mock-builder-body-${ids.ruleId}"]`, PING_RESPONSE_BODY);
+      const valueSel = `[data-testid="grpc-mock-builder-leaf-body-value-${ids.nodeId}"]`;
+      await scrollAndSpotlight(ctx, valueSel, 700);
+      setMockInputValue(valueSel, PING_MATCH_VALUE);
+      await ctx.delay(400);
+
+      const bodySel = `[data-testid="grpc-mock-builder-body-${ids.ruleId}"]`;
+      await scrollAndSpotlight(ctx, bodySel, 800);
+      setMockInputValue(bodySel, PING_RESPONSE_BODY);
       await ctx.delay(500);
-
-      // Status code 0 = OK (show to viewer).
-      await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-status-${ids.ruleId}"]`, 700);
-      await ctx.delay(300);
 
       // Highlight the completed rule card.
       if (ruleEl) {
-        await spotlightElementAndPause(ctx, ruleEl, 1_000);
+        await scrollBelowMockAuthoringTabs(ctx, ruleEl);
+        await spotlightElementAndPause(ctx, ruleEl, 900, { skipScroll: true });
       }
       await ctx.delay(600);
     },
@@ -252,51 +207,55 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
     action: async (ctx) => {
       const existingRuleCount = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE).length;
 
-      // Show Rule 1 for context before adding Rule 2.
-      const rule1El = document.querySelector<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
-      if (rule1El) {
-        await spotlightElementAndPause(ctx, rule1El, 700);
-      }
-
       // Ensure Rule 2 is fully visible below fixed Authoring tabs.
       const currentRules = document.querySelectorAll<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
       if (currentRules.length >= 2) {
         await scrollBelowMockAuthoringTabs(ctx, currentRules[1]);
       }
 
+      let fallbackRuleEl: HTMLElement | null = null;
+
       if (existingRuleCount < 2) {
-        // Educational flow: add Rule 2 step-by-step.
-        await spotlightAndPause(ctx, GRPC.MOCK_BUILDER_ADD_RULE, 800);
+        await scrollAndSpotlight(ctx, GRPC.MOCK_BUILDER_ADD_RULE, 800);
         await ctx.click(GRPC.MOCK_BUILDER_ADD_RULE);
         await ctx.delay(500);
 
         const ids = getLastRuleIds();
         if (ids) {
-          const ruleEl = document.querySelector<HTMLElement>(`[data-testid="grpc-mock-builder-rule-${ids.ruleId}"]`);
-          if (ruleEl) {
-            await scrollBelowMockAuthoringTabs(ctx, ruleEl);
-            await spotlightElementAndPause(ctx, ruleEl, 700);
-          }
+          fallbackRuleEl = document.querySelector<HTMLElement>(
+            `[data-testid="grpc-mock-builder-rule-${ids.ruleId}"]`,
+          );
 
-          setMockInputValue(`[data-testid="grpc-mock-builder-name-${ids.ruleId}"]`, FALLBACK_RULE_NAME);
+          const nameSel = `[data-testid="grpc-mock-builder-name-${ids.ruleId}"]`;
+          await scrollAndSpotlight(ctx, nameSel, 700);
+          setMockInputValue(nameSel, FALLBACK_RULE_NAME);
           await ctx.delay(400);
 
-          await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-leaf-kind-${ids.nodeId}"]`, 800);
-          setSelectValue(`[data-testid="grpc-mock-builder-leaf-kind-${ids.nodeId}"]`, 'body_path_exists');
-          await ctx.delay(600);
-
-          await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-leaf-path-${ids.nodeId}"]`, 700);
-          setMockInputValue(`[data-testid="grpc-mock-builder-leaf-path-${ids.nodeId}"]`, FALLBACK_BODY_PATH);
+          const kindSel = `[data-testid="grpc-mock-builder-leaf-kind-${ids.nodeId}"]`;
+          await scrollAndSpotlight(ctx, kindSel, 800);
+          await ctx.selectOption(kindSel, 'body_path_exists');
+          await ctx.waitFor(`[data-testid="grpc-mock-builder-leaf-path-${ids.nodeId}"]`, 3_000);
           await ctx.delay(400);
 
-          await spotlightAndPause(ctx, `[data-testid="grpc-mock-builder-status-${ids.ruleId}"]`, 800);
-          setSelectValue(`[data-testid="grpc-mock-builder-status-${ids.ruleId}"]`, String(FALLBACK_STATUS_CODE));
+          const pathSel = `[data-testid="grpc-mock-builder-leaf-path-${ids.nodeId}"]`;
+          await scrollAndSpotlight(ctx, pathSel, 700);
+          setMockInputValue(pathSel, FALLBACK_BODY_PATH);
+          await ctx.delay(400);
+
+          const statusSel = `[data-testid="grpc-mock-builder-status-${ids.ruleId}"]`;
+          await scrollAndSpotlight(ctx, statusSel, 800);
+          await ctx.selectOption(statusSel, String(FALLBACK_STATUS_CODE));
           await ctx.delay(500);
         }
+      } else {
+        fallbackRuleEl = currentRules[1] ?? null;
       }
 
-      // Payoff: spotlight the full builder panel showing both rules and their priority ordering.
-      await spotlightAndPause(ctx, GRPC.MOCK_BUILDER_PANEL, 1_000);
+      // Payoff: spotlight the Fallback rule card only.
+      if (fallbackRuleEl) {
+        await scrollBelowMockAuthoringTabs(ctx, fallbackRuleEl);
+        await spotlightElementAndPause(ctx, fallbackRuleEl, 1_000, { skipScroll: true });
+      }
       await ctx.delay(600);
     },
     verify: GRPC.MOCK_BUILDER_PANEL,
@@ -324,114 +283,67 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
     highlight: GRPC.MOCK_BUILDER_PANEL,
     preAction: async (ctx) => {
       await navigateToMockServerPanelQuiet(ctx);
-      const existing = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE);
-      if (existing.length < 2) {
-        await ensureDemoRulesQuiet(ctx);
-      }
+      await ensureDemoRulesQuiet(ctx);
       await selectMockAuthoringTab(ctx, 'builder');
       await ctx.delay(200);
     },
     action: async (ctx) => {
-      // ── 0. Orient: show both rules expanded ──────────────────────────────
-      await spotlightAndPause(ctx, GRPC.MOCK_BUILDER_PANEL, 1_200);
-
       const ruleEls = document.querySelectorAll<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
       const firstRuleId = ruleEls[0]?.getAttribute('data-testid')?.replace('grpc-mock-builder-rule-', '');
-      const secondRuleId = ruleEls[1]?.getAttribute('data-testid')?.replace('grpc-mock-builder-rule-', '');
 
-      // ── 1. COLLAPSE / EXPAND ─────────────────────────────────────────────
+      // ── 1. COLLAPSE / EXPAND (first rule only) ───────────────────────────
       if (firstRuleId) {
         const collapseBtn = document.querySelector<HTMLButtonElement>(
           `[data-testid="grpc-mock-builder-collapse-${firstRuleId}"]`,
         );
 
-        // Spotlight the chevron button so viewer knows what to click.
         if (collapseBtn) {
           await scrollBelowMockAuthoringTabs(ctx, collapseBtn);
-          await ctx.delay(300);
-          await spotlightElementAndPause(ctx, collapseBtn, 1_400);
+          await spotlightElementAndPause(ctx, collapseBtn, 1_200, { skipScroll: true });
           collapseBtn.click();
           await ctx.delay(700);
         }
 
-        // Spotlight the resulting predicate summary line.
         const summaryEl = document.querySelector<HTMLElement>(
           `[data-testid="grpc-mock-builder-summary-${firstRuleId}"]`,
         );
         if (summaryEl) {
           await scrollBelowMockAuthoringTabs(ctx, summaryEl);
-          await ctx.delay(300);
-          await spotlightElementAndPause(ctx, summaryEl, 1_400);
+          await spotlightElementAndPause(ctx, summaryEl, 1_200, { skipScroll: true });
         }
 
-        // Re-expand Rule 1.
         if (collapseBtn) {
           collapseBtn.click();
           await ctx.delay(600);
         }
       }
 
-      // Also collapse/spotlight Rule 2 summary so viewer sees it works on any rule.
-      if (secondRuleId) {
-        const collapseBtn2 = document.querySelector<HTMLButtonElement>(
-          `[data-testid="grpc-mock-builder-collapse-${secondRuleId}"]`,
-        );
-        if (collapseBtn2) {
-          await scrollBelowMockAuthoringTabs(ctx, collapseBtn2);
-          await ctx.delay(300);
-          collapseBtn2.click();
-          await ctx.delay(500);
-
-          const summaryEl2 = document.querySelector<HTMLElement>(
-            `[data-testid="grpc-mock-builder-summary-${secondRuleId}"]`,
-          );
-          if (summaryEl2) {
-            await spotlightElementAndPause(ctx, summaryEl2, 1_200);
-          }
-
-          // Re-expand Rule 2.
-          collapseBtn2.click();
-          await ctx.delay(500);
-        }
-      }
-
       // ── 2. SEARCH BAR ────────────────────────────────────────────────────
       const searchEl = document.querySelector<HTMLInputElement>(GRPC.MOCK_BUILDER_SEARCH);
       if (searchEl) {
-        // Spotlight the search bar first.
-        await scrollAndSpotlight(ctx, GRPC.MOCK_BUILDER_SEARCH, 1_400);
+        await scrollAndSpotlight(ctx, GRPC.MOCK_BUILDER_SEARCH, 1_200);
 
-        // Type "Ping" — only Rule 1 should remain visible.
         setMockInputValue(GRPC.MOCK_BUILDER_SEARCH, 'Ping');
         await ctx.delay(500);
 
-        // Spotlight the filtered single result.
         const filteredRule = document.querySelector<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
         if (filteredRule) {
-          await spotlightElementAndPause(ctx, filteredRule, 1_200);
+          await scrollBelowMockAuthoringTabs(ctx, filteredRule);
+          await spotlightElementAndPause(ctx, filteredRule, 1_100, { skipScroll: true });
         }
 
-        // Clear search to restore both rules.
         setMockInputValue(GRPC.MOCK_BUILDER_SEARCH, '');
         await ctx.delay(600);
-        await spotlightAndPause(ctx, GRPC.MOCK_BUILDER_PANEL, 900);
       }
 
       // ── 3. DRAG HANDLE ───────────────────────────────────────────────────
-      // Scroll Rule 1 into view and spotlight its entire header row, then the handle.
       if (firstRuleId) {
-        const rule1El = document.querySelector<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
-        if (rule1El) {
-          await scrollBelowMockAuthoringTabs(ctx, rule1El);
-          await ctx.delay(300);
-          await spotlightElementAndPause(ctx, rule1El, 900);
-        }
-
         const dragHandle = document.querySelector<HTMLElement>(
           `[data-testid="grpc-mock-builder-drag-${firstRuleId}"]`,
         );
         if (dragHandle) {
-          await spotlightElementAndPause(ctx, dragHandle, 1_400);
+          await scrollBelowMockAuthoringTabs(ctx, dragHandle);
+          await spotlightElementAndPause(ctx, dragHandle, 1_200, { skipScroll: true });
         }
       }
 
@@ -441,26 +353,15 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
           `[data-testid="grpc-mock-builder-rule-${firstRuleId}"] .grpc-mock-builder-actions-group`,
         );
         if (actionsGroup) {
-          // Force-show the actions group (same as hover) so viewer can see the buttons.
           actionsGroup.style.opacity = '1';
           await ctx.delay(200);
-
-          await spotlightElementAndPause(ctx, actionsGroup, 1_700);
-
-          // Spotlight a representative action button.
-          const testBtn = document.querySelector<HTMLElement>(
-            `[data-testid="grpc-mock-builder-test-toggle-${firstRuleId}"]`,
-          );
-          if (testBtn) await spotlightElementAndPause(ctx, testBtn, 1_000);
-
-          // Remove the forced opacity so it reverts to hover-only.
+          await scrollBelowMockAuthoringTabs(ctx, actionsGroup);
+          await spotlightElementAndPause(ctx, actionsGroup, 1_200, { skipScroll: true });
           actionsGroup.style.opacity = '';
           await ctx.delay(300);
         }
       }
 
-      // ── Payoff: full panel ────────────────────────────────────────────────
-      await spotlightAndPause(ctx, GRPC.MOCK_BUILDER_PANEL, 1_200);
       await ctx.delay(700);
     },
     verify: GRPC.MOCK_BUILDER_PANEL,
@@ -481,13 +382,11 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       'mock runtime or send any network traffic. This is useful for debugging complex predicates ' +
       'before going live.\n\n' +
       'The result shows **Match** or **No match** with the evaluated response if it matches.',
-    highlight: GRPC.MOCK_BUILDER_PANEL,
+    highlight: GRPC.MOCK_BUILDER_RULE,
     preAction: async (ctx) => {
       await navigateToMockServerPanelQuiet(ctx);
-      const existing = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE);
-      if (existing.length < 2) {
-        await ensureDemoRulesQuiet(ctx);
-      }
+      // Rewrites Method-equals stubs left by a failed CustomSelect write.
+      await ensureDemoRulesQuiet(ctx);
       await selectMockAuthoringTab(ctx, 'builder');
       // Quietly expand the first (Ping) rule so action can open the tester immediately.
       const firstRuleEl = document.querySelector<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
@@ -529,9 +428,8 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
         `[data-testid="grpc-mock-builder-test-toggle-${firstRuleId}"]`,
       );
       if (testToggle) {
-        testToggle.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(280);
-        await spotlightElementAndPause(ctx, testToggle, 800);
+        await scrollBelowMockAuthoringTabs(ctx, testToggle);
+        await spotlightElementAndPause(ctx, testToggle, 800, { skipScroll: true });
         testToggle.click();
         await ctx.delay(450);
       }
@@ -549,7 +447,8 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
         `[data-testid="grpc-mock-builder-tester-${firstRuleId}"]`,
       );
       if (testerEl) {
-        await spotlightElementAndPause(ctx, testerEl, GRPC13_DRY_RUN_SPOTLIGHT_MS);
+        await scrollBelowMockAuthoringTabs(ctx, testerEl);
+        await spotlightElementAndPause(ctx, testerEl, GRPC13_DRY_RUN_SPOTLIGHT_MS, { skipScroll: true });
       }
 
       const bodyInput = `[data-testid="grpc-mock-tester-body-${firstRuleId}"]`;
@@ -569,9 +468,8 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
         `[data-testid="grpc-mock-tester-result-${firstRuleId}"]`,
       );
       if (resultEl) {
-        resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        await ctx.delay(300);
-        await spotlightElementAndPause(ctx, resultEl, GRPC13_DRY_RUN_PAYOFF_MS);
+        await scrollBelowMockAuthoringTabs(ctx, resultEl);
+        await spotlightElementAndPause(ctx, resultEl, GRPC13_DRY_RUN_PAYOFF_MS, { skipScroll: true });
       }
 
       const closeBtn = document.querySelector<HTMLButtonElement>('[data-testid="grpc-mock-tester-close"]');
@@ -601,39 +499,30 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       '- **Default latency (ms):** `100` — every response waits at least 100ms\n' +
       '- **Jitter (ms):** `20` — adds random ±20ms variance, avoiding suspiciously uniform timings\n\n' +
       'Latency is **global** (applies to all rules) rather than per-rule. ' +
-      'Use it to test client timeout handling — set latency above your client\'s deadline and watch it cancel. ' +
-      'This step also starts the mock runtime so the configured delay is active before the ping test.',
+      'Use it to test client timeout handling — set latency above your client\'s deadline and watch it cancel.',
     highlight: GRPC.MOCK_TAB_RUNTIME,
     preAction: async (ctx) => {
       await navigateToMockServerPanelQuiet(ctx);
-      // Ensure rules exist.
-      const existing = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE);
-      if (existing.length < 2) {
-        await ensureDemoRulesQuiet(ctx);
-      }
-      // Pin Runtime below the Advanced nav with top pad so the Reading
-      // spotlight ring isn't half-clipped under the feature-tab bar.
-      await scrollMockControlIntoView(ctx, GRPC.MOCK_TAB_RUNTIME, 'start');
+      await ensureDemoRulesQuiet(ctx);
+      // Center Runtime in the advanced scroller so the Reading spotlight ring
+      // isn't clipped under the Mock server / Advanced feature-tab bar.
+      await scrollMockControlIntoView(ctx, GRPC.MOCK_TAB_RUNTIME, 'center');
     },
     action: async (ctx) => {
-      await scrollMockControlIntoView(ctx, GRPC.MOCK_TAB_RUNTIME, 'start');
-      await spotlightAndPause(ctx, GRPC.MOCK_TAB_RUNTIME, 800);
-      await ctx.click(GRPC.MOCK_TAB_RUNTIME);
-      await ctx.delay(500);
+      const runtimeTab = document.querySelector<HTMLElement>(GRPC.MOCK_TAB_RUNTIME);
+      if (runtimeTab?.getAttribute('aria-selected') !== 'true') {
+        await scrollMockAndSpotlight(ctx, GRPC.MOCK_TAB_RUNTIME, 600);
+        await ctx.click(GRPC.MOCK_TAB_RUNTIME);
+        await ctx.delay(400);
+      }
 
-      // Latency fields live below the header — scroll them fully into view first.
-      await scrollAndSpotlight(ctx, '[data-testid="grpc-mock-latency-default"]', 900);
+      await scrollAndSpotlight(ctx, '[data-testid="grpc-mock-latency-default"]', 1_000);
       setMockInputValue('[data-testid="grpc-mock-latency-default"]', String(DEMO_LATENCY_MS));
       await ctx.delay(500);
 
-      await scrollAndSpotlight(ctx, '[data-testid="grpc-mock-latency-jitter"]', 800);
+      await scrollAndSpotlight(ctx, '[data-testid="grpc-mock-latency-jitter"]', 1_000);
       setMockInputValue('[data-testid="grpc-mock-latency-jitter"]', String(DEMO_JITTER_MS));
-      await ctx.delay(500);
-
-      await startMockQuiet(ctx);
-      await ctx.delay(400);
-
-      await scrollAndSpotlight(ctx, '[data-testid="grpc-mock-runtime-panel"]', 900);
+      await ctx.delay(700);
     },
     verify: GRPC.MOCK_TAB_RUNTIME,
   },

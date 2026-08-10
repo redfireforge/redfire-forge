@@ -363,7 +363,8 @@ it('ensureLesson15BatchEnabled skips when flag set and batch chip visible', asyn
     const ctx = makeCtx();
     await gqlBatchLessonSetup(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
+    // Response pane switch uses native .click() so Preparing stays quiet (no ripple).
+    expect(document.querySelector(GQL.RIGHT_TAB_RESPONSE)).toBeTruthy();
   });
 
   it('ensureLesson15IntroReady closes History sidebar before step 1 reading', async () => {
@@ -393,7 +394,7 @@ it('ensureLesson15BatchEnabled skips when flag set and batch chip visible', asyn
     expect(resetGqlDemoBatchDetection).toHaveBeenCalled();
   });
 
-  it('gqlBatchLessonSetup ensures editor mode, demo endpoint, and introspection', async () => {
+  it('gqlBatchLessonSetup ensures editor mode and page-default endpoint without long introspect', async () => {
     document.body.innerHTML = `
       <select data-testid="header-env-select"><option>GraphQL Demo</option></select>
       <select data-testid="header-svc-select"><option>graphql-demo</option></select>

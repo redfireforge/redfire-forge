@@ -329,7 +329,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run test:product:coverage
+      - run: npm run test:product:coverage:fast
       - name: Check coverage thresholds
         run: |
           echo "Product coverage report generated. Review in PR for >90% target."

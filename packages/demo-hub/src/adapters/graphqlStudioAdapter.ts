@@ -67,6 +67,7 @@ export {
 
 export {
   applyGqlTlsSettings,
+  clearActiveTabAuthQuiet,
   deleteGqlEnvironmentByName,
   upsertGqlEnvironment,
   upsertGlobalAuthProfile,

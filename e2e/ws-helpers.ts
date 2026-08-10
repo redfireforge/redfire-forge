@@ -10,10 +10,28 @@ import { expect, type Page, type Browser } from '@playwright/test';
 export const WS_STUDIO_BASE = 'http://localhost:5173/?tab=websocket-studio';
 export const WS_DEFAULT_MOCK_PORT = 9876;
 export const WS_DEFAULT_MOCK_URL = `ws://localhost:${WS_DEFAULT_MOCK_PORT}`;
+export const WS_SECONDARY_MOCK_PORT = WS_DEFAULT_MOCK_PORT + 1;
+export const WS_TERTIARY_MOCK_PORT = WS_DEFAULT_MOCK_PORT + 2;
 
 /** Navigate to the WebSocket Studio tab and wait for the mode selector. */
 export async function gotoWsStudio(page: Page, opts?: { timeout?: number }): Promise<void> {
-  await page.goto(WS_STUDIO_BASE, { waitUntil: 'networkidle' });
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      await page.goto(WS_STUDIO_BASE, { waitUntil: 'networkidle' });
+      break;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('ERR_CONNECTION_REFUSED') || attempt === 5) {
+        throw error;
+      }
+      await page.waitForTimeout(1_000);
+    }
+  }
+  if (lastError && page.url() !== WS_STUDIO_BASE) {
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  }
   await page.waitForSelector('[data-testid="mode-client"]', { timeout: opts?.timeout ?? 8000 });
 }
 
@@ -146,7 +164,10 @@ export async function stopWsMockFromUI(page: Page): Promise<void> {
  * Reset mock server to a stopped state (UI + backend API).
  * Stops common mock ports used across WS E2E specs.
  */
-export async function ensureWsMockStopped(page: Page, ports: number[] = [WS_DEFAULT_MOCK_PORT, 9877, 9878]): Promise<void> {
+export async function ensureWsMockStopped(
+  page: Page,
+  ports: number[] = [WS_DEFAULT_MOCK_PORT, WS_SECONDARY_MOCK_PORT, WS_TERTIARY_MOCK_PORT],
+): Promise<void> {
   for (const port of ports) {
     await page.request.post('http://localhost:3001/api/ws/mock/stop', { data: { port } }).catch(() => {});
   }
@@ -192,4 +213,61 @@ export function getWsTabs(page: Page) {
 /** Returns the "add tab" button locator in the WS tab bar. */
 export function getWsAddTabBtn(page: Page) {
   return page.locator('[data-testid="conn-tab-add"]');
+}
+
+/**
+ * Select a CustomSelect option (portaled `.cs-menu`).
+ * Prefer `value` (data-value) when known; otherwise match visible label text.
+ */
+export async function selectWsCustomSelect(
+  page: Page,
+  testId: string,
+  option: { value?: string; label?: string },
+): Promise<void> {
+  const wrapper = page.getByTestId(testId);
+  await wrapper.locator('.cs-trigger').click();
+  const menu = page.locator('.cs-menu');
+  await menu.waitFor({ state: 'visible', timeout: 5000 });
+  if (option.value) {
+    await menu.locator(`.cs-item[data-value="${option.value}"]`).click();
+  } else if (option.label) {
+    await menu.locator('.cs-item', { hasText: option.label }).first().click();
+  } else {
+    throw new Error('selectWsCustomSelect requires value or label');
+  }
+}
+
+/** Select a CustomSelect by the trigger's aria-label (no data-testid). */
+export async function selectWsCustomSelectByAriaLabel(
+  page: Page,
+  ariaLabel: string,
+  label: string,
+): Promise<void> {
+  await page.locator(`button[aria-label="${ariaLabel}"]`).first().click();
+  const menu = page.locator('.cs-menu');
+  await menu.waitFor({ state: 'visible', timeout: 5000 });
+  await menu.locator('.cs-item', { hasText: label }).first().click();
+}
+
+/**
+ * Select a WS filter-bar dropdown option (Size / Time / Content type).
+ * These are custom button menus, not native `<select>` elements.
+ */
+export async function selectWsFilterDropdown(
+  page: Page,
+  testId: string,
+  value: string,
+): Promise<void> {
+  await page.getByTestId(testId).click();
+  await page.getByTestId(`${testId}-opt-${value}`).click();
+}
+
+/** Select a console category filter option (Handshake, All, …). */
+export async function selectWsConsoleCategory(
+  page: Page,
+  value: string,
+  variant: 'ws' | 'sse' = 'ws',
+): Promise<void> {
+  await page.getByTestId(`${variant}-console-category`).click();
+  await page.getByTestId(`${variant}-console-category-opt-${value}`).click();
 }

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Scenario, FeatureGroup, ScenarioKind } from '../../../shared/types';
 import PopupModal from '../../../shared/components/PopupModal';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 interface Props {
   test: Scenario;
@@ -42,18 +43,18 @@ export default function CopyTestModal({ test, sourceFeatureId, sourceScenarioId,
 
         <div className="popup-modal-field">
           <label>Feature Group</label>
-          <select value={targetFeature} onChange={(e) => {
-            setTargetFeature(e.target.value);
-            const fg = featureGroups.find((f) => f.id === e.target.value);
-            const candidates = sourceScenarioKind
-              ? fg?.scenarios.filter((sc) => sc.kind === sourceScenarioKind)
-              : fg?.scenarios;
-            setTargetScenario(candidates?.[0]?.id || '');
-          }}>
-            {featureGroups.map((fg) => (
-              <option key={fg.id} value={fg.id}>{fg.name}</option>
-            ))}
-          </select>
+          <CustomSelect
+            value={targetFeature}
+            onChange={(v) => {
+              setTargetFeature(v);
+              const fg = featureGroups.find((f) => f.id === v);
+              const candidates = sourceScenarioKind
+                ? fg?.scenarios.filter((sc) => sc.kind === sourceScenarioKind)
+                : fg?.scenarios;
+              setTargetScenario(candidates?.[0]?.id || '');
+            }}
+            options={featureGroups.map((fg) => ({ value: fg.id, label: fg.name }))}
+          />
         </div>
 
         <div className="popup-modal-field">
@@ -65,14 +66,14 @@ export default function CopyTestModal({ test, sourceFeatureId, sourceScenarioId,
                 : 'No scenarios in this feature group'}
             </div>
           ) : (
-            <select value={targetScenario} onChange={(e) => setTargetScenario(e.target.value)}>
-              {filteredScenarios.map((sc) => (
-                <option key={sc.id} value={sc.id}>
-                  {sc.name}
-                  {sc.id === sourceScenarioId && targetFeature === sourceFeatureId ? ' (current)' : ''}
-                </option>
-              ))}
-            </select>
+            <CustomSelect
+              value={targetScenario}
+              onChange={(v) => setTargetScenario(v)}
+              options={filteredScenarios.map((sc) => ({
+                value: sc.id,
+                label: `${sc.name}${sc.id === sourceScenarioId && targetFeature === sourceFeatureId ? ' (current)' : ''}`,
+              }))}
+            />
           )}
         </div>
 

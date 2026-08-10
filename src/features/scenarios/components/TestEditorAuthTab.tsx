@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { AuthConfig, AuthType, FeatureGroup, GlobalAuthProfile, Scenario } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export interface TestEditorAuthEditingContext {
   fgId: string;
@@ -22,6 +23,21 @@ export interface TestEditorAuthTabProps {
   setShowSecret: Dispatch<SetStateAction<boolean>>;
 }
 
+const AUTH_OPTIONS: { value: string; label: string; hint: string }[] = [
+  { value: 'inherit', label: 'Inherit from Scenario', hint: 'Uses parent scenario/feature auth' },
+  { value: 'none', label: 'No Auth', hint: 'No authentication header sent' },
+  { value: 'basic', label: 'Basic Auth', hint: 'Username + Password (Base64)' },
+  { value: 'bearer', label: 'Bearer Token', hint: 'Authorization: Bearer <token>' },
+  { value: 'apikey', label: 'API Key', hint: 'Custom key in header or query' },
+  { value: 'digest', label: 'Digest Auth', hint: 'Challenge-response authentication' },
+  { value: 'oauth2', label: 'OAuth2 Client Credentials', hint: 'Client ID + Secret → token exchange' },
+];
+
+const AUTH_LABELS: Record<string, string> = {
+  basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
+  digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
+};
+
 export default function TestEditorAuthTab({
   draft,
   onDraftChange,
@@ -36,149 +52,156 @@ export default function TestEditorAuthTab({
   showSecret,
   setShowSecret,
 }: TestEditorAuthTabProps) {
+  const updateAuth = (patch: Partial<AuthConfig>) =>
+    onDraftChange({ ...draft, auth: { ...draft.auth, ...patch } });
+
   return (
-    <div>
-      <div className="auth-type-select">
-        <label>Type</label>
-        <select
+    <div className="auth-tab">
+      {/* Type selector */}
+      <div className="auth-tab-type-row">
+        <span className="auth-tab-type-label">Auth Type</span>
+        <CustomSelect
+          className="auth-tab-type-select"
           value={draft.auth.type}
-          onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, type: e.target.value as AuthType } })}
-        >
-          <option value="inherit">Inherit from Scenario</option>
-          <option value="none">No Auth</option>
-          <option value="basic">Basic Auth</option>
-          <option value="bearer">Bearer Token</option>
-          <option value="apikey">API Key</option>
-          <option value="digest">Digest Auth</option>
-          <option value="oauth2">OAuth2 Client Credentials</option>
-        </select>
+          onChange={(v) => updateAuth({ type: v as AuthType })}
+          options={AUTH_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        />
+        <span className="auth-tab-type-hint">
+          {AUTH_OPTIONS.find((o) => o.value === draft.auth.type)?.hint}
+        </span>
       </div>
+
+      {/* Inherit hint */}
       {draft.auth.type === 'inherit' && (() => {
         const fg = featureGroups.find((f) => f.id === editingTest.fgId);
         const sc = fg?.scenarios.find((s) => s.id === editingTest.scenarioId);
         const scAuth = sc?.auth;
         const fgAuth = fg?.auth;
-        const authLabel: Record<string, string> = {
-          basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
-          digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
-        };
         let hint: string;
         if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') {
-          hint = `Will use scenario-level ${authLabel[scAuth.type] ?? scAuth.type}`;
+          hint = `Will use scenario-level ${AUTH_LABELS[scAuth.type] ?? scAuth.type}`;
         } else if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
-          hint = `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
+          hint = `Will use feature-level ${AUTH_LABELS[fgAuth.type] ?? fgAuth.type}`;
           if (scAuth?.type === 'inherit') hint += ' (scenario inherits from feature)';
         } else if (fgAuth?.type === 'inherit' && fg?.globalAuthProfileId) {
           const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
           hint = profile
-            ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
+            ? `Will use global profile "${profile.name}" (${AUTH_LABELS[profile.auth.type] ?? profile.auth.type})`
             : 'Feature references a missing global profile.';
           if (scAuth?.type === 'inherit') hint += ' (via scenario → feature → global)';
         } else {
           hint = 'No auth configured at scenario or feature level.';
         }
-        return <div className="auth-inherit-hint">{hint}</div>;
+        return <div className="auth-tab-inherit-hint">{hint}</div>;
       })()}
+
+      {/* Basic Auth fields */}
       {draft.auth.type === 'basic' && (
-        <div className="form-row two-col">
-          <div>
-            <label>Username</label>
-            <input value={draft.auth.username || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, username: e.target.value } })} />
+        <div className="auth-tab-fields">
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Username</span>
+            <input className="auth-tab-input" value={draft.auth.username || ''} onChange={(e) => updateAuth({ username: e.target.value })} placeholder="Enter username" />
           </div>
-          <div>
-            <label>Password</label>
-            <input type="password" value={draft.auth.password || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, password: e.target.value } })} />
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Password</span>
+            <input className="auth-tab-input" type="password" value={draft.auth.password || ''} onChange={(e) => updateAuth({ password: e.target.value })} placeholder="Enter password" />
           </div>
         </div>
       )}
+
+      {/* Bearer Token fields */}
       {draft.auth.type === 'bearer' && (
-        <div className="form-row two-col">
-          <div>
-            <label>Token</label>
-            <input value={draft.auth.token || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, token: e.target.value } })} placeholder="eyJhbGciOi..." />
+        <div className="auth-tab-fields">
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Token</span>
+            <input className="auth-tab-input" value={draft.auth.token || ''} onChange={(e) => updateAuth({ token: e.target.value })} placeholder="eyJhbGciOi..." />
           </div>
-          <div>
-            <label>Prefix</label>
-            <input value={draft.auth.prefix ?? 'Bearer'} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, prefix: e.target.value } })} placeholder="Bearer" />
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Prefix</span>
+            <input className="auth-tab-input" value={draft.auth.prefix ?? 'Bearer'} onChange={(e) => updateAuth({ prefix: e.target.value })} placeholder="Bearer" />
           </div>
         </div>
       )}
+
+      {/* API Key fields */}
       {draft.auth.type === 'apikey' && (
-        <>
-          <div className="form-row two-col">
-            <div>
-              <label>Key Name</label>
-              <input value={draft.auth.apiKeyName || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, apiKeyName: e.target.value } })} placeholder="X-API-Key" />
-            </div>
-            <div>
-              <label>Key Value</label>
-              <input value={draft.auth.apiKeyValue || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, apiKeyValue: e.target.value } })} placeholder="your-api-key" />
-            </div>
+        <div className="auth-tab-fields">
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Key Name</span>
+            <input className="auth-tab-input" value={draft.auth.apiKeyName || ''} onChange={(e) => updateAuth({ apiKeyName: e.target.value })} placeholder="X-API-Key" />
           </div>
-          <div className="form-row">
-            <label>Add to</label>
-            <div className="radio-group">
-              <label className="radio-label">
-                <input type="radio" checked={draft.auth.apiKeyIn !== 'query'} onChange={() => onDraftChange({ ...draft, auth: { ...draft.auth, apiKeyIn: 'header' } })} />
-                Header
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Key Value</span>
+            <input className="auth-tab-input" value={draft.auth.apiKeyValue || ''} onChange={(e) => updateAuth({ apiKeyValue: e.target.value })} placeholder="your-api-key" />
+          </div>
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Add to</span>
+            <div className="auth-tab-radio-group">
+              <label className="auth-tab-radio">
+                <input type="radio" checked={draft.auth.apiKeyIn !== 'query'} onChange={() => updateAuth({ apiKeyIn: 'header' })} />
+                <span>Header</span>
               </label>
-              <label className="radio-label">
-                <input type="radio" checked={draft.auth.apiKeyIn === 'query'} onChange={() => onDraftChange({ ...draft, auth: { ...draft.auth, apiKeyIn: 'query' } })} />
-                Query Parameter
+              <label className="auth-tab-radio">
+                <input type="radio" checked={draft.auth.apiKeyIn === 'query'} onChange={() => updateAuth({ apiKeyIn: 'query' })} />
+                <span>Query Parameter</span>
               </label>
             </div>
-          </div>
-        </>
-      )}
-      {draft.auth.type === 'digest' && (
-        <div className="form-row two-col">
-          <div>
-            <label>Username</label>
-            <input value={draft.auth.username || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, username: e.target.value } })} />
-          </div>
-          <div>
-            <label>Password</label>
-            <input type="password" value={draft.auth.password || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, password: e.target.value } })} />
           </div>
         </div>
       )}
-      {draft.auth.type === 'oauth2' && (
-        <>
-          <div className="form-row">
-            <label>Token URL</label>
-            <input value={draft.auth.tokenUrl || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, tokenUrl: e.target.value } })} placeholder="https://auth.example.com/oauth/token" />
+
+      {/* Digest Auth fields */}
+      {draft.auth.type === 'digest' && (
+        <div className="auth-tab-fields">
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Username</span>
+            <input className="auth-tab-input" value={draft.auth.username || ''} onChange={(e) => updateAuth({ username: e.target.value })} placeholder="Enter username" />
           </div>
-          <div className="form-row two-col">
-            <div>
-              <label>Client ID</label>
-              <input value={draft.auth.clientId || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, clientId: e.target.value } })} />
-            </div>
-            <div>
-              <label>Client Secret</label>
-              <div className="secret-input-wrap">
-                <input type={showSecret ? 'text' : 'password'} value={draft.auth.clientSecret || ''} onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, clientSecret: e.target.value } })} />
-                <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
-              </div>
-            </div>
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Password</span>
+            <input className="auth-tab-input" type="password" value={draft.auth.password || ''} onChange={(e) => updateAuth({ password: e.target.value })} placeholder="Enter password" />
           </div>
-        </>
+        </div>
       )}
+
+      {/* OAuth2 fields */}
+      {draft.auth.type === 'oauth2' && (
+        <div className="auth-tab-fields">
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Token URL</span>
+            <input className="auth-tab-input" value={draft.auth.tokenUrl || ''} onChange={(e) => updateAuth({ tokenUrl: e.target.value })} placeholder="https://auth.example.com/oauth/token" />
+          </div>
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Client ID</span>
+            <input className="auth-tab-input" value={draft.auth.clientId || ''} onChange={(e) => updateAuth({ clientId: e.target.value })} placeholder="Enter client ID" />
+          </div>
+          <div className="auth-tab-field-row">
+            <span className="auth-tab-field-label">Client Secret</span>
+            <div className="auth-tab-secret-wrap">
+              <input className="auth-tab-input" type={showSecret ? 'text' : 'password'} value={draft.auth.clientSecret || ''} onChange={(e) => updateAuth({ clientSecret: e.target.value })} placeholder="Enter client secret" />
+              <button type="button" className="auth-tab-secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verify button */}
       {draft.auth.type !== 'none' && draft.auth.type !== 'inherit' && (
-        <div className="auth-verify-section">
+        <div className="auth-tab-verify">
           <button
             type="button"
-            className="btn btn-sm btn-verify"
+            className="btn btn-sm auth-tab-verify-btn"
             onClick={() => { setAuthVerifyResult(null); void verifyAuth(draft.auth); }}
             disabled={authVerifying}
           >
             {authVerifying ? 'Verifying...' : 'Verify Auth'}
           </button>
           {authVerifyResult && (
-            <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
-              <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-              <div className="auth-verify-body">
-                <span className="auth-verify-msg">{authVerifyResult.message}</span>
-                {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+            <div className={`auth-tab-verify-result ${authVerifyResult.ok ? 'auth-tab-verify-ok' : 'auth-tab-verify-fail'}`}>
+              <span className="auth-tab-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+              <div className="auth-tab-verify-body">
+                <span className="auth-tab-verify-msg">{authVerifyResult.message}</span>
+                {authVerifyResult.detail && <pre className="auth-tab-verify-detail">{authVerifyResult.detail}</pre>}
               </div>
             </div>
           )}
@@ -188,21 +211,21 @@ export default function TestEditorAuthTab({
         const { auth: resolved, source } = resolveEffectiveAuth();
         if (resolved.type === 'none') return null;
         return (
-          <div className="auth-verify-section">
+          <div className="auth-tab-verify">
             <button
               type="button"
-              className="btn btn-sm btn-verify"
+              className="btn btn-sm auth-tab-verify-btn"
               onClick={() => { setAuthVerifyResult(null); void verifyAuth(resolved); }}
               disabled={authVerifying}
             >
               {authVerifying ? 'Verifying...' : `Verify Inherited Auth (${source})`}
             </button>
             {authVerifyResult && (
-              <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
-                <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                <div className="auth-verify-body">
-                  <span className="auth-verify-msg">{authVerifyResult.message}</span>
-                  {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+              <div className={`auth-tab-verify-result ${authVerifyResult.ok ? 'auth-tab-verify-ok' : 'auth-tab-verify-fail'}`}>
+                <span className="auth-tab-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                <div className="auth-tab-verify-body">
+                  <span className="auth-tab-verify-msg">{authVerifyResult.message}</span>
+                  {authVerifyResult.detail && <pre className="auth-tab-verify-detail">{authVerifyResult.detail}</pre>}
                 </div>
               </div>
             )}

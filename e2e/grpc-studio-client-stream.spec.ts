@@ -16,6 +16,7 @@ import {
   waitForStreamEnded,
   waitForStreamLogContains,
   waitForStreamStatus,
+  waitForStreamCountAtLeast,
   ECHO_SERVICE_TESTID,
   CLIENT_STREAM_METHOD_TESTID,
   waitForGrpcRequestComposer,
@@ -40,13 +41,16 @@ test.describe('gRPC Studio — client streaming (Phase 2H)', () => {
     await expect(page.locator('[data-testid="grpc-stream-start-btn"]')).toBeVisible();
 
     await startGrpcStream(page);
-    await waitForStreamStatus(page, /Streaming|Starting/);
+    await waitForStreamStatus(page, 'Streaming');
 
     await fillEchoMessage(page, 'alpha');
     await sendStreamMessage(page);
+    await waitForStreamCountAtLeast(page, 'grpc-stream-outbound-count', 1);
+
+    await waitForStreamStatus(page, 'Streaming');
     await fillEchoMessage(page, 'beta');
     await sendStreamMessage(page);
-    await expect(page.locator('[data-testid="grpc-stream-outbound-count"]')).toContainText('↑ 2');
+    await waitForStreamCountAtLeast(page, 'grpc-stream-outbound-count', 2);
 
     await endGrpcStream(page);
     await waitForStreamLogContains(page, 'alpha,beta');

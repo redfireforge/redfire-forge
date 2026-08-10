@@ -280,4 +280,66 @@ describe('RequestDefinitionVersionPanel', () => {
     const labelEl = container.querySelector('.test-def-version-item-label');
     expect(labelEl?.textContent).toMatch(/\bNov\b|\b15\b|\b2023\b|\bPM\b|\bAM\b/);
   });
+
+  it('opens snapshot overlay and renders optional snapshot sections', () => {
+    const richVersion: RequestDefinitionVersion = {
+      id: 'rich',
+      timestamp: Date.UTC(2024, 0, 1, 12, 0),
+      snapshot: snapshot({
+        name: 'Rich Req',
+        method: 'POST',
+        url: '/rich',
+        headers: [{ key: 'X-Test', value: 'abc' }],
+        body: '{"ok":true}',
+        bodyType: 'json',
+        bodyForm: [{ key: 'field1', value: 'value1' }],
+        auth: { type: 'bearer' },
+      }),
+    };
+
+    render(
+      <RequestDefinitionVersionPanel
+        versions={[richVersion]}
+        currentSnapshot={snapshot()}
+        onRestore={onRestore}
+        onDelete={onDelete}
+        onRename={onRename}
+        onCompare={onCompare}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('version-view-btn'));
+    expect(screen.getByText('Version Snapshot')).toBeInTheDocument();
+    expect(screen.getByText('Headers')).toBeInTheDocument();
+    expect(screen.getByText('Body (json)')).toBeInTheDocument();
+    expect(screen.getByText('Form Data')).toBeInTheDocument();
+    expect(screen.getByText('bearer')).toBeInTheDocument();
+  });
+
+  it('view overlay uses fallback timestamp label and closes via modal and backdrop', () => {
+    const ts = Date.UTC(2024, 2, 4, 8, 30);
+    render(
+      <RequestDefinitionVersionPanel
+        versions={[version('plain', ts, undefined)]}
+        currentSnapshot={snapshot()}
+        onRestore={onRestore}
+        onDelete={onDelete}
+        onRename={onRename}
+        onCompare={onCompare}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('version-view-btn'));
+    expect(document.querySelector('.test-def-version-view-label')?.textContent).toMatch(/2024|Mar|AM|PM/);
+
+    fireEvent.click(document.querySelector('.test-def-version-view-modal')!);
+    expect(screen.getByText('Version Snapshot')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByText('Version Snapshot')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('version-view-btn'));
+    fireEvent.click(document.querySelector('.test-def-version-view-overlay')!);
+    expect(screen.queryByText('Version Snapshot')).not.toBeInTheDocument();
+  });
 });

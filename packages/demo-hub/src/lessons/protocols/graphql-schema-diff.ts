@@ -7,11 +7,13 @@ import {
   LESSON12_BASELINE_LABEL,
   ensureLesson12BaselineReady,
   ensureLesson12ChangelogOpen,
-  ensureLesson12DiffExported,
   ensureLesson12DiffFilters,
   ensureLesson12DiffOpen,
   ensureLesson12SnapshotSaved,
   ensureLesson12TypesTab,
+  performLesson12CompareDiff,
+  performLesson12ExportDiff,
+  performLesson12SnapshotSaveWithPause,
   gqlSchemaDiffLessonCleanup,
   gqlSchemaDiffLessonSetup,
 } from './graphql-lesson-helpers';
@@ -293,7 +295,7 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       highlight: GQL.SAVE_SNAPSHOT_BTN,
       preAction: ensureLesson12TypesTab,
       action: async (ctx) => {
-        await ensureLesson12SnapshotSaved(ctx);
+        await performLesson12SnapshotSaveWithPause(ctx);
       },
       verify: GQL.SAVE_SNAPSHOT_BTN,
       pauseAfter: true,
@@ -326,12 +328,13 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
         '**Why compare against current?** In CI, every deploy introspects the live schema and diffs it against the last approved baseline. ' +
         'This catches accidental breaking changes before they reach production — renamed fields, removed types, and tightened nullability all surface in the diff modal before you merge.',
       highlight: GQL.CHANGELOG_COMPARE_BAR,
+      // Heavy prep is uncapped here; timed action only clicks View diff.
       preAction: ensureLesson12BaselineReady,
       action: async (ctx) => {
-        await ensureLesson12DiffOpen(ctx);
+        await performLesson12CompareDiff(ctx);
       },
       verify: GQL.DIFF_MODAL,
-      pauseAfter: 5500,
+      pauseAfter: 3500,
     },
 
     // ── Step 4: Review diff modal ───────────────────────────────────────────
@@ -399,9 +402,10 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
         '4. Compare critical field paths (e.g. `Query.checkout`) and alert if they are removed\n\n' +
         'The JSON format is self-describing — severity counts, full change list with field paths, and timestamps are all included.',
       highlight: GQL.DIFF_EXPORT_JSON,
+      // Open modal in uncapped preAction; timed action only exports + closes.
       preAction: ensureLesson12DiffOpen,
       action: async (ctx) => {
-        await ensureLesson12DiffExported(ctx);
+        await performLesson12ExportDiff(ctx);
       },
       verify: GQL.CHANGELOG_DIFF_BTN,
       pauseAfter: true,

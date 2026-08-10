@@ -169,25 +169,26 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
       : e.target instanceof Node
         ? e.target.parentElement
         : null;
-    if (targetElement?.closest('button, input, select, textarea')) return;
+    // Interactive controls are never drag surfaces. `label` matters because its
+    // text sits outside the wrapped input, so dragging from a checkbox caption
+    // would move the modal while the user was only trying to toggle it.
+    if (targetElement?.closest('button, input, select, textarea, label, a[href], [data-no-drag]')) return;
     e.preventDefault();
     const modal = (e.currentTarget as HTMLElement).closest('[role="dialog"]') as HTMLElement;
     if (!modal) return;
     const rect = modal.getBoundingClientRect();
     const origX = position?.x ?? rect.left;
     const origY = position?.y ?? rect.top;
-    // Capture dimensions once on the very first drag so subsequent renders
-    // with `position: fixed` always have an explicit width/height to hold.
-    if (!lockedSizeRef.current) {
-      lockedSizeRef.current = { w: rect.width, h: rect.height };
-    }
+    // Always capture current dimensions so resize is reflected in constraints.
+    // The locked size gives `position: fixed` an explicit width/height to hold.
+    lockedSizeRef.current = { w: rect.width, h: rect.height };
     dragState.current = {
       startX: clientX,
       startY: clientY,
       origX,
       origY,
-      modalW: lockedSizeRef.current.w,
-      modalH: lockedSizeRef.current.h,
+      modalW: rect.width,
+      modalH: rect.height,
     };
     setIsDragging(true);
 

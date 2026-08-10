@@ -229,6 +229,28 @@ describe('grpcAuthPolicy coverage gaps', () => {
     })).toEqual([]);
   });
 
+  it('validateGrpcAuthConfigContract covers inherit and missing required fields', () => {
+    expect(validateGrpcAuthConfigContract({ type: 'inherit', globalProfileId: '' }))
+      .toEqual([expect.objectContaining({ field: 'auth.globalProfileId' })]);
+    expect(validateGrpcAuthConfigContract({ type: 'bearer', bearerToken: '' }))
+      .toEqual([expect.objectContaining({ field: 'auth.bearerToken' })]);
+    expect(validateGrpcAuthConfigContract({ type: 'basic', basicUsername: '' }))
+      .toEqual([expect.objectContaining({ field: 'auth.basicUsername' })]);
+    expect(validateGrpcAuthConfigContract({ type: 'api_key', apiKeyName: '', apiKeyValue: '' }))
+      .toEqual([
+        expect.objectContaining({ field: 'auth.apiKeyName' }),
+        expect.objectContaining({ field: 'auth.apiKeyValue' }),
+      ]);
+    expect(validateGrpcAuthConfigContract({
+      type: 'oauth2',
+      oauth2: { tokenUrl: '', clientId: '', clientSecret: '' },
+    })).toEqual([
+      expect.objectContaining({ field: 'auth.oauth2.tokenUrl' }),
+      expect.objectContaining({ field: 'auth.oauth2.clientId' }),
+      expect.objectContaining({ field: 'auth.oauth2.clientSecret' }),
+    ]);
+  });
+
   it('mergeGrpcExecuteMetadata blocks when manual/auth conflicts are present', () => {
     const merged = mergeGrpcExecuteMetadata(
       { authorization: 'Bearer manual' },

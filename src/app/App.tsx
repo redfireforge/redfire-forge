@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useAppLayoutSync } from './hooks/useAppLayoutSync';
+import { useAppStartupEffects } from './hooks/useAppStartupEffects';
 import { useGalleryMigration } from './hooks/useGalleryMigration';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
 import { useGalleryImport } from './hooks/useGalleryImport';
@@ -12,16 +13,20 @@ import { useCatalogExport } from './hooks/useCatalogExport';
 import { useCatalogState } from './hooks/useCatalogState';
 import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
+import { useAppNavigationCallbacks } from './hooks/useAppNavigationCallbacks';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
 import AppSubNav from './components/AppSubNav';
 import AppSidebarRegion from './components/AppSidebarRegion';
 import AppShellOverlays from './components/AppShellOverlays';
+import AppProtocolStudios from './components/AppProtocolStudios';
+import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
 import { useRequests } from '../features/requests/hooks/useRequests';
+import { useRequestTabCoordinator } from '../features/requests/hooks/useRequestTabCoordinator';
 import { useCatalog } from '../features/catalog/hooks/useCatalog';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
@@ -34,17 +39,11 @@ import type { PreviewRequest } from '../features/requests/Requests';
 import ApiCatalog from '../features/catalog/ApiCatalog';
 import SettingsPage from '../features/settings/SettingsModal';
 import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
-import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
-import { WebSocketStudioPage } from '../features/websocket/WebSocketStudioPage';
-import { SseStudioPage } from '../features/sse/SseStudioPage';
-import { GraphqlStudioPage } from '../features/graphql/GraphqlStudioPage';
-import { GrpcStudioPage } from '../features/grpc/GrpcStudioPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import { GalleryPage } from '../features/gallery/GalleryPage';
-import { sampleWorkflowCatalog } from '../data/galleries/workflows';
 import TrainingTracksView from '../features/training/TrainingTracksView';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
@@ -57,14 +56,19 @@ import {
   setLastProtocolsTab,
   LAST_PROTOCOLS_TAB_STORAGE_KEY,
 } from './utils/appTabUtils';
-import { onStorageFull, cleanupStaleStorageKeys, ensureBrowserLargeDataMigrated, readKey, writeKey } from '../shared/utils/storage';
+import { writeKey } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
+import { loadWorkflowPreviews, getPreviewEntriesForPalette } from '../shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '../shared/utils/workflowPreviewStorage';
+import { migratePreviewsToLocalStorage, migratePublishedToWorkflowPublication } from '../shared/utils/workflowPreviewMigration';
 import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
-import { demoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
-import { shouldExitLiveDemoForTabChange } from './demo/liveDemoTabGuard';
+import { DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
 import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import { useDemoWorkspaceDefaultsBridge } from './hooks/useDemoWorkspaceDefaultsBridge';
+import { useDemoHarnessBridge } from './hooks/useDemoHarnessBridge';
+import { useDemoCatalogBridge } from './hooks/useDemoCatalogBridge';
+import { useDemoRequestsBridge } from './hooks/useDemoRequestsBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 const DemoShellHost = lazy(() =>
@@ -83,14 +87,40 @@ export default function App() {
     selectedEnvId, setSelectedEnvId,
     selectedSvcId, setSelectedSvcId,
     moveScenario, moveTest,
-    initialTheme, initialTestRuns,
+    initialTheme,
   } = useProjects();
   useDemoWorkspaceDefaultsBridge(setWorkspaceDefaults);
+  useDemoHarnessBridge(environments, microservices, setEnvironments, setMicroservices, setFeatureGroups, setSelectedEnvId, setSelectedSvcId, setSharedDataSources);
 
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
 
   const wb = useRequests();
+  const reqTabs = useRequestTabCoordinator(wb);
   const catalog = useCatalog();
+  useDemoCatalogBridge(catalog, DEMO_HUB_ENABLED);
+
+  const [wfPreviewEndpoints, setWfPreviewEndpoints] = useState<WorkflowPreviewEntry[]>([]);
+  const refreshWfPreviews = useCallback(() => {
+    loadWorkflowPreviews().then(map => setWfPreviewEndpoints(getPreviewEntriesForPalette(map)));
+  }, []);
+  useEffect(() => {
+    if (!catalog.loaded) return;
+    let cancelled = false;
+    migratePreviewsToLocalStorage(catalog.entries, catalog.updateEntry)
+      .then(() => migratePublishedToWorkflowPublication(catalog.entries, catalog.updateEntry))
+      .then(() =>
+        loadWorkflowPreviews().then(map => {
+          if (!cancelled) setWfPreviewEndpoints(getPreviewEntriesForPalette(map));
+        }),
+      );
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog.loaded]);
+  // Use coordinator removeCollection so demo silent deletes also prune open tabs.
+  useDemoRequestsBridge(
+    { collections: wb.collections, removeCollection: reqTabs.removeCollection },
+    DEMO_HUB_ENABLED,
+  );
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
   const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const wfHook = useWorkflows();
@@ -103,15 +133,6 @@ export default function App() {
     setWorkflowRunnerInitialId(wf.id);
     return true;
   }, [wfHook.workflows]);
-  useDemoWorkflowBridge(
-    wfHook.workflows,
-    wfHook.remove,
-    DEMO_HUB_ENABLED ? wfHook.insert : undefined,
-    DEMO_HUB_ENABLED ? wfHook.select : undefined,
-    DEMO_HUB_ENABLED ? wfHook.loaded : false,
-    DEMO_HUB_ENABLED ? wfHook.update : undefined,
-    DEMO_HUB_ENABLED ? selectRunnerWorkflowByName : undefined,
-  );
   const {
     previewWorkflow,
     setPreviewWorkflow,
@@ -121,6 +142,16 @@ export default function App() {
     handleUseWorkflowAsTemplate,
     clearPreviewWorkflow,
   } = useGalleryWorkflowPreviewState(wfHook);
+  useDemoWorkflowBridge(
+    wfHook.workflows,
+    wfHook.remove,
+    DEMO_HUB_ENABLED ? wfHook.insert : undefined,
+    DEMO_HUB_ENABLED ? wfHook.select : undefined,
+    DEMO_HUB_ENABLED ? wfHook.loaded : false,
+    DEMO_HUB_ENABLED ? wfHook.update : undefined,
+    DEMO_HUB_ENABLED ? selectRunnerWorkflowByName : undefined,
+    DEMO_HUB_ENABLED ? clearPreviewWorkflow : undefined,
+  );
   const wfFolders = useWorkflowFolders();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
@@ -145,55 +176,6 @@ export default function App() {
   const navigateToTab = useCallback((t: string) => {
     setActiveTab(t as Tab);
   }, [setActiveTab]);
-
-  // When sidebar / sub-nav navigates during live mode, exit only if leaving the
-  // lesson's tab scope. Same-tab clicks (e.g. workflow sidebar re-select) must
-  // not tear down the overlay — that was killing GQL-18 setup.
-  const handleSetActiveTab = useCallback((tab: Tab) => {
-    const hub = demoHubRuntimeRef.current;
-    const inLive = DEMO_HUB_ENABLED && hub.state.view === 'live';
-    const suppressed = hub.suppressLiveTabExitRef?.current === true;
-    const shouldExit = inLive
-      && !suppressed
-      && shouldExitLiveDemoForTabChange(tab, activeTab, hub.state.selectedLesson);
-
-    if (shouldExit) {
-      const leave = window.confirm(
-        'Leave the live demo? Navigating away will end the current demo session.',
-      );
-      if (!leave) return;
-      void hub.exitLiveDemo().then(() => setActiveTab(tab));
-    } else {
-      setActiveTab(tab);
-    }
-  }, [setActiveTab, activeTab]);
-
-  const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
-    setResultsRunTypeFilter(runType);
-    setActiveTab('results');
-  };
-
-  const handleNavigateToKafkaSettings = useCallback(() => {
-    setActiveTab('kafka-settings');
-  }, []);
-
-  const handleUseAsWorkflowInput = useCallback((
-    payload: string,
-    meta: { topic: string; partition: number; offset: string },
-  ) => {
-    setWorkflowRunnerInitialVariables({
-      kafka_message: payload,
-      kafka_topic: meta.topic,
-      kafka_partition: String(meta.partition),
-      kafka_offset: meta.offset,
-    });
-    setActiveTab('workflow-runner');
-  }, []);
-
-  const handleRunInHarness = (workflowId: string) => {
-    setWorkflowRunnerInitialId(workflowId);
-    setActiveTab('workflow-runner');
-  };
 
   const { confirm, confirmDialogElement } = useConfirmDialog();
   const wbActions = useWorkbenchActions({ wb, activeTab, setActiveTab: (t) => setActiveTab(t as Tab) });
@@ -243,7 +225,7 @@ export default function App() {
     handleExportSingleEndpoint,
     handleSendToReqConfirm,
     handleInlineExportConfirm,
-  } = useCatalogExport({ wb, catalog, setActiveTab });
+  } = useCatalogExport({ wb, catalog, appEnvironments: environments, setEnvironments, setActiveTab });
   const {
     showCatalogImport,
     setShowCatalogImport,
@@ -255,56 +237,24 @@ export default function App() {
     setCatalogVersionHistoryId,
     catalogEditId,
     setCatalogEditId,
+    catalogConvert,
+    setCatalogConvert,
     handleExportSpec,
-  } = useCatalogState(catalog);
+    handleConvertToOpenApi,
+    handleSaveConvertedVersion,
+    handleBatchConvertToOpenApi,
+  } = useCatalogState(catalog, { showToast: toast.show });
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
-  // ---- Sync theme from loaded data ----
-  useEffect(() => {
-    if (!loading) {
-      setTheme(initialTheme);
-    }
-  }, [loading, initialTheme, initialTestRuns, setTheme]);
-
-  // ---- Warn when localStorage is full (debounced — parallel saves fire once) ----
-  const lastStorageFullToastRef = useRef(0);
-  useEffect(() => {
-    return onStorageFull((key) => {
-      const now = Date.now();
-      if (now - lastStorageFullToastRef.current < 8_000) return;
-      lastStorageFullToastRef.current = now;
-      toast.show('error', 'Storage Full',
-        `Cannot save ${key}. Browser storage is full. Go to Settings → Storage to free up space.`);
-    });
-  }, [toast]);
-
-  // ---- Auto-cleanup stale keys on first load ----
-  useEffect(() => {
-    cleanupStaleStorageKeys();
-    void ensureBrowserLargeDataMigrated().catch(() => { /* best effort */ });
-    if (DEMO_HUB_ENABLED) {
-      void import('@redfireforge/demo-hub/demoLiveSession').then(({ hasRestorableDemoLiveSession }) => {
-        if (hasRestorableDemoLiveSession()) return;
-        return import('@redfireforge/demo-hub/lessons/gql-demo-storage-cleanup')
-          .then((m) => m.purgeGqlDemoEphemeralStorage())
-          .catch(() => { /* best effort */ });
-      }).catch(() => { /* best effort */ });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!DEMO_HUB_ENABLED && activeTab === 'demo-hub') {
-      setActiveTab('requests');
-    }
-  }, [activeTab, setActiveTab]);
-
-  // Restore last Protocols sub-tab (GraphQL, Kafka, etc.) from storage.
-  useEffect(() => {
-    void readKey(LAST_PROTOCOLS_TAB_STORAGE_KEY).then((saved) => {
-      if (saved && isProtocolsTab(saved as Tab)) {
-        setLastProtocolsTab(saved as Tab);
-      }
-    });
-  }, []);
+  useAppStartupEffects({
+    loading,
+    wb,
+    environments,
+    toast,
+    initialTheme,
+    setTheme,
+    activeTab,
+    setActiveTab,
+  });
 
   const [galleryInitialDomain, setGalleryInitialDomain] = useState<import('../data/galleries/types').GalleryDomain | undefined>(undefined);
 
@@ -359,36 +309,27 @@ export default function App() {
     setSelectedEnvId, setSelectedSvcId,
   });
 
-  const handleLoadWorkflowTemplate = useCallback((gallerySampleId: string) => {
-    const entry = sampleWorkflowCatalog.find(e => e.id === gallerySampleId);
-    if (entry) {
-      gallery.onImportWorkflow(entry);
-    }
-  }, [gallery]);
-
-  const handleBrowseGallery = useCallback(() => {
-    setGalleryInitialDomain('workflows');
-    setActiveTab('gallery');
-  }, [setActiveTab]);
-
-  const handleImportPreview = useCallback(() => {
-    if (!previewRequest) return;
-    const req = previewRequest.request;
-    const GALLERY_COL_NAME = 'Gallery Samples';
-    const col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
-    const colId = col ? col.id : wb.addCollection({ name: GALLERY_COL_NAME, mode: 'direct' });
-    const reqId = wb.addRequest(colId);
-    wb.updateRequest(colId, reqId, {
-      name: req.name,
-      method: req.method,
-      url: req.url,
-      headers: req.headers,
-      body: req.body,
-      bodyType: req.bodyType,
-      auth: req.auth,
-    });
-    setPreviewRequest(null);
-  }, [previewRequest, wb]);
+  const {
+    handleSetActiveTab,
+    handleCompleteToResults,
+    handleNavigateToKafkaSettings,
+    handleUseAsWorkflowInput,
+    handleRunInHarness,
+    handleImportPreview,
+    handleLoadWorkflowTemplate,
+    handleBrowseGallery,
+  } = useAppNavigationCallbacks({
+    activeTab,
+    setActiveTab,
+    setResultsRunTypeFilter,
+    setWorkflowRunnerInitialId,
+    setWorkflowRunnerInitialVariables,
+    wb,
+    previewRequest,
+    setPreviewRequest,
+    setGalleryInitialDomain,
+    gallery,
+  });
 
   // ---- Loading screen ----
   if (loading) {
@@ -422,6 +363,7 @@ export default function App() {
         </Suspense>
       )}
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
+      <UpdateNotificationBanner />
       <AppHeader
         headerRef={headerRef}
         activeTab={activeTab}
@@ -487,6 +429,8 @@ export default function App() {
         setCatalogEditId={setCatalogEditId}
         setBatchHarnessTarget={setBatchHarnessTarget}
         handleExportSpec={handleExportSpec}
+        handleConvertToOpenApi={handleConvertToOpenApi}
+        handleBatchConvertToOpenApi={handleBatchConvertToOpenApi}
         handleWorkflowExport={handleWorkflowExport}
         handleExportFolder={handleExportFolder}
         handleWorkflowImport={handleWorkflowImport}
@@ -494,6 +438,7 @@ export default function App() {
         handleWbEditCollection={handleWbEditCollection}
         handleWbNewRequest={handleWbNewRequest}
         handleEditSubCollection={handleEditSubCollection}
+        reqTabs={reqTabs}
       />
 
         <main className="app-main">
@@ -504,6 +449,7 @@ export default function App() {
             <WorkflowDesigner
               collections={wb.collections}
               catalogEntries={catalog.entries}
+              previewEndpoints={wfPreviewEndpoints}
               wfHook={wfHook}
               folders={wfFolders.folders}
               environments={environments}
@@ -616,70 +562,20 @@ export default function App() {
           {activeTab === 'kafka-settings' && (
             <KafkaSettingsPage kafkaState={kafkaState} />
           )}
-
-          {activeTab === 'kafka-message-studio' && (
-            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
-              <KafkaMessageStudioPage
-                kafkaState={kafkaState}
-                onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
-                onUseAsWorkflowInput={handleUseAsWorkflowInput}
-                lastWorkflowOutput={lastWorkflowOutput}
-              />
-            </div>
-          )}
-
-          {activeTab === 'websocket-studio' && (
-            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
-              <WebSocketStudioPage
-                resolvedBaseUrl={resolvedBaseUrl}
-                envName={selectedEnv?.name}
-                svcName={selectedSvc?.name}
-                selectedSvc={selectedSvc}
-                selectedEnvId={selectedEnvId}
-                globalAuthProfiles={appGlobalAuthProfiles}
-              />
-            </div>
-          )}
-
-          {activeTab === 'sse-studio' && (
-            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
-              <SseStudioPage
-                resolvedBaseUrl={resolvedBaseUrl}
-                envName={selectedEnv?.name}
-                svcName={selectedSvc?.name}
-                selectedSvc={selectedSvc}
-                selectedEnvId={selectedEnvId}
-                globalAuthProfiles={appGlobalAuthProfiles}
-              />
-            </div>
-          )}
-
-          {activeTab === 'graphql-studio' && (
-            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
-              <GraphqlStudioPage
-                resolvedBaseUrl={resolvedBaseUrl}
-                envName={selectedEnv?.name}
-                svcName={selectedSvc?.name}
-                selectedSvc={selectedSvc}
-                selectedEnvId={selectedEnvId}
-                globalAuthProfiles={appGlobalAuthProfiles}
-              />
-            </div>
-          )}
-
-          {activeTab === 'grpc-studio' && (
-            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
-              <GrpcStudioPage
-                resolvedBaseUrl={resolvedBaseUrl}
-                envName={selectedEnv?.name}
-                svcName={selectedSvc?.name}
-                selectedSvc={selectedSvc}
-                selectedEnvId={selectedEnvId}
-                workspaceDefaultsOverride={workspaceDefaults}
-                globalAuthProfiles={appGlobalAuthProfiles}
-              />
-            </div>
-          )}
+          <AppProtocolStudios
+            activeTab={activeTab}
+            kafkaState={kafkaState}
+            onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
+            onUseAsWorkflowInput={handleUseAsWorkflowInput}
+            lastWorkflowOutput={lastWorkflowOutput}
+            resolvedBaseUrl={resolvedBaseUrl}
+            selectedEnvName={selectedEnv?.name}
+            selectedSvcName={selectedSvc?.name}
+            selectedSvc={selectedSvc}
+            selectedEnvId={selectedEnvId}
+            appGlobalAuthProfiles={appGlobalAuthProfiles}
+            workspaceDefaults={workspaceDefaults}
+          />
 
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
@@ -706,7 +602,7 @@ export default function App() {
                   const found = col.requests.find(r => r.id === requestId)
                     || col.folders?.flatMap(f => f.requests).find(r => r.id === requestId);
                   if (found) {
-                    wb.selectRequest(col.id, found.id);
+                    reqTabs.selectRequest(col.id, found.id);
                     setActiveTab('requests');
                     return;
                   }
@@ -765,6 +661,7 @@ export default function App() {
               onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
               onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
               onExportSpec={handleExportSpec}
+              onConvertToOpenApi={handleConvertToOpenApi}
               onSendToRequests={handleSendToRequests}
               onExportSingleEndpoint={handleExportSingleEndpoint}
               onEditEntry={(entryId) => setCatalogEditId(entryId)}
@@ -772,13 +669,14 @@ export default function App() {
               appEnvironments={environments}
               appMicroservices={microservices}
               collections={wb.collections}
-              onNavigateToRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('requests'); }}
+              onNavigateToRequest={(colId, reqId) => { reqTabs.selectRequest(colId, reqId); setActiveTab('requests'); }}
               savedEpValues={inlineExportEpValues}
               onExportConfirm={handleInlineExportConfirm}
               onSendEndpointToHarness={(entry, endpoint, fromTryItOut) => {
                 setCatalogHarnessEndpoint({ entry, endpoint, fromTryItOut });
                 setShowSendToHarness(true);
               }}
+              onPreviewsChanged={refreshWfPreviews}
             />
           </div>
           <div className="app-tab-pane" style={{ display: activeTab === 'requests' ? 'flex' : 'none' }}>
@@ -792,6 +690,21 @@ export default function App() {
               onSendToHarness={() => setShowSendToHarness(true)}
               harnessRequestIds={harnessRequestIds}
               onImportPreview={handleImportPreview}
+              tabs={reqTabs.tabs}
+              activeTabId={reqTabs.activeTabId}
+              activeTab={reqTabs.activeTab}
+              onSelectTab={reqTabs.selectTab}
+              onCloseTab={reqTabs.closeTab}
+              onAddTab={reqTabs.addTab}
+              onRenameTab={reqTabs.renameTab}
+              onReorderTabs={reqTabs.reorderTabs}
+              onDuplicateTab={reqTabs.duplicateTab}
+              onCloseOtherTabs={reqTabs.closeOtherTabs}
+              onCloseTabsToRight={reqTabs.closeTabsToRight}
+              onCloseAllTabs={() => reqTabs.closeOtherTabs(reqTabs.activeTabId)}
+              onEnvChange={reqTabs.envChange}
+              onUpdateTabUI={reqTabs.updateTabUI}
+              onSyncTabLabel={reqTabs.syncTabLabel}
             />
           </div>
           <AppWorkbenchModals
@@ -827,6 +740,10 @@ export default function App() {
             setCatalogVersionHistoryId={setCatalogVersionHistoryId}
             catalogEditId={catalogEditId}
             setCatalogEditId={setCatalogEditId}
+            catalogConvert={catalogConvert}
+            setCatalogConvert={setCatalogConvert}
+            handleSaveConvertedVersion={handleSaveConvertedVersion}
+            showToast={toast.show}
           />
         </main>
       </div>

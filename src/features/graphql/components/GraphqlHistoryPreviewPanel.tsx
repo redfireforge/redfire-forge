@@ -116,9 +116,6 @@ export function GraphqlHistoryPreviewPanel({
             <span className="gql-history-preview-subtitle">{operationTypeLabel(opType)}</span>
           </div>
         </div>
-        <button type="button" className="gql-history-preview-close" onClick={onClose} aria-label="Close preview" title="Close (Esc)">
-          ✕
-        </button>
       </div>
 
       <div className="gql-history-preview-meta" aria-label="Execution metadata">
@@ -205,16 +202,6 @@ export function GraphqlHistoryPreviewPanel({
       </div>
 
       <div className="gql-history-preview-actions">
-        {onRunInEditor && (
-          <button
-            type="button"
-            className="gql-history-preview-btn gql-history-preview-btn--primary"
-            onClick={() => onRunInEditor(item)}
-            data-testid="gql-history-run"
-          >
-            Open &amp; Run
-          </button>
-        )}
         <button
           type="button"
           className="gql-history-preview-btn"
@@ -230,6 +217,26 @@ export function GraphqlHistoryPreviewPanel({
           data-testid="gql-history-save-to-col"
         >
           Save to Collection
+        </button>
+        {onRunInEditor ? (
+          <button
+            type="button"
+            className="gql-history-preview-btn gql-history-preview-btn--primary"
+            onClick={() => onRunInEditor(item)}
+            data-testid="gql-history-run"
+          >
+            Open &amp; Run
+          </button>
+        ) : (
+          <span className="gql-history-preview-actions-spacer" aria-hidden="true" />
+        )}
+        <button
+          type="button"
+          className="gql-history-preview-btn"
+          onClick={onClose}
+          data-testid="gql-history-preview-close"
+        >
+          Close
         </button>
       </div>
     </div>

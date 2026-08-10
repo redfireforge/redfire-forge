@@ -5,41 +5,48 @@ import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 import { GQL } from '@shared/selectors';
 import {
   GQL_DEMO_CONNECTION_ID,
-  ensureDemoEndpoint,
+  GQL_DEMO_HTTP,
+  ensureDemoTabDirectHttpEndpoint,
   ensureEditorMode,
-  ensureIntrospected,
+  ensureIntrospectedOnDirectEndpoint,
   gqlDemoSnapshotConnectionIds,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
 } from './core';
+import { navigateToGraphqlStudio } from '../../env-manager-lesson-helpers';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import {
   ensureSchemaExplorerOpen,
   resetGqlLesson4SessionFlags,
 } from './lesson4-schema-exploration';
 import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
-import { resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
+import { closeEnvIfOpen, resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
 import { resetGqlLesson7SessionFlags } from './lesson7-query-builder';
 import { resetGqlLesson8SessionFlags } from './lesson8-collections-history';
 import { resetGqlLesson9SessionFlags } from './lesson9-export-share';
 import { resetGqlLesson10SessionFlags } from './lesson10-performance-tracing';
 import { resetGqlLesson11SessionFlags } from './lesson11-workflow-integration';
-import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { closeGqlDemoTabs, ensureGqlDemoTab, activateGqlDemoTabQuiet } from './gql-demo-tab';
+import { spotlightAndPause } from './gql-demo-spotlight';
 import {
   deleteSnapshot,
   loadSnapshots,
+  patchDemoTabConnection,
   saveSnapshot,
 } from '../../../adapters';
 
 const LESSON12_BASELINE_LABEL = 'Prior release (demo)';
+
+/** Keep waits under DEMO_ACTION_TIMEOUT_MS (16s) — stacked 5s waits were timing out compare/export. */
+const L12_WAIT_MS = 2_500;
+const L12_HOLD_MS = 500;
 
 async function closeDiffModalIfOpen(ctx: DemoActionContext): Promise<void> {
   if (!document.querySelector(GQL.DIFF_MODAL)) return;
   const doneBtn = document.querySelector<HTMLElement>(GQL.DIFF_DONE);
   if (doneBtn) {
     doneBtn.click();
-    await ctx.delay(700);
-    _lesson12DiffOpen = false;
+    await ctx.delay(L12_HOLD_MS);
   }
 }
 
@@ -103,7 +110,6 @@ let _lesson12StartTime = 0;
 let _lesson12BaselineId = '';
 let _lesson12SnapshotSaved = false;
 let _lesson12ChangelogOpen = false;
-let _lesson12DiffOpen = false;
 let _lesson12FiltersDemoed = false;
 let _lesson12Exported = false;
 
@@ -114,9 +120,7 @@ function isLesson12DiffModalOpen(): boolean {
 
 /** Skip schema-explorer navigation when the diff modal is open (preAction on later steps). */
 function skipWhenDiffModalOpen(): boolean {
-  if (!isLesson12DiffModalOpen()) return false;
-  _lesson12DiffOpen = true;
-  return true;
+  return isLesson12DiffModalOpen();
 }
 
 export function resetGqlLesson12SessionFlags(): void {
@@ -124,7 +128,6 @@ export function resetGqlLesson12SessionFlags(): void {
   _lesson12BaselineId = '';
   _lesson12SnapshotSaved = false;
   _lesson12ChangelogOpen = false;
-  _lesson12DiffOpen = false;
   _lesson12FiltersDemoed = false;
   _lesson12Exported = false;
 }
@@ -150,6 +153,16 @@ async function findExistingBaselineSnapshot(): Promise<{
   return null;
 }
 
+/** Set CustomSelect value without opening the menu (avoids portal wait / flicker). */
+function setChangelogCompareValue(value: string): void {
+  const wrapper = document.querySelector(GQL.CHANGELOG_COMPARE_SELECT);
+  if (!wrapper) return;
+  if (wrapper.getAttribute('data-value') === value) return;
+  wrapper.dispatchEvent(
+    new CustomEvent('custom-select:set-value', { detail: { value }, bubbles: true }),
+  );
+}
+
 /** Select the prior-release baseline row and ensure compare target is the live schema. */
 async function selectBaselineChangelogRow(ctx: DemoActionContext): Promise<boolean> {
   markLesson12BaselineRow();
@@ -161,15 +174,44 @@ async function selectBaselineChangelogRow(ctx: DemoActionContext): Promise<boole
   if (!row) return false;
 
   await ctx.click(GQL.CHANGELOG_BASELINE_ROW);
-  await ctx.delay(500);
+  await ctx.delay(L12_HOLD_MS);
 
-  const compareSelect = document.querySelector<HTMLSelectElement>(GQL.CHANGELOG_COMPARE_SELECT);
-  if (compareSelect && compareSelect.value !== '') {
-    compareSelect.value = '';
-    compareSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await ctx.delay(300);
-  }
+  setChangelogCompareValue('');
+  await ctx.delay(150);
   return true;
+}
+
+/** loadSnapshots with a hard cap — IDB stalls must not burn the 16s action budget. */
+async function loadSnapshotsBounded(connectionId: string, timeoutMs = 1_200): Promise<GraphqlSchemaSnapshot[]> {
+  try {
+    return await Promise.race([
+      loadSnapshots(connectionId),
+      new Promise<GraphqlSchemaSnapshot[]>((resolve) => {
+        setTimeout(() => resolve([]), timeoutMs);
+      }),
+    ]);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * View diff is disabled when currentSdl is empty and compare target is "Current schema".
+ * Fall back to comparing against another saved snapshot so the button enables.
+ */
+async function enableLesson12ViewDiffButton(ctx: DemoActionContext): Promise<void> {
+  const btn = document.querySelector<HTMLButtonElement>(GQL.CHANGELOG_DIFF_BTN);
+  if (!btn || !btn.disabled) return;
+
+  const snaps = await loadSnapshotsBounded(GQL_DEMO_CONNECTION_ID);
+  const baseline =
+    snaps.find((s) => s.label === LESSON12_BASELINE_LABEL)
+    ?? snaps.find((s) => s.id === _lesson12BaselineId)
+    ?? null;
+  const other = snaps.find((s) => s.id !== baseline?.id);
+  if (!other) return;
+  setChangelogCompareValue(other.id);
+  await ctx.delay(200);
 }
 
 /** Mark the baseline snapshot row so lesson spotlights target the correct diff button. */
@@ -213,37 +255,105 @@ export async function ensureLesson12BaselineSnapshot(): Promise<void> {
 /** Open Schema Explorer on the Types tab (Save snapshot lives here). */
 export async function ensureLesson12TypesTab(ctx: DemoActionContext): Promise<void> {
   if (skipWhenDiffModalOpen()) return;
-  await ensureSchemaExplorerOpen(ctx);
+
+  // Never call ensureSchemaExplorerOpen here — it waits on SCHEMA_TYPE_LIST (unmounted
+  // on Changelog) and re-introspects, which exceeds DEMO_ACTION_TIMEOUT_MS.
+  const schemaTab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_SCHEMA);
+  if (schemaTab && schemaTab.getAttribute('aria-selected') !== 'true') {
+    await ctx.click(GQL.RIGHT_TAB_SCHEMA);
+    await ctx.delay(300);
+  }
+
   const typesTab = document.querySelector<HTMLElement>(GQL.SE_TAB_TYPES);
   if (typesTab && !typesTab.classList.contains('gql-se-main-tab--active')) {
     await ctx.click(GQL.SE_TAB_TYPES);
-    await ctx.delay(500);
+    await ctx.delay(L12_HOLD_MS);
+  }
+
+  // Setup already introspected — only wait briefly for Save Snapshot to remount.
+  if (!document.querySelector(GQL.SAVE_SNAPSHOT_BTN)) {
+    await ctx.waitFor(GQL.SAVE_SNAPSHOT_BTN, L12_WAIT_MS);
+  }
+
+  // Last resort (badge missing): one introspect — still capped by L12 waits inside.
+  if (
+    !document.querySelector(GQL.SAVE_SNAPSHOT_BTN)
+    && !document.querySelector(GQL.SCHEMA_BADGE_OK)
+  ) {
+    await ensureSchemaExplorerOpen(ctx);
   }
 }
 
 /** Click Save snapshot — persists current introspected SDL. */
 export async function ensureLesson12SnapshotSaved(ctx: DemoActionContext): Promise<void> {
   if (skipWhenDiffModalOpen()) return;
-  await ensureLesson12TypesTab(ctx);
   if (_lesson12SnapshotSaved && document.querySelectorAll(GQL.CHANGELOG_ROW).length >= 1) {
     return;
   }
-  await ctx.waitFor(GQL.SAVE_SNAPSHOT_BTN, 5000);
+  await ensureLesson12TypesTab(ctx);
+  await ctx.waitFor(GQL.SAVE_SNAPSHOT_BTN, L12_WAIT_MS);
+  if (!document.querySelector(GQL.SAVE_SNAPSHOT_BTN)) return;
   await ctx.click(GQL.SAVE_SNAPSHOT_BTN);
-  await ctx.delay(1200);
+  await ctx.delay(800);
   _lesson12SnapshotSaved = true;
+}
+
+/** Step-1 action beat: hold Save Snapshot before click so the control is clearly taught. */
+export async function performLesson12SnapshotSaveWithPause(ctx: DemoActionContext): Promise<void> {
+  if (skipWhenDiffModalOpen()) return;
+  await ensureLesson12TypesTab(ctx);
+  await ctx.waitFor(GQL.SAVE_SNAPSHOT_BTN, L12_WAIT_MS);
+  await spotlightAndPause(ctx, GQL.SAVE_SNAPSHOT_BTN, 900);
+  await ensureLesson12SnapshotSaved(ctx);
+}
+
+function isLesson12ChangelogTabActive(): boolean {
+  const tab = document.querySelector<HTMLElement>(GQL.CHANGELOG_TAB);
+  return !!tab && tab.classList.contains('gql-se-main-tab--active');
 }
 
 /** Open the Changelog tab with at least one snapshot row visible. */
 export async function ensureLesson12ChangelogOpen(ctx: DemoActionContext): Promise<void> {
   if (skipWhenDiffModalOpen()) return;
+
+  const hasChangelogRows = () =>
+    !!document.querySelector(GQL.CHANGELOG_PANEL) && !!document.querySelector(GQL.CHANGELOG_ROW);
+
+  // Session flag: already opened and rows still present (tests mock click without toggling tab class).
+  if (_lesson12ChangelogOpen && hasChangelogRows()) {
+    markLesson12BaselineRow();
+    return;
+  }
+
+  // Live UI: Changelog tab already active with rows.
+  if (isLesson12ChangelogTabActive() && hasChangelogRows()) {
+    markLesson12BaselineRow();
+    _lesson12ChangelogOpen = true;
+    return;
+  }
+
+  // Prefer switching to Changelog before re-saving / re-introspecting.
+  // (Changelog panel may stay mounted while Types is active — still click the tab.)
+  if (document.querySelector(GQL.CHANGELOG_TAB)) {
+    if (!isLesson12ChangelogTabActive()) {
+      await ctx.click(GQL.CHANGELOG_TAB);
+    }
+    await ctx.waitFor(GQL.CHANGELOG_PANEL, L12_WAIT_MS);
+    if (hasChangelogRows()) {
+      markLesson12BaselineRow();
+      await ctx.delay(L12_HOLD_MS);
+      _lesson12ChangelogOpen = true;
+      return;
+    }
+  }
+
   await ensureLesson12SnapshotSaved(ctx);
-  if (_lesson12ChangelogOpen && document.querySelector(GQL.CHANGELOG_PANEL)) return;
+  if (_lesson12ChangelogOpen && hasChangelogRows()) return;
   await ctx.click(GQL.CHANGELOG_TAB);
-  await ctx.waitFor(GQL.CHANGELOG_PANEL, 5000);
-  await ctx.waitFor(GQL.CHANGELOG_ROW, 5000);
+  await ctx.waitFor(GQL.CHANGELOG_PANEL, L12_WAIT_MS);
+  await ctx.waitFor(GQL.CHANGELOG_ROW, L12_WAIT_MS);
   markLesson12BaselineRow();
-  await ctx.delay(1000);
+  await ctx.delay(L12_HOLD_MS);
   _lesson12ChangelogOpen = true;
 }
 
@@ -265,70 +375,116 @@ export async function ensureLesson12BaselineReady(ctx: DemoActionContext): Promi
   if (!hasBaselineInDom()) {
     await ensureLesson12BaselineSnapshot();
     notifyGqlSnapshotsChanged();
-    await ctx.delay(900);
+    await ctx.delay(600);
   }
 
   const showMore = document.querySelector<HTMLElement>(GQL.CHANGELOG_SHOW_MORE);
-  if (showMore) {
+  if (showMore && !hasBaselineInDom()) {
     await ctx.click(GQL.CHANGELOG_SHOW_MORE);
-    await ctx.delay(500);
+    await ctx.delay(300);
   }
 
   if (!hasBaselineInDom()) {
     await ensureLesson12BaselineSnapshot();
     notifyGqlSnapshotsChanged();
-    await ctx.delay(900);
+    await ctx.delay(600);
   }
 
   markLesson12BaselineRow();
-  await ctx.delay(400);
+  await ctx.delay(200);
 }
 
-/** Open diff modal — baseline snapshot vs current schema. */
-export async function ensureLesson12DiffOpen(ctx: DemoActionContext): Promise<void> {
-  if (skipWhenDiffModalOpen()) return;
-  await ensureLesson12BaselineReady(ctx);
-  if (_lesson12DiffOpen && isLesson12DiffModalOpen()) return;
+/** Click View diff and wait for the modal — returns false if it never appears. */
+async function clickLesson12ViewDiff(ctx: DemoActionContext): Promise<boolean> {
+  await enableLesson12ViewDiffButton(ctx);
+  const btn = document.querySelector<HTMLButtonElement>(GQL.CHANGELOG_DIFF_BTN);
+  if (!btn || btn.disabled) return false;
+  await ctx.click(GQL.CHANGELOG_DIFF_BTN);
+  await ctx.waitFor(GQL.DIFF_MODAL, L12_WAIT_MS);
+  if (!isLesson12DiffModalOpen()) return false;
+  await ctx.delay(600);
+  return true;
+}
 
-  const baselineSelected = await selectBaselineChangelogRow(ctx);
+/**
+ * Visible compare-step action — select baseline + View diff only.
+ * Prep (changelog / seed) must run in preAction; do not re-introspect here.
+ */
+export async function performLesson12CompareDiff(ctx: DemoActionContext): Promise<void> {
+  if (isLesson12DiffModalOpen()) return;
+  await selectBaselineChangelogRow(ctx);
+  if (await clickLesson12ViewDiff(ctx)) return;
+  markLesson12BaselineRow();
+  await selectBaselineChangelogRow(ctx);
+  await clickLesson12ViewDiff(ctx);
+}
+
+/**
+ * Visible export-step action — Export JSON + close only.
+ * Modal must already be open from preAction (ensureLesson12DiffOpen).
+ */
+export async function performLesson12ExportDiff(ctx: DemoActionContext): Promise<void> {
+  if (_lesson12Exported && !isLesson12DiffModalOpen()) return;
+  if (!isLesson12DiffModalOpen()) {
+    // Lightweight recovery only — no changelog/introspect chain.
+    await performLesson12CompareDiff(ctx);
+  }
+  if (_lesson12Exported) return;
+  if (!document.querySelector(GQL.DIFF_EXPORT_JSON)) {
+    await ctx.waitFor(GQL.DIFF_EXPORT_JSON, L12_WAIT_MS);
+  }
+  if (!document.querySelector(GQL.DIFF_EXPORT_JSON)) return;
+
+  await ctx.click(GQL.DIFF_EXPORT_JSON);
+  await ctx.delay(900);
+  await closeDiffModalIfOpen(ctx);
+  _lesson12Exported = true;
+}
+
+/** Open diff modal — baseline snapshot vs current schema (safe for preAction). */
+export async function ensureLesson12DiffOpen(ctx: DemoActionContext): Promise<void> {
+  if (isLesson12DiffModalOpen()) return;
+
+  await ensureLesson12BaselineReady(ctx);
+  if (isLesson12DiffModalOpen()) return;
+
+  let baselineSelected = await selectBaselineChangelogRow(ctx);
   if (!baselineSelected) {
     await ensureLesson12BaselineSnapshot();
     notifyGqlSnapshotsChanged();
-    await ctx.delay(900);
+    await ctx.delay(600);
     markLesson12BaselineRow();
-    await selectBaselineChangelogRow(ctx);
+    baselineSelected = await selectBaselineChangelogRow(ctx);
   }
+  if (!baselineSelected && !document.querySelector(GQL.CHANGELOG_DIFF_BTN)) return;
 
-  await ctx.click(GQL.CHANGELOG_DIFF_BTN);
-  await ctx.waitFor(GQL.DIFF_MODAL, 5000);
-  await ctx.delay(800);
-  _lesson12DiffOpen = true;
+  if (await clickLesson12ViewDiff(ctx)) return;
+
+  markLesson12BaselineRow();
+  await selectBaselineChangelogRow(ctx);
+  await clickLesson12ViewDiff(ctx);
 }
 
 /** Cycle severity filters in the diff modal (breaking → safe → deprecated). */
 export async function ensureLesson12DiffFilters(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson12DiffOpen(ctx);
+  if (!isLesson12DiffModalOpen()) {
+    await ensureLesson12DiffOpen(ctx);
+  }
   if (_lesson12FiltersDemoed) return;
   await ctx.click(GQL.DIFF_FILTER_BREAKING);
-  await ctx.delay(1200);
+  await ctx.delay(700);
   await ctx.click(GQL.DIFF_FILTER_SAFE);
-  await ctx.delay(1200);
+  await ctx.delay(700);
   await ctx.click(GQL.DIFF_FILTER_DEPRECATED);
-  await ctx.delay(1200);
+  await ctx.delay(700);
   await ctx.click(GQL.DIFF_FILTER_ALL);
-  await ctx.delay(800);
+  await ctx.delay(500);
   _lesson12FiltersDemoed = true;
 }
 
-/** Click Export diff as JSON in the diff modal footer. */
+/** @deprecated Prefer performLesson12ExportDiff for the timed action step. */
 export async function ensureLesson12DiffExported(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson12DiffOpen(ctx);
-  if (_lesson12Exported) return;
-  await ctx.waitFor(GQL.DIFF_EXPORT_JSON, 5000);
-  await ctx.click(GQL.DIFF_EXPORT_JSON);
-  await ctx.delay(2000);
-  await closeDiffModalIfOpen(ctx);
-  _lesson12Exported = true;
+  await performLesson12ExportDiff(ctx);
 }
 
 async function cleanupLesson12Snapshots(): Promise<void> {
@@ -351,7 +507,10 @@ async function cleanupLesson12Snapshots(): Promise<void> {
   }
 }
 
-/** Setup for Lesson 12 (GQL-12) — demo tab; introspect Docker server and seed baseline. */
+/**
+ * Setup for Lesson 12 (GQL-12) — demo tab + direct HTTP introspect + baseline seed.
+ * Never open Environment Manager or the GraphQL Env modal.
+ */
 export async function gqlSchemaDiffLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -367,6 +526,7 @@ export async function gqlSchemaDiffLessonSetup(ctx: DemoActionContext): Promise<
   resetGqlLesson12SessionFlags();
   _lesson12StartTime = Date.now();
 
+  await navigateToGraphqlStudio(ctx);
   await ensureEditorMode(ctx);
   const responseTab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE);
   if (responseTab && responseTab.getAttribute('aria-selected') !== 'true') {
@@ -375,8 +535,17 @@ export async function gqlSchemaDiffLessonSetup(ctx: DemoActionContext): Promise<
   }
 
   await ensureGqlDemoTab(ctx, 'gql-schema-diff', 'Schema Diff & Breaking Changes');
-  await ensureDemoEndpoint(ctx);
-  await ensureIntrospected(ctx);
+  await patchDemoTabConnection({
+    endpoint: GQL_DEMO_HTTP,
+    skipTlsVerify: undefined,
+    tlsCaCert: undefined,
+    tlsClientCert: undefined,
+    tlsClientKey: undefined,
+  });
+  await activateGqlDemoTabQuiet(ctx);
+  await ensureDemoTabDirectHttpEndpoint(ctx);
+  await ensureIntrospectedOnDirectEndpoint(ctx);
+  await closeEnvIfOpen(ctx);
   await ensureLesson12BaselineSnapshot();
   notifyGqlSnapshotsChanged();
 }

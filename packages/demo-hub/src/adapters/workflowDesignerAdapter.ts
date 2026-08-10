@@ -24,6 +24,23 @@ export function selectWorkflowByName(name: string): boolean {
   return getDemoBridgeWindow().__wfSelectByName?.(name) ?? false;
 }
 
+/**
+ * Dismiss Gallery "Sample Preview" so the Designer shows the real selected
+ * workflow (e.g. a blank Start-only canvas) instead of a sample overlay.
+ */
+export function clearWorkflowSamplePreview(): void {
+  getDemoBridgeWindow().__wfClearSamplePreview?.();
+}
+
+/**
+ * Name of the workflow currently open in the Designer canvas, or undefined when
+ * the bridge isn't mounted / nothing is selected. Lessons use this to detect a
+ * stale workflow from a previous lesson still on screen.
+ */
+export function getSelectedWorkflowName(): string | undefined {
+  return getDemoBridgeWindow().__wfGetSelectedName?.();
+}
+
 /** Select a workflow in Workflow Runner by name — keeps runner ID in sync after re-seed. */
 export function selectRunnerWorkflowByName(name: string): boolean {
   const win = getDemoBridgeWindow();
@@ -207,6 +224,18 @@ export function patchWorkflowByName(
   return getDemoBridgeWindow().__wfPatchWorkflowByName?.(name, patch) ?? false;
 }
 
+/**
+ * Push a patch into the LIVE canvas workflow (currently-selected) so Quick Test
+ * picks up new variables / start-node inputs immediately — `patchWorkflowByName`
+ * only updates the stored copy. Returns false if the workflow isn't selected.
+ */
+export function syncLiveWorkflowFromPatch(
+  name: string,
+  patch: Record<string, unknown>,
+): boolean {
+  return getDemoBridgeWindow().__wfSyncLiveWorkflowFromPatch?.(name, patch) ?? false;
+}
+
 export function addWorkflowNode(type: string): string | undefined {
   return getDemoBridgeWindow().__wfAddNode?.(type);
 }
@@ -240,6 +269,8 @@ export async function seedNamedWorkflow(
     insertDelayMs?: number;
     bridgeTimeoutMs?: number;
     storeTimeoutMs?: number;
+    /** When false, skip selecting the workflow in Designer + Runner (default true). */
+    selectAfterSeed?: boolean;
   } = {},
 ): Promise<boolean> {
   const {
@@ -248,6 +279,7 @@ export async function seedNamedWorkflow(
     insertDelayMs = 300,
     bridgeTimeoutMs = 8000,
     storeTimeoutMs = 3000,
+    selectAfterSeed = true,
   } = opts;
 
   if (!(await waitForWorkflowBridge(ctx, bridgeTimeoutMs))) {
@@ -273,8 +305,10 @@ export async function seedNamedWorkflow(
     await ctx.delay(insertDelayMs);
   }
   await waitForWorkflowInStore(ctx, name, storeTimeoutMs);
-  selectWorkflowByName(name);
-  selectRunnerWorkflowByName(name);
+  if (selectAfterSeed) {
+    selectWorkflowByName(name);
+    selectRunnerWorkflowByName(name);
+  }
   return !!getWorkflowByName(name);
 }
 

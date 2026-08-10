@@ -15,6 +15,8 @@ describe('useDemoProgress', () => {
     expect(result.current.data).toEqual({
       completedLessons: [],
       lessonSteps: {},
+      completedVersions: {},
+      completedStepCounts: {},
       speed: 1,
     });
   });
@@ -89,6 +91,19 @@ describe('useDemoProgress', () => {
     expect(result.current.getLessonStep('lesson-1')).toBe(7);
   });
 
+  it('resetLessons clears only the specified lessons', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => {
+      result.current.markLessonComplete('lesson-1');
+      result.current.setLessonStep('lesson-2', 3);
+      result.current.markLessonComplete('lesson-3');
+    });
+    act(() => result.current.resetLessons(['lesson-1', 'lesson-2']));
+    expect(result.current.data.completedLessons).not.toContain('lesson-1');
+    expect(result.current.data.lessonSteps['lesson-2']).toBeUndefined();
+    expect(result.current.data.completedLessons).toContain('lesson-3');
+  });
+
   it('resetProgress clears all data', () => {
     const { result } = renderHook(() => useDemoProgress());
     act(() => {
@@ -100,6 +115,8 @@ describe('useDemoProgress', () => {
     expect(result.current.data).toEqual({
       completedLessons: [],
       lessonSteps: {},
+      completedVersions: {},
+      completedStepCounts: {},
       speed: 1,
     });
   });
@@ -157,5 +174,50 @@ describe('useDemoProgress', () => {
     act(() => result.current.markLessonComplete('lesson-1'));
     expect(result.current.data.completedLessons).toContain('lesson-1');
     setItemSpy.mockRestore();
+  });
+
+  // ── contentVersion / isLessonUpdated ─────────────────────────
+  it('markLessonComplete stores contentVersion', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => result.current.markLessonComplete('lesson-1', 2));
+    expect(result.current.data.completedVersions['lesson-1']).toBe(2);
+  });
+
+  it('markLessonComplete stores step count', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => result.current.markLessonComplete('lesson-1', 1, 6));
+    expect(result.current.data.completedStepCounts['lesson-1']).toBe(6);
+  });
+
+  it('markLessonComplete defaults to version 1 when omitted', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => result.current.markLessonComplete('lesson-1'));
+    expect(result.current.data.completedVersions['lesson-1']).toBe(1);
+  });
+
+  it('isLessonUpdated returns false for non-completed lessons', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    expect(result.current.isLessonUpdated('lesson-1', 2)).toBe(false);
+  });
+
+  it('isLessonUpdated returns true when lesson version exceeds completed version', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => result.current.markLessonComplete('lesson-1', 1));
+    expect(result.current.isLessonUpdated('lesson-1', 2)).toBe(true);
+  });
+
+  it('isLessonUpdated returns false when versions match', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => result.current.markLessonComplete('lesson-1', 2));
+    expect(result.current.isLessonUpdated('lesson-1', 2)).toBe(false);
+  });
+
+  it('re-completing an updated lesson clears the updated state', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => result.current.markLessonComplete('lesson-1', 1));
+    expect(result.current.isLessonUpdated('lesson-1', 2)).toBe(true);
+    act(() => result.current.markLessonComplete('lesson-1', 2));
+    expect(result.current.isLessonUpdated('lesson-1', 2)).toBe(false);
+    expect(result.current.data.completedVersions['lesson-1']).toBe(2);
   });
 });

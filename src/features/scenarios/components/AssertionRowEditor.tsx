@@ -1,4 +1,5 @@
 import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FieldOperator, JsonTypeName, WsAssertionTarget, WsNumericAssertionTarget, KafkaAssertionTarget } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import JsonPathPicker from './JsonPathPicker';
 import { getByPath, stripJsonPathPrefix } from '../../../shared/utils/jsonPath';
 import { generateJsonSchema } from '../../../shared/components/data-mapper/utils/schemaGenerator';
@@ -81,16 +82,17 @@ export default function AssertionRowEditor({
             placeholder="Header name"
             className="assertion-input assertion-input-header-name"
           />
-          <select
+          <CustomSelect
             value={a.operator}
-            onChange={(e) => updateAssertion({ operator: e.target.value as AssertionOperator })}
+            onChange={(v) => updateAssertion({ operator: v as AssertionOperator })}
             className="assertion-select"
-          >
-            <option value="equals">equals</option>
-            <option value="contains">contains</option>
-            <option value="regex">regex</option>
-            <option value="exists">exists</option>
-          </select>
+            options={[
+              { value: 'equals', label: 'equals' },
+              { value: 'contains', label: 'contains' },
+              { value: 'regex', label: 'regex' },
+              { value: 'exists', label: 'exists' },
+            ]}
+          />
           {a.operator !== 'exists' && (
             <input
               value={a.value ?? ''}
@@ -195,12 +197,12 @@ export default function AssertionRowEditor({
             onChange={(op) => updateAssertion({ operator: op })}
             options={DATE_OP_OPTIONS}
           />
-          <select
+          <CustomSelect
             value={a.reference.kind}
-            onChange={(e) => {
-              const kind = e.target.value as 'today' | 'fixed';
+            onChange={(kind) => {
+              const k = kind as 'today' | 'fixed';
               const ref: DateReference =
-                kind === 'today'
+                k === 'today'
                   ? { kind: 'today', timezone: a.reference.kind === 'today' ? a.reference.timezone : 'utc' }
                   : {
                       kind: 'fixed',
@@ -209,21 +211,24 @@ export default function AssertionRowEditor({
               updateAssertion({ reference: ref });
             }}
             className="assertion-select"
-          >
-            <option value="today">today</option>
-            <option value="fixed">fixed date</option>
-          </select>
+            options={[
+              { value: 'today', label: 'today' },
+              { value: 'fixed', label: 'fixed date' },
+            ]}
+          />
           {a.reference.kind === 'today' && (
-            <select
+            <CustomSelect
               value={a.reference.timezone}
-              onChange={(e) =>
-                updateAssertion({ reference: { kind: 'today', timezone: e.target.value as 'utc' | 'local' } })
+              onChange={(v) =>
+                updateAssertion({ reference: { kind: 'today', timezone: v as 'utc' | 'local' } })
               }
               className="assertion-select assertion-select-sm"
-            >
-              <option value="utc">UTC</option>
-              <option value="local">Local</option>
-            </select>
+              size="sm"
+              options={[
+                { value: 'utc', label: 'UTC' },
+                { value: 'local', label: 'Local' },
+              ]}
+            />
           )}
           {a.reference.kind === 'fixed' && (
             <div className="assertion-date-wrap">
@@ -259,18 +264,19 @@ export default function AssertionRowEditor({
           />
           <JsonPathPicker sampleJson={sampleJson} onSelect={(p) => updateAssertion({ jsonPath: p })} />
           <span className="assertion-field-label assertion-field-label-fixed">is</span>
-          <select
+          <CustomSelect
             value={a.expectedType}
-            onChange={(e) => updateAssertion({ expectedType: e.target.value as JsonTypeName })}
+            onChange={(v) => updateAssertion({ expectedType: v as JsonTypeName })}
             className="assertion-select"
-          >
-            <option value="string">string</option>
-            <option value="number">number</option>
-            <option value="boolean">boolean</option>
-            <option value="array">array</option>
-            <option value="object">object</option>
-            <option value="null">null</option>
-          </select>
+            options={[
+              { value: 'string', label: 'string' },
+              { value: 'number', label: 'number' },
+              { value: 'boolean', label: 'boolean' },
+              { value: 'array', label: 'array' },
+              { value: 'object', label: 'object' },
+              { value: 'null', label: 'null' },
+            ]}
+          />
         </div>
       )}
 
@@ -283,14 +289,16 @@ export default function AssertionRowEditor({
             className="assertion-input assertion-input-path"
           />
           <JsonPathPicker sampleJson={sampleJson} onSelect={(p) => updateAssertion({ jsonPath: p })} />
-          <select
+          <span className="assertion-field-label assertion-field-label-fixed">&nbsp;</span>
+          <CustomSelect
             value={a.expectExists ? 'exists' : 'not_exists'}
-            onChange={(e) => updateAssertion({ expectExists: e.target.value === 'exists' })}
+            onChange={(v) => updateAssertion({ expectExists: v === 'exists' })}
             className="assertion-select"
-          >
-            <option value="exists">exists</option>
-            <option value="not_exists">does not exist</option>
-          </select>
+            options={[
+              { value: 'exists', label: 'exists' },
+              { value: 'not_exists', label: 'does not exist' },
+            ]}
+          />
         </div>
       )}
 
@@ -303,17 +311,12 @@ export default function AssertionRowEditor({
             className="assertion-input assertion-input-path"
           />
           <JsonPathPicker sampleJson={sampleJson} onSelect={(p) => updateAssertion({ jsonPath: p })} />
-          <select
+          <CustomSelect
             value={a.mode}
-            onChange={(e) => updateAssertion({ mode: e.target.value as 'any' | 'all' | 'only' | 'none' })}
+            onChange={(v) => updateAssertion({ mode: v as 'any' | 'all' | 'only' | 'none' })}
             className="assertion-select"
-          >
-            {ARRAY_CONTAINS_MODE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            options={ARRAY_CONTAINS_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          />
           <textarea
             value={a.value}
             onChange={(e) => updateAssertion({ value: e.target.value })}
@@ -357,17 +360,12 @@ export default function AssertionRowEditor({
               updateAssertion({ fieldPath: field });
             }}
           />
-          <select
+          <CustomSelect
             value={a.operator}
-            onChange={(e) => updateAssertion({ operator: e.target.value as FieldOperator })}
+            onChange={(v) => updateAssertion({ operator: v as FieldOperator })}
             className="assertion-select"
-          >
-            {FIELD_OP_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            options={FIELD_OP_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          />
           {!['is_true', 'is_false', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty', 'exists', 'not_exists'].includes(
             a.operator
           ) && (
@@ -486,18 +484,20 @@ export default function AssertionRowEditor({
 
       {a.type === 'bodySize' && (
         <div className="assertion-field assertion-field--bodysize">
-          <select
+          <CustomSelect
             value={a.operator}
-            onChange={(e) => updateAssertion({ operator: e.target.value as ComparisonOperator })}
+            onChange={(v) => updateAssertion({ operator: v as ComparisonOperator })}
             className="assertion-select assertion-select--operator"
-          >
-            <option value="<">less than</option>
-            <option value="<=">at most</option>
-            <option value="=">exactly</option>
-            <option value=">=">at least</option>
-            <option value=">">more than</option>
-            <option value="!=">not equal</option>
-          </select>
+            showDetailInTrigger
+            options={[
+              { value: '<', label: 'less than', detail: '<' },
+              { value: '<=', label: 'at most', detail: '≤' },
+              { value: '=', label: 'exactly', detail: '=' },
+              { value: '>=', label: 'at least', detail: '≥' },
+              { value: '>', label: 'more than', detail: '>' },
+              { value: '!=', label: 'not equal', detail: '≠' },
+            ]}
+          />
           <input
             type="number"
             value={a.value}
@@ -506,15 +506,16 @@ export default function AssertionRowEditor({
             min={0}
             step={1}
           />
-          <select
+          <CustomSelect
             value={a.unit}
-            onChange={(e) => updateAssertion({ unit: e.target.value as 'bytes' | 'kb' | 'mb' })}
+            onChange={(v) => updateAssertion({ unit: v as 'bytes' | 'kb' | 'mb' })}
             className="assertion-select assertion-select--unit"
-          >
-            <option value="bytes">Bytes</option>
-            <option value="kb">KB</option>
-            <option value="mb">MB</option>
-          </select>
+            options={[
+              { value: 'bytes', label: 'Bytes' },
+              { value: 'kb', label: 'KB' },
+              { value: 'mb', label: 'MB' },
+            ]}
+          />
         </div>
       )}
 
@@ -527,18 +528,20 @@ export default function AssertionRowEditor({
             className="assertion-input assertion-input-path"
           />
           <JsonPathPicker sampleJson={sampleJson} onSelect={(p) => updateAssertion({ jsonPath: p })} />
-          <select
+          <CustomSelect
             value={a.operator}
-            onChange={(e) => updateAssertion({ operator: e.target.value as ComparisonOperator })}
+            onChange={(v) => updateAssertion({ operator: v as ComparisonOperator })}
             className="assertion-select assertion-select--operator"
-          >
-            <option value="=">equals</option>
-            <option value="!=">not equals</option>
-            <option value=">">after</option>
-            <option value=">=">on or after</option>
-            <option value="<">before</option>
-            <option value="<=">on or before</option>
-          </select>
+            showDetailInTrigger
+            options={[
+              { value: '=', label: 'equals', detail: '=' },
+              { value: '!=', label: 'not equals', detail: '≠' },
+              { value: '>', label: 'after', detail: '>' },
+              { value: '>=', label: 'on or after', detail: '≥' },
+              { value: '<', label: 'before', detail: '<' },
+              { value: '<=', label: 'on or before', detail: '≤' },
+            ]}
+          />
           <div className="assertion-date-wrap">
             <input
               type="datetime-local"
@@ -559,19 +562,20 @@ export default function AssertionRowEditor({
             >
               <CalendarIcon />
             </button>
-            <select
+            <CustomSelect
               value={a.precision}
-              onChange={(e) =>
-                updateAssertion({ precision: e.target.value as 'day' | 'hour' | 'minute' | 'second' | 'millisecond' })
+              onChange={(v) =>
+                updateAssertion({ precision: v as 'day' | 'hour' | 'minute' | 'second' | 'millisecond' })
               }
               className="assertion-select assertion-select--precision"
-            >
-              <option value="day">Day</option>
-              <option value="hour">Hour</option>
-              <option value="minute">Minute</option>
-              <option value="second">Second</option>
-              <option value="millisecond">Millisecond</option>
-            </select>
+              options={[
+                { value: 'day', label: 'Day' },
+                { value: 'hour', label: 'Hour' },
+                { value: 'minute', label: 'Minute' },
+                { value: 'second', label: 'Second' },
+                { value: 'millisecond', label: 'Millisecond' },
+              ]}
+            />
           </div>
         </div>
       )}
@@ -593,33 +597,49 @@ export default function AssertionRowEditor({
             className="assertion-input assertion-input--desc-inline"
             aria-label="Custom predicate description"
           />
-          <span
+          <button
+            type="button"
             className="assertion-custom-hint-tip"
             title="Use $.body, $.status, $.headers, $.responseTime — supports all 113 expression functions including lambdas"
+            onClick={(e) => {
+              const btn = e.currentTarget;
+              const existing = btn.parentElement?.querySelector('.assertion-custom-hint-pop');
+              if (existing) { existing.remove(); return; }
+              const pop = document.createElement('div');
+              pop.className = 'assertion-custom-hint-pop';
+              pop.textContent = 'Use $.body, $.status, $.headers, $.responseTime — supports all 113 expression functions including lambdas';
+              btn.parentElement?.appendChild(pop);
+              const dismiss = (ev: MouseEvent) => {
+                if (!pop.contains(ev.target as Node) && ev.target !== btn) {
+                  pop.remove();
+                  document.removeEventListener('mousedown', dismiss);
+                }
+              };
+              setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+            }}
+            aria-label="Expression syntax help"
           >
             i
-          </span>
+          </button>
         </div>
       )}
 
       {a.type === 'wsField' && (
         <div className="assertion-field">
-          <select
+          <CustomSelect
             value={a.target.startsWith('ws.$.') ? 'ws.$.' : a.target.startsWith('ws.header.') ? 'ws.header.' : a.target}
-            onChange={(e) => {
-              const v = e.target.value as WsAssertionTarget;
-              updateAssertion({ target: v });
-            }}
+            onChange={(v) => updateAssertion({ target: v as WsAssertionTarget })}
             className="assertion-select"
             aria-label="WS target"
-          >
-            <option value="ws.body">ws.body</option>
-            <option value="ws.type">ws.type</option>
-            <option value="ws.protocol">ws.protocol</option>
-            <option value="ws.connectionId">ws.connectionId</option>
-            <option value="ws.header.">ws.header.name</option>
-            <option value="ws.$.">ws.$.path (JSON)</option>
-          </select>
+            options={[
+              { value: 'ws.body', label: 'ws.body' },
+              { value: 'ws.type', label: 'ws.type' },
+              { value: 'ws.protocol', label: 'ws.protocol' },
+              { value: 'ws.connectionId', label: 'ws.connectionId' },
+              { value: 'ws.header.', label: 'ws.header.name' },
+              { value: 'ws.$.', label: 'ws.$.path (JSON)' },
+            ]}
+          />
           {a.target.startsWith('ws.header.') && (
             <input
               value={a.target.slice(10)}
@@ -638,16 +658,17 @@ export default function AssertionRowEditor({
               aria-label="JSONPath within WS body"
             />
           )}
-          <select
+          <CustomSelect
             value={a.operator}
-            onChange={(e) => updateAssertion({ operator: e.target.value as AssertionOperator })}
+            onChange={(v) => updateAssertion({ operator: v as AssertionOperator })}
             className="assertion-select"
-          >
-            <option value="equals">equals</option>
-            <option value="contains">contains</option>
-            <option value="regex">regex</option>
-            <option value="exists">exists</option>
-          </select>
+            options={[
+              { value: 'equals', label: 'equals' },
+              { value: 'contains', label: 'contains' },
+              { value: 'regex', label: 'regex' },
+              { value: 'exists', label: 'exists' },
+            ]}
+          />
           {a.operator !== 'exists' && (
             <input
               value={a.value ?? ''}
@@ -661,15 +682,16 @@ export default function AssertionRowEditor({
 
       {a.type === 'wsNumericField' && (
         <div className="assertion-field">
-          <select
+          <CustomSelect
             value={a.target}
-            onChange={(e) => updateAssertion({ target: e.target.value as WsNumericAssertionTarget })}
+            onChange={(v) => updateAssertion({ target: v as WsNumericAssertionTarget })}
             className="assertion-select"
             aria-label="WS numeric target"
-          >
-            <option value="ws.latencyMs">ws.latencyMs</option>
-            <option value="ws.size">ws.size</option>
-          </select>
+            options={[
+              { value: 'ws.latencyMs', label: 'ws.latencyMs' },
+              { value: 'ws.size', label: 'ws.size' },
+            ]}
+          />
           <ComparisonSelect
             value={a.operator}
             onChange={(op) => updateAssertion({ operator: op })}
@@ -688,21 +710,19 @@ export default function AssertionRowEditor({
 
       {a.type === 'kafkaField' && (
         <div className="assertion-field">
-          <select
+          <CustomSelect
             value={a.target.startsWith('kafka.header.') ? 'kafka.header.' : a.target}
-            onChange={(e) => {
-              const v = e.target.value as KafkaAssertionTarget;
-              updateAssertion({ target: v });
-            }}
+            onChange={(v) => updateAssertion({ target: v as KafkaAssertionTarget })}
             className="assertion-select"
             aria-label="Kafka target"
-          >
-            <option value="kafka.body">kafka.body</option>
-            <option value="kafka.key">kafka.key</option>
-            <option value="kafka.partition">kafka.partition</option>
-            <option value="kafka.offset">kafka.offset</option>
-            <option value="kafka.header.">kafka.header.name</option>
-          </select>
+            options={[
+              { value: 'kafka.body', label: 'kafka.body' },
+              { value: 'kafka.key', label: 'kafka.key' },
+              { value: 'kafka.partition', label: 'kafka.partition' },
+              { value: 'kafka.offset', label: 'kafka.offset' },
+              { value: 'kafka.header.', label: 'kafka.header.name' },
+            ]}
+          />
           {a.target.startsWith('kafka.header.') && (
             <input
               value={a.target.slice(13)}
@@ -712,16 +732,17 @@ export default function AssertionRowEditor({
               aria-label="Kafka header name"
             />
           )}
-          <select
+          <CustomSelect
             value={a.operator}
-            onChange={(e) => updateAssertion({ operator: e.target.value as AssertionOperator })}
+            onChange={(v) => updateAssertion({ operator: v as AssertionOperator })}
             className="assertion-select"
-          >
-            <option value="equals">equals</option>
-            <option value="contains">contains</option>
-            <option value="regex">regex</option>
-            <option value="exists">exists</option>
-          </select>
+            options={[
+              { value: 'equals', label: 'equals' },
+              { value: 'contains', label: 'contains' },
+              { value: 'regex', label: 'regex' },
+              { value: 'exists', label: 'exists' },
+            ]}
+          />
           {a.operator !== 'exists' && (
             <input
               value={a.value ?? ''}

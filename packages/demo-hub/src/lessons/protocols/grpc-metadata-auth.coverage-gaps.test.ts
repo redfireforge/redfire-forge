@@ -144,9 +144,12 @@ describe('grpc-metadata-auth coverage gaps', () => {
     expect(step.preAction).toBeUndefined();
   });
 
-  it('intro action opens drawer when not already open', async () => {
+  it('intro step highlights the connection-bar gear for session settings', () => {
+    expect(getStep('grpc18-intro').highlight).toBe(GRPC.CONNECTION_SETTINGS_BTN);
+  });
+
+  it('intro action skips gear click when settings drawer already open', async () => {
     const ctx = makeCtx();
-    const clickSpy = vi.fn();
     document.body.innerHTML = `
       <button data-testid="grpc-connection-settings-btn"></button>
       <div data-testid="grpc-connection-settings-drawer"></div>
@@ -157,25 +160,25 @@ describe('grpc-metadata-auth coverage gaps', () => {
       <button data-testid="grpc-settings-nav-health"></button>
       <button data-testid="grpc-settings-close"></button>
       <div data-testid="grpc-connection-bar"></div>
+      <button data-testid="grpc-request-tab-metadata"></button>
+      <div data-testid="grpc-auth-badge"></div>
+      <button data-testid="grpc-request-tab-auth"></button>
     `;
-    document.querySelector<HTMLElement>(GRPC.CONNECTION_SETTINGS_BTN)?.addEventListener('click', clickSpy);
     await getStep('grpc18-intro').action?.(ctx);
-    // Drawer already present so btn click should be skipped.
-    expect(clickSpy).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(GRPC.CONNECTION_SETTINGS_BTN);
   });
 
-  it('intro action triggers native click on connection settings btn when drawer absent', async () => {
+  it('intro action clicks the gear when settings drawer is absent', async () => {
     const ctx = makeCtx();
-    const nativeClickSpy = vi.fn();
     document.body.innerHTML = `
       <button data-testid="grpc-connection-settings-btn"></button>
       <div data-testid="grpc-connection-bar"></div>
       <div data-testid="grpc-auth-badge"></div>
+      <button data-testid="grpc-request-tab-metadata"></button>
+      <button data-testid="grpc-request-tab-auth"></button>
     `;
-    document.querySelector<HTMLElement>(GRPC.CONNECTION_SETTINGS_BTN)?.addEventListener('click', nativeClickSpy);
     await getStep('grpc18-intro').action?.(ctx);
-    // openSettingsDrawerQuiet uses native btn.click() when the drawer is absent.
-    expect(nativeClickSpy).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(GRPC.CONNECTION_SETTINGS_BTN);
   });
 
   // ---------------------------------------------------------------------------
@@ -423,7 +426,7 @@ describe('grpc-metadata-auth coverage gaps', () => {
     expect(helperSpies.ensureEchoMethodSelected).not.toHaveBeenCalled();
   });
 
-  it('conflict step action keeps delay budget under 6s', async () => {
+  it('conflict step action uses human-paced holds (under 16s)', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <button data-testid="grpc-request-tab-auth" aria-pressed="true"></button>
@@ -452,7 +455,9 @@ describe('grpc-metadata-auth coverage gaps', () => {
       .mocked(ctx.delay)
       .mock.calls
       .reduce((sum, [ms]) => sum + (typeof ms === 'number' ? ms : 0), 0);
-    expect(totalDelayMs).toBeLessThan(6000);
+    // Human pacing: Auth holds + Metadata tab/fill + conflict payoff (~10–14s).
+    expect(totalDelayMs).toBeGreaterThan(8000);
+    expect(totalDelayMs).toBeLessThan(16000);
   });
 
   // ---------------------------------------------------------------------------

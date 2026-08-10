@@ -22,6 +22,7 @@ export interface GrpcSavedRequestDetailProps {
   onCompareSchema?: () => void;
   onRunLoadTest?: () => void;
   onCopyGrpcurl: () => void;
+  onRename: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onUpdateResponseBaseline?: (baseline: GrpcResponseSnapshotBaseline) => void;
@@ -45,6 +46,7 @@ export function GrpcSavedRequestDetail({
   onCompareSchema,
   onRunLoadTest,
   onCopyGrpcurl,
+  onRename,
   onDuplicate,
   onDelete,
   onUpdateResponseBaseline,
@@ -87,6 +89,9 @@ export function GrpcSavedRequestDetail({
         <div className="grpc-saved-request-detail__actions">
           <button type="button" className="grpc-btn grpc-btn--ghost grpc-btn--sm" data-testid="grpc-saved-request-copy-grpcurl" onClick={onCopyGrpcurl}>
             Copy grpcurl
+          </button>
+          <button type="button" className="grpc-btn grpc-btn--ghost grpc-btn--sm" data-testid="grpc-saved-request-rename" onClick={onRename}>
+            Rename
           </button>
           <button type="button" className="grpc-btn grpc-btn--ghost grpc-btn--sm" data-testid="grpc-saved-request-duplicate" onClick={onDuplicate}>
             Duplicate

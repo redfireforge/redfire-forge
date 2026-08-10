@@ -69,7 +69,7 @@ describe('GalleryPage', () => {
     const { container } = render(<GalleryPage />);
     const firstCard = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(firstCard);
-    expect(screen.getByLabelText('Close detail panel')).toBeTruthy();
+    expect(screen.getByTestId('gallery-detail-close')).toBeTruthy();
   });
 
   it('calls onImportWorkflow when a workflow entry is imported', () => {

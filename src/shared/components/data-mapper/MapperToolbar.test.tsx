@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import MapperToolbar from './MapperToolbar';
 
 vi.mock('./utils/mappingProfiles', () => ({
@@ -423,7 +424,7 @@ describe('MapperToolbar', () => {
       advancedOpen: true,
       onAdvancedOpenChange: vi.fn(),
     });
-    fireEvent.change(screen.getByLabelText('Auto-map confidence threshold'), { target: { value: '75' } });
+    selectOption(screen.getByLabelText('Auto-map confidence threshold').closest('.cs-wrapper')!, '≥ 75%');
     expect(onThreshold).toHaveBeenCalledWith(75);
   });
 

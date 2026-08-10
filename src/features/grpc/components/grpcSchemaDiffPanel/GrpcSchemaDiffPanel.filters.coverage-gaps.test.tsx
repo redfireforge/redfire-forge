@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import type { GrpcSchemaDiffChange } from '../../../../shared/grpc/grpcSchemaDiffContracts';
 import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
 import { computeGrpcStudioSchemaDiffReport } from '../../utils/grpcStudioAdvancedCommands';
@@ -225,9 +226,7 @@ describe('GrpcSchemaDiffPanel coverage gaps — filters and export', () => {
     );
 
     fireEvent.click(within(screen.getByTestId('grpc-schema-diff-summary')).getByText('Breaking'));
-    fireEvent.change(screen.getByTestId('grpc-schema-diff-severity-filter'), {
-      target: { value: 'non_breaking' },
-    });
+    selectOption(screen.getByTestId('grpc-schema-diff-severity-filter'), 'Non-breaking only');
     expect(setSchemaDiffSeverityFilter).toHaveBeenCalledWith('breaking');
 
     rerender(

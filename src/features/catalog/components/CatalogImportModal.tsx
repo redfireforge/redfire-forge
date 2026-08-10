@@ -183,9 +183,13 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
     <FullPanelModal
       title={reimportEntryId ? 'Re-import / Update Specification' : 'Import OpenAPI Specification'}
       onClose={onClose}
-      dialogClassName="cat-modal"
+      dialogClassName="cat-modal cat-import-dialog"
+      movable
+      resizable
+      minWidth={520}
+      minHeight={380}
       footer={(
-        <>
+        <div className="cat-import-footer">
           <button
             className="cat-btn"
             onClick={step === 'error' || step === 'preview' ? () => { setStep('pick'); setParsed(null); setError(''); } : onClose}
@@ -193,24 +197,37 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
             {step === 'pick' ? 'Close' : 'Back'}
           </button>
           {step === 'preview' && (
-            <button className="cat-btn cat-btn-primary" onClick={handleImport}>
+            <button className="cat-btn cat-btn-primary" data-testid="catalog-import-confirm-btn" onClick={handleImport}>
               {duplicate && !hashMatch ? 'Update' : hashMatch ? 'Import Anyway' : 'Import'}
             </button>
           )}
-        </>
+        </div>
       )}
     >
           {step === 'pick' && (
             <>
               <div className="cat-import-tabs">
                 <button className={`cat-import-tab ${inputMode === 'file' ? 'active' : ''}`}
-                  onClick={() => setInputMode('file')}>Upload File</button>
+                  onClick={() => setInputMode('file')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Upload File
+                </button>
                 <button className={`cat-import-tab ${inputMode === 'paste' ? 'active' : ''}`}
-                  onClick={() => setInputMode('paste')}>Paste YAML / JSON</button>
+                  onClick={() => setInputMode('paste')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                  Paste YAML / JSON
+                </button>
                 <button className={`cat-import-tab ${inputMode === 'url' ? 'active' : ''}`}
-                  onClick={() => setInputMode('url')}>From URL</button>
+                  onClick={() => setInputMode('url')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  From URL
+                </button>
                 <button className={`cat-import-tab ${inputMode === 'gallery' ? 'active' : ''}`}
-                  onClick={() => setInputMode('gallery')}>Sample Gallery</button>
+                  data-testid="catalog-import-tab-gallery"
+                  onClick={() => setInputMode('gallery')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                  Sample Gallery
+                </button>
               </div>
 
               {inputMode === 'file' ? (
@@ -219,10 +236,18 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                   onDragOver={e => e.preventDefault()}
                   onDrop={handleDrop}
                 >
-                  <div className="cat-dropzone-icon">📄</div>
+                  <div className="cat-dropzone-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="12" y1="18" x2="12" y2="12"/>
+                      <polyline points="9 15 12 12 15 15"/>
+                    </svg>
+                  </div>
                   <div className="cat-dropzone-text">
                     {tauriDragHover ? 'Drop file here' : 'Drag & drop a .yaml or .json file'}
                   </div>
+                  <div className="cat-dropzone-or">or</div>
                   <div className="cat-dropzone-actions">
                     {isTauri() ? (
                       <button className="cat-btn cat-btn-primary" onClick={handleTauriOpen}>
@@ -332,7 +357,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                       ))}
                     </div>
                   </div>
-                  <div className="cat-gallery-grid">
+                  <div className="cat-gallery-grid" data-testid="catalog-import-gallery-grid">
                     {catalogSpecCatalog
                       .filter(s => galleryCategory === 'all' || s.category === galleryCategory)
                       .filter(s => !gallerySearch || s.name.toLowerCase().includes(gallerySearch.toLowerCase()) || s.description.toLowerCase().includes(gallerySearch.toLowerCase()))
@@ -340,6 +365,8 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                         <button
                           key={sample.id}
                           className="cat-gallery-card"
+                          data-testid="catalog-import-gallery-card"
+                          data-gallery-id={sample.id}
                           onClick={() => handleFile(sample.specYaml, `${sample.name}.yaml`)}
                         >
                           <div className="cat-gallery-card-header">
@@ -366,7 +393,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
           )}
 
           {step === 'preview' && parsed && (
-            <div className="cat-import-preview">
+            <div className="cat-import-preview" data-testid="catalog-import-preview">
               <div className="cat-preview-status cat-preview-success">
                 ✅ Valid {getSpecFormatLabel(parsed.rawSpec)} specification
               </div>

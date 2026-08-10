@@ -11,8 +11,10 @@ import {
 
 import type { SubWorkflowNodeData, Workflow } from '../types/workflow';
 import type { WorkflowDesignerViewModel } from '../hooks/useWorkflowDesignerController';
+import { useHasLayoutSize } from '../hooks/useHasLayoutSize';
 import { nodeTypes, type WorkflowRFNode, type WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { WorkflowNodeRunContext, WorkflowDebugStepContext } from './panels/WorkflowNodeRunContext';
+import { PublishedCatalogContext } from '../contexts/PublishedCatalogContext';
 import { getNodeMiniMapColor } from '../utils/workflowDesignerUtils';
 import WorkflowExecSummary from './panels/WorkflowExecSummary';
 import VariableContextBadge from './panels/VariableContextBar';
@@ -21,6 +23,12 @@ import WorkflowCanvasControls from './canvas/WorkflowCanvasControls';
 import EmptyCanvasTemplates from './canvas/EmptyCanvasTemplates';
 import OnboardingTooltip from './canvas/OnboardingTooltip';
 import type { EmptyCanvasTemplate } from '../data/emptyCanvasTemplates';
+import type { CatalogFolder } from '../../catalog/types/catalog';
+
+/** During Demo Hub Preparing, animate fits at duration 0 so nodes do not slide. */
+function demoBootFitDuration(preferred: number): number {
+  return document.body.getAttribute('data-demo-bootstrapping') === '1' ? 0 : preferred;
+}
 
 /** Drop overlay, preview banner, React Flow instance, variable badge, and node context menu. */
 export function WorkflowDesignerFlowCanvas({
@@ -83,9 +91,29 @@ export function WorkflowDesignerFlowCanvas({
     onLoadTemplate,
     onBrowseGallery,
     onboarding,
+    catalogEntries = [],
   } = vm;
 
+  const publishedCatalogKeys = useMemo(() => {
+    const keys = new Set<string>();
+    const isPublished = (ep: { workflowPublication?: unknown; workflowExposure?: string }) =>
+      !!(ep.workflowPublication || ep.workflowExposure === 'published');
+    const scanFolders = (folders: CatalogFolder[], entryId: string) => {
+      for (const f of folders) {
+        for (const ep of f.endpoints) if (isPublished(ep)) keys.add(`${entryId}::${ep.id}`);
+        scanFolders(f.folders, entryId);
+      }
+    };
+    for (const entry of catalogEntries) {
+      for (const ep of entry.endpoints) if (isPublished(ep)) keys.add(`${entry.id}::${ep.id}`);
+      scanFolders(entry.folders, entry.id);
+    }
+    return keys;
+  }, [catalogEntries]);
+
   const { getViewport, setViewport, fitView } = useReactFlow();
+  // Skip React Flow while the canvas box is 0×0 (hidden tab / maximized console).
+  const canvasHasSize = useHasLayoutSize(canvasAreaRef);
 
   // Track the last known viewport so we can restore it when the tab becomes visible again.
   const lastViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
@@ -125,25 +153,41 @@ export function WorkflowDesignerFlowCanvas({
   // Uses setTimeout to let ReactFlow finish measuring node dimensions first.
   const prevWorkflowIdRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!canvasHasSize) return;
     if (previewWorkflow) return;
     if (!selected) return;
     if (prevWorkflowIdRef.current === selected.id) return;
     prevWorkflowIdRef.current = selected.id;
-    if (selected.savedViewport) {
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        // Always fit on workflow open — never zoom past 100% (small graphs stay regular size).
+        fitView({
+          padding: 0.08,
+          maxZoom: 1,
+          minZoom: 0.4,
+          duration: demoBootFitDuration(200),
+        });
+      });
+    }, 120);
+  }, [selected, previewWorkflow, setViewport, fitView, canvasHasSize]);
+
+  // After the canvas regains size (tab shown / console un-maximized), fit again.
+  const wasSizedRef = useRef(canvasHasSize);
+  useEffect(() => {
+    if (canvasHasSize && !wasSizedRef.current && !previewWorkflow) {
       setTimeout(() => {
         requestAnimationFrame(() => {
-          setViewport(selected.savedViewport!, { duration: 0 });
+          fitView({
+            padding: 0.08,
+            maxZoom: 1,
+            minZoom: 0.4,
+            duration: demoBootFitDuration(200),
+          });
         });
-      }, 120);
-    } else {
-      setTimeout(() => {
-        requestAnimationFrame(() => {
-          // Keep nodes readable — tall graphs used to zoom out below ~0.5×.
-          fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
-        });
-      }, 120);
+      }, 50);
     }
-  }, [selected, previewWorkflow, setViewport, fitView]);
+    wasSizedRef.current = canvasHasSize;
+  }, [canvasHasSize, previewWorkflow, fitView]);
 
   // Expose demo-player bridge helpers so lesson actions can manipulate the canvas
   // without relying on synthetic mouse events (which ReactFlow ignores).
@@ -181,9 +225,10 @@ export function WorkflowDesignerFlowCanvas({
       // Default asymmetric padding: LiveDemo card covers the right side of the canvas.
       fitView({
         padding: opts?.padding ?? { top: 0.08, right: 0.34, bottom: 0.1, left: 0.06 },
-        maxZoom: opts?.maxZoom ?? 1.35,
-        minZoom: opts?.minZoom ?? 0.9,
-        duration: opts?.duration ?? 250,
+        // Default maxZoom 1 — demo small graphs must not inflate past 100%.
+        maxZoom: opts?.maxZoom ?? 1,
+        minZoom: opts?.minZoom ?? 0.4,
+        duration: demoBootFitDuration(opts?.duration ?? 250),
         includeHiddenNodes: true,
       });
       return true;
@@ -251,7 +296,7 @@ export function WorkflowDesignerFlowCanvas({
         />
       )}
       {previewWorkflow && (
-        <div className="wf-preview-banner">
+        <div className="wf-preview-banner" data-testid="wf-sample-preview-banner">
           <span>📚 Sample Preview: <strong>{previewWorkflow.name}</strong></span>
           <span className="wf-preview-desc">{previewWorkflow.description}</span>
           <div className="wf-preview-actions">
@@ -259,10 +304,20 @@ export function WorkflowDesignerFlowCanvas({
               const currentNodes = serializeNodes(nodes);
               onUseAsTemplate({ ...previewWorkflow, nodes: currentNodes });
             }}>Use as Template</button>
-            <button className="btn btn-sm" onClick={onClearPreview}>Close Preview</button>
+            <button
+              className="btn btn-sm"
+              data-testid="wf-sample-preview-close"
+              onClick={onClearPreview}
+            >
+              Close Preview
+            </button>
           </div>
         </div>
       )}
+      {/* Absolute host gives RF a definite 100% box (RF forces position:relative). */}
+      <div className="wf-react-flow-host">
+      {canvasHasSize && (
+      <PublishedCatalogContext.Provider value={publishedCatalogKeys}>
       <WorkflowNodeRunContext.Provider value={nodeStatuses}>
       <WorkflowDebugStepContext.Provider value={isDebugMode ? handleDebugStep : null}>
         <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
@@ -329,6 +384,9 @@ export function WorkflowDesignerFlowCanvas({
         </ReactFlow>
       </WorkflowDebugStepContext.Provider>
       </WorkflowNodeRunContext.Provider>
+      </PublishedCatalogContext.Provider>
+      )}
+      </div>
 
       {Object.keys(runVariableSnapshot ?? workflowVariables).length > 0 && (
         <VariableContextBadge variables={runVariableSnapshot ?? workflowVariables} />

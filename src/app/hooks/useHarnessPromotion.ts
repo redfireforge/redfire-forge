@@ -12,28 +12,10 @@ import type { BatchSendToHarnessPayload } from '../../features/requests/componen
 import { batchPromoteCollection, promoteToFeatureGroups } from '../../features/requests/utils/promoteToHarness';
 import type { PromotionContext } from '../../features/requests/utils/requestToScenario';
 import { catalogEndpointToRequest } from '../../features/catalog/utils/catalogEndpointToRequest';
-import type { RequestEnv } from '../../shared/types';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
 import type { ToastApi } from '../../features/workflow/components/WorkflowToastProvider';
 import type { Tab } from '../utils/appTabUtils';
 
-/**
- * Map an app-level Environment ID to the matching Requests workbench env ID.
- * Collection baseUrls are keyed by workbench env IDs (matched by name).
- */
-function resolveWbEnvId(
-  appEnvId: string | undefined,
-  wbEnvs: RequestEnv[],
-  appEnvs: Environment[],
-): string | undefined {
-  if (!appEnvId) return undefined;
-  const wbDirect = wbEnvs.find(e => e.id === appEnvId);
-  if (wbDirect) return wbDirect.id;
-  const appEnv = appEnvs.find(e => e.id === appEnvId);
-  if (!appEnv) return undefined;
-  const wbByName = wbEnvs.find(e => e.name === appEnv.name);
-  return wbByName?.id;
-}
 
 export type CatalogHarnessEndpointState =
   | { entry: CatalogEntry; endpoint: CatalogEndpoint; fromTryItOut?: boolean }
@@ -99,7 +81,6 @@ export function useHarnessPromotion(params: UseHarnessPromotionParams): UseHarne
     return {
       collection: wb.selectedCollection,
       selectedEnvId: wb.selectedEnvId,
-      environments: wb.environments,
       globalAuthProfiles: appGlobalAuthProfiles,
       microservices,
       appEnvironments: environments,
@@ -108,7 +89,6 @@ export function useHarnessPromotion(params: UseHarnessPromotionParams): UseHarne
     wb.selectedCollection,
     wb.selectedRequest,
     wb.selectedEnvId,
-    wb.environments,
     appGlobalAuthProfiles,
     microservices,
     environments,
@@ -166,14 +146,12 @@ export function useHarnessPromotion(params: UseHarnessPromotionParams): UseHarne
     const effectiveEnvId = payload.environmentId ?? selectedEnvId;
     const effectiveSvcId = payload.microserviceId ?? selectedSvcId;
 
-    const resolvedEnvForUrls = resolveWbEnvId(
-      effectiveEnvId, wb.environments, environments,
-    ) ?? wb.selectedEnvId;
+    const knownEnv = effectiveEnvId && environments.some(e => e.id === effectiveEnvId);
+    const resolvedEnvForUrls = knownEnv ? effectiveEnvId : (wb.selectedEnvId ?? effectiveEnvId);
 
     const ctx: PromotionContext = {
       collection: col,
       selectedEnvId: resolvedEnvForUrls,
-      environments: wb.environments,
       globalAuthProfiles: appGlobalAuthProfiles,
       microservices,
       appEnvironments: environments,
@@ -200,7 +178,6 @@ export function useHarnessPromotion(params: UseHarnessPromotionParams): UseHarne
     );
     return {
       collection: { id: '__catalog__', name: entry.name, mode: 'direct', requests: [tempReq] },
-      environments: [],
       globalAuthProfiles: [],
       microservices: [],
     };

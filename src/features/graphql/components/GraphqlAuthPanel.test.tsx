@@ -4,6 +4,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GraphqlAuthPanel } from './GraphqlAuthPanel';
 
 describe('GraphqlAuthPanel', () => {
@@ -90,7 +91,7 @@ describe('GraphqlAuthPanel', () => {
         defaultAuthProfileId="p1"
       />,
     );
-    fireEvent.change(screen.getByTestId('gql-auth-type-select'), { target: { value: 'inherit' } });
+    selectOption(screen.getByTestId('gql-auth-type-select'), 'Inherit from Auth Profile');
     expect(onChange).toHaveBeenCalledWith({ type: 'inherit', globalProfileId: 'p1' });
   });
 });

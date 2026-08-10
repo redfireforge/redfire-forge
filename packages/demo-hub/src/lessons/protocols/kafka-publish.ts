@@ -17,7 +17,7 @@ export const kafkaPublishLesson: DemoLesson = {
   name: 'Publish Studio',
   description:
     'Send a Kafka message and immediately see the partition, offset, and timestamp in the success panel.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'kafka-message-studio',
   // Setup navigates to kafka-settings to auto-create + connect the cluster —
   // declare it as allowed so useDemoShortcuts does not auto-exit during setup.
@@ -123,11 +123,9 @@ export const kafkaPublishLesson: DemoLesson = {
       description:
         'The **Publish** tab is your Kafka producer. It has four key fields: **Topic** (the destination), **Key** (determines which partition), **Body** (the message payload), and **Acks** (durability guarantee). The next steps will walk through each one.',
       highlight: KAFKA.PUBLISH_TAB,
-      // Navigate to the Publish tab before spotlighting it — setup returns to the
-      // studio but doesn't guarantee the Publish tab is the active one.
-      preAction: async (ctx) => {
-        await ctx.click(KAFKA.PUBLISH_TAB);
-        await ctx.delay(300);
+      action: async (ctx) => {
+        await ctx.waitFor(KAFKA.PUBLISH_TAB, 3000);
+        await ctx.delay(600);
       },
     },
     {
@@ -145,11 +143,81 @@ export const kafkaPublishLesson: DemoLesson = {
       id: 'pub-body',
       title: 'Write the Message Body',
       description:
-        'The **Message Body** is the event payload — any valid JSON. Here we send an order event with `orderId`, `status`, and `amount`. We will format and validate it in a moment.',
+        'The **Message Body** is the event payload — any valid JSON. Here we send an order event with `orderId`, `status`, and `amount`. Click **Pretty Format** to auto-indent the JSON for readability.',
       highlight: KAFKA.PUB_BODY_TEXTAREA,
       action: async (ctx) => {
         await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, DEMO_BODY);
-        await ctx.delay(400);
+        await ctx.delay(600);
+        // Click Pretty Format to auto-indent the JSON
+        const prettyBtn = document.querySelector<HTMLElement>('[data-testid="pub-pretty-format-badge"]');
+        if (prettyBtn) {
+          prettyBtn.click();
+          await ctx.delay(800);
+        }
+      },
+    },
+    {
+      id: 'pub-expand',
+      title: 'Full Body Editor',
+      description:
+        'Click **⤢ Expand** to open the full-screen body editor. Inside you get **line numbers**, a **search bar** with match navigation (⌘F), and **Pretty / Minify** formatting — essential when working with large JSON payloads. Click **Apply** to save changes back.',
+      highlight: KAFKA.PUB_BODY_EXPAND,
+      action: async (ctx) => {
+        const ring = (el: HTMLElement) => {
+          el.style.outline = '2px solid var(--primary)';
+          el.style.outlineOffset = '2px';
+          el.style.borderRadius = '6px';
+        };
+        const unring = (el: HTMLElement) => {
+          el.style.outline = '';
+          el.style.outlineOffset = '';
+          el.style.borderRadius = '';
+        };
+
+        await ctx.click(KAFKA.PUB_BODY_EXPAND);
+        await ctx.delay(1500);
+
+        // Spotlight the editor content area (textarea)
+        const textarea = document.querySelector<HTMLElement>('.kbe-textarea');
+        if (textarea) {
+          ring(textarea);
+          await ctx.delay(1500);
+          unring(textarea);
+        }
+
+        // Spotlight the search bar
+        const searchInput = document.querySelector<HTMLElement>('.kbe-search');
+        if (searchInput) {
+          ring(searchInput);
+          await ctx.delay(1200);
+          unring(searchInput);
+        }
+
+        // Spotlight Pretty & Minify buttons together
+        const toolbar = document.querySelector<HTMLElement>('.kbe-toolbar-actions');
+        if (toolbar) {
+          ring(toolbar);
+          await ctx.delay(1200);
+          // Click Pretty while highlighted
+          const prettyBtn = toolbar.querySelector<HTMLElement>('.kbe-action-btn');
+          if (prettyBtn) {
+            prettyBtn.click();
+            await ctx.delay(1500);
+          }
+          unring(toolbar);
+        }
+
+        // Pause on the formatted result
+        await ctx.delay(800);
+
+        // Click Apply to close
+        const applyBtn = document.querySelector<HTMLElement>('.kbe-btn--primary');
+        if (applyBtn) {
+          ring(applyBtn);
+          await ctx.delay(1000);
+          applyBtn.click();
+          await ctx.delay(600);
+        }
       },
     },
     {
@@ -169,7 +237,46 @@ export const kafkaPublishLesson: DemoLesson = {
       description:
         '**Acks** controls durability. `all (–1)` waits for the leader AND all in-sync replicas to confirm — maximum safety. `leader (1)` waits for the leader only — faster, slight risk. `none (0)` is fire-and-forget. Leave it at `all` for reliable production use.',
       highlight: KAFKA.PUB_ACKS_SELECT,
-      // Informational — no action. Acks stays at default `all (–1)`.
+      action: async (ctx) => {
+        const ring = (el: HTMLElement) => {
+          el.style.outline = '2px solid var(--primary)';
+          el.style.outlineOffset = '2px';
+          el.style.borderRadius = '6px';
+        };
+        const unring = (el: HTMLElement) => {
+          el.style.outline = '';
+          el.style.outlineOffset = '';
+          el.style.borderRadius = '';
+        };
+
+        // Open the actual trigger button so the menu is guaranteed to render.
+        const triggerSelector = `${KAFKA.PUB_ACKS_SELECT} .cs-trigger`;
+        await ctx.click(triggerSelector);
+        await ctx.waitFor('.cs-menu', 2000);
+        await ctx.delay(900);
+
+        const menu = document.querySelector<HTMLElement>('.cs-menu');
+        if (!menu) return;
+
+        const options = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item'));
+        for (const option of options) {
+          option.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
+          ring(option);
+          await ctx.delay(1200);
+          unring(option);
+          await ctx.delay(300);
+        }
+
+        // Keep the default safety profile selected and close the dropdown.
+        const selected = menu.querySelector<HTMLElement>('.cs-item.active') ?? options[0];
+        if (selected) {
+          ring(selected);
+          await ctx.delay(1100);
+          unring(selected);
+          selected.click();
+          await ctx.delay(700);
+        }
+      },
     },
     {
       id: 'pub-format',

@@ -15,6 +15,11 @@ import {
   WS_DEFAULT_MOCK_URL,
 } from './ws-helpers';
 
+async function selectWsAuthType(page: Page, value: string): Promise<void> {
+  await page.getByTestId('ws-auth-type-trigger').click();
+  await page.getByTestId(`ws-auth-type-opt-${value}`).click();
+}
+
 const MOCK_URL = WS_DEFAULT_MOCK_URL;
 
 /* ── local aliases ───────────────────────────────────── */
@@ -437,7 +442,8 @@ test.describe('Config Lock (WC-30)', () => {
     await switchLeftTab(page, 'connect');
     // Wait for config lock to take effect after connection
     await expect(page.locator('[aria-label="WebSocket URL"]')).toBeDisabled({ timeout: 10000 });
-    await expect(page.locator('[data-testid="protocol-select"]')).toBeDisabled();
+    // CustomSelect exposes disabled on the trigger button, not the wrapper.
+    await expect(page.locator('[data-testid="protocol-select"] .cs-trigger')).toBeDisabled();
     await expect(page.locator('text=Connection settings are locked')).toBeVisible();
   });
 });
@@ -599,7 +605,11 @@ test.describe('Close with Code (WC-38)', () => {
     await expect(codeInput).toBeVisible();
     const reasonInput = page.locator('[data-testid="close-reason-input"]');
     await expect(reasonInput).toBeVisible();
-    await expect(page.locator('text=1000 Normal')).toBeVisible();
+    // Preset chips render code + label in separate spans.
+    const presets = page.locator('[data-testid="close-code-presets"]');
+    await expect(presets).toBeVisible();
+    await expect(presets).toContainText('1000');
+    await expect(presets).toContainText('Normal');
     await codeInput.fill('1000');
     await reasonInput.fill('Normal closure test');
     const closeBtn = page.locator('[data-testid="close-with-code-btn"]');
@@ -632,19 +642,18 @@ test.describe('Connection Auth (WC-A01–A03)', () => {
     await gotoWsStudio(page);
     await switchLeftTab(page, 'auth');
     await expect(page.locator('text=Connection Auth')).toBeVisible();
-    const typeSelect = page.locator('select').filter({ has: page.locator('option:has-text("No Auth")') });
-    await expect(typeSelect).toBeVisible();
-    const options = await typeSelect.locator('option').allTextContents();
-    expect(options).toContain('No Auth');
-    expect(options).toContain('Bearer Token');
-    expect(options).toContain('Basic Auth');
+    await expect(page.getByTestId('ws-auth-type-trigger')).toBeVisible();
+    await page.getByTestId('ws-auth-type-trigger').click();
+    await expect(page.getByTestId('ws-auth-type-opt-none')).toBeVisible();
+    await expect(page.getByTestId('ws-auth-type-opt-bearer')).toBeVisible();
+    await expect(page.getByTestId('ws-auth-type-opt-basic')).toBeVisible();
+    await page.keyboard.press('Escape');
   });
 
   test('WC-A02: Bearer Token fields & masked preview', async ({ page }) => {
     await gotoWsStudio(page);
     await switchLeftTab(page, 'auth');
-    const typeSelect = page.locator('select').filter({ has: page.locator('option:has-text("No Auth")') });
-    await typeSelect.selectOption({ label: 'Bearer Token' });
+    await selectWsAuthType(page, 'bearer');
     await page.waitForTimeout(200);
     // Fill the token input field
     const tokenField = page.locator('input[placeholder*="eyJ"]');
@@ -664,8 +673,7 @@ test.describe('Connection Auth (WC-A01–A03)', () => {
   test('WC-A03: Auth forces proxy transport (browser)', async ({ page }) => {
     await gotoWsStudio(page);
     await switchLeftTab(page, 'auth');
-    const typeSelect = page.locator('select').filter({ has: page.locator('option:has-text("No Auth")') });
-    await typeSelect.selectOption({ label: 'Bearer Token' });
+    await selectWsAuthType(page, 'bearer');
     await page.waitForTimeout(200);
     const tokenField = page.locator('input[placeholder*="eyJ"]');
     if (await tokenField.count() > 0) {

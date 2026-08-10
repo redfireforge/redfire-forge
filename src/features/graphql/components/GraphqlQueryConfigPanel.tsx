@@ -5,11 +5,11 @@
  * Phase 4 — Step 3 (4C-1, 4C-2)
  */
 import { useState } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type {
   GraphqlQueryNodeData,
   GraphqlNodeHeaderRow,
   GraphqlExtractionRule,
-  GraphqlOutputBinding,
   NodeRunStatus,
 } from '../../workflow/types/workflow';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
@@ -38,21 +38,11 @@ import {
   GqlWfTabStack,
   type GqlWfSubTab,
 } from './GraphqlWfConfigLayout';
-
-// ── Output field options ──────────────────────────────────────────────────────
-
-const OUTPUT_FIELD_OPTIONS: GraphqlOutputBinding['field'][] = [
-  'data', 'errors', 'latencyMs', 'httpStatus', 'operationName',
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-// isValidIdentifier and isValidJson live in ../utils/graphqlPanelHelpers
-// and are imported above. They are not re-exported here to satisfy
-// react-refresh/only-export-components (non-component exports must be in separate files).
-
-function makeHeaderId(): string {
-  return Math.random().toString(36).slice(2, 10);
-}
+import {
+  OUTPUT_FIELD_OPTIONS,
+  GQL_WF_AUTH_TYPE_OPTIONS,
+  makeHeaderId,
+} from './GraphqlQueryConfigPanel.constants';
 
 // ── Sub-sections (exported for reuse in other GraphQL config panels) ──────────
 
@@ -72,63 +62,91 @@ export function GqlHeadersSection({
   onRequestVariableInsert,
 }: GqlHeadersSectionProps) {
   return (
-    <div data-testid="gql-wf-headers-section">
-      <div className="wf-kafka-section-title">
-        Headers
-        <button type="button" className="wf-section-add-btn" onClick={onAdd} data-testid="gql-wf-headers-add-btn">
-          + Add
-        </button>
-      </div>
-      {headers.length > 0 && (
-        <div className="wf-config-kv-col-headers">
-          <span className="wf-kv-col-toggle">On</span>
-          <span className="wf-kv-col-fill">Key</span>
-          <span className="wf-kv-col-fill">Value</span>
-          <span className="wf-kv-col-del" />
+    <div className="gql-wf-headers" data-testid="gql-wf-headers-section">
+      <div className="gql-wf-section-toolbar">
+        <div className="gql-wf-section-toolbar-text">
+          <h4 className="gql-wf-section-title">Request Headers</h4>
+          <p className="gql-wf-section-subtitle">
+            Sent with the GraphQL HTTP request. Use <code>{'{{variable}}'}</code> in values for
+            workflow or upstream data.
+          </p>
         </div>
-      )}
-      <div className="wf-config-kv-list">
-        {headers.map((row, index) => (
-          <div key={row.id} className="wf-config-kv-row">
-            <div className="wf-kv-toggle">
-              <input
-                type="checkbox"
-                checked={row.enabled}
-                onChange={(e) => headerCrud.update(index, { enabled: e.target.checked })}
-                aria-label={`Enable header ${row.key || index + 1}`}
-              />
-            </div>
-            <input
-              value={row.key}
-              placeholder="Header name"
-              onChange={(e) => headerCrud.update(index, { key: e.target.value })}
-              data-testid="gql-wf-header-key"
-            />
-            <InsertVarField
-              onRequestVariableInsert={onRequestVariableInsert}
-              shortRef
-              onInsert={(snippet) => headerCrud.update(index, { value: `${row.value}${snippet}` })}
-            >
-              <ExpressionInput
-                value={row.value}
-                onChange={(value) => headerCrud.update(index, { value })}
-                placeholder="value"
-                variableHints={variableHints}
-              />
-            </InsertVarField>
-            <button
-              type="button"
-              className="wf-kv-del-btn"
-              onClick={() => headerCrud.remove(index)}
-              aria-label={`Remove header ${row.key || index + 1}`}
-            >
-              ×
-            </button>
-          </div>
-        ))}
+        <div className="gql-wf-section-toolbar-actions">
+          <button
+            type="button"
+            className="btn btn-sm gql-wf-section-add-btn"
+            onClick={onAdd}
+            data-testid="gql-wf-headers-add-btn"
+          >
+            + Add header
+          </button>
+        </div>
       </div>
-      {headers.length === 0 && (
-        <div className="wf-config-empty-hint">No headers yet — click + Add</div>
+
+      {headers.length === 0 ? (
+        <div className="gql-wf-headers-empty">
+          <span>No headers yet.</span>
+          <span>
+            Click <strong>+ Add header</strong> to send custom HTTP headers with the request.
+          </span>
+        </div>
+      ) : (
+        <div className="gql-wf-headers-table" role="table" aria-label="Request headers">
+          <div className="gql-wf-headers-col-headers" aria-hidden="true">
+            <span className="gql-wf-headers-col gql-wf-headers-col-toggle">On</span>
+            <span className="gql-wf-headers-col gql-wf-headers-col-key">Name</span>
+            <span className="gql-wf-headers-col gql-wf-headers-col-value">Value</span>
+            <span className="gql-wf-headers-col gql-wf-headers-col-del" />
+          </div>
+          <div className="gql-wf-headers-list">
+            {headers.map((row, index) => (
+              <div key={row.id} className="gql-wf-headers-row">
+                <div className="gql-wf-headers-col gql-wf-headers-col-toggle">
+                  <input
+                    type="checkbox"
+                    checked={row.enabled}
+                    onChange={(e) => headerCrud.update(index, { enabled: e.target.checked })}
+                    aria-label={`Enable header ${row.key || index + 1}`}
+                  />
+                </div>
+                <div className="gql-wf-headers-col gql-wf-headers-col-key">
+                  <input
+                    value={row.key}
+                    placeholder="Header name"
+                    onChange={(e) => headerCrud.update(index, { key: e.target.value })}
+                    data-testid="gql-wf-header-key"
+                    spellCheck={false}
+                    aria-label={`Header name ${index + 1}`}
+                  />
+                </div>
+                <div className="gql-wf-headers-col gql-wf-headers-col-value">
+                  <InsertVarField
+                    onRequestVariableInsert={onRequestVariableInsert}
+                    shortRef
+                    onInsert={(snippet) => headerCrud.update(index, { value: `${row.value}${snippet}` })}
+                  >
+                    <ExpressionInput
+                      value={row.value}
+                      onChange={(value) => headerCrud.update(index, { value })}
+                      placeholder="value or {{variable}}"
+                      variableHints={variableHints}
+                    />
+                  </InsertVarField>
+                </div>
+                <div className="gql-wf-headers-col gql-wf-headers-col-del">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-danger"
+                    onClick={() => headerCrud.remove(index)}
+                    aria-label={`Remove header ${row.key || index + 1}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -154,24 +172,36 @@ export function GqlAuthSection({
     onChange({ ...(auth ?? {}), type: newType as GraphqlAuth['type'] });
   };
 
+  const authTypeOptions = [
+    ...GQL_WF_AUTH_TYPE_OPTIONS,
+    ...(type === 'oauth2'
+      ? [{ value: 'oauth2', label: 'OAuth 2.0 (not yet supported)', disabled: true }]
+      : []),
+  ];
+
+  const credentialRows = type !== 'none';
+
   return (
-    <div data-testid="gql-wf-auth-section">
-      <div className="wf-config-field--row">
-        <label>Auth type</label>
-        <select value={type} onChange={(e) => setType(e.target.value)} data-testid="gql-wf-auth-type-select">
-          <option value="none">None</option>
-          <option value="bearer">Bearer Token</option>
-          <option value="basic">Basic Auth</option>
-          <option value="apiKey">API Key</option>
-          <option value="custom">Custom Header</option>
-          {/* oauth2 is defined in GraphqlAuth but not yet supported in the workflow panel */}
-          {type === 'oauth2' && <option value="oauth2" disabled>OAuth 2.0 (not yet supported)</option>}
-        </select>
-      </div>
+    <div className="gql-wf-auth-section" data-testid="gql-wf-auth-section">
+      <GqlWfFormRow label="Auth type" last={!credentialRows}>
+        <CustomSelect
+          className="gql-wf-auth-type-select"
+          value={type}
+          onChange={(v) => setType(v)}
+          options={[...authTypeOptions]}
+          data-testid="gql-wf-auth-type-select"
+          aria-label="Auth type"
+          size="sm"
+        />
+        {type === 'none' && (
+          <span className="gql-wf-inline-hint">
+            No credentials — use when the endpoint is public or auth is handled elsewhere.
+          </span>
+        )}
+      </GqlWfFormRow>
 
       {type === 'bearer' && (
-        <div className="wf-config-field--row">
-          <label>Token</label>
+        <GqlWfFormRow label="Token" last>
           <InsertVarField
             onRequestVariableInsert={onRequestVariableInsert}
             shortRef
@@ -184,22 +214,20 @@ export function GqlAuthSection({
               variableHints={variableHints}
             />
           </InsertVarField>
-        </div>
+        </GqlWfFormRow>
       )}
 
       {type === 'basic' && (
         <>
-          <div className="wf-config-field--row">
-            <label>Username</label>
+          <GqlWfFormRow label="Username">
             <ExpressionInput
               value={auth?.username ?? ''}
               onChange={(value) => update({ username: value })}
               placeholder="user"
               variableHints={variableHints}
             />
-          </div>
-          <div className="wf-config-field--row">
-            <label>Password</label>
+          </GqlWfFormRow>
+          <GqlWfFormRow label="Password" last>
             <input
               type="password"
               value={auth?.password ?? ''}
@@ -207,23 +235,21 @@ export function GqlAuthSection({
               placeholder="••••"
               data-testid="gql-wf-auth-password"
             />
-          </div>
+          </GqlWfFormRow>
         </>
       )}
 
       {(type === 'apiKey' || type === 'custom') && (
         <>
-          <div className="wf-config-field--row">
-            <label>Header name</label>
+          <GqlWfFormRow label="Header name">
             <input
               value={auth?.headerName ?? ''}
               onChange={(e) => update({ headerName: e.target.value })}
               placeholder={type === 'apiKey' ? 'X-API-Key' : 'X-Custom-Header'}
               data-testid="gql-wf-auth-header-name"
             />
-          </div>
-          <div className="wf-config-field--row">
-            <label>Header value</label>
+          </GqlWfFormRow>
+          <GqlWfFormRow label="Header value" last>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
               shortRef
@@ -236,7 +262,7 @@ export function GqlAuthSection({
                 variableHints={variableHints}
               />
             </InsertVarField>
-          </div>
+          </GqlWfFormRow>
         </>
       )}
     </div>
@@ -286,26 +312,40 @@ export function GqlExtractionSection({
   const resultByIndex = (index: number): ExtractionTestResult | undefined =>
     testResults?.[index];
 
+  const matchedCount = testResults?.filter((r) => r.ok).length ?? 0;
+  const failedCount = testResults ? testResults.length - matchedCount : 0;
+
   return (
-    <div data-testid="gql-wf-extraction-table">
-      <div className="wf-kafka-section-title">
-        Extraction Rules
-        <button
-          type="button"
-          className="btn btn-xs"
-          onClick={handleTest}
-          data-testid="gql-wf-extraction-test-btn"
-          title="Test extraction rules against the last run response"
-        >
-          Test
-        </button>
-        <button type="button" className="wf-section-add-btn" onClick={onAdd} data-testid="gql-wf-extraction-add-btn">
-          + Add
-        </button>
+    <div className="gql-wf-extraction-rules" data-testid="gql-wf-extraction-table">
+      <div className="gql-wf-section-toolbar">
+        <div className="gql-wf-section-toolbar-text">
+          <h4 className="gql-wf-section-title">Extraction Rules</h4>
+          <p className="gql-wf-section-subtitle">
+            Pull values from the response <code>data</code> object with JSONPath and store them as{' '}
+            <code>{'{{variableName}}'}</code> for downstream nodes.
+          </p>
+        </div>
+        <div className="gql-wf-section-toolbar-actions">
+          <button
+            type="button"
+            className="btn btn-sm gql-wf-extraction-test-btn"
+            onClick={handleTest}
+            data-testid="gql-wf-extraction-test-btn"
+            title="Test extraction rules against the last run response"
+          >
+            Test
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm gql-wf-section-add-btn"
+            onClick={onAdd}
+            data-testid="gql-wf-extraction-add-btn"
+          >
+            + Add rule
+          </button>
+        </div>
       </div>
-      <div className="wf-config-hint">
-        Each rule applies a JSONPath to the response <code>data</code> object and stores the result as a workflow variable.
-      </div>
+
       {testMessage && (
         <p className="gql-wf-test-banner gql-wf-test-banner--warn" role="status" data-testid="gql-wf-extraction-test-msg">
           {testMessage}
@@ -313,63 +353,89 @@ export function GqlExtractionSection({
       )}
       {testResults && testResults.length > 0 && (
         <p
-          className={`gql-wf-test-banner ${testResults.every((r) => r.ok) ? 'gql-wf-test-banner--pass' : 'gql-wf-test-banner--fail'}`}
+          className={`gql-wf-test-banner ${failedCount === 0 ? 'gql-wf-test-banner--pass' : 'gql-wf-test-banner--fail'}`}
           role="status"
           data-testid="gql-wf-extraction-test-summary"
         >
-          {testResults.every((r) => r.ok)
+          {failedCount === 0
             ? `All ${testResults.length} extraction rule(s) matched.`
-            : `${testResults.filter((r) => !r.ok).length} of ${testResults.length} rule(s) failed.`}
+            : `${failedCount} of ${testResults.length} rule(s) failed.`}
         </p>
       )}
-      {rules.length === 0 && (
-        <div className="wf-config-empty-hint">No extraction rules yet — click + Add</div>
-      )}
-      {rules.map((rule, index) => {
-        const nameErr = rule.variableName.trim() !== '' && !isValidIdentifier(rule.variableName);
-        const testResult = resultByIndex(index);
-        return (
-          <div key={index} className="wf-config-kv-row" style={{ alignItems: 'flex-start', marginBottom: 6 }}>
-            <div style={{ flex: 1 }}>
-              <input
-                value={rule.jsonPath}
-                onChange={(e) => crud.update(index, { jsonPath: e.target.value })}
-                placeholder="$.user.id"
-                aria-label="JSONPath expression"
-                data-testid="gql-wf-extraction-jsonpath"
-              />
-            </div>
-            <span style={{ padding: '4px 6px', color: 'var(--text-muted, #888)' }}>→</span>
-            <div style={{ flex: 1 }}>
-              <input
-                value={rule.variableName}
-                onChange={(e) => crud.update(index, { variableName: e.target.value })}
-                placeholder="userId"
-                aria-label="Variable name"
-                data-testid="gql-wf-extraction-varname"
-                className={nameErr ? 'wf-input-error' : undefined}
-              />
-              {nameErr && <span className="wf-config-error">Must be a valid identifier</span>}
-              {testResult && (
-                <span
-                  className={testResult.ok ? 'gql-wf-test-inline gql-wf-test-inline--pass' : 'gql-wf-test-inline gql-wf-test-inline--fail'}
-                  data-testid="gql-wf-extraction-test-result"
-                >
-                  {testResult.ok ? `✓ ${testResult.value}` : `✗ ${testResult.error}`}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              className="wf-kv-del-btn"
-              onClick={() => crud.remove(index)}
-              aria-label={`Remove extraction rule ${index + 1}`}
-            >
-              ×
-            </button>
+
+      {rules.length === 0 ? (
+        <div className="gql-wf-extraction-empty">
+          <span>No extraction rules yet.</span>
+          <span>
+            Click <strong>+ Add rule</strong> to map a JSONPath from <code>data</code> to a workflow variable.
+          </span>
+        </div>
+      ) : (
+        <div className="gql-wf-extraction-table">
+          <div className="gql-wf-extraction-col-headers" aria-hidden="true">
+            <span className="gql-wf-extraction-col gql-wf-extraction-col-path">JSONPath</span>
+            <span className="gql-wf-extraction-col gql-wf-extraction-col-arrow" />
+            <span className="gql-wf-extraction-col gql-wf-extraction-col-var">Workflow variable</span>
+            <span className="gql-wf-extraction-col gql-wf-extraction-col-del" />
           </div>
-        );
-      })}
+          <div className="gql-wf-extraction-list">
+            {rules.map((rule, index) => {
+              const nameErr = rule.variableName.trim() !== '' && !isValidIdentifier(rule.variableName);
+              const testResult = resultByIndex(index);
+              return (
+                <div
+                  key={index}
+                  className={`gql-wf-extraction-row${testResult && !testResult.ok ? ' gql-wf-extraction-row--fail' : ''}${testResult?.ok ? ' gql-wf-extraction-row--pass' : ''}`}
+                >
+                  <div className="gql-wf-extraction-col gql-wf-extraction-col-path">
+                    <input
+                      value={rule.jsonPath}
+                      onChange={(e) => crud.update(index, { jsonPath: e.target.value })}
+                      placeholder="$.user.id"
+                      aria-label="JSONPath expression"
+                      data-testid="gql-wf-extraction-jsonpath"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="gql-wf-extraction-col gql-wf-extraction-col-arrow" aria-hidden="true">
+                    <span className="gql-wf-extraction-map-arrow" title="Maps to">→</span>
+                  </div>
+                  <div className="gql-wf-extraction-col gql-wf-extraction-col-var">
+                    <input
+                      value={rule.variableName}
+                      onChange={(e) => crud.update(index, { variableName: e.target.value })}
+                      placeholder="userId"
+                      aria-label="Variable name"
+                      data-testid="gql-wf-extraction-varname"
+                      className={nameErr ? 'wf-input-error' : undefined}
+                      spellCheck={false}
+                    />
+                    {nameErr && <span className="wf-config-error">Must be a valid identifier</span>}
+                    {testResult && (
+                      <span
+                        className={testResult.ok ? 'gql-wf-test-inline gql-wf-test-inline--pass' : 'gql-wf-test-inline gql-wf-test-inline--fail'}
+                        data-testid="gql-wf-extraction-test-result"
+                      >
+                        {testResult.ok ? `✓ ${testResult.value}` : `✗ ${testResult.error}`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="gql-wf-extraction-col gql-wf-extraction-col-del">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      onClick={() => crud.remove(index)}
+                      aria-label={`Remove extraction rule ${index + 1}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -396,7 +462,7 @@ export function GqlOutputSection({
       <div className="gql-wf-section-toolbar">
         <div className="gql-wf-section-toolbar-text">
           <h4 className="gql-wf-section-title">Output Bindings</h4>
-          <p className="gql-wf-section-subtitle gql-wf-section-subtitle--inset">
+          <p className="gql-wf-section-subtitle">
             Map response fields to workflow variables — reference them downstream as{' '}
             <code>{'{{variableName}}'}</code>.
           </p>
@@ -414,11 +480,14 @@ export function GqlOutputSection({
       </div>
 
       {bindings.length === 0 ? (
-        <div className="wf-config-empty-hint">
-          No output bindings yet — click <strong>+ Add binding</strong> to map a response field to a workflow variable.
+        <div className="gql-wf-output-empty">
+          <span>No output bindings yet.</span>
+          <span>
+            Click <strong>+ Add binding</strong> to map a response field to a workflow variable.
+          </span>
         </div>
       ) : (
-        <>
+        <div className="gql-wf-output-table">
           <div className="gql-wf-output-col-headers" aria-hidden="true">
             <span className="gql-wf-output-col gql-wf-output-col-toggle">On</span>
             <span className="gql-wf-output-col gql-wf-output-col-field">Response field</span>
@@ -440,14 +509,15 @@ export function GqlOutputSection({
                     />
                   </div>
                   <div className="gql-wf-output-col gql-wf-output-col-field">
-                    <select
+                    <CustomSelect
+                      className="gql-wf-output-field-select"
                       value={binding.field}
-                      onChange={(e) => crud.update(index, { field: e.target.value })}
+                      onChange={(v) => crud.update(index, { field: v })}
+                      options={fieldOptions.map((f) => ({ value: f, label: f }))}
                       data-testid="gql-wf-output-field-select"
                       aria-label={`Response field for binding ${index + 1}`}
-                    >
-                      {fieldOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-                    </select>
+                      size="sm"
+                    />
                   </div>
                   <div className="gql-wf-output-col gql-wf-output-col-arrow" aria-hidden="true">
                     <span className="gql-wf-output-map-arrow" title="Maps to">→</span>
@@ -477,7 +547,7 @@ export function GqlOutputSection({
               );
             })}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -674,14 +744,12 @@ export default function GraphqlQueryConfigPanel({
 
         {activeTab === 'auth' && (
           <GqlWfFormCard>
-            <div className="gql-wf-section-body">
-              <GqlAuthSection
-            auth={data.auth}
-            onChange={(auth) => update({ auth })}
-            variableHints={variableHints}
-            onRequestVariableInsert={onRequestVariableInsert}
-              />
-            </div>
+            <GqlAuthSection
+              auth={data.auth}
+              onChange={(auth) => update({ auth })}
+              variableHints={variableHints}
+              onRequestVariableInsert={onRequestVariableInsert}
+            />
           </GqlWfFormCard>
         )}
 

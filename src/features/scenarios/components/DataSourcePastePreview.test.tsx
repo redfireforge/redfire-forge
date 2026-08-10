@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import DataSourcePastePreview from './DataSourcePastePreview';
 import type { DataSourceColumn } from '../../../shared/types';
 
@@ -46,9 +47,8 @@ describe('DataSourcePastePreview', () => {
         onCancel={vi.fn()}
       />,
     );
-    const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    expect(selects[0].value).toBe('col-userid');
-    expect(selects[1].value).toBe('__new__');
+    expect(getCustomSelectValue(document.body, 0)).toBe('userId');
+    expect(getCustomSelectValue(document.body, 1)).toBe('+ New Column');
   });
 
   it('limits preview to 5 rows and shows the more indicator', () => {
@@ -113,9 +113,8 @@ describe('DataSourcePastePreview', () => {
         onCancel={vi.fn()}
       />,
     );
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'col-status' } });
-    expect(select.value).toBe('col-status');
+    selectOption(document.body, 'status');
+    expect(getCustomSelectValue(document.body, 0)).toBe('status');
     fireEvent.click(screen.getByText('Append Rows'));
     const [rows, newCols] = onConfirm.mock.calls[0];
     expect(newCols).toBeUndefined();

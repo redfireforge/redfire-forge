@@ -12,6 +12,8 @@ import { diffSchemas, findAffectedMappings, classifyDrift } from './utils/schema
 import { suggestRepairs, applyRepair } from './utils/schemaRepair';
 import type { RepairSuggestion } from './utils/schemaRepair';
 import { toErrorMessage } from '../../utils/helpers';
+import { useModalFrame } from '../../hooks/useModalFrame';
+import ModalResizeHandles from '../ModalResizeHandles';
 import '../../../styles/data-mapper-modal.css';
 
 interface DataMapperModalProps<TOutput = unknown> {
@@ -19,7 +21,6 @@ interface DataMapperModalProps<TOutput = unknown> {
   initialData?: TOutput;
   onSave: (output: TOutput, options?: { unorderedArrays?: boolean }) => void;
   onCancel: () => void;
-  fullScreenDefault?: boolean;
   doneLabel?: string;
   unorderedArrays?: boolean;
   /** Scope prefix for schema snapshots (e.g. test ID) to prevent cross-instance drift false positives. */
@@ -80,7 +81,6 @@ export default function DataMapperModal<TOutput = unknown>({
   initialData,
   onSave,
   onCancel,
-  fullScreenDefault = false,
   doneLabel = 'Save',
   unorderedArrays: initialUnorderedArrays,
   contextScope,
@@ -90,11 +90,29 @@ export default function DataMapperModal<TOutput = unknown>({
     ? `${adapter.contextId}:${contextScope}`
     : adapter.contextId;
   const titleId = useId();
-  const [isFullScreen, setIsFullScreen] = useState(fullScreenDefault);
+  const {
+    isDragged,
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    onHeaderPointerDown,
+    dialogRef,
+    onRightEdge,
+    onCorner,
+    onBottomEdge,
+  } = useModalFrame({
+    open: true,
+    minWidth: 600,
+    minHeight: 400,
+    constrainDragToViewport: true,
+    dragViewportPadding: 8,
+  });
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
   const [driftEntries, setDriftEntries] = useState<ClassifiedDrift[]>([]);
   const [showDriftBanner, setShowDriftBanner] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
+  const [acceptAfterDiff, setAcceptAfterDiff] = useState(false);
   const currentMappingsRef = useRef<Mapping[]>([]);
   const currentAssertionsRef = useRef<import('../../types').Assertion[]>([]);
   const mapperFlushRef = useRef<(() => void) | null>(null);
@@ -125,18 +143,24 @@ export default function DataMapperModal<TOutput = unknown>({
 
       const overrides = sourceSampleOverridesRef.current;
       for (const savedSource of savedPair.source) {
-        const adapterSrc = adapter.sources.find((s) => s.id === savedSource.sourceId);
-        const sourceData = overrides[savedSource.sourceId ?? ''] ?? adapterSrc?.sampleData;
+        // Prefer an exact sourceId match; fall back to the first adapter source when
+        // legacy snapshots omit sourceId (otherwise drift is silently skipped).
+        const adapterSrc = adapter.sources.find((s) => s.id === savedSource.sourceId)
+          ?? (savedSource.sourceId == null || savedSource.sourceId === ''
+            ? adapter.sources[0]
+            : undefined);
+        const resolvedSourceId = savedSource.sourceId ?? adapterSrc?.id ?? '';
+        const sourceData = overrides[resolvedSourceId] ?? adapterSrc?.sampleData;
         if (sourceData == null) continue;
-        const currentSnap = captureSchemaSnapshot(scopedContextId, 'source', sourceData, savedSource.sourceId);
+        const currentSnap = captureSchemaSnapshot(scopedContextId, 'source', sourceData, resolvedSourceId || savedSource.sourceId);
         const rawDrifts = diffSchemas(savedSource, currentSnap);
         if (rawDrifts.length > 0) {
-          const tagged = rawDrifts.map((d) => ({ ...d, sourceId: savedSource.sourceId }));
+          const tagged = rawDrifts.map((d) => ({ ...d, sourceId: resolvedSourceId || savedSource.sourceId }));
           const withMappings = findAffectedMappings(tagged, currentMappingsRef.current, 'source');
           allDrifts.push(...classifyDrift(withMappings));
           snapPairs.push({
             side: 'source',
-            sourceId: savedSource.sourceId,
+            sourceId: resolvedSourceId || savedSource.sourceId,
             saved: savedSource,
             current: currentSnap,
           });
@@ -193,6 +217,11 @@ export default function DataMapperModal<TOutput = unknown>({
   }, []);
 
   const handleAcceptDrift = useCallback(() => {
+    setShowDiffModal(true);
+    setAcceptAfterDiff(true);
+  }, []);
+
+  const performAcceptSnapshot = useCallback(() => {
     const overrides = sourceSampleOverridesRef.current;
     const effectiveSources = adapter.sources.map((s) => ({
       id: s.id,
@@ -219,7 +248,14 @@ export default function DataMapperModal<TOutput = unknown>({
 
   const handleCloseDiff = useCallback(() => {
     setShowDiffModal(false);
+    setAcceptAfterDiff(false);
   }, []);
+
+  const handleConfirmAcceptDiff = useCallback(() => {
+    setShowDiffModal(false);
+    setAcceptAfterDiff(false);
+    performAcceptSnapshot();
+  }, [performAcceptSnapshot]);
 
   const driftMap = useMemo(() => {
     if (driftEntries.length === 0) return undefined;
@@ -457,14 +493,25 @@ export default function DataMapperModal<TOutput = unknown>({
 
   return (
     <div
-      className={`dm-modal-overlay ${isFullScreen ? 'dm-modal--fullscreen' : ''}`}
+      className="dm-modal-overlay"
       tabIndex={-1}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
+      role="presentation"
+      style={overlayStyle}
     >
-      <div className="dm-modal-shell">
-        <div className="dm-modal-header">
+      <div
+        className={`dm-modal-shell${isDragged ? ' dm-modal--dragged' : ''}`}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={dialogStyle}
+      >
+        <div
+          className="dm-modal-header"
+          style={headerDragStyle}
+          onMouseDown={onHeaderMouseDown}
+          onPointerDown={onHeaderPointerDown}
+        >
           <div className="dm-modal-title-block">
             <h2 id={titleId} className="dm-modal-title">
               Data Mapper
@@ -472,16 +519,6 @@ export default function DataMapperModal<TOutput = unknown>({
                 {adapter.title}
               </span>
             </h2>
-          </div>
-          <div className="dm-modal-header-actions">
-            <button
-              className="dm-modal-header-btn"
-              onClick={() => setIsFullScreen((f) => !f)}
-              aria-label={isFullScreen ? 'Exit full screen' : 'Enter full screen'}
-              title={isFullScreen ? 'Restore modal size' : 'Use full screen workspace'}
-            >
-              {isFullScreen ? 'Exit full screen' : 'Full screen'}
-            </button>
           </div>
         </div>
 
@@ -575,14 +612,17 @@ export default function DataMapperModal<TOutput = unknown>({
             </button>
           </div>
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />
       </div>
       {showDiffModal && driftEntries.length > 0 && (
         <SchemaDiffModal
           drifts={driftEntries}
           onClose={handleCloseDiff}
+          onAccept={acceptAfterDiff ? handleConfirmAcceptDiff : undefined}
           repairSuggestions={repairSuggestions}
           onApplyRepair={handleRepairMapping}
           onApplyRepairBatch={handleRepairBatch}
+          acceptMode={acceptAfterDiff}
         />
       )}
     </div>

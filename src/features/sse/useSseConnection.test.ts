@@ -135,6 +135,19 @@ describe('useSseConnection', () => {
     );
   });
 
+  it('fails fast when URL contains unresolved template variables', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useSseConnection({}));
+    act(() => result.current.setConfig({ url: '{{sseUrl}}/api/sse-test' }));
+    await act(async () => result.current.connect());
+
+    expect(result.current.connection.state).toBe('error');
+    expect(result.current.connection.error).toBe('Unresolved URL variable in: {{sseUrl}}/api/sse-test');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('interpolates env vars in headers', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: 'err' });
     vi.stubGlobal('fetch', fetchMock);
@@ -401,6 +414,36 @@ describe('useSseConnection', () => {
     await act(async () => result.current.connect());
     const secondCallHeaders = fetchMock.mock.calls[1]?.[1]?.headers ?? {};
     expect(secondCallHeaders['Last-Event-ID']).toBe('last-99');
+  });
+
+  it('updates connection.lastEventId as stream events arrive (status strip sync)', async () => {
+    let readerReadCount = 0;
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => {
+        readerReadCount++;
+        const parserRecord = mockParser as Record<string, unknown>;
+        if (readerReadCount === 1 && typeof parserRecord.onEvent === 'function') {
+          const emit = parserRecord.onEvent as (e: {
+            eventType: string; data: string; lastEventId: string;
+          }) => void;
+          emit({ eventType: 'message', data: 'a', lastEventId: '23' });
+          emit({ eventType: 'update', data: 'b', lastEventId: '49' });
+          return Promise.resolve({ done: false, value: 'chunk' });
+        }
+        return Promise.resolve({ done: true, value: undefined });
+      }),
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { pipeThrough: () => ({ getReader: () => mockReader }) },
+    }));
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    await act(async () => result.current.connect());
+
+    expect(result.current.connection.lastEventId).toBe('49');
+    expect(result.current.events).toHaveLength(2);
   });
 
   it('trims events array when MAX_EVENTS exceeded', async () => {

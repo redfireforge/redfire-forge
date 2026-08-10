@@ -102,9 +102,13 @@
   display: flex;
   flex-direction: column;
   background: var(--surface, #1e1e2e);
-  border: 1px solid var(--border, #3a3a4e);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3a3a4e));
   border-radius: 12px;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.35);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 24px 60px rgba(0,0,0,0.65),
+    0 4px 16px rgba(0,0,0,0.35);
   min-width: 380px;
   min-height: 300px;
   overflow: hidden;

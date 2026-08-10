@@ -109,6 +109,13 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
   const [runnerSlaTargets, setRunnerSlaTargets] = useState<SlaTarget[]>([]);
   const autoReportFiredRef = useRef<string | null>(null);
 
+  // Demo lessons clear overrides on setup/cleanup via this event (Test Runner stays mounted).
+  useEffect(() => {
+    const onClear = () => setRunnerSlaTargets([]);
+    window.addEventListener('demo-clear-runner-sla-overrides', onClear);
+    return () => window.removeEventListener('demo-clear-runner-sla-overrides', onClear);
+  }, []);
+
   // Compute all scenario tags and counts from original (unfiltered) feature groups
   const allScenarioTags = useMemo(() => collectAllScenarioTags(featureGroups), [featureGroups]);
   const scenarioTagCounts = useMemo(() => countScenariosByTag(featureGroups), [featureGroups]);

@@ -110,7 +110,7 @@ describe('LessonList — coverage gaps', () => {
     );
     fireEvent.click(screen.getByTestId('reset-all-btn'));
     fireEvent.click(screen.getByTestId('reset-all-yes'));
-    expect(onResetAll).toHaveBeenCalled();
+    expect(onResetAll).toHaveBeenCalledWith(['gql-1']);
 
     fireEvent.click(screen.getByTestId('reset-lesson-gql-1'));
     fireEvent.click(screen.getByTestId('reset-confirm-gql-1').querySelector('.demo-lesson-reset-yes')!);

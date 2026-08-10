@@ -116,106 +116,115 @@ export default function RunnerExecutionConfig({
   const effectiveIterations = forceSingleIteration ? 1 : iterations;
 
   return (
-    <div className="execution-group">
+    <div className="execution-group" data-testid="har-exec-config">
       <div className="runner-option-boxes">
-        <div className="runner-option-box" style={{ flex: 1 }}>
-          <span className="runner-exec-label">Execution Mode:</span>
-          {testRunnerModes.map((mode) => {
-            const meta = getExecutionModeMeta(mode);
-            const isForceDisabled = forceSingleIteration && mode !== 'sequential';
-            const isDesktopOnly = mode === 'constant-arrival' && !isTauri();
-            const disabled = isRunning || isForceDisabled || isDesktopOnly;
-            const title = isDesktopOnly ? 'Requires desktop app (Tauri)'
-              : isForceDisabled ? 'Only Sequential allowed for Wait for Real Webhook mode'
-              : meta.title;
-            return (
-              <label key={mode} className="radio-label" title={title} style={isDesktopOnly ? { opacity: 0.5 } : undefined}>
-                <input type="radio" name={n('execMode')} checked={forceSingleIteration ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={disabled} />
-                {meta.label}
-              </label>
-            );
-          })}
-          <span className="exec-mode-hint">{forceSingleIteration ? 'Single iteration for real webhook testing' : modeMeta.hint}</span>
+        <div className="runner-option-box runner-option-box--stacked" style={{ flex: 1 }} data-testid="har-exec-mode">
+          <div className="runner-option-box-main">
+            <span className="runner-exec-label">Execution Mode:</span>
+            {testRunnerModes.map((mode) => {
+              const meta = getExecutionModeMeta(mode);
+              const isForceDisabled = forceSingleIteration && mode !== 'sequential';
+              const isDesktopOnly = mode === 'constant-arrival' && !isTauri();
+              const disabled = isRunning || isForceDisabled || isDesktopOnly;
+              const title = isDesktopOnly ? 'Requires desktop app (Tauri)'
+                : isForceDisabled ? 'Only Sequential allowed for Wait for Real Webhook mode'
+                : meta.title;
+              return (
+                <label key={mode} className="radio-label" data-testid={`har-exec-mode-${mode}`} title={title} style={isDesktopOnly ? { opacity: 0.5 } : undefined}>
+                  <input type="radio" name={n('execMode')} checked={forceSingleIteration ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={disabled} />
+                  {meta.label}
+                  {isDesktopOnly && <span className="exec-mode-desktop-only"> (only desktop)</span>}
+                </label>
+              );
+            })}
+          </div>
+          <p className="exec-mode-hint exec-mode-hint--below">
+            {forceSingleIteration ? 'Single iteration for real webhook testing' : modeMeta.hint}
+          </p>
         </div>
       </div>
 
       <div className="resilience-config">
         <div className="resilience-row">
-          <div className="resilience-field resilience-field-sm">
-            <label>Concurrency</label>
-            <NumericInput min={1} max={100} value={forceSingleIteration ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={onConcurrencyChange} disabled={isRunning || executionMode === 'sequential' || isTimeBased || forceSingleIteration} />
-            {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
-            {!forceSingleIteration && executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
-            {!forceSingleIteration && isLoadProfile && <span className="field-hint">Set in profile</span>}
-            {!forceSingleIteration && isConstantArrival && <span className="field-hint">Max in-flight</span>}
-          </div>
-          <div className="resilience-field resilience-field-sm">
-            <label>Iterations</label>
-            <NumericInput min={1} max={100000} value={forceSingleIteration ? 1 : effectiveIterations} onChange={onIterationsChange} disabled={isRunning || isTimeBased || forceSingleIteration} />
-            {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
-            {!forceSingleIteration && !isTimeBased && iterations < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
-            {!forceSingleIteration && isTimeBased && <span className="field-hint">Time-based</span>}
+          <div className="resilience-group" data-testid="har-runtime-params">
+            <div className="resilience-field resilience-field-sm">
+              <label>Concurrency</label>
+              <NumericInput min={1} max={100} value={forceSingleIteration ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={onConcurrencyChange} disabled={isRunning || executionMode === 'sequential' || isTimeBased || forceSingleIteration} />
+              {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
+              {!forceSingleIteration && executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
+              {!forceSingleIteration && isLoadProfile && <span className="field-hint">Set in profile</span>}
+              {!forceSingleIteration && isConstantArrival && <span className="field-hint">Max in-flight</span>}
+            </div>
+            <div className="resilience-field resilience-field-sm">
+              <label>Iterations</label>
+              <NumericInput min={1} max={100000} value={forceSingleIteration ? 1 : effectiveIterations} onChange={onIterationsChange} disabled={isRunning || isTimeBased || forceSingleIteration} />
+              {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
+              {!forceSingleIteration && !isTimeBased && iterations < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
+              {!forceSingleIteration && isTimeBased && <span className="field-hint">Time-based</span>}
+            </div>
+            <div className="resilience-divider" />
+            <div className="resilience-field resilience-field-sm">
+              <label>Timeout</label>
+              <div className="input-with-unit">
+                <NumericInput min={0} max={300} value={timeoutSec} onChange={onTimeoutSecChange} disabled={isRunning} />
+                <span className="unit">sec</span>
+              </div>
+              {timeoutSec === 0 && <span className="field-hint">No timeout</span>}
+            </div>
+            <div className="resilience-field resilience-field-sm">
+              <label>Retry</label>
+              <div className="input-with-unit">
+                <NumericInput min={0} max={10} value={retryCount} onChange={onRetryCountChange} disabled={isRunning} />
+                <span className="unit">times</span>
+              </div>
+              {retryCount === 0 && <span className="field-hint">No retry</span>}
+            </div>
+            {retryCount > 0 && (
+              <div className="resilience-field resilience-field-sm">
+                <label>Retry Delay</label>
+                <div className="input-with-unit">
+                  <NumericInput min={0} max={30000} step={100} value={retryDelayMs} onChange={onRetryDelayMsChange} disabled={isRunning} />
+                  <span className="unit">ms</span>
+                </div>
+              </div>
+            )}
           </div>
           <div className="resilience-divider" />
-          <div className="resilience-field resilience-field-sm">
-            <label>Timeout</label>
-            <div className="input-with-unit">
-              <NumericInput min={0} max={300} value={timeoutSec} onChange={onTimeoutSecChange} disabled={isRunning} />
-              <span className="unit">sec</span>
-            </div>
-            {timeoutSec === 0 && <span className="field-hint">No timeout</span>}
-          </div>
-          <div className="resilience-field resilience-field-sm">
-            <label>Retry</label>
-            <div className="input-with-unit">
-              <NumericInput min={0} max={10} value={retryCount} onChange={onRetryCountChange} disabled={isRunning} />
-              <span className="unit">times</span>
-            </div>
-            {retryCount === 0 && <span className="field-hint">No retry</span>}
-          </div>
-          {retryCount > 0 && (
-            <div className="resilience-field resilience-field-sm">
-              <label>Retry Delay</label>
-              <div className="input-with-unit">
-                <NumericInput min={0} max={30000} step={100} value={retryDelayMs} onChange={onRetryDelayMsChange} disabled={isRunning} />
-                <span className="unit">ms</span>
+          <div className="resilience-group" data-testid="har-error-policy-row">
+            <div className="resilience-field" style={{ flex: '0 0 auto' }}>
+              <label>On Error</label>
+              <div className="error-policy-options">
+                <label className="radio-label">
+                  <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'continue'} onChange={() => onErrorPolicyChange('continue')} disabled={isRunning} />
+                  Continue
+                </label>
+                <label className="radio-label">
+                  <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'stop-first'} onChange={() => onErrorPolicyChange('stop-first')} disabled={isRunning} />
+                  Stop 1st
+                </label>
+                <label className="radio-label">
+                  <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'stop-threshold'} onChange={() => onErrorPolicyChange('stop-threshold')} disabled={isRunning} />
+                  Threshold
+                </label>
               </div>
             </div>
-          )}
-          <div className="resilience-divider" />
-          <div className="resilience-field" style={{ flex: '0 0 auto' }}>
-            <label>On Error</label>
-            <div className="error-policy-options">
-              <label className="radio-label">
-                <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'continue'} onChange={() => onErrorPolicyChange('continue')} disabled={isRunning} />
-                Continue
-              </label>
-              <label className="radio-label">
-                <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'stop-first'} onChange={() => onErrorPolicyChange('stop-first')} disabled={isRunning} />
-                Stop 1st
-              </label>
-              <label className="radio-label">
-                <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'stop-threshold'} onChange={() => onErrorPolicyChange('stop-threshold')} disabled={isRunning} />
-                Threshold
-              </label>
+            <div className="resilience-field resilience-field-xs">
+              <label>Max Errors</label>
+              <NumericInput min={1} max={10000} value={maxErrors} onChange={onMaxErrorsChange} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
             </div>
-          </div>
-          <div className="resilience-field resilience-field-xs">
-            <label>Max Errors</label>
-            <NumericInput min={1} max={10000} value={maxErrors} onChange={onMaxErrorsChange} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
-          </div>
-          <div className="resilience-field resilience-field-xs">
-            <label>Error Rate</label>
-            <div className="input-with-unit">
-              <NumericInput min={1} max={100} value={maxErrorRate} onChange={onMaxErrorRateChange} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
-              <span className="unit">%</span>
+            <div className="resilience-field resilience-field-xs">
+              <label>Error Rate</label>
+              <div className="input-with-unit">
+                <NumericInput min={1} max={100} value={maxErrorRate} onChange={onMaxErrorRateChange} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
+                <span className="unit">%</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="think-time-section">
-        <div className="runner-option-box" style={{ flex: 1 }}>
+      <div className="think-time-section" data-testid="har-think-time">
+        <div className="runner-option-box runner-option-box--think" style={{ flex: 1 }}>
           <span className="runner-exec-label">Think Time:</span>
           {(['none', 'constant', 'uniform', 'gaussian'] as ThinkTimeMode[]).map((m) => (
             <label key={m} className="radio-label">

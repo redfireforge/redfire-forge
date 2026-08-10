@@ -1,5 +1,5 @@
 /**
- * RunnerSlaOverridePanel — compact SLA trigger bar + full-screen modal.
+ * RunnerSlaOverridePanel — compact SLA trigger bar + movable/resizable modal.
  *
  * Runner page shows a single-line trigger bar with stats (configured / overrides / new).
  * Clicking "Configure" opens a modal with:
@@ -9,6 +9,7 @@
  * Targets entered here are NOT persisted — they are discarded when the page unmounts.
  */
 import { useState, useMemo, useCallback } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { SlaTarget, SlaMetric } from '../../../shared/types';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
 import {
@@ -167,7 +168,7 @@ export default function RunnerSlaOverridePanel({
       {/* ── Compact trigger bar ── */}
       <div className={`sla-trigger${disabled ? ' sla-trigger--disabled' : ''}`}>
         <div className="sla-trigger-left">
-          🎯 SLA Override
+          SLA Override
           <span className="sla-trigger-badge-opt">optional</span>
         </div>
         <div className="sla-trigger-right">
@@ -211,8 +212,10 @@ export default function RunnerSlaOverridePanel({
           closeOnOverlayClick={false}
           closeButtonKind="none"
           showExpandButton={false}
-          showResizeHandles={false}
-          disableDrag
+          constrainDragToViewport
+          dragViewportPadding={12}
+          minWidth={680}
+          minHeight={260}
           footer={
             <>
               <div className="sla-modal-footer-summary">
@@ -369,23 +372,21 @@ export default function RunnerSlaOverridePanel({
                                 </>
                               ) : (
                                 <>
-                                  <select
+                                  <CustomSelect
                                     className="sla-ovr-select"
                                     value={scopeSelectValue(t)}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
+                                    onChange={(val) => {
                                       if (val === 'aggregate') {
                                         handleUpdateRow(idx, { scenarioName: undefined, featureGroupName: undefined });
                                       } else {
                                         handleUpdateRow(idx, { scenarioName: val, featureGroupName: undefined });
                                       }
                                     }}
-                                  >
-                                    <option value="aggregate">Aggregate</option>
-                                    {allScopeNames.map(n => (
-                                      <option key={n} value={n}>{n}</option>
-                                    ))}
-                                  </select>
+                                    options={[
+                                      { value: 'aggregate', label: 'Aggregate' },
+                                      ...allScopeNames.map(n => ({ value: n, label: n })),
+                                    ]}
+                                  />
                                   <span className="sla-ovr-badge sla-ovr-badge-new">new</span>
                                 </>
                               )}
@@ -396,15 +397,12 @@ export default function RunnerSlaOverridePanel({
                               {isCloned ? (
                                 <span className="sla-readonly">{SLA_METRIC_LABELS[t.metric]}</span>
                               ) : (
-                                <select
+                                <CustomSelect
                                   className="sla-ovr-select"
                                   value={t.metric}
-                                  onChange={(e) => handleUpdateRow(idx, { metric: e.target.value as SlaMetric })}
-                                >
-                                  {METRIC_OPTIONS.map(m => (
-                                    <option key={m} value={m}>{SLA_METRIC_LABELS[m]}</option>
-                                  ))}
-                                </select>
+                                  onChange={(v) => handleUpdateRow(idx, { metric: v as SlaMetric })}
+                                  options={METRIC_OPTIONS.map(m => ({ value: m, label: SLA_METRIC_LABELS[m] }))}
+                                />
                               )}
                             </td>
 

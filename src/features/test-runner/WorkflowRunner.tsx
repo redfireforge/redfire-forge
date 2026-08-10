@@ -117,9 +117,13 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   }, [selectedWorkflowId]);
 
   useEffect(() => {
-    if (!configLoaded || !initialWorkflowId || initialWorkflowId === selectedWorkflowId) return;
+    if (!configLoaded || !initialWorkflowId) return;
+    if (initialWorkflowId === selectedWorkflowId) {
+      onClearInitialWorkflowId?.();
+      return;
+    }
     const wf = workflows.find(w => w.id === initialWorkflowId);
-    if (!wf) return;
+    if (!wf) { onClearInitialWorkflowId?.(); return; }
     setSelectedWorkflowId(initialWorkflowId);
     setWorkflowVariables(buildInitialRunnerVariables(wf));
     setVariablesInitialized(true);
@@ -404,7 +408,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   const hostLabel = selectedWorkflow ? `⚡ ${selectedWorkflow.name}` : undefined;
 
   return (
-    <div className="page">
+    <div className="page workflow-runner-page">
       <div className="page-header">
         <h2>Workflow Runner</h2>
       </div>

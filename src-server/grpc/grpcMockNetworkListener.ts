@@ -534,3 +534,19 @@ export class GrpcMockNetworkListener {
 export function grpcMockGrpcStatusCodeFromRuleForTests(statusCode: number | undefined): grpc.status {
   return grpcStatusCodeFromRule(statusCode);
 }
+
+/** @internal Exported for coverage tests only. */
+export function grpcMockServiceErrorForTests(
+  statusCode: number | undefined,
+  details: string,
+): grpc.ServiceError {
+  return grpcServiceError(statusCode, details);
+}
+
+/** @internal Exported for coverage tests only. */
+export function grpcMockBuildMethodDefinitionForTests(
+  serviceFullName: string,
+  method: GrpcMethodInfo,
+): grpc.MethodDefinition<Buffer, Buffer> {
+  return buildMethodDefinition(serviceFullName, method);
+}

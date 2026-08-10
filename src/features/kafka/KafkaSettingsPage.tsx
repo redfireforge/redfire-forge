@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
 import { normalizeKafkaClusterConfig } from '../../shared/kafka/kafkaConfig';
 import { saveJsonFile } from '../../shared/utils/fileSaver';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
@@ -6,6 +7,7 @@ import {
   defaultClusterDraft,
   draftFromCluster,
   hasDraftErrors,
+  normalizeBrokerEntries,
   type KafkaClusterDraft,
   type KafkaClusterDraftErrors,
   validateKafkaClusterDraft,
@@ -56,6 +58,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
   const [pendingDeleteClusterId, setPendingDeleteClusterId] = useState<string | null>(null);
   const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, confirmDialogElement } = useConfirmDialog();
 
   const handleExport = async () => {
     const date = new Date().toISOString().slice(0, 10);
@@ -112,7 +115,14 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
     }
 
     if (connection.state === 'connected') {
-      return `Connected${connection.clusterId ? ` to ${connection.clusterId}` : ''}`;
+      if (!connection.clusterId) return 'Connected';
+      const matched = clusters.some((c) => c.clusterId === connection.clusterId);
+      // Orphan session: server is connected under an id with no saved profile
+      // (e.g. demo API probe). Cards correctly stay Idle — surface that clearly.
+      if (!matched) {
+        return `Connected to ${connection.clusterId} (no matching saved profile)`;
+      }
+      return `Connected to ${connection.clusterId}`;
     }
 
     if (connection.state === 'testing') {
@@ -124,7 +134,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
     }
 
     return 'Disconnected';
-  }, [loaded, connection]);
+  }, [loaded, connection, clusters]);
 
   const selectCluster = (clusterId: string) => {
     setSelectedClusterId(clusterId);
@@ -183,7 +193,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
       : undefined;
     const nextClusterId = draft.clusterId.trim();
     const now = Date.now();
-    const cleanedBrokers = [...new Set(draft.brokers.map((broker) => broker.trim()).filter(Boolean))];
+    const cleanedBrokers = normalizeBrokerEntries(draft.brokers);
 
     if (editorMode === 'edit' && editingClusterId && editingClusterId !== nextClusterId) {
       removeCluster(editingClusterId);
@@ -255,8 +265,21 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
     setDraftErrors(EMPTY_ERRORS);
   };
 
+  const deleteCluster = (clusterId: string, clusterName: string) => {
+    confirm(`Delete "${clusterName}"?`, () => {
+      removeCluster(clusterId);
+      if (editingClusterId === clusterId) {
+        setEditorMode(null);
+        setEditingClusterId(null);
+        setIsCreateClusterIdCustomized(false);
+        setDraftErrors(EMPTY_ERRORS);
+      }
+    });
+  };
+
   return (
     <div className="settings-page kafka-settings-page" data-testid="kafka-settings-page">
+      {confirmDialogElement}
       <div className="settings-page-header">
         <h2>Kafka Cluster Studio</h2>
         <p className="settings-section-desc">
@@ -407,6 +430,14 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                           onClick={() => startEdit(cluster.clusterId)}
                         >
                           Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => deleteCluster(cluster.clusterId, cluster.name)}
+                          title="Delete cluster"
+                        >
+                          Delete
                         </button>
                       </div>
                     </div>

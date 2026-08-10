@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 
 // Mock IDB dependencies that get transitively imported
 vi.mock('../../../shared/utils/idbGraphqlCollections', () => ({
@@ -89,10 +90,10 @@ describe('SaveToCollectionModal — rendering', () => {
   it('renders collection options in the select', () => {
     const trees = [makeTree('col-1', 'Collection A'), makeTree('col-2', 'Collection B')];
     render(<SaveToCollectionModal {...defaultProps({ trees })} />);
-    const select = screen.getByTestId('gql-save-col-collection') as HTMLSelectElement;
-    expect(select.options).toHaveLength(2);
-    expect(select.options[0].text).toBe('Collection A');
-    expect(select.options[1].text).toBe('Collection B');
+    const labels = getCustomSelectOptionLabels(screen.getByTestId('gql-save-col-collection'));
+    expect(labels).toHaveLength(2);
+    expect(labels[0]).toBe('Collection A');
+    expect(labels[1]).toBe('Collection B');
   });
 
   it('shows empty state when no collections exist', () => {
@@ -106,7 +107,7 @@ describe('SaveToCollectionModal — rendering', () => {
     const trees = [makeTree('col-1', 'Collection 1', [folder])];
     render(<SaveToCollectionModal {...defaultProps({ trees })} />);
     expect(screen.getByTestId('gql-save-col-folder')).toBeTruthy();
-    expect(screen.getByText('Folder A')).toBeTruthy();
+    expect(getCustomSelectOptionLabels(screen.getByTestId('gql-save-col-folder'))).toContain('Folder A');
   });
 
   it('does not show folder select when selected collection has no folders', () => {
@@ -140,7 +141,7 @@ describe('SaveToCollectionModal — save validation', () => {
     const folder = makeFolder('fld-1', 'col-1', 'Folder A');
     const trees = [makeTree('col-1', 'Collection 1', [folder])];
     render(<SaveToCollectionModal {...defaultProps({ trees, onSave })} />);
-    fireEvent.change(screen.getByTestId('gql-save-col-folder'), { target: { value: 'fld-1' } });
+    selectOption(screen.getByTestId('gql-save-col-folder'), 'Folder A');
     fireEvent.click(screen.getByTestId('gql-save-col-save'));
     expect(onSave).toHaveBeenCalledWith('col-1', 'fld-1', 'My Operation');
   });
@@ -225,14 +226,13 @@ describe('SaveToCollectionModal — collection switching', () => {
     expect(screen.queryByTestId('gql-save-col-folder')).toBeNull();
 
     // Switch to col-2 which has a folder
-    fireEvent.change(screen.getByTestId('gql-save-col-collection'), { target: { value: 'col-2' } });
+    selectOption(screen.getByTestId('gql-save-col-collection'), 'Collection 2');
     expect(screen.getByTestId('gql-save-col-folder')).toBeTruthy();
-    expect(screen.getByText('Folder B')).toBeTruthy();
+    expect(getCustomSelectOptionLabels(screen.getByTestId('gql-save-col-folder'))).toContain('Folder B');
   });
 
   it('shows error when no collection is selected', () => {
-    render(<SaveToCollectionModal {...defaultProps()} />);
-    fireEvent.change(screen.getByTestId('gql-save-col-collection'), { target: { value: '' } });
+    render(<SaveToCollectionModal {...defaultProps({ trees: [makeTree('', 'Unassigned Collection')] })} />);
     fireEvent.click(screen.getByTestId('gql-save-col-save'));
     expect(screen.getByText('Select a collection')).toBeTruthy();
   });
@@ -247,6 +247,6 @@ describe('SaveToCollectionModal — collection switching', () => {
         {...defaultProps({ trees: [makeTree('col-new', 'New Collection')], defaultName: 'Op' })}
       />,
     );
-    expect((screen.getByTestId('gql-save-col-collection') as HTMLSelectElement).value).toBe('col-new');
+    expect(getCustomSelectValue(screen.getByTestId('gql-save-col-collection'))).toBe('New Collection');
   });
 });

@@ -1,5 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
-import { autoDetectColumns, createEmptyDataSource, createDataSourceWithTemplatizedUrl, createEmptyRow, createEmptyColumn, buildUrlTemplate, syncUrlFromTemplate } from './dataSourceUtils';
+import {
+  autoDetectColumns,
+  createEmptyDataSource,
+  createDataSourceWithTemplatizedUrl,
+  createEmptyRow,
+  createEmptyColumn,
+  buildUrlTemplate,
+  syncUrlFromTemplate,
+  dataSourceRowHasValues,
+} from './dataSourceUtils';
 import type { Scenario } from '../../../shared/types';
 import { makeScenario } from '../../../test-utils/factories';
 import * as dataSourceContract from './dataSourceContract';
@@ -150,7 +159,7 @@ describe('createEmptyDataSource', () => {
     expect(table.id).toMatch(/^test-uuid-/);
     expect(table.columns.length).toBeGreaterThanOrEqual(1);
     expect(table.rows).toHaveLength(1);
-    expect(table.rows[0].enabled).toBe(true);
+    expect(table.rows[0].enabled).toBe(false);
     expect(table.source.type).toBe('inline');
   });
 
@@ -162,15 +171,30 @@ describe('createEmptyDataSource', () => {
 });
 
 describe('createEmptyRow', () => {
-  it('creates row with empty values for each column', () => {
+  it('creates a disabled blank row for each column', () => {
     const columns = [
       { id: 'c1', name: 'vin', type: 'body' as const, mapping: 'vin' },
       { id: 'c2', name: 'channel', type: 'param' as const, mapping: 'channel' },
     ];
     const row = createEmptyRow(columns);
     expect(row.id).toMatch(/^test-uuid-/);
-    expect(row.enabled).toBe(true);
+    expect(row.enabled).toBe(false);
     expect(row.values).toEqual({ c1: '', c2: '' });
+  });
+});
+
+describe('dataSourceRowHasValues', () => {
+  const columns = [
+    { id: 'c1', name: 'userId', type: 'path' as const, mapping: 'userId' },
+    { id: 'c2', name: 'expect', type: 'validate' as const, mapping: '$.id' },
+  ];
+
+  it('is false for blank request cells even when validate is set', () => {
+    expect(dataSourceRowHasValues({ values: { c1: '', c2: '1' } }, columns)).toBe(false);
+  });
+
+  it('is true when a request cell has a value', () => {
+    expect(dataSourceRowHasValues({ values: { c1: '42', c2: '' } }, columns)).toBe(true);
   });
 });
 

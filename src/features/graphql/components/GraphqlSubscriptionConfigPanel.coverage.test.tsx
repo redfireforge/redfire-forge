@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import GraphqlSubscriptionConfigPanel from './GraphqlSubscriptionConfigPanel';
 
 vi.mock('../../../shared/hooks/useListCrud', () => ({
@@ -72,7 +73,7 @@ describe('GraphqlSubscriptionConfigPanel coverage edges', () => {
     );
 
     fireEvent.click(screen.getByTestId('mock-insert'));
-    fireEvent.change(screen.getByTestId('gql-wf-sub-transport-select'), { target: { value: 'graphql-ws' } });
+    selectOption(screen.getByTestId('gql-wf-sub-transport-select'), 'graphql-ws (legacy)');
     fireEvent.change(screen.getByTestId('gql-wf-subscription-query-editor'), { target: { value: 'subscription { ping }' } });
     fireEvent.change(screen.getByTestId('gql-wf-sub-variables-editor'), { target: { value: '{}' } });
 
@@ -102,6 +103,11 @@ describe('GraphqlSubscriptionConfigPanel coverage edges', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    const stopSection = screen.getByTestId('gql-wf-stop-section');
+    expect(stopSection).toBeTruthy();
+    expect(stopSection.querySelector('.gql-wf-stop-chip--active')?.textContent).toContain('1 message');
+    expect(stopSection.textContent).toContain('2s wall time');
+    expect(stopSection.querySelectorAll('.gql-wf-stop-chip--active')).toHaveLength(3);
     fireEvent.change(screen.getByTestId('gql-wf-stop-messages-input'), { target: { value: '0' } });
     fireEvent.change(screen.getByTestId('gql-wf-stop-secs-input'), { target: { value: '0' } });
     fireEvent.change(screen.getByTestId('mock-expression'), { target: { value: '' } });

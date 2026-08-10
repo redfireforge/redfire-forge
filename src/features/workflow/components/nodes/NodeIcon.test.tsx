@@ -37,15 +37,15 @@ describe('NodeIcon', () => {
     expect(container.querySelector('.wf-node-icon-badge--action')).toBeTruthy();
   });
 
-  it('applies category-specific CSS class for kafka nodes', () => {
+  it('applies protocol-specific CSS class for kafka nodes', () => {
     const { container } = render(<NodeIcon type="kafkaProduce" />);
-    expect(container.querySelector('.wf-node-icon-badge--integration')).toBeTruthy();
+    expect(container.querySelector('.wf-node-icon-badge--kafka')).toBeTruthy();
   });
 
-  it('applies integration category for graphqlQuery/Mutation/Subscription nodes', () => {
+  it('applies protocol-specific category for graphqlQuery/Mutation/Subscription nodes', () => {
     for (const type of ['graphqlQuery', 'graphqlMutation', 'graphqlSubscription'] as const) {
       const { container } = render(<NodeIcon type={type} />);
-      expect(container.querySelector('.wf-node-icon-badge--integration'), `integration badge missing for ${type}`).toBeTruthy();
+      expect(container.querySelector('.wf-node-icon-badge--graphql'), `graphql badge missing for ${type}`).toBeTruthy();
     }
   });
 
@@ -123,25 +123,25 @@ describe('getNodeCategory', () => {
   it('returns correct category labels', () => {
     expect(getNodeCategory('start')).toBe('Trigger');
     expect(getNodeCategory('http')).toBe('Action');
-    expect(getNodeCategory('kafkaProduce')).toBe('Integration');
-    expect(getNodeCategory('kafkaConsume')).toBe('Integration');
+    expect(getNodeCategory('kafkaProduce')).toBe('Kafka');
+    expect(getNodeCategory('kafkaConsume')).toBe('Kafka');
     expect(getNodeCategory('condition')).toBe('Logic');
     expect(getNodeCategory('setVariable')).toBe('Data');
     expect(getNodeCategory('fork')).toBe('Flow');
     expect(getNodeCategory('end')).toBe('Terminal');
-    expect(getNodeCategory('graphqlQuery')).toBe('Integration');
-    expect(getNodeCategory('graphqlMutation')).toBe('Integration');
-    expect(getNodeCategory('graphqlSubscription')).toBe('Integration');
+    expect(getNodeCategory('graphqlQuery')).toBe('GraphQL');
+    expect(getNodeCategory('graphqlMutation')).toBe('GraphQL');
+    expect(getNodeCategory('graphqlSubscription')).toBe('GraphQL');
     expect(getNodeCategory('graphqlIntrospect')).toBe('Action');
     expect(getNodeCategory('graphqlAssert')).toBe('Logic');
     expect(getNodeCategory('kafkaTrigger')).toBe('Trigger');
-    expect(getNodeCategory('kafkaWait')).toBe('Integration');
-    expect(getNodeCategory('wsConnect')).toBe('Integration');
-    expect(getNodeCategory('wsSend')).toBe('Integration');
-    expect(getNodeCategory('wsReceive')).toBe('Integration');
+    expect(getNodeCategory('kafkaWait')).toBe('Kafka');
+    expect(getNodeCategory('wsConnect')).toBe('WebSocket');
+    expect(getNodeCategory('wsSend')).toBe('WebSocket');
+    expect(getNodeCategory('wsReceive')).toBe('WebSocket');
     expect(getNodeCategory('wsTrigger')).toBe('Trigger');
-    expect(getNodeCategory('grpcUnary')).toBe('Integration');
-    expect(getNodeCategory('grpcServerStream')).toBe('Integration');
+    expect(getNodeCategory('grpcUnary')).toBe('gRPC');
+    expect(getNodeCategory('grpcServerStream')).toBe('gRPC');
     expect(getNodeCategory('grpcAssert')).toBe('Logic');
   });
 

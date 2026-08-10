@@ -17,33 +17,50 @@ const baseProps = {
   ],
 };
 
+function openDropdown() {
+  fireEvent.click(screen.getByRole('combobox'));
+}
+
 describe('CascadeSelect', () => {
-  it('renders label and placeholder option', () => {
+  it('renders label and placeholder text', () => {
     render(<CascadeSelect {...baseProps} />);
     expect(screen.getByText('Environment')).toBeInTheDocument();
     expect(screen.getByText('Select...')).toBeInTheDocument();
   });
 
-  it('renders options with detail suffix when provided', () => {
+  it('renders options with detail suffix when dropdown is open', () => {
     render(<CascadeSelect {...baseProps} />);
-    expect(screen.getByText('Dev (Development)')).toBeInTheDocument();
+    openDropdown();
+    expect(screen.getByText('Dev')).toBeInTheDocument();
+    expect(screen.getByText('(Development)')).toBeInTheDocument();
     expect(screen.getByText('Prod')).toBeInTheDocument();
   });
 
-  it('calls onChange when selection changes', () => {
+  it('calls onChange when an option is clicked', () => {
     const onChange = vi.fn();
     render(<CascadeSelect {...baseProps} onChange={onChange} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'e1' } });
+    openDropdown();
+    fireEvent.click(screen.getByText('Dev'));
     expect(onChange).toHaveBeenCalledWith('e1');
+  });
+
+  it('closes dropdown after selection', () => {
+    render(<CascadeSelect {...baseProps} />);
+    openDropdown();
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Dev'));
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 
   it('shows "+ Create New" option when onCreate is provided', () => {
     render(<CascadeSelect {...baseProps} onCreate={vi.fn()} />);
+    openDropdown();
     expect(screen.getByText('+ Create New')).toBeInTheDocument();
   });
 
   it('does not show "+ Create New" when onCreate is absent', () => {
     render(<CascadeSelect {...baseProps} />);
+    openDropdown();
     expect(screen.queryByText('+ Create New')).toBeNull();
   });
 
@@ -135,5 +152,50 @@ describe('CascadeSelect', () => {
     );
     const input = screen.getByPlaceholderText('New environment name...');
     expect(input).toHaveFocus();
+  });
+
+  it('shows selected option text when value is set', () => {
+    render(<CascadeSelect {...baseProps} value="e1" />);
+    expect(screen.getByText('Dev (Development)')).toBeInTheDocument();
+  });
+
+  it('marks selected item as active with checkmark', () => {
+    render(<CascadeSelect {...baseProps} value="e2" />);
+    openDropdown();
+    const items = document.querySelectorAll('[role="option"]');
+    const prodOption = Array.from(items).find(i =>
+      i.querySelector('.cascade-dropdown-item-name')?.textContent === 'Prod',
+    );
+    expect(prodOption).toHaveAttribute('aria-selected', 'true');
+    expect(prodOption?.querySelector('.cascade-dropdown-check')).toBeInTheDocument();
+  });
+
+  it('sets aria-expanded on trigger button', () => {
+    render(<CascadeSelect {...baseProps} />);
+    const trigger = screen.getByRole('combobox');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('closes the dropdown when clicking outside the wrapper', () => {
+    render(<CascadeSelect {...baseProps} />);
+    openDropdown();
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('calls onCreate and closes the dropdown', () => {
+    const onCreate = vi.fn();
+    render(<CascadeSelect {...baseProps} onCreate={onCreate} />);
+    openDropdown();
+
+    fireEvent.click(screen.getByText('+ Create New'));
+
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 });
