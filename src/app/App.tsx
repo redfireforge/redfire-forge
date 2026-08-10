@@ -21,6 +21,7 @@ import AppSubNav from './components/AppSubNav';
 import AppSidebarRegion from './components/AppSidebarRegion';
 import AppShellOverlays from './components/AppShellOverlays';
 import AppProtocolStudios from './components/AppProtocolStudios';
+import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -362,6 +363,7 @@ export default function App() {
         </Suspense>
       )}
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
+      <UpdateNotificationBanner />
       <AppHeader
         headerRef={headerRef}
         activeTab={activeTab}
