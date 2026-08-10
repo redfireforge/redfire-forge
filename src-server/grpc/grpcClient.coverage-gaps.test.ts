@@ -112,13 +112,14 @@ describe('GrpcJsClient coverage gaps', () => {
     const socket = new EventEmitter() as net.Socket & { destroy: ReturnType<typeof vi.fn> };
     socket.destroy = vi.fn();
     vi.spyOn(net, 'connect').mockImplementation((options: net.NetConnectOpts) => {
-      expect(options).toMatchObject({ host: '::1', port: 50051 });
+      // Non-loopback IPv6 so preferIpv4LoopbackDialAddress leaves it untouched.
+      expect(options).toMatchObject({ host: '2001:db8::1', port: 50051 });
       queueMicrotask(() => socket.emit('connect'));
       return socket;
     });
 
     const client = new GrpcJsClient();
-    const result = await client.probeReachability({ address: '[::1]:50051', timeoutMs: 5_000 });
+    const result = await client.probeReachability({ address: '[2001:db8::1]:50051', timeoutMs: 5_000 });
     expect(result.reachable).toBe(true);
   });
 

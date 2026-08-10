@@ -1,9 +1,9 @@
 /**
  * TH-21: Shared Data Sources (Dedicated Lesson)
  *
- * 6 steps covering the full Shared Data Sources workflow:
- * Open & Create → Configure Fetch URL → cURL Import → Auth Configuration →
- * Data Grid & Used By → + Create Test
+ * 7 steps covering the full Shared Data Sources workflow:
+ * Open & Create → Configure Fetch URL → cURL Import → Parameterize Wizard →
+ * Auth Configuration → Data Grid & Used By → + Create Test
  *
  * Realistic scenario: a User Directory API (jsonplaceholder /users) with
  * user IDs and expected name / username / email validation — shared across
@@ -22,7 +22,6 @@ import {
   expandFirstFg,
   expandFirstScenario,
   TH21_SHARED_DS_NAME,
-  TH21_SC_NAME,
 } from './th-demo-helpers';
 
 /* ── Local constants ─────────────────────────────────────────── */
@@ -83,43 +82,109 @@ function fillTextarea(selector: string, value: string): void {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-/**
- * The real app auto-opens the "Create Parameterized Copy" variable wizard
- * (`.ds-setup-dialog`) after cURL Import & Apply. Our lesson doesn't feature
- * that wizard in this step, so close it before spotlighting anything else —
- * otherwise the next highlight targets an element now hidden behind it.
- */
+/** Close the Create Parameterized Copy wizard if it is open. */
 async function closeVariablesWizardIfOpen(ctx: DemoActionContext): Promise<void> {
-  const dialog = document.querySelector<HTMLElement>('.ds-setup-dialog');
+  const dialog = document.querySelector<HTMLElement>(HAR.DS_SETUP_DIALOG);
   if (!dialog) return;
   const cancelBtn = Array.from(dialog.querySelectorAll<HTMLElement>('button'))
     .find(b => b.textContent?.trim() === 'Cancel');
   cancelBtn?.click();
-  for (let i = 0; i < 15 && document.querySelector('.ds-setup-dialog'); i++) {
+  for (let i = 0; i < 15 && document.querySelector(HAR.DS_SETUP_DIALOG); i++) {
     await ctx.delay(120);
   }
 }
 
-async function closeSharedDsVisibly(ctx: DemoActionContext): Promise<void> {
-  const modal = document.querySelector<HTMLElement>(HAR.SHARED_DS_MODAL);
-  if (!modal) return;
-  const closeBtn = Array.from(modal.querySelectorAll<HTMLElement>('.shared-ds-footer button'))
-    .find(b => {
-      const t = b.textContent?.trim();
-      return t === 'Close' || t === 'Cancel';
-    });
-  if (closeBtn) {
-    closeBtn.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-    await spotlight(closeBtn, 1600, ctx);
-    await ctx.delay(500);
-    closeBtn.click();
+function findWizardBtn(labelPart: string): HTMLElement | null {
+  const wizard = document.querySelector<HTMLElement>(HAR.DS_SETUP_DIALOG);
+  if (!wizard) return null;
+  return Array.from(wizard.querySelectorAll<HTMLElement>('button'))
+    .find((btn) => btn.textContent?.trim().includes(labelPart) && !btn.hasAttribute('disabled'))
+    ?? null;
+}
+
+/**
+ * Quietly re-run cURL Import & Apply so the Create Parameterized Copy wizard
+ * is open (for rapid-Next / restart recovery).
+ */
+async function ensureVariablesWizardOpen(ctx: DemoActionContext): Promise<boolean> {
+  if (document.querySelector(HAR.DS_SETUP_DIALOG)) return true;
+  if (!document.querySelector(HAR.SHARED_DS_MODAL)) {
+    await ensureModalOpen(ctx);
+  }
+  await ensureSharedDsSelected(ctx);
+
+  const actionBar = document.querySelector<HTMLElement>('.shared-ds-fetch-actions');
+  const curlBtn = actionBar
+    ? Array.from(actionBar.querySelectorAll<HTMLElement>('button'))
+      .find(b => b.textContent?.includes('cURL Import'))
+    : null;
+  if (curlBtn && !document.querySelector('.shared-ds-curl-import')) {
+    curlBtn.click();
+    await ctx.delay(400);
+  }
+
+  const curlSection = document.querySelector<HTMLElement>('.shared-ds-curl-import');
+  if (curlSection) {
+    fillTextarea('.shared-ds-curl-input', CURL_COMMAND);
+    await ctx.delay(200);
+    const importBtn = Array.from(curlSection.querySelectorAll<HTMLElement>('button'))
+      .find(b => b.textContent?.includes('Import'));
+    importBtn?.click();
+    await ctx.delay(800);
+  }
+
+  for (let i = 0; i < 20 && !document.querySelector(HAR.DS_SETUP_DIALOG); i++) {
+    await ctx.delay(150);
+  }
+  return !!document.querySelector(HAR.DS_SETUP_DIALOG);
+}
+
+/**
+ * Walk Create Parameterized Copy: Detect Variables → Columns → Validate →
+ * Column Order → Review, then Cancel (tour only — Create Test is a later step).
+ */
+async function tourParameterizedCopyWizard(ctx: DemoActionContext): Promise<void> {
+  const dialog = document.querySelector<HTMLElement>(HAR.DS_SETUP_DIALOG);
+  if (!dialog) return;
+
+  // Payoff on Detect Variables (path {{userId}} already selected)
+  await spotlight(dialog, 2000, ctx);
+  await ctx.delay(700);
+
+  const stages = [
+    'Next: Columns',
+    'Next: Validate Fields',
+    'Next: Column Order',
+    'Next: Review',
+  ] as const;
+
+  for (const label of stages) {
+    const nextBtn = findWizardBtn(label);
+    if (!nextBtn) continue;
+    await spotlight(nextBtn, 1400, ctx);
+    await ctx.delay(350);
+    nextBtn.click();
+    await ctx.delay(900);
+    const stagePanel = document.querySelector<HTMLElement>(HAR.DS_SETUP_DIALOG);
+    if (stagePanel) {
+      await spotlight(stagePanel, 1600, ctx);
+      await ctx.delay(500);
+    }
+  }
+
+  // End on Review — Cancel so we do not create a test here (step "+ Create Test" does that).
+  const cancelBtn = findWizardBtn('Cancel');
+  if (cancelBtn) {
+    await spotlight(cancelBtn, 1400, ctx);
+    await ctx.delay(400);
+    cancelBtn.click();
+    for (let i = 0; i < 15 && document.querySelector(HAR.DS_SETUP_DIALOG); i++) {
+      await ctx.delay(120);
+    }
+    await ctx.delay(400);
   } else {
-    closeSharedDsModal();
+    await closeVariablesWizardIfOpen(ctx);
   }
-  for (let i = 0; i < 15 && document.querySelector(HAR.SHARED_DS_MODAL); i++) {
-    await ctx.delay(120);
-  }
-  await ctx.delay(500);
 }
 
 /* ── Lesson definition ───────────────────────────────────────── */
@@ -133,7 +198,7 @@ export const thSharedDataSourcesLesson: DemoLesson = {
     'Master shared data sources — reusable parameterized datasets for user directories, ' +
     'catalog APIs, and multi-environment test suites. Learn cURL import, fetch ' +
     'configuration, and test linking.',
-  estimatedMinutes: 7,
+  estimatedMinutes: 8,
   initialTab: 'scenarios',
   allowedTabs: ['scenarios'],
 
@@ -344,8 +409,8 @@ export const thSharedDataSourcesLesson: DemoLesson = {
         'Because this data source maps a **Path** column to `userId`, the URL must keep ' +
         'the `{{userId}}` placeholder (not a hardcoded `/users/1`). Otherwise you get a ' +
         '**Mapping issues** warning: `path:userId has no matching URL placeholder`.\n\n' +
-        'After **Import & Apply**, the fetch config updates — URL, method, headers, and auth ' +
-        'are all populated from the parsed cURL.',
+        'After **Import & Apply**, the fetch config updates and the **Create Parameterized Copy** ' +
+        'wizard opens on **Detect Variables** — we walk that wizard in the next step.',
       highlight: HAR.SHARED_DS_FETCH,
       pauseAfter: true,
 
@@ -401,24 +466,62 @@ export const thSharedDataSourcesLesson: DemoLesson = {
             await ctx.delay(600);
             importBtn.click();
             await ctx.delay(1200);
-            // Import & Apply auto-opens the "Create Parameterized Copy" variable
-            // wizard on top of the modal — close it, it's not part of this step.
-            await closeVariablesWizardIfOpen(ctx);
           }
         }
 
-        // Show the updated URL bar after import
+        // Leave the Create Parameterized Copy wizard open for the next step.
+        const wizard = document.querySelector<HTMLElement>(HAR.DS_SETUP_DIALOG);
+        if (wizard) {
+          await spotlight(wizard, 2200, ctx);
+          await ctx.delay(800);
+        }
+      },
+
+      verify: HAR.DS_SETUP_DIALOG,
+    },
+
+    // ── Step 4: Create Parameterized Copy wizard ───────────────
+    {
+      id: 'th21-param-wizard',
+      title: 'Parameterize Wizard',
+      description:
+        '**Import & Apply** opened **Create Parameterized Copy**. Walk every stage so you ' +
+        'see how a fetch URL with `{{userId}}` becomes a parameterized test:\n\n' +
+        '1. **Detect Variables** — `{{userId}}` is selected as a path variable\n' +
+        '2. **Configure Columns** — review column mapping\n' +
+        '3. **Validate Fields** — optional response assertions\n' +
+        '4. **Column Order** — arrange columns\n' +
+        '5. **Review** — confirm the copy\n\n' +
+        'We **Cancel** on Review — creating a linked test is covered in the final step ' +
+        '(**+ Create Test**). This walk is the tour of the wizard itself.',
+      highlight: HAR.DS_SETUP_DIALOG,
+      pauseAfter: true,
+
+      preAction: async (ctx) => {
+        if (!document.querySelector(HAR.SHARED_DS_MODAL)) {
+          await ensureModalOpen(ctx);
+        }
+        await ensureSharedDsSelected(ctx);
+        await ensureVariablesWizardOpen(ctx);
+      },
+
+      action: async (ctx) => {
+        await ensureVariablesWizardOpen(ctx);
+        await tourParameterizedCopyWizard(ctx);
+
+        // After Cancel, show the updated fetch URL bar from the cURL import
         const urlBar = document.querySelector<HTMLElement>('.shared-ds-fetch-url-bar');
         if (urlBar) {
+          urlBar.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
           await spotlight(urlBar, 2000, ctx);
-          await ctx.delay(800);
+          await ctx.delay(700);
         }
       },
 
       verify: HAR.SHARED_DS_FETCH,
     },
 
-    // ── Step 4: Auth Configuration ─────────────────────────────
+    // ── Step 5: Auth Configuration ─────────────────────────────
     {
       id: 'th21-auth-config',
       title: 'Authentication',
@@ -471,7 +574,7 @@ export const thSharedDataSourcesLesson: DemoLesson = {
       verify: HAR.SHARED_DS_FETCH,
     },
 
-    // ── Step 5: Data Grid & Used By ────────────────────────────
+    // ── Step 6: Data Grid & Used By ────────────────────────────
     {
       id: 'th21-data-grid-used-by',
       title: 'Data Grid & Used By',
@@ -501,6 +604,7 @@ export const thSharedDataSourcesLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
+        await closeVariablesWizardIfOpen(ctx);
         if (!document.querySelector(HAR.SHARED_DS_MODAL)) {
           await ensureModalOpen(ctx);
           await ensureSharedDsSelected(ctx);
@@ -517,26 +621,29 @@ export const thSharedDataSourcesLesson: DemoLesson = {
         const dataGrid = document.querySelector<HTMLElement>(HAR.SHARED_DS_GRID);
         if (dataGrid) {
           dataGrid.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-          await spotlight(dataGrid, 3000, ctx);
-          await ctx.delay(1200);
+          await spotlight(dataGrid, 2200, ctx);
+          await ctx.delay(700);
         }
 
         // Expand and spotlight the "Used By" section
         const usedByToggle = document.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY_TOGGLE);
         if (usedByToggle) {
           usedByToggle.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-          await spotlight(usedByToggle, 2000, ctx);
-          await ctx.delay(500);
-          usedByToggle.click();
-          await ctx.delay(600);
+          await spotlight(usedByToggle, 1600, ctx);
+          await ctx.delay(400);
+          // Expand if collapsed
+          const usedByRoot = document.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY);
+          if (usedByRoot && !usedByRoot.classList.contains('expanded')) {
+            usedByToggle.click();
+            await ctx.delay(500);
+          }
           const usedBySection = document.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY_LIST)
             ?? document.querySelector<HTMLElement>(HAR.SHARED_DS_USED_BY);
           if (usedBySection) {
-            // Keep the chips clear of the modal footer before spotlighting.
             usedBySection.scrollIntoView({ block: 'end', behavior: 'instant' as ScrollBehavior });
-            await ctx.delay(300);
-            await spotlight(usedBySection, 2800, ctx);
-            await ctx.delay(1200);
+            await ctx.delay(250);
+            await spotlight(usedBySection, 2000, ctx);
+            await ctx.delay(700);
           }
         }
       },
@@ -544,16 +651,14 @@ export const thSharedDataSourcesLesson: DemoLesson = {
       verify: HAR.SHARED_DS_USED_BY,
     },
 
-    // ── Step 6: + Create Test ──────────────────────────────────
+    // ── Step 7: + Create Test ──────────────────────────────────
     {
       id: 'th21-create-test',
       title: '+ Create Test from Shared DS',
       description:
-        'Click **+ Create Test** to open the create dialog, then confirm with **Create Test**.\n\n' +
-        'The new parameterized test is added to **Shared DS Demo → User Directory** and ' +
-        'linked to this shared data source — it inherits the URL template, columns, and auth.\n\n' +
-        'After creating, we close the editor and highlight the new test card in the Feature ' +
-        'Groups tree so you can see exactly where it landed.',
+        'Click **+ Create Test**, confirm in the dialog, then watch the new card appear under ' +
+        '**Shared DS Demo → User Directory**.\n\n' +
+        'The test inherits the shared URL template, columns, and auth — already linked, ready to run.',
       highlight: HAR.SHARED_DS_FETCH,
       pauseAfter: true,
 
@@ -572,7 +677,7 @@ export const thSharedDataSourcesLesson: DemoLesson = {
           await ensureSharedDsSelected(ctx);
         }
 
-        // 1) Open the create-test dialog
+        // 1) + Create Test
         const actionBar = document.querySelector<HTMLElement>('.shared-ds-fetch-actions');
         const createTestBtn = actionBar
           ? Array.from(actionBar.querySelectorAll<HTMLElement>('button'))
@@ -581,45 +686,43 @@ export const thSharedDataSourcesLesson: DemoLesson = {
 
         if (createTestBtn) {
           createTestBtn.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-          await spotlight(createTestBtn, 2200, ctx);
-          await ctx.delay(600);
+          await spotlight(createTestBtn, 1800, ctx);
+          await ctx.delay(450);
           createTestBtn.click();
-          await ctx.delay(900);
+          await ctx.delay(800);
         }
 
-        // 2) Spotlight the create dialog, then click Create Test
+        // 2) Confirm in the create dialog
         const createModal = document.querySelector<HTMLElement>('.create-test-modal');
         if (createModal) {
-          await spotlight(createModal, 2000, ctx);
-          await ctx.delay(600);
-
           const confirmBtn = Array.from(createModal.querySelectorAll<HTMLElement>('button'))
             .find(b => b.textContent?.trim() === 'Create Test');
           if (confirmBtn) {
             await spotlight(confirmBtn, 1600, ctx);
-            await ctx.delay(500);
+            await ctx.delay(400);
             confirmBtn.click();
-            await ctx.delay(1200);
+            await ctx.delay(1000);
           }
         }
 
-        // Create Test opens the Test Editor — close it so we can show the card in the tree
+        // Create Test opens the editor — close quietly so the tree is the payoff
         if (isTestEditorOpen()) {
           await closeTestEditorQuiet(ctx);
-          await ctx.delay(500);
+          await ctx.delay(400);
         }
-
-        // Shared DS modal should already be closed by Create Test; belt-and-suspenders
         if (document.querySelector(HAR.SHARED_DS_MODAL)) {
-          await closeSharedDsVisibly(ctx);
+          closeSharedDsModal();
+          for (let i = 0; i < 12 && document.querySelector(HAR.SHARED_DS_MODAL); i++) {
+            await ctx.delay(100);
+          }
         }
 
-        // 3) Show where the test was created in Feature Groups
+        // 3) One spotlight on the new test card — no second pass / scenario re-ring
         ctx.navigateToTab('scenarios');
-        await ctx.delay(500);
+        await ctx.delay(400);
         await expandFirstFg(ctx);
         await expandFirstScenario(ctx);
-        await ctx.delay(600);
+        await ctx.delay(500);
 
         const createdName = `Test from ${TH21_SHARED_DS_NAME}`;
         const testCards = Array.from(document.querySelectorAll<HTMLElement>(HAR.TEST_CARD));
@@ -628,18 +731,9 @@ export const thSharedDataSourcesLesson: DemoLesson = {
 
         if (createdCard) {
           createdCard.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-          await spotlight(createdCard, 2800, ctx);
-          await ctx.delay(800);
+          await spotlight(createdCard, 2400, ctx);
+          await ctx.delay(700);
         }
-
-        // Also spotlight the parent scenario so the location is clear
-        const scHeaders = Array.from(document.querySelectorAll<HTMLElement>(HAR.SCENARIO_HEADER));
-        const scHeader = scHeaders.find(h => h.textContent?.includes(TH21_SC_NAME));
-        if (scHeader) {
-          await spotlight(scHeader, 1600, ctx);
-          await ctx.delay(500);
-        }
-        if (createdCard) await spotlight(createdCard, 1800, ctx);
       },
 
       verify: HAR.TEST_CARD,

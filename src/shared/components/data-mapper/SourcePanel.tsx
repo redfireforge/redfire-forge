@@ -423,6 +423,7 @@ export default function SourcePanel({
                       className="dm-empty-action-btn"
                       onClick={handleFetchSample}
                       disabled={fetching}
+                      aria-label="Fetch live sample"
                     >
                       {fetching ? 'Fetching…' : 'Fetch sample'}
                     </button>

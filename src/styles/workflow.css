@@ -2091,6 +2091,100 @@
 .wf-loop-config .wf-config-field--row > .cs-wrapper .cs-trigger {
   width: 100%;
 }
+
+/* Loop For Each — optional Data Source collapsible (table of rows instead of Source array). */
+.wf-loop-datasource-section {
+  margin: 10px 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.wf-loop-datasource-toggle {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+}
+.wf-loop-datasource-toggle:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.wf-loop-datasource-section--open .wf-loop-datasource-toggle {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.wf-loop-datasource-chevron {
+  display: inline-block;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.wf-loop-datasource-chevron.open {
+  transform: rotate(90deg);
+}
+.wf-loop-datasource-toggle .wf-inline-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.wf-loop-datasource-section--open .wf-loop-datasource-toggle .wf-inline-icon {
+  color: var(--primary);
+}
+.wf-loop-datasource-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.wf-loop-datasource-title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: inherit;
+  line-height: 1.3;
+}
+.wf-loop-datasource-hint {
+  font-size: 0.65rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.85;
+  line-height: 1.3;
+}
+.wf-loop-datasource-count {
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg));
+  border: 1px solid var(--border);
+}
+.wf-loop-datasource-editor {
+  padding: 10px 12px 12px;
+  background: var(--bg);
+  max-height: min(420px, 50vh);
+  overflow: auto;
+}
+
 /* Log/Debug node config — one-line label/control rows (two-tone properties panel). */
 .wf-logdebug-config .wf-config-field--row > label {
   width: 112px;
@@ -3206,13 +3300,36 @@
   border-color: var(--primary);
 }
 .wf-config-url-field-wrap {
-  flex: 1; display: flex; gap: 6px; align-items: center; min-width: 0;
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+.wf-config-url-field-wrap > .expr-input-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .wf-config-url-input {
-  flex: 1; padding: 5px 9px; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 5px; color: var(--text); font-size: 0.78rem;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.78rem;
   font-family: 'SF Mono', monospace;
-  min-width: 0;
+  line-height: 1.35;
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  resize: none;
   transition: border-color 0.12s;
 }
 .wf-config-url-input:focus {
@@ -3389,7 +3506,34 @@
 
 .wf-config-hint-text code { color: #f59e0b; background: var(--bg); padding: 1px 3px; border-radius: 2px; font-size: 0.7rem; }
 
-/* HTTP workflow node — card layout helpers */
+/* HTTP workflow node — URL stack: method → textarea+Insert → hint (via KafkaFormRow) */
+.wf-http-url-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Keep method select compact — parent .wf-kafka-form-ctrl .cs-wrapper { width:100% } would stretch it */
+.wf-http-url-stack > .wf-config-method-select.cs-wrapper,
+.wf-http-url-stack > .cs-wrapper.wf-config-method-select {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: 84px;
+  max-width: 84px;
+  min-width: 84px;
+}
+
+.wf-http-url-stack > .wf-config-method-select .cs-trigger,
+.wf-http-url-stack > .cs-wrapper.wf-config-method-select .cs-trigger {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+}
+
+/* Legacy class kept for any external references */
 .wf-http-url-row {
   display: flex;
   align-items: center;
@@ -3398,26 +3542,10 @@
   min-width: 0;
 }
 
-/* Keep method select compact — parent .wf-kafka-form-ctrl .cs-wrapper { width:100% } would stretch it */
-.wf-http-url-row > .wf-config-method-select.cs-wrapper,
-.wf-http-url-row > .cs-wrapper.wf-config-method-select {
-  flex: 0 0 76px;
-  width: 76px;
-  max-width: 76px;
-  min-width: 76px;
-}
-
-.wf-http-url-row > .wf-config-method-select .cs-trigger,
-.wf-http-url-row > .cs-wrapper.wf-config-method-select .cs-trigger {
-  width: 100%;
-  min-width: 0;
-  padding: 5px 6px;
-}
-
 /*
  * Standard select width inside HTTP config — fixed so width does not grow/shrink
  * with the selected label (e.g. "No Auth" vs "OAuth2 Client Credentials").
- * Method select (beside URL) is excluded and stays compact at 76px.
+ * Method select (URL stack line 1) is excluded and stays compact.
  */
 .wf-http-config .cs-wrapper:not(.wf-config-method-select) {
   width: 220px;
@@ -8215,10 +8343,10 @@
 
 /* ── Workflow Defaults Modal ── */
 .wf-defaults-modal.wf-config-modal.modal.ram-modal {
-  /* Compact card; height hugs content (no tall empty body). */
-  width: min(820px, 92vw);
-  max-width: 820px;
-  min-width: min(580px, 92vw);
+  /* Compact but wide enough for typical URL values without heavy truncation. */
+  width: min(520px, 92vw);
+  max-width: 520px;
+  min-width: min(360px, 92vw);
   height: auto;
   max-height: min(72vh, 640px);
   min-height: 0;
@@ -8394,9 +8522,9 @@
 }
 
 .wf-defaults-vars-section .wf-var-name-cell {
-  width: 140px;
-  min-width: 100px;
-  max-width: 220px;
+  width: 110px;
+  min-width: 90px;
+  max-width: 140px;
   flex: 0 0 auto;
 }
 
@@ -8428,7 +8556,8 @@
 .wf-defaults-vars-section .wf-config-insert-var-btn {
   flex-shrink: 0;
   height: 32px;
-  padding: 0 8px;
+  padding: 0 6px;
+  font-size: 0.72rem !important;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--bg);
@@ -8471,7 +8600,7 @@
 
 .wf-defaults-form-row {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
+  grid-template-columns: 118px minmax(0, 1fr);
   align-items: stretch;
   min-height: 44px;
   border: 1px solid var(--border);
@@ -11696,8 +11825,26 @@
 }
 .wf-paused-empty {
   font-size: 0.75rem;
-  color: var(--text-muted, #888);
-  font-style: italic;
+  color: var(--text-muted);
+  font-style: normal;
+  line-height: 1.45;
+}
+.wf-paused-empty-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+.wf-paused-empty-steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--text-muted);
+}
+.wf-paused-empty-steps li {
+  margin: 3px 0;
+}
+.wf-paused-empty-steps strong {
+  color: var(--text);
+  font-weight: 600;
 }
 .wf-paused-list {
   display: flex;
@@ -14401,8 +14548,31 @@
   overflow: hidden;
 }
 
+/* Connection: input fills the middle; fixed hint column keeps helpers right-aligned. */
 .wf-kafka-form--connection .wf-kafka-form-row--compact {
-  grid-template-columns: 120px minmax(200px, 1fr) minmax(120px, 0.9fr);
+  grid-template-columns: 120px minmax(0, 1fr) 156px;
+}
+
+.wf-kafka-form--connection .wf-kafka-form-hint-slot {
+  width: 156px;
+  max-width: 156px;
+  justify-content: flex-end;
+  padding: 0 14px 0 8px;
+}
+
+.wf-kafka-form--connection .wf-kafka-form-hint-slot .wf-kafka-form-hint {
+  text-align: right;
+  width: auto;
+  max-width: 100%;
+}
+
+.wf-kafka-form--connection .wf-kafka-form-control-slot {
+  width: 100%;
+}
+
+.wf-kafka-form--connection .wf-kafka-form-control-slot > .wf-kafka-form-input {
+  width: 100%;
+  max-width: none;
 }
 
 /* Webhook / Schedule / Delay: inputs fill the middle; fixed hint column keeps descriptions right-aligned */
@@ -14468,16 +14638,45 @@
   max-width: none;
 }
 
+/* Delivery: same as Connection — control fills middle; hints right-aligned. */
 .wf-kafka-form--delivery .wf-kafka-form-row--compact {
-  grid-template-columns: 120px 140px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr) 156px;
+}
+
+.wf-kafka-form--delivery .wf-kafka-form-hint-slot {
+  width: 156px;
+  max-width: 156px;
+  justify-content: flex-end;
+  padding: 0 14px 0 8px;
+}
+
+.wf-kafka-form--delivery .wf-kafka-form-hint-slot .wf-kafka-form-hint {
+  text-align: right;
+  width: auto;
+  max-width: 100%;
+}
+
+.wf-kafka-form--delivery .wf-kafka-form-control-slot {
+  width: 100%;
+}
+
+.wf-kafka-form--delivery .wf-kafka-form-control-slot > .wf-kafka-form-input,
+.wf-kafka-form--delivery .wf-kafka-form-control-slot > .cs-wrapper {
+  width: 100%;
+  max-width: none;
+  flex: 1 1 auto;
+}
+
+.wf-kafka-form--delivery .wf-kafka-form-control-slot > .cs-wrapper .cs-trigger {
+  width: 100%;
 }
 
 .wf-kafka-form--consume .wf-kafka-form-row--compact {
-  grid-template-columns: 120px minmax(160px, 1fr) minmax(120px, 0.9fr);
+  grid-template-columns: 120px minmax(0, 1fr) 156px;
 }
 
 .wf-kafka-form--wait-correlation .wf-kafka-form-row--compact {
-  grid-template-columns: 120px minmax(180px, 1fr) minmax(120px, 0.9fr);
+  grid-template-columns: 120px minmax(0, 1fr) 156px;
 }
 
 .wf-kafka-form-note {

@@ -19,6 +19,7 @@ describe('useDemoCatalogBridge', () => {
       '__demoAddVersionByName',
       '__demoClearAllWorkflowPreviews',
       '__demoGetCatalogEntryByName',
+      '__demoPublishCatalogEndpoint',
       '__demoCatalogLoaded',
     ];
     keys.forEach(key => {
@@ -31,6 +32,7 @@ describe('useDemoCatalogBridge', () => {
       entries: [],
       loaded,
       selectEntry: vi.fn(),
+      updateEntry: vi.fn(),
       addEntry: vi.fn().mockResolvedValue(undefined),
       removeEntry: vi.fn().mockResolvedValue(undefined),
       addVersionToEntry: vi.fn().mockResolvedValue(undefined),
@@ -48,6 +50,7 @@ describe('useDemoCatalogBridge', () => {
     expect(typeof w.__demoAddVersionByName).toBe('function');
     expect(typeof w.__demoClearAllWorkflowPreviews).toBe('function');
     expect(typeof w.__demoGetCatalogEntryByName).toBe('function');
+    expect(typeof w.__demoPublishCatalogEndpoint).toBe('function');
   });
 
   it('does not register bridge functions when disabled', () => {
@@ -172,6 +175,52 @@ describe('useDemoCatalogBridge', () => {
     renderHook(() => useDemoCatalogBridge(catalog, true));
 
     expect(typeof (window as unknown as Record<string, unknown>).__demoClearAllWorkflowPreviews).toBe('function');
+  });
+
+  it('publishEndpoint patches nested folder endpoints via updateEntry', () => {
+    const updateEntry = vi.fn();
+    const catalog = createMockCatalog();
+    catalog.updateEntry = updateEntry;
+    catalog.entries = [{
+      id: 'entry-1',
+      name: 'JSONPlaceholder API',
+      currentVersionId: 'v1',
+      endpoints: [],
+      folders: [{
+        id: 'f1',
+        name: 'posts',
+        endpoints: [{ id: 'ep1', method: 'GET', path: '/posts/{id}', summary: 'Get' }],
+        folders: [],
+      }],
+    }] as unknown as UseCatalogReturn['entries'];
+
+    renderHook(() => useDemoCatalogBridge(catalog, true));
+    const bridge = (window as unknown as Record<string, unknown>).__demoPublishCatalogEndpoint;
+    expect(typeof bridge).toBe('function');
+    if (typeof bridge === 'function') {
+      expect(bridge('jsonplaceholder api', 'GET', '/posts/{id}')).toBe(true);
+    }
+    expect(updateEntry).toHaveBeenCalledOnce();
+    const patch = updateEntry.mock.calls[0][1] as {
+      folders: Array<{ endpoints: Array<{ workflowPublication?: { publishedFromVersionId: string } }> }>;
+    };
+    expect(patch.folders[0].endpoints[0].workflowPublication?.publishedFromVersionId).toBe('v1');
+  });
+
+  it('publishEndpoint returns false when endpoint is missing', () => {
+    const catalog = createMockCatalog();
+    catalog.entries = [{
+      id: 'entry-1',
+      name: 'JSONPlaceholder API',
+      currentVersionId: 'v1',
+      endpoints: [],
+      folders: [],
+    }] as unknown as UseCatalogReturn['entries'];
+    renderHook(() => useDemoCatalogBridge(catalog, true));
+    const bridge = (window as unknown as Record<string, unknown>).__demoPublishCatalogEndpoint;
+    if (typeof bridge === 'function') {
+      expect(bridge('JSONPlaceholder API', 'GET', '/missing')).toBe(false);
+    }
   });
 
   it('switches from disabled to enabled', () => {

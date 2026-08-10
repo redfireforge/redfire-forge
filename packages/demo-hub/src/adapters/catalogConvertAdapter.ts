@@ -46,6 +46,18 @@ export function getCatalogEntryByName(name: string): Record<string, unknown> | n
   return getDemoBridgeWindow().__demoGetCatalogEntryByName?.(name) ?? null;
 }
 
+/**
+ * Quietly publish a Catalog endpoint for Workflow Designer (data-layer only).
+ * Returns false when the bridge/entry/endpoint is absent.
+ */
+export function publishCatalogEndpointByName(
+  entryName: string,
+  method: string,
+  path: string,
+): boolean {
+  return getDemoBridgeWindow().__demoPublishCatalogEndpoint?.(entryName, method, path) ?? false;
+}
+
 /** True once the Catalog store has hydrated from storage. */
 export function isCatalogLoaded(): boolean {
   return getDemoBridgeWindow().__demoCatalogLoaded === true;

@@ -169,6 +169,36 @@ describe('useRequestTabCoordinator', () => {
     expect(result.current.tabs).toHaveLength(0);
   });
 
+  it('prunes orphan tabs when collections change without removeCollection cleanup', () => {
+    const wb = makeMockWb();
+    const { result, rerender } = renderHook(
+      ({ value }) => useRequestTabCoordinator(value),
+      { initialProps: { value: wb } },
+    );
+
+    act(() => { result.current.selectRequest('c1', 'r1'); });
+    act(() => { result.current.openInNewTab('c1', 'r2'); });
+    expect(result.current.tabs).toHaveLength(2);
+
+    // Simulate out-of-band collection delete (demo bridge / raw removeCollection).
+    const nextData: RequestsData = {
+      collections: [makeCol('c1', [makeReq('r2', 'Create User')])],
+      selectedCollectionId: 'c1',
+      selectedRequestId: 'r2',
+    };
+    const nextWb = {
+      ...wb,
+      data: nextData,
+      collections: nextData.collections,
+      selectedCollection: nextData.collections[0],
+    } as unknown as UseRequestsReturn;
+
+    rerender({ value: nextWb });
+
+    expect(result.current.tabs.map(t => t.requestId)).toEqual(['r2']);
+    expect(result.current.activeTab?.requestId).toBe('r2');
+  });
+
   it('removeCollection still removes tabs and prunes empty cache list when collection is missing', () => {
     const wb = makeMockWb();
     const { result } = renderHook(() => useRequestTabCoordinator(wb));

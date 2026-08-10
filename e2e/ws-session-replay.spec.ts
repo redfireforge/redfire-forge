@@ -5,7 +5,7 @@
  * Requires: backend on 3001 (mock WS echo on 9876), Vite on 5173
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio, ensureWsMockServer, getActiveWsPane } from './ws-helpers';
+import { gotoWsStudio, ensureWsMockServer, getActiveWsPane, selectWsCustomSelect } from './ws-helpers';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -191,7 +191,7 @@ test.describe('WT-28–31: Session Replay', () => {
       await expect(speedSelect).toBeVisible();
 
       // Change to Max speed to finish quickly
-      await speedSelect.selectOption('0');
+      await selectWsCustomSelect(page, 'replay-speed-select', { value: '0', label: 'Max' });
 
       // Wait for replay to finish
       await expect(replayBar).not.toBeVisible({ timeout: 10000 });
@@ -244,7 +244,7 @@ test.describe('WT-28–31: Session Replay', () => {
       await expect(pauseBtn).toContainText('⏸');
 
       // Switch to Max to finish
-      await replayBar.locator('[data-testid="replay-speed-select"]').selectOption('0');
+      await selectWsCustomSelect(page, 'replay-speed-select', { value: '0', label: 'Max' });
       await expect(replayBar).not.toBeVisible({ timeout: 10000 });
     } finally {
       fs.unlinkSync(tmpFile);

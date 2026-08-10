@@ -1,10 +1,11 @@
 /* ============================================================
    Demo Player — Professional spotlight-guided walkthrough UI
-   z-index range: 10300–10350 (above all modals at 10200)
+   z-index range: 20100+ (must sit above CustomSelect menus)
    Modal z-index reference:
      10100 — demo sidepanel
      10200 — ws-tls-overlay and other app modals
-     10300 — demo spotlight ring (must always be on top)
+     20000 — .cs-menu (CustomSelect portal)
+     20100 — demo spotlight ring (must always be on top of menus)
    ============================================================ */
 
 /* ---- Spotlight ---- */
@@ -13,7 +14,8 @@
 
 .demo-spotlight-ring {
   position: fixed;
-  z-index: 10301;
+  /* Above .cs-menu (20000) so Bearer/option spotlights aren't painted under the dropdown. */
+  z-index: 20100;
   border-radius: var(--radius, 8px);
   box-shadow:
     0 0 0 9999px rgba(10, 14, 22, 0),

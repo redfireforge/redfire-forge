@@ -13,7 +13,6 @@ import {
   teardownUseDemoHubCoverageAfterEach,
 } from './useDemoHub.coverage.testHelpers';
 
-
 vi.mock('./lessons/env-manager-lesson-helpers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./lessons/env-manager-lesson-helpers')>();
   return {

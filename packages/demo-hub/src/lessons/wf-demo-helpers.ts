@@ -2,6 +2,8 @@
 import type { DemoActionContext } from '../types';
 import { purgeAllSpotlightRings, showSpotlightRing } from '../demoRipple';
 import {
+  clearWorkflowSamplePreview,
+  closeWorkflowConfigModal,
   collapseAppSidebar,
   deselectAllWorkflowNodes,
   expandAppSidebar,
@@ -262,6 +264,25 @@ export async function createBlankWorkflowFromSidebar(
 }
 
 /**
+ * Dismiss Gallery Sample Preview (banner + persisted sample id) so the Designer
+ * shows the real selected workflow. Without this, `previewWorkflow ?? selected`
+ * keeps painting Parallel API Calls (etc.) over a newly created blank canvas.
+ */
+export async function closeWfSamplePreviewIfOpen(ctx: DemoActionContext): Promise<void> {
+  clearWorkflowSamplePreview();
+  const closeBtn = document.querySelector<HTMLElement>(WF.SAMPLE_PREVIEW_CLOSE);
+  if (closeBtn) {
+    closeBtn.click();
+    await ctx.delay(200);
+  }
+  // Bridge clear is sync; give React a tick to drop the banner.
+  if (document.querySelector(WF.SAMPLE_PREVIEW_BANNER)) {
+    clearWorkflowSamplePreview();
+    await ctx.delay(150);
+  }
+}
+
+/**
  * Guarantee this lesson's blank workflow is on the canvas — select it if it
  * already exists, otherwise seed via the bridge (quiet / Preparing path).
  *
@@ -276,6 +297,8 @@ export async function ensureLessonBlankWorkflow(
   wfName: string,
   options?: { dismissOnboarding?: (ctx: DemoActionContext) => Promise<void> },
 ): Promise<void> {
+  // Sample Preview overrides selectedWorkflow on the canvas — dismiss first.
+  await closeWfSamplePreviewIfOpen(ctx);
   if ((await ensureLessonWorkflowShown(ctx, wfName)) !== 'missing') return;
   ctx.navigateToTab('workflow');
   await ctx.delay(100);
@@ -975,20 +998,55 @@ export async function saveWfConfigModal(ctx: DemoActionContext): Promise<boolean
   return true;
 }
 
-/** Close the node config modal when still open (quiet — no ripple). */
+/**
+ * Dismiss an open node config modal without Cancel/rollback.
+ *
+ * The footer "Close" button runs handleCancel and restores `originalDataRef`, which
+ * would undo a just-committed Save if the modal is still mounted. Prefer the demo
+ * bridge (`__wfCloseConfigModal`), which only clears `configModalNodeId`.
+ */
 export async function closeWfConfigModalIfOpen(ctx: DemoActionContext): Promise<void> {
   if (!document.querySelector(WF.NODE_CONFIG)) return;
-  const close = document.querySelector<HTMLElement>(WF.CFG_CLOSE);
-  if (close) {
-    close.click();
+  closeWorkflowConfigModal();
+  if (!document.querySelector(WF.NODE_CONFIG)) {
     await pauseWfConfigDemo(ctx, 'modalClose');
+    return;
+  }
+  // jsdom / bridge not mounted: drop the shell so demos are not stuck behind a modal.
+  document.querySelector(WF.NODE_CONFIG)?.remove();
+  await pauseWfConfigDemo(ctx, 'modalClose');
+}
+
+/** Close the Workflow Variables (defaults) modal via Cancel when still open. */
+export async function closeWfDefaultsModalIfOpen(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector<HTMLElement>(WF.DEFAULTS_MODAL);
+  if (!modal) return;
+  const cancel = modal.querySelector<HTMLElement>('.btn-ghost');
+  if (cancel) {
+    cancel.click();
+    await ctx.delay(300);
   }
 }
 
-/** Save when enabled, then ensure the config modal is dismissed. Skips close when Save stayed disabled. */
+/**
+ * Save when enabled, then dismiss the modal.
+ *
+ * CRITICAL: do NOT click the footer Close/Cancel after Save — that path rolls back
+ * to the pre-open snapshot and silently undoes the save (flaky log labels, lost
+ * extractions, broken Quick Test).
+ */
 export async function saveAndCloseWfConfigModal(ctx: DemoActionContext): Promise<boolean> {
   const saved = await saveWfConfigModal(ctx);
-  if (!saved) return false;
+  if (!saved) {
+    // Join / End / untouched configs often leave Save disabled — still dismiss so
+    // the next demo beat (and Next) is not blocked behind an open modal.
+    await closeWfConfigModalIfOpen(ctx);
+    return false;
+  }
+  // Save already calls onClose(); wait for React to unmount before forcing dismiss.
+  for (let i = 0; i < 20 && document.querySelector(WF.NODE_CONFIG); i++) {
+    await ctx.delay(50);
+  }
   if (document.querySelector(WF.NODE_CONFIG)) {
     await closeWfConfigModalIfOpen(ctx);
   }

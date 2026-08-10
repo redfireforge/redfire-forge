@@ -25,6 +25,8 @@ tauri-plugin-fs = "2"
 tauri-plugin-http = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 clap = { version = "4", features = ["derive"] }
 reqwest = { version = "0.13", features = ["json", "gzip", "brotli", "rustls", "multipart"] }
 tokio = { version = "1", features = ["full"] }

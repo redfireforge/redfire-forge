@@ -21,6 +21,7 @@ import {
   removeWorkspaceDefaults,
   resetGqlDemoBatchDetection,
   resetSettingsMicroserviceProtocols,
+  selectSettingsEnvSvc,
   upsertGlobalAuthProfile,
   upsertGqlEnvironment,
   upsertWorkspaceDefaults,
@@ -172,6 +173,20 @@ describe('environmentAdapter', () => {
 
   it('removeSettingsMicroservice is a no-op when bridge missing', () => {
     expect(() => removeSettingsMicroservice('product-api')).not.toThrow();
+  });
+
+  it('selectSettingsEnvSvc calls bridge when envId is set', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = spy;
+    selectSettingsEnvSvc('env-1', 'svc-1');
+    expect(spy).toHaveBeenCalledWith('env-1', 'svc-1');
+  });
+
+  it('selectSettingsEnvSvc is a no-op when envId is empty', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = spy;
+    selectSettingsEnvSvc('');
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('resetSettingsMicroserviceProtocols calls bridge and returns false when missing', () => {

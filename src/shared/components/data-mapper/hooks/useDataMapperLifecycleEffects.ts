@@ -69,11 +69,14 @@ export function useDataMapperLifecycleEffects({
   const sourceAutoFetchRef = useRef(false);
   useEffect(() => {
     if (sourceAutoFetchRef.current) return;
-    if (adapter.contextId !== 'validation') return;
+    // Validation: fill source when rules already exist.
+    // Populate / shared-DS fetch: "From API" should load a sample immediately.
+    const autoFetchContexts = new Set(['validation', 'populate-from-api', 'shared-ds-fetch']);
+    if (!autoFetchContexts.has(adapter.contextId)) return;
     if (!adapter.fetchSampleData) return;
     const srcData = sourceSampleOverrides[activeSourceId] ?? adapter.sources[0]?.sampleData;
     if (srcData != null) return;
-    if (mappings.length === 0) return;
+    if (adapter.contextId === 'validation' && mappings.length === 0) return;
     sourceAutoFetchRef.current = true;
     void (async () => {
       try {

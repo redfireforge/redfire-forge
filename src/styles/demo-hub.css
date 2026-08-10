@@ -14,9 +14,18 @@
  * The transient screens are removed at the source instead — lessons declare
  * `initialSurface` so the lesson tab mounts on step 1's sub-panel directly
  * (see src/shared/demoInitialSurface.ts). Only pointer blocking remains.
+ *
+ * Workflow Designer: hide ONLY the React Flow viewport transform during boot.
+ * Sidebar expand/collapse + auto fitView animate nodes left↔right several times;
+ * viewers must not see those intermediate hops. Chrome (toolbar/palette) stays.
+ * On reveal, opacity returns with nodes already in the final position.
  */
 body[data-demo-bootstrapping="1"] .app-main {
   pointer-events: none;
+}
+
+body[data-demo-bootstrapping="1"] .react-flow__viewport {
+  opacity: 0;
 }
 
 /* Parked when another tab is active. */

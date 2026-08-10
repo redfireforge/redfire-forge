@@ -502,7 +502,16 @@ export function useDataSourceSetupState({
         }
       }
       const hasValidate = columns.some(c => c.type === 'validate' && values[c.id]);
-      rows = [{ id: uuidv4(), values, enabled: true, ...(hasValidate ? { isSample: true } : {}) }];
+      const hasRequestValues = columns.some(
+        (c) => c.type !== 'validate' && String(values[c.id] ?? '').trim() !== '',
+      );
+      rows = [{
+        id: uuidv4(),
+        values,
+        // Blank starter rows stay unchecked until the user fills values.
+        enabled: hasRequestValues || hasValidate,
+        ...(hasValidate ? { isSample: true } : {}),
+      }];
     }
 
     const dataTable: DataSource = {

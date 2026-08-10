@@ -20,10 +20,11 @@ export const CAT = {
   // ── Welcome screen ───────────────────────────────────────────
   WELCOME_IMPORT_BTN:       '[data-testid="catalog-welcome-import-btn"]',
 
-  // ── Main-panel sub-tabs (Overview / Endpoints / Export / Published) ──
+  // ── Main-panel sub-tabs (Overview / Endpoints / Export / Workflow Exposure) ──
   VIEW_OVERVIEW:            '[data-testid="catalog-view-overview"]',
   VIEW_ENDPOINTS:           '[data-testid="catalog-view-endpoints"]',
   VIEW_EXPORT:              '[data-testid="catalog-view-export"]',
+  /** Workflow Exposure management tab (testid kept for stability). */
   VIEW_PUBLISHED:           '[data-testid="catalog-view-published"]',
 
   // ── Overview panel ────────────────────────────────────────────
@@ -82,6 +83,10 @@ export const CAT = {
   HOST_ENV_SELECT:          '[data-testid="catalog-host-env-select"]',
   HOST_INPUT:               '[data-testid="catalog-host-input"]',
   BASE_URL:                 '[data-testid="catalog-base-url"]',
+  /** Linked microservice name chip in Environment host mode. */
+  HOST_SVC_LABEL:           '[data-testid="catalog-host-svc-label"]',
+  /** Opens Edit modal to change the linked microservice. */
+  HOST_SVC_CHANGE:          '[data-testid="catalog-host-svc-change"]',
   /** Edit modal — link catalog entry to a microservice. */
   EDIT_MICROSERVICE_SELECT: '[data-testid="catalog-edit-microservice-select"]',
   EDIT_MODAL:               '.cat-edit-modal',
@@ -139,11 +144,13 @@ export const CAT = {
   PREVIEW_PROMOTE_GO_BTN:   '[data-testid="preview-promote-go-btn"]',
   PREVIEW_PROMOTE_DISMISS:  '[data-testid="preview-promote-dismiss-btn"]',
 
-  // ── Published Endpoints panel ─────────────────────────────────
+  // ── Workflow Exposure panel ───────────────────────────────────
   PUB_PANEL:                '[data-testid="published-endpoints-panel"]',
   PUB_SEARCH:               '[data-testid="pub-search"]',
   PUB_FILTER_ALL:           '[data-testid="pub-filter-all"]',
-  PUB_FILTER_CURRENT:       '[data-testid="pub-filter-current"]',
+  PUB_FILTER_PUBLISHED:     '[data-testid="pub-filter-published"]',
+  /** @deprecated Use PUB_FILTER_PUBLISHED */
+  PUB_FILTER_CURRENT:       '[data-testid="pub-filter-published"]',
   PUB_FILTER_STALE:         '[data-testid="pub-filter-stale"]',
   PUB_FILTER_PREVIEW:       '[data-testid="pub-filter-preview"]',
   PUB_BULK_UNPUBLISH:       '[data-testid="pub-bulk-unpublish"]',
@@ -154,7 +161,9 @@ export const CAT = {
   PUB_PREVIEW_ROW:          '[data-testid="pub-preview-row"]',
   PUB_SELECT_ALL:           '[data-testid="pub-select-all"]',
   PUB_STATUS_STALE:         '[data-testid="pub-status-stale"]',
-  PUB_STATUS_CURRENT:       '[data-testid="pub-status-current"]',
+  PUB_STATUS_PUBLISHED:     '[data-testid="pub-status-published"]',
+  /** @deprecated Use PUB_STATUS_PUBLISHED */
+  PUB_STATUS_CURRENT:       '[data-testid="pub-status-published"]',
   PUB_ACTIONS_BTN:          '[data-testid="pub-actions-btn"]',
   PUB_ACTIONS_MENU:         '[data-testid="pub-actions-menu"]',
   PUB_ACTION_VIEW:          '[data-testid="pub-action-view"]',

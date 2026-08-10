@@ -175,5 +175,27 @@ describe('selectLastDsColumnType', () => {
 
     await selectLastDsColumnType(makeCtx(), 'Validate', { quiet: true });
     expect(selected).toBe('Validate');
+    expect(document.querySelector('.cs-menu')).toBeNull();
+  });
+
+  it('selects from a portaled body menu and closes it before returning', async () => {
+    mountPortaledTypeSelect();
+    const last = mountPortaledTypeSelect();
+    let selected: string | null = null;
+
+    last.querySelector('.cs-trigger')!.addEventListener('click', () => {
+      queueMicrotask(() => {
+        document.querySelectorAll('.cs-menu .cs-item').forEach((item) => {
+          item.addEventListener('click', () => {
+            selected = (item.textContent ?? '').trim();
+            document.querySelector('.cs-menu')?.remove();
+          });
+        });
+      });
+    });
+
+    await selectLastDsColumnType(makeCtx(), 'Validate', { quiet: true });
+    expect(selected).toBe('Validate');
+    expect(document.querySelector('.cs-menu')).toBeNull();
   });
 });

@@ -22,6 +22,7 @@ vi.mock('../configs/HttpConfig', () => ({
   default: vi.fn().mockImplementation((props: {
     data: HttpNodeData;
     onChange: (p: Partial<HttpNodeData>) => void;
+    activeTab: string;
     onTabChange: (t: string) => void;
     onRequestVariableInsert: (apply: (s: string) => void, shortRef?: boolean, initial?: string) => void;
     effectiveQuickTestBaseUrl: string;
@@ -30,11 +31,13 @@ vi.mock('../configs/HttpConfig', () => ({
   }) => (
     <div data-testid="http-config">
       HttpConfig: {props.data.label}
+      <span data-testid="http-active-tab">{props.activeTab}</span>
       <span data-testid="http-effective-base">{props.effectiveQuickTestBaseUrl}</span>
       <span data-testid="http-last-err">{props.lastRunError ?? ''}</span>
       <span data-testid="http-last-url">{props.lastQuickTestRequestUrl ?? ''}</span>
       <button type="button" onClick={() => props.onChange({ label: 'Patched HTTP' })}>patch-http</button>
       <button type="button" onClick={() => props.onTabChange('headers' as never)}>http-secondary-tab</button>
+      <button type="button" onClick={() => props.onTabChange('extract' as never)}>http-extract-tab</button>
       <button
         type="button"
         onClick={() => props.onRequestVariableInsert(() => {}, false, 'findme')}
@@ -804,6 +807,28 @@ describe('WorkflowNodeConfigModal', () => {
     fireEvent.click(screen.getByText('request-var-insert'));
     expect(screen.getByTestId('var-insert-modal-open')).toBeTruthy();
     expect(screen.getByTestId('var-insert-modal-open')).toHaveAttribute('data-initial-search', 'findme');
+  });
+
+  it('restores last HTTP sub-tab when reopening the same node', () => {
+    // Dedicated id so other tests that switch tabs on node-1 do not pollute this case.
+    const node = {
+      ...defaultProps.node,
+      id: 'node-restore-tab',
+      data: {
+        ...(defaultProps.node.data as HttpNodeData),
+        scenario: {
+          ...(defaultProps.node.data as HttpNodeData).scenario,
+          extractions: [{ name: 'userId', source: 'body' as const, expression: '$.userId' }],
+        },
+      },
+    };
+    const { unmount } = render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByTestId('http-active-tab').textContent).toBe('url');
+    fireEvent.click(screen.getByText('http-extract-tab'));
+    expect(screen.getByTestId('http-active-tab').textContent).toBe('extract');
+    unmount();
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByTestId('http-active-tab').textContent).toBe('extract');
   });
 
   it('returns non-HTTP draftVariableHints from httpVariableHints as-is', () => {

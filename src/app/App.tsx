@@ -21,6 +21,7 @@ import AppSubNav from './components/AppSubNav';
 import AppSidebarRegion from './components/AppSidebarRegion';
 import AppShellOverlays from './components/AppShellOverlays';
 import AppProtocolStudios from './components/AppProtocolStudios';
+import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -115,7 +116,11 @@ export default function App() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog.loaded]);
-  useDemoRequestsBridge(wb, DEMO_HUB_ENABLED);
+  // Use coordinator removeCollection so demo silent deletes also prune open tabs.
+  useDemoRequestsBridge(
+    { collections: wb.collections, removeCollection: reqTabs.removeCollection },
+    DEMO_HUB_ENABLED,
+  );
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
   const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const wfHook = useWorkflows();
@@ -128,15 +133,6 @@ export default function App() {
     setWorkflowRunnerInitialId(wf.id);
     return true;
   }, [wfHook.workflows]);
-  useDemoWorkflowBridge(
-    wfHook.workflows,
-    wfHook.remove,
-    DEMO_HUB_ENABLED ? wfHook.insert : undefined,
-    DEMO_HUB_ENABLED ? wfHook.select : undefined,
-    DEMO_HUB_ENABLED ? wfHook.loaded : false,
-    DEMO_HUB_ENABLED ? wfHook.update : undefined,
-    DEMO_HUB_ENABLED ? selectRunnerWorkflowByName : undefined,
-  );
   const {
     previewWorkflow,
     setPreviewWorkflow,
@@ -146,6 +142,16 @@ export default function App() {
     handleUseWorkflowAsTemplate,
     clearPreviewWorkflow,
   } = useGalleryWorkflowPreviewState(wfHook);
+  useDemoWorkflowBridge(
+    wfHook.workflows,
+    wfHook.remove,
+    DEMO_HUB_ENABLED ? wfHook.insert : undefined,
+    DEMO_HUB_ENABLED ? wfHook.select : undefined,
+    DEMO_HUB_ENABLED ? wfHook.loaded : false,
+    DEMO_HUB_ENABLED ? wfHook.update : undefined,
+    DEMO_HUB_ENABLED ? selectRunnerWorkflowByName : undefined,
+    DEMO_HUB_ENABLED ? clearPreviewWorkflow : undefined,
+  );
   const wfFolders = useWorkflowFolders();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
@@ -357,6 +363,7 @@ export default function App() {
         </Suspense>
       )}
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
+      <UpdateNotificationBanner />
       <AppHeader
         headerRef={headerRef}
         activeTab={activeTab}
