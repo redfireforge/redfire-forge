@@ -1,0 +1,102 @@
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+  z-index: 9999;
+  flex-shrink: 0;
+}
+
+.update-banner--available {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  color: var(--text);
+  border-bottom-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.update-banner--downloading {
+  background: color-mix(in srgb, #a78bfa 10%, var(--surface));
+  color: var(--text);
+  border-bottom-color: color-mix(in srgb, #a78bfa 40%, var(--border));
+}
+
+.update-banner--error {
+  background: color-mix(in srgb, #ef4444 10%, var(--surface));
+  color: var(--text);
+  border-bottom-color: color-mix(in srgb, #ef4444 40%, var(--border));
+}
+
+.update-banner__icon {
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.update-banner__icon--spin {
+  display: inline-block;
+  animation: update-spin 1s linear infinite;
+}
+
+@keyframes update-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.update-banner__text {
+  flex: 1;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.update-banner__progress {
+  width: 120px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.update-banner__progress-fill {
+  height: 100%;
+  background: #a78bfa;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.update-banner__action {
+  padding: 4px 12px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.update-banner__action:hover {
+  opacity: 0.85;
+}
+
+.update-banner__dismiss {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.update-banner__dismiss:hover {
+  color: var(--text);
+}
