@@ -1,5 +1,6 @@
 /** Lesson registry — all domains and lesson definitions */
 import type { DemoDomain } from '../types';
+import { workflowLessons } from './workflow';
 import { wsMockServerLesson } from './protocols/ws-mock-server';
 import { wsBasicsLesson } from './protocols/ws-basics';
 import { wsConsoleLesson } from './protocols/ws-console';
@@ -18,6 +19,7 @@ import { wsReliabilityLesson } from './protocols/ws-reliability';
 import { wsSessionRecordingLesson } from './protocols/ws-session-recording';
 import { wsPowerUserLesson } from './protocols/ws-power-user';
 import { sseStudioAdvancedLesson } from './protocols/sse-studio-advanced';
+import { sseTabsLesson } from './protocols/sse-tabs';
 import { wsTlsLesson } from './protocols/ws-tls';
 import { wsTlsLocalLesson } from './protocols/ws-tls-local';
 import { wsTestRunnerLesson } from './protocols/ws-test-runner';
@@ -36,6 +38,8 @@ import { kafkaTlsLesson } from './protocols/kafka-tls';
 import { kafkaTestRunnerLesson } from './protocols/kafka-test-runner';
 import { graphqlLessons } from './protocols/graphql-lessons';
 import { grpcLessons } from './protocols/grpc-lessons';
+import { apiLessons } from './api';
+import { harnessLessons } from './harness';
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -52,34 +56,52 @@ export const protocolsDomain: DemoDomain = {
     { id: 'graphql',   label: 'GraphQL',   icon: '◈' },
     { id: 'grpc',      label: 'gRPC',      icon: '⚡' },
   ],
-  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons, ...grpcLessons],
+  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, sseTabsLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons, ...grpcLessons],
 };
 
 export const apiDomain: DemoDomain = {
   id: 'api',
   name: 'API Testing',
   icon: '🔌',
-  description: 'HTTP methods, assertions, environments, and chaining.',
-  available: false,
-  lessons: [],
+  description: 'HTTP Requests, API Catalog, and Test Promotion.',
+  available: true,
+  categories: [
+    { id: 'requests', label: 'Requests', icon: '📤' },
+    { id: 'catalog',  label: 'Catalog',  icon: '📚' },
+  ],
+  lessons: apiLessons,
 };
 
 export const workflowDomain: DemoDomain = {
   id: 'workflow',
   name: 'Workflows',
   icon: '⚡',
-  description: 'Build automated test sequences with conditional logic.',
-  available: false,
-  lessons: [],
+  description: 'Build automated multi-step test sequences with visual flow logic.',
+  available: true,
+  categories: [
+    { id: 'fundamentals', label: 'Fundamentals', icon: '📐' },
+    { id: 'logic', label: 'Logic & Flow', icon: '🔀' },
+    { id: 'tooling', label: 'Tools & Debug', icon: '🔧' },
+  ],
+  lessons: workflowLessons,
 };
 
 export const harnessDomain: DemoDomain = {
   id: 'harness',
   name: 'Test Harness',
   icon: '🧪',
-  description: 'SLA validation, parallel runs, and CI/CD integration.',
-  available: false,
-  lessons: [],
+  description: 'Build, validate, and run API test suites with SLA targets, data-driven testing, and CI/CD integration.',
+  available: true,
+  categories: [
+    { id: 'fundamentals', label: 'Fundamentals', icon: '📐' },
+    { id: 'validation',   label: 'Validation & Assertions', icon: '✓' },
+    { id: 'data-driven',  label: 'Data-Driven Testing', icon: '📊' },
+    { id: 'execution',    label: 'Runners & Execution', icon: '▶' },
+    { id: 'analysis',     label: 'Results & Analysis', icon: '📈' },
+    { id: 'authoring',    label: 'Authoring & Config', icon: '✏️' },
+    { id: 'runner',       label: 'Runner Advanced', icon: '🎯' },
+  ],
+  lessons: harnessLessons,
 };
 
 // ─── All domains in display order ────────────────────────────────

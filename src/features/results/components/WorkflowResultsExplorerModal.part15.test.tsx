@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
@@ -111,7 +111,8 @@ describe('WorkflowResultsExplorerModal — part15', () => {
       fireEvent.click(screen.getByTestId('canvas-pick-n2'));
       fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
       expect(screen.getByTestId('mapper-trace-overlay')).toBeInTheDocument();
-      fireEvent.click(screen.getByLabelText('Close mapping traces'));
+      const overlay = screen.getByTestId('mapper-trace-overlay');
+      fireEvent.click(within(overlay).getByRole('button', { name: 'Close' }));
       expect(screen.queryByTestId('mapper-trace-overlay')).not.toBeInTheDocument();
     });
 

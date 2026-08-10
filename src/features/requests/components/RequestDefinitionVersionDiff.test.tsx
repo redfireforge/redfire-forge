@@ -232,12 +232,12 @@ describe('RequestDefinitionVersionDiff', () => {
     expect(screen.getByText('X-New')).toBeInTheDocument();
   });
 
-  it('closes from the header chrome control', () => {
+  it('closes from the footer Close button', () => {
     const onClose = vi.fn();
     render(
       <RequestDefinitionVersionDiff open older={{ id: 'o', timestamp: 1, snapshot: snap() }} newer={{ id: 'n', timestamp: 2, snapshot: snap({ url: '/z' }) }} onClose={onClose} />,
     );
-    const closeBtn = document.querySelector('.test-def-diff-header')?.querySelector('button.btn');
+    const closeBtn = document.querySelector('.test-def-diff-footer')?.querySelector('button.btn');
     fireEvent.click(closeBtn!);
     expect(onClose).toHaveBeenCalled();
   });

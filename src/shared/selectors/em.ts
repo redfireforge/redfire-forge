@@ -46,6 +46,26 @@ export const EM = {
   ENV_VARS_CLOSE_BTN: '[data-testid="env-vars-close-btn"]',
 } as const;
 
+/** Environment chip row by display name (Environment Manager). */
+export function emEnvByNameSel(name: string): string {
+  return `[data-env-name="${name}"]`;
+}
+
+/** Microservice card by display name (Environment Manager). */
+export function emSvcByNameSel(name: string): string {
+  return `[data-svc-name="${name}"]`;
+}
+
+/** Configure/Collapse button inside a specific microservice card. */
+export function emSvcConfigureByNameSel(name: string): string {
+  return `${emSvcByNameSel(name)} [data-testid^="em-svc-configure-"]`;
+}
+
+/** Environment chip inside a specific microservice protocol table. */
+export function emSvcEnvChipByNameSel(svcName: string, envName: string): string {
+  return `${emSvcByNameSel(svcName)} .svc-env-table [data-env-name="${envName}"]`;
+}
+
 /**
  * Selector for an existing Workspace Default row by key.
  * Usage: `emWsDefaultRowSel('requestId')` → `'[data-testid="em-ws-default-row-requestId"]'`

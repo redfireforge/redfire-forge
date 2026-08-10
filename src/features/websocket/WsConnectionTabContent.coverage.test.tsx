@@ -301,9 +301,12 @@ describe('WsConnectionTabContent — coverage', () => {
           {...makeProps({ controlledMode: 'client', controlledLeftTab: 'auth' })}
         />,
       );
-      const select = document.querySelector('.auth-type-select select') as HTMLSelectElement;
-      expect(select).toBeTruthy();
-      fireEvent.change(select, { target: { value: 'bearer' } });
+      // useCustomTypeDropdown renders a hidden native <select> kept specifically
+      // for test/demo automation (see AuthConfigPanel.tsx) instead of a CustomSelect.
+      fireEvent.change(
+        document.querySelector('.auth-type-hidden-select') as HTMLSelectElement,
+        { target: { value: 'bearer' } },
+      );
       expect(mockStudio.setDraft).toHaveBeenCalledWith(
         expect.objectContaining({ auth: expect.objectContaining({ type: 'bearer' }) }),
       );

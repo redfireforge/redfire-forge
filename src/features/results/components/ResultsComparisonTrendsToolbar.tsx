@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import type { TestRun } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { BaselineMark } from '../utils/runBaselines';
 
 interface Props {
@@ -24,6 +26,29 @@ export function ResultsComparisonTrendsToolbar({
   onClearComparison,
   onToggleTrend,
 }: Props) {
+  const compareOptions = useMemo(() => {
+    const baselineOpts = runs
+      .filter((r) => baselines.some((b) => b.runId === r.id) && r.id !== selectedRunId)
+      .map((r) => {
+        const bl = baselines.find((b) => b.runId === r.id);
+        const label = bl?.label ?? new Date(r.timestamp).toLocaleString();
+        return { value: r.id, label: `★ ${label} — ${r.summary.tps} TPS` };
+      });
+    const otherOpts = runs
+      .filter((r) => !baselines.some((b) => b.runId === r.id) && r.id !== selectedRunId)
+      .map((r) => ({
+        value: r.id,
+        label: `${new Date(r.timestamp).toLocaleString()} — ${r.summary.tps} TPS`,
+      }));
+    if (baselineOpts.length > 0 && otherOpts.length > 0) {
+      return [
+        { label: 'Baselines', options: baselineOpts },
+        { label: 'Other runs', options: otherOpts },
+      ];
+    }
+    return [...baselineOpts, ...otherOpts];
+  }, [runs, baselines, selectedRunId]);
+
   return (
     <div className="results-comparison-trends-toolbar baseline-controls">
       <span
@@ -43,25 +68,14 @@ export function ResultsComparisonTrendsToolbar({
           : 'Manual compare target (or none).'}
       </span>
 
-      <select
+      <CustomSelect
         className="baseline-compare-select"
         value={compareBaselineId}
-        onChange={(e) => onCompareSelectionChange(e.target.value)}
-      >
-        <option value="">Compare against run...</option>
-        {runs.filter((r) => baselines.some((b) => b.runId === r.id) && r.id !== selectedRunId).map((r) => {
-          const bl = baselines.find((b) => b.runId === r.id);
-          const label = bl?.label ?? new Date(r.timestamp).toLocaleString();
-          return <option key={r.id} value={r.id}>★ {label} — {r.summary.tps} TPS</option>;
-        })}
-        {runs.some((r) => baselines.some((b) => b.runId === r.id) && r.id !== selectedRunId) &&
-          runs.some((r) => !baselines.some((b) => b.runId === r.id) && r.id !== selectedRunId) && (
-            <option disabled>──────────────</option>
-          )}
-        {runs.filter((r) => !baselines.some((b) => b.runId === r.id) && r.id !== selectedRunId).map((r) => (
-          <option key={r.id} value={r.id}>{new Date(r.timestamp).toLocaleString()} — {r.summary.tps} TPS</option>
-        ))}
-      </select>
+        onChange={onCompareSelectionChange}
+        options={compareOptions}
+        placeholder="Compare against run..."
+        size="sm"
+      />
 
       {compareBaselineId && (
         <span className="baseline-compare-chip">

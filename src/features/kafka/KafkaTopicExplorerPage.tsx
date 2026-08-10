@@ -4,7 +4,76 @@ import { useTopicExplorer } from './useTopicExplorer';
 import type { TopicHealthFilter, TopicPartitionBucket, TopicRetentionBucket } from './useTopicExplorer';
 import { useTopicMessageBrowser } from './useTopicMessageBrowser';
 import { KafkaTopicDetailPanel } from './KafkaTopicDetailPanel';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+type FilterDropdownKey = 'health' | 'partition' | 'retention';
+
+interface FilterDropdownOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+interface FilterDropdownProps<T extends string> {
+  id: FilterDropdownKey;
+  value: T;
+  options: FilterDropdownOption<T>[];
+  isOpen: boolean;
+  onToggle: (id: FilterDropdownKey) => void;
+  onSelect: (value: T) => void;
+  disabled?: boolean;
+  title?: string;
+  testId: string;
+}
+
+function FilterDropdown<T extends string>({
+  id,
+  value,
+  options,
+  isOpen,
+  onToggle,
+  onSelect,
+  disabled = false,
+  title,
+  testId,
+}: FilterDropdownProps<T>) {
+  const selected = useMemo(() => options.find((opt) => opt.value === value) ?? options[0], [options, value]);
+
+  return (
+    <div className="kafka-explorer-filter-dropdown">
+      <button
+        type="button"
+        className={`kafka-explorer-filter-trigger${disabled ? ' disabled' : ''}`}
+        onClick={() => { if (!disabled) onToggle(id); }}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        disabled={disabled}
+        title={title}
+        data-testid={testId}
+      >
+        <span>{selected?.label ?? value}</span>
+        <span className="kafka-explorer-filter-chevron" aria-hidden>▾</span>
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="kafka-explorer-filter-menu" role="listbox" aria-label={`${id} filter options`}>
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`kafka-explorer-filter-option${opt.value === value ? ' active' : ''}`}
+              role="option"
+              aria-selected={opt.value === value}
+              onClick={() => onSelect(opt.value)}
+              data-testid={`${testId}-opt-${opt.value}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface KafkaTopicExplorerPageProps {
   kafkaState: UseKafkaStateReturn;
@@ -25,6 +94,45 @@ export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerCont
   const explorer = useTopicExplorer(kafkaState);
   const topicName = explorer.selectedTopicName ?? '';
   const browser = useTopicMessageBrowser(topicName, kafkaState);
+  const [openFilter, setOpenFilter] = useState<FilterDropdownKey | null>(null);
+
+  useEffect(() => {
+    if (!openFilter) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('.kafka-explorer-filter-dropdown')) {
+        setOpenFilter(null);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenFilter(null);
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [openFilter]);
+
+  const healthOptions: FilterDropdownOption<TopicHealthFilter>[] = [
+    { value: 'all', label: 'Health: All' },
+    { value: 'healthy', label: 'Healthy' },
+    { value: 'degraded', label: 'Warning' },
+    { value: 'unknown', label: 'Unknown' },
+  ];
+  const partitionOptions: FilterDropdownOption<TopicPartitionBucket>[] = [
+    { value: 'any', label: 'Parts: Any' },
+    { value: '1-4', label: '1-4' },
+    { value: '5-12', label: '5-12' },
+    { value: '12+', label: '12+' },
+  ];
+  const retentionOptions: FilterDropdownOption<TopicRetentionBucket>[] = [
+    { value: 'any', label: 'Retention: Any' },
+    { value: '<1d', label: '< 1 day' },
+    { value: '1-7d', label: '1-7 days' },
+    { value: '>7d', label: '> 7 days' },
+  ];
 
   const handleRowClick = useCallback((name: string) => {
     void explorer.selectTopic(explorer.selectedTopicName === name ? null : name);
@@ -48,36 +156,46 @@ export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerCont
             data-testid="topic-search"
           />
           <div className="kafka-explorer-filter-row" data-testid="topic-filter-row">
-            <select
+            <FilterDropdown
+              id="health"
               value={explorer.healthFilter}
-              onChange={(e) => explorer.setHealthFilter(e.target.value as TopicHealthFilter)}
+              options={healthOptions}
+              isOpen={openFilter === 'health'}
+              onToggle={setOpenFilter}
+              onSelect={(next) => {
+                explorer.setHealthFilter(next);
+                setOpenFilter(null);
+              }}
               disabled={!explorer.hasCachedDetails}
               title={explorer.hasCachedDetails ? undefined : 'Load a topic to populate this filter'}
-              data-testid="health-filter"
-            >
-              <option value="all">Health: All</option>
-              <option value="healthy">Healthy</option>
-              <option value="degraded">Warning</option>
-              <option value="unknown">Unknown</option>
-            </select>
-            <select value={explorer.partitionFilter} onChange={(e) => explorer.setPartitionFilter(e.target.value as TopicPartitionBucket)} data-testid="partition-filter">
-              <option value="any">Parts: Any</option>
-              <option value="1-4">1–4</option>
-              <option value="5-12">5–12</option>
-              <option value="12+">12+</option>
-            </select>
-            <select
+              testId="health-filter"
+            />
+            <FilterDropdown
+              id="partition"
+              value={explorer.partitionFilter}
+              options={partitionOptions}
+              isOpen={openFilter === 'partition'}
+              onToggle={setOpenFilter}
+              onSelect={(next) => {
+                explorer.setPartitionFilter(next);
+                setOpenFilter(null);
+              }}
+              testId="partition-filter"
+            />
+            <FilterDropdown
+              id="retention"
               value={explorer.retentionFilter}
-              onChange={(e) => explorer.setRetentionFilter(e.target.value as TopicRetentionBucket)}
+              options={retentionOptions}
+              isOpen={openFilter === 'retention'}
+              onToggle={setOpenFilter}
+              onSelect={(next) => {
+                explorer.setRetentionFilter(next);
+                setOpenFilter(null);
+              }}
               disabled={!explorer.hasCachedDetails}
               title={explorer.hasCachedDetails ? undefined : 'Load a topic to populate this filter'}
-              data-testid="retention-filter"
-            >
-              <option value="any">Retention: Any</option>
-              <option value="<1d">{'< 1 day'}</option>
-              <option value="1-7d">1–7 days</option>
-              <option value=">7d">{'> 7 days'}</option>
-            </select>
+              testId="retention-filter"
+            />
             <label className="kafka-explorer-internal-toggle">
               <input type="checkbox" checked={explorer.showInternal} onChange={(e) => explorer.setShowInternal(e.target.checked)} />
               Internal

@@ -12,7 +12,6 @@ import {
   ensureAssertionAdded,
   demonstrateAssertionStream,
   prepareGql5DisconnectReading,
-  ensureDemoOrderCreated,
   ensurePauseResumeDemo,
   ensureSubscriptionQueryWritten,
   ensureSubscribedWithMessages,
@@ -24,14 +23,17 @@ import {
   getLesson5OrderId,
   gqlSubscriptionsLessonCleanup,
   gqlSubscriptionsLessonSetup,
+  markSubscriptionQueryWritten,
   parseCreatedOrderIdFromResponse,
   prepareGql5ConnectionBarReading,
+  prepareGql5CreateOrderReading,
   prepareGql5EndpointReading,
   prepareGql5ExecCreateOrderReading,
   prepareGql5IntroReading,
   prepareGql5ObserveCreateOrderReading,
   prepareGql5PauseReading,
   prepareGql5SubscriptionAuthReading,
+  prepareGql5WriteSubReading,
   demonstrateSubscriptionAuthHandshake,
   ensureSubscriptionAuthConfigured,
   storeCreatedOrderIdFromResponse,
@@ -43,8 +45,8 @@ export const gqlSubscriptionsLesson: DemoLesson = {
   category: 'graphql',
   name: 'Subscriptions — Real-Time Data',
   description:
-    'Subscribe to live GraphQL events over WebSocket, choose the transport protocol, watch the message log, pause and filter streams, add real-time assertions, and disconnect cleanly.',
-  estimatedMinutes: 8,
+    'Create an order, subscribe to its status over WebSocket, watch PENDING → COMPLETE events, then pause, filter, assert, and disconnect.',
+  estimatedMinutes: 9,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -241,7 +243,7 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
   <text x="79" y="310" fill="#f1f5f9" font-size="8.5" font-family="monospace">: </text>
   <text x="89" y="310" fill="#86efac" font-size="8.5" font-family="monospace">"ord-7"</text>
   <text x="121" y="310" fill="#f1f5f9" font-size="8.5" font-family="monospace"> }</text>
-  <text x="16" y="326" fill="#a8b8cc" font-size="7.5" opacity="0.7">$orderId variable — captured from createOrder response (step 4)</text>
+  <text x="16" y="326" fill="#a8b8cc" font-size="7.5" opacity="0.7">$orderId variable — captured from createOrder response</text>
 
   <!-- ── Subscription flow legend (bottom) ─────────────────────────────────── -->
   <line x1="8" y1="337" x2="692" y2="337" stroke="#3b4a60" stroke-width="1"/>
@@ -260,15 +262,15 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
   <text x="73" y="376" text-anchor="middle" font-size="8.5" font-weight="700" fill="#28c840">createOrder</text>
   <text x="73" y="389" text-anchor="middle" font-size="7.5" fill="#a8b8cc">mutation → ord-N</text>
   <text x="73" y="401" text-anchor="middle" font-size="7" fill="#a8b8cc" font-style="italic">(needed for $orderId)</text>
-  <text x="73" y="412" text-anchor="middle" font-size="7" fill="#a8b8cc">Step 4</text>
+  <text x="73" y="412" text-anchor="middle" font-size="7" fill="#a8b8cc">Steps 3–5</text>
 
   <line x1="133" y1="390" x2="150" y2="390" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#gql7-arr)"/>
 
   <!-- Write subscription -->
   <rect x="152" y="362" width="118" height="56" rx="5" fill="#281f38" stroke="#a78bfa" stroke-width="1"/>
   <text x="211" y="376" text-anchor="middle" font-size="8.5" font-weight="700" fill="#a78bfa">subscription {}</text>
-  <text x="211" y="389" text-anchor="middle" font-size="7.5" fill="#a8b8cc">badge S · transport WS</text>
-  <text x="211" y="401" text-anchor="middle" font-size="7" fill="#a8b8cc">Steps 5–6</text>
+  <text x="211" y="389" text-anchor="middle" font-size="7.5" fill="#a8b8cc">badge S · transport</text>
+  <text x="211" y="401" text-anchor="middle" font-size="7" fill="#a8b8cc">Steps 6–8</text>
 
   <line x1="271" y1="390" x2="288" y2="390" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#gql7-arr)"/>
 
@@ -277,7 +279,7 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
   <text x="349" y="376" text-anchor="middle" font-size="8.5" font-weight="700" fill="#a78bfa">Subscribe → LIVE</text>
   <text x="349" y="389" text-anchor="middle" font-size="7.5" fill="#a8b8cc">WebSocket open</text>
   <text x="349" y="401" text-anchor="middle" font-size="7" fill="#a8b8cc">log panel active</text>
-  <text x="349" y="412" text-anchor="middle" font-size="7" fill="#a8b8cc">Step 7</text>
+  <text x="349" y="412" text-anchor="middle" font-size="7" fill="#a8b8cc">Steps 9–10</text>
 
   <line x1="409" y1="390" x2="426" y2="390" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#gql7-arr)"/>
 
@@ -286,7 +288,7 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
   <text x="487" y="376" text-anchor="middle" font-size="8.5" font-weight="700" fill="#3b82f6">Events + Assert</text>
   <text x="487" y="389" text-anchor="middle" font-size="7.5" fill="#a8b8cc">PENDING → COMPLETE</text>
   <text x="487" y="401" text-anchor="middle" font-size="7" fill="#a8b8cc">pass/fail per row</text>
-  <text x="487" y="412" text-anchor="middle" font-size="7" fill="#a8b8cc">Steps 8–11</text>
+  <text x="487" y="412" text-anchor="middle" font-size="7" fill="#a8b8cc">Steps 11–14</text>
 
   <line x1="547" y1="390" x2="564" y2="390" stroke="#ef4444" stroke-width="1.5" marker-end="url(#gql7-stop)"/>
 
@@ -295,7 +297,7 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
   <text x="625" y="376" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ef4444">Stop</text>
   <text x="625" y="389" text-anchor="middle" font-size="7.5" fill="#a8b8cc">WS closed · log kept</text>
   <text x="625" y="401" text-anchor="middle" font-size="7" fill="#a8b8cc">review offline</text>
-  <text x="625" y="412" text-anchor="middle" font-size="7" fill="#a8b8cc">Step 12</text>
+  <text x="625" y="412" text-anchor="middle" font-size="7" fill="#a8b8cc">Step 15</text>
 
   <defs>
     <marker id="gql7-stop" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto">
@@ -306,45 +308,37 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
   },
 
   steps: [
-    // ── Step 1: Overview ────────────────────────────────────────────────────
+    // ── 1. Roadmap ──────────────────────────────────────────────────────────
     {
       id: 'gql5-intro',
-      title: 'Subscription Operations',
+      title: 'Real-Time Order Status — The Plan',
       description:
-        '**Subscriptions** are the third GraphQL operation type — after queries (read once) and mutations (write once). ' +
-        'They stream **server-pushed events** over a persistent connection, delivering each new event as a complete `{ data: { … } }` response.\n\n' +
-        'Unlike polling (where your client sends a request every N seconds), subscriptions are event-driven: the server only sends data when something actually changes — more efficient, lower latency, and no wasted requests.\n\n' +
-        'Watch the Studio tab as you type: the badge switches from **Q** (blue) or **M** (amber) to **S** (purple) the moment the editor parses the `subscription` keyword. ' +
-        'The connection bar button transforms from **Execute** to **Subscribe** — the visual system prevents you from running a subscription as a regular HTTP POST, which would fail.',
-      highlight: GQL.CONNECTION_BAR,
+        'This lesson walks **one complete subscription workflow** — not a random tour of buttons:\n\n' +
+        '1. **Connect** to the demo server and load the schema\n' +
+        '2. **Create an order** with a mutation (we need a real `orderId`)\n' +
+        '3. **Write** an `orderStatus` subscription and choose the WebSocket transport\n' +
+        '4. **Subscribe**, watch **PENDING → PROCESSING → COMPLETE**, then pause / filter / assert\n' +
+        '5. **Stop** the stream — the log stays for review\n\n' +
+        '**Why subscriptions?** Queries read once; mutations write once. Subscriptions stream **server-pushed** events over a persistent WebSocket — the server sends data only when something changes (no polling).\n\n' +
+        'The editor starts with a stub `subscription { }`. When we paste a real subscription later, the tab badge turns purple **S** and **Execute** becomes **Subscribe**.',
+      highlight: GQL.EDITOR,
       preAction: prepareGql5IntroReading,
+      action: async (ctx) => {
+        await ctx.waitFor(`${GQL.EDITOR} .monaco-editor`, 8000);
+        await ctx.delay(1000);
+      },
       pauseAfter: true,
     },
 
-    // ── Step 2: Connection bar tour ─────────────────────────────────────────
-    {
-      id: 'gql5-connection-bar',
-      title: 'The Subscribe Button & Transport Select',
-      description:
-        'Look at the **connection bar** — in subscription mode it has two elements that don\'t appear for queries or mutations:\n\n' +
-        '- **Transport dropdown** — selects the WebSocket sub-protocol. Choose `graphql-transport-ws` (modern RFC standard, recommended) or `graphql-ws` (legacy). Wrong transport = silent connection failure.\n' +
-        '- **Subscribe button** (purple) — replaces Execute. Clicking it opens the WebSocket handshake, starts the subscription stream, and switches the right panel to the **message log**.\n\n' +
-        'The **● LIVE** status badge next to the Subscribe button turns green once the WebSocket is connected and the server has acknowledged the subscription. ' +
-        'Until the server sends `connection_ack`, you\'re still connecting.',
-      highlight: GQL.CONNECTION_BAR,
-      preAction: prepareGql5ConnectionBarReading,
-      pauseAfter: true,
-    },
-
-    // ── Step 3: Connect & Introspect ────────────────────────────────────────
+    // ── 2. Connect ──────────────────────────────────────────────────────────
     {
       id: 'gql5-endpoint',
       title: 'Connect & Load the Schema',
       description:
-        `Enter \`${GQL_DEMO_HTTP}\` in the endpoint field and click **Introspect**. ` +
-        'The schema download confirms the server exposes a **Subscription** type with `orderStatus(orderId: ID!)` as a field.\n\n' +
-        'WebSocket uses the same host with a protocol swap: `ws://localhost:4010/graphql` instead of `http://`. ' +
-        'The Studio handles this automatically — you always enter the HTTP URL and it derives the WS endpoint.',
+        `Enter \`${GQL_DEMO_HTTP}\` and click **Introspect**. ` +
+        'The schema confirms a **Subscription** type with `orderStatus(orderId: ID!)` — the field we will subscribe to after creating an order.\n\n' +
+        'WebSocket uses the same host with a protocol swap (`ws://` instead of `http://`). ' +
+        'Studio derives that automatically from the HTTP URL you enter here.',
       highlight: GQL.ENDPOINT_INPUT,
       preAction: prepareGql5EndpointReading,
       action: async (ctx) => {
@@ -360,17 +354,16 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 4: Create an order ─────────────────────────────────────────────
+    // ── 3–5. Create order (resource first) ──────────────────────────────────
     {
       id: 'gql5-create-order',
       title: 'Create a Demo Order First',
       description:
-        'The `orderStatus` subscription requires a real `orderId`. Load **createOrder** into the editor with its **OrderInput** variable:\n\n' +
+        'Subscriptions often watch **something that already exists**. Load **createOrder** so we get a real `orderId`:\n\n' +
         '`mutation CreateOrder($input: OrderInput!) { createOrder(input: $input) { id status } }`\n\n' +
-        '**Why is this required?** The subscription filters its event stream by `$orderId` — without a valid id, the server has nothing to watch. ' +
-        'This mirrors production: create a resource, then subscribe to its state changes.',
+        'Without that id, `orderStatus(orderId: …)` has nothing to track — same pattern as production: create a resource, then subscribe to its state changes.',
       highlight: GQL.EDITOR,
-      preAction: prepareGql5ExecCreateOrderReading,
+      preAction: prepareGql5CreateOrderReading,
       action: async (ctx) => {
         await ctx.click(GQL.MODE_EDITOR);
         await ctx.waitFor(`${GQL.EDITOR} .monaco-editor`, 8000);
@@ -389,8 +382,8 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       id: 'gql5-exec-create-order',
       title: 'Execute createOrder',
       description:
-        'Click **Execute** — the mutation and nested `input` variable are loaded. The server creates the order and returns `{ id, status }`.\n\n' +
-        'The next step spotlights the **Response** body — the lesson captures `data.createOrder.id` automatically for the subscription variable.',
+        'Click **Execute**. The server creates the order and returns `{ id, status }`.\n\n' +
+        'The next step spotlights that **id** in the Response — the lesson captures it for the subscription `$orderId` variable.',
       highlight: GQL.EXECUTE_BTN,
       preAction: prepareGql5ExecCreateOrderReading,
       action: async (ctx) => {
@@ -409,8 +402,8 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       id: 'gql5-observe-create-order',
       title: 'Read the Order id',
       description:
-        'The **Response** shows `data.createOrder.id` — the stable handle for the subscription in the next steps.\n\n' +
-        'In production, your client stores this id from the mutation response and passes it to `$orderId` in the subscription variables.',
+        'Find `data.createOrder.id` in the **Response**. That value becomes `$orderId` for the subscription.\n\n' +
+        'In production, your client stores the mutation id and passes it into the subscription variables — we do the same automatically in the next step.',
       highlight: GQL.RESPONSE_DATA_CREATE_ORDER,
       preAction: prepareGql5ObserveCreateOrderReading,
       action: async (ctx) => {
@@ -421,42 +414,62 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 6: Write the subscription ─────────────────────────────────────
+    // ── 6. Write subscription (S badge moment) ──────────────────────────────
     {
       id: 'gql5-write-sub',
       title: 'Write the Subscription Query',
       description:
         'Replace the mutation with the **orderStatus** subscription:\n\n' +
         '`subscription OrderUpdates($orderId: ID!) { orderStatus(orderId: $orderId) { status updatedAt } }`\n\n' +
-        'As soon as the editor parses `subscription`, the tab badge switches to purple **S** and Execute becomes Subscribe. ' +
-        'The `$orderId` variable slot appears in the Variables panel — the lesson fills it automatically with the id from step 4. ' +
-        'Next, choose the **transport protocol** before subscribing.',
+        '**Watch for:** the tab badge flips to purple **S**, and the connection bar button becomes **Subscribe** (not Execute). ' +
+        'Variables receive the `orderId` we just created. Next we orient on that new Subscribe UI, then pick transport.',
       highlight: GQL.EDITOR,
-      preAction: ensureDemoOrderCreated,
+      preAction: prepareGql5WriteSubReading,
       action: async (ctx) => {
         await fillGqlEditor(ctx, GQL_ORDER_STATUS_SUBSCRIPTION);
-        await ctx.delay(500);
+        await ctx.delay(800);
         const orderId = getLesson5OrderId() || parseCreatedOrderIdFromResponse() || '';
         if (orderId) {
           await ensureVariablesPanelOpen(ctx);
           await fillGqlVariables(ctx, JSON.stringify({ orderId }, null, 2));
         }
-        await ctx.delay(600);
+        markSubscriptionQueryWritten();
+        await ctx.waitFor(GQL.SUBSCRIBE_BTN, 8000);
+        await ctx.delay(900);
       },
+      verify: GQL.SUBSCRIBE_BTN,
       pauseAfter: true,
     },
 
-    // ── Step 6: Transport selection ─────────────────────────────────────────
+    // ── 7. Connection bar (after S mode is real) ────────────────────────────
+    {
+      id: 'gql5-connection-bar',
+      title: 'Subscribe Button & Transport Select',
+      description:
+        'Now that the editor is in subscription mode, the **connection bar** shows controls queries/mutations do not:\n\n' +
+        '- **Transport** — WebSocket sub-protocol (`graphql-transport-ws` recommended)\n' +
+        '- **Subscribe** (purple) — opens the WebSocket, starts the stream, switches the right panel to the **message log**\n\n' +
+        'After you click Subscribe (two steps from now), **● LIVE** means the server acknowledged the subscription (`connection_ack`). ' +
+        'Wrong transport often looks “connected” but delivers **no messages**.',
+      highlight: GQL.SUBSCRIBE_BTN,
+      preAction: prepareGql5ConnectionBarReading,
+      action: async (ctx) => {
+        await ctx.waitFor(GQL.TRANSPORT_SELECT, 5000);
+        await ctx.delay(1400);
+      },
+      verify: GQL.SUBSCRIBE_BTN,
+      pauseAfter: true,
+    },
+
+    // ── 8. Transport ────────────────────────────────────────────────────────
     {
       id: 'gql5-transport-select',
       title: 'Choose the WebSocket Transport',
       description:
-        'Open the **Transport** dropdown in the connection bar and select `graphql-transport-ws` (the modern default).\n\n' +
-        '**Why does transport matter?** Two WebSocket sub-protocols exist for GraphQL:\n' +
-        '- `graphql-transport-ws` — RFC-aligned, supported by Apollo Server 3+, graphql-yoga, Hasura, AWS AppSync. Messages use `subscribe` / `next` / `complete`.\n' +
-        '- `graphql-ws` — legacy protocol, found in older Apollo Server 2 setups. Messages use `start` / `data` / `stop`.\n\n' +
-        'Choosing the wrong one causes the server to silently close the WebSocket after the handshake — no error, just no messages. ' +
-        'Match the protocol to what your server advertises.',
+        'Open **Transport** and select `graphql-transport-ws` (modern default).\n\n' +
+        '- `graphql-transport-ws` — RFC-aligned (`subscribe` / `next` / `complete`) — Apollo Server 3+, Yoga, Hasura, AppSync\n' +
+        '- `graphql-ws` — legacy (`start` / `data` / `stop`) — older Apollo Server 2\n\n' +
+        'Mismatch → silent close after handshake: no error banner, just an empty log. Match what your server advertises.',
       highlight: GQL.TRANSPORT_SELECT,
       preAction: ensureSubscriptionQueryWritten,
       action: async (ctx) => {
@@ -466,17 +479,16 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 8: Subscription channel auth ───────────────────────────────────
+    // ── 9. Auth for WS handshake ────────────────────────────────────────────
     {
       id: 'gql5-subscription-auth',
       title: 'Wire Auth Into the WebSocket Handshake',
       description:
-        'Open the **Auth** panel and set **Bearer** to `{{authToken}}` — the same pattern from **GQL-4**.\n\n' +
-        'The lesson auto-seeds a **Demo** environment with `authToken` (you do not need to open **Environment** manually). ' +
-        'Watch the **Auth preview** resolve the placeholder to the real token — that value is what rides on the WebSocket `connection_init` frame as **`connectionParams`**. ' +
-        'Browsers cannot attach custom HTTP headers to a WebSocket upgrade, so GraphQL Studio sends credentials there instead.\n\n' +
-        '**What to watch for:** The spotlight is on the resolved preview row; the connection-bar **Auth** badge confirms the tab is armed before you click **Subscribe** in the next step.',
-      highlight: GQL.AUTH_PREVIEW,
+        'Open **Auth**, choose **Bearer**, and paste the demo token (same credential shape as **GQL-4**).\n\n' +
+        'Watch **Auth preview** show `Authorization: Bearer …` — that value goes on the WebSocket `connection_init` frame as **`connectionParams`** ' +
+        '(browsers cannot send custom HTTP headers on the WS upgrade).\n\n' +
+        '**What to watch:** Auth type → bearer field → preview. Then we click **Subscribe**.',
+      highlight: GQL.AUTH_TYPE_SELECT,
       preAction: prepareGql5SubscriptionAuthReading,
       action: async (ctx) => {
         await demonstrateSubscriptionAuthHandshake(ctx);
@@ -485,16 +497,15 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 9: Subscribe ───────────────────────────────────────────────────
+    // ── 10. Subscribe ───────────────────────────────────────────────────────
     {
       id: 'gql5-subscribe',
       title: 'Open the Subscription',
       description:
-        'Click **Subscribe** — the Studio opens a WebSocket connection to `ws://localhost:4010/graphql` and sends the subscription operation. ' +
-        'The **Bearer** credential you configured in the prior step is included automatically in the `connection_init` handshake — no extra auth step.\n\n' +
-        'Watch the status badge switch from **Connecting…** to **● LIVE**.\n\n' +
-        'The right panel transforms into the **subscription log**. The test server emits three status updates ~2s apart — **PENDING → PROCESSING → COMPLETE** (~6s total). ' +
-        'Each message arrives as a `{ data: { orderStatus: { status, updatedAt } } }` response and appears as a new log row.',
+        'Click **Subscribe**. Studio opens `ws://localhost:4010/graphql`, sends the operation, and includes your Bearer token in `connection_init`.\n\n' +
+        'Watch **Connecting…** → **● LIVE**. The right panel becomes the **subscription log**. ' +
+        'The demo server emits three updates ~2s apart: **PENDING → PROCESSING → COMPLETE** (~6s total), ' +
+        'each as `{ data: { orderStatus: { status, updatedAt } } }`.',
       highlight: GQL.SUBSCRIBE_BTN,
       preAction: ensureSubscriptionAuthConfigured,
       action: async (ctx) => {
@@ -509,15 +520,13 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 8: Watch log ───────────────────────────────────────────────────
+    // ── 11. Watch log ───────────────────────────────────────────────────────
     {
       id: 'gql5-watch-log',
       title: 'Read the Live Message Log',
       description:
-        'The **subscription log** shows three rows: **PENDING → PROCESSING → COMPLETE**, each ~2s apart. ' +
-        'Every row displays the message index, direction (`IN ↓`), time offset since subscribe, and a JSON preview.\n\n' +
-        '**Click any row** to expand it and see the full `{ data: { orderStatus: { status, updatedAt } } }` payload. ' +
-        'This row-level detail is how you diagnose unexpected payloads during development — you don\'t need to stop the subscription to inspect what arrived.',
+        'The log should show **PENDING → PROCESSING → COMPLETE**. Each row has index, direction (`IN ↓`), time since subscribe, and a JSON preview.\n\n' +
+        '**Click a row** to expand the full payload. You inspect events without stopping the stream — the core debugging loop for subscriptions.',
       highlight: GQL.SUBSCRIPTION_MSG_LIST,
       preAction: ensureSubscribedWithMessages,
       action: async (ctx) => {
@@ -528,16 +537,13 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 9: Pause & Resume ──────────────────────────────────────────────
+    // ── 12. Pause ───────────────────────────────────────────────────────────
     {
       id: 'gql5-pause',
       title: 'Pause & Resume the Stream',
       description:
-        'When the stream shows **Completed**, click **Re-subscribe** in the **stream toolbar** (left side of Clear / Export / Filter). ' +
-        'The stream stays **live** for ~6 seconds while three events arrive — use **Pause** during that window to buffer incoming events without scrolling the log. ' +
-        'Click **Resume** to flush the buffer and scroll to the latest message.\n\n' +
-        '**Why Pause exists:** Real systems can emit bursts of events (e.g., 50 status updates in a second). ' +
-        'Pause lets you freeze the view at a particular moment without missing data — the buffer holds events in order and delivers them all on Resume.',
+        'When the stream shows **Completed**, click **Re-subscribe** in the stream toolbar. While **live** (~6s), click **Pause** to buffer events without scrolling, then **Resume** to flush.\n\n' +
+        '**Why:** bursts of events are hard to read live. Pause freezes the view without dropping data.',
       highlight: GQL.SUBSCRIPTION_STREAM_CONTROLS,
       preAction: prepareGql5PauseReading,
       action: async (ctx) => {
@@ -559,16 +565,13 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 10: Filter ─────────────────────────────────────────────────────
+    // ── 13. Filter ──────────────────────────────────────────────────────────
     {
       id: 'gql5-filter',
       title: 'Filter the Message Log',
       description:
-        'Click the **Filter** button in the log toolbar and type `COMPLETE` — only rows whose JSON body contains that substring remain visible. ' +
-        'The counter shows how many messages match (e.g. "Showing 1/3").\n\n' +
-        '**Why filtering matters:** Long-running subscriptions accumulate hundreds of messages. ' +
-        'Filter lets you isolate specific states (e.g., only `COMPLETE` rows, only `ERROR` payloads) without restarting the subscription. ' +
-        'The full unfiltered log is preserved — clear the filter to return to all messages.',
+        'Click **Filter** and type `COMPLETE` — only matching rows stay visible (e.g. "Showing 1/3").\n\n' +
+        'Long streams pile up; filter isolates states without restarting. Clear the filter to see everything again.',
       highlight: GQL.SUBSCRIPTION_FILTER_BTN,
       preAction: ensureSubscribedWithMessages,
       action: async (ctx) => {
@@ -584,18 +587,15 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 11: Assertions ─────────────────────────────────────────────────
+    // ── 14. Assertions ──────────────────────────────────────────────────────
     {
       id: 'gql5-assertions',
       title: 'Add a Real-Time Assertion',
       description:
-        'Open the **Assertions** panel below the editor → click **Add**. ' +
-        'Set JSONPath `$.orderStatus.status`, operator **equals**, expected value `COMPLETE`.\n\n' +
-        '**How real-time assertions work:** After you save the rule, the demo **Re-subscribes** automatically. ' +
-        'Each incoming message is evaluated in real time: `PENDING` and `PROCESSING` rows show a red ✗ fail badge; ' +
-        'the final `COMPLETE` row shows green ✓ — without stopping the stream. ' +
-        'The footer shows aggregate pass/fail counts. ' +
-        'This is the integration testing pattern: subscribe, assert on each event, and verify the full state machine progression.',
+        'In **Assertions** below the editor → **Add**. Set JSONPath `$.orderStatus.status`, operator **equals**, expected `COMPLETE`.\n\n' +
+        'Paths are relative to each message\'s `data` object. After the rule is set, the demo **Re-subscribes**: ' +
+        '`PENDING` / `PROCESSING` show ✗, `COMPLETE` shows ✓ — without stopping the stream. ' +
+        'That is the integration-test pattern: assert every event in the state machine.',
       highlight: GQL.ASSERTION_PANEL,
       preAction: ensureSubscriptionQueryWritten,
       action: async (ctx) => {
@@ -607,15 +607,13 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 12: Disconnect ─────────────────────────────────────────────────
+    // ── 15. Disconnect ──────────────────────────────────────────────────────
     {
       id: 'gql5-disconnect',
       title: 'Stop the Subscription',
       description:
-        'Click **Stop** on the connection bar (or the **■ Stop** button in the log toolbar) to close the WebSocket session. ' +
-        'The subscription is terminated on the server side and the **● LIVE** badge disappears.\n\n' +
-        '**The log stays visible after disconnect** — you can still scroll, expand rows, inspect payloads, and export the captured messages. ' +
-        'This is intentional: in a CI test run, you subscribe during the test and inspect the log after the subscription ends to verify all expected events arrived in the correct order.',
+        'Click **Stop** on the connection bar (or **■ Stop** in the log toolbar) to close the WebSocket. **● LIVE** clears.\n\n' +
+        '**The log stays** — scroll, expand, export. In CI you often subscribe during the test and assert on the captured log after the stream ends.',
       highlight: GQL.STOP_SUB_BTN,
       preAction: prepareGql5DisconnectReading,
       action: async (ctx) => {

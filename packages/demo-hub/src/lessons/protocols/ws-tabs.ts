@@ -1,39 +1,41 @@
 /** Lesson 4: Tabs & Multi-Connection — independent mock servers, send/receive, per-server logs */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, closeExtraConnectionTabs, disconnectWebSocket, clearEvents, stopMockServer, switchToClientMode, fillControlledInput, firstVisibleEl } from '../setup-helpers';
+import {
+  closeExtraConnectionTabs,
+  disconnectWebSocket,
+  clearEvents,
+  firstVisibleEl,
+  pinActiveMockPortQuiet,
+  startMockServerQuiet,
+  stopMockServerQuiet,
+  switchToClientModeQuiet,
+} from '../setup-helpers';
 import { WS } from '@shared/selectors';
 
-/** Setup: clean leftover tabs, disconnect, reset tab label, then start mock + switch to client. */
+/**
+ * Quiet setup — pin Tab 1 to :9876, REST-start mock, stay in Client mode.
+ * No rename dblclick, no isolated "demo" tab (see skipStudioTabIsolation).
+ */
 async function tabsSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(500);
-  await disconnectWebSocket(ctx);
-  await closeExtraConnectionTabs(ctx);
-  await ctx.delay(200);
-  const tab = document.querySelector(WS.CONN_TAB_FIRST) as HTMLElement | null;
-  if (tab) {
-    const label = tab.querySelector('.ws-conn-tab-label');
-    if (label && label.textContent !== 'New Connection') {
-      tab.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-      await ctx.delay(300);
-      const renameInput = document.querySelector(WS.CONN_TAB_RENAME) as HTMLInputElement | null;
-      if (renameInput) {
-        fillControlledInput(renameInput, 'New Connection');
-        await ctx.delay(200);
-        renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        await ctx.delay(200);
-      }
-    }
+  const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
+  if (disconnectBtn && !disconnectBtn.disabled) {
+    disconnectBtn.click();
+    await ctx.delay(40);
   }
-  await wsSetup(ctx);
+  await closeExtraConnectionTabs(ctx);
+  // Clear sticky leftover ports (e.g. 9878) so Tab 2 lands on 9877.
+  await pinActiveMockPortQuiet(ctx, 9876);
+  await startMockServerQuiet(ctx, 9876);
+  await switchToClientModeQuiet(ctx);
 }
 
-/** Cleanup: close extra tabs, disconnect, clear, stop mock, switch to client. */
+/** Cleanup: close extras, disconnect, clear, stop mock quietly. */
 async function tabsCleanup(ctx: DemoActionContext): Promise<void> {
   await closeExtraConnectionTabs(ctx);
   await disconnectWebSocket(ctx);
   await clearEvents(ctx);
-  await stopMockServer(ctx);
-  await switchToClientMode(ctx);
+  await stopMockServerQuiet(ctx, 9876);
+  await switchToClientModeQuiet(ctx);
 }
 
 /**
@@ -70,6 +72,8 @@ export const wsTabsLesson: DemoLesson = {
   description: 'Run two independent mock servers simultaneously, send messages in each tab, and inspect their isolated server logs.',
   estimatedMinutes: 4,
   initialTab: 'websocket-studio',
+  // Teach the real tab bar — do not add/rename/close a temporary "demo" tab at start.
+  skipStudioTabIsolation: true,
 
   setup: tabsSetup,
   cleanup: tabsCleanup,
@@ -157,17 +161,11 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       id: 'tabs-intro',
       title: 'Your Connection Tab Bar',
       description:
-        'Each tab is a fully independent workspace — its own URL, connection state, message log, and built-in mock server. Tab 1 is already running a mock echo server on **:9876**. Let\'s add a second tab and explore the power of per-tab isolation.',
-      highlight: WS.CONN_TAB_BAR,
-      // Switch to Mock Server mode so the "already running on :9876" claim in the
-      // description is visually confirmed — viewer sees the green "Running on :9876"
-      // status during the reading pause instead of just the Client connect form.
-      preAction: async (ctx) => {
-        await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(150);
-        await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(300);
-      },
+        'Each tab is a fully independent workspace — its own URL, connection state, message log, and built-in mock server. Tab 1 is already running a mock echo server on **:9876**.\n\n' +
+        'You can **drag tabs** to reorder them, **right-click** for a context menu (rename, duplicate, close), or use **keyboard shortcuts** — see the **Power User** lesson for the full keyboard-first workflow.',
+      // First tab only — a ring around the whole bar (incl. + N/8) looks like
+      // noisy flashing. No preAction: do not switch to Mock during the opening read.
+      highlight: WS.CONN_TAB_FIRST,
       pauseAfter: true,
     },
 
@@ -178,6 +176,13 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       description:
         'Click **+** to create Tab 2. Notice it automatically gets its own dedicated port — **9877** — completely separate from Tab 1\'s **9876**. You can have up to 8 tabs, each with its own server.',
       highlight: WS.CONN_TAB_ADD,
+      // Guard: if the user jumped here mid-lesson (skipping setup), extra tabs
+      // from a previous run would steal port 9877. Close them silently first.
+      preAction: async (ctx) => {
+        await closeExtraConnectionTabs(ctx);
+        await pinActiveMockPortQuiet(ctx, 9876);
+        await ctx.delay(80);
+      },
       action: async (ctx) => {
         await ctx.click(WS.CONN_TAB_ADD);
         await ctx.delay(500);
@@ -223,6 +228,9 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
         'Switch to Tab 1 and connect to **ws://localhost:9876** — its dedicated echo server. The green dot confirms the connection. Tab 2 stays disconnected for now.',
       highlight: WS.CONN_TAB_FIRST,
       preAction: async (ctx) => {
+        // Ensure Tab 1's mock server is up (guard for skip-to-step).
+        await startMockServerQuiet(ctx, 9876);
+        await ensureTwoTabs(ctx);
         // Switch Tab 2 back to Client mode, then go to Tab 1
         await switchToLastTab(ctx);
         await ctx.click(WS.MODE_CLIENT);
@@ -253,6 +261,9 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
         'Switch to Tab 2 and connect to **ws://localhost:9877** — its own server. Now **both tabs are green** but they\'re talking to **completely different servers**. Total isolation.',
       highlight: WS.CONN_TAB_LAST,
       preAction: async (ctx) => {
+        // Ensure both servers are running (guard for skip-to-step).
+        await startMockServerQuiet(ctx, 9876);
+        await startMockServerQuiet(ctx, 9877);
         await ensureTwoTabs(ctx);
         await switchToLastTab(ctx);
         await ctx.delay(150);
@@ -392,7 +403,8 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       id: 'tabs-close',
       title: 'Close a Tab — Server Stops Automatically',
       description:
-        'Click **×** on Tab 2 to close it. Its mock server on **:9877** stops automatically — no orphaned processes. Tab 1 and its **:9876** server are completely unaffected. Connected tabs show a confirmation before closing.',
+        'Click **x** on Tab 2 to close it (or **right-click** the tab and choose **Close** from the context menu). ' +
+        'Its mock server on **:9877** stops automatically — no orphaned processes. Tab 1 and its **:9876** server are completely unaffected. Connected tabs show a confirmation before closing.',
       highlight: WS.CONN_TAB_LAST,
       preAction: async (ctx) => {
         // Disconnect Tab 2 first to avoid the confirmation modal blocking the demo.

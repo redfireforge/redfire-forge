@@ -4,6 +4,7 @@ import type { Scenario, TestScenario, FeatureGroup, SharedDataSource, AuthConfig
 import type { TestDefinitionVersion } from '../../../shared/types';
 import { isWsActionType } from '../../../shared/types';
 import { emptyTest } from '../utils/testEditorUtils';
+import { createDataSourceWithTemplatizedUrl, createEmptyDataSource } from '../utils/dataSourceUtils';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
 import { toggleSetItem } from '../../../shared/utils/setToggle';
 import {
@@ -12,6 +13,7 @@ import {
   logTestRenamed,
 } from '../utils/structureChangeLog';
 import { saveFeatureGroups } from '../../../shared/utils/storage';
+import { useToast } from '../../../shared/hooks/useToast';
 import type { TestEditorInputMode, TestEditorTab } from '../components/TestEditorModal';
 
 export interface ConfirmDialog {
@@ -51,6 +53,7 @@ export function useScenarioMutations({
   clearAuthVerifyResult,
   moveToTrash,
 }: UseScenarioMutationsOpts) {
+  const { show: showToast } = useToast();
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
 
@@ -66,7 +69,7 @@ export function useScenarioMutations({
   const [editingFeatureAuth, setEditingFeatureAuth] = useState<string | null>(null);
   const [editingScenarioAuth, setEditingScenarioAuth] = useState<string | null>(null);
 
-  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new'; parameterized?: boolean } | null>(null);
+  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new'; parameterized?: boolean; openDataSourceWizard?: boolean } | null>(null);
   const [draft, setDraft] = useState<Scenario>(emptyTest());
   const [inputMode, setInputMode] = useState<TestEditorInputMode>('builder');
   const [activeTab, setActiveTab] = useState<TestEditorTab>('params');
@@ -291,7 +294,10 @@ export function useScenarioMutations({
 
   const startNewParameterizedTest = (featureId: string, scenarioId: string) => {
     const t = emptyTest();
-    setDraft(t);
+    // Seed an empty inline data source so the Data Source tab is available
+    // immediately (instead of the "Parameterize This Test" empty state).
+    const withDs: Scenario = { ...t, dataSource: createEmptyDataSource(t) };
+    setDraft(withDs);
     setEditingTest({ featureId, scenarioId, testId: 'new', parameterized: true });
     setInputMode('builder');
     setActiveTab('data');
@@ -306,7 +312,11 @@ export function useScenarioMutations({
     });
     setEditingTest({ featureId, scenarioId, testId: test.id, parameterized: !!test.dataSource });
     setInputMode('builder');
-    const defaultTab = isWsActionType(test.actionType) ? 'validation' : 'params';
+    // Parameterized tests reopen on the Data Source tab so the data grid is
+    // visible immediately; otherwise fall back to the transport-appropriate tab.
+    const defaultTab: TestEditorTab = test.dataSource
+      ? 'data'
+      : isWsActionType(test.actionType) ? 'validation' : 'params';
     setActiveTab(defaultTab);
   };
 
@@ -329,11 +339,18 @@ export function useScenarioMutations({
     const parentFg = allFgs.find(f => f.id === featureId);
     const parentSc = parentFg?.scenarios.find(s => s.id === scenarioId);
 
-    if (parentSc?.kind === 'parameterized' && !draft.dataSource && !draft.sharedDataSourceId) {
-      return;
-    }
-
     let finalDraft = draft;
+
+    // Parameterized scenarios require a data source. Auto-create (or refresh
+    // an empty one) from URL/body placeholders so Save closes the editor
+    // instead of silently no-oping.
+    if (parentSc?.kind === 'parameterized' && !finalDraft.sharedDataSourceId) {
+      if (!finalDraft.dataSource || finalDraft.dataSource.columns.length === 0) {
+        const { dataSource } = createDataSourceWithTemplatizedUrl(finalDraft);
+        finalDraft = { ...finalDraft, dataSource };
+        setDraft(finalDraft);
+      }
+    }
 
     // Auto-switch: if "Full JSON Match" is selected but no expected JSON is provided,
     // silently downgrade to 'none' to avoid a no-op validation mode
@@ -343,9 +360,9 @@ export function useScenarioMutations({
     }
 
     if (testId !== 'new') {
-      const newVersions = autoSaveVersion(draft);
+      const newVersions = autoSaveVersion(finalDraft);
       if (newVersions) {
-        finalDraft = { ...draft, definitionVersions: newVersions };
+        finalDraft = { ...finalDraft, definitionVersions: newVersions };
         setDraft(finalDraft);
       }
     }
@@ -403,7 +420,12 @@ export function useScenarioMutations({
       kafkaProduceAction: version.snapshot.kafkaProduceAction,
       kafkaConsumeAction: version.snapshot.kafkaConsumeAction,
     }));
-  }, []);
+    showToast(
+      'success',
+      'Version restored',
+      version.label || new Date(version.timestamp).toLocaleString(),
+    );
+  }, [showToast]);
 
   const handleVersionDelete = useCallback((versionId: string) => {
     setDraft((prev) => ({

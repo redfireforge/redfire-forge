@@ -13,6 +13,7 @@ export interface VersionHistoryPanelProps<V extends DefinitionVersionBase> {
   emptyHint: string;
   versions: V[];
   currentSnapshot: unknown;
+  currentVersionId?: string;
   onRestore: (version: V) => void;
   onDelete: (versionId: string) => void;
   onRename: (versionId: string, label: string) => void;
@@ -26,6 +27,7 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
   emptyHint,
   versions,
   currentSnapshot: _currentSnapshot,
+  currentVersionId,
   onRestore,
   onDelete,
   onRename,
@@ -83,12 +85,13 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
   const stopPropagation = (e: MouseEvent) => e.stopPropagation();
 
   return (
-    <div className="test-def-version-panel">
+    <div className="test-def-version-panel" data-testid="version-history-panel">
       <div className="test-def-version-toolbar">
         <h4>{title}</h4>
         {canCompare && (
           <button
             className="btn btn-xs btn-primary"
+            data-testid="version-compare-btn"
             onClick={handleCompare}
             title="Compare selected versions"
           >
@@ -107,7 +110,9 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
           {versions.map((v) => (
             <div
               key={v.id}
-              className={`test-def-version-item ${selectedIds.has(v.id) ? 'selected' : ''}`}
+              className={`test-def-version-item ${selectedIds.has(v.id) ? 'selected' : ''} ${currentVersionId === v.id ? 'current' : ''}`}
+              data-testid="version-item"
+              data-version-id={v.id}
               onClick={() => toggleSelect(v.id)}
             >
               <div className="test-def-version-item-check">
@@ -123,6 +128,7 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
                   {editingId === v.id ? (
                     <input
                       className="test-def-version-label-input"
+                      data-testid="version-rename-input"
                       value={editLabel}
                       onChange={(e) => setEditLabel(e.target.value)}
                       onBlur={handleFinishRename}
@@ -132,8 +138,13 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
                       placeholder="Version label…"
                     />
                   ) : (
-                    <span className="test-def-version-item-label" onDoubleClick={(e) => { e.stopPropagation(); handleStartRename(v); }}>
-                      {v.label || formatTimestamp(v.timestamp)}
+                    <span className="test-def-version-item-title">
+                      <span className="test-def-version-item-label" onDoubleClick={(e) => { e.stopPropagation(); handleStartRename(v); }}>
+                        {v.label || formatTimestamp(v.timestamp)}
+                      </span>
+                      {currentVersionId === v.id && (
+                        <span className="test-def-version-current-badge">CURRENT</span>
+                      )}
                     </span>
                   )}
                   <span className="test-def-version-item-time">
@@ -147,6 +158,7 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
                   {renderItemActions?.({ version: v, onView: () => setViewingVersion(v) })}
                   <button
                     className="test-def-version-action-btn"
+                    data-testid="version-restore-btn"
                     onClick={(e) => { e.stopPropagation(); onRestore(v); }}
                     title="Restore this version"
                   >
@@ -154,6 +166,7 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
                   </button>
                   <button
                     className="test-def-version-action-btn"
+                    data-testid="version-rename-btn"
                     onClick={(e) => { e.stopPropagation(); handleStartRename(v); }}
                     title="Rename this version"
                   >
@@ -161,6 +174,7 @@ export function VersionHistoryPanel<V extends DefinitionVersionBase>({
                   </button>
                   <button
                     className="test-def-version-action-btn test-def-version-action-danger"
+                    data-testid="version-delete-btn"
                     onClick={(e) => { e.stopPropagation(); onDelete(v.id); }}
                     title="Delete this version"
                   >

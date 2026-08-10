@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef, useMemo, type MouseEvent, type ReactNode } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
 import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../types/catalog';
 import type { AuthConfig, Microservice } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
+import type { PublishPermission } from '../hooks/usePublishPermission';
 import { generateStubJson } from '../utils/schemaStubGenerator';
 import { prettyJson, toErrorMessage } from '../../../shared/utils/helpers';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../utils/catalogCurlGenerator';
@@ -22,7 +24,13 @@ interface Props {
   linkedMicroservice?: Microservice;
   onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
-  onToggleWorkflowExpose?: (endpoint: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => void;
+  onSetWorkflowExposure?: (endpoint: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => void;
+  /** Merged exposure mode from both CatalogEndpoint (published) and user-local preview storage. */
+  currentExposureMode?: 'preview' | 'published';
+  /** True when published endpoint's spec has been updated since publication. */
+  isPublicationStale?: boolean;
+  /** Access control for publish/unpublish actions. All-true when not provided. */
+  publishPermission?: PublishPermission;
   coverage?: EndpointCoverage;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
 }
@@ -33,7 +41,7 @@ const MBG: Record<string, string> = {
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onToggleWorkflowExpose, coverage, onNavigateToRequest }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onSetWorkflowExposure, currentExposureMode, isPublicationStale, publishPermission, coverage, onNavigateToRequest }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
@@ -162,7 +170,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const color = SWAGGER_METHOD_COLORS[endpoint.method] ?? '#888';
 
   return (
-    <div className="sw-card" style={{ borderColor: color }}>
+    <div className="sw-card" data-testid="catalog-endpoint-card" data-endpoint-path={endpoint.path} data-endpoint-method={endpoint.method} style={{ borderColor: color }}>
       {/* ── HEADER ────────────────────────────────── */}
       <div className="sw-header" role="button" tabIndex={0} style={{ background: MBG[endpoint.method] }}
         onClick={() => setExpanded(v => !v)}
@@ -172,7 +180,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
         <span className="sw-path">{endpoint.path}</span>
         <span className="sw-summary">{endpoint.summary}</span>
         {coverage?.exported && (
-          <span className="sw-coverage-badge"
+          <span className="sw-coverage-badge" data-testid="catalog-coverage-badge"
             title={`Exported to Requests (${coverage.count})`}
             role="button"
             tabIndex={0}
@@ -181,6 +189,9 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
             IN REQUESTS{coverage.count > 1 ? ` (${coverage.count})` : ''}
           </span>
         )}
+        {currentExposureMode === 'published' && isPublicationStale && (
+          <span className="sw-stale-badge" data-testid="catalog-stale-badge" title="Spec updated since publication">⚠ Stale</span>
+        )}
         {endpoint.deprecated && <span className="sw-deprecated">deprecated</span>}
         {hasSec && <span className="sw-lock">🔒</span>}
         <span className={`sw-chevron ${expanded ? 'open' : ''}`}>&#9662;</span>
@@ -188,10 +199,9 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
 
       {/* ── COVERAGE POPOVER ────────────────────────── */}
       {showCoveragePopover && coverage?.locations && coverage.locations.length > 0 && (
-        <div className="sw-coverage-popover">
+        <div className="sw-coverage-popover" data-testid="catalog-coverage-popover">
           <div className="sw-coverage-popover-header">
             <span>Exported to {coverage.count} request{coverage.count > 1 ? 's' : ''}</span>
-            <button className="sw-coverage-popover-close" onClick={() => setShowCoveragePopover(false)}>&times;</button>
           </div>
           <div className="sw-coverage-popover-list">
             {coverage.locations.map(loc => (
@@ -207,9 +217,12 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 title={loc.folderPath}
               >
                 <span className="sw-coverage-popover-path">{loc.folderPath}</span>
-                <span className="sw-coverage-popover-arrow">→</span>
+                <span className="sw-coverage-popover-arrow" data-testid="catalog-coverage-goto">Go to →</span>
               </button>
             ))}
+          </div>
+          <div className="sw-coverage-popover-footer">
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCoveragePopover(false)}>Close</button>
           </div>
         </div>
       )}
@@ -228,17 +241,14 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
           {endpoint.description && <p className="sw-desc">{endpoint.description}</p>}
 
           {/* ── PARAMETERS ────────────────────────── */}
-          <div className="sw-section">
-            <div className="sw-section-bar">
-              <span className="sw-section-title">Parameters</span>
-              <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} onClick={handleTryIt}>
-                {tryItOpen ? 'Cancel' : 'Try it out'}
-              </button>
-            </div>
-
-            {endpoint.parameters.length === 0 ? (
-              <div className="sw-no-params">No parameters</div>
-            ) : (
+          {endpoint.parameters.length > 0 && (
+            <div className="sw-section">
+              <div className="sw-section-bar">
+                <span className="sw-section-title">Parameters</span>
+                <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} data-testid="catalog-tryit-btn" onClick={handleTryIt}>
+                  {tryItOpen ? 'Cancel' : 'Try it out'}
+                </button>
+              </div>
               <div className="sw-param-table">
                 <div className="sw-param-thead">
                   <div className="sw-param-col-name">Name</div>
@@ -254,8 +264,19 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                   />
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Try it out when there are no parameters (body-only / no-input endpoints) */}
+          {endpoint.parameters.length === 0 && !hasBody && (
+            <div className="sw-section sw-section--tryit-only">
+              <div className="sw-section-bar">
+                <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} data-testid="catalog-tryit-btn" onClick={handleTryIt}>
+                  {tryItOpen ? 'Cancel' : 'Try it out'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── REQUEST BODY ──────────────────────── */}
           {hasBody && (
@@ -264,9 +285,14 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 <span className="sw-section-title">Request body</span>
                 <span className="sw-ct-badge">{jsonCT!.mediaType}</span>
                 {endpoint.requestBody!.required && <span className="sw-req-label">required</span>}
+                {endpoint.parameters.length === 0 && (
+                  <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} data-testid="catalog-tryit-btn" onClick={handleTryIt}>
+                    {tryItOpen ? 'Cancel' : 'Try it out'}
+                  </button>
+                )}
               </div>
               {tryItOpen ? (
-                <textarea className="sw-body-editor" rows={12} value={bodyText}
+                <textarea className="sw-body-editor" data-testid="catalog-body-editor" rows={12} value={bodyText}
                   onChange={e => updateBody(e.target.value)} spellCheck={false} />
               ) : (
                 <JsonBlock json={generateStubJson(jsonCT!.schema)} label="Example Value" />
@@ -282,15 +308,15 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
           {/* ── EXECUTE BAR ───────────────────────── */}
           {tryItOpen && (
             <div className="sw-exec-bar">
-              <button className="sw-exec-btn" style={{ background: color }}
+              <button className="sw-exec-btn" data-testid="catalog-execute-btn" style={{ background: color }}
                 onClick={handleExecute} disabled={loading}>
                 {loading ? 'Executing...' : 'Execute'}
               </button>
-              <button className="sw-curl-btn" onClick={() => setShowCurl(v => !v)}>
+              <button className="sw-curl-btn" data-testid="catalog-curl-btn" onClick={() => setShowCurl(v => !v)}>
                 {showCurl ? 'Hide cURL' : 'cURL'}
               </button>
               {onExportSingle && (
-                <button className="sw-export-btn" onClick={() => onExportSingle(endpoint, {
+                <button className="sw-export-btn" data-testid="catalog-export-to-req-btn" onClick={() => onExportSingle(endpoint, {
                   params: paramValues,
                   headers: headerValues,
                   body: bodyText,
@@ -299,23 +325,20 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 </button>
               )}
               {onSendToHarness && (
-                <button className="sw-export-btn" style={{ borderColor: '#6c63ff44', color: '#6c63ff' }} onClick={() => onSendToHarness(endpoint)}>
+                <button className="sw-export-btn" data-testid="catalog-send-to-harness-btn" style={{ borderColor: '#6c63ff44', color: '#6c63ff' }} onClick={() => onSendToHarness(endpoint)}>
                   Send to Harness
                 </button>
               )}
-              {onToggleWorkflowExpose && (
-                <label className="sw-workflow-expose" title="When checked, this endpoint (with current values) is available in the Workflow Designer's Catalog tab">
-                  <input
-                    type="checkbox"
-                    checked={!!endpoint.exposedToWorkflow}
-                    onChange={(e) => onToggleWorkflowExpose(endpoint, e.target.checked, {
-                      params: paramValues,
-                      headers: headerValues,
-                      body: bodyText,
-                    })}
-                  />
-                  Expose to Workflow
-                </label>
+              {onSetWorkflowExposure && (
+                <WorkflowExposureDropdown
+                  mode={currentExposureMode}
+                  permission={publishPermission}
+                  onChange={(mode) => onSetWorkflowExposure(endpoint, mode, {
+                    params: paramValues,
+                    headers: headerValues,
+                    body: bodyText,
+                  })}
+                />
               )}
               <span className="sw-auth-status">
                 {auth.type === 'none' ? '⚠ No auth' :
@@ -329,7 +352,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
           )}
 
           {showCurl && tryItOpen && (
-            <div className="sw-curl-box">
+            <div className="sw-curl-box" data-testid="catalog-curl-box">
               <div className="sw-curl-bar">
                 <span>Curl</span>
                 <div className="sw-curl-actions">
@@ -346,7 +369,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
 
           {/* ── LIVE RESPONSE ─────────────────────── */}
           {liveResponse && tryItOpen && (
-            <div className="sw-section">
+            <div className="sw-section" data-testid="catalog-live-response">
               <div className="sw-section-bar">
                 <span className="sw-section-title">Server response</span>
               </div>
@@ -406,8 +429,9 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                     className="sw-export-btn"
                     style={{ borderColor: '#6c63ff44', color: '#6c63ff' }}
                     onClick={() => onSendToHarness(endpoint, true)}
+                    data-testid="catalog-save-as-test-btn"
                   >
-                    Save as Test
+                    Send to Harness
                   </button>
                 </div>
               )}
@@ -469,12 +493,15 @@ function ParamRow({ param: p, tryItOpen, value, onChange }: {
         )}
         {tryItOpen ? (
           hasEnum ? (
-            <select className="sw-pinput" value={value || defaultVal || ''} onChange={e => onChange(e.target.value)}>
-              <option value="">--</option>
-              {enumVals!.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
+            <CustomSelect
+              className="sw-pinput"
+              value={value || defaultVal || ''}
+              onChange={onChange}
+              options={enumVals!.map(v => ({ value: v, label: v }))}
+              placeholder="--"
+            />
           ) : (
-            <input className="sw-pinput" placeholder={exampleVal ?? defaultVal ?? p.name}
+            <input className="sw-pinput" data-testid={`catalog-param-${p.name}`} placeholder={exampleVal ?? defaultVal ?? p.name}
               value={value} onChange={e => onChange(e.target.value)} />
           )
         ) : (
@@ -606,4 +633,80 @@ function highlightCurl(cmd: string): ReactNode[] {
     }
   }
   return parts;
+}
+
+// ── Workflow Exposure Dropdown ────────────────────────────
+
+const EXPOSURE_OPTIONS: { value: 'preview' | 'published' | undefined; label: string; icon: string; hint: string }[] = [
+  { value: undefined,   label: 'Not Exposed', icon: '—', hint: 'Not available in Workflow Designer' },
+  { value: 'preview',   label: 'Preview',     icon: '◇', hint: 'Temporarily available for testing' },
+  { value: 'published', label: 'Published',   icon: '📌', hint: 'Permanently registered as a workflow block' },
+];
+
+function WorkflowExposureDropdown({ mode, permission, onChange }: {
+  mode: 'preview' | 'published' | undefined;
+  permission?: PublishPermission;
+  onChange: (mode: 'preview' | 'published' | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: globalThis.MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  const current = EXPOSURE_OPTIONS.find(o => o.value === mode) ?? EXPOSURE_OPTIONS[0];
+  const cls = mode === 'published' ? 'sw-wf-exposure published' : mode === 'preview' ? 'sw-wf-exposure preview' : 'sw-wf-exposure';
+
+  const isOptionDisabled = (optValue: 'preview' | 'published' | undefined): boolean => {
+    if (!permission) return false;
+    if (optValue === 'published' && !permission.canPublish) return true;
+    if (mode === 'published' && optValue !== 'published' && !permission.canUnpublish) return true;
+    return false;
+  };
+
+  return (
+    <div className={cls} ref={ref} data-testid="catalog-expose-to-workflow">
+      <button
+        type="button"
+        className="sw-wf-exposure-trigger"
+        onClick={() => setOpen(p => !p)}
+        title={current.hint}
+      >
+        <span className="sw-wf-exposure-icon">{current.icon}</span>
+        <span className="sw-wf-exposure-label">{current.label}</span>
+        <span className="sw-wf-exposure-caret">▾</span>
+      </button>
+      {open && (
+        <div className="sw-wf-exposure-menu">
+          {EXPOSURE_OPTIONS.map(opt => {
+            const disabled = isOptionDisabled(opt.value);
+            return (
+              <button
+                key={opt.label}
+                type="button"
+                className={`sw-wf-exposure-option${opt.value === mode ? ' active' : ''}${disabled ? ' disabled' : ''}`}
+                data-testid={`catalog-expose-option-${opt.value ?? 'none'}`}
+                onClick={() => { if (!disabled) { onChange(opt.value); setOpen(false); } }}
+                disabled={disabled}
+                title={disabled ? (permission?.reason ?? 'Insufficient permission') : opt.hint}
+              >
+                <span className="sw-wf-exposure-opt-icon">{opt.icon}</span>
+                <div className="sw-wf-exposure-opt-text">
+                  <span className="sw-wf-exposure-opt-label">{opt.label}</span>
+                  <span className="sw-wf-exposure-opt-hint">{disabled ? (permission?.reason ?? 'Insufficient permission') : opt.hint}</span>
+                </div>
+                {opt.value === mode && <span className="sw-wf-exposure-check">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }

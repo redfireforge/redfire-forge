@@ -36,6 +36,7 @@ export type Lesson18WorkflowSnapshot = {
 export const lesson18Session = {
   created: false,
   sidebarCollapsed: false,
+  variablesConfigured: false,
   mutationAdded: false,
   mutationConfigured: false,
   outputBound: false,
@@ -54,6 +55,7 @@ export const lesson18Session = {
 export function resetGqlLesson18SessionFlags(): void {
   lesson18Session.created = false;
   lesson18Session.sidebarCollapsed = false;
+  lesson18Session.variablesConfigured = false;
   lesson18Session.mutationAdded = false;
   lesson18Session.mutationConfigured = false;
   lesson18Session.outputBound = false;
@@ -67,6 +69,13 @@ export function resetGqlLesson18SessionFlags(): void {
   lesson18Session.deleteAdded = false;
   lesson18Session.deleteConfigured = false;
   lesson18Session.finalQuickTestRun = false;
+}
+
+/** True when workflow store has testName = Demo User (CRUD seed variable). */
+export function isLesson18WorkflowVariablesConfigured(): boolean {
+  const wf = readLesson18Workflow() as { variables?: Record<string, unknown> } | null;
+  const vars = wf?.variables ?? {};
+  return String(vars[LESSON18_TEST_NAME_VAR] ?? '').trim() === LESSON18_TEST_NAME;
 }
 
 export function readLesson18Workflow(): Lesson18WorkflowSnapshot | null {
@@ -148,8 +157,112 @@ export function isLesson18NodeOnCanvas(nodeId: string, type?: string): boolean {
   return !!document.querySelector(`.react-flow__node[data-id="${nodeId}"]`);
 }
 
+/** Node ids of a given type currently on the lesson workflow (store, then DOM). */
+export function lesson18NodeIdsOfType(type: string): string[] {
+  const fromStore = (readLesson18WorkflowNodes() ?? [])
+    .filter((n) => n.type === type)
+    .map((n) => n.id);
+  if (fromStore.length > 0) return fromStore;
+
+  const classSel = `.react-flow__node-${type}`;
+  const fromClass = [...document.querySelectorAll(classSel)]
+    .map((el) => el.getAttribute('data-id'))
+    .filter((id): id is string => Boolean(id));
+  if (fromClass.length > 0) return fromClass;
+
+  return [...document.querySelectorAll('.react-flow__node')]
+    .filter((el) => el.getAttribute('data-type') === type || el.classList.contains(`react-flow__node-${type}`))
+    .map((el) => el.getAttribute('data-id'))
+    .filter((id): id is string => Boolean(id));
+}
+
+function lesson18NodeLabel(n: Lesson18NodeSnapshot): string {
+  return String(n.data?.label ?? '').trim();
+}
+
+function isLesson18DeleteMutationNode(n: Lesson18NodeSnapshot): boolean {
+  return n.type === 'graphqlMutation'
+    && (n.id === LESSON18_NODE_DELETE
+      || lesson18NodeLabel(n) === 'Delete User'
+      || String(n.data?.query ?? '').includes('deleteUser'));
+}
+
+function isLesson18CreateMutationNode(n: Lesson18NodeSnapshot): boolean {
+  return n.type === 'graphqlMutation'
+    && (n.id === LESSON18_NODE_CREATE
+      || lesson18NodeLabel(n) === 'Create User'
+      || String(n.data?.query ?? '').includes('createUser'));
+}
+
+/** Resolve create mutation id (preset id or palette-added fallback). */
+export function resolveLesson18CreateNodeId(
+  nodes: Lesson18NodeSnapshot[] | null = readLesson18WorkflowNodes(),
+): string {
+  if (nodes?.some((n) => n.id === LESSON18_NODE_CREATE)) {
+    return LESSON18_NODE_CREATE;
+  }
+
+  const createByRole = nodes?.find((n) => isLesson18CreateMutationNode(n) && !isLesson18DeleteMutationNode(n));
+  if (createByRole) return createByRole.id;
+
+  const firstNonDelete = nodes?.find((n) => n.type === 'graphqlMutation' && !isLesson18DeleteMutationNode(n));
+  if (firstNonDelete) return firstNonDelete.id;
+
+  if (document.querySelector(`.react-flow__node[data-id="${LESSON18_NODE_CREATE}"]`)) {
+    return LESSON18_NODE_CREATE;
+  }
+
+  const domMutations = [...document.querySelectorAll('.react-flow__node')].filter((el) => {
+    const id = el.getAttribute('data-id');
+    return Boolean(id)
+      && id !== LESSON18_NODE_DELETE
+      && (el.classList.contains('react-flow__node-graphqlMutation')
+        || el.querySelector(GQL.WF_CANVAS_MUTATION_NODE));
+  });
+  const labeled = domMutations.find((el) => el.textContent?.includes('Create User'));
+  return labeled?.getAttribute('data-id')
+    ?? domMutations[0]?.getAttribute('data-id')
+    ?? LESSON18_NODE_CREATE;
+}
+
+/** Resolve query node id (preset id or palette-added fallback). */
+export function resolveLesson18FetchNodeId(
+  nodes: Lesson18NodeSnapshot[] | null = readLesson18WorkflowNodes(),
+): string {
+  if (nodes?.some((n) => n.id === LESSON18_NODE_FETCH)) return LESSON18_NODE_FETCH;
+  const byLabel = nodes?.find(
+    (n) => n.type === 'graphqlQuery' && lesson18NodeLabel(n) === 'Fetch User',
+  );
+  if (byLabel) return byLabel.id;
+  const first = nodes?.find((n) => n.type === 'graphqlQuery');
+  if (first) return first.id;
+  if (document.querySelector(`.react-flow__node[data-id="${LESSON18_NODE_FETCH}"]`)) {
+    return LESSON18_NODE_FETCH;
+  }
+  const dom = document.querySelector('.react-flow__node-graphqlQuery')?.getAttribute('data-id');
+  return dom ?? LESSON18_NODE_FETCH;
+}
+
+/** Resolve assert node id (preset id or palette-added fallback). */
+export function resolveLesson18AssertNodeId(
+  nodes: Lesson18NodeSnapshot[] | null = readLesson18WorkflowNodes(),
+): string {
+  if (nodes?.some((n) => n.id === LESSON18_NODE_ASSERT)) return LESSON18_NODE_ASSERT;
+  const byLabel = nodes?.find(
+    (n) => n.type === 'graphqlAssert' && lesson18NodeLabel(n) === 'Verify User',
+  );
+  if (byLabel) return byLabel.id;
+  const first = nodes?.find((n) => n.type === 'graphqlAssert');
+  if (first) return first.id;
+  if (document.querySelector(`.react-flow__node[data-id="${LESSON18_NODE_ASSERT}"]`)) {
+    return LESSON18_NODE_ASSERT;
+  }
+  const dom = document.querySelector('.react-flow__node-graphqlAssert')?.getAttribute('data-id');
+  return dom ?? LESSON18_NODE_ASSERT;
+}
+
 export function isLesson18CreateNodeReady(): boolean {
-  const data = lesson18NodeData(LESSON18_NODE_CREATE);
+  const data = lesson18NodeData(resolveLesson18CreateNodeId());
   const endpoint = String(data?.endpoint ?? '').trim();
   const query = String(data?.query ?? '').trim();
   const rules = data?.extractionRules as Array<{ variableName?: string }> | undefined;
@@ -157,7 +270,7 @@ export function isLesson18CreateNodeReady(): boolean {
 }
 
 export function isLesson18CreateMutationOpReady(): boolean {
-  const data = lesson18NodeData(LESSON18_NODE_CREATE);
+  const data = lesson18NodeData(resolveLesson18CreateNodeId());
   const endpoint = String(data?.endpoint ?? '').trim();
   const query = String(data?.query ?? '').trim();
   const variables = String(data?.variables ?? '').trim();
@@ -165,7 +278,7 @@ export function isLesson18CreateMutationOpReady(): boolean {
 }
 
 export function isLesson18FetchNodeReady(): boolean {
-  const data = lesson18NodeData(LESSON18_NODE_FETCH);
+  const data = lesson18NodeData(resolveLesson18FetchNodeId());
   const endpoint = String(data?.endpoint ?? '').trim();
   const query = String(data?.query ?? '').trim();
   const bindings = data?.outputBindings as Array<{ field?: string; variableName?: string; enabled?: boolean }> | undefined;
@@ -177,7 +290,7 @@ export function isLesson18FetchNodeReady(): boolean {
 }
 
 export function isLesson18FetchQueryOpReady(): boolean {
-  const data = lesson18NodeData(LESSON18_NODE_FETCH);
+  const data = lesson18NodeData(resolveLesson18FetchNodeId());
   const endpoint = String(data?.endpoint ?? '').trim();
   const query = String(data?.query ?? '').trim();
   const variables = String(data?.variables ?? '').trim();
@@ -185,14 +298,14 @@ export function isLesson18FetchQueryOpReady(): boolean {
 }
 
 export function isLesson18AssertNodeReady(): boolean {
-  const data = lesson18NodeData(LESSON18_NODE_ASSERT);
+  const data = lesson18NodeData(resolveLesson18AssertNodeId());
   const source = String(data?.sourceVariable ?? '').trim();
   const assertions = data?.assertions as Array<{ jsonPath?: string }> | undefined;
   return !!(source === LESSON18_FETCHED_USER_VAR && assertions?.some((a) => a.jsonPath === '$.user.name'));
 }
 
 export function isLesson18AssertSourceReady(): boolean {
-  const data = lesson18NodeData(LESSON18_NODE_ASSERT);
+  const data = lesson18NodeData(resolveLesson18AssertNodeId());
   return String(data?.sourceVariable ?? '').trim() === LESSON18_FETCHED_USER_VAR;
 }
 
@@ -211,22 +324,40 @@ export function resolveLesson18DeleteNodeId(
   if (nodes?.some((n) => n.id === LESSON18_NODE_DELETE)) {
     return LESSON18_NODE_DELETE;
   }
+
+  const createId = resolveLesson18CreateNodeId(nodes);
+  const byLabel = [...(nodes ?? [])]
+    .reverse()
+    .find((n) => isLesson18DeleteMutationNode(n) && n.id !== createId);
+  if (byLabel) return byLabel.id;
+
   const extraMutation = [...(nodes ?? [])]
     .reverse()
-    .find((n) => n.type === 'graphqlMutation' && n.id !== LESSON18_NODE_CREATE);
+    .find((n) => n.type === 'graphqlMutation' && n.id !== createId && n.id !== LESSON18_NODE_CREATE);
   if (extraMutation) return extraMutation.id;
 
   const domExtra = [...document.querySelectorAll('.react-flow__node')].filter((el) => {
     const id = el.getAttribute('data-id');
-    return id && id !== LESSON18_NODE_CREATE && el.querySelector(GQL.WF_CANVAS_MUTATION_NODE);
+    return id
+      && id !== createId
+      && id !== LESSON18_NODE_CREATE
+      && (el.classList.contains('react-flow__node-graphqlMutation')
+        || el.querySelector(GQL.WF_CANVAS_MUTATION_NODE));
   });
-  return domExtra.at(-1)?.getAttribute('data-id') ?? LESSON18_NODE_DELETE;
+  const labeled = [...domExtra].reverse().find((el) => el.textContent?.includes('Delete User'));
+  return labeled?.getAttribute('data-id')
+    ?? domExtra.at(-1)?.getAttribute('data-id')
+    ?? LESSON18_NODE_DELETE;
 }
 
 export function isLesson18DeleteOnCanvas(): boolean {
   const nodes = readLesson18WorkflowNodes();
-  if (nodes) {
-    return nodes.some((n) => n.type === 'graphqlMutation' && n.id !== LESSON18_NODE_CREATE);
+  const createId = resolveLesson18CreateNodeId(nodes);
+  if (nodes?.length) {
+    if (nodes.some((n) => n.id === LESSON18_NODE_DELETE)) return true;
+    if (nodes.some((n) => isLesson18DeleteMutationNode(n) && n.id !== createId)) return true;
+    // Palette-added teardown: a second mutation besides Create User.
+    return nodes.some((n) => n.type === 'graphqlMutation' && n.id !== createId);
   }
   return !!document.querySelector(`[data-id="${LESSON18_NODE_DELETE}"]`);
 }
@@ -425,10 +556,11 @@ export function renameLesson18DeleteNodeLabel(deleteNodeId: string): void {
   const nodes = readLesson18WorkflowNodes();
   if (!nodes?.length) return;
 
+  const createId = resolveLesson18CreateNodeId(nodes);
   const targetId =
     nodes.some((n) => n.id === deleteNodeId)
       ? deleteNodeId
-      : nodes.find((n) => n.type === 'graphqlMutation' && n.id !== LESSON18_NODE_CREATE)?.id;
+      : nodes.find((n) => n.type === 'graphqlMutation' && n.id !== createId && n.id !== LESSON18_NODE_CREATE)?.id;
   if (!targetId) return;
 
   patchWorkflowByName(LESSON18_WF_NAME, {
@@ -442,12 +574,13 @@ export function renameLesson18DeleteNodeLabel(deleteNodeId: string): void {
 
 export function wireLesson18DeleteNode(): void {
   const deleteNodeId = resolveLesson18DeleteNodeId();
+  const assertId = resolveLesson18AssertNodeId();
   const endId = resolveLesson18EndNodeId();
   if (endId) {
-    removeWorkflowEdge(LESSON18_NODE_ASSERT, endId);
+    removeWorkflowEdge(assertId, endId);
   }
   connectLesson18Edge(
-    LESSON18_NODE_ASSERT,
+    assertId,
     deleteNodeId,
     WF.NODE_GQL_ASSERT,
     WF.NODE_GQL_MUTATION,

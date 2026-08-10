@@ -130,7 +130,7 @@ describe('StepOverviewDrawer', () => {
         onClose={onClose}
       />,
     );
-    const closeBtn = screen.getByLabelText('Close steps overview');
+    const closeBtn = screen.getByRole('button', { name: 'Close' });
     fireEvent.click(closeBtn);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -254,7 +254,7 @@ describe('StepOverviewDrawer', () => {
       />,
     );
     const modal = container.querySelector('.demo-overview-modal') as HTMLElement;
-    const closeBtn = screen.getByLabelText('Close steps overview');
+    const closeBtn = screen.getByRole('button', { name: 'Close' });
     fireEvent.mouseDown(closeBtn, { clientX: 100, clientY: 100 });
     fireEvent.mouseMove(document, { clientX: 200, clientY: 200 });
     expect(modal.style.top).toBe('');

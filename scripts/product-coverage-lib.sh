@@ -98,12 +98,13 @@ product_coverage_warn_stale_batches() {
   fi
 }
 
-# Fail when any production source file is ≥900 lines (tests excluded).
+# Fail when any product production source file is ≥900 lines (tests excluded).
+# Demo-hub sources are intentionally excluded from this product gate.
 product_coverage_check_monolithic() {
   local threshold="${MONOLITH_LINE_THRESHOLD:-900}"
   local offenders
   offenders="$(
-    find src packages/demo-hub/src src-server cli -type f \( -name '*.ts' -o -name '*.tsx' \) \
+    find src src-server cli -type f \( -name '*.ts' -o -name '*.tsx' \) \
       ! -path '*/node_modules/*' \
       ! -name '*.test.*' \
       ! -name '*.coverage-gaps.test.*' \

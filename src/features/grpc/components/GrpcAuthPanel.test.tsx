@@ -4,6 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { getCustomSelectValue, selectOption } from '../../../test-utils/customSelectHelper';
 import { GrpcAuthPanel } from './GrpcAuthPanel';
 import type { GrpcAuthPreviewResult } from '../utils/grpcAuthPreview';
 
@@ -27,7 +28,7 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
     );
     expect(screen.getByTestId('grpc-auth-type-select')).toBeTruthy();
     expect(screen.getByTestId('grpc-auth-no-auth-hint')).toBeTruthy();
-    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'bearer');
+    selectOption(screen.getByTestId('grpc-auth-type-select'), 'Bearer Token');
     expect(onChange).toHaveBeenCalledWith({ type: 'bearer' });
   });
 
@@ -39,7 +40,7 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
         onChange={vi.fn()}
       />,
     );
-    expect((screen.getByTestId('grpc-auth-type-select') as HTMLSelectElement).value).toBe('bearer');
+    expect(getCustomSelectValue(screen.getByTestId('grpc-auth-type-select'))).toBe('Bearer Token');
     expect(screen.getByTestId('grpc-auth-bearer-token')).toBeTruthy();
   });
 
@@ -69,7 +70,7 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
         onChange={onChange}
       />,
     );
-    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'inherit');
+    selectOption(screen.getByTestId('grpc-auth-type-select'), 'Inherit from Auth Profile');
     expect(onChange).toHaveBeenCalledWith({ type: 'inherit', globalProfileId: 'prof-1' });
   });
 

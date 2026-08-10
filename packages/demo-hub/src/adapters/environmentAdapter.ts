@@ -13,6 +13,11 @@ export function upsertGlobalAuthProfile(profile: GlobalAuthProfile): void {
   getDemoBridgeWindow().__demoUpsertGlobalAuthProfile?.(profile);
 }
 
+/** Clear the active tab's auth override via React bridge — no Auth panel open/close. */
+export function clearActiveTabAuthQuiet(): boolean {
+  return getDemoBridgeWindow().__demoClearActiveTabAuth?.() ?? false;
+}
+
 /** Sync in-memory app state after storage purge (safe no-op when bridge is absent). */
 export function purgeGlobalAuthProfilesFromBridge(
   specs: readonly { id: string; name: string }[] = ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS,
@@ -63,6 +68,54 @@ export function removeWorkspaceDefaults(keys: string[]): boolean {
   if (!bridge) return false;
   bridge(keys);
   return true;
+}
+
+/**
+ * Ensure a Settings environment exists (by name). Creates one if absent.
+ * Returns the env ID, or empty string if the bridge is unavailable.
+ */
+export function ensureSettingsEnvironment(name: string): string {
+  return getDemoBridgeWindow().__demoEnsureSettingsEnv?.(name) ?? '';
+}
+
+/** Remove a Settings environment by name (demo cleanup). */
+export function removeSettingsEnvironment(name: string): void {
+  getDemoBridgeWindow().__demoRemoveSettingsEnv?.(name);
+}
+
+/**
+ * Ensure a Settings microservice exists (by name). Creates one if absent.
+ * Optionally merges `baseUrls` (envId → URL) into the existing record.
+ * Returns the svc ID, or empty string if the bridge is unavailable.
+ */
+export function ensureSettingsMicroservice(name: string, baseUrls?: Record<string, string>): string {
+  return getDemoBridgeWindow().__demoEnsureSettingsSvc?.(name, baseUrls) ?? '';
+}
+
+/** Remove a Settings microservice by name (demo cleanup). */
+export function removeSettingsMicroservice(name: string): void {
+  getDemoBridgeWindow().__demoRemoveSettingsSvc?.(name);
+}
+
+/**
+ * Quietly set the app header + Designer Quick-Test env/svc (same selectedEnvId).
+ * Never opens CustomSelect menus — use during Preparing / preAction.
+ */
+export function selectSettingsEnvSvc(envId: string, svcId = ''): void {
+  if (!envId) return;
+  getDemoBridgeWindow().__demoSelectEnvSvc?.(envId, svcId);
+}
+
+/**
+ * Quietly clear protocol tabs, protocol endpoints, and global vars on a named
+ * Settings microservice. Prefer this over DOM × clicks during lesson setup —
+ * the remove control is `display:none` until the tab wrap is hovered/active.
+ */
+export function resetSettingsMicroserviceProtocols(
+  name: string,
+  options?: { clearProtocols?: boolean; clearGlobalVars?: boolean },
+): boolean {
+  return getDemoBridgeWindow().__demoResetSettingsSvcProtocols?.(name, options) ?? false;
 }
 
 /**

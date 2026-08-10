@@ -3,6 +3,7 @@ import type { AuthConfig, Environment, GlobalAuthProfile, Microservice } from '.
 import type { HttpNodeData, Workflow, WorkflowNode } from '../../types/workflow';
 import { resolveHttpNodeBaseUrl } from '../../utils/workflowHostResolve';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 interface Props {
   open: boolean;
@@ -190,10 +191,10 @@ export default function WorkflowRequestsSettingsModal({
                     <>
                       <div className="wf-config-field">
                         <label>Environment</label>
-                        <select
+                        <CustomSelect
                           value={selectedDraft.hostEnvironmentId ?? ''}
-                          onChange={(e) => {
-                            const envId = e.target.value || undefined;
+                          onChange={(envIdRaw) => {
+                            const envId = envIdRaw || undefined;
                             if (!envId) {
                               updateSelected({ hostEnvironmentId: undefined, hostMicroserviceId: undefined, hostBaseUrl: undefined, hostProfileId: undefined });
                               return;
@@ -203,26 +204,26 @@ export default function WorkflowRequestsSettingsModal({
                             if (!svcId || !svcs.some((s) => s.id === svcId)) svcId = svcs[0]?.id;
                             updateSelected({ hostEnvironmentId: envId, hostMicroserviceId: svcId, hostBaseUrl: undefined, hostProfileId: undefined });
                           }}
-                        >
-                          <option value="">Environment...</option>
-                          {environments.map((env) => (
-                            <option key={env.id} value={env.id}>{env.name}</option>
-                          ))}
-                        </select>
+                          placeholder="Environment..."
+                          options={[
+                            { value: '', label: 'Environment...' },
+                            ...environments.map((env) => ({ value: env.id, label: env.name })),
+                          ]}
+                        />
                       </div>
 
                       <div className="wf-config-field">
                         <label>Microservice</label>
-                        <select
+                        <CustomSelect
                           value={selectedDraft.hostMicroserviceId ?? ''}
-                          onChange={(e) => updateSelected({ hostMicroserviceId: e.target.value || undefined, hostBaseUrl: undefined, hostProfileId: undefined })}
+                          onChange={(v) => updateSelected({ hostMicroserviceId: v || undefined, hostBaseUrl: undefined, hostProfileId: undefined })}
                           disabled={!selectedDraft.hostEnvironmentId}
-                        >
-                          <option value="">Microservice...</option>
-                          {microservicesForEnv.map((svc) => (
-                            <option key={svc.id} value={svc.id}>{svc.name}</option>
-                          ))}
-                        </select>
+                          placeholder="Microservice..."
+                          options={[
+                            { value: '', label: 'Microservice...' },
+                            ...microservicesForEnv.map((svc) => ({ value: svc.id, label: svc.name })),
+                          ]}
+                        />
                       </div>
                     </>
                   )}
@@ -234,10 +235,9 @@ export default function WorkflowRequestsSettingsModal({
 
                   <div className="wf-config-field">
                     <label>Auth Type</label>
-                    <select
+                    <CustomSelect
                       value={authSelectValue}
-                      onChange={(e) => {
-                        const val = e.target.value;
+                      onChange={(val) => {
                         if (val === 'global-profile') {
                           const first = globalAuthProfiles[0];
                           if (first) updateSelectedAuth({ ...first.auth, globalProfileId: first.id } as AuthConfig);
@@ -245,30 +245,31 @@ export default function WorkflowRequestsSettingsModal({
                         }
                         updateSelectedAuth({ type: val as AuthConfig['type'] });
                       }}
-                    >
-                      <option value="none">None</option>
-                      {globalAuthProfiles.length > 0 && <option value="global-profile">Global Auth Profile</option>}
-                      <option value="bearer">Bearer Token</option>
-                      <option value="basic">Basic Auth</option>
-                      <option value="apikey">API Key</option>
-                      <option value="oauth2">OAuth2 Client Credentials</option>
-                    </select>
+                      options={[
+                        { value: 'none', label: 'None' },
+                        ...(globalAuthProfiles.length > 0 ? [{ value: 'global-profile', label: 'Global Auth Profile' }] : []),
+                        { value: 'bearer', label: 'Bearer Token' },
+                        { value: 'basic', label: 'Basic Auth' },
+                        { value: 'apikey', label: 'API Key' },
+                        { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+                      ]}
+                    />
                   </div>
 
                   {authSelectValue === 'global-profile' && (
                     <div className="wf-config-field">
                       <label>Global Auth Profile</label>
-                      <select
+                      <CustomSelect
                         value={selectedAuthProfileId ?? ''}
-                        onChange={(e) => {
-                          const p = globalAuthProfiles.find((x) => x.id === e.target.value);
+                        onChange={(v) => {
+                          const p = globalAuthProfiles.find((x) => x.id === v);
                           if (p) updateSelectedAuth({ ...p.auth, globalProfileId: p.id } as AuthConfig);
                         }}
-                      >
-                        {globalAuthProfiles.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                        ))}
-                      </select>
+                        options={globalAuthProfiles.map((p) => ({
+                          value: p.id,
+                          label: `${p.name} (${p.auth.type})`,
+                        }))}
+                      />
                     </div>
                   )}
 

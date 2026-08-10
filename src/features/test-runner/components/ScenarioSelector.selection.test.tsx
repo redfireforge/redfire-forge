@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import ScenarioSelector from './ScenarioSelector';
 import { defaultProps } from './ScenarioSelector.test.utils';
@@ -61,9 +62,7 @@ describe('ScenarioSelector - Selection', () => {
       />
     );
 
-    const selects = screen.getAllByDisplayValue('Default');
-    const bodySelect = selects[0];
-    fireEvent.change(bodySelect, { target: { value: 'none' } });
+    selectOptionByIndex(document.querySelector('.selection-actions')!, 0, 'None');
     expect(onValidationOverrideChange).toHaveBeenCalledWith('none');
     expect(onSkipValidationChange).toHaveBeenCalledWith(true);
   });

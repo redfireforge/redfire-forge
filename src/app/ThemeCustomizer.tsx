@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useModalDrag } from '../shared/hooks/useModalDrag';
+import { CustomSelect } from '../shared/components/CustomSelect';
 import {
   EDITABLE_VARS,
   isCustomThemeId,
@@ -143,7 +144,6 @@ export default function ThemeCustomizer({ currentTheme, onClose, onApply }: Prop
       <div className="tc-panel" role="dialog" onClick={e => e.stopPropagation()} style={modalStyle}>
         <div className="tc-header" onMouseDown={onDragStart} style={{ cursor: 'move' }}>
           <h3>🎨 Theme Customizer</h3>
-          <button className="tc-close" onClick={handleCancel}>✕</button>
         </div>
 
         <div className="tc-body">
@@ -167,10 +167,12 @@ export default function ThemeCustomizer({ currentTheme, onClose, onApply }: Prop
 
           <div className="tc-section">
             <label className="tc-section-label">Base Theme</label>
-            <select className="tc-base-select" value={baseTheme}
-              onChange={e => { setBaseTheme(e.target.value); handleResetAll(); }}>
-              {BASES.map(b => <option key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</option>)}
-            </select>
+            <CustomSelect
+              className="tc-base-select"
+              value={baseTheme}
+              onChange={(v) => { setBaseTheme(v); handleResetAll(); }}
+              options={BASES.map(b => ({ value: b, label: b.charAt(0).toUpperCase() + b.slice(1) }))}
+            />
           </div>
 
           <div className="tc-section">

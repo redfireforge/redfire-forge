@@ -54,7 +54,9 @@ export async function prepareGql1DockerLesson(
   request: APIRequestContext,
 ): Promise<void> {
   await setupLiveProxy(page, request);
-  await launchGqlStudio(page, GQL1_LESSON.name);
+  // GQL-1 intentionally starts in Environment Manager at step 1.
+  await launchGqlLesson(page, GQL1_LESSON.name);
+  await waitForReadingPhase(page, 180_000);
 }
 
 /** GQL-2: seed EM + proxy + header/env endpoint bootstrap. */

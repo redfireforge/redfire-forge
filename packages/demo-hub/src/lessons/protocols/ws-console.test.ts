@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsConsoleLesson } from './ws-console';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-console lesson', () => {
   beforeEach(() => {
@@ -62,12 +62,13 @@ describe('ws-console lesson', () => {
 
   // ─── Step: console-intro ────────────────────────────────────
 
-  it('step console-intro preAction switches to client mode', async () => {
+  it('step console-intro action stabilizes client + console + structured view', async () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-intro')!;
     const ctx = makeCtx();
-    await step.preAction!(ctx);
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.delay).toHaveBeenCalledWith(200);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-console-view-structured'));
   });
 
   it('step console-connect preAction ensures console tab and structured view', async () => {
@@ -78,11 +79,9 @@ describe('ws-console lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-console-view-structured'));
   });
 
-  it('step console-intro action clicks console tab', async () => {
+  it('step console-intro has a visible action', async () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-intro')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    expect(typeof step.action).toBe('function');
   });
 
   it('step console-intro highlights the console tab', () => {
@@ -127,6 +126,7 @@ describe('ws-console lesson', () => {
     const input = document.createElement('input');
     input.setAttribute('data-testid', 'ws-console-cmd-input');
     document.body.appendChild(input);
+    makeVisible(input);
     const spy = vi.spyOn(input, 'dispatchEvent');
 
     const ctx = makeCtx();
@@ -186,6 +186,7 @@ describe('ws-console lesson', () => {
     const input = document.createElement('input');
     input.setAttribute('data-testid', 'ws-console-cmd-input');
     document.body.appendChild(input);
+    makeVisible(input);
     const spy = vi.spyOn(input, 'dispatchEvent');
 
     // Reset lesson session flag via setup
@@ -236,9 +237,11 @@ describe('ws-console lesson', () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-categories')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(
+    expect(ctx.click).toHaveBeenCalledWith(
       expect.stringContaining('ws-console-category'),
-      'lifecycle',
+    );
+    expect(ctx.click).toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-category-opt-lifecycle'),
     );
   });
 
@@ -263,9 +266,11 @@ describe('ws-console lesson', () => {
     // Must navigate to Console tab
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
     // Must reset category filter to show all entries
-    expect(ctx.selectOption).toHaveBeenCalledWith(
+    expect(ctx.click).toHaveBeenCalledWith(
       expect.stringContaining('ws-console-category'),
-      'all',
+    );
+    expect(ctx.click).toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-category-opt-all'),
     );
   });
 
@@ -284,6 +289,7 @@ describe('ws-console lesson', () => {
     const input = document.createElement('input');
     input.setAttribute('data-testid', 'ws-console-cmd-input');
     document.body.appendChild(input);
+    makeVisible(input);
     const spy = vi.spyOn(input, 'dispatchEvent');
 
     const ctx = makeCtx();
@@ -302,9 +308,11 @@ describe('ws-console lesson', () => {
     // Must navigate to Console tab
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
     // Must reset category filter so /help output is visible (step 4 may have set lifecycle)
-    expect(ctx.selectOption).toHaveBeenCalledWith(
+    expect(ctx.click).toHaveBeenCalledWith(
       expect.stringContaining('ws-console-category'),
-      'all',
+    );
+    expect(ctx.click).toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-category-opt-all'),
     );
   });
 
@@ -327,6 +335,7 @@ describe('ws-console lesson', () => {
     const input = document.createElement('input');
     input.setAttribute('data-testid', 'ws-console-cmd-input');
     document.body.appendChild(input);
+    makeVisible(input);
     const spy = vi.spyOn(input, 'dispatchEvent');
 
     const ctx = makeCtx();
@@ -361,9 +370,11 @@ describe('ws-console lesson', () => {
     // Must navigate to Console tab
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
     // Must reset category so search covers all entry types
-    expect(ctx.selectOption).toHaveBeenCalledWith(
+    expect(ctx.click).toHaveBeenCalledWith(
       expect.stringContaining('ws-console-category'),
-      'all',
+    );
+    expect(ctx.click).toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-category-opt-all'),
     );
   });
 

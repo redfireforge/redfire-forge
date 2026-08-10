@@ -38,6 +38,7 @@ import {
   grpcOAuth2TokenService,
   type GrpcOAuth2TokenService,
 } from './grpcOAuth2TokenService.js';
+import { prepareGrpcTarget } from '../../src/shared/grpc/grpcTlsPolicy.js';
 import { validateResolvedGrpcTargetAddress } from '../../src/shared/grpc/targetValidation.js';
 import {
   cancelGrpcCall,
@@ -99,7 +100,10 @@ export class GrpcService {
 
   async reflect(request: GrpcReflectRequest): Promise<GrpcRouteEnvelope<GrpcDescriptor>> {
     const started = Date.now();
-    const issues = validateGrpcReflectRequest(request);
+    // Coerce sticky TLS/mTLS on plaintext echo ports before validation/dial.
+    const preparedTarget = prepareGrpcTarget(request.target).target;
+    const normalizedRequest: GrpcReflectRequest = { ...request, target: preparedTarget };
+    const issues = validateGrpcReflectRequest(normalizedRequest);
     if (issues.length > 0) {
       return createGrpcValidationErrorEnvelope('reflect', issues, {
         requestId: request.requestId,
@@ -108,7 +112,7 @@ export class GrpcService {
     }
 
     try {
-      const descriptor = await this.loader.loadFromReflection(request);
+      const descriptor = await this.loader.loadFromReflection(normalizedRequest);
       return createGrpcSuccessEnvelope('reflect', descriptor, {
         requestId: request.requestId,
         durationMs: Date.now() - started,

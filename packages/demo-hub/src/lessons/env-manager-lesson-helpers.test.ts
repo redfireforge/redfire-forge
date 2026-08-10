@@ -41,9 +41,11 @@ import {
   cleanupDemoMicroservice,
   cleanupDemoEnvironment,
   cleanupGqlDemoLessonEnvironment,
+  selectEnvInHeaderVisible,
+  selectSvcInHeaderVisible,
 } from './env-manager-lesson-helpers';
 import { makeCtx } from './protocols/ws-test-utils';
-import { EM } from '@shared/selectors';
+import { APP, EM } from '@shared/selectors';
 
 function mockRect(el: Element, width: number, height: number): void {
   vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
@@ -269,6 +271,58 @@ describe('env-manager-lesson-helpers', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
   });
 
+  it('ensureSseDemoHeaderContext uses bridge without opening header selects', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="">Select env</option>
+        <option value="e1">SSE Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="">Select svc</option>
+        <option value="s1">sse-demo</option>
+      </select>`;
+    const ensureEnv = vi.fn(() => 'e1');
+    const ensureSvc = vi.fn(() => 's1');
+    const selectEnvSvc = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = ensureEnv;
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = ensureSvc;
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = selectEnvSvc;
+    try {
+      const ctx = makeCtx();
+      await ensureSseDemoHeaderContext(ctx);
+      expect(ensureEnv).toHaveBeenCalledWith('SSE Demo');
+      expect(ensureSvc).toHaveBeenCalledWith('sse-demo', { e1: 'http://localhost:3001' });
+      expect(selectEnvSvc).toHaveBeenCalledWith('e1', 's1');
+      // Bridge path must not open Environment/Service dropdowns (viewer flash).
+      expect(ctx.selectOption).not.toHaveBeenCalled();
+      expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+    } finally {
+      delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+      delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc;
+      delete (window as unknown as Record<string, unknown>).__demoSelectEnvSvc;
+    }
+  });
+
+  it('ensureSseDemoHeaderContext is a no-op when env and svc are already selected', async () => {
+    document.body.innerHTML = `
+      <div data-testid="header-env-select"><span class="cs-text">SSE Demo</span></div>
+      <div data-testid="header-svc-select"><span class="cs-text">sse-demo</span></div>`;
+    const ensureEnv = vi.fn(() => 'e1');
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = ensureEnv;
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = vi.fn(() => 's1');
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = vi.fn();
+    try {
+      const ctx = makeCtx();
+      await ensureSseDemoHeaderContext(ctx);
+      expect(ensureEnv).not.toHaveBeenCalled();
+      expect(ctx.selectOption).not.toHaveBeenCalled();
+    } finally {
+      delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+      delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc;
+      delete (window as unknown as Record<string, unknown>).__demoSelectEnvSvc;
+    }
+  });
+
   it('ensureProtocolDisabled clicks remove when HTTP tab is present (no viewer ripple)', async () => {
     document.body.innerHTML = `
       <div data-testid="microservice-protocol-panel">
@@ -479,6 +533,7 @@ describe('env-manager-lesson-helpers', () => {
 
   it('ensureGqlDemoHeaderContext selects header options when already present', async () => {
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <select data-testid="header-env-select">
         <option value="">Select env</option>
         <option value="e1">GraphQL Demo</option>
@@ -492,6 +547,31 @@ describe('env-manager-lesson-helpers', () => {
     expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
     expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
     expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
+  });
+
+  it('ensureGqlDemoHeaderContext uses settings bridge without Environment Manager', async () => {
+    document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
+      <div data-testid="header-env-select"><span class="cs-text">Other</span></div>
+      <div data-testid="header-svc-select"><span class="cs-text">Other</span></div>`;
+    const ensureEnv = vi.fn(() => 'env-gql');
+    const ensureSvc = vi.fn(() => 'svc-gql');
+    const selectEnvSvc = vi.fn(() => {
+      document.querySelector('[data-testid="header-env-select"] .cs-text')!.textContent = 'GraphQL Demo';
+      document.querySelector('[data-testid="header-svc-select"] .cs-text')!.textContent = 'graphql-demo';
+    });
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = ensureEnv;
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = ensureSvc;
+    (window as unknown as Record<string, unknown>).__demoSelectEnvSvc = selectEnvSvc;
+    const ctx = makeCtx();
+    await ensureGqlDemoHeaderContext(ctx);
+    expect(ensureEnv).toHaveBeenCalledWith('GraphQL Demo');
+    expect(ensureSvc).toHaveBeenCalledWith('graphql-demo', { 'env-gql': 'http://localhost:4010' });
+    expect(selectEnvSvc).toHaveBeenCalledWith('env-gql', 'svc-gql');
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+    delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+    delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc;
+    delete (window as unknown as Record<string, unknown>).__demoSelectEnvSvc;
   });
 
   it('editNamedProtocolEndpoint edits the row matching the environment name', async () => {
@@ -773,7 +853,18 @@ describe('env-manager-lesson-helpers', () => {
 
   // ── cleanupDemoMicroservice ──────────────────────────────────────
 
+  it('cleanupDemoMicroservice uses settings bridge when available (no EM navigation)', async () => {
+    const remove = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc = remove;
+    const ctx = makeCtx();
+    await cleanupDemoMicroservice(ctx, 'sse-demo');
+    expect(remove).toHaveBeenCalledWith('sse-demo');
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
+  });
+
   it('cleanupDemoMicroservice is no-op when svc not in DOM', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
     document.body.innerHTML = '<div class="env-manager"></div>';
     const ctx = makeCtx();
     await cleanupDemoMicroservice(ctx, 'sse-demo');
@@ -783,6 +874,7 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('cleanupDemoMicroservice clicks Delete and confirms when svc card is present', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
     document.body.innerHTML = `
       <div class="env-manager">
         <div data-svc-name="sse-demo">
@@ -799,6 +891,7 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('cleanupDemoMicroservice collapses expanded panel before deleting', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc;
     document.body.innerHTML = `
       <div class="env-manager">
         <div data-svc-name="sse-demo">
@@ -815,7 +908,18 @@ describe('env-manager-lesson-helpers', () => {
 
   // ── cleanupDemoEnvironment ───────────────────────────────────────
 
+  it('cleanupDemoEnvironment uses settings bridge when available (no EM navigation)', async () => {
+    const remove = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv = remove;
+    const ctx = makeCtx();
+    await cleanupDemoEnvironment(ctx, 'SSE Demo');
+    expect(remove).toHaveBeenCalledWith('SSE Demo');
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv;
+  });
+
   it('cleanupDemoEnvironment is no-op when env chip not in DOM', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv;
     document.body.innerHTML = '<div class="env-manager"></div>';
     const ctx = makeCtx();
     await cleanupDemoEnvironment(ctx, 'SSE Demo');
@@ -825,6 +929,7 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('cleanupDemoEnvironment clicks × and confirms when chip is present', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv;
     document.body.innerHTML = `
       <div class="env-manager">
         <div data-env-name="SSE Demo" class="settings-chip">
@@ -854,5 +959,49 @@ describe('env-manager-lesson-helpers', () => {
     const ctx = makeCtx();
     await cleanupGqlDemoLessonEnvironment(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
+  });
+
+  // ── Visible header selects (live demo pacing) ───────────────────
+
+  it('selectEnvInHeaderVisible selects native option even when already chosen', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1" selected>GraphQL Demo</option>
+        <option value="e2">Other</option>
+      </select>`;
+    const ctx = makeCtx();
+    await selectEnvInHeaderVisible(ctx, 'GraphQL Demo');
+    expect(ctx.selectOption).toHaveBeenCalledWith(APP.HEADER_ENV_SELECT, 'e1');
+  });
+
+  it('selectSvcInHeaderVisible opens CustomSelect menu and picks the option', async () => {
+    document.body.innerHTML = `
+      <div data-testid="header-svc-select">
+        <button type="button" class="cs-trigger"><span class="cs-text">other</span></button>
+      </div>`;
+    const wrap = document.querySelector('[data-testid="header-svc-select"]')!;
+    const trigger = wrap.querySelector<HTMLElement>('.cs-trigger')!;
+    const itemClick = vi.fn();
+    trigger.addEventListener('click', () => {
+      if (document.querySelector('.cs-menu')) return;
+      const menu = document.createElement('div');
+      menu.className = 'cs-menu';
+      const item = document.createElement('div');
+      item.className = 'cs-item';
+      item.textContent = 'graphql-demo';
+      item.addEventListener('click', itemClick);
+      menu.appendChild(item);
+      document.body.appendChild(menu);
+    });
+    const ctx = makeCtx();
+    (ctx.click as ReturnType<typeof vi.fn>).mockImplementation(async (sel: string) => {
+      document.querySelector<HTMLElement>(sel)?.click();
+    });
+    (ctx.waitFor as ReturnType<typeof vi.fn>).mockImplementation(async (sel: string) => {
+      if (!document.querySelector(sel)) throw new Error(`missing ${sel}`);
+    });
+    await selectSvcInHeaderVisible(ctx, 'graphql-demo');
+    expect(ctx.click).toHaveBeenCalledWith(`${APP.HEADER_SVC_SELECT} .cs-trigger`);
+    expect(itemClick).toHaveBeenCalled();
   });
 });

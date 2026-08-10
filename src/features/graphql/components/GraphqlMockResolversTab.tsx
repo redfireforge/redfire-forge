@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { GraphqlMockConfig, GraphqlSchemaInfo, MockResolver } from '../../../shared/types/graphql';
 import type { UseGraphqlMockServerResult } from '../hooks/useGraphqlMockServer';
 import type { MockSchemaSource } from '../hooks/useGraphqlMockServer';
@@ -199,17 +200,18 @@ export function FieldResolverRow({ typeName, field, resolver, mockServer }: Fiel
       <div className="gql-mock-field-row-main">
         <span className="gql-mock-field-name" title={field.description ?? undefined}>{field.name}</span>
         <span className="gql-mock-field-type">{field.type}</span>
-        <select
+        <CustomSelect
           className="gql-mock-resolver-select"
           value={mode}
-          onChange={(e) => handleModeChange(e.target.value as typeof mode)}
+          onChange={(v) => handleModeChange(v as typeof mode)}
+          options={[
+            { value: 'random', label: 'Random' },
+            { value: 'fixed', label: 'Fixed' },
+            { value: 'script', label: 'Script' },
+            { value: 'error', label: 'Error' },
+          ]}
           data-testid="gql-mock-resolver-select"
-        >
-          <option value="random">Random</option>
-          <option value="fixed">Fixed</option>
-          <option value="script">Script</option>
-          <option value="error">Error</option>
-        </select>
+        />
       </div>
 
       {mode === 'fixed' && (

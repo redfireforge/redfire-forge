@@ -34,8 +34,9 @@ export function resolveEffectiveAuth(
   fg: FeatureGroup,
   allAuthProfiles: GlobalAuthProfile[]
 ): { label: string; source: string } | null {
-  if (t.auth.type !== 'none' && t.auth.type !== 'inherit') {
-    return { label: t.auth.type, source: 'own' };
+  const tAuth = t.auth || { type: 'none' as AuthType };
+  if (tAuth.type !== 'none' && tAuth.type !== 'inherit') {
+    return { label: tAuth.type, source: 'own' };
   }
   const scAuth = sc.auth || { type: 'none' as AuthType };
   if (scAuth.type !== 'none' && scAuth.type !== 'inherit') {

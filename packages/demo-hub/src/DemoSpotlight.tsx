@@ -112,7 +112,7 @@ export default function DemoSpotlight({ selector, active, trackKey, frozen }: Sp
     <>
       {/* Highlight ring around the target — its 9999px box-shadow spread acts as the scrim */}
       <div
-        className="demo-spotlight-ring"
+        className="demo-spotlight-ring demo-spotlight-ring--steady"
         style={{
           top: rect.top,
           left: rect.left,

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import AddFieldRow from './AddFieldRow';
 
 function renderRow(overrides?: Partial<Parameters<typeof AddFieldRow>[0]>) {
@@ -104,7 +105,7 @@ describe('AddFieldRow', () => {
     renderRow({ onAdd });
     fireEvent.click(screen.getByText('+ Add Field'));
     fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'count' } });
-    fireEvent.change(screen.getByLabelText('Field type'), { target: { value: 'number' } });
+    selectOption(screen.getByLabelText('Field type').closest('.cs-wrapper')!, 'number');
     fireEvent.keyDown(screen.getByLabelText('Field name'), { key: 'Enter' });
     expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({
       path: 'count',
@@ -127,6 +128,14 @@ describe('AddFieldRow', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'a' } });
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('rejects names that collide with typed type::name paths', () => {
+    renderRow({ existingPaths: new Set(['body::aaaa']) });
+    fireEvent.click(screen.getByText('+ Add Field'));
+    fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'aaaa' } });
+    fireEvent.keyDown(screen.getByLabelText('Field name'), { key: 'Enter' });
+    expect(screen.getByRole('alert').textContent).toMatch(/already exists/i);
   });
 });
 

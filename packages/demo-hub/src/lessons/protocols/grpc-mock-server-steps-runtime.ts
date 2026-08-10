@@ -13,12 +13,13 @@ import type { GrpcDemoLesson } from './grpc-lesson-contract';
 import {
   TEST_MESSAGE_OTHER,
   TEST_MESSAGE_PING,
-  countMockBuilderRulesQuiet,
   ensureDemoRulesQuiet,
   isDemoMockRunning,
   markDemoMockRunning,
   navigateToMockServerPanelQuiet,
   scrollAndSpotlight,
+  scrollBelowMockAuthoringTabs,
+  scrollMockAndSpotlight,
   scrollMockControlIntoView,
   selectMockAuthoringTab,
   setMockInputValue,
@@ -43,25 +44,20 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
     highlight: GRPC.MOCK_START,
     preAction: async (ctx) => {
       await navigateToMockServerPanelQuiet(ctx);
-      // Count on Builder — Runtime hides rule cards and used to false-trigger a
-      // JSON-tab rebuild flash at step start.
-      if ((await countMockBuilderRulesQuiet(ctx)) < 2) {
-        await ensureDemoRulesQuiet(ctx);
-      }
+      // Rebuild when predicates are still Method-equals stubs (CustomSelect miss).
+      await ensureDemoRulesQuiet(ctx);
       // Already running? — stop first so the viewer sees the Start flow.
       if (document.querySelector(GRPC.MOCK_STOP)) {
         const stopBtn = document.querySelector<HTMLButtonElement>(GRPC.MOCK_STOP);
         stopBtn?.click();
         await ctx.delay(500);
       }
-      // Bring Start into view before Reading highlight — header actions sit high
-      // and get clipped under the connection chrome / fold.
-      await scrollMockControlIntoView(ctx, GRPC.MOCK_START, 'start');
+      // Center Start before Reading — top-right LiveDemo card covers header
+      // actions when pinned flush under the Advanced nav.
+      await scrollMockControlIntoView(ctx, GRPC.MOCK_START, 'center');
     },
     action: async (ctx) => {
-      // Go straight to Start — no Builder/JSON tour (rules were authored earlier).
-      await scrollMockControlIntoView(ctx, GRPC.MOCK_START, 'start');
-      await spotlightAndPause(ctx, GRPC.MOCK_START, 900);
+      await scrollMockControlIntoView(ctx, GRPC.MOCK_START, 'center');
       await ctx.click(GRPC.MOCK_START);
       markDemoMockRunning(true);
       await ctx.delay(600);
@@ -72,9 +68,7 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
 
       await scrollAndSpotlight(ctx, GRPC.MOCK_STATUS, 1_000);
 
-      // Spotlight the Stop button to show how to halt the mock.
-      await scrollMockControlIntoView(ctx, GRPC.MOCK_STOP, 'center');
-      await spotlightAndPause(ctx, GRPC.MOCK_STOP, 800);
+      await scrollMockAndSpotlight(ctx, GRPC.MOCK_STOP, 700);
     },
     verify: GRPC.MOCK_STATUS,
   },
@@ -94,14 +88,14 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
       '```json\n{"message": "pong"}\n```\n\n' +
       'Notice the response arrives in ~100ms — the global latency you set. The real server ' +
       'is never contacted.',
+    highlight: GRPC.SEND_BTN,
     preAction: async (ctx) => {
       // Normal forward-play from step 7: the mock is already running. Skip the
       // navigate-to-mock-panel setup so the screen doesn't bounce to Advanced
       // and back before this step. Only rebuild + restart on recovery
       // (rapid Next / jumped directly to this step with no mock running).
       if (!isDemoMockRunning()) {
-        const rulesOk = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE).length >= 2;
-        if (!rulesOk) await ensureDemoRulesQuiet(ctx);
+        await ensureDemoRulesQuiet(ctx);
         await startMockQuiet(ctx);
       }
       // Quietly switch to Studio sub-nav using direct DOM click (no ripple).
@@ -113,16 +107,16 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
       await ensureEchoMessageFilled(ctx, TEST_MESSAGE_PING);
     },
     action: async (ctx) => {
-      // Navigate back to Studio sub-nav with a visible click.
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 800);
-      await ctx.click(GRPC.SUB_NAV_STUDIO);
-      await ctx.delay(600);
+      const studioNav = document.querySelector<HTMLElement>(GRPC.SUB_NAV_STUDIO);
+      if (studioNav && studioNav.getAttribute('aria-selected') !== 'true') {
+        await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 800);
+        await ctx.click(GRPC.SUB_NAV_STUDIO);
+        await ctx.delay(600);
+      }
 
-      // Fill message = "ping" — tight JSON ring (same style as response), not the form box.
       await ensureEchoMessageFilled(ctx, TEST_MESSAGE_PING);
       await spotlightRequestJsonContentTight(ctx, 1_000);
 
-      // Spotlight Send button and click.
       await spotlightAndPause(ctx, GRPC.SEND_BTN, 800);
       await ctx.click(GRPC.SEND_BTN);
       await ctx.delay(400);
@@ -157,14 +151,14 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
       'This is how gRPC error statuses look in the Studio.\n\n' +
       'This pattern — specific match rule first, broad fallback last — is the standard ' +
       'way to define mock behaviour that is predictable without needing an else-branch predicate.',
+    highlight: GRPC.SEND_BTN,
     preAction: async (ctx) => {
       // Normal forward-play from step 8: mock already running and the viewer is
       // on the Studio tab. Skip the navigate-to-mock-panel setup so the screen
       // doesn't bounce Studio → Advanced → Studio at step start. Only rebuild +
       // restart on recovery (rapid Next / jumped directly here, no mock running).
       if (!isDemoMockRunning()) {
-        const rulesOk = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE).length >= 2;
-        if (!rulesOk) await ensureDemoRulesQuiet(ctx);
+        await ensureDemoRulesQuiet(ctx);
         await startMockQuiet(ctx);
       }
       // Quietly switch to Studio sub-nav using direct DOM click (no ripple).
@@ -220,36 +214,23 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
       '- **Commit it** to source control as a `.json` file for your test suite\n' +
       '- **Import it** on another machine by pasting into the JSON editor\n' +
       '- **Edit it** directly for bulk changes or expression predicates',
-    highlight: GRPC.MOCK_JSON_EDITOR,
+    highlight: GRPC.MOCK_TAB_JSON,
     preAction: async (ctx) => {
       await navigateToMockServerPanelQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight then click JSON tab.
-      await spotlightAndPause(ctx, GRPC.MOCK_TAB_JSON, 800);
+      await scrollMockAndSpotlight(ctx, GRPC.MOCK_TAB_JSON, 800);
       await ctx.click(GRPC.MOCK_TAB_JSON);
       await ctx.delay(500);
 
-      // Spotlight the syntax-highlighted JSON editor.
       const editorEl = document.querySelector<HTMLElement>(GRPC.MOCK_JSON_EDITOR);
       if (editorEl) {
-        editorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(500);
-        await spotlightElementAndPause(ctx, editorEl, 1_300);
+        await scrollMockAndSpotlight(ctx, editorEl, 1_300);
       }
 
-      // Spotlight the underlying JSON textarea (still functional inside the editor).
-      await spotlightAndPause(ctx, GRPC.MOCK_RULES_JSON, 900);
-
-      // Spotlight and click Copy rules JSON.
-      await spotlightAndPause(ctx, GRPC.MOCK_EXPORT_JSON, 900);
+      await scrollMockAndSpotlight(ctx, GRPC.MOCK_EXPORT_JSON, 900);
       await ctx.click(GRPC.MOCK_EXPORT_JSON);
       await ctx.delay(600);
-
-      // Final spotlight on the editor.
-      if (editorEl) {
-        await spotlightElementAndPause(ctx, editorEl, 800);
-      }
       await ctx.delay(650);
     },
     verify: GRPC.MOCK_RULES_JSON,
@@ -274,6 +255,7 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
       'This gives you an instant mock for every endpoint. Edit the generated response bodies ' +
       'to return meaningful test data, then start the mock runtime.\n\n' +
       '_(If no proto is loaded, the button is hidden. Load a proto first in the Schema tab.)_',
+    highlight: GRPC.MOCK_BUILDER_GENERATE_STUBS,
     preAction: async (ctx) => {
       // Stay on Mock server — no Studio bounce (that caused the step-start flicker).
       await navigateToMockServerPanelQuiet(ctx);
@@ -292,9 +274,7 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
 
       const generateBtn = document.querySelector<HTMLButtonElement>(GRPC.MOCK_BUILDER_GENERATE_STUBS);
       if (generateBtn) {
-        generateBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(350);
-        await spotlightElementAndPause(ctx, generateBtn, 1_200);
+        await scrollMockAndSpotlight(ctx, generateBtn, 1_200);
 
         generateBtn.click();
         await ctx.delay(800);
@@ -303,9 +283,8 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
 
         const firstRule = document.querySelector<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
         if (firstRule) {
-          firstRule.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          await ctx.delay(350);
-          await spotlightElementAndPause(ctx, firstRule, 1_000);
+          await scrollBelowMockAuthoringTabs(ctx, firstRule);
+          await spotlightElementAndPause(ctx, firstRule, 1_000, { skipScroll: true });
         }
       } else {
         const emptyState = document.querySelector<HTMLElement>(GRPC.MOCK_BUILDER_EMPTY);
@@ -338,36 +317,27 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
       'The **Listener activity** log shows every incoming call and which rule matched.\n\n' +
       '_(This feature requires the web companion server — run `npm run server` to enable it ' +
       'in the web app. On the Tauri desktop app, the companion is embedded and always available.)_',
-    highlight: GRPC.MOCK_TAB_RUNTIME,
+    highlight: GRPC.MOCK_EXPOSE_NETWORK,
     preAction: async (ctx) => {
       await navigateToMockServerPanelQuiet(ctx);
       // Ensure demo rules are restored (Step 11 may have cleared them).
-      const existing = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE);
-      if (existing.length < 2) {
-        await ensureDemoRulesQuiet(ctx);
-      }
+      await ensureDemoRulesQuiet(ctx);
       await selectMockAuthoringTab(ctx, 'runtime');
-      await scrollMockControlIntoView(ctx, GRPC.MOCK_TAB_RUNTIME, 'start');
+      await scrollMockControlIntoView(ctx, GRPC.MOCK_EXPOSE_NETWORK, 'center');
     },
     action: async (ctx) => {
-      // Make sure we're on the Runtime tab without duplicate clicks.
       const runtimeTab = document.querySelector<HTMLElement>(GRPC.MOCK_TAB_RUNTIME);
-      await scrollMockControlIntoView(ctx, GRPC.MOCK_TAB_RUNTIME, 'start');
       if (runtimeTab?.getAttribute('aria-selected') !== 'true') {
-        await spotlightAndPause(ctx, GRPC.MOCK_TAB_RUNTIME, 900);
+        await scrollMockAndSpotlight(ctx, GRPC.MOCK_TAB_RUNTIME, 600);
         await ctx.click(GRPC.MOCK_TAB_RUNTIME);
-        await ctx.delay(700);
-      } else {
-        await spotlightAndPause(ctx, GRPC.MOCK_TAB_RUNTIME, 800);
-        await ctx.delay(500);
+        await ctx.delay(400);
       }
 
-      // Scroll the expose toggle fully into view first (it sits above Authoring tabs
-      // and was getting clipped at the fold when the runtime panel was centered).
       const exposeToggle = document.querySelector<HTMLElement>(GRPC.MOCK_EXPOSE_NETWORK);
       if (exposeToggle) {
+        // Reading already rings Expose — click without a long re-spotlight.
         await scrollMockControlIntoView(ctx, exposeToggle, 'center');
-        await spotlightElementAndPause(ctx, exposeToggle, 1_400);
+        await spotlightElementAndPause(ctx, exposeToggle, 700, { skipScroll: true });
 
         const exposeInput = exposeToggle as HTMLInputElement;
         if (!exposeInput.checked) {
@@ -382,13 +352,11 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
 
         const listenTarget = document.querySelector<HTMLElement>(GRPC.MOCK_LISTEN_TARGET);
         if (listenTarget) {
-          listenTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          await ctx.delay(350);
-          await spotlightElementAndPause(ctx, listenTarget, 1_200);
+          await scrollMockAndSpotlight(ctx, listenTarget, 1_200);
         }
         const copyBtn = document.querySelector<HTMLElement>(GRPC.MOCK_COPY_LISTEN_TARGET);
         if (copyBtn) {
-          await spotlightElementAndPause(ctx, copyBtn, 1_000);
+          await scrollMockAndSpotlight(ctx, copyBtn, 1_000);
         }
       } else {
         // Web mode: narration-only; spotlight the runtime status instead.

@@ -96,35 +96,38 @@ export async function openSchemaExplorer(ctx: DemoActionContext): Promise<void> 
   await ctx.delay(400);
 }
 
+/** Cap for ensure-introspect waits — Preparing/setup must never burn 25s×2. */
+const ENSURE_INTROSPECT_WAIT_MS = 5_000;
+const ENSURE_INTROSPECT_RETRY_MS = 3_000;
+
 async function runEnsureIntrospected(ctx: DemoActionContext): Promise<void> {
-  const waitForQueryType = async (): Promise<boolean> => {
-    await ctx.click(GQL.RIGHT_TAB_SCHEMA);
-    await ctx.delay(400);
-    await ctx.waitFor(GQL.SCHEMA_TYPE_QUERY, 8000);
-    return schemaExplorerShowsQueryType();
-  };
-
-  // Fast-path: flag + badge both confirm schema is loaded — skip Schema-tab navigation
-  if (gqlLessonSession.schemaLoaded && hasUsableSchemaBadge()) return;
-
-  if (!hasUsableSchemaBadge()) {
-    await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
-    await ctx.delay(800);
-  }
-
-  if (await waitForQueryType()) {
+  // Green schema badge is enough proof of introspection. Never open the Schema
+  // tab from this helper — that steals focus from Response/Tracing mid-lesson
+  // and used to stack 25s+ waits that froze the Preparing pill on step 1.
+  // Lessons that need the Schema Explorer should call openSchemaExplorer().
+  if (hasUsableSchemaBadge()) {
     gqlLessonSession.schemaLoaded = true;
     return;
   }
 
-  // Badge looked OK but explorer is still empty — re-introspect against the demo endpoint.
-  await ctx.click(GQL.INTROSPECT_BTN);
-  await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
-  await ctx.delay(800);
-  await ctx.click(GQL.RIGHT_TAB_SCHEMA);
-  await ctx.delay(400);
-  await ctx.waitFor(GQL.SCHEMA_TYPE_QUERY, 15000);
-  gqlLessonSession.schemaLoaded = hasUsableSchemaBadge() && schemaExplorerShowsQueryType();
+  const introspectBtn = document.querySelector<HTMLElement>(GQL.INTROSPECT_BTN);
+  if (introspectBtn) {
+    introspectBtn.click();
+  } else {
+    await ctx.click(GQL.INTROSPECT_BTN);
+  }
+  await ctx.waitFor(GQL.SCHEMA_BADGE_OK, ENSURE_INTROSPECT_WAIT_MS).catch(() => undefined);
+  await ctx.delay(200);
+
+  if (hasUsableSchemaBadge()) {
+    gqlLessonSession.schemaLoaded = true;
+    return;
+  }
+
+  // One short retry — fail soft so lesson setup can enter Reading.
+  document.querySelector<HTMLElement>(GQL.INTROSPECT_BTN)?.click();
+  await ctx.waitFor(GQL.SCHEMA_BADGE_OK, ENSURE_INTROSPECT_RETRY_MS).catch(() => undefined);
+  gqlLessonSession.schemaLoaded = hasUsableSchemaBadge();
 }
 
 /** Ensure schema introspection completed and the Query type is browsable. */

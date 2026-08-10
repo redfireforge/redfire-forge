@@ -14,6 +14,8 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { firstVisibleElement } from '../../utils/domVisibility';
+import { showSpotlightRing } from '../../demoRipple';
 
 // ── Constants ──────────────────────────────────────────────────
 const GQL_URL = 'ws://localhost:4100/graphql';
@@ -22,27 +24,71 @@ const GQL_OP_NAME = 'CountdownSub';
 const GQL_QUERY_PARAM = 'subscription CountdownSub($start: Int!) {\n  countdown(from: $start)\n}';
 const GQL_VARIABLES_JSON = '{\n  "start": 5\n}';
 
+/** Spotlight a field, hold so the viewer can read the change, then clear. */
+async function spotlightAndPause(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  const el = firstVisibleElement<HTMLElement>(selector);
+  if (!el) {
+    await ctx.delay(holdMs);
+    return;
+  }
+  const dispose = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    dispose();
+  }
+}
+
+/** Quietly open Connect panel (no ripple) — for preAction / setup. */
+async function ensureConnectPanel(ctx: DemoActionContext): Promise<void> {
+  if (!firstVisibleElement(WS.URL_INPUT)) {
+    document.querySelector<HTMLElement>(WS.MODE_CLIENT)?.click();
+    await ctx.delay(150);
+    document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT)?.click();
+    await ctx.delay(200);
+  }
+}
+
+/**
+ * Quietly apply Connect settings when a later step is reached via Next/skip
+ * before the paced configure steps have run.
+ */
+async function ensureGraphqlConnectConfig(ctx: DemoActionContext): Promise<void> {
+  await ensureConnectPanel(ctx);
+  await ctx.fill(WS.URL_INPUT, GQL_URL);
+  await ctx.fill(WS.SUBPROTOCOLS_INPUT, GQL_SUBPROTOCOL);
+  await ctx.selectOption(WS.PROTOCOL_SELECT, 'graphql-ws');
+  await ctx.delay(100);
+}
+
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
 async function gqlSetup(ctx: DemoActionContext): Promise<void> {
-  await ctx.delay(300);
+  // Ensure client mode FIRST — left-tab buttons only exist in client mode
+  const isClient = !!document.querySelector('[data-testid="mode-client"].active, [data-testid="mode-client"][aria-selected="true"]');
+  if (!isClient) {
+    await ctx.click(WS.MODE_CLIENT);
+    await ctx.delay(120);
+  }
   await disconnectWebSocket(ctx);
-  await ctx.delay(200);
   await clearEvents(ctx);
-  await ctx.delay(200);
-  // Ensure client mode
-  await ctx.click(WS.MODE_CLIENT);
-  await ctx.delay(300);
-  // Navigate to Connect tab and pre-populate URL + subprotocol + protocol
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
-  await ctx.fill(WS.URL_INPUT, GQL_URL);
-  await ctx.delay(200);
-  // Fill subprotocol — required by the graphql-transport-ws server
-  await ctx.fill(WS.SUBPROTOCOLS_INPUT, GQL_SUBPROTOCOL);
-  await ctx.delay(200);
-  await ctx.selectOption(WS.PROTOCOL_SELECT, 'graphql-ws');
-  await ctx.delay(200);
+  // Open Connect with a clean slate — URL / Subprotocols / Protocol are filled
+  // visibly in the first lesson steps (not pre-configured here).
+  const connectTab = document.querySelector<HTMLElement>(WS.LEFT_TAB_CONNECT);
+  if (connectTab?.getAttribute('aria-selected') !== 'true') {
+    connectTab?.click();
+    await ctx.delay(120);
+  }
+  await ctx.fill(WS.URL_INPUT, '');
+  await ctx.delay(100);
+  await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
+  await ctx.delay(100);
+  await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
+  await ctx.delay(120);
 }
 
 async function gqlCleanup(ctx: DemoActionContext): Promise<void> {
@@ -67,7 +113,7 @@ export const wsGraphqlLesson: DemoLesson = {
   category: 'websocket',
   name: 'GraphQL Subscriptions',
   description: 'Connect to a GraphQL-WS server, start a countdown subscription, and watch live next frames stream in.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'websocket-studio',
   tag: '🐳 Docker',
   dockerEndpoint: GQL_URL,
@@ -185,28 +231,66 @@ GraphQL-WS needs two settings:
 
   steps: [
     {
-      id: 'gql-intro',
-      title: 'Connect Panel — Pre-Configured',
-      description: 'The Connect panel is ready: URL is `ws://localhost:4100/graphql` (the GraphQL-WS Docker server), **Subprotocols** is `graphql-transport-ws` (the wire protocol the server requires in the HTTP handshake header), and **Protocol** is `GraphQL-WS` (tells RedfireForge to decode frames as GraphQL-WS messages). Two fields — one for the wire header, one for the decoder.',
-      highlight: WS.LEFT_TAB_CONNECT,
+      id: 'gql-url',
+      title: 'Set the GraphQL-WS URL',
+      description: 'Open **Connect** and enter `ws://localhost:4100/graphql` — the GraphQL-WS Docker server from this lesson\'s prerequisite. Watch the URL field fill; this is only the WebSocket address. Next we tell the server which wire protocol we speak, then tell RedfireForge how to decode the frames.',
+      highlight: WS.URL_INPUT,
       pauseAfter: true,
-      action: async (ctx: DemoActionContext) => {
+      preAction: async (ctx: DemoActionContext) => {
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(200);
         await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ctx.waitFor(WS.URL_INPUT);
+        await ctx.delay(500);
+        await ctx.fill(WS.URL_INPUT, GQL_URL);
+        await spotlightAndPause(ctx, WS.URL_INPUT, 1200);
+      },
+    },
+    {
+      id: 'gql-subprotocols',
+      title: 'Set Subprotocols — Wire Header',
+      description: 'Fill **Subprotocols** with `graphql-transport-ws`. That value goes in the `Sec-WebSocket-Protocol` HTTP header during the upgrade handshake — the server uses it to confirm you speak the same wire dialect. This field is separate from the **Protocol** dropdown below (decoder vs wire header).',
+      highlight: WS.SUBPROTOCOLS_INPUT,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureConnectPanel(ctx);
+        const url = firstVisibleElement<HTMLInputElement>(WS.URL_INPUT);
+        if (!url?.value?.includes('4100')) {
+          await ctx.fill(WS.URL_INPUT, GQL_URL);
+        }
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ctx.waitFor(WS.SUBPROTOCOLS_INPUT);
         await ctx.delay(400);
+        await ctx.fill(WS.SUBPROTOCOLS_INPUT, GQL_SUBPROTOCOL);
+        await spotlightAndPause(ctx, WS.SUBPROTOCOLS_INPUT, 1200);
       },
     },
     {
       id: 'gql-protocol',
-      title: 'What "Protocol: GraphQL-WS" Does',
-      description: 'With **Protocol: GraphQL-WS** selected, RedfireForge handles the entire handshake automatically — sending `connection_init` the moment the WebSocket opens and labeling each message by its type: `connection_init`, `connection_ack`, `subscribe`, `next`, `error`, and `complete`. Instead of raw JSON blobs you see clean, labeled rows in the Events log.',
+      title: 'Select Protocol: GraphQL-WS',
+      description: 'Set **Protocol** to **GraphQL-WS**. RedfireForge then auto-sends `connection_init` when the socket opens and labels every frame in the Events log — `connection_init`, `connection_ack`, `subscribe`, `next`, `error`, and `complete` — instead of raw JSON blobs. Two settings, two jobs: **Subprotocols** = wire header; **Protocol** = decoder + handshake.',
       highlight: WS.PROTOCOL_SELECT,
       pauseAfter: true,
-      // preAction ensures Connect panel (which contains PROTOCOL_SELECT) is in the DOM before spotlight
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ensureConnectPanel(ctx);
+        const url = firstVisibleElement<HTMLInputElement>(WS.URL_INPUT);
+        if (!url?.value?.includes('4100')) {
+          await ctx.fill(WS.URL_INPUT, GQL_URL);
+        }
+        const sub = firstVisibleElement<HTMLInputElement>(WS.SUBPROTOCOLS_INPUT);
+        if (sub?.value !== GQL_SUBPROTOCOL) {
+          await ctx.fill(WS.SUBPROTOCOLS_INPUT, GQL_SUBPROTOCOL);
+        }
       },
       action: async (ctx: DemoActionContext) => {
-        await ctx.delay(300);
+        await ctx.waitFor(WS.PROTOCOL_SELECT);
+        await ctx.delay(400);
+        await ctx.selectOption(WS.PROTOCOL_SELECT, 'graphql-ws');
+        await spotlightAndPause(ctx, WS.PROTOCOL_SELECT, 1200);
       },
     },
     {
@@ -216,11 +300,11 @@ GraphQL-WS needs two settings:
       highlight: WS.RIGHT_TAB_EVENTS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ensureGraphqlConnectConfig(ctx);
       },
       action: async (ctx: DemoActionContext) => {
         // Skip CONNECT_BTN if already connected (replay guard)
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
         }
         // Wait for WS to open (more robust than fixed 1500ms delay)
@@ -271,15 +355,15 @@ GraphQL-WS needs two settings:
         'The compose panel is fully configured: **Op. Name** `CountdownSub`, **Query** uses `$start`, and **Variables** `{"start": 5}`. ' +
         'Clicking **Send** bundles all three into a single `subscribe` frame:\n\n' +
         '```json\n{\n  "type": "subscribe",\n  "id": "1",\n  "payload": {\n    "operationName": "CountdownSub",\n    "query": "subscription CountdownSub($start: Int!) { ... }",\n    "variables": { "start": 5 }\n  }\n}\n```\n\n' +
-        'The server runs `countdown(from: 5)` and streams back six **next** frames — `5, 4, 3, 2, 1, 0` — then **complete**. ' +
+        'The server runs `countdown(from: 5)` and streams back **six** `next` frames — `5, 4, 3, 2, 1, 0` — then `complete`. ' +
+        '> **Why 6 frames for `start: 5`?** The countdown is **inclusive of zero**: it emits the start value, then each tick down to `0`. So `from: 5` → 6 deliveries (5 + the zero tick).\n\n' +
         'Every frame in the Events log is tagged with **Op #1** so you can track it even if you had multiple subscriptions running in parallel.',
       highlight: WS.SEND_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         // Ensure WebSocket is connected before trying to send (skip-to-step guard)
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
-          await ctx.click(WS.LEFT_TAB_CONNECT);
-          await ctx.delay(200);
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
+          await ensureGraphqlConnectConfig(ctx);
           await ctx.click(WS.CONNECT_BTN);
           await ctx.waitFor(WS.STATUS_CONNECTED);
           await ctx.delay(300);
@@ -312,7 +396,7 @@ GraphQL-WS needs two settings:
     {
       id: 'gql-frames',
       title: 'Full Lifecycle in the Events Log',
-      description: 'The Events log shows the complete GraphQL-WS lifecycle: **connection_init ◆** and **connection_ack ◆** (the automatic handshake), **subscribe ↑** (the operation you started), six **next ↓** rows — `{"countdown":5}` through `{"countdown":0}` — arriving at 500ms intervals, then **complete ↓** (the server signaling end of stream). Each frame is labeled by type so you always know exactly what stage the subscription is at.',
+      description: `The Events log shows the complete GraphQL-WS lifecycle:\n\n- **connection_init ◆** and **connection_ack ◆** — the automatic handshake\n- **subscribe ↑** — the operation you started\n- **next ↓** × 6 — \`{"countdown":5}\` through \`{"countdown":0}\`, arriving at 500ms intervals\n- **complete ↓** — the server signaling end of stream\n\nEach frame is labeled by type so you always know exactly what stage the subscription is at.`,
       highlight: WS.RIGHT_TAB_EVENTS,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {

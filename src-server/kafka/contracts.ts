@@ -152,6 +152,8 @@ export interface KafkaMessageFilter {
   headersMatch?: Record<string, string>;
   jsonPath?: string;
   jsonEquals?: string;
+  /** Case-insensitive substring search within the raw message body. */
+  bodyContains?: string;
 }
 
 export interface KafkaConsumeOnceRequest {
@@ -366,7 +368,7 @@ export interface KafkaSchemaSubjectsRequest {
 }
 
 export interface KafkaSchemaSubjectsResult {
-  subjects: string[];
+  subjects: Array<{ name: string; schemaType?: string }>;
 }
 
 /**

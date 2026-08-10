@@ -9,6 +9,7 @@ import type { WorkflowRFNode } from '../../features/workflow/utils/workflowNodeF
 describe('useDemoWorkflowLivePatchSync', () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__wfSyncLiveWorkflowFromPatch;
+    delete (window as unknown as Record<string, unknown>).__wfGetSelectedName;
   });
 
   it('syncs workflow variables and start inputVariables when selected workflow matches', () => {
@@ -166,6 +167,22 @@ describe('useDemoWorkflowLivePatchSync', () => {
     expect(handleUpdateNode).not.toHaveBeenCalled();
   });
 
+  it('exposes the selected workflow name via __wfGetSelectedName', () => {
+    renderHook(() =>
+      useDemoWorkflowLivePatchSync('Variables Demo', [], vi.fn(), { current: {} }, vi.fn()),
+    );
+    const getName = (window as unknown as Record<string, () => string | undefined>).__wfGetSelectedName;
+    expect(getName()).toBe('Variables Demo');
+  });
+
+  it('__wfGetSelectedName returns undefined when nothing is selected', () => {
+    renderHook(() =>
+      useDemoWorkflowLivePatchSync(undefined, [], vi.fn(), { current: {} }, vi.fn()),
+    );
+    const getName = (window as unknown as Record<string, () => string | undefined>).__wfGetSelectedName;
+    expect(getName()).toBeUndefined();
+  });
+
   it('cleans up on unmount', () => {
     const { unmount } = renderHook(() =>
       useDemoWorkflowLivePatchSync(
@@ -177,7 +194,9 @@ describe('useDemoWorkflowLivePatchSync', () => {
       ),
     );
     expect((window as unknown as Record<string, unknown>).__wfSyncLiveWorkflowFromPatch).toBeDefined();
+    expect((window as unknown as Record<string, unknown>).__wfGetSelectedName).toBeDefined();
     unmount();
     expect((window as unknown as Record<string, unknown>).__wfSyncLiveWorkflowFromPatch).toBeUndefined();
+    expect((window as unknown as Record<string, unknown>).__wfGetSelectedName).toBeUndefined();
   });
 });

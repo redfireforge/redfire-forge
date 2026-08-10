@@ -1,9 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('../../demoRipple', () => ({
+  showSpotlightRing: () => vi.fn(),
+}));
+
 import { wsStompLesson } from './ws-stomp';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-stomp lesson', () => {
   beforeEach(() => {
@@ -18,8 +23,8 @@ describe('ws-stomp lesson', () => {
     expect(wsStompLesson.concept.title).toBeTruthy();
     expect(wsStompLesson.concept.body).toBeTruthy();
     expect(wsStompLesson.initialTab).toBe('websocket-studio');
-    expect(wsStompLesson.estimatedMinutes).toBe(4);
-    expect(wsStompLesson.steps.length).toBe(8);
+    expect(wsStompLesson.estimatedMinutes).toBe(5);
+    expect(wsStompLesson.steps.length).toBe(9);
   });
 
   it('has docker metadata', () => {
@@ -44,7 +49,8 @@ describe('ws-stomp lesson', () => {
   it('has correct step IDs in order', () => {
     const ids = wsStompLesson.steps.map(s => s.id);
     expect(ids).toEqual([
-      'stomp-intro',
+      'stomp-url',
+      'stomp-subprotocols',
       'stomp-protocol',
       'stomp-connect-ws',
       'stomp-handshake',
@@ -77,49 +83,93 @@ describe('ws-stomp lesson', () => {
     expect(wsStompLesson.concept.diagram).toContain('CONNECTED');
   });
 
-  // ─── Step: stomp-intro ───────────────────────────────────────
+  // ─── Step: stomp-url ─────────────────────────────────────────
 
-  it('step stomp-intro clicks connect tab and highlights it', async () => {
-    const step = wsStompLesson.steps.find(s => s.id === 'stomp-intro')!;
+  it('step stomp-url highlights URL and fills RabbitMQ endpoint', async () => {
+    const step = wsStompLesson.steps.find(s => s.id === 'stomp-url')!;
+    expect(step.highlight).toContain('WebSocket URL');
+    const url = document.createElement('input');
+    url.setAttribute('aria-label', 'WebSocket URL');
+    document.body.appendChild(url);
+    makeVisible(url);
     const ctx = makeCtx();
     await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('localhost:15674'),
+    );
+  });
+
+  it('step stomp-url preAction opens Connect panel', async () => {
+    const step = wsStompLesson.steps.find(s => s.id === 'stomp-url')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(step.highlight).toContain('left-tab-connect');
+  });
+
+  // ─── Step: stomp-subprotocols ────────────────────────────────
+
+  it('step stomp-subprotocols highlights and clears Subprotocols', async () => {
+    const step = wsStompLesson.steps.find(s => s.id === 'stomp-subprotocols')!;
+    expect(step.highlight).toContain('Subprotocols');
+    const input = document.createElement('input');
+    input.setAttribute('aria-label', 'Subprotocols');
+    document.body.appendChild(input);
+    makeVisible(input);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
   });
 
   // ─── Step: stomp-protocol ────────────────────────────────────
 
-  it('step stomp-protocol highlights protocol dropdown', () => {
+  it('step stomp-protocol highlights protocol dropdown and selects stomp', async () => {
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-protocol')!;
     expect(step.highlight).toContain('protocol-select');
-  });
-
-  it('step stomp-protocol has a preAction that navigates to connect tab (Rule 4)', async () => {
-    const step = wsStompLesson.steps.find(s => s.id === 'stomp-protocol')!;
-    expect(typeof step.preAction).toBe('function');
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    // PROTOCOL_SELECT lives inside the Connect panel — preAction ensures it is in the DOM
-    // before the spotlight fires (highlight runs before the action).
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-  });
-
-  it('step stomp-protocol action does NOT re-navigate (preAction handled it)', async () => {
-    const step = wsStompLesson.steps.find(s => s.id === 'stomp-protocol')!;
+    const sel = document.createElement('div');
+    sel.setAttribute('data-testid', 'protocol-select');
+    document.body.appendChild(sel);
+    makeVisible(sel);
     const ctx = makeCtx();
     await step.action!(ctx);
-    // Action only waits for observation; preAction handles the tab navigation
-    expect(ctx.click).not.toHaveBeenCalled();
+    expect(ctx.selectOption).toHaveBeenCalledWith(
+      expect.stringContaining('protocol-select'),
+      'stomp',
+    );
+  });
+
+  it('step stomp-protocol preAction ensures Connect panel is ready', async () => {
+    const step = wsStompLesson.steps.find(s => s.id === 'stomp-protocol')!;
+    expect(typeof step.preAction).toBe('function');
+    const url = document.createElement('input');
+    url.setAttribute('aria-label', 'WebSocket URL');
+    document.body.appendChild(url);
+    makeVisible(url);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
   });
 
   // ─── Step: stomp-connect-ws ──────────────────────────────────
 
-  it('step stomp-connect-ws has a preAction that navigates to connect tab', async () => {
+  it('step stomp-connect-ws preAction applies connect config quietly', async () => {
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-connect-ws')!;
     expect(typeof step.preAction).toBe('function');
+    const url = document.createElement('input');
+    url.setAttribute('aria-label', 'WebSocket URL');
+    document.body.appendChild(url);
+    makeVisible(url);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('localhost:15674'),
+    );
+    expect(ctx.selectOption).toHaveBeenCalledWith(
+      expect.stringContaining('protocol-select'),
+      'stomp',
+    );
   });
 
   it('step stomp-connect-ws action does both WS connect and STOMP CONNECT in one action', async () => {
@@ -150,6 +200,7 @@ describe('ws-stomp lesson', () => {
   it('step stomp-connect-ws action skips WS connect when already connected (replay guard)', async () => {
     // Simulate already-connected state: STATUS_CONNECTED element (.ws-status-dot.connected) exists
     document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    makeVisible(document.querySelector('.ws-status-dot.connected')!);
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-connect-ws')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -334,23 +385,21 @@ describe('ws-stomp lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────────
 
-  it('setup fills RabbitMQ URL, clears subprotocols, and selects stomp protocol', async () => {
+  it('setup clears Connect fields so the lesson can configure them visibly', async () => {
     const ctx = makeCtx();
     await wsStompLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.stringContaining('localhost:15674'),
-    );
-    // Must clear Subprotocols to prevent stale "graphql-transport-ws" from breaking RabbitMQ handshake
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.stringContaining('Subprotocols'),
-      '',
-    );
+    // URL / protocol are filled in paced steps — setup only resets to a clean slate
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'), '');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Subprotocols'), '');
     expect(ctx.selectOption).toHaveBeenCalledWith(
       expect.stringContaining('protocol-select'),
-      'stomp',
+      'raw',
+    );
+    expect(ctx.fill).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('localhost:15674'),
     );
   });
 
@@ -379,6 +428,7 @@ describe('ws-stomp lesson', () => {
     const changeSpy = vi.fn();
     select.addEventListener('change', changeSpy);
     document.body.appendChild(select);
+    makeVisible(select);
 
     const ctx = makeCtx();
     await wsStompLesson.cleanup!(ctx);

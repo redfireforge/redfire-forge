@@ -28,7 +28,7 @@ import {
 } from '../../../../../e2e/graphql-lesson-smoke-helpers';
 
 /** Canonical step counts — keep in sync with lesson files (§3.1 / §9.5). */
-const GQL1_LESSON_SOURCE = { name: 'Your First GraphQL Query', steps: 13 } as const;
+const GQL1_LESSON_SOURCE = { name: 'Your First GraphQL Query', steps: 12 } as const;
 const GQL2_LESSON_SOURCE = { name: 'Variables & Arguments', steps: 18 } as const;
 const GQL3_LESSON_SOURCE = { name: 'Schema Exploration', steps: 10 } as const;
 const GQL4_LESSON_SOURCE = { name: 'Authentication & Headers', steps: 14 } as const;
@@ -96,7 +96,7 @@ const GQL15_LESSON_SOURCE = {
 
 const GQL16_LESSON_SOURCE = {
   name: 'Workflow Integration',
-  steps: 13,
+  steps: 12,
 } as const;
 
 const GQL17_LESSON_SOURCE = {
@@ -106,12 +106,12 @@ const GQL17_LESSON_SOURCE = {
 
 const GQL18_LESSON_SOURCE = {
   name: 'Mutation Node in Workflow',
-  steps: 15,
+  steps: 16,
 } as const;
 
 const GQL19_LESSON_SOURCE = {
   name: 'Subscription Node in Workflow',
-  steps: 9,
+  steps: 10,
 } as const;
 
 describe('GQL smoke E2E — lesson metadata alignment', () => {

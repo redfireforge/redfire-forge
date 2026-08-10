@@ -9,7 +9,7 @@ interface DataSourceEmptyStateProps {
   draft: Scenario;
   onDraftChange: (s: Scenario) => void;
   onFetchRow?: (url: string, method: string, headers: Record<string, string>, body?: string, authOverride?: AuthConfig) => Promise<HttpResponse>;
-  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
+  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string, newScenarioName?: string) => void;
   featureGroups?: FeatureGroup[];
   editingTest?: TestEditingContext;
   showSetupModal: boolean;
@@ -26,7 +26,7 @@ export default function DataSourceEmptyState({
     <div className="params-editor">
       <div className="params-toolbar">
         <div className="params-toolbar-left">
-          <span className="params-section-label">{onCreateParameterizedCopy ? 'PARAMETERIZE' : 'DATA SOURCE'}</span>
+          <span className="params-section-label">{onCreateParameterizedCopy ? 'Parameterize' : 'Data Source'}</span>
         </div>
       </div>
       {onCreateParameterizedCopy ? (
@@ -75,7 +75,7 @@ export default function DataSourceEmptyState({
               url: urlTemplate,
               sourceTestId: draft.id,
             };
-            onCreateParameterizedCopy(copy, paramOpts?.targetFgId, paramOpts?.targetScenarioId);
+            onCreateParameterizedCopy(copy, paramOpts?.targetFgId, paramOpts?.targetScenarioId, paramOpts?.newScenarioName);
           } : handleSetupApply}
           onClose={() => setShowSetupModal(false)}
           onFetchRow={onFetchRow}

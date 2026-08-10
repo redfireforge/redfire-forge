@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';
 import type { Assertion, Scenario } from '../../../shared/types';
@@ -128,9 +129,9 @@ describe('TestEditorValidationTab', () => {
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       expect(screen.getByText('DATE⁺')).toBeInTheDocument();
       const row = screen.getByText('DATE⁺').closest('.assertion-row')!;
-      fireEvent.change(row.querySelector('.assertion-select--operator')!, { target: { value: '>' } });
+      selectOption(row.querySelector('.assertion-select--operator')!, 'after');
       draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
-      fireEvent.change(row.querySelector('.assertion-select--precision')!, { target: { value: 'minute' } });
+      selectOption(row.querySelector('.assertion-select--precision')!, 'Minute');
       expect(onDraftChange).toHaveBeenCalled();
     });
 
@@ -569,7 +570,8 @@ describe('TestEditorValidationTab', () => {
       draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
       fireEvent.change(screen.getByPlaceholderText('field (e.g. rank)'), { target: { value: 'id' } });
       draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
-      fireEvent.change(screen.getByDisplayValue('>'), { target: { value: 'exists' } });
+      const row = screen.getByText('EACH').closest('.assertion-row')!;
+      selectOption(row.querySelector('.cs-wrapper')!, 'exists');
       const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
       expect(updated.validation.assertions?.[0]).toMatchObject({
         type: 'each',

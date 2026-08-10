@@ -9,6 +9,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import { GraphqlSubscriptionAssertionPanel } from './GraphqlSubscriptionAssertionPanel';
 import type { GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
 
@@ -56,7 +57,17 @@ describe('GraphqlSubscriptionAssertionPanel', () => {
 
   it('shows empty hint when no assertions', () => {
     render(<GraphqlSubscriptionAssertionPanel assertions={[]} onChange={() => {}} />);
-    expect(screen.getByText(/No assertions yet/i)).toBeInTheDocument();
+    expect(screen.getByTestId('gql-assertion-empty')).toHaveTextContent(/No assertions yet/i);
+  });
+
+  it('shows per-message hint when assertions exist', () => {
+    render(
+      <GraphqlSubscriptionAssertionPanel
+        assertions={[makeAssertion()]}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByText(/Evaluated on every subscription message/i)).toBeInTheDocument();
   });
 
   it('calls onChange with a new assertion when Add is clicked', () => {
@@ -86,8 +97,7 @@ describe('GraphqlSubscriptionAssertionPanel', () => {
   it('shows operator select in each row', () => {
     const assertions = [makeAssertion({ operator: 'contains' })];
     render(<GraphqlSubscriptionAssertionPanel assertions={assertions} onChange={() => {}} />);
-    const select = screen.getByTestId('gql-assertion-operator');
-    expect(select).toHaveValue('contains');
+    expect(getCustomSelectValue(screen.getByTestId('gql-assertion-operator'))).toBe('contains');
   });
 
   it('shows expected value input for value-operators', () => {
@@ -151,7 +161,7 @@ describe('GraphqlSubscriptionAssertionPanel', () => {
     const assertions = [makeAssertion({ operator: 'equals' })];
     const onChange = vi.fn();
     render(<GraphqlSubscriptionAssertionPanel assertions={assertions} onChange={onChange} />);
-    fireEvent.change(screen.getByTestId('gql-assertion-operator'), { target: { value: 'contains' } });
+    selectOption(screen.getByTestId('gql-assertion-operator'), 'contains');
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0][0].operator).toBe('contains');
   });

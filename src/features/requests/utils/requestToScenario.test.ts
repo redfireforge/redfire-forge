@@ -413,17 +413,15 @@ describe('resolveRequestAuth', () => {
     expect(result).toEqual({ type: 'none' });
   });
 
-  it('maps global profile via app environment id matching workbench env name', () => {
+  it('resolves global profile directly by envId (Settings env ID)', () => {
     const profile: GlobalAuthProfile = { id: 'gp99', name: 'P', auth: basicAuth };
     const result = resolveRequestAuth(
       { auth: { type: 'inherit' } },
       { auth: { type: 'none' }, microserviceId: 'svc-1' },
       undefined,
-      'wb-1',
+      'app-1',
       [{ id: 'svc-1', authProfileIds: { 'app-1': 'gp99' } }],
       [profile],
-      [{ id: 'wb-1', name: 'DEV' }],
-      [{ id: 'app-1', name: 'DEV' }],
     );
     expect(result).toEqual({ ...basicAuth, globalProfileId: 'gp99' });
   });

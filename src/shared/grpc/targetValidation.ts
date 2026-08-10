@@ -97,6 +97,29 @@ export function validateResolvedGrpcTargetAddress(raw: string): GrpcTargetValida
   return validateGrpcTargetAddress(raw);
 }
 
+/**
+ * Prefer IPv4 when dialing loopback from Node (@grpc/grpc-js / net).
+ * Node resolves `localhost` to `::1` first; Docker-published ports on macOS
+ * often only accept IPv4, which surfaces as UNAVAILABLE / ECONNREFUSED.
+ * UI may still show `localhost:port` — only the dial address is rewritten.
+ */
+export function preferIpv4LoopbackDialAddress(address: string): string {
+  const check = validateResolvedGrpcTargetAddress(address);
+  if (!check.valid || check.kind !== 'host_port') {
+    return address.trim();
+  }
+  const match = /^(?:\[([^\]]+)\]|([^:]+)):(\d+)$/.exec(check.normalized);
+  if (!match) {
+    return check.normalized;
+  }
+  const host = (match[1] ?? match[2] ?? '').toLowerCase();
+  const port = match[3]!;
+  if (host === 'localhost' || host === '::1') {
+    return `127.0.0.1:${port}`;
+  }
+  return check.normalized;
+}
+
 /** Format failure reason + optional remediation hint for throw sites and UI. */
 export function grpcTargetValidationMessage(result: GrpcTargetValidationResult): string {
   if (result.valid) {

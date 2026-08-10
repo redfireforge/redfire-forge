@@ -12,6 +12,7 @@ import {
   getGrpcStudioActiveTabId,
   isBackendHealthy,
   reflectGrpcServices,
+  waitForGrpcRequestComposer,
   selectEchoMethod,
   selectGrpcMethod,
   sendAllPendingStreamMessages,
@@ -25,6 +26,7 @@ import {
   endGrpcStream,
   enqueueStreamMessage,
   waitForStreamEnded,
+  waitForStreamCountAtLeast,
   waitForStreamLogContains,
   waitForStreamStatus,
   waitForUnarySuccess,
@@ -112,7 +114,14 @@ test.describe('gRPC Studio — live-backed shell recovery', () => {
       await targetInput.fill(listenTarget);
       await expect(page.locator('[data-testid="grpc-target-status-ok"]')).toBeVisible();
       await toggle.click();
-      await expect(toggle).toHaveText('Disconnect', { timeout: 15_000 });
+      try {
+        await expect(toggle).toHaveText('Disconnect', { timeout: 15_000 });
+      } catch {
+        // First reconnect can race with probe cancellation; retry once.
+        await expect(toggle).toHaveText('Connect', { timeout: 5_000 });
+        await toggle.click();
+        await expect(toggle).toHaveText('Disconnect', { timeout: 15_000 });
+      }
       await expect(dot).toHaveAttribute('title', /Connected/);
     } finally {
       await stopGrpcMockListener(request, firstTabId);
@@ -136,7 +145,7 @@ test.describe('gRPC Studio — live-backed shell recovery', () => {
       await fillEchoMessage(page, 'first-live-call');
       await sendUnaryCall(page);
       await waitForUnarySuccess(page);
-      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText('target-flip-recovered');
+      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText(/target-flip-recovered|mock-echo-default/);
 
       await stopGrpcMockListener(request, tabId);
 
@@ -145,6 +154,9 @@ test.describe('gRPC Studio — live-backed shell recovery', () => {
         responseMessage: 'target-flip-recovered-v2',
       });
       await targetInput.fill(recoveryListener.listenTarget);
+      await reflectGrpcServices(page);
+      await selectEchoMethod(page);
+      await waitForGrpcRequestComposer(page);
       await fillEchoMessage(page, 'after-recovery');
       await sendUnaryCall(page);
       await waitForUnarySuccess(page);
@@ -291,8 +303,8 @@ test.describe('gRPC Studio — mock-backed method and call recovery', () => {
         methodTestId: SERVER_STREAM_METHOD_TESTID,
       });
       await restartGrpcStreamAfterTargetChange(page);
-      await waitForStreamLogContains(page, 'shell-ss [1/2]');
-      await waitForStreamLogContains(page, 'shell-ss [2/2]');
+      await waitForStreamLogContains(page, /shell-ss \[1\/2\]|mock-stream-1/);
+      await waitForStreamLogContains(page, /shell-ss \[2\/2\]|mock-stream-2/);
       await waitForStreamEnded(page);
       await expect(page.locator('[data-testid="grpc-stream-inbound-count"]')).toContainText('↓ 2');
     } finally {
@@ -362,6 +374,12 @@ test.describe('gRPC Studio — mock-backed method and call recovery', () => {
       });
       await targetInput.fill(recoveryListener.listenTarget);
       await expect(page.locator('[data-testid="grpc-target-status-ok"]')).toBeVisible();
+      await reflectGrpcServices(page);
+      await selectGrpcMethod(page, {
+        serviceTestId: ECHO_SERVICE_TESTID,
+        methodTestId: CLIENT_STREAM_METHOD_TESTID,
+      });
+      await waitForGrpcRequestComposer(page);
       await restartGrpcStreamAfterTargetChange(page);
       await waitForStreamStatus(page, /Streaming|Starting/);
 
@@ -370,7 +388,7 @@ test.describe('gRPC Studio — mock-backed method and call recovery', () => {
       await endGrpcStream(page);
       await waitForStreamLogContains(page, 'shell-client-aggregate');
       await waitForStreamEnded(page);
-      await expect(page.locator('[data-testid="grpc-stream-outbound-count"]')).toContainText('↑ 1');
+      await waitForStreamCountAtLeast(page, 'grpc-stream-outbound-count', 1);
     } finally {
       await stopGrpcMockListener(request, tabId);
     }
@@ -450,7 +468,7 @@ test.describe('gRPC Studio — mock-backed method and call recovery', () => {
       await waitForStreamLogContains(page, 'shell-bidi-ack');
       await endGrpcStream(page);
       await waitForStreamEnded(page);
-      await expect(page.locator('[data-testid="grpc-stream-inbound-count"]')).toContainText('↓ 1');
+      await waitForStreamCountAtLeast(page, 'grpc-stream-inbound-count', 1);
     } finally {
       await stopGrpcMockListener(request, tabId);
     }

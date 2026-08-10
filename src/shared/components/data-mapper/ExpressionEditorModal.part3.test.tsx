@@ -151,10 +151,23 @@ describe('ExpressionEditorModal — search, templates, expand, snippets edge cas
 });
 
 describe('ExpressionEditorModal — modal drag', () => {
-  it('drag on header moves the modal offset', () => {
+  it('drag on header moves the modal to fixed position', () => {
     renderModal();
     const header = document.querySelector('.dm-expr-header')!;
+    const modal = document.querySelector('.dm-expr-modal') as HTMLElement;
     expect(header).toBeTruthy();
+
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 80,
+      right: 580,
+      bottom: 480,
+      width: 480,
+      height: 400,
+      x: 100,
+      y: 80,
+      toJSON: () => ({}),
+    });
 
     fireEvent.mouseDown(header, { clientX: 200, clientY: 100 });
 
@@ -162,9 +175,75 @@ describe('ExpressionEditorModal — modal drag', () => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 130, bubbles: true }));
     });
 
-    const modal = document.querySelector('.dm-expr-modal');
-    const style = modal?.getAttribute('style') || '';
-    expect(style).toContain('translate(50px, 30px)');
+    expect(modal.style.position).toBe('fixed');
+    expect(modal.style.left).toBe('150px');
+    expect(modal.style.top).toBe('110px');
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+  });
+
+  it('resize from corner grows width and height without CSS max caps', () => {
+    renderModal();
+    const modal = document.querySelector('.dm-expr-modal') as HTMLElement;
+    const handle = document.querySelector('.modal-resize-corner') as HTMLElement;
+    expect(handle).toBeTruthy();
+
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 80,
+      right: 580,
+      bottom: 480,
+      width: 480,
+      height: 400,
+      x: 100,
+      y: 80,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.mouseDown(handle, { clientX: 580, clientY: 480 });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 900, clientY: 900, bubbles: true }));
+    });
+
+    // Grows beyond the old CSS soft defaults (960×640) up toward the viewport
+    expect(Number.parseFloat(modal.style.width)).toBeGreaterThan(700);
+    expect(Number.parseFloat(modal.style.height)).toBeGreaterThan(700);
+    expect(modal.style.maxWidth).toBe('none');
+    expect(modal.style.maxHeight).toBe('none');
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+  });
+
+  it('resize from bottom edge grows height only', () => {
+    renderModal();
+    const modal = document.querySelector('.dm-expr-modal') as HTMLElement;
+    const handle = document.querySelector('.modal-resize-edge-bottom') as HTMLElement;
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 80,
+      right: 580,
+      bottom: 480,
+      width: 480,
+      height: 400,
+      x: 100,
+      y: 80,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.mouseDown(handle, { clientX: 300, clientY: 480 });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 780, bubbles: true }));
+    });
+
+    expect(modal.style.height).toBe('700px');
+    // Width stays unset by bottom-only resize until an explicit width was locked
+    expect(modal.style.maxHeight).toBe('none');
 
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
@@ -175,6 +254,7 @@ describe('ExpressionEditorModal — modal drag', () => {
     renderModal();
     const header = document.querySelector('.dm-expr-header')!;
     const button = header.querySelector('button')!;
+    const modal = document.querySelector('.dm-expr-modal') as HTMLElement;
 
     fireEvent.mouseDown(button, { clientX: 200, clientY: 100 });
 
@@ -182,9 +262,7 @@ describe('ExpressionEditorModal — modal drag', () => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 200, bubbles: true }));
     });
 
-    const modal = document.querySelector('.dm-expr-modal');
-    const style = modal?.getAttribute('style') || '';
-    expect(style).not.toContain('translate');
+    expect(modal.style.position).not.toBe('fixed');
   });
 });
 
@@ -383,7 +461,7 @@ describe('ExpressionEditorModal – branch coverage extras', () => {
       if (results.length > 0) {
         fireEvent.click(results[0]);
         expect(document.querySelector('.dm-expr-detail-modal')).toBeTruthy();
-        const closeBtn = document.querySelector('.dm-expr-detail-close');
+        const closeBtn = document.querySelector('.dm-expr-detail-footer button');
         if (closeBtn) {
           fireEvent.click(closeBtn);
           expect(document.querySelector('.dm-expr-detail-modal')).toBeNull();

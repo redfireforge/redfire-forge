@@ -3,6 +3,7 @@
 import type { DemoActionContext } from '../../../types';
 import { GQL, WF } from '@shared/selectors';
 import { GQL_DEMO_HTTP } from './core';
+import { spotlightAndPause } from './gql-demo-spotlight';
 import {
   clickWfConfigAddRow,
   clickWfConfigTab,
@@ -14,16 +15,21 @@ import {
   fillWfConfigField,
   isWfConfigTabActive,
   openWfConsoleIfClosed,
-  pauseWfConfigSection,
   saveAndCloseWfConfigModal,
+  saveWfConfigModal,
   selectWfConfigOption,
   selectWorkflowFromAppSidebar,
+  setWfConfigDemoTiming,
+  WF_CONFIG_DEMO_TIMING_BRISK,
 } from '../../wf-demo-helpers';
 import {
   deleteWorkflowByName,
   getWorkflowByName,
   seedNamedWorkflow,
 } from '../../../adapters';
+
+/** Field hold during Create Order tour — readable but not sluggish at 1×. */
+const CREATE_TOUR_HOLD_MS = 650;
 
 export { GQL_DEMO_HTTP };
 
@@ -74,6 +80,7 @@ type SubConfigTab = 'Subscription' | 'Stop' | 'Output';
 
 let _lesson19Loaded = false;
 let _lesson19SubscriptionConfigured = false;
+let _lesson19SubscriptionVariables = false;
 let _lesson19SubscriptionTimeout = false;
 let _lesson19SubscriptionCorrelation = false;
 let _lesson19SubscriptionOutput = false;
@@ -82,6 +89,7 @@ let _lesson19QuickTestRun = false;
 export function resetGqlLesson19SessionFlags(): void {
   _lesson19Loaded = false;
   _lesson19SubscriptionConfigured = false;
+  _lesson19SubscriptionVariables = false;
   _lesson19SubscriptionTimeout = false;
   _lesson19SubscriptionCorrelation = false;
   _lesson19SubscriptionOutput = false;
@@ -109,12 +117,23 @@ export function isLesson19CreateNodeReady(): boolean {
   return !!(endpoint && query.includes('createOrder') && rules?.some((r) => r.variableName === LESSON19_ORDER_ID_VAR));
 }
 
-export function isLesson19SubQueryReady(): boolean {
+/** Endpoint + subscription query filled (Variables may still be empty). */
+export function isLesson19SubOperationReady(): boolean {
   const data = lesson19NodeData(LESSON19_NODE_SUB);
   const endpoint = String(data?.endpoint ?? '').trim();
   const subQuery = String(data?.subscriptionQuery ?? '').trim();
-  const variables = String(data?.variables ?? '').trim();
-  return !!(endpoint && subQuery.includes('orderStatus') && variables.includes(`{{${LESSON19_ORDER_ID_VAR}}}`));
+  return !!(endpoint && subQuery.includes('orderStatus'));
+}
+
+/** Correlation Variables JSON references {{orderId}} without extra quotes. */
+export function isLesson19SubVariablesReady(): boolean {
+  const variables = String(lesson19NodeData(LESSON19_NODE_SUB)?.variables ?? '').trim();
+  return variables.includes(`{{${LESSON19_ORDER_ID_VAR}}}`);
+}
+
+/** Full Subscription-tab readiness (operation + Variables correlation). */
+export function isLesson19SubQueryReady(): boolean {
+  return isLesson19SubOperationReady() && isLesson19SubVariablesReady();
 }
 
 export function isLesson19SubNodeReady(): boolean {
@@ -141,7 +160,11 @@ function isLesson19QuickTestPassVisible(): boolean {
 
 // ── Workflow factory ──────────────────────────────────────────────────────────
 
-/** Pre-wired canvas: mutation + assert ready; subscription stop/output filled during the lesson. */
+/**
+ * Pre-wired canvas: mutation + assert ready.
+ * Subscription query / Variables / Stop / Output are filled during the lesson
+ * so each beat teaches one concept.
+ */
 export function createGqlOrderFlowDemoWorkflow(): Record<string, unknown> {
   const now = Date.now();
   return {
@@ -188,7 +211,8 @@ export function createGqlOrderFlowDemoWorkflow(): Record<string, unknown> {
           label: 'Watch Order Status',
           endpoint: GQL_DEMO_HTTP,
           subscriptionQuery: '',
-          variables: LESSON19_SUBSCRIPTION_VARS,
+          // Empty until the Variables step — teaches correlation visibly.
+          variables: '{}',
           headers: [],
           subscriptionTransport: 'auto',
           extractionRules: [],
@@ -244,21 +268,38 @@ async function clickWfFitView(ctx: DemoActionContext): Promise<void> {
   const btn = document.querySelector<HTMLElement>('button[title="Fit view"]');
   if (btn) {
     btn.click();
-    await ctx.delay(500);
+    await ctx.delay(300);
   }
 }
 
 /** Open the subscription node config on the tab the narration describes — without redundant close/reopen. */
 async function ensureLesson19SubConfigTabOpen(ctx: DemoActionContext, tab: SubConfigTab): Promise<void> {
   await ensureLesson19WorkflowLoaded(ctx);
+  // canvasTestId lets openWfNodeConfigModal spotlight Watch Order Status on the
+  // canvas before the panel opens — viewers see which node is being configured.
   await ensureWfNodeConfigModalOpen(ctx, {
     nodeId: LESSON19_NODE_SUB,
+    canvasTestId: GQL.WF_CANVAS_SUBSCRIPTION_NODE,
     panelSelector: GQL.WF_SUBSCRIPTION_PANEL,
   });
   if (!isWfConfigTabActive(GQL.WF_SUBSCRIPTION_PANEL, tab)) {
     await clickWfConfigTab(ctx, GQL.WF_SUBSCRIPTION_PANEL, tab);
   }
-  await ctx.delay(800);
+}
+
+async function ensureLesson19CreateConfigTabOpen(
+  ctx: DemoActionContext,
+  tab: 'Operation' | 'Variables' | 'Extraction',
+): Promise<void> {
+  await ensureLesson19WorkflowLoaded(ctx);
+  await ensureWfNodeConfigModalOpen(ctx, {
+    nodeId: LESSON19_NODE_CREATE,
+    canvasTestId: GQL.WF_CANVAS_MUTATION_NODE,
+    panelSelector: GQL.WF_MUTATION_PANEL,
+  });
+  if (!isWfConfigTabActive(GQL.WF_MUTATION_PANEL, tab)) {
+    await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, tab);
+  }
 }
 
 export async function selectGqlOrderFlowDemoWorkflow(ctx: DemoActionContext): Promise<void> {
@@ -268,8 +309,21 @@ export async function selectGqlOrderFlowDemoWorkflow(ctx: DemoActionContext): Pr
 
 // ── Reading-phase spotlight prep (opens the panel the narration describes) ─────
 
+export async function prepareLesson19CreateOrderSpotlight(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19CreateConfigTabOpen(ctx, 'Operation');
+}
+
 export async function prepareLesson19SubscriptionSpotlight(ctx: DemoActionContext): Promise<void> {
+  await closeWfConfigModalIfOpen(ctx);
   await ensureLesson19SubConfigTabOpen(ctx, 'Subscription');
+}
+
+export async function prepareLesson19VariablesSpotlight(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Subscription');
+  // Scroll Variables into view so the reading spotlight lands on the field.
+  const vars = document.querySelector<HTMLElement>(GQL.WF_SUB_VARIABLES_EDITOR);
+  vars?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  await ctx.delay(250);
 }
 
 export async function prepareLesson19StopTimeoutSpotlight(ctx: DemoActionContext): Promise<void> {
@@ -314,29 +368,52 @@ export async function ensureLesson19WorkflowLoaded(ctx: DemoActionContext): Prom
 
 // ── Visible demo actions (always walk through UI — never skip on session flags) ─
 
+/**
+ * Open Create Order and spotlight the seeded Operation → Variables → Extraction
+ * fields so viewers see how orderId is produced (not narration-only).
+ */
+export async function performLesson19CreateOrderTour(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19CreateConfigTabOpen(ctx, 'Operation');
+  await spotlightAndPause(ctx, GQL.WF_ENDPOINT_INPUT, CREATE_TOUR_HOLD_MS);
+  await spotlightAndPause(ctx, GQL.WF_QUERY_EDITOR, CREATE_TOUR_HOLD_MS);
+  await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Variables');
+  await spotlightAndPause(ctx, GQL.WF_VARIABLES_EDITOR, CREATE_TOUR_HOLD_MS);
+  await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Extraction');
+  await spotlightAndPause(ctx, GQL.WF_EXTRACTION_JSONPATH, CREATE_TOUR_HOLD_MS);
+  await spotlightAndPause(ctx, GQL.WF_EXTRACTION_VARNAME, CREATE_TOUR_HOLD_MS);
+  await closeWfConfigModalIfOpen(ctx);
+}
+
+/** Endpoint + subscription query only — Variables are a separate teaching beat. */
 export async function performLesson19SubscriptionConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19SubConfigTabOpen(ctx, 'Subscription');
   await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
   await fillWfConfigField(ctx, GQL.WF_SUBSCRIPTION_QUERY_EDITOR, LESSON19_SUBSCRIPTION_QUERY);
-  await fillWfConfigField(ctx, GQL.WF_SUB_VARIABLES_EDITOR, LESSON19_SUBSCRIPTION_VARS);
-  await pauseWfConfigSection(ctx);
-  await saveAndCloseWfConfigModal(ctx);
+  // Keep modal open for Variables / Stop / Output — avoids reopen dead air.
+  await saveWfConfigModal(ctx);
   _lesson19SubscriptionConfigured = true;
+}
+
+/** Correlation Variables — scope the WebSocket to this run's {{orderId}}. */
+export async function performLesson19SubscriptionVariables(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Subscription');
+  await fillWfConfigField(ctx, GQL.WF_SUB_VARIABLES_EDITOR, LESSON19_SUBSCRIPTION_VARS);
+  await saveWfConfigModal(ctx);
+  _lesson19SubscriptionVariables = true;
 }
 
 export async function performLesson19SubscriptionTimeout(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19SubConfigTabOpen(ctx, 'Stop');
   await fillWfConfigField(ctx, GQL.WF_STOP_SECS_INPUT, LESSON19_STOP_AFTER_SECS);
-  await pauseWfConfigSection(ctx);
-  await saveAndCloseWfConfigModal(ctx);
+  await saveWfConfigModal(ctx);
   _lesson19SubscriptionTimeout = true;
 }
 
+/** Stop after N messages — collect the full PENDING → PROCESSING → COMPLETE stream. */
 export async function performLesson19SubscriptionCorrelation(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19SubConfigTabOpen(ctx, 'Stop');
   await fillWfConfigField(ctx, GQL.WF_STOP_MESSAGES_INPUT, LESSON19_STOP_AFTER_MESSAGES);
-  await pauseWfConfigSection(ctx);
-  await saveAndCloseWfConfigModal(ctx);
+  await saveWfConfigModal(ctx);
   _lesson19SubscriptionCorrelation = true;
 }
 
@@ -347,7 +424,6 @@ export async function performLesson19SubscriptionOutputBound(ctx: DemoActionCont
   }
   await selectWfConfigOption(ctx, GQL.WF_OUTPUT_FIELD_SELECT, 'lastMessage');
   await fillWfConfigField(ctx, GQL.WF_OUTPUT_VARNAME, LESSON19_FINAL_STATUS_VAR);
-  await pauseWfConfigSection(ctx);
   await saveAndCloseWfConfigModal(ctx);
   _lesson19SubscriptionOutput = true;
 }
@@ -356,10 +432,10 @@ export async function performLesson19QuickTestRun(ctx: DemoActionContext): Promi
   await prepareLesson19QuickTestSpotlight(ctx);
   const saveBtn = document.querySelector<HTMLElement>('.wf-toolbar-save-wrap button');
   saveBtn?.click();
-  await ctx.delay(300);
+  await ctx.delay(200);
   await ctx.click(WF.QUICK_TEST_BTN);
   await ctx.waitFor(WF.EXEC_SUMMARY, 45000);
-  await ctx.delay(800);
+  await ctx.delay(500);
   _lesson19QuickTestRun = true;
 }
 
@@ -367,12 +443,18 @@ export async function performLesson19QuickTestRun(ctx: DemoActionContext): Promi
 
 export async function ensureLesson19SubscriptionConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19WorkflowLoaded(ctx);
-  if (_lesson19SubscriptionConfigured && isLesson19SubQueryReady()) return;
+  if (_lesson19SubscriptionConfigured && isLesson19SubOperationReady()) return;
   await performLesson19SubscriptionConfigured(ctx);
 }
 
-export async function ensureLesson19SubscriptionTimeout(ctx: DemoActionContext): Promise<void> {
+export async function ensureLesson19SubscriptionVariables(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19SubscriptionConfigured(ctx);
+  if (_lesson19SubscriptionVariables && isLesson19SubVariablesReady()) return;
+  await performLesson19SubscriptionVariables(ctx);
+}
+
+export async function ensureLesson19SubscriptionTimeout(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubscriptionVariables(ctx);
   const stopMs = lesson19NodeData(LESSON19_NODE_SUB)?.stopAfterMs;
   if (_lesson19SubscriptionTimeout && stopMs === Number(LESSON19_STOP_AFTER_SECS) * 1000) return;
   await performLesson19SubscriptionTimeout(ctx);
@@ -398,15 +480,17 @@ export async function ensureLesson19QuickTestRun(ctx: DemoActionContext): Promis
 }
 
 export async function gqlWorkflowSubscriptionLessonSetup(ctx: DemoActionContext): Promise<void> {
+  // Dense Create tour + multi-tab Watch config — skip default 2s modalOpen dead air.
+  setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
   resetGqlLesson19SessionFlags();
   await cleanupWorkflowDemoRunUi(ctx);
   await seedNamedWorkflow(ctx, LESSON19_WF_NAME, createGqlOrderFlowDemoWorkflow(), {
     deleteDelayMs: 100,
-    insertDelayMs: 300,
+    insertDelayMs: 200,
   });
   await closeWfConfigModalIfOpen(ctx);
   ctx.navigateToTab('workflow');
-  await ctx.delay(400);
+  await ctx.delay(300);
   await dismissWorkflowOnboarding(ctx);
   await selectGqlOrderFlowDemoWorkflow(ctx);
   await clickWfFitView(ctx);
@@ -417,5 +501,6 @@ export async function gqlWorkflowSubscriptionLessonCleanup(ctx: DemoActionContex
   await cleanupWorkflowDemoRunUi(ctx);
   deleteWorkflowByName(LESSON19_WF_NAME);
   resetGqlLesson19SessionFlags();
+  setWfConfigDemoTiming(null);
   await ctx.delay(100);
 }

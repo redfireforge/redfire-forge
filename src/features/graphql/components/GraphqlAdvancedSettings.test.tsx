@@ -4,6 +4,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 
 vi.mock('../utils/monacoGraphqlSetup', () => ({
   buildModelUri: (id: string) => `inmemory://graphql/${id}`,
@@ -405,7 +406,8 @@ describe('GraphqlAdvancedSettings', () => {
   it('calls onChange with subscriptionTransport when transport select changes', () => {
     const { props } = renderSettings();
     fireEvent.click(screen.getByRole('tab', { name: /Transport/i }));
-    fireEvent.change(screen.getByLabelText('Subscription transport protocol'), { target: { value: 'graphql-ws' } });
+    const transportWrapper = screen.getByRole('button', { name: 'Subscription transport protocol' }).closest('.cs-wrapper')!;
+    selectOption(transportWrapper, 'graphql-ws (legacy)');
     clickSave();
     expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ subscriptionTransport: 'graphql-ws' }));
   });

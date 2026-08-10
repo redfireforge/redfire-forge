@@ -1,12 +1,21 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../types/catalog';
 import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
 import { getEndpointCoverage } from '../utils/coverageChecker';
+import { isPublicationStale } from '../utils/publicationDrift';
+import type { PublishPermission } from '../hooks/usePublishPermission';
 import CatalogEndpointCard from './CatalogEndpointCard';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { resolveBaseUrl } from '../utils/catalogCurlGenerator';
 import { loadCatalogEndpointValues, saveCatalogEndpointValues } from '../../../shared/utils/storage';
+
+function resolveExposureMode(ep: CatalogEndpoint, previewIds?: Set<string>): 'preview' | 'published' | undefined {
+  if (ep.workflowPublication || ep.workflowExposure === 'published') return 'published';
+  if (previewIds?.has(ep.id)) return 'preview';
+  return undefined;
+}
 
 interface Props {
   entry: CatalogEntry;
@@ -21,10 +30,14 @@ interface Props {
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
   coverageMap?: Map<string, EndpointCoverage>;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
-  onToggleWorkflowExpose?: (endpoint: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => void;
+  onSetWorkflowExposure?: (endpoint: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => void;
+  /** Endpoint IDs that are currently in user-local preview storage. */
+  previewedEndpointIds?: Set<string>;
+  /** Access control for publish/unpublish actions. */
+  publishPermission?: PublishPermission;
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest, onToggleWorkflowExpose }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest, onSetWorkflowExposure, previewedEndpointIds, publishPermission }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -121,7 +134,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
   const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers, entry.environments, linkedSvc);
 
   return (
-    <div className="ceb-container">
+    <div className="ceb-container" data-testid="catalog-endpoint-browser">
       {/* ── Top header bar ──────────────────────── */}
       <div className="ceb-header">
         <div className="ceb-title-row">
@@ -132,9 +145,10 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
 
         <div className="ceb-toolbar">
           <div className="ceb-host-bar">
-            <div className="ceb-host-strategy">
+            <div className="ceb-host-strategy" data-testid="catalog-host-strategy">
               <button
                 className={`ceb-strat-btn ${entry.hostConfig.strategy === 'inherited' ? 'active' : ''}`}
+                data-testid="catalog-host-from-spec"
                 onClick={() => onHostChange({ strategy: 'inherited', selectedServerIndex: entry.hostConfig.selectedServerIndex ?? 0 })}
                 disabled={entry.servers.length === 0}
                 title={entry.servers.length === 0 ? 'No servers defined in spec' : 'Use server URL from the spec'}
@@ -144,6 +158,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               {showEnvButton && (
                 <button
                   className={`ceb-strat-btn ${entry.hostConfig.strategy === 'environment' ? 'active' : ''}`}
+                  data-testid="catalog-host-environment"
                   onClick={() => {
                     if (!hasEnvOptions) {
                       onEditEntry?.();
@@ -165,6 +180,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               )}
               <button
                 className={`ceb-strat-btn ${entry.hostConfig.strategy === 'hardcoded' ? 'active' : ''}`}
+                data-testid="catalog-host-custom-url"
                 onClick={() => onHostChange({ strategy: 'hardcoded', hardcodedUrl: entry.hostConfig.hardcodedUrl ?? baseUrl ?? '' })}
                 title="Enter a custom base URL"
               >
@@ -173,40 +189,61 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
             </div>
 
             {entry.hostConfig.strategy === 'inherited' && entry.servers.length > 0 && (
-              <select
+              <CustomSelect
                 className="ceb-server-select"
-                value={entry.hostConfig.selectedServerIndex ?? 0}
-                onChange={e => onHostChange({ strategy: 'inherited', selectedServerIndex: Number(e.target.value) })}
-              >
-                {entry.servers.map((s, i) => (
-                  <option key={i} value={i}>
-                    {s.url}{s.description ? ` — ${s.description}` : ''}
-                  </option>
-                ))}
-              </select>
+                data-testid="catalog-host-server-select"
+                aria-label="Spec server"
+                value={String(entry.hostConfig.selectedServerIndex ?? 0)}
+                onChange={(v) => onHostChange({ strategy: 'inherited', selectedServerIndex: Number(v) })}
+                options={entry.servers.map((s, i) => ({
+                  value: String(i),
+                  label: `${s.url}${s.description ? ` — ${s.description}` : ''}`,
+                }))}
+              />
             )}
 
             {entry.hostConfig.strategy === 'environment' && hasEnvOptions && (
-              <select
-                className="ceb-server-select"
-                value={entry.hostConfig.environmentId ?? ''}
-                onChange={e => onHostChange({ strategy: 'environment', environmentId: e.target.value })}
-              >
-                {linkedSvc ? svcEnvOptions.map(opt => (
-                  <option key={opt.envId} value={opt.envId}>
-                    {opt.envName}{opt.baseUrl ? ` — ${opt.baseUrl}` : ' (no base URL)'}
-                  </option>
-                )) : entry.environments!.map(env => (
-                  <option key={env.id} value={env.id}>
-                    {env.name} — {env.baseUrl}
-                  </option>
-                ))}
-              </select>
+              <>
+                {linkedSvc && (
+                  <span className="ceb-svc-label" data-testid="catalog-host-svc-label">
+                    {linkedSvc.name}
+                    {onEditEntry && (
+                      <button
+                        className="ceb-svc-change-btn"
+                        data-testid="catalog-host-svc-change"
+                        onClick={onEditEntry}
+                        title="Change linked microservice"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </span>
+                )}
+                <CustomSelect
+                  className="ceb-server-select"
+                  data-testid="catalog-host-env-select"
+                  aria-label="Microservice environment"
+                  value={entry.hostConfig.environmentId ?? ''}
+                  onChange={(v) => onHostChange({ strategy: 'environment', environmentId: v })}
+                  options={
+                    linkedSvc
+                      ? svcEnvOptions.map(opt => ({
+                          value: opt.envId,
+                          label: `${opt.envName}${opt.baseUrl ? ` — ${opt.baseUrl}` : ' (no base URL)'}`,
+                        }))
+                      : entry.environments!.map(env => ({
+                          value: env.id,
+                          label: `${env.name} — ${env.baseUrl}`,
+                        }))
+                  }
+                />
+              </>
             )}
 
             {entry.hostConfig.strategy === 'hardcoded' && (
               <input
                 className="ceb-host-input"
+                data-testid="catalog-host-input"
                 placeholder="https://api.example.com/v1"
                 value={entry.hostConfig.hardcodedUrl ?? ''}
                 onChange={e => onHostChange({ strategy: 'hardcoded', hardcodedUrl: e.target.value })}
@@ -216,30 +253,15 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
             <button
               className={`ceb-auth-btn ${auth.type !== 'none' && auth.type !== 'inherit' ? 'active' : ''}`}
               onClick={() => setShowAuthPanel(!showAuthPanel)}
+              data-testid="catalog-authorize-btn"
             >
               🔒 Authorize
             </button>
           </div>
-
-          <div className="ceb-filter-row">
-            <input
-              className="ceb-filter"
-              type="text"
-              placeholder="Filter endpoints..."
-              value={filter}
-              onChange={e => setFilter(e.target.value)}
-            />
-            {hasDeprecated && (
-              <label className="ceb-deprecated-toggle">
-                <input type="checkbox" checked={hideDeprecated} onChange={e => setHideDeprecated(e.target.checked)} />
-                Hide deprecated
-              </label>
-            )}
-          </div>
         </div>
 
         {baseUrl && (
-          <div className="ceb-base-url">Base URL: <code>{baseUrl}</code></div>
+          <div className="ceb-base-url" data-testid="catalog-base-url">Base URL: <code>{baseUrl}</code></div>
         )}
       </div>
 
@@ -254,10 +276,28 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
         />
       )}
 
+      {/* Endpoint filter belongs with the operation list, not the host/URL bar. */}
+      <div className="ceb-filter-row" data-testid="catalog-endpoint-filter-row">
+        <input
+          className="ceb-filter"
+          type="text"
+          placeholder="Filter endpoints..."
+          data-testid="catalog-endpoint-filter"
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+        />
+        {hasDeprecated && (
+          <label className="ceb-deprecated-toggle">
+            <input type="checkbox" checked={hideDeprecated} onChange={e => setHideDeprecated(e.target.checked)} />
+            Hide deprecated
+          </label>
+        )}
+      </div>
+
       {/* ── Endpoint list ───────────────────────── */}
-      <div className="ceb-endpoints" key={`${entry.id}-${epLoaded}`}>
+      <div className="ceb-endpoints" data-testid="catalog-endpoint-list" key={`${entry.id}-${epLoaded}`}>
         {filteredFolders.map(folder => (
-          <div key={folder.id} className="ceb-tag-group">
+          <div key={folder.id} className="ceb-tag-group" data-testid="catalog-tag-group" data-tag-name={folder.name}>
             <div className="ceb-tag-header" onClick={() => toggleTag(folder.id)}>
               <span className={`ceb-tag-chevron ${collapsedTags.has(folder.id) ? '' : 'open'}`}>▾</span>
               <span className="ceb-tag-name">{folder.name}</span>
@@ -279,7 +319,10 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     linkedMicroservice={linkedSvc}
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
-                    onToggleWorkflowExpose={onToggleWorkflowExpose}
+                    onSetWorkflowExposure={onSetWorkflowExposure}
+                    currentExposureMode={resolveExposureMode(ep, previewedEndpointIds)}
+                    isPublicationStale={isPublicationStale(ep, entry.currentVersionId)}
+                    publishPermission={publishPermission}
                     coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
                     onNavigateToRequest={onNavigateToRequest}
                   />
@@ -311,7 +354,10 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     linkedMicroservice={linkedSvc}
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
-                    onToggleWorkflowExpose={onToggleWorkflowExpose}
+                    onSetWorkflowExposure={onSetWorkflowExposure}
+                    currentExposureMode={resolveExposureMode(ep, previewedEndpointIds)}
+                    isPublicationStale={isPublicationStale(ep, entry.currentVersionId)}
+                    publishPermission={publishPermission}
                     coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
                     onNavigateToRequest={onNavigateToRequest}
                   />

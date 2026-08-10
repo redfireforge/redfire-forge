@@ -117,7 +117,9 @@ describe('SwitchConfig', () => {
   it('renders hint about default path', () => {
     const onChange = vi.fn();
     render(<SwitchConfig data={makeData()} onChange={onChange} />);
-    expect(screen.getByText('If no case matches, the Default path is taken')).toBeTruthy();
+    expect(screen.getByText((_t, node) => !!node?.textContent?.includes('Default')
+      && !!node?.textContent?.includes('path is taken')
+      && node.tagName === 'P')).toBeTruthy();
   });
 
   it('handles undefined cases gracefully', () => {

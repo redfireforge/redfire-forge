@@ -18,13 +18,27 @@ export const GRPC_DEMO_PREREQUISITE_ENDPOINTS = [
   GRPC_EXPRESS_HEALTH_URL,
 ] as const;
 
+/**
+ * Envoy gRPC-Web sidecar probe (port 50055).
+ * Envoy has no dedicated /health route — bare GET / often returns 415.
+ * `checkEndpoint` routes this URL through Express `GET /health/envoy` so the
+ * browser never hits :50055 directly (avoids DevTools Failed-to-load noise).
+ */
+export const GRPC_ENVOY_PROBE_URL = 'http://localhost:50055/';
+
+/** Go echo + Express + Envoy — required for GRPC-19 Transport Modes. */
+export const GRPC_TRANSPORT_MODES_PREREQUISITE_ENDPOINTS = [
+  ...GRPC_DEMO_PREREQUISITE_ENDPOINTS,
+  GRPC_ENVOY_PROBE_URL,
+] as const;
+
 /** Setup commands shown in the lesson prerequisite gate. */
 export const GRPC_DEMO_DOCKER_COMMAND = [
-  '# One command — Docker echo + Express proxy + Vite',
+  '# One command — Docker echo + Envoy grpc-web (:50055) + Express proxy + Vite',
   'npm run dev:grpc',
   '',
   '# — or start each dependency yourself —',
-  '# Terminal 1 — gRPC echo server (Docker)',
+  '# Terminal 1 — gRPC echo + Envoy sidecar (Docker)',
   'cd docker/grpc && docker compose up -d',
   '',
   '# Terminal 2 — Express gRPC proxy (browser Reflect/Send)',
@@ -138,10 +152,20 @@ export function patchGrpcActiveTabBody(body: string): boolean {
 
 /**
  * Reset active gRPC tab runtime state used by demos:
- * unlink profile, force plaintext, clear auth and metadata.
+ * unlink profile, force plaintext, Express transport, clear auth and metadata.
  */
 export function resetGrpcActiveTabRuntimeState(): boolean {
   const bridge = getDemoBridgeWindow().__demoResetGrpcActiveTab;
+  if (!bridge) return false;
+  return bridge();
+}
+
+/**
+ * Reset Manage Schemas draft inputs (proto files / protoset / URL / BSR) on the
+ * active tab via React state — no modal open/close flash.
+ */
+export function resetGrpcManageSchemasDraftsViaBridge(): boolean {
+  const bridge = getDemoBridgeWindow().__demoResetGrpcManageSchemasDrafts;
   if (!bridge) return false;
   return bridge();
 }

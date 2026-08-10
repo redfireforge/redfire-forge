@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom';
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { selectOption, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RequestItem } from '../../../shared/types';
@@ -76,7 +77,7 @@ describe('SpecVersionSwitcher', () => {
     expect(screen.getByText('v1.0')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByTitle('Switch spec version'), { target: { value: 'vb' } });
+    selectOption(screen.getByLabelText('Switch spec version').closest('.cs-wrapper')!, 'v2.0');
 
     expect(stub).toHaveBeenCalled();
     expect(onUpdateRequest).toHaveBeenCalledWith({
@@ -103,8 +104,8 @@ describe('SpecVersionSwitcher', () => {
       />,
     );
 
-    const sel = screen.getByTitle('Switch spec version') as HTMLSelectElement;
-    fireEvent.change(sel, { target: { value: '__missing__' } });
+    const labels = getCustomSelectOptionLabels(screen.getByLabelText('Switch spec version').closest('.cs-wrapper')!);
+    expect(labels).not.toContain('__missing__');
     expect(onUpdateRequest).not.toHaveBeenCalled();
   });
 });

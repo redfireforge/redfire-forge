@@ -23,6 +23,8 @@ interface UseMapperRepairActionsParams {
   setBulkTargetPath: (path: string) => void;
   setLineFocusNode: React.Dispatch<React.SetStateAction<{ region: 'source' | 'target'; path: string } | null>>;
   setToast: (msg: string | null) => void;
+  /** Scroll + highlight a tree node; return false when path is not in the DOM. */
+  focusNodeByPath?: (path: string, region: 'source' | 'target') => boolean;
 }
 
 export function useMapperRepairActions({
@@ -44,6 +46,7 @@ export function useMapperRepairActions({
   setBulkTargetPath,
   setLineFocusNode,
   setToast,
+  focusNodeByPath,
 }: UseMapperRepairActionsParams) {
   const [ignoredRepairIssueIds, setIgnoredRepairIssueIds] = useState<Set<string>>(new Set());
 
@@ -138,7 +141,6 @@ export function useMapperRepairActions({
   const handleOpenRepairIssue = useCallback((issue: MapperRepairIssue) => {
     selectMapping(issue.mappingId);
     setSelectedIds(new Set([issue.mappingId]));
-    setFocusRegion('target');
     setBulkTargetPath(issue.targetPath);
 
     const issueSourceId = issue.sourceId || activeSourceId;
@@ -147,11 +149,59 @@ export function useMapperRepairActions({
       setBulkSourcePath(issue.sourcePath);
     }
 
-    if (!showMappingLines && nodeFocusMode) {
-      setLineFocusNode({ region: 'target', path: issue.targetPath });
+    // Prefer the panel that owns the problem; fall back so Open node still
+    // lands somewhere useful when only one side exists in the tree.
+    const attempts: Array<{ region: 'source' | 'target'; path: string }> =
+      issue.kind === 'unresolved-path'
+        ? [
+            { region: 'source', path: issue.sourcePath },
+            { region: 'target', path: issue.targetPath },
+          ]
+        : [
+            { region: 'target', path: issue.targetPath },
+            { region: 'source', path: issue.sourcePath },
+          ];
+
+    let opened: { region: 'source' | 'target'; path: string } | null = null;
+    for (const attempt of attempts) {
+      if (!attempt.path) continue;
+      setFocusRegion(attempt.region);
+      if (focusNodeByPath?.(attempt.path, attempt.region)) {
+        opened = attempt;
+        break;
+      }
     }
-    setToast(`Focused ${normalizeMapperPath(issue.targetPath)}`);
-  }, [selectMapping, setSelectedIds, setFocusRegion, setBulkTargetPath, setBulkSourceId, setBulkSourcePath, activeSourceId, showMappingLines, nodeFocusMode, setLineFocusNode, setToast]);
+
+    if (!opened) {
+      setFocusRegion(attempts[0]?.region ?? 'target');
+    }
+
+    if (!showMappingLines && nodeFocusMode) {
+      const linePath = opened?.path ?? issue.targetPath;
+      const lineRegion = opened?.region ?? 'target';
+      setLineFocusNode({ region: lineRegion, path: linePath });
+    }
+
+    const label = normalizeMapperPath(opened?.path ?? (issue.targetPath || issue.sourcePath));
+    if (opened) {
+      setToast(`Opened ${opened.region} node: ${label}`);
+      return;
+    }
+
+    if (issue.kind === 'missing-target') {
+      setToast(
+        `${label} is not in the target tree — use Fix or Replace to remap (Open node only selects the mapping).`,
+      );
+      return;
+    }
+    if (issue.kind === 'unresolved-path') {
+      setToast(
+        `${normalizeMapperPath(issue.sourcePath)} is not in the source tree — use Fix or Replace to remap.`,
+      );
+      return;
+    }
+    setToast(`Selected mapping for ${label} (tree node not found — it may be collapsed or missing).`);
+  }, [selectMapping, setSelectedIds, setFocusRegion, setBulkTargetPath, setBulkSourceId, setBulkSourcePath, activeSourceId, showMappingLines, nodeFocusMode, setLineFocusNode, setToast, focusNodeByPath]);
 
   const clearIgnoredRepairIssues = useCallback(() => {
     setIgnoredRepairIssueIds(new Set());

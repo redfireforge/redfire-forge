@@ -136,7 +136,7 @@ export function useGraphqlConnectionSettings(
       if ('caCert' in patch) next.caCert = patch.caCert || undefined;
       if ('clientCert' in patch) next.clientCert = patch.clientCert || undefined;
       if ('clientKey' in patch) next.clientKey = patch.clientKey || undefined;
-      void saveTlsCerts(next);
+      void saveTlsCerts(next).catch(() => { /* quota / storage unavailable */ });
       return next;
     });
   }, []);
@@ -223,7 +223,7 @@ export function useGraphqlConnectionSettings(
 
   useEffect(() => {
     const handler = () => {
-      void loadAuth().then((savedAuth) => { setAuth(savedAuth); });
+      void loadAuth().then((savedAuth) => { setAuth(savedAuth); }).catch(() => { /* ignore */ });
     };
     window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);
     return () => window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);

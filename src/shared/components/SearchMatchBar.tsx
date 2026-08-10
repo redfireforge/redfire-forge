@@ -23,6 +23,8 @@ export interface SearchMatchBarProps {
   placeholder?: string;
   className?: string;
   inputClassName?: string;
+  /** Optional `data-testid` for the text input (for demo lessons / E2E targeting). */
+  inputTestId?: string;
   countClassName?: string;
   navClassName?: string;
   clearClassName?: string;
@@ -49,6 +51,7 @@ export function SearchMatchBar({
   placeholder,
   className,
   inputClassName,
+  inputTestId,
   countClassName,
   navClassName,
   clearClassName,
@@ -71,6 +74,7 @@ export function SearchMatchBar({
     <input
       ref={inputRef}
       className={inputClassName}
+      data-testid={inputTestId}
       type={inputType}
       placeholder={placeholder}
       value={value}

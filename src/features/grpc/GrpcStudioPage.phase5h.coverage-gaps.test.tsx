@@ -3,6 +3,7 @@
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
@@ -675,7 +676,7 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
   it('updates auth secret fields from the bottom auth tab', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
     fireEvent.click(screen.getByTestId('grpc-auth-badge'));
-    fireEvent.change(screen.getByTestId('grpc-auth-type-select'), { target: { value: 'bearer' } });
+    selectOption(screen.getByTestId('grpc-auth-type-select'), 'Bearer Token');
     fireEvent.change(screen.getByTestId('grpc-auth-bearer-token'), { target: { value: 'secret-token' } });
     expect((screen.getByTestId('grpc-auth-bearer-token') as HTMLInputElement).value).toBe('secret-token');
   });

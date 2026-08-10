@@ -1,6 +1,7 @@
 /**
  * Phase 6G — batch group + tab checklist inside Advanced Settings → Batch tab.
  */
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import type { BatchEndpointGroup } from '../utils/batchEndpointUtils';
@@ -92,19 +93,17 @@ export function GqlBatchSettingsPanel({
           <span className="gql-adv-batch-panel__field-label">Endpoint group</span>
           <div className="gql-adv-batch-panel__group-ctrl">
             {multipleGroups ? (
-              <select
+              <CustomSelect
                 className="gql-advsettings-select gql-adv-batch-panel__select"
                 value={activeGroup.key}
-                onChange={(e) => onGroupChange(e.target.value)}
+                onChange={(v) => onGroupChange(v)}
+                options={groups.map((group) => ({
+                  value: group.key,
+                  label: `${group.displayLabel} · ${group.tabIds.length} tab${group.tabIds.length === 1 ? '' : 's'}`,
+                }))}
                 aria-label="Select endpoint group for batch execution"
                 data-testid="gql-adv-batch-group-select"
-              >
-                {groups.map((group) => (
-                  <option key={group.key} value={group.key}>
-                    {group.displayLabel} · {group.tabIds.length} tab{group.tabIds.length === 1 ? '' : 's'}
-                  </option>
-                ))}
-              </select>
+              />
             ) : (
               <span className="gql-adv-batch-panel__endpoint-chip" data-testid="gql-adv-batch-group-label">
                 <span className="gql-adv-batch-panel__endpoint-host">{activeGroup.displayLabel}</span>
@@ -151,11 +150,21 @@ export function GqlBatchSettingsPanel({
           </span>
           {groupTabs.length >= 2 && (
             <span className="gql-adv-batch-panel__list-actions">
-              <button type="button" className="gql-adv-batch-panel__link-btn" onClick={handleSelectAll}>
+              <button
+                type="button"
+                className="gql-adv-batch-panel__link-btn"
+                onClick={handleSelectAll}
+                data-testid="gql-adv-batch-select-all"
+              >
                 Select all
               </button>
               <span className="gql-adv-batch-panel__list-actions-sep" aria-hidden="true">·</span>
-              <button type="button" className="gql-adv-batch-panel__link-btn" onClick={handleClearAll}>
+              <button
+                type="button"
+                className="gql-adv-batch-panel__link-btn"
+                onClick={handleClearAll}
+                data-testid="gql-adv-batch-clear-all"
+              >
                 Clear
               </button>
             </span>

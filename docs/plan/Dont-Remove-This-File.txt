@@ -5,6 +5,14 @@ Please always run E2E with report so that I can see progress. Keep in mind.
 --------------------------------------------------------------------------
 Only Unit Tests and Monorithic Class Definition Review
 
+Based on entire code bases including this feature branch, please fix code coverage issue file under 90% except demo, css, script, and test files.
+You have fast full report scripts with 4 shards. You should run one clean full coverage snapshot now, freeze that as the baseline, and fix code coverage issue. After then, run full code coverage script again to verify it. Here is command. 
+bash scripts/run-product-coverage-fast.sh 2>&1. 
+You should switch to strict one-by-one execution: fix one coverage file, run its targeted tests, check that file’s gap status, then move to the next file. 
+
+Please go ahead. 
+
+
 Consider all of files for unit test including this branch. 
 Please thoroughly review this feature branch and if there is any monorithic class which is above 900 lines or it requires refactoring, make module for common codes. And also fix any existing bug or issues even though you didn't touch. Please remove any redundant codes and make module. And add unit tests. Test code quality is very important and also code coverage should be above 90 %. Repeat several rounds of these processes until there is no issue found. Make sure you should not break any existing logic. And alwasy show max lines for 10 classes and lowest 10 code coverage codes. Also fix eslint issues. 
 Keep in mind that we should not have any monorithic class which is above 900 lines. All of classes should have above 90 % code coverages. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel. 
@@ -342,3 +350,21 @@ You can use grpc-demo-lessons.md file as you reference.
 
 
 Don't wait until full report is geneated. At some point, do grep and find under covered codes and fix them. Then do grep again and fix them. keep the same pattern. I believe we can't significantly reduce time. ß
+
+
+
+I want to you do fix the following issue. 
+Based on entire code bases including this feature branch, please fix code coverage issue file with is under 90% except demo and test files. 
+
+Here is clear direction for code-coverage issue fixing guideline. 
+First run full-report code coverage file as background. At the same time, do grep-fix loop batch pattern to fix issue files. After you fixing, then you do the next round grep-fix loop batch pattern, and so on. With this way, you can keep fixing probamatic code coverage issue files. 
+Don't wait until full code report file generated. 
+I will watch your action. 
+
+
+When I click x, it goes to Conents page. But it has a lot of flashing things shown. It should not show to user. Please make invisiable or remove them. 
+
+
+### At the begining
+At the begining in this step, it shows  flashing moving parts. It should not show them to user. Please fix it.
+

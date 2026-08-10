@@ -22,6 +22,7 @@ vi.mock('../configs/HttpConfig', () => ({
   default: vi.fn().mockImplementation((props: {
     data: HttpNodeData;
     onChange: (p: Partial<HttpNodeData>) => void;
+    activeTab: string;
     onTabChange: (t: string) => void;
     onRequestVariableInsert: (apply: (s: string) => void, shortRef?: boolean, initial?: string) => void;
     effectiveQuickTestBaseUrl: string;
@@ -30,11 +31,13 @@ vi.mock('../configs/HttpConfig', () => ({
   }) => (
     <div data-testid="http-config">
       HttpConfig: {props.data.label}
+      <span data-testid="http-active-tab">{props.activeTab}</span>
       <span data-testid="http-effective-base">{props.effectiveQuickTestBaseUrl}</span>
       <span data-testid="http-last-err">{props.lastRunError ?? ''}</span>
       <span data-testid="http-last-url">{props.lastQuickTestRequestUrl ?? ''}</span>
       <button type="button" onClick={() => props.onChange({ label: 'Patched HTTP' })}>patch-http</button>
       <button type="button" onClick={() => props.onTabChange('headers' as never)}>http-secondary-tab</button>
+      <button type="button" onClick={() => props.onTabChange('extract' as never)}>http-extract-tab</button>
       <button
         type="button"
         onClick={() => props.onRequestVariableInsert(() => {}, false, 'findme')}
@@ -395,22 +398,23 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByTestId('schedule-config')).toBeTruthy();
   });
 
-  it('renders VariablesSection for start node', () => {
+  it('renders StartConfig for start node', () => {
     const node = makeNode('start', { inputVariables: {} });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByTestId('start-config')).toBeTruthy();
     expect(screen.getByText('Trigger input variables')).toBeTruthy();
   });
 
-  it('updates start node trigger input variables via VariablesSection', () => {
+  it('updates start node trigger input variables via StartConfig', () => {
     const onUpdateNode = vi.fn();
     const node = makeNode('start', { inputVariables: {} });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
-    const section = screen.getByText('Trigger input variables').closest('.wf-config-vars')!;
+    const section = screen.getByTestId('start-config');
     const nameInput = within(section).getByPlaceholderText('name');
     const valueInput = within(section).getByPlaceholderText('value');
     fireEvent.change(nameInput, { target: { value: 'triggerKey' } });
     fireEvent.change(valueInput, { target: { value: 'triggerVal' } });
-    fireEvent.click(within(section).getByRole('button', { name: '+' }));
+    fireEvent.click(within(section).getByRole('button', { name: 'Add variable' }));
     fireEvent.click(screen.getByText('Save'));
     expect(onUpdateNode).toHaveBeenCalledWith(
       'node-1',
@@ -614,7 +618,7 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByDisplayValue('My Trigger')).toBeTruthy();
     expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
     expect(screen.getByDisplayValue('orders.created')).toBeTruthy();
-    expect(screen.getByText('Max Concurrent')).toBeTruthy();
+    expect(screen.getByText('Max concurrent')).toBeTruthy();
     expect(screen.getByText('Extract Variables')).toBeTruthy();
   });
 
@@ -805,6 +809,28 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByTestId('var-insert-modal-open')).toHaveAttribute('data-initial-search', 'findme');
   });
 
+  it('restores last HTTP sub-tab when reopening the same node', () => {
+    // Dedicated id so other tests that switch tabs on node-1 do not pollute this case.
+    const node = {
+      ...defaultProps.node,
+      id: 'node-restore-tab',
+      data: {
+        ...(defaultProps.node.data as HttpNodeData),
+        scenario: {
+          ...(defaultProps.node.data as HttpNodeData).scenario,
+          extractions: [{ name: 'userId', source: 'body' as const, expression: '$.userId' }],
+        },
+      },
+    };
+    const { unmount } = render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByTestId('http-active-tab').textContent).toBe('url');
+    fireEvent.click(screen.getByText('http-extract-tab'));
+    expect(screen.getByTestId('http-active-tab').textContent).toBe('extract');
+    unmount();
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByTestId('http-active-tab').textContent).toBe('extract');
+  });
+
   it('returns non-HTTP draftVariableHints from httpVariableHints as-is', () => {
     const hints: WorkflowVariableHint[] = [{ ref: 'alpha', label: 'Alpha' }];
     const node = makeNode('delay', { delayMs: 1000, mode: 'fixed' });
@@ -861,12 +887,12 @@ describe('WorkflowNodeConfigModal', () => {
   it('updates HTTP initial variables via VariablesSection', () => {
     const onUpdateNode = vi.fn();
     render(<WorkflowNodeConfigModal {...defaultProps} onUpdateNode={onUpdateNode} />);
-    const section = screen.getByText('Initial variables (this step)').closest('.wf-config-vars')!;
+    const section = screen.getByText('Initial Variables (this step)').closest('.wf-http-initial-vars')!;
     const nameInput = within(section).getByPlaceholderText('name');
     const valueInput = within(section).getByPlaceholderText('value');
     fireEvent.change(nameInput, { target: { value: 'myKey' } });
     fireEvent.change(valueInput, { target: { value: 'myVal' } });
-    fireEvent.click(within(section).getByRole('button', { name: '+' }));
+    fireEvent.click(within(section).getByRole('button', { name: 'Add variable' }));
     fireEvent.click(screen.getByText('Save'));
     expect(onUpdateNode).toHaveBeenCalledWith(
       'node-1',

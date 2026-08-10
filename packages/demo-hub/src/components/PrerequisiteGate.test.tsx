@@ -296,6 +296,35 @@ describe('PrerequisiteGate', () => {
     });
   });
 
+  it('does not flash back to checking on subsequent polls while server stays down', async () => {
+    // First probe settles to down, then a follow-up poll is held in-flight so we
+    // can assert the UI stays on "down" (no ✗ → ⏳ → ✗ flicker every 3s).
+    let resolveSecond: (v: boolean) => void;
+    let call = 0;
+    mockCheck.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          call += 1;
+          if (call === 1) resolve(false);
+          else resolveSecond = resolve;
+        }),
+    );
+    render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+
+    await act(() => vi.advanceTimersByTimeAsync(3100));
+    // Second probe is in-flight — status must still show down, not checking.
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+    expect(screen.queryByLabelText('Checking server…')).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveSecond(false);
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+  });
+
   it('interval probe exits early via line 30 guard when component is already unmounted', async () => {
     // Fast-resolving check so initial probe completes, then unmount, then interval fires
     mockCheck.mockResolvedValue(false);
@@ -375,5 +404,45 @@ describe('PrerequisiteGate', () => {
     render(<PrerequisiteGate {...DEFAULT_PROPS} />);
     await act(() => vi.advanceTimersByTimeAsync(100));
     expect(screen.queryByTestId('prereq-service-list')).toBeNull();
+  });
+
+  it('initiallyCleared seeds per-service rows as up (not stuck on checking…)', async () => {
+    mockCheck.mockResolvedValue(true);
+    render(
+      <PrerequisiteGate
+        endpoints={['http://127.0.0.1:4444/health', 'http://127.0.0.1:4446/health']}
+        dockerCommand="docker compose up"
+        onServerReady={vi.fn()}
+        initiallyCleared
+      />,
+    );
+    expect(screen.getByTestId('prereq-status').textContent).toContain('Server detected');
+    const rows = screen.getAllByTestId('prereq-service');
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.textContent).toContain('reachable');
+      expect(row.textContent).not.toContain('checking');
+    }
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    for (const row of screen.getAllByTestId('prereq-service')) {
+      expect(row.textContent).toContain('reachable');
+    }
+  });
+
+  it('initiallyCleared re-verify updates service rows when a probe is down', async () => {
+    mockCheck.mockImplementation(async (url: string) => url.includes('4444'));
+    render(
+      <PrerequisiteGate
+        endpoints={['http://127.0.0.1:4444/health', 'http://127.0.0.1:4446/health']}
+        dockerCommand="docker compose up"
+        onServerReady={vi.fn()}
+        initiallyCleared
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+    const rows = screen.getAllByTestId('prereq-service');
+    expect(rows[0].textContent).toContain('reachable');
+    expect(rows[1].textContent).toContain('not detected');
   });
 });

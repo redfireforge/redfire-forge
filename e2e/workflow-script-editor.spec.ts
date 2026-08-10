@@ -249,8 +249,8 @@ test.describe('Script Editor Modal - Expand/Shrink', () => {
     const overlay = page.locator('.wf-script-modal-overlay');
     await expect(overlay).toBeVisible({ timeout: 3000 });
 
-    // Close button (×) in header
-    const closeBtn = overlay.locator('.wf-script-modal .ram-modal-close');
+    // Close via the Cancel button
+    const closeBtn = overlay.locator('button', { hasText: 'Cancel' });
     await closeBtn.click();
 
     await expect(overlay).not.toBeVisible({ timeout: 2000 });

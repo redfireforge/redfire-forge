@@ -4,6 +4,7 @@ import { isGrpcSecretMetadataKey } from '../../../shared/grpc/grpcSecretPolicy';
 import type { GrpcAuthPreviewResult } from '../utils/grpcAuthPreview';
 import type { GrpcAuthSecretFieldKey, GrpcMaskedSecretFields } from '../utils/grpcSecretFieldUi';
 import { getGrpcCompatibleGlobalAuthProfiles } from '../utils/grpcAuthProfileResolve';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { GrpcSecretField } from './GrpcSecretField';
 
 export interface GrpcAuthPanelProps {
@@ -112,20 +113,18 @@ export function GrpcAuthPanel({
           Auth type
         </label>
         <div className="grpc-auth-form-ctrl">
-          <select
-            id="grpc-auth-type-select"
+          <CustomSelect
             className="grpc-auth-select"
             value={authType}
             disabled={disabled}
             data-testid="grpc-auth-type-select"
-            onChange={(event) => handleTypeChange(event.target.value as GrpcAuthType | 'none')}
-          >
-            {authTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            aria-label="Auth type"
+            onChange={(v) => handleTypeChange(v as GrpcAuthType | 'none')}
+            options={authTypeOptions.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+          />
           <span className="visually-hidden" data-testid="grpc-auth-type">{authType}</span>
         </div>
       </div>
@@ -144,22 +143,25 @@ export function GrpcAuthPanel({
               Auth profile
             </label>
             <div className="grpc-auth-form-ctrl">
-              <select
-                id="grpc-auth-profile-select"
+              <CustomSelect
                 className="grpc-auth-select"
                 value={auth?.globalProfileId ?? defaultAuthProfileId ?? ''}
                 disabled={disabled}
                 data-testid="grpc-auth-profile-select"
-                onChange={(event) => onChange({
+                aria-label="Auth profile"
+                placeholder="— Select a profile —"
+                onChange={(v) => onChange({
                   type: 'inherit',
-                  globalProfileId: event.target.value || undefined,
+                  globalProfileId: v || undefined,
                 })}
-              >
-                <option value="">— Select a profile —</option>
-                {compatibleProfiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>{profile.name}</option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: '— Select a profile —' },
+                  ...compatibleProfiles.map((profile) => ({
+                    value: profile.id,
+                    label: profile.name,
+                  })),
+                ]}
+              />
             </div>
           </div>
           <div className="grpc-auth-info-box" data-testid="grpc-auth-inherit-notice" role="status">

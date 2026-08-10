@@ -54,9 +54,9 @@ export async function waitForWorkflowReady(page: Page): Promise<void> {
 
 export async function openWorkflowBlocksTab(page: Page): Promise<void> {
   await expect(page.locator('.wf-palette')).toBeVisible({ timeout: 5000 });
-  const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
+  const blocksTab = page.getByTestId('wf-palette-tab-blocks');
   await blocksTab.click();
-  await expect(page.locator('.wf-palette-category-title').first()).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.wf-palette-block').first()).toBeVisible({ timeout: 5000 });
 }
 
 export async function gotoAppTab(page: Page, tab: string): Promise<void> {

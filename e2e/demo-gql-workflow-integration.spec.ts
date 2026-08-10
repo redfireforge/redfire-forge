@@ -7,7 +7,7 @@
  * Full lesson needs Docker GraphQL on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 13 disables Next — use walkFullGql16Lesson, not runNextStep on the final step.
+ * Last-step rule: step 12 disables Next — use walkFullGql16Lesson, not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';
@@ -106,7 +106,7 @@ test.describe('GQL-16 — full lesson (Docker)', () => {
     await exitLesson(page);
   });
 
-  test('Phase 8 — 1× auto-play completes all 13 steps', async ({ page, request }) => {
+  test('Phase 8 — 1× auto-play completes all 12 steps', async ({ page, request }) => {
     const healthy = await isGraphqlServerHealthy(request);
     test.skip(!healthy, 'GraphQL test server not running on port 4010 — start docker/graphql');
 
@@ -122,7 +122,7 @@ test.describe('GQL-16 — full lesson (Docker)', () => {
 
     const debugShot = page
       .waitForSelector('[data-testid="wf-debug-toolbar"]', { timeout: MUTATION_TIMEOUT })
-      .then(() => takeNamedScreenshot(page, 'gql16-step13-debug-mode'))
+      .then(() => takeNamedScreenshot(page, 'gql16-step12-debug-mode'))
       .catch(() => undefined);
 
     await enableAutoPlay(page);
@@ -145,7 +145,7 @@ test.describe('GQL-16 — full lesson (Docker)', () => {
     await exitLesson(page);
   });
 
-  test('Phase 8 — rapid Next preAction guards recover on step 13', async ({ page, request }) => {
+  test('Phase 8 — rapid Next preAction guards recover on step 12', async ({ page, request }) => {
     const healthy = await isGraphqlServerHealthy(request);
     test.skip(!healthy, 'GraphQL test server not running on port 4010 — start docker/graphql');
 
@@ -160,7 +160,7 @@ test.describe('GQL-16 — full lesson (Docker)', () => {
     }
 
     let { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/12\s*[/]\s*13/);
+    expect(counter).toMatch(/11\s*[/]\s*12/);
 
     await finishDemoStep(page, MUTATION_TIMEOUT);
     ({ counter, title } = await getStepInfo(page));
@@ -169,7 +169,7 @@ test.describe('GQL-16 — full lesson (Docker)', () => {
 
     await expect(page.locator('[data-testid="gql-canvas-query-node"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-canvas-assert-node"]')).toBeVisible({ timeout: 15_000 });
-    await takeNamedScreenshot(page, 'gql16-rapid-next-step13-recovery');
+    await takeNamedScreenshot(page, 'gql16-rapid-next-step12-recovery');
     await exitLesson(page);
   });
 });

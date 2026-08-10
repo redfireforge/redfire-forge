@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsMockServerAdvancedLesson } from './ws-mock-server-advanced';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-mock-server-advanced lesson', () => {
   beforeEach(() => {
@@ -53,9 +53,9 @@ describe('ws-mock-server-advanced lesson', () => {
     expect(wsMockServerAdvancedLesson.concept.diagram).toBeTruthy();
   });
 
-  it('has category websocket and estimatedMinutes 3', () => {
+  it('has category websocket and estimatedMinutes 4', () => {
     expect(wsMockServerAdvancedLesson.category).toBe('websocket');
-    expect(wsMockServerAdvancedLesson.estimatedMinutes).toBe(3);
+    expect(wsMockServerAdvancedLesson.estimatedMinutes).toBe(4);
   });
 
   it('has correct step IDs in order', () => {
@@ -143,6 +143,7 @@ describe('ws-mock-server-advanced lesson', () => {
     const clickSpy = vi.fn();
     ruleNameBtn.addEventListener('click', clickSpy);
     document.body.appendChild(ruleNameBtn);
+    makeVisible(ruleNameBtn);
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
@@ -156,12 +157,14 @@ describe('ws-mock-server-advanced lesson', () => {
     const addClickSpy = vi.fn();
     addBtn.addEventListener('click', addClickSpy);
     document.body.appendChild(addBtn);
+    makeVisible(addBtn);
 
     const matchSel = document.createElement('select');
     matchSel.setAttribute('data-testid', 'rule-match-type-0');
     const changeListener = vi.fn();
     matchSel.addEventListener('change', changeListener);
     document.body.appendChild(matchSel);
+    makeVisible(matchSel);
 
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -178,6 +181,7 @@ describe('ws-mock-server-advanced lesson', () => {
     const clickSpy = vi.fn();
     ruleNameBtn.addEventListener('click', clickSpy);
     document.body.appendChild(ruleNameBtn);
+    makeVisible(ruleNameBtn);
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
@@ -191,12 +195,14 @@ describe('ws-mock-server-advanced lesson', () => {
     const addClickSpy = vi.fn();
     addBtn.addEventListener('click', addClickSpy);
     document.body.appendChild(addBtn);
+    makeVisible(addBtn);
 
     const matchSel = document.createElement('select');
     matchSel.setAttribute('data-testid', 'rule-match-type-0');
     const changeListener = vi.fn();
     matchSel.addEventListener('change', changeListener);
     document.body.appendChild(matchSel);
+    makeVisible(matchSel);
 
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -310,6 +316,7 @@ describe('ws-mock-server-advanced lesson', () => {
     const clickSpy = vi.fn();
     addBtn.addEventListener('click', clickSpy);
     document.body.appendChild(addBtn);
+    makeVisible(addBtn);
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-toggle')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -338,9 +345,44 @@ describe('ws-mock-server-advanced lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 
-  it('step mock-adv-fallback has no action (informational)', () => {
+  it('step mock-adv-fallback action opens visible dropdown and closes without exiting demo', async () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-fallback')!;
-    expect(step.action).toBeUndefined();
+    expect(typeof step.action).toBe('function');
+
+    const selectEl = document.createElement('div');
+    selectEl.setAttribute('data-testid', 'mock-fallback-select');
+    const trigger = document.createElement('button');
+    trigger.className = 'cs-trigger';
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        trigger.setAttribute('aria-expanded', 'false');
+        document.querySelector('body > .cs-menu')?.remove();
+      }
+    });
+    const triggerClickSpy = vi.fn(() => {
+      const open = trigger.getAttribute('aria-expanded') === 'true';
+      trigger.setAttribute('aria-expanded', open ? 'false' : 'true');
+      if (!open) {
+        const menu = document.createElement('div');
+        menu.className = 'cs-menu';
+        document.body.appendChild(menu);
+      } else {
+        document.querySelector('body > .cs-menu')?.remove();
+      }
+    });
+    trigger.addEventListener('click', triggerClickSpy);
+    selectEl.appendChild(trigger);
+    document.body.appendChild(selectEl);
+    makeVisible(selectEl);
+    makeVisible(trigger);
+
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(triggerClickSpy).toHaveBeenCalled();
+    expect(document.querySelector('body > .cs-menu')).toBeNull();
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
   it('step mock-adv-fallback highlights fallback select', () => {
@@ -357,58 +399,82 @@ describe('ws-mock-server-advanced lesson', () => {
 
   // ─── Step: mock-adv-live ────────────────────────────────────
 
-  it('step mock-adv-live action sends ping and a non-matching message', async () => {
+  it('step mock-adv-live action shows Connect then sends ping and hello world', async () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-live')!;
+
+    const url = document.createElement('input');
+    url.setAttribute('aria-label', 'WebSocket URL');
+    document.body.appendChild(url);
+    makeVisible(url);
+    const input = document.createElement('textarea');
+    input.setAttribute('aria-label', 'Message input');
+    document.body.appendChild(input);
+    makeVisible(input);
+    const sendBtn = document.createElement('button');
+    sendBtn.setAttribute('data-testid', 'send-btn');
+    document.body.appendChild(sendBtn);
+    makeVisible(sendBtn);
+
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ping');
+
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('localhost'),
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Message input'), 'ping');
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'hello world');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('Message input'), 'hello world');
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
-  it('step mock-adv-live preAction starts mock server and connects', async () => {
+  it('step mock-adv-live action skips Connect click when already connected', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-live')!;
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    makeVisible(dot);
+    document.body.appendChild(dot);
+    const url = document.createElement('input');
+    url.setAttribute('aria-label', 'WebSocket URL');
+    document.body.appendChild(url);
+    makeVisible(url);
+
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+  });
+
+  it('step mock-adv-live preAction quietly ensures mock and lands on Connect', async () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-live')!;
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'mock-start-btn');
     document.body.appendChild(btn);
+    makeVisible(btn);
+    const startSpy = vi.spyOn(btn, 'click');
+    const client = document.createElement('button');
+    client.setAttribute('data-testid', 'mode-client');
+    document.body.appendChild(client);
+    const clientSpy = vi.spyOn(client, 'click');
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'left-tab-connect');
+    document.body.appendChild(connectTab);
+    const connectSpy = vi.spyOn(connectTab, 'click');
+
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9876');
-    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'));
-    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'));
+    // Quiet DOM clicks — no ctx.click for mode/connect tours
+    expect(ctx.click).not.toHaveBeenCalled();
+    expect(startSpy).toHaveBeenCalled();
+    expect(clientSpy).toHaveBeenCalled();
+    expect(connectSpy).toHaveBeenCalled();
+    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
-  it('step mock-adv-live preAction skips connect when already connected', async () => {
+  it('step mock-adv-live highlights Connect tab for reading', () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-live')!;
-    // Add STATUS_CONNECTED element so guard triggers (already connected)
-    const dot = document.createElement('div');
-    dot.className = 'ws-status-dot connected';
-    document.body.appendChild(dot);
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
-  });
-
-  it('step mock-adv-live preAction navigates to Events tab before Compose', async () => {
-    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-live')!;
-    const ctx = makeCtx();
-    const calls: string[] = [];
-    (ctx.click as ReturnType<typeof vi.fn>).mockImplementation((sel: string) => {
-      calls.push(sel);
-      return Promise.resolve();
-    });
-    await step.preAction!(ctx);
-    const eventsIdx = calls.findIndex(s => s.includes('right-tab-events'));
-    const composeIdx = calls.findLastIndex(s => s.includes('left-tab-send'));
-    expect(eventsIdx).toBeGreaterThanOrEqual(0);
-    expect(composeIdx).toBeGreaterThan(eventsIdx);
-  });
-
-  it('step mock-adv-live highlights the send button', () => {
-    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-live')!;
-    expect(step.highlight).toContain('send-btn');
+    expect(step.highlight).toContain('left-tab-connect');
   });
 
   it('step mock-adv-live has verify for message row', () => {
@@ -432,20 +498,42 @@ describe('ws-mock-server-advanced lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
   });
 
-  it('cleanup deleteFirstRule clicks delete button when rule exists (line 39 true branch)', async () => {
-    // Add a rule delete button that removes itself on click (prevents infinite while loop)
+  it('cleanup clears leftover mock rules via delete buttons', async () => {
+    // Visible rule card + delete button that removes the card on click
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'mock-rule-0');
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'rule-delete-0');
     const clickSpy = vi.fn();
     btn.addEventListener('click', () => {
       clickSpy();
-      btn.remove(); // Remove from DOM so deleteFirstRule() returns false next iteration
+      card.remove();
     });
-    document.body.appendChild(btn);
+    card.appendChild(btn);
+    document.body.appendChild(card);
+    makeVisible(card);
+    makeVisible(btn);
 
     const ctx = makeCtx();
     await wsMockServerAdvancedLesson.cleanup!(ctx);
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('step mock-adv-add-rule preAction clears leftover rules before adding', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-add-rule')!;
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'mock-rule-old');
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'rule-delete-old');
+    btn.addEventListener('click', () => card.remove());
+    card.appendChild(btn);
+    document.body.appendChild(card);
+    makeVisible(card);
+    makeVisible(btn);
+
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(document.querySelector('[data-testid="mock-rule-old"]')).toBeNull();
   });
 });
 

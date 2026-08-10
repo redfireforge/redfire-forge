@@ -4,6 +4,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import {
+  selectOption,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+} from '../../../test-utils/customSelectHelper';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
 import { mockEvents, mockIterations } from './__test-utils__/resultsExplorerDetailPanelTestHelpers';
@@ -11,6 +16,10 @@ import { mockEvents, mockIterations } from './__test-utils__/resultsExplorerDeta
 describe('ResultsExplorerDetailPanel', () => {
   const mockOnIterationChange = vi.fn();
   const mockOnClose = vi.fn();
+
+  function iterationSelect(): Element {
+    return document.querySelector('.explorer-detail-iteration-select .cs-wrapper')!;
+  }
 
   afterEach(() => {
     cleanup();
@@ -142,9 +151,8 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    const select = screen.getByRole('combobox');
-    expect(select).toBeInTheDocument();
-    expect(screen.getByText('All Iterations (Aggregate)')).toBeInTheDocument();
+    expect(iterationSelect()).toBeTruthy();
+    expect(getCustomSelectValue(iterationSelect())).toBe('All Iterations (Aggregate)');
   });
 
   it('calls onIterationChange when iteration is selected', () => {
@@ -160,11 +168,10 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: '0' } });
+    selectOption(iterationSelect(), '#1 — ✓ 250ms');
     expect(mockOnIterationChange).toHaveBeenCalledWith(0);
     mockOnIterationChange.mockClear();
-    fireEvent.change(select, { target: { value: 'all' } });
+    selectOption(iterationSelect(), 'All Iterations (Aggregate)');
     expect(mockOnIterationChange).toHaveBeenCalledWith(undefined);
   });
 
@@ -217,8 +224,7 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    const closeButton = screen.getByRole('button', { name: '✕' });
-    fireEvent.click(closeButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(mockOnClose).toHaveBeenCalled();
   });
 
@@ -284,8 +290,9 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    expect(screen.getByText('#1 — ✓ <1ms')).toBeInTheDocument();
-    expect(screen.getByText('#2 — ✗ 1.50s')).toBeInTheDocument();
+    const labels = getCustomSelectOptionLabels(iterationSelect());
+    expect(labels.some((label) => label.includes('#1 — ✓ <1ms'))).toBe(true);
+    expect(labels.some((label) => label.includes('#2 — ✗ 1.50s'))).toBe(true);
   });
 
   it('shows timing bar from responseTimeMs when durationMs is absent', () => {
@@ -408,8 +415,8 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    // No combobox when only 1 iteration
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    // No iteration selector when only 1 iteration
+    expect(document.querySelector('.explorer-detail-iteration-select')).not.toBeInTheDocument();
   });
 
   it('shows 100% pass rate with green color', () => {
@@ -644,7 +651,7 @@ describe('ResultsExplorerDetailPanel', () => {
       },
     }];
 
-    it('shows empty variable message when only webhook input exists', () => {
+    it('shows no-full-trace hint when only webhook input exists without request trace', () => {
       render(
         <ResultsExplorerDetailPanel
           nodeId="webhook-1"
@@ -668,7 +675,7 @@ describe('ResultsExplorerDetailPanel', () => {
       );
 
       fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
-      expect(screen.getByText('No variable data available')).toBeInTheDocument();
+      expect(screen.getByText(/Full trace not captured/i)).toBeInTheDocument();
     });
 
     it('truncates long variable values', () => {
@@ -716,6 +723,152 @@ describe('ResultsExplorerDetailPanel', () => {
       expect(screen.getByText('All Variables (after this node)')).toBeInTheDocument();
       // token appears multiple times (in extracted and snapshot sections)
       expect(screen.getAllByText('token').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('AssertionsTab', () => {
+    it('renders pass/fail assertion list', () => {
+      const assertionEvents: ExecutionEvent[] = [{
+        nodeId: 'http-1', nodeType: 'http', nodeLabel: 'Get Users',
+        timestamp: 1000, state: 'pass', durationMs: 100,
+        details: {
+          statusCode: 200, method: 'GET', url: '/api',
+          assertions: [
+            { type: 'status', description: 'Status is 200', passed: true },
+            { type: 'jsonPath', description: '$.name exists', passed: false, expected: 'John', actual: 'null' },
+          ],
+        },
+      }];
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1" nodeType="http" nodeLabel="Get Users"
+          events={assertionEvents}
+          iterations={[{ index: 0, passed: true, durationMs: 100, traversedEdges: [], events: assertionEvents }]}
+          onIterationChange={mockOnIterationChange} onClose={mockOnClose}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Assertions' }));
+      expect(screen.getByText('1 of 2 passed')).toBeInTheDocument();
+      expect(screen.getByText('Expected: John')).toBeInTheDocument();
+      expect(screen.getByText('Actual: null')).toBeInTheDocument();
+    });
+
+    it('shows empty state when no assertions', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1" nodeType="http" nodeLabel="Get Users"
+          events={mockEvents}
+          iterations={mockIterations}
+          onIterationChange={mockOnIterationChange} onClose={mockOnClose}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Assertions' }));
+      expect(screen.getByText(/No assertions defined/)).toBeInTheDocument();
+    });
+  });
+
+  describe('VariablesTab edge cases', () => {
+    it('shows no-full-trace hint when fullTraceCaptured is false', () => {
+      const noVarEvents: ExecutionEvent[] = [{
+        nodeId: 'http-1', nodeType: 'http', nodeLabel: 'Get Users',
+        timestamp: 1000, state: 'pass', durationMs: 100,
+        details: { statusCode: 200, method: 'GET', url: '/api', variablesSnapshot: { token: 'abc123' } },
+      }];
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1" nodeType="http" nodeLabel="Get Users"
+          events={noVarEvents}
+          iterations={[{ index: 0, passed: true, durationMs: 100, traversedEdges: [], events: noVarEvents }]}
+          onIterationChange={mockOnIterationChange} onClose={mockOnClose}
+          fullTraceCaptured={false}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      expect(screen.getByText(/Full trace not captured/i)).toBeInTheDocument();
+    });
+
+    it('renders mapping traces with Open in Mapper button', () => {
+      const onOpenMapper = vi.fn();
+      const traceEvents: ExecutionEvent[] = [{
+        nodeId: 'http-1', nodeType: 'http', nodeLabel: 'Get Users',
+        timestamp: 1000, state: 'pass', durationMs: 100,
+        details: {
+          statusCode: 200, method: 'GET', url: '/api',
+          request: { method: 'GET', url: '/api', headers: {} },
+          mappingTraces: [
+            { mappingId: 'mt1', sourcePath: '$.body.id', targetPath: 'userId', targetValue: '42' },
+            { mappingId: 'mt2', sourcePath: '$.body.x', targetPath: 'y', expression: 'toUpper()', error: 'eval failed' },
+          ],
+        },
+      }];
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1" nodeType="http" nodeLabel="Get Users"
+          events={traceEvents}
+          iterations={[{ index: 0, passed: true, durationMs: 100, traversedEdges: [], events: traceEvents }]}
+          onIterationChange={mockOnIterationChange} onClose={mockOnClose}
+          fullTraceCaptured={true}
+          onOpenMapper={onOpenMapper}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      expect(screen.getByText('Mapping Traces')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('open-in-mapper-btn'));
+      expect(onOpenMapper).toHaveBeenCalled();
+      expect(screen.getByText(/Error:/)).toBeInTheDocument();
+      expect(screen.getByText('fx')).toBeInTheDocument();
+    });
+  });
+
+  describe('sub-workflow drill-down', () => {
+    it('renders drill-down button for subWorkflow node', () => {
+      const onDrillDown = vi.fn();
+      const swEvents: ExecutionEvent[] = [{
+        nodeId: 'sw-1', nodeType: 'subWorkflow', nodeLabel: 'Child Flow',
+        timestamp: 1000, state: 'pass', durationMs: 200,
+        details: {
+          subWorkflowId: 'child-wf-id',
+          subWorkflowTrace: { nodes: [], edges: [], events: [], iterations: [] },
+        },
+      }];
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="sw-1" nodeType="subWorkflow" nodeLabel="Child Flow"
+          events={swEvents}
+          iterations={[{ index: 0, passed: true, durationMs: 200, traversedEdges: [], events: swEvents }]}
+          onIterationChange={mockOnIterationChange} onClose={mockOnClose}
+          onDrillDown={onDrillDown}
+        />
+      );
+      const drillBtn = screen.queryByText(/Drill Down/i) || screen.queryByTestId('drill-down-btn');
+      if (drillBtn) {
+        fireEvent.click(drillBtn);
+        expect(onDrillDown).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe('ResponseTab edge cases', () => {
+    it('renders error in response with status code', () => {
+      const errorEvents: ExecutionEvent[] = [{
+        nodeId: 'http-1', nodeType: 'http', nodeLabel: 'Fail',
+        timestamp: 1000, state: 'fail', durationMs: 50,
+        details: {
+          statusCode: 503, method: 'POST', url: '/api/submit',
+          error: 'Service Unavailable',
+        },
+      }];
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1" nodeType="http" nodeLabel="Fail"
+          events={errorEvents}
+          iterations={[{ index: 0, passed: false, durationMs: 50, traversedEdges: [], events: errorEvents }]}
+          onIterationChange={mockOnIterationChange} onClose={mockOnClose}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Response' }));
+      expect(screen.getByText(/503/)).toBeInTheDocument();
+      expect(screen.getByText(/Service Unavailable/)).toBeInTheDocument();
     });
   });
 

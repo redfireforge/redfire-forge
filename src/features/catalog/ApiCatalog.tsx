@@ -1,13 +1,40 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import type { UseCatalogReturn } from './hooks/useCatalog';
 import type { AuthConfig, GlobalAuthProfile, Environment, Microservice, RequestCollection } from '../../shared/types';
-import type { CatalogEndpoint, SavedEndpointValues } from './types/catalog';
+import type { CatalogEntry, CatalogEndpoint, CatalogFolder, SavedEndpointValues, WorkflowPublication } from './types/catalog';
 import type { SendToRequestsPayload } from './components/CatalogSendToRequestsModal';
 import { buildCoverageMap } from './utils/coverageChecker';
 import CatalogWelcome from './components/CatalogWelcome';
 import CatalogEndpointBrowser from './components/CatalogEndpointBrowser';
 import CatalogOverview from './components/CatalogOverview';
 import CatalogSendToRequestsModal from './components/CatalogSendToRequestsModal';
+import CatalogYamlViewerModal from './components/CatalogYamlViewerModal';
+import UnpublishConfirmDialog from './components/UnpublishConfirmDialog';
+import type { UnpublishRequest } from './components/UnpublishConfirmDialog';
+import PublishEndpointModal from './components/PublishEndpointModal';
+import type { PublishRequest, PublishResult } from './components/PublishEndpointModal';
+import { scanWorkflowsForCatalogRef, removeCatalogNodesFromWorkflows } from './utils/workflowExposureScanner';
+import { loadCatalogView, saveCatalogView, loadCatalogRawSpec } from '../../shared/utils/storageCatalog';
+import { loadWorkflowPreviews, addWorkflowPreview, removeWorkflowPreview, getPreviewedEndpointIds } from '../../shared/utils/workflowPreviewStorage';
+import type { PreviewMap } from '../../shared/utils/workflowPreviewStorage';
+import PublishedEndpointsPanel from './components/PublishedEndpointsPanel';
+import { aggregatePublishedEndpoints } from './utils/publishedEndpointAggregator';
+import { republishAtCurrentVersion } from './utils/publicationDrift';
+import { usePublishPermission } from './hooks/usePublishPermission';
+import { logPublicationAudit } from './utils/publicationAudit';
+import { DEMO_INITIAL_SURFACE_EVENT, peekDemoInitialSurface } from '../../shared/demoInitialSurface';
+
+function findEndpointInEntry(entry: CatalogEntry, endpointId: string): CatalogEndpoint | undefined {
+  const search = (eps: CatalogEndpoint[]): CatalogEndpoint | undefined => eps.find(e => e.id === endpointId);
+  const searchFolders = (folders: CatalogFolder[]): CatalogEndpoint | undefined => {
+    for (const f of folders) {
+      const found = search(f.endpoints) ?? searchFolders(f.folders);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  return search(entry.endpoints) ?? searchFolders(entry.folders);
+}
 
 interface Props {
   catalog: UseCatalogReturn;
@@ -15,6 +42,7 @@ interface Props {
   onReimport?: (entryId: string) => void;
   onVersionHistory?: (entryId: string) => void;
   onExportSpec?: (entryId: string) => void;
+  onConvertToOpenApi?: (entryId: string) => void;
   onSendToRequests?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
   onExportSingleEndpoint?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>, endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onEditEntry?: (entryId: string) => void;
@@ -26,15 +54,47 @@ interface Props {
   savedEpValues?: Record<string, SavedEndpointValues>;
   onExportConfirm?: (payload: SendToRequestsPayload) => void;
   onSendEndpointToHarness?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>, endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
+  /** Notify parent that preview state changed so the palette can refresh. */
+  onPreviewsChanged?: () => void;
 }
 
-type View = 'overview' | 'endpoints' | 'export';
+type View = 'overview' | 'endpoints' | 'export' | 'published';
 
-export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness }: Props) {
+function resolveDemoCatalogView(): View | null {
+  const hinted = peekDemoInitialSurface()?.catalogView;
+  if (hinted === 'overview' || hinted === 'endpoints' || hinted === 'export' || hinted === 'published') {
+    return hinted;
+  }
+  return null;
+}
+
+function isDemoCatalogBootActive(): boolean {
+  return !!peekDemoInitialSurface()?.catalogView
+    || document.body.getAttribute('data-demo-bootstrapping') === '1';
+}
+
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness, onPreviewsChanged }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
-  const [view, setView] = useState<View>('endpoints');
+  const [view, setView] = useState<View>(() => resolveDemoCatalogView() ?? 'endpoints');
+  const publishPermission = usePublishPermission(catalog.selectedEntry?.id ?? '');
+  const [yamlContent, setYamlContent] = useState<string | null>(null);
+  const [showYamlModal, setShowYamlModal] = useState(false);
   const prevEntryId = useRef<string | undefined>(undefined);
   const prevEnvId = useRef<string | undefined>(undefined);
+
+  // Live demos arm `catalogView` before the tab is shown. Catalog often stays
+  // mounted across lessons, so re-apply whenever the surface hint changes —
+  // otherwise CAT-3's Endpoints landing sticks and CAT-4 Overview flashes Endpoints first.
+  useLayoutEffect(() => {
+    const applyHint = () => {
+      const hinted = resolveDemoCatalogView();
+      if (!hinted) return;
+      setView((current) => (current === hinted ? current : hinted));
+    };
+    applyHint();
+    window.addEventListener(DEMO_INITIAL_SURFACE_EVENT, applyHint);
+    return () => window.removeEventListener(DEMO_INITIAL_SURFACE_EVENT, applyHint);
+  }, []);
 
   useEffect(() => {
     const entry = catalog.selectedEntry;
@@ -136,20 +196,232 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     }
   }, [catalog.selectedEntry, onSendEndpointToHarness]);
 
-  const handleToggleWorkflowExpose = useCallback((ep: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => {
+  const handleViewYaml = useCallback(async () => {
     const entry = catalog.selectedEntry;
+    if (!entry?.currentVersionId) return;
+    const raw = await loadCatalogRawSpec(entry.id, entry.currentVersionId);
+    setYamlContent(raw || '# No raw spec available for this entry.');
+    setShowYamlModal(true);
+  }, [catalog.selectedEntry]);
+
+  const [previewMap, setPreviewMap] = useState<PreviewMap>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    loadWorkflowPreviews().then(map => { if (!cancelled) setPreviewMap(map); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const previewedEndpointIds = useMemo(() => {
+    const entry = catalog.selectedEntry;
+    if (!entry) return new Set<string>();
+    return getPreviewedEndpointIds(previewMap, entry.id);
+  }, [catalog.selectedEntry, previewMap]);
+
+  const [unpublishRequest, setUnpublishRequest] = useState<UnpublishRequest | null>(null);
+  const pendingUnpublishRef = useRef<{ ep: CatalogEndpoint; mode: 'preview' | 'published' | undefined; values: SavedEndpointValues } | null>(null);
+  const [publishRequest, setPublishRequest] = useState<PublishRequest | null>(null);
+  const pendingPublishRef = useRef<{ ep: CatalogEndpoint; values: SavedEndpointValues; entryId: string } | null>(null);
+  const [previewPromoteAlert, setPreviewPromoteAlert] = useState<{ method: string; path: string } | null>(null);
+
+  const applyPublicationToEntry = useCallback((entryId: string, ep: CatalogEndpoint, publication: WorkflowPublication | undefined) => {
+    const entry = catalog.entries.find(e => e.id === entryId);
     if (!entry) return;
     const patchEp = (e: CatalogEndpoint): CatalogEndpoint =>
       e.id === ep.id
-        ? { ...e, exposedToWorkflow: exposed, workflowValues: exposed ? { paramValues: values.params, headerValues: values.headers, body: values.body || undefined } : undefined }
+        ? {
+            ...e,
+            workflowPublication: publication,
+            exposedToWorkflow: undefined,
+            workflowExposure: undefined,
+            workflowValues: undefined,
+          }
         : e;
     const patchFolders = (folders: typeof entry.folders): typeof entry.folders =>
       folders.map(f => ({ ...f, endpoints: f.endpoints.map(patchEp), folders: patchFolders(f.folders) }));
-    catalog.updateEntry(entry.id, {
+    catalog.updateEntry(entryId, {
       endpoints: entry.endpoints.map(patchEp),
       folders: patchFolders(entry.folders),
     });
   }, [catalog]);
+
+  const applyPublication = useCallback((ep: CatalogEndpoint, publication: WorkflowPublication | undefined) => {
+    const entry = catalog.selectedEntry;
+    if (!entry) return;
+    applyPublicationToEntry(entry.id, ep, publication);
+  }, [catalog.selectedEntry, applyPublicationToEntry]);
+
+  const finishUnpublish = useCallback((ep: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues, entryId: string, endpointId: string) => {
+    applyPublicationToEntry(entryId, ep, undefined);
+    if (mode === 'preview') {
+      const entry = catalog.entries.find(e => e.id === entryId);
+      const preview = {
+        entryId,
+        endpointId,
+        method: ep.method,
+        path: ep.path,
+        summary: ep.summary || ep.path,
+        entryName: entry?.name ?? '',
+        addedAt: Date.now(),
+        values: { paramValues: values.params, headerValues: values.headers, body: values.body || undefined },
+      };
+      addWorkflowPreview(preview).then(() => {
+        setPreviewMap(prev => ({ ...prev, [`${entryId}::${endpointId}`]: preview }));
+        onPreviewsChanged?.();
+      });
+    } else {
+      removeWorkflowPreview(entryId, endpointId).then(() => {
+        setPreviewMap(prev => { const next = { ...prev }; delete next[`${entryId}::${endpointId}`]; return next; });
+        onPreviewsChanged?.();
+      });
+    }
+  }, [applyPublicationToEntry, catalog.entries, onPreviewsChanged]);
+
+  const handleSetWorkflowExposure = useCallback((ep: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => {
+    const entry = catalog.selectedEntry;
+    if (!entry) return;
+
+    const wasPublished = !!(ep.workflowPublication || ep.workflowExposure === 'published');
+    const isDowngrading = wasPublished && mode !== 'published';
+
+    if (isDowngrading) {
+      pendingUnpublishRef.current = { ep, mode, values };
+      scanWorkflowsForCatalogRef(entry.id, ep.id).then(affected => {
+        if (affected.length === 0) {
+          finishUnpublish(ep, mode, values, entry.id, ep.id);
+          logPublicationAudit({
+            action: 'unpublish', entryId: entry.id, endpointId: ep.id,
+            method: ep.method, path: ep.path, timestamp: Date.now(),
+          });
+        } else {
+          setUnpublishRequest({
+            endpointLabel: ep.summary || ep.path,
+            method: ep.method,
+            path: ep.path,
+            entryId: entry.id,
+            endpointId: ep.id,
+            affected,
+            publication: ep.workflowPublication,
+          });
+        }
+      });
+      return;
+    }
+
+    if (mode === 'published') {
+      const previewKey = `${entry.id}::${ep.id}`;
+      const previewEntry = previewMap[previewKey];
+      if (previewEntry) {
+        setPreviewPromoteAlert({ method: ep.method, path: ep.path });
+        return;
+      }
+      const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
+      pendingPublishRef.current = { ep, values, entryId: entry.id };
+      setPublishRequest({
+        method: ep.method,
+        path: ep.path,
+        summary: ep.summary || ep.path,
+        entryName: entry.name,
+        versionLabel: currentVersion?.version ?? entry.currentVersionId,
+        currentVersionId: entry.currentVersionId,
+        includeValues: true,
+        values: { paramValues: values.params, headerValues: values.headers, body: values.body || undefined },
+      });
+    } else if (mode === 'preview') {
+      applyPublication(ep, undefined);
+      const preview = {
+        entryId: entry.id,
+        endpointId: ep.id,
+        method: ep.method,
+        path: ep.path,
+        summary: ep.summary || ep.path,
+        entryName: entry.name,
+        addedAt: Date.now(),
+        values: { paramValues: values.params, headerValues: values.headers, body: values.body || undefined },
+      };
+      addWorkflowPreview(preview).then(() => {
+        setPreviewMap(prev => ({ ...prev, [`${entry.id}::${ep.id}`]: preview }));
+        onPreviewsChanged?.();
+      });
+    } else {
+      applyPublication(ep, undefined);
+      removeWorkflowPreview(entry.id, ep.id).then(() => {
+        setPreviewMap(prev => { const next = { ...prev }; delete next[`${entry.id}::${ep.id}`]; return next; });
+        onPreviewsChanged?.();
+      });
+    }
+  }, [catalog, applyPublication, finishUnpublish, onPreviewsChanged, previewMap]);
+
+  const handlePublishConfirm = useCallback((result: PublishResult) => {
+    const pending = pendingPublishRef.current;
+    const req = publishRequest;
+    if (!pending || !req) return;
+
+    const publication: WorkflowPublication = {
+      publishedAt: Date.now(),
+      publishedFromVersionId: req.currentVersionId,
+      values: result.includeValues && pending.values
+        ? { paramValues: pending.values.params, headerValues: pending.values.headers, body: pending.values.body || undefined }
+        : undefined,
+      note: result.note || undefined,
+    };
+
+    removeWorkflowPreview(pending.entryId, pending.ep.id).then(() => {
+      setPreviewMap(prev => { const next = { ...prev }; delete next[`${pending.entryId}::${pending.ep.id}`]; return next; });
+      onPreviewsChanged?.();
+    });
+
+    applyPublicationToEntry(pending.entryId, pending.ep, publication);
+    logPublicationAudit({
+      action: 'publish', entryId: pending.entryId, endpointId: pending.ep.id,
+      method: pending.ep.method, path: pending.ep.path,
+      timestamp: publication.publishedAt,
+      versionId: publication.publishedFromVersionId,
+      note: publication.note,
+    });
+    pendingPublishRef.current = null;
+    setPublishRequest(null);
+  }, [publishRequest, applyPublicationToEntry, onPreviewsChanged]);
+
+  const handlePublishCancel = useCallback(() => {
+    pendingPublishRef.current = null;
+    setPublishRequest(null);
+  }, []);
+
+  const handleUnpublishPaletteOnly = useCallback(() => {
+    const pending = pendingUnpublishRef.current;
+    const req = unpublishRequest;
+    if (pending && req) {
+      finishUnpublish(pending.ep, pending.mode, pending.values, req.entryId, req.endpointId);
+      logPublicationAudit({
+        action: 'unpublish', entryId: req.entryId, endpointId: req.endpointId,
+        method: pending.ep.method, path: pending.ep.path, timestamp: Date.now(),
+      });
+    }
+    pendingUnpublishRef.current = null;
+    setUnpublishRequest(null);
+  }, [finishUnpublish, unpublishRequest]);
+
+  const handleUnpublishPaletteAndWorkflows = useCallback(async () => {
+    const pending = pendingUnpublishRef.current;
+    const req = unpublishRequest;
+    if (pending && req) {
+      const removed = await removeCatalogNodesFromWorkflows(req.entryId, req.endpointId);
+      finishUnpublish(pending.ep, pending.mode, pending.values, req.entryId, req.endpointId);
+      logPublicationAudit({
+        action: 'unpublish', entryId: req.entryId, endpointId: req.endpointId,
+        method: pending.ep.method, path: pending.ep.path, timestamp: Date.now(),
+        affectedWorkflows: removed,
+      });
+    }
+    pendingUnpublishRef.current = null;
+    setUnpublishRequest(null);
+  }, [finishUnpublish, unpublishRequest]);
+
+  const handleUnpublishCancel = useCallback(() => {
+    pendingUnpublishRef.current = null;
+    setUnpublishRequest(null);
+  }, []);
 
   const coverageMap = useMemo(
     () => catalog.selectedEntry && collections
@@ -157,6 +429,170 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
       : new Map(),
     [catalog.selectedEntry, collections],
   );
+
+  const publishedItems = useMemo(
+    () => aggregatePublishedEndpoints(catalog.entries),
+    [catalog.entries],
+  );
+
+  const handlePublishedUnpublish = useCallback((entryId: string, endpointId: string) => {
+    const entry = catalog.entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const ep = findEndpointInEntry(entry, endpointId);
+    if (!ep) return;
+
+    pendingUnpublishRef.current = { ep, mode: undefined, values: { params: {}, headers: {}, body: '' } };
+    scanWorkflowsForCatalogRef(entryId, endpointId).then(affected => {
+      if (affected.length === 0) {
+        applyPublicationToEntry(entryId, ep, undefined);
+        removeWorkflowPreview(entryId, endpointId).then(() => {
+          setPreviewMap(prev => { const next = { ...prev }; delete next[`${entryId}::${endpointId}`]; return next; });
+          onPreviewsChanged?.();
+        });
+        logPublicationAudit({
+          action: 'unpublish', entryId, endpointId,
+          method: ep.method, path: ep.path, timestamp: Date.now(),
+        });
+        pendingUnpublishRef.current = null;
+      } else {
+        setUnpublishRequest({
+          endpointLabel: ep.summary || ep.path,
+          method: ep.method,
+          path: ep.path,
+          entryId,
+          endpointId,
+          affected,
+          publication: ep.workflowPublication,
+        });
+      }
+    });
+  }, [catalog.entries, applyPublicationToEntry, onPreviewsChanged]);
+
+  const handleBulkUnpublishFromPanel = useCallback((ids: Array<{ entryId: string; endpointId: string }>) => {
+    const byEntry = new Map<string, Set<string>>();
+    for (const { entryId, endpointId } of ids) {
+      let s = byEntry.get(entryId);
+      if (!s) { s = new Set(); byEntry.set(entryId, s); }
+      s.add(endpointId);
+    }
+    for (const [entryId, epIds] of byEntry) {
+      const entry = catalog.entries.find(e => e.id === entryId);
+      if (!entry) continue;
+      const clearPub = (e: CatalogEndpoint): CatalogEndpoint =>
+        epIds.has(e.id) ? { ...e, workflowPublication: undefined, exposedToWorkflow: undefined, workflowExposure: undefined, workflowValues: undefined } : e;
+      const patchFolders = (folders: typeof entry.folders): typeof entry.folders =>
+        folders.map(f => ({ ...f, endpoints: f.endpoints.map(clearPub), folders: patchFolders(f.folders) }));
+      catalog.updateEntry(entryId, { endpoints: entry.endpoints.map(clearPub), folders: patchFolders(entry.folders) });
+      for (const epId of epIds) {
+        const ep = findEndpointInEntry(entry, epId);
+        if (ep) logPublicationAudit({ action: 'unpublish', entryId, endpointId: epId, method: ep.method, path: ep.path, timestamp: Date.now() });
+      }
+    }
+  }, [catalog]);
+
+  const handleBulkRepublish = useCallback((ids: Array<{ entryId: string; endpointId: string }>) => {
+    const byEntry = new Map<string, Set<string>>();
+    for (const { entryId, endpointId } of ids) {
+      let s = byEntry.get(entryId);
+      if (!s) { s = new Set(); byEntry.set(entryId, s); }
+      s.add(endpointId);
+    }
+    for (const [entryId, epIds] of byEntry) {
+      const entry = catalog.entries.find(e => e.id === entryId);
+      if (!entry) continue;
+      const republishEp = (e: CatalogEndpoint): CatalogEndpoint => {
+        if (!epIds.has(e.id)) return e;
+        const updated = republishAtCurrentVersion(e, entry);
+        if (!updated) return e;
+        logPublicationAudit({ action: 'republish', entryId, endpointId: e.id, method: e.method, path: e.path, timestamp: updated.publishedAt, versionId: updated.publishedFromVersionId });
+        return { ...e, workflowPublication: updated };
+      };
+      const patchFolders = (folders: typeof entry.folders): typeof entry.folders =>
+        folders.map(f => ({ ...f, endpoints: f.endpoints.map(republishEp), folders: patchFolders(f.folders) }));
+      catalog.updateEntry(entryId, { endpoints: entry.endpoints.map(republishEp), folders: patchFolders(entry.folders) });
+    }
+  }, [catalog]);
+
+  const handleRepublish = useCallback((entryId: string, endpointId: string) => {
+    const entry = catalog.entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const ep = findEndpointInEntry(entry, endpointId);
+    if (!ep) return;
+    const updated = republishAtCurrentVersion(ep, entry);
+    if (updated) {
+      applyPublicationToEntry(entryId, ep, updated);
+      logPublicationAudit({
+        action: 'republish', entryId, endpointId,
+        method: ep.method, path: ep.path, timestamp: updated.publishedAt,
+        versionId: updated.publishedFromVersionId,
+      });
+    }
+  }, [catalog.entries, applyPublicationToEntry]);
+
+  const handlePromotePreview = useCallback((entryId: string, endpointId: string) => {
+    const entry = catalog.entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const ep = findEndpointInEntry(entry, endpointId);
+    if (!ep) return;
+    const previewKey = `${entryId}::${endpointId}`;
+    const preview = previewMap[previewKey];
+    const values: SavedEndpointValues = preview?.values
+      ? { params: preview.values.paramValues, headers: preview.values.headerValues, body: preview.values.body ?? '' }
+      : { params: {}, headers: {}, body: '' };
+    const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
+    pendingPublishRef.current = { ep, values, entryId };
+    setPublishRequest({
+      method: ep.method,
+      path: ep.path,
+      summary: ep.summary || ep.path,
+      entryName: entry.name,
+      versionLabel: currentVersion?.version ?? entry.currentVersionId,
+      currentVersionId: entry.currentVersionId,
+      includeValues: true,
+      values: preview?.values ?? { paramValues: {}, headerValues: {} },
+    });
+  }, [catalog.entries, previewMap]);
+
+  const handleRemovePreviewFromPanel = useCallback((entryId: string, endpointId: string) => {
+    removeWorkflowPreview(entryId, endpointId).then(() => {
+      setPreviewMap(prev => { const next = { ...prev }; delete next[`${entryId}::${endpointId}`]; return next; });
+      onPreviewsChanged?.();
+    });
+  }, [onPreviewsChanged]);
+
+  const handlePublishedViewInCatalog = useCallback((entryId: string, endpointId: string) => {
+    catalog.selectEntry(entryId);
+    catalog.selectEndpoint(endpointId);
+    setView('endpoints');
+  }, [catalog]);
+
+  const isViewAllowed = useCallback((candidate: string): candidate is View => {
+    if (candidate === 'overview' || candidate === 'endpoints' || candidate === 'published') return true;
+    if (candidate === 'export') return !!(onSendToRequests || onExportConfirm);
+    return false;
+  }, [onSendToRequests, onExportConfirm]);
+
+  useEffect(() => {
+    const entryId = catalog.selectedEntry?.id;
+    if (!entryId) return;
+    let cancelled = false;
+    void loadCatalogView(entryId).then((saved) => {
+      if (cancelled || !saved || !isViewAllowed(saved)) return;
+      // Demo boot: keep the armed Endpoints (etc.) landing — do not hop to
+      // a saved Overview from a prior Catalog session.
+      if (isDemoCatalogBootActive()) return;
+      setView(saved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalog.selectedEntry?.id, isViewAllowed]);
+
+  useEffect(() => {
+    const entryId = catalog.selectedEntry?.id;
+    if (!entryId || !isViewAllowed(view)) return;
+    void saveCatalogView(entryId, view);
+  }, [catalog.selectedEntry?.id, view, isViewAllowed]);
 
   if (!catalog.loaded) {
     return <div className="cat-loading">Loading API Catalog...</div>;
@@ -171,17 +607,20 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
   return (
     <div className="cat-main-panel">
       <div className="cat-view-tabs">
-        <button className={`cat-view-tab ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>
+        <button className={`cat-view-tab ${view === 'overview' ? 'active' : ''}`} data-testid="catalog-view-overview" onClick={() => setView('overview')}>
           Overview
         </button>
-        <button className={`cat-view-tab ${view === 'endpoints' ? 'active' : ''}`} onClick={() => setView('endpoints')}>
+        <button className={`cat-view-tab ${view === 'endpoints' ? 'active' : ''}`} data-testid="catalog-view-endpoints" onClick={() => setView('endpoints')}>
           Endpoints
         </button>
         {(onSendToRequests || onExportConfirm) && (
-          <button className={`cat-view-tab ${view === 'export' ? 'active' : ''}`} onClick={() => setView('export')}>
+          <button className={`cat-view-tab ${view === 'export' ? 'active' : ''}`} data-testid="catalog-view-export" onClick={() => setView('export')}>
             Export to Requests
           </button>
         )}
+        <button className={`cat-view-tab ${view === 'published' ? 'active' : ''}`} data-testid="catalog-view-published" onClick={() => setView('published')}>
+          Workflow Exposure{(publishedItems.length + Object.keys(previewMap).length) > 0 ? ` (${publishedItems.length + Object.keys(previewMap).length})` : ''}
+        </button>
       </div>
 
       <div className="cat-view-pane" style={{ display: view === 'overview' ? 'flex' : 'none' }}>
@@ -190,6 +629,8 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           onReimport={() => onReimport?.(entry.id)}
           onVersionHistory={() => onVersionHistory?.(entry.id)}
           onExportSpec={() => onExportSpec?.(entry.id)}
+          onConvertToOpenApi={onConvertToOpenApi ? () => onConvertToOpenApi(entry.id) : undefined}
+          onViewYaml={handleViewYaml}
         />
       </div>
       <div className="cat-view-pane" style={{ display: view === 'endpoints' ? 'flex' : 'none' }}>
@@ -206,9 +647,27 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           onSendToHarness={onSendEndpointToHarness ? handleSendToHarness : undefined}
           coverageMap={coverageMap}
           onNavigateToRequest={onNavigateToRequest}
-          onToggleWorkflowExpose={handleToggleWorkflowExpose}
+          onSetWorkflowExposure={handleSetWorkflowExposure}
+          previewedEndpointIds={previewedEndpointIds}
+          publishPermission={publishPermission}
         />
       </div>
+      {view === 'published' && (
+        <div className="cat-view-pane" style={{ display: 'flex' }}>
+          <PublishedEndpointsPanel
+            items={publishedItems}
+            previewItems={Object.values(previewMap)}
+            onUnpublish={handlePublishedUnpublish}
+            onBulkUnpublish={handleBulkUnpublishFromPanel}
+            onRepublish={handleRepublish}
+            onBulkRepublish={handleBulkRepublish}
+            onPromotePreview={handlePromotePreview}
+            onRemovePreview={handleRemovePreviewFromPanel}
+            onViewInCatalog={handlePublishedViewInCatalog}
+            publishPermission={publishPermission}
+          />
+        </div>
+      )}
       {view === 'export' && onExportConfirm && (
         <div className="cat-view-pane" style={{ display: 'flex' }}>
           <CatalogSendToRequestsModal
@@ -221,6 +680,43 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
             onClose={() => setView('endpoints')}
             inline
           />
+        </div>
+      )}
+      {showYamlModal && yamlContent !== null && (
+        <CatalogYamlViewerModal
+          yaml={yamlContent}
+          title={entry.name}
+          onClose={() => { setShowYamlModal(false); setYamlContent(null); }}
+        />
+      )}
+      {unpublishRequest && (
+        <UnpublishConfirmDialog
+          request={unpublishRequest}
+          onPaletteOnly={handleUnpublishPaletteOnly}
+          onPaletteAndWorkflows={handleUnpublishPaletteAndWorkflows}
+          onCancel={handleUnpublishCancel}
+        />
+      )}
+      {publishRequest && (
+        <PublishEndpointModal
+          request={publishRequest}
+          onConfirm={handlePublishConfirm}
+          onCancel={handlePublishCancel}
+        />
+      )}
+      {previewPromoteAlert && (
+        <div className="sw-promote-alert-overlay" data-testid="preview-promote-alert" onClick={() => setPreviewPromoteAlert(null)} onKeyDown={e => { if (e.key === 'Escape') setPreviewPromoteAlert(null); }}>
+          <div className="sw-promote-alert-dialog" role="dialog" onClick={e => e.stopPropagation()}>
+            <div className="sw-promote-alert-icon">ℹ</div>
+            <div className="sw-promote-alert-body">
+              <strong>{previewPromoteAlert.method} {previewPromoteAlert.path}</strong> is already in <span className="sw-promote-alert-badge preview">Preview</span> mode.
+              <p>To promote it to <span className="sw-promote-alert-badge published">Published</span>, switch to the <strong>Workflow Exposure</strong> tab and use the <strong>Promote</strong> action from the ⋮ menu.</p>
+            </div>
+            <div className="sw-promote-alert-footer">
+              <button className="sw-promote-alert-published-btn" onClick={() => { setPreviewPromoteAlert(null); setView('published'); }} data-testid="preview-promote-go-btn">Go to Workflow Exposure</button>
+              <button className="sw-promote-alert-close-btn" onClick={() => setPreviewPromoteAlert(null)} data-testid="preview-promote-dismiss-btn">OK</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

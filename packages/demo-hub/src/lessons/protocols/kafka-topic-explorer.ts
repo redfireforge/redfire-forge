@@ -2,8 +2,36 @@
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '@shared/selectors';
+import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
 
 const TOPIC_ROW_SELECTOR = `${KAFKA.TOPIC_TABLE} tbody tr[style]`;
+
+/** Get the active cluster ID from the server connection state. */
+async function getActiveClusterId(): Promise<string | null> {
+  try {
+    const status = await dispatchKafkaOperation<{ state: string; clusterId?: string }>('status');
+    if (status.data?.state === 'connected' && status.data.clusterId) {
+      return status.data.clusterId;
+    }
+  } catch { /* server not running */ }
+  return null;
+}
+
+/** Seed sample messages into audit.login so the detail panel has data to show. */
+async function seedAuditLoginMessages(): Promise<void> {
+  const clusterId = await getActiveClusterId();
+  if (!clusterId) return;
+
+  const messages = [
+    { key: 'user-1001', value: JSON.stringify({ userId: 1001, action: 'login', ip: '192.168.1.42', browser: 'Chrome/126', ts: new Date().toISOString() }), headers: { source: 'web-app', region: 'us-east-1' } },
+    { key: 'user-2045', value: JSON.stringify({ userId: 2045, action: 'login', ip: '10.0.3.88', browser: 'Firefox/125', ts: new Date().toISOString() }), headers: { source: 'mobile-api', region: 'eu-west-1' } },
+    { key: 'user-3120', value: JSON.stringify({ userId: 3120, action: 'login_failed', ip: '172.16.0.5', reason: 'invalid_password', ts: new Date().toISOString() }), headers: { source: 'web-app', region: 'us-west-2' } },
+  ];
+
+  try {
+    await dispatchKafkaOperation('produce', { clusterId, topic: 'audit.login', messages });
+  } catch { /* broker may not be running */ }
+}
 
 /** Ensure the Topics tab is active and topics are loaded. Idempotent. */
 async function ensureTopicsTab(ctx: DemoActionContext): Promise<void> {
@@ -48,7 +76,7 @@ export const kafkaTopicExplorerLesson: DemoLesson = {
   name: 'Topic Explorer',
   description:
     'Browse topics, inspect partition metrics, and drill into consumer group lag without touching the CLI.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 7,
   initialTab: 'kafka-message-studio',
   allowedTabs: ['kafka-settings'],
 
@@ -58,10 +86,19 @@ export const kafkaTopicExplorerLesson: DemoLesson = {
 
   setup: async (ctx) => {
     await kafkaPublishSetup(ctx);
-    await ctx.click(KAFKA.TOPICS_TAB);
-    await ctx.delay(600);
+    // Seed messages into audit.login so the detail panel has data
+    await seedAuditLoginMessages();
+
+    // Wait for the KafkaStudioGuard to disappear (React connection state updates
+    // asynchronously via status polling after kafkaPublishSetup connects).
+    // If the guard is still showing, the Topics page hasn't connected yet.
+    for (let i = 0; i < 30; i++) {
+      if (!document.querySelector('.kafka-studio-guard')) break;
+      await ctx.delay(500);
+    }
+
     // Topics load asynchronously — wait for at least one row
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       if (document.querySelector(TOPIC_ROW_SELECTOR)) break;
       await ctx.delay(500);
     }
@@ -163,12 +200,16 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       description:
         'The **Topics** tab gives you a live view of your entire cluster — topics, health, traffic, and consumer groups — all without opening a terminal. Click it to see the two-panel layout: a searchable topic list on the left and a detail panel on the right.',
       highlight: KAFKA.TOPICS_TAB,
-      preAction: async (ctx) => {
-        await ctx.click(KAFKA.TOPICS_TAB);
-        await ctx.delay(400);
+      preAction: async () => {
         document.querySelectorAll('.kafka-explorer-topic-table tbody tr.selected').forEach((el) => {
           el.classList.remove('selected');
         });
+      },
+      action: async (ctx) => {
+        await ctx.click(KAFKA.TOPICS_TAB);
+        await ctx.delay(800);
+        await ctx.waitFor(KAFKA.TOPICS_TAB, 3000);
+        await ctx.delay(600);
       },
     },
 
@@ -189,12 +230,35 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       id: 'te-search',
       title: 'Search Topics',
       description:
-        'Type in the **Search** box to filter topics by name in real time. For large clusters with hundreds of topics, this narrows the list instantly — no need to scroll through pages.',
+        'Type `orders` in the **Search** box to filter topics by name in real time. Watch the list narrow to only `orders.*` topics — each one highlighted below. For large clusters with hundreds of topics, this finds what you need instantly.',
       highlight: KAFKA.TOPIC_SEARCH,
       preAction: async (ctx) => {
         await ensureTopicsTab(ctx);
+        // Clear search first so the action shows the filtering visually
+        await ctx.fill(KAFKA.TOPIC_SEARCH, '');
+        await ctx.delay(200);
+      },
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Spotlight search input and type the query
+        const searchEl = document.querySelector<HTMLElement>(KAFKA.TOPIC_SEARCH);
+        if (searchEl) {
+          searchEl.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(searchEl);
+          await ctx.delay(800);
+          rm();
+        }
         await ctx.fill(KAFKA.TOPIC_SEARCH, 'orders');
-        await ctx.delay(400);
+        await ctx.delay(800);
+
+        // 2. Spotlight the entire filtered topic table
+        const tableWrap = document.querySelector<HTMLElement>(KAFKA.TOPIC_TABLE_WRAP);
+        if (tableWrap) {
+          const rm2 = showSpotlightRing(tableWrap);
+          await ctx.delay(2000);
+          rm2();
+        }
       },
     },
 
@@ -203,12 +267,57 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       id: 'te-chips',
       title: 'Domain Chips',
       description:
-        'Clear the search — you\'ll see **Domain Chips** generated from topic name prefixes. Clicking a chip (e.g., "orders") filters the table to all `orders.*` topics at once. This groups your topics by business domain automatically.',
+        'Domain Chips are auto-generated from topic name prefixes. Watch as the **orders** chip is clicked — the table instantly filters to only `orders.*` topics. Then **All** is clicked to restore the full list. This groups your topics by business domain automatically.',
       highlight: KAFKA.TOPIC_CHIPBAR,
       preAction: async (ctx) => {
         await ensureTopicsTab(ctx);
         await ctx.fill(KAFKA.TOPIC_SEARCH, '');
         await ctx.delay(300);
+        // Reset to "All" chip so the demo starts from unfiltered state
+        const allChip = document.querySelector<HTMLElement>('.kafka-topic-chip.active');
+        if (allChip && allChip.textContent?.trim() !== 'All') {
+          const all = document.querySelector<HTMLElement>('.kafka-topic-chip');
+          if (all) { all.click(); await ctx.delay(200); }
+        }
+      },
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Find and spotlight the "orders" chip
+        const chips = document.querySelectorAll<HTMLElement>('.kafka-topic-chip');
+        let ordersChip: HTMLElement | null = null;
+        for (const chip of chips) {
+          if (chip.textContent?.trim() === 'orders') { ordersChip = chip; break; }
+        }
+
+        if (ordersChip) {
+          ordersChip.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(ordersChip);
+          await ctx.delay(1000);
+          rm();
+
+          // 2. Click the "orders" chip — table filters
+          ordersChip.click();
+          await ctx.delay(1200);
+
+          // 3. Spotlight the filtered results so viewer sees the narrowed list
+          const tableWrap = document.querySelector<HTMLElement>(KAFKA.TOPIC_TABLE_WRAP);
+          if (tableWrap) {
+            const rm2 = showSpotlightRing(tableWrap);
+            await ctx.delay(1500);
+            rm2();
+          }
+
+          // 4. Click "All" to restore full list
+          const allChip = document.querySelector<HTMLElement>('.kafka-topic-chip');
+          if (allChip) {
+            const rm3 = showSpotlightRing(allChip);
+            await ctx.delay(800);
+            rm3();
+            allChip.click();
+            await ctx.delay(600);
+          }
+        }
       },
     },
 
@@ -217,10 +326,89 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       id: 'te-filters',
       title: 'Health & Partition Filters',
       description:
-        'The **Health**, **Partition**, and **Retention** dropdowns narrow the list by criteria — for example, show only ⚠️ Degraded topics (ISR fraction < 1) or topics with more than 6 partitions. Combine filters with search for fast operational triage.',
+        'The **Partition** filter is always available — watch it filter to topics with only 1–4 partitions. ' +
+        '**Health** and **Retention** become active after you select a topic (the broker fetches detail data). ' +
+        'Combine these filters with search and domain chips for fast operational triage.',
       highlight: KAFKA.TOPIC_FILTER_ROW,
       preAction: async (ctx) => {
         await ensureTopicsTab(ctx);
+        // Reset domain chip to All if needed
+        const activeChip = document.querySelector<HTMLElement>('.kafka-topic-chip.active');
+        if (activeChip && activeChip.textContent?.trim() !== 'All') {
+          const all = document.querySelector<HTMLElement>('.kafka-topic-chip');
+          if (all) { all.click(); await ctx.delay(200); }
+        }
+      },
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Spotlight the Partition filter (always enabled)
+        const partFilter = document.querySelector<HTMLElement>(KAFKA.TOPIC_PARTITION_FILTER);
+        if (partFilter) {
+          const rm1 = showSpotlightRing(partFilter);
+          await ctx.delay(1000);
+          rm1();
+
+          // 2. Open dropdown and select "1–4"
+          const trigger = partFilter.querySelector<HTMLElement>('.cs-trigger');
+          if (trigger) {
+            trigger.click();
+            await ctx.delay(600);
+            const menu = partFilter.querySelector<HTMLElement>('.cs-menu');
+            if (menu) {
+              const items = menu.querySelectorAll<HTMLElement>('.cs-item');
+              for (const item of items) {
+                if (item.textContent?.includes('1–4') || item.textContent?.includes('1-4')) {
+                  item.click();
+                  break;
+                }
+              }
+            }
+            await ctx.delay(1200);
+
+            // 3. Spotlight the filtered table
+            const tableWrap = document.querySelector<HTMLElement>(KAFKA.TOPIC_TABLE_WRAP);
+            if (tableWrap) {
+              const rm2 = showSpotlightRing(tableWrap);
+              await ctx.delay(1500);
+              rm2();
+            }
+
+            // 4. Reset partition filter back to "Any"
+            const trigger2 = partFilter.querySelector<HTMLElement>('.cs-trigger');
+            if (trigger2) {
+              trigger2.click();
+              await ctx.delay(400);
+              const menu2 = partFilter.querySelector<HTMLElement>('.cs-menu');
+              if (menu2) {
+                const anyOpt = menu2.querySelectorAll<HTMLElement>('.cs-item');
+                for (const item of anyOpt) {
+                  if (item.textContent?.includes('Any')) {
+                    item.click();
+                    break;
+                  }
+                }
+              }
+              await ctx.delay(600);
+            }
+          }
+        }
+
+        // 5. Spotlight disabled Health filter briefly to show it's not yet available
+        const healthFilter = document.querySelector<HTMLElement>(KAFKA.TOPIC_HEALTH_FILTER);
+        if (healthFilter) {
+          const rm3 = showSpotlightRing(healthFilter);
+          await ctx.delay(1000);
+          rm3();
+        }
+
+        // 6. Spotlight disabled Retention filter briefly
+        const retFilter = document.querySelector<HTMLElement>(KAFKA.TOPIC_RETENTION_FILTER);
+        if (retFilter) {
+          const rm4 = showSpotlightRing(retFilter);
+          await ctx.delay(1000);
+          rm4();
+        }
       },
     },
 
@@ -229,8 +417,7 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       id: 'te-select',
       title: 'Select a Topic',
       description:
-        'Click any topic row to open its **Detail Panel** on the right. The panel has four tabs: Messages, Partitions, Consumer Groups, and Config. All data is fetched live from the broker.',
-      highlight: KAFKA.TOPIC_TABLE_WRAP,
+        'Click **audit.login** to open its **Detail Panel** on the right. The panel has four tabs — Messages, Partitions, Consumer Groups, and Config — all fetched live from the broker.',
       preAction: async (ctx) => {
         await ensureTopicsTab(ctx);
         // Clear any search filter so all topics are visible
@@ -239,22 +426,115 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
           await ctx.fill(KAFKA.TOPIC_SEARCH, '');
           await ctx.delay(200);
         }
+        // Reset domain chip to All
+        const activeChip = document.querySelector<HTMLElement>('.kafka-topic-chip.active');
+        if (activeChip && activeChip.textContent?.trim() !== 'All') {
+          const all = document.querySelector<HTMLElement>('.kafka-topic-chip');
+          if (all) { all.click(); await ctx.delay(200); }
+        }
       },
       action: async (ctx) => {
-        const row = document.querySelector<HTMLElement>(
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Find and spotlight the "audit.login" row
+        const rows = document.querySelectorAll<HTMLElement>(
           `${KAFKA.TOPIC_TABLE} tbody tr[style]`,
         );
-        if (row) {
-          row.click();
-        } else {
-          await ctx.click(KAFKA.TOPIC_TABLE);
+        let auditRow: HTMLElement | null = null;
+        for (const row of rows) {
+          const nameCell = row.querySelector<HTMLElement>('.kafka-explorer-topic-name');
+          if (nameCell?.textContent?.trim() === 'audit.login') {
+            auditRow = row;
+            break;
+          }
         }
+
+        if (auditRow) {
+          auditRow.scrollIntoView({ block: 'nearest' });
+          const rm1 = showSpotlightRing(auditRow);
+          await ctx.delay(1000);
+          rm1();
+
+          // 2. Click the row
+          auditRow.click();
+        } else {
+          // Fallback: click first row
+          const first = document.querySelector<HTMLElement>(
+            `${KAFKA.TOPIC_TABLE} tbody tr[style]`,
+          );
+          if (first) first.click();
+        }
+
         try { await ctx.waitFor(KAFKA.DETAIL_TABS, 5000); } catch { /* detail may not load */ }
-        await ctx.delay(600);
+        await ctx.delay(800);
+
+        // 3. Spotlight the detail panel header (topic name + health badge)
+        const detailHeader = document.querySelector<HTMLElement>('.kafka-explorer-detail-header');
+        if (detailHeader) {
+          const rm2 = showSpotlightRing(detailHeader);
+          await ctx.delay(1200);
+          rm2();
+        }
+
+        // 4. Spotlight the detail tabs
+        const detailTabs = document.querySelector<HTMLElement>(KAFKA.DETAIL_TABS);
+        if (detailTabs) {
+          const rm3 = showSpotlightRing(detailTabs);
+          await ctx.delay(1200);
+          rm3();
+        }
       },
     },
 
-    // Step 7: Metric boxes
+    // Step 7: Collapse/Expand the topic list
+    {
+      id: 'te-collapse',
+      title: 'Focus Mode — Collapse the Topic List',
+      description:
+        'Click the **◀** divider button between the two panels to collapse the topic list. ' +
+        'The detail panel expands to full width — perfect when you want to focus on messages, ' +
+        'partitions, or consumer group lag without distraction. Click **▶** to bring the list back.',
+      highlight: KAFKA.TOPIC_LIST_COLLAPSE_BTN,
+      preAction: async (ctx) => {
+        await ensureTopicSelected(ctx);
+        // Make sure list is expanded before this step
+        const layout = document.querySelector('.kafka-explorer-layout');
+        if (layout?.classList.contains('kafka-explorer-layout--collapsed')) {
+          const btn = document.querySelector<HTMLElement>(KAFKA.TOPIC_LIST_COLLAPSE_BTN);
+          if (btn) { btn.click(); await ctx.delay(400); }
+        }
+      },
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Spotlight the collapse button
+        const collapseBtn = document.querySelector<HTMLElement>(KAFKA.TOPIC_LIST_COLLAPSE_BTN);
+        if (collapseBtn) {
+          collapseBtn.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(collapseBtn);
+          await ctx.delay(1200);
+          rm();
+        }
+
+        // 2. Click to collapse — viewer sees the list shrink
+        await ctx.click(KAFKA.TOPIC_LIST_COLLAPSE_BTN);
+        await ctx.delay(1500);
+
+        // 3. Spotlight the expand button so viewer knows how to bring it back
+        const expandBtn = document.querySelector<HTMLElement>(KAFKA.TOPIC_LIST_COLLAPSE_BTN);
+        if (expandBtn) {
+          const rm = showSpotlightRing(expandBtn);
+          await ctx.delay(1200);
+          rm();
+        }
+
+        // 4. Click to expand back — restore normal layout
+        await ctx.click(KAFKA.TOPIC_LIST_COLLAPSE_BTN);
+        await ctx.delay(800);
+      },
+    },
+
+    // Step 8: Metric boxes
     {
       id: 'te-metrics',
       title: 'Partition Metrics',
@@ -271,61 +551,231 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       id: 'te-browse',
       title: 'Browse Messages',
       description:
-        'Click **Consume Once** to fetch messages from the broker and display them inline. ' +
-        'Each row shows the **offset**, **partition**, **timestamp**, **key**, and a **value preview**. ' +
-        'Click any row to inspect the full JSON payload, copy the key or value, and see message headers.\n\n' +
-        'Use the filters above (Time Window, Key Match, Header Match, JSONPath) to narrow results ' +
-        'before consuming — essential for high-volume topics where you need to find specific messages quickly.',
-      highlight: KAFKA.DETAIL_CONSUME_BTN,
+        'The compact **browse bar** lets you pick a time window, partition, sort order, and max count — then click **Consume Once**. ' +
+        'The **⫧ Filters** toggle reveals advanced filters (Key, Header, JSONPath, Body Contains) for high-volume topics. ' +
+        'Watch the results appear inline below.',
       preAction: async (ctx) => {
-        await ensureTopicSelected(ctx);
-        // Ensure we're on the Messages tab
+        await ensureTopicsTab(ctx);
+        // Select audit.login specifically (it has seeded messages)
+        // Check if already selected to avoid toggling it OFF
+        const detailTitle = document.querySelector<HTMLElement>('.kafka-explorer-detail-title');
+        const alreadySelected = detailTitle?.textContent?.trim() === 'audit.login';
+        if (!alreadySelected) {
+          const rows = document.querySelectorAll<HTMLElement>(
+            `${KAFKA.TOPIC_TABLE} tbody tr[style]`,
+          );
+          for (const row of rows) {
+            const nameCell = row.querySelector<HTMLElement>('.kafka-explorer-topic-name');
+            if (nameCell?.textContent?.trim() === 'audit.login') {
+              row.click();
+              try { await ctx.waitFor(KAFKA.DETAIL_TABS, 5000); } catch { /* */ }
+              break;
+            }
+          }
+        }
+        await ctx.delay(300);
+        // Ensure Messages tab
         const messagesTab = document.querySelector<HTMLElement>(KAFKA.DETAIL_TAB_MESSAGES);
         if (messagesTab) messagesTab.click();
         await ctx.delay(300);
+        // Switch time window to Earliest via CustomSelect (.cs-item)
+        const browseBarPre = document.querySelector<HTMLElement>('.td-browse-bar');
+        if (browseBarPre) {
+          const triggers = browseBarPre.querySelectorAll<HTMLElement>('.cs-trigger');
+          const twTrigger = triggers[0]; // first select = Time Window
+          if (twTrigger && !twTrigger.textContent?.includes('Earliest')) {
+            twTrigger.click();
+            await ctx.delay(300);
+            const menu = browseBarPre.querySelector<HTMLElement>('.cs-menu');
+            if (menu) {
+              const items = menu.querySelectorAll<HTMLElement>('.cs-item');
+              for (const item of items) {
+                if (item.textContent?.includes('Earliest')) { item.click(); break; }
+              }
+            }
+            await ctx.delay(300);
+          }
+        }
+
+        // Produce fresh messages so consume always has data
+        await seedAuditLoginMessages();
       },
       action: async (ctx) => {
-        await ctx.click(KAFKA.DETAIL_CONSUME_BTN);
-        await ctx.delay(2000);
+        const { showSpotlightRing } = await import('../../demoRipple');
 
-        // If no messages were returned, inject sample data for the demo
-        const resultsZone = document.querySelector<HTMLElement>(KAFKA.DETAIL_RESULTS);
-        const emptyMsg = resultsZone?.querySelector('.kafka-ms-empty-state');
-        if (!resultsZone || emptyMsg) {
-          const messagesTab = document.querySelector<HTMLElement>(KAFKA.DETAIL_MESSAGES_TAB);
-          if (messagesTab) {
-            const actionRow = messagesTab.querySelector('.kafka-ms-action-row');
-            let zone = messagesTab.querySelector<HTMLElement>(KAFKA.DETAIL_RESULTS);
-            if (!zone) {
-              zone = document.createElement('div');
-              zone.className = 'kafka-ms-results-zone';
-              zone.setAttribute('data-testid', 'detail-results');
-              if (actionRow) actionRow.after(zone);
-              else messagesTab.appendChild(zone);
+        // 1. Spotlight the browse bar
+        const browseBar = document.querySelector<HTMLElement>('.td-browse-bar');
+        if (browseBar) {
+          const rm1 = showSpotlightRing(browseBar);
+          await ctx.delay(1500);
+          rm1();
+        }
+
+        // 2. Spotlight the Filters toggle and click to open
+        const filterToggle = document.querySelector<HTMLElement>('.td-filter-toggle');
+        if (filterToggle) {
+          const rm2 = showSpotlightRing(filterToggle);
+          await ctx.delay(1000);
+          rm2();
+          filterToggle.click();
+          await ctx.delay(1200);
+
+          // 3. Spotlight the filter section
+          const filterSection = document.querySelector<HTMLElement>('.td-filter-section');
+          if (filterSection) {
+            const rm3 = showSpotlightRing(filterSection);
+            await ctx.delay(1500);
+            rm3();
+          }
+
+          // 4. Close filters
+          filterToggle.click();
+          await ctx.delay(600);
+        }
+
+        // 5. Click Consume Once and wait for real React-managed rows
+        await ctx.click(KAFKA.DETAIL_CONSUME_BTN);
+        // Wait for real rows (data-testid="detail-row-0" is set by React)
+        for (let i = 0; i < 50; i++) {
+          if (document.querySelector('[data-testid="detail-row-0"]')) break;
+          await ctx.delay(250);
+        }
+        await ctx.delay(800);
+
+        // 6. Spotlight the results
+        const results = document.querySelector<HTMLElement>(KAFKA.DETAIL_RESULTS);
+        if (results) {
+          const rm4 = showSpotlightRing(results);
+          await ctx.delay(1500);
+          rm4();
+        }
+      },
+    },
+
+    // Step 9: Click a row to open message detail modal
+    {
+      id: 'te-msg-detail',
+      title: 'Message Detail',
+      description:
+        'Click any message row to open the **Message Detail** modal — a movable, resizable popup showing the full payload (pretty-printed JSON), key, offset, partition, timestamp, and headers. ' +
+        'Use the **Copy** buttons to grab the key or payload instantly.',
+      preAction: async (ctx) => {
+        await ensureTopicsTab(ctx);
+
+        // Close any open modal from a prior run
+        const closeBtn = document.querySelector<HTMLElement>('[data-testid="kmd-close-btn"]');
+        if (closeBtn) { closeBtn.click(); await ctx.delay(200); }
+
+        // 1. Select audit.login (check if already selected to avoid toggling OFF)
+        const detailTitle = document.querySelector<HTMLElement>('.kafka-explorer-detail-title');
+        if (detailTitle?.textContent?.trim() !== 'audit.login') {
+          const rows = document.querySelectorAll<HTMLElement>(
+            `${KAFKA.TOPIC_TABLE} tbody tr[style]`,
+          );
+          for (const row of rows) {
+            const nameCell = row.querySelector<HTMLElement>('.kafka-explorer-topic-name');
+            if (nameCell?.textContent?.trim() === 'audit.login') {
+              row.click();
+              try { await ctx.waitFor(KAFKA.DETAIL_TABS, 5000); } catch { /* */ }
+              await ctx.delay(400);
+              break;
             }
-            zone.innerHTML = `
-              <div class="kafka-ms-results-header">
-                <span class="kafka-ms-results-count">5 messages</span>
-              </div>
-              <div class="kafka-ms-results-table-wrap">
-                <table class="kafka-ms-results-table">
-                  <thead><tr><th>#</th><th>Offset</th><th>Partition</th><th>Timestamp</th><th>Key</th><th>Value</th></tr></thead>
-                  <tbody>
-                    <tr style="cursor:pointer"><td>1</td><td>142</td><td>0</td><td>2026-06-17 21:43:12</td><td>user-8291</td><td>{"event":"login","ip":"10.0.1.52","status":"su…</td></tr>
-                    <tr style="cursor:pointer"><td>2</td><td>143</td><td>0</td><td>2026-06-17 21:43:14</td><td>user-1037</td><td>{"event":"login","ip":"192.168.4.8","status":"…</td></tr>
-                    <tr style="cursor:pointer"><td>3</td><td>87</td><td>1</td><td>2026-06-17 21:43:15</td><td>user-5520</td><td>{"event":"logout","ip":"172.16.0.3","duration"…</td></tr>
-                    <tr style="cursor:pointer"><td>4</td><td>88</td><td>1</td><td>2026-06-17 21:43:18</td><td>user-8291</td><td>{"event":"login_failed","ip":"10.0.1.99","reas…</td></tr>
-                    <tr style="cursor:pointer"><td>5</td><td>144</td><td>0</td><td>2026-06-17 21:43:20</td><td>user-3344</td><td>{"event":"login","ip":"10.0.2.15","status":"su…</td></tr>
-                  </tbody>
-                </table>
-              </div>`;
-            await ctx.delay(800);
+          }
+        }
+
+        // 2. Ensure Messages tab is active
+        const messagesTab = document.querySelector<HTMLElement>(KAFKA.DETAIL_TAB_MESSAGES);
+        if (messagesTab) { messagesTab.click(); await ctx.delay(300); }
+
+        // 3. If real React rows already exist, we're good — skip consume
+        if (document.querySelector('[data-testid="detail-row-0"]')) return;
+
+        // 4. Switch time window to Earliest via CustomSelect (.cs-item, not .cs-option)
+        const browseBar = document.querySelector<HTMLElement>('.td-browse-bar');
+        if (browseBar) {
+          const triggers = browseBar.querySelectorAll<HTMLElement>('.cs-trigger');
+          const twTrigger = triggers[0]; // first select = Time Window
+          if (twTrigger && !twTrigger.textContent?.includes('Earliest')) {
+            twTrigger.click();
+            await ctx.delay(300);
+            const menu = browseBar.querySelector<HTMLElement>('.cs-menu');
+            if (menu) {
+              const items = menu.querySelectorAll<HTMLElement>('.cs-item');
+              for (const item of items) {
+                if (item.textContent?.includes('Earliest')) { item.click(); break; }
+              }
+            }
+            await ctx.delay(300);
+          }
+        }
+
+        // 5. Produce fresh messages so even Latest has data
+        await seedAuditLoginMessages();
+
+        // 6. Clear old injected results
+        const clearBtn = document.querySelector<HTMLElement>('.kafka-ms-ghost-btn');
+        if (clearBtn && clearBtn.textContent?.includes('Clear')) {
+          clearBtn.click();
+          await ctx.delay(300);
+        }
+
+        // 7. Consume and wait for real React-managed rows
+        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.DETAIL_CONSUME_BTN);
+        if (consumeBtn && !consumeBtn.hasAttribute('disabled')) {
+          consumeBtn.click();
+          for (let i = 0; i < 50; i++) {
+            if (document.querySelector('[data-testid="detail-row-0"]')) break;
+            await ctx.delay(250);
+          }
+        }
+      },
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Click the first message row
+        const firstRow = document.querySelector<HTMLElement>('[data-testid="detail-row-0"]');
+        if (firstRow) {
+          const rm1 = showSpotlightRing(firstRow);
+          await ctx.delay(800);
+          rm1();
+          firstRow.click();
+          await ctx.delay(1000);
+        }
+
+        // 2. Spotlight the modal
+        const modal = document.querySelector<HTMLElement>('[data-testid="kafka-message-detail-modal"]');
+        if (modal) {
+          const rm2 = showSpotlightRing(modal);
+          await ctx.delay(1500);
+          rm2();
+
+          // 3. Spotlight Key section
+          const keySection = modal.querySelector<HTMLElement>('[data-testid="kmd-key"]');
+          if (keySection) {
+            const rm3 = showSpotlightRing(keySection);
+            await ctx.delay(1000);
+            rm3();
+          }
+
+          // 4. Spotlight Body section
+          const bodySection = modal.querySelector<HTMLElement>('[data-testid="kmd-body"]');
+          if (bodySection) {
+            const rm4 = showSpotlightRing(bodySection);
+            await ctx.delay(1200);
+            rm4();
+          }
+
+          // 5. Close the modal
+          const closeBtn = modal.querySelector<HTMLElement>('[data-testid="kmd-close-btn"]');
+          if (closeBtn) {
+            closeBtn.click();
+            await ctx.delay(600);
           }
         }
       },
     },
 
-    // Step 9: Partition detail tab
+    // Step 10: Partition detail tab
     {
       id: 'te-tabs',
       title: 'Partition Details',
@@ -402,6 +852,42 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
               </tbody>
             </table>`;
           await ctx.delay(800);
+        }
+      },
+    },
+
+    // Step 12: Config tab
+    {
+      id: 'te-config',
+      title: 'Topic Configuration',
+      description:
+        'Click the **Config** tab to view broker-side topic settings. Key values include:\n\n' +
+        '- **retention.ms** — how long messages are kept (e.g., 604800000 = 7 days)\n' +
+        '- **cleanup.policy** — `delete` (time-based) or `compact` (key-based dedup)\n' +
+        '- **max.message.bytes** — maximum size of a single message\n' +
+        '- **compression.type** — `producer`, `gzip`, `snappy`, `lz4`, or `zstd`\n\n' +
+        'These settings are read-only here — use the CLI or admin API to change them. ' +
+        'Knowing them at a glance helps you debug retention, throughput, and storage issues.',
+      highlight: KAFKA.DETAIL_TAB_CONFIG,
+      preAction: async (ctx) => {
+        await ensureTopicSelected(ctx);
+      },
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        await ctx.click(KAFKA.DETAIL_TAB_CONFIG);
+        try { await ctx.waitFor(KAFKA.DETAIL_CONFIG_TAB, 3000); } catch { /* tab content */ }
+        await ctx.delay(800);
+
+        // Spotlight the config table
+        const configTab = document.querySelector<HTMLElement>(KAFKA.DETAIL_CONFIG_TAB);
+        if (configTab) {
+          const table = configTab.querySelector<HTMLElement>('.kafka-config-table');
+          if (table) {
+            const rm = showSpotlightRing(table);
+            await ctx.delay(2000);
+            rm();
+          }
         }
       },
     },

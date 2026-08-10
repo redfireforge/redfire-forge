@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import { useReactFlow } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, RequestCollection, Environment, Microservice, GlobalAuthProfile, AuthConfig, KeyValue } from '../../../shared/types';
 import type { CatalogEntry } from '../../catalog/types/catalog';
@@ -140,16 +141,73 @@ export function useWorkflowNodeActions({
   workflowServicesRef,
 }: UseWorkflowNodeActionsOpts) {
 
+  const rfInstance = useReactFlow();
+
   const addNodeToCanvas = useCallback((type: WorkflowNodeType, data?: WorkflowNodeData, serviceOverride?: WorkflowService[]) => {
     if (!selected) return;
     undoRedo.takeSnapshot('Add node');
-    const y = nextNodeYRef.current;
-    nextNodeYRef.current += 120;
+
+    // Place the new node in the visible center of the current viewport
+    const viewport = rfInstance.getViewport();
+    const canvasEl = document.querySelector('.react-flow') as HTMLElement | null;
+    const width = canvasEl?.clientWidth ?? 800;
+    const height = canvasEl?.clientHeight ?? 600;
+    const centerX = (-viewport.x + width / 2) / viewport.zoom;
+    const centerY = (-viewport.y + height / 2) / viewport.zoom;
+
+    // Node dimensions for collision detection
+    const NODE_W = 220;
+    const NODE_H = 90;
+    const PADDING = 30;
+
+    // Find an empty position that doesn't overlap any existing node
+    const existingPositions = nodesRef.current.map(n => n.position);
+
+    const overlaps = (px: number, py: number): boolean =>
+      existingPositions.some(p =>
+        Math.abs(p.x - px) < NODE_W + PADDING && Math.abs(p.y - py) < NODE_H + PADDING,
+      );
+
+    let x = centerX - NODE_W / 2;
+    let y = centerY - NODE_H / 2;
+
+    if (overlaps(x, y)) {
+      // Try placing below the lowest existing node
+      const maxY = Math.max(...existingPositions.map(p => p.y));
+      const avgX = existingPositions.reduce((s, p) => s + p.x, 0) / (existingPositions.length || 1);
+      x = avgX;
+      y = maxY + NODE_H + PADDING * 2;
+
+      // If that still overlaps, spiral outward from center
+      if (overlaps(x, y)) {
+        const directions = [
+          { dx: 0, dy: NODE_H + PADDING * 2 },
+          { dx: NODE_W + PADDING * 2, dy: 0 },
+          { dx: 0, dy: -(NODE_H + PADDING * 2) },
+          { dx: -(NODE_W + PADDING * 2), dy: 0 },
+        ];
+        let found = false;
+        for (let ring = 1; ring <= 5 && !found; ring++) {
+          for (const dir of directions) {
+            const tx = centerX - NODE_W / 2 + dir.dx * ring;
+            const ty = centerY - NODE_H / 2 + dir.dy * ring;
+            if (!overlaps(tx, ty)) {
+              x = tx;
+              y = ty;
+              found = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    nextNodeYRef.current = y + 120;
     const nodeId = uuidv4();
     const newNode: WorkflowRFNode = {
       id: nodeId,
       type,
-      position: { x: 300, y },
+      position: { x, y },
       data: data ?? defaultNodeData(type),
     };
     setNodes((nds) => {
@@ -164,7 +222,7 @@ export function useWorkflowNodeActions({
     });
     markNodeAsNew(nodeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, update, serializeNodes, serializeEdges, edgesRef, nodesRef, undoRedo, setNodes]);
+  }, [selected, update, serializeNodes, serializeEdges, edgesRef, nodesRef, undoRedo, setNodes, rfInstance]);
 
   const addNodeToCanvasWithPreset = useCallback((
     type: WorkflowNodeType,
@@ -293,7 +351,7 @@ export function useWorkflowNodeActions({
     if (!ep) return;
 
     const baseUrl = entry.servers[0]?.url ?? '';
-    const wv = ep.workflowValues;
+    const wv = ep.workflowPublication?.values ?? ep.workflowValues;
     const paramValues = wv?.paramValues ?? {};
 
     const params = ep.parameters ?? [];
@@ -325,7 +383,10 @@ export function useWorkflowNodeActions({
       method: ep.method.toUpperCase() as Scenario['method'],
       headers, body: wv?.body ?? '', auth: { type: 'none' }, validation: { mode: 'none' },
     };
-    const data: HttpNodeData = { label: ep.summary || ep.path, scenario, sourceType: 'catalog', sourceId: ep.id };
+    const data: HttpNodeData = {
+      label: ep.summary || ep.path, scenario, sourceType: 'catalog', sourceId: ep.id,
+      catalogRef: { entryId, endpointId, method: ep.method.toUpperCase(), path: ep.path },
+    };
     addNodeToCanvas('http', data);
   }, [catalogEntries, addNodeToCanvas]);
 

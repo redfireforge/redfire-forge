@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Viewer } from 'json-diff-kit';
 import { sharedDiffer } from '../../../../shared/utils/jsonDiffKit';
 import 'json-diff-kit/dist/viewer.css';
@@ -45,9 +45,82 @@ const TAB_ICONS: Record<DiffTab, ReactElement> = {
   ),
 };
 
+const MIN_WIDTH = 480;
+const MIN_HEIGHT = 360;
+
 export default function WorkflowVersionDiff({ open, older, newer, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<DiffTab>('nodes');
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; dir: string } | null>(null);
+
+  // Reset position/size when modal opens
+  useEffect(() => {
+    if (open) { setPos(null); setSize(null); }
+  }, [open]);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    const modal = modalRef.current;
+    if (!modal) return;
+    const rect = modal.getBoundingClientRect();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: rect.left, origY: rect.top };
+    // Lock the current size on first drag so the modal doesn't jump
+    setSize((prev) => prev ?? { w: rect.width, h: rect.height });
+
+    const onMove = (ev: MouseEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      setPos({ x: d.origX + (ev.clientX - d.startX), y: d.origY + (ev.clientY - d.startY) });
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, []);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent, dir: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const modal = modalRef.current;
+    if (!modal) return;
+    const rect = modal.getBoundingClientRect();
+    resizeRef.current = { startX: e.clientX, startY: e.clientY, origW: rect.width, origH: rect.height, origX: rect.left, origY: rect.top, dir };
+
+    const onMove = (ev: MouseEvent) => {
+      const r = resizeRef.current;
+      if (!r) return;
+      const dx = ev.clientX - r.startX;
+      const dy = ev.clientY - r.startY;
+      let newW = r.origW;
+      let newH = r.origH;
+      let newX = r.origX;
+      let newY = r.origY;
+
+      if (r.dir.includes('e')) newW = Math.max(MIN_WIDTH, r.origW + dx);
+      if (r.dir.includes('w')) { newW = Math.max(MIN_WIDTH, r.origW - dx); newX = r.origX + (r.origW - newW); }
+      if (r.dir.includes('s')) newH = Math.max(MIN_HEIGHT, r.origH + dy);
+      if (r.dir.includes('n')) { newH = Math.max(MIN_HEIGHT, r.origH - dy); newY = r.origY + (r.origH - newH); }
+
+      setSize({ w: newW, h: newH });
+      setPos({ x: newX, y: newY });
+    };
+    const onUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, []);
 
   const diff = useMemo(() => computeVersionDiff(older, newer), [older, newer]);
 
@@ -65,10 +138,25 @@ export default function WorkflowVersionDiff({ open, older, newer, onClose }: Pro
 
   const totalChanges = tabs.reduce((sum, t) => sum + t.count, 0);
 
+  const modalStyle: React.CSSProperties = pos || size ? {
+    position: 'fixed',
+    left: pos ? `${pos.x}px` : undefined,
+    top: pos ? `${pos.y}px` : undefined,
+    width: size ? `${size.w}px` : undefined,
+    height: size ? `${size.h}px` : undefined,
+    maxWidth: 'none',
+    maxHeight: 'none',
+  } : {};
+
   return (
     <div className="wf-version-diff-overlay modal-overlay" onClick={onClose}>
-      <div className="wf-version-diff-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="wf-version-diff-header">
+      <div
+        ref={modalRef}
+        className={`wf-version-diff-modal ${pos ? 'wf-version-diff-modal--positioned' : ''}`}
+        style={modalStyle}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="wf-version-diff-header" onMouseDown={handleDragStart} style={{ cursor: 'move' }}>
           <div className="wf-version-diff-header-left">
             <div className="wf-version-diff-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -91,11 +179,6 @@ export default function WorkflowVersionDiff({ open, older, newer, onClose }: Pro
               <span className="wf-version-diff-summary-count">{totalChanges}</span>
               <span className="wf-version-diff-summary-text">change{totalChanges !== 1 ? 's' : ''}</span>
             </div>
-            <button className="wf-version-diff-close" onClick={onClose} title="Close">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -121,6 +204,19 @@ export default function WorkflowVersionDiff({ open, older, newer, onClose }: Pro
           {activeTab === 'variables' && <VariablesDiffView diff={diff} />}
           {activeTab === 'services' && <ServicesDiffView diff={diff} />}
         </div>
+        <div className="wf-version-diff-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
+        </div>
+
+        {/* Resize handles */}
+        <div className="wf-vd-resize wf-vd-resize-n" onMouseDown={(e) => handleResizeStart(e, 'n')} />
+        <div className="wf-vd-resize wf-vd-resize-s" onMouseDown={(e) => handleResizeStart(e, 's')} />
+        <div className="wf-vd-resize wf-vd-resize-e" onMouseDown={(e) => handleResizeStart(e, 'e')} />
+        <div className="wf-vd-resize wf-vd-resize-w" onMouseDown={(e) => handleResizeStart(e, 'w')} />
+        <div className="wf-vd-resize wf-vd-resize-ne" onMouseDown={(e) => handleResizeStart(e, 'ne')} />
+        <div className="wf-vd-resize wf-vd-resize-nw" onMouseDown={(e) => handleResizeStart(e, 'nw')} />
+        <div className="wf-vd-resize wf-vd-resize-se" onMouseDown={(e) => handleResizeStart(e, 'se')} />
+        <div className="wf-vd-resize wf-vd-resize-sw" onMouseDown={(e) => handleResizeStart(e, 'sw')} />
       </div>
     </div>
   );

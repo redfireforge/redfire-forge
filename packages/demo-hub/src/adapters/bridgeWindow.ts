@@ -8,11 +8,15 @@ export type DemoBridgeWindow = Window &
   typeof globalThis & {
     __demoPatchGrpcActiveTab?: (patch: { grpcurlExportContext?: GrpcGrpcurlExportContext }) => boolean;
     __demoResetGrpcActiveTab?: () => boolean;
+    /** Reset Manage Schemas draft state without opening the modal. */
+    __demoResetGrpcManageSchemasDrafts?: () => boolean;
     __demoGetGrpcActiveDescriptorKey?: () => string | null;
     __demoCollapseAppSidebar?: () => void;
     __demoExpandAppSidebar?: () => void;
     __demoUpsertGlobalAuthProfile?: (profile: GlobalAuthProfile) => void;
     __demoPurgeGlobalAuthProfiles?: (names: string[], ids: string[]) => void;
+    /** Clear per-tab auth override without opening the Auth panel (lesson setup). */
+    __demoClearActiveTabAuth?: () => boolean;
     __demoUpsertGqlEnv?: (name: string, envVars: Array<{ key: string; value: string; masked?: boolean }>) => void;
     __demoApplyGqlTlsSettings?: (patch: Partial<GqlTlsSettings>) => void;
     __demoSetGqlQuery?: (query: string) => void;
@@ -30,6 +34,8 @@ export type DemoBridgeWindow = Window &
     __wfInsertWorkflow?: (wf: Record<string, unknown>) => void;
     __wfGetWorkflowByName?: (name: string) => unknown;
     __wfSelectByName?: (name: string) => boolean;
+    /** Dismiss Gallery sample preview so the real selected workflow paints on the canvas. */
+    __wfClearSamplePreview?: () => void;
     /** Select workflow in Workflow Runner (Test Harness) by display name — fixes stale persisted IDs after re-seed. */
     __wfRunnerSelectByName?: (name: string) => boolean;
     /** Apply workflow selection directly in Workflow Runner (bypasses initialWorkflowId race). */
@@ -48,6 +54,7 @@ export type DemoBridgeWindow = Window &
       workflowName: string,
       patch: Record<string, unknown>,
     ) => boolean;
+    __wfGetSelectedName?: () => string | undefined;
     __wfWorkflowsLoaded?: boolean;
     __wfOpenNodeConfig?: (nodeId: string) => void;
     __wfFitView?: (opts?: {
@@ -74,6 +81,87 @@ export type DemoBridgeWindow = Window &
     };
     __wfQuickTest?: () => void;
     __wfCloseConfigModal?: () => void;
+    __demoSeedHarnessTarget?: () => { envId: string; svcId: string } | null;
+    __demoSeedFeatureGroup?: (fg: Record<string, unknown>) => void;
+    __demoSelectEnvSvc?: (envId: string, svcId: string) => void;
+    /** Seed a TestRun into storage (for Results Dashboard demos). */
+    __demoSeedTestRun?: (run: Record<string, unknown>) => Promise<void>;
+    /** Delete TestRuns whose IDs start with the given prefix (demo cleanup). */
+    __demoDeleteTestRuns?: (prefix: string) => Promise<void>;
+    /** True when any stored TestRun ID starts with the given prefix. */
+    __demoHasTestRuns?: (prefix: string) => Promise<boolean>;
+    /** Seed a Swagger 2.0 spec as a Catalog entry (idempotent by name). Returns the entry id. */
+    __demoSeedCatalogSwagger2?: (name: string, rawSpec: string) => Promise<string | null>;
+    /** Remove a Catalog entry by display name (demo cleanup). */
+    __demoDeleteCatalogByName?: (name: string) => void;
+    /** Select a Catalog entry by display name. Returns false when absent. */
+    __demoSelectCatalogByName?: (name: string) => boolean;
+    /** Add a new version to an existing Catalog entry (by name). Returns true on success. */
+    __demoAddVersionByName?: (name: string, rawSpec: string) => Promise<boolean>;
+    /** Look up a Catalog entry by display name. Returns the entry object or null. */
+    __demoGetCatalogEntryByName?: (name: string) => Record<string, unknown> | null;
+    /**
+     * Quietly publish a Catalog endpoint (by entry name + method + path) for Workflow Designer.
+     * Data-layer only — no Catalog tab / publish modal. Returns false when entry/endpoint missing.
+     */
+    __demoPublishCatalogEndpoint?: (entryName: string, method: string, path: string) => boolean;
+    /** True once the Catalog store has hydrated from storage. */
+    __demoCatalogLoaded?: boolean;
+    /** Ensure a Settings environment exists by name; returns its ID. */
+    __demoEnsureSettingsEnv?: (name: string) => string;
+    /** Remove a Settings environment by name (demo cleanup). */
+    __demoRemoveSettingsEnv?: (name: string) => void;
+    /** Ensure a Settings microservice exists by name; optionally set base URLs. Returns its ID. */
+    __demoEnsureSettingsSvc?: (name: string, baseUrls?: Record<string, string>) => string;
+    /** Remove a Settings microservice by name (demo cleanup). */
+    __demoRemoveSettingsSvc?: (name: string) => void;
+    /**
+     * Quietly clear protocol tabs / endpoints / global vars on a named Settings
+     * microservice (demo lesson boot). Returns false when the svc is missing.
+     */
+    __demoResetSettingsSvcProtocols?: (
+      name: string,
+      options?: { clearProtocols?: boolean; clearGlobalVars?: boolean },
+    ) => boolean;
+    /** Delete all feature groups whose name matches (demo cleanup). */
+    __demoDeleteFeatureGroupsByName?: (name: string) => void;
+    __demoDeleteScenariosByName?: (name: string) => void;
+    /** Seed shared data sources (idempotent — skips existing IDs). */
+    __demoSeedSharedDataSources?: (sources: Array<Record<string, unknown>>) => void;
+    /** Delete shared data sources whose name matches (demo cleanup). */
+    __demoDeleteSharedDataSourcesByName?: (name: string) => void;
+    /** Delete all request collections whose name matches exactly (demo cleanup). Returns count deleted. */
+    __demoDeleteCollectionsByName?: (name: string) => number;
+    /** Remove all workflow preview endpoints from storage (demo cleanup). */
+    __demoClearAllWorkflowPreviews?: () => Promise<void>;
+    /** Delete a Kafka cluster by ID (demo lesson cleanup). */
+    __demoDeleteKafkaClusterById?: (clusterId: string) => void;
+    /** Delete a Kafka cluster by display name (demo lesson cleanup). */
+    __demoDeleteKafkaClusterByName?: (name: string) => void;
+    /** Clear all WebSocket Saved connection profiles (quiet demo setup). */
+    __demoClearWsProfiles?: () => Promise<void>;
+    /** Clear all WebSocket message templates (quiet demo setup). */
+    __demoClearWsTemplates?: () => Promise<void>;
+    /**
+     * Quietly replace the WS connection tab bar with the given labels
+     * (no add/rename UI flash — used by Power User / tab lessons).
+     */
+    __demoSeedWsConnectionTabs?: (labels: string[]) => boolean;
+    /**
+     * Quiet Secure WebSocket lesson prep — Client/Connect/Events, single tab,
+     * reset TLS/auth/headers/URL without flashing the TLS bar or modal.
+     */
+    __demoPrepareWsTlsLesson?: () => boolean;
+    /**
+     * Apply WebSocket Studio TLS config on the active tab (skip-cert / CA / mTLS PEMs)
+     * without fighting controlled inputs in the TLS modal.
+     */
+    __demoApplyWsTlsConfig?: (patch: {
+      rejectUnauthorized?: boolean;
+      caCert?: string;
+      clientCert?: string;
+      clientKey?: string;
+    }) => void;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

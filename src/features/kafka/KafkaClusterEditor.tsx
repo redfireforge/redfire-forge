@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import {
   clusterIdFromName,
   type KafkaClusterDraft,
@@ -41,6 +43,9 @@ export function KafkaClusterEditor({
   removeBrokerRow,
   confirmDelete,
 }: KafkaClusterEditorProps) {
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [showTlsPassphrase, setShowTlsPassphrase] = useState(false);
+
   return (
     <section
       className="kafka-shell-card kafka-editor-panel"
@@ -203,18 +208,19 @@ export function KafkaClusterEditor({
                   </div>
                   <div className="kafka-editor-field">
                     <label htmlFor="kafka-auth-mode">Mechanism</label>
-                    <select
-                      id="kafka-auth-mode"
+                    <CustomSelect
                       value={draft.authMode ?? 'none'}
-                      onChange={(event) =>
-                        updateDraft({ authMode: event.target.value as KafkaClusterDraft['authMode'] })
+                      onChange={(v) =>
+                        updateDraft({ authMode: v as KafkaClusterDraft['authMode'] })
                       }
-                    >
-                      <option value="none">No authentication</option>
-                      <option value="plain">SASL / PLAIN</option>
-                      <option value="scram-sha-256">SCRAM-SHA-256</option>
-                      <option value="scram-sha-512">SCRAM-SHA-512</option>
-                    </select>
+                      options={[
+                        { value: 'none', label: 'No authentication' },
+                        { value: 'plain', label: 'SASL / PLAIN' },
+                        { value: 'scram-sha-256', label: 'SCRAM-SHA-256' },
+                        { value: 'scram-sha-512', label: 'SCRAM-SHA-512' },
+                      ]}
+                      aria-label="Mechanism"
+                    />
                   </div>
                   {(draft.authMode ?? 'none') !== 'none' && (
                     <div className="kafka-subcard-fields">
@@ -232,13 +238,24 @@ export function KafkaClusterEditor({
                       </div>
                       <div className="kafka-editor-field">
                         <label htmlFor="kafka-auth-password">Password</label>
-                        <input
-                          id="kafka-auth-password"
-                          type="password"
-                          value={draft.authPassword}
-                          onChange={(event) => updateDraft({ authPassword: event.target.value })}
-                          placeholder="Enter broker password"
-                        />
+                        <div className="kafka-password-wrapper">
+                          <input
+                            id="kafka-auth-password"
+                            type={showAuthPassword ? 'text' : 'password'}
+                            value={draft.authPassword}
+                            onChange={(event) => updateDraft({ authPassword: event.target.value })}
+                            placeholder="Enter broker password"
+                          />
+                          <button
+                            type="button"
+                            className="kafka-password-reveal"
+                            onClick={() => setShowAuthPassword((v) => !v)}
+                            title={showAuthPassword ? 'Hide password' : 'Show password'}
+                            aria-label={showAuthPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showAuthPassword ? '🙈' : '👁'}
+                          </button>
+                        </div>
                         {draftErrors.authPassword && (
                           <div className="kafka-editor-error">{draftErrors.authPassword}</div>
                         )}
@@ -331,13 +348,24 @@ export function KafkaClusterEditor({
                       </div>
                       <div className="kafka-editor-field kafka-editor-field-full">
                         <label htmlFor="kafka-tls-passphrase">Key Passphrase</label>
-                        <input
-                          id="kafka-tls-passphrase"
-                          type="password"
-                          value={draft.tlsPassphrase}
-                          onChange={(event) => updateDraft({ tlsPassphrase: event.target.value })}
-                          placeholder="Optional key passphrase"
-                        />
+                        <div className="kafka-password-wrapper">
+                          <input
+                            id="kafka-tls-passphrase"
+                            type={showTlsPassphrase ? 'text' : 'password'}
+                            value={draft.tlsPassphrase}
+                            onChange={(event) => updateDraft({ tlsPassphrase: event.target.value })}
+                            placeholder="Optional key passphrase"
+                          />
+                          <button
+                            type="button"
+                            className="kafka-password-reveal"
+                            onClick={() => setShowTlsPassphrase((v) => !v)}
+                            title={showTlsPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+                            aria-label={showTlsPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+                          >
+                            {showTlsPassphrase ? '🙈' : '👁'}
+                          </button>
+                        </div>
                         {draftErrors.tlsPassphrase && (
                           <div className="kafka-editor-error">{draftErrors.tlsPassphrase}</div>
                         )}

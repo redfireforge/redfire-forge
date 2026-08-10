@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
+  clearLiveDemoPanelFromTarget,
   findFirstVisibleElement,
   findScrollableParent,
   findVisibleAppModal,
@@ -13,6 +14,7 @@ import {
   isDemoTargetVisible,
   isSpotlightSuppressedForModal,
   pauseDemoAutoScroll,
+  resumeDemoAutoScroll,
   scrollDemoTargetIntoView,
 } from './demoSpotlightUtils';
 
@@ -33,6 +35,7 @@ function mockRect(el: Element, width: number, height: number): void {
 describe('demoSpotlightUtils', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    resumeDemoAutoScroll();
   });
 
   it('findFirstVisibleElement returns the first visible match', () => {
@@ -44,6 +47,10 @@ describe('demoSpotlightUtils', () => {
     mockRect(visible, 10, 10);
     document.body.append(hidden, visible);
     expect(findFirstVisibleElement('.pick-me')).toBe(visible);
+  });
+
+  it('findFirstVisibleElement returns null for invalid selector syntax', () => {
+    expect(findFirstVisibleElement(']invalid-selector[')).toBeNull();
   });
 
   it('findFirstVisibleElement skips elements inside hidden ancestors', () => {
@@ -188,6 +195,77 @@ describe('demoSpotlightUtils', () => {
     expect(findVisibleAppModal()).toBe(dialog);
   });
 
+  it('findVisibleAppModal returns the topmost stacked modal (nested Data Mapper)', () => {
+    const editOverlay = document.createElement('div');
+    editOverlay.className = 'modal-overlay rf-builder-overlay';
+    mockRect(editOverlay, 400, 400);
+    const editDialog = document.createElement('div');
+    editDialog.setAttribute('role', 'dialog');
+    editDialog.setAttribute('aria-modal', 'true');
+    const validationRules = document.createElement('div');
+    validationRules.className = 'validation-fields-summary';
+    mockRect(validationRules, 200, 80);
+    editDialog.appendChild(validationRules);
+
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 300, 300);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    dmOverlay.appendChild(dmDialog);
+    editDialog.appendChild(dmOverlay);
+    editOverlay.appendChild(editDialog);
+    document.body.appendChild(editOverlay);
+
+    expect(findVisibleAppModal()).toBe(dmDialog);
+    expect(isSpotlightSuppressedForModal(validationRules)).toBe(true);
+  });
+
+  it('findVisibleAppModal prefers Expression Editor overlay when stacked on body', () => {
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 300, 300);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    dmOverlay.appendChild(dmDialog);
+
+    const exprOverlay = document.createElement('div');
+    exprOverlay.className = 'dm-expr-overlay';
+    mockRect(exprOverlay, 280, 280);
+    const exprDialog = document.createElement('div');
+    exprDialog.setAttribute('role', 'dialog');
+    exprDialog.setAttribute('aria-modal', 'true');
+    exprOverlay.appendChild(exprDialog);
+
+    document.body.append(dmOverlay, exprOverlay);
+    expect(findVisibleAppModal()).toBe(exprDialog);
+    expect(isSpotlightSuppressedForModal(dmDialog)).toBe(true);
+    expect(isSpotlightSuppressedForModal(exprDialog)).toBe(false);
+  });
+
+  it('findVisibleAppModal prefers Schema Diff overlay when stacked on body', () => {
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 300, 300);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    dmOverlay.appendChild(dmDialog);
+
+    const diffOverlay = document.createElement('div');
+    diffOverlay.className = 'dm-diff-overlay';
+    diffOverlay.setAttribute('role', 'dialog');
+    diffOverlay.setAttribute('aria-modal', 'true');
+    mockRect(diffOverlay, 280, 280);
+
+    document.body.append(dmOverlay, diffOverlay);
+    expect(findVisibleAppModal()).toBe(diffOverlay);
+    expect(isSpotlightSuppressedForModal(dmDialog)).toBe(true);
+    expect(isSpotlightSuppressedForModal(diffOverlay)).toBe(false);
+  });
+
   it('hasDemoHubTextSelection detects selection in demo-live-panel via text node parent', () => {
     document.body.innerHTML = `
       <div class="demo-live-panel"><p id="narration">Step text</p></div>
@@ -200,6 +278,46 @@ describe('demoSpotlightUtils', () => {
     sel.addRange(range);
     expect(hasDemoHubTextSelection()).toBe(true);
     sel.removeAllRanges();
+  });
+
+  it('isSpotlightSuppressedForModal is true when Validation Rules panel covers a toolbar target', () => {
+    const toolbarBtn = document.createElement('button');
+    toolbarBtn.setAttribute('data-testid', 'dm-view-rules');
+    mockRect(toolbarBtn, 40, 20);
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 400, 400);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    dmDialog.appendChild(toolbarBtn);
+    const vrPanel = document.createElement('div');
+    vrPanel.className = 'vr-modal-panel';
+    mockRect(vrPanel, 300, 300);
+    dmDialog.append(toolbarBtn, vrPanel);
+    dmOverlay.appendChild(dmDialog);
+    document.body.appendChild(dmOverlay);
+    expect(isSpotlightSuppressedForModal(toolbarBtn)).toBe(true);
+  });
+
+  it('isSpotlightSuppressedForModal is false when target is inside Validation Rules panel', () => {
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 400, 400);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    const vrPanel = document.createElement('div');
+    vrPanel.className = 'vr-modal-panel';
+    mockRect(vrPanel, 300, 300);
+    const verifyBtn = document.createElement('button');
+    verifyBtn.className = 'vr-modal-action-btn--verify';
+    mockRect(verifyBtn, 60, 24);
+    vrPanel.appendChild(verifyBtn);
+    dmDialog.appendChild(vrPanel);
+    dmOverlay.appendChild(dmDialog);
+    document.body.appendChild(dmOverlay);
+    expect(isSpotlightSuppressedForModal(verifyBtn)).toBe(false);
   });
 
   it('isSpotlightSuppressedForModal is false when no modal is open', () => {
@@ -243,6 +361,72 @@ describe('demoSpotlightUtils', () => {
     expect(scroll.scrollTo).toHaveBeenCalled();
   });
 
+  it('clearLiveDemoPanelFromTarget dispatches when the panel covers the target', () => {
+    const panel = document.createElement('div');
+    panel.className = 'demo-live-panel';
+    panel.getBoundingClientRect = () => ({
+      top: 80, left: 900, width: 360, height: 400,
+      right: 1260, bottom: 480, x: 900, y: 80, toJSON: () => ({}),
+    });
+    document.body.appendChild(panel);
+
+    const startBtn = document.createElement('button');
+    startBtn.getBoundingClientRect = () => ({
+      top: 200, left: 980, width: 140, height: 32,
+      right: 1120, bottom: 232, x: 980, y: 200, toJSON: () => ({}),
+    });
+    document.body.appendChild(startBtn);
+
+    const handler = vi.fn();
+    window.addEventListener('demo-live-panel:clear-target', handler);
+    clearLiveDemoPanelFromTarget(startBtn);
+    expect(handler).toHaveBeenCalled();
+    window.removeEventListener('demo-live-panel:clear-target', handler);
+  });
+
+  it('scrollDemoTargetIntoView ignores a top-right LiveDemo panel above the scrollport', () => {
+    resumeDemoAutoScroll();
+    const panel = document.createElement('div');
+    panel.className = 'demo-live-panel';
+    panel.getBoundingClientRect = () => ({
+      top: 40, left: 900, width: 320, height: 220,
+      right: 1220, bottom: 260, x: 900, y: 40, toJSON: () => ({}),
+    });
+    // Non-zero size so isDemoElementVisible accepts the panel.
+    Object.defineProperty(panel, 'offsetWidth', { value: 320 });
+    Object.defineProperty(panel, 'offsetHeight', { value: 220 });
+    document.body.appendChild(panel);
+
+    const scroll = document.createElement('div');
+    scroll.className = 'grpc-advanced-content';
+    scroll.style.overflowY = 'auto';
+    Object.defineProperty(scroll, 'scrollHeight', { value: 1200, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 500, configurable: true });
+    Object.defineProperty(scroll, 'scrollTop', { value: 200, writable: true, configurable: true });
+    scroll.getBoundingClientRect = () => ({
+      top: 220, left: 0, width: 1000, height: 500,
+      right: 1000, bottom: 720, x: 0, y: 220, toJSON: () => ({}),
+    });
+    scroll.scrollTo = vi.fn();
+
+    const runtimeTab = document.createElement('button');
+    runtimeTab.getBoundingClientRect = () => ({
+      // Currently flush at the scrollport top (clipped ring case).
+      top: 222, left: 40, width: 90, height: 28,
+      right: 130, bottom: 250, x: 40, y: 222, toJSON: () => ({}),
+    });
+    scroll.appendChild(runtimeTab);
+    document.body.appendChild(scroll);
+
+    scrollDemoTargetIntoView(runtimeTab, { block: 'center' });
+
+    expect(scroll.scrollTo).toHaveBeenCalled();
+    const arg = (scroll.scrollTo as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { top: number };
+    // Must scroll UP from 200 so the tab sits below the top clip with ring clearance —
+    // not stay pinned at offsetTop (flush). panel.top < parent.top must not zero height.
+    expect(arg.top).toBeLessThan(200);
+  });
+
   it('pauseDemoAutoScroll blocks scrollDemoTargetIntoView', () => {
     const scroll = document.createElement('div');
     scroll.className = 'gql-rv-metadata';
@@ -267,6 +451,43 @@ describe('demoSpotlightUtils', () => {
     expect(isDemoAutoScrollPaused()).toBe(true);
     scrollDemoTargetIntoView(row, { block: 'center' });
     expect(scroll.scrollTo).not.toHaveBeenCalled();
+
+    resumeDemoAutoScroll();
+    expect(isDemoAutoScrollPaused()).toBe(false);
+    scrollDemoTargetIntoView(row, { block: 'center' });
+    expect(scroll.scrollTo).toHaveBeenCalled();
+  });
+
+  it('programmatic scroll does not pause auto-scroll via scroll listeners', () => {
+    vi.useFakeTimers();
+    resumeDemoAutoScroll();
+    const cleanup = installDemoUserScrollListeners();
+    const scroll = document.createElement('div');
+    scroll.className = 'gql-rv-metadata';
+    scroll.style.overflowY = 'auto';
+    Object.defineProperty(scroll, 'scrollHeight', { value: 800, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 200, configurable: true });
+    scroll.getBoundingClientRect = () => ({
+      top: 100, left: 0, width: 400, height: 200,
+      right: 400, bottom: 300, x: 0, y: 100, toJSON: () => ({}),
+    });
+    scroll.scrollTo = vi.fn(() => {
+      scroll.dispatchEvent(new Event('scroll', { bubbles: true }));
+    });
+    const row = document.createElement('td');
+    row.getBoundingClientRect = () => ({
+      top: 320, left: 20, width: 300, height: 24,
+      right: 320, bottom: 344, x: 20, y: 320, toJSON: () => ({}),
+    });
+    scroll.appendChild(row);
+    document.body.appendChild(scroll);
+
+    scrollDemoTargetIntoView(row, { block: 'center' });
+    expect(scroll.scrollTo).toHaveBeenCalled();
+    expect(isDemoAutoScrollPaused()).toBe(false);
+
+    cleanup();
+    vi.useRealTimers();
   });
 
   it('installDemoUserScrollListeners pauses auto-scroll on auth panel wheel', () => {

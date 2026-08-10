@@ -3,39 +3,25 @@ import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSou
 import { isWsActionType } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
-import {
-  getBaseUrl,
-  parseQueryParams,
-  rebuildUrl,
-} from '../utils/testEditorUtils';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { parseQueryParams, rebuildUrl } from '../utils/testEditorUtils';
+import { toErrorMessage, formatJson } from '../../../shared/utils/helpers';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
-import TestDefinitionVersionPanel from './TestDefinitionVersionPanel';
 import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
-import { createSnapshot } from '../utils/testDefinitionVersioning';
-import { BodyEditor } from '../../requests/components/BodyEditor';
-import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
+import { toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
 import { useTestFetch } from '../hooks/useTestFetch';
 import DataSourceSetupModal from './DataSourceSetupModal';
-import TestEditorAuthTab from './TestEditorAuthTab';
-import TestEditorValidationTab from './TestEditorValidationTab';
-import ExtractionEditor from '../../requests/components/ExtractionEditor';
+import { TestEditorTabs } from './TestEditorTabs';
+import TestEditorPropertyCard from './TestEditorPropertyCard';
+import TestEditorTabContent from './TestEditorTabContent';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
-import DataSourceEditor from './DataSourceEditor';
 import type { ImportChoice, ExportChoice } from './ImportExportChoiceModal';
+import TestEditorModalHeaderActions from './TestEditorModalHeaderActions';
 import WsScenarioEditor from './WsScenarioEditor';
-import {
-  createDefaultWsConnectAction,
-  createDefaultWsSendAction,
-  createDefaultWsReceiveAction,
-} from '../../../shared/utils/wsScenarioDefaults';
+import { createDefaultWsConnectAction, createDefaultWsSendAction, createDefaultWsReceiveAction } from '../../../shared/utils/wsScenarioDefaults';
 import { makeDefaultGrpcHarnessCallAction } from '../../../shared/utils/grpcHarnessScenarioContracts';
-import {
-  createTestEditorExportHandler,
-  createTestEditorImportHandler,
-} from '../utils/testEditorModalImportExport';
+import { createTestEditorExportHandler, createTestEditorImportHandler } from '../utils/testEditorModalImportExport';
 
 // emptyTest is imported directly from '../utils/testEditorUtils' by consumers
 
@@ -66,7 +52,7 @@ export interface TestEditorModalProps {
   onVersionDelete: (versionId: string) => void;
   onVersionRename: (versionId: string, label: string) => void;
   /** Called when user wants to create a parameterized copy from the Parameterize tab */
-  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
+  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string, newScenarioName?: string) => void;
   /** Top-level shared data sources (for linking) */
   sharedDataSources?: SharedDataSource[];
   /** Called when user promotes inline data to a shared data source; returns new shared DS id */
@@ -78,6 +64,8 @@ export interface TestEditorModalProps {
   ) => string;
   /** Called when user clicks the shared DS badge to open the modal */
   onOpenSharedDsModal?: () => void;
+  /** When true at mount, immediately switches to the Data tab and opens the setup/parameterize wizard */
+  initialOpenDataSourceWizard?: boolean;
 }
 
 export default function TestEditorModal({
@@ -104,10 +92,29 @@ export default function TestEditorModal({
   sharedDataSources,
   onPromoteToShared,
   onOpenSharedDsModal,
+  initialOpenDataSourceWizard,
 }: TestEditorModalProps) {
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const toast = useToast();
+
+  // Seeds the Data tab's setup modal open on mount (from the shared-DS "Create + Open Parameterize Wizard"
+  // flow), or imperatively via the header "Parameterize" shortcut. Reset shortly after the Data tab is
+  // showing so revisiting the tab later doesn't reopen the wizard.
+  const [openDataSetupOnMount, setOpenDataSetupOnMount] = useState(() => !!initialOpenDataSourceWizard);
+  useEffect(() => {
+    if (activeTab !== 'data' || !openDataSetupOnMount) return;
+    const t = setTimeout(() => setOpenDataSetupOnMount(false), 0);
+    return () => clearTimeout(t);
+  }, [activeTab, openDataSetupOnMount]);
+  const handleOpenParameterizeWizard = useCallback(() => {
+    // Must leave cURL Import/Export view — builder is the only mode that
+    // renders the Data / Parameterize tab content.
+    onInputModeChange('builder');
+    setOpenDataSetupOnMount(true);
+    onActiveTabChange('data');
+  }, [onInputModeChange, onActiveTabChange]);
+  const canParameterize = !isNew && !!onCreateParameterizedCopy && !draft.dataSource && !draft.sharedDataSourceId;
 
   const [importDropdownOpen, setImportDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
@@ -180,13 +187,22 @@ export default function TestEditorModal({
     setQueryParams(entries);
     const cur = draftRef.current;
     if (cur.url) {
-      onDraftChange({ ...cur, url: rebuildUrl(cur.url, fromParamEntries(entries)) });
+      const kv = fromParamEntries(entries);
+      const patch: Partial<Scenario> = { url: rebuildUrl(cur.url, kv) };
+      // Keep the parameterized urlTemplate (used for the URL Preview and runs)
+      // in sync so query params added here are reflected everywhere.
+      if (cur.dataSource?.urlTemplate) {
+        patch.dataSource = { ...cur.dataSource, urlTemplate: rebuildUrl(cur.dataSource.urlTemplate, kv) };
+      }
+      onDraftChange({ ...cur, ...patch });
     }
   }, [onDraftChange]);
 
   const handleImportFromUrl = useCallback(() => {
     const cur = draftRef.current;
-    setQueryParams(toParamEntries(parseQueryParams(cur.url)));
+    // Prefer the live URL (incl. query). For parameterized tests, urlTemplate may carry ?params.
+    const sourceUrl = cur.dataSource?.urlTemplate?.trim() || cur.url;
+    setQueryParams(toParamEntries(parseQueryParams(sourceUrl)));
   }, []);
 
   const updateHeader = (index: number, field: 'key' | 'value', val: string) => {
@@ -208,8 +224,13 @@ export default function TestEditorModal({
 
   const handleBaseUrlChange = (newBaseUrl: string) => {
     const cur = draftRef.current;
+    // If the user typed/pasted a query string, keep it — do not clobber with the params table.
+    // Path/host-only edits still preserve existing query params via rebuildUrl.
+    const typedHasQuery = newBaseUrl.includes('?');
     const enabledParams = fromParamEntries(queryParams);
-    const newUrl = enabledParams.length > 0 ? rebuildUrl(newBaseUrl, enabledParams) : newBaseUrl;
+    const newUrl = typedHasQuery || enabledParams.length === 0
+      ? newBaseUrl
+      : rebuildUrl(newBaseUrl, enabledParams);
     const patch: Partial<Scenario> = { url: newUrl };
     // Keep urlTemplate in sync when data source exists
     if (cur.dataSource?.urlTemplate) {
@@ -224,7 +245,13 @@ export default function TestEditorModal({
     const cur = draftRef.current;
     // Preserve cur.id so the React key doesn't change and cause a remount
     const { id: _discardId, ...parsedWithoutId } = parsed;
-    onDraftChange({ ...cur, ...parsedWithoutId, validation: cur.validation });
+    // Pretty-print JSON bodies so the Body tab is readable after import
+    let body = parsed.body ?? '';
+    if ((parsed.bodyType === 'json' || (!parsed.bodyType && body.trim().startsWith('{'))) && body.trim()) {
+      const pretty = formatJson(body);
+      if (pretty) body = pretty;
+    }
+    onDraftChange({ ...cur, ...parsedWithoutId, body, validation: cur.validation });
     syncParamsFromUrl(parsed.url || '');
     onInputModeChange('builder');
     setCurlText('');
@@ -258,6 +285,19 @@ export default function TestEditorModal({
 
   const [csvExportOpen, setCsvExportOpen] = useState(false);
   const [diffVersions, setDiffVersions] = useState<{ older: import('../../../shared/types').TestDefinitionVersion; newer: import('../../../shared/types').TestDefinitionVersion } | null>(null);
+  const [transportDropOpen, setTransportDropOpen] = useState(false);
+  const [methodDropOpen, setMethodDropOpen] = useState(false);
+  const transportDropRef = useRef<HTMLDivElement>(null);
+  const methodDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (transportDropRef.current && !transportDropRef.current.contains(e.target as Node)) setTransportDropOpen(false);
+      if (methodDropRef.current && !methodDropRef.current.contains(e.target as Node)) setMethodDropOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const defVersions = draft.definitionVersions ?? [];
   const defVersionCount = defVersions.length;
@@ -341,19 +381,34 @@ export default function TestEditorModal({
   const displayUrl = useMemo(() => {
     const dt = draft.dataSource;
     if (dt?.urlTemplate) {
-      // Start with the template (already has path {{variables}})
+      // Start with the template path (already has path {{variables}})
+      const base = dt.urlTemplate.split('?')[0];
       const paramCols = dt.columns.filter(c => c.type === 'param');
-      if (paramCols.length > 0) {
-        const base = dt.urlTemplate.split('?')[0];
-        const params = paramCols.map(c => `${c.mapping}={{${c.mapping}}}`).join('&');
-        return `${base}?${params}`;
+      const colKeys = new Set(paramCols.map(c => c.mapping));
+      // Preserve manual query params from BOTH the template and the live URL
+      // (the Params tab edits draft.url, which may be ahead of the template),
+      // skipping any that are backed by a param column.
+      const queryOf = (u: string) => (u.split('?')[1] ?? '').split('&').filter(Boolean);
+      const seen = new Set<string>();
+      const manual: string[] = [];
+      for (const pair of [...queryOf(dt.urlTemplate), ...queryOf(draft.url)]) {
+        const key = pair.split('=')[0];
+        if (!key || colKeys.has(key) || seen.has(key)) continue;
+        seen.add(key);
+        manual.push(pair);
       }
-      return dt.urlTemplate;
+      const parts = [
+        ...manual,
+        ...paramCols.map(c => `${c.mapping}={{${c.mapping}}}`),
+      ];
+      return parts.length > 0 ? `${base}?${parts.join('&')}` : base;
     }
     return draft.url;
   }, [draft.dataSource, draft.url]);
 
-  const baseUrl = useMemo(() => (displayUrl ? getBaseUrl(displayUrl) : ''), [displayUrl]);
+  // Show the full URL (including ?query) in the editor so "Import from URL" has something to parse
+  // and pasted query strings remain visible. Params table stays the structured editor for the same data.
+  const baseUrl = displayUrl;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- factory returns a stable handler; deps listed explicitly
   const importHandler = useCallback(
@@ -394,82 +449,36 @@ export default function TestEditorModal({
       <WorkflowEditorModalFrame
         title={isNew ? (isParameterized ? 'New Parameterized Test' : 'New Test') : (isParameterized ? 'Edit Parameterized Test' : 'Edit Test')}
         onClose={onCancel}
-        overlayClassName="insomnia-modal-overlay"
-        dialogClassName="insomnia-modal"
+        overlayClassName="rf-builder-overlay"
+        dialogClassName="rf-builder-modal"
         expandMode="fullscreen"
+        minWidth={640}
+        minHeight={420}
+        constrainDragToViewport
+        dragViewportPadding={8}
         headerActions={
-          <>
-            <div className="mode-toggle">
-              <button type="button" className={`mode-btn ${inputMode === 'builder' ? 'active' : ''}`} onClick={() => onInputModeChange('builder')}>Builder</button>
-              {isHttp && (
-                <button type="button" className={`mode-btn ${inputMode === 'curlImport' ? 'active' : ''}`} onClick={() => onInputModeChange('curlImport')}>cURL Import</button>
-              )}
-              {isHttp && (
-                <button
-                  type="button"
-                  className={`mode-btn ${inputMode === 'curlExport' ? 'active' : ''}`}
-                  onClick={() => {
-                    onInputModeChange('curlExport');
-                    void triggerCurlGeneration();
-                  }}
-                >
-                  cURL Export
-                </button>
-              )}
-              <div className="mode-btn-dropdown-wrapper" ref={importDropdownRef}>
-                <button
-                  type="button"
-                  className={`mode-btn ${importDropdownOpen ? 'active' : ''}`}
-                  onClick={() => { setImportDropdownOpen(v => !v); setExportDropdownOpen(false); }}
-                >
-                  Import ▾
-                </button>
-                {importDropdownOpen && (
-                  <div className="mode-btn-dropdown">
-                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleImportChoice('test-definition')}>
-                      <span className="mode-btn-dropdown-label">Test Definition</span>
-                      <span className="mode-btn-dropdown-desc">Load a saved test configuration (.json)</span>
-                    </button>
-                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleImportChoice('data-rows')}>
-                      <span className="mode-btn-dropdown-label">Data Rows</span>
-                      <span className="mode-btn-dropdown-desc">Import CSV or JSON data into the Data Source</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="mode-btn-dropdown-wrapper" ref={exportDropdownRef}>
-                <button
-                  type="button"
-                  className={`mode-btn ${exportDropdownOpen ? 'active' : ''}`}
-                  onClick={() => { setExportDropdownOpen(v => !v); setImportDropdownOpen(false); }}
-                >
-                  Export ▾
-                </button>
-                {exportDropdownOpen && (
-                  <div className="mode-btn-dropdown">
-                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleExportChoice('test-definition')}>
-                      <span className="mode-btn-dropdown-label">Test Definition</span>
-                      <span className="mode-btn-dropdown-desc">Save test configuration as .json</span>
-                    </button>
-                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleExportChoice('excel-template')}>
-                      <span className="mode-btn-dropdown-label">Excel Template</span>
-                      <span className="mode-btn-dropdown-desc">Structured .xlsx with metadata and data rows</span>
-                    </button>
-                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleExportChoice('data-csv')}>
-                      <span className="mode-btn-dropdown-label">Data as CSV</span>
-                      <span className="mode-btn-dropdown-desc">Export Data Source rows as .csv</span>
-                    </button>
-                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleExportChoice('data-json')}>
-                      <span className="mode-btn-dropdown-label">Data as JSON</span>
-                      <span className="mode-btn-dropdown-desc">Export Data Source rows as .json</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={onSave} disabled={!canSave}>Save</button>
-          </>
+          <TestEditorModalHeaderActions
+            inputMode={inputMode}
+            onInputModeChange={onInputModeChange}
+            isHttp={isHttp}
+            triggerCurlGeneration={() => {
+              void triggerCurlGeneration();
+            }}
+            importDropdownOpen={importDropdownOpen}
+            setImportDropdownOpen={setImportDropdownOpen}
+            exportDropdownOpen={exportDropdownOpen}
+            setExportDropdownOpen={setExportDropdownOpen}
+            importDropdownRef={importDropdownRef}
+            exportDropdownRef={exportDropdownRef}
+            hasDataSource={!!draft.dataSource}
+            onImportChoice={handleImportChoice}
+            onExportChoice={handleExportChoice}
+            onCancel={onCancel}
+            onSave={onSave}
+            canSave={canSave}
+            canParameterize={canParameterize}
+            onOpenParameterizeWizard={handleOpenParameterizeWizard}
+          />
         }
       >
 
@@ -533,67 +542,23 @@ export default function TestEditorModal({
 
         {inputMode === 'builder' && (
           <div className="builder-panel">
-            <div className="form-row">
-              <label>Name</label>
-              <input value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} placeholder="e.g. Get User Profile" />
-            </div>
-
-            <div className="form-row form-row--transport">
-              <label>Transport</label>
-              <select
-                value={effectiveTransport}
-                onChange={(e) => handleTransportChange(e.target.value as ScenarioActionType)}
-                className="transport-select"
-                aria-label="Transport type"
-              >
-                <optgroup label="HTTP">
-                  <option value="http">HTTP</option>
-                </optgroup>
-                <optgroup label="WebSocket">
-                  <option value="wsConnect">WS Connect</option>
-                  <option value="wsSend">WS Send</option>
-                  <option value="wsReceive">WS Receive</option>
-                </optgroup>
-                <optgroup label="Kafka">
-                  <option value="kafkaProduce">Kafka Produce</option>
-                  <option value="kafkaConsume">Kafka Consume</option>
-                </optgroup>
-              </select>
-            </div>
-
-            {isHttp && (
-              <>
-                <div className="url-bar">
-                  <select
-                    className={`method-select method-color-${draft.method.toLowerCase()}`}
-                    value={draft.method}
-                    onChange={(e) => onDraftChange({ ...draft, method: e.target.value as Scenario['method'] })}
-                  >
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="PATCH">PATCH</option>
-                    <option value="DELETE">DELETE</option>
-                  </select>
-                  <input
-                    className="url-input"
-                    value={baseUrl}
-                    onChange={(e) => handleBaseUrlChange(e.target.value)}
-                    placeholder={resolvedBaseUrl ? `${resolvedBaseUrl}/...` : 'https://api.example.com/endpoint'}
-                  />
-                  {resolvedBaseUrl && !draft.url && (
-                    <button type="button" className="btn btn-sm url-fill-btn" onClick={() => handleBaseUrlChange(resolvedBaseUrl)} title="Use resolved base URL">Use</button>
-                  )}
-                </div>
-
-                {draft.url && (
-                  <div className="url-preview">
-                    <span className="url-preview-label">URL PREVIEW</span>
-                    <code>{displayUrl}</code>
-                  </div>
-                )}
-              </>
-            )}
+            <TestEditorPropertyCard
+              draft={draft}
+              onDraftChange={onDraftChange}
+              effectiveTransport={effectiveTransport}
+              isHttp={isHttp}
+              transportDropOpen={transportDropOpen}
+              setTransportDropOpen={setTransportDropOpen}
+              transportDropRef={transportDropRef}
+              handleTransportChange={handleTransportChange}
+              methodDropOpen={methodDropOpen}
+              setMethodDropOpen={setMethodDropOpen}
+              methodDropRef={methodDropRef}
+              baseUrl={baseUrl}
+              handleBaseUrlChange={handleBaseUrlChange}
+              resolvedBaseUrl={resolvedBaseUrl}
+              displayUrl={displayUrl}
+            />
 
             {isWs && (
               <WsScenarioEditor
@@ -616,185 +581,71 @@ export default function TestEditorModal({
               </div>
             )}
 
-            <div className="builder-tabs">
-              {isHttp && (
-                <button type="button" className={`builder-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => onActiveTabChange('params')}>
-                  Params {paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
-                </button>
-              )}
-              {isHttp && draft.method !== 'GET' && (
-                <button type="button" className={`builder-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => onActiveTabChange('body')}>
-                  Body {(draft.body || (draft.bodyForm ?? []).some(kv => kv.key.trim())) ? <span className="tab-badge-dot" /> : null}
-                </button>
-              )}
-              {isHttp && (
-                <button type="button" className={`builder-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => onActiveTabChange('auth')}>
-                  Auth {draft.auth.type !== 'none' && <span className="tab-badge-dot" />}
-                </button>
-              )}
-              {isHttp && (
-                <button type="button" className={`builder-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => onActiveTabChange('headers')}>
-                  Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
-                </button>
-              )}
-              {!(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
-                <button type="button" className={`builder-tab ${activeTab === 'validation' ? 'active' : ''}`} onClick={() => onActiveTabChange('validation')}>
-                  Validation {(draft.validation.mode === 'selective' || (draft.validation.mode === 'full' && !!draft.validation.expectedJson?.trim()) || (draft.validation.assertions?.length ?? 0) > 0) && <span className="tab-badge-dot" />}
-                </button>
-              )}
-              {(isHttp || isWs) && !(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
-                <button type="button" className={`builder-tab ${activeTab === 'extract' ? 'active' : ''}`} onClick={() => onActiveTabChange('extract')}>
-                  Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}
-                </button>
-              )}
-              {scenarioKind !== 'standard' && !draft.dataSource && (
-                <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')}>
-                  Parameterize
-                </button>
-              )}
-              {scenarioKind !== 'standard' && draft.dataSource && (
-                <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')}>
-                  Data Source {(draft.dataSource.rows.filter(r => r.enabled).length ?? 0) > 0 && <span className="tab-badge">{draft.dataSource.rows.filter(r => r.enabled).length}</span>}
-                </button>
-              )}
-              {!isNew && (
-                <button type="button" className={`builder-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => onActiveTabChange('history')}>
-                  History {defVersionCount > 0 && <span className="tab-badge">{defVersionCount}</span>}
-                </button>
-              )}
-            </div>
+            <TestEditorTabs
+              isHttp={isHttp}
+              isWs={isWs}
+              draft={draft}
+              activeTab={activeTab}
+              onActiveTabChange={onActiveTabChange}
+              paramCount={paramCount}
+              headerCount={headerCount}
+              scenarioKind={scenarioKind}
+              isNew={isNew}
+              defVersionCount={defVersionCount}
+            />
 
-            <div className="builder-tab-content">
-              {activeTab === 'params' && isHttp && (
-                <ParamsEditor params={queryParams} onChange={handleParamsChange} onImportFromUrl={handleImportFromUrl} />
-              )}
-
-              {activeTab === 'body' && isHttp && draft.method !== 'GET' && (
-                <BodyEditor draft={draft} onDraftChange={onDraftChange} />
-              )}
-
-              {activeTab === 'auth' && isHttp && (
-                <TestEditorAuthTab
-                  draft={draft}
-                  onDraftChange={onDraftChange}
-                  featureGroups={featureGroups}
-                  editingTest={editingTest}
-                  allAuthProfiles={allAuthProfiles}
-                  verifyAuth={verifyAuth}
-                  resolveEffectiveAuth={resolveEffectiveAuth}
-                  authVerifying={authVerifying}
-                  authVerifyResult={authVerifyResult}
-                  setAuthVerifyResult={setAuthVerifyResult}
-                  showSecret={showSecret}
-                  setShowSecret={setShowSecret}
-                />
-              )}
-
-              {activeTab === 'headers' && isHttp && (
-                <div className="kv-section">
-                  <div className="kv-header">
-                    <span>REQUEST HEADERS</span>
-                  </div>
-                  {draft.headers.map((h: KeyValue, i: number) => (
-                    <div key={i} className="kv-row">
-                      <input value={h.key} onChange={(e) => updateHeader(i, 'key', e.target.value)} placeholder="Header name" />
-                      <input value={h.value} onChange={(e) => updateHeader(i, 'value', e.target.value)} placeholder="Header value" />
-                      <button type="button" className="btn btn-sm btn-danger" onClick={() => removeHeader(i)}>×</button>
-                    </div>
-                  ))}
-                  <button type="button" className="btn btn-sm" onClick={addHeader}>+ Add</button>
-                </div>
-              )}
-
-              {activeTab === 'validation' && (
-                <TestEditorValidationTab
-                  draft={draft}
-                  onDraftChange={onDraftChange}
-                  draftRef={draftRef}
-                  resolvedBaseUrl={resolvedBaseUrl}
-                  fetchingResponse={fetchingResponse}
-                  fetchError={fetchError}
-                  fetchHostOverride={fetchHostOverride}
-                  setFetchHostOverride={setFetchHostOverride}
-                  fetchHostEnabled={fetchHostEnabled}
-                  setFetchHostEnabled={setFetchHostEnabled}
-                  onFetchSampleResponse={handleFetchSampleResponse}
-                  fetchSampleDataForMapper={fetchSampleDataForMapper}
-                  validating={validating}
-                  validationResult={validationResult}
-                  setValidationResult={setValidationResult}
-                  onValidateResponse={handleValidateResponse}
-                  pendingFetchResponse={pendingFetchResponse}
-                  onFetchKeepRules={handleFetchKeepRules}
-                  onFetchReplaceAll={handleFetchReplaceAll}
-                  onFetchCancel={handleFetchCancel}
-                />
-              )}
-
-              {activeTab === 'extract' && isHttp && (
-                <ExtractionEditor
-                  extractions={draft.extractions ?? []}
-                  onChange={(extractions) => onDraftChange({ ...draft, extractions })}
-                  sampleResponseBody={
-                    (draft.validation.sampleJson && draft.validation.sampleJson.trim())
-                      ? draft.validation.sampleJson
-                      : validationResult?.responseJson
-                  }
-                  fetchSample={{
-                    onFetch: handleFetchSampleResponse,
-                    fetching: fetchingResponse,
-                    error: fetchError,
-                    host: {
-                      enabled: fetchHostEnabled,
-                      setEnabled: setFetchHostEnabled,
-                      override: fetchHostOverride,
-                      setOverride: setFetchHostOverride,
-                      resolvedBaseUrl,
-                    },
-                  }}
-                  contextScope={draft.id}
-                />
-              )}
-
-              {activeTab === 'extract' && isWs && (
-                <ExtractionEditor
-                  extractions={draft.extractions ?? []}
-                  onChange={(extractions) => onDraftChange({ ...draft, extractions })}
-                  sampleResponseBody={
-                    (draft.validation.sampleJson && draft.validation.sampleJson.trim())
-                      ? draft.validation.sampleJson
-                      : validationResult?.responseJson
-                  }
-                  contextScope={draft.id}
-                  transportType="ws"
-                />
-              )}
-
-              {activeTab === 'data' && (
-                <DataSourceEditor
-                  draft={draft}
-                  onDraftChange={onDraftChange}
-                  onFetchRow={handleFetchRow}
-                  onCreateParameterizedCopy={onCreateParameterizedCopy}
-                  featureGroups={featureGroups}
-                  editingTest={editingTest}
-                  sharedDataSources={sharedDataSources}
-                  onPromoteToShared={onPromoteToShared}
-                  onOpenSharedDsModal={onOpenSharedDsModal}
-                />
-              )}
-
-              {activeTab === 'history' && (
-                <TestDefinitionVersionPanel
-                  versions={defVersions}
-                  currentSnapshot={createSnapshot(draft)}
-                  onRestore={onVersionRestore}
-                  onDelete={onVersionDelete}
-                  onRename={onVersionRename}
-                  onCompare={(older, newer) => setDiffVersions({ older, newer })}
-                />
-              )}
-            </div>
+            <TestEditorTabContent
+              activeTab={activeTab}
+              isHttp={isHttp}
+              isWs={isWs}
+              queryParams={queryParams}
+              handleParamsChange={handleParamsChange}
+              handleImportFromUrl={handleImportFromUrl}
+              draft={draft}
+              onDraftChange={onDraftChange}
+              featureGroups={featureGroups}
+              editingTest={editingTest}
+              allAuthProfiles={allAuthProfiles}
+              verifyAuth={verifyAuth}
+              resolveEffectiveAuth={resolveEffectiveAuth}
+              authVerifying={authVerifying}
+              authVerifyResult={authVerifyResult}
+              setAuthVerifyResult={setAuthVerifyResult}
+              showSecret={showSecret}
+              setShowSecret={setShowSecret}
+              updateHeader={updateHeader}
+              addHeader={addHeader}
+              removeHeader={removeHeader}
+              draftRef={draftRef}
+              resolvedBaseUrl={resolvedBaseUrl}
+              fetchingResponse={fetchingResponse}
+              fetchError={fetchError}
+              fetchHostOverride={fetchHostOverride}
+              setFetchHostOverride={setFetchHostOverride}
+              fetchHostEnabled={fetchHostEnabled}
+              setFetchHostEnabled={setFetchHostEnabled}
+              handleFetchSampleResponse={handleFetchSampleResponse}
+              fetchSampleDataForMapper={fetchSampleDataForMapper}
+              validating={validating}
+              validationResult={validationResult}
+              setValidationResult={setValidationResult}
+              handleValidateResponse={handleValidateResponse}
+              pendingFetchResponse={pendingFetchResponse}
+              handleFetchKeepRules={handleFetchKeepRules}
+              handleFetchReplaceAll={handleFetchReplaceAll}
+              handleFetchCancel={handleFetchCancel}
+              handleFetchRow={handleFetchRow}
+              onCreateParameterizedCopy={onCreateParameterizedCopy}
+              sharedDataSources={sharedDataSources}
+              onPromoteToShared={onPromoteToShared}
+              onOpenSharedDsModal={onOpenSharedDsModal}
+              openSetupModalOnMount={openDataSetupOnMount}
+              defVersions={defVersions}
+              onVersionRestore={onVersionRestore}
+              onVersionDelete={onVersionDelete}
+              onVersionRename={onVersionRename}
+              setDiffVersions={setDiffVersions}
+            />
           </div>
         )}
       </WorkflowEditorModalFrame>

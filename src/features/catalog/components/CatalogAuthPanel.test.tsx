@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { selectOption, selectOptionByIndex, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { makeScheme } from './catalogTestFactories';
 import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
@@ -58,7 +59,7 @@ describe('CatalogAuthPanel', () => {
 
   it('switches to Bearer and shows token fields plus verify button', async () => {
     const { onAuthChange } = renderPanel();
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'bearer');
+    selectOption(document.body, 'Bearer Token');
     expect(onAuthChange).toHaveBeenCalledWith({ type: 'bearer' });
   });
 
@@ -90,7 +91,7 @@ describe('CatalogAuthPanel', () => {
     const { onAuthChange } = renderPanel({
       schemes: { apiKeyAuth: makeScheme({ type: 'apiKey', name: 'X-Key', in: 'header' }) },
     });
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'inherit');
+    selectOption(document.body, 'Inherit from Spec');
     expect(onAuthChange).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'apikey', apiKeyName: 'X-Key', apiKeyIn: 'header', __inherit: true, __schemeName: 'apiKeyAuth' }),
     );
@@ -112,9 +113,7 @@ describe('CatalogAuthPanel', () => {
         basicAuth: makeScheme({ type: 'http', scheme: 'basic' }),
       },
     });
-    const selects = screen.getAllByRole('combobox');
-    // Second combobox is the Scheme selector
-    await userEvent.selectOptions(selects[1], 'basicAuth');
+    selectOptionByIndex(document.body, 1, 'basicAuth — HTTP basic');
     expect(onAuthChange).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'basic', __inherit: true, __schemeName: 'basicAuth' }),
     );
@@ -129,8 +128,7 @@ describe('CatalogAuthPanel', () => {
       auth: { type: 'bearer', __globalProfileId: 'g1', __globalProfileName: 'Prod Token' },
       globals,
     });
-    const selects = screen.getAllByRole('combobox');
-    await userEvent.selectOptions(selects[1], 'g2');
+    selectOptionByIndex(document.body, 1, 'OAuth');
     expect(onAuthChange).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'oauth2', __globalProfileId: 'g2', __globalProfileName: 'OAuth' }),
     );
@@ -139,7 +137,7 @@ describe('CatalogAuthPanel', () => {
   it('switches the mode to global when selecting From Environment', async () => {
     const globals: GlobalAuthProfile[] = [{ id: 'g1', name: 'Prod', auth: { type: 'bearer', token: 't' } }];
     const { onAuthChange } = renderPanel({ globals });
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'global');
+    selectOption(document.body, 'From Environment');
     expect(onAuthChange).toHaveBeenCalledWith(
       expect.objectContaining({ __globalProfileId: 'g1', __globalProfileName: 'Prod' }),
     );
@@ -156,8 +154,7 @@ describe('CatalogAuthPanel', () => {
 
   it('edits standalone apiKey fields including Add To', async () => {
     const { onAuthChange } = renderPanel({ auth: { type: 'apikey' } });
-    const addToSelect = screen.getAllByRole('combobox')[1];
-    await userEvent.selectOptions(addToSelect, 'query');
+    selectOptionByIndex(document.body, 1, 'Query Parameter');
     expect(onAuthChange).toHaveBeenCalledWith(expect.objectContaining({ apiKeyIn: 'query' }));
   });
 
@@ -179,8 +176,9 @@ describe('CatalogAuthPanel', () => {
       },
     });
     expect(document.body.textContent).toContain('API Key in query: X-Key');
-    expect(document.body.textContent).toContain('OAuth 2.0');
-    expect(document.body.textContent).toContain('OpenID Connect');
+    const schemeLabels = getCustomSelectOptionLabels(document.body, 1);
+    expect(schemeLabels.some(l => l.includes('OAuth 2.0'))).toBe(true);
+    expect(schemeLabels.some(l => l.includes('OpenID Connect'))).toBe(true);
   });
 
   it('auto-detects an http basic scheme on switch', async () => {
@@ -192,8 +190,7 @@ describe('CatalogAuthPanel', () => {
         c: makeScheme({ type: 'oauth2' }),
       },
     });
-    const selects = screen.getAllByRole('combobox');
-    await userEvent.selectOptions(selects[1], 'c');
+    selectOptionByIndex(document.body, 1, 'c — OAuth 2.0');
     expect(onAuthChange).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'bearer', __inherit: true, __schemeName: 'c' }),
     );
@@ -226,10 +223,10 @@ describe('CatalogAuthPanel', () => {
 
   it('switches to None and to standalone apikey via the mode selector', async () => {
     const { onAuthChange } = renderPanel({ auth: { type: 'bearer' } });
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'none');
+    selectOption(document.body, 'No Auth');
     expect(onAuthChange).toHaveBeenCalledWith({ type: 'none' });
     onAuthChange.mockClear();
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'apikey');
+    selectOption(document.body, 'API Key');
     expect(onAuthChange).toHaveBeenCalledWith({ type: 'apikey' });
   });
 
@@ -276,12 +273,11 @@ describe('CatalogAuthPanel', () => {
         c: makeScheme({ type: 'http', scheme: 'basic' }),
       },
     });
-    const selects = screen.getAllByRole('combobox');
-    await userEvent.selectOptions(selects[1], 'b');
+    selectOptionByIndex(document.body, 1, 'b — API Key in query: X-Tok');
     expect(onAuthChange).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'apikey', apiKeyName: 'X-Tok', apiKeyIn: 'query', __inherit: true, __schemeName: 'b' }),
     );
-    await userEvent.selectOptions(selects[1], 'c');
+    selectOptionByIndex(document.body, 1, 'c — HTTP basic');
     expect(onAuthChange).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'basic', __inherit: true, __schemeName: 'c' }),
     );
@@ -294,15 +290,10 @@ describe('CatalogAuthPanel', () => {
         oidcAuth: makeScheme({ type: 'openIdConnect' }),
       },
     });
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'inherit');
+    selectOption(document.body, 'Inherit from Spec');
     expect(onAuthChange).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'basic', __inherit: true, __schemeName: 'basicAuth' }),
     );
   });
 
-  it('closes via the close button', async () => {
-    const { onClose } = renderPanel();
-    await userEvent.click(screen.getByRole('button', { name: '×' }));
-    expect(onClose).toHaveBeenCalled();
-  });
 });

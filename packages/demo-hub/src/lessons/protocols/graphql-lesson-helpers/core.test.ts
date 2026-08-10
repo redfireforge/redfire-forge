@@ -303,10 +303,34 @@ describe('graphql-lesson-helpers core', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.AUTH_RESET_INHERIT_BTN);
   });
 
-  it('configureDemoTabInheritPageAuth waits for auth badge then clears override', async () => {
+  it('configureDemoTabInheritPageAuth uses quiet bridge when available', async () => {
     document.body.innerHTML = `<button data-testid="gql-auth-badge-btn"></button>`;
+    const clear = vi.fn(() => true);
+    (window as unknown as { __demoClearActiveTabAuth?: () => boolean }).__demoClearActiveTabAuth = clear;
     const ctx = makeCtx();
     await configureDemoTabInheritPageAuth(ctx);
+    expect(clear).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
+    delete (window as unknown as { __demoClearActiveTabAuth?: () => boolean }).__demoClearActiveTabAuth;
+  });
+
+  it('configureDemoTabInheritPageAuth falls back to Auth panel when bridge missing', async () => {
+    document.body.innerHTML = `<button data-testid="gql-auth-badge-btn"></button>`;
+    delete (window as unknown as { __demoClearActiveTabAuth?: () => boolean }).__demoClearActiveTabAuth;
+    const ctx = {
+      ...makeCtx(),
+      // Keep the bridge wait short so the fallback path is exercised quickly.
+      delay: vi.fn(async () => {}),
+    };
+    // Collapse the 2.5s poll: first delay call advances "time" by stubbing Date.
+    const nowSpy = vi.spyOn(Date, 'now');
+    let t = 0;
+    nowSpy.mockImplementation(() => {
+      t += 3000;
+      return t;
+    });
+    await configureDemoTabInheritPageAuth(ctx);
+    nowSpy.mockRestore();
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN, 5000);
   });
 
@@ -441,7 +465,7 @@ describe('graphql-lesson-helpers core', () => {
     document.body.innerHTML = `
       <div data-testid="gql-studio-page"></div>
       <input data-testid="gql-endpoint-input" value="" />
-      <span data-testid="gql-schema-badge-ok"></span>
+      <span data-testid="gql-schema-badge-ok">Schema (9)</span>
       <button data-testid="gql-right-tab-schema"></button>
       <div data-testid="gql-schema-type-query"></div>
     `;
@@ -449,5 +473,21 @@ describe('graphql-lesson-helpers core', () => {
     await ensureIntrospectedOnDirectEndpoint(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
+    // Usable badge must not open Schema tab (steals Tracing/Response focus mid-lesson).
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+  });
+
+  it('ensureIntrospectedOnDirectEndpoint clicks Introspect when schema badge is not yet loaded', async () => {
+    document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
+      <input data-testid="gql-endpoint-input" value="${GQL_DEMO_HTTP}" />
+      <button data-testid="gql-introspect-btn"></button>
+      <button data-testid="gql-right-tab-schema"></button>
+    `;
+    const ctx = makeCtx();
+    await ensureIntrospectedOnDirectEndpoint(ctx);
+    // No badge in the DOM — must actively trigger introspection instead of
+    // passively waiting for a badge that will never appear on its own.
+    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 });

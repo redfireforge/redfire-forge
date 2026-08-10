@@ -21,6 +21,7 @@ import type { HttpTab } from '../configs/HttpConfig';
 import ConditionConfig from '../configs/ConditionConfig';
 import DelayConfig from '../configs/DelayConfig';
 import VariablesSection from './VariablesSection';
+import StartConfig from '../configs/StartConfig';
 import WorkflowModalScrollBody from '../modals/WorkflowModalScrollBody';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
@@ -179,11 +180,9 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
       )}
 
       {node.type === 'start' && (
-        <VariablesSection
-          title="Trigger input variables"
-          hint="Variables seeded when the workflow starts. Available as {{name}} in all downstream steps."
-          variables={(node.data as StartNodeData).inputVariables ?? {}}
-          onUpdateVariables={(vars) => onUpdateNode(node.id, { inputVariables: vars })}
+        <StartConfig
+          data={node.data as StartNodeData}
+          onChange={(patch) => onUpdateNode(node.id, patch)}
           newVarKey={newVarKey}
           setNewVarKey={setNewVarKey}
           newVarValue={newVarValue}
@@ -194,7 +193,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
 
       {(!node || isHttpWorkflowNode(node)) && (
         <VariablesSection
-          title={node && isHttpWorkflowNode(node) ? 'Initial variables (this step)' : 'Workflow defaults'}
+          title={node && isHttpWorkflowNode(node) ? 'Initial Variables (this step)' : 'Workflow defaults'}
           hint={
             node && isHttpWorkflowNode(node)
               ? 'Per-step values override upstream for the same name. To target a specific earlier HTTP step, use {{node:<step id>.name}} in Params or the URL (see the list under Params), or remove this row so {{name}} resolves from upstream.'
@@ -268,12 +267,14 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
                 <h3 id="wf-expand-title">{node.type.toUpperCase()} — {(node.data as HttpNodeData).label || 'Step Config'}</h3>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                   <button type="button" className="btn btn-sm" onClick={(e) => { e.stopPropagation(); collapse(); }} title="Shrink back to side panel">⛶</button>
-                  <button type="button" className="ram-modal-close" onClick={(e) => { e.stopPropagation(); collapse(); }} aria-label="Close">&times;</button>
                 </div>
               </div>
               <WorkflowModalScrollBody className="wf-expand-modal-body" viewportClassName="wf-config-modal-scroll">
                 {configContent}
               </WorkflowModalScrollBody>
+              <div className="wf-expand-modal-footer">
+                <button type="button" className="btn btn-primary" onClick={(e) => { e.stopPropagation(); collapse(); }}>Close</button>
+              </div>
             </div>
           </div>
         </>

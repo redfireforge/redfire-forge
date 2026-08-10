@@ -21,14 +21,43 @@ import {
   collapseWfDemoAppSidebar,
   expandWfDemoAppSidebar,
   fillWfConfigField,
+  holdWfSpotlight,
   openWfConsoleIfClosed,
   openWfNodeConfigModal,
   pauseWfConfigSection,
+  resetWfPaletteToBlocks,
   saveAndCloseWfConfigModal,
+  saveWfConfigModal,
   selectWfConfigOption,
+  setWfConfigDemoTiming,
   startWfDebugRun,
   waitForWfConfigPanel,
+  WF_CONFIG_DEMO_TIMING_GUIDED,
 } from '../../wf-demo-helpers';
+import { fillControlledInput } from '../../setup-helpers';
+
+/** Outcome / canvas hold — long enough to read, not a flash. */
+const LESSON11_OUTCOME_HOLD_MS = 950;
+/** Console log panel after Quick Test — viewers need time to read streamed lines. */
+const LESSON11_CONSOLE_LOG_HOLD_MS = 2400;
+/**
+ * Faster Debug Mode pacing for this short Start→Query→Assert graph.
+ * Shared defaults (~2.1s/step) make Acting feel stuck on a 3-pause run.
+ */
+const LESSON11_DEBUG_PACING = {
+  afterNavMs: 200,
+  afterClickMs: 600,
+  beforeStepMs: 350,
+  afterStepMs: 550,
+  stepWaitMs: 8_000,
+} as const;
+/** Palette search for GraphQL Query (Actions) — surfaces all GraphQL action blocks. */
+const LESSON11_PALETTE_SEARCH_QUERY = 'Graph';
+/**
+ * Palette search for GraphQL Assert only — avoids `.wf-palette-match` purple marks
+ * on Query / Mutation / Subscription / Introspect while spotlighting Assert.
+ */
+const LESSON11_PALETTE_SEARCH_ASSERT = 'Assert';
 
 export const LESSON11_WF_NAME = 'GraphQL Latency Demo';
 export const LESSON11_LATENCY_VAR = 'gqlLatency';
@@ -215,14 +244,14 @@ export { closeWfConsoleIfOpen, openWfConsoleIfClosed } from '../../wf-demo-helpe
 
 /** Create a blank workflow for Lesson 11. */
 export async function ensureLesson11WorkflowCreated(ctx: DemoActionContext): Promise<void> {
-  ctx.navigateToTab('workflow');
-  await ctx.delay(400);
-  await dismissWorkflowOnboarding(ctx);
-
   if (_lesson11Created && document.querySelector(WF.CANVAS)) {
     await collapseWfDemoAppSidebar(ctx);
     return;
   }
+
+  ctx.navigateToTab('workflow');
+  await ctx.delay(400);
+  await dismissWorkflowOnboarding(ctx);
 
   await expandWfDemoAppSidebar(ctx);
   await ctx.click(WF.SIDEBAR_NEW_BTN);
@@ -233,14 +262,17 @@ export async function ensureLesson11WorkflowCreated(ctx: DemoActionContext): Pro
   await ctx.delay(200);
   await ctx.click(WF.CREATE_OK);
   await ctx.waitFor(WF.CANVAS, 8000);
-  await ctx.delay(800);
+  await ctx.delay(400);
   await collapseWfDemoAppSidebar(ctx);
   _lesson11Created = true;
+  await holdWfSpotlight(ctx, WF.CANVAS, LESSON11_OUTCOME_HOLD_MS);
 }
 
 /** Open Workflow Variables and define graphqlUrl default for {{graphqlUrl}} placeholders. */
 export async function ensureLesson11WorkflowVariablesConfigured(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11WorkflowCreated(ctx);
+  if (!_lesson11Created || !document.querySelector(WF.CANVAS)) {
+    await ensureLesson11WorkflowCreated(ctx);
+  }
   if (_lesson11VariablesConfigured && isLesson11WorkflowVariablesConfigured()) {
     await closeWfDefaultsModalIfOpen(ctx);
     return;
@@ -249,7 +281,7 @@ export async function ensureLesson11WorkflowVariablesConfigured(ctx: DemoActionC
 
   await ctx.click(WF.VARIABLES_BTN);
   await ctx.waitFor(WF.DEFAULTS_MODAL, 5000);
-  await ctx.delay(600);
+  await ctx.delay(400);
 
   if (!lesson11DefaultsModalHasGraphqlUrlRow()) {
     await ctx.fill(WF.DEFAULTS_NEW_KEY, LESSON11_GRAPHQL_URL_VAR);
@@ -263,29 +295,166 @@ export async function ensureLesson11WorkflowVariablesConfigured(ctx: DemoActionC
     await ctx.delay(400);
   }
 
+  await holdWfSpotlight(ctx, WF.DEFAULTS_SAVE_BTN, 500);
   await ctx.click(WF.DEFAULTS_SAVE_BTN);
-  await ctx.delay(700);
+  // Save closes the modal immediately — do not waitFor DEFAULTS_MODAL (polls full timeout).
+  await ctx.delay(500);
+  await closeWfDefaultsModalIfOpen(ctx);
 
   if (!isLesson11WorkflowVariablesConfigured()) {
     patchLesson11WorkflowVariablesQuiet();
-    await ctx.delay(200);
   }
   _lesson11VariablesConfigured = true;
 }
 
+/** Type a Blocks palette search term and wait for the filtered list to settle. */
+async function ensureLesson11PaletteFilter(
+  ctx: DemoActionContext,
+  search: string,
+  opts?: { spotlightSearch?: boolean },
+): Promise<void> {
+  resetWfPaletteToBlocks();
+  await ctx.waitFor(WF.PAL_SEARCH, 5000);
+  const input = document.querySelector<HTMLInputElement>(WF.PAL_SEARCH);
+  if (input && input.value === search) {
+    if (opts?.spotlightSearch) await holdWfSpotlight(ctx, WF.PAL_SEARCH, 450);
+    return;
+  }
+  // Default: fill quietly — reading-phase DemoSpotlight owns the focal ring
+  // (palette block), so a second ring on the search field is noise.
+  if (opts?.spotlightSearch) await holdWfSpotlight(ctx, WF.PAL_SEARCH, 550);
+  if (input) {
+    fillControlledInput(input, search);
+  } else {
+    await ctx.fill(WF.PAL_SEARCH, search);
+  }
+  await ctx.delay(opts?.spotlightSearch ? 700 : 450);
+}
+
+/**
+ * Type **Graph** in the Blocks palette search so GraphQL Query appears
+ * in the filtered Actions list.
+ */
+export async function ensureLesson11PaletteGraphFilter(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11PaletteFilter(ctx, LESSON11_PALETTE_SEARCH_QUERY);
+}
+
+/** Type **Assert** so GraphQL Assert is the focal match (no Action-block match noise). */
+export async function ensureLesson11PaletteAssertFilter(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11PaletteFilter(ctx, LESSON11_PALETTE_SEARCH_ASSERT);
+}
+
+/** Clear palette search so leftover `.wf-palette-match` marks disappear. */
+async function clearLesson11PaletteSearch(ctx: DemoActionContext): Promise<void> {
+  const input = document.querySelector<HTMLInputElement>(WF.PAL_SEARCH);
+  if (!input || !input.value) return;
+  fillControlledInput(input, '');
+  await ctx.delay(250);
+}
+
+/** Filter palette, then click a GraphQL block from the results. */
+async function clickLesson11PaletteBlock(
+  ctx: DemoActionContext,
+  blockSelector: string,
+  search: string,
+): Promise<void> {
+  await ensureLesson11PaletteFilter(ctx, search);
+  await ctx.waitFor(blockSelector, 5000);
+  await holdWfSpotlight(ctx, blockSelector, 750);
+  await ctx.click(blockSelector);
+  await ctx.delay(600);
+}
+
+/**
+ * Quiet belt before Add Query reading — patch variables if missing; filter palette.
+ * No holds / modal tours (those look like empty Acting during preAction).
+ */
+export async function prepareGql11QueryNodeReading(ctx: DemoActionContext): Promise<void> {
+  if (!_lesson11Created || !document.querySelector(WF.CANVAS)) {
+    await ensureLesson11WorkflowCreated(ctx);
+  }
+  if (!_lesson11VariablesConfigured || !isLesson11WorkflowVariablesConfigured()) {
+    if (patchLesson11WorkflowVariablesQuiet()) {
+      _lesson11VariablesConfigured = true;
+    } else {
+      await ensureLesson11WorkflowVariablesConfigured(ctx);
+    }
+  }
+  await closeWfDefaultsModalIfOpen(ctx);
+  await ensureLesson11PaletteGraphFilter(ctx);
+  await ctx.waitFor(WF.PAL_GQL_QUERY, 5000);
+}
+
 /** Add a GraphQL Query node and wire Start → Query. */
 export async function ensureLesson11QueryNodeAdded(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11WorkflowVariablesConfigured(ctx);
-  if (_lesson11QueryAdded && document.querySelector(GQL.WF_CANVAS_QUERY_NODE)) return;
+  if (!_lesson11VariablesConfigured || !isLesson11WorkflowVariablesConfigured()) {
+    if (patchLesson11WorkflowVariablesQuiet()) {
+      _lesson11VariablesConfigured = true;
+    } else {
+      await ensureLesson11WorkflowVariablesConfigured(ctx);
+    }
+  }
+  if (_lesson11QueryAdded && document.querySelector(GQL.WF_CANVAS_QUERY_NODE)) {
+    return;
+  }
 
-  const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_QUERY);
-  pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-  await ctx.click(WF.PAL_GQL_QUERY);
-  await ctx.delay(600);
+  await clickLesson11PaletteBlock(ctx, WF.PAL_GQL_QUERY, LESSON11_PALETTE_SEARCH_QUERY);
   connectWfNodes(WF.NODE_START, WF.NODE_GQL_QUERY, 'out');
   await ctx.delay(400);
   await clickWfFitView(ctx);
   _lesson11QueryAdded = true;
+  await clearLesson11PaletteSearch(ctx);
+  await holdWfSpotlight(ctx, GQL.WF_CANVAS_QUERY_NODE, LESSON11_OUTCOME_HOLD_MS);
+}
+
+/** Open Query config so the reading-phase highlight has a live Endpoint target. */
+export async function prepareGql11QueryConfigReading(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11QueryNodeAdded(ctx);
+  await closeWfDefaultsModalIfOpen(ctx);
+  if (!document.querySelector(GQL.WF_QUERY_PANEL)) {
+    await openWfNodeConfigModal(ctx, { canvasTestId: GQL.WF_CANVAS_QUERY_NODE });
+    await waitForWfConfigPanel(ctx, GQL.WF_QUERY_PANEL);
+  }
+  await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Operation');
+  await ctx.waitFor(GQL.WF_ENDPOINT_INPUT, 5000);
+  await ctx.delay(350);
+}
+
+async function fillLesson11QueryConfigFields(ctx: DemoActionContext): Promise<void> {
+  await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Operation');
+  await ctx.waitFor(GQL.WF_ENDPOINT_INPUT, 5000);
+  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_VAR);
+  // No spotlight on the Query textarea — a ring on empty editor chrome looks like
+  // a background highlight (see gql11-config-query reading feedback).
+  await fillWfConfigField(ctx, GQL.WF_QUERY_EDITOR, LESSON11_HEALTH_QUERY, { spotlight: false });
+  await pauseWfConfigSection(ctx);
+  await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Output');
+  if (!document.querySelector(GQL.WF_OUTPUT_FIELD_SELECT)) {
+    await clickWfConfigAddRow(ctx, GQL.WF_OUTPUT_ADD_BTN, GQL.WF_OUTPUT_FIELD_SELECT);
+  }
+  await selectWfConfigOption(ctx, GQL.WF_OUTPUT_FIELD_SELECT, 'latencyMs');
+  await fillWfConfigField(ctx, GQL.WF_OUTPUT_VARNAME, LESSON11_LATENCY_VAR);
+  await pauseWfConfigSection(ctx);
+}
+
+/** Visible Query config tour — assumes panel is open from {@link prepareGql11QueryConfigReading}. */
+export async function demonstrateLesson11QueryConfigured(ctx: DemoActionContext): Promise<void> {
+  if (_lesson11QueryConfigured && isLesson11QueryConfiguredInWorkflow()) {
+    await closeWfConfigModalIfOpen(ctx);
+    await holdWfSpotlight(ctx, GQL.WF_CANVAS_QUERY_NODE, LESSON11_OUTCOME_HOLD_MS);
+    return;
+  }
+  _lesson11QueryConfigured = false;
+  if (!document.querySelector(GQL.WF_QUERY_PANEL)) {
+    await prepareGql11QueryConfigReading(ctx);
+  }
+  await fillLesson11QueryConfigFields(ctx);
+  const saved = await saveAndCloseWfConfigModal(ctx);
+  if (!saved) {
+    await closeWfConfigModalIfOpen(ctx);
+  }
+  await syncLesson11QueryConfigured(ctx);
+  await holdWfSpotlight(ctx, GQL.WF_CANVAS_QUERY_NODE, LESSON11_OUTCOME_HOLD_MS);
 }
 
 /** Configure query endpoint, health query, and latencyMs output binding. */
@@ -295,43 +464,84 @@ export async function ensureLesson11QueryConfigured(ctx: DemoActionContext): Pro
     await closeWfConfigModalIfOpen(ctx);
     return;
   }
-  _lesson11QueryConfigured = false;
+  await prepareGql11QueryConfigReading(ctx);
+  await demonstrateLesson11QueryConfigured(ctx);
+}
 
-  await openWfNodeConfigModal(ctx, { canvasTestId: GQL.WF_CANVAS_QUERY_NODE });
-  await waitForWfConfigPanel(ctx, GQL.WF_QUERY_PANEL);
-  await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Operation');
-  await ctx.waitFor(GQL.WF_ENDPOINT_INPUT, 5000);
-  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_VAR);
-  await fillWfConfigField(ctx, GQL.WF_QUERY_EDITOR, LESSON11_HEALTH_QUERY);
-  await pauseWfConfigSection(ctx);
-  await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Output');
-  if (!document.querySelector(GQL.WF_OUTPUT_FIELD_SELECT)) {
-    await clickWfConfigAddRow(ctx, GQL.WF_OUTPUT_ADD_BTN, GQL.WF_OUTPUT_FIELD_SELECT);
+/**
+ * Quiet belt before Add Assert reading — patch Query if needed; filter palette.
+ * Never open Query config modal tours here (empty Acting during preAction).
+ */
+export async function prepareGql11AssertNodeReading(ctx: DemoActionContext): Promise<void> {
+  await closeWfConfigModalIfOpen(ctx);
+  if (!_lesson11QueryAdded || !document.querySelector(GQL.WF_CANVAS_QUERY_NODE)) {
+    await ensureLesson11QueryNodeAdded(ctx);
   }
-  await selectWfConfigOption(ctx, GQL.WF_OUTPUT_FIELD_SELECT, 'latencyMs');
-  await fillWfConfigField(ctx, GQL.WF_OUTPUT_VARNAME, LESSON11_LATENCY_VAR);
-  await pauseWfConfigSection(ctx);
-  const saved = await saveAndCloseWfConfigModal(ctx);
-  if (!saved) {
-    await closeWfConfigModalIfOpen(ctx);
+  if (!_lesson11QueryConfigured || !isLesson11QueryConfiguredInWorkflow()) {
+    if (await syncLesson11QueryConfigured(ctx)) {
+      /* patched quietly */
+    } else {
+      await ensureLesson11QueryConfigured(ctx);
+    }
   }
-  await syncLesson11QueryConfigured(ctx);
+  await ensureLesson11PaletteAssertFilter(ctx);
+  await ctx.waitFor(WF.PAL_GQL_ASSERT, 5000);
 }
 
 /** Add GraphQL Assert node and wire Query → Assert → End. */
 export async function ensureLesson11AssertNodeAdded(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11QueryConfigured(ctx);
-  if (_lesson11AssertAdded && document.querySelector(GQL.WF_CANVAS_ASSERT_NODE)) return;
+  if (!_lesson11QueryConfigured || !isLesson11QueryConfiguredInWorkflow()) {
+    if (!(await syncLesson11QueryConfigured(ctx))) {
+      await ensureLesson11QueryConfigured(ctx);
+    }
+  }
+  if (_lesson11AssertAdded && document.querySelector(GQL.WF_CANVAS_ASSERT_NODE)) {
+    await clearLesson11PaletteSearch(ctx);
+    return;
+  }
 
-  const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_ASSERT);
-  pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-  await ctx.click(WF.PAL_GQL_ASSERT);
-  await ctx.delay(600);
+  await clickLesson11PaletteBlock(ctx, WF.PAL_GQL_ASSERT, LESSON11_PALETTE_SEARCH_ASSERT);
   connectWfNodes(WF.NODE_GQL_QUERY, WF.NODE_GQL_ASSERT);
   connectWfNodes(WF.NODE_GQL_ASSERT, WF.NODE_END);
   await ctx.delay(400);
   await clickWfFitView(ctx);
   _lesson11AssertAdded = true;
+  await clearLesson11PaletteSearch(ctx);
+  await holdWfSpotlight(ctx, GQL.WF_CANVAS_ASSERT_NODE, LESSON11_OUTCOME_HOLD_MS);
+}
+
+/** Open Assert Source tab so reading highlight targets a visible control. */
+export async function prepareGql11AssertSourceReading(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11AssertNodeAdded(ctx);
+  if (!document.querySelector(GQL.WF_ASSERT_PANEL)) {
+    await openWfNodeConfigModal(ctx, { canvasTestId: GQL.WF_CANVAS_ASSERT_NODE });
+    await waitForWfConfigPanel(ctx, GQL.WF_ASSERT_PANEL);
+  }
+  await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Source');
+  await ctx.waitFor(WF.WF_GQL_ASSERT_SOURCE, 5000);
+  await ctx.delay(350);
+}
+
+/** Fill Source variable and keep the modal open for the Assertions step. */
+export async function demonstrateLesson11AssertSourceConfigured(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.WF_ASSERT_PANEL)) {
+    await prepareGql11AssertSourceReading(ctx);
+  }
+  if (!_lesson11AssertSourceConfigured || !isLesson11AssertSourceConfiguredInWorkflow()) {
+    _lesson11AssertSourceConfigured = false;
+    await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Source');
+    await fillWfConfigField(ctx, WF.WF_GQL_ASSERT_SOURCE, LESSON11_LATENCY_VAR);
+    await saveWfConfigModal(ctx);
+    let patched = false;
+    if (!isLesson11AssertSourceConfiguredInWorkflow()) {
+      patched = patchLesson11AssertSourceQuiet();
+      await ctx.delay(200);
+    }
+    if (isLesson11AssertSourceConfiguredInWorkflow() || patched) {
+      _lesson11AssertSourceConfigured = true;
+    }
+  }
+  await holdWfSpotlight(ctx, WF.WF_GQL_ASSERT_SOURCE, LESSON11_OUTCOME_HOLD_MS);
 }
 
 /** Set assert source variable to the query latency output binding. */
@@ -341,63 +551,43 @@ export async function ensureLesson11AssertSourceConfigured(ctx: DemoActionContex
     await closeWfConfigModalIfOpen(ctx);
     return;
   }
-  _lesson11AssertSourceConfigured = false;
-
-  await openWfNodeConfigModal(ctx, { canvasTestId: GQL.WF_CANVAS_ASSERT_NODE });
-  await waitForWfConfigPanel(ctx, GQL.WF_ASSERT_PANEL);
-  await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Source');
-  await fillWfConfigField(ctx, WF.WF_GQL_ASSERT_SOURCE, LESSON11_LATENCY_VAR);
-  const saved = await saveAndCloseWfConfigModal(ctx);
-  if (!saved) {
-    await closeWfConfigModalIfOpen(ctx);
-  }
-  await ctx.delay(200);
-  let patched = false;
-  if (!isLesson11AssertSourceConfiguredInWorkflow()) {
-    patched = patchLesson11AssertSourceQuiet();
-    await ctx.delay(200);
-  }
-  if (isLesson11AssertSourceConfiguredInWorkflow() || patched) {
-    _lesson11AssertSourceConfigured = true;
-  }
+  await prepareGql11AssertSourceReading(ctx);
+  await demonstrateLesson11AssertSourceConfigured(ctx);
+  await closeWfConfigModalIfOpen(ctx);
 }
 
-/** Configure latency assertion (jsonPath `$`, operator `less_than`, threshold ms). */
-export async function ensureLesson11AssertRuleConfigured(
-  ctx: DemoActionContext,
-  thresholdMs = LESSON11_PASS_THRESHOLD_MS,
-): Promise<void> {
-  await ensureLesson11AssertSourceConfigured(ctx);
-  if (_lesson11AssertConfigured && _lesson11AssertThreshold === thresholdMs && isLesson11AssertRuleConfiguredInWorkflow(thresholdMs)) {
-    await closeWfConfigModalIfOpen(ctx);
-    return;
+/** Open Assertions tab + row so reading highlight is not an empty flash. */
+export async function prepareGql11AssertRuleReading(ctx: DemoActionContext): Promise<void> {
+  if (!_lesson11AssertSourceConfigured || !isLesson11AssertSourceConfiguredInWorkflow()) {
+    await prepareGql11AssertSourceReading(ctx);
+    await demonstrateLesson11AssertSourceConfigured(ctx);
+  } else if (!document.querySelector(GQL.WF_ASSERT_PANEL)) {
+    await openWfNodeConfigModal(ctx, { canvasTestId: GQL.WF_CANVAS_ASSERT_NODE });
+    await waitForWfConfigPanel(ctx, GQL.WF_ASSERT_PANEL);
   }
-  if (!isLesson11AssertRuleConfiguredInWorkflow(thresholdMs)) {
-    _lesson11AssertConfigured = false;
+  await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Assertions');
+  if (!document.querySelector(GQL.WF_ASSERT_ROW)) {
+    await clickWfConfigAddRow(ctx, GQL.WF_ASSERT_ADD_BTN, GQL.WF_ASSERT_JSONPATH);
   }
+  await ctx.delay(300);
+}
 
-  await openWfNodeConfigModal(ctx, { canvasTestId: GQL.WF_CANVAS_ASSERT_NODE });
-  await waitForWfConfigPanel(ctx, GQL.WF_ASSERT_PANEL);
+async function fillLesson11AssertRuleFields(
+  ctx: DemoActionContext,
+  thresholdMs: string,
+): Promise<void> {
   await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Assertions');
   if (!document.querySelector(GQL.WF_ASSERT_ROW)) {
     await clickWfConfigAddRow(ctx, GQL.WF_ASSERT_ADD_BTN, GQL.WF_ASSERT_JSONPATH);
   }
   await fillWfConfigField(ctx, GQL.WF_ASSERT_JSONPATH, '$');
   await selectWfConfigOption(ctx, GQL.WF_ASSERT_OPERATOR, 'less_than');
-  await pauseWfConfigSection(ctx);
   await fillWfConfigField(ctx, GQL.WF_ASSERT_EXPECTED, thresholdMs);
   await fillWfConfigField(ctx, GQL.WF_ASSERT_DESCRIPTION, `Latency under ${thresholdMs}ms`);
   await pauseWfConfigSection(ctx);
-  const saved = await saveAndCloseWfConfigModal(ctx);
-  if (!saved) {
-    await closeWfConfigModalIfOpen(ctx);
-  }
-  await ctx.delay(200);
-  let patched = false;
-  if (!isLesson11AssertRuleConfiguredInWorkflow(thresholdMs)) {
-    patched = patchLesson11AssertRuleQuiet(thresholdMs);
-    await ctx.delay(200);
-  }
+}
+
+function markLesson11AssertRuleConfigured(thresholdMs: string, patched: boolean): void {
   if (isLesson11AssertRuleConfiguredInWorkflow(thresholdMs) || patched) {
     _lesson11AssertThreshold = thresholdMs;
     _lesson11AssertConfigured = true;
@@ -408,42 +598,231 @@ export async function ensureLesson11AssertRuleConfigured(
   }
 }
 
-/** Patch workflow graph data when UI save did not persist (quiet guards). */
+/** Visible assert-rule tour — closes modal and holds the canvas assert node. */
+export async function demonstrateLesson11AssertRuleConfigured(
+  ctx: DemoActionContext,
+  thresholdMs = LESSON11_PASS_THRESHOLD_MS,
+): Promise<void> {
+  if (
+    _lesson11AssertConfigured
+    && _lesson11AssertThreshold === thresholdMs
+    && isLesson11AssertRuleConfiguredInWorkflow(thresholdMs)
+  ) {
+    await closeWfConfigModalIfOpen(ctx);
+    await holdWfSpotlight(ctx, GQL.WF_CANVAS_ASSERT_NODE, LESSON11_OUTCOME_HOLD_MS);
+    return;
+  }
+  if (!document.querySelector(GQL.WF_ASSERT_PANEL)) {
+    await prepareGql11AssertRuleReading(ctx);
+  }
+  await fillLesson11AssertRuleFields(ctx, thresholdMs);
+  const saved = await saveAndCloseWfConfigModal(ctx);
+  if (!saved) {
+    await closeWfConfigModalIfOpen(ctx);
+  }
+  let patched = false;
+  if (!isLesson11AssertRuleConfiguredInWorkflow(thresholdMs)) {
+    patched = patchLesson11AssertRuleQuiet(thresholdMs);
+    await ctx.delay(200);
+  }
+  markLesson11AssertRuleConfigured(thresholdMs, patched);
+  await holdWfSpotlight(ctx, GQL.WF_CANVAS_ASSERT_NODE, LESSON11_OUTCOME_HOLD_MS);
+}
+
+/**
+ * Combined Source + Assertions tour (former steps 6–7).
+ * Source first, then Assertions, one Save/Close at the end.
+ */
+export async function demonstrateLesson11AssertConfigured(
+  ctx: DemoActionContext,
+  thresholdMs = LESSON11_PASS_THRESHOLD_MS,
+): Promise<void> {
+  if (
+    _lesson11AssertSourceConfigured
+    && isLesson11AssertSourceConfiguredInWorkflow()
+    && _lesson11AssertConfigured
+    && _lesson11AssertThreshold === thresholdMs
+    && isLesson11AssertRuleConfiguredInWorkflow(thresholdMs)
+  ) {
+    await closeWfConfigModalIfOpen(ctx);
+    await holdWfSpotlight(ctx, GQL.WF_CANVAS_ASSERT_NODE, LESSON11_OUTCOME_HOLD_MS);
+    return;
+  }
+
+  if (!document.querySelector(GQL.WF_ASSERT_PANEL)) {
+    await prepareGql11AssertSourceReading(ctx);
+  }
+
+  // Source tab — bind latency variable (keep modal open for Assertions).
+  if (!_lesson11AssertSourceConfigured || !isLesson11AssertSourceConfiguredInWorkflow()) {
+    _lesson11AssertSourceConfigured = false;
+    await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Source');
+    await fillWfConfigField(ctx, WF.WF_GQL_ASSERT_SOURCE, LESSON11_LATENCY_VAR);
+    await holdWfSpotlight(ctx, WF.WF_GQL_ASSERT_SOURCE, LESSON11_OUTCOME_HOLD_MS);
+    let patchedSource = false;
+    if (!isLesson11AssertSourceConfiguredInWorkflow()) {
+      patchedSource = patchLesson11AssertSourceQuiet();
+      await ctx.delay(200);
+    }
+    if (isLesson11AssertSourceConfiguredInWorkflow() || patchedSource) {
+      _lesson11AssertSourceConfigured = true;
+    }
+  } else {
+    // Already bound — brief glance, then move to Assertions (avoid a second long hold).
+    await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Source');
+    await holdWfSpotlight(ctx, WF.WF_GQL_ASSERT_SOURCE, 500);
+  }
+
+  await pauseWfConfigSection(ctx);
+
+  // Assertions tab — latency less_than rule, then save & close.
+  await fillLesson11AssertRuleFields(ctx, thresholdMs);
+  await holdWfSpotlight(ctx, GQL.WF_ASSERT_ROW, 700);
+  const saved = await saveAndCloseWfConfigModal(ctx);
+  if (!saved) {
+    await closeWfConfigModalIfOpen(ctx);
+  }
+  let patchedRule = false;
+  if (!isLesson11AssertRuleConfiguredInWorkflow(thresholdMs)) {
+    patchedRule = patchLesson11AssertRuleQuiet(thresholdMs);
+    await ctx.delay(200);
+  }
+  // Persist source if fill/save did not stick (same belt as demonstrateLesson11AssertSourceConfigured).
+  if (!isLesson11AssertSourceConfiguredInWorkflow()) {
+    if (patchLesson11AssertSourceQuiet()) {
+      _lesson11AssertSourceConfigured = true;
+    }
+  } else {
+    _lesson11AssertSourceConfigured = true;
+  }
+  markLesson11AssertRuleConfigured(thresholdMs, patchedRule);
+  await holdWfSpotlight(ctx, GQL.WF_CANVAS_ASSERT_NODE, LESSON11_OUTCOME_HOLD_MS);
+}
+
+/** Reading pause before combined Source + Assertions configure step. */
+export async function prepareGql11AssertConfigReading(ctx: DemoActionContext): Promise<void> {
+  await prepareGql11AssertSourceReading(ctx);
+}
+
+/** Configure latency assertion (jsonPath `$`, operator `less_than`, threshold ms). */
+export async function ensureLesson11AssertRuleConfigured(
+  ctx: DemoActionContext,
+  thresholdMs = LESSON11_PASS_THRESHOLD_MS,
+): Promise<void> {
+  await ensureLesson11AssertSourceConfigured(ctx);
+  if (
+    _lesson11AssertConfigured
+    && _lesson11AssertThreshold === thresholdMs
+    && isLesson11AssertRuleConfiguredInWorkflow(thresholdMs)
+  ) {
+    await closeWfConfigModalIfOpen(ctx);
+    return;
+  }
+  await prepareGql11AssertRuleReading(ctx);
+  await demonstrateLesson11AssertRuleConfigured(ctx, thresholdMs);
+}
+
+/**
+ * Open Assert Assertions tab for tighten-threshold reading — no Quick Test re-run
+ * when pass already exists; no stacked spotlights (reading already highlights Expected).
+ */
+export async function prepareGql11TightenThresholdModal(ctx: DemoActionContext): Promise<void> {
+  await closeWfConsoleIfOpen(ctx);
+  // Rapid-Next belt: ensure pass happened quietly if viewer skipped prior steps.
+  if (!_lesson11PassRun && !lesson11BothNodesPassed()) {
+    await runLesson11WorkflowPassExecOnly(ctx);
+  } else {
+    _lesson11PassRun = true;
+  }
+
+  if (!document.querySelector(GQL.WF_ASSERT_PANEL)) {
+    await openWfNodeConfigModal(ctx, { canvasTestId: GQL.WF_CANVAS_ASSERT_NODE });
+    await waitForWfConfigPanel(ctx, GQL.WF_ASSERT_PANEL);
+  }
+  await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Assertions');
+  if (!document.querySelector(GQL.WF_ASSERT_ROW)) {
+    await clickWfConfigAddRow(ctx, GQL.WF_ASSERT_ADD_BTN, GQL.WF_ASSERT_JSONPATH);
+  }
+  await ctx.waitFor(GQL.WF_ASSERT_EXPECTED, 5000);
+  await ctx.delay(300);
+}
+
+/** Change expected threshold to fail and hold the outcome. */
+export async function demonstrateLesson11TightenThreshold(ctx: DemoActionContext): Promise<void> {
+  await demonstrateLesson11AssertRuleConfigured(ctx, '1');
+}
+
+/** Walk green pass badges — click nodes so the sidebar I/O beat matches narration. */
+export async function demonstrateLesson11ObservePass(ctx: DemoActionContext): Promise<void> {
+  // Canvas-only beat — dismiss Console left open after Quick Test so nodes stay visible.
+  await closeLesson11Console(ctx);
+  await holdWfSpotlight(ctx, GQL.WF_CANVAS_QUERY_NODE, 700);
+  await ctx.click(GQL.WF_CANVAS_QUERY_NODE);
+  await ctx.delay(800);
+  await holdWfSpotlight(ctx, GQL.WF_CANVAS_ASSERT_NODE, 700);
+  await ctx.click(GQL.WF_CANVAS_ASSERT_NODE);
+  await ctx.delay(900);
+}
+
+/**
+ * Visible fail Quick Test + red Assert / Console — never run Quick Test in preAction.
+ */
+export async function demonstrateLesson11ObserveFailure(ctx: DemoActionContext): Promise<void> {
+  ensureLesson11FailThresholdQuiet();
+  await closeWfConfigModalIfOpen(ctx);
+  await ensureLesson11ConsoleOpen(ctx);
+  await holdWfSpotlight(ctx, WF.QUICK_TEST_BTN, 600);
+  if (!_lesson11FailRun || !document.querySelector(`${GQL.WF_CANVAS_ASSERT_NODE}.wf-node-fail`)) {
+    ctx.navigateToTab('workflow');
+    await ctx.delay(250);
+    await ctx.click(WF.QUICK_TEST_BTN);
+    await ctx.waitFor(WF.EXEC_SUMMARY, 30000);
+    await ctx.delay(500);
+    _lesson11FailRun = true;
+  }
+  await holdWfSpotlight(ctx, GQL.WF_CANVAS_ASSERT_NODE, 1100);
+  if (document.querySelector(WF.CONSOLE)) {
+    await holdWfSpotlight(ctx, WF.CONSOLE, LESSON11_CONSOLE_LOG_HOLD_MS);
+  }
+  await closeLesson11Console(ctx);
+}
+
+/**
+ * Quiet graph patches before Quick Test — never open config modals here.
+ * Modal tours belong in the configure steps; Acting on Quick Test should only run.
+ */
 export async function ensureLesson11GraphReadyForQuickTest(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11AssertRuleConfigured(ctx, LESSON11_PASS_THRESHOLD_MS);
   await closeWfConfigModalIfOpen(ctx);
   if (!isLesson11QueryConfiguredInWorkflow()) {
     patchLesson11QueryNodeQuiet();
-    await ctx.delay(200);
+    _lesson11QueryConfigured = true;
   }
   if (!isLesson11WorkflowVariablesConfigured()) {
     patchLesson11WorkflowVariablesQuiet();
-    await ctx.delay(200);
+    _lesson11VariablesConfigured = true;
   }
   if (!isLesson11AssertSourceConfiguredInWorkflow()) {
     patchLesson11AssertSourceQuiet();
-    await ctx.delay(200);
+    _lesson11AssertSourceConfigured = true;
   }
   if (!isLesson11AssertRuleConfiguredInWorkflow(LESSON11_PASS_THRESHOLD_MS)) {
     patchLesson11AssertRuleQuiet(LESSON11_PASS_THRESHOLD_MS);
-    await ctx.delay(200);
+    _lesson11AssertThreshold = LESSON11_PASS_THRESHOLD_MS;
+    _lesson11AssertConfigured = true;
   }
   const saveBtn = document.querySelector<HTMLElement>('.wf-toolbar-save-wrap button');
   saveBtn?.click();
-  await ctx.delay(300);
+  await ctx.delay(200);
 }
 
 /** Run Quick Test only — observe pass state on the next step. */
 export async function runLesson11WorkflowPassExecOnly(ctx: DemoActionContext): Promise<void> {
+  if (_lesson11PassRun && lesson11BothNodesPassed()) return;
   await ensureLesson11GraphReadyForQuickTest(ctx);
   if (_lesson11PassRun && lesson11BothNodesPassed()) return;
 
   ctx.navigateToTab('workflow');
-  await ctx.delay(400);
-  await clickWfFitView(ctx);
-  const saveBtn = document.querySelector<HTMLElement>('.wf-toolbar-save-wrap button');
-  saveBtn?.click();
-  await ctx.delay(300);
+  await ctx.delay(250);
   await ctx.click(WF.QUICK_TEST_BTN);
   await ctx.waitFor(WF.EXEC_SUMMARY, 30000);
   await ctx.delay(400);
@@ -455,27 +834,51 @@ export async function runLesson11WorkflowPassExecOnly(ctx: DemoActionContext): P
 /** Run Quick Test and wait for execution summary. */
 export async function ensureLesson11WorkflowPassRun(ctx: DemoActionContext): Promise<void> {
   await runLesson11WorkflowPassExecOnly(ctx);
-  await ctx.delay(400);
 }
 
-/** Reading pause before observing green pass nodes (Quick Test must have run). */
+/**
+ * Quiet belt before observing green pass nodes.
+ * Do not re-run Quick Test when the prior step already produced green badges —
+ * that was empty Acting during the reading prep.
+ */
 export async function prepareGql11ObservePassReading(ctx: DemoActionContext): Promise<void> {
+  await closeWfConfigModalIfOpen(ctx);
+  await closeWfConsoleIfOpen(ctx);
+  if (_lesson11PassRun || lesson11BothNodesPassed()) {
+    _lesson11PassRun = true;
+    return;
+  }
+  // Rapid Next skipped the Quick Test step — recover quietly.
   await runLesson11WorkflowPassExecOnly(ctx);
+}
+
+/** Quietly ensure fail threshold without re-opening the assert config modal. */
+function ensureLesson11FailThresholdQuiet(): void {
+  if (isLesson11AssertRuleConfiguredInWorkflow('1')) {
+    _lesson11AssertThreshold = '1';
+    _lesson11AssertConfigured = true;
+    return;
+  }
+  if (patchLesson11AssertRuleQuiet('1')) {
+    _lesson11AssertThreshold = '1';
+    _lesson11AssertConfigured = true;
+    _lesson11PassRun = false;
+    _lesson11FailRun = false;
+  }
 }
 
 /** Run Quick Test with tightened threshold (assert rule must already be set to fail). */
 export async function ensureLesson11WorkflowFailRunOnly(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11AssertRuleConfigured(ctx, '1');
+  ensureLesson11FailThresholdQuiet();
   await closeWfConfigModalIfOpen(ctx);
   if (_lesson11FailRun && document.querySelector(`${GQL.WF_CANVAS_ASSERT_NODE}.wf-node-fail`)) return;
 
   await ensureLesson11ConsoleOpen(ctx);
   ctx.navigateToTab('workflow');
-  await ctx.delay(400);
-  await clickWfFitView(ctx);
+  await ctx.delay(250);
   await ctx.click(WF.QUICK_TEST_BTN);
   await ctx.waitFor(WF.EXEC_SUMMARY, 30000);
-  await ctx.delay(800);
+  await ctx.delay(500);
   _lesson11FailRun = true;
 }
 
@@ -487,17 +890,103 @@ export async function ensureLesson11WorkflowFailRun(ctx: DemoActionContext): Pro
 
 /** Reading pause before tightening the assert threshold (pass run must exist). */
 export async function prepareGql11TightenThresholdReading(ctx: DemoActionContext): Promise<void> {
+  if (_lesson11PassRun || lesson11BothNodesPassed()) {
+    _lesson11PassRun = true;
+    return;
+  }
   await ensureLesson11WorkflowPassRun(ctx);
 }
 
-/** Reading pause before observing the failed assert node (fail Quick Test must have run). */
+/**
+ * Quiet belt before failure observation — do NOT run Quick Test here.
+ * Fail run belongs in the visible action so the viewer sees ▶ and the red badge.
+ */
 export async function prepareGql11ObserveFailureReading(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11WorkflowFailRunOnly(ctx);
+  await closeWfConfigModalIfOpen(ctx);
+  ensureLesson11FailThresholdQuiet();
+  // Keep Console closed for reading spotlight on the Assert node; action opens it.
+  await closeWfConsoleIfOpen(ctx);
+}
+
+/**
+ * Reading pause before the Console badge step.
+ * Quiet only — never reopen Assert config / palette / canvas spotlights here
+ * (that caused a flash before the Console ring). Also skip toolbar Save —
+ * ensureLesson11GraphReadyForQuickTest clicks Save and can flash the toolbar.
+ */
+export async function prepareGql11ConsoleReading(ctx: DemoActionContext): Promise<void> {
+  await closeWfConfigModalIfOpen(ctx);
+  await closeWfConsoleIfOpen(ctx);
+  await collapseWfDemoAppSidebar(ctx);
+  // Belt for rapid Next: patch graph state without UI tours or Save.
+  if (!isLesson11QueryConfiguredInWorkflow()) {
+    patchLesson11QueryNodeQuiet();
+    _lesson11QueryConfigured = true;
+  }
+  if (!isLesson11WorkflowVariablesConfigured()) {
+    patchLesson11WorkflowVariablesQuiet();
+    _lesson11VariablesConfigured = true;
+  }
+  if (!isLesson11AssertSourceConfiguredInWorkflow()) {
+    patchLesson11AssertSourceQuiet();
+    _lesson11AssertSourceConfigured = true;
+  }
+  if (!isLesson11AssertRuleConfiguredInWorkflow(LESSON11_PASS_THRESHOLD_MS)) {
+    patchLesson11AssertRuleQuiet(LESSON11_PASS_THRESHOLD_MS);
+    _lesson11AssertThreshold = LESSON11_PASS_THRESHOLD_MS;
+    _lesson11AssertConfigured = true;
+  }
 }
 
 /** Open the Workflow Console panel (does not change assert configuration). */
 export async function ensureLesson11ConsoleOpen(ctx: DemoActionContext): Promise<void> {
   await openWfConsoleIfClosed(ctx);
+}
+
+/** Open Console and hold a steady spotlight so the panel is readable. */
+export async function demonstrateLesson11ConsoleOpen(ctx: DemoActionContext): Promise<void> {
+  // Badge first (reading may have been skipped) — then open + hold the panel.
+  if (!document.querySelector(WF.CONSOLE)) {
+    await holdWfSpotlight(ctx, WF.CONSOLE_BADGE, 700);
+    await ensureLesson11ConsoleOpen(ctx);
+  }
+  await holdWfSpotlight(ctx, WF.CONSOLE, LESSON11_OUTCOME_HOLD_MS);
+}
+
+/**
+ * Quick Test + hold Console logs, then summary.
+ * Leave Console open through pauseAfter so viewers can keep reading streamed lines;
+ * the next (canvas) step closes it before spotlighting pass badges.
+ */
+export async function demonstrateLesson11PassExec(ctx: DemoActionContext): Promise<void> {
+  // Console should already be open from the prior step — only reopen if missing.
+  if (!document.querySelector(WF.CONSOLE)) {
+    await ensureLesson11ConsoleOpen(ctx);
+  }
+  if (_lesson11PassRun && lesson11BothNodesPassed()) {
+    // Rapid Next / replay — short outcome hold, no second Quick Test.
+    if (document.querySelector(WF.CONSOLE)) {
+      await holdWfSpotlight(ctx, WF.CONSOLE, 900);
+    }
+    await holdWfSpotlight(ctx, WF.EXEC_SUMMARY, 800);
+    return;
+  }
+  await holdWfSpotlight(ctx, WF.QUICK_TEST_BTN, 500);
+  await runLesson11WorkflowPassExecOnly(ctx);
+  if (document.querySelector(WF.CONSOLE)) {
+    await holdWfSpotlight(ctx, WF.CONSOLE, LESSON11_CONSOLE_LOG_HOLD_MS);
+  } else {
+    await ctx.delay(LESSON11_CONSOLE_LOG_HOLD_MS);
+  }
+  await holdWfSpotlight(ctx, WF.EXEC_SUMMARY, 1000);
+}
+
+/** Debug Mode with a steady hold on the Debug control, then the canvas outcome. */
+export async function demonstrateLesson11DebugRun(ctx: DemoActionContext): Promise<void> {
+  await holdWfSpotlight(ctx, WF.DEBUG_BTN, 500);
+  await ensureLesson11DebugRun(ctx);
+  await holdWfSpotlight(ctx, WF.CANVAS, 700);
+  await closeLesson11Console(ctx);
 }
 
 /** Close the Workflow Console panel (e.g. before canvas-only steps). */
@@ -507,30 +996,31 @@ export async function closeLesson11Console(ctx: DemoActionContext): Promise<void
 
 /** Reading pause before Debug Mode (threshold tightened; no Quick Test re-run). */
 export async function prepareGql11DebugReading(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11AssertRuleConfigured(ctx, '1');
+  ensureLesson11FailThresholdQuiet();
   await closeWfConfigModalIfOpen(ctx);
 }
 
 /** Start a step-through Debug run and click Step on each paused node. */
 export async function ensureLesson11DebugRun(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11AssertRuleConfigured(ctx, '1');
+  ensureLesson11FailThresholdQuiet();
   await closeWfConfigModalIfOpen(ctx);
 
   if (document.querySelector(WF.DEBUG_STEP_BTN)) {
-    await clickWfDebugStepButtons(ctx);
+    await clickWfDebugStepButtons(ctx, 12, LESSON11_DEBUG_PACING);
     _lesson11DebugRun = true;
     return;
   }
 
   if (_lesson11DebugRun) return;
 
-  await startWfDebugRun(ctx);
-  await clickWfDebugStepButtons(ctx);
+  await startWfDebugRun(ctx, LESSON11_DEBUG_PACING);
+  await clickWfDebugStepButtons(ctx, 12, LESSON11_DEBUG_PACING);
   _lesson11DebugRun = true;
 }
 
 /** Setup for Lesson 11 — remove stale demo workflow. */
 export async function gqlWorkflowIntegrationLessonSetup(ctx: DemoActionContext): Promise<void> {
+  setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_GUIDED);
   resetGqlLesson11SessionFlags();
   if (deleteWorkflowByName(LESSON11_WF_NAME)) {
     await ctx.delay(300);
@@ -547,6 +1037,7 @@ export async function gqlWorkflowIntegrationLessonCleanup(ctx: DemoActionContext
   await cleanupWorkflowDemoRunUi(ctx);
   deleteWorkflowByName(LESSON11_WF_NAME);
   resetGqlLesson11SessionFlags();
+  setWfConfigDemoTiming(null);
   await ctx.delay(100);
 }
 

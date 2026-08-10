@@ -100,12 +100,12 @@ describe('WebSocketMessageLog', () => {
       expect(props.onSend).toHaveBeenCalledWith('hello', 'text');
     });
 
-    it('clears input after send', () => {
+    it('keeps input after send so the message can be re-sent', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
       const input = screen.getByLabelText('Message input') as HTMLTextAreaElement;
       fireEvent.change(input, { target: { value: 'hello' } });
       fireEvent.click(screen.getByTestId('send-btn'));
-      expect(input.value).toBe('');
+      expect(input.value).toBe('hello');
     });
 
     it('disables Send when input is empty', () => {

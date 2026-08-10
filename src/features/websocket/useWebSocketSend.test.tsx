@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom/vitest';
 import { useWebSocketSend, type UseWebSocketSendOptions } from './useWebSocketSend';
 
@@ -127,12 +128,12 @@ describe('useWebSocketSend', () => {
       expect(onSend).not.toHaveBeenCalled();
     });
 
-    it('clears input after sending', () => {
+    it('keeps input after sending so the message can be re-sent', () => {
       renderCompose();
       const input = screen.getByLabelText('Message input');
       fireEvent.change(input, { target: { value: 'msg' } });
       fireEvent.click(screen.getByTestId('send-btn'));
-      expect(input).toHaveValue('');
+      expect(input).toHaveValue('msg');
     });
   });
 
@@ -251,7 +252,7 @@ describe('useWebSocketSend', () => {
     it('allows DISCONNECT without destination', () => {
       const onSend = vi.fn();
       renderCompose({ effectiveProtocol: 'stomp', onSend });
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'DISCONNECT' } });
+      selectOption(screen.getByTestId('stomp-command'), 'DISCONNECT');
       fireEvent.click(screen.getByTestId('send-btn'));
       expect(onSend).toHaveBeenCalledTimes(1);
     });
@@ -398,7 +399,7 @@ describe('useWebSocketSend', () => {
     it('sends CONNECT with login and passcode', () => {
       const onSend = vi.fn();
       renderCompose({ effectiveProtocol: 'stomp', onSend });
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'CONNECT' } });
+      selectOption(screen.getByTestId('stomp-command'), 'CONNECT');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'localhost' } });
       fireEvent.change(screen.getByTestId('stomp-login'), { target: { value: 'guest' } });
       fireEvent.change(screen.getByTestId('stomp-passcode'), { target: { value: 'secret' } });
@@ -409,10 +410,24 @@ describe('useWebSocketSend', () => {
       expect(encoded).toContain('passcode');
     });
 
+    it('stacks CONNECT login/passcode and toggles passcode visibility', () => {
+      renderCompose({ effectiveProtocol: 'stomp' });
+      selectOption(screen.getByTestId('stomp-command'), 'CONNECT');
+      const fields = screen.getByTestId('stomp-compose-fields');
+      expect(fields.className).toContain('ws-stomp-compose-fields--auth');
+      expect(screen.getByLabelText('STOMP login')).toBeInTheDocument();
+      const passcode = screen.getByTestId('stomp-passcode');
+      expect(passcode).toHaveAttribute('type', 'password');
+      fireEvent.click(screen.getByTestId('stomp-passcode-toggle'));
+      expect(passcode).toHaveAttribute('type', 'text');
+      fireEvent.click(screen.getByTestId('stomp-passcode-toggle'));
+      expect(passcode).toHaveAttribute('type', 'password');
+    });
+
     it('sends SUBSCRIBE frame with destination', () => {
       const onSend = vi.fn();
       renderCompose({ effectiveProtocol: 'stomp', onSend });
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'SUBSCRIBE' } });
+      selectOption(screen.getByTestId('stomp-command'), 'SUBSCRIBE');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: '/topic/news' } });
       fireEvent.click(screen.getByTestId('send-btn'));
       expect(onSend.mock.calls[0][0]).toContain('SUBSCRIBE');
@@ -421,7 +436,7 @@ describe('useWebSocketSend', () => {
     it('sends UNSUBSCRIBE with subscription id', () => {
       const onSend = vi.fn();
       renderCompose({ effectiveProtocol: 'stomp', onSend });
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'UNSUBSCRIBE' } });
+      selectOption(screen.getByTestId('stomp-command'), 'UNSUBSCRIBE');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'sub-0' } });
       fireEvent.click(screen.getByTestId('send-btn'));
       expect(onSend.mock.calls[0][0]).toContain('UNSUBSCRIBE');
@@ -430,7 +445,7 @@ describe('useWebSocketSend', () => {
     it('sends ACK with message id', () => {
       const onSend = vi.fn();
       renderCompose({ effectiveProtocol: 'stomp', onSend });
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'ACK' } });
+      selectOption(screen.getByTestId('stomp-command'), 'ACK');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'msg-42' } });
       fireEvent.click(screen.getByTestId('send-btn'));
       expect(onSend.mock.calls[0][0]).toContain('ACK');
@@ -439,7 +454,7 @@ describe('useWebSocketSend', () => {
     it('sends NACK with message id', () => {
       const onSend = vi.fn();
       renderCompose({ effectiveProtocol: 'stomp', onSend });
-      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'NACK' } });
+      selectOption(screen.getByTestId('stomp-command'), 'NACK');
       fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'msg-99' } });
       fireEvent.click(screen.getByTestId('send-btn'));
       expect(onSend.mock.calls[0][0]).toContain('NACK');
@@ -493,7 +508,7 @@ describe('useWebSocketSend', () => {
     it('closes via the header close button', () => {
       renderCompose();
       fireEvent.click(screen.getByTestId('template-trigger'));
-      fireEvent.click(screen.getByLabelText('Close'));
+      fireEvent.click(screen.getByRole('button', { name: 'Close message templates' }));
       expect(screen.queryByTestId('template-dropdown')).not.toBeInTheDocument();
     });
 

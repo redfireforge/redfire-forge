@@ -19,9 +19,8 @@ import {
   prepareGql18DockerLesson,
 } from './graphql-lesson-smoke-helpers';
 
-/** Second mutation node on canvas (UI-created id — not gql18-create). */
-const LESSON18_DELETE_NODE_SELECTOR =
-  '.react-flow__node-graphqlMutation:not([data-id="gql18-create"])';
+/** Delete User mutation node identified by rendered label text. */
+const LESSON18_DELETE_NODE_LABEL = /Delete User/i;
 const MUTATION_TIMEOUT = 300_000;
 
 test.describe.configure({ retries: 0 });
@@ -38,55 +37,62 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('GQL-18 — Delete User steps (manual validation)', () => {
-  test('step 13 adds Delete User node with visible palette click', async ({ page, request }) => {
+  test('step 14 adds Delete User node with visible palette click', async ({ page, request }) => {
     const healthy = await isGraphqlServerHealthy(request);
     test.skip(!healthy, 'GraphQL test server not running on port 4010');
 
     test.setTimeout(MUTATION_TIMEOUT);
     await prepareGql18DockerLesson(page, request);
 
-    // Steps 1–12 complete → land on step 13 (Add Delete User) reading phase.
-    await advanceSteps(page, 12, MUTATION_TIMEOUT);
+    // Steps 1–13 complete → land on step 14 (Add Delete User) reading phase.
+    await advanceSteps(page, 13, MUTATION_TIMEOUT);
 
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/13\s*[/]\s*15/);
+    expect(counter).toMatch(/14\s*[/]\s*16/);
     expect(title).toMatch(/Delete User/i);
 
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
 
-    await expect(page.locator(LESSON18_DELETE_NODE_SELECTOR)).toBeVisible({ timeout: 15_000 });
+    const deleteNode = page
+      .locator(GQL.WF_CANVAS_MUTATION_NODE)
+      .filter({ hasText: LESSON18_DELETE_NODE_LABEL })
+      .first();
+    await expect(deleteNode).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(GQL.WF_CANVAS_MUTATION_NODE)).toHaveCount(2, {
       timeout: 15_000,
     });
-    await expect(page.locator(LESSON18_DELETE_NODE_SELECTOR)).toContainText('Delete User', {
+    await expect(deleteNode).toContainText(LESSON18_DELETE_NODE_LABEL, {
       timeout: 15_000,
     });
 
-    await takeNamedScreenshot(page, 'gql18-step13-delete-node-added');
+    await takeNamedScreenshot(page, 'gql18-step14-delete-node-added');
   });
 
-  test('step 14 configures deleteUser mutation on Delete User node', async ({ page, request }) => {
+  test('step 15 configures deleteUser mutation on Delete User node', async ({ page, request }) => {
     const healthy = await isGraphqlServerHealthy(request);
     test.skip(!healthy, 'GraphQL test server not running on port 4010');
 
     test.setTimeout(MUTATION_TIMEOUT);
     await prepareGql18DockerLesson(page, request);
 
-    // Through step 13 action → step 14 reading.
-    await advanceSteps(page, 13, MUTATION_TIMEOUT);
+    // Through step 14 action → step 15 reading.
+    await advanceSteps(page, 14, MUTATION_TIMEOUT);
 
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/14\s*[/]\s*15/);
+    expect(counter).toMatch(/15\s*[/]\s*16/);
     expect(title).toMatch(/deleteUser/i);
 
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
 
-    const deleteNode = page.locator(LESSON18_DELETE_NODE_SELECTOR);
+    const deleteNode = page
+      .locator(GQL.WF_CANVAS_MUTATION_NODE)
+      .filter({ hasText: LESSON18_DELETE_NODE_LABEL })
+      .first();
     await expect(deleteNode).toBeVisible({ timeout: 15_000 });
     await expect(deleteNode).not.toContainText('No endpoint', { timeout: 15_000 });
     await expect(deleteNode).toContainText(/4010|graphql/i, { timeout: 15_000 });
 
-    await takeNamedScreenshot(page, 'gql18-step14-delete-configured');
+    await takeNamedScreenshot(page, 'gql18-step15-delete-configured');
   });
 });
 

@@ -3,6 +3,10 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../demoRipple', () => ({
+  showSpotlightRing: vi.fn(() => vi.fn()),
+}));
+
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql9'),
   closeGqlDemoTabs: vi.fn(async () => {}),
@@ -125,13 +129,20 @@ it('gql8-exec-health runs health query once via executeLesson8HealthQuery', asyn
       <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
       <div data-testid="gql-history-panel">
         <div data-testid="gql-history-entry"></div>
-        <div data-testid="gql-history-preview"></div>
       </div>
       <button data-testid="gql-execute-btn"></button>
       <div data-testid="gql-response-viewer"></div>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     `;
     stubMonacoEditor();
+    vi.mocked(ctx.waitFor).mockImplementation(async (sel: string) => {
+      if (sel === GQL.HISTORY_PREVIEW) {
+        document.querySelector(GQL.HISTORY_PANEL)!.insertAdjacentHTML(
+          'beforeend',
+          '<div data-testid="gql-history-preview"></div>',
+        );
+      }
+    });
     const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-preview')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
@@ -227,16 +238,18 @@ it('gql8-exec-health runs health query once via executeLesson8HealthQuery', asyn
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_ENTRY);
   });
 
-  it('runHistoryEntry does not block on response viewer during visible action', async () => {
+  it('runHistoryEntry waits for response viewer then holds spotlight on the result', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <button data-testid="gql-history-run"></button>
       <div data-testid="gql-history-preview"></div>
+      <div data-testid="gql-response-viewer"></div>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     `;
     stubMonacoEditor('query { health }');
     await runHistoryEntry(ctx);
-    expect(ctx.waitFor).not.toHaveBeenCalledWith(GQL.RESPONSE_VIEWER, 15000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RESPONSE_VIEWER, 15000);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.HISTORY_RUN);
   });
 
   it('gql8-rename opens rename modal for collection item', async () => {
@@ -331,12 +344,11 @@ it('gql8-exec-health runs health query once via executeLesson8HealthQuery', asyn
     expect(ctx.fill).not.toHaveBeenCalled();
   });
 
-  it('openHistoryPreview re-clicks entry for visible pacing even when preview is open', async () => {
+  it('openHistoryPreview does not re-click entry when preview is already open', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
       <div data-testid="gql-history-panel">
-        <div data-testid="gql-history-entry"></div>
         <div data-testid="gql-history-preview"></div>
       </div>
       <button data-testid="gql-execute-btn"></button>
@@ -349,7 +361,7 @@ it('gql8-exec-health runs health query once via executeLesson8HealthQuery', asyn
     await ensureHistoryPreviewOpen(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureHistoryPreviewOpen(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.HISTORY_ENTRY);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_ENTRY);
   });
 
   it('gql8-import-merge action calls confirmImportWithMerge helper', async () => {

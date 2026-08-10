@@ -437,7 +437,7 @@ describe('useWorkflowDesignerControllerPartB', () => {
     const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
 
     expect(dragDropStub).toHaveBeenCalled();
-    expect(reactFlowInitStub).toHaveBeenCalledWith(null, a.selected, a.setLaidOutId);
+    expect(reactFlowInitStub).toHaveBeenCalledWith(null, a.setLaidOutId);
     expect(result.current.handleCanvasDragOver).toBeDefined();
     expect(result.current.handleReactFlowInit).toBeDefined();
   });

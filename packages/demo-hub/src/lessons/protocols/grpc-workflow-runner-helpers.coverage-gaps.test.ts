@@ -22,9 +22,12 @@ import {
   grpcWorkflowRunnerSetup,
   openAndFitResultsExplorer,
   openRequestDetailsTab,
+  tourRequestDetailsRow,
   openResultsOverviewTab,
   runGrpcEchoWorkflow,
   scrollResultsMetricsCardsIntoView,
+  scrollResultsMetricsLatencyRowIntoView,
+  scrollResultsStickyAwareIntoView,
   seedGrpcWRWorkflowQuiet,
   closeResultsExplorerIfOpen,
   ensureOnResultsTab,
@@ -188,7 +191,7 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
   it('openAndFitResultsExplorer opens explorer and uses fit fallback button', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button title="Explore execution results">Explorer</button>
+      <button title="Explore execution results" data-testid="results-explorer-open-btn">Explorer</button>
       <button data-testid="results-explorer-fit-view-btn">Fit</button>
     `;
     vi.spyOn(adapters, 'waitForResultsExplorerBridge').mockResolvedValue(true);
@@ -220,6 +223,50 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
     await openRequestDetailsTab(ctx);
     expect(tabSpy).toHaveBeenCalled();
     expect(select.value).toBe('test');
+  });
+
+  it('tourRequestDetailsRow paces tab, GRPC badge, row, detail, and close', async () => {
+    document.body.innerHTML = `
+      <div class="results-run-filter-tabs"></div>
+      <button class="results-view-tab" data-testid="results-tab-requests">Request Details</button>
+      <div class="group-by-controls"><select><option value="node">node</option><option value="test">test</option></select></div>
+      <div class="clickable-row">
+        <span class="method-badge">GRPCUNARY</span> Echo Call
+      </div>
+      <div class="response-detail-modal" hidden>
+        <button type="button" class="btn-ghost">Close</button>
+      </div>
+    `;
+    const ctx = makeCtx();
+    const lessonHelpers = await import('./grpc-lesson-helpers');
+    const spotlightSpy = vi.mocked(lessonHelpers.spotlightElementAndPause);
+    const row = document.querySelector<HTMLElement>('.clickable-row')!;
+    const modal = document.querySelector<HTMLElement>('.response-detail-modal')!;
+    const closeBtn = modal.querySelector<HTMLButtonElement>('button')!;
+    let rowClicked = false;
+    let closeClicked = false;
+    row.addEventListener('click', () => {
+      rowClicked = true;
+      modal.hidden = false;
+    });
+    closeBtn.addEventListener('click', () => {
+      closeClicked = true;
+    });
+
+    await tourRequestDetailsRow(ctx);
+
+    expect(ctx.waitFor).toHaveBeenCalledWith('.clickable-row');
+    expect(rowClicked).toBe(true);
+    expect(closeClicked).toBe(true);
+    // After-tab / after-row-click / after-close pacing.
+    expect(ctx.delay).toHaveBeenCalledWith(800);
+    expect(ctx.delay).toHaveBeenCalledWith(1000);
+    // Spotlight hold times for tab → badge → row → detail → close.
+    expect(spotlightSpy).toHaveBeenCalledWith(ctx, expect.any(HTMLElement), 1000);
+    expect(spotlightSpy).toHaveBeenCalledWith(ctx, expect.any(HTMLElement), 1200);
+    expect(spotlightSpy).toHaveBeenCalledWith(ctx, expect.any(HTMLElement), 1100);
+    expect(spotlightSpy).toHaveBeenCalledWith(ctx, expect.any(HTMLElement), 1400);
+    expect(spotlightSpy).toHaveBeenCalledWith(ctx, expect.any(HTMLElement), 700);
   });
 
   it('openResultsOverviewTab skips click when Overview tab is already active', async () => {
@@ -357,7 +404,7 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
   it('tourResultsExplorerPanels opens explorer and rings diagram when present', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button title="Explore execution results">Explorer</button>
+      <button title="Explore execution results" data-testid="results-explorer-open-btn">Explorer</button>
       <div data-testid="results-explorer-diagram"></div>
       <div class="results-explorer-detail"></div>
       <div class="iteration-matrix"></div>
@@ -442,15 +489,59 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
     expect(pauseSpy).not.toHaveBeenCalled();
   });
 
-  it('scrollResultsMetricsCardsIntoView uses delay fallback without scroll parent', async () => {
+  it('scrollResultsMetricsLatencyRowIntoView returns early when latency row is absent', async () => {
     const ctx = makeCtx();
-    const cards = document.createElement('div');
-    cards.setAttribute('data-testid', 'results-metrics-cards');
-    document.body.appendChild(cards);
+    const pauseSpy = vi.spyOn(demoSpotlightUtils, 'pauseDemoAutoScroll');
+    await scrollResultsMetricsLatencyRowIntoView(ctx);
+    expect(pauseSpy).not.toHaveBeenCalled();
+  });
+
+  it('scrollResultsMetricsLatencyRowIntoView scrolls latency row below sticky header', async () => {
+    const ctx = makeCtx();
+    const latencyRow = document.createElement('div');
+    latencyRow.setAttribute('data-testid', 'results-metrics-latency-row');
+    const scrollParent = document.createElement('div');
+    scrollParent.style.overflow = 'auto';
+    scrollParent.style.height = '200px';
+    scrollParent.appendChild(latencyRow);
+    const stickyTop = document.createElement('div');
+    stickyTop.className = 'results-top';
+    document.body.append(scrollParent, stickyTop);
+
+    const pauseSpy = vi.spyOn(demoSpotlightUtils, 'pauseDemoAutoScroll').mockImplementation(() => undefined);
+    vi.spyOn(demoSpotlightUtils, 'findScrollableParent').mockReturnValue(scrollParent);
+    latencyRow.getBoundingClientRect = () =>
+      ({ top: 80, left: 0, width: 100, height: 90, right: 100, bottom: 170, x: 0, y: 0, toJSON: () => '{}' }) as DOMRect;
+    scrollParent.getBoundingClientRect = () =>
+      ({ top: 0, left: 0, width: 100, height: 200, right: 100, bottom: 200, x: 0, y: 0, toJSON: () => '{}' }) as DOMRect;
+    stickyTop.getBoundingClientRect = () =>
+      ({ top: 0, left: 0, width: 100, height: 48, right: 100, bottom: 48, x: 0, y: 0, toJSON: () => '{}' }) as DOMRect;
+    scrollParent.scrollTo = vi.fn();
+    Object.defineProperty(scrollParent, 'scrollTop', { value: 200, writable: true });
+
+    await scrollResultsMetricsLatencyRowIntoView(ctx);
+    expect(pauseSpy).toHaveBeenCalledWith(4000);
+    expect(scrollParent.scrollTo).toHaveBeenCalledWith({
+      top: Math.max(0, 80 - 0 + 200 - 48 - 16),
+      behavior: 'instant',
+    });
+  });
+
+  it('scrollResultsStickyAwareIntoView falls back to scrollIntoView without scroll parent', async () => {
+    const ctx = makeCtx();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const scrollIntoView = vi.fn();
+    el.scrollIntoView = scrollIntoView;
     vi.spyOn(demoSpotlightUtils, 'pauseDemoAutoScroll').mockImplementation(() => undefined);
     vi.spyOn(demoSpotlightUtils, 'findScrollableParent').mockReturnValue(null);
-    await scrollResultsMetricsCardsIntoView(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(100);
+    await scrollResultsStickyAwareIntoView(ctx, el);
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'instant',
+      block: 'start',
+      inline: 'nearest',
+    });
+    expect(ctx.delay).toHaveBeenCalledWith(120);
   });
 
   it('openAndFitResultsExplorer skips explorer button when diagram already open', async () => {

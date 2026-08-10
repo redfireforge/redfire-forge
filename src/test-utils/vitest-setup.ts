@@ -7,6 +7,21 @@ if (typeof document !== 'undefined' && typeof document.queryCommandSupported !==
   document.queryCommandSupported = () => false;
 }
 
+/**
+ * Suppress jsdom "Not implemented" warnings that come through process.stderr
+ * (jsdom's virtualConsole emits these before our console patches can catch them).
+ */
+if (typeof process !== 'undefined' && process.stderr) {
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  process.stderr.write = (chunk: unknown, ...args: unknown[]) => {
+    const text = typeof chunk === 'string' ? chunk : chunk instanceof Buffer ? chunk.toString() : '';
+    if (text.includes('Not implemented:') || text.includes('Error: Not implemented')) {
+      return true;
+    }
+    return (originalStderrWrite as (...a: unknown[]) => boolean)(chunk, ...args);
+  };
+}
+
 /** Known jsdom / Monaco noise that is safe to silence in unit tests. */
 const CONSOLE_NOISE = [
   'Not implemented: navigation to another Document',

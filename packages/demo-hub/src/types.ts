@@ -1,19 +1,22 @@
 /** Demo Player — type definitions */
+import type { DemoInitialSurface } from '@shared/demoInitialSurface';
+
+export type { DemoInitialSurface } from '@shared/demoInitialSurface';
 
 // ─── State Machine ───────────────────────────────────────────────
 export type HubView = 'domains' | 'lessons' | 'concept' | 'live';
 export type SpeedMultiplier = 0.5 | 1 | 1.5 | 2;
 
 /** Minimum ms to display a step (floor, even for very short descriptions) */
-export const MIN_STEP_DISPLAY = 4500;
+export const MIN_STEP_DISPLAY = 6500;
 
 /** Words-per-minute for reading time calculation.
- *  160 wpm = comfortable pace for reading while also looking at UI changes. */
-const READING_WPM = 160;
+ *  130 wpm = slower pacing so users can read and track UI highlights. */
+const READING_WPM = 130;
 
 /** Extra ms added when a step has a highlight — gives user time to
  *  glance between the narration panel and the spotlighted element. */
-const LOOK_AT_TARGET_MS = 1500;
+const LOOK_AT_TARGET_MS = 2200;
 
 /** Calculate how long a user needs to read a step's narration (ms). */
 export function calcReadingTime(step: DemoStep): number {
@@ -53,11 +56,24 @@ export interface DemoLesson {
   description: string;
   estimatedMinutes: number;
   initialTab?: string;
+  /**
+   * Sub-panel the `initialTab` should mount on, armed before the tab-switch
+   * commit. Set this when step 1 targets a non-default sub-panel — otherwise
+   * the tab paints its default view and `setup()` visibly hops to the right
+   * one, which reads as a flash between Concept and step 1.
+   */
+  initialSurface?: DemoInitialSurface;
   /** Additional tabs the lesson may navigate to without triggering the auto-exit guard.
    *  Use when a lesson spans multiple app tabs (e.g. Workflow Builder → Workflow Runner). */
   allowedTabs?: string[];
   concept: ConceptContent;
   steps: DemoStep[];
+  /**
+   * Quiet prep before `initialTab` mounts (seed catalog entry, etc.).
+   * Runs during Start Demo boot so the first paint is already step 1's surface
+   * — not Welcome / wrong API / Overview.
+   */
+  prepareBeforeNavigate?: (ctx: DemoActionContext) => Promise<void>;
   /** Runs once before step 0 — start servers, reset state, etc. */
   setup?: (ctx: DemoActionContext) => Promise<void>;
   /** Runs when exiting or restarting — disconnect, stop servers, reset UI */
@@ -77,8 +93,28 @@ export interface DemoLesson {
   gateLabel?: string;
   /** GraphQL Studio demo tabs this lesson needs (default 1). User cap = 8 − tabBudget. */
   tabBudget?: number;
+  /**
+   * When true, skip creating a dedicated WebSocket/gRPC "demo" connection tab
+   * at live-demo start. Use for lessons that teach the tab bar itself (e.g. Tabs
+   * & Multi-Connection) — isolation add/rename/close flashes must not run.
+   */
+  skipStudioTabIsolation?: boolean;
+  /**
+   * When true, keep the app Workflows sidebar collapsed during Start/Restart boot.
+   * Prevents expand→collapse canvas reflows that slide Designer nodes left↔right
+   * before step 1 (Workflow Designer lessons that seed via prepareBeforeNavigate).
+   */
+  collapseAppSidebarOnStart?: boolean;
   /** When true, the live demo can only run in the Tauri desktop app — web shows a gate and disables Start Demo. */
   desktopOnly?: boolean;
+  /** Bumped when lesson content changes meaningfully (new steps, rewritten
+   *  content). Users who completed an older version see an "Updated" badge.
+   *  Defaults to 1 when omitted. */
+  contentVersion?: number;
+  /** How many steps the previous contentVersion had.
+   *  Used as fallback for users who completed before step-count tracking
+   *  was added — tells the UI which steps are genuinely new. */
+  previousStepCount?: number;
 }
 
 export interface ConceptContent {
@@ -140,6 +176,13 @@ export interface DemoHubState {
 export interface DemoProgress {
   completedLessons: string[];
   lessonSteps: Record<string, number>;
+  /** Maps lesson id → contentVersion the user completed at.
+   *  When a lesson's contentVersion exceeds the stored value the UI
+   *  shows an "Updated" indicator so the user knows to re-review. */
+  completedVersions: Record<string, number>;
+  /** Maps lesson id → number of steps the lesson had when the user completed it.
+   *  Steps beyond this count are shown as "new" in the sidebar. */
+  completedStepCounts: Record<string, number>;
   lastDomain?: string;
   lastLesson?: string;
   /** Last navigation view the user was on — used to restore position after a hard refresh.

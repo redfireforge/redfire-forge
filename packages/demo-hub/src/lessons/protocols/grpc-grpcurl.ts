@@ -5,8 +5,7 @@
  * mapping, execute the imported call, and export back as a grpcurl command for
  * sharing — including understanding what gets filtered (auth tokens, PEM paths).
  *
- *   grpc22-intro              — Spot Import grpcurl button; explain grpcurl round-trip
- *   grpc22-open-modal         — Click "Import grpcurl" → modal opens
+ *   grpc22-open-modal         — Spot Import grpcurl + click → modal opens (combined intro)
  *   grpc22-paste-command      — Paste full grpcurl command (target, method, -d, -H auth, -plaintext)
  *   grpc22-review-preview     — Preview pane shows parsed fields; spot warnings block if any
  *   grpc22-import-fields      — Click Import; Studio fills target, method, metadata, body
@@ -30,8 +29,8 @@ import {
   ensureGrpcStudioSubNavQuiet,
   ensureUnaryExecuted,
   grpcFirstCallCleanup,
-  grpcFirstCallSetup,
   openGrpcHistoryPanelQuiet,
+  resetGrpcConnectionSettingsQuiet,
   spotlightAndPause,
   spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
@@ -145,6 +144,8 @@ export const grpcGrpcurlLesson: GrpcDemoLesson = {
   ...buildGrpcLessonShellFromRoster(GRPC22_ROSTER),
   domainId: 'protocols',
   category: 'grpc',
+  // Avoid add-tab → rename-"demo" flashes before step 1 Reading.
+  skipStudioTabIsolation: true,
   description:
     'Import a grpcurl command directly into gRPC Studio — target, method, metadata, ' +
     'and body are populated automatically. Execute the call, then export it back as ' +
@@ -152,7 +153,12 @@ export const grpcGrpcurlLesson: GrpcDemoLesson = {
     'the auth token, is copied to the clipboard ready to run in a terminal.',
 
   setup: async (ctx) => {
-    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+    // Quiet land on Studio — no normalize/rename/modal tour before Import highlight.
+    await navigateToGrpcStudio(ctx);
+    await closeGrpcSettingsDrawerQuiet(ctx);
+    await ensureGrpcStudioSubNavQuiet(ctx);
+    await resetGrpcConnectionSettingsQuiet(ctx);
+    await clearGrpcSchemaDriftQuiet(ctx);
     // Full clear so step 7 shows only the single call made during this lesson.
     try { await clearGrpcCallHistory(); } catch { /* best-effort */ }
     dispatchGrpcCallHistoryReload();
@@ -187,14 +193,13 @@ export const grpcGrpcurlLesson: GrpcDemoLesson = {
 The **Copy grpcurl** button in History (and Collections) produces a complete, ready-to-run command — all headers, including auth tokens, are preserved exactly as sent. This makes the export immediately usable in a terminal or shareable with a teammate who has the same credentials. When pasting into a public channel or PR, replace the token value with a placeholder before sharing.
 
 **What you will do in this lesson:**
-1. **Identify** the Import grpcurl button on the connection bar.
-2. **Open** the Import modal.
-3. **Paste** a full grpcurl command with a body, an auth header, and a custom header.
-4. **Review** the parsed-field preview before committing.
-5. **Import** — watch Studio fill target, method, metadata rows, and body automatically.
-6. **Send** the imported call and confirm the response arrives.
-7. **Open** History, select the entry, and click **Copy grpcurl**.
-8. **Inspect** the exported command — confirm all headers including the auth token are copied exactly as sent.`,
+1. **Open** Import grpcurl from the connection bar and see the paste modal.
+2. **Paste** a full grpcurl command with a body, an auth header, and a custom header.
+3. **Review** the parsed-field preview before committing.
+4. **Import** — watch Studio fill target, method, metadata rows, and body automatically.
+5. **Send** the imported call and confirm the response arrives.
+6. **Open** History, select the entry, and click **Copy grpcurl**.
+7. **Inspect** the exported command — confirm all headers including the auth token are copied exactly as sent.`,
 
     keyTerms: [
       {
@@ -296,80 +301,45 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
 
   steps: [
     // -----------------------------------------------------------------------
-    // Step 1 — Intro: the connection bar's Import grpcurl button
-    // -----------------------------------------------------------------------
-    {
-      id: 'grpc22-intro',
-      title: 'The Import grpcurl Button',
-      description:
-        'Developers share gRPC calls as **grpcurl** one-liners — in Slack, READMEs, and bug reports. ' +
-        'Manually recreating all the flags in Studio (target, method, metadata, body, TLS mode) is tedious.\n\n' +
-        'Focus on the **Import grpcurl** button in the connection bar. That is the entry point for the round-trip. ' +
-        'A matching **Copy grpcurl** button lives in History so you can export the call back out in the other direction.\n\n' +
-        'This lesson walks you through the full import → execute → export cycle, and shows exactly which ' +
-        'values are filtered from exports for security.',
-      highlight: GRPC.IMPORT_GRPCURL_BTN,
-      pauseAfter: true,
-      preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await closeImportModalQuiet(ctx);
-        // Full clear once the Studio page is confirmed mounted so the
-        // GRPC_CALL_HISTORY_UPDATED_EVENT reaches the live useGrpcCallHistory
-        // listener and the badge resets to 0 before the viewer sees it.
-        try { await clearGrpcCallHistory(); } catch { /* best-effort */ }
-        // Second pulse after a tick so React's batched state update flushes.
-        await ctx.delay(120);
-        dispatchGrpcCallHistoryReload();
-      },
-      action: async (ctx) => {
-        // Spotlight the Import grpcurl button first so the viewer lands on the exact control.
-        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_BTN, 1_200);
-        // Pull back to show the surrounding connection bar for context.
-        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 800);
-        // Return to the button so the next click target stays obvious.
-        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_BTN, 800);
-      },
-      verify: GRPC.IMPORT_GRPCURL_BTN,
-    },
-
-    // -----------------------------------------------------------------------
-    // Step 2 — Click Import grpcurl → modal opens
+    // Step 1 — Spot Import grpcurl + open the paste modal (was intro + open)
     // -----------------------------------------------------------------------
     {
       id: 'grpc22-open-modal',
-      title: 'Open the Import Modal',
+      title: 'Open Import grpcurl',
       description:
-        'Click the **Import grpcurl** button on the connection bar.\n\n' +
-        'A modal opens with a large text area. You can paste any grpcurl command here — ' +
-        'Studio parses it live and shows a preview of the fields it will populate before you commit.',
+        'Developers share gRPC calls as **grpcurl** one-liners — in Slack, READMEs, and bug reports. ' +
+        'Manually recreating all the flags in Studio is tedious.\n\n' +
+        'Click **Import grpcurl** on the connection bar. A modal opens with a large text area — ' +
+        'paste any grpcurl command here and Studio parses it live, showing a preview of the fields ' +
+        'it will populate before you commit.\n\n' +
+        'A matching **Copy grpcurl** button lives in History for the export side of the round-trip.',
       highlight: GRPC.IMPORT_GRPCURL_BTN,
+      pauseAfter: true,
       preAction: async (ctx) => {
+        // Setup already lands on Studio. Keep guard minimal — no visible prep tour.
         await ensureStudioNav(ctx);
         await closeImportModalQuiet(ctx);
       },
       action: async (ctx) => {
-        // Spotlight the button, then click it with visible ripple.
-        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_BTN, 900);
+        // Reading already rings Import grpcurl — click once, then hold on the modal.
         await ctx.click(GRPC.IMPORT_GRPCURL_BTN);
 
-        // Wait for the modal to appear.
         try {
           await ctx.waitFor(GRPC.IMPORT_GRPCURL_MODAL, 4_000);
         } catch {
           await ctx.delay(400);
         }
-        await ctx.delay(600);
+        await ctx.delay(700);
 
-        // Spotlight the full modal so the viewer can read the empty state.
-        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_MODAL, 900);
-        // Then highlight the textarea to show where the command goes.
-        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_TEXTAREA, 1_000);
+        // One modal beat, then the textarea — avoid bouncing back to the connection bar.
+        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_MODAL, 1_000);
+        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_TEXTAREA, 1_100);
       },
       verify: GRPC.IMPORT_GRPCURL_MODAL,
     },
 
     // -----------------------------------------------------------------------
-    // Step 3 — Paste the grpcurl command
+    // Step 2 — Paste the grpcurl command
     // -----------------------------------------------------------------------
     {
       id: 'grpc22-paste-command',
@@ -411,7 +381,7 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
     },
 
     // -----------------------------------------------------------------------
-    // Step 4 — Review the parsed-field preview
+    // Step 3 — Review the parsed-field preview (modal stays open)
     // -----------------------------------------------------------------------
     {
       id: 'grpc22-review-preview',
@@ -425,67 +395,72 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         '- **Metadata: x-demo-id** ← second `-H` header\n' +
         '- **TLS mode** ← `-plaintext` flag\n\n' +
         'If you pasted a command with unsupported flags, a **warnings list** appears below the preview — ' +
-        'Studio still imports everything it can. The **Import** button is now active.',
+        'Studio still imports everything it can. Leave the modal open — the next step clicks **Import**.',
+      // Keep the reading ring on the preview inside the modal — never on Studio
+      // chrome behind it (target / status badge would look like stray highlights).
+      // Reading already rings the preview — do not re-spotlight it in action.
       highlight: GRPC.IMPORT_GRPCURL_PREVIEW,
+      pauseAfter: true,
       preAction: ensureCommandPastedQuiet,
       action: async (ctx) => {
-        // Give the viewer time to read the current state first.
-        await ctx.delay(500);
-
-        // Spotlight the preview block — this is the key learning moment.
-        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_PREVIEW, 1_400);
-
-        // Show the warnings area (may or may not exist) — either way narrate it.
-        const hasWarnings = !!document.querySelector(GRPC.IMPORT_GRPCURL_WARNINGS);
-        if (hasWarnings) {
+        // Hold on the reading ring so the viewer can read the mapping list.
+        // Only move the ring if a warnings block is present.
+        await ctx.delay(1_800);
+        if (document.querySelector(GRPC.IMPORT_GRPCURL_WARNINGS)) {
           await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_WARNINGS, 900);
         }
-
-        // Spotlight the Import (submit) button — viewer sees the green-light signal.
-        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_SUBMIT, 900);
       },
       verify: GRPC.IMPORT_GRPCURL_PREVIEW,
     },
 
     // -----------------------------------------------------------------------
-    // Step 5 — Click Import; Studio fields populate
+    // Step 4 — Click Import; modal closes; Studio fields populate
     // -----------------------------------------------------------------------
     {
       id: 'grpc22-import-fields',
       title: 'Import — Studio Fields Populate',
       pauseAfter: true,
       description:
-        'Click **Import**. The modal closes and Studio instantly populates the active tab:\n\n' +
+        'Click **Import to Studio**. The modal closes and Studio instantly populates the active tab:\n\n' +
         '- **Target input** shows `localhost:50051`\n' +
         '- **Method** is pre-selected: `echo.EchoService / Echo`\n' +
         '- **Metadata** tab has two rows — `authorization` and `x-demo-id`\n' +
         '- **Form Input** body shows `{"message":"hello from grpcurl"}`\n\n' +
         'Studio also **reflects services automatically** for plain grpcurl commands (no `-proto` flag) so the method binds immediately — no drift banner.',
-      highlight: GRPC.TARGET_INPUT,
+      // Modal is still open during Reading — spotlight Import, not the target behind it.
+      highlight: GRPC.IMPORT_GRPCURL_SUBMIT,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
-        // If already imported and reflected with no drift, nothing to do.
+        const modalOpen = !!document.querySelector(GRPC.IMPORT_GRPCURL_MODAL);
+        // Already imported and modal dismissed — nothing to prepare.
         if (
-          document.querySelector(GRPC.EXPLORER_TREE)
+          !modalOpen
+          && document.querySelector(GRPC.EXPLORER_TREE)
           && !document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)
         ) {
           return;
         }
-        // Open the modal with the command pre-filled so the action can click Import.
+        // Keep / reopen the modal with the command so the action can click Import.
         await ensureCommandPastedQuiet(ctx);
       },
       action: async (ctx) => {
-        // Spotlight the submit button right before clicking.
-        await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_SUBMIT, 700);
-        await ctx.click(GRPC.IMPORT_GRPCURL_SUBMIT);
-        await ctx.delay(400);
+        const modalStillOpen = !!document.querySelector(GRPC.IMPORT_GRPCURL_MODAL);
+        if (modalStillOpen) {
+          await spotlightAndPause(ctx, GRPC.IMPORT_GRPCURL_SUBMIT, 900);
+          await ctx.click(GRPC.IMPORT_GRPCURL_SUBMIT);
+          await ctx.delay(400);
 
-        // Wait for modal to close (poll up to 3s).
-        for (let i = 0; i < 12; i++) {
-          await ctx.delay(250);
-          if (!document.querySelector(GRPC.IMPORT_GRPCURL_MODAL)) break;
+          // Wait for the product to dismiss the modal (up to ~4s).
+          for (let i = 0; i < 16; i++) {
+            await ctx.delay(250);
+            if (!document.querySelector(GRPC.IMPORT_GRPCURL_MODAL)) break;
+          }
+          // Belt: never leave the modal covering Studio for the field tour.
+          if (document.querySelector(GRPC.IMPORT_GRPCURL_MODAL)) {
+            await closeImportModalQuiet(ctx);
+          }
+          await ctx.delay(600);
         }
-        await ctx.delay(500);
 
         // Plain grpcurl import auto-triggers reflection — wait for the service tree.
         try {
@@ -494,55 +469,48 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
           await ensureGrpcReflected(ctx);
         }
 
-        // guardGrpcReflectedQuiet checks if the tree is already loaded from
-        // auto-reflection and, if so, only captures the descriptor key + sets
-        // the reflected flag without clicking Reflect a second time. If the
-        // tree isn't loaded yet it falls back to a full ensureGrpcReflected.
-        // This is necessary because auto-reflection doesn't set the lesson's
-        // reflected flag, so clearGrpcSchemaDriftQuiet needs the descriptor
-        // key bound before it can dismiss the "No descriptor loaded" banner.
+        // Auto-reflection doesn't set the lesson reflected flag; bind descriptor
+        // key so clearGrpcSchemaDriftQuiet can dismiss "No descriptor loaded".
         await guardGrpcReflectedQuiet(ctx);
         await clearGrpcSchemaDriftQuiet(ctx);
-        await ctx.delay(500);
+        await ctx.delay(400);
 
-        // Show services loaded from reflection before touring imported fields.
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 800);
-        if (document.querySelector(GRPC.EXPLORER_TREE)) {
-          await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 900);
+        // Modal must be gone before any Studio chrome spotlight (avoids rings
+        // on target/status behind an open dialog).
+        if (document.querySelector(GRPC.IMPORT_GRPCURL_MODAL)) {
+          await closeImportModalQuiet(ctx);
+          await ctx.delay(400);
         }
 
-        // Show the connection bar — target is now set from the import.
-        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 800);
-        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 900);
+        // Tight post-import tour — one beat per outcome, no connection-bar +
+        // target double-ring.
+        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 1_000);
 
-        // Show the call method name if visible.
         if (document.querySelector(GRPC.CALL_METHOD_NAME)) {
           await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 900);
         }
 
-        // Navigate to Metadata tab to show imported headers.
         const metaTab = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_METADATA);
         if (metaTab) {
           await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 700);
           metaTab.click();
           await ctx.delay(500);
-          await spotlightAndPause(ctx, GRPC.METADATA_EDITOR, 1_000);
+          await spotlightAndPause(ctx, GRPC.METADATA_EDITOR, 1_100);
         }
 
-        // Show the form body (switch back to Form tab).
         const formTab = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_FORM);
         if (formTab) {
           await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 600);
           formTab.click();
           await ctx.delay(400);
-          await spotlightAndPause(ctx, GRPC.REQUEST_FORM_SCROLL, 900);
+          await spotlightAndPause(ctx, GRPC.REQUEST_FORM_SCROLL, 1_000);
         }
       },
-      verify: GRPC.EXPLORER_TREE,
+      verify: GRPC.TARGET_INPUT,
     },
 
     // -----------------------------------------------------------------------
-    // Step 6 — Execute the imported call
+    // Step 5 — Execute the imported call
     // -----------------------------------------------------------------------
     {
       id: 'grpc22-send-call',
@@ -591,7 +559,7 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
     },
 
     // -----------------------------------------------------------------------
-    // Step 7 — Open History; click Copy grpcurl
+    // Step 6 — Open History; click Copy grpcurl
     // -----------------------------------------------------------------------
     {
       id: 'grpc22-history-copy',
@@ -602,15 +570,13 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         '**Copy grpcurl** and **Replay**.\n\n' +
         'Click **Copy grpcurl** — the command goes straight to your clipboard, ready to paste into a terminal ' +
         'or share with a teammate.',
-      highlight: GRPC.HISTORY_COPY_GRPCURL,
+      // Reading starts on Studio — ring History sub-nav (Copy btn is not mounted yet).
+      highlight: GRPC.SUB_NAV_HISTORY,
       preAction: async (ctx) => {
         await ensureImportedCallExecuted(ctx);
       },
       action: async (ctx) => {
-        // Spotlight the History sub-nav tab before clicking it.
-        await spotlightAndPause(ctx, GRPC.SUB_NAV_HISTORY, 800);
-
-        // Navigate to History panel (handles aria-selected check internally).
+        // Reading already rings History — open it without a full-panel spotlight.
         await ctx.click(GRPC.SUB_NAV_HISTORY);
         try {
           await ctx.waitFor(GRPC.HISTORY_PANEL, 3_000);
@@ -619,10 +585,6 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         }
         await ctx.delay(500);
 
-        // Spotlight the history panel so the viewer orients.
-        await spotlightAndPause(ctx, GRPC.HISTORY_PANEL, 800);
-
-        // Select the first (most recent) entry.
         try {
           await ctx.waitFor(GRPC.HISTORY_ENTRY_ROW, 3_000);
         } catch {
@@ -630,37 +592,32 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         }
         if (document.querySelector(GRPC.HISTORY_ENTRY_ROW)) {
           await ctx.click(GRPC.HISTORY_ENTRY_ROW);
-          await ctx.delay(400);
+          await ctx.delay(500);
         }
 
-        // Wait for the detail pane to render.
         try {
-          await ctx.waitFor(GRPC.HISTORY_DETAIL, 3_000);
+          await ctx.waitFor(GRPC.HISTORY_COPY_GRPCURL, 3_000);
         } catch {
           await ctx.delay(300);
         }
-        await ctx.delay(400);
 
-        // Spotlight the detail pane — viewer reads target, method, timestamp.
-        await spotlightAndPause(ctx, GRPC.HISTORY_DETAIL, 900);
-
-        // Zoom in on the Copy grpcurl button — the key action of this step.
-        await spotlightAndPause(ctx, GRPC.HISTORY_COPY_GRPCURL, 1_100);
-
-        // Click Copy grpcurl — command is now on the clipboard.
+        // Only the action buttons — never HISTORY_PANEL / HISTORY_DETAIL shells
+        // (those draw huge rings over the list, Outcome nav, and connection chrome).
+        await spotlightAndPause(ctx, GRPC.HISTORY_COPY_GRPCURL, 1_200);
         if (document.querySelector(GRPC.HISTORY_COPY_GRPCURL)) {
           await ctx.click(GRPC.HISTORY_COPY_GRPCURL);
-          await ctx.delay(600);
+          await ctx.delay(700);
         }
-
-        // Pull back to show the full detail panel (both buttons visible).
-        await spotlightAndPause(ctx, GRPC.HISTORY_DETAIL, 800);
+        if (document.querySelector(GRPC.HISTORY_REPLAY_BTN)) {
+          await spotlightAndPause(ctx, GRPC.HISTORY_REPLAY_BTN, 700);
+        }
+        await spotlightAndPause(ctx, GRPC.HISTORY_COPY_GRPCURL, 800);
       },
-      verify: GRPC.HISTORY_DETAIL,
+      verify: GRPC.HISTORY_COPY_GRPCURL,
     },
 
     // -----------------------------------------------------------------------
-    // Step 8 — Secret filtering
+    // Step 7 — Secret filtering
     // -----------------------------------------------------------------------
     {
       id: 'grpc22-secret-filtering',
@@ -685,26 +642,19 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         await ensureImportedCallExecuted(ctx);
         await openGrpcHistoryPanelQuiet(ctx);
         // Ensure an entry is selected so the detail pane is visible.
-        if (!document.querySelector(GRPC.HISTORY_DETAIL)) {
+        if (!document.querySelector(GRPC.HISTORY_COPY_GRPCURL)) {
           try { await ctx.waitFor(GRPC.HISTORY_ENTRY_ROW, 3_000); } catch { /* no-op */ }
           const row = document.querySelector<HTMLElement>(GRPC.HISTORY_ENTRY_ROW);
           if (row) { row.click(); await ctx.delay(300); }
         }
       },
       action: async (ctx) => {
-        // Show the history detail pane — this is where Copy grpcurl lives.
-        await spotlightAndPause(ctx, GRPC.HISTORY_DETAIL, 900);
-
-        // Spotlight the Copy grpcurl button to confirm where the export comes from.
-        await spotlightAndPause(ctx, GRPC.HISTORY_COPY_GRPCURL, 1_000);
-
-        // Spotlight the Replay button too — it's paired with Copy grpcurl in the same panel.
+        // Keep the ring on the small export controls — no panel/detail shells.
+        await spotlightAndPause(ctx, GRPC.HISTORY_COPY_GRPCURL, 1_200);
         if (document.querySelector(GRPC.HISTORY_REPLAY_BTN)) {
           await spotlightAndPause(ctx, GRPC.HISTORY_REPLAY_BTN, 800);
         }
-
-        // Pull back to show the whole History panel one final time.
-        await spotlightAndPause(ctx, GRPC.HISTORY_PANEL, 800);
+        await spotlightAndPause(ctx, GRPC.HISTORY_COPY_GRPCURL, 900);
       },
       verify: GRPC.HISTORY_COPY_GRPCURL,
     },

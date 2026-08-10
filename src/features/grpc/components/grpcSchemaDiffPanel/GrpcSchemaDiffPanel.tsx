@@ -9,6 +9,7 @@ import {
   presentGrpcAdvancedOperationStatus,
   schemaDiffSeverityBadgeClass,
 } from '../../utils/grpcStudioAdvancedModel';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import { grpcSchemaDiffChangeId } from '../../utils/grpcSchemaDiffAck';
 import {
   buildChangeSnippet,
@@ -243,21 +244,23 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
         <div className="grpc-sdiff-controls">
           <label className="grpc-advanced-field grpc-advanced-field--inline">
             <span className="grpc-advanced-field__label">Filter</span>
-            <select
-              className="grpc-advanced-select"
+            <CustomSelect
+              className="grpc-advanced-select grpc-sdiff-severity-filter"
               data-testid="grpc-schema-diff-severity-filter"
               value={advanced.schemaDiff.severityFilter}
-              onChange={(event) => {
+              onChange={(v) => {
                 advanced.setSchemaDiffSeverityFilter(
-                  event.target.value as typeof advanced.schemaDiff.severityFilter,
+                  v as typeof advanced.schemaDiff.severityFilter,
                 );
               }}
-            >
-              <option value="all">All severities</option>
-              <option value="breaking">Breaking only</option>
-              <option value="non_breaking">Non-breaking only</option>
-              <option value="informational">Informational only</option>
-            </select>
+              options={[
+                { value: 'all', label: 'All severities' },
+                { value: 'breaking', label: 'Breaking only' },
+                { value: 'non_breaking', label: 'Non-breaking only' },
+                { value: 'informational', label: 'Informational only' },
+              ]}
+              menuMatchTriggerWidth
+            />
           </label>
           <label className="grpc-advanced-field grpc-advanced-field--inline">
             <span className="grpc-advanced-field__label">Hide acknowledged</span>

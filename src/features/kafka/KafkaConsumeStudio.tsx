@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
@@ -7,6 +8,7 @@ import type { KafkaConsumeResultRow } from './types';
 import type { KafkaConsumeTemplate } from '../../shared/kafka/kafkaStorage';
 import { KafkaTemplateControls } from './KafkaTemplateControls';
 import { parseKafkaTimestamp, formatRelativeAge, formatTimestampTooltip } from './kafkaTimestamp';
+import KafkaMessageDetailModal from './KafkaMessageDetailModal';
 
 type ConsumeMode = 'once' | 'stream';
 
@@ -47,8 +49,12 @@ export function KafkaConsumeStudio({
 
   const [mode, setMode] = useState<ConsumeMode>('once');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [formCollapsed, setFormCollapsed] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const topicEmpty = consumeDraft.topic.trim() === '';
   const canConsume = !topicEmpty && !consumeLoading && connected;
+  const startPositionValue = consumeDraft.startPosition === 'earliest' ? 'earliest' : 'latest';
+  const sortOrderValue = consumeDraft.sortOrder === 'desc' ? 'desc' : 'asc';
 
   // E2E test bridge: __kafkaInjectConsumeResults(rows) injects mock rows directly
   // into the consume results without needing a real Kafka cluster.
@@ -73,27 +79,66 @@ export function KafkaConsumeStudio({
   }, []);
 
   const streamListRef = useRef<HTMLDivElement>(null);
-  const userScrolledRef = useRef(false);
+  const streamActionRowRef = useRef<HTMLDivElement>(null);
+  const streamResultsZoneRef = useRef<HTMLDivElement>(null);
+  /** When true, new messages pin the list to the newest row. */
+  const [streamPinnedToBottom, setStreamPinnedToBottom] = useState(true);
 
-  // Auto-scroll stream list to bottom when new messages arrive
+  // Auto-scroll stream list to bottom when new messages arrive (unless user scrolled up)
   useEffect(() => {
     const el = streamListRef.current;
-    if (!el || userScrolledRef.current) return;
+    if (!el || !streamPinnedToBottom) return;
     el.scrollTop = el.scrollHeight;
-  }, [streamMode.streamMessages.length]);
+  }, [streamMode.streamMessages.length, streamPinnedToBottom]);
 
   const handleStreamScroll = useCallback(() => {
     const el = streamListRef.current;
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    userScrolledRef.current = !atBottom;
+    setStreamPinnedToBottom(atBottom);
+  }, []);
+
+  const scrollStreamToBottom = useCallback(() => {
+    const el = streamListRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    setStreamPinnedToBottom(true);
   }, []);
 
   // Reset auto-scroll when stream starts
   useEffect(() => {
     if (streamMode.isStreaming) {
-      userScrolledRef.current = false;
+      setStreamPinnedToBottom(true);
     }
+  }, [streamMode.isStreaming]);
+
+  // Scroll the results zone into view when streaming starts.
+  // We walk up from the results zone to find the nearest scrollable ancestor
+  // (the app content pane) and scroll that directly, which works regardless
+  // of whether the browser honours scrollIntoView on nested overflow containers.
+  useEffect(() => {
+    if (!streamMode.isStreaming) return;
+    const target = streamResultsZoneRef.current;
+    if (!target) return;
+
+    // Find nearest scrollable ancestor
+    const findScrollParent = (el: HTMLElement): HTMLElement | null => {
+      let node: HTMLElement | null = el.parentElement;
+      while (node && node !== document.body) {
+        const style = getComputedStyle(node);
+        if (/auto|scroll/.test(style.overflowY)) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+
+    const scrollParent = findScrollParent(target) ?? document.documentElement;
+    const targetTop = target.getBoundingClientRect().top
+      - scrollParent.getBoundingClientRect().top
+      + scrollParent.scrollTop
+      - 8; // small gap so the zone header is visible
+
+    scrollParent.scrollTo({ top: targetTop, behavior: 'smooth' });
   }, [streamMode.isStreaming]);
 
   const handleConsume = useCallback(() => {
@@ -121,15 +166,6 @@ export function KafkaConsumeStudio({
     }
   }, [consumeDraft.topic]);
 
-  const handleCopyKey = useCallback(() => {
-    const msg = mode === 'stream' ? selectedStreamMessage : selectedMessage;
-    if (msg?.key) void navigator.clipboard.writeText(msg.key);
-  }, [mode, selectedMessage, selectedStreamMessage]);
-
-  const handleCopyPayload = useCallback(() => {
-    const msg = mode === 'stream' ? selectedStreamMessage : selectedMessage;
-    if (msg) void navigator.clipboard.writeText(msg.value);
-  }, [mode, selectedMessage, selectedStreamMessage]);
 
   const handleStartStream = useCallback(() => {
     void startStream(consumeDraft, clusterId);
@@ -164,62 +200,11 @@ export function KafkaConsumeStudio({
     );
   };
 
-  const renderDetailPane = (msg: KafkaConsumeResultRow) => (
-    <div className="kafka-ms-detail-pane" data-testid="con-detail-pane">
-      <div className="kafka-ms-detail-actions">
-        <button
-          className="kafka-ms-ghost-btn"
-          onClick={handleCopyKey}
-          disabled={!msg.key}
-          data-testid="con-copy-key-btn"
-        >
-          Copy Key
-        </button>
-        <button
-          className="kafka-ms-ghost-btn"
-          onClick={handleCopyPayload}
-          data-testid="con-copy-payload-btn"
-        >
-          Copy Payload
-        </button>
-        {onUseAsWorkflowInput && (
-          <button
-            className="kafka-ms-secondary-btn kafka-ms-workflow-btn"
-            onClick={handleUseAsWorkflowInput}
-            data-testid="con-workflow-input-btn"
-          >
-            Use as Workflow Input
-          </button>
-        )}
-        <button
-          className="kafka-ms-ghost-btn"
-          onClick={() => mode === 'stream' ? streamMode.selectStreamMessage(null) : selectMessage(null)}
-          aria-label="Close detail"
-        >
-          ✕
-        </button>
-      </div>
-      <pre className="kafka-ms-detail-body" data-testid="con-detail-body">
-        {(() => {
-          try { return JSON.stringify(JSON.parse(msg.value), null, 2); }
-          catch { return msg.value; }
-        })()}
-      </pre>
-      {msg.headers &&
-        Object.keys(msg.headers).length > 0 && (
-          <table className="kafka-ms-detail-headers">
-            <thead>
-              <tr><th>Header Key</th><th>Header Value</th></tr>
-            </thead>
-            <tbody>
-              {Object.entries(msg.headers).map(([k, v]) => (
-                <tr key={k}><td>{k}</td><td>{v}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-    </div>
-  );
+  const activeDetailMessage = mode === 'stream' ? selectedStreamMessage : selectedMessage;
+  const handleCloseDetail = useCallback(() => {
+    if (mode === 'stream') streamMode.selectStreamMessage(null);
+    else selectMessage(null);
+  }, [mode, selectMessage, streamMode]);
 
   return (
     <div className="kafka-ms-card">
@@ -240,6 +225,23 @@ export function KafkaConsumeStudio({
 
       <div className="kafka-ms-body">
         {/* ── Main settings form ── */}
+        <div className="kafka-ms-section-header kafka-ms-form-section-header">
+          <span className="kafka-ms-section-title">Configuration</span>
+          <button
+            className="kafka-ms-collapse-btn"
+            onClick={() => setFormCollapsed((v) => !v)}
+            aria-expanded={!formCollapsed}
+            aria-controls="kafka-con-form-body"
+            data-testid="con-form-collapse-btn"
+          >
+            {formCollapsed ? 'Show' : 'Hide'}
+            <span className={`kafka-ms-collapse-chevron${formCollapsed ? ' collapsed' : ''}`} aria-hidden="true">▾</span>
+          </button>
+        </div>
+        <div
+          id="kafka-con-form-body"
+          className={`kafka-ms-collapsible${formCollapsed ? ' kafka-ms-collapsible--hidden' : ''}`}
+        >
         <div className="kafka-ms-form">
 
           {/* Topic */}
@@ -283,16 +285,18 @@ export function KafkaConsumeStudio({
           {/* Start Position */}
           <div className="kafka-ms-form-row">
             <label className="kafka-ms-form-label" htmlFor="kms-con-pos">Start Position</label>
-            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
-              <select
-                id="kms-con-pos"
+            <div className="kafka-ms-form-ctrl">
+              <CustomSelect
                 className="kafka-ms-form-select kafka-ms-form-select--acks"
-                value={consumeDraft.startPosition}
-                onChange={(e) => setConsumeDraft({ startPosition: e.target.value as 'latest' | 'earliest' })}
-              >
-                <option value="latest">Latest — start from newest messages</option>
-                <option value="earliest">Earliest — replay from beginning</option>
-              </select>
+                data-testid="con-position-select"
+                value={startPositionValue}
+                onChange={(v) => setConsumeDraft({ startPosition: v as 'latest' | 'earliest' })}
+                options={[
+                  { value: 'latest', label: 'Latest', detail: 'Start from newest messages' },
+                  { value: 'earliest', label: 'Earliest', detail: 'Replay from beginning' },
+                ]}
+                aria-label="Start Position"
+              />
             </div>
           </div>
 
@@ -327,28 +331,44 @@ export function KafkaConsumeStudio({
           {/* Sort Order */}
           <div className="kafka-ms-form-row">
             <label className="kafka-ms-form-label" htmlFor="kms-con-sort">Sort Order</label>
-            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
-              <select
-                id="kms-con-sort"
+            <div className="kafka-ms-form-ctrl">
+              <CustomSelect
                 className="kafka-ms-form-select kafka-ms-form-select--acks"
-                value={consumeDraft.sortOrder ?? 'asc'}
-                onChange={(e) => setConsumeDraft({ sortOrder: e.target.value as 'asc' | 'desc' })}
+                value={sortOrderValue}
+                onChange={(v) => setConsumeDraft({ sortOrder: v as 'asc' | 'desc' })}
                 data-testid="con-sort-order"
-              >
-                <option value="asc">Oldest First</option>
-                <option value="desc">Newest First</option>
-              </select>
+                options={[
+                  { value: 'asc', label: 'Oldest First', detail: 'Ascending chronological order' },
+                  { value: 'desc', label: 'Newest First', detail: 'Descending chronological order' },
+                ]}
+                aria-label="Sort Order"
+              />
             </div>
           </div>
 
         </div>
+        </div>{/* end collapsible form wrapper */}
 
         {/* ── Filters ── */}
         <div className="kafka-ms-con-filters">
           <div className="kafka-ms-section-header kafka-ms-con-filters-header">
             <span className="kafka-ms-section-title">Filters</span>
             <span className="kafka-ms-form-hint">All filters are optional — leave blank to receive all messages</span>
+            <button
+              className="kafka-ms-collapse-btn"
+              onClick={() => setFiltersCollapsed((v) => !v)}
+              aria-expanded={!filtersCollapsed}
+              aria-controls="kafka-con-filters-body"
+              data-testid="con-filters-collapse-btn"
+            >
+              {filtersCollapsed ? 'Show' : 'Hide'}
+              <span className={`kafka-ms-collapse-chevron${filtersCollapsed ? ' collapsed' : ''}`} aria-hidden="true">▾</span>
+            </button>
           </div>
+          <div
+            id="kafka-con-filters-body"
+            className={`kafka-ms-collapsible${filtersCollapsed ? ' kafka-ms-collapsible--hidden' : ''}`}
+          >
           <div className="kafka-ms-form">
 
             <div className="kafka-ms-form-row">
@@ -382,7 +402,7 @@ export function KafkaConsumeStudio({
             <div className="kafka-ms-form-row kafka-ms-form-row--tall">
               <label className="kafka-ms-form-label" htmlFor="kms-con-jsonpath">JSONPath Filter</label>
               <div className="kafka-ms-form-ctrl">
-                <div className="kafka-ms-jsonpath-pair">
+                <div className="kafka-ms-jsonpath-pair" data-testid="con-jsonpath-pair">
                   <input
                     id="kms-con-jsonpath"
                     className="kafka-ms-form-input kafka-ms-form-input--mono"
@@ -390,6 +410,7 @@ export function KafkaConsumeStudio({
                     placeholder="$.status"
                     value={consumeDraft.jsonPath}
                     onChange={(e) => setConsumeDraft({ jsonPath: e.target.value })}
+                    data-testid="con-jsonpath-input"
                     aria-label="JSONPath expression"
                   />
                   <span className="kafka-ms-jsonpath-eq" aria-hidden="true">=</span>
@@ -400,6 +421,7 @@ export function KafkaConsumeStudio({
                     placeholder="CREATED"
                     value={consumeDraft.jsonPathEquals}
                     onChange={(e) => setConsumeDraft({ jsonPathEquals: e.target.value })}
+                    data-testid="con-jsonval-input"
                     aria-label="JSONPath expected value"
                   />
                 </div>
@@ -407,7 +429,24 @@ export function KafkaConsumeStudio({
               </div>
             </div>
 
+            <div className="kafka-ms-form-row">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-body">Body Contains</label>
+              <div className="kafka-ms-form-ctrl">
+                <input
+                  id="kms-con-body"
+                  className="kafka-ms-form-input"
+                  type="text"
+                  placeholder="search text in body"
+                  value={consumeDraft.bodyContains}
+                  onChange={(e) => setConsumeDraft({ bodyContains: e.target.value })}
+                  data-testid="con-body-contains-input"
+                  aria-label="Body contains"
+                />
+              </div>
+            </div>
+
           </div>
+          </div>{/* end collapsible filters wrapper */}
         </div>
 
         {/* Schema Registry */}
@@ -546,14 +585,13 @@ export function KafkaConsumeStudio({
               </div>
             )}
 
-            {selectedMessage && renderDetailPane(selectedMessage)}
           </>
         )}
 
         {/* ═════════ STREAM mode ═════════ */}
         {mode === 'stream' && (
           <>
-            <div className="kafka-ms-action-row" data-testid="stream-action-row">
+            <div className="kafka-ms-action-row" ref={streamActionRowRef} data-testid="stream-action-row">
               {!streamMode.isStreaming ? (
                 <button
                   className="kafka-ms-primary-btn"
@@ -601,7 +639,7 @@ export function KafkaConsumeStudio({
               </div>
             )}
 
-            <div className="kafka-ms-results-zone" data-testid="stream-results-zone">
+            <div className="kafka-ms-results-zone" ref={streamResultsZoneRef} data-testid="stream-results-zone">
               <div className="kafka-ms-results-header">
                 <span className="kafka-ms-results-count" data-testid="stream-count">
                   {streamMode.streamMessages.length} message{streamMode.streamMessages.length !== 1 ? 's' : ''}
@@ -622,47 +660,69 @@ export function KafkaConsumeStudio({
                   {streamMode.isStreaming ? 'Waiting for messages…' : 'No stream messages'}
                 </p>
               ) : (
-                <div
-                  className="kafka-ms-results-table-wrap kafka-ms-stream-table-wrap"
-                  ref={streamListRef}
-                  onScroll={handleStreamScroll}
-                >
-                  <table className="kafka-ms-results-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Offset</th>
-                        <th>Partition</th>
-                        <th className="kafka-ts-th">Timestamp</th>
-                        <th>Key</th>
-                        <th>Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {streamMode.streamMessages.map((row, idx) => (
-                        <tr
-                          key={`s-${row.partition}-${row.offset}-${idx}`}
-                          className={`${streamMode.selectedStreamIndex === idx ? 'selected' : ''} kafka-ms-stream-row`}
-                          onClick={() => streamMode.selectStreamMessage(streamMode.selectedStreamIndex === idx ? null : idx)}
-                          style={{ cursor: 'pointer' }}
-                          data-testid={`stream-row-${idx}`}
-                        >
-                          <td>{idx + 1}</td>
-                          <td>{row.offset}</td>
-                          <td>{row.partition}</td>
-                          {renderTimestampCell(row.timestamp)}
-                          <td>{row.key ?? '—'}</td>
-                          <td>{valuePreview(row.value)}</td>
+                <div className="kafka-ms-stream-table-shell">
+                  <div
+                    className="kafka-ms-results-table-wrap kafka-ms-stream-table-wrap"
+                    ref={streamListRef}
+                    onScroll={handleStreamScroll}
+                    data-testid="stream-table-wrap"
+                  >
+                    <table className="kafka-ms-results-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Offset</th>
+                          <th>Partition</th>
+                          <th className="kafka-ts-th">Timestamp</th>
+                          <th>Key</th>
+                          <th>Value</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {streamMode.streamMessages.map((row, idx) => (
+                          <tr
+                            key={`s-${row.partition}-${row.offset}-${idx}`}
+                            className={`${streamMode.selectedStreamIndex === idx ? 'selected' : ''} kafka-ms-stream-row`}
+                            onClick={() => streamMode.selectStreamMessage(streamMode.selectedStreamIndex === idx ? null : idx)}
+                            style={{ cursor: 'pointer' }}
+                            data-testid={`stream-row-${idx}`}
+                          >
+                            <td>{idx + 1}</td>
+                            <td>{row.offset}</td>
+                            <td>{row.partition}</td>
+                            {renderTimestampCell(row.timestamp)}
+                            <td>{row.key ?? '—'}</td>
+                            <td>{valuePreview(row.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!streamPinnedToBottom && (
+                    <button
+                      type="button"
+                      className="kafka-ms-scroll-bottom-btn"
+                      data-testid="stream-scroll-bottom-btn"
+                      onClick={scrollStreamToBottom}
+                      aria-label="Scroll to newest messages"
+                    >
+                      ↓ Newest
+                    </button>
+                  )}
                 </div>
               )}
             </div>
 
-            {streamMode.selectedStreamMessage && renderDetailPane(streamMode.selectedStreamMessage)}
           </>
+        )}
+
+        {/* ── Message Detail Modal (shared for both modes) ── */}
+        {activeDetailMessage && (
+          <KafkaMessageDetailModal
+            message={activeDetailMessage}
+            onClose={handleCloseDetail}
+            onUseAsWorkflowInput={onUseAsWorkflowInput ? handleUseAsWorkflowInput : undefined}
+          />
         )}
       </div>
     </div>

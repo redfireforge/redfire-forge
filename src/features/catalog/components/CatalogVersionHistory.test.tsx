@@ -9,10 +9,11 @@ import CatalogVersionHistory from './CatalogVersionHistory';
 import { makeEntry, makeVersion } from './catalogTestFactories';
 
 vi.mock('../../../shared/components/FullPanelModal', () => ({
-  default: ({ title, children }: { title: string; children: React.ReactNode }) => (
+  default: ({ title, children, footer }: { title: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode }) => (
     <div data-testid="full-panel-modal">
       <div data-testid="modal-title">{title}</div>
       <div data-testid="modal-body">{children}</div>
+      {footer && <div data-testid="modal-footer">{footer}</div>}
     </div>
   ),
 }));
@@ -34,8 +35,8 @@ vi.mock('./CatalogVersionDiff', () => ({
 const twoVersionEntry = makeEntry({
   currentVersionId: 'v2',
   versions: [
-    makeVersion({ id: 'v2', version: '2.0.0', specSize: 4096, changelog: 'Added endpoints' }),
-    makeVersion({ id: 'v1', version: '1.0.0', specSize: 2048 }),
+    makeVersion({ id: 'v2', version: '2.0.0', specSize: 4096, changelog: 'Added endpoints', specFormat: 'OpenAPI 3.0.3' }),
+    makeVersion({ id: 'v1', version: '1.0.0', specSize: 2048, specFormat: 'Swagger 2.0' }),
   ],
 });
 
@@ -74,9 +75,15 @@ describe('CatalogVersionHistory', () => {
     expect(screen.getByText('Compare Versions')).toBeInTheDocument();
   });
 
-  it('triggers reimport and close from the Import button', async () => {
+  it('shows the spec format badge for each version', () => {
+    renderHistory();
+    expect(screen.getByText('OpenAPI 3.0.3')).toBeInTheDocument();
+    expect(screen.getByText('Swagger 2.0')).toBeInTheDocument();
+  });
+
+  it('triggers reimport and close from the Import New Version button', async () => {
     const { onReimport, onClose } = renderHistory();
-    await userEvent.click(screen.getByRole('button', { name: /Import/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Import New Version/ }));
     expect(onReimport).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
@@ -146,5 +153,80 @@ describe('CatalogVersionHistory', () => {
     await userEvent.click(selectAreas[1]);
     await userEvent.click(screen.getByRole('button', { name: 'Compare' }));
     await waitFor(() => expect(screen.getByText('bad spec')).toBeInTheDocument());
+  });
+
+  it('shows generic compare error when thrown value is not an Error', async () => {
+    parseOpenApiSpec.mockRejectedValue('boom');
+    renderHistory();
+    const selectAreas = document.querySelectorAll('.cat-vh-card-select');
+    await userEvent.click(selectAreas[0]);
+    await userEvent.click(selectAreas[1]);
+    await userEvent.click(screen.getByRole('button', { name: 'Compare' }));
+    await waitFor(() => expect(screen.getByText('Failed to compute diff')).toBeInTheDocument());
+  });
+
+  it('keeps compare idle when selected ids become stale after entry rerender', async () => {
+    const loadRawSpec = vi.fn().mockResolvedValue('{"openapi":"3.0.0"}');
+    const onClose = vi.fn();
+    const onSwitchVersion = vi.fn();
+    const onReimport = vi.fn();
+
+    const { rerender } = render(
+      <CatalogVersionHistory
+        entry={twoVersionEntry}
+        onClose={onClose}
+        onSwitchVersion={onSwitchVersion}
+        onReimport={onReimport}
+        loadRawSpec={loadRawSpec}
+      />,
+    );
+
+    const selectAreas = document.querySelectorAll('.cat-vh-card-select');
+    await userEvent.click(selectAreas[0]);
+    await userEvent.click(selectAreas[1]);
+
+    const unrelatedEntry = makeEntry({
+      id: 'other-entry',
+      currentVersionId: 'x2',
+      versions: [
+        makeVersion({ id: 'x2', version: '2.0.0' }),
+        makeVersion({ id: 'x1', version: '1.0.0' }),
+      ],
+    });
+
+    rerender(
+      <CatalogVersionHistory
+        entry={unrelatedEntry}
+        onClose={onClose}
+        onSwitchVersion={onSwitchVersion}
+        onReimport={onReimport}
+        loadRawSpec={loadRawSpec}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Compare' }));
+    expect(loadRawSpec).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('version-diff')).not.toBeInTheDocument();
+  });
+
+  it('uses singular footer text for a single tracked version', () => {
+    const oneVersionEntry = makeEntry({
+      currentVersionId: 'v1',
+      versions: [makeVersion({ id: 'v1', version: '1.0.0' })],
+    });
+    renderHistory({ entry: oneVersionEntry });
+    expect(screen.getByText('1 version tracked')).toBeInTheDocument();
+  });
+
+  it('shows LATEST badge when newest entry is not the current version', () => {
+    const nonCurrentLatest = makeEntry({
+      currentVersionId: 'v1',
+      versions: [
+        makeVersion({ id: 'v2', version: '2.0.0' }),
+        makeVersion({ id: 'v1', version: '1.0.0' }),
+      ],
+    });
+    renderHistory({ entry: nonCurrentLatest });
+    expect(screen.getByText('LATEST')).toBeInTheDocument();
   });
 });

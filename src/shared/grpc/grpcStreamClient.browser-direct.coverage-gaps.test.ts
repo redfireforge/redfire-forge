@@ -13,6 +13,7 @@ import {
 import { concatGrpcWebFrames, encodeGrpcWebDataFrame } from './grpcWebFramingCodec';
 import { GRPC_WEB_CONTENT_TYPES } from './grpcWebTransportContracts';
 import { syncGrpcTabTransportMode, resetGrpcTabTransportRoutingForTests } from './grpcTransportTabRouting';
+import * as springServletPathResolver from './grpcSpringServletPathResolver';
 import { GrpcApiClientError } from './grpcApiClient';
 import {
   cancelGrpcStream,
@@ -26,6 +27,16 @@ import {
 } from './grpcStreamClient';
 
 import { buildSuccessGrpcWebStreamResponse} from './grpcStreamClientCoverageGaps.testHelpers';
+
+const BROWSER_DIRECT_TARGET = {
+  ...FIXTURE_UNARY_CALL_REQUEST.target,
+  address: 'localhost:50055',
+} as const;
+
+const BROWSER_DIRECT_TLS_TARGET = {
+  ...BROWSER_DIRECT_TARGET,
+  tlsMode: 'system',
+} as const;
 
 describe('browser-direct grpc stream client coverage gaps', () => {
   const fetchMock = vi.fn();
@@ -54,7 +65,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-grpc-web-stream',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -77,13 +88,247 @@ describe('browser-direct grpc stream client coverage gaps', () => {
     dispose();
   });
 
+  it('supports grpc-web service paths already prefixed with slash', async () => {
+    syncGrpcTabTransportMode('tab-grpc-web-leading-slash', 'grpc-web');
+    fetchMock.mockResolvedValueOnce(buildSuccessGrpcWebStreamResponse(FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.protosetBase64));
+
+    const startEnvelope = await startGrpcStream({
+      callType: 'server_streaming',
+      requestId: 'req-grpc-web-leading-slash',
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      target: BROWSER_DIRECT_TARGET,
+      service: '/echo.EchoService',
+      method: 'ServerStream',
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+    }, 'tab-grpc-web-leading-slash');
+
+    const messages: string[] = [];
+    const dispose = openGrpcStreamEvents(startEnvelope.data.streamId, 'tab-grpc-web-leading-slash', {
+      onEvent: (event) => {
+        if (event.type === 'grpc-message' && event.data?.message) {
+          messages.push(String(event.data.message));
+        }
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(messages).toContain('stream-pong');
+    });
+    dispose();
+  });
+
+  it('filters local session replay by expectedRequestId mismatch', async () => {
+    syncGrpcTabTransportMode('tab-expected-request-filter', 'grpc-web');
+    fetchMock.mockResolvedValueOnce(buildSuccessGrpcWebStreamResponse(FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.protosetBase64));
+
+    const startEnvelope = await startGrpcStream({
+      callType: 'server_streaming',
+      requestId: 'req-expected-request-filter',
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      target: BROWSER_DIRECT_TARGET,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: 'ServerStream',
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+    }, 'tab-expected-request-filter');
+
+    const matchingEvents: string[] = [];
+    openGrpcStreamEvents(startEnvelope.data.streamId, 'tab-expected-request-filter', {
+      expectedRequestId: 'another-request-id',
+      onEvent: (event) => {
+        matchingEvents.push(event.type);
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(matchingEvents).toEqual([]);
+    });
+  });
+
+  it('cancels a terminal local session without emitting extra cancel error event', async () => {
+    syncGrpcTabTransportMode('tab-cancel-terminal', 'grpc-web');
+    fetchMock.mockResolvedValueOnce(buildSuccessGrpcWebStreamResponse(FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.protosetBase64));
+
+    const startEnvelope = await startGrpcStream({
+      callType: 'server_streaming',
+      requestId: 'req-cancel-terminal',
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      target: BROWSER_DIRECT_TARGET,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: 'ServerStream',
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+    }, 'tab-cancel-terminal');
+
+    let endSeen = false;
+    let cancelResult: Awaited<ReturnType<typeof cancelGrpcStream>> | null = null;
+    openGrpcStreamEvents(startEnvelope.data.streamId, 'tab-cancel-terminal', {
+      onEvent: (event) => {
+        if (event.type === 'grpc-end' && !endSeen) {
+          endSeen = true;
+          void cancelGrpcStream(startEnvelope.data.streamId, 'tab-cancel-terminal').then((result) => {
+            cancelResult = result;
+          });
+        }
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(endSeen).toBe(true);
+      expect(cancelResult?.ok).toBe(true);
+    });
+  });
+
+  it('falls through all spring-servlet URL candidates before failing', async () => {
+    syncGrpcTabTransportMode('tab-servlet-all-404', 'spring-servlet');
+    fetchMock.mockResolvedValue(new Response('', { status: 404, statusText: 'Not Found' }));
+
+    const startEnvelope = await startGrpcStream({
+      callType: 'server_streaming',
+      requestId: 'req-servlet-all-404',
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      target: BROWSER_DIRECT_TARGET,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: 'ServerStream',
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+    }, 'tab-servlet-all-404');
+
+    const errors: string[] = [];
+    openGrpcStreamEvents(startEnvelope.data.streamId, 'tab-servlet-all-404', {
+      onEvent: (event) => {
+        if (event.type === 'grpc-error') {
+          errors.push(event.statusMessage ?? 'error');
+        }
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('emits unreachable error when spring resolver returns no candidate URLs', async () => {
+    syncGrpcTabTransportMode('tab-servlet-no-urls', 'spring-servlet');
+    const resolverSpy = vi
+      .spyOn(springServletPathResolver, 'buildSpringServletMethodUrls')
+      .mockReturnValue([]);
+
+    const startEnvelope = await startGrpcStream({
+      callType: 'server_streaming',
+      requestId: 'req-servlet-no-urls',
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      target: BROWSER_DIRECT_TARGET,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: 'ServerStream',
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+    }, 'tab-servlet-no-urls');
+
+    const errors: string[] = [];
+    openGrpcStreamEvents(startEnvelope.data.streamId, 'tab-servlet-no-urls', {
+      onEvent: (event) => {
+        if (event.type === 'grpc-error') {
+          errors.push(event.statusMessage ?? 'error');
+        }
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(errors.some((message) => message.includes('path resolution failed'))).toBe(true);
+    });
+
+    resolverSpy.mockRestore();
+  });
+
+  it('throws grpc api client errors without transport details on spring fallback fetch', async () => {
+    syncGrpcTabTransportMode('tab-servlet-raw-error', 'spring-servlet');
+    fetchMock.mockRejectedValueOnce(new GrpcApiClientError('stream_start', 'raw grpc error', {
+      code: 'GRPC_CALL_FAILED',
+      category: 'call_failed',
+      retryable: false,
+    }));
+
+    const startEnvelope = await startGrpcStream({
+      callType: 'server_streaming',
+      requestId: 'req-servlet-raw-error',
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      target: BROWSER_DIRECT_TARGET,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: 'ServerStream',
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+    }, 'tab-servlet-raw-error');
+
+    const errors: string[] = [];
+    openGrpcStreamEvents(startEnvelope.data.streamId, 'tab-servlet-raw-error', {
+      onEvent: (event) => {
+        if (event.type === 'grpc-error') {
+          errors.push(event.statusMessage ?? 'error');
+        }
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(errors).toContain('raw grpc error');
+    });
+  });
+
+  it('reopens terminal local session as closed immediately and respects abort listener path', async () => {
+    syncGrpcTabTransportMode('tab-terminal-reopen', 'grpc-web');
+    fetchMock.mockResolvedValueOnce(buildSuccessGrpcWebStreamResponse(FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.protosetBase64));
+
+    const startEnvelope = await startGrpcStream({
+      callType: 'server_streaming',
+      requestId: 'req-terminal-reopen',
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      target: BROWSER_DIRECT_TARGET,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: 'ServerStream',
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+    }, 'tab-terminal-reopen');
+
+    const firstEvents: string[] = [];
+    openGrpcStreamEvents(startEnvelope.data.streamId, 'tab-terminal-reopen', {
+      onEvent: (event) => {
+        if (event.type === 'grpc-end') firstEvents.push(event.type);
+      },
+    });
+    await vi.waitFor(() => {
+      expect(firstEvents).toContain('grpc-end');
+    });
+
+    const states: string[] = [];
+    const controller = new AbortController();
+    const dispose = openGrpcStreamEvents(startEnvelope.data.streamId, 'tab-terminal-reopen', {
+      signal: controller.signal,
+      onStateChange: (state) => states.push(state),
+      onEvent: () => undefined,
+    });
+    controller.abort();
+    dispose();
+
+    expect(states).toContain('connecting');
+    expect(states).toContain('closed');
+  });
+
   it('rejects unsupported call types in browser-direct modes', async () => {
     syncGrpcTabTransportMode('tab-grpc-web-bidi', 'grpc-web');
     await expect(startGrpcStream({
       callType: 'bidi_streaming',
       requestId: 'req-bidi',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'BidiStream',
       body: {},
@@ -100,7 +345,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-direct-cancel',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -134,7 +379,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-servlet-stream',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -165,7 +410,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-filter',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -197,7 +442,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-http-empty',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -232,7 +477,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-timeout',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -272,7 +517,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-grpc-web-status-error',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -302,7 +547,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-servlet-all-404',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -333,7 +578,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-grpc-web-tls',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: { ...FIXTURE_UNARY_CALL_REQUEST.target, tlsMode: 'system' },
+      target: BROWSER_DIRECT_TLS_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -355,7 +600,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-servlet-bad-ct',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -383,7 +628,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-direct-cancel-event',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -410,7 +655,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'client_streaming',
       requestId: 'req-servlet-client-stream',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ClientStream',
       body: {},
@@ -427,7 +672,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-timeout-header',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -451,7 +696,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-servlet-default-ct',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -484,7 +729,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-no-crypto',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -507,7 +752,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-servlet-generic-error',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -535,7 +780,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-direct-seq-filter',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },
@@ -568,7 +813,7 @@ describe('browser-direct grpc stream client coverage gaps', () => {
       callType: 'server_streaming',
       requestId: 'req-no-timeout',
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      target: BROWSER_DIRECT_TARGET,
       service: FIXTURE_UNARY_CALL_REQUEST.service,
       method: 'ServerStream',
       body: { message: 'hello' },

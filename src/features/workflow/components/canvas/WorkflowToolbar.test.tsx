@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import WorkflowToolbar from './WorkflowToolbar';
@@ -141,8 +142,10 @@ describe('WorkflowToolbar', () => {
       />,
     );
     expect(screen.getByTitle(/Missing config/)).toBeTruthy();
-    const envSelect = screen.getByTitle('Select target environment for Quick Test') as HTMLSelectElement;
-    const opt = Array.from(envSelect.options).find(o => o.value === 'e1');
+    const envWrap = document.querySelector('.wf-toolbar-env-select')!;
+    fireEvent.click(envWrap.querySelector('.cs-trigger')!);
+    const items = document.querySelectorAll('.cs-item');
+    const opt = [...items].find(o => (o.querySelector('.cs-item-label') ?? o).textContent?.includes('Dev'));
     expect(opt?.textContent).toMatch(/missing/);
   });
 
@@ -188,9 +191,7 @@ describe('WorkflowToolbar', () => {
         onEnvSelect={onEnvSelect}
       />,
     );
-    fireEvent.change(screen.getByTitle('Select target environment for Quick Test'), {
-      target: { value: 'e1' },
-    });
+    selectOption(document.querySelector('.wf-toolbar-env-select')!, 'Dev');
     expect(onEnvSelect).toHaveBeenCalledWith('e1');
   });
 

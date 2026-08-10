@@ -19,7 +19,6 @@ export default function RequestCatalogApiInfoDrawer({
     <div className="req-info-drawer">
       <div className="req-info-drawer-header">
         <span className="req-info-drawer-title">&#9432; API Reference</span>
-        <button type="button" className="req-info-drawer-close" onClick={onClose} title="Close">&times;</button>
       </div>
       <div className="req-info-drawer-body">
         <div className="req-docs-section">
@@ -92,6 +91,9 @@ export default function RequestCatalogApiInfoDrawer({
             <p className="req-docs-text">&#128274; {cm.security.join(', ')}</p>
           </div>
         )}
+      </div>
+      <div className="req-info-drawer-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

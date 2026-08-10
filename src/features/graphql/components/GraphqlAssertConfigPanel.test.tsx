@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import type { ReactNode } from 'react';
 
 vi.mock('../../workflow/components/expression/InsertVarField', () => ({
@@ -153,7 +154,7 @@ describe('GraphqlAssertConfigPanel Run test', () => {
     render(<GraphqlAssertConfigPanel data={makeData()} onChange={onChange} runtimeVariables={{}} />);
 
     fireEvent.change(screen.getByTestId('gql-wf-assert-jsonpath'), { target: { value: '$.user.name' } });
-    fireEvent.change(screen.getByTestId('gql-wf-assert-operator'), { target: { value: 'contains' } });
+    selectOption(screen.getByTestId('gql-wf-assert-operator'), 'contains');
     fireEvent.change(screen.getByTestId('gql-wf-assert-expected'), { target: { value: 'Alice' } });
     fireEvent.change(screen.getByTestId('gql-wf-assert-description'), { target: { value: 'must include name' } });
 

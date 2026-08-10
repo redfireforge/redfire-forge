@@ -1,7 +1,9 @@
+import { useLayoutEffect, useRef } from 'react';
 import type { TestSummary, Scenario, RequestResult, ArrivalRateConfig } from '../../../shared/types';
 import type { LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import type { ProgressMeta } from '../../../engine/executor';
+import { scrollRunnerMonitorIntoView } from '../utils/scrollRunnerMonitor';
 import { LiveCharts } from './LiveCharts';
 import { profileLabel } from './RunnerExecutionConfig';
 import { thinkTimeLabel } from '../utils/runnerProgressStorage';
@@ -48,6 +50,7 @@ export default function LiveProgressPanel({
   weights,
   onClear,
 }: Props) {
+  const sectionRef = useRef<HTMLDivElement>(null);
   const isTimeBased = executionMode === 'load-profile' || executionMode === 'constant-arrival' || (isRunning && total === -1);
   const isArrivalRate = executionMode === 'constant-arrival';
 
@@ -62,8 +65,18 @@ export default function LiveProgressPanel({
   const thinkLabel = thinkTimeLabel(thinkTime);
   const executionModeMeta = getExecutionModeMeta(executionMode);
 
+  // When a run starts (and again when metrics appear), bring the Progress
+  // monitor into view — bar + metrics sit below the Run button on tall forms.
+  useLayoutEffect(() => {
+    if (!isRunning) return;
+    const el = sectionRef.current;
+    if (!el) return;
+    const metrics = el.querySelector<HTMLElement>('.live-metrics');
+    scrollRunnerMonitorIntoView(el, metrics ?? el, 'smooth');
+  }, [isRunning, summary]);
+
   return (
-    <div className="progress-section">
+    <div ref={sectionRef} className="progress-section" data-testid="har-live-progress">
       <div className="progress-header-row">
         <h3>Progress <span className="progress-mode-tag">
           {isArrivalRate && arrivalRate ? (

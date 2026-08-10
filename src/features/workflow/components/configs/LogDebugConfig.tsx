@@ -1,13 +1,13 @@
 import type { LogDebugNodeData, LogLevel } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import InsertVarField from '../expression/InsertVarField';
-import AvailableVariables from '../expression/AvailableVariables';
+import MessageTemplateEditor from '../expression/MessageTemplateEditor';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
-const LEVEL_OPTIONS: { value: LogLevel; label: string }[] = [
-  { value: 'info', label: 'Info' },
-  { value: 'warn', label: 'Warning' },
-  { value: 'error', label: 'Error' },
-  { value: 'debug', label: 'Debug' },
+const LEVEL_OPTIONS: { value: LogLevel; label: string; desc: string }[] = [
+  { value: 'info', label: 'Info', desc: 'General tracing during a run' },
+  { value: 'warn', label: 'Warning', desc: 'Highlight an unexpected but non-fatal condition' },
+  { value: 'error', label: 'Error', desc: 'Flag an important failure condition' },
+  { value: 'debug', label: 'Debug', desc: 'Verbose detail for development' },
 ];
 
 export default function LogDebugConfig({
@@ -21,58 +21,54 @@ export default function LogDebugConfig({
   onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
   variableHints?: WorkflowVariableHint[];
 }) {
+  const levelDesc = LEVEL_OPTIONS.find(o => o.value === data.logLevel)?.desc;
+
   return (
-    <div className="wf-config-body">
-      <div className="wf-config-field">
+    <div className="wf-config-body wf-logdebug-config" data-testid="logdebug-config">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ ...data, label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Log Level</label>
-        <select
+        <CustomSelect
           value={data.logLevel}
-          onChange={(e) => onChange({ ...data, logLevel: e.target.value as LogLevel })}
-        >
-          {LEVEL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={(v) => onChange({ ...data, logLevel: v as LogLevel })}
+          options={LEVEL_OPTIONS.map(o => ({ value: o.value, label: o.label, detail: o.desc }))}
+        />
+        <span className="wf-config-hint">{levelDesc}</span>
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row wf-config-field--row-top">
         <label>Message Template</label>
-        <InsertVarField
-          onRequestVariableInsert={onRequestVariableInsert}
-          onInsert={(snippet) => onChange({ ...data, message: data.message + snippet })}
-        >
-          <textarea
-            className="wf-config-textarea"
-            rows={4}
+        <div className="wf-config-row-stack" style={{ flex: 1, minWidth: 0 }}>
+          <MessageTemplateEditor
             value={data.message}
-            onChange={(e) => onChange({ ...data, message: e.target.value })}
-            placeholder="e.g. Status is {{status}}, user {{userId}} created"
+            onChange={(v) => onChange({ ...data, message: v })}
+            variableHints={variableHints}
+            onRequestVariableInsert={onRequestVariableInsert}
           />
-        </InsertVarField>
-        <span className="wf-config-hint">
-          Supports <code>{'{{variable}}'}</code> syntax. Variables are resolved at runtime.
-        </span>
+        </div>
       </div>
 
-      <div className="wf-config-field">
-        <label className="wf-config-checkbox-label">
-          <input
-            type="checkbox"
-            checked={data.snapshotVariables}
-            onChange={(e) => onChange({ ...data, snapshotVariables: e.target.checked })}
-          />
-          Snapshot all variables
-        </label>
-        <span className="wf-config-hint">
-          When enabled, captures a snapshot of all workflow variables at this point in execution.
-          Useful for debugging variable state between steps.
-        </span>
+      <div className="wf-config-field--row wf-config-field--row-top">
+        <label>Snapshot</label>
+        <div className="wf-config-row-stack">
+          <label className="wf-config-checkbox-label">
+            <input
+              type="checkbox"
+              checked={data.snapshotVariables}
+              onChange={(e) => onChange({ ...data, snapshotVariables: e.target.checked })}
+            />
+            Snapshot all variables
+          </label>
+          <span className="wf-config-hint-text--below">
+            When enabled, captures a snapshot of all workflow variables at this point in execution —
+            useful for debugging variable state between steps.
+          </span>
+        </div>
       </div>
-
-      <AvailableVariables hints={variableHints} />
 
       <div className="wf-config-section-info">
         <div className="wf-config-info-title">How it works</div>

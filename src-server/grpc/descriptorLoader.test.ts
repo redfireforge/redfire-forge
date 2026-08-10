@@ -281,7 +281,8 @@ message Shared { string id = 1; string extra = 2; }`;
     });
     await expect(loader.loadFromReflection({
       ...FIXTURE_REFLECT_REQUEST,
-      target: { address: 'localhost:50051', tlsMode: 'tls' },
+      // Use TLS fixture port — :50051 is coerced to plaintext by prepareGrpcTarget.
+      target: { address: 'localhost:50443', tlsMode: 'tls' },
     })).rejects.toMatchObject({
       code: 'unreachable',
       message: expect.stringMatching(/not trusted/i),

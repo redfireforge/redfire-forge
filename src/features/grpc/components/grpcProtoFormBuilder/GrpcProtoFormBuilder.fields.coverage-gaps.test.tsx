@@ -4,6 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { getCustomSelectValue, selectOption } from '../../../../test-utils/customSelectHelper';
 import { GrpcProtoFormBuilder } from '../GrpcProtoFormBuilder';
 import {
   ENUM_BOOL_SCHEMA,
@@ -79,7 +80,7 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
         onValidityChange={onValidityChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-proto-oneof-select-payload'), { target: { value: 'count' } });
+    selectOption(screen.getByTestId('grpc-proto-oneof-select-payload'), 'count');
     expect(onChange).toHaveBeenCalled();
     expect(onValidityChange).toHaveBeenCalledWith(true);
   });
@@ -94,8 +95,8 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
         onValidityChange={onValidityChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-enabled'), { target: { value: 'true' } });
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-status'), { target: { value: '1' } });
+    selectOption(screen.getByTestId('grpc-proto-field-input-enabled'), 'true');
+    selectOption(screen.getByTestId('grpc-proto-field-input-status'), 'OK');
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-size'), { target: { value: 'not-a-number' } });
     expect(onValidityChange).toHaveBeenCalledWith(false);
   });
@@ -157,7 +158,7 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
       />,
     );
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: 'not-a-number' } });
-    fireEvent.change(screen.getByTestId('grpc-proto-oneof-select-payload'), { target: { value: 'text' } });
+    selectOption(screen.getByTestId('grpc-proto-oneof-select-payload'), 'text');
     expect(onValidityChange).toHaveBeenCalledWith(true);
   });
 
@@ -228,11 +229,11 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
         onChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-statuses-0'), { target: { value: '1' } });
+    selectOption(screen.getByTestId('grpc-proto-field-input-statuses-0'), 'OK');
     expect(onChange).toHaveBeenCalledWith({ statuses: [1] });
   });
 
-  it('flags non-finite numeric values when draft is cleared', () => {
+  it('normalizes non-finite numeric seed values to a valid draft', () => {
     const onValidityChange = vi.fn();
     render(
       <GrpcProtoFormBuilder
@@ -245,7 +246,7 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
         onValidityChange={onValidityChange}
       />,
     );
-    expect(onValidityChange).toHaveBeenCalledWith(false);
+    expect(onValidityChange).toHaveBeenCalledWith(true);
   });
 
   it('reports repeated scalar item validation errors', () => {
@@ -352,7 +353,7 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
         onChange={vi.fn()}
       />,
     );
-    expect((screen.getByTestId('grpc-proto-field-input-status') as HTMLSelectElement).value).toBe('0');
+    expect(getCustomSelectValue(screen.getByTestId('grpc-proto-field-input-status'))).toBe('UNKNOWN');
   });
 
   it('renders nested message fields with JSON editors', () => {
@@ -383,7 +384,7 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
         onChange={vi.fn()}
       />,
     );
-    expect((screen.getByTestId('grpc-proto-field-input-enabled') as HTMLSelectElement).value).toBe('false');
+    expect(getCustomSelectValue(screen.getByTestId('grpc-proto-field-input-enabled'))).toBe('false');
   });
 
   it('drops repeated row errors when removing the invalid row itself', () => {
@@ -475,7 +476,7 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
     );
 
     expect(screen.getByTestId('grpc-proto-any-hint')).toBeTruthy();
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-flag'), { target: { value: 'true' } });
+    selectOption(screen.getByTestId('grpc-proto-field-input-flag'), 'true');
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-label'), { target: { value: 'renamed' } });
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: '9' } });
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-bigId'), { target: { value: 'not-a-number' } });

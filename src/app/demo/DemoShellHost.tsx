@@ -8,11 +8,14 @@ import { useDemoHub } from '@redfireforge/demo-hub/useDemoHub';
 import DemoHub from '@redfireforge/demo-hub/DemoHub';
 import { LessonNotesProvider } from '@redfireforge/demo-hub/LessonNotesContext';
 import LessonNotesPanel from '@redfireforge/demo-hub/LessonNotesPanel';
+import { clearDemoBootFreeze, revealDemoBootSurface } from '@redfireforge/demo-hub/demoBootFreeze';
 import { useDemoShortcuts } from '../hooks/useDemoShortcuts';
 import { useDemoSidebarBridge } from '../hooks/useDemoSidebarBridge';
 import { useDemoGlobalAuthBridge } from '../hooks/useDemoGlobalAuthBridge';
 import { useDemoWorkspaceDefaultsBridge } from '../hooks/useDemoWorkspaceDefaultsBridge';
 import { useDemoAppEnvironmentCleanupBridge } from '../hooks/useDemoAppEnvironmentCleanupBridge';
+import { useDemoSettingsEnvBridge } from '../hooks/useDemoSettingsEnvBridge';
+import { useDemoSettingsSvcBridge } from '../hooks/useDemoSettingsSvcBridge';
 import AppLiveDemoOverlay from '../components/AppLiveDemoOverlay';
 import '../../styles/demo-player.css';
 import '../../styles/demo-hub.css';
@@ -60,17 +63,31 @@ export function DemoShellHost({
     setSelectedEnvId,
     setSelectedSvcId,
   });
+  useDemoSettingsEnvBridge({ setEnvironments });
+  useDemoSettingsSvcBridge({ setMicroservices });
 
   syncDemoHubRuntimeRef(demoHub as DemoHubApi);
 
   useEffect(() => () => resetDemoHubRuntimeRef(), []);
 
+  // Sync the boot veil / body attr with bootstrapping state.
+  // On teardown, fade the veil out via revealDemoBootSurface — a hard
+  // clearDemoBootFreeze here would skip the CSS transition and cause a
+  // jarring pop instead of the intended soft reveal into step 1.
   useLayoutEffect(() => {
-    if (activeTab !== 'demo-hub') {
-      setMountEl(null);
-      return;
+    if (demoHub.isDemoBootstrapping) {
+      document.body.setAttribute('data-demo-bootstrapping', '1');
+    } else {
+      revealDemoBootSurface();
     }
+  }, [demoHub.isDemoBootstrapping]);
 
+  useEffect(() => () => {
+    document.body.removeAttribute('data-demo-bootstrapping');
+    clearDemoBootFreeze();
+  }, []);
+
+  useLayoutEffect(() => {
     let cancelled = false;
     let attempts = 0;
 
@@ -82,7 +99,6 @@ export function DemoShellHost({
         return;
       }
       attempts += 1;
-      // Lazy DemoShellHost can mount before the tab pane commits — retry briefly.
       if (attempts < 24) {
         requestAnimationFrame(tryResolveMount);
       }
@@ -92,9 +108,13 @@ export function DemoShellHost({
     return () => { cancelled = true; };
   }, [activeTab]);
 
-  // Live demos render in the active lesson tab — an empty Learning Hub pane is just blue.
+  // Live demos render on the lesson tab — never park on empty Demo Hub.
+  // Previously we skipped this while bootstrapping; that left a blank Demo Hub
+  // body (Concept unmounted, placeholder hidden) for the whole Preparing phase
+  // whenever the Start-click tab switch lagged.
   useEffect(() => {
     if (demoHub.state.view !== 'live' || activeTab !== 'demo-hub') return;
+    if (demoHub.suppressLiveTabExitRef?.current) return;
     const target = demoHub.state.selectedLesson?.initialTab;
     if (target && target !== 'demo-hub') {
       navigateToTab(target);
@@ -102,6 +122,7 @@ export function DemoShellHost({
   }, [
     demoHub.state.view,
     demoHub.state.selectedLesson,
+    demoHub.suppressLiveTabExitRef,
     activeTab,
     navigateToTab,
   ]);

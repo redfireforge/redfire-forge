@@ -7,41 +7,90 @@
   right: 0;
   bottom: 0;
   z-index: 10080;
-  align-items: stretch;
-  justify-content: stretch;
-  background: var(--bg);
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
   box-shadow: inset 1px 0 0 var(--border);
 }
 
 /* Keep full-panel geometry even if modal class includes expand variants */
 .shared-ds-overlay.modal-overlay.modal-expanded,
 .shared-ds-overlay.modal-overlay.modal-fullscreen {
-  align-items: stretch;
-  justify-content: stretch;
-  background: var(--bg);
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
 }
 
 .shared-ds-modal {
   padding: 0;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 100%;
-  height: 100%;
-  max-height: 100%;
+  width: min(1760px, 96vw);
+  max-width: none;
+  height: min(94vh, 1100px);
+  max-height: none;
+  min-width: 980px;
+  min-height: 560px;
   overflow: hidden;
-  border-radius: 0;
-  border: none;
-  box-shadow: none;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, white 22%, var(--border));
+  box-shadow:
+    0 16px 46px rgba(0, 0, 0, 0.42),
+    0 2px 10px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+  position: relative;
 }
 
-/* Hide expand and resize — this is a full-panel modal */
+/* Hide expand button; keep native close hidden and use footer controls */
 .shared-ds-modal .modal-expand-btn,
 .shared-ds-modal .ram-modal-close {
   display: none;
 }
 .shared-ds-modal .modal-header {
-  cursor: default;
+  cursor: move;
+}
+
+/* Subtle white edge accents on all four sides */
+.shared-ds-modal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, white 18%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.shared-ds-modal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    linear-gradient(to right, color-mix(in srgb, white 26%, transparent), color-mix(in srgb, white 26%, transparent)) left top / 1px 100% no-repeat,
+    linear-gradient(to right, color-mix(in srgb, white 26%, transparent), color-mix(in srgb, white 26%, transparent)) right top / 1px 100% no-repeat,
+    linear-gradient(to bottom, color-mix(in srgb, white 26%, transparent), color-mix(in srgb, white 26%, transparent)) left top / 100% 1px no-repeat,
+    linear-gradient(to bottom, color-mix(in srgb, white 26%, transparent), color-mix(in srgb, white 26%, transparent)) left bottom / 100% 1px no-repeat;
+}
+
+.shared-ds-modal .modal-header,
+.shared-ds-modal .shared-ds-body-wrapper,
+.shared-ds-modal .shared-ds-footer {
+  position: relative;
+  z-index: 2;
+}
+
+/* Match right-edge and bottom-edge handles with subtle white hint */
+.shared-ds-modal .modal-resize-edge-right,
+.shared-ds-modal .modal-resize-edge-bottom {
+  background: color-mix(in srgb, white 10%, transparent);
+}
+
+.shared-ds-modal .modal-resize-edge-right:hover,
+.shared-ds-modal .modal-resize-edge-bottom:hover {
+  background: color-mix(in srgb, white 22%, transparent);
 }
 
 .shared-ds-header {
@@ -297,14 +346,26 @@
   border-bottom: 1px solid var(--border);
 }
 
-.shared-ds-fetch-curl-badge {
-  font-size: 11px;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 7px;
+.shared-ds-curl-view {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
   background: var(--bg);
-  margin-left: auto;
+}
+
+.shared-ds-curl-view-pre {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font-mono, 'Monaco', 'Menlo', monospace);
+  line-height: 1.45;
 }
 
 .shared-ds-fetch-url-bar {
@@ -472,12 +533,11 @@
 .shared-ds-fetch-method {
   width: 100px;
   min-width: 100px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg);
-  color: var(--text);
+}
+.shared-ds-fetch-method .cs-trigger {
   padding: 7px 8px;
   font-size: 12px;
+  border-radius: var(--radius-sm, 4px);
 }
 
 .shared-ds-fetch-url {
@@ -492,31 +552,83 @@
 }
 
 .shared-ds-fetch-auth-type {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg);
-  color: var(--text);
-  padding: 7px 8px;
-  font-size: 12px;
-  width: 260px;
+  width: 100%;
   max-width: 100%;
+}
+.shared-ds-fetch-auth-type .cs-trigger {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.shared-ds-fetch-auth-type .cs-trigger:hover {
+  border-color: var(--primary);
 }
 
 .shared-ds-fetch-auth-fields {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.shared-ds-fetch-auth-row {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  max-height: 74px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.shared-ds-fetch-auth-row:last-child {
+  border-bottom: none;
+}
+.shared-ds-fetch-auth-label {
+  flex: 0 0 120px;
+  padding: 0 14px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border);
+}
+.shared-ds-fetch-auth-ctrl {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px 10px;
+  min-width: 0;
+  background: var(--surface);
+}
+.shared-ds-fetch-auth-row:focus-within .shared-ds-fetch-auth-ctrl {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
 
 .shared-ds-fetch-auth-input {
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: 5px;
   background: var(--bg);
   color: var(--text);
-  padding: 6px 8px;
-  font-size: 12px;
-  min-width: 200px;
-  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  min-width: 0;
+}
+.shared-ds-fetch-auth-input:hover {
+  border-color: var(--primary);
+}
+.shared-ds-fetch-auth-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-style: italic;
 }
 
 .shared-ds-fetch-header-row {
@@ -790,6 +902,13 @@
 .shared-ds-editor-content {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+/* Let CustomSelect menus (column type, distribution, validate mode) escape the
+   scroll clip while open — mirrors the .data-source-scroll:has(.cs-menu) rule. */
+.shared-ds-editor-content:has(.cs-menu) {
+  overflow: visible;
 }
 
 .shared-ds-editor-placeholder {
@@ -871,6 +990,13 @@
   flex-wrap: wrap;
   gap: 6px;
   padding: 0 18px 10px 32px;
+}
+
+.shared-ds-used-by-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.75;
+  font-style: italic;
 }
 
 .shared-ds-used-by-ref {
@@ -1302,4 +1428,27 @@
 
 .shared-ds-save-confirm-change-more .shared-ds-save-confirm-change-icon {
   visibility: hidden;
+}
+
+/* ─── Auth dropdown overflow fix ─── */
+.shared-ds-modal:has(.shared-ds-fetch-auth-type .cs-menu) {
+  overflow: visible !important;
+}
+.shared-ds-body:has(.shared-ds-fetch-auth-type .cs-menu) {
+  overflow: visible !important;
+}
+.shared-ds-body-wrapper:has(.shared-ds-fetch-auth-type .cs-menu) {
+  overflow: visible !important;
+}
+.shared-ds-editor-panel:has(.shared-ds-fetch-auth-type .cs-menu) {
+  overflow: visible;
+}
+.shared-ds-fetch-panel:has(.shared-ds-fetch-auth-type .cs-menu) {
+  overflow: visible;
+}
+.builder-tab-content.shared-ds-tab-content:has(.shared-ds-fetch-auth-type .cs-menu) {
+  overflow: visible;
+}
+.shared-ds-auth-tab:has(.shared-ds-fetch-auth-type .cs-menu) {
+  overflow: visible;
 }

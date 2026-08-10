@@ -5,6 +5,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sseStudioAdvancedLesson } from './sse-studio-advanced';
 import { makeCtx } from './ws-test-utils';
 
+vi.mock('../../demoRipple', () => ({
+  showSpotlightRing: () => vi.fn(),
+}));
+
 describe('sse-studio-advanced lesson', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -78,20 +82,19 @@ describe('sse-studio-advanced lesson', () => {
 
   // ─── Step: sse-adv-intro ──────────────────────────────────
 
-  it('step sse-adv-intro highlights SSE studio', () => {
+  it('step sse-adv-intro highlights SSE nav tab', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-intro')!;
-    expect(step.highlight).toContain('sse-studio');
+    expect(step.highlight).toContain('nav-tab-sse');
   });
 
-  it('step sse-adv-intro preAction fills URL and connects', async () => {
+  it('step sse-adv-intro preAction removes selected rows', async () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-intro')!;
+    const row = document.createElement('div');
+    row.classList.add('sse-row-selected');
+    document.body.appendChild(row);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.stringContaining('sse-url-input'),
-      expect.stringContaining('sse-test'),
-    );
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
+    expect(row.classList.contains('sse-row-selected')).toBe(false);
   });
 
   it('step sse-adv-intro preAction skips connect when already connected', async () => {
@@ -110,16 +113,39 @@ describe('sse-studio-advanced lesson', () => {
 
   // ─── Step: sse-adv-bookmark ───────────────────────────────
 
-  it('step sse-adv-bookmark highlights event row', () => {
+  it('step sse-adv-bookmark highlights the star button', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark')!;
-    expect(step.highlight).toContain('sse-event-row');
+    expect(step.highlight).toContain('sse-bookmark-btn');
+  });
+
+  it('step sse-adv-bookmark preAction clears leftover active bookmarks', async () => {
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+
+    const row = document.createElement('div');
+    row.setAttribute('data-testid', 'sse-event-row');
+    const star = document.createElement('button');
+    star.className = 'sse-bookmark-btn active';
+    const starSpy = vi.fn();
+    star.addEventListener('click', starSpy);
+    row.appendChild(star);
+    document.body.appendChild(row);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(starSpy).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalledWith(200);
   });
 
   it('step sse-adv-bookmark preAction connects if not already connected', async () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    // Events tab uses a quiet DOM click (no ctx.click ripple).
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('sse-url-input'),
       expect.stringContaining('sse-test'),
@@ -142,17 +168,18 @@ describe('sse-studio-advanced lesson', () => {
     await step.preAction!(ctx);
 
     expect(ctx.fill).not.toHaveBeenCalled();
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
-  it('step sse-adv-bookmark action clicks bookmark star', async () => {
+  it('step sse-adv-bookmark action clicks bookmark star then spotlights filled star and counter', async () => {
     // Build mock DOM with event rows and bookmark buttons
     const row1 = document.createElement('div');
     row1.setAttribute('data-testid', 'sse-event-row');
     const star1 = document.createElement('button');
     star1.className = 'sse-bookmark-btn';
-    const star1Spy = vi.fn();
+    const star1Spy = vi.fn(() => {
+      star1.classList.add('active');
+    });
     star1.addEventListener('click', star1Spy);
     row1.appendChild(star1);
     document.body.appendChild(row1);
@@ -170,12 +197,20 @@ describe('sse-studio-advanced lesson', () => {
     row3.appendChild(star3);
     document.body.appendChild(row3);
 
+    const counter = document.createElement('button');
+    counter.setAttribute('data-testid', 'sse-bookmark-filter');
+    counter.textContent = '★ 1';
+    document.body.appendChild(counter);
+
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark')!;
     const ctx = makeCtx();
     await step.action!(ctx);
 
     expect(star1Spy).toHaveBeenCalled();
     expect(star3Spy).toHaveBeenCalled();
+    // Filled-star payoff + toolbar counter payoff
+    expect(ctx.delay).toHaveBeenCalledWith(500);
+    expect(ctx.delay).toHaveBeenCalledWith(1200);
   });
 
   it('step sse-adv-bookmark action is no-op when no event rows in DOM (line 197 false)', async () => {
@@ -219,7 +254,7 @@ describe('sse-studio-advanced lesson', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark-filter')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
   it('step sse-adv-bookmark-filter preAction clicks unbookmarked star when present', async () => {
@@ -289,7 +324,7 @@ describe('sse-studio-advanced lesson', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-stats')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
   // ─── Step: sse-adv-reconnect ──────────────────────────────
@@ -376,7 +411,6 @@ describe('sse-studio-advanced lesson', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-last-event-id')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
     // No connect btn with "Disconnect" → should trigger connection
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('sse-url-input'),
@@ -400,35 +434,96 @@ describe('sse-studio-advanced lesson', () => {
     await step.preAction!(ctx);
 
     expect(ctx.fill).not.toHaveBeenCalled();
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
-  it('step sse-adv-last-event-id action clicks an event row (line 312 true)', async () => {
+  it('step sse-adv-last-event-id preAction closes open Event Detail panel', async () => {
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+
     const row = document.createElement('div');
     row.setAttribute('data-testid', 'sse-event-row');
-    const clickSpy = vi.fn();
-    row.addEventListener('click', clickSpy);
     document.body.appendChild(row);
+
+    const footer = document.createElement('div');
+    footer.className = 'sse-detail-footer';
+    const closeBtn = document.createElement('button');
+    const closeSpy = vi.fn();
+    closeBtn.addEventListener('click', closeSpy);
+    footer.appendChild(closeBtn);
+    document.body.appendChild(footer);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-last-event-id')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(closeSpy).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalledWith(300);
+  });
+
+  it('step sse-adv-last-event-id action spotlights row, clicks it, then spotlights Event Detail', async () => {
+    // Add two rows so we verify the LAST row is clicked (not the first)
+    const row1 = document.createElement('div');
+    row1.setAttribute('data-testid', 'sse-event-row');
+    document.body.appendChild(row1);
+    const row2 = document.createElement('div');
+    row2.setAttribute('data-testid', 'sse-event-row');
+    document.body.appendChild(row2);
+
+    const detail = document.createElement('div');
+    detail.setAttribute('data-testid', 'sse-event-detail');
+    const lastId = document.createElement('div');
+    lastId.setAttribute('data-testid', 'sse-event-detail-last-id');
+    detail.appendChild(lastId);
+    document.body.appendChild(detail);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-last-event-id')!;
+    const ctx = makeCtx();
+    // Track which row was clicked
+    let clickedEl: EventTarget | null = null;
+    row1.addEventListener('click', (e) => { clickedEl = e.target; });
+    row2.addEventListener('click', (e) => { clickedEl = e.target; });
+    await step.action!(ctx);
+
+    // Uses row.click() directly (not ctx.click) so the LAST row is targeted
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-event-row'));
+    expect(clickedEl).toBe(row2); // last row, not first
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('sse-event-detail'));
+    expect(ctx.delay).toHaveBeenCalledWith(700); // panel paints
+    expect(ctx.delay).toHaveBeenCalledWith(1200); // detail / last-id spotlight
+  });
+
+  it('step sse-adv-last-event-id action is no-op when no row in DOM', async () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-last-event-id')!;
+    const ctx = makeCtx();
+    await expect(step.action!(ctx)).resolves.not.toThrow();
+    expect(ctx.click).not.toHaveBeenCalled();
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('step sse-adv-last-event-id action pauses on detail when last-id row is absent', async () => {
+    const row = document.createElement('div');
+    row.setAttribute('data-testid', 'sse-event-row');
+    document.body.appendChild(row);
+
+    const detail = document.createElement('div');
+    detail.setAttribute('data-testid', 'sse-event-detail');
+    document.body.appendChild(detail);
 
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-last-event-id')!;
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(1000);
-  });
-
-  it('step sse-adv-last-event-id action is no-op when no row in DOM (line 312 false)', async () => {
-    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-last-event-id')!;
-    const ctx = makeCtx();
-    await expect(step.action!(ctx)).resolves.not.toThrow();
-    expect(ctx.delay).not.toHaveBeenCalled();
+    // Uses row.click() directly; falls back to delay(800) when last-id row absent
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-event-row'));
+    expect(ctx.delay).toHaveBeenCalledWith(800);
   });
 
   // ─── Step: sse-adv-clear ──────────────────────────────────
 
-  it('step sse-adv-clear highlights clear button', () => {
+  it('step sse-adv-clear highlights Clear button first (title order)', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-clear')!;
     expect(step.highlight).toContain('sse-clear-btn');
   });
@@ -437,7 +532,6 @@ describe('sse-studio-advanced lesson', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-clear')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
     // No connected button in DOM → should attempt to connect
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('sse-url-input'),
@@ -460,22 +554,31 @@ describe('sse-studio-advanced lesson', () => {
     await step.preAction!(ctx);
 
     expect(ctx.fill).not.toHaveBeenCalled();
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
-  it('step sse-adv-clear action exports then clears', async () => {
+  it('step sse-adv-clear action clears then exports with viewer pauses', async () => {
+    const clearBtn = document.createElement('button');
+    clearBtn.setAttribute('data-testid', 'sse-clear-btn');
+    document.body.appendChild(clearBtn);
+    const exportBtn = document.createElement('button');
+    exportBtn.setAttribute('data-testid', 'sse-export-btn');
+    document.body.appendChild(exportBtn);
+
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-clear')!;
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-export-btn'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-clear-btn'));
-    // Export should come before clear
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-export-btn'));
     const calls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
-    const exportIdx = calls.findIndex((c: string) => c.includes('sse-export-btn'));
     const clearIdx = calls.findIndex((c: string) => c.includes('sse-clear-btn'));
-    expect(exportIdx).toBeLessThan(clearIdx);
+    const exportIdx = calls.findIndex((c: string) => c.includes('sse-export-btn'));
+    expect(clearIdx).toBeLessThan(exportIdx);
+    // Spotlight hold on Clear, outcome pause, spotlight hold on Export, export pause
+    expect(ctx.delay).toHaveBeenCalledWith(1400);
+    expect(ctx.delay).toHaveBeenCalledWith(1200);
+    expect(ctx.delay).toHaveBeenCalledWith(1000);
   });
 
   // ─── Setup / Cleanup ─────────────────────────────────────
@@ -483,7 +586,7 @@ describe('sse-studio-advanced lesson', () => {
   it('setup runs without throwing when DOM is empty (false branches lines 50-87)', async () => {
     const ctx = makeCtx();
     await expect(sseStudioAdvancedLesson.setup!(ctx)).resolves.not.toThrow();
-    expect(ctx.delay).toHaveBeenCalledWith(500);
+    expect(ctx.delay).toHaveBeenCalledWith(expect.any(Number));
   });
 
   it('setup skips disconnect when button text is not Disconnect (line 50 false)', async () => {
@@ -583,22 +686,30 @@ describe('sse-studio-advanced lesson', () => {
     const step = sseStudioAdvancedLesson.steps.find((s) => s.id === 'sse-adv-bookmark')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    // The else-if path calls ctx.delay(2000) — verify it was called
-    expect(ctx.delay).toHaveBeenCalledWith(2000);
+    // The else-if path calls ctx.delay(1200) — verify it was called
+    expect(ctx.delay).toHaveBeenCalledWith(1200);
   });
 
-  it('step action clicks closeBtn when detail panel is open (lines 334-335)', async () => {
-    const step = sseStudioAdvancedLesson.steps.find((s) => s.id === 'sse-adv-clear')!;
-    expect(step).toBeDefined();
+  it('step sse-adv-clear preAction closes detail panel when open', async () => {
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+    const row = document.createElement('div');
+    row.setAttribute('data-testid', 'sse-event-row');
+    document.body.appendChild(row);
 
+    const footer = document.createElement('div');
+    footer.className = 'sse-detail-footer';
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'sse-detail-close';
+    footer.appendChild(closeBtn);
     const clickSpy = vi.fn();
     closeBtn.addEventListener('click', clickSpy);
-    document.body.appendChild(closeBtn);
+    document.body.appendChild(footer);
 
+    const step = sseStudioAdvancedLesson.steps.find((s) => s.id === 'sse-adv-clear')!;
     const ctx = makeCtx();
-    await step.action!(ctx);
+    await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
   });
 

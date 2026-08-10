@@ -1,7 +1,12 @@
 /** @vitest-environment jsdom */
 import '@testing-library/jest-dom';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  selectOptionByIndex,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+} from '../../../../test-utils/customSelectHelper';
 import VersionDiffSelectors from './VersionDiffSelectors';
 
 afterEach(() => cleanup());
@@ -13,7 +18,7 @@ const OPTIONS = [
 
 describe('VersionDiffSelectors', () => {
   it('renders left and right selectors with options', () => {
-    render(
+    const { container } = render(
       <VersionDiffSelectors
         compareLeft={null}
         setCompareLeft={vi.fn()}
@@ -24,14 +29,15 @@ describe('VersionDiffSelectors', () => {
     );
     expect(screen.getByText('Left')).toBeInTheDocument();
     expect(screen.getByText('Right')).toBeInTheDocument();
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
-    expect(screen.getAllByRole('option', { name: 'Version 1' })).toHaveLength(2);
+    expect(container.querySelectorAll('.cs-wrapper')).toHaveLength(2);
+    expect(getCustomSelectOptionLabels(container, 0)).toEqual(['Select...', 'Version 1', 'Version 2']);
+    expect(getCustomSelectOptionLabels(container, 1)).toEqual(['Select...', 'Version 1', 'Version 2']);
   });
 
   it('calls setters when selections change', () => {
     const setCompareLeft = vi.fn();
     const setCompareRight = vi.fn();
-    render(
+    const { container } = render(
       <VersionDiffSelectors
         compareLeft="v1"
         setCompareLeft={setCompareLeft}
@@ -40,15 +46,14 @@ describe('VersionDiffSelectors', () => {
         options={OPTIONS}
       />,
     );
-    const [left, right] = screen.getAllByRole('combobox');
-    fireEvent.change(left, { target: { value: 'v2' } });
-    fireEvent.change(right, { target: { value: 'v1' } });
+    selectOptionByIndex(container, 0, 'Version 2');
+    selectOptionByIndex(container, 1, 'Version 1');
     expect(setCompareLeft).toHaveBeenCalledWith('v2');
     expect(setCompareRight).toHaveBeenCalledWith('v1');
   });
 
   it('uses empty string when compare values are null', () => {
-    render(
+    const { container } = render(
       <VersionDiffSelectors
         compareLeft={null}
         setCompareLeft={vi.fn()}
@@ -57,8 +62,7 @@ describe('VersionDiffSelectors', () => {
         options={OPTIONS}
       />,
     );
-    const [left, right] = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    expect(left.value).toBe('');
-    expect(right.value).toBe('');
+    expect(getCustomSelectValue(container, 0)).toBe('Select...');
+    expect(getCustomSelectValue(container, 1)).toBe('Select...');
   });
 });

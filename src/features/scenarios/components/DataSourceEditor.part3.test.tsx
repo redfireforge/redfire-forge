@@ -4,6 +4,7 @@
 import { useState, type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import DataSourceEditor from './DataSourceEditor';
 import {
   makeScenario,
@@ -208,6 +209,8 @@ describe('DataSourceEditor', () => {
     useDataSourceTagsHarness.mismatchTagCounts = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+    // jsdom doesn't implement scrollIntoView; silence it globally for this suite
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
 
   describe('toolbar and grid interactions', () => {
@@ -307,7 +310,7 @@ describe('DataSourceEditor', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
       const handles = document.querySelectorAll('.data-source-col-resize');
       const addListener = vi.spyOn(document, 'addEventListener');
-      fireEvent.mouseDown(handles[1]);
+      fireEvent.mouseDown(handles[0]);
       expect(addListener).toHaveBeenCalledWith('mousemove', expect.any(Function));
       fireEvent.mouseUp(document);
       addListener.mockRestore();
@@ -422,8 +425,8 @@ describe('DataSourceEditor', () => {
       const rows = document.querySelectorAll('.data-source-row');
       fireEvent.click(rows[0]);
       fireEvent.click(rows[1]);
-      const bulkAdd = document.querySelectorAll('select.data-source-tag-select')[0] as HTMLSelectElement;
-      fireEvent.change(bulkAdd, { target: { value: 'smoke' } });
+      const bulkAdd = document.querySelectorAll('.data-source-tag-select')[0]!;
+      selectOption(bulkAdd, 'smoke');
       expect(onChange).toHaveBeenCalled();
     });
 
@@ -435,9 +438,9 @@ describe('DataSourceEditor', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: ds })} onDraftChange={onChange} />);
       const rows = document.querySelectorAll('.data-source-row');
       fireEvent.click(rows[0]);
-      const selects = document.querySelectorAll('select.data-source-tag-select');
-      expect(selects.length).toBeGreaterThanOrEqual(2);
-      fireEvent.change(selects[1], { target: { value: 'a' } });
+      const tagSelects = document.querySelectorAll('.data-source-tag-select');
+      expect(tagSelects.length).toBeGreaterThanOrEqual(2);
+      selectOption(tagSelects[1]!, 'a');
       expect(onChange).toHaveBeenCalled();
     });
   });
@@ -617,7 +620,7 @@ describe('DataSourceEditor', () => {
 
     it('closes populate modal via onCancel', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       fireEvent.click(screen.getByText('Close Populate'));
       expect(screen.queryByText('Mock Append')).toBeNull();
     });

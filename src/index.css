@@ -40,6 +40,32 @@
   --cat-integration: #32d0a5;
   --cat-integration-bg: rgba(50, 208, 165, 0.10);
   --cat-integration-badge: rgba(50, 208, 165, 0.18);
+
+  /* Protocol-specific accent colors (workflow canvas nodes)
+     Soft, cohesive cool tones — no red/pink to avoid test-state confusion */
+  --proto-http: #10b981;
+  --proto-http-bg: rgba(16, 185, 129, 0.08);
+  --proto-http-badge: rgba(16, 185, 129, 0.18);
+  --proto-kafka: #b5944f;
+  --proto-kafka-bg: rgba(181, 148, 79, 0.07);
+  --proto-kafka-badge: rgba(181, 148, 79, 0.16);
+  --proto-ws: #8a82bf;
+  --proto-ws-bg: rgba(138, 130, 191, 0.07);
+  --proto-ws-badge: rgba(138, 130, 191, 0.16);
+  --proto-gql: #4da8b5;
+  --proto-gql-bg: rgba(77, 168, 181, 0.07);
+  --proto-gql-badge: rgba(77, 168, 181, 0.16);
+  --proto-grpc: #5f8fb5;
+  --proto-grpc-bg: rgba(95, 143, 181, 0.07);
+  --proto-grpc-badge: rgba(95, 143, 181, 0.16);
+
+  /* Category accent colors (palette rail) */
+  --cat-triggers: #22c55e;
+  --cat-actions: #38bdf8;
+  --cat-logic: #f59e0b;
+  --cat-data: #a78bfa;
+  --cat-flow: #f472b6;
+
   --shadow-subtle: rgba(255, 255, 255, 0.05);
   --shadow-soft: rgba(255, 255, 255, 0.08);
   --confirm-bg: #1e293b;
@@ -97,6 +123,31 @@
   --cat-integration: #0d9668;
   --cat-integration-bg: rgba(50, 208, 165, 0.08);
   --cat-integration-badge: rgba(50, 208, 165, 0.15);
+
+  /* Protocol-specific accent colors (light mode) */
+  --proto-http: #059669;
+  --proto-http-bg: rgba(16, 185, 129, 0.06);
+  --proto-http-badge: rgba(16, 185, 129, 0.15);
+  --proto-kafka: #8c7340;
+  --proto-kafka-bg: rgba(140, 115, 64, 0.06);
+  --proto-kafka-badge: rgba(140, 115, 64, 0.14);
+  --proto-ws: #6b63a0;
+  --proto-ws-bg: rgba(107, 99, 160, 0.06);
+  --proto-ws-badge: rgba(107, 99, 160, 0.14);
+  --proto-gql: #3a8a96;
+  --proto-gql-bg: rgba(58, 138, 150, 0.06);
+  --proto-gql-badge: rgba(58, 138, 150, 0.14);
+  --proto-grpc: #4a7396;
+  --proto-grpc-bg: rgba(74, 115, 150, 0.06);
+  --proto-grpc-badge: rgba(74, 115, 150, 0.14);
+
+  /* Category accent colors (palette rail) — light mode */
+  --cat-triggers: #16a34a;
+  --cat-actions: #0284c7;
+  --cat-logic: #d97706;
+  --cat-data: #7c3aed;
+  --cat-flow: #db2777;
+
   --shadow-subtle: rgba(0, 0, 0, 0.06);
   --shadow-soft: rgba(0, 0, 0, 0.10);
   --confirm-bg: #ffffff;

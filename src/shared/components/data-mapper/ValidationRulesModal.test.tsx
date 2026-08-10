@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import { createRef, type RefObject } from 'react';
 import ValidationRulesModal from './ValidationRulesModal';
 let mockEditorInstance: Record<string, unknown>;
@@ -195,11 +196,9 @@ describe('ValidationRulesModal', () => {
   it('renders mode selector with all three options', () => {
     render(<ValidationRulesModal {...baseProps} />);
 
-    const select = screen.getByTitle('Display mode (saved as default)');
-    expect(select).toBeInTheDocument();
-
-    const options = select.querySelectorAll('option');
-    expect(options).toHaveLength(3);
+    const wrapper = screen.getByLabelText('Modal display mode').closest('.cs-wrapper')!;
+    expect(wrapper).toBeInTheDocument();
+    expect(getCustomSelectOptionLabels(wrapper)).toHaveLength(3);
   });
 
   it('renders the footer with syntax hints', () => {
@@ -279,9 +278,7 @@ describe('ValidationRulesModal', () => {
   it('changes mode via select dropdown to floating', () => {
     render(<ValidationRulesModal {...baseProps} />);
 
-    const select = screen.getByTitle('Display mode (saved as default)') as HTMLSelectElement;
-
-    fireEvent.change(select, { target: { value: 'floating' } });
+    selectOption(screen.getByLabelText('Modal display mode').closest('.cs-wrapper')!, 'Floating');
     expect(localStorage.getItem('vr-modal-default-mode')).toBe('floating');
   });
 
@@ -669,17 +666,17 @@ describe('ValidationRulesModal', () => {
   it('cycles docked → floating → maximized → docked and persists mode', () => {
     render(<ValidationRulesModal {...baseProps} />);
 
-    const modeSelect = () => screen.getByLabelText('Modal display mode') as HTMLSelectElement;
+    const modeSelect = () => screen.getByLabelText('Modal display mode').closest('.cs-wrapper')!;
 
-    fireEvent.change(modeSelect(), { target: { value: 'floating' } });
+    selectOption(modeSelect(), 'Floating');
     expect(document.body.querySelector('.vr-modal-panel--floating')).toBeTruthy();
     expect(localStorage.getItem('vr-modal-default-mode')).toBe('floating');
 
-    fireEvent.change(modeSelect(), { target: { value: 'maximized' } });
+    selectOption(modeSelect(), 'Full Screen');
     expect(document.body.querySelector('.vr-modal-panel--maximized')).toBeTruthy();
     expect(localStorage.getItem('vr-modal-default-mode')).toBe('maximized');
 
-    fireEvent.change(modeSelect(), { target: { value: 'docked' } });
+    selectOption(modeSelect(), 'Bottom');
     expect(document.body.querySelector('.vr-modal-panel--docked')).toBeTruthy();
     expect(localStorage.getItem('vr-modal-default-mode')).toBe('docked');
   });

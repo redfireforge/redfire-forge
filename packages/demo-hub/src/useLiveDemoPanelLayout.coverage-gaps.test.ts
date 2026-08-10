@@ -10,6 +10,7 @@ import {
   DEMO_LIVE_PANEL_MIN_WIDTH,
   DEMO_LIVE_PANEL_MIN_HEIGHT,
 } from './useLiveDemoPanelLayout';
+import { DEMO_PANEL_CLEAR_TARGET_EVENT } from './demoSpotlightUtils';
 
 describe('useLiveDemoPanelLayout — coverage gaps', () => {
   beforeEach(() => {
@@ -279,5 +280,56 @@ describe('useLiveDemoPanelLayout — coverage gaps', () => {
 
     expect(result.current.panelStyle).toMatchObject(before);
     expect(setItemSpy).not.toHaveBeenCalled();
+  });
+
+  it('nudges panel vertically clear of a spotlight target without changing left', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const { result } = renderHook(() => useLiveDemoPanelLayout());
+    const topBefore = Number(result.current.panelStyle.top);
+    const leftBefore = Number(result.current.panelStyle.left);
+    const width = Number(result.current.panelStyle.width);
+    const height = Number(result.current.panelStyle.height);
+    setItemSpy.mockClear();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DEMO_PANEL_CLEAR_TARGET_EVENT, {
+        detail: { top: 180, left: 950, right: 1150, bottom: 240 },
+      }));
+    });
+
+    const top = Number(result.current.panelStyle.top);
+    const left = Number(result.current.panelStyle.left);
+    const stillOverlaps =
+      left < 1150
+      && left + width > 950
+      && top < 240
+      && top + height > 180;
+    expect(stillOverlaps).toBe(false);
+    expect(left).toBe(leftBefore);
+    expect(top).not.toBe(topBefore);
+    // Spotlight dodge must not rewrite the user's saved panel place.
+    expect(setItemSpy).not.toHaveBeenCalled();
+  });
+
+  it('restores the anchored left/top after a vertical dodge when the next target is clear', () => {
+    const { result } = renderHook(() => useLiveDemoPanelLayout());
+    const leftBefore = Number(result.current.panelStyle.left);
+    const topBefore = Number(result.current.panelStyle.top);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DEMO_PANEL_CLEAR_TARGET_EVENT, {
+        detail: { top: 180, left: 950, right: 1150, bottom: 240 },
+      }));
+    });
+    expect(Number(result.current.panelStyle.top)).not.toBe(topBefore);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DEMO_PANEL_CLEAR_TARGET_EVENT, {
+        detail: { top: 10, left: 10, right: 40, bottom: 40 },
+      }));
+    });
+
+    expect(result.current.panelStyle.left).toBe(leftBefore);
+    expect(result.current.panelStyle.top).toBe(topBefore);
   });
 });

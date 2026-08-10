@@ -1,33 +1,67 @@
 /** Lesson: Auth & Transport — authentication and connection modes */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsAuthCleanup, resetAuth, disconnectWebSocket, clearEvents } from '../setup-helpers';
+import {
+  wsSetup,
+  wsAuthCleanup,
+  resetAuth,
+  disconnectWebSocket,
+  clearEvents,
+  getLastMockPort,
+  switchToClientMode,
+} from '../setup-helpers';
 import { WS } from '@shared/selectors';
+import { showSpotlightRing } from '../../demoRipple';
+import { firstVisibleElement } from '../../utils/domVisibility';
 
-/** Setup: reset auth state, disconnect, clear events, then start mock + switch to client. */
+/** Spotlight an element, hold for the viewer, then remove the ring. */
+async function spotlightEl(
+  ctx: DemoActionContext,
+  el: HTMLElement | null,
+  holdMs: number,
+): Promise<void> {
+  if (!el) return;
+  el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  const remove = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    remove();
+  }
+}
+
+/** Leave Mock/Saved mode — Auth/Connect left tabs only exist in Client mode. */
+async function ensureClientMode(ctx: DemoActionContext): Promise<void> {
+  await switchToClientMode(ctx);
+  await ctx.delay(80);
+}
+
+/** Setup: start mock, switch to client, reset auth state, disconnect, clear events. */
 async function authSetup(ctx: DemoActionContext): Promise<void> {
-  // Wait for UI to render
-  await ctx.delay(500);
-  // Disconnect any active connection first
+  // Start mock server first (this switches to Mock mode internally)
+  await wsSetup(ctx);
+  // Belt: isolation may leave another tab's Client mode "active" in a hidden
+  // pane — force the *visible* demo tab into Client before Auth steps.
+  await ensureClientMode(ctx);
+  // Disconnect any active connection
   await disconnectWebSocket(ctx);
-  await ctx.delay(200);
+  await ctx.delay(120);
   // Clear events from previous runs
   await clearEvents(ctx);
-  await ctx.delay(200);
+  await ctx.delay(120);
   // Reset auth to "No Auth" so Bearer selection is visible on replay
   await resetAuth(ctx);
-  await ctx.delay(200);
-  // Standard setup: start mock + switch to client
-  await wsSetup(ctx);
+  await ctx.delay(120);
 }
 
 /**
- * Ensure Auth tab is active and bearer auth is selected.
+ * Ensure Client mode, Auth tab, and bearer auth are selected.
  * Used as a preAction guard for steps that require the auth panel to be visible.
  */
 async function ensureBearerAuth(ctx: DemoActionContext): Promise<void> {
+  await ensureClientMode(ctx);
   await ctx.click(WS.LEFT_TAB_AUTH);
   await ctx.delay(200);
-  const sel = document.querySelector(WS.AUTH_TYPE_DROPDOWN) as HTMLSelectElement | null;
+  const sel = firstVisibleElement<HTMLSelectElement>(WS.AUTH_TYPE_DROPDOWN);
   if (!sel || sel.value !== 'bearer') {
     await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
     await ctx.delay(200);
@@ -40,18 +74,19 @@ async function ensureBearerAuth(ctx: DemoActionContext): Promise<void> {
  * If already connected, this is a fast no-op.
  */
 async function ensureConnected(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WS.STATUS_CONNECTED)) return;
+  await ensureClientMode(ctx);
+  if (firstVisibleElement(WS.STATUS_CONNECTED)) return;
 
   // Silently set up bearer auth if not already configured
   await ctx.click(WS.LEFT_TAB_AUTH);
   await ctx.delay(150);
-  const sel = document.querySelector(WS.AUTH_TYPE_DROPDOWN) as HTMLSelectElement | null;
+  const sel = firstVisibleElement<HTMLSelectElement>(WS.AUTH_TYPE_DROPDOWN);
   if (!sel || sel.value !== 'bearer') {
     await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
     await ctx.delay(150);
   }
   // Fill bearer token if the field is empty
-  const tokenInput = document.querySelector(WS.AUTH_PANE_INPUTS) as HTMLInputElement | null;
+  const tokenInput = firstVisibleElement<HTMLInputElement>(WS.AUTH_PANE_INPUTS);
   if (tokenInput && !tokenInput.value) {
     const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     nativeSet?.call(tokenInput, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo-token');
@@ -63,9 +98,9 @@ async function ensureConnected(ctx: DemoActionContext): Promise<void> {
   // Navigate to Connect tab, fill URL, and connect
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(150);
-  await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+  await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
   await ctx.delay(150);
-  const connectBtn = document.querySelector(WS.CONNECT_BTN) as HTMLButtonElement | null;
+  const connectBtn = firstVisibleElement<HTMLButtonElement>(WS.CONNECT_BTN);
   if (connectBtn && !connectBtn.disabled) {
     connectBtn.click();
     await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
@@ -138,14 +173,13 @@ export const wsAuthTransportLesson: DemoLesson = {
       title: 'Authentication Overview',
       description: 'WebSocket auth is tricky — browsers can\'t set custom HTTP headers on WebSocket handshakes. RedfireForge solves this with a proxy transport that relays your auth headers. Let\'s set it up.',
       highlight: WS.LEFT_TAB_AUTH,
+      // Guarantees Client mode before the Auth tab is spotlighted (Mock hides it).
       preAction: async (ctx) => {
-        // Ensure Auth tab is active so the spotlight lands correctly
-        await ctx.click(WS.LEFT_TAB_AUTH);
-        await ctx.delay(200);
+        await ensureClientMode(ctx);
       },
       action: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_AUTH);
-        await ctx.delay(300);
+        await ctx.delay(500);
       },
       pauseAfter: true,
     },
@@ -154,15 +188,34 @@ export const wsAuthTransportLesson: DemoLesson = {
     {
       id: 'auth-type-selector',
       title: 'Choose an Auth Type',
-      description: 'The type dropdown controls which credentials are sent. Let\'s select "Bearer Token" — the most common auth type for APIs and WebSocket connections.',
-      highlight: WS.AUTH_TYPE_SELECT,
+      description:
+        'Open the **Type** dropdown to see every auth option — No Auth, Basic, Bearer Token, API Key, and more. ' +
+        'We\'ll select **Bearer Token**, the most common auth type for APIs and WebSocket connections.',
+      highlight: WS.AUTH_TYPE_TRIGGER,
       preAction: async (ctx) => {
+        await ensureClientMode(ctx);
         await ctx.click(WS.LEFT_TAB_AUTH);
         await ctx.delay(200);
+        // Reset to No Auth so picking Bearer is a visible change on replay.
+        const sel = firstVisibleElement<HTMLSelectElement>(WS.AUTH_TYPE_DROPDOWN);
+        if (sel && sel.value !== 'none') {
+          await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'none');
+          await ctx.delay(200);
+        }
       },
       action: async (ctx) => {
-        await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
-        await ctx.delay(500);
+        // 1) Open the custom Type dropdown
+        await ctx.click(WS.AUTH_TYPE_TRIGGER);
+        await ctx.waitFor(WS.authTypeOpt('bearer'));
+        await ctx.delay(500); // menu paints
+
+        // 2) One spotlight over the full options list
+        const menu = document.querySelector(WS.AUTH_TYPE_MENU) as HTMLElement | null;
+        await spotlightEl(ctx, menu, 1800);
+
+        // 3) Click Bearer Token
+        await ctx.click(WS.authTypeOpt('bearer'));
+        await ctx.delay(800);
       },
       pauseAfter: true,
     },
@@ -202,14 +255,15 @@ export const wsAuthTransportLesson: DemoLesson = {
     {
       id: 'auth-connect-setup',
       title: 'Set Up the Connection',
-      description: 'Switch to the Connect tab and set the URL to the Mock Server address (ws://localhost:9876). The mock server accepts any auth — perfect for testing.',
+      description: 'Switch to the Connect tab and set the URL to this tab\'s Mock Server address. The mock server accepts any auth — perfect for testing.',
       highlight: WS.URL_INPUT,
       preAction: async (ctx) => {
+        await ensureClientMode(ctx);
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
       },
       action: async (ctx) => {
-        await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+        await ctx.fill(WS.URL_INPUT, `ws://localhost:${getLastMockPort()}`);
         await ctx.delay(300);
       },
       pauseAfter: true,
@@ -222,12 +276,13 @@ export const wsAuthTransportLesson: DemoLesson = {
       description: 'Click Connect. The proxy transport injects the Bearer token into the handshake headers. Watch the status change to "Connected" — your authenticated WebSocket is live.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
+        await ensureClientMode(ctx);
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
       },
       action: async (ctx) => {
         // Guard: skip click if already connected to avoid toggling disconnect
-        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+        if (!firstVisibleElement(WS.STATUS_CONNECTED)) {
           await ctx.click(WS.CONNECT_BTN);
           // Wait for the status dot to appear rather than using a fixed delay
           await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
@@ -280,6 +335,7 @@ export const wsAuthTransportLesson: DemoLesson = {
       description: 'The protocol dropdown tells RedfireForge how to frame messages. "Auto-detect" inspects the URL and first message. Other options: Socket.IO, STOMP, and GraphQL-WS each use their own framing.',
       highlight: WS.PROTOCOL_SELECT,
       preAction: async (ctx) => {
+        await ensureClientMode(ctx);
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
       },

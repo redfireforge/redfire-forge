@@ -195,9 +195,18 @@
   flex-direction: column;
 }
 
-.results-explorer-canvas-wrap .results-explorer-flow {
-  flex: 1;
+/* Host gives React Flow a definite 100% box (RF forces position:relative inline). */
+.results-explorer-flow-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
+}
+.results-explorer-flow-host .results-explorer-flow {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .results-explorer-diagram .wf-pill-controls,
@@ -579,6 +588,7 @@
   overflow-y: auto;
   padding: 16px;
 }
+.explorer-detail-footer { display: flex; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
 
 .explorer-empty {
   display: flex;
@@ -3489,15 +3499,7 @@
   flex-shrink: 0;
 }
 
-.re-console-mode-select {
-  background: #0f172a;
-  color: #cbd5e1;
-  border: 1px solid #334155;
-  border-radius: 4px;
-  padding: 2px 4px;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
+.re-console-mode-select { /* box styling handled by CustomSelect */ }
 
 .re-console-action-btn-active {
   background: rgba(99, 102, 241, 0.2) !important;
@@ -3681,13 +3683,17 @@
 .mapper-trace-overlay-panel {
   position: relative;
   background: #1e293b;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3b4a60));
   border-radius: 10px;
   width: min(90%, 860px);
   max-height: 80%;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .mapper-trace-overlay-header {
@@ -3754,6 +3760,7 @@
   overflow-y: auto;
   padding: 0;
 }
+.mapper-trace-overlay-footer { display: flex; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
 
 .mapper-trace-table {
   width: 100%;

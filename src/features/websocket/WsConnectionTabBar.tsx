@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import type { WsConnectionHistoryEntry, WsProtocolMode } from '../../shared/websocket/types';
+import { computeDropIndex } from '../../shared/components/studio-tabs/computeDropIndex';
+import {
+  buildContextMenuItems,
+  useTabContextMenu,
+} from '../../shared/components/studio-tabs/TabContextMenu';
+
+export { computeDropIndex };
 
 export interface WsConnectionTabInfo {
   id: string;
@@ -20,6 +27,7 @@ export interface WsConnectionTabBarProps {
   onClose: (id: string) => void;
   onRename: (id: string, newLabel: string) => void;
   onReorder?: (fromIndex: number, toIndex: number) => void;
+  onDuplicate?: (tabId: string) => void;
   history?: WsConnectionHistoryEntry[];
   onClearHistory?: () => void;
 }
@@ -33,22 +41,6 @@ const STATE_COLORS: Record<ConnectionStateHint, string> = {
 
 const DND_MIME = 'text/x-ws-tab-index';
 
-// Extracted utility — used both internally and in tests
-// eslint-disable-next-line react-refresh/only-export-components
-export function computeDropIndex(
-  fromIndex: number,
-  targetIndex: number,
-  clientX: number,
-  rectLeft: number,
-  rectWidth: number,
-): number | null {
-  const midX = rectLeft + rectWidth / 2;
-  let toIndex = clientX < midX ? targetIndex : targetIndex + 1;
-  if (fromIndex < toIndex) toIndex -= 1;
-  if (fromIndex === toIndex) return null;
-  return toIndex;
-}
-
 export function WsConnectionTabBar({
   tabs,
   activeTabId,
@@ -60,6 +52,7 @@ export function WsConnectionTabBar({
   onClose,
   onRename,
   onReorder,
+  onDuplicate,
   history,
   onClearHistory,
 }: WsConnectionTabBarProps) {
@@ -293,6 +286,51 @@ export function WsConnectionTabBar({
     else tabElRefs.current.delete(id);
   }, []);
 
+  // ── Context Menu ─────────────────────────────────────────────────
+  const ctxMenu = useTabContextMenu();
+
+  const handleContextMenuAction = useCallback((actionId: string) => {
+    const tabId = ctxMenu.menuState?.tabId;
+    if (!tabId) return;
+    const tab = tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    switch (actionId) {
+      case 'rename':
+        startEditing(tabId, tab.label);
+        break;
+      case 'duplicate':
+        onDuplicate?.(tabId);
+        break;
+      case 'copy-label':
+        void navigator.clipboard.writeText(tab.label);
+        break;
+      case 'close':
+        onClose(tabId);
+        break;
+      case 'close-others':
+        tabs
+          .filter((t) => t.id !== tabId)
+          .filter((t) => {
+            const s = connectionStates[t.id];
+            return s !== 'connected' && s !== 'connecting';
+          })
+          .forEach((t) => onClose(t.id));
+        break;
+      case 'close-right': {
+        const idx = tabs.findIndex((t) => t.id === tabId);
+        tabs
+          .slice(idx + 1)
+          .filter((t) => {
+            const s = connectionStates[t.id];
+            return s !== 'connected' && s !== 'connecting';
+          })
+          .forEach((t) => onClose(t.id));
+        break;
+      }
+    }
+  }, [ctxMenu.menuState, tabs, connectionStates, startEditing, onDuplicate, onClose]);
+
   return (
     <div
       className="ws-conn-tab-bar"
@@ -320,6 +358,7 @@ export function WsConnectionTabBar({
             onClick={() => onSelect(tab.id)}
             onDoubleClick={() => handleTabDoubleClick(tab.id, tab.label)}
             onMouseDown={(e) => handleMiddleClick(e, tab.id)}
+            onContextMenu={(e) => ctxMenu.openMenu(tab.id, e)}
             onKeyDown={(e) => handleTabKeyDown(e, tab.id, tab.label)}
             draggable={!isEditing}
             onDragStart={(e) => handleDragStart(e, index, tab.id)}
@@ -372,18 +411,20 @@ export function WsConnectionTabBar({
           </div>
         );
       })}
-      {tabs.length < maxTabs && (
-        <button
-          type="button"
-          className="ws-conn-tab-add"
-          onClick={onAdd}
-          aria-label="New connection tab"
-          data-testid="conn-tab-add"
-          title="New connection"
-        >
-          +
-        </button>
-      )}
+      <button
+        type="button"
+        className="ws-conn-tab-add"
+        onClick={tabs.length < maxTabs ? onAdd : undefined}
+        disabled={tabs.length >= maxTabs}
+        aria-label={tabs.length >= maxTabs ? `Maximum ${maxTabs} tabs` : 'New connection tab'}
+        data-testid="conn-tab-add"
+        title={`New connection (${tabs.length}/${maxTabs})`}
+      >
+        +
+        <span className="ws-conn-tab-add-count" aria-hidden="true">
+          {tabs.length}/{maxTabs}
+        </span>
+      </button>
       {showHistoryArrow && (
         <div className="ws-conn-tab-history-wrapper" ref={dropdownRef}>
           <button
@@ -433,6 +474,20 @@ export function WsConnectionTabBar({
             </div>
           )}
         </div>
+      )}
+
+      {ctxMenu.renderMenu(
+        ctxMenu.menuState
+          ? buildContextMenuItems({
+              tabId: ctxMenu.menuState.tabId,
+              tabLabel: tabs.find((t) => t.id === ctxMenu.menuState!.tabId)?.label ?? '',
+              tabIndex: tabs.findIndex((t) => t.id === ctxMenu.menuState!.tabId),
+              totalTabs: tabs.length,
+              canDuplicate: tabs.length < maxTabs && Boolean(onDuplicate),
+              canClose: tabs.length > 1,
+            })
+          : [],
+        handleContextMenuAction,
       )}
     </div>
   );

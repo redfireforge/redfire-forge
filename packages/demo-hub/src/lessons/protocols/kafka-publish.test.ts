@@ -27,8 +27,8 @@ describe('kafka-publish lesson', () => {
     expect(kafkaPublishLesson.concept.diagram).toContain('<svg');
   });
 
-  it('has exactly 9 steps', () => {
-    expect(kafkaPublishLesson.steps).toHaveLength(9);
+  it('has exactly 10 steps', () => {
+    expect(kafkaPublishLesson.steps).toHaveLength(10);
   });
 
   it('all steps have required fields', () => {
@@ -50,6 +50,7 @@ describe('kafka-publish lesson', () => {
       'pub-intro',
       'pub-topic',
       'pub-body',
+      'pub-expand',
       'pub-key',
       'pub-acks',
       'pub-format',
@@ -75,14 +76,14 @@ describe('kafka-publish lesson', () => {
     expect(typeof kafkaPublishLesson.cleanup).toBe('function');
   });
 
-  it('step pub-intro has highlight, a preAction to switch to Publish tab, and no action', async () => {
+  it('step pub-intro has highlight and no preAction (setup already switches to Publish tab)', async () => {
     const step = kafkaPublishLesson.steps.find((s) => s.id === 'pub-intro')!;
     expect(step.highlight).toBeTruthy();
-    expect(step.action).toBeUndefined();
-    expect(typeof step.preAction).toBe('function');
+    expect(step.preAction).toBeUndefined();
+    expect(typeof step.action).toBe('function');
     const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('tab-publish'), expect.any(Number));
   });
 
   it('step pub-topic action fills the topic input', async () => {
@@ -112,10 +113,13 @@ describe('kafka-publish lesson', () => {
     );
   });
 
-  it('step pub-acks has no action (informational)', () => {
+  it('step pub-acks opens the dropdown so options can be highlighted', async () => {
     const step = kafkaPublishLesson.steps.find((s) => s.id === 'pub-acks')!;
-    expect(step.action).toBeUndefined();
-    expect(step.preAction).toBeUndefined();
+    expect(typeof step.action).toBe('function');
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('pub-acks-select'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('.cs-trigger'));
   });
 
   it('step pub-format action clicks the format button', async () => {

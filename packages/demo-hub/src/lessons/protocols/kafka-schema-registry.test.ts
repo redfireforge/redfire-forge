@@ -200,8 +200,20 @@ describe('kafka-schema-registry lesson', () => {
         <tbody><tr class="selected"></tr></tbody>
       </table>`;
     const step = kafkaSchemaRegistryLesson.steps.find((s) => s.id === 'sr-intro')!;
-    await step.preAction!(makeCtx());
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
     expect(document.querySelector('.kafka-schema-subject-table tr.selected')).toBeNull();
+    expect(ctx.click).not.toHaveBeenCalled();
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('step sr-intro action clicks the Schema Registry tab (visible teaching beat)', async () => {
+    const step = kafkaSchemaRegistryLesson.steps.find((s) => s.id === 'sr-intro')!;
+    expect(typeof step.action).toBe('function');
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-schema'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('registry-url-input'), expect.any(Number));
   });
 
   it('ensureSubjectSelected clicks first subject row when detail panel absent', async () => {

@@ -49,6 +49,11 @@ vi.mock('./NodePausedOverlay', () => ({
   NodePausedOverlay: () => <div data-testid="paused" />,
 }));
 
+const publishedKeysRef = vi.hoisted(() => ({ keys: new Set<string>() }));
+vi.mock('../../contexts/PublishedCatalogContext', () => ({
+  usePublishedCatalogKeys: () => publishedKeysRef.keys,
+}));
+
 const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
   _makeScenario({
     name: 'API',
@@ -220,5 +225,36 @@ describe('HttpStepNode', () => {
     const badge = document.querySelector('.wf-method-badge') as HTMLElement;
     expect(badge?.style.background).toBeTruthy();
     expect(screen.getByText('HEAD')).toBeTruthy();
+  });
+
+  describe('orphaned node badge (D3)', () => {
+    it('shows orphan badge when catalogRef endpoint is not published', () => {
+      publishedKeysRef.keys = new Set<string>();
+      const data: HttpNodeData = {
+        label: 'S',
+        scenario: makeScenario(),
+        catalogRef: { entryId: 'e1', endpointId: 'ep1', method: 'GET', path: '/test' },
+      };
+      render(<HttpStepNode {...makeProps(data)} />);
+      expect(screen.getByTestId('wf-orphan-badge')).toBeTruthy();
+    });
+
+    it('does not show orphan badge when catalogRef endpoint is still published', () => {
+      publishedKeysRef.keys = new Set(['e1::ep1']);
+      const data: HttpNodeData = {
+        label: 'S',
+        scenario: makeScenario(),
+        catalogRef: { entryId: 'e1', endpointId: 'ep1', method: 'GET', path: '/test' },
+      };
+      render(<HttpStepNode {...makeProps(data)} />);
+      expect(screen.queryByTestId('wf-orphan-badge')).toBeNull();
+    });
+
+    it('does not show orphan badge when no catalogRef', () => {
+      publishedKeysRef.keys = new Set<string>();
+      const data: HttpNodeData = { label: 'S', scenario: makeScenario() };
+      render(<HttpStepNode {...makeProps(data)} />);
+      expect(screen.queryByTestId('wf-orphan-badge')).toBeNull();
+    });
   });
 });

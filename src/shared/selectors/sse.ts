@@ -12,12 +12,23 @@ export const SSE = {
   MESSAGE_LOG:         '[data-testid="sse-message-log"]',
   EVENT_ROW:           '[data-testid="sse-event-row"]',
   EVENT_DETAIL:        '[data-testid="sse-event-detail"]',
+  /** Last-Event-ID row inside the Event Detail panel. */
+  EVENT_DETAIL_LAST_ID:'[data-testid="sse-event-detail-last-id"]',
   SEARCH_INPUT:        '[data-testid="sse-search"]',
   TYPE_FILTER:         '[data-testid="sse-type-filter"]',
+  /** Per-row star toggle (☆ / ★). */
+  BOOKMARK_BTN:        '[data-testid="sse-bookmark-btn"]',
   BOOKMARK_FILTER:     '[data-testid="sse-bookmark-filter"]',
   EXPORT_BTN:          '[data-testid="sse-export-btn"]',
   CLEAR_BTN:           '[data-testid="sse-clear-btn"]',
   STATUS_BAR:          '[data-testid="sse-status-bar"]',
   RECONNECT_CARD:      '[data-testid="sse-reconnect-card"]',
   RECONNECT_TOGGLE:    '[data-testid="sse-reconnect-toggle"]',
+
+  // ── Connection Tab Bar (Phase 2) ────────────────────────────────
+  CONN_TAB_BAR:        '[data-testid="sse-conn-tab-bar"]',
+  CONN_TAB_ADD:        '[data-testid="sse-conn-tab-add"]',
+  CONN_TAB_ITEM:       '[data-testid="sse-conn-tab-item"]',
+  CONN_TAB_CLOSE:      '[data-testid="sse-conn-tab-close"]',
+  connTabById: (id: string) => `[data-testid="sse-conn-tab-item"][data-tab-id="${id}"]`,
 } as const;

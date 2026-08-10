@@ -732,7 +732,7 @@ describe('MultiWebhookTestingPanel', () => {
     );
 
     await user.click(screen.getByText('Save Scenario'));
-    await user.click(document.querySelector('.mwt-modal-close') as HTMLElement);
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByText('Save Webhook Scenario')).not.toBeInTheDocument();
   });
 

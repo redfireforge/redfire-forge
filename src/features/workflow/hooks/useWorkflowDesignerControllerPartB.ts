@@ -33,7 +33,7 @@ import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerContr
  */
 export function useWorkflowDesignerControllerPartB(
   {
-    collections, catalogEntries, environments, microservices, globalAuthProfiles,
+    collections, catalogEntries, previewEndpoints, environments, microservices, globalAuthProfiles,
     selectedEnvId, onEnvSelect, resolvedBaseUrl, previewWorkflow, onClearPreview,
   }: WorkflowDesignerProps,
   a: WorkflowDesignerControllerPartA,
@@ -96,7 +96,7 @@ export function useWorkflowDesignerControllerPartB(
     isRunning, setIsRunning, isDebugMode, setIsDebugMode,
     debugControllerRef, abortRef,
     runProgress, failedStepLabel,
-    lastQuickTestRequestUrl,
+    lastQuickTestRequestUrlByNode,
     handleQuickTest, handleDebugQuickTest,
     handleDebugStep, handleDebugStop, handleResetRunStatus,
   } = useWorkflowExecution({
@@ -152,6 +152,13 @@ export function useWorkflowDesignerControllerPartB(
     if (!n) return null;
     return enrichNodeData(n, nodeInitialVars);
   }, [configModalNodeId, nodes, nodeInitialVars]);
+
+  // Resolved request URL for the node whose config modal is open — shows THIS node's
+  // last request rather than the workflow-wide last step (avoids e.g. the POST node
+  // displaying the GET step's `/users/1`).
+  const lastQuickTestRequestUrl = configModalNodeId
+    ? (lastQuickTestRequestUrlByNode?.[configModalNodeId] ?? null)
+    : null;
 
   const closeConfigModal = useCallback(() => setConfigModalNodeId(null), [setConfigModalNodeId]);
   useDemoWorkflowConfigModalBridge(closeConfigModal);
@@ -262,7 +269,7 @@ export function useWorkflowDesignerControllerPartB(
     persistWorkflow({ services: svcs, rfNodes: syncedNodes });
   }, [setWorkflowServices, nodes, setNodes, persistWorkflow]);
 
-  const handleReactFlowInit = useWorkflowPreviewReactFlowInit(previewWorkflow, selected, setLaidOutId);
+  const handleReactFlowInit = useWorkflowPreviewReactFlowInit(previewWorkflow, setLaidOutId);
 
   const detailModalDerived = useMemo(
     () => {
@@ -295,6 +302,7 @@ export function useWorkflowDesignerControllerPartB(
   return {
     collections,
     catalogEntries,
+    previewEndpoints,
     environments,
     microservices,
     globalAuthProfiles,

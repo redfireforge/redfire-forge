@@ -44,6 +44,10 @@ interface Props extends UseModalFrameOptions {
   showResizeHandles?: boolean;
   constrainDragToViewport?: boolean;
   dragViewportPadding?: number;
+  /** Optional test id on the overlay (e.g. for click-outside close assertions). */
+  overlayTestId?: string;
+  /** Optional test id on the dialog root. */
+  dialogTestId?: string;
 }
 
 function joinClasses(...classes: Array<string | undefined>) {
@@ -64,7 +68,7 @@ export default function AppModalFrame({
   footerClassName,
   controlsClassName,
   titleClassName,
-  closeButtonKind = 'icon',
+  closeButtonKind = 'none',
   closeButtonClassName,
   closeButtonLabel = 'Close',
   closeButtonText = 'Close',
@@ -83,6 +87,8 @@ export default function AppModalFrame({
   expandMode,
   minWidth,
   minHeight,
+  overlayTestId,
+  dialogTestId,
 }: Props) {
   const {
     expanded,
@@ -152,7 +158,13 @@ export default function AppModalFrame({
   };
 
   return (
-    <div className={joinClasses('modal-overlay', overlayClassName, expandClass)} role="presentation" onClick={handleOverlayClick} style={overlayStyle}>
+    <div
+      className={joinClasses('modal-overlay', overlayClassName, expandClass)}
+      role="presentation"
+      onClick={handleOverlayClick}
+      style={overlayStyle}
+      data-testid={overlayTestId}
+    >
       <div
         ref={dialogRef}
         className={joinClasses('modal', dialogClassName, expandClass)}
@@ -161,6 +173,7 @@ export default function AppModalFrame({
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
         style={dialogStyle}
+        data-testid={dialogTestId}
       >
         {headerContent ? headerContent(renderState) : (
           <div

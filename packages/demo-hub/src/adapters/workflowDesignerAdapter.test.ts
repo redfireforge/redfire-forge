@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   addWorkflowNode,
   addWorkflowNodeWithPreset,
+  clearWorkflowSamplePreview,
   connectWorkflowNodes,
   deleteWorkflowByName,
   deselectAllWorkflowNodes,
@@ -15,6 +16,8 @@ import {
   patchDemoWorkflowNodeDataByType,
   patchWorkflowNodeDataByType,
   patchWorkflowByName,
+  syncLiveWorkflowFromPatch,
+  getSelectedWorkflowName,
   removeWorkflowEdge,
   closeWorkflowConfigModal,
   seedNamedWorkflow,
@@ -35,10 +38,24 @@ describe('workflowDesignerAdapter', () => {
     delete w.__wfRemoveEdge;
     delete w.__wfPatchNodeDataByType;
     delete w.__wfPatchWorkflowByName;
+    delete w.__wfSyncLiveWorkflowFromPatch;
+    delete w.__wfGetSelectedName;
     delete w.__wfAddNode;
     delete w.__wfQuickTest;
     delete w.__wfSetConsoleFloatLayout;
     delete w.__wfSelectByName;
+    delete w.__wfClearSamplePreview;
+  });
+
+  it('clearWorkflowSamplePreview calls bridge when present', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfClearSamplePreview = spy;
+    clearWorkflowSamplePreview();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('clearWorkflowSamplePreview is a no-op when bridge missing', () => {
+    expect(() => clearWorkflowSamplePreview()).not.toThrow();
   });
 
   it('deleteWorkflowByName returns false when bridge missing', () => {
@@ -115,6 +132,26 @@ describe('workflowDesignerAdapter', () => {
 
   it('patchWorkflowByName returns false when bridge missing', () => {
     expect(patchWorkflowByName('wf', {})).toBe(false);
+  });
+
+  it('syncLiveWorkflowFromPatch delegates to bridge', () => {
+    const spy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfSyncLiveWorkflowFromPatch = spy;
+    expect(syncLiveWorkflowFromPatch('Variables Demo', { variables: { baseUrl: 'x' } })).toBe(true);
+    expect(spy).toHaveBeenCalledWith('Variables Demo', { variables: { baseUrl: 'x' } });
+  });
+
+  it('syncLiveWorkflowFromPatch returns false when bridge missing', () => {
+    expect(syncLiveWorkflowFromPatch('wf', {})).toBe(false);
+  });
+
+  it('getSelectedWorkflowName delegates to bridge', () => {
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = () => 'Variables Demo';
+    expect(getSelectedWorkflowName()).toBe('Variables Demo');
+  });
+
+  it('getSelectedWorkflowName returns undefined when bridge missing', () => {
+    expect(getSelectedWorkflowName()).toBeUndefined();
   });
 
   it('insertWorkflow and addWorkflowNode delegate to bridges', () => {

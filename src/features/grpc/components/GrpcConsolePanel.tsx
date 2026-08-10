@@ -4,6 +4,7 @@ import {
   previewGrpcCallHistoryEntryForUi,
   serializeGrpcPreviewJson,
 } from '../../../shared/grpc/grpcSafePreview';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { UseGrpcCallHistoryResult } from '../hooks/useGrpcCallHistory';
 
 export interface GrpcConsolePanelProps {
@@ -83,17 +84,18 @@ export function GrpcConsolePanel({
             aria-label="Search console rows"
             data-testid="grpc-console-search"
           />
-          <select
+          <CustomSelect
             className="grpc-console-filters__select"
             value={outcome}
-            onChange={(event) => setOutcome(event.target.value as GrpcConsoleOutcomeFilter)}
+            onChange={(v) => setOutcome(v as GrpcConsoleOutcomeFilter)}
             aria-label="Filter console rows by status"
             data-testid="grpc-console-filter-status"
-          >
-            <option value="all">All statuses</option>
-            <option value="ok">OK</option>
-            <option value="error">Errors</option>
-          </select>
+            options={[
+              { value: 'all', label: 'All statuses' },
+              { value: 'ok', label: 'OK' },
+              { value: 'error', label: 'Errors' },
+            ]}
+          />
         </div>
         <div className="grpc-console-list" data-testid="grpc-console-list">
           {entries.length === 0 && (

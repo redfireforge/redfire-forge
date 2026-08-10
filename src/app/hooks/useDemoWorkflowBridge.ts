@@ -21,6 +21,7 @@ export function useDemoWorkflowBridge(
   loaded = false,
   update?: (id: string, patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => void,
   selectRunnerByName?: (name: string) => boolean,
+  clearSamplePreview?: () => void,
 ): void {
   const workflowsRef = useRef(workflows);
   workflowsRef.current = workflows;
@@ -34,6 +35,8 @@ export function useDemoWorkflowBridge(
   updateRef.current = update;
   const selectRunnerRef = useRef(selectRunnerByName);
   selectRunnerRef.current = selectRunnerByName;
+  const clearPreviewRef = useRef(clearSamplePreview);
+  clearPreviewRef.current = clearSamplePreview;
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
 
@@ -48,11 +51,18 @@ export function useDemoWorkflowBridge(
     win.__wfGetWorkflowByName = (name: string) =>
       workflowsRef.current.find((w) => w.name === name) ?? null;
 
+    win.__wfClearSamplePreview = () => {
+      clearPreviewRef.current?.();
+    };
+
     win.__wfSelectByName = (name: string) => {
       const sel = selectRef.current;
       if (!sel) return false;
       const wf = workflowsRef.current.find((w) => w.name === name);
       if (!wf) return false;
+      // Sample Preview overrides the selected workflow on the canvas — dismiss
+      // it so bridge select / create actually shows the real blank Start node.
+      clearPreviewRef.current?.();
       sel(wf.id);
       return true;
     };
@@ -83,6 +93,7 @@ export function useDemoWorkflowBridge(
       delete win.__wfDeleteByName;
       delete win.__wfGetWorkflowByName;
       delete win.__wfSelectByName;
+      delete win.__wfClearSamplePreview;
       delete win.__wfRunnerSelectByName;
       delete win.__wfPatchWorkflowByName;
       delete win.__wfInsertWorkflow;

@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import { GraphqlSchemaExplorer } from './GraphqlSchemaExplorer';
 import type { GraphqlSchemaInfo, GraphqlTypeNode } from '../../../shared/types/graphql';
 
@@ -455,8 +456,7 @@ describe('GraphqlSchemaExplorer — Changelog tab', () => {
     );
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
     fireEvent.click(changelogRowByLabel('v1.0'));
-    const select = screen.getByTestId('gql-changelog-compare-select');
-    fireEvent.change(select, { target: { value: 'snap-2' } });
+    selectOption(screen.getByTestId('gql-changelog-compare-select'), 'v2.0');
     fireEvent.click(screen.getByTestId('gql-changelog-diff-btn'));
     expect(onOpenDiff).toHaveBeenCalledWith(snap1, 'snap-2');
   });
@@ -475,7 +475,7 @@ describe('GraphqlSchemaExplorer — Changelog tab', () => {
     );
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
     fireEvent.click(changelogRowByLabel('v1.0'));
-    fireEvent.change(screen.getByTestId('gql-changelog-compare-select'), { target: { value: 'snap-2' } });
+    selectOption(screen.getByTestId('gql-changelog-compare-select'), 'v2.0');
     rerender(
       <GraphqlSchemaExplorer
         schemaInfo={schemaInfo}
@@ -823,7 +823,7 @@ describe('GraphqlSchemaExplorer — branch gap coverage', () => {
     render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap1, snap2]} />);
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
     fireEvent.click(changelogRowByLabel('v1'));
-    fireEvent.change(screen.getByTestId('gql-changelog-compare-select'), { target: { value: 's2' } });
+    selectOption(screen.getByTestId('gql-changelog-compare-select'), 'v2');
     expect(screen.getByTestId('gql-changelog-diff-btn').getAttribute('title')).toContain('Compare two snapshots');
   });
 

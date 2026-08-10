@@ -23,7 +23,6 @@ export default function ScriptTemplateGallery({ onSelect, onClose }: Props) {
     <div className="wf-script-template-gallery">
       <div className="wf-script-template-header">
         <h4>Code Templates</h4>
-        <button className="wf-config-remove-btn" onClick={onClose} aria-label="Close">✕</button>
       </div>
 
       <div className="wf-script-template-controls">
@@ -67,6 +66,9 @@ export default function ScriptTemplateGallery({ onSelect, onClose }: Props) {
             </div>
           </button>
         ))}
+      </div>
+      <div className="wf-script-template-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

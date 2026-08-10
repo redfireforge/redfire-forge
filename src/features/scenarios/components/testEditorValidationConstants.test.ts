@@ -68,17 +68,19 @@ describe('validation option lists', () => {
 });
 
 describe('ComparisonSelect', () => {
-  it('renders options and invokes onChange with the selected operator', () => {
+  it('renders selected label and invokes onChange with the selected operator', () => {
     const onChange = vi.fn();
     render(createElement(ComparisonSelect, { value: '=', onChange, options: NUMERIC_OP_OPTIONS }));
-    const select = screen.getByRole('combobox');
-    expect(select).toHaveClass('assertion-select', 'assertion-select-operator');
-    fireEvent.change(select, { target: { value: '>' } });
+    const trigger = screen.getByRole('button', { expanded: false });
+    expect(trigger).toBeInTheDocument();
+    expect(trigger.textContent).toContain('equals');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('option', { name: /greater than/ }));
     expect(onChange).toHaveBeenCalledWith('>');
   });
 
   it('respects a custom className', () => {
-    render(
+    const { container } = render(
       createElement(ComparisonSelect, {
         value: '>',
         onChange: () => {},
@@ -86,7 +88,7 @@ describe('ComparisonSelect', () => {
         className: 'custom-op-select',
       }),
     );
-    expect(screen.getByRole('combobox')).toHaveClass('custom-op-select');
+    expect(container.querySelector('.custom-op-select')).toBeTruthy();
   });
 });
 

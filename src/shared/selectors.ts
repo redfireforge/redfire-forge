@@ -9,7 +9,7 @@
  */
 
 export { APP } from './selectors/app';
-export { EM, emAddProtocolItemSel, emRemoveProtocolSel } from './selectors/em';
+export { EM, emAddProtocolItemSel, emRemoveProtocolSel, emEnvByNameSel, emSvcByNameSel, emSvcConfigureByNameSel, emSvcEnvChipByNameSel } from './selectors/em';
 export { WS } from './selectors/ws';
 export { SSE } from './selectors/sse';
 export { WF } from './selectors/wf';
@@ -18,3 +18,6 @@ export { DEMO } from './selectors/demo';
 export { KAFKA } from './selectors/kafka';
 export { GQL } from './selectors/gql';
 export { GRPC } from './selectors/grpc';
+export { REQ } from './selectors/req';
+export { CAT } from './selectors/cat';
+export { HAR } from './selectors/har';

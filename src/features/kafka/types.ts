@@ -52,6 +52,8 @@ export interface KafkaConsumeDraft {
   headerMatch: string;
   jsonPath: string;
   jsonPathEquals: string;
+  /** Case-insensitive substring search within the raw message body */
+  bodyContains: string;
   schemaConfig?: KafkaSchemaConfig;
   /** Sort order: 'asc' = oldest first (default), 'desc' = newest first. */
   sortOrder?: 'asc' | 'desc';

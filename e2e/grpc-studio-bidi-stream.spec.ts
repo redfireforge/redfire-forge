@@ -38,7 +38,7 @@ test.describe('gRPC Studio — bidirectional streaming (Phase 2H)', () => {
     await expect(page.locator('[data-testid="grpc-stream-direction-legend"]')).toBeVisible();
 
     await startGrpcStream(page);
-    await waitForStreamStatus(page, /Streaming|Starting/);
+    await waitForStreamStatus(page, 'Streaming');
 
     await fillEchoMessage(page, 'bidi-ping');
     await sendStreamMessage(page);

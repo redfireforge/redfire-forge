@@ -27,8 +27,9 @@ describe('calcReadingTime', () => {
   });
 
   it('adds extra time when highlight is present', () => {
-    const noHighlight = makeStep({ description: 'Some words here for testing the time.' });
-    const withHighlight = makeStep({ description: 'Some words here for testing the time.', highlight: '.my-button' });
+    const longDescription = Array.from({ length: 220 }, (_, i) => `word${i}`).join(' ');
+    const noHighlight = makeStep({ description: longDescription });
+    const withHighlight = makeStep({ description: longDescription, highlight: '.my-button' });
     expect(calcReadingTime(withHighlight)).toBeGreaterThan(calcReadingTime(noHighlight));
   });
 

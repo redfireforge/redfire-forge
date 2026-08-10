@@ -22,19 +22,12 @@ export async function ensureUnaryExecuted(
     await ctx.click(GRPC.SEND_BTN);
   }
 
-  try {
-    await ctx.waitFor(GRPC.RESPONSE_STATUS, 8_000);
-  } catch {
-    await ctx.waitFor(GRPC.RESPONSE_STATUS, 12_000);
-  }
-
-  try {
-    await ctx.waitFor(GRPC.RESPONSE_BODY, 5_000);
-  } catch {
-    await ctx.waitFor(GRPC.RESPONSE_BODY, 8_000);
-  }
-
-  await ctx.delay(400);
+  // ctx.waitFor never throws — it silently resolves at timeout.
+  // Use a single 7 s window for status + 4 s for body so the caller's
+  // action stays well under the 16 s DEMO_ACTION_TIMEOUT_MS.
+  await ctx.waitFor(GRPC.RESPONSE_STATUS, 7_000);
+  await ctx.waitFor(GRPC.RESPONSE_BODY, 4_000);
+  await ctx.delay(300);
   setGrpcLessonRunFlag('executed', true);
 }
 

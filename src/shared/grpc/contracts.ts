@@ -638,6 +638,15 @@ function isStreamConflictError(error: GrpcErrorBody, op?: GrpcOperation): boolea
     || message.includes('not valid after client stream eof');
 }
 
+function isAuthDeniedCallFailure(error: GrpcErrorBody): boolean {
+  if (error.code !== GRPC_ERROR_CODES.CALL_FAILED) return false;
+  const details = error.details;
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return false;
+  const record = details as { authFailure?: unknown; grpcStatus?: unknown };
+  if (record.authFailure === 'auth_denied') return true;
+  return record.grpcStatus === 16 || record.grpcStatus === 7;
+}
+
 export function mapGrpcErrorCodeToHttpStatus(error: GrpcErrorBody, op?: GrpcOperation): number {
   if (isStreamConflictError(error, op)) {
     return 409;
@@ -648,6 +657,11 @@ export function mapGrpcErrorCodeToHttpStatus(error: GrpcErrorBody, op?: GrpcOper
     && error.message.includes('tabId')
   ) {
     return 409;
+  }
+  // Auth/permission denials are expected RPC outcomes (e.g. SecureEcho without a token).
+  // Map to 401 so DevTools does not treat them as an internal server failure.
+  if (isAuthDeniedCallFailure(error)) {
+    return 401;
   }
   return ERROR_CODE_HTTP_STATUS[error.code] ?? 500;
 }

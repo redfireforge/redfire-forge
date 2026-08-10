@@ -41,6 +41,12 @@ docker/grpc/spring-boot/target/
 
 # jscpd duplication reports
 jscpd-report/
+.jscpd-report/
+
+# Temporary coverage shard files and vitest timing snapshots
+.tmp/
+.tmp-vitest-timing*.json
+coverage-report.json
 
 # Playwright test results & reports
 test-results/

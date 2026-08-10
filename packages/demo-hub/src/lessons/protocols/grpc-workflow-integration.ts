@@ -3,7 +3,7 @@
  *
  * Thin barrel — helpers and steps live in sibling modules.
  */
-import { deleteWorkflowByName, fitWorkflowCanvasView } from '../../adapters';
+import { deleteWorkflowByName } from '../../adapters';
 import {
   buildGrpcLessonShellFromRoster,
   buildGrpcContractMetaFromRoster,
@@ -17,13 +17,14 @@ import {
   closeWfConsoleIfOpen,
   expandWfDemoAppSidebar,
   setWfConfigDemoTiming,
-  WF_CONFIG_DEMO_TIMING_BRISK,
+  WF_CONFIG_DEMO_TIMING_GUIDED,
 } from '../wf-demo-helpers';
 import { WF } from '@shared/selectors';
 import {
   WF14_NAME,
+  WF14_PALETTE_SCRATCH_NAME,
+  clearPaletteScratchQuiet,
   resetWf14Session,
-  seedCompleteWorkflowQuiet,
   wf14Session,
 } from './grpc-workflow-integration-helpers';
 import { grpcWorkflowIntegrationSteps } from './grpc-workflow-integration-steps';
@@ -169,10 +170,9 @@ A failing assert node **blocks downstream execution** unless onError: "continue"
   steps: grpcWorkflowIntegrationSteps,
   setup: async (ctx) => {
     resetWf14Session();
-    // Dense multi-field config tour — use brisk modal pacing (still readable at 1×).
-    setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
-    // Land directly on step 1 Reading: seeded Echo workflow + Blocks palette.
-    // Skip grpcFirstCallSetup Studio tour (visible tab/drawer flash before Reading).
+    // One-field-at-a-time config tour — guided holds so spotlights don't flash.
+    setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_GUIDED);
+    // Start on Create: remove lesson leftovers, open Workflows sidebar — no scratch seed.
     try {
       const { purgeGrpcDemoEphemeralStorage } = await import('../grpc-demo-storage-cleanup');
       await purgeGrpcDemoEphemeralStorage();
@@ -183,24 +183,21 @@ A failing assert node **blocks downstream execution** unless onError: "continue"
     await closeWfConfigModalIfOpen(ctx);
     ctx.navigateToTab('workflow');
     await ctx.delay(180);
+    await clearPaletteScratchQuiet(ctx);
+    if (deleteWorkflowByName(WF14_NAME)) {
+      await ctx.delay(200);
+    }
     const skipBtn = document.querySelector<HTMLElement>('.onboarding-tooltip-skip');
     if (skipBtn) { skipBtn.click(); await ctx.delay(60); }
-    await seedCompleteWorkflowQuiet(ctx);
     await expandWfDemoAppSidebar(ctx);
     wf14Session.sidebarCollapsed = false;
-    await ctx.waitFor(WF.PAL_SEARCH, 5000);
-    if (document.querySelector<HTMLInputElement>(WF.PAL_SEARCH)?.value) {
-      await ctx.fill(WF.PAL_SEARCH, '');
-    }
-    // Fit View so Reading opens on a readable centered graph (sidebar + LiveDemo card).
-    fitWorkflowCanvasView();
-    document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN)?.click();
-    await ctx.delay(120);
+    await ctx.waitFor(WF.SIDEBAR_NEW_BTN, 5000);
   },
   cleanup: async (ctx) => {
     await closeWfConfigModalIfOpen(ctx);
     await cleanupWorkflowDemoRunUi(ctx);
     await closeWfConsoleIfOpen(ctx);
+    deleteWorkflowByName(WF14_PALETTE_SCRATCH_NAME);
     deleteWorkflowByName(WF14_NAME);
     resetWf14Session();
     setWfConfigDemoTiming(null);

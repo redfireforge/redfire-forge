@@ -44,26 +44,29 @@ The API Catalog supports **both** Swagger and OpenAPI specifications:
 
 ### How Both Formats Are Handled
 
-The `@apidevtools/swagger-parser` library handles both formats natively:
+A **custom, dependency-light parser** (`src/features/catalog/utils/openApiParser.ts`,
+built on the `yaml` package) normalizes both formats into the same internal model:
 
-- **Swagger 2.0 specs** are parsed directly — the parser resolves `host` +
-  `basePath` + `schemes` into server URLs, converts `definitions` to schemas,
-  transforms `body` parameters into `requestBody`, and maps
-  `securityDefinitions` to `securitySchemes`. The internal data model
-  (`CatalogEntry`) uses the OpenAPI 3.x structure, so Swagger 2.0 is normalized
-  on import.
+- **Swagger 2.0 specs** are normalized into the `CatalogEntry` model — the parser maps
+  `host` + `basePath` + `schemes` into server URLs, `definitions` into schemas,
+  `body` parameters into `requestBody`, and `securityDefinitions` into
+  `securitySchemes`. The internal data model uses an OpenAPI 3.x-shaped structure, so
+  the rest of the app never has to care which format was imported. **This is a model
+  normalization, not a file conversion** — the raw spec text is stored unchanged (a
+  Swagger 2.0 import re-exports as Swagger 2.0). Producing an actual OpenAPI 3 file is a
+  separate, explicit **Convert / Upgrade to OpenAPI** action (see §13).
 
-- **OpenAPI 3.0.x / 3.1.x specs** are parsed as-is with full support for
-  `servers[]`, `components`, `requestBody`, `securitySchemes`, and all schema
-  features including `oneOf`, `anyOf`, `allOf`, and `discriminator`.
+- **OpenAPI 3.0.x / 3.1.x specs** are parsed as-is with support for `servers[]`,
+  `components`, `requestBody`, `securitySchemes`, and schema features including `oneOf`,
+  `anyOf`, and `allOf`.
 
 Both formats support:
-- Full `$ref` resolution (internal, external files, URLs, circular references)
-- Validation with clear error messages for malformed specs
-- Multi-file specs (external `$ref` to other files)
-- All HTTP methods: GET, POST, PUT, PATCH, DELETE
-- All parameter locations: path, query, header, cookie
-- All authentication schemes: HTTP (Bearer, Basic), API Key, OAuth2, OpenID Connect
+- **Internal `$ref` resolution only** (`#/...` within the same document) — external-file,
+  URL, and circular references are **not** resolved (bundle multi-file specs first)
+- Basic structural validation with clear error messages for malformed / unsupported specs
+- HTTP methods: GET, POST, PUT, PATCH, DELETE
+- Parameter locations: path, query, header, cookie
+- Authentication schemes: HTTP (Bearer, Basic), API Key, OAuth2, OpenID Connect
 
 ### Why Not Just OpenAPI 3.x?
 
@@ -195,24 +198,27 @@ src/
 
 ---
 
-## 7. Dependency
+## 7. Dependencies
 
-One new dependency: **`@apidevtools/swagger-parser`**
+**Import parsing uses no dedicated OpenAPI library.** The parser
+(`openApiParser.ts`) is custom code on top of the already-installed **`yaml`**
+package. It intentionally does only what the Catalog model needs: YAML/JSON parse,
+internal `#/` `$ref` resolution, and normalization into `CatalogEntry`. It does **not**
+do external/URL/circular `$ref` resolution or full spec validation.
 
-| | |
-|---|---|
-| Package | `@apidevtools/swagger-parser` |
-| Size | ~50KB gzipped |
-| Browser support | Yes (works in browser and Node) |
-| Swagger 2.0 | Yes |
-| OpenAPI 3.0 / 3.1 | Yes |
-| `$ref` resolution | Full (external files, URLs, circular) |
-| Validation | Built-in |
-| Weekly downloads | ~1.5M |
+> **Historical note:** `@apidevtools/swagger-parser` appears in `package.json` but is
+> **not imported anywhere in `src/`** — it is a dead dependency and does **not** perform
+> Swagger 2→3 conversion. Earlier revisions of this document claimed it handled the spec
+> lifecycle; that was never the shipped implementation. It can be removed in a cleanup PR.
 
-The existing `yaml` package is already installed but swagger-parser handles the
-full spec lifecycle (validation, `$ref` dereferencing, bundling) which is critical
-for real-world specs with deep reference chains.
+**Convert / Upgrade to OpenAPI (§13)** adds lazy-loaded conversion/lint packages, imported
+via dynamic `import()` so they stay out of the main bundle:
+
+| Package | Role | Notes |
+|---|---|---|
+| `swagger2openapi` | Default 2.0 → 3.0.x converter | Battle-tested; correctness-proven; emits 3.0.x |
+| `@scalar/openapi-upgrader` | Selectable alternate + upgrader | Only engine that can target 3.1 / 3.2; used for all 3.x → higher upgrades |
+| `oas-validator` | On-demand Deep lint | Schema + best-practice rules for OpenAPI 3.0.x; advisory only, never blocks |
 
 ---
 
@@ -220,9 +226,9 @@ for real-world specs with deep reference chains.
 
 ```
 Swagger 2.0 YAML/JSON  ──┐
-                          ├──▶  openApiParser.ts
-OpenAPI 3.x YAML/JSON  ──┘     (swagger-parser: validate + dereference
-                                 + normalize Swagger 2.0 → 3.x internally)
+                          ├──▶  openApiParser.ts (custom, on `yaml`)
+OpenAPI 3.x YAML/JSON  ──┘     (parse + internal #/ $ref resolution
+                                 + normalize Swagger 2.0 → model internally)
     │
     ▼
 CatalogEntry { name, versions[], folders[], endpoints[], servers[], ... }
@@ -315,7 +321,7 @@ restore that specific version, but saves significant space.
 ### What Is NOT Stored
 
 - No compiled or rendered HTML — the UI is React components reading data
-- No duplicate schemas — `$ref` is dereferenced once at import, stored flat
+- No duplicate schemas — internal `#/` `$ref` is dereferenced once at import, stored flat
 - No response cache — "Try It" responses are session-only (lost on refresh)
 - No filled parameter values — session-only (lost on refresh)
 
@@ -386,6 +392,43 @@ gives users the full request editor experience for more advanced ad-hoc testing.
 
 The Catalog stays **spec-driven** (read from the imported YAML). Requests
 stays **user-driven** (free-form editing). They complement each other.
+
+---
+
+## 13. Convert / Upgrade to OpenAPI
+
+Import normalizes Swagger 2.0 (and OpenAPI 3.x) into the internal model but keeps the raw
+spec unchanged. The **Convert / Upgrade** action produces an actual OpenAPI YAML file — the
+primary use case is feeding OpenAPI Generator / Maven / Spring Boot codegen, which require
+OpenAPI 3.x input. The same modal handles two flows, chosen automatically from the source
+format (`detectSpecFormat`):
+
+- **Convert** — Swagger 2.0 → OpenAPI **3.0** or **3.1**
+- **Upgrade** — OpenAPI **3.0** → 3.1 / 3.2, or OpenAPI **3.1** → 3.2
+
+**Entry points:** sidebar context menu **Convert / Upgrade OpenAPI YAML…** and the overview
+**Convert / Upgrade OpenAPI** button. The opener loads the raw spec once and only opens the
+modal when at least one forward target exists (`availableTargets`); an already-latest 3.2 or
+unsupported spec gets a "Nothing to convert" info toast instead.
+
+**Modal** (`CatalogConvertOpenApiModal.tsx`):
+
+| Concern | Design |
+|---|---|
+| Engine | **Convert flow:** `swagger2openapi` (default, 3.0.x) or `@scalar/openapi-upgrader` (Scalar; path to 3.1). **Upgrade flow:** Scalar only (fixed — the only engine that emits 3.1 / 3.2). Both lazy-loaded via dynamic `import()` |
+| Target | **Convert:** `3.0` (both engines) / `3.1` (Scalar only; disabled + auto-corrected for swagger2openapi). **Upgrade:** offered targets come from `availableTargets` (3.0 source → 3.1 / 3.2; 3.1 source → 3.2) |
+| Validation gate | Every result is repaired by `normalizeConvertedOpenApi3` then run through an owned structural `validateOpenApi3` check; a ✅/❌ badge + error list surface invalid output. Download / Save are gated on valid output |
+| Auto-fallback | **Convert flow only:** on engine throw **or** invalid output, the dispatcher falls back to the other engine and records the reason (a chip shows `fell back … (error \| invalid output)`). The upgrade flow is Scalar-only and never falls back |
+| Deep lint | On-demand **Deep lint** button runs `oas-validator` (schema + best-practice rules) on the converted doc. Advisory only — **never blocks** Download / Save; targets OpenAPI **3.0.x** (for 3.1 / 3.2 only the structural checks above apply); lazy-loaded with graceful degradation |
+| Output | **Download YAML** (`{name}-openapi-{target}.yaml`) or **Save as new version** (re-parse + `addVersionToEntry`, tagged with a changelog line — "Converted …" or "Upgraded …" — prunes at `MAX_VERSIONS`) |
+| Prefs | Last-used `{engine, target}` persisted via the storage abstraction (convert flow only) |
+
+**Key modules:** `swaggerToOpenApi.ts` (dispatchers `convertSwaggerToOpenApiYaml` +
+`upgradeOpenApi3Yaml`, format detection `detectSpecFormat` / `availableTargets`, structural
+`validateOpenApi3` + `normalizeConvertedOpenApi3`), `engines/{swagger2openapi,scalar}Engine.ts`
+(adapters), `convertPrefs.ts` (persistence), `openApiLint.ts` (lazy `oas-validator` deep lint),
+`CatalogConvertOpenApiModal.tsx` (UI). Full design + tooling research:
+[`docs/plan/future/catalog/convert-swagger-to-openapi-plan.md`](../../plan/future/catalog/convert-swagger-to-openapi-plan.md).
 
 ---
 

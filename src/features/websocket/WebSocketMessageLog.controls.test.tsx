@@ -398,8 +398,8 @@ describe('WebSocketMessageLog', () => {
 
     it('shows bookmarked direction filter option', () => {
       render(<WebSocketMessageLog {...defaultProps({ bookmarkCount: 3 })} />);
-      const filter = screen.getByLabelText('Direction filter');
-      expect(filter.textContent).toContain('Bookmarked (3)');
+      fireEvent.click(screen.getByLabelText('Direction filter'));
+      expect(screen.getByTestId('direction-filter-opt-bookmarked').textContent).toContain('Bookmarked (3)');
     });
   });
 

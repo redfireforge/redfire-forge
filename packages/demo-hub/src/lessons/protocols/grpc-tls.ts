@@ -11,6 +11,8 @@ import {
 } from './grpc-lesson-contract';
 import {
   GRPC_DEMO_TARGET,
+  ensureGrpcPlaintextChannelReady,
+  ensureGrpcTarget,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
 } from './grpc-lesson-helpers';
@@ -31,9 +33,15 @@ export const grpcTlsLesson: GrpcDemoLesson = {
     'Connect to TLS-protected gRPC servers, configure mutual TLS with client certificates, ' +
     'validate the handshake locally, and learn how RedfireForge keeps PEM material in a session vault.',
 
-  setup: (ctx) => grpcFirstCallSetup(ctx, { resetSchemaDrafts: false }),
+  setup: async (ctx) => {
+    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+    // Pin plaintext echo target after hygiene — reused demo tabs may still be on :50443.
+    await ensureGrpcTarget(ctx);
+    await fillTargetQuiet(ctx, GRPC_DEMO_TARGET);
+  },
   cleanup: async (ctx) => {
     await resetTlsToPlaintextQuiet(ctx);
+    await ensureGrpcPlaintextChannelReady(ctx);
     await fillTargetQuiet(ctx, GRPC_DEMO_TARGET);
     await grpcFirstCallCleanup(ctx);
   },

@@ -37,8 +37,33 @@ vi.mock('../../../grpc/components/GrpcTlsConfigBody', () => ({
   ),
 }));
 
+vi.mock('../../../../shared/components/CustomSelect', () => ({
+  CustomSelect: ({ value, onChange, options, 'data-testid': dataTestId }: {
+    value: string;
+    onChange: (next: string) => void;
+    options: Array<{ value: string; label: string }>;
+    'data-testid'?: string;
+  }) => (
+    <select
+      data-testid={dataTestId ?? 'mock-select'}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+    </select>
+  ),
+}));
+
 vi.mock('../../../grpc/components/GrpcAuthPanel', () => ({
-  GrpcAuthPanel: () => <div data-testid="mock-auth-panel" />,
+  GrpcAuthPanel: ({ onChange }: { onChange: (auth: unknown) => void }) => (
+    <button
+      type="button"
+      data-testid="mock-auth-panel"
+      onClick={() => onChange({ type: 'bearer', bearerToken: 'tok' })}
+    >
+      Set Auth
+    </button>
+  ),
 }));
 
 const baseData = {
@@ -52,6 +77,23 @@ const baseData = {
 };
 
 describe('GrpcWorkflowConnectionSecurityFields coverage gaps', () => {
+  it('keeps TLS collapsed when selecting plaintext from disabled mode', () => {
+    const onChange = vi.fn();
+    const { queryByTestId } = render(
+      <GrpcWorkflowConnectionSecurityFields
+        data={{ ...baseData, tlsMode: 'disabled' }}
+        onChange={onChange}
+        testIdPrefix="grpc-plain-config"
+      />,
+    );
+
+    fireEvent.change(queryByTestId('grpc-plain-config-tls-mode') as HTMLSelectElement, {
+      target: { value: 'disabled' },
+    });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ tlsMode: 'disabled' }));
+    expect(queryByTestId('grpc-plain-config-tls-panel')).not.toBeInTheDocument();
+  });
+
   it('expands TLS panel, patches tlsConfig, and toggles certificate editor visibility', () => {
     const onChange = vi.fn();
     const { getByTestId, queryByTestId, rerender } = render(
@@ -85,6 +127,22 @@ describe('GrpcWorkflowConnectionSecurityFields coverage gaps', () => {
 
     fireEvent.click(getByTestId('mock-tls-mode-mtls'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ tlsMode: 'mtls' }));
+  });
+
+  it('passes auth updates through to parent onChange', () => {
+    const onChange = vi.fn();
+    const { getByTestId } = render(
+      <GrpcWorkflowConnectionSecurityFields
+        data={{ ...baseData, tlsMode: 'tls' }}
+        onChange={onChange}
+        testIdPrefix="grpc-auth-config"
+      />,
+    );
+
+    fireEvent.click(getByTestId('mock-auth-panel'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      auth: { type: 'bearer', bearerToken: 'tok' },
+    }));
   });
 
   it('uses localhost preview when target is blank and hides TLS controls when disabled', () => {

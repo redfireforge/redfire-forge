@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
 import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
 
@@ -236,7 +237,7 @@ describe('WebSocketMessageLog — coverage gaps', () => {
       onSetReplaySpeed,
       replayProgress: { current: 1, total: 10, elapsedMs: 100, durationMs: 1000 },
     });
-    fireEvent.change(screen.getByTestId('replay-speed-select'), { target: { value: '0' } });
+    selectOption(screen.getByTestId('replay-speed-select'), 'Max');
     expect(onSetReplaySpeed).toHaveBeenCalledWith(0);
   });
 
@@ -256,5 +257,111 @@ describe('WebSocketMessageLog — coverage gaps', () => {
     fireEvent.click(screen.getByTestId('message-row-f1'));
     fireEvent.click(screen.getByTestId('message-row-f1'));
     expect(getValidation.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('closes direction dropdown on outside click and on Escape', async () => {
+    await renderMessageLog();
+    fireEvent.click(screen.getByTestId('direction-filter'));
+    expect(screen.getByRole('listbox', { name: 'Direction filter options' })).toBeTruthy();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('listbox', { name: 'Direction filter options' })).toBeNull();
+
+    fireEvent.click(screen.getByTestId('direction-filter'));
+    expect(screen.getByRole('listbox', { name: 'Direction filter options' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('listbox', { name: 'Direction filter options' })).toBeNull();
+  });
+
+  it('closes validation dropdown after selecting an option', async () => {
+    const setValidationFilter = vi.fn();
+    await renderMessageLog({
+      validationEnabled: true,
+      hasEnabledSchemas: true,
+      setValidationFilter,
+      validationFilter: 'all',
+    });
+    fireEvent.click(screen.getByTestId('validation-filter'));
+    fireEvent.click(screen.getByTestId('validation-filter-opt-valid'));
+    expect(setValidationFilter).toHaveBeenCalledWith('valid');
+    expect(screen.queryByRole('listbox', { name: 'Validation filter options' })).toBeNull();
+  });
+
+  it('marks invalid regex input and clears state for valid regex', async () => {
+    const view = render(<WebSocketMessageLog {...defaultProps({ searchMode: 'regex', searchText: '[abc' })} />);
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    const search = view.getByTestId('search-input');
+    expect(search.className).toContain('ws-search-invalid');
+
+    view.rerender(<WebSocketMessageLog {...defaultProps({ searchMode: 'regex', searchText: '^abc$' })} />);
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(view.getByTestId('search-input').className).not.toContain('ws-search-invalid');
+  });
+
+  it('ignores file input change when no file or loader is provided', async () => {
+    await renderMessageLog({ onLoadRecordingFile: undefined });
+    const fileInput = screen.getByTestId('recording-file-input') as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [] } });
+    });
+    expect(screen.queryByTestId('import-error')).toBeNull();
+  });
+
+  it('falls back to default labels for unknown direction/validation filters', async () => {
+    await renderMessageLog({
+      directionFilter: 'unknown' as unknown as 'all',
+      validationEnabled: true,
+      hasEnabledSchemas: true,
+      setValidationFilter: vi.fn(),
+      validationFilter: 'unknown' as unknown as 'all',
+    });
+    expect(screen.getByTestId('direction-filter').textContent).toContain('All');
+    expect(screen.getByTestId('validation-filter').textContent).toContain('Validation: All');
+  });
+
+  it('prunes validation cache when message list shrinks significantly', async () => {
+    const getValidation = vi.fn(() => [{ valid: true, schemaId: 's1', schemaName: 'T', errors: [] }]);
+    const many = Array.from({ length: 70 }, (_, i) => makeFrame({ id: `m-${i}`, data: '{}' }));
+    const one = [many[0]];
+
+    const view = render(<WebSocketMessageLog {...defaultProps({
+      messages: many,
+      allMessages: many,
+      totalCount: many.length,
+      validationEnabled: true,
+      hasEnabledSchemas: true,
+      validationFilter: 'valid',
+      setValidationFilter: vi.fn(),
+      getValidation,
+    })} />);
+
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    view.rerender(<WebSocketMessageLog {...defaultProps({
+      messages: one,
+      allMessages: one,
+      totalCount: one.length,
+      validationEnabled: true,
+      hasEnabledSchemas: true,
+      validationFilter: 'valid',
+      setValidationFilter: vi.fn(),
+      getValidation,
+    })} />);
+
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByTestId(`message-row-${one[0].id}`)).toBeTruthy();
   });
 });

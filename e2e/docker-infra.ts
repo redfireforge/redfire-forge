@@ -26,11 +26,25 @@ interface DockerStackDef {
 }
 
 async function fetchOk(url: string): Promise<boolean> {
+  // Corporate HTTP_PROXY must not apply to loopback Docker health probes.
+  const prevHttp = process.env.http_proxy;
+  const prevHttps = process.env.https_proxy;
+  const prevHttpUpper = process.env.HTTP_PROXY;
+  const prevHttpsUpper = process.env.HTTPS_PROXY;
+  delete process.env.http_proxy;
+  delete process.env.https_proxy;
+  delete process.env.HTTP_PROXY;
+  delete process.env.HTTPS_PROXY;
   try {
     const resp = await fetch(url, { signal: AbortSignal.timeout(3_000) });
     return resp.ok || resp.status < 600;
   } catch {
     return false;
+  } finally {
+    if (prevHttp !== undefined) process.env.http_proxy = prevHttp;
+    if (prevHttps !== undefined) process.env.https_proxy = prevHttps;
+    if (prevHttpUpper !== undefined) process.env.HTTP_PROXY = prevHttpUpper;
+    if (prevHttpsUpper !== undefined) process.env.HTTPS_PROXY = prevHttpsUpper;
   }
 }
 
@@ -120,6 +134,15 @@ const GQL5_DOCKER_STACKS: DockerStackDef[] = [
   GQL_MTLS_STACK,
 ];
 
+/** Socket.IO / GraphQL-WS / STOMP protocol servers (ports 3100 / 4100 / 15674). */
+const WEBSOCKET_PROTOCOLS_STACK: DockerStackDef = {
+  name: 'websocket-protocols',
+  cwd: path.join(REPO_ROOT, 'docker/websocket'),
+  composeArgs: '-f docker-compose.all.yml',
+  // Socket.IO echo exposes /health (plain / may 404).
+  healthCheck: () => fetchOk('http://localhost:3100/health'),
+};
+
 const FULL_DOCKER_STACKS: DockerStackDef[] = [
   GRAPHQL_STACK,
   {
@@ -142,12 +165,7 @@ const FULL_DOCKER_STACKS: DockerStackDef[] = [
     cwd: path.join(REPO_ROOT, 'docker/kafka/schema-registry'),
     healthCheck: isSchemaRegistryHealthy,
   },
-  {
-    name: 'websocket-protocols',
-    cwd: path.join(REPO_ROOT, 'docker/websocket'),
-    composeArgs: '-f docker-compose.all.yml',
-    healthCheck: () => fetchOk('http://localhost:3100/'),
-  },
+  WEBSOCKET_PROTOCOLS_STACK,
   GRPC_STACK,
 ];
 
@@ -231,6 +249,11 @@ export async function ensureGrpcTestServerInfrastructure(): Promise<void> {
   await ensureStacks([GRPC_STACK]);
 }
 
+/** Start WebSocket protocol echo servers only (Socket.IO / GraphQL-WS / STOMP). */
+export async function ensureWsDockerInfrastructure(): Promise<void> {
+  await ensureStacks([WEBSOCKET_PROTOCOLS_STACK]);
+}
+
 /** Start plain GraphQL + TLS + mTLS stacks for GQL-5 demo E2E. */
 export async function ensureGql5DockerInfrastructure(): Promise<void> {
   ensureGqlTlsCerts();
@@ -245,6 +268,10 @@ export function stopDockerInfrastructure(fullDocker: boolean): void {
 
 export function stopGrpcTestServerInfrastructure(): void {
   stopStacks([GRPC_STACK]);
+}
+
+export function stopWsDockerInfrastructure(): void {
+  stopStacks([WEBSOCKET_PROTOCOLS_STACK]);
 }
 
 export function stopGql5DockerInfrastructure(): void {

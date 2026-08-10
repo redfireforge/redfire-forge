@@ -255,9 +255,9 @@ describe('WorkflowCanvasControls', () => {
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
     expect(mockFitView).toHaveBeenCalledWith({
-      padding: 0.1,
-      maxZoom: 1.5,
-      minZoom: 0.85,
+      padding: 0.15,
+      maxZoom: 1,
+      minZoom: 0.4,
       duration: 300,
       includeHiddenNodes: true,
     });
@@ -273,51 +273,37 @@ describe('WorkflowCanvasControls', () => {
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
     expect(mockFitView).toHaveBeenCalledWith({
-      padding: 0.1,
-      maxZoom: 1.5,
-      minZoom: 0.85,
+      padding: 0.15,
+      maxZoom: 1,
+      minZoom: 0.4,
       duration: 300,
       includeHiddenNodes: true,
     });
     expect(mockSetViewport).not.toHaveBeenCalled();
   });
 
-  it('calls onAutoLayout before fitView when provided', () => {
+  it('calls onAutoLayout then fitView when Fit view clicked with onAutoLayout prop', () => {
     mockFitView.mockClear();
     const onAutoLayout = vi.fn();
+    const rafSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((cb: FrameRequestCallback) => {
+        cb(0);
+        return 1;
+      });
     const { container } = renderWithProvider(
       <WorkflowCanvasControls {...baseProps} onAutoLayout={onAutoLayout} />,
     );
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(onAutoLayout).toHaveBeenCalledTimes(1);
-  });
-
-  it('runs the requestAnimationFrame fitView callback after onAutoLayout', () => {
-    mockFitView.mockClear();
-    const onAutoLayout = vi.fn();
-    const rafSpy = vi
-      .spyOn(globalThis, 'requestAnimationFrame')
-      .mockImplementation((cb: FrameRequestCallback) => {
-        cb(0);
-        return 0;
-      });
-    try {
-      const { container } = renderWithProvider(
-        <WorkflowCanvasControls {...baseProps} onAutoLayout={onAutoLayout} />,
-      );
-      const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
-      fireEvent.click(btn!);
-      expect(onAutoLayout).toHaveBeenCalledTimes(1);
-      expect(mockFitView).toHaveBeenCalledWith({
-        padding: 0.1,
-        maxZoom: 1.5,
-        minZoom: 0.85,
-        duration: 300,
-        includeHiddenNodes: true,
-      });
-    } finally {
-      rafSpy.mockRestore();
-    }
+    expect(onAutoLayout).toHaveBeenCalled();
+    expect(mockFitView).toHaveBeenCalledWith({
+      padding: 0.15,
+      maxZoom: 1,
+      minZoom: 0.4,
+      duration: 300,
+      includeHiddenNodes: true,
+    });
+    rafSpy.mockRestore();
   });
 });

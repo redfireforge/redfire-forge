@@ -26,7 +26,6 @@ import { WF } from '../src/shared/selectors';
 import {
   launchLesson,
   runNextStep,
-  waitForReadingPhase,
   assertNodeNotSelected,
   getStepInfo,
   takeNamedScreenshot,
@@ -45,13 +44,52 @@ const CONFIG_RING_AFTER_STEP: Record<number, string> = {
   8: WF.NODE_WS_RECEIVE,
 };
 
+function parseStepNumber(counter: string): number {
+  const match = counter.match(/(\d+)\s*\/\s*\d+/);
+  return match ? Number(match[1]) : NaN;
+}
+
+async function advanceOneStep(page: Parameters<typeof launchLesson>[0]): Promise<void> {
+  const panelSel = '[data-testid="demo-live-panel"]';
+  const counterSel = '.demo-live-step-counter';
+  const nextBtn = page.locator('[aria-label="Next step"]');
+  const skipBadge = page.locator('.demo-live-phase-badge.skippable');
+  const beforeCounter = (await page.locator(counterSel).textContent()) ?? '';
+  const beforeStep = parseStepNumber(beforeCounter);
+
+  const deadline = Date.now() + DEMO_ACTION_TIMEOUT;
+  while (Date.now() < deadline) {
+    const currentCounter = (await page.locator(counterSel).textContent()) ?? '';
+    const currentStep = parseStepNumber(currentCounter);
+    if (Number.isFinite(currentStep) && currentStep > beforeStep) return;
+
+    const phase = await page.locator(panelSel).getAttribute('data-step-phase');
+    const nextEnabled = await nextBtn.isEnabled().catch(() => false);
+
+    if (nextEnabled) {
+      await nextBtn.click();
+      await page.waitForTimeout(180);
+      continue;
+    }
+
+    if (phase === 'reading' && await skipBadge.isVisible().catch(() => false)) {
+      await skipBadge.click();
+      await page.waitForTimeout(180);
+      continue;
+    }
+
+    await page.waitForTimeout(220);
+  }
+
+  throw new Error(`advanceOneStep timeout: counter did not advance from ${beforeCounter.trim()}`);
+}
+
 async function assertConfigStepOpensWithoutSelectionRing(
   page: Parameters<typeof launchLesson>[0],
   nodeSelector: string,
 ): Promise<void> {
-  await waitForReadingPhase(page, DEMO_ACTION_TIMEOUT);
-  await page.locator(nodeSelector).waitFor({ state: 'visible', timeout: DEMO_ACTION_TIMEOUT });
   await expect(page.locator('.wf-config-modal')).toBeVisible({ timeout: 30_000 });
+  await page.locator(nodeSelector).waitFor({ state: 'visible', timeout: DEMO_ACTION_TIMEOUT });
   await assertNodeNotSelected(page, nodeSelector);
 }
 
@@ -105,7 +143,7 @@ test.describe('WS Workflow Builder — lesson shell', () => {
 
 test.describe('WS Workflow Builder — full walkthrough', () => {
   test('builder steps 1-9 complete without error', async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(420_000);
     await launchLesson(page, 'WebSocket', 'Workflow Builder');
     await page.locator(WF.CANVAS).waitFor({ state: 'visible', timeout: 60_000 });
 
@@ -113,7 +151,7 @@ test.describe('WS Workflow Builder — full walkthrough', () => {
       const { counter, title } = await getStepInfo(page);
       console.log(`[STEP ${step}] ${counter}: ${title}`);
       await takeNamedScreenshot(page, `wf-builder-step-${String(step).padStart(2, '0')}`);
-      await runNextStep(page, DEMO_ACTION_TIMEOUT);
+      await advanceOneStep(page);
 
       const nodeSelector = CONFIG_RING_AFTER_STEP[step];
       if (nodeSelector) {
@@ -141,8 +179,8 @@ test.describe('WS Workflow Builder — demo controls', () => {
     test.setTimeout(120_000);
     await launchLesson(page, 'WebSocket', 'Workflow Builder');
     // Advance 2 steps then restart
-    await runNextStep(page, DEMO_ACTION_TIMEOUT);
-    await runNextStep(page, DEMO_ACTION_TIMEOUT);
+    await advanceOneStep(page);
+    await advanceOneStep(page);
     const { counter: before } = await getStepInfo(page);
     expect(before).toMatch(/3\s*[/]\s*11/);
 

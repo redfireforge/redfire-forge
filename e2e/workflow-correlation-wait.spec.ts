@@ -152,7 +152,7 @@ test.describe('Correlation Wait Node — Config Modal', () => {
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
     // Should have a label input with current value
-    const labelInput = modal.locator('.wf-config-field input').first();
+    const labelInput = modal.locator('.wf-kafka-form-row input').first();
     await expect(labelInput).toHaveValue('Wait for Payment');
   });
 
@@ -175,6 +175,7 @@ test.describe('Correlation Wait Node — Palette', () => {
   test('palette Actions category shows Correlation Wait block', async ({ page }) => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
+    await page.locator('[data-testid="wf-palette-rail-actions"]').click();
 
     await expect(page.locator('.wf-palette-block-correlationWait .wf-pb-title')).toHaveText('Correlation Wait');
   });
@@ -182,6 +183,7 @@ test.describe('Correlation Wait Node — Palette', () => {
   test('clicking Correlation Wait palette block adds a node to canvas', async ({ page }) => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
+    await page.locator('[data-testid="wf-palette-rail-actions"]').click();
 
     await expect(page.locator('.wf-node-correlationWait')).toHaveCount(1);
     await page.locator('.wf-palette-block-correlationWait').click();
@@ -203,7 +205,7 @@ test.describe('Correlation Wait Node — Test Webhook', () => {
     const testWebhookSection = modal.locator('[data-testid="test-webhook-section"]');
     await testWebhookSection.scrollIntoViewIfNeeded();
     await expect(testWebhookSection).toBeVisible();
-    await expect(modal.locator('.wf-test-webhook-title')).toHaveText('Test Webhook');
+    await expect(modal.locator('[data-testid="test-webhook-section"] .wf-kafka-card-title-text')).toHaveText('Test Webhook');
   });
 
   test('Test Webhook textarea has default payload', async ({ page }) => {
@@ -251,11 +253,11 @@ test.describe('Execution History — Paused Tab', () => {
 
     await gotoAppTab(page, 'workflow-executions');
 
-    // The dropdown should have a paused option
-    const select = page.locator('.exh-select').first();
+    // The CustomSelect dropdown should have a paused option
+    const select = page.locator('.exh-select .cs-trigger').first();
     await expect(select).toBeVisible({ timeout: 5000 });
-    const options = await select.locator('option').allTextContents();
-    const hasPaused = options.some(t => t.includes('Paused'));
-    expect(hasPaused).toBe(true);
+    await select.click();
+    const pausedItem = page.locator('.cs-menu .cs-item', { hasText: 'Paused' });
+    await expect(pausedItem).toBeVisible({ timeout: 3000 });
   });
 });

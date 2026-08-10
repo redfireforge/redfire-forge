@@ -7,6 +7,7 @@ import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import { createWsHeaderRow } from './wsConfigFactories';
 import { WsKeyValueSection, WsOutputBindingsSection } from './WsConfigShared';
+import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 
 const OUTPUT_FIELD_OPTIONS: WsConnectOutputBinding['field'][] = ['protocol', 'extensions', 'latencyMs'];
 
@@ -33,58 +34,70 @@ export default function WsConnectConfig({
   const hintSet = useMemo(() => variableHints, [variableHints]);
 
   return (
-    <div className="wf-config-body" data-testid="ws-connect-config">
-      <div className="wf-config-field--row">
-        <label>Label</label>
-        <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
-      </div>
+    <div className="wf-config-body wf-ws-connect-config" data-testid="ws-connect-config">
+      <KafkaCard
+        title="Connection"
+        hint="WebSocket endpoint, connection identity, and handshake options."
+      >
+        <div className="wf-kafka-form wf-kafka-form--connection">
+          <KafkaFormRow label="Label" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={data.label}
+              onChange={(e) => update({ label: e.target.value })}
+              placeholder="WS Connect"
+            />
+          </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>URL</label>
-        <InsertVarField
-          onRequestVariableInsert={onRequestVariableInsert}
-          shortRef
-          onInsert={(snippet) => update({ url: `${data.url}${snippet}` })}
-        >
-          <ExpressionInput
-            value={data.url}
-            onChange={(value) => update({ url: value })}
-            placeholder="wss://example.com/ws"
-            variableHints={hintSet}
-          />
-        </InsertVarField>
-      </div>
+          <KafkaFormRow label="URL" hint={<>e.g. <code>wss://…</code></>}>
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              shortRef
+              onInsert={(snippet) => update({ url: `${data.url}${snippet}` })}
+            >
+              <ExpressionInput
+                value={data.url}
+                onChange={(value) => update({ url: value })}
+                placeholder="wss://example.com/ws"
+                variableHints={hintSet}
+              />
+            </InsertVarField>
+          </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>Connection ID</label>
-        <input
-          value={data.connectionId}
-          onChange={(e) => update({ connectionId: e.target.value })}
-          placeholder="ws1"
-        />
-      </div>
+          <KafkaFormRow label="Connection ID" hint="Referenced by Send / Receive nodes" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={data.connectionId}
+              onChange={(e) => update({ connectionId: e.target.value })}
+              placeholder="ws1"
+            />
+          </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>Subprotocols</label>
-        <input
-          value={(data.subprotocols ?? []).join(', ')}
-          onChange={(e) => update({ subprotocols: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-          placeholder="graphql-ws, mqtt"
-        />
-      </div>
+          <KafkaFormRow label="Subprotocols" hint="Comma-separated" compact>
+            <input
+              className="wf-kafka-form-input"
+              value={(data.subprotocols ?? []).join(', ')}
+              onChange={(e) => update({ subprotocols: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
+              placeholder="graphql-ws, mqtt"
+            />
+          </KafkaFormRow>
 
-      <div className="wf-config-field--row">
-        <label>Timeout (ms)</label>
-        <input
-          type="number"
-          value={data.timeoutMs}
-          onChange={(e) => update({ timeoutMs: Number(e.target.value) || 10000 })}
-          placeholder="10000"
-        />
-      </div>
+          <KafkaFormRow label="Timeout (ms)" hint="Handshake wait" compact>
+            <input
+              className="wf-kafka-form-input"
+              type="number"
+              value={data.timeoutMs}
+              onChange={(e) => update({ timeoutMs: Number(e.target.value) || 10000 })}
+              placeholder="10000"
+            />
+          </KafkaFormRow>
+        </div>
+      </KafkaCard>
 
       <WsKeyValueSection
         title="Headers"
+        hint="Handshake headers sent with the WebSocket upgrade."
+        emptyText="No headers yet. Add Authorization or custom handshake headers when needed."
         rows={headers}
         keyPlaceholder="Header name"
         addLabel="+ Add Header"
@@ -96,6 +109,8 @@ export default function WsConnectConfig({
 
       <WsKeyValueSection
         title="Query Parameters"
+        hint="Appended to the URL before the handshake."
+        emptyText="No query parameters. Add token or room IDs as URL params when needed."
         rows={queryParams}
         keyPlaceholder="Param name"
         addLabel="+ Add Parameter"
@@ -110,6 +125,7 @@ export default function WsConnectConfig({
         fieldOptions={OUTPUT_FIELD_OPTIONS}
         bindingCrud={bindingCrud}
         onAdd={() => update({ outputBindings: [...outputBindings, { field: 'protocol' as const, variableName: '', enabled: true }] })}
+        hint="Map negotiated protocol, extensions, or connect latency into workflow variables."
       />
 
       <AvailableVariables hints={variableHints} />

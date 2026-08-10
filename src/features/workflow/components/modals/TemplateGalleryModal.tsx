@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { sampleWorkflowCatalog, type SampleWorkflowEntry, type SampleCategory } from '../../../../data/galleries/workflows';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const CATEGORIES: { key: SampleCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'All Templates' },
@@ -141,18 +142,16 @@ export function TemplateGalleryContent({ onSelect, loadedSampleIds }: { onSelect
 
         <div className="tg-node-filter">
           <label className="tg-node-filter-label">Find by Node:</label>
-          <select
+          <CustomSelect
             value={nodeFilter}
-            onChange={e => setNodeFilter(e.target.value)}
+            onChange={(v) => setNodeFilter(v)}
             aria-label="Filter by node type"
             className="tg-node-filter-select"
-          >
-            {nodeOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.value ? `${opt.label} (${opt.count})` : opt.label}
-              </option>
-            ))}
-          </select>
+            options={nodeOptions.map(opt => ({
+              value: opt.value,
+              label: opt.value ? `${opt.label} (${opt.count})` : opt.label,
+            }))}
+          />
         </div>
       </div>
 

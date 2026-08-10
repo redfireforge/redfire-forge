@@ -28,6 +28,7 @@ import type { GrpcDemoLesson } from './grpc-lesson-contract';
 import {
   purgeEmptyGrpcDemoCollectionsByName,
   purgeGrpcDemoSavedRequests,
+  resetSettingsMicroserviceProtocols,
 } from '../../adapters';
 import {
   DEMO_COLLECTION_NAME,
@@ -58,20 +59,25 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       '`{{grpcHost}}`. Click **Protocol vars** to add global variables like `requestId` and `userId` that ' +
       'apply to every environment for this microservice.',
     pauseAfter: true,
+    // Hold boot veil until Environments + Add protocol are painted (avoids blue empty flash).
+    highlight: EM.ADD_PROTOCOL_BTN,
     preAction: async (ctx) => {
-      // Fast path for lesson start: setup already lands on EM with grpc-demo expanded
-      // and gRPC disabled, so skip extra movement if that state is already true.
-      const managerVisible = !!document.querySelector(EM.MANAGER);
-      const grpcSvcCard = document.querySelector<HTMLElement>(`[data-svc-name="${GRPC_DEMO_SVC_NAME}"]`);
-      const panel = document.querySelector<HTMLElement>(EM.PROTOCOL_PANEL);
-      const grpcTabPresent = !!document.querySelector(EM.PROTOCOL_TAB_GRPC);
-      if (managerVisible && grpcSvcCard && panel && grpcSvcCard.contains(panel) && !grpcTabPresent) {
-        return;
-      }
-      // Recovery path for restart/rapid-next/direct-step entry.
+      // Always wipe leftover gRPC config from a prior run before Reading.
+      // DOM × remove is unreliable (button display:none until hover/active).
+      resetSettingsMicroserviceProtocols(GRPC_DEMO_SVC_NAME, {
+        clearProtocols: true,
+        clearGlobalVars: true,
+      });
       await navigateToEnvironmentManager(ctx);
       await expandNamedMicroservice(ctx, GRPC_DEMO_SVC_NAME);
-      await ensureProtocolDisabled(ctx, 'grpc');
+      await ctx.delay(80);
+      // Belt: if a gRPC tab somehow remains, try the DOM remove after activating it.
+      if (document.querySelector(EM.PROTOCOL_TAB_GRPC)) {
+        const tab = document.querySelector<HTMLElement>(EM.PROTOCOL_TAB_GRPC);
+        tab?.click();
+        await ctx.delay(60);
+        await ensureProtocolDisabled(ctx, 'grpc');
+      }
     },
     action: async (ctx) => {
       // 1. Add gRPC protocol via the + Add protocol button.
@@ -108,42 +114,47 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
         await ctx.delay(250);
       }
 
-      // 3. Open Protocol vars modal, add requestId + userId, save.
-      await spotlightAndPause(ctx, '[data-testid="protocol-vars-badge"]', 1_000);
-      await ctx.delay(200);
-      await ctx.click('[data-testid="protocol-vars-badge"]');
-      try { await ctx.waitFor('[data-testid="protocol-vars-modal"]', 1_500); } catch { /* ok */ }
-      await spotlightAndPause(ctx, '[data-testid="protocol-vars-modal"]', 900);
-      await ctx.delay(220);
-      const ensureVarInModal = async (key: string, value: string) => {
+      // 3. Spotlight Protocol vars badge (hold so viewers find it), then open modal.
+      const protocolVarsBadge = document.querySelector<HTMLElement>(EM.PROTOCOL_VARS_BADGE);
+      if (protocolVarsBadge) {
+        protocolVarsBadge.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await ctx.delay(450);
+      }
+      await spotlightAndPause(ctx, EM.PROTOCOL_VARS_BADGE, 1_400);
+      await ctx.delay(350);
+      await ctx.click(EM.PROTOCOL_VARS_BADGE);
+      try { await ctx.waitFor(EM.PROTOCOL_VARS_MODAL, 1_500); } catch { /* ok */ }
+      await ctx.delay(700); // viewer sees the empty modal — no whole-modal ring
+
+      // Teach the add-row flow once for requestId (spotlights), then add userId
+      // quietly so Key/Value/Add rings are not repeated twice.
+      const addProtocolVar = async (key: string, value: string, { spotlight }: { spotlight: boolean }) => {
         const rowSel = `[data-testid="protocol-var-row-${key}"]`;
         if (document.querySelector(rowSel)) {
           const valueSel = `[data-testid="protocol-var-value-${key}"]`;
           const valueInput = document.querySelector<HTMLInputElement>(valueSel);
           if (valueInput && valueInput.value !== value) {
-            await spotlightAndPause(ctx, valueSel, 850);
-            await ctx.delay(200);
+            if (spotlight) await spotlightAndPause(ctx, valueSel, 800);
             await ctx.fill(valueSel, value);
             await ctx.delay(350);
-          } else {
-            await ctx.delay(200);
           }
           return;
         }
-        await spotlightAndPause(ctx, '[data-testid="protocol-vars-key-input"]', 850);
-        await ctx.fill('[data-testid="protocol-vars-key-input"]', key);
-        await ctx.delay(350);
-        await spotlightAndPause(ctx, '[data-testid="protocol-vars-val-input"]', 850);
-        await ctx.fill('[data-testid="protocol-vars-val-input"]', value);
-        await ctx.delay(450);
-        await spotlightAndPause(ctx, '[data-testid="protocol-vars-add-btn"]', 650);
-        await ctx.click('[data-testid="protocol-vars-add-btn"]');
-        await ctx.delay(500);
+        if (spotlight) await spotlightAndPause(ctx, EM.PROTOCOL_VARS_KEY_INPUT, 900);
+        await ctx.fill(EM.PROTOCOL_VARS_KEY_INPUT, key);
+        await ctx.delay(spotlight ? 400 : 300);
+        if (spotlight) await spotlightAndPause(ctx, EM.PROTOCOL_VARS_VAL_INPUT, 900);
+        await ctx.fill(EM.PROTOCOL_VARS_VAL_INPUT, value);
+        await ctx.delay(spotlight ? 450 : 300);
+        if (spotlight) await spotlightAndPause(ctx, EM.PROTOCOL_VARS_ADD_BTN, 700);
+        await ctx.click(EM.PROTOCOL_VARS_ADD_BTN);
+        await ctx.delay(550);
       };
-      await ensureVarInModal('requestId', DEMO_REQUEST_ID);
-      await ensureVarInModal('userId', DEMO_USER_ID);
-      await ctx.click('[data-testid="protocol-vars-save-btn"]');
-      await ctx.delay(400);
+      await addProtocolVar('requestId', DEMO_REQUEST_ID, { spotlight: true });
+      await addProtocolVar('userId', DEMO_USER_ID, { spotlight: false });
+      await spotlightAndPause(ctx, EM.PROTOCOL_VARS_SAVE_BTN, 900);
+      await ctx.click(EM.PROTOCOL_VARS_SAVE_BTN);
+      await ctx.delay(500);
       markCustomVarsSeeded();
     },
   },
@@ -421,8 +432,9 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
     title: 'Collections Tree: Browse, Search & Rename',
     description:
       'The **Collections** sub-nav shows your saved call tree. Expand **`' + DEMO_COLLECTION_NAME + '`** to ' +
-      'find your saved request. The **✎** icon lets you rename the collection. Use the search bar to filter ' +
-      'across all collections. Collections are stored in IndexedDB and survive browser restarts.',
+      'find your saved request. Click **Rename** beside the collection name to open the rename dialog — ' +
+      'we will open it, then Cancel so nothing changes. Use the search bar to filter across collections. ' +
+      'Collections are stored in IndexedDB and survive browser restarts.',
     highlight: GRPC.COLLECTIONS_PANEL,
     pauseAfter: true,
     preAction: async (ctx) => {
@@ -442,14 +454,13 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       }
 
       // Expand collection group.
-      const groupHeader = document.querySelector<HTMLButtonElement>(
+      const groupHeader = document.querySelector<HTMLElement>(
         '[data-testid^="grpc-collection-group-"]',
       );
       if (groupHeader) {
         await spotlightAndPause(ctx, '[data-testid^="grpc-collection-group-"]', 800);
         const toggle = groupHeader.querySelector<HTMLButtonElement>('.grpc-collection-group__header');
         if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
-          await spotlightAndPause(ctx, '.grpc-collection-group__header', 700);
           toggle.click();
           await ctx.delay(500);
         }
@@ -457,36 +468,35 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
 
       const savedItem = document.querySelector<HTMLElement>('[data-testid^="grpc-collection-saved-"]');
       if (savedItem) {
-        await spotlightAndPause(ctx, '[data-testid^="grpc-collection-saved-"]', 1_000);
+        await spotlightAndPause(ctx, '[data-testid^="grpc-collection-saved-"]', 900);
       }
+
+      // Rename is the ✎ Rename control on the collection header row (always visible).
       const renameBtn = document.querySelector<HTMLElement>(
         '[data-testid^="grpc-collection-group-rename-"]',
       );
       if (renameBtn) {
-        await spotlightAndPause(ctx, '[data-testid^="grpc-collection-group-rename-"]', 1_200);
+        renameBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await ctx.delay(400);
+        await spotlightAndPause(ctx, '[data-testid^="grpc-collection-group-rename-"]', 1_400);
+        await ctx.delay(250);
         await ctx.click('[data-testid^="grpc-collection-group-rename-"]');
         try { await ctx.waitFor(GRPC.COLLECTION_RENAME_MODAL, 1_500); } catch { /* ok */ }
         if (document.querySelector(GRPC.COLLECTION_RENAME_MODAL)) {
-          await spotlightAndPause(ctx, GRPC.COLLECTION_RENAME_MODAL, 1_200);
+          await ctx.delay(600);
+          await spotlightAndPause(ctx, GRPC.COLLECTION_RENAME_INPUT, 1_000);
           await spotlightAndPause(ctx, GRPC.COLLECTION_RENAME_CANCEL, 900);
           await ctx.click(GRPC.COLLECTION_RENAME_CANCEL);
           await ctx.delay(700);
         }
       }
 
-      // Keep Saved Requests expanded at the end of the step so entries stay visible.
-      const finalToggle = document.querySelector<HTMLButtonElement>('.grpc-collection-group__header');
-      if (finalToggle && finalToggle.getAttribute('aria-expanded') !== 'true') {
-        await spotlightAndPause(ctx, '.grpc-collection-group__header', 800);
-        finalToggle.click();
-        await ctx.delay(600);
-      }
       const finalSavedItem = document.querySelector<HTMLElement>('[data-testid^="grpc-collection-saved-"]');
       if (finalSavedItem) {
-        await spotlightAndPause(ctx, '[data-testid^="grpc-collection-saved-"]', 1_100);
+        await spotlightAndPause(ctx, '[data-testid^="grpc-collection-saved-"]', 900);
       }
     },
-    verify: '[data-testid^="grpc-collection-saved-"]',
+    verify: '[data-testid^="grpc-collection-group-rename-"]',
   },
 
   // =========================================================================

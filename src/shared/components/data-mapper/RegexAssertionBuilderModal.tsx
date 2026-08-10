@@ -227,6 +227,10 @@ export default function RegexAssertionBuilderModal({
     <FullPanelModal
       title="Regex Assertion Builder"
       onClose={onCancel}
+      movable
+      resizable
+      minWidth={600}
+      minHeight={400}
       footer={(
         <>
           <button className="btn btn-cancel" onClick={onCancel}>Cancel</button>

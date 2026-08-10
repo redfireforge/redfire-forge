@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import AppLiveDemoOverlay from './AppLiveDemoOverlay';
@@ -27,14 +27,16 @@ vi.mock('@redfireforge/demo-hub/LiveDemo', () => ({
 
 function makeDemoHub(overrides: Record<string, unknown> = {}) {
   return {
-    state: { view: 'live', selectedLesson: { id: 'gql-first-query' }, stepIndex: 0, isPlaying: false },
+    state: { view: 'live', selectedLesson: { id: 'gql-first-query', name: 'First Query' }, stepIndex: 0, isPlaying: false },
     stepPhase: 'reading',
+    isDemoBootstrapping: false,
     nextStep: vi.fn(),
     toggleAutoPlay: vi.fn(),
     skipReading: vi.fn(),
     restartDemo: vi.fn(),
     exitLiveDemo: vi.fn(async () => {}),
     confirmLessonComplete: vi.fn(),
+    suppressLiveTabExitRef: { current: false },
     ...overrides,
   } as never;
 }
@@ -62,22 +64,37 @@ describe('AppLiveDemoOverlay', () => {
     expect(screen.getByTestId('live-demo')).toHaveAttribute('data-lesson', 'gql-first-query');
   });
 
-  it('onExit navigates to demo-hub immediately then exitLiveDemo', async () => {
-    const navigateToTab = vi.fn();
-    const exitLiveDemo = vi.fn(async () => {});
+  it('keeps LiveDemo mounted during boot (no concept-cover / Preparing screen)', () => {
     render(
       <AppLiveDemoOverlay
-        demoHub={makeDemoHub({ exitLiveDemo })}
+        demoHub={makeDemoHub({ isDemoBootstrapping: true, stepPhase: 'pre' })}
+        navigateToTab={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('live-demo')).toBeInTheDocument();
+    expect(screen.queryByTestId('demo-content-veil')).toBeNull();
+    expect(screen.queryByTestId('demo-boot-concept-cover')).toBeNull();
+  });
+
+  it('onExit exits live mode before pinning demo-hub, then pins again after cleanup', async () => {
+    const navigateToTab = vi.fn();
+    const exitLiveDemo = vi.fn(async () => {});
+    const suppressLiveTabExitRef = { current: false };
+    render(
+      <AppLiveDemoOverlay
+        demoHub={makeDemoHub({ exitLiveDemo, suppressLiveTabExitRef })}
         navigateToTab={navigateToTab}
       />,
     );
     await userEvent.click(screen.getByTestId('trigger-exit'));
-    expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
+    expect(suppressLiveTabExitRef.current).toBe(true);
     expect(exitLiveDemo).toHaveBeenCalledTimes(1);
-    expect(navigateToTab.mock.invocationCallOrder[0]).toBeLessThan(exitLiveDemo.mock.invocationCallOrder[0]);
+    await waitFor(() => expect(navigateToTab).toHaveBeenCalledTimes(2));
+    expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
+    expect(exitLiveDemo.mock.invocationCallOrder[0]).toBeLessThan(navigateToTab.mock.invocationCallOrder[0]);
   });
 
-  it('onComplete calls confirmLessonComplete, navigates to demo-hub, then exitLiveDemo', async () => {
+  it('onComplete calls confirmLessonComplete and pins demo-hub before/after exit', async () => {
     const navigateToTab = vi.fn();
     const exitLiveDemo = vi.fn(async () => {});
     const confirmLessonComplete = vi.fn();
@@ -89,8 +106,9 @@ describe('AppLiveDemoOverlay', () => {
     );
     await userEvent.click(screen.getByTestId('trigger-complete'));
     expect(confirmLessonComplete).toHaveBeenCalledTimes(1);
-    expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
     expect(exitLiveDemo).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(navigateToTab).toHaveBeenCalledTimes(2));
+    expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
   });
 
   it('passes lesson playback props to LiveDemo', () => {

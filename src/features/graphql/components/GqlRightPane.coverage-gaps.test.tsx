@@ -73,6 +73,9 @@ describe('GqlRightPane — coverage gaps', () => {
         }}
       />,
     );
+    expect(document.querySelector('[data-testid="gql-histogram-strip"]')?.textContent).toContain('1 request');
+
+    // Same timestamp (re-render / same response object identity change) — do not double-count.
     rerender(
       <GqlRightPane
         {...baseProps}
@@ -85,6 +88,9 @@ describe('GqlRightPane — coverage gaps', () => {
         }}
       />,
     );
+    expect(document.querySelector('[data-testid="gql-histogram-strip"]')?.textContent).toContain('1 request');
+
+    // New execute.
     rerender(
       <GqlRightPane
         {...baseProps}
@@ -97,6 +103,21 @@ describe('GqlRightPane — coverage gaps', () => {
         }}
       />,
     );
-    expect(document.querySelector('[data-testid="gql-right-pane"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="gql-histogram-strip"]')?.textContent).toContain('2 requests');
+
+    // Switch back to tab 1's cached response — must not inflate session history.
+    rerender(
+      <GqlRightPane
+        {...baseProps}
+        response={{
+          httpStatus: 200,
+          httpHeaders: {},
+          latencyMs: 42,
+          timestamp: 100,
+          data: { ok: true },
+        }}
+      />,
+    );
+    expect(document.querySelector('[data-testid="gql-histogram-strip"]')?.textContent).toContain('2 requests');
   });
 });

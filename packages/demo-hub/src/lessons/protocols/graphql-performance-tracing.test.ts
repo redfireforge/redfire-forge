@@ -6,6 +6,11 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql11'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
+}));
+
+vi.mock('../demoRipple', () => ({
+  showSpotlightRing: vi.fn(() => vi.fn()),
 }));
 
 import { gqlPerformanceTracingLesson } from './graphql-performance-tracing';
@@ -26,6 +31,7 @@ import {
   ensureTracingResolverHovered,
   ensureTracingSortedByDuration,
   ensureLatencyHistogramVisible,
+  prepareGql10TracingBadgeReading,
   gqlPerformanceTracingLessonCleanup,
 } from './graphql-lesson-helpers';
 import { stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
@@ -186,16 +192,16 @@ describe('gql-performance-tracing lesson', () => {
     expect(step.verify).toBe(GQL.COMPLEXITY_BADGE);
   });
 
-  it('gql10-expand highlights complexity badge', () => {
+  it('gql10-expand highlights editor during reading (badge is the action payoff)', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
-    expect(step.highlight).toBe(GQL.COMPLEXITY_BADGE);
+    expect(step.highlight).toBe(GQL.EDITOR);
     expect(step.verify).toBe(GQL.COMPLEXITY_BADGE);
   });
 
-  it('gql10-execute highlights execute button and verifies response viewer', () => {
+  it('gql10-execute highlights execute button and verifies tracing badge', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-execute')!;
     expect(step.highlight).toBe(GQL.EXECUTE_BTN);
-    expect(step.verify).toBe(GQL.RESPONSE_VIEWER);
+    expect(step.verify).toBe(GQL.RV_TRACING_BADGE);
   });
 
   it('gql10-tracing-badge highlights the tracing badge and verifies trace view', () => {
@@ -216,28 +222,32 @@ describe('gql-performance-tracing lesson', () => {
     expect(step.verify).toBe(GQL.TRACE_RESOLVER_ROW);
   });
 
-  it('gql10-sort highlights sort-by-duration button', () => {
+  it('gql10-sort highlights Slowest first and verifies top resolver after sort', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-sort')!;
     expect(step.highlight).toBe(GQL.TRACE_SORT_DURATION);
-    expect(step.verify).toBe(GQL.TRACE_SORT_DURATION);
+    expect(step.verify).toBe(GQL.TRACE_RESOLVER_ROW);
   });
 
-  it('gql10-histogram highlights histogram strip', () => {
+  it('gql10-histogram highlights Execute during reading (strip appears after samples)', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-histogram')!;
-    expect(step.highlight).toBe(GQL.HISTOGRAM_STRIP);
+    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
     expect(step.verify).toBe(GQL.HISTOGRAM_STRIP);
   });
 
   // ── New gql10-tracing-badge step behaviour ────────────────────────────────
 
-  it('gql10-tracing-badge step has correct preAction and uses ensureTracingExecuted', () => {
+  it('gql10-tracing-badge step uses prepareGql10TracingBadgeReading as preAction', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-tracing-badge')!;
-    expect(step.preAction).toBe(ensureTracingExecuted);
+    expect(step.preAction).toBe(prepareGql10TracingBadgeReading);
   });
 
   it('gql10-tracing-badge action calls ensureTracingViewOpen', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = stubTracingDom();
+    // Waterfall closed — action must click the Tracing badge to open it.
+    document.body.innerHTML = stubTracingDom().replace(
+      /<div data-testid="gql-trace-view">[\s\S]*?<\/div>\s*/,
+      '',
+    );
     stubMonacoEditor(buildTracingUserQuery());
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-tracing-badge')!;
     await step.preAction!(ctx);
@@ -323,7 +333,7 @@ describe('gql-performance-tracing lesson', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-complexity')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 2_000);
   });
 
   it('gql10-execute clicks execute and waits for tracing badge', async () => {
@@ -343,7 +353,7 @@ describe('gql-performance-tracing lesson', () => {
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RV_TRACING_BADGE, 15000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RV_TRACING_BADGE, 4_000);
   });
 
   it('gql10-sort clicks duration sort button', async () => {
@@ -406,7 +416,7 @@ describe('gql-performance-tracing lesson', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 2_000);
   });
 
   it('gql10-expand skips re-run when complexity already increased', async () => {
@@ -423,14 +433,17 @@ describe('gql-performance-tracing lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('gql10-waterfall opens tracing view', async () => {
+  it('gql10-waterfall keeps tracing view open without re-clicking badge', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = stubTracingDom();
     stubMonacoEditor(buildTracingUserQuery());
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-waterfall')!;
     await step.preAction!(ctx);
+    vi.mocked(ctx.click).mockClear();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TRACING_BADGE);
+    // Fast path: TRACE_VIEW already present — do not re-open (avoids 16s timeout).
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.RV_TRACING_BADGE);
+    expect(document.querySelector(GQL.TRACE_VIEW)).toBeTruthy();
   });
 
   it('gql10-hover dispatches mouseover on resolver bar', async () => {
@@ -509,11 +522,13 @@ describe('gql-performance-tracing lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('setup creates demo tab', async () => {
+  it('setup creates demo tab without Environment Manager / Env modal', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="http://old" />
-      <button data-testid="gql-mode-editor"></button>
+      <div data-testid="gql-studio-page"></div>
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-env-badge"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     `;
     stubMonacoEditor('');
@@ -528,14 +543,15 @@ describe('gql-performance-tracing lesson', () => {
       'Performance Tracing',
     );
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
   it('ensureTracingViewOpen uses tracing tab when badge missing', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = stubTracingDom().replace(
-      '<button data-testid="gql-rv-tracing-badge"></button>',
-      '<button data-testid="gql-rv-tab-tracing"></button>',
-    );
+    // No TRACE_VIEW yet — forces open via tab click (fast path skipped).
+    document.body.innerHTML = stubTracingDom()
+      .replace('<button data-testid="gql-rv-tracing-badge"></button>', '<button data-testid="gql-rv-tab-tracing"></button>')
+      .replace(/<div data-testid="gql-trace-view">[\s\S]*?<\/div>\s*/, '');
     stubMonacoEditor(buildTracingUserQuery());
     await ensureTracingViewOpen(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_TRACING);
@@ -549,6 +565,29 @@ describe('gql-performance-tracing lesson', () => {
     vi.mocked(setQuery).mockClear();
     await ensureTracingHealthQuery(ctx);
     expect(setQuery).not.toHaveBeenCalled();
+  });
+
+  it('ensureTracingUserQuery does not downgrade expanded query to health (no ≈1 flicker)', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    const expanded = buildTracingUserQuery('usr-66');
+    const { setQuery } = stubMonacoEditor(expanded);
+    await ensureTracingUserQuery(ctx);
+    expect(setQuery).not.toHaveBeenCalled();
+    expect(getGqlEditorQuery()).toBe(expanded);
+    // Recovery path used by later-step preActions must also leave the editor alone.
+    vi.mocked(setQuery).mockClear();
+    await ensureTracingExecuted(ctx);
+    expect(setQuery).not.toHaveBeenCalledWith('query { health }');
+    expect(getGqlEditorQuery()).toBe(expanded);
+  });
+
+  it('ensureTracingHealthQuery force replaces expanded query for step-2 baseline', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    const { setQuery } = stubMonacoEditor(buildTracingUserQuery('usr-66'));
+    await ensureTracingHealthQuery(ctx, { force: true });
+    expect(setQuery).toHaveBeenCalledWith('query { health }');
   });
 
   it('ensureTracingUserQuery uses demo user id from session', async () => {
@@ -604,24 +643,20 @@ describe('gql-performance-tracing lesson', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 2_000);
   });
 
-  it('gql10-expand re-runs user query when complexity score unchanged', async () => {
+  it('gql10-expand holds on complexity badge after expanding the query', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = stubTracingDom();
     stubMonacoEditor('query { health }');
     const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
     Object.defineProperty(badge, 'textContent', { get: () => '≈5' });
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
-    const userSpy = vi.spyOn(
-      await import('./graphql-lesson-helpers'),
-      'ensureTracingUserQuery',
-    );
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(userSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
-    userSpy.mockRestore();
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 2_000);
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
   it('gqlPerformanceTracingLessonCleanup closes demo tab', async () => {
@@ -661,7 +696,7 @@ describe('gql-performance-tracing lesson', () => {
     stubMonacoEditor('query { health }');
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-complexity')!;
     await step.action!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 2_000);
   });
 
   it('ensureTracingSortedByDuration guard skips when already sorted', async () => {
@@ -687,10 +722,9 @@ describe('gql-performance-tracing lesson', () => {
 
   it('ensureTracingViewOpen clicks tracing tab when badge missing', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = stubTracingDom().replace(
-      '<button data-testid="gql-rv-tracing-badge"></button>',
-      '<button data-testid="gql-rv-tab-tracing"></button>',
-    );
+    document.body.innerHTML = stubTracingDom()
+      .replace('<button data-testid="gql-rv-tracing-badge"></button>', '<button data-testid="gql-rv-tab-tracing"></button>')
+      .replace(/<div data-testid="gql-trace-view">[\s\S]*?<\/div>\s*/, '');
     stubMonacoEditor(buildTracingUserQuery());
     await ensureTracingViewOpen(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_TRACING);
@@ -704,9 +738,10 @@ describe('gql-performance-tracing lesson', () => {
   it('gqlPerformanceTracingLessonSetup closes history and collections panels', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <button data-testid="gql-right-tab-response" aria-selected="true"></button>
-      <input data-testid="gql-endpoint-input" value="http://old" />
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
       <div data-testid="gql-history-panel"></div>
       <div data-testid="gql-collections-panel"></div>
       <div data-testid="gql-editor"></div>
@@ -720,9 +755,10 @@ describe('gql-performance-tracing lesson', () => {
   it('gqlPerformanceTracingLessonSetup disables data only mode when toggle is on', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <button data-testid="gql-right-tab-response" aria-selected="true"></button>
-      <input data-testid="gql-endpoint-input" value="http://old" />
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
       <input type="checkbox" data-testid="gql-rv-data-only-toggle" checked />
       <div data-testid="gql-editor"></div>
     `;
@@ -739,23 +775,24 @@ describe('gql-performance-tracing lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('gql10-expand skips re-run when complexity increases', async () => {
+  it('gql10-expand verifies complexity badge after score increases', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = stubTracingDom();
     stubMonacoEditor('query { health }');
     const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
     let score = 1;
-    Object.defineProperty(badge, 'textContent', { get: () => `≈${score}` });
-    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
-    const userSpy = vi.spyOn(
-      await import('./graphql-lesson-helpers'),
-      'ensureTracingUserQuery',
-    ).mockImplementation(async () => {
-      score = 10;
+    Object.defineProperty(badge, 'textContent', {
+      configurable: true,
+      get: () => `≈${score}`,
     });
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     await step.preAction!(ctx);
+    // Simulate badge rising after the editor fill inside the action.
+    vi.mocked(ctx.waitFor).mockImplementation(async (sel: string) => {
+      if (sel === GQL.COMPLEXITY_BADGE) score = 10;
+    });
     await step.action!(ctx);
-    expect(userSpy).toHaveBeenCalledTimes(1);
-    userSpy.mockRestore();
+    expect(getComplexityBadgeScore()).toBe(10);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 2_000);
   });
 });

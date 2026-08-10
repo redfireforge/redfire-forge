@@ -76,12 +76,14 @@ export function buildStompMeta(raw: string): WsFrameProtocolMeta {
   const frame = decodeStompFrame(raw);
   const summary = getStompFrameSummary(frame);
   const isSystem = frame.command === 'CONNECTED' || frame.command === '';
+  const hasBody = frame.command === 'SEND' || frame.command === 'MESSAGE';
   return {
     protocol: 'stomp',
     packetType: frame.command || 'HEARTBEAT',
     summary,
     namespace: frame.headers['destination'],
     isSystemPacket: isSystem,
+    body: hasBody && frame.body.trim() ? frame.body.trim() : undefined,
   };
 }
 

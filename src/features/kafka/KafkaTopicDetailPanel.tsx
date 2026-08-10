@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';
 import type { TimeWindow } from './useTopicMessageBrowser';
@@ -14,6 +14,30 @@ interface KafkaTopicDetailPanelProps {
   error: KafkaUiSafeError | null;
   browser: UseTopicMessageBrowserReturn;
 }
+
+interface TimeWindowOption {
+  value: TimeWindow;
+  label: string;
+}
+
+interface DetailDropdownOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+type DetailDropdownKey = 'time-window' | 'partition' | 'sort-order';
+
+const TIME_WINDOW_OPTIONS: TimeWindowOption[] = [
+  { value: 'latest', label: 'Latest' },
+  { value: 'last-1h', label: 'Last 1 Hour' },
+  { value: 'last-24h', label: 'Last 24 Hours' },
+  { value: 'earliest', label: 'Earliest' },
+];
+
+const SORT_ORDER_OPTIONS: DetailDropdownOption<'asc' | 'desc'>[] = [
+  { value: 'asc', label: 'Oldest First' },
+  { value: 'desc', label: 'Newest First' },
+];
 
 function formatTimestamp(ts?: string): string {
   if (!ts) return '—';
@@ -37,6 +61,53 @@ function stateColor(state: string): string {
 
 export function KafkaTopicDetailPanel({ detail, loading, error, browser }: KafkaTopicDetailPanelProps) {
   const [tab, setTab] = useState<DetailTab>('messages');
+  const [openDropdown, setOpenDropdown] = useState<DetailDropdownKey | null>(null);
+
+  useEffect(() => {
+    if (!openDropdown) return;
+
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('.kafka-ms-detail-filter-dropdown')) {
+        setOpenDropdown(null);
+      }
+    };
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenDropdown(null);
+    };
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [openDropdown]);
+
+  const selectedTimeWindow = useMemo(
+    () => TIME_WINDOW_OPTIONS.find((option) => option.value === browser.draft.timeWindow) ?? TIME_WINDOW_OPTIONS[0],
+    [browser.draft.timeWindow],
+  );
+
+  const partitionList = detail?.partitions ?? [];
+
+  const partitionOptions = useMemo<DetailDropdownOption<string>[]>(() => {
+    return [
+      { value: '', label: 'Any' },
+      ...partitionList.map((p) => ({ value: String(p.partitionId), label: String(p.partitionId) })),
+    ];
+  }, [partitionList]);
+
+  const selectedPartition = useMemo(
+    () => partitionOptions.find((option) => option.value === browser.draft.partition) ?? partitionOptions[0],
+    [partitionOptions, browser.draft.partition],
+  );
+
+  const selectedSortOrder = useMemo(
+    () => SORT_ORDER_OPTIONS.find((option) => option.value === browser.draft.sortOrder) ?? SORT_ORDER_OPTIONS[0],
+    [browser.draft.sortOrder],
+  );
 
   const handleConsume = useCallback(() => { void browser.consumeOnce(); }, [browser]);
   const handleLoadMore = useCallback(() => { void browser.loadMore(); }, [browser]);
@@ -125,21 +196,77 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
             <div className="kafka-ms-field-grid">
               <div className="kafka-ms-field">
                 <label>Time Window</label>
-                <select value={browser.draft.timeWindow} onChange={(e) => browser.setDraft({ timeWindow: e.target.value as TimeWindow })}>
-                  <option value="latest">Latest</option>
-                  <option value="last-1h">Last 1 Hour</option>
-                  <option value="last-24h">Last 24 Hours</option>
-                  <option value="earliest">Earliest</option>
-                </select>
+                <div className="kafka-explorer-filter-dropdown kafka-ms-detail-filter-dropdown">
+                  <button
+                    type="button"
+                    className="kafka-explorer-filter-trigger kafka-ms-detail-filter-trigger"
+                    onClick={() => setOpenDropdown((open) => (open === 'time-window' ? null : 'time-window'))}
+                    aria-haspopup="listbox"
+                    aria-expanded={openDropdown === 'time-window'}
+                    data-testid="detail-time-window-trigger"
+                  >
+                    <span>{selectedTimeWindow.label}</span>
+                    <span className="kafka-explorer-filter-chevron" aria-hidden>▾</span>
+                  </button>
+
+                  {openDropdown === 'time-window' && (
+                    <div className="kafka-explorer-filter-menu" role="listbox" aria-label="time window options">
+                      {TIME_WINDOW_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`kafka-explorer-filter-option${option.value === browser.draft.timeWindow ? ' active' : ''}`}
+                          role="option"
+                          aria-selected={option.value === browser.draft.timeWindow}
+                          onClick={() => {
+                            browser.setDraft({ timeWindow: option.value });
+                            setOpenDropdown(null);
+                          }}
+                          data-testid={`detail-time-window-opt-${option.value}`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="kafka-ms-field">
                 <label>Partition</label>
-                <select value={browser.draft.partition} onChange={(e) => browser.setDraft({ partition: e.target.value })}>
-                  <option value="">Any</option>
-                  {detail.partitions.map((p) => (
-                    <option key={p.partitionId} value={String(p.partitionId)}>{p.partitionId}</option>
-                  ))}
-                </select>
+                <div className="kafka-explorer-filter-dropdown kafka-ms-detail-filter-dropdown">
+                  <button
+                    type="button"
+                    className="kafka-explorer-filter-trigger kafka-ms-detail-filter-trigger"
+                    onClick={() => setOpenDropdown((open) => (open === 'partition' ? null : 'partition'))}
+                    aria-haspopup="listbox"
+                    aria-expanded={openDropdown === 'partition'}
+                    data-testid="detail-partition-trigger"
+                  >
+                    <span>{selectedPartition.label}</span>
+                    <span className="kafka-explorer-filter-chevron" aria-hidden>▾</span>
+                  </button>
+
+                  {openDropdown === 'partition' && (
+                    <div className="kafka-explorer-filter-menu" role="listbox" aria-label="partition options">
+                      {partitionOptions.map((option) => (
+                        <button
+                          key={option.value || '__any'}
+                          type="button"
+                          className={`kafka-explorer-filter-option${option.value === browser.draft.partition ? ' active' : ''}`}
+                          role="option"
+                          aria-selected={option.value === browser.draft.partition}
+                          onClick={() => {
+                            browser.setDraft({ partition: option.value });
+                            setOpenDropdown(null);
+                          }}
+                          data-testid={`detail-partition-opt-${option.value || 'any'}`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="kafka-ms-field-grid">
@@ -169,14 +296,40 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
               </div>
               <div className="kafka-ms-field">
                 <label>Sort Order</label>
-                <select
-                  value={browser.draft.sortOrder}
-                  onChange={(e) => browser.setDraft({ sortOrder: e.target.value as 'asc' | 'desc' })}
-                  data-testid="detail-sort-order"
-                >
-                  <option value="asc">Oldest First</option>
-                  <option value="desc">Newest First</option>
-                </select>
+                <div className="kafka-explorer-filter-dropdown kafka-ms-detail-filter-dropdown">
+                  <button
+                    type="button"
+                    className="kafka-explorer-filter-trigger kafka-ms-detail-filter-trigger"
+                    onClick={() => setOpenDropdown((open) => (open === 'sort-order' ? null : 'sort-order'))}
+                    aria-haspopup="listbox"
+                    aria-expanded={openDropdown === 'sort-order'}
+                    data-testid="detail-sort-order-trigger"
+                  >
+                    <span>{selectedSortOrder.label}</span>
+                    <span className="kafka-explorer-filter-chevron" aria-hidden>▾</span>
+                  </button>
+
+                  {openDropdown === 'sort-order' && (
+                    <div className="kafka-explorer-filter-menu" role="listbox" aria-label="sort order options">
+                      {SORT_ORDER_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`kafka-explorer-filter-option${option.value === browser.draft.sortOrder ? ' active' : ''}`}
+                          role="option"
+                          aria-selected={option.value === browser.draft.sortOrder}
+                          onClick={() => {
+                            browser.setDraft({ sortOrder: option.value });
+                            setOpenDropdown(null);
+                          }}
+                          data-testid={`detail-sort-order-opt-${option.value}`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

@@ -6,7 +6,8 @@
  *   - Collection-level scripts (collection.preRequestScript / .postResponseScript)
  *
  * Features:
- *   - Monaco JavaScript editor (120px min, resizable)
+ *   - Monaco JavaScript editor (fills available height when modal is resized)
+ *   - Movable (drag header) + resizable (edge/corner handles)
  *   - rf.* completion items (3B-2)
  *   - Script template library dropdown (3B-4) with 7 built-in templates
  *   - Pre-Request / Post-Response tabs
@@ -17,11 +18,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { useModalResize } from '../../../shared/hooks/useModalResize';
+import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
 import Editor, { useMonaco, type BeforeMount } from '@monaco-editor/react';
 import type * as MonacoType from 'monaco-editor';
 import type { GraphqlScriptConfig, RfResponseContext, ScriptLogEntry, CollectionRunTestResult } from '../../../shared/types/graphql';
 import { createRfContext, runScript, NO_OP_STORE } from '../utils/preRequestScriptRunner';
 import { defineGraphqlTheme, GRAPHQL_THEME_ID } from '../utils/monacoGraphqlSetup';
+
+const SCRIPT_MODAL_MIN_WIDTH = 560;
+const SCRIPT_MODAL_MIN_HEIGHT = 420;
 
 const handleScriptEditorBeforeMount: BeforeMount = (monaco) => {
   defineGraphqlTheme(monaco);
@@ -259,6 +266,16 @@ export function GraphqlScriptEditorModal({
   onClose,
 }: GraphqlScriptEditorModalProps) {
   const monaco = useMonaco();
+  const modalRef = useRef<HTMLDivElement>(null);
+  const { onDragStart, isDragged, overlayStyle, modalStyle } = useModalDrag(open, {
+    modalRef,
+    constrainToViewport: true,
+    viewportPadding: 12,
+  });
+  const { resizeStyle, onRightEdge, onCorner, onBottomEdge, resetSize } = useModalResize(
+    SCRIPT_MODAL_MIN_WIDTH,
+    SCRIPT_MODAL_MIN_HEIGHT,
+  );
 
   const [activePhase, setActivePhase] = useState<'pre' | 'post'>('pre');
   const [showOrder, setShowOrder]     = useState(false);
@@ -299,6 +316,10 @@ export function GraphqlScriptEditorModal({
     setDryRunning(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, resetKey]);
+
+  useEffect(() => {
+    if (!open) resetSize();
+  }, [open, resetSize]);
 
   const handleEscapeClose = useCallback(() => {
     if (open) onClose();
@@ -494,17 +515,35 @@ export function GraphqlScriptEditorModal({
   if (!open) return null;
 
   return (
-    <div className="gql-script-modal-backdrop" onClick={onClose} data-testid="gql-script-modal-backdrop">
+    <div
+      className={`gql-script-modal-backdrop${isDragged ? ' gql-script-modal-backdrop--dragged' : ''}`}
+      style={overlayStyle}
+      onClick={onClose}
+      data-testid="gql-script-modal-backdrop"
+    >
       <div
-        className="gql-script-modal"
+        ref={modalRef}
+        className={`gql-script-modal${isDragged ? ' gql-script-modal--dragged' : ''}`}
+        style={{ ...modalStyle, ...resizeStyle }}
         role="dialog"
         aria-modal="true"
         aria-label={`Script editor — ${name}`}
         onClick={(e) => e.stopPropagation()}
         data-testid="gql-script-modal"
       >
-        {/* Header */}
-        <header className="gql-script-modal-header">
+        {/* Header — drag handle */}
+        <header
+          className="gql-script-modal-header gql-script-modal-header--draggable"
+          onMouseDown={onDragStart}
+          data-testid="gql-script-modal-header"
+        >
+          <span className="gql-script-modal-drag-grip" aria-hidden="true" title="Drag to move">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2" cy="2" r="1.2" /><circle cx="8" cy="2" r="1.2" />
+              <circle cx="2" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" />
+              <circle cx="2" cy="14" r="1.2" /><circle cx="8" cy="14" r="1.2" />
+            </svg>
+          </span>
           <div className="gql-script-modal-header-main">
             <div className="gql-script-modal-heading">
               <span className="gql-script-modal-badge">
@@ -515,11 +554,13 @@ export function GraphqlScriptEditorModal({
               </h2>
             </div>
             <p className="gql-script-modal-target" data-testid="gql-script-modal-target">{name}</p>
+            <span className="gql-script-modal-drag-hint">Drag header to reposition</span>
           </div>
           <button
             type="button"
             className={`gql-script-modal-order-toggle${showOrder ? ' gql-script-modal-order-toggle--active' : ''}`}
             onClick={() => setShowOrder((v) => !v)}
+            onMouseDown={(e) => e.stopPropagation()}
             aria-expanded={showOrder}
             aria-label="Toggle execution order diagram"
             data-testid="gql-script-order-toggle"
@@ -605,7 +646,7 @@ export function GraphqlScriptEditorModal({
           </div>
           <div className="gql-script-editor-wrap" data-testid="gql-script-editor-wrap">
             <Editor
-              height="280px"
+              height="100%"
               language="javascript"
               theme={GRAPHQL_THEME_ID}
               value={currentScript}
@@ -624,6 +665,7 @@ export function GraphqlScriptEditorModal({
                 glyphMargin: false,
                 lineDecorationsWidth: 4,
                 padding: { top: 8, bottom: 8 },
+                automaticLayout: true,
               }}
             />
           </div>
@@ -730,6 +772,12 @@ export function GraphqlScriptEditorModal({
             </button>
           </div>
         </footer>
+
+        <ModalResizeHandles
+          onRightEdge={onRightEdge}
+          onCorner={onCorner}
+          onBottomEdge={onBottomEdge}
+        />
       </div>
     </div>
   );
