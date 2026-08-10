@@ -123,7 +123,7 @@ describe('useDemoShortcuts', () => {
     expect(setActiveTab).toHaveBeenCalledTimes(2);
   });
 
-  it('ArrowRight in live mode does NOT call nextStep during reading phase', () => {
+  it('ArrowRight in live mode calls nextStep during reading phase', () => {
     const hub = makeDemoHub({
       state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } },
       stepPhase: 'reading',
@@ -133,7 +133,7 @@ describe('useDemoShortcuts', () => {
     const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
     window.dispatchEvent(event);
 
-    expect(hub.nextStep).not.toHaveBeenCalled();
+    expect(hub.nextStep).toHaveBeenCalled();
   });
 
   it('ArrowRight in live mode calls nextStep when in done phase', () => {

@@ -111,41 +111,45 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     const fgId = targetFgId || editingTest?.featureId;
     if (!fgId) return;
 
+    // Resolve scenario id before updating App state — never call ScenarioBuilder
+    // setState inside the setFeatureGroups updater (that runs in App's update cycle).
+    let scId = '';
+    if (newScenarioName) {
+      scId = uuidv4();
+    } else {
+      scId = targetScenarioId || editingTest?.scenarioId || '';
+      if (!scId) return;
+    }
+
     setFeatureGroups(prev => prev.map(fg => {
       if (fg.id !== fgId) return fg;
 
-      let scId: string;
-      let updatedScenarios: typeof fg.scenarios;
-
       if (newScenarioName) {
-        // Create a new Parameterized scenario and add the copy to it.
-        scId = uuidv4();
         const newScenario = {
           id: scId,
           name: newScenarioName,
           kind: 'parameterized' as const,
           tests: [copy],
         };
-        updatedScenarios = [...fg.scenarios, newScenario];
-      } else {
-        scId = targetScenarioId || editingTest?.scenarioId || '';
-        if (!scId) return fg;
-        updatedScenarios = fg.scenarios.map(sc => {
-          if (sc.id !== scId) return sc;
-          return { ...sc, tests: [...sc.tests, copy] };
-        });
+        return { ...fg, scenarios: [...fg.scenarios, newScenario] };
       }
 
-      // Close current editor, then open the new test
-      setEditingTest(null);
-      setTimeout(() => {
-        setDraft(copy);
-        setEditingTest({ featureId: fgId, scenarioId: scId, testId: copy.id, parameterized: true });
-        setActiveTab('data');
-      }, 0);
-
-      return { ...fg, scenarios: updatedScenarios };
+      return {
+        ...fg,
+        scenarios: fg.scenarios.map(sc => {
+          if (sc.id !== scId) return sc;
+          return { ...sc, tests: [...sc.tests, copy] };
+        }),
+      };
     }));
+
+    // Close current editor, then open the new test (outside App's setState updater).
+    setEditingTest(null);
+    setTimeout(() => {
+      setDraft(copy);
+      setEditingTest({ featureId: fgId, scenarioId: scId, testId: copy.id, parameterized: true });
+      setActiveTab('data');
+    }, 0);
   }, [editingTest, setFeatureGroups, setEditingTest, setDraft, setActiveTab]);
 
   const [moveDialog, setMoveDialog] = useState<{

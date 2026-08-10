@@ -40,10 +40,13 @@ test.describe('gRPC Studio — client streaming (Phase 2H)', () => {
     await expect(page.locator('[data-testid="grpc-stream-start-btn"]')).toBeVisible();
 
     await startGrpcStream(page);
-    await waitForStreamStatus(page, /Streaming|Starting/);
+    await waitForStreamStatus(page, 'Streaming');
 
     await fillEchoMessage(page, 'alpha');
     await sendStreamMessage(page);
+    await expect(page.locator('[data-testid="grpc-stream-outbound-count"]')).toContainText('↑ 1');
+
+    await waitForStreamStatus(page, 'Streaming');
     await fillEchoMessage(page, 'beta');
     await sendStreamMessage(page);
     await expect(page.locator('[data-testid="grpc-stream-outbound-count"]')).toContainText('↑ 2');

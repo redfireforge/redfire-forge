@@ -10,6 +10,7 @@ vi.mock('../../adapters', () => ({
   deleteCatalogEntryByName: vi.fn(),
   selectCatalogEntryByName: vi.fn().mockReturnValue(true),
   deleteCollectionsByName: vi.fn().mockReturnValue(0),
+  getDemoBridgeWindow: () => ({}),
 }));
 
 import { catConvertOpenApiLesson } from './cat-convert-openapi';
@@ -26,6 +27,8 @@ describe('cat-convert-openapi lesson', () => {
     expect(catConvertOpenApiLesson.domainId).toBe('api');
     expect(catConvertOpenApiLesson.category).toBe('catalog');
     expect(catConvertOpenApiLesson.initialTab).toBe('catalog');
+    expect(catConvertOpenApiLesson.initialSurface).toEqual({ catalogView: 'overview' });
+    expect(typeof catConvertOpenApiLesson.prepareBeforeNavigate).toBe('function');
     expect(catConvertOpenApiLesson.allowedTabs).toEqual(['catalog']);
     expect(catConvertOpenApiLesson.estimatedMinutes).toBe(5);
   });

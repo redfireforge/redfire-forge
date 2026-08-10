@@ -75,11 +75,20 @@ describe('th-shared-data-sources lesson', () => {
     expect(realItem2Click).not.toHaveBeenCalled();
   });
 
-  it('step th21-curl-import closes the auto-opened "Create Parameterized Copy" wizard before spotlighting the URL bar', async () => {
-    // The real app's handleImportCurl() always opens the `.ds-setup-dialog`
-    // variable wizard after "Import & Apply". This reproduces that side effect
-    // and asserts the lesson closes it (via Cancel) instead of leaving it open
-    // on top of — and hiding — the URL bar it spotlights next.
+  it('includes a dedicated Parameterize Wizard step after cURL Import', () => {
+    expect(thSharedDataSourcesLesson.steps.map((s) => s.id)).toEqual([
+      'th21-open-modal',
+      'th21-fetch-url',
+      'th21-curl-import',
+      'th21-param-wizard',
+      'th21-auth-config',
+      'th21-data-grid-used-by',
+      'th21-create-test',
+    ]);
+    expect(thSharedDataSourcesLesson.estimatedMinutes).toBe(8);
+  });
+
+  it('step th21-curl-import leaves the Create Parameterized Copy wizard open', async () => {
     document.body.innerHTML = `
       <div class="shared-ds-modal">
         <div class="shared-ds-fetch-actions">
@@ -114,6 +123,50 @@ describe('th-shared-data-sources lesson', () => {
     const ctx = buildCtx();
     await step!.action!(ctx);
 
+    expect(document.querySelector('.ds-setup-dialog')).toBeTruthy();
+  });
+
+  it('step th21-param-wizard walks Next through Review then Cancels', async () => {
+    const wizard = document.createElement('div');
+    wizard.className = 'ds-setup-dialog';
+
+    const clicked: string[] = [];
+    const addBtn = (label: string) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        clicked.push(label);
+        if (label === 'Cancel') wizard.remove();
+      });
+      wizard.appendChild(btn);
+    };
+
+    addBtn('Next: Columns');
+    addBtn('Next: Validate Fields');
+    addBtn('Next: Column Order');
+    addBtn('Next: Review');
+    addBtn('Cancel');
+    document.body.appendChild(wizard);
+
+    // URL bar shown after Cancel
+    const urlBar = document.createElement('div');
+    urlBar.className = 'shared-ds-fetch-url-bar';
+    urlBar.textContent = 'https://jsonplaceholder.typicode.com/users/{{userId}}';
+    document.body.appendChild(urlBar);
+
+    const step = thSharedDataSourcesLesson.steps.find((s) => s.id === 'th21-param-wizard');
+    expect(step).toBeTruthy();
+
+    const ctx = buildCtx();
+    await step!.action!(ctx);
+
+    expect(clicked).toEqual([
+      'Next: Columns',
+      'Next: Validate Fields',
+      'Next: Column Order',
+      'Next: Review',
+      'Cancel',
+    ]);
     expect(document.querySelector('.ds-setup-dialog')).toBeNull();
   });
 });

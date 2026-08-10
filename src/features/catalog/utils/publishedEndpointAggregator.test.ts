@@ -114,7 +114,7 @@ describe('filterPublishedEndpoints', () => {
   });
 
   it('filters by status: current', () => {
-    const result = filterPublishedEndpoints(items, '', 'current');
+    const result = filterPublishedEndpoints(items, '', 'published');
     expect(result).toHaveLength(2);
     expect(result.every(i => !i.isStale)).toBe(true);
   });

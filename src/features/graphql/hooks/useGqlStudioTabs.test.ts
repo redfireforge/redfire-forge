@@ -113,6 +113,9 @@ beforeEach(() => {
   mockMakeBlankTab.mockReturnValue(makeTab({ id: 'tab-1' }));
   mockLoadTabs.mockResolvedValue([]);
   mockLoadDemoSession.mockResolvedValue(null);
+  // saveTabs is always async in production; a bare vi.fn() default returns
+  // undefined, which throws when reloadFromStorage chains .catch() on it.
+  mockSaveTabs.mockResolvedValue(undefined);
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

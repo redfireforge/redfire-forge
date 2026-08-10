@@ -7,7 +7,7 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio, switchWsLeftTab, switchWsRightTab } from './ws-helpers';
+import { gotoWsStudio, switchWsLeftTab, switchWsRightTab, selectWsCustomSelect, selectWsConsoleCategory } from './ws-helpers';
 
 const SIO_URL = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
 const SIO_HEALTH = 'http://localhost:3100/health';
@@ -40,7 +40,7 @@ const switchRightTab = (page: Page, tab: string) => switchWsRightTab(page, tab);
 
 async function connectToSio(page: Page) {
   await switchLeftTab(page, 'connect');
-  await page.locator('[data-testid="protocol-select"]').selectOption('socket-io');
+  await selectWsCustomSelect(page, 'protocol-select', { value: 'socket-io', label: 'Socket.IO' });
   await page.waitForTimeout(200);
 
   const urlInput = page.locator('[aria-label="WebSocket URL"]');
@@ -230,8 +230,7 @@ test.describe('Console × Protocol (WP-C01–C05)', () => {
     expect(fullCount).toBeGreaterThanOrEqual(4); // lifecycle + handshake + connected + help entries
 
     // Filter to "handshake" category — we know it exists from WP-C01
-    const categorySelect = page.locator('[data-testid="ws-console-category"]');
-    await categorySelect.selectOption('handshake');
+    await selectWsConsoleCategory(page, 'handshake');
     await page.waitForTimeout(200);
 
     // Count should decrease — only handshake entries visible
@@ -253,7 +252,7 @@ test.describe('Console × Protocol (WP-C01–C05)', () => {
     ).toBeTruthy();
 
     // Reset to "all"
-    await categorySelect.selectOption('all');
+    await selectWsConsoleCategory(page, 'all');
     await page.waitForTimeout(200);
 
     // Full count restored

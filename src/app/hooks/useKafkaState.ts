@@ -199,7 +199,12 @@ export function useKafkaState(): UseKafkaStateReturn {
       });
       setLastError(null);
       setLastErrorDetail(null);
+      const wasPaused = statusPollFailureStreakRef.current >= STATUS_POLL_MAX_FAILURE_STREAK;
       updateFailureStreak(0);
+      // Resume background polling after a paused (backend-down) streak recovers.
+      if (wasPaused) {
+        bumpRefreshNonce();
+      }
     } catch (error) {
       if (latestStatusRequestIdRef.current !== requestId) {
         return;
@@ -218,7 +223,7 @@ export function useKafkaState(): UseKafkaStateReturn {
     } finally {
       statusRequestInFlightCountRef.current = Math.max(statusRequestInFlightCountRef.current - 1, 0);
     }
-  }, [selectedClusterId, updateFailureStreak]);
+  }, [selectedClusterId, updateFailureStreak, bumpRefreshNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -338,9 +343,14 @@ export function useKafkaState(): UseKafkaStateReturn {
           return;
         }
 
-        // Keep probing at a capped interval so stale transient errors
-        // (for example backend restarts) recover automatically without
-        // requiring manual cluster re-selection or reconnect.
+        // After repeated gateway/network failures (backend or Kafka down), stop
+        // polling. Chrome logs every failed fetch in DevTools and we cannot
+        // suppress that — silence means stop requesting. Resume when the
+        // cluster changes, connect/test succeeds, or refreshNonce bumps.
+        if (statusPollFailureStreakRef.current >= STATUS_POLL_MAX_FAILURE_STREAK) {
+          return;
+        }
+
         schedulePoll(nextBackoffDelayMs(statusPollFailureStreakRef.current));
       }, delayMs);
     };
@@ -466,6 +476,8 @@ export function useKafkaState(): UseKafkaStateReturn {
       setLastErrorDetail(null);
       connectOperationInFlightRef.current = false;
       await refreshConnectionStatus({ force: true });
+      // Restart status polling if it had paused after a failure streak.
+      bumpRefreshNonce();
       return true;
     } catch (error) {
       connectOperationInFlightRef.current = false;
@@ -480,7 +492,7 @@ export function useKafkaState(): UseKafkaStateReturn {
       updateFailureStreak(statusPollFailureStreakRef.current + 1);
       return false;
     }
-  }, [refreshConnectionStatus, selectedCluster, updateFailureStreak]);
+  }, [bumpRefreshNonce, refreshConnectionStatus, selectedCluster, updateFailureStreak]);
 
   const disconnectActiveCluster = useCallback(async () => {
     const activeClusterId = connection.clusterId ?? selectedClusterId;

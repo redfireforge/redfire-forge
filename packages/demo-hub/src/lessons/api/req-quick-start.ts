@@ -13,7 +13,6 @@ import { fillControlledInput } from '../setup-helpers';
 import {
   ensureRequestsTab,
   triggerContextMenu,
-  clickContextMenuItem,
   dismissContextMenu,
   shrinkAllCollections,
   ensureCollectionExpanded,
@@ -21,6 +20,7 @@ import {
   fillNewRequestPrompt,
   dismissNewRequestPrompt,
   cleanupOtherRequestDemoCollections,
+  forceDeleteCollectionsByExactName,
   selectRequestByName,
   getActiveRequestTabLabel,
 } from './req-demo-helpers';
@@ -132,33 +132,10 @@ async function spotlightContextItem(ctx: DemoActionContext, text: string, holdMs
   return true;
 }
 
-async function deleteCollectionByName(ctx: DemoActionContext, collectionName: string): Promise<void> {
-  ensureRequestsTab(ctx);
-  await ctx.delay(60);
-  let guard = 0;
-  while (document.querySelector(REQ.colByName(collectionName)) && guard < 4) {
-    const col = document.querySelector<HTMLElement>(REQ.colByName(collectionName));
-    if (!col) break;
-    col.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    triggerContextMenu(col);
-    await ctx.delay(140);
-    const clicked = await clickContextMenuItem(ctx, 'Delete Collection');
-    if (!clicked) {
-      dismissContextMenu();
-      break;
-    }
-    const confirmBtn = document.querySelector<HTMLElement>('.req-confirm-dialog .req-confirm-ok');
-    if (confirmBtn) {
-      confirmBtn.click();
-      await ctx.delay(120);
-    }
-    guard += 1;
-  }
-}
-
 async function cleanupLessonCollections(ctx: DemoActionContext): Promise<void> {
-  // Remove leftovers from sibling Request lessons so Lesson 1 starts clean.
-  await deleteCollectionByName(ctx, COLLECTION_NAME);
+  // Silent bridge deletes via forceDelete — never expand/context-menu during
+  // Start Demo setup (that flashing is visible in Collections before step 1).
+  await forceDeleteCollectionsByExactName(ctx, COLLECTION_NAME);
   await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
 }
 

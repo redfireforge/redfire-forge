@@ -761,7 +761,7 @@ describe('ApiCatalog', () => {
 
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} onPreviewsChanged={onPreviewsChanged} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
     await userEvent.click(screen.getByRole('button', { name: 'panel-promote-preview' }));
 
     expect(await screen.findByTestId('publish-modal')).toBeInTheDocument();
@@ -785,7 +785,7 @@ describe('ApiCatalog', () => {
     const catalog = makeCatalog(entry);
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} onPreviewsChanged={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
     await userEvent.click(screen.getByRole('button', { name: 'panel-promote-preview' }));
     expect(await screen.findByTestId('publish-modal')).toBeInTheDocument();
 
@@ -824,7 +824,7 @@ describe('ApiCatalog', () => {
 
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} onPreviewsChanged={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
     expect(screen.getByTestId('published-panel')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'panel-unpublish' }));
@@ -891,7 +891,7 @@ describe('ApiCatalog', () => {
 
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} onPreviewsChanged={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
     await userEvent.click(screen.getByRole('button', { name: 'panel-unpublish' }));
     expect(await screen.findByTestId('unpublish-dialog')).toBeInTheDocument();
 
@@ -945,7 +945,7 @@ describe('ApiCatalog', () => {
     });
     const catalog = makeCatalog(entry);
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
 
     const onBulkUnpublish = latestPublishedPanelProps?.onBulkUnpublish as
       | ((ids: Array<{ entryId: string; endpointId: string }>) => void)
@@ -974,7 +974,7 @@ describe('ApiCatalog', () => {
     const catalog = makeCatalog(entry);
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
     await userEvent.click(screen.getByRole('button', { name: 'panel-unpublish' }));
     await userEvent.click(screen.getByRole('button', { name: 'panel-republish' }));
     await userEvent.click(screen.getByRole('button', { name: 'panel-promote-preview' }));
@@ -1076,7 +1076,7 @@ describe('ApiCatalog', () => {
     });
     const catalog = makeCatalog(entry);
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
 
     const onBulkUnpublish = latestPublishedPanelProps?.onBulkUnpublish as
       | ((ids: Array<{ entryId: string; endpointId: string }>) => void)
@@ -1119,7 +1119,7 @@ describe('ApiCatalog', () => {
     const catalog = makeCatalog(entry);
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
     await userEvent.click(screen.getByRole('button', { name: 'panel-promote-preview' }));
 
     expect(await screen.findByTestId('publish-modal')).toBeInTheDocument();
@@ -1175,7 +1175,7 @@ describe('ApiCatalog', () => {
     });
     const catalog = makeCatalog(entry);
     render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
 
     const onUnpublish = latestPublishedPanelProps?.onUnpublish as
       | ((entryId: string, endpointId: string) => void)
@@ -1263,7 +1263,7 @@ describe('ApiCatalog', () => {
     });
     render(<ApiCatalog catalog={makeCatalog(entry)} onImport={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Published/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Workflow Exposure/ }));
     await userEvent.click(screen.getByRole('button', { name: 'panel-promote-preview' }));
     expect(await screen.findByTestId('publish-modal')).toBeInTheDocument();
 

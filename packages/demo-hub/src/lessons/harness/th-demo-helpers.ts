@@ -9,7 +9,7 @@
 import type { DemoActionContext } from '../../types';
 import { getDemoBridgeWindow } from '../../adapters/bridgeWindow';
 import { showSpotlightRing } from '../../demoRipple';
-import { HAR } from '@shared/selectors';
+import { APP, HAR } from '@shared/selectors';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -97,19 +97,116 @@ export async function spotlightSearchMatchGroups(
 // ─── Seeding / teardown ─────────────────────────────────────────
 
 /**
+ * Ensure the demo environment + microservice exist (create if missing).
+ * Does **not** change the header selection — use for teaching steps that
+ * show the viewer how to pick env/svc in the UI.
+ */
+export function ensureDemoHarnessTargetEntities(): { envId: string; svcId: string } | null {
+  return getDemoBridgeWindow().__demoSeedHarnessTarget?.() ?? null;
+}
+
+/**
  * Seed the demo environment + microservice and select them in the header.
  * Uses bridge functions to create entities (if missing) and then
  * programmatically set the header selection via React state.
  * Returns `{ envId, svcId }` on success.
  */
 export async function seedDemoEnvAndService(ctx: DemoActionContext): Promise<{ envId: string; svcId: string } | null> {
-  const w = getDemoBridgeWindow();
-  const ids = w.__demoSeedHarnessTarget?.();
+  const ids = ensureDemoHarnessTargetEntities();
   if (!ids) return null;
 
   await ctx.delay(300);
-  w.__demoSelectEnvSvc?.(ids.envId, ids.svcId);
+  getDemoBridgeWindow().__demoSelectEnvSvc?.(ids.envId, ids.svcId);
   await ctx.delay(300);
+
+  return ids;
+}
+
+function escapeCssAttrValue(value: string): string {
+  return typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+    ? CSS.escape(value)
+    : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
+ * Open a header CustomSelect, spotlight the option, and click it — always
+ * (even when already selected) so the viewer sees *how* to choose.
+ */
+export async function pickHeaderCustomSelectVisibly(
+  ctx: DemoActionContext,
+  selectSel: string,
+  value: string,
+  holdMs = 1400,
+): Promise<boolean> {
+  const wrapper = document.querySelector<HTMLElement>(selectSel);
+  if (!wrapper) return false;
+
+  await spotlight(wrapper, 1100, ctx);
+  const trigger = wrapper.querySelector<HTMLElement>('.cs-trigger') ?? wrapper;
+  trigger.click();
+  await ctx.delay(900);
+
+  const item = document.querySelector<HTMLElement>(
+    `.cs-item[data-value="${escapeCssAttrValue(value)}"]`,
+  );
+  if (!item) {
+    if (trigger.getAttribute('aria-expanded') === 'true') trigger.click();
+    return false;
+  }
+
+  item.scrollIntoView({ block: 'nearest' });
+  item.classList.add('cs-item--demo-highlight');
+  await spotlight(item, holdMs, ctx);
+  item.classList.remove('cs-item--demo-highlight');
+  item.click();
+  await ctx.delay(700);
+  return true;
+}
+
+/**
+ * Teach header scoping: visibly choose Environment then Microservice.
+ * Seeds entities if missing, but never silently jumps the header first.
+ */
+export async function selectDemoEnvAndServiceVisibly(
+  ctx: DemoActionContext,
+): Promise<{ envId: string; svcId: string } | null> {
+  const ids = ensureDemoHarnessTargetEntities();
+  if (!ids) return null;
+  await ctx.delay(200);
+
+  // If already on demo/jsonplaceholder, briefly leave so the pick is a real change.
+  const envWrap = document.querySelector<HTMLElement>(APP.HEADER_ENV_SELECT);
+  const svcWrap = document.querySelector<HTMLElement>(APP.HEADER_SVC_SELECT);
+  const alreadyDemo =
+    envWrap?.getAttribute('data-value') === ids.envId
+    && svcWrap?.getAttribute('data-value') === ids.svcId;
+  if (alreadyDemo) {
+    envWrap?.querySelector<HTMLElement>('.cs-trigger')?.click();
+    await ctx.delay(250);
+    const altEnv = Array.from(document.querySelectorAll<HTMLElement>('.cs-item[data-value]'))
+      .find((el) => el.getAttribute('data-value') !== ids.envId);
+    const altId = altEnv?.getAttribute('data-value');
+    if (envWrap?.querySelector<HTMLElement>('.cs-trigger')?.getAttribute('aria-expanded') === 'true') {
+      envWrap.querySelector<HTMLElement>('.cs-trigger')?.click();
+    }
+    await ctx.delay(150);
+    if (altId) {
+      getDemoBridgeWindow().__demoSelectEnvSvc?.(altId, ids.svcId);
+      await ctx.delay(300);
+    }
+  }
+
+  const envOk = await pickHeaderCustomSelectVisibly(ctx, APP.HEADER_ENV_SELECT, ids.envId, 1500);
+  if (!envOk) {
+    getDemoBridgeWindow().__demoSelectEnvSvc?.(ids.envId, ids.svcId);
+  }
+  await ctx.delay(500);
+
+  const svcOk = await pickHeaderCustomSelectVisibly(ctx, APP.HEADER_SVC_SELECT, ids.svcId, 1500);
+  if (!svcOk) {
+    getDemoBridgeWindow().__demoSelectEnvSvc?.(ids.envId, ids.svcId);
+  }
+  await ctx.delay(400);
 
   return ids;
 }
@@ -917,6 +1014,32 @@ export function scrollRunnerProgressIntoView(root: ParentNode = document): void 
 export const DS_COLUMN_TYPE_LABELS = ['Path', 'Param', 'Body', 'Header', 'Validate'] as const;
 
 /**
+ * Resolve the open CustomSelect menu for a trigger.
+ * Menus portal to `document.body`, so they are not under the wrapper.
+ */
+export function findCsMenuForTrigger(trigger: HTMLElement): HTMLElement | null {
+  const inWrap = trigger.closest('.cs-wrapper')?.querySelector<HTMLElement>('.cs-menu');
+  if (inWrap) return inWrap;
+
+  const menus = Array.from(document.querySelectorAll<HTMLElement>('.cs-menu'));
+  if (!menus.length) return null;
+  const tr = trigger.getBoundingClientRect();
+
+  let best: { menu: HTMLElement; score: number } | null = null;
+  for (const menu of menus) {
+    const mr = menu.getBoundingClientRect();
+    const horizontal = Math.abs(mr.left - tr.left);
+    const vertical = Math.min(
+      Math.abs(mr.top - (tr.bottom + 3)),
+      Math.abs(mr.bottom - (tr.top - 3)),
+    );
+    const score = horizontal + vertical * 1.5;
+    if (!best || score < best.score) best = { menu, score };
+  }
+  return best?.menu ?? null;
+}
+
+/**
  * Open the first column-type dropdown and spotlight the whole menu
  * (Path / Param / Body / Header / Validate together), then close without
  * changing the selection. Matches TH-5 "Understanding Column Types" narration.
@@ -936,32 +1059,13 @@ export async function tourDsColumnTypeDropdown(
   const trigger = wrap.querySelector<HTMLElement>('.cs-trigger');
   if (!trigger) return;
 
-  const findMenuForTrigger = (): HTMLElement | null => {
-    const menus = Array.from(document.querySelectorAll<HTMLElement>('.cs-menu'));
-    if (!menus.length) return null;
-    const tr = trigger.getBoundingClientRect();
-
-    let best: { menu: HTMLElement; score: number } | null = null;
-    for (const menu of menus) {
-      const mr = menu.getBoundingClientRect();
-      const horizontal = Math.abs(mr.left - tr.left);
-      const vertical = Math.min(
-        Math.abs(mr.top - (tr.bottom + 3)),
-        Math.abs(mr.bottom - (tr.top - 3)),
-      );
-      const score = horizontal + vertical * 1.5;
-      if (!best || score < best.score) best = { menu, score };
-    }
-    return best?.menu ?? null;
-  };
-
   // Open the menu so the viewer can see all five types at once
-  if (!findMenuForTrigger()) {
+  if (!findCsMenuForTrigger(trigger)) {
     trigger.click();
     await ctx.delay(500);
   }
 
-  const menu = findMenuForTrigger();
+  const menu = findCsMenuForTrigger(trigger);
   if (menu) {
     // Keep emphasis on the entire list (not one item) to avoid a
     // misleading "single selected option" visual during narration.
@@ -970,7 +1074,7 @@ export async function tourDsColumnTypeDropdown(
   }
 
   // Close without changing the current type (still Path)
-  if (findMenuForTrigger()) {
+  if (findCsMenuForTrigger(trigger)) {
     trigger.click();
     await ctx.delay(400);
   }
@@ -2934,12 +3038,24 @@ export async function selectLastDsColumnType(
   const trigger = wrap.querySelector<HTMLElement>('.cs-trigger');
   if (!trigger) return;
 
-  if (!wrap.querySelector('.cs-menu')) {
+  const closeMenu = async () => {
+    if (!findCsMenuForTrigger(trigger)) return;
+    trigger.click();
+    await ctx.delay(opts?.quiet ? 250 : 400);
+    // Escape hatch if toggle did not dismiss a portaled menu
+    if (findCsMenuForTrigger(trigger)) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await ctx.delay(150);
+      findCsMenuForTrigger(trigger)?.remove();
+    }
+  };
+
+  if (!findCsMenuForTrigger(trigger)) {
     trigger.click();
     await ctx.delay(opts?.quiet ? 350 : 500);
   }
 
-  const menu = wrap.querySelector<HTMLElement>('.cs-menu');
+  const menu = findCsMenuForTrigger(trigger);
   if (!menu) return;
 
   if (!opts?.quiet) {
@@ -2958,6 +3074,9 @@ export async function selectLastDsColumnType(
     option.click();
     await ctx.delay(opts?.quiet ? 450 : 700);
   }
+
+  // Always dismiss before filling cells — portaled menus otherwise stay open.
+  await closeMenu();
 }
 
 /** Find a Data Source toolbar button by its title attribute. */

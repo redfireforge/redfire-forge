@@ -133,12 +133,14 @@ export default function LiveDemo({
   const totalSteps = lesson.steps.length;
   const progressPct = ((stepIndex + 1) / totalSteps) * 100;
   const isLast = stepIndex >= totalSteps - 1;
-  // Next / → only after the step finishes. During reading, skip via the phase badge
-  // ("Reading — click to skip") so the step action still runs.
-  const canNavigate = stepPhase === 'done';
-  const nextDisabledReason = stepPhase === 'reading'
-    ? 'Finish reading first — click the badge to skip'
-    : 'Please wait — action in progress';
+  // Next / → when done, or during reading (runs the step action then advances).
+  // Disabled while Preparing / Acting / Verifying so the viewer cannot interrupt
+  // an in-flight spotlight tour.
+  const canNavigate = stepPhase === 'done' || stepPhase === 'reading';
+  const nextDisabledReason = 'Please wait — action in progress';
+  const nextTitle = stepPhase === 'reading'
+    ? 'Next (→) — finish this step then advance'
+    : 'Next (→)';
 
   // Phase label for user feedback (pinned above controls — always visible)
   const phaseLabel = stepPhase === 'pre' ? '⏳ Preparing'
@@ -302,10 +304,10 @@ export default function LiveDemo({
             className="demo-live-btn"
             onClick={onNext}
             disabled={isLast || !canNavigate}
-            title={isLast ? 'Last step' : canNavigate ? 'Next (→)' : nextDisabledReason}
+            title={isLast ? 'Last step' : canNavigate ? nextTitle : nextDisabledReason}
             aria-label="Next step"
           >
-            ▶
+            →
           </button>
           {isLast && canNavigate && (
             <button

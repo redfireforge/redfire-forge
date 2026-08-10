@@ -142,15 +142,19 @@ export function isKnownEncryptedLoopbackGrpcTarget(address: string): boolean {
 export function prepareGrpcTarget(
   target: Pick<GrpcTarget, 'address' | 'tlsMode' | 'tlsConfig'>,
 ): { target: GrpcTarget; issues: GrpcTlsValidationIssue[] } {
-  let tlsMode = target.tlsMode ?? defaultGrpcTlsMode();
+  const requestedTlsMode = target.tlsMode ?? defaultGrpcTlsMode();
+  const issues = validateGrpcTlsConfigContract(requestedTlsMode, target.tlsConfig);
+
+  let tlsMode = requestedTlsMode;
   let rawTlsConfig = target.tlsConfig;
   // Sticky TLS/mTLS from a prior tab (e.g. GRPC-5 demo) must not dial the
-  // plaintext echo fixture — coerce to plaintext before validation/reflect.
-  if (tlsMode !== 'disabled' && isKnownPlaintextLoopbackGrpcTarget(target.address)) {
+  // plaintext echo fixture — coerce to plaintext before dialing, but only
+  // once the supplied config is itself valid; incomplete/invalid configs
+  // still surface as validation errors instead of being silently dropped.
+  if (issues.length === 0 && tlsMode !== 'disabled' && isKnownPlaintextLoopbackGrpcTarget(target.address)) {
     tlsMode = 'disabled';
     rawTlsConfig = undefined;
   }
-  const issues = validateGrpcTlsConfigContract(tlsMode, rawTlsConfig);
   const tlsConfig = issues.length === 0
     ? normalizeGrpcTlsConfig(rawTlsConfig, tlsMode)
     : rawTlsConfig;

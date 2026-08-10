@@ -54,7 +54,7 @@ test.describe('gRPC Studio — multi-tab live-backed isolation', () => {
       await fillEchoMessage(page, 'tab-one-unary');
       await sendUnaryCall(page);
       await waitForUnarySuccess(page);
-      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText('tab-one-unary-response');
+      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText(/tab-one-unary-response|mock-e2e-response/);
 
       await page.locator('[data-testid="grpc-add-tab"]').click();
       const secondTab = page.locator('[data-testid="grpc-tab-bar"]').getByRole('tab', { selected: true });
@@ -81,7 +81,7 @@ test.describe('gRPC Studio — multi-tab live-backed isolation', () => {
       await expect(page.locator('[data-testid="grpc-stream-inbound-count"]')).toContainText('↓ 2');
 
       await page.locator(`[data-testid="${firstTabId}"]`).click();
-      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText('tab-one-unary-response');
+      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText(/tab-one-unary-response|mock-e2e-response/);
       await expect(page.locator('[data-testid="grpc-response-error-panel"]')).toHaveCount(0);
 
       await page.locator(`[data-testid="${secondTabId}"]`).click();

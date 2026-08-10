@@ -82,6 +82,16 @@ export function autoDetectColumns(scenario: Scenario): DataSourceColumn[] {
   return columns;
 }
 
+/** True when any non-validate column has a non-empty value. */
+export function dataSourceRowHasValues(
+  row: Pick<DataSourceRow, 'values'>,
+  columns: DataSourceColumn[],
+): boolean {
+  return columns.some(
+    (c) => c.type !== 'validate' && String(row.values[c.id] ?? '').trim() !== '',
+  );
+}
+
 /** Create a new empty DataTable with auto-detected columns. */
 export function createEmptyDataSource(scenario: Scenario): DataSource {
   const columns = autoDetectColumns(scenario);
@@ -111,6 +121,8 @@ export function createDataSourceWithTemplatizedUrl(scenario: Scenario): { dataSo
       row.values[col.id] = p.value;
     }
   }
+  // Only enable when real values were prefilled — empty starter rows stay unchecked.
+  row.enabled = dataSourceRowHasValues(row, columns);
 
   // Build urlTemplate: base path + query params as {{varName}}
   const urlTemplate = buildUrlTemplate(scenario.url, columns);
@@ -159,7 +171,11 @@ export function syncUrlFromTemplate(draftUrl: string, urlTemplate: string): stri
   return templatePath + draftQuery;
 }
 
-/** Create a new empty row with blank values for all columns. */
+/**
+ * Create a new empty row with blank values for all columns.
+ * Starts disabled so the Data Source badge / "N enabled" counts don't imply
+ * ready data when cells are still blank (placeholder text is not a value).
+ */
 export function createEmptyRow(columns: DataSourceColumn[]): DataSourceRow {
   const values: Record<string, string> = {};
   for (const col of columns) {
@@ -168,7 +184,7 @@ export function createEmptyRow(columns: DataSourceColumn[]): DataSourceRow {
   return {
     id: uuidv4(),
     values,
-    enabled: true,
+    enabled: false,
   };
 }
 

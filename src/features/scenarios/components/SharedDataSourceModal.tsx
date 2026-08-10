@@ -377,20 +377,24 @@ export default function SharedDataSourceModal({
                 )}
               </div>
 
-              {/* Used by section - collapsible */}
-              {(crud.usedByMap.get(selected.id) ?? []).length > 0 && (
-                <div className={`shared-ds-used-by ${editorPanel.usedByExpanded ? 'expanded' : ''}`}>
-                  <button
-                    type="button"
-                    className="shared-ds-used-by-toggle"
-                    onClick={() => editorPanel.setUsedByExpanded(!editorPanel.usedByExpanded)}
-                  >
-                    <span className="shared-ds-used-by-arrow">{editorPanel.usedByExpanded ? '▼' : '▶'}</span>
-                    <span className="shared-ds-used-by-label">Used by {(crud.usedByMap.get(selected.id) ?? []).length} test(s)</span>
-                  </button>
-                  {editorPanel.usedByExpanded && (
-                    <div className="shared-ds-used-by-list">
-                      {(crud.usedByMap.get(selected.id) ?? []).map((ref, i) => (
+              {/* Used by section - always shown so empty state is visible */}
+              <div className={`shared-ds-used-by ${editorPanel.usedByExpanded ? 'expanded' : ''}`}>
+                <button
+                  type="button"
+                  className="shared-ds-used-by-toggle"
+                  onClick={() => editorPanel.setUsedByExpanded(!editorPanel.usedByExpanded)}
+                >
+                  <span className="shared-ds-used-by-arrow">{editorPanel.usedByExpanded ? '▼' : '▶'}</span>
+                  <span className="shared-ds-used-by-label">
+                    Used by {(crud.usedByMap.get(selected.id) ?? []).length} test(s)
+                  </span>
+                </button>
+                {editorPanel.usedByExpanded && (
+                  <div className="shared-ds-used-by-list">
+                    {(crud.usedByMap.get(selected.id) ?? []).length === 0 ? (
+                      <span className="shared-ds-used-by-empty">No linked tests yet</span>
+                    ) : (
+                      (crud.usedByMap.get(selected.id) ?? []).map((ref, i) => (
                         <span
                           key={i}
                           className={`shared-ds-used-by-ref ${ref.isEditing ? 'editing' : ''}`}
@@ -398,11 +402,11 @@ export default function SharedDataSourceModal({
                         >
                           {ref.testName}{ref.isEditing ? ' ✎' : ''}
                         </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div className="shared-ds-editor-empty">

@@ -30,9 +30,10 @@ export default function WorkflowCanvasControls({
   const [saveFlash, setSaveFlash] = useState(false);
 
   const handleFitView = useCallback(() => {
+    // Cap at 100% — small graphs (Start + one HTTP) must not inflate past regular size.
     const opts = {
       padding: 0.15,
-      maxZoom: 1.5,
+      maxZoom: 1,
       minZoom: 0.4,
       duration: 300,
       includeHiddenNodes: true,

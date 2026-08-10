@@ -88,7 +88,7 @@ export const HAR = {
   // ── Data Source (TH-5) ────────────────────────────────────────
   DS_GRID:             '.data-source-grid',
   DS_TOOLBAR:          '.data-source-toolbar-unified',
-  DS_FROM_API_BTN:     '.data-source-toolbar-unified .data-source-toolbar-btn[title*="populate rows"]',
+  DS_FROM_API_BTN:     '.data-source-toolbar-unified .data-source-toolbar-btn[title*="map fields into data-source"]',
   DS_MAP_COLUMNS_BTN:  '.data-source-toolbar-unified .data-source-toolbar-btn[title*="Data Mapper"]',
   TE_DS_TAB:           '[data-testid="har-te-ds-tab"]',
   DS_ADD_ROW_BTN:      '.data-source-toolbar-btn[title="Add a new row"]',
@@ -206,6 +206,9 @@ export const HAR = {
   TRASH_SELECT_MENU:   '.cs-menu',
   TRASH_EMPTY_BTN:     '[data-testid="har-trash-empty-btn"]',
   TRASH_CONFIRM_MODAL: '.popup-modal',
+  /** Cancel in the Empty Trash / permanent-delete confirmation footer. */
+  TRASH_CONFIRM_CANCEL: '.popup-modal .popup-modal-footer .btn:not(.btn-danger):not(.btn-primary)',
+  TRASH_CONFIRM_EMPTY:  '.popup-modal .popup-modal-footer .btn-danger',
   TEST_DELETE_BTN:     '.test-card-actions .btn-danger',
   TEST_ACTIONS:        '.test-card-actions',
 
@@ -235,6 +238,8 @@ export const HAR = {
   MAPPER_CANCEL_BTN:     '.dm-modal-shell .dm-modal-btn--secondary',
   MAPPER_FULLSCREEN_BTN: '.dm-modal-header-btn',
   MAPPER_SOURCE:         '.dm-panel--source',
+  MAPPER_FETCH_SAMPLE:   '[aria-label="Fetch live sample"]',
+  MAPPER_SOURCE_TREE:    '.dm-panel--source .dm-tree-container, .dm-panel--source .dm-tree-node',
   MAPPER_TARGET:         '.dm-panel--target',
   MAPPER_CANVAS:         '.dm-canvas',
   MAPPER_TOOLBAR:        '.dm-toolbar',
@@ -375,6 +380,8 @@ export const HAR = {
   SHARED_DS_GRID:        '.shared-ds-editor-content .data-source-scroll',
   SHARED_DS_USED_BY_TOGGLE: '.shared-ds-used-by-toggle',
   SHARED_DS_USED_BY_LIST: '.shared-ds-used-by-list',
+  /** Create Parameterized Copy / data-source setup wizard (opens after cURL Import & Apply). */
+  DS_SETUP_DIALOG:       '.ds-setup-dialog',
 
   // ── Schema Drift & Repair (TH-19) ───────────────────────
   DRIFT_BANNER:          '.dm-drift-banner',
@@ -389,6 +396,8 @@ export const HAR = {
   REPAIR_BTN:            '.dm-repair-btn',
   REPAIR_APPLY:          '.dm-repair-apply-btn',
   REPAIR_BATCH:          '.dm-repair-btn--batch',
+  VALIDATION_REPAIR_PANEL: '[data-testid="dm-validation-repair-panel"]',
+  VALIDATION_REPAIR_ROW: '.dm-validation-repair-row',
 
   // ── Workflow Runner (TH-21) ────────────────────────────────
   WF_PICKER:             '.workflow-picker',
@@ -401,10 +410,14 @@ export const HAR = {
   WF_VARS_GRID:          '.wfp-vars-grid',
   WF_VAR_ROW:            '.wfp-var-row',
   WF_VARS_ACTIONS:       '.workflow-vars-actions',
+  WF_VARS_ACTION_BTN:    '.workflow-vars-actions .wfp-action-btn',
   WF_HISTORY_PANEL:      '.workflow-history-panel',
   WF_HISTORY_LIST:       '.history-list',
   WF_HISTORY_ITEM:       '.history-item',
+  WF_HISTORY_SAVE_INPUT: '.history-save-input',
+  WF_HISTORY_SAVE_FORM:  '.history-save-form',
   WF_TRACE_OPTIONS:      '.wf-runner-inline-options',
+  WF_TRACE_RADIO:        '.wf-runner-inline-options input[name="wf-traceLevel"]',
   WF_CONFIG_SECTION:     '.workflow-runner-config-section',
   WF_RUN_BTN:            '[data-testid="workflow-runner-run-btn"]',
   WF_STOP_BTN:           '[data-testid="workflow-runner-stop-btn"]',

@@ -633,8 +633,8 @@ describe('WorkflowDesignerFlowCanvas', () => {
     expect(fn?.()).toBe(true);
     expect(mockFitView).toHaveBeenCalledWith({
       padding: { top: 0.08, right: 0.34, bottom: 0.1, left: 0.06 },
-      maxZoom: 1.35,
-      minZoom: 0.9,
+      maxZoom: 1,
+      minZoom: 0.4,
       duration: 250,
       includeHiddenNodes: true,
     });
@@ -647,6 +647,21 @@ describe('WorkflowDesignerFlowCanvas', () => {
       duration: 10,
       includeHiddenNodes: true,
     });
+  });
+
+  it('forces fitView duration 0 while demo bootstrapping', () => {
+    document.body.setAttribute('data-demo-bootstrapping', '1');
+    try {
+      render(<WorkflowDesignerFlowCanvas vm={makeVm()} selected={selected} />);
+      const fn = (window as unknown as Record<string, unknown>).__wfFitView as
+        | ((opts?: Record<string, unknown>) => boolean)
+        | undefined;
+      mockFitView.mockClear();
+      expect(fn?.({ duration: 300 })).toBe(true);
+      expect(mockFitView).toHaveBeenCalledWith(expect.objectContaining({ duration: 0 }));
+    } finally {
+      document.body.removeAttribute('data-demo-bootstrapping');
+    }
   });
 
   it('keeps non-target edges untouched when highlighting drop target edge', () => {

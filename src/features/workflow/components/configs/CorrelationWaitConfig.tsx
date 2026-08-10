@@ -24,6 +24,55 @@ interface PausedCorrelation {
   pausedAt: number;
 }
 
+/** Replace `{{name}}` using workflow variable default values from Insert Variable hints. */
+function resolveTemplateWithHints(
+  template: string,
+  hints: WorkflowVariableHint[],
+): string {
+  if (!template.includes('{{')) return template;
+  const byRef = new Map(
+    hints
+      .filter((h) => h.ref && h.defaultValue != null && String(h.defaultValue).length > 0)
+      .map((h) => [h.ref, String(h.defaultValue)]),
+  );
+  return template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (full, raw: string) => {
+    const key = raw.trim();
+    if (byRef.has(key)) return byRef.get(key)!;
+    // Allow bare name match when hint ref is `name` or nested.
+    for (const [ref, value] of byRef) {
+      if (ref === key || ref.endsWith(`.${key}`)) return value;
+    }
+    return full;
+  });
+}
+
+/** Parse JSON from a resume/list response without throwing on empty 502 bodies. */
+async function readCorrelationApiJson(
+  response: Response,
+): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; message: string }> {
+  const text = await response.text();
+  if (!response.ok) {
+    if (response.status === 502 || response.status === 503 || !text.trim()) {
+      return {
+        ok: false,
+        message: 'Webhook server offline — start the local server (port 3001) and try again.',
+      };
+    }
+    return { ok: false, message: `Resume failed (HTTP ${response.status})` };
+  }
+  if (!text.trim()) {
+    return {
+      ok: false,
+      message: 'Webhook server returned an empty response — is port 3001 running?',
+    };
+  }
+  try {
+    return { ok: true, data: JSON.parse(text) as Record<string, unknown> };
+  } catch {
+    return { ok: false, message: 'Webhook server returned non-JSON — check the local server logs.' };
+  }
+}
+
 export default function CorrelationWaitConfig({
   data,
   onChange,
@@ -67,7 +116,9 @@ export default function CorrelationWaitConfig({
   const buildDefaultPayload = useCallback(() => {
     const payload: Record<string, unknown> = {};
     if (data.correlationSource === 'body' && data.correlationJsonPath) {
-      setByPath(payload, data.correlationJsonPath, data.correlationIdExpression || '<correlationId>');
+      const raw = data.correlationIdExpression || '<correlationId>';
+      const resolved = resolveTemplateWithHints(raw, variableHints);
+      setByPath(payload, data.correlationJsonPath, resolved);
     }
     for (const ev of data.extractVariables ?? []) {
       if (ev.name && ev.jsonPath) {
@@ -75,7 +126,13 @@ export default function CorrelationWaitConfig({
       }
     }
     return payload;
-  }, [data.correlationSource, data.correlationJsonPath, data.correlationIdExpression, data.extractVariables]);
+  }, [
+    data.correlationSource,
+    data.correlationJsonPath,
+    data.correlationIdExpression,
+    data.extractVariables,
+    variableHints,
+  ]);
 
   const defaultPayload = useMemo(
     () => JSON.stringify(buildDefaultPayload(), null, 2),
@@ -95,29 +152,66 @@ export default function CorrelationWaitConfig({
     setTestSending(true);
     setTestResult(null);
     try {
-      const payloadStr = testPayload || defaultPayload;
-      const body = JSON.parse(payloadStr);
+      const payloadStr = resolveTemplateWithHints(testPayload || defaultPayload, variableHints);
+      let body: Record<string, unknown>;
+      try {
+        body = JSON.parse(payloadStr) as Record<string, unknown>;
+      } catch (err) {
+        setTestResult({ ok: false, message: `Invalid JSON in test payload: ${toErrorMessage(err)}` });
+        return;
+      }
+
       const corrPath = data.correlationJsonPath || '$.correlationId';
-      const corrValue = getByPath(body, corrPath);
+      const rawCorr = getByPath(body, corrPath) ?? data.correlationIdExpression;
+      const correlationId = resolveTemplateWithHints(String(rawCorr ?? ''), variableHints).trim();
+
+      if (!correlationId || /\{\{/.test(correlationId)) {
+        setTestResult({
+          ok: false,
+          message:
+            'correlationId is empty — set it in Workflow Variables (or replace {{correlationId}} in the payload with a concrete ID).',
+        });
+        return;
+      }
+
+      // Keep the body ID in sync with the resolved value used for resume matching.
+      if (data.correlationSource === 'body') {
+        setByPath(body, corrPath, correlationId);
+      }
+
       const response = await fetch('/api/correlations/resume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          correlationId: corrValue ?? data.correlationIdExpression,
+          correlationId,
           webhookData: body,
         }),
       });
-      const result = await response.json();
+      const parsed = await readCorrelationApiJson(response);
+      if (!parsed.ok) {
+        setTestResult({ ok: false, message: parsed.message });
+        return;
+      }
+      const result = parsed.data;
       setTestResult({
         ok: result.resumed === true,
-        message: result.resumed ? `Resumed execution ${result.executionId ?? ''}` : 'No matching paused workflow found',
+        message: result.resumed
+          ? `Resumed execution ${String(result.executionId ?? '')}`
+          : 'No matching paused workflow found — run the workflow first so it pauses here.',
       });
     } catch (err) {
       setTestResult({ ok: false, message: toErrorMessage(err) });
     } finally {
       setTestSending(false);
     }
-  }, [testPayload, defaultPayload, data.correlationJsonPath, data.correlationIdExpression]);
+  }, [
+    testPayload,
+    defaultPayload,
+    data.correlationJsonPath,
+    data.correlationIdExpression,
+    data.correlationSource,
+    variableHints,
+  ]);
 
   const extractVariables = data.extractVariables ?? [];
 
@@ -375,8 +469,20 @@ export default function CorrelationWaitConfig({
               </button>
             </div>
             {pausedCorrelations.length === 0 ? (
-              <div className="wf-paused-empty">
-                {loadingPaused ? 'Loading…' : 'No workflows currently paused. Run a workflow first.'}
+              <div className="wf-paused-empty" data-testid="paused-correlations-empty">
+                {loadingPaused ? (
+                  'Loading…'
+                ) : (
+                  <>
+                    <p className="wf-paused-empty-title">No workflow is paused at this node yet.</p>
+                    <ol className="wf-paused-empty-steps">
+                      <li>Click <strong>Close</strong> (keep your payload), then <strong>Quick Test</strong> in the toolbar.</li>
+                      <li>Wait until this CorrelationWait node shows <strong>Paused</strong> on the canvas.</li>
+                      <li>Re-open this panel — the paused ID appears in the list above.</li>
+                      <li>Click that ID (or keep your payload), then <strong>Send Test Webhook</strong>.</li>
+                    </ol>
+                  </>
+                )}
               </div>
             ) : (
               <div className="wf-paused-list">
@@ -425,7 +531,12 @@ export default function CorrelationWaitConfig({
               type="button"
               className="wf-test-webhook-btn"
               onClick={handleSendTestWebhook}
-              disabled={testSending}
+              disabled={testSending || pausedCorrelations.length === 0}
+              title={
+                pausedCorrelations.length === 0
+                  ? 'Run Quick Test first so this node pauses, then send'
+                  : 'Resume the paused workflow with this payload'
+              }
               data-testid="test-webhook-send"
             >
               {testSending ? 'Sending…' : 'Send Test Webhook'}
