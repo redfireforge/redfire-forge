@@ -6,6 +6,10 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { slugifyGrpcExplorerId } from '../src/features/grpc/utils/grpcExplorerUtils';
 import { FIXTURE_ECHO_DESCRIPTOR_PAYLOAD } from '../src/shared/grpc/contractFixtures';
 import type { GrpcMockRuleSet } from '../src/shared/grpc/grpcMockRuleContracts';
+import {
+  GRPC_MOCK_LISTENER_PORT_MAX,
+  GRPC_MOCK_LISTENER_PORT_MIN,
+} from '../src/shared/grpc/grpcMockListenerContracts';
 import { REDFIREFORGE_IDB_VERSION, seedAppData } from './helpers';
 
 export const GRPC_HEALTH = 'http://localhost:50052/health';
@@ -29,6 +33,17 @@ export const ECHO_METHOD_TESTID = 'grpc-method-echo-echoservice-echo';
 export const SERVER_STREAM_METHOD_TESTID = 'grpc-method-echo-echoservice-serverstream';
 export const CLIENT_STREAM_METHOD_TESTID = 'grpc-method-echo-echoservice-clientstream';
 export const BIDI_STREAM_METHOD_TESTID = 'grpc-method-echo-echoservice-bidistream';
+
+let grpcMockPortCursor = Math.max(GRPC_MOCK_LISTENER_PORT_MIN, 50071);
+
+function nextPreferredGrpcMockPort(): number {
+  const port = grpcMockPortCursor;
+  grpcMockPortCursor += 1;
+  if (grpcMockPortCursor > GRPC_MOCK_LISTENER_PORT_MAX) {
+    grpcMockPortCursor = Math.max(GRPC_MOCK_LISTENER_PORT_MIN, 50071);
+  }
+  return port;
+}
 
 /** Matches `nodeId()` in grpcSchemaBrowserModel — slugified parts joined with `--`. */
 export function schemaBrowserNodeTestId(...parts: string[]): string {
@@ -72,6 +87,8 @@ export async function startGrpcMockListener(
     port?: number;
   },
 ): Promise<{ listenTarget: string }> {
+  const explicitPort = options.port;
+  let preferredPort = explicitPort ?? nextPreferredGrpcMockPort();
   const payload: Record<string, unknown> = {
       tabId: options.tabId,
       connectionId: options.connectionId ?? `conn-${options.tabId}`,
@@ -88,23 +105,38 @@ export async function startGrpcMockListener(
           response: { statusCode: 0, body: { message: options.responseMessage ?? 'mock-e2e-response' } },
         }],
       },
+      port: preferredPort,
   };
-  if (options.port != null) {
-    payload.port = options.port;
+
+  let lastErrorBody: unknown;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    payload.port = preferredPort;
+    const response = await request.post('http://localhost:3001/api/grpc/mock/start', {
+      data: payload,
+    });
+
+    if (response.ok()) {
+      const body = (await response.json()) as {
+        data?: { status?: { listenTarget?: string } };
+      };
+      const listenTarget = body.data?.status?.listenTarget;
+      expect(listenTarget).toBeTruthy();
+      await waitForGrpcListenTargetOpen(listenTarget!);
+      return { listenTarget: listenTarget! };
+    }
+
+    lastErrorBody = await response.text().catch(() => undefined);
+    const isPortBusy = /EADDRINUSE|address already in use/i.test(String(lastErrorBody ?? ''));
+    if (isPortBusy && explicitPort == null) {
+      preferredPort += 1;
+      if (preferredPort > GRPC_MOCK_LISTENER_PORT_MAX) {
+        preferredPort = Math.max(GRPC_MOCK_LISTENER_PORT_MIN, 50071);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
   }
 
-  const response = await request.post('http://localhost:3001/api/grpc/mock/start', {
-    data: payload,
-  });
-
-  expect(response.ok()).toBeTruthy();
-  const body = (await response.json()) as {
-    data?: { status?: { listenTarget?: string } };
-  };
-  const listenTarget = body.data?.status?.listenTarget;
-  expect(listenTarget).toBeTruthy();
-  await waitForGrpcListenTargetOpen(listenTarget!);
-  return { listenTarget: listenTarget! };
+  throw new Error(`Failed to start gRPC mock listener for tab ${options.tabId}: ${String(lastErrorBody ?? 'unknown error')}`);
 }
 
 async function waitForGrpcListenTargetOpen(listenTarget: string, timeoutMs = 15_000): Promise<void> {
@@ -528,6 +560,16 @@ export async function waitForStreamLogContains(page: Page, text: string | RegExp
   await expect(page.locator('[data-testid="grpc-stream-log-list"]')).toContainText(text, { timeout: 30_000 });
 }
 
+export async function waitForStreamCountAtLeast(
+  page: Page,
+  testId: 'grpc-stream-outbound-count' | 'grpc-stream-inbound-count',
+  minimum: number,
+): Promise<void> {
+  await expect
+    .poll(async () => readStreamCount(page, testId), { timeout: 10_000 })
+    .toBeGreaterThanOrEqual(minimum);
+}
+
 async function readStreamCount(page: Page, testId: 'grpc-stream-outbound-count' | 'grpc-stream-inbound-count'): Promise<number> {
   const text = ((await page.locator(`[data-testid="${testId}"]`).textContent().catch(() => '')) ?? '').trim();
   const match = text.match(/(\d+)/);
@@ -642,6 +684,36 @@ export async function sendStreamMessage(page: Page): Promise<void> {
 }
 
 export async function endGrpcStream(page: Page): Promise<void> {
+  const waitForEndControls = async (): Promise<void> => {
+    await expect
+      .poll(async () => {
+        const pendingEnd = page.locator('[data-testid="grpc-stream-pending-end-btn"]');
+        if (await pendingEnd.count()) {
+          if (await pendingEnd.isEnabled().catch(() => false)) {
+            return 'pending-end';
+          }
+        }
+
+        const endBtn = page.locator('[data-testid="grpc-stream-end-btn"]');
+        if (await endBtn.count()) {
+          if (await endBtn.isEnabled().catch(() => false)) {
+            return 'end';
+          }
+        }
+
+        const badge = page.locator('[data-testid="grpc-stream-status-badge"]');
+        const badgeText = ((await badge.textContent().catch(() => '')) ?? '').trim();
+        if (/Ended|Cancelled|Error/i.test(badgeText)) {
+          return 'terminal';
+        }
+
+        return badgeText || 'pending';
+      }, { timeout: 10_000 })
+      .not.toMatch(/^(Starting…|Starting\.\.\.|Streaming|pending)$/i);
+  };
+
+  await waitForEndControls();
+
   const pendingEnd = page.locator('[data-testid="grpc-stream-pending-end-btn"]');
   if (await pendingEnd.count()) {
     if (await pendingEnd.isEnabled().catch(() => false)) {
