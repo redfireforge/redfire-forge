@@ -27,7 +27,7 @@ function makeDataSource(overrides: Partial<DataSource> = {}): DataSource {
 
 describe('useDataSourceRows', () => {
   describe('Row CRUD', () => {
-    it('addRow appends a new empty row', () => {
+    it('addRow appends a new empty disabled row', () => {
       const onChange = vi.fn();
       const ds = makeDataSource();
       const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
@@ -36,16 +36,29 @@ describe('useDataSourceRows', () => {
       const updated = onChange.mock.calls[0][0] as DataSource;
       expect(updated.rows).toHaveLength(4);
       expect(updated.rows[3].values.c1).toBe('');
-      expect(updated.rows[3].enabled).toBe(true);
+      expect(updated.rows[3].enabled).toBe(false);
     });
 
-    it('addSampleRow appends a sample row', () => {
+    it('addSampleRow appends an enabled sample row', () => {
       const onChange = vi.fn();
       const ds = makeDataSource();
       const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
       act(() => result.current.addSampleRow());
       const updated = onChange.mock.calls[0][0] as DataSource;
       expect(updated.rows[3].isSample).toBe(true);
+      expect(updated.rows[3].enabled).toBe(true);
+    });
+
+    it('updateCell enables a disabled blank row when a value is typed', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource({
+        rows: [{ id: 'r1', values: { c1: '', c2: '' }, enabled: false }],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.updateCell('r1', 'c1', '42'));
+      const updated = onChange.mock.calls[0][0] as DataSource;
+      expect(updated.rows[0].values.c1).toBe('42');
+      expect(updated.rows[0].enabled).toBe(true);
     });
 
     it('removeRow removes and keeps at least one row', () => {

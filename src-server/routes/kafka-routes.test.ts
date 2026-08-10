@@ -8,7 +8,6 @@ import { createKafkaRouter } from './kafka-routes.js';
 import { createKafkaErrorEnvelope, createKafkaSuccessEnvelope } from '../kafka/contracts.js';
 import {
   SchemaRegistryError,
-  listSubjects,
   listSubjectsWithFormat,
   listVersions,
   fetchSchema,
@@ -788,7 +787,9 @@ describe('kafka-routes', () => {
       const res = await request(app)
         .post('/api/kafka/schema-seed-sample')
         .send({ schemaConfig: seedSchemaConfig });
-      expect(res.status).toBe(200);
+      // REGISTRY_UNREACHABLE maps to 503 everywhere else in this router (see
+      // schema-subjects/schema-versions/schema-fetch tests above).
+      expect(res.status).toBe(503);
       expect(res.body.ok).toBe(false);
     });
   });

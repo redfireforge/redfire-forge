@@ -119,7 +119,11 @@ test.describe('Workflow - Log/Debug, Error Handler, Wait for Condition nodes', (
 
   test('palette shows Log/Debug and Wait for Condition entries', async ({ page }) => {
     await expect(page.locator('.wf-palette')).toBeVisible({ timeout: 5000 });
+    // Navigate to Data category to find Log/Debug
+    await page.locator('[data-testid="wf-palette-rail-data"]').click();
     await expect(page.locator('.wf-palette').getByText('Log/Debug')).toBeVisible();
+    // Navigate to Logic category to find Wait for Condition
+    await page.locator('[data-testid="wf-palette-rail-logic"]').click();
     await expect(page.locator('.wf-palette').getByText('Wait for Condition')).toBeVisible();
   });
 

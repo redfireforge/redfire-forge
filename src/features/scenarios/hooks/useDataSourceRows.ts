@@ -95,9 +95,13 @@ export function useDataSourceRows({ dataSource: dt, onChange }: UseDataSourceRow
     (rowId: string, colId: string, value: string) => {
       const current = dtRef.current;
       if (!current) return;
-      const rows = current.rows.map(r =>
-        r.id === rowId ? { ...r, values: { ...r.values, [colId]: value } } : r,
-      );
+      const rows = current.rows.map(r => {
+        if (r.id !== rowId) return r;
+        const next = { ...r, values: { ...r.values, [colId]: value } };
+        // Typing a value into a blank starter row enables it for the run.
+        if (value.trim() && !next.enabled) next.enabled = true;
+        return next;
+      });
       commit({ ...current, rows });
     },
     [commit],
@@ -126,7 +130,8 @@ export function useDataSourceRows({ dataSource: dt, onChange }: UseDataSourceRow
   const addSampleRow = useCallback(() => {
     const current = dtRef.current;
     if (!current) return;
-    const row = { ...createEmptyRow(current.columns), isSample: true };
+    // Sample rows stay enabled (validation / contract flows depend on them).
+    const row = { ...createEmptyRow(current.columns), isSample: true, enabled: true };
     commit({ ...current, rows: [...current.rows, row] });
   }, [commit]);
 

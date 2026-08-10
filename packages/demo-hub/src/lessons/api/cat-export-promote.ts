@@ -23,6 +23,7 @@ import {
   deleteCollectionsByName,
   selectCatalogEntryByName,
   ensureCatalogTab,
+  ensureCatalogOverviewView,
   ensureEndpointsView,
   collapseAllCards,
   closeExportModalIfOpen,
@@ -435,10 +436,26 @@ export const catExportPromoteLesson: DemoLesson = {
   description:
     'Move API definitions from the Catalog into Requests, Harness, and Workflow — single export, ' +
     'bulk export with environments, coverage tracking, Preview/Published workflow exposure, and ' +
-    'the Published management panel with View Usage, Republish Stale, and Promote Preview.',
+    'the Workflow Exposure panel with View Usage, Republish Stale, and Promote Preview.',
   estimatedMinutes: 10,
   initialTab: 'catalog',
+  initialSurface: { catalogView: 'endpoints' },
   allowedTabs: ['catalog', 'requests', 'scenarios', 'workflow', 'environments'],
+
+  // Seed + select BEFORE Catalog mounts so Start/Restart never paints
+  // CatalogWelcome ("Design, explore…") before step 1's Endpoints surface.
+  prepareBeforeNavigate: async (ctx) => {
+    ensureHarnessTargets();
+    deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await cleanupOtherRequestDemoCollections(ctx);
+    deleteWorkflowByName(CAT3_TEMP_WF_NAME);
+    await clearAllWorkflowPreviews();
+    deleteCatalogEntryByName(DEMO_ENTRY_NAME);
+    await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
+    selectCatalogEntryByName(DEMO_ENTRY_NAME);
+    await ctx.delay(80);
+  },
 
   concept: {
     title: 'From API Spec to Request Collection',
@@ -456,14 +473,14 @@ export const catExportPromoteLesson: DemoLesson = {
       '- How **coverage badges** track what\'s already exported\n' +
       '- How **Send to Harness** promotes directly to automated testing\n' +
       '- How **Expose to Workflow** (Preview → Published) makes endpoints available in the Workflow Designer\n' +
-      '- How the **Published panel** provides governance: filter pills, View Usage, Republish Stale, Promote Preview',
+      '- How the **Workflow Exposure** panel provides governance: filter pills, View Usage, Republish Stale, Promote Preview',
     keyTerms: [
       { term: 'Export to Requests', definition: 'Creates request entries in a collection from catalog endpoints — method, path, params, and base URL pre-configured' },
       { term: 'Coverage Badge', definition: '"IN REQUESTS" badge on endpoint cards showing which endpoints are already exported — click to see the collection path' },
       { term: 'Version Tracking', definition: 'The export panel marks endpoints as "NEW" or "from v1" to avoid duplicate exports when a spec is updated' },
       { term: 'Send to Harness', definition: 'Promotes the endpoint directly to the Test Harness as a test scenario — skipping the Requests collection step' },
       { term: 'Expose to Workflow', definition: 'Makes the endpoint (with current values) available as a node in the Workflow Designer palette' },
-      { term: 'Published Panel', definition: 'Management tab showing all Published/Preview endpoints — filter, search, View Usage, Republish Stale, Promote Preview' },
+      { term: 'Workflow Exposure', definition: 'Management tab showing all Published/Preview endpoints — filter, search, View Usage, Republish Stale, Promote Preview' },
     ],
     diagram: `<svg viewBox="0 0 460 90" xmlns="http://www.w3.org/2000/svg">
       <rect x="5" y="25" width="100" height="40" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
@@ -485,20 +502,11 @@ export const catExportPromoteLesson: DemoLesson = {
 
   setup: async (ctx) => {
     expandAppSidebar();
-    deleteWorkflowByName(CAT3_TEMP_WF_NAME);
-    deleteCollectionsByName(DEMO_ENTRY_NAME);
-    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
-    await clearAllWorkflowPreviews();
-    await ctx.delay(200);
-    await cleanupOtherRequestDemoCollections(ctx);
-    ensureHarnessTargets();
-    await ctx.delay(400);
     ensureCatalogTab(ctx);
-    await ctx.delay(400);
-    await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
-    await waitForSelector(CAT.entryByName(DEMO_ENTRY_NAME), 3000);
-    selectCatalogEntryByName(DEMO_ENTRY_NAME);
-    await ctx.delay(200);
+    await ensureDemoEntrySelected();
+    await ensureEndpointsView(ctx);
+    collapseAllCards();
+    await ctx.delay(80);
   },
 
   cleanup: async (ctx) => {
@@ -513,7 +521,11 @@ export const catExportPromoteLesson: DemoLesson = {
     deleteWorkflowByName(CAT3_TEMP_WF_NAME);
     await clearAllWorkflowPreviews();
     await cleanupOtherRequestDemoCollections(ctx);
-    ensureCatalogTab(ctx);
+    // Skip Catalog navigate during Restart boot — prepareBeforeNavigate reseeds
+    // first, then the hub lands on Catalog once (avoids Welcome flash).
+    if (document.body.getAttribute('data-demo-bootstrapping') !== '1') {
+      ensureCatalogTab(ctx);
+    }
     await ctx.delay(60);
   },
 
@@ -711,32 +723,37 @@ export const catExportPromoteLesson: DemoLesson = {
       id: 'cat3-bulk-tab',
       title: 'Bulk Export — The Export Tab',
       description:
-        'Return to the Catalog and switch to the **Export to Requests** tab. This shows a ' +
-        'full endpoint table with **all 12 endpoints** — each with a checkbox, method badge, ' +
-        'custom name field, and **version badges**.\n\n' +
+        'Back on the Catalog **Overview**, switch to the **Export to Requests** tab. That ' +
+        'shows a full endpoint table with **all 12 endpoints** — each with a checkbox, method ' +
+        'badge, custom name field, and **version badges**.\n\n' +
         'Version badges show **NEW** (never exported before) or **"from v1.0.0"** (already in ' +
         'a collection from a prior export). The **Select All** checkbox at the top lets you ' +
         'quickly toggle the full list. This prevents duplicate work across spec updates.',
-      highlight: CAT.EXPORT_EP_TABLE,
+      highlight: CAT.VIEW_OVERVIEW,
 
       preAction: async (ctx) => {
-        // Navigate back to Catalog (step 2 may have landed on Requests)
+        // Navigate back to Catalog (step 2 may have landed on Requests).
+        // Stay on Overview — the action shows Overview → Export tab click.
         ensureCatalogTab(ctx);
         await ctx.delay(200);
         await ensureDemoEntrySelected();
         closeExportModalIfOpen();
-        // Switch to Export tab in preAction so the table is visible during reading
-        const exportTab = document.querySelector<HTMLElement>(CAT.VIEW_EXPORT);
-        if (exportTab) {
-          exportTab.click();
-          await ctx.delay(400);
-        }
+        await ensureCatalogOverviewView(ctx);
       },
 
       action: async (ctx) => {
-        // Ensure Export tab is active (preAction should have done this)
+        // 1. Pause on Overview so the viewer sees where we are
+        await ensureCatalogOverviewView(ctx);
+        const overviewTab = document.querySelector<HTMLElement>(CAT.VIEW_OVERVIEW);
+        if (overviewTab) {
+          await spotlightEl(ctx, overviewTab, 1400);
+        }
+        await ctx.delay(600);
+
+        // 2. Highlight Export to Requests, then click it
         const exportTab = document.querySelector<HTMLElement>(CAT.VIEW_EXPORT);
-        if (exportTab && !exportTab.classList.contains('active')) {
+        if (exportTab) {
+          await spotlightEl(ctx, exportTab, 1500);
           exportTab.click();
           await ctx.delay(900);
           try { await waitForSelector(CAT.EXPORT_INLINE, 3000); } catch { /* best-effort */ }
@@ -1113,17 +1130,17 @@ export const catExportPromoteLesson: DemoLesson = {
       },
     },
 
-    // ── Step 8: Published Management Panel ──────────────────────
+    // ── Step 8: Workflow Exposure panel ─────────────────────────
     {
       id: 'cat3-published-panel',
-      title: 'Published Management Panel',
+      title: 'Workflow Exposure Panel',
       description:
-        'Switch to the **Published** tab — this management panel lists every endpoint ' +
+        'Switch to the **Workflow Exposure** tab — this management panel lists every endpoint ' +
         'you\'ve exposed to the Workflow Designer.\n\n' +
         'The toolbar provides:\n' +
-        '- **Filter pills** — All / Current / Stale / Preview — to quickly narrow the view\n' +
+        '- **Filter pills** — All / Published / Stale / Preview — to quickly narrow the view\n' +
         '- **Search** — find endpoints by method, path, or API name\n' +
-        '- **Status badges** — "Current" (green) for up-to-date and "Stale" (amber) for endpoints ' +
+        '- **Status badges** — "Published" (green) for up-to-date and "Stale" (amber) for endpoints ' +
         'whose spec version has changed since publication\n\n' +
         'Each row shows the method badge, path, API name, publish date, and a **⋮ actions menu** ' +
         'with View in Catalog, View Usage, Republish, and Unpublish.',
@@ -1136,9 +1153,9 @@ export const catExportPromoteLesson: DemoLesson = {
         if (!document.querySelector(CAT.SIDEBAR)) {
           await new Promise(r => setTimeout(r, 150));
         }
-        // Fast path: Published panel visible with at least one row
+        // Fast path: Workflow Exposure panel visible with at least one row
         if (document.querySelector(CAT.PUB_PANEL) && document.querySelector(CAT.PUB_ROW)) return;
-        // The endpoint may already be Published — just switch to the Published tab
+        // The endpoint may already be Published — just switch to the Workflow Exposure tab
         document.querySelector<HTMLElement>(CAT.VIEW_PUBLISHED)?.click();
         await new Promise(r => setTimeout(r, 100));
         if (document.querySelector(CAT.PUB_ROW)) return;
@@ -1163,11 +1180,11 @@ export const catExportPromoteLesson: DemoLesson = {
         const pills = document.querySelector<HTMLElement>('.pub-filter-pills');
         if (pills) await spotlightEl(ctx, pills, 1200);
 
-        // Click the "Current" filter pill to show it works
-        const currentPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_CURRENT);
-        if (currentPill) {
-          await spotlightEl(ctx, currentPill, 800);
-          currentPill.click();
+        // Click the "Published" filter pill to show it works
+        const publishedPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_PUBLISHED);
+        if (publishedPill) {
+          await spotlightEl(ctx, publishedPill, 800);
+          publishedPill.click();
           await ctx.delay(600);
         }
 
@@ -1223,7 +1240,7 @@ export const catExportPromoteLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         closePublishModalIfOpen();
-        // Normal flow: already on Published tab from step 8
+        // Normal flow: already on Workflow Exposure tab from step 8
         if (document.querySelector(CAT.PUB_PANEL)) {
           const allPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_ALL);
           if (allPill && !allPill.classList.contains('active')) allPill.click();
@@ -1280,45 +1297,32 @@ export const catExportPromoteLesson: DemoLesson = {
       title: 'Promote Preview to Published',
       description:
         'Remember **POST /posts** from Step 6? It\'s still in **Preview** mode. Previewed ' +
-        'endpoints appear in the Published panel under a separate section.\n\n' +
-        'Click the **Preview** filter pill to isolate them, then open the **⋮ menu** and ' +
-        'select **Promote to Published** — the endpoint is immediately upgraded to Published ' +
-        'status. The **parameter values** you entered during Preview are **carried over** to ' +
-        'the publication, so nothing is lost.\n\n' +
-        'This is the recommended way to go from Preview → Published. You can also **Remove** ' +
-        'a preview, or **View in Catalog** to jump back to its endpoint card.',
+        'endpoints appear under **Workflow Previews** on the **Workflow Exposure** tab.\n\n' +
+        'Click the **Previews** filter pill to isolate them, open the **⋮ menu**, and ' +
+        'select **Promote to Published**. Confirm the **Publish** dialog — Preview values ' +
+        'are **carried over**, so nothing is lost.\n\n' +
+        'When it finishes, **POST /posts** moves into **Published Endpoints** with a green ' +
+        '**Published** status. That\'s the recommended Preview → Published path.',
       highlight: CAT.PUB_FILTER_PREVIEW,
 
       preAction: async (ctx) => {
         closePublishModalIfOpen();
-        // Fast path: if Previews pill is visible, a preview endpoint is already registered
+        ensureCatalogTab(ctx);
+        document.querySelector<HTMLElement>(CAT.VIEW_PUBLISHED)?.click();
+        await new Promise(r => setTimeout(r, 120));
+        // Fast path: Previews pill means POST /posts (or another) is still a preview
         if (document.querySelector(CAT.PUB_FILTER_PREVIEW)) return;
 
-        // Need to set POST /posts to Preview. Switch to Endpoints tab first.
-        ensureCatalogTab(ctx);
-        const epTab = document.querySelector<HTMLElement>(CAT.VIEW_ENDPOINTS);
-        if (epTab) { epTab.click(); await new Promise(r => setTimeout(r, 200)); }
-
-        const card = await ensureCardTryItOpenFast('POST', '/posts');
-        if (card) {
-          const exposure = card.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
-          if (exposure) {
-            const label = exposure.querySelector('.sw-wf-exposure-label')?.textContent?.trim();
-            if (label !== 'Preview') {
-              const trigger = exposure.querySelector<HTMLButtonElement>('.sw-wf-exposure-trigger');
-              if (trigger) {
-                trigger.click();
-                await new Promise(r => setTimeout(r, 150));
-                document.querySelector<HTMLButtonElement>(CAT.EXPOSE_OPTION_PREVIEW)?.click();
-                await new Promise(r => setTimeout(r, 150));
-              }
-            }
-          }
-        }
+        // Recovery: ensure POST /posts is Preview (clear Published first if needed)
+        await ensureEndpointsView(ctx);
+        collapseAllCards();
+        await ensureCardTryItOpenFast('POST', '/posts');
+        await setExposureQuiet(ctx, 'none', 'POST', '/posts');
+        await setExposureQuiet(ctx, 'preview', 'POST', '/posts');
         collapseAllCards();
         document.querySelector<HTMLElement>(CAT.VIEW_PUBLISHED)?.click();
         await new Promise(r => setTimeout(r, 150));
-        const deadline = Date.now() + 2000;
+        const deadline = Date.now() + 2500;
         while (Date.now() < deadline) {
           if (document.querySelector(CAT.PUB_FILTER_PREVIEW)) break;
           await new Promise(r => setTimeout(r, 80));
@@ -1326,12 +1330,21 @@ export const catExportPromoteLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
+        // Stay on Workflow Exposure; isolate previews
+        if (!document.querySelector(CAT.PUB_PANEL)) {
+          await ctx.click(CAT.VIEW_PUBLISHED);
+          await ctx.delay(700);
+        }
+
         const previewPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_PREVIEW);
         if (previewPill) {
           await spotlightEl(ctx, previewPill, 1000);
           previewPill.click();
           await ctx.delay(800);
         }
+
+        const previewLabel = document.querySelector<HTMLElement>('[data-testid="pub-preview-section-label"]');
+        if (previewLabel) await spotlightEl(ctx, previewLabel, 900);
 
         const previewTable = document.querySelector<HTMLElement>(CAT.PUB_PREVIEW_TABLE);
         if (previewTable) {
@@ -1345,41 +1358,63 @@ export const catExportPromoteLesson: DemoLesson = {
         }
 
         const actionsBtn = document.querySelector<HTMLElement>(CAT.PUB_PREVIEW_ACTIONS_BTN);
-        if (actionsBtn) {
-          await spotlightEl(ctx, actionsBtn, 800);
-          actionsBtn.click();
-          await ctx.delay(600);
+        if (!actionsBtn) return;
+        await spotlightEl(ctx, actionsBtn, 800);
+        actionsBtn.click();
+        await ctx.delay(600);
 
-          const menu = document.querySelector<HTMLElement>('[data-testid="pub-preview-actions-menu"]');
-          if (menu) {
-            await spotlightEl(ctx, menu, 1000);
+        const menu = document.querySelector<HTMLElement>('[data-testid="pub-preview-actions-menu"]');
+        if (!menu) return;
+        await spotlightEl(ctx, menu, 1000);
 
-            const promoteAction = document.querySelector<HTMLElement>(CAT.PUB_PREVIEW_ACTION_PROMOTE);
-            if (promoteAction) {
-              await spotlightEl(ctx, promoteAction, 1200);
-              promoteAction.click();
-              await ctx.delay(1500);
+        const promoteAction = document.querySelector<HTMLElement>(CAT.PUB_PREVIEW_ACTION_PROMOTE);
+        if (!promoteAction) {
+          document.body.click();
+          await ctx.delay(300);
+          return;
+        }
 
-              const allPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_ALL);
-              if (allPill) {
-                allPill.click();
-                await ctx.delay(800);
-              }
+        await spotlightEl(ctx, promoteAction, 1200);
+        promoteAction.click();
 
-              // Spotlight the newly promoted row (POST /posts now in the published table)
-              const rows = document.querySelectorAll<HTMLElement>(CAT.PUB_ROW);
-              for (const row of rows) {
-                const rPath = row.querySelector('.pub-path')?.textContent?.trim();
-                if (rPath === '/posts' && row.querySelector('.pub-method')?.textContent?.trim() === 'POST') {
-                  row.scrollIntoView({ block: 'center' });
-                  await spotlightEl(ctx, row, 1800);
-                  break;
-                }
-              }
-            } else {
-              document.body.click();
-              await ctx.delay(300);
-            }
+        // Promote opens the Publish confirmation modal — complete it visibly
+        let publishModal: HTMLElement | null = document.querySelector(CAT.PUBLISH_MODAL);
+        if (!publishModal) {
+          try { publishModal = await waitForSelector(CAT.PUBLISH_MODAL, 2500); } catch { /* missing */ }
+        }
+        if (publishModal) {
+          await ctx.delay(500);
+          await spotlightEl(ctx, publishModal.querySelector<HTMLElement>('.sw-publish-dialog') ?? publishModal, 1200);
+          const confirmBtn = publishModal.querySelector<HTMLElement>(CAT.PUBLISH_CONFIRM_BTN);
+          if (confirmBtn) {
+            await spotlightEl(ctx, confirmBtn, 1000);
+            confirmBtn.click();
+            await ctx.delay(1000);
+          }
+        } else {
+          await ctx.delay(800);
+        }
+
+        // Show the result under All → Published Endpoints
+        const allPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_ALL);
+        if (allPill) {
+          allPill.click();
+          await ctx.delay(800);
+        }
+
+        const publishedLabel = document.querySelector<HTMLElement>('[data-testid="pub-published-section-label"]');
+        if (publishedLabel) await spotlightEl(ctx, publishedLabel, 900);
+
+        const rows = document.querySelectorAll<HTMLElement>(CAT.PUB_ROW);
+        for (const row of rows) {
+          const rPath = row.querySelector('.pub-path')?.textContent?.trim();
+          if (rPath === '/posts' && row.querySelector('.pub-method')?.textContent?.trim() === 'POST') {
+            row.scrollIntoView({ block: 'center' });
+            await spotlightEl(ctx, row, 1200);
+            const status = row.querySelector<HTMLElement>(CAT.PUB_STATUS_PUBLISHED)
+              ?? row.querySelector<HTMLElement>('.pub-status');
+            if (status) await spotlightEl(ctx, status, 1400);
+            break;
           }
         }
       },

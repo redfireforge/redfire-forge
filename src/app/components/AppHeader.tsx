@@ -97,7 +97,7 @@ export default function AppHeader({
         <span style={{ fontSize: '0.4em', fontWeight: 400, opacity: 0.5, marginLeft: '0.6em', verticalAlign: 'middle', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>v{__APP_VERSION__}</span>
       </h1>
       <div className="header-selectors" data-testid="header-selectors">
-        <div className="header-select-group">
+        <div className="header-select-group header-select-group--env">
           <CustomSelect
             data-testid="header-env-select"
             value={selectedEnvId}
@@ -105,9 +105,10 @@ export default function AppHeader({
             options={envOptions}
             placeholder="Environment…"
             size="sm"
+            className="header-env-select"
           />
         </div>
-        <div className="header-select-group">
+        <div className="header-select-group header-select-group--svc">
           <CustomSelect
             data-testid="header-svc-select"
             value={selectedSvcId}
@@ -115,6 +116,7 @@ export default function AppHeader({
             options={svcOptions}
             placeholder="Service…"
             size="sm"
+            className="header-svc-select"
           />
         </div>
         {protocolIndicator && <HeaderProtocolIndicator state={protocolIndicator} />}

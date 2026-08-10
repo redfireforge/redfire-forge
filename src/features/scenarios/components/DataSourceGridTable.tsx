@@ -303,7 +303,7 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
                   value={row.label ?? ''}
                   onChange={(e) => updateRowLabel(row.id, e.target.value)}
                   placeholder={`Row ${rowIdx + 1}`}
-                  disabled={!row.enabled}
+                  // Keep cells editable when unchecked so blank starter rows can be filled.
                   readOnly={!!linkedSharedDs}
                 />
               </td>
@@ -316,8 +316,11 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
                     value={row.values[col.id] ?? ''}
                     onChange={(e) => updateCell(row.id, col.id, e.target.value)}
                     onKeyDown={(e) => handleCellKeyDown(e, rowIdx, colIdx)}
-                    placeholder={col.name}
-                    disabled={!row.enabled}
+                    // Avoid placeholder=column name — empty cells looked filled (e.g. "userId").
+                    placeholder="Enter value"
+                    title={col.name}
+                    aria-label={col.name}
+                    // Keep cells editable when unchecked so blank starter rows can be filled.
                     readOnly={!!linkedSharedDs}
                   />
                 </td>

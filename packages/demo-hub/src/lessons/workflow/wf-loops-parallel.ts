@@ -1,11 +1,12 @@
 /**
  * WF-4 — Loops & Parallel Execution
  *
- * 6 steps: add & configure Loop → build loop body →
- * add Fork → add parallel HTTP branches → add Join → run Quick Test.
+ * 7 steps: show loop source data (Variables + Extract) → add & configure Loop →
+ * build loop body → add Fork → add parallel HTTP branches → add Join →
+ * run Quick Test.
  *
  * Prerequisite: seeded workflow with Start → HTTP GET /posts (returns array,
- * extraction of `posts` variable from response body).
+ * extraction of `postIds` variable from response body).
  * JSONPlaceholder GET /posts returns a 100-element array; loop limited to max=3.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
@@ -17,6 +18,7 @@ import {
   clickWfConfigTab,
   saveAndCloseWfConfigModal,
   closeWfConfigModalIfOpen,
+  closeWfConsoleIfOpen,
   cleanupWorkflowDemoRunUi,
   resetWfPaletteToBlocks,
   revealPaletteBlock,
@@ -79,6 +81,10 @@ const SEED_WORKFLOW = {
 
 let activeCleanup: (() => void) | null = null;
 
+/** Trim spotlight holds ~30% — lesson felt slow with stacked 1.2–2s rings. */
+const SPOTLIGHT_HOLD_SCALE = 0.7;
+const SPOTLIGHT_HOLD_MIN_MS = 450;
+
 function spotlight(el: HTMLElement, holdMs: number, ctx: DemoActionContext): Promise<void> {
   activeCleanup?.();
   activeCleanup = null;
@@ -89,7 +95,8 @@ function spotlight(el: HTMLElement, holdMs: number, ctx: DemoActionContext): Pro
   }
   const remove = showSpotlightRing(el);
   activeCleanup = remove;
-  return ctx.delay(holdMs).then(() => { remove(); if (activeCleanup === remove) activeCleanup = null; });
+  const hold = Math.max(SPOTLIGHT_HOLD_MIN_MS, Math.round(holdMs * SPOTLIGHT_HOLD_SCALE));
+  return ctx.delay(hold).then(() => { remove(); if (activeCleanup === remove) activeCleanup = null; });
 }
 
 async function spotlightSel(ctx: DemoActionContext, sel: string, holdMs: number): Promise<void> {
@@ -183,6 +190,65 @@ async function ensureLoopBody(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(300);
 }
 
+/** Ensure Fork + parallel HTTP branches exist (quiet recovery for rapid Next). */
+async function ensureForkAndBranches(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(WF.NODE_FORK)) {
+    addWorkflowNodeWithPreset('fork', FORK_NODE_ID, 'Parallel Fork', { x: 520, y: 420 });
+    await ctx.delay(200);
+    const loopId = getNodeId(WF.NODE_LOOP);
+    if (loopId) connectWorkflowNodes(loopId, FORK_NODE_ID, 'done', null);
+  }
+  const parNodes = document.querySelectorAll(WF.NODE_HTTP);
+  if (parNodes.length < 3) {
+    addWorkflowNodeWithPreset('http', PAR_HTTP_1_ID, 'Get User 1', { x: 760, y: 370 });
+    await ctx.delay(200);
+    patchWorkflowNodeDataById(PAR_HTTP_1_ID, {
+      label: 'Get User 1',
+      scenario: {
+        id: 'wf4-user1',
+        name: 'Get User 1',
+        url: '{{baseUrl}}/users/1',
+        method: 'GET',
+        headers: [],
+        body: '',
+        auth: { type: 'none' },
+        validation: { mode: 'none' },
+      },
+      timeoutSec: 0,
+    });
+    addWorkflowNodeWithPreset('http', PAR_HTTP_2_ID, 'Get User 2', { x: 760, y: 480 });
+    await ctx.delay(200);
+    patchWorkflowNodeDataById(PAR_HTTP_2_ID, {
+      label: 'Get User 2',
+      scenario: {
+        id: 'wf4-user2',
+        name: 'Get User 2',
+        url: '{{baseUrl}}/users/2',
+        method: 'GET',
+        headers: [],
+        body: '',
+        auth: { type: 'none' },
+        validation: { mode: 'none' },
+      },
+      timeoutSec: 0,
+    });
+    connectWorkflowNodes(FORK_NODE_ID, PAR_HTTP_1_ID);
+    connectWorkflowNodes(FORK_NODE_ID, PAR_HTTP_2_ID);
+    await ctx.delay(300);
+  }
+}
+
+/** Ensure Join + edges from both parallel HTTP branches (quiet recovery). */
+async function ensureJoinNode(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(WF.NODE_JOIN)) {
+    addWorkflowNodeWithPreset('join', JOIN_NODE_ID, 'Join', { x: 1000, y: 420 });
+    await ctx.delay(200);
+  }
+  connectWorkflowNodes(PAR_HTTP_1_ID, JOIN_NODE_ID);
+  connectWorkflowNodes(PAR_HTTP_2_ID, JOIN_NODE_ID);
+  await ctx.delay(200);
+}
+
 // ─── Lesson ─────────────────────────────────────────────────────────
 
 export const wfLoopsParallelLesson: DemoLesson = {
@@ -192,7 +258,7 @@ export const wfLoopsParallelLesson: DemoLesson = {
   name: 'Loops & Parallel Execution',
   description:
     'Process collections with loops and run multiple API calls simultaneously with fork/join.',
-  estimatedMinutes: 6,
+  estimatedMinutes: 7,
   initialTab: 'workflow',
   allowedTabs: ['workflow'],
 
@@ -271,22 +337,22 @@ export const wfLoopsParallelLesson: DemoLesson = {
   },
 
   steps: [
-    // ── Step 1: Add & Configure the Loop ──────────────────────────────
+    // ── Step 1: Where Loop Data Comes From ────────────────────────────
     {
-      id: 'wf4-loop-node',
-      title: 'Add & Configure the Loop',
+      id: 'wf4-loop-source',
+      title: 'Where Loop Data Comes From',
       description:
-        'Find **Loop** in the palette under **Logic**. Add it to the canvas, connect it ' +
-        'after the HTTP node, and click **Fit View**. Then open its config and set the mode to ' +
-        '**For Each**, the source array to `{{postIds}}` (extracted from the GET response), and the ' +
-        'item variable to `postId`. Set **Max Iterations** to 3 for demo speed — in production ' +
-        'you\'d iterate the full array.',
-      highlight: WF.PAL_LOOP,
+        'This workflow already has **Start → Get Posts**. Before we add a Loop, see the ' +
+        'two pieces of data it will use:\n\n' +
+        '1. **Variables** — `baseUrl` is the shared host for every HTTP step\n' +
+        '2. **Extract** on Get Posts — JSONPath `$[*].id` stores the post ID array as ' +
+        '`{{postIds}}`\n\n' +
+        'The Loop will iterate that array in the next step.',
+      highlight: WF.NODE_HTTP,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
         await closeWfConfigModalIfOpen(ctx);
-        // Close stray Workflow Variables modal if left open from a previous run
         const strayDefaults = document.querySelector<HTMLElement>(WF.DEFAULTS_MODAL);
         if (strayDefaults) {
           const cancel = strayDefaults.querySelector<HTMLElement>('.btn-ghost');
@@ -296,7 +362,7 @@ export const wfLoopsParallelLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        // Show the Variables configuration first so the viewer sees baseUrl is defined
+        // Show the Variables panel — viewer sees baseUrl
         const varsBtn = document.querySelector<HTMLElement>('.wf-toolbar-variables-btn');
         if (varsBtn) {
           await spotlight(varsBtn, 1000, ctx);
@@ -305,24 +371,20 @@ export const wfLoopsParallelLesson: DemoLesson = {
         }
         const defaultsModal = document.querySelector<HTMLElement>(WF.DEFAULTS_MODAL);
         if (defaultsModal) {
-          // Spotlight the baseUrl variable row (skip the header row)
           const varRow = defaultsModal.querySelector<HTMLElement>('.wf-config-kv-row-vars:not(.wf-config-kv-header)');
           if (varRow) await spotlight(varRow, 1800, ctx);
-          // Close with Cancel
           const cancelBtn = defaultsModal.querySelector<HTMLElement>('.btn-ghost');
           if (cancelBtn) cancelBtn.click();
           await ctx.delay(600);
         } else {
-          // If wrong dialog opened, close it
           const closeBtn = document.querySelector<HTMLElement>('.insert-variable-modal .btn, .ram-modal-footer .btn');
           if (closeBtn) { closeBtn.click(); await ctx.delay(400); }
         }
 
-        // Open the HTTP node config to show Extract tab — viewer sees where {{postIds}} comes from
+        // Open Get Posts → Extract — viewer sees where {{postIds}} comes from
         await openWfNodeConfigModal(ctx, { nodeSelector: WF.NODE_HTTP });
         await ctx.delay(400);
 
-        // Spotlight the Extract tab then click it
         const extractTab = Array.from(
           document.querySelectorAll<HTMLElement>('.wf-config-tab'),
         ).find((t) => t.textContent?.includes('Extract'));
@@ -330,36 +392,68 @@ export const wfLoopsParallelLesson: DemoLesson = {
         await clickWfConfigTab(ctx, WF.NODE_CONFIG, 'Extract');
         await ctx.delay(600);
 
-        // Spotlight the extraction row (postIds | Body | $[*].id)
         const extRow = document.querySelector<HTMLElement>(WF.CFG_EXT_ROW);
-        if (extRow) await spotlight(extRow, 2000, ctx);
+        if (extRow) {
+          extRow.scrollIntoView({ block: 'nearest' });
+          await spotlight(extRow, 2000, ctx);
+        }
 
         await saveAndCloseWfConfigModal(ctx);
-        await ctx.delay(600);
+        await ctx.delay(800);
 
-        // Spotlight the Loop block in the palette
+        fitCanvasCentered();
+        await ctx.delay(600);
+      },
+
+      verify: WF.NODE_HTTP,
+    },
+
+    // ── Step 2: Add & Configure the Loop ──────────────────────────────
+    {
+      id: 'wf4-loop-node',
+      title: 'Add & Configure the Loop',
+      description:
+        'Find **Loop** in the palette under **Logic**. Add it after **Get Posts**, click ' +
+        '**Fit View**, then open its config:\n\n' +
+        '- Mode → **For Each**\n' +
+        '- Source array → `{{postIds}}`\n' +
+        '- Item variable → `postId`\n' +
+        '- **Max Iterations** → `3` (demo speed — production would use the full array)',
+      highlight: WF.PAL_LOOP,
+
+      preAction: async (ctx) => {
+        await ensureSeededWorkflow(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+        const strayDefaults = document.querySelector<HTMLElement>(WF.DEFAULTS_MODAL);
+        if (strayDefaults) {
+          const cancel = strayDefaults.querySelector<HTMLElement>('.btn-ghost');
+          if (cancel) cancel.click();
+          await ctx.delay(300);
+        }
+      },
+
+      action: async (ctx) => {
         const loopBlock = await revealPaletteBlock(ctx, WF.PAL_LOOP);
         if (loopBlock) {
           await spotlight(loopBlock, 1400, ctx);
         }
 
-        // Add → Connect → Fit View
-        addWorkflowNodeWithPreset('loop', LOOP_NODE_ID, 'Loop Posts', { x: 520, y: 200 });
-        await ctx.delay(1200);
-
-        const httpId = getNodeId(WF.NODE_HTTP);
-        const loopId = getNodeId(WF.NODE_LOOP);
-        if (httpId && loopId) {
-          connectWorkflowNodes(httpId, loopId);
+        if (!document.querySelector(WF.NODE_LOOP)) {
+          addWorkflowNodeWithPreset('loop', LOOP_NODE_ID, 'Loop Posts', { x: 520, y: 200 });
+          await ctx.delay(1200);
+          const httpId = getNodeId(WF.NODE_HTTP);
+          const loopId = getNodeId(WF.NODE_LOOP);
+          if (httpId && loopId) {
+            connectWorkflowNodes(httpId, loopId);
+          }
+          await ctx.delay(1000);
         }
-        await ctx.delay(1000);
 
         fitCanvasCentered();
         await ctx.delay(800);
 
         await spotlightSel(ctx, WF.NODE_LOOP, 1200);
 
-        // Configure — patch data then open modal to show the viewer
         patchWorkflowNodeDataById(LOOP_NODE_ID, {
           label: 'Loop Posts',
           mode: 'forEach',
@@ -370,13 +464,13 @@ export const wfLoopsParallelLesson: DemoLesson = {
         });
         await ctx.delay(400);
 
+        const loopId = getNodeId(WF.NODE_LOOP);
         if (loopId) {
           openWorkflowNodeConfig(loopId);
           await ctx.waitFor(WF.NODE_CONFIG, 5000);
           await ctx.delay(1000);
         }
 
-        // Spotlight the Mode selector
         const modeSelect = document.querySelector<HTMLElement>(
           '.wf-config-modal .wf-config-field .cs-wrapper',
         );
@@ -384,12 +478,19 @@ export const wfLoopsParallelLesson: DemoLesson = {
           await spotlight(modeSelect, 1200, ctx);
         }
 
-        // Spotlight the source expression field area
         const exprInputs = document.querySelectorAll<HTMLElement>(
           '.wf-config-modal .expr-input-wrapper',
         );
         if (exprInputs.length > 0) {
           await spotlight(exprInputs[0], 1200, ctx);
+        }
+
+        // Max iterations field if present
+        const maxInput = document.querySelector<HTMLElement>(
+          '.wf-config-modal input[type="number"], .wf-config-modal .wf-config-field input',
+        );
+        if (maxInput) {
+          await spotlight(maxInput, 1000, ctx);
         }
 
         await saveAndCloseWfConfigModal(ctx);
@@ -640,69 +741,61 @@ export const wfLoopsParallelLesson: DemoLesson = {
         await ensureSeededWorkflow(ctx);
         await ensureLoopNode(ctx);
         await ensureLoopBody(ctx);
-        // Ensure fork + branches exist
-        if (!document.querySelector(WF.NODE_FORK)) {
-          addWorkflowNodeWithPreset('fork', FORK_NODE_ID, 'Parallel Fork', { x: 520, y: 420 });
-          await ctx.delay(200);
-          const loopId = getNodeId(WF.NODE_LOOP);
-          if (loopId) connectWorkflowNodes(loopId, FORK_NODE_ID, 'done', null);
-        }
-        const parNodes = document.querySelectorAll(WF.NODE_HTTP);
-        if (parNodes.length < 3) {
-          addWorkflowNodeWithPreset('http', PAR_HTTP_1_ID, 'Get User 1', { x: 760, y: 370 });
-          await ctx.delay(200);
-          patchWorkflowNodeDataById(PAR_HTTP_1_ID, {
-            label: 'Get User 1',
-            scenario: { id: 'wf4-user1', name: 'Get User 1', url: '{{baseUrl}}/users/1', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } },
-            timeoutSec: 0,
-          });
-          addWorkflowNodeWithPreset('http', PAR_HTTP_2_ID, 'Get User 2', { x: 760, y: 480 });
-          await ctx.delay(200);
-          patchWorkflowNodeDataById(PAR_HTTP_2_ID, {
-            label: 'Get User 2',
-            scenario: { id: 'wf4-user2', name: 'Get User 2', url: '{{baseUrl}}/users/2', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } },
-            timeoutSec: 0,
-          });
-          connectWorkflowNodes(FORK_NODE_ID, PAR_HTTP_1_ID);
-          connectWorkflowNodes(FORK_NODE_ID, PAR_HTTP_2_ID);
-          await ctx.delay(300);
-        }
+        await ensureForkAndBranches(ctx);
+        // Stray console / config from a prior Quick Test or skipped step blocks
+        // the canvas and can leave Acting stuck behind an un-savable Join modal.
+        await closeWfConsoleIfOpen(ctx);
+        await closeWfConfigModalIfOpen(ctx);
       },
 
       action: async (ctx) => {
-        // Spotlight the Join block in palette
-        const joinBlock = await revealPaletteBlock(ctx, WF.PAL_JOIN);
-        if (joinBlock) {
-          await spotlight(joinBlock, 1000, ctx);
+        await closeWfConsoleIfOpen(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+
+        const joinAlreadyPresent = !!document.querySelector(WF.NODE_JOIN);
+
+        if (!joinAlreadyPresent) {
+          // Spotlight the Join block in palette
+          const joinBlock = await revealPaletteBlock(ctx, WF.PAL_JOIN);
+          if (joinBlock) {
+            await spotlight(joinBlock, 1000, ctx);
+          }
+
+          addWorkflowNodeWithPreset('join', JOIN_NODE_ID, 'Join', { x: 1000, y: 420 });
+          await ctx.delay(600);
+
+          connectWorkflowNodes(PAR_HTTP_1_ID, JOIN_NODE_ID);
+          await ctx.delay(500);
+          connectWorkflowNodes(PAR_HTTP_2_ID, JOIN_NODE_ID);
+          await ctx.delay(600);
+
+          fitCanvasCentered();
+          await ctx.delay(1000);
+
+          // Open Join config to show its settings (Save is often disabled — no dirty
+          // fields — so always dismiss via saveAndClose / close helper).
+          openWorkflowNodeConfig(JOIN_NODE_ID);
+          await ctx.waitFor(WF.NODE_CONFIG, 5000);
+          await ctx.delay(1000);
+
+          const labelInput = document.querySelector<HTMLElement>('.wf-config-modal .wf-config-field input[type="text"]');
+          if (labelInput) await spotlight(labelInput, 1200, ctx);
+
+          await saveAndCloseWfConfigModal(ctx);
+          await ctx.delay(800);
+        } else {
+          // Recovery / rapid-Next: Join is already on the canvas — don't re-open
+          // config (Save-disabled path used to leave the modal open and stall Next).
+          connectWorkflowNodes(PAR_HTTP_1_ID, JOIN_NODE_ID);
+          connectWorkflowNodes(PAR_HTTP_2_ID, JOIN_NODE_ID);
+          fitCanvasCentered();
+          await ctx.delay(800);
         }
-
-        // Add Join node
-        addWorkflowNodeWithPreset('join', JOIN_NODE_ID, 'Join', { x: 1000, y: 420 });
-        await ctx.delay(600);
-
-        // Connect both HTTP branches → Join
-        connectWorkflowNodes(PAR_HTTP_1_ID, JOIN_NODE_ID);
-        await ctx.delay(500);
-        connectWorkflowNodes(PAR_HTTP_2_ID, JOIN_NODE_ID);
-        await ctx.delay(600);
-
-        fitCanvasCentered();
-        await ctx.delay(1000);
-
-        // Open Join config to show its settings
-        openWorkflowNodeConfig(JOIN_NODE_ID);
-        await ctx.waitFor(WF.NODE_CONFIG, 5000);
-        await ctx.delay(1000);
-
-        const labelInput = document.querySelector<HTMLElement>('.wf-config-modal .wf-config-field input[type="text"]');
-        if (labelInput) await spotlight(labelInput, 1200, ctx);
-
-        await saveAndCloseWfConfigModal(ctx);
-        await ctx.delay(800);
 
         // Spotlight the complete Fork → branches → Join pattern
         await spotlightSel(ctx, WF.NODE_FORK, 1200);
         await spotlightSel(ctx, WF.NODE_JOIN, 1200);
+        await closeWfConfigModalIfOpen(ctx);
       },
 
       verify: WF.NODE_JOIN,
@@ -723,36 +816,11 @@ export const wfLoopsParallelLesson: DemoLesson = {
         await ensureSeededWorkflow(ctx);
         await ensureLoopNode(ctx);
         await ensureLoopBody(ctx);
-        // Ensure fork/join exist
-        if (!document.querySelector(WF.NODE_FORK)) {
-          addWorkflowNodeWithPreset('fork', FORK_NODE_ID, 'Parallel Fork', { x: 520, y: 420 });
-          await ctx.delay(300);
-          const loopId = getNodeId(WF.NODE_LOOP);
-          if (loopId) connectWorkflowNodes(loopId, FORK_NODE_ID, 'done', null);
-          addWorkflowNodeWithPreset('http', PAR_HTTP_1_ID, 'Get User 1', { x: 760, y: 370 });
-          await ctx.delay(200);
-          patchWorkflowNodeDataById(PAR_HTTP_1_ID, {
-            label: 'Get User 1',
-            scenario: { id: 'wf4-user1', name: 'Get User 1', url: '{{baseUrl}}/users/1', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } },
-            timeoutSec: 0,
-          });
-          addWorkflowNodeWithPreset('http', PAR_HTTP_2_ID, 'Get User 2', { x: 760, y: 480 });
-          await ctx.delay(200);
-          patchWorkflowNodeDataById(PAR_HTTP_2_ID, {
-            label: 'Get User 2',
-            scenario: { id: 'wf4-user2', name: 'Get User 2', url: '{{baseUrl}}/users/2', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } },
-            timeoutSec: 0,
-          });
-          connectWorkflowNodes(FORK_NODE_ID, PAR_HTTP_1_ID);
-          connectWorkflowNodes(FORK_NODE_ID, PAR_HTTP_2_ID);
-          addWorkflowNodeWithPreset('join', JOIN_NODE_ID, 'Join', { x: 1000, y: 420 });
-          await ctx.delay(200);
-          connectWorkflowNodes(PAR_HTTP_1_ID, JOIN_NODE_ID);
-          connectWorkflowNodes(PAR_HTTP_2_ID, JOIN_NODE_ID);
-          await ctx.delay(400);
-          fitCanvasCentered();
-          await ctx.delay(500);
-        }
+        await ensureForkAndBranches(ctx);
+        await ensureJoinNode(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+        fitCanvasCentered();
+        await ctx.delay(400);
       },
 
       action: async (ctx) => {

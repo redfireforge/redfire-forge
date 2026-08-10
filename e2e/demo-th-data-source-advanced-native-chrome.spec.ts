@@ -8,8 +8,8 @@ import {
 
 const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
-test('TH-18 completes at step 5 in native Google Chrome', async () => {
-  test.setTimeout(420_000);
+test('TH-18 completes at step 6 in native Google Chrome', async () => {
+  test.setTimeout(480_000);
 
   const browser = await chromium.launch({
     executablePath: CHROME_PATH,
@@ -36,23 +36,23 @@ test('TH-18 completes at step 5 in native Google Chrome', async () => {
       .click();
     await startLesson(page);
 
-    for (let completedStep = 1; completedStep < 5; completedStep += 1) {
+    for (let completedStep = 1; completedStep < 6; completedStep += 1) {
       console.log(`\n=== Running step ${completedStep} ===`);
       await runNextStep(page, 60_000);
       console.log(`✓ Step ${completedStep} complete`);
     }
 
     console.log('\n=== Step counter check ===');
-    await expect(page.locator('.demo-live-step-counter')).toHaveText(/5\s*\/\s*5/);
-    console.log('✓ Counter shows 5 / 5');
+    await expect(page.locator('.demo-live-step-counter')).toHaveText(/6\s*\/\s*6/);
+    console.log('✓ Counter shows 6 / 6');
 
-    console.log('\n=== Finishing step 5 ===');
+    console.log('\n=== Finishing step 6 ===');
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
     await finishDemoStep(page, 120_000);
-    console.log(`✓ Step 5 action finished. Console errors: ${errors.length}`);
+    console.log(`✓ Step 6 action finished. Console errors: ${errors.length}`);
     if (errors.length > 0) {
       console.log('Errors:', errors.slice(0, 3).join(' | '));
     }
@@ -60,7 +60,7 @@ test('TH-18 completes at step 5 in native Google Chrome', async () => {
     const livePanel = page.locator('[data-testid="demo-live-panel"]');
     await expect(livePanel).toBeVisible();
     await expect(livePanel).toHaveAttribute('data-step-phase', 'done');
-    await expect(livePanel).toContainText('Data Mapper Integrations');
+    await expect(livePanel).toContainText('Map Columns & Row Modes');
     await expect(page.locator('[aria-label="Complete lesson"]')).toBeVisible();
 
     const panelBox = await livePanel.boundingBox();

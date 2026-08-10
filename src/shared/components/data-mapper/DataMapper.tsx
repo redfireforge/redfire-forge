@@ -135,7 +135,14 @@ export default function DataMapper<TOutput = unknown>({
   const [advancedControlsOpen, setAdvancedControlsOpen] = useState(() => initialMappings.length < 8);
   const previousMappingCountRef = useRef(initialMappings.length);
 
-  const { focusRegion, focusedPath, setFocusRegion, setFocusedPath, handleTreeKeyDown: rawHandleTreeKeyDown } = useKeyboardNavigation({
+  const {
+    focusRegion,
+    focusedPath,
+    setFocusRegion,
+    setFocusedPath,
+    focusNodeByPath,
+    handleTreeKeyDown: rawHandleTreeKeyDown,
+  } = useKeyboardNavigation({
     containerRef,
     disabled: !!editingMappingId,
   });
@@ -346,6 +353,7 @@ export default function DataMapper<TOutput = unknown>({
     setBulkTargetPath,
     setLineFocusNode,
     setToast,
+    focusNodeByPath,
   });
 
   const { skipNextOnChangeRef } = useDataMapperLifecycleEffects({

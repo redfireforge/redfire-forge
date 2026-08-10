@@ -18,6 +18,12 @@ import {
   gotoGrpcStudioWithNullDescriptorMapSession,
 } from './helpers/grpc-studio-shell-helpers';
 
+async function selectGrpcAuthType(page, value: string): Promise<void> {
+  const select = page.locator('[data-testid="grpc-auth-type-select"]');
+  await select.locator('.cs-trigger').click();
+  await page.locator('.cs-menu .cs-item', { hasText: value }).click();
+}
+
 test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
   test('navigates to gRPC Studio via URL param', async ({ page }) => {
     await gotoGrpcStudio(page);
@@ -277,7 +283,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     }
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await page.locator('[data-testid="grpc-auth-type-select"]').selectOption('bearer');
+    await selectGrpcAuthType(page, 'Bearer');
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('tab-one-token');
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: Bearer');
 
@@ -290,12 +296,12 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
 
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: None');
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveValue('none');
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveAttribute('data-value', 'none');
 
     await page.locator(`[data-testid="${firstTabId}"]`).click();
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: Bearer');
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveValue('bearer');
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveAttribute('data-value', 'bearer');
     await expect(page.locator('[data-testid="grpc-auth-bearer-token"]')).toHaveValue('tab-one-token');
   });
 
@@ -303,7 +309,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     await gotoFreshGrpcStudio(page);
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await page.locator('[data-testid="grpc-auth-type-select"]').selectOption('bearer');
+    await selectGrpcAuthType(page, 'Bearer');
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('reload-token');
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: Bearer');
 
@@ -324,7 +330,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: Bearer');
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveValue('bearer');
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveAttribute('data-value', 'bearer');
     await expect(page.locator('[data-testid="grpc-auth-bearer-token"]')).toHaveValue('reload-token');
   });
 
@@ -338,7 +344,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     }
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await page.locator('[data-testid="grpc-auth-type-select"]').selectOption('bearer');
+    await selectGrpcAuthType(page, 'Bearer');
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('source-token');
 
     await page.locator(`[data-testid="grpc-tab-duplicate-${firstTabId}"]`).click();
@@ -349,7 +355,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     }
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveValue('bearer');
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveAttribute('data-value', 'bearer');
     await expect(page.locator('[data-testid="grpc-auth-bearer-token"]')).toHaveValue('source-token');
 
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('duplicate-token');
@@ -370,7 +376,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
 
     await targetInput.fill('source.example.com:50051');
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await page.locator('[data-testid="grpc-auth-type-select"]').selectOption('bearer');
+    await selectGrpcAuthType(page, 'Bearer');
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('source-token');
 
     await page.locator(`[data-testid="grpc-tab-duplicate-${firstTabId}"]`).click();

@@ -17,6 +17,7 @@ import {
   fillWfConfigField,
   saveAndCloseWfConfigModal,
   closeWfConfigModalIfOpen,
+  closeWfSamplePreviewIfOpen,
   cleanupWorkflowDemoRunUi,
   resetWfPaletteToBlocks,
   revealPaletteBlock,
@@ -138,6 +139,9 @@ export const wfFirstWorkflowLesson: DemoLesson = {
   setup: async (ctx) => {
     ctx.navigateToTab('workflow');
     await ctx.delay(200);
+    // Persisted Gallery preview paints over any blank workflow — clear before
+    // step 1 so the viewer never sees Sample: Parallel API Calls.
+    await closeWfSamplePreviewIfOpen(ctx);
     resetWfPaletteToBlocks();
     deleteWorkflowByName(WF_NAME);
     await ctx.delay(300);
@@ -166,10 +170,12 @@ export const wfFirstWorkflowLesson: DemoLesson = {
       preAction: async (ctx) => {
         ctx.navigateToTab('workflow');
         await ctx.delay(300);
+        await closeWfSamplePreviewIfOpen(ctx);
         await dismissOnboarding(ctx);
       },
 
       action: async (ctx) => {
+        await closeWfSamplePreviewIfOpen(ctx);
         await expandWfDemoAppSidebar(ctx);
         await ctx.waitFor(WF.SIDEBAR_NEW_BTN, 5000);
         await ctx.delay(600);
@@ -190,8 +196,14 @@ export const wfFirstWorkflowLesson: DemoLesson = {
         await ctx.delay(600);
 
         await ctx.click(WF.CREATE_OK);
-        await ctx.waitFor(WF.CANVAS, 8000);
-        await ctx.delay(1000);
+        // Sample Preview's canvas already has a Start node — dismiss the banner
+        // first, then wait for the real blank workflow Start.
+        for (let i = 0; i < 30 && document.querySelector(WF.SAMPLE_PREVIEW_BANNER); i++) {
+          await closeWfSamplePreviewIfOpen(ctx);
+          await ctx.delay(100);
+        }
+        await ctx.waitFor(WF.NODE_START, 8000);
+        await ctx.delay(800);
 
         await collapseWfDemoAppSidebar(ctx);
         await ctx.delay(600);
@@ -199,7 +211,7 @@ export const wfFirstWorkflowLesson: DemoLesson = {
         await spotlightSel(ctx, WF.NODE_START, 1200);
       },
 
-      verify: WF.CANVAS,
+      verify: WF.NODE_START,
     },
 
     // ── Step 2: Add an HTTP Request Node ──────────────────────────────

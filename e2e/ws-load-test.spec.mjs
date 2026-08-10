@@ -185,7 +185,7 @@ test('WL-03: Message template with placeholders', async ({ page }) => {
   // Summary should show expected messages count
   const summary = page.locator('[data-testid="lt-summary"]');
   await expect(summary).toBeVisible();
-  await expect(summary).toContainText('Expected');
+  await expect(summary).toContainText(/messages expected/i);
 });
 
 test('WL-04: Load profile selector — Constant / Ramp / Burst', async ({ page }) => {
@@ -546,7 +546,7 @@ test('WL-13: Latency percentiles', async ({ page }) => {
   await expect(results).toContainText('P95');
   await expect(results).toContainText('P99');
   await expect(results).toContainText('Max');
-  await expect(results).toContainText('Round-Trip Latency');
+  await expect(results).toContainText(/Round-trip latency/i);
 });
 
 test('WL-14: Latency histogram', async ({ page }) => {
@@ -599,19 +599,19 @@ test('WL-15: Export results and New Test button', async ({ page }) => {
   // Export button visible
   const exportBtn = page.locator('[data-testid="lt-export-btn"]');
   await expect(exportBtn).toBeVisible();
-  await expect(exportBtn).toContainText('Export JSON');
+  await expect(exportBtn).toContainText('Export');
 
   // Run Again button visible
   const runAgain = page.locator('[data-testid="lt-run-again-btn"]');
   await expect(runAgain).toBeVisible();
+  await expect(runAgain).toContainText(/Run again/i);
 
-  // New Test button visible
-  const newTest = page.locator('[data-testid="lt-clear-btn"]');
-  await expect(newTest).toBeVisible();
-  await expect(newTest).toContainText('New Test');
+  // Edit configuration returns to the config form
+  const editConfig = page.locator('[data-testid="lt-clear-btn"]');
+  await expect(editConfig).toBeVisible();
+  await expect(editConfig).toContainText(/Edit configuration/i);
 
-  // Click New Test → returns to config
-  await newTest.click();
+  await editConfig.click();
   await page.waitForTimeout(300);
 
   const config = page.locator('[data-testid="lt-config"]');

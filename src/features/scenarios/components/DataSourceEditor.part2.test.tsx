@@ -4,7 +4,7 @@
 import { type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { selectOption, selectOptionByIndex } from '../../../test-utils/customSelectHelper';
+import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import DataSourceEditor from './DataSourceEditor';
 import {
   makeScenario,
@@ -202,7 +202,7 @@ describe('DataSourceEditor', () => {
   describe('populate from API modal', () => {
     it('opens populate modal', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       expect(screen.getByText('API Response → Data Source')).toBeTruthy();
     });
 
@@ -224,7 +224,7 @@ describe('DataSourceEditor', () => {
           onFetchRow={onFetchRow}
         />,
       );
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       expect(hoistedMocks.lastPopulateAdapter?.fetchSampleData).toBeTruthy();
       await act(async () => {
         await hoistedMocks.lastPopulateAdapter!.fetchSampleData!();
@@ -252,7 +252,7 @@ describe('DataSourceEditor', () => {
           onFetchRow={onFetchRow}
         />,
       );
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       await act(async () => {
         await hoistedMocks.lastPopulateAdapter!.fetchSampleData!();
       });
@@ -271,7 +271,7 @@ describe('DataSourceEditor', () => {
           onFetchRow={vi.fn()}
         />,
       );
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       await act(async () => {
         await expect(hoistedMocks.lastPopulateAdapter!.fetchSampleData!()).rejects.toThrow(/Unresolved variables/);
       });
@@ -295,7 +295,7 @@ describe('DataSourceEditor', () => {
           onFetchRow={onFetchRow}
         />,
       );
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       await act(async () => {
         await expect(hoistedMocks.lastPopulateAdapter!.fetchSampleData!()).rejects.toThrow('network');
       });
@@ -319,7 +319,7 @@ describe('DataSourceEditor', () => {
           onFetchRow={onFetchRow}
         />,
       );
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       await act(async () => {
         await expect(hoistedMocks.lastPopulateAdapter!.fetchSampleData!()).rejects.toThrow(/HTTP 500/);
       });
@@ -648,7 +648,7 @@ describe('DataSourceEditor', () => {
     it('appends rows via mocked populate modal', () => {
       const onChange = vi.fn();
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       fireEvent.click(screen.getByText('Mock Append'));
       const updated = onChange.mock.calls[0][0] as Scenario;
       expect(updated.dataSource!.rows.length).toBe(3);
@@ -660,7 +660,7 @@ describe('DataSourceEditor', () => {
     it('replaces rows via mocked populate modal', () => {
       const onChange = vi.fn();
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       fireEvent.click(screen.getByText('Mock Replace'));
       const updated = onChange.mock.calls[0][0] as Scenario;
       expect(updated.dataSource!.rows).toHaveLength(1);

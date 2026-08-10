@@ -7,7 +7,6 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
 import { createRef } from 'react';
 import { WsConnectionTabContent, type WsConnectionTabContentHandle, type WsConnectionTabContentProps } from './WsConnectionTabContent';
 import * as hookModule from './useWebSocketStudio';
@@ -302,7 +301,12 @@ describe('WsConnectionTabContent — coverage', () => {
           {...makeProps({ controlledMode: 'client', controlledLeftTab: 'auth' })}
         />,
       );
-      selectOption(document.querySelector('.auth-type-select .cs-wrapper')!, 'Bearer Token');
+      // useCustomTypeDropdown renders a hidden native <select> kept specifically
+      // for test/demo automation (see AuthConfigPanel.tsx) instead of a CustomSelect.
+      fireEvent.change(
+        document.querySelector('.auth-type-hidden-select') as HTMLSelectElement,
+        { target: { value: 'bearer' } },
+      );
       expect(mockStudio.setDraft).toHaveBeenCalledWith(
         expect.objectContaining({ auth: expect.objectContaining({ type: 'bearer' }) }),
       );

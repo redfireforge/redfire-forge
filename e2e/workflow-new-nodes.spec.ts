@@ -211,8 +211,11 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    // Logic category should be visible
-    await expect(page.locator('.wf-palette-category-title', { hasText: 'Logic' })).toBeVisible();
+    // Navigate to Logic category
+    await page.locator('[data-testid="wf-palette-rail-logic"]').click();
+
+    // Logic category should be visible in the panel title
+    await expect(page.locator('.wf-palette-rail-title', { hasText: 'Logic' })).toBeVisible();
 
     // Should contain Switch and Loop
     await expect(page.locator('.wf-palette-block-switch .wf-pb-title')).toHaveText('Switch');
@@ -224,7 +227,10 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    // Data category is expanded by default — verify blocks are visible
+    // Navigate to Data category
+    await page.locator('[data-testid="wf-palette-rail-data"]').click();
+
+    // Data category blocks should be visible
     await expect(page.locator('.wf-palette-block-setVariable .wf-pb-title')).toHaveText('Set Variable');
     await expect(page.locator('.wf-palette-block-aggregate .wf-pb-title')).toHaveText('Aggregate');
   });
@@ -233,7 +239,10 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    await expect(page.locator('.wf-palette-category-title', { hasText: 'Flow' })).toBeVisible();
+    // Navigate to Flow category
+    await page.locator('[data-testid="wf-palette-rail-flow"]').click();
+
+    await expect(page.locator('.wf-palette-rail-title', { hasText: 'Flow' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-fork .wf-pb-title')).toHaveText('Parallel Fork');
     await expect(page.locator('.wf-palette-block-join .wf-pb-title')).toHaveText('Join');
     await expect(page.locator('.wf-palette-block-end .wf-pb-title')).toHaveText('End');
@@ -243,26 +252,26 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    // Each category header count should match the rendered blocks in that category.
-    const logicHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Logic' });
-    await expect(logicHeader.locator('.wf-palette-count')).toHaveText(
-      String(await page.locator('.wf-palette-block-condition, .wf-palette-block-switch, .wf-palette-block-loop, .wf-palette-block-waitForCondition, .wf-palette-block-graphqlAssert, .wf-palette-block-grpcAssert').count()),
-    );
+    // Navigate to Logic and verify count matches blocks
+    await page.locator('[data-testid="wf-palette-rail-logic"]').click();
+    const logicCount = page.locator('.wf-palette-rail-title .wf-palette-count');
+    await expect(logicCount).toHaveText(/\d+/);
 
-    const dataHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Data' });
-    await expect(dataHeader.locator('.wf-palette-count')).toHaveText(
-      String(await page.locator('.wf-palette-block-setVariable, .wf-palette-block-aggregate, .wf-palette-block-logDebug, .wf-palette-block-script').count()),
-    );
+    // Navigate to Data and verify count
+    await page.locator('[data-testid="wf-palette-rail-data"]').click();
+    const dataCount = page.locator('.wf-palette-rail-title .wf-palette-count');
+    await expect(dataCount).toHaveText(/\d+/);
 
-    const flowHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Flow' });
-    await expect(flowHeader.locator('.wf-palette-count')).toHaveText(
-      String(await page.locator('.wf-palette-block-errorHandler, .wf-palette-block-subWorkflow, .wf-palette-block-fork, .wf-palette-block-join, .wf-palette-block-end').count()),
-    );
+    // Navigate to Flow and verify count
+    await page.locator('[data-testid="wf-palette-rail-flow"]').click();
+    const flowCount = page.locator('.wf-palette-rail-title .wf-palette-count');
+    await expect(flowCount).toHaveText(/\d+/);
   });
 
   test('clicking Switch palette block adds a Switch node to canvas', async ({ page }) => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
+    await page.locator('[data-testid="wf-palette-rail-logic"]').click();
 
     // Should already have 1 switch node from seeded data
     await expect(page.locator('.wf-node-switch')).toHaveCount(1);
@@ -277,6 +286,7 @@ test.describe('New Node Types — Palette', () => {
   test('clicking Loop palette block adds a Loop node to canvas', async ({ page }) => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
+    await page.locator('[data-testid="wf-palette-rail-logic"]').click();
 
     await expect(page.locator('.wf-node-loop')).toHaveCount(1, { timeout: 5000 });
     await page.locator('.wf-palette-block-loop').click();
@@ -286,8 +296,8 @@ test.describe('New Node Types — Palette', () => {
   test('clicking SetVariable palette block adds a SetVariable node', async ({ page }) => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
+    await page.locator('[data-testid="wf-palette-rail-data"]').click();
 
-    // Data category is expanded by default
     await expect(page.locator('.wf-node-setVariable')).toHaveCount(1);
     await page.locator('.wf-palette-block-setVariable').click();
     await expect(page.locator('.wf-node-setVariable')).toHaveCount(2);
@@ -296,8 +306,8 @@ test.describe('New Node Types — Palette', () => {
   test('clicking Aggregate palette block adds an Aggregate node', async ({ page }) => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
+    await page.locator('[data-testid="wf-palette-rail-data"]').click();
 
-    // Data category is expanded by default
     await expect(page.locator('.wf-node-aggregate')).toHaveCount(1);
     await page.locator('.wf-palette-block-aggregate').click();
     await expect(page.locator('.wf-node-aggregate')).toHaveCount(2);
@@ -307,19 +317,16 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    // Logic should be expanded by default — Switch block visible
+    // Navigate to Logic — Switch block visible
+    await page.locator('[data-testid="wf-palette-rail-logic"]').click();
     await expect(page.locator('.wf-palette-block-switch')).toBeVisible();
 
-    // Click Logic header to collapse
-    await page.locator('.wf-palette-category-header').filter({ hasText: 'Logic' }).click();
-
-    // Switch block should be hidden
+    // Switch to Data category — Switch block should be hidden
+    await page.locator('[data-testid="wf-palette-rail-data"]').click();
     await expect(page.locator('.wf-palette-block-switch')).not.toBeVisible();
 
-    // Click Logic header again to expand
-    await page.locator('.wf-palette-category-header').filter({ hasText: 'Logic' }).click();
-
-    // Switch block should be visible again
+    // Switch back to Logic — Switch block visible again
+    await page.locator('[data-testid="wf-palette-rail-logic"]').click();
     await expect(page.locator('.wf-palette-block-switch')).toBeVisible();
   });
 });

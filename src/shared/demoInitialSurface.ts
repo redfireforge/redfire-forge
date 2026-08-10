@@ -28,18 +28,32 @@ export type DemoGrpcAdvancedTab =
   | 'rpc_statistics'
   | 'native_diagnostics';
 
+/** API Catalog main-panel sub-view. Mirrors `ApiCatalog` view tabs. */
+export type DemoCatalogView = 'overview' | 'endpoints' | 'export' | 'published';
+
 export interface DemoInitialSurface {
   /** Land gRPC Studio on this panel instead of the default `studio` view. */
   grpcPanelView?: DemoGrpcPanelView;
   /** Land the gRPC Advanced shell on this tab instead of the default `load_test`. */
   grpcAdvancedTab?: DemoGrpcAdvancedTab;
+  /** Land API Catalog on this sub-view instead of restoring a saved Overview hop. */
+  catalogView?: DemoCatalogView;
 }
 
 let pendingSurface: DemoInitialSurface | null = null;
 
+/** Dispatched when the armed surface changes so already-mounted pages can sync. */
+export const DEMO_INITIAL_SURFACE_EVENT = 'demo-initial-surface';
+
+function notifySurfaceChanged(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(DEMO_INITIAL_SURFACE_EVENT));
+}
+
 /** Arm the hint. Call immediately before the tab-switch commit. */
 export function setDemoInitialSurface(surface: DemoInitialSurface | null): void {
   pendingSurface = surface && Object.keys(surface).length > 0 ? { ...surface } : null;
+  notifySurfaceChanged();
 }
 
 /**
@@ -54,4 +68,5 @@ export function peekDemoInitialSurface(): DemoInitialSurface | null {
 /** Disarm the hint once boot has landed, so later manual tab switches are unaffected. */
 export function clearDemoInitialSurface(): void {
   pendingSurface = null;
+  notifySurfaceChanged();
 }

@@ -56,6 +56,8 @@ describe('HttpConfig — auth tab', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'inherit' } }) });
     const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
     expect(container.querySelector('.auth-type-select .cs-text')?.textContent).toBe('Inherit from Service');
+    expect(screen.getByTestId('wf-http-auth-type')).toBeInTheDocument();
+    expect(screen.getByTestId('wf-http-auth-type-select')).toBeInTheDocument();
   });
 
   it('calls onChange when auth type changes', () => {
@@ -99,7 +101,21 @@ describe('HttpConfig — auth tab', () => {
         scenario: makeScenario({ auth: { type: 'inherit' } }),
       });
       render(<HttpConfig {...defaultProps} activeTab="auth" data={data} workflowServices={services} />);
-      expect(screen.getByText(/inherited from the selected service.*Users API/)).toBeTruthy();
+      const hint = screen.getByTestId('wf-http-auth-inherit-hint');
+      expect(hint.textContent).toMatch(/Users API/);
+      expect(hint.textContent).toMatch(/Bearer Token/);
+    });
+
+    it('prompts to switch to inherit when service has auth but node is No Auth', () => {
+      const services: WorkflowService[] = [
+        { id: 'svc1', name: 'Users API', baseUrl: 'http://api', auth: { type: 'bearer', token: 'tok' } },
+      ];
+      const data = makeHttpData({
+        serviceId: 'svc1',
+        scenario: makeScenario({ auth: { type: 'none' } }),
+      });
+      render(<HttpConfig {...defaultProps} activeTab="auth" data={data} workflowServices={services} />);
+      expect(screen.getByTestId('wf-http-auth-service-unused-hint').textContent).toMatch(/Bearer Token/);
     });
   });
 

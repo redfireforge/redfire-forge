@@ -149,10 +149,29 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
             />
           </div>
 
-          <div className="wf-loop-datasource-section">
-            <button type="button" className="wf-loop-datasource-toggle" onClick={() => setDsOpen(o => !o)}>
-              <span>{dsOpen ? '▾' : '▸'}</span>
-              <svg className="wf-inline-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Data Source {enabledRowCount > 0 && <span className="tab-badge">{enabledRowCount}</span>}
+          <div className={`wf-loop-datasource-section${dsOpen ? ' wf-loop-datasource-section--open' : ''}`}>
+            <button
+              type="button"
+              className="wf-loop-datasource-toggle"
+              onClick={() => setDsOpen(o => !o)}
+              aria-expanded={dsOpen}
+            >
+              <span className={`wf-loop-datasource-chevron${dsOpen ? ' open' : ''}`} aria-hidden>▸</span>
+              <svg className="wf-inline-icon" viewBox="0 0 24 24" aria-hidden>
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+              </svg>
+              <span className="wf-loop-datasource-toggle-text">
+                <span className="wf-loop-datasource-title">Data Source</span>
+                <span className="wf-loop-datasource-hint">
+                  Optional table of rows — when set, replaces Source array
+                </span>
+              </span>
+              {enabledRowCount > 0 && (
+                <span className="wf-loop-datasource-count">{enabledRowCount}</span>
+              )}
             </button>
             {dsOpen && (
               <div className="wf-loop-datasource-editor">

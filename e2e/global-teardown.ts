@@ -8,6 +8,7 @@ import {
   stopDockerInfrastructure,
   stopGql5DockerInfrastructure,
   stopGrpcTestServerInfrastructure,
+  stopWsDockerInfrastructure,
 } from './docker-infra';
 
 export default async function globalTeardown(): Promise<void> {
@@ -21,7 +22,12 @@ export default async function globalTeardown(): Promise<void> {
     return;
   }
 
-  if (process.env.E2E_GRPC_SERVER === '1') {
+  if (process.env.E2E_WS_SERVER === '1' && process.env.E2E_WITH_DOCKER !== '1') {
+    stopWsDockerInfrastructure();
+    return;
+  }
+
+  if (process.env.E2E_GRPC_SERVER === '1' && process.env.E2E_WITH_DOCKER !== '1') {
     stopGrpcTestServerInfrastructure();
     return;
   }

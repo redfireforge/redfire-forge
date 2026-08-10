@@ -104,6 +104,32 @@ export function buildTargetFields(columns: DataSourceColumn[]): TargetField[] {
   }));
 }
 
+/** True if `obj` contains any array value (including empty) anywhere in the tree. */
+function hasArrayField(obj: unknown, seen = new WeakSet<object>()): boolean {
+  if (obj == null || typeof obj !== 'object') return false;
+  if (Array.isArray(obj)) return true;
+  if (seen.has(obj as object)) return false;
+  seen.add(obj as object);
+  return Object.values(obj as Record<string, unknown>).some((v) => hasArrayField(v, seen));
+}
+
+/**
+ * When a response is a plain object with no array fields at all
+ * (e.g. GET /users/1), wrap it as a one-item root array so From API
+ * can still show Source fields and produce a single data row.
+ *
+ * Objects that already have array fields (even empty) are left unchanged
+ * so empty-list responses stay "no rows" instead of becoming one wrapper row.
+ */
+export function normalizePopulateResponse(json: unknown): unknown {
+  if (json == null || typeof json !== 'object') return json;
+  if (Array.isArray(json)) return json;
+  if (detectArrays(json).length > 0) return json;
+  if (Object.keys(json as Record<string, unknown>).length === 0) return json;
+  if (hasArrayField(json)) return json;
+  return [json];
+}
+
 // ─── Factory ──────────────────────────────────────────────
 
 export function createBaseApiPopulateAdapter<T extends ApiPopulateOutput = ApiPopulateOutput>(
@@ -113,7 +139,9 @@ export function createBaseApiPopulateAdapter<T extends ApiPopulateOutput = ApiPo
   const { dataSource, mode = 'append' } = opts;
   const { contextId, sourceId, sourceLabel, title, deserializeIdPrefix } = config;
 
-  let storedResponseJson: unknown = opts.responseJson ?? null;
+  let storedResponseJson: unknown = opts.responseJson != null
+    ? normalizePopulateResponse(opts.responseJson)
+    : null;
   let storedArrayPath: string = '';
   let storedDetectedArrays: DetectedArray[] = [];
 
@@ -144,7 +172,8 @@ export function createBaseApiPopulateAdapter<T extends ApiPopulateOutput = ApiPo
 
   const wrappedFetchSampleData = opts.fetchSampleData
     ? async (): Promise<unknown> => {
-        const json = await opts.fetchSampleData!();
+        const raw = await opts.fetchSampleData!();
+        const json = normalizePopulateResponse(raw);
         storedResponseJson = json;
         storedDetectedArrays = json ? detectArrays(json) : [];
         const best = selectBestArray(storedDetectedArrays);

@@ -165,7 +165,7 @@ test.describe('Workflow Designer', () => {
     await expect(page.locator('.wf-svc-inline-list')).toBeVisible({ timeout: 3000 });
 
     // Expand to fullscreen modal via the ⛶ button
-    await page.locator('button[title="Expand to full screen"]').click();
+    await page.locator('button[title="Open Service Registry"]').click();
 
     // Wait for fullscreen service registry modal
     const modal = page.locator('.wf-svc-registry-modal');

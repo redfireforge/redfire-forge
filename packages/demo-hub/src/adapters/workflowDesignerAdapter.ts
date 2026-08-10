@@ -25,6 +25,14 @@ export function selectWorkflowByName(name: string): boolean {
 }
 
 /**
+ * Dismiss Gallery "Sample Preview" so the Designer shows the real selected
+ * workflow (e.g. a blank Start-only canvas) instead of a sample overlay.
+ */
+export function clearWorkflowSamplePreview(): void {
+  getDemoBridgeWindow().__wfClearSamplePreview?.();
+}
+
+/**
  * Name of the workflow currently open in the Designer canvas, or undefined when
  * the bridge isn't mounted / nothing is selected. Lessons use this to detect a
  * stale workflow from a previous lesson still on screen.

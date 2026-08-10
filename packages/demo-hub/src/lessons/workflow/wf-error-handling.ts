@@ -265,7 +265,6 @@ export const wfErrorHandlingLesson: DemoLesson = {
         'non-existent resource that will always return **404 Not Found**.\n\n' +
         'Without any protection, this failure would **crash the entire workflow**. ' +
         'In the next steps we\'ll add an Error Handler to retry and gracefully recover.',
-      highlight: WF.NODE_HTTP,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
@@ -279,30 +278,20 @@ export const wfErrorHandlingLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        // Show Variables modal — viewer sees baseUrl is defined
-        const varsBtn = document.querySelector<HTMLElement>('.wf-toolbar-variables-btn');
-        if (varsBtn) {
-          await spotlight(varsBtn, 1000, ctx);
-          varsBtn.click();
-          await ctx.delay(1200);
-        }
-        const defaultsModal = document.querySelector<HTMLElement>(WF.DEFAULTS_MODAL);
-        if (defaultsModal) {
-          const varRow = defaultsModal.querySelector<HTMLElement>('.wf-config-kv-row-vars:not(.wf-config-kv-header)');
-          if (varRow) await spotlight(varRow, 1800, ctx);
-          const cancelBtn = defaultsModal.querySelector<HTMLElement>('.btn-ghost');
-          if (cancelBtn) cancelBtn.click();
-          await ctx.delay(600);
-        }
-
-        // Open the HTTP node config — spotlight the 404 URL
         await openWfNodeConfigModal(ctx, { nodeSelector: WF.NODE_HTTP });
+        await ctx.waitFor(WF.CFG_HTTP_URL, 4000);
         await ctx.delay(400);
 
-        const urlInput = document.querySelector<HTMLElement>(
-          `${WF.NODE_CONFIG} input[data-testid="http-url-input"], ${WF.NODE_CONFIG} input[value*="9999"]`,
-        );
-        if (urlInput) await spotlight(urlInput, 2000, ctx);
+        // Spotlight the URL field showing {{baseUrl}}/posts/9999 (once, during action)
+        const urlField = document.querySelector<HTMLElement>(WF.CFG_HTTP_URL);
+        if (urlField) {
+          urlField.scrollIntoView({ block: 'center', inline: 'nearest' });
+          await spotlight(urlField, 2800, ctx);
+        }
+
+        // Resolved preview confirms the 404 path after {{baseUrl}} expands
+        const preview = document.querySelector<HTMLElement>(WF.CFG_HTTP_URL_PREVIEW);
+        if (preview) await spotlight(preview, 1400, ctx);
 
         await saveAndCloseWfConfigModal(ctx);
         await ctx.delay(400);

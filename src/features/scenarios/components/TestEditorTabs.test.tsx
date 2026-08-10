@@ -120,7 +120,7 @@ describe('TestEditorTabs', () => {
       scenarioKind: 'kafka',
       draft: makeDraft({
         dataSource: {
-          columns: [{ key: 'id', type: 'string' }],
+          columns: [{ id: 'id', name: 'id', type: 'param', mapping: 'id' }],
           rows: [
             { id: 'r1', enabled: true, values: { id: '1' } },
             { id: 'r2', enabled: false, values: { id: '2' } },
@@ -136,12 +136,27 @@ describe('TestEditorTabs', () => {
     expect(onActiveTabChange).toHaveBeenCalledWith('data');
   });
 
+  it('hides the Data Source badge for an enabled but empty starter row', () => {
+    renderTabs({
+      draft: makeDraft({
+        dataSource: {
+          columns: [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }],
+          rows: [{ id: 'r1', enabled: true, values: { c1: '' } }],
+          source: { type: 'inline' },
+        } as Scenario['dataSource'],
+      }),
+    });
+
+    const dataSourceBtn = screen.getByRole('button', { name: /Data Source/i });
+    expect(dataSourceBtn.querySelector('.tab-badge')).toBeNull();
+  });
+
   it('shows the Data Source tab for a standard scenario when the test has a dataSource (converted copy)', () => {
     const { onActiveTabChange } = renderTabs({
       scenarioKind: 'standard',
       draft: makeDraft({
         dataSource: {
-          columns: [{ key: 'userId', type: 'param' }],
+          columns: [{ id: 'userId', name: 'userId', type: 'param', mapping: 'userId' }],
           rows: [{ id: 'r1', enabled: true, values: { userId: '{{userId}}' } }],
           source: { type: 'inline' },
         } as Scenario['dataSource'],

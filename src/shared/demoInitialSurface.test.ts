@@ -1,6 +1,10 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   clearDemoInitialSurface,
+  DEMO_INITIAL_SURFACE_EVENT,
   peekDemoInitialSurface,
   setDemoInitialSurface,
 } from './demoInitialSurface';
@@ -29,5 +33,25 @@ describe('demoInitialSurface', () => {
     setDemoInitialSurface({ grpcPanelView: 'advanced' });
     setDemoInitialSurface({});
     expect(peekDemoInitialSurface()).toBeNull();
+  });
+
+  it('stores catalogView for Catalog live-demo landing', () => {
+    setDemoInitialSurface({ catalogView: 'endpoints' });
+    expect(peekDemoInitialSurface()?.catalogView).toBe('endpoints');
+  });
+
+  it('notifies listeners when the armed surface changes', () => {
+    const seen: string[] = [];
+    const handler = () => {
+      seen.push(peekDemoInitialSurface()?.catalogView ?? 'cleared');
+    };
+    window.addEventListener(DEMO_INITIAL_SURFACE_EVENT, handler);
+    try {
+      setDemoInitialSurface({ catalogView: 'overview' });
+      clearDemoInitialSurface();
+      expect(seen).toEqual(['overview', 'cleared']);
+    } finally {
+      window.removeEventListener(DEMO_INITIAL_SURFACE_EVENT, handler);
+    }
   });
 });
