@@ -214,9 +214,11 @@ describe('grpcReplayResolver (Phase 4H)', () => {
   });
 
   it('prefers tab serverNameOverride over saved value at replay', () => {
+    // 50443 is the TLS-capable loopback fixture — 50051 is plaintext-only and
+    // prepareGrpcTarget coerces sticky TLS to disabled for that port.
     const tab = createGrpcStudioTab({
       descriptorKey: 'desc-1',
-      target: 'localhost:50051',
+      target: 'localhost:50443',
       tlsMode: 'tls',
       tlsConfig: { serverNameOverride: 'tab.override.com' },
       auth: { type: 'none' },
@@ -228,7 +230,7 @@ describe('grpcReplayResolver (Phase 4H)', () => {
         capturedAt: '2026-01-01T00:00:00.000Z',
         callType: 'unary',
         target: {
-          address: 'localhost:50051',
+          address: 'localhost:50443',
           tlsMode: 'tls',
           tlsConfig: { serverNameOverride: 'saved.example.com' },
         },
@@ -248,7 +250,7 @@ describe('grpcReplayResolver (Phase 4H)', () => {
       requestId: 'replay-req-5',
       envVarMap: {},
       profiles: [],
-      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+      pageDefaults: { target: 'localhost:50443', tlsMode: 'disabled' },
     });
 
     expect(snapshot.target.tlsConfig?.serverNameOverride).toBe('tab.override.com');
@@ -347,9 +349,11 @@ describe('grpcReplayResolver (Phase 4H)', () => {
   });
 
   it('uses tab vault TLS PEM at replay when saved PEM is redacted', () => {
+    // 50443 is the TLS-capable loopback fixture — 50051 is plaintext-only and
+    // prepareGrpcTarget coerces sticky TLS to disabled for that port.
     const tab = createGrpcStudioTab({
       descriptorKey: 'desc-1',
-      target: 'localhost:50051',
+      target: 'localhost:50443',
       tlsMode: 'tls',
       tlsConfig: { serverCaPem: VALID_PEM },
       auth: { type: 'none' },
@@ -360,7 +364,7 @@ describe('grpcReplayResolver (Phase 4H)', () => {
         requestId: 'req-1',
         capturedAt: '2026-01-01T00:00:00.000Z',
         callType: 'unary',
-        target: { address: 'localhost:50051', tlsMode: 'tls', tlsConfig: { serverCaPem: VALID_PEM } },
+        target: { address: 'localhost:50443', tlsMode: 'tls', tlsConfig: { serverCaPem: VALID_PEM } },
         service: 'echo.EchoService',
         method: 'Echo',
         body: {},
@@ -378,7 +382,7 @@ describe('grpcReplayResolver (Phase 4H)', () => {
       requestId: 'replay-req-7',
       envVarMap: {},
       profiles: [],
-      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+      pageDefaults: { target: 'localhost:50443', tlsMode: 'disabled' },
     });
 
     expect(snapshot.target.tlsConfig?.serverCaPem).toBe(VALID_PEM);

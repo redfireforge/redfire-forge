@@ -7,7 +7,7 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio, switchWsLeftTab, disconnectWs } from './ws-helpers';
+import { gotoWsStudio, switchWsLeftTab, disconnectWs, selectWsCustomSelect } from './ws-helpers';
 
 const SIO_URL = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
 const SIO_HEALTH = 'http://localhost:3100/health';
@@ -40,7 +40,7 @@ const disconnect = (page: Page) => disconnectWs(page);
 
 async function connectToSio(page: Page) {
   await switchLeftTab(page, 'connect');
-  await page.locator('[data-testid="protocol-select"]').selectOption('socket-io');
+  await selectWsCustomSelect(page, 'protocol-select', { value: 'socket-io', label: 'Socket.IO' });
   await page.waitForTimeout(200);
 
   const urlInput = page.locator('[aria-label="WebSocket URL"]');

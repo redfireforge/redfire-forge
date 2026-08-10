@@ -5,6 +5,11 @@ import {
   validateResolvedGrpcTargetAddress,
 } from '../../src/shared/grpc/targetValidation.js';
 import { buildGrpcChannelCredentials } from './grpcChannelCredentials.js';
+import { ensureLocalGrpcBypassesProxyEnv } from './grpcClient.js';
+
+// Streaming calls dial grpc-js directly (no shared GrpcJsClient), so loopback
+// targets need the same NO_PROXY guarantee grpcClient.ts sets up on import.
+ensureLocalGrpcBypassesProxyEnv();
 
 export interface GrpcStreamTerminalResult {
   status: number;

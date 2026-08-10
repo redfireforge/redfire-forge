@@ -1,12 +1,17 @@
 /**
  * WF-3 — Conditional Branching
  *
- * 5 steps: review where {{userId}} comes from (HTTP Extract tab) → add & configure a
- * Condition node (userId == 1) → wire Yes/No branch paths with Log/Debug nodes →
- * demonstrate the Switch node → run Quick Test and see which branch is taken.
+ * 7 steps (live config; brisk modal pacing so actions stay under DEMO_ACTION_TIMEOUT):
+ * 1. Extract {{userId}} from GET /posts/1 (field-by-field)
+ * 2. Add Condition and fill left / operator / right live
+ * 3. Wire Yes Log/Debug and configure live
+ * 4. Wire No Log/Debug and configure live
+ * 5. Add Switch, fill expression + cases live
+ * 6. Wire Switch → Log/Debug, Fit View, configure Log modal live
+ * 7. Quick Test — watch Yes + Switch case light up
  *
- * Prerequisite: seeded workflow with Start → HTTP GET /posts/1 → extraction of userId.
- * JSONPlaceholder /posts/1 returns { userId: 1 }, so condition evaluates to true → Yes path.
+ * Seed is Start → HTTP GET only (no extraction / branches pre-filled).
+ * JSONPlaceholder /posts/1 returns { userId: 1 } → Condition true → Yes path.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WF } from '@shared/selectors';
@@ -15,12 +20,21 @@ import {
   collapseWfDemoAppSidebar,
   openWfNodeConfigModal,
   clickWfConfigTab,
+  clickWfConfigAddRow,
+  fillWfConfigField,
+  selectWfConfigOption,
+  clickWfConfigControl,
   saveAndCloseWfConfigModal,
   closeWfConfigModalIfOpen,
+  holdWfSpotlight,
+  closeWfSamplePreviewIfOpen,
   cleanupWorkflowDemoRunUi,
   resetWfPaletteToBlocks,
   revealPaletteBlock,
   ensureLessonWorkflowShown,
+  pauseWfConfigSection,
+  setWfConfigDemoTiming,
+  WF_CONFIG_DEMO_TIMING_BRISK,
 } from '../wf-demo-helpers';
 import {
   deleteWorkflowByName,
@@ -32,22 +46,20 @@ import {
   fitWorkflowCanvasView,
   patchWorkflowNodeDataById,
   openWorkflowNodeConfig,
+  clearWorkflowSamplePreview,
 } from '../../adapters';
-import { collapseAppSidebar } from '../../adapters/appShellAdapter';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
 const WF_NAME = 'Conditional Demo';
 const BASE_URL = 'https://jsonplaceholder.typicode.com';
-// Fixed IDs for nodes added during the lesson (so preAction guards can find them)
 const COND_NODE_ID = 'wf3-cond';
 const LOG_YES_ID = 'wf3-log-yes';
 const LOG_NO_ID = 'wf3-log-no';
 const SWITCH_NODE_ID = 'wf3-switch';
 const SWITCH_LOG_ID = 'wf3-switch-log';
 
-// Switch keys off the REAL extracted {{userId}} (= 1 for /posts/1). Cases match the
-// resolved string, so the "1" case is taken at runtime and routes to a Log node.
+/** Known IDs for quiet preAction recovery (live UI uses uuid case ids). */
 const SWITCH_CASE_MATCH_ID = 'wf3-case-1';
 const SWITCH_CASES = [
   { id: SWITCH_CASE_MATCH_ID, value: '1', label: 'User #1' },
@@ -55,6 +67,23 @@ const SWITCH_CASES = [
   { id: 'wf3-case-3', value: '3', label: 'User #3' },
 ];
 
+const HTTP_SCENARIO_BASE = {
+  id: 'wf3-get-scenario',
+  name: 'Get Post',
+  url: `${BASE_URL}/posts/1`,
+  method: 'GET' as const,
+  headers: [] as { key: string; value: string }[],
+  body: '',
+  auth: { type: 'none' as const },
+  validation: { mode: 'none' as const },
+};
+
+const HTTP_SCENARIO_WITH_EXT = {
+  ...HTTP_SCENARIO_BASE,
+  extractions: [{ name: 'userId', source: 'body' as const, expression: '$.userId' }],
+};
+
+/** Seed: Start → GET only — extraction & branches are taught live. */
 const SEED_WORKFLOW = {
   name: WF_NAME,
   nodes: [
@@ -65,17 +94,7 @@ const SEED_WORKFLOW = {
       position: { x: 280, y: 200 },
       data: {
         label: 'Get Post',
-        scenario: {
-          id: 'wf3-get-scenario',
-          name: 'Get Post',
-          url: `${BASE_URL}/posts/1`,
-          method: 'GET',
-          headers: [],
-          body: '',
-          auth: { type: 'none' },
-          validation: { mode: 'none' },
-          extractions: [{ name: 'userId', source: 'body', expression: '$.userId' }],
-        },
+        scenario: { ...HTTP_SCENARIO_BASE, extractions: [] },
         timeoutSec: 0,
       },
     },
@@ -91,8 +110,6 @@ let activeCleanup: (() => void) | null = null;
 function spotlight(el: HTMLElement, holdMs: number, ctx: DemoActionContext): Promise<void> {
   activeCleanup?.();
   activeCleanup = null;
-  // Skip scrollIntoView for React Flow canvas nodes/edges — it scrolls an ancestor
-  // and undoes the fitted viewport. Fit View already keeps them visible.
   if (!el.closest('.react-flow')) {
     el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
@@ -111,120 +128,140 @@ function getNodeId(selector: string): string | null {
   return el?.getAttribute('data-id') ?? el?.closest('.react-flow__node')?.getAttribute('data-id') ?? null;
 }
 
-/**
- * Fit the canvas using the REAL Fit View button (symmetric padding: 0.15 → nodes
- * centered), matching the manual control. The demo bridge fitWorkflowCanvasView()
- * uses asymmetric right:0.34 padding that shoves nodes to the left and looks
- * unfitted — never use it for a viewer-facing end state. Falls back to the bridge
- * only if the button isn't mounted yet.
- */
 function fitCanvasCentered(): void {
   const btn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
   if (btn) { btn.click(); return; }
   fitWorkflowCanvasView();
 }
 
+/** Spotlight + click Fit View so the viewer sees the canvas reframe (not a silent bridge call). */
+async function clickFitViewVisible(ctx: DemoActionContext): Promise<void> {
+  const btn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
+  if (btn) {
+    await spotlight(btn, 800, ctx);
+    btn.click();
+    await ctx.delay(1000);
+    return;
+  }
+  fitWorkflowCanvasView();
+  await ctx.delay(600);
+}
+
+/** Quiet recovery — extraction already taught in step 1. */
+function ensureHttpExtractionQuiet(): void {
+  patchWorkflowNodeDataById('http-get', {
+    label: 'Get Post',
+    scenario: HTTP_SCENARIO_WITH_EXT,
+    timeoutSec: 0,
+  });
+}
+
 async function ensureSeededWorkflow(ctx: DemoActionContext): Promise<void> {
   await waitForWorkflowBridge(ctx);
+  await closeWfSamplePreviewIfOpen(ctx);
+  await closeWfConfigModalIfOpen(ctx);
 
   const state = await ensureLessonWorkflowShown(ctx, WF_NAME);
   if (state !== 'missing') {
-    // Only re-fit when we actually SWITCHED to this lesson's workflow from a
-    // different one. When it's already shown ('ready'), the canvas is exactly where
-    // the previous step left it — re-fitting on every single step start is what made
-    // the nodes visibly jump around between steps.
-    if (state === 'selected') {
-      const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
-      if (fitBtn) { fitBtn.click(); await ctx.delay(400); }
+    if (state === 'selected' && document.body.getAttribute('data-demo-bootstrapping') !== '1') {
+      fitCanvasCentered();
+      await ctx.delay(400);
     }
     return;
   }
 
   ctx.navigateToTab('workflow');
-  await ctx.delay(200);
+  await ctx.delay(400);
   await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>);
-  await ctx.delay(300);
-  fitCanvasCentered();
-  await ctx.delay(100);
-}
-
-/** Ensure condition node is present and connected to HTTP. */
-async function ensureConditionNode(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WF.NODE_CONDITION)) return;
-  addWorkflowNodeWithPreset('condition', COND_NODE_ID, 'Check User', { x: 520, y: 200 });
-  await ctx.delay(500);
-  const httpId = getNodeId(WF.NODE_HTTP);
-  const condId = getNodeId(WF.NODE_CONDITION);
-  if (httpId && condId) connectWorkflowNodes(httpId, condId);
-  await ctx.delay(300);
-}
-
-/** Ensure Log/Debug nodes are wired to condition branches. */
-async function ensureBranchNodes(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WF.NODE_LOG_DEBUG)) return;
-  const condId = getNodeId(WF.NODE_CONDITION);
-  // Yes path
-  addWorkflowNodeWithPreset('logDebug', LOG_YES_ID, 'Author!', { x: 760, y: 120 });
-  await ctx.delay(300);
-  patchWorkflowNodeDataById(LOG_YES_ID, { label: 'Author!', message: 'User is the author! userId={{userId}}', logLevel: 'info', snapshotVariables: true });
-  if (condId) connectWorkflowNodes(condId, LOG_YES_ID, 'true', null);
-  await ctx.delay(300);
-  // No path
-  addWorkflowNodeWithPreset('logDebug', LOG_NO_ID, 'Different User', { x: 760, y: 300 });
-  await ctx.delay(300);
-  patchWorkflowNodeDataById(LOG_NO_ID, { label: 'Different User', message: 'Different user — userId={{userId}}', logLevel: 'warn', snapshotVariables: false });
-  if (condId) connectWorkflowNodes(condId, LOG_NO_ID, 'false', null);
-  await ctx.delay(300);
-}
-
-/**
- * Open a Log/Debug node's config modal, spotlight its Log Level + Message Template so
- * the viewer actually SEES how the branch message is configured, then save & close.
- * Node data must already be patched — openWorkflowNodeConfig snapshots data at open time.
- */
-async function showLogNodeConfig(ctx: DemoActionContext, nodeId: string, highlightSnapshot = false): Promise<void> {
-  openWorkflowNodeConfig(nodeId);
-  await ctx.waitFor(WF.NODE_CONFIG, 5000);
-  await ctx.delay(900);
-  // Log Level (Info for Yes, Warning for No) — viewer sees the severity choice.
-  const level = document.querySelector<HTMLElement>(WF.CFG_LOG_LEVEL);
-  if (level) await spotlight(level, 1100, ctx);
-  // Message Template — the {{userId}} template that gets logged when this branch runs.
-  const msg = document.querySelector<HTMLElement>(WF.CFG_LOG_MESSAGE);
-  if (msg) await spotlight(msg, 2000, ctx);
-  // Snapshot checkbox — highlights the "Snapshot all variables" toggle for the Author! node.
-  if (highlightSnapshot) {
-    const snapshotLabel = document.querySelector<HTMLElement>('.wf-config-modal label:has(input[type="checkbox"])');
-    if (snapshotLabel) await spotlight(snapshotLabel, 1400, ctx);
+  await ctx.delay(600);
+  if (document.body.getAttribute('data-demo-bootstrapping') === '1') {
+    fitWorkflowCanvasView({ duration: 0 });
+    await ctx.delay(120);
+  } else {
+    fitCanvasCentered();
+    await ctx.delay(600);
   }
-  // Close before returning to the canvas so the branch layout is visible (section 5).
-  await saveAndCloseWfConfigModal(ctx);
-  await ctx.delay(700);
 }
 
-/**
- * Ensure the Switch node exists, is configured to route on {{userId}}, is fed by the
- * HTTP node (so userId is extracted before it evaluates), and has its matched-case
- * Log wired up. Idempotent — recreates state quietly when a viewer skipped step 4.
- */
-async function ensureSwitchNode(ctx: DemoActionContext): Promise<void> {
+async function ensureConditionNode(ctx: DemoActionContext): Promise<void> {
+  ensureHttpExtractionQuiet();
+  if (!document.querySelector(WF.NODE_CONDITION)) {
+    addWorkflowNodeWithPreset('condition', COND_NODE_ID, 'Check User', { x: 520, y: 200 });
+    await ctx.delay(400);
+    const httpId = getNodeId(WF.NODE_HTTP);
+    const condId = getNodeId(WF.NODE_CONDITION);
+    if (httpId && condId) connectWorkflowNodes(httpId, condId);
+    await ctx.delay(200);
+  }
+  patchWorkflowNodeDataById(COND_NODE_ID, {
+    label: 'Check User',
+    left: '{{userId}}',
+    operator: '==',
+    right: '1',
+  });
+}
+
+async function ensureBranchNodes(ctx: DemoActionContext): Promise<void> {
+  await ensureConditionNode(ctx);
+  const condId = getNodeId(WF.NODE_CONDITION);
+  if (!document.querySelector(`[data-id="${LOG_YES_ID}"]`)) {
+    addWorkflowNodeWithPreset('logDebug', LOG_YES_ID, 'Author!', { x: 760, y: 120 });
+    await ctx.delay(200);
+    if (condId) connectWorkflowNodes(condId, LOG_YES_ID, 'true', null);
+  }
+  if (!document.querySelector(`[data-id="${LOG_NO_ID}"]`)) {
+    addWorkflowNodeWithPreset('logDebug', LOG_NO_ID, 'Different User', { x: 760, y: 300 });
+    await ctx.delay(200);
+    if (condId) connectWorkflowNodes(condId, LOG_NO_ID, 'false', null);
+  }
+  // Always re-patch — live Save+Close used to roll back labels/messages to defaults.
+  patchWorkflowNodeDataById(LOG_YES_ID, {
+    label: 'Author!',
+    message: 'User is the author! userId={{userId}}',
+    logLevel: 'info',
+    snapshotVariables: true,
+  });
+  patchWorkflowNodeDataById(LOG_NO_ID, {
+    label: 'Different User',
+    message: 'Different user — userId={{userId}}',
+    logLevel: 'warn',
+    snapshotVariables: false,
+  });
+  await ctx.delay(200);
+}
+
+/** First case-* handle on the Switch node (after live + Add Case). */
+function firstSwitchCaseHandleId(): string | null {
+  const node = document.querySelector(WF.NODE_SWITCH);
+  const handle = node?.querySelector<HTMLElement>('[data-handleid^="case-"]');
+  return handle?.getAttribute('data-handleid') ?? null;
+}
+
+/** Quiet recovery: Switch + cases + HTTP edge (no Log yet). */
+async function ensureSwitchConfigured(ctx: DemoActionContext): Promise<void> {
+  ensureHttpExtractionQuiet();
   if (!document.querySelector(WF.NODE_SWITCH)) {
     addWorkflowNodeWithPreset('switch', SWITCH_NODE_ID, 'Route by User ID', { x: 520, y: 440 });
-    await ctx.delay(400);
+    await ctx.delay(300);
   }
   patchWorkflowNodeDataById(SWITCH_NODE_ID, {
     label: 'Route by User ID',
     expression: '{{userId}}',
     cases: SWITCH_CASES,
   });
-  // Wait for React to re-render the Switch node with its case handles before connecting
   const handleSel = `[data-handleid="case-${SWITCH_CASE_MATCH_ID}"]`;
-  await ctx.waitFor(handleSel, 3000).catch(() => ctx.delay(500));
+  await ctx.waitFor(handleSel, 3000).catch(() => ctx.delay(400));
   const httpId = getNodeId(WF.NODE_HTTP);
   if (httpId) connectWorkflowNodes(httpId, SWITCH_NODE_ID);
+  await ctx.delay(200);
+}
+
+/** Quiet recovery: Switch Log wired to case 1 (for Quick Test / rapid Next). */
+async function ensureSwitchNode(ctx: DemoActionContext): Promise<void> {
+  await ensureSwitchConfigured(ctx);
   if (!document.querySelector(`[data-id="${SWITCH_LOG_ID}"]`)) {
     addWorkflowNodeWithPreset('logDebug', SWITCH_LOG_ID, 'Matched User #1', { x: 760, y: 460 });
-    await ctx.delay(300);
+    await ctx.delay(200);
   }
   patchWorkflowNodeDataById(SWITCH_LOG_ID, {
     label: 'Matched User #1',
@@ -232,9 +269,84 @@ async function ensureSwitchNode(ctx: DemoActionContext): Promise<void> {
     logLevel: 'info',
     snapshotVariables: false,
   });
-  await ctx.delay(200);
   connectWorkflowNodes(SWITCH_NODE_ID, SWITCH_LOG_ID, `case-${SWITCH_CASE_MATCH_ID}`, null);
   await ctx.delay(200);
+}
+
+/** Live-fill a Log/Debug modal — paced for brisk timing (must finish well under 45s). */
+async function configureLogNodeLive(
+  ctx: DemoActionContext,
+  nodeId: string,
+  opts: { label: string; message: string; logLevel: string; snapshot?: boolean },
+): Promise<void> {
+  openWorkflowNodeConfig(nodeId);
+  await ctx.waitFor(WF.NODE_CONFIG, 5000);
+  await ctx.delay(500);
+
+  await fillWfConfigField(ctx, WF.CFG_LOG_LABEL, opts.label);
+  await holdWfSpotlight(ctx, WF.CFG_LOG_LABEL, 700);
+
+  await selectWfConfigOption(ctx, WF.CFG_LOG_LEVEL, opts.logLevel);
+  await holdWfSpotlight(ctx, WF.CFG_LOG_LEVEL, 700);
+
+  await fillWfConfigField(ctx, WF.CFG_LOG_MESSAGE, opts.message);
+  await holdWfSpotlight(ctx, WF.CFG_LOG_MESSAGE, 1100);
+
+  if (opts.snapshot) {
+    const cb = document.querySelector<HTMLInputElement>(WF.CFG_LOG_SNAPSHOT);
+    if (cb && !cb.checked) {
+      await holdWfSpotlight(ctx, WF.CFG_LOG_SNAPSHOT, 600);
+      cb.click();
+      await ctx.delay(500);
+      await holdWfSpotlight(ctx, WF.CFG_LOG_SNAPSHOT, 700);
+    }
+  }
+
+  await saveAndCloseWfConfigModal(ctx);
+  // Belt: live Save must stick even if a stale Close handler raced.
+  patchWorkflowNodeDataById(nodeId, {
+    label: opts.label,
+    message: opts.message,
+    logLevel: opts.logLevel,
+    snapshotVariables: !!opts.snapshot,
+  });
+  await ctx.delay(400);
+}
+
+/** Live-add one Switch case row and fill match value + label. */
+async function addAndFillSwitchCase(
+  ctx: DemoActionContext,
+  value: string,
+  label: string,
+  opts?: { emphasize?: boolean },
+): Promise<void> {
+  const emphasize = opts?.emphasize !== false;
+  const before = document.querySelectorAll(WF.CFG_SWITCH_CASE_ROW).length;
+  await clickWfConfigControl(ctx, WF.CFG_SWITCH_ADD_CASE);
+  try {
+    await ctx.waitFor(`${WF.CFG_SWITCH_CASE_ROW}:nth-child(${before + 1})`, 2500);
+  } catch {
+    await ctx.delay(300);
+  }
+  const rows = document.querySelectorAll<HTMLElement>(WF.CFG_SWITCH_CASE_ROW);
+  const row = rows[rows.length - 1];
+  if (!row) return;
+
+  const valueInput = row.querySelector<HTMLInputElement>('.wf-switch-col-value input');
+  const labelInput = row.querySelector<HTMLInputElement>('.wf-switch-col-label input');
+  if (valueInput) {
+    if (emphasize) {
+      await holdWfSpotlight(ctx, '.wf-switch-case-row:last-child .wf-switch-col-value input', 500);
+    }
+    valueInput.focus();
+    valueInput.value = '';
+    valueInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await fillWfConfigField(ctx, '.wf-switch-case-row:last-child .wf-switch-col-value input', value);
+  }
+  if (labelInput) {
+    await fillWfConfigField(ctx, '.wf-switch-case-row:last-child .wf-switch-col-label input', label);
+  }
+  await holdWfSpotlight(ctx, '.wf-switch-case-row:last-child', emphasize ? 900 : 500);
 }
 
 // ─── Lesson ─────────────────────────────────────────────────────────
@@ -245,29 +357,48 @@ export const wfConditionalLogicLesson: DemoLesson = {
   category: 'logic',
   name: 'Conditional Branching',
   description:
-    'Route execution based on response data — learn the Condition (if/else) and Switch (multi-way) nodes.',
-  estimatedMinutes: 5,
+    'See why workflows need decisions: extract a value, build an if/else Condition live, ' +
+    'wire Yes/No logs, then a multi-way Switch — all configured field-by-field.',
+  estimatedMinutes: 11,
   initialTab: 'workflow',
   allowedTabs: ['workflow'],
+  collapseAppSidebarOnStart: true,
+
+  prepareBeforeNavigate: async (ctx) => {
+    clearWorkflowSamplePreview();
+    await waitForWorkflowBridge(ctx);
+    deleteWorkflowByName(WF_NAME);
+    await ctx.delay(80);
+    await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>, {
+      deleteDelayMs: 50,
+      insertDelayMs: 120,
+      bridgeTimeoutMs: 4000,
+      storeTimeoutMs: 2500,
+      selectAfterSeed: true,
+    });
+    clearWorkflowSamplePreview();
+    await ctx.delay(40);
+  },
 
   concept: {
-    title: 'Branching Logic in Workflows',
+    title: 'Why this lesson exists',
     body:
-      'Real workflows need decisions. The **Condition** node evaluates an expression and routes ' +
-      'execution to **Yes** or **No** paths — like an if/else in code.\n\n' +
-      '**Key concepts:**\n' +
-      '- **Condition node** — evaluates `left operator right` (e.g. `{{userId}} == 1`)\n' +
-      '- **Yes path** — taken when the expression is true\n' +
-      '- **No path** — taken when the expression is false\n' +
-      '- **Switch node** — multi-way branching: matches a value against multiple cases\n\n' +
-      '**In this lesson:** An HTTP GET extracts `userId`. The Condition checks if `userId == 1` ' +
-      'and routes to different Log nodes based on the result. A **Switch** then keys off the ' +
-      'same `{{userId}}` value with cases `1`/`2`/`3` — showing multi-way routing on real data.',
+      'Linear workflows are not enough. APIs return data that should choose the next path — ' +
+      'author vs guest, 200 vs 404, tier A vs B.\n\n' +
+      '**What you will build (nothing is pre-filled in the modals):**\n' +
+      '1. **Extract** `userId` from a live GET response into `{{userId}}`\n' +
+      '2. **Condition** — type `{{userId}} == 1` (if/else → Yes / No)\n' +
+      '3. **Log** the Yes path (Author!) with a variable snapshot\n' +
+      '4. **Log** the No path (Different User)\n' +
+      '5. **Switch** — same `{{userId}}` against cases `1` / `2` / `3`\n' +
+      '6. **Log/Debug** on the matched case — Fit View, then configure the message live\n' +
+      '7. **Quick Test** — watch the Yes path + User #1 case light up\n\n' +
+      '**Takeaway:** branch on real extracted data, not hardcoded guesses.',
     keyTerms: [
-      { term: 'Condition Node', definition: 'Evaluates a left/operator/right expression and routes to Yes (true) or No (false) output handles.' },
-      { term: 'Yes/No Handles', definition: 'The two outputs of a Condition node — connect different downstream nodes to each for branching logic.' },
-      { term: 'Switch Node', definition: 'Multi-way branching — matches an expression against a list of case values, each with its own output handle.' },
-      { term: 'Branch Path', definition: 'A chain of nodes connected to one output handle — only executes when that branch is taken.' },
+      { term: 'Extraction', definition: 'Pull a response field (JSONPath) into a named variable like userId for later steps.' },
+      { term: 'Condition Node', definition: 'If/else: evaluates left operator right and routes to Yes or No handles.' },
+      { term: 'Yes/No Handles', definition: 'Condition outputs — connect different Log (or action) nodes to each branch.' },
+      { term: 'Switch Node', definition: 'Multi-way match of one expression against case values, each with its own handle.' },
     ],
     diagram: `<svg viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
       <rect x="5" y="45" width="70" height="30" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
@@ -290,367 +421,419 @@ export const wfConditionalLogicLesson: DemoLesson = {
   },
 
   setup: async (ctx) => {
-    ctx.navigateToTab('workflow');
+    // Dense live config (two Logs + Switch cases) exceeds default modal pacing
+    // under DEMO_ACTION_TIMEOUT_MS (45s) — use brisk timing for this lesson only.
+    setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
+    await closeWfSamplePreviewIfOpen(ctx);
     resetWfPaletteToBlocks();
-    collapseAppSidebar();
     await waitForWorkflowBridge(ctx);
-    deleteWorkflowByName(WF_NAME);
-    await ctx.delay(100);
-    await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>);
-    await ctx.delay(300);
-    fitCanvasCentered();
-    await ctx.delay(200);
+    await collapseWfDemoAppSidebar(ctx);
+    if ((await ensureLessonWorkflowShown(ctx, WF_NAME)) === 'missing') {
+      await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>, {
+        deleteDelayMs: 50,
+        insertDelayMs: 200,
+      });
+    }
+    fitWorkflowCanvasView({ duration: 0 });
+    await ctx.delay(120);
   },
 
   cleanup: async (ctx) => {
+    setWfConfigDemoTiming(null);
     await closeWfConfigModalIfOpen(ctx);
     await cleanupWorkflowDemoRunUi(ctx);
     deleteWorkflowByName(WF_NAME);
     await collapseWfDemoAppSidebar(ctx);
-    await ctx.delay(100);
+    if (document.body.getAttribute('data-demo-bootstrapping') !== '1') {
+      await ctx.delay(100);
+    }
   },
 
   steps: [
-    // ── Step 1: Where userId Comes From ─────────────────────────────────
-    // Show the SOURCE of {{userId}} (the HTTP node's Extract tab) before we build
-    // any branching on it — so the viewer understands what the Condition/Switch read.
+    // ── Step 1: Extract userId (LIVE) ─────────────────────────────────
     {
-      id: 'wf3-review-extraction',
-      title: 'Where userId Comes From',
+      id: 'wf3-extract-userid',
+      title: 'Extract userId from the Response',
       description:
-        'Before we branch on it, see where the `{{userId}}` variable comes from. ' +
-        'Double-click the **Get Post** node and open the **Extract** tab — the response\'s ' +
-        '`$.userId` field is pulled into a variable named `userId`. The Condition and Switch ' +
-        'you build in the next steps both read this exact value.',
+        '**Purpose:** branching needs a value. We pull `userId` from the GET response into `{{userId}}`.\n\n' +
+        'Open **Get Post** → **Extract** → **+ Add**. Watch each field fill:\n' +
+        '- Variable name → `userId`\n' +
+        '- Expression → `$.userId`\n\n' +
+        'Save. Later steps read this exact variable — nothing was pre-filled here.',
       highlight: WF.NODE_HTTP,
 
       preAction: async (ctx) => {
-        // Setup already seeded the workflow — just ensure it's visible and clean
-        if (!document.querySelector(WF.CANVAS)) {
-          await ensureSeededWorkflow(ctx);
-        }
+        await ensureSeededWorkflow(ctx);
         await closeWfConfigModalIfOpen(ctx);
       },
 
       action: async (ctx) => {
         await openWfNodeConfigModal(ctx, { nodeSelector: WF.NODE_HTTP });
-        await ctx.delay(600);
+        await ctx.delay(800);
 
-        // Spotlight the Extract tab itself before switching to it
-        const panel = document.querySelector(WF.NODE_CONFIG);
-        const extractTab = panel
-          ? Array.from(panel.querySelectorAll<HTMLElement>('.wf-config-tab'))
-              .find((b) => b.textContent?.trim().startsWith('Extract'))
-          : null;
-        if (extractTab) await spotlight(extractTab, 1200, ctx);
+        const extractTab = Array.from(
+          document.querySelectorAll<HTMLElement>(`${WF.NODE_CONFIG} .wf-config-tab`),
+        ).find((b) => b.textContent?.trim().startsWith('Extract'));
+        if (extractTab) await spotlight(extractTab, 1400, ctx);
 
-        // Switch to Extract tab and spotlight the extraction row
         await clickWfConfigTab(ctx, WF.NODE_CONFIG, 'Extract');
+        await ctx.delay(800);
+
+        await clickWfConfigAddRow(ctx, WF.CFG_EXT_ADD, WF.CFG_EXT_VAR);
+        await fillWfConfigField(ctx, WF.CFG_EXT_VAR, 'userId');
+        await fillWfConfigField(ctx, WF.CFG_EXT_EXPR, '$.userId');
+        await holdWfSpotlight(ctx, `${WF.CFG_EXT_ROW}:last-child`, 1800);
+        await holdWfSpotlight(ctx, `${WF.CFG_EXT_ROW}:last-child .ext-cell-var`, 1400);
+
+        await saveAndCloseWfConfigModal(ctx);
+        // Quiet re-assert — protects against Save being rolled back by Close race.
+        ensureHttpExtractionQuiet();
         await ctx.delay(600);
-
-        await spotlightSel(ctx, WF.CFG_EXT_ROW, 1800);
-
-        await closeWfConfigModalIfOpen(ctx);
-        await ctx.delay(400);
+        fitCanvasCentered();
+        await ctx.delay(800);
       },
 
       verify: WF.NODE_HTTP,
     },
 
-    // ── Step 2: Add & Configure a Condition Node ───────────────────────
+    // ── Step 2: Condition — fill LIVE ─────────────────────────────────
     {
       id: 'wf3-condition-node',
-      title: 'Add & Configure a Condition Node',
+      title: 'Build the Condition (live)',
       description:
-        'Find **Condition** in the palette under **Logic**. Click it onto the canvas, connect it ' +
-        'after the HTTP node, and click **Fit View**. Then open its config and set the **left operand** ' +
-        'to `{{userId}}` (the extracted variable), **operator** to `==`, and **right value** to `1`. ' +
-        'This evaluates whether the post author is user #1.',
+        '**Purpose:** if/else on the extracted value.\n\n' +
+        'Add **Condition** from the palette, connect it after Get Post, then open its config. ' +
+        'We fill fields one by one — not a pre-filled form:\n' +
+        '1. Switch to **Expression** and type `{{userId}}`\n' +
+        '2. Operator → `==`\n' +
+        '3. Compare to → `1`\n\n' +
+        'Watch the preview show `{{userId}} == 1` with Yes / No branches.',
       highlight: WF.PAL_CONDITION,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
+        ensureHttpExtractionQuiet();
+        await closeWfConfigModalIfOpen(ctx);
       },
 
       action: async (ctx) => {
-        // Spotlight the Condition block in the palette
         const condBlock = await revealPaletteBlock(ctx, WF.PAL_CONDITION);
-        if (condBlock) {
-          await spotlight(condBlock, 1400, ctx);
-        }
+        if (condBlock) await spotlight(condBlock, 1400, ctx);
 
-        // 1. Add Condition node to the canvas
         addWorkflowNodeWithPreset('condition', COND_NODE_ID, 'Check User', { x: 520, y: 200 });
         await ctx.delay(1500);
 
-        // 2. Connect HTTP → Condition
         const httpId = getNodeId(WF.NODE_HTTP);
         const condNodeId = getNodeId(WF.NODE_CONDITION);
-        if (httpId && condNodeId) {
-          connectWorkflowNodes(httpId, condNodeId);
-        }
-        await ctx.delay(1200);
+        if (httpId && condNodeId) connectWorkflowNodes(httpId, condNodeId);
+        await ctx.delay(1000);
 
-        // 3. Fit View
-        const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
-        if (fitBtn) fitBtn.click();
+        fitCanvasCentered();
         await ctx.delay(800);
-
-        // Spotlight the Condition node showing Yes/No handles
         await spotlightSel(ctx, WF.NODE_CONDITION, 1500);
 
-        // 4. Configure — patch data then open modal to show the viewer
-        if (condNodeId) {
-          patchWorkflowNodeDataById(condNodeId, {
-            label: 'Check User',
-            left: '{{userId}}',
-            operator: '==',
-            right: '1',
-          });
-          await ctx.delay(400);
-        }
-
+        // Open EMPTY condition (defaults only) — fill live below
         if (condNodeId) {
           openWorkflowNodeConfig(condNodeId);
           await ctx.waitFor(WF.NODE_CONFIG, 5000);
           await ctx.delay(1000);
         }
 
-        // Spotlight userId variable dropdown
-        const varSelect = document.querySelector<HTMLElement>(
-          '.wf-condition-config .wf-condition-left-select',
-        );
-        if (varSelect) await spotlight(varSelect, 1400, ctx);
+        // Expression mode so viewers see {{userId}} typed (not a silent patch)
+        await clickWfConfigControl(ctx, WF.CFG_CONDITION_EXPR_MODE);
+        await ctx.delay(700);
+        await fillWfConfigField(ctx, WF.CFG_CONDITION_LEFT, '{{userId}}');
+        await holdWfSpotlight(ctx, WF.CFG_CONDITION_LEFT, 1400);
+        await pauseWfConfigSection(ctx);
 
-        // Spotlight the == operator
-        const rows = document.querySelectorAll<HTMLElement>('.wf-condition-config .wf-config-field--row');
-        const operatorRow = rows[2];
-        const operatorSelect = operatorRow?.querySelector<HTMLElement>('.cs-wrapper');
-        if (operatorSelect) await spotlight(operatorSelect, 1200, ctx);
+        await selectWfConfigOption(ctx, WF.CFG_CONDITION_OP, '==');
+        await holdWfSpotlight(ctx, WF.CFG_CONDITION_OP, 1200);
+        await pauseWfConfigSection(ctx);
 
-        // Spotlight the compare value "1"
-        const compareRow = rows[3];
-        const compareInput = compareRow?.querySelector<HTMLElement>('.expr-input-wrapper');
-        if (compareInput) await spotlight(compareInput, 1200, ctx);
+        await fillWfConfigField(ctx, WF.CFG_CONDITION_RIGHT, '1');
+        await holdWfSpotlight(ctx, WF.CFG_CONDITION_RIGHT, 1400);
 
-        // Save and close the config modal
+        await holdWfSpotlight(ctx, WF.CFG_CONDITION_PREVIEW, 2000);
+
         await saveAndCloseWfConfigModal(ctx);
-        await ctx.delay(1000);
-
-        // Spotlight the configured condition node on canvas
-        await spotlightSel(ctx, WF.NODE_CONDITION, 1200);
+        patchWorkflowNodeDataById(COND_NODE_ID, {
+          label: 'Check User',
+          left: '{{userId}}',
+          operator: '==',
+          right: '1',
+        });
+        await ctx.delay(900);
+        await spotlightSel(ctx, WF.NODE_CONDITION, 1400);
       },
 
       verify: WF.NODE_CONDITION,
     },
 
-    // ── Step 3: Wire the Branch Paths ───────────────────────────────────
+    // ── Step 3: Yes Log — configure LIVE ──────────────────────────────
     {
-      id: 'wf3-branch-paths',
-      title: 'Wire the Branch Paths',
+      id: 'wf3-branch-yes',
+      title: 'Configure the Yes Log (live)',
       description:
-        'Add two **Log/Debug** nodes — one per branch. For each: click the node onto the canvas, ' +
-        'connect it to the Condition\'s **Yes** or **No** handle, click **Fit View**, then open ' +
-        'its config to set a **Message Template** that logs `{{userId}}` and a **Log Level** ' +
-        '(Info for the "author" branch, Warning for "different user"). Each branch runs ' +
-        'independently based on the condition result.',
+        '**Purpose:** make the **true** branch visible when it runs.\n\n' +
+        'Add a **Log/Debug** on the Condition **Yes** handle, then fill:\n' +
+        '- **Label** → Author!\n' +
+        '- **Log Level** → Info\n' +
+        '- **Message Template** with `{{userId}}`\n' +
+        '- Enable **Snapshot all variables**\n\n' +
+        'Then **Fit View**.',
       highlight: WF.PAL_LOG_DEBUG,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
         await ensureConditionNode(ctx);
-        // A prior replay may have left a log config modal open — start clean.
         await closeWfConfigModalIfOpen(ctx);
       },
 
       action: async (ctx) => {
-        // Spotlight the Log/Debug block in palette
         const logBlock = await revealPaletteBlock(ctx, WF.PAL_LOG_DEBUG);
-        if (logBlock) {
-          await spotlight(logBlock, 1200, ctx);
-        }
+        if (logBlock) await spotlight(logBlock, 900, ctx);
 
         const condId = getNodeId(WF.NODE_CONDITION);
-
-        // ── YES path: add → connect → fit view → configure ──
-        addWorkflowNodeWithPreset('logDebug', LOG_YES_ID, 'Author!', { x: 760, y: 120 });
-        await ctx.delay(800);
+        addWorkflowNodeWithPreset('logDebug', LOG_YES_ID, 'Log', { x: 760, y: 120 });
+        await ctx.delay(600);
         if (condId) connectWorkflowNodes(condId, LOG_YES_ID, 'true', null);
-        await ctx.delay(600);
-        fitCanvasCentered();
-        await ctx.delay(600);
+        await ctx.delay(500);
+        await clickFitViewVisible(ctx);
 
-        patchWorkflowNodeDataById(LOG_YES_ID, {
+        await configureLogNodeLive(ctx, LOG_YES_ID, {
           label: 'Author!',
           message: 'User is the author! userId={{userId}}',
           logLevel: 'info',
-          snapshotVariables: true,
+          snapshot: true,
         });
-        await ctx.delay(300);
-        await showLogNodeConfig(ctx, LOG_YES_ID, true);
 
-        // ── NO path: add → connect → fit view → configure ──
-        addWorkflowNodeWithPreset('logDebug', LOG_NO_ID, 'Different User', { x: 760, y: 300 });
-        await ctx.delay(800);
+        await spotlightSel(ctx, `[data-id="${LOG_YES_ID}"]`, 900);
+      },
+
+      verify: `[data-id="${LOG_YES_ID}"]`,
+    },
+
+    // ── Step 4: No Log — configure LIVE ───────────────────────────────
+    {
+      id: 'wf3-branch-no',
+      title: 'Configure the No Log (live)',
+      description:
+        '**Purpose:** make the **false** branch visible when it is taken.\n\n' +
+        'Add a second **Log/Debug** on the Condition **No** handle:\n' +
+        '- **Label** → Different User\n' +
+        '- **Log Level** → Warning\n' +
+        '- **Message Template** with `{{userId}}`\n\n' +
+        'Connect No → Different User, then **Fit View**.',
+      highlight: WF.PAL_LOG_DEBUG,
+
+      preAction: async (ctx) => {
+        await ensureSeededWorkflow(ctx);
+        await ensureConditionNode(ctx);
+        // Yes log must exist if the viewer skipped the prior action.
+        if (!document.querySelector(`[data-id="${LOG_YES_ID}"]`)) {
+          const condId = getNodeId(WF.NODE_CONDITION);
+          addWorkflowNodeWithPreset('logDebug', LOG_YES_ID, 'Author!', { x: 760, y: 120 });
+          await ctx.delay(150);
+          if (condId) connectWorkflowNodes(condId, LOG_YES_ID, 'true', null);
+          patchWorkflowNodeDataById(LOG_YES_ID, {
+            label: 'Author!',
+            message: 'User is the author! userId={{userId}}',
+            logLevel: 'info',
+            snapshotVariables: true,
+          });
+        }
+        await closeWfConfigModalIfOpen(ctx);
+      },
+
+      action: async (ctx) => {
+        const logBlock = await revealPaletteBlock(ctx, WF.PAL_LOG_DEBUG);
+        if (logBlock) await spotlight(logBlock, 800, ctx);
+
+        const condId = getNodeId(WF.NODE_CONDITION);
+        addWorkflowNodeWithPreset('logDebug', LOG_NO_ID, 'Log', { x: 760, y: 300 });
+        await ctx.delay(600);
         if (condId) connectWorkflowNodes(condId, LOG_NO_ID, 'false', null);
-        await ctx.delay(600);
-        fitCanvasCentered();
-        await ctx.delay(600);
+        await ctx.delay(500);
+        await clickFitViewVisible(ctx);
 
-        patchWorkflowNodeDataById(LOG_NO_ID, {
+        await configureLogNodeLive(ctx, LOG_NO_ID, {
           label: 'Different User',
           message: 'Different user — userId={{userId}}',
           logLevel: 'warn',
-          snapshotVariables: false,
         });
-        await ctx.delay(300);
-        await showLogNodeConfig(ctx, LOG_NO_ID);
 
-        // Spotlight the diamond branch layout
-        await spotlightSel(ctx, WF.NODE_CONDITION, 1500);
+        await spotlightSel(ctx, WF.NODE_CONDITION, 900);
       },
 
-      verify: WF.NODE_LOG_DEBUG,
+      verify: `[data-id="${LOG_NO_ID}"]`,
     },
 
-    // ── Step 4: The Switch Node (Multi-Way) ─────────────────────────────
+    // ── Step 5: Switch — fill LIVE ────────────────────────────────────
     {
       id: 'wf3-switch-node',
-      title: 'The Switch Node (Multi-Way)',
+      title: 'Build a Switch (live)',
       description:
-        'The **Switch** node handles multiple cases — like a switch/case statement. Where ' +
-        'the Condition is binary (Yes/No), a Switch matches one value against many. We point ' +
-        'it at the **same extracted `{{userId}}`** and give it cases `1`, `2`, `3`. We feed it ' +
-        'from the HTTP node so `userId` exists when it runs — at runtime `userId` is `1`, so the ' +
-        '**User #1** case is taken and routes to its own Log node, whose **Message Template** ' +
-        'we configure to log the matched `{{userId}}`.',
+        '**Purpose:** multi-way routing (not just Yes/No).\n\n' +
+        'Add **Switch**, connect Get Post → Switch, then configure live:\n' +
+        '- Expression → `{{userId}}`\n' +
+        '- **+ Add Case** three times: `1` / User #1, `2` / User #2, `3` / User #3\n\n' +
+        'Save, then **Fit View**. Next we wire a Log to case **1**.',
       highlight: WF.PAL_SWITCH,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
         await ensureConditionNode(ctx);
+        await ensureBranchNodes(ctx);
+        await closeWfConfigModalIfOpen(ctx);
       },
 
       action: async (ctx) => {
-        // Spotlight the Switch block in palette
         const switchBlock = await revealPaletteBlock(ctx, WF.PAL_SWITCH);
-        if (switchBlock) {
-          await spotlight(switchBlock, 1400, ctx);
+        if (switchBlock) await spotlight(switchBlock, 900, ctx);
+
+        if (!document.querySelector(WF.NODE_SWITCH)) {
+          addWorkflowNodeWithPreset('switch', SWITCH_NODE_ID, 'Switch', { x: 520, y: 440 });
+          await ctx.delay(700);
         }
 
-        // ── Switch node: add → connect → fit view → configure ──
-        // 1. Add
-        addWorkflowNodeWithPreset('switch', SWITCH_NODE_ID, 'Route by User ID', { x: 520, y: 440 });
-        await ctx.delay(800);
-
-        // 2. Connect (HTTP → Switch so userId is available at runtime)
         const httpId = getNodeId(WF.NODE_HTTP);
         if (httpId) connectWorkflowNodes(httpId, SWITCH_NODE_ID);
+        await ctx.delay(500);
+        fitCanvasCentered();
+        await ctx.delay(500);
+
+        await openWfNodeConfigModal(ctx, { nodeSelector: WF.NODE_SWITCH });
         await ctx.delay(600);
 
-        // 3. Fit View
-        fitCanvasCentered();
-        await ctx.delay(800);
+        await fillWfConfigField(ctx, WF.CFG_SWITCH_EXPR, '{{userId}}');
+        await holdWfSpotlight(ctx, WF.CFG_SWITCH_EXPR, 1000);
 
-        // 4. Configure — patch data with known case IDs first so handles render correctly
+        // Case 1 gets the full spotlight tour; cases 2–3 are quicker fills.
+        await addAndFillSwitchCase(ctx, '1', 'User #1', { emphasize: true });
+        await addAndFillSwitchCase(ctx, '2', 'User #2', { emphasize: false });
+        await addAndFillSwitchCase(ctx, '3', 'User #3', { emphasize: false });
+
+        const casesList = document.querySelector<HTMLElement>('.wf-switch-cases-list');
+        if (casesList) await spotlight(casesList, 1100, ctx);
+
+        await saveAndCloseWfConfigModal(ctx);
+        // Prefer stable case ids for Quick Test recovery; live uuid handles still work for the wire below.
         patchWorkflowNodeDataById(SWITCH_NODE_ID, {
           label: 'Route by User ID',
           expression: '{{userId}}',
           cases: SWITCH_CASES,
         });
-        await ctx.delay(600);
-
-        // Wait for the case handles to render before opening modal
-        const caseHandleSel = `[data-handleid="case-${SWITCH_CASE_MATCH_ID}"]`;
-        await ctx.waitFor(caseHandleSel, 3000).catch(() => ctx.delay(500));
         await ctx.delay(400);
-
-        // Open config modal to SHOW the viewer the expression + cases
-        await openWfNodeConfigModal(ctx, { nodeSelector: WF.NODE_SWITCH });
-        await ctx.delay(1000);
-
-        // Spotlight the Expression field
-        await spotlightSel(ctx, '.wf-config-modal .expr-input-wrapper', 1400);
-
-        // Spotlight the cases list
-        const casesList = document.querySelector<HTMLElement>('.wf-config-modal .wf-switch-cases-list');
-        if (casesList) await spotlight(casesList, 1800, ctx);
-
-        await saveAndCloseWfConfigModal(ctx);
-        await ctx.delay(800);
-
-        // ── Matched-case Log node: add → connect → fit view → configure ──
-        // 1. Add
-        addWorkflowNodeWithPreset('logDebug', SWITCH_LOG_ID, 'Matched User #1', { x: 760, y: 460 });
-        await ctx.delay(800);
-
-        // 2. Connect (Switch User #1 case → Log)
-        connectWorkflowNodes(SWITCH_NODE_ID, SWITCH_LOG_ID, `case-${SWITCH_CASE_MATCH_ID}`, null);
-        await ctx.delay(800);
-
-        // 3. Fit View
-        fitCanvasCentered();
-        await ctx.delay(600);
-
-        // 4. Configure
-        patchWorkflowNodeDataById(SWITCH_LOG_ID, {
-          label: 'Matched User #1',
-          message: 'Switch matched case → userId={{userId}}',
-          logLevel: 'info',
-          snapshotVariables: false,
-        });
-        await ctx.delay(300);
-        await showLogNodeConfig(ctx, SWITCH_LOG_ID);
-
-        await spotlightSel(ctx, WF.NODE_SWITCH, 1200);
+        await clickFitViewVisible(ctx);
+        await spotlightSel(ctx, WF.NODE_SWITCH, 900);
       },
 
       verify: WF.NODE_SWITCH,
     },
 
-    // ── Step 5: Run and See the Branch Taken ────────────────────────────
+    // ── Step 6: Switch Log — Fit View + configure LIVE ────────────────
+    {
+      id: 'wf3-switch-log',
+      title: 'Wire Switch Log & Fit View',
+      description:
+        '**Purpose:** make the matched Switch case visible when it runs.\n\n' +
+        '1. Add a **Log/Debug** node and connect Switch case **User #1** → Log\n' +
+        '2. Click **Fit View** so the full graph is visible\n' +
+        '3. Open the Log modal and fill **Label**, **Log Level**, and **Message Template** ' +
+        'with `{{userId}}`\n\n' +
+        'At runtime `userId` is `1`, so this case (and this Log) is taken.',
+      highlight: WF.PAL_LOG_DEBUG,
+
+      preAction: async (ctx) => {
+        await ensureSeededWorkflow(ctx);
+        await ensureConditionNode(ctx);
+        await ensureBranchNodes(ctx);
+        await ensureSwitchConfigured(ctx);
+        await closeWfConfigModalIfOpen(ctx);
+      },
+
+      action: async (ctx) => {
+        const logBlock = await revealPaletteBlock(ctx, WF.PAL_LOG_DEBUG);
+        if (logBlock) await spotlight(logBlock, 800, ctx);
+
+        if (!document.querySelector(`[data-id="${SWITCH_LOG_ID}"]`)) {
+          addWorkflowNodeWithPreset('logDebug', SWITCH_LOG_ID, 'Log', { x: 760, y: 460 });
+          await ctx.delay(600);
+        }
+
+        const caseHandle = firstSwitchCaseHandleId() ?? `case-${SWITCH_CASE_MATCH_ID}`;
+        connectWorkflowNodes(SWITCH_NODE_ID, SWITCH_LOG_ID, caseHandle, null);
+        await ctx.delay(500);
+
+        // Viewer must see Fit View after the new edge lands.
+        await clickFitViewVisible(ctx);
+
+        await configureLogNodeLive(ctx, SWITCH_LOG_ID, {
+          label: 'Matched User #1',
+          message: 'Switch matched case → userId={{userId}}',
+          logLevel: 'info',
+        });
+
+        await spotlightSel(ctx, WF.NODE_SWITCH, 700);
+        await spotlightSel(ctx, `[data-id="${SWITCH_LOG_ID}"]`, 900);
+      },
+
+      verify: `[data-id="${SWITCH_LOG_ID}"]`,
+    },
+
+    // ── Step 7: Run ───────────────────────────────────────────────────
     {
       id: 'wf3-run-condition',
-      title: 'Run and See the Branch Taken',
+      title: 'Run and See Which Branch Wins',
       description:
-        'Open the **Console** first, then click **▶ Quick Test** so you watch the branch logs ' +
-        'stream in live. The HTTP node fetches `userId: 1`, the Condition evaluates `1 == 1` → ' +
-        '**true**, so the **Yes** path executes and the **No** path is skipped. In parallel, the ' +
-        '**Switch** matches `userId` `1` → the **User #1** case, lighting up its Log node. Watch ' +
-        'the green/gray badges show which branches were taken.',
+        '**Purpose:** prove the live config works.\n\n' +
+        'Open **Console**, then **▶ Quick Test**. GET returns `userId: 1`, so:\n' +
+        '- Condition `1 == 1` → **Yes** (Author! runs; No is skipped)\n' +
+        '- Switch matches case **1** → Matched User #1\n\n' +
+        'Watch green/gray badges and the variable snapshot in the console.',
       highlight: WF.CONSOLE_BADGE,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
         await ensureConditionNode(ctx);
-        // Patch condition data to ensure it's configured
-        patchWorkflowNodeDataById(COND_NODE_ID, { left: '{{userId}}', operator: '==', right: '1' });
         await ensureBranchNodes(ctx);
         await ensureSwitchNode(ctx);
+        ensureHttpExtractionQuiet();
+        await closeWfConfigModalIfOpen(ctx);
       },
 
       action: async (ctx) => {
-        // Open the Console so the viewer watches the branch logs stream in live
-        await spotlightSel(ctx, WF.CONSOLE_BADGE, 700);
+        ensureHttpExtractionQuiet();
+        await spotlightSel(ctx, WF.CONSOLE_BADGE, 800);
         if (!document.querySelector(WF.CONSOLE)) {
           await ctx.click(WF.CONSOLE_BADGE);
           await ctx.waitFor(WF.CONSOLE, 4000);
         }
-        await ctx.delay(600);
+        await ctx.delay(700);
 
-        // Spotlight Quick Test and run
-        await spotlightSel(ctx, WF.QUICK_TEST_BTN, 900);
+        await spotlightSel(ctx, WF.QUICK_TEST_BTN, 1000);
         triggerWorkflowQuickTest();
-        await ctx.delay(3500);
+        // Wait for GET — external JSONPlaceholder via /__proxy can take >3s on a cold path.
+        await ctx.delay(4500);
+        const httpFailed = document.querySelector(
+          `${WF.NODE_HTTP} .wf-node-badge-fail, ${WF.NODE_HTTP} .wf-node-status-fail, ${WF.NODE_HTTP} [class*="badge-fail"]`,
+        ) || Array.from(document.querySelectorAll(`${WF.NODE_HTTP} .wf-node-status-badge, ${WF.NODE_HTTP} .wf-node-badge`))
+          .some((el) => (el.textContent ?? '').includes('ERR'));
+        if (httpFailed) {
+          ensureHttpExtractionQuiet();
+          await ctx.delay(300);
+          triggerWorkflowQuickTest();
+          await ctx.delay(4500);
+        }
 
-        // Spotlight the entire variable snapshot block in the console
         const allLines = document.querySelectorAll<HTMLElement>(`${WF.CONSOLE} .wf-cl-line`);
         const snapshotLines: HTMLElement[] = [];
         let capturing = false;
         for (const line of allLines) {
           const text = line.textContent ?? '';
           if (text.includes('Variable snapshot')) { capturing = true; snapshotLines.push(line); continue; }
-          if (capturing && text.match(/^\s+\S+\s*=/)) { snapshotLines.push(line); } else if (capturing) { capturing = false; }
+          if (capturing && text.match(/^\s+\S+\s*=/)) { snapshotLines.push(line); }
+          else if (capturing) { capturing = false; }
         }
         if (snapshotLines.length > 0) {
           snapshotLines[0].scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -664,6 +847,8 @@ export const wfConditionalLogicLesson: DemoLesson = {
           while (wrapper.firstChild) parent.insertBefore(wrapper.firstChild, nextSibling);
           wrapper.remove();
         }
+
+        await spotlightSel(ctx, WF.NODE_CONDITION, 1600);
       },
 
       verify: WF.CONSOLE,

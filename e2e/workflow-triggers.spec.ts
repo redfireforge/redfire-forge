@@ -211,9 +211,9 @@ test.describe('Workflow Webhook Trigger', () => {
     await expect(modal).toBeVisible({ timeout: 5_000 });
 
     // Should show webhook configuration in the modal
-    await expect(page.locator('label').filter({ hasText: 'HTTP Method' })).toBeVisible();
-    await expect(page.locator('label').filter({ hasText: 'Endpoint Path' })).toBeVisible();
-    await expect(page.locator('label').filter({ hasText: 'Sample Payload' })).toBeVisible();
+    await expect(modal.locator('.wf-kafka-form-label', { hasText: 'HTTP method' })).toBeVisible();
+    await expect(modal.locator('.wf-kafka-form-label', { hasText: 'Endpoint path' })).toBeVisible();
+    await expect(modal.locator('.wf-kafka-card-title-text', { hasText: 'Sample payload' })).toBeVisible();
   });
 
   test('webhook config modal shows method dropdown', async ({ page }) => {
@@ -224,9 +224,9 @@ test.describe('Workflow Webhook Trigger', () => {
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 5_000 });
 
-    // Method dropdown should show POST selected (scoped to label)
-    const methodSelect = modal.locator('label', { hasText: 'HTTP Method' }).locator('select');
-    await expect(methodSelect).toHaveValue('POST');
+    // Method dropdown should show POST selected
+    const methodTrigger = modal.locator('.cs-trigger .cs-text');
+    await expect(methodTrigger).toHaveText('POST');
   });
 
   test('webhook config modal shows endpoint path input', async ({ page }) => {
@@ -326,9 +326,9 @@ test.describe('Workflow Schedule Trigger', () => {
     await expect(modal).toBeVisible({ timeout: 5_000 });
 
     // Should show schedule configuration fields
-    await expect(page.locator('label').filter({ hasText: 'Cron Expression' })).toBeVisible();
-    await expect(page.locator('label').filter({ hasText: 'Schedule Description' })).toBeVisible();
-    await expect(page.locator('label').filter({ hasText: 'Timezone' })).toBeVisible();
+    await expect(modal.locator('.wf-kafka-form-label', { hasText: 'Cron expression' })).toBeVisible();
+    await expect(modal.locator('.wf-kafka-form-label', { hasText: 'Description' })).toBeVisible();
+    await expect(modal.locator('.wf-kafka-form-label', { hasText: 'Timezone' })).toBeVisible();
   });
 
   test('schedule config modal shows cron input', async ({ page }) => {
@@ -353,7 +353,7 @@ test.describe('Workflow Schedule Trigger', () => {
     await expect(modal).toBeVisible({ timeout: 5_000 });
 
     // Should show timezone label
-    await expect(modal.locator('label').filter({ hasText: 'Timezone' })).toBeVisible();
+    await expect(modal.locator('.wf-kafka-form-label', { hasText: 'Timezone' })).toBeVisible();
     
     // Timezone input should show UTC value
     const tzInputs = modal.locator('input[type="text"]');
@@ -373,11 +373,11 @@ test.describe('Workflow Schedule Trigger', () => {
     await expect(modal.getByText('Initial variables', { exact: true })).toBeVisible();
 
     // Should show the variables section with key-value rows
-    const varRows = modal.locator('.wf-config-kv-row');
+    const varRows = modal.locator('.wf-start-vars-row');
     await expect(varRows.first()).toBeVisible();
     
     // Variables section should have the hint text
-    await expect(modal.getByText(/Variables available at schedule trigger time/)).toBeVisible();
+    await expect(modal.getByText(/seeds available when the schedule triggers/)).toBeVisible();
   });
 
   test('can drag schedule node from palette', async ({ page }) => {

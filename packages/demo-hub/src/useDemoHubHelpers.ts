@@ -181,11 +181,11 @@ export function restoreStateFromProgress(progress: DemoProgress): DemoHubState {
 export function isElementVisible(el: Element): boolean {
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return false;
+  // During live-demo boot, under-cover descendants stay findable so waitFor /
+  // highlight resolve while the React Flow viewport is opacity-0.
+  if (document.body.getAttribute('data-demo-bootstrapping') === '1') return true;
   const style = getComputedStyle(el);
   if (style.display === 'none' || style.visibility === 'hidden') return false;
-  // During live-demo boot the elevated hub covers the workspace — still treat
-  // under-cover descendants as findable so revealBootSurface can wait for highlights.
-  if (document.body.getAttribute('data-demo-bootstrapping') === '1') return true;
   return style.opacity !== '0';
 }
 

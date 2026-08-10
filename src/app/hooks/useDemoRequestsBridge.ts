@@ -1,5 +1,16 @@
 import { useEffect, useRef } from 'react';
-import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
+import type { RequestCollection } from '../../shared/types';
+
+/** Minimal surface needed by the demo collection-delete bridge. */
+export interface DemoRequestsBridgeApi {
+  collections: RequestCollection[];
+  /**
+   * Must be the tab-aware remover (coordinator) so open request tabs for the
+   * deleted collection are pruned — raw `useRequests().removeCollection` leaves
+   * orphan tabs that render "No Request Selected".
+   */
+  removeCollection: (colId: string) => void;
+}
 
 /**
  * Demo-player bridge for Requests collections. Mounts imperative
@@ -9,7 +20,7 @@ import type { UseRequestsReturn } from '../../features/requests/hooks/useRequest
  *
  * Mirrors the catalog/harness bridge pattern.
  */
-export function useDemoRequestsBridge(requests: UseRequestsReturn, enabled: boolean): void {
+export function useDemoRequestsBridge(requests: DemoRequestsBridgeApi, enabled: boolean): void {
   const ref = useRef(requests);
   ref.current = requests;
 

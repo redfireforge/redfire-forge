@@ -64,7 +64,7 @@ export function aggregatePublishedEndpoints(entries: CatalogEntry[]): PublishedE
   return result;
 }
 
-export type StatusFilter = 'all' | 'current' | 'stale';
+export type StatusFilter = 'all' | 'published' | 'stale';
 
 /**
  * Filter and search published endpoints.
@@ -76,7 +76,7 @@ export function filterPublishedEndpoints(
 ): PublishedEndpointItem[] {
   let filtered = items;
 
-  if (status === 'current') {
+  if (status === 'published') {
     filtered = filtered.filter(i => !i.isStale);
   } else if (status === 'stale') {
     filtered = filtered.filter(i => i.isStale);

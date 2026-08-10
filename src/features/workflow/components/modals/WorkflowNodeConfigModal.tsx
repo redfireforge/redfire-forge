@@ -36,6 +36,13 @@ import type { Environment, Scenario, GlobalAuthProfile } from '../../../../share
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
 
+/**
+ * Remember the last HTTP Request-details sub-tab (Params/Body/Extract/…) per node.
+ * Reopening the same node restores Extract (etc.) so configured rules stay visible
+ * instead of always landing on Params.
+ */
+const lastHttpTabByNodeId = new Map<string, HttpTab>();
+
 const NODE_TYPE_LABELS: Record<string, string> = {
   http: 'HTTP', wsConnect: 'WS Connect', wsSend: 'WS Send',
   wsReceive: 'WS Receive', wsTrigger: 'WS Trigger',
@@ -122,7 +129,9 @@ export default function WorkflowNodeConfigModal({
   allNodes = [],
   globalAuthProfiles = [],
 }: Props) {
-  const [httpTab, setHttpTab] = useState<HttpTab>('url');
+  const [httpTab, setHttpTab] = useState<HttpTab>(
+    () => lastHttpTabByNodeId.get(node.id) ?? 'url',
+  );
   const [panelTab, setPanelTab] = useState<ConfigPanelTab>('config');
   const [newVarKey, setNewVarKey] = useState('');
   const [newVarValue, setNewVarValue] = useState('');
@@ -136,11 +145,19 @@ export default function WorkflowNodeConfigModal({
   // Local draft state — all edits go here, committed only on Save
   const [draft, setDraft] = useState<WorkflowNodeData>(() => snapshot(node.data));
 
-  // Reset draft if the modal is opened for a different node
+  // Reset draft + restore last HTTP sub-tab when opening a (possibly different) node
   useEffect(() => {
     originalDataRef.current = snapshot(node.data);
-    setDraft(snapshot(node.data));  
+    setDraft(snapshot(node.data));
+    setHttpTab(lastHttpTabByNodeId.get(node.id) ?? 'url');
+    setPanelTab('config');
   }, [node.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (node.type === 'http') {
+      lastHttpTabByNodeId.set(node.id, httpTab);
+    }
+  }, [node.id, node.type, httpTab]);
 
   const draftNode = useMemo((): WorkflowNode => ({ ...node, data: draft }), [node, draft]);
 

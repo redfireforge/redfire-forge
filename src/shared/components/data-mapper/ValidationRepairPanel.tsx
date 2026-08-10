@@ -58,7 +58,12 @@ export default function ValidationRepairPanel({
   if (issues.length === 0) return null;
 
   return (
-    <div className="dm-validation-repair-panel" role="region" aria-label="Validation and repair panel">
+    <div
+      className="dm-validation-repair-panel"
+      role="region"
+      aria-label="Validation and repair panel"
+      data-testid="dm-validation-repair-panel"
+    >
       <div className="dm-validation-repair-head">
         <span className="dm-validation-repair-title">Validation &amp; Repair</span>
         <span className="dm-validation-repair-count">
@@ -114,7 +119,7 @@ export default function ValidationRepairPanel({
                 type="button"
                 className="dm-validation-repair-btn dm-validation-repair-btn--primary"
                 onClick={() => onOpenNode(issue)}
-                title="Focus this mapping in the tree"
+                title="Select this mapping and scroll to its tree node when present"
               >
                 Open node
               </button>

@@ -2011,8 +2011,14 @@
 .cat-view-tab:hover { color: var(--text); }
 .cat-view-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-/* ── Filter row with deprecation toggle ──────── */
-.ceb-filter-row { display: flex; align-items: center; gap: 10px; }
+/* ── Filter row with deprecation toggle (above endpoint list) ──────── */
+.ceb-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px 0;
+  flex-shrink: 0;
+}
 .ceb-filter-row .ceb-filter { flex: 1; }
 .ceb-deprecated-toggle {
   display: flex; align-items: center; gap: 5px; font-size: 0.72rem;
@@ -3414,6 +3420,16 @@
 }
 .pub-bulk-btn:hover { background: color-mix(in srgb, #f93e3e 25%, var(--bg)); }
 
+/* ── Section label (All filter: published + previews) ── */
+.pub-section-label {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  padding: 2px 2px 0;
+}
+
 /* ── Table ── */
 .pub-table-wrap {
   flex: 1;
@@ -3508,7 +3524,7 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.pub-status-current {
+.pub-status-published {
   background: color-mix(in srgb, #22c55e 15%, var(--bg));
   color: #22c55e;
   border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);

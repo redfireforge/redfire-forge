@@ -34,6 +34,8 @@ export type DemoBridgeWindow = Window &
     __wfInsertWorkflow?: (wf: Record<string, unknown>) => void;
     __wfGetWorkflowByName?: (name: string) => unknown;
     __wfSelectByName?: (name: string) => boolean;
+    /** Dismiss Gallery sample preview so the real selected workflow paints on the canvas. */
+    __wfClearSamplePreview?: () => void;
     /** Select workflow in Workflow Runner (Test Harness) by display name — fixes stale persisted IDs after re-seed. */
     __wfRunnerSelectByName?: (name: string) => boolean;
     /** Apply workflow selection directly in Workflow Runner (bypasses initialWorkflowId race). */
@@ -98,6 +100,11 @@ export type DemoBridgeWindow = Window &
     __demoAddVersionByName?: (name: string, rawSpec: string) => Promise<boolean>;
     /** Look up a Catalog entry by display name. Returns the entry object or null. */
     __demoGetCatalogEntryByName?: (name: string) => Record<string, unknown> | null;
+    /**
+     * Quietly publish a Catalog endpoint (by entry name + method + path) for Workflow Designer.
+     * Data-layer only — no Catalog tab / publish modal. Returns false when entry/endpoint missing.
+     */
+    __demoPublishCatalogEndpoint?: (entryName: string, method: string, path: string) => boolean;
     /** True once the Catalog store has hydrated from storage. */
     __demoCatalogLoaded?: boolean;
     /** Ensure a Settings environment exists by name; returns its ID. */

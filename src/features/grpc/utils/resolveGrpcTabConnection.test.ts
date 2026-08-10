@@ -61,8 +61,10 @@ describe('resolveGrpcTabConnection (Phase 1A)', () => {
   });
 
   it('resolutionToGrpcTarget includes normalized tab tlsConfig (Phase 4B)', () => {
+    // 50443 is the TLS-capable loopback fixture — 50051 is plaintext-only and
+    // prepareGrpcTarget coerces sticky TLS to disabled for that port.
     const resolution = resolveGrpcTabConnection(
-      { target: 'localhost:50051', tlsMode: 'tls' },
+      { target: 'localhost:50443', tlsMode: 'tls' },
       profiles,
       pageDefaults,
     );

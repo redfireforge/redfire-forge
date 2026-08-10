@@ -25,6 +25,7 @@ import { test, expect } from '@playwright/test';
 import { WF } from '../src/shared/selectors';
 import {
   launchLesson,
+  runNextStep,
   assertNodeNotSelected,
   getStepInfo,
   takeNamedScreenshot,

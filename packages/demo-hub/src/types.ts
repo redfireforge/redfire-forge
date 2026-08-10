@@ -68,6 +68,12 @@ export interface DemoLesson {
   allowedTabs?: string[];
   concept: ConceptContent;
   steps: DemoStep[];
+  /**
+   * Quiet prep before `initialTab` mounts (seed catalog entry, etc.).
+   * Runs during Start Demo boot so the first paint is already step 1's surface
+   * — not Welcome / wrong API / Overview.
+   */
+  prepareBeforeNavigate?: (ctx: DemoActionContext) => Promise<void>;
   /** Runs once before step 0 — start servers, reset state, etc. */
   setup?: (ctx: DemoActionContext) => Promise<void>;
   /** Runs when exiting or restarting — disconnect, stop servers, reset UI */
@@ -93,6 +99,12 @@ export interface DemoLesson {
    * & Multi-Connection) — isolation add/rename/close flashes must not run.
    */
   skipStudioTabIsolation?: boolean;
+  /**
+   * When true, keep the app Workflows sidebar collapsed during Start/Restart boot.
+   * Prevents expand→collapse canvas reflows that slide Designer nodes left↔right
+   * before step 1 (Workflow Designer lessons that seed via prepareBeforeNavigate).
+   */
+  collapseAppSidebarOnStart?: boolean;
   /** When true, the live demo can only run in the Tauri desktop app — web shows a gate and disables Start Demo. */
   desktopOnly?: boolean;
   /** Bumped when lesson content changes meaningfully (new steps, rewritten

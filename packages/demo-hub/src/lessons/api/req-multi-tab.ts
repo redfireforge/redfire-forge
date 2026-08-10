@@ -27,9 +27,11 @@ import {
   forceDeleteCollectionsByExactName,
   cleanupOtherRequestDemoCollections,
   getRequestTabCount,
+  closeAllRequestTabs,
   closeExtraRequestTabs,
-  clickRequestTabByIndex,
-  renameRequestTabByIndex,
+  closeOtherRequestTabsQuiet,
+  findRequestTabIndexByLabel,
+  renameRequestTabByLabel,
 } from './req-demo-helpers';
 
 const LESSON_ID = 'req-multi-tab';
@@ -58,7 +60,10 @@ async function multiTabSetup(ctx: DemoActionContext): Promise<void> {
   await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
   await shrinkAllCollections();
   await ctx.delay(200);
-  await closeExtraRequestTabs(ctx);
+  // Close every leftover tab (incl. orphans from deleted demo collections like
+  // DummyJSON / Search Laptops) — closeExtra leaves one tab and can keep an
+  // orphan active, which shows "No Request Selected" in the editor.
+  await closeAllRequestTabs(ctx);
   await ctx.delay(200);
 }
 
@@ -84,7 +89,11 @@ async function ensureRequestOpen(
   reqName: string,
 ): Promise<void> {
   await ensureCollectionExpanded(ctx, COLLECTION_NAME);
-  const reqEl = document.querySelector<HTMLElement>(REQ.reqByName(reqName));
+  // Scope to the demo collection — a same-named request in another collection
+  // (e.g. leftover "Users API") must never be selected instead.
+  const reqEl = document.querySelector<HTMLElement>(
+    REQ.reqInCollection(COLLECTION_NAME, reqName),
+  );
   if (!reqEl) return;
   reqEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   reqEl.click();
@@ -308,8 +317,10 @@ API development rarely involves a single endpoint. You might test a GET to list 
           }
         }
 
-        // Ensure the new request is visible/selected
+        // Ensure the new request is visible/selected, then drop any leftover
+        // product tabs (Close All cannot remove the last pre-demo tab).
         await ensureRequestOpen(ctx, REQ_GET_NAME);
+        await closeOtherRequestTabsQuiet(ctx);
         await ctx.delay(600);
       },
       verify: REQ.TAB_ITEM,
@@ -332,6 +343,8 @@ API development rarely involves a single endpoint. You might test a GET to list 
         if (!document.querySelector(REQ.reqByName(REQ_GET_NAME))) {
           await ensureRequestOpen(ctx, REQ_GET_NAME);
         }
+        await selectRequestByName(ctx, REQ_GET_NAME, COLLECTION_NAME);
+        await closeOtherRequestTabsQuiet(ctx);
       },
       action: async (ctx) => {
         if (!document.querySelector(REQ.reqByName(REQ_POST_NAME))) {
@@ -366,7 +379,9 @@ API development rarely involves a single endpoint. You might test a GET to list 
           await ensureRequestOpen(ctx, REQ_GET_NAME);
           await ensureRequestOpen(ctx, REQ_POST_NAME);
         }
-        await clickRequestTabByIndex(ctx, 0, 300);
+        // Prefer the lesson GET by name — never assume tab index 0 (orphan
+        // leftovers like Search Laptops can sit at index 0 and empty the editor).
+        await selectRequestByName(ctx, REQ_GET_NAME, COLLECTION_NAME);
         const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput && !urlInput.value) {
           fillControlledInput(urlInput, GET_URL);
@@ -379,12 +394,12 @@ API development rarely involves a single endpoint. You might test a GET to list 
         await ctx.waitFor(REQ.STATUS_PILL, 8000);
         await ctx.delay(1200);
 
-        // Switch to tab 2 — no response there
-        await clickRequestTabByIndex(ctx, 1, 800);
+        // Switch to POST tab — no response there
+        await selectRequestByName(ctx, REQ_POST_NAME, COLLECTION_NAME);
         await ctx.delay(800);
 
         // Switch back — response preserved (the key teaching moment)
-        await clickRequestTabByIndex(ctx, 0, 800);
+        await selectRequestByName(ctx, REQ_GET_NAME, COLLECTION_NAME);
         const statusEl = document.querySelector<HTMLElement>(REQ.STATUS_PILL);
         if (statusEl) {
           const remove = showSpotlightRing(statusEl);
@@ -407,28 +422,43 @@ API development rarely involves a single endpoint. You might test a GET to list 
       highlight: REQ.TAB_LABEL,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
-        if (getRequestTabCount() < 2) {
-          await ensureRequestOpen(ctx, REQ_GET_NAME);
-          await ensureRequestOpen(ctx, REQ_POST_NAME);
-        }
-        await clickRequestTabByIndex(ctx, 0, 200);
+        await ensureRequestOpen(ctx, REQ_GET_NAME);
+        await selectRequestByName(ctx, REQ_GET_NAME, COLLECTION_NAME);
+        // Drop leftover product tabs so rename cannot hit index 0 by mistake.
+        await closeOtherRequestTabsQuiet(ctx);
+        await ensureRequestOpen(ctx, REQ_POST_NAME);
+        await selectRequestByName(ctx, REQ_GET_NAME, COLLECTION_NAME);
       },
       action: async (ctx) => {
-        await renameRequestTabByIndex(ctx, 0, RENAMED_LABEL);
-        await ctx.delay(600);
+        // Already renamed from a prior run? spotlight and continue.
+        if (findRequestTabIndexByLabel(RENAMED_LABEL) >= 0) {
+          const idx = findRequestTabIndexByLabel(RENAMED_LABEL);
+          const tabs = document.querySelectorAll<HTMLElement>(`${REQ.TAB_BAR} [role="tab"]`);
+          if (tabs[idx]) {
+            const remove = showSpotlightRing(tabs[idx]);
+            await ctx.delay(1200);
+            remove();
+          }
+        } else {
+          const renamed = await renameRequestTabByLabel(ctx, REQ_GET_NAME, RENAMED_LABEL);
+          if (!renamed) return;
+          await ctx.delay(600);
 
-        // Spotlight the renamed tab
-        const tabs = document.querySelectorAll<HTMLElement>(`${REQ.TAB_BAR} [role="tab"]`);
-        if (tabs[0]) {
-          const remove = showSpotlightRing(tabs[0]);
-          await ctx.delay(1200);
-          remove();
+          const idx = findRequestTabIndexByLabel(RENAMED_LABEL);
+          const tabs = document.querySelectorAll<HTMLElement>(`${REQ.TAB_BAR} [role="tab"]`);
+          if (idx >= 0 && tabs[idx]) {
+            const remove = showSpotlightRing(tabs[idx]);
+            await ctx.delay(1200);
+            remove();
+          }
         }
 
-        // Spotlight the synced sidebar name
+        // Spotlight the synced sidebar name (scoped to the demo collection)
         await ensureCollectionExpanded(ctx, COLLECTION_NAME);
         await ctx.delay(300);
-        const sidebarReq = document.querySelector<HTMLElement>(REQ.reqByName(RENAMED_LABEL));
+        const sidebarReq = document.querySelector<HTMLElement>(
+          REQ.reqInCollection(COLLECTION_NAME, RENAMED_LABEL),
+        );
         if (sidebarReq) {
           const remove2 = showSpotlightRing(sidebarReq);
           await ctx.delay(1200);
@@ -450,18 +480,22 @@ API development rarely involves a single endpoint. You might test a GET to list 
       highlight: REQ.TAB_BAR,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
-        if (getRequestTabCount() < 2) {
-          await ensureRequestOpen(ctx, RENAMED_LABEL);
-          await ensureRequestOpen(ctx, REQ_POST_NAME);
-        }
-        await clickRequestTabByIndex(ctx, 0, 200);
+        const keepName = findRequestTabIndexByLabel(RENAMED_LABEL) >= 0
+          ? RENAMED_LABEL
+          : REQ_GET_NAME;
+        await ensureRequestOpen(ctx, keepName);
+        await selectRequestByName(ctx, keepName, COLLECTION_NAME);
+        await closeOtherRequestTabsQuiet(ctx);
+        await ensureRequestOpen(ctx, REQ_POST_NAME);
+        await selectRequestByName(ctx, keepName, COLLECTION_NAME);
       },
       action: async (ctx) => {
-        // Close the last tab via × button
+        // Close the POST tab via × button (never assume tab indices include product tabs)
+        const postIdx = findRequestTabIndexByLabel(REQ_POST_NAME);
         const tabs = document.querySelectorAll<HTMLElement>(`${REQ.TAB_BAR} [role="tab"]`);
-        if (tabs.length >= 2) {
-          const lastTab = tabs[tabs.length - 1];
-          const closeBtn = lastTab?.querySelector<HTMLElement>(REQ.TAB_CLOSE);
+        if (postIdx >= 0 && tabs.length >= 2) {
+          const postTab = tabs[postIdx];
+          const closeBtn = postTab?.querySelector<HTMLElement>(REQ.TAB_CLOSE);
           if (closeBtn) {
             closeBtn.setAttribute('data-lesson-target', 'req7-close');
             await ctx.click('[data-lesson-target="req7-close"]');
@@ -472,7 +506,10 @@ API development rarely involves a single endpoint. You might test a GET to list 
         // Re-open so we have 2+ tabs for the close-all demo
         await ensureRequestOpen(ctx, REQ_POST_NAME);
         await ctx.delay(400);
-        await clickRequestTabByIndex(ctx, 0, 300);
+        const keepName = findRequestTabIndexByLabel(RENAMED_LABEL) >= 0
+          ? RENAMED_LABEL
+          : REQ_GET_NAME;
+        await selectRequestByName(ctx, keepName, COLLECTION_NAME);
 
         // Spotlight the close-other-tabs button
         const closeAllBtn = document.querySelector<HTMLElement>(REQ.TAB_CLOSE_ALL);

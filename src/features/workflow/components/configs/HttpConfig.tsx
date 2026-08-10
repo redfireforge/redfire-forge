@@ -27,7 +27,7 @@ import {
   parseQueryParams,
   rebuildUrl as rebuildUrlShared,
 } from '../../../../shared/utils/queryParams';
-import { stripTrailingSlash } from '../../utils/workflowHostResolve';
+import { stripTrailingSlash, resolveServiceAuth } from '../../utils/workflowHostResolve';
 import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 import { HttpVariableRefHints } from './HttpVariableRefHints';
@@ -71,7 +71,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   const scenarioDraftRef = useRef<Scenario>(s);
   scenarioDraftRef.current = s;
   const handleScenarioDraftChange = useCallback((draft: Scenario) => onChange({ scenario: draft }), [onChange]);
-  const urlInputRef = useRef<HTMLInputElement>(null);
+  const urlInputRef = useRef<HTMLTextAreaElement>(null);
   const [showVarMapper, setShowVarMapper] = useState(false);
   const [bodyMapperOpen, setBodyMapperOpen] = useState(false);
   const [showAuthPassword, setShowAuthPassword] = useState(false);
@@ -85,6 +85,12 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
       source: h.source,
     })),
     [variableHints],
+  );
+
+  /** Effective auth from the bound service (for Auth-tab inherit preview). */
+  const resolvedServiceAuth = useMemo(
+    () => (data.serviceId ? resolveServiceAuth(data, workflowServices, selectedEnvId) : undefined),
+    [data, workflowServices, selectedEnvId],
   );
 
   const bodySources = useMemo(() => {
@@ -218,23 +224,37 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
                   envOverride: undefined,
                 };
 
+                // Binding a service should inherit its auth (same as Add-from-Requests).
+                // Clearing the service drops inherit back to No Auth.
+                const authType = data.scenario?.auth?.type;
+                let nextScenario: Scenario | undefined;
+                if (svcId && (!authType || authType === 'none')) {
+                  nextScenario = { ...data.scenario, auth: { type: 'inherit' } };
+                } else if (!svcId && authType === 'inherit') {
+                  nextScenario = { ...data.scenario, auth: { type: 'none' } };
+                }
+
                 const currentUrl = data.scenario?.url ?? '';
                 if (svcId && svc) {
                   const ep = svc.endpoints?.find(ep2 => ep2.enabled && ep2.url.trim());
                   const svcBase = ep ? stripTrailingSlash(ep.url) : undefined;
                   if (svcBase && currentUrl.startsWith(svcBase)) {
                     const pathOnly = currentUrl.slice(svcBase.length) || '/';
-                    patch.scenario = { ...data.scenario, url: pathOnly };
+                    nextScenario = { ...(nextScenario ?? data.scenario), url: pathOnly };
                   }
                 } else if (!svcId && data.serviceId) {
                   const prevSvc = workflowServices.find(s => s.id === data.serviceId);
                   const prevEp = prevSvc?.endpoints?.find(ep2 => ep2.enabled && ep2.url.trim());
                   const prevBase = prevEp ? stripTrailingSlash(prevEp.url) : undefined;
                   if (prevBase && !currentUrl.startsWith('http')) {
-                    patch.scenario = { ...data.scenario, url: `${prevBase}${currentUrl.startsWith('/') ? '' : '/'}${currentUrl}` };
+                    nextScenario = {
+                      ...(nextScenario ?? data.scenario),
+                      url: `${prevBase}${currentUrl.startsWith('/') ? '' : '/'}${currentUrl}`,
+                    };
                   }
                 }
 
+                if (nextScenario) patch.scenario = nextScenario;
                 onChange(patch);
               }}
               className="wf-config-service-select"
@@ -338,8 +358,8 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         hint={<>Method + URL. Use <code>{'{{variable}}'}</code> placeholders — resolved at run time.</>}
       >
         <div className="wf-kafka-form wf-kafka-form--http">
-          <KafkaFormRow label="URL" hint="Absolute URL or path when a service is bound" compact>
-            <div className="wf-http-url-row">
+          <KafkaFormRow label="URL" hint="Absolute URL or path when a service is bound">
+            <div className="wf-http-url-stack">
               <CustomSelect
                 value={s.method}
                 onChange={(v) => update({ method: v as Scenario['method'] })}
@@ -347,12 +367,15 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
                 options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => ({ value: m, label: m }))}
               />
               <div className="wf-config-url-field-wrap">
-                <ExpressionInput
+                <ExpressionTextarea
                   ref={urlInputRef}
                   value={decodeTemplateVars(s.url).replace(/\{\{node:"[^"]+"\.([^}]+)\}\}/g, '{{$1}}')}
                   onChange={(val) => update({ url: val })}
                   placeholder="https://api.example.com/..."
                   className="wf-config-url-input"
+                  rows={1}
+                  spellCheck={false}
+                  aria-label="Request URL"
                   variableHints={variableHints}
                 />
                 <button
@@ -459,6 +482,12 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
             <p className="wf-config-hint-text wf-http-headers-hint">
               Sent with the request. Values support <code>{'{{variable}}'}</code> placeholders resolved at run time.
             </p>
+            {s.auth?.type === 'inherit' && data.serviceId && resolvedServiceAuth && resolvedServiceAuth.type !== 'none' && (
+              <div className="auth-inherit-hint" data-testid="wf-http-headers-auth-note">
+                Auth headers (e.g. <code>Authorization</code>) come from the bound service and are
+                applied at run time — they are not listed as editable rows here.
+              </div>
+            )}
             {s.headers.length === 0 ? (
               <div className="wf-http-headers-empty">
                 <p className="wf-http-headers-empty-title">No headers yet</p>
@@ -622,6 +651,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
             auth={s.auth}
             serviceId={data.serviceId}
             workflowServices={workflowServices}
+            resolvedServiceAuth={resolvedServiceAuth}
             showAuthPassword={showAuthPassword}
             setShowAuthPassword={setShowAuthPassword}
             onAuthChange={(auth) => update({ auth })}

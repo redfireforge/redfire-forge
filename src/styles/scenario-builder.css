@@ -2858,9 +2858,12 @@
 
 .body-type-trigger {
   all: unset;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* Match menu min-width so "JSON" / "Form URL Encoded" don't resize the trigger. */
+  min-width: 210px;
   padding: 6px 12px;
   font-size: 0.84rem;
   font-weight: 600;
@@ -2890,7 +2893,7 @@
 .body-type-trigger-arrow {
   font-size: 0.55rem;
   opacity: 0.55;
-  margin-left: 2px;
+  margin-left: auto;
 }
 
 /* Dropdown menu */

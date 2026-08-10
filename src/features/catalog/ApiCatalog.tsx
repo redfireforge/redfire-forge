@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import type { UseCatalogReturn } from './hooks/useCatalog';
 import type { AuthConfig, GlobalAuthProfile, Environment, Microservice, RequestCollection } from '../../shared/types';
 import type { CatalogEntry, CatalogEndpoint, CatalogFolder, SavedEndpointValues, WorkflowPublication } from './types/catalog';
@@ -22,6 +22,7 @@ import { aggregatePublishedEndpoints } from './utils/publishedEndpointAggregator
 import { republishAtCurrentVersion } from './utils/publicationDrift';
 import { usePublishPermission } from './hooks/usePublishPermission';
 import { logPublicationAudit } from './utils/publicationAudit';
+import { DEMO_INITIAL_SURFACE_EVENT, peekDemoInitialSurface } from '../../shared/demoInitialSurface';
 
 function findEndpointInEntry(entry: CatalogEntry, endpointId: string): CatalogEndpoint | undefined {
   const search = (eps: CatalogEndpoint[]): CatalogEndpoint | undefined => eps.find(e => e.id === endpointId);
@@ -59,14 +60,41 @@ interface Props {
 
 type View = 'overview' | 'endpoints' | 'export' | 'published';
 
+function resolveDemoCatalogView(): View | null {
+  const hinted = peekDemoInitialSurface()?.catalogView;
+  if (hinted === 'overview' || hinted === 'endpoints' || hinted === 'export' || hinted === 'published') {
+    return hinted;
+  }
+  return null;
+}
+
+function isDemoCatalogBootActive(): boolean {
+  return !!peekDemoInitialSurface()?.catalogView
+    || document.body.getAttribute('data-demo-bootstrapping') === '1';
+}
+
 export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness, onPreviewsChanged }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
-  const [view, setView] = useState<View>('endpoints');
+  const [view, setView] = useState<View>(() => resolveDemoCatalogView() ?? 'endpoints');
   const publishPermission = usePublishPermission(catalog.selectedEntry?.id ?? '');
   const [yamlContent, setYamlContent] = useState<string | null>(null);
   const [showYamlModal, setShowYamlModal] = useState(false);
   const prevEntryId = useRef<string | undefined>(undefined);
   const prevEnvId = useRef<string | undefined>(undefined);
+
+  // Live demos arm `catalogView` before the tab is shown. Catalog often stays
+  // mounted across lessons, so re-apply whenever the surface hint changes —
+  // otherwise CAT-3's Endpoints landing sticks and CAT-4 Overview flashes Endpoints first.
+  useLayoutEffect(() => {
+    const applyHint = () => {
+      const hinted = resolveDemoCatalogView();
+      if (!hinted) return;
+      setView((current) => (current === hinted ? current : hinted));
+    };
+    applyHint();
+    window.addEventListener(DEMO_INITIAL_SURFACE_EVENT, applyHint);
+    return () => window.removeEventListener(DEMO_INITIAL_SURFACE_EVENT, applyHint);
+  }, []);
 
   useEffect(() => {
     const entry = catalog.selectedEntry;
@@ -550,6 +578,9 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     let cancelled = false;
     void loadCatalogView(entryId).then((saved) => {
       if (cancelled || !saved || !isViewAllowed(saved)) return;
+      // Demo boot: keep the armed Endpoints (etc.) landing — do not hop to
+      // a saved Overview from a prior Catalog session.
+      if (isDemoCatalogBootActive()) return;
       setView(saved);
     });
     return () => {
@@ -588,7 +619,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           </button>
         )}
         <button className={`cat-view-tab ${view === 'published' ? 'active' : ''}`} data-testid="catalog-view-published" onClick={() => setView('published')}>
-          Published{(publishedItems.length + Object.keys(previewMap).length) > 0 ? ` (${publishedItems.length + Object.keys(previewMap).length})` : ''}
+          Workflow Exposure{(publishedItems.length + Object.keys(previewMap).length) > 0 ? ` (${publishedItems.length + Object.keys(previewMap).length})` : ''}
         </button>
       </div>
 
@@ -679,10 +710,10 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
             <div className="sw-promote-alert-icon">ℹ</div>
             <div className="sw-promote-alert-body">
               <strong>{previewPromoteAlert.method} {previewPromoteAlert.path}</strong> is already in <span className="sw-promote-alert-badge preview">Preview</span> mode.
-              <p>To promote it to <span className="sw-promote-alert-badge published">Published</span>, switch to the <strong>Published</strong> tab and use the <strong>Promote</strong> action from the ⋮ menu.</p>
+              <p>To promote it to <span className="sw-promote-alert-badge published">Published</span>, switch to the <strong>Workflow Exposure</strong> tab and use the <strong>Promote</strong> action from the ⋮ menu.</p>
             </div>
             <div className="sw-promote-alert-footer">
-              <button className="sw-promote-alert-published-btn" onClick={() => { setPreviewPromoteAlert(null); setView('published'); }} data-testid="preview-promote-go-btn">Go to Published Tab</button>
+              <button className="sw-promote-alert-published-btn" onClick={() => { setPreviewPromoteAlert(null); setView('published'); }} data-testid="preview-promote-go-btn">Go to Workflow Exposure</button>
               <button className="sw-promote-alert-close-btn" onClick={() => setPreviewPromoteAlert(null)} data-testid="preview-promote-dismiss-btn">OK</button>
             </div>
           </div>

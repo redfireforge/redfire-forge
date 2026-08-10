@@ -103,9 +103,11 @@ test.describe('Multiple Connections (WT-01–05)', () => {
     }
     const tabs = page.locator('[data-testid="conn-tab-bar"] [role="tab"]');
     await expect(tabs).toHaveCount(8);
-    // Add button should be removed from DOM at max
+    // Add button stays mounted but is disabled at the max tab count.
     const addBtn = page.locator('[data-testid="conn-tab-add"]');
-    await expect(addBtn).toHaveCount(0);
+    await expect(addBtn).toBeVisible();
+    await expect(addBtn).toBeDisabled();
+    await expect(addBtn).toHaveAttribute('aria-label', 'Maximum 8 tabs');
   });
 
   test('WT-02: Independent connection state per tab', async ({ page }) => {

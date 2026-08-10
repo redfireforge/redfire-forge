@@ -158,6 +158,10 @@ async function openNodeConfig(
 
 test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
+  async function getCustomSelectMenuLabels(page: import('@playwright/test').Page): Promise<string[]> {
+    return page.locator('.cs-menu .cs-item .cs-item-label').allTextContents();
+  }
+
   // ── 1. Toggle shows/hides fields ───────────────────────────────────────────
   test('Schema Registry toggle shows config fields when checked', async ({ page }) => {
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
@@ -185,10 +189,12 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     const formatSelect = page.locator('[data-testid="schema-format-select"]');
     await expect(formatSelect).toBeVisible();
 
-    const options = await formatSelect.locator('option').allTextContents();
+    await formatSelect.locator('.cs-trigger').click();
+    const options = await getCustomSelectMenuLabels(page);
     expect(options).toContain('Avro');
     expect(options).toContain('Protobuf');
     expect(options).toContain('JSON Schema');
+    await page.keyboard.press('Escape');
   });
 
   // ── 3. Auth fields ─────────────────────────────────────────────────────────
@@ -230,8 +236,10 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     // Dropdown with loaded subjects should appear
     await expect(page.locator('[data-testid="schema-subjects-dropdown"]')).toBeVisible({ timeout: 6000 });
-    const subjectOptions = await page.locator('[data-testid="schema-subjects-dropdown"] option').allTextContents();
+    await page.locator('[data-testid="schema-subjects-dropdown"] .cs-trigger').click();
+    const subjectOptions = await getCustomSelectMenuLabels(page);
     expect(subjectOptions.some((o) => o.includes('orders.created-value'))).toBe(true);
+    await page.keyboard.press('Escape');
     expect(subjectsCalled).toBe(true);
   });
 
@@ -267,9 +275,11 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     // Dropdown with loaded versions should appear
     await expect(page.locator('[data-testid="schema-versions-dropdown"]')).toBeVisible({ timeout: 6000 });
-    const versionOptions = await page.locator('[data-testid="schema-versions-dropdown"] option').allTextContents();
+    await page.locator('[data-testid="schema-versions-dropdown"] .cs-trigger').click();
+    const versionOptions = await getCustomSelectMenuLabels(page);
     expect(versionOptions.some((o) => o.includes('1'))).toBe(true);
     expect(versionOptions.some((o) => o.includes('3'))).toBe(true);
+    await page.keyboard.press('Escape');
     expect(versionsCalled).toBe(true);
   });
 

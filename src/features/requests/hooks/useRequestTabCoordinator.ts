@@ -92,11 +92,30 @@ export function useRequestTabCoordinator(wb: UseRequestsReturn) {
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
+  // ─── Prune tabs whose collection/request was removed out-of-band ──
+  // (e.g. demo bridge / import replace that bypassed removeCollectionWithCleanup)
+  useEffect(() => {
+    if (!wb.loaded) return;
+    const cols = dataRef.current.collections;
+    const staleReqIds: string[] = [];
+    for (const tab of tabsRef.current) {
+      const col = cols.find(c => c.id === tab.collectionId);
+      if (!col || !findRequestInCollection(col, tab.requestId)) {
+        staleReqIds.push(tab.requestId);
+      }
+    }
+    for (const reqId of staleReqIds) {
+      removeStaleTab(reqId);
+    }
+  }, [wb.loaded, wb.data.collections, removeStaleTab]);
+
   // ─── Sync sidebar selection with active tab ────────────────────
 
   useEffect(() => {
     if (!activeTab) return;
     const { collectionId, requestId } = activeTab;
+    const col = dataRef.current.collections.find(c => c.id === collectionId);
+    if (!col || !findRequestInCollection(col, requestId)) return;
     if (dataRef.current.selectedCollectionId !== collectionId || dataRef.current.selectedRequestId !== requestId) {
       wbRef.current.selectRequest(collectionId, requestId);
     }

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useImperativeHandle, forwardRef } from 'react';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import ExpressionHintDropdown from './ExpressionHintDropdown';
 import { useExpressionAutocompleteField } from './useExpressionAutocompleteField';
@@ -19,7 +19,7 @@ interface Props {
  * Textarea with inline autocomplete for `{{variable}}` and `{{$function()}}`.
  * Mirrors ExpressionInput but renders a `<textarea>` instead of `<input>`.
  */
-export default function ExpressionTextarea({
+const ExpressionTextarea = forwardRef<HTMLTextAreaElement, Props>(function ExpressionTextarea({
   value,
   onChange,
   placeholder,
@@ -29,7 +29,7 @@ export default function ExpressionTextarea({
   spellCheck,
   variableHints,
   ...rest
-}: Props) {
+}, ref) {
   const {
     wrapperRef,
     inputRef,
@@ -39,6 +39,8 @@ export default function ExpressionTextarea({
     handleBlur,
     onKeyDown,
   } = useExpressionAutocompleteField({ value, onChange, variableHints });
+
+  useImperativeHandle(ref, () => inputRef.current as HTMLTextAreaElement, [inputRef]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     handleTextChange(e.target.value, e.target.selectionStart);
@@ -74,4 +76,6 @@ export default function ExpressionTextarea({
       />
     </div>
   );
-}
+});
+
+export default ExpressionTextarea;

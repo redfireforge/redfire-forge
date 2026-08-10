@@ -37,6 +37,120 @@ function compositeKey(entryId: string, endpointId: string) {
   return `${entryId}::${endpointId}`;
 }
 
+function formatPubDate(ts: number) {
+  return new Date(ts).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+interface PreviewTableProps {
+  rows: PreviewDisplayItem[];
+  previewCount: number;
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
+  menuRef: React.RefObject<HTMLDivElement | null>;
+  onViewInCatalog: (entryId: string, endpointId: string) => void;
+  onPromotePreview?: (entryId: string, endpointId: string) => void;
+  onRemovePreview?: (entryId: string, endpointId: string) => void;
+  publishPermission?: PublishPermission;
+}
+
+function PreviewEndpointsTable({
+  rows, previewCount, openMenuId, setOpenMenuId, menuRef,
+  onViewInCatalog, onPromotePreview, onRemovePreview, publishPermission,
+}: PreviewTableProps) {
+  return (
+    <div className="pub-table-wrap">
+      <table className="pub-table" data-testid="pub-preview-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Path</th>
+            <th>API</th>
+            <th>Added</th>
+            <th className="pub-th-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(item => {
+            const key = compositeKey(item.entryId, item.endpointId);
+            const methodColor = SWAGGER_METHOD_COLORS[item.method] ?? '#888';
+            return (
+              <tr key={key} data-testid="pub-preview-row">
+                <td>
+                  <span className="pub-method" style={{ background: methodColor }}>{item.method}</span>
+                </td>
+                <td className="pub-path-cell">
+                  <span className="pub-path">{item.path}</span>
+                  {item.summary !== item.path && (
+                    <span className="pub-summary">{item.summary}</span>
+                  )}
+                </td>
+                <td className="pub-api-name">{item.entryName}</td>
+                <td className="pub-date">{formatPubDate(item.addedAt)}</td>
+                <td className="pub-actions-cell">
+                  <button
+                    className="pub-actions-btn"
+                    onClick={() => setOpenMenuId(openMenuId === key ? null : key)}
+                    data-testid="pub-preview-actions-btn"
+                    aria-label={`Actions for ${item.method} ${item.path}`}
+                  >
+                    ⋮
+                  </button>
+                  {openMenuId === key && (
+                    <div
+                      className="pub-actions-menu"
+                      ref={menuRef}
+                      data-testid="pub-preview-actions-menu"
+                      onMouseLeave={() => setOpenMenuId(null)}
+                    >
+                      <button
+                        className="pub-action-item"
+                        onClick={() => { onViewInCatalog(item.entryId, item.endpointId); setOpenMenuId(null); }}
+                        data-testid="pub-preview-action-view"
+                      >
+                        <span className="pub-action-icon">↗</span>
+                        <span className="pub-action-label">View in Catalog</span>
+                      </button>
+                      {onPromotePreview && (publishPermission?.canPublish ?? true) && (
+                        <>
+                          <div className="pub-action-divider" />
+                          <button
+                            className="pub-action-item pub-action-promote"
+                            onClick={() => { onPromotePreview(item.entryId, item.endpointId); setOpenMenuId(null); }}
+                            data-testid="pub-preview-action-promote"
+                          >
+                            <span className="pub-action-icon">⬆</span>
+                            <span className="pub-action-label">Promote to Published</span>
+                          </button>
+                        </>
+                      )}
+                      {onRemovePreview && (
+                        <>
+                          <div className="pub-action-divider" />
+                          <button
+                            className="pub-action-item pub-action-danger"
+                            onClick={() => { onRemovePreview(item.entryId, item.endpointId); setOpenMenuId(null); }}
+                            data-testid="pub-preview-action-remove"
+                          >
+                            <span className="pub-action-icon">✕</span>
+                            <span className="pub-action-label">Remove Preview</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {rows.length === 0 && previewCount > 0 && (
+        <div className="pub-no-results">No previews match the search query.</div>
+      )}
+    </div>
+  );
+}
+
 export default function PublishedEndpointsPanel({ items, previewItems, onUnpublish, onBulkUnpublish, onRepublish, onBulkRepublish, onPromotePreview, onRemovePreview, onViewInCatalog, publishPermission }: Props) {
   type PanelFilter = StatusFilter | 'preview';
   const [query, setQuery] = useState('');
@@ -48,16 +162,18 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
   const [usageLoading, setUsageLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const showingPreview = statusFilter === 'preview';
-  const pubStatusFilter: StatusFilter = showingPreview ? 'all' : statusFilter;
+  const showingPreviewOnly = statusFilter === 'preview';
+  /** All includes published + preview rows so the badge count matches the table. */
+  const includePreviews = statusFilter === 'preview' || statusFilter === 'all';
+  const pubStatusFilter: StatusFilter = showingPreviewOnly ? 'all' : statusFilter;
 
   const filtered = useMemo(
-    () => showingPreview ? [] : filterPublishedEndpoints(items, query, pubStatusFilter),
-    [items, query, pubStatusFilter, showingPreview],
+    () => showingPreviewOnly ? [] : filterPublishedEndpoints(items, query, pubStatusFilter),
+    [items, query, pubStatusFilter, showingPreviewOnly],
   );
 
   const previewDisplay = useMemo<PreviewDisplayItem[]>(() => {
-    if (!showingPreview || !previewItems?.length) return [];
+    if (!includePreviews || !previewItems?.length) return [];
     const q = query.toLowerCase().trim();
     return previewItems
       .map(p => ({
@@ -66,7 +182,7 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
       }))
       .filter(p => !q || p.method.toLowerCase().includes(q) || p.path.toLowerCase().includes(q) ||
         p.summary.toLowerCase().includes(q) || p.entryName.toLowerCase().includes(q));
-  }, [showingPreview, previewItems, query]);
+  }, [includePreviews, previewItems, query]);
 
   const staleCount = useMemo(() => items.filter(i => i.isStale).length, [items]);
   const currentCount = items.length - staleCount;
@@ -158,20 +274,15 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
     }
   }, [items, onRepublish, onBulkRepublish]);
 
-  const formatDate = (ts: number) => {
-    const d = new Date(ts);
-    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-
   if (items.length === 0 && previewCount === 0) {
     return (
       <div className="pub-panel" data-testid="published-endpoints-panel">
         <div className="pub-empty">
           <div className="pub-empty-icon">📋</div>
-          <div className="pub-empty-title">No Published Endpoints</div>
+          <div className="pub-empty-title">No Workflow Exposure</div>
           <div className="pub-empty-desc">
-            Endpoints published to the Workflow Designer will appear here.
-            Go to the <strong>Endpoints</strong> tab and set an endpoint's workflow exposure to <strong>Published</strong>.
+            Endpoints exposed to the Workflow Designer will appear here.
+            Go to the <strong>Endpoints</strong> tab and set an endpoint's workflow exposure to <strong>Published</strong> or <strong>Preview</strong>.
           </div>
         </div>
       </div>
@@ -199,11 +310,11 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
             All ({items.length + previewCount})
           </button>
           <button
-            className={`pub-pill ${statusFilter === 'current' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('current')}
-            data-testid="pub-filter-current"
+            className={`pub-pill ${statusFilter === 'published' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('published')}
+            data-testid="pub-filter-published"
           >
-            Current ({currentCount})
+            Published ({currentCount})
           </button>
           <button
             className={`pub-pill pub-pill-stale ${statusFilter === 'stale' ? 'active' : ''}`}
@@ -242,94 +353,31 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
         )}
       </div>
 
-      {/* ── Table ──────────────────────────────── */}
-      {showingPreview ? (
-        <div className="pub-table-wrap">
-          <table className="pub-table" data-testid="pub-preview-table">
-            <thead>
-              <tr>
-                <th>Method</th>
-                <th>Path</th>
-                <th>API</th>
-                <th>Added</th>
-                <th className="pub-th-actions">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {previewDisplay.map(item => {
-                const key = compositeKey(item.entryId, item.endpointId);
-                const methodColor = SWAGGER_METHOD_COLORS[item.method] ?? '#888';
-                return (
-                  <tr key={key} data-testid="pub-preview-row">
-                    <td>
-                      <span className="pub-method" style={{ background: methodColor }}>{item.method}</span>
-                    </td>
-                    <td className="pub-path-cell">
-                      <span className="pub-path">{item.path}</span>
-                      {item.summary !== item.path && (
-                        <span className="pub-summary">{item.summary}</span>
-                      )}
-                    </td>
-                    <td className="pub-api-name">{item.entryName}</td>
-                    <td className="pub-date">{formatDate(item.addedAt)}</td>
-                    <td className="pub-actions-cell">
-                      <button
-                        className="pub-actions-btn"
-                        onClick={() => setOpenMenuId(openMenuId === key ? null : key)}
-                        data-testid="pub-preview-actions-btn"
-                        aria-label={`Actions for ${item.method} ${item.path}`}
-                      >
-                        ⋮
-                      </button>
-                      {openMenuId === key && (
-                        <div className="pub-actions-menu" ref={menuRef} data-testid="pub-preview-actions-menu">
-                          <button
-                            className="pub-action-item"
-                            onClick={() => { onViewInCatalog(item.entryId, item.endpointId); setOpenMenuId(null); }}
-                            data-testid="pub-preview-action-view"
-                          >
-                            <span className="pub-action-icon">↗</span>
-                            <span className="pub-action-label">View in Catalog</span>
-                          </button>
-                          {onPromotePreview && (publishPermission?.canPublish ?? true) && (
-                            <>
-                              <div className="pub-action-divider" />
-                              <button
-                                className="pub-action-item pub-action-promote"
-                                onClick={() => { onPromotePreview(item.entryId, item.endpointId); setOpenMenuId(null); }}
-                                data-testid="pub-preview-action-promote"
-                              >
-                                <span className="pub-action-icon">⬆</span>
-                                <span className="pub-action-label">Promote to Published</span>
-                              </button>
-                            </>
-                          )}
-                          {onRemovePreview && (
-                            <>
-                              <div className="pub-action-divider" />
-                              <button
-                                className="pub-action-item pub-action-danger"
-                                onClick={() => { onRemovePreview(item.entryId, item.endpointId); setOpenMenuId(null); }}
-                                data-testid="pub-preview-action-remove"
-                              >
-                                <span className="pub-action-icon">✕</span>
-                                <span className="pub-action-label">Remove Preview</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {previewDisplay.length === 0 && previewCount > 0 && (
-            <div className="pub-no-results">No previews match the search query.</div>
-          )}
-        </div>
-      ) : (
+      {/* ── Tables ─────────────────────────────── */}
+      {showingPreviewOnly && (
+        <>
+          <div className="pub-section-label" data-testid="pub-preview-section-label">
+            Workflow Previews
+          </div>
+          <PreviewEndpointsTable
+            rows={previewDisplay}
+            previewCount={previewCount}
+            openMenuId={openMenuId}
+            setOpenMenuId={setOpenMenuId}
+            menuRef={menuRef}
+            onViewInCatalog={onViewInCatalog}
+            onPromotePreview={onPromotePreview}
+            onRemovePreview={onRemovePreview}
+            publishPermission={publishPermission}
+          />
+        </>
+      )}
+
+      {!showingPreviewOnly && items.length > 0 && (
+      <>
+      <div className="pub-section-label" data-testid="pub-published-section-label">
+        Published Endpoints
+      </div>
       <div className="pub-table-wrap">
         <table className="pub-table" data-testid="pub-table">
           <thead>
@@ -345,7 +393,7 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
               <th>Method</th>
               <th>Path</th>
               <th>API</th>
-              <th>Published</th>
+              <th>Published on</th>
               <th>Status</th>
               <th className="pub-th-actions">Actions</th>
             </tr>
@@ -374,12 +422,12 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
                     )}
                   </td>
                   <td className="pub-api-name">{item.entryName}</td>
-                  <td className="pub-date">{formatDate(item.publication.publishedAt)}</td>
+                  <td className="pub-date">{formatPubDate(item.publication.publishedAt)}</td>
                   <td>
                     {item.isStale ? (
                       <span className="pub-status pub-status-stale" data-testid="pub-status-stale">Stale</span>
                     ) : (
-                      <span className="pub-status pub-status-current" data-testid="pub-status-current">Current</span>
+                      <span className="pub-status pub-status-published" data-testid="pub-status-published">Published</span>
                     )}
                   </td>
                   <td className="pub-actions-cell">
@@ -392,7 +440,12 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
                       ⋮
                     </button>
                     {openMenuId === key && (
-                      <div className="pub-actions-menu" ref={menuRef} data-testid="pub-actions-menu">
+                      <div
+                        className="pub-actions-menu"
+                        ref={menuRef}
+                        data-testid="pub-actions-menu"
+                        onMouseLeave={() => setOpenMenuId(null)}
+                      >
                         <button
                           className="pub-action-item"
                           onClick={() => { onViewInCatalog(item.entryId, item.endpointId); setOpenMenuId(null); }}
@@ -476,6 +529,28 @@ export default function PublishedEndpointsPanel({ items, previewItems, onUnpubli
           <div className="pub-no-results">No endpoints match the current filter.</div>
         )}
       </div>
+      </>
+      )}
+
+      {!showingPreviewOnly && statusFilter === 'all' && previewCount > 0 && (
+        <>
+          {items.length > 0 && (
+            <div className="pub-section-label" data-testid="pub-preview-section-label">
+              Workflow Previews
+            </div>
+          )}
+          <PreviewEndpointsTable
+          rows={previewDisplay}
+          previewCount={previewCount}
+          openMenuId={openMenuId}
+          setOpenMenuId={setOpenMenuId}
+          menuRef={menuRef}
+          onViewInCatalog={onViewInCatalog}
+          onPromotePreview={onPromotePreview}
+          onRemovePreview={onRemovePreview}
+          publishPermission={publishPermission}
+          />
+        </>
       )}
 
       {/* ── Note about stale ──────────────────── */}

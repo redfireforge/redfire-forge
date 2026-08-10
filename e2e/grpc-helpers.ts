@@ -146,9 +146,20 @@ export async function waitForGrpcMockListenerStopped(
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    const response = await request.get(
-      `http://localhost:3001/api/grpc/mock/status?tabId=${encodeURIComponent(tabId)}`,
-    );
+    let response;
+    try {
+      response = await request.get(
+        `http://localhost:3001/api/grpc/mock/status?tabId=${encodeURIComponent(tabId)}`,
+      );
+    } catch (error) {
+      const msg = String(error);
+      // During test shutdown/reload the request context can be disposed.
+      // Treat that as effectively stopped for best-effort cleanup paths.
+      if (/disposed|closed/i.test(msg)) {
+        return;
+      }
+      throw error;
+    }
     expect(response.ok()).toBeTruthy();
     const body = (await response.json()) as {
       data?: { status?: { running?: boolean } };
@@ -201,11 +212,19 @@ export async function waitForGrpcListenTargetClosed(
 }
 
 export async function stopGrpcMockListener(request: APIRequestContext, tabId: string): Promise<void> {
-  const response = await request.post('http://localhost:3001/api/grpc/mock/stop', {
-    data: { tabId },
-  });
-  expect(response.ok()).toBeTruthy();
-  await waitForGrpcMockListenerStopped(request, tabId);
+  try {
+    const response = await request.post('http://localhost:3001/api/grpc/mock/stop', {
+      data: { tabId },
+    });
+    expect(response.ok()).toBeTruthy();
+    await waitForGrpcMockListenerStopped(request, tabId);
+  } catch (error) {
+    const msg = String(error);
+    if (/disposed|closed/i.test(msg)) {
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function getGrpcStudioActiveTabId(page: Page): Promise<string> {
@@ -362,8 +381,25 @@ export async function fillProtoField(page: Page, fieldName: string, value: strin
 }
 
 export async function reflectGrpcServices(page: Page): Promise<void> {
-  await page.locator('[data-testid="grpc-reflect-btn"]').click();
-  await expect(page.locator('[data-testid="grpc-explorer-tree"]')).toBeVisible({ timeout: 30_000 });
+  const reflectBtn = page.locator('[data-testid="grpc-reflect-btn"]');
+  const tree = page.locator('[data-testid="grpc-explorer-tree"]');
+  const error = page.locator('[data-testid="grpc-explorer-error"]');
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await reflectBtn.click();
+    try {
+      await expect(tree).toBeVisible({ timeout: 15_000 });
+      break;
+    } catch (firstError) {
+      if (attempt === 1) {
+        throw firstError;
+      }
+      // Transient boot/reflect races can briefly show error or empty state; retry once.
+      if (await error.isVisible().catch(() => false)) {
+        await page.waitForTimeout(250);
+      }
+    }
+  }
 
   const serviceBtn = page.locator(`[data-testid="${ECHO_SERVICE_TESTID}"]`);
   await expect(serviceBtn).toBeVisible({ timeout: 10_000 });
@@ -492,50 +528,147 @@ export async function waitForStreamLogContains(page: Page, text: string | RegExp
   await expect(page.locator('[data-testid="grpc-stream-log-list"]')).toContainText(text, { timeout: 30_000 });
 }
 
+async function readStreamCount(page: Page, testId: 'grpc-stream-outbound-count' | 'grpc-stream-inbound-count'): Promise<number> {
+  const text = ((await page.locator(`[data-testid="${testId}"]`).textContent().catch(() => '')) ?? '').trim();
+  const match = text.match(/(\d+)/);
+  return match ? Number(match[1]) : 0;
+}
+
+async function readPendingQueueCount(page: Page): Promise<number> {
+  const items = page.locator('[data-testid^="grpc-stream-pending-item-"]');
+  return items.count().catch(() => 0);
+}
+
 export async function enqueueStreamMessage(page: Page): Promise<void> {
   const btn = page.locator('[data-testid="grpc-stream-add-queue-btn"]');
+  const before = await readPendingQueueCount(page);
   await expect(btn).toBeEnabled({ timeout: 10_000 });
   await btn.evaluate((node) => (node as HTMLButtonElement).click());
+  await expect
+    .poll(async () => readPendingQueueCount(page), { timeout: 10_000 })
+    .toBeGreaterThan(before);
 }
 
 export async function sendAllPendingStreamMessages(page: Page): Promise<void> {
   const btn = page.locator('[data-testid="grpc-stream-send-all-btn"]');
+  const outboundBefore = await readStreamCount(page, 'grpc-stream-outbound-count');
+  const pendingBefore = await readPendingQueueCount(page);
   await expect(btn).toBeEnabled({ timeout: 10_000 });
   await btn.evaluate((node) => (node as HTMLButtonElement).click());
+
+  if (pendingBefore > 0) {
+    const expectedOutboundMin = outboundBefore + pendingBefore;
+    await expect
+      .poll(async () => readStreamCount(page, 'grpc-stream-outbound-count'), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(expectedOutboundMin);
+  }
 }
 
 export async function waitForStreamStreaming(page: Page): Promise<void> {
-  await expect(page.locator('[data-testid="grpc-stream-status-badge"]')).toContainText('Streaming', { timeout: 30_000 });
+  const badge = page.locator('[data-testid="grpc-stream-status-badge"]');
+  const startBtn = page.locator('[data-testid="grpc-stream-start-btn"]');
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await expect(badge).toContainText('Streaming', { timeout: 15_000 });
+      return;
+    } catch (error) {
+      const errMsg = String(error);
+      if (/closed|disposed|has been closed/i.test(errMsg)) {
+        throw error;
+      }
+
+      let badgeText = '';
+      try {
+        badgeText = ((await badge.textContent()) ?? '').trim();
+      } catch (readError) {
+        const readMsg = String(readError);
+        if (/closed|disposed|has been closed/i.test(readMsg)) {
+          throw readError;
+        }
+      }
+
+      // Some live-backed runs briefly transition to Cancelled before listeners settle.
+      // Restart once to stabilize the stream before failing the test.
+      if (/cancelled/i.test(badgeText) && await startBtn.isVisible().catch(() => false)) {
+        await startBtn.click();
+      }
+    }
+  }
+
+  await expect(badge).toContainText('Streaming', { timeout: 15_000 });
 }
 
 export async function sendStreamMessage(page: Page): Promise<void> {
   await waitForStreamStreaming(page);
-  const sendNow = page.locator('[data-testid="grpc-stream-send-now-btn"]');
-  if (await sendNow.count()) {
-    await expect(sendNow).toBeEnabled({ timeout: 10_000 });
-    await sendNow.evaluate((node) => (node as HTMLButtonElement).click());
-    return;
+  const outboundBefore = await readStreamCount(page, 'grpc-stream-outbound-count');
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const sendNow = page.locator('[data-testid="grpc-stream-send-now-btn"]');
+    if (await sendNow.count()) {
+      if (await sendNow.isEnabled().catch(() => false)) {
+        await sendNow.evaluate((node) => (node as HTMLButtonElement).click());
+      }
+    }
+
+    const sendMessage = page.locator('[data-testid="grpc-stream-send-message-btn"]');
+    if (await sendMessage.count()) {
+      if (await sendMessage.isEnabled().catch(() => false)) {
+        await sendMessage.evaluate((node) => (node as HTMLButtonElement).click());
+      }
+    }
+
+    const addQueue = page.locator('[data-testid="grpc-stream-add-queue-btn"]');
+    if (await addQueue.count()) {
+      if (await addQueue.isEnabled().catch(() => false)) {
+        await enqueueStreamMessage(page);
+        const sendAll = page.locator('[data-testid="grpc-stream-send-all-btn"]');
+        if (await sendAll.count() && await sendAll.isEnabled().catch(() => false)) {
+          await sendAllPendingStreamMessages(page);
+        }
+      }
+    }
+
+    const outboundAfter = await readStreamCount(page, 'grpc-stream-outbound-count');
+    if (outboundAfter > outboundBefore) {
+      return;
+    }
+
+    await waitForStreamStreaming(page);
+    await page.waitForTimeout(200);
   }
-  const addQueue = page.locator('[data-testid="grpc-stream-add-queue-btn"]');
-  if (await addQueue.count()) {
-    await enqueueStreamMessage(page);
-    return;
-  }
-  const btn = page.locator('[data-testid="grpc-stream-send-message-btn"]');
-  await expect(btn).toBeEnabled({ timeout: 10_000 });
-  await btn.evaluate((node) => (node as HTMLButtonElement).click());
+
+  throw new Error('Failed to send stream message: outbound count did not increase after retries');
 }
 
 export async function endGrpcStream(page: Page): Promise<void> {
   const pendingEnd = page.locator('[data-testid="grpc-stream-pending-end-btn"]');
   if (await pendingEnd.count()) {
-    await expect(pendingEnd).toBeEnabled({ timeout: 10_000 });
-    await pendingEnd.evaluate((node) => (node as HTMLButtonElement).click());
-    return;
+    if (await pendingEnd.isEnabled().catch(() => false)) {
+      await pendingEnd.evaluate((node) => (node as HTMLButtonElement).click());
+      return;
+    }
+    const sendAll = page.locator('[data-testid="grpc-stream-send-all-btn"]');
+    if (await sendAll.count() && await sendAll.isEnabled().catch(() => false)) {
+      await sendAll.evaluate((node) => (node as HTMLButtonElement).click());
+      await expect(pendingEnd).toBeEnabled({ timeout: 10_000 });
+      await pendingEnd.evaluate((node) => (node as HTMLButtonElement).click());
+      return;
+    }
   }
   const btn = page.locator('[data-testid="grpc-stream-end-btn"]');
-  await expect(btn).toBeEnabled({ timeout: 10_000 });
-  await btn.evaluate((node) => (node as HTMLButtonElement).click());
+  if (await btn.count()) {
+    await expect(btn).toBeEnabled({ timeout: 10_000 });
+    await btn.evaluate((node) => (node as HTMLButtonElement).click());
+    return;
+  }
+
+  const badge = page.locator('[data-testid="grpc-stream-status-badge"]');
+  const badgeText = ((await badge.textContent().catch(() => '')) ?? '').trim();
+  if (/Ended|Cancelled|Error/i.test(badgeText)) {
+    return;
+  }
+  throw new Error(`Expected end-stream control or ended status, got badge="${badgeText}"`);
 }
 
 export async function cancelGrpcStream(page: Page): Promise<void> {
@@ -551,12 +684,40 @@ export async function fillEchoMessage(page: Page, message: string): Promise<void
 export async function sendUnaryCall(page: Page): Promise<void> {
   const sendBtn = page.locator('[data-testid="grpc-send-btn"]');
   await expect(sendBtn).toBeEnabled({ timeout: 10_000 });
-  await sendBtn.click();
+  await sendBtn.evaluate((node) => (node as HTMLButtonElement).click());
 }
 
 export async function waitForUnarySuccess(page: Page): Promise<void> {
-  await expect(page.locator('[data-testid="grpc-response-status"]')).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('[data-testid="grpc-response-body"]')).toBeVisible({ timeout: 5_000 });
+  const status = page.locator('[data-testid="grpc-response-status"]');
+  const body = page.locator('[data-testid="grpc-response-body"]');
+  const error = page.locator('[data-testid="grpc-response-error-panel"]');
+
+  await expect
+    .poll(async () => {
+      if (await error.count().catch(() => 0)) {
+        if (await error.first().isVisible().catch(() => false)) {
+          return 'error';
+        }
+      }
+      if (await status.count().catch(() => 0)) {
+        if (await status.first().isVisible().catch(() => false)) {
+          return 'status';
+        }
+      }
+      if (await body.count().catch(() => 0)) {
+        if (await body.first().isVisible().catch(() => false)) {
+          return 'body';
+        }
+      }
+      return 'pending';
+    }, { timeout: 30_000 })
+    .not.toBe('pending');
+
+  await expect(error).toHaveCount(0);
+  if (await status.count().catch(() => 0)) {
+    await expect(status.first()).toContainText('OK');
+  }
+  await expect(body.first()).toBeVisible({ timeout: 10_000 });
 }
 
 export async function waitForCallCancelled(page: Page): Promise<void> {

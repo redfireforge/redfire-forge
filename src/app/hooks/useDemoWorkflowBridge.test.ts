@@ -11,6 +11,7 @@ describe('useDemoWorkflowBridge', () => {
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
     delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfSelectByName;
+    delete (window as unknown as Record<string, unknown>).__wfClearSamplePreview;
     delete (window as unknown as Record<string, unknown>).__wfRunnerSelectByName;
     delete (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded;
@@ -97,11 +98,22 @@ describe('useDemoWorkflowBridge', () => {
   it('__wfSelectByName selects workflow by exact name when select is provided', () => {
     const wf = { id: 'wf-1', name: 'Demo WF' } as import('../../features/workflow/types/workflow').Workflow;
     const select = vi.fn();
-    renderHook(() => useDemoWorkflowBridge([wf], vi.fn(), vi.fn(), select));
+    const clearPreview = vi.fn();
+    renderHook(() => useDemoWorkflowBridge([wf], vi.fn(), vi.fn(), select, false, undefined, undefined, clearPreview));
     const fn = (window as unknown as Record<string, (name: string) => boolean>).__wfSelectByName;
     expect(fn('Demo WF')).toBe(true);
+    expect(clearPreview).toHaveBeenCalled();
     expect(select).toHaveBeenCalledWith('wf-1');
     expect(fn('Missing')).toBe(false);
+  });
+
+  it('exposes __wfClearSamplePreview when clearSamplePreview is provided', () => {
+    const clearPreview = vi.fn();
+    renderHook(() => useDemoWorkflowBridge([], vi.fn(), undefined, undefined, false, undefined, undefined, clearPreview));
+    const fn = (window as unknown as Record<string, () => void>).__wfClearSamplePreview;
+    expect(fn).toBeTypeOf('function');
+    fn();
+    expect(clearPreview).toHaveBeenCalled();
   });
 
   it('__wfSelectByName returns false when select callback is not provided', () => {

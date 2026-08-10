@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import '@testing-library/jest-dom';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
@@ -25,6 +26,52 @@ function makeData(overrides: Partial<CorrelationWaitNodeData> = {}): Correlation
     timeoutMs: 60000,
     ...overrides,
   };
+}
+
+const SAMPLE_PAUSED = {
+  correlationId: 'cid-1',
+  webhookPath: '/webhooks/payment',
+  pausedAt: Date.now(),
+};
+
+/** List API returns a paused row so Send is enabled; resume POST uses `resumeResponse`. */
+function stubFetchWithPaused(
+  resumeResponse: { ok?: boolean; status?: number; body?: unknown } | Error | string,
+  paused: typeof SAMPLE_PAUSED[] = [SAMPLE_PAUSED],
+) {
+  const fetchMock = vi.fn((url: string | Request, init?: RequestInit) => {
+    const u = typeof url === 'string' ? url : url.url;
+    const method = (init?.method ?? 'GET').toUpperCase();
+    if (String(u).includes('/api/correlations') && !String(u).includes('resume') && method === 'GET') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ correlations: paused }),
+        text: async () => JSON.stringify({ correlations: paused }),
+      });
+    }
+    if (resumeResponse instanceof Error) return Promise.reject(resumeResponse);
+    if (typeof resumeResponse === 'string') return Promise.reject(resumeResponse);
+    const status = resumeResponse.status ?? (resumeResponse.ok === false ? 502 : 200);
+    const ok = resumeResponse.ok ?? (status >= 200 && status < 300);
+    const body = resumeResponse.body ?? {};
+    const text = typeof body === 'string' ? body : JSON.stringify(body);
+    return Promise.resolve({
+      ok,
+      status,
+      json: async () => (typeof body === 'string' ? JSON.parse(body || '{}') : body),
+      text: async () => text,
+    });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+async function clickSendWhenEnabled() {
+  await waitFor(() => {
+    expect(screen.getByTestId('test-webhook-send')).not.toBeDisabled();
+  });
+  fireEvent.click(screen.getByTestId('test-webhook-send'));
 }
 
 describe('CorrelationWaitConfig', () => {
@@ -327,54 +374,181 @@ describe('CorrelationWaitConfig', () => {
     expect(((parsed.x as Record<string, unknown>).y as string)).toBe('<out>');
   });
 
-  it('send test webhook shows success when resumed', async () => {
+  it('disables Send Test Webhook when no workflows are paused', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: async () => ({ resumed: true, executionId: 'ex-1' }),
+      ok: true,
+      status: 200,
+      json: async () => ({ correlations: [] }),
+      text: async () => JSON.stringify({ correlations: [] }),
     }));
-    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    render(<CorrelationWaitConfig data={makeData({ correlationIdExpression: 'cid-1' })} onChange={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('paused-correlations-empty').textContent).toMatch(/No workflow is paused/i);
+    });
+    expect(screen.getByTestId('test-webhook-send')).toBeDisabled();
+  });
+
+  it('send test webhook shows success when resumed', async () => {
+    stubFetchWithPaused({ body: { resumed: true, executionId: 'ex-1' } });
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationIdExpression: 'cid-1' })}
+      onChange={vi.fn()}
+    />);
+    await clickSendWhenEnabled();
     await waitFor(() => {
       expect(screen.getByTestId('test-webhook-result').textContent).toContain('Resumed execution ex-1');
     });
   });
 
   it('send test webhook shows message when not resumed', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: async () => ({ resumed: false }),
-    }));
-    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    stubFetchWithPaused({ body: { resumed: false } });
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationIdExpression: 'cid-1' })}
+      onChange={vi.fn()}
+    />);
+    await clickSendWhenEnabled();
     await waitFor(() => {
       expect(screen.getByTestId('test-webhook-result').textContent).toContain('No matching paused workflow found');
     });
   });
 
   it('send test webhook surfaces fetch errors', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net down')));
-    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    stubFetchWithPaused(new Error('net down'));
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationIdExpression: 'cid-1' })}
+      onChange={vi.fn()}
+    />);
+    await clickSendWhenEnabled();
     await waitFor(() => {
       expect(screen.getByTestId('test-webhook-result').textContent).toContain('net down');
     });
   });
 
   it('send test webhook stringifies non-Error rejections', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue('weird'));
-    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    stubFetchWithPaused('weird');
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationIdExpression: 'cid-1' })}
+      onChange={vi.fn()}
+    />);
+    await clickSendWhenEnabled();
     await waitFor(() => {
       expect(screen.getByTestId('test-webhook-result').textContent).toContain('weird');
     });
   });
 
+  it('send test webhook shows offline message on empty 502 body', async () => {
+    stubFetchWithPaused({ ok: false, status: 502, body: '' });
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationIdExpression: 'cid-1', correlationJsonPath: '$.id' })}
+      onChange={vi.fn()}
+    />);
+    await clickSendWhenEnabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/Webhook server offline/i);
+    });
+  });
+
+  it('send test webhook reports non-offline HTTP failures with a body', async () => {
+    stubFetchWithPaused({ ok: false, status: 500, body: 'Internal error detail' });
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationIdExpression: 'cid-1', correlationJsonPath: '$.id' })}
+      onChange={vi.fn()}
+    />);
+    await clickSendWhenEnabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/Resume failed \(HTTP 500\)/i);
+    });
+  });
+
+  it('send test webhook reports an empty successful response body', async () => {
+    stubFetchWithPaused({ ok: true, status: 200, body: '' });
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationIdExpression: 'cid-1', correlationJsonPath: '$.id' })}
+      onChange={vi.fn()}
+    />);
+    await clickSendWhenEnabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/empty response/i);
+    });
+  });
+
+  it('send test webhook reports non-JSON successful response bodies', async () => {
+    stubFetchWithPaused({ ok: true, status: 200, body: 'not-json{' });
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationIdExpression: 'cid-1', correlationJsonPath: '$.id' })}
+      onChange={vi.fn()}
+    />);
+    await clickSendWhenEnabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/non-JSON/i);
+    });
+  });
+
+  it('send test webhook blocks empty unresolved correlationId', async () => {
+    stubFetchWithPaused({ body: { resumed: false } });
+    render(<CorrelationWaitConfig
+      data={makeData({
+        correlationIdExpression: '{{correlationId}}',
+        correlationJsonPath: '$.id',
+      })}
+      onChange={vi.fn()}
+      variableHints={[{ ref: 'correlationId', label: 'correlationId', defaultValue: '' }]}
+    />);
+    await clickSendWhenEnabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/correlationId is empty/i);
+    });
+  });
+
+  it('send test webhook resolves {{correlationId}} from variable hints', async () => {
+    const fetchMock = stubFetchWithPaused({ body: { resumed: true, executionId: 'ex-9' } });
+    render(<CorrelationWaitConfig
+      data={makeData({
+        correlationIdExpression: '{{correlationId}}',
+        correlationJsonPath: '$.id',
+      })}
+      onChange={vi.fn()}
+      variableHints={[{ ref: 'correlationId', label: 'correlationId', defaultValue: 'demo-001' }]}
+    />);
+    await clickSendWhenEnabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toContain('Resumed execution ex-9');
+    });
+    const resumeCall = fetchMock.mock.calls.find(
+      (c: [string, RequestInit?]) => typeof c[0] === 'string' && c[0].includes('/api/correlations/resume'),
+    );
+    expect(resumeCall).toBeTruthy();
+    const posted = JSON.parse((resumeCall![1] as RequestInit).body as string) as {
+      correlationId: string;
+      webhookData: { id: string };
+    };
+    expect(posted.correlationId).toBe('demo-001');
+    expect(posted.webhookData.id).toBe('demo-001');
+  });
+
+  it('resolves {{correlationId}} against a nested hint ref (bare-name fallback match)', async () => {
+    stubFetchWithPaused({ body: { resumed: true, executionId: 'ex-nested' } });
+    render(<CorrelationWaitConfig
+      data={makeData({
+        correlationIdExpression: '{{correlationId}}',
+        correlationJsonPath: '$.id',
+      })}
+      onChange={vi.fn()}
+      variableHints={[{ ref: 'payload.correlationId', label: 'correlationId', defaultValue: 'nested-001' }]}
+    />);
+    await clickSendWhenEnabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toContain('Resumed execution ex-nested');
+    });
+  });
+
   it('falls back to correlationIdExpression when parsed body lacks path key', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ resumed: true, correlations: [] }) });
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = stubFetchWithPaused({ body: { resumed: true, correlations: [] } });
     render(<CorrelationWaitConfig
       data={makeData({ correlationJsonPath: '$.nope', correlationIdExpression: 'expr-fallback' })}
       onChange={vi.fn()}
     />);
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await clickSendWhenEnabled();
     // Wait for the resume call specifically (POST to /api/correlations/resume)
     await waitFor(() => {
       const resumeCall = fetchMock.mock.calls.find(
@@ -391,12 +565,13 @@ describe('CorrelationWaitConfig', () => {
   });
 
   it('reports invalid JSON in test payload', async () => {
-    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
+    stubFetchWithPaused({ body: { resumed: false } });
+    render(<CorrelationWaitConfig data={makeData({ correlationIdExpression: 'cid-1' })} onChange={vi.fn()} />);
     const ta = screen.getByTestId('test-webhook-payload');
     fireEvent.change(ta, { target: { value: 'not-json' } });
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await clickSendWhenEnabled();
     await waitFor(() => {
-      expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/Unexpected token/i);
+      expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/Invalid JSON|Unexpected token/i);
     });
   });
 
@@ -461,7 +636,7 @@ describe('CorrelationWaitConfig', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
     render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
     await waitFor(() => {
-      expect(screen.getByTestId('paused-correlations').textContent).toContain('No workflows currently paused');
+      expect(screen.getByTestId('paused-correlations-empty').textContent).toMatch(/No workflow is paused/i);
     });
   });
 
@@ -491,15 +666,14 @@ describe('CorrelationWaitConfig', () => {
   });
 
   it('sends correlation id taken from JSON body when path key is present', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ resumed: true }) });
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = stubFetchWithPaused({ body: { resumed: true } });
     render(<CorrelationWaitConfig
       data={makeData({ correlationJsonPath: '$.cid', correlationIdExpression: 'expr-fallback' })}
       onChange={vi.fn()}
     />);
     const ta = screen.getByTestId('test-webhook-payload');
     fireEvent.change(ta, { target: { value: JSON.stringify({ cid: 'from-body' }) } });
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await clickSendWhenEnabled();
     await waitFor(() => {
       const resumeCall = fetchMock.mock.calls.find(
         (c: [string, RequestInit?]) => typeof c[0] === 'string' && c[0].includes('/api/correlations/resume'),
@@ -514,15 +688,14 @@ describe('CorrelationWaitConfig', () => {
   });
 
   it('falls back to correlationIdExpression when JSON path resolves to null', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ resumed: true }) });
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = stubFetchWithPaused({ body: { resumed: true } });
     render(<CorrelationWaitConfig
       data={makeData({ correlationJsonPath: '$.cid', correlationIdExpression: 'expr-fallback' })}
       onChange={vi.fn()}
     />);
     const ta = screen.getByTestId('test-webhook-payload');
     fireEvent.change(ta, { target: { value: JSON.stringify({ cid: null }) } });
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await clickSendWhenEnabled();
     await waitFor(() => {
       const resumeCall = fetchMock.mock.calls.find(
         (c: [string, RequestInit?]) => typeof c[0] === 'string' && c[0].includes('/api/correlations/resume'),
@@ -537,15 +710,14 @@ describe('CorrelationWaitConfig', () => {
   });
 
   it('uses correlationId body field when correlation JSONPath is omitted', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ resumed: true }) });
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = stubFetchWithPaused({ body: { resumed: true } });
     render(<CorrelationWaitConfig
       data={makeData({ correlationJsonPath: undefined, correlationIdExpression: 'ignored' })}
       onChange={vi.fn()}
     />);
     const ta = screen.getByTestId('test-webhook-payload');
     fireEvent.change(ta, { target: { value: JSON.stringify({ correlationId: 'from-default-key' }) } });
-    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await clickSendWhenEnabled();
     await waitFor(() => {
       const resumeCall = fetchMock.mock.calls.find(
         (c: [string, RequestInit?]) => typeof c[0] === 'string' && c[0].includes('/api/correlations/resume'),
@@ -614,6 +786,13 @@ describe('CorrelationWaitConfig', () => {
     fireEvent.click(screen.getByText('Cancel'));
     expect(document.querySelector('.dm-modal-overlay')).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('opens Data Mapper modal with an empty extract-variables fallback when extractVariables is undefined', () => {
+    const onChange = vi.fn();
+    render(<CorrelationWaitConfig data={makeData({ extractVariables: undefined })} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Data Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
   });
 
   it('shows error when applying paused correlation with invalid test payload JSON', async () => {

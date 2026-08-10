@@ -418,15 +418,34 @@
 }
 
 /* ─── Header environment/service selectors ──── */
-.header-select-group { display: flex; align-items: center; }
+.header-select-group { display: flex; align-items: center; flex-shrink: 0; }
 .header-select-group select { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); padding: 5px 10px; border-radius: var(--radius); font-size: 0.78rem; min-width: 120px; }
+/* Fixed widths so env / svc / hostname don't jump when labels change length. */
+.header-select-group--env .cs-wrapper,
+.header-env-select.cs-wrapper {
+  width: 112px;
+  min-width: 112px;
+  max-width: 112px;
+}
+.header-select-group--svc .cs-wrapper,
+.header-svc-select.cs-wrapper {
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
+}
+.header-select-group .cs-trigger {
+  width: 100%;
+}
 
 /* Header protocol endpoint indicator (Phase 3) */
 .header-proto-badge {
   display: flex;
   align-items: center;
   gap: 5px;
+  width: 280px;
+  min-width: 280px;
   max-width: 280px;
+  flex-shrink: 0;
   font-size: 0.68rem;
   color: var(--text-muted);
   background: var(--surface);
@@ -435,6 +454,7 @@
   padding: 3px 8px;
   cursor: default;
   outline: none;
+  box-sizing: border-box;
 }
 .header-proto-badge:focus-visible {
   border-color: var(--primary);
