@@ -7,7 +7,7 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio, switchWsLeftTab, disconnectWs } from './ws-helpers';
+import { gotoWsStudio, switchWsLeftTab, disconnectWs, selectWsCustomSelect } from './ws-helpers';
 
 const GQL_URL = 'ws://localhost:4100/graphql';
 const GQL_HEALTH = 'http://localhost:4100/health';
@@ -40,7 +40,7 @@ const disconnect = (page: Page) => disconnectWs(page);
 
 async function connectToGql(page: Page) {
   await switchLeftTab(page, 'connect');
-  await page.locator('[data-testid="protocol-select"]').selectOption('graphql-ws');
+  await selectWsCustomSelect(page, 'protocol-select', { value: 'graphql-ws', label: 'GraphQL-WS' });
   await page.waitForTimeout(200);
 
   const urlInput = page.locator('[aria-label="WebSocket URL"]');

@@ -425,11 +425,13 @@ describe('grpcStudioTypes (Phase 1A + 2A stream state)', () => {
     const cert = `-----BEGIN CERTIFICATE-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
 -----END CERTIFICATE-----`;
+    // 50443 is the TLS-capable loopback fixture — 50051 is plaintext-only and
+    // prepareGrpcTarget coerces sticky TLS to disabled for that port.
     const tab = createGrpcStudioTab({
       descriptorKey: 'desc-1',
       service: 'echo.EchoService',
       method: 'Echo',
-      target: 'localhost:50051',
+      target: 'localhost:50443',
       tlsMode: 'tls',
       tlsConfig: {
         serverCaPem: `  ${cert}  `,
@@ -439,7 +441,7 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
     const resolution = resolveGrpcTabConnection(
       tab,
       [],
-      { target: 'localhost:50051', tlsMode: 'disabled' },
+      { target: 'localhost:50443', tlsMode: 'disabled' },
     );
 
     const snapshot = captureGrpcTabExecuteSnapshotFromResolution(tab, 'req-tls', resolution);

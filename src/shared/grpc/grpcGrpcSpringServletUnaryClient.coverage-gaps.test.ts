@@ -511,7 +511,10 @@ describe('grpcGrpcSpringServletUnaryClient coverage gaps', () => {
     const result = await invokeGrpcSpringServletUnary({
       request: {
         ...FIXTURE_UNARY_CALL_REQUEST,
-        target: FIXTURE_TARGET,
+        // FIXTURE_TARGET's port 50051 is native-gRPC-only and is blocked by
+        // assertBrowserDirectTargetAllowsFetch when fetchFn is omitted (real
+        // browser-direct fetch path) — use the Spring servlet HTTP port instead.
+        target: { ...FIXTURE_TARGET, address: 'localhost:8081' },
         service: 'echo.EchoService',
         method: 'Echo',
         body: { message: 'ping' },

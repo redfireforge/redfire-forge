@@ -37,16 +37,21 @@ import { defineConfig } from '@playwright/test';
  *
  * Or let global-setup start the GraphQL server automatically:
  *   E2E_WITH_DOCKER=1 npx playwright test --project=docker
+ *   E2E_WS_SERVER=1 npx playwright test e2e/ws-protocols-*.spec.ts --project=docker
  */
-const DOCKER_SPECS = [
-  '**/kafka-live.spec.ts',
-  '**/kafka-secure.spec.ts',
-  '**/kafka-tls.spec.ts',
+const WS_DOCKER_SPECS = [
   '**/ws-protocols-console.spec.ts',
   '**/ws-protocols-graphql.spec.ts',
   '**/ws-protocols-socketio.spec.ts',
   '**/ws-protocols-stomp.spec.ts',
   '**/ws-tls-local-demo.spec.ts',
+];
+
+const DOCKER_SPECS = [
+  '**/kafka-live.spec.ts',
+  '**/kafka-secure.spec.ts',
+  '**/kafka-tls.spec.ts',
+  ...WS_DOCKER_SPECS,
   '**/graphql-test-server.spec.ts',
 ];
 
@@ -145,6 +150,8 @@ const DEMO_GQL110_SPEC = '**/demo-gql-workspace-isolation.spec.ts';
 const DEMO_GRPC1_SPEC = '**/demo-grpc-first-call.spec.ts';
 /** REQ-3 only: Multi-Environment Requests (api › requests) smoke walk. */
 const DEMO_REQ3_SPEC = '**/demo-req-multi-env.spec.ts';
+/** Workflows domain (WF-1…WF-8) Demo Hub smoke walks. */
+const DEMO_WF_SPEC = '**/demo-wf-lessons.spec.ts';
 /** GQL-1..3 smoke — first three lessons auto-play (requires port 4010). */
 const DEMO_GQL_LESSONS_SPEC = '**/graphql-lessons.spec.ts';
 
@@ -156,13 +163,15 @@ const DOCKER_DEMO_SPECS = [
 const withDocker = process.env.E2E_WITH_DOCKER === '1';
 const withGraphqlServer = process.env.E2E_GRAPHQL_SERVER === '1';
 const withGrpcServer = process.env.E2E_GRPC_SERVER === '1';
+const withWsServer = process.env.E2E_WS_SERVER === '1';
 const withGql5Docker = process.env.E2E_GQL5_DOCKER === '1';
+const withAnyDockerInfra = withDocker || withGraphqlServer || withGrpcServer || withWsServer || withGql5Docker;
 
 export default defineConfig({
   testDir: './e2e',
   // Starts graphql-test-server (4010) and/or grpc-test-server (50051) when Docker E2E is enabled.
-  globalSetup: withDocker || withGraphqlServer || withGrpcServer || withGql5Docker ? './e2e/global-setup.ts' : undefined,
-  globalTeardown: withDocker || withGraphqlServer || withGrpcServer || withGql5Docker ? './e2e/global-teardown.ts' : undefined,
+  globalSetup: withAnyDockerInfra ? './e2e/global-setup.ts' : undefined,
+  globalTeardown: withAnyDockerInfra ? './e2e/global-teardown.ts' : undefined,
   fullyParallel: false,
   retries: 2,
   // Favor deterministic full-suite runs over maximal parallel throughput.
@@ -214,6 +223,7 @@ export default defineConfig({
         DEMO_GQL_LESSONS_SPEC,
         DEMO_GRPC1_SPEC,
         DEMO_REQ3_SPEC,
+        DEMO_WF_SPEC,
       ],
       use: { browserName: 'chromium' },
     },
@@ -430,6 +440,15 @@ export default defineConfig({
       use: { browserName: 'chromium' },
     },
 
+    // ── Workflows domain: WF-1…WF-8 Demo Hub smoke walks ─
+    {
+      name: 'demo-wf',
+      testMatch: DEMO_WF_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
     // ── GQL-1..3 smoke: auto-play first three GraphQL lessons (4F-7) ─
     {
       name: 'demo-gql-lessons',
@@ -439,19 +458,22 @@ export default defineConfig({
       use: { browserName: 'chromium' },
     },
 
-    // ── Docker project: active when E2E_WITH_DOCKER=1, E2E_GRAPHQL_SERVER=1, or E2E_GRPC_SERVER=1 ─
+    // ── Docker project: active when E2E_WITH_DOCKER=1, E2E_GRAPHQL_SERVER=1, E2E_GRPC_SERVER=1, or E2E_WS_SERVER=1 ─
     // Run: E2E_WITH_DOCKER=1 npx playwright test --project=docker
     // Or:  E2E_GRAPHQL_SERVER=1 npx playwright test e2e/graphql-test-server.spec.ts
     // Or:  E2E_GRPC_SERVER=1 npx playwright test e2e/grpc-test-server.spec.ts
-    ...(withDocker || withGraphqlServer || withGrpcServer
+    // Or:  E2E_WS_SERVER=1 npx playwright test e2e/ws-protocols-*.spec.ts --project=docker
+    ...(withDocker || withGraphqlServer || withGrpcServer || withWsServer
       ? [
           {
             name: 'docker',
             testMatch: withDocker
               ? [...ALL_DOCKER_SPECS, ...DOCKER_DEMO_SPECS, ...GRPC_LIVE_SPECS]
-              : withGrpcServer
-                ? GRPC_LIVE_SPECS
-                : ['**/graphql-test-server.spec.ts', ...GRAPHQL_LIVE_SPECS],
+              : withWsServer
+                ? WS_DOCKER_SPECS
+                : withGrpcServer
+                  ? GRPC_LIVE_SPECS
+                  : ['**/graphql-test-server.spec.ts', ...GRAPHQL_LIVE_SPECS],
             use: { browserName: 'chromium' as const },
           },
         ]

@@ -39,6 +39,7 @@ function setup(overrides = {}) {
   const setBulkTargetPath = vi.fn();
   const setLineFocusNode = vi.fn();
   const setToast = vi.fn();
+  const focusNodeByPath = vi.fn(() => false);
 
   const params = {
     diagnostics: { issues: [makeIssue()], resolved: 1, unresolved: 0, lastComputedAt: Date.now() },
@@ -59,11 +60,27 @@ function setup(overrides = {}) {
     setBulkTargetPath,
     setLineFocusNode,
     setToast,
+    focusNodeByPath,
     ...overrides,
   };
 
   const result = renderHook(() => useMapperRepairActions(params));
-  return { ...result, mocks: { setMappings, updateMapping, selectMapping, setSelectedIds, setFocusRegion, setBulkSourceId, setBulkSourcePath, setBulkTargetPath, setLineFocusNode, setToast } };
+  return {
+    ...result,
+    mocks: {
+      setMappings,
+      updateMapping,
+      selectMapping,
+      setSelectedIds,
+      setFocusRegion,
+      setBulkSourceId,
+      setBulkSourcePath,
+      setBulkTargetPath,
+      setLineFocusNode,
+      setToast,
+      focusNodeByPath,
+    },
+  };
 }
 
 describe('useMapperRepairActions', () => {
@@ -172,6 +189,36 @@ describe('useMapperRepairActions', () => {
     expect(mocks.setBulkTargetPath).toHaveBeenCalledWith('$.tgt');
     expect(mocks.setBulkSourceId).toHaveBeenCalledWith('src-1');
     expect(mocks.setBulkSourcePath).toHaveBeenCalledWith('$.src');
+    expect(mocks.focusNodeByPath).toHaveBeenCalledWith('$.tgt', 'target');
+    expect(mocks.setToast).toHaveBeenCalledWith(
+      expect.stringContaining('Selected mapping for tgt'),
+    );
+  });
+
+  it('handleOpenRepairIssue opens the tree node when present', () => {
+    const focusNodeByPath = vi.fn((path: string, region: string) => path === '$.tgt' && region === 'target');
+    const { result, mocks } = setup({ focusNodeByPath });
+    act(() => result.current.handleOpenRepairIssue(makeIssue()));
+    expect(focusNodeByPath).toHaveBeenCalledWith('$.tgt', 'target');
+    expect(mocks.setToast).toHaveBeenCalledWith('Opened target node: tgt');
+  });
+
+  it('handleOpenRepairIssue explains missing-target when node is absent', () => {
+    const { result, mocks } = setup({
+      focusNodeByPath: vi.fn(() => false),
+    });
+    act(() => result.current.handleOpenRepairIssue(makeIssue({ kind: 'missing-target' })));
+    expect(mocks.setToast).toHaveBeenCalledWith(
+      expect.stringContaining('is not in the target tree'),
+    );
+  });
+
+  it('handleOpenRepairIssue prefers source for unresolved-path', () => {
+    const focusNodeByPath = vi.fn((path: string, region: string) => path === '$.src' && region === 'source');
+    const { result, mocks } = setup({ focusNodeByPath });
+    act(() => result.current.handleOpenRepairIssue(makeIssue({ kind: 'unresolved-path' })));
+    expect(focusNodeByPath).toHaveBeenNthCalledWith(1, '$.src', 'source');
+    expect(mocks.setToast).toHaveBeenCalledWith('Opened source node: src');
   });
 
   it('handleOpenRepairIssue sets line focus in node focus mode', () => {

@@ -10,6 +10,8 @@ import {
   clickWfDebugStepButtons,
   closeWfConfigModalIfOpen,
   closeWfConsoleIfOpen,
+  closeWfDefaultsModalIfOpen,
+  closeWfSamplePreviewIfOpen,
   cleanupWorkflowDemoRunUi,
   collapseWfDemoAppSidebar,
   buildBlankLessonWorkflow,
@@ -135,6 +137,57 @@ describe('wf-demo-helpers', () => {
     });
   });
 
+  describe('closeWfSamplePreviewIfOpen', () => {
+    const win = () => window as unknown as Record<string, unknown>;
+
+    beforeEach(() => {
+      document.body.innerHTML = '';
+      delete win().__wfClearSamplePreview;
+    });
+
+    it('calls the clear-preview bridge and clicks Close Preview when present', async () => {
+      const clearSpy = vi.fn();
+      win().__wfClearSamplePreview = clearSpy;
+      document.body.innerHTML = `
+        <div data-testid="wf-sample-preview-banner">
+          <button data-testid="wf-sample-preview-close">Close Preview</button>
+        </div>
+      `;
+      const closeBtn = document.querySelector<HTMLButtonElement>('[data-testid="wf-sample-preview-close"]')!;
+      const clickSpy = vi.spyOn(closeBtn, 'click');
+      const ctx = makeCtx();
+      await closeWfSamplePreviewIfOpen(ctx);
+      expect(clearSpy).toHaveBeenCalled();
+      expect(clickSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('closeWfDefaultsModalIfOpen', () => {
+    beforeEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('is a no-op when the Variables modal is not open', async () => {
+      const ctx = makeCtx();
+      await closeWfDefaultsModalIfOpen(ctx);
+      expect(ctx.delay).not.toHaveBeenCalled();
+    });
+
+    it('clicks Cancel when the Variables modal is open', async () => {
+      document.body.innerHTML = `
+        <div class="wf-defaults-modal">
+          <button class="btn-ghost">Cancel</button>
+        </div>
+      `;
+      const cancel = document.querySelector<HTMLButtonElement>('.btn-ghost')!;
+      const clickSpy = vi.spyOn(cancel, 'click');
+      const ctx = makeCtx();
+      await closeWfDefaultsModalIfOpen(ctx);
+      expect(clickSpy).toHaveBeenCalled();
+      expect(ctx.delay).toHaveBeenCalled();
+    });
+  });
+
   describe('ensureLessonBlankWorkflow', () => {
     const win = () => window as unknown as Record<string, unknown>;
 
@@ -143,6 +196,7 @@ describe('wf-demo-helpers', () => {
       delete win().__wfGetSelectedName;
       delete win().__wfGetWorkflowByName;
       delete win().__wfSelectByName;
+      delete win().__wfClearSamplePreview;
       delete win().__demoExpandAppSidebar;
       delete win().__demoCollapseAppSidebar;
     });
@@ -507,9 +561,9 @@ describe('wf-demo-helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(WF.CFG_SAVE);
   });
 
-  it('saveAndCloseWfConfigModal skips save and close when Save is disabled', async () => {
+  it('saveAndCloseWfConfigModal skips save but still dismisses when Save is disabled', async () => {
     document.body.innerHTML = `
-      <div class="wf-config-modal">
+      <div class="wf-config-modal" data-testid="wf-node-config">
         <div class="wf-config-modal-footer-actions">
           <button class="btn-ghost">Close</button>
           <button class="btn-primary" disabled>Save</button>
@@ -520,7 +574,8 @@ describe('wf-demo-helpers', () => {
     const ok = await saveAndCloseWfConfigModal(ctx);
     expect(ok).toBe(false);
     expect(ctx.click).not.toHaveBeenCalledWith(WF.CFG_SAVE);
-    expect(document.querySelector('.wf-config-modal')).not.toBeNull();
+    // Modal must not linger — Join/End configs often have Save disabled.
+    expect(document.querySelector(WF.NODE_CONFIG)).toBeNull();
   });
 
   it('isWfConfigTabActive detects gql-wf-subtab active state', () => {
@@ -778,9 +833,10 @@ describe('wf-demo-helpers', () => {
         </div>
       </div>
     `;
-    const closeBtn = document.querySelector<HTMLButtonElement>('.btn-ghost')!;
-    const closeSpy = vi.spyOn(closeBtn, 'click');
-    closeBtn.addEventListener('click', () => document.querySelector('.wf-config-modal')?.remove());
+    const bridgeClose = vi.fn(() => {
+      document.querySelector('.wf-config-modal')?.remove();
+    });
+    (window as unknown as Record<string, unknown>).__wfCloseConfigModal = bridgeClose;
     const openSpy = vi.fn(() => true);
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = openSpy;
     const ctx = makeCtx();
@@ -788,7 +844,7 @@ describe('wf-demo-helpers', () => {
       nodeId: 'node-2',
       panelSelector: '[data-testid="target-panel"]',
     });
-    expect(closeSpy).toHaveBeenCalled();
+    expect(bridgeClose).toHaveBeenCalled();
     expect(openSpy).toHaveBeenCalledWith('node-2');
   });
 
@@ -806,11 +862,33 @@ describe('wf-demo-helpers', () => {
     expect(ctx.delay).not.toHaveBeenCalled();
   });
 
-  it('closeWfConfigModalIfOpen no-ops when modal has no close button', async () => {
-    document.body.innerHTML = '<div class="wf-config-modal"></div>';
+  it('closeWfConfigModalIfOpen dismisses via bridge without clicking Cancel/Close', async () => {
+    document.body.innerHTML = `
+      <div class="wf-config-modal">
+        <div class="wf-config-modal-footer-actions">
+          <button class="btn-ghost">Close</button>
+        </div>
+      </div>
+    `;
+    const closeBtn = document.querySelector<HTMLButtonElement>('.btn-ghost')!;
+    const closeSpy = vi.spyOn(closeBtn, 'click');
+    const bridgeClose = vi.fn(() => {
+      document.querySelector('.wf-config-modal')?.remove();
+    });
+    (window as unknown as Record<string, unknown>).__wfCloseConfigModal = bridgeClose;
     const ctx = makeCtx();
     await closeWfConfigModalIfOpen(ctx);
-    expect(ctx.delay).not.toHaveBeenCalled();
+    expect(bridgeClose).toHaveBeenCalled();
+    expect(closeSpy).not.toHaveBeenCalled();
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
+  });
+
+  it('closeWfConfigModalIfOpen removes shell when bridge is absent', async () => {
+    document.body.innerHTML = '<div class="wf-config-modal"></div>';
+    delete (window as unknown as Record<string, unknown>).__wfCloseConfigModal;
+    const ctx = makeCtx();
+    await closeWfConfigModalIfOpen(ctx);
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
   });
 
   it('saveAndCloseWfConfigModal returns true when save exists outside modal shell', async () => {
@@ -819,6 +897,30 @@ describe('wf-demo-helpers', () => {
     const ok = await saveAndCloseWfConfigModal(ctx);
     expect(ok).toBe(true);
     expect(ctx.click).toHaveBeenCalledWith(WF.CFG_SAVE);
+  });
+
+  it('saveAndCloseWfConfigModal does not click Close after Save (avoids rollback)', async () => {
+    document.body.innerHTML = `
+      <div class="wf-config-modal">
+        <div class="wf-config-modal-footer-actions">
+          <button class="btn-ghost">Close</button>
+          <button class="btn-primary">Save</button>
+        </div>
+      </div>
+    `;
+    const closeBtn = document.querySelector<HTMLButtonElement>('.btn-ghost')!;
+    const closeSpy = vi.spyOn(closeBtn, 'click');
+    const bridgeClose = vi.fn(() => {
+      document.querySelector('.wf-config-modal')?.remove();
+    });
+    (window as unknown as Record<string, unknown>).__wfCloseConfigModal = bridgeClose;
+    const ctx = makeCtx();
+    // Simulate Save already requesting unmount slowly — keep modal for poll then bridge.
+    vi.mocked(ctx.click).mockImplementation(async () => {});
+    const ok = await saveAndCloseWfConfigModal(ctx);
+    expect(ok).toBe(true);
+    expect(closeSpy).not.toHaveBeenCalled();
+    expect(bridgeClose).toHaveBeenCalled();
   });
 });
 

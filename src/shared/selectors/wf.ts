@@ -24,6 +24,9 @@ export const WF = {
   NEW_BLANK_ITEM:      '[data-testid="wf-new-blank-item"]',
   CREATE_INPUT:        '[data-testid="wf-create-input"]',
   CREATE_OK:           '[data-testid="wf-create-ok"]',
+  /** Gallery sample preview banner (overrides the real selected workflow on the canvas). */
+  SAMPLE_PREVIEW_BANNER: '[data-testid="wf-sample-preview-banner"]',
+  SAMPLE_PREVIEW_CLOSE:  '[data-testid="wf-sample-preview-close"]',
   // Palette tabs
   PAL_TAB_BLOCKS:      '[data-testid="wf-palette-tab-blocks"]',
   PAL_TAB_REQUESTS:    '[data-testid="wf-palette-tab-requests"]',
@@ -52,7 +55,19 @@ export const WF = {
   CFG_WS_MSG:          '[data-testid="ws-send-config"] textarea.wf-config-textarea',
   // Log/Debug config fields
   CFG_LOG_LEVEL:       '[data-testid="logdebug-config"] .cs-wrapper',
-  CFG_LOG_MESSAGE:     '[data-testid="logdebug-config"] textarea.wf-config-textarea',
+  CFG_LOG_MESSAGE:     '[data-testid="logdebug-config"] .mte-textarea, [data-testid="logdebug-config"] textarea.wf-config-textarea',
+  CFG_LOG_LABEL:       '[data-testid="logdebug-config"] .wf-config-field--row:first-child input',
+  CFG_LOG_SNAPSHOT:    '[data-testid="logdebug-config"] input[type="checkbox"]',
+  CFG_CONDITION:       '[data-testid="condition-config"]',
+  CFG_CONDITION_EXPR_MODE: '[data-testid="condition-config"] [aria-label="Expression"]',
+  CFG_CONDITION_LEFT:  '[data-testid="condition-config"] [aria-label="Left operand expression"]',
+  CFG_CONDITION_OP:    '[data-testid="condition-config"] .wf-condition-operator-ctrl .cs-wrapper',
+  CFG_CONDITION_RIGHT: '[data-testid="condition-config"] [aria-label="Compare value"]',
+  CFG_CONDITION_PREVIEW: '[data-testid="condition-config"] .wf-condition-preview-expr',
+  CFG_SWITCH:          '[data-testid="switch-config"]',
+  CFG_SWITCH_EXPR:     '[data-testid="switch-config"] [aria-label="Switch expression"]',
+  CFG_SWITCH_ADD_CASE: '[data-testid="switch-config"] .wf-kafka-add-btn',
+  CFG_SWITCH_CASE_ROW: '[data-testid="switch-config"] .wf-switch-case-row',
   CFG_SAVE:            '.wf-config-modal-footer-actions .btn-primary',
   CFG_CANCEL:          '.wf-config-modal-footer-actions .btn-ghost',
   // Canvas nodes
@@ -67,6 +82,9 @@ export const WF = {
   CFG_HTTP_URL:        '.wf-config-url-input',
   CFG_HTTP_URL_PREVIEW:'.wf-config-last-req-url',
   CFG_HTTP_METHOD:     '.wf-config-method-select',
+  CFG_HTTP_AUTH_TYPE:  '[data-testid="wf-http-auth-type"]',
+  CFG_HTTP_AUTH_TYPE_SELECT: '[data-testid="wf-http-auth-type-select"]',
+  CFG_HTTP_AUTH_INHERIT_HINT: '[data-testid="wf-http-auth-inherit-hint"]',
   // HTTP extraction fields (Extract sub-tab)
   CFG_EXT_ADD:         '.extraction-editor .ext-add-btn',
   CFG_EXT_VAR:         '.extraction-editor .ext-row:last-child .ext-cell-var .ext-input',

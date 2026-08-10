@@ -14,6 +14,7 @@ import {
   spotlight,
   spotlightSel,
   seedDemoEnvAndService,
+  selectDemoEnvAndServiceVisibly,
   seedDemoFeatureGroup,
   deleteDemoFeatureGroup,
   ensureDemoFgExists,
@@ -148,10 +149,9 @@ export const thOverviewStructureLesson: DemoLesson = {
       title: 'Environment & Microservice Scoping',
       description:
         'Every test suite in RedfireForge is **scoped to an environment and microservice** pair.\n\n' +
-        'The **Environment** selector determines which server configuration is active ' +
-        '(dev, staging, production) — including base URLs and variables.\n\n' +
-        'The **Microservice** selector targets a specific API service. Switch the microservice, ' +
-        'and you see a completely different set of Feature Groups.\n\n' +
+        'Watch the header selectors: choose **Environment → demo**, then **Microservice → jsonplaceholder**. ' +
+        'The Environment controls server config (base URLs, variables); the Microservice targets a ' +
+        'specific API — switch it and you see a completely different set of Feature Groups.\n\n' +
         'This scoping lets you manage test suites for multiple services across multiple ' +
         'environments from a single workspace.',
       highlight: APP.HEADER_ENV_SELECT,
@@ -162,27 +162,10 @@ export const thOverviewStructureLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        // Seed env + svc (creates them if missing, selects them in header)
-        const ids = await seedDemoEnvAndService(ctx);
-        await ctx.delay(600);
+        // Create entities if missing, then visibly pick them in the header
+        // (not a silent __demoSelectEnvSvc jump).
+        const ids = await selectDemoEnvAndServiceVisibly(ctx);
 
-        // Spotlight and click the Environment selector to open its dropdown
-        await spotlightSel(ctx, APP.HEADER_ENV_SELECT, 1000);
-        await ctx.click(APP.HEADER_ENV_SELECT);
-        await ctx.delay(1200);
-        // Close by clicking the selector again (toggle)
-        await ctx.click(APP.HEADER_ENV_SELECT);
-        await ctx.delay(400);
-
-        // Spotlight and click the Microservice selector to open its dropdown
-        await spotlightSel(ctx, APP.HEADER_SVC_SELECT, 1000);
-        await ctx.click(APP.HEADER_SVC_SELECT);
-        await ctx.delay(1200);
-        // Close by clicking the selector again
-        await ctx.click(APP.HEADER_SVC_SELECT);
-        await ctx.delay(400);
-
-        // Store ids for next step
         if (ids) {
           (window as unknown as Record<string, unknown>).__demoTh1Ids = ids;
         }

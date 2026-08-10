@@ -214,3 +214,60 @@ export function getWsTabs(page: Page) {
 export function getWsAddTabBtn(page: Page) {
   return page.locator('[data-testid="conn-tab-add"]');
 }
+
+/**
+ * Select a CustomSelect option (portaled `.cs-menu`).
+ * Prefer `value` (data-value) when known; otherwise match visible label text.
+ */
+export async function selectWsCustomSelect(
+  page: Page,
+  testId: string,
+  option: { value?: string; label?: string },
+): Promise<void> {
+  const wrapper = page.getByTestId(testId);
+  await wrapper.locator('.cs-trigger').click();
+  const menu = page.locator('.cs-menu');
+  await menu.waitFor({ state: 'visible', timeout: 5000 });
+  if (option.value) {
+    await menu.locator(`.cs-item[data-value="${option.value}"]`).click();
+  } else if (option.label) {
+    await menu.locator('.cs-item', { hasText: option.label }).first().click();
+  } else {
+    throw new Error('selectWsCustomSelect requires value or label');
+  }
+}
+
+/** Select a CustomSelect by the trigger's aria-label (no data-testid). */
+export async function selectWsCustomSelectByAriaLabel(
+  page: Page,
+  ariaLabel: string,
+  label: string,
+): Promise<void> {
+  await page.locator(`button[aria-label="${ariaLabel}"]`).first().click();
+  const menu = page.locator('.cs-menu');
+  await menu.waitFor({ state: 'visible', timeout: 5000 });
+  await menu.locator('.cs-item', { hasText: label }).first().click();
+}
+
+/**
+ * Select a WS filter-bar dropdown option (Size / Time / Content type).
+ * These are custom button menus, not native `<select>` elements.
+ */
+export async function selectWsFilterDropdown(
+  page: Page,
+  testId: string,
+  value: string,
+): Promise<void> {
+  await page.getByTestId(testId).click();
+  await page.getByTestId(`${testId}-opt-${value}`).click();
+}
+
+/** Select a console category filter option (Handshake, All, …). */
+export async function selectWsConsoleCategory(
+  page: Page,
+  value: string,
+  variant: 'ws' | 'sse' = 'ws',
+): Promise<void> {
+  await page.getByTestId(`${variant}-console-category`).click();
+  await page.getByTestId(`${variant}-console-category-opt-${value}`).click();
+}

@@ -7,6 +7,7 @@ import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
 import {
   closeWorkflowConfigModal,
   dispatchGqlTabsReload,
+  collapseAppSidebar,
   expandAppSidebar,
   isGraphqlStudioLesson,
   completeGrpcStudioLessonRun,
@@ -36,6 +37,12 @@ import { purgeAllSpotlightRings } from './demoRipple';
 import { clearDemoBootFreeze, installDemoBootFreeze, revealDemoBootSurface } from './demoBootFreeze';
 import { clearDemoInitialSurface, setDemoInitialSurface } from '@shared/demoInitialSurface';
 import type { DemoStep } from './types';
+
+/** Expand for most lessons; collapse when the lesson paints Designer without the list. */
+function applyLessonAppSidebarForBoot(lesson: DemoLesson): void {
+  if (lesson.collapseAppSidebarOnStart) collapseAppSidebar();
+  else expandAppSidebar();
+}
 
 export interface UseDemoHubLiveDemoOptions {
   navigateToTab: (tab: string) => void;
@@ -154,10 +161,12 @@ export function useDemoHubLiveDemo({
     try {
       // Land on the lesson tab immediately so Demo Hub does not paint the empty
       // blue "live placeholder" while closeIsolated / hygiene await.
+      // Caller must run `prepareBeforeNavigate` first when the first paint of
+      // `initialTab` must already be step 1's surface (Catalog entry selected, etc.).
       if (lesson.initialTab) navigateToTab(lesson.initialTab);
       await closeIsolatedStudioDemoTabSession({ restorePreviousTab: false });
       if (lesson.initialTab) navigateToTab(lesson.initialTab);
-      expandAppSidebar();
+      applyLessonAppSidebarForBoot(lesson);
       // Short settle — long waits belong in step preAction/action, not Preparing.
       await new Promise(r => setTimeout(r, 120));
       if (isGraphqlStudioLesson(lesson)) {
@@ -182,6 +191,15 @@ export function useDemoHubLiveDemo({
     }
   }, [navigateToTab, buildQuietContext, closeIsolatedStudioDemoTabSession, openIsolatedStudioDemoTabSession, suppressLiveTabExitRef, autoPlayGenRef]);
 
+  const runPrepareBeforeNavigate = useCallback(async (lesson: DemoLesson) => {
+    if (!lesson.prepareBeforeNavigate) return;
+    try {
+      await lesson.prepareBeforeNavigate(buildQuietContext());
+    } catch (e) {
+      console.warn('[DemoHub] Lesson prepareBeforeNavigate failed:', e);
+    }
+  }, [buildQuietContext]);
+
   const resumeInterruptedLiveDemo = useCallback(async () => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
@@ -196,6 +214,7 @@ export function useDemoHubLiveDemo({
     abortRef.current?.abort();
     setDemoInitialSurface(lesson.initialSurface ?? null);
     installDemoBootFreeze();
+    await runPrepareBeforeNavigate(lesson);
     flushSync(() => {
       if (lesson.initialTab) navigateToTab(lesson.initialTab);
     });
@@ -225,7 +244,7 @@ export function useDemoHubLiveDemo({
       setIsDemoBootstrapping(false);
       revealDemoBootSurface();
     }
-  }, [state.selectedLesson, state.stepIndex, state.speed, navigateToTab, runLiveDemoSetup, executeCurrentStep, progress, isMountedRef, autoPlayGenRef, abortRef, setState, setStepPhase, setIsDemoBootstrapping]);
+  }, [state.selectedLesson, state.stepIndex, state.speed, navigateToTab, runLiveDemoSetup, runPrepareBeforeNavigate, executeCurrentStep, progress, isMountedRef, autoPlayGenRef, abortRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
   useEffect(() => {
     if (!shouldResumeLiveRef.current) return;
@@ -250,6 +269,9 @@ export function useDemoHubLiveDemo({
     // sub-panel — not Studio/Load testing, then hop.
     setDemoInitialSurface(lesson.initialSurface ?? null);
     installDemoBootFreeze();
+    // Seed/select while Concept is still up so the first Catalog paint is
+    // already JSONPlaceholder Endpoints — not Welcome / Overview.
+    await runPrepareBeforeNavigate(lesson);
     // CRITICAL ORDER: leave Demo Hub WHILE Concept is still mounted, THEN
     // flip view→live. Doing both in one commit left an empty Demo Hub body
     // (Concept gone, live placeholder hidden during boot) for the entire
@@ -276,7 +298,7 @@ export function useDemoHubLiveDemo({
       setIsDemoBootstrapping(false);
       revealDemoBootSurface();
     }
-  }, [state.selectedLesson, state.speed, navigateToTab, runLiveDemoSetup, executeCurrentStep, progress, resetGqlModalSessionFlags, autoPlayGenRef, abortRef, skipReadingRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
+  }, [state.selectedLesson, state.speed, navigateToTab, runLiveDemoSetup, runPrepareBeforeNavigate, executeCurrentStep, progress, resetGqlModalSessionFlags, autoPlayGenRef, abortRef, skipReadingRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
   const goToStep = useCallback(async (index: number) => {
     const lesson = state.selectedLesson;
@@ -337,7 +359,7 @@ export function useDemoHubLiveDemo({
           /* v8 ignore next */
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (replayLesson.initialTab) ctx.navigateToTab(replayLesson.initialTab);
-          expandAppSidebar();
+          applyLessonAppSidebarForBoot(replayLesson);
           await new Promise(r => setTimeout(r, 120));
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (isGraphqlStudioLesson(replayLesson)) {
@@ -428,9 +450,6 @@ export function useDemoHubLiveDemo({
     setDemoInitialSurface(lesson.initialSurface ?? null);
     installDemoBootFreeze();
     flushSync(() => {
-      if (lesson.initialTab) navigateToTab(lesson.initialTab);
-    });
-    flushSync(() => {
       setIsDemoBootstrapping(true);
       setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
       setStepPhase('pre');
@@ -440,9 +459,13 @@ export function useDemoHubLiveDemo({
       if (lesson.cleanup) {
         try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] cleanup failed:', e); }
       }
+      await runPrepareBeforeNavigate(lesson);
+      flushSync(() => {
+        if (lesson.initialTab) navigateToTab(lesson.initialTab);
+      });
       suppressLiveTabExitRef.current = true;
       try {
-        expandAppSidebar();
+        applyLessonAppSidebarForBoot(lesson);
         await new Promise(r => setTimeout(r, 120));
         if (isGraphqlStudioLesson(lesson)) {
           await runGqlDemoStorageHygiene();
@@ -472,7 +495,7 @@ export function useDemoHubLiveDemo({
       setIsDemoBootstrapping(false);
       revealDemoBootSurface();
     }
-  }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, ensureActiveDemoTabOrCreate, executeCurrentStep, progress, clearGqlIntroSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, suppressLiveTabExitRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
+  }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, runPrepareBeforeNavigate, ensureActiveDemoTabOrCreate, executeCurrentStep, progress, clearGqlIntroSessionFlags, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, suppressLiveTabExitRef, isMountedRef, setState, setStepPhase, setIsDemoBootstrapping]);
 
   const exitLiveDemo = useCallback(async () => {
     const liveSession = readDemoLiveSession();

@@ -258,23 +258,6 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               🔒 Authorize
             </button>
           </div>
-
-          <div className="ceb-filter-row">
-            <input
-              className="ceb-filter"
-              type="text"
-              placeholder="Filter endpoints..."
-              data-testid="catalog-endpoint-filter"
-              value={filter}
-              onChange={e => setFilter(e.target.value)}
-            />
-            {hasDeprecated && (
-              <label className="ceb-deprecated-toggle">
-                <input type="checkbox" checked={hideDeprecated} onChange={e => setHideDeprecated(e.target.checked)} />
-                Hide deprecated
-              </label>
-            )}
-          </div>
         </div>
 
         {baseUrl && (
@@ -292,6 +275,24 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
           onClose={() => setShowAuthPanel(false)}
         />
       )}
+
+      {/* Endpoint filter belongs with the operation list, not the host/URL bar. */}
+      <div className="ceb-filter-row" data-testid="catalog-endpoint-filter-row">
+        <input
+          className="ceb-filter"
+          type="text"
+          placeholder="Filter endpoints..."
+          data-testid="catalog-endpoint-filter"
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+        />
+        {hasDeprecated && (
+          <label className="ceb-deprecated-toggle">
+            <input type="checkbox" checked={hideDeprecated} onChange={e => setHideDeprecated(e.target.checked)} />
+            Hide deprecated
+          </label>
+        )}
+      </div>
 
       {/* ── Endpoint list ───────────────────────── */}
       <div className="ceb-endpoints" data-testid="catalog-endpoint-list" key={`${entry.id}-${epLoaded}`}>

@@ -23,6 +23,10 @@
     "dialog:allow-message",
     "dialog:allow-ask",
     "shell:allow-open",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install",
+    "process:allow-restart",
     "mcp-bridge:default",
     {
       "identifier": "fs:allow-read-text-file",

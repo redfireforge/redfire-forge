@@ -203,6 +203,8 @@ describe('grpcWorkflowSnapshotBuilder (Phase 6B)', () => {
   });
 
   it('applies connection profile tlsMode when node omits tlsMode', () => {
+    // 50443 is the TLS-capable loopback fixture — 50051 is plaintext-only and
+    // prepareGrpcTarget coerces sticky TLS to disabled for that port.
     const snapshot = buildGrpcWorkflowExecuteSnapshot(
       {
         nodeId: 'grpc-tls',
@@ -218,7 +220,7 @@ describe('grpcWorkflowSnapshotBuilder (Phase 6B)', () => {
         profiles: [{
           id: 'tls-profile',
           name: 'TLS profile',
-          target: 'localhost:50051',
+          target: 'localhost:50443',
           tlsMode: 'tls',
         }],
         pageDefaults: PAGE_DEFAULTS,

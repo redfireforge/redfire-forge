@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { normalizeMapperPath } from '../utils/pathNormalization';
 
 export type FocusRegion = 'source' | 'target';
 
@@ -18,7 +19,8 @@ export interface UseKeyboardNavigationReturn {
     expandedPaths: Set<string>,
     onToggle: (path: string) => void,
   ) => void;
-  focusNodeByPath: (path: string, region: FocusRegion) => void;
+  /** Focus + scroll a tree node. Returns false when the path is not in the DOM (missing/collapsed). */
+  focusNodeByPath: (path: string, region: FocusRegion) => boolean;
 }
 
 function getVisibleNodes(container: HTMLElement, panelClass: string): HTMLElement[] {
@@ -45,23 +47,45 @@ export function useKeyboardNavigation({
   focusedPathRef.current = focusedPath;
   const lastFocusedElRef = useRef<HTMLElement | null>(null);
 
-  const focusNodeByPath = useCallback((path: string, region: FocusRegion) => {
+  const focusNodeByPath = useCallback((path: string, region: FocusRegion): boolean => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) return false;
     const panelClass = region;
     const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape : (s: string) => s;
-    const node = container.querySelector(
-      `.dm-panel--${panelClass} .dm-tree-node[data-path="${esc(path)}"]`,
-    ) as HTMLElement | null;
-    if (node) {
-      if (lastFocusedElRef.current && lastFocusedElRef.current !== node) {
-        lastFocusedElRef.current.removeAttribute('tabindex');
+    const normalized = normalizeMapperPath(path);
+    // Keep empty path (root) as-is — do not invent `$.`.
+    const candidates = path === '' || normalized === ''
+      ? ['']
+      : Array.from(new Set([
+          path,
+          normalized,
+          path.startsWith('$.') ? path : `$.${normalized}`,
+        ]));
+
+    let node: HTMLElement | null = null;
+    let matchedPath = path;
+    for (const candidate of candidates) {
+      const found = container.querySelector(
+        `.dm-panel--${panelClass} .dm-tree-node[data-path="${esc(candidate)}"]`,
+      ) as HTMLElement | null;
+      if (found) {
+        node = found;
+        matchedPath = candidate;
+        break;
       }
-      node.setAttribute('tabindex', '0');
-      node.focus();
-      lastFocusedElRef.current = node;
-      setFocusedPath(path);
     }
+
+    if (!node) return false;
+
+    if (lastFocusedElRef.current && lastFocusedElRef.current !== node) {
+      lastFocusedElRef.current.removeAttribute('tabindex');
+    }
+    node.setAttribute('tabindex', '0');
+    node.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    node.focus?.({ preventScroll: true });
+    lastFocusedElRef.current = node;
+    setFocusedPath(matchedPath);
+    return true;
   }, [containerRef]);
 
   const handleTreeKeyDown = useCallback(

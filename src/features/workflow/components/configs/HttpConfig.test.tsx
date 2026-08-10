@@ -187,6 +187,35 @@ describe('HttpConfig — basic rendering', () => {
     expect(onChange.mock.calls[0][0]).not.toHaveProperty('label');
   });
 
+  it('sets auth to inherit when selecting a service while auth is none', () => {
+    const onChange = vi.fn();
+    const services: WorkflowService[] = [
+      { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'bearer', token: 't' } },
+    ];
+    const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'none' } }) });
+    render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} data={data} />);
+    selectOption(document.querySelector('.wf-config-service-select')!, 'Users API');
+    const patch = onChange.mock.calls[0][0] as { serviceId: string; scenario: { auth: { type: string } } };
+    expect(patch.serviceId).toBe('svc1');
+    expect(patch.scenario.auth.type).toBe('inherit');
+  });
+
+  it('clears inherit auth when service is set to None', () => {
+    const onChange = vi.fn();
+    const services: WorkflowService[] = [
+      { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'bearer', token: 't' } },
+    ];
+    const data = makeHttpData({
+      serviceId: 'svc1',
+      scenario: makeScenario({ auth: { type: 'inherit' } }),
+    });
+    render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} data={data} />);
+    selectOption(document.querySelector('.wf-config-service-select')!, 'None (raw URL)');
+    const patch = onChange.mock.calls[0][0] as { serviceId?: string; scenario: { auth: { type: string } } };
+    expect(patch.serviceId).toBeUndefined();
+    expect(patch.scenario.auth.type).toBe('none');
+  });
+
   it('shows param count badge on Params tab when params exist', () => {
     const data = makeHttpData({ scenario: makeScenario({ url: '/api?page=1&limit=10' }) });
     render(<HttpConfig {...defaultProps} data={data} />);
@@ -241,8 +270,8 @@ describe('HttpConfig — basic rendering', () => {
 
   it('updates body on textarea change', () => {
     const onChange = vi.fn();
-    render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} />);
-    const textarea = screen.getByTestId('expression-textarea');
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} />);
+    const textarea = container.querySelector('.wf-config-textarea') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: '{"key":"value"}' } });
     expect(onChange).toHaveBeenCalled();
   });
@@ -413,8 +442,8 @@ describe('HttpConfig — basic rendering', () => {
   });
 
   it('shows raw editor and Data Mapper button on body tab', () => {
-    render(<HttpConfig {...defaultProps} activeTab="body" />);
-    expect(screen.getByTestId('expression-textarea')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="body" />);
+    expect(container.querySelector('.wf-config-textarea')).toBeTruthy();
     expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
   });
 

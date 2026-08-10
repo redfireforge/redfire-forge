@@ -98,6 +98,15 @@ export function removeSettingsMicroservice(name: string): void {
 }
 
 /**
+ * Quietly set the app header + Designer Quick-Test env/svc (same selectedEnvId).
+ * Never opens CustomSelect menus — use during Preparing / preAction.
+ */
+export function selectSettingsEnvSvc(envId: string, svcId = ''): void {
+  if (!envId) return;
+  getDemoBridgeWindow().__demoSelectEnvSvc?.(envId, svcId);
+}
+
+/**
  * Quietly clear protocol tabs, protocol endpoints, and global vars on a named
  * Settings microservice. Prefer this over DOM × clicks during lesson setup —
  * the remove control is `display:none` until the tab wrap is hovered/active.

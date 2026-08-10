@@ -1,8 +1,8 @@
 /**
  * TH-19: Schema Drift & Repair
  *
- * 5 steps: Drift Banner → Schema Diff Modal →
- * Repair Suggestions → Accept & Update → Health Dashboard.
+ * 6 steps: Drift Banner → Schema Diff Modal → Repair Suggestions →
+ * Accept & Update → Fix Validation & Repair (Replace) → Health Dashboard.
  *
  * Demonstrates how the Data Mapper detects when the API response
  * schema changes, classifies severity, suggests repairs, and tracks
@@ -108,7 +108,7 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
   description:
     'See how the Data Mapper detects API schema changes, classifies drift severity, ' +
     'suggests repairs for broken mappings, and tracks quality via the Health Dashboard.',
-  estimatedMinutes: 8,
+  estimatedMinutes: 9,
   initialTab: 'scenarios',
   allowedTabs: ['scenarios'],
 
@@ -125,12 +125,15 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
       '- **Nullable Changed** (info) — field nullability changed\n\n' +
       '**Repair engine:** For removed fields, fuzzy name matching (Levenshtein distance) ' +
       'suggests similarly-named new fields as replacements.\n\n' +
+      '**Accept vs Repair:** Accept & Update only refreshes the snapshot baseline. Broken mappings ' +
+      'stay until you **Replace**/remap them (or Apply from Schema Diff) — watch **Validation & Repair**.\n\n' +
       '**Health Dashboard:** Continuous quality score showing coverage, broken mappings, ' +
       'drift warnings, and type mismatches.',
     keyTerms: [
       { term: 'Schema Snapshot', definition: 'Saved response structure — the baseline for drift comparison.' },
       { term: 'Drift Detection', definition: 'Automatic comparison between saved snapshot and current response.' },
       { term: 'Repair Suggestion', definition: 'Fuzzy match recommendation for fixing broken mappings.' },
+      { term: 'Validation & Repair', definition: 'Panel listing broken mappings that remain after Accept until you Replace/remap them.' },
       { term: 'Health Dashboard', definition: 'Quality metrics bar: coverage, broken, drift, type mismatches.' },
     ],
     diagram: `<svg viewBox="0 0 360 80" xmlns="http://www.w3.org/2000/svg">
@@ -333,7 +336,9 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
         'engine suggests the new path with a confidence score (high/medium/low) based on edit ' +
         'distance.\n\n' +
         'Click **Apply** on individual suggestions, or use **Apply all repairs** to batch-fix ' +
-        'all recoverable mappings at once.',
+        'all recoverable mappings at once.\n\n' +
+        'We\'ll look at the suggestions here — after Accept & Update we\'ll fix the leftover ' +
+        '`userName` issue from **Validation & Repair** with **Replace** (pick `user_name` on both trees).',
       highlight: HAR.DIFF_SHELL,
 
       preAction: async (ctx) => {
@@ -386,7 +391,7 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
           await ctx.delay(800);
         }
 
-        // Pause on the payoff before closing so the viewer absorbs the repair UI.
+        // Show only — Apply happens in step 5 after Accept & Update.
         await ctx.delay(1000);
         closeDiffModal();
         await ctx.delay(900);
@@ -402,10 +407,10 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
       description:
         'Click **Accept & Update** to review the schema changes, then confirm in the ' +
         'Schema Diff footer. That saves the current response schema as the new baseline.\n\n' +
-        'The drift banner dismisses and the mapper returns to normal state. Future drift ' +
-        'comparisons will be against this updated snapshot — not the old one.\n\n' +
-        'Any remaining broken mappings should be fixed manually before saving. The schema ' +
-        'snapshot is also updated automatically when you click Done in the Data Mapper.',
+        '**Important:** Accept & Update only refreshes the snapshot — it does **not** rewrite ' +
+        'mappings. After accept, the drift banner dismisses, but **Validation & Repair** still ' +
+        'flags broken paths like `$.userName` (the live schema has `user_name`).\n\n' +
+        'Next we\'ll **Replace** that broken mapping with `user_name` — without closing the mapper.',
       highlight: HAR.DRIFT_ACCEPT_BTN,
 
       preAction: async (ctx) => {
@@ -450,20 +455,149 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
           }
         }
 
-        // Confirm banner is gone — outcome pause for the viewer.
+        // Banner gone, but Validation & Repair still flags $.userName — that is the teaching point.
         if (!isDriftBannerVisible()) {
-          const toolbar = document.querySelector<HTMLElement>(HAR.MAPPER_TOOLBAR);
-          if (toolbar) {
-            await spotlight(toolbar, 1600, ctx);
-            await ctx.delay(700);
+          const repairPanel = document.querySelector<HTMLElement>(HAR.VALIDATION_REPAIR_PANEL);
+          if (repairPanel) {
+            repairPanel.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            await spotlight(repairPanel, 2200, ctx);
+            await ctx.delay(1000);
+          } else {
+            const toolbar = document.querySelector<HTMLElement>(HAR.MAPPER_TOOLBAR);
+            if (toolbar) {
+              await spotlight(toolbar, 1600, ctx);
+              await ctx.delay(700);
+            }
           }
         }
       },
 
-      verify: HAR.MAPPER_TOOLBAR,
+      verify: HAR.VALIDATION_REPAIR_PANEL,
     },
 
-    // ── Step 5: Mapping Health Dashboard ──────────────────────────
+    // ── Step 5: Fix Validation & Repair (Replace remap) ───────────
+    {
+      id: 'th19-apply-validation-repair',
+      title: 'Fix Validation & Repair',
+      description:
+        '**Validation & Repair** still lists the unresolved `$.userName` mapping — Accept & Update ' +
+        'only saved the new baseline; it did **not** remap the field.\n\n' +
+        'Stay in the mapper (no close/reopen). Click the live **`user_name`** field on **Source**, ' +
+        'then on **Target**, and press **Replace** on the issue row. That remaps ' +
+        '`userName` → `user_name`. Watch the Validation & Repair panel disappear.',
+      highlight: HAR.VALIDATION_REPAIR_PANEL,
+
+      preAction: async (ctx) => {
+        await ensureTh19Ready(ctx);
+        closeDiffModal();
+        // Never close/reopen the mapper here — just recover if the user skipped earlier steps.
+        if (!isDataMapperOpen()) {
+          await ensureMapperOpen(ctx);
+          await ctx.delay(600);
+        }
+        if (!document.querySelector(HAR.VALIDATION_REPAIR_PANEL) && isDriftBannerVisible()) {
+          const acceptBtn = document.querySelector<HTMLElement>(HAR.DRIFT_ACCEPT_BTN);
+          if (acceptBtn) {
+            acceptBtn.click();
+            await ctx.waitFor(HAR.DIFF_SHELL, 4000);
+            const modal = document.querySelector<HTMLElement>(HAR.DIFF_SHELL);
+            const confirmBtn = modal
+              ? Array.from(modal.querySelectorAll<HTMLElement>('.dm-diff-footer button')).find((btn) =>
+                /Accept/.test(btn.textContent ?? ''),
+              )
+              : undefined;
+            confirmBtn?.click();
+            await ctx.delay(800);
+          }
+        }
+        if (!document.querySelector(HAR.VALIDATION_REPAIR_PANEL) && !isDriftBannerVisible()) {
+          // Last resort for Restart mid-lesson: seed drift + accept quietly (still no flash tour).
+          await ensureMapperWithDrift(ctx);
+          const acceptBtn = document.querySelector<HTMLElement>(HAR.DRIFT_ACCEPT_BTN);
+          if (acceptBtn) {
+            acceptBtn.click();
+            await ctx.waitFor(HAR.DIFF_SHELL, 4000);
+            const modal = document.querySelector<HTMLElement>(HAR.DIFF_SHELL);
+            const confirmBtn = modal
+              ? Array.from(modal.querySelectorAll<HTMLElement>('.dm-diff-footer button')).find((btn) =>
+                /Accept/.test(btn.textContent ?? ''),
+              )
+              : undefined;
+            confirmBtn?.click();
+            await ctx.delay(800);
+          }
+        }
+      },
+
+      action: async (ctx) => {
+        if (!isDataMapperOpen()) {
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        }
+        closeDiffModal();
+
+        // 1) Spotlight the leftover Validation & Repair issue.
+        const repairPanel = document.querySelector<HTMLElement>(HAR.VALIDATION_REPAIR_PANEL);
+        if (repairPanel) {
+          repairPanel.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          await spotlight(repairPanel, 2200, ctx);
+          await ctx.delay(800);
+
+          const row = repairPanel.querySelector<HTMLElement>(HAR.VALIDATION_REPAIR_ROW);
+          if (row) {
+            await spotlight(row, 1800, ctx);
+            await ctx.delay(700);
+          }
+        }
+
+        // 2) Pick the renamed live fields — no mapper close/reopen.
+        const clickTreePath = async (panel: 'source' | 'target', path: string) => {
+          const node = document.querySelector<HTMLElement>(
+            `.dm-panel--${panel} .dm-tree-node[data-path="${path}"]`,
+          );
+          if (!node) return false;
+          node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          await spotlight(node, 1400, ctx);
+          node.click();
+          await ctx.delay(700);
+          return true;
+        };
+
+        await clickTreePath('source', 'user_name');
+        await clickTreePath('target', 'user_name');
+
+        // 3) Replace remaps the broken userName mapping onto the selection.
+        const replaceBtn = Array.from(
+          document.querySelectorAll<HTMLElement>(`${HAR.VALIDATION_REPAIR_PANEL} button`),
+        ).find((btn) => btn.textContent?.trim() === 'Replace');
+        if (replaceBtn) {
+          await spotlight(replaceBtn, 1800, ctx);
+          await ctx.delay(500);
+          replaceBtn.click();
+          await ctx.delay(1400);
+        }
+
+        // 4) Payoff — Validation & Repair should be gone; pause on Health.
+        await ctx.delay(600);
+        if (!document.querySelector(HAR.VALIDATION_REPAIR_PANEL)) {
+          const health = document.querySelector<HTMLElement>(HAR.MAPPER_HEALTH);
+          if (health) {
+            await spotlight(health, 1800, ctx);
+            await ctx.delay(900);
+          } else {
+            const toolbar = document.querySelector<HTMLElement>(HAR.MAPPER_TOOLBAR);
+            if (toolbar) {
+              await spotlight(toolbar, 1600, ctx);
+              await ctx.delay(800);
+            }
+          }
+        }
+      },
+
+      verify: HAR.MAPPER_HEALTH,
+    },
+
+    // ── Step 6: Mapping Health Dashboard ──────────────────────────
     {
       id: 'th19-health-dashboard',
       title: 'Mapping Health Dashboard',
@@ -476,7 +610,8 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
         '- **Broken** — mappings referencing non-existent paths (clickable → opens diff)\n' +
         '- **Drift** — schema change warnings since last snapshot (clickable → opens diff)\n' +
         '- **Type mismatches** — source/target type conflicts\n\n' +
-        'Aim for high coverage, zero broken, and zero drift for reliable test results.',
+        'After applying repairs, Broken and Drift should be clear. Aim for high coverage and ' +
+        'a Healthy status for reliable test results.',
       highlight: HAR.MAPPER_HEALTH,
 
       preAction: async (ctx) => {

@@ -620,7 +620,7 @@ describe('DataSourceEditor', () => {
 
     it('closes populate modal via onCancel', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
-      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      fireEvent.click(screen.getByTitle('Fetch a live API response and map fields into data-source rows'));
       fireEvent.click(screen.getByText('Close Populate'));
       expect(screen.queryByText('Mock Append')).toBeNull();
     });

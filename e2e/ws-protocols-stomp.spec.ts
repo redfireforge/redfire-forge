@@ -7,7 +7,7 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio } from './ws-helpers';
+import { gotoWsStudio, selectWsCustomSelect } from './ws-helpers';
 
 const STOMP_URL = 'ws://localhost:15674/ws';
 const RABBITMQ_HEALTH = 'http://localhost:15672/api/overview';
@@ -42,7 +42,7 @@ async function switchLeftTab(page: Page, tab: string) {
 
 async function connectToStomp(page: Page) {
   await switchLeftTab(page, 'connect');
-  await page.locator('[data-testid="protocol-select"]').selectOption('stomp');
+  await selectWsCustomSelect(page, 'protocol-select', { value: 'stomp', label: 'STOMP' });
   await page.waitForTimeout(200);
 
   const urlInput = page.locator('[aria-label="WebSocket URL"]');
@@ -61,7 +61,7 @@ async function sendStompConnect(page: Page) {
   await expect(page.locator('[data-testid="stomp-compose-fields"]')).toBeVisible({ timeout: 3000 });
 
   // Select CONNECT command
-  await page.locator('[data-testid="stomp-command"]').selectOption('CONNECT');
+  await selectWsCustomSelect(page, 'stomp-command', { value: 'CONNECT', label: 'CONNECT' });
   await page.waitForTimeout(200);
 
   // Set host (vhost) to /
@@ -134,7 +134,7 @@ test.describe('STOMP Live (WP-08–11)', () => {
 
     // SUBSCRIBE to the unique queue
     await switchLeftTab(page, 'send');
-    await page.locator('[data-testid="stomp-command"]').selectOption('SUBSCRIBE');
+    await selectWsCustomSelect(page, 'stomp-command', { value: 'SUBSCRIBE', label: 'SUBSCRIBE' });
     await page.waitForTimeout(200);
     await page.locator('[data-testid="stomp-destination"]').fill(queueName);
     await page.locator('[data-testid="send-btn"]').click();
@@ -146,7 +146,7 @@ test.describe('STOMP Live (WP-08–11)', () => {
     expect(subscribeSent).toBe(true);
 
     // SEND a message to the same queue
-    await page.locator('[data-testid="stomp-command"]').selectOption('SEND');
+    await selectWsCustomSelect(page, 'stomp-command', { value: 'SEND', label: 'SEND' });
     await page.waitForTimeout(200);
     await page.locator('[data-testid="stomp-destination"]').fill(queueName);
     await page.locator('[aria-label="Message input"]').fill('Hello STOMP');
@@ -184,36 +184,38 @@ test.describe('STOMP Live (WP-08–11)', () => {
     // Command select should be visible with default value SEND
     const commandSelect = page.locator('[data-testid="stomp-command"]');
     await expect(commandSelect).toBeVisible();
+    await expect(commandSelect.locator('.cs-trigger')).toContainText('SEND');
 
-    // Verify all expected command options exist
-    const options = commandSelect.locator('option');
-    const optionTexts = await options.allTextContents();
-    expect(optionTexts).toContain('SEND');
-    expect(optionTexts).toContain('SUBSCRIBE');
-    expect(optionTexts).toContain('UNSUBSCRIBE');
-    expect(optionTexts).toContain('CONNECT');
-    expect(optionTexts).toContain('DISCONNECT');
-    expect(optionTexts).toContain('ACK');
-    expect(optionTexts).toContain('NACK');
+    // Verify all expected command options exist (CustomSelect menu)
+    await commandSelect.locator('.cs-trigger').click();
+    const optionTexts = await page.locator('.cs-menu .cs-item').allTextContents();
+    await page.keyboard.press('Escape');
+    expect(optionTexts.some((t) => t.includes('SEND'))).toBeTruthy();
+    expect(optionTexts.some((t) => t.includes('SUBSCRIBE'))).toBeTruthy();
+    expect(optionTexts.some((t) => t.includes('UNSUBSCRIBE'))).toBeTruthy();
+    expect(optionTexts.some((t) => t.includes('CONNECT'))).toBeTruthy();
+    expect(optionTexts.some((t) => t.includes('DISCONNECT'))).toBeTruthy();
+    expect(optionTexts.some((t) => t.includes('ACK'))).toBeTruthy();
+    expect(optionTexts.some((t) => t.includes('NACK'))).toBeTruthy();
 
     // Destination input should be visible
     const destInput = page.locator('[data-testid="stomp-destination"]');
     await expect(destInput).toBeVisible();
 
     // Switch to CONNECT — placeholder should change to Host
-    await commandSelect.selectOption('CONNECT');
+    await selectWsCustomSelect(page, 'stomp-command', { value: 'CONNECT', label: 'CONNECT' });
     await page.waitForTimeout(200);
     const connectPlaceholder = await destInput.getAttribute('placeholder');
     expect(connectPlaceholder?.toLowerCase()).toContain('host');
 
     // Switch to UNSUBSCRIBE — placeholder should change to ID
-    await commandSelect.selectOption('UNSUBSCRIBE');
+    await selectWsCustomSelect(page, 'stomp-command', { value: 'UNSUBSCRIBE', label: 'UNSUBSCRIBE' });
     await page.waitForTimeout(200);
     const unsubPlaceholder = await destInput.getAttribute('placeholder');
     expect(unsubPlaceholder?.toLowerCase()).toContain('id');
 
     // Switch to SEND — placeholder should change to Destination
-    await commandSelect.selectOption('SEND');
+    await selectWsCustomSelect(page, 'stomp-command', { value: 'SEND', label: 'SEND' });
     await page.waitForTimeout(200);
     const sendPlaceholder = await destInput.getAttribute('placeholder');
     expect(sendPlaceholder?.toLowerCase()).toContain('destination');

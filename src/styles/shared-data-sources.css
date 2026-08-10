@@ -992,6 +992,13 @@
   padding: 0 18px 10px 32px;
 }
 
+.shared-ds-used-by-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.75;
+  font-style: italic;
+}
+
 .shared-ds-used-by-ref {
   font-size: 11px;
   padding: 3px 10px;

@@ -71,9 +71,11 @@ test.describe('Part A — Workflow Designer WS Nodes', () => {
     const configPanel = page.locator('[data-testid="ws-connect-config"]');
     await expect(configPanel).toBeVisible({ timeout: 5000 });
 
-    // Verify key fields exist
-    await expect(page.getByLabel('URL', { exact: true }).or(page.locator('label:has-text("URL")')).first()).toBeVisible();
-    await expect(page.getByLabel('Connection ID').or(page.locator('label:has-text("Connection ID")')).first()).toBeVisible();
+    // Verify key fields exist using stable row text/placeholders (labels are div-based in current UI)
+    await expect(configPanel.getByText('URL', { exact: true })).toBeVisible();
+    await expect(configPanel.locator('input[placeholder="wss://example.com/ws"]')).toBeVisible();
+    await expect(configPanel.getByText('Connection ID', { exact: true })).toBeVisible();
+    await expect(configPanel.locator('input[placeholder="ws1"]')).toBeVisible();
   });
 
   test('WR-06: WS Send config dialog', async ({ page }) => {
@@ -85,8 +87,9 @@ test.describe('Part A — Workflow Designer WS Nodes', () => {
     await expect(configPanel).toBeVisible({ timeout: 5000 });
 
     // Verify key fields
-    await expect(page.locator('label:has-text("Connection ID"), label:has-text("Connection Ref")').first()).toBeVisible();
-    await expect(page.locator('label:has-text("Message")').first()).toBeVisible();
+    await expect(configPanel.getByText('Connection ID', { exact: true })).toBeVisible();
+    await expect(configPanel.getByText('Message', { exact: true })).toBeVisible();
+    await expect(configPanel.locator('textarea[aria-label="Message"]')).toBeVisible();
   });
 
   test('WR-08: WS Receive config dialog with match criteria', async ({ page }) => {
@@ -110,7 +113,9 @@ test.describe('Part A — Workflow Designer WS Nodes', () => {
     await expect(configPanel).toBeVisible({ timeout: 5000 });
 
     // Should show URL, Connection ID, Match Criteria
-    await expect(page.locator('label:has-text("URL")').first()).toBeVisible();
+    await expect(configPanel.getByText('URL', { exact: true })).toBeVisible();
+    await expect(configPanel.getByText('Connection ID', { exact: true })).toBeVisible();
+    await expect(configPanel.getByText('Match Criteria', { exact: true })).toBeVisible();
   });
 });
 
