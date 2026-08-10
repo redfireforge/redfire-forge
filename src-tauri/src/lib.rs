@@ -76,6 +76,8 @@ pub fn run() {
 
   #[allow(unused_mut)] // `mut` is required when the `mcp-bridge` feature is enabled
   let mut builder = tauri::Builder::default()
+    .plugin(tauri_plugin_updater::Builder::new().build())
+    .plugin(tauri_plugin_process::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_dialog::init())
