@@ -52,7 +52,7 @@ const conDraft: KafkaConsumeDraft = {
 };
 
 beforeEach(() => {
-  resetAllMocks();
+  vi.clearAllMocks();
   mockLoadPub.mockResolvedValue([]);
   mockSavePub.mockResolvedValue(undefined);
   mockLoadCon.mockResolvedValue([]);
@@ -464,5 +464,142 @@ describe('templateError cleared on next successful operation', () => {
       await result.current.savePublishTemplate('B', pubDraft);
     });
     expect(result.current.templateError).toBeNull();
+  });
+});
+
+// ── removeTemplatesByNames + demo bridge ─────────────────────────────────
+
+describe('removeTemplatesByNames', () => {
+  it('removes matching publish and consume templates by name', async () => {
+    mockLoadPub.mockResolvedValue([
+      { id: 'p1', name: 'Orders Template', createdAt: '2026-06-05', draft: pubDraft },
+      { id: 'p2', name: 'Keep Pub', createdAt: '2026-06-05', draft: pubDraft },
+    ]);
+    mockLoadCon.mockResolvedValue([
+      { id: 'c1', name: 'Audit Consumer', createdAt: '2026-06-05', draft: conDraft },
+      { id: 'c2', name: 'Keep Con', createdAt: '2026-06-05', draft: conDraft },
+    ]);
+
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.removeTemplatesByNames(['Orders Template', 'Audit Consumer']);
+    });
+
+    expect(result.current.publishTemplates.map((t) => t.name)).toEqual(['Keep Pub']);
+    expect(result.current.consumeTemplates.map((t) => t.name)).toEqual(['Keep Con']);
+    expect(mockSavePub).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'Keep Pub' }),
+    ]);
+    expect(mockSaveCon).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'Keep Con' }),
+    ]);
+  });
+
+  it('is a no-op when names are empty or nothing matches', async () => {
+    mockLoadPub.mockResolvedValue([
+      { id: 'p1', name: 'Keep', createdAt: '2026-06-05', draft: pubDraft },
+    ]);
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.removeTemplatesByNames([]);
+      await result.current.removeTemplatesByNames(['Missing']);
+    });
+
+    expect(mockSavePub).not.toHaveBeenCalled();
+    expect(mockSaveCon).not.toHaveBeenCalled();
+    expect(result.current.publishTemplates).toHaveLength(1);
+  });
+
+  it('exposes __demoRemoveKafkaTemplatesByName bridge while mounted', async () => {
+    mockLoadCon.mockResolvedValue([
+      { id: 'c1', name: 'Audit Consumer', createdAt: '2026-06-05', draft: conDraft },
+    ]);
+    const { unmount } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => {
+      expect(typeof (window as unknown as {
+        __demoRemoveKafkaTemplatesByName?: (names: string[]) => Promise<void>;
+      }).__demoRemoveKafkaTemplatesByName).toBe('function');
+    });
+
+    await act(async () => {
+      await (window as unknown as {
+        __demoRemoveKafkaTemplatesByName: (names: string[]) => Promise<void>;
+      }).__demoRemoveKafkaTemplatesByName(['Audit Consumer']);
+    });
+
+    expect(mockSaveCon).toHaveBeenCalledWith([]);
+    unmount();
+    expect((window as unknown as {
+      __demoRemoveKafkaTemplatesByName?: unknown;
+    }).__demoRemoveKafkaTemplatesByName).toBeUndefined();
+  });
+
+  it('updates only publish templates when only publish names match', async () => {
+    mockLoadPub.mockResolvedValue([
+      { id: 'p1', name: 'Remove Pub', createdAt: '2026-06-05', draft: pubDraft },
+      { id: 'p2', name: 'Keep Pub', createdAt: '2026-06-05', draft: pubDraft },
+    ]);
+    mockLoadCon.mockResolvedValue([
+      { id: 'c1', name: 'Keep Con', createdAt: '2026-06-05', draft: conDraft },
+    ]);
+
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.removeTemplatesByNames(['Remove Pub']);
+    });
+
+    expect(result.current.publishTemplates.map((t) => t.name)).toEqual(['Keep Pub']);
+    expect(result.current.consumeTemplates.map((t) => t.name)).toEqual(['Keep Con']);
+    expect(mockSavePub).toHaveBeenCalledTimes(1);
+    expect(mockSaveCon).not.toHaveBeenCalled();
+  });
+
+  it('updates only consume templates when only consume names match', async () => {
+    mockLoadPub.mockResolvedValue([
+      { id: 'p1', name: 'Keep Pub', createdAt: '2026-06-05', draft: pubDraft },
+    ]);
+    mockLoadCon.mockResolvedValue([
+      { id: 'c1', name: 'Remove Con', createdAt: '2026-06-05', draft: conDraft },
+      { id: 'c2', name: 'Keep Con', createdAt: '2026-06-05', draft: conDraft },
+    ]);
+
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.removeTemplatesByNames(['Remove Con']);
+    });
+
+    expect(result.current.publishTemplates.map((t) => t.name)).toEqual(['Keep Pub']);
+    expect(result.current.consumeTemplates.map((t) => t.name)).toEqual(['Keep Con']);
+    expect(mockSavePub).not.toHaveBeenCalled();
+    expect(mockSaveCon).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets templateError when removeTemplatesByNames persistence fails', async () => {
+    mockLoadPub.mockResolvedValue([
+      { id: 'p1', name: 'Remove Pub', createdAt: '2026-06-05', draft: pubDraft },
+      { id: 'p2', name: 'Keep Pub', createdAt: '2026-06-05', draft: pubDraft },
+    ]);
+    mockSavePub.mockRejectedValueOnce(new Error('remove failed'));
+
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      try {
+        await result.current.removeTemplatesByNames(['Remove Pub']);
+      } catch {
+        // expected
+      }
+    });
+
+    expect(result.current.templateError).toBe('remove failed');
   });
 });
