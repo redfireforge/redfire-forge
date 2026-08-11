@@ -102,6 +102,17 @@ function canBrowseTopics(
     && connection.clusterId === selectedClusterId;
 }
 
+/** Avoid status-poll churn creating a new connection object every few seconds. */
+function connectionSnapshotsEqual(
+  a: KafkaConnectionSnapshot,
+  b: KafkaConnectionSnapshot,
+): boolean {
+  return a.state === b.state
+    && a.clusterId === b.clusterId
+    && a.connectedAt === b.connectedAt
+    && a.lastError === b.lastError;
+}
+
 export function useKafkaState(): UseKafkaStateReturn {
   const [loaded, setLoaded] = useState(false);
   const [clusters, setClusters] = useState<KafkaClusterConfig[]>([]);
@@ -142,6 +153,9 @@ export function useKafkaState(): UseKafkaStateReturn {
 
   const updateFailureStreak = useCallback((value: number) => {
     const next = Math.min(Math.max(value, 0), STATUS_POLL_MAX_FAILURE_STREAK);
+    if (statusPollFailureStreakRef.current === next) {
+      return;
+    }
     statusPollFailureStreakRef.current = next;
     setStatusPollFailureStreak(next);
   }, []);
@@ -192,38 +206,39 @@ export function useKafkaState(): UseKafkaStateReturn {
         ? envelope.data.connectedAt
         : undefined;
 
-      setConnection({
-        state,
-        clusterId: clusterIdFromServer,
-        connectedAt,
+      setConnection((prev) => {
+        const next: KafkaConnectionSnapshot = {
+          state,
+          clusterId: clusterIdFromServer,
+          connectedAt,
+        };
+        return connectionSnapshotsEqual(prev, next) ? prev : next;
       });
       setLastError(null);
       setLastErrorDetail(null);
-      const wasPaused = statusPollFailureStreakRef.current >= STATUS_POLL_MAX_FAILURE_STREAK;
       updateFailureStreak(0);
-      // Resume background polling after a paused (backend-down) streak recovers.
-      if (wasPaused) {
-        bumpRefreshNonce();
-      }
     } catch (error) {
       if (latestStatusRequestIdRef.current !== requestId) {
         return;
       }
 
       const uiError = toKafkaUiSafeError(error, 'status');
-      setConnection((prev) => ({
-        ...prev,
-        state: 'error',
-        clusterId: requestedClusterId,
-        lastError: uiError.message,
-      }));
+      setConnection((prev) => {
+        const next: KafkaConnectionSnapshot = {
+          ...prev,
+          state: 'error',
+          clusterId: requestedClusterId,
+          lastError: uiError.message,
+        };
+        return connectionSnapshotsEqual(prev, next) ? prev : next;
+      });
       setLastError(uiError.message);
       setLastErrorDetail(uiError);
       updateFailureStreak(statusPollFailureStreakRef.current + 1);
     } finally {
       statusRequestInFlightCountRef.current = Math.max(statusRequestInFlightCountRef.current - 1, 0);
     }
-  }, [selectedClusterId, updateFailureStreak, bumpRefreshNonce]);
+  }, [selectedClusterId, updateFailureStreak]);
 
   useEffect(() => {
     let cancelled = false;
@@ -343,14 +358,9 @@ export function useKafkaState(): UseKafkaStateReturn {
           return;
         }
 
-        // After repeated gateway/network failures (backend or Kafka down), stop
-        // polling. Chrome logs every failed fetch in DevTools and we cannot
-        // suppress that — silence means stop requesting. Resume when the
-        // cluster changes, connect/test succeeds, or refreshNonce bumps.
-        if (statusPollFailureStreakRef.current >= STATUS_POLL_MAX_FAILURE_STREAK) {
-          return;
-        }
-
+        // Keep probing at a capped interval so stale transient errors
+        // (for example backend restarts) recover automatically without
+        // requiring manual cluster re-selection or reconnect.
         schedulePoll(nextBackoffDelayMs(statusPollFailureStreakRef.current));
       }, delayMs);
     };
@@ -363,8 +373,15 @@ export function useKafkaState(): UseKafkaStateReturn {
     };
   }, [loaded, selectedClusterId, refreshNonce, clearPollTimer, refreshConnectionStatus]);
 
+  const connectionState = connection.state;
+  const connectionClusterId = connection.clusterId;
+
   const refreshTopics = useCallback(async () => {
-    if (!canBrowseTopics(loaded, selectedClusterId, connection)) {
+    const snapshot: KafkaConnectionSnapshot = {
+      state: connectionState,
+      clusterId: connectionClusterId,
+    };
+    if (!canBrowseTopics(loaded, selectedClusterId, snapshot)) {
       setTopics([]);
       setTopicsError(null);
       setTopicsLoading(false);
@@ -399,10 +416,14 @@ export function useKafkaState(): UseKafkaStateReturn {
         setTopicsLoading(false);
       }
     }
-  }, [connection, includeInternalTopics, loaded, selectedClusterId]);
+  }, [connectionClusterId, connectionState, includeInternalTopics, loaded, selectedClusterId]);
 
   useEffect(() => {
-    if (!canBrowseTopics(loaded, selectedClusterId, connection)) {
+    const snapshot: KafkaConnectionSnapshot = {
+      state: connectionState,
+      clusterId: connectionClusterId,
+    };
+    if (!canBrowseTopics(loaded, selectedClusterId, snapshot)) {
       latestTopicsRequestIdRef.current += 1;
       setTopics([]);
       setTopicsError(null);
@@ -411,7 +432,16 @@ export function useKafkaState(): UseKafkaStateReturn {
     }
 
     void refreshTopics();
-  }, [connection, includeInternalTopics, loaded, refreshTopics, selectedClusterId]);
+    // Intentionally keyed on connection state/clusterId (not the whole snapshot) so
+    // status polling does not re-fetch topics every few seconds and spam 5xx in DevTools.
+  }, [
+    connectionClusterId,
+    connectionState,
+    includeInternalTopics,
+    loaded,
+    refreshTopics,
+    selectedClusterId,
+  ]);
 
   const setSelectedClusterId = useCallback((clusterId: string | null) => {
     setSelectedClusterIdState(clusterId);
@@ -449,6 +479,23 @@ export function useKafkaState(): UseKafkaStateReturn {
     setTopicsError((prev) => (connection.clusterId === clusterId ? null : prev));
     bumpRefreshNonce();
   }, [bumpRefreshNonce, connection.clusterId]);
+
+  const clearAllClusters = useCallback(() => {
+    const activeClusterId = connection.clusterId ?? selectedClusterId;
+    setClusters([]);
+    setSelectedClusterIdState(null);
+    setConnection(DEFAULT_CONNECTION_SNAPSHOT);
+    setLastError(null);
+    setLastErrorDetail(null);
+    setTopics([]);
+    setTopicsError(null);
+    bumpRefreshNonce();
+    if (activeClusterId) {
+      void dispatchKafkaOperation('disconnect', { clusterId: activeClusterId }).catch(() => {
+        /* broker may already be down during demo prep */
+      });
+    }
+  }, [bumpRefreshNonce, connection.clusterId, selectedClusterId]);
 
   const replaceClusters = useCallback((nextClusters: KafkaClusterConfig[]) => {
     setClusters(nextClusters);
@@ -605,6 +652,12 @@ export function useKafkaState(): UseKafkaStateReturn {
   // Demo-player bridge: lets lesson setup/cleanup delete clusters by ID or name.
   const removeClusterRef = useRef(removeCluster);
   removeClusterRef.current = removeCluster;
+  const clearAllClustersRef = useRef(clearAllClusters);
+  clearAllClustersRef.current = clearAllClusters;
+  const upsertClusterRef = useRef(upsertCluster);
+  upsertClusterRef.current = upsertCluster;
+  const setConnectionStateRef = useRef(setConnectionState);
+  setConnectionStateRef.current = setConnectionState;
   const clustersRef = useRef(clusters);
   clustersRef.current = clusters;
   useEffect(() => {
@@ -616,9 +669,41 @@ export function useKafkaState(): UseKafkaStateReturn {
       const cluster = clustersRef.current.find((c) => c.name === name);
       if (cluster) removeClusterRef.current(cluster.clusterId);
     };
+    w.__demoClearAllKafkaClusters = () => {
+      // Do NOT wrap in flushSync. Demo boot (`startLiveDemo` / resume) already
+      // calls flushSync right after `prepareBeforeNavigate`. Nested flushSync
+      // re-enters App mid-update and corrupts the hook queue (Rules of Hooks /
+      // "Should have a queue"). Cleared state still applies before Settings
+      // mounts because prepare runs before the subsequent navigate flushSync.
+      clearAllClustersRef.current();
+    };
+    w.__demoEnsurePlaintextKafkaCluster = () => {
+      const now = Date.now();
+      upsertClusterRef.current({
+        clusterId: 'demo-cluster',
+        name: 'Demo Cluster',
+        clientId: 'redfireforge-demo',
+        brokers: ['127.0.0.1:19092'],
+        connectionTimeoutMs: 8000,
+        requestTimeoutMs: 10000,
+        auth: { mode: 'none' },
+        tls: { enabled: false, rejectUnauthorized: true },
+        createdAt: now,
+        updatedAt: now,
+      });
+    };
+    w.__demoMarkKafkaConnected = (clusterId: string) => {
+      setConnectionStateRef.current('connected', {
+        clusterId,
+        connectedAt: new Date().toISOString(),
+      });
+    };
     return () => {
       delete w.__demoDeleteKafkaClusterById;
       delete w.__demoDeleteKafkaClusterByName;
+      delete w.__demoClearAllKafkaClusters;
+      delete w.__demoEnsurePlaintextKafkaCluster;
+      delete w.__demoMarkKafkaConnected;
     };
   }, []);
 

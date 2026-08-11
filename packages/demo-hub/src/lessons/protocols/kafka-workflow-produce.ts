@@ -21,12 +21,16 @@ import {
   pauseWfConfigSection,
   scrollWfConfigFieldIntoView,
   scrollWfConfigModalToTop,
-  selectWorkflowFromAppSidebar,
   setWfConfigDemoTiming,
   waitForWfConfigPanel,
   WF_CONFIG_DEMO_TIMING_BRISK,
 } from '../wf-demo-helpers';
-import { deleteWorkflowByName, seedNamedWorkflow } from '../../adapters';
+import {
+  deleteWorkflowByName,
+  fitWorkflowCanvasView,
+  seedNamedWorkflow,
+  selectWorkflowByName,
+} from '../../adapters';
 import { showSpotlightRing } from '../../demoRipple';
 import { WF, KAFKA } from '@shared/selectors';
 
@@ -94,21 +98,29 @@ function createKafkaProduceDemoWorkflow(): Record<string, unknown> {
 
 // ── Setup / Cleanup ────────────────────────────────────────────────
 
+/** Seed + select while Concept is still up — first Designer paint is the demo graph. */
+async function kafkaWorkflowProducePrepare(ctx: DemoActionContext): Promise<void> {
+  await seedNamedWorkflow(ctx, DEMO_WF_NAME, createKafkaProduceDemoWorkflow(), {
+    deleteDelayMs: 0,
+    insertPreDelayMs: 0,
+    insertDelayMs: 0,
+    selectAfterSeed: true,
+  });
+}
+
 async function kafkaWorkflowProduceSetup(ctx: DemoActionContext): Promise<void> {
   try { await ensureKafkaConnected(); } catch { /* server may not be running */ }
 
-  await seedNamedWorkflow(ctx, DEMO_WF_NAME, createKafkaProduceDemoWorkflow(), {
-    deleteDelayMs: 0,
-    insertPreDelayMs: 100,
-    insertDelayMs: 0,
-  });
-
-  ctx.navigateToTab('workflow');
-  await ctx.delay(450);
-
+  // initialTab already landed on workflow; keep selection quiet (no sidebar expand).
+  if ((await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME)) === 'missing') {
+    selectWorkflowByName(DEMO_WF_NAME);
+    await ctx.delay(80);
+  }
   await closeWfConsoleIfOpen(ctx);
   await closeWfConfigModalIfOpen(ctx);
   await collapseWfDemoAppSidebar(ctx);
+  fitWorkflowCanvasView({ duration: 0 });
+  await ctx.delay(60);
 }
 
 async function kafkaWorkflowProduceCleanup(ctx: DemoActionContext): Promise<void> {
@@ -122,9 +134,14 @@ async function kafkaWorkflowProduceCleanup(ctx: DemoActionContext): Promise<void
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-/** Select the "Kafka Produce Demo" workflow from the sidebar. */
-async function selectKafkaProduceDemoWorkflow(ctx: DemoActionContext): Promise<void> {
-  await selectWorkflowFromAppSidebar(ctx, DEMO_WF_NAME);
+/** Quietly land on the demo workflow — never expand the Workflows sidebar. */
+async function ensureProduceDemoWorkflowQuiet(ctx: DemoActionContext): Promise<void> {
+  const state = await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME);
+  if (state === 'missing') {
+    selectWorkflowByName(DEMO_WF_NAME);
+    await ctx.delay(80);
+  }
+  await collapseWfDemoAppSidebar(ctx);
 }
 
 /** Close the Workflow Variables (defaults) modal via Cancel when open. */
@@ -152,12 +169,12 @@ function findDefaultsVarRow(key: string): HTMLElement | null {
 async function spotlightDefaultsVarRow(
   ctx: DemoActionContext,
   key: string,
-  holdMs = 700,
+  holdMs = 1600,
 ): Promise<void> {
   const row = findDefaultsVarRow(key);
   if (!row) return;
   row.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
-  const dispose = showSpotlightRing(row);
+  const dispose = showSpotlightRing(row, { steady: true });
   try {
     await ctx.delay(holdMs);
   } finally {
@@ -174,10 +191,7 @@ async function openProduceNodeConfig(ctx: DemoActionContext): Promise<void> {
 
 /** Keep / reopen Produce config for field-tour steps (idempotent). */
 async function ensureProduceConfigOpen(ctx: DemoActionContext): Promise<void> {
-  const state = await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME);
-  if (state === 'selected') {
-    await collapseWfDemoAppSidebar(ctx);
-  }
+  await ensureProduceDemoWorkflowQuiet(ctx);
   await closeDefaultsModalIfOpen(ctx);
   await ensureWfNodeConfigModalOpen(ctx, {
     nodeSelector: KAFKA.NODE_PRODUCE,
@@ -212,12 +226,16 @@ export const kafkaWorkflowProduceLesson: DemoLesson = {
   description:
     'Add a kafkaProduce node to a workflow, define workflow Variables (topic / runId), configure cluster + topic + body templates with {{variables}}, add output bindings, and run a Quick Test.',
   estimatedMinutes: 6,
-  // No initialTab — setup navigates to workflow directly
+  initialTab: 'workflow',
+  allowedTabs: ['workflow'],
+  /** Prevent expand→collapse reflow that slides canvas nodes before Reading. */
+  collapseAppSidebarOnStart: true,
 
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
   tag: '🐳 Docker',
 
+  prepareBeforeNavigate: kafkaWorkflowProducePrepare,
   setup: kafkaWorkflowProduceSetup,
   cleanup: kafkaWorkflowProduceCleanup,
 
@@ -296,17 +314,14 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
         'You\'re in the **Workflow Designer**. The sidebar on the left lists all saved workflows. The canvas shows a workflow graph — nodes connected by edges. Kafka nodes let you produce and consume messages as part of automated test sequences.',
       // No canvas-wide reading highlight — the pulsing ring feels like flashing chrome.
       preAction: async (ctx) => {
-        await selectKafkaProduceDemoWorkflow(ctx);
+        await ensureProduceDemoWorkflowQuiet(ctx);
         await closeDefaultsModalIfOpen(ctx);
         await closeWfConfigModalIfOpen(ctx);
       },
       action: async (ctx) => {
-        const fitBtn = document.querySelector<HTMLElement>('button[title="Fit view"]');
-        if (fitBtn) {
-          fitBtn.click();
-          await ctx.delay(120);
-        }
-        await ctx.delay(300);
+        // Fit already ran quietly in setup — brief settle only (no Fit-button flash).
+        fitWorkflowCanvasView({ duration: 0 });
+        await ctx.delay(200);
       },
     },
 
@@ -357,29 +372,30 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
         await ctx.waitFor(WF.VARIABLES_BTN, 5000);
         const varsBtn = document.querySelector<HTMLElement>(WF.VARIABLES_BTN);
         if (varsBtn) {
-          const dispose = showSpotlightRing(varsBtn);
-          await ctx.delay(500);
+          const dispose = showSpotlightRing(varsBtn, { steady: true });
+          await ctx.delay(1200);
           dispose();
         }
 
         await ctx.click(WF.VARIABLES_BTN);
         await ctx.waitFor(WF.DEFAULTS_MODAL, 5000);
-        await ctx.delay(450);
+        await ctx.delay(900);
 
-        await spotlightDefaultsVarRow(ctx, 'topic', 750);
-        await ctx.delay(180);
-        await spotlightDefaultsVarRow(ctx, 'runId', 750);
-        await ctx.delay(250);
+        // Hold each variable row long enough to read key + value.
+        await spotlightDefaultsVarRow(ctx, 'topic', 1800);
+        await ctx.delay(500);
+        await spotlightDefaultsVarRow(ctx, 'runId', 1800);
+        await ctx.delay(700);
 
         // Close without saving — values are already seeded; Cancel dismisses cleanly.
         await closeDefaultsModalIfOpen(ctx);
-        await ctx.delay(250);
+        await ctx.delay(500);
 
         // Re-spotlight the toolbar badge so the viewer connects modal ↔ Variables (2).
         const badgeBtn = document.querySelector<HTMLElement>(WF.VARIABLES_BTN);
         if (badgeBtn) {
-          const dispose = showSpotlightRing(badgeBtn);
-          await ctx.delay(450);
+          const dispose = showSpotlightRing(badgeBtn, { steady: true });
+          await ctx.delay(1400);
           dispose();
         }
       },
@@ -406,50 +422,37 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
       action: async (ctx) => {
         await ctx.waitFor(WF.PAL_SEARCH, 3000);
         await ctx.fill(WF.PAL_SEARCH, 'kafka');
-        await ctx.delay(250);
+        // Let the filter settle and give the viewer time to see the match list.
+        await ctx.delay(900);
 
-        // Highlight all Kafka node cards with one combined ring.
+        // Spotlight each Kafka block one-by-one so viewers can read each card.
         const kafkaPaletteSelectors = [
           WF.PAL_KAFKA_TRIGGER,
           WF.PAL_KAFKA_PRODUCE,
           WF.PAL_KAFKA_CONSUME,
           WF.PAL_KAFKA_WAIT,
         ];
-        const nodes = kafkaPaletteSelectors
-          .map((selector) => document.querySelector<HTMLElement>(selector))
-          .filter((node): node is HTMLElement => Boolean(node));
-
-        if (nodes.length > 0) {
-          const rects = nodes.map((node) => node.getBoundingClientRect());
-          const left = Math.min(...rects.map((rect) => rect.left));
-          const top = Math.min(...rects.map((rect) => rect.top));
-          const right = Math.max(...rects.map((rect) => rect.right));
-          const bottom = Math.max(...rects.map((rect) => rect.bottom));
-
-          const groupAnchor = document.createElement('div');
-          groupAnchor.style.position = 'fixed';
-          groupAnchor.style.left = `${left}px`;
-          groupAnchor.style.top = `${top}px`;
-          groupAnchor.style.width = `${Math.max(0, right - left)}px`;
-          groupAnchor.style.height = `${Math.max(0, bottom - top)}px`;
-          groupAnchor.style.pointerEvents = 'none';
-          groupAnchor.style.opacity = '0';
-          document.body.appendChild(groupAnchor);
-
-          const disposeGroupSpotlight = showSpotlightRing(groupAnchor);
-          await ctx.delay(500);
-          disposeGroupSpotlight();
-          groupAnchor.remove();
-        } else {
-          await ctx.delay(500);
+        for (const selector of kafkaPaletteSelectors) {
+          const node = document.querySelector<HTMLElement>(selector);
+          if (!node) continue;
+          if (typeof node.scrollIntoView === 'function') {
+            node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+          const dispose = showSpotlightRing(node);
+          await ctx.delay(1500);
+          dispose();
+          await ctx.delay(250);
         }
 
-        // Scroll the first kafka node into view if possible
+        // Final hold on Produce — the node this lesson uses next.
         const produce = document.querySelector<HTMLElement>(WF.PAL_KAFKA_PRODUCE);
-        if (produce && typeof produce.scrollIntoView === 'function') {
-          produce.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (produce) {
+          const dispose = showSpotlightRing(produce);
+          await ctx.delay(1800);
+          dispose();
+        } else {
+          await ctx.delay(800);
         }
-        await ctx.delay(300);
       },
       verify: WF.PAL_KAFKA_PRODUCE,
     },

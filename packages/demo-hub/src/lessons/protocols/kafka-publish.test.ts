@@ -15,8 +15,9 @@ describe('kafka-publish lesson', () => {
     expect(kafkaPublishLesson.initialTab).toBe('kafka-message-studio');
   });
 
-  it('declares kafka-settings in allowedTabs so setup navigation does not auto-exit demo', () => {
-    expect(kafkaPublishLesson.allowedTabs).toContain('kafka-settings');
+  it('keeps the lesson on kafka-message-studio (no Settings hop during boot)', () => {
+    expect(kafkaPublishLesson.allowedTabs).toEqual(['kafka-message-studio']);
+    expect(typeof kafkaPublishLesson.prepareBeforeNavigate).toBe('function');
   });
 
   it('has concept with title, body, key terms, and SVG diagram', () => {
@@ -122,10 +123,14 @@ describe('kafka-publish lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('.cs-trigger'));
   });
 
-  it('step pub-format action clicks the format button', async () => {
+  it('step pub-format action reseeds compact JSON then clicks the format button', async () => {
     const step = kafkaPublishLesson.steps.find((s) => s.id === 'pub-format')!;
     const ctx = makeCtx();
     await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('pub-body'),
+      expect.stringContaining('orderId'),
+    );
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('pub-format-btn'));
   });
 

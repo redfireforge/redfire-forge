@@ -1,7 +1,13 @@
 /** Lesson K5: Templates — save, load, and delete Kafka form configurations */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { KAFKA } from '@shared/selectors';
-import { KAFKA_PUBLISH_TEMPLATES_KEY } from '@shared/kafka/kafkaStorage';
+import {
+  KAFKA_CONSUME_TEMPLATES_KEY,
+  KAFKA_PUBLISH_TEMPLATES_KEY,
+} from '@shared/kafka/kafkaStorage';
+import { removeKafkaTemplatesByName } from '../../adapters/kafkaStudioAdapter';
+import { showSpotlightRing } from '../../demoRipple';
+import { preparePlaintextKafkaStudio } from '../setup-helpers';
 
 /** Selector for the save name input (shown after clicking the Save button). */
 const SAVE_INPUT = '.kafka-ms-template-save-input';
@@ -18,38 +24,93 @@ const TEMPLATE_DELETE_BTN = '.kafka-ms-template-item-delete';
 /** Selector for the template controls container. */
 const TEMPLATE_CONTROLS = '.kafka-ms-template-controls';
 
-/** Selector for the template toast notification. */
-const TEMPLATE_TOAST = '[data-testid="pub-tmpl-toast"]';
+/** Names this lesson writes — must be cleared on setup/cleanup so Load ▾ stays empty. */
+const DEMO_TEMPLATE_NAMES = ['Orders Template', 'Audit Consumer'] as const;
+
+const HOLD = {
+  look: 1200,
+  afterFill: 700,
+  afterClick: 800,
+  outcome: 1600,
+  section: 1000,
+} as const;
+
+/** Steady ring + pause — no pulse flash. */
+async function spotlightHold(
+  ctx: DemoActionContext,
+  el: HTMLElement | null | undefined,
+  holdMs: number = HOLD.look,
+): Promise<void> {
+  if (!el) return;
+  el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  const remove = showSpotlightRing(el, { steady: true });
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    remove();
+  }
+}
+
+async function spotlightSel(
+  ctx: DemoActionContext,
+  sel: string,
+  holdMs: number = HOLD.look,
+): Promise<void> {
+  await spotlightHold(ctx, document.querySelector<HTMLElement>(sel), holdMs);
+}
 
 /**
- * Remove any "Orders Template" leftover from a previous run.
- * Uses localStorage directly (safe because templates also use localStorage).
+ * Strip demo template names from localStorage (publish + consume keys).
+ * Safe when Message Studio is not mounted yet (prepareBeforeNavigate).
  */
-function removeOrdersTemplate(): void {
-  try {
-    const raw = localStorage.getItem(KAFKA_PUBLISH_TEMPLATES_KEY);
-    if (raw) {
+function removeDemoTemplatesFromStorage(): void {
+  const nameSet = new Set(
+    DEMO_TEMPLATE_NAMES.map((n) => n.toLowerCase()),
+  );
+  for (const key of [KAFKA_PUBLISH_TEMPLATES_KEY, KAFKA_CONSUME_TEMPLATES_KEY]) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
       const templates = JSON.parse(raw) as Array<{ id: string; name: string }>;
-      const filtered = templates.filter((t) => t.name !== 'Orders Template');
-      localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, JSON.stringify(filtered));
+      if (!Array.isArray(templates)) continue;
+      const filtered = templates.filter(
+        (t) => !nameSet.has(String(t.name ?? '').toLowerCase()),
+      );
+      localStorage.setItem(key, JSON.stringify(filtered));
+    } catch {
+      // non-fatal
     }
-  } catch {
-    // non-fatal
   }
 }
 
 /**
- * Setup: navigate to Publish tab, clear any stale templates, and reset form
- * fields so the demo starts from a clean state.
+ * Clear demo templates from storage + React state (when studio is mounted).
+ * Storage-first so a remount after navigate loads a clean list.
+ */
+async function clearDemoKafkaTemplates(): Promise<void> {
+  removeDemoTemplatesFromStorage();
+  await removeKafkaTemplatesByName([...DEMO_TEMPLATE_NAMES]);
+}
+
+/**
+ * Setup: quiet cluster + connect (best-effort), then clear stale templates
+ * and reset form fields so the demo starts clean without a "Not connected" flash.
  */
 async function kafkaTemplatesSetup(ctx: DemoActionContext): Promise<void> {
-  removeOrdersTemplate();
+  // Best-effort: restore Demo Cluster after Quick Start cleanup / prior runs.
+  // Templates UI works offline, but Publish should not look broken mid-demo.
+  await preparePlaintextKafkaStudio();
+  ctx.navigateToTab('kafka-message-studio');
+  await ctx.delay(80);
+  // After navigate so the Message Studio bridge can drop in-memory leftovers
+  // (Restart while already on Kafka would otherwise keep "Audit Consumer" in Load ▾).
+  await clearDemoKafkaTemplates();
   await ctx.click(KAFKA.PUBLISH_TAB);
-  await ctx.delay(300);
+  await ctx.delay(200);
   await ctx.fill(KAFKA.PUB_TOPIC_INPUT, '');
-  await ctx.delay(100);
+  await ctx.delay(80);
   await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, '');
-  await ctx.delay(100);
+  await ctx.delay(80);
 }
 
 export const kafkaTemplatesLesson: DemoLesson = {
@@ -59,14 +120,20 @@ export const kafkaTemplatesLesson: DemoLesson = {
   name: 'Templates',
   description:
     'Save and load publish and consume form configurations — eliminate repetitive setup in repeated test runs.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 5,
   initialTab: 'kafka-message-studio',
-  // No Docker needed — templates work without a live broker connection.
+  allowedTabs: ['kafka-message-studio'],
+  // Templates work without Docker; connect is best-effort when the broker is up.
+  prepareBeforeNavigate: async () => {
+    // Clear before first mount so Load ▾ starts empty.
+    removeDemoTemplatesFromStorage();
+    await preparePlaintextKafkaStudio();
+  },
 
   setup: kafkaTemplatesSetup,
 
   cleanup: async () => {
-    removeOrdersTemplate();
+    await clearDemoKafkaTemplates();
   },
 
   concept: {
@@ -127,7 +194,10 @@ export const kafkaTemplatesLesson: DemoLesson = {
       highlight: TEMPLATE_CONTROLS,
       action: async (ctx) => {
         await ctx.click(KAFKA.PUBLISH_TAB);
-        await ctx.delay(800);
+        await ctx.delay(600);
+        await spotlightSel(ctx, TEMPLATE_CONTROLS, HOLD.look);
+        await spotlightSel(ctx, KAFKA.PUB_LOAD_BTN, HOLD.section);
+        await spotlightSel(ctx, KAFKA.PUB_SAVE_BTN, HOLD.section);
       },
     },
     {
@@ -137,15 +207,20 @@ export const kafkaTemplatesLesson: DemoLesson = {
         'Watch the form fill in automatically: **Topic** is set to `orders.events` and a simple JSON body is entered. These values will be captured when you save the template in the next step.',
       highlight: KAFKA.PUB_TOPIC_INPUT,
       action: async (ctx) => {
+        await spotlightSel(ctx, KAFKA.PUB_TOPIC_INPUT, HOLD.section);
         await ctx.fill(KAFKA.PUB_TOPIC_INPUT, 'orders.events');
-        await ctx.delay(400);
+        await ctx.delay(HOLD.afterFill);
+
+        await spotlightSel(ctx, KAFKA.PUB_BODY_TEXTAREA, HOLD.section);
         await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, '{"type":"test","source":"template-demo","priority":"high"}');
-        await ctx.delay(400);
-        // Click Pretty Format to auto-indent the JSON
+        await ctx.delay(HOLD.afterFill);
+
         const prettyBtn = document.querySelector<HTMLElement>('[data-testid="pub-pretty-format-badge"]');
         if (prettyBtn) {
+          await spotlightHold(ctx, prettyBtn, HOLD.section);
           prettyBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(HOLD.outcome);
+          await spotlightSel(ctx, KAFKA.PUB_BODY_TEXTAREA, HOLD.look);
         }
       },
     },
@@ -156,29 +231,23 @@ export const kafkaTemplatesLesson: DemoLesson = {
         'Click **Save** in the header — a name input slides in. The name "Orders Template" is typed and confirmed with ✓. A toast notification confirms the save, and the template is immediately available in the **Load ▾** dropdown.',
       highlight: KAFKA.PUB_SAVE_BTN,
       action: async (ctx) => {
-        const { showSpotlightRing } = await import('../../demoRipple');
-
-        // 1. Click Save to reveal the inline name input
+        await spotlightSel(ctx, KAFKA.PUB_SAVE_BTN, HOLD.look);
         await ctx.click(KAFKA.PUB_SAVE_BTN);
         await ctx.waitFor(SAVE_INPUT, 3000);
-        await ctx.delay(300);
+        await ctx.delay(HOLD.afterClick);
 
-        // 2. Fill the template name
+        await spotlightSel(ctx, SAVE_INPUT, HOLD.look);
         await ctx.fill(SAVE_INPUT, 'Orders Template');
-        await ctx.delay(400);
+        await ctx.delay(HOLD.afterFill);
 
-        // 3. Click the ✓ confirm button
+        await spotlightSel(ctx, SAVE_CONFIRM_BTN, HOLD.section);
         await ctx.click(SAVE_CONFIRM_BTN);
         await ctx.waitFor(KAFKA.PUB_SAVE_BTN, 3000);
-        await ctx.delay(300);
+        await ctx.delay(HOLD.afterClick);
 
-        // 4. Spotlight the "saved" toast
-        const toast = document.querySelector<HTMLElement>(TEMPLATE_TOAST);
-        if (toast) {
-          const rm = showSpotlightRing(toast);
-          await ctx.delay(1500);
-          rm();
-        }
+        // Payoff: template is now available under Load ▾ (do not ring the toast —
+        // it portals to document.body and only paints as a bottom-edge strip).
+        await spotlightSel(ctx, KAFKA.PUB_LOAD_BTN, HOLD.outcome);
       },
     },
     {
@@ -188,112 +257,111 @@ export const kafkaTemplatesLesson: DemoLesson = {
         'The topic field is cleared first so you can see the template restore it. Click **Load ▾** in the header — "Orders Template" appears in the dropdown. Click it to instantly refill topic and body. A toast confirms the template was loaded.',
       highlight: KAFKA.PUB_LOAD_BTN,
       action: async (ctx) => {
-        const { showSpotlightRing } = await import('../../demoRipple');
-
-        // Clear the topic so the template reload is visually obvious
+        await spotlightSel(ctx, KAFKA.PUB_TOPIC_INPUT, HOLD.section);
         await ctx.fill(KAFKA.PUB_TOPIC_INPUT, '');
-        await ctx.delay(400);
+        await ctx.delay(HOLD.afterFill);
 
-        // Open the Load dropdown
+        await spotlightSel(ctx, KAFKA.PUB_LOAD_BTN, HOLD.look);
         await ctx.click(KAFKA.PUB_LOAD_BTN);
         await ctx.waitFor(TEMPLATE_ITEM, 3000);
-        await ctx.delay(300);
+        await ctx.delay(HOLD.afterClick);
 
-        // Click the template item (closes dropdown, restores form fields)
+        await spotlightSel(ctx, TEMPLATE_ITEM, HOLD.look);
         await ctx.click(TEMPLATE_ITEM);
-        await ctx.delay(400);
+        await ctx.delay(HOLD.afterClick);
 
-        // Spotlight the "loaded" toast
-        const toast = document.querySelector<HTMLElement>(TEMPLATE_TOAST);
-        if (toast) {
-          const rm = showSpotlightRing(toast);
-          await ctx.delay(1500);
-          rm();
-        }
+        await spotlightSel(ctx, KAFKA.PUB_TOPIC_INPUT, HOLD.section);
+        await spotlightSel(ctx, KAFKA.PUB_BODY_TEXTAREA, HOLD.outcome);
       },
     },
     {
       id: 'tmpl-delete-pub',
       title: 'Delete the Template',
       description:
-        'Open **Load ▾** again — "Orders Template" is listed. Click the **×** button next to it to delete. A toast confirms the deletion and the dropdown updates to "No saved templates".',
+        'Open **Load ▾** again — "Orders Template" is listed. Click the **×** button next to it to delete. A toast confirms the deletion and the dropdown closes — Load no longer shows a template count.',
       highlight: KAFKA.PUB_LOAD_BTN,
       action: async (ctx) => {
-        const { showSpotlightRing } = await import('../../demoRipple');
-
-        // Re-open the Load dropdown
+        await spotlightSel(ctx, KAFKA.PUB_LOAD_BTN, HOLD.look);
         await ctx.click(KAFKA.PUB_LOAD_BTN);
         await ctx.waitFor(TEMPLATE_DELETE_BTN, 3000);
-        await ctx.delay(300);
+        await ctx.delay(HOLD.afterClick);
 
-        // Click the × delete button on the template item
+        await spotlightSel(ctx, TEMPLATE_ITEM, HOLD.section);
+        await spotlightSel(ctx, TEMPLATE_DELETE_BTN, HOLD.look);
         await ctx.click(TEMPLATE_DELETE_BTN);
-        await ctx.delay(600);
+        await ctx.delay(HOLD.afterClick);
 
-        // Spotlight the "deleted" toast
-        const toast = document.querySelector<HTMLElement>(TEMPLATE_TOAST);
-        if (toast) {
-          const rm = showSpotlightRing(toast);
-          await ctx.delay(1500);
-          rm();
-        }
+        // Payoff: Load ▾ is empty again after delete.
+        await spotlightSel(ctx, KAFKA.PUB_LOAD_BTN, HOLD.outcome);
+      },
+    },
+    {
+      id: 'tmpl-switch-consume',
+      title: 'Switch to the Consume Tab',
+      description:
+        'Templates work for consume too. Click the **Consume** tab — watch the sub-nav so you know where we are before we use **Save** and **Load ▾**.',
+      highlight: KAFKA.CONSUME_TAB,
+      preAction: async (ctx) => {
+        // Drop leftovers early; stay on Publish so the Consume click is visible.
+        await clearDemoKafkaTemplates();
+        await ctx.click(KAFKA.PUBLISH_TAB);
+        await ctx.delay(200);
+      },
+      action: async (ctx) => {
+        await spotlightSel(ctx, KAFKA.CONSUME_TAB, HOLD.look);
+        await ctx.click(KAFKA.CONSUME_TAB);
+        await ctx.delay(800); // tab switch — viewer relocates
+        // Hold on the active Consume tab so orientation sticks before Load/Save.
+        await spotlightSel(ctx, KAFKA.CONSUME_TAB, HOLD.outcome);
       },
     },
     {
       id: 'tmpl-consume',
       title: 'Consume Templates Work the Same',
       description:
-        'Switch to the **Consume** tab — it has identical **Save** and **Load ▾** controls. Watch as the topic is filled, then saved as "Audit Consumer". Consume templates save all fields except the consumer group ID, which is stripped on load to avoid offset conflicts.',
+        'Consume has the same **Save** and **Load ▾** controls. Watch as the topic is filled, then saved as "Audit Consumer". Consume templates save all fields except the consumer group ID, which is stripped on load to avoid offset conflicts.',
       highlight: TEMPLATE_CONTROLS,
       preAction: async (ctx) => {
+        // Drop leftover "Audit Consumer" before this step saves it again.
+        await clearDemoKafkaTemplates();
         await ctx.click(KAFKA.CONSUME_TAB);
         await ctx.delay(300);
       },
       action: async (ctx) => {
-        const { showSpotlightRing } = await import('../../demoRipple');
+        await spotlightSel(ctx, TEMPLATE_CONTROLS, HOLD.look);
 
-        // 1. Fill the consume topic
+        await spotlightSel(ctx, KAFKA.CON_TOPIC_INPUT, HOLD.section);
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, 'audit.login');
-        await ctx.delay(600);
+        await ctx.delay(HOLD.afterFill);
 
-        // 2. Spotlight Save button
         const saveBtn = document.querySelector<HTMLElement>(KAFKA.CON_SAVE_BTN);
-        if (saveBtn) {
-          const rm1 = showSpotlightRing(saveBtn);
-          await ctx.delay(800);
-          rm1();
+        if (!saveBtn) return;
 
-          // 3. Click Save
-          saveBtn.click();
-          const conSaveInput = '[data-testid="con-tmpl-save-input"]';
-          try { await ctx.waitFor(conSaveInput, 3000); } catch { /* fallback */ }
-          await ctx.delay(400);
+        await spotlightHold(ctx, saveBtn, HOLD.look);
+        saveBtn.click();
+        const conSaveInput = '[data-testid="con-tmpl-save-input"]';
+        try { await ctx.waitFor(conSaveInput, 3000); } catch { /* fallback */ }
+        await ctx.delay(HOLD.afterClick);
 
-          // 4. Fill template name
-          const nameInput = document.querySelector<HTMLInputElement>(conSaveInput);
-          if (nameInput) {
-            const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-            proto?.call(nameInput, 'Audit Consumer');
-            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-            nameInput.dispatchEvent(new Event('change', { bubbles: true }));
-            await ctx.delay(500);
+        const nameInput = document.querySelector<HTMLInputElement>(conSaveInput);
+        if (nameInput) {
+          await spotlightHold(ctx, nameInput, HOLD.look);
+          const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          proto?.call(nameInput, 'Audit Consumer');
+          nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+          nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+          await ctx.delay(HOLD.afterFill);
 
-            // 5. Click confirm
-            const confirmBtn = document.querySelector<HTMLElement>('[data-testid="con-tmpl-save-confirm"]');
-            if (confirmBtn) {
-              confirmBtn.click();
-              await ctx.delay(600);
-            }
-          }
-
-          // 6. Spotlight toast
-          const toast = document.querySelector<HTMLElement>('[data-testid="con-tmpl-toast"]');
-          if (toast) {
-            const rm2 = showSpotlightRing(toast);
-            await ctx.delay(1500);
-            rm2();
+          const confirmBtn = document.querySelector<HTMLElement>('[data-testid="con-tmpl-save-confirm"]');
+          if (confirmBtn) {
+            await spotlightHold(ctx, confirmBtn, HOLD.section);
+            confirmBtn.click();
+            await ctx.delay(HOLD.afterClick);
           }
         }
+
+        // Payoff: consume Load ▾ now has the saved template (no toast ring).
+        await spotlightSel(ctx, KAFKA.CON_LOAD_BTN, HOLD.outcome);
       },
     },
     {
@@ -305,6 +373,11 @@ export const kafkaTemplatesLesson: DemoLesson = {
       preAction: async (ctx) => {
         await ctx.click(KAFKA.PUBLISH_TAB);
         await ctx.delay(300);
+      },
+      action: async (ctx) => {
+        await spotlightSel(ctx, TEMPLATE_CONTROLS, HOLD.look);
+        await spotlightSel(ctx, KAFKA.PUB_LOAD_BTN, HOLD.section);
+        await spotlightSel(ctx, KAFKA.PUB_SAVE_BTN, HOLD.outcome);
       },
     },
   ],

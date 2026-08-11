@@ -111,6 +111,31 @@ describe('KafkaTopicExplorerPage', () => {
     expect(screen.getByTestId('topic-explorer-page')).toBeTruthy();
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
     expect(screen.getByTestId('topic-row-payments.settled')).toBeTruthy();
+    expect(screen.getByTestId('topic-list-collapse-btn')).toBeTruthy();
+    expect(screen.getByTestId('topic-detail-empty')).toBeTruthy();
+  });
+
+  it('divider button collapses and expands the topic list', () => {
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    const layout = screen.getByTestId('topic-explorer-page');
+    const btn = screen.getByTestId('topic-list-collapse-btn');
+
+    expect(layout.classList.contains('kafka-explorer-layout--collapsed')).toBe(false);
+    expect(btn.textContent).toContain('◀');
+
+    fireEvent.click(btn);
+    expect(layout.classList.contains('kafka-explorer-layout--collapsed')).toBe(true);
+    expect(btn.textContent).toContain('▶');
+    expect(btn.getAttribute('aria-label')).toBe('Expand topic list');
+
+    fireEvent.click(btn);
+    expect(layout.classList.contains('kafka-explorer-layout--collapsed')).toBe(false);
+    expect(btn.textContent).toContain('◀');
   });
 
   it('topic search filters list', () => {

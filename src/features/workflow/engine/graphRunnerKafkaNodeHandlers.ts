@@ -161,7 +161,11 @@ function buildKafkaResult(
   passed: boolean,
   kafkaResultMeta?: KafkaResultMeta,
   errorMessage?: string,
+  message?: { body?: string; headers?: Record<string, string> },
 ): RequestResult {
+  const headers = message?.headers ?? kafkaResultMeta?.headers ?? {};
+  const body = message?.body ?? '';
+  const hasHeaders = Object.keys(headers).length > 0;
   return {
     id: nextResultId(),
     scenarioId: nodeId,
@@ -170,7 +174,9 @@ function buildKafkaResult(
     method: transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME',
     httpStatus: passed ? 200 : 0,
     responseTimeMs: durationMs,
-    responseBody: '',
+    // Persist payload so Results → Response Detail can show Headers / Body.
+    responseBody: body,
+    responseHeaders: hasHeaders ? headers : undefined,
     timestamp: Date.now(),
     passed,
     validationMode: 'none',
@@ -264,7 +270,20 @@ export async function handleKafkaProduceNode(
       key: resolvedKey,
       headers: hdrEntries.length > 0 ? resolvedHeaders : undefined,
     };
-    hCtx.results.push(buildKafkaResult(nodeId, label, 'kafkaProduce', resolvedTopic, durationMs, true, kafkaResultMeta));
+    hCtx.results.push(buildKafkaResult(
+      nodeId,
+      label,
+      'kafkaProduce',
+      resolvedTopic,
+      durationMs,
+      true,
+      kafkaResultMeta,
+      undefined,
+      {
+        body: resolvedBody,
+        headers: hdrEntries.length > 0 ? resolvedHeaders : undefined,
+      },
+    ));
 
     // ── Result details ──
     hCtx.log({ prefix: '✓', text: `[${label}] Produced — ${durationMs}ms` });
@@ -443,7 +462,20 @@ export async function handleKafkaConsumeNode(
       headers: firstMsg?.headers,
       matchedMessages: messages.length,
     };
-    hCtx.results.push(buildKafkaResult(nodeId, label, 'kafkaConsume', resolvedTopic, durationMs, true, kafkaResultMeta));
+    hCtx.results.push(buildKafkaResult(
+      nodeId,
+      label,
+      'kafkaConsume',
+      resolvedTopic,
+      durationMs,
+      true,
+      kafkaResultMeta,
+      undefined,
+      {
+        body: firstMsg?.value,
+        headers: firstMsg?.headers,
+      },
+    ));
 
     // ── Result details ──
     if (messages.length === 0) {

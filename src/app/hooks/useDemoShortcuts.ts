@@ -64,9 +64,9 @@ export function useDemoShortcuts(
             });
             break;
           case 'ArrowRight':
-            // Next when done, or during reading (nextStep finishes the action
-            // then advances). Block only while Preparing / Acting / Verifying.
-            if (demoHub.stepPhase === 'done' || demoHub.stepPhase === 'reading') {
+            // Next only after the step finishes. Reading / Preparing / Acting /
+            // Verifying must complete first (skip reading via the phase badge).
+            if (demoHub.stepPhase === 'done') {
               e.preventDefault();
               demoHub.nextStep();
             }
