@@ -6,29 +6,32 @@
  * module consolidates those helpers so individual test files only contain
  * the unique test cases.
  *
- * Usage pattern (typical test file):
- * ```tsx
- * import {
- *   monacoTestState,
- *   buildMonacoMock,
- *   installSnippetMocks,
- *   makeSnippetMockImplementations,
- *   sources,
- *   baseMapping,
- *   renderModal,
- *   flushMonacoMount,
- * } from './__test-utils__/expressionEditorHarness';
+ * Usage pattern (typical test file) — see `ExpressionEditorModal.test.tsx`
+ * for a full working example:
+ *  1. Import `monacoTestState`, `makeSnippetMockImplementations`, `sources`,
+ *     `baseMapping`, `renderModal`, `flushMonacoMount` from this module.
+ *  2. Register `./utils/expressionSnippets` as mocked, with stub CRUD fns.
+ *  3. Register `@monaco-editor/react` as mocked, using a synchronous factory
+ *     that calls `mockBuildMonacoMock` (imported with a `mock`-prefixed alias
+ *     from `./monacoMockCore`, per Vitest's mock-hoisting rules for factories
+ *     that reference outside bindings).
+ *  4. Build snippet mocks via `makeSnippetMockImplementations(...)` and call
+ *     `.reset()` in `beforeEach`.
  *
- * vi.mock('@monaco-editor/react', async () => {
- *   const h = await import('./__test-utils__/expressionEditorHarness');
- *   return h.buildMonacoMock();
- * });
+ * CAUTION: do not write the literal Vitest mock-registration call (dot-mock,
+ * parens) anywhere in this file's comments — even inside a code-fenced
+ * example. Vitest's static hoisting scan can match that text inside a
+ * comment and corrupt this module's exports (properties exist on the
+ * namespace object but their values stay `undefined`). This was a confirmed,
+ * reproducible bug in this codebase; keep documentation examples using
+ * prose or a non-literal placeholder instead of the real call syntax.
  *
- * vi.mock('./utils/expressionSnippets', () => installSnippetMocks());
- *
- * const snippetMocks = makeSnippetMockImplementations();
- * beforeEach(() => snippetMocks.reset());
- * ```
+ * IMPORTANT: the `@monaco-editor/react` mock factory must reference
+ * `./monacoMockCore` (NOT this file). This file imports `ExpressionEditorModal`,
+ * which itself imports `@monaco-editor/react` — if the mock factory imported
+ * this file, loading `ExpressionEditorModal` would re-enter the still-pending
+ * mock factory and deadlock the module graph (the test run hangs indefinitely
+ * with no error).
  *
  * NB: because the harness owns module-scoped state, each test file runs in
  * its own vitest worker so state isolation across files is implicit.
@@ -37,138 +40,26 @@ import { vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { act } from '@testing-library/react';
 import type { Mock } from 'vitest';
-import ExpressionEditorModal from '../ExpressionEditorModal';
 import type { Mapping, MapperSource } from '../types';
+// Import monacoMockCore BEFORE ExpressionEditorModal so it is fully loaded
+// and cached prior to ExpressionEditorModal triggering the '@monaco-editor/react'
+// mock factory's dynamic re-import of this same module (see note above).
+import {
+  monacoTestState,
+  createFakeMonaco,
+  createFakeEditor,
+  buildMonacoMock,
+  resetMonacoTestState,
+} from './monacoMockCore';
+import ExpressionEditorModal from '../ExpressionEditorModal';
 
-// ─── Monaco fake editor / monaco ────────────────────────────────────────────
-
-export const monacoTestState: {
-  lastEditor: ReturnType<typeof createFakeEditor>['editor'] | null;
-  lastMonaco: ReturnType<typeof createFakeMonaco>['monaco'] | null;
-  lastMountOpts: { getSelectionImpl?: () => unknown } | null;
-  completionProvider: { provideCompletionItems: (model: unknown, position: unknown) => unknown } | null;
-  disposeSpies: ReturnType<typeof vi.fn>[];
-  suppressOnMount: boolean;
-} = {
-  lastEditor: null,
-  lastMonaco: null,
-  lastMountOpts: null,
-  completionProvider: null,
-  disposeSpies: [],
-  suppressOnMount: false,
+export {
+  monacoTestState,
+  createFakeMonaco,
+  createFakeEditor,
+  buildMonacoMock,
+  resetMonacoTestState,
 };
-
-export function createFakeMonaco() {
-  const monaco = {
-    languages: {
-      CompletionItemKind: { Field: 1, Function: 2 },
-      CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
-      registerCompletionItemProvider: vi.fn((_lang: string, provider: { provideCompletionItems: (model: unknown, position: unknown) => unknown }) => {
-        monacoTestState.completionProvider = provider;
-        const dispose = vi.fn();
-        monacoTestState.disposeSpies.push(dispose);
-        return { dispose };
-      }),
-    },
-    KeyMod: { CtrlCmd: 2048 },
-    KeyCode: { Enter: 3, Escape: 9 },
-  };
-  return { monaco };
-}
-
-/* v8 ignore start */
-export function createFakeEditor(
-  opts: { modelInitial?: string; getSelectionImpl?: () => unknown } = {},
-) {
-  const modelValue = { current: opts.modelInitial ?? '' };
-  const model = {
-    getValue: () => modelValue.current,
-    setValue: (v: string) => { modelValue.current = v; },
-    getValueInRange: () => '',
-  };
-  const commands = new Map<number, () => void>();
-  const defaultRange = () => ({
-    startLineNumber: 1,
-    startColumn: 1,
-    endLineNumber: 1,
-    endColumn: 1,
-  });
-  const editor = {
-    getModel: () => model,
-    getSelection: () => {
-      if (opts.getSelectionImpl) return opts.getSelectionImpl();
-      return defaultRange();
-    },
-    executeEdits: vi.fn(),
-    focus: vi.fn(),
-    trigger: vi.fn(),
-    addCommand: vi.fn((keybinding: number, handler: () => void) => {
-      commands.set(keybinding, handler);
-    }),
-    __runCommand: (keybinding: number) => {
-      commands.get(keybinding)?.();
-    },
-  };
-  return { editor, model };
-}
-/* v8 ignore stop */
-
-/**
- * Async factory body for `vi.mock('@monaco-editor/react', …)`. Returns a
- * module-shaped object containing the mocked default export (`MockEditor`).
- *
- * The MockEditor renders a `<textarea data-testid="monaco-editor">` and, on
- * mount, builds a fake editor + monaco pair via `createFakeEditor` /
- * `createFakeMonaco`, records them on `monacoTestState`, and invokes the
- * caller-supplied `onMount` callback.
- */
-export async function buildMonacoMock() {
-  const React = await import('react');
-  const { useEffect, useRef } = React;
-
-  function MockEditor({
-    value,
-    onChange,
-    onMount,
-  }: {
-    value: string;
-    onChange: (v: string | undefined) => void;
-    onMount?: (
-      editor: ReturnType<typeof createFakeEditor>['editor'],
-      monaco: ReturnType<typeof createFakeMonaco>['monaco'],
-    ) => void;
-  }) {
-    const mountedRef = useRef(false);
-
-    useEffect(() => {
-      /* v8 ignore next */
-      if (monacoTestState.suppressOnMount) return;
-      /* v8 ignore next */
-      if (!onMount || mountedRef.current) return;
-      mountedRef.current = true;
-      const getSelectionImpl = monacoTestState.lastMountOpts?.getSelectionImpl;
-      const { editor } = createFakeEditor({
-        modelInitial: '',
-        getSelectionImpl,
-      });
-      const { monaco } = createFakeMonaco();
-      monacoTestState.lastEditor = editor;
-      monacoTestState.lastMonaco = monaco;
-      onMount(editor, monaco);
-    }, [onMount]);
-
-    return React.createElement('textarea', {
-      'data-testid': 'monaco-editor',
-      value,
-      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
-      placeholder: 'e.g. $upper($.name) or $concat($.firstName, " ", $.lastName)',
-    });
-  }
-
-  return {
-    default: MockEditor,
-  };
-}
 
 // ─── Snippet store mocks ────────────────────────────────────────────────────
 
@@ -228,16 +119,6 @@ export function makeSnippetMockImplementations(mocks: {
   }
 
   return { snippetStore, reset };
-}
-
-/** Reset all monaco test state (per-test `beforeEach`). */
-export function resetMonacoTestState() {
-  monacoTestState.lastEditor = null;
-  monacoTestState.lastMonaco = null;
-  monacoTestState.lastMountOpts = null;
-  monacoTestState.completionProvider = null;
-  monacoTestState.disposeSpies = [];
-  monacoTestState.suppressOnMount = false;
 }
 
 // ─── Render helpers ─────────────────────────────────────────────────────────
