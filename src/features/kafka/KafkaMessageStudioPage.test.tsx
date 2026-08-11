@@ -30,6 +30,7 @@ vi.mock('../../app/hooks/useKafkaTemplates', () => ({
     saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
     loadConsumeTemplate: vi.fn().mockReturnValue(null),
     deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+    removeTemplatesByNames: vi.fn().mockResolvedValue(undefined),
   }),
 }));
 
@@ -258,6 +259,7 @@ describe('KafkaMessageStudioPage', () => {
       saveConsumeTemplate: vi.fn(),
       loadConsumeTemplate: vi.fn().mockReturnValue(null),
       deleteConsumeTemplate: vi.fn(),
+      removeTemplatesByNames: vi.fn().mockResolvedValue(undefined),
     });
 
     render(
@@ -284,6 +286,7 @@ describe('KafkaMessageStudioPage', () => {
       saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
       loadConsumeTemplate: vi.fn().mockReturnValue(null),
       deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      removeTemplatesByNames: vi.fn().mockResolvedValue(undefined),
     });
 
     render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
@@ -313,6 +316,7 @@ describe('KafkaMessageStudioPage', () => {
       saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
       loadConsumeTemplate: vi.fn().mockReturnValue(null),
       deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      removeTemplatesByNames: vi.fn().mockResolvedValue(undefined),
     });
 
     render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
@@ -336,6 +340,7 @@ describe('KafkaMessageStudioPage', () => {
       saveConsumeTemplate: saveConsume,
       loadConsumeTemplate: vi.fn().mockReturnValue(null),
       deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      removeTemplatesByNames: vi.fn().mockResolvedValue(undefined),
     });
 
     const user = userEvent.setup();
@@ -368,6 +373,7 @@ describe('KafkaMessageStudioPage', () => {
       saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
       loadConsumeTemplate: loadConsume,
       deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      removeTemplatesByNames: vi.fn().mockResolvedValue(undefined),
     });
 
     const user = userEvent.setup();
@@ -433,6 +439,7 @@ describe('KafkaMessageStudioPage', () => {
       saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
       loadConsumeTemplate: vi.fn().mockReturnValue(null),
       deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      removeTemplatesByNames: vi.fn().mockResolvedValue(undefined),
     });
 
     render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
