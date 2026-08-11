@@ -200,10 +200,9 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await expect(formatSelect).toBeVisible();
 
     await formatSelect.locator('.cs-trigger').click();
-    const options = await getCustomSelectMenuLabels(page);
-    expect(options).toContain('Avro');
-    expect(options).toContain('Protobuf');
-    expect(options).toContain('JSON Schema');
+    await expectCustomSelectToContainOption(page, 'Avro');
+    await expectCustomSelectToContainOption(page, 'Protobuf');
+    await expectCustomSelectToContainOption(page, 'JSON Schema');
     await page.keyboard.press('Escape');
   });
 
