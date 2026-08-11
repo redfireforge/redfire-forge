@@ -13,6 +13,67 @@ const PROXY_RETRY_CODES = new Set([
   'UND_ERR_ABORTED', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET',
 ]);
 
+/**
+ * When localhost:3001 is down, Vite's default proxy emits empty HTTP 502s.
+ * Kafka status polls that every few seconds → DevTools "Failed to load resource"
+ * spam. Return HTTP 200 JSON instead so the browser stays quiet and the app can
+ * treat the backend as disconnected / unreachable.
+ */
+function writeSoftBackendFallback(
+  req: import('http').IncomingMessage | undefined,
+  res: import('http').ServerResponse | import('net').Socket | undefined,
+): void {
+  if (!res || !('writeHead' in res)) return;
+  const serverRes = res as import('http').ServerResponse;
+  if (serverRes.headersSent || serverRes.writableEnded) return;
+
+  const url = req?.url ?? '';
+  const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+  const timestamp = new Date().toISOString();
+
+  // Kafka connection indicator polls this continuously — soft-disconnected.
+  if (url.startsWith('/api/kafka/status')) {
+    let clusterId: string | undefined;
+    try {
+      clusterId = new URL(url, 'http://localhost').searchParams.get('clusterId') ?? undefined;
+    } catch { /* ignore malformed URL */ }
+    serverRes.writeHead(200, headers);
+    serverRes.end(JSON.stringify({
+      ok: true,
+      op: 'status',
+      data: {
+        state: 'disconnected',
+        ...(clusterId ? { clusterId } : {}),
+        subscriptionCount: 0,
+      },
+      meta: { timestamp },
+    }));
+    return;
+  }
+
+  // Demo Hub health proxies expect HTTP 200 + { status: 'ok' | 'down' }.
+  if (url.startsWith('/health/')) {
+    serverRes.writeHead(200, headers);
+    serverRes.end(JSON.stringify({ status: 'down', reason: 'backend unreachable' }));
+    return;
+  }
+
+  // Other /api calls: 200 + ok:false so clients classify as retryable failure
+  // without Chrome logging a 502 network error on every attempt.
+  const kafkaOp = url.match(/^\/api\/kafka\/([^/?]+)/)?.[1];
+  serverRes.writeHead(200, headers);
+  serverRes.end(JSON.stringify({
+    ok: false,
+    op: kafkaOp ?? 'unknown',
+    error: {
+      code: 'BACKEND_UNREACHABLE',
+      message: 'Backend server is not running on localhost:3001. Start it with npm run server:dev.',
+      retryable: true,
+    },
+    meta: { timestamp },
+  }));
+}
+
 function isProxyError(err: unknown): boolean {
   const codes = new Set<string>();
   const messages: string[] = [];
@@ -336,8 +397,8 @@ export default defineConfig({
         changeOrigin: true,
         timeout: 60000,
         configure: (proxy) => {
-          proxy.on('error', (_err, _req, res) => {
-            if (res && 'writeHead' in res) { (res as import('http').ServerResponse).writeHead(502); (res as import('http').ServerResponse).end(); }
+          proxy.on('error', (_err, req, res) => {
+            writeSoftBackendFallback(req, res);
           });
         },
       },
@@ -346,8 +407,8 @@ export default defineConfig({
         changeOrigin: true,
         timeout: 5000,
         configure: (proxy) => {
-          proxy.on('error', (_err, _req, res) => {
-            if (res && 'writeHead' in res) { (res as import('http').ServerResponse).writeHead(502); (res as import('http').ServerResponse).end(); }
+          proxy.on('error', (_err, req, res) => {
+            writeSoftBackendFallback(req, res);
           });
         },
       },

@@ -144,6 +144,11 @@ export type DemoBridgeWindow = Window &
     __demoEnsurePlaintextKafkaCluster?: () => void;
     /** Sync React connection snapshot after a quiet API connect (avoids Settings UI tour). */
     __demoMarkKafkaConnected?: (clusterId: string) => void;
+    /**
+     * Remove Kafka publish/consume templates by name (quiet demo setup/cleanup).
+     * Updates React state when Message Studio is mounted; no-op otherwise.
+     */
+    __demoRemoveKafkaTemplatesByName?: (names: string[]) => Promise<void>;
     /** Clear all WebSocket Saved connection profiles (quiet demo setup). */
     __demoClearWsProfiles?: () => Promise<void>;
     /** Clear all WebSocket message templates (quiet demo setup). */
