@@ -273,6 +273,38 @@ describe('ResponseDetailModal', () => {
       expect(screen.getByText('order-123')).toBeInTheDocument();
     });
 
+    it('shows Message Headers and Message Body for produce results', () => {
+      const withPayload = makeResult({
+        ...kafkaResult,
+        responseBody: '{"orderId":"123"}',
+        responseHeaders: { 'X-Trace': 'abc' },
+      });
+      render(<ResponseDetailModal result={withPayload} onClose={vi.fn()} />);
+      expect(screen.getByText('Message Headers')).toBeInTheDocument();
+      expect(screen.getByText('X-Trace')).toBeInTheDocument();
+      expect(screen.getByText('abc')).toBeInTheDocument();
+      expect(screen.getByText('Message Body')).toBeInTheDocument();
+    });
+
+    it('falls back to kafkaResultMeta.headers when responseHeaders is absent', () => {
+      const legacy = makeResult({
+        transportType: 'kafkaProduce',
+        method: 'PRODUCE',
+        httpStatus: 200,
+        passed: true,
+        kafkaResultMeta: {
+          topic: 'orders',
+          partition: 0,
+          offset: 1,
+          headers: { 'content-type': 'application/json' },
+        },
+      });
+      render(<ResponseDetailModal result={legacy} onClose={vi.fn()} />);
+      expect(screen.getByText('Message Headers')).toBeInTheDocument();
+      expect(screen.getByText('content-type')).toBeInTheDocument();
+      expect(screen.getByText('application/json')).toBeInTheDocument();
+    });
+
     it('does not show Kafka Details when kafkaResultMeta is absent', () => {
       const noMeta = makeResult({
         transportType: 'kafkaProduce',

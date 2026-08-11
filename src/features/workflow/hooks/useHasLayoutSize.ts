@@ -1,11 +1,34 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
 
+/** True when the element is considered visible for layout (matches RF checkVisibility). */
+function elementIsLayoutVisible(el: HTMLElement): boolean {
+  if (typeof el.checkVisibility === 'function') {
+    try {
+      return el.checkVisibility({ checkOpacity: false, checkVisibilityCSS: true });
+    } catch {
+      /* older browsers / incomplete options — fall through */
+    }
+  }
+  let cur: HTMLElement | null = el;
+  while (cur) {
+    const style = getComputedStyle(cur);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    cur = cur.parentElement;
+  }
+  return true;
+}
+
 /** True when the element has a non-zero layout box (width and height). */
 export function elementHasLayoutSize(el: HTMLElement): boolean {
   // Keep-mounted Workflow Designer parks under `[hidden]` while other tabs are
   // active. React Flow still measures during that park and logs error #004 if
   // we mount it — treat hidden ancestors as no layout.
   if (el.closest('[hidden]')) return false;
+  // Maximized console parks `.wf-body` with visibility:hidden (still non-zero
+  // getBoundingClientRect). Unmount RF instead of letting it measure a dead box.
+  if (!elementIsLayoutVisible(el)) return false;
+  // RF uses offsetWidth/offsetHeight — prefer the same signal as the library.
+  if (el.offsetWidth <= 0 || el.offsetHeight <= 0) return false;
   const rect = el.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
 }
@@ -38,8 +61,32 @@ export function useHasLayoutSize(
     const el = ref.current;
     if (!el) return;
 
+    // Keep RAF ids in the effect closure — do not add hooks here (HMR-safe).
+    let confirmRaf = 0;
+    const clearConfirm = () => {
+      if (confirmRaf) {
+        cancelAnimationFrame(confirmRaf);
+        confirmRaf = 0;
+      }
+    };
+
     const update = () => {
-      setHasSize(elementHasLayoutSize(el));
+      const ok = elementHasLayoutSize(el);
+      if (!ok) {
+        // Collapse immediately so RF unmounts before it can log #004.
+        clearConfirm();
+        setHasSize(false);
+        return;
+      }
+      // Tab unhide / flex reflow can report a transient non-zero box for one
+      // frame before collapsing — confirm on the next paint before mounting RF.
+      clearConfirm();
+      confirmRaf = requestAnimationFrame(() => {
+        confirmRaf = requestAnimationFrame(() => {
+          confirmRaf = 0;
+          setHasSize(elementHasLayoutSize(el));
+        });
+      });
     };
 
     update();
@@ -54,18 +101,30 @@ export function useHasLayoutSize(
       cleanups.push(() => ro.disconnect());
     }
 
-    // Parent `[hidden]` toggles (Workflow Designer keep-mount) do not always
-    // resize the canvas — watch the attribute so we unmount React Flow promptly.
+    // Parent `[hidden]` toggles (Workflow Designer keep-mount) and console
+    // maximize class changes do not always resize the canvas — watch both.
     const mount = el.closest('.workflow-designer-mount') ?? el.parentElement;
-    if (mount && typeof MutationObserver !== 'undefined') {
+    const designer = el.closest('.wf-designer');
+    if (typeof MutationObserver !== 'undefined') {
       const mo = new MutationObserver(() => {
         update();
       });
-      mo.observe(mount, { attributes: true, attributeFilter: ['hidden'] });
+      if (mount) {
+        mo.observe(mount, { attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+      }
+      if (designer && designer !== mount) {
+        mo.observe(designer, { attributes: true, attributeFilter: ['class', 'style'] });
+      }
+      // Console maximize toggles a class on the panel (sibling under .wf-designer).
+      const consolePanel = designer?.querySelector('.wf-console-panel');
+      if (consolePanel) {
+        mo.observe(consolePanel, { attributes: true, attributeFilter: ['class'] });
+      }
       cleanups.push(() => mo.disconnect());
     }
 
     return () => {
+      clearConfirm();
       for (const cleanup of cleanups) cleanup();
     };
   }, [ref, skipTracking]);

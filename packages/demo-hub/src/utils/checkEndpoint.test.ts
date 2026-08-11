@@ -108,7 +108,10 @@ describe('checkEndpoint', () => {
 
   it('uses Express Spring health proxy for actuator checks when available', async () => {
     const spy = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
 
     const promise = checkEndpoint('http://localhost:8081/actuator/health');
     await vi.advanceTimersByTimeAsync(100);
@@ -116,7 +119,21 @@ describe('checkEndpoint', () => {
     expect(spy).toHaveBeenCalledWith('/health/spring', expect.any(Object));
   });
 
-  it('treats Express /health/spring HTTP 503 as Spring down (not no-cors false-positive)', async () => {
+  it('treats Express /health/spring status:down as Spring down (not no-cors false-positive)', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'down' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    const promise = checkEndpoint('http://localhost:8081/actuator/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(false);
+    expect(spy).toHaveBeenCalledWith('/health/spring', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://localhost:8081/actuator/health', expect.any(Object));
+  });
+
+  it('treats legacy Express /health/spring HTTP 503 as Spring down', async () => {
     const spy = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'down' }), { status: 503 }));
 
@@ -124,7 +141,38 @@ describe('checkEndpoint', () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(await promise).toBe(false);
     expect(spy).toHaveBeenCalledWith('/health/spring', expect.any(Object));
-    expect(spy).not.toHaveBeenCalledWith('http://localhost:8081/actuator/health', expect.any(Object));
+  });
+
+  it('routes Schema Registry probes through Express /health/schema-registry', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    const promise = checkEndpoint('http://localhost:8085');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith(
+      '/health/schema-registry?url=http%3A%2F%2Flocalhost%3A8085',
+      expect.any(Object),
+    );
+  });
+
+  it('treats Schema Registry proxy status:down as unreachable without relying on HTTP 503', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'down' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    const promise = checkEndpoint('http://localhost:8085');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(false);
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('/health/schema-registry'),
+      expect.any(Object),
+    );
   });
 
   it('routes Envoy :50055 probes through Express /health/envoy (avoids browser 415 noise)', async () => {

@@ -12,6 +12,7 @@ import {
 import type { SubWorkflowNodeData, Workflow } from '../types/workflow';
 import type { WorkflowDesignerViewModel } from '../hooks/useWorkflowDesignerController';
 import { useHasLayoutSize } from '../hooks/useHasLayoutSize';
+import { reactFlowOnError } from '../utils/reactFlowOnError';
 import { nodeTypes, type WorkflowRFNode, type WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { WorkflowNodeRunContext, WorkflowDebugStepContext } from './panels/WorkflowNodeRunContext';
 import { PublishedCatalogContext } from '../contexts/PublishedCatalogContext';
@@ -112,17 +113,19 @@ export function WorkflowDesignerFlowCanvas({
   }, [catalogEntries]);
 
   const { getViewport, setViewport, fitView } = useReactFlow();
-  // Skip React Flow while the canvas box is 0×0 (hidden tab / maximized console).
-  const canvasHasSize = useHasLayoutSize(canvasAreaRef);
-
-  // Track the last known viewport so we can restore it when the tab becomes visible again.
+  // All refs must stay above effects and remain unconditional (Rules of Hooks).
+  // Gate on the absolute RF host — same box RF measures (offsetWidth/Height).
+  const reactFlowHostRef = useRef<HTMLDivElement>(null);
   const lastViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const visibilityRef = useRef(true);
+  const prevWorkflowIdRef = useRef<string | null>(null);
+  const wasSizedRef = useRef(false);
+  const canvasHasSize = useHasLayoutSize(reactFlowHostRef);
 
   // Detect when the canvas becomes hidden/visible (parent has hidden attribute).
   // Save viewport before hiding, restore it when shown again.
-  const visibilityRef = useRef(true);
   useEffect(() => {
     const container = canvasAreaRef.current;
     if (!container) return;
@@ -151,7 +154,6 @@ export function WorkflowDesignerFlowCanvas({
   // or fit view for workflows without a saved viewport.
   // onInit handles the initial mount; this handles subsequent workflow switches.
   // Uses setTimeout to let ReactFlow finish measuring node dimensions first.
-  const prevWorkflowIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!canvasHasSize) return;
     if (previewWorkflow) return;
@@ -172,7 +174,6 @@ export function WorkflowDesignerFlowCanvas({
   }, [selected, previewWorkflow, setViewport, fitView, canvasHasSize]);
 
   // After the canvas regains size (tab shown / console un-maximized), fit again.
-  const wasSizedRef = useRef(canvasHasSize);
   useEffect(() => {
     if (canvasHasSize && !wasSizedRef.current && !previewWorkflow) {
       setTimeout(() => {
@@ -315,7 +316,7 @@ export function WorkflowDesignerFlowCanvas({
         </div>
       )}
       {/* Absolute host gives RF a definite 100% box (RF forces position:relative). */}
-      <div className="wf-react-flow-host">
+      <div className="wf-react-flow-host" ref={reactFlowHostRef}>
       {canvasHasSize && (
       <PublishedCatalogContext.Provider value={publishedCatalogKeys}>
       <WorkflowNodeRunContext.Provider value={nodeStatuses}>
@@ -335,6 +336,7 @@ export function WorkflowDesignerFlowCanvas({
           onPaneClick={handlePaneClick}
           nodeTypes={nodeTypes}
           onInit={handleReactFlowInit}
+          onError={reactFlowOnError}
           connectionMode={ConnectionMode.Loose}
           connectionRadius={40}
           deleteKeyCode={['Backspace', 'Delete']}

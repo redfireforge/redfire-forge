@@ -2,6 +2,7 @@
 import type { DemoLesson } from '../../types';
 import { KAFKA } from '@shared/selectors';
 import { APP } from '@shared/selectors/app';
+import { clearAllKafkaClusters } from '../../adapters/kafkaStudioAdapter';
 import { kafkaQuickStartSetup, kafkaQuickStartCleanup } from '../setup-helpers';
 import { showSpotlightRing } from '../../demoRipple';
 
@@ -24,6 +25,12 @@ export const kafkaQuickStartLesson: DemoLesson = {
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
   tag: '🐳 Docker',
+
+  // Clear clusters before Settings → Kafka mounts so Start never paints
+  // leftover cards / Edit→Delete confirmations under Preparing.
+  prepareBeforeNavigate: async () => {
+    clearAllKafkaClusters();
+  },
 
   setup: kafkaQuickStartSetup,
   cleanup: kafkaQuickStartCleanup,

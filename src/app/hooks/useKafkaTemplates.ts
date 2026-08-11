@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import {
   loadKafkaConsumeTemplates,
@@ -32,6 +32,12 @@ export interface UseKafkaTemplatesReturn {
    */
   loadConsumeTemplate: (id: string) => Omit<KafkaConsumeDraft, 'groupId'> | null;
   deleteConsumeTemplate: (id: string) => Promise<void>;
+
+  /**
+   * Remove publish/consume templates whose names match (case-insensitive).
+   * Used by demo lesson setup/cleanup so Restart does not leave stale Load ▾ entries.
+   */
+  removeTemplatesByNames: (names: string[]) => Promise<void>;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────
@@ -186,6 +192,53 @@ export function useKafkaTemplates(): UseKafkaTemplatesReturn {
     [consumeTemplates],
   );
 
+  const removeTemplatesByNames = useCallback(
+    async (names: string[]) => {
+      const nameSet = new Set(
+        names.map((n) => n.trim().toLowerCase()).filter(Boolean),
+      );
+      if (nameSet.size === 0) return;
+
+      const nextPub = publishTemplates.filter(
+        (t) => !nameSet.has(t.name.toLowerCase()),
+      );
+      const nextCon = consumeTemplates.filter(
+        (t) => !nameSet.has(t.name.toLowerCase()),
+      );
+      const pubChanged = nextPub.length !== publishTemplates.length;
+      const conChanged = nextCon.length !== consumeTemplates.length;
+      if (!pubChanged && !conChanged) return;
+
+      try {
+        setTemplateError(null);
+        await Promise.all([
+          pubChanged ? saveKafkaPublishTemplates(nextPub) : Promise.resolve(),
+          conChanged ? saveKafkaConsumeTemplates(nextCon) : Promise.resolve(),
+        ]);
+        if (pubChanged) setPublishTemplates(nextPub);
+        if (conChanged) setConsumeTemplates(nextCon);
+      } catch (err) {
+        setTemplateError(err instanceof Error ? err.message : String(err));
+        throw err;
+      }
+    },
+    [publishTemplates, consumeTemplates],
+  );
+
+  // Demo-player bridge: clear stale lesson templates without a UI tour.
+  const removeTemplatesByNamesRef = useRef(removeTemplatesByNames);
+  removeTemplatesByNamesRef.current = removeTemplatesByNames;
+  useEffect(() => {
+    const w = window as unknown as {
+      __demoRemoveKafkaTemplatesByName?: (names: string[]) => Promise<void>;
+    };
+    w.__demoRemoveKafkaTemplatesByName = (names) =>
+      removeTemplatesByNamesRef.current(names);
+    return () => {
+      delete w.__demoRemoveKafkaTemplatesByName;
+    };
+  }, []);
+
   return {
     publishTemplates,
     consumeTemplates,
@@ -197,5 +250,6 @@ export function useKafkaTemplates(): UseKafkaTemplatesReturn {
     saveConsumeTemplate,
     loadConsumeTemplate,
     deleteConsumeTemplate,
+    removeTemplatesByNames,
   };
 }

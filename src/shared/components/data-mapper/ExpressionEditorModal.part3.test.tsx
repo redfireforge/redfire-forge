@@ -15,8 +15,11 @@ vi.mock('./utils/expressionSnippets', () => ({
   deleteExpressionSnippet: vi.fn(),
 }));
 
+// Dynamic import avoids referencing a top-level binding inside the factory
+// (Vitest hoists `vi.mock` above all top-level imports, so referencing an
+// imported identifier directly throws a TDZ ReferenceError).
 vi.mock('@monaco-editor/react', async () => {
-  const h = await import('./__test-utils__/expressionEditorHarness');
+  const h = await import('./__test-utils__/monacoMockCore');
   return h.buildMonacoMock();
 });
 
