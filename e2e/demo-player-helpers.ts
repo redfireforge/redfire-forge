@@ -303,7 +303,6 @@ export async function runNextStep(
   actionTimeoutMs = STEP_TIMEOUT,
 ): Promise<void> {
   const panelSel = '[data-testid="demo-live-panel"]';
-  const counterSel = '.demo-live-step-counter';
   const nextBtn = page.locator('[aria-label="Next step"]');
   let phase = await page.locator(panelSel).getAttribute('data-step-phase');
   if (phase === 'done') {
@@ -312,25 +311,7 @@ export async function runNextStep(
     return;
   }
 
-  if (phase === 'reading') {
-    const beforeCounter = (await page.locator(counterSel).textContent().catch(() => null))?.trim() ?? '';
-    if (await nextBtn.isEnabled().catch(() => false)) {
-      await nextBtn.click();
-      const advanced = await page.waitForFunction(
-        ({ sel, before }) => {
-          const el = document.querySelector(sel);
-          return !!el && (el.textContent ?? '').trim() !== before;
-        },
-        { sel: counterSel, before: beforeCounter },
-        { timeout: actionTimeoutMs },
-      ).then(() => true).catch(() => false);
-      if (advanced) {
-        await waitForReadingPhase(page, actionTimeoutMs);
-        return;
-      }
-    }
-  }
-
+  // Next is disabled during reading — always complete the step action first.
   if (phase !== 'reading') {
     await waitForReadingPhase(page, actionTimeoutMs);
     phase = await page.locator(panelSel).getAttribute('data-step-phase');

@@ -1,6 +1,6 @@
 /** Lesson K2: Publish Studio — send a Kafka message and inspect partition + offset */
 import type { DemoLesson } from '../../types';
-import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
+import { kafkaPublishSetup, kafkaCleanup, preparePlaintextKafkaStudio } from '../setup-helpers';
 import { KAFKA } from '@shared/selectors';
 
 /** Sample message body used throughout the lesson. */
@@ -19,14 +19,18 @@ export const kafkaPublishLesson: DemoLesson = {
     'Send a Kafka message and immediately see the partition, offset, and timestamp in the success panel.',
   estimatedMinutes: 5,
   initialTab: 'kafka-message-studio',
-  // Setup navigates to kafka-settings to auto-create + connect the cluster —
-  // declare it as allowed so useDemoShortcuts does not auto-exit during setup.
-  allowedTabs: ['kafka-settings'],
+  allowedTabs: ['kafka-message-studio'],
 
   // Requires the plaintext Kafka broker (Redpanda Console health endpoint).
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
   tag: '🐳 Docker',
+
+  // Seed + connect BEFORE Message Studio mounts so Start never paints
+  // Settings → Create Cluster → Connect under Preparing.
+  prepareBeforeNavigate: async () => {
+    await preparePlaintextKafkaStudio();
+  },
 
   setup: kafkaPublishSetup,
   cleanup: kafkaCleanup,
@@ -285,8 +289,12 @@ export const kafkaPublishLesson: DemoLesson = {
         'Click **Validate & Format JSON** to pretty-print the body and catch syntax errors before sending. Watch the payload reformat with proper indentation — much easier to read at a glance.',
       highlight: KAFKA.PUB_FORMAT_BTN,
       action: async (ctx) => {
+        // Re-seed compact JSON so the click has a visible effect (earlier steps
+        // may already have pretty-printed via Pretty Format / Expand editor).
+        await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, DEMO_BODY);
+        await ctx.delay(700);
         await ctx.click(KAFKA.PUB_FORMAT_BTN);
-        await ctx.delay(600);
+        await ctx.delay(1000);
       },
       // Pause long enough for viewers to see the reformatted JSON before moving on.
       pauseAfter: true,

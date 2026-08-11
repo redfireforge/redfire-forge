@@ -18,3 +18,18 @@ export function deleteKafkaClusterById(clusterId: string): void {
 export function deleteKafkaClusterByName(name: string): void {
   getDemoBridgeWindow().__demoDeleteKafkaClusterByName?.(name);
 }
+
+/** Clear every saved Kafka cluster and reset connection (quiet demo prep). */
+export function clearAllKafkaClusters(): void {
+  getDemoBridgeWindow().__demoClearAllKafkaClusters?.();
+}
+
+/** Ensure the plaintext Demo Cluster profile exists and is selected (no Settings UI). */
+export function ensurePlaintextKafkaCluster(): void {
+  getDemoBridgeWindow().__demoEnsurePlaintextKafkaCluster?.();
+}
+
+/** Mark React Kafka state connected for `clusterId` after a quiet API connect. */
+export function markKafkaConnected(clusterId: string): void {
+  getDemoBridgeWindow().__demoMarkKafkaConnected?.(clusterId);
+}

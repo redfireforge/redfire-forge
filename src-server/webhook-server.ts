@@ -59,6 +59,11 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Demo Hub prerequisite health proxies.
+// Always respond HTTP 200 with `{ status: 'ok' | 'down' }` so PrerequisiteGate
+// polls do not flood Chrome DevTools with "Failed to load resource: 503" while
+// Docker fixtures are offline. Clients must read the JSON `status` field.
+
 // Spring fixture health proxy used by Demo Hub prerequisite checks.
 app.get('/health/spring', async (_req: Request, res: Response) => {
   const controller = new AbortController();
@@ -70,7 +75,7 @@ app.get('/health/spring', async (_req: Request, res: Response) => {
     });
 
     if (!response.ok) {
-      return res.status(503).json({
+      return res.status(200).json({
         status: 'down',
         source: 'spring-actuator',
         reason: `http_${response.status}`,
@@ -89,14 +94,14 @@ app.get('/health/spring', async (_req: Request, res: Response) => {
       : 'UP';
     const up = springStatus.toUpperCase() === 'UP';
 
-    return res.status(up ? 200 : 503).json({
+    return res.status(200).json({
       status: up ? 'ok' : 'down',
       source: 'spring-actuator',
       springStatus,
       payload,
     });
   } catch (error) {
-    return res.status(503).json({
+    return res.status(200).json({
       status: 'down',
       source: 'spring-actuator',
       reason: toErrorMessage(error),
@@ -123,7 +128,7 @@ app.get('/health/envoy', async (_req: Request, res: Response) => {
       httpStatus: response.status,
     });
   } catch (error) {
-    return res.status(503).json({
+    return res.status(200).json({
       status: 'down',
       source: 'envoy-grpc-web',
       reason: toErrorMessage(error),
@@ -149,10 +154,10 @@ app.get('/health/schema-registry', async (req: Request, res: Response) => {
     if (response.ok) {
       return res.status(200).json({ status: 'ok', source: 'schema-registry' });
     }
-    return res.status(503).json({ status: 'down', source: 'schema-registry', reason: `http_${response.status}` });
+    return res.status(200).json({ status: 'down', source: 'schema-registry', reason: `http_${response.status}` });
   } catch (error) {
     clearTimeout(timer);
-    return res.status(503).json({ status: 'down', source: 'schema-registry', reason: toErrorMessage(error) });
+    return res.status(200).json({ status: 'down', source: 'schema-registry', reason: toErrorMessage(error) });
   }
 });
 
@@ -173,10 +178,10 @@ app.get('/health/kafka-admin', async (req: Request, res: Response) => {
     if (response.ok || response.status === 404) {
       return res.status(200).json({ status: 'ok', source: 'kafka-admin', port });
     }
-    return res.status(503).json({ status: 'down', source: 'kafka-admin', port, reason: `http_${response.status}` });
+    return res.status(200).json({ status: 'down', source: 'kafka-admin', port, reason: `http_${response.status}` });
   } catch (error) {
     clearTimeout(timer);
-    return res.status(503).json({ status: 'down', source: 'kafka-admin', port, reason: toErrorMessage(error) });
+    return res.status(200).json({ status: 'down', source: 'kafka-admin', port, reason: toErrorMessage(error) });
   }
 });
 

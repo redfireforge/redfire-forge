@@ -9,7 +9,12 @@ import type { DemoActionContext } from '../types';
 import { WS, KAFKA } from '@shared/selectors';
 import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
 import { firstVisibleElement, visibleElements } from '../utils/domVisibility';
-import { deleteKafkaClusterByName } from '../adapters/kafkaStudioAdapter';
+import {
+  clearAllKafkaClusters,
+  deleteKafkaClusterByName,
+  ensurePlaintextKafkaCluster,
+  markKafkaConnected,
+} from '../adapters/kafkaStudioAdapter';
 
 /** Re-export — see `domVisibility.ts` for implementation. */
 export { firstVisibleElement as firstVisibleEl } from '../utils/domVisibility';
@@ -577,110 +582,30 @@ export async function ensureKafkaSchemaRegistryConnected(): Promise<void> {
 }
 
 /**
+ * Quietly seed Demo Cluster + connect the plaintext broker (no Settings UI).
+ * Used by Publish Studio boot so Start never flashes Settings → Connect → Studio.
+ */
+export async function preparePlaintextKafkaStudio(): Promise<void> {
+  ensurePlaintextKafkaCluster();
+  try {
+    await ensureKafkaConnected();
+    markKafkaConnected(PROFILE_PLAINTEXT.clusterId);
+  } catch {
+    /* broker/server may be offline — lesson Docker gate covers that */
+  }
+}
+
+/**
  * Setup for the Publish Studio lesson (K2).
  *
- * If no Kafka cluster is configured, silently creates the default demo cluster
- * (127.0.0.1:19092, plaintext) via the Kafka Settings UI, saves it, and clicks
- * "Connect" so the Send Once button is enabled when the lesson reaches step 7.
- *
- * If a cluster is already configured and connected, this is a fast no-op.
+ * Seeds the plaintext Demo Cluster via the demo bridge and connects through the
+ * API — never navigates to Settings (that Settings→Create→Connect tour was the
+ * multi-page flash before step 1).
  */
 export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
-  // ── Step 0: If already connected to the plaintext cluster AND React has clusters, skip settings ──
-  // Navigating to kafka-settings can change React's selectedClusterId to a
-  // stale cluster card (e.g. "Demo Cluster") that differs from the server's
-  // active connection, causing 409 KAFKA_CLUSTER_MISMATCH on produce/consume.
-  try {
-    const statusEnv = await dispatchKafkaOperation<{ state: string; clusterId?: string }>('status');
-    if (statusEnv.data?.state === 'connected' && statusEnv.data.clusterId === PROFILE_PLAINTEXT.clusterId) {
-      // Verify React state also has clusters — if the browser was refreshed
-      // the server stays connected but the React state loses its cluster config.
-      ctx.navigateToTab('kafka-message-studio');
-      await ctx.delay(600);
-      const noCluster = document.querySelector('.kafka-studio-guard, [data-testid="kafka-empty-create-btn"]');
-      if (!noCluster) {
-        return;
-      }
-      // React app has no clusters — disconnect server so UI flow can reconnect
-      // with a matching clusterId (prevents KAFKA_CLUSTER_MISMATCH).
-      try { await dispatchKafkaOperation('disconnect'); } catch { /* ok */ }
-      // Fall through to UI-based setup
-    } else {
-      await ensureKafkaConnected();
-    }
-  } catch {
-    // API call failed (server might not be running) — fall through to UI-based setup
-  }
-
-  // ── Step 1: Navigate to Kafka Settings ──────────────────────────────────
-  ctx.navigateToTab('kafka-settings');
-  await ctx.delay(1200);
-
-  // ── Step 2: Ensure at least one cluster exists ───────────────────────────
-  // Wait for page to render (may need a bit more time after tab navigation)
-  let settingsPage: Element | null = null;
-  for (let i = 0; i < 10; i++) {
-    settingsPage = document.querySelector(KAFKA.SETTINGS_PAGE);
-    if (settingsPage) break;
-    await ctx.delay(300);
-  }
-  if (!settingsPage) {
-    ctx.navigateToTab('kafka-message-studio');
-    await ctx.delay(300);
-    return;
-  }
-
-  // Create default cluster only if none exist yet (target the empty-state button only,
-  // NOT the always-visible "+ New" button which would create a duplicate on repeated runs)
-  const emptyCreateBtn = document.querySelector<HTMLElement>('[data-testid="kafka-empty-create-btn"]');
-  if (emptyCreateBtn) {
-    emptyCreateBtn.click();
-    await ctx.delay(800);
-
-    // Wait for name input to render
-    let nameInput: HTMLInputElement | null = null;
-    for (let i = 0; i < 10; i++) {
-      nameInput = document.querySelector<HTMLInputElement>('#kafka-cluster-name');
-      if (nameInput) break;
-      await ctx.delay(200);
-    }
-    if (nameInput) {
-      const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      proto?.call(nameInput, 'Demo Cluster');
-      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-      nameInput.dispatchEvent(new Event('change', { bubbles: true }));
-      await ctx.delay(300);
-    }
-
-    const saveBtn = document.querySelector<HTMLElement>(KAFKA.SAVE_BTN);
-    if (saveBtn) {
-      saveBtn.click();
-      await ctx.delay(800);
-    }
-  }
-
-  // ── Step 3: Connect if not already connected ─────────────────────────────
-  let connectBtn: HTMLButtonElement | null = null;
-  for (let i = 0; i < 10; i++) {
-    connectBtn = document.querySelector<HTMLButtonElement>(KAFKA.CONNECT_BTN);
-    if (connectBtn && !connectBtn.disabled) break;
-    await ctx.delay(200);
-  }
-  if (connectBtn && !connectBtn.disabled) {
-    connectBtn.click();
-    // Wait for Disconnect button to become ENABLED (not just exist) —
-    // the button is always in the DOM but disabled until connected.
-    for (let i = 0; i < 40; i++) {
-      const dcBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
-      if (dcBtn && !dcBtn.disabled) break;
-      await ctx.delay(200);
-    }
-    await ctx.delay(600);
-  }
-
-  // ── Step 4: Return to message studio ────────────────────────────────────
+  await preparePlaintextKafkaStudio();
   ctx.navigateToTab('kafka-message-studio');
-  await ctx.delay(400);
+  await ctx.delay(80);
 }
 
 /** Kafka lessons require no broker teardown — this is a no-op for symmetry. */
@@ -689,82 +614,25 @@ export async function kafkaCleanup(_ctx: DemoActionContext): Promise<void> {
 }
 
 /**
- * Delete a single cluster from the settings page.
- *
- * Assumes we're already on kafka-settings. Finds the cluster card,
- * clicks Edit to open the editor (which exposes the Delete button),
- * then clicks Delete → Confirm Delete.
- */
-async function deleteDemoCluster(ctx: DemoActionContext): Promise<void> {
-  const card = document.querySelector<HTMLElement>('[data-testid^="kafka-cluster-card-"]');
-  if (!card) return;
-
-  // Click Edit button inside the card (not the card itself — that only selects).
-  const editBtn = card.querySelector<HTMLButtonElement>('.kafka-cluster-card-actions .btn');
-  if (editBtn) {
-    editBtn.click();
-    await ctx.delay(500);
-  }
-
-  // Click "Delete Cluster" to show the confirmation prompt.
-  const deleteBtn = document.querySelector<HTMLButtonElement>(KAFKA.DELETE_CLUSTER_BTN);
-  if (!deleteBtn) return;
-  deleteBtn.click();
-  await ctx.delay(400);
-
-  // Confirm deletion.
-  const confirmBtn = document.querySelector<HTMLButtonElement>(KAFKA.CONFIRM_DELETE_BTN);
-  if (confirmBtn) {
-    confirmBtn.click();
-    await ctx.delay(500);
-  }
-}
-
-/**
  * Setup for the Quick Start lesson (K1).
  *
- * Ensures a clean first-time experience: disconnects any active connection,
- * deletes any existing clusters (especially "Demo Cluster" left from a
- * previous run), so the empty-state "Create First Cluster" button appears.
+ * Quietly clear saved clusters via the demo bridge (no Edit → Delete UI tour).
+ * `prepareBeforeNavigate` already clears before Settings paints; this is the
+ * idempotent belt for Restart / mid-lesson recovery.
  */
 export async function kafkaQuickStartSetup(ctx: DemoActionContext): Promise<void> {
+  clearAllKafkaClusters();
   ctx.navigateToTab('kafka-settings');
-  await ctx.delay(120);
-
-  // Disconnect any active connection first (delete fails on a connected cluster).
-  const disconnectBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
-  if (disconnectBtn && !disconnectBtn.disabled) {
-    disconnectBtn.click();
-    await ctx.delay(180);
-  }
-
-  // Delete clusters one at a time (handles stale "Demo Cluster" from previous runs).
-  // Loop up to 3 times to handle multiple leftover clusters.
-  for (let i = 0; i < 3; i++) {
-    const card = document.querySelector<HTMLElement>('[data-testid^="kafka-cluster-card-"]');
-    if (!card) break;
-    await deleteDemoCluster(ctx);
-  }
+  await ctx.delay(80);
 }
 
 /**
  * Cleanup for the Quick Start lesson (K1).
  *
- * Deletes the "Demo Cluster" profile so restarting the lesson restores
- * the empty-state view ("Create First Cluster" button).
+ * Quietly remove leftover profiles so Restart lands on the empty state again.
  */
-export async function kafkaQuickStartCleanup(ctx: DemoActionContext): Promise<void> {
-  ctx.navigateToTab('kafka-settings');
-  await ctx.delay(120);
-
-  // Disconnect first — delete requires no active connection.
-  const disconnectBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
-  if (disconnectBtn && !disconnectBtn.disabled) {
-    disconnectBtn.click();
-    await ctx.delay(180);
-  }
-
-  await deleteDemoCluster(ctx);
+export async function kafkaQuickStartCleanup(_ctx: DemoActionContext): Promise<void> {
+  clearAllKafkaClusters();
 }
 
 /** Navigate to Protocols → Kafka → Topics tab and ensure plaintext connection. */

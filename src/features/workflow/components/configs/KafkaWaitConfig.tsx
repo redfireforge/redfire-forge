@@ -385,9 +385,13 @@ export default function KafkaWaitConfig({
         hint="How this wait behaves during load / performance runs."
       >
         <div className="wf-kafka-form wf-kafka-form--consume">
-          <KafkaFormRow label="Mode" hint="Wait · Auto resume · Synthetic" compact>
+          <KafkaFormRow
+            label="Mode"
+            hint="Wait for real · Auto resume · Synthetic inject"
+          >
             <CustomSelect
               data-testid="wait-load-mode"
+              className="wf-kafka-form-select"
               value={loadTestBehavior.mode}
               onChange={(v) => applyLoadTestBehavior({ mode: v as KafkaConsumeLoadTestBehavior['mode'] })}
               options={LOAD_TEST_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}

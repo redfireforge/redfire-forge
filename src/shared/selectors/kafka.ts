@@ -111,6 +111,9 @@ export const KAFKA = {
   /** Any stream result row — used to select the last visible one. */
   STREAM_ROW_ANY:           '[data-testid^="stream-row-"]',
   STREAM_COUNT:             '[data-testid="stream-count"]',
+  STREAM_SEARCH_INPUT:      '[data-testid="stream-search-input"]',
+  STREAM_SEARCH_CLEAR:      '[data-testid="stream-search-clear"]',
+  STREAM_SEARCH_EMPTY:      '[data-testid="stream-search-empty"]',
   STREAM_LIVE_BADGE:        '[data-testid="stream-live-badge"]',
   STREAM_CURSOR_GAP:        '[data-testid="stream-cursor-gap"]',
   STREAM_ERROR:             '[data-testid="stream-error"]',
@@ -136,8 +139,16 @@ export const KAFKA = {
   DETAIL_GROUPS_TAB:        '[data-testid="detail-groups-tab"]',
   DETAIL_CONFIG_TAB:        '[data-testid="detail-config-tab"]',
   DETAIL_CONSUME_BTN:       '[data-testid="detail-consume-btn"]',
+  DETAIL_TIME_WINDOW:       '[data-testid="detail-time-window"]',
+  DETAIL_TIMEOUT:           '[data-testid="detail-timeout"]',
+  DETAIL_MAX_MESSAGES:      '[data-testid="detail-max-messages"]',
+  DETAIL_BODY_CONTAINS:     '[data-testid="detail-body-contains"]',
   DETAIL_RESULTS:           '[data-testid="detail-results"]',
-  DETAIL_MSG_PANE:          '[data-testid="detail-msg-pane"]',
+  /** @deprecated Prefer DETAIL_MSG_MODAL — Topic Explorer uses the shared Message Detail modal. */
+  DETAIL_MSG_PANE:          '[data-testid="kafka-message-detail-modal"]',
+  DETAIL_MSG_MODAL:         '[data-testid="kafka-message-detail-modal"]',
+  DETAIL_MSG_BODY:          '[data-testid="kmd-body"]',
+  DETAIL_MSG_CLOSE:         '[data-testid="kmd-close-btn"]',
   DETAIL_LOAD_MORE_BTN:     '[data-testid="detail-load-more-btn"]',
   TOPIC_METRICS_ROW:        '.kafka-explorer-metrics-row',
 

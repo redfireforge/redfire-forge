@@ -505,7 +505,12 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
           <div className="completion-banner">
             Workflow completed — {finalRun.results.length} requests in {(finalRun.summary.totalDurationMs / 1000).toFixed(2)}s
           </div>
-          <button className="btn btn-primary" onClick={() => onComplete('workflow')}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            data-testid="workflow-runner-view-results-btn"
+            onClick={() => onComplete('workflow')}
+          >
             View Full Results →
           </button>
         </div>
@@ -515,7 +520,12 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
           <div className="completion-banner">
             Last run — {savedProgress.resultCount} requests in {(savedProgress.durationMs / 1000).toFixed(2)}s
           </div>
-          <button className="btn btn-primary" onClick={() => onComplete('workflow')}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            data-testid="workflow-runner-view-results-btn"
+            onClick={() => onComplete('workflow')}
+          >
             View Full Results →
           </button>
         </div>
