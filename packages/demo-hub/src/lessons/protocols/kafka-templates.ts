@@ -1,7 +1,11 @@
 /** Lesson K5: Templates — save, load, and delete Kafka form configurations */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { KAFKA } from '@shared/selectors';
-import { KAFKA_PUBLISH_TEMPLATES_KEY } from '@shared/kafka/kafkaStorage';
+import {
+  KAFKA_CONSUME_TEMPLATES_KEY,
+  KAFKA_PUBLISH_TEMPLATES_KEY,
+} from '@shared/kafka/kafkaStorage';
+import { removeKafkaTemplatesByName } from '../../adapters/kafkaStudioAdapter';
 import { showSpotlightRing } from '../../demoRipple';
 import { preparePlaintextKafkaStudio } from '../setup-helpers';
 
@@ -19,6 +23,9 @@ const TEMPLATE_DELETE_BTN = '.kafka-ms-template-item-delete';
 
 /** Selector for the template controls container. */
 const TEMPLATE_CONTROLS = '.kafka-ms-template-controls';
+
+/** Names this lesson writes — must be cleared on setup/cleanup so Load ▾ stays empty. */
+const DEMO_TEMPLATE_NAMES = ['Orders Template', 'Audit Consumer'] as const;
 
 const HOLD = {
   look: 1200,
@@ -53,20 +60,36 @@ async function spotlightSel(
 }
 
 /**
- * Remove any "Orders Template" leftover from a previous run.
- * Uses localStorage directly (safe because templates also use localStorage).
+ * Strip demo template names from localStorage (publish + consume keys).
+ * Safe when Message Studio is not mounted yet (prepareBeforeNavigate).
  */
-function removeOrdersTemplate(): void {
-  try {
-    const raw = localStorage.getItem(KAFKA_PUBLISH_TEMPLATES_KEY);
-    if (raw) {
+function removeDemoTemplatesFromStorage(): void {
+  const nameSet = new Set(
+    DEMO_TEMPLATE_NAMES.map((n) => n.toLowerCase()),
+  );
+  for (const key of [KAFKA_PUBLISH_TEMPLATES_KEY, KAFKA_CONSUME_TEMPLATES_KEY]) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
       const templates = JSON.parse(raw) as Array<{ id: string; name: string }>;
-      const filtered = templates.filter((t) => t.name !== 'Orders Template');
-      localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, JSON.stringify(filtered));
+      if (!Array.isArray(templates)) continue;
+      const filtered = templates.filter(
+        (t) => !nameSet.has(String(t.name ?? '').toLowerCase()),
+      );
+      localStorage.setItem(key, JSON.stringify(filtered));
+    } catch {
+      // non-fatal
     }
-  } catch {
-    // non-fatal
   }
+}
+
+/**
+ * Clear demo templates from storage + React state (when studio is mounted).
+ * Storage-first so a remount after navigate loads a clean list.
+ */
+async function clearDemoKafkaTemplates(): Promise<void> {
+  removeDemoTemplatesFromStorage();
+  await removeKafkaTemplatesByName([...DEMO_TEMPLATE_NAMES]);
 }
 
 /**
@@ -74,12 +97,14 @@ function removeOrdersTemplate(): void {
  * and reset form fields so the demo starts clean without a "Not connected" flash.
  */
 async function kafkaTemplatesSetup(ctx: DemoActionContext): Promise<void> {
-  removeOrdersTemplate();
   // Best-effort: restore Demo Cluster after Quick Start cleanup / prior runs.
   // Templates UI works offline, but Publish should not look broken mid-demo.
   await preparePlaintextKafkaStudio();
   ctx.navigateToTab('kafka-message-studio');
   await ctx.delay(80);
+  // After navigate so the Message Studio bridge can drop in-memory leftovers
+  // (Restart while already on Kafka would otherwise keep "Audit Consumer" in Load ▾).
+  await clearDemoKafkaTemplates();
   await ctx.click(KAFKA.PUBLISH_TAB);
   await ctx.delay(200);
   await ctx.fill(KAFKA.PUB_TOPIC_INPUT, '');
@@ -95,18 +120,20 @@ export const kafkaTemplatesLesson: DemoLesson = {
   name: 'Templates',
   description:
     'Save and load publish and consume form configurations — eliminate repetitive setup in repeated test runs.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'kafka-message-studio',
   allowedTabs: ['kafka-message-studio'],
   // Templates work without Docker; connect is best-effort when the broker is up.
   prepareBeforeNavigate: async () => {
+    // Clear before first mount so Load ▾ starts empty.
+    removeDemoTemplatesFromStorage();
     await preparePlaintextKafkaStudio();
   },
 
   setup: kafkaTemplatesSetup,
 
   cleanup: async () => {
-    removeOrdersTemplate();
+    await clearDemoKafkaTemplates();
   },
 
   concept: {
@@ -269,12 +296,34 @@ export const kafkaTemplatesLesson: DemoLesson = {
       },
     },
     {
+      id: 'tmpl-switch-consume',
+      title: 'Switch to the Consume Tab',
+      description:
+        'Templates work for consume too. Click the **Consume** tab — watch the sub-nav so you know where we are before we use **Save** and **Load ▾**.',
+      highlight: KAFKA.CONSUME_TAB,
+      preAction: async (ctx) => {
+        // Drop leftovers early; stay on Publish so the Consume click is visible.
+        await clearDemoKafkaTemplates();
+        await ctx.click(KAFKA.PUBLISH_TAB);
+        await ctx.delay(200);
+      },
+      action: async (ctx) => {
+        await spotlightSel(ctx, KAFKA.CONSUME_TAB, HOLD.look);
+        await ctx.click(KAFKA.CONSUME_TAB);
+        await ctx.delay(800); // tab switch — viewer relocates
+        // Hold on the active Consume tab so orientation sticks before Load/Save.
+        await spotlightSel(ctx, KAFKA.CONSUME_TAB, HOLD.outcome);
+      },
+    },
+    {
       id: 'tmpl-consume',
       title: 'Consume Templates Work the Same',
       description:
-        'Switch to the **Consume** tab — it has identical **Save** and **Load ▾** controls. Watch as the topic is filled, then saved as "Audit Consumer". Consume templates save all fields except the consumer group ID, which is stripped on load to avoid offset conflicts.',
+        'Consume has the same **Save** and **Load ▾** controls. Watch as the topic is filled, then saved as "Audit Consumer". Consume templates save all fields except the consumer group ID, which is stripped on load to avoid offset conflicts.',
       highlight: TEMPLATE_CONTROLS,
       preAction: async (ctx) => {
+        // Drop leftover "Audit Consumer" before this step saves it again.
+        await clearDemoKafkaTemplates();
         await ctx.click(KAFKA.CONSUME_TAB);
         await ctx.delay(300);
       },

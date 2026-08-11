@@ -33,3 +33,12 @@ export function ensurePlaintextKafkaCluster(): void {
 export function markKafkaConnected(clusterId: string): void {
   getDemoBridgeWindow().__demoMarkKafkaConnected?.(clusterId);
 }
+
+/**
+ * Quietly remove Kafka publish/consume templates by display name.
+ * Prefer this after clearing localStorage so a keep-mounted Message Studio
+ * drops stale Load ▾ entries (e.g. leftover "Audit Consumer" from a prior run).
+ */
+export async function removeKafkaTemplatesByName(names: string[]): Promise<void> {
+  await getDemoBridgeWindow().__demoRemoveKafkaTemplatesByName?.(names);
+}
