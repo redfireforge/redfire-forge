@@ -162,6 +162,16 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     return page.locator('.cs-menu .cs-item .cs-item-label').allTextContents();
   }
 
+  async function expectCustomSelectToContainOption(
+    page: import('@playwright/test').Page,
+    optionSubstring: string,
+  ): Promise<void> {
+    await expect.poll(async () => {
+      const labels = await getCustomSelectMenuLabels(page);
+      return labels.some((label) => label.includes(optionSubstring));
+    }, { timeout: 5000 }).toBe(true);
+  }
+
   // ── 1. Toggle shows/hides fields ───────────────────────────────────────────
   test('Schema Registry toggle shows config fields when checked', async ({ page }) => {
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
@@ -190,10 +200,9 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await expect(formatSelect).toBeVisible();
 
     await formatSelect.locator('.cs-trigger').click();
-    const options = await getCustomSelectMenuLabels(page);
-    expect(options).toContain('Avro');
-    expect(options).toContain('Protobuf');
-    expect(options).toContain('JSON Schema');
+    await expectCustomSelectToContainOption(page, 'Avro');
+    await expectCustomSelectToContainOption(page, 'Protobuf');
+    await expectCustomSelectToContainOption(page, 'JSON Schema');
     await page.keyboard.press('Escape');
   });
 
@@ -237,8 +246,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     // Dropdown with loaded subjects should appear
     await expect(page.locator('[data-testid="schema-subjects-dropdown"]')).toBeVisible({ timeout: 6000 });
     await page.locator('[data-testid="schema-subjects-dropdown"] .cs-trigger').click();
-    const subjectOptions = await getCustomSelectMenuLabels(page);
-    expect(subjectOptions.some((o) => o.includes('orders.created-value'))).toBe(true);
+    await expectCustomSelectToContainOption(page, 'orders.created-value');
     await page.keyboard.press('Escape');
     expect(subjectsCalled).toBe(true);
   });
@@ -276,9 +284,8 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     // Dropdown with loaded versions should appear
     await expect(page.locator('[data-testid="schema-versions-dropdown"]')).toBeVisible({ timeout: 6000 });
     await page.locator('[data-testid="schema-versions-dropdown"] .cs-trigger').click();
-    const versionOptions = await getCustomSelectMenuLabels(page);
-    expect(versionOptions.some((o) => o.includes('1'))).toBe(true);
-    expect(versionOptions.some((o) => o.includes('3'))).toBe(true);
+    await expectCustomSelectToContainOption(page, '1');
+    await expectCustomSelectToContainOption(page, '3');
     await page.keyboard.press('Escape');
     expect(versionsCalled).toBe(true);
   });

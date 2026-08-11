@@ -5,10 +5,25 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaTemplatesLesson } from './kafka-templates';
 
+const removeKafkaTemplatesByName = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('../setup-helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../setup-helpers')>();
+  return {
+    ...actual,
+    preparePlaintextKafkaStudio: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
+vi.mock('../../adapters/kafkaStudioAdapter', () => ({
+  removeKafkaTemplatesByName: (...args: unknown[]) => removeKafkaTemplatesByName(...args),
+}));
+
 describe('kafka-templates lesson', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     localStorage.clear();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -35,8 +50,8 @@ describe('kafka-templates lesson', () => {
     expect(kafkaTemplatesLesson.concept.diagram).toContain('<svg');
   });
 
-  it('has exactly 7 steps', () => {
-    expect(kafkaTemplatesLesson.steps.length).toBe(7);
+  it('has exactly 8 steps', () => {
+    expect(kafkaTemplatesLesson.steps.length).toBe(8);
   });
 
   it('all steps have required fields', () => {
@@ -60,6 +75,7 @@ describe('kafka-templates lesson', () => {
       'tmpl-save-pub',
       'tmpl-load-pub',
       'tmpl-delete-pub',
+      'tmpl-switch-consume',
       'tmpl-consume',
       'tmpl-persist',
     ]);
@@ -73,24 +89,43 @@ describe('kafka-templates lesson', () => {
 
   it('has a setup function that cleans stale templates and resets form', async () => {
     expect(typeof kafkaTemplatesLesson.setup).toBe('function');
+    const { preparePlaintextKafkaStudio } = await import('../setup-helpers');
     const ctx = makeCtx();
     await kafkaTemplatesLesson.setup!(ctx);
+    expect(preparePlaintextKafkaStudio).toHaveBeenCalled();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-topic'), '');
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-body'), '');
   });
 
-  it('setup removes stale "Orders Template" from localStorage', async () => {
-    const key = 'perf-test-kafka-publish-templates-v1';
-    localStorage.setItem(key, JSON.stringify([
+  it('prepareBeforeNavigate clears stale demo templates then connects Kafka', async () => {
+    const conKey = 'perf-test-kafka-consume-templates-v1';
+    localStorage.setItem(conKey, JSON.stringify([{ id: 'c', name: 'Audit Consumer' }]));
+    const { preparePlaintextKafkaStudio } = await import('../setup-helpers');
+    await kafkaTemplatesLesson.prepareBeforeNavigate!();
+    expect(JSON.parse(localStorage.getItem(conKey) ?? '[]')).toEqual([]);
+    expect(preparePlaintextKafkaStudio).toHaveBeenCalled();
+  });
+
+  it('setup removes stale publish and consume demo templates from localStorage', async () => {
+    const pubKey = 'perf-test-kafka-publish-templates-v1';
+    const conKey = 'perf-test-kafka-consume-templates-v1';
+    localStorage.setItem(pubKey, JSON.stringify([
       { id: 'a', name: 'Orders Template' },
       { id: 'b', name: 'Other' },
     ]));
+    localStorage.setItem(conKey, JSON.stringify([
+      { id: 'c', name: 'Audit Consumer' },
+      { id: 'd', name: 'Keep Me' },
+    ]));
     const ctx = makeCtx();
     await kafkaTemplatesLesson.setup!(ctx);
-    const remaining = JSON.parse(localStorage.getItem(key) ?? '[]') as Array<{ name: string }>;
-    expect(remaining).toHaveLength(1);
-    expect(remaining[0].name).toBe('Other');
+    const pubRemaining = JSON.parse(localStorage.getItem(pubKey) ?? '[]') as Array<{ name: string }>;
+    const conRemaining = JSON.parse(localStorage.getItem(conKey) ?? '[]') as Array<{ name: string }>;
+    expect(pubRemaining).toEqual([{ id: 'b', name: 'Other' }]);
+    expect(conRemaining).toEqual([{ id: 'd', name: 'Keep Me' }]);
+    expect(removeKafkaTemplatesByName).toHaveBeenCalledWith(['Orders Template', 'Audit Consumer']);
   });
 
   it('has a cleanup function', () => {
@@ -173,10 +208,37 @@ describe('kafka-templates lesson', () => {
     );
   });
 
-  it('step tmpl-consume preAction clicks the Consume tab', async () => {
+  it('step tmpl-switch-consume highlights the Consume tab', () => {
+    const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-switch-consume')!;
+    expect(step.highlight).toContain('tab-consume');
+  });
+
+  it('step tmpl-switch-consume preAction stays on Publish after clearing templates', async () => {
+    const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-switch-consume')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(removeKafkaTemplatesByName).toHaveBeenCalledWith(['Orders Template', 'Audit Consumer']);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
+  });
+
+  it('step tmpl-switch-consume action clicks the Consume tab', async () => {
+    const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-switch-consume')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-consume'));
+  });
+
+  it('step tmpl-consume preAction clears stale templates then clicks the Consume tab', async () => {
+    const conKey = 'perf-test-kafka-consume-templates-v1';
+    localStorage.setItem(conKey, JSON.stringify([
+      { id: 'c', name: 'Audit Consumer' },
+    ]));
     const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-consume')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    const remaining = JSON.parse(localStorage.getItem(conKey) ?? '[]') as unknown[];
+    expect(remaining).toEqual([]);
+    expect(removeKafkaTemplatesByName).toHaveBeenCalledWith(['Orders Template', 'Audit Consumer']);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-consume'));
   });
 
@@ -197,19 +259,25 @@ describe('kafka-templates lesson', () => {
     expect(step.highlight).toContain('kafka-ms-template-controls');
   });
 
-  it('cleanup removes "Orders Template" from localStorage', async () => {
-    const key = 'perf-test-kafka-publish-templates-v1';
-    const templates = [
+  it('cleanup removes publish and consume demo templates from localStorage', async () => {
+    const pubKey = 'perf-test-kafka-publish-templates-v1';
+    const conKey = 'perf-test-kafka-consume-templates-v1';
+    localStorage.setItem(pubKey, JSON.stringify([
       { id: 'a', name: 'Orders Template' },
       { id: 'b', name: 'Another Template' },
-    ];
-    localStorage.setItem(key, JSON.stringify(templates));
+    ]));
+    localStorage.setItem(conKey, JSON.stringify([
+      { id: 'c', name: 'Audit Consumer' },
+      { id: 'd', name: 'User Template' },
+    ]));
 
     await kafkaTemplatesLesson.cleanup!(undefined as unknown as Parameters<typeof kafkaTemplatesLesson.cleanup>[0]);
 
-    const remaining = JSON.parse(localStorage.getItem(key) ?? '[]') as Array<{ name: string }>;
-    expect(remaining).toHaveLength(1);
-    expect(remaining[0].name).toBe('Another Template');
+    const pubRemaining = JSON.parse(localStorage.getItem(pubKey) ?? '[]') as Array<{ name: string }>;
+    const conRemaining = JSON.parse(localStorage.getItem(conKey) ?? '[]') as Array<{ name: string }>;
+    expect(pubRemaining).toEqual([{ id: 'b', name: 'Another Template' }]);
+    expect(conRemaining).toEqual([{ id: 'd', name: 'User Template' }]);
+    expect(removeKafkaTemplatesByName).toHaveBeenCalledWith(['Orders Template', 'Audit Consumer']);
   });
 
   it('cleanup is a no-op when localStorage is empty', async () => {

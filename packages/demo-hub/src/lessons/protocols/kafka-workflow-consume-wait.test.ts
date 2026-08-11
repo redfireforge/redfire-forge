@@ -207,23 +207,20 @@ describe('kafka-workflow-consume-wait lesson', () => {
     select.scrollIntoView = vi.fn();
     document.body.appendChild(select);
 
+    const closeBridge = vi.fn(() => {
+      document.querySelector('.wf-config-modal')?.remove();
+    });
+    (window as unknown as Record<string, unknown>).__wfCloseConfigModal = closeBridge;
     const modal = document.createElement('div');
     modal.className = 'wf-config-modal';
-    const footer = document.createElement('div');
-    footer.className = 'wf-config-modal-footer-actions';
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'btn-ghost';
-    const closeSpy = vi.fn(() => modal.remove());
-    closeBtn.addEventListener('click', closeSpy);
-    footer.appendChild(closeBtn);
-    modal.appendChild(footer);
     document.body.appendChild(modal);
 
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(select.scrollIntoView).toHaveBeenCalled();
-    expect(closeSpy).toHaveBeenCalled();
+    expect(closeBridge).toHaveBeenCalled();
     expect(document.querySelector('.wf-config-modal')).toBeNull();
+    delete (window as unknown as Record<string, unknown>).__wfCloseConfigModal;
   });
 
   it('Wait config preActions do not reopen when panel is already open', async () => {
@@ -296,10 +293,12 @@ describe('kafka-workflow-consume-wait lesson', () => {
     await expect(kafkaWorkflowConsumeWaitLesson.setup!(ctx)).resolves.not.toThrow();
   });
 
-  it('setup seeds workflow via bridge', async () => {
+  it('prepareBeforeNavigate seeds workflow via bridge (quiet, before tab mount)', async () => {
+    expect(kafkaWorkflowConsumeWaitLesson.initialTab).toBe('workflow');
+    expect(kafkaWorkflowConsumeWaitLesson.collapseAppSidebarOnStart).toBe(true);
     const { deleteByName: deleteSpy, insertWorkflow: insertSpy } = stubWorkflowSeedBridge('Kafka Consume & Wait Demo');
     const ctx = makeCtx();
-    await kafkaWorkflowConsumeWaitLesson.setup!(ctx);
+    await kafkaWorkflowConsumeWaitLesson.prepareBeforeNavigate!(ctx);
     expect(deleteSpy).toHaveBeenCalledWith('Kafka Consume & Wait Demo');
     expect(insertSpy).toHaveBeenCalled();
     clearWorkflowSeedBridge();
@@ -334,7 +333,7 @@ describe('kafka-workflow-consume-wait lesson', () => {
     expect(collapseSpy).toHaveBeenCalled();
   });
 
-  it('setup closes console and fits view when DOM elements are present', async () => {
+  it('setup closes console and fits view quietly when DOM elements are present', async () => {
     const consolePanel = document.createElement('div');
     consolePanel.className = 'wf-console-panel';
     document.body.appendChild(consolePanel);
@@ -343,15 +342,12 @@ describe('kafka-workflow-consume-wait lesson', () => {
     const badgeClickSpy = vi.fn();
     badge.addEventListener('click', badgeClickSpy);
     document.body.appendChild(badge);
-    const fitBtn = document.createElement('button');
-    fitBtn.title = 'Fit view';
-    const fitClickSpy = vi.fn();
-    fitBtn.addEventListener('click', fitClickSpy);
-    document.body.appendChild(fitBtn);
+    const fitSpy = vi.fn().mockReturnValue(true);
+    (window as unknown as Record<string, unknown>).__wfFitView = fitSpy;
     const ctx = makeCtx();
     await kafkaWorkflowConsumeWaitLesson.setup!(ctx);
     expect(badgeClickSpy).toHaveBeenCalled();
-    expect(fitClickSpy).toHaveBeenCalled();
+    expect(fitSpy).toHaveBeenCalledWith({ duration: 0 });
   });
 
   it('cw-consume-binding preAction opens consume when modal absent', async () => {

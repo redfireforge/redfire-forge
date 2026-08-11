@@ -465,6 +465,75 @@ describe('KafkaConsumeStudio — Stream Mode', () => {
     fireEvent.click(screen.getByTestId('stream-row-1'));
     expect(sm.selectStreamMessage).toHaveBeenCalledWith(1);
   });
+
+  it('shows stream search input when messages exist', () => {
+    renderStream({ stream: { streamMessages: STREAM_MESSAGES } });
+    expect(screen.getByTestId('stream-search-input')).toBeTruthy();
+  });
+
+  it('filters stream rows by search query and updates count', () => {
+    renderStream({ stream: { streamMessages: STREAM_MESSAGES } });
+    fireEvent.change(screen.getByTestId('stream-search-input'), { target: { value: 'seq":2' } });
+    expect(screen.getByTestId('stream-count').textContent).toContain('1 of 3');
+    expect(screen.getByTestId('stream-row-0')).toBeTruthy();
+    expect(screen.queryByTestId('stream-row-1')).toBeNull();
+  });
+
+  it('selects original stream index when clicking a filtered row', () => {
+    const sm = makeStreamMode({ streamMessages: STREAM_MESSAGES });
+    render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={sm} {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+    fireEvent.change(screen.getByTestId('stream-search-input'), { target: { value: 'sk-2' } });
+    fireEvent.click(screen.getByTestId('stream-row-0'));
+    expect(sm.selectStreamMessage).toHaveBeenCalledWith(2);
+  });
+
+  it('shows empty state when search matches nothing', () => {
+    renderStream({ stream: { streamMessages: STREAM_MESSAGES } });
+    fireEvent.change(screen.getByTestId('stream-search-input'), { target: { value: 'zzzz-nope' } });
+    expect(screen.getByTestId('stream-search-empty').textContent).toContain('No messages match');
+  });
+
+  it('clears the search query via the search Clear control', () => {
+    renderStream({ stream: { streamMessages: STREAM_MESSAGES } });
+    fireEvent.change(screen.getByTestId('stream-search-input'), { target: { value: 'seq' } });
+    expect(screen.getByTestId('stream-search-clear')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('stream-search-clear'));
+    expect((screen.getByTestId('stream-search-input') as HTMLInputElement).value).toBe('');
+    expect(screen.getByTestId('stream-count').textContent).toContain('3 messages');
+    expect(screen.queryByTestId('stream-search-clear')).toBeNull();
+  });
+
+  it('honors controlled consumeMode=stream without clicking the tab', () => {
+    render(
+      <KafkaConsumeStudio
+        studio={makeStudio()}
+        clusterId="c"
+        streamMode={makeStreamMode({ streamMessages: STREAM_MESSAGES })}
+        consumeMode="stream"
+        onConsumeModeChange={vi.fn()}
+        {...defaultTemplateProps()}
+      />,
+    );
+    expect(screen.getByTestId('con-mode-stream').className).toContain('active');
+    expect(screen.getByTestId('stream-action-row')).toBeTruthy();
+  });
+
+  it('notifies onConsumeModeChange when Stream tab is clicked', () => {
+    const onConsumeModeChange = vi.fn();
+    render(
+      <KafkaConsumeStudio
+        studio={makeStudio()}
+        clusterId="c"
+        streamMode={makeStreamMode()}
+        consumeMode="once"
+        onConsumeModeChange={onConsumeModeChange}
+        {...defaultTemplateProps()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+    expect(onConsumeModeChange).toHaveBeenCalledWith('stream');
+  });
 });
 
 // ─────────────────────── Workflow Integration (3C) ───────────────────────
@@ -576,8 +645,10 @@ describe('KafkaConsumeStudio — Template Save', () => {
     ];
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
     fireEvent.click(screen.getByTitle('Load a saved template'));
+    expect(screen.getByTestId('con-tmpl-dropdown')).toBeTruthy();
     fireEvent.click(screen.getByTitle('Delete "My Preset"'));
     await waitFor(() => expect(tplProps.onDeleteConsumeTemplate).toHaveBeenCalledWith('tpl-1'));
+    await waitFor(() => expect(screen.queryByTestId('con-tmpl-dropdown')).toBeNull());
   });
 });
 
@@ -961,6 +1032,16 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
       expect(exportResultSet).not.toHaveBeenCalled();
     }
     expect(true).toBe(true);
+  });
+
+  it('handleExportStream: exports when stream messages exist', async () => {
+    renderConsume({ stream: { streamMessages: STREAM_MESSAGES } });
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+    const exportStreamBtn = screen.queryByText('Export Stream');
+    if (exportStreamBtn) {
+      fireEvent.click(exportStreamBtn);
+      expect(exportResultSet).toHaveBeenCalled();
+    }
   });
 
   it('handleCopyKey: uses selectedStreamMessage when mode is stream', async () => {

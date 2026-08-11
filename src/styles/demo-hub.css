@@ -28,6 +28,18 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
   opacity: 0;
 }
 
+/* Kafka Quick Start: hide cluster list/editor during quiet clear so leftover
+ * cards cannot flash before the empty-state paint settles. Header stays. */
+body[data-demo-bootstrapping="1"] .kafka-settings-content {
+  opacity: 0;
+}
+
+/* WebSocket Studio: hide the full page during Preparing so tab close / mode
+ * reset / URL fill in lesson setup cannot flash before step 1 Reading. */
+body[data-demo-bootstrapping="1"] .ws-studio-page {
+  opacity: 0;
+}
+
 /* Parked when another tab is active. */
 #demo-hub-mount[data-demo-hub-active="0"] {
   display: none;
@@ -1299,12 +1311,21 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
   pointer-events: none;
 }
 
+/*
+ * Clickthrough must let app controls under the card receive clicks.
+ * Do NOT set pointer-events:auto on the whole .demo-live-panel-body —
+ * that opaque hit-target blocked Kafka "Validate & Format JSON" (and other
+ * action-row buttons) whenever the card overlapped them. Re-enable only the
+ * interactive chrome + readable narration text.
+ */
 .demo-live-panel--clickthrough .demo-live-resize-handle,
 .demo-live-panel--clickthrough .demo-live-overview-btn,
 .demo-live-panel--clickthrough .demo-live-notes-btn-wrap,
 .demo-live-panel--clickthrough .demo-live-drag-handle,
 .demo-live-panel--clickthrough .demo-live-lesson-name,
-.demo-live-panel--clickthrough .demo-live-panel-body,
+.demo-live-panel--clickthrough .demo-live-step-title,
+.demo-live-panel--clickthrough .demo-live-step-desc,
+.demo-live-panel--clickthrough .demo-live-panel-status,
 .demo-live-panel--clickthrough .demo-live-phase-badge.skippable,
 .demo-live-panel--clickthrough .demo-live-panel-controls,
 .demo-live-panel--clickthrough .demo-live-btn {

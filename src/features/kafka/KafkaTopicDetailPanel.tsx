@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';
 import type { TimeWindow } from './useTopicMessageBrowser';
-import type { KafkaConsumeResultRow } from './types';
 import { valuePreview, exportResultSet } from './kafkaMessageStudioUtils';
 import type { KafkaUiSafeError } from '../../shared/kafka/kafkaClient';
+import KafkaMessageDetailModal from './KafkaMessageDetailModal';
 
 type DetailTab = 'messages' | 'partitions' | 'groups' | 'config';
 
@@ -15,29 +16,17 @@ interface KafkaTopicDetailPanelProps {
   browser: UseTopicMessageBrowserReturn;
 }
 
-interface TimeWindowOption {
-  value: TimeWindow;
-  label: string;
-}
+const TIME_WINDOW_OPTIONS = [
+  { value: 'latest', label: 'Latest', detail: 'Newest available messages' },
+  { value: 'last-1h', label: 'Last 1 Hour', detail: 'Messages from the past hour' },
+  { value: 'last-24h', label: 'Last 24 Hours', detail: 'Messages from the past day' },
+  { value: 'earliest', label: 'Earliest', detail: 'Replay from the beginning' },
+] as const;
 
-interface DetailDropdownOption<T extends string> {
-  value: T;
-  label: string;
-}
-
-type DetailDropdownKey = 'time-window' | 'partition' | 'sort-order';
-
-const TIME_WINDOW_OPTIONS: TimeWindowOption[] = [
-  { value: 'latest', label: 'Latest' },
-  { value: 'last-1h', label: 'Last 1 Hour' },
-  { value: 'last-24h', label: 'Last 24 Hours' },
-  { value: 'earliest', label: 'Earliest' },
-];
-
-const SORT_ORDER_OPTIONS: DetailDropdownOption<'asc' | 'desc'>[] = [
-  { value: 'asc', label: 'Oldest First' },
-  { value: 'desc', label: 'Newest First' },
-];
+const SORT_ORDER_OPTIONS = [
+  { value: 'asc', label: 'Oldest First', detail: 'Ascending chronological order' },
+  { value: 'desc', label: 'Newest First', detail: 'Descending chronological order' },
+] as const;
 
 function formatTimestamp(ts?: string): string {
   if (!ts) return '—';
@@ -61,51 +50,33 @@ function stateColor(state: string): string {
 
 export function KafkaTopicDetailPanel({ detail, loading, error, browser }: KafkaTopicDetailPanelProps) {
   const [tab, setTab] = useState<DetailTab>('messages');
-  const [openDropdown, setOpenDropdown] = useState<DetailDropdownKey | null>(null);
-
-  useEffect(() => {
-    if (!openDropdown) return;
-
-    const onDocumentMouseDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element) || !target.closest('.kafka-ms-detail-filter-dropdown')) {
-        setOpenDropdown(null);
-      }
-    };
-
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenDropdown(null);
-    };
-
-    document.addEventListener('mousedown', onDocumentMouseDown);
-    document.addEventListener('keydown', onEscape);
-    return () => {
-      document.removeEventListener('mousedown', onDocumentMouseDown);
-      document.removeEventListener('keydown', onEscape);
-    };
-  }, [openDropdown]);
 
   const selectedTimeWindow = useMemo(
-    () => TIME_WINDOW_OPTIONS.find((option) => option.value === browser.draft.timeWindow) ?? TIME_WINDOW_OPTIONS[0],
+    () => TIME_WINDOW_OPTIONS.find((option) => option.value === browser.draft.timeWindow)?.value ?? 'latest',
     [browser.draft.timeWindow],
   );
 
-  const partitionList = detail?.partitions ?? [];
-
-  const partitionOptions = useMemo<DetailDropdownOption<string>[]>(() => {
-    return [
-      { value: '', label: 'Any' },
-      ...partitionList.map((p) => ({ value: String(p.partitionId), label: String(p.partitionId) })),
-    ];
-  }, [partitionList]);
+  const partitionOptions = useMemo(
+    () => [
+      { value: '', label: 'Any', detail: 'All partitions' },
+      ...(detail?.partitions ?? []).map((p) => ({
+        value: String(p.partitionId),
+        label: String(p.partitionId),
+        detail: `Partition ${p.partitionId}`,
+      })),
+    ],
+    [detail?.partitions],
+  );
 
   const selectedPartition = useMemo(
-    () => partitionOptions.find((option) => option.value === browser.draft.partition) ?? partitionOptions[0],
+    () => (partitionOptions.some((option) => option.value === browser.draft.partition)
+      ? browser.draft.partition
+      : ''),
     [partitionOptions, browser.draft.partition],
   );
 
   const selectedSortOrder = useMemo(
-    () => SORT_ORDER_OPTIONS.find((option) => option.value === browser.draft.sortOrder) ?? SORT_ORDER_OPTIONS[0],
+    () => SORT_ORDER_OPTIONS.find((option) => option.value === browser.draft.sortOrder)?.value ?? 'asc',
     [browser.draft.sortOrder],
   );
 
@@ -114,14 +85,9 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
   const handleExport = useCallback(() => {
     if (browser.result) void exportResultSet(browser.result, detail?.name ?? 'topic');
   }, [browser.result, detail?.name]);
-
-  const handleCopyKey = useCallback((msg: KafkaConsumeResultRow) => {
-    if (msg.key) void navigator.clipboard.writeText(msg.key);
-  }, []);
-
-  const handleCopyPayload = useCallback((msg: KafkaConsumeResultRow) => {
-    void navigator.clipboard.writeText(msg.value);
-  }, []);
+  const handleCloseDetail = useCallback(() => {
+    browser.selectMessage(null);
+  }, [browser]);
 
   if (loading) {
     return (
@@ -193,142 +159,149 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
               </div>
             </div>
 
-            <div className="kafka-ms-field-grid">
-              <div className="kafka-ms-field">
-                <label>Time Window</label>
-                <div className="kafka-explorer-filter-dropdown kafka-ms-detail-filter-dropdown">
-                  <button
-                    type="button"
-                    className="kafka-explorer-filter-trigger kafka-ms-detail-filter-trigger"
-                    onClick={() => setOpenDropdown((open) => (open === 'time-window' ? null : 'time-window'))}
-                    aria-haspopup="listbox"
-                    aria-expanded={openDropdown === 'time-window'}
-                    data-testid="detail-time-window-trigger"
-                  >
-                    <span>{selectedTimeWindow.label}</span>
-                    <span className="kafka-explorer-filter-chevron" aria-hidden>▾</span>
-                  </button>
-
-                  {openDropdown === 'time-window' && (
-                    <div className="kafka-explorer-filter-menu" role="listbox" aria-label="time window options">
-                      {TIME_WINDOW_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`kafka-explorer-filter-option${option.value === browser.draft.timeWindow ? ' active' : ''}`}
-                          role="option"
-                          aria-selected={option.value === browser.draft.timeWindow}
-                          onClick={() => {
-                            browser.setDraft({ timeWindow: option.value });
-                            setOpenDropdown(null);
-                          }}
-                          data-testid={`detail-time-window-opt-${option.value}`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+            <div className="kafka-ms-form kafka-ms-detail-message-form" data-testid="detail-messages-filters">
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-time-window">Time Window</label>
+                <div className="kafka-ms-form-ctrl">
+                  <CustomSelect
+                    className="kafka-ms-form-select kafka-ms-form-select--acks"
+                    data-testid="detail-time-window"
+                    value={selectedTimeWindow}
+                    onChange={(v) => browser.setDraft({ timeWindow: v as TimeWindow })}
+                    options={[...TIME_WINDOW_OPTIONS]}
+                    aria-label="Time Window"
+                  />
                 </div>
               </div>
-              <div className="kafka-ms-field">
-                <label>Partition</label>
-                <div className="kafka-explorer-filter-dropdown kafka-ms-detail-filter-dropdown">
-                  <button
-                    type="button"
-                    className="kafka-explorer-filter-trigger kafka-ms-detail-filter-trigger"
-                    onClick={() => setOpenDropdown((open) => (open === 'partition' ? null : 'partition'))}
-                    aria-haspopup="listbox"
-                    aria-expanded={openDropdown === 'partition'}
-                    data-testid="detail-partition-trigger"
-                  >
-                    <span>{selectedPartition.label}</span>
-                    <span className="kafka-explorer-filter-chevron" aria-hidden>▾</span>
-                  </button>
 
-                  {openDropdown === 'partition' && (
-                    <div className="kafka-explorer-filter-menu" role="listbox" aria-label="partition options">
-                      {partitionOptions.map((option) => (
-                        <button
-                          key={option.value || '__any'}
-                          type="button"
-                          className={`kafka-explorer-filter-option${option.value === browser.draft.partition ? ' active' : ''}`}
-                          role="option"
-                          aria-selected={option.value === browser.draft.partition}
-                          onClick={() => {
-                            browser.setDraft({ partition: option.value });
-                            setOpenDropdown(null);
-                          }}
-                          data-testid={`detail-partition-opt-${option.value || 'any'}`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-partition">Partition</label>
+                <div className="kafka-ms-form-ctrl">
+                  <CustomSelect
+                    className="kafka-ms-form-select kafka-ms-form-select--acks"
+                    data-testid="detail-partition"
+                    value={selectedPartition}
+                    onChange={(v) => browser.setDraft({ partition: v })}
+                    options={partitionOptions}
+                    aria-label="Partition"
+                  />
                 </div>
               </div>
-            </div>
-            <div className="kafka-ms-field-grid">
-              <div className="kafka-ms-field">
-                <label>Key Match</label>
-                <input type="text" placeholder="exact key" value={browser.draft.keyEquals} onChange={(e) => browser.setDraft({ keyEquals: e.target.value })} />
-              </div>
-              <div className="kafka-ms-field">
-                <label>Header Match</label>
-                <input type="text" placeholder="key=value" value={browser.draft.headerMatch} onChange={(e) => browser.setDraft({ headerMatch: e.target.value })} data-testid="detail-header-match" />
-              </div>
-            </div>
-            <div className="kafka-ms-field-grid">
-              <div className="kafka-ms-field">
-                <label>JSONPath</label>
-                <input type="text" placeholder="$.store.name" value={browser.draft.jsonPath} onChange={(e) => browser.setDraft({ jsonPath: e.target.value })} data-testid="detail-jsonpath" />
-              </div>
-              <div className="kafka-ms-field">
-                <label>JSONPath Expected</label>
-                <input type="text" placeholder="expected value" value={browser.draft.jsonPathEquals} onChange={(e) => browser.setDraft({ jsonPathEquals: e.target.value })} data-testid="detail-jsonpath-expected" />
-              </div>
-            </div>
-            <div className="kafka-ms-field-grid">
-              <div className="kafka-ms-field">
-                <label>Max Messages</label>
-                <input type="text" value={browser.draft.maxMessages} onChange={(e) => browser.setDraft({ maxMessages: e.target.value })} />
-              </div>
-              <div className="kafka-ms-field">
-                <label>Sort Order</label>
-                <div className="kafka-explorer-filter-dropdown kafka-ms-detail-filter-dropdown">
-                  <button
-                    type="button"
-                    className="kafka-explorer-filter-trigger kafka-ms-detail-filter-trigger"
-                    onClick={() => setOpenDropdown((open) => (open === 'sort-order' ? null : 'sort-order'))}
-                    aria-haspopup="listbox"
-                    aria-expanded={openDropdown === 'sort-order'}
-                    data-testid="detail-sort-order-trigger"
-                  >
-                    <span>{selectedSortOrder.label}</span>
-                    <span className="kafka-explorer-filter-chevron" aria-hidden>▾</span>
-                  </button>
 
-                  {openDropdown === 'sort-order' && (
-                    <div className="kafka-explorer-filter-menu" role="listbox" aria-label="sort order options">
-                      {SORT_ORDER_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`kafka-explorer-filter-option${option.value === browser.draft.sortOrder ? ' active' : ''}`}
-                          role="option"
-                          aria-selected={option.value === browser.draft.sortOrder}
-                          onClick={() => {
-                            browser.setDraft({ sortOrder: option.value });
-                            setOpenDropdown(null);
-                          }}
-                          data-testid={`detail-sort-order-opt-${option.value}`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-key-match">Key Match</label>
+                <div className="kafka-ms-form-ctrl">
+                  <input
+                    id="detail-key-match"
+                    className="kafka-ms-form-input"
+                    type="text"
+                    placeholder="exact key"
+                    value={browser.draft.keyEquals}
+                    onChange={(e) => browser.setDraft({ keyEquals: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-header-match">Header Match</label>
+                <div className="kafka-ms-form-ctrl">
+                  <input
+                    id="detail-header-match"
+                    className="kafka-ms-form-input"
+                    type="text"
+                    placeholder="key=value"
+                    value={browser.draft.headerMatch}
+                    onChange={(e) => browser.setDraft({ headerMatch: e.target.value })}
+                    data-testid="detail-header-match"
+                  />
+                </div>
+              </div>
+
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-jsonpath">JSONPath</label>
+                <div className="kafka-ms-form-ctrl">
+                  <input
+                    id="detail-jsonpath"
+                    className="kafka-ms-form-input"
+                    type="text"
+                    placeholder="$.store.name"
+                    value={browser.draft.jsonPath}
+                    onChange={(e) => browser.setDraft({ jsonPath: e.target.value })}
+                    data-testid="detail-jsonpath"
+                  />
+                </div>
+              </div>
+
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-jsonpath-expected">JSONPath Expected</label>
+                <div className="kafka-ms-form-ctrl">
+                  <input
+                    id="detail-jsonpath-expected"
+                    className="kafka-ms-form-input"
+                    type="text"
+                    placeholder="expected value"
+                    value={browser.draft.jsonPathEquals}
+                    onChange={(e) => browser.setDraft({ jsonPathEquals: e.target.value })}
+                    data-testid="detail-jsonpath-expected"
+                  />
+                </div>
+              </div>
+
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-body-contains">Body Contains</label>
+                <div className="kafka-ms-form-ctrl">
+                  <input
+                    id="detail-body-contains"
+                    className="kafka-ms-form-input"
+                    type="text"
+                    placeholder="substring match"
+                    value={browser.draft.bodyContains}
+                    onChange={(e) => browser.setDraft({ bodyContains: e.target.value })}
+                    data-testid="detail-body-contains"
+                  />
+                </div>
+              </div>
+
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-max-messages">Max Messages</label>
+                <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+                  <input
+                    id="detail-max-messages"
+                    className="kafka-ms-form-input kafka-ms-form-input--short"
+                    type="text"
+                    value={browser.draft.maxMessages}
+                    onChange={(e) => browser.setDraft({ maxMessages: e.target.value })}
+                    data-testid="detail-max-messages"
+                  />
+                </div>
+              </div>
+
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-timeout">Timeout (ms)</label>
+                <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+                  <input
+                    id="detail-timeout"
+                    className="kafka-ms-form-input kafka-ms-form-input--short"
+                    type="text"
+                    value={browser.draft.timeoutMs}
+                    onChange={(e) => browser.setDraft({ timeoutMs: e.target.value })}
+                    data-testid="detail-timeout"
+                    aria-label="Timeout (ms)"
+                  />
+                </div>
+              </div>
+
+              <div className="kafka-ms-form-row">
+                <label className="kafka-ms-form-label" htmlFor="detail-sort-order">Sort Order</label>
+                <div className="kafka-ms-form-ctrl">
+                  <CustomSelect
+                    className="kafka-ms-form-select kafka-ms-form-select--acks"
+                    data-testid="detail-sort-order"
+                    value={selectedSortOrder}
+                    onChange={(v) => browser.setDraft({ sortOrder: v as 'asc' | 'desc' })}
+                    options={[...SORT_ORDER_OPTIONS]}
+                    aria-label="Sort Order"
+                  />
                 </div>
               </div>
             </div>
@@ -402,26 +375,10 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
             )}
 
             {browser.selectedMessage && (
-              <div className="kafka-ms-detail-pane" data-testid="detail-msg-pane">
-                <div className="kafka-ms-detail-actions">
-                  <button className="kafka-ms-ghost-btn" onClick={() => handleCopyKey(browser.selectedMessage!)} disabled={!browser.selectedMessage.key}>Copy Key</button>
-                  <button className="kafka-ms-ghost-btn" onClick={() => handleCopyPayload(browser.selectedMessage!)}>Copy Value</button>
-                  <button className="kafka-ms-ghost-btn" onClick={() => browser.selectMessage(null)} aria-label="Close detail">✕</button>
-                </div>
-                <pre className="kafka-ms-detail-body">
-                  {(() => { try { return JSON.stringify(JSON.parse(browser.selectedMessage.value), null, 2); } catch { return browser.selectedMessage.value; } })()}
-                </pre>
-                {browser.selectedMessage.headers && Object.keys(browser.selectedMessage.headers).length > 0 && (
-                  <table className="kafka-ms-detail-headers">
-                    <thead><tr><th>Header Key</th><th>Header Value</th></tr></thead>
-                    <tbody>
-                      {Object.entries(browser.selectedMessage.headers).map(([k, v]) => (
-                        <tr key={k}><td>{k}</td><td>{v}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+              <KafkaMessageDetailModal
+                message={browser.selectedMessage}
+                onClose={handleCloseDetail}
+              />
             )}
           </div>
         )}

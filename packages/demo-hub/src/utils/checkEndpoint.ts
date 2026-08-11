@@ -101,13 +101,23 @@ async function checkHttp(url: string, timeoutMs: number): Promise<boolean> {
   return false;
 }
 
-/** Same-origin HTTP health check — uses normal fetch (not no-cors). Returns true on 2xx. */
-async function checkHttpCors(url: string, timeoutMs: number): Promise<boolean> {
+/**
+ * Same-origin Express health-proxy check.
+ * Proxies always respond HTTP 200 with `{ status: 'ok' | 'down' }` so DevTools
+ * stays quiet while Docker is offline. Treat legacy non-2xx as down too.
+ */
+async function checkProxyHealth(url: string, timeoutMs: number): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: controller.signal });
-    return res.ok;
+    if (!res.ok) return false;
+    try {
+      const body = await res.json() as { status?: unknown };
+      return body?.status === 'ok';
+    } catch {
+      return false;
+    }
   } catch {
     return false;
   } finally {
@@ -159,15 +169,14 @@ function wsToHttpHealth(wsUrl: string): string {
 export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<boolean> {
   if (url.startsWith('http')) {
     // Spring actuator (:8081) — probe via Express so the browser never hits :8081
-    // directly. Must use CORS fetch (res.ok): no-cors would treat Express's own
-    // HTTP 503 (Spring down) as success because the proxy host is reachable.
+    // directly. Read JSON `status` (proxies return HTTP 200 even when down).
     if (isSpringActuatorHealthUrl(url)) {
-      return checkHttpCors('/health/spring', timeoutMs);
+      return checkProxyHealth('/health/spring', timeoutMs);
     }
     // Schema Registry probes are unreliable via browser no-cors; route through server proxy.
     // Use relative URL so Vite proxy handles it (same-origin, no CORS).
     if (isSchemaRegistryUrl(url)) {
-      return checkHttpCors(
+      return checkProxyHealth(
         `/health/schema-registry?url=${encodeURIComponent(url)}`,
         timeoutMs,
       );
@@ -175,12 +184,12 @@ export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<bool
     // Envoy :50055 returns HTTP 415 on GET / — browser probes log Failed-to-load.
     // Route through Express so PrerequisiteGate stays quiet in DevTools.
     if (isEnvoyGrpcWebProbeUrl(url)) {
-      return checkHttpCors('/health/envoy', timeoutMs);
+      return checkProxyHealth('/health/envoy', timeoutMs);
     }
     // Redpanda Admin API probes are routed through the server proxy for the same reason.
     if (isRedpandaAdminUrl(url)) {
       const port = new URL(url).port;
-      return checkHttpCors(`/health/kafka-admin?port=${port}`, timeoutMs);
+      return checkProxyHealth(`/health/kafka-admin?port=${port}`, timeoutMs);
     }
     return checkHttp(url, timeoutMs);
   }

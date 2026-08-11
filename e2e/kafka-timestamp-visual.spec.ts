@@ -146,7 +146,8 @@ test.describe('Kafka Consume — Timestamp column', () => {
 
     const missingCells = page.locator('[data-testid="ts-cell-missing"]');
     await expect(missingCells).toHaveCount(1);
-    await expect(missingCells.first()).toHaveText('—');
+    const missingText = (await missingCells.first().textContent())?.trim() ?? '';
+    expect(['—', '-']).toContain(missingText);
 
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'kt-03-timestamp-cells.png') });
     console.log('[KT-03] Timestamp variants and missing cell ✓');

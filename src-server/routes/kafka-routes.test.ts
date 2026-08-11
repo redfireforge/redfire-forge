@@ -294,6 +294,22 @@ describe('kafka-routes', () => {
     expect(res.body.ok).toBe(false);
   });
 
+  it('maps KAFKA_TOPICS_FAILED errors to 503', async () => {
+    const service = createMockService();
+    service.listTopics.mockResolvedValueOnce(createKafkaErrorEnvelope('topics', {
+      code: 'KAFKA_TOPICS_FAILED',
+      message: 'broker unreachable',
+      retryable: true,
+    }));
+    const app = createApp(service);
+
+    const res = await request(app).get('/api/kafka/topics?clusterId=cluster-a&includeInternal=false');
+
+    expect(res.status).toBe(503);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error.code).toBe('KAFKA_TOPICS_FAILED');
+  });
+
   it('maps NOT_FOUND errors to 404', async () => {
     const service = createMockService();
     service.unsubscribe.mockResolvedValueOnce(createKafkaErrorEnvelope('unsubscribe', {
@@ -685,7 +701,7 @@ describe('kafka-routes', () => {
 
       const res = await request(app).get('/api/kafka/topics/orders.created/detail?clusterId=local-dev');
 
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(503);
       expect(res.body.ok).toBe(false);
       expect(res.body.error.code).toBe('KAFKA_TOPIC_DETAIL_FAILED');
       expect(res.body.error.message).toContain('broker disconnected');
@@ -787,8 +803,6 @@ describe('kafka-routes', () => {
       const res = await request(app)
         .post('/api/kafka/schema-seed-sample')
         .send({ schemaConfig: seedSchemaConfig });
-      // REGISTRY_UNREACHABLE maps to 503 everywhere else in this router (see
-      // schema-subjects/schema-versions/schema-fetch tests above).
       expect(res.status).toBe(503);
       expect(res.body.ok).toBe(false);
     });

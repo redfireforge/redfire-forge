@@ -152,7 +152,8 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const res = await request(app).get('/health/spring');
 
-      expect(res.status).toBe(503);
+      // HTTP 200 + status:down — avoids Chrome DevTools 503 spam while Docker is offline
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.source).toBe('spring-actuator');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
@@ -163,7 +164,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
         new Response('Service Unavailable', { status: 503 }),
       );
       const res = await request(app).get('/health/spring');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.reason).toBe('http_503');
     });
@@ -178,7 +179,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const res = await request(app).get('/health/spring');
 
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.springStatus).toBe('DOWN');
     });
@@ -221,7 +222,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const res = await request(app).get('/health/envoy');
 
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.source).toBe('envoy-grpc-web');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
@@ -245,7 +246,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
         new Response('forbidden', { status: 403 }),
       );
       const res = await request(app).get('/health/schema-registry?url=http://localhost:8085');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.reason).toBe('http_403');
     });
@@ -253,7 +254,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     it('returns down when registry is unreachable (network error)', async () => {
       vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('ECONNREFUSED'));
       const res = await request(app).get('/health/schema-registry');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
     });
@@ -293,7 +294,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     it('returns down when Admin API is unreachable (network error)', async () => {
       vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('ECONNREFUSED'));
       const res = await request(app).get('/health/kafka-admin?port=19648');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
     });
@@ -311,7 +312,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
         new Response('Service Unavailable', { status: 503 }),
       );
       const res = await request(app).get('/health/kafka-admin?port=19648');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.reason).toBe('http_503');
       expect(res.body.port).toBe(19648);
@@ -333,7 +334,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
         }),
       );
       const res = await request(app).get('/health/kafka-admin?port=19648');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(String(res.body.reason)).toContain('aborted');
     });
