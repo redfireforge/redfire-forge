@@ -135,19 +135,15 @@ describe('kafka-test-runner lesson', () => {
 
   // ─── runKafkaWorkflow helper ─────────────────────────────────────
 
-  it('step kr-run action runs without completion section (loops and exits, line 120-124)', async () => {
-    // No .completion-section in DOM → the polling loop runs its fixed iterations
+  it('step kr-run highlights the Workflow Runner run button test id', () => {
     const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-run')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('btn-primary'));
+    expect(step.highlight).toBe('[data-testid="workflow-runner-run-btn"]');
+    expect(step.verify).toBe('.completion-section');
   });
 
-  it('step kr-run action breaks loop early when completion section appears (line 122 break)', async () => {
-    // Add .completion-section immediately so the first delay → querySelector breaks loop
+  it('step kr-run action exits quickly when completion section already present', async () => {
     const comp = document.createElement('div');
     comp.className = 'completion-section';
-    // jsdom does not implement scrollIntoView — add a no-op stub
     comp.scrollIntoView = vi.fn();
     document.body.appendChild(comp);
 
@@ -155,7 +151,28 @@ describe('kafka-test-runner lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('btn-primary'));
+    // Already complete — no need to click/run again.
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('step kr-run action clicks the run button when present and waits for completion', async () => {
+    const runBtn = document.createElement('button');
+    runBtn.setAttribute('data-testid', 'workflow-runner-run-btn');
+    runBtn.textContent = '▶ Run Workflow';
+    runBtn.scrollIntoView = vi.fn();
+    runBtn.addEventListener('click', () => {
+      const comp = document.createElement('div');
+      comp.className = 'completion-section';
+      comp.scrollIntoView = vi.fn();
+      document.body.appendChild(comp);
+    });
+    document.body.appendChild(runBtn);
+
+    const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-run')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(document.querySelector('.completion-section')).toBeTruthy();
   });
 
   // ─── kr-iterations step ──────────────────────────────────────────
@@ -192,26 +209,33 @@ describe('kafka-test-runner lesson', () => {
 
   // ─── kr-dashboard step ───────────────────────────────────────────
 
-  it('step kr-dashboard action navigates to results when link is absent (line 343)', async () => {
-    // No .wfp-view-results-btn in DOM → fallback to ctx.navigateToTab('results')
+  it('step kr-dashboard highlights the View Full Results button test id', () => {
+    const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-dashboard')!;
+    expect(step.highlight).toBe('[data-testid="workflow-runner-view-results-btn"]');
+  });
+
+  it('step kr-dashboard action navigates to results when view-results button is absent', async () => {
     const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-dashboard')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('results');
   });
 
-  it('step kr-dashboard action clicks link when view-results button is present (line 340)', async () => {
-    const link = document.createElement('button');
-    link.className = 'wfp-view-results-btn';
+  it('step kr-dashboard action spotlights and clicks View Full Results when present', async () => {
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'workflow-runner-view-results-btn');
+    btn.textContent = 'View Full Results →';
+    btn.scrollIntoView = vi.fn();
     const clickSpy = vi.fn();
-    link.addEventListener('click', clickSpy);
-    document.body.appendChild(link);
+    btn.addEventListener('click', clickSpy);
+    document.body.appendChild(btn);
 
     const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-dashboard')!;
     const ctx = makeCtx();
     await step.action!(ctx);
 
     expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
   });
 
   it('step kr-badges preAction sets flat groupBy view silently (tab click moved to action)', async () => {

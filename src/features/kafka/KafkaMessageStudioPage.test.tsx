@@ -182,6 +182,27 @@ describe('KafkaMessageStudioPage', () => {
     expect(screen.getByRole('button', { name: 'Consume' }).className).toContain('active');
   });
 
+  it('remembers Consume Once vs Stream when switching to Publish and back', async () => {
+    const user = userEvent.setup();
+    render(
+      <KafkaMessageStudioPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByTestId('tab-consume'));
+    await user.click(screen.getByTestId('con-mode-stream'));
+    expect(screen.getByTestId('con-mode-stream').className).toContain('active');
+    expect(screen.getByTestId('stream-action-row')).toBeTruthy();
+
+    await user.click(screen.getByTestId('tab-publish'));
+    expect(screen.queryByTestId('con-mode-stream')).toBeNull();
+
+    await user.click(screen.getByTestId('tab-consume'));
+    expect(screen.getByTestId('con-mode-stream').className).toContain('active');
+    expect(screen.getByTestId('stream-action-row')).toBeTruthy();
+  });
+
   it('switches to Topics tab and renders topic explorer content', async () => {
     const user = userEvent.setup();
     render(

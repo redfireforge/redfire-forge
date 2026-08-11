@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOptionByTestId, getCustomSelectValue } from '../../test-utils/customSelectHelper';
 import { KafkaTopicDetailPanel } from './KafkaTopicDetailPanel';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';
@@ -47,6 +48,7 @@ function makeBrowser(overrides?: Partial<UseTopicMessageBrowserReturn>): UseTopi
       headerMatch: '',
       jsonPath: '',
       jsonPathEquals: '',
+      sortOrder: 'asc',
     },
     setDraft: vi.fn(),
     loading: false,
@@ -305,7 +307,7 @@ describe('KafkaTopicDetailPanel', () => {
     expect(screen.getByTestId('detail-results')).toBeTruthy();
     expect(screen.getByText('timed out')).toBeTruthy();
     expect(screen.getByTestId('detail-row-0')).toBeTruthy();
-    expect(screen.getByTestId('detail-msg-pane')).toBeTruthy();
+    expect(screen.getByTestId('kafka-message-detail-modal')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('detail-row-0'));
     expect(browser.selectMessage).toHaveBeenCalled();
@@ -341,7 +343,7 @@ describe('KafkaTopicDetailPanel', () => {
     expect(screen.getByText('No messages received')).toBeTruthy();
   });
 
-  it('messages tab: export, clear, copy actions, and headers in detail pane', () => {
+  it('messages tab: export, clear, copy actions, and headers in detail modal', () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
 
@@ -375,13 +377,13 @@ describe('KafkaTopicDetailPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(browser.clearResult).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Key' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Value' }));
+    fireEvent.click(screen.getByTestId('kmd-copy-key'));
+    fireEvent.click(screen.getByTestId('kmd-copy-payload'));
     expect(writeText).toHaveBeenCalledWith('my-key');
-    expect(writeText).toHaveBeenCalledWith('{"id":1}');
+    expect(writeText).toHaveBeenCalledWith(JSON.stringify({ id: 1 }, null, 2));
 
-    expect(screen.getByText('x-trace')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Close detail'));
+    expect(screen.getByTestId('kmd-headers').textContent).toContain('x-trace');
+    fireEvent.click(screen.getByTestId('kmd-close-btn'));
     expect(browser.selectMessage).toHaveBeenCalledWith(null);
   });
 
@@ -397,19 +399,18 @@ describe('KafkaTopicDetailPanel', () => {
     );
 
     const tab = screen.getByTestId('detail-messages-tab');
-    const inputs = tab.querySelectorAll('input');
+    const keyInput = tab.querySelector('#detail-key-match') as HTMLInputElement;
 
-    fireEvent.click(screen.getByTestId('detail-time-window-trigger'));
-    fireEvent.click(screen.getByTestId('detail-time-window-opt-last-1h'));
-    fireEvent.click(screen.getByTestId('detail-partition-trigger'));
-    fireEvent.click(screen.getByTestId('detail-partition-opt-0'));
-    fireEvent.click(screen.getByTestId('detail-sort-order-trigger'));
-    fireEvent.click(screen.getByTestId('detail-sort-order-opt-desc'));
-    fireEvent.change(inputs[0], { target: { value: 'order-1' } });
-    fireEvent.change(inputs[1], { target: { value: 'x-trace=abc' } });
-    fireEvent.change(inputs[2], { target: { value: '$.name' } });
-    fireEvent.change(inputs[3], { target: { value: 'expected-value' } });
-    fireEvent.change(inputs[4], { target: { value: '25' } });
+    selectOptionByTestId('detail-time-window', 'Last 1 Hour');
+    selectOptionByTestId('detail-partition', '0');
+    selectOptionByTestId('detail-sort-order', 'Newest First');
+    fireEvent.change(keyInput, { target: { value: 'order-1' } });
+    fireEvent.change(screen.getByTestId('detail-header-match'), { target: { value: 'x-trace=abc' } });
+    fireEvent.change(screen.getByTestId('detail-jsonpath'), { target: { value: '$.name' } });
+    fireEvent.change(screen.getByTestId('detail-jsonpath-expected'), { target: { value: 'expected-value' } });
+    fireEvent.change(screen.getByTestId('detail-body-contains'), { target: { value: 'login' } });
+    fireEvent.change(screen.getByTestId('detail-max-messages'), { target: { value: '25' } });
+    fireEvent.change(screen.getByTestId('detail-timeout'), { target: { value: '5000' } });
 
     expect(browser.setDraft).toHaveBeenCalledWith({ timeWindow: 'last-1h' });
     expect(browser.setDraft).toHaveBeenCalledWith({ partition: '0' });
@@ -417,7 +418,9 @@ describe('KafkaTopicDetailPanel', () => {
     expect(browser.setDraft).toHaveBeenCalledWith({ headerMatch: 'x-trace=abc' });
     expect(browser.setDraft).toHaveBeenCalledWith({ jsonPath: '$.name' });
     expect(browser.setDraft).toHaveBeenCalledWith({ jsonPathEquals: 'expected-value' });
+    expect(browser.setDraft).toHaveBeenCalledWith({ bodyContains: 'login' });
     expect(browser.setDraft).toHaveBeenCalledWith({ maxMessages: '25' });
+    expect(browser.setDraft).toHaveBeenCalledWith({ timeoutMs: '5000' });
     expect(browser.setDraft).toHaveBeenCalledWith({ sortOrder: 'desc' });
   });
 
@@ -476,7 +479,7 @@ describe('KafkaTopicDetailPanel', () => {
     expect(row.textContent).toContain('—');
   });
 
-  it('messages tab: invalid JSON value shown as raw string in detail pane', () => {
+  it('messages tab: invalid JSON value shown as raw string in detail modal', () => {
     const rows = [{ topic: 't', partition: 0, offset: '1', value: 'not-json', key: undefined }];
     render(
       <KafkaTopicDetailPanel
@@ -491,7 +494,7 @@ describe('KafkaTopicDetailPanel', () => {
         })}
       />,
     );
-    expect(screen.getByTestId('detail-msg-pane').querySelector('.kafka-ms-detail-body')?.textContent).toBe('not-json');
+    expect(screen.getByTestId('kmd-body').textContent).toBe('not-json');
   });
 
   it('messages tab: invalid or non-positive timestamps render em dash', () => {
@@ -521,20 +524,23 @@ describe('KafkaTopicDetailPanel', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('detail-time-window-trigger'));
-    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(screen.getByTestId('detail-time-window-trigger'));
-    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('false');
+    const timeTrigger = screen.getByTestId('detail-time-window').querySelector('.cs-trigger')!;
+    fireEvent.click(timeTrigger);
+    expect(timeTrigger.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(timeTrigger);
+    expect(timeTrigger.getAttribute('aria-expanded')).toBe('false');
 
-    fireEvent.click(screen.getByTestId('detail-partition-trigger'));
-    expect(screen.getByTestId('detail-partition-trigger').getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(screen.getByTestId('detail-partition-trigger'));
-    expect(screen.getByTestId('detail-partition-trigger').getAttribute('aria-expanded')).toBe('false');
+    const partitionTrigger = screen.getByTestId('detail-partition').querySelector('.cs-trigger')!;
+    fireEvent.click(partitionTrigger);
+    expect(partitionTrigger.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(partitionTrigger);
+    expect(partitionTrigger.getAttribute('aria-expanded')).toBe('false');
 
-    fireEvent.click(screen.getByTestId('detail-sort-order-trigger'));
-    expect(screen.getByTestId('detail-sort-order-trigger').getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(screen.getByTestId('detail-sort-order-trigger'));
-    expect(screen.getByTestId('detail-sort-order-trigger').getAttribute('aria-expanded')).toBe('false');
+    const sortTrigger = screen.getByTestId('detail-sort-order').querySelector('.cs-trigger')!;
+    fireEvent.click(sortTrigger);
+    expect(sortTrigger.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(sortTrigger);
+    expect(sortTrigger.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('messages tab: click selected row toggles selection back to null', () => {
@@ -592,7 +598,7 @@ describe('KafkaTopicDetailPanel', () => {
     expect(screen.getByTestId('detail-load-more-btn').textContent).toBe('Loading…');
   });
 
-  it('dropdown global listeners handle non-Escape key, Escape close, and non-Element target', () => {
+  it('CustomSelect closes on outside click and Escape', () => {
     render(
       <KafkaTopicDetailPanel
         detail={makeDetail()}
@@ -602,24 +608,21 @@ describe('KafkaTopicDetailPanel', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('detail-time-window-trigger'));
-    fireEvent.keyDown(document, { key: 'Enter' });
-    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('true');
-
-    const fakeMouseDown = new MouseEvent('mousedown');
-    Object.defineProperty(fakeMouseDown, 'target', { value: { notElement: true } });
-    document.dispatchEvent(fakeMouseDown);
-    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('true');
+    const timeTrigger = screen.getByTestId('detail-time-window').querySelector('.cs-trigger')!;
+    fireEvent.click(timeTrigger);
+    expect(timeTrigger.getAttribute('aria-expanded')).toBe('true');
 
     fireEvent.mouseDown(document.body);
-    expect(screen.getByTestId('detail-time-window-trigger').getAttribute('aria-expanded')).toBe('false');
+    expect(timeTrigger.getAttribute('aria-expanded')).toBe('false');
 
-    fireEvent.click(screen.getByTestId('detail-partition-trigger'));
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.getByTestId('detail-partition-trigger').getAttribute('aria-expanded')).toBe('false');
+    const partitionTrigger = screen.getByTestId('detail-partition').querySelector('.cs-trigger')!;
+    fireEvent.click(partitionTrigger);
+    expect(partitionTrigger.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.keyDown(partitionTrigger, { key: 'Escape' });
+    expect(partitionTrigger.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('falls back to default selected labels for unknown draft values and marks active desc option', () => {
+  it('falls back to default selected labels for unknown draft values', () => {
     render(
       <KafkaTopicDetailPanel
         detail={makeDetail()}
@@ -636,10 +639,8 @@ describe('KafkaTopicDetailPanel', () => {
       />,
     );
 
-    expect(screen.getByTestId('detail-time-window-trigger').textContent).toContain('Latest');
-    expect(screen.getByTestId('detail-partition-trigger').textContent).toContain('Any');
-    fireEvent.click(screen.getByTestId('detail-sort-order-trigger'));
-    const descOpt = screen.getByTestId('detail-sort-order-opt-desc');
-    expect(descOpt.className).toContain('active');
+    expect(getCustomSelectValue(screen.getByTestId('detail-time-window'))).toContain('Latest');
+    expect(getCustomSelectValue(screen.getByTestId('detail-partition'))).toContain('Any');
+    expect(getCustomSelectValue(screen.getByTestId('detail-sort-order'))).toContain('Newest First');
   });
 });

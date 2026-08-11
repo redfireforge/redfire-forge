@@ -308,10 +308,24 @@ export function KafkaPublishStudio({
                 type="button"
                 className="kafka-ms-expand-btn"
                 onClick={() => setBodyEditorOpen(true)}
-                title="Open full editor"
+                title="Open full-screen body editor"
+                aria-label="Open full-screen body editor"
                 data-testid="pub-body-expand"
               >
-                ⤢ Expand
+                <svg
+                  className="kafka-ms-expand-btn__icon"
+                  viewBox="0 0 16 16"
+                  width="12"
+                  height="12"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M2 2h4v1.5H3.5V6H2V2zm8 0h4v4h-1.5V3.5H10V2zM2 10h1.5v2.5H6V14H2v-4zm8 2.5V14h4v-4h-1.5v2.5H10z"
+                  />
+                </svg>
+                Expand
               </button>
               <CustomSelect
                 aria-label="Body format"
@@ -398,8 +412,9 @@ export function KafkaPublishStudio({
             {publishLoading ? 'Sending…' : 'Send Once'}
           </button>
           {!connected && (
-            <span className="kafka-ms-disconnected-hint" data-testid="pub-disconnected-hint">
-              ⚠ Not connected
+            <span className="kafka-ms-disconnected-hint" data-testid="pub-disconnected-hint" role="status">
+              <span className="kafka-ms-disconnected-hint__icon" aria-hidden="true">!</span>
+              <span className="kafka-ms-disconnected-hint__text">Not connected</span>
             </span>
           )}
           <button

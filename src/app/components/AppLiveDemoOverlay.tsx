@@ -19,8 +19,9 @@ export default function AppLiveDemoOverlay({ demoHub, navigateToTab }: AppLiveDe
   const exitToConcept = () => {
     // exitLiveDemo sets suppressLiveTabExitRef before pinning demo-hub so
     // DemoShellHost cannot bounce live+demo-hub → initialTab (Studio flash).
-    if (demoHub.suppressLiveTabExitRef) {
-      demoHub.suppressLiveTabExitRef.current = true;
+    const suppressLiveTabExitRef = demoHub.suppressLiveTabExitRef;
+    if (suppressLiveTabExitRef) {
+      suppressLiveTabExitRef.current = true;
     }
     const exitPromise = Promise.resolve(demoHub.exitLiveDemo());
     pinDemoHubTab();
@@ -36,6 +37,7 @@ export default function AppLiveDemoOverlay({ demoHub, navigateToTab }: AppLiveDe
       stepIndex={demoHub.state.stepIndex}
       isPlaying={demoHub.state.isPlaying}
       stepPhase={demoHub.stepPhase}
+      surfaceReady={!demoHub.isDemoBootstrapping}
       onNext={demoHub.nextStep}
       onTogglePlay={demoHub.toggleAutoPlay}
       onSkipReading={demoHub.skipReading}

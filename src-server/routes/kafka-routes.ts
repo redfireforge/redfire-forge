@@ -17,7 +17,6 @@ import {
 } from '../kafka/contracts.js';
 import {
   fetchSchema,
-  listSubjects,
   listSubjectsWithFormat,
   listVersions,
   registerSchemaVersion,
@@ -67,7 +66,10 @@ function mapErrorStatus(error: KafkaErrorEnvelope['error']): number {
   if (
     error.code.includes('NOT_CONNECTED') ||
     error.code.includes('CONNECT_IN_PROGRESS') ||
-    error.code === 'REGISTRY_UNREACHABLE'
+    error.code === 'REGISTRY_UNREACHABLE' ||
+    // Broker/admin failures while "connected" are usually transient connectivity issues.
+    error.code === 'KAFKA_TOPICS_FAILED' ||
+    error.code === 'KAFKA_TOPIC_DETAIL_FAILED'
   ) {
     return 503;
   }

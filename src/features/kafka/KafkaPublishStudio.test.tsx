@@ -337,8 +337,10 @@ describe('KafkaPublishStudio — Template Save', () => {
     ];
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
     fireEvent.click(screen.getByTitle('Load a saved template'));
+    expect(screen.getByTestId('pub-tmpl-dropdown')).toBeTruthy();
     fireEvent.click(screen.getByTitle('Delete "My Preset"'));
     await waitFor(() => expect(tplProps.onDeleteTemplate).toHaveBeenCalledWith('pub-1'));
+    await waitFor(() => expect(screen.queryByTestId('pub-tmpl-dropdown')).toBeNull());
   });
 });
 

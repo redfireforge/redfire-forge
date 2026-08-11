@@ -14,6 +14,7 @@ vi.mock('../setup-helpers', async (importOriginal) => {
   return {
     ...actual,
     kafkaPublishSetup: vi.fn().mockResolvedValue(undefined),
+    preparePlaintextKafkaStudio: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -26,7 +27,8 @@ describe('kafka-topic-explorer lesson', () => {
     expect(kafkaTopicExplorerLesson.category).toBe('kafka');
     expect(kafkaTopicExplorerLesson.estimatedMinutes).toBeGreaterThan(0);
     expect(kafkaTopicExplorerLesson.initialTab).toBe('kafka-message-studio');
-    expect(kafkaTopicExplorerLesson.allowedTabs).toContain('kafka-settings');
+    expect(kafkaTopicExplorerLesson.allowedTabs).toEqual(['kafka-message-studio']);
+    expect(typeof kafkaTopicExplorerLesson.prepareBeforeNavigate).toBe('function');
   });
 
   it('has concept with title, body, keyTerms, and SVG diagram', () => {
@@ -320,22 +322,19 @@ describe('kafka-topic-explorer lesson', () => {
     expect(clearCall).toBeTruthy();
   });
 
-  it('setup breaks early from loop when topic rows already exist (line 64 true branch)', async () => {
-    const table = document.createElement('table');
-    table.className = 'kafka-explorer-topic-table';
-    const tbody = document.createElement('tbody');
-    const row = document.createElement('tr');
-    row.setAttribute('style', 'cursor:pointer');
-    tbody.appendChild(row);
-    table.appendChild(tbody);
-    document.body.appendChild(table);
+  it('setup stays snappy and does not poll for topic rows (Topics click is step 1)', async () => {
     const ctx = makeCtx();
     await kafkaTopicExplorerLesson.setup!(ctx);
-    // Setup always calls click(TOPICS_TAB) then checks loop — delay should be called minimally
     const delayCalls = (ctx.delay as ReturnType<typeof vi.fn>).mock.calls.length;
-    // Without early break: would call delay 20 times from kafkaPublishSetup + loop iterations
-    // With break on first iteration: delayCalls should be << 20
-    expect(delayCalls).toBeLessThan(10);
+    // Guard poll is at most 6 × 80ms; no 30×500 topic-row wait.
+    expect(delayCalls).toBeLessThan(8);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('prepareBeforeNavigate is wired for quiet connect + seed', async () => {
+    const { preparePlaintextKafkaStudio } = await import('../setup-helpers');
+    await kafkaTopicExplorerLesson.prepareBeforeNavigate!(makeCtx());
+    expect(preparePlaintextKafkaStudio).toHaveBeenCalled();
   });
 
   it('step te-browse action consumes and spotlights results', async () => {

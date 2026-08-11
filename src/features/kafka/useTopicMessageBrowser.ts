@@ -100,7 +100,14 @@ export function useTopicMessageBrowser(
   }, []);
 
   const buildBody = useCallback((seekOffsets?: KafkaConsumeCursor[]) => {
-    const fromBeginning = draft.timeWindow === 'earliest' || draft.timeWindow === 'last-1h' || draft.timeWindow === 'last-24h';
+    // Time-window semantics for Topic Explorer browse:
+    // - earliest / last-* → read from the beginning (then optionally filter by age)
+    // - latest → fetch the newest available records (server desc seek), NOT "wait at tip"
+    //   Waiting at the tip only returns brand-new publishes and commonly times out with 0.
+    const fromBeginning = draft.timeWindow === 'earliest'
+      || draft.timeWindow === 'last-1h'
+      || draft.timeWindow === 'last-24h';
+    const fetchNewestAvailable = draft.timeWindow === 'latest';
     const filter = buildConsumeFilter({
       topic: topicName,
       groupId: draft.groupId,
@@ -124,7 +131,11 @@ export function useTopicMessageBrowser(
     };
     if (draft.partition.trim()) body.partition = parseInt(draft.partition, 10);
     if (filter) body.filter = filter;
-    if (draft.sortOrder !== 'asc') body.sortOrder = draft.sortOrder;
+    // Server `sortOrder: 'desc'` seeks to high-N (newest available). Always use that for
+    // Latest; otherwise honour the user's Sort Order for Earliest / last-* windows.
+    if (fetchNewestAvailable || draft.sortOrder === 'desc') {
+      body.sortOrder = 'desc';
+    }
     if (seekOffsets && seekOffsets.length > 0) body.seekOffsets = seekOffsets;
     return body;
   }, [topicName, draft, kafkaState.selectedClusterId]);
@@ -157,6 +168,10 @@ export function useTopicMessageBrowser(
             const ts = parseInt(r.timestamp ?? '0', 10);
             return ts >= cutoff;
           });
+        }
+        // Latest fetches via server desc seek; re-order when the user chose Oldest First.
+        if (draft.timeWindow === 'latest' && draft.sortOrder === 'asc') {
+          rows = [...rows].sort((a, b) => parseInt(a.offset, 10) - parseInt(b.offset, 10));
         }
         setResult(rows);
         setTimedOut(envelope.data.timedOut === true);

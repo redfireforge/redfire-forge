@@ -138,6 +138,12 @@ export type DemoBridgeWindow = Window &
     __demoDeleteKafkaClusterById?: (clusterId: string) => void;
     /** Delete a Kafka cluster by display name (demo lesson cleanup). */
     __demoDeleteKafkaClusterByName?: (name: string) => void;
+    /** Clear all Kafka clusters + disconnect (quiet Quick Start prep — no UI delete flash). */
+    __demoClearAllKafkaClusters?: () => void;
+    /** Upsert Demo Cluster (`demo-cluster` @ 127.0.0.1:19092) into React state (quiet Publish prep). */
+    __demoEnsurePlaintextKafkaCluster?: () => void;
+    /** Sync React connection snapshot after a quiet API connect (avoids Settings UI tour). */
+    __demoMarkKafkaConnected?: (clusterId: string) => void;
     /** Clear all WebSocket Saved connection profiles (quiet demo setup). */
     __demoClearWsProfiles?: () => Promise<void>;
     /** Clear all WebSocket message templates (quiet demo setup). */

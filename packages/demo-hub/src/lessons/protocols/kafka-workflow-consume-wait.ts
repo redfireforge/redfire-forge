@@ -23,7 +23,12 @@ import {
   scrollWfConfigFieldIntoView,
   waitForWfConfigPanel,
 } from '../wf-demo-helpers';
-import { deleteWorkflowByName, seedNamedWorkflow, selectWorkflowByName } from '../../adapters';
+import {
+  deleteWorkflowByName,
+  fitWorkflowCanvasView,
+  seedNamedWorkflow,
+  selectWorkflowByName,
+} from '../../adapters';
 import { purgeAllSpotlightRings, showSpotlightRing } from '../../demoRipple';
 import { WF, KAFKA } from '@shared/selectors';
 
@@ -158,25 +163,29 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
 
 // ── Setup / cleanup ────────────────────────────────────────────────
 
+/** Seed + select while Concept is still up — first Designer paint is the demo graph. */
+async function kafkaWorkflowConsumeWaitPrepare(ctx: DemoActionContext): Promise<void> {
+  await seedNamedWorkflow(ctx, DEMO_WF_NAME, createKafkaConsumeWaitWorkflow(), {
+    deleteDelayMs: 0,
+    insertPreDelayMs: 0,
+    insertDelayMs: 0,
+    selectAfterSeed: true,
+  });
+}
+
 async function kafkaWorkflowConsumeWaitSetup(ctx: DemoActionContext): Promise<void> {
   setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
   try { await ensureKafkaConnected(); } catch { /* server may not be running */ }
 
-  await seedNamedWorkflow(ctx, DEMO_WF_NAME, createKafkaConsumeWaitWorkflow(), {
-    deleteDelayMs: 0,
-    insertPreDelayMs: 100,
-    insertDelayMs: 0,
-  });
-
-  ctx.navigateToTab('workflow');
-  await ctx.delay(320);
-
+  if ((await ensureLessonWorkflowShown(ctx, DEMO_WF_NAME)) === 'missing') {
+    selectWorkflowByName(DEMO_WF_NAME);
+    await ctx.delay(80);
+  }
   await closeWfConsoleIfOpen(ctx);
   await closeWfConfigModalIfOpen(ctx);
-
-  const fitBtn = document.querySelector('button[title="Fit view"]') as HTMLElement | null;
-  if (fitBtn) { fitBtn.click(); await ctx.delay(160); }
   await collapseWfDemoAppSidebar(ctx);
+  fitWorkflowCanvasView({ duration: 0 });
+  await ctx.delay(60);
 }
 
 async function kafkaWorkflowConsumeWaitCleanup(ctx: DemoActionContext): Promise<void> {
@@ -253,11 +262,16 @@ export const kafkaWorkflowConsumeWaitLesson: DemoLesson = {
   description:
     'Add kafkaConsume and kafkaWait nodes to a workflow, bind consumed message metadata, configure correlation matching, and use a Quick Test sample so the Wait resolves without a live event.',
   estimatedMinutes: 6,
+  initialTab: 'workflow',
+  allowedTabs: ['workflow'],
+  /** Prevent expand→collapse reflow that slides canvas nodes before Reading. */
+  collapseAppSidebarOnStart: true,
 
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
   tag: '🐳 Docker',
 
+  prepareBeforeNavigate: kafkaWorkflowConsumeWaitPrepare,
   setup: kafkaWorkflowConsumeWaitSetup,
   cleanup: kafkaWorkflowConsumeWaitCleanup,
 

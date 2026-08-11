@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { CustomSelect } from '../../shared/components/CustomSelect';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
 import { exportResultSet, valuePreview } from './kafkaMessageStudioUtils';
-import type { KafkaConsumeResultRow } from './types';
 import type { KafkaConsumeTemplate } from '../../shared/kafka/kafkaStorage';
 import { KafkaTemplateControls } from './KafkaTemplateControls';
-import { parseKafkaTimestamp, formatRelativeAge, formatTimestampTooltip } from './kafkaTimestamp';
 import KafkaMessageDetailModal from './KafkaMessageDetailModal';
-
+import { renderKafkaTimestampCell } from './kafkaConsumeStudioHelpers';
+import {
+  formatStreamCountLabel,
+  getStreamEmptyStateText,
+} from './kafkaConsumeStreamHelpers';
+import { useKafkaConsumeE2eBridge, useKafkaConsumeStreamView, useRelativeTimestampTick } from './kafkaConsumeStudioHooks';
 type ConsumeMode = 'once' | 'stream';
-
 interface KafkaConsumeStudioProps {
   studio: UseKafkaMessageStudioReturn;
   clusterId: string;
@@ -21,12 +23,14 @@ interface KafkaConsumeStudioProps {
   onLoadConsumeTemplate: (id: string) => void;
   onDeleteConsumeTemplate: (id: string) => Promise<void>;
   streamMode: UseKafkaStreamModeReturn;
+  /** Lifted by the page so Publish/Topics switches do not reset Once vs Stream. */
+  consumeMode?: ConsumeMode;
+  onConsumeModeChange?: (mode: ConsumeMode) => void;
   onUseAsWorkflowInput?: (payload: string, meta: { topic: string; partition: number; offset: string }) => void;
   /** When false, the Consume/Stream buttons are disabled and a connection notice is shown.
    *  Templates are always accessible regardless of connection state. */
   connected?: boolean;
 }
-
 export function KafkaConsumeStudio({
   studio,
   clusterId,
@@ -36,6 +40,8 @@ export function KafkaConsumeStudio({
   onLoadConsumeTemplate,
   onDeleteConsumeTemplate,
   streamMode,
+  consumeMode: consumeModeProp,
+  onConsumeModeChange,
   onUseAsWorkflowInput,
   connected = true,
 }: KafkaConsumeStudioProps) {
@@ -46,8 +52,14 @@ export function KafkaConsumeStudio({
     selectMessage, consumeOnce, clearConsumeResult, consumeMessageCount,
     hasMore, loadMore, loadMoreLoading,
   } = studio;
-
-  const [mode, setMode] = useState<ConsumeMode>('once');
+  const [uncontrolledMode, setUncontrolledMode] = useState<ConsumeMode>('once');
+  const mode = consumeModeProp ?? uncontrolledMode;
+  const setMode = useCallback((next: ConsumeMode) => {
+    onConsumeModeChange?.(next);
+    if (consumeModeProp === undefined) {
+      setUncontrolledMode(next);
+    }
+  }, [consumeModeProp, onConsumeModeChange]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [formCollapsed, setFormCollapsed] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -55,126 +67,41 @@ export function KafkaConsumeStudio({
   const canConsume = !topicEmpty && !consumeLoading && connected;
   const startPositionValue = consumeDraft.startPosition === 'earliest' ? 'earliest' : 'latest';
   const sortOrderValue = consumeDraft.sortOrder === 'desc' ? 'desc' : 'asc';
-
-  // E2E test bridge: __kafkaInjectConsumeResults(rows) injects mock rows directly
-  // into the consume results without needing a real Kafka cluster.
-  useEffect(() => {
-    const w = window as unknown as Record<string, unknown>;
-    w.__kafkaInjectConsumeResults = (rows: KafkaConsumeResultRow[]) => {
-      studio.consumeOnce(); // ignored — we override via the studio mock approach
-      // Use setConsumeResult if exposed, otherwise dispatch via consumeOnce mock
-      const studioAny = studio as unknown as Record<string, unknown>;
-      if (typeof studioAny.__setConsumeResult === 'function') {
-        (studioAny.__setConsumeResult as (r: typeof rows) => void)(rows);
-      }
-    };
-    return () => { delete w.__kafkaInjectConsumeResults; };
-  }, [studio]);
-
-  // Tick every 30 s so relative timestamps ("2m ago") stay up to date
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const streamListRef = useRef<HTMLDivElement>(null);
-  const streamActionRowRef = useRef<HTMLDivElement>(null);
-  const streamResultsZoneRef = useRef<HTMLDivElement>(null);
-  /** When true, new messages pin the list to the newest row. */
-  const [streamPinnedToBottom, setStreamPinnedToBottom] = useState(true);
-
-  // Auto-scroll stream list to bottom when new messages arrive (unless user scrolled up)
-  useEffect(() => {
-    const el = streamListRef.current;
-    if (!el || !streamPinnedToBottom) return;
-    el.scrollTop = el.scrollHeight;
-  }, [streamMode.streamMessages.length, streamPinnedToBottom]);
-
-  const handleStreamScroll = useCallback(() => {
-    const el = streamListRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    setStreamPinnedToBottom(atBottom);
-  }, []);
-
-  const scrollStreamToBottom = useCallback(() => {
-    const el = streamListRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    setStreamPinnedToBottom(true);
-  }, []);
-
-  // Reset auto-scroll when stream starts
-  useEffect(() => {
-    if (streamMode.isStreaming) {
-      setStreamPinnedToBottom(true);
-    }
-  }, [streamMode.isStreaming]);
-
-  // Scroll the results zone into view when streaming starts.
-  // We walk up from the results zone to find the nearest scrollable ancestor
-  // (the app content pane) and scroll that directly, which works regardless
-  // of whether the browser honours scrollIntoView on nested overflow containers.
-  useEffect(() => {
-    if (!streamMode.isStreaming) return;
-    const target = streamResultsZoneRef.current;
-    if (!target) return;
-
-    // Find nearest scrollable ancestor
-    const findScrollParent = (el: HTMLElement): HTMLElement | null => {
-      let node: HTMLElement | null = el.parentElement;
-      while (node && node !== document.body) {
-        const style = getComputedStyle(node);
-        if (/auto|scroll/.test(style.overflowY)) return node;
-        node = node.parentElement;
-      }
-      return null;
-    };
-
-    const scrollParent = findScrollParent(target) ?? document.documentElement;
-    const targetTop = target.getBoundingClientRect().top
-      - scrollParent.getBoundingClientRect().top
-      + scrollParent.scrollTop
-      - 8; // small gap so the zone header is visible
-
-    scrollParent.scrollTo({ top: targetTop, behavior: 'smooth' });
-  }, [streamMode.isStreaming]);
-
+  useKafkaConsumeE2eBridge(studio);
+  useRelativeTimestampTick();
+  const {
+    streamListRef,
+    streamActionRowRef,
+    streamResultsZoneRef,
+    streamPinnedToBottom,
+    streamSearch,
+    setStreamSearch,
+    handleStreamScroll,
+    scrollStreamToBottom,
+    handleExportStream,
+    handleClearStream,
+    handleStartStream,
+    handleStopStream,
+    streamSearchActive,
+    filteredStreamRows,
+  } = useKafkaConsumeStreamView({
+    streamMode,
+    consumeDraftTopic: consumeDraft.topic,
+    clusterId,
+    consumeDraft,
+  });
   const handleConsume = useCallback(() => {
     void consumeOnce();
   }, [consumeOnce]);
-
   const handleLoadMore = useCallback(() => {
     void loadMore();
   }, [loadMore]);
-
   const handleExport = useCallback(() => {
     if (consumeResult) {
       void exportResultSet(consumeResult, consumeDraft.topic);
     }
   }, [consumeResult, consumeDraft.topic]);
-
-  const streamMessagesRef = useRef(streamMode.streamMessages);
-  streamMessagesRef.current = streamMode.streamMessages;
-
-  const { startStream, stopStream, selectedStreamMessage } = streamMode;
-
-  const handleExportStream = useCallback(() => {
-    if (streamMessagesRef.current.length > 0) {
-      void exportResultSet(streamMessagesRef.current, consumeDraft.topic);
-    }
-  }, [consumeDraft.topic]);
-
-
-  const handleStartStream = useCallback(() => {
-    void startStream(consumeDraft, clusterId);
-  }, [startStream, consumeDraft, clusterId]);
-
-  const handleStopStream = useCallback(() => {
-    void stopStream();
-  }, [stopStream]);
-
+  const { selectedStreamMessage } = streamMode;
   const handleUseAsWorkflowInput = useCallback(() => {
     const msg = mode === 'stream' ? selectedStreamMessage : selectedMessage;
     if (!msg || !onUseAsWorkflowInput) return;
@@ -184,22 +111,6 @@ export function KafkaConsumeStudio({
       offset: msg.offset,
     });
   }, [mode, selectedMessage, selectedStreamMessage, onUseAsWorkflowInput]);
-
-  /** Renders a compact relative-age cell with a full datetime tooltip. */
-  const renderTimestampCell = (ts: string | undefined) => {
-    const date = parseKafkaTimestamp(ts);
-    if (!date) return <td className="kafka-ts-cell kafka-ts-missing" data-testid="ts-cell-missing">—</td>;
-    return (
-      <td
-        className="kafka-ts-cell"
-        title={formatTimestampTooltip(date)}
-        data-testid="ts-cell"
-      >
-        {formatRelativeAge(date)}
-      </td>
-    );
-  };
-
   const activeDetailMessage = mode === 'stream' ? selectedStreamMessage : selectedMessage;
   const handleCloseDetail = useCallback(() => {
     if (mode === 'stream') streamMode.selectStreamMessage(null);
@@ -561,7 +472,7 @@ export function KafkaConsumeStudio({
                             <td>{idx + 1}</td>
                             <td>{row.offset}</td>
                             <td>{row.partition}</td>
-                            {renderTimestampCell(row.timestamp)}
+                            {renderKafkaTimestampCell(row.timestamp)}
                             <td>{row.key ?? '—'}</td>
                             <td>{valuePreview(row.value)}</td>
                           </tr>
@@ -621,7 +532,7 @@ export function KafkaConsumeStudio({
                   </button>
                   <button
                     className="kafka-ms-ghost-btn"
-                    onClick={streamMode.clearStreamMessages}
+                    onClick={handleClearStream}
                     data-testid="stream-clear-btn"
                   >
                     Clear
@@ -642,12 +553,40 @@ export function KafkaConsumeStudio({
             <div className="kafka-ms-results-zone" ref={streamResultsZoneRef} data-testid="stream-results-zone">
               <div className="kafka-ms-results-header">
                 <span className="kafka-ms-results-count" data-testid="stream-count">
-                  {streamMode.streamMessages.length} message{streamMode.streamMessages.length !== 1 ? 's' : ''}
+                  {formatStreamCountLabel(
+                    streamMode.streamMessages.length,
+                    filteredStreamRows.length,
+                    streamSearchActive,
+                  )}
                 </span>
                 {streamMode.isStreaming && (
                   <span className="kafka-ms-streaming-badge" data-testid="stream-live-badge">
                     LIVE
                   </span>
+                )}
+                {(streamMode.streamMessages.length > 0 || streamSearchActive) && (
+                  <div className="kafka-ms-stream-search-wrap">
+                    <input
+                      type="search"
+                      className="kafka-ms-stream-search"
+                      placeholder="Search offset, key, value…"
+                      value={streamSearch}
+                      onChange={(e) => setStreamSearch(e.target.value)}
+                      data-testid="stream-search-input"
+                      aria-label="Filter stream messages"
+                    />
+                    {streamSearchActive && (
+                      <button
+                        type="button"
+                        className="kafka-ms-stream-search-clear"
+                        onClick={() => setStreamSearch('')}
+                        data-testid="stream-search-clear"
+                        aria-label="Clear search"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 )}
                 {streamMode.cursorGap && (
                   <span className="kafka-ms-cursor-gap-badge" data-testid="stream-cursor-gap">
@@ -657,7 +596,11 @@ export function KafkaConsumeStudio({
               </div>
               {streamMode.streamMessages.length === 0 ? (
                 <p className="kafka-ms-empty-state">
-                  {streamMode.isStreaming ? 'Waiting for messages…' : 'No stream messages'}
+                  {getStreamEmptyStateText(streamMode.isStreaming)}
+                </p>
+              ) : filteredStreamRows.length === 0 ? (
+                <p className="kafka-ms-empty-state" data-testid="stream-search-empty">
+                  No messages match “{streamSearch.trim()}”
                 </p>
               ) : (
                 <div className="kafka-ms-stream-table-shell">
@@ -679,18 +622,18 @@ export function KafkaConsumeStudio({
                         </tr>
                       </thead>
                       <tbody>
-                        {streamMode.streamMessages.map((row, idx) => (
+                        {filteredStreamRows.map(({ row, index }, displayIdx) => (
                           <tr
-                            key={`s-${row.partition}-${row.offset}-${idx}`}
-                            className={`${streamMode.selectedStreamIndex === idx ? 'selected' : ''} kafka-ms-stream-row`}
-                            onClick={() => streamMode.selectStreamMessage(streamMode.selectedStreamIndex === idx ? null : idx)}
+                            key={`s-${row.partition}-${row.offset}-${index}`}
+                            className={`${streamMode.selectedStreamIndex === index ? 'selected' : ''} kafka-ms-stream-row`}
+                            onClick={() => streamMode.selectStreamMessage(streamMode.selectedStreamIndex === index ? null : index)}
                             style={{ cursor: 'pointer' }}
-                            data-testid={`stream-row-${idx}`}
+                            data-testid={`stream-row-${displayIdx}`}
                           >
-                            <td>{idx + 1}</td>
+                            <td>{index + 1}</td>
                             <td>{row.offset}</td>
                             <td>{row.partition}</td>
-                            {renderTimestampCell(row.timestamp)}
+                            {renderKafkaTimestampCell(row.timestamp)}
                             <td>{row.key ?? '—'}</td>
                             <td>{valuePreview(row.value)}</td>
                           </tr>
