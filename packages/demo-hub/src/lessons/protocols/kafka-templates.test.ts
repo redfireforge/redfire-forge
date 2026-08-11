@@ -5,10 +5,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaTemplatesLesson } from './kafka-templates';
 
+vi.mock('../setup-helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../setup-helpers')>();
+  return {
+    ...actual,
+    preparePlaintextKafkaStudio: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 describe('kafka-templates lesson', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     localStorage.clear();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -73,11 +82,20 @@ describe('kafka-templates lesson', () => {
 
   it('has a setup function that cleans stale templates and resets form', async () => {
     expect(typeof kafkaTemplatesLesson.setup).toBe('function');
+    const { preparePlaintextKafkaStudio } = await import('../setup-helpers');
     const ctx = makeCtx();
     await kafkaTemplatesLesson.setup!(ctx);
+    expect(preparePlaintextKafkaStudio).toHaveBeenCalled();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-topic'), '');
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-body'), '');
+  });
+
+  it('prepareBeforeNavigate best-effort connects Kafka before tab switch', async () => {
+    const { preparePlaintextKafkaStudio } = await import('../setup-helpers');
+    await kafkaTemplatesLesson.prepareBeforeNavigate!();
+    expect(preparePlaintextKafkaStudio).toHaveBeenCalled();
   });
 
   it('setup removes stale "Orders Template" from localStorage', async () => {

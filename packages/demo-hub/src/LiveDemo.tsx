@@ -22,6 +22,8 @@ interface LiveDemoProps {
   stepIndex: number;
   isPlaying: boolean;
   stepPhase: StepPhase;
+  /** False while Preparing boot veil is up — keep spotlight off until Studio is revealed. */
+  surfaceReady?: boolean;
   onNext: () => void;
   onTogglePlay: () => void;
   onSkipReading: () => void;
@@ -60,6 +62,7 @@ export default function LiveDemo({
   stepIndex,
   isPlaying,
   stepPhase,
+  surfaceReady = true,
   onNext,
   onTogglePlay,
   onSkipReading,
@@ -133,14 +136,14 @@ export default function LiveDemo({
   const totalSteps = lesson.steps.length;
   const progressPct = ((stepIndex + 1) / totalSteps) * 100;
   const isLast = stepIndex >= totalSteps - 1;
-  // Next / → when done, or during reading (runs the step action then advances).
-  // Disabled while Preparing / Acting / Verifying so the viewer cannot interrupt
-  // an in-flight spotlight tour.
-  const canNavigate = stepPhase === 'done' || stepPhase === 'reading';
-  const nextDisabledReason = 'Please wait — action in progress';
-  const nextTitle = stepPhase === 'reading'
-    ? 'Next (→) — finish this step then advance'
-    : 'Next (→)';
+  // Next / → only after the step finishes (done). Disabled during Reading so
+  // viewers cannot skip the action tour — skip reading via the phase badge,
+  // then wait for Acting/Verifying to complete before advancing.
+  const canNavigate = stepPhase === 'done';
+  const nextDisabledReason = stepPhase === 'reading'
+    ? 'Finish reading first — click the Reading badge to skip'
+    : 'Please wait — action in progress';
+  const nextTitle = 'Next (→)';
 
   // Phase label for user feedback (pinned above controls — always visible)
   const phaseLabel = stepPhase === 'pre' ? '⏳ Preparing'
@@ -153,8 +156,9 @@ export default function LiveDemo({
   return (
     <>
       {/* Reading-phase ring only — hide during action/done so in-action spotlights never overlap
-          and finished steps don't leave a stale ring on the original target */}
-      {targetFound && step.highlight && stepPhase === 'reading' && !overviewOpen && (
+          and finished steps don't leave a stale ring on the original target.
+          Also wait for boot veil lift so the ring does not float over opacity-0 Studio. */}
+      {surfaceReady && targetFound && step.highlight && stepPhase === 'reading' && !overviewOpen && (
         <DemoSpotlight
           key={`${stepIndex}:${step.highlight}`}
           trackKey={`${stepIndex}:${step.highlight}`}

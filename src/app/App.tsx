@@ -156,11 +156,11 @@ export default function App() {
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
   const kafkaState = useKafkaState();
+  // ---- App shell state (declare before hooks that close over setActiveTab) ----
+  const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
   const { handleWorkflowExport, handleWorkflowImport, handleExportFolder } = useWorkflowImportExport({
     wfHook, folders: wfFolders.folders, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
   });
-  // ---- App shell state ----
-  const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
   const { handleImportData } = usePreferencesImport({
     setEnvironments,
     setMicroservices,

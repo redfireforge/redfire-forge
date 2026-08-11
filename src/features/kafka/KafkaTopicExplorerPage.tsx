@@ -95,6 +95,7 @@ export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerCont
   const topicName = explorer.selectedTopicName ?? '';
   const browser = useTopicMessageBrowser(topicName, kafkaState);
   const [openFilter, setOpenFilter] = useState<FilterDropdownKey | null>(null);
+  const [listCollapsed, setListCollapsed] = useState(false);
 
   useEffect(() => {
     if (!openFilter) return;
@@ -139,8 +140,11 @@ export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerCont
   }, [explorer]);
 
   return (
-    <div className="kafka-explorer-layout" data-testid="topic-explorer-page">
-      <div className="kafka-explorer-list-card">
+    <div
+      className={`kafka-explorer-layout${listCollapsed ? ' kafka-explorer-layout--collapsed' : ''}`}
+      data-testid="topic-explorer-page"
+    >
+      <div className="kafka-explorer-list-card" data-testid="topic-list-panel">
         <div className="kafka-explorer-list-header">
           <span className="kafka-ms-card-title">Topics</span>
           <span className="kafka-ms-card-subtitle">{explorer.filteredTopics.length} of {kafkaState.topics.length}</span>
@@ -288,14 +292,31 @@ export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerCont
         </div>
       </div>
 
-      {explorer.selectedTopicName && (
-        <KafkaTopicDetailPanel
-          detail={explorer.selectedDetail}
-          loading={explorer.detailLoading}
-          error={explorer.detailError}
-          browser={browser}
-        />
-      )}
+      <button
+        type="button"
+        className="kafka-explorer-divider-btn"
+        onClick={() => setListCollapsed((v) => !v)}
+        aria-label={listCollapsed ? 'Expand topic list' : 'Collapse topic list'}
+        title={listCollapsed ? 'Expand topic list' : 'Collapse topic list'}
+        data-testid="topic-list-collapse-btn"
+      >
+        <span aria-hidden="true">{listCollapsed ? '▶' : '◀'}</span>
+      </button>
+
+      <div className="kafka-explorer-detail-slot">
+        {explorer.selectedTopicName ? (
+          <KafkaTopicDetailPanel
+            detail={explorer.selectedDetail}
+            loading={explorer.detailLoading}
+            error={explorer.detailError}
+            browser={browser}
+          />
+        ) : (
+          <div className="kafka-explorer-detail-empty" data-testid="topic-detail-empty">
+            Select a topic to inspect messages, partitions, and consumer groups.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
