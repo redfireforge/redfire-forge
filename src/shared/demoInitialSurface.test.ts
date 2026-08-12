@@ -40,6 +40,11 @@ describe('demoInitialSurface', () => {
     expect(peekDemoInitialSurface()?.catalogView).toBe('endpoints');
   });
 
+  it('stores wsStudioMode for WebSocket live-demo landing', () => {
+    setDemoInitialSurface({ wsStudioMode: 'mock' });
+    expect(peekDemoInitialSurface()?.wsStudioMode).toBe('mock');
+  });
+
   it('notifies listeners when the armed surface changes', () => {
     const seen: string[] = [];
     const handler = () => {

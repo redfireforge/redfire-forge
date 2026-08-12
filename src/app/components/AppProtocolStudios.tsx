@@ -6,6 +6,7 @@ import { WebSocketStudioPage } from '../../features/websocket/WebSocketStudioPag
 import { SseStudioPage } from '../../features/sse/SseStudioPage';
 import { GraphqlStudioPage } from '../../features/graphql/GraphqlStudioPage';
 import { GrpcStudioPage } from '../../features/grpc/GrpcStudioPage';
+import { ApiMockStudioPage } from '../../features/api-mock/ApiMockStudioPage';
 
 type Props = {
   activeTab: Tab;
@@ -99,6 +100,12 @@ export default function AppProtocolStudios({
             workspaceDefaultsOverride={workspaceDefaults}
             globalAuthProfiles={appGlobalAuthProfiles}
           />
+        </div>
+      )}
+
+      {activeTab === 'api-mock-studio' && (
+        <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+          <ApiMockStudioPage />
         </div>
       )}
     </>

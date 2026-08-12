@@ -244,6 +244,14 @@ describe('workflowNodeFactory', () => {
       expect((defaultNodeData('grpcServerStream') as GrpcServerStreamNodeData).label).toBe('gRPC Server Stream');
       expect((defaultNodeData('grpcAssert') as GrpcAssertNodeData).label).toBe('gRPC Assert');
     });
+
+    it('defaultNodeData supports api mock workflow node types', () => {
+      expect((defaultNodeData('apiMockStart') as { label: string }).label).toBe('Start Mock Server');
+      expect((defaultNodeData('apiMockApply') as { label: string }).label).toBe('Apply Definition');
+      expect((defaultNodeData('apiMockResetState') as { label: string }).label).toBe('Reset Mock State');
+      expect((defaultNodeData('apiMockStop') as { label: string }).label).toBe('Stop Mock Server');
+      expect((defaultNodeData('apiMockAssertCalls') as { label: string }).label).toBe('Assert Mock Calls');
+    });
   });
 
   describe('makeEmptyScenario', () => {
