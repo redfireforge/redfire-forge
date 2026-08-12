@@ -227,6 +227,7 @@ export function ApiMockConflictInspector({
 }
 
 /** Peer rule label for the match-tab conflict notice (mockup 01). */
+// eslint-disable-next-line react-refresh/only-export-components
 export function conflictPeerLabel(
   findings: ApiMockConflictFindingV1[],
   routeId: string,

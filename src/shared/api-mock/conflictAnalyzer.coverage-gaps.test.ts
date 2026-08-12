@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from 'vitest';
 import { analyzeConflicts } from './conflictAnalyzer';
 import { createDefaultResponse } from './defaults';
