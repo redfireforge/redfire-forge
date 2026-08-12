@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
 import { migrateWorkspace } from './migration';
 import { CURRENT_SCHEMA_VERSION } from './defaults';
@@ -60,7 +61,7 @@ describe('migrateWorkspace', () => {
     registerMigration({
       fromVersion: 0,
       toVersion: 1,
-      migrate: (input) => ({ result: { schemaVersion: 1, servers: [], tabOrder: [] }, diagnostics: [] }),
+      migrate: (_input) => ({ result: { schemaVersion: 1, servers: [], tabOrder: [] }, diagnostics: [] }),
     } as any);
 
     const result = migrateWorkspace({ schemaVersion: 2 });
