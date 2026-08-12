@@ -1,0 +1,23 @@
+/** API Mock Studio test selectors — keep all testids here, not inline in demos/E2E. */
+export const API_MOCK = {
+  STUDIO: 'api-mock-studio',
+  EMPTY: 'api-mock-empty',
+  CREATE_FIRST: 'api-mock-create-first',
+  SERVER_TABS: 'api-mock-server-tabs',
+  TAB_ADD: 'api-mock-tab-add',
+  SERVER_BAR: 'api-mock-server-bar',
+  ADDRESS: 'api-mock-address',
+  START: 'api-mock-start',
+  STOP: 'api-mock-stop',
+  ROUTE_EXPLORER: 'api-mock-route-explorer',
+  ADD_ROUTE: 'api-mock-add-route',
+  ROUTES_EMPTY: 'api-mock-routes-empty',
+  NO_ROUTE: 'api-mock-no-route',
+  ROUTE_EDITOR: 'api-mock-route-editor',
+  METHOD_SELECT: 'api-mock-method-select',
+  PATH_INPUT: 'api-mock-path-input',
+  PRIORITY_INPUT: 'api-mock-priority-input',
+  tab: (id: string) => `api-mock-tab-${id}` as const,
+  tabClose: (id: string) => `api-mock-tab-close-${id}` as const,
+  route: (id: string) => `api-mock-route-${id}` as const,
+} as const;

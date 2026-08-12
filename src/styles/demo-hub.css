@@ -34,11 +34,9 @@ body[data-demo-bootstrapping="1"] .kafka-settings-content {
   opacity: 0;
 }
 
-/* WebSocket Studio: hide the full page during Preparing so tab close / mode
- * reset / URL fill in lesson setup cannot flash before step 1 Reading. */
-body[data-demo-bootstrapping="1"] .ws-studio-page {
-  opacity: 0;
-}
+/* Do NOT opacity:0 .ws-studio-page during boot — that paints an empty --bg
+ * "blue screen" between Concept and step 1. Land Mock/Client via
+ * initialSurface.wsStudioMode instead (see demoInitialSurface.ts). */
 
 /* Parked when another tab is active. */
 #demo-hub-mount[data-demo-hub-active="0"] {

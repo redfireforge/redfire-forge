@@ -1,0 +1,149 @@
+/**
+ * API Mock Studio — control-plane routes (Phase 2C).
+ * Express router for /api/mock/* endpoints.
+ */
+import { Router, type Request, type Response } from 'express';
+import { apiMockPool } from '../../api-mock/ApiMockServerPool.js';
+import { validateServer } from '../../../src/shared/api-mock/validation.js';
+import { classifyRuntimeError } from '../../../src/shared/api-mock/recoveryDiagnostics.js';
+import type { ApiMockServerDefinitionV1 } from '../../../src/shared/api-mock/contracts.js';
+import { isPortAvailable } from '../../api-mock/ApiMockNetworkListener.js';
+import { ApiMockTransactionJournal } from '../../api-mock/ApiMockTransactionJournal.js';
+import type { LogLine } from '../../../src/shared/types/server-api';
+
+interface CreateApiMockRouterOptions {
+  onLog?: (line: LogLine) => void;
+}
+
+function json200(res: Response, data: unknown) {
+  res.status(200).json({ ok: true, data });
+}
+
+function jsonError(res: Response, status: number, code: string, message: string) {
+  res.status(status).json({ ok: false, error: { code, message } });
+}
+
+export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): Router {
+  const router = Router();
+  const journals = new Map<string, ApiMockTransactionJournal>();
+
+  function getOrCreateJournal(def: ApiMockServerDefinitionV1): ApiMockTransactionJournal {
+    let journal = journals.get(def.id);
+    if (!journal) {
+      journal = new ApiMockTransactionJournal(def.settings);
+      journals.set(def.id, journal);
+    }
+    return journal;
+  }
+
+  apiMockPool.setTransactionHandler(tx => {
+    const journal = journals.get(tx.serverId);
+    journal?.append(tx);
+  });
+
+  router.post('/api/mock/servers/start', async (req: Request, res: Response) => {
+    try {
+      const definition = req.body as ApiMockServerDefinitionV1;
+      if (!definition?.id) return jsonError(res, 400, 'INVALID_REQUEST', 'Server definition with id is required');
+      const diags = validateServer(definition);
+      const errors = diags.filter(d => d.severity === 'error');
+      if (errors.length > 0) return jsonError(res, 400, 'VALIDATION_ERROR', errors.map(e => e.message).join('; '));
+      getOrCreateJournal(definition);
+      const status = await apiMockPool.start(definition);
+      options.onLog?.({ ts: new Date().toISOString(), level: 'info', source: 'api-mock', message: `Started "${definition.name}" on :${status.port}` });
+      json200(res, status);
+    } catch (e) {
+      const diag = classifyRuntimeError(e);
+      jsonError(res, 409, diag.code, diag.message);
+    }
+  });
+
+  router.post('/api/mock/servers/:serverId/stop', async (req: Request, res: Response) => {
+    try {
+      const status = await apiMockPool.stop(req.params.serverId);
+      options.onLog?.({ ts: new Date().toISOString(), level: 'info', source: 'api-mock', message: `Stopped "${req.params.serverId}"` });
+      json200(res, status);
+    } catch (e) {
+      jsonError(res, 404, 'NOT_FOUND', (e as Error).message);
+    }
+  });
+
+  router.post('/api/mock/servers/:serverId/restart', async (req: Request, res: Response) => {
+    try {
+      const definition = req.body as ApiMockServerDefinitionV1;
+      if (!definition?.id) return jsonError(res, 400, 'INVALID_REQUEST', 'Server definition with id is required');
+      const status = await apiMockPool.restart(definition);
+      json200(res, status);
+    } catch (e) {
+      const diag = classifyRuntimeError(e);
+      jsonError(res, 409, diag.code, diag.message);
+    }
+  });
+
+  router.put('/api/mock/servers/:serverId/definition', (req: Request, res: Response) => {
+    try {
+      const definition = req.body as ApiMockServerDefinitionV1;
+      if (!definition?.id) return jsonError(res, 400, 'INVALID_REQUEST', 'Server definition with id is required');
+      const diags = validateServer(definition);
+      const errors = diags.filter(d => d.severity === 'error');
+      if (errors.length > 0) return jsonError(res, 400, 'VALIDATION_ERROR', errors.map(e => e.message).join('; '));
+      const status = apiMockPool.commit(req.params.serverId, definition);
+      options.onLog?.({ ts: new Date().toISOString(), level: 'info', source: 'api-mock', message: `Committed gen ${status.generation} for "${req.params.serverId}"` });
+      json200(res, status);
+    } catch (e) {
+      jsonError(res, 409, 'COMMIT_FAILED', (e as Error).message);
+    }
+  });
+
+  router.get('/api/mock/servers/:serverId/status', (req: Request, res: Response) => {
+    const status = apiMockPool.status(req.params.serverId);
+    if (!status) return jsonError(res, 404, 'NOT_FOUND', `Server "${req.params.serverId}" not found`);
+    json200(res, status);
+  });
+
+  router.get('/api/mock/servers/:serverId/state', (req: Request, res: Response) => {
+    const state = apiMockPool.getScenarioState(req.params.serverId);
+    if (!state) return jsonError(res, 404, 'NOT_RUNNING', `Server "${req.params.serverId}" is not running`);
+    json200(res, state);
+  });
+
+  router.post('/api/mock/servers/:serverId/state/reset', (req: Request, res: Response) => {
+    const ok = apiMockPool.resetScenarioState(req.params.serverId);
+    if (!ok) return jsonError(res, 404, 'NOT_RUNNING', `Server "${req.params.serverId}" is not running`);
+    json200(res, { reset: true });
+  });
+
+  router.get('/api/mock/servers', (_req: Request, res: Response) => {
+    json200(res, apiMockPool.list());
+  });
+
+  router.post('/api/mock/ports/probe', async (req: Request, res: Response) => {
+    const port = typeof req.body?.port === 'number' ? req.body.port : 0;
+    if (port < 1024 || port > 65535) return jsonError(res, 400, 'INVALID_PORT', 'Port must be 1024-65535');
+    const available = await isPortAvailable(port);
+    json200(res, { port, available });
+  });
+
+  router.get('/api/mock/servers/:serverId/transactions', (req: Request, res: Response) => {
+    const journal = journals.get(req.params.serverId);
+    if (!journal) return jsonError(res, 404, 'NOT_FOUND', `No journal for "${req.params.serverId}"`);
+    const afterCursor = req.query.afterCursor ? parseInt(req.query.afterCursor as string, 10) : undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+    json200(res, journal.query({
+      afterCursor,
+      limit,
+      methodFilter: req.query.method as string | undefined,
+      pathFilter: req.query.path as string | undefined,
+      outcomeFilter: req.query.outcome as string | undefined,
+    }));
+  });
+
+  router.delete('/api/mock/servers/:serverId/transactions', (req: Request, res: Response) => {
+    const journal = journals.get(req.params.serverId);
+    if (!journal) return jsonError(res, 404, 'NOT_FOUND', `No journal for "${req.params.serverId}"`);
+    journal.clear();
+    json200(res, { cleared: true });
+  });
+
+  return router;
+}

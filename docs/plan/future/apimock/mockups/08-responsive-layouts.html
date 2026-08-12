@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>API Mock — Responsive Layouts</title><link rel="stylesheet" href="shared.css"></head>
+<body><div class="app-shell">
+<header class="app-header"><div class="brand"><span class="brand-mark">RF</span><span>RedfireForge <small>Workbench</small></span></div></header>
+<nav class="screen-nav"><span class="screen-nav-label">Mockups</span><a class="screen-link" href="01-main-studio.html">Studio</a><a class="screen-link" href="02-pattern-toolbox.html">Patterns</a><a class="screen-link" href="03-response-behavior.html">Responses</a><a class="screen-link" href="04-simulation-trace.html">Simulation</a><a class="screen-link" href="05-conflict-inspector.html">Conflicts</a><a class="screen-link" href="06-import-promotion.html">Import</a><a class="screen-link" href="07-runtime-journal-settings.html">Runtime</a><a class="screen-link active" href="08-responsive-layouts.html">Responsive</a><span class="spacer"></span><a class="screen-link" href="index.html">All screens</a></nav>
+<main class="mockup-stage">
+<div class="page-titlebar"><div><div class="page-title">Responsive Layouts</div><div class="page-subtitle">Verify tablet (768×1024) and mobile (375×812) behavior</div></div><span class="spacer"></span>
+<div class="device-toolbar"><button class="btn small active" data-device="tablet"><i data-lucide="tablet"></i> Tablet</button><button class="btn small" data-device="mobile"><i data-lucide="smartphone"></i> Mobile</button></div></div>
+
+<div class="device-stage">
+<div class="device-frame tablet">
+<div class="mobile-shell">
+<div class="server-bar" style="flex-wrap:wrap"><div class="server-address grow" style="flex:1 1 100%"><span class="status-dot running"></span><span class="status-label">Running</span><span class="address">http://127.0.0.1:4600</span><button class="icon-btn" title="Copy URL" aria-label="Copy URL"><i data-lucide="copy"></i></button></div><span class="generation">Gen 12</span><button class="btn primary small"><i data-lucide="check"></i> Apply</button><button class="btn small"><i data-lucide="square"></i> Stop</button><button class="icon-btn" title="Settings" aria-label="Settings"><i data-lucide="settings-2"></i></button><button class="icon-btn" title="Open routes" aria-label="Open routes" data-toggle-drawer><i data-lucide="panel-left"></i></button></div>
+
+<div class="workspace" style="position:relative">
+<aside class="route-panel">
+<div class="panel-head"><span class="panel-title">Rules</span><span class="count-badge">7</span><span class="spacer"></span><button class="icon-btn" title="Close" aria-label="Close drawer" data-toggle-drawer><i data-lucide="x"></i></button></div>
+<div class="route-tools"><input class="search" placeholder="Search…"><button class="icon-btn" title="Add rule" aria-label="Add rule"><i data-lucide="plus"></i></button></div>
+<div class="route-tree">
+<div class="tree-folder"><i data-lucide="chevron-down"></i> Users <span class="count-badge">4</span></div>
+<button class="route-item active"><span class="method get">GET</span><span class="route-path">/users/:id</span><span class="badge">P20</span></button>
+<button class="route-item"><span class="method post">POST</span><span class="route-path">/users</span><span class="badge">P10</span></button>
+<div class="tree-folder"><i data-lucide="chevron-down"></i> Health</div>
+<button class="route-item"><span class="method get">GET</span><span class="route-path">/health</span><span class="badge">P100</span></button>
+</div>
+</aside>
+<section class="editor-shell" style="min-width:0">
+<div class="editor-header" style="flex-wrap:wrap"><span class="method get">GET</span><div><div class="editor-title">GET /users/:id</div></div><span class="spacer"></span><button class="btn small"><i data-lucide="flask-conical"></i> Simulate</button></div>
+<div class="builder-tabs"><button class="builder-tab active">Match</button><button class="builder-tab">Response</button><button class="builder-tab">Behavior</button></div>
+<div style="padding:12px"><div class="form-grid"><div class="form-row"><div class="form-label">Method</div><div class="form-control"><select class="select"><option>GET</option></select></div></div><div class="form-row"><div class="form-label">Path</div><div class="form-control"><input class="input wide mono" value="/users/:id"></div></div><div class="form-row"><div class="form-label">Priority</div><div class="form-control"><input class="input mono" value="20" style="width:70px"></div></div></div>
+<div class="section-heading" style="margin-top:10px">Conditions <span class="badge">ALL</span></div>
+<div class="matcher-row" style="grid-template-columns:90px 1fr"><span>pathParam id</span><input class="input mono" value="^[0-9]+$"></div>
+</div>
+</section>
+</div>
+
+<div class="dock" style="flex-basis:140px"><div class="dock-head"><button class="dock-tab active">Transactions <span class="count-badge">24</span></button><button class="dock-tab">Conflicts <span class="count-badge warning">2</span></button></div><div class="dock-body"><div class="tx-row" style="grid-template-columns:55px 40px minmax(0,1fr) 50px;font-size:10px"><span>10:42</span><span class="method get" style="font-size:8px">GET</span><span class="mono">/users/42</span><span><span class="badge success" style="font-size:8px">200</span></span></div><div class="tx-row" style="grid-template-columns:55px 40px minmax(0,1fr) 50px;font-size:10px"><span>10:41</span><span class="method get" style="font-size:8px">GET</span><span class="mono">/users/admin</span><span><span class="badge warning" style="font-size:8px">409</span></span></div></div></div>
+</div>
+</div>
+</div>
+</main></div>
+<script src="https://unpkg.com/lucide@latest"></script><script src="mockup-shared.js"></script></body></html>

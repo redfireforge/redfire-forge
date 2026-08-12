@@ -1,0 +1,640 @@
+/* ── API Mock Studio — scoped professional design system ──
+   All component rules are scoped under .api-mock-root so they never clash
+   with global app classes (.btn, .badge, .method, .count-badge, etc.). */
+
+.api-mock-root,
+.api-mock-empty {
+  --am-surface-raised: color-mix(in srgb, var(--surface) 70%, var(--bg));
+  --am-text-faint: var(--text-muted);
+  --am-green: #55c2a3;
+  --am-blue: #74a7e8;
+  --am-amber: #e0ad58;
+  --am-red: #e47777;
+  --am-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+.api-mock-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--text);
+}
+/* Reused inside a modal: keep tokens/classes but drop the full-height flex shell. */
+.api-mock-root.am-in-modal {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+/* ── Empty state ── */
+.api-mock-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  gap: 14px;
+  text-align: center;
+  color: var(--text);
+}
+.api-mock-empty .am-empty-icon {
+  width: 52px; height: 52px;
+  display: grid; place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border));
+  border-radius: 12px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.api-mock-empty h2 { margin: 4px 0 0; font-size: 18px; font-weight: 750; }
+.api-mock-empty p { margin: 0; color: var(--text-muted); max-width: 340px; line-height: 1.5; }
+.api-mock-empty .am-empty-actions { display: flex; gap: 8px; margin-top: 6px; }
+
+/* ── Buttons ── */
+.api-mock-root .am-btn,
+.api-mock-root .am-icon-btn,
+.api-mock-empty .am-btn {
+  border: 1px solid var(--border);
+  background: var(--am-surface-raised);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  font: inherit;
+  transition: background .12s, border-color .12s;
+}
+.api-mock-root .am-btn,
+.api-mock-empty .am-btn { min-height: 30px; padding: 5px 11px; font-size: 12px; }
+.api-mock-root .am-icon-btn { width: 30px; height: 30px; padding: 0; flex: 0 0 30px; font-size: 16px; line-height: 1; }
+.api-mock-root .am-btn:hover,
+.api-mock-root .am-icon-btn:hover,
+.api-mock-empty .am-btn:hover { border-color: var(--primary); background: var(--surface-hover); }
+.api-mock-root .am-btn.primary,
+.api-mock-empty .am-btn.primary { color: #06130f; background: var(--primary); border-color: var(--primary); font-weight: 700; }
+.api-mock-root .am-btn.primary:hover,
+.api-mock-empty .am-btn.primary:hover { background: color-mix(in srgb, var(--primary) 85%, white); }
+.api-mock-root .am-btn.danger { color: var(--am-red); border-color: color-mix(in srgb, var(--am-red) 55%, var(--border)); }
+.api-mock-root .am-btn.danger:hover { background: color-mix(in srgb, var(--am-red) 12%, transparent); }
+.api-mock-root .am-btn.ghost,
+.api-mock-empty .am-btn.ghost { background: transparent; border-color: transparent; }
+.api-mock-root .am-btn.small { min-height: 25px; padding: 3px 9px; font-size: 11px; }
+.api-mock-root .am-btn:disabled,
+.api-mock-root .am-icon-btn:disabled { opacity: .45; cursor: not-allowed; }
+.api-mock-root .am-btn:focus-visible,
+.api-mock-root .am-icon-btn:focus-visible,
+.api-mock-root input:focus-visible,
+.api-mock-root select:focus-visible,
+.api-mock-root textarea:focus-visible,
+.api-mock-empty .am-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* Broad focus ring so tabs, tree items, toggles, menu items, chips, and
+   segmented controls all show a visible indicator (WCAG 2.4.7). */
+.api-mock-root :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.api-mock-root .am-icon { width: 15px; height: 15px; }
+
+/* ── Badges ── */
+.api-mock-root .am-badge {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-height: 20px; padding: 2px 7px; border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text-muted); font-size: 10px; font-weight: 700;
+  white-space: nowrap;
+}
+.api-mock-root .am-badge.success { color: var(--am-green); border-color: color-mix(in srgb, var(--am-green) 45%, var(--border)); background: color-mix(in srgb, var(--am-green) 12%, transparent); }
+.api-mock-root .am-badge.warning { color: var(--am-amber); border-color: color-mix(in srgb, var(--am-amber) 45%, var(--border)); background: color-mix(in srgb, var(--am-amber) 12%, transparent); }
+.api-mock-root .am-badge.danger { color: var(--am-red); border-color: color-mix(in srgb, var(--am-red) 45%, var(--border)); background: color-mix(in srgb, var(--am-red) 12%, transparent); }
+.api-mock-root .am-badge.info { color: var(--am-blue); border-color: color-mix(in srgb, var(--am-blue) 45%, var(--border)); background: color-mix(in srgb, var(--am-blue) 12%, transparent); }
+.api-mock-root .am-count-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--surface-hover); color: var(--text-muted);
+  font: 700 10px var(--am-mono);
+}
+.api-mock-root .am-count-badge.warning { color: #17120a; background: var(--am-amber); }
+
+/* ── Method colors ── */
+.api-mock-root .am-method {
+  min-width: 36px; text-align: center; font: 700 9px var(--am-mono);
+  border-radius: 4px; padding: 3px 5px; letter-spacing: .3px;
+}
+.api-mock-root .am-method.get { color: var(--am-green); background: color-mix(in srgb, var(--am-green) 14%, transparent); }
+.api-mock-root .am-method.post { color: var(--am-blue); background: color-mix(in srgb, var(--am-blue) 14%, transparent); }
+.api-mock-root .am-method.put { color: var(--am-amber); background: color-mix(in srgb, var(--am-amber) 14%, transparent); }
+.api-mock-root .am-method.patch { color: #b49ae8; background: color-mix(in srgb, #b49ae8 14%, transparent); }
+.api-mock-root .am-method.delete { color: var(--am-red); background: color-mix(in srgb, var(--am-red) 14%, transparent); }
+.api-mock-root .am-method.any,
+.api-mock-root .am-method.head,
+.api-mock-root .am-method.options,
+.api-mock-root .am-method.trace { color: var(--text-muted); background: var(--surface-hover); }
+.api-mock-root .am-mono { font-family: var(--am-mono); }
+.api-mock-root .am-muted { color: var(--text-muted); }
+.api-mock-root .am-spacer { flex: 1; }
+
+/* ── Title bar (mockup 01) ── */
+.api-mock-titlebar {
+  min-height: 44px; display: flex; align-items: center; gap: 10px;
+  padding: 6px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.api-mock-titlebar .am-title-block { flex: 0 0 auto; min-width: 140px; }
+.api-mock-titlebar .am-page-title { font-size: 14px; font-weight: 750; color: var(--text); line-height: 1.2; }
+.api-mock-titlebar .am-page-subtitle { color: var(--text-muted); font-size: 11px; line-height: 1.3; }
+.api-mock-titlebar .am-titlebar-tabs { flex: 1; min-width: 0; }
+.api-mock-titlebar .am-dropdown { position: relative; flex: 0 0 auto; }
+.api-mock-titlebar .am-dropdown-menu {
+  position: absolute; top: calc(100% + 5px); right: 0; z-index: 40; width: 260px;
+  display: block; padding: 5px; background: var(--am-surface-raised);
+  border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.4);
+}
+.api-mock-titlebar .am-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+.api-mock-titlebar .am-menu-item small { display: block; color: var(--text-muted); font-size: 10px; font-weight: 400; }
+
+/* ── Server tabs ── */
+.api-mock-server-tabs {
+  display: flex; align-items: center; gap: 3px;
+  padding: 4px 12px 0; min-height: 40px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.api-mock-server-tabs.embedded {
+  padding: 0; min-height: 0; background: transparent; border-bottom: 0;
+}
+.api-mock-server-tabs .am-server-tab {
+  height: 33px; display: flex; align-items: center; gap: 7px;
+  padding: 0 10px; border: 1px solid transparent; border-bottom: 0;
+  border-radius: 6px 6px 0 0; background: transparent;
+  color: var(--text-muted); cursor: pointer; white-space: nowrap; font: inherit;
+}
+.api-mock-server-tabs .am-server-tab:hover { color: var(--text); background: var(--surface-hover); }
+.api-mock-server-tabs .am-server-tab.active {
+  color: var(--text); background: var(--bg);
+  border-color: var(--border); border-bottom-color: var(--bg);
+  margin-bottom: -1px;
+}
+.api-mock-server-tabs .am-tab-close {
+  border: 0; background: transparent; color: var(--am-text-faint);
+  cursor: pointer; padding: 0 2px; font-size: 15px; line-height: 1; border-radius: 3px;
+}
+.api-mock-server-tabs .am-tab-close:hover { color: var(--text); background: var(--surface-hover); }
+
+.api-mock-root .am-status-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--am-text-faint); flex: 0 0 auto;
+}
+.api-mock-root .am-status-dot.running { background: var(--am-green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--am-green) 16%, transparent); }
+.api-mock-root .am-status-dot.starting,
+.api-mock-root .am-status-dot.applying,
+.api-mock-root .am-status-dot.draining { background: var(--am-amber); box-shadow: 0 0 0 3px color-mix(in srgb, var(--am-amber) 16%, transparent); }
+.api-mock-root .am-status-dot.error { background: var(--am-red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--am-red) 16%, transparent); }
+.api-mock-root .am-dirty-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--am-amber); flex: 0 0 auto; }
+
+/* ── Server bar ── */
+.api-mock-server-bar {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 14px; min-height: 48px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.api-mock-server-bar .am-server-bar-main {
+  display: flex; align-items: center; gap: 9px; min-height: 32px; min-width: 0;
+}
+.api-mock-server-bar .am-status-label { font-size: 11px; font-weight: 700; }
+.api-mock-server-bar .am-status-label.running { color: var(--am-green); }
+.api-mock-server-bar .am-status-label.stopped { color: var(--text-muted); }
+.api-mock-server-bar .am-status-label.error { color: var(--am-red); }
+.api-mock-server-bar .am-address {
+  padding: 5px 9px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px;
+  font: 11px var(--am-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+}
+.api-mock-server-bar .am-generation {
+  color: var(--text-muted); font-size: 11px; padding-left: 9px; border-left: 1px solid var(--border);
+}
+/* Full diagnostic text — never ellipsize recoverable Start/Stop errors. */
+.api-mock-server-bar .am-server-error {
+  color: var(--am-red);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* ── Import dropdown ── */
+.api-mock-root .am-dropdown { position: relative; }
+.api-mock-root .am-dropdown-menu {
+  position: absolute; top: calc(100% + 5px); right: 0; z-index: 40; width: 250px;
+  display: none; padding: 5px; background: var(--am-surface-raised);
+  border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 16px 40px rgba(0,0,0,.4);
+}
+.api-mock-root .am-dropdown.open .am-dropdown-menu { display: block; }
+.api-mock-root .am-menu-item {
+  width: 100%; min-height: 38px; display: flex; align-items: center; gap: 9px;
+  padding: 7px 9px; border: 0; border-radius: 5px; background: transparent;
+  color: var(--text); cursor: pointer; text-align: left; font: inherit;
+}
+.api-mock-root .am-menu-item:hover { background: var(--surface-hover); }
+.api-mock-root .am-menu-item small { display: block; color: var(--text-muted); font-size: 10px; }
+
+/* ── Workspace grid ── */
+.api-mock-workspace {
+  flex: 1; min-height: 0; display: grid;
+  grid-template-columns: 262px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+/* ── Route explorer ── */
+.api-mock-route-panel {
+  min-width: 0; background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.api-mock-route-panel .am-panel-head {
+  min-height: 42px; display: flex; align-items: center; gap: 7px;
+  padding: 7px 11px; border-bottom: 1px solid var(--border);
+}
+.api-mock-route-panel .am-panel-title {
+  font-size: 11px; font-weight: 750; text-transform: uppercase; color: var(--text-muted); letter-spacing: .4px;
+}
+.api-mock-route-panel .am-route-tools {
+  padding: 8px; display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--border);
+}
+.api-mock-root .am-search {
+  width: 100%; height: 30px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 12px;
+}
+.api-mock-route-panel .am-route-tree { padding: 5px; overflow: auto; flex: 1; }
+.api-mock-route-panel .am-tree-folder {
+  width: 100%; padding: 6px 7px; color: var(--text-muted); font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 5px;
+  border: 0; background: transparent; text-align: left; font: inherit;
+}
+.api-mock-route-panel .am-tree-folder:hover { background: var(--surface-hover); color: var(--text); }
+.api-mock-root .am-faint { color: var(--am-text-faint); font-size: 11px; }
+.api-mock-root .am-enabled-label {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px;
+}
+.api-mock-root .am-request-line { flex-wrap: nowrap; }
+.api-mock-root .am-request-line .am-cs { flex: 0 0 96px; }
+.api-mock-root .am-editor-title { font-size: 14px; font-weight: 750; color: var(--text); line-height: 1.25; }
+.api-mock-root .am-link-btn {
+  border: 0; background: transparent; color: var(--primary); cursor: pointer; padding: 0;
+  font: inherit; text-decoration: underline;
+}
+.api-mock-root .am-card-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;
+}
+.api-mock-root .am-item-card {
+  text-align: left; padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); cursor: pointer;
+}
+.api-mock-root .am-item-card:hover { border-color: var(--primary); background: var(--surface-hover); }
+.api-mock-root .am-item-card h3 { margin: 0 0 6px; font-size: 12px; font-weight: 700; }
+.api-mock-root .am-item-card p { margin: 0; font-size: 11px; color: var(--text-muted); }
+.api-mock-route-panel .am-route-item {
+  width: 100%; min-height: 34px; display: grid;
+  grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 7px;
+  padding: 4px 8px; border: 1px solid transparent; border-radius: 5px;
+  color: var(--text-muted); background: transparent; cursor: pointer; text-align: left; font: inherit;
+}
+.api-mock-route-panel .am-route-item:hover { background: var(--surface-hover); color: var(--text); }
+.api-mock-route-panel .am-route-item.active {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); color: var(--text);
+}
+.api-mock-route-panel .am-route-item.conflict { border-left: 2px solid var(--am-amber); }
+.api-mock-route-panel .am-route-item.disabled { opacity: .5; }
+.api-mock-route-panel .am-route-path {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--am-mono);
+}
+.api-mock-route-panel .am-route-empty { padding: 16px 12px; color: var(--am-text-faint); font-size: 12px; line-height: 1.5; }
+.api-mock-route-panel .am-panel-foot {
+  min-height: 38px; display: flex; align-items: center; gap: 7px;
+  padding: 6px 11px; border-top: 1px solid var(--border); font-size: 11px; color: var(--am-text-faint);
+}
+
+/* ── Editor ── */
+.api-mock-editor { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+.api-mock-route-editor { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.api-mock-root .am-editor-header {
+  min-height: 48px; display: flex; align-items: center; gap: 9px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+}
+.api-mock-root .am-editor-title { font-size: 14px; font-weight: 750; }
+.api-mock-root .am-editor-title-input {
+  width: 100%; max-width: 360px; font-size: 14px; font-weight: 750;
+  color: var(--text); background: transparent; border: 1px solid transparent;
+  border-radius: 5px; padding: 2px 6px; margin: -2px -6px 0;
+}
+.api-mock-root .am-editor-title-input:hover { border-color: var(--border); }
+.api-mock-root .am-editor-title-input:focus { border-color: var(--primary); background: var(--bg); outline: none; }
+.api-mock-root .am-editor-meta { color: var(--text-muted); font-size: 11px; }
+.api-mock-no-selection {
+  display: flex; align-items: center; justify-content: center; flex: 1;
+  color: var(--text-muted); font-size: 13px;
+}
+
+/* ── Builder tabs ── */
+.api-mock-root .am-builder-tabs {
+  min-height: 36px; display: flex; align-items: center; gap: 2px;
+  padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto;
+}
+.api-mock-root .am-builder-tab {
+  height: 36px; padding: 0 11px; border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; font-size: 12px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.api-mock-root .am-builder-tab:hover { color: var(--text); }
+.api-mock-root .am-builder-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.api-mock-root .am-editor-body { padding: 14px; max-width: 1120px; overflow: auto; flex: 1; }
+
+/* ── Form grid (two-tone rows) ── */
+.api-mock-root .am-form-grid {
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface);
+}
+.api-mock-root .am-form-row {
+  min-height: 46px; display: grid; grid-template-columns: 150px minmax(0,1fr); border-bottom: 1px solid var(--border);
+}
+.api-mock-root .am-form-row:last-child { border-bottom: 0; }
+.api-mock-root .am-form-label {
+  display: flex; align-items: center; padding: 8px 12px; background: var(--bg);
+  border-right: 1px solid var(--border); color: var(--text-muted); font-size: 11px; font-weight: 600;
+}
+.api-mock-root .am-form-control {
+  min-width: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--surface);
+}
+.api-mock-root .am-input, .api-mock-root .am-select, .api-mock-root .am-textarea {
+  color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font: inherit;
+}
+.api-mock-root .am-input, .api-mock-root .am-select { min-height: 31px; padding: 5px 8px; font-size: 12px; }
+.api-mock-root .am-input.wide, .api-mock-root .am-select.wide { width: 100%; }
+/* Standard CustomSelect fills its form/grid cell instead of sizing to content. */
+.api-mock-root .cs-wrapper.am-cs { width: 100%; min-width: 0; }
+.api-mock-root .am-input.mono { font-family: var(--am-mono); font-size: 11px; }
+.api-mock-root .am-input.num { width: 90px; }
+.api-mock-root .am-textarea {
+  width: 100%; min-height: 130px; padding: 9px 10px; resize: vertical;
+  font: 11px/1.55 var(--am-mono);
+}
+.api-mock-root .am-hint { color: var(--text-muted); opacity: .8; font-size: 10px; }
+
+.api-mock-root .am-section-heading {
+  min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 6px 2px; margin-top: 8px;
+  font-size: 11px; font-weight: 750; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px;
+}
+
+/* ── Matcher groups & rows ── */
+.api-mock-root .am-matcher-group { border-left: 2px solid var(--primary); padding-left: 10px; margin-bottom: 10px; }
+.api-mock-root .am-group-label {
+  display: flex; align-items: center; gap: 6px; margin: 5px 0 7px;
+  color: var(--primary); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .4px;
+}
+.api-mock-root .am-matcher-row {
+  min-height: 42px; display: grid;
+  grid-template-columns: 118px minmax(90px,.9fr) 120px minmax(120px,1.4fr) auto;
+  align-items: center; gap: 7px; padding: 5px 7px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
+}
+.api-mock-root .am-matcher-row:hover { border-color: color-mix(in srgb, var(--border) 60%, var(--text-muted)); }
+.api-mock-root .am-matcher-result { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.api-mock-root .am-matcher-result.pass { color: var(--am-green); }
+.api-mock-root .am-matcher-result.fail { color: var(--am-red); }
+.api-mock-root .am-empty-conditions {
+  padding: 14px; text-align: center; color: var(--am-text-faint); font-size: 12px;
+  border: 1px dashed var(--border); border-radius: 8px;
+}
+
+/* ── Toggle ── */
+.api-mock-root .am-toggle {
+  width: 34px; height: 18px; padding: 2px; border: 1px solid var(--border);
+  border-radius: 9px; background: var(--bg); cursor: pointer; flex: 0 0 auto;
+}
+.api-mock-root .am-toggle::after {
+  content: ""; display: block; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--am-text-faint); transition: transform .15s, background .15s;
+}
+.api-mock-root .am-toggle.on { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); }
+.api-mock-root .am-toggle.on::after { transform: translateX(16px); background: var(--primary); }
+
+/* ── Bottom dock ── */
+.api-mock-dock {
+  flex: 0 0 210px; min-height: 130px; max-height: 42vh; display: flex; flex-direction: column;
+  background: var(--surface); border-top: 1px solid var(--border);
+}
+.api-mock-dock.maximized {
+  flex: 1 1 auto; max-height: none; min-height: 280px;
+}
+.api-mock-dock .am-dock-head {
+  min-height: 36px; display: flex; align-items: center; gap: 3px;
+  padding: 0 10px; border-bottom: 1px solid var(--border);
+}
+.api-mock-dock .am-dock-tab {
+  height: 35px; padding: 0 10px; border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; font-size: 12px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.api-mock-dock .am-dock-tab:hover { color: var(--text); }
+.api-mock-dock .am-dock-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.api-mock-dock .am-dock-body { min-height: 0; flex: 1; overflow: auto; }
+.api-mock-dock .am-dock-empty { padding: 18px; color: var(--am-text-faint); font-size: 12px; text-align: center; }
+
+/* ── Data table ── */
+.api-mock-root .am-data-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.api-mock-root .am-data-table th {
+  position: sticky; top: 0; z-index: 1; padding: 6px 9px; text-align: left;
+  background: var(--am-surface-raised); border-bottom: 1px solid var(--border);
+  color: var(--text-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .4px;
+}
+.api-mock-root .am-data-table td {
+  padding: 6px 9px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.api-mock-root .am-data-table tr:hover td { background: var(--surface-hover); }
+.api-mock-root .am-data-table tr.selected td { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+
+/* ── Notice ── */
+.api-mock-root .am-notice {
+  display: flex; align-items: flex-start; gap: 8px; padding: 9px 11px;
+  border-left: 3px solid var(--am-blue); background: color-mix(in srgb, var(--am-blue) 8%, var(--surface));
+  color: var(--text-muted); font-size: 11px; border-radius: 0 6px 6px 0; line-height: 1.5;
+}
+.api-mock-root .am-notice.warning { border-left-color: var(--am-amber); background: color-mix(in srgb, var(--am-amber) 8%, var(--surface)); }
+.api-mock-root .am-notice.danger { border-left-color: var(--am-red); background: color-mix(in srgb, var(--am-red) 8%, var(--surface)); }
+
+/* ── Code block ── */
+.api-mock-root .am-code-block {
+  margin: 0; padding: 10px 12px; color: #d6e4df; background: #0d1012;
+  border: 1px solid var(--border); border-radius: 6px;
+  font: 11px/1.6 var(--am-mono); white-space: pre-wrap; overflow: auto;
+}
+
+/* ── Segmented control ── */
+.api-mock-root .am-segmented {
+  display: inline-flex; align-items: center; padding: 2px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--bg);
+}
+.api-mock-root .am-segmented button {
+  min-height: 26px; border: 0; border-radius: 4px; padding: 4px 10px;
+  background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; font-size: 11px;
+}
+.api-mock-root .am-segmented button.active { color: var(--text); background: var(--surface-hover); }
+
+/* ── Chip ── */
+.api-mock-root .am-chip {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 11px; background: var(--bg);
+  color: var(--text-muted); font: 10px var(--am-mono); cursor: pointer;
+}
+.api-mock-root .am-chip:hover,
+.api-mock-root .am-chip.active { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .api-mock-workspace { grid-template-columns: 210px minmax(0,1fr); }
+  .api-mock-root .am-matcher-row { grid-template-columns: 100px 1fr 100px; }
+  .api-mock-root .am-matcher-row > :nth-child(4),
+  .api-mock-root .am-matcher-row > :nth-child(5) { grid-column: 1 / -1; }
+}
+@media (max-width: 700px) {
+  /* Stack the workspace so routes stay reachable instead of being hidden. */
+  .api-mock-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(110px, 32vh) minmax(0, 1fr);
+  }
+  .api-mock-route-panel { border-right: 0; border-bottom: 1px solid var(--border); }
+  .api-mock-server-bar { flex-wrap: wrap; row-gap: 6px; }
+  .api-mock-root .am-address { max-width: 60vw; }
+  .api-mock-root .am-form-row { grid-template-columns: 110px minmax(0,1fr); }
+  .api-mock-dock { flex-basis: 170px; }
+}
+
+/* Respect users who prefer reduced motion (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  .api-mock-root *,
+  .api-mock-empty * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Screen-reader-only utility for live-region announcements. */
+.api-mock-root .am-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Conflict inspector (mockup 05) ── */
+.api-mock-dock .am-conflict-inspector {
+  display: flex; flex-direction: column; min-height: 0; height: 100%;
+}
+.api-mock-dock .am-conflict-filters {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px;
+  border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.api-mock-dock .am-conflict-filters .am-btn.active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+}
+.api-mock-dock .am-conflict-layout {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 380px);
+}
+.api-mock-dock .am-conflict-list { overflow: auto; border-right: 1px solid var(--border); }
+.api-mock-dock .am-finding-row {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center; gap: 8px; width: 100%;
+  padding: 10px 12px; border: 0; border-bottom: 1px solid var(--border);
+  background: transparent; color: var(--text); text-align: left; cursor: pointer;
+}
+.api-mock-dock .am-finding-row:hover { background: var(--surface-hover); }
+.api-mock-dock .am-finding-row.active { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+.api-mock-dock .am-finding-icon {
+  width: 22px; height: 22px; display: grid; place-items: center;
+  border-radius: 50%; font-size: 10px; font-weight: 800;
+}
+.api-mock-dock .am-finding-icon.warning { color: var(--am-amber); background: color-mix(in srgb, var(--am-amber) 14%, transparent); }
+.api-mock-dock .am-finding-icon.danger { color: var(--am-red); background: color-mix(in srgb, var(--am-red) 14%, transparent); }
+.api-mock-dock .am-finding-icon.info { color: var(--am-blue); background: color-mix(in srgb, var(--am-blue) 14%, transparent); }
+.api-mock-dock .am-finding-title { font-weight: 700; font-size: 12px; }
+.api-mock-dock .am-conflict-detail { overflow: auto; padding: 12px 14px; background: var(--surface); }
+.api-mock-dock .am-conflict-detail-title { margin: 0 0 8px; font-size: 13px; }
+.api-mock-dock .am-dim-row {
+  display: grid; grid-template-columns: 110px 70px minmax(0, 1fr);
+  gap: 8px; padding: 6px 0; font-size: 11px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.api-mock-dock .am-conflict-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* ── Transaction detail (mockup 07) ── */
+.api-mock-dock .am-tx-split { display: flex; min-height: 0; height: 100%; }
+.api-mock-dock .am-tx-table-wrap { flex: 1; overflow: auto; }
+.api-mock-dock .am-tx-detail {
+  flex: 1; border-left: 1px solid var(--border); overflow: auto; padding: 12px;
+}
+.api-mock-dock .am-tx-candidates { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.api-mock-dock .am-near-miss-list { margin: 0; padding-left: 18px; font-size: 11px; }
+.api-mock-dock .am-ok { color: var(--am-green); font-weight: 600; }
+
+/* ── Response editor 3-pane (mockup 03) ── */
+.api-mock-response-editor .am-response-mode-bar {
+  display: flex; align-items: center; gap: 10px; padding: 0 0 10px;
+}
+.api-mock-response-editor .am-response-layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) minmax(180px, 280px);
+  gap: 0; min-height: 280px;
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  background: var(--surface);
+}
+.api-mock-response-editor .am-variant-sidebar {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px; border-right: 1px solid var(--border); background: var(--bg);
+  overflow: auto;
+}
+.api-mock-response-editor .am-variant-card {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 8px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); text-align: left; cursor: pointer;
+}
+.api-mock-response-editor .am-variant-card:hover { background: var(--surface-hover); }
+.api-mock-response-editor .am-variant-card.active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+}
+.api-mock-response-editor .am-variant-name { font-size: 12px; font-weight: 600; flex: 1; min-width: 0; }
+.api-mock-response-editor .am-response-main { min-width: 0; display: flex; flex-direction: column; }
+.api-mock-response-editor .am-response-main .am-builder-tabs { border-bottom: 1px solid var(--border); }
+.api-mock-response-editor .am-response-main .am-editor-body { padding: 12px; overflow: auto; flex: 1; }
+.api-mock-response-editor .am-response-preview {
+  border-left: 1px solid var(--border); padding: 12px; background: var(--bg); overflow: auto;
+}
+.api-mock-response-editor .am-preview-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.api-mock-response-editor .am-preview-body { max-height: 220px; font-size: 11px; }
+.api-mock-response-editor .am-timeline { display: flex; gap: 4px; height: 22px; }
+.api-mock-response-editor .am-timeline-bar {
+  display: grid; place-items: center; font-size: 9px; font-weight: 700;
+  border-radius: 4px; color: var(--text); min-width: 48px;
+}
+.api-mock-response-editor .am-timeline-bar.match { background: color-mix(in srgb, var(--am-green) 28%, var(--surface)); }
+.api-mock-response-editor .am-timeline-bar.delay { background: color-mix(in srgb, var(--am-amber) 28%, var(--surface)); }
+.api-mock-response-editor .am-timeline-bar.render { background: color-mix(in srgb, var(--am-blue) 28%, var(--surface)); }
+
+.api-mock-dock.maximized {
+  flex-basis: min(70vh, 640px) !important;
+}
+
+@media (max-width: 1100px) {
+  .api-mock-response-editor .am-response-layout {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+  .api-mock-response-editor .am-response-preview { display: none; }
+  .api-mock-dock .am-conflict-layout { grid-template-columns: 1fr; }
+}
