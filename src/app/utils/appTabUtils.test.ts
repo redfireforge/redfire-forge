@@ -172,6 +172,11 @@ describe('appTabUtils', () => {
       expect(readTabFromUrl()).toBe('kafka-settings');
     });
 
+    it('returns api-mock-studio so a refresh stays on the API Mock studio', () => {
+      global.window.location.search = '?tab=api-mock-studio';
+      expect(readTabFromUrl()).toBe('api-mock-studio');
+    });
+
     it('returns default tab for invalid tab value', () => {
       global.window.location.search = '?tab=invalid-tab';
       expect(readTabFromUrl()).toBe('requests');

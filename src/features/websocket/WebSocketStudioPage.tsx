@@ -28,6 +28,10 @@ import {
 import { loadWsTabState, saveWsTabState } from '../../shared/websocket/websocketStorage';
 import ConfirmModal from '../../shared/components/ConfirmModal';
 import {
+  DEMO_INITIAL_SURFACE_EVENT,
+  peekDemoInitialSurface,
+} from '../../shared/demoInitialSurface';
+import {
   MAX_TABS,
   MOCK_PORT_BASE,
   isAutoMockPort,
@@ -40,6 +44,19 @@ import type { WebSocketStudioPageProps } from './WebSocketStudioPage.types';
 import { useWsDemoBridges } from './useWsDemoBridges';
 import '../../styles/websocket-studio.css';
 import '../../styles/mock-server-shared.css';
+
+/** Apply armed demo landing mode onto studio locations (non-destructive peek). */
+function applyDemoWsStudioMode(
+  locs: Record<string, WsStudioLocation>,
+): Record<string, WsStudioLocation> {
+  const mode = peekDemoInitialSurface()?.wsStudioMode;
+  if (!mode) return locs;
+  const next: Record<string, WsStudioLocation> = {};
+  for (const [id, loc] of Object.entries(locs)) {
+    next[id] = { ...loc, mode };
+  }
+  return next;
+}
 
 export function WebSocketStudioPage({
   resolvedBaseUrl,
@@ -142,6 +159,8 @@ export function WebSocketStudioPage({
     setTabs([{ id, label: 'New Connection' }]);
     setActiveTabId(id);
     setConnectionStates({ [id]: 'disconnected' });
+    const base = mapViewTabToStudioLocation('connect');
+    setStudioLoc(applyDemoWsStudioMode({ [id]: base }));
   }, []);
 
   useEffect(() => {
@@ -261,7 +280,7 @@ export function WebSocketStudioPage({
         setTabs(restoredTabs);
         setActiveTabId(state.activeTabId);
         setConnectionStates(connStates);
-        setStudioLoc(locs);
+        setStudioLoc(applyDemoWsStudioMode(locs));
       } else {
         createDefaultTab();
       }
@@ -278,6 +297,25 @@ export function WebSocketStudioPage({
 
   const activeTabIdRef = useRef(activeTabId);
   activeTabIdRef.current = activeTabId;
+
+  // Demo boot: if the lesson arms wsStudioMode after mount (or re-arms on Restart),
+  // sync the active tab immediately so step 1 never paints the wrong mode.
+  useEffect(() => {
+    const syncDemoMode = () => {
+      const mode = peekDemoInitialSurface()?.wsStudioMode;
+      if (!mode) return;
+      const id = activeTabIdRef.current;
+      if (!id) return;
+      setStudioLoc((prev) => {
+        const cur = prev[id] ?? mapViewTabToStudioLocation('connect');
+        if (cur.mode === mode) return prev;
+        return { ...prev, [id]: { ...cur, mode } };
+      });
+    };
+    window.addEventListener(DEMO_INITIAL_SURFACE_EVENT, syncDemoMode);
+    syncDemoMode();
+    return () => window.removeEventListener(DEMO_INITIAL_SURFACE_EVENT, syncDemoMode);
+  }, []);
 
   // Phase 8: read the live draft fields (subprotocols/headers/queryParams/auth)
   // for whole-draft persistence. Prefer the mounted tab's current draft via its

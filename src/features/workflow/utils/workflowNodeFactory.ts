@@ -251,6 +251,12 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'grpcLoadTest':        return defaultGrpcLoadTestNodeData();
     case 'grpcSchemaDiff':      return defaultGrpcSchemaDiffNodeData();
     case 'grpcMockAssert':      return defaultGrpcMockAssertNodeData();
+    case 'apiMockStart':        return { label: 'Start Mock Server' } as WorkflowNodeData;
+    case 'apiMockApply':        return { label: 'Apply Definition' } as WorkflowNodeData;
+    case 'apiMockResetState':   return { label: 'Reset Mock State' } as WorkflowNodeData;
+    case 'apiMockStop':         return { label: 'Stop Mock Server' } as WorkflowNodeData;
+    case 'apiMockAssertCalls':  return { label: 'Assert Mock Calls' } as WorkflowNodeData;
+    default:                    return { label: type } as WorkflowNodeData;
   }
 }
 
