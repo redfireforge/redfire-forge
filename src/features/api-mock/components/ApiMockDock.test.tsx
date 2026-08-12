@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ApiMockDock } from './ApiMockDock';
