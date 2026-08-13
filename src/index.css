@@ -58,6 +58,9 @@
   --proto-grpc: #5f8fb5;
   --proto-grpc-bg: rgba(95, 143, 181, 0.07);
   --proto-grpc-badge: rgba(95, 143, 181, 0.16);
+  --proto-apimock: #c2784a;
+  --proto-apimock-bg: color-mix(in srgb, var(--proto-apimock) 8%, transparent);
+  --proto-apimock-badge: color-mix(in srgb, var(--proto-apimock) 18%, transparent);
 
   /* Category accent colors (palette rail) */
   --cat-triggers: #22c55e;
@@ -140,6 +143,9 @@
   --proto-grpc: #4a7396;
   --proto-grpc-bg: rgba(74, 115, 150, 0.06);
   --proto-grpc-badge: rgba(74, 115, 150, 0.14);
+  --proto-apimock: #a86535;
+  --proto-apimock-bg: color-mix(in srgb, var(--proto-apimock) 8%, transparent);
+  --proto-apimock-badge: color-mix(in srgb, var(--proto-apimock) 16%, transparent);
 
   /* Category accent colors (palette rail) — light mode */
   --cat-triggers: #16a34a;

@@ -9,6 +9,8 @@ import type {
   ApiMockPredicateGroupV1,
   ApiMockResponseVariantV1,
 } from './contracts';
+import { DEFAULT_PROXY_SETTINGS } from './proxyContracts';
+import { DEFAULT_CALLBACK_SETTINGS } from './callbackContracts';
 
 export const CURRENT_SCHEMA_VERSION = 1;
 
@@ -67,6 +69,8 @@ export const DEFAULT_SETTINGS: ApiMockServerSettingsV1 = {
     jsonPaths: [],
     preserveScheme: true,
   },
+  proxy: { ...DEFAULT_PROXY_SETTINGS, allowlist: [], forwardCredentialHeaders: [] },
+  callbacks: { ...DEFAULT_CALLBACK_SETTINGS, allowlist: [] },
 };
 
 export const DEFAULT_BEHAVIOR: ApiMockBehaviorV1 = {

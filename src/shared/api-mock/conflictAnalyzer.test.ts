@@ -16,6 +16,39 @@ function route(overrides: Partial<ApiMockRouteV1> = {}): ApiMockRouteV1 {
 }
 
 describe('analyzeConflicts', () => {
+  it('does not report overlap when a parameterized path cannot capture the literal', async () => {
+    const routes = [
+      route({ id: 'a', path: { kind: 'parameterized', value: '/users/:id' } }),
+      route({ id: 'b', path: { kind: 'exact', value: '/health' } }),
+    ];
+    const { findings } = await analyzeConflicts(routes, 'srv-1');
+    expect(findings).toHaveLength(0);
+  });
+
+  it('reports overlap when a parameterized path does capture the literal', async () => {
+    const routes = [
+      route({ id: 'a', path: { kind: 'parameterized', value: '/users/:id' }, priority: 20 }),
+      route({ id: 'b', path: { kind: 'exact', value: '/users/admin' }, priority: 20 }),
+    ];
+    const { findings } = await analyzeConflicts(routes, 'srv-1');
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings[0].dimensions.find(d => d.source === 'path')?.result).toBe('overlap');
+  });
+
+  it('compares glob paths against literals instead of guessing', async () => {
+    const hit = await analyzeConflicts([
+      route({ id: 'a', path: { kind: 'glob', value: '/assets/*' }, priority: 20 }),
+      route({ id: 'b', path: { kind: 'exact', value: '/assets/logo.png' }, priority: 20 }),
+    ], 'srv-1');
+    expect(hit.findings[0]?.dimensions.find(d => d.source === 'path')?.result).toBe('overlap');
+
+    const miss = await analyzeConflicts([
+      route({ id: 'a', path: { kind: 'glob', value: '/assets/*' } }),
+      route({ id: 'b', path: { kind: 'exact', value: '/health' } }),
+    ], 'srv-1');
+    expect(miss.findings).toHaveLength(0);
+  });
+
   it('returns no findings for disjoint routes', async () => {
     const routes = [
       route({ id: 'a', method: 'GET', path: { kind: 'exact', value: '/users' } }),
@@ -120,11 +153,17 @@ describe('analyzeConflicts', () => {
     expect(findings).toHaveLength(0);
   });
 
-  it('includes fingerprints in findings', async () => {
-    const routes = [route({ id: 'a' }), route({ id: 'b' })];
+  it('includes fingerprints, witness request, and selection outcome in findings', async () => {
+    const routes = [
+      route({ id: 'a', path: { kind: 'parameterized', value: '/users/:id' }, priority: 20 }),
+      route({ id: 'b', path: { kind: 'exact', value: '/users/admin' }, priority: 20 }),
+    ];
     const { findings } = await analyzeConflicts(routes, 'srv-1');
+    expect(findings.length).toBeGreaterThan(0);
     expect(findings[0].ruleFingerprints[0]).toMatch(/^[0-9a-f]{64}$/);
     expect(findings[0].ruleFingerprints[1]).toMatch(/^[0-9a-f]{64}$/);
+    expect(findings[0].witnessRequest?.path).toBe('/users/admin');
+    expect(findings[0].selectionOutcome).toBe('reject_ambiguous');
   });
 
   it('detects shadowed route (higher priority superset)', async () => {

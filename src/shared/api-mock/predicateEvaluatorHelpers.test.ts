@@ -156,6 +156,9 @@ describe('predicateEvaluatorHelpers', () => {
     expect(evaluateOperator('jsonPath_equals', null, ['$.role', 'admin'])).toBe(false);
     expect(evaluateOperator('jsonPath_equals', '{"role":"user"}', 'role' as any)).toBe(false);
     expect(evaluateOperator('jsonPath_equals', ['{"role":"admin"}'], ['$.role', 'admin'])).toBe(true);
+    expect(evaluateOperator('jsonPath_exists', '{"items":[{"sku":"RF-100"}]}', '$.items[0].sku')).toBe(true);
+    expect(evaluateOperator('jsonPath_equals', '{"items":[{"sku":"RF-100"}]}', ['$.items[0].sku', 'RF-100'])).toBe(true);
+    expect(evaluateOperator('jsonPath_exists', '{"items":[{"sku":"RF-100"}]}', '$.items[1].sku')).toBe(false);
     expect(evaluateOperator('form_field_exact', 'csrf=token', ['csrf', 'token'])).toBe(true);
     expect(evaluateOperator('form_field_exact', 'csrf=token', ['csrf', 'other'])).toBe(false);
     expect(evaluateOperator('form_field_exact', 'csrf=', ['csrf'] as any)).toBe(true);
@@ -171,8 +174,11 @@ describe('predicateEvaluatorHelpers', () => {
     expect(evaluateOperator('binary_exact', 'pong', 'ping')).toBe(false);
     expect(evaluateOperator('binary_sha256', 'ping', 'hash')).toBe(false);
     expect(evaluateOperator('jsonSchema', '{"a":1}', {} as any)).toBe(false);
-    expect(evaluateOperator('xpath_exists', '<x />', '/x')).toBe(false);
-    expect(evaluateOperator('xpath_equals', '<x />', ['/x', '1'] as any)).toBe(false);
+    // XPath is evaluated for real now — see xpathMatcher.test.ts for coverage.
+    expect(evaluateOperator('xpath_exists', '<x />', '/x')).toBe(true);
+    expect(evaluateOperator('xpath_exists', '<x />', '/nope')).toBe(false);
+    expect(evaluateOperator('xpath_equals', '<x>1</x>', ['/x/text()', '1'] as any)).toBe(true);
+    expect(evaluateOperator('xpath_equals', '<x>1</x>', ['/x/text()', '2'] as any)).toBe(false);
     expect(evaluateOperator('xmlSchema', '<x />', {} as any)).toBe(false);
     expect(evaluateOperator('multipart_field', 'data', 'field')).toBe(false);
     expect(evaluateOperator('multipart_file', 'data', 'file')).toBe(false);

@@ -2,7 +2,7 @@
  * API Mock Studio — path matching (Phase 1C).
  * Pure functions for matching request paths against route path matchers.
  */
-import type { ApiMockPathMatcherV1 } from './contracts';
+import type { ApiMockPathMatcherV1, ApiMockPathMatcherKind } from './contracts';
 import { compileRegexCached } from './patternCache';
 
 export interface PathMatchResult {
@@ -11,6 +11,18 @@ export interface PathMatchResult {
 }
 
 const NO_MATCH: PathMatchResult = { matched: false, params: {} };
+
+/**
+ * Pick the matcher kind implied by a typed path so `/users/:id` doesn't stay an
+ * exact literal that can never match a real request. An explicit `regex` choice
+ * is preserved because its syntax overlaps the other kinds.
+ */
+export function inferPathKind(value: string, current?: ApiMockPathMatcherKind): ApiMockPathMatcherKind {
+  if (current === 'regex') return 'regex';
+  if (/:[A-Za-z_]\w*/.test(value) || /\{[^}]+\}/.test(value)) return 'parameterized';
+  if (/[*?]/.test(value)) return 'glob';
+  return 'exact';
+}
 
 export function matchPath(matcher: ApiMockPathMatcherV1, requestPath: string): PathMatchResult {
   const ci = matcher.flags?.caseInsensitive ?? false;

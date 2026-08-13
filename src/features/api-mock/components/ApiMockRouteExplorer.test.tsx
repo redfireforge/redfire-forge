@@ -76,6 +76,104 @@ describe('ApiMockRouteExplorer', () => {
     expect(screen.getByTestId('api-mock-route-r2')).toBeInTheDocument();
   });
 
+  it('opens a non-native filter popover, toggles options, and closes on outside click', () => {
+    render(
+      <ApiMockRouteExplorer
+        routes={[
+          route(),
+          route({ id: 'r2', enabled: false, method: 'POST', path: { kind: 'exact', value: '/orders' } }),
+          route({ id: 'r3', method: 'PUT', path: { kind: 'exact', value: '/x' } }),
+        ]}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+        conflictRouteIds={['r3']}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('api-mock-route-filter'));
+    const panel = screen.getByTestId('api-mock-route-filter-panel');
+    expect(panel).toBeInTheDocument();
+    expect(panel.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(panel.querySelector('select')).toBeNull();
+
+    const showDisabled = screen.getByTestId('api-mock-filter-show-disabled');
+    expect(showDisabled).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(showDisabled);
+    expect(showDisabled).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByTestId('api-mock-route-r2')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('api-mock-filter-conflicts-only'));
+    expect(screen.getByTestId('api-mock-filter-conflicts-only')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('api-mock-route-r3')).toBeInTheDocument();
+    expect(screen.queryByTestId('api-mock-route-r1')).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId('api-mock-route-filter-panel')).not.toBeInTheDocument();
+  });
+
+  it('closes the filter popover on Escape', () => {
+    render(
+      <ApiMockRouteExplorer
+        routes={[route()]}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-route-filter'));
+    expect(screen.getByTestId('api-mock-route-filter-panel')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('api-mock-route-filter-panel')).not.toBeInTheDocument();
+  });
+
+  it('creates rules in a folder, deletes folders, and supports drag-and-drop filing', () => {
+    const onCreate = vi.fn();
+    const onDeleteFolder = vi.fn();
+    const onMoveRoute = vi.fn();
+    render(
+      <ApiMockRouteExplorer
+        routes={[route({ id: 'r1' }), route({ id: 'r2', folderId: 'fld-1', path: { kind: 'exact', value: '/in-folder' } })]}
+        folders={[{ id: 'fld-1', name: 'Folder 1', sortOrder: 0, expanded: true } as any]}
+        onSelect={vi.fn()}
+        onCreate={onCreate}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+        onDeleteFolder={onDeleteFolder}
+        onMoveRoute={onMoveRoute}
+      />,
+    );
+
+    expect(screen.getByTestId('api-mock-folder-fld-1').querySelector('.am-folder-name')).toHaveTextContent('Folder 1');
+    fireEvent.click(screen.getByTestId('api-mock-folder-add-route-fld-1'));
+    expect(onCreate).toHaveBeenCalledWith('fld-1');
+
+    fireEvent.click(screen.getByTestId('api-mock-folder-delete-fld-1'));
+    expect(onDeleteFolder).toHaveBeenCalledWith('fld-1');
+
+    const dragged = screen.getByTestId('api-mock-route-r1');
+    const dataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn((type: string) => (type === 'application/x-api-mock-route' || type === 'text/plain' ? 'r1' : '')),
+      effectAllowed: 'none',
+      dropEffect: 'none',
+    };
+    fireEvent.dragStart(dragged, { dataTransfer });
+    const folder = screen.getByTestId('api-mock-folder-fld-1');
+    fireEvent.dragOver(folder, { dataTransfer });
+    fireEvent.drop(folder, { dataTransfer });
+    expect(onMoveRoute).toHaveBeenCalledWith('r1', 'fld-1');
+
+    onMoveRoute.mockClear();
+    fireEvent.dragStart(screen.getByTestId('api-mock-route-r2'), { dataTransfer: { ...dataTransfer, getData: vi.fn(() => 'r2') } });
+    fireEvent.drop(screen.getByTestId('api-mock-ungrouped-zone'), {
+      dataTransfer: { ...dataTransfer, getData: vi.fn(() => 'r2') },
+    });
+    expect(onMoveRoute).toHaveBeenCalledWith('r2', undefined);
+  });
+
   it('selects and toggles routes and renders the footer summary', () => {
     const onSelect = vi.fn();
     const onToggle = vi.fn();
@@ -122,7 +220,7 @@ describe('ApiMockRouteExplorer', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Core/ }));
+    fireEvent.click(screen.getByTestId('api-mock-folder-f1').querySelector('.am-tree-folder')!);
     expect(onToggleFolder).toHaveBeenCalledWith('f1');
 
     fireEvent.change(screen.getByTestId('api-mock-route-search'), { target: { value: 'users' } });
@@ -151,5 +249,53 @@ describe('ApiMockRouteExplorer', () => {
 
     fireEvent.keyDown(items[0], { key: 'x' });
     expect(items[0]).toHaveFocus();
+  });
+});
+
+describe('ApiMockRouteExplorer — per-rule delete', () => {
+  it('deletes the rule it belongs to, without selecting it', () => {
+    const onDelete = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <ApiMockRouteExplorer
+        routes={[route(), route({ id: 'r2', name: 'Orders', path: { kind: 'exact', value: '/orders' } })]}
+        onSelect={onSelect}
+        onCreate={vi.fn()}
+        onDelete={onDelete}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('api-mock-route-delete-r2'));
+    expect(onDelete).toHaveBeenCalledWith('r2');
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    // The trash sits beside the row button, so it must not also select the rule.
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('labels each delete control with its rule name', () => {
+    render(
+      <ApiMockRouteExplorer
+        routes={[route()]}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('Delete rule Users Route')).toBeTruthy();
+  });
+
+  it('keeps rule rows as the only treeitems so arrow-key nav is unaffected', () => {
+    render(
+      <ApiMockRouteExplorer
+        routes={[route(), route({ id: 'r2' })]}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(document.querySelectorAll('[role="treeitem"]')).toHaveLength(2);
   });
 });

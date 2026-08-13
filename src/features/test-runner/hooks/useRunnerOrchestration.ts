@@ -288,7 +288,13 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
     const resolvedTests = resolveSharedDataSources(testsToRun, sharedDataSources);
     const grpcHarnessEnv = buildGrpcHarnessEnvFromRunnerContext(microservices, svcId, envId, envName);
-    execution.execute(cfg, resolvedTests, { envName, svcName, baseUrl: usedBaseUrl, grpcHarnessEnv });
+    execution.execute(cfg, resolvedTests, {
+      envName,
+      svcName,
+      baseUrl: usedBaseUrl,
+      grpcHarnessEnv,
+      apiMockFixture: config.apiMockFixture,
+    });
   };
 
   const updateProfile = (patch: Partial<LoadProfileConfig>) => {

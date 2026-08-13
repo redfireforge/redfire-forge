@@ -81,6 +81,14 @@ import GraphqlAssertNode from '../components/nodes/GraphqlAssertNode';
 import GrpcUnaryNode from '../components/nodes/GrpcUnaryNode';
 import GrpcServerStreamNode from '../components/nodes/GrpcServerStreamNode';
 import GrpcAssertNode from '../components/nodes/GrpcAssertNode';
+import ApiMockWorkflowNode from '../components/nodes/ApiMockWorkflowNode';
+import {
+  defaultApiMockApplyNodeData,
+  defaultApiMockAssertCallsNodeData,
+  defaultApiMockResetStateNodeData,
+  defaultApiMockStartNodeData,
+  defaultApiMockStopNodeData,
+} from '../types/workflow/node-api-mock';
 
 export type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowRFEdge = Edge;
@@ -121,6 +129,11 @@ export const nodeTypes = {
   grpcUnary: GrpcUnaryNode,
   grpcServerStream: GrpcServerStreamNode,
   grpcAssert: GrpcAssertNode,
+  apiMockStart: ApiMockWorkflowNode,
+  apiMockApply: ApiMockWorkflowNode,
+  apiMockResetState: ApiMockWorkflowNode,
+  apiMockStop: ApiMockWorkflowNode,
+  apiMockAssertCalls: ApiMockWorkflowNode,
 };
 
 export function makeEmptyScenario(): Scenario {
@@ -251,11 +264,11 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'grpcLoadTest':        return defaultGrpcLoadTestNodeData();
     case 'grpcSchemaDiff':      return defaultGrpcSchemaDiffNodeData();
     case 'grpcMockAssert':      return defaultGrpcMockAssertNodeData();
-    case 'apiMockStart':        return { label: 'Start Mock Server' } as WorkflowNodeData;
-    case 'apiMockApply':        return { label: 'Apply Definition' } as WorkflowNodeData;
-    case 'apiMockResetState':   return { label: 'Reset Mock State' } as WorkflowNodeData;
-    case 'apiMockStop':         return { label: 'Stop Mock Server' } as WorkflowNodeData;
-    case 'apiMockAssertCalls':  return { label: 'Assert Mock Calls' } as WorkflowNodeData;
+    case 'apiMockStart':        return defaultApiMockStartNodeData();
+    case 'apiMockApply':        return defaultApiMockApplyNodeData();
+    case 'apiMockResetState':   return defaultApiMockResetStateNodeData();
+    case 'apiMockStop':         return defaultApiMockStopNodeData();
+    case 'apiMockAssertCalls':  return defaultApiMockAssertCallsNodeData();
     default:                    return { label: type } as WorkflowNodeData;
   }
 }

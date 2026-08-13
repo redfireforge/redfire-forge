@@ -40,6 +40,8 @@ describe('ApiMockServerTabs', () => {
     expect(tabs[0]).toHaveAttribute('tabindex', '0');
     expect(tabs[1]).toHaveAttribute('tabindex', '-1');
     expect(tabs[0].getAttribute('title')).toContain('Stopped');
+    expect(tabs[0].querySelector('.am-server-tab-label')?.textContent).toBe('Mock Server 1:4600');
+    expect(tabs[0].querySelector('.am-mono')).toBeNull();
 
     fireEvent.click(tabs[1]);
     expect(onSelect).toHaveBeenCalledWith('srv-2');

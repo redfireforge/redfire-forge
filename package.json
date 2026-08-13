@@ -202,7 +202,8 @@
     "test:e2e:demo:gql-smoke": "playwright test --project=demo-gql-lessons e2e/graphql-lessons.spec.ts --reporter=html --workers=1",
     "test:e2e:all": "E2E_WITH_DOCKER=1 playwright test",
     "prepare": "husky",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "build:sidecar": "node scripts/build-sidecar.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
@@ -221,6 +222,7 @@
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@types/ws": "^8.18.1",
+    "@xmldom/xmldom": "^0.9.11",
     "@xyflow/react": "^12.10.2",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
@@ -256,6 +258,7 @@
     "uuid": "^13.0.0",
     "ws": "^8.21.0",
     "xlsx-js-style": "^1.2.0",
+    "xpath": "^0.0.34",
     "yaml": "^2.8.3"
   },
   "lint-staged": {

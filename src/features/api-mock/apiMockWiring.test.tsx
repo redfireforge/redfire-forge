@@ -26,10 +26,11 @@ describe('API Mock Studio wiring', () => {
     expect(screen.getByTestId('api-mock-variant-body')).toBeTruthy();
   });
 
-  it('exposes response mode in Response and fault in Behavior', () => {
+  it('exposes selection mode in Response and fault in Behavior', () => {
     studioWithRoute();
     const tablist = screen.getByRole('tablist', { name: 'Route editor sections' });
     fireEvent.click(within(tablist).getAllByRole('tab').find(t => t.textContent?.startsWith('Response'))!);
+    fireEvent.click(screen.getByTestId('api-mock-response-tab-selection'));
     expect(screen.getByTestId('api-mock-response-mode')).toBeTruthy();
     fireEvent.click(within(tablist).getAllByRole('tab').find(t => t.textContent?.trim().startsWith('Behavior'))!);
     expect(screen.getByTestId('api-mock-fault-select')).toBeTruthy();
@@ -48,9 +49,10 @@ describe('API Mock Studio wiring', () => {
   it('opens the import modal from the title-bar Import menu', () => {
     render(<ApiMockStudioPage />);
     fireEvent.click(screen.getByTestId('api-mock-create-first'));
+    // Import is now a single button; the source is chosen inside the modal.
     fireEvent.click(screen.getByTestId('api-mock-import-menu'));
-    fireEvent.click(screen.getByTestId('api-mock-import-curl'));
     expect(screen.getByTestId('api-mock-import-review')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-import-source-curl'));
     expect(screen.getByTestId('api-mock-curl-input')).toBeTruthy();
   });
 
@@ -63,9 +65,12 @@ describe('API Mock Studio wiring', () => {
     expect((screen.getByTestId('api-mock-path-input') as HTMLInputElement).value).toBe('/users/:id');
   });
 
-  it('shows Variables and State dock tabs separately', () => {
+  it('opens Runtime from the live strip and shows Variables / State tabs', () => {
     studioWithRoute();
+    expect(screen.getByTestId('api-mock-live-strip')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-open-runtime'));
     const dock = screen.getByTestId('api-mock-dock');
+    expect(dock.getAttribute('data-variant')).toBe('page');
     const list = within(dock).getByRole('tablist', { name: 'Runtime inspector' });
     fireEvent.click(within(list).getAllByRole('tab').find(t => (t.textContent ?? '').startsWith('Variables'))!);
     expect(screen.getByTestId('api-mock-dock-variables-empty')).toBeTruthy();

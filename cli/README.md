@@ -57,6 +57,35 @@ redfireforge workflow tests/checkout-flow.yaml -i 50 -c 5
 | `workflow <file>` | Execute a workflow as a performance test |
 | `validate <file>` | Validate a test file without running |
 | `validate-workflow <file>` | Validate a workflow file without running |
+| `mock simulate <file>` | Run saved API Mock samples (side-effect-free) |
+| `mock verify <file>` | Assert sample outcomes / minimum call count |
+| `mock start <file>` | Start mock listeners via companion control plane |
+
+### API Mock Studio (`mock`)
+
+Headless helpers for API Mock Studio definitions (native JSON/YAML export envelopes or workspace files).
+
+```bash
+# Simulate samples against a definition (same engine as GUI)
+npx tsx cli/index.ts mock simulate ./api-mock-workspace.json -o results.json --junit junit.xml
+
+# Verify corpus outcomes
+npx tsx cli/index.ts mock verify ./api-mock-workspace.json --expect-outcome matched --min-calls 1
+
+# Start listeners (requires companion on :3001). --port overrides without mutating the file.
+npx tsx cli/index.ts mock start ./api-mock-workspace.json --port 4600 --wait-ready
+```
+
+| Option | Commands | Description |
+|--------|----------|-------------|
+| `--server <id>` | simulate, verify | Target server (default: active / first) |
+| `-o, --output <path>` | simulate | Write JSON results |
+| `--junit <path>` | simulate | Write JUnit XML |
+| `--min-calls <n>` | verify | Require at least N samples |
+| `--expect-outcome <outcome>` | verify | Require every sample outcome |
+| `--port <n>` | start | Port override (immutable source file) |
+| `--control-base <url>` | start | Companion base (default `http://127.0.0.1:3001`) |
+| `--wait-ready` | start | Stay alive until SIGINT/SIGTERM, then stop |
 
 ## Common Options
 

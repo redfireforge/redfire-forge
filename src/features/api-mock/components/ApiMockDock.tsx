@@ -1,31 +1,73 @@
-import { useEffect, useState } from 'react';
-import type { ApiMockConflictFindingV1, ApiMockRouteV1, ApiMockTransactionV1, ApiMockVariableV1 } from '../../../shared/api-mock/contracts';
+import { useEffect, useMemo, useState } from 'react';
+import type {
+  ApiMockConflictFindingV1,
+  ApiMockRouteV1,
+  ApiMockServerDefinitionV1,
+  ApiMockServerSettingsV1,
+  ApiMockTransactionV1,
+  ApiMockVariableV1,
+} from '../../../shared/api-mock/contracts';
 import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
+import { exportTransactionsJson, filterTransactions } from '../apiMockJournalActions';
 import type { ApiMockConsoleLine } from '../useApiMockConsole';
 import { ApiMockConflictInspector } from './ApiMockConflictInspector';
+import { ChevronDownIcon, ChevronUpIcon, MaximizeIcon, MinimizeIcon, PlusIcon, TrashIcon } from './ApiMockIcons';
+import { ApiMockRuntimeGuide } from './ApiMockRuntimeGuide';
+import { ApiMockRuntimeSettingsPanel } from './ApiMockRuntimeSettingsPanel';
 
-type DockTab = 'transactions' | 'conflicts' | 'state' | 'variables' | 'console';
+export type ApiMockDockTab = 'transactions' | 'conflicts' | 'state' | 'variables' | 'settings' | 'console';
+type DockMode = 'normal' | 'maximized' | 'collapsed';
 
 const DOCK_PANEL_ID = 'api-mock-dock-panel';
+/** Mockup 07 Runtime tabs (Conflicts is a top-level workspace view). */
+const PAGE_TABS: ApiMockDockTab[] = ['transactions', 'state', 'variables', 'settings', 'console'];
+/** Compact Studio dock tabs. */
+const DOCK_TABS: ApiMockDockTab[] = ['transactions', 'conflicts', 'state', 'variables', 'console'];
+const EMPTY_HIDDEN_TABS: ApiMockDockTab[] = [];
 
 interface Props {
   routes: ApiMockRouteV1[];
   conflictCount?: number;
   conflictFindings?: ApiMockConflictFindingV1[];
   focusConflictRouteId?: string;
-  requestedTab?: DockTab;
+  requestedTab?: ApiMockDockTab;
   onRequestedTabConsumed?: () => void;
   onSelectRoute?: (routeId: string) => void;
   onSimulateWitness?: (finding: ApiMockConflictFindingV1) => void;
   transactions?: ApiMockTransactionV1[];
   running?: boolean;
   variables?: ApiMockVariableV1[];
-  liveState?: { states: Record<string, string>; counters: Record<string, number> } | null;
+  onVariablesChange?: (variables: ApiMockVariableV1[]) => void;
+  liveState?: {
+    states: Record<string, string>;
+    counters: Record<string, number>;
+    sequencePositions?: Record<string, number>;
+  } | null;
   onResetState?: () => void;
   onClearTransactions?: () => void;
   consoleLines?: ApiMockConsoleLine[];
   onClearConsole?: () => void;
   onOpenConflicts?: () => void;
+  onAcknowledgeConflict?: (finding: ApiMockConflictFindingV1) => void;
+  onAdjustPriority?: (routeId: string, delta: number) => void;
+  onOpenInRequests?: (tx: ApiMockTransactionV1) => void;
+  onCreateRouteFromTransaction?: (tx: ApiMockTransactionV1) => void;
+  onCopyTransaction?: (tx: ApiMockTransactionV1) => void;
+  /** Selection policy + last analysis stats for the conflict inspector. */
+  settings?: ApiMockServerSettingsV1;
+  conflictStats?: { analyzedRules: number; durationMs: number };
+  /** Listen URL for Runtime empty-state sample curl (page mode). */
+  serverAddress?: string;
+  /** Full server definition for the Runtime Settings tab (mockup 07). */
+  server?: ApiMockServerDefinitionV1;
+  onServerPatch?: (patch: Partial<ApiMockServerDefinitionV1>) => void;
+  /**
+   * `dock` — bottom Studio inspector (legacy chrome).
+   * `page` — full Runtime workspace (mockup 07).
+   */
+  variant?: 'dock' | 'page';
+  /** Tabs to omit (e.g. Runtime page hides Conflicts — that is its own top-level view). */
+  hiddenTabs?: ApiMockDockTab[];
 }
 
 function timeOf(iso: string): string {
@@ -50,7 +92,7 @@ function deriveScenarioModel(routes: ApiMockRouteV1[]): { states: string[]; coun
 }
 
 /**
- * Bottom dock: Transactions / Conflicts / State / Variables / Server console (mockup 01/05/07).
+ * Runtime inspector panels — bottom dock (Studio) or full Runtime page (mockup 07).
  */
 export function ApiMockDock({
   routes,
@@ -64,31 +106,82 @@ export function ApiMockDock({
   transactions = [],
   running = false,
   variables = [],
+  onVariablesChange,
   liveState = null,
   onResetState,
   onClearTransactions,
   consoleLines = [],
   onClearConsole,
   onOpenConflicts,
+  onAcknowledgeConflict,
+  onAdjustPriority,
+  onOpenInRequests,
+  onCreateRouteFromTransaction,
+  onCopyTransaction,
+  settings,
+  conflictStats,
+  serverAddress,
+  server,
+  onServerPatch,
+  variant = 'dock',
+  hiddenTabs: hiddenTabsProp,
 }: Props) {
-  const [tab, setTab] = useState<DockTab>('transactions');
-  const [maximized, setMaximized] = useState(false);
+  const isPage = variant === 'page';
+  const hiddenTabs = hiddenTabsProp ?? EMPTY_HIDDEN_TABS;
+  const hiddenKey = hiddenTabs.join('|');
+  const baseTabs = isPage ? PAGE_TABS : DOCK_TABS;
+  const visibleTabs = useMemo(
+    () => baseTabs.filter(t => !hiddenTabs.includes(t)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by hiddenKey + variant
+    [hiddenKey, isPage],
+  );
+  const defaultTab = visibleTabs[0] ?? 'transactions';
+  const [tab, setTab] = useState<ApiMockDockTab>(defaultTab);
+  const [mode, setMode] = useState<DockMode>('normal');
   const [selectedTxId, setSelectedTxId] = useState<string | undefined>();
-  const selected = transactions.find(t => t.id === selectedTxId);
-  const scenario = deriveScenarioModel(routes);
+  const [txFilter, setTxFilter] = useState('');
   const routeName = (id?: string) => {
     if (!id) return '—';
     const r = routes.find(x => x.id === id);
     return r ? `${r.method} ${r.path.value || '/'}` : id;
   };
+  const filteredTransactions = useMemo(
+    () => filterTransactions(transactions, txFilter, routeName),
+    // routeName is stable enough for filter; depend on routes + filter text
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions, txFilter, routes],
+  );
+  const selected = filteredTransactions.find(t => t.id === selectedTxId)
+    ?? transactions.find(t => t.id === selectedTxId);
+  const scenario = deriveScenarioModel(routes);
+  const collapsed = !isPage && mode === 'collapsed';
+  const maximized = !isPage && mode === 'maximized';
+
+  useEffect(() => {
+    if (!visibleTabs.includes(tab)) setTab(defaultTab);
+  }, [tab, defaultTab, visibleTabs]);
 
   useEffect(() => {
     if (!requestedTab) return;
+    if (hiddenTabs.includes(requestedTab)) {
+      onRequestedTabConsumed?.();
+      return;
+    }
     setTab(requestedTab);
+    if (!isPage) setMode(prev => (prev === 'collapsed' ? 'normal' : prev));
     onRequestedTabConsumed?.();
-  }, [requestedTab, onRequestedTabConsumed]);
+    // hiddenTabs identity is unstable when callers pass inline arrays; key by hiddenKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedTab, onRequestedTabConsumed, hiddenKey, isPage]);
 
-  const dockTab = (id: DockTab, content: React.ReactNode) => {
+  const selectTab = (id: ApiMockDockTab) => {
+    setTab(id);
+    if (!isPage && mode === 'collapsed') setMode('normal');
+    if (id === 'conflicts') onOpenConflicts?.();
+  };
+
+  const dockTab = (id: ApiMockDockTab, content: React.ReactNode) => {
+    if (!visibleTabs.includes(id)) return null;
     const active = tab === id;
     return (
       <button
@@ -98,10 +191,7 @@ export function ApiMockDock({
         aria-controls={DOCK_PANEL_ID}
         tabIndex={active ? 0 : -1}
         className={`am-dock-tab${active ? ' active' : ''}`}
-        onClick={() => {
-          setTab(id);
-          if (id === 'conflicts') onOpenConflicts?.();
-        }}
+        onClick={() => selectTab(id)}
       >
         {content}
       </button>
@@ -109,39 +199,119 @@ export function ApiMockDock({
   };
 
   return (
-    <div className={`api-mock-dock${maximized ? ' maximized' : ''}`} data-testid="api-mock-dock">
-      <div className="am-dock-head" role="tablist" aria-label="Runtime inspector" onKeyDown={handleTabListArrowKeys}>
-        {dockTab('transactions', <>Transactions <span className="am-count-badge">{transactions.length}</span></>)}
-        {dockTab('conflicts', <>Conflicts {conflictCount > 0 && <span className="am-count-badge warning">{conflictCount}</span>}</>)}
-        {dockTab('state', 'State')}
-        {dockTab('variables', <>Variables <span className="am-count-badge">{variables.length}</span></>)}
-        {dockTab('console', 'Server console')}
+    <div
+      className={`api-mock-dock${isPage ? ' page' : ''}${maximized ? ' maximized' : ''}${collapsed ? ' collapsed' : ''}`}
+      data-testid="api-mock-dock"
+      data-mode={isPage ? 'page' : mode}
+      data-variant={variant}
+    >
+      <div className={`am-dock-head${isPage ? ' page-tabs' : ''}`}>
+        <div className="am-dock-tabs" role="tablist" aria-label="Runtime inspector" onKeyDown={handleTabListArrowKeys}>
+          {dockTab('transactions', <>Transactions <span className="am-count-badge">{transactions.length}</span></>)}
+          {dockTab('conflicts', <>Conflicts {conflictCount > 0 && <span className="am-count-badge warning">{conflictCount}</span>}</>)}
+          {dockTab('state', 'State')}
+          {dockTab('variables', <>Variables <span className="am-count-badge">{variables.length}</span></>)}
+          {dockTab('settings', 'Settings')}
+          {dockTab('console', isPage ? 'Console' : 'Server console')}
+        </div>
         <span className="am-spacer" />
-        {tab === 'transactions' && transactions.length > 0 && (
-          <button className="am-btn small danger" onClick={onClearTransactions} data-testid="api-mock-journal-clear">Clear</button>
-        )}
-        {tab === 'console' && consoleLines.length > 0 && (
+        {!collapsed && tab === 'console' && consoleLines.length > 0 && (
           <button className="am-btn small ghost" onClick={onClearConsole} data-testid="api-mock-console-clear">Clear</button>
         )}
-        <button
-          className="am-icon-btn"
-          aria-label={maximized ? 'Restore dock' : 'Maximize dock'}
-          title={maximized ? 'Restore dock' : 'Maximize dock'}
-          onClick={() => setMaximized(m => !m)}
-          data-testid="api-mock-dock-maximize"
-        >{maximized ? '⤓' : '⤢'}</button>
+        {!isPage && (
+          <div className="am-dock-actions">
+            {collapsed ? (
+              <button
+                type="button"
+                className="am-dock-action"
+                aria-label="Show dock"
+                title="Show dock"
+                onClick={() => setMode('normal')}
+                data-testid="api-mock-dock-show"
+              >
+                <ChevronUpIcon size={14} />
+                <span>Show</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="am-dock-action"
+                  aria-label="Hide dock"
+                  title="Hide dock"
+                  onClick={() => setMode('collapsed')}
+                  data-testid="api-mock-dock-hide"
+                >
+                  <ChevronDownIcon size={14} />
+                  <span>Hide</span>
+                </button>
+                <button
+                  type="button"
+                  className={`am-dock-action${maximized ? ' active' : ''}`}
+                  aria-label={maximized ? 'Restore dock' : 'Expand dock'}
+                  title={maximized ? 'Restore dock' : 'Expand dock'}
+                  aria-pressed={maximized}
+                  onClick={() => setMode(maximized ? 'normal' : 'maximized')}
+                  data-testid="api-mock-dock-maximize"
+                >
+                  {maximized ? <MinimizeIcon size={14} /> : <MaximizeIcon size={14} />}
+                  <span>{maximized ? 'Restore' : 'Expand'}</span>
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="am-dock-body" id={DOCK_PANEL_ID} role="tabpanel" aria-labelledby={`api-mock-dtab-${tab}`}>
+      <div
+        className="am-dock-body"
+        id={DOCK_PANEL_ID}
+        role="tabpanel"
+        aria-labelledby={`api-mock-dtab-${tab}`}
+        hidden={collapsed}
+      >
         {tab === 'transactions' && (
           transactions.length === 0 ? (
-            <div className="am-dock-empty" data-testid="api-mock-dock-transactions-empty">
-              {running
-                ? 'No transactions yet. Send a request to the running server to see it here.'
-                : 'No transactions yet. Start the server and send a request to see it here.'}
-            </div>
+            isPage && serverAddress ? (
+              <ApiMockRuntimeGuide
+                running={!!running}
+                serverAddress={serverAddress}
+                routes={routes}
+                settings={settings}
+                variableCount={variables.length}
+              />
+            ) : (
+              <div className="am-dock-empty" data-testid="api-mock-dock-transactions-empty">
+                {running
+                  ? 'No transactions yet. Send a request to the running server to see it here.'
+                  : 'No transactions yet. Start the server and send a request to see it here.'}
+              </div>
+            )
           ) : (
             <div className="am-tx-split">
+              <div className="am-tx-toolbar" data-testid="api-mock-journal-toolbar">
+                <input
+                  className="am-input am-tx-filter"
+                  placeholder="Filter by path, status, or rule…"
+                  value={txFilter}
+                  onChange={e => setTxFilter(e.target.value)}
+                  aria-label="Filter transactions"
+                  data-testid="api-mock-journal-filter"
+                />
+                <span className="am-spacer" />
+                <button
+                  type="button"
+                  className="am-btn small"
+                  onClick={() => exportTransactionsJson(filteredTransactions, server?.name)}
+                  data-testid="api-mock-journal-export"
+                >
+                  Export
+                </button>
+                <button type="button" className="am-btn small danger" onClick={onClearTransactions} data-testid="api-mock-journal-clear">
+                  Clear
+                </button>
+              </div>
+              <div className="am-tx-main">
               <div className="am-tx-table-wrap">
                 <table className="am-data-table" aria-label="Transaction log">
                   <thead>
@@ -155,7 +325,13 @@ export function ApiMockDock({
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map(tx => (
+                    {filteredTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="am-muted" data-testid="api-mock-journal-filter-empty">
+                          No transactions match this filter.
+                        </td>
+                      </tr>
+                    ) : filteredTransactions.map(tx => (
                       <tr
                         key={tx.id}
                         className={tx.id === selectedTxId ? 'selected' : ''}
@@ -235,8 +411,27 @@ export function ApiMockDock({
                       </div>
                     </>
                   )}
+
+                  <div className="am-tx-actions" data-testid="api-mock-tx-actions">
+                    {onOpenInRequests && (
+                      <button type="button" className="am-btn small" data-testid="api-mock-tx-open-requests" onClick={() => onOpenInRequests(selected)}>
+                        Open in Requests
+                      </button>
+                    )}
+                    {onCreateRouteFromTransaction && (
+                      <button type="button" className="am-btn small" data-testid="api-mock-tx-create-route" onClick={() => onCreateRouteFromTransaction(selected)}>
+                        Create route
+                      </button>
+                    )}
+                    {onCopyTransaction && (
+                      <button type="button" className="am-btn small" data-testid="api-mock-tx-copy" onClick={() => onCopyTransaction(selected)}>
+                        Copy
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
+              </div>
             </div>
           )
         )}
@@ -248,11 +443,32 @@ export function ApiMockDock({
             focusRouteId={focusConflictRouteId}
             onSelectRoute={onSelectRoute}
             onSimulateWitness={onSimulateWitness}
+            onAcknowledge={onAcknowledgeConflict}
+            onAdjustPriority={onAdjustPriority}
+            settings={settings}
+            stats={conflictStats}
           />
         )}
 
         {tab === 'variables' && (
           <div style={{ padding: 12, overflow: 'auto', height: '100%' }} data-testid="api-mock-dock-variables">
+            <div className="am-section-heading">
+              Server variables
+              <span className="am-spacer" />
+              {onVariablesChange && (
+                <button
+                  type="button"
+                  className="am-btn small"
+                  data-testid="api-mock-var-add"
+                  onClick={() => onVariablesChange([
+                    ...variables,
+                    { id: `var-${crypto.randomUUID().slice(0, 8)}`, key: `var${variables.length + 1}`, value: '', sensitive: false },
+                  ])}
+                >
+                  <PlusIcon size={12} /> Variable
+                </button>
+              )}
+            </div>
             {variables.length === 0 ? (
               <div className="am-dock-empty" data-testid="api-mock-dock-variables-empty">
                 No variables defined. Add server variables to reference them as {'{{variable}}'} in responses.
@@ -260,14 +476,67 @@ export function ApiMockDock({
             ) : (
               <table className="am-data-table" aria-label="Server variables">
                 <thead>
-                  <tr><th style={{ width: 160 }}>Key</th><th>Value</th><th style={{ width: 90 }}>Sensitive</th></tr>
+                  <tr>
+                    <th style={{ width: 140 }}>Key</th>
+                    <th>Value</th>
+                    <th style={{ width: 90 }}>Sensitive</th>
+                    {onVariablesChange && <th style={{ width: 50 }} />}
+                  </tr>
                 </thead>
                 <tbody>
                   {variables.map(v => (
-                    <tr key={v.id}>
-                      <td className="am-mono">{v.key}</td>
-                      <td className="am-mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.sensitive ? '••••••••' : v.value}</td>
-                      <td>{v.sensitive ? <span className="am-badge warning">secret</span> : <span className="am-muted">no</span>}</td>
+                    <tr key={v.id} data-testid={`api-mock-var-row-${v.id}`}>
+                      <td>
+                        {onVariablesChange ? (
+                          <input
+                            className="am-input mono"
+                            value={v.key}
+                            aria-label="Variable key"
+                            data-testid={`api-mock-var-key-${v.id}`}
+                            onChange={e => onVariablesChange(variables.map(x => x.id === v.id ? { ...x, key: e.target.value } : x))}
+                          />
+                        ) : <span className="am-mono">{v.key}</span>}
+                      </td>
+                      <td>
+                        {onVariablesChange ? (
+                          <input
+                            className="am-input mono"
+                            type={v.sensitive ? 'password' : 'text'}
+                            value={v.value}
+                            aria-label="Variable value"
+                            data-testid={`api-mock-var-value-${v.id}`}
+                            onChange={e => onVariablesChange(variables.map(x => x.id === v.id ? { ...x, value: e.target.value } : x))}
+                          />
+                        ) : (
+                          <span className="am-mono">{v.sensitive ? '••••••••' : v.value}</span>
+                        )}
+                      </td>
+                      <td>
+                        {onVariablesChange ? (
+                          <button
+                            type="button"
+                            className={`am-toggle${v.sensitive ? ' on' : ''}`}
+                            role="switch"
+                            aria-checked={v.sensitive}
+                            aria-label="Sensitive variable"
+                            data-testid={`api-mock-var-sensitive-${v.id}`}
+                            onClick={() => onVariablesChange(variables.map(x => x.id === v.id ? { ...x, sensitive: !x.sensitive } : x))}
+                          />
+                        ) : (
+                          v.sensitive ? <span className="am-badge warning">secret</span> : <span className="am-muted">no</span>
+                        )}
+                      </td>
+                      {onVariablesChange && (
+                        <td>
+                          <button
+                            type="button"
+                            className="am-icon-btn"
+                            aria-label="Delete variable"
+                            data-testid={`api-mock-var-delete-${v.id}`}
+                            onClick={() => onVariablesChange(variables.filter(x => x.id !== v.id))}
+                          ><TrashIcon size={13} /></button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -285,14 +554,21 @@ export function ApiMockDock({
             </div>
 
             {running && liveState ? (
-              (Object.keys(liveState.states).length === 0 && Object.keys(liveState.counters).length === 0) ? (
+              (Object.keys(liveState.states).length === 0
+                && Object.keys(liveState.counters).length === 0
+                && Object.keys(liveState.sequencePositions ?? {}).length === 0) ? (
                 <div className="am-muted" style={{ fontSize: 11 }} data-testid="api-mock-dock-state-live">
-                  No state changes yet. Send requests to stateful routes to advance the scenario.
+                  No state changes yet. Send requests to stateful or sequence routes to advance runtime.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }} data-testid="api-mock-dock-state-live">
                   {Object.entries(liveState.states).map(([k, v]) => <span key={`s-${k}`} className="am-chip">{k} = <strong>{v || '∅'}</strong></span>)}
                   {Object.entries(liveState.counters).map(([k, v]) => <span key={`c-${k}`} className="am-chip">{k}: <strong>{v}</strong></span>)}
+                  {Object.entries(liveState.sequencePositions ?? {}).map(([routeId, pos]) => (
+                    <span key={`seq-${routeId}`} className="am-chip" data-testid={`api-mock-dock-seq-${routeId}`}>
+                      seq {routeId.slice(0, 8)} → <strong>{pos}</strong>
+                    </span>
+                  ))}
                 </div>
               )
             ) : (
@@ -311,6 +587,16 @@ export function ApiMockDock({
               </>
             )}
           </div>
+        )}
+
+        {tab === 'settings' && (
+          server && onServerPatch ? (
+            <ApiMockRuntimeSettingsPanel server={server} onSave={onServerPatch} />
+          ) : (
+            <div className="am-dock-empty" data-testid="api-mock-dock-settings-empty">
+              Server settings are unavailable for this view.
+            </div>
+          )
         )}
 
         {tab === 'console' && (

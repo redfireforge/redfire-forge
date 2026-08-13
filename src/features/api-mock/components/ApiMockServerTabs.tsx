@@ -1,5 +1,6 @@
 import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
 import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
+import { PlusIcon, XIcon } from './ApiMockIcons';
 
 export type ApiMockRuntimeStatus = 'stopped' | 'starting' | 'running' | 'draining' | 'applying' | 'error';
 
@@ -62,8 +63,10 @@ export function ApiMockServerTabs({ servers, activeServerId, onSelect, onCreate,
             data-testid={`api-mock-tab-${srv.id}`}
           >
             <span className={`am-status-dot ${status}`} title={STATUS_TITLE[status]} />
-            <span>{srv.name}</span>
-            <span className="am-mono am-muted">:{srv.port}</span>
+            <span className="am-server-tab-label">
+              <span className="am-server-tab-name">{srv.name}</span>
+              <span className="am-server-tab-port">:{srv.port}</span>
+            </span>
             {dirty && <span className="am-dirty-dot" title="Unapplied changes" aria-label="Unapplied changes" role="img" />}
             <span
               className="am-tab-close"
@@ -73,11 +76,11 @@ export function ApiMockServerTabs({ servers, activeServerId, onSelect, onCreate,
               title={`Close ${srv.name}`}
               onClick={e => { e.stopPropagation(); onClose(srv.id); }}
               data-testid={`api-mock-tab-close-${srv.id}`}
-            >×</span>
+            ><XIcon size={12} /></span>
           </button>
         );
       })}
-      <button className="am-icon-btn" aria-label="New mock server" title="New mock server" onClick={onCreate} data-testid="api-mock-tab-add">+</button>
+      <button className="am-icon-btn" aria-label="New mock server" title="New mock server" onClick={onCreate} data-testid="api-mock-tab-add"><PlusIcon /></button>
     </div>
   );
 }

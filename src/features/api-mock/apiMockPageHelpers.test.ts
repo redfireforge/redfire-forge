@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
 import { DEFAULT_SETTINGS } from '../../shared/api-mock/defaults';
 import {
@@ -16,6 +16,7 @@ import {
   formatImportedRoutesMessage,
   getConflictAnalysisTarget,
   isLiveRuntimeStatus,
+  mergeConflictAcknowledgements,
   mergeRuntimeInfo,
   parsePortOwnerServerId,
   pickNextAutoPort,
@@ -195,5 +196,39 @@ describe('apiMockPageHelpers', () => {
     expect(setConflictIds).toHaveBeenCalledWith(['a', 'b']);
     expect(setFindings).toHaveBeenCalledWith([{ ruleIds: ['a', 'b'] }]);
     expect(setLiveMessage).toHaveBeenCalledWith('1 potential conflict found.');
+  });
+
+  it('merges conflict acknowledgements when fingerprints are unchanged', () => {
+    const previous = [{
+      ruleIds: ['a', 'b'] as [string, string],
+      ruleFingerprints: ['fp1', 'fp2'] as [string, string],
+      acknowledgedAt: '2026-08-12T12:00:00.000Z',
+    }];
+    const next = [{
+      ruleIds: ['a', 'b'] as [string, string],
+      ruleFingerprints: ['fp1', 'fp2'] as [string, string],
+    }, {
+      ruleIds: ['c', 'd'] as [string, string],
+      ruleFingerprints: ['fp3', 'fp4'] as [string, string],
+    }];
+    const merged = mergeConflictAcknowledgements(previous, next);
+    expect(merged[0].acknowledgedAt).toBe('2026-08-12T12:00:00.000Z');
+    expect(merged[0].acknowledgementStale).toBe(false);
+    expect(merged[1].acknowledgedAt).toBeUndefined();
+  });
+
+  it('marks acknowledgements stale when fingerprints change', () => {
+    const previous = [{
+      ruleIds: ['a', 'b'] as [string, string],
+      ruleFingerprints: ['fp1', 'fp2'] as [string, string],
+      acknowledgedAt: '2026-08-12T12:00:00.000Z',
+    }];
+    const next = [{
+      ruleIds: ['a', 'b'] as [string, string],
+      ruleFingerprints: ['fp1-changed', 'fp2'] as [string, string],
+    }];
+    const merged = mergeConflictAcknowledgements(previous, next);
+    expect(merged[0].acknowledgedAt).toBeUndefined();
+    expect(merged[0].acknowledgementStale).toBe(true);
   });
 });

@@ -193,6 +193,7 @@ describe('ApiMockServerPool', () => {
     await pool.start(def);
 
     expect(pool.getScenarioState('srv-state')).toEqual({ states: {}, counters: {} });
+    expect(pool.getRuntimeState('srv-state')).toEqual({ states: {}, counters: {}, sequencePositions: {} });
     expect(pool.resetScenarioState('srv-state')).toBe(true);
 
     await pool.stop('srv-state');

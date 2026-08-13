@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from 'react';
 import type { Environment, FeatureGroup, Microservice, RequestCollection } from '../../shared/types';
 import type { Tab } from '../utils/appTabUtils';
 import { domainOf, isApiTab, isHarnessTab, isWorkflowTab } from '../utils/appTabUtils';
@@ -12,6 +12,8 @@ import CatalogSidebar from '../../features/catalog/components/CatalogSidebar';
 import RequestsSidebar from '../../features/requests/components/RequestsSidebar';
 import WorkflowSidebar from '../../features/workflow/components/panels/WorkflowSidebar';
 import Sidebar from '../Sidebar';
+import { ExportToApiMockModal, type ExportToApiMockItem } from '../../features/api-mock/components/ExportToApiMockModal';
+import { findRequestInCollection } from '../../features/requests/utils/requestTree';
 
 export interface AppSidebarRegionProps {
   activeTab: Tab;
@@ -92,6 +94,26 @@ export default function AppSidebarRegion({
   handleEditSubCollection,
   reqTabs,
 }: AppSidebarRegionProps) {
+  const [exportToMockItems, setExportToMockItems] = useState<ExportToApiMockItem[] | null>(null);
+
+  const handleExportRequestToApiMock = useCallback((colId: string, reqId: string) => {
+    const col = wb.collections.find(c => c.id === colId);
+    if (!col) return;
+    const req = findRequestInCollection(col, reqId);
+    if (!req) return;
+    setExportToMockItems([{
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: req.body || undefined,
+      label: req.name,
+    }]);
+  }, [wb.collections]);
+
+  useEffect(() => {
+    if (activeTab !== 'requests') setExportToMockItems(null);
+  }, [activeTab]);
+
   const hideSidebar = domainOf(activeTab) === 'settings'
     || domainOf(activeTab) === 'gallery'
     || domainOf(activeTab) === 'protocols'
@@ -136,7 +158,6 @@ export default function AppSidebarRegion({
                       onSelectCollection={(colId) => { wb.selectCollection(colId); setActiveTab('requests'); }}
                       onSelectRequest={(colId, reqId) => { reqTabs.selectRequest(colId, reqId); setActiveTab('requests'); }}
                       openTabRequestIds={reqTabs.openTabRequestIds}
-                      onOpenInNewTab={(colId, reqId) => { reqTabs.openInNewTab(colId, reqId); setActiveTab('requests'); }}
                       onNewCollection={handleWbNewCollection}
                       onEditCollection={handleWbEditCollection}
                       onDeleteCollection={reqTabs.removeCollection}
@@ -167,6 +188,7 @@ export default function AppSidebarRegion({
                       onSendCollectionToHarness={(colId) => setBatchHarnessTarget({ colId })}
                       onSendFolderToHarness={(colId, folderId) => setBatchHarnessTarget({ colId, folderId })}
                       harnessRequestIds={harnessRequestIds}
+                      onExportToApiMock={handleExportRequestToApiMock}
                     />
                   )}
                 </div>
@@ -238,6 +260,13 @@ export default function AppSidebarRegion({
       >
         {sidebarCollapsed ? '▶' : '◀'}
       </button>
+      {exportToMockItems && (
+        <ExportToApiMockModal
+          items={exportToMockItems}
+          sourceKind="requests"
+          onClose={() => setExportToMockItems(null)}
+        />
+      )}
     </>
   );
 }

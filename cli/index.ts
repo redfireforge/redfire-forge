@@ -44,6 +44,7 @@ import {
   DEFAULT_THRESHOLDS,
 } from '../src/features/results/utils/runBaselines';
 import type { TestRun } from '../src/types';
+import { runMockSimulate, runMockStart, runMockVerify } from './mockCommands';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -605,6 +606,55 @@ program
       console.error(`\n  ❌ Invalid: ${toErrorMessage(err)}`);
       process.exit(2);
     }
+  });
+
+// ── API Mock Studio commands (Phase 8) ───────────────────────
+const mock = program.command('mock').description('API Mock Studio headless commands');
+
+mock
+  .command('simulate')
+  .description('Run saved simulation samples against a mock definition (side-effect-free)')
+  .argument('<file>', 'Workspace / server JSON or YAML (or native export envelope)')
+  .option('--server <id>', 'Server id (defaults to activeServerId or first)')
+  .option('-o, --output <path>', 'Write JSON results to file')
+  .option('--junit <path>', 'Write JUnit XML results to file')
+  .action(async (file: string, opts: { server?: string; output?: string; junit?: string }) => {
+    const code = await runMockSimulate({ file, serverId: opts.server, output: opts.output, junit: opts.junit });
+    process.exit(code);
+  });
+
+mock
+  .command('verify')
+  .description('Verify simulation corpus outcomes (same engine as GUI)')
+  .argument('<file>', 'Workspace / server JSON or YAML')
+  .option('--server <id>', 'Server id')
+  .option('--min-calls <n>', 'Require at least N samples', parseInt)
+  .option('--expect-outcome <outcome>', 'Require every sample outcome (e.g. matched)')
+  .action(async (file: string, opts: { server?: string; minCalls?: number; expectOutcome?: string }) => {
+    const code = await runMockVerify({
+      file,
+      serverId: opts.server,
+      minCalls: opts.minCalls,
+      expectOutcome: opts.expectOutcome,
+    });
+    process.exit(code);
+  });
+
+mock
+  .command('start')
+  .description('Start mock listeners via the companion control plane (:3001)')
+  .argument('<file>', 'Workspace / server JSON or YAML')
+  .option('--port <n>', 'Override port for all servers (does not mutate source file)', parseInt)
+  .option('--control-base <url>', 'Companion base URL', 'http://127.0.0.1:3001')
+  .option('--wait-ready', 'Keep process alive until SIGINT/SIGTERM, then stop listeners')
+  .action(async (file: string, opts: { port?: number; controlBase?: string; waitReady?: boolean }) => {
+    const code = await runMockStart({
+      file,
+      port: opts.port,
+      controlBase: opts.controlBase,
+      waitReady: opts.waitReady,
+    });
+    process.exit(code);
   });
 
 program.parse();

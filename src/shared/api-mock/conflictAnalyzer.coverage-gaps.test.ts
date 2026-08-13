@@ -102,7 +102,10 @@ describe('conflictAnalyzer coverage gaps', () => {
       route({ id: 'a', predicates: group('all', { id: 'p1', source: 'header', selector: 'x', operator: 'exact', expected: '1' }) }),
       route({ id: 'b', predicates: group('all') }),
     ], 'srv');
-    expect(differentLength.findings[0].kind).toBe('definite_overlap');
+    // A predicate present on one side only is reported as an unknown dimension,
+    // which downgrades the finding from definite to potential.
+    expect(differentLength.findings[0].kind).toBe('potential_overlap');
+    expect(differentLength.findings[0].dimensions.some(d => d.result === 'unknown')).toBe(true);
 
     const mixedKinds = await analyzeConflicts([
       route({ id: 'a', predicates: group('all', group('all', { id: 'p1', source: 'header', selector: 'x', operator: 'exact', expected: '1' })) }),

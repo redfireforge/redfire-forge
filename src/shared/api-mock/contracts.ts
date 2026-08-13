@@ -39,7 +39,7 @@ export type ApiMockFaultKind =
   | 'none' | 'timeout' | 'close' | 'reset' | 'malformed' | 'dribble';
 
 export type ApiMockTransactionOutcome =
-  | 'matched' | 'ambiguous' | 'unmatched' | 'fault' | 'error';
+  | 'matched' | 'ambiguous' | 'unmatched' | 'fault' | 'error' | 'proxied';
 
 export type ApiMockDiagnosticSeverity = 'error' | 'warning' | 'info';
 
@@ -137,6 +137,10 @@ export interface ApiMockResponseVariantV1 {
   body: ApiMockResponseBodyV1;
   behavior: ApiMockBehaviorV1;
   transition?: ApiMockStateTransitionV1;
+  /** Phase 9D — typed response transforms (applied after render, before delivery). */
+  transforms?: import('./callbackContracts').ApiMockTransformRuleV1[];
+  /** Phase 9D — outbound webhooks (fire-and-forget after delivery; failure isolated). */
+  callbacks?: import('./callbackContracts').ApiMockCallbackV1[];
 }
 
 export interface ApiMockStaticResponseV1 {
@@ -158,7 +162,7 @@ export interface ApiMockVariableV1 {
 }
 
 export interface ApiMockImportSourceV1 {
-  kind: 'redfireforge' | 'openapi' | 'wiremock' | 'curl' | 'catalog' | 'requests' | 'journal';
+  kind: 'redfireforge' | 'openapi' | 'wiremock' | 'curl' | 'catalog' | 'requests' | 'journal' | 'har';
   label?: string;
   importedAt: string;
   sourceVersion?: string;
@@ -196,6 +200,32 @@ export interface ApiMockRouteV1 {
 
 // ── Settings ────────────────────────────────────────────────────────
 
+export interface ApiMockTlsSettingsV1 {
+  enabled: boolean;
+  /** PEM certificate chain served to clients. */
+  certPem: string;
+  /** PEM private key. Secret: redacted on export. */
+  keyPem: string;
+  /** Optional key passphrase. Secret: redacted on export. */
+  passphrase?: string;
+  /** True when the pair came from the built-in self-signed generator. */
+  selfSigned?: boolean;
+  /** Mutual TLS — require and verify a client certificate. */
+  mtls?: ApiMockMtlsSettingsV1;
+}
+
+export interface ApiMockMtlsSettingsV1 {
+  enabled: boolean;
+  /** CA certificate the listener verifies client certificates against. */
+  clientCaPem: string;
+  /** Issued client certificate. Public — hand this to the client. */
+  clientCertPem?: string;
+  /** Issued client private key. Secret: redacted on export. */
+  clientKeyPem?: string;
+  /** Common name embedded in the issued client certificate. */
+  clientCommonName?: string;
+}
+
 export interface ApiMockServerSettingsV1 {
   selection: {
     multipleMatchPolicy: 'highest_priority' | 'reject_multiple';
@@ -204,8 +234,14 @@ export interface ApiMockServerSettingsV1 {
   };
   fallback: {
     unmatchedResponse: ApiMockStaticResponseV1;
-    mode: 'default_response' | 'closest_match_debug';
+    mode: 'default_response' | 'closest_match_debug' | 'proxy';
   };
+  /** Phase 9 — default-deny outbound proxy. Absent/disabled means no outbound. */
+  proxy?: import('./proxyContracts').ApiMockProxySettingsV1;
+  /** Phase 10 — HTTPS listener. Absent or disabled serves plain HTTP. */
+  tls?: ApiMockTlsSettingsV1;
+  /** Phase 9D — strict callback URL allowlist. Absent/empty blocks all callbacks. */
+  callbacks?: import('./callbackContracts').ApiMockCallbackSettingsV1;
   cors: {
     enabled: boolean;
     allowOrigins: string[];
@@ -399,6 +435,8 @@ export interface ApiMockConflictFindingV1 {
   witnessRequest?: ApiMockCapturedRequestV1;
   ruleFingerprints: [string, string];
   acknowledgedAt?: string;
+  /** True when a prior acknowledgement no longer matches current fingerprints. */
+  acknowledgementStale?: boolean;
 }
 
 // ── Runtime Snapshot & Transaction ──────────────────────────────────
@@ -499,11 +537,33 @@ export interface ApiMockConformanceCaseV1 {
 
 // ── Simulation Result ───────────────────────────────────────────────
 
+/** Virtual Phase 7 delivery preview (simulation only — no sockets / live state). */
+export interface ApiMockSimulationPreviewV1 {
+  responseMode?: ApiMockResponseMode;
+  selectedResponseId?: string;
+  selectedResponseName?: string;
+  eligibilityFallback?: boolean;
+  eligibilityReason?: string;
+  sequenceIndex?: number;
+  virtualDelayMs: number;
+  baseDelayMs: number;
+  jitterAppliedMs: number;
+  fault: ApiMockFaultKind;
+  faultTimeline: Array<{ atMs: number; label: string }>;
+  httpCompleted: boolean;
+  stateKey?: string;
+  stateBefore?: string;
+  stateAfter?: string;
+  transitionApplied?: boolean;
+  countersAfter?: Record<string, number>;
+}
+
 export interface ApiMockSimulationResultV1 {
   sampleId: string;
   generation: number | 'draft';
   passed?: boolean;
   outcome: ApiMockTransactionOutcome;
   renderedResponse?: ApiMockCapturedResponseV1;
+  preview?: ApiMockSimulationPreviewV1;
   trace: ApiMockMatchExplanationV1;
 }

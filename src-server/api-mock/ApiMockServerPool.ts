@@ -7,9 +7,13 @@ import type {
   ApiMockTransactionV1,
   ApiMockServerState,
 } from '../../src/shared/api-mock/contracts.js';
+import type { ApiMockRecordedDraftV1 } from '../../src/shared/api-mock/proxyRecording.js';
 import { ApiMockNetworkListener, isPortAvailable } from './ApiMockNetworkListener.js';
 import { AUTO_PORT_RANGE } from '../../src/shared/api-mock/defaults.js';
 import type { ScenarioState } from '../../src/shared/api-mock/scenarioRuntime.js';
+import type { SequenceState } from '../../src/shared/api-mock/responseSelector.js';
+
+const MAX_RECORDED_DRAFTS = 200;
 
 export interface PoolEntry {
   serverId: string;
@@ -29,14 +33,48 @@ export interface PoolStatus {
 
 export class ApiMockServerPool {
   private readonly entries = new Map<string, PoolEntry>();
+  private readonly recordedDrafts = new Map<string, ApiMockRecordedDraftV1[]>();
   private onTransaction: ((tx: ApiMockTransactionV1) => void) | undefined;
 
   setTransactionHandler(handler: (tx: ApiMockTransactionV1) => void): void {
     this.onTransaction = handler;
   }
 
+  private pushRecordedDraft(serverId: string, draft: ApiMockRecordedDraftV1): void {
+    const list = this.recordedDrafts.get(serverId) ?? [];
+    if (list.some(d => d.fingerprint === draft.fingerprint)) return;
+    list.push(draft);
+    while (list.length > MAX_RECORDED_DRAFTS) list.shift();
+    this.recordedDrafts.set(serverId, list);
+  }
+
+  getRecordedDrafts(serverId: string): ApiMockRecordedDraftV1[] {
+    return [...(this.recordedDrafts.get(serverId) ?? [])];
+  }
+
+  clearRecordedDrafts(serverId: string): void {
+    this.recordedDrafts.delete(serverId);
+  }
+
+  /** Remove drafts that the Studio has already merged into the workspace. */
+  acknowledgeRecordedDrafts(serverId: string, ids: string[]): number {
+    const list = this.recordedDrafts.get(serverId);
+    if (!list?.length) return 0;
+    const drop = new Set(ids);
+    const next = list.filter(d => !drop.has(d.id));
+    const removed = list.length - next.length;
+    if (next.length) this.recordedDrafts.set(serverId, next);
+    else this.recordedDrafts.delete(serverId);
+    return removed;
+  }
+
+  /** Ports held by entries that still own a socket. Stopped entries hold none. */
   private reservedPorts(): Set<number> {
-    return new Set([...this.entries.values()].map(e => e.port));
+    return new Set(
+      [...this.entries.values()]
+        .filter(e => e.state !== 'stopped' || e.listener.isRunning())
+        .map(e => e.port),
+    );
   }
 
   async allocatePort(preferred?: number): Promise<number> {
@@ -59,7 +97,13 @@ export class ApiMockServerPool {
       throw new Error(`Server "${definition.id}" is already running on port ${existing.port}`);
     }
 
-    const portOwner = [...this.entries.values()].find(e => e.port === definition.port && e.serverId !== definition.id);
+    // Only a server that still holds the socket owns the port; a stopped entry
+    // lingers in the map for status/journal reads but must not block reuse.
+    const portOwner = [...this.entries.values()].find(e => (
+      e.port === definition.port
+      && e.serverId !== definition.id
+      && (e.state !== 'stopped' || e.listener.isRunning())
+    ));
     if (portOwner) {
       throw new Error(`Port ${definition.port} is owned by server "${portOwner.serverId}"`);
     }
@@ -68,6 +112,8 @@ export class ApiMockServerPool {
       serverId: definition.id,
       definition,
       onTransaction: this.onTransaction,
+      onRecordedDraft: draft => this.pushRecordedDraft(definition.id, draft),
+      getActiveMockPorts: () => [...this.reservedPorts()],
     });
 
     const { port, generation } = await listener.start();
@@ -132,6 +178,25 @@ export class ApiMockServerPool {
     const entry = this.entries.get(serverId);
     if (!entry || !entry.listener.isRunning()) return undefined;
     return entry.listener.getScenarioState();
+  }
+
+  getSequenceState(serverId: string): SequenceState | undefined {
+    const entry = this.entries.get(serverId);
+    if (!entry || !entry.listener.isRunning()) return undefined;
+    return entry.listener.getSequenceState();
+  }
+
+  /** Combined runtime snapshot for the Studio dock / editors. */
+  getRuntimeState(serverId: string): (ScenarioState & { sequencePositions: Record<string, number> }) | undefined {
+    const entry = this.entries.get(serverId);
+    if (!entry || !entry.listener.isRunning()) return undefined;
+    const scenario = entry.listener.getScenarioState();
+    const sequence = entry.listener.getSequenceState();
+    return {
+      states: scenario.states,
+      counters: scenario.counters,
+      sequencePositions: sequence.positions,
+    };
   }
 
   resetScenarioState(serverId: string): boolean {

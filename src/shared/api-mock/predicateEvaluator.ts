@@ -57,6 +57,15 @@ function matchMethod(routeMethod: ApiMockMethod, requestMethod: string): boolean
   return routeMethod === requestMethod.toUpperCase();
 }
 
+/** Evaluate a predicate group against a captured request (used for variant conditions). */
+export function evaluatePredicateGroup(
+  group: ApiMockPredicateGroupV1,
+  request: ApiMockCapturedRequestV1,
+  pathParams: Record<string, string> = {},
+): boolean {
+  return evaluateGroup(group, request, pathParams, []);
+}
+
 function evaluateGroup(
   group: ApiMockPredicateGroupV1,
   request: ApiMockCapturedRequestV1,
