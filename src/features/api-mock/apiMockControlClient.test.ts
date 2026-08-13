@@ -116,4 +116,49 @@ describe('apiMockControlClient', () => {
       expect(res.error.message).toMatch(/not reachable/i);
     }
   });
+
+  it('maps known runtime error codes with retry disabled except companion unavailable', async () => {
+    mockFetch(() => ({ ok: false, status: 409, json: async () => ({ ok: false, error: { code: 'MOCK_PORT_OWNED', message: 'Port owned elsewhere.' } }) }));
+    const owned = await apiMockControlClient.start(def);
+    expect(owned.ok).toBe(false);
+    if (!owned.ok) {
+      expect(owned.error.code).toBe('MOCK_PORT_OWNED');
+      expect(owned.error.retry).toBe(false);
+    }
+
+    mockFetch(() => ({ ok: false, status: 400, json: async () => ({ ok: false, error: { code: 'MOCK_VALIDATION_ERROR', message: 'Bad definition.' } }) }));
+    const invalid = await apiMockControlClient.commit(def);
+    expect(invalid.ok).toBe(false);
+    if (!invalid.ok) expect(invalid.error.code).toBe('MOCK_VALIDATION_ERROR');
+  });
+
+  it('calls tls and recorded draft endpoints successfully', async () => {
+    const payloads = [
+      { ok: true, data: { certPem: 'CERT', keyPem: 'KEY' } },
+      { ok: true, data: { caCertPem: 'CA', clientCertPem: 'CC', clientKeyPem: 'CK', commonName: 'mock' } },
+      { ok: true, data: { drafts: [{ id: 'd1' }], total: 1 } },
+      { ok: true, data: { removed: 1 } },
+      { ok: true, data: { cleared: true } },
+    ];
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => payloads.shift() } as unknown as Response)));
+
+    const tls = await apiMockControlClient.generateSelfSignedTls(['localhost']);
+    const creds = await apiMockControlClient.generateClientCredentials('mock-client');
+    const drafts = await apiMockControlClient.recordedDrafts('srv-1');
+    const ack = await apiMockControlClient.ackRecordedDrafts('srv-1', ['d1']);
+    const cleared = await apiMockControlClient.clearRecordedDrafts('srv-1');
+
+    expect(tls.ok && tls.data.certPem).toBe('CERT');
+    expect(creds.ok && creds.data.commonName).toBe('mock');
+    expect(drafts.ok && drafts.data.total).toBe(1);
+    expect(ack.ok && ack.data.removed).toBe(1);
+    expect(cleared.ok && cleared.data.cleared).toBe(true);
+  });
+
+  it('uses generic failure message for non-502 errors without body', async () => {
+    mockFetch(() => ({ ok: false, status: 400, json: async () => null }));
+    const res = await apiMockControlClient.status('srv-1');
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.message).toContain('Request failed (400)');
+  });
 });

@@ -11,10 +11,15 @@ const restart = vi.fn();
 const commit = vi.fn();
 const status = vi.fn();
 const list = vi.fn();
-const getScenarioState = vi.fn();
+const getRuntimeState = vi.fn();
 const resetScenarioState = vi.fn();
+const getRecordedDrafts = vi.fn();
+const clearRecordedDrafts = vi.fn();
+const acknowledgeRecordedDrafts = vi.fn();
 const validateServer = vi.fn();
 const isPortAvailable = vi.fn();
+const generateSelfSigned = vi.fn();
+const generateClientCredentials = vi.fn();
 
 vi.mock('../../api-mock/ApiMockServerPool.js', () => ({
   apiMockPool: {
@@ -25,8 +30,11 @@ vi.mock('../../api-mock/ApiMockServerPool.js', () => ({
     commit: (...args: unknown[]) => commit(...args),
     status: (...args: unknown[]) => status(...args),
     list: (...args: unknown[]) => list(...args),
-    getScenarioState: (...args: unknown[]) => getScenarioState(...args),
+    getRuntimeState: (...args: unknown[]) => getRuntimeState(...args),
     resetScenarioState: (...args: unknown[]) => resetScenarioState(...args),
+    getRecordedDrafts: (...args: unknown[]) => getRecordedDrafts(...args),
+    clearRecordedDrafts: (...args: unknown[]) => clearRecordedDrafts(...args),
+    acknowledgeRecordedDrafts: (...args: unknown[]) => acknowledgeRecordedDrafts(...args),
   },
 }));
 vi.mock('../../../src/shared/api-mock/validation.js', () => ({
@@ -34,6 +42,10 @@ vi.mock('../../../src/shared/api-mock/validation.js', () => ({
 }));
 vi.mock('../../api-mock/ApiMockNetworkListener.js', () => ({
   isPortAvailable: (...args: unknown[]) => isPortAvailable(...args),
+}));
+vi.mock('../../api-mock/apiMockTls.js', () => ({
+  generateSelfSigned: (...args: unknown[]) => generateSelfSigned(...args),
+  generateClientCredentials: (...args: unknown[]) => generateClientCredentials(...args),
 }));
 
 import { createApiMockRouter } from './api-mock-routes.js';
@@ -97,8 +109,13 @@ describe('createApiMockRouter', () => {
     isPortAvailable.mockResolvedValue(true);
     status.mockReturnValue(undefined);
     list.mockReturnValue([]);
-    getScenarioState.mockReturnValue(undefined);
+    getRuntimeState.mockReturnValue(undefined);
     resetScenarioState.mockReturnValue(false);
+    getRecordedDrafts.mockReturnValue([]);
+    clearRecordedDrafts.mockImplementation(() => undefined);
+    acknowledgeRecordedDrafts.mockReturnValue(0);
+    generateSelfSigned.mockResolvedValue({ certPem: 'CERT', keyPem: 'KEY' });
+    generateClientCredentials.mockResolvedValue({ clientCertPem: 'CC', clientKeyPem: 'CK', caCertPem: 'CA' });
   });
 
   it('handles start validation, success, and classified failures', async () => {
@@ -172,14 +189,19 @@ describe('createApiMockRouter', () => {
     res = await request(app).get('/api/mock/servers/srv-1/status');
     expect(res.status).toBe(200);
 
-    getScenarioState.mockReturnValueOnce(undefined);
+    getRuntimeState.mockReturnValueOnce(undefined);
     res = await request(app).get('/api/mock/servers/srv-1/state');
     expect(res.status).toBe(404);
 
-    getScenarioState.mockReturnValueOnce({ states: { default: 'advanced' }, counters: { hits: 2 } });
+    getRuntimeState.mockReturnValueOnce({
+      states: { default: 'advanced' },
+      counters: { hits: 2 },
+      sequencePositions: { r1: 1 },
+    });
     res = await request(app).get('/api/mock/servers/srv-1/state');
     expect(res.status).toBe(200);
     expect(res.body.data.counters.hits).toBe(2);
+    expect(res.body.data.sequencePositions.r1).toBe(1);
 
     resetScenarioState.mockReturnValueOnce(false);
     res = await request(app).post('/api/mock/servers/srv-1/state/reset');
@@ -231,5 +253,60 @@ describe('createApiMockRouter', () => {
 
     res = await request(app).get('/api/mock/servers/srv-1/transactions');
     expect(res.body.data.transactions).toHaveLength(0);
+  });
+
+  it('handles TLS generation, recorded drafts, stop logging, and transaction cursors', async () => {
+    const { app, onLog } = buildApp();
+
+    generateSelfSigned.mockRejectedValueOnce(new Error('openssl missing'));
+    let res = await request(app).post('/api/mock/tls/self-signed').send({ hosts: ['localhost'] });
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('TLS_GENERATE_FAILED');
+
+    generateSelfSigned.mockResolvedValueOnce({ certPem: 'CERT', keyPem: 'KEY' });
+    res = await request(app).post('/api/mock/tls/self-signed').send({ hosts: [' ', 42] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.certPem).toBe('CERT');
+
+    generateClientCredentials.mockRejectedValueOnce('boom');
+    res = await request(app).post('/api/mock/tls/client-credentials').send({ commonName: 'client-a' });
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('TLS_CLIENT_GENERATE_FAILED');
+
+    generateClientCredentials.mockResolvedValueOnce({ clientCertPem: 'CC', clientKeyPem: 'CK', caCertPem: 'CA' });
+    res = await request(app).post('/api/mock/tls/client-credentials').send({});
+    expect(res.status).toBe(200);
+
+    stop.mockResolvedValueOnce({ serverId: 'srv-1', port: 4600, state: 'stopped', generation: 1 });
+    await request(app).post('/api/mock/servers/srv-1/stop');
+    expect(onLog).toHaveBeenCalledWith(expect.objectContaining({ source: 'api-mock', message: expect.stringContaining('Stopped') }));
+
+    getRecordedDrafts.mockReturnValueOnce([{ id: 'd1', fingerprint: 'GET /x → 200' }]);
+    res = await request(app).get('/api/mock/servers/srv-1/recorded-drafts');
+    expect(res.status).toBe(200);
+    expect(res.body.data.total).toBe(1);
+
+    res = await request(app).delete('/api/mock/servers/srv-1/recorded-drafts');
+    expect(res.status).toBe(200);
+    expect(clearRecordedDrafts).toHaveBeenCalledWith('srv-1');
+
+    acknowledgeRecordedDrafts.mockReturnValueOnce(2);
+    res = await request(app).post('/api/mock/servers/srv-1/recorded-drafts/ack').send({ ids: ['d1', 'd2'] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.removed).toBe(2);
+
+    res = await request(app).post('/api/mock/servers/srv-1/recorded-drafts/ack').send({ ids: 'not-array' });
+    expect(res.status).toBe(200);
+    expect(acknowledgeRecordedDrafts).toHaveBeenLastCalledWith('srv-1', []);
+
+    start.mockResolvedValueOnce({ serverId: 'srv-1', port: 4600, state: 'running', generation: 1 });
+    await request(app).post('/api/mock/servers/start').send(makeDef());
+    const txHandler = setTransactionHandler.mock.calls.at(-1)?.[0] as ((tx: ApiMockTransactionV1) => void) | undefined;
+    txHandler?.(makeTx());
+    txHandler?.({ ...makeTx(), serverId: 'other' });
+
+    res = await request(app).get('/api/mock/servers/srv-1/transactions').query({ afterCursor: '0', limit: '5' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions.length).toBeGreaterThan(0);
   });
 });

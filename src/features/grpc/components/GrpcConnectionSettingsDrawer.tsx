@@ -1,7 +1,6 @@
 /**
  * Connection Settings drawer (Phase 4J-C/D) — mockup 04 left nav + panels.
  */
-import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   GrpcCallResult,
@@ -109,18 +108,6 @@ export function GrpcConnectionSettingsDrawer({
   openRequest = 0,
 }: GrpcConnectionSettingsDrawerProps) {
   const activeNavItem = NAV_ITEMS.find((item) => item.id === activeNav);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
 
   if (!open) return null;
 

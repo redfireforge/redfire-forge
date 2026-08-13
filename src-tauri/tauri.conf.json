@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build:prod"
+    "beforeBuildCommand": "npm run build:prod && npm run build:sidecar"
   },
   "app": {
     "withGlobalTauri": true,
@@ -45,6 +45,9 @@
     ],
     "resources": [
       "../cli/dist/redfireforge.mjs"
+    ],
+    "externalBin": [
+      "binaries/redfireforge-companion"
     ],
     "macOS": {
       "signingIdentity": null,

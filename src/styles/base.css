@@ -5288,6 +5288,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   padding: 6px 10px;
   border: none;
   background: transparent;
+  /* Keep labels readable on dark menus — do not inherit muted/primary parent colors. */
   color: var(--text, #f1f5f9);
   font-size: 13px;
   cursor: pointer;
@@ -5298,10 +5299,14 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .cs-item:hover:not(:disabled) {
   background: var(--surface-hover, #2d3a4d);
+  color: var(--text, #f1f5f9);
 }
 .cs-item.active {
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  color: var(--primary, #3b82f6);
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface, #1e293b));
+  color: var(--text, #f1f5f9);
+}
+.cs-item.active .cs-item-label {
+  color: var(--text, #f1f5f9);
 }
 .cs-item--demo-highlight {
   background: color-mix(in srgb, var(--primary) 22%, transparent) !important;

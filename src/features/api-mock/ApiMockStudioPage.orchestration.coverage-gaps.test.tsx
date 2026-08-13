@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
+import { proxiedExchangeToDraft, toRecordedDraft, draftFingerprint } from '../../shared/api-mock/proxyRecording';
+import * as apiMockJournalActions from './apiMockJournalActions';
+
 const ts = '2026-08-12T00:00:00.000Z';
 
 function makeServer(id = 'srv-1', method = 'GET') {
@@ -56,9 +59,30 @@ const transactions = vi.fn();
 const clearTransactions = vi.fn();
 const state = vi.fn();
 const resetState = vi.fn();
+const recordedDrafts = vi.fn();
+const ackRecordedDrafts = vi.fn();
 const analyzeConflicts = vi.fn();
 const clearConsole = vi.fn();
 
+vi.mock('./apiMockJournalActions', () => ({
+  dispatchOpenInRequests: vi.fn(),
+  copyTransactionToClipboard: vi.fn(() => Promise.resolve(true)),
+  transactionToOpenInRequestsDetail: vi.fn(() => ({ url: 'http://localhost/users' })),
+  transactionToRouteDraft: vi.fn(() => ({
+    id: 'route-from-tx',
+    name: 'From journal',
+    enabled: false,
+    method: 'POST',
+    path: { kind: 'exact', value: '/orders' },
+    priority: 10,
+    predicates: { id: 'pg', combinator: 'all', children: [] },
+    responseMode: 'rules',
+    responses: [{ id: 'resp-1', name: '200', enabled: true, isDefault: true, status: 200, headers: [], cookies: [], body: { kind: 'none', content: '' }, behavior: { delayMs: 0, jitterMs: 0 } }],
+    tags: [],
+    createdAt: ts,
+    updatedAt: ts,
+  })),
+}));
 vi.mock('./apiMockPersistence', () => ({
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),
   saveApiMockWorkspace: (...args: unknown[]) => saveApiMockWorkspace(...args),
@@ -73,6 +97,8 @@ vi.mock('./apiMockControlClient', () => ({
     clearTransactions: (...args: unknown[]) => clearTransactions(...args),
     state: (...args: unknown[]) => state(...args),
     resetState: (...args: unknown[]) => resetState(...args),
+    recordedDrafts: (...args: unknown[]) => recordedDrafts(...args),
+    ackRecordedDrafts: (...args: unknown[]) => ackRecordedDrafts(...args),
   },
 }));
 vi.mock('./useApiMockConsole', () => ({
@@ -91,7 +117,7 @@ vi.mock('./components/ApiMockServerTabs', () => ({
   API_MOCK_WORKSPACE_PANEL_ID: 'api-mock-workspace-panel',
 }));
 vi.mock('./components/ApiMockStudioTitleBar', () => ({
-  ApiMockStudioTitleBar: ({ servers, onCreate, onClose, onSelect, statusById, dirtyById, onImportCurl, onExport }: any) => (
+  ApiMockStudioTitleBar: ({ servers, onCreate, onClose, onSelect, statusById, dirtyById }: any) => (
     <div data-testid="mock-titlebar">
       <div data-testid="mock-server-tabs">
         <button data-testid="mock-create-server" onClick={onCreate}>create-server</button>
@@ -103,13 +129,27 @@ vi.mock('./components/ApiMockStudioTitleBar', () => ({
         {servers[0] && <button data-testid="mock-close-server" onClick={() => onClose(servers[0].id)}>close-server</button>}
         <button data-testid="mock-close-missing-server" onClick={() => onClose('missing-server')}>close-missing-server</button>
       </div>
-      <button data-testid="mock-import-open" onClick={onImportCurl}>import</button>
-      <button data-testid="api-mock-export" onClick={onExport}>export</button>
+    </div>
+  ),
+}));
+// Import/Export live on the workspace nav, not the title bar.
+vi.mock('./components/ApiMockWorkspaceNav', () => ({
+  ApiMockWorkspaceNav: ({ onChange, onImport, onExport }: any) => (
+    <div data-testid="mock-workspace-nav">
+      {['studio', 'runtime', 'conflicts'].map(id => (
+        <button key={id} data-testid={`api-mock-view-${id}`} onClick={() => onChange(id)}>{id}</button>
+      ))}
+      <button data-testid="mock-import-open" onClick={() => onImport('curl')}>import</button>
+      <button data-testid="api-mock-export" onClick={() => onExport({ scope: 'workspace', format: 'json' })}>export</button>
+      <button data-testid="api-mock-export-routes" onClick={() => onExport({ scope: 'routes', format: 'json' })}>export-routes</button>
+      <button data-testid="api-mock-export-servers" onClick={() => onExport({ scope: 'servers', format: 'json' })}>export-servers</button>
+      <button data-testid="api-mock-export-wiremock" onClick={() => onExport({ scope: 'routes', format: 'wiremock' })}>export-wiremock</button>
+      <button data-testid="api-mock-export-yaml" onClick={() => onExport({ scope: 'servers', format: 'yaml' })}>export-yaml</button>
     </div>
   ),
 }));
 vi.mock('./components/ApiMockServerBar', () => ({
-  ApiMockServerBar: ({ status, dirty, generation, error, onUpdate, onStart, onStop, onApply, onRestart, onSettings }: any) => (
+  ApiMockServerBar: ({ status, dirty, generation, error, onUpdate, onStart, onStop, onApply, onRestart, onSettings, onOpenRoutes }: any) => (
     <div data-testid="mock-server-bar">
       <div data-testid="mock-server-status">{status}:{dirty ? 'dirty' : 'clean'}:{generation}:{error ?? ''}</div>
       <button data-testid="mock-server-update" onClick={() => onUpdate({ name: 'Updated server' })}>update-server</button>
@@ -118,21 +158,30 @@ vi.mock('./components/ApiMockServerBar', () => ({
       <button data-testid="mock-apply" onClick={onApply}>apply</button>
       <button data-testid="mock-restart" onClick={onRestart}>restart</button>
       <button data-testid="mock-settings" onClick={onSettings}>settings</button>
+      <button data-testid="mock-open-routes" onClick={onOpenRoutes}>open-routes</button>
     </div>
   ),
 }));
 vi.mock('./components/ApiMockRouteExplorer', () => ({
-  ApiMockRouteExplorer: ({ routes, folders, selectedRouteId, onSelect, onCreate, onDelete, onToggle, onAnalyze, onAddFolder, onToggleFolder, conflictRouteIds }: any) => (
+  ApiMockRouteExplorer: ({ routes, folders, selectedRouteId, onSelect, onCreate, onDelete, onToggle, onAnalyze, onAddFolder, onToggleFolder, onMoveRoute, onRenameFolder, onDeleteFolder, conflictRouteIds, drawerOpen, onCloseDrawer }: any) => (
     <div data-testid="mock-route-explorer">
-      <button data-testid="mock-create-route" onClick={onCreate}>create-route</button>
+      <button data-testid="mock-create-route" onClick={() => onCreate()}>create-route</button>
+      <button data-testid="mock-create-route-folder" onClick={() => onCreate('fld-1')}>create-route-folder</button>
       <button data-testid="mock-analyze" onClick={onAnalyze}>analyze</button>
       <button data-testid="mock-add-folder" onClick={onAddFolder}>add-folder</button>
+      {drawerOpen && onCloseDrawer && <button data-testid="mock-close-drawer" onClick={onCloseDrawer}>close-drawer</button>}
       {folders?.[0] && <button data-testid="mock-toggle-folder" onClick={() => onToggleFolder(folders[0].id)}>toggle-folder</button>}
+      {folders?.[0] && <button data-testid="mock-rename-folder" onClick={() => onRenameFolder(folders[0].id, 'Renamed folder')}>rename-folder</button>}
+      {folders?.[0] && <button data-testid="mock-delete-folder" onClick={() => onDeleteFolder(folders[0].id)}>delete-folder</button>}
+      <button data-testid="mock-delete-missing-folder" onClick={() => onDeleteFolder('missing-folder')}>delete-missing-folder</button>
       {routes[0] && <>
         <button data-testid="mock-select-route" onClick={() => onSelect(routes[0].id)}>{selectedRouteId ?? 'none'}</button>
         <button data-testid="mock-delete-route" onClick={() => onDelete(routes[0].id)}>delete-route</button>
         <button data-testid="mock-toggle-route" onClick={() => onToggle(routes[0].id, !routes[0].enabled)}>toggle-route</button>
+        <button data-testid="mock-move-route" onClick={() => onMoveRoute(routes[0].id, 'fld-1')}>move-route</button>
+        <button data-testid="mock-move-route-ungrouped" onClick={() => onMoveRoute(routes[0].id, undefined)}>move-ungrouped</button>
       </>}
+      <button data-testid="mock-delete-missing-route" onClick={() => onDelete('missing-route')}>delete-missing</button>
       {routes[1] && <>
         <button data-testid="mock-select-route-2" onClick={() => onSelect(routes[1].id)}>select-route-2</button>
         <button data-testid="mock-delete-route-2" onClick={() => onDelete(routes[1].id)}>delete-route-2</button>
@@ -142,19 +191,18 @@ vi.mock('./components/ApiMockRouteExplorer', () => ({
   ),
 }));
 vi.mock('./components/ApiMockRouteEditor', () => ({
-  ApiMockRouteEditor: ({ route, hasConflict, folderName, onUpdate, onSimulate, onDelete, onReviewConflicts }: any) => (
+  ApiMockRouteEditor: ({ route, hasConflict, folderName, onUpdate, onSimulate, onReviewConflicts }: any) => (
     <div data-testid="mock-route-editor">
       <div data-testid="mock-route-editor-conflict">{hasConflict ? 'conflict' : 'clear'}</div>
       <div data-testid="mock-route-folder-name">{folderName ?? ''}</div>
       <button data-testid="mock-route-update" onClick={() => onUpdate({ name: `${route.name} updated` })}>update-route</button>
       <button data-testid="mock-route-simulate" onClick={onSimulate}>simulate-route</button>
       <button data-testid="mock-route-review-conflicts" onClick={onReviewConflicts}>review-conflicts</button>
-      <button data-testid="mock-route-delete" onClick={onDelete}>delete-route</button>
     </div>
   ),
 }));
 vi.mock('./components/ApiMockDock', () => ({
-  ApiMockDock: ({ conflictCount, transactions, running, liveState, onResetState, onClearTransactions, consoleLines, onClearConsole, onRequestedTabConsumed, onSimulateWitness, onOpenConflicts }: any) => (
+  ApiMockDock: ({ conflictCount, transactions, running, liveState, onResetState, onClearTransactions, consoleLines, onClearConsole, onRequestedTabConsumed, onSimulateWitness, onOpenConflicts, onServerPatch, onAcknowledgeConflict, onAdjustPriority, onOpenInRequests, onCreateRouteFromTransaction, onCopyTransaction, onSelectRoute, onVariablesChange }: any) => (
     <div data-testid="mock-dock">
       <div data-testid="mock-dock-meta">{conflictCount}:{transactions.length}:{running ? 'running' : 'stopped'}:{Object.keys(liveState ?? {}).length}:{consoleLines.length}</div>
       <button data-testid="mock-reset-state" onClick={onResetState}>reset-state</button>
@@ -163,8 +211,32 @@ vi.mock('./components/ApiMockDock', () => ({
       <button data-testid="mock-dock-consumed" onClick={onRequestedTabConsumed}>consume-requested-tab</button>
       <button data-testid="mock-dock-simulate" onClick={onSimulateWitness}>simulate-witness</button>
       <button data-testid="mock-dock-open-conflicts" onClick={onOpenConflicts}>open-conflicts</button>
+      <button data-testid="mock-dock-server-patch" onClick={() => onServerPatch?.({ name: 'Patched via runtime' })}>server-patch</button>
+      <button data-testid="mock-dock-ack" onClick={() => onAcknowledgeConflict?.({ id: 'f1', ruleIds: ['route-1'], acknowledgedAt: undefined, acknowledgementStale: true })}>ack-conflict</button>
+      <button data-testid="mock-dock-priority" onClick={() => onAdjustPriority?.('route-1', 5)}>adjust-priority</button>
+      <button data-testid="mock-dock-open-requests" onClick={() => onOpenInRequests?.({ id: 'tx-1', request: { method: 'GET', path: '/users' } })}>open-requests</button>
+      <button data-testid="mock-dock-create-route" onClick={() => onCreateRouteFromTransaction?.({ id: 'tx-2', request: { method: 'POST', path: '/orders' } })}>create-from-tx</button>
+      <button data-testid="mock-dock-copy-tx" onClick={() => onCopyTransaction?.({ id: 'tx-3', request: { method: 'GET', path: '/x' } })}>copy-tx</button>
+      <button data-testid="mock-dock-select-route" onClick={() => onSelectRoute?.('route-1')}>select-route-from-dock</button>
+      <button data-testid="mock-dock-variables" onClick={() => onVariablesChange?.([{ id: 'v2', key: 'k', value: 'v', sensitive: false }])}>change-variables</button>
     </div>
   ),
+}));
+vi.mock('./components/ApiMockConflictInspector', () => ({
+  ApiMockConflictInspector: ({ findings, onSimulateWitness, onAcknowledge, onAdjustPriority, onAnalyze, onOpenStudio, onApply, onSelectRoute }: any) => (
+    <div data-testid="mock-conflict-inspector">
+      <button data-testid="mock-conflicts-simulate" onClick={() => onSimulateWitness?.({ id: 'f1', witnessRequest: { method: 'ANY', rawPath: '/raw-witness', path: '/witness' } })}>simulate-witness</button>
+      <button data-testid="mock-conflicts-simulate-path" onClick={() => onSimulateWitness?.({ id: 'f2', witnessRequest: { method: 'POST', path: '/path-only' } })}>simulate-path</button>
+      <button data-testid="mock-conflicts-simulate-empty" onClick={() => onSimulateWitness?.({ id: 'f3', witnessRequest: { method: 'GET' } })}>simulate-empty</button>
+      <button data-testid="mock-conflicts-ack" onClick={() => onAcknowledge?.(findings?.[0] ?? { id: 'f1', acknowledgementStale: false })}>ack</button>
+      <button data-testid="mock-conflicts-priority" onClick={() => onAdjustPriority?.('route-1', -1)}>priority</button>
+      <button data-testid="mock-conflicts-analyze-inner" onClick={onAnalyze}>analyze-inner</button>
+      <button data-testid="mock-conflicts-studio" onClick={onOpenStudio}>open-studio</button>
+      <button data-testid="mock-conflicts-apply" onClick={onApply}>apply-conflicts</button>
+      <button data-testid="mock-conflicts-select-route" onClick={() => onSelectRoute?.('route-1')}>select-route</button>
+    </div>
+  ),
+  conflictPeerLabel: () => undefined,
 }));
 vi.mock('./components/ApiMockServerSettingsModal', () => ({
   ApiMockServerSettingsModal: ({ statusLabel, onSave, onClose }: any) => (
@@ -183,8 +255,10 @@ vi.mock('./components/ApiMockSimulateModal', () => ({
 vi.mock('./components/ApiMockImportReview', () => ({
   ApiMockImportReview: ({ onImport, onCancel }: any) => (
     <div data-testid="mock-import-review">
-      <button data-testid="mock-import-zero" onClick={() => onImport([])}>import-zero</button>
-      <button data-testid="mock-import-one" onClick={() => onImport([{ ...makeServer('tmp').routes[0], id: 'route-2', name: 'Imported route' }])}>import-one</button>
+      <button data-testid="mock-import-zero" onClick={() => onImport([], { mode: 'merge' })}>import-zero</button>
+      <button data-testid="mock-import-one" onClick={() => onImport([{ ...makeServer('tmp').routes[0], id: 'route-2', name: 'Imported route' }], { mode: 'merge' })}>import-one</button>
+      <button data-testid="mock-import-copy" onClick={() => onImport([{ ...makeServer('tmp').routes[0], id: 'route-copy', name: 'Copy route' }], { mode: 'copy', newFolderName: 'Imported folder' })}>import-copy</button>
+      <button data-testid="mock-import-replace" onClick={() => onImport([{ ...makeServer('tmp').routes[0], id: 'route-rep', name: 'Replace route' }], { mode: 'replace' })}>import-replace</button>
       <button data-testid="mock-import-cancel" onClick={onCancel}>cancel-import</button>
     </div>
   ),
@@ -205,7 +279,9 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     clearTransactions.mockResolvedValue({ ok: true, data: { cleared: true } });
     state.mockResolvedValue({ ok: true, data: { states: {}, counters: {} } });
     resetState.mockResolvedValue({ ok: true, data: { reset: true } });
-    analyzeConflicts.mockResolvedValue({ findings: [{ ruleIds: ['route-1', 'route-1'] }] });
+    recordedDrafts.mockResolvedValue({ ok: true, data: { drafts: [], total: 0 } });
+    ackRecordedDrafts.mockResolvedValue({ ok: true, data: { removed: 0 } });
+    analyzeConflicts.mockResolvedValue({ findings: [{ id: 'f1', ruleIds: ['route-1', 'route-2'] }] });
   });
 
   afterEach(() => {
@@ -226,6 +302,7 @@ describe('ApiMockStudioPage orchestration coverage', () => {
 
     fireEvent.click(screen.getByTestId('mock-add-folder'));
     fireEvent.click(screen.getByTestId('mock-toggle-folder'));
+    fireEvent.click(screen.getByTestId('mock-toggle-folder'));
 
     fireEvent.click(screen.getByTestId('mock-server-update'));
     fireEvent.click(screen.getByTestId('mock-settings'));
@@ -237,7 +314,11 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-import-one'));
     expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Imported 1 route/i);
 
-    fireEvent.click(screen.getByTestId('mock-route-delete'));
+    fireEvent.click(screen.getByTestId('mock-delete-route'));
+    // A rule remains (the imported one), so the editor stays populated rather
+    // than falling back to the empty selection state.
+    expect(screen.getByTestId('mock-route-editor')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('mock-delete-route'));
     expect(screen.getByTestId('api-mock-no-route')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('mock-close-server'));
@@ -257,8 +338,11 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     await waitFor(() => expect(start).toHaveBeenCalled());
     await waitFor(() => expect(transactions).toHaveBeenCalledWith('srv-1'));
     expect(screen.getByTestId('mock-server-tabs').textContent).toContain('running');
+
+    fireEvent.click(screen.getByTestId('api-mock-open-runtime'));
     expect(screen.getByTestId('mock-dock-meta').textContent).toContain('0:1:running:2:1');
 
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
     fireEvent.click(screen.getByTestId('mock-select-route'));
     fireEvent.click(screen.getByTestId('mock-toggle-route'));
     fireEvent.click(screen.getByTestId('mock-route-update'));
@@ -272,12 +356,17 @@ describe('ApiMockStudioPage orchestration coverage', () => {
 
     fireEvent.click(screen.getByTestId('mock-analyze'));
     await waitFor(() => expect(analyzeConflicts).toHaveBeenCalled());
-    expect(screen.getByTestId('mock-conflicts').textContent).toContain('route-1');
+    expect(screen.getByTestId('api-mock-conflicts-page')).toBeTruthy();
+    expect(screen.getByTestId('mock-conflict-inspector')).toBeTruthy();
 
+    fireEvent.click(screen.getByTestId('api-mock-view-runtime'));
     fireEvent.click(screen.getByTestId('mock-clear-transactions'));
     await waitFor(() => expect(clearTransactions).toHaveBeenCalled());
     fireEvent.click(screen.getByTestId('mock-reset-state'));
     await waitFor(() => expect(resetState).toHaveBeenCalled());
+    state.mockResolvedValueOnce({ ok: false, error: { title: 'x', message: 'x', code: 'MOCK_RUNTIME_ERROR', recoverable: true, retry: true } });
+    fireEvent.click(screen.getByTestId('mock-reset-state'));
+    await waitFor(() => expect(resetState).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByTestId('mock-clear-console'));
     expect(clearConsole).toHaveBeenCalled();
 
@@ -309,7 +398,7 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-close-missing-server'));
 
     fireEvent.click(screen.getByTestId('mock-select-route'));
-    fireEvent.click(screen.getByTestId('mock-route-delete'));
+    fireEvent.click(screen.getByTestId('mock-delete-route'));
     expect(screen.getByTestId('api-mock-no-route')).toBeTruthy();
   });
 
@@ -338,11 +427,13 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-import-open'));
     fireEvent.click(screen.getByTestId('mock-modal-close'));
 
+    fireEvent.click(screen.getByTestId('api-mock-open-runtime'));
     fireEvent.click(screen.getByTestId('mock-dock-simulate'));
     expect(screen.getByTestId('mock-simulate-modal')).toBeTruthy();
     fireEvent.click(screen.getByTestId('mock-simulate-close'));
     fireEvent.click(screen.getByTestId('mock-dock-consumed'));
     fireEvent.click(screen.getByTestId('mock-dock-open-conflicts'));
+    expect(screen.getByTestId('api-mock-conflicts-page')).toBeTruthy();
   });
 
   it('covers hydration/poll cancellation on unmount', async () => {
@@ -530,10 +621,12 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-route-review-conflicts'));
     await waitFor(() => expect(analyzeConflicts).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/potential conflict/i));
-    fireEvent.click(screen.getByTestId('mock-analyze'));
+    fireEvent.click(screen.getByTestId('api-mock-conflicts-analyze'));
     await waitFor(() => expect(analyzeConflicts).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
     fireEvent.click(screen.getByTestId('mock-route-review-conflicts'));
     await waitFor(() => expect(analyzeConflicts).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('api-mock-conflicts-page')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('api-mock-export'));
     expect(createObjectURLSpy).toHaveBeenCalledTimes(1);
@@ -543,5 +636,224 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     createElementSpy.mockRestore();
     revokeObjectURLSpy.mockRestore();
     createObjectURLSpy.mockRestore();
+  });
+
+  it('covers runtime dock patches, journal actions, folder ops, import modes, exports, and recorded drafts', async () => {
+    const server = makeServer('srv-rec');
+    server.folders = [{ id: 'fld-1', name: 'Core', expanded: true, sortOrder: 0 } as any];
+    loadApiMockWorkspace.mockResolvedValueOnce({ servers: [server], activeServerId: 'srv-rec' });
+    const request = {
+      method: 'GET',
+      path: '/recorded',
+      rawPath: '/recorded',
+      query: {},
+      cookies: {},
+      headers: {},
+      body: null,
+      bodyTruncated: false,
+      receivedAt: ts,
+    };
+    const conversion = proxiedExchangeToDraft(request, { status: 200, headers: {}, body: '{"ok":true}' });
+    recordedDrafts.mockResolvedValue({
+      ok: true,
+      data: {
+        drafts: [toRecordedDraft(conversion, draftFingerprint(request.method, request.path, 200))],
+        total: 1,
+      },
+    });
+
+    const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:export');
+    const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const anchorClick = vi.fn();
+    const originalCreateElement = Document.prototype.createElement;
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      if (tagName.toLowerCase() === 'a') {
+        const anchor = originalCreateElement.call(document, 'a', options) as HTMLAnchorElement;
+        anchor.click = anchorClick;
+        return anchor;
+      }
+      return originalCreateElement.call(document, tagName, options);
+    }) as typeof document.createElement);
+
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('mock-start'));
+    await waitFor(() => expect(recordedDrafts).toHaveBeenCalled());
+    await waitFor(() => expect(ackRecordedDrafts).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Recorded 1 proxied exchange/i));
+
+    fireEvent.click(screen.getByTestId('api-mock-view-runtime'));
+    fireEvent.click(screen.getByTestId('mock-dock-server-patch'));
+    fireEvent.click(screen.getByTestId('mock-dock-variables'));
+    fireEvent.click(screen.getByTestId('api-mock-view-conflicts'));
+    await waitFor(() => expect(analyzeConflicts).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('api-mock-view-runtime'));
+    fireEvent.click(screen.getByTestId('mock-dock-ack'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Stale conflict re-acknowledged/i);
+    fireEvent.click(screen.getByTestId('mock-dock-priority'));
+    fireEvent.click(screen.getByTestId('mock-dock-open-requests'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Opened captured request/i);
+    fireEvent.click(screen.getByTestId('mock-dock-create-route'));
+    fireEvent.click(screen.getByTestId('mock-dock-copy-tx'));
+    fireEvent.click(screen.getByTestId('mock-dock-select-route'));
+
+    fireEvent.click(screen.getByTestId('api-mock-view-conflicts'));
+    fireEvent.click(screen.getByTestId('mock-conflicts-simulate'));
+    expect(screen.getByTestId('mock-simulate-modal')).toHaveTextContent('GET:/raw-witness');
+    fireEvent.click(screen.getByTestId('mock-simulate-close'));
+    fireEvent.click(screen.getByTestId('mock-conflicts-simulate-empty'));
+    expect(screen.getByTestId('mock-simulate-modal')).toHaveTextContent('GET:/');
+    fireEvent.click(screen.getByTestId('mock-simulate-close'));
+    fireEvent.click(screen.getByTestId('mock-conflicts-simulate-path'));
+    expect(screen.getByTestId('mock-simulate-modal')).toHaveTextContent('POST:/path-only');
+    fireEvent.click(screen.getByTestId('mock-simulate-close'));
+    await waitFor(() => expect(analyzeConflicts).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('mock-conflict-inspector')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('mock-conflicts-ack'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Conflict acknowledged/i);
+    fireEvent.click(screen.getByTestId('mock-conflicts-priority'));
+    fireEvent.click(screen.getByTestId('mock-conflicts-analyze-inner'));
+    fireEvent.click(screen.getByTestId('mock-conflicts-apply'));
+    await waitFor(() => expect(commit).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('mock-conflicts-studio'));
+
+    fireEvent.click(screen.getByTestId('api-mock-view-conflicts'));
+    fireEvent.click(screen.getByTestId('mock-conflicts-select-route'));
+    expect(screen.getByTestId('mock-route-editor')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
+    fireEvent.click(screen.getByTestId('mock-open-routes'));
+    fireEvent.click(screen.getByTestId('mock-close-drawer'));
+    fireEvent.click(screen.getByTestId('mock-move-route-ungrouped'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Moved rule to Ungrouped/i);
+    fireEvent.click(screen.getByTestId('mock-delete-missing-route'));
+    fireEvent.click(screen.getByTestId('mock-create-route-folder'));
+    fireEvent.click(screen.getByTestId('mock-move-route'));
+    fireEvent.click(screen.getByTestId('mock-rename-folder'));
+    fireEvent.click(screen.getByTestId('mock-delete-missing-folder'));
+    fireEvent.click(screen.getByTestId('mock-delete-folder'));
+
+    fireEvent.click(screen.getByTestId('mock-import-open'));
+    fireEvent.click(screen.getByTestId('mock-import-copy'));
+    fireEvent.click(screen.getByTestId('mock-import-open'));
+    fireEvent.click(screen.getByTestId('mock-import-replace'));
+
+    fireEvent.click(screen.getByTestId('api-mock-view-runtime'));
+    vi.mocked(apiMockJournalActions.copyTransactionToClipboard).mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByTestId('mock-dock-copy-tx'));
+    await waitFor(() => expect(vi.mocked(apiMockJournalActions.copyTransactionToClipboard)).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
+    fireEvent.click(screen.getByTestId('api-mock-export-yaml'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Server exported/i);
+    fireEvent.click(screen.getByTestId('api-mock-export-servers'));
+    fireEvent.click(screen.getByTestId('api-mock-export-routes'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Routes exported/i);
+
+    fireEvent.click(screen.getByTestId('api-mock-export-wiremock'));
+    fireEvent.click(screen.getByTestId('api-mock-export-yaml'));
+    expect(anchorClick.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+    fireEvent.click(screen.getByTestId('mock-import-open'));
+    fireEvent.click(screen.getByTestId('mock-import-cancel'));
+
+    createElementSpy.mockRestore();
+    createObjectURLSpy.mockRestore();
+    revokeObjectURLSpy.mockRestore();
+  });
+
+  it('skips recorded-draft merge when proxied routes already exist', async () => {
+    const server = makeServer('srv-dup');
+    const request = {
+      method: 'GET',
+      path: '/users',
+      rawPath: '/users',
+      query: {},
+      cookies: {},
+      headers: {},
+      body: null,
+      bodyTruncated: false,
+      receivedAt: ts,
+    };
+    const conversion = proxiedExchangeToDraft(request, { status: 200, headers: {}, body: '{}' });
+    const draft = toRecordedDraft(conversion, draftFingerprint(request.method, request.path, 200));
+    loadApiMockWorkspace.mockResolvedValueOnce({ servers: [server], activeServerId: 'srv-dup' });
+    recordedDrafts.mockResolvedValue({ ok: true, data: { drafts: [draft], total: 1 } });
+
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('mock-start'));
+    await waitFor(() => expect(recordedDrafts).toHaveBeenCalled());
+    await waitFor(() => expect(ackRecordedDrafts).toHaveBeenCalled());
+    expect(screen.getByTestId('api-mock-live-region')).not.toHaveTextContent(/Recorded 1 proxied exchange/i);
+  });
+
+  it('merges recorded drafts on the active server only when multiple tabs exist', async () => {
+    const request = {
+      method: 'GET',
+      path: '/new-draft',
+      rawPath: '/new-draft',
+      query: {},
+      cookies: {},
+      headers: {},
+      body: null,
+      bodyTruncated: false,
+      receivedAt: ts,
+    };
+    const conversion = proxiedExchangeToDraft(request, { status: 201, headers: {}, body: '{}' });
+    const draft = toRecordedDraft(conversion, draftFingerprint(request.method, request.path, 201));
+    loadApiMockWorkspace.mockResolvedValueOnce({
+      servers: [makeServer('srv-a'), makeServer('srv-b')],
+      activeServerId: 'srv-a',
+    });
+    recordedDrafts.mockResolvedValue({ ok: true, data: { drafts: [draft], total: 1 } });
+
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('mock-start'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Recorded 1 proxied exchange/i));
+  });
+
+  it('shows a copy failure message when journal clipboard export fails', async () => {
+    loadApiMockWorkspace.mockResolvedValueOnce({ servers: [makeServer()], activeServerId: 'srv-1' });
+    start.mockResolvedValueOnce({ ok: true, data: { serverId: 'srv-1', port: 4600, state: 'running', generation: 1 } });
+    vi.mocked(apiMockJournalActions.copyTransactionToClipboard).mockResolvedValueOnce(false);
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('mock-start'));
+    await waitFor(() => expect(start).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('api-mock-view-runtime'));
+    fireEvent.click(screen.getByTestId('mock-dock-copy-tx'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Could not copy transaction/i));
+  });
+
+  it('uses the active server id in export filenames when the server has no name', async () => {
+    const server = { ...makeServer('srv-noname'), name: undefined as unknown as string };
+    loadApiMockWorkspace.mockResolvedValueOnce({ servers: [server], activeServerId: 'srv-noname' });
+    const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:hint');
+    const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const anchorClick = vi.fn();
+    const originalCreateElement = Document.prototype.createElement;
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      if (tagName.toLowerCase() === 'a') {
+        const anchor = originalCreateElement.call(document, 'a', options) as HTMLAnchorElement;
+        anchor.click = anchorClick;
+        return anchor;
+      }
+      return originalCreateElement.call(document, tagName, options);
+    }) as typeof document.createElement);
+
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('api-mock-export'));
+    expect(anchorClick).toHaveBeenCalled();
+    createObjectURLSpy.mockRestore();
+    revokeObjectURLSpy.mockRestore();
   });
 });

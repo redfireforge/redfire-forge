@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
 import { ApiMockDock } from './ApiMockDock';
 
 function baseRoutes() {
@@ -45,6 +46,49 @@ describe('ApiMockDock', () => {
     expect(screen.getByTestId('api-mock-dock-transactions-empty').textContent).toMatch(/Send a request/i);
   });
 
+  it('shows the Runtime guide in page mode when the journal is empty', () => {
+    render(
+      <ApiMockDock
+        variant="page"
+        serverAddress="http://127.0.0.1:4600"
+        routes={baseRoutes()}
+        running={false}
+        transactions={[]}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-runtime-guide').textContent).toMatch(/Start the mock/i);
+    expect(screen.getByTestId('api-mock-runtime-sample-curl').textContent).toContain('/users');
+  });
+
+  it('exposes mockup Runtime tabs including Settings and Console', () => {
+    const onServerPatch = vi.fn();
+    const server = {
+      id: 'srv-1', name: 'Mock Server 1', enabled: true, host: '127.0.0.1' as const, port: 4600, basePath: '',
+      folders: [], routes: baseRoutes(), variables: [], settings: { ...DEFAULT_SETTINGS },
+      createdAt: '2026-08-12T00:00:00.000Z', updatedAt: '2026-08-12T00:00:00.000Z',
+    } as any;
+    render(
+      <ApiMockDock
+        variant="page"
+        serverAddress="http://127.0.0.1:4600"
+        server={server}
+        onServerPatch={onServerPatch}
+        routes={baseRoutes()}
+        transactions={[]}
+      />,
+    );
+    const list = within(screen.getByTestId('api-mock-dock')).getByRole('tablist', { name: 'Runtime inspector' });
+    const labels = within(list).getAllByRole('tab').map(t => t.textContent ?? '');
+    expect(labels.some(t => t.startsWith('Transactions'))).toBe(true);
+    expect(labels).toContain('State');
+    expect(labels.some(t => t.startsWith('Variables'))).toBe(true);
+    expect(labels).toContain('Settings');
+    expect(labels).toContain('Console');
+    expect(labels.some(t => t.startsWith('Conflicts'))).toBe(false);
+    openTab('Settings');
+    expect(screen.getByTestId('api-mock-runtime-settings-panel')).toBeTruthy();
+  });
+
   it('renders transaction rows, selection detail, and clear button', () => {
     const onClearTransactions = vi.fn();
     const tx = {
@@ -56,10 +100,44 @@ describe('ApiMockDock', () => {
     } as any;
     render(<ApiMockDock routes={baseRoutes()} transactions={[tx]} onClearTransactions={onClearTransactions} />);
 
+    expect(screen.getByTestId('api-mock-journal-toolbar')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('api-mock-journal-filter'), { target: { value: 'nomatch' } });
+    expect(screen.getByTestId('api-mock-journal-filter-empty')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('api-mock-journal-filter'), { target: { value: '' } });
+
     fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('GET /users');
     fireEvent.click(screen.getByTestId('api-mock-journal-clear'));
     expect(onClearTransactions).toHaveBeenCalled();
+  });
+
+  it('exposes journal Open in Requests / Create route / Copy actions', () => {
+    const onOpenInRequests = vi.fn();
+    const onCreateRouteFromTransaction = vi.fn();
+    const onCopyTransaction = vi.fn();
+    const tx = {
+      id: 'tx-1', serverId: 'srv-1', generation: 2, receivedAt: '2026-08-12T00:00:00.000Z', completedAt: '2026-08-12T00:00:00.000Z',
+      request: { method: 'GET', path: '/users', rawPath: '/users', query: {}, cookies: {}, headers: {}, body: null, bodyTruncated: false, receivedAt: '2026-08-12T00:00:00.000Z' },
+      response: { status: 200, headers: {}, cookies: [], body: '{}', bodyTruncated: false, durationMs: 3, generationAtResponse: 2 },
+      outcome: 'matched', matchedRouteId: 'r1', matchedResponseId: 'v1', durationMs: 3,
+      explanation: { normalizedRequest: { method: 'GET', path: '/users', decodedPath: '/users', pathSegments: ['users'], query: {}, headerKeys: [], cookieKeys: [], bodySizeBytes: 0 }, candidates: [], policyDecision: { policy: 'highest_priority', equalPriorityPolicy: 'reject', matchedCount: 1, highestPriority: 10, tiedAtHighest: 1, outcome: 'matched', selectedRouteId: 'r1' }, nearMisses: [] },
+    } as any;
+    render(
+      <ApiMockDock
+        routes={baseRoutes()}
+        transactions={[tx]}
+        onOpenInRequests={onOpenInRequests}
+        onCreateRouteFromTransaction={onCreateRouteFromTransaction}
+        onCopyTransaction={onCopyTransaction}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
+    fireEvent.click(screen.getByTestId('api-mock-tx-open-requests'));
+    fireEvent.click(screen.getByTestId('api-mock-tx-create-route'));
+    fireEvent.click(screen.getByTestId('api-mock-tx-copy'));
+    expect(onOpenInRequests).toHaveBeenCalled();
+    expect(onCreateRouteFromTransaction).toHaveBeenCalled();
+    expect(onCopyTransaction).toHaveBeenCalled();
   });
 
   it('covers transaction status, route-name fallback, request body/header formatting, and missing response detail', () => {
@@ -144,6 +222,27 @@ describe('ApiMockDock', () => {
     expect(screen.getByTestId('api-mock-dock-state-live').textContent).toContain('hits: 2');
     fireEvent.click(screen.getByTestId('api-mock-state-reset'));
     expect(onResetState).toHaveBeenCalled();
+  });
+
+  it('supports variables CRUD when onVariablesChange is provided', () => {
+    const onVariablesChange = vi.fn();
+    const variables = [
+      { id: 'v1', key: 'tenant', value: 'acme', sensitive: false },
+    ] as any;
+    render(<ApiMockDock routes={baseRoutes()} variables={variables} onVariablesChange={onVariablesChange} />);
+    openTab('Variables');
+    fireEvent.click(screen.getByTestId('api-mock-var-add'));
+    expect(onVariablesChange).toHaveBeenCalled();
+    expect(onVariablesChange.mock.calls.at(-1)?.[0]).toHaveLength(2);
+
+    fireEvent.change(screen.getByTestId('api-mock-var-key-v1'), { target: { value: 'tenantId' } });
+    expect(onVariablesChange.mock.calls.at(-1)?.[0][0].key).toBe('tenantId');
+
+    fireEvent.click(screen.getByTestId('api-mock-var-sensitive-v1'));
+    expect(onVariablesChange.mock.calls.at(-1)?.[0][0].sensitive).toBe(true);
+
+    fireEvent.click(screen.getByTestId('api-mock-var-delete-v1'));
+    expect(onVariablesChange.mock.calls.at(-1)?.[0]).toHaveLength(0);
   });
 
   it('covers state fallbacks for no variables, no stateful routes, and empty live state', () => {

@@ -55,6 +55,8 @@ const transactions = vi.fn();
 const clearTransactions = vi.fn();
 const state = vi.fn();
 const resetState = vi.fn();
+const recordedDrafts = vi.fn();
+const ackRecordedDrafts = vi.fn();
 const analyzeConflicts = vi.fn();
 const clearConsole = vi.fn();
 
@@ -72,6 +74,8 @@ vi.mock('./apiMockControlClient', () => ({
     clearTransactions: (...args: unknown[]) => clearTransactions(...args),
     state: (...args: unknown[]) => state(...args),
     resetState: (...args: unknown[]) => resetState(...args),
+    recordedDrafts: (...args: unknown[]) => recordedDrafts(...args),
+    ackRecordedDrafts: (...args: unknown[]) => ackRecordedDrafts(...args),
   },
 }));
 vi.mock('./useApiMockConsole', () => ({
@@ -87,6 +91,19 @@ vi.mock('../../app/hooks/useConfirmDialog', () => ({
   }),
 }));
 
+function makeConflictFinding(id = 'f1') {
+  return {
+    id,
+    serverId: 'srv-1',
+    ruleIds: ['route-1', 'route-2'] as [string, string],
+    kind: 'potential_overlap' as const,
+    severity: 'warning' as const,
+    dimensions: [{ source: 'path' as const, result: 'overlap' as const, explanation: 'Paths overlap' }],
+    selectionOutcome: 'unknown' as const,
+    ruleFingerprints: ['fp-a', 'fp-b'] as [string, string],
+  };
+}
+
 describe('ApiMockStudioPage coverage gaps', () => {
   beforeEach(() => {
     loadApiMockWorkspace.mockResolvedValue({ servers: [makeServer()], activeServerId: 'srv-1' });
@@ -99,6 +116,8 @@ describe('ApiMockStudioPage coverage gaps', () => {
     clearTransactions.mockResolvedValue({ ok: true, data: { cleared: true } });
     state.mockResolvedValue({ ok: true, data: { states: {}, counters: {} } });
     resetState.mockResolvedValue({ ok: true, data: { reset: true } });
+    recordedDrafts.mockResolvedValue({ ok: true, data: { drafts: [], total: 0 } });
+    ackRecordedDrafts.mockResolvedValue({ ok: true, data: { removed: 0 } });
     analyzeConflicts.mockResolvedValue({ findings: [] });
   });
 
@@ -108,6 +127,10 @@ describe('ApiMockStudioPage coverage gaps', () => {
   });
 
   it('hydrates persisted workspace, polls runtime data, and autosaves', async () => {
+    loadApiMockWorkspace.mockResolvedValueOnce({
+      servers: [{ ...makeServer(), routes: [] }],
+      activeServerId: 'srv-1',
+    });
     const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
     render(<ApiMockStudioPage />);
 
@@ -145,20 +168,25 @@ describe('ApiMockStudioPage coverage gaps', () => {
     await waitFor(() => expect(analyzeConflicts).toHaveBeenCalled());
 
     fireEvent.click(screen.getByTestId('api-mock-import-menu'));
-    fireEvent.click(screen.getByTestId('api-mock-import-curl'));
     expect(screen.getByTestId('api-mock-import-review')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-import-source-curl'));
     fireEvent.change(screen.getByTestId('api-mock-curl-input'), { target: { value: 'curl /users' } });
     fireEvent.click(screen.getByTestId('api-mock-curl-parse'));
     fireEvent.click(screen.getByTestId('api-mock-import-cancel'));
+
+    // The dock now lives under the Runtime view rather than always being mounted.
+    fireEvent.click(screen.getByTestId('api-mock-view-runtime'));
 
     fireEvent.click(screen.getByRole('tab', { name: 'State' }));
     fireEvent.click(screen.getByTestId('api-mock-state-reset'));
     await waitFor(() => expect(resetState).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Server console' }));
+    // The page-variant dock shortens this label to "Console".
+    fireEvent.click(screen.getByRole('tab', { name: 'Console' }));
     fireEvent.click(screen.getByTestId('api-mock-console-clear'));
     expect(clearConsole).toHaveBeenCalled();
 
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
     fireEvent.click(screen.getByTestId('api-mock-stop'));
     await waitFor(() => expect(stop).toHaveBeenCalled());
   });
@@ -193,14 +221,77 @@ describe('ApiMockStudioPage coverage gaps', () => {
     fireEvent.click(screen.getByTestId('api-mock-restart'));
     await waitFor(() => expect(screen.getByTestId('api-mock-server-error')).toHaveTextContent('Port already in use'));
 
+    // "Analyze all" now jumps to the Conflicts view; come back to see the badge.
     fireEvent.click(screen.getByTestId('api-mock-analyze'));
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
     await waitFor(() => expect(screen.getByTestId('api-mock-editor-conflict')).toBeTruthy());
 
-    fireEvent.click(screen.getByTestId('api-mock-delete-route'));
+    // Deletion now lives on the rule row in the explorer, not the editor header.
+    fireEvent.click(document.querySelector('[data-testid^="api-mock-route-delete-"]') as HTMLElement);
     expect(screen.getByTestId('api-mock-no-route')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('api-mock-tab-close-srv-1'));
     await waitFor(() => expect(stop).toHaveBeenCalledWith('srv-1'));
     await waitFor(() => expect(screen.getByTestId('api-mock-empty')).toBeTruthy());
+  });
+
+  it('covers live strip deep links and empty-route selection copy', async () => {
+    loadApiMockWorkspace.mockResolvedValueOnce({
+      servers: [{ ...makeServer(), routes: [] }],
+      activeServerId: 'srv-1',
+    });
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+    expect(screen.getByText(/This mock server has no rules yet/)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-no-route-create'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/added/i);
+
+    fireEvent.click(screen.getByTestId('api-mock-start'));
+    await waitFor(() => expect(start).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('api-mock-live-settings'));
+    expect(screen.getByTestId('api-mock-runtime-page')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
+    fireEvent.click(screen.getByTestId('api-mock-live-console'));
+    expect(screen.getByTestId('api-mock-runtime-page')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
+    fireEvent.click(screen.getByTestId('api-mock-live-variables'));
+    fireEvent.click(screen.getByTestId('api-mock-view-studio'));
+    fireEvent.click(screen.getByTestId('api-mock-open-routes'));
+    fireEvent.click(screen.getByTestId('api-mock-routes-backdrop'));
+    fireEvent.click(screen.getByTestId('api-mock-open-routes'));
+    fireEvent.click(screen.getByTestId('api-mock-close-routes'));
+    fireEvent.click(screen.getByTestId('api-mock-import-menu'));
+    fireEvent.click(screen.getByTestId('api-mock-import-close'));
+    expect(screen.queryByTestId('api-mock-import-review')).not.toBeInTheDocument();
+  });
+
+  it('acknowledges analyzed conflicts through the real conflict inspector', async () => {
+    analyzeConflicts.mockResolvedValueOnce({ findings: [makeConflictFinding()] });
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('api-mock-view-conflicts'));
+    await waitFor(() => expect(analyzeConflicts).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('api-mock-conflict-acknowledge')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('api-mock-conflict-acknowledge'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Conflict acknowledged/i);
+  });
+
+  it('applies a dirty draft from the conflicts page apply button', async () => {
+    analyzeConflicts.mockResolvedValueOnce({ findings: [makeConflictFinding()] });
+    commit.mockResolvedValueOnce({ ok: true, data: { serverId: 'srv-1', port: 4600, state: 'running', generation: 2 } });
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('api-mock-start'));
+    await waitFor(() => expect(start).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId('api-mock-route-name'), { target: { value: 'Dirty users route' } });
+    fireEvent.click(screen.getByTestId('api-mock-view-conflicts'));
+    await waitFor(() => expect(analyzeConflicts).toHaveBeenCalled());
+    const applyBtn = await screen.findByTestId('api-mock-conflict-apply');
+    await waitFor(() => expect(applyBtn).not.toBeDisabled());
+    fireEvent.click(applyBtn);
+    await waitFor(() => expect(commit).toHaveBeenCalled());
   });
 });

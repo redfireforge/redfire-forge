@@ -97,4 +97,53 @@ describe('ApiMockServerSettingsModal', () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
+
+  describe('TLS certificate sharing', () => {
+    function renderWithCert() {
+      const server = makeServer();
+      server.name = 'Users API';
+      server.settings.tls = {
+        enabled: true,
+        certPem: '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----',
+        keyPem: '-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----',
+      };
+      render(<ApiMockServerSettingsModal server={server} onSave={vi.fn()} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByText('TLS'));
+    }
+
+    it('copies the certificate — never the key', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+      renderWithCert();
+
+      fireEvent.click(screen.getByTestId('api-mock-settings-tls-copy-cert'));
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('BEGIN CERTIFICATE'));
+      expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining('PRIVATE KEY'));
+      vi.unstubAllGlobals();
+    });
+
+    it('downloads the certificate as a server-named .pem', () => {
+      const createObjectURL = vi.fn(() => 'blob:cert');
+      const revokeObjectURL = vi.fn();
+      vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      renderWithCert();
+
+      fireEvent.click(screen.getByTestId('api-mock-settings-tls-download-cert'));
+      expect(createObjectURL).toHaveBeenCalled();
+      expect(click).toHaveBeenCalled();
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:cert');
+
+      click.mockRestore();
+      vi.unstubAllGlobals();
+    });
+
+    it('disables both actions when no certificate is present', () => {
+      render(<ApiMockServerSettingsModal server={makeServer()} onSave={vi.fn()} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByText('TLS'));
+
+      expect(screen.getByTestId('api-mock-settings-tls-copy-cert')).toBeDisabled();
+      expect(screen.getByTestId('api-mock-settings-tls-download-cert')).toBeDisabled();
+    });
+  });
 });

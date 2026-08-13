@@ -4,14 +4,31 @@ import {
   handleApiMockResetState, handleApiMockAssertCalls,
   type ApiMockNodeContext,
 } from './apiMockNodeHandlers';
-import type { ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
 
 const ts = '2026-08-11T00:00:00.000Z';
+
+function makeDef(): ApiMockServerDefinitionV1 {
+  return {
+    id: 'srv-1', name: 'Users', enabled: true, host: '127.0.0.1', port: 4600, basePath: '',
+    folders: [], variables: [], samples: [],
+    routes: [{
+      id: 'r1', name: 'Hello', enabled: true, method: 'GET',
+      path: { kind: 'exact', value: '/hello' }, priority: 10,
+      predicates: { id: 'pg', combinator: 'all', children: [] },
+      responseMode: 'rules', responses: [createDefaultResponse('resp-1')],
+      tags: [], createdAt: ts, updatedAt: ts,
+    }],
+    settings: { ...DEFAULT_SETTINGS }, createdAt: ts, updatedAt: ts,
+  };
+}
 
 function mockCtx(response: unknown, ok = true): ApiMockNodeContext {
   return {
     controlBaseUrl: 'http://localhost:3001',
     fetch: vi.fn().mockResolvedValue({ json: () => Promise.resolve({ ok, data: response, error: ok ? undefined : { message: String(response) } }) }),
+    definition: makeDef(),
   };
 }
 
@@ -42,7 +59,11 @@ describe('handleApiMockStart', () => {
   });
 
   it('handles network error', async () => {
-    const ctx = { controlBaseUrl: 'http://localhost:3001', fetch: vi.fn().mockRejectedValue(new Error('Connection refused')) };
+    const ctx: ApiMockNodeContext = {
+      controlBaseUrl: 'http://localhost:3001',
+      fetch: vi.fn().mockRejectedValue(new Error('Connection refused')),
+      definition: makeDef(),
+    };
     const result = await handleApiMockStart({ label: 'Start', serverId: 'srv-1' }, ctx);
     expect(result.success).toBe(false);
     expect(result.error).toContain('Connection refused');

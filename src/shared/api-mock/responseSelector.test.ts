@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   createSequenceState, selectSequenceResponse, resetSequence,
-  selectWeightedResponse, selectStateResponse, isVariantEligible,
+  selectWeightedResponse, selectStateResponse, selectRulesResponse, isVariantEligible,
 } from './responseSelector';
 import { createInitialState, applyTransition } from './scenarioRuntime';
 import { createDefaultResponse } from './defaults';
-import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from './contracts';
+import type { ApiMockCapturedRequestV1, ApiMockRouteV1, ApiMockResponseVariantV1 } from './contracts';
 
 const ts = '2026-08-11T00:00:00.000Z';
 
@@ -138,5 +138,95 @@ describe('isVariantEligible', () => {
   it('eligible before expiry', () => {
     const v = { ...createDefaultResponse('r1'), behavior: { delayMs: 0, jitterMs: 0, expiresAt: '2099-01-01T00:00:00Z' } };
     expect(isVariantEligible(v, 0).eligible).toBe(true);
+  });
+});
+
+describe('selectRulesResponse', () => {
+  const request: ApiMockCapturedRequestV1 = {
+    method: 'GET',
+    path: '/test',
+    rawPath: '/test',
+    query: { force: ['missing'] },
+    cookies: {},
+    headers: {},
+    body: null,
+    bodyTruncated: false,
+    receivedAt: ts,
+  };
+
+  it('prefers a conditional non-default variant when predicates match', () => {
+    const r = route('rules', [
+      { isDefault: true, status: 200 },
+      {
+        isDefault: false,
+        status: 404,
+        conditions: {
+          id: 'pg-cond',
+          combinator: 'all',
+          children: [{
+            id: 'p1',
+            source: 'query',
+            selector: 'force',
+            operator: 'exact',
+            expected: 'missing',
+          }],
+        },
+      },
+    ]);
+    expect(selectRulesResponse(r, request)?.status).toBe(404);
+  });
+
+  it('falls back to the default variant when conditions do not match', () => {
+    const r = route('rules', [
+      { isDefault: true, status: 200 },
+      {
+        isDefault: false,
+        status: 404,
+        conditions: {
+          id: 'pg-cond',
+          combinator: 'all',
+          children: [{
+            id: 'p1',
+            source: 'query',
+            selector: 'force',
+            operator: 'exact',
+            expected: 'other',
+          }],
+        },
+      },
+    ]);
+    expect(selectRulesResponse(r, request)?.status).toBe(200);
+  });
+
+  it('respects basePath when evaluating conditional variants', () => {
+    const r = route('rules', [
+      { isDefault: true, status: 200 },
+      {
+        isDefault: false,
+        status: 418,
+        conditions: {
+          id: 'pg-cond',
+          combinator: 'all',
+          children: [{
+            id: 'p1',
+            source: 'pathParam',
+            selector: 'id',
+            operator: 'exact',
+            expected: '99',
+          }],
+        },
+      },
+    ]);
+    r.path = { kind: 'parameterized', value: '/items/{id}' };
+    const req: ApiMockCapturedRequestV1 = {
+      method: 'GET', path: '/api/items/99', rawPath: '/api/items/99', query: {}, headers: {}, cookies: {},
+      body: null, bodyTruncated: false, receivedAt: ts,
+    };
+    expect(selectRulesResponse(r, req, '/api')?.status).toBe(418);
+  });
+
+  it('falls back to the first enabled variant when no default exists', () => {
+    const r = route('rules', [{ isDefault: false, status: 299 }]);
+    expect(selectRulesResponse(r, request)?.status).toBe(299);
   });
 });

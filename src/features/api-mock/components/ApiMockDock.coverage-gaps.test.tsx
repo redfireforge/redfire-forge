@@ -65,9 +65,18 @@ describe('ApiMockDock coverage gaps', () => {
     expect(onOpenConflicts).toHaveBeenCalledTimes(1);
 
     const max = screen.getByTestId('api-mock-dock-maximize');
-    expect(max.getAttribute('aria-label')).toBe('Maximize dock');
+    expect(max.getAttribute('aria-label')).toBe('Expand dock');
     fireEvent.click(max);
+    expect(screen.getByTestId('api-mock-dock').getAttribute('data-mode')).toBe('maximized');
     expect(screen.getByTestId('api-mock-dock-maximize').getAttribute('aria-label')).toBe('Restore dock');
+    fireEvent.click(screen.getByTestId('api-mock-dock-maximize'));
+    expect(screen.getByTestId('api-mock-dock').getAttribute('data-mode')).toBe('normal');
+
+    fireEvent.click(screen.getByTestId('api-mock-dock-hide'));
+    expect(screen.getByTestId('api-mock-dock').getAttribute('data-mode')).toBe('collapsed');
+    expect(document.getElementById('api-mock-dock-panel')?.hasAttribute('hidden')).toBe(true);
+    fireEvent.click(screen.getByTestId('api-mock-dock-show'));
+    expect(screen.getByTestId('api-mock-dock').getAttribute('data-mode')).toBe('normal');
   });
 
   it('covers candidates and near-misses detail rows and running-state notice without live values', () => {

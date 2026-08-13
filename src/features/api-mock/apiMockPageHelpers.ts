@@ -159,12 +159,40 @@ export async function runConflictAnalysis(
   setConflictIds: (ids: string[]) => void,
   setLiveMessage: (message: string) => void,
   setFindings?: (findings: Array<{ ruleIds: [string, string] }>) => void,
+  setStats?: (stats: { analyzedRules: number; durationMs: number }) => void,
 ): Promise<void> {
   const target = getConflictAnalysisTarget(activeServer);
   if (!target) return;
+  const startedAt = performance.now();
   const { findings } = await analyze(target.routes, target.serverId);
+  const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
   const ids = [...new Set(findings.flatMap(f => f.ruleIds))];
   setConflictIds(ids);
   setFindings?.(findings);
+  setStats?.({ analyzedRules: target.routes.filter(r => r.enabled).length, durationMs });
   setLiveMessage(formatConflictAnalysisMessage(findings.length));
+}
+
+/** Preserve acknowledgements when fingerprints for the same rule pair are unchanged; mark stale otherwise. */
+export function mergeConflictAcknowledgements<T extends {
+  ruleIds: [string, string];
+  ruleFingerprints?: [string, string];
+  acknowledgedAt?: string;
+  acknowledgementStale?: boolean;
+}>(previous: T[], next: T[]): T[] {
+  return next.map(f => {
+    const prev = previous.find(p => (
+      !!p.acknowledgedAt
+      && p.ruleIds?.[0] === f.ruleIds?.[0]
+      && p.ruleIds?.[1] === f.ruleIds?.[1]
+    ));
+    if (!prev?.acknowledgedAt) return { ...f, acknowledgementStale: false };
+    const pf = prev.ruleFingerprints;
+    const nf = f.ruleFingerprints;
+    const sameFp = !pf || !nf || (pf[0] === nf[0] && pf[1] === nf[1]);
+    if (sameFp) {
+      return { ...f, acknowledgedAt: prev.acknowledgedAt, acknowledgementStale: false };
+    }
+    return { ...f, acknowledgementStale: true };
+  });
 }

@@ -28,6 +28,7 @@ interface Props {
   onEditEntry?: () => void;
   onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
+  onExportToApiMock?: (endpoint: CatalogEndpoint) => void;
   coverageMap?: Map<string, EndpointCoverage>;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
   onSetWorkflowExposure?: (endpoint: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => void;
@@ -37,7 +38,7 @@ interface Props {
   publishPermission?: PublishPermission;
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest, onSetWorkflowExposure, previewedEndpointIds, publishPermission }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, onExportToApiMock, coverageMap, onNavigateToRequest, onSetWorkflowExposure, previewedEndpointIds, publishPermission }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -319,6 +320,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     linkedMicroservice={linkedSvc}
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
+                    onExportToApiMock={onExportToApiMock}
                     onSetWorkflowExposure={onSetWorkflowExposure}
                     currentExposureMode={resolveExposureMode(ep, previewedEndpointIds)}
                     isPublicationStale={isPublicationStale(ep, entry.currentVersionId)}
@@ -354,6 +356,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     linkedMicroservice={linkedSvc}
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
+                    onExportToApiMock={onExportToApiMock}
                     onSetWorkflowExposure={onSetWorkflowExposure}
                     currentExposureMode={resolveExposureMode(ep, previewedEndpointIds)}
                     isPublicationStale={isPublicationStale(ep, entry.currentVersionId)}

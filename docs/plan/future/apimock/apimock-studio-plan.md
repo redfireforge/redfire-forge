@@ -85,7 +85,7 @@ Product goals describe the eventual studio; they do not imply every capability s
 | Canonical JSON export/import | Phase 6 | Required for MVP. |
 | YAML, CLI, CI verification, and WireMock export | Phase 8 | Deferred; WireMock import review remains Phase 6. |
 | Proxy, recording, callbacks, transformations, and HAR | Phase 9 | Deferred and unavailable in MVP settings. |
-| HTTPS, mTLS, and native Rust listener | Phase 10 | Deferred; MVP uses HTTP/1.1 through the companion runtime. |
+| HTTPS, mTLS, and native Rust listener | Phase 10 | **HTTPS delivered** — the companion binds an `https` listener from user-supplied or generated PEM material. mTLS and the native Rust listener remain deferred. |
 | Workflow/Test Runner lifecycle and call assertions | Phase 11 | Deferred integration over the stable runtime. |
 
 “Unavailable” means the production UI does not present an apparently functional control. A design mockup may show a future capability only with an explicit phase label and disabled treatment.
@@ -112,7 +112,7 @@ This table summarizes the architectural choices that shaped the design. Section 
 | Persistence | Lightweight tab shell plus IndexedDB/Tauri-backed definitions | Route bodies and journals can exceed localStorage limits. |
 | Web support | Node companion listeners started through control APIs | Browsers cannot bind listening ports. Web UI remains usable when the companion server is running. |
 | Tauri support | Phase 1 uses the companion runtime; native Rust listener is a later parity phase | One behaviorally correct engine is safer than implementing TypeScript and Rust engines simultaneously. |
-| Protocol scope | HTTP/1.1 for MVP; HTTPS/mTLS in Phase 10; HTTP/2 later | TLS and HTTP/2 materially change listener and fault behavior and should not delay a reliable REST MVP. |
+| Protocol scope | HTTP/1.1 and HTTPS via the companion; mTLS and HTTP/2 later | TLS shipped because most target REST APIs are HTTPS. Client-certificate auth and HTTP/2 still change listener and fault behavior materially, so they stay deferred. |
 | Tab limit | Eight open/running-capable Mock Servers | Matches protocol-studio conventions and limits sockets/polling; an empty workspace starts with zero and saved closed definitions are not capped. |
 
 ### 3.2 Rejected Alternatives
@@ -2456,10 +2456,10 @@ Deliverables:
 
 Acceptance:
 
-- [ ] Concurrent requests cannot corrupt scenario transitions/counters.
-- [ ] Reset is server-scoped and immediately visible.
-- [ ] Sequence and weighted modes are mutually exclusive in contracts and UI.
-- [ ] Fault behavior has socket-level integration tests, not unit tests only.
+- [x] Concurrent requests cannot corrupt scenario transitions/counters. *(Listener keeps scenario/sequence/matchCounts on the single-threaded request path; unit coverage in `apiMockScenarioState.test.ts` + listener coverage gaps.)*
+- [x] Reset is server-scoped and immediately visible. *(Control `POST …/state/reset` + dock Reset state; clears scenario, sequence positions, and match counts.)*
+- [x] Sequence and weighted modes are mutually exclusive in contracts and UI. *(Mode switch clears incompatible weight/conditions fields in Response Editor.)*
+- [x] Fault behavior has socket-level integration tests, not unit tests only. *(`apiMockFaultExecutor.test.ts` + listener reset-fault coverage.)*
 
 ### Phase 8 - Export, CLI, CI, and Verification
 
@@ -2644,9 +2644,9 @@ Deliverables:
 
 Acceptance:
 
-- [ ] Cleanup runs after pass, fail, cancel, and timeout.
-- [ ] Parallel tests receive isolated server IDs/ports/state.
-- [ ] Verification failures include matching near misses.
+- [x] Cleanup runs after pass, fail, cancel, and timeout.
+- [x] Parallel tests receive isolated server IDs/ports/state.
+- [x] Verification failures include matching near misses.
 
 ### Phase 12 - Hardening, Accessibility, Documentation, and Demos
 
@@ -3207,3 +3207,100 @@ No implementation has started. Add dated notes here whenever actual code diverge
 - Wired the hook in `ApiMockStudioPage` (active whenever a server exists) and passed `consoleLines`/`onClearConsole` to `ApiMockDock`.
 - Tests: `ApiMockDock.test.tsx` (empty state + streamed-line rendering + clear button). Full API Mock suites green (390 feature/shared/server tests; `tsc` + ESLint clean).
 - All four dock tabs are now bound: Transactions (live journal), Conflicts (analyze), State (live scenario), Console (log stream).
+
+### 2026-08-12 - W8 "Add group" made functional (nested predicate groups)
+
+- **Bug**: the Match tab's `[ ] Group` button (W8 "Add group" row) appended a real `ApiMockPredicateGroupV1` to `route.predicates.children`, but the editor rendered only leaves (`group.children.filter(isLeaf)`). Nested groups were therefore invisible and uneditable while still being persisted, exported, and evaluated. The engine (`predicateEvaluator.ts`) had supported recursive ALL/ANY/NOT since Phase 2 — only the UI was missing.
+- Added `src/shared/api-mock/predicateTree.ts`: immutable id-addressed tree edits — `isPredicateGroup`, `addChildToGroup`, `updateLeafInTree`, `updateGroupInTree`, `removeNodeFromTree`, `findLeafInTree`, `countLeaves`, `COMBINATOR_LABELS`. Flat array splices in the editor are replaced by these so edits reach any depth.
+- `ApiMockRouteEditor` now renders the predicate tree recursively (`renderGroup(node, depth)` / `renderLeaf(pred)`). Each group — root and nested — gets its own combinator `CustomSelect` (All of / Any of / None of), a live leaf count, `+ Condition`, `[ ] Group`, and (nested only) a remove button. Empty groups show an inline hint rather than rendering as nothing.
+- New testids: `api-mock-group-{id}`, `api-mock-group-combinator-{id}`, `api-mock-group-add-condition-{id}`, `api-mock-group-add-group-{id}`, `api-mock-group-remove-{id}`, `api-mock-group-empty-{id}`. All pre-existing condition testids are unchanged.
+- **Controls are not duplicated**: the section heading is now a plain "Match conditions" label plus a hint. The combinator, the leaf count, `+ Condition`, and `[ ] Group` live *only* on each group header, so there is exactly one set of controls per group and it is unambiguous which group a click targets. The root group is always rendered (even when empty) so the add buttons remain reachable; the root's buttons keep the canonical `api-mock-add-condition` / `api-mock-add-group` testids and its empty state keeps `api-mock-conditions-empty`.
+- The Match tab badge now uses `countLeaves()` so conditions inside nested groups are counted.
+- CSS: `.am-matcher-group.nested` adds indentation, a softened accent rail, rounded right edge, and a faint tint that lightens again at depth 3+.
+- Also fixed `ApiMockStudioPage.orchestration.coverage-gaps.test.tsx`, which still mocked `onImport`/`onExport` on `ApiMockStudioTitleBar` after those moved to `ApiMockWorkspaceNav` (3 pre-existing failures).
+- Verified: Playwright drove root → nested → depth-3 group creation, added conditions inside a nested group, and switched a nested combinator to "Any of". 714 tests across 88 files green; `tsc` + ESLint clean.
+
+### 2026-08-12 - TLS: distributing the certificate to clients
+
+- Gap: the TLS panel could *generate* a self-signed pair but offered no way to get the certificate out of the app — the only option was manually selecting the PEM textarea. Without the certificate a client cannot verify the mock, so HTTPS was effectively only usable with verification disabled (`curl -k`).
+- Added **Copy certificate** and **Download .pem** actions under the Certificate field (`api-mock-settings-tls-copy-cert`, `api-mock-settings-tls-download-cert`). Both are disabled until a certificate exists. The download is named from the server (`<Server-Name>-cert.pem`).
+- Only the certificate is ever copied or downloaded; the private key has no such affordance and its hint now reads "Never share this. Redacted from all exports."
+- The TLS warning notice now gives runnable client commands (`curl --cacert <file> <listen-url>`, `NODE_EXTRA_CA_CERTS=<file>`) instead of only suggesting `curl -k`.
+- Tests: certificate copy asserts the clipboard payload contains `BEGIN CERTIFICATE` and *not* `PRIVATE KEY`; download asserts blob create/click/revoke; both actions assert disabled with no cert.
+- Verified end-to-end: generated a cert in the UI, downloaded it, started the listener, then `curl --cacert <downloaded.pem> https://127.0.0.1:4600/` verified TLS successfully (HTTP 404 = no route matched, handshake fine) while plain `curl` failed with exit 60 (SSL certificate problem). `openssl x509` confirmed `CN=localhost` with SANs `DNS:localhost, IP:127.0.0.1`.
+- 717 tests across 88 files green; `tsc` + ESLint clean. mTLS (client certificates) remains deferred.
+
+### 2026-08-12 - mTLS: the studio issues client certificates (AMS-025 unblocked)
+
+- Previously deferred. Delivered because the standard mTLS onboarding — client generates a key + CSR, operator signs it — is too heavy for a mock. The studio now acts as the CA and hands over a ready-to-use client identity, so the client creates nothing.
+- Contract: new `ApiMockMtlsSettingsV1` on `ApiMockTlsSettingsV1.mtls` — `enabled`, `clientCaPem` (verification anchor), plus the issued `clientCertPem` / `clientKeyPem` / `clientCommonName` so the pair can be re-downloaded later.
+- `apiMockTls.ts` gains `generateClientCredentials(commonName)`: creates a CA (`basicConstraints=critical,CA:TRUE`, `keyUsage=keyCertSign,cRLSign`), then a client key + CSR signed by it with `basicConstraints=CA:FALSE` and `extendedKeyUsage=clientAuth`. Returns `{ caCertPem, clientCertPem, clientKeyPem, commonName }`. Still shells to system `openssl` — no new dependency.
+- Control route `POST /api/mock/tls/client-credentials` → `apiMockControlClient.generateClientCredentials()`.
+- `ApiMockNetworkListener` adds `{ ca: clientCaPem, requestCert: true, rejectUnauthorized: true }` when `mtls.enabled`, and refuses to start if mTLS is on with no CA.
+- Settings → TLS gains a **Client certificates (mTLS)** section: require-client-cert toggle, client name field (becomes the CN), **Generate client certificate**, and an issued-credentials panel with Download client cert / client key / CA plus the exact `curl --cacert … --cert … --key …` invocation. Copy states which file is public and which must be sent securely.
+- Security: `clientKeyPem` is redacted on export alongside `keyPem` and `passphrase`; `clientCaPem`/`clientCertPem` are public and preserved. New diagnostic `AMS-TLS-CLIENT-CA-MISSING`. Documented tradeoff — the client private key is generated here and transported, which is fine for mocks but not for production credentials.
+- Tests: `apiMockMtls.test.ts` (live listener — accepts the issued cert, rejects a cert-less client, allows cert-less when mTLS is off, refuses to start without a CA), `apiMockTls.test.ts` issuance/CN-default cases, `ApiMockServerSettingsModal.mtls.test.tsx` (generate, persist on save, error surface, downloads gated on credentials), export-redaction and validation cases.
+- Verified end-to-end through the real UI: generated server + client material, downloaded all three PEMs, started the listener, then `curl --cacert server --cert client --key clientkey https://127.0.0.1:4600/` returned **HTTP 200** while the same call without a client certificate failed with **exit 56**. `openssl x509` confirmed `CN=acme-client`, issuer `RedfireForge API Mock Client CA`, EKU `TLS Web Client Authentication`.
+- 729 tests across 90 files green; `tsc` + ESLint clean.
+
+### 2026-08-12 - Settings modal: viewport-clamped drag, resize, and TLS/mTLS coupling
+
+- **Drag escaped the viewport.** `AppModalFrame` supports `constrainDragToViewport` but defaults it to `false`, and the settings modal never opted in — so the dialog could be dragged fully off-screen and become unreachable. Now passes `constrainDragToViewport` (8px edge padding). Verified: dragging to `-800,-800` pins at `8,8`; dragging to `3000,3000` pins at `352,172` on a 1400×900 viewport (`innerWidth - modalW - 8`).
+- **Resize was explicitly disabled.** The modal passed `showResizeHandles={false}`. Now enabled — right edge, bottom edge, and corner handles. Verified 1040×720 → 733×513 via corner, widened via right edge, and clamped at the minimum.
+- **Minimum width was too small to be honest.** `minWidth={580}` let the user shrink the dialog until the TLS panel was silently clipped (`Download .pem` cut mid-word) because `.am-stg-panel` had `overflow-x: hidden`. Measured every panel across 580–1040px: TLS overflows by 180px at 580, 120px at 640, 60px at 700, and fits at 760. Raised `minWidth` to **760** and switched `.am-stg-panel` to `overflow-x: auto` so content can never be clipped without a way to reach it.
+- **mTLS could outlive HTTPS.** Turning HTTPS off left "Require client cert" on, which is meaningless (mTLS exists only inside a TLS handshake) and would have persisted a contradictory `tls.enabled=false, mtls.enabled=true`. Disabling HTTPS now clears the requirement. Re-enabling HTTPS deliberately does *not* restore it — the user opts in again. Issued CA/cert/key material is retained either way, so nothing is lost.
+- Tests: two new cases in `ApiMockServerSettingsModal.mtls.test.tsx` covering the coupling on toggle and on save, and that re-enabling HTTPS does not silently restore mTLS.
+- 731 tests across 90 files green; `tsc` + ESLint clean.
+
+### 2026-08-12 - Per-rule delete in the route explorer
+
+- Each rule row in the RULES tree now carries a right-aligned trash control, matching the existing folder-row affordance. Previously deleting a rule required selecting it first and using the editor header — the explorer accepted an `onDelete` prop but never rendered anything for it (`onDelete: _onDelete`), so the wiring had been stubbed since the explorer was written.
+- Markup follows the `am-tree-folder-row` precedent: the row is now `div.am-tree-route-row` wrapping the existing `button.am-route-item` plus a sibling `button.am-route-delete`. Nesting a button inside the row button would have been invalid HTML — the same trap already fixed once in `ApiMockServerTabs`. `role="treeitem"` stays on the inner button so roving arrow-key navigation is unchanged (asserted by test).
+- CSS `.am-route-delete` mirrors `.am-folder-delete` exactly: `opacity: 0.72` at rest, `1` on row hover or keyboard focus, red tint on direct hover. It was briefly hover-only (`opacity: 0`), which made the control undiscoverable — a static view showed no delete affordance at all, so the feature read as missing. Always-visible also matches the folder rows directly above it. The button keeps its 24px slot regardless, so the `P` priority badges stay aligned across rows.
+- **Data-loss guard**: the explorer was wired to `handleDeleteRoute`, which deletes immediately, while the editor used `confirmDeleteRoute`. Rendering the control as-is would have made a single stray click destroy a rule with no prompt. The explorer now resolves the route and goes through `confirmDeleteRoute`, so both entry points share one confirmation path.
+- Tests: delete fires with the correct id and does *not* also select the row, each control is labelled with its rule name, and the treeitem count is unchanged.
+- Verified in the browser: trash right edge is flush with the row right edge (both 320px), hidden at rest and 0.72 opacity on hover, Cancel keeps the rule (2 → 2) and Delete Permanently removes it (2 → 1).
+- 734 tests across 90 files green; `tsc` + ESLint clean.
+
+### 2026-08-12 - Rule deletion consolidated onto the rule row
+
+- Completed the move: the editor header's **Delete** button (after Simulate) is gone, along with the now-dead `onDelete` prop on `ApiMockRouteEditor` and its wiring in `ApiMockStudioPage`. Deletion has exactly one home — the trash on each rule row — instead of two controls doing the same thing from different places.
+- Delete controls are now **red at rest** (`var(--am-red)`), not only on hover. Applied to both `.am-route-delete` and `.am-folder-delete`, since a muted trash beside a red one would have read as two different actions. `.am-folder-add` deliberately stays neutral — it is not destructive.
+- Tests updated rather than deleted: `ApiMockRouteEditor.test.tsx` now asserts the header *does not* offer deletion (`queryByTestId('api-mock-delete-route')` is null), and the two page coverage suites drive deletion through the explorer's per-rule control.
+- Verified in the browser: rule and folder trash both compute to `rgb(228, 119, 119)` with the pointer parked away from the list, folder add stays `rgb(168, 184, 204)`, and the editor header reads `GET / · Rule ID … · 0 matches · Enabled · Simulate` with no Delete.
+- 753 tests across 91 files green; `tsc` + ESLint clean.
+
+### 2026-08-12 - WireMock import: single-stub files, body matchers, bodyFileName
+
+- **Import failure**: `parseWireMockMappings` accepted only an array or `{ mappings: [] }`. A bare stub object — WireMock's default `mappings/*.json` layout, one stub per file — fell through to `AMS-IMPORT-EMPTY`. Now accepts a single stub, an array, `{ mappings: [...] }`, and `{ mappings: {...} }`. YAML stub files parse too (falls back to the already-imported `yaml` parser); the parse diagnostic now reads "Could not parse as JSON or YAML."
+- **`bodyPatterns` were silently dropped** with a one-line loss note, so an imported stub matched on method + path alone — every fault stub for the same URL collapsed onto the same rule. New `mapBodyPatterns()` translates them into real predicates: `equalTo`→`exact`, `contains`→`contains`, `matches`→`regex`, `equalToJson`→`json_strict` / `json_subset` (honouring `ignoreExtraElements`), `matchesJsonPath`→`jsonPath_exists` / `jsonPath_equals`.
+- **XPath**: `xpath_exists` / `xpath_equals` exist in `ApiMockPredicateOperator` but `evaluateOperator` returns `false` for them, so emitting those would have produced rules that can never match. Instead `matchesXPath` with a `contains`/`equalTo` sub-matcher is approximated as a whole-body `contains`, and the approximation is written to the loss report with a suggestion to tighten it. A bare `matchesXPath` expression yields **no** predicate plus an explicit loss note, rather than a dead rule.
+- **`bodyFileName`** referenced files in WireMock's `__files/`, which a pasted stub never carries, so the response body came through empty. The importer now inserts a visible placeholder naming the file and raises `AMS-IMPORT-WIREMOCK-BODYFILE` telling the user to paste the contents into the Response tab.
+- `SourceRequest` gained an optional `predicates` array that `buildPredicates()` appends, so any importer can contribute match conditions.
+- Tests: `importParsers.wiremock.test.ts` (single stub / array / `mappings` object / YAML, matcher coverage, no `xpath_*` emitted, placeholder + diagnostic) and `apiMockWireMockImport.test.ts` — a live listener proving two stubs that differ only by their VIN marker route correctly (`FaultCode200`→500, `SUCCESS`→200, unmarked VIN→404).
+- 765 tests across 93 files green; `tsc` + ESLint clean.
+
+### 2026-08-12 - Tauri control plane + fallback response templating
+
+Both defects were found by building the packaged Tauri app and driving it, not by reading code.
+
+- **Control plane was broken in the desktop app.** `apiMockControlClient` issued a bare relative `fetch('/api/mock/...')`. Under Tauri the app is served from `tauri://localhost`, where that path is answered by the asset protocol's SPA fallback: **HTTP 200 with `index.html`**, not a transport error. `res.json()` then threw and the user got the nonsensical **"Request failed (200)."** Verified in the packaged webview that `http://127.0.0.1:3001/api/mock/servers` *is* reachable — so nothing was sandboxed, only the URL was wrong.
+- New `controlBase.ts` → `apiMockControlBase()`: absolute companion origin under Tauri (and in Node, for CLI/workflow use), empty string elsewhere so the Vite dev proxy and production server keep handling `/api` same-origin. Mirrors the existing `getProxyBase()` convention in `graphqlProxyTransports.ts`.
+- **Same bug, second site**: `graphRunnerApiMockNodeHandlers.controlBaseUrl()` used `window.location.origin`, which is `tauri://localhost` in the desktop app — the workflow apiMockStart/Apply/Stop nodes were broken there too. Now routed through the same helper.
+- **Fallback/ambiguity bodies never rendered their templates.** `settings.fallback.unmatchedResponse` and `settings.selection.ambiguityResponse` are static settings, so they bypassed the template engine and served `{"error":"not_found","requestId":"{{requestId}}"}` literally — the correlation id was useless, and the ambiguity body was invalid JSON (`"competingRules":{{competingRuleCount}}`).
+- New `fallbackBody.ts` → `renderFallbackBody()` handles the fixed placeholder set, plus `newTransactionId()`. The listener now generates the id **before** writing the response and passes it to `recordTransaction`, so the id echoed in the body is the journal entry's id. Fixed in both emitters: `ApiMockNetworkListener` and `simulation.ts`.
+- Tests: `fallbackBody.test.ts`, `controlBase.test.ts`, and `apiMockFallbackTemplate.test.ts` (live listener — asserts the rendered id equals the journal transaction id for both unmatched and ambiguous, and that the body parses as JSON).
+- **Verified in the packaged Tauri app**: rebuilt, started a listener from the UI — server bar showed `Running http://127.0.0.1:4600 Generation 1`, no error; `lsof` confirmed the port bound; an unmatched request returned `{"error":"not_found","requestId":"tx-1786593619031-zh28ms"}`; and the journal entry id matched the id in the response body.
+- 10,458 tests across 562 files green; `tsc` + ESLint clean.
+
+### 2026-08-13 - Companion bundled as a Tauri sidecar (self-contained desktop app)
+
+Closes the remaining desktop gap: the app connected to the companion correctly but could not start one, so the user had to run `npm run server:dev` by hand.
+
+- **Fully self-contained binary.** `scripts/build-sidecar.mjs` bundles `src-server` to a single CJS file and injects it into a copy of the Node runtime via Node 22's Single Executable Application support (`--experimental-sea-config` + `postject`, ad-hoc `codesign` on macOS). Output `src-tauri/binaries/redfireforge-companion-<target-triple>` (~115 MB; gitignored). Verified running under `env -i` with no `node` on PATH and no `node_modules`.
+- **Dynamic requires blocked bundling.** `kafka-adapter`, `grpcJsLoader` and `bsrFetchGateway` load `kafkajs`, `kafkajs-snappy`, `@grpc/grpc-js` and `undici` through `createRequire(import.meta.url)` so they stay lazy — esbuild cannot see those ids, and the previous `build-server.mjs` simply marked them external (fine when `node_modules` exists, fatal for a sidecar). Rather than rewrite that deliberately-lazy code, new `src-server/sidecarPrelude.ts` imports them statically and patches `createRequire` to return the bundled copies. Also defines `import.meta.url` for the CJS output, which is otherwise empty.
+- **Lifecycle.** New `src-tauri/src/companion.rs`: spawns the sidecar on setup with `PORT=3001`, stores the `CommandChild` in managed state, drains stdout/stderr into the log, and kills it on window-destroyed and on `RunEvent::Exit`. If port 3001 is already serving — the usual `tauri dev` case — it adopts that instance instead of fighting for the port, and does not kill what it did not start.
+- **Orphan prevention.** First run leaked: `kill -9` on the app left the companion holding 3001. Tauri keeps a stdin pipe open to a sidecar for its lifetime, so the companion now exits on stdin `end`/`close`/`error` when `RF_SIDECAR=1`. Re-verified with `kill -9` — companion exits with the parent, port released.
+- `tauri.conf.json`: `bundle.externalBin` + `beforeBuildCommand` now runs `build:sidecar`; `capabilities/default.json` grants scoped `shell:allow-spawn` for that sidecar only.
+- **Verified in the packaged app** with no external server running: port 3001 owned by `redfireforge-companion` (not node), API Mock start → `Running http://127.0.0.1:4600 Generation 1`, an unmatched request returned a rendered `requestId`, and no orphan after SIGKILL.
+- 3,207 tests green; `tsc` + ESLint clean; no clippy findings in `companion.rs`.

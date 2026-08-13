@@ -54,8 +54,7 @@ describe('ApiMockRouteEditor', () => {
   it('edits header fields and empty match conditions state', () => {
     const onUpdate = vi.fn();
     const onSimulate = vi.fn();
-    const onDelete = vi.fn();
-    render(<ApiMockRouteEditor route={makeRoute()} onUpdate={onUpdate} hasConflict onSimulate={onSimulate} onDelete={onDelete} />);
+    render(<ApiMockRouteEditor route={makeRoute()} onUpdate={onUpdate} hasConflict onSimulate={onSimulate} />);
 
     expect(screen.getByTestId('api-mock-editor-conflict')).toBeTruthy();
     expect(screen.getByTestId('api-mock-conditions-empty')).toBeTruthy();
@@ -75,18 +74,19 @@ describe('ApiMockRouteEditor', () => {
     expect(onUpdate).toHaveBeenCalledWith({ enabled: false });
 
     fireEvent.click(screen.getByTestId('api-mock-simulate'));
-    fireEvent.click(screen.getByTestId('api-mock-delete-route'));
     expect(onSimulate).toHaveBeenCalled();
-    expect(onDelete).toHaveBeenCalled();
+    // Deletion lives on the rule row in the explorer, not the editor header.
+    expect(screen.queryByTestId('api-mock-delete-route')).toBeNull();
   });
 
   it('adds, edits, and removes a match condition', () => {
     const onUpdate = vi.fn();
-    render(<ApiMockRouteEditor route={makeRoute()} onUpdate={onUpdate} />);
+    const first = render(<ApiMockRouteEditor route={makeRoute()} onUpdate={onUpdate} />);
 
     fireEvent.click(screen.getByTestId('api-mock-add-condition'));
     const addCall = onUpdate.mock.calls.at(-1)?.[0];
     expect(addCall.predicates.children).toHaveLength(1);
+    first.unmount();
 
     const routeWithCondition = makeRoute({
       predicates: {
@@ -98,7 +98,8 @@ describe('ApiMockRouteEditor', () => {
     onUpdate.mockClear();
     render(<ApiMockRouteEditor route={routeWithCondition} onUpdate={onUpdate} />);
 
-    expect(screen.getByText(/Any of 1/i)).toBeTruthy();
+    expect(screen.getByTestId('api-mock-group-combinator-pg').textContent).toContain('Any of');
+    expect(screen.getByText(/1 condition/i)).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Condition selector'), { target: { value: 'x-tenant' } });
     expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].selector).toBe('x-tenant');
 
@@ -130,7 +131,10 @@ describe('ApiMockRouteEditor', () => {
     });
     render(<ApiMockRouteEditor route={route} onUpdate={onUpdate} />);
 
-    expect(screen.getByText(/None of 1/i)).toBeTruthy();
+    expect(screen.getByTestId('api-mock-group-combinator-pg').textContent).toContain('None of');
+    // The nested group is rendered and editable, with its own empty-state hint.
+    expect(screen.getByTestId('api-mock-group-nested')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-group-empty-nested')).toBeTruthy();
     expect(screen.getByLabelText('Condition value')).toBeDisabled();
 
     fireEvent.change(screen.getByTestId('api-mock-priority-input'), { target: { value: '' } });
@@ -197,6 +201,37 @@ describe('ApiMockRouteEditor', () => {
     expect((screen.getByTestId('api-mock-docs-tags') as HTMLInputElement).value).toBe('');
   });
 
+  it('toggles matchStyle from subset back to exact when rerendered', () => {
+    const onUpdate = vi.fn();
+    const route = makeRoute({
+      predicates: {
+        id: 'pg',
+        combinator: 'all',
+        children: [{
+          id: 'pred-jp',
+          source: 'body',
+          selector: '',
+          operator: 'jsonPath_equals',
+          expected: ['$.a', 'b'],
+          options: { matchStyle: 'subset' },
+        }],
+      } as any,
+    });
+    const { rerender } = render(<ApiMockRouteEditor route={route} onUpdate={onUpdate} />);
+    fireEvent.click(screen.getByTestId('api-mock-condition-matchstyle-pred-jp'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].options.matchStyle).toBe('exact');
+
+    const updated = {
+      ...route,
+      predicates: {
+        ...route.predicates,
+        children: [{ ...route.predicates.children[0], options: { matchStyle: 'exact' as const } }],
+      },
+    };
+    rerender(<ApiMockRouteEditor route={updated} onUpdate={onUpdate} />);
+    expect(screen.getByTestId('api-mock-condition-matchstyle-pred-jp').textContent).toBe('equals');
+  });
+
   it('handles behavior tab when there is no default variant to update', () => {
     const onUpdate = vi.fn();
     const route = makeRoute({ responses: [] });
@@ -206,5 +241,12 @@ describe('ApiMockRouteEditor', () => {
     fireEvent.change(screen.getByTestId('api-mock-behavior-delay'), { target: { value: '15' } });
     fireEvent.change(screen.getByTestId('api-mock-behavior-jitter'), { target: { value: '2' } });
     expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('preserves regex path kind when editing path value', () => {
+    const onUpdate = vi.fn();
+    render(<ApiMockRouteEditor route={makeRoute({ path: { kind: 'regex', value: '^/users/\\d+$' } })} onUpdate={onUpdate} />);
+    fireEvent.change(screen.getByTestId('api-mock-path-input'), { target: { value: '^/orders/\\d+$' } });
+    expect(onUpdate.mock.calls.at(-1)?.[0].path.kind).toBe('regex');
   });
 });

@@ -22,7 +22,18 @@ export interface SourceRequest {
   cookies?: Record<string, string>;
   body?: string;
   contentType?: string;
+  /** Response body template when the source provides a stub response (e.g. WireMock). */
+  responseBody?: string;
+  responseContentType?: string;
   authScheme?: string;
+  /** Optional WireMock / advanced import metadata applied onto the draft route. */
+  priority?: number;
+  status?: number;
+  delayMs?: number;
+  fault?: import('./contracts').ApiMockFaultKind;
+  scenario?: { name?: string; requiredState?: string; newState?: string };
+  /** Extra match conditions the importer derived (e.g. WireMock `bodyPatterns`). */
+  predicates?: import('./contracts').ApiMockPredicateV1[];
 }
 
 export interface ConversionOptions {
@@ -54,26 +65,50 @@ export function convertSourceToRule(input: SourceRequest, options: ConversionOpt
   const method = normalizeMethod(input.method, diagnostics);
   const predicates = buildPredicates(input, diagnostics);
 
+  const defaultResponse = createDefaultResponse(respId);
+  const scenario = input.scenario;
+  const responseContent = options.defaultResponseBody ?? input.responseBody ?? '';
+  const responseContentType = options.defaultResponseContentType
+    ?? input.responseContentType
+    ?? 'application/json';
+  const response = {
+    ...defaultResponse,
+    status: input.status ?? options.defaultStatus ?? 200,
+    body: {
+      kind: responseContentType.includes('json') ? 'json' as const : 'text' as const,
+      content: responseContent,
+      contentType: responseContentType,
+    },
+    behavior: {
+      ...defaultResponse.behavior,
+      delayMs: input.delayMs ?? defaultResponse.behavior.delayMs,
+      ...(input.fault && input.fault !== 'none' ? { fault: input.fault } : {}),
+    },
+    ...(scenario?.newState || scenario?.requiredState ? {
+      transition: {
+        currentState: scenario.requiredState,
+        targetState: scenario.newState || scenario.requiredState || 'Started',
+      },
+    } : {}),
+  };
+
+  const tags: string[] = [];
+  if (scenario?.name) tags.push(`scenario:${scenario.name}`);
+  if (scenario?.requiredState) tags.push(`scenario-required:${scenario.requiredState}`);
+  if (scenario?.newState) tags.push(`scenario-new:${scenario.newState}`);
+
   const route: ApiMockRouteV1 = {
     id: routeId,
     folderId: options.folderId,
-    name: `${method} ${input.path}`,
+    name: scenario?.name ? `${method} ${input.path} [${scenario.name}]` : `${method} ${input.path}`,
     enabled: false,
     method,
     path: { kind: 'exact', value: input.path },
-    priority: options.defaultPriority ?? 10,
+    priority: input.priority ?? options.defaultPriority ?? 10,
     predicates,
     responseMode: 'rules',
-    responses: [{
-      ...createDefaultResponse(respId),
-      status: options.defaultStatus ?? 200,
-      body: {
-        kind: options.defaultResponseContentType?.includes('json') ? 'json' : 'text',
-        content: options.defaultResponseBody ?? '',
-        contentType: options.defaultResponseContentType ?? 'application/json',
-      },
-    }],
-    tags: [],
+    responses: [response],
+    tags,
     createdAt: ts,
     updatedAt: ts,
   };
@@ -147,6 +182,18 @@ function buildPredicates(input: SourceRequest, diagnostics: ApiMockDiagnosticV1[
     }
   }
 
+  if (input.query) {
+    for (const [key, value] of Object.entries(input.query)) {
+      children.push({
+        id: `pred-${crypto.randomUUID().slice(0, 6)}`,
+        source: 'query',
+        selector: key,
+        operator: 'exact',
+        expected: value,
+      });
+    }
+  }
+
   if (input.body && input.contentType?.includes('json')) {
     try {
       const parsed = JSON.parse(input.body);
@@ -172,6 +219,8 @@ function buildPredicates(input: SourceRequest, diagnostics: ApiMockDiagnosticV1[
       });
     }
   }
+
+  if (input.predicates?.length) children.push(...input.predicates);
 
   return { ...EMPTY_PREDICATE_GROUP, id: `pg-${crypto.randomUUID().slice(0, 6)}`, children };
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
 import type { ApiMockRuntimeStatus } from './ApiMockServerTabs';
+import { CopyIcon, CheckIcon, SettingsIcon, RestartIcon, StopIcon, PlayIcon, PanelLeftIcon } from './ApiMockIcons';
 
 interface Props {
   server: ApiMockServerDefinitionV1;
@@ -14,6 +15,8 @@ interface Props {
   onApply?: () => void;
   onRestart?: () => void;
   onSettings?: () => void;
+  /** Mockup 08 — open rules drawer on narrow viewports. */
+  onOpenRoutes?: () => void;
 }
 
 const STATUS_LABEL: Record<ApiMockRuntimeStatus, string> = {
@@ -37,9 +40,11 @@ export function ApiMockServerBar({
   onApply,
   onRestart,
   onSettings,
+  onOpenRoutes,
 }: Props) {
   const [copied, setCopied] = useState(false);
-  const address = `http://${server.host}:${server.port}${server.basePath}`;
+  const scheme = server.settings.tls?.enabled ? 'https' : 'http';
+  const address = `${scheme}://${server.host}:${server.port}${server.basePath}`;
   const running = status === 'running';
   const busy = status === 'starting' || status === 'draining' || status === 'applying';
   const labelClass = running ? 'running' : status === 'error' ? 'error' : 'stopped';
@@ -63,24 +68,35 @@ export function ApiMockServerBar({
           title={copied ? 'Copied!' : 'Copy address'}
           onClick={handleCopy}
           data-testid="api-mock-copy-address"
-        >{copied ? '✓' : '⧉'}</button>
+        >{copied ? <CheckIcon /> : <CopyIcon />}</button>
+        {generation > 0 && (
+          <span className="am-generation">Generation {generation}</span>
+        )}
         {dirty && <span className="am-badge warning" data-testid="api-mock-dirty-badge">Draft changed</span>}
-        <span className="am-generation">Generation {generation}</span>
         <span className="am-spacer" />
         {dirty && running && (
-          <button className="am-btn primary" onClick={onApply} data-testid="api-mock-apply">✓ Apply</button>
+          <button className="am-btn primary" onClick={onApply} data-testid="api-mock-apply"><CheckIcon /> Apply</button>
         )}
         {running ? (
           <>
-            <button className="am-btn" onClick={onRestart} data-testid="api-mock-restart">Restart</button>
-            <button className="am-btn danger" onClick={onStop} data-testid="api-mock-stop">Stop</button>
+            <button className="am-btn" onClick={onRestart} data-testid="api-mock-restart"><RestartIcon /> Restart</button>
+            <button className="am-btn danger" onClick={onStop} data-testid="api-mock-stop"><StopIcon /> Stop</button>
           </>
         ) : (
           <button className="am-btn primary" onClick={onStart} disabled={busy} data-testid="api-mock-start">
-            {status === 'starting' ? 'Starting…' : 'Start'}
+            <PlayIcon /> {status === 'starting' ? 'Starting…' : 'Start'}
           </button>
         )}
-        <button className="am-icon-btn" aria-label="Server settings" title="Server settings" onClick={onSettings} data-testid="api-mock-settings">⚙</button>
+        <button className="am-icon-btn" aria-label="Server settings" title="Server settings" onClick={onSettings} data-testid="api-mock-settings"><SettingsIcon /></button>
+        {onOpenRoutes && (
+          <button
+            className="am-icon-btn am-routes-drawer-toggle"
+            aria-label="Open routes"
+            title="Open routes"
+            onClick={onOpenRoutes}
+            data-testid="api-mock-open-routes"
+          ><PanelLeftIcon /></button>
+        )}
       </div>
       {error && (
         <div className="am-server-error" role="alert" data-testid="api-mock-server-error">

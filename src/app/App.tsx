@@ -21,12 +21,17 @@ import AppSubNav from './components/AppSubNav';
 import AppSidebarRegion from './components/AppSidebarRegion';
 import AppShellOverlays from './components/AppShellOverlays';
 import AppProtocolStudios from './components/AppProtocolStudios';
+import { ExportToApiMockModal, type ExportToApiMockItem } from '../features/api-mock/components/ExportToApiMockModal';
 import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
 import { useRequests } from '../features/requests/hooks/useRequests';
 import { useRequestTabCoordinator } from '../features/requests/hooks/useRequestTabCoordinator';
+import {
+  API_MOCK_OPEN_IN_REQUESTS_EVENT,
+  type ApiMockOpenInRequestsDetail,
+} from '../features/api-mock/apiMockJournalActions';
 import { useCatalog } from '../features/catalog/hooks/useCatalog';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
@@ -121,6 +126,7 @@ export default function App() {
     { collections: wb.collections, removeCollection: reqTabs.removeCollection },
     DEMO_HUB_ENABLED,
   );
+
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
   const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const wfHook = useWorkflows();
@@ -158,6 +164,31 @@ export default function App() {
   const kafkaState = useKafkaState();
   // ---- App shell state (declare before hooks that close over setActiveTab) ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
+
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<ApiMockOpenInRequestsDetail>).detail;
+      if (!detail) return;
+      const COL_NAME = 'API Mock Journal';
+      const existing = wb.collections.find(c => c.name === COL_NAME);
+      const colId = existing ? existing.id : wb.addCollection({ name: COL_NAME, mode: 'direct' });
+      const reqId = wb.addRequest(colId, undefined, detail.name);
+      wb.updateRequest(colId, reqId, {
+        name: detail.name,
+        method: detail.method,
+        url: detail.url,
+        headers: detail.headers,
+        body: detail.body,
+        bodyType: detail.body ? 'json' : 'none',
+        auth: { type: 'none' },
+      });
+      reqTabs.selectRequest(colId, reqId);
+      setActiveTab('requests');
+    };
+    window.addEventListener(API_MOCK_OPEN_IN_REQUESTS_EVENT, onOpen);
+    return () => window.removeEventListener(API_MOCK_OPEN_IN_REQUESTS_EVENT, onOpen);
+  }, [wb, reqTabs]);
+
   const { handleWorkflowExport, handleWorkflowImport, handleExportFolder } = useWorkflowImportExport({
     wfHook, folders: wfFolders.folders, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
   });
@@ -245,6 +276,8 @@ export default function App() {
     handleBatchConvertToOpenApi,
   } = useCatalogState(catalog, { showToast: toast.show });
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
+  const [exportToMockItems, setExportToMockItems] = useState<ExportToApiMockItem[] | null>(null);
+  const [exportToMockSourceKind, setExportToMockSourceKind] = useState<'requests' | 'catalog'>('catalog');
   useAppStartupEffects({
     loading,
     wb,
@@ -257,6 +290,10 @@ export default function App() {
   });
 
   const [galleryInitialDomain, setGalleryInitialDomain] = useState<import('../data/galleries/types').GalleryDomain | undefined>(undefined);
+
+  useEffect(() => {
+    if (activeTab !== 'catalog') setExportToMockItems(null);
+  }, [activeTab]);
 
   // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
   useEffect(() => {
@@ -676,6 +713,14 @@ export default function App() {
                 setCatalogHarnessEndpoint({ entry, endpoint, fromTryItOut });
                 setShowSendToHarness(true);
               }}
+              onExportEndpointToApiMock={(endpoint) => {
+                setExportToMockItems([{
+                  method: endpoint.method,
+                  path: endpoint.path,
+                  label: endpoint.summary ?? endpoint.operationId,
+                }]);
+                setExportToMockSourceKind('catalog');
+              }}
               onPreviewsChanged={refreshWfPreviews}
             />
           </div>
@@ -772,6 +817,13 @@ export default function App() {
         RustExecutorTestPanel={RustExecutorTestPanel}
       />
 
+      {exportToMockItems && (
+        <ExportToApiMockModal
+          items={exportToMockItems}
+          sourceKind={exportToMockSourceKind}
+          onClose={() => setExportToMockItems(null)}
+        />
+      )}
     </div>
     </>
   );

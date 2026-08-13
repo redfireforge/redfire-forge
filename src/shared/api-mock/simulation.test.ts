@@ -100,4 +100,79 @@ describe('simulateBatch', () => {
     );
     expect(results[0].outcome).toBe('ambiguous');
   });
+
+  it('advances sequence across samples when sequential', () => {
+    const r1 = createDefaultResponse('a');
+    r1.status = 200;
+    const r2 = createDefaultResponse('b');
+    r2.status = 201;
+    r2.isDefault = false;
+    const seqRoute = route({
+      responseMode: 'sequence',
+      responses: [r1, r2],
+    });
+    const results = simulateBatch(
+      [sample({ id: 's1' }), sample({ id: 's2' })],
+      { routes: [seqRoute], seed: 'seq-batch', sequentialBatch: true },
+    );
+    expect(results[0].renderedResponse?.status).toBe(200);
+    expect(results[1].renderedResponse?.status).toBe(201);
+  });
+});
+
+describe('simulateSingle Phase 7 preview', () => {
+  it('renders response body and virtual delay', () => {
+    const resp = createDefaultResponse('resp-1');
+    resp.body = { kind: 'json', content: '{"ok":true}', contentType: 'application/json' };
+    resp.behavior.delayMs = 50;
+    const result = simulateSingle(sample(), { routes: [route({ responses: [resp] })], seed: 'd1' });
+    expect(result.outcome).toBe('matched');
+    expect(result.renderedResponse?.body).toContain('ok');
+    expect(result.preview?.virtualDelayMs).toBe(50);
+    expect(result.preview?.selectedResponseId).toBe('resp-1');
+  });
+
+  it('reports fault outcome for reset without HTTP body', () => {
+    const resp = createDefaultResponse('resp-1');
+    resp.behavior.fault = 'reset';
+    const result = simulateSingle(sample(), { routes: [route({ responses: [resp] })], seed: 'f1' });
+    expect(result.outcome).toBe('fault');
+    expect(result.preview?.fault).toBe('reset');
+    expect(result.preview?.httpCompleted).toBe(false);
+    expect(result.renderedResponse?.body).toBeNull();
+  });
+
+  it('selects weighted response with seed', () => {
+    const a = createDefaultResponse('a');
+    a.weight = 1;
+    a.status = 200;
+    const b = createDefaultResponse('b');
+    b.weight = 99;
+    b.status = 201;
+    b.isDefault = false;
+    const result = simulateSingle(
+      sample(),
+      { routes: [route({ responseMode: 'weighted', responses: [a, b] })], seed: 'w-seed' },
+    );
+    expect(result.preview?.selectedResponseId).toBeTruthy();
+    expect([200, 201]).toContain(result.renderedResponse?.status);
+  });
+
+  it('previews state transition without mutating input runtime', () => {
+    const start = createDefaultResponse('start');
+    start.transition = { currentState: '', targetState: 'opened' };
+    start.status = 200;
+    const next = createDefaultResponse('next');
+    next.isDefault = false;
+    next.transition = { currentState: 'opened', targetState: 'done' };
+    next.status = 201;
+    const runtime = { scenario: { states: {}, counters: {} } };
+    const first = simulateSingle(
+      sample({ id: 's1' }),
+      { routes: [route({ responseMode: 'state', responses: [start, next] })], runtime, seed: 'st' },
+    );
+    expect(first.preview?.stateAfter).toBe('opened');
+    expect(first.preview?.transitionApplied).toBe(true);
+    expect(runtime.scenario?.states).toEqual({});
+  });
 });

@@ -7,6 +7,7 @@ import '@testing-library/jest-dom';
 import { ApiMockResponseEditor } from './ApiMockResponseEditor';
 import { createDefaultResponse } from '../../../shared/api-mock/defaults';
 import type { ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
+import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
 
 const ts = '2026-08-12T00:00:00.000Z';
 
@@ -33,6 +34,36 @@ function openResponseTab(label: string) {
 }
 
 describe('ApiMockResponseEditor', () => {
+  it('edits dribble chunk schedule, match limit, and state counters', () => {
+    const onUpdateRoute = vi.fn();
+    const resp = createDefaultResponse('resp-1');
+    resp.behavior.fault = 'dribble';
+    resp.behavior.chunkSchedule = [{ afterMs: 10, body: 'a' }];
+    resp.transition = { currentState: '', targetState: 'open', counterUpdates: [{ key: 'hits', delta: 1 }] };
+    render(
+      <ApiMockResponseEditor
+        route={makeRoute({ responseMode: 'state', responses: [resp] })}
+        onUpdateRoute={onUpdateRoute}
+        sequencePosition={2}
+      />,
+    );
+
+    openResponseTab('faults');
+    expect(screen.getByTestId('api-mock-chunk-schedule')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-chunk-add'));
+    expect(onUpdateRoute).toHaveBeenCalled();
+
+    openResponseTab('timing');
+    fireEvent.change(screen.getByTestId('api-mock-variant-max-matches'), { target: { value: '3' } });
+    expect(onUpdateRoute).toHaveBeenLastCalledWith(expect.objectContaining({
+      responses: [expect.objectContaining({ behavior: expect.objectContaining({ maxMatches: 3 }) })],
+    }));
+
+    openResponseTab('selection');
+    fireEvent.click(screen.getByTestId('api-mock-counter-add'));
+    expect(onUpdateRoute).toHaveBeenCalled();
+  });
+
   it('updates status, content type, body, delay, and jitter', () => {
     const onUpdateRoute = vi.fn();
     render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={onUpdateRoute} />);
@@ -40,8 +71,10 @@ describe('ApiMockResponseEditor', () => {
     fireEvent.change(screen.getByTestId('api-mock-variant-status'), { target: { value: '204' } });
     expect(onUpdateRoute).toHaveBeenCalledWith(expect.objectContaining({ responses: [expect.objectContaining({ status: 204 })] }));
 
-    fireEvent.change(screen.getByTestId('api-mock-variant-content-type'), { target: { value: 'application/json' } });
-    expect(onUpdateRoute).toHaveBeenLastCalledWith(expect.objectContaining({ responses: [expect.objectContaining({ body: expect.objectContaining({ contentType: 'application/json' }) })] }));
+    const ct = screen.getByTestId('api-mock-variant-content-type-select');
+    fireEvent.click(ct.querySelector('.cs-trigger') as HTMLElement);
+    fireEvent.click(document.querySelector('[role="option"][data-value="text/plain"]') as HTMLElement);
+    expect(onUpdateRoute).toHaveBeenLastCalledWith(expect.objectContaining({ responses: [expect.objectContaining({ body: expect.objectContaining({ contentType: 'text/plain' }) })] }));
 
     fireEvent.change(screen.getByTestId('api-mock-variant-body'), { target: { value: '{"ok":true}' } });
     expect(onUpdateRoute).toHaveBeenLastCalledWith(expect.objectContaining({ responses: [expect.objectContaining({ body: expect.objectContaining({ content: '{"ok":true}' }) })] }));
@@ -69,8 +102,12 @@ describe('ApiMockResponseEditor', () => {
     expect(onUpdateRoute).toHaveBeenLastCalledWith(expect.objectContaining({ responses: [expect.objectContaining({ behavior: expect.objectContaining({ jitterMs: 0 }) })] }));
 
     openResponseTab('content');
-    fireEvent.change(screen.getByTestId('api-mock-variant-content-type'), { target: { value: '' } });
-    expect(onUpdateRoute).toHaveBeenLastCalledWith(expect.objectContaining({ responses: [expect.objectContaining({ body: expect.objectContaining({ kind: 'none', content: '' }) })] }));
+    // Choosing "Custom…" reveals a free-text content type field.
+    const ct = screen.getByTestId('api-mock-variant-content-type-select');
+    fireEvent.click(ct.querySelector('.cs-trigger') as HTMLElement);
+    fireEvent.click(document.querySelector('[role="option"][data-value="__custom__"]') as HTMLElement);
+    fireEvent.change(screen.getByTestId('api-mock-variant-content-type'), { target: { value: 'application/vnd.acme+json' } });
+    expect(onUpdateRoute).toHaveBeenLastCalledWith(expect.objectContaining({ responses: [expect.objectContaining({ body: expect.objectContaining({ contentType: 'application/vnd.acme+json' }) })] }));
   });
 
   it('adds and deletes response variants when multiple variants exist', () => {
@@ -81,13 +118,13 @@ describe('ApiMockResponseEditor', () => {
     fireEvent.click(screen.getByTestId('api-mock-add-variant'));
     expect(onUpdateRoute).toHaveBeenCalledWith(expect.objectContaining({ responses: expect.arrayContaining([expect.objectContaining({ name: 'Variant 3' })]) }));
 
-    fireEvent.click(screen.getByTestId('api-mock-delete-variant'));
+    fireEvent.click(screen.getByTestId('api-mock-delete-variant-resp-1'));
     expect(onUpdateRoute).toHaveBeenLastCalledWith(expect.objectContaining({ responses: [expect.objectContaining({ id: 'resp-2' })] }));
   });
 
   it('does not render a delete button when there is only one variant', () => {
     render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={vi.fn()} />);
-    expect(screen.queryByTestId('api-mock-delete-variant')).toBeNull();
+    expect(document.querySelector('[data-testid^="api-mock-delete-variant-"]')).toBeNull();
   });
 
   it('renders populated headers and cookies on the headers tab', () => {
@@ -111,7 +148,51 @@ describe('ApiMockResponseEditor', () => {
     expect(screen.getByDisplayValue('X-Debug')).toBeTruthy();
     expect(screen.getByDisplayValue('sid')).toBeTruthy();
     expect(screen.getByDisplayValue('mode')).toBeTruthy();
-    expect(screen.getByText(/HttpOnly Secure Lax/)).toBeTruthy();
+    expect(screen.getByTestId('api-mock-cookie-httpOnly-c1')).toBeChecked();
+  });
+
+  it('adds editable cookies and selects fault cards', () => {
+    const onUpdateRoute = vi.fn();
+    render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={onUpdateRoute} />);
+    openResponseTab('headers');
+    fireEvent.click(screen.getByTestId('api-mock-add-cookie'));
+    expect(onUpdateRoute).toHaveBeenCalled();
+    const withCookie = onUpdateRoute.mock.calls.at(-1)?.[0];
+    expect(withCookie.responses[0].cookies).toHaveLength(1);
+
+    openResponseTab('faults');
+    fireEvent.click(screen.getByTestId('api-mock-fault-reset'));
+    const withFault = onUpdateRoute.mock.calls.at(-1)?.[0];
+    expect(withFault.responses[0].behavior.fault).toBe('reset');
+  });
+
+  it('edits selection mode, weight, and scenario states', () => {
+    const onUpdateRoute = vi.fn();
+    const { rerender } = render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={onUpdateRoute} />);
+    openResponseTab('selection');
+    expect(screen.getByTestId('api-mock-selection-condition').textContent).toMatch(/Default variant/i);
+
+    fireEvent.click(screen.getByTestId('api-mock-selection-default'));
+    expect(onUpdateRoute).toHaveBeenCalled();
+
+    // CustomSelect menu needs real layout; drive mode via its set-value event in jsdom.
+    fireEvent(
+      screen.getByTestId('api-mock-response-mode'),
+      new CustomEvent(CUSTOM_SELECT_SET_VALUE_EVENT, { detail: { value: 'weighted' }, bubbles: true }),
+    );
+    expect(onUpdateRoute.mock.calls.some(c => c[0].responseMode === 'weighted')).toBe(true);
+
+    rerender(<ApiMockResponseEditor route={makeRoute({ responseMode: 'weighted' })} onUpdateRoute={onUpdateRoute} />);
+    openResponseTab('selection');
+    fireEvent.change(screen.getByTestId('api-mock-variant-weight'), { target: { value: '3' } });
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].weight).toBe(3);
+
+    rerender(<ApiMockResponseEditor route={makeRoute({ responseMode: 'state' })} onUpdateRoute={onUpdateRoute} />);
+    openResponseTab('selection');
+    fireEvent.change(screen.getByTestId('api-mock-variant-required-state'), { target: { value: 'Started' } });
+    fireEvent.change(screen.getByTestId('api-mock-variant-next-state'), { target: { value: 'Active' } });
+    const last = onUpdateRoute.mock.calls.at(-1)?.[0];
+    expect(last.responses[0].transition.targetState).toBe('Active');
   });
 
   it('renders preview pane, empty placeholders, and helper notice', () => {

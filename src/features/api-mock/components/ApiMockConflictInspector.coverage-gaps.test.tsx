@@ -54,7 +54,7 @@ describe('ApiMockConflictInspector coverage gaps', () => {
       <ApiMockConflictInspector findings={[makeFinding(), dup]} routes={routes} focusRouteId="r-b" onSelectRoute={onSelectRoute} />,
     );
 
-    expect(screen.getByTestId('api-mock-conflict-detail').textContent).toContain('Outcome: reject ambiguous.');
+    expect(screen.getByTestId('api-mock-conflict-detail').textContent).toMatch(/409|reject ambiguous/i);
     expect(screen.getByTestId('api-mock-conflict-detail').textContent).toContain('Method differs');
 
     fireEvent.click(screen.getByTestId('api-mock-conflict-goto-right'));
