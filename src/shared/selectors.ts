@@ -21,3 +21,4 @@ export { GRPC } from './selectors/grpc';
 export { REQ } from './selectors/req';
 export { CAT } from './selectors/cat';
 export { HAR } from './selectors/har';
+export { API_MOCK, AMS } from './selectors/apiMock';

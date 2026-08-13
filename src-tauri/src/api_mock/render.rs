@@ -1,6 +1,8 @@
 //! Restricted template + static response rendering (native subset of templateEngine.ts).
 
+use crate::api_mock::faker::render_faker_helper;
 use crate::api_mock::path_match::{match_path, strip_base_path};
+use crate::api_mock::transforms::apply_transforms;
 use crate::api_mock::types::{CapturedRequest, Route, ScenarioState, ServerDefinition, Variant};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -62,14 +64,22 @@ pub fn render_variant(
             ));
         }
     }
+    let mut status = variant.status;
+    if let Some(rules) = variant.transforms.as_deref() {
+        if !rules.is_empty() {
+            apply_transforms(&mut status, &mut headers, &mut body, rules, |raw| {
+                apply_template(raw, request, &path_params, def, scenario, seed)
+            });
+        }
+    }
     Rendered {
-        status: variant.status,
+        status,
         headers,
         body,
     }
 }
 
-fn apply_template(
+pub(crate) fn apply_template(
     value: &str,
     request: &CapturedRequest,
     path_params: &HashMap<String, String>,
@@ -80,6 +90,7 @@ fn apply_template(
     if !value.contains("{{") {
         return value.to_string();
     }
+    let mut ops: u32 = 0;
     let mut out = String::new();
     let mut rest = value;
     while let Some(start) = rest.find("{{") {
@@ -87,7 +98,7 @@ fn apply_template(
         rest = &rest[start + 2..];
         if let Some(end) = rest.find("}}") {
             let expr = rest[..end].trim();
-            out.push_str(&eval_expr(expr, request, path_params, def, scenario, seed));
+            out.push_str(&eval_expr(expr, request, path_params, def, scenario, seed, &mut ops));
             rest = &rest[end + 2..];
         } else {
             out.push_str("{{");
@@ -105,9 +116,17 @@ fn eval_expr(
     def: &ServerDefinition,
     scenario: &ScenarioState,
     seed: &str,
+    ops: &mut u32,
 ) -> String {
-    if expr.starts_with("faker") {
-        return String::new();
+    *ops = ops.saturating_add(1);
+    if let Some(rest) = expr.strip_prefix("faker") {
+        let path = unquote(rest.trim());
+        let path = path.trim_start_matches('.').trim();
+        if path.is_empty() {
+            return String::new();
+        }
+        let draw = seeded_int(&format!("{seed}:{path}:{ops}"), 0, 0x7fff_ffff);
+        return render_faker_helper(path, draw);
     }
     if let Some(rest) = expr.strip_prefix("pathParam ") {
         let key = unquote(rest.trim());

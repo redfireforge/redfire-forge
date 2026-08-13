@@ -1,7 +1,7 @@
 # API Mock Studio - Product and Implementation Plan
 
 > **Branch:** `feautre/apimock`
-> **Status:** Phases 0–9, 10A–10E (HTTPS + mTLS + native Rust desktop listener), 11, and 12A–12C delivered. Desktop API Mock listen/journal uses the native Rust listener; the Node sidecar remains for Kafka/GraphQL/webhooks/TLS cert generation. Node TLS listeners still serve **HTTP/2** (`h2` ALPN with HTTP/1.1 fallback). Native HTTPS is **HTTP/1.1 only**. **12D–12E** (docs, gallery, Demo Hub, CHANGELOG/README/ROADMAP, Playwright E2E) deferred until a later docs/release pass. **P2 depth/polish** and **P3 HTTP/2 + route-delete undo + native listener** delivered 2026-08-13. See §11.3.
+> **Status:** Phases 0–9, 10A–10E, 11, and 12A–12D delivered. **12D exit met** 2026-08-13 (`docs/guides/api-mock/` + Tracks A–C evidence on web and Tauri). **12E in progress** (selectors + Gallery samples done; Demo Hub, Playwright, README/ROADMAP/CHANGELOG still open). Desktop listen/journal is the native Rust listener; the Node sidecar remains for Kafka/GraphQL/webhooks and TLS cert generation. **Node and native TLS** serve HTTP/2 (`h2` ALPN + HTTP/1.1 fallback); plaintext is HTTP/1.1 only (no h2c). **No remaining `NATIVE_NO_*` capability warnings**. Checklist: [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md).
 > **Created:** 2026-08-11
 > **Last updated:** 2026-08-13
 > **Target:** RedfireForge web development runtime and Tauri desktop
@@ -85,10 +85,10 @@ Product goals describe the eventual studio; they do not imply every capability s
 | Canonical JSON export/import | Phase 6 | **Shipped.** |
 | YAML, CLI, CI verification, and WireMock export | Phase 8 | **Shipped.** CLI `mock start` uses the companion or in-process `--standalone`; `mock verify` asserts the live journal (`--simulate` for offline corpus). Docker/CI examples in `examples/api-mock/`. |
 | Proxy, recording, callbacks, transformations, and HAR | Phase 9 | **Shipped** including HAR import and HAR export with a loss report. |
-| HTTPS, mTLS, and native Rust listener | Phase 10 | **HTTPS + mTLS issuance + `certSubject` matching shipped.** Node TLS listeners serve **HTTP/2** (`h2` ALPN) with HTTP/1.1 fallback. **Native Rust listener (10D–10E) shipped** on Tauri desktop (HTTP/1.1; capability warnings before Start/Apply). Web + CLI keep the Node companion. |
+| HTTPS, mTLS, and native Rust listener | Phase 10 | **Shipped.** HTTPS + mTLS + `certSubject`. Node and native TLS serve **HTTP/2** (`h2` ALPN + HTTP/1.1 fallback; no h2c). Native listener on Tauri; web + CLI keep the Node companion. `NATIVE_NO_*` warnings empty. |
 | Workflow/Test Runner lifecycle and call assertions | Phase 11 | **Shipped** (Start/Apply/Reset/Stop/Assert nodes + Test Runner fixture + results `apiMockDetails`). |
 | Hardening / a11y / recovery | Phase 12A–12C | **Shipped.** |
-| Docs, gallery, demos, product changelog | Phase 12D–12E | **Deferred** (docs/release pass later). |
+| Docs, gallery, demos, product changelog | Phase 12D–12E | **12D exit met** (`docs/guides/api-mock/` + `VALIDATION_RECORD.md`). **12E in progress** — selectors + Gallery `api-mock` (3 samples); Demo Hub / Playwright / README sync still open. |
 
 “Unavailable” means the production UI does not present an apparently functional control. A design mockup may show a future capability only with an explicit phase label and disabled treatment.
 
@@ -113,8 +113,8 @@ This table summarizes the architectural choices that shaped the design. Section 
 | Template engine | Restricted Handlebars-compatible expressions and curated helpers | Familiar syntax without arbitrary code execution. |
 | Persistence | Lightweight tab shell plus IndexedDB/Tauri-backed definitions | Route bodies and journals can exceed localStorage limits. |
 | Web support | Node companion listeners started through control APIs | Browsers cannot bind listening ports. Web UI remains usable when the companion server is running. |
-| Tauri support | Phase 1 uses the companion runtime; native Rust listener is a later parity phase | One behaviorally correct engine is safer than implementing TypeScript and Rust engines simultaneously. |
-| Protocol scope | HTTP/1.1, HTTPS, and HTTP/2 (`h2` ALPN with HTTP/1.1 fallback) via the companion; mTLS issuance and `certSubject` matching shipped | TLS shipped because most target REST APIs are HTTPS. HTTP/2 is available on TLS listeners; plaintext remains HTTP/1.1 (no h2c). |
+| Tauri support | Native Rust listener on desktop (`api_mock_listener_*`); Node companion for web/CLI, TLS PEM issuance, and non-HTTP protocols | Phase 1 started on one TypeScript engine; 10D–10E added native listen/journal without a second UI contract. |
+| Protocol scope | HTTP/1.1, HTTPS, and HTTP/2 (`h2` ALPN with HTTP/1.1 fallback) on **both** the Node companion and the native Tauri listener; mTLS issuance and `certSubject` matching shipped | TLS shipped because most target REST APIs are HTTPS. HTTP/2 is available on TLS listeners; plaintext remains HTTP/1.1 (no h2c). |
 | Tab limit | Eight open/running-capable Mock Servers | Matches protocol-studio conventions and limits sockets/polling; an empty workspace starts with zero and saved closed definitions are not capped. |
 
 ### 3.2 Rejected Alternatives
@@ -1803,13 +1803,26 @@ All limit failures use stable diagnostic codes and record the configured value, 
 | 7 | Stateful, sequence, probability, faults | Complete | 2026-08-11 | 2026-08-11 | - |
 | 8 | Export, CLI, CI, verification | Complete | 2026-08-11 | 2026-08-13 | - |
 | 9 | Proxy, record/playback, callbacks | Complete | 2026-08-11 | 2026-08-13 | - |
-| 10 | HTTPS/native Tauri parity | Complete — 10A–10E (HTTPS + mTLS + native Rust desktop listener + TS/native corpus) | 2026-08-11 | 2026-08-13 | - |
+| 10 | HTTPS/native Tauri parity | Complete — 10A–10E (HTTPS + mTLS + native Rust desktop listener + TS/native corpus + post-ship parity review) | 2026-08-11 | 2026-08-13 | - |
 | 11 | Workflow/Test Runner integration | Complete | 2026-08-11 | 2026-08-11 | - |
-| 12 | Hardening, accessibility, docs, demos | Partial — 12A–12C complete; 12D–12E deferred (docs/release later) | 2026-08-12 | - | - |
+| 12 | Hardening, accessibility, docs, demos | Partial — 12A–12D complete; **12E in progress** (selectors + gallery samples; Demo Hub / Playwright / changelog open) | 2026-08-12 | - | - |
 
 ### 11.3 Remaining work after 12C (2026-08-13)
 
-Docs/release (**12D–12E**) is explicitly deferred. Everything below is product/engine/UX that can still be tackled independently.
+**Engine / native listener:** no deferred feature gaps. `analyzeNativeUnsupported` / `native_capability_warnings` return empty (`NATIVE_UNAVAILABLE_OPERATORS` is empty). Sidecar is still required for TLS PEM issuance and non-HTTP protocols.
+
+**Intentional runtime differences (not deferred work):** commit does not rebind port/TLS (matches Node); NOT combinator fail-closes when a child is `evaluated: false`; XML Schema is an element-presence subset, not full XSD (both runtimes); plaintext has no h2c; native malformed faults RST_STREAM one HTTP/2 stream (Node destroys the session).
+
+**Still open (docs / demos / release only):**
+
+| Status | Item |
+|---|---|
+| **12E incomplete** | Demo Hub AM-1…AM-4, Playwright multi-server E2E, README/ROADMAP/CHANGELOG/conventions. 12D evidence is in [`VALIDATION_RECORD.md`](../../guides/api-mock/screenshots/VALIDATION_RECORD.md). |
+| **12E deferred** | Gallery `api-mock` domain; Demo Hub lessons; barrel-export `src/shared/selectors/apiMock.ts`; Playwright multi-server E2E; `README.md` / `ROADMAP.md` / `CHANGELOG.md` / `.cursor/rules/project-conventions.mdc` sync. |
+| **12B human pass** | Manual keyboard / 200% zoom / screen-reader pass is not recorded (automated a11y wiring shipped in 12B). |
+| **Out of scope (not v1)** | mitmproxy-style interception; full WireMock/OpenAPI fidelity; full XSD engine; unrestricted scripts; HTTP/2 cleartext (`h2c`). |
+
+**12D** guide set authored (`docs/guides/api-mock/`). Everything in the table below is product/engine/UX (all **Done**).
 
 | Priority | Item | Notes |
 |---|---|---|
@@ -1826,9 +1839,9 @@ Docs/release (**12D–12E**) is explicitly deferred. Everything below is product
 | P2 | Responsive route drawer | **Done 2026-08-13.** Overlay drawer at `<=700px`; full-width panel and wrapping address at `<=420px`. |
 | P2 | Data Mapper integration | **Done 2026-08-13.** `createApiMockBodyAdapter` + **Map body** in the response editor. |
 | P2 | Local diagnostics (§13) | **Done 2026-08-13.** `GET /api/mock/servers/:id/diagnostics` + Runtime Diagnostics tab: match duration, journal drops/truncations, connections, outcome counts. No raw payloads. |
-| P3 | Native Rust listener + HTTP/2 | **HTTP/2 shipped 2026-08-13** on the Node TLS listener. **10D–10E native Rust listener shipped 2026-08-13** — Tauri desktop `invoke`s `api_mock_listener_*` (hyper HTTP/1.1 + optional rustls). Sidecar remains for TLS cert generation and other protocols. Studio shows capability warnings for unsupported native features. |
+| P3 | Native Rust listener + HTTP/2 | **Done 2026-08-13.** Node and native TLS serve HTTP/2 (`h2` ALPN + HTTP/1.1 fallback; no h2c). Tauri desktop `invoke`s `api_mock_listener_*`. Hop-by-hop headers stripped on native HTTP/2 responses (Node `responseHeadersFor` parity). `cargo test api_mock` — 150 passed. Sidecar remains for TLS cert generation and other protocols. **No remaining `NATIVE_NO_*` warnings.** |
 | P3 | Route-delete undo | **Done 2026-08-13.** Confirm still gates delete; a 5s undo toast restores the rule at its prior index and re-attaches surviving examples (Cmd+Z while the toast is open). |
-| later | **12D–12E** | Product docs, gallery, Demo Hub, CHANGELOG/README/ROADMAP, Playwright multi-server E2E, 12B manual a11y/zoom pass. **Execution checklist:** [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md). |
+| later | **12D evidence + 12E** | 12D guides done; still need Tracks A–C validation screenshots, then gallery, Demo Hub, CHANGELOG/README/ROADMAP, Playwright multi-server E2E, 12B manual a11y/zoom pass. **Checklist:** [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md). |
 
 ### 11.2 Sub-Phase Execution Rules
 
@@ -2628,7 +2641,7 @@ Deliverables:
 
 Gate: complete threat model and SSRF/security review before implementation.
 
-### Phase 10 - HTTPS and Native Tauri Parity (10A–10E shipped; HTTP/2 on Node TLS; native HTTPS is HTTP/1.1)
+### Phase 10 - HTTPS and Native Tauri Parity (10A–10E shipped; HTTP/2 on Node and native TLS)
 
 #### Detailed Sub-Phases
 
@@ -2637,8 +2650,8 @@ Gate: complete threat model and SSRF/security review before implementation.
 | 10A | Finalize TLS/mTLS contracts, certificate source/storage model, secret masking, capability negotiation, and modal UX. **Completed 2026-08-11.** | Phase 8 complete | No PEM secret enters normal exports/logs; invalid/missing/expired certificates produce actionable validation. |
 | 10B | Add Node HTTPS listener with generated/imported certificates, TLS versions/ciphers defaults, hot-restart policy, and HTTPS status metadata. **Completed 2026-08-11.** **HTTP/2 follow-up 2026-08-13:** TLS listeners use `http2.createSecureServer({ allowHTTP1: true })` (ALPN `h2` + HTTP/1.1). Plain HTTP stays HTTP/1.1 (no h2c). | 10A, 2E | Real TLS clients pass trusted/untrusted/hostname/version cases; HTTP/2 and HTTP/1.1 clients share the TLS port; listener cleanup and port ownership match HTTP behavior. |
 | 10C | Add optional mTLS and client-certificate match attributes with safe subject/SAN/fingerprint exposure and redacted traces. **Completed 2026-08-13** (handshake/issuance 2026-08-12; `certSubject` matching + journal-safe peer attrs 2026-08-13). | 10B, 1C | Required/optional/invalid client-cert cases pass; private key and raw certificate material never appear in traces. |
-| 10D | Implement native Rust listener adapter using the serialized shared contract, Tauri lifecycle/storage integration, and explicit capability differences. **Completed 2026-08-13.** | 10A, stable Phase 1 corpus | Native listener passes core start/stop/match/respond/journal cases without creating a second UI contract. |
-| 10E | Run TypeScript/native parity corpus for matching, selection, templates, state, errors, limits, and TLS; document or close every divergence. **Completed 2026-08-13.** | 10C-10D | No unexplained behavioral divergence remains; users see capability warnings before applying unsupported definitions. |
+| 10D | Implement native Rust listener adapter using the serialized shared contract, Tauri lifecycle/storage integration, and explicit capability differences. **Completed 2026-08-13.** Post-ship review the same day closed stop/drain, journal duration, and fallback `{{requestId}}` bugs. | 10A, stable Phase 1 corpus | Native listener passes core start/stop/match/respond/journal cases without creating a second UI contract. |
+| 10E | Run TypeScript/native parity corpus for matching, selection, templates, state, errors, limits, and TLS; document or close every divergence. **Completed 2026-08-13.** Post-ship review closed remaining matcher/selection/eligibility divergences. Native HTTP/2, proxy, recording, callbacks, transforms, faker, journal disk, passphrase TLS, and xpath/xml/multipart followed the same day. `NATIVE_UNAVAILABLE_OPERATORS` is empty. | 10C-10D | No unexplained behavioral divergence remains; `analyzeNativeUnsupported` / `native_capability_warnings` are empty. |
 
 Deliverables:
 
@@ -2682,8 +2695,8 @@ Acceptance:
 | 12A | Establish performance budgets and optimize startup/matching/commit/journal for 100/500/2,000 rules and eight concurrent servers. Budgets are frozen in Section 12.3.1 and mirrored in `perfBudgets.ts`; optimizations cover cached pattern compilation, single-pass base-path stripping, indexed route lookup, per-request body-parse memoization, and a bounded journal ring buffer. **Completed 2026-08-12.** | MVP phases complete | p95 budgets and memory ceilings in Section 12.3.1 pass with representative exact/regex/JSONPath/json_subset mixes (schema operators deferred per Phase 1) and no leaked ports/timers/listeners. |
 | 12B | Complete WCAG keyboard, focus, accessible-name, contrast, reduced-motion, screen-reader, responsive, and zoom audit across all workflows. **Completed 2026-08-12.** | UI phases complete | Automated accessibility checks plus manual keyboard/Chrome review pass at desktop/tablet/mobile and 200% zoom. |
 | 12C | Run recovery/security/reliability drills for companion crash, stale UI state, corrupt storage, migration failure, port theft, oversized traffic, secret export, and shutdown. **Completed 2026-08-12.** | Runtime phases complete | Every drill has tested recovery behavior, user-facing diagnostics, and no silent data/runtime corruption. |
-| 12D | Write architecture, contracts, security, migration, operations, CLI, troubleshooting, and training manual with an exact end-to-end sample walkthrough. **Deferred — docs/release pass later.** See [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md) §4. | 12A-12C | Walkthrough matches actual labels/files/results on fresh web and Tauri workspaces; all commands and screenshots are current. |
-| 12E | Add Gallery samples and Demo Hub lessons, selectors, focused unit/E2E coverage, final plan/README/ROADMAP/CHANGELOG sync, and release readiness evidence. **Deferred — docs/release pass later.** See [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md) §5. | 12D | Samples import/run end-to-end; lesson checklist passes; full merge gates pass before requesting user approval. |
+| 12D | Write architecture, contracts, security, migration, operations, CLI, troubleshooting, and training manual with an exact end-to-end sample walkthrough. **Exit met 2026-08-13** — guides + Tracks A–C evidence (web Playwright + Tauri MCP) in [`docs/guides/api-mock/`](../../guides/api-mock/) / [`VALIDATION_RECORD.md`](../../guides/api-mock/screenshots/VALIDATION_RECORD.md). Checklist: [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md) §4. | 12A-12C | Walkthrough matches actual labels/files/results on fresh web and Tauri workspaces; all commands and screenshots are current. |
+| 12E | Add Gallery samples and Demo Hub lessons, selectors, focused unit/E2E coverage, final plan/README/ROADMAP/CHANGELOG sync, and release readiness evidence. **In progress** — selectors + Gallery samples done. Lessons plan: [`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md). Checklist: [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md) §5. | 12D | Samples import/run end-to-end; lesson checklist passes; full merge gates pass before requesting user approval. |
 
 Deliverables:
 
@@ -2699,7 +2712,7 @@ Acceptance:
 - [x] 2,000-route server startup and matching meet agreed latency budgets. *(12A — `perfBudgets.ts` + `perf.bench.test.ts` / `apiMockPerf.test.ts`.)*
 - [x] Eight-server lifecycle soak has no leaked ports/timers/listeners. *(12A.)*
 - [ ] Full product quality gates pass. *(Product coverage ≥90% as of 2026-08-13; Playwright multi-server E2E and docs sync are 12E.)*
-- [ ] Web and Tauri walkthroughs pass from fresh imported sample data. *(12D–12E.)*
+- [x] Web and Tauri walkthroughs pass from fresh imported sample data. *(12D Tracks A–C evidence 2026-08-13 in `docs/guides/api-mock/screenshots/VALIDATION_RECORD.md` — 12E Demo Hub lessons still open.)*
 
 ---
 
@@ -2815,15 +2828,15 @@ Phase 0A adopted the product and cross-phase boundaries below. “Pending” row
 | Variable precedence | Mock-server/tab scope overrides selected environment, which overrides workspace. Missing values remain explicit unresolved diagnostics. | Adopted | Phase 0A; policy examples Phase 0E |
 | Default unmatched response | Sanitized JSON 404 with request ID. Server settings can replace status/headers/body; internal near misses are excluded by default. | Adopted | Phase 0A; implement Phases 2/3 |
 | LAN binding | Loopback default. Selecting `0.0.0.0` requires explicit confirmation before Start and an always-visible LAN badge. | Adopted | Phase 0A; implement Phases 2/3 |
-| Logs on disk | Off by default; bounded/redacted memory journal is authoritative during runtime. When `persistToDisk` is on, the companion writes a capped redacted JSON snapshot under the OS temp dir (`redfireforge-api-mock-journals/`) so the log survives companion restart. | Adopted — memory journal + optional disk snapshot | Phase 5 |
+| Logs on disk | Off by default; bounded/redacted memory journal is authoritative during runtime. When `persistToDisk` is on, both the Node companion and the native listener write a capped redacted JSON snapshot under the OS temp dir (`redfireforge-api-mock-journals/`). | Adopted — memory journal + optional disk snapshot | Phase 5 |
 | Template syntax | Restricted Handlebars-compatible syntax under Phase 0A operation/output ceilings. | Adopted boundary | Phase 1/4 library and grammar review. |
 | Regex dialect | JavaScript-compatible syntax and explicit supported flags; reject unsupported/unsafe patterns. | Adopted boundary | Phase 1 implementation review. |
 | JSONPath engine | Reuse/extend `src/shared/utils/jsonPath.ts`; avoid a second incompatible dialect. | Adopted boundary | Phase 1 gap assessment. |
 | XML dependency | XPath matching shipped (`xpathMatcher.ts`). JSON Schema uses Ajv. XML Schema is well-formedness plus required element local-names extracted from a name list or a minimal `xs:element`/`xsd:element` subset — not a full XSD engine. Multipart and `binary_sha256` evaluate in-process. | Adopted — P2 libraries 2026-08-13 | Phase 1 revisit closed |
 | Automatic specificity | Applied only after explicit priority and only when configured; integer score and breakdown are visible. | Adopted | Phase 0A; weights Phase 1 |
-| HTTPS/mTLS | HTTPS + mTLS issuance and `certSubject` matching shipped (Phase 10A–10C). HTTP/2 (`h2` ALPN) shipped on Node TLS listeners. Native HTTPS is HTTP/1.1 only. | Adopted — TLS/mTLS matching done; HTTP/2 on sidecar; native HTTP/1.1 | Phase 10 |
-| Native Tauri listener | **Shipped (10D–10E).** Desktop `isTauri()` routes listen/journal/state to `api_mock_listener_*` Tauri commands. Web + CLI keep the Node companion. Sidecar still generates TLS PEMs and runs other protocols. Capability warnings (`analyzeNativeUnsupported`) before Start/Apply. | Adopted — native optional desktop path; sidecar remains | Phase 10D |
-| Proxy/callback/recording | Shipped after 9A policy approval (allowlist, DNS validation, credential strip, anti-recursion). HAR export not shipped. | Adopted — Phase 9 complete except HAR export | Phase 9 |
+| HTTPS/mTLS | HTTPS + mTLS issuance and `certSubject` matching shipped (Phase 10A–10C). HTTP/2 (`h2` ALPN) on Node and native TLS listeners; plaintext stays HTTP/1.1 (no h2c). | Adopted — TLS/mTLS matching done; HTTP/2 on sidecar and native | Phase 10 |
+| Native Tauri listener | **Shipped (10D–10E) + parity review + native HTTP/2 2026-08-13.** Desktop `isTauri()` routes listen/journal/state to `api_mock_listener_*`. Web + CLI keep the Node companion. Sidecar still generates TLS PEMs and runs other protocols. `analyzeNativeUnsupported` / `native_capability_warnings` remain wired but currently return empty. | Adopted — native desktop path; sidecar remains for TLS issuance and non-HTTP protocols | Phase 10D |
+| Proxy/callback/recording | Shipped after 9A policy approval (allowlist, DNS validation, credential strip, anti-recursion). HAR import and HAR export with `_lossReport` shipped. Native unmatched proxy + recording drafts shipped. | Adopted — Phase 9 complete | Phase 9 |
 | WireMock compatibility | Import reviewed inactive subset in Phase 6; export subset plus exhaustive loss report in Phase 8; never claim full emulation. | Adopted — import + export shipped | Phase 0A |
 
 ---
@@ -2834,8 +2847,8 @@ MVP consists of Phases **0-6** with these mandatory outcomes:
 
 - [x] GUI-first server/route/response configuration.
 - [x] Multiple tabs running distinct servers on distinct ports.
-- [x] Deterministic exact/pattern/semantic JSON matching. *(JSON Schema / multipart / `binary_sha256` still stubbed.)*
-- [x] Professional pattern toolbox with live positive/negative samples and runtime-parity evaluation. *(Path + JSONPath; not every matcher row.)*
+- [x] Deterministic exact/pattern/semantic JSON matching. *(JSON Schema / multipart / `binary_sha256` / XPath / XML element-presence subset shipped in P2.)*
+- [x] Professional pattern toolbox with live positive/negative samples and runtime-parity evaluation. *(Wand on regex / glob / JSONPath / XPath / schema rows.)*
 - [x] Multiple prioritized rules with configurable ambiguity and equal-priority policies.
 - [x] Pre-Apply conflict analysis identifies duplicates, definite/potential overlaps, shadowing, and unreachable rules with actionable evidence.
 - [x] Static and safely templated responses with latency.
@@ -2849,7 +2862,7 @@ MVP consists of Phases **0-6** with these mandatory outcomes:
 - [x] Web companion runtime and Tauri UI/storage compatibility. *(Sidecar companion for web/CLI and TLS issuance; native Rust listener on Tauri desktop — 10D–10E.)*
 - [ ] Focused unit/integration/E2E coverage above repository quality thresholds. *(Unit/product coverage ≥90% as of 2026-08-13; Playwright multi-server E2E is 12E.)*
 
-State machines, advanced faults, CLI, proxy recording, HTTPS, and native Tauri listeners are valuable follow-up increments, but they must not destabilize the core deterministic engine and multi-port lifecycle.
+Phases 7–11 (state machines, faults, CLI, proxy/recording, HTTPS/mTLS, native Tauri listener, workflow/test-runner) shipped after this MVP bar. Remaining open work is docs evidence (12D Tracks A–C) and 12E (gallery, Demo Hub, Playwright, product changelog).
 
 ---
 
@@ -3335,7 +3348,7 @@ Closes the remaining desktop gap: the app connected to the companion correctly b
 - Product coverage gate green: all evaluated product files ≥90% on statements/branches/functions/lines; `ApiMockResponseEditor.tsx` split under the 900-line monolith threshold.
 - Plan tracker, §2.3 capability table, §3.1 protocol row, §11.3 remaining-work list, §14 decisions, and MVP checkboxes updated to match the branch (mTLS issuance shipped; sidecar companion; 12A–12C shipped; 12D–12E explicitly deferred for a later docs/release pass).
 - Known product gaps recorded in §11.3 rather than implied as still-in-phase: P2 matcher libraries / Monaco / Faker / toolbox / drawer / Data Mapper / local diagnostics shipped 2026-08-13; no Playwright multi-server E2E (12D–12E deferred).
-- Desktop runtime decision: **do not treat 10D as blocking** while the SEA sidecar companion is the supported listener. 10D–10E remain optional native-parity work.
+- Desktop runtime decision at freeze time: **do not treat 10D as blocking** while the SEA sidecar companion is the supported listener. **Superseded later the same day:** 10D–10E native listener + HTTP/2 shipped (see Phase 10D–10E log below).
 
 ### 2026-08-13 - P0 product gaps (certSubject, persistToDisk, stubbed operators)
 
@@ -3349,7 +3362,7 @@ Closed the three items that looked shipped but were not:
 
 - **HTTP/2** on Node TLS listeners: `http2.createSecureServer({ allowHTTP1: true })` so ALPN `h2` clients and HTTP/1.1 clients share the same port. Plain HTTP stays HTTP/1.1 (no h2c). Pseudo-headers are skipped in the journal; `:authority` maps to `host`.
 - **Route-delete undo:** confirm still required; a 5s toast restores the rule at its prior index and re-attaches surviving examples. Cmd+Z while the toast is open.
-- **10D–10E native Rust listener remains deferred.** Sidecar companion is the desktop runtime.
+- **10D–10E native Rust listener was still open at this morning note.** **Superseded later the same day** — see Phase 10D–10E log below. Sidecar companion remains for TLS cert generation and other protocols.
 
 ### 2026-08-13 - P2 depth / polish
 
@@ -3365,10 +3378,60 @@ Closed the three items that looked shipped but were not:
 
 ### 2026-08-13 - Phase 10D–10E Native Rust listener
 
-- **10D.** Tauri desktop routes API Mock listen/journal/state through `api_mock_listener_*` commands (`src-tauri/src/api_mock/`). Hyper HTTP/1.1, optional rustls HTTPS + mTLS, same serialized `ApiMock*V1` contract. Sidecar companion still runs for Kafka/GraphQL/webhooks and `/api/mock/tls/*` cert generation. Listeners drain on window Destroyed and `RunEvent::Exit`.
-- **10E.** Shared corpus: `docs/plan/future/apimock/fixtures/conformance-seed-basic.json` and `conformance-seed-advanced.json` run in Rust (`corpus_test.rs`) and TypeScript (`nativeParityCorpus.test.ts`). Studio Server Bar shows **HTTP/1.1** on Tauri TLS and `analyzeNativeUnsupported` warnings before Start/Apply.
-- **Documented native gaps (fail-closed / skipped, not silent):** HTTP/2; proxy/recording; callbacks; transforms; faker helpers; `persistToDisk`; passphrase-protected keys; xpath/xmlSchema/multipart operators; malformed/reset/dribble faults. NOT combinator fails closed when a child is `evaluated: false`.
-- **12D–12E remain deferred.** No gallery/Demo Hub/Playwright work in this pass.
+- **10D.** Tauri desktop routes API Mock listen/journal/state through `api_mock_listener_*` commands (`src-tauri/src/api_mock/`). Hyper listener (plaintext HTTP/1.1; TLS later the same day: `h2` ALPN + HTTP/1.1 fallback), optional rustls HTTPS + mTLS, same serialized `ApiMock*V1` contract. Sidecar companion still runs for Kafka/GraphQL/webhooks and `/api/mock/tls/*` cert generation. Listeners drain on window Destroyed and `RunEvent::Exit`.
+- **10E.** Shared corpus: `docs/plan/future/apimock/fixtures/conformance-seed-basic.json` and `conformance-seed-advanced.json` run in Rust (`corpus_test.rs`) and TypeScript (`nativeParityCorpus.test.ts`). Studio Server Bar shows **HTTP/2** on Node and Tauri TLS (plaintext HTTP/1.1). `analyzeNativeUnsupported` remains wired and currently returns empty.
+- **Post-ship parity review (same day).** Repeated review against the TypeScript matcher / Node listener closed remaining divergences. `cargo test api_mock` — **51 passed**. Notable fixes:
+  - Predicate leaves no longer deserialize as empty groups (untagged serde Leaf-first).
+  - Timeout/close faults abort the connection instead of HTTP 500; journal `durationMs` includes delay; state transitions apply after delay/render.
+  - Stop cancels in-flight delayed connections so restart can rebind; `in_flight` cannot leak on cancel.
+  - Route specificity matches `routeSelector.ts` (method ANY vs GET, path/operator weights); equal-priority GET beats ANY.
+  - Studio array expected forms: `jsonPath_equals` `[path, value]`, `form_field_*` `[name, value]`; `jsonPath_exists` treats explicit JSON `null` as present; header/query any-match all values.
+  - `json_strict` / `json_subset` / `jsonSchema` parse string expected values; `contains`/`prefix`/`suffix` stay case-sensitive (TypeScript parity).
+  - Variant `maxMatches` / `expiresAt` / `probability` eligibility with sibling fallback.
+  - Unmatched/ambiguous `{{requestId}}` / `{{competingRuleCount}}` interpolation; journal id matches the body.
+  - `closest_match_debug` payload matches Node (near-misses, hint, fallback status).
+  - Journal/response truncation stays on a UTF-8 char boundary.
+- **Documented remaining native gaps:** none. CORS, transforms, faker, journal `persistToDisk`, xpath/xmlSchema/multipart predicates, passphrase-protected TLS keys, malformed/reset/dribble faults, outbound callbacks, unmatched proxy (allowlisted forward, hop-by-hop/credential strip, redirect/body caps, journal `proxied`), recording drafts from unmatched proxy, and HTTPS HTTP/2 (`h2` ALPN + HTTP/1.1 fallback; plaintext HTTP/1.1 only) run on the native listener. Commit does not rebind port/TLS (matches Node). NOT combinator fails closed when a child is `evaluated: false`.
+- **CORS on both listeners (2026-08-13).** Node companion (`ApiMockNetworkListener`) now matches native Hyper: enabled CORS answers OPTIONS with 204 (no journal, no `inFlight`) and attaches ACAO / methods / headers / credentials / expose / Max-Age on all delivered responses. Shared helper: `src/shared/api-mock/corsHeaders.ts`. Credentials never pair with `*` — the request `Origin` is echoed and `Vary: Origin` is set.
+- **Native transforms + faker (2026-08-13).** Hyper listener applies the five typed response transforms (set/remove/append header, set status, replace body) and the curated `{{faker '…'}}` helpers with the same seeded tables as TypeScript. Studio no longer warns `NATIVE_NO_TRANSFORMS` / `NATIVE_NO_FAKER`.
+- **Native remaining-gap close (2026-08-13).** Hyper listener now: flushes journal snapshots to `{tmpdir}/redfireforge-api-mock-journals/` when `persistToDisk` is on; evaluates `xpath_exists` / `xpath_equals` / `xmlSchema` (element-presence subset) / `multipart_field` / `multipart_file`; decrypts passphrase-protected PEM keys via OpenSSL; aborts the connection for reset/malformed (same socket drop as timeout/close) and streams dribble/`chunkSchedule` bodies. Studio no longer warns `NATIVE_NO_JOURNAL_DISK` / `NATIVE_LIMITED_FAULTS` / `NATIVE_NO_KEY_PASSPHRASE` / `NATIVE_UNAVAILABLE_OPERATOR` for those operators.
+- **Native outbound callbacks (2026-08-13).** After a matched (or fault-drop) variant is journaled, the Hyper listener fire-and-forgets enabled callbacks: exact allowlist, `checkProxyUrl` SSRF policy, optional DNS private-IP reject (`proxy.blockPrivateNetworks` default true), retries/backoff, no-follow redirects, `x-redfireforge-mock: true`, and inbound **508** loop rejection. Failures never delay or mutate the mock HTTP response.
+- **Native unmatched proxy (2026-08-13).** When `fallback.mode` is `proxy` and `proxy.enabled`, unmatched (and no-variant) requests use the same outbound stack as callbacks: allowlist, hop-by-hop/credential strip, optional forwarded auth, redirect cap, body cap, `x-redfireforge-mock: true`. Success journals `proxied`; empty allowlist is `502 proxy_misconfigured`; upstream failure is `502 proxy_failed`.
+- **Native recording drafts (2026-08-13).** Successful unmatched-proxy exchanges enqueue a capture (fingerprint dedupe, cap 200) when `recordAsDrafts` is on. Studio’s existing poll (`recordedDrafts` / ack / clear) converts captures in TypeScript via `nativeCaptureToDraft` so route IDs stay stable across polls. Failures (`proxy_misconfigured` / `proxy_failed`) are not recorded.
+- **Native HTTP/2 (2026-08-13).** rustls advertises `h2` then `http/1.1`. TLS connections pick Hyper `http2` vs `http1` from ALPN (plaintext stays HTTP/1.1; no h2c). Journal maps `:authority` / URI authority to `host` when Host is absent and skips pseudo-headers (do not overwrite an explicit Host). HTTP/2 responses skip hop-by-hop headers (`is_hop_by_hop` in `outbound.rs`) to match Node `responseHeadersFor`. Native malformed faults RST_STREAM one h2 stream; Node destroys the session. `cargo test api_mock` — **150 passed** (h2+HTTP/1.1 same port, mux, stop, no h2c, Host predicates, hop-by-hop strip, malformed sibling isolation, h2 dribble). Studio shows the HTTP/2 badge on web and Tauri TLS; `NATIVE_NO_HTTP2` is gone.
+- **12E remains deferred.** No gallery/Demo Hub/Playwright/README sync in this pass.
 
+### 2026-08-13 - Phase 12D documentation authored
+
+- Added end-user guide set under [`docs/guides/api-mock/`](../../guides/api-mock/): getting started, Tracks A–F walkthrough, architecture, contracts, matching/conflicts (incl. Pattern Toolbox XPath/Schema), runtime/journal, TLS/mTLS/proxy, import/export, CLI/CI, workflow/test-runner, templates/responses/Faker/faults/Outbound/Data Mapper, security, migration, operations, compatibility matrix, troubleshooting.
+- Review against implementation closed gaps missing from the first checklist draft: Outbound/Data Mapper, Diagnostics tab, Faker path list, `api-mock-workspace-v1` persistence, web↔native matrix from `analyzeNativeUnsupported`, operations/port map.
+- Scaffolded [`screenshots/VALIDATION_RECORD.md`](../../guides/api-mock/screenshots/VALIDATION_RECORD.md) for human Tracks A–C evidence on fresh web + Tauri.
+- Cross-linked [`examples/api-mock/README.md`](../../../examples/api-mock/README.md) and updated [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md) §4 checklist.
+- **Still open for 12D exit:** fill VALIDATION_RECORD (screenshots + wiped-workspace sign-off). **12E** unchanged (gallery, Demo Hub, selectors barrel, Playwright, README/ROADMAP/CHANGELOG).
+
+### 2026-08-13 - Phase 12D exit (Tracks A–C evidence)
+
+- Executed wiped-workspace Tracks **A–C** on **web** (Vite + companion) and **Tauri** (native listener + MCP bridge).
+- Screenshots + sign-off in [`docs/guides/api-mock/screenshots/VALIDATION_RECORD.md`](../../guides/api-mock/screenshots/VALIDATION_RECORD.md).
+- Notes: Tauri used port **4610** (companion held 4600/4601); loopback curl needs `--noproxy '*'`; native process confirmed on `redfireforge`.
+- **12D complete.** Remaining product docs/demo work is **12E**.
+
+### 2026-08-13 - Phase 12E start (selectors + Gallery)
+
+- Exported `API_MOCK` / `AMS` from `src/shared/selectors.ts` (expanded `selectors/apiMock.ts`); dock tabs gained `api-mock-dock-tab-*` testids.
+- Added Gallery domain `api-mock` with samples `am-gallery-health`, `am-gallery-users`, `am-gallery-conflicts` (`src/data/galleries/api-mock/`).
+- Wired Gallery → Studio import via `apiMockGalleryImport` (remap ids/port, track hashes, `api-mock:workspace-changed` event so a mounted Studio reloads without wiping via autosave race).
+- **Still open in 12E:** Demo Hub AM-1…AM-4, Playwright multi-server, README/ROADMAP/CHANGELOG/conventions.
+
+### 2026-08-13 - Phase 12D guide refresh (post-parity + UX)
+
+Folded later-branch product into the guide set without starting 12E:
+
+- **Native parity prose** already matched empty `analyzeNativeUnsupported` (HTTP/2 on TLS, proxy, drafts, callbacks, transforms, faker); clarified intentional diffs (no h2c, Apply does not rebind, NOT fail-close, h2 malformed RST_STREAM vs Node session destroy).
+- **CORS** — preflight 204, no journal row, credentials never with `*`.
+- **Recorded drafts** — ~1.5s poll / merge inactive / ack on web + native.
+- **Proxy SSRF ceilings** — `blockPrivateNetworks` default, redirect/body caps.
+- **Studio ergonomics** — tab rename/duplicate/reorder, route-delete undo (5s / Cmd+Z), Live strip deep-links, Runtime Settings card grid + sticky save, Pattern Toolbox JSONPath (`[n]` / select-all → `$`).
+- Walkthrough Tracks A/D/E and `VALIDATION_RECORD` steps updated accordingly. Checklist: [`apimock-studio-demo-doc.md`](./apimock-studio-demo-doc.md).
 
 

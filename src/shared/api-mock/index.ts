@@ -84,9 +84,9 @@ export type {
 } from './callbackContracts';
 export {
   proxiedExchangeToDraft, toRecordedDraft, mergeRecordedDraftsIntoRoutes,
-  draftFingerprint, routeFingerprintFromRoute, redactHeaderMap,
+  draftFingerprint, routeFingerprintFromRoute, redactHeaderMap, nativeCaptureToDraft,
 } from './proxyRecording';
-export type { ApiMockRecordedDraftV1, ProxiedResponseCapture } from './proxyRecording';
+export type { ApiMockRecordedDraftV1, ProxiedResponseCapture, NativeProxyCaptureV1 } from './proxyRecording';
 export { applyResponseTransforms } from './responseTransforms';
 export type { TransformApplyResult } from './responseTransforms';
 export { assertMockCalls } from './assertMockCalls';
@@ -100,6 +100,13 @@ export type { ApiMockTlsSettingsV1, ApiMockTlsStatus, ApiMockCertificateValidati
 export { API_MOCK_PERF_BUDGETS, PERF_CI_SLACK, MAX_COMPILED_PATTERNS, percentile, BoundedCache } from './perfBudgets';
 export type { PerfBudget, PerfBudgetKey } from './perfBudgets';
 export { compileRegexCached, testRegexCached } from './patternCache';
+export {
+  corsResponseHeaders,
+  corsPreflightHeaders,
+  isCorsPreflight,
+  requestOriginHeader,
+} from './corsHeaders';
+export type { ApiMockCorsSettingsV1 } from './corsHeaders';
 export { analyzeNativeUnsupported, NATIVE_UNAVAILABLE_OPERATORS } from './nativeCapabilities';
 export type { NativeCapabilityWarning } from './nativeCapabilities';
 export type {

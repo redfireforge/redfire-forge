@@ -3,6 +3,7 @@
 use crate::api_mock::capabilities::native_capability_warnings;
 use crate::api_mock::journal::Journal;
 use crate::api_mock::listener::{spawn_listener, ListenerShared};
+use crate::api_mock::recording::ack_recorded_drafts;
 use crate::api_mock::tls::build_server_config;
 use crate::api_mock::types::ServerDefinition;
 use serde_json::{json, Value};
@@ -36,13 +37,13 @@ struct NativeEntry {
 }
 
 pub struct ApiMockNativeState {
-    inner: Mutex<HashMap<String, NativeEntry>>,
+    inner: Arc<Mutex<HashMap<String, NativeEntry>>>,
 }
 
 impl ApiMockNativeState {
     pub fn new() -> Self {
         Self {
-            inner: Mutex::new(HashMap::new()),
+            inner: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -74,19 +75,6 @@ impl ApiMockNativeState {
             return Err(NativeError::new(
                 "MOCK_VALIDATION_ERROR",
                 "Server definition with id is required",
-            ));
-        }
-        if def.settings.tls.as_ref().is_some_and(|t| t.enabled)
-            && def
-                .settings
-                .tls
-                .as_ref()
-                .and_then(|t| t.passphrase.as_deref())
-                .is_some_and(|p| !p.is_empty())
-        {
-            return Err(NativeError::new(
-                "MOCK_VALIDATION_ERROR",
-                "Passphrase-protected TLS keys are not supported on the native listener.",
             ));
         }
 
@@ -137,7 +125,35 @@ impl ApiMockNativeState {
         let warnings = native_capability_warnings(&def);
         let port = def.port;
         let server_id = def.id.clone();
-        let shared = Arc::new(Mutex::new(ListenerShared::new(def)));
+        let preserved_drafts = {
+            let old_shared = {
+                let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+                map.get(&def.id).map(|e| e.shared.clone())
+            };
+            old_shared
+                .map(|s| {
+                    s.lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                        .recorded_drafts
+                        .clone()
+                })
+                .unwrap_or_default()
+        };
+        let inner = self.inner.clone();
+        let active_ports = Arc::new(move || {
+            inner
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .values()
+                .filter(|e| e.running)
+                .map(|e| e.port)
+                .collect::<Vec<u16>>()
+        });
+        let shared = Arc::new(Mutex::new(ListenerShared::with_active_ports(def, active_ports)));
+        {
+            let mut g = shared.lock().unwrap_or_else(|e| e.into_inner());
+            g.recorded_drafts = preserved_drafts;
+        }
         let stop = CancellationToken::new();
         let task = spawn_listener(shared.clone(), stop.clone(), addr, tls).map_err(|m| {
             let code = if m.contains("EADDRINUSE") || m.contains("already in use") {
@@ -319,6 +335,67 @@ impl ApiMockNativeState {
         Ok(json!({ "reset": true }))
     }
 
+    pub fn recorded_drafts(&self, server_id: &str) -> Result<Value, NativeError> {
+        let shared = {
+            let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            map.get(server_id).map(|e| e.shared.clone())
+        };
+        let Some(shared) = shared else {
+            return Ok(json!({ "captures": [], "total": 0 }));
+        };
+        let g = shared.lock().unwrap_or_else(|e| e.into_inner());
+        Ok(json!({
+            "captures": g.recorded_drafts,
+            "total": g.recorded_drafts.len(),
+        }))
+    }
+
+    pub fn ack_recorded_drafts(&self, server_id: &str, ids: &[String]) -> Result<Value, NativeError> {
+        let shared = {
+            let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            map.get(server_id).map(|e| e.shared.clone())
+        };
+        let Some(shared) = shared else {
+            return Ok(json!({ "removed": 0 }));
+        };
+        let mut g = shared.lock().unwrap_or_else(|e| e.into_inner());
+        let removed = ack_recorded_drafts(&mut g.recorded_drafts, ids);
+        Ok(json!({ "removed": removed }))
+    }
+
+    pub fn clear_recorded_drafts(&self, server_id: &str) -> Result<Value, NativeError> {
+        let shared = {
+            let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            map.get(server_id).map(|e| e.shared.clone())
+        };
+        if let Some(shared) = shared {
+            let mut g = shared.lock().unwrap_or_else(|e| e.into_inner());
+            g.recorded_drafts.clear();
+        }
+        Ok(json!({ "cleared": true }))
+    }
+
+    #[cfg(test)]
+    pub fn push_recorded_draft_for_test(
+        &self,
+        server_id: &str,
+        capture: crate::api_mock::recording::RecordedCapture,
+    ) -> Result<(), NativeError> {
+        let shared = {
+            let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            map.get(server_id).map(|e| e.shared.clone())
+        };
+        let Some(shared) = shared else {
+            return Err(NativeError::new(
+                "NOT_FOUND",
+                format!("Server \"{server_id}\" not found"),
+            ));
+        };
+        let mut g = shared.lock().unwrap_or_else(|e| e.into_inner());
+        crate::api_mock::recording::push_recorded_draft(&mut g.recorded_drafts, capture);
+        Ok(())
+    }
+
     pub fn diagnostics(&self, server_id: &str) -> Result<Value, NativeError> {
         let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let Some(entry) = map.get(server_id) else {
@@ -389,7 +466,7 @@ impl Default for ApiMockNativeState {
     }
 }
 
-fn is_port_available(port: u16) -> bool {
+pub(crate) fn is_port_available(port: u16) -> bool {
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
     match std::net::TcpListener::bind(addr) {
         Ok(listener) => {

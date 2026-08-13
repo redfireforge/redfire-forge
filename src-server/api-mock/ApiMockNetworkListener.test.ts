@@ -163,4 +163,75 @@ describe('ApiMockNetworkListener', () => {
     const res = await fetch(`http://127.0.0.1:${port}/hello`);
     expect(res.status).toBe(409);
   });
+
+  it('answers CORS preflight without journaling when CORS is enabled', async () => {
+    const port = getPort();
+    const txs: unknown[] = [];
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-cors',
+      definition: makeDef(port, {
+        settings: { ...DEFAULT_SETTINGS, cors: { ...DEFAULT_SETTINGS.cors, enabled: true } },
+      }),
+      onTransaction: tx => { txs.push(tx); },
+    });
+    listeners.push(listener);
+    await listener.start();
+
+    const res = await fetch(`http://127.0.0.1:${port}/hello`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://app.test', 'Access-Control-Request-Method': 'GET' },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    expect(res.headers.get('access-control-allow-methods')).toContain('GET');
+    expect(res.headers.get('access-control-max-age')).toBe('86400');
+    expect(txs).toHaveLength(0);
+    expect(listener.getLocalDiagnostics().inFlight).toBe(0);
+  });
+
+  it('attaches CORS headers to matched GET responses', async () => {
+    const port = getPort();
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-cors-get',
+      definition: makeDef(port, {
+        settings: {
+          ...DEFAULT_SETTINGS,
+          cors: {
+            ...DEFAULT_SETTINGS.cors,
+            enabled: true,
+            allowOrigins: ['https://app.test'],
+            allowCredentials: true,
+            exposeHeaders: ['X-Request-Id'],
+          },
+        },
+      }),
+    });
+    listeners.push(listener);
+    await listener.start();
+
+    const res = await fetch(`http://127.0.0.1:${port}/hello`, {
+      headers: { Origin: 'https://app.test' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('access-control-allow-origin')).toBe('https://app.test');
+    expect(res.headers.get('access-control-allow-credentials')).toBe('true');
+    expect(res.headers.get('access-control-expose-headers')).toBe('X-Request-Id');
+    expect(res.headers.get('vary')).toBe('Origin');
+  });
+
+  it('does not attach CORS headers when CORS is disabled', async () => {
+    const port = getPort();
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-no-cors',
+      definition: makeDef(port),
+    });
+    listeners.push(listener);
+    await listener.start();
+
+    const res = await fetch(`http://127.0.0.1:${port}/hello`, {
+      headers: { Origin: 'https://app.test' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('access-control-allow-origin')).toBeNull();
+  });
 });

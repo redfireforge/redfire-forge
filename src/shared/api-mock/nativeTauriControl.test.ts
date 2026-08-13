@@ -115,6 +115,122 @@ describe('nativeTauriControl', () => {
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.code).toBe('COMPANION_UNAVAILABLE');
   });
+
+  it('converts native recorded captures into Studio drafts and acks by id', async () => {
+    const seen: string[] = [];
+    setNativeInvokeForTests(async (cmd, args) => {
+      seen.push(cmd);
+      if (cmd === 'api_mock_listener_recorded_drafts') {
+        return {
+          ok: true,
+          data: {
+            captures: [{
+              id: 'rec-keep-me',
+              fingerprint: 'GET /users/1 → 200',
+              recordedAt: ts,
+              request: {
+                method: 'GET', path: '/users/1', rawPath: '/users/1',
+                headers: { accept: ['application/json'] }, query: {}, cookies: {},
+                body: null, bodyTruncated: false, receivedAt: ts,
+              },
+              response: { status: 200, headers: { 'content-type': 'application/json' }, body: '{"id":1}' },
+              redaction: DEFAULT_SETTINGS.redaction,
+            }],
+            total: 1,
+          },
+        };
+      }
+      if (cmd === 'api_mock_listener_recorded_drafts_ack') {
+        expect(args?.ids).toEqual(['rec-keep-me']);
+        return { ok: true, data: { removed: 1 } };
+      }
+      return { ok: true, data: { cleared: true } };
+    });
+    const listed = await nativeTauriControl.recordedDrafts('srv-1');
+    expect(listed.ok).toBe(true);
+    if (listed.ok) {
+      expect(listed.data.total).toBe(1);
+      expect(listed.data.drafts[0]?.id).toBe('rec-keep-me');
+      expect(listed.data.drafts[0]?.route.enabled).toBe(false);
+    }
+    const ack = await nativeTauriControl.ackRecordedDrafts('srv-1', ['rec-keep-me']);
+    expect(ack.ok && ack.data.removed).toBe(1);
+    const cleared = await nativeTauriControl.clearRecordedDrafts('srv-1');
+    expect(cleared.ok && cleared.data.cleared).toBe(true);
+    expect(seen).toEqual([
+      'api_mock_listener_recorded_drafts',
+      'api_mock_listener_recorded_drafts_ack',
+      'api_mock_listener_recorded_drafts_clear',
+    ]);
+  });
+
+  it('acks captures that cannot be converted so they do not block the fingerprint', async () => {
+    const seen: Array<{ cmd: string; ids?: unknown }> = [];
+    setNativeInvokeForTests(async (cmd, args) => {
+      seen.push({ cmd, ids: args?.ids });
+      if (cmd === 'api_mock_listener_recorded_drafts') {
+        return {
+          ok: true,
+          data: {
+            captures: [
+              { id: 'rec-bad' },
+              {
+                id: 'rec-good',
+                fingerprint: 'GET /users/1 → 200',
+                recordedAt: ts,
+                request: {
+                  method: 'GET', path: '/users/1', rawPath: '/users/1',
+                  headers: { accept: ['application/json'] }, query: {}, cookies: {},
+                  body: null, bodyTruncated: false, receivedAt: ts,
+                },
+                response: { status: 200, headers: { 'content-type': 'application/json' }, body: '{}' },
+              },
+            ],
+            total: 2,
+          },
+        };
+      }
+      return { ok: true, data: { removed: 1 } };
+    });
+    const listed = await nativeTauriControl.recordedDrafts('srv-1');
+    expect(listed.ok).toBe(true);
+    if (listed.ok) {
+      expect(listed.data.drafts.map(d => d.id)).toEqual(['rec-good']);
+      expect(listed.data.total).toBe(1);
+    }
+    expect(seen).toEqual([
+      { cmd: 'api_mock_listener_recorded_drafts', ids: undefined },
+      { cmd: 'api_mock_listener_recorded_drafts_ack', ids: ['rec-bad'] },
+    ]);
+  });
+
+  it('forwards recorded-drafts invoke failures without converting', async () => {
+    setNativeInvokeForTests(async () => ({
+      ok: false as const,
+      error: { code: 'COMPANION_UNAVAILABLE', message: 'down' },
+    }));
+    const res = await nativeTauriControl.recordedDrafts('srv-1');
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.retry).toBe(true);
+  });
+
+  it('invokes ports_next and ports_probe', async () => {
+    const seen: string[] = [];
+    setNativeInvokeForTests(async (cmd, args) => {
+      seen.push(cmd);
+      if (cmd === 'api_mock_ports_next') {
+        expect(args?.exclude).toEqual([4600]);
+        return { ok: true, data: { port: 4601 } };
+      }
+      expect(args?.port).toBe(4610);
+      return { ok: true, data: { port: 4610, available: false } };
+    });
+    const next = await nativeTauriControl.nextAutoPort([4600]);
+    expect(next.ok && next.data.port).toBe(4601);
+    const probe = await nativeTauriControl.probePort(4610);
+    expect(probe.ok && probe.data.available).toBe(false);
+    expect(seen).toEqual(['api_mock_ports_next', 'api_mock_ports_probe']);
+  });
 });
 
 type Envelope = { ok: true; data: unknown } | { ok: false; error: { code?: string; message?: string } };

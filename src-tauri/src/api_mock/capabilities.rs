@@ -13,87 +13,6 @@ pub struct NativeCapabilityWarning {
 
 pub fn native_capability_warnings(def: &ServerDefinition) -> Vec<NativeCapabilityWarning> {
     let mut out = Vec::new();
-    if def.settings.tls.as_ref().is_some_and(|t| t.enabled) {
-        out.push(warn(
-            "NATIVE_NO_HTTP2",
-            "Native HTTPS serves HTTP/1.1 only (no h2 ALPN). Use the Node companion for HTTP/2.",
-        ));
-        if def
-            .settings
-            .tls
-            .as_ref()
-            .and_then(|t| t.passphrase.as_deref())
-            .is_some_and(|p| !p.is_empty())
-        {
-            out.push(warn(
-                "NATIVE_NO_KEY_PASSPHRASE",
-                "Passphrase-protected TLS keys are not supported on the native listener.",
-            ));
-        }
-    }
-    if def.settings.proxy.as_ref().is_some_and(|p| p.enabled)
-        || def.settings.fallback.mode == "proxy"
-    {
-        out.push(warn(
-            "NATIVE_NO_PROXY",
-            "Unmatched proxy and recording are not available on the native listener.",
-        ));
-    }
-    if def
-        .settings
-        .callbacks
-        .as_ref()
-        .is_some_and(|c| !c.allowlist.is_empty())
-        || def
-            .routes
-            .iter()
-            .any(|r| r.responses.iter().any(|v| v.callbacks.as_ref().is_some_and(|c| !c.is_empty())))
-    {
-        out.push(warn(
-            "NATIVE_NO_CALLBACKS",
-            "Outbound callbacks are not delivered by the native listener.",
-        ));
-    }
-    if def.routes.iter().any(|r| {
-        r.responses
-            .iter()
-            .any(|v| v.transforms.as_ref().is_some_and(|t| !t.is_empty()))
-    }) {
-        out.push(warn(
-            "NATIVE_NO_TRANSFORMS",
-            "Response transforms are skipped on the native listener.",
-        ));
-    }
-    if def.settings.journal.persist_to_disk {
-        out.push(warn(
-            "NATIVE_NO_JOURNAL_DISK",
-            "Journal persistToDisk is ignored on the native listener.",
-        ));
-    }
-    if def.routes.iter().any(|r| {
-        r.responses.iter().any(|v| {
-            v.body.content.contains("{{faker")
-                || v.headers.iter().any(|h| h.value.contains("{{faker"))
-        })
-    }) {
-        out.push(warn(
-            "NATIVE_NO_FAKER",
-            "Faker template helpers are empty on the native listener.",
-        ));
-    }
-    if def.routes.iter().any(|r| {
-        r.responses.iter().any(|v| {
-            matches!(
-                v.behavior.fault.as_deref(),
-                Some("malformed" | "reset" | "dribble")
-            ) || v.behavior.chunk_schedule.as_ref().is_some_and(|s| !s.is_empty())
-        })
-    }) {
-        out.push(warn(
-            "NATIVE_LIMITED_FAULTS",
-            "Native faults support delay, timeout, and close only (no malformed/reset/dribble).",
-        ));
-    }
     let mut seen_ops = Vec::new();
     for route in &def.routes {
         collect_ops(&route.predicates, &mut seen_ops);
@@ -154,26 +73,46 @@ mod tests {
     }
 
     #[test]
-    fn tls_warns_about_http2() {
+    fn tls_has_no_http2_warning() {
         let mut d = def();
         d.settings.tls = Some(TlsSettings {
             enabled: true,
             ..Default::default()
         });
-        let codes: Vec<_> = native_capability_warnings(&d)
-            .into_iter()
-            .map(|w| w.code)
-            .collect();
-        assert!(codes.contains(&"NATIVE_NO_HTTP2".into()));
+        assert!(native_capability_warnings(&d).is_empty());
     }
 
     #[test]
-    fn proxy_mode_warns() {
+    fn proxy_mode_with_recording_has_no_warning() {
         let mut d = def();
         d.settings.fallback.mode = "proxy".into();
-        assert!(native_capability_warnings(&d)
-            .iter()
-            .any(|w| w.code == "NATIVE_NO_PROXY"));
+        d.settings.proxy = Some(ProxySettings {
+            enabled: true,
+            ..Default::default()
+        });
+        assert!(native_capability_warnings(&d).is_empty());
+    }
+
+    #[test]
+    fn proxy_without_recording_has_no_warning() {
+        let mut d = def();
+        d.settings.fallback.mode = "proxy".into();
+        d.settings.proxy = Some(ProxySettings {
+            enabled: true,
+            record_as_drafts: false,
+            ..Default::default()
+        });
+        assert!(native_capability_warnings(&d).is_empty());
+    }
+
+    #[test]
+    fn proxy_enabled_but_fallback_not_proxy_has_no_warning() {
+        let mut d = def();
+        d.settings.proxy = Some(ProxySettings {
+            enabled: true,
+            ..Default::default()
+        });
+        assert!(native_capability_warnings(&d).is_empty());
     }
 
     #[test]
@@ -199,10 +138,68 @@ mod tests {
         }))
         .unwrap();
         assert!(
-            native_capability_warnings(&d)
-                .iter()
-                .any(|w| w.code == "NATIVE_UNAVAILABLE_OPERATOR"),
-            "leaf predicates must deserialize so unavailable operators are reported"
+            native_capability_warnings(&d).iter().all(|w| w.code != "NATIVE_UNAVAILABLE_OPERATOR"),
+            "xpath_exists is evaluated on the native listener"
         );
+    }
+
+    #[test]
+    fn implemented_features_do_not_warn() {
+        let d: ServerDefinition = serde_json::from_value(serde_json::json!({
+            "id": "s",
+            "port": 1,
+            "settings": {
+                "tls": { "enabled": true, "passphrase": "secret" },
+                "journal": { "persistToDisk": true }
+            },
+            "routes": [{
+                "id": "r",
+                "method": "GET",
+                "path": { "kind": "exact", "value": "/" },
+                "predicates": {
+                    "id": "g",
+                    "combinator": "all",
+                    "children": [
+                        { "id": "p", "source": "body", "operator": "xmlSchema", "expected": "Order" },
+                        { "id": "m", "source": "body", "operator": "multipart_field", "expected": "note" }
+                    ]
+                },
+                "responses": [{
+                    "id": "v",
+                    "enabled": true,
+                    "status": 200,
+                    "behavior": { "fault": "dribble", "chunkSchedule": [{ "afterMs": 1, "body": "x" }] }
+                }]
+            }]
+        }))
+        .unwrap();
+        assert!(native_capability_warnings(&d).is_empty());
+    }
+
+    #[test]
+    fn callbacks_do_not_warn() {
+        let d: ServerDefinition = serde_json::from_value(serde_json::json!({
+            "id": "s",
+            "port": 1,
+            "settings": { "callbacks": { "allowlist": ["https://hooks.example.com/event"] } },
+            "routes": [{
+                "id": "r",
+                "method": "GET",
+                "path": { "kind": "exact", "value": "/" },
+                "responses": [{
+                    "id": "v",
+                    "enabled": true,
+                    "status": 200,
+                    "callbacks": [{
+                        "id": "c",
+                        "enabled": true,
+                        "url": "https://hooks.example.com/event",
+                        "method": "POST"
+                    }]
+                }]
+            }]
+        }))
+        .unwrap();
+        assert!(native_capability_warnings(&d).is_empty());
     }
 }

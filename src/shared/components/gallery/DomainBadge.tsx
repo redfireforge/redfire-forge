@@ -13,6 +13,7 @@ const DOMAIN_COLORS: Record<GalleryDomain, string> = {
   workflows: '#fb923c',
   assertions: '#f472b6',
   'data-mapper': '#38bdf8',
+  'api-mock': '#fbbf24',
 };
 
 /**

@@ -432,6 +432,7 @@ export default function App() {
                 onImportCatalog={gallery.onImportCatalog}
                 onImportTest={gallery.onImportTest}
                 onImportWorkflow={gallery.onImportWorkflow}
+                onImportApiMock={gallery.onImportApiMock}
                 onNavigateTo={gallery.onNavigateTo}
                 initialDomain={galleryInitialDomain}
               />

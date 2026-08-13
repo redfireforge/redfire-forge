@@ -36,10 +36,45 @@ export function resolveHydratedActiveServerId(state: { activeServerId?: string; 
 export function pickNextAutoPort(
   servers: Array<{ port: number }>,
   range: { min: number; max: number } = AUTO_PORT_RANGE,
+  excludePorts: Iterable<number> = [],
 ): number {
-  const used = new Set(servers.map(s => s.port));
+  const used = new Set<number>([
+    ...servers.map(s => s.port),
+    ...excludePorts,
+  ]);
   for (let port = range.min; port <= range.max; port++) {
     if (!used.has(port)) return port;
+  }
+  throw new Error(`No available port in ${range.min}-${range.max}`);
+}
+
+/**
+ * Like {@link pickNextAutoPort}, but skips ports that fail an OS/bind probe.
+ * When `isAvailable` is omitted or throws, falls back to the first tab-free port.
+ */
+export async function resolveNextAutoPort(
+  servers: Array<{ port: number }>,
+  options?: {
+    range?: { min: number; max: number };
+    excludePorts?: Iterable<number>;
+    isAvailable?: (port: number) => Promise<boolean>;
+  },
+): Promise<number> {
+  const range = options?.range ?? AUTO_PORT_RANGE;
+  const used = new Set<number>([
+    ...servers.map(s => s.port),
+    ...(options?.excludePorts ?? []),
+  ]);
+  const probe = options?.isAvailable;
+  for (let port = range.min; port <= range.max; port++) {
+    if (used.has(port)) continue;
+    if (!probe) return port;
+    try {
+      if (await probe(port)) return port;
+    } catch {
+      // Probe transport down — use first free tab port (legacy behavior).
+      return port;
+    }
   }
   throw new Error(`No available port in ${range.min}-${range.max}`);
 }

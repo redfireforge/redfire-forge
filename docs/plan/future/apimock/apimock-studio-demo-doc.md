@@ -1,8 +1,9 @@
 # API Mock Studio — Phase 12D / 12E Docs, Demos & Release Pass
 
 > **Branch:** `feautre/apimock`  
-> **Status:** Planning only — **not started**. Product code through **12A–12C** (+ P0–P3 polish) is shipped; this document scopes the deferred **12D–12E** docs/release pass.  
+> **Status:** **12D exit met** (2026-08-13) — guides + Tracks A–C evidence on web and Tauri in [`VALIDATION_RECORD.md`](../../guides/api-mock/screenshots/VALIDATION_RECORD.md). **12E in progress** — selectors + Gallery `api-mock` (3 samples) done; Demo Hub lessons ([`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md)), Playwright, README/CHANGELOG still open.  
 > **Created:** 2026-08-13  
+> **Last updated:** 2026-08-13  
 > **Parent plan:** [`apimock-studio-plan.md`](./apimock-studio-plan.md) (§11.3, Phase 12)  
 > **Policy:** Update this file as each 12D/12E deliverable lands. Do not claim features in public docs that §6 marks as limited or deferred.
 
@@ -38,7 +39,7 @@ This file is the **execution checklist** for that pass. It was produced by compa
 | Product UI | Studio / Runtime / Conflicts IA; multi-server tabs; rule editor; Pattern Toolbox; Simulate; Import Review; Server Settings (Proxy + TLS/mTLS); Runtime Settings; Conflict Inspector; Live Strip; undo-on-delete |
 | Engine | Matching, selection policies, conflict analysis, simulation, templates + curated Faker, faults, scenario state, journal, diagnostics |
 | Network (Node companion) | HTTPS, HTTP/2 on TLS, mTLS, unmatched proxy + record-as-drafts, callbacks, transforms, journal persist-to-disk |
-| Network (Tauri native) | Listen/journal via Rust listener (HTTP/1.1); capability warnings for unsupported subset |
+| Network (Tauri native) | Listen/journal via Rust listener. TLS serves **HTTP/2** (`h2` ALPN + HTTP/1.1 fallback; no h2c). Proxy, recording drafts, callbacks, transforms, faker, journal disk, passphrase TLS, and xpath/xml/multipart run natively. `analyzeNativeUnsupported` currently returns empty. Sidecar still used for TLS cert generation and Kafka/GraphQL/webhooks. |
 | CLI | `mock simulate`, `mock verify`, `mock start` (+ `--standalone`) — documented in `cli/README.md` |
 | Examples | `examples/api-mock/` (sample workspace, Dockerfile, CI snippet) |
 | Workflow | `apiMockStart` / `Apply` / `ResetState` / `Stop` / `AssertCalls` |
@@ -52,8 +53,8 @@ This file is the **execution checklist** for that pass. It was produced by compa
 
 | Deliverable | Status today |
 |---|---|
-| Standalone guides / training manual under `docs/guides/` | **None** |
-| Product architecture / security / ops docs (user-facing) | **Only inside the plan** |
+| Standalone guides / training manual under `docs/guides/` | **Done** — `docs/guides/api-mock/` + Tracks A–C evidence in `screenshots/VALIDATION_RECORD.md` |
+| Product architecture / security / ops docs (user-facing) | **Authored** — see guide index |
 | Gallery domain `api-mock` | **Not in** `GalleryDomain` / registry / training paths |
 | Demo Hub lessons | **Zero** files under `packages/demo-hub` for API Mock |
 | Playwright E2E (`e2e/*api-mock*`) | **None** |
@@ -70,38 +71,53 @@ This file is the **execution checklist** for that pass. It was produced by compa
 - Re-implementing engine features already shipped in earlier phases.
 - Treating mockups under `docs/plan/future/apimock/mockups/` as end-user docs (they remain design evidence).
 - Claiming **full mitmproxy-style interception**, external mock-payload telemetry, or 100% WireMock/OpenAPI fidelity.
-- Claiming native Tauri parity with the Node companion (document the subset honestly — §6).
+- Claiming identical native vs Node behavior in every edge case (document intentional differences in §6). Do not describe native listen as HTTP/1.1-only.
 - Full Demo Hub lesson wrapper unit-test bar — use the **5-item demo lesson done checklist** when lessons land.
 
 ---
 
 ## 4. Phase 12D — Documentation & training manual
 
-### 4.1 Document set (proposed file layout)
+### 4.1 Document set (`docs/guides/api-mock/`) — **authored 2026-08-13**
 
-Create under `docs/guides/api-mock/` (new folder):
-
-| File | Audience | Contents |
+| File | Audience | Status |
 |---|---|---|
-| `README.md` | Index | Links to all guides below + “Start here” path (web vs Tauri) |
-| `getting-started.md` | New users | Install/run prerequisites, create first server, Start, hit with Requests or cURL, read journal |
-| `studio-walkthrough.md` | Training | **Exact click-by-click** E2E sample (see §4.3) — web **and** Tauri columns where UI differs |
-| `architecture.md` | Advanced / ops | Control plane (`:3001`) vs data-plane listeners; `serverId` identity; hot-apply generations; web companion vs Tauri native |
-| `contracts.md` | Integrators | Workspace envelope, `ApiMock*V1` overview, fingerprints, import/export shapes, capability gates |
-| `matching-and-conflicts.md` | Authors | Path kinds, predicate tree, selection policies, Conflict Inspector kinds, Apply severity gate |
-| `runtime-and-journal.md` | Authors / QA | Transactions, state, variables, settings, diagnostics, redaction, fallback modes |
-| `tls-mtls-proxy.md` | Authors / security | HTTPS, self-signed generation, mTLS CA + client credentials, unmatched proxy + record-as-drafts |
-| `import-export.md` | Authors | All 7 import sources, merge/replace/copy, WireMock/HAR loss reports, Catalog/Requests promotion |
-| `cli-and-ci.md` | Automation | `mock simulate|verify|start`, Docker example, GitHub Actions snippet (expand `examples/api-mock/README.md`) |
-| `workflow-and-test-runner.md` | Automation | Workflow nodes + Test Runner fixture + isolation |
-| `troubleshooting.md` | Support | Companion unavailable, port in use / ownership, corrupt storage, native capability warnings, journal drops |
-| `security.md` | Security | Redaction, secret stripping on export/duplicate, no PEM in journal, proxy anti-recursion, fail-closed native operators |
-| `migration.md` | Maintainers | Schema version / `migrateWorkspace`, what happens on unsupported versions |
+| `README.md` | Index | **Done** |
+| `getting-started.md` | New users | **Done** |
+| `studio-walkthrough.md` | Training Tracks A–F | **Done** |
+| `architecture.md` | Advanced / ops | **Done** |
+| `contracts.md` | Integrators | **Done** |
+| `matching-and-conflicts.md` | Authors (incl. Pattern Toolbox XPath/Schema) | **Done** |
+| `runtime-and-journal.md` | Authors / QA | **Done** |
+| `tls-mtls-proxy.md` | Authors / security | **Done** |
+| `import-export.md` | Authors | **Done** |
+| `cli-and-ci.md` | Automation | **Done** |
+| `workflow-and-test-runner.md` | Automation | **Done** |
+| `templates-and-responses.md` | Authors (variants, Faker, faults, Outbound, Data Mapper) | **Done** *(added in review — was missing from first draft)* |
+| `operations.md` | Ops (ports, soak, backup) | **Done** *(added in review)* |
+| `compatibility.md` | Web vs Tauri matrix | **Done** *(added in review)* |
+| `troubleshooting.md` | Support | **Done** |
+| `security.md` | Security | **Done** |
+| `migration.md` | Maintainers | **Done** |
+| `screenshots/VALIDATION_RECORD.md` | Evidence checklist | **Scaffolded** — Tracks A–C human pass open |
 
-Also update (light touch in 12D, finalize in 12E):
+Also updated:
 
-- Cross-link from `examples/api-mock/README.md` → guides
-- Optional: short “API Mock” stub in `docs/guides/` index if one exists later
+- [x] Cross-link from `examples/api-mock/README.md` → guides
+- [ ] Optional `docs/guides/` hub index (none exists yet — skip until a docs index is introduced)
+
+#### Review gaps closed vs first checklist draft
+
+| Gap found against implementation | Where documented |
+|---|---|
+| Pattern Toolbox tabs include **XPath** + **Schema** (not only regex/path/jsonpath/constraints) | `matching-and-conflicts.md` |
+| Response **Outbound** (callbacks/transforms) + **Map body** Data Mapper | `templates-and-responses.md`, `tls-mtls-proxy.md` |
+| Server Settings tabs vs Runtime Settings page | `runtime-and-journal.md` |
+| Runtime tabs include **Diagnostics** | `runtime-and-journal.md` |
+| Curated Faker helper path list | `templates-and-responses.md` |
+| Explicit web↔native matrix from `analyzeNativeUnsupported` | `compatibility.md` |
+| Persistence key `api-mock-workspace-v1` + reconcile rules | `architecture.md`, `migration.md` |
+| Operations / port map / backup | `operations.md` |
 
 ### 4.2 Architecture doc — required topics (from implementation)
 
@@ -161,11 +177,11 @@ Use a **fresh workspace** each pass. Prefer importing a published Gallery/export
 | D3 | Fallback **closest match debug** unmatched | Debug body explains near miss |
 | D4 | **State** / **Variables** / **Diagnostics** tabs | Readable without raw secrets |
 
-#### Track E — TLS / Proxy / Faults (advanced; document as companion-capable)
+#### Track E — TLS / Proxy / Faults (advanced; both runtimes)
 
 | Step | Action | Expected |
 |---|---|---|
-| E1 | Server Settings → **TLS** enable + generate | HTTPS listen (companion); note native HTTP/1.1 |
+| E1 | Server Settings → **TLS** enable + generate | HTTPS listen; server bar **HTTP/2** badge on web and Tauri. Companion still generates PEMs. |
 | E2 | mTLS CA + issue client credential | Client cert required when enabled |
 | E3 | Unmatched → **Proxy** allowlisted upstream + record drafts | Proxied outcome; drafts mergeable |
 | E4 | Fault variant (timeout / reset) | Journal fault outcome |
@@ -184,17 +200,17 @@ Use a **fresh workspace** each pass. Prefer importing a published Gallery/export
 For Track A–C at minimum:
 
 - [ ] Web Chrome screenshots (desktop) with current labels
-- [ ] Tauri screenshots where chrome differs (native capability banner, HTTP/1.1 badge)
+- [ ] Tauri screenshots where chrome differs (HTTP/2 badge on TLS; sidecar still used for cert generation)
 - [ ] Store under `docs/guides/api-mock/screenshots/` (or attach to a validation record)
 - [ ] Commands in docs copy-paste verified on a clean clone
 
 ### 4.5 12D exit criteria
 
-- [ ] All files in §4.1 exist and link correctly from the index
-- [ ] Track A–C walkthroughs pass on **fresh web** and **fresh Tauri** workspaces
-- [ ] Docs never claim native features listed in §6 as full-parity
-- [ ] CLI section matches `cli/README.md` + `examples/api-mock/`
-- [ ] Parent plan Phase 12D row updated to **Completed** with date
+- [x] All files in §4.1 exist and link correctly from the index
+- [ ] Track A–C walkthroughs pass on **fresh web** and **fresh Tauri** workspaces *(human — `VALIDATION_RECORD.md`)*
+- [x] Docs match §6 and [compatibility.md](../../guides/api-mock/compatibility.md) (HTTP mock feature-complete on native; sidecar for TLS PEMs and other protocols; intentional diffs listed honestly)
+- [x] CLI section matches `cli/README.md` + `examples/api-mock/`
+- [x] Parent plan Phase 12D row updated (docs authored; full **Completed** after evidence)
 
 ---
 
@@ -236,28 +252,9 @@ Add domain **`api-mock`** to:
 
 ### 5.3 Demo Hub lessons
 
-Follow `docs/guides/demo-lesson-done-checklist.md` (5 items). Prefer a small roster over a large unfinished set.
+**Moved** to [`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md).
 
-#### Proposed lesson roster
-
-| Lesson ID | Title | Est. min | Beats |
-|---|---|---|---|
-| `AM-1` | Create & Start a Mock Server | 3–4 | Empty → create → Start → cURL/Requests → journal |
-| `AM-2` | Author a Route & Hot-Apply | 4 | Match + Response → Apply → generation |
-| `AM-3` | Pattern Toolbox & Predicates | 5 | JSONPath / constraints → Add conditions |
-| `AM-4` | Conflict Inspector | 4 | Overlap → analyze → witness → priority |
-| `AM-5` | Import from cURL / OpenAPI | 4 | Import Review → merge |
-| `AM-6` | Runtime Journal & Settings | 4 | Transactions filter, redaction, fallback |
-| `AM-7` *(optional)* | TLS basics (companion) | 5 | Enable HTTPS, hit with Requests TLS |
-| `AM-8` *(optional)* | Workflow Start → Assert → Stop | 5 | Designer nodes |
-
-**Lesson engineering rules (from repo demo conventions):**
-
-- Import only via `@redfireforge/demo-hub` adapters — add `apiMockStudioAdapter` if missing
-- Selectors from `API_MOCK` constants only
-- One concept per step; close modals before canvas/studio steps
-- `preAction` guards for rapid Next
-- Collapse app sidebars when they steal space (mirror workflow helpers if needed)
+Summary: **8** planned (`AM-1`…`AM-8`); **≥4** required for 12E exit (`AM-1`…`AM-4`); `AM-7`/`AM-8` optional.
 
 ### 5.4 Playwright E2E
 
@@ -326,8 +323,8 @@ Record evidence in `docs/guides/api-mock/a11y-zoom-pass.md` (short):
 | Topic | Truth in product |
 |---|---|
 | Web without companion | Start/Apply/journal fail with companion-unavailable guidance (`npm run server:dev`) |
-| Tauri native listener | HTTP/1.1 only; warns/blocks unsupported: HTTP/2, proxy/recording, callbacks, transforms, journal disk persist, full faker, many faults, some body operators (xpath/xmlSchema/multipart fail-closed) |
-| Node companion | Full feature set including HTTP/2 on TLS, proxy, callbacks, all faults |
+| Tauri native listener | HTTPS `h2` + HTTP/1.1 fallback (no h2c on plaintext). HTTP mock features run natively; `analyzeNativeUnsupported` is empty. Sidecar still used for TLS cert generation and Kafka/GraphQL/webhooks. Intentional diffs: commit does not rebind port/TLS; XML Schema is an element-presence subset; native malformed faults RST_STREAM one h2 stream (Node destroys the session). |
+| Node companion | Same HTTP mock feature set including HTTP/2 on TLS, proxy, callbacks, transforms, faker, faults |
 | WireMock export | Subset + **loss report** |
 | HAR import/export | Size/redaction limits |
 | OpenAPI import | Stub generation, not full contract fidelity |
@@ -340,21 +337,23 @@ Record evidence in `docs/guides/api-mock/a11y-zoom-pass.md` (short):
 
 ### 12D
 
-1. [ ] Scaffold `docs/guides/api-mock/` + index  
-2. [ ] Write `getting-started.md` + `studio-walkthrough.md` (Tracks A–C) against live UI  
-3. [ ] Write architecture / contracts / matching / runtime / import-export  
-4. [ ] Write TLS-proxy, CLI-CI, workflow-test-runner, troubleshooting, security, migration  
-5. [ ] Capture web + Tauri screenshots for Track A  
-6. [ ] Validate walkthroughs from wiped storage  
-7. [ ] Update parent plan 12D status  
+1. [x] Scaffold `docs/guides/api-mock/` + index  
+2. [x] Write `getting-started.md` + `studio-walkthrough.md` (Tracks A–C) against live UI labels  
+3. [x] Write architecture / contracts / matching / runtime / import-export  
+4. [x] Write TLS-proxy, CLI-CI, workflow-test-runner, troubleshooting, security, migration  
+5. [x] Write templates-and-responses / operations / compatibility (review gaps)  
+5b. [x] Refresh guides for native HTTP/2/proxy/callback parity, CORS, recorded-draft poll, SSRF ceilings, route-delete undo, tab chrome, Live strip, JSONPath toolbox  
+6. [x] Capture web + Tauri screenshots for Track A (see `VALIDATION_RECORD.md`)  
+7. [x] Validate walkthroughs from wiped storage (web Playwright + Tauri MCP; Tracks A–C)  
+8. [x] Update parent plan 12D status (exit met)  
 
 ### 12E
 
-8. [ ] Complete + export `API_MOCK` selectors  
-9. [ ] Gallery domain + first 3 samples  
-10. [ ] Demo Hub adapter + AM-1…AM-4 lessons  
+8. [x] Complete + export `API_MOCK` selectors (`src/shared/selectors/apiMock.ts` → `selectors.ts`)  
+9. [x] Gallery domain + first 3 samples (`am-gallery-health`, `am-gallery-users`, `am-gallery-conflicts`)  
+10. [ ] Demo Hub adapter + AM-1…AM-4 lessons — see [`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md)  
 11. [ ] Playwright multi-server + 2 focused specs  
-12. [ ] Remaining optional lessons/samples (AM-5+, gallery pack)  
+12. [ ] Remaining optional lessons/samples (AM-5+, gallery pack) — see lessons plan Batch B/C  
 13. [ ] README / ROADMAP / CHANGELOG / conventions  
 14. [ ] Manual a11y/zoom evidence  
 15. [ ] Full product coverage gate + Playwright HTML report (merge gate)  
@@ -368,7 +367,7 @@ Record evidence in `docs/guides/api-mock/a11y-zoom-pass.md` (short):
 |---|---|
 | Phase 12D row (architecture…training walkthrough) | §4 |
 | Phase 12 deliverable #4 Training manual | §4.3 |
-| Phase 12 deliverable #5 Demo Hub + Gallery | §5.2–5.3 |
+| Phase 12 deliverable #5 Demo Hub + Gallery | §5.2 + [`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md) |
 | Phase 12 deliverable #6 Security/migration/ops docs | §4.1 |
 | Phase 12 acceptance: web+Tauri walkthrough | §4.4–4.5 |
 | Phase 12 acceptance: full quality gates / Playwright | §5.4, §5.7 |

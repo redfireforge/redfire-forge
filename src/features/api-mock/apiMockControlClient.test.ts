@@ -212,7 +212,7 @@ describe('apiMockControlClient native Tauri path', () => {
     const seen: string[] = [];
     setNativeInvokeForTests(async (cmd) => {
       seen.push(cmd);
-      return { ok: true, data: { serverId: 'srv-1', port: 4600, state: 'stopped', generation: 1, cleared: true, reset: true, transactions: [], cursor: 0, total: 0, capped: false, states: {}, counters: {}, routeCount: 0, predicateCount: 0, openConnections: 0, inFlight: 0, matchDuration: { lastMs: 0, p95Ms: 0, count: 0 }, outcomes: { matched: 0, unmatched: 0, ambiguous: 0, fault: 0, error: 0, proxied: 0 }, journal: { drops: 0, truncations: 0, size: 0, maxEntries: 500 }, templateErrors: 0 } };
+      return { ok: true, data: { serverId: 'srv-1', port: 4600, state: 'stopped', generation: 1, cleared: true, reset: true, transactions: [], cursor: 0, total: 0, capped: false, states: {}, counters: {}, routeCount: 0, predicateCount: 0, openConnections: 0, inFlight: 0, matchDuration: { lastMs: 0, p95Ms: 0, count: 0 }, outcomes: { matched: 0, unmatched: 0, ambiguous: 0, fault: 0, error: 0, proxied: 0 }, journal: { drops: 0, truncations: 0, size: 0, maxEntries: 500 }, templateErrors: 0, captures: [], drafts: [], removed: 0 } };
     });
     expect((await apiMockControlClient.stop('srv-1')).ok).toBe(true);
     expect((await apiMockControlClient.restart(def)).ok).toBe(true);
@@ -223,9 +223,55 @@ describe('apiMockControlClient native Tauri path', () => {
     expect((await apiMockControlClient.state('srv-1')).ok).toBe(true);
     expect((await apiMockControlClient.resetState('srv-1')).ok).toBe(true);
     expect((await apiMockControlClient.diagnostics('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.recordedDrafts('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.ackRecordedDrafts('srv-1', ['d1'])).ok).toBe(true);
+    expect((await apiMockControlClient.clearRecordedDrafts('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.nextAutoPort([4600])).ok).toBe(true);
+    expect((await apiMockControlClient.probePort(4610)).ok).toBe(true);
     expect(seen).toContain('api_mock_listener_stop');
     expect(seen).toContain('api_mock_listener_diagnostics');
+    expect(seen).toContain('api_mock_listener_recorded_drafts');
+    expect(seen).toContain('api_mock_listener_recorded_drafts_ack');
+    expect(seen).toContain('api_mock_listener_recorded_drafts_clear');
+    expect(seen).toContain('api_mock_ports_next');
+    expect(seen).toContain('api_mock_ports_probe');
     setNativeInvokeForTests(undefined);
     vi.mocked(isTauri).mockReturnValue(false);
+  });
+
+  it('maps web nextAutoPort and falls back to probe walk', async () => {
+    mockFetch(() => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, data: { port: 4605 } }),
+    }));
+    const direct = await apiMockControlClient.nextAutoPort([4600]);
+    expect(direct.ok && direct.data.port).toBe(4605);
+
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo) => {
+      const url = String(input);
+      calls += 1;
+      if (url.includes('/ports/next')) {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({ ok: false, error: { code: 'NOT_FOUND', message: 'missing' } }),
+        } as unknown as Response;
+      }
+      // probe: first free at 4601
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, data: { port: 4601, available: true } }),
+      } as unknown as Response;
+    }));
+    const fallback = await apiMockControlClient.nextAutoPort([4600]);
+    expect(fallback.ok && fallback.data.port).toBe(4601);
+    expect(calls).toBeGreaterThan(1);
+
+    const probe = await apiMockControlClient.probePort(4611);
+    // last stub still active — probe uses /ports/probe
+    expect(probe.ok).toBe(true);
   });
 });

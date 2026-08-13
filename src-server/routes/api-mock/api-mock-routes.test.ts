@@ -226,6 +226,20 @@ describe('createApiMockRouter', () => {
     res = await request(app).post('/api/mock/ports/probe').send({ port: 4610 });
     expect(res.status).toBe(200);
     expect(res.body.data.available).toBe(false);
+
+    list.mockReturnValueOnce([{ serverId: 'srv-1', port: 4600, state: 'running', generation: 3 }]);
+    isPortAvailable.mockResolvedValueOnce(false); // 4601 bound
+    isPortAvailable.mockResolvedValueOnce(true);  // 4602 free
+    res = await request(app).post('/api/mock/ports/next').send({ exclude: [4600] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.port).toBe(4602);
+
+    list.mockReturnValueOnce([]);
+    isPortAvailable.mockImplementation(async () => false);
+    res = await request(app).post('/api/mock/ports/next').send({ exclude: [] });
+    expect(res.status).toBe(503);
+    expect(res.body.error.code).toBe('NO_PORT_AVAILABLE');
+    isPortAvailable.mockReset();
   });
 
   it('creates journals, lists transactions with filters, and clears them', async () => {

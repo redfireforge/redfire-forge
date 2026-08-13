@@ -3,17 +3,24 @@
 //! Desktop Tauri binds the same serialized `ApiMock*V1` contract the companion
 //! uses. Web and CLI keep the Node listener. Capability gaps are explicit.
 
+mod callbacks;
 mod capabilities;
 pub mod commands;
 mod engine;
+mod faker;
 mod journal;
 mod listener;
+mod matchers;
+mod outbound;
 mod path_match;
 mod predicates;
+mod proxy;
+mod recording;
 mod registry;
 mod render;
 mod select;
 mod tls;
+mod transforms;
 mod types;
 
 #[cfg(test)]

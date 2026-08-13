@@ -3,6 +3,7 @@ import AppModalFrame from '../../../shared/components/AppModalFrame';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { ApiMockRouteFolderV1, ApiMockRouteV1, ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
 import { loadApiMockWorkspace, saveApiMockWorkspace } from '../apiMockPersistence';
+import { dispatchApiMockWorkspaceChanged } from '../apiMockGalleryImport';
 import { batchToRoutes, requestItemsToSources, catalogEndpointsToSources } from '../../../shared/api-mock/importParsers';
 
 export interface ExportToApiMockItem {
@@ -101,6 +102,7 @@ export function ExportToApiMockModal({ items, sourceKind, onClose, onSuccess }: 
     const updatedServer = { ...selectedServer, routes: nextRoutes, folders: nextFolders };
     const updatedServers = servers.map(s => s.id === selectedServer.id ? updatedServer : s);
     await saveApiMockWorkspace({ servers: updatedServers, activeServerId });
+    dispatchApiMockWorkspaceChanged({ servers: updatedServers, activeServerId });
     setSaved(true);
     onSuccess?.();
     setTimeout(onClose, 800);

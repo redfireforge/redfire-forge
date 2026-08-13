@@ -68,7 +68,7 @@ fn unavailable_operator_fail_closes_not() {
         id: "p1".into(),
         source: "body".into(),
         selector: None,
-        operator: "xpath_exists".into(),
+        operator: "not_a_real_op".into(),
         expected: Some(serde_json::json!("//a")),
         options: None,
     };
@@ -77,7 +77,24 @@ fn unavailable_operator_fail_closes_not() {
         combinator: "not".into(),
         children: vec![PredicateNode::Leaf(pred)],
     };
-    assert!(!evaluate_predicate_group(&group, &request("/"), &Default::default()));
+    // Unknown operators evaluate to false; NOT of false is true when evaluated.
+    assert!(evaluate_predicate_group(&group, &request("/"), &Default::default()));
+}
+
+#[test]
+fn xpath_exists_matches_local_name() {
+    let xml = r#"<root><a>1</a></root>"#;
+    let mut req = request("/data");
+    req.body = Some(xml.into());
+    let pred = Predicate {
+        id: "p1".into(),
+        source: "body".into(),
+        selector: None,
+        operator: "xpath_exists".into(),
+        expected: Some(serde_json::json!("//a")),
+        options: None,
+    };
+    assert!(evaluate_route(&route_with(pred), &req, "").overall_match);
 }
 
 #[test]
@@ -202,4 +219,92 @@ fn form_field_present_accepts_name_only_array() {
     let mut req = request("/data");
     req.body = Some("csrf=token".into());
     assert!(evaluate_route(&route_with(pred), &req, "").overall_match);
+}
+
+#[test]
+fn json_strict_parses_string_expected() {
+    let pred = Predicate {
+        id: "p1".into(),
+        source: "body".into(),
+        selector: None,
+        operator: "json_strict".into(),
+        expected: Some(serde_json::json!("{\"a\":1}")),
+        options: None,
+    };
+    let mut req = request("/data");
+    req.body = Some("{\"a\":1}".into());
+    assert!(evaluate_route(&route_with(pred), &req, "").overall_match);
+}
+
+#[test]
+fn contains_ignores_case_sensitive_flag_like_typescript() {
+    let pred = Predicate {
+        id: "p1".into(),
+        source: "body".into(),
+        selector: None,
+        operator: "contains".into(),
+        expected: Some(serde_json::json!("hello")),
+        options: Some(PredicateOptions {
+            case_sensitive: Some(false),
+            ..Default::default()
+        }),
+    };
+    let mut req = request("/data");
+    req.body = Some("HELLO WORLD".into());
+    assert!(
+        !evaluate_route(&route_with(pred), &req, "").overall_match,
+        "contains must stay case-sensitive to match TypeScript"
+    );
+}
+
+#[test]
+fn xml_schema_and_xpath_equals_match() {
+    let xml = r#"<Order><Id>42</Id></Order>"#;
+    let mut req = request("/data");
+    req.body = Some(xml.into());
+    let schema = Predicate {
+        id: "p1".into(),
+        source: "body".into(),
+        selector: None,
+        operator: "xmlSchema".into(),
+        expected: Some(serde_json::json!("Order, Id")),
+        options: None,
+    };
+    assert!(evaluate_route(&route_with(schema), &req, "").overall_match);
+    let xpath = Predicate {
+        id: "p2".into(),
+        source: "body".into(),
+        selector: None,
+        operator: "xpath_equals".into(),
+        expected: Some(serde_json::json!(["//Id", "42"])),
+        options: None,
+    };
+    assert!(evaluate_route(&route_with(xpath), &req, "").overall_match);
+}
+
+#[test]
+fn multipart_field_uses_content_type_boundary() {
+    let body = [
+        "------bound",
+        r#"Content-Disposition: form-data; name="note""#,
+        "",
+        "hello",
+        "------bound--",
+        "",
+    ]
+    .join("\r\n");
+    let mut req = request("/data");
+    req.method = "POST".into();
+    req.body = Some(body);
+    req.content_type = Some("multipart/form-data; boundary=----bound".into());
+    let mut route = route_with(Predicate {
+        id: "p1".into(),
+        source: "body".into(),
+        selector: None,
+        operator: "multipart_field".into(),
+        expected: Some(serde_json::json!(["note", "hello"])),
+        options: None,
+    });
+    route.method = "POST".into();
+    assert!(evaluate_route(&route, &req, "").overall_match);
 }

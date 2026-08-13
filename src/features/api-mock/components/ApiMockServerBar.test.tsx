@@ -8,9 +8,14 @@ import { ApiMockServerBar } from './ApiMockServerBar';
 import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
 import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
 import { isTauri } from '../../../shared/utils/platform';
+import { analyzeNativeUnsupported } from '../../../shared/api-mock/nativeCapabilities';
 
 vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
+}));
+
+vi.mock('../../../shared/api-mock/nativeCapabilities', () => ({
+  analyzeNativeUnsupported: vi.fn(() => []),
 }));
 
 const ts = '2026-08-12T00:00:00.000Z';
@@ -118,6 +123,16 @@ describe('ApiMockServerBar', () => {
     expect(start).toHaveTextContent('Starting…');
   });
 
+  it.each([
+    ['draining', 'Draining…'],
+    ['applying', 'Applying…'],
+  ] as const)('marks %s as busy with label %s', (status, label) => {
+    render(<ApiMockServerBar server={makeServer()} onUpdate={vi.fn()} status={status} onStart={vi.fn()} />);
+    const start = screen.getByTestId('api-mock-start');
+    expect(start).toBeDisabled();
+    expect(screen.getByText(label)).toBeTruthy();
+  });
+
   it('copies a client-reachable address for LAN binds and TLS', () => {
     const server = makeServer();
     server.host = '0.0.0.0';
@@ -132,7 +147,7 @@ describe('ApiMockServerBar', () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://127.0.0.1:4600/api');
   });
 
-  it('shows HTTP/1.1 and native capability warnings on Tauri', () => {
+  it('shows HTTP/2 on Tauri TLS with no native capability warnings', () => {
     vi.mocked(isTauri).mockReturnValue(true);
     const server = makeServer();
     server.settings = {
@@ -141,10 +156,20 @@ describe('ApiMockServerBar', () => {
       fallback: { ...server.settings.fallback, mode: 'proxy' },
     };
     render(<ApiMockServerBar server={server} onUpdate={vi.fn()} />);
-    expect(screen.getByTestId('api-mock-http2-badge')).toHaveTextContent('HTTP/1.1');
-    expect(screen.getByTestId('api-mock-native-warnings').textContent).toMatch(/HTTP\/1\.1 only/);
-    expect(screen.getByTestId('api-mock-native-warnings').textContent).toMatch(/proxy/i);
+    expect(screen.getByTestId('api-mock-http2-badge')).toHaveTextContent('HTTP/2');
+    expect(screen.queryByTestId('api-mock-native-warnings')).not.toBeInTheDocument();
     vi.mocked(isTauri).mockReturnValue(false);
+  });
+
+  it('shows native warnings and open routes when requested', () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(analyzeNativeUnsupported).mockReturnValue([{ code: 'tls', message: 'TLS unavailable' }]);
+    render(<ApiMockServerBar server={makeServer()} onUpdate={vi.fn()} onOpenRoutes={vi.fn()} />);
+
+    expect(screen.getByTestId('api-mock-native-warnings')).toHaveTextContent('TLS unavailable');
+    expect(screen.getByTestId('api-mock-open-routes')).toBeTruthy();
+    vi.mocked(isTauri).mockReturnValue(false);
+    vi.mocked(analyzeNativeUnsupported).mockReturnValue([]);
   });
 
   it('copies the address and toggles the button label', async () => {

@@ -121,15 +121,51 @@ export function toRecordedDraft(
   conversion: ConversionResult,
   fingerprint: string,
   recordedAt = new Date().toISOString(),
+  id?: string,
 ): ApiMockRecordedDraftV1 {
   return {
-    id: `rec-${crypto.randomUUID().slice(0, 10)}`,
+    id: id ?? `rec-${crypto.randomUUID().slice(0, 10)}`,
     fingerprint,
     recordedAt,
     route: { ...conversion.route, enabled: false },
     sample: conversion.sample,
     diagnostics: conversion.diagnostics,
   };
+}
+
+/** Native listener capture — converted to a draft on poll, not in Rust. */
+export interface NativeProxyCaptureV1 {
+  id: string;
+  fingerprint: string;
+  recordedAt: string;
+  request: ApiMockCapturedRequestV1;
+  response: ProxiedResponseCapture;
+  redaction?: {
+    headerNames?: string[];
+    jsonPaths?: string[];
+    preserveScheme?: boolean;
+  };
+}
+
+/** Convert a native proxied capture into a Studio draft, preserving native id/timestamp. */
+export function nativeCaptureToDraft(capture: NativeProxyCaptureV1): ApiMockRecordedDraftV1 | null {
+  try {
+    const conversion = proxiedExchangeToDraft(
+      capture.request,
+      capture.response,
+      {
+        ...DEFAULT_SETTINGS,
+        redaction: {
+          headerNames: capture.redaction?.headerNames ?? DEFAULT_SETTINGS.redaction.headerNames,
+          jsonPaths: capture.redaction?.jsonPaths ?? DEFAULT_SETTINGS.redaction.jsonPaths,
+          preserveScheme: capture.redaction?.preserveScheme ?? DEFAULT_SETTINGS.redaction.preserveScheme,
+        },
+      },
+    );
+    return toRecordedDraft(conversion, capture.fingerprint, capture.recordedAt, capture.id);
+  } catch {
+    return null;
+  }
 }
 
 /** Merge recorded drafts into workspace routes — skips fingerprints already present. */

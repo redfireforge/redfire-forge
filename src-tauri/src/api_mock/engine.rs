@@ -4,7 +4,8 @@ use crate::api_mock::predicates::evaluate_predicate_group;
 use crate::api_mock::render::render_variant;
 use crate::api_mock::select::select_route;
 use crate::api_mock::types::{
-    CapturedRequest, ScenarioState, SequenceState, ServerDefinition, StateTransition, Variant,
+    CallbackRule, CapturedRequest, ScenarioState, SequenceState, ServerDefinition, StateTransition,
+    Variant,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -32,8 +33,16 @@ pub struct EngineOutcome {
     #[allow(dead_code)]
     pub fault: Option<String>,
     pub drop_response: bool,
+    pub dribble_chunks: Vec<(u64, String)>,
     /// Applied after delay (parity with the Node listener `deliver()` path).
     pub pending_transition: Option<StateTransition>,
+    /// Set for unmatched/ambiguous so `{{requestId}}` matches the journal row.
+    pub transaction_id: Option<String>,
+    /// Matched-variant callbacks; listener fires them after journal (never unmatched).
+    pub pending_callbacks: Vec<CallbackRule>,
+    pub path_params: HashMap<String, String>,
+    /// Unmatched + fallback.mode proxy + proxy.enabled — listener forwards outbound.
+    pub needs_proxy: bool,
 }
 
 impl EngineRuntime {
@@ -128,19 +137,20 @@ pub fn handle_captured_request(
 
     if selection.outcome == "ambiguous" {
         let amb = &def.settings.selection.ambiguity_response;
-        return EngineOutcome {
-            status: amb.status,
-            headers: static_headers(amb),
-            body: amb.body.clone(),
-            outcome: "ambiguous".into(),
-            matched_route_id: None,
-            matched_response_id: None,
+        let competing = explanation
+            .get("candidates")
+            .and_then(|c| c.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+        return fallback_outcome(
+            amb.status,
+            static_headers(amb),
+            &amb.body,
+            "ambiguous",
             explanation,
-            delay_ms: 0,
-            fault: None,
-            drop_response: false,
-            pending_transition: None,
-        };
+            competing,
+            None,
+        );
     }
 
     if selection.outcome != "matched" {
@@ -207,23 +217,32 @@ pub fn handle_captured_request(
                 delay_ms: 0,
                 fault: None,
                 drop_response: false,
+                dribble_chunks: vec![],
                 pending_transition: None,
+                transaction_id: None,
+                pending_callbacks: vec![],
+                path_params: HashMap::new(),
+                needs_proxy: false,
             };
         }
+        if wants_unmatched_proxy(def) {
+            return proxy_pending_outcome(explanation, None);
+        }
         let fb = &def.settings.fallback.unmatched_response;
-        return EngineOutcome {
-            status: fb.status,
-            headers: static_headers(fb),
-            body: fb.body.clone(),
-            outcome: "unmatched".into(),
-            matched_route_id: None,
-            matched_response_id: None,
+        let competing = explanation
+            .get("candidates")
+            .and_then(|c| c.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+        return fallback_outcome(
+            fb.status,
+            static_headers(fb),
+            &fb.body,
+            "unmatched",
             explanation,
-            delay_ms: 0,
-            fault: None,
-            drop_response: false,
-            pending_transition: None,
-        };
+            competing,
+            None,
+        );
     }
 
     let route_id = selection.selected_route_id.clone().unwrap();
@@ -236,20 +255,24 @@ pub fn handle_captured_request(
         .unwrap_or_default();
     let variant = pick_variant(route, request, &path_params, runtime);
     let Some(variant) = variant else {
+        if wants_unmatched_proxy(def) {
+            return proxy_pending_outcome(explanation, Some(route_id));
+        }
         let fb = &def.settings.fallback.unmatched_response;
-        return EngineOutcome {
-            status: fb.status,
-            headers: static_headers(fb),
-            body: fb.body.clone(),
-            outcome: "unmatched".into(),
-            matched_route_id: Some(route_id),
-            matched_response_id: None,
+        let competing = explanation
+            .get("candidates")
+            .and_then(|c| c.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+        return fallback_outcome(
+            fb.status,
+            static_headers(fb),
+            &fb.body,
+            "unmatched",
             explanation,
-            delay_ms: 0,
-            fault: None,
-            drop_response: false,
-            pending_transition: None,
-        };
+            competing,
+            Some(route_id),
+        );
     };
 
     *runtime
@@ -262,7 +285,12 @@ pub fn handle_captured_request(
     let rendered = render_variant(variant, request, route, def, &runtime.scenario, &render_seed);
     let delay_ms = compute_delay_ms(variant, def.settings.limits.max_delay_ms, &delay_seed);
     let fault = variant.behavior.fault.clone().filter(|f| f != "none");
-    let drop_response = matches!(fault.as_deref(), Some("timeout" | "close"));
+    let drop_response = matches!(fault.as_deref(), Some("timeout" | "close" | "reset" | "malformed"));
+    let dribble_chunks = if fault.as_deref() == Some("dribble") {
+        build_dribble_chunks(variant, &rendered.body)
+    } else {
+        vec![]
+    };
 
     EngineOutcome {
         status: rendered.status,
@@ -275,8 +303,139 @@ pub fn handle_captured_request(
         delay_ms,
         fault,
         drop_response,
+        dribble_chunks,
         pending_transition: variant.transition.clone(),
+        transaction_id: None,
+        pending_callbacks: variant.callbacks.clone().unwrap_or_default(),
+        path_params,
+        needs_proxy: false,
     }
+}
+
+fn fallback_outcome(
+    status: u16,
+    headers: Vec<(String, String)>,
+    template: &str,
+    outcome: &str,
+    explanation: Value,
+    competing: usize,
+    matched_route_id: Option<String>,
+) -> EngineOutcome {
+    let transaction_id = format!("tx-{}", uuid::Uuid::new_v4());
+    EngineOutcome {
+        status,
+        headers,
+        body: render_fallback_body(template, &transaction_id, competing),
+        outcome: outcome.into(),
+        matched_route_id,
+        matched_response_id: None,
+        explanation,
+        delay_ms: 0,
+        fault: None,
+        drop_response: false,
+        dribble_chunks: vec![],
+        pending_transition: None,
+        transaction_id: Some(transaction_id),
+        pending_callbacks: vec![],
+        path_params: HashMap::new(),
+        needs_proxy: false,
+    }
+}
+
+fn wants_unmatched_proxy(def: &ServerDefinition) -> bool {
+    def.settings.fallback.mode == "proxy"
+        && def.settings.proxy.as_ref().is_some_and(|p| p.enabled)
+}
+
+fn proxy_pending_outcome(explanation: Value, matched_route_id: Option<String>) -> EngineOutcome {
+    EngineOutcome {
+        status: 0,
+        headers: vec![],
+        body: String::new(),
+        outcome: "unmatched".into(),
+        matched_route_id,
+        matched_response_id: None,
+        explanation,
+        delay_ms: 0,
+        fault: None,
+        drop_response: false,
+        dribble_chunks: vec![],
+        pending_transition: None,
+        transaction_id: None,
+        pending_callbacks: vec![],
+        path_params: HashMap::new(),
+        needs_proxy: true,
+    }
+}
+
+fn render_fallback_body(template: &str, request_id: &str, competing: usize) -> String {
+    if !template.contains("{{") {
+        return template.to_string();
+    }
+    let competing_s = competing.to_string();
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(start) = rest.find("{{") {
+        out.push_str(&rest[..start]);
+        rest = &rest[start + 2..];
+        if let Some(end) = rest.find("}}") {
+            match rest[..end].trim() {
+                "requestId" => out.push_str(request_id),
+                "competingRuleCount" => out.push_str(&competing_s),
+                other => {
+                    out.push_str("{{");
+                    out.push_str(other);
+                    out.push_str("}}");
+                }
+            }
+            rest = &rest[end + 2..];
+        } else {
+            out.push_str("{{");
+            break;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+fn build_dribble_chunks(variant: &Variant, body: &str) -> Vec<(u64, String)> {
+    if let Some(sched) = &variant.behavior.chunk_schedule {
+        let parsed: Vec<(u64, String)> = sched
+            .iter()
+            .map(|v| {
+                let after = json_delay_ms(v.get("afterMs"));
+                let part = v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                (after, part)
+            })
+            .collect();
+        if !parsed.is_empty() {
+            return parsed;
+        }
+    }
+    let (first, second) = split_dribble_body(body);
+    vec![(20, first), (40, second)]
+}
+
+fn json_delay_ms(value: Option<&Value>) -> u64 {
+    let Some(value) = value else { return 0 };
+    if let Some(n) = value.as_u64() {
+        return n;
+    }
+    if let Some(n) = value.as_i64() {
+        return u64::try_from(n).unwrap_or(0);
+    }
+    match value.as_f64() {
+        Some(n) if n.is_finite() && n >= 0.0 => n.floor() as u64,
+        _ => 0,
+    }
+}
+
+fn split_dribble_body(body: &str) -> (String, String) {
+    let mut end = body.len().div_ceil(2).min(body.len());
+    while end > 0 && !body.is_char_boundary(end) {
+        end -= 1;
+    }
+    (body[..end].to_string(), body[end..].to_string())
 }
 
 fn pick_variant<'a>(

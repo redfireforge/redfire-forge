@@ -136,6 +136,11 @@ pub fn run() {
       api_mock::commands::api_mock_listener_state,
       api_mock::commands::api_mock_listener_reset_state,
       api_mock::commands::api_mock_listener_diagnostics,
+      api_mock::commands::api_mock_listener_recorded_drafts,
+      api_mock::commands::api_mock_listener_recorded_drafts_ack,
+      api_mock::commands::api_mock_listener_recorded_drafts_clear,
+      api_mock::commands::api_mock_ports_next,
+      api_mock::commands::api_mock_ports_probe,
     ]);
 
   #[cfg(debug_assertions)]
