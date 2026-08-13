@@ -9,10 +9,15 @@ import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
 
 const loadApiMockWorkspace = vi.fn();
 const saveApiMockWorkspace = vi.fn();
+const dispatchApiMockWorkspaceChanged = vi.fn();
 
 vi.mock('../apiMockPersistence', () => ({
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),
   saveApiMockWorkspace: (...args: unknown[]) => saveApiMockWorkspace(...args),
+}));
+
+vi.mock('../apiMockGalleryImport', () => ({
+  dispatchApiMockWorkspaceChanged: (...args: unknown[]) => dispatchApiMockWorkspaceChanged(...args),
 }));
 
 vi.mock('../../../shared/components/AppModalFrame', () => ({
@@ -209,6 +214,10 @@ describe('ExportToApiMockModal', () => {
     const saved = saveApiMockWorkspace.mock.calls[0][0];
     expect(saved.servers[0].routes).toHaveLength(1);
     expect(saved.servers[0].folders).toHaveLength(1);
+    expect(dispatchApiMockWorkspaceChanged).toHaveBeenCalledWith({
+      servers: saved.servers,
+      activeServerId: 'srv-1',
+    });
     expect(onSuccess).toHaveBeenCalled();
   });
 

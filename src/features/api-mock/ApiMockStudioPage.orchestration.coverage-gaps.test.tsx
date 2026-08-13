@@ -8,6 +8,7 @@ import '@testing-library/jest-dom';
 
 import { proxiedExchangeToDraft, toRecordedDraft, draftFingerprint } from '../../shared/api-mock/proxyRecording';
 import * as apiMockJournalActions from './apiMockJournalActions';
+import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
 
 const ts = '2026-08-12T00:00:00.000Z';
 
@@ -61,6 +62,15 @@ const state = vi.fn();
 const resetState = vi.fn();
 const recordedDrafts = vi.fn();
 const ackRecordedDrafts = vi.fn();
+const nextAutoPort = vi.fn(async (exclude: number[] = []) => {
+  for (let port = 4600; port <= 4699; port++) {
+    if (!exclude.includes(port)) return { ok: true as const, data: { port } };
+  }
+  return {
+    ok: false as const,
+    error: { code: 'NO_PORT_AVAILABLE', message: 'No available port in 4600-4699', retry: false },
+  };
+});
 const analyzeConflicts = vi.fn();
 const clearConsole = vi.fn();
 
@@ -116,6 +126,7 @@ vi.mock('./apiMockControlClient', () => ({
     resetState: (...args: unknown[]) => resetState(...args),
     recordedDrafts: (...args: unknown[]) => recordedDrafts(...args),
     ackRecordedDrafts: (...args: unknown[]) => ackRecordedDrafts(...args),
+    nextAutoPort: (...args: unknown[]) => nextAutoPort(...args),
   },
 }));
 vi.mock('./useApiMockConsole', () => ({
@@ -335,6 +346,15 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     resetState.mockResolvedValue({ ok: true, data: { reset: true } });
     recordedDrafts.mockResolvedValue({ ok: true, data: { drafts: [], total: 0 } });
     ackRecordedDrafts.mockResolvedValue({ ok: true, data: { removed: 0 } });
+    nextAutoPort.mockImplementation(async (exclude: number[] = []) => {
+      for (let port = 4600; port <= 4699; port++) {
+        if (!exclude.includes(port)) return { ok: true as const, data: { port } };
+      }
+      return {
+        ok: false as const,
+        error: { code: 'NO_PORT_AVAILABLE', message: 'No available port in 4600-4699', retry: false },
+      };
+    });
     analyzeConflicts.mockResolvedValue({ findings: [{ id: 'f1', ruleIds: ['route-1', 'route-2'] }] });
   });
 
@@ -389,7 +409,22 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     await waitFor(() => expect(screen.getByTestId('api-mock-empty')).toBeTruthy());
 
     fireEvent.click(screen.getByTestId('api-mock-create-first'));
-    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4600/i);
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4600/i));
+  });
+
+  it('hydrates from workspace-changed events and ignores empty details', async () => {
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('mock-server-update'));
+    window.dispatchEvent(new CustomEvent(API_MOCK_WORKSPACE_CHANGED_EVENT));
+    window.dispatchEvent(new CustomEvent(API_MOCK_WORKSPACE_CHANGED_EVENT, {
+      detail: { servers: [makeServer('srv-event')], activeServerId: 'srv-event' },
+    }));
+
+    await waitFor(() => expect(screen.getByTestId('mock-select-srv-event')).toBeTruthy());
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Gallery mock server imported/i);
   });
 
   it('covers runtime success and failure branches, polling, dirty status, and dock actions', async () => {
@@ -520,6 +555,28 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('api-mock-view-studio'));
     fireEvent.click(screen.getByTestId('mock-sample-update-hit'));
     fireEvent.click(screen.getByTestId('mock-sample-update'));
+  });
+
+  it('covers deleting a sample while other servers remain in the workspace', async () => {
+    const active = makeServer('srv-1');
+    active.samples = [{
+      id: 's1',
+      name: 'Example',
+      request: { method: 'GET', path: '/users', rawPath: '/users', query: {}, headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts },
+      expected: { outcome: 'matched', status: 200 },
+    }];
+    loadApiMockWorkspace.mockResolvedValueOnce({
+      servers: [active, makeServer('srv-2')],
+      activeServerId: 'srv-1',
+    });
+
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('mock-select-route'));
+    fireEvent.click(screen.getByTestId('mock-sample-delete'));
+    expect(screen.getByTestId('mock-server-tabs').textContent).toContain('srv-2');
   });
 
   it('covers folder map else-branches and non-stale conflict acknowledge message', async () => {
@@ -666,6 +723,7 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-create-server'));
     await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4600/i));
     fireEvent.click(screen.getByTestId('mock-duplicate-server'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/duplicated on port/i));
     fireEvent.click(screen.getByTestId('mock-reorder-servers'));
   });
 
@@ -1116,6 +1174,26 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-create-server'));
     fireEvent.click(screen.getByTestId('mock-duplicate-server'));
     expect(screen.getAllByTestId(/mock-select-srv-/)).toHaveLength(8);
+  });
+
+  it('shows the tab-limit warning when auto-port allocation fails', async () => {
+    loadApiMockWorkspace.mockResolvedValueOnce({ servers: [makeServer('srv-1')], activeServerId: 'srv-1' });
+    nextAutoPort.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'NO_PORT_AVAILABLE', message: 'No available port in 4600-4699', retry: false },
+    });
+    nextAutoPort.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'NO_PORT_AVAILABLE', message: 'No available port in 4600-4699', retry: false },
+    });
+
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('mock-create-server'));
+    fireEvent.click(screen.getByTestId('mock-duplicate-server'));
+    await waitFor(() => expect(screen.getAllByTestId(/mock-select-srv-/)).toHaveLength(1));
   });
 
   it('saves an unassociated example when the journal row has no matched route', async () => {

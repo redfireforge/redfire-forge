@@ -51,8 +51,7 @@ export function ApiMockServerBar({
   const busy = status === 'starting' || status === 'draining' || status === 'applying';
   const labelClass = running ? 'running' : status === 'error' ? 'error' : 'stopped';
   const nativeWarnings = isTauri() ? analyzeNativeUnsupported(server) : [];
-  const tlsHttp2 = Boolean(server.settings.tls?.enabled) && !isTauri();
-  const tlsHttp11 = Boolean(server.settings.tls?.enabled) && isTauri();
+  const tlsEnabled = Boolean(server.settings.tls?.enabled);
 
   const handleCopy = () => {
     void navigator.clipboard?.writeText(address).then(() => {
@@ -77,11 +76,8 @@ export function ApiMockServerBar({
         {generation > 0 && (
           <span className="am-generation">Generation {generation}</span>
         )}
-        {tlsHttp2 && (
+        {tlsEnabled && (
           <span className="am-badge" title="HTTPS listeners accept HTTP/2 (h2) and HTTP/1.1" data-testid="api-mock-http2-badge">HTTP/2</span>
-        )}
-        {tlsHttp11 && (
-          <span className="am-badge" title="Native HTTPS serves HTTP/1.1 only (no h2 ALPN)" data-testid="api-mock-http2-badge">HTTP/1.1</span>
         )}
         {dirty && <span className="am-badge warning" data-testid="api-mock-dirty-badge">Draft changed</span>}
         <span className="am-spacer" />

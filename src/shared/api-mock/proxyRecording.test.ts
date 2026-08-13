@@ -4,11 +4,13 @@ import {
   mergeRecordedDraftsIntoRoutes,
   proxiedExchangeToDraft,
   toRecordedDraft,
+  nativeCaptureToDraft,
   redactHeaderMap,
   routeFingerprintFromRoute,
 } from './proxyRecording';
 import { createDefaultResponse, DEFAULT_SETTINGS } from './defaults';
 import type { ApiMockCapturedRequestV1, ApiMockRouteV1 } from './contracts';
+import type { NativeProxyCaptureV1 } from './proxyRecording';
 
 const ts = '2026-08-12T12:00:00.000Z';
 
@@ -169,5 +171,26 @@ describe('proxyRecording', () => {
 
     const draft = toRecordedDraft(conversion, 'fp');
     expect(draft.recordedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('converts a native capture while preserving id and recordedAt', () => {
+    const capture = {
+      id: 'rec-native01',
+      fingerprint: 'GET /users/1 → 200',
+      recordedAt: ts,
+      request: makeRequest(),
+      response: { status: 200, headers: { 'content-type': 'application/json' }, body: '{"id":1}' },
+      redaction: DEFAULT_SETTINGS.redaction,
+    };
+    const draft = nativeCaptureToDraft(capture);
+    expect(draft?.id).toBe('rec-native01');
+    expect(draft?.recordedAt).toBe(ts);
+    expect(draft?.fingerprint).toBe('GET /users/1 → 200');
+    expect(draft?.route.enabled).toBe(false);
+    expect(draft?.diagnostics.some(d => d.code === 'AMS-REDACTION-SECRET-DETECTED')).toBe(true);
+  });
+
+  it('returns null when a native capture cannot be converted', () => {
+    expect(nativeCaptureToDraft({} as NativeProxyCaptureV1)).toBeNull();
   });
 });

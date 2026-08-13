@@ -9,6 +9,7 @@ import { classifyRuntimeError } from '../../../src/shared/api-mock/recoveryDiagn
 import type { ApiMockServerDefinitionV1, ApiMockLocalDiagnosticsV1 } from '../../../src/shared/api-mock/contracts.js';
 import { emptyOutcomeCounts } from '../../../src/shared/api-mock/localDiagnostics.js';
 import { isPortAvailable } from '../../api-mock/ApiMockNetworkListener.js';
+import { AUTO_PORT_RANGE } from '../../../src/shared/api-mock/defaults.js';
 import { generateSelfSigned, generateClientCredentials } from '../../api-mock/apiMockTls.js';
 import { ApiMockTransactionJournal } from '../../api-mock/ApiMockTransactionJournal.js';
 import { journalPersistPath } from '../../api-mock/apiMockJournalPersist.js';
@@ -151,6 +152,29 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
     if (port < 1024 || port > 65535) return jsonError(res, 400, 'INVALID_PORT', 'Port must be 1024-65535');
     const available = await isPortAvailable(port);
     json200(res, { port, available });
+  });
+
+  /** Next free auto-port in 4600–4699, skipping tab excludes + pool-owned + OS-bound ports. */
+  router.post('/api/mock/ports/next', async (req: Request, res: Response) => {
+    const excludeRaw = Array.isArray(req.body?.exclude) ? req.body.exclude as unknown[] : [];
+    const exclude = new Set<number>([
+      ...excludeRaw.filter((p): p is number => typeof p === 'number' && Number.isInteger(p)),
+      ...apiMockPool.list()
+        .filter(s => s.state === 'running')
+        .map(s => s.port),
+    ]);
+    for (let port = AUTO_PORT_RANGE.min; port <= AUTO_PORT_RANGE.max; port++) {
+      if (exclude.has(port)) continue;
+      if (await isPortAvailable(port)) {
+        return json200(res, { port });
+      }
+    }
+    return jsonError(
+      res,
+      503,
+      'NO_PORT_AVAILABLE',
+      `No available port in ${AUTO_PORT_RANGE.min}-${AUTO_PORT_RANGE.max}`,
+    );
   });
 
   router.get('/api/mock/servers/:serverId/transactions', (req: Request, res: Response) => {

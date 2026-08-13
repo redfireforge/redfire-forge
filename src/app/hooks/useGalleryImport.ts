@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import type { Environment, Microservice, FeatureGroup, Scenario, RequestCollection, RequestItem, HttpMethod } from '../../shared/types';
 import type { GalleryEntry } from '../../data/galleries/types';
@@ -10,6 +10,12 @@ import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
 import { LOADED_SENTINEL } from '../../features/gallery/GalleryPage';
 import { getAutoLayoutNodes } from '../../features/workflow/utils/workflowAutoLayout';
 import { savePreviewSampleId } from '../../shared/utils/storage';
+import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import {
+  importApiMockGalleryServer,
+  loadGalleryImportTracking,
+} from '../../features/api-mock/apiMockGalleryImport';
+import type { Tab } from '../utils/appTabUtils';
 
 export interface UseGalleryImportDeps {
   wb: {
@@ -25,7 +31,7 @@ export interface UseGalleryImportDeps {
   previewWorkflow: Workflow | null;
   /** User's saved workflows (used to detect gallery samples that were "Use as Template"'d). */
   workflows: Workflow[];
-  setActiveTab: (tab: 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results') => void;
+  setActiveTab: (tab: Tab) => void;
   setPreviewRequest: (req: PreviewRequest | null) => void;
   setPreviewWorkflow: (wf: Workflow | null) => void;
   setCatalogInitialSpec: (spec: { yaml: string; name: string } | undefined) => void;
@@ -45,6 +51,11 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     setFeatureGroups, setEnvironments, setMicroservices,
     setSelectedEnvId, setSelectedSvcId,
   } = deps;
+
+  const [apiMockImports, setApiMockImports] = useState<Record<string, string>>({});
+  useEffect(() => {
+    void loadGalleryImportTracking().then(setApiMockImports);
+  }, []);
 
   const importedSamples = useMemo(() => {
     const map: Record<string, string> = {};
@@ -67,8 +78,9 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
         map[wf.gallerySampleId] = LOADED_SENTINEL;
       }
     }
+    Object.assign(map, apiMockImports);
     return map;
-  }, [featureGroups, workflows]);
+  }, [featureGroups, workflows, apiMockImports]);
 
   const onImportRequest = useCallback((entry: GalleryEntry<unknown>) => {
     const scenario = entry.factory() as Scenario;
@@ -196,18 +208,31 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     setActiveTab('workflow');
   }, [setPreviewWorkflow, setActiveTab]);
 
+  const onImportApiMock = useCallback(async (entry: GalleryEntry<unknown>) => {
+    const template = entry.factory() as ApiMockServerDefinitionV1;
+    try {
+      const { sampleHash } = await importApiMockGalleryServer(template, entry.id);
+      setApiMockImports(prev => ({ ...prev, [entry.id]: sampleHash }));
+      setActiveTab('api-mock-studio');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to import API Mock gallery sample.';
+      window.alert(message);
+    }
+  }, [setActiveTab]);
+
   /**
    * Navigate to wherever an already-imported sample lives, without re-importing.
    * Tests → scenarios tab, workflows → workflow tab, requests → requests tab,
-   * catalog → catalog tab.
+   * catalog → catalog tab, api-mock → API Mock Studio.
    */
   const onNavigateTo = useCallback((entry: GalleryEntry<unknown>) => {
-    const domainTabMap: Partial<Record<typeof entry.domain, Parameters<typeof setActiveTab>[0]>> = {
+    const domainTabMap: Partial<Record<typeof entry.domain, Tab>> = {
       tests: 'scenarios',
       workflows: 'workflow',
       requests: 'requests',
       catalog: 'catalog',
       'data-mapper': 'scenarios',
+      'api-mock': 'api-mock-studio',
     };
     const tab = domainTabMap[entry.domain];
     if (tab) setActiveTab(tab);
@@ -220,6 +245,7 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     onImportCatalog,
     onImportTest,
     onImportWorkflow,
+    onImportApiMock,
     onNavigateTo,
   };
 }

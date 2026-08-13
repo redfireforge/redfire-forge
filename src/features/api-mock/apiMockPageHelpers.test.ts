@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS } from '../../shared/api-mock/defaults';
+import { DEFAULT_SETTINGS, AUTO_PORT_RANGE } from '../../shared/api-mock/defaults';
 import {
   applyRouteDelete,
   applyRouteUpdate,
@@ -20,6 +20,7 @@ import {
   mergeRuntimeInfo,
   parsePortOwnerServerId,
   pickNextAutoPort,
+  resolveNextAutoPort,
   removeClosedServer,
   removeClosedServers,
   reorderServers,
@@ -88,10 +89,27 @@ describe('apiMockPageHelpers', () => {
     expect(pickNextAutoPort([])).toBe(4600);
     expect(pickNextAutoPort([{ port: 4600 }])).toBe(4601);
     expect(pickNextAutoPort([{ port: 4600 }, { port: 4602 }])).toBe(4601);
+    expect(pickNextAutoPort([{ port: 4600 }], AUTO_PORT_RANGE, [4601])).toBe(4602);
     expect(() => pickNextAutoPort(
       Array.from({ length: 3 }, (_, i) => ({ port: 10 + i })),
       { min: 10, max: 12 },
     )).toThrow(/No available port/);
+  });
+
+  it('resolves the next auto-port with an OS availability probe', async () => {
+    expect(await resolveNextAutoPort([{ port: 4600 }])).toBe(4601);
+    expect(await resolveNextAutoPort(
+      [{ port: 4600 }],
+      { isAvailable: async port => port !== 4601 },
+    )).toBe(4602);
+    expect(await resolveNextAutoPort(
+      [],
+      { range: { min: 10, max: 12 }, isAvailable: async () => { throw new Error('probe down'); } },
+    )).toBe(10);
+    await expect(resolveNextAutoPort(
+      [],
+      { range: { min: 10, max: 11 }, excludePorts: [10], isAvailable: async () => false },
+    )).rejects.toThrow(/No available port/);
   });
 
   it('duplicates a server without secrets and reorders tabs', () => {

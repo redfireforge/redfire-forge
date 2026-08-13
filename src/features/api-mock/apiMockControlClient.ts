@@ -134,10 +134,12 @@ export const apiMockControlClient = {
       { method: 'POST', body: JSON.stringify({ commonName }) },
     ),
   recordedDrafts: (serverId: string) =>
-    call<{ drafts: ApiMockRecordedDraftV1[]; total: number }>(
-      `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts`,
-      { method: 'GET' },
-    ),
+    isTauri()
+      ? nativeTauriControl.recordedDrafts(serverId)
+      : call<{ drafts: ApiMockRecordedDraftV1[]; total: number }>(
+        `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts`,
+        { method: 'GET' },
+      ),
   diagnostics: (serverId: string) =>
     isTauri()
       ? nativeTauriControl.diagnostics(serverId)
@@ -146,13 +148,56 @@ export const apiMockControlClient = {
         { method: 'GET' },
       ),
   ackRecordedDrafts: (serverId: string, ids: string[]) =>
-    call<{ removed: number }>(
-      `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts/ack`,
-      { method: 'POST', body: JSON.stringify({ ids }) },
-    ),
+    isTauri()
+      ? nativeTauriControl.ackRecordedDrafts(serverId, ids)
+      : call<{ removed: number }>(
+        `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts/ack`,
+        { method: 'POST', body: JSON.stringify({ ids }) },
+      ),
   clearRecordedDrafts: (serverId: string) =>
-    call<{ cleared: boolean }>(
-      `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts`,
-      { method: 'DELETE' },
-    ),
+    isTauri()
+      ? nativeTauriControl.clearRecordedDrafts(serverId)
+      : call<{ cleared: boolean }>(
+        `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts`,
+        { method: 'DELETE' },
+      ),
+  /** Probe whether a single port can bind on this machine. */
+  probePort: (port: number) =>
+    isTauri()
+      ? nativeTauriControl.probePort(port)
+      : call<{ port: number; available: boolean }>(
+        '/api/mock/ports/probe',
+        { method: 'POST', body: JSON.stringify({ port }) },
+      ),
+  /**
+   * Next free auto-port (4600–4699), skipping tab excludes and OS-bound ports.
+   * Falls back to a local scan via probePort when the dedicated next endpoint fails.
+   */
+  nextAutoPort: async (exclude: number[] = []): Promise<ControlResult<{ port: number }>> => {
+    if (isTauri()) return nativeTauriControl.nextAutoPort(exclude);
+    const direct = await call<{ port: number }>(
+      '/api/mock/ports/next',
+      { method: 'POST', body: JSON.stringify({ exclude }) },
+    );
+    if (direct.ok) return direct;
+    // Older companions without /ports/next — walk with /ports/probe.
+    const { resolveNextAutoPort } = await import('./apiMockPageHelpers');
+    try {
+      const port = await resolveNextAutoPort(
+        exclude.map(p => ({ port: p })),
+        {
+          isAvailable: async candidate => {
+            const probe = await call<{ port: number; available: boolean }>(
+              '/api/mock/ports/probe',
+              { method: 'POST', body: JSON.stringify({ port: candidate }) },
+            );
+            return probe.ok ? probe.data.available : true;
+          },
+        },
+      );
+      return { ok: true, data: { port } };
+    } catch (e) {
+      return { ok: false, error: classifyRuntimeError(e) };
+    }
+  },
 };

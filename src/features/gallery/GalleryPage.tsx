@@ -8,6 +8,7 @@ import { testSampleCatalog } from '../../data/galleries/tests';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 import { assertionPresetCatalog } from '../../data/galleries/assertion-presets';
 import { dataMapperSampleCatalog } from '../../data/galleries/data-mapper';
+import { apiMockSampleCatalog } from '../../data/galleries/api-mock';
 import { GalleryGrid } from '../../shared/components/gallery';
 import ConfirmModal from '../../shared/components/ConfirmModal';
 import RequestPreview from './RequestPreview';
@@ -28,6 +29,7 @@ const ALL_ENTRIES: GalleryEntry<unknown>[] = [
   ...sampleWorkflowCatalog,
   ...assertionPresetCatalog,
   ...dataMapperSampleCatalog,
+  ...apiMockSampleCatalog,
 ];
 
 export interface GalleryPageProps {
@@ -41,6 +43,8 @@ export interface GalleryPageProps {
   onImportTest?: (entry: GalleryEntry<unknown>) => void;
   /** Called when the user selects a workflow template. */
   onImportWorkflow?: (entry: GalleryEntry<unknown>) => void;
+  /** Called when the user imports an API Mock Studio sample. */
+  onImportApiMock?: (entry: GalleryEntry<unknown>) => void;
   /**
    * Called when the user clicks an already-imported sample (status = 'imported').
    * Should navigate to wherever the sample was loaded (e.g. scenarios tab).
@@ -59,6 +63,7 @@ const ACTION_LABELS: Record<GalleryDomain, string> = {
   workflows: 'Load Workflow',
   assertions: 'Apply Preset',
   'data-mapper': 'Load Sample',
+  'api-mock': 'Load Mock Server',
 };
 
 const SECONDARY_LABELS: Partial<Record<GalleryDomain, string>> = {
@@ -75,6 +80,7 @@ export function GalleryPage({
   onImportCatalog,
   onImportTest,
   onImportWorkflow,
+  onImportApiMock,
   onNavigateTo,
   importedSamples,
   initialDomain,
@@ -107,7 +113,8 @@ export function GalleryPage({
     workflows: onImportWorkflow,
     assertions: undefined,
     'data-mapper': onImportTest,
-  }), [onImportRequest, onImportCatalog, onImportTest, onImportWorkflow]);
+    'api-mock': onImportApiMock,
+  }), [onImportRequest, onImportCatalog, onImportTest, onImportWorkflow, onImportApiMock]);
 
   const handleAction = useCallback((entry: GalleryEntry<unknown>) => {
     const status = sampleStatus[entry.id];

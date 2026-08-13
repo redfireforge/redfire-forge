@@ -4,6 +4,11 @@
  */
 import type { ApiMockLocalDiagnosticsV1, ApiMockServerDefinitionV1, ApiMockTransactionV1 } from './contracts';
 import { HARD_CEILINGS } from './defaults';
+import {
+  nativeCaptureToDraft,
+  type ApiMockRecordedDraftV1,
+  type NativeProxyCaptureV1,
+} from './proxyRecording';
 import { classifyRuntimeError, type RuntimeDiagnostic, type RuntimeErrorCode } from './recoveryDiagnostics';
 
 export type NativeControlResult<T> = { ok: true; data: T } | { ok: false; error: RuntimeDiagnostic };
@@ -108,4 +113,33 @@ export const nativeTauriControl = {
     invokeEnvelope<{ reset: boolean }>('api_mock_listener_reset_state', { serverId }),
   diagnostics: (serverId: string) =>
     invokeEnvelope<ApiMockLocalDiagnosticsV1>('api_mock_listener_diagnostics', { serverId }),
+  recordedDrafts: async (serverId: string) => {
+    const res = await invokeEnvelope<{ captures: NativeProxyCaptureV1[]; total: number }>(
+      'api_mock_listener_recorded_drafts',
+      { serverId },
+    );
+    if (!res.ok) return res;
+    const drafts: ApiMockRecordedDraftV1[] = [];
+    const failedIds: string[] = [];
+    for (const capture of res.data.captures ?? []) {
+      const draft = nativeCaptureToDraft(capture);
+      if (draft) drafts.push(draft);
+      else if (capture?.id) failedIds.push(capture.id);
+    }
+    if (failedIds.length) {
+      await invokeEnvelope<{ removed: number }>('api_mock_listener_recorded_drafts_ack', {
+        serverId,
+        ids: failedIds,
+      });
+    }
+    return { ok: true as const, data: { drafts, total: drafts.length } };
+  },
+  ackRecordedDrafts: (serverId: string, ids: string[]) =>
+    invokeEnvelope<{ removed: number }>('api_mock_listener_recorded_drafts_ack', { serverId, ids }),
+  clearRecordedDrafts: (serverId: string) =>
+    invokeEnvelope<{ cleared: boolean }>('api_mock_listener_recorded_drafts_clear', { serverId }),
+  nextAutoPort: (exclude: number[] = []) =>
+    invokeEnvelope<{ port: number }>('api_mock_ports_next', { exclude }),
+  probePort: (port: number) =>
+    invokeEnvelope<{ port: number; available: boolean }>('api_mock_ports_probe', { port }),
 };
