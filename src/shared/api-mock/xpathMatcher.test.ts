@@ -76,6 +76,7 @@ describe('matchXPathEquals', () => {
   it('matches a substring of the selected node (WireMock "contains")', () => {
     expect(contains(soap('1GN1RK114R1FaultCode200'), 'FaultCode200')).toBe(true);
     expect(contains(soap('1GN1RK114R1SUCCESS'), 'FaultCode200')).toBe(false);
+    expect(contains(soap('1GN1RK114R1FaultCode200'), '')).toBe(false);
   });
 
   it('is scoped to the element — the whole-body approximation was not', () => {

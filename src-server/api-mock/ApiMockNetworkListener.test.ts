@@ -52,6 +52,10 @@ describe('ApiMockNetworkListener', () => {
     const res = await fetch(`http://127.0.0.1:${port}/hello`);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('Hello from mock');
+    const diag = listener.getLocalDiagnostics();
+    expect(diag.outcomes.matched).toBe(1);
+    expect(diag.matchDuration.count).toBe(1);
+    expect(diag.routeCount).toBe(1);
   });
 
   it('returns 404 for unmatched paths', async () => {
@@ -110,6 +114,33 @@ describe('ApiMockNetworkListener', () => {
 
     await fetch(`http://127.0.0.1:${port}/hello`);
     expect(transactions.length).toBe(1);
+  });
+
+  it('does not record transactions when the journal is disabled', async () => {
+    const port = getPort();
+    const transactions: unknown[] = [];
+    const def = makeDef(port, {
+      settings: { ...DEFAULT_SETTINGS, journal: { ...DEFAULT_SETTINGS.journal, enabled: false } },
+    });
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-1',
+      definition: def,
+      onTransaction: tx => transactions.push(tx),
+    });
+    listeners.push(listener);
+    await listener.start();
+
+    const res = await fetch(`http://127.0.0.1:${port}/hello`);
+    expect(res.status).toBe(200);
+    expect(transactions).toHaveLength(0);
+    expect(listener.getLocalDiagnostics().outcomes.matched).toBe(1);
+
+    listener.commit({
+      ...def,
+      settings: { ...DEFAULT_SETTINGS, journal: { ...DEFAULT_SETTINGS.journal, enabled: true } },
+    });
+    await fetch(`http://127.0.0.1:${port}/hello`);
+    expect(transactions).toHaveLength(1);
   });
 
   it('returns ambiguity response for multiple matches with reject_multiple', async () => {

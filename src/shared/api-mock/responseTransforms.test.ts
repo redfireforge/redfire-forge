@@ -8,6 +8,7 @@ const base = {
   status: 200,
   headers: { 'Content-Type': 'application/json', 'X-Old': '1' },
   body: '{"ok":true}',
+  templateErrorCount: 0,
 };
 
 describe('applyResponseTransforms', () => {

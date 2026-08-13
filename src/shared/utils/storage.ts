@@ -70,8 +70,6 @@ const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
 const MAX_STORED_RESULTS_PER_RUN = 2000;
 
-// ---------- Low-level read/write abstraction ----------
-
 export async function readKey(key: string): Promise<string | null> {
   if (isTauri()) {
     return tauriStore.getItem(key);
@@ -111,7 +109,6 @@ export async function writeKey(key: string, value: string, options?: { notifyOnQ
 
 let _storageFullListeners: Array<(key: string) => void> = [];
 
-/** Register a callback invoked when a localStorage write fails due to quota. */
 export function onStorageFull(cb: (key: string) => void): () => void {
   _storageFullListeners.push(cb);
   return () => { _storageFullListeners = _storageFullListeners.filter(l => l !== cb); };
@@ -131,8 +128,6 @@ export async function removeKey(key: string): Promise<void> {
   localStorage.removeItem(key);
 }
 
-// ---------- Max runs ----------
-
 export async function getMaxRuns(): Promise<number> {
   try {
     const v = await readKey(MAX_RUNS_KEY);
@@ -146,8 +141,6 @@ export async function setMaxRuns(n: number): Promise<void> {
   await writeKey(MAX_RUNS_KEY, String(clamped));
   await pruneOldRuns();
 }
-
-// ---------- Helpers ----------
 
 function capAndTruncateResults(run: TestRun): TestRun {
   let results = run.results;
@@ -207,18 +200,13 @@ async function pruneOldRuns(): Promise<void> {
   }
 }
 
-// ---------- IDB migration (browser only) ----------
-
 let _idbMigrated = false;
 
-/** Ensure localStorage test runs are migrated to IndexedDB (browser only, no-op for Tauri). */
 async function ensureIdbMigration(): Promise<void> {
   if (isTauri() || _idbMigrated) return;
   _idbMigrated = true;
   await idbMigrateFromLocalStorage(STORAGE_KEY);
 }
-
-// ---------- Storage usage ----------
 
 export async function getStorageUsage(): Promise<{ usedBytes: number; entries: Record<string, number> }> {
   if (isTauri()) {
@@ -234,7 +222,6 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
       total += size;
     }
   }
-  // Add IDB data info
   try {
     const idbInfo = await idbGetRunsInfo();
     if (idbInfo.count > 0) {
@@ -242,7 +229,6 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
       total += idbInfo.approxBytes;
     }
   } catch { /* IDB unavailable */ }
-  // Estimate sizes of other IDB stores
   const idbChecks: Array<{ label: string; fn: () => Promise<unknown> }> = [
     { label: 'workflows (IndexedDB)', fn: idbLoadWorkflows },
     { label: 'requests (IndexedDB)', fn: idbLoadRequests },
@@ -264,8 +250,6 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
   }
   return { usedBytes: total, entries };
 }
-
-// ---------- Test runs ----------
 
 export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaError?: boolean }> {
   const truncated = capAndTruncateResults(run);
@@ -326,9 +310,6 @@ export async function forceSaveTestRun(run: TestRun): Promise<{ ok: boolean }> {
   }
 }
 
-/**
- * Update an existing TestRun in-place (by id). Used for result merging after re-runs.
- */
 export async function updateTestRun(run: TestRun): Promise<{ ok: boolean }> {
   const truncated = capAndTruncateResults(run);
   if (isTauri()) {
@@ -372,11 +353,6 @@ export async function loadTestRuns(): Promise<TestRun[]> {
   }
 }
 
-/**
- * Load test runs WITHOUT compressed trace data (lightweight).
- * For Tauri: strips compressedTrace from each run after loading.
- * For browser: uses idbLoadTestRunsLite which never reads the trace field.
- */
 export async function loadTestRunsLite(): Promise<TestRun[]> {
   if (isTauri()) {
     try {
@@ -400,11 +376,6 @@ export async function loadTestRunsLite(): Promise<TestRun[]> {
   }
 }
 
-/**
- * Load the compressed trace for a single run by ID. Returns the raw compressed string.
- * For Tauri: loads all runs and picks the matching one (no random-access optimization).
- * For browser: loads only the trace field from IndexedDB.
- */
 export async function loadTraceForRun(runId: string): Promise<string | undefined> {
   if (isTauri()) {
     try {
@@ -443,7 +414,6 @@ export async function deleteTestRun(runId: string): Promise<void> {
   await idbDeleteTestRun(runId);
 }
 
-/** Delete all test runs older than `cutoffMs` (epoch). Returns count deleted. */
 export async function deleteRunsOlderThan(cutoffMs: number): Promise<number> {
   if (isTauri()) {
     const runs = await loadTestRuns();
@@ -456,7 +426,6 @@ export async function deleteRunsOlderThan(cutoffMs: number): Promise<number> {
   return idbDeleteRunsOlderThan(cutoffMs);
 }
 
-/** Delete all test runs. */
 export async function clearAllTestRuns(): Promise<void> {
   if (isTauri()) {
     await writeKey(STORAGE_KEY, JSON.stringify([]));
@@ -465,8 +434,6 @@ export async function clearAllTestRuns(): Promise<void> {
   await ensureIdbMigration();
   await idbClearAllRuns();
 }
-
-// ---------- Flat app-level data (v3) ----------
 
 export interface AppData {
   environments: Environment[];
@@ -581,16 +548,12 @@ export async function loadSelectedEnvId(): Promise<string> { return (await readK
 export async function saveSelectedSvcId(id: string): Promise<void> { await writeKey(FLAT_SEL_SVC_KEY, id); }
 export async function loadSelectedSvcId(): Promise<string> { return (await readKey(FLAT_SEL_SVC_KEY)) ?? ''; }
 
-// ---------- Global Auth Profiles ----------
-
 export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> {
   await globalAuthProfilesStorage.save(profiles);
 }
 export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> {
   return globalAuthProfilesStorage.load();
 }
-
-// ---------- Shared Data Sources ----------
 
 export async function saveSharedDataSources(sources: SharedDataSource[]): Promise<void> {
   if (isTauri()) {
@@ -611,7 +574,6 @@ export async function loadSharedDataSources(): Promise<SharedDataSource[]> {
   try {
     const fromIdb = await idbLoadSharedDataSources();
     if (fromIdb !== null) return fromIdb;
-    // Attempt one-time migration from localStorage
     const migrated = await idbMigrateSharedDataSources(FLAT_SHARED_DS_KEY);
     if (migrated) {
       const after = await idbLoadSharedDataSources();
@@ -622,8 +584,6 @@ export async function loadSharedDataSources(): Promise<SharedDataSource[]> {
     return loadJsonKey<SharedDataSource>(FLAT_SHARED_DS_KEY);
   }
 }
-
-// ---------- Workspace Defaults ----------
 
 export async function saveWorkspaceDefaults(defaults: Record<string, string>): Promise<void> {
   await writeKey(FLAT_WORKSPACE_DEFAULTS_KEY, JSON.stringify(defaults));
@@ -657,15 +617,10 @@ export async function loadWorkspaceDefaults(): Promise<Record<string, string>> {
   }
 }
 
-// ---------- Migration (v1 legacy + v2 projects → v3 flat) ----------
-// Implementations live in `./storageMigration.ts` to keep this file under the
-// monolithic-class threshold; re-exports below preserve the public API.
 export {
   migrateToFlat,
   migratePerFgSharedDataSourcesToTopLevel,
 } from './storageMigration';
-
-// ---------- Runner config ----------
 
 function runnerConfigStorageKey(contextKey?: string): string {
   return contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
@@ -761,11 +716,6 @@ export {
   loadWorkflowSampleDismissed,
   saveWorkflowSampleDismissed,
 } from './storageRequestsWorkflow';
-
-// ---------- Requests ----------
-// Requests/workflow selection storage functions are re-exported from storageRequestsWorkflow.
-
-// ---------- Re-exports (catalog & workflow CRUD live in dedicated modules) ----------
 
 export {
   loadCatalogEntries,

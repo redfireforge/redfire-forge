@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ApiMockRouteV1, ApiMockPredicateV1, ApiMockPredicateGroupV1, ApiMockResponseVariantV1, ApiMockFaultKind, ApiMockSimulationSampleV1, ApiMockRouteFolderV1 } from '../../../shared/api-mock/contracts';
+import { isUnavailablePredicateOperator } from '../../../shared/api-mock/unavailableOperators';
 import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { inferPathKind } from '../../../shared/api-mock/pathMatcher';
@@ -14,7 +15,9 @@ import {
 } from '../../../shared/api-mock/predicateTree';
 import { ApiMockResponseEditor } from './ApiMockResponseEditor';
 import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
+import { ApiMockExamplesPanel } from './ApiMockExamplesPanel';
 import { WandIcon, TrashIcon, FlaskIcon, AlertIcon, PlusIcon } from './ApiMockIcons';
+import { toolboxTabForOperator } from './apiMockPatternToolboxConstants';
 
 interface Props {
   route: ApiMockRouteV1;
@@ -26,12 +29,15 @@ interface Props {
   matchCount?: number;
   /** Live sequence cursor for this route. */
   sequencePosition?: number;
-  onSimulate?: () => void;
+  onSimulate?: (sample?: ApiMockSimulationSampleV1) => void;
   onReviewConflicts?: () => void;
   folderName?: string;
   /** Folders on the owning server, so the route can be filed into one. */
   folders?: ApiMockRouteFolderV1[];
   samples?: ApiMockSimulationSampleV1[];
+  onUpdateSample?: (sample: ApiMockSimulationSampleV1) => void;
+  onDeleteSample?: (sampleId: string) => void;
+  onTrySampleInRequests?: (sample: ApiMockSimulationSampleV1) => void;
 }
 
 type BuilderTab = 'match' | 'response' | 'behavior' | 'examples' | 'docs';
@@ -46,7 +52,32 @@ const BUILDER_TABS: ReadonlyArray<{ id: BuilderTab; label: string }> = [
 ];
 
 const METHODS = ['ANY', 'GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'TRACE'] as const;
-const OPERATORS: ApiMockPredicateV1['operator'][] = ['exact', 'contains', 'prefix', 'suffix', 'regex', 'glob', 'present', 'absent', 'jsonPath_exists', 'jsonPath_equals', 'xpath_exists', 'xpath_equals'];
+const OPERATOR_LABELS: Record<ApiMockPredicateV1['operator'], string> = {
+  exact: 'Exact',
+  contains: 'Contains',
+  prefix: 'Prefix',
+  suffix: 'Suffix',
+  regex: 'Regex',
+  glob: 'Glob',
+  present: 'Present',
+  absent: 'Absent',
+  jsonPath_exists: 'JSONPath exists',
+  jsonPath_equals: 'JSONPath equals',
+  xpath_exists: 'XPath exists',
+  xpath_equals: 'XPath equals',
+  json_strict: 'JSON strict',
+  json_subset: 'JSON subset',
+  jsonSchema: 'JSON Schema',
+  xmlSchema: 'XML Schema',
+  form_field_exact: 'Form field exact',
+  form_field_regex: 'Form field regex',
+  form_field_present: 'Form field present',
+  multipart_field: 'Multipart field',
+  multipart_file: 'Multipart file',
+  binary_exact: 'Binary exact',
+  binary_sha256: 'SHA-256',
+};
+const OPERATORS = Object.keys(OPERATOR_LABELS) as ApiMockPredicateV1['operator'][];
 const SOURCES: ApiMockPredicateV1['source'][] = ['pathParam', 'query', 'header', 'cookie', 'security', 'body', 'transport'];
 
 const SOURCE_LABELS: Record<ApiMockPredicateV1['source'], string> = {
@@ -59,24 +90,44 @@ const SOURCE_LABELS: Record<ApiMockPredicateV1['source'], string> = {
   transport: 'Transport',
 };
 const METHOD_OPTIONS = METHODS.map(m => ({ value: m, label: m }));
-const OPERATOR_OPTIONS = OPERATORS.map(o => ({
-  value: o,
-  label: ({
-    exact: 'Exact',
-    contains: 'Contains',
-    prefix: 'Prefix',
-    suffix: 'Suffix',
-    regex: 'Regex',
-    glob: 'Glob',
-    present: 'Present',
-    absent: 'Absent',
-    jsonPath_exists: 'JSONPath exists',
-    jsonPath_equals: 'JSONPath equals',
-    xpath_exists: 'XPath exists',
-    xpath_equals: 'XPath equals',
-  } as Record<string, string>)[o],
-}));
+const OPERATOR_OPTIONS = OPERATORS.map(o => ({ value: o, label: OPERATOR_LABELS[o] }));
 const SOURCE_OPTIONS = SOURCES.map(s => ({ value: s, label: SOURCE_LABELS[s] }));
+
+const TOOLBOX_OPERATORS = new Set<ApiMockPredicateV1['operator']>([
+  'regex', 'glob', 'jsonPath_exists', 'jsonPath_equals', 'xpath_exists', 'xpath_equals', 'jsonSchema', 'xmlSchema',
+]);
+
+function expectedText(expected: ApiMockPredicateV1['expected']): string {
+  if (typeof expected === 'string') return expected;
+  if (expected == null) return '';
+  try { return JSON.stringify(expected, null, 2); } catch { return String(expected); }
+}
+
+function pairExpected(expected: ApiMockPredicateV1['expected']): [string, string] {
+  return Array.isArray(expected)
+    ? [String(expected[0] ?? ''), String(expected[1] ?? '')]
+    : ['', ''];
+}
+
+const SECURITY_SELECTOR_OPTIONS = [
+  { value: 'scheme', label: 'Scheme' },
+  { value: 'username', label: 'Username' },
+  { value: 'tokenClaim', label: 'Token claim' },
+  { value: 'apiKeyName', label: 'API key name' },
+  { value: 'apiKeyLocation', label: 'API key location' },
+  { value: 'certSubject', label: 'Certificate subject' },
+];
+
+function operatorOptionsFor(operator: string) {
+  if (isUnavailablePredicateOperator(operator)) {
+    return [...OPERATOR_OPTIONS, { value: operator, label: `${operator} (unavailable)`, disabled: true }];
+  }
+  return OPERATOR_OPTIONS;
+}
+
+function securitySelectorValue(selector?: string): string {
+  return SECURITY_SELECTOR_OPTIONS.some(o => o.value === selector) ? selector! : '';
+}
 
 const COMBINATOR_OPTIONS = [
   { value: 'all', label: 'All of' },
@@ -105,13 +156,16 @@ export function ApiMockRouteEditor({
   folderName,
   folders = [],
   samples = [],
+  onUpdateSample,
+  onDeleteSample,
+  onTrySampleInRequests,
 }: Props) {
   const [tab, setTab] = useState<BuilderTab>('match');
   const [toolboxOpen, setToolboxOpen] = useState(false);
   const [toolboxPredicateId, setToolboxPredicateId] = useState<string | undefined>();
   const group = route.predicates;
   const leaves = countLeaves(group);
-  const routeSamples = samples.filter(s => s.routeId === route.id);
+  const routeSamples = samples.filter(s => s.routeId === route.id || !s.routeId);
   const pathTitle = `${route.method === 'ANY' ? 'ANY' : route.method} ${route.path.value || '/'}`;
   const shortId = route.id.length > 12 ? route.id.slice(0, 12) : route.id;
   const metaParts = [
@@ -154,88 +208,128 @@ export function ApiMockRouteEditor({
   };
 
   const renderLeaf = (pred: ApiMockPredicateV1) => (
-    <div className="am-matcher-row" key={pred.id} data-testid={`api-mock-condition-${pred.id}`}>
+    <div className="am-matcher-leaf" key={pred.id}>
+    <div className="am-matcher-row" data-testid={`api-mock-condition-${pred.id}`}>
       <CustomSelect
         value={pred.source}
-        onChange={v => updateCondition(pred.id, { source: v as ApiMockPredicateV1['source'] })}
+        onChange={v => {
+          const source = v as ApiMockPredicateV1['source'];
+          const patch: Partial<ApiMockPredicateV1> = { source };
+          if (source === 'security' && !SECURITY_SELECTOR_OPTIONS.some(o => o.value === pred.selector)) {
+            patch.selector = 'scheme';
+          }
+          updateCondition(pred.id, patch);
+        }}
         options={SOURCE_OPTIONS}
         size="sm"
         className="am-cs"
         aria-label="Condition source"
         data-testid={`api-mock-condition-source-${pred.id}`}
       />
-      <input
-        className="am-input mono"
-        value={pred.selector ?? ''}
-        placeholder="name"
-        onChange={e => updateCondition(pred.id, { selector: e.target.value })}
-        aria-label="Condition selector"
-      />
+      {pred.source === 'security' ? (
+        <CustomSelect
+          value={securitySelectorValue(pred.selector)}
+          onChange={v => updateCondition(pred.id, { selector: v })}
+          options={SECURITY_SELECTOR_OPTIONS}
+          placeholder="Selector"
+          size="sm"
+          className="am-cs"
+          aria-label="Condition selector"
+          data-testid={`api-mock-condition-selector-${pred.id}`}
+        />
+      ) : (
+        <input
+          className="am-input mono"
+          value={pred.selector ?? ''}
+          placeholder="name"
+          onChange={e => updateCondition(pred.id, { selector: e.target.value })}
+          aria-label="Condition selector"
+        />
+      )}
       <CustomSelect
         value={pred.operator}
         onChange={v => updateCondition(pred.id, { operator: v as ApiMockPredicateV1['operator'] })}
-        options={OPERATOR_OPTIONS}
+        options={operatorOptionsFor(pred.operator)}
         size="sm"
         className="am-cs"
         aria-label="Condition operator"
         data-testid={`api-mock-condition-operator-${pred.id}`}
       />
-      {pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals' ? (
-        // These store [expression, value]; edit both halves.
+      {pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals'
+        || pred.operator === 'multipart_field' || pred.operator === 'multipart_file'
+        || pred.operator === 'form_field_exact' || pred.operator === 'form_field_regex' ? (
         <div className="am-jsonpath-pair">
           <input
             className="am-input mono"
-            value={Array.isArray(pred.expected) ? String(pred.expected[0] ?? '') : ''}
-            placeholder={pred.operator === 'xpath_equals' ? "//*[local-name()='vin']/text()" : '$.customer.tier'}
+            value={pairExpected(pred.expected)[0]}
+            placeholder={
+              pred.operator.startsWith('xpath') ? "//*[local-name()='vin']/text()"
+                : pred.operator.startsWith('multipart') || pred.operator.startsWith('form_field') ? 'field'
+                  : '$.customer.tier'
+            }
             onChange={e => updateCondition(pred.id, {
-              expected: [e.target.value, Array.isArray(pred.expected) ? String(pred.expected[1] ?? '') : ''],
+              expected: [e.target.value, pairExpected(pred.expected)[1]],
             })}
-            aria-label={pred.operator === 'xpath_equals' ? 'Condition XPath' : 'Condition JSONPath'}
+            aria-label={pred.operator.startsWith('xpath') ? 'Condition XPath' : pred.operator.startsWith('jsonPath') ? 'Condition JSONPath' : 'Condition field'}
           />
           <input
             className="am-input mono"
-            value={Array.isArray(pred.expected) ? String(pred.expected[1] ?? '') : ''}
-            placeholder="gold"
+            value={pairExpected(pred.expected)[1]}
+            placeholder={pred.operator === 'multipart_file' ? 'file.png' : 'value'}
             onChange={e => updateCondition(pred.id, {
-              expected: [Array.isArray(pred.expected) ? String(pred.expected[0] ?? '') : '', e.target.value],
+              expected: [pairExpected(pred.expected)[0], e.target.value],
             })}
             aria-label="Condition value"
           />
-          <button
-            type="button"
-            className={`am-btn small ghost${pred.options?.matchStyle === 'subset' ? ' active' : ''}`}
-            title={pred.options?.matchStyle === 'subset'
-              ? 'Substring match — click for exact'
-              : 'Exact match — click for substring'}
-            onClick={() => updateCondition(pred.id, {
-              options: { ...pred.options, matchStyle: pred.options?.matchStyle === 'subset' ? 'exact' : 'subset' },
-            })}
-            data-testid={`api-mock-condition-matchstyle-${pred.id}`}
-          >{pred.options?.matchStyle === 'subset' ? 'contains' : 'equals'}</button>
+          {(pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals') && (
+            <button
+              type="button"
+              className={`am-btn small ghost${pred.options?.matchStyle === 'subset' ? ' active' : ''}`}
+              title={pred.options?.matchStyle === 'subset'
+                ? 'Substring match — click for exact'
+                : 'Exact match — click for substring'}
+              onClick={() => updateCondition(pred.id, {
+                options: { ...pred.options, matchStyle: pred.options?.matchStyle === 'subset' ? 'exact' : 'subset' },
+              })}
+              data-testid={`api-mock-condition-matchstyle-${pred.id}`}
+            >{pred.options?.matchStyle === 'subset' ? 'contains' : 'equals'}</button>
+          )}
         </div>
+      ) : pred.operator === 'jsonSchema' || pred.operator === 'xmlSchema' || pred.operator === 'json_strict' || pred.operator === 'json_subset' ? (
+        <textarea
+          className="am-textarea mono am-matcher-schema"
+          value={expectedText(pred.expected)}
+          placeholder={pred.operator === 'xmlSchema' ? 'Order, Id  or  <xs:element name="Order"/>' : '{ "type": "object" }'}
+          onChange={e => updateCondition(pred.id, { expected: e.target.value })}
+          aria-label="Condition schema"
+          data-testid={`api-mock-condition-schema-${pred.id}`}
+        />
       ) : (
         <input
           className="am-input mono"
           value={typeof pred.expected === 'string' ? pred.expected : ''}
           placeholder={
-            pred.operator === 'jsonPath_exists' ? '$.customer.tier'
-              : pred.operator === 'xpath_exists' ? "//*[local-name()='vin']"
-                : 'value'
+            pred.source === 'security' && pred.selector === 'certSubject' ? 'CN=client-name'
+              : pred.operator === 'jsonPath_exists' ? '$.customer.tier'
+                : pred.operator === 'xpath_exists' ? "//*[local-name()='vin']"
+                  : pred.operator === 'binary_sha256' ? '64-char hex digest'
+                    : 'value'
           }
           disabled={pred.operator === 'present' || pred.operator === 'absent'}
           onChange={e => updateCondition(pred.id, { expected: e.target.value })}
           aria-label="Condition value"
         />
       )}
-      {pred.source === 'pathParam' && (pred.operator === 'regex' || pred.operator === 'glob') ? (
-        <button
-          className="am-icon-btn"
-          aria-label="Open pattern toolbox"
-          title="Open pattern toolbox"
-          onClick={() => { setToolboxPredicateId(pred.id); setToolboxOpen(true); }}
-          data-testid={`api-mock-condition-toolbox-${pred.id}`}
-        ><WandIcon size={13} /></button>
-      ) : (
+      <div className="am-matcher-actions">
+        {TOOLBOX_OPERATORS.has(pred.operator) && (
+          <button
+            className="am-icon-btn"
+            aria-label="Open pattern toolbox"
+            title="Open pattern toolbox"
+            onClick={() => { setToolboxPredicateId(pred.id); setToolboxOpen(true); }}
+            data-testid={`api-mock-condition-toolbox-${pred.id}`}
+          ><WandIcon size={13} /></button>
+        )}
         <button
           className="am-icon-btn"
           aria-label="Remove condition"
@@ -243,7 +337,13 @@ export function ApiMockRouteEditor({
           onClick={() => removeCondition(pred.id)}
           data-testid={`api-mock-condition-remove-${pred.id}`}
         ><TrashIcon size={13} /></button>
-      )}
+      </div>
+    </div>
+    {isUnavailablePredicateOperator(pred.operator) && (
+      <p className="am-notice warning" data-testid={`api-mock-condition-unavailable-${pred.id}`}>
+        Operator {pred.operator} is not evaluated yet — this condition never matches.
+      </p>
+    )}
     </div>
   );
 
@@ -335,7 +435,7 @@ export function ApiMockRouteEditor({
             data-testid="api-mock-route-enabled"
           />
         </label>
-        <button className="am-btn small" onClick={onSimulate} data-testid="api-mock-simulate"><FlaskIcon size={13} /> Simulate</button>
+        <button className="am-btn small" onClick={() => onSimulate?.()} data-testid="api-mock-simulate"><FlaskIcon size={13} /> Simulate</button>
       </div>
 
       <div className="am-builder-tabs" role="tablist" aria-label="Route editor sections" onKeyDown={handleTabListArrowKeys}>
@@ -498,26 +598,14 @@ export function ApiMockRouteEditor({
           </>
         )}
         {tab === 'examples' && (
-          routeSamples.length === 0 ? (
-            <div className="am-notice" data-testid="api-mock-examples-empty">
-              <span>Run <strong>Simulate</strong> to exercise this rule against sample requests. Captured transactions can be promoted to examples from the journal.</span>
-            </div>
-          ) : (
-            <div className="am-card-grid" data-testid="api-mock-examples-grid">
-              {routeSamples.map(sample => (
-                <button
-                  key={sample.id}
-                  type="button"
-                  className="am-item-card"
-                  onClick={onSimulate}
-                  data-testid={`api-mock-example-${sample.id}`}
-                >
-                  <h3>{sample.name}</h3>
-                  <p className="am-mono">{sample.request.method} {sample.request.path}</p>
-                </button>
-              ))}
-            </div>
-          )
+          <ApiMockExamplesPanel
+            samples={routeSamples}
+            attachRouteId={route.id}
+            onSimulate={onSimulate}
+            onUpdateSample={onUpdateSample}
+            onDeleteSample={onDeleteSample}
+            onTryInRequests={onTrySampleInRequests}
+          />
         )}
         {tab === 'docs' && (
           <div className="am-form-grid">
@@ -583,6 +671,18 @@ export function ApiMockRouteEditor({
       {toolboxOpen && (
         <ApiMockPatternToolboxModal
           initial={route.path}
+          initialTab={toolboxPredicateId
+            ? toolboxTabForOperator(findLeafInTree(group, toolboxPredicateId)?.operator)
+            : 'path'}
+          predicateExpected={toolboxPredicateId
+            ? findLeafInTree(group, toolboxPredicateId)?.expected
+            : undefined}
+          predicateOperator={toolboxPredicateId
+            ? findLeafInTree(group, toolboxPredicateId)?.operator
+            : undefined}
+          predicateCaseInsensitive={toolboxPredicateId
+            ? findLeafInTree(group, toolboxPredicateId)?.options?.caseSensitive === false
+            : undefined}
           contextLabel={(() => {
             const pred = toolboxPredicateId
               ? findLeafInTree(group, toolboxPredicateId)
@@ -591,7 +691,28 @@ export function ApiMockRouteEditor({
               ? `${pathTitle} · ${SOURCE_LABELS[pred.source]} “${pred.selector || '—'}”`
               : `${pathTitle} · Request path`;
           })()}
-          onApply={m => onUpdate({ path: m })}
+          onApply={m => {
+            if (toolboxPredicateId) {
+              const existing = findLeafInTree(group, toolboxPredicateId);
+              if (existing?.operator !== 'regex' && existing?.operator !== 'glob') return;
+              const regexOrGlob = m.kind === 'glob' || m.kind === 'regex';
+              updateCondition(toolboxPredicateId, {
+                expected: m.value,
+                operator: m.kind === 'glob' ? 'glob' : m.kind === 'regex' ? 'regex' : existing.operator,
+                ...(regexOrGlob ? {
+                  options: {
+                    ...existing.options,
+                    caseSensitive: m.flags?.caseInsensitive ? false : true,
+                  },
+                } : {}),
+              });
+              return;
+            }
+            onUpdate({ path: m });
+          }}
+          onApplyPredicate={toolboxPredicateId
+            ? patch => updateCondition(toolboxPredicateId, patch)
+            : undefined}
           onApplyConditions={preds => {
             if (preds.length > 0) updateGroup({ children: [...group.children, ...preds] });
           }}

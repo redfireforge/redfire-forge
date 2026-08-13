@@ -184,6 +184,8 @@ describe('ApiMockServerPool', () => {
     await pool.start(makeDef('srv-tx', port));
     await (await fetch(`http://127.0.0.1:${port}/test`)).text();
     expect(onTransaction).toHaveBeenCalled();
+    const diag = pool.getListenerDiagnostics('srv-tx');
+    expect(diag?.outcomes.matched).toBeGreaterThan(0);
   });
 
   it('delegates scenario state get/reset only while running', async () => {

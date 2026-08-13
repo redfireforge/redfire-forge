@@ -6,6 +6,7 @@ import type {
   ApiMockServerDefinitionV1,
   ApiMockTransactionV1,
   ApiMockServerState,
+  ApiMockLocalDiagnosticsV1,
 } from '../../src/shared/api-mock/contracts.js';
 import type { ApiMockRecordedDraftV1 } from '../../src/shared/api-mock/proxyRecording.js';
 import { ApiMockNetworkListener, isPortAvailable } from './ApiMockNetworkListener.js';
@@ -184,6 +185,11 @@ export class ApiMockServerPool {
     const entry = this.entries.get(serverId);
     if (!entry || !entry.listener.isRunning()) return undefined;
     return entry.listener.getSequenceState();
+  }
+
+  getListenerDiagnostics(serverId: string): Omit<ApiMockLocalDiagnosticsV1, 'journal'> | undefined {
+    const entry = this.entries.get(serverId);
+    return entry?.listener.getLocalDiagnostics();
   }
 
   /** Combined runtime snapshot for the Studio dock / editors. */

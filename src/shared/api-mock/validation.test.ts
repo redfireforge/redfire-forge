@@ -64,6 +64,13 @@ describe('validateServer', () => {
     expect(validateServer(makeServer())).toEqual([]);
   });
 
+  it('does not throw when route/sample arrays or settings are omitted', () => {
+    const incomplete = { id: 'srv-1', name: 'Demo' } as ApiMockServerDefinitionV1;
+    const diags = validateServer(incomplete);
+    expect(diags.some(d => d.path.endsWith('/settings') && d.code === 'AMS-SCHEMA-MISSING-FIELD')).toBe(true);
+    expect(validateWorkspace({ schemaVersion: 1 } as ApiMockWorkspaceV1).some(d => d.path === '/servers')).toBe(true);
+  });
+
   it('detects missing server name', () => {
     const diags = validateServer(makeServer({ name: '' }));
     expect(diags.some(d => d.code === 'AMS-SCHEMA-MISSING-FIELD')).toBe(true);
@@ -277,13 +284,29 @@ describe('validatePredicateGroup', () => {
     expect(diags.some(d => d.code === 'AMS-SCHEMA-INVALID-TYPE')).toBe(true);
   });
 
-  it('rejects certSubject as capability-gated', () => {
+  it('accepts certSubject as a security selector', () => {
     const group: ApiMockPredicateGroupV1 = {
       id: 'pg', combinator: 'all',
       children: [{ id: 'p1', source: 'security', selector: 'certSubject', operator: 'exact', expected: 'CN=test' }],
     };
     const diags = validatePredicateGroup(group, '/predicates', 0);
-    expect(diags.some(d => d.code === 'AMS-CAPABILITY-GATED')).toBe(true);
+    expect(diags.filter(d => d.severity === 'error')).toEqual([]);
+    expect(diags.some(d => d.code === 'AMS-CAPABILITY-GATED')).toBe(false);
+  });
+
+  it('accepts a compilable JSON Schema and rejects an invalid one', () => {
+    const ok: ApiMockPredicateGroupV1 = {
+      id: 'pg', combinator: 'all',
+      children: [{ id: 'p1', source: 'body', operator: 'jsonSchema', expected: { type: 'object' } }],
+    };
+    expect(validatePredicateGroup(ok, '/predicates', 0).some(d => d.code === 'AMS-CAPABILITY-GATED')).toBe(false);
+    expect(validatePredicateGroup(ok, '/predicates', 0).some(d => d.code === 'AMS-SCHEMA-INVALID')).toBe(false);
+
+    const bad: ApiMockPredicateGroupV1 = {
+      id: 'pg', combinator: 'all',
+      children: [{ id: 'p1', source: 'body', operator: 'jsonSchema', expected: 'not-a-schema' }],
+    };
+    expect(validatePredicateGroup(bad, '/predicates', 0).some(d => d.code === 'AMS-SCHEMA-INVALID')).toBe(true);
   });
 
   it('rejects invalid regex in predicates', () => {

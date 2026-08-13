@@ -9,6 +9,26 @@ import { createDefaultResponse } from '../../../shared/api-mock/defaults';
 import type { ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
 import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
 
+vi.mock('./ApiMockBodyEditor', () => ({
+  ApiMockBodyEditor: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <textarea data-testid="api-mock-variant-body" value={value} onChange={e => onChange(e.target.value)} />
+  ),
+}));
+const { createAdapter } = vi.hoisted(() => ({
+  createAdapter: vi.fn(() => ({ contextId: 'api-mock-body' })),
+}));
+vi.mock('../../../shared/components/data-mapper/DataMapperModal', () => ({
+  default: ({ onSave, onCancel }: { onSave: (v: string) => void; onCancel: () => void }) => (
+    <div data-testid="api-mock-body-mapper">
+      <button type="button" data-testid="api-mock-body-mapper-save" onClick={() => onSave('{"mapped":true}')}>save</button>
+      <button type="button" data-testid="api-mock-body-mapper-cancel" onClick={onCancel}>cancel</button>
+    </div>
+  ),
+}));
+vi.mock('../../../shared/components/data-mapper/adapters/apiMockBodyAdapter', () => ({
+  createApiMockBodyAdapter: (...args: unknown[]) => createAdapter(...args),
+}));
+
 const ts = '2026-08-12T00:00:00.000Z';
 
 function makeRoute(overrides: Partial<ApiMockRouteV1> = {}): ApiMockRouteV1 {
@@ -203,5 +223,47 @@ describe('ApiMockResponseEditor', () => {
     expect(screen.getByText('No cookies.')).toBeTruthy();
     expect(screen.getByText(/Template helpers:/i)).toBeTruthy();
     expect(screen.getByTestId('api-mock-variant-tab-resp-1').textContent).toMatch(/Default/i);
+  });
+
+  it('opens the body mapper and applies the mapped template', () => {
+    const onUpdateRoute = vi.fn();
+    createAdapter.mockClear();
+    render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={onUpdateRoute} />);
+    fireEvent.click(screen.getByTestId('api-mock-body-map'));
+    fireEvent.click(screen.getByTestId('api-mock-body-mapper-save'));
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].body.content).toBe('{"mapped":true}');
+  });
+
+  it('cancels the body mapper without writing', () => {
+    const onUpdateRoute = vi.fn();
+    render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={onUpdateRoute} />);
+    fireEvent.click(screen.getByTestId('api-mock-body-map'));
+    fireEvent.click(screen.getByTestId('api-mock-body-mapper-cancel'));
+    expect(screen.queryByTestId('api-mock-body-mapper')).toBeNull();
+    expect(onUpdateRoute).not.toHaveBeenCalled();
+  });
+
+  it('freezes the mapper adapter across parent rerenders and closes it when switching variants', () => {
+    createAdapter.mockClear();
+    const second = { ...createDefaultResponse('resp-2'), name: 'Variant 2', isDefault: false };
+    const route = makeRoute({ responses: [createDefaultResponse('resp-1'), second] });
+    const { rerender } = render(<ApiMockResponseEditor route={route} onUpdateRoute={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-body-map'));
+    expect(screen.getByTestId('api-mock-body-mapper')).toBeTruthy();
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    rerender(<ApiMockResponseEditor route={{ ...route }} onUpdateRoute={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-body-mapper')).toBeTruthy();
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId('api-mock-variant-tab-resp-2'));
+    expect(screen.queryByTestId('api-mock-body-mapper')).toBeNull();
+  });
+
+  it('disables Map body for non-object JSON payloads', () => {
+    const xml = {
+      ...createDefaultResponse('resp-1'),
+      body: { kind: 'xml' as const, contentType: 'application/xml', content: '<Order/>' },
+    };
+    render(<ApiMockResponseEditor route={makeRoute({ responses: [xml] })} onUpdateRoute={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-body-map')).toBeDisabled();
   });
 });

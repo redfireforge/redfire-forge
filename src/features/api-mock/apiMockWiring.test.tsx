@@ -4,9 +4,16 @@
  * API Mock Studio — wiring integration tests for the features filled in from the
  * mockups: Response editor tab, Simulate modal, and Import modal.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ApiMockStudioPage } from './ApiMockStudioPage';
+
+vi.mock('./components/ApiMockBodyEditor', () => ({
+  ApiMockBodyEditor: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <textarea data-testid="api-mock-variant-body" value={value} onChange={e => onChange(e.target.value)} />
+  ),
+}));
+vi.mock('../../shared/components/data-mapper/DataMapperModal', () => ({ default: () => null }));
 
 function studioWithRoute() {
   render(<ApiMockStudioPage />);

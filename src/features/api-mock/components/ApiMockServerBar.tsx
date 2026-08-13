@@ -2,6 +2,9 @@ import { useState } from 'react';
 import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
 import type { ApiMockRuntimeStatus } from './ApiMockServerTabs';
 import { CopyIcon, CheckIcon, SettingsIcon, RestartIcon, StopIcon, PlayIcon, PanelLeftIcon } from './ApiMockIcons';
+import { mockClientOrigin } from '../../../shared/api-mock/harExport';
+import { isTauri } from '../../../shared/utils/platform';
+import { analyzeNativeUnsupported } from '../../../shared/api-mock/nativeCapabilities';
 
 interface Props {
   server: ApiMockServerDefinitionV1;
@@ -43,11 +46,13 @@ export function ApiMockServerBar({
   onOpenRoutes,
 }: Props) {
   const [copied, setCopied] = useState(false);
-  const scheme = server.settings.tls?.enabled ? 'https' : 'http';
-  const address = `${scheme}://${server.host}:${server.port}${server.basePath}`;
+  const address = `${mockClientOrigin(server.host, server.port, Boolean(server.settings.tls?.enabled))}${server.basePath}`;
   const running = status === 'running';
   const busy = status === 'starting' || status === 'draining' || status === 'applying';
   const labelClass = running ? 'running' : status === 'error' ? 'error' : 'stopped';
+  const nativeWarnings = isTauri() ? analyzeNativeUnsupported(server) : [];
+  const tlsHttp2 = Boolean(server.settings.tls?.enabled) && !isTauri();
+  const tlsHttp11 = Boolean(server.settings.tls?.enabled) && isTauri();
 
   const handleCopy = () => {
     void navigator.clipboard?.writeText(address).then(() => {
@@ -71,6 +76,12 @@ export function ApiMockServerBar({
         >{copied ? <CheckIcon /> : <CopyIcon />}</button>
         {generation > 0 && (
           <span className="am-generation">Generation {generation}</span>
+        )}
+        {tlsHttp2 && (
+          <span className="am-badge" title="HTTPS listeners accept HTTP/2 (h2) and HTTP/1.1" data-testid="api-mock-http2-badge">HTTP/2</span>
+        )}
+        {tlsHttp11 && (
+          <span className="am-badge" title="Native HTTPS serves HTTP/1.1 only (no h2 ALPN)" data-testid="api-mock-http2-badge">HTTP/1.1</span>
         )}
         {dirty && <span className="am-badge warning" data-testid="api-mock-dirty-badge">Draft changed</span>}
         <span className="am-spacer" />
@@ -101,6 +112,13 @@ export function ApiMockServerBar({
       {error && (
         <div className="am-server-error" role="alert" data-testid="api-mock-server-error">
           {error}
+        </div>
+      )}
+      {nativeWarnings.length > 0 && (
+        <div className="am-notice warning am-notice--flush" data-testid="api-mock-native-warnings" role="status">
+          {nativeWarnings.map(w => (
+            <div key={w.code}>{w.message}</div>
+          ))}
         </div>
       )}
     </div>

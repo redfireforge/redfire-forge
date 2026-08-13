@@ -3,7 +3,7 @@
  * Creates one HTTP server per mock-server definition on its configured port.
  */
 import http from 'node:http';
-import https from 'node:https';
+import http2 from 'node:http2';
 import net from 'node:net';
 import type {
   ApiMockServerDefinitionV1,
@@ -42,6 +42,10 @@ import { applyResponseTransforms } from '../../src/shared/api-mock/responseTrans
 import { deliverWithFault } from './apiMockFaultExecutor.js';
 import { buildUpstreamUrl, executeProxy, pickAllowlistedOrigin } from './apiMockProxyExecutor.js';
 import { executeCallbacks } from './apiMockCallbackExecutor.js';
+import { peerCertificateAttrs, validateTlsMaterial } from './apiMockTls.js';
+import { stripHopByHopHeaders } from '../../src/shared/api-mock/proxyPolicy.js';
+import { ListenerDiagnosticsCollector, countRoutePredicates } from '../../src/shared/api-mock/localDiagnostics.js';
+import type { ApiMockLocalDiagnosticsV1 } from '../../src/shared/api-mock/contracts.js';
 
 /** Server-scoped state key shared by all state-mode routes on this listener. */
 const DEFAULT_STATE_KEY = 'default';
@@ -59,12 +63,13 @@ export interface ListenerConfig {
 }
 
 export class ApiMockNetworkListener {
-  private server: http.Server | https.Server | null = null;
+  private server: http.Server | http2.Http2SecureServer | null = null;
   private port = 0;
   private generation = 0;
   private definition: ApiMockServerDefinitionV1;
   private readonly serverId: string;
   private activeConnections = new Set<net.Socket>();
+  private readonly http2Sessions = new Set<http2.Http2Session>();
   private readonly onTransaction: ((tx: ApiMockTransactionV1) => void) | undefined;
   private readonly onRecordedDraft: ((draft: ApiMockRecordedDraftV1) => void) | undefined;
   private readonly getActiveMockPorts: (() => number[]) | undefined;
@@ -72,6 +77,10 @@ export class ApiMockNetworkListener {
   private scenario: ScenarioState = createInitialState();
   private sequence: SequenceState = createSequenceState();
   private variantMatchCounts: Record<string, number> = {};
+  private inFlight = 0;
+  private runtimeEpoch = 0;
+  private readonly delayTimers = new Set<ReturnType<typeof setTimeout>>();
+  private readonly diagnostics = new ListenerDiagnosticsCollector();
 
   constructor(config: ListenerConfig) {
     this.serverId = config.serverId;
@@ -111,6 +120,20 @@ export class ApiMockNetworkListener {
     return { positions: { ...this.sequence.positions } };
   }
 
+  getLocalDiagnostics(): Omit<ApiMockLocalDiagnosticsV1, 'journal'> {
+    const snap = this.diagnostics.snapshot();
+    return {
+      generation: this.generation,
+      routeCount: this.definition.routes.length,
+      predicateCount: countRoutePredicates(this.definition.routes),
+      openConnections: this.activeConnections.size,
+      inFlight: this.inFlight,
+      matchDuration: snap.matchDuration,
+      outcomes: snap.outcomes,
+      templateErrors: snap.templateErrors,
+    };
+  }
+
   resetScenario(): void {
     resetState(this.scenario);
     resetSequence(this.sequence);
@@ -119,24 +142,33 @@ export class ApiMockNetworkListener {
 
   async start(): Promise<{ port: number; generation: number }> {
     if (this.server) throw new Error(`Listener ${this.serverId} is already running`);
+    this.cancelDeferredDeliveries();
     this.port = this.definition.port;
     this.generation = 1;
     this.draining = false;
 
-    const handler = (req: http.IncomingMessage, res: http.ServerResponse) => this.handleRequest(req, res);
+    const handler = (req: http.IncomingMessage | http2.Http2ServerRequest, res: http.ServerResponse | http2.Http2ServerResponse) => {
+      this.handleRequest(req, res);
+    };
     const tls = this.definition.settings.tls;
-    let server: http.Server | https.Server;
+    let server: http.Server | http2.Http2SecureServer;
     if (tls?.enabled) {
       if (!tls.certPem?.trim() || !tls.keyPem?.trim()) {
         throw new Error('TLS is enabled but no certificate and key are configured.');
+      }
+      const material = validateTlsMaterial(tls.certPem, tls.keyPem);
+      if (!material.ok) {
+        throw new Error(`TLS material rejected: ${material.error}`);
       }
       try {
         const mtls = tls.mtls;
         if (mtls?.enabled && !mtls.clientCaPem?.trim()) {
           throw new Error('Client certificates are required but no client CA is configured.');
         }
-        server = https.createServer(
+        // HTTP/2 with ALPN; allowHTTP1 keeps existing HTTP/1.1 clients working.
+        server = http2.createSecureServer(
           {
+            allowHTTP1: true,
             cert: tls.certPem,
             key: tls.keyPem,
             passphrase: tls.passphrase || undefined,
@@ -156,35 +188,65 @@ export class ApiMockNetworkListener {
       this.activeConnections.add(socket);
       socket.on('close', () => this.activeConnections.delete(socket));
     });
-
-    await new Promise<void>((resolve, reject) => {
-      server.once('error', reject);
-      const host = this.definition.host === '0.0.0.0' ? '0.0.0.0' : LISTEN_HOST;
-      server.listen(this.port, host, () => {
-        server.removeListener('error', reject);
-        resolve();
+    if (tls?.enabled) {
+      (server as http2.Http2SecureServer).on('session', (session: http2.Http2Session) => {
+        this.http2Sessions.add(session);
+        session.on('error', () => { /* isolate protocol errors from the companion */ });
+        session.on('close', () => this.http2Sessions.delete(session));
+        const sock = session.socket as net.Socket | undefined;
+        if (!sock) return;
+        this.activeConnections.add(sock);
+        sock.on('close', () => this.activeConnections.delete(sock));
       });
-    });
+    }
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        const host = this.definition.host === '0.0.0.0' ? '0.0.0.0' : LISTEN_HOST;
+        server.listen(this.port, host, () => {
+          server.removeListener('error', reject);
+          server.on('error', () => { /* keep the companion alive after listen */ });
+          resolve();
+        });
+      });
+    } catch (err) {
+      server.on('error', () => { /* close() may emit after a failed listen */ });
+      server.close();
+      throw err;
+    }
 
     this.server = server;
     return { port: this.port, generation: this.generation };
   }
 
   async stop(): Promise<void> {
+    this.cancelDeferredDeliveries();
     if (!this.server) return;
     this.draining = true;
     const drainMs = this.definition.settings.limits.gracefulDrainMs;
     const server = this.server;
     this.server = null;
 
+    // server.close() does not GOAWAY existing HTTP/2 sessions; they would keep
+    // accepting new streams until the drain timer destroys the TLS socket.
+    for (const session of [...this.http2Sessions]) {
+      try { session.close(); } catch { /* ignore */ }
+    }
+
     await Promise.race([
       new Promise<void>(resolve => server.close(() => resolve())),
       new Promise<void>(resolve => setTimeout(() => {
+        for (const session of [...this.http2Sessions]) {
+          try { session.destroy(); } catch { /* ignore */ }
+        }
+        this.http2Sessions.clear();
         for (const socket of this.activeConnections) socket.destroy();
         this.activeConnections.clear();
         resolve();
       }, drainMs)),
     ]);
+    this.http2Sessions.clear();
     this.draining = false;
   }
 
@@ -199,7 +261,19 @@ export class ApiMockNetworkListener {
   getServerId(): string { return this.serverId; }
   isRunning(): boolean { return this.server !== null && !this.draining; }
 
-  private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  /** Drop pending delayed responses so inFlight cannot go stale across stop/start. */
+  private cancelDeferredDeliveries(): void {
+    this.runtimeEpoch += 1;
+    for (const timer of this.delayTimers) clearTimeout(timer);
+    this.delayTimers.clear();
+    this.inFlight = 0;
+    this.diagnostics.reset();
+  }
+
+  private handleRequest(
+    req: http.IncomingMessage | http2.Http2ServerRequest,
+    res: http.ServerResponse | http2.Http2ServerResponse,
+  ): void {
     const gen = this.generation;
     const startTime = Date.now();
     const bodyChunks: Buffer[] = [];
@@ -207,6 +281,9 @@ export class ApiMockNetworkListener {
     let bodySize = 0;
     let truncated = false;
 
+    let abandoned = false;
+    req.on('aborted', () => { abandoned = true; });
+    (req as http2.Http2ServerRequest).stream?.once?.('close', () => { abandoned = true; });
     req.on('data', (chunk: Buffer) => {
       bodySize += chunk.length;
       if (bodySize <= maxBody) bodyChunks.push(chunk);
@@ -214,44 +291,82 @@ export class ApiMockNetworkListener {
     });
 
     req.on('end', () => {
-      void this.processRequest(req, res, bodyChunks, truncated, gen, startTime);
+      if (abandoned || clientGone(req, res)) return;
+      void this.processRequest(req, res, bodyChunks, truncated, gen, startTime).catch(() => {
+        try {
+          if (!res.headersSent) {
+            res.writeHead(500);
+            res.end();
+          }
+        } catch { /* stream already gone */ }
+      });
     });
 
     req.on('error', () => {
-      if (!res.headersSent) res.writeHead(400).end();
+      abandoned = true;
+      if (clientGone(req, res)) return;
+      try {
+        res.writeHead(400);
+        res.end();
+      } catch { /* stream already gone */ }
     });
   }
 
   private async processRequest(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
+    req: http.IncomingMessage | http2.Http2ServerRequest,
+    res: http.ServerResponse | http2.Http2ServerResponse,
     bodyChunks: Buffer[],
     truncated: boolean,
     gen: number,
     startTime: number,
   ): Promise<void> {
+    if (clientGone(req, res)) return;
+
     if (hasAntiRecursionHeader(req.headers as Record<string, string | string[] | undefined>)) {
-      res.writeHead(508, { 'Content-Type': 'application/json' });
+      res.writeHead(508, responseHeadersFor(req, { 'Content-Type': 'application/json' }));
       res.end(JSON.stringify({ error: 'loop_detected', message: 'X-RedfireForge-Mock recursion rejected' }));
       return;
     }
 
     const bodyBuf = bodyChunks.length > 0 ? Buffer.concat(bodyChunks) : null;
     const bodyStr = bodyBuf ? bodyBuf.toString('utf8') : null;
+    const peer = peerCertificateAttrs(peerTlsSocket(req));
     const { captured } = normalizeRequest({
       method: req.method ?? 'GET',
       url: req.url ?? '/',
       headers: req.headers as Record<string, string | string[] | undefined>,
       body: bodyStr,
-      remoteAddress: req.socket.remoteAddress,
+      remoteAddress: requestRemoteAddress(req),
+      ...peer,
     });
     captured.bodyTruncated = truncated;
 
+    this.inFlight++;
+    let deferRelease = false;
+    const epoch = this.runtimeEpoch;
+    try {
+    const matchStarted = Date.now();
     const result = selectRoute(this.definition.routes, captured, this.definition.settings, this.definition.basePath);
+    const matchMs = Date.now() - matchStarted;
     const outcome: ApiMockTransactionOutcome = result.outcome;
     // Generated up front so the id echoed in a fallback body is the same id the
     // journal records, making an unmatched request traceable.
     const requestId = newTransactionId();
+    const recordDelivery = (
+      txOutcome: ApiMockTransactionOutcome,
+      status: number,
+      body: string,
+      matchedResponseId?: string,
+      responseHeaders?: Record<string, string | string[]>,
+      transactionId?: string,
+    ) => {
+      // Record the delivered outcome (fault/proxy/error), not route-selection.
+      this.diagnostics.recordMatch(matchMs, txOutcome);
+      this.recordTransaction(
+        captured, txOutcome, status, body, gen, startTime, result,
+        matchedResponseId, responseHeaders, transactionId,
+      );
+    };
 
     if (outcome === 'matched' && result.selectedRouteId) {
       const route = this.definition.routes.find(r => r.id === result.selectedRouteId)!;
@@ -268,17 +383,19 @@ export class ApiMockNetworkListener {
         seed: `${captured.receivedAt}:${route.id}`,
         maxResponseBodyBytes: this.definition.settings.limits.maxResponseBodyBytes,
       });
+      this.diagnostics.addTemplateErrors(rendered.templateErrorCount);
       // Phase 9D transforms — failure-isolated (errors ignored for delivery).
       const transformed = applyResponseTransforms(rendered, variant?.transforms);
       rendered = transformed.rendered;
       const delayMs = computeVirtualDelayMs(variant, this.definition.settings.limits.maxDelayMs).totalMs;
 
       const deliver = async () => {
+        if (clientGone(req, res)) return;
         if (variant?.transition) applyTransition(this.scenario, DEFAULT_STATE_KEY, variant.transition);
         const fault = variant?.behavior.fault ?? 'none';
         const delivery = await deliverWithFault({
-          req,
-          res,
+          req: req as http.IncomingMessage,
+          res: res as http.ServerResponse,
           fault,
           behavior: variant?.behavior ?? { delayMs: 0, jitterMs: 0 },
           longRunningMaxMs: this.definition.settings.limits.longRunningMaxMs,
@@ -286,14 +403,10 @@ export class ApiMockNetworkListener {
           headers: rendered.headers,
           body: rendered.body,
         });
-        this.recordTransaction(
-          captured,
+        recordDelivery(
           delivery.outcome,
-          delivery.status || rendered.status,
-          delivery.body || rendered.body,
-          gen,
-          startTime,
-          result,
+          delivery.status,
+          delivery.body,
           variant?.id,
           rendered.headers,
         );
@@ -309,29 +422,40 @@ export class ApiMockNetworkListener {
         }
       };
 
-      if (delayMs > 0) setTimeout(() => { void deliver(); }, delayMs);
+      if (delayMs > 0) {
+        deferRelease = true;
+        const timer = setTimeout(() => {
+          this.delayTimers.delete(timer);
+          void Promise.resolve(deliver()).catch(() => { /* client gone during delay */ }).finally(() => {
+            if (this.runtimeEpoch === epoch) this.inFlight--;
+          });
+        }, delayMs);
+        this.delayTimers.add(timer);
+      }
       else await deliver();
       return;
     }
 
     if (outcome === 'ambiguous') {
+      if (clientGone(req, res)) return;
       const ambResp = this.definition.settings.selection.ambiguityResponse;
       const body = renderFallbackBody(ambResp.body, {
         requestId,
         competingRuleCount: result.explanation?.candidates?.length ?? 0,
       });
-      res.writeHead(ambResp.status, { 'Content-Type': ambResp.contentType });
+      res.writeHead(ambResp.status, responseHeadersFor(req, { 'Content-Type': ambResp.contentType }));
       res.end(body);
-      this.recordTransaction(captured, outcome, ambResp.status, body, gen, startTime, result, undefined, undefined, requestId);
+      recordDelivery(outcome, ambResp.status, body, undefined, undefined, requestId);
       return;
     }
 
     const fallback = this.definition.settings.fallback.unmatchedResponse;
     if (this.definition.settings.fallback.mode === 'closest_match_debug') {
+      if (clientGone(req, res)) return;
       const debug = buildClosestMatchDebugBody(result.explanation, fallback);
-      res.writeHead(debug.status, { 'Content-Type': debug.contentType });
+      res.writeHead(debug.status, responseHeadersFor(req, { 'Content-Type': debug.contentType }));
       res.end(debug.body);
-      this.recordTransaction(captured, outcome, debug.status, debug.body, gen, startTime, result, undefined, undefined, requestId);
+      recordDelivery(outcome, debug.status, debug.body, undefined, undefined, requestId);
       return;
     }
 
@@ -339,10 +463,10 @@ export class ApiMockNetworkListener {
     if (this.definition.settings.fallback.mode === 'proxy' && proxy.enabled) {
       const origin = pickAllowlistedOrigin(proxy);
       if (!origin) {
-        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.writeHead(502, responseHeadersFor(req, { 'Content-Type': 'application/json' }));
         const errBody = JSON.stringify({ error: 'proxy_misconfigured', message: 'Proxy enabled but allowlist is empty' });
         res.end(errBody);
-        this.recordTransaction(captured, 'error', 502, errBody, gen, startTime, result);
+        recordDelivery('error', 502, errBody);
         return;
       }
       const upstreamUrl = buildUpstreamUrl(origin, captured.path, req.url ?? captured.path);
@@ -353,22 +477,21 @@ export class ApiMockNetworkListener {
         activeMockPorts: this.getActiveMockPorts?.() ?? [this.port],
         body: bodyBuf,
       });
+      if (clientGone(req, res)) return;
       if (!proxied.ok) {
         // Failure isolation: return diagnostic 502 without mutating scenario/sequence.
         const errBody = JSON.stringify({ error: 'proxy_failed', message: proxied.error ?? 'upstream error' });
-        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.writeHead(502, responseHeadersFor(req, { 'Content-Type': 'application/json' }));
         res.end(errBody);
-        this.recordTransaction(captured, 'error', 502, errBody, gen, startTime, result);
+        recordDelivery('error', 502, errBody);
         return;
       }
-      if (!res.headersSent) {
-        const headers = Object.fromEntries(
-          Object.entries(proxied.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v]),
-        );
-        res.writeHead(proxied.status, headers);
-        res.end(proxied.body);
-      }
-      this.recordTransaction(captured, 'proxied', proxied.status, proxied.body, gen, startTime, result, undefined, proxied.headers);
+      const headers = Object.fromEntries(
+        Object.entries(proxied.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v]),
+      );
+      res.writeHead(proxied.status, responseHeadersFor(req, headers));
+      res.end(proxied.body);
+      recordDelivery('proxied', proxied.status, proxied.body, undefined, proxied.headers);
       if (proxy.recordAsDrafts && this.onRecordedDraft) {
         try {
           const conversion = proxiedExchangeToDraft(captured, {
@@ -383,10 +506,14 @@ export class ApiMockNetworkListener {
       return;
     }
 
+    if (clientGone(req, res)) return;
     const fallbackBody = renderFallbackBody(fallback.body, { requestId });
-    res.writeHead(fallback.status, { 'Content-Type': fallback.contentType });
+    res.writeHead(fallback.status, responseHeadersFor(req, { 'Content-Type': fallback.contentType }));
     res.end(fallbackBody);
-    this.recordTransaction(captured, outcome, fallback.status, fallbackBody, gen, startTime, result, undefined, undefined, requestId);
+    recordDelivery(outcome, fallback.status, fallbackBody, undefined, undefined, requestId);
+    } finally {
+      if (!deferRelease && this.runtimeEpoch === epoch) this.inFlight--;
+    }
   }
 
   private recordTransaction(
@@ -398,6 +525,7 @@ export class ApiMockNetworkListener {
     transactionId?: string,
   ): void {
     if (!this.onTransaction) return;
+    if (this.definition.settings.journal.enabled === false) return;
     const maxBody = this.definition.settings.journal.maxCapturedBodyBytes;
     const headers: Record<string, string[]> = {};
     for (const [k, v] of Object.entries(responseHeaders ?? {})) {
@@ -426,6 +554,41 @@ export class ApiMockNetworkListener {
       durationMs: Date.now() - startTime,
     });
   }
+}
+
+function clientGone(
+  req: http.IncomingMessage | http2.Http2ServerRequest,
+  res: http.ServerResponse | http2.Http2ServerResponse,
+): boolean {
+  if (res.headersSent || res.writableEnded) return true;
+  if ((req.socket as { destroyed?: boolean } | undefined)?.destroyed === true) return true;
+  return 'stream' in req && req.stream?.closed === true;
+}
+
+export function requestRemoteAddress(
+  req: http.IncomingMessage | http2.Http2ServerRequest,
+): string | undefined {
+  if (req.socket?.remoteAddress) return req.socket.remoteAddress;
+  if ('stream' in req) return req.stream?.session?.socket?.remoteAddress;
+  return undefined;
+}
+
+function responseHeadersFor(
+  req: http.IncomingMessage | http2.Http2ServerRequest,
+  headers: Record<string, string | string[]>,
+): Record<string, string | string[]> {
+  return req.httpVersion === '2.0' ? stripHopByHopHeaders(headers) : headers;
+}
+
+export function peerTlsSocket(
+  req: http.IncomingMessage | http2.Http2ServerRequest,
+): { getPeerCertificate?: (detailed?: boolean) => unknown } | null {
+  const direct = req.socket as { getPeerCertificate?: (detailed?: boolean) => unknown } | undefined;
+  if (direct && typeof direct.getPeerCertificate === 'function') return direct;
+  if (!('stream' in req) || !req.stream) return direct ?? null;
+  const sessionSock = req.stream.session?.socket as { getPeerCertificate?: (detailed?: boolean) => unknown } | undefined;
+  if (sessionSock && typeof sessionSock.getPeerCertificate === 'function') return sessionSock;
+  return direct ?? null;
 }
 
 export async function isPortAvailable(port: number, host = LISTEN_HOST): Promise<boolean> {

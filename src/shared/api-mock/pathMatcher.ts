@@ -24,6 +24,22 @@ export function inferPathKind(value: string, current?: ApiMockPathMatcherKind): 
   return 'exact';
 }
 
+/** Unique `:name` / `{name}` captures from path segments, matching `matchParameterizedPath`. */
+export function pathParamNames(value: string): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const part of value.split('/')) {
+    let name: string | undefined;
+    if (part.startsWith(':') && /^:[A-Za-z_]\w*$/.test(part)) name = part.slice(1);
+    else if (part.startsWith('{') && part.endsWith('}')) name = part.slice(1, -1);
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  return names;
+}
+
 export function matchPath(matcher: ApiMockPathMatcherV1, requestPath: string): PathMatchResult {
   const ci = matcher.flags?.caseInsensitive ?? false;
   switch (matcher.kind) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchPath, inferPathKind } from './pathMatcher';
+import { matchPath, inferPathKind, pathParamNames } from './pathMatcher';
 
 describe('inferPathKind', () => {
   it('detects parameterized paths from :param and {param}', () => {
@@ -23,6 +23,16 @@ describe('inferPathKind', () => {
   it('does not treat a bare colon or port-like text as a parameter', () => {
     expect(inferPathKind('/a:b')).toBe('parameterized');
     expect(inferPathKind('/ratio:')).toBe('exact');
+  });
+});
+
+describe('pathParamNames', () => {
+  it('extracts unique :param and {param} names in order', () => {
+    expect(pathParamNames('/users/:id')).toEqual(['id']);
+    expect(pathParamNames('/orders/{orderId}/items/{itemId}')).toEqual(['orderId', 'itemId']);
+    expect(pathParamNames('/users/:id/posts/:id')).toEqual(['id']);
+    expect(pathParamNames('/users')).toEqual([]);
+    expect(pathParamNames('/a:b')).toEqual([]);
   });
 });
 

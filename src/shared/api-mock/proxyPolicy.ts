@@ -14,7 +14,7 @@ const LOOPBACK_IPV6 = /^(::1|fe80:)/i;
 
 const HOP_BY_HOP_HEADERS = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
-  'te', 'trailer', 'transfer-encoding', 'upgrade',
+  'proxy-connection', 'te', 'trailer', 'transfer-encoding', 'upgrade',
 ]);
 
 const CREDENTIAL_HEADERS = new Set([

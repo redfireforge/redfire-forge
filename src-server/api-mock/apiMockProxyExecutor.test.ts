@@ -8,10 +8,10 @@ import {
 } from './apiMockProxyExecutor';
 import { DEFAULT_PROXY_SETTINGS } from '../../src/shared/api-mock/proxyContracts';
 
-function mockReq(method = 'GET', headers: Record<string, string> = {}): http.IncomingMessage {
+function mockReq(method = 'GET', headers: Record<string, string | string[]> = {}): http.IncomingMessage {
   const req = new EventEmitter() as http.IncomingMessage;
   (req as { method?: string }).method = method;
-  (req as { headers: Record<string, string> }).headers = headers;
+  (req as { headers: Record<string, string | string[]> }).headers = headers;
   return req;
 }
 
@@ -82,5 +82,63 @@ describe('executeProxy', () => {
     const sent = call[1]?.headers as Record<string, string>;
     expect(sent.authorization).toBeUndefined();
     expect(sent['x-redfireforge-mock']).toBe('true');
+  });
+
+  it('does not forward HTTP/2 pseudo-headers to the upstream', async () => {
+    const fetchMock = vi.fn(async () => new Response('ok', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await executeProxy({
+      req: mockReq('GET', {
+        ':method': 'GET',
+        ':path': '/hello',
+        ':authority': 'mock.local',
+        'x-trace': '1',
+      }),
+      proxy: {
+        ...DEFAULT_PROXY_SETTINGS,
+        enabled: true,
+        allowlist: ['https://api.example.com'],
+        blockPrivateNetworks: false,
+      },
+      upstreamUrl: 'https://api.example.com/hello',
+      activeMockPorts: [4600],
+      body: null,
+    });
+
+    expect(result.ok).toBe(true);
+    const sent = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
+    expect(sent[':method']).toBeUndefined();
+    expect(sent[':path']).toBeUndefined();
+    expect(sent[':authority']).toBeUndefined();
+    expect(sent['x-trace']).toBe('1');
+  });
+
+  it('joins multiple Cookie headers with semicolons for upstream fetch', async () => {
+    const fetchMock = vi.fn(async () => new Response('ok', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await executeProxy({
+      req: mockReq('GET', {
+        cookie: ['session=abc', 'theme=dark'],
+        'x-trace': '1',
+      }),
+      proxy: {
+        ...DEFAULT_PROXY_SETTINGS,
+        enabled: true,
+        allowlist: ['https://api.example.com'],
+        blockPrivateNetworks: false,
+        forwardAuth: true,
+        forwardCredentialHeaders: ['cookie'],
+        stripHopByHop: false,
+      },
+      upstreamUrl: 'https://api.example.com/hello',
+      activeMockPorts: [4600],
+      body: null,
+    });
+
+    const sent = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
+    expect(sent.cookie).toBe('session=abc; theme=dark');
+    expect(sent['x-trace']).toBe('1');
   });
 });

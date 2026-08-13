@@ -91,11 +91,10 @@ describe('apiMockFaultExecutor coverage gaps', () => {
     expect(socket.destroy).toHaveBeenCalled();
   });
 
-  it('clears the timeout hold timer when the socket closes early', () => {
+  it('clears the timeout hold timer when the socket closes early', async () => {
     vi.useFakeTimers();
-    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
     const { req, res, socket } = mockPair();
-    void deliverWithFault({
+    const pending = deliverWithFault({
       req,
       res,
       fault: 'timeout',
@@ -106,7 +105,9 @@ describe('apiMockFaultExecutor coverage gaps', () => {
       body: '',
     });
     socket.emit('close');
-    expect(clearTimeoutSpy).toHaveBeenCalled();
+    await expect(pending).resolves.toMatchObject({ outcome: 'fault', completedHttp: false });
+    await vi.advanceTimersByTimeAsync(500);
+    expect(socket.destroy).not.toHaveBeenCalled();
   });
 
   it('uses default dribble schedule and handles write failures', async () => {

@@ -79,6 +79,7 @@ describe('ApiMockRuntimeSettingsPanel', () => {
 
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-journal-max'), { target: { value: '100' } });
     fireEvent.click(screen.getByTestId('api-mock-runtime-settings-persist'));
+    expect(screen.getByText(/OS temp directory/i)).toBeInTheDocument();
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-redact-headers'), {
       target: { value: 'X-Secret, Cookie' },
     });
@@ -129,12 +130,15 @@ describe('ApiMockRuntimeSettingsPanel', () => {
 
     expect(screen.getByTestId('api-mock-runtime-settings-cors-origins')).not.toBeDisabled();
     expect(screen.getByTestId('api-mock-runtime-settings-journal-max')).not.toBeDisabled();
+    expect(screen.getByTestId('api-mock-runtime-settings-persist')).not.toBeDisabled();
 
     fireEvent.click(screen.getByTestId('api-mock-runtime-settings-cors'));
     fireEvent.click(screen.getByTestId('api-mock-runtime-settings-journal'));
 
     expect(screen.getByTestId('api-mock-runtime-settings-cors-origins')).toBeDisabled();
     expect(screen.getByTestId('api-mock-runtime-settings-journal-max')).toBeDisabled();
+    expect(screen.getByTestId('api-mock-runtime-settings-persist')).not.toBeDisabled();
+    expect(screen.getByText(/Turn Journal on first/i)).toBeInTheDocument();
   });
 
   it('falls back to server defaults when numeric fields are invalid', () => {

@@ -4,14 +4,18 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
   API_MOCK_OPEN_IN_REQUESTS_EVENT,
+  capturedRequestPath,
   copyTransactionToClipboard,
   dispatchOpenInRequests,
   exportTransactionsJson,
   filterTransactions,
+  formatJournalRequestPreview,
   formatTransactionCopy,
   normalizeHttpMethod,
   transactionToOpenInRequestsDetail,
   transactionToRouteDraft,
+  transactionToSample,
+  sampleToOpenInRequestsDetail,
 } from './apiMockJournalActions';
 
 const tx = {
@@ -56,7 +60,10 @@ describe('apiMockJournalActions', () => {
     expect(normalizeHttpMethod('post')).toBe('POST');
     expect(normalizeHttpMethod('TRACE')).toBe('GET');
     const detail = transactionToOpenInRequestsDetail(tx as never, { host: '127.0.0.1', port: 4601 });
+    expect(capturedRequestPath(tx.request)).toBe('/users?x=1');
     expect(detail.url).toBe('http://127.0.0.1:4601/users?x=1');
+    expect(transactionToOpenInRequestsDetail(tx as never, { host: '0.0.0.0', port: 4600, tls: true }).url)
+      .toBe('https://127.0.0.1:4600/users?x=1');
     expect(detail.method).toBe('POST');
     expect(detail.body).toContain('name');
   });
@@ -81,6 +88,26 @@ describe('apiMockJournalActions', () => {
     expect(writeText).toHaveBeenCalled();
   });
 
+  it('includes mTLS subject lines in the journal request preview and filter haystack', () => {
+    const mtls = {
+      ...tx,
+      request: {
+        ...tx.request,
+        clientCertSubject: 'CN=integration-client',
+        clientCertFingerprint: 'aabbccdd',
+        headers: undefined,
+        body: undefined,
+      },
+    };
+    const preview = formatJournalRequestPreview(mtls.request as never);
+    expect(preview).toContain('Client-Cert-Subject: CN=integration-client');
+    expect(preview).toContain('Client-Cert-Fingerprint: aabbccdd');
+    expect(formatTransactionCopy(mtls as never)).toContain('CN=integration-client');
+    expect(filterTransactions([mtls as never], 'integration-client')).toHaveLength(1);
+    expect(filterTransactions([mtls as never], 'aabbccdd')).toHaveLength(1);
+    expect(filterTransactions([tx as never], 'integration-client')).toHaveLength(0);
+  });
+
   it('formats transactions without bodies or responses and copies with clipboard failures', async () => {
     const noBody = {
       ...tx,
@@ -102,6 +129,7 @@ describe('apiMockJournalActions', () => {
       request: {
         ...tx.request,
         rawPath: undefined,
+        query: {},
         headers: { 'x-test': 'plain' },
         body: { not: 'a string' },
       },
@@ -110,6 +138,12 @@ describe('apiMockJournalActions', () => {
     expect(detail.url).toBe('http://127.0.0.1:4600/users');
     expect(detail.body).toBe('');
     expect(detail.headers).toEqual([{ key: 'x-test', value: 'plain', enabled: true }]);
+  });
+
+  it('open-in-requests and route drafts tolerate missing headers', () => {
+    const missing = { ...tx, request: { ...tx.request, headers: undefined, query: undefined } };
+    expect(transactionToOpenInRequestsDetail(missing as never).headers).toEqual([]);
+    expect(transactionToRouteDraft(missing as never).path.value).toBe('/users');
   });
 
   it('no-ops open-in-requests dispatch when window is unavailable', () => {
@@ -194,5 +228,66 @@ describe('apiMockJournalActions', () => {
       },
     } as never);
     expect(noResponse.path.value).toBe('/users');
+  });
+
+  it('promotes a journal row to a durable sample and opens examples in Requests', () => {
+    const sample = transactionToSample(tx as never);
+    expect(sample.routeId).toBe('r1');
+    expect(sample.expected?.status).toBe(201);
+    expect(sample.expected?.outcome).toBe('matched');
+    expect(transactionToSample(tx as never, { name: 'Custom' }).name).toBe('Custom');
+    const detail = sampleToOpenInRequestsDetail(sample, { host: '127.0.0.1', port: 4600 });
+    expect(detail.method).toBe('POST');
+    expect(detail.url).toContain('/users?x=1');
+
+    const unnamed = sampleToOpenInRequestsDetail({
+      name: '',
+      request: { ...tx.request, method: 'TRACE', headers: { accept: 'text/plain' }, body: null, rawPath: '' },
+    });
+    expect(unnamed.method).toBe('GET');
+    expect(unnamed.name).toContain('Mock example');
+    expect(unnamed.body).toBe('');
+    expect(unnamed.url).toBe('http://127.0.0.1:4600/users?x=1');
+
+    const noSlash = sampleToOpenInRequestsDetail({
+      name: 'health',
+      request: { ...tx.request, path: 'health', rawPath: '', query: {} },
+    });
+    expect(noSlash.url).toBe('http://127.0.0.1:4600/health');
+
+    const unmatched = transactionToSample({
+      ...tx,
+      matchedRouteId: undefined,
+      matchedResponseId: undefined,
+      request: { ...tx.request, method: '' },
+      response: { ...tx.response!, body: null },
+    } as never, { routeId: undefined });
+    expect(unmatched.routeId).toBeUndefined();
+    expect(unmatched.expected?.bodyExact).toBeUndefined();
+
+    const leaked = transactionToSample({
+      ...tx,
+      request: {
+        ...tx.request,
+        headers: { Authorization: ['Bearer secret'], Cookie: ['a=1', 'b=2'], Accept: ['application/json'] },
+        cookies: { sid: 'abc' },
+      },
+    } as never);
+    expect(leaked.request.headers).toEqual({ Accept: ['application/json'] });
+    expect(leaked.request.cookies).toEqual({});
+    expect(leaked.request.query).toEqual(tx.request.query);
+    leaked.request.query.x = ['mutated'];
+    expect(tx.request.query.x).toEqual(['1']);
+
+    const cookieDetail = sampleToOpenInRequestsDetail({
+      name: 'cookies',
+      request: { ...tx.request, headers: { Cookie: ['a=1', 'b=2'], Accept: ['application/json'] } },
+    });
+    expect(cookieDetail.headers.find(h => h.key === 'Cookie')?.value).toBe('a=1; b=2');
+    expect(cookieDetail.headers.find(h => h.key === 'Accept')?.value).toBe('application/json');
+    expect(formatJournalRequestPreview({
+      ...tx.request,
+      headers: { Cookie: ['a=1', 'b=2'] },
+    })).toContain('Cookie: a=1; b=2');
   });
 });

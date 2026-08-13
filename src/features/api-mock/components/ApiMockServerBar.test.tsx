@@ -7,6 +7,11 @@ import '@testing-library/jest-dom';
 import { ApiMockServerBar } from './ApiMockServerBar';
 import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
 import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import { isTauri } from '../../../shared/utils/platform';
+
+vi.mock('../../../shared/utils/platform', () => ({
+  isTauri: vi.fn(() => false),
+}));
 
 const ts = '2026-08-12T00:00:00.000Z';
 
@@ -113,10 +118,40 @@ describe('ApiMockServerBar', () => {
     expect(start).toHaveTextContent('Starting…');
   });
 
+  it('copies a client-reachable address for LAN binds and TLS', () => {
+    const server = makeServer();
+    server.host = '0.0.0.0';
+    server.settings = {
+      ...server.settings,
+      tls: { enabled: true, certPem: 'CERT', keyPem: 'KEY' },
+    };
+    render(<ApiMockServerBar server={server} onUpdate={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-address').textContent).toContain('https://127.0.0.1:4600/api');
+    expect(screen.getByTestId('api-mock-http2-badge')).toHaveTextContent('HTTP/2');
+    fireEvent.click(screen.getByTestId('api-mock-copy-address'));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://127.0.0.1:4600/api');
+  });
+
+  it('shows HTTP/1.1 and native capability warnings on Tauri', () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    const server = makeServer();
+    server.settings = {
+      ...server.settings,
+      tls: { enabled: true, certPem: 'CERT', keyPem: 'KEY' },
+      fallback: { ...server.settings.fallback, mode: 'proxy' },
+    };
+    render(<ApiMockServerBar server={server} onUpdate={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-http2-badge')).toHaveTextContent('HTTP/1.1');
+    expect(screen.getByTestId('api-mock-native-warnings').textContent).toMatch(/HTTP\/1\.1 only/);
+    expect(screen.getByTestId('api-mock-native-warnings').textContent).toMatch(/proxy/i);
+    vi.mocked(isTauri).mockReturnValue(false);
+  });
+
   it('copies the address and toggles the button label', async () => {
     render(<ApiMockServerBar server={makeServer()} onUpdate={vi.fn()} />);
     fireEvent.click(screen.getByTestId('api-mock-copy-address'));
 
+    expect(screen.queryByTestId('api-mock-http2-badge')).not.toBeInTheDocument();
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://127.0.0.1:4600/api');
     await act(async () => { await Promise.resolve(); });
     expect(screen.getByTestId('api-mock-copy-address')).toHaveAttribute('title', 'Copied!');

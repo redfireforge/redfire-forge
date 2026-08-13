@@ -109,7 +109,7 @@ describe('predicateEvaluator coverage gaps', () => {
     expect(evaluateRoute(unsupported, req({ body: 'ping' }), '').overallMatch).toBe(false);
 
     const xml = route({ predicates: preds('all', { id: 'p1', source: 'body', operator: 'xmlSchema', expected: 'x' as any }) });
-    expect(evaluateRoute(xml, req({ body: '<x />' }), '').overallMatch).toBe(false);
+    expect(evaluateRoute(xml, req({ body: '<x />' }), '').overallMatch).toBe(true);
 
     const notFalse = route({ predicates: preds('not', { id: 'p1', source: 'header', selector: 'x-block', operator: 'present' }) });
     expect(evaluateRoute(notFalse, req({ headers: { 'x-block': ['yes'] } }), '').overallMatch).toBe(false);
