@@ -1,12 +1,4 @@
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useWebSocketStudio } from './useWebSocketStudio';
 import { useWebSocketConsole } from './useWebSocketConsole';
 import { ConsolePanel } from './ConsolePanel';
@@ -23,10 +15,7 @@ import {
 import { WebSocketTlsPanel } from './WebSocketTlsPanel';
 import { KeyValueEditor } from './KeyValueEditor';
 import WebSocketAuthPanel from './WebSocketAuthPanel';
-import type {
-  WsConnectionDraft,
-  WsKeyValueEntry,
-} from '../../shared/websocket/types';
+import type { WsConnectionDraft, WsKeyValueEntry } from '../../shared/websocket/types';
 import type { AuthConfig } from '../../shared/types';
 import {
   createDefaultTlsConfig,

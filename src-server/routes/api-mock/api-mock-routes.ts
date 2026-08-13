@@ -6,10 +6,12 @@ import { Router, type Request, type Response } from 'express';
 import { apiMockPool } from '../../api-mock/ApiMockServerPool.js';
 import { validateServer } from '../../../src/shared/api-mock/validation.js';
 import { classifyRuntimeError } from '../../../src/shared/api-mock/recoveryDiagnostics.js';
-import type { ApiMockServerDefinitionV1 } from '../../../src/shared/api-mock/contracts.js';
+import type { ApiMockServerDefinitionV1, ApiMockLocalDiagnosticsV1 } from '../../../src/shared/api-mock/contracts.js';
+import { emptyOutcomeCounts } from '../../../src/shared/api-mock/localDiagnostics.js';
 import { isPortAvailable } from '../../api-mock/ApiMockNetworkListener.js';
 import { generateSelfSigned, generateClientCredentials } from '../../api-mock/apiMockTls.js';
 import { ApiMockTransactionJournal } from '../../api-mock/ApiMockTransactionJournal.js';
+import { journalPersistPath } from '../../api-mock/apiMockJournalPersist.js';
 import type { LogLine } from '../../../src/shared/types/server-api';
 
 interface CreateApiMockRouterOptions {
@@ -31,15 +33,20 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
   function getOrCreateJournal(def: ApiMockServerDefinitionV1): ApiMockTransactionJournal {
     let journal = journals.get(def.id);
     if (!journal) {
-      journal = new ApiMockTransactionJournal(def.settings);
+      journal = new ApiMockTransactionJournal(def.settings, { persistFile: journalPersistPath(def.id) });
       journals.set(def.id, journal);
+    } else {
+      journal.updateSettings(def.settings);
     }
     return journal;
   }
 
   apiMockPool.setTransactionHandler(tx => {
-    const journal = journals.get(tx.serverId);
-    journal?.append(tx);
+    try {
+      journals.get(tx.serverId)?.append(tx);
+    } catch {
+      // Isolation: journal persistence must never fail the mock response.
+    }
   });
 
   router.post('/api/mock/servers/start', async (req: Request, res: Response) => {
@@ -73,6 +80,7 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
     try {
       const definition = req.body as ApiMockServerDefinitionV1;
       if (!definition?.id) return jsonError(res, 400, 'INVALID_REQUEST', 'Server definition with id is required');
+      getOrCreateJournal(definition);
       const status = await apiMockPool.restart(definition);
       json200(res, status);
     } catch (e) {
@@ -89,6 +97,7 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
       const errors = diags.filter(d => d.severity === 'error');
       if (errors.length > 0) return jsonError(res, 400, 'VALIDATION_ERROR', errors.map(e => e.message).join('; '));
       const status = apiMockPool.commit(req.params.serverId, definition);
+      journals.get(req.params.serverId)?.updateSettings(definition.settings);
       options.onLog?.({ ts: new Date().toISOString(), level: 'info', source: 'api-mock', message: `Committed gen ${status.generation} for "${req.params.serverId}"` });
       json200(res, status);
     } catch (e) {
@@ -179,6 +188,27 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
     const ids = Array.isArray(req.body?.ids) ? req.body.ids as string[] : [];
     const removed = apiMockPool.acknowledgeRecordedDrafts(req.params.serverId, ids);
     json200(res, { removed });
+  });
+
+  router.get('/api/mock/servers/:serverId/diagnostics', (req: Request, res: Response) => {
+    const journal = journals.get(req.params.serverId);
+    const live = apiMockPool.getListenerDiagnostics(req.params.serverId);
+    const status = apiMockPool.status(req.params.serverId);
+    if (!journal && !live && !status) {
+      return jsonError(res, 404, 'NOT_FOUND', `No diagnostics for "${req.params.serverId}"`);
+    }
+    const data: ApiMockLocalDiagnosticsV1 = {
+      generation: live?.generation ?? status?.generation ?? 0,
+      routeCount: live?.routeCount ?? 0,
+      predicateCount: live?.predicateCount ?? 0,
+      openConnections: live?.openConnections ?? 0,
+      inFlight: live?.inFlight ?? 0,
+      matchDuration: live?.matchDuration ?? { lastMs: 0, p95Ms: 0, count: 0 },
+      outcomes: live?.outcomes ?? emptyOutcomeCounts(),
+      journal: journal?.getStats() ?? { drops: 0, truncations: 0, size: 0, maxEntries: 0 },
+      templateErrors: live?.templateErrors ?? 0,
+    };
+    json200(res, data);
   });
 
   return router;

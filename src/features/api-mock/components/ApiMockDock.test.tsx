@@ -83,6 +83,7 @@ describe('ApiMockDock', () => {
     expect(labels).toContain('State');
     expect(labels.some(t => t.startsWith('Variables'))).toBe(true);
     expect(labels).toContain('Settings');
+    expect(labels).toContain('Diagnostics');
     expect(labels).toContain('Console');
     expect(labels.some(t => t.startsWith('Conflicts'))).toBe(false);
     openTab('Settings');
@@ -93,7 +94,7 @@ describe('ApiMockDock', () => {
     const onClearTransactions = vi.fn();
     const tx = {
       id: 'tx-1', serverId: 'srv-1', generation: 2, receivedAt: '2026-08-12T00:00:00.000Z', completedAt: '2026-08-12T00:00:00.000Z',
-      request: { method: 'GET', path: '/users', rawPath: '/users?active=true', query: {}, cookies: {}, headers: { accept: ['application/json'] }, body: null, bodyTruncated: false, receivedAt: '2026-08-12T00:00:00.000Z' },
+      request: { method: 'GET', path: '/users', rawPath: '/users?active=true', query: {}, cookies: {}, headers: { accept: ['application/json'] }, body: null, bodyTruncated: false, receivedAt: '2026-08-12T00:00:00.000Z', clientCertSubject: 'CN=integration-client' },
       response: { status: 200, headers: {}, cookies: [], body: '{"ok":true}', bodyTruncated: false, durationMs: 3, generationAtResponse: 2 },
       outcome: 'matched', matchedRouteId: 'r1', matchedResponseId: 'v1', durationMs: 3,
       explanation: { normalizedRequest: { method: 'GET', path: '/users', decodedPath: '/users', pathSegments: ['users'], query: {}, headerKeys: [], cookieKeys: [], bodySizeBytes: 0 }, candidates: [], policyDecision: { policy: 'highest_priority', equalPriorityPolicy: 'reject', matchedCount: 1, highestPriority: 10, tiedAtHighest: 1, outcome: 'matched', selectedRouteId: 'r1' }, nearMisses: [] },
@@ -107,6 +108,7 @@ describe('ApiMockDock', () => {
 
     fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('GET /users');
+    expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('Client-Cert-Subject: CN=integration-client');
     fireEvent.click(screen.getByTestId('api-mock-journal-clear'));
     expect(onClearTransactions).toHaveBeenCalled();
   });
@@ -114,6 +116,7 @@ describe('ApiMockDock', () => {
   it('exposes journal Open in Requests / Create route / Copy actions', () => {
     const onOpenInRequests = vi.fn();
     const onCreateRouteFromTransaction = vi.fn();
+    const onSaveSampleFromTransaction = vi.fn();
     const onCopyTransaction = vi.fn();
     const tx = {
       id: 'tx-1', serverId: 'srv-1', generation: 2, receivedAt: '2026-08-12T00:00:00.000Z', completedAt: '2026-08-12T00:00:00.000Z',
@@ -128,15 +131,18 @@ describe('ApiMockDock', () => {
         transactions={[tx]}
         onOpenInRequests={onOpenInRequests}
         onCreateRouteFromTransaction={onCreateRouteFromTransaction}
+        onSaveSampleFromTransaction={onSaveSampleFromTransaction}
         onCopyTransaction={onCopyTransaction}
       />,
     );
     fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
     fireEvent.click(screen.getByTestId('api-mock-tx-open-requests'));
     fireEvent.click(screen.getByTestId('api-mock-tx-create-route'));
+    fireEvent.click(screen.getByTestId('api-mock-tx-save-example'));
     fireEvent.click(screen.getByTestId('api-mock-tx-copy'));
     expect(onOpenInRequests).toHaveBeenCalled();
     expect(onCreateRouteFromTransaction).toHaveBeenCalled();
+    expect(onSaveSampleFromTransaction).toHaveBeenCalled();
     expect(onCopyTransaction).toHaveBeenCalled();
   });
 

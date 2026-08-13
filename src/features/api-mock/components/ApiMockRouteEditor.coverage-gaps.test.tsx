@@ -20,21 +20,34 @@ vi.mock('./ApiMockPatternToolboxModal', () => ({
   ApiMockPatternToolboxModal: ({
     onApply,
     onApplyConditions,
+    onApplyPredicate,
     onClose,
     contextLabel,
   }: {
     onApply: (m: ApiMockRouteV1['path']) => void;
     onApplyConditions?: (preds: ApiMockRouteV1['predicates']['children']) => void;
+    onApplyPredicate?: (patch: Partial<ApiMockRouteV1['predicates']['children'][number]>) => void;
     onClose: () => void;
     contextLabel?: string;
   }) => (
     <div data-testid="mock-pattern-toolbox">
       <span data-testid="mock-pattern-context">{contextLabel}</span>
       <button data-testid="mock-pattern-apply" onClick={() => onApply({ kind: 'glob', value: '/api/**' })}>apply</button>
+      <button data-testid="mock-pattern-apply-regex" onClick={() => onApply({ kind: 'regex', value: '^x$' })}>apply regex</button>
+      <button
+        data-testid="mock-pattern-apply-regex-ci"
+        onClick={() => onApply({ kind: 'regex', value: '^x$', flags: { caseInsensitive: true } })}
+      >apply regex ci</button>
+      <button data-testid="mock-pattern-apply-exact" onClick={() => onApply({ kind: 'exact', value: '/x' })}>apply exact</button>
+      <button
+        data-testid="mock-pattern-apply-predicate"
+        onClick={() => onApplyPredicate?.({ operator: 'jsonSchema', expected: '{}' })}
+      >apply predicate</button>
       <button
         data-testid="mock-pattern-apply-conditions"
         onClick={() => onApplyConditions?.([{ id: 'pred-new', source: 'header', selector: 'x', operator: 'exact', expected: '1' }])}
       >apply conditions</button>
+      <button data-testid="mock-pattern-apply-conditions-empty" onClick={() => onApplyConditions?.([])}>empty conditions</button>
       <button data-testid="mock-pattern-close" onClick={onClose}>close</button>
     </div>
   ),
@@ -77,11 +90,28 @@ describe('ApiMockRouteEditor coverage gaps', () => {
       createdAt: ts,
     }] as any;
 
-    render(<ApiMockRouteEditor route={route} onUpdate={onUpdate} onSimulate={onSimulate} samples={samples} />);
+    const onUpdateSample = vi.fn();
+    const onDeleteSample = vi.fn();
+    const onTrySampleInRequests = vi.fn();
+    render(
+      <ApiMockRouteEditor
+        route={route}
+        onUpdate={onUpdate}
+        onSimulate={onSimulate}
+        samples={samples}
+        onUpdateSample={onUpdateSample}
+        onDeleteSample={onDeleteSample}
+        onTrySampleInRequests={onTrySampleInRequests}
+      />,
+    );
 
     openTab('Examples');
-    fireEvent.click(screen.getByTestId('api-mock-example-s1'));
+    fireEvent.click(screen.getByTestId('api-mock-example-simulate-s1'));
+    fireEvent.click(screen.getByTestId('api-mock-example-try-s1'));
+    fireEvent.click(screen.getByTestId('api-mock-example-delete-s1'));
     expect(onSimulate).toHaveBeenCalledTimes(1);
+    expect(onTrySampleInRequests).toHaveBeenCalled();
+    expect(onDeleteSample).toHaveBeenCalledWith('s1');
 
     openTab('Documentation');
     fireEvent.change(screen.getByTestId('api-mock-docs-summary'), { target: { value: 'Updated summary' } });
@@ -249,5 +279,49 @@ describe('ApiMockRouteEditor coverage gaps', () => {
       new CustomEvent(CUSTOM_SELECT_SET_VALUE_EVENT, { detail: { value: 'jsonPath_exists' }, bubbles: true }),
     );
     expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].operator).toBe('jsonPath_exists');
+  });
+
+  it('writes glob, regex, and schema toolbox results onto the open matcher row', () => {
+    const onUpdate = vi.fn();
+    const route = makeRoute({
+      predicates: {
+        id: 'pg',
+        combinator: 'all',
+        children: [
+          { id: 'pred-glob', source: 'pathParam', selector: 'id', operator: 'glob', expected: '*' },
+          { id: 'pred-re', source: 'query', selector: 'q', operator: 'regex', expected: 'a+' },
+          { id: 'pred-schema', source: 'body', selector: '', operator: 'xmlSchema', expected: 'Order' },
+          { id: 'pred-mp', source: 'body', selector: '', operator: 'multipart_field', expected: ['note', 'hi'] },
+          { id: 'pred-sha', source: 'body', selector: '', operator: 'binary_sha256', expected: 'aa'.repeat(32) },
+        ],
+      } as any,
+    });
+    render(<ApiMockRouteEditor route={route} onUpdate={onUpdate} />);
+
+    fireEvent.change(screen.getByTestId('api-mock-condition-schema-pred-schema'), { target: { value: 'Id' } });
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[2].expected).toBe('Id');
+
+    fireEvent.change(screen.getByLabelText('Condition field'), { target: { value: 'avatar' } });
+    fireEvent.change(screen.getAllByLabelText('Condition value')[2], { target: { value: 'file.png' } });
+
+    fireEvent.click(screen.getByTestId('api-mock-condition-toolbox-pred-glob'));
+    fireEvent.click(screen.getByTestId('mock-pattern-apply'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].operator).toBe('glob');
+    fireEvent.click(screen.getByTestId('mock-pattern-apply-regex'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].operator).toBe('regex');
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].options.caseSensitive).toBe(true);
+    fireEvent.click(screen.getByTestId('mock-pattern-apply-regex-ci'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].options.caseSensitive).toBe(false);
+    fireEvent.click(screen.getByTestId('mock-pattern-apply-exact'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].expected).toBe('/x');
+    fireEvent.click(screen.getByTestId('mock-pattern-apply-predicate'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].operator).toBe('jsonSchema');
+    fireEvent.click(screen.getByTestId('api-mock-condition-toolbox-pred-schema'));
+    const schemaCalls = onUpdate.mock.calls.length;
+    fireEvent.click(screen.getByTestId('mock-pattern-apply-regex'));
+    expect(onUpdate.mock.calls.length).toBe(schemaCalls);
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[2].operator).toBe('xmlSchema');
+    fireEvent.click(screen.getByTestId('mock-pattern-apply-conditions-empty'));
+    fireEvent.click(screen.getByTestId('mock-pattern-close'));
   });
 });

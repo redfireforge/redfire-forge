@@ -8,21 +8,22 @@ import type {
   ApiMockVariableV1,
 } from '../../../shared/api-mock/contracts';
 import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
-import { exportTransactionsJson, filterTransactions } from '../apiMockJournalActions';
+import { exportTransactionsJson, filterTransactions, formatJournalRequestPreview } from '../apiMockJournalActions';
 import type { ApiMockConsoleLine } from '../useApiMockConsole';
 import { ApiMockConflictInspector } from './ApiMockConflictInspector';
 import { ChevronDownIcon, ChevronUpIcon, MaximizeIcon, MinimizeIcon, PlusIcon, TrashIcon } from './ApiMockIcons';
 import { ApiMockRuntimeGuide } from './ApiMockRuntimeGuide';
 import { ApiMockRuntimeSettingsPanel } from './ApiMockRuntimeSettingsPanel';
+import { ApiMockDiagnosticsPanel } from './ApiMockDiagnosticsPanel';
 
-export type ApiMockDockTab = 'transactions' | 'conflicts' | 'state' | 'variables' | 'settings' | 'console';
+export type ApiMockDockTab = 'transactions' | 'conflicts' | 'state' | 'variables' | 'settings' | 'console' | 'diagnostics';
 type DockMode = 'normal' | 'maximized' | 'collapsed';
 
 const DOCK_PANEL_ID = 'api-mock-dock-panel';
 /** Mockup 07 Runtime tabs (Conflicts is a top-level workspace view). */
-const PAGE_TABS: ApiMockDockTab[] = ['transactions', 'state', 'variables', 'settings', 'console'];
+const PAGE_TABS: ApiMockDockTab[] = ['transactions', 'state', 'variables', 'settings', 'diagnostics', 'console'];
 /** Compact Studio dock tabs. */
-const DOCK_TABS: ApiMockDockTab[] = ['transactions', 'conflicts', 'state', 'variables', 'console'];
+const DOCK_TABS: ApiMockDockTab[] = ['transactions', 'conflicts', 'state', 'variables', 'diagnostics', 'console'];
 const EMPTY_HIDDEN_TABS: ApiMockDockTab[] = [];
 
 interface Props {
@@ -52,6 +53,7 @@ interface Props {
   onAdjustPriority?: (routeId: string, delta: number) => void;
   onOpenInRequests?: (tx: ApiMockTransactionV1) => void;
   onCreateRouteFromTransaction?: (tx: ApiMockTransactionV1) => void;
+  onSaveSampleFromTransaction?: (tx: ApiMockTransactionV1) => void;
   onCopyTransaction?: (tx: ApiMockTransactionV1) => void;
   /** Selection policy + last analysis stats for the conflict inspector. */
   settings?: ApiMockServerSettingsV1;
@@ -117,6 +119,7 @@ export function ApiMockDock({
   onAdjustPriority,
   onOpenInRequests,
   onCreateRouteFromTransaction,
+  onSaveSampleFromTransaction,
   onCopyTransaction,
   settings,
   conflictStats,
@@ -212,6 +215,7 @@ export function ApiMockDock({
           {dockTab('state', 'State')}
           {dockTab('variables', <>Variables <span className="am-count-badge">{variables.length}</span></>)}
           {dockTab('settings', 'Settings')}
+          {dockTab('diagnostics', 'Diagnostics')}
           {dockTab('console', isPage ? 'Console' : 'Server console')}
         </div>
         <span className="am-spacer" />
@@ -361,9 +365,7 @@ export function ApiMockDock({
               {selected && (
                 <div className="am-tx-detail" data-testid="api-mock-tx-detail">
                   <div className="am-section-heading">Request</div>
-                  <pre className="am-code-block">{selected.request.method} {selected.request.rawPath}
-{Object.entries(selected.request.headers).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('\n')}
-{selected.request.body ? `\n${selected.request.body}` : ''}</pre>
+                  <pre className="am-code-block">{formatJournalRequestPreview(selected.request)}</pre>
 
                   <div className="am-section-heading">Match explanation</div>
                   <div style={{ fontSize: 11, marginBottom: 8 }}>
@@ -421,6 +423,11 @@ export function ApiMockDock({
                     {onCreateRouteFromTransaction && (
                       <button type="button" className="am-btn small" data-testid="api-mock-tx-create-route" onClick={() => onCreateRouteFromTransaction(selected)}>
                         Create route
+                      </button>
+                    )}
+                    {onSaveSampleFromTransaction && (
+                      <button type="button" className="am-btn small" data-testid="api-mock-tx-save-example" onClick={() => onSaveSampleFromTransaction(selected)}>
+                        Save as example
                       </button>
                     )}
                     {onCopyTransaction && (
@@ -597,6 +604,10 @@ export function ApiMockDock({
               Server settings are unavailable for this view.
             </div>
           )
+        )}
+
+        {tab === 'diagnostics' && (
+          <ApiMockDiagnosticsPanel serverId={server?.id} running={running} />
         )}
 
         {tab === 'console' && (

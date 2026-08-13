@@ -308,7 +308,12 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
               data-testid="api-mock-runtime-settings-journal-max"
             />
           </FormRow>
-          <FormRow label="Persist to disk">
+          <FormRow
+            label="Persist to disk"
+            hint={journalEnabled
+              ? 'Writes a capped, redacted snapshot under the OS temp directory so the log survives companion restart'
+              : 'Turn Journal on first — then a capped, redacted snapshot is written under the OS temp directory'}
+          >
             <button
               type="button"
               className={`am-toggle${persistDisk ? ' on' : ''}`}

@@ -3,77 +3,40 @@ import AppModalFrame from '../../../shared/components/AppModalFrame';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { matchPath } from '../../../shared/api-mock/pathMatcher';
 import { formatJsonPathValue, jsonPathFromSelection } from '../../../shared/api-mock/jsonPathFromCursor';
-import { resolveSimpleJsonPath } from '../../../shared/api-mock/predicateEvaluatorHelpers';
+import { evaluateOperator, resolveSimpleJsonPath } from '../../../shared/api-mock/predicateEvaluatorHelpers';
 import type { ApiMockPathMatcherV1, ApiMockPathMatcherKind, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
-
-const DEFAULT_JSON_SAMPLE = {
-  customer: { id: 'C-4421', tier: 'gold' },
-  items: [{ sku: 'RF-100', qty: 2 }],
-};
+import {
+  DEFAULT_JSON_SAMPLE,
+  KIND_OPTIONS,
+  PATH_PRESETS,
+  REGEX_LIBRARY,
+  initialJsonPathDraft,
+  initialRegexPattern,
+  initialSchemaKind,
+  initialSchemaText,
+  initialXPathDraft,
+  type ConstraintDraft,
+  type ToolTab,
+} from './apiMockPatternToolboxConstants';
+import { ApiMockSchemaToolboxPanel, ApiMockXPathToolboxPanel } from './ApiMockPatternToolboxExtraPanels';
+import { testRegex, regexTabMatcher, explainRegex } from './apiMockPatternToolboxRegexUtils';
+import { ApiMockPatternToolboxConstraintsTab } from './ApiMockPatternToolboxConstraintsTab';
 
 interface Props {
   initial: ApiMockPathMatcherV1;
   onApply: (matcher: ApiMockPathMatcherV1) => void;
   /** Applies composed query/header/cookie constraints as rule match conditions. */
   onApplyConditions?: (predicates: ApiMockPredicateV1[]) => void;
+  onApplyPredicate?: (patch: Partial<ApiMockPredicateV1>) => void;
   onClose: () => void;
   contextLabel?: string;
+  initialTab?: ToolTab;
+  predicateExpected?: ApiMockPredicateV1['expected'];
+  predicateOperator?: ApiMockPredicateV1['operator'];
+  /** Seed Ignore case from the open matcher row (`options.caseSensitive === false`). */
+  predicateCaseInsensitive?: boolean;
 }
 
-type ConstraintDraft = {
-  id: string;
-  source: Extract<ApiMockPredicateV1['source'], 'query' | 'header' | 'cookie'>;
-  selector: string;
-  operator: ApiMockPredicateV1['operator'];
-  expected: string;
-};
-
-const CONSTRAINT_SOURCE_OPTIONS = [
-  { value: 'header', label: 'Header' },
-  { value: 'query', label: 'Query' },
-  { value: 'cookie', label: 'Cookie' },
-];
-
-const CONSTRAINT_OPERATOR_OPTIONS = [
-  { value: 'exact', label: 'Exact' },
-  { value: 'contains', label: 'Contains' },
-  { value: 'prefix', label: 'Prefix' },
-  { value: 'suffix', label: 'Suffix' },
-  { value: 'regex', label: 'Regex' },
-  { value: 'glob', label: 'Glob' },
-  { value: 'present', label: 'Present' },
-  { value: 'absent', label: 'Absent' },
-];
-
-type ToolTab = 'regex' | 'path' | 'jsonpath' | 'constraints';
-
-const KIND_OPTIONS: Array<{ value: ApiMockPathMatcherKind; label: string }> = [
-  { value: 'exact', label: 'Exact' },
-  { value: 'parameterized', label: 'Parameterized (:id / {id})' },
-  { value: 'glob', label: 'Glob (* ** ?)' },
-  { value: 'regex', label: 'Regex' },
-];
-
-const PATH_PRESETS: Array<{ kind: ApiMockPathMatcherKind; value: string; sample: string; label: string }> = [
-  { kind: 'parameterized', value: '/users/:id', sample: '/users/42', label: '/users/:id' },
-  { kind: 'parameterized', value: '/orders/{orderId}/items/{itemId}', sample: '/orders/7/items/3', label: 'nested params' },
-  { kind: 'glob', value: '/api/**', sample: '/api/v1/users', label: '/api/** (any depth)' },
-  { kind: 'glob', value: '/assets/*.png', sample: '/assets/logo.png', label: '/assets/*.png' },
-  { kind: 'regex', value: '^/v[0-9]+/.*$', sample: '/v2/users', label: '^/v[0-9]+/.*$' },
-];
-
-const REGEX_LIBRARY = [
-  { category: 'Identifiers', entries: [
-    { name: 'Numeric ID', pattern: '^[0-9]+$', pass: ['42', '100234'], fail: ['admin', '42a'] },
-    { name: 'UUID v4', pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', pass: ['550e8400-e29b-41d4-a716-446655440000'], fail: ['not-a-uuid'] },
-    { name: 'Alphanumeric code', pattern: '^[A-Za-z0-9]+$', pass: ['ABC123'], fail: ['ab-c'] },
-  ]},
-  { category: 'API formats', entries: [
-    { name: 'ISO date', pattern: '^\\d{4}-\\d{2}-\\d{2}$', pass: ['2026-08-12'], fail: ['08/12/2026'] },
-    { name: 'Semantic version', pattern: '^\\d+\\.\\d+\\.\\d+$', pass: ['1.2.3'], fail: ['v1'] },
-    { name: 'Bearer JWT shape', pattern: '^[\\w-]+\\.[\\w-]+\\.[\\w-]+$', pass: ['aaa.bbb.ccc'], fail: ['token'] },
-  ]},
-];
 
 interface SampleRow {
   id: string;
@@ -81,39 +44,30 @@ interface SampleRow {
   shouldMatch: boolean;
 }
 
-function testRegex(pattern: string, value: string, caseSensitive: boolean): boolean | 'invalid' {
-  try {
-    const re = new RegExp(pattern, caseSensitive ? '' : 'i');
-    return re.test(value);
-  } catch {
-    return 'invalid';
-  }
-}
-
-function explainRegex(pattern: string): string {
-  const lines: string[] = [];
-  if (pattern.startsWith('^')) lines.push('^       start of value');
-  if (/\[0-9\]\+/.test(pattern) || /\\d\+/.test(pattern)) lines.push('[0-9]+  one or more digits');
-  if (pattern.endsWith('$')) lines.push('$       end of value');
-  if (lines.length === 0) lines.push(pattern || '(empty pattern)');
-  return lines.join('\n');
-}
-
 /**
  * Mockup 02 Pattern Toolbox — library | editor | explanation with Regex / Path / JSONPath / Constraints tabs.
  */
-export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions, onClose, contextLabel }: Props) {
-  const [tab, setTab] = useState<ToolTab>(initial.kind === 'regex' ? 'regex' : 'path');
+export function ApiMockPatternToolboxModal({
+  initial, onApply, onApplyConditions, onApplyPredicate, onClose, contextLabel, initialTab,
+  predicateExpected, predicateOperator, predicateCaseInsensitive,
+}: Props) {
+  const [tab, setTab] = useState<ToolTab>(initialTab ?? (initial.kind === 'regex' ? 'regex' : 'path'));
   const [constraints, setConstraints] = useState<ConstraintDraft[]>([
     { id: 'c1', source: 'header', selector: '', operator: 'exact', expected: '' },
   ]);
   const [kind, setKind] = useState<ApiMockPathMatcherKind>(initial.kind);
   const [value, setValue] = useState(initial.value);
-  const [caseInsensitive, setCaseInsensitive] = useState(initial.flags?.caseInsensitive ?? false);
+  const [caseInsensitive, setCaseInsensitive] = useState(
+    predicateOperator === 'regex' || predicateOperator === 'glob'
+      ? Boolean(predicateCaseInsensitive)
+      : (initial.flags?.caseInsensitive ?? false),
+  );
   const [unicode, setUnicode] = useState(false);
   const [multiline, setMultiline] = useState(false);
   const [sample, setSample] = useState(initial.value.replace(/[:{][^/}]+\}?/g, '123'));
-  const [regexPattern, setRegexPattern] = useState(initial.kind === 'regex' ? initial.value : '^[0-9]+$');
+  const [regexPattern, setRegexPattern] = useState(
+    initialRegexPattern(predicateOperator, predicateExpected, initial.kind, initial.value),
+  );
   const [libraryQuery, setLibraryQuery] = useState('');
   const [activeLibrary, setActiveLibrary] = useState('Numeric ID');
   const [samples, setSamples] = useState<SampleRow[]>([
@@ -122,9 +76,16 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
     { id: 's3', value: 'admin', shouldMatch: false },
     { id: 's4', value: '42a', shouldMatch: false },
   ]);
+  const jsonPathDraft = initialJsonPathDraft(predicateOperator, predicateExpected);
+  const xpathDraft = initialXPathDraft(predicateOperator, predicateExpected);
   const [jsonSample, setJsonSample] = useState(() => JSON.stringify(DEFAULT_JSON_SAMPLE, null, 2));
-  const [jsonPath, setJsonPath] = useState('$');
-  const [jsonExpected, setJsonExpected] = useState(() => formatJsonPathValue(DEFAULT_JSON_SAMPLE));
+  const [jsonPath, setJsonPath] = useState(jsonPathDraft.path);
+  const [jsonExpected, setJsonExpected] = useState(jsonPathDraft.value);
+  const [xmlSample, setXmlSample] = useState('<Order><Id>1</Id></Order>');
+  const [xpath, setXpath] = useState(xpathDraft.expr);
+  const [xpathValue, setXpathValue] = useState(xpathDraft.value);
+  const [schemaKind, setSchemaKind] = useState<'json' | 'xml'>(() => initialSchemaKind(predicateOperator, predicateExpected));
+  const [schemaText, setSchemaText] = useState(() => initialSchemaText(predicateOperator, predicateExpected));
   const jsonTextareaRef = useRef<HTMLTextAreaElement>(null);
   const jsonSelectRafRef = useRef<number | null>(null);
 
@@ -182,8 +143,11 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
   const jsonResolvedText = jsonEval.resolved === undefined
     ? '(no match)'
     : formatJsonPathValue(jsonEval.resolved);
-  const jsonEqualsExpected = jsonEval.resolved !== undefined
-    && formatJsonPathValue(jsonEval.resolved) === jsonExpected;
+  // Same operators Apply writes: empty Expected → exists, otherwise equals
+  // (including pretty vs compact object JSON).
+  const jsonEqualsExpected = jsonExpected.trim()
+    ? evaluateOperator('jsonPath_equals', jsonSample, [jsonPath, jsonExpected])
+    : Boolean(jsonEval.valid && jsonEval.resolved !== undefined);
 
   let pathResult: { matched: boolean; params: Record<string, string> } = { matched: false, params: {} };  try {
     pathResult = matchPath(
@@ -192,14 +156,16 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
     );
   } catch { /* invalid pattern */ }
 
+  const regexApplied = regexTabMatcher(regexPattern, predicateOperator, Boolean(onApplyPredicate));
   const regexValidity = useMemo(() => {
+    if (predicateOperator === 'glob') return true;
     try {
       void RegExp(regexPattern, `${caseInsensitive ? 'i' : ''}${unicode ? 'u' : ''}${multiline ? 'm' : ''}`);
       return true;
     } catch {
       return false;
     }
-  }, [regexPattern, caseInsensitive, unicode, multiline]);
+  }, [regexPattern, caseInsensitive, unicode, multiline, predicateOperator]);
 
   const generalizedTemplate = '/' + pathParts.map(p => {
     if (/^\d+$/.test(p)) return ':id';
@@ -219,13 +185,43 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
 
   const handleApply = () => {
     if (tab === 'jsonpath') {
-      onApplyConditions?.([{
-        id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-        source: 'body',
-        selector: '',
-        operator: jsonExpected.trim() ? 'jsonPath_equals' : 'jsonPath_exists',
-        expected: jsonExpected.trim() ? [jsonPath, jsonExpected] : jsonPath,
-      }]);
+      const operator = jsonExpected.trim() ? 'jsonPath_equals' : 'jsonPath_exists';
+      const expected = jsonExpected.trim() ? [jsonPath, jsonExpected] : jsonPath;
+      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected });
+      else {
+        onApplyConditions?.([{
+          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
+          source: 'body', selector: '', operator, expected,
+        }]);
+      }
+      onClose();
+      return;
+    }
+    if (tab === 'xpath') {
+      const operator = xpathValue.trim() ? 'xpath_equals' : 'xpath_exists';
+      const expected = xpathValue.trim() ? [xpath, xpathValue] : xpath;
+      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected });
+      else {
+        onApplyConditions?.([{
+          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
+          source: 'body', selector: '', operator, expected,
+        }]);
+      }
+      onClose();
+      return;
+    }
+    if (tab === 'schema') {
+      const operator = schemaKind === 'xml' ? 'xmlSchema' : 'jsonSchema';
+      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected: schemaText });
+      else {
+        onApplyConditions?.([{
+          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
+          source: 'body',
+          selector: '',
+          operator,
+          expected: schemaText,
+        }]);
+      }
       onClose();
       return;
     }
@@ -241,14 +237,22 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
       onClose();
       return;
     }
-    if (tab === 'path') {
-      onApply({ kind, value, flags: caseInsensitive ? { caseInsensitive: true } : undefined });
-    } else if (tab === 'regex') {
-      onApply({
-        kind: 'regex',
-        value: regexPattern.startsWith('^') || regexPattern.startsWith('/') ? regexPattern : `^${regexPattern}$`,
-        flags: caseInsensitive ? { caseInsensitive: true } : undefined,
-      });
+    if (tab === 'regex') {
+      // Regex/glob Apply writes a path-matcher shape. Only the route path and
+      // regex/glob rows consume that — never smash a schema/JSONPath/XPath row.
+      const regexOrGlobRow = !predicateOperator
+        || predicateOperator === 'regex'
+        || predicateOperator === 'glob';
+      if (regexOrGlobRow) {
+        onApply({
+          kind: regexApplied.kind,
+          value: regexApplied.value,
+          flags: caseInsensitive ? { caseInsensitive: true } : undefined,
+        });
+      }
+    } else if (onApplyPredicate) {
+      // Path tab rewrites the route matcher; never apply it onto a predicate row.
+      onClose();
     } else {
       onApply({ kind, value, flags: caseInsensitive ? { caseInsensitive: true } : undefined });
     }
@@ -289,7 +293,9 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
           <span className="am-spacer" />
           <button className="am-btn" onClick={onClose} data-testid="api-mock-toolbox-cancel">Cancel</button>
           <button className="am-btn primary" onClick={handleApply} data-testid="api-mock-toolbox-apply">
-            {tab === 'constraints' || tab === 'jsonpath' ? 'Add conditions' : 'Apply pattern'}
+            {tab === 'constraints' || tab === 'jsonpath' || tab === 'xpath' || tab === 'schema'
+              ? (onApplyPredicate ? 'Apply matcher' : 'Add conditions')
+              : 'Apply pattern'}
           </button>
         </div>
       }
@@ -300,6 +306,8 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
             ['regex', 'Regex builder'],
             ['path', 'Path template'],
             ['jsonpath', 'JSON body / JSONPath'],
+            ['xpath', 'XPath'],
+            ['schema', 'Schema'],
             ['constraints', 'Query & headers'],
           ] as const).map(([id, label]) => (
             <button
@@ -418,7 +426,14 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
                 </div>
                 <div className="am-sample-list">
                   {samples.map(s => {
-                    const actual = testRegex(regexPattern, s.value, !caseInsensitive);
+                    const actual = regexApplied.kind === 'glob'
+                      ? evaluateOperator(
+                        'glob',
+                        s.value,
+                        regexApplied.value,
+                        { caseSensitive: caseInsensitive ? false : true },
+                      )
+                      : testRegex(regexApplied.value, s.value, !caseInsensitive);
                     const expectationOk = actual !== 'invalid' && actual === s.shouldMatch;
                     return (
                       <div key={s.id} className={`am-sample-row${expectationOk ? ' pass' : ' fail'}`}>
@@ -677,88 +692,31 @@ export function ApiMockPatternToolboxModal({ initial, onApply, onApplyConditions
           </div>
         )}
 
+        {tab === 'xpath' && (
+          <ApiMockXPathToolboxPanel
+            xmlSample={xmlSample}
+            xpath={xpath}
+            xpathValue={xpathValue}
+            onXmlSample={setXmlSample}
+            onXpath={setXpath}
+            onXpathValue={setXpathValue}
+          />
+        )}
+
+        {tab === 'schema' && (
+          <ApiMockSchemaToolboxPanel
+            kind={schemaKind}
+            schema={schemaText}
+            onKind={setSchemaKind}
+            onSchema={setSchemaText}
+          />
+        )}
+
         {tab === 'constraints' && (
-          <div className="am-tool-editor am-tool-editor--solo">
-            <div className="am-notice">
-              <span>Compose query, header, and cookie constraints without writing syntax. They are added as Match conditions on the rule.</span>
-            </div>
-
-            <div className="am-tool-block">
-              <div className="am-tool-block-head">
-                <h3 className="am-tool-block-title">
-                  Constraints
-                  <span className="am-count-badge">{constraints.length}</span>
-                </h3>
-                <button
-                  type="button"
-                  className="am-btn small ghost"
-                  data-testid="api-mock-toolbox-add-constraint"
-                  onClick={() => setConstraints(prev => [
-                    ...prev,
-                    { id: `c-${crypto.randomUUID().slice(0, 8)}`, source: 'header', selector: '', operator: 'exact', expected: '' },
-                  ])}
-                >+ Constraint</button>
-              </div>
-
-              <div className="am-constraint-list">
-                {constraints.map(c => (
-                  <div
-                    key={c.id}
-                    className="am-matcher-row am-constraint-row"
-                    data-testid={`api-mock-toolbox-constraint-${c.id}`}
-                  >
-                    <CustomSelect
-                      value={c.source}
-                      onChange={v => setConstraints(prev => prev.map(x => x.id === c.id ? { ...x, source: v as ConstraintDraft['source'] } : x))}
-                      options={CONSTRAINT_SOURCE_OPTIONS}
-                      size="sm"
-                      className="am-cs"
-                      aria-label="Constraint source"
-                    />
-                    <input
-                      className="am-input mono"
-                      placeholder="X-Tenant"
-                      value={c.selector}
-                      aria-label="Constraint name"
-                      data-testid={`api-mock-toolbox-constraint-name-${c.id}`}
-                      onChange={e => setConstraints(prev => prev.map(x => x.id === c.id ? { ...x, selector: e.target.value } : x))}
-                    />
-                    <CustomSelect
-                      value={c.operator}
-                      onChange={v => setConstraints(prev => prev.map(x => x.id === c.id ? { ...x, operator: v as ApiMockPredicateV1['operator'] } : x))}
-                      options={CONSTRAINT_OPERATOR_OPTIONS}
-                      size="sm"
-                      className="am-cs"
-                      aria-label="Constraint operator"
-                    />
-                    <input
-                      className="am-input mono"
-                      placeholder="{{tenant}}"
-                      value={c.expected}
-                      disabled={c.operator === 'present' || c.operator === 'absent'}
-                      aria-label="Constraint value"
-                      data-testid={`api-mock-toolbox-constraint-value-${c.id}`}
-                      onChange={e => setConstraints(prev => prev.map(x => x.id === c.id ? { ...x, expected: e.target.value } : x))}
-                    />
-                    <button
-                      type="button"
-                      className="am-icon-btn"
-                      aria-label="Remove constraint"
-                      title="Remove constraint"
-                      data-testid={`api-mock-toolbox-constraint-remove-${c.id}`}
-                      onClick={() => setConstraints(prev => prev.filter(x => x.id !== c.id))}
-                    >×</button>
-                  </div>
-                ))}
-              </div>
-
-              {constraints.every(c => !c.selector.trim()) && (
-                <div className="am-hint am-hint--wrap">
-                  Name at least one header, query, or cookie key to apply these as match conditions.
-                </div>
-              )}
-            </div>
-          </div>
+          <ApiMockPatternToolboxConstraintsTab
+            constraints={constraints}
+            setConstraints={setConstraints}
+          />
         )}
       </div>
     </AppModalFrame>

@@ -1,12 +1,13 @@
 /**
  * Phase 11B — assert mock journal transactions (shared by workflow + CLI).
  */
-import type { ApiMockTransactionV1 } from './contracts';
+import type { ApiMockTransactionOutcome, ApiMockTransactionV1 } from './contracts';
 
 export interface AssertMockCallsCriteria {
   serverId: string;
   routeId?: string;
   matchedResponseId?: string;
+  expectedOutcome?: ApiMockTransactionOutcome;
   expectedCount?: number;
   expectedMinCount?: number;
   expectedMaxCount?: number;
@@ -49,6 +50,9 @@ function collectNearMisses(transactions: ApiMockTransactionV1[], criteria: Asser
     if (criteria.expectedStatus != null && tx.response?.status !== criteria.expectedStatus) {
       bits.push(`status=${tx.response?.status ?? 'n/a'}≠${criteria.expectedStatus}`);
     }
+    if (criteria.expectedOutcome && tx.outcome !== criteria.expectedOutcome) {
+      bits.push(`outcome=${tx.outcome}≠${criteria.expectedOutcome}`);
+    }
     const explanationMisses = tx.explanation?.nearMisses ?? [];
     for (const nm of explanationMisses.slice(0, 2)) {
       const firstFail = nm.failedPredicates[0]?.reason ?? `distance ${nm.missDistance}`;
@@ -70,6 +74,7 @@ export function assertMockCalls(
     if (criteria.routeId && tx.matchedRouteId !== criteria.routeId) return false;
     if (criteria.matchedResponseId && tx.matchedResponseId !== criteria.matchedResponseId) return false;
     if (criteria.expectedStatus != null && tx.response?.status !== criteria.expectedStatus) return false;
+    if (criteria.expectedOutcome && tx.outcome !== criteria.expectedOutcome) return false;
     return true;
   });
 
@@ -133,7 +138,17 @@ export function assertMockCalls(
     }
   }
 
-  if (criteria.expectedBodyContains && matching.length > 0) {
+  if (criteria.expectedBodyContains) {
+    if (matching.length === 0) {
+      return {
+        passed: false,
+        expected: `body contains "${criteria.expectedBodyContains}"`,
+        actual: 'no matching calls',
+        matchingCount: 0,
+        matchingIds,
+        nearMisses,
+      };
+    }
     const last = matching[matching.length - 1];
     if (!last.response?.body?.includes(criteria.expectedBodyContains)) {
       return {
@@ -147,7 +162,17 @@ export function assertMockCalls(
     }
   }
 
-  if (criteria.expectedHeaderKey && matching.length > 0) {
+  if (criteria.expectedHeaderKey) {
+    if (matching.length === 0) {
+      return {
+        passed: false,
+        expected: `header ${criteria.expectedHeaderKey} present`,
+        actual: 'no matching calls',
+        matchingCount: 0,
+        matchingIds,
+        nearMisses,
+      };
+    }
     const last = matching[matching.length - 1];
     const headerVal = headerValue(last, criteria.expectedHeaderKey);
     if (criteria.expectedHeaderValue != null && headerVal !== criteria.expectedHeaderValue) {

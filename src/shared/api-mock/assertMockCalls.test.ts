@@ -52,6 +52,14 @@ describe('assertMockCalls', () => {
     expect(result.matchingIds).toEqual(['tx-1', 'tx-2']);
   });
 
+  it('filters by expected outcome', () => {
+    const pass = assertMockCalls([tx()], { serverId: 'srv-1', expectedOutcome: 'matched', expectedMinCount: 1 });
+    expect(pass.passed).toBe(true);
+    const fail = assertMockCalls([tx({ outcome: 'unmatched' })], { serverId: 'srv-1', expectedOutcome: 'matched', expectedMinCount: 1 });
+    expect(fail.passed).toBe(false);
+    expect(fail.nearMisses.some(n => n.includes('outcome='))).toBe(true);
+  });
+
   it('fails count with near misses', () => {
     const result = assertMockCalls([tx()], {
       serverId: 'srv-1',
@@ -76,5 +84,11 @@ describe('assertMockCalls', () => {
       nowMs: now,
     });
     expect(ageFail.passed).toBe(false);
+  });
+
+  it('fails body and header checks when there are no matching calls', () => {
+    expect(assertMockCalls([], { serverId: 'srv-1', expectedBodyContains: 'ok' }).passed).toBe(false);
+    expect(assertMockCalls([], { serverId: 'srv-1', expectedHeaderKey: 'Authorization' }).passed).toBe(false);
+    expect(assertMockCalls([], { serverId: 'srv-1', expectedHeaderKey: 'Authorization' }).actual).toBe('no matching calls');
   });
 });

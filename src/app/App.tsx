@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useCallback } from 'react';
 import { useAppLayoutSync } from './hooks/useAppLayoutSync';
 import { useAppStartupEffects } from './hooks/useAppStartupEffects';
 import { useGalleryMigration } from './hooks/useGalleryMigration';
+import { useAppTabSync } from './hooks/useAppTabSync';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
 import { useGalleryImport } from './hooks/useGalleryImport';
 import { useWorkbenchActions } from './hooks/useWorkbenchActions';
@@ -15,6 +16,7 @@ import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
 import { useAppNavigationCallbacks } from './hooks/useAppNavigationCallbacks';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
+import AppDemoShellMount from './components/AppDemoShellMount';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
 import AppSubNav from './components/AppSubNav';
@@ -28,10 +30,6 @@ import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
 import { useRequests } from '../features/requests/hooks/useRequests';
 import { useRequestTabCoordinator } from '../features/requests/hooks/useRequestTabCoordinator';
-import {
-  API_MOCK_OPEN_IN_REQUESTS_EVENT,
-  type ApiMockOpenInRequestsDetail,
-} from '../features/api-mock/apiMockJournalActions';
 import { useCatalog } from '../features/catalog/hooks/useCatalog';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
@@ -55,17 +53,15 @@ import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolder
 import { useToast } from '../shared/hooks/useToast';
 import {
   type Tab,
-  isProtocolsTab,
   readTabFromUrl,
-  writeTabToUrl,
-  setLastProtocolsTab,
-  LAST_PROTOCOLS_TAB_STORAGE_KEY,
 } from './utils/appTabUtils';
-import { writeKey } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
 import { loadWorkflowPreviews, getPreviewEntriesForPalette } from '../shared/utils/workflowPreviewStorage';
 import type { WorkflowPreviewEntry } from '../shared/utils/workflowPreviewStorage';
-import { migratePreviewsToLocalStorage, migratePublishedToWorkflowPublication } from '../shared/utils/workflowPreviewMigration';
+import AppLoadingScreen from './components/AppLoadingScreen';
+import { useApiMockOpenInRequestsBridge } from './hooks/useApiMockOpenInRequestsBridge';
+import { useCatalogPreviewMigrations } from './hooks/useCatalogPreviewMigrations';
+import { useHarnessRequestIds } from './hooks/useHarnessRequestIds';
 import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
 import { DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
@@ -75,10 +71,6 @@ import { useDemoHarnessBridge } from './hooks/useDemoHarnessBridge';
 import { useDemoCatalogBridge } from './hooks/useDemoCatalogBridge';
 import { useDemoRequestsBridge } from './hooks/useDemoRequestsBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
-
-const DemoShellHost = lazy(() =>
-  import('./demo/DemoShellHost').then((m) => ({ default: m.DemoShellHost })),
-);
 
 export default function App() {
   const {
@@ -108,20 +100,7 @@ export default function App() {
   const refreshWfPreviews = useCallback(() => {
     loadWorkflowPreviews().then(map => setWfPreviewEndpoints(getPreviewEntriesForPalette(map)));
   }, []);
-  useEffect(() => {
-    if (!catalog.loaded) return;
-    let cancelled = false;
-    migratePreviewsToLocalStorage(catalog.entries, catalog.updateEntry)
-      .then(() => migratePublishedToWorkflowPublication(catalog.entries, catalog.updateEntry))
-      .then(() =>
-        loadWorkflowPreviews().then(map => {
-          if (!cancelled) setWfPreviewEndpoints(getPreviewEntriesForPalette(map));
-        }),
-      );
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.loaded]);
-  // Use coordinator removeCollection so demo silent deletes also prune open tabs.
+  useCatalogPreviewMigrations(catalog, setWfPreviewEndpoints);
   useDemoRequestsBridge(
     { collections: wb.collections, removeCollection: reqTabs.removeCollection },
     DEMO_HUB_ENABLED,
@@ -162,32 +141,9 @@ export default function App() {
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
   const kafkaState = useKafkaState();
-  // ---- App shell state (declare before hooks that close over setActiveTab) ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
 
-  useEffect(() => {
-    const onOpen = (event: Event) => {
-      const detail = (event as CustomEvent<ApiMockOpenInRequestsDetail>).detail;
-      if (!detail) return;
-      const COL_NAME = 'API Mock Journal';
-      const existing = wb.collections.find(c => c.name === COL_NAME);
-      const colId = existing ? existing.id : wb.addCollection({ name: COL_NAME, mode: 'direct' });
-      const reqId = wb.addRequest(colId, undefined, detail.name);
-      wb.updateRequest(colId, reqId, {
-        name: detail.name,
-        method: detail.method,
-        url: detail.url,
-        headers: detail.headers,
-        body: detail.body,
-        bodyType: detail.body ? 'json' : 'none',
-        auth: { type: 'none' },
-      });
-      reqTabs.selectRequest(colId, reqId);
-      setActiveTab('requests');
-    };
-    window.addEventListener(API_MOCK_OPEN_IN_REQUESTS_EVENT, onOpen);
-    return () => window.removeEventListener(API_MOCK_OPEN_IN_REQUESTS_EVENT, onOpen);
-  }, [wb, reqTabs]);
+  useApiMockOpenInRequestsBridge(wb, reqTabs, (tab) => setActiveTab(tab));
 
   const { handleWorkflowExport, handleWorkflowImport, handleExportFolder } = useWorkflowImportExport({
     wfHook, folders: wfFolders.folders, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
@@ -203,7 +159,6 @@ export default function App() {
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
-  /** Demo lesson tab switches avoid flushSync to prevent lifecycle warnings/loops. */
   const navigateToTab = useCallback((t: string) => {
     setActiveTab(t as Tab);
   }, [setActiveTab]);
@@ -291,27 +246,11 @@ export default function App() {
 
   const [galleryInitialDomain, setGalleryInitialDomain] = useState<import('../data/galleries/types').GalleryDomain | undefined>(undefined);
 
-  useEffect(() => {
-    if (activeTab !== 'catalog') setExportToMockItems(null);
-  }, [activeTab]);
+  useAppTabSync(activeTab, setExportToMockItems, setGalleryInitialDomain);
 
-  // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
-  useEffect(() => {
-    writeTabToUrl(activeTab);
-    if (activeTab !== 'gallery') setGalleryInitialDomain(undefined);
-    if (isProtocolsTab(activeTab)) {
-      setLastProtocolsTab(activeTab);
-      void writeKey(LAST_PROTOCOLS_TAB_STORAGE_KEY, activeTab).catch(() => { /* silent */ });
-    }
-  }, [activeTab, setGalleryInitialDomain]);
-
-  // ---- Layout CSS var sync (--header-h and --sidebar-w) ----
   const headerRef = useAppLayoutSync({ sidebarWidth, sidebarCollapsed });
 
-  // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
   useGalleryMigration({ loading, environments, microservices, setMicroservices });
-
-  // ---- Derived view state ----
 
   const {
     selectedEnv, selectedSvc, resolvedBaseUrl, isAdditionalEnv,
@@ -321,17 +260,7 @@ export default function App() {
     globalAuthProfiles: appGlobalAuthProfiles, selectedEnvId, selectedSvcId,
   });
 
-  const harnessRequestIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const fg of featureGroups) {
-      for (const sc of fg.scenarios) {
-        for (const t of sc.tests) {
-          if (t.sourceRequestId) ids.add(t.sourceRequestId);
-        }
-      }
-    }
-    return ids;
-  }, [featureGroups]);
+  const harnessRequestIds = useHarnessRequestIds(featureGroups);
 
   const { isRerunning, handleRerunFailed } = useRerunFailed({
     featureGroups, resolvedBaseUrl, globalAuthProfiles: appGlobalAuthProfiles, envFallbackAuth,
@@ -368,37 +297,26 @@ export default function App() {
     gallery,
   });
 
-  // ---- Loading screen ----
   if (loading) {
-    return (
-      <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <div style={{ textAlign: 'center', opacity: 0.7 }}>
-          <h2>RedfireForge</h2>
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen />;
   }
 
   return (
     <>
-      {DEMO_HUB_ENABLED && (
-        <Suspense fallback={null}>
-          <DemoShellHost
-            navigateToTab={navigateToTab}
-            activeTab={activeTab}
-            setSidebarCollapsed={setSidebarCollapsed}
-            setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
-            setWorkspaceDefaults={setWorkspaceDefaults}
-            selectedEnvId={selectedEnvId}
-            selectedSvcId={selectedSvcId}
-            setEnvironments={setEnvironments}
-            setMicroservices={setMicroservices}
-            setSelectedEnvId={setSelectedEnvId}
-            setSelectedSvcId={setSelectedSvcId}
-          />
-        </Suspense>
-      )}
+      <AppDemoShellMount
+        enabled={DEMO_HUB_ENABLED}
+        navigateToTab={navigateToTab}
+        activeTab={activeTab}
+        setSidebarCollapsed={setSidebarCollapsed}
+        setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+        setWorkspaceDefaults={setWorkspaceDefaults}
+        selectedEnvId={selectedEnvId}
+        selectedSvcId={selectedSvcId}
+        setEnvironments={setEnvironments}
+        setMicroservices={setMicroservices}
+        setSelectedEnvId={setSelectedEnvId}
+        setSelectedSvcId={setSelectedSvcId}
+      />
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <UpdateNotificationBanner />
       <AppHeader

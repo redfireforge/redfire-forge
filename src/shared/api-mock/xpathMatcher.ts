@@ -88,7 +88,8 @@ export function matchXPathEquals(
   const [expr, wanted] = [String(expected[0] ?? ''), String(expected[1] ?? '')];
   const res = evaluateXPath(value, expr);
   if (!res.ok || !res.matched) return false;
-  return matchStyle === 'subset'
+  // Empty needle would make `includes('')` true for every node; treat it as exact.
+  return matchStyle === 'subset' && wanted
     ? res.values.some(v => v.includes(wanted))
     : res.values.some(v => v === wanted);
 }

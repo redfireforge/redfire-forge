@@ -106,6 +106,47 @@ describe('ApiMockNetworkListener — mutual TLS', () => {
     expect(res.status).toBe(200);
   }, 30_000);
 
+  it('matches certSubject against the presented client certificate', async () => {
+    const port = nextPort++;
+    const def = makeDef(port, true);
+    def.routes[0].predicates = {
+      id: 'pg', combinator: 'all',
+      children: [{ id: 'p1', source: 'security', selector: 'certSubject', operator: 'exact', expected: 'CN=integration-client' }],
+    };
+    def.routes[0].responses[0].body = { kind: 'text', content: 'mtls-ok', contentType: 'text/plain' };
+    const txs: Array<{ subject?: string; dump: string }> = [];
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-mtls',
+      definition: def,
+      onTransaction: tx => txs.push({
+        subject: tx.request.clientCertSubject,
+        dump: JSON.stringify(tx),
+      }),
+    });
+    listeners.push(listener);
+    await listener.start();
+    const res = await get(port, { cert: clientCreds.clientCertPem, key: clientCreds.clientKeyPem });
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('mtls-ok');
+    expect(txs[0]?.subject).toBe('CN=integration-client');
+    expect(txs[0]?.dump).not.toContain('BEGIN CERTIFICATE');
+    expect(txs[0]?.dump).not.toContain('BEGIN PRIVATE KEY');
+  }, 30_000);
+
+  it('does not match a different certSubject', async () => {
+    const port = nextPort++;
+    const def = makeDef(port, true);
+    def.routes[0].predicates = {
+      id: 'pg', combinator: 'all',
+      children: [{ id: 'p1', source: 'security', selector: 'certSubject', operator: 'exact', expected: 'CN=nobody' }],
+    };
+    const listener = new ApiMockNetworkListener({ serverId: 'srv-mtls', definition: def });
+    listeners.push(listener);
+    await listener.start();
+    const res = await get(port, { cert: clientCreds.clientCertPem, key: clientCreds.clientKeyPem });
+    expect(res.status).toBe(404);
+  }, 30_000);
+
   it('refuses to start when mTLS is on but no CA is configured', async () => {
     const def = makeDef(nextPort++, true);
     def.settings.tls!.mtls!.clientCaPem = '';

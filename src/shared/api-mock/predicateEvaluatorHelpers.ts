@@ -8,6 +8,14 @@ import { getByPath } from '../utils/jsonPath';
 import { compileRegexCached, testRegexCached } from './patternCache';
 import { BoundedCache } from './perfBudgets';
 import { matchXPathExists, matchXPathEquals } from './xpathMatcher';
+import {
+  matchBinarySha256,
+  matchJsonSchema,
+  matchMultipartField,
+  matchMultipartFile,
+  matchXmlSchema,
+  type MatcherContext,
+} from './schemaMatchers';
 
 export interface ParsedBody { ok: boolean; value?: unknown; }
 const parsedBodyCache = new BoundedCache<string, ParsedBody>(256);
@@ -85,6 +93,8 @@ export function extractSecurityValue(selector: string | undefined, request: ApiM
       }
       return null;
     }
+    case 'certSubject':
+      return request.clientCertSubject ?? null;
     default: return null;
   }
 }
@@ -94,6 +104,7 @@ export function evaluateOperator(
   value: string | string[] | null,
   expected: ApiMockPredicateExpectedValue | undefined,
   options?: ApiMockPredicateV1['options'],
+  ctx?: MatcherContext,
 ): boolean {
   switch (operator) {
     case 'present': return value != null && value !== '';
@@ -103,29 +114,28 @@ export function evaluateOperator(
     case 'contains': return matchContains(value, expected);
     case 'prefix': return matchPrefix(value, expected);
     case 'suffix': return matchSuffix(value, expected);
-    case 'regex': return matchRegex(value, expected);
-    case 'glob': return matchGlob(value, expected);
+    case 'regex': return matchRegex(value, expected, options);
+    case 'glob': return matchGlob(value, expected, options);
 
     case 'json_strict': return matchJsonStrict(value, expected);
     case 'json_subset': return matchJsonSubset(value, expected);
     case 'jsonPath_exists': return matchJsonPathExists(value, expected);
-    case 'jsonPath_equals': return matchJsonPathEquals(value, expected);
+    case 'jsonPath_equals': return matchJsonPathEquals(value, expected, options?.matchStyle);
 
     case 'form_field_exact': return matchFormField(value, expected, 'exact');
     case 'form_field_regex': return matchFormField(value, expected, 'regex');
     case 'form_field_present': return matchFormField(value, expected, 'present');
 
     case 'binary_exact': return typeof value === 'string' && value === String(expected);
-    case 'binary_sha256': return false;
+    case 'binary_sha256': return matchBinarySha256(value, expected);
 
     case 'xpath_exists': return matchXPathExists(value, expected);
     case 'xpath_equals': return matchXPathEquals(value, expected, options?.matchStyle);
 
-    case 'jsonSchema':
-    case 'xmlSchema':
-    case 'multipart_field':
-    case 'multipart_file':
-      return false;
+    case 'jsonSchema': return matchJsonSchema(value, expected);
+    case 'xmlSchema': return matchXmlSchema(value, expected);
+    case 'multipart_field': return matchMultipartField(value, expected, ctx);
+    case 'multipart_file': return matchMultipartFile(value, expected, ctx);
 
     default: return false;
   }
@@ -173,12 +183,21 @@ function matchSuffix(value: string | string[] | null, expected: ApiMockPredicate
   return anyValue(value, v => v.endsWith(exp));
 }
 
-function matchRegex(value: string | string[] | null, expected: ApiMockPredicateExpectedValue | undefined): boolean {
+function matchRegex(
+  value: string | string[] | null,
+  expected: ApiMockPredicateExpectedValue | undefined,
+  options?: ApiMockPredicateV1['options'],
+): boolean {
   const src = str(expected);
-  return anyValue(value, v => testRegexCached(src, '', v));
+  const flags = options?.caseSensitive === false ? 'i' : '';
+  return anyValue(value, v => testRegexCached(src, flags, v));
 }
 
-function matchGlob(value: string | string[] | null, expected: ApiMockPredicateExpectedValue | undefined): boolean {
+function matchGlob(
+  value: string | string[] | null,
+  expected: ApiMockPredicateExpectedValue | undefined,
+  options?: ApiMockPredicateV1['options'],
+): boolean {
   const pattern = str(expected);
   let regex = '';
   for (let i = 0; i < pattern.length; i++) {
@@ -187,7 +206,7 @@ function matchGlob(value: string | string[] | null, expected: ApiMockPredicateEx
     else if (ch === '?') regex += '.';
     else regex += '.+*?^${}()|[]\\'.includes(ch) ? `\\${ch}` : ch;
   }
-  const re = compileRegexCached(`^${regex}$`)!;
+  const re = compileRegexCached(`^${regex}$`, options?.caseSensitive === false ? 'i' : '')!;
   return anyValue(value, v => re.test(v));
 }
 
@@ -225,14 +244,36 @@ function matchJsonPathExists(value: string | string[] | null, expected: ApiMockP
   return resolveSimpleJsonPath(parsedBody.value, expected) !== undefined;
 }
 
-function matchJsonPathEquals(value: string | string[] | null, expected: ApiMockPredicateExpectedValue | undefined): boolean {
+function matchJsonPathEquals(
+  value: string | string[] | null,
+  expected: ApiMockPredicateExpectedValue | undefined,
+  matchStyle?: 'subset' | 'exact',
+): boolean {
   const body = flatValue(value);
   if (body == null || !Array.isArray(expected) || expected.length < 2) return false;
   const [path, expectedVal] = expected;
+  if (typeof path !== 'string') return false;
   const parsedBody = parseBodyCached(body);
   if (!parsedBody.ok) return false;
   const resolved = resolveSimpleJsonPath(parsedBody.value, path);
-  return String(resolved) === String(expectedVal);
+  if (resolved === undefined) return false;
+  const actual = formatJsonPathValue(resolved);
+  const want = typeof expectedVal === 'string' ? expectedVal : formatJsonPathValue(expectedVal);
+  // Empty needle would make `includes('')` true for every string; treat it as exact.
+  // Only return on a successful substring hit so pretty vs compact object JSON
+  // can still fall through to structural equality.
+  if (matchStyle === 'subset' && want && actual.includes(want)) return true;
+  if (actual === want) return true;
+  // Toolbox Apply stores JSON.stringify of objects/arrays; compare structurally
+  // so key order and compact vs pretty JSON still match.
+  if (resolved !== null && typeof resolved === 'object') {
+    let exp: unknown = expectedVal;
+    if (typeof expectedVal === 'string') {
+      try { exp = JSON.parse(expectedVal); } catch { return false; }
+    }
+    if (exp !== null && typeof exp === 'object') return deepStrictEqual(resolved, exp);
+  }
+  return false;
 }
 
 function matchFormField(value: string | string[] | null, expected: ApiMockPredicateExpectedValue | undefined, mode: 'exact' | 'regex' | 'present'): boolean {
@@ -245,6 +286,18 @@ function matchFormField(value: string | string[] | null, expected: ApiMockPredic
   if (mode === 'exact') return actual === String(fieldValue ?? '');
   if (actual == null) return false;
   return testRegexCached(String(fieldValue ?? ''), '', actual);
+}
+
+/**
+ * Format a resolved JSON value for Expected / Resolved UI and jsonPath_equals.
+ * Scalars use String() parity; objects/arrays use JSON.stringify (not `[object Object]`).
+ */
+export function formatJsonPathValue(resolved: unknown): string {
+  if (resolved === undefined) return '';
+  if (resolved === null) return 'null';
+  if (typeof resolved === 'string') return resolved;
+  if (typeof resolved === 'number' || typeof resolved === 'boolean') return String(resolved);
+  return JSON.stringify(resolved);
 }
 
 /**

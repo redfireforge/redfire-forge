@@ -60,10 +60,11 @@ describe('checkProxyUrl', () => {
 
 describe('stripHopByHopHeaders', () => {
   it('removes hop-by-hop headers', () => {
-    const input = { 'Connection': 'keep-alive', 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked', 'X-Custom': 'val' };
+    const input = { 'Connection': 'keep-alive', 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked', 'Proxy-Connection': 'keep-alive', 'X-Custom': 'val' };
     const result = stripHopByHopHeaders(input);
     expect(result['Connection']).toBeUndefined();
     expect(result['Transfer-Encoding']).toBeUndefined();
+    expect(result['Proxy-Connection']).toBeUndefined();
     expect(result['Content-Type']).toBe('application/json');
     expect(result['X-Custom']).toBe('val');
   });

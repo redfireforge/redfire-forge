@@ -16,6 +16,8 @@ import type {
   ApiMockSecuritySelector,
 } from './contracts';
 import { CURRENT_SCHEMA_VERSION, HARD_CEILINGS } from './defaults';
+import { isUnavailablePredicateOperator } from './unavailableOperators';
+import { isJsonSchemaCompileable } from './schemaMatchers';
 import { DEFAULT_PROXY_SETTINGS, PROXY_HARD_CEILINGS } from './proxyContracts';
 import { CALLBACK_HARD_CEILINGS, DEFAULT_CALLBACK_SETTINGS } from './callbackContracts';
 
@@ -34,8 +36,13 @@ export function validateWorkspace(ws: ApiMockWorkspaceV1): D[] {
     return out;
   }
   const serverIds = new Set<string>();
-  for (let i = 0; i < ws.servers.length; i++) {
-    const srv = ws.servers[i];
+  const servers = Array.isArray(ws.servers) ? ws.servers : [];
+  if (!Array.isArray(ws.servers)) {
+    out.push(d('AMS-SCHEMA-MISSING-FIELD', 'error', '/servers', 'Workspace servers array is required'));
+    return out;
+  }
+  for (let i = 0; i < servers.length; i++) {
+    const srv = servers[i];
     if (serverIds.has(srv.id)) {
       out.push(d('AMS-SCHEMA-DUPLICATE-ID', 'error', `/servers/${i}/id`, `Duplicate server ID "${srv.id}"`));
     }
@@ -51,16 +58,19 @@ export function validateServer(srv: ApiMockServerDefinitionV1, basePath = ''): D
   if (!srv.name) out.push(d('AMS-SCHEMA-MISSING-FIELD', 'error', `${basePath}/name`, 'Server name is required'));
 
   // Validate routes
+  const routes = srv.routes ?? [];
+  const folders = srv.folders ?? [];
+  const samples = srv.samples ?? [];
   const routeIds = new Set<string>();
-  const folderIds = new Set(srv.folders.map(f => f.id));
+  const folderIds = new Set(folders.map(f => f.id));
   let predicateCount = 0;
 
-  if (srv.routes.length > HARD_CEILINGS.maxRoutes) {
-    out.push(d('AMS-LIMIT-ROUTES', 'error', `${basePath}/routes`, `${srv.routes.length} routes exceeds the ${HARD_CEILINGS.maxRoutes} ceiling`, 'Remove or disable excess routes', { value: srv.routes.length, ceiling: HARD_CEILINGS.maxRoutes }));
+  if (routes.length > HARD_CEILINGS.maxRoutes) {
+    out.push(d('AMS-LIMIT-ROUTES', 'error', `${basePath}/routes`, `${routes.length} routes exceeds the ${HARD_CEILINGS.maxRoutes} ceiling`, 'Remove or disable excess routes', { value: routes.length, ceiling: HARD_CEILINGS.maxRoutes }));
   }
 
-  for (let i = 0; i < srv.routes.length; i++) {
-    const route = srv.routes[i];
+  for (let i = 0; i < routes.length; i++) {
+    const route = routes[i];
     if (routeIds.has(route.id)) {
       out.push(d('AMS-SCHEMA-DUPLICATE-ID', 'error', `${basePath}/routes/${i}/id`, `Duplicate route ID "${route.id}"`));
     }
@@ -78,19 +88,24 @@ export function validateServer(srv: ApiMockServerDefinitionV1, basePath = ''): D
   }
 
   // Validate folder references
-  for (let i = 0; i < srv.folders.length; i++) {
-    const folder = srv.folders[i];
+  for (let i = 0; i < folders.length; i++) {
+    const folder = folders[i];
     if (folder.parentId && !folderIds.has(folder.parentId)) {
       out.push(d('AMS-REF-DANGLING-FOLDER', 'warning', `${basePath}/folders/${i}/parentId`, `Folder references non-existent parent "${folder.parentId}"`));
     }
   }
 
   // Validate samples
-  for (let i = 0; i < srv.samples.length; i++) {
-    const sample = srv.samples[i];
+  for (let i = 0; i < samples.length; i++) {
+    const sample = samples[i];
     if (sample.routeId && !routeIds.has(sample.routeId)) {
       out.push(d('AMS-REF-DANGLING-ROUTE', 'warning', `${basePath}/samples/${i}/routeId`, `Sample references non-existent route "${sample.routeId}"`));
     }
+  }
+
+  if (!srv.settings) {
+    out.push(d('AMS-SCHEMA-MISSING-FIELD', 'error', `${basePath}/settings`, 'Server settings are required'));
+    return out;
   }
 
   // Validate settings limits against hard ceilings
@@ -219,9 +234,24 @@ function validatePredicate(pred: ApiMockPredicateV1, basePath: string): D[] {
     if (!VALID_SECURITY_SELECTORS.includes(pred.selector as ApiMockSecuritySelector)) {
       out.push(d('AMS-SCHEMA-INVALID-TYPE', 'error', `${basePath}/selector`, `Invalid security selector "${pred.selector}"`, `Valid selectors: ${VALID_SECURITY_SELECTORS.join(', ')}`));
     }
-    if (pred.selector === 'certSubject') {
-      out.push(d('AMS-CAPABILITY-GATED', 'error', `${basePath}/selector`, 'mTLS certificate matching is not available until Phase 10'));
-    }
+  }
+  if (isUnavailablePredicateOperator(pred.operator)) {
+    out.push(d(
+      'AMS-CAPABILITY-GATED',
+      'warning',
+      `${basePath}/operator`,
+      `Operator "${pred.operator}" is not evaluated yet — this condition never matches`,
+      'Use a supported operator (exact, regex, JSONPath, XPath, schema, …).',
+    ));
+  }
+  if (pred.operator === 'jsonSchema' && !isJsonSchemaCompileable(pred.expected)) {
+    out.push(d(
+      'AMS-SCHEMA-INVALID',
+      'error',
+      `${basePath}/expected`,
+      'JSON Schema did not compile',
+      'Provide a JSON Schema object or a JSON string the matcher can compile.',
+    ));
   }
   if (pred.operator === 'regex' && typeof pred.expected === 'string') {
     if (pred.expected.length > HARD_CEILINGS.maxRegexLength) {

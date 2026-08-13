@@ -5,7 +5,6 @@ import { useMapperState } from './hooks/useMapperState';
 import { useConnectionLines, useLayoutTick } from './hooks/useConnectionLines';
 import { detectArrayMappings } from './utils/arrayMapping';
 import type { ArrayLineKind } from './hooks/useConnectionLines';
-
 import { useDataMapperValidation } from './hooks/useDataMapperValidation';
 import { useDataMapperAutoMap } from './hooks/useDataMapperAutoMap';
 import { useDataMapperDrop } from './hooks/useDataMapperDrop';
@@ -62,12 +61,7 @@ export default function DataMapper<TOutput = unknown>({
 }: DataMapperProps<TOutput>) {
   const caps = useMemo(() => resolveCapabilities(adapter.capabilities), [adapter.capabilities]);
   const effectiveHideAdvanced = hideAdvanced || caps.hideAdvanced;
-
-  const initialMappings = useMemo(
-    () => safeDeserialize(adapter, initialData),
-    [adapter, initialData],
-  );
-
+  const initialMappings = useMemo(() => safeDeserialize(adapter, initialData), [adapter, initialData]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
   const {

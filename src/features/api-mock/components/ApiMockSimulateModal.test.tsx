@@ -49,6 +49,21 @@ describe('ApiMockSimulateModal', () => {
     expect(screen.getByTestId('api-mock-sim-timeline-5').textContent).toMatch(/Virtual delay/i);
   });
 
+  it('matches an ad-hoc request that carries a client certificate subject', () => {
+    const server = makeServer();
+    server.routes[0].predicates = {
+      id: 'pg1',
+      combinator: 'all',
+      children: [{ id: 'p-cert', source: 'security', selector: 'certSubject', operator: 'exact', expected: 'CN=acme-client' }],
+    } as never;
+    render(<ApiMockSimulateModal server={server} initialPath="/users" initialMethod="GET" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-simulate-result').textContent).toContain('UNMATCHED');
+    fireEvent.change(screen.getByTestId('api-mock-simulate-cert-subject'), { target: { value: 'CN=acme-client' } });
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-simulate-result').textContent).toContain('MATCHED');
+  });
+
   it('shows rendered response with virtual delay badge', () => {
     const server = makeServer();
     server.routes[0].responses[0].body = { kind: 'json', content: '{"user":1}', contentType: 'application/json' };
@@ -202,5 +217,124 @@ describe('ApiMockSimulateModal', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:sim');
     createObjectURL.mockRestore();
     revokeObjectURL.mockRestore();
+  });
+
+  it('selects the seeded example when opened from the Examples tab', () => {
+    const server = makeServer();
+    server.samples = [{
+      id: 's-health',
+      name: 'GET /users',
+      routeId: 'r1',
+      request: {
+        method: 'GET', path: '/users', rawPath: '/users', query: { active: ['true'] },
+        headers: { 'X-Tenant': 'acme' }, cookies: {},
+        body: '{"n":1}', bodyTruncated: false, receivedAt: ts,
+      },
+      expected: { outcome: 'matched', status: 200 },
+    }];
+    render(
+      <ApiMockSimulateModal
+        server={server}
+        initialPath="/users?active=true"
+        initialMethod="GET"
+        initialSampleId="s-health"
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-sim-sample-s-health').className).toContain('active');
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveValue('/users?active=true');
+    expect(screen.getByTestId('api-mock-simulate-headers')).toHaveValue('X-Tenant: acme');
+    expect(screen.getByTestId('api-mock-simulate-body')).toHaveValue('{"n":1}');
+
+    fireEvent.click(screen.getByTestId('api-mock-sim-sample-s-health').querySelector('.am-sim-sample-btn') as HTMLElement);
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveValue('/users?active=true');
+  });
+
+  it('fails a saved example when bodyContains does not match the rendered body', () => {
+    const server = makeServer();
+    server.samples = [{
+      id: 's-body',
+      name: 'GET /users',
+      routeId: 'r1',
+      request: {
+        method: 'GET', path: '/users', rawPath: '/users', query: {},
+        headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts,
+      },
+      expected: { outcome: 'matched', bodyContains: 'definitely-missing' },
+    }];
+    render(<ApiMockSimulateModal server={server} initialSampleId="s-body" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-sim-sample-s-body').textContent).toContain('FAIL');
+    fireEvent.click(screen.getByRole('tab', { name: 'Assertions' }));
+    expect(screen.getByText('Body contains')).toBeTruthy();
+    expect(screen.getAllByText('Fail').length).toBeGreaterThan(0);
+  });
+
+  it('fails a saved example when bodyExact does not match and shows the assertion row', () => {
+    const server = makeServer();
+    server.samples = [{
+      id: 's-exact',
+      name: 'GET /users',
+      routeId: 'r1',
+      request: {
+        method: 'GET', path: '/users', rawPath: '/users', query: {},
+        headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts,
+      },
+      expected: { outcome: 'matched', bodyExact: '{"nope":true}' },
+    }];
+    render(<ApiMockSimulateModal server={server} initialSampleId="s-exact" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-sim-sample-s-exact').textContent).toContain('FAIL');
+    fireEvent.click(screen.getByRole('tab', { name: 'Assertions' }));
+    expect(screen.getByText('Body exact')).toBeTruthy();
+    expect(screen.getAllByText('Fail').length).toBeGreaterThan(0);
+  });
+
+  it('marks an expected-ambiguous example as PASS instead of CONFLICT', () => {
+    const server = makeServer();
+    server.settings.selection.equalPriorityPolicy = 'reject';
+    server.routes = [
+      {
+        id: 'r1', name: 'Dup A', enabled: true, method: 'GET', path: { kind: 'exact', value: '/dup' }, priority: 10,
+        predicates: { id: 'pg1', combinator: 'all', children: [] }, responseMode: 'rules',
+        responses: [createDefaultResponse('resp-a')], tags: [], createdAt: ts, updatedAt: ts,
+      },
+      {
+        id: 'r2', name: 'Dup B', enabled: true, method: 'GET', path: { kind: 'exact', value: '/dup' }, priority: 10,
+        predicates: { id: 'pg2', combinator: 'all', children: [] }, responseMode: 'rules',
+        responses: [createDefaultResponse('resp-b')], tags: [], createdAt: ts, updatedAt: ts,
+      },
+    ];
+    server.samples = [{
+      id: 's-amb',
+      name: 'dup conflict',
+      request: {
+        method: 'GET', path: '/dup', rawPath: '/dup', query: {},
+        headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts,
+      },
+      expected: { outcome: 'ambiguous' },
+    }];
+    render(<ApiMockSimulateModal server={server} initialSampleId="s-amb" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-sim-sample-s-amb').textContent).toContain('PASS');
+    expect(screen.getByTestId('api-mock-simulate-summary').textContent).toMatch(/1 passed/);
+  });
+
+  it('filters saved samples by query string', () => {
+    const server = makeServer();
+    server.samples = [{
+      id: 's-q',
+      name: 'Users',
+      request: {
+        method: 'GET', path: '/users', rawPath: '/users', query: { active: ['true'] },
+        headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts,
+      },
+    }];
+    render(<ApiMockSimulateModal server={server} onClose={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-sim-sample-s-q').textContent).toContain('/users?active=true');
+    fireEvent.change(screen.getByLabelText('Filter samples'), { target: { value: 'active=true' } });
+    expect(screen.getByTestId('api-mock-sim-sample-s-q')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Filter samples'), { target: { value: 'no-such-sample' } });
+    expect(screen.queryByTestId('api-mock-sim-sample-s-q')).toBeNull();
   });
 });

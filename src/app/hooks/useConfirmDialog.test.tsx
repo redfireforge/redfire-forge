@@ -65,6 +65,43 @@ describe('useConfirmDialog', () => {
       expect(document.querySelector('.confirm-icon-danger')).not.toBeNull();
     });
 
+    it('uses a custom title and confirm label for non-delete alerts', () => {
+      const { hook, syncMount } = renderConfirmDialogHarness();
+
+      act(() => {
+        hook.result.current.confirm(
+          'You can have at most 8 mock servers open.',
+          vi.fn(),
+          undefined,
+          { title: 'Tab limit', confirmLabel: 'OK', finalNote: '' },
+        );
+      });
+      syncMount();
+
+      expect(screen.getByText('Tab limit')).toBeInTheDocument();
+      expect(screen.queryByText('Confirm Deletion')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'OK' })).toBeInTheDocument();
+      expect(screen.queryByText('This action cannot be undone.')).not.toBeInTheDocument();
+    });
+
+    it('allows a reversible delete to omit the permanent-delete copy', () => {
+      const { hook, syncMount } = renderConfirmDialogHarness();
+
+      act(() => {
+        hook.result.current.confirm(
+          'Delete route "Users"? You can Undo for a few seconds.',
+          vi.fn(),
+          undefined,
+          { finalNote: '', confirmLabel: 'Delete' },
+        );
+      });
+      syncMount();
+
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+      expect(screen.queryByText('Delete Permanently')).not.toBeInTheDocument();
+      expect(screen.queryByText('This action cannot be undone.')).not.toBeInTheDocument();
+    });
+
     it('enters warning stage when detail is provided, then progresses to final on Continue', () => {
       const { hook, syncMount } = renderConfirmDialogHarness();
       const onConfirm = vi.fn();

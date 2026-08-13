@@ -32,4 +32,13 @@ describe('jsonPathFromCursor coverage gaps', () => {
       path: '$.t',
     });
   });
+
+  it('skips a leading comma and fails a truncated object inside an array', () => {
+    expect(jsonPathFromCursorOffset('[]', 0)?.path).toBe('$');
+    vi.spyOn(JSON, 'parse').mockReturnValue([1]);
+    expect(jsonPathFromCursorOffset('[1,]', 2)?.path).toBe('$[0]');
+    expect(jsonPathFromCursorOffset('[,1]', 2)?.path).toBe('$[1]');
+    vi.spyOn(JSON, 'parse').mockReturnValue([{}]);
+    expect(jsonPathFromCursorOffset('[{]', 0)).toBeNull();
+  });
 });

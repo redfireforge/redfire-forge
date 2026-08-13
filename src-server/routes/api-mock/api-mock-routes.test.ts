@@ -16,6 +16,7 @@ const resetScenarioState = vi.fn();
 const getRecordedDrafts = vi.fn();
 const clearRecordedDrafts = vi.fn();
 const acknowledgeRecordedDrafts = vi.fn();
+const getListenerDiagnostics = vi.fn();
 const validateServer = vi.fn();
 const isPortAvailable = vi.fn();
 const generateSelfSigned = vi.fn();
@@ -35,6 +36,7 @@ vi.mock('../../api-mock/ApiMockServerPool.js', () => ({
     getRecordedDrafts: (...args: unknown[]) => getRecordedDrafts(...args),
     clearRecordedDrafts: (...args: unknown[]) => clearRecordedDrafts(...args),
     acknowledgeRecordedDrafts: (...args: unknown[]) => acknowledgeRecordedDrafts(...args),
+    getListenerDiagnostics: (...args: unknown[]) => getListenerDiagnostics(...args),
   },
 }));
 vi.mock('../../../src/shared/api-mock/validation.js', () => ({
@@ -116,6 +118,7 @@ describe('createApiMockRouter', () => {
     acknowledgeRecordedDrafts.mockReturnValue(0);
     generateSelfSigned.mockResolvedValue({ certPem: 'CERT', keyPem: 'KEY' });
     generateClientCredentials.mockResolvedValue({ clientCertPem: 'CC', clientKeyPem: 'CK', caCertPem: 'CA' });
+    getListenerDiagnostics.mockReturnValue(undefined);
   });
 
   it('handles start validation, success, and classified failures', async () => {
@@ -308,5 +311,46 @@ describe('createApiMockRouter', () => {
     res = await request(app).get('/api/mock/servers/srv-1/transactions').query({ afterCursor: '0', limit: '5' });
     expect(res.status).toBe(200);
     expect(res.body.data.transactions.length).toBeGreaterThan(0);
+  });
+
+  it('returns local diagnostics without payloads', async () => {
+    const { app } = buildApp();
+    let res = await request(app).get('/api/mock/servers/missing/diagnostics');
+    expect(res.status).toBe(404);
+
+    start.mockResolvedValueOnce({ serverId: 'srv-1', port: 4600, state: 'running', generation: 2 });
+    await request(app).post('/api/mock/servers/start').send(makeDef());
+    getListenerDiagnostics.mockReturnValueOnce({
+      generation: 2, routeCount: 1, predicateCount: 0, openConnections: 0, inFlight: 0,
+      matchDuration: { lastMs: 1, p95Ms: 1, count: 1 },
+      outcomes: { matched: 1, ambiguous: 0, unmatched: 0, fault: 0, error: 0, proxied: 0 },
+      templateErrors: 0,
+    });
+    status.mockReturnValueOnce({ serverId: 'srv-1', port: 4600, state: 'running', generation: 2 });
+    res = await request(app).get('/api/mock/servers/srv-1/diagnostics');
+    expect(res.status).toBe(200);
+    expect(res.body.data.generation).toBe(2);
+    expect(res.body.data.journal).toEqual(expect.objectContaining({ drops: 0, size: 0 }));
+    expect(JSON.stringify(res.body.data)).not.toMatch(/authorization|password|secret/i);
+
+    getListenerDiagnostics.mockReturnValueOnce({});
+    status.mockReturnValueOnce({ serverId: 'srv-1', port: 4600, state: 'running', generation: 9 });
+    res = await request(app).get('/api/mock/servers/srv-1/diagnostics');
+    expect(res.status).toBe(200);
+    expect(res.body.data.generation).toBe(9);
+    expect(res.body.data.routeCount).toBe(0);
+    expect(res.body.data.matchDuration).toEqual({ lastMs: 0, p95Ms: 0, count: 0 });
+
+    getListenerDiagnostics.mockReturnValueOnce(undefined);
+    status.mockReturnValueOnce({ serverId: 'ghost', port: 4600, state: 'stopped', generation: 1 });
+    res = await request(app).get('/api/mock/servers/ghost/diagnostics');
+    expect(res.status).toBe(200);
+    expect(res.body.data.journal).toEqual({ drops: 0, truncations: 0, size: 0, maxEntries: 0 });
+    expect(res.body.data.outcomes.matched).toBe(0);
+
+    generateClientCredentials.mockRejectedValueOnce(new Error('ca missing'));
+    res = await request(app).post('/api/mock/tls/client-credentials').send({ commonName: 'x' });
+    expect(res.status).toBe(500);
+    expect(res.body.error.message).toBe('ca missing');
   });
 });

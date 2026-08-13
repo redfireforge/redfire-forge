@@ -77,6 +77,8 @@ export { createVariableBindingAdapter, extractTemplateRefs, collectTemplateSlots
 export type { VariableBindingAdapterOptions, VariableBinding, VariableHintInput, TemplateSlot } from './adapters/variableBindingAdapter';
 export { createRequestBodyAdapter, extractBodyTemplateRefs, parseBodyJson, collectBodyLeafPaths, buildBodyFromMappings } from './adapters/requestBodyAdapter';
 export type { RequestBodyAdapterOptions, VariableHintForBody, BodySchemaField } from './adapters/requestBodyAdapter';
+export { createApiMockBodyAdapter } from './adapters/apiMockBodyAdapter';
+export type { ApiMockBodyAdapterOptions } from './adapters/apiMockBodyAdapter';
 export type {
   Mapping,
   MapperAdapter,

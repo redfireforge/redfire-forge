@@ -1,4 +1,6 @@
-import { resolveSimpleJsonPath } from './predicateEvaluatorHelpers';
+import { formatJsonPathValue, resolveSimpleJsonPath } from './predicateEvaluatorHelpers';
+
+export { formatJsonPathValue };
 
 export interface JsonPathFromCursorResult {
   path: string;
@@ -11,15 +13,6 @@ interface PathSpan {
   start: number;
   /** Exclusive end index in the JSON source. */
   end: number;
-}
-
-/** Format a resolved JSON value for Expected / Resolved UI (runtime String() parity for scalars). */
-export function formatJsonPathValue(resolved: unknown): string {
-  if (resolved === undefined) return '';
-  if (resolved === null) return 'null';
-  if (typeof resolved === 'string') return resolved;
-  if (typeof resolved === 'number' || typeof resolved === 'boolean') return String(resolved);
-  return JSON.stringify(resolved);
 }
 
 function keySegment(key: string): string {
@@ -123,7 +116,6 @@ function collectPathSpans(json: string): PathSpan[] | null {
   }
 
   function walkObject(): boolean {
-    if (json[cursor] !== '{') return false;
     cursor++; // {
     skipWhitespace();
     while (cursor < json.length && json[cursor] !== '}') {
@@ -159,7 +151,6 @@ function collectPathSpans(json: string): PathSpan[] | null {
   }
 
   function walkArray(): boolean {
-    if (json[cursor] !== '[') return false;
     cursor++; // [
     skipWhitespace();
     let idx = 0;

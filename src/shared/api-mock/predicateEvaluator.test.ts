@@ -141,6 +141,24 @@ describe('evaluateRoute', () => {
       const r = route({ predicates: preds({ id: 'p1', source: 'query', selector: 'status', operator: 'exact', expected: 'deleted', options: { negate: true } }) });
       expect(evaluateRoute(r, req({ query: { status: ['deleted'] } }), '').overallMatch).toBe(false);
     });
+    it('negate inverts a compiled JSON Schema match', () => {
+      const r = route({ predicates: preds({
+        id: 'p1', source: 'body', operator: 'jsonSchema', expected: { type: 'object' } as never, options: { negate: true },
+      }) });
+      const result = evaluateRoute(r, req({ body: '{"a":1}' }), '');
+      expect(result.overallMatch).toBe(false);
+      expect(result.predicateResults[0].evaluated).toBe(true);
+    });
+    it('None-of around a matching JSON Schema does not match', () => {
+      const r = route({ predicates: {
+        id: 'pg', combinator: 'not', children: [
+          { id: 'p1', source: 'body', operator: 'jsonSchema', expected: { type: 'object' } as never },
+        ],
+      } });
+      const result = evaluateRoute(r, req({ body: '{"a":1}' }), '');
+      expect(result.overallMatch).toBe(false);
+      expect(result.predicateResults[0].evaluated).toBe(true);
+    });
   });
 
   describe('predicate: json_strict', () => {
@@ -218,6 +236,12 @@ describe('evaluateRoute', () => {
     it('matches api key name', () => {
       const r = route({ predicates: preds({ id: 'p1', source: 'security', selector: 'apiKeyName', operator: 'exact', expected: 'x-api-key' }) });
       expect(evaluateRoute(r, req({ headers: { 'x-api-key': ['sk-test'] } }), '').overallMatch).toBe(true);
+    });
+    it('matches mTLS certificate subject', () => {
+      const r = route({ predicates: preds({ id: 'p1', source: 'security', selector: 'certSubject', operator: 'exact', expected: 'CN=acme-client' }) });
+      expect(evaluateRoute(r, req({ clientCertSubject: 'CN=acme-client' }), '').overallMatch).toBe(true);
+      expect(evaluateRoute(r, req({ clientCertSubject: 'CN=other' }), '').overallMatch).toBe(false);
+      expect(evaluateRoute(r, req(), '').overallMatch).toBe(false);
     });
   });
 
@@ -323,6 +347,30 @@ describe('evaluateRoute', () => {
     it('matches any value in a repeated header', () => {
       const r = route({ predicates: preds({ id: 'p1', source: 'header', selector: 'accept', operator: 'contains', expected: 'json' }) });
       expect(evaluateRoute(r, req({ headers: { accept: ['text/html', 'application/json'] } }), '').overallMatch).toBe(true);
+    });
+  });
+
+  describe('predicate: multipart_field', () => {
+    const body = [
+      'preamble ignored',
+      '------bound',
+      'Content-Disposition: form-data; name="note"',
+      '',
+      'hello',
+      '------bound--',
+      '',
+    ].join('\r\n');
+
+    it('reads boundary from captured contentType when the header map is empty', () => {
+      const r = route({
+        method: 'POST',
+        predicates: preds({ id: 'p1', source: 'body', operator: 'multipart_field', expected: 'note' }),
+      });
+      expect(evaluateRoute(r, req({
+        method: 'POST',
+        body,
+        contentType: 'multipart/form-data; boundary=----bound',
+      }), '').overallMatch).toBe(true);
     });
   });
 });

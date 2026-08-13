@@ -140,3 +140,53 @@ export async function generateClientCredentials(commonName = 'api-mock-client'):
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
+
+interface PeerCertLike {
+  subject?: { CN?: string | string[] };
+  subjectaltname?: string;
+  fingerprint256?: string;
+}
+
+function firstCn(cn: string | string[] | undefined): string {
+  if (typeof cn === 'string') return cn.trim();
+  if (Array.isArray(cn)) {
+    for (const part of cn) {
+      if (typeof part === 'string' && part.trim()) return part.trim();
+    }
+  }
+  return '';
+}
+
+function peerCertSubject(cert: PeerCertLike): string {
+  const cn = firstCn(cert.subject?.CN);
+  if (cn) return `CN=${cn}`;
+  const san = typeof cert.subjectaltname === 'string' ? cert.subjectaltname : '';
+  for (const part of san.split(',')) {
+    const dns = part.trim().match(/^DNS:(.+)$/i);
+    if (dns?.[1]?.trim()) return `CN=${dns[1].trim()}`;
+  }
+  return '';
+}
+
+/**
+ * Safe mTLS attributes for matching and traces. Never returns PEM or raw DER.
+ */
+export function peerCertificateAttrs(
+  socket: { getPeerCertificate?: (detailed?: boolean) => PeerCertLike } | null | undefined,
+): { clientCertSubject?: string; clientCertFingerprint?: string } {
+  if (!socket || typeof socket.getPeerCertificate !== 'function') return {};
+  let cert: PeerCertLike;
+  try {
+    cert = socket.getPeerCertificate();
+  } catch {
+    return {};
+  }
+  if (!cert || typeof cert !== 'object') return {};
+  const subject = peerCertSubject(cert);
+  const fpRaw = typeof cert.fingerprint256 === 'string' ? cert.fingerprint256 : '';
+  const fingerprint = fpRaw.replace(/:/g, '').toLowerCase();
+  return {
+    ...(subject ? { clientCertSubject: subject } : {}),
+    ...(fingerprint ? { clientCertFingerprint: fingerprint } : {}),
+  };
+}

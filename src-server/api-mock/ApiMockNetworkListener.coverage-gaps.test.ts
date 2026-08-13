@@ -248,13 +248,105 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     req.emit('end');
 
     expect(res.writeHead).not.toHaveBeenCalled();
+    expect(listener.getLocalDiagnostics().inFlight).toBe(1);
     await vi.advanceTimersByTimeAsync(5);
     expect(res.writeHead).toHaveBeenCalledWith(200, { 'x-enabled': 'on', 'Content-Type': 'text/plain' });
     expect(res.end).toHaveBeenCalledWith('delayed');
+    expect(listener.getLocalDiagnostics().inFlight).toBe(0);
     const tx = transactions[0] as any;
     expect(tx.request.method).toBe('GET');
     expect(tx.request.path).toBe('/');
     expect(tx.request.body).toBe('abc');
+    vi.useRealTimers();
+  });
+
+  it('does not deliver a delayed match after the client has gone', async () => {
+    vi.useFakeTimers();
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-delay-abort',
+      definition: makeDef(getPort(), {
+        routes: [{
+          ...makeDef(0).routes[0],
+          method: 'GET',
+          path: { kind: 'exact', value: '/' },
+          responses: [{
+            ...createDefaultResponse('resp-delay-abort'),
+            enabled: true,
+            isDefault: true,
+            body: { kind: 'text', content: 'delayed', contentType: 'text/plain' },
+            behavior: { delayMs: 20, jitterMs: 0 },
+            transition: { targetState: 'should-not-apply' },
+          }],
+        }],
+      }),
+    });
+
+    const req = new EventEmitter() as any;
+    req.method = 'GET';
+    req.url = '/';
+    req.headers = {};
+    req.socket = { remoteAddress: '127.0.0.1', destroyed: false };
+    req.stream = { closed: false };
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn().mockReturnThis(),
+      end: vi.fn().mockReturnThis(),
+    } as any;
+
+    (listener as any).handleRequest(req, res);
+    req.emit('end');
+    expect(listener.getLocalDiagnostics().inFlight).toBe(1);
+    req.socket.destroyed = true;
+    req.stream.closed = true;
+    res.headersSent = true;
+    await vi.advanceTimersByTimeAsync(20);
+    expect(res.writeHead).not.toHaveBeenCalled();
+    expect(listener.getScenarioState().states.default).not.toBe('should-not-apply');
+    expect(listener.getLocalDiagnostics().inFlight).toBe(0);
+    expect(listener.getLocalDiagnostics().outcomes.matched).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it('cancels delayed in-flight work on stop so counters cannot go stale', async () => {
+    vi.useFakeTimers();
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-delay-stop',
+      definition: makeDef(getPort(), {
+        routes: [{
+          ...makeDef(0).routes[0],
+          method: 'GET',
+          path: { kind: 'exact', value: '/' },
+          responses: [{
+            ...createDefaultResponse('resp-delay-stop'),
+            enabled: true,
+            isDefault: true,
+            body: { kind: 'text', content: 'delayed', contentType: 'text/plain' },
+            behavior: { delayMs: 50, jitterMs: 0 },
+          }],
+        }],
+      }),
+    });
+
+    const req = new EventEmitter() as any;
+    req.method = 'GET';
+    req.url = '/';
+    req.headers = {};
+    req.socket = { remoteAddress: '127.0.0.1' };
+    const res = {
+      headersSent: false,
+      writeHead: vi.fn().mockReturnThis(),
+      end: vi.fn().mockReturnThis(),
+    } as any;
+
+    (listener as any).handleRequest(req, res);
+    req.emit('end');
+    expect(listener.getLocalDiagnostics().inFlight).toBe(1);
+    await listener.stop();
+    expect(listener.getLocalDiagnostics().inFlight).toBe(0);
+    expect(listener.getLocalDiagnostics().outcomes.matched).toBe(0);
+    await vi.advanceTimersByTimeAsync(50);
+    expect(res.writeHead).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 
@@ -266,6 +358,11 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     await expect(listener.start()).rejects.toThrow('already running');
     const hostRes = await fetch(`http://127.0.0.1:${port}/hello`);
     expect(hostRes.status).toBe(200);
+
+    const clash = new ApiMockNetworkListener({ serverId: 'srv-clash', definition: makeDef(port, { host: '0.0.0.0' }) });
+    await expect(clash.start()).rejects.toThrow();
+    expect(clash.isRunning()).toBe(false);
+    expect(listener.isRunning()).toBe(true);
 
     const availabilityPort = getPort();
     const availabilityListener = new ApiMockNetworkListener({ serverId: 'srv-avail', definition: makeDef(availabilityPort) });
@@ -304,6 +401,91 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     reqSent.emit('error', new Error('late error'));
     expect(resSent.writeHead).not.toHaveBeenCalled();
 
+    const resAfterError = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn(function (this: { headersSent: boolean }, _status: number) {
+        this.headersSent = true;
+        return this;
+      }),
+      end: vi.fn(function (this: { writableEnded: boolean }) { this.writableEnded = true; return this; }),
+    } as any;
+    const reqAfterError = new EventEmitter() as any;
+    reqAfterError.method = 'GET';
+    reqAfterError.url = '/hello';
+    reqAfterError.headers = {};
+    reqAfterError.socket = { remoteAddress: '127.0.0.1' };
+    (listener as any).handleRequest(reqAfterError, resAfterError);
+    reqAfterError.emit('error', new Error('rst'));
+    reqAfterError.emit('end');
+    await Promise.resolve();
+    expect(resAfterError.writeHead).toHaveBeenCalledTimes(1);
+    expect(resAfterError.writeHead).toHaveBeenCalledWith(400);
+
+    const resAborted = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn().mockReturnThis(),
+      end: vi.fn().mockReturnThis(),
+    } as any;
+    const reqAborted = new EventEmitter() as any;
+    reqAborted.method = 'GET';
+    reqAborted.url = '/hello';
+    reqAborted.headers = {};
+    reqAborted.socket = { remoteAddress: '127.0.0.1' };
+    (listener as any).handleRequest(reqAborted, resAborted);
+    reqAborted.emit('aborted');
+    reqAborted.emit('end');
+    await Promise.resolve();
+    expect(resAborted.writeHead).not.toHaveBeenCalled();
+
+    const resThrow = {
+      headersSent: false,
+      writeHead: vi.fn(() => { throw new Error('stream gone'); }),
+      end: vi.fn(),
+    } as any;
+    const reqThrow = new EventEmitter() as any;
+    reqThrow.method = 'GET';
+    reqThrow.url = '/hello';
+    reqThrow.headers = {};
+    reqThrow.socket = { remoteAddress: '127.0.0.1' };
+    (listener as any).handleRequest(reqThrow, resThrow);
+    expect(() => reqThrow.emit('error', new Error('bad request'))).not.toThrow();
+
+    const resProcess = {
+      headersSent: false,
+      writeHead: vi.fn(function (this: { headersSent: boolean }) {
+        this.headersSent = true;
+        throw new Error('stream closed');
+      }),
+      end: vi.fn(),
+    } as any;
+    const reqProcess = new EventEmitter() as any;
+    reqProcess.method = 'GET';
+    reqProcess.url = '/hello';
+    reqProcess.headers = {};
+    reqProcess.socket = { remoteAddress: '127.0.0.1' };
+    (listener as any).handleRequest(reqProcess, resProcess);
+    reqProcess.emit('end');
+    await vi.waitFor(() => expect(resProcess.writeHead).toHaveBeenCalled());
+
+    const resCatch = {
+      headersSent: false,
+      writeHead: vi.fn(() => { throw new Error('stream closed'); }),
+      end: vi.fn(),
+    } as any;
+    const reqCatch = new EventEmitter() as any;
+    reqCatch.method = 'GET';
+    reqCatch.url = '/hello';
+    reqCatch.headers = {};
+    reqCatch.socket = { remoteAddress: '127.0.0.1' };
+    (listener as any).handleRequest(reqCatch, resCatch);
+    reqCatch.emit('end');
+    await vi.waitFor(() => expect(resCatch.writeHead).toHaveBeenCalledTimes(2));
+
+    expect(() => (listener as any).server.emit('error', new Error('after listen'))).not.toThrow();
+    expect(listener.isRunning()).toBe(true);
+
     const stoppedListener = new ApiMockNetworkListener({ serverId: 'srv-stop', definition: makeDef(getPort()) });
     await expect(stoppedListener.stop()).resolves.toBeUndefined();
   });
@@ -333,7 +515,11 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     await expect(fetch(`http://127.0.0.1:${port}/hello`)).rejects.toThrow();
     await vi.waitFor(() => expect(txs.length).toBe(1));
     expect(txs[0].outcome).toBe('fault');
+    expect(txs[0].response.status).toBe(0);
+    expect(txs[0].response.body).toBe('');
     expect(txs[0].matchedResponseId).toBe('resp-1');
+    expect(listener.getLocalDiagnostics().outcomes.fault).toBe(1);
+    expect(listener.getLocalDiagnostics().outcomes.matched).toBe(0);
   });
 
   it('applies response transforms before delivery', async () => {
@@ -406,6 +592,8 @@ describe('ApiMockNetworkListener coverage gaps', () => {
       await vi.waitFor(() => expect(drafts.length).toBe(1));
       expect(drafts[0].route.enabled).toBe(false);
       expect(drafts[0].fingerprint).toContain('GET /captured');
+      expect(listener.getLocalDiagnostics().outcomes.proxied).toBe(1);
+      expect(listener.getLocalDiagnostics().outcomes.unmatched).toBe(0);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -452,6 +640,8 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     expect(body.error).toBe('proxy_misconfigured');
     await vi.waitFor(() => expect(txs.length).toBe(1));
     expect(txs[0].outcome).toBe('error');
+    expect(listener.getLocalDiagnostics().outcomes.error).toBe(1);
+    expect(listener.getLocalDiagnostics().outcomes.unmatched).toBe(0);
   });
 
   it('returns closest-match debug JSON for unmatched requests when configured', async () => {
@@ -519,6 +709,8 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     expect(body.message).toContain('upstream down');
     await vi.waitFor(() => expect(txs.length).toBe(1));
     expect(txs[0].outcome).toBe('error');
+    expect(listener.getLocalDiagnostics().outcomes.error).toBe(1);
+    expect(listener.getLocalDiagnostics().outcomes.unmatched).toBe(0);
   });
 
   it('falls back to another variant when the selected one hits maxMatches', async () => {
@@ -741,6 +933,133 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     const body = await res.json();
     expect(body.error).toBe('proxy_failed');
     expect(body.message).toBe('upstream error');
+  });
+
+  it('does not journal a proxied exchange after the client has gone', async () => {
+    let finishProxy: (value: {
+      ok: true; status: number; headers: Record<string, string>; body: string;
+    }) => void = () => {};
+    vi.spyOn(proxyExecutor, 'executeProxy').mockImplementation(() => new Promise(resolve => {
+      finishProxy = resolve;
+    }));
+
+    const txs: any[] = [];
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-proxy-abort',
+      definition: makeDef(getPort(), {
+        routes: [],
+        settings: {
+          ...DEFAULT_SETTINGS,
+          fallback: { ...DEFAULT_SETTINGS.fallback, mode: 'proxy' },
+          proxy: {
+            ...DEFAULT_SETTINGS.proxy!,
+            enabled: true,
+            allowlist: ['https://upstream.example.com'],
+            blockPrivateNetworks: false,
+          },
+        },
+      }),
+      onTransaction: tx => txs.push(tx),
+    });
+
+    const req = new EventEmitter() as any;
+    req.method = 'GET';
+    req.url = '/gone';
+    req.headers = {};
+    req.socket = { remoteAddress: '127.0.0.1' };
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn(function (this: { headersSent: boolean }) { this.headersSent = true; return this; }),
+      end: vi.fn(function (this: { writableEnded: boolean }) { this.writableEnded = true; return this; }),
+    } as any;
+
+    (listener as any).handleRequest(req, res);
+    req.emit('end');
+    await Promise.resolve();
+    res.headersSent = true;
+    finishProxy({ ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'late' });
+    await Promise.resolve();
+    expect(res.writeHead).not.toHaveBeenCalled();
+    expect(txs).toEqual([]);
+  });
+
+  it('does not write a fallback when the HTTP/2 stream is already closed', async () => {
+    const txs: any[] = [];
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-h2-closed',
+      definition: makeDef(getPort(), { routes: [] }),
+      onTransaction: tx => txs.push(tx),
+    });
+
+    const req = new EventEmitter() as any;
+    req.method = 'GET';
+    req.url = '/gone';
+    req.headers = {};
+    req.socket = { remoteAddress: '127.0.0.1', destroyed: false };
+    req.stream = { closed: true, once: vi.fn() };
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn(),
+      end: vi.fn(),
+    } as any;
+
+    (listener as any).handleRequest(req, res);
+    req.emit('end');
+    await Promise.resolve();
+    expect(res.writeHead).not.toHaveBeenCalled();
+    expect(txs).toEqual([]);
+  });
+
+  it('does not journal a proxied exchange after the HTTP/2 stream closes', async () => {
+    let finishProxy: (value: {
+      ok: true; status: number; headers: Record<string, string>; body: string;
+    }) => void = () => {};
+    vi.spyOn(proxyExecutor, 'executeProxy').mockImplementation(() => new Promise(resolve => {
+      finishProxy = resolve;
+    }));
+
+    const txs: any[] = [];
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-proxy-h2-closed',
+      definition: makeDef(getPort(), {
+        routes: [],
+        settings: {
+          ...DEFAULT_SETTINGS,
+          fallback: { ...DEFAULT_SETTINGS.fallback, mode: 'proxy' },
+          proxy: {
+            ...DEFAULT_SETTINGS.proxy!,
+            enabled: true,
+            allowlist: ['https://upstream.example.com'],
+            blockPrivateNetworks: false,
+          },
+        },
+      }),
+      onTransaction: tx => txs.push(tx),
+    });
+
+    const req = new EventEmitter() as any;
+    req.method = 'GET';
+    req.url = '/gone';
+    req.headers = {};
+    req.socket = { remoteAddress: '127.0.0.1', destroyed: false };
+    req.stream = { closed: false };
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn(),
+      end: vi.fn(),
+    } as any;
+
+    (listener as any).handleRequest(req, res);
+    req.emit('end');
+    await Promise.resolve();
+    req.stream.closed = true;
+    finishProxy({ ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'late' });
+    await Promise.resolve();
+    expect(res.writeHead).not.toHaveBeenCalled();
+    expect(txs).toEqual([]);
   });
 
   it('applies scenario transitions on matched rule responses', async () => {

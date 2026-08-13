@@ -8,7 +8,7 @@ import { DownloadIcon, UploadIcon, ChevronDownIcon } from './ApiMockIcons';
 export type ApiMockMainView = 'studio' | 'runtime' | 'conflicts';
 
 export type ApiMockExportScope = 'workspace' | 'servers' | 'routes';
-export type ApiMockExportFormat = 'json' | 'yaml' | 'wiremock';
+export type ApiMockExportFormat = 'json' | 'yaml' | 'wiremock' | 'har';
 
 export interface ApiMockExportRequest {
   scope: ApiMockExportScope;
@@ -36,6 +36,7 @@ const EXPORT_ITEMS: Array<{ req: ApiMockExportRequest; testId: string; label: st
   { req: { scope: 'servers', format: 'json' }, testId: 'api-mock-export-servers', label: 'Active server JSON', hint: 'Current tab only' },
   { req: { scope: 'routes', format: 'json' }, testId: 'api-mock-export-routes', label: 'Active server routes', hint: 'Rules + samples' },
   { req: { scope: 'routes', format: 'wiremock' }, testId: 'api-mock-export-wiremock', label: 'WireMock mappings', hint: 'Subset + loss report file' },
+  { req: { scope: 'servers', format: 'har' }, testId: 'api-mock-export-har', label: 'HAR (journal)', hint: 'Captured traffic + loss report' },
 ];
 
 export function ApiMockWorkspaceNav({

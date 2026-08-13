@@ -11,6 +11,7 @@ import type {
   ApiMockMethod,
 } from './contracts';
 import { matchPath } from './pathMatcher';
+import { isUnavailablePredicateOperator } from './unavailableOperators';
 import {
   stripBasePath,
   extractValue,
@@ -72,25 +73,32 @@ function evaluateGroup(
   pathParams: Record<string, string>,
   results: ApiMockPredicateResultV1[],
 ): boolean {
+  const evalChild = (child: ApiMockPredicateGroupV1['children'][number]) => {
+    const before = results.length;
+    const matched = 'combinator' in child
+      ? evaluateGroup(child, request, pathParams, results)
+      : evaluateSinglePredicate(child, request, pathParams, results);
+    return {
+      matched,
+      unevaluated: results.slice(before).some(r => r.evaluated === false),
+    };
+  };
+
   switch (group.combinator) {
     case 'all':
-      return group.children.every(child =>
-        'combinator' in child
-          ? evaluateGroup(child, request, pathParams, results)
-          : evaluateSinglePredicate(child, request, pathParams, results),
-      );
+      return group.children.every(child => evalChild(child).matched);
     case 'any':
-      return group.children.some(child =>
-        'combinator' in child
-          ? evaluateGroup(child, request, pathParams, results)
-          : evaluateSinglePredicate(child, request, pathParams, results),
-      );
-    case 'not':
-      return !group.children.some(child =>
-        'combinator' in child
-          ? evaluateGroup(child, request, pathParams, results)
-          : evaluateSinglePredicate(child, request, pathParams, results),
-      );
+      return group.children.some(child => evalChild(child).matched);
+    case 'not': {
+      // Fail closed: a stubbed operator must not make "None of" match every request.
+      let unevaluated = false;
+      const anyMatched = group.children.some(child => {
+        const result = evalChild(child);
+        if (result.unevaluated) unevaluated = true;
+        return result.matched;
+      });
+      return !unevaluated && !anyMatched;
+    }
     default:
       return false;
   }
@@ -102,8 +110,22 @@ function evaluateSinglePredicate(
   pathParams: Record<string, string>,
   results: ApiMockPredicateResultV1[],
 ): boolean {
+  if (isUnavailablePredicateOperator(pred.operator)) {
+    results.push({
+      predicateId: pred.id,
+      groupId: '',
+      source: pred.source,
+      operator: pred.operator,
+      passed: false,
+      evaluated: false,
+      reason: `Operator "${pred.operator}" is not evaluated yet — this condition never matches`,
+    });
+    return false;
+  }
+
   const value = extractValue(pred, request, pathParams);
-  let passed = evaluateOperator(pred.operator, value, pred.expected, pred.options);
+  const contentType = request.headers['content-type']?.[0] ?? request.contentType;
+  let passed = evaluateOperator(pred.operator, value, pred.expected, pred.options, { contentType });
   if (pred.options?.negate) passed = !passed;
 
   results.push({
