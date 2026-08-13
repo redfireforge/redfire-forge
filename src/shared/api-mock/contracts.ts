@@ -313,6 +313,19 @@ export interface ApiMockDiagnosticV1 {
   context?: Record<string, string | number | boolean>;
 }
 
+/** Local runtime counters — never includes URLs, headers, bodies, or secrets. */
+export interface ApiMockLocalDiagnosticsV1 {
+  generation: number;
+  routeCount: number;
+  predicateCount: number;
+  openConnections: number;
+  inFlight: number;
+  matchDuration: { lastMs: number; p95Ms: number; count: number };
+  outcomes: Record<ApiMockTransactionOutcome, number>;
+  journal: { drops: number; truncations: number; size: number; maxEntries: number };
+  templateErrors: number;
+}
+
 // ── Captured Request/Response ───────────────────────────────────────
 
 export interface ApiMockCapturedRequestV1 {
@@ -328,6 +341,10 @@ export interface ApiMockCapturedRequestV1 {
   contentLength?: number;
   remoteAddress?: string;
   receivedAt: string;
+  /** mTLS peer subject, e.g. `CN=acme-client`. Never includes PEM material. */
+  clientCertSubject?: string;
+  /** SHA-256 fingerprint of the presented client certificate, when available. */
+  clientCertFingerprint?: string;
 }
 
 export interface ApiMockCapturedResponseV1 {

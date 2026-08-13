@@ -52,6 +52,10 @@ describe('ApiMockWorkspaceNav', () => {
     expect(onExport).toHaveBeenCalledWith({ scope: 'routes', format: 'wiremock' });
 
     fireEvent.click(screen.getByTestId('api-mock-export'));
+    fireEvent.click(screen.getByTestId('api-mock-export-har'));
+    expect(onExport).toHaveBeenCalledWith({ scope: 'servers', format: 'har' });
+
+    fireEvent.click(screen.getByTestId('api-mock-export'));
     expect(screen.getByTestId('api-mock-export-menu-panel')).toBeTruthy();
     fireEvent.mouseDown(document.body);
     expect(screen.queryByTestId('api-mock-export-menu-panel')).toBeNull();

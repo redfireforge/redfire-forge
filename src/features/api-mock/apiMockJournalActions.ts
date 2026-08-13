@@ -1,8 +1,14 @@
 /**
  * Journal actions from mockup 07: Open in Requests, Create route, Copy.
  */
-import type { ApiMockRouteV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
+import type {
+  ApiMockRouteV1,
+  ApiMockCapturedRequestV1,
+  ApiMockTransactionV1,
+  ApiMockSimulationSampleV1,
+} from '../../shared/api-mock/contracts';
 import { convertSourceToRule } from '../../shared/api-mock/sourceToRule';
+import { joinCapturedHeaderValue, mockClientOrigin, stripCapturedRequestSecrets } from '../../shared/api-mock/harExport';
 import type { HttpMethod, KeyValue } from '../../shared/types';
 
 export const API_MOCK_OPEN_IN_REQUESTS_EVENT = 'api-mock-open-in-requests';
@@ -17,24 +23,54 @@ export interface ApiMockOpenInRequestsDetail {
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
+function capturedHeadersToKeyValues(
+  headers: Record<string, string[] | string> | undefined,
+): KeyValue[] {
+  return Object.entries(headers ?? {}).map(([key, value]) => ({
+    key,
+    value: joinCapturedHeaderValue(key, value),
+    enabled: true,
+  }));
+}
+
 export function normalizeHttpMethod(method: string): HttpMethod {
   const upper = method.toUpperCase();
   return (HTTP_METHODS.includes(upper as HttpMethod) ? upper : 'GET') as HttpMethod;
 }
 
+/** Path + query string (leading slash, no host) for simulate seeds and request URLs. */
+export function capturedRequestPath(
+  request: Pick<ApiMockCapturedRequestV1, 'rawPath' | 'path' | 'query'>,
+): string {
+  const raw = request.rawPath || request.path || '/';
+  const path = raw.startsWith('/') ? raw : `/${raw}`;
+  if (path.includes('?')) return path;
+  const parts: string[] = [];
+  for (const [name, rawValue] of Object.entries(request.query ?? {})) {
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    for (const value of values) parts.push(`${encodeURIComponent(name)}=${encodeURIComponent(String(value))}`);
+  }
+  return parts.length > 0 ? `${path}?${parts.join('&')}` : path;
+}
+
+function capturedRequestUrl(
+  request: Pick<ApiMockCapturedRequestV1, 'rawPath' | 'path' | 'query'>,
+  host: string,
+  port: number,
+  tls = false,
+): string {
+  return `${mockClientOrigin(host, port, tls)}${capturedRequestPath(request)}`;
+}
+
 export function transactionToOpenInRequestsDetail(
   tx: ApiMockTransactionV1,
-  opts?: { host?: string; port?: number },
+  opts?: { host?: string; port?: number; tls?: boolean },
 ): ApiMockOpenInRequestsDetail {
   const method = normalizeHttpMethod(tx.request.method);
   const host = opts?.host ?? '127.0.0.1';
   const port = opts?.port ?? 4600;
-  const url = `http://${host}:${port}${tx.request.rawPath || tx.request.path}`;
-  const headers: KeyValue[] = Object.entries(tx.request.headers).map(([key, value]) => ({
-    key,
-    value: Array.isArray(value) ? value.join(', ') : String(value),
-    enabled: true,
-  }));
+  const url = capturedRequestUrl(tx.request, host, port, opts?.tls);
+  const headers: KeyValue[] = capturedHeadersToKeyValues(tx.request.headers);
   return {
     name: `Mock journal · ${method} ${tx.request.path}`,
     method,
@@ -49,11 +85,18 @@ export function dispatchOpenInRequests(detail: ApiMockOpenInRequestsDetail): voi
   window.dispatchEvent(new CustomEvent(API_MOCK_OPEN_IN_REQUESTS_EVENT, { detail }));
 }
 
+export function formatJournalRequestPreview(request: ApiMockCapturedRequestV1): string {
+  const certLines = [
+    request.clientCertSubject ? `Client-Cert-Subject: ${request.clientCertSubject}` : '',
+    request.clientCertFingerprint ? `Client-Cert-Fingerprint: ${request.clientCertFingerprint}` : '',
+  ].filter(Boolean);
+  const headerLines = Object.entries(request.headers ?? {}).map(([k, v]) => `${k}: ${joinCapturedHeaderValue(k, v)}`);
+  const head = [`${request.method} ${request.rawPath || request.path}`, ...certLines, ...headerLines].join('\n');
+  return request.body ? `${head}\n\n${request.body}` : head;
+}
+
 export function formatTransactionCopy(tx: ApiMockTransactionV1): string {
-  const reqHeaders = Object.entries(tx.request.headers)
-    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-    .join('\n');
-  const req = `${tx.request.method} ${tx.request.rawPath || tx.request.path}\n${reqHeaders}${tx.request.body ? `\n\n${tx.request.body}` : ''}`;
+  const req = formatJournalRequestPreview(tx.request);
   const res = tx.response
     ? `\n\n---\nHTTP ${tx.response.status}\n${tx.response.body ?? ''}`
     : '\n\n---\n(no response)';
@@ -85,6 +128,8 @@ export function filterTransactions(
       tx.request.method,
       tx.request.path,
       tx.request.rawPath,
+      tx.request.clientCertSubject,
+      tx.request.clientCertFingerprint,
       status,
       tx.outcome,
       rule,
@@ -114,9 +159,48 @@ export function exportTransactionsJson(transactions: ApiMockTransactionV1[], ser
   URL.revokeObjectURL(url);
 }
 
+export function sampleToOpenInRequestsDetail(
+  sample: { name: string; request: ApiMockCapturedRequestV1 },
+  opts?: { host?: string; port?: number; tls?: boolean },
+): ApiMockOpenInRequestsDetail {
+  const method = normalizeHttpMethod(sample.request.method);
+  const host = opts?.host ?? '127.0.0.1';
+  const port = opts?.port ?? 4600;
+  const url = capturedRequestUrl(sample.request, host, port, opts?.tls);
+  const headers: KeyValue[] = capturedHeadersToKeyValues(sample.request.headers);
+  return {
+    name: sample.name || `Mock example · ${method} ${sample.request.path}`,
+    method,
+    url,
+    headers,
+    body: typeof sample.request.body === 'string' ? sample.request.body : '',
+  };
+}
+
+export function transactionToSample(
+  tx: ApiMockTransactionV1,
+  opts?: { routeId?: string; name?: string },
+): ApiMockSimulationSampleV1 {
+  const routeId = opts?.routeId ?? tx.matchedRouteId;
+  const method = tx.request.method || 'GET';
+  return {
+    id: `sample-${crypto.randomUUID().slice(0, 8)}`,
+    name: opts?.name ?? `${method} ${tx.request.path}`,
+    routeId,
+    request: stripCapturedRequestSecrets(tx.request),
+    expected: {
+      outcome: tx.outcome,
+      routeId: tx.matchedRouteId,
+      responseId: tx.matchedResponseId,
+      status: tx.response?.status,
+      bodyExact: typeof tx.response?.body === 'string' ? tx.response.body : undefined,
+    },
+  };
+}
+
 export function transactionToRouteDraft(tx: ApiMockTransactionV1): ApiMockRouteV1 {
   const headers = Object.fromEntries(
-    Object.entries(tx.request.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : String(v)]),
+    Object.entries(tx.request.headers ?? {}).map(([k, v]) => [k, joinCapturedHeaderValue(k, v)]),
   );
   const query = Object.fromEntries(
     Object.entries(tx.request.query ?? {}).map(([k, v]) => [k, Array.isArray(v) ? v[0] ?? '' : String(v)]),

@@ -12,6 +12,8 @@ export interface RawRequestInput {
   body?: string | null;
   remoteAddress?: string;
   receivedAt?: string;
+  clientCertSubject?: string;
+  clientCertFingerprint?: string;
 }
 
 export interface NormalizedRequestSummary {
@@ -34,7 +36,7 @@ export interface NormalizationResult {
 export function normalizeRequest(raw: RawRequestInput): NormalizationResult {
   const method = raw.method.toUpperCase();
   const headers = normalizeHeaders(raw.headers);
-  const cookies = parseCookies(headers.cookie?.[0]);
+  const cookies = parseCookies(headers.cookie?.join('; '));
   const { rawPath, path, query } = parseUrl(raw.url);
   const contentType = headers['content-type']?.[0];
   const contentLengthHeader = headers['content-length']?.[0];
@@ -60,6 +62,8 @@ export function normalizeRequest(raw: RawRequestInput): NormalizationResult {
     contentLength: Number.isFinite(contentLength) ? contentLength : undefined,
     remoteAddress: raw.remoteAddress,
     receivedAt: raw.receivedAt ?? new Date().toISOString(),
+    ...(raw.clientCertSubject ? { clientCertSubject: raw.clientCertSubject } : {}),
+    ...(raw.clientCertFingerprint ? { clientCertFingerprint: raw.clientCertFingerprint } : {}),
   };
 
   const summary: NormalizedRequestSummary = {
@@ -82,7 +86,13 @@ function normalizeHeaders(raw: Record<string, string | string[] | undefined>): R
   for (const [key, value] of Object.entries(raw)) {
     if (value === undefined) continue;
     const lowerKey = key.toLowerCase();
-    const values = Array.isArray(value) ? value : [value];
+    const values = Array.isArray(value) ? value.map(String) : [String(value)];
+    // HTTP/2 pseudo-headers (:method, :path, …) are not HTTP header names.
+    // Map :authority onto Host so Host matchers still see the client target.
+    if (lowerKey.startsWith(':')) {
+      if (lowerKey === ':authority' && !out.host) out.host = values;
+      continue;
+    }
     if (out[lowerKey]) {
       out[lowerKey].push(...values);
     } else {

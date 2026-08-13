@@ -95,7 +95,8 @@ export async function executeProxy(input: ProxyExecutorInput): Promise<ProxyExec
 
     let inboundHeaders: Record<string, string | string[]> = {};
     for (const [k, v] of Object.entries(req.headers)) {
-      if (v != null) inboundHeaders[k] = v;
+      if (v == null || k.startsWith(':')) continue;
+      inboundHeaders[k] = v;
     }
     if (proxy.stripHopByHop) inboundHeaders = stripHopByHopHeaders(inboundHeaders);
     inboundHeaders = stripCredentialHeaders(
@@ -161,7 +162,11 @@ export async function executeProxy(input: ProxyExecutorInput): Promise<ProxyExec
 function flattenHeaders(headers: Record<string, string | string[]>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(headers)) {
-    out[k] = Array.isArray(v) ? v.join(', ') : v;
+    if (!Array.isArray(v)) {
+      out[k] = v;
+      continue;
+    }
+    out[k] = v.join(k.toLowerCase() === 'cookie' ? '; ' : ', ');
   }
   return out;
 }

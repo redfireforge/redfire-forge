@@ -5,6 +5,7 @@
  */
 import type { ApiMockTemplateContextV1 } from './contracts';
 import { HARD_CEILINGS } from './defaults';
+import { renderFakerHelper } from './templateFaker';
 
 const BLOCKED_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const MAX_OUTPUT_BYTES = HARD_CEILINGS.maxResponseBodyBytes;
@@ -82,6 +83,16 @@ export function renderTemplate(template: string, context: ApiMockTemplateContext
         const resolved = resolveJsonPath(body as Record<string, unknown>, path);
         return resolved == null ? '' : typeof resolved === 'object' ? JSON.stringify(resolved) : String(resolved);
       }
+      case 'faker': {
+        const path = args[0] ?? '';
+        if (!path) { errors.push('faker requires a path, e.g. person.firstName'); return ''; }
+        const draw = context.seed
+          ? seededRandom(`${context.seed}:${path}:${ops}`, 0, 0x7fffffff)
+          : Math.floor(Math.random() * 0x7fffffff);
+        const value = renderFakerHelper(path, draw);
+        if (!value) { errors.push(`Unknown faker helper: ${path}`); return ''; }
+        return value;
+      }
       default:
         errors.push(`Unknown helper: ${name}`);
         return '';
@@ -151,7 +162,10 @@ function parseExpression(expr: string): string[] {
   return parts;
 }
 
-const HELPER_NAMES = new Set(['pathParam', 'query', 'header', 'cookie', 'state', 'counter', 'uuid', 'now', 'randomInt', 'oneOf', 'repeat', 'base64', 'jsonPath']);
+const HELPER_NAMES = new Set([
+  'pathParam', 'query', 'header', 'cookie', 'state', 'counter',
+  'uuid', 'now', 'randomInt', 'oneOf', 'repeat', 'base64', 'jsonPath', 'faker',
+]);
 
 function isHelper(name: string): boolean {
   return HELPER_NAMES.has(name);

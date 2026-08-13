@@ -81,7 +81,9 @@ export function ApiMockRouteExplorer({
       setFilterOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFilterOpen(false);
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      setFilterOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
@@ -341,7 +343,11 @@ export function ApiMockRouteExplorer({
                   onBlur={e => { onRenameFolder?.(folder.id, e.target.value.trim() || folder.name); setRenamingFolderId(undefined); }}
                   onKeyDown={e => {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                    if (e.key === 'Escape') setRenamingFolderId(undefined);
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setRenamingFolderId(undefined);
+                    }
                   }}
                 />
               ) : (

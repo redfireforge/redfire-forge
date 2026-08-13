@@ -90,6 +90,17 @@ describe('renderTemplate', () => {
     it('jsonPath returns empty for missing', () => {
       expect(renderTemplate("{{jsonPath '$.missing'}}", ctx()).output).toBe('');
     });
+    it('faker subset is deterministic with seed', () => {
+      const c = ctx({ seed: 'faker-seed' });
+      const r1 = renderTemplate("{{faker 'person.firstName'}}", c);
+      const r2 = renderTemplate("{{faker 'person.firstName'}}", c);
+      expect(r1.output).toBe(r2.output);
+      expect(r1.output.length).toBeGreaterThan(0);
+    });
+    it('faker reports unknown and missing paths', () => {
+      expect(renderTemplate('{{faker}}', ctx()).errors.some(e => e.includes('requires a path'))).toBe(true);
+      expect(renderTemplate("{{faker 'not.a.helper'}}", ctx()).errors.some(e => e.includes('Unknown faker'))).toBe(true);
+    });
   });
 
   describe('deterministic seed', () => {

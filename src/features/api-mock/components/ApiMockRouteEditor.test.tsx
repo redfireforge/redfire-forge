@@ -24,6 +24,7 @@ vi.mock('./ApiMockPatternToolboxModal', () => ({
 }));
 
 import { ApiMockRouteEditor } from './ApiMockRouteEditor';
+import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
 
 const ts = '2026-08-12T00:00:00.000Z';
 
@@ -115,6 +116,61 @@ describe('ApiMockRouteEditor', () => {
 
     fireEvent.click(screen.getByTestId('api-mock-condition-remove-pred-1'));
     expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children).toHaveLength(0);
+  });
+
+  it('uses a security selector picker and shows JSON Schema in the operator list', () => {
+    const onUpdate = vi.fn();
+    render(
+      <ApiMockRouteEditor
+        route={makeRoute({
+          predicates: {
+            id: 'pg',
+            combinator: 'all',
+            children: [
+              { id: 'pred-sec', source: 'security', selector: 'certSubject', operator: 'exact', expected: 'CN=acme' },
+              { id: 'pred-schema', source: 'body', selector: '', operator: 'jsonSchema', expected: { type: 'object' } },
+            ],
+          } as any,
+        })}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    expect(screen.getByTestId('api-mock-condition-selector-pred-sec').textContent).toContain('Certificate subject');
+    fireEvent(
+      screen.getByTestId('api-mock-condition-selector-pred-sec'),
+      new CustomEvent(CUSTOM_SELECT_SET_VALUE_EVENT, { detail: { value: 'scheme' }, bubbles: true }),
+    );
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].selector).toBe('scheme');
+
+    const source = screen.getByTestId('api-mock-condition-source-pred-schema');
+    fireEvent.click(source.querySelector('.cs-trigger') as HTMLElement);
+    fireEvent.click(document.querySelector('[role="option"][data-value="security"]') as HTMLElement);
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[1].source).toBe('security');
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[1].selector).toBe('scheme');
+
+    expect(screen.getByTestId('api-mock-condition-schema-pred-schema')).toBeTruthy();
+    expect(screen.queryByTestId('api-mock-condition-unavailable-pred-schema')).toBeNull();
+    expect(screen.getByTestId('api-mock-condition-operator-pred-schema').textContent).toMatch(/JSON Schema/);
+    expect(screen.getByTestId('api-mock-condition-toolbox-pred-schema')).toBeTruthy();
+    expect(screen.getByDisplayValue('CN=acme')).toHaveAttribute('placeholder', 'CN=client-name');
+  });
+
+  it('does not pretend an empty security selector is scheme', () => {
+    render(
+      <ApiMockRouteEditor
+        route={makeRoute({
+          predicates: {
+            id: 'pg',
+            combinator: 'all',
+            children: [{ id: 'pred-empty', source: 'security', selector: '', operator: 'exact', expected: 'Bearer' }],
+          } as any,
+        })}
+        onUpdate={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-condition-selector-pred-empty').textContent).not.toContain('Scheme');
+    expect(screen.getByTestId('api-mock-condition-selector-pred-empty').textContent).toMatch(/Selector/i);
   });
 
   it('covers nested predicate groups, not-combinator label, disabled value field, and priority fallback', () => {

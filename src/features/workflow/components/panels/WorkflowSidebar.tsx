@@ -1,11 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { Workflow, WorkflowFolder } from '../../types/workflow';
-import {
-  buildFolderTree,
-  getUnfiledWorkflows,
-  getWorkflowsInFolderRecursive,
-  getFolderPath,
-} from '../../utils/workflowFolderTree';
+import { buildFolderTree, getUnfiledWorkflows, getWorkflowsInFolderRecursive, getFolderPath } from '../../utils/workflowFolderTree';
 import type { FolderTreeNode } from '../../utils/workflowFolderTree';
 import { useWorkflowMultiSelect } from '../../hooks/useWorkflowMultiSelect';
 import { useWorkflowSidebarDnD } from '../../hooks/useWorkflowSidebarDnD';

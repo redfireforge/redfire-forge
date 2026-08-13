@@ -29,6 +29,7 @@ export interface RenderedVariant {
   status: number;
   headers: Record<string, string | string[]>;
   body: string;
+  templateErrorCount: number;
 }
 
 export function renderResponseVariant(input: RenderVariantInput): RenderedVariant {
@@ -47,6 +48,13 @@ export function renderResponseVariant(input: RenderVariantInput): RenderedVarian
   const status = variant?.status ?? 200;
   const headers: Record<string, string | string[]> = {};
   const setCookies: string[] = [];
+  let templateErrorCount = 0;
+  const applyTemplate = (value: string): string => {
+    if (!value.includes('{{')) return value;
+    const rendered = renderTemplate(value, ctx);
+    templateErrorCount += rendered.errors.length;
+    return rendered.output;
+  };
   const pathParams = matchPath(route.path, stripBasePath(request.path, basePath)).params;
   const ctx: ApiMockTemplateContextV1 = {
     request: {
@@ -71,14 +79,14 @@ export function renderResponseVariant(input: RenderVariantInput): RenderedVarian
 
   for (const h of variant?.headers ?? []) {
     if (!h.enabled) continue;
-    headers[h.key] = h.value.includes('{{') ? renderTemplate(h.value, ctx).output : h.value;
+    headers[h.key] = applyTemplate(h.value);
   }
   const ct = variant?.body.contentType;
   if (ct) headers['Content-Type'] = ct;
 
   for (const c of variant?.cookies ?? []) {
     if (c.enabled === false) continue;
-    const parts = [`${c.name}=${c.value.includes('{{') ? renderTemplate(c.value, ctx).output : c.value}`];
+    const parts = [`${c.name}=${applyTemplate(c.value)}`];
     if (c.path) parts.push(`Path=${c.path}`);
     if (c.domain) parts.push(`Domain=${c.domain}`);
     if (c.maxAge != null) parts.push(`Max-Age=${c.maxAge}`);
@@ -91,11 +99,12 @@ export function renderResponseVariant(input: RenderVariantInput): RenderedVarian
   else if (setCookies.length > 1) headers['Set-Cookie'] = setCookies;
 
   const rawBody = variant?.body.content ?? '';
-  const body = rawBody.includes('{{') ? renderTemplate(rawBody, ctx).output : rawBody;
+  const body = applyTemplate(rawBody);
   return {
     status,
     headers,
     body: body.length > maxResponseBodyBytes ? body.slice(0, maxResponseBodyBytes) : body,
+    templateErrorCount,
   };
 }
 

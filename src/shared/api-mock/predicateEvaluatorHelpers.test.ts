@@ -5,10 +5,12 @@ import {
   evaluateOperator,
   extractSecurityValue,
   extractValue,
+  formatJsonPathValue,
   parseBodyCached,
   stripBasePath,
 } from './predicateEvaluatorHelpers';
 import type { ApiMockCapturedRequestV1, ApiMockPredicateV1 } from './contracts';
+import { sha256HexSync } from './sha256Sync';
 
 const ts = '2026-08-12T00:00:00.000Z';
 
@@ -100,6 +102,8 @@ describe('predicateEvaluatorHelpers', () => {
     expect(extractSecurityValue('apiKeyLocation', req())).toBeNull();
     expect(extractSecurityValue(undefined, req())).toBeNull();
     expect(extractSecurityValue('unknown', req())).toBeNull();
+    expect(extractSecurityValue('certSubject', req({ clientCertSubject: 'CN=acme-client' }))).toBe('CN=acme-client');
+    expect(extractSecurityValue('certSubject', req())).toBeNull();
   });
 
   it('evaluates scalar operators including absent/present/prefix/suffix/regex/glob', () => {
@@ -116,9 +120,13 @@ describe('predicateEvaluatorHelpers', () => {
     expect(evaluateOperator('suffix', 'prefix-value', 'value')).toBe(true);
     expect(evaluateOperator('suffix', 'prefix-value', 'zzz')).toBe(false);
     expect(evaluateOperator('regex', 'abc123', '^[a-z]+\\d+$')).toBe(true);
+    expect(evaluateOperator('regex', 'ABC123', '^[a-z]+\\d+$', { caseSensitive: false })).toBe(true);
+    expect(evaluateOperator('regex', 'ABC123', '^[a-z]+\\d+$')).toBe(false);
     expect(evaluateOperator('regex', 'abc123', '(bad')).toBe(false);
     expect(evaluateOperator('regex', null, '^[a-z]+$')).toBe(false);
     expect(evaluateOperator('glob', '/v1/users/42', '/v?/users/*')).toBe(true);
+    expect(evaluateOperator('glob', '/V1/USERS/42', '/v?/users/*', { caseSensitive: false })).toBe(true);
+    expect(evaluateOperator('glob', '/V1/USERS/42', '/v?/users/*')).toBe(false);
     expect(evaluateOperator('glob', '/v1/users/42', '[')).toBe(false);
     expect(evaluateOperator('glob', '/v1/users/42', '/v?/admin/*')).toBe(false);
   });
@@ -152,6 +160,7 @@ describe('predicateEvaluatorHelpers', () => {
     expect(evaluateOperator('jsonPath_equals', '{"role":"admin"}', ['$.role', 'admin'])).toBe(true);
     expect(evaluateOperator('jsonPath_equals', '{"role":"user"}', ['$.role', 'admin'])).toBe(false);
     expect(evaluateOperator('jsonPath_equals', '{"role":"user"}', ['$.role'] as any)).toBe(false);
+    expect(evaluateOperator('jsonPath_equals', '{"role":"admin"}', [1 as unknown as string, 'admin'])).toBe(false);
     expect(evaluateOperator('jsonPath_equals', '{bad', ['$.role', 'admin'])).toBe(false);
     expect(evaluateOperator('jsonPath_equals', null, ['$.role', 'admin'])).toBe(false);
     expect(evaluateOperator('jsonPath_equals', '{"role":"user"}', 'role' as any)).toBe(false);
@@ -159,6 +168,25 @@ describe('predicateEvaluatorHelpers', () => {
     expect(evaluateOperator('jsonPath_exists', '{"items":[{"sku":"RF-100"}]}', '$.items[0].sku')).toBe(true);
     expect(evaluateOperator('jsonPath_equals', '{"items":[{"sku":"RF-100"}]}', ['$.items[0].sku', 'RF-100'])).toBe(true);
     expect(evaluateOperator('jsonPath_exists', '{"items":[{"sku":"RF-100"}]}', '$.items[1].sku')).toBe(false);
+    expect(evaluateOperator('jsonPath_equals', '{"customer":{"id":"C-4421","tier":"gold"}}', ['$.customer', '{"id":"C-4421","tier":"gold"}'])).toBe(true);
+    expect(evaluateOperator('jsonPath_equals', '{"customer":{"tier":"gold","id":"C-4421"}}', ['$.customer', '{\n  "id": "C-4421",\n  "tier": "gold"\n}'])).toBe(true);
+    expect(evaluateOperator('jsonPath_equals', '{"items":[1,2]}', ['$.items', [1, 2] as unknown as string])).toBe(true);
+    expect(evaluateOperator('jsonPath_equals', '{"role":"administrator"}', ['$.role', 'admin'], { matchStyle: 'subset' })).toBe(true);
+    expect(evaluateOperator('jsonPath_equals', '{"role":"user"}', ['$.role', 'admin'], { matchStyle: 'subset' })).toBe(false);
+    expect(evaluateOperator('jsonPath_equals', '{"role":"admin"}', ['$.role', ''], { matchStyle: 'subset' })).toBe(false);
+    expect(evaluateOperator('jsonPath_equals', '{"role":""}', ['$.role', ''], { matchStyle: 'subset' })).toBe(true);
+    expect(evaluateOperator(
+      'jsonPath_equals',
+      '{"customer":{"tier":"gold","id":"C-4421"}}',
+      ['$.customer', '{\n  "id": "C-4421",\n  "tier": "gold"\n}'],
+      { matchStyle: 'subset' },
+    )).toBe(true);
+    expect(evaluateOperator('jsonPath_equals', '{"role":"admin"}', ['$.missing', 'admin'])).toBe(false);
+    expect(evaluateOperator('jsonPath_equals', '{"n":1}', ['$.n', '{"nope"'])).toBe(false);
+    expect(evaluateOperator('jsonPath_equals', '{"customer":{"id":1}}', ['$.customer', '{nope'])).toBe(false);
+    expect(evaluateOperator('jsonPath_equals', '{"customer":{"id":1}}', ['$.customer', 'gold'])).toBe(false);
+    expect(formatJsonPathValue(undefined)).toBe('');
+    expect(formatJsonPathValue({ a: 1 })).toBe('{"a":1}');
     expect(evaluateOperator('form_field_exact', 'csrf=token', ['csrf', 'token'])).toBe(true);
     expect(evaluateOperator('form_field_exact', 'csrf=token', ['csrf', 'other'])).toBe(false);
     expect(evaluateOperator('form_field_exact', 'csrf=', ['csrf'] as any)).toBe(true);
@@ -173,15 +201,21 @@ describe('predicateEvaluatorHelpers', () => {
     expect(evaluateOperator('binary_exact', 'ping', 'ping')).toBe(true);
     expect(evaluateOperator('binary_exact', 'pong', 'ping')).toBe(false);
     expect(evaluateOperator('binary_sha256', 'ping', 'hash')).toBe(false);
-    expect(evaluateOperator('jsonSchema', '{"a":1}', {} as any)).toBe(false);
+    expect(evaluateOperator('jsonSchema', '{"a":1}', { type: 'number' } as any)).toBe(false);
+    expect(evaluateOperator('jsonSchema', '{"a":1}', { type: 'object' } as any)).toBe(true);
     // XPath is evaluated for real now — see xpathMatcher.test.ts for coverage.
     expect(evaluateOperator('xpath_exists', '<x />', '/x')).toBe(true);
     expect(evaluateOperator('xpath_exists', '<x />', '/nope')).toBe(false);
     expect(evaluateOperator('xpath_equals', '<x>1</x>', ['/x/text()', '1'] as any)).toBe(true);
     expect(evaluateOperator('xpath_equals', '<x>1</x>', ['/x/text()', '2'] as any)).toBe(false);
-    expect(evaluateOperator('xmlSchema', '<x />', {} as any)).toBe(false);
+    expect(evaluateOperator('xmlSchema', '<x />', {} as any)).toBe(true);
+    expect(evaluateOperator('xmlSchema', '<x />', 'Missing')).toBe(false);
     expect(evaluateOperator('multipart_field', 'data', 'field')).toBe(false);
     expect(evaluateOperator('multipart_file', 'data', 'file')).toBe(false);
+    const digest = sha256HexSync('ping');
+    expect(evaluateOperator('binary_sha256', 'ping', digest)).toBe(true);
+    const mp = ['------b', 'Content-Disposition: form-data; name="note"', '', 'hi', '------b--', ''].join('\r\n');
+    expect(evaluateOperator('multipart_field', mp, 'note', undefined, { contentType: 'multipart/form-data; boundary=----b' })).toBe(true);
     expect(evaluateOperator('unknown' as any, 'data', 'x')).toBe(false);
   });
 

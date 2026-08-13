@@ -129,6 +129,30 @@ describe('normalizeRequest', () => {
       expect(captured.headers['x-absent']).toBeUndefined();
     });
 
+    it('drops HTTP/2 pseudo-headers and maps :authority to host', () => {
+      const { captured, summary } = normalizeRequest(raw({
+        headers: {
+          ':method': 'GET',
+          ':path': '/users',
+          ':scheme': 'https',
+          ':authority': '127.0.0.1:4600',
+          accept: 'application/json',
+        },
+      }));
+      expect(captured.headers.host).toEqual(['127.0.0.1:4600']);
+      expect(captured.headers.accept).toEqual(['application/json']);
+      expect(captured.headers[':method']).toBeUndefined();
+      expect(captured.headers[':authority']).toBeUndefined();
+      expect(summary.headerKeys).toEqual(['accept', 'host']);
+    });
+
+    it('keeps an explicit Host header when :authority is also present', () => {
+      const { captured } = normalizeRequest(raw({
+        headers: { host: 'api.test', ':authority': 'ignored.example' },
+      }));
+      expect(captured.headers.host).toEqual(['api.test']);
+    });
+
     it('sorts header keys in summary', () => {
       const { summary } = normalizeRequest(raw({
         headers: { 'z-header': 'z', 'a-header': 'a', 'm-header': 'm' },
@@ -155,6 +179,13 @@ describe('normalizeRequest', () => {
     it('returns empty cookies when no Cookie header', () => {
       const { captured } = normalizeRequest(raw());
       expect(captured.cookies).toEqual({});
+    });
+
+    it('joins multiple Cookie headers the way HTTP/2 sends them', () => {
+      const { captured } = normalizeRequest(raw({
+        headers: { cookie: ['session=abc', 'theme=dark'] },
+      }));
+      expect(captured.cookies).toEqual({ session: 'abc', theme: 'dark' });
     });
 
     it('skips malformed cookie pairs', () => {
@@ -240,6 +271,18 @@ describe('normalizeRequest', () => {
     it('captures remoteAddress', () => {
       const { captured } = normalizeRequest(raw({ remoteAddress: '192.168.1.1' }));
       expect(captured.remoteAddress).toBe('192.168.1.1');
+    });
+
+    it('captures mTLS peer attributes and omits empty values', () => {
+      const { captured } = normalizeRequest(raw({
+        clientCertSubject: 'CN=acme-client',
+        clientCertFingerprint: 'aabbcc',
+      }));
+      expect(captured.clientCertSubject).toBe('CN=acme-client');
+      expect(captured.clientCertFingerprint).toBe('aabbcc');
+      const empty = normalizeRequest(raw({ clientCertSubject: '', clientCertFingerprint: '' })).captured;
+      expect(empty.clientCertSubject).toBeUndefined();
+      expect(empty.clientCertFingerprint).toBeUndefined();
     });
 
     it('uses provided receivedAt', () => {

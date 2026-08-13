@@ -14,6 +14,18 @@ import type { ApiMockResponseVariantV1 } from '../../../shared/api-mock/contract
 import type { ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
 import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
 
+vi.mock('./ApiMockBodyEditor', () => ({
+  ApiMockBodyEditor: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <textarea data-testid="api-mock-variant-body" value={value} onChange={e => onChange(e.target.value)} />
+  ),
+}));
+vi.mock('../../../shared/components/data-mapper/DataMapperModal', () => ({
+  default: () => null,
+}));
+vi.mock('../../../shared/components/data-mapper/adapters/apiMockBodyAdapter', () => ({
+  createApiMockBodyAdapter: () => ({ contextId: 'api-mock-body' }),
+}));
+
 const ts = '2026-08-12T00:00:00.000Z';
 
 function makeRoute(overrides: Partial<ApiMockRouteV1> = {}): ApiMockRouteV1 {

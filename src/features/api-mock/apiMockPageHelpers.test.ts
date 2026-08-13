@@ -21,7 +21,16 @@ import {
   parsePortOwnerServerId,
   pickNextAutoPort,
   removeClosedServer,
+  removeClosedServers,
+  reorderServers,
+  duplicateServerDefinition,
+  formatStopAndCloseMessage,
+  formatTabLimitMessage,
+  TAB_LIMIT_CONFIRM_OPTIONS,
+  downloadJsonFile,
   resolveHydratedActiveServerId,
+  restoreDeletedRoute,
+  restoreDeletedRouteInList,
   runConflictAnalysis,
 } from './apiMockPageHelpers';
 
@@ -50,7 +59,16 @@ function makeServer(id: string, method: ApiMockServerDefinitionV1['routes'][0]['
       createdAt: ts,
       updatedAt: ts,
     }],
-    samples: [],
+    samples: [{
+      id: 's1',
+      name: 'GET /users',
+      routeId: `${id}-r1`,
+      request: {
+        method: 'GET', path: '/users', rawPath: '/users', query: {}, headers: {}, cookies: {},
+        body: null, bodyTruncated: false, receivedAt: ts,
+      },
+      expected: { outcome: 'matched', routeId: `${id}-r1`, status: 200 },
+    }],
     variables: [],
     settings: { ...DEFAULT_SETTINGS },
     createdAt: ts,
@@ -63,6 +81,7 @@ describe('apiMockPageHelpers', () => {
     expect(resolveHydratedActiveServerId({ activeServerId: 'srv-2', servers: [makeServer('srv-1'), makeServer('srv-2')] })).toBe('srv-2');
     expect(resolveHydratedActiveServerId({ activeServerId: undefined, servers: [makeServer('srv-1'), makeServer('srv-2')] })).toBe('srv-1');
     expect(resolveHydratedActiveServerId({ activeServerId: undefined, servers: [] })).toBeUndefined();
+    expect(resolveHydratedActiveServerId({ activeServerId: 'gone', servers: [makeServer('srv-1')] })).toBe('srv-1');
   });
 
   it('picks the lowest free auto-port so closed tabs free their ports for reuse', () => {
@@ -73,6 +92,65 @@ describe('apiMockPageHelpers', () => {
       Array.from({ length: 3 }, (_, i) => ({ port: 10 + i })),
       { min: 10, max: 12 },
     )).toThrow(/No available port/);
+  });
+
+  it('duplicates a server without secrets and reorders tabs', () => {
+    const src = makeServer('srv-1');
+    src.settings = {
+      ...src.settings,
+      tls: {
+        enabled: true,
+        certPem: 'CERT',
+        keyPem: 'SECRET-KEY',
+        passphrase: 'pw',
+        mtls: { enabled: true, clientCaPem: 'CA', clientKeyPem: 'CLIENT-KEY' },
+      },
+    };
+    src.variables = [{ id: 'v1', key: 'token', value: 'secret', sensitive: true }];
+    src.samples[0].request.headers = { Authorization: ['Bearer leaked'], Accept: ['application/json'] };
+    src.samples[0].request.cookies = { sid: 'abc' };
+    const copy = duplicateServerDefinition(src, 4601, ts);
+    expect(copy.id).not.toBe(src.id);
+    expect(copy.port).toBe(4601);
+    expect(copy.name).toBe('Mock Server srv-1 copy');
+    expect(copy.settings.tls?.keyPem).toBe('');
+    expect(copy.settings.tls?.passphrase).toBeUndefined();
+    expect(copy.settings.tls?.mtls?.clientKeyPem).toBeUndefined();
+    expect(copy.variables[0].value).toBe('');
+    expect(copy.samples[0].request.headers).toEqual({ Accept: ['application/json'] });
+    expect(copy.samples[0].request.cookies).toEqual({});
+    const noSamples = makeServer('srv-ns');
+    (noSamples as { samples?: unknown }).samples = undefined;
+    expect(duplicateServerDefinition(noSamples, 4603, ts).samples).toEqual([]);
+    const noVars = makeServer('srv-nv');
+    (noVars as { variables?: unknown }).variables = undefined;
+    expect(duplicateServerDefinition(noVars, 4604, ts).variables).toEqual([]);
+    expect(duplicateServerDefinition(copy, 4602, ts).name).toBe(copy.name);
+
+    const items = ['a', 'b', 'c'];
+    expect(reorderServers(items, 0, 2)).toEqual(['b', 'c', 'a']);
+    expect(reorderServers(items, 1, 1)).toBe(items);
+    expect(formatTabLimitMessage(8)).toMatch(/at most 8/);
+    expect(TAB_LIMIT_CONFIRM_OPTIONS.title).toBe('Tab limit');
+    expect(TAB_LIMIT_CONFIRM_OPTIONS.confirmLabel).toBe('OK');
+
+    const click = vi.fn();
+    const originalCreateElement = Document.prototype.createElement;
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      if (tagName.toLowerCase() === 'a') {
+        const anchor = originalCreateElement.call(document, 'a', options) as HTMLAnchorElement;
+        anchor.click = click;
+        return anchor;
+      }
+      return originalCreateElement.call(document, tagName, options);
+    }) as typeof document.createElement);
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:helpers');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    downloadJsonFile('demo.har', { ok: true });
+    expect(click).toHaveBeenCalled();
+    createObjectURL.mockRestore();
+    revoke.mockRestore();
+    vi.restoreAllMocks();
   });
 
   it('classifies live runtime statuses and parses port-owner ids', () => {
@@ -90,12 +168,39 @@ describe('apiMockPageHelpers', () => {
     expect(removeClosedServer([a, b], 'srv-a', 'srv-a')).toEqual({ servers: [b], activeServerId: 'srv-b' });
     expect(removeClosedServer([a, b], 'srv-a', 'srv-b')).toEqual({ servers: [b], activeServerId: 'srv-b' });
     expect(removeClosedServer([a], 'srv-a', 'srv-a')).toEqual({ servers: [], activeServerId: undefined });
+    const c = makeServer('srv-c');
+    expect(removeClosedServer([a, b, c], 'srv-c', 'srv-c')).toEqual({
+      servers: [a, b],
+      activeServerId: 'srv-b',
+    });
+    expect(removeClosedServer([a, b, c], 'srv-missing', 'srv-a')).toEqual({
+      servers: [a, b, c],
+      activeServerId: 'srv-a',
+    });
+    expect(removeClosedServer([a, b], 'gone', 'gone').activeServerId).toBe('srv-a');
+    expect(removeClosedServers([a, b, c], ['srv-b', 'srv-c'], 'srv-b')).toEqual({
+      servers: [a],
+      activeServerId: 'srv-a',
+    });
+    expect(removeClosedServers([a, b, c], ['srv-a', 'srv-c'], 'srv-b')).toEqual({
+      servers: [b],
+      activeServerId: 'srv-b',
+    });
+    expect(removeClosedServers([a, b, c], [], 'srv-b')).toEqual({
+      servers: [a, b, c],
+      activeServerId: 'srv-b',
+    });
   });
 
   it('computes hydration application only when not cancelled and servers exist', () => {
     expect(computeHydrationResult(true, { activeServerId: 'srv-1', servers: [makeServer('srv-1')] })).toEqual({ shouldApply: false });
     expect(computeHydrationResult(false, { activeServerId: undefined, servers: [] })).toEqual({ shouldApply: false });
     expect(computeHydrationResult(false, { activeServerId: undefined, servers: [makeServer('srv-1')] })).toEqual({
+      shouldApply: true,
+      servers: [makeServer('srv-1')],
+      activeServerId: 'srv-1',
+    });
+    expect(computeHydrationResult(false, { activeServerId: 'gone', servers: [makeServer('srv-1')] })).toEqual({
       shouldApply: true,
       servers: [makeServer('srv-1')],
       activeServerId: 'srv-1',
@@ -114,6 +219,18 @@ describe('apiMockPageHelpers', () => {
     expect(deriveSimulateDefaults()).toEqual({ initialPath: '/', initialMethod: 'GET' });
     expect(deriveSimulateDefaults(makeServer('srv-1', 'GET', '/users').routes[0])).toEqual({ initialPath: '/users', initialMethod: 'GET' });
     expect(deriveSimulateDefaults(makeServer('srv-1', 'ANY', '').routes[0])).toEqual({ initialPath: '/', initialMethod: 'GET' });
+    const parameterized = makeServer('srv-1', 'GET', '/users/:id');
+    parameterized.routes[0].path = { kind: 'parameterized', value: '/users/:id' };
+    expect(deriveSimulateDefaults(parameterized.routes[0])).toEqual({ initialPath: '/users/42', initialMethod: 'GET' });
+    const braced = makeServer('srv-1', 'GET', '/orders/{orderId}');
+    braced.routes[0].path = { kind: 'parameterized', value: '/orders/{orderId}' };
+    expect(deriveSimulateDefaults(braced.routes[0])).toEqual({ initialPath: '/orders/42', initialMethod: 'GET' });
+  });
+
+  it('formats stop-and-close confirm copy for one or many tabs', () => {
+    expect(formatStopAndCloseMessage([])).toBe('Stop and close "mock server"?');
+    expect(formatStopAndCloseMessage(['Alpha'])).toBe('Stop and close "Alpha"?');
+    expect(formatStopAndCloseMessage(['Alpha', 'Beta'])).toBe('Stop and close 2 mock servers? Running listeners will be stopped.');
   });
 
   it('builds runtime status and dirty maps', () => {
@@ -172,14 +289,92 @@ describe('apiMockPageHelpers', () => {
     const setSelectedRouteId = vi.fn();
     const setLiveMessage = vi.fn();
     const server = makeServer('srv-1');
+    server.samples.push({
+      id: 's2',
+      name: 'no-expected',
+      routeId: 'srv-1-r1',
+      request: server.samples[0].request,
+    });
 
     applyRouteDelete('srv-1', server, 'other', 'srv-1-r1', updateServer, setSelectedRouteId, setLiveMessage);
-    expect(updateServer).toHaveBeenCalled();
+    expect(updateServer).toHaveBeenCalledWith('srv-1', expect.objectContaining({
+      routes: [],
+      samples: [
+        expect.objectContaining({
+          id: 's1',
+          routeId: undefined,
+          expected: expect.objectContaining({ routeId: undefined, outcome: 'matched' }),
+        }),
+        expect.objectContaining({ id: 's2', routeId: undefined, expected: undefined }),
+      ],
+    }));
     expect(setSelectedRouteId).not.toHaveBeenCalled();
-    expect(setLiveMessage).toHaveBeenCalledWith('Route deleted.');
+    expect(setLiveMessage).toHaveBeenCalledWith(expect.stringMatching(/deleted/i));
 
     applyRouteDelete('srv-1', server, 'srv-1-r1', 'srv-1-r1', updateServer, setSelectedRouteId, setLiveMessage);
     expect(setSelectedRouteId).toHaveBeenCalledWith(undefined);
+  });
+
+  it('restores a deleted route and re-attaches surviving samples', () => {
+    const updateServer = vi.fn();
+    const setSelectedRouteId = vi.fn();
+    const setLiveMessage = vi.fn();
+    const server = makeServer('srv-1');
+    const extra = { ...makeServer('srv-1').routes[0], id: 'srv-1-r2', name: 'Keep' };
+    server.routes.push(extra);
+
+    const snapshot = applyRouteDelete('srv-1', server, 'srv-1-r1', 'srv-1-r1', updateServer, setSelectedRouteId, setLiveMessage);
+    expect(snapshot?.attachedSampleIds).toEqual(['s1']);
+    const afterDelete = {
+      ...server,
+      routes: [extra],
+      samples: [{ ...server.samples[0], routeId: undefined, expected: { ...server.samples[0].expected, routeId: undefined } }],
+    };
+    expect(restoreDeletedRoute(afterDelete, snapshot!, updateServer, setSelectedRouteId, setLiveMessage)).toBe(true);
+    expect(updateServer).toHaveBeenLastCalledWith('srv-1', expect.objectContaining({
+      routes: [expect.objectContaining({ id: 'srv-1-r1' }), extra],
+      samples: [expect.objectContaining({ id: 's1', routeId: 'srv-1-r1' })],
+    }));
+    expect(setSelectedRouteId).toHaveBeenCalledWith('srv-1-r1');
+    expect(restoreDeletedRoute({ ...afterDelete, samples: undefined, routes: [] }, snapshot!, updateServer, setSelectedRouteId, setLiveMessage)).toBe(true);
+    expect(restoreDeletedRoute(undefined, snapshot!, updateServer, setSelectedRouteId, setLiveMessage)).toBe(false);
+    expect(restoreDeletedRoute(afterDelete, null, updateServer, setSelectedRouteId, setLiveMessage)).toBe(false);
+    expect(restoreDeletedRoute({ ...afterDelete, routes: [snapshot!.route] }, snapshot!, updateServer, setSelectedRouteId, setLiveMessage)).toBe(false);
+
+    const keepSelected = applyRouteDelete('srv-1', { ...server, routes: [extra, server.routes[0]] }, extra.id, server.routes[0].id, updateServer, setSelectedRouteId, setLiveMessage);
+    expect(keepSelected?.priorSelectedRouteId).toBe(extra.id);
+    expect(restoreDeletedRoute({ ...afterDelete, routes: [extra] }, keepSelected!, updateServer, setSelectedRouteId, setLiveMessage)).toBe(true);
+    expect(setSelectedRouteId).toHaveBeenLastCalledWith(extra.id);
+    expect(restoreDeletedRouteInList(
+      [{ ...afterDelete, id: 'other' }, afterDelete],
+      snapshot!,
+      updateServer,
+      setSelectedRouteId,
+      setLiveMessage,
+    )).toBe(true);
+    expect(restoreDeletedRouteInList([{ ...afterDelete, id: 'other' }], snapshot!, updateServer, setSelectedRouteId, setLiveMessage)).toBe(false);
+    expect(restoreDeletedRouteInList([], null, updateServer, setSelectedRouteId, setLiveMessage)).toBe(false);
+    expect(applyRouteDelete(undefined, server, undefined, 'srv-1-r1', updateServer, setSelectedRouteId, setLiveMessage)).toBeUndefined();
+    expect(applyRouteDelete('srv-1', server, undefined, 'missing', updateServer, setSelectedRouteId, setLiveMessage)).toBeUndefined();
+    expect(applyRouteDelete('srv-other', server, undefined, 'srv-1-r1', updateServer, setSelectedRouteId, setLiveMessage)).toBeUndefined();
+  });
+
+  it('does not steal examples reassigned to another route during the undo window', () => {
+    const updateServer = vi.fn();
+    const setSelectedRouteId = vi.fn();
+    const setLiveMessage = vi.fn();
+    const server = makeServer('srv-1');
+    const extra = { ...makeServer('srv-1').routes[0], id: 'srv-1-r2', name: 'Keep' };
+    const snapshot = applyRouteDelete('srv-1', { ...server, routes: [...server.routes, extra] }, 'srv-1-r1', 'srv-1-r1', updateServer, setSelectedRouteId, setLiveMessage);
+    const reassigned = {
+      ...server,
+      routes: [extra],
+      samples: [{ ...server.samples[0], routeId: extra.id, expected: { ...server.samples[0].expected, routeId: extra.id } }],
+    };
+    expect(restoreDeletedRoute(reassigned, snapshot!, updateServer, setSelectedRouteId, setLiveMessage)).toBe(true);
+    expect(updateServer).toHaveBeenLastCalledWith('srv-1', expect.objectContaining({
+      samples: [expect.objectContaining({ id: 's1', routeId: extra.id })],
+    }));
   });
 
   it('runs conflict analysis and no-ops without an active server', async () => {

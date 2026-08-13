@@ -625,34 +625,55 @@ mock
 
 mock
   .command('verify')
-  .description('Verify simulation corpus outcomes (same engine as GUI)')
+  .description('Verify live journal assertions (or --simulate for offline corpus)')
   .argument('<file>', 'Workspace / server JSON or YAML')
   .option('--server <id>', 'Server id')
-  .option('--min-calls <n>', 'Require at least N samples', parseInt)
-  .option('--expect-outcome <outcome>', 'Require every sample outcome (e.g. matched)')
-  .action(async (file: string, opts: { server?: string; minCalls?: number; expectOutcome?: string }) => {
+  .option('--min-calls <n>', 'Require at least N matching journal calls', parseInt)
+  .option('--expect-outcome <outcome>', 'Require matching calls to have this outcome (e.g. matched)')
+  .option('--route <id>', 'Restrict assertions to a route id')
+  .option('--last-call-within-ms <n>', 'Require the last matching call within N ms', parseInt)
+  .option('--body-contains <text>', 'Require the last matching response body to contain text')
+  .option('--control-base <url>', 'Companion base URL', 'http://127.0.0.1:3001')
+  .option('--simulate', 'Offline corpus simulation instead of live journal')
+  .action(async (file: string, opts: {
+    server?: string;
+    minCalls?: number;
+    expectOutcome?: string;
+    route?: string;
+    lastCallWithinMs?: number;
+    bodyContains?: string;
+    controlBase?: string;
+    simulate?: boolean;
+  }) => {
     const code = await runMockVerify({
       file,
       serverId: opts.server,
       minCalls: opts.minCalls,
       expectOutcome: opts.expectOutcome,
+      routeId: opts.route,
+      lastCallWithinMs: opts.lastCallWithinMs,
+      bodyContains: opts.bodyContains,
+      controlBase: opts.controlBase,
+      simulate: opts.simulate,
     });
     process.exit(code);
   });
 
 mock
   .command('start')
-  .description('Start mock listeners via the companion control plane (:3001)')
+  .description('Start mock listeners (companion, or in-process when companion is down)')
   .argument('<file>', 'Workspace / server JSON or YAML')
-  .option('--port <n>', 'Override port for all servers (does not mutate source file)', parseInt)
+  .option('--port <n>', 'Override listen port (first server; later servers increment)', parseInt)
   .option('--control-base <url>', 'Companion base URL', 'http://127.0.0.1:3001')
-  .option('--wait-ready', 'Keep process alive until SIGINT/SIGTERM, then stop listeners')
-  .action(async (file: string, opts: { port?: number; controlBase?: string; waitReady?: boolean }) => {
+  .option('--wait-ready', 'Keep process alive until SIGINT/SIGTERM, then stop listeners (implied for --standalone)')
+  .option('--standalone', 'Start in-process listeners without the companion')
+  .action(async (file: string, opts: { port?: number; controlBase?: string; waitReady?: boolean; standalone?: boolean }) => {
     const code = await runMockStart({
       file,
       port: opts.port,
       controlBase: opts.controlBase,
       waitReady: opts.waitReady,
+      standalone: opts.standalone,
     });
     process.exit(code);
   });

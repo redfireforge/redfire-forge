@@ -4,9 +4,16 @@
  * RuntimeDiagnostics.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { isTauri } from '../../shared/utils/platform';
 import { apiMockControlClient } from './apiMockControlClient';
-import { DEFAULT_SETTINGS } from '../../shared/api-mock/defaults';
+import { setNativeInvokeForTests } from '../../shared/api-mock/nativeTauriControl';
+import { DEFAULT_SETTINGS, HARD_CEILINGS } from '../../shared/api-mock/defaults';
 import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+
+vi.mock('../../shared/utils/platform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../shared/utils/platform')>();
+  return { ...actual, isTauri: vi.fn(() => false) };
+});
 
 const ts = '2026-08-12T00:00:00.000Z';
 const def: ApiMockServerDefinitionV1 = {
@@ -78,18 +85,23 @@ describe('apiMockControlClient', () => {
   it('calls transactions, clearTransactions, state, and resetState endpoints successfully', async () => {
     const payloads = [
       { ok: true, data: { transactions: [], cursor: 1, total: 0, capped: false } },
+      { ok: true, data: { transactions: [], cursor: 1, total: 0, capped: false } },
       { ok: true, data: { cleared: true } },
       { ok: true, data: { states: { default: 'done' }, counters: { hits: 2 } } },
       { ok: true, data: { reset: true } },
     ];
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => payloads.shift() } as unknown as Response)));
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => payloads.shift() } as unknown as Response));
+    vi.stubGlobal('fetch', fetchMock);
 
     const tx = await apiMockControlClient.transactions('srv-1', 25);
+    const txDefault = await apiMockControlClient.transactions('srv-1');
     const clear = await apiMockControlClient.clearTransactions('srv-1');
     const state = await apiMockControlClient.state('srv-1');
     const reset = await apiMockControlClient.resetState('srv-1');
 
     expect(tx.ok && tx.data.cursor).toBe(1);
+    expect(txDefault.ok).toBe(true);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(`limit=${HARD_CEILINGS.maxJournalEntries}`);
     expect(clear.ok && clear.data.cleared).toBe(true);
     expect(state.ok && state.data.counters.hits).toBe(2);
     expect(reset.ok && reset.data.reset).toBe(true);
@@ -160,5 +172,60 @@ describe('apiMockControlClient', () => {
     const res = await apiMockControlClient.status('srv-1');
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.message).toContain('Request failed (400)');
+  });
+
+  it('maps diagnostics counters', async () => {
+    mockFetch(() => ({
+      ok: true, status: 200,
+      json: async () => ({
+        ok: true,
+        data: {
+          generation: 3, routeCount: 2, predicateCount: 4, openConnections: 1, inFlight: 0,
+          matchDuration: { lastMs: 2, p95Ms: 4, count: 10 },
+          outcomes: { matched: 8, unmatched: 2, ambiguous: 0, fault: 0, error: 0, proxied: 0 },
+          journal: { drops: 1, truncations: 0, size: 10, maxEntries: 500 },
+          templateErrors: 0,
+        },
+      }),
+    }));
+    const res = await apiMockControlClient.diagnostics('srv-1');
+    expect(res.ok && res.data.journal.drops).toBe(1);
+  });
+});
+
+describe('apiMockControlClient native Tauri path', () => {
+  it('invokes native start instead of fetch when isTauri is true', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    setNativeInvokeForTests(async (cmd) => {
+      expect(cmd).toBe('api_mock_listener_start');
+      return { ok: true, data: { serverId: 'srv-1', port: 4600, state: 'running', generation: 9 } };
+    });
+    const res = await apiMockControlClient.start(def);
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.data.generation).toBe(9);
+    setNativeInvokeForTests(undefined);
+    vi.mocked(isTauri).mockReturnValue(false);
+  });
+
+  it('routes remaining listener methods through native invoke', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    const seen: string[] = [];
+    setNativeInvokeForTests(async (cmd) => {
+      seen.push(cmd);
+      return { ok: true, data: { serverId: 'srv-1', port: 4600, state: 'stopped', generation: 1, cleared: true, reset: true, transactions: [], cursor: 0, total: 0, capped: false, states: {}, counters: {}, routeCount: 0, predicateCount: 0, openConnections: 0, inFlight: 0, matchDuration: { lastMs: 0, p95Ms: 0, count: 0 }, outcomes: { matched: 0, unmatched: 0, ambiguous: 0, fault: 0, error: 0, proxied: 0 }, journal: { drops: 0, truncations: 0, size: 0, maxEntries: 500 }, templateErrors: 0 } };
+    });
+    expect((await apiMockControlClient.stop('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.restart(def)).ok).toBe(true);
+    expect((await apiMockControlClient.commit(def)).ok).toBe(true);
+    expect((await apiMockControlClient.status('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.transactions('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.clearTransactions('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.state('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.resetState('srv-1')).ok).toBe(true);
+    expect((await apiMockControlClient.diagnostics('srv-1')).ok).toBe(true);
+    expect(seen).toContain('api_mock_listener_stop');
+    expect(seen).toContain('api_mock_listener_diagnostics');
+    setNativeInvokeForTests(undefined);
+    vi.mocked(isTauri).mockReturnValue(false);
   });
 });

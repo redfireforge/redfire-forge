@@ -1,6 +1,18 @@
 export * from './contracts';
 export * from './defaults';
 export { validateWorkspace, validateServer, validateRoute, validatePredicateGroup } from './validation';
+export { UNAVAILABLE_PREDICATE_OPERATORS, isUnavailablePredicateOperator } from './unavailableOperators';
+export {
+  matchJsonSchema,
+  matchXmlSchema,
+  matchMultipartField,
+  matchMultipartFile,
+  matchBinarySha256,
+  isJsonSchemaCompileable,
+} from './schemaMatchers';
+export { sha256HexSync } from './sha256Sync';
+export { FAKER_HELPER_PATHS, renderFakerHelper } from './templateFaker';
+export { summarizeMatchDurations, emptyOutcomeCounts, countRoutePredicates } from './localDiagnostics';
 export { computeDefinitionFingerprint, computeRouteFingerprint, canonicalExportOrder, canonicalVariableOrder } from './fingerprint';
 export { migrateWorkspace, registerMigration } from './migration';
 export type { MigrationResult } from './migration';
@@ -52,6 +64,16 @@ export type { ExportOptions } from './exportUtils';
 export { exportWireMockMappings } from './wireMockExport';
 export type { WireMockExportResult } from './wireMockExport';
 export { parseHarEntries } from './harImport';
+export {
+  exportHarFromTransactions,
+  exportHarFromSamples,
+  exportHarForStudio,
+  mockClientHost,
+  mockClientOrigin,
+  stripCapturedRequestSecrets,
+  joinCapturedHeaderValue,
+} from './harExport';
+export type { HarExportOptions, HarExportResult } from './harExport';
 export { DEFAULT_PROXY_SETTINGS, PROXY_HARD_CEILINGS, HAR_IMPORT_LIMITS } from './proxyContracts';
 export type { ApiMockProxySettingsV1 } from './proxyContracts';
 export {
@@ -69,8 +91,8 @@ export { applyResponseTransforms } from './responseTransforms';
 export type { TransformApplyResult } from './responseTransforms';
 export { assertMockCalls } from './assertMockCalls';
 export type { AssertMockCallsCriteria, AssertMockCallsResult } from './assertMockCalls';
-export { cliSimulateSamples, cliLoadAndValidate } from './cliMock';
-export type { CliSimulateOptions, CliLoadResult } from './cliMock';
+export { cliSimulateSamples, cliLoadAndValidate, cliFetchJournal, cliAssertJournal } from './cliMock';
+export type { CliSimulateOptions, CliLoadResult, CliFetchJournalOptions } from './cliMock';
 export { checkProxyUrl, stripHopByHopHeaders, stripCredentialHeaders, addAntiRecursionHeader, hasAntiRecursionHeader, stripSetCookieFromResponse, ANTI_RECURSION_HEADER } from './proxyPolicy';
 export type { ProxyPolicyConfig, PolicyCheckResult } from './proxyPolicy';
 export { containsPrivateKey, redactPemForTrace, extractSubjectCN, validateCertPem, validateKeyPem, TLS_DEFAULTS } from './tlsContracts';
@@ -78,7 +100,8 @@ export type { ApiMockTlsSettingsV1, ApiMockTlsStatus, ApiMockCertificateValidati
 export { API_MOCK_PERF_BUDGETS, PERF_CI_SLACK, MAX_COMPILED_PATTERNS, percentile, BoundedCache } from './perfBudgets';
 export type { PerfBudget, PerfBudgetKey } from './perfBudgets';
 export { compileRegexCached, testRegexCached } from './patternCache';
-export { classifyRuntimeError, reconcileRuntimeState, safeLoadWorkspace } from './recoveryDiagnostics';
+export { analyzeNativeUnsupported, NATIVE_UNAVAILABLE_OPERATORS } from './nativeCapabilities';
+export type { NativeCapabilityWarning } from './nativeCapabilities';
 export type {
   RuntimeErrorCode, RuntimeDiagnostic,
   ReconciledRuntimeState, PersistedServerRuntime, LiveServerStatus,

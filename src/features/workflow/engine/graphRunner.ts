@@ -60,28 +60,11 @@ import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry'
 import { cleanupApiMockServersForRun } from '../utils/apiMockRunIsolation';
 import { isApiMockWorkflowNodeType } from '../types/workflow/node-api-mock';
 import type { GraphRunCallbacks, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
+import { resolveNodeTraceState } from './graphRunnerTraceState';
 // Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
 export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 export { resolveTraceLevel } from './graphRunnerTraceLevel';
 import { resolveTraceLevel } from './graphRunnerTraceLevel';
-
-/** gRPC nodes record per-node pass/fail on RequestResult; trace must not inherit cumulative workflow state. */
-function resolveNodeTraceState(
-  nodeType: string,
-  nodeId: string,
-  passedFlag: { value: boolean },
-  results: RequestResult[],
-): 'pass' | 'fail' {
-  if (nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert'
-    || nodeType === 'grpcLoadTest' || nodeType === 'grpcSchemaDiff' || nodeType === 'grpcMockAssert'
-    || nodeType === 'apiMockStart' || nodeType === 'apiMockApply' || nodeType === 'apiMockResetState'
-    || nodeType === 'apiMockStop' || nodeType === 'apiMockAssertCalls') {
-    const nodeResults = results.filter((r) => r.workflowNodeId === nodeId);
-    const lastResult = nodeResults[nodeResults.length - 1];
-    if (lastResult) return lastResult.passed ? 'pass' : 'fail';
-  }
-  return passedFlag.value ? 'pass' : 'fail';
-}
 
 /**
  * Execute a workflow graph with topological traversal.
@@ -196,8 +179,6 @@ export async function runGraph(
 
   let allPassed = true;
   const visited = new Set<string>();
-
-  // Join-node barrier: track how many incoming edges have arrived.
   const incomingCount = new Map<string, number>();
   const joinArrived = new Map<string, number>();
   for (const e of edges) {
@@ -206,12 +187,9 @@ export async function runGraph(
 
   async function visit(nodeId: string, threadId = 'main'): Promise<void> {
     if (abortSignal?.aborted || debugController?.isStopped) return;
-
-    /** Follow all outgoing edges from the given node. */
     const visitOutgoing = async (nid: string, tid: string = threadId) => {
       const nextEdges = outgoing.get(nid) ?? [];
       for (const edge of nextEdges) {
-        // Phase 7e: Record edge traversal
         traceCollector.onEdgeTraversed(edge.id);
         await visit(edge.target, tid);
       }
@@ -220,13 +198,11 @@ export async function runGraph(
     const node = nodeMap.get(nodeId);
     if (!node) return;
 
-    // Join barrier: wait until all incoming branches have arrived.
     if (node.type === 'join') {
       const arrived = (joinArrived.get(nodeId) ?? 0) + 1;
       joinArrived.set(nodeId, arrived);
       const expected = incomingCount.get(nodeId) ?? 1;
       if (arrived < expected) {
-        // Show waiting state on join node (both debug and normal mode)
         callbacks.onNodeStateChange(nodeId, {
           state: 'running',
           responseDetail: `waiting (${arrived}/${expected})`,
@@ -234,15 +210,13 @@ export async function runGraph(
         if (debugController) {
           debugController.markWaitingJoin(nodeId, threadId);
         }
-        return; // not all branches arrived yet
+        return;
       }
-      // All branches arrived — fall through to execute once
     }
 
     if (visited.has(nodeId)) return;
     visited.add(nodeId);
 
-    // Debug: pause before executing this node
     if (debugController) {
       callbacks.onNodeStateChange(nodeId, { state: 'paused' });
       await debugController.waitForStep(nodeId, threadId);

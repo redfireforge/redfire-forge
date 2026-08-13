@@ -3,6 +3,8 @@ import AppModalFrame from '../../../shared/components/AppModalFrame';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { normalizeRequest } from '../../../shared/api-mock/requestNormalization';
 import { simulateSingle, simulateBatch } from '../../../shared/api-mock/simulation';
+import { capturedRequestPath } from '../apiMockJournalActions';
+import { concreteMockPath } from '../apiMockPageHelpers';
 import { PlayIcon, DownloadIcon } from './ApiMockIcons';
 import type {
   ApiMockServerDefinitionV1,
@@ -15,6 +17,7 @@ interface Props {
   server: ApiMockServerDefinitionV1;
   initialPath?: string;
   initialMethod?: string;
+  initialSampleId?: string;
   onClose: () => void;
 }
 
@@ -36,29 +39,37 @@ function outcomeBadge(outcome: string): string {
 /**
  * Mockup 04 Rule Simulation — samples sidebar + decision trace / request / response / assertions.
  */
-export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod = 'GET', onClose }: Props) {
+export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod = 'GET', initialSampleId, onClose }: Props) {
   const adHocId = 'adhoc';
-  const [method, setMethod] = useState(initialMethod);
+  const seededSample = initialSampleId
+    ? (server.samples ?? []).find(s => s.id === initialSampleId)
+    : undefined;
+  const seededMethod = seededSample?.request.method && seededSample.request.method !== 'ANY'
+    ? seededSample.request.method
+    : initialMethod;
+  const [method, setMethod] = useState(seededMethod);
   const [path, setPath] = useState(initialPath);
-  const [headers, setHeaders] = useState('');
-  const [body, setBody] = useState('');
+  const [headers, setHeaders] = useState(seededSample ? headersToText(seededSample.request.headers) : '');
+  const [body, setBody] = useState(typeof seededSample?.request.body === 'string' ? seededSample.request.body : '');
+  const [clientCertSubject, setClientCertSubject] = useState(seededSample?.request.clientCertSubject ?? '');
   const [seed, setSeed] = useState(() => String(Math.floor(Math.random() * 90000) + 10000));
   const [filter, setFilter] = useState('');
-  const [selectedSampleId, setSelectedSampleId] = useState(adHocId);
+  const [selectedSampleId, setSelectedSampleId] = useState(initialSampleId ?? adHocId);
   const [resultBySample, setResultBySample] = useState<Record<string, ApiMockSimulationResultV1>>({});
   const [tab, setTab] = useState<ResultTab>('trace');
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
 
   const allNonAdHoc: ApiMockSimulationSampleV1[] = useMemo(() => {
-    if (server.samples.length > 0) return server.samples;
+    const saved = server.samples ?? [];
+    if (saved.length > 0) return saved;
     return server.routes.slice(0, 5).map((r) => ({
       id: `auto-${r.id}`,
       name: r.name || `${r.method} ${r.path.value}`,
       routeId: r.id,
       request: {
         method: r.method === 'ANY' ? 'GET' : r.method,
-        path: r.path.value.replace(/:[^/]+/g, '42').replace(/\{[^}]+\}/g, '42') || '/',
-        rawPath: r.path.value.replace(/:[^/]+/g, '42').replace(/\{[^}]+\}/g, '42') || '/',
+        path: concreteMockPath(r.path.value),
+        rawPath: concreteMockPath(r.path.value),
         query: {},
         cookies: {},
         headers: {},
@@ -99,11 +110,12 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
     if (selectedSampleId === id) setSelectedSampleId(adHocId);
   }, [selectedSampleId]);
 
-  const filteredSamples = samples.filter(s =>
-    !filter.trim()
-    || s.name.toLowerCase().includes(filter.toLowerCase())
-    || s.request.path.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const filteredSamples = samples.filter(s => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return true;
+    return s.name.toLowerCase().includes(q)
+      || capturedRequestPath(s.request).toLowerCase().includes(q);
+  });
 
   const buildSample = (sample: ApiMockSimulationSampleV1): ApiMockSimulationSampleV1 => {
     let captured = sample.request;
@@ -113,18 +125,29 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
         const idx = line.indexOf(':');
         if (idx > 0) headerMap[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
       }
-      captured = normalizeRequest({ method, url: path || '/', headers: headerMap, body: body || null }).captured;
+      captured = normalizeRequest({
+        method,
+        url: path || '/',
+        headers: headerMap,
+        body: body || null,
+        clientCertSubject: clientCertSubject.trim() || undefined,
+      }).captured;
     }
     return { id: sample.id, name: sample.name, request: captured, expected: sample.expected };
   };
 
   const annotatePass = (sample: ApiMockSimulationSampleV1, res: ApiMockSimulationResultV1): ApiMockSimulationResultV1 => {
+    // Trust the engine when it already evaluated expectations (includes bodyContains / bodyExact).
+    if (typeof res.passed === 'boolean') return res;
     if (sample.expected) {
+      const body = res.renderedResponse?.body ?? '';
       const expectedOk =
         (!sample.expected.outcome || sample.expected.outcome === res.outcome)
         && (!sample.expected.routeId || sample.expected.routeId === res.trace.policyDecision.selectedRouteId)
         && (!sample.expected.responseId || sample.expected.responseId === res.preview?.selectedResponseId)
-        && (sample.expected.status == null || sample.expected.status === res.renderedResponse?.status);
+        && (sample.expected.status == null || sample.expected.status === res.renderedResponse?.status)
+        && (sample.expected.bodyContains == null || body.includes(sample.expected.bodyContains))
+        && (sample.expected.bodyExact == null || body === sample.expected.bodyExact);
       return { ...res, passed: expectedOk };
     }
     return {
@@ -181,17 +204,18 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
     setSelectedSampleId(sample.id);
     if (sample.id !== adHocId) {
       setMethod(sample.request.method);
-      setPath(sample.request.rawPath || sample.request.path);
+      setPath(capturedRequestPath(sample.request));
       setHeaders(headersToText(sample.request.headers));
       setBody(typeof sample.request.body === 'string' ? sample.request.body : '');
+      setClientCertSubject(sample.request.clientCertSubject ?? '');
     }
   };
 
   const result = resultBySample[selectedSampleId] ?? null;
   const trace = result?.trace;
   const winnerId = trace?.policyDecision.selectedRouteId;
-  const passedCount = Object.values(resultBySample).filter(r => r.passed && r.outcome !== 'ambiguous').length;
-  const conflictCount = Object.values(resultBySample).filter(r => r.outcome === 'ambiguous').length;
+  const passedCount = Object.values(resultBySample).filter(r => r.passed === true).length;
+  const conflictCount = Object.values(resultBySample).filter(r => r.outcome === 'ambiguous' && r.passed !== true).length;
 
   const routeLabel = (id?: string) => {
     if (!id) return '—';
@@ -268,9 +292,10 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
             {filteredSamples.map(s => {
               const r = resultBySample[s.id];
               const badge = !r ? null
-                : r.outcome === 'ambiguous' ? 'CONFLICT'
-                  : r.passed === false ? 'FAIL'
-                    : 'PASS';
+                : r.passed === true ? 'PASS'
+                  : r.outcome === 'ambiguous' ? 'CONFLICT'
+                    : r.passed === false ? 'FAIL'
+                      : 'PASS';
               return (
                 <div
                   key={s.id}
@@ -287,7 +312,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                       <span className="am-spacer" />
                       {badge && <span className={`am-badge ${badge === 'PASS' ? 'success' : badge === 'CONFLICT' ? 'warning' : 'danger'}`}>{badge}</span>}
                     </div>
-                    <div className="am-hint am-mono">{s.request.method} {s.request.rawPath || s.request.path}</div>
+                    <div className="am-hint am-mono">{s.request.method} {capturedRequestPath(s.request)}</div>
                   </button>
                   {s.id !== adHocId && (
                     <button
@@ -333,6 +358,19 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                     <textarea className="am-textarea am-textarea--compact" value={body} onChange={e => setBody(e.target.value)} placeholder='{"name":"Alice"}' data-testid="api-mock-simulate-body" />
                   </div>
                 </div>
+                <div className="am-form-row">
+                  <div className="am-form-label">Client cert subject</div>
+                  <div className="am-form-control">
+                    <input
+                      className="am-input wide mono"
+                      value={clientCertSubject}
+                      onChange={e => setClientCertSubject(e.target.value)}
+                      placeholder="CN=client-name"
+                      aria-label="Simulate client certificate subject"
+                      data-testid="api-mock-simulate-cert-subject"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -343,6 +381,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                 <input value={path} onChange={e => setPath(e.target.value)} data-testid="api-mock-simulate-path" />
                 <textarea value={headers} onChange={e => setHeaders(e.target.value)} data-testid="api-mock-simulate-headers" />
                 <textarea value={body} onChange={e => setBody(e.target.value)} data-testid="api-mock-simulate-body" />
+                <input value={clientCertSubject} onChange={e => setClientCertSubject(e.target.value)} data-testid="api-mock-simulate-cert-subject" />
               </div>
             )}
 
@@ -561,42 +600,70 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                         <tr><th>Expectation</th><th>Expected</th><th>Actual</th><th>Result</th></tr>
                       </thead>
                       <tbody>
-                        <tr>
-                          <td>Outcome</td>
-                          <td>{samples.find(s => s.id === selectedSampleId)?.expected?.outcome ?? '—'}</td>
-                          <td>{result.outcome}</td>
-                          <td><span className={`am-badge ${result.passed ? 'success' : 'danger'}`}>{result.passed ? 'Pass' : 'Fail'}</span></td>
-                        </tr>
-                        <tr>
-                          <td>Rule</td>
-                          <td>{samples.find(s => s.id === selectedSampleId)?.expected?.routeId ?? '—'}</td>
-                          <td>{winnerId ?? '—'}</td>
-                          <td><span className="am-badge success">—</span></td>
-                        </tr>
-                        <tr>
-                          <td>Response</td>
-                          <td>{samples.find(s => s.id === selectedSampleId)?.expected?.responseId ?? '—'}</td>
-                          <td>{result.preview?.selectedResponseId ?? '—'}</td>
-                          <td><span className="am-badge success">—</span></td>
-                        </tr>
-                        <tr>
-                          <td>Status</td>
-                          <td>{samples.find(s => s.id === selectedSampleId)?.expected?.status ?? '—'}</td>
-                          <td>{result.preview?.httpCompleted === false ? '—' : (result.renderedResponse?.status ?? '—')}</td>
-                          <td><span className="am-badge success">—</span></td>
-                        </tr>
-                        <tr>
-                          <td>Fault</td>
-                          <td>—</td>
-                          <td>{result.preview?.fault ?? 'none'}</td>
-                          <td><span className="am-badge success">—</span></td>
-                        </tr>
-                        <tr>
-                          <td>Virtual delay</td>
-                          <td>—</td>
-                          <td>{result.preview?.virtualDelayMs ?? 0} ms</td>
-                          <td><span className="am-badge success">—</span></td>
-                        </tr>
+                        {(() => {
+                          const expected = samples.find(s => s.id === selectedSampleId)?.expected;
+                          const body = result.renderedResponse?.body ?? '';
+                          const actualStatus = result.preview?.httpCompleted === false
+                            ? undefined
+                            : result.renderedResponse?.status;
+                          const row = (ok: boolean | undefined, label: string) => (
+                            ok == null
+                              ? <span className="am-badge">{label}</span>
+                              : <span className={`am-badge ${ok ? 'success' : 'danger'}`}>{ok ? 'Pass' : 'Fail'}</span>
+                          );
+                          return (
+                            <>
+                              <tr>
+                                <td>Outcome</td>
+                                <td>{expected?.outcome ?? '—'}</td>
+                                <td>{result.outcome}</td>
+                                <td>{row(expected?.outcome ? expected.outcome === result.outcome : undefined, '—')}</td>
+                              </tr>
+                              <tr>
+                                <td>Rule</td>
+                                <td>{expected?.routeId ?? '—'}</td>
+                                <td>{winnerId ?? '—'}</td>
+                                <td>{row(expected?.routeId ? expected.routeId === winnerId : undefined, '—')}</td>
+                              </tr>
+                              <tr>
+                                <td>Response</td>
+                                <td>{expected?.responseId ?? '—'}</td>
+                                <td>{result.preview?.selectedResponseId ?? '—'}</td>
+                                <td>{row(expected?.responseId ? expected.responseId === result.preview?.selectedResponseId : undefined, '—')}</td>
+                              </tr>
+                              <tr>
+                                <td>Status</td>
+                                <td>{expected?.status ?? '—'}</td>
+                                <td>{actualStatus ?? '—'}</td>
+                                <td>{row(expected?.status == null ? undefined : expected.status === actualStatus, '—')}</td>
+                              </tr>
+                              <tr>
+                                <td>Body contains</td>
+                                <td>{expected?.bodyContains ?? '—'}</td>
+                                <td>{expected?.bodyContains ? (body.includes(expected.bodyContains) ? 'yes' : 'no') : '—'}</td>
+                                <td>{row(expected?.bodyContains == null ? undefined : body.includes(expected.bodyContains), '—')}</td>
+                              </tr>
+                              <tr>
+                                <td>Body exact</td>
+                                <td>{expected?.bodyExact ?? '—'}</td>
+                                <td>{expected?.bodyExact == null ? '—' : (body === expected.bodyExact ? 'yes' : 'no')}</td>
+                                <td>{row(expected?.bodyExact == null ? undefined : body === expected.bodyExact, '—')}</td>
+                              </tr>
+                              <tr>
+                                <td>Fault</td>
+                                <td>—</td>
+                                <td>{result.preview?.fault ?? 'none'}</td>
+                                <td>{row(undefined, '—')}</td>
+                              </tr>
+                              <tr>
+                                <td>Virtual delay</td>
+                                <td>—</td>
+                                <td>{result.preview?.virtualDelayMs ?? 0} ms</td>
+                                <td>{row(undefined, '—')}</td>
+                              </tr>
+                            </>
+                          );
+                        })()}
                       </tbody>
                     </table>
                   </div>

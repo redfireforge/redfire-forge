@@ -4,10 +4,13 @@
  * Failures return a classified RuntimeDiagnostic so the UI can show a clear,
  * recoverable message instead of a raw error.
  */
-import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockLocalDiagnosticsV1, ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
+import { HARD_CEILINGS } from '../../shared/api-mock/defaults';
 import type { ApiMockRecordedDraftV1 } from '../../shared/api-mock/proxyRecording';
 import { classifyRuntimeError, type RuntimeDiagnostic, type RuntimeErrorCode } from '../../shared/api-mock/recoveryDiagnostics';
 import { apiMockControlBase } from '../../shared/api-mock/controlBase';
+import { isTauri } from '../../shared/utils/platform';
+import { nativeTauriControl } from '../../shared/api-mock/nativeTauriControl';
 
 export interface ControlStatus {
   serverId: string;
@@ -85,23 +88,41 @@ async function call<T>(path: string, init?: RequestInit): Promise<ControlResult<
 
 export const apiMockControlClient = {
   start: (def: ApiMockServerDefinitionV1) =>
-    call<ControlStatus>('/api/mock/servers/start', { method: 'POST', body: JSON.stringify(def) }),
+    isTauri()
+      ? nativeTauriControl.start(def)
+      : call<ControlStatus>('/api/mock/servers/start', { method: 'POST', body: JSON.stringify(def) }),
   stop: (serverId: string) =>
-    call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(serverId)}/stop`, { method: 'POST' }),
+    isTauri()
+      ? nativeTauriControl.stop(serverId)
+      : call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(serverId)}/stop`, { method: 'POST' }),
   restart: (def: ApiMockServerDefinitionV1) =>
-    call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(def.id)}/restart`, { method: 'POST', body: JSON.stringify(def) }),
+    isTauri()
+      ? nativeTauriControl.restart(def)
+      : call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(def.id)}/restart`, { method: 'POST', body: JSON.stringify(def) }),
   commit: (def: ApiMockServerDefinitionV1) =>
-    call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(def.id)}/definition`, { method: 'PUT', body: JSON.stringify(def) }),
+    isTauri()
+      ? nativeTauriControl.commit(def)
+      : call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(def.id)}/definition`, { method: 'PUT', body: JSON.stringify(def) }),
   status: (serverId: string) =>
-    call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(serverId)}/status`, { method: 'GET' }),
-  transactions: (serverId: string, limit = 100) =>
-    call<JournalPage>(`/api/mock/servers/${encodeURIComponent(serverId)}/transactions?limit=${limit}`, { method: 'GET' }),
+    isTauri()
+      ? nativeTauriControl.status(serverId)
+      : call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(serverId)}/status`, { method: 'GET' }),
+  transactions: (serverId: string, limit = HARD_CEILINGS.maxJournalEntries) =>
+    isTauri()
+      ? nativeTauriControl.transactions(serverId, limit)
+      : call<JournalPage>(`/api/mock/servers/${encodeURIComponent(serverId)}/transactions?limit=${limit}`, { method: 'GET' }),
   clearTransactions: (serverId: string) =>
-    call<{ cleared: boolean }>(`/api/mock/servers/${encodeURIComponent(serverId)}/transactions`, { method: 'DELETE' }),
+    isTauri()
+      ? nativeTauriControl.clearTransactions(serverId)
+      : call<{ cleared: boolean }>(`/api/mock/servers/${encodeURIComponent(serverId)}/transactions`, { method: 'DELETE' }),
   state: (serverId: string) =>
-    call<ScenarioStateSnapshot>(`/api/mock/servers/${encodeURIComponent(serverId)}/state`, { method: 'GET' }),
+    isTauri()
+      ? nativeTauriControl.state(serverId)
+      : call<ScenarioStateSnapshot>(`/api/mock/servers/${encodeURIComponent(serverId)}/state`, { method: 'GET' }),
   resetState: (serverId: string) =>
-    call<{ reset: boolean }>(`/api/mock/servers/${encodeURIComponent(serverId)}/state/reset`, { method: 'POST' }),
+    isTauri()
+      ? nativeTauriControl.resetState(serverId)
+      : call<{ reset: boolean }>(`/api/mock/servers/${encodeURIComponent(serverId)}/state/reset`, { method: 'POST' }),
   generateSelfSignedTls: (hosts: string[]) =>
     call<{ certPem: string; keyPem: string }>(
       '/api/mock/tls/self-signed',
@@ -117,6 +138,13 @@ export const apiMockControlClient = {
       `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts`,
       { method: 'GET' },
     ),
+  diagnostics: (serverId: string) =>
+    isTauri()
+      ? nativeTauriControl.diagnostics(serverId)
+      : call<ApiMockLocalDiagnosticsV1>(
+        `/api/mock/servers/${encodeURIComponent(serverId)}/diagnostics`,
+        { method: 'GET' },
+      ),
   ackRecordedDrafts: (serverId: string, ids: string[]) =>
     call<{ removed: number }>(
       `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts/ack`,

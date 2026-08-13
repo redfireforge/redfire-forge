@@ -1,6 +1,10 @@
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import { AUTO_PORT_RANGE } from '../../shared/api-mock/defaults';
+import type { ApiMockRouteV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1 } from '../../shared/api-mock/contracts';
+import { AUTO_PORT_RANGE, HARD_CEILINGS } from '../../shared/api-mock/defaults';
+import { stripCapturedRequestSecrets } from '../../shared/api-mock/harExport';
 import type { ApiMockRuntimeStatus } from './components/ApiMockServerTabs';
+
+/** W5 — open mock-server tabs cannot exceed the hard ceiling. */
+export const API_MOCK_MAX_TABS = HARD_CEILINGS.maxOpenTabs;
 
 export interface RuntimeInfoLike {
   status: ApiMockRuntimeStatus;
@@ -22,7 +26,10 @@ export function computeHydrationResult(
 }
 
 export function resolveHydratedActiveServerId(state: { activeServerId?: string; servers: ApiMockServerDefinitionV1[] }): string | undefined {
-  return state.activeServerId ?? state.servers[0]?.id;
+  if (state.activeServerId && state.servers.some(s => s.id === state.activeServerId)) {
+    return state.activeServerId;
+  }
+  return state.servers[0]?.id;
 }
 
 /** Lowest free auto-port in 4600–4699 not already claimed by open server tabs. */
@@ -48,21 +55,110 @@ export function parsePortOwnerServerId(message: string): string | undefined {
   return match?.[1];
 }
 
-/** Drop a closed server from the tab list and pick a new active id when needed. */
+/** Drop closed servers from the tab list and activate the nearest remaining tab. */
+export function removeClosedServers(
+  servers: ApiMockServerDefinitionV1[],
+  closedIds: string[],
+  activeServerId: string | undefined,
+): { servers: ApiMockServerDefinitionV1[]; activeServerId: string | undefined } {
+  const closed = new Set(closedIds);
+  if (closed.size === 0) return { servers, activeServerId };
+  const activeIndex = servers.findIndex(s => s.id === activeServerId);
+  const next = servers.filter(s => !closed.has(s.id));
+  if (activeServerId && next.some(s => s.id === activeServerId)) {
+    return { servers: next, activeServerId };
+  }
+  if (next.length === 0) return { servers: next, activeServerId: undefined };
+  if (activeIndex < 0) return { servers: next, activeServerId: next[0]?.id };
+  return { servers: next, activeServerId: next[Math.min(activeIndex, next.length - 1)]?.id };
+}
+
+/** Drop a closed server from the tab list and activate the nearest remaining tab. */
 export function removeClosedServer(
   servers: ApiMockServerDefinitionV1[],
   closedId: string,
   activeServerId: string | undefined,
 ): { servers: ApiMockServerDefinitionV1[]; activeServerId: string | undefined } {
-  const next = servers.filter(s => s.id !== closedId);
-  return {
-    servers: next,
-    activeServerId: activeServerId === closedId ? next[0]?.id : activeServerId,
-  };
+  return removeClosedServers(servers, [closedId], activeServerId);
 }
 
 export function formatImportedRoutesMessage(count: number): string {
   return `Imported ${count} route${count === 1 ? '' : 's'} as drafts.`;
+}
+
+export function formatTabLimitMessage(max = API_MOCK_MAX_TABS): string {
+  return `You can have at most ${max} mock servers open. Close a tab to create or duplicate another.`;
+}
+
+/** Non-destructive confirm options for the 8-tab ceiling (not a delete). */
+export const TAB_LIMIT_CONFIRM_OPTIONS = {
+  title: 'Tab limit',
+  confirmLabel: 'OK',
+  finalNote: '',
+} as const;
+
+/** Trigger a JSON/HAR file download from the browser. */
+export function downloadJsonFile(filename: string, payload: unknown): void {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function formatStopAndCloseMessage(names: string[]): string {
+  if (names.length <= 1) return `Stop and close "${names[0] ?? 'mock server'}"?`;
+  return `Stop and close ${names.length} mock servers? Running listeners will be stopped.`;
+}
+
+/** Clone a server tab with a new id, next port, and no TLS/variable secrets (W5). */
+export function duplicateServerDefinition(
+  source: ApiMockServerDefinitionV1,
+  nextPort: number,
+  now = new Date().toISOString(),
+): ApiMockServerDefinitionV1 {
+  const cloned = structuredClone(source);
+  const tls = cloned.settings?.tls;
+  if (tls) {
+    cloned.settings = {
+      ...cloned.settings,
+      tls: {
+        ...tls,
+        keyPem: '',
+        passphrase: undefined,
+        mtls: tls.mtls ? { ...tls.mtls, clientKeyPem: undefined } : undefined,
+      },
+    };
+  }
+  return {
+    ...cloned,
+    id: `srv-${crypto.randomUUID().slice(0, 8)}`,
+    name: /\scopy$/.test(source.name) ? source.name : `${source.name} copy`,
+    port: nextPort,
+    variables: (cloned.variables ?? []).map(v => (v.sensitive ? { ...v, value: '' } : v)),
+    samples: (cloned.samples ?? []).map(s => ({ ...s, request: stripCapturedRequestSecrets(s.request) })),
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/** Move a tab from `fromIndex` to `toIndex`. Returns the original array when the move is a no-op. */
+export function reorderServers<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  if (
+    fromIndex === toIndex
+    || fromIndex < 0
+    || toIndex < 0
+    || fromIndex >= items.length
+    || toIndex >= items.length
+  ) {
+    return items;
+  }
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
 }
 
 export function formatConflictAnalysisMessage(count: number): string {
@@ -71,9 +167,17 @@ export function formatConflictAnalysisMessage(count: number): string {
 
 export function deriveSimulateDefaults(selectedRoute?: ApiMockServerDefinitionV1['routes'][0]): { initialPath: string; initialMethod: string } {
   return {
-    initialPath: selectedRoute?.path.value || '/',
+    initialPath: concreteMockPath(selectedRoute?.path.value),
     initialMethod: selectedRoute && selectedRoute.method !== 'ANY' ? selectedRoute.method : 'GET',
   };
+}
+
+/** Turn `/users/:id` / `/orders/{id}` into a concrete request path for Simulate. */
+export function concreteMockPath(pathValue?: string): string {
+  const filled = (pathValue || '/')
+    .replace(/:[A-Za-z_]\w*/g, '42')
+    .replace(/\{[A-Za-z_]\w*\}/g, '42');
+  return filled || '/';
 }
 
 export function buildRuntimeMaps(
@@ -138,6 +242,45 @@ export function applyRouteUpdate(
   updateServer(next.serverId, { routes: next.routes });
 }
 
+/** Snapshot used by the route-delete undo toast. */
+export interface DeletedRouteSnapshot {
+  serverId: string;
+  index: number;
+  route: ApiMockRouteV1;
+  attachedSampleIds: string[];
+  selectedWasDeleted: boolean;
+  /** Selection on this server at delete time — restored even after switching tabs. */
+  priorSelectedRouteId?: string;
+}
+
+export function snapshotDeletedRoute(
+  server: ApiMockServerDefinitionV1,
+  routeId: string,
+  selectedRouteId?: string,
+): DeletedRouteSnapshot | undefined {
+  const index = server.routes.findIndex(r => r.id === routeId);
+  if (index < 0) return undefined;
+  return {
+    serverId: server.id,
+    index,
+    route: structuredClone(server.routes[index]),
+    attachedSampleIds: (server.samples ?? []).filter(s => s.routeId === routeId).map(s => s.id),
+    selectedWasDeleted: selectedRouteId === routeId,
+    priorSelectedRouteId: selectedRouteId,
+  };
+}
+
+function unlinkSamplesFromRoute(
+  samples: ApiMockSimulationSampleV1[] | undefined,
+  routeId: string,
+): ApiMockSimulationSampleV1[] {
+  return (samples ?? []).map(s => (
+    s.routeId === routeId
+      ? { ...s, routeId: undefined, expected: s.expected ? { ...s.expected, routeId: undefined } : undefined }
+      : s
+  ));
+}
+
 export function applyRouteDelete(
   activeServerId: string | undefined,
   activeServer: ApiMockServerDefinitionV1 | undefined,
@@ -146,11 +289,58 @@ export function applyRouteDelete(
   updateServer: (id: string, patch: Partial<ApiMockServerDefinitionV1>) => void,
   setSelectedRouteId: (id: string | undefined) => void,
   setLiveMessage: (message: string) => void,
-): void {
-  if (!activeServerId || !activeServer) return;
-  updateServer(activeServerId, { routes: activeServer.routes.filter(r => r.id !== routeId) });
+): DeletedRouteSnapshot | undefined {
+  if (!activeServerId || !activeServer || activeServer.id !== activeServerId) return undefined;
+  const snapshot = snapshotDeletedRoute(activeServer, routeId, selectedRouteId);
+  if (!snapshot) return undefined;
+  updateServer(activeServerId, {
+    routes: activeServer.routes.filter(r => r.id !== routeId),
+    samples: unlinkSamplesFromRoute(activeServer.samples, routeId),
+  });
   if (selectedRouteId === routeId) setSelectedRouteId(undefined);
-  setLiveMessage('Route deleted.');
+  setLiveMessage(`Route “${snapshot.route.name}” deleted. Undo for a few seconds.`);
+  return snapshot;
+}
+
+export function restoreDeletedRoute(
+  activeServer: ApiMockServerDefinitionV1 | undefined,
+  snapshot: DeletedRouteSnapshot | null | undefined,
+  updateServer: (id: string, patch: Partial<ApiMockServerDefinitionV1>) => void,
+  setSelectedRouteId: (id: string | undefined) => void,
+  setLiveMessage: (message: string) => void,
+): boolean {
+  if (!snapshot || !activeServer || activeServer.id !== snapshot.serverId) return false;
+  if (activeServer.routes.some(r => r.id === snapshot.route.id)) return false;
+  const routes = [...activeServer.routes];
+  const index = Math.min(Math.max(0, snapshot.index), routes.length);
+  routes.splice(index, 0, structuredClone(snapshot.route));
+  const attached = new Set(snapshot.attachedSampleIds);
+  const samples = (activeServer.samples ?? []).map(s => {
+    // Leave examples the user reassigned during the undo window on their new route.
+    if (!attached.has(s.id) || (s.routeId != null && s.routeId !== snapshot.route.id)) return s;
+    return {
+      ...s,
+      routeId: snapshot.route.id,
+      expected: s.expected ? { ...s.expected, routeId: snapshot.route.id } : s.expected,
+    };
+  });
+  updateServer(activeServer.id, { routes, samples });
+  setSelectedRouteId(snapshot.priorSelectedRouteId);
+  setLiveMessage(`Restored “${snapshot.route.name}”.`);
+  return true;
+}
+
+/** Restore onto the snapshot's server even if another tab is active. */
+export function restoreDeletedRouteInList(
+  servers: ApiMockServerDefinitionV1[],
+  snapshot: DeletedRouteSnapshot | null | undefined,
+  updateServer: (id: string, patch: Partial<ApiMockServerDefinitionV1>) => void,
+  setSelectedRouteId: (id: string | undefined) => void,
+  setLiveMessage: (message: string) => void,
+): boolean {
+  if (!snapshot) return false;
+  const target = servers.find(s => s.id === snapshot.serverId);
+  return restoreDeletedRoute(target, snapshot, updateServer, setSelectedRouteId, setLiveMessage);
 }
 
 export async function runConflictAnalysis(

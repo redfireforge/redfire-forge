@@ -7,9 +7,7 @@ import {
   type ConnectionStateHint,
   type WsConnectionTabInfo,
 } from './WsConnectionTabBar';
-import {
-  WsConnectionTabContent,
-} from './WsConnectionTabContent';
+import { WsConnectionTabContent } from './WsConnectionTabContent';
 import type { WsConnectionTabContentHandle } from './WsConnectionTabContent.types';
 import { buildWsEnvVarMap } from './wsMessageUtils';
 import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
@@ -34,29 +32,19 @@ import {
 import {
   MAX_TABS,
   MOCK_PORT_BASE,
+  applyDemoWsStudioMode,
   isAutoMockPort,
   LOCALHOST_WS_URL_RE,
   generateTabId,
   advanceSeqPastRestoredIds,
   deriveTabLabel,
+  nextFreePort,
+  preparePortsForNewTab,
 } from './WebSocketStudioPage.helpers';
 import type { WebSocketStudioPageProps } from './WebSocketStudioPage.types';
 import { useWsDemoBridges } from './useWsDemoBridges';
 import '../../styles/websocket-studio.css';
 import '../../styles/mock-server-shared.css';
-
-/** Apply armed demo landing mode onto studio locations (non-destructive peek). */
-function applyDemoWsStudioMode(
-  locs: Record<string, WsStudioLocation>,
-): Record<string, WsStudioLocation> {
-  const mode = peekDemoInitialSurface()?.wsStudioMode;
-  if (!mode) return locs;
-  const next: Record<string, WsStudioLocation> = {};
-  for (const [id, loc] of Object.entries(locs)) {
-    next[id] = { ...loc, mode };
-  }
-  return next;
-}
 
 export function WebSocketStudioPage({
   resolvedBaseUrl,
@@ -111,44 +99,6 @@ export function WebSocketStudioPage({
   const mockPortsRef = useRef(mockPorts);
   mockPortsRef.current = mockPorts;
 
-  /** Finds the lowest port >= 9876 not already in `used`. */
-  const nextFreePort = useCallback((used: Set<number>): number => {
-    let p = MOCK_PORT_BASE;
-    while (used.has(p)) p++;
-    return p;
-  }, []);
-
-  /**
-   * Prune ghost port entries, pin a sole survivor to 9876, then return the
-   * next free port. Without this, leftover 9877/9878 from closed tabs (or a
-   * single tab stuck on 9878) makes the second tab land on 9878 instead of 9877.
-   */
-  const preparePortsForNewTab = useCallback((liveTabIds: string[]): {
-    ports: Record<string, number>;
-    nextPort: number;
-    remappedSoleTabId: string | null;
-  } => {
-    const live = new Set(liveTabIds);
-    const ports: Record<string, number> = {};
-    for (const [id, port] of Object.entries(mockPortsRef.current)) {
-      if (live.has(id)) ports[id] = port;
-    }
-    let remappedSoleTabId: string | null = null;
-    if (liveTabIds.length === 1) {
-      const soleId = liveTabIds[0];
-      const current = ports[soleId];
-      if (current === undefined) {
-        ports[soleId] = MOCK_PORT_BASE;
-      } else if (current !== MOCK_PORT_BASE && isAutoMockPort(current)) {
-        // Sticky 9877/9878/… after closing siblings — reclaim base so the
-        // next tab gets 9877, not another high auto-port.
-        ports[soleId] = MOCK_PORT_BASE;
-        remappedSoleTabId = soleId;
-      }
-    }
-    const nextPort = nextFreePort(new Set(Object.values(ports)));
-    return { ports, nextPort, remappedSoleTabId };
-  }, [nextFreePort]);
 
   // ── Load persisted tab state on mount ──────────────────────────────
 
@@ -208,8 +158,7 @@ export function WebSocketStudioPage({
             restoredMockPorts[t.id] = t.mockPort;
             assignedPorts.add(t.mockPort);
           } else {
-            let p = MOCK_PORT_BASE;
-            while (assignedPorts.has(p)) p++;
+            const p = nextFreePort(assignedPorts);
             restoredMockPorts[t.id] = p;
             assignedPorts.add(p);
           }
@@ -291,7 +240,7 @@ export function WebSocketStudioPage({
       setLoaded(true);
     });
     return () => { cancelled = true; };
-  }, [createDefaultTab, nextFreePort]);
+  }, [createDefaultTab]);
 
   // ── Debounced save ─────────────────────────────────────────────────
 
@@ -434,7 +383,7 @@ export function WebSocketStudioPage({
     liveTabIds: string[],
     newTabId: string,
   ): number => {
-    const { ports, nextPort, remappedSoleTabId } = preparePortsForNewTab(liveTabIds);
+    const { ports, nextPort, remappedSoleTabId } = preparePortsForNewTab(mockPortsRef.current, liveTabIds);
     if (remappedSoleTabId) {
       const survivorUrl = tabUrls.current[remappedSoleTabId] ?? '';
       if (LOCALHOST_WS_URL_RE.test(survivorUrl)) {
@@ -448,7 +397,7 @@ export function WebSocketStudioPage({
     mockPortsRef.current = nextPorts;
     setMockPorts(nextPorts);
     return nextPort;
-  }, [preparePortsForNewTab]);
+  }, []);
 
   const handleAddTab = useCallback(() => {
     const id = generateTabId();
@@ -688,7 +637,7 @@ export function WebSocketStudioPage({
       setMockPorts(next);
       debouncedSave();
     },
-    [debouncedSave, nextFreePort],
+    [debouncedSave],
   );
 
   const handleModeChange = useCallback(

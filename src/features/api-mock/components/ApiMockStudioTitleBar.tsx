@@ -7,6 +7,10 @@ interface Props {
   onSelect: (id: string) => void;
   onCreate: () => void;
   onClose: (id: string) => void;
+  onCloseMany?: (ids: string[]) => void;
+  onRename?: (id: string, name: string) => void;
+  onDuplicate?: (id: string) => void;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
   statusById?: Record<string, ApiMockRuntimeStatus>;
   dirtyById?: Record<string, boolean>;
 }
@@ -21,6 +25,10 @@ export function ApiMockStudioTitleBar({
   onSelect,
   onCreate,
   onClose,
+  onCloseMany,
+  onRename,
+  onDuplicate,
+  onReorder,
   statusById,
   dirtyById,
 }: Props) {
@@ -38,6 +46,10 @@ export function ApiMockStudioTitleBar({
           onSelect={onSelect}
           onCreate={onCreate}
           onClose={onClose}
+          onCloseMany={onCloseMany}
+          onRename={onRename}
+          onDuplicate={onDuplicate}
+          onReorder={onReorder}
           statusById={statusById}
           dirtyById={dirtyById}
           embedded

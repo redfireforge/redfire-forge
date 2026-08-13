@@ -199,11 +199,30 @@ describe('ApiMockPatternToolboxModal', () => {
 
     fireEvent.change(screen.getByTestId('api-mock-toolbox-jsonpath'), { target: { value: '$.id' } });
     fireEvent.change(screen.getByTestId('api-mock-toolbox-json-expected'), { target: { value: '' } });
+    expect(screen.getByTestId('api-mock-toolbox-json-result').className).toContain('pass');
     fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
     expect(onApplyConditions).toHaveBeenCalledWith([
       expect.objectContaining({ source: 'body', operator: 'jsonPath_exists', expected: '$.id' }),
     ]);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('marks JSONPath exists as a miss when the path does not resolve', () => {
+    renderModal({ kind: 'exact', value: '/' });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-jsonpath'));
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-jsonpath'), { target: { value: '$.missing' } });
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-json-expected'), { target: { value: '' } });
+    expect(screen.getByTestId('api-mock-toolbox-json-result').className).toContain('fail');
+  });
+
+  it('marks JSONPath equals as a hit for pretty vs compact object JSON', () => {
+    renderModal({ kind: 'exact', value: '/' });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-jsonpath'));
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-jsonpath'), { target: { value: '$.customer' } });
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-json-expected'), {
+      target: { value: '{\n  "id": "C-4421",\n  "tier": "gold"\n}' },
+    });
+    expect(screen.getByTestId('api-mock-toolbox-json-result').className).toContain('pass');
   });
 
   it('applies jsonPath_equals when expected value is set', () => {
@@ -264,5 +283,293 @@ describe('ApiMockPatternToolboxModal', () => {
       }),
     ]);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('applies XPath and schema conditions', () => {
+    const { onApplyConditions, onClose } = renderModal();
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-xpath'));
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-xpath-expr'), { target: { value: '/*' } });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyConditions).toHaveBeenCalledWith([
+      expect.objectContaining({ operator: 'xpath_exists', expected: '/*' }),
+    ]);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('applies JSON Schema via onApplyPredicate when editing a matcher row', () => {
+    const onApplyPredicate = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="schema"
+        predicateExpected={{ type: 'object' }}
+        onApply={vi.fn()}
+        onApplyPredicate={onApplyPredicate}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-schema-preset-Required id'));
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyPredicate).toHaveBeenCalledWith(expect.objectContaining({ operator: 'jsonSchema' }));
+  });
+
+  it('applies XML schema names through onApplyConditions', () => {
+    const { onApplyConditions, onClose } = renderModal();
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-schema'));
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-schema-kind-xml'));
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyConditions).toHaveBeenCalledWith([
+      expect.objectContaining({ operator: 'xmlSchema' }),
+    ]);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('opens schema tab as XML when the expected value is not JSON', () => {
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="schema"
+        predicateExpected="Order, Id"
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-toolbox-schema-kind-xml').className).toContain('active');
+  });
+
+  it('keeps xmlSchema object expected on the XML tab instead of treating it as JSON Schema', () => {
+    const onApplyPredicate = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="schema"
+        predicateOperator="xmlSchema"
+        predicateExpected={{ required: ['Order'] }}
+        onApply={vi.fn()}
+        onApplyPredicate={onApplyPredicate}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-toolbox-schema-kind-xml').className).toContain('active');
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyPredicate).toHaveBeenCalledWith(expect.objectContaining({ operator: 'xmlSchema' }));
+  });
+
+  it('applies xpath_equals via onApplyPredicate', () => {
+    const onApplyPredicate = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="xpath"
+        onApply={vi.fn()}
+        onApplyPredicate={onApplyPredicate}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-xpath-value'), { target: { value: 'open' } });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyPredicate).toHaveBeenCalledWith(expect.objectContaining({
+      operator: 'xpath_equals',
+      expected: ['/*', 'open'],
+    }));
+  });
+
+  it('applies jsonPath via onApplyPredicate', () => {
+    const onApplyPredicate = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="jsonpath"
+        onApply={vi.fn()}
+        onApplyPredicate={onApplyPredicate}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyPredicate).toHaveBeenCalledWith(expect.objectContaining({
+      operator: expect.stringMatching(/^jsonPath_/),
+    }));
+  });
+
+  it('keeps regex patterns that already start with /', () => {
+    const { onApply } = renderModal({ kind: 'regex', value: '/users/' });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ kind: 'regex', value: '/users/' }));
+  });
+
+  it('does not rewrite a predicate row when Apply is used on the Path tab', () => {
+    const onApply = vi.fn();
+    const onApplyPredicate = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'parameterized', value: '/users/:id' }}
+        initialTab="path"
+        predicateOperator="jsonSchema"
+        predicateExpected="{}"
+        onApply={onApply}
+        onApplyPredicate={onApplyPredicate}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onApplyPredicate).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not rewrite a schema matcher when Apply is used on the Regex tab', () => {
+    const onApply = vi.fn();
+    const onApplyPredicate = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'regex', value: '^[0-9]+$' }}
+        initialTab="regex"
+        predicateOperator="jsonSchema"
+        predicateExpected="{}"
+        onApply={onApply}
+        onApplyPredicate={onApplyPredicate}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onApplyPredicate).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('identity-applies an existing jsonPath_exists matcher instead of replacing it with the sample', () => {
+    const onApplyPredicate = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="jsonpath"
+        predicateOperator="jsonPath_exists"
+        predicateExpected="$.user.email"
+        onApply={vi.fn()}
+        onApplyPredicate={onApplyPredicate}
+        onClose={vi.fn()}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-toolbox-jsonpath') as HTMLInputElement).value).toBe('$.user.email');
+    expect((screen.getByTestId('api-mock-toolbox-json-expected') as HTMLInputElement).value).toBe('');
+    expect(screen.getByTestId('api-mock-toolbox-apply').textContent).toBe('Apply matcher');
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyPredicate).toHaveBeenCalledWith({
+      source: 'body',
+      selector: '',
+      operator: 'jsonPath_exists',
+      expected: '$.user.email',
+    });
+  });
+
+  it('identity-applies an existing xpath_equals matcher', () => {
+    const onApplyPredicate = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="xpath"
+        predicateOperator="xpath_equals"
+        predicateExpected={['//status', 'open']}
+        onApply={vi.fn()}
+        onApplyPredicate={onApplyPredicate}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyPredicate).toHaveBeenCalledWith(expect.objectContaining({
+      operator: 'xpath_equals',
+      expected: ['//status', 'open'],
+    }));
+  });
+
+  it('applies an unanchored glob without converting it to a regex', () => {
+    const onApply = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="regex"
+        predicateOperator="glob"
+        predicateExpected="*.png"
+        onApply={onApply}
+        onApplyPredicate={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-toolbox-regex') as HTMLInputElement).value).toBe('*.png');
+    expect(screen.getByText('Valid')).toBeTruthy();
+    fireEvent.change(screen.getAllByLabelText('Sample value')[0], { target: { value: 'logo.png' } });
+    expect(document.querySelectorAll('.am-sample-row')[0].className).toContain('pass');
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ kind: 'glob', value: '*.png' }));
+  });
+
+  it('live-samples an unanchored path regex with the same ^…$ wrap Apply writes', () => {
+    const { onApply } = renderModal({ kind: 'regex', value: '^[0-9]+$' });
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-regex'), { target: { value: '42' } });
+    const rows = document.querySelectorAll('.am-sample-row');
+    expect(rows[0].className).toContain('pass');
+    expect(rows[3].className).toContain('pass');
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ kind: 'regex', value: '^42$' }));
+  });
+
+  it('seeds Ignore case from the predicate row instead of the route path flags', () => {
+    const onApply = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'regex', value: '/users', flags: { caseInsensitive: true } }}
+        initialTab="regex"
+        predicateOperator="regex"
+        predicateExpected="admin"
+        predicateCaseInsensitive={false}
+        onApply={onApply}
+        onApplyPredicate={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'regex',
+      value: 'admin',
+      flags: undefined,
+    }));
+  });
+
+  it('applies Ignore case from a case-insensitive predicate row', () => {
+    const onApply = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="regex"
+        predicateOperator="regex"
+        predicateExpected="Admin"
+        predicateCaseInsensitive
+        onApply={onApply}
+        onApplyPredicate={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'regex',
+      flags: { caseInsensitive: true },
+    }));
+  });
+
+  it('does not copy a JSONPath expected value into the schema editor', () => {
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/x' }}
+        initialTab="schema"
+        predicateOperator="jsonPath_exists"
+        predicateExpected="$.user.email"
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-toolbox-schema-editor') as HTMLTextAreaElement).value).toContain('"type": "object"');
   });
 });

@@ -90,5 +90,5 @@ export function applyResponseTransforms(
     }
   }
 
-  return { rendered: { status, headers, body }, applied, errors };
+  return { rendered: { ...rendered, status, headers, body }, applied, errors };
 }

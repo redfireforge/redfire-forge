@@ -3,6 +3,10 @@ import type { ApiMockRouteV1, ApiMockResponseCookieV1, ApiMockResponseVariantV1 
 import { createDefaultResponse } from '../../../shared/api-mock/defaults';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { ApiMockVariantOutboundPanel } from './ApiMockVariantOutboundPanel';
+import { ApiMockBodyEditor } from './ApiMockBodyEditor';
+import DataMapperModal from '../../../shared/components/data-mapper/DataMapperModal';
+import { createApiMockBodyAdapter } from '../../../shared/components/data-mapper/adapters/apiMockBodyAdapter';
+import { parseBodyJson } from '../../../shared/components/data-mapper/adapters/requestBodyAdapter';
 import {
   CONTENT_TYPE_PRESETS,
   CUSTOM_CONTENT_TYPE,
@@ -128,6 +132,17 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
 
   const [formatError, setFormatError] = useState<string | undefined>();
   const [customContentType, setCustomContentType] = useState(false);
+  const [mapperSession, setMapperSession] = useState<{
+    adapter: ReturnType<typeof createApiMockBodyAdapter>;
+    initial: string;
+    variantId: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (mapperSession && mapperSession.variantId !== activeVariant?.id) {
+      setMapperSession(null);
+    }
+  }, [activeVariant?.id, mapperSession]);
 
   const contentTypeValue = activeVariant?.body.contentType;
   // Sticky so picking "Custom…" reveals the field before anything is typed.
@@ -136,6 +151,7 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
   const bodyText = activeVariant?.body.content ?? '';
   const bodyIsTemplate = /\{\{[^}]+\}\}/.test(bodyText);
   const bodyBytes = new TextEncoder().encode(bodyText).length;
+  const canMapBody = !bodyText.trim() || parseBodyJson(bodyText) != null;
 
   const setBody = (content: string) => {
     if (!activeVariant) return;
@@ -370,6 +386,25 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                       <button
                         type="button"
                         className="am-btn small ghost"
+                        onClick={() => {
+                          if (!activeVariant) return;
+                          setMapperSession({
+                            adapter: createApiMockBodyAdapter({
+                              existingBody: bodyText,
+                              pathParams: route.path.paramNames ?? [],
+                              pathPattern: route.path.value,
+                            }),
+                            initial: bodyText,
+                            variantId: activeVariant.id,
+                          });
+                        }}
+                        disabled={!canMapBody}
+                        title={canMapBody ? 'Map request helpers onto this JSON body' : 'Map body works on JSON object bodies'}
+                        data-testid="api-mock-body-map"
+                      >Map body</button>
+                      <button
+                        type="button"
+                        className="am-btn small ghost"
                         onClick={formatBody}
                         disabled={!bodyText.trim()}
                         title="Pretty-print JSON"
@@ -383,14 +418,28 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                         data-testid="api-mock-body-clear"
                       >Clear</button>
                     </div>
-                    <textarea
-                      className="am-textarea am-body-editor"
+                    <ApiMockBodyEditor
                       value={bodyText}
-                      placeholder={'{\n  "id": "{{pathParam id}}",\n  "createdAt": "{{now}}"\n}'}
-                      spellCheck={false}
-                      onChange={e => setBody(e.target.value)}
-                      data-testid="api-mock-variant-body"
+                      onChange={setBody}
+                      language={
+                        (activeVariant.body.contentType ?? '').includes('xml') || activeVariant.body.kind === 'xml'
+                          ? 'xml'
+                          : (activeVariant.body.contentType ?? '').includes('html') || activeVariant.body.kind === 'html'
+                            ? 'html'
+                            : (activeVariant.body.contentType ?? '').includes('json') || activeVariant.body.kind === 'json'
+                              ? 'json'
+                              : 'plaintext'
+                      }
                     />
+                    {mapperSession && mapperSession.variantId === activeVariant?.id && (
+                      <DataMapperModal
+                        adapter={mapperSession.adapter}
+                        initialData={mapperSession.initial}
+                        onSave={output => { setBody(output); setMapperSession(null); }}
+                        onCancel={() => setMapperSession(null)}
+                        doneLabel="Apply body"
+                      />
+                    )}
                     {formatError && (
                       <div className="am-hint am-hint--error" data-testid="api-mock-body-format-error">{formatError}</div>
                     )}
