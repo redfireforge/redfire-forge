@@ -1,5 +1,8 @@
 //! Predicate evaluation — native subset with fail-closed NOT on unevaluated operators.
 
+use crate::api_mock::matchers::{
+    match_multipart_field, match_multipart_file, match_xml_schema, match_xpath_equals, match_xpath_exists,
+};
 use crate::api_mock::path_match::{match_path, strip_base_path};
 use crate::api_mock::types::{
     CapturedRequest, Predicate, PredicateGroup, PredicateNode, PredicateOptions, Route,
@@ -12,13 +15,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
-pub const NATIVE_UNAVAILABLE_OPERATORS: &[&str] = &[
-    "xpath_exists",
-    "xpath_equals",
-    "xmlSchema",
-    "multipart_field",
-    "multipart_file",
-];
+pub const NATIVE_UNAVAILABLE_OPERATORS: &[&str] = &[];
 
 #[derive(Debug, Clone)]
 pub struct PredicateResult {
@@ -125,20 +122,6 @@ fn evaluate_single(
     path_params: &HashMap<String, String>,
     results: &mut Vec<PredicateResult>,
 ) -> bool {
-    if NATIVE_UNAVAILABLE_OPERATORS.contains(&pred.operator.as_str()) {
-        results.push(PredicateResult {
-            predicate_id: pred.id.clone(),
-            source: pred.source.clone(),
-            operator: pred.operator.clone(),
-            passed: false,
-            evaluated: false,
-            reason: Some(format!(
-                "Operator \"{}\" is not evaluated on the native listener — this condition never matches",
-                pred.operator
-            )),
-        });
-        return false;
-    }
     let values = extract_values(pred, request, path_params);
     let mut passed = if values.is_empty() {
         evaluate_operator(
@@ -146,6 +129,7 @@ fn evaluate_single(
             &None,
             pred.expected.as_ref(),
             pred.options.as_ref(),
+            request.content_type.as_deref(),
         )
     } else {
         values.iter().any(|v| {
@@ -154,6 +138,7 @@ fn evaluate_single(
                 &Some(v.clone()),
                 pred.expected.as_ref(),
                 pred.options.as_ref(),
+                request.content_type.as_deref(),
             )
         })
     };
@@ -284,6 +269,7 @@ fn evaluate_operator(
     value: &Option<String>,
     expected: Option<&Value>,
     options: Option<&PredicateOptions>,
+    content_type: Option<&str>,
 ) -> bool {
     let ci = !options.and_then(|o| o.case_sensitive).unwrap_or(true);
     match operator {
@@ -297,25 +283,16 @@ fn evaluate_operator(
                 None => false,
             }
         }
+        // TypeScript ignores caseSensitive for contains/prefix/suffix.
         "contains" => value
             .as_ref()
-            .is_some_and(|v| contains_ci(v, &expected_str(expected), ci)),
-        "prefix" => value.as_ref().is_some_and(|v| {
-            if ci {
-                v.to_ascii_lowercase()
-                    .starts_with(&expected_str(expected).to_ascii_lowercase())
-            } else {
-                v.starts_with(&expected_str(expected))
-            }
-        }),
-        "suffix" => value.as_ref().is_some_and(|v| {
-            if ci {
-                v.to_ascii_lowercase()
-                    .ends_with(&expected_str(expected).to_ascii_lowercase())
-            } else {
-                v.ends_with(&expected_str(expected))
-            }
-        }),
+            .is_some_and(|v| v.contains(&expected_str(expected))),
+        "prefix" => value
+            .as_ref()
+            .is_some_and(|v| v.starts_with(&expected_str(expected))),
+        "suffix" => value
+            .as_ref()
+            .is_some_and(|v| v.ends_with(&expected_str(expected))),
         "regex" => value.as_ref().is_some_and(|v| {
             RegexBuilder::new(&expected_str(expected))
                 .case_insensitive(ci)
@@ -332,20 +309,39 @@ fn evaluate_operator(
                 .unwrap_or(false)
         }),
         "json_strict" => match (value, expected) {
-            (Some(raw), Some(exp)) => serde_json::from_str::<Value>(raw)
-                .ok()
-                .is_some_and(|parsed| parsed == *exp),
+            (Some(raw), Some(exp)) => {
+                let Some(want) = coerce_json_expected(exp) else {
+                    return false;
+                };
+                serde_json::from_str::<Value>(raw)
+                    .ok()
+                    .is_some_and(|parsed| parsed == want)
+            }
             _ => false,
         },
         "json_subset" => match (value, expected) {
-            (Some(raw), Some(exp)) => serde_json::from_str::<Value>(raw)
-                .ok()
-                .is_some_and(|parsed| deep_subset_match(&parsed, exp, "").matched),
+            (Some(raw), Some(exp)) => {
+                let Some(want) = coerce_json_expected(exp) else {
+                    return false;
+                };
+                serde_json::from_str::<Value>(raw)
+                    .ok()
+                    .is_some_and(|parsed| deep_subset_match(&parsed, &want, "").matched)
+            }
             _ => false,
         },
         "jsonPath_exists" => json_path_exists(value, expected),
         "jsonPath_equals" => json_path_equals(value, expected, options),
         "jsonSchema" => json_schema_ok(value, expected),
+        "xmlSchema" => match_xml_schema(value.as_deref(), expected),
+        "xpath_exists" => match_xpath_exists(value.as_deref(), expected),
+        "xpath_equals" => match_xpath_equals(
+            value.as_deref(),
+            expected,
+            options.and_then(|o| o.match_style.as_deref()),
+        ),
+        "multipart_field" => match_multipart_field(value.as_deref(), expected, content_type),
+        "multipart_file" => match_multipart_file(value.as_deref(), expected, content_type),
         "binary_sha256" => value.as_ref().is_some_and(|v| {
             let digest = hex::encode(Sha256::digest(v.as_bytes()));
             digest.eq_ignore_ascii_case(&expected_str(expected))
@@ -355,15 +351,6 @@ fn evaluate_operator(
             match_form(operator, value, expected)
         }
         _ => false,
-    }
-}
-
-fn contains_ci(hay: &str, needle: &str, ci: bool) -> bool {
-    if ci {
-        hay.to_ascii_lowercase()
-            .contains(&needle.to_ascii_lowercase())
-    } else {
-        hay.contains(needle)
     }
 }
 
@@ -386,14 +373,13 @@ fn glob_to_regex(glob: &str) -> String {
 
 fn json_path_exists(value: &Option<String>, expected: Option<&Value>) -> bool {
     let Some(raw) = value else { return false };
+    let Some(Value::String(path)) = expected else {
+        return false;
+    };
     let Ok(parsed) = serde_json::from_str::<Value>(raw) else {
         return false;
     };
-    let path = expected_str(expected);
-    if path.is_empty() {
-        return false;
-    }
-    path_exists(&parsed, &path)
+    path_exists(&parsed, path)
 }
 
 fn json_path_equals(
@@ -462,13 +448,22 @@ fn format_json_path_value(v: &Value) -> String {
     }
 }
 
+fn coerce_json_expected(exp: &Value) -> Option<Value> {
+    match exp {
+        Value::String(s) => serde_json::from_str(s).ok(),
+        other => Some(other.clone()),
+    }
+}
+
 fn json_schema_ok(value: &Option<String>, expected: Option<&Value>) -> bool {
     let Some(raw) = value else { return false };
     let Ok(instance) = serde_json::from_str::<Value>(raw) else {
         return false;
     };
-    let Some(schema) = expected else { return false };
-    jsonschema::validator_for(schema)
+    let Some(schema) = expected.and_then(coerce_json_expected) else {
+        return false;
+    };
+    jsonschema::validator_for(&schema)
         .map(|v| v.is_valid(&instance))
         .unwrap_or(false)
 }

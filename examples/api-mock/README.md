@@ -2,6 +2,8 @@
 
 Headless helpers for a saved workspace (native JSON/YAML export or the sample below).
 
+**Full guides (Phase 12D):** [`docs/guides/api-mock/`](../../docs/guides/api-mock/) — getting started, walkthrough, CLI deep-dive, compatibility matrix.
+
 ## Sample definition
 
 `sample-workspace.json` — one mock server on `:4600` (`host: 0.0.0.0` so Docker published ports work) with `GET /health`.

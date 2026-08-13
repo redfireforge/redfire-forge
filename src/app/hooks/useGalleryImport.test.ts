@@ -11,13 +11,20 @@ vi.mock('../../shared/utils/storage', async (importOriginal) => {
     savePreviewSampleId: vi.fn(),
   };
 });
-import { renderHook, act } from '@testing-library/react';
+const importApiMockGalleryServer = vi.fn();
+const loadGalleryImportTracking = vi.fn().mockResolvedValue({});
+vi.mock('../../features/api-mock/apiMockGalleryImport', () => ({
+  importApiMockGalleryServer: (...args: unknown[]) => importApiMockGalleryServer(...args),
+  loadGalleryImportTracking: (...args: unknown[]) => loadGalleryImportTracking(...args),
+}));
+import { renderHook, act, waitFor } from '@testing-library/react';
 import * as storage from '../../shared/utils/storage';
 import { useGalleryImport } from './useGalleryImport';
 import type { GalleryEntry, GalleryDomain } from '../../data/galleries/types';
 import type { Environment, Microservice, RequestCollection } from '../../shared/types';
 import { LOADED_SENTINEL } from '../../features/gallery/GalleryPage';
 import type { Workflow } from '../../features/workflow/types/workflow';
+import { createHealthCheckMock } from '../../data/galleries/api-mock';
 
 function makeDeps(overrides = {}) {
   return {
@@ -70,6 +77,11 @@ describe('useGalleryImport', () => {
     resetAllMocks();
     vi.mocked(storage.loadSharedDataSources).mockResolvedValue([]);
     vi.mocked(storage.saveSharedDataSources).mockResolvedValue(undefined);
+    importApiMockGalleryServer.mockResolvedValue({
+      server: createHealthCheckMock(),
+      sampleHash: 'hash-1',
+    });
+    loadGalleryImportTracking.mockResolvedValue({});
   });
 
   describe('importedSamples', () => {
@@ -358,6 +370,36 @@ describe('useGalleryImport', () => {
         await result.current.onImportTest(entry);
       });
       expect(storage.saveSharedDataSources).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onImportApiMock', () => {
+    it('imports a mock server and opens API Mock Studio', async () => {
+      const deps = makeDeps();
+      const entry = makeEntry('api-mock', {
+        id: 'am-gallery-health',
+        factory: () => createHealthCheckMock(),
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      await act(async () => {
+        await result.current.onImportApiMock(entry);
+      });
+      expect(importApiMockGalleryServer).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Health check mock' }),
+        'am-gallery-health',
+      );
+      expect(deps.setActiveTab).toHaveBeenCalledWith('api-mock-studio');
+      await waitFor(() => {
+        expect(result.current.importedSamples['am-gallery-health']).toBe('hash-1');
+      });
+    });
+
+    it('navigates to api-mock-studio for already-imported samples', () => {
+      const deps = makeDeps();
+      const entry = makeEntry('api-mock', { id: 'am-gallery-health' });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      act(() => result.current.onNavigateTo(entry));
+      expect(deps.setActiveTab).toHaveBeenCalledWith('api-mock-studio');
     });
   });
 

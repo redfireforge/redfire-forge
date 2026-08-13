@@ -239,7 +239,7 @@
   padding: 6px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
 }
 .api-mock-titlebar .am-title-block { flex: 0 0 auto; min-width: 140px; }
-.api-mock-titlebar .am-page-title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.api-mock-titlebar .am-page-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.2; letter-spacing: -0.01em; }
 .api-mock-titlebar .am-page-subtitle { color: var(--text-muted); font-size: 11px; line-height: 1.3; }
 .api-mock-titlebar .am-titlebar-tabs { flex: 1; min-width: 0; }
 .api-mock-titlebar .am-dropdown { position: relative; flex: 0 0 auto; }
@@ -268,26 +268,61 @@
   padding: 0; min-height: 0; background: transparent; border-bottom: 0;
 }
 .api-mock-server-tabs .am-server-tab {
-  height: 33px; display: flex; align-items: center; gap: 8px;
-  padding: 0 10px; border: 1px solid transparent; border-bottom: 0;
-  border-radius: 6px 6px 0 0; background: transparent;
-  color: var(--text-muted); cursor: pointer; white-space: nowrap;
-  font: 500 12px/1.2 inherit;
-  letter-spacing: 0.01em;
+  position: relative;
+  min-height: 29px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+  transition: color 0.12s, background 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
-.api-mock-server-tabs .am-server-tab:hover { color: var(--text); background: var(--surface-hover); }
+.api-mock-server-tabs .am-server-tab:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-hover) 80%, transparent);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+.api-mock-server-tabs .am-server-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
 .api-mock-server-tabs .am-server-tab.active {
-  color: var(--text); background: var(--bg);
-  border-color: var(--border); border-bottom-color: var(--bg);
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--border);
+  box-shadow: 0 -1px 0 var(--bg);
+  z-index: 1;
   margin-bottom: -1px;
-  font-weight: 600;
+  padding-bottom: 1px;
+  font-weight: 500;
+}
+.api-mock-server-tabs .am-server-tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
 }
 /* Keep name + :port in one UI face — no mono mix, no flex gap before the colon. */
 .api-mock-server-tabs .am-server-tab-label {
   display: inline-flex;
   align-items: baseline;
   min-width: 0;
-  max-width: 220px;
+  max-width: 200px;
 }
 .api-mock-server-tabs .am-server-tab-name {
   overflow: hidden;
@@ -297,6 +332,7 @@
   flex: 0 0 auto;
   margin-left: 1px;
   font: inherit;
+  font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
   color: color-mix(in srgb, var(--text-muted) 88%, var(--text));
 }
@@ -309,19 +345,42 @@
 .api-mock-server-tabs .am-server-tab-rename {
   width: 140px;
   min-width: 80px;
-  height: 22px;
+  height: 20px;
   padding: 0 6px;
   background: var(--bg);
   border: 1px solid var(--primary);
   color: var(--text);
   border-radius: 4px;
   font: inherit;
+  font-size: 0.76rem;
 }
 .api-mock-server-tabs .am-tab-close {
-  border: 0; background: transparent; color: var(--am-text-faint);
-  cursor: pointer; padding: 0 2px; font-size: 15px; line-height: 1; border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--am-text-faint);
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 3px;
+  opacity: 0.7;
 }
+.api-mock-server-tabs .am-server-tab:hover .am-tab-close,
+.api-mock-server-tabs .am-server-tab.active .am-tab-close { opacity: 1; }
 .api-mock-server-tabs .am-tab-close:hover { color: var(--text); background: var(--surface-hover); }
+.api-mock-server-tabs .am-icon-btn {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  font-size: 13px;
+  border-radius: 5px;
+  background: transparent;
+}
 
 .api-mock-root .am-status-dot {
   width: 7px; height: 7px; border-radius: 50%; background: var(--am-text-faint); flex: 0 0 auto;

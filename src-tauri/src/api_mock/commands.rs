@@ -143,3 +143,69 @@ pub async fn api_mock_listener_diagnostics(
         Err(e) => err(e),
     })
 }
+
+#[tauri::command]
+pub async fn api_mock_listener_recorded_drafts(
+    state: tauri::State<'_, ApiMockNativeState>,
+    server_id: String,
+) -> Result<Value, String> {
+    Ok(match state.recorded_drafts(&server_id) {
+        Ok(data) => ok(data),
+        Err(e) => err(e),
+    })
+}
+
+#[tauri::command]
+pub async fn api_mock_listener_recorded_drafts_ack(
+    state: tauri::State<'_, ApiMockNativeState>,
+    server_id: String,
+    ids: Option<Vec<String>>,
+) -> Result<Value, String> {
+    let ids = ids.unwrap_or_default();
+    Ok(match state.ack_recorded_drafts(&server_id, &ids) {
+        Ok(data) => ok(data),
+        Err(e) => err(e),
+    })
+}
+
+#[tauri::command]
+pub async fn api_mock_listener_recorded_drafts_clear(
+    state: tauri::State<'_, ApiMockNativeState>,
+    server_id: String,
+) -> Result<Value, String> {
+    Ok(match state.clear_recorded_drafts(&server_id) {
+        Ok(data) => ok(data),
+        Err(e) => err(e),
+    })
+}
+
+/// Next free auto-port in 4600–4699, skipping exclude list and OS-bound ports.
+#[tauri::command]
+pub async fn api_mock_ports_next(exclude: Option<Vec<u16>>) -> Result<Value, String> {
+    use crate::api_mock::registry::is_port_available;
+    let excluded = exclude.unwrap_or_default();
+    for port in 4600u16..=4699 {
+        if excluded.contains(&port) {
+            continue;
+        }
+        if is_port_available(port) {
+            return Ok(ok(json!({ "port": port })));
+        }
+    }
+    Ok(err(NativeError {
+        code: "NO_PORT_AVAILABLE".into(),
+        message: "No available port in 4600-4699".into(),
+    }))
+}
+
+#[tauri::command]
+pub async fn api_mock_ports_probe(port: u16) -> Result<Value, String> {
+    use crate::api_mock::registry::is_port_available;
+    if !(1024..=65535).contains(&port) {
+        return Ok(err(NativeError {
+            code: "INVALID_PORT".into(),
+            message: "Port must be 1024-65535".into(),
+        }));
+    }
+    Ok(ok(json!({ "port": port, "available": is_port_available(port) })))
+}

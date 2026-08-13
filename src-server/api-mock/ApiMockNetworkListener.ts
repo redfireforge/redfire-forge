@@ -46,6 +46,12 @@ import { peerCertificateAttrs, validateTlsMaterial } from './apiMockTls.js';
 import { stripHopByHopHeaders } from '../../src/shared/api-mock/proxyPolicy.js';
 import { ListenerDiagnosticsCollector, countRoutePredicates } from '../../src/shared/api-mock/localDiagnostics.js';
 import type { ApiMockLocalDiagnosticsV1 } from '../../src/shared/api-mock/contracts.js';
+import {
+  corsPreflightHeaders,
+  corsResponseHeaders,
+  isCorsPreflight,
+  requestOriginHeader,
+} from '../../src/shared/api-mock/corsHeaders.js';
 
 /** Server-scoped state key shared by all state-mode routes on this listener. */
 const DEFAULT_STATE_KEY = 'default';
@@ -322,8 +328,14 @@ export class ApiMockNetworkListener {
   ): Promise<void> {
     if (clientGone(req, res)) return;
 
+    if (isCorsPreflight(req.method ?? '', this.definition.settings.cors)) {
+      res.writeHead(204, this.mergeCorsHeaders(req, {}, true));
+      res.end();
+      return;
+    }
+
     if (hasAntiRecursionHeader(req.headers as Record<string, string | string[] | undefined>)) {
-      res.writeHead(508, responseHeadersFor(req, { 'Content-Type': 'application/json' }));
+      res.writeHead(508, this.mergeCorsHeaders(req, { 'Content-Type': 'application/json' }));
       res.end(JSON.stringify({ error: 'loop_detected', message: 'X-RedfireForge-Mock recursion rejected' }));
       return;
     }
@@ -400,7 +412,7 @@ export class ApiMockNetworkListener {
           behavior: variant?.behavior ?? { delayMs: 0, jitterMs: 0 },
           longRunningMaxMs: this.definition.settings.limits.longRunningMaxMs,
           status: rendered.status,
-          headers: rendered.headers,
+          headers: this.mergeCorsHeaders(req, rendered.headers),
           body: rendered.body,
         });
         recordDelivery(
@@ -443,7 +455,7 @@ export class ApiMockNetworkListener {
         requestId,
         competingRuleCount: result.explanation?.candidates?.length ?? 0,
       });
-      res.writeHead(ambResp.status, responseHeadersFor(req, { 'Content-Type': ambResp.contentType }));
+      res.writeHead(ambResp.status, this.mergeCorsHeaders(req, { 'Content-Type': ambResp.contentType }));
       res.end(body);
       recordDelivery(outcome, ambResp.status, body, undefined, undefined, requestId);
       return;
@@ -453,7 +465,7 @@ export class ApiMockNetworkListener {
     if (this.definition.settings.fallback.mode === 'closest_match_debug') {
       if (clientGone(req, res)) return;
       const debug = buildClosestMatchDebugBody(result.explanation, fallback);
-      res.writeHead(debug.status, responseHeadersFor(req, { 'Content-Type': debug.contentType }));
+      res.writeHead(debug.status, this.mergeCorsHeaders(req, { 'Content-Type': debug.contentType }));
       res.end(debug.body);
       recordDelivery(outcome, debug.status, debug.body, undefined, undefined, requestId);
       return;
@@ -463,7 +475,7 @@ export class ApiMockNetworkListener {
     if (this.definition.settings.fallback.mode === 'proxy' && proxy.enabled) {
       const origin = pickAllowlistedOrigin(proxy);
       if (!origin) {
-        res.writeHead(502, responseHeadersFor(req, { 'Content-Type': 'application/json' }));
+        res.writeHead(502, this.mergeCorsHeaders(req, { 'Content-Type': 'application/json' }));
         const errBody = JSON.stringify({ error: 'proxy_misconfigured', message: 'Proxy enabled but allowlist is empty' });
         res.end(errBody);
         recordDelivery('error', 502, errBody);
@@ -481,7 +493,7 @@ export class ApiMockNetworkListener {
       if (!proxied.ok) {
         // Failure isolation: return diagnostic 502 without mutating scenario/sequence.
         const errBody = JSON.stringify({ error: 'proxy_failed', message: proxied.error ?? 'upstream error' });
-        res.writeHead(502, responseHeadersFor(req, { 'Content-Type': 'application/json' }));
+        res.writeHead(502, this.mergeCorsHeaders(req, { 'Content-Type': 'application/json' }));
         res.end(errBody);
         recordDelivery('error', 502, errBody);
         return;
@@ -489,7 +501,7 @@ export class ApiMockNetworkListener {
       const headers = Object.fromEntries(
         Object.entries(proxied.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v]),
       );
-      res.writeHead(proxied.status, responseHeadersFor(req, headers));
+      res.writeHead(proxied.status, this.mergeCorsHeaders(req, headers));
       res.end(proxied.body);
       recordDelivery('proxied', proxied.status, proxied.body, undefined, proxied.headers);
       if (proxy.recordAsDrafts && this.onRecordedDraft) {
@@ -508,7 +520,7 @@ export class ApiMockNetworkListener {
 
     if (clientGone(req, res)) return;
     const fallbackBody = renderFallbackBody(fallback.body, { requestId });
-    res.writeHead(fallback.status, responseHeadersFor(req, { 'Content-Type': fallback.contentType }));
+    res.writeHead(fallback.status, this.mergeCorsHeaders(req, { 'Content-Type': fallback.contentType }));
     res.end(fallbackBody);
     recordDelivery(outcome, fallback.status, fallbackBody, undefined, undefined, requestId);
     } finally {
@@ -553,6 +565,19 @@ export class ApiMockNetworkListener {
       explanation: result.explanation,
       durationMs: Date.now() - startTime,
     });
+  }
+
+  /** Merge Studio CORS headers onto the outbound map (no-op when CORS is off). */
+  private mergeCorsHeaders(
+    req: http.IncomingMessage | http2.Http2ServerRequest,
+    headers: Record<string, string | string[]>,
+    preflight = false,
+  ): Record<string, string | string[]> {
+    const origin = requestOriginHeader(req.headers as Record<string, string | string[] | undefined>);
+    const cors = preflight
+      ? corsPreflightHeaders(this.definition.settings.cors, origin)
+      : corsResponseHeaders(this.definition.settings.cors, origin);
+    return responseHeadersFor(req, { ...headers, ...cors });
   }
 }
 

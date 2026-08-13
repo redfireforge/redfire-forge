@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeNativeUnsupported } from './nativeCapabilities';
+import { analyzeNativeUnsupported, NATIVE_UNAVAILABLE_OPERATORS } from './nativeCapabilities';
 import { DEFAULT_SETTINGS } from './defaults';
 import type { ApiMockServerDefinitionV1 } from './contracts';
 
@@ -29,28 +29,53 @@ describe('analyzeNativeUnsupported', () => {
     expect(analyzeNativeUnsupported(def())).toEqual([]);
   });
 
-  it('warns about native HTTPS HTTP/1.1 and passphrase keys', () => {
+  it('does not warn about native HTTPS HTTP/2', () => {
     const codes = analyzeNativeUnsupported(def({
       settings: {
         ...DEFAULT_SETTINGS,
         tls: { enabled: true, certPem: 'c', keyPem: 'k', passphrase: 'x' },
       },
     })).map(w => w.code);
-    expect(codes).toContain('NATIVE_NO_HTTP2');
-    expect(codes).toContain('NATIVE_NO_KEY_PASSPHRASE');
+    expect(codes).not.toContain('NATIVE_NO_HTTP2');
+    expect(codes).not.toContain('NATIVE_NO_KEY_PASSPHRASE');
   });
 
-  it('warns when proxy is enabled even if fallback is not proxy', () => {
+  it('does not warn when proxy is enabled but fallback is not proxy', () => {
     const codes = analyzeNativeUnsupported(def({
       settings: {
         ...DEFAULT_SETTINGS,
         proxy: { ...DEFAULT_SETTINGS.proxy!, enabled: true },
       },
     })).map(w => w.code);
-    expect(codes).toContain('NATIVE_NO_PROXY');
+    expect(codes).not.toContain('NATIVE_NO_PROXY');
+    expect(codes).not.toContain('NATIVE_NO_RECORDING');
   });
 
-  it('walks nested predicate groups and variant conditions', () => {
+  it('does not warn when unmatched proxy would record drafts', () => {
+    const codes = analyzeNativeUnsupported(def({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        fallback: { ...DEFAULT_SETTINGS.fallback, mode: 'proxy' },
+        proxy: { ...DEFAULT_SETTINGS.proxy!, enabled: true, recordAsDrafts: true },
+      },
+    })).map(w => w.code);
+    expect(codes).not.toContain('NATIVE_NO_RECORDING');
+    expect(codes).not.toContain('NATIVE_NO_PROXY');
+  });
+
+  it('does not warn NATIVE_NO_RECORDING when recordAsDrafts is off', () => {
+    const codes = analyzeNativeUnsupported(def({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        fallback: { ...DEFAULT_SETTINGS.fallback, mode: 'proxy' },
+        proxy: { ...DEFAULT_SETTINGS.proxy!, enabled: true, recordAsDrafts: false },
+      },
+    })).map(w => w.code);
+    expect(codes).not.toContain('NATIVE_NO_RECORDING');
+    expect(codes).not.toContain('NATIVE_NO_PROXY');
+  });
+
+  it('does not warn for xpath, xmlSchema, multipart, faker, or dribble', () => {
     const ts = '2026-08-13T00:00:00.000Z';
     const codes = analyzeNativeUnsupported(def({
       routes: [{
@@ -78,17 +103,19 @@ describe('analyzeNativeUnsupported', () => {
         tags: [], createdAt: ts, updatedAt: ts,
       }],
     })).map(w => w.code);
-    expect(codes).toEqual(expect.arrayContaining(['NATIVE_UNAVAILABLE_OPERATOR', 'NATIVE_NO_FAKER', 'NATIVE_LIMITED_FAULTS']));
+    expect(codes).not.toContain('NATIVE_UNAVAILABLE_OPERATOR');
+    expect(codes).not.toContain('NATIVE_LIMITED_FAULTS');
+    expect(codes).not.toContain('NATIVE_NO_FAKER');
   });
 
-  it('warns for settings callback allowlist without route callbacks', () => {
+  it('does not warn for settings callback allowlist', () => {
     const codes = analyzeNativeUnsupported(def({
       settings: { ...DEFAULT_SETTINGS, callbacks: { allowlist: ['https://hook.test'] } },
     })).map(w => w.code);
-    expect(codes).toContain('NATIVE_NO_CALLBACKS');
+    expect(codes).not.toContain('NATIVE_NO_CALLBACKS');
   });
 
-  it('warns for malformed faults without other extras', () => {
+  it('does not warn for malformed faults or HTTPS HTTP/2', () => {
     const ts = '2026-08-13T00:00:00.000Z';
     const codes = analyzeNativeUnsupported(def({
       settings: { ...DEFAULT_SETTINGS, tls: { enabled: true, certPem: 'c', keyPem: 'k' } },
@@ -107,12 +134,12 @@ describe('analyzeNativeUnsupported', () => {
         tags: [], createdAt: ts, updatedAt: ts,
       }],
     })).map(w => w.code);
-    expect(codes).toContain('NATIVE_NO_HTTP2');
-    expect(codes).toContain('NATIVE_LIMITED_FAULTS');
+    expect(codes).not.toContain('NATIVE_NO_HTTP2');
+    expect(codes).not.toContain('NATIVE_LIMITED_FAULTS');
     expect(codes).not.toContain('NATIVE_NO_KEY_PASSPHRASE');
   });
 
-  it('warns about proxy, callbacks, transforms, disk journal, faker, and limited faults', () => {
+  it('implemented features have no native warnings', () => {
     const server = def({
       settings: {
         ...DEFAULT_SETTINGS,
@@ -142,14 +169,48 @@ describe('analyzeNativeUnsupported', () => {
       }],
     });
     const codes = analyzeNativeUnsupported(server).map(w => w.code);
-    expect(codes).toEqual(expect.arrayContaining([
-      'NATIVE_NO_PROXY',
-      'NATIVE_NO_CALLBACKS',
-      'NATIVE_NO_TRANSFORMS',
-      'NATIVE_NO_JOURNAL_DISK',
-      'NATIVE_NO_FAKER',
-      'NATIVE_LIMITED_FAULTS',
-      'NATIVE_UNAVAILABLE_OPERATOR',
-    ]));
+    expect(codes).toEqual([]);
+    expect(codes).not.toContain('NATIVE_NO_RECORDING');
+    expect(codes).not.toContain('NATIVE_NO_CALLBACKS');
+    expect(codes).not.toContain('NATIVE_NO_JOURNAL_DISK');
+    expect(codes).not.toContain('NATIVE_LIMITED_FAULTS');
+    expect(codes).not.toContain('NATIVE_UNAVAILABLE_OPERATOR');
+    expect(codes).not.toContain('NATIVE_NO_TRANSFORMS');
+    expect(codes).not.toContain('NATIVE_NO_FAKER');
+    expect(codes).not.toContain('NATIVE_NO_PROXY');
+  });
+
+  it('reports unsupported operators when configured', () => {
+    const operators = NATIVE_UNAVAILABLE_OPERATORS as string[];
+    operators.push('jsonSchema');
+    try {
+      const codes = analyzeNativeUnsupported(def({
+        routes: [{
+          id: 'r', name: 'R', enabled: true, method: 'GET',
+          path: { kind: 'exact', value: '/' },
+          priority: 10,
+          predicates: { id: 'g', combinator: 'all', children: [
+            { id: 'p', source: 'body', operator: 'jsonSchema', expected: '{}' },
+          ] },
+          responseMode: 'rules',
+          responses: [{
+            id: 'v', name: 'V', enabled: true, isDefault: true, status: 200,
+            headers: [], cookies: [],
+            body: { kind: 'none', content: '' },
+            behavior: { delayMs: 0, jitterMs: 0 },
+          }],
+          tags: [], createdAt: ts, updatedAt: ts,
+        }],
+      }));
+
+      expect(codes).toEqual([
+        expect.objectContaining({
+          code: 'NATIVE_UNAVAILABLE_OPERATOR',
+          message: expect.stringContaining('jsonSchema'),
+        }),
+      ]);
+    } finally {
+      operators.pop();
+    }
   });
 });

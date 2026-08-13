@@ -194,6 +194,7 @@ export function ApiMockDock({
         aria-controls={DOCK_PANEL_ID}
         tabIndex={active ? 0 : -1}
         className={`am-dock-tab${active ? ' active' : ''}`}
+        data-testid={`api-mock-dock-tab-${id}`}
         onClick={() => selectTab(id)}
       >
         {content}

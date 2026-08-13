@@ -7,6 +7,7 @@ import { ApiMockStudioEmptyState } from './components/ApiMockStudioEmptyState';
 import { ApiMockStudioModals } from './components/ApiMockStudioModals';
 import { ApiMockStudioActiveSection } from './components/ApiMockStudioActiveSection';
 import { loadApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
+import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
 import { mergeRecordedDraftsIntoRoutes } from '../../shared/api-mock/proxyRecording';
@@ -26,7 +27,6 @@ import {
   mergeConflictAcknowledgements,
   mergeRuntimeInfo,
   parsePortOwnerServerId,
-  pickNextAutoPort,
   API_MOCK_MAX_TABS,
   removeClosedServers,
   reorderServers,
@@ -75,11 +75,13 @@ export function ApiMockStudioPage() {
   // Persistence: hydrate from storage on mount, then autosave definitions.
   const hydratedRef = useRef(false);
   const latestRef = useRef<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string }>({ servers: [], activeServerId: undefined });
+  const autosaveTimerRef = useRef<number | undefined>(undefined);
   latestRef.current = { servers, activeServerId };
 
   useEffect(() => {
     let cancelled = false;
     void loadApiMockWorkspace().then(state => {
+      if (cancelled) return;
       const hydrated = computeHydrationResult(cancelled, state);
       if (hydrated.shouldApply) {
         setServers(hydrated.servers);
@@ -87,13 +89,40 @@ export function ApiMockStudioPage() {
       }
       hydratedRef.current = true;
     });
-    return () => { cancelled = true; };
+    const onWorkspaceChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string }>).detail;
+      if (!detail?.servers) return;
+      // Cancel a pending autosave that could overwrite the imported workspace.
+      if (autosaveTimerRef.current != null) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = undefined;
+      }
+      latestRef.current = { servers: detail.servers, activeServerId: detail.activeServerId };
+      setServers(detail.servers);
+      setActiveServerId(detail.activeServerId);
+      setMainView('studio');
+      setLiveMessage('Gallery mock server imported.');
+      hydratedRef.current = true;
+    };
+    window.addEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
+    };
   }, []);
 
   useEffect(() => {
     if (!hydratedRef.current) return;
-    const timer = window.setTimeout(() => { void saveApiMockWorkspace(latestRef.current); }, 300);
-    return () => window.clearTimeout(timer);
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = undefined;
+      void saveApiMockWorkspace(latestRef.current);
+    }, 300);
+    return () => {
+      if (autosaveTimerRef.current != null) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = undefined;
+      }
+    };
   }, [servers, activeServerId]);
 
   // Flush the latest state on unmount so navigating away never drops a pending save.
@@ -178,18 +207,19 @@ export function ApiMockStudioPage() {
       confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
       return;
     }
-    let port: number;
-    try {
-      port = pickNextAutoPort(servers);
-    } catch {
-      confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
-      return;
-    }
-    const srv = createServer(servers.length + 1, port);
-    setServers(prev => [...prev, srv]);
-    setActiveServerId(srv.id);
-    setSelectedRouteId(undefined);
-    setLiveMessage(`${srv.name} created on port ${port}.`);
+    void (async () => {
+      const portRes = await apiMockControlClient.nextAutoPort(servers.map(s => s.port));
+      if (!portRes.ok) {
+        confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
+        return;
+      }
+      const port = portRes.data.port;
+      const srv = createServer(servers.length + 1, port);
+      setServers(prev => [...prev, srv]);
+      setActiveServerId(srv.id);
+      setSelectedRouteId(undefined);
+      setLiveMessage(`${srv.name} created on port ${port}.`);
+    })();
   }, [servers, confirm]);
 
   const finalizeCloseServers = useCallback((targets: Array<{ id: string; name: string }>) => {
@@ -257,24 +287,25 @@ export function ApiMockStudioPage() {
     }
     const source = servers.find(s => s.id === id);
     if (!source) return;
-    let port: number;
-    try {
-      port = pickNextAutoPort(servers);
-    } catch {
-      confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
-      return;
-    }
-    const copy = duplicateServerDefinition(source, port);
-    setServers(prev => {
-      const idx = prev.findIndex(s => s.id === id);
-      const next = [...prev];
-      const insertIndex = Math.max(0, idx) + 1;
-      next.splice(insertIndex, 0, copy);
-      return next;
-    });
-    setActiveServerId(copy.id);
-    setSelectedRouteId(undefined);
-    setLiveMessage(`${copy.name} duplicated on port ${port}.`);
+    void (async () => {
+      const portRes = await apiMockControlClient.nextAutoPort(servers.map(s => s.port));
+      if (!portRes.ok) {
+        confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
+        return;
+      }
+      const port = portRes.data.port;
+      const copy = duplicateServerDefinition(source, port);
+      setServers(prev => {
+        const idx = prev.findIndex(s => s.id === id);
+        const next = [...prev];
+        const insertIndex = Math.max(0, idx) + 1;
+        next.splice(insertIndex, 0, copy);
+        return next;
+      });
+      setActiveServerId(copy.id);
+      setSelectedRouteId(undefined);
+      setLiveMessage(`${copy.name} duplicated on port ${port}.`);
+    })();
   }, [servers, confirm]);
 
   const handleReorderServers = useCallback((fromIndex: number, toIndex: number) => {

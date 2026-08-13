@@ -288,11 +288,57 @@ impl Default for RedactionSettings {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxySettings {
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
+    pub allowlist: Vec<String>,
+    /// Default true — matches Node `proxy?.blockPrivateNetworks ?? true`.
+    #[serde(default = "default_true")]
+    pub block_private_networks: bool,
+    #[serde(default = "default_proxy_redirects")]
+    pub max_redirects: u32,
+    #[serde(default = "default_true")]
+    pub strip_hop_by_hop: bool,
+    #[serde(default)]
+    pub forward_auth: bool,
+    #[serde(default)]
+    pub forward_credential_headers: Vec<String>,
+    #[serde(default = "default_proxy_timeout")]
+    pub timeout_ms: u64,
+    #[serde(default = "default_proxy_max_bytes")]
+    pub max_response_bytes: usize,
+    #[serde(default = "default_true")]
+    pub record_as_drafts: bool,
+}
+
+fn default_proxy_redirects() -> u32 {
+    5
+}
+fn default_proxy_timeout() -> u64 {
+    10_000
+}
+fn default_proxy_max_bytes() -> usize {
+    1_048_576
+}
+
+impl Default for ProxySettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            allowlist: Vec::new(),
+            block_private_networks: true,
+            max_redirects: default_proxy_redirects(),
+            strip_hop_by_hop: true,
+            forward_auth: false,
+            forward_credential_headers: Vec::new(),
+            timeout_ms: default_proxy_timeout(),
+            max_response_bytes: default_proxy_max_bytes(),
+            record_as_drafts: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -467,9 +513,72 @@ pub struct Variant {
     #[serde(default)]
     pub transition: Option<StateTransition>,
     #[serde(default)]
-    pub transforms: Option<Vec<Value>>,
+    pub transforms: Option<Vec<TransformRule>>,
     #[serde(default)]
-    pub callbacks: Option<Vec<Value>>,
+    pub callbacks: Option<Vec<CallbackRule>>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallbackRule {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub url: String,
+    #[serde(default = "default_callback_method")]
+    pub method: String,
+    #[serde(default)]
+    pub headers: Vec<HeaderKV>,
+    #[serde(default)]
+    pub body_template: String,
+    #[serde(default = "default_callback_timeout")]
+    pub timeout_ms: u64,
+    #[serde(default = "default_callback_retries")]
+    pub max_retries: u32,
+}
+
+fn default_callback_method() -> String {
+    "POST".into()
+}
+fn default_callback_timeout() -> u64 {
+    10_000
+}
+fn default_callback_retries() -> u32 {
+    3
+}
+
+impl Default for CallbackRule {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            enabled: false,
+            url: String::new(),
+            method: default_callback_method(),
+            headers: Vec::new(),
+            body_template: String::new(),
+            timeout_ms: default_callback_timeout(),
+            max_retries: default_callback_retries(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TransformRule {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub target: String,
+    #[serde(default)]
+    pub op: String,
+    #[serde(default)]
+    pub key: Option<String>,
+    #[serde(default)]
+    pub value: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
