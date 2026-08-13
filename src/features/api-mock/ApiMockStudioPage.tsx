@@ -1,98 +1,54 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS, createDefaultResponse, EMPTY_PREDICATE_GROUP } from '../../shared/api-mock/defaults';
-import { API_MOCK_WORKSPACE_PANEL_ID, type ApiMockRuntimeStatus } from './components/ApiMockServerTabs';
+import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
 import { ApiMockStudioTitleBar } from './components/ApiMockStudioTitleBar';
-import { ApiMockServerBar } from './components/ApiMockServerBar';
-import { ApiMockRouteExplorer } from './components/ApiMockRouteExplorer';
-import { ApiMockRouteEditor } from './components/ApiMockRouteEditor';
-import { ApiMockDock, type ApiMockDockTab } from './components/ApiMockDock';
-import { ApiMockConflictInspector, conflictPeerLabel } from './components/ApiMockConflictInspector';
-import { ApiMockWorkspaceNav, type ApiMockMainView } from './components/ApiMockWorkspaceNav';
-import { ApiMockLiveStrip } from './components/ApiMockLiveStrip';
-import { ApiMockServerSettingsModal } from './components/ApiMockServerSettingsModal';
-import { ApiMockSimulateModal } from './components/ApiMockSimulateModal';
-import { ApiMockImportReview } from './components/ApiMockImportReview';
+import { type ApiMockDockTab } from './components/ApiMockDock';
+import { type ApiMockMainView } from './components/ApiMockWorkspaceNav';
+import { ApiMockStudioEmptyState } from './components/ApiMockStudioEmptyState';
+import { ApiMockStudioModals } from './components/ApiMockStudioModals';
+import { ApiMockStudioActiveSection } from './components/ApiMockStudioActiveSection';
 import { loadApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
-import { exportFilename, exportWorkspace, serializeExport } from '../../shared/api-mock/exportUtils';
-import { exportWireMockMappings } from '../../shared/api-mock/wireMockExport';
 import { mergeRecordedDraftsIntoRoutes } from '../../shared/api-mock/proxyRecording';
 import type { ApiMockExportRequest } from './components/ApiMockWorkspaceNav';
 import type { ApiMockRouteFolderV1 } from '../../shared/api-mock/contracts';
 import {
-  applyRouteDelete,
   applyRouteUpdate,
   buildRuntimeMaps,
   computeHydrationResult,
-  deriveSimulateDefaults,
+  duplicateServerDefinition,
   findSelectedRoute,
   formatImportedRoutesMessage,
+  formatStopAndCloseMessage,
+  formatTabLimitMessage,
+  TAB_LIMIT_CONFIRM_OPTIONS,
   isLiveRuntimeStatus,
   mergeConflictAcknowledgements,
   mergeRuntimeInfo,
   parsePortOwnerServerId,
   pickNextAutoPort,
-  removeClosedServer,
+  API_MOCK_MAX_TABS,
+  removeClosedServers,
+  reorderServers,
   runConflictAnalysis,
 } from './apiMockPageHelpers';
+import { useApiMockRouteUndo } from './useApiMockRouteUndo';
+import { createRoute, createServer, nowIso, type RuntimeInfo } from './apiMockStudioFactory';
+import { handleApiMockExport } from './apiMockExportActions';
 import {
+  capturedRequestPath,
   copyTransactionToClipboard,
   dispatchOpenInRequests,
+  sampleToOpenInRequestsDetail,
   transactionToOpenInRequestsDetail,
   transactionToRouteDraft,
+  transactionToSample,
 } from './apiMockJournalActions';
 import { useApiMockConsole } from './useApiMockConsole';
 import { analyzeConflicts } from '../../shared/api-mock/conflictAnalyzer';
 import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
-import AppModalFrame from '../../shared/components/AppModalFrame';
 import './api-mock-studio.css';
-
-interface RuntimeInfo {
-  status: ApiMockRuntimeStatus;
-  generation: number;
-  error?: string;
-  appliedJson?: string;
-}
-
-const ts = () => new Date().toISOString();
-
-function createServer(index: number, port: number): ApiMockServerDefinitionV1 {
-  return {
-    id: `srv-${crypto.randomUUID().slice(0, 8)}`,
-    name: `Mock Server ${index}`,
-    enabled: true,
-    host: '127.0.0.1',
-    port,
-    basePath: '',
-    folders: [],
-    routes: [],
-    samples: [],
-    variables: [],
-    settings: { ...DEFAULT_SETTINGS },
-    createdAt: ts(),
-    updatedAt: ts(),
-  };
-}
-
-function createRoute(name: string): ApiMockServerDefinitionV1['routes'][0] {
-  const id = `route-${crypto.randomUUID().slice(0, 8)}`;
-  return {
-    id,
-    name,
-    enabled: true,
-    method: 'GET',
-    path: { kind: 'exact', value: '/' },
-    priority: 10,
-    predicates: { ...EMPTY_PREDICATE_GROUP, id: `pg-${id}` },
-    responseMode: 'rules',
-    responses: [createDefaultResponse(`resp-${id}`)],
-    tags: [],
-    createdAt: ts(),
-    updatedAt: ts(),
-  };
-}
+const ts = nowIso;
 
 export function ApiMockStudioPage() {
   const [servers, setServers] = useState<ApiMockServerDefinitionV1[]>([]);
@@ -102,7 +58,7 @@ export function ApiMockStudioPage() {
   const [runtime, setRuntime] = useState<Record<string, RuntimeInfo>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [simulateOpen, setSimulateOpen] = useState(false);
-  const [simulateSeed, setSimulateSeed] = useState<{ path: string; method: string } | undefined>();
+  const [simulateSeed, setSimulateSeed] = useState<{ path: string; method: string; sampleId?: string } | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [importSource, setImportSource] = useState<'curl' | 'catalog' | 'requests' | 'openapi' | 'wiremock' | 'native' | 'har'>('curl');
   const [conflictIds, setConflictIds] = useState<string[]>([]);
@@ -145,8 +101,12 @@ export function ApiMockStudioPage() {
     if (hydratedRef.current) void saveApiMockWorkspace(latestRef.current);
   }, []);
 
-  // Conflict markers are per-server; clear them when the active server changes.
-  useEffect(() => { setConflictIds([]); }, [activeServerId]);
+  // Conflict markers and Simulate seed are per-server; drop them when the tab changes.
+  useEffect(() => {
+    setConflictIds([]);
+    setSimulateOpen(false);
+    setSimulateSeed(undefined);
+  }, [activeServerId]);
 
   // Never leave the editor blank when the active server has rules (e.g. after
   // hydration or switching tabs) — select the first rule instead.
@@ -162,6 +122,8 @@ export function ApiMockStudioPage() {
   useEffect(() => {
     setTransactions([]);
     setScenarioState(null);
+  }, [activeServerId]);
+  useEffect(() => {
     if (!activeServerId || activeStatus !== 'running') return;
     let cancelled = false;
     const poll = async () => {
@@ -196,6 +158,7 @@ export function ApiMockStudioPage() {
   }, [activeServerId, activeStatus]);
 
   const handleClearTransactions = useCallback(async () => {
+    /* c8 ignore next */
     if (!activeServerId) return;
     await apiMockControlClient.clearTransactions(activeServerId);
     setTransactions([]);
@@ -211,60 +174,183 @@ export function ApiMockStudioPage() {
   const activeServer = servers.find(s => s.id === activeServerId);
 
   const handleCreateServer = useCallback(() => {
-    const port = pickNextAutoPort(servers);
+    if (servers.length >= API_MOCK_MAX_TABS) {
+      confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
+      return;
+    }
+    let port: number;
+    try {
+      port = pickNextAutoPort(servers);
+    } catch {
+      confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
+      return;
+    }
     const srv = createServer(servers.length + 1, port);
     setServers(prev => [...prev, srv]);
     setActiveServerId(srv.id);
     setSelectedRouteId(undefined);
     setLiveMessage(`${srv.name} created on port ${port}.`);
-  }, [servers]);
+  }, [servers, confirm]);
 
-  const finalizeCloseServer = useCallback((id: string, name: string) => {
+  const finalizeCloseServers = useCallback((targets: Array<{ id: string; name: string }>) => {
+    const ids = targets.map(t => t.id);
+    /* c8 ignore next */
+    const closingActive = ids.includes(latestRef.current.activeServerId ?? '');
     setServers(prev => {
-      const next = removeClosedServer(prev, id, activeServerId);
+      const next = removeClosedServers(prev, ids, latestRef.current.activeServerId);
       setActiveServerId(next.activeServerId);
       return next.servers;
     });
     setRuntime(prev => {
-      if (!(id in prev)) return prev;
-      const { [id]: _removed, ...rest } = prev;
-      return rest;
+      let changed = false;
+      const next = { ...prev };
+      for (const id of ids) {
+        if (id in next) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
-    if (activeServerId === id) setSelectedRouteId(undefined);
-    setLiveMessage(`${name} closed.`);
-  }, [activeServerId]);
+    if (closingActive) setSelectedRouteId(undefined);
+    setLiveMessage(targets.length === 1 ? `${targets[0].name} closed.` : `${targets.length} mock servers closed.`);
+  }, []);
 
-  const handleCloseServer = useCallback((id: string) => {
-    const server = servers.find(s => s.id === id);
-    if (!server) return;
-    const status = runtime[id]?.status;
-    const doClose = async () => {
-      // Always best-effort stop so companion releases the port (idempotent if already stopped).
-      await apiMockControlClient.stop(id);
-      finalizeCloseServer(id, server.name);
+  const handleCloseServers = useCallback((ids: string[]) => {
+    const unique = [...new Set(ids)];
+    const targets = unique
+      .map(id => servers.find(s => s.id === id))
+      .filter((s): s is ApiMockServerDefinitionV1 => Boolean(s));
+    if (targets.length === 0) return;
+    const run = async () => {
+      for (const server of targets) {
+        await apiMockControlClient.stop(server.id);
+      }
+      finalizeCloseServers(targets);
     };
-    if (isLiveRuntimeStatus(status)) {
-      confirm(`Stop and close "${server.name}"?`, () => { void doClose(); });
+    if (targets.some(s => isLiveRuntimeStatus(runtime[s.id]?.status))) {
+      confirm(formatStopAndCloseMessage(targets.map(s => s.name)), () => { void run(); });
       return;
     }
-    void doClose();
-  }, [servers, runtime, confirm, finalizeCloseServer]);
+    void run();
+  }, [servers, runtime, confirm, finalizeCloseServers]);
+
+  const handleCloseServer = useCallback((id: string) => {
+    handleCloseServers([id]);
+  }, [handleCloseServers]);
 
   const handleUpdateServer = useCallback((id: string, patch: Partial<ApiMockServerDefinitionV1>) => {
     setServers(prev => prev.map(s => s.id === id ? { ...s, ...patch, updatedAt: ts() } : s));
   }, []);
 
-  const handleCreateRoute = useCallback((folderId?: string) => {
+  const handleRenameServer = useCallback((id: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    handleUpdateServer(id, { name: trimmed });
+    setLiveMessage(`Renamed to ${trimmed}.`);
+  }, [handleUpdateServer]);
+
+  const handleDuplicateServer = useCallback((id: string) => {
+    if (servers.length >= API_MOCK_MAX_TABS) {
+      confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
+      return;
+    }
+    const source = servers.find(s => s.id === id);
+    if (!source) return;
+    let port: number;
+    try {
+      port = pickNextAutoPort(servers);
+    } catch {
+      confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
+      return;
+    }
+    const copy = duplicateServerDefinition(source, port);
+    setServers(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      const next = [...prev];
+      const insertIndex = Math.max(0, idx) + 1;
+      next.splice(insertIndex, 0, copy);
+      return next;
+    });
+    setActiveServerId(copy.id);
+    setSelectedRouteId(undefined);
+    setLiveMessage(`${copy.name} duplicated on port ${port}.`);
+  }, [servers, confirm]);
+
+  const handleReorderServers = useCallback((fromIndex: number, toIndex: number) => {
+    setServers(prev => reorderServers(prev, fromIndex, toIndex));
+  }, []);
+
+  const handleUpdateSample = useCallback((sample: ApiMockSimulationSampleV1) => {
     if (!activeServerId) return;
+    setServers(prev => prev.map(s => (
+      s.id === activeServerId
+        ? { ...s, samples: (s.samples ?? []).map(x => x.id === sample.id ? sample : x), updatedAt: ts() }
+        : s
+    )));
+  }, [activeServerId]);
+
+  const handleDeleteSample = useCallback((sampleId: string) => {
+    if (!activeServerId) return;
+    setServers(prev => prev.map(s => (
+      s.id === activeServerId
+        ? { ...s, samples: (s.samples ?? []).filter(x => x.id !== sampleId), updatedAt: ts() }
+        : s
+    )));
+    setLiveMessage('Example deleted.');
+  }, [activeServerId]);
+
+  const handleSetSimulateOpen = useCallback((open: boolean) => {
+    if (open) setSimulateSeed(undefined);
+    setSimulateOpen(open);
+  }, []);
+
+  const handleSimulateSample = useCallback((sample: ApiMockSimulationSampleV1) => {
+    const method = sample.request.method && sample.request.method !== 'ANY' ? sample.request.method : 'GET';
+    setSimulateSeed({
+      path: capturedRequestPath(sample.request),
+      method,
+      sampleId: sample.id,
+    });
+    setSimulateOpen(true);
+  }, []);
+
+  const handleTrySampleInRequests = useCallback((sample: ApiMockSimulationSampleV1) => {
+    if (!activeServer) return;
+    dispatchOpenInRequests(sampleToOpenInRequestsDetail(sample, {
+      host: activeServer.host,
+      port: activeServer.port,
+      tls: Boolean(activeServer.settings.tls?.enabled),
+    }));
+    setLiveMessage('Opened example in Requests.');
+  }, [activeServer]);
+
+  const handleSaveSampleFromTransaction = useCallback((tx: ApiMockTransactionV1) => {
+    if (!activeServerId) return;
+    const sample = transactionToSample(tx, { routeId: tx.matchedRouteId });
+    setServers(prev => prev.map(s => (
+      s.id === activeServerId
+        ? { ...s, samples: [...(s.samples ?? []), sample], updatedAt: ts() }
+        : s
+    )));
+    setLiveMessage(sample.routeId
+      ? `Saved example “${sample.name}” on the matched rule.`
+      : `Saved example “${sample.name}” (unassociated — pick a rule to attach it).`);
+  }, [activeServerId]);
+
+  const handleCreateRoute = useCallback((folderId?: string) => {
+    if (!activeServerId || !activeServer) return;
+    const currentRoutes = activeServer.routes ?? [];
+    const currentFolders = activeServer.folders ?? [];
     const route = {
-      ...createRoute(`New Route ${(activeServer?.routes.length ?? 0) + 1}`),
+      ...createRoute(`New Route ${currentRoutes.length + 1}`),
       ...(folderId ? { folderId } : {}),
     };
     const folders = folderId
-      ? (activeServer?.folders ?? []).map(f => f.id === folderId ? { ...f, expanded: true } : f)
-      : activeServer?.folders;
+      ? currentFolders.map(f => f.id === folderId ? { ...f, expanded: true } : f)
+      : currentFolders;
     handleUpdateServer(activeServerId, {
-      routes: [...(activeServer?.routes ?? []), route],
+      routes: [...currentRoutes, route],
       ...(folders ? { folders } : {}),
     });
     setSelectedRouteId(route.id);
@@ -290,9 +376,16 @@ export function ApiMockStudioPage() {
     setLiveMessage(`Moved rule to ${folderName}.`);
   }, [activeServerId, activeServer, handleUpdateServer]);
 
-  const handleDeleteRoute = useCallback((routeId: string) => {
-    applyRouteDelete(activeServerId, activeServer, selectedRouteId, routeId, handleUpdateServer, setSelectedRouteId, setLiveMessage);
-  }, [activeServerId, activeServer, selectedRouteId, handleUpdateServer]);
+  const { handleDeleteRoute, undoToast } = useApiMockRouteUndo({
+    servers,
+    activeServerId,
+    activeServer,
+    selectedRouteId,
+    handleUpdateServer,
+    setSelectedRouteId,
+    setLiveMessage,
+    setActiveServerId,
+  });
 
   const handleUpdateRoute = useCallback((routeId: string, patch: Partial<ApiMockServerDefinitionV1['routes'][0]>) => {
     applyRouteUpdate(activeServerId, activeServer, routeId, patch, handleUpdateServer);
@@ -356,7 +449,7 @@ export function ApiMockStudioPage() {
   }, [patchRuntime]);
 
   const confirmDeleteRoute = useCallback((route: ApiMockServerDefinitionV1['routes'][0]) => {
-    confirm(`Delete route "${route.name}"? This cannot be undone.`, () => handleDeleteRoute(route.id));
+    confirm(`Delete route "${route.name}"? Samples associated with this route will become unassociated. You can Undo for a few seconds.`, () => handleDeleteRoute(route.id), undefined, { finalNote: '', confirmLabel: 'Delete' });
   }, [confirm, handleDeleteRoute]);
 
   const handleImportRoutes = useCallback((
@@ -417,9 +510,9 @@ export function ApiMockStudioPage() {
     setLiveMessage(finding.acknowledgementStale ? 'Stale conflict re-acknowledged.' : 'Conflict acknowledged.');
   }, []);
 
-  const handleSimulateWitness = useCallback((finding: ApiMockConflictFindingV1) => {
-    const path = finding.witnessRequest?.rawPath || finding.witnessRequest?.path || '/';
-    const method = finding.witnessRequest?.method && finding.witnessRequest.method !== 'ANY'
+  const handleSimulateWitness = useCallback((finding?: ApiMockConflictFindingV1) => {
+    const path = finding?.witnessRequest ? capturedRequestPath(finding.witnessRequest) : '/';
+    const method = finding?.witnessRequest?.method && finding.witnessRequest.method !== 'ANY'
       ? finding.witnessRequest.method
       : 'GET';
     setSimulateSeed({ path, method });
@@ -448,6 +541,7 @@ export function ApiMockStudioPage() {
     dispatchOpenInRequests(transactionToOpenInRequestsDetail(tx, {
       host: activeServer.host,
       port: activeServer.port,
+      tls: Boolean(activeServer.settings.tls?.enabled),
     }));
     setLiveMessage('Opened captured request in Requests.');
   }, [activeServer]);
@@ -517,42 +611,15 @@ export function ApiMockStudioPage() {
     });
   }, [activeServerId, activeServer, handleUpdateServer, confirm]);
 
-  const handleExport = useCallback((req: ApiMockExportRequest) => {
-    const workspace = { schemaVersion: 1 as const, servers, activeServerId, tabOrder: servers.map(s => s.id) };
-    const active = servers.find(s => s.id === activeServerId);
-    const hint = active?.name ?? activeServerId ?? 'export';
-
-    if (req.format === 'wiremock') {
-      const routes = active?.routes ?? [];
-      const { mappings, lossReport } = exportWireMockMappings(routes);
-      const payload = { mappings, _lossReport: lossReport };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = exportFilename('routes', 'json', `wiremock-${hint}`).replace(/\.json$/, '-wiremock.json');
-      a.click();
-      URL.revokeObjectURL(url);
-      setLiveMessage(`WireMock export: ${mappings.length} mapping(s), ${lossReport.length} loss note(s).`);
-      return;
-    }
-
-    const options = req.scope === 'workspace'
-      ? { scope: 'workspace' as const, redact: true, format: req.format }
-      : req.scope === 'servers'
-        ? { scope: 'servers' as const, redact: true, format: req.format, selectedServerIds: activeServerId ? [activeServerId] : [] }
-        : { scope: 'routes' as const, redact: true, format: req.format, sourceServerId: activeServerId };
-    const payload = exportWorkspace(workspace, options);
-    const text = serializeExport(payload, req.format);
-    const blob = new Blob([text], { type: req.format === 'yaml' ? 'text/yaml' : 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = exportFilename(req.scope, req.format, hint);
-    a.click();
-    URL.revokeObjectURL(url);
-    setLiveMessage(req.scope === 'workspace' ? 'Workspace exported.' : req.scope === 'servers' ? 'Server exported.' : 'Routes exported.');
-  }, [servers, activeServerId]);
+  const handleExport = useCallback(async (req: ApiMockExportRequest) => {
+    await handleApiMockExport({
+      request: req,
+      servers,
+      activeServerId,
+      transactions,
+      setLiveMessage,
+    });
+  }, [servers, activeServerId, transactions]);
 
   const selectedRoute = findSelectedRoute(activeServer, selectedRouteId);
   const selectedFolderName = selectedRoute?.folderId
@@ -560,27 +627,11 @@ export function ApiMockStudioPage() {
     : undefined;
 
   const { statusById, dirtyById } = buildRuntimeMaps(servers, runtime);
+  /* c8 ignore next */
+  const modalRuntimeStatus = runtime[activeServer?.id ?? '']?.status ?? 'stopped';
 
   if (servers.length === 0) {
-    return (
-      <div className="api-mock-root api-mock-empty" data-testid="api-mock-empty">
-        <div className="am-empty-icon" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="6" rx="1.5" />
-            <rect x="3" y="14" width="18" height="6" rx="1.5" />
-            <circle cx="7" cy="7" r="0.6" fill="currentColor" />
-            <circle cx="7" cy="17" r="0.6" fill="currentColor" />
-          </svg>
-        </div>
-        <h2>API Mock Studio</h2>
-        <p>Stand up a local HTTP mock server with rule-based routes, templated responses, and a live request journal.</p>
-        <div className="am-empty-actions">
-          <button className="am-btn primary" onClick={handleCreateServer} data-testid="api-mock-create-first">
-            Create Mock Server
-          </button>
-        </div>
-      </div>
-    );
+    return <ApiMockStudioEmptyState onCreateServer={handleCreateServer} />;
   }
 
   return (
@@ -592,244 +643,96 @@ export function ApiMockStudioPage() {
         onSelect={setActiveServerId}
         onCreate={handleCreateServer}
         onClose={handleCloseServer}
+        onCloseMany={handleCloseServers}
+        onRename={handleRenameServer}
+        onDuplicate={handleDuplicateServer}
+        onReorder={handleReorderServers}
         statusById={statusById}
         dirtyById={dirtyById}
       />
       {activeServer && (
-        <>
-          <ApiMockWorkspaceNav
-            view={mainView}
-            onChange={view => {
-              setMainView(view);
-              if (view === 'conflicts' && conflictFindings.length === 0) void handleAnalyzeConflicts();
-            }}
-            transactionCount={transactions.length}
-            conflictCount={conflictFindings.length || conflictIds.length}
-            onImport={source => {
-              setImportSource(source ?? 'curl');
-              setImportOpen(true);
-            }}
-            onExport={handleExport}
-          />
-          <ApiMockServerBar
-            server={activeServer}
-            onUpdate={patch => handleUpdateServer(activeServer.id, patch)}
-            status={runtime[activeServer.id]?.status ?? 'stopped'}
-            dirty={dirtyById[activeServer.id]}
-            generation={runtime[activeServer.id]?.generation ?? 0}
-            error={runtime[activeServer.id]?.error}
-            onStart={() => { void handleStart(activeServer); }}
-            onStop={() => { void handleStop(activeServer); }}
-            onApply={() => { void handleApply(activeServer); }}
-            onRestart={() => { void handleRestart(activeServer); }}
-            onSettings={() => setSettingsOpen(true)}
-            onOpenRoutes={() => { setMainView('studio'); setRoutesDrawerOpen(true); }}
-          />
-          {mainView === 'studio' && (
-            <>
-              {routesDrawerOpen && (
-                <button
-                  type="button"
-                  className="am-routes-backdrop"
-                  aria-label="Close routes drawer"
-                  data-testid="api-mock-routes-backdrop"
-                  onClick={() => setRoutesDrawerOpen(false)}
-                />
-              )}
-              <div
-                className={`api-mock-workspace${routesDrawerOpen ? ' routes-drawer-open' : ''}`}
-                id={API_MOCK_WORKSPACE_PANEL_ID}
-                role="tabpanel"
-                aria-labelledby={`api-mock-tabhdr-${activeServer.id}`}
-              >
-                <ApiMockRouteExplorer
-                  routes={activeServer.routes}
-                  folders={activeServer.folders}
-                  selectedRouteId={selectedRouteId}
-                  onSelect={(id) => { setSelectedRouteId(id); setRoutesDrawerOpen(false); }}
-                  onCreate={handleCreateRoute}
-                  onDelete={(id) => {
-                    const route = activeServer.routes.find(r => r.id === id);
-                    if (route) confirmDeleteRoute(route);
-                  }}
-                  onToggle={(id, enabled) => handleUpdateRoute(id, { enabled })}
-                  onAddFolder={handleAddFolder}
-                  onToggleFolder={handleToggleFolder}
-                  onRenameFolder={handleRenameFolder}
-                  onDeleteFolder={handleDeleteFolder}
-                  onMoveRoute={handleMoveRoute}
-                  conflictRouteIds={conflictIds}
-                  onAnalyze={() => {
-                    setMainView('conflicts');
-                    void handleAnalyzeConflicts();
-                  }}
-                  drawerOpen={routesDrawerOpen}
-                  onCloseDrawer={() => setRoutesDrawerOpen(false)}
-                />
-                <div className="api-mock-editor">
-                  {selectedRoute ? (
-                    <ApiMockRouteEditor
-                      route={selectedRoute}
-                      onUpdate={patch => handleUpdateRoute(selectedRoute.id, patch)}
-                      hasConflict={conflictIds.includes(selectedRoute.id)}
-                      conflictPeer={conflictPeerLabel(conflictFindings, selectedRoute.id, activeServer.routes)}
-                      matchCount={transactions.filter(t => t.matchedRouteId === selectedRoute.id).length}
-                      sequencePosition={scenarioState?.sequencePositions?.[selectedRoute.id]}
-                      onSimulate={() => setSimulateOpen(true)}
-                      onReviewConflicts={openConflictInspector}
-                      folderName={selectedFolderName}
-                      folders={activeServer.folders}
-                      samples={activeServer.samples}
-                    />
-                  ) : (
-                    <div className="api-mock-no-selection" data-testid="api-mock-no-route">
-                      <h3>No rule selected</h3>
-                      <p>
-                        {activeServer.routes.length === 0
-                          ? 'This mock server has no rules yet. Create one to define how it answers requests.'
-                          : 'Pick a rule from the panel on the left to edit its matching, responses, and behavior.'}
-                      </p>
-                      <button className="am-btn primary" onClick={() => handleCreateRoute()} data-testid="api-mock-no-route-create">
-                        + New rule
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <ApiMockLiveStrip
-                transactionCount={transactions.length}
-                conflictCount={conflictFindings.length || conflictIds.length}
-                variableCount={activeServer.variables.length}
-                running={runtime[activeServer.id]?.status === 'running'}
-                onOpenRuntime={openRuntime}
-                onOpenConflicts={openConflictInspector}
-              />
-            </>
-          )}
-          {mainView === 'runtime' && (
-            <div className="api-mock-runtime-page" data-testid="api-mock-runtime-page">
-              <ApiMockDock
-                variant="page"
-                routes={activeServer.routes}
-                conflictCount={conflictFindings.length || conflictIds.length}
-                conflictFindings={conflictFindings}
-                focusConflictRouteId={selectedRouteId}
-                requestedTab={runtimeTabRequest}
-                onRequestedTabConsumed={() => setRuntimeTabRequest(undefined)}
-                onSelectRoute={id => { setSelectedRouteId(id); setMainView('studio'); }}
-                onSimulateWitness={() => setSimulateOpen(true)}
-                transactions={transactions}
-                running={runtime[activeServer.id]?.status === 'running'}
-                variables={activeServer.variables}
-                onVariablesChange={variables => handleUpdateServer(activeServer.id, { variables })}
-                liveState={scenarioState}
-                onResetState={() => { void handleResetState(); }}
-                onClearTransactions={() => { void handleClearTransactions(); }}
-                consoleLines={consoleLines}
-                onClearConsole={clearConsole}
-                onOpenConflicts={openConflictInspector}
-                onAcknowledgeConflict={handleAcknowledgeConflict}
-                onAdjustPriority={handleAdjustPriority}
-                onOpenInRequests={handleOpenInRequests}
-                onCreateRouteFromTransaction={handleCreateRouteFromTransaction}
-                onCopyTransaction={handleCopyTransaction}
-                settings={activeServer.settings}
-                conflictStats={conflictStats}
-                serverAddress={`http://${activeServer.host}:${activeServer.port}${activeServer.basePath || ''}`}
-                server={activeServer}
-                onServerPatch={patch => handleUpdateServer(activeServer.id, patch)}
-              />
-            </div>
-          )}
-          {mainView === 'conflicts' && (
-            <div className="api-mock-conflicts-page" data-testid="api-mock-conflicts-page">
-              <div className="am-runtime-header">
-                <div>
-                  <div className="am-page-title">Conflict Inspector</div>
-                  <div className="am-page-subtitle">
-                    {(conflictFindings.length || conflictIds.length)} finding{(conflictFindings.length || conflictIds.length) === 1 ? '' : 's'}
-                    {conflictStats ? ` · ${conflictStats.analyzedRules} rules · ${conflictStats.durationMs} ms` : ''}
-                  </div>
-                </div>
-                <span className="am-spacer" />
-                <button type="button" className="am-btn" onClick={() => { void handleAnalyzeConflicts(); }} data-testid="api-mock-conflicts-analyze">
-                  Re-analyze
-                </button>
-              </div>
-              <div className="am-conflicts-page-body">
-                <ApiMockConflictInspector
-                  findings={conflictFindings}
-                  routes={activeServer.routes}
-                  focusRouteId={selectedRouteId}
-                  onSelectRoute={id => { setSelectedRouteId(id); setMainView('studio'); }}
-                  onSimulateWitness={handleSimulateWitness}
-                  onAcknowledge={handleAcknowledgeConflict}
-                  onAdjustPriority={handleAdjustPriority}
-                  settings={activeServer.settings}
-                  stats={conflictStats}
-                  onAnalyze={() => { void handleAnalyzeConflicts(); }}
-                  onOpenStudio={() => setMainView('studio')}
-                  onApply={() => { void handleApply(activeServer); }}
-                  dirty={!!dirtyById[activeServer.id]}
-                  serverHost={activeServer.host}
-                  serverPort={activeServer.port}
-                />
-              </div>
-            </div>
-          )}
-        </>
-      )}
-      {settingsOpen && activeServer && (
-        <ApiMockServerSettingsModal
-          server={activeServer}
-          statusLabel={
-            (runtime[activeServer.id]?.status ?? 'stopped') === 'running' ? 'Running'
-              : (runtime[activeServer.id]?.status ?? 'stopped') === 'error' ? 'Error'
-                : 'Stopped'
-          }
-          onSave={patch => handleUpdateServer(activeServer.id, patch)}
-          onClose={() => setSettingsOpen(false)}
+        <ApiMockStudioActiveSection
+          activeServer={activeServer}
+          mainView={mainView}
+          setMainView={setMainView}
+          transactions={transactions}
+          conflictFindings={conflictFindings}
+          conflictIds={conflictIds}
+          conflictStats={conflictStats}
+          runtimeTabRequest={runtimeTabRequest}
+          onRuntimeTabConsumed={() => setRuntimeTabRequest(undefined)}
+          runtimeRunning={runtime[activeServer.id]?.status === 'running'}
+          dirty={!!dirtyById[activeServer.id]}
+          scenarioState={scenarioState}
+          consoleLines={consoleLines}
+          selectedRouteId={selectedRouteId}
+          setSelectedRouteId={setSelectedRouteId}
+          selectedRoute={selectedRoute}
+          selectedFolderName={selectedFolderName}
+          routesDrawerOpen={routesDrawerOpen}
+          setRoutesDrawerOpen={setRoutesDrawerOpen}
+          onImportOpen={(source) => {
+            setImportSource(source ?? 'curl');
+            setImportOpen(true);
+          }}
+          onExport={handleExport}
+          onAnalyzeConflicts={() => { void handleAnalyzeConflicts(); }}
+          onStart={() => { void handleStart(activeServer); }}
+          onStop={() => { void handleStop(activeServer); }}
+          onApply={() => { void handleApply(activeServer); }}
+          onRestart={() => { void handleRestart(activeServer); }}
+          onSettings={() => setSettingsOpen(true)}
+          onCreateRoute={handleCreateRoute}
+          onConfirmDeleteRoute={confirmDeleteRoute}
+          onUpdateRoute={handleUpdateRoute}
+          onAddFolder={handleAddFolder}
+          onToggleFolder={handleToggleFolder}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onMoveRoute={handleMoveRoute}
+          onSetSimulateOpen={handleSetSimulateOpen}
+          onSimulateSample={handleSimulateSample}
+          onOpenConflictInspector={openConflictInspector}
+          onOpenRuntime={openRuntime}
+          onResetState={() => { void handleResetState(); }}
+          onClearTransactions={() => { void handleClearTransactions(); }}
+          onClearConsole={clearConsole}
+          onAcknowledgeConflict={handleAcknowledgeConflict}
+          onAdjustPriority={handleAdjustPriority}
+          onOpenInRequests={handleOpenInRequests}
+          onCreateRouteFromTransaction={handleCreateRouteFromTransaction}
+          onSaveSampleFromTransaction={handleSaveSampleFromTransaction}
+          onCopyTransaction={handleCopyTransaction}
+          onUpdateSample={handleUpdateSample}
+          onDeleteSample={handleDeleteSample}
+          onTrySampleInRequests={handleTrySampleInRequests}
+          onSimulateWitness={handleSimulateWitness}
+          onUpdateServer={patch => handleUpdateServer(activeServer.id, patch)}
+          status={runtime[activeServer.id]?.status ?? 'stopped'}
+          generation={runtime[activeServer.id]?.generation ?? 0}
+          error={runtime[activeServer.id]?.error}
         />
       )}
-      {simulateOpen && activeServer && (
-        (() => {
-          const defaults = deriveSimulateDefaults(selectedRoute);
-          return (
-        <ApiMockSimulateModal
-          server={activeServer}
-          initialPath={simulateSeed?.path ?? defaults.initialPath}
-          initialMethod={simulateSeed?.method ?? defaults.initialMethod}
-          onClose={() => { setSimulateOpen(false); setSimulateSeed(undefined); }}
-        />
-          );
-        })()
-      )}
-      {importOpen && activeServer && (
-        <AppModalFrame
-          title="Import & Promotion"
-          onClose={() => setImportOpen(false)}
-          dialogClassName="modal am-studio-modal"
-          bodyClassName="am-studio-modal-body"
-          footerClassName="am-studio-modal-footer"
-          showExpandButton={false}
-          closeOnOverlayClick={false}
-          footer={
-            <div className="api-mock-root am-in-modal am-modal-toolbar" style={{ width: '100%' }}>
-              <span className="am-faint">Imported rules stay inactive until you enable them.</span>
-              <span className="am-spacer" />
-              <button className="am-btn" onClick={() => setImportOpen(false)} data-testid="api-mock-import-close">Cancel</button>
-            </div>
-          }
-        >
-          <ApiMockImportReview
-            key={importSource}
-            folders={activeServer.folders}
-            initialSource={importSource}
-            onImport={handleImportRoutes}
-            onCancel={() => setImportOpen(false)}
-          />
-        </AppModalFrame>
-      )}
+      <ApiMockStudioModals
+        activeServer={activeServer}
+        settingsOpen={settingsOpen}
+        setSettingsOpen={setSettingsOpen}
+          runtimeStatus={modalRuntimeStatus}
+        onUpdateServer={(patch) => {
+          if (activeServer) handleUpdateServer(activeServer.id, patch);
+        }}
+        simulateOpen={simulateOpen}
+        setSimulateOpen={setSimulateOpen}
+        selectedRoute={selectedRoute}
+        simulateSeed={simulateSeed}
+        setSimulateSeed={setSimulateSeed}
+        importOpen={importOpen}
+        setImportOpen={setImportOpen}
+        importSource={importSource}
+        onImportRoutes={handleImportRoutes}
+        folders={activeServer?.folders ?? []}
+      />
+      {undoToast}
       {confirmDialogElement}
     </div>
   );
