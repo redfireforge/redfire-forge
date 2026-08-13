@@ -1,20 +1,43 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ApiMockRouteFolderV1, ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { getNextTabIndex } from '../../../shared/utils/tabListKeyboard';
+import { PlusIcon, FolderPlusIcon, FilterIcon, XIcon, ChevronDownIcon, ChevronRightIcon, TrashIcon, CheckIcon } from './ApiMockIcons';
+
+const METHOD_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All methods' },
+  { value: 'GET', label: 'GET' },
+  { value: 'POST', label: 'POST' },
+  { value: 'PUT', label: 'PUT' },
+  { value: 'PATCH', label: 'PATCH' },
+  { value: 'DELETE', label: 'DELETE' },
+  { value: 'HEAD', label: 'HEAD' },
+  { value: 'OPTIONS', label: 'OPTIONS' },
+];
+
+const ROUTE_DND_MIME = 'application/x-api-mock-route';
 
 interface Props {
   routes: ApiMockRouteV1[];
   folders?: ApiMockRouteFolderV1[];
   selectedRouteId?: string;
   onSelect: (id: string) => void;
-  onCreate: () => void;
+  /** Create a rule; pass folderId to file it immediately. */
+  onCreate: (folderId?: string) => void;
   onDelete: (id: string) => void;
   onToggle: (id: string, enabled: boolean) => void;
   onAddFolder?: () => void;
   onToggleFolder?: (folderId: string) => void;
+  onRenameFolder?: (folderId: string, name: string) => void;
+  onDeleteFolder?: (folderId: string) => void;
+  /** Move a rule into a folder, or `undefined` for Ungrouped. */
+  onMoveRoute?: (routeId: string, folderId: string | undefined) => void;
   /** Route ids flagged as having a conflict/overlap. */
   conflictRouteIds?: string[];
   onAnalyze?: () => void;
+  /** When true, show close control for the mobile/tablet drawer (mockup 08). */
+  drawerOpen?: boolean;
+  onCloseDrawer?: () => void;
 }
 
 export function ApiMockRouteExplorer({
@@ -23,27 +46,67 @@ export function ApiMockRouteExplorer({
   selectedRouteId,
   onSelect,
   onCreate,
-  onDelete: _onDelete,
+  onDelete,
   onToggle,
   onAddFolder,
   onToggleFolder,
+  onRenameFolder,
+  onDeleteFolder,
+  onMoveRoute,
   conflictRouteIds,
   onAnalyze,
+  drawerOpen = false,
+  onCloseDrawer,
 }: Props) {
   const [query, setQuery] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | undefined>();
+  const [showDisabled, setShowDisabled] = useState(true);
+  const [conflictsOnly, setConflictsOnly] = useState(false);
+  const [methodFilter, setMethodFilter] = useState<'ALL' | string>('ALL');
+  const [dropTarget, setDropTarget] = useState<string | 'ungrouped' | null>(null);
+  const [draggingRouteId, setDraggingRouteId] = useState<string | null>(null);
+  const filterWrapRef = useRef<HTMLDivElement>(null);
   const conflictSet = useMemo(() => new Set(conflictRouteIds ?? []), [conflictRouteIds]);
+  const filtersActive = !showDisabled || conflictsOnly || methodFilter !== 'ALL';
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (filterWrapRef.current?.contains(target)) return;
+      // CustomSelect menus portal to document.body
+      if (target.closest?.('.cs-menu')) return;
+      setFilterOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [filterOpen]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return routes;
-    return routes.filter(r =>
-      r.method.toLowerCase().includes(q) ||
-      (r.path.value ?? '').toLowerCase().includes(q) ||
-      (r.name ?? '').toLowerCase().includes(q) ||
-      r.tags.some(t => t.toLowerCase().includes(q)) ||
-      (r.operationId ?? '').toLowerCase().includes(q),
-    );
-  }, [routes, query]);
+    return routes.filter(r => {
+      if (!showDisabled && !r.enabled) return false;
+      if (conflictsOnly && !conflictSet.has(r.id)) return false;
+      if (methodFilter !== 'ALL' && r.method !== methodFilter && r.method !== 'ANY') return false;
+      if (!q) return true;
+      return (
+        r.method.toLowerCase().includes(q)
+        || (r.path.value ?? '').toLowerCase().includes(q)
+        || (r.name ?? '').toLowerCase().includes(q)
+        || r.tags.some(t => t.toLowerCase().includes(q))
+        || (r.operationId ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [routes, query, showDisabled, conflictsOnly, methodFilter, conflictSet]);
 
   const sortedFolders = useMemo(
     () => [...folders].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
@@ -69,34 +132,76 @@ export function ApiMockRouteExplorer({
     items[next].focus();
   };
 
+  const acceptRouteDrop = (e: React.DragEvent, folderId: string | undefined) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const routeId = e.dataTransfer.getData(ROUTE_DND_MIME) || e.dataTransfer.getData('text/plain');
+    setDropTarget(null);
+    setDraggingRouteId(null);
+    if (!routeId || !onMoveRoute) return;
+    const route = routes.find(r => r.id === routeId);
+    if (!route) return;
+    const current = route.folderId && folders.some(f => f.id === route.folderId) ? route.folderId : undefined;
+    if (current === folderId) return;
+    onMoveRoute(routeId, folderId);
+  };
+
   const renderRoute = (route: ApiMockRouteV1, index: number) => {
     const conflict = conflictSet.has(route.id);
     const tabIndex = selectedRouteId
       ? (route.id === selectedRouteId ? 0 : -1)
       : (index === 0 ? 0 : -1);
+    const priorityClass = conflict ? ' warning' : route.priority >= 100 ? ' success' : '';
     return (
+      <div className="am-tree-route-row" key={route.id}>
       <button
-        key={route.id}
         role="treeitem"
         aria-selected={route.id === selectedRouteId}
         tabIndex={tabIndex}
-        className={`am-route-item${route.id === selectedRouteId ? ' active' : ''}${!route.enabled ? ' disabled' : ''}${conflict ? ' conflict' : ''}`}
+        draggable={!!onMoveRoute}
+        className={`am-route-item${route.id === selectedRouteId ? ' active' : ''}${!route.enabled ? ' disabled' : ''}${conflict ? ' conflict' : ''}${draggingRouteId === route.id ? ' dragging' : ''}`}
         onClick={() => onSelect(route.id)}
         onDoubleClick={() => onToggle(route.id, !route.enabled)}
-        title={conflict ? 'Potential overlap with another route' : route.name}
+        onDragStart={e => {
+          if (!onMoveRoute) return;
+          e.dataTransfer.setData(ROUTE_DND_MIME, route.id);
+          e.dataTransfer.setData('text/plain', route.id);
+          e.dataTransfer.effectAllowed = 'move';
+          setDraggingRouteId(route.id);
+        }}
+        onDragEnd={() => {
+          setDraggingRouteId(null);
+          setDropTarget(null);
+        }}
+        title={
+          conflict
+            ? 'Potential overlap with another route'
+            : onMoveRoute
+              ? `${route.name} — drag into a folder`
+              : route.name
+        }
         data-testid={`api-mock-route-${route.id}`}
       >
         <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
         <span className="am-route-path">{route.path.value || '/'}</span>
-        <span className={`am-badge${conflict ? ' warning' : ''}`}>P{route.priority}</span>
+        <span className={`am-badge${priorityClass}`}>P{route.priority}</span>
       </button>
+        <button
+          type="button"
+          className="am-icon-btn am-route-delete"
+          aria-label={`Delete rule ${route.name}`}
+          title="Delete rule"
+          onClick={() => onDelete(route.id)}
+          data-testid={`api-mock-route-delete-${route.id}`}
+        ><TrashIcon size={13} /></button>
+      </div>
     );
   };
 
   let routeIndex = 0;
 
   return (
-    <aside className="api-mock-route-panel" data-testid="api-mock-route-explorer">
+    <aside className={`api-mock-route-panel${drawerOpen ? ' drawer-open' : ''}`} data-testid="api-mock-route-explorer">
       <div className="am-panel-head">
         <span className="am-panel-title">Rules</span>
         <span className="am-count-badge">{routes.length}</span>
@@ -104,6 +209,73 @@ export function ApiMockRouteExplorer({
           <span className="am-count-badge warning" title={`${conflictSet.size} conflicts`}>{conflictSet.size}</span>
         )}
         <span className="am-spacer" />
+        <div className="am-filter-wrap" ref={filterWrapRef}>
+          <button
+            type="button"
+            className={`am-icon-btn${filterOpen || filtersActive ? ' active' : ''}`}
+            aria-label="Rule filters"
+            title="Rule filters"
+            aria-expanded={filterOpen}
+            aria-haspopup="dialog"
+            data-testid="api-mock-route-filter"
+            onClick={() => setFilterOpen(o => !o)}
+          ><FilterIcon /></button>
+          {filterOpen && (
+            <div className="am-filter-popover" role="dialog" aria-label="Rule filters" data-testid="api-mock-route-filter-panel">
+              <div className="am-filter-popover-title">Rule filters</div>
+              <button
+                type="button"
+                className={`am-check-row${showDisabled ? ' checked' : ''}`}
+                role="checkbox"
+                aria-checked={showDisabled}
+                data-testid="api-mock-filter-show-disabled"
+                onClick={() => setShowDisabled(v => !v)}
+              >
+                <span className="am-check-box" aria-hidden="true">
+                  {showDisabled && <CheckIcon size={12} />}
+                </span>
+                <span className="am-check-label">Show disabled</span>
+              </button>
+              <button
+                type="button"
+                className={`am-check-row${conflictsOnly ? ' checked' : ''}`}
+                role="checkbox"
+                aria-checked={conflictsOnly}
+                data-testid="api-mock-filter-conflicts-only"
+                onClick={() => setConflictsOnly(v => !v)}
+              >
+                <span className="am-check-box" aria-hidden="true">
+                  {conflictsOnly && <CheckIcon size={12} />}
+                </span>
+                <span className="am-check-label">Conflicts only</span>
+              </button>
+              <div className="am-filter-field">
+                <span className="am-filter-field-label">Method</span>
+                <CustomSelect
+                  value={methodFilter}
+                  onChange={setMethodFilter}
+                  options={METHOD_FILTER_OPTIONS}
+                  className="am-cs am-cs--filter-method"
+                  size="sm"
+                  menuMinWidth={160}
+                  menuMatchTriggerWidth
+                  aria-label="Filter by method"
+                  data-testid="api-mock-filter-method"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        {onCloseDrawer && (
+          <button
+            type="button"
+            className="am-icon-btn am-drawer-close"
+            aria-label="Close drawer"
+            title="Close"
+            onClick={onCloseDrawer}
+            data-testid="api-mock-close-routes"
+          ><XIcon /></button>
+        )}
       </div>
 
       <div className="am-route-tools">
@@ -116,14 +288,14 @@ export function ApiMockRouteExplorer({
           aria-label="Search rules"
           data-testid="api-mock-route-search"
         />
-        <button className="am-icon-btn" aria-label="Add rule" title="Add rule" onClick={onCreate} data-testid="api-mock-add-route">+</button>
+        <button className="am-icon-btn" aria-label="Add rule" title="Add rule" onClick={() => onCreate()} data-testid="api-mock-add-route"><PlusIcon /></button>
         <button
           className="am-icon-btn"
           aria-label="Add folder"
           title="Add folder"
           onClick={onAddFolder}
           data-testid="api-mock-add-folder"
-        >📁+</button>
+        ><FolderPlusIcon /></button>
       </div>
 
       <div className="am-route-tree" role="tree" aria-label="Rule list" onKeyDown={onTreeKeyDown}>
@@ -140,23 +312,115 @@ export function ApiMockRouteExplorer({
         {sortedFolders.map(folder => {
           const kids = filtered.filter(r => r.folderId === folder.id);
           if (query && kids.length === 0) return null;
+          const isDrop = dropTarget === folder.id;
           return (
-            <div key={folder.id} className="am-tree-folder-block" data-testid={`api-mock-folder-${folder.id}`}>
-              <button
-                type="button"
-                className="am-tree-folder"
-                onClick={() => onToggleFolder?.(folder.id)}
-                aria-expanded={folder.expanded}
-              >
-                <span aria-hidden="true">{folder.expanded ? '▾' : '▸'}</span>
-                {folder.name}
-                <span className="am-count-badge">{kids.length}</span>
-              </button>
+            <div
+              key={folder.id}
+              className={`am-tree-folder-block${isDrop ? ' drop-target' : ''}`}
+              data-testid={`api-mock-folder-${folder.id}`}
+              onDragOver={e => {
+                if (!onMoveRoute || !draggingRouteId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (dropTarget !== folder.id) setDropTarget(folder.id);
+              }}
+              onDragLeave={e => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDropTarget(t => (t === folder.id ? null : t));
+                }
+              }}
+              onDrop={e => acceptRouteDrop(e, folder.id)}
+            >
+              {renamingFolderId === folder.id ? (
+                <input
+                  className="am-input am-folder-rename"
+                  autoFocus
+                  defaultValue={folder.name}
+                  aria-label="Folder name"
+                  data-testid={`api-mock-folder-rename-input-${folder.id}`}
+                  onBlur={e => { onRenameFolder?.(folder.id, e.target.value.trim() || folder.name); setRenamingFolderId(undefined); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                    if (e.key === 'Escape') setRenamingFolderId(undefined);
+                  }}
+                />
+              ) : (
+                <div className="am-tree-folder-row">
+                  <button
+                    type="button"
+                    className="am-tree-folder"
+                    onClick={() => onToggleFolder?.(folder.id)}
+                    onDoubleClick={() => onRenameFolder && setRenamingFolderId(folder.id)}
+                    aria-expanded={folder.expanded}
+                    title={onRenameFolder ? 'Click to expand · double-click to rename' : folder.name}
+                  >
+                    <span aria-hidden="true">{folder.expanded ? <ChevronDownIcon size={13} /> : <ChevronRightIcon size={13} />}</span>
+                    <span className="am-folder-name">{folder.name}</span>
+                    <span className="am-count-badge">{kids.length}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="am-icon-btn am-folder-add"
+                    aria-label={`Add rule in ${folder.name}`}
+                    title="Add rule in this folder"
+                    onClick={() => onCreate(folder.id)}
+                    data-testid={`api-mock-folder-add-route-${folder.id}`}
+                  ><PlusIcon size={13} /></button>
+                  {onDeleteFolder && (
+                    <button
+                      type="button"
+                      className="am-icon-btn am-folder-delete"
+                      aria-label={`Delete folder ${folder.name}`}
+                      title="Delete folder (rules move to Ungrouped)"
+                      onClick={() => onDeleteFolder(folder.id)}
+                      data-testid={`api-mock-folder-delete-${folder.id}`}
+                    ><TrashIcon size={13} /></button>
+                  )}
+                </div>
+              )}
               {folder.expanded && kids.map(r => renderRoute(r, routeIndex++))}
+              {folder.expanded && kids.length === 0 && (
+                <div className="am-folder-empty" data-testid={`api-mock-folder-empty-${folder.id}`}>
+                  <span>Drop a rule here, or</span>
+                  <button
+                    type="button"
+                    className="am-link-btn"
+                    onClick={() => onCreate(folder.id)}
+                    data-testid={`api-mock-folder-empty-add-${folder.id}`}
+                  >
+                    add a rule
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
-        {unfiled.map(r => renderRoute(r, routeIndex++))}
+        {sortedFolders.length > 0 && (
+          <div
+            className={`am-ungrouped-zone${dropTarget === 'ungrouped' ? ' drop-target' : ''}`}
+            data-testid="api-mock-ungrouped-zone"
+            onDragOver={e => {
+              if (!onMoveRoute || !draggingRouteId) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              if (dropTarget !== 'ungrouped') setDropTarget('ungrouped');
+            }}
+            onDragLeave={e => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setDropTarget(t => (t === 'ungrouped' ? null : t));
+              }
+            }}
+            onDrop={e => acceptRouteDrop(e, undefined)}
+          >
+            <div className="am-tree-section-label" data-testid="api-mock-ungrouped-label">Ungrouped</div>
+            {unfiled.length === 0 ? (
+              <div className="am-folder-empty am-ungrouped-empty">Drop rules here to ungroup</div>
+            ) : (
+              unfiled.map(r => renderRoute(r, routeIndex++))
+            )}
+          </div>
+        )}
+        {sortedFolders.length === 0 && unfiled.map(r => renderRoute(r, routeIndex++))}
       </div>
 
       {routes.length > 0 && (

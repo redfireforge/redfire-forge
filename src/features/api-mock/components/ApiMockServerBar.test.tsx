@@ -119,9 +119,9 @@ describe('ApiMockServerBar', () => {
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://127.0.0.1:4600/api');
     await act(async () => { await Promise.resolve(); });
-    expect(screen.getByTestId('api-mock-copy-address')).toHaveTextContent('✓');
+    expect(screen.getByTestId('api-mock-copy-address')).toHaveAttribute('title', 'Copied!');
     act(() => { vi.runAllTimers(); });
-    expect(screen.getByTestId('api-mock-copy-address')).toHaveTextContent('⧉');
+    expect(screen.getByTestId('api-mock-copy-address')).toHaveAttribute('title', 'Copy address');
   });
 
   it('swallows clipboard failures without crashing', () => {
@@ -131,6 +131,6 @@ describe('ApiMockServerBar', () => {
     });
     render(<ApiMockServerBar server={makeServer()} onUpdate={vi.fn()} />);
     fireEvent.click(screen.getByTestId('api-mock-copy-address'));
-    expect(screen.getByTestId('api-mock-copy-address')).toHaveTextContent('⧉');
+    expect(screen.getByTestId('api-mock-copy-address')).toHaveAttribute('title', 'Copy address');
   });
 });

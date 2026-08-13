@@ -103,9 +103,10 @@ describe('API Mock Studio — builder tabs', () => {
   });
 });
 
-describe('API Mock Studio — dock tabs', () => {
-  it('wires an ARIA tablist with a labelled panel', () => {
+describe('API Mock Studio — Runtime tabs', () => {
+  it('wires an ARIA tablist with a labelled panel on the Runtime page', () => {
     createServer();
+    fireEvent.click(screen.getByTestId('api-mock-view-runtime'));
     const dock = screen.getByTestId('api-mock-dock');
     const list = within(dock).getByRole('tablist', { name: 'Runtime inspector' });
     const tx = within(list).getAllByRole('tab').find(t => t.textContent?.startsWith('Transactions'))!;

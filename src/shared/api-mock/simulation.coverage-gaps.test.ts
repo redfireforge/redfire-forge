@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { simulateSingle } from './simulation';
+import { simulateSingle, simulateBatch } from './simulation';
 import { createDefaultResponse, DEFAULT_SETTINGS } from './defaults';
 import type { ApiMockCapturedRequestV1, ApiMockRouteV1, ApiMockSimulationSampleV1 } from './contracts';
 
@@ -74,5 +74,143 @@ describe('simulation coverage gaps', () => {
     );
     expect(result.outcome).toBe('matched');
     expect(result.passed).toBe(true);
+  });
+
+  it('checks bodyContains and bodyExact expectations', () => {
+    const resp = createDefaultResponse('resp-1');
+    resp.body = { kind: 'json', content: '{"token":"abc"}', contentType: 'application/json' };
+    const pass = simulateSingle(
+      sample({ expected: { bodyContains: 'abc', bodyExact: '{"token":"abc"}' } }),
+      { routes: [route({ responses: [resp] })] },
+    );
+    expect(pass.passed).toBe(true);
+
+    const failContains = simulateSingle(
+      sample({ expected: { bodyContains: 'missing' } }),
+      { routes: [route({ responses: [resp] })] },
+    );
+    expect(failContains.passed).toBe(false);
+  });
+
+  it('uses closest-match debug fallback for unmatched requests', () => {
+    const result = simulateSingle(
+      sample({ request: req({ method: 'POST' }) }),
+      {
+        routes: [route()],
+        settings: {
+          fallback: {
+            ...DEFAULT_SETTINGS.fallback,
+            mode: 'closest_match_debug',
+          },
+        },
+      },
+    );
+    expect(result.outcome).toBe('unmatched');
+    expect(result.renderedResponse?.body).toContain('closest');
+  });
+
+  it('falls back to another eligible variant when the selected one is ineligible', () => {
+    const primary = createDefaultResponse('primary');
+    primary.status = 200;
+    primary.behavior = { ...primary.behavior, maxMatches: 0 };
+    const fallback = createDefaultResponse('fallback');
+    fallback.isDefault = false;
+    fallback.status = 201;
+    const result = simulateSingle(sample(), {
+      routes: [route({ responses: [primary, fallback] })],
+      seed: 'eligibility-fallback',
+    });
+    expect(result.preview?.eligibilityFallback).toBe(true);
+    expect(result.renderedResponse?.status).toBe(201);
+  });
+
+  it('runs batch samples independently when sequentialBatch is false', () => {
+    const r1 = createDefaultResponse('a');
+    r1.status = 200;
+    const r2 = createDefaultResponse('b');
+    r2.status = 201;
+    r2.isDefault = false;
+    const seqRoute = route({ responseMode: 'sequence', responses: [r1, r2] });
+    const results = simulateBatch(
+      [sample({ id: 's1' }), sample({ id: 's2' })],
+      { routes: [seqRoute], sequentialBatch: false, seed: 'non-seq' },
+    );
+    expect(results[0].renderedResponse?.status).toBe(200);
+    expect(results[1].renderedResponse?.status).toBe(200);
+  });
+
+  it('initializes runtime containers and clones provided sequence state', () => {
+    const resp = createDefaultResponse('resp-1');
+    const result = simulateSingle(sample(), {
+      routes: [route({ responses: [resp] })],
+      runtime: {
+        sequence: { positions: { r1: 2 } },
+        variantMatchCounts: { 'resp-1': 1 },
+      },
+    });
+    expect(result.preview?.sequenceIndex).toBeUndefined();
+    expect(result.outcome).toBe('matched');
+  });
+
+  it('fails bodyExact expectations and skips status check when no rendered status exists', () => {
+    const failExact = simulateSingle(
+      sample({ expected: { bodyExact: '{"nope":true}' } }),
+      { routes: [route()] },
+    );
+    expect(failExact.passed).toBe(false);
+
+    const skipStatus = simulateSingle(
+      sample({ expected: { outcome: 'matched', status: 999 } }),
+      { routes: [route()] },
+    );
+    expect(skipStatus.passed).toBe(false);
+  });
+
+  it('handles routes with no enabled response variants', () => {
+    const disabled = createDefaultResponse('off');
+    disabled.enabled = false;
+    const result = simulateSingle(sample(), {
+      routes: [route({ responses: [disabled] })],
+    });
+    expect(result.outcome).toBe('matched');
+    expect(result.preview?.selectedResponseId).toBeUndefined();
+  });
+
+  it('keeps the selected variant when every fallback is also ineligible', () => {
+    const primary = createDefaultResponse('primary');
+    primary.behavior = { ...primary.behavior, maxMatches: 0 };
+    const secondary = createDefaultResponse('secondary');
+    secondary.isDefault = false;
+    secondary.behavior = { ...secondary.behavior, maxMatches: 0 };
+    const result = simulateSingle(sample(), {
+      routes: [route({ responses: [primary, secondary] })],
+      seed: 'no-fallback',
+    });
+    expect(result.preview?.eligibilityFallback).toBe(false);
+    expect(result.preview?.eligibilityReason).toContain('Match limit');
+  });
+
+  it('honours fixed now for expired variant eligibility', () => {
+    const expired = createDefaultResponse('old');
+    expired.behavior = { ...expired.behavior, expiresAt: '2020-01-01T00:00:00.000Z' };
+    const fresh = createDefaultResponse('new');
+    fresh.isDefault = false;
+    fresh.status = 201;
+    const result = simulateSingle(sample(), {
+      routes: [route({ responses: [expired, fresh] })],
+      now: '2026-01-01T00:00:00.000Z',
+      seed: 'expired',
+    });
+    expect(result.preview?.eligibilityFallback).toBe(true);
+    expect(result.renderedResponse?.status).toBe(201);
+  });
+
+  it('hydrates missing runtime slices on the working context', () => {
+    const result = simulateSingle(
+      sample(),
+      { routes: [route({ responseMode: 'sequence', responses: [createDefaultResponse('a'), createDefaultResponse('b')] })], seed: 'rt' },
+      {},
+    );
+    expect(result.preview?.sequenceIndex).toBe(0);
   });
 });

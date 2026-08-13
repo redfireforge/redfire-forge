@@ -3,7 +3,7 @@
  * Each icon is a Lucide-style SVG rendered in a colored badge container.
  */
 
-type Category = 'trigger' | 'action' | 'logic' | 'data' | 'flow' | 'terminal' | 'integration' | 'kafka' | 'websocket' | 'graphql' | 'grpc';
+type Category = 'trigger' | 'action' | 'logic' | 'data' | 'flow' | 'terminal' | 'integration' | 'kafka' | 'websocket' | 'graphql' | 'grpc' | 'apimock';
 
 interface NodeIconProps {
   type: string;
@@ -352,6 +352,53 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
       </>
     ),
   },
+  apiMockStart: {
+    category: 'apimock',
+    svg: (
+      <>
+        <rect x="3" y="4" width="18" height="6" rx="1.5" />
+        <rect x="3" y="14" width="18" height="6" rx="1.5" />
+        <circle cx="7" cy="7" r="0.8" fill="currentColor" />
+        <circle cx="7" cy="17" r="0.8" fill="currentColor" />
+      </>
+    ),
+  },
+  apiMockApply: {
+    category: 'apimock',
+    svg: (
+      <>
+        <path d="M12 3v12" />
+        <path d="M8 11l4 4 4-4" />
+        <rect x="4" y="17" width="16" height="4" rx="1" />
+      </>
+    ),
+  },
+  apiMockResetState: {
+    category: 'apimock',
+    svg: (
+      <>
+        <path d="M3 12a9 9 0 1 0 3-6.7" />
+        <path d="M3 4v5h5" />
+      </>
+    ),
+  },
+  apiMockStop: {
+    category: 'apimock',
+    svg: (
+      <>
+        <rect x="6" y="6" width="12" height="12" rx="1.5" />
+      </>
+    ),
+  },
+  apiMockAssertCalls: {
+    category: 'logic',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12l2.5 2.5L16 9" />
+      </>
+    ),
+  },
 };
 
 export function NodeIcon({ type, className }: NodeIconProps) {
@@ -381,6 +428,7 @@ export function getNodeCategory(type: string): string {
     websocket: 'WebSocket',
     graphql: 'GraphQL',
     grpc: 'gRPC',
+    apimock: 'API Mock',
   };
   return labels[entry.category];
 }

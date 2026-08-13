@@ -246,11 +246,12 @@ describe('workflowNodeFactory', () => {
     });
 
     it('defaultNodeData supports api mock workflow node types', () => {
-      expect((defaultNodeData('apiMockStart') as { label: string }).label).toBe('Start Mock Server');
+      expect((defaultNodeData('apiMockStart') as { label: string; isolateRun?: boolean }).label).toBe('Start Mock Server');
+      expect((defaultNodeData('apiMockStart') as { isolateRun?: boolean }).isolateRun).toBe(true);
       expect((defaultNodeData('apiMockApply') as { label: string }).label).toBe('Apply Definition');
       expect((defaultNodeData('apiMockResetState') as { label: string }).label).toBe('Reset Mock State');
-      expect((defaultNodeData('apiMockStop') as { label: string }).label).toBe('Stop Mock Server');
-      expect((defaultNodeData('apiMockAssertCalls') as { label: string }).label).toBe('Assert Mock Calls');
+      expect((defaultNodeData('apiMockStop') as { label: string; idempotent?: boolean }).idempotent).toBe(true);
+      expect((defaultNodeData('apiMockAssertCalls') as { label: string; expectedMinCount?: number }).expectedMinCount).toBe(1);
     });
   });
 

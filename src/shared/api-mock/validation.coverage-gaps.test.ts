@@ -6,9 +6,13 @@ import {
   validatePredicateGroup,
 } from './validation';
 import { CURRENT_SCHEMA_VERSION, DEFAULT_SETTINGS, HARD_CEILINGS, createDefaultResponse } from './defaults';
+import { CALLBACK_HARD_CEILINGS } from './callbackContracts';
 import type {
+  ApiMockRouteFolderV1,
   ApiMockPredicateGroupV1,
   ApiMockRouteV1,
+  ApiMockSimulationSampleV1,
+  ApiMockStateTransitionV1,
   ApiMockServerDefinitionV1,
   ApiMockWorkspaceV1,
 } from './contracts';
@@ -85,15 +89,34 @@ describe('validation coverage gaps', () => {
       makeRoute({ id: `route-${index}`, name: `Route ${index}`, predicates: nestedPredicates }),
     );
 
+    const folders: ApiMockRouteFolderV1[] = [{
+      id: 'folder-1',
+      name: 'Folder',
+      parentId: 'missing-parent',
+      expanded: true,
+      sortOrder: 0,
+    }];
+    const samples: ApiMockSimulationSampleV1[] = [{
+      id: 'sample-1',
+      name: 'Sample',
+      routeId: 'missing-route',
+      request: {
+        method: 'GET',
+        path: '/t',
+        rawPath: '/t',
+        query: {},
+        headers: {},
+        cookies: {},
+        body: null,
+        bodyTruncated: false,
+        receivedAt: ts,
+      },
+    }];
+
     const diags = validateServer(makeServer({
       routes,
-      folders: [{ id: 'folder-1', name: 'Folder', parentId: 'missing-parent' } as any],
-      samples: [{
-        id: 'sample-1',
-        name: 'Sample',
-        routeId: 'missing-route',
-        request: { method: 'GET', path: '/t', rawPath: '/t', query: {}, headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts },
-      } as any],
+      folders,
+      samples,
     }));
 
     expect(diags.some(d => d.code === 'AMS-LIMIT-ROUTES')).toBe(true);
@@ -109,7 +132,7 @@ describe('validation coverage gaps', () => {
       response.enabled = true;
       return response;
     });
-    variants[0].transition = { on: 'always', targetState: 'next' } as any;
+    variants[0].transition = { targetState: 'next' } as ApiMockStateTransitionV1;
 
     const diags = validateRoute(makeRoute({ id: '', name: '', responses: variants }));
     expect(diags.some(d => d.path.endsWith('/id'))).toBe(true);
@@ -120,7 +143,7 @@ describe('validation coverage gaps', () => {
 
   it('covers all response behavior capability gates', () => {
     const response = createDefaultResponse('resp-1');
-    response.behavior.chunkSchedule = [{ afterMs: 1, bytes: 'x' } as any];
+    response.behavior.chunkSchedule = [{ afterMs: 1, body: 'x' }];
     response.behavior.maxMatches = 1;
     response.behavior.expiresAt = ts;
     response.behavior.probability = 0.5;
@@ -139,7 +162,7 @@ describe('validation coverage gaps', () => {
         { id: 'p1', source: 'security', operator: 'exact', expected: 'x' },
         { id: 'p2', source: 'security', selector: 'scheme', operator: 'exact', expected: 'Bearer' },
         { id: 'p3', source: 'header', selector: 'x-test', operator: 'regex', expected: 'a'.repeat(HARD_CEILINGS.maxRegexLength + 1) },
-        { id: 'p4', source: 'header', selector: 'x-test', operator: 'regex', expected: 123 as any },
+        { id: 'p4', source: 'header', selector: 'x-test', operator: 'regex', expected: 123 },
       ],
     };
     const diags = validatePredicateGroup(group, '/predicates', 0);
@@ -156,5 +179,51 @@ describe('validation coverage gaps', () => {
     const diags = validateServer(makeServer({ settings }));
     expect(diags.filter(d => d.code === 'AMS-LIMIT-EXCEEDED').length).toBeGreaterThanOrEqual(4);
     expect(diags.some(d => d.path.includes('/maxDelayMs'))).toBe(true);
+  });
+
+  it('covers callback allowlist, route callbacks, and outbound capability info', () => {
+    const response = createDefaultResponse('resp-1');
+    response.transforms = [{ id: 't1', enabled: true, target: 'response', op: 'setStatus', value: '201' }];
+    response.callbacks = [{
+      id: 'cb1',
+      enabled: true,
+      url: 'https://hooks.example/notify',
+      method: 'POST',
+      headers: [],
+      bodyTemplate: 'x'.repeat(CALLBACK_HARD_CEILINGS.maxBodyBytes + 1),
+      timeoutMs: CALLBACK_HARD_CEILINGS.timeoutMs + 1,
+      maxRetries: CALLBACK_HARD_CEILINGS.maxRetries + 1,
+    }];
+
+    const diags = validateServer(makeServer({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        callbacks: { allowlist: ['ftp://bad', 'not-a-url'], maxConcurrentOutbound: 10 },
+      },
+      routes: [makeRoute({ responses: [response] })],
+    }));
+
+    expect(diags.some(d => d.code === 'AMS-CALLBACK-ALLOWLIST-INVALID')).toBe(true);
+    expect(diags.some(d => d.code === 'AMS-CALLBACK-NOT-ALLOWLISTED')).toBe(true);
+    expect(diags.some(d => d.path.includes('/maxRetries'))).toBe(true);
+    expect(diags.some(d => d.path.includes('/timeoutMs'))).toBe(true);
+    expect(diags.some(d => d.path.includes('/bodyTemplate'))).toBe(true);
+    expect(diags.some(d => d.code === 'AMS-CAPABILITY-INFO')).toBe(true);
+  });
+
+  it('flags enabled callbacks without a url', () => {
+    const response = createDefaultResponse('resp-1');
+    response.callbacks = [{
+      id: 'cb-empty',
+      enabled: true,
+      url: '',
+      method: 'POST',
+      headers: [],
+      bodyTemplate: '',
+      timeoutMs: 1000,
+      maxRetries: 0,
+    }];
+    const diags = validateServer(makeServer({ routes: [makeRoute({ responses: [response] })] }));
+    expect(diags.some(d => d.code === 'AMS-CALLBACK-URL-MISSING')).toBe(true);
   });
 });

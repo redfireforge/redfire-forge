@@ -2,9 +2,12 @@
  * API Mock Studio — advanced response selection (Phase 7B-7C).
  * Handles sequence, weighted, and state-gated response modes.
  */
-import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from './contracts';
+import type { ApiMockCapturedRequestV1, ApiMockRouteV1, ApiMockResponseVariantV1 } from './contracts';
 import type { ScenarioState } from './scenarioRuntime';
 import { getState } from './scenarioRuntime';
+import { evaluatePredicateGroup } from './predicateEvaluator';
+import { matchPath } from './pathMatcher';
+import { stripBasePath } from './predicateEvaluatorHelpers';
 
 export interface SequenceState {
   positions: Record<string, number>;
@@ -68,11 +71,55 @@ export function selectStateResponse(
   return enabled.find(r => !r.transition?.currentState);
 }
 
+/**
+ * Rules-mode selection: first enabled variant whose conditions match, else default.
+ */
+export function selectRulesResponse(
+  route: ApiMockRouteV1,
+  request: ApiMockCapturedRequestV1,
+  basePath = '',
+): ApiMockResponseVariantV1 | undefined {
+  const enabled = route.responses.filter(r => r.enabled);
+  if (enabled.length === 0) return undefined;
+  const fullPath = stripBasePath(request.path, basePath);
+  const pathParams = matchPath(route.path, fullPath).params;
+  const conditional = enabled.find(v => (
+    !v.isDefault
+    && v.conditions
+    && v.conditions.children.length > 0
+    && evaluatePredicateGroup(v.conditions, request, pathParams)
+  ));
+  if (conditional) return conditional;
+  return enabled.find(v => v.isDefault) ?? enabled[0];
+}
+
+/** Unified mode-aware selection used by the network listener. */
+export function selectResponseForRoute(
+  route: ApiMockRouteV1,
+  request: ApiMockCapturedRequestV1,
+  scenario: ScenarioState,
+  sequence: SequenceState,
+  opts?: { basePath?: string; stateKey?: string; seed?: string },
+): ApiMockResponseVariantV1 | undefined {
+  switch (route.responseMode) {
+    case 'sequence':
+      return selectSequenceResponse(route, sequence);
+    case 'weighted':
+      return selectWeightedResponse(route, opts?.seed);
+    case 'state':
+      return selectStateResponse(route, scenario, opts?.stateKey ?? 'default');
+    default:
+      return selectRulesResponse(route, request, opts?.basePath ?? '');
+  }
+}
+
 /** Check if a variant is eligible based on match count and expiry limits. */
 export function isVariantEligible(
   variant: ApiMockResponseVariantV1,
   matchCount: number,
   now: Date = new Date(),
+  /** Optional fixed roll in [0,1) for deterministic simulation. */
+  probabilityRoll?: number,
 ): { eligible: boolean; reason?: string } {
   if (variant.behavior.maxMatches != null && matchCount >= variant.behavior.maxMatches) {
     return { eligible: false, reason: `Match limit ${variant.behavior.maxMatches} reached` };
@@ -84,7 +131,7 @@ export function isVariantEligible(
     }
   }
   if (variant.behavior.probability != null && variant.behavior.probability < 1) {
-    const roll = Math.random();
+    const roll = probabilityRoll ?? Math.random();
     if (roll > variant.behavior.probability) {
       return { eligible: false, reason: `Probability ${variant.behavior.probability} not met (rolled ${roll.toFixed(3)})` };
     }

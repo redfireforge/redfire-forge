@@ -98,6 +98,92 @@ describe('validateServer', () => {
     const diags = validateServer(srv);
     expect(diags.some(d => d.code === 'AMS-LIMIT-EXCEEDED')).toBe(true);
   });
+
+  it('requires allowlist when proxy fallback is active', () => {
+    const srv = makeServer({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        fallback: { ...DEFAULT_SETTINGS.fallback, mode: 'proxy' },
+        proxy: { ...DEFAULT_SETTINGS.proxy!, enabled: true, allowlist: [] },
+      },
+    });
+    const diags = validateServer(srv);
+    expect(diags.some(d => d.code === 'AMS-PROXY-ALLOWLIST-EMPTY')).toBe(true);
+  });
+
+  it('rejects proxy mode when proxy is disabled', () => {
+    const srv = makeServer({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        fallback: { ...DEFAULT_SETTINGS.fallback, mode: 'proxy' },
+        proxy: { ...DEFAULT_SETTINGS.proxy!, enabled: false, allowlist: ['https://api.example.com'] },
+      },
+    });
+    const diags = validateServer(srv);
+    expect(diags.some(d => d.code === 'AMS-PROXY-DISABLED')).toBe(true);
+  });
+
+  it('warns when credential forwarding is on', () => {
+    const srv = makeServer({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        proxy: {
+          ...DEFAULT_SETTINGS.proxy!,
+          enabled: true,
+          allowlist: ['https://api.example.com'],
+          forwardAuth: true,
+        },
+      },
+    });
+    const diags = validateServer(srv);
+    expect(diags.some(d => d.code === 'AMS-PROXY-FORWARD-AUTH' && d.severity === 'warning')).toBe(true);
+  });
+
+  it('rejects enabled callbacks not on the allowlist', () => {
+    const srv = makeServer();
+    srv.routes[0] = {
+      ...srv.routes[0],
+      responses: [{
+        ...srv.routes[0].responses[0],
+        callbacks: [{
+          id: 'cb1',
+          enabled: true,
+          url: 'https://hooks.example.com/x',
+          method: 'POST',
+          headers: [],
+          bodyTemplate: '{}',
+          timeoutMs: 1000,
+          maxRetries: 0,
+        }],
+      }],
+    };
+    srv.settings = {
+      ...DEFAULT_SETTINGS,
+      callbacks: { allowlist: [] },
+    };
+    const diags = validateServer(srv);
+    expect(diags.some(d => d.code === 'AMS-CALLBACK-NOT-ALLOWLISTED')).toBe(true);
+  });
+
+  it('rejects mTLS without a client CA', () => {
+    const tls = {
+      enabled: true,
+      certPem: '-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----',
+      keyPem: '-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----',
+    };
+    const missing = validateServer(makeServer({
+      settings: { ...DEFAULT_SETTINGS, tls: { ...tls, mtls: { enabled: true, clientCaPem: '' } } },
+    }));
+    expect(missing.some(d => d.code === 'AMS-TLS-CLIENT-CA-MISSING' && d.severity === 'error')).toBe(true);
+
+    const present = validateServer(makeServer({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        tls: { ...tls, mtls: { enabled: true, clientCaPem: '-----BEGIN CERTIFICATE-----\nca\n-----END CERTIFICATE-----' } },
+      },
+    }));
+    expect(present.some(d => d.code === 'AMS-TLS-CLIENT-CA-MISSING')).toBe(false);
+  });
 });
 
 describe('validateRoute', () => {
@@ -110,10 +196,11 @@ describe('validateRoute', () => {
     expect(diags.some(d => d.code === 'AMS-SCHEMA-MISSING-FIELD')).toBe(true);
   });
 
-  it('rejects Phase 7 response modes', () => {
+  it('notes Phase 7 response modes as informational without blocking Apply', () => {
     for (const mode of ['sequence', 'weighted', 'state'] as const) {
       const diags = validateRoute(makeRoute({ responseMode: mode }));
-      expect(diags.some(d => d.code === 'AMS-CAPABILITY-GATED')).toBe(true);
+      const info = diags.find(d => d.code === 'AMS-CAPABILITY-INFO' && d.path.includes('responseMode'));
+      expect(info?.severity).toBe('info');
     }
   });
 
@@ -157,11 +244,12 @@ describe('validateRoute', () => {
     expect(diags.some(d => d.code === 'AMS-RESPONSE-INVALID-MODE')).toBe(true);
   });
 
-  it('rejects Phase 7 behavior fields', () => {
+  it('notes Phase 7 behavior faults as informational without blocking Apply', () => {
     const resp = createDefaultResponse('r1');
     resp.behavior.fault = 'timeout';
     const diags = validateRoute(makeRoute({ responses: [resp] }));
-    expect(diags.some(d => d.code === 'AMS-CAPABILITY-GATED')).toBe(true);
+    const faultDiag = diags.find(d => d.code === 'AMS-CAPABILITY-INFO' && d.path.includes('fault'));
+    expect(faultDiag?.severity).toBe('info');
   });
 });
 

@@ -3,8 +3,12 @@ import {
   createSequenceState,
   isVariantEligible,
   resetSequence,
+  selectRulesResponse,
+  selectResponseForRoute,
+  selectStateResponse,
   selectWeightedResponse,
 } from './responseSelector';
+import { createInitialState, applyTransition } from './scenarioRuntime';
 import { createDefaultResponse } from './defaults';
 import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from './contracts';
 
@@ -51,6 +55,20 @@ describe('responseSelector coverage gaps', () => {
     expect(selected?.status).toBe(201);
   });
 
+  it('uses Math.random when no seed is provided for weighted selection', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const selected = selectWeightedResponse(route('weighted', [{ weight: 1 }, { weight: 1 }]));
+    expect(selected?.status).toBe(200);
+  });
+
+  it('treats probability 1 as always eligible without rolling', () => {
+    const variant = {
+      ...createDefaultResponse('resp-4'),
+      behavior: { delayMs: 0, jitterMs: 0, probability: 1 },
+    };
+    expect(isVariantEligible(variant, 0).eligible).toBe(true);
+  });
+
   it('rejects a probabilistic variant when the roll exceeds the threshold', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.9);
     const variant = {
@@ -69,5 +87,61 @@ describe('responseSelector coverage gaps', () => {
       behavior: { delayMs: 0, jitterMs: 0, probability: 0.25 },
     };
     expect(isVariantEligible(variant, 0).eligible).toBe(true);
+  });
+
+  it('uses a fixed probability roll and selects via selectResponseForRoute modes', () => {
+    const variant = {
+      ...createDefaultResponse('resp-3'),
+      behavior: { delayMs: 0, jitterMs: 0, probability: 0.5 },
+    };
+    expect(isVariantEligible(variant, 0, new Date(), 0.1).eligible).toBe(true);
+
+    const seq = createSequenceState();
+    const seqRoute = route('sequence', [{}, {}]);
+    expect(selectResponseForRoute(seqRoute, {
+      method: 'GET', path: '/test', rawPath: '/test', query: {}, headers: {}, cookies: {},
+      body: null, bodyTruncated: false, receivedAt: ts,
+    }, createInitialState(), seq)?.status).toBe(200);
+
+    const rulesRoute = route('rules', [{ enabled: false }]);
+    expect(selectRulesResponse(rulesRoute, {
+      method: 'GET', path: '/test', rawPath: '/test', query: {}, headers: {}, cookies: {},
+      body: null, bodyTruncated: false, receivedAt: ts,
+    })).toBeUndefined();
+
+    const weighted = selectResponseForRoute(
+      route('weighted', [{ weight: 10 }, { weight: 90 }]),
+      { method: 'GET', path: '/test', rawPath: '/test', query: {}, headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts },
+      createInitialState(),
+      createSequenceState(),
+      { seed: 'weighted-gap' },
+    );
+    expect(weighted).toBeDefined();
+
+    const state = createInitialState();
+    applyTransition(state, 'default', { targetState: 'active' });
+    const statePick = selectResponseForRoute(
+      route('state', [
+        { transition: { currentState: 'active', targetState: 'done' } },
+        { transition: { targetState: 'idle' } },
+      ]),
+      { method: 'GET', path: '/test', rawPath: '/test', query: {}, headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts },
+      state,
+      createSequenceState(),
+    );
+    expect(statePick?.transition?.currentState).toBe('active');
+
+    const rulesWithBase = selectResponseForRoute(
+      route('rules', [{ isDefault: true, status: 204 }]),
+      { method: 'GET', path: '/api/test', rawPath: '/api/test', query: {}, headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts },
+      createInitialState(),
+      createSequenceState(),
+      { basePath: '/api' },
+    );
+    expect(rulesWithBase?.status).toBe(204);
+  });
+
+  it('returns undefined for state routes with no enabled variants', () => {
+    expect(selectStateResponse(route('state', [{ enabled: false }]), createInitialState(), 'flow')).toBeUndefined();
   });
 });

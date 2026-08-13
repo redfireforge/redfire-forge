@@ -5,7 +5,9 @@
  * recoverable message instead of a raw error.
  */
 import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockRecordedDraftV1 } from '../../shared/api-mock/proxyRecording';
 import { classifyRuntimeError, type RuntimeDiagnostic, type RuntimeErrorCode } from '../../shared/api-mock/recoveryDiagnostics';
+import { apiMockControlBase } from '../../shared/api-mock/controlBase';
 
 export interface ControlStatus {
   serverId: string;
@@ -24,6 +26,8 @@ export interface JournalPage {
 export interface ScenarioStateSnapshot {
   states: Record<string, string>;
   counters: Record<string, number>;
+  /** Next sequence index per route id (live listener). */
+  sequencePositions?: Record<string, number>;
 }
 
 export type ControlResult<T> = { ok: true; data: T } | { ok: false; error: RuntimeDiagnostic };
@@ -59,7 +63,7 @@ function fromServerError(code: string | undefined, message: string): RuntimeDiag
 async function call<T>(path: string, init?: RequestInit): Promise<ControlResult<T>> {
   let res: Response;
   try {
-    res = await fetch(path, {
+    res = await fetch(`${apiMockControlBase()}${path}`, {
       ...init,
       headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     });
@@ -98,4 +102,29 @@ export const apiMockControlClient = {
     call<ScenarioStateSnapshot>(`/api/mock/servers/${encodeURIComponent(serverId)}/state`, { method: 'GET' }),
   resetState: (serverId: string) =>
     call<{ reset: boolean }>(`/api/mock/servers/${encodeURIComponent(serverId)}/state/reset`, { method: 'POST' }),
+  generateSelfSignedTls: (hosts: string[]) =>
+    call<{ certPem: string; keyPem: string }>(
+      '/api/mock/tls/self-signed',
+      { method: 'POST', body: JSON.stringify({ hosts }) },
+    ),
+  generateClientCredentials: (commonName: string) =>
+    call<{ caCertPem: string; clientCertPem: string; clientKeyPem: string; commonName: string }>(
+      '/api/mock/tls/client-credentials',
+      { method: 'POST', body: JSON.stringify({ commonName }) },
+    ),
+  recordedDrafts: (serverId: string) =>
+    call<{ drafts: ApiMockRecordedDraftV1[]; total: number }>(
+      `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts`,
+      { method: 'GET' },
+    ),
+  ackRecordedDrafts: (serverId: string, ids: string[]) =>
+    call<{ removed: number }>(
+      `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts/ack`,
+      { method: 'POST', body: JSON.stringify({ ids }) },
+    ),
+  clearRecordedDrafts: (serverId: string) =>
+    call<{ cleared: boolean }>(
+      `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts`,
+      { method: 'DELETE' },
+    ),
 };

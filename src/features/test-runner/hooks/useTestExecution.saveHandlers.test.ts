@@ -309,4 +309,56 @@ describe('useTestExecution - Kafka publish on completion', () => {
     expect(mockPublishRunResults).not.toHaveBeenCalled();
     expect(result.current.pendingRun).not.toBeNull();
   });
+
+  it('logs when confirmSave publish fails without changing saved run state', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+    mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
+    mockForceSaveTestRun.mockResolvedValue({ ok: true });
+    mockPublishRunResults.mockResolvedValueOnce({ status: 'failed', retryCount: 2, durationMs: 50, errorCode: 'KAFKA_TIMEOUT' });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()]);
+    });
+    await act(async () => {
+      await result.current.confirmSavePendingRun();
+    });
+
+    expect(result.current.finalRun).not.toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[RedfireForge] Kafka results publish failed (confirmSave)',
+      expect.objectContaining({ status: 'failed' }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('logs when external execution publish fails without changing final run', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
+    mockPublishRunResults.mockResolvedValueOnce({ status: 'failed', retryCount: 1, durationMs: 20, errorCode: 'KAFKA_TIMEOUT' });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    let callbacks: ReturnType<typeof result.current.startExternalExecution>;
+    act(() => {
+      callbacks = result.current.startExternalExecution(1);
+    });
+
+    await act(async () => {
+      callbacks!.reportProgress([createMockResult()], 1);
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    await act(async () => {
+      await callbacks!.complete(createMockConfig());
+    });
+
+    expect(result.current.finalRun).not.toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[RedfireForge] Kafka results publish failed (externalExec)',
+      expect.objectContaining({ status: 'failed' }),
+    );
+    warnSpy.mockRestore();
+  });
 });

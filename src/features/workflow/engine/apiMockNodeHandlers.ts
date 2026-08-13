@@ -1,6 +1,6 @@
 /**
  * API Mock Studio — workflow node handlers (Phase 11A-11B).
- * Pure handler functions for API Mock workflow nodes.
+ * Pure control-plane helpers; graphRunner wraps these with visitOutgoing / variables.
  */
 import type {
   ApiMockStartNodeData,
@@ -9,11 +9,19 @@ import type {
   ApiMockResetStateNodeData,
   ApiMockAssertCallsNodeData,
 } from '../types/workflow/node-api-mock';
-import type { ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
+import { assertMockCalls } from '../../../shared/api-mock/assertMockCalls';
+import { resolveApiMockDefinition } from '../utils/apiMockWorkflowDefinitionResolver';
 
 export interface ApiMockNodeContext {
   controlBaseUrl: string;
   fetch: typeof globalThis.fetch;
+  /** Pre-resolved definition (preferred for start/apply). */
+  definition?: ApiMockServerDefinitionV1;
+  /** Optional workspace loader override for start when definition is absent. */
+  loadWorkspace?: Parameters<typeof resolveApiMockDefinition>[0]['loadWorkspace'];
+  runId?: string;
+  registerStarted?: (serverId: string) => void;
 }
 
 export interface ApiMockNodeResult {
@@ -26,59 +34,96 @@ export interface ApiMockNodeResult {
     expected: string;
     actual: string;
     nearMisses?: string[];
+    transactionIds?: string[];
   };
 }
 
-export async function handleApiMockStart(data: ApiMockStartNodeData, ctx: ApiMockNodeContext): Promise<ApiMockNodeResult> {
+async function postJson(
+  ctx: ApiMockNodeContext,
+  path: string,
+  init?: RequestInit,
+): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: string }> {
   try {
-    const res = await ctx.fetch(`${ctx.controlBaseUrl}/api/mock/servers/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: data.serverId, port: data.portOverride }),
+    const res = await ctx.fetch(`${ctx.controlBaseUrl}${path}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     });
-    const json = await res.json() as { ok: boolean; data?: { serverId: string; port: number; generation: number }; error?: { message: string } };
-    if (!json.ok) return { success: false, error: json.error?.message ?? 'Start failed' };
-    return { success: true, serverId: json.data?.serverId, port: json.data?.port, generation: json.data?.generation };
+    const json = await res.json() as { ok?: boolean; data?: Record<string, unknown>; error?: { message?: string } };
+    if (!json.ok) return { ok: false, error: json.error?.message ?? 'Request failed' };
+    return { ok: true, data: json.data };
   } catch (e) {
-    return { success: false, error: (e as Error).message };
+    return { ok: false, error: e instanceof Error ? e.message : 'Request failed' };
   }
+}
+
+export async function handleApiMockStart(data: ApiMockStartNodeData, ctx: ApiMockNodeContext): Promise<ApiMockNodeResult> {
+  let definition = ctx.definition;
+  if (!definition) {
+    const resolved = await resolveApiMockDefinition({
+      serverId: data.serverId,
+      portOverride: data.portOverride,
+      isolateRun: data.isolateRun !== false,
+      runId: ctx.runId ?? `wf-${Date.now()}`,
+      loadWorkspace: ctx.loadWorkspace,
+    });
+    if (!resolved.ok) return { success: false, error: resolved.error };
+    definition = resolved.definition;
+  } else if (data.portOverride != null) {
+    definition = { ...definition, port: data.portOverride };
+  }
+
+  const result = await postJson(ctx, '/api/mock/servers/start', {
+    method: 'POST',
+    body: JSON.stringify(definition),
+  });
+  if (!result.ok) return { success: false, error: result.error };
+  const serverId = String(result.data?.serverId ?? definition.id);
+  const port = Number(result.data?.port ?? definition.port);
+  const generation = Number(result.data?.generation ?? 1);
+  ctx.registerStarted?.(serverId);
+  return { success: true, serverId, port, generation };
 }
 
 export async function handleApiMockStop(data: ApiMockStopNodeData, ctx: ApiMockNodeContext): Promise<ApiMockNodeResult> {
-  try {
-    const res = await ctx.fetch(`${ctx.controlBaseUrl}/api/mock/servers/${data.serverId}/stop`, { method: 'POST' });
-    const json = await res.json() as { ok: boolean; error?: { message: string } };
-    if (!json.ok) return { success: false, error: json.error?.message };
-    return { success: true, serverId: data.serverId };
-  } catch (e) {
-    return { success: false, error: (e as Error).message };
+  const result = await postJson(ctx, `/api/mock/servers/${encodeURIComponent(data.serverId)}/stop`, { method: 'POST' });
+  if (!result.ok) {
+    if (data.idempotent !== false && /not found|not running/i.test(result.error ?? '')) {
+      return { success: true, serverId: data.serverId };
+    }
+    return { success: false, error: result.error, serverId: data.serverId };
   }
+  return { success: true, serverId: data.serverId };
 }
 
 export async function handleApiMockApply(data: ApiMockApplyNodeData, ctx: ApiMockNodeContext): Promise<ApiMockNodeResult> {
-  try {
-    const res = await ctx.fetch(`${ctx.controlBaseUrl}/api/mock/servers/${data.serverId}/definition`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: data.serverId }),
+  let definition = ctx.definition;
+  if (!definition) {
+    const resolved = await resolveApiMockDefinition({
+      serverId: data.serverId,
+      isolateRun: false,
+      loadWorkspace: ctx.loadWorkspace,
     });
-    const json = await res.json() as { ok: boolean; data?: { generation: number }; error?: { message: string } };
-    if (!json.ok) return { success: false, error: json.error?.message };
-    return { success: true, serverId: data.serverId, generation: json.data?.generation };
-  } catch (e) {
-    return { success: false, error: (e as Error).message };
+    if (!resolved.ok) return { success: false, error: resolved.error };
+    definition = resolved.definition;
   }
+  // Apply uses the runtime server id (may be isolated).
+  definition = { ...definition, id: data.serverId };
+  const result = await postJson(ctx, `/api/mock/servers/${encodeURIComponent(data.serverId)}/definition`, {
+    method: 'PUT',
+    body: JSON.stringify(definition),
+  });
+  if (!result.ok) return { success: false, error: result.error, serverId: data.serverId };
+  return {
+    success: true,
+    serverId: data.serverId,
+    generation: Number(result.data?.generation ?? 0),
+  };
 }
 
 export async function handleApiMockResetState(data: ApiMockResetStateNodeData, ctx: ApiMockNodeContext): Promise<ApiMockNodeResult> {
-  try {
-    const res = await ctx.fetch(`${ctx.controlBaseUrl}/api/mock/servers/${data.serverId}/state/reset`, { method: 'POST' });
-    const json = await res.json() as { ok: boolean; error?: { message: string } };
-    if (!json.ok) return { success: false, error: json.error?.message };
-    return { success: true, serverId: data.serverId };
-  } catch (e) {
-    return { success: false, error: (e as Error).message };
-  }
+  const result = await postJson(ctx, `/api/mock/servers/${encodeURIComponent(data.serverId)}/state/reset`, { method: 'POST' });
+  if (!result.ok) return { success: false, error: result.error, serverId: data.serverId };
+  return { success: true, serverId: data.serverId };
 }
 
 export async function handleApiMockAssertCalls(
@@ -86,60 +131,39 @@ export async function handleApiMockAssertCalls(
   _ctx: ApiMockNodeContext,
   transactions: ApiMockTransactionV1[],
 ): Promise<ApiMockNodeResult> {
-  const matching = transactions.filter(tx => {
-    if (tx.serverId !== data.serverId) return false;
-    if (data.routeId && tx.matchedRouteId !== data.routeId) return false;
-    if (data.expectedStatus && tx.response?.status !== data.expectedStatus) return false;
-    return true;
+  const assertion = assertMockCalls(transactions, {
+    serverId: data.serverId,
+    routeId: data.routeId,
+    matchedResponseId: data.matchedResponseId,
+    expectedCount: data.expectedCount,
+    expectedMinCount: data.expectedMinCount,
+    expectedMaxCount: data.expectedMaxCount,
+    expectedStatus: data.expectedStatus,
+    expectedBodyContains: data.expectedBodyContains,
+    expectedHeaderKey: data.expectedHeaderKey,
+    expectedHeaderValue: data.expectedHeaderValue,
+    expectedLastCallWithinMs: data.expectedLastCallWithinMs,
   });
 
-  const count = matching.length;
-
-  if (data.expectedCount != null && count !== data.expectedCount) {
+  if (!assertion.passed) {
     return {
-      success: false, serverId: data.serverId,
-      assertionDetails: { expected: `count = ${data.expectedCount}`, actual: `count = ${count}` },
+      success: false,
+      serverId: data.serverId,
+      assertionDetails: {
+        expected: assertion.expected,
+        actual: assertion.actual,
+        nearMisses: assertion.nearMisses,
+        transactionIds: assertion.matchingIds,
+      },
     };
   }
-  if (data.expectedMinCount != null && count < data.expectedMinCount) {
-    return {
-      success: false, serverId: data.serverId,
-      assertionDetails: { expected: `count >= ${data.expectedMinCount}`, actual: `count = ${count}` },
-    };
-  }
-  if (data.expectedMaxCount != null && count > data.expectedMaxCount) {
-    return {
-      success: false, serverId: data.serverId,
-      assertionDetails: { expected: `count <= ${data.expectedMaxCount}`, actual: `count = ${count}` },
-    };
-  }
-
-  if (data.expectedBodyContains && matching.length > 0) {
-    const last = matching[matching.length - 1];
-    if (!last.response?.body?.includes(data.expectedBodyContains)) {
-      return {
-        success: false, serverId: data.serverId,
-        assertionDetails: {
-          expected: `body contains "${data.expectedBodyContains}"`,
-          actual: `body = "${last.response?.body?.slice(0, 100) ?? '(null)'}"`,
-        },
-      };
-    }
-  }
-
-  if (data.expectedHeaderKey && matching.length > 0) {
-    const last = matching[matching.length - 1];
-    const headerVal = last.request.headers[data.expectedHeaderKey.toLowerCase()]?.[0];
-    if (data.expectedHeaderValue && headerVal !== data.expectedHeaderValue) {
-      return {
-        success: false, serverId: data.serverId,
-        assertionDetails: {
-          expected: `header ${data.expectedHeaderKey} = "${data.expectedHeaderValue}"`,
-          actual: `header ${data.expectedHeaderKey} = "${headerVal ?? '(absent)'}"`,
-        },
-      };
-    }
-  }
-
-  return { success: true, serverId: data.serverId };
+  return {
+    success: true,
+    serverId: data.serverId,
+    assertionDetails: {
+      expected: assertion.expected,
+      actual: assertion.actual,
+      transactionIds: assertion.matchingIds,
+    },
+  };
 }

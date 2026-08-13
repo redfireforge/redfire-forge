@@ -4,8 +4,10 @@ import type {
   ApiMockPredicateOperator,
   ApiMockPredicateV1,
 } from './contracts';
+import { getByPath } from '../utils/jsonPath';
 import { compileRegexCached, testRegexCached } from './patternCache';
 import { BoundedCache } from './perfBudgets';
+import { matchXPathExists, matchXPathEquals } from './xpathMatcher';
 
 export interface ParsedBody { ok: boolean; value?: unknown; }
 const parsedBodyCache = new BoundedCache<string, ParsedBody>(256);
@@ -116,9 +118,10 @@ export function evaluateOperator(
     case 'binary_exact': return typeof value === 'string' && value === String(expected);
     case 'binary_sha256': return false;
 
+    case 'xpath_exists': return matchXPathExists(value, expected);
+    case 'xpath_equals': return matchXPathEquals(value, expected, options?.matchStyle);
+
     case 'jsonSchema':
-    case 'xpath_exists':
-    case 'xpath_equals':
     case 'xmlSchema':
     case 'multipart_field':
     case 'multipart_file':
@@ -244,14 +247,15 @@ function matchFormField(value: string | string[] | null, expected: ApiMockPredic
   return testRegexCached(String(fieldValue ?? ''), '', actual);
 }
 
-function resolveSimpleJsonPath(obj: unknown, path: string): unknown {
-  const parts = path.replace(/^\$\.?/, '').split('.').filter(Boolean);
-  let current: unknown = obj;
-  for (const part of parts) {
-    if (current == null || typeof current !== 'object') return undefined;
-    current = (current as Record<string, unknown>)[part];
-  }
-  return current;
+/**
+ * Resolve a simplified JSONPath against an object.
+ * Supports `$.a.b`, `$.items[0].sku`, `items[0].sku`, and `$.items[*].id` via the
+ * shared canonical path engine (runtime-parity with predicate matching).
+ */
+export function resolveSimpleJsonPath(obj: unknown, path: string): unknown {
+  const trimmed = path.trim();
+  if (!trimmed || trimmed === '$') return obj;
+  return getByPath(obj, trimmed);
 }
 
 function deepStrictEqual(a: unknown, b: unknown): boolean {

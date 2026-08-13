@@ -470,4 +470,104 @@ describe('DetailOverviewTab coverage gaps', () => {
     );
     expect(container.querySelector('.mini-histogram-bar-fail')).toBeTruthy();
   });
+
+  it('renders api mock details with optional metadata fields', () => {
+    render(
+      <OverviewTab
+        events={[makeEvent({ nodeType: 'apiMockStart' })]}
+        stats={baseStats({ totalExecutions: 1, passCount: 1, failCount: 0, passRate: 100 })}
+        currentEvent={makeEvent({
+          nodeType: 'apiMockStart',
+          state: 'pass',
+          details: {
+            apiMockDetails: {
+              transport: 'apiMockStart',
+              serverId: 'mock-1',
+              port: 4010,
+              generation: 3,
+              durationMs: 42,
+              expected: '>= 1 call',
+              actual: '2 calls',
+              transactionIds: ['tx-1', 'tx-2'],
+              nearMisses: ['GET /pets', 'POST /pets', 'PUT /pets', 'DELETE /pets', 'PATCH /pets', 'HEAD /pets'],
+            },
+          },
+        })}
+        onIterationClick={onIterationClick}
+      />,
+    );
+    expect(screen.getByTestId('exec-apimock-details')).toBeInTheDocument();
+    expect(screen.getByText('START')).toBeInTheDocument();
+    expect(screen.getByText('mock-1')).toBeInTheDocument();
+    expect(screen.getByText('4010')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('>= 1 call')).toBeInTheDocument();
+    expect(screen.getByText('2 calls')).toBeInTheDocument();
+    expect(screen.getByText('tx-1, tx-2')).toBeInTheDocument();
+    expect(screen.getByText(/GET \/pets/)).toBeInTheDocument();
+  });
+
+  it('shows avg and p95 histogram markers when within range and omits fail overlay when all pass', () => {
+    computeHistogramBinsMock.mockReturnValue([
+      { min: 50, max: 150, count: 4, percent: 100 },
+    ]);
+    const events = [50, 80, 120, 140].map((durationMs) => makeEvent({ durationMs, state: 'pass' }));
+    const { container } = render(
+      <OverviewTab
+        events={events}
+        stats={baseStats({
+          durations: [50, 80, 120, 140],
+          avgDuration: 100,
+          p95Duration: 130,
+        })}
+        currentEvent={null}
+        onIterationClick={onIterationClick}
+      />,
+    );
+    expect(container.querySelector('.mini-histogram-marker.avg')).toBeTruthy();
+    expect(container.querySelector('.mini-histogram-marker.p95')).toBeTruthy();
+    expect(container.querySelector('.mini-histogram-bar-fail')).toBeNull();
+    expect(container.querySelector('.fail-legend')).toBeNull();
+  });
+
+  it('uses responseTimeMs for generic execution timing when durationMs is absent', () => {
+    const { container } = render(
+      <OverviewTab
+        events={[makeEvent()]}
+        stats={baseStats({ totalExecutions: 1, passCount: 1, failCount: 0, passRate: 100, maxDuration: 300 })}
+        currentEvent={makeEvent({
+          durationMs: undefined,
+          details: {
+            statusCode: 200,
+            method: 'GET',
+            url: '/health',
+            responseTimeMs: 120,
+          },
+        })}
+        onIterationClick={onIterationClick}
+      />,
+    );
+    expect(container.querySelector('.exec-timing-bar-fill')).toBeTruthy();
+    expect(container.querySelector('.exec-timing-bar-fill.error')).toBeNull();
+  });
+
+  it('skips generic execution card when kafka trigger details are present', () => {
+    render(
+      <OverviewTab
+        events={[makeEvent({ nodeType: 'kafkaTrigger' })]}
+        stats={baseStats({ totalExecutions: 1, passCount: 1, failCount: 0, passRate: 100 })}
+        currentEvent={makeEvent({
+          nodeType: 'kafkaTrigger',
+          details: {
+            kafkaTriggerDetails: { topic: 'orders' },
+            statusCode: 200,
+            method: 'GET',
+            url: '/ignored',
+          },
+        })}
+        onIterationClick={onIterationClick}
+      />,
+    );
+    expect(screen.queryByText('Last Execution')).not.toBeInTheDocument();
+  });
 });

@@ -1,5 +1,30 @@
 import { describe, it, expect } from 'vitest';
-import { matchPath } from './pathMatcher';
+import { matchPath, inferPathKind } from './pathMatcher';
+
+describe('inferPathKind', () => {
+  it('detects parameterized paths from :param and {param}', () => {
+    expect(inferPathKind('/users/:id')).toBe('parameterized');
+    expect(inferPathKind('/orders/{orderId}/items/{itemId}')).toBe('parameterized');
+  });
+  it('detects glob paths', () => {
+    expect(inferPathKind('/api/**')).toBe('glob');
+    expect(inferPathKind('/assets/*.png')).toBe('glob');
+  });
+  it('falls back to exact for literal paths', () => {
+    expect(inferPathKind('/users/admin')).toBe('exact');
+    expect(inferPathKind('/')).toBe('exact');
+  });
+  it('preserves an explicit regex choice', () => {
+    expect(inferPathKind('^/v[0-9]+/.*$', 'regex')).toBe('regex');
+  });
+  it('prefers parameterized when a path has both param and wildcard syntax', () => {
+    expect(inferPathKind('/users/:id/*')).toBe('parameterized');
+  });
+  it('does not treat a bare colon or port-like text as a parameter', () => {
+    expect(inferPathKind('/a:b')).toBe('parameterized');
+    expect(inferPathKind('/ratio:')).toBe('exact');
+  });
+});
 
 describe('matchPath', () => {
   describe('exact', () => {

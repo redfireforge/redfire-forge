@@ -1,6 +1,7 @@
 pub mod assertion_evaluator;
 mod arrival_executor;
 mod commands;
+mod companion;
 mod graphql;
 mod grpc;
 mod kafka;
@@ -131,9 +132,11 @@ pub fn run() {
   }
 
   builder
+    .manage(companion::CompanionState::default())
     .setup(|app| {
       let grpc_state = app.state::<GrpcState>();
       lifecycle::start_orphan_supervisor(grpc_state.inner().clone());
+      companion::start(app.handle());
 
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -149,6 +152,7 @@ pub fn run() {
         let state = window.state::<GrpcState>();
         lifecycle::shutdown_all(&state);
         let _ = grpc::mock_server::shutdown_all_mock_listeners();
+        companion::stop(window.app_handle());
       }
     })
     .build(tauri::generate_context!())
@@ -158,6 +162,7 @@ pub fn run() {
         let state = app_handle.state::<GrpcState>();
         lifecycle::shutdown_all(&state);
         let _ = grpc::mock_server::shutdown_all_mock_listeners();
+        companion::stop(app_handle);
       }
     });
 }

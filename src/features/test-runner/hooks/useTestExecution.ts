@@ -16,6 +16,13 @@ import { buildGrpcNodeOperations } from '../../../shared/grpc/buildGrpcNodeOpera
 import { resolveGrpcHarnessEnv } from '../../../shared/grpc/grpcHarnessRuntimeContext';
 import type { KafkaResultsPublishConfig } from '../../../shared/types';
 import { publishRunResults } from '../../../shared/kafka/kafkaResultsPublisher';
+import {
+  applyApiMockFixtureBaseUrl,
+  setupApiMockFixture,
+  teardownApiMockFixture,
+  type ApiMockFixtureHandle,
+  type ApiMockTestFixtureConfig,
+} from '../utils/apiMockTestFixture';
 
 export interface TimeSeriesPoint {
   elapsedSec: number;
@@ -297,7 +304,14 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string; grpcHarnessEnv?: Record<string, string> }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: {
+    projectName?: string;
+    envName?: string;
+    svcName?: string;
+    baseUrl?: string;
+    grpcHarnessEnv?: Record<string, string>;
+    apiMockFixture?: ApiMockTestFixtureConfig;
+  }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -357,10 +371,27 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     let peakRps = 0;
     let lastDroppedRequests = 0;
     const isConstantArrival = config.executionMode === 'constant-arrival';
+    const fixtureConfig = meta?.apiMockFixture;
+    let fixtureHandle: ApiMockFixtureHandle | undefined;
+    let runBaseUrl = meta?.baseUrl;
+    let scenariosToRun = scenarios;
 
     try {
+      if (fixtureConfig?.enabled) {
+        const runId = uuidv4();
+        const setup = await setupApiMockFixture(fixtureConfig, runId);
+        if (!setup.ok) {
+          throw new Error(`API Mock fixture failed: ${setup.error}`);
+        }
+        fixtureHandle = setup.handle;
+        if (fixtureConfig.overrideBaseUrl !== false) {
+          runBaseUrl = `http://127.0.0.1:${setup.handle.port}`;
+          scenariosToRun = applyApiMockFixtureBaseUrl(scenarios, runBaseUrl);
+        }
+      }
+
       const useRust = !workflow && !resolveSubWorkflow
-        && canUseRustExecutor(config, scenarios)
+        && canUseRustExecutor(config, scenariosToRun)
         && await isRustExecutorAvailable();
 
       if (isConstantArrival && !useRust) {
@@ -396,17 +427,17 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         envName: meta?.envName,
       });
       if (useRust) {
-        testResult = await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal);
+        testResult = await runTestViaRust(config, scenariosToRun, wrappedOnProgress, abortRef.current.signal);
       } else if (useWorker) {
         try {
-          testResult = await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, grpcHarnessEnv);
+          testResult = await runTestMultiWorker(config, scenariosToRun, wrappedOnProgress, abortRef.current.signal, workflow, grpcHarnessEnv);
         } catch (workerErr) {
           // Worker failed (common in Tauri WebView) — fall back to direct execution
           console.warn('Worker execution failed, falling back to direct execution:', workerErr);
-          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
+          testResult = await runTest(config, scenariosToRun, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
         }
       } else {
-        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
+        testResult = await runTest(config, scenariosToRun, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
       }
 
       if (flushTimerRef.current) {
@@ -452,7 +483,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         projectName: meta?.projectName,
         envName: meta?.envName,
         svcName: meta?.svcName,
-        baseUrl: meta?.baseUrl,
+        baseUrl: runBaseUrl,
         workflowName: workflow?.name,
         executionTrace: testResult.trace, // Phase 7e: Store execution trace
       };
@@ -520,6 +551,8 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         isRunning: false,
         error: toErrorMessage(err),
       }));
+    } finally {
+      await teardownApiMockFixture(fixtureHandle, fixtureConfig).catch(() => { /* best-effort */ });
     }
   }, [flushToState]);
 

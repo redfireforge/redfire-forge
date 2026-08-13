@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { exportWorkspace } from './exportUtils';
+import { exportFilename, exportWorkspace, serializeExport } from './exportUtils';
 import { DEFAULT_SETTINGS, createDefaultResponse } from './defaults';
 import type { ApiMockWorkspaceV1, ApiMockServerDefinitionV1 } from './contracts';
 
@@ -60,6 +60,39 @@ describe('exportWorkspace', () => {
     }
   });
 
+  it('filters samples when exporting a route subset', () => {
+    const ws = makeWs();
+    ws.servers[0].samples = [
+      {
+        id: 'sample-a',
+        name: 'A',
+        routeId: 'r1',
+        request: {
+          method: 'GET', path: '/', rawPath: '/', query: {}, headers: {}, cookies: {},
+          body: null, bodyTruncated: false, receivedAt: ts,
+        },
+      },
+      {
+        id: 'sample-b',
+        name: 'B',
+        routeId: 'r2',
+        request: {
+          method: 'GET', path: '/other', rawPath: '/other', query: {}, headers: {}, cookies: {},
+          body: null, bodyTruncated: false, receivedAt: ts,
+        },
+      },
+    ];
+    ws.servers[0].routes.push({
+      id: 'r2', name: 'R2', enabled: true, method: 'GET', path: { kind: 'exact', value: '/other' },
+      priority: 10, predicates: { id: 'pg2', combinator: 'all', children: [] }, responseMode: 'rules',
+      responses: [createDefaultResponse('resp-2')], tags: [], createdAt: ts, updatedAt: ts,
+    });
+    const result = exportWorkspace(ws, { scope: 'routes', sourceServerId: 'a', selectedRouteIds: ['r1'] });
+    if (result.data.scope === 'routes') {
+      expect(result.data.samples.map(s => s.id)).toEqual(['sample-a']);
+    }
+  });
+
   it('redacts sensitive variables', () => {
     const result = exportWorkspace(makeWs(), { scope: 'workspace', redact: true });
     expect(result._exportMeta.redacted).toBe(true);
@@ -89,5 +122,51 @@ describe('exportWorkspace', () => {
       const keys = result.data.workspace.servers[0].variables.map(v => v.key);
       expect(keys).toEqual([...keys].sort());
     }
+  });
+
+  it('serializes JSON and YAML', () => {
+    const envelope = exportWorkspace(makeWs(), { scope: 'workspace' });
+    expect(serializeExport(envelope, 'json')).toContain('"redfireforge-api-mock"');
+    expect(serializeExport(envelope, 'yaml')).toMatch(/kind:\s*redfireforge-api-mock/);
+  });
+
+  it('builds stable filenames', () => {
+    expect(exportFilename('workspace', 'json', 'demo')).toMatch(/^api-mock-workspace-demo-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(exportFilename('servers', 'yaml', 'svc')).toMatch(/\.yaml$/);
+    expect(exportFilename('routes', 'json')).toMatch(/^api-mock-routes-/);
+  });
+});
+
+describe('exportWorkspace — TLS redaction', () => {
+  function withTls(): ApiMockWorkspaceV1 {
+    const ws = makeWs();
+    ws.servers[0].settings = {
+      ...ws.servers[0].settings,
+      tls: {
+        enabled: true,
+        certPem: '-----BEGIN CERTIFICATE-----\nSRV\n-----END CERTIFICATE-----',
+        keyPem: '-----BEGIN PRIVATE KEY-----\nSRVKEY\n-----END PRIVATE KEY-----',
+        passphrase: 'hunter2',
+        mtls: {
+          enabled: true,
+          clientCaPem: '-----BEGIN CERTIFICATE-----\nCA\n-----END CERTIFICATE-----',
+          clientCertPem: '-----BEGIN CERTIFICATE-----\nCLIENT\n-----END CERTIFICATE-----',
+          clientKeyPem: '-----BEGIN PRIVATE KEY-----\nCLIENTKEY\n-----END PRIVATE KEY-----',
+        },
+      },
+    };
+    return ws;
+  }
+
+  it('redacts server and client private keys but keeps public certificates', () => {
+    const out = exportWorkspace(withTls(), { scope: 'workspace', redact: true });
+    const raw = JSON.stringify(out);
+
+    expect(raw).not.toContain('SRVKEY');
+    expect(raw).not.toContain('CLIENTKEY');
+    expect(raw).not.toContain('hunter2');
+    // Public material stays so an import can still verify/serve.
+    expect(raw).toContain('CA');
+    expect(raw).toContain('CLIENT');
   });
 });

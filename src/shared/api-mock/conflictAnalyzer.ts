@@ -5,11 +5,13 @@
 import type {
   ApiMockRouteV1,
   ApiMockConflictFindingV1,
+  ApiMockCapturedRequestV1,
   ApiMockDiagnosticSeverity,
   ApiMockPredicateV1,
   ApiMockPredicateGroupV1,
 } from './contracts';
 import { computeRouteFingerprint } from './fingerprint';
+import { matchPath } from './pathMatcher';
 
 export interface ConflictAnalysisResult {
   findings: ApiMockConflictFindingV1[];
@@ -50,8 +52,12 @@ function analyzeRoutePair(
   const hasUnknown = dims.some(d => d.result === 'unknown');
   const kind = hasUnknown ? 'potential_overlap' as const : 'definite_overlap' as const;
 
+  // Higher-priority broader rule shadows the narrower / lower-priority peer.
   if (a.priority > b.priority && isSuperset(a.predicates, b.predicates)) {
     return makeFinding(a, b, serverId, 'shadowed', 'warning', fingerprints, dims);
+  }
+  if (b.priority > a.priority && isSuperset(b.predicates, a.predicates)) {
+    return makeFinding(b, a, serverId, 'shadowed', 'warning', fingerprints, dims);
   }
 
   const severity: ApiMockDiagnosticSeverity = kind === 'definite_overlap' ? 'warning' : 'info';
@@ -104,7 +110,25 @@ function analyzeDimensions(a: ApiMockRouteV1, b: ApiMockRouteV1): DimResult[] {
     const bp = bPreds.find(p => p.source === ap.source && p.selector === ap.selector);
     if (bp) {
       dims.push(analyzePredicatePairDimension(ap, bp));
+    } else {
+      dims.push({
+        source: ap.source,
+        selector: ap.selector,
+        result: 'unknown',
+        explanation: `Left has ${ap.operator}${ap.selector ? ` on ${ap.selector}` : ''}${ap.expected != null ? ` ${String(ap.expected)}` : ''}; right has none`,
+      });
     }
+  }
+  for (const bp of bPreds) {
+    const key = `${bp.source}:${bp.selector ?? ''}`;
+    if (seenSources.has(key)) continue;
+    seenSources.add(key);
+    dims.push({
+      source: bp.source,
+      selector: bp.selector,
+      result: 'unknown',
+      explanation: `Right has ${bp.operator}${bp.selector ? ` on ${bp.selector}` : ''}${bp.expected != null ? ` ${String(bp.expected)}` : ''}; left has none`,
+    });
   }
   return dims;
 }
@@ -122,8 +146,21 @@ function analyzePathDimension(a: ApiMockRouteV1, b: ApiMockRouteV1): DimResult {
       ? { source: 'path', result: 'overlap', explanation: `Both match ${a.path.value}` }
       : { source: 'path', result: 'disjoint', explanation: `${a.path.value} vs ${b.path.value}` };
   }
+  // Run the literal through the real matcher: asserting overlap without testing
+  // reported `/users/:id` as conflicting with `/health`.
   if ((a.path.kind === 'parameterized' && b.path.kind === 'exact') || (a.path.kind === 'exact' && b.path.kind === 'parameterized')) {
-    return { source: 'path', result: 'overlap', explanation: 'Parameterized path captures exact literals' };
+    const pattern = a.path.kind === 'parameterized' ? a.path : b.path;
+    const literal = a.path.kind === 'exact' ? a.path : b.path;
+    return matchPath(pattern, literal.value).matched
+      ? { source: 'path', result: 'overlap', explanation: `${pattern.value} captures ${literal.value}` }
+      : { source: 'path', result: 'disjoint', explanation: `${pattern.value} does not capture ${literal.value}` };
+  }
+  if ((a.path.kind === 'glob' && b.path.kind === 'exact') || (a.path.kind === 'exact' && b.path.kind === 'glob')) {
+    const pattern = a.path.kind === 'glob' ? a.path : b.path;
+    const literal = a.path.kind === 'exact' ? a.path : b.path;
+    return matchPath(pattern, literal.value).matched
+      ? { source: 'path', result: 'overlap', explanation: `${pattern.value} matches ${literal.value}` }
+      : { source: 'path', result: 'disjoint', explanation: `${pattern.value} does not match ${literal.value}` };
   }
   if (a.path.kind === 'regex' || b.path.kind === 'regex') {
     if (a.path.kind === 'exact' || b.path.kind === 'exact') {
@@ -232,7 +269,50 @@ function makeFinding(
     serverId,
     ruleIds: [a.id, b.id],
     kind, severity, dimensions,
-    selectionOutcome: 'unknown',
+    selectionOutcome: resolveSelectionOutcome(a, b),
+    witnessRequest: buildWitnessRequest(a, b),
     ruleFingerprints: [fingerprints.get(a.id) ?? '', fingerprints.get(b.id) ?? ''],
   };
+}
+
+function resolveSelectionOutcome(
+  a: ApiMockRouteV1,
+  b: ApiMockRouteV1,
+): ApiMockConflictFindingV1['selectionOutcome'] {
+  if (a.priority > b.priority) return 'left_wins';
+  if (b.priority > a.priority) return 'right_wins';
+  return 'reject_ambiguous';
+}
+
+/** Concrete request that should hit both rules (literal path preferred). */
+function buildWitnessRequest(a: ApiMockRouteV1, b: ApiMockRouteV1): ApiMockCapturedRequestV1 {
+  const method = a.method !== 'ANY' ? a.method : b.method !== 'ANY' ? b.method : 'GET';
+  const path = pickWitnessPath(a, b);
+  const headers: Record<string, string[]> = {};
+  const aPreds = flattenPredicates(a.predicates);
+  const bPreds = flattenPredicates(b.predicates);
+  for (const p of [...aPreds, ...bPreds]) {
+    if (p.source === 'header' && p.selector && (p.operator === 'exact' || p.operator === 'contains')) {
+      headers[p.selector] = [String(p.expected ?? 'value')];
+    }
+  }
+  return {
+    method,
+    path,
+    rawPath: path,
+    query: {},
+    cookies: {},
+    headers,
+    body: null,
+    bodyTruncated: false,
+    receivedAt: new Date().toISOString(),
+  };
+}
+
+function pickWitnessPath(a: ApiMockRouteV1, b: ApiMockRouteV1): string {
+  if (a.path.kind === 'exact') return a.path.value || '/';
+  if (b.path.kind === 'exact') return b.path.value || '/';
+  // Prefer a concrete sample for parameterized/glob: fill :param / {param}.
+  const pattern = a.path.value || b.path.value || '/';
+  return pattern.replace(/:[^/]+/g, '42').replace(/\{[^}]+\}/g, '42') || '/';
 }

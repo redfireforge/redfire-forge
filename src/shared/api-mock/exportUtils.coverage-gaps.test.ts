@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exportWorkspace } from './exportUtils';
+import { exportWorkspace, settingsForRedaction } from './exportUtils';
 import { DEFAULT_SETTINGS, createDefaultResponse } from './defaults';
 import type { ApiMockServerDefinitionV1, ApiMockWorkspaceV1 } from './contracts';
 
@@ -59,12 +59,13 @@ function makeWs(): ApiMockWorkspaceV1 {
 }
 
 describe('exportUtils coverage gaps', () => {
-  it('exports all routes and no samples when route ids are omitted', () => {
+  it('exports all routes with their samples when route ids are omitted', () => {
     const result = exportWorkspace(makeWs(), { scope: 'routes', sourceServerId: 'a' });
     expect(result.data.scope).toBe('routes');
     if (result.data.scope === 'routes') {
       expect(result.data.routes).toHaveLength(1);
-      expect(result.data.samples).toEqual([]);
+      // Routes scope is documented as "Rules + samples"; omitting ids must not drop them.
+      expect(result.data.samples.map(s => s.id)).toEqual(['sample-a']);
     }
   });
 
@@ -91,5 +92,49 @@ describe('exportUtils coverage gaps', () => {
       expect(result.data.routes).toHaveLength(1);
       expect(result.data.samples).toHaveLength(1);
     }
+  });
+
+  it('redacts sample cookies, response secrets, and TLS keys without passphrase', () => {
+    const ws = makeWs();
+    ws.servers[0].samples[0].request.cookies = { sid: 'secret-cookie' };
+    ws.servers[0].samples[0].request.headers = { authorization: ['Bearer tok'], accept: ['json'] };
+    ws.servers[0].settings = {
+      ...ws.servers[0].settings,
+      redaction: { headerNames: ['authorization'], preserveScheme: true },
+      tls: {
+        enabled: true,
+        certPem: 'CERT',
+        keyPem: '',
+        mtls: { enabled: true, clientCaPem: 'CA', clientCertPem: 'CC', clientKeyPem: '' },
+      },
+    };
+    ws.servers[0].routes[0].responses[0].headers = [
+      { id: 'h1', key: 'Authorization', value: 'Bearer x', enabled: true },
+    ];
+    ws.servers[0].routes[0].responses[0].cookies = [
+      { id: 'c1', name: 'sid', value: 'cookie-val', enabled: true },
+    ];
+
+    const workspaceExport = exportWorkspace(ws, { scope: 'workspace', redact: true });
+    if (workspaceExport.data.scope === 'workspace') {
+      const sample = workspaceExport.data.workspace.servers[0].samples[0];
+      expect(sample.request.cookies?.sid).toBe('[REDACTED]');
+      expect(sample.request.headers.authorization).toEqual(['[REDACTED]']);
+    }
+
+    const routesExport = exportWorkspace(ws, { scope: 'routes', sourceServerId: 'a', selectedRouteIds: ['r1'], redact: true });
+    if (routesExport.data.scope === 'routes') {
+      const variant = routesExport.data.routes[0].responses[0];
+      expect(variant.headers[0].value).toBe('[REDACTED]');
+      expect(variant.cookies[0].value).toBe('[REDACTED]');
+    }
+  });
+
+  it('exposes header names for redaction from server settings', () => {
+    expect(settingsForRedaction(undefined)).toContain('authorization');
+    expect(settingsForRedaction({
+      ...DEFAULT_SETTINGS,
+      redaction: { headerNames: ['X-Custom'], preserveScheme: true },
+    })).toEqual(['x-custom']);
   });
 });
