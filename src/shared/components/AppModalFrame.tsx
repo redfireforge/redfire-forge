@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { useModalFrame, type UseModalFrameOptions } from '../hooks/useModalFrame';
 import ModalExpandButton from './ModalExpandButton';
 import ModalResizeHandles from './ModalResizeHandles';
@@ -35,6 +35,8 @@ interface Props extends UseModalFrameOptions {
   closeButtonLabel?: string;
   closeButtonText?: ReactNode;
   closeOnOverlayClick?: boolean;
+  /** Close on Escape. Opt out for modals guarding unsaved destructive work. */
+  closeOnEscape?: boolean;
   showExpandButton?: boolean;
   titleId?: string;
   bodyStyle?: CSSProperties;
@@ -73,6 +75,7 @@ export default function AppModalFrame({
   closeButtonLabel = 'Close',
   closeButtonText = 'Close',
   closeOnOverlayClick = true,
+  closeOnEscape = true,
   showExpandButton = true,
   titleId,
   bodyStyle,
@@ -113,6 +116,20 @@ export default function AppModalFrame({
     constrainDragToViewport,
     dragViewportPadding,
   });
+
+  // Only the top-most open dialog reacts, so nested modals close one layer at a time.
+  useEffect(() => {
+    if (!open || !closeOnEscape) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs.length > 0 && dialogs[dialogs.length - 1] !== dialogRef.current) return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, closeOnEscape, onClose, dialogRef]);
 
   if (!open) return null;
 

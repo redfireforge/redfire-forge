@@ -44,6 +44,7 @@ import {
   DEFAULT_THRESHOLDS,
 } from '../src/features/results/utils/runBaselines';
 import type { TestRun } from '../src/types';
+import { runMockSimulate, runMockStart, runMockVerify } from './mockCommands';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -605,6 +606,76 @@ program
       console.error(`\n  ❌ Invalid: ${toErrorMessage(err)}`);
       process.exit(2);
     }
+  });
+
+// ── API Mock Studio commands (Phase 8) ───────────────────────
+const mock = program.command('mock').description('API Mock Studio headless commands');
+
+mock
+  .command('simulate')
+  .description('Run saved simulation samples against a mock definition (side-effect-free)')
+  .argument('<file>', 'Workspace / server JSON or YAML (or native export envelope)')
+  .option('--server <id>', 'Server id (defaults to activeServerId or first)')
+  .option('-o, --output <path>', 'Write JSON results to file')
+  .option('--junit <path>', 'Write JUnit XML results to file')
+  .action(async (file: string, opts: { server?: string; output?: string; junit?: string }) => {
+    const code = await runMockSimulate({ file, serverId: opts.server, output: opts.output, junit: opts.junit });
+    process.exit(code);
+  });
+
+mock
+  .command('verify')
+  .description('Verify live journal assertions (or --simulate for offline corpus)')
+  .argument('<file>', 'Workspace / server JSON or YAML')
+  .option('--server <id>', 'Server id')
+  .option('--min-calls <n>', 'Require at least N matching journal calls', parseInt)
+  .option('--expect-outcome <outcome>', 'Require matching calls to have this outcome (e.g. matched)')
+  .option('--route <id>', 'Restrict assertions to a route id')
+  .option('--last-call-within-ms <n>', 'Require the last matching call within N ms', parseInt)
+  .option('--body-contains <text>', 'Require the last matching response body to contain text')
+  .option('--control-base <url>', 'Companion base URL', 'http://127.0.0.1:3001')
+  .option('--simulate', 'Offline corpus simulation instead of live journal')
+  .action(async (file: string, opts: {
+    server?: string;
+    minCalls?: number;
+    expectOutcome?: string;
+    route?: string;
+    lastCallWithinMs?: number;
+    bodyContains?: string;
+    controlBase?: string;
+    simulate?: boolean;
+  }) => {
+    const code = await runMockVerify({
+      file,
+      serverId: opts.server,
+      minCalls: opts.minCalls,
+      expectOutcome: opts.expectOutcome,
+      routeId: opts.route,
+      lastCallWithinMs: opts.lastCallWithinMs,
+      bodyContains: opts.bodyContains,
+      controlBase: opts.controlBase,
+      simulate: opts.simulate,
+    });
+    process.exit(code);
+  });
+
+mock
+  .command('start')
+  .description('Start mock listeners (companion, or in-process when companion is down)')
+  .argument('<file>', 'Workspace / server JSON or YAML')
+  .option('--port <n>', 'Override listen port (first server; later servers increment)', parseInt)
+  .option('--control-base <url>', 'Companion base URL', 'http://127.0.0.1:3001')
+  .option('--wait-ready', 'Keep process alive until SIGINT/SIGTERM, then stop listeners (implied for --standalone)')
+  .option('--standalone', 'Start in-process listeners without the companion')
+  .action(async (file: string, opts: { port?: number; controlBase?: string; waitReady?: boolean; standalone?: boolean }) => {
+    const code = await runMockStart({
+      file,
+      port: opts.port,
+      controlBase: opts.controlBase,
+      waitReady: opts.waitReady,
+      standalone: opts.standalone,
+    });
+    process.exit(code);
   });
 
 program.parse();

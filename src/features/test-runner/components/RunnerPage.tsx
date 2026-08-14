@@ -8,6 +8,7 @@ import LiveProgressPanel from './LiveProgressPanel';
 import ScenarioSelector from './ScenarioSelector';
 import ExecutionPlanPreview from './ExecutionPlanPreview';
 import RunnerSlaOverridePanel from './RunnerSlaOverridePanel';
+import ApiMockFixturePanel from './ApiMockFixturePanel';
 import type { RunnerVariant } from './runnerVariants';
 
 export interface RunnerPageProps {
@@ -58,9 +59,10 @@ export default function RunnerPage({
     retryDelayMs, setRetryDelayMs, errorPolicy, setErrorPolicy,
     maxErrors, setMaxErrors, maxErrorRate, setMaxErrorRate,
     autoReport, setAutoReport, autoReportFormat, setAutoReportFormat,
+    apiMockFixture, setApiMockFixture,
   } = config;
 
-  const { isRunning, liveResults, error, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = execution;
+  const { isRunning, liveResults, error, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun, fixtureStatus } = execution;
 
   const hasContent = variant.hasContent(featureGroups);
   const monitorRef = useRef<HTMLDivElement>(null);
@@ -97,6 +99,13 @@ export default function RunnerPage({
         disabled={isRunning}
         isGalleryEnv={isGalleryEnv}
         namePrefix={variant.namePrefix}
+      />
+
+      <ApiMockFixturePanel
+        value={apiMockFixture}
+        onChange={setApiMockFixture}
+        disabled={isRunning}
+        status={fixtureStatus}
       />
 
       <RunnerExecutionConfig

@@ -106,8 +106,8 @@ export function RequestsSidebarTree(props: RequestsSidebarTreeProps) {
           />
           <span className="req-req-method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
           <span className={`req-req-name ${meta?.deprecated ? 'deprecated' : ''}`} title={name || url}>{name || url || 'Untitled'}</span>
-          {meta && <span className="req-req-catalog-badge" title={meta.sourceSpec ? `From: ${meta.sourceSpec}` : 'From API Catalog'}>&#128203;</span>}
-          {meta?.deprecated && <span className="req-req-deprecated-badge" title="Deprecated">&#9888;&#65039;</span>}
+          {meta && <span className="req-req-catalog-badge" role="img" aria-label={meta.sourceSpec ? `Imported from API Catalog spec ${meta.sourceSpec}` : 'Imported from API Catalog'} title={meta.sourceSpec ? `From: ${meta.sourceSpec}` : 'From API Catalog'}>&#128203;</span>}
+          {meta?.deprecated && <span className="req-req-deprecated-badge" role="img" aria-label="Deprecated endpoint" title="Deprecated">&#9888;&#65039;</span>}
           {inHarness && <span className="req-req-harness-badge" data-testid="req-in-harness-badge" title="Promoted to Harness">IN HARNESS</span>}
           {props.openTabRequestIds?.has(reqId) && <span className="req-req-tab-dot" title="Open in tab" />}
         </div>

@@ -6113,6 +6113,7 @@
 .wf-node-icon-badge--websocket { background: var(--proto-ws-badge); color: var(--proto-ws); }
 .wf-node-icon-badge--graphql { background: var(--proto-gql-badge); color: var(--proto-gql); }
 .wf-node-icon-badge--grpc { background: var(--proto-grpc-badge); color: var(--proto-grpc); }
+.wf-node-icon-badge--apimock { background: var(--proto-apimock-badge); color: var(--proto-apimock); }
 
 /* Node sub-label (category) */
 .wf-node-sublabel {

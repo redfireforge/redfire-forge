@@ -21,6 +21,9 @@ vi.mock('../../features/graphql/GraphqlStudioPage', () => ({
 vi.mock('../../features/grpc/GrpcStudioPage', () => ({
   GrpcStudioPage: () => <div data-testid="grpc-page" />,
 }));
+vi.mock('../../features/api-mock/ApiMockStudioPage', () => ({
+  ApiMockStudioPage: () => <div data-testid="api-mock-page" />,
+}));
 
 const kafkaState = {} as never;
 const onNavigateToKafkaSettings = vi.fn();
@@ -122,6 +125,32 @@ describe('AppProtocolStudios', () => {
       />,
     );
     expect(screen.getByTestId('grpc-page')).toBeTruthy();
+  });
+
+  it('renders api-mock studio when active and keeps it mounted when switching away', () => {
+    const props = {
+      kafkaState,
+      onNavigateToKafkaSettings,
+      onUseAsWorkflowInput,
+      lastWorkflowOutput,
+      resolvedBaseUrl,
+      selectedEnvName: 'Dev',
+      selectedSvcName: 'Orders',
+      selectedSvc,
+      selectedEnvId: 'env-dev',
+      appGlobalAuthProfiles,
+      workspaceDefaults,
+    };
+
+    const { rerender } = render(
+      <AppProtocolStudios {...props} activeTab="api-mock-studio" />,
+    );
+    const pane = screen.getByTestId('api-mock-page').parentElement;
+    expect(pane?.style.display).toBe('flex');
+
+    rerender(<AppProtocolStudios {...props} activeTab="requests" />);
+    expect(screen.getByTestId('api-mock-page')).toBeTruthy();
+    expect(pane?.style.display).toBe('none');
   });
 
   it('renders nothing for an unrecognized tab', () => {

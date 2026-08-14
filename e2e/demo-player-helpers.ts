@@ -131,7 +131,7 @@ export async function selectProtocolsDomain(page: Page): Promise<void> {
 /** Click a category tab by name. */
 export async function selectCategory(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC' | 'API Mock',
 ): Promise<void> {
   const tab = page
     .locator('.demo-category-tab')
@@ -172,7 +172,7 @@ export async function startLesson(page: Page): Promise<void> {
  */
 export async function launchLesson(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC' | 'API Mock',
   lessonNameFragment: string,
 ): Promise<void> {
   await openDemoHub(page);
@@ -180,6 +180,17 @@ export async function launchLesson(
   await selectCategory(page, category);
   await openLesson(page, lessonNameFragment);
   await startLesson(page);
+}
+
+/**
+ * Demo Hub → Protocols → API Mock → lesson → Start.
+ * Every AM lesson that starts a listener or sends traffic needs the companion (:3001).
+ */
+export async function launchApiMockLesson(
+  page: Page,
+  lessonNameFragment: string,
+): Promise<void> {
+  await launchLesson(page, 'API Mock', lessonNameFragment);
 }
 
 /** Wait for a Docker PrerequisiteGate to report the server is up (enables Start Demo). */

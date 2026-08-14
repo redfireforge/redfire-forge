@@ -9,6 +9,7 @@ import { useDemoRequestsBridge } from './useDemoRequestsBridge';
 describe('useDemoRequestsBridge', () => {
   beforeEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoDeleteCollectionsByName;
+    delete (window as unknown as Record<string, unknown>).__demoSeedRequestCollection;
   });
 
   it('registers bridge function when enabled=true', () => {
@@ -42,10 +43,12 @@ describe('useDemoRequestsBridge', () => {
     const { unmount } = renderHook(() => useDemoRequestsBridge(mockRequests, true));
 
     expect((window as unknown as Record<string, unknown>).__demoDeleteCollectionsByName).toBeTypeOf('function');
+    expect((window as unknown as Record<string, unknown>).__demoSeedRequestCollection).toBeTypeOf('function');
 
     unmount();
 
     expect((window as unknown as Record<string, unknown>).__demoDeleteCollectionsByName).toBeUndefined();
+    expect((window as unknown as Record<string, unknown>).__demoSeedRequestCollection).toBeUndefined();
   });
 
   it('deletes collections by exact name match (case-insensitive)', () => {
@@ -181,5 +184,45 @@ describe('useDemoRequestsBridge', () => {
     const deleted = bridge?.('Collection2');
 
     expect(deleted).toBe(1);
+  });
+
+  it('seeds a new collection and is idempotent by name', () => {
+    const importCollection = vi.fn();
+    const mockRequests: UseRequestsReturn = {
+      collections: [],
+      removeCollection: vi.fn(),
+      importCollection,
+    } as unknown as UseRequestsReturn;
+
+    const { rerender } = renderHook(
+      ({ requests }) => useDemoRequestsBridge(requests, true),
+      { initialProps: { requests: mockRequests } },
+    );
+
+    const seed = (window as unknown as {
+      __demoSeedRequestCollection?: (
+        name: string,
+        requests: Array<{ name: string; method: string; url: string }>,
+      ) => string | null;
+    }).__demoSeedRequestCollection;
+
+    const id = seed?.('Import demo requests', [
+      { name: 'List widgets', method: 'GET', url: 'https://api.example.com/widgets' },
+    ]);
+    expect(id).toMatch(/^am-demo-col-/);
+    expect(importCollection).toHaveBeenCalledTimes(1);
+    expect(importCollection.mock.calls[0][0].name).toBe('Import demo requests');
+    expect(importCollection.mock.calls[0][0].requests[0].method).toBe('GET');
+
+    const seeded = {
+      collections: [{ id: id!, name: 'Import demo requests', requests: [] }],
+      removeCollection: vi.fn(),
+      importCollection,
+    } as unknown as UseRequestsReturn;
+    rerender({ requests: seeded });
+
+    const again = seed?.('Import demo requests', []);
+    expect(again).toBe(id);
+    expect(importCollection).toHaveBeenCalledTimes(1);
   });
 });

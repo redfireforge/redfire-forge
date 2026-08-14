@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { RequestCollection } from '../../shared/types';
+import type { RequestCollection, RequestItem } from '../../shared/types';
 
 /** Minimal surface needed by the demo collection-delete bridge. */
 export interface DemoRequestsBridgeApi {
@@ -10,6 +10,8 @@ export interface DemoRequestsBridgeApi {
    * orphan tabs that render "No Request Selected".
    */
   removeCollection: (colId: string) => void;
+  /** Append a fully-formed collection (used to quietly seed import-lesson Requests). */
+  importCollection: (col: RequestCollection) => void;
 }
 
 /**
@@ -43,10 +45,38 @@ export function useDemoRequestsBridge(requests: DemoRequestsBridgeApi, enabled: 
       return matches.length;
     };
 
+    const seedCollection = (
+      name: string,
+      requests: Array<{ id?: string; name: string; method: string; url: string; body?: string }>,
+    ): string | null => {
+      const existing = ref.current.collections.find(c => c.name.toLowerCase() === name.toLowerCase());
+      if (existing) return existing.id;
+      const id = `am-demo-col-${crypto.randomUUID().slice(0, 8)}`;
+      const items: RequestItem[] = requests.map((r, i) => ({
+        id: r.id ?? `am-demo-req-${i}-${crypto.randomUUID().slice(0, 6)}`,
+        name: r.name,
+        method: (r.method.toUpperCase() as RequestItem['method']),
+        url: r.url,
+        headers: [],
+        body: r.body ?? '',
+        auth: { type: 'none' },
+      }));
+      ref.current.importCollection({
+        id,
+        name,
+        mode: 'direct',
+        requests: items,
+        folders: [],
+      });
+      return id;
+    };
+
     win.__demoDeleteCollectionsByName = deleteByName;
+    win.__demoSeedRequestCollection = seedCollection;
 
     return () => {
       delete win.__demoDeleteCollectionsByName;
+      delete win.__demoSeedRequestCollection;
     };
   }, [enabled]);
 }

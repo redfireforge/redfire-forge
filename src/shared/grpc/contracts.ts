@@ -21,29 +21,19 @@ export type GrpcTlsMode = 'disabled' | 'tls' | 'mtls';
 
 export type GrpcAuthType = 'none' | 'inherit' | 'bearer' | 'basic' | 'api_key' | 'oauth2';
 
-/** Auth/manual metadata conflict resolution behavior. */
 export type GrpcAuthMetadataConflictPolicy = 'override' | 'error';
 
-/** Phase 4A — persisted TLS material storage key (browser localStorage / Tauri FS). */
 export const GRPC_TLS_STORAGE_KEY = 'grpc_tls_certs_v1';
 
-/** Phase 4E — desktop auth secret vault blob (Tauri FS; web uses session memory only). */
 export const GRPC_AUTH_SECRETS_STORAGE_KEY = 'grpc_auth_secrets_v1';
 
-/** Phase 4A — connection profile storage key (non-secret fields only when persisted). */
 export const GRPC_CONNECTION_PROFILES_STORAGE_KEY = 'grpc_connection_profiles_v1';
-
-/** Phase 4E — vault scopes for secret material. */
 export type GrpcSecretVaultScope = 'tls_pem' | 'auth_credentials' | 'bsr_token';
-
-/** Phase 4A — where secret material may live at rest. */
 export type GrpcSecretStorageClass =
   | 'session_memory'
   | 'encrypted_local'
   | 'os_keychain'
   | 'forbidden_persist';
-
-/** Phase 4A — transport TLS failure categories (Phase 4F maps runtime errors). */
 export type GrpcTlsFailureCategory =
   | 'unknown_ca'
   | 'hostname_mismatch'
@@ -52,7 +42,6 @@ export type GrpcTlsFailureCategory =
   | 'invalid_client_cert'
   | 'invalid_pem';
 
-/** Phase 4A — auth vs manual metadata conflict record. */
 export interface GrpcAuthMetadataConflict {
   key: string;
   manualValue: string;
@@ -92,34 +81,16 @@ export type GrpcErrorCategory =
   | 'schema_drift'
   | 'cache_stale';
 
-/** Tab-level descriptor refresh / drift state (Phase 3A). */
 export type GrpcDescriptorDriftState = 'none' | 'warning' | 'blocking';
 
-/** How a tab chooses its active descriptor source (Phase 3A). */
 export type GrpcDescriptorSelectionMode = 'auto' | 'manual';
-
-/** Default unary call timeout (ms). */
 export const GRPC_DEFAULT_CALL_TIMEOUT_MS = 30_000;
-
-/** Default streaming call timeout (ms). */
 export const GRPC_DEFAULT_STREAM_CALL_TIMEOUT_MS = 120_000;
-
-/** Default reachability / reflection probe timeout (ms). */
 export const GRPC_DEFAULT_PROBE_TIMEOUT_MS = 5_000;
-
-/** Max stream log rows retained per tab (Phase 2F). */
 export const GRPC_STREAM_MESSAGE_CAP = 10_000;
-
-/** SSE heartbeat interval for active stream relay (Phase 2C). */
 export const GRPC_STREAM_HEARTBEAT_INTERVAL_MS = 15_000;
-
-/** Grace period before dropping SSE subscriber after disconnect (Phase 2B). */
 export const GRPC_STREAM_SSE_DISCONNECT_GRACE_MS = 60_000;
-
-/** Client SSE reconnect attempts before giving up (Phase 2E). */
 export const GRPC_STREAM_RECONNECT_MAX_ATTEMPTS = 3;
-
-/** Exponential backoff delays for SSE reconnect (Phase 2E): 1s, 2s, 4s. */
 export const GRPC_STREAM_RECONNECT_BACKOFF_MS = [1_000, 2_000, 4_000] as const;
 
 export const GRPC_ERROR_CODES = {
@@ -173,7 +144,6 @@ export interface GrpcAuthConfig {
   };
 }
 
-/** Phase 4J-D — per-call compression via grpc-encoding metadata. */
 export type GrpcCompressionAlgorithm = 'identity' | 'gzip' | 'deflate';
 
 export interface GrpcCompressionConfig {
@@ -183,9 +153,7 @@ export interface GrpcCompressionConfig {
 
 export interface GrpcDescriptorSourceFingerprint {
   source: GrpcDescriptorSource;
-  /** Source-specific identity (normalized target, proto bundle hash, BSR module@digest, URL+etag, etc.). */
   sourceRef: string;
-  /** sha256 short hash of normalized descriptor content — matches `GrpcDescriptor.contentSha256`. */
   contentSha256: string;
   resolvedAt?: string;
   reflectionVersion?: 'v1' | 'v1alpha';
@@ -196,9 +164,7 @@ export interface GrpcDescriptorSourceFingerprint {
 
 export interface GrpcDescriptorSourceSelection {
   mode: GrpcDescriptorSelectionMode;
-  /** Required when `mode` is `manual`. */
   activeSource?: GrpcDescriptorSource;
-  /** Auto-mode precedence; defaults to reflection → proto_files → protoset → bsr → url_proto. */
   autoPrecedence?: GrpcDescriptorSource[];
 }
 
@@ -216,9 +182,7 @@ export interface GrpcDescriptor {
   sourceFingerprint?: GrpcDescriptorSourceFingerprint;
   reflectionVersion?: 'v1' | 'v1alpha';
   services: GrpcServiceInfo[];
-  /** All message types in the loaded descriptor set (Phase 3G schema browser). */
   messageTypes?: GrpcMessageSchema[];
-  /** All enum types in the loaded descriptor set (Phase 3G schema browser). */
   enumTypes?: GrpcEnumSchema[];
 }
 
@@ -254,7 +218,6 @@ export interface GrpcFieldSchema {
   docComment?: string;
   isOneofMember?: boolean;
   oneofName?: string;
-  /** Proto3 map field — JSON encoding is a string-keyed object. */
   isMap?: boolean;
   mapKeyType?: GrpcFieldType;
 }

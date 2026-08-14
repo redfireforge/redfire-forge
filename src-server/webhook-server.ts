@@ -16,6 +16,7 @@ import { createWebSocketMockRouter } from './routes/websocket-mock-routes.js';
 import { createGraphqlRouter } from './routes/graphql/graphql-routes.js';
 import { createGrpcRouter } from './routes/grpc/grpc-routes.js';
 import { createGrpcMockRouter } from './routes/grpc/grpc-mock-routes.js';
+import { createApiMockRouter } from './routes/api-mock/api-mock-routes.js';
 import { kafkaTriggerSubscriptionManager } from './kafka/kafkaTriggerSubscriptionManager.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
@@ -273,6 +274,9 @@ app.use(createGrpcMockRouter({ onLog: broadcastLog }));
 
 // WebSocket mock server routes
 app.use(createWebSocketMockRouter({ onLog: broadcastLog }));
+
+// API Mock Studio control-plane routes (start/stop/restart/commit/status/journal)
+app.use(createApiMockRouter({ onLog: broadcastLog }));
 
 // Webhook endpoint - handles all HTTP methods
 app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) => {

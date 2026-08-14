@@ -196,6 +196,19 @@ export async function resetDemoCatalog(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(120);
 }
 
+/**
+ * Bridge-only seed for `prepareBeforeNavigate`: Catalog has not mounted yet, so
+ * this must never wait on DOM. Leaves the Swagger 2.0 entry selected so Start /
+ * Restart paints the Overview of that entry instead of CatalogWelcome.
+ */
+export async function prepareDemoCatalogBeforeNavigate(ctx: DemoActionContext): Promise<void> {
+  deleteCollectionsByName(DEMO_CATALOG_NAME);
+  deleteCatalogEntryByName(DEMO_CATALOG_NAME);
+  await seedSwagger2CatalogEntry(DEMO_CATALOG_NAME, DEMO_SWAGGER2_SPEC);
+  selectCatalogEntryByName(DEMO_CATALOG_NAME);
+  await ctx.delay(80);
+}
+
 /** Ensure the demo entry exists in the sidebar (without forcing selection). */
 export async function ensureSeededEntryExists(ctx: DemoActionContext): Promise<void> {
   ensureCatalogTab(ctx);

@@ -23,6 +23,16 @@
     "dialog:allow-message",
     "dialog:allow-ask",
     "shell:allow-open",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "redfireforge-companion",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    },
     "updater:default",
     "updater:allow-check",
     "updater:allow-download-and-install",

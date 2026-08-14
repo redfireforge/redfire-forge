@@ -16,7 +16,6 @@ import AddFieldRow from './AddFieldRow';
 import LocationGroupPanel from './LocationGroupPanel';
 import FetchErrorBanner from './FetchErrorBanner';
 import InlineAssertionRow from './InlineAssertionRow';
-
 interface TargetPanelProps {
   target: MapperTarget;
   mappings: Mapping[];
@@ -30,12 +29,7 @@ interface TargetPanelProps {
   isFocusRegion?: boolean;
   focusedPath?: string | null;
   onFocus?: () => void;
-  onTreeKeyDown?: (
-    e: React.KeyboardEvent,
-    region: FocusRegion,
-    expandedPaths: Set<string>,
-    onToggle: (path: string) => void,
-  ) => void;
+  onTreeKeyDown?: (e: React.KeyboardEvent, region: FocusRegion, expandedPaths: Set<string>, onToggle: (path: string) => void) => void;
   traceOverlay?: Map<string, TraceValueOverlay>;
   onAddCustomField?: (field: TargetField) => void;
   onRemoveCustomField?: (path: string) => void;
@@ -139,7 +133,6 @@ export default function TargetPanel({
   const treeSource: 'sampleData' | 'fields' | null = target.sampleData != null
     ? 'sampleData'
     : (target.fields && target.fields.length > 0 ? 'fields' : null);
-
   const tree: JsonTreeNode | null = useMemo(() => {
     if (target.sampleData != null) {
       try {

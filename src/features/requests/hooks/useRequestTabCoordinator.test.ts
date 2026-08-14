@@ -116,12 +116,12 @@ describe('useRequestTabCoordinator', () => {
     expect(result.current.activeTab?.requestId).toBe('r1');
   });
 
-  it('openInNewTab opens a second tab for a different request', () => {
+  it('selecting a different request opens a second tab', () => {
     const wb = makeMockWb();
     const { result } = renderHook(() => useRequestTabCoordinator(wb));
 
     act(() => { result.current.selectRequest('c1', 'r1'); });
-    act(() => { result.current.openInNewTab('c1', 'r2'); });
+    act(() => { result.current.selectRequest('c1', 'r2'); });
 
     expect(result.current.tabs).toHaveLength(2);
     expect(result.current.activeTab?.requestId).toBe('r2');
@@ -143,7 +143,7 @@ describe('useRequestTabCoordinator', () => {
     const { result } = renderHook(() => useRequestTabCoordinator(wb));
 
     act(() => { result.current.selectRequest('c1', 'r1'); });
-    act(() => { result.current.openInNewTab('c1', 'r2'); });
+    act(() => { result.current.selectRequest('c1', 'r2'); });
 
     expect(result.current.tabs).toHaveLength(2);
 
@@ -160,7 +160,7 @@ describe('useRequestTabCoordinator', () => {
     const { result } = renderHook(() => useRequestTabCoordinator(wb));
 
     act(() => { result.current.selectRequest('c1', 'r1'); });
-    act(() => { result.current.openInNewTab('c1', 'r2'); });
+    act(() => { result.current.selectRequest('c1', 'r2'); });
 
     act(() => { result.current.removeCollection('c1'); });
 
@@ -177,7 +177,7 @@ describe('useRequestTabCoordinator', () => {
     );
 
     act(() => { result.current.selectRequest('c1', 'r1'); });
-    act(() => { result.current.openInNewTab('c1', 'r2'); });
+    act(() => { result.current.selectRequest('c1', 'r2'); });
     expect(result.current.tabs).toHaveLength(2);
 
     // Simulate out-of-band collection delete (demo bridge / raw removeCollection).
@@ -216,7 +216,7 @@ describe('useRequestTabCoordinator', () => {
     const { result } = renderHook(() => useRequestTabCoordinator(wb));
 
     act(() => { result.current.selectRequest('c1', 'r1'); });
-    act(() => { result.current.openInNewTab('c1', 'r2'); });
+    act(() => { result.current.selectRequest('c1', 'r2'); });
 
     expect(result.current.openTabRequestIds.has('r1')).toBe(true);
     expect(result.current.openTabRequestIds.has('r2')).toBe(true);
@@ -320,7 +320,7 @@ describe('useRequestTabCoordinator', () => {
     });
     const { result } = renderHook(() => useRequestTabCoordinator(wb));
     act(() => { result.current.selectRequest('c1', 'r1'); });
-    act(() => { result.current.openInNewTab('c1', 'r2'); });
+    act(() => { result.current.selectRequest('c1', 'r2'); });
 
     act(() => { result.current.removeFolder('c1', 'f-plain'); });
     expect(mockPruneResponseCacheMany).not.toHaveBeenCalledWith(['r2']);
@@ -480,7 +480,7 @@ describe('useRequestTabCoordinator', () => {
     const wb = makeMockWb();
     const { result } = renderHook(() => useRequestTabCoordinator(wb));
     act(() => { result.current.selectRequest('missing-col', 'r1'); });
-    act(() => { result.current.openInNewTab('missing-col', 'r1'); });
+    act(() => { result.current.selectRequest('missing-col', 'r1'); });
     expect(result.current.tabs).toHaveLength(0);
   });
 
@@ -500,7 +500,7 @@ describe('useRequestTabCoordinator', () => {
     const { result } = renderHook(() => useRequestTabCoordinator(wb));
 
     act(() => { result.current.selectRequest('c1', 'r1'); });
-    act(() => { result.current.openInNewTab('c1', 'r2'); });
+    act(() => { result.current.selectRequest('c1', 'r2'); });
 
     expect(result.current.tabs.find(t => t.requestId === 'r1')?.label).toBe('https://service.local');
     expect(result.current.tabs.find(t => t.requestId === 'r2')?.label).toBe('Untitled');

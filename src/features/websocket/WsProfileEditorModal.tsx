@@ -107,7 +107,6 @@ export function ProfileEditorModal({ initial, prefill, existingNames, onSave, on
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') onCancel();
     if (e.key === 'Enter' && canSave && e.target instanceof HTMLInputElement) {
       e.preventDefault();
       handleSave();
