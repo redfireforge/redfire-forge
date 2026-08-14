@@ -382,11 +382,17 @@ export function ApiMockPatternToolboxModal({
                     <div className="am-form-label">Flags</div>
                     <div className="am-form-control">
                       <div className="am-flag-chips" role="group" aria-label="Regex flags">
-                        <label className={`am-chip${caseInsensitive ? '' : ' active'}`}>
+                        <label
+                          className={`am-chip${caseInsensitive ? '' : ' active'}`}
+                          data-testid="api-mock-toolbox-flag-cs"
+                        >
                           <input type="checkbox" checked={!caseInsensitive} onChange={() => setCaseInsensitive(false)} />
                           Case sensitive
                         </label>
-                        <label className={`am-chip${caseInsensitive ? ' active' : ''}`}>
+                        <label
+                          className={`am-chip${caseInsensitive ? ' active' : ''}`}
+                          data-testid="api-mock-toolbox-flag-ci"
+                        >
                           <input type="checkbox" checked={caseInsensitive} onChange={e => setCaseInsensitive(e.target.checked)} />
                           Ignore case
                         </label>
@@ -405,7 +411,10 @@ export function ApiMockPatternToolboxModal({
                     <div className="am-form-label">Safety</div>
                     <div className="am-form-control">
                       <div className="am-form-control-inline">
-                        <span className={`am-badge ${regexValidity ? 'success' : 'danger'}`}>{regexValidity ? 'Valid' : 'Invalid'}</span>
+                        <span
+                          className={`am-badge ${regexValidity ? 'success' : 'danger'}`}
+                          data-testid="api-mock-toolbox-safety"
+                        >{regexValidity ? 'Valid' : 'Invalid'}</span>
                         <span className="am-hint">Anchored · no nested quantifiers · estimated linear scan</span>
                       </div>
                     </div>
@@ -436,12 +445,17 @@ export function ApiMockPatternToolboxModal({
                       : testRegex(regexApplied.value, s.value, !caseInsensitive);
                     const expectationOk = actual !== 'invalid' && actual === s.shouldMatch;
                     return (
-                      <div key={s.id} className={`am-sample-row${expectationOk ? ' pass' : ' fail'}`}>
+                      <div
+                        key={s.id}
+                        className={`am-sample-row${expectationOk ? ' pass' : ' fail'}`}
+                        data-testid={`api-mock-toolbox-sample-row-${s.id}`}
+                      >
                         <button
                           type="button"
                           className={`am-badge ${s.shouldMatch ? 'success' : 'danger'} am-sample-expectation`}
                           onClick={() => setSamples(rows => rows.map(r => r.id === s.id ? { ...r, shouldMatch: !r.shouldMatch } : r))}
                           title="Toggle should match / should fail"
+                          data-testid={`api-mock-toolbox-sample-expect-${s.id}`}
                         >
                           {s.shouldMatch ? 'Should match' : 'Should fail'}
                         </button>
@@ -450,6 +464,7 @@ export function ApiMockPatternToolboxModal({
                           value={s.value}
                           onChange={e => setSamples(rows => rows.map(r => r.id === s.id ? { ...r, value: e.target.value } : r))}
                           aria-label="Sample value"
+                          data-testid={`api-mock-toolbox-sample-value-${s.id}`}
                         />
                         <span
                           className={`am-matcher-result ${expectationOk ? 'pass' : 'fail'}`}
@@ -574,13 +589,14 @@ export function ApiMockPatternToolboxModal({
                 <div className="am-tool-block-head">
                   <h3 className="am-tool-block-title">Generalize imported path</h3>
                 </div>
-                <div className="am-path-parts">
+                <div className="am-path-parts" data-testid="api-mock-toolbox-segments">
                   {pathParts.map((p, i) => {
                     const dynamic = /^\d+$/.test(p) || /^[A-Z]-?\d+/i.test(p);
                     return (
                       <button
                         key={`${p}-${i}`}
                         type="button"
+                        data-testid={`api-mock-toolbox-segment-${i}`}
                         className={`am-path-part${dynamic ? ' dynamic' : ''}`}
                         onClick={() => {
                           const next = [...pathParts];
@@ -595,7 +611,9 @@ export function ApiMockPatternToolboxModal({
                     );
                   })}
                 </div>
-                <div className="am-hint am-hint--wrap">Suggested template: <span className="am-mono">{generalizedTemplate}</span></div>
+                <div className="am-hint am-hint--wrap" data-testid="api-mock-toolbox-suggested">
+                  Suggested template: <span className="am-mono">{generalizedTemplate}</span>
+                </div>
                 <div className={`am-notice ${pathResult.matched ? '' : 'danger'}`} data-testid="api-mock-toolbox-result">
                   <span>
                     {pathResult.matched ? '✓ Matches' : '✕ Does not match'}
@@ -606,7 +624,7 @@ export function ApiMockPatternToolboxModal({
             </article>
             <aside className="am-tool-preview">
               <div className="am-panel-head"><span className="am-panel-title">Extraction</span></div>
-              <div className="am-detail-pane am-tool-preview-body">
+              <div className="am-detail-pane am-tool-preview-body" data-testid="api-mock-toolbox-extraction">
                 {Object.keys(pathResult.params).length === 0 ? (
                   <div className="am-muted am-tool-empty">No path parameters extracted.</div>
                 ) : (

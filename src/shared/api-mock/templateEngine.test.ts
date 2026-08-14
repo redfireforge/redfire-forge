@@ -87,6 +87,18 @@ describe('renderTemplate', () => {
     it('jsonPath resolves path', () => {
       expect(renderTemplate("{{jsonPath '$.user.name'}}", ctx()).output).toBe('Alice');
     });
+    it('jsonPath resolves array indexes', () => {
+      const c = ctx({
+        request: {
+          ...ctx().request,
+          body: { items: [{ sku: 'RF-100' }] },
+        },
+      });
+      expect(renderTemplate("{{jsonPath '$.items[0].sku'}}", c).output).toBe('RF-100');
+    });
+    it('jsonPath returns empty when an indexed segment is not an array', () => {
+      expect(renderTemplate("{{jsonPath '$.user[0].name'}}", ctx()).output).toBe('');
+    });
     it('jsonPath returns empty for missing', () => {
       expect(renderTemplate("{{jsonPath '$.missing'}}", ctx()).output).toBe('');
     });

@@ -10,3 +10,5 @@ export * from './websocketStudioAdapter';
 export * from './grpcStudioAdapter';
 export * from './grpcLessonRuntimeAdapter';
 export * from './catalogConvertAdapter';
+export * from './apiMockStudioAdapter';
+export * from './harnessAdapter';

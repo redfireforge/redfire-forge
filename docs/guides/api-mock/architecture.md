@@ -4,13 +4,24 @@
 
 | Concept | Meaning |
 |---|---|
-| **Mock Server (tab)** | One durable definition: name, host, port, base path, settings, routes, samples |
-| **Workspace** | Ordered set of servers (`tabOrder`) persisted as one envelope |
+| **Mock Server** | One durable definition: name, host, port, base path, settings, routes, samples |
+| **Saved servers (library)** | Every saved definition (`servers`). Nothing leaves it until an explicit **Delete Server** |
+| **Open tabs** | The subset shown in the tab bar (`openTabIds`), at most 8. Closing a tab parks the server in the library |
+| **Workspace** | Library + open-tab order + active tab, persisted as one envelope |
 | **Control plane** | Web: companion HTTP API on `:3001` (`/api/mock/...`). Tauri: native `api_mock_listener_*` commands for listen/journal/state; companion still used for TLS PEM helpers. |
 | **Data plane** | User traffic on the mock’s listen port (e.g. `:4600`) |
 | **Generation** | Monotonic snapshot id after each successful **Apply** / commit |
 
 Identity is **`serverId`**, not port. Ports are editable and reusable; tabs survive port changes.
+
+Closing a tab is **not** destructive: the listener stops, the tab disappears, and the
+definition stays in **Saved servers** with its rules, examples, variables, and settings
+intact. Reopen it from the title-bar **Saved servers** button (or the landing list shown
+when no tab is open) to resume. A parked server keeps its port claim, so the studio will
+not hand that port to a new server, and **Save settings** refuses a listen port another
+saved mock already uses (inline error, Save disabled). **Delete Server…** (tab context
+menu or the library row) is the only action that removes a definition, and it offers a
+5-second undo.
 
 ## 2. Runtime topology
 

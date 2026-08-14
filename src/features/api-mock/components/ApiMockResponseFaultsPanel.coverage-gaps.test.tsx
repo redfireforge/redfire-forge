@@ -55,6 +55,8 @@ describe('ApiMockResponseFaultsPanel coverage gaps', () => {
         chunkSchedule: [{ afterMs: 5, body: 'keep' }],
       }),
     });
+    expect(screen.getByTestId('api-mock-chunk-empty-hint')).toHaveTextContent(/empty payload is a pause/i);
+    expect(screen.getByLabelText('Chunk 1 body')).toHaveAttribute('placeholder', 'empty delay — no bytes');
   });
 
   it('selects non-dribble faults and clears chunk schedule', () => {

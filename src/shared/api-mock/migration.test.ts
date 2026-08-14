@@ -23,6 +23,14 @@ describe('migrateWorkspace', () => {
     expect(result.workspace.servers).toEqual([]);
     expect(result.workspace.tabOrder).toEqual([]);
     expect(result.workspace.activeServerId).toBeUndefined();
+    // Absent means "pre-library workspace" — the loader then opens every server.
+    expect(result.workspace.openTabIds).toBeUndefined();
+  });
+
+  it('preserves an explicit open-tab list, including the empty one', () => {
+    expect(migrateWorkspace({ schemaVersion: 1, openTabIds: ['srv-1'] }).workspace.openTabIds).toEqual(['srv-1']);
+    expect(migrateWorkspace({ schemaVersion: 1, openTabIds: [] }).workspace.openTabIds).toEqual([]);
+    expect(migrateWorkspace({ schemaVersion: 1, openTabIds: 'nope' }).workspace.openTabIds).toBeUndefined();
   });
 
   it('rejects unknown versions with no migration path', () => {

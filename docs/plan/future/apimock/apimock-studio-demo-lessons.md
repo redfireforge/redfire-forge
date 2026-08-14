@@ -1,4 +1,8 @@
-# API Mock Studio — Demo Hub Lessons Plan
+# API Mock Studio — Demo Hub Lessons Plan (v1 — SUPERSEDED)
+
+> **⚠️ Superseded by [`apimock-demo-curriculum-v2.md`](./apimock-demo-curriculum-v2.md).**
+> v1 (AM-1…AM-8, 128 steps) covers ≈17% of the product surface. v2 replaces the roster with 24
+> scenario-driven lessons plus a machine-enforced feature-coverage contract. Kept for history only.
 
 > **Branch:** `feautre/apimock`  
 > **Status:** Not started — selectors + Gallery samples ready; adapter + lessons open.  
@@ -71,10 +75,10 @@ Lessons **must not** import `src/features/api-mock/**` directly.
 
 | ID | Title | Est. min | ~Steps | Seed | Maps to walkthrough |
 |---|---|---|---:|---|---|
-| `AM-1` | Create & Start a Mock Server | 4 | 9–10 | Empty or health gallery | Track A1–A7, A11 |
-| `AM-2` | Author a Route & Hot-Apply | 4 | 8–9 | Running health (or empty + create) | Track A3–A8 |
-| `AM-3` | Pattern Toolbox & Predicates | 5 | 9–10 | Users gallery or AM-2 server | Track B6–B7 |
-| `AM-4` | Conflict Inspector | 4 | 8–9 | Conflicts gallery | Track B1–B5 |
+| `AM-1` | Create & Start a Mock Server | 6 | 18 | Empty wipe | Track A1–A7, A11 |
+| `AM-2` | Author a Route & Hot-Apply | 9 | 22 | Gallery health + Running | Track A3–A8 |
+| `AM-3` | Pattern Toolbox & Predicates | 6 | 16 | Users gallery | Track B6–B7 |
+| `AM-4` | Conflict Inspector | 6 | 16 | Conflicts gallery | Track B1–B5 |
 | `AM-5` | Import from cURL / OpenAPI | 4 | 8–9 | Empty/running blank server | Track C1–C2 |
 | `AM-6` | Runtime Journal & Settings | 4 | 8–9 | Health + Start + traffic | Track D1–D4 |
 | `AM-7` *(opt)* | TLS basics | 5 | 8–9 | Health + companion | Track E1–E2 |
@@ -89,7 +93,7 @@ Lessons **must not** import `src/features/api-mock/**` directly.
 - `preAction` recreates Start/route/selection quietly for rapid Next
 - Delays: tab/panel ~800ms · filled fields ~400–500ms · Apply/Start outcome ~800–1200ms
 - `estimatedMinutes` ≈ steps × 30s at 1×, round up
-- E2E: `bash scripts/run-demo-e2e.sh <lesson-id>` when wired; companion required for Start specs
+- E2E: `bash scripts/run-demo-e2e.sh am-1-create-start` (… / `am-7-tls-basics` / `am-8-workflow-start-assert-stop`); companion required for AM-1/AM-2/AM-6/AM-7/AM-8
 
 ---
 
@@ -105,18 +109,22 @@ Lessons **must not** import `src/features/api-mock/**` directly.
 | **Teaches** | Empty state → create → listen address → rule Match/Response → Start → traffic → journal → Stop. |
 | **Seed** | Wiped workspace (`API_MOCK.EMPTY`) via `prepareBeforeNavigate` — never flash a leftover tab. |
 | **Companion** | Required on **web** (`http://127.0.0.1:3001/health`). Tauri Start works natively; gate still recommended so web viewers aren’t blocked mid-lesson. |
-| **Est.** | 5 min · **14** steps (split so each highlight is one small control + pause). |
-| **Human pacing** | One spotlight per step; outcome steps (Running, journal row) are **pause-only** after the click step — never combine Start + Running in one flash. |
+| **Est.** | 6 min · **18** steps (split so each highlight is one small control + pause). |
+| **Human pacing** | One spotlight per step; outcome steps (Running, matched detail, Stopped) are **pause-only** after the click step — never combine Start + Running (or Stop + Stopped) in one flash. |
+| **Implementation** | `packages/demo-hub/src/lessons/protocols/api-mock-am1.ts` · helpers + `patchApiMockActiveRoute` for Monaco body. |
 
 ### Gaps closed vs first draft
 
 - Empty-state **read** beat before Create click  
 - Dedicated highlight on **server tab** and **listen address** (not whole server bar)  
+- Match **method** callout (GET) before path fill  
 - Match path / Response body as **separate** fills with pauses  
+- Response **status 200** callout after body  
 - **Running** status as its own verify step (after Start)  
 - Traffic via in-app `fetch` to the listen URL (viewer watches journal, not a shell)  
-- Journal: open Live → Transactions, then highlight **first row** / detail  
-- Stop as final cleanup beat viewers can see  
+- Journal: open Live → Transactions, click **first row**, then pause on **TX_DETAIL**  
+- **Stopped** pause after Stop (mirrors Running)  
+- Monaco body via `__demoPatchApiMockActiveRoute` (not `ctx.fill`)  
 
 ### Highlight rules (mandatory)
 
@@ -130,18 +138,22 @@ Lessons **must not** import `src/features/api-mock/**` directly.
 |---|---|---|---|---|---|
 | 1 | `empty-welcome` | Empty Studio — why local mocks | `CREATE_FIRST` | none (read) | reading time only |
 | 2 | `create-server` | Create first server | `CREATE_FIRST` | click Create | wait `SERVER_BAR` + live “created on port” · **1000ms** |
-| 3 | `show-tab` | New tab name + port | first `api-mock-tab-*` / active tab label | none | **1200ms** |
-| 4 | `show-address` | Listen URL clients will hit | `ADDRESS` | none (optional copy later) | **1200ms** |
+| 3 | `show-tab` | New tab name + port | `ACTIVE_TAB` (`aria-selected`) | none | **1200ms** |
+| 4 | `show-address` | Listen URL clients will hit | `ADDRESS` | none | **1200ms** |
 | 5 | `add-route` | Add a rule | `ADD_ROUTE` | click Add rule | wait `ROUTE_EDITOR` · **800ms** |
-| 6 | `set-path` | Match: GET + `/health` Exact | `PATH_INPUT` | fill `/health` (method already GET) | **800ms** on filled path |
-| 7 | `open-response` | Switch to Response | `#api-mock-btab-response` (`BTAB_RESPONSE`) | click tab | wait `VARIANT_BODY` · **800ms** |
-| 8 | `set-body` | JSON body `{"ok":true}` | `VARIANT_BODY` | fill body | **1000ms** on body |
-| 9 | `start` | Start the listener | `START` | click Start | wait Running · **do not** highlight bar |
-| 10 | `running` | Confirm **Running** | `STATUS_LABEL` | none | **1200ms** |
-| 11 | `send-traffic` | Send GET to listen URL | `ADDRESS` | `fetch(address + '/health')` quietly after short pause | wait journal ≥1 · **800ms** |
-| 12 | `open-journal` | Live → Transactions | `LIVE_TRANSACTIONS` | click | wait `DOCK_TAB_TRANSACTIONS` / Runtime · **800ms** |
-| 13 | `inspect-tx` | Matched journal row | first tx row → then `TX_DETAIL` | click row | **1200ms** on detail |
-| 14 | `stop` | Stop when done | `STOP` | click Stop | live “Server stopped.” · **800ms** |
+| 6 | `confirm-method` | Method stays GET | `METHOD_SELECT` | none | **1000ms** |
+| 7 | `set-path` | Match: `/health` Exact | `PATH_INPUT` | fill `/health` | **800ms** on filled path |
+| 8 | `open-response` | Switch to Response | `BTAB_RESPONSE` | click tab | wait `VARIANT_BODY` · **800ms** |
+| 9 | `set-body` | JSON body `{"ok":true}` | `VARIANT_BODY` | bridge patch body | **1000ms** on body |
+| 10 | `confirm-status` | Status stays 200 | `VARIANT_STATUS` | none | **1000ms** |
+| 11 | `start` | Start the listener | `START` | click Start | wait Running · **do not** highlight bar |
+| 12 | `running` | Confirm **Running** | `STATUS_LABEL` | none | **1200ms** |
+| 13 | `send-traffic` | Send GET to listen URL | `ADDRESS` | `fetch(address + '/health')` | **800ms** |
+| 14 | `open-journal` | Live → Transactions | `LIVE_TRANSACTIONS` | click | wait dock / rows · **800ms** |
+| 15 | `inspect-tx` | Select journal row | `JOURNAL_FIRST_ROW` | click row | wait `TX_DETAIL` · **700ms** |
+| 16 | `show-tx-detail` | Matched detail | `TX_DETAIL` | none | **1200ms** |
+| 17 | `stop` | Stop when done | `STOP` | click Stop | wait not Running · **600ms** |
+| 18 | `stopped` | Confirm **Stopped** | `STATUS_LABEL` | none | **1200ms** |
 
 ### `prepareBeforeNavigate` / `setup` / `cleanup`
 
@@ -158,7 +170,7 @@ Lessons **must not** import `src/features/api-mock/**` directly.
 
 ### Selectors (primary)
 
-`EMPTY`, `CREATE_FIRST`, `tab(id)` / active tab, `ADDRESS`, `ADD_ROUTE`, `PATH_INPUT`, `BTAB_RESPONSE`, `VARIANT_BODY`, `START`, `STATUS_LABEL`, `LIVE_TRANSACTIONS`, `JOURNAL_FIRST_ROW` / `TX_DETAIL`, `STOP`, `LIVE_REGION`
+`EMPTY`, `CREATE_FIRST`, `ACTIVE_TAB`, `ADDRESS`, `ADD_ROUTE`, `METHOD_SELECT`, `PATH_INPUT`, `BTAB_RESPONSE`, `VARIANT_BODY`, `VARIANT_STATUS`, `START`, `STATUS_LABEL`, `LIVE_TRANSACTIONS`, `JOURNAL_FIRST_ROW`, `TX_DETAIL`, `STOP`
 
 ---
 
@@ -167,38 +179,73 @@ Lessons **must not** import `src/features/api-mock/**` directly.
 | | |
 |---|---|
 | **Goal** | Change a live mock without full Restart — dirty badge → Apply → generation. |
-| **Teaches** | Match/Response editing, dirty state, Apply vs Restart, optional Simulate. |
-| **Seed** | AM-1 outcome **or** import `am-gallery-health`, Start, select Health route. |
-| **Companion** | Required. |
-| **Est.** | 4 min · ~9 steps |
+| **Teaches** | Response edit while Running, dirty draft, Apply vs Restart, Simulate offline, journal proof. |
+| **Seed** | Quiet wipe → import `am-gallery-health` → Start → select Health (no Gallery UI flash). |
+| **Companion** | Required on web. |
+| **Est.** | 9 min · **22** steps (one small highlight + pause per beat). |
+| **Human pacing** | Never combine edit+dirty, Apply+generation, or Simulate open+result in one flash. |
+| **Implementation** | `packages/demo-hub/src/lessons/protocols/api-mock-am2.ts` · Monaco body via `patchApiMockActiveRoute`. |
+
+### Gaps closed vs first draft
+
+- Seed is quiet gallery import (not “ensure-running” as a vague mega-step)  
+- Dedicated **Running** + **Health route** read beats before editing  
+- Open Response tab before body edit  
+- Dirty callout **before** Apply click; generation callout **after** Apply  
+- Prove via in-app `fetch` (not shell curl)  
+- Second dirty via **priority** bump (visible P badge), then Restart callout vs Apply  
+- Simulate inspector: Samples → Run → Decision trace → Normalized request → Rendered response → Assertions → Run all → Close  
+- Journal open as final proof (not jammed into prove-apply)  
+
+### Highlight rules (mandatory)
+
+- Spotlight the **smallest** control (`DIRTY_BADGE`, `APPLY`, `GENERATION`, `PRIORITY_INPUT`, `SIMULATE_RUN`, …).  
+- Never highlight `STUDIO`, `SERVER_BAR`, whole explorer, or `LIVE_REGION` (sr-only).  
+- Outcome steps are pause-only after the click that caused them.  
 
 ### Beats
 
-| # | Step id | Viewer focus | Action | Highlight | Verify |
+| # | Step id | Narration focus | Highlight (exact) | Action | Pause after |
 |---|---|---|---|---|---|
-| 1 | `ensure-running` | Server bar | Ensure Running + Health selected | `START` if needed · `route(*)` | Running; `ROUTE_EDITOR` |
-| 2 | `edit-body` | Response | Change body to `{"ok":true,"v":2}` | `VARIANT_BODY` | Dirty badge appears (`DIRTY_BADGE`) while running |
-| 3 | `callout-dirty` | Draft changed | Pause — explain Apply vs Restart | `DIRTY_BADGE` | Apply enabled |
-| 4 | `apply` | Apply | Click **Apply** | `APPLY` | Live `Applied generation {n}.`; dirty clears |
-| 5 | `prove-apply` | Traffic | Curl/Requests again | `ADDRESS` | Body includes `"v":2` |
-| 6 | `tweak-path` | Match | Optionally rename route / bump priority | `ROUTE_NAME` or `PRIORITY_INPUT` | Dirty again |
-| 7 | `simulate` | Offline match | Route toolbar **Simulate** → Run | `SIMULATE` → `SIMULATE_RUN` | `SIMULATE_RESULT` matched; close (`SIMULATE_CLOSE`) |
-| 8 | `apply-or-discard` | Apply | Apply second edit **or** show Restart as heavier path | `APPLY` / `RESTART` | Generation increments or full restart |
-| 9 | `journal-check` | Transactions | Live → Transactions | `LIVE_TRANSACTIONS` | New matched rows present |
+| 1 | `running-ready` | Health mock already **Running** | `STATUS_LABEL` | none | **1200ms** |
+| 2 | `select-health` | Health rule in explorer | `FIRST_ROUTE` | click route | wait `ROUTE_EDITOR` · **800ms** |
+| 3 | `open-response` | Response tab | `BTAB_RESPONSE` | click | wait `VARIANT_BODY` · **800ms** |
+| 4 | `edit-body` | Body → `{"ok":true,"v":2}` | `VARIANT_BODY` | bridge patch | **1000ms** |
+| 5 | `callout-dirty` | **Draft changed** | `DIRTY_BADGE` | none | **1200ms** |
+| 6 | `apply` | Hot **Apply** | `APPLY` | click Apply | wait dirty clears · **800ms** |
+| 7 | `show-generation` | Generation bumped | `GENERATION` | none | **1200ms** |
+| 8 | `prove-apply` | Hit listen URL | `ADDRESS` | `fetch` → body has `"v":2` | **1000ms** |
+| 9 | `open-match` | Match tab for priority | `BTAB_MATCH` | click | **800ms** |
+| 10 | `bump-priority` | Priority → `20` | `PRIORITY_INPUT` | fill | **800ms** |
+| 11 | `dirty-again` | Dirty again | `DIRTY_BADGE` | none | **1000ms** |
+| 12 | `callout-restart` | Restart = heavier path | `RESTART` | none (do not click) | **1200ms** |
+| 13 | `apply-second` | Apply again (not Restart) | `APPLY` | click Apply | **800ms** |
+| 14 | `open-simulate` | Offline Simulate | `SIMULATE` | click | wait workspace · **800ms** |
+| 15 | `show-sim-samples` | Samples catalog | `SIMULATE_SAMPLE_HEALTH` | none | **1200ms** |
+| 16 | `run-simulate` | Run simulation | `SIMULATE_RUN` | click | wait result · **800ms** |
+| 17 | `sim-decision-trace` | Decision trace timeline | `SIMULATE_TIMELINE_FIRST` | none (tab already trace) | **1400ms** |
+| 18 | `sim-normalized` | Normalized request | `SIMULATE_TAB_REQUEST` | click tab | wait JSON · **1200ms** |
+| 19 | `sim-rendered` | Rendered body `"v":2` | `SIMULATE_TAB_RENDERED` | click tab | wait body · **1400ms** |
+| 20 | `sim-assertions` | Assertion rows | `SIMULATE_TAB_ASSERTIONS` | click tab | wait table · **1400ms** |
+| 21 | `sim-run-all` | Run 2 samples | `SIMULATE_RUN_ALL` | click | wait summary · **1500ms** |
+| 22 | `close-simulate` | Close modal | `SIMULATE_CLOSE` | click Close | **700ms** |
 
-### `preAction`
+### `prepareBeforeNavigate` / `setup` / `cleanup`
 
-- Import health if missing; Start; select `/health`; ensure Response tab for body steps.
-- Close Simulate before Apply steps if viewer skipped close.
+- **prepareBeforeNavigate:** wipe → import `am-gallery-health` → collapse sidebar.  
+- **setup:** ensure Health server + Running; select `/health`; close overlays.  
+- **cleanup:** close Simulate; Stop; wipe.  
+- **preAction:** recreate Running + body/dirty/apply only as far as prior steps require.
 
 ### Narration cues
 
-- **Apply** = hot commit while Running; **Restart** = tear down + bring up with full definition.
-- Dirty only matters when Running (stopped edits don’t show Apply).
+- **Apply** = hot commit while Running; **Restart** = tear down + bring up.  
+- Dirty only appears while Running.  
+- Simulate uses draft/applied rules offline — no Start required for that modal, but this lesson starts from Running.
 
-### Selectors
+### Selectors (primary)
 
-`DIRTY_BADGE`, `APPLY`, `RESTART`, `VARIANT_BODY`, `SIMULATE`, `SIMULATE_WORKSPACE`, `SIMULATE_RUN`, `SIMULATE_RESULT`, `SIMULATE_CLOSE`, `LIVE_REGION`
+`STATUS_LABEL`, `FIRST_ROUTE`, `BTAB_RESPONSE`, `VARIANT_BODY`, `DIRTY_BADGE`, `APPLY`, `GENERATION`, `ADDRESS`, `BTAB_MATCH`, `PRIORITY_INPUT`, `RESTART`, `SIMULATE`, `SIMULATE_SAMPLES`, `SIMULATE_RUN`, `SIMULATE_TIMELINE_FIRST`, `SIMULATE_TAB_REQUEST`, `SIMULATE_NORMALIZED`, `SIMULATE_TAB_RENDERED`, `SIMULATE_RENDERED_BODY`, `SIMULATE_TAB_ASSERTIONS`, `SIMULATE_ASSERTIONS`, `SIMULATE_RUN_ALL`, `SIMULATE_CLOSE`
 
 ---
 
@@ -206,45 +253,66 @@ Lessons **must not** import `src/features/api-mock/**` directly.
 
 | | |
 |---|---|
-| **Goal** | Build a JSONPath (or constraint) matcher visually and attach it as a Match condition. |
-| **Teaches** | Pattern Toolbox tabs, JSONPath pick-from-sample, Add conditions / Apply matcher. |
-| **Seed** | Import `am-gallery-users` (has POST Create with body predicates) **or** blank server + POST `/users` route. Prefer gallery for speed. |
-| **Companion** | Optional until Start; Simulate works offline. |
-| **Est.** | 5 min · ~10 steps |
+| **Goal** | Build a JSONPath matcher visually and attach it as a Match condition. |
+| **Teaches** | Existing gallery predicates, Pattern Toolbox, JSONPath pick-from-sample, Add conditions, Simulate match vs miss. |
+| **Seed** | Quiet wipe → import `am-gallery-users` (no Gallery UI flash). Start **not** required (Simulate is offline). |
+| **Companion** | Optional. |
+| **Est.** | 6 min · **16** steps. |
+| **Human pacing** | One small highlight per beat; never combine toolbox open + JSONPath fill + Apply in one flash. |
+| **Implementation** | `packages/demo-hub/src/lessons/protocols/api-mock-am3.ts`. |
+
+### Gaps closed vs first draft
+
+- Quiet Users gallery seed (not visible Gallery navigation)
+- Dedicated **Create User (POST)** select beat
+- Callout existing **json_subset** condition before adding more
+- Split toolbox: open → JSONPath tab → paste sample → pick `role` → show path → Apply → new row
+- Skip optional Query & headers — keep one concept
+- Simulate: matching body → result, then miss body → result, then Close
+
+### Highlight rules (mandatory)
+
+- Smallest control only (`CREATE_USER_ROUTE`, `PATH_TOOLBOX`, `TOOLBOX_JSONPATH`, `TOOLBOX_APPLY`, `SIMULATE_BODY`, …).
+- Never highlight whole explorer, whole toolbox chrome, or `STUDIO`.
+- Outcome pauses after Apply (new condition row) and after each Simulate run.
 
 ### Beats
 
-| # | Step id | Viewer focus | Action | Highlight | Verify |
+| # | Step id | Narration focus | Highlight | Action | Pause after |
 |---|---|---|---|---|---|
-| 1 | `import-users` | Gallery or Studio | Load Users sample / ensure server | Gallery domain or existing tab | Server with Users folder; live import message if gallery |
-| 2 | `select-create` | Explorer | Select **Create User** (POST) | `route(route-id)` | Match tab; method POST |
-| 3 | `open-toolbox` | Conditions | Click **+ Condition** / condition toolbox wand | `api-mock-add-condition` / condition toolbox | `PATTERN_TOOLBOX` opens |
-| 4 | `tab-jsonpath` | Toolbox | Select **JSON body / JSONPath** | `api-mock-toolbox-tab-jsonpath` | JSONPath pane active |
-| 5 | `paste-sample` | Sample JSON | Ensure sample body (gallery example or paste `{"name":"Ada","role":"admin"}`) | `TOOLBOX_JSON_SAMPLE` | Sample visible |
-| 6 | `pick-path` | Click field | Click `role` (or `name`) in sample | sample interaction | `TOOLBOX_JSONPATH` shows `$.role` (or similar); resolved value (`TOOLBOX_JSON_RESOLVED`) |
-| 7 | `apply-condition` | Footer | **Add conditions** / **Apply matcher** | `TOOLBOX_APPLY` | Toolbox closes; Match shows new predicate row |
-| 8 | `optional-constraints` | Toolbox again | Open **Query & headers**; add header constraint if time | `api-mock-toolbox-tab-constraints` | Second condition or skip |
-| 9 | `simulate-body` | Simulate | Run with matching vs non-matching body | `SIMULATE` | Matching → matched; wrong body → unmatched / other route |
-| 10 | `close` | Modal | Close Simulate | `SIMULATE_CLOSE` | Studio visible |
+| 1 | `seed-ready` | Users API tab ready | `ACTIVE_TAB` | none | **1000ms** |
+| 2 | `select-create` | **Create User** POST `/users` | `CREATE_USER_ROUTE` | click | wait editor · **800ms** |
+| 3 | `callout-subset` | Existing **json_subset** body predicate | `FIRST_CONDITION` | none | **1200ms** |
+| 4 | `open-toolbox` | Pattern Toolbox wand | `PATH_TOOLBOX` | click | wait toolbox · **800ms** |
+| 5 | `tab-jsonpath` | JSON body / JSONPath | `TOOLBOX_TAB_JSONPATH` | click | **800ms** |
+| 6 | `paste-sample` | Sample `{"name":"Ada","role":"admin"}` | `TOOLBOX_JSON_SAMPLE` | fill | **1000ms** |
+| 7 | `pick-role` | Select `"role"` in sample | `TOOLBOX_JSON_SAMPLE` | selection → path | **800ms** |
+| 8 | `show-jsonpath` | Generated `$.role` (+ resolved) | `TOOLBOX_JSONPATH` | none | **1200ms** |
+| 9 | `apply-condition` | **Add conditions** | `TOOLBOX_APPLY` | click | toolbox closes · **800ms** |
+| 10 | `show-new-condition` | New JSONPath condition row | `LAST_CONDITION` | none | **1200ms** |
+| 11 | `open-simulate` | Simulate | `SIMULATE` | click | **800ms** |
+| 12 | `fill-match` | Matching POST body | `SIMULATE_BODY` | method/path/body | **800ms** |
+| 13 | `run-match` | Run simulation | `SIMULATE_RUN` | click | **700ms** |
+| 14 | `result-match` | Matched result | `SIMULATE_RESULT` | none | **1200ms** |
+| 15 | `run-miss` | Wrong `role` → miss | `SIMULATE_BODY` | fill guest + Run | wait result · **800ms** |
+| 16 | `close-simulate` | Close | `SIMULATE_CLOSE` | click | **700ms** |
 
-### `preAction`
+### `prepareBeforeNavigate` / `setup` / `cleanup`
 
-- Ensure Users (or POST) route selected; close leftover toolbox (`TOOLBOX_CANCEL`).
-- If gallery import already done, skip to select Create User.
+- **prepareBeforeNavigate:** wipe → import `am-gallery-users` → collapse sidebar.
+- **setup:** ensure Users server; select Create User; Match tab; close overlays.
+- **cleanup:** close toolbox/simulate; wipe (Stop only if running).
 
 ### Narration cues
 
-- Toolbox is the power-user path — no hand-written JSONPath required.
-- Predicate operators include **JSON subset** (`json_subset`) on gallery Create User — call out the label in Match conditions.
-- Fresh select-all in JSON sample if path sticks (see troubleshooting guide).
+- Toolbox = power-user path — no hand-written JSONPath required.
+- Gallery Create User already ships **json_subset** on `name` — call it out.
+- New condition uses **jsonPath_equals** when Expected is set from the sample pick.
+- Simulate offline — companion optional.
 
-### Selectors
+### Selectors (primary)
 
-`PATTERN_TOOLBOX`, `TOOLBOX_JSON_SAMPLE`, `TOOLBOX_JSONPATH`, `TOOLBOX_JSON_RESOLVED`, `TOOLBOX_APPLY`, `TOOLBOX_CANCEL`, `api-mock-toolbox-tab-jsonpath`, `api-mock-add-condition`, `SIMULATE_*`
-
-### Note for authors
-
-Extend `API_MOCK` with `ADD_CONDITION` / `TOOLBOX_TAB_*` before lesson merge if those constants are still missing from the public selector object (UI already has the testids).
+`ACTIVE_TAB`, `CREATE_USER_ROUTE`, `FIRST_CONDITION`, `LAST_CONDITION`, `PATH_TOOLBOX`, `ADD_CONDITION`, `TOOLBOX_TAB_JSONPATH`, `TOOLBOX_JSON_SAMPLE`, `TOOLBOX_JSONPATH`, `TOOLBOX_JSON_RESOLVED`, `TOOLBOX_APPLY`, `SIMULATE`, `SIMULATE_METHOD`, `SIMULATE_PATH`, `SIMULATE_BODY`, `SIMULATE_RUN`, `SIMULATE_RESULT`, `SIMULATE_CLOSE`
 
 ---
 
@@ -253,39 +321,64 @@ Extend `API_MOCK` with `ADD_CONDITION` / `TOOLBOX_TAB_*` before lesson merge if 
 | | |
 |---|---|
 | **Goal** | Spot overlapping routes, simulate a witness, fix via priority, optionally acknowledge. |
-| **Teaches** | Conflicts view, analyze, finding detail, Simulate witness, Adjust priority. |
-| **Seed** | **Required:** Gallery `am-gallery-conflicts` (two `GET /orders`, equal priority, reject-multiple). |
-| **Companion** | Optional for Simulate; Start not required for analyze/simulate. |
-| **Est.** | 4 min · ~9 steps |
+| **Teaches** | Conflicts view, Analyze, finding detail, policy (reject → 409), Simulate witness, Adjust priority, Acknowledge. |
+| **Seed** | Quiet wipe → import `am-gallery-conflicts` (two equal-priority `GET /orders`, reject-multiple). Start not required. |
+| **Companion** | Optional. |
+| **Est.** | 6 min · **16** steps. |
+| **Human pacing** | One small highlight per beat; never combine Analyze+finding, Simulate open+result, or Adjust+Raise in one flash. |
+| **Implementation** | `packages/demo-hub/src/lessons/protocols/api-mock-am4.ts`. |
+
+### Gaps closed vs first draft
+
+- Quiet gallery seed (no Gallery UI flash)
+- Studio callout that two `/orders` rules share priority before leaving Studio
+- Split Analyze → summary → select finding → detail → policy callout
+- Simulate witness: open → Run → ambiguous result pause → Close
+- Adjust priority: open menu → Raise left → summary after re-analyze
+- Acknowledge as a real beat (not optional skip)
+
+### Highlight rules (mandatory)
+
+- Smallest control only (`VIEW_CONFLICTS`, `FIRST_FINDING`, `CONFLICT_SIMULATE`, `CONFLICT_PRIO_LEFT`, …).
+- Never highlight whole inspector layout or `STUDIO`.
+- Outcome pauses after Analyze, Simulate, priority change, and Acknowledge.
 
 ### Beats
 
-| # | Step id | Viewer focus | Action | Highlight | Verify |
+| # | Step id | Narration focus | Highlight | Action | Pause after |
 |---|---|---|---|---|---|
-| 1 | `import-conflicts` | Gallery | Load **Ambiguous routes** | `GALLERY_DOMAIN_API_MOCK` → Load | Live `Gallery mock server imported.`; Studio opens |
-| 2 | `open-conflicts` | Workspace nav | **Conflicts** | `VIEW_CONFLICTS` | `CONFLICTS_PAGE` |
-| 3 | `analyze` | Header / guide | **Analyze** / **Re-analyze** if needed | `CONFLICTS_ANALYZE` or `CONFLICT_GUIDE_ANALYZE` | Live `{n} potential conflict(s) found.` · list non-empty |
-| 4 | `open-finding` | List | Select first finding | `CONFLICT_LIST` / finding row | `CONFLICT_DETAIL` + witness (`CONFLICT_SIMULATE` enabled) |
-| 5 | `simulate-witness` | Detail | **Simulate witness** → Run | `CONFLICT_SIMULATE` → `SIMULATE_RUN` | Result shows ambiguous / 409 per sample expectation |
-| 6 | `close-sim` | Modal | Close | `SIMULATE_CLOSE` | Back on Conflicts |
-| 7 | `adjust-priority` | Actions | **Adjust priority** → prefer left/right | `CONFLICT_ADJUST_PRIORITY` → prio left/right | Live `Priority adjusted for {routeId}.` |
-| 8 | `reanalyze` | Header | Re-analyze | `CONFLICTS_ANALYZE` | Finding severity drops or clears; or remaining potential only |
-| 9 | `ack` *(optional)* | Detail | **Acknowledge** when stable | `CONFLICT_ACKNOWLEDGE` | Live `Conflict acknowledged.` |
+| 1 | `seed-ready` | Ambiguous routes tab | `ACTIVE_TAB` | none | **1000ms** |
+| 2 | `callout-orders` | Two equal-priority `/orders` | `FIRST_ROUTE` | none | **1200ms** |
+| 3 | `open-conflicts` | Conflicts workspace | `VIEW_CONFLICTS` | click | wait page · **800ms** |
+| 4 | `analyze` | Analyze / guide Analyze | `CONFLICT_GUIDE_ANALYZE` or `CONFLICTS_ANALYZE` | click | wait list · **800ms** |
+| 5 | `show-summary` | Findings count | `CONFLICT_SUMMARY` | none | **1000ms** |
+| 6 | `select-finding` | First finding row | `FIRST_FINDING` | click | wait detail · **700ms** |
+| 7 | `show-detail` | Overlap detail | `CONFLICT_DETAIL` | none | **1200ms** |
+| 8 | `show-policy` | Equal priority → reject / 409 | `CONFLICT_POLICY_EQUAL` | none | **1200ms** |
+| 9 | `simulate-witness` | Simulate witness | `CONFLICT_SIMULATE` | click | wait modal · **800ms** |
+| 10 | `run-sim` | Run simulation | `SIMULATE_RUN` | click | **700ms** |
+| 11 | `result-ambiguous` | Ambiguous / 409 | `SIMULATE_RESULT` | none | **1200ms** |
+| 12 | `close-sim` | Close | `SIMULATE_CLOSE` | click | **700ms** |
+| 13 | `open-prio` | Adjust priority | `CONFLICT_ADJUST_PRIORITY` | click | wait menu · **600ms** |
+| 14 | `raise-left` | Raise left rule | `CONFLICT_PRIO_LEFT` | click | wait re-analyze · **800ms** |
+| 15 | `after-priority` | Findings updated | `CONFLICT_SUMMARY` | none | **1200ms** |
+| 16 | `acknowledge` | Acknowledge | `CONFLICT_ACKNOWLEDGE` | click | wait ack notice · **1000ms** |
 
-### `preAction`
+### `prepareBeforeNavigate` / `setup` / `cleanup`
 
-- Import conflicts sample if explorer lacks two `/orders` routes.
-- Close Simulate before priority/ack steps.
+- **prepareBeforeNavigate:** wipe → import `am-gallery-conflicts` → collapse sidebar.
+- **setup:** ensure Ambiguous server; Studio view; close overlays.
+- **cleanup:** close Simulate; wipe.
 
 ### Narration cues
 
-- Conflicts are **pre-Apply safety**, not just post-failure debug.
-- Gallery settings use reject-multiple — witness expects **ambiguous**, not silent winner.
-- After priority change, Apply if server was Running (`CONFLICT_APPLY` when dirty).
+- Conflicts are **pre-Apply safety**, not only post-failure debug.
+- Gallery uses **reject_multiple** + **reject** equal priority → witness expects **ambiguous** / 409.
+- Adjust priority re-analyzes automatically; Acknowledge fingerprints the finding until rules change.
 
-### Selectors
+### Selectors (primary)
 
-`VIEW_CONFLICTS`, `CONFLICTS_PAGE`, `CONFLICTS_ANALYZE`, `CONFLICT_INSPECTOR`, `CONFLICT_DETAIL`, `CONFLICT_SIMULATE`, `CONFLICT_ADJUST_PRIORITY`, `CONFLICT_ACKNOWLEDGE`, `CONFLICT_APPLY`, `SIMULATE_*`, `LIVE_REGION`
+`ACTIVE_TAB`, `FIRST_ROUTE`, `VIEW_CONFLICTS`, `CONFLICTS_PAGE`, `CONFLICT_GUIDE_ANALYZE`, `CONFLICTS_ANALYZE`, `CONFLICT_SUMMARY`, `FIRST_FINDING`, `CONFLICT_DETAIL`, `CONFLICT_POLICY_EQUAL`, `CONFLICT_WITNESS`, `CONFLICT_SIMULATE`, `SIMULATE_RUN`, `SIMULATE_RESULT`, `SIMULATE_CLOSE`, `CONFLICT_ADJUST_PRIORITY`, `CONFLICT_PRIO_LEFT`, `CONFLICT_ACKNOWLEDGE`, `CONFLICT_ACK`
 
 ---
 
@@ -297,7 +390,7 @@ Extend `API_MOCK` with `ADD_CONDITION` / `TOOLBOX_TAB_*` before lesson merge if 
 | **Teaches** | Import menu, cURL parse, OpenAPI parse, merge mode, draft enablement. |
 | **Seed** | Blank mock server (create if empty). Do **not** rely on Catalog/Requests for this lesson (that’s walkthrough C5 / optional beat). |
 | **Companion** | Not required until optional Start. |
-| **Est.** | 4 min · ~9 steps |
+| **Est.** | 5 min · 11 steps |
 
 ### Fixture snippets (embed in lesson helpers)
 
@@ -359,7 +452,7 @@ paths:
 | **Teaches** | Runtime dock tabs, journal filter/clear, Settings cards (journal redaction + fallback). |
 | **Seed** | Health mock Running with ≥1 matched transaction (AM-1) **or** import health → Start → hit `/health`. |
 | **Companion** | Required. |
-| **Est.** | 4 min · ~9 steps |
+| **Est.** | 5 min · 10 steps |
 
 ### Beats
 
@@ -401,7 +494,7 @@ paths:
 | **Teaches** | Server settings TLS tab, generate cert, companion dependency, HTTP/2 badge. |
 | **Seed** | Health mock Stopped (TLS changes usually need restart). |
 | **Companion** | **Required** (cert generate) on web and Tauri. |
-| **Est.** | 5 min · ~9 steps |
+| **Est.** | 5 min · 9 steps |
 
 ### Beats
 
@@ -437,7 +530,7 @@ paths:
 | **Teaches** | API Mock palette subgroup, node config panels, isolate/port vars. |
 | **Seed** | Persisted health (or users) definition available to Start node server picker; empty/small workflow. |
 | **Companion** | Required for Start node execution. |
-| **Est.** | 5 min · ~10 steps |
+| **Est.** | 6 min · 10 steps |
 
 ### Palette nodes (product)
 
@@ -491,21 +584,21 @@ Workflow palette/canvas testids above + `API_MOCK` only if jumping back to Studi
 ### Batch A (12E exit ≥4)
 
 - [ ] Adapter + helpers  
-- [ ] `AM-1`  
-- [ ] `AM-2`  
-- [ ] `AM-3`  
-- [ ] `AM-4`  
+- [x] `AM-1` — implemented (`api-mock-am1.ts`, Monaco body via `patchApiMockActiveRoute`)  
+- [x] `AM-2` — implemented (`api-mock-am2.ts`, gallery health seed + hot-Apply)  
+- [x] `AM-3` — implemented (`api-mock-am3.ts`, Users gallery + Pattern Toolbox)  
+- [x] `AM-4` — implemented (`api-mock-am4.ts`, Conflicts gallery + inspector)  
 - [ ] Each passes 5-item done checklist  
 
 ### Batch B
 
-- [ ] `AM-5`  
-- [ ] `AM-6`  
+- [x] `AM-5` — implemented (`api-mock-am5.ts`, Import Review cURL + OpenAPI drafts)
+- [x] `AM-6` — implemented (`api-mock-am6.ts`, Runtime journal filter + settings + closest-match fallback)
 
 ### Batch C (optional)
 
-- [ ] `AM-7`  
-- [ ] `AM-8`  
+- [x] `AM-7` — implemented (`api-mock-am7.ts`, TLS generate + HTTPS Start + HTTP/2)
+- [x] `AM-8` — implemented (`api-mock-am8.ts`, Workflow Start → HTTP → Assert → Stop)
 
 ---
 

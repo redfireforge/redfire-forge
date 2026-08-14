@@ -683,6 +683,11 @@ describe('useTestExecution - Execute', () => {
     expect(mockApplyApiMockFixtureBaseUrl).toHaveBeenCalledWith(scenarios, 'http://127.0.0.1:4010');
     expect(mockTeardownApiMockFixture).toHaveBeenCalled();
     expect(result.current.finalRun).not.toBeNull();
+    expect(result.current.fixtureStatus).toEqual({
+      phase: 'stopped',
+      port: 4010,
+      serverId: 'mock-1',
+    });
   });
 
   it('skips base url override when api mock fixture opts out', async () => {

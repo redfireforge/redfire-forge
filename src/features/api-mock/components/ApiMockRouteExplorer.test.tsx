@@ -45,10 +45,26 @@ describe('ApiMockRouteExplorer', () => {
     );
 
     expect(screen.getByTestId('api-mock-routes-empty')).toHaveTextContent('No rules yet');
+    expect(screen.getByTestId('api-mock-routes-empty').textContent).toMatch(/404/);
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     fireEvent.click(screen.getByTestId('api-mock-add-folder'));
     expect(onCreate).toHaveBeenCalled();
     expect(onAddFolder).toHaveBeenCalled();
+  });
+
+  it('explains unmatched 404 when the empty listener is running', () => {
+    render(
+      <ApiMockRouteExplorer
+        routes={[]}
+        running
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-routes-empty').textContent).toMatch(/listener is running/);
+    expect(screen.getByTestId('api-mock-routes-empty').textContent).toMatch(/404/);
   });
 
   it('filters routes, shows no-match state, and renders conflict counts', () => {
@@ -194,6 +210,9 @@ describe('ApiMockRouteExplorer', () => {
     expect(second).toHaveAttribute('title', 'Users Route');
     expect(within(second).getByText('/')).toBeInTheDocument();
     expect(screen.getByText('1 enabled · 1 draft')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-routes-footer')).toHaveTextContent('1 enabled · 1 draft');
+    expect(screen.getByTestId('api-mock-cli-simulate')).toHaveTextContent('cli mock simulate workspace.json');
+    expect(screen.getByTestId('api-mock-cli-verify')).toHaveTextContent('cli mock verify workspace.json');
 
     fireEvent.click(first);
     fireEvent.doubleClick(second);
@@ -297,5 +316,26 @@ describe('ApiMockRouteExplorer — per-rule delete', () => {
       />,
     );
     expect(document.querySelectorAll('[role="treeitem"]')).toHaveLength(2);
+  });
+
+  it('marks copy-imported rows and copies the CLI handoff', async () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText: vi.fn(async () => undefined) },
+    });
+    render(
+      <ApiMockRouteExplorer
+        routes={[route({ id: 'r-copy', name: 'Users Route (copy)', enabled: false })]}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-route-r-copy')).toHaveAttribute('data-copied', 'true');
+    fireEvent.click(screen.getByTestId('api-mock-cli-simulate-copy'));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('cli mock simulate workspace.json');
+    fireEvent.click(screen.getByTestId('api-mock-cli-verify-copy'));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('cli mock verify workspace.json');
   });
 });

@@ -123,6 +123,22 @@ describe('suppressResizeObserverError', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('swallows string Canceled unhandledrejection', () => {
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', { value: 'Canceled' });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('swallows Error with Canceled message even when name is Error', () => {
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', { value: new Error('Canceled') });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   it('does not swallow unrelated plain-object unhandledrejection', () => {
     const event = new Event('unhandledrejection', { cancelable: true });
     Object.defineProperty(event, 'type', { value: 'unhandledrejection' });

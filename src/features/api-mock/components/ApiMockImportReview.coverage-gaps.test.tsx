@@ -171,7 +171,7 @@ describe('ApiMockImportReview coverage gaps', () => {
     expect(screen.getByText('info note')).toBeTruthy();
     expect(screen.getByText('warn note')).toBeTruthy();
     expect(screen.getByText('Loss report')).toBeTruthy();
-    expect(screen.getByText('lost field X')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-import-loss')).toHaveTextContent('lost field X');
     expect(screen.getByTestId('api-mock-import-route-list')).toBeTruthy();
     expect(screen.getByTestId('api-mock-import-preview-request-0')).toBeTruthy();
     expect(screen.getByTestId('api-mock-import-preview-request-1')).toBeTruthy();
@@ -189,7 +189,8 @@ describe('ApiMockImportReview coverage gaps', () => {
     fireEvent.click(screen.getByTestId('api-mock-import-generalize'));
 
     const preview = screen.getByTestId('api-mock-import-preview-block');
-    expect(preview.querySelector('.am-mono')?.textContent).toBe('/items/:id/details');
+    expect(screen.getByTestId('api-mock-import-preview-path').textContent).toBe('/items/:id/details');
+    expect(preview.querySelector('[data-testid="api-mock-import-preview-path"]')?.textContent).toBe('/items/:id/details');
   });
 
   it('pretty-format rejects non-Error throws and clears errors on edit', async () => {
@@ -287,7 +288,7 @@ describe('ApiMockImportReview coverage gaps', () => {
     expect(screen.getByTestId('api-mock-import-folder')).toHaveTextContent('Beta');
 
     fireEvent.click(screen.getByTestId('api-mock-import-folder'));
-    fireEvent.click(screen.getByText('+ Create new folder'));
+    fireEvent.click(screen.getByTestId('api-mock-import-folder-new'));
     fireEvent.change(screen.getByTestId('api-mock-import-new-folder-name'), {
       target: { value: 'Imported folder' },
     });

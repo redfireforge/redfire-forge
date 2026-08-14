@@ -152,7 +152,7 @@ describe('ApiMockFixturePanel', () => {
     );
     await waitFor(() => expect(screen.getByTestId('har-apimock-fixture-server')).toBeTruthy());
 
-    const isolateCheckbox = screen.getByLabelText('Isolate run ID') as HTMLInputElement;
+    const isolateCheckbox = screen.getByTestId('har-apimock-fixture-isolate') as HTMLInputElement;
     expect(isolateCheckbox.checked).toBe(true);
 
     fireEvent.click(isolateCheckbox);
@@ -171,7 +171,7 @@ describe('ApiMockFixturePanel', () => {
     );
     await waitFor(() => expect(screen.getByTestId('har-apimock-fixture-server')).toBeTruthy());
 
-    const overrideCheckbox = screen.getByLabelText('Override host → mock') as HTMLInputElement;
+    const overrideCheckbox = screen.getByTestId('har-apimock-fixture-override') as HTMLInputElement;
     expect(overrideCheckbox.checked).toBe(true);
 
     fireEvent.click(overrideCheckbox);
@@ -187,8 +187,9 @@ describe('ApiMockFixturePanel', () => {
     );
     await waitFor(() => expect(screen.getByTestId('har-apimock-fixture-server')).toBeTruthy());
 
-    expect((screen.getByLabelText('Isolate run ID') as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText('Override host → mock') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByTestId('har-apimock-fixture-isolate') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByTestId('har-apimock-fixture-override') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByTestId('har-apimock-fixture-var').textContent).toMatch(/mock base URL/);
   });
 
   it('shows empty-server placeholder and disables select', async () => {
@@ -215,7 +216,38 @@ describe('ApiMockFixturePanel', () => {
 
     expect((screen.getByTestId('har-apimock-fixture-enabled') as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByTestId('har-apimock-fixture-server') as HTMLSelectElement).disabled).toBe(true);
-    expect((screen.getByLabelText('Isolate run ID') as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByLabelText('Override host → mock') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByTestId('har-apimock-fixture-isolate') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByTestId('har-apimock-fixture-override') as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('renders starting, running, and stopped fixture status lines', async () => {
+    const { rerender } = render(
+      <ApiMockFixturePanel
+        value={{ enabled: true, serverId: 'srv-1' }}
+        onChange={vi.fn()}
+        status={{ phase: 'starting' }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('har-apimock-fixture-start').textContent).toMatch(/Starting mock listener/));
+
+    rerender(
+      <ApiMockFixturePanel
+        value={{ enabled: true, serverId: 'srv-1' }}
+        onChange={vi.fn()}
+        status={{ phase: 'running', port: 4612, serverId: 'srv-1' }}
+      />,
+    );
+    expect(screen.getByTestId('har-apimock-fixture-start').textContent).toContain('Started mock on :4612');
+    expect(screen.getByTestId('har-apimock-fixture-port').textContent).toBe('4612');
+
+    rerender(
+      <ApiMockFixturePanel
+        value={{ enabled: true, serverId: 'srv-1' }}
+        onChange={vi.fn()}
+        status={{ phase: 'stopped', port: 4612, serverId: 'srv-1' }}
+      />,
+    );
+    expect(screen.getByTestId('har-apimock-fixture-stopped').textContent).toMatch(/Stopped/);
+    expect(screen.getByTestId('har-apimock-fixture-freed-port').textContent).toBe('4612');
   });
 });

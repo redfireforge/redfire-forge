@@ -42,7 +42,7 @@ Open from Match rows (wand) or related actions. Tabs:
 | **Path template** | Kind presets + generalize imported path |
 | **JSON body / JSONPath** | Click/select sample JSON → path; Add conditions |
 | **Query & headers** | Compose header/query/cookie constraints |
-| **XPath** | exists/equals helpers |
+| **XPath** | Presets, full-width sample XML (expand to read the envelope), matcher fields (XPath / Resolved / Equals) under the sample |
 | **Schema** | JSON Schema / XML Schema text presets |
 
 Footer: **Cancel** / **Apply pattern** or **Add conditions**. Backdrop click does **not** close the modal.
@@ -72,7 +72,7 @@ Actions:
 - Inspect dimensions / policy outcome
 - **Simulate** witness
 - Adjust priority
-- Acknowledge by fingerprint (stale when definition changes)
+- Acknowledge by fingerprint (stale when either rule's SHA-256 changes). Duplicate means Match agrees; the two hashes are still usually different because they identify two rule records.
 - Apply gating respects configured severity policy
 
 Empty-state explainer: `ApiMockConflictGuide` in the UI.

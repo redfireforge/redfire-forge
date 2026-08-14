@@ -196,7 +196,10 @@ describe('predicateEvaluatorHelpers', () => {
     expect(evaluateOperator('form_field_regex', 'csrf=abc', ['csrf'] as any)).toBe(true);
     expect(evaluateOperator('form_field_present', 'csrf=token123', ['csrf'])).toBe(true);
     expect(evaluateOperator('form_field_present', 'other=1', ['csrf'])).toBe(false);
-    expect(evaluateOperator('form_field_present', 'csrf=token123', 'csrf' as any)).toBe(false);
+    // `present` has a single box in the editor, so a bare string names the field.
+    expect(evaluateOperator('form_field_present', 'csrf=token123', 'csrf')).toBe(true);
+    expect(evaluateOperator('form_field_present', 'other=1', 'csrf')).toBe(false);
+    expect(evaluateOperator('form_field_present', 'csrf=1', '')).toBe(false);
     expect(evaluateOperator('form_field_exact', null, ['csrf', 'token'])).toBe(false);
     expect(evaluateOperator('binary_exact', 'ping', 'ping')).toBe(true);
     expect(evaluateOperator('binary_exact', 'pong', 'ping')).toBe(false);

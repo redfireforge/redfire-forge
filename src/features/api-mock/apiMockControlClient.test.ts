@@ -60,6 +60,29 @@ describe('apiMockControlClient', () => {
     if (!res.ok) expect(res.error.code).toBe('COMPANION_UNAVAILABLE');
   });
 
+  it('maps companion 404 NOT_RUNNING to a non-retrying runtime error', async () => {
+    mockFetch(() => ({
+      ok: false,
+      status: 404,
+      json: async () => ({ ok: false, error: { code: 'NOT_RUNNING', message: 'Server "srv-1" is not running' } }),
+    }));
+    const res = await apiMockControlClient.state('srv-1');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('MOCK_RUNTIME_ERROR');
+      expect(res.error.retry).toBe(false);
+    }
+  });
+
+  it('maps a bare HTTP 404 to a non-retrying runtime error', async () => {
+    mockFetch(() => ({ ok: false, status: 404, json: async () => null }));
+    const res = await apiMockControlClient.transactions('srv-gone');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.retry).toBe(false);
+    }
+  });
+
   it('maps the Vite dev-proxy BACKEND_UNREACHABLE code to companion unavailable', async () => {
     mockFetch(() => ({ ok: true, status: 200, json: async () => ({ ok: false, error: { code: 'BACKEND_UNREACHABLE', message: 'Backend server is not running on localhost:3001. Start it with npm run server:dev.' } }) }));
     const res = await apiMockControlClient.start(def);
@@ -269,6 +292,26 @@ describe('apiMockControlClient native Tauri path', () => {
     const fallback = await apiMockControlClient.nextAutoPort([4600]);
     expect(fallback.ok && fallback.data.port).toBe(4601);
     expect(calls).toBeGreaterThan(1);
+
+    let probes = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo) => {
+      if (String(input).includes('/ports/next')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: false, error: { code: 'BACKEND_UNREACHABLE', message: 'down' } }),
+        } as unknown as Response;
+      }
+      probes += 1;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, data: { port: 4602, available: true } }),
+      } as unknown as Response;
+    }));
+    const local = await apiMockControlClient.nextAutoPort([4600]);
+    expect(local.ok && local.data.port).toBe(4601);
+    expect(probes).toBe(0);
 
     const probe = await apiMockControlClient.probePort(4611);
     // last stub still active — probe uses /ports/probe

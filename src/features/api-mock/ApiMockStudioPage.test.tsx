@@ -2,8 +2,25 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ApiMockStudioPage } from './ApiMockStudioPage';
+
+/** Creating a server asks the control plane for a free port, so it settles async. */
+async function createFirstServer() {
+  render(<ApiMockStudioPage />);
+  fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  await screen.findByTestId('api-mock-studio');
+}
+
+function serverTabs() {
+  return screen.getByTestId('api-mock-server-tabs').querySelectorAll('[role="tab"]');
+}
+
+/** Add a tab and wait for the auto-port round trip to land it in the tab bar. */
+async function addServerTab(expectedTabs: number) {
+  fireEvent.click(screen.getByTestId('api-mock-tab-add'));
+  await waitFor(() => expect(serverTabs().length).toBe(expectedTabs));
+}
 
 describe('ApiMockStudioPage', () => {
   beforeEach(() => localStorage.clear());
@@ -13,47 +30,38 @@ describe('ApiMockStudioPage', () => {
     expect(screen.getByTestId('api-mock-create-first')).toBeTruthy();
   });
 
-  it('creates a server and shows studio', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
-    expect(screen.getByTestId('api-mock-studio')).toBeTruthy();
+  it('creates a server and shows studio', async () => {
+    await createFirstServer();
     expect(screen.getByTestId('api-mock-server-tabs')).toBeTruthy();
     expect(screen.getByTestId('api-mock-server-bar')).toBeTruthy();
   });
 
-  it('creates a route and shows editor', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  it('creates a route and shows editor', async () => {
+    await createFirstServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     expect(screen.getByTestId('api-mock-route-editor')).toBeTruthy();
   });
 
-  it('shows no-route message when no route selected', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  it('shows no-route message when no route selected', async () => {
+    await createFirstServer();
     expect(screen.getByTestId('api-mock-no-route')).toBeTruthy();
   });
 
-  it('creates multiple servers with tabs', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
-    fireEvent.click(screen.getByTestId('api-mock-tab-add'));
-    const tabs = screen.getByTestId('api-mock-server-tabs');
-    expect(tabs.querySelectorAll('[role="tab"]').length).toBe(2);
+  it('creates multiple servers with tabs', async () => {
+    await createFirstServer();
+    await addServerTab(2);
   });
 
-  it('switches active server on tab click', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
-    fireEvent.click(screen.getByTestId('api-mock-tab-add'));
-    const tabs = screen.getByTestId('api-mock-server-tabs').querySelectorAll('[role="tab"]');
+  it('switches active server on tab click', async () => {
+    await createFirstServer();
+    await addServerTab(2);
+    const tabs = serverTabs();
     fireEvent.click(tabs[0]);
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
   });
 
-  it('edits route method', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  it('edits route method', async () => {
+    await createFirstServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     const select = screen.getByTestId('api-mock-method-select');
     fireEvent.click(select.querySelector('.cs-trigger') as HTMLElement);
@@ -61,27 +69,24 @@ describe('ApiMockStudioPage', () => {
     expect(select.getAttribute('data-value')).toBe('POST');
   });
 
-  it('edits route path', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  it('edits route path', async () => {
+    await createFirstServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     const input = screen.getByTestId('api-mock-path-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '/users' } });
     expect(input.value).toBe('/users');
   });
 
-  it('edits route priority', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  it('edits route priority', async () => {
+    await createFirstServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     const input = screen.getByTestId('api-mock-priority-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '20' } });
     expect(input.value).toBe('20');
   });
 
-  it('shows empty routes message', () => {
-    render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  it('shows empty routes message', async () => {
+    await createFirstServer();
     expect(screen.getByTestId('api-mock-routes-empty')).toBeTruthy();
   });
 });

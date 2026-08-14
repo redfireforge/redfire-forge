@@ -91,7 +91,7 @@ export function ApiMockResponseFaultsPanel({ variant, onUpdateVariant }: Props) 
                       className="am-input mono"
                       aria-label={`Chunk ${idx + 1} body`}
                       value={chunk.body}
-                      placeholder="payload content…"
+                      placeholder="empty delay — no bytes"
                       onChange={e => {
                         const next = [...(variant.behavior.chunkSchedule ?? [])];
                         next[idx] = { ...next[idx], body: e.target.value };
@@ -116,6 +116,13 @@ export function ApiMockResponseFaultsPanel({ variant, onUpdateVariant }: Props) 
                 </div>
               ))}
             </div>
+          )}
+          {(variant.behavior.chunkSchedule ?? []).length > 0 && (
+            <p className="am-hint" data-testid="api-mock-chunk-empty-hint">
+              An empty payload is a pause with no bytes. End stream does not send the rest of the
+              body — paste remaining characters into a later row if you want them on the wire.
+              Rendered response still shows the full intended body.
+            </p>
           )}
           {(variant.behavior.chunkSchedule ?? []).length === 0 && (
             <div className="am-chunk-empty">No chunks defined — runtime splits the body evenly if empty.</div>

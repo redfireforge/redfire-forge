@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ApiMockRouteV1, ApiMockPredicateV1, ApiMockPredicateGroupV1, ApiMockResponseVariantV1, ApiMockFaultKind, ApiMockSimulationSampleV1, ApiMockRouteFolderV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockRouteV1, ApiMockPredicateV1, ApiMockPredicateGroupV1, ApiMockResponseVariantV1, ApiMockFaultKind, ApiMockSimulationSampleV1, ApiMockRouteFolderV1, ApiMockVariableV1 } from '../../../shared/api-mock/contracts';
 import { isUnavailablePredicateOperator } from '../../../shared/api-mock/unavailableOperators';
 import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
@@ -17,6 +17,7 @@ import { ApiMockResponseEditor } from './ApiMockResponseEditor';
 import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
 import { ApiMockExamplesPanel } from './ApiMockExamplesPanel';
 import { WandIcon, TrashIcon, FlaskIcon, AlertIcon, PlusIcon } from './ApiMockIcons';
+import { ApiMockExpandableText } from './ApiMockExpandableText';
 import { toolboxTabForOperator } from './apiMockPatternToolboxConstants';
 
 interface Props {
@@ -38,6 +39,8 @@ interface Props {
   onUpdateSample?: (sample: ApiMockSimulationSampleV1) => void;
   onDeleteSample?: (sampleId: string) => void;
   onTrySampleInRequests?: (sample: ApiMockSimulationSampleV1) => void;
+  /** Server variables forwarded to the response preview so templates resolve. */
+  variables?: ApiMockVariableV1[];
 }
 
 type BuilderTab = 'match' | 'response' | 'behavior' | 'examples' | 'docs';
@@ -159,6 +162,7 @@ export function ApiMockRouteEditor({
   onUpdateSample,
   onDeleteSample,
   onTrySampleInRequests,
+  variables = [],
 }: Props) {
   const [tab, setTab] = useState<BuilderTab>('match');
   const [toolboxOpen, setToolboxOpen] = useState(false);
@@ -240,10 +244,17 @@ export function ApiMockRouteEditor({
       ) : (
         <input
           className="am-input mono"
-          value={pred.selector ?? ''}
-          placeholder="name"
+          value={pred.source === 'body' ? '' : pred.selector ?? ''}
+          placeholder={pred.source === 'body' ? '(whole body)' : 'name'}
+          // Body predicates read the entire payload — there is no key to name, and
+          // form/multipart field names belong in the matcher's own field box.
+          disabled={pred.source === 'body'}
+          title={pred.source === 'body'
+            ? 'Body conditions read the whole payload — the operator carries the meaning'
+            : undefined}
           onChange={e => updateCondition(pred.id, { selector: e.target.value })}
           aria-label="Condition selector"
+          data-testid={`api-mock-condition-selector-${pred.id}`}
         />
       )}
       <CustomSelect
@@ -271,16 +282,31 @@ export function ApiMockRouteEditor({
               expected: [e.target.value, pairExpected(pred.expected)[1]],
             })}
             aria-label={pred.operator.startsWith('xpath') ? 'Condition XPath' : pred.operator.startsWith('jsonPath') ? 'Condition JSONPath' : 'Condition field'}
+            data-testid={`api-mock-condition-expr-${pred.id}`}
           />
-          <input
-            className="am-input mono"
-            value={pairExpected(pred.expected)[1]}
-            placeholder={pred.operator === 'multipart_file' ? 'file.png' : 'value'}
-            onChange={e => updateCondition(pred.id, {
-              expected: [pairExpected(pred.expected)[0], e.target.value],
-            })}
-            aria-label="Condition value"
-          />
+          {pred.source === 'body' ? (
+            <ApiMockExpandableText
+              label="Condition value"
+              value={pairExpected(pred.expected)[1]}
+              placeholder={pred.operator === 'multipart_file' ? 'file.png' : 'value'}
+              onChange={v => updateCondition(pred.id, {
+                expected: [pairExpected(pred.expected)[0], v],
+              })}
+              testId={`api-mock-condition-value-${pred.id}`}
+              ariaLabel="Condition value"
+            />
+          ) : (
+            <input
+              className="am-input mono"
+              value={pairExpected(pred.expected)[1]}
+              placeholder={pred.operator === 'multipart_file' ? 'file.png' : 'value'}
+              onChange={e => updateCondition(pred.id, {
+                expected: [pairExpected(pred.expected)[0], e.target.value],
+              })}
+              aria-label="Condition value"
+              data-testid={`api-mock-condition-value-${pred.id}`}
+            />
+          )}
           {(pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals') && (
             <button
               type="button"
@@ -296,29 +322,49 @@ export function ApiMockRouteEditor({
           )}
         </div>
       ) : pred.operator === 'jsonSchema' || pred.operator === 'xmlSchema' || pred.operator === 'json_strict' || pred.operator === 'json_subset' ? (
-        <textarea
-          className="am-textarea mono am-matcher-schema"
+        <ApiMockExpandableText
+          label="Condition body"
           value={expectedText(pred.expected)}
           placeholder={pred.operator === 'xmlSchema' ? 'Order, Id  or  <xs:element name="Order"/>' : '{ "type": "object" }'}
-          onChange={e => updateCondition(pred.id, { expected: e.target.value })}
-          aria-label="Condition schema"
-          data-testid={`api-mock-condition-schema-${pred.id}`}
+          onChange={v => updateCondition(pred.id, { expected: v })}
+          testId={`api-mock-condition-schema-${pred.id}`}
+          multiline
+          className="am-matcher-schema"
+          ariaLabel="Condition schema"
         />
       ) : (
-        <input
-          className="am-input mono"
-          value={typeof pred.expected === 'string' ? pred.expected : ''}
-          placeholder={
-            pred.source === 'security' && pred.selector === 'certSubject' ? 'CN=client-name'
-              : pred.operator === 'jsonPath_exists' ? '$.customer.tier'
+        pred.source === 'body' && pred.operator !== 'present' && pred.operator !== 'absent' ? (
+          <ApiMockExpandableText
+            label="Condition body"
+            value={typeof pred.expected === 'string' ? pred.expected : ''}
+            placeholder={
+              pred.operator === 'jsonPath_exists' ? '$.customer.tier'
                 : pred.operator === 'xpath_exists' ? "//*[local-name()='vin']"
                   : pred.operator === 'binary_sha256' ? '64-char hex digest'
-                    : 'value'
-          }
-          disabled={pred.operator === 'present' || pred.operator === 'absent'}
-          onChange={e => updateCondition(pred.id, { expected: e.target.value })}
-          aria-label="Condition value"
-        />
+                    : pred.operator === 'binary_exact' ? 'raw body'
+                      : 'value'
+            }
+            onChange={v => updateCondition(pred.id, { expected: v })}
+            testId={`api-mock-condition-value-${pred.id}`}
+            ariaLabel="Condition value"
+          />
+        ) : (
+          <input
+            className="am-input mono"
+            value={typeof pred.expected === 'string' ? pred.expected : ''}
+            placeholder={
+              pred.source === 'security' && pred.selector === 'certSubject' ? 'CN=client-name'
+                : pred.operator === 'jsonPath_exists' ? '$.customer.tier'
+                  : pred.operator === 'xpath_exists' ? "//*[local-name()='vin']"
+                    : pred.operator === 'binary_sha256' ? '64-char hex digest'
+                      : 'value'
+            }
+            disabled={pred.operator === 'present' || pred.operator === 'absent'}
+            onChange={e => updateCondition(pred.id, { expected: e.target.value })}
+            aria-label="Condition value"
+            data-testid={`api-mock-condition-value-${pred.id}`}
+          />
+        )
       )}
       <div className="am-matcher-actions">
         {TOOLBOX_OPERATORS.has(pred.operator) && (
@@ -365,7 +411,9 @@ export function ApiMockRouteEditor({
             aria-label="Group combinator"
             data-testid={`api-mock-group-combinator-${node.id}`}
           />
-          <span className="am-faint">{n} condition{n === 1 ? '' : 's'}</span>
+          <span className="am-faint" data-testid={`api-mock-group-count-${node.id}`}>
+            {n} condition{n === 1 ? '' : 's'}
+          </span>
           <span className="am-spacer" />
           <button
             className="am-btn small ghost"
@@ -387,6 +435,11 @@ export function ApiMockRouteEditor({
             ><TrashIcon size={13} /></button>
           )}
         </div>
+        {node.combinator === 'not' && (
+          <div className="am-hint" data-testid={`api-mock-group-failclosed-${node.id}`}>
+            Fails closed — a child that cannot be evaluated makes the whole group miss, so a stub can never invert into a match.
+          </div>
+        )}
         {node.children.length === 0 ? (
           <div
             className="am-empty-conditions"
@@ -544,7 +597,7 @@ export function ApiMockRouteEditor({
         )}
 
         {tab === 'response' && (
-          <ApiMockResponseEditor route={route} onUpdateRoute={onUpdate} sequencePosition={sequencePosition} />
+          <ApiMockResponseEditor route={route} onUpdateRoute={onUpdate} sequencePosition={sequencePosition} variables={variables} />
         )}
         {tab === 'behavior' && (
           <>

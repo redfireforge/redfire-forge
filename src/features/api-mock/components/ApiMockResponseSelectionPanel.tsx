@@ -1,5 +1,43 @@
-import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
+import type {
+  ApiMockPredicateGroupV1,
+  ApiMockPredicateV1,
+  ApiMockRouteV1,
+  ApiMockResponseVariantV1,
+} from '../../../shared/api-mock/contracts';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function readJsonPathCondition(variant: ApiMockResponseVariantV1): { path: string; value: string } {
+  const child = variant.conditions?.children?.find(
+    (c): c is ApiMockPredicateV1 => 'operator' in c && c.operator === 'jsonPath_equals',
+  );
+  if (!child) return { path: '', value: '' };
+  const expected = child.expected;
+  if (Array.isArray(expected) && expected.length >= 2) {
+    return { path: String(expected[0] ?? ''), value: String(expected[1] ?? '') };
+  }
+  return { path: child.selector ?? '', value: expected == null ? '' : String(expected) };
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function writeJsonPathCondition(
+  variant: ApiMockResponseVariantV1,
+  path: string,
+  value: string,
+): ApiMockPredicateGroupV1 | undefined {
+  if (!path.trim() && !value.trim()) return undefined;
+  return {
+    id: variant.conditions?.id || `pg-cond-${variant.id}`,
+    combinator: 'all',
+    children: [{
+      id: `pred-jsonpath-${variant.id}`,
+      source: 'body',
+      selector: '',
+      operator: 'jsonPath_equals',
+      expected: [path, value],
+    }],
+  };
+}
 
 interface Props {
   route: ApiMockRouteV1;
@@ -50,22 +88,61 @@ export function ApiMockResponseSelectionPanel({
             </span>
           )}
           {route.responseMode === 'rules' && (
-            <button
-              type="button"
-              className="am-btn small"
-              data-testid="api-mock-selection-default"
-              onClick={() => onUpdateRoute({
-                responses: route.responses.map(v => ({
-                  ...v,
-                  isDefault: v.id === activeVariant.id,
-                })),
-              })}
-            >
-              Make default
-            </button>
+            <>
+              <button
+                type="button"
+                className="am-btn small"
+                data-testid="api-mock-selection-default"
+                onClick={() => onUpdateRoute({
+                  responses: route.responses.map(v => ({
+                    ...v,
+                    isDefault: v.id === activeVariant.id,
+                  })),
+                })}
+              >
+                Make default
+              </button>
+              <span className="am-hint" data-testid="api-mock-selection-default-note">
+                Exactly one enabled variant is the Default fallback.
+              </span>
+            </>
           )}
         </div>
       </div>
+      {route.responseMode === 'rules' && !activeVariant.isDefault && (
+        <div className="am-form-row">
+          <div className="am-form-label">JSONPath</div>
+          <div className="am-form-control" style={{ flexWrap: 'wrap', gap: 8 }}>
+            {(() => {
+              const current = readJsonPathCondition(activeVariant);
+              return (
+                <>
+                  <input
+                    className="am-input wide mono"
+                    value={current.path}
+                    placeholder="$.sku"
+                    aria-label="Variant JSONPath expression"
+                    data-testid="api-mock-selection-condition-path"
+                    onChange={e => onUpdateVariant({
+                      conditions: writeJsonPathCondition(activeVariant, e.target.value, current.value),
+                    })}
+                  />
+                  <input
+                    className="am-input wide mono"
+                    value={current.value}
+                    placeholder="MISSING"
+                    aria-label="Variant JSONPath expected value"
+                    data-testid="api-mock-selection-condition-value"
+                    onChange={e => onUpdateVariant({
+                      conditions: writeJsonPathCondition(activeVariant, current.path, e.target.value),
+                    })}
+                  />
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
       {route.responseMode === 'weighted' && (
         <div className="am-form-row">
           <div className="am-form-label">Weight</div>
@@ -150,6 +227,7 @@ export function ApiMockResponseSelectionPanel({
               <input
                 className="am-input wide mono"
                 aria-label={`Counter ${idx + 1} key`}
+                data-testid={`api-mock-counter-key-${idx}`}
                 value={cu.key}
                 onChange={e => {
                   const next = [...counterUpdates];
@@ -167,6 +245,7 @@ export function ApiMockResponseSelectionPanel({
                 className="am-input num mono"
                 type="number"
                 aria-label={`Counter ${idx + 1} delta`}
+                data-testid={`api-mock-counter-delta-${idx}`}
                 value={cu.delta}
                 onChange={e => {
                   const next = [...counterUpdates];

@@ -5,12 +5,15 @@ import type { ApiMockServerDefinitionV1, ApiMockServerSettingsV1 } from '../../.
 import { DEFAULT_PROXY_SETTINGS } from '../../../shared/api-mock/proxyContracts';
 import { DEFAULT_CALLBACK_SETTINGS } from '../../../shared/api-mock/callbackContracts';
 import { apiMockControlClient } from '../apiMockControlClient';
+import { findPortOwner, formatPortTakenMessage } from '../apiMockPageHelpers';
 
 interface Props {
   server: ApiMockServerDefinitionV1;
   onSave: (patch: Partial<ApiMockServerDefinitionV1>) => void;
   onClose: () => void;
   statusLabel?: string;
+  /** Full saved library (open tabs + parked). Used to refuse a listen port another mock already claims. */
+  libraryServers?: Array<{ id: string; name: string; port: number }>;
 }
 
 const HOST_OPTIONS = [
@@ -57,7 +60,7 @@ const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; badge?: string }> =
   { id: 'tls', label: 'TLS' },
 ];
 
-export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabel }: Props) {
+export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabel, libraryServers = [] }: Props) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [name, setName] = useState(server.name);
   const [host, setHost] = useState<ApiMockServerDefinitionV1['host']>(server.host);
@@ -65,6 +68,7 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
   const [basePath, setBasePath] = useState(server.basePath);
   const [multipleMatchPolicy, setMultipleMatchPolicy] = useState(server.settings.selection.multipleMatchPolicy);
   const [equalPriorityPolicy, setEqualPriorityPolicy] = useState(server.settings.selection.equalPriorityPolicy);
+  const [ambiguityBody, setAmbiguityBody] = useState(server.settings.selection.ambiguityResponse.body);
   const [corsEnabled, setCorsEnabled] = useState(server.settings.cors.enabled);
   const [corsOrigins, setCorsOrigins] = useState(server.settings.cors.allowOrigins.join(', '));
   const [maxInbound, setMaxInbound] = useState(String(server.settings.limits.maxInboundBodyBytes));
@@ -91,6 +95,7 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
   const initialProxy = server.settings.proxy ?? DEFAULT_PROXY_SETTINGS;
   const [proxyEnabled, setProxyEnabled] = useState(initialProxy.enabled);
   const [proxyAllowlist, setProxyAllowlist] = useState(initialProxy.allowlist.join('\n'));
+  const [proxyBlockPrivate, setProxyBlockPrivate] = useState(initialProxy.blockPrivateNetworks);
   const [proxyForwardAuth, setProxyForwardAuth] = useState(initialProxy.forwardAuth);
   const [proxyTimeout, setProxyTimeout] = useState(String(initialProxy.timeoutMs));
   const [proxyRecordDrafts, setProxyRecordDrafts] = useState(initialProxy.recordAsDrafts);
@@ -99,10 +104,12 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
 
   const portNum = parseInt(port, 10);
   const portValid = Number.isFinite(portNum) && portNum >= 1024 && portNum <= 65535;
+  const portOwner = portValid ? findPortOwner(libraryServers, portNum, server.id) : undefined;
+  const portTakenMessage = portOwner ? formatPortTakenMessage(portNum, portOwner.name) : undefined;
   const nameValid = name.trim().length > 0;
   const tlsValid = !tlsEnabled || (tlsCert.trim().length > 0 && tlsKey.trim().length > 0);
   const mtlsValid = !tlsEnabled || !mtlsEnabled || mtlsCaPem.trim().length > 0;
-  const canSave = portValid && nameValid && tlsValid && mtlsValid;
+  const canSave = portValid && !portOwner && nameValid && tlsValid && mtlsValid;
   const fallbackStatus = server.settings.fallback.unmatchedResponse.status;
   const fallbackCt = server.settings.fallback.unmatchedResponse.contentType ?? 'application/json';
   const isRunning = statusLabel === 'Running';
@@ -190,7 +197,12 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
       basePath: basePath.trim(),
       settings: {
         ...server.settings,
-        selection: { ...server.settings.selection, multipleMatchPolicy, equalPriorityPolicy },
+        selection: {
+          ...server.settings.selection,
+          multipleMatchPolicy,
+          equalPriorityPolicy,
+          ambiguityResponse: { ...server.settings.selection.ambiguityResponse, body: ambiguityBody },
+        },
         fallback: { ...server.settings.fallback, mode: fallbackMode },
         tls: {
           enabled: tlsEnabled,
@@ -210,6 +222,7 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
           ...(server.settings.proxy ?? DEFAULT_PROXY_SETTINGS),
           enabled: proxyEnabled,
           allowlist: proxyAllowlist.split('\n').map(s => s.trim()).filter(Boolean),
+          blockPrivateNetworks: proxyBlockPrivate,
           forwardAuth: proxyForwardAuth,
           forwardCredentialHeaders: proxyForwardAuth ? ['authorization', 'cookie', 'x-api-key'] : [],
           timeoutMs: parseInt(proxyTimeout, 10) || DEFAULT_PROXY_SETTINGS.timeoutMs,
@@ -264,7 +277,7 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
         {/* Listen URL */}
         <div className="am-stg-url-bar">
           <span className="am-stg-url-label">Listen URL</span>
-          <code className="am-stg-url-value" title={listenPreview}>{listenPreview}</code>
+          <code className="am-stg-url-value" title={listenPreview} data-testid="api-mock-settings-listen-url">{listenPreview}</code>
         </div>
 
         {/* Tabs */}
@@ -298,16 +311,34 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
               </FormRow>
               <FormRow label="Port" htmlFor="am-settings-port">
                 <div className="am-stg-inline">
-                  <input id="am-settings-port" className="am-input num mono" type="number" min={1024} max={65535} value={port} onChange={e => setPort(e.target.value)} data-testid="api-mock-settings-port" />
+                  <input
+                    id="am-settings-port"
+                    className="am-input num mono"
+                    type="number"
+                    min={1024}
+                    max={65535}
+                    value={port}
+                    onChange={e => setPort(e.target.value)}
+                    aria-invalid={!portValid || Boolean(portOwner)}
+                    aria-describedby={!portValid ? 'am-settings-port-range' : portTakenMessage ? 'am-settings-port-taken' : undefined}
+                    data-testid="api-mock-settings-port"
+                  />
                   <span className="am-stg-hint">1024–65535</span>
                 </div>
-                {!portValid && <span className="am-stg-hint am-stg-hint--error">Port must be 1024–65535.</span>}
+                {!portValid && (
+                  <span id="am-settings-port-range" className="am-stg-hint am-stg-hint--error">Port must be 1024–65535.</span>
+                )}
+                {portValid && portTakenMessage && (
+                  <span id="am-settings-port-taken" className="am-stg-hint am-stg-hint--error" data-testid="api-mock-settings-port-taken">
+                    {portTakenMessage}
+                  </span>
+                )}
               </FormRow>
               <FormRow label="Base path" htmlFor="am-settings-basepath">
                 <input id="am-settings-basepath" className="am-input am-input--md mono" value={basePath} placeholder="/api" onChange={e => setBasePath(e.target.value)} data-testid="api-mock-settings-basepath" />
               </FormRow>
               {host === '0.0.0.0' && (
-                <div className="am-stg-warning">Binding to 0.0.0.0 exposes this mock server to your local network.</div>
+                <div className="am-stg-warning" data-testid="api-mock-settings-host-warning">Binding to 0.0.0.0 exposes this mock server to your local network.</div>
               )}
             </div>
           )}
@@ -319,6 +350,22 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
               </FormRow>
               <FormRow label="Equal priority">
                 <CustomSelect value={equalPriorityPolicy} onChange={v => setEqualPriorityPolicy(v as ApiMockServerSettingsV1['selection']['equalPriorityPolicy'])} options={EQUAL_PRIORITY_OPTIONS} className="am-cs am-cs--md" aria-label="Equal priority policy" data-testid="api-mock-settings-equal-priority" />
+              </FormRow>
+              <FormRow label="Ambiguous response" htmlFor="am-settings-ambiguity-body" tall>
+                <div className="am-stg-inline" style={{ alignItems: 'flex-start' }}>
+                  <span className="am-badge warning" data-testid="api-mock-settings-ambiguity-status">
+                    {server.settings.selection.ambiguityResponse.status}
+                  </span>
+                  <textarea
+                    id="am-settings-ambiguity-body"
+                    className="am-textarea mono am-textarea--expand"
+                    value={ambiguityBody}
+                    onChange={e => setAmbiguityBody(e.target.value)}
+                    aria-label="Ambiguous response body"
+                    data-testid="api-mock-settings-ambiguity-body"
+                  />
+                </div>
+                <span className="am-stg-hint">Returned when two or more rules match and the policy refuses to guess. Placeholders: {'{{requestId}}'}, {'{{competingRuleCount}}'}.</span>
               </FormRow>
               <FormRow label="Unmatched mode">
                 <CustomSelect value={fallbackMode} onChange={v => setFallbackMode(v as ApiMockServerSettingsV1['fallback']['mode'])} options={FALLBACK_OPTIONS} className="am-cs am-cs--md" aria-label="Unmatched fallback mode" data-testid="api-mock-settings-fallback-mode" />
@@ -389,9 +436,20 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
                     <span className="am-stg-hint">Active when unmatched mode is Proxy</span>
                   </div>
                 </FormRow>
+                {proxyEnabled && (
+                  <p className="am-stg-hint" data-testid="api-mock-settings-proxy-deny">
+                    Default-deny: unmatched traffic is not forwarded until an origin is allowlisted.
+                  </p>
+                )}
                 <FormRow label="Allowlist" tall>
                   <textarea className="am-textarea mono am-textarea--expand" value={proxyAllowlist} onChange={e => setProxyAllowlist(e.target.value)} placeholder={'https://api.example.com\nhttps://staging.example.com:8443'} data-testid="api-mock-settings-proxy-allowlist" />
                   <span className="am-stg-hint">One origin per line (scheme+host[+port]). No wildcards.</span>
+                </FormRow>
+                <FormRow label="Block private nets">
+                  <div className="am-stg-inline">
+                    <button type="button" className={`am-toggle${proxyBlockPrivate ? ' on' : ''}`} role="switch" aria-checked={proxyBlockPrivate} aria-label="Block private-network upstreams" data-testid="api-mock-settings-proxy-private" onClick={() => setProxyBlockPrivate(v => !v)} />
+                    <span className="am-stg-hint">On by default — loopback, RFC1918, and link-local are rejected</span>
+                  </div>
                 </FormRow>
                 <FormRow label="Forward auth">
                   <div className="am-stg-inline">
@@ -411,6 +469,9 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
                     <span className="am-stg-hint">Successful proxies become disabled drafts</span>
                   </div>
                 </FormRow>
+                <p className="am-stg-hint" data-testid="api-mock-settings-proxy-loop">
+                  Loop guard: a proxied hop that comes back to this mock (header <code>X-RedfireForge-Mock</code>) is rejected with <strong>508</strong>. Mocks refuse to proxy themselves.
+                </p>
               </div>
               <div className="am-stg-section-label" style={{ marginTop: 18 }}>Callbacks</div>
               <div className="am-stg-form am-stg-form--grow" data-testid="api-mock-settings-callbacks">

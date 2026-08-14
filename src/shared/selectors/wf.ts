@@ -4,6 +4,7 @@ export const WF = {
   TOOLBAR:             '.wf-toolbar',
   TOOLBAR_SELECT:      '[data-testid="wf-toolbar-select"]',
   QUICK_TEST_BTN:      '.wf-quick-test-btn',
+  QUICK_TEST:          '.wf-quick-test-btn',
   PALETTE:             '.wf-palette',
   CANVAS:              '.wf-canvas-area',
   CONTROLS:            '[data-testid="controls"]',
@@ -94,6 +95,13 @@ export const WF = {
   PAL_GRPC_UNARY:      '.wf-palette-block-grpcUnary',
   PAL_GRPC_ASSERT:     '.wf-palette-block-grpcAssert',
   PAL_GRPC_SERVER_STREAM: '.wf-palette-block-grpcServerStream',
+  // API Mock workflow palette blocks
+  PAL_API_MOCK_START:  '.wf-palette-block-apiMockStart',
+  PAL_API_MOCK_APPLY:  '.wf-palette-block-apiMockApply',
+  PAL_API_MOCK_RESET:  '.wf-palette-block-apiMockResetState',
+  PAL_API_MOCK_STOP:   '.wf-palette-block-apiMockStop',
+  PAL_API_MOCK_ASSERT: '.wf-palette-block-apiMockAssertCalls',
+  PAL_CHIP_APIMOCK:    '[data-testid="wf-palette-chip-apimock"]',
   // gRPC workflow canvas nodes (testid on node body — reliable for demo verify/spotlight)
   NODE_GRPC_UNARY:     '[data-testid="grpc-canvas-unary-node"]',
   NODE_GRPC_ASSERT:    '[data-testid="grpc-canvas-assert-node"]',

@@ -67,5 +67,8 @@ function normalizeV1(raw: Record<string, unknown>): ApiMockWorkspaceV1 {
     activeServerId: typeof raw.activeServerId === 'string' ? raw.activeServerId : undefined,
     servers: Array.isArray(raw.servers) ? raw.servers : [],
     tabOrder: Array.isArray(raw.tabOrder) ? raw.tabOrder : [],
+    // Preserved as-is: an explicit empty array means "library only, no open tabs",
+    // while `undefined` means a pre-library workspace where every server was open.
+    openTabIds: Array.isArray(raw.openTabIds) ? raw.openTabIds : undefined,
   } as ApiMockWorkspaceV1;
 }

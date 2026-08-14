@@ -278,8 +278,13 @@ function matchJsonPathEquals(
 
 function matchFormField(value: string | string[] | null, expected: ApiMockPredicateExpectedValue | undefined, mode: 'exact' | 'regex' | 'present'): boolean {
   const body = flatValue(value);
-  if (body == null || !Array.isArray(expected)) return false;
-  const [fieldName, fieldValue] = expected;
+  if (body == null) return false;
+  // Pair UI writes [field, value] for exact/regex; `present` has a single box, so a
+  // bare string names the field (parity with the multipart matchers).
+  const [fieldName, fieldValue] = Array.isArray(expected)
+    ? [expected[0], expected[1]]
+    : [mode === 'present' && typeof expected === 'string' ? expected : undefined, undefined];
+  if (!fieldName) return false;
   const params = new URLSearchParams(body);
   const actual = params.get(String(fieldName));
   if (mode === 'present') return actual != null;

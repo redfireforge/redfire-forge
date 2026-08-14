@@ -156,6 +156,64 @@ describe('ApiMockRouteEditor', () => {
     expect(screen.getByDisplayValue('CN=acme')).toHaveAttribute('placeholder', 'CN=client-name');
   });
 
+  it('greys out the key box for body conditions — the whole payload is the value', () => {
+    const onUpdate = vi.fn();
+    render(
+      <ApiMockRouteEditor
+        route={makeRoute({
+          predicates: {
+            id: 'pg',
+            combinator: 'all',
+            children: [
+              { id: 'pred-form', source: 'body', selector: 'ignored', operator: 'form_field_exact', expected: ['username', 'ada'] },
+              { id: 'pred-hdr', source: 'header', selector: 'x-tenant', operator: 'exact', expected: 'acme' },
+            ],
+          } as any,
+        })}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    const bodyKey = screen.getByTestId('api-mock-condition-selector-pred-form') as HTMLInputElement;
+    expect(bodyKey.disabled).toBe(true);
+    expect(bodyKey.value).toBe('');
+    expect(bodyKey).toHaveAttribute('placeholder', '(whole body)');
+    // The field name lives in the matcher's own pair, not in the key box.
+    expect((screen.getByTestId('api-mock-condition-expr-pred-form') as HTMLInputElement).value).toBe('username');
+    expect(screen.getByTestId('api-mock-condition-value-pred-form-expand')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('api-mock-condition-value-pred-form-expand'));
+    fireEvent.change(screen.getByTestId('api-mock-text-expand-editor'), { target: { value: 'ada.lovelace' } });
+    fireEvent.click(screen.getByTestId('api-mock-text-expand-apply'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].expected).toEqual(['username', 'ada.lovelace']);
+    expect(screen.queryByTestId('api-mock-text-expand-modal')).toBeNull();
+    expect(screen.queryByTestId('api-mock-condition-value-pred-hdr-expand')).toBeNull();
+
+    const headerKey = screen.getByTestId('api-mock-condition-selector-pred-hdr') as HTMLInputElement;
+    expect(headerKey.disabled).toBe(false);
+    expect(headerKey.value).toBe('x-tenant');
+  });
+
+  it('expands a JSON subset body matcher into the full-text popup', () => {
+    const onUpdate = vi.fn();
+    render(
+      <ApiMockRouteEditor
+        route={makeRoute({
+          predicates: {
+            id: 'pg',
+            combinator: 'all',
+            children: [{ id: 'pred-json', source: 'body', operator: 'json_subset', expected: '{"tier":"gold"}' }],
+          } as any,
+        })}
+        onUpdate={onUpdate}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-condition-schema-pred-json-expand'));
+    fireEvent.click(screen.getByTestId('api-mock-text-expand-pretty'));
+    fireEvent.click(screen.getByTestId('api-mock-text-expand-apply'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].expected).toBe('{\n  "tier": "gold"\n}');
+  });
+
   it('does not pretend an empty security selector is scheme', () => {
     render(
       <ApiMockRouteEditor
@@ -188,6 +246,7 @@ describe('ApiMockRouteEditor', () => {
     render(<ApiMockRouteEditor route={route} onUpdate={onUpdate} />);
 
     expect(screen.getByTestId('api-mock-group-combinator-pg').textContent).toContain('None of');
+    expect(screen.getByTestId('api-mock-group-failclosed-pg').textContent).toMatch(/Fails closed/);
     // The nested group is rendered and editable, with its own empty-state hint.
     expect(screen.getByTestId('api-mock-group-nested')).toBeTruthy();
     expect(screen.getByTestId('api-mock-group-empty-nested')).toBeTruthy();
@@ -241,7 +300,7 @@ describe('ApiMockRouteEditor', () => {
     expect(onUpdate.mock.calls.at(-1)?.[0].responses[0].behavior.jitterMs).toBe(0);
 
     openTab('Examples');
-    expect(screen.getByText(/Captured transactions can be promoted/i)).toBeTruthy();
+    expect(screen.getByTestId('api-mock-examples-empty')).toBeTruthy();
 
     openTab('Documentation');
     fireEvent.change(screen.getByTestId('api-mock-docs-operation-id'), { target: { value: '' } });
