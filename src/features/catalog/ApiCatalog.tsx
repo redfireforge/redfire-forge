@@ -54,6 +54,7 @@ interface Props {
   savedEpValues?: Record<string, SavedEndpointValues>;
   onExportConfirm?: (payload: SendToRequestsPayload) => void;
   onSendEndpointToHarness?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>, endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
+  onExportEndpointToApiMock?: (endpoint: CatalogEndpoint) => void;
   /** Notify parent that preview state changed so the palette can refresh. */
   onPreviewsChanged?: () => void;
 }
@@ -73,7 +74,7 @@ function isDemoCatalogBootActive(): boolean {
     || document.body.getAttribute('data-demo-bootstrapping') === '1';
 }
 
-export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness, onPreviewsChanged }: Props) {
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness, onExportEndpointToApiMock, onPreviewsChanged }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
   const [view, setView] = useState<View>(() => resolveDemoCatalogView() ?? 'endpoints');
   const publishPermission = usePublishPermission(catalog.selectedEntry?.id ?? '');
@@ -645,6 +646,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           onEditEntry={onEditEntry ? () => onEditEntry(entry.id) : undefined}
           onExportSingle={onExportSingleEndpoint ? handleExportSingle : undefined}
           onSendToHarness={onSendEndpointToHarness ? handleSendToHarness : undefined}
+          onExportToApiMock={onExportEndpointToApiMock}
           coverageMap={coverageMap}
           onNavigateToRequest={onNavigateToRequest}
           onSetWorkflowExposure={handleSetWorkflowExposure}

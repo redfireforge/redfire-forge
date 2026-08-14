@@ -343,7 +343,7 @@ const steps: DemoStep[] = [
     action: async (ctx) => {
       // Four exact beats — method, key knobs, template, profiles. No per-field scroll tour.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_METHOD_SELECT, 1_100);
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 1_000);
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_CONCURRENCY, 1_000);
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_REQUEST_RATE, 1_100);
       if (document.querySelector(GRPC.LOAD_TEST_REQUEST_TEMPLATE)) {
         await spotlightAndPause(ctx, GRPC.LOAD_TEST_REQUEST_TEMPLATE, 1_100);
@@ -369,14 +369,14 @@ const steps: DemoStep[] = [
       'concurrency, useful for controlled soak tests.\n\n' +
       'The **Request body template** is left blank so the runner uses the body from the active ' +
       'Studio tab. You can fill it with `{"message":"hello {{runId}}"}` to vary the payload per call.',
-    highlight: '[data-testid="grpc-load-test-concurrency"]',
+    highlight: GRPC.LOAD_TEST_CONCURRENCY,
     preAction: async (ctx) => {
       await navigateToLoadTestPanelQuiet(ctx);
       scrollAdvancedContentTop();
     },
     action: async (ctx) => {
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 900);
-      setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 5);
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_CONCURRENCY, 900);
+      setNumberInputValue(GRPC.LOAD_TEST_CONCURRENCY, 5);
       await ctx.delay(500);
 
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-total-calls"]', 900);
@@ -406,7 +406,7 @@ const steps: DemoStep[] = [
     highlight: GRPC.LOAD_TEST_START,
     preAction: async (ctx) => {
       await navigateToLoadTestPanelQuiet(ctx);
-      setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 5);
+      setNumberInputValue(GRPC.LOAD_TEST_CONCURRENCY, 5);
       setNumberInputValue('[data-testid="grpc-load-test-total-calls"]', 50);
     },
     action: async (ctx) => {
@@ -580,8 +580,8 @@ const steps: DemoStep[] = [
       scrollAdvancedContentTop();
       await ctx.delay(300);
 
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 1_000);
-      setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 10);
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_CONCURRENCY, 1_000);
+      setNumberInputValue(GRPC.LOAD_TEST_CONCURRENCY, 10);
       await ctx.delay(500);
 
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_START, 1_000);
@@ -684,7 +684,7 @@ const steps: DemoStep[] = [
       await fillServerStreamRequestQuiet(ctx);
       await navigateToLoadTestPanelQuiet(ctx);
       scrollAdvancedContentTop();
-      setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 1);
+      setNumberInputValue(GRPC.LOAD_TEST_CONCURRENCY, 1);
       await ctx.delay(150);
     },
     action: async (ctx) => {

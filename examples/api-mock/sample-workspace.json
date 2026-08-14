@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "activeServerId": "srv-demo",
+  "tabOrder": ["srv-demo"],
+  "servers": [
+    {
+      "id": "srv-demo",
+      "name": "Demo Mock",
+      "enabled": true,
+      "host": "0.0.0.0",
+      "port": 4600,
+      "basePath": "",
+      "folders": [],
+      "routes": [
+        {
+          "id": "route-health",
+          "name": "Health",
+          "enabled": true,
+          "method": "GET",
+          "path": { "kind": "exact", "value": "/health" },
+          "priority": 10,
+          "predicates": { "id": "pg-health", "combinator": "all", "children": [] },
+          "responseMode": "rules",
+          "responses": [
+            {
+              "id": "resp-health",
+              "name": "200 Default",
+              "enabled": true,
+              "isDefault": true,
+              "status": 200,
+              "headers": [{ "id": "h-ct", "key": "Content-Type", "value": "application/json", "enabled": true }],
+              "cookies": [],
+              "body": { "kind": "json", "content": "{\"ok\":true}", "contentType": "application/json" },
+              "behavior": { "delayMs": 0, "jitterMs": 0 }
+            }
+          ],
+          "tags": ["ci"],
+          "createdAt": "2026-08-13T00:00:00.000Z",
+          "updatedAt": "2026-08-13T00:00:00.000Z"
+        }
+      ],
+      "samples": [
+        {
+          "id": "sample-health",
+          "name": "GET /health",
+          "routeId": "route-health",
+          "request": {
+            "method": "GET",
+            "path": "/health",
+            "rawPath": "/health",
+            "query": {},
+            "headers": {},
+            "cookies": {},
+            "body": null,
+            "bodyTruncated": false,
+            "receivedAt": "2026-08-13T00:00:00.000Z"
+          },
+          "expected": { "outcome": "matched", "routeId": "route-health", "status": 200, "bodyContains": "ok" }
+        }
+      ],
+      "variables": [],
+      "settings": {
+        "selection": {
+          "multipleMatchPolicy": "highest_priority",
+          "equalPriorityPolicy": "reject",
+          "ambiguityResponse": {
+            "status": 409,
+            "reasonPhrase": "Conflict",
+            "headers": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\"error\":\"ambiguous\"}",
+            "contentType": "application/json"
+          }
+        },
+        "fallback": {
+          "unmatchedResponse": {
+            "status": 404,
+            "reasonPhrase": "Not Found",
+            "headers": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\"error\":\"not_found\"}",
+            "contentType": "application/json"
+          },
+          "mode": "default_response"
+        },
+        "cors": {
+          "enabled": false,
+          "allowOrigins": ["*"],
+          "allowMethods": ["GET"],
+          "allowHeaders": ["Content-Type"],
+          "allowCredentials": false,
+          "maxAge": 0,
+          "exposeHeaders": []
+        },
+        "limits": {
+          "maxInboundBodyBytes": 1048576,
+          "maxResponseBodyBytes": 1048576,
+          "maxConcurrentConnections": 100,
+          "maxDelayMs": 0,
+          "longRunningEnabled": false,
+          "longRunningMaxMs": 3600000,
+          "gracefulDrainMs": 5000
+        },
+        "journal": {
+          "enabled": true,
+          "maxEntries": 500,
+          "maxCapturedBodyBytes": 262144,
+          "persistToDisk": false
+        },
+        "redaction": {
+          "headerNames": ["authorization", "cookie"],
+          "jsonPaths": [],
+          "preserveScheme": true
+        }
+      },
+      "createdAt": "2026-08-13T00:00:00.000Z",
+      "updatedAt": "2026-08-13T00:00:00.000Z"
+    }
+  ]
+}

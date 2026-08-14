@@ -39,7 +39,9 @@ export class TraceCollector {
     const hasOwnTiming = nodeType === 'http' || nodeType === 'correlationWait' || nodeType === 'subWorkflow'
       || nodeType === 'wsConnect' || nodeType === 'wsSend' || nodeType === 'wsReceive'
       || nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert'
-      || nodeType === 'grpcLoadTest' || nodeType === 'grpcSchemaDiff' || nodeType === 'grpcMockAssert';
+      || nodeType === 'grpcLoadTest' || nodeType === 'grpcSchemaDiff' || nodeType === 'grpcMockAssert'
+      || nodeType === 'apiMockStart' || nodeType === 'apiMockApply' || nodeType === 'apiMockResetState'
+      || nodeType === 'apiMockStop' || nodeType === 'apiMockAssertCalls';
     
     let durationMs: number | undefined;
     if (hasOwnTiming) {

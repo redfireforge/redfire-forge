@@ -1,18 +1,25 @@
 /** Lesson: WebSocket Basics — connect, send, receive */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { fillControlledInput, wsCleanup } from '../setup-helpers';
-import { APP, EM, WS } from '@shared/selectors';
+import { APP, EM, WS, emEnvByNameSel } from '@shared/selectors';
 import { showSpotlightRing } from '../../demoRipple';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import {
   cleanupDemoEnvironment,
   cleanupDemoMicroservice,
-  ensureWsDemoEndpointConfigured,
+  createNamedEnvAndSvcVisible,
+  editNamedProtocolEndpoint,
+  ensureNamedEnvDeployedOnProtocol,
+  ensureProtocolDisabled,
+  ensureProtocolEnabled,
   ensureWsDemoHeaderContext,
-  ensureWsDemoProtocolReady,
+  expandNamedMicroservice,
+  navigateToEnvironmentManager,
   navigateToWebSocketStudio,
   selectEnvInHeader,
+  selectProtocolTab,
   selectSvcInHeader,
+  undeployAllExceptNamedEnv,
   WS_DEMO_ENV_NAME,
   WS_DEMO_SVC_NAME,
 } from '../env-manager-lesson-helpers';
@@ -80,10 +87,7 @@ async function quietNormalizeLessonMockPort(ctx: DemoActionContext, port: string
     await ctx.delay(50);
   }
   _mockRunning = false;
-
-  // Return to Client mode so lesson opening state stays consistent.
-  document.querySelector<HTMLElement>(WS.MODE_CLIENT)?.click();
-  await ctx.delay(100);
+  // Stay on Mock — Welcome / Mock steps land here after EM setup.
 }
 
 /**
@@ -153,23 +157,27 @@ export const wsBasicsLesson: DemoLesson = {
   name: 'WebSocket Basics',
   description: 'Connect to a WebSocket server, send messages, and see live responses.',
   estimatedMinutes: 5,
-  initialTab: 'websocket-studio',
+  // Step 1 is Environment Manager — land there on first paint.
+  initialTab: 'environments',
   allowedTabs: ['environments', 'websocket-studio'],
+  // When WebSocket Studio mounts later (Welcome / Mock), start on Mock Server.
+  initialSurface: { wsStudioMode: 'mock' },
+
+  prepareBeforeNavigate: async (ctx) => {
+    // Quietly pin the mock port before any studio flash (used by later steps).
+    await navigateToWebSocketStudio(ctx);
+    await quietNormalizeLessonMockPort(ctx, LESSON_MOCK_PORT);
+    ctx.navigateToTab('environments');
+    await ctx.delay(60);
+  },
 
   setup: async (ctx) => {
     _mockRunning = false;
     _wsConnected = false;
     _mockPort = LESSON_MOCK_PORT;
-    // Keep lesson startup visually stable: avoid mutating connection tabs,
-    // mode, or connection state before step 1 narration starts.
-    await navigateToWebSocketStudio(ctx);
-    await quietNormalizeLessonMockPort(ctx, LESSON_MOCK_PORT);
-    // Reset right tab to Events so persisted Stats/Console doesn't bleed in
-    const eventsTab = document.querySelector<HTMLElement>(WS.RIGHT_TAB_EVENTS);
-    if (eventsTab?.getAttribute('aria-selected') !== 'true') {
-      eventsTab?.click();
-      await ctx.delay(40);
-    }
+    // Step 1 is EM — do not open WebSocket Studio during Preparing.
+    ctx.navigateToTab('environments');
+    await ctx.delay(80);
   },
   cleanup: async (ctx) => {
     _mockRunning = false;
@@ -222,7 +230,67 @@ export const wsBasicsLesson: DemoLesson = {
 </svg>`,
   },
   steps: [
-    // ── 1. Welcome ───────────────────────────────────────────────
+    // ── 1. Environment Manager: protocol + endpoint (was steps 2+3) ─
+    {
+      id: 'ws-env-setup',
+      title: 'Configure WebSocket in Environments',
+      description:
+        'Open **Settings → Environments**. Add an environment **"WebSocket Demo"** and a microservice **"ws-demo"**. ' +
+        'Expand the microservice, click **+ Add protocol**, and choose **WebSocket** — only the **WebSocket** tab appears ' +
+        '(no HTTP by default). Deploy **WebSocket Demo**, then **Edit** that row and save `ws://localhost:9876` ' +
+        '(or your mock port). Watch **✓ set** and `{{wsBaseUrl}}` appear in derived variables.',
+      highlight: EM.ADD_PROTOCOL_BTN,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        ctx.navigateToTab('environments');
+        await ctx.delay(80);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await navigateToEnvironmentManager(ctx);
+
+        // Part A — create Environment + microservice slowly so viewers can follow
+        await createNamedEnvAndSvcVisible(ctx, DEMO_ENV_NAME, DEMO_SVC_NAME);
+
+        // Part B — expand ws-demo and add WebSocket protocol
+        await expandNamedMicroservice(ctx, DEMO_SVC_NAME);
+        await ctx.delay(700); // panel open — viewer orients
+        await ensureProtocolDisabled(ctx, 'http');
+        await ensureProtocolEnabled(ctx, 'websocket'); // already paced (menu + tab hold)
+        await undeployAllExceptNamedEnv(ctx, DEMO_ENV_NAME);
+        await ensureNamedEnvDeployedOnProtocol(ctx, 'websocket', DEMO_ENV_NAME);
+        await selectProtocolTab(ctx, 'websocket');
+
+        const panel = document.querySelector(EM.PROTOCOL_PANEL);
+        const deployRow = panel
+          ? Array.from(panel.querySelectorAll('tr')).find((row) =>
+              row.querySelector('.em-env-chip')?.textContent?.trim() === DEMO_ENV_NAME,
+            )
+          : null;
+        const deploySpotlight = (deployRow as HTMLElement | null)
+          ?? document.querySelector<HTMLElement>(emEnvByNameSel(DEMO_ENV_NAME));
+        if (deploySpotlight) {
+          const rm = showSpotlightRing(deploySpotlight);
+          await ctx.delay(1100);
+          rm();
+        }
+
+        // Part C — save endpoint URL, then hold on derived {{wsBaseUrl}}
+        await editNamedProtocolEndpoint(ctx, DEMO_ENV_NAME, `ws://localhost:${_mockPort}`);
+        await ctx.delay(900); // ✓ set / URL text settle
+        const derived = document.querySelector<HTMLElement>(EM.DERIVED_VARS_WS);
+        if (derived) {
+          derived.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          const rm = showSpotlightRing(derived);
+          await ctx.delay(1600);
+          rm();
+        } else {
+          await ctx.delay(800);
+        }
+      },
+      verify: EM.PROTOCOL_TAB_WS,
+    },
+
+    // ── 2. Welcome to WebSocket Studio (was step 1) ───────────────
     {
       id: 'ws-nav',
       title: 'Welcome to WebSocket Studio',
@@ -232,51 +300,15 @@ export const wsBasicsLesson: DemoLesson = {
         'then switch to **Client** mode to connect and send messages.',
       highlight: WS.MODE_MOCK,
       pauseAfter: true,
-    },
-
-    // ── 2. Add WebSocket Protocol in Environment Manager ─────────
-    {
-      id: 'ws-add-protocol',
-      title: 'Add WebSocket Protocol',
-      description:
-        'Open **Settings → Environments**, add an environment called **"WebSocket Demo"** and a microservice ' +
-        'called **"ws-demo"**. Expand the microservice — it starts with **no protocol tabs**. ' +
-        'Click **+ Add protocol** and choose **WebSocket**. Only the **WebSocket** tab appears (HTTP is not added ' +
-        'by default). Check the deploy box for **WebSocket Demo** so the environment is active on this service.',
-      highlight: EM.ADD_PROTOCOL_BTN,
-      pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        if (!firstVisibleElement(WS.URL_INPUT)) {
-          await navigateToWebSocketStudio(ctx);
-        }
-      },
-      action: async (ctx: DemoActionContext) => {
-        await ensureWsDemoProtocolReady(ctx);
-        await ctx.delay(800);
+        await navigateToWebSocketStudio(ctx);
+        await quietNormalizeLessonMockPort(ctx, LESSON_MOCK_PORT);
+        document.querySelector<HTMLElement>(WS.MODE_MOCK)?.click();
+        await ctx.delay(100);
       },
     },
 
-    // ── 3. Configure WebSocket Endpoint ──────────────────────────
-    {
-      id: 'ws-env-config',
-      title: 'Configure WebSocket Endpoint',
-      description:
-        'On the **WebSocket** tab, click **Edit** on the **WebSocket Demo** row and enter your mock server\'s ' +
-        'URL (e.g. `ws://localhost:9876` — the exact port depends on how many connection tabs you have open). ' +
-        'Click **Save** — the status changes to **✓ set** and the derived-variables panel shows ' +
-        '`{{wsBaseUrl}}` resolved to your endpoint. Only the **WebSocket** tab is present — no HTTP tab.',
-      highlight: EM.PROTOCOL_TAB_WS,
-      pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        await ensureWsDemoProtocolReady(ctx);
-      },
-      action: async (ctx: DemoActionContext) => {
-        await ensureWsDemoEndpointConfigured(ctx, `ws://localhost:${_mockPort}`);
-        await ctx.delay(1000);
-      },
-    },
-
-    // ── 4. Start Mock Server ─────────────────────────────────────
+    // ── 3. Start Mock Server (was step 4) ─────────────────────────
     {
       id: 'ws-mock',
       title: 'Start the Mock Server',
@@ -307,7 +339,7 @@ export const wsBasicsLesson: DemoLesson = {
       verify: WS.MOCK_STOP_BTN,
     },
 
-    // ── 5. Select Environment & Service in Header ────────────────
+    // ── 4. Select Environment & Service in Header ────────────────
     {
       id: 'ws-header-select',
       title: 'Select Environment & Service',
@@ -343,7 +375,7 @@ export const wsBasicsLesson: DemoLesson = {
       },
     },
 
-    // ── 6. Environment Variables in URLs ─────────────────────────
+    // ── 5. Environment Variables in URLs ─────────────────────────
     {
       id: 'ws-env-vars',
       title: 'Environment Variables in URLs',
@@ -364,7 +396,7 @@ export const wsBasicsLesson: DemoLesson = {
       },
     },
 
-    // ── 7. Connect ───────────────────────────────────────────────
+    // ── 6. Connect ───────────────────────────────────────────────
     {
       id: 'ws-connect',
       title: 'Connect to the Server',
@@ -395,7 +427,7 @@ export const wsBasicsLesson: DemoLesson = {
       verify: WS.STATUS_CONNECTED,
     },
 
-    // ── 8. Compose + send ────────────────────────────────────────
+    // ── 7. Compose + send ────────────────────────────────────────
     {
       id: 'ws-send',
       title: 'Send a Message',
@@ -426,7 +458,7 @@ export const wsBasicsLesson: DemoLesson = {
       verify: WS.MESSAGE_ROW,
     },
 
-    // ── 9. Monitor Events ───────────────────────────────────────
+    // ── 8. Monitor Events ───────────────────────────────────────
     {
       id: 'ws-events',
       title: 'Monitor Live Events',
@@ -454,7 +486,7 @@ export const wsBasicsLesson: DemoLesson = {
       },
     },
 
-    // ── 10. Multiple Connections ─────────────────────────────────
+    // ── 9. Multiple Connections ──────────────────────────────────
     {
       id: 'ws-tabs',
       title: 'Multiple Connections',
@@ -465,7 +497,7 @@ export const wsBasicsLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 11. Disconnect ───────────────────────────────────────────
+    // ── 10. Disconnect ───────────────────────────────────────────
     {
       id: 'ws-disconnect',
       title: 'Disconnect',

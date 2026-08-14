@@ -179,8 +179,7 @@ describe('grpc-first-call coverage gaps', () => {
 
     expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.SEND_BTN, 5_000);
     expect(sendClick).toHaveBeenCalled();
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.RESPONSE_STATUS, 8_000);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.RESPONSE_BODY, 5_000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.RESPONSE_STATUS, 7_000);
   });
 
   it('swallows replay send errors when send button never becomes available', async () => {

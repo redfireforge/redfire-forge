@@ -16,6 +16,15 @@ import { buildGrpcNodeOperations } from '../../../shared/grpc/buildGrpcNodeOpera
 import { resolveGrpcHarnessEnv } from '../../../shared/grpc/grpcHarnessRuntimeContext';
 import type { KafkaResultsPublishConfig } from '../../../shared/types';
 import { publishRunResults } from '../../../shared/kafka/kafkaResultsPublisher';
+import {
+  applyApiMockFixtureBaseUrl,
+  setupApiMockFixture,
+  teardownApiMockFixture,
+  type ApiMockFixtureHandle,
+  type ApiMockFixtureRunStatus,
+  type ApiMockTestFixtureConfig,
+} from '../utils/apiMockTestFixture';
+import { capResults, ensureChartableTimeSeries } from './useTestExecutionHelpers';
 
 export interface TimeSeriesPoint {
   elapsedSec: number;
@@ -38,66 +47,11 @@ interface TestExecutionState {
   pendingRun: TestRun | null;
   profileMeta: ProgressMeta | null;
   timeSeries: TimeSeriesPoint[];
+  fixtureStatus: ApiMockFixtureRunStatus | null;
 }
 
 const PROGRESS_THROTTLE_MS = 500;
-const MAX_LIVE_RESULTS = 500;
-
-function capResults(results: RequestResult[]): RequestResult[] {
-  if (results.length <= MAX_LIVE_RESULTS) return results;
-  const failed = results.filter(r => !r.passed);
-  const passed = results.filter(r => r.passed);
-  const passedBudget = Math.max(0, MAX_LIVE_RESULTS - failed.length);
-  const step = passed.length > passedBudget ? Math.ceil(passed.length / passedBudget) : 1;
-  const sampled: RequestResult[] = [];
-  for (let i = 0; i < passed.length && sampled.length < passedBudget; i += step) {
-    sampled.push(passed[i]);
-  }
-  return [...failed, ...sampled];
-}
-
-/**
- * LiveCharts needs ≥2 samples. Short demo runs often finish in &lt;1s and only
- * get 0–1 per-second snapshots — synthesize start/end points from the summary.
- */
-export function ensureChartableTimeSeries(
-  series: TimeSeriesPoint[],
-  summary: Pick<TestSummary, 'avgResponseTime' | 'tps' | 'errorRate'>,
-  durationMs: number,
-): TimeSeriesPoint[] {
-  if (series.length >= 2) return series;
-
-  const endSec = Math.max(1, Math.round(durationMs / 1000) || 1);
-  const endPoint: TimeSeriesPoint = {
-    elapsedSec: endSec,
-    avgResponseTime: summary.avgResponseTime,
-    tps: summary.tps,
-    errorRate: summary.errorRate,
-    concurrency: series[series.length - 1]?.concurrency ?? 0,
-  };
-
-  if (series.length === 1) {
-    const first = series[0];
-    return [
-      first,
-      {
-        ...endPoint,
-        elapsedSec: Math.max(first.elapsedSec + 1, endSec),
-      },
-    ];
-  }
-
-  return [
-    {
-      elapsedSec: 0,
-      avgResponseTime: summary.avgResponseTime,
-      tps: 0,
-      errorRate: 0,
-      concurrency: 0,
-    },
-    endPoint,
-  ];
-}
+export { ensureChartableTimeSeries };
 
 export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
   const publishConfigRef = useRef(publishConfig);
@@ -114,6 +68,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     pendingRun: null,
     profileMeta: null,
     timeSeries: [],
+    fixtureStatus: null,
   });
 
   const abortRef = useRef<AbortController | null>(null);
@@ -297,7 +252,14 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string; grpcHarnessEnv?: Record<string, string> }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: {
+    projectName?: string;
+    envName?: string;
+    svcName?: string;
+    baseUrl?: string;
+    grpcHarnessEnv?: Record<string, string>;
+    apiMockFixture?: ApiMockTestFixtureConfig;
+  }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -323,6 +285,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       pendingRun: null,
       profileMeta: null,
       timeSeries: [],
+      fixtureStatus: meta?.apiMockFixture?.enabled ? { phase: 'starting' } : null,
     });
 
     let lastTrackedCount = 0;
@@ -357,10 +320,31 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     let peakRps = 0;
     let lastDroppedRequests = 0;
     const isConstantArrival = config.executionMode === 'constant-arrival';
+    const fixtureConfig = meta?.apiMockFixture;
+    let fixtureHandle: ApiMockFixtureHandle | undefined;
+    let runBaseUrl = meta?.baseUrl;
+    let scenariosToRun = scenarios;
 
     try {
+      if (fixtureConfig?.enabled) {
+        const runId = uuidv4();
+        const setup = await setupApiMockFixture(fixtureConfig, runId);
+        if (!setup.ok) {
+          throw new Error(`API Mock fixture failed: ${setup.error}`);
+        }
+        fixtureHandle = setup.handle;
+        setState((prev) => ({
+          ...prev,
+          fixtureStatus: { phase: 'running', port: setup.handle.port, serverId: setup.handle.serverId },
+        }));
+        if (fixtureConfig.overrideBaseUrl !== false) {
+          runBaseUrl = `http://127.0.0.1:${setup.handle.port}`;
+          scenariosToRun = applyApiMockFixtureBaseUrl(scenarios, runBaseUrl);
+        }
+      }
+
       const useRust = !workflow && !resolveSubWorkflow
-        && canUseRustExecutor(config, scenarios)
+        && canUseRustExecutor(config, scenariosToRun)
         && await isRustExecutorAvailable();
 
       if (isConstantArrival && !useRust) {
@@ -396,17 +380,17 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         envName: meta?.envName,
       });
       if (useRust) {
-        testResult = await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal);
+        testResult = await runTestViaRust(config, scenariosToRun, wrappedOnProgress, abortRef.current.signal);
       } else if (useWorker) {
         try {
-          testResult = await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, grpcHarnessEnv);
+          testResult = await runTestMultiWorker(config, scenariosToRun, wrappedOnProgress, abortRef.current.signal, workflow, grpcHarnessEnv);
         } catch (workerErr) {
           // Worker failed (common in Tauri WebView) — fall back to direct execution
           console.warn('Worker execution failed, falling back to direct execution:', workerErr);
-          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
+          testResult = await runTest(config, scenariosToRun, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
         }
       } else {
-        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
+        testResult = await runTest(config, scenariosToRun, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
       }
 
       if (flushTimerRef.current) {
@@ -452,7 +436,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         projectName: meta?.projectName,
         envName: meta?.envName,
         svcName: meta?.svcName,
-        baseUrl: meta?.baseUrl,
+        baseUrl: runBaseUrl,
         workflowName: workflow?.name,
         executionTrace: testResult.trace, // Phase 7e: Store execution trace
       };
@@ -519,7 +503,18 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         ...prev,
         isRunning: false,
         error: toErrorMessage(err),
+        fixtureStatus: fixtureHandle ? prev.fixtureStatus : null,
       }));
+    } finally {
+      const stoppedPort = fixtureHandle?.port;
+      const stoppedServerId = fixtureHandle?.serverId;
+      await teardownApiMockFixture(fixtureHandle, fixtureConfig).catch(() => { /* best-effort */ });
+      if (stoppedPort != null) {
+        setState((prev) => ({
+          ...prev,
+          fixtureStatus: { phase: 'stopped', port: stoppedPort, serverId: stoppedServerId },
+        }));
+      }
     }
   }, [flushToState]);
 
@@ -579,6 +574,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       pendingRun: null,
       profileMeta: null,
       timeSeries: [],
+      fixtureStatus: null,
     });
 
     let lastTrackedCount = 0;

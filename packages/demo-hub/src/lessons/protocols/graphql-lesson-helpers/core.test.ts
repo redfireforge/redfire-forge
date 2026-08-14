@@ -485,9 +485,13 @@ describe('graphql-lesson-helpers core', () => {
       <button data-testid="gql-right-tab-schema"></button>
     `;
     const ctx = makeCtx();
+    const introspectBtn = document.querySelector<HTMLElement>(GQL.INTROSPECT_BTN)!;
+    const clicked = vi.spyOn(introspectBtn, 'click');
     await ensureIntrospectedOnDirectEndpoint(ctx);
     // No badge in the DOM — must actively trigger introspection instead of
-    // passively waiting for a badge that will never appear on its own.
-    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    // passively waiting for a badge that will never appear on its own. The click
+    // is a quiet DOM click: setup/preAction must not paint a ripple.
+    expect(clicked).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 });

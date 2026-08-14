@@ -35,6 +35,7 @@ import {
   navigateToSseStudio,
   navigateToGraphqlStudio,
   navigateToGrpcStudio,
+  createNamedEnvAndSvcVisible,
   ensureDemoEnvironment,
   ensureDemoMicroservice,
   expandNamedMicroservice,
@@ -479,6 +480,7 @@ describe('env-manager-lesson-helpers', () => {
       <div data-env-name="GraphQL Demo"></div>
       <div data-svc-name="graphql-demo"></div>
       <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-protocol-tab-http" aria-selected="true">HTTP</button>
         <button data-testid="em-remove-protocol-http">Remove HTTP</button>
         <button data-testid="em-add-protocol-btn">+ Add protocol</button>
         <button data-testid="em-protocol-tab-graphql">GraphQL</button>
@@ -777,6 +779,33 @@ describe('env-manager-lesson-helpers', () => {
     await ensureDemoEnvironment(ctx, 'WebSocket Demo');
     expect(ctx.fill).not.toHaveBeenCalled();
     expect(ctx.click).not.toHaveBeenCalledWith(EM.ADD_ENV_BTN);
+  });
+
+  it('createNamedEnvAndSvcVisible paces env + svc creation for live viewers', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <input data-testid="em-new-env-input" />
+      <button data-testid="em-add-env-btn" type="button"></button>
+      <input data-testid="em-new-svc-input" />
+      <button data-testid="em-add-svc-btn" type="button"></button>`;
+    const envBtn = document.querySelector<HTMLButtonElement>(EM.ADD_ENV_BTN)!;
+    const svcBtn = document.querySelector<HTMLButtonElement>(EM.ADD_SVC_BTN)!;
+    envBtn.addEventListener('click', () => {
+      const chip = document.createElement('div');
+      chip.setAttribute('data-env-name', 'WebSocket Demo');
+      document.body.appendChild(chip);
+    });
+    svcBtn.addEventListener('click', () => {
+      const card = document.createElement('div');
+      card.setAttribute('data-svc-name', 'ws-demo');
+      document.body.appendChild(card);
+    });
+    const ctx = makeCtx();
+    await createNamedEnvAndSvcVisible(ctx, 'WebSocket Demo', 'ws-demo');
+    expect(document.querySelector('[data-env-name="WebSocket Demo"]')).toBeTruthy();
+    expect(document.querySelector('[data-svc-name="ws-demo"]')).toBeTruthy();
+    // Typed-name hold + chip hold (≥900ms / ≥1200ms) so creation is watchable
+    expect(ctx.delay.mock.calls.some(([ms]) => (ms as number) >= 1200)).toBe(true);
   });
 
   // ── ensureDemoMicroservice ───────────────────────────────────────

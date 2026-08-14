@@ -132,6 +132,11 @@ export type DemoBridgeWindow = Window &
     __demoDeleteSharedDataSourcesByName?: (name: string) => void;
     /** Delete all request collections whose name matches exactly (demo cleanup). Returns count deleted. */
     __demoDeleteCollectionsByName?: (name: string) => number;
+    /** Quiet seed of a Requests collection (idempotent by name). Returns the collection id. */
+    __demoSeedRequestCollection?: (
+      name: string,
+      requests: Array<{ id?: string; name: string; method: string; url: string; body?: string }>,
+    ) => string | null;
     /** Remove all workflow preview endpoints from storage (demo cleanup). */
     __demoClearAllWorkflowPreviews?: () => Promise<void>;
     /** Delete a Kafka cluster by ID (demo lesson cleanup). */
@@ -173,6 +178,68 @@ export type DemoBridgeWindow = Window &
       clientCert?: string;
       clientKey?: string;
     }) => void;
+    /** Wipe API Mock Studio workspace + stop orphan listeners (quiet demo setup). */
+    __demoWipeApiMockWorkspace?: () => Promise<boolean>;
+    /** Quiet Gallery → Studio import by sample id (`am-gallery-health`, …). */
+    __demoImportApiMockGallerySample?: (sampleId: string) => Promise<boolean>;
+    /** Ensure an empty mock server is open (no rules). Used by import lessons. */
+    __demoEnsureBlankApiMockServer?: () => Promise<boolean>;
+    /** Quiet TLS key + sensitive variable so export redaction has something to strip. */
+    __demoSeedApiMockExportSecrets?: () => Promise<boolean>;
+    /**
+     * Patch the active mock route Match path / priority / Response body from React state
+     * (Monaco body is not a plain input — demos must not ctx.fill it). The matcher kind
+     * is re-inferred from `path` unless `pathKind` pins it (regex is never inferable).
+     */
+    __demoPatchApiMockActiveRoute?: (patch: {
+      path?: string;
+      pathKind?: 'exact' | 'parameterized' | 'glob' | 'regex';
+      body?: string;
+      contentType?: string;
+      status?: number;
+      reasonPhrase?: string;
+      priority?: number;
+      /** Replaces the whole Match group — condition steps rebuild it on replay. */
+      predicates?: {
+        id: string;
+        combinator: 'all' | 'any' | 'not';
+        children: unknown[];
+      };
+      behavior?: {
+        delayMs?: number;
+        jitterMs?: number;
+        maxMatches?: number | null;
+        expiresAt?: string | null;
+        probability?: number | null;
+        fault?: 'none' | 'timeout' | 'close' | 'reset' | 'malformed' | 'dribble';
+        longRunningMs?: number | null;
+        chunkSchedule?: Array<{ afterMs: number; body: string }> | null;
+      };
+    }) => boolean;
+    /** Quiet patch of the active server's selection policy (guards, not live beats). */
+    __demoPatchApiMockServerSettings?: (patch: {
+      multipleMatchPolicy?: 'highest_priority' | 'reject_multiple';
+      equalPriorityPolicy?: 'specificity_then_id' | 'reject';
+      ambiguityBody?: string;
+      fallbackMode?: 'default_response' | 'closest_match_debug' | 'proxy';
+      proxyEnabled?: boolean;
+      proxyAllowlist?: string[];
+      proxyBlockPrivate?: boolean;
+      proxyForwardAuth?: boolean;
+      proxyRecordDrafts?: boolean;
+    }) => boolean;
+    /**
+     * Send a real request to a running mock server from inside the app (web: Vite
+     * `/__proxy`, Tauri: native client) so lessons can show live traffic + journal rows.
+     */
+    __demoSendApiMockRequest?: (req?: {
+      path?: string;
+      method?: string;
+      headers?: Record<string, string>;
+      body?: string;
+      serverId?: string;
+      timeoutMs?: number;
+    }) => Promise<{ status: number; body: string } | null>;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

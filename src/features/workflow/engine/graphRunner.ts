@@ -46,33 +46,25 @@ import {
   handleGrpcLoadTestNode,
   handleGrpcSchemaDiffNode,
   handleGrpcMockAssertNode,
+  handleApiMockStartNode,
+  handleApiMockApplyNode,
+  handleApiMockResetStateNode,
+  handleApiMockStopNode,
+  handleApiMockAssertCallsNode,
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
 import { TraceCollector } from './traceCollector';
 import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
 import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
+import { cleanupApiMockServersForRun } from '../utils/apiMockRunIsolation';
+import { isApiMockWorkflowNodeType } from '../types/workflow/node-api-mock';
 import type { GraphRunCallbacks, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
+import { resolveNodeTraceState } from './graphRunnerTraceState';
 // Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
 export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 export { resolveTraceLevel } from './graphRunnerTraceLevel';
 import { resolveTraceLevel } from './graphRunnerTraceLevel';
-
-/** gRPC nodes record per-node pass/fail on RequestResult; trace must not inherit cumulative workflow state. */
-function resolveNodeTraceState(
-  nodeType: string,
-  nodeId: string,
-  passedFlag: { value: boolean },
-  results: RequestResult[],
-): 'pass' | 'fail' {
-  if (nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert'
-    || nodeType === 'grpcLoadTest' || nodeType === 'grpcSchemaDiff' || nodeType === 'grpcMockAssert') {
-    const nodeResults = results.filter((r) => r.workflowNodeId === nodeId);
-    const lastResult = nodeResults[nodeResults.length - 1];
-    if (lastResult) return lastResult.passed ? 'pass' : 'fail';
-  }
-  return passedFlag.value ? 'pass' : 'fail';
-}
 
 /**
  * Execute a workflow graph with topological traversal.
@@ -122,6 +114,7 @@ export async function runGraph(
   grpcWorkflowExecutionRuntime?: import('../utils/grpcWorkflowRuntimeContext').GrpcWorkflowExecutionRuntime,
 ): Promise<RequestResult[]> {
   const start = performance.now();
+  const runId = `exec-${Math.floor(start)}-${Math.random().toString(36).slice(2, 8)}`;
   const ctx = new VariableContext(initialVariables, environmentLayer);
   ctx.registerWorkflowNodes(nodes);
   const tokenManager = new TokenManager();
@@ -135,6 +128,7 @@ export async function runGraph(
   const capturedKafkaDetails = new Map<string, import('../../../shared/types').CapturedKafkaNodeDetails>();
   const capturedWsDetails = new Map<string, import('../../../shared/types').CapturedWsNodeDetails>();
   const capturedGrpcDetails = new Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>();
+  const capturedApiMockDetails = new Map<string, import('../../../shared/types').CapturedApiMockNodeDetails>();
   const grpcStepResultStore = new GrpcWorkflowStepResultStore();
   const grpcOutputRegistry = new GrpcWorkflowOutputRegistry();
 
@@ -185,8 +179,6 @@ export async function runGraph(
 
   let allPassed = true;
   const visited = new Set<string>();
-
-  // Join-node barrier: track how many incoming edges have arrived.
   const incomingCount = new Map<string, number>();
   const joinArrived = new Map<string, number>();
   for (const e of edges) {
@@ -195,12 +187,9 @@ export async function runGraph(
 
   async function visit(nodeId: string, threadId = 'main'): Promise<void> {
     if (abortSignal?.aborted || debugController?.isStopped) return;
-
-    /** Follow all outgoing edges from the given node. */
     const visitOutgoing = async (nid: string, tid: string = threadId) => {
       const nextEdges = outgoing.get(nid) ?? [];
       for (const edge of nextEdges) {
-        // Phase 7e: Record edge traversal
         traceCollector.onEdgeTraversed(edge.id);
         await visit(edge.target, tid);
       }
@@ -209,13 +198,11 @@ export async function runGraph(
     const node = nodeMap.get(nodeId);
     if (!node) return;
 
-    // Join barrier: wait until all incoming branches have arrived.
     if (node.type === 'join') {
       const arrived = (joinArrived.get(nodeId) ?? 0) + 1;
       joinArrived.set(nodeId, arrived);
       const expected = incomingCount.get(nodeId) ?? 1;
       if (arrived < expected) {
-        // Show waiting state on join node (both debug and normal mode)
         callbacks.onNodeStateChange(nodeId, {
           state: 'running',
           responseDetail: `waiting (${arrived}/${expected})`,
@@ -223,15 +210,13 @@ export async function runGraph(
         if (debugController) {
           debugController.markWaitingJoin(nodeId, threadId);
         }
-        return; // not all branches arrived yet
+        return;
       }
-      // All branches arrived — fall through to execute once
     }
 
     if (visited.has(nodeId)) return;
     visited.add(nodeId);
 
-    // Debug: pause before executing this node
     if (debugController) {
       callbacks.onNodeStateChange(nodeId, { state: 'paused' });
       await debugController.waitForStep(nodeId, threadId);
@@ -251,7 +236,7 @@ export async function runGraph(
       resolveSubWorkflow, log: nodeLog, nodeLabel,
       visit, visitOutgoing, threadId,
       correlationStore,
-      executionId: `exec-${Math.floor(start)}-${Math.random().toString(36).slice(2, 8)}`,
+      executionId: runId,
       workflowId: 'unknown',
       startTime: Date.now(),
       loadTestMode,
@@ -269,6 +254,7 @@ export async function runGraph(
       capturedWsDetails,
       grpcOperations,
       capturedGrpcDetails,
+      capturedApiMockDetails,
       grpcStepResultStore,
       grpcOutputRegistry,
       grpcWorkflowExecutionRuntime,
@@ -350,6 +336,16 @@ export async function runGraph(
         await handleGrpcSchemaDiffNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'grpcMockAssert') {
         await handleGrpcMockAssertNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'apiMockStart') {
+        await handleApiMockStartNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'apiMockApply') {
+        await handleApiMockApplyNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'apiMockResetState') {
+        await handleApiMockResetStateNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'apiMockStop') {
+        await handleApiMockStopNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'apiMockAssertCalls') {
+        await handleApiMockAssertCallsNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'end') {
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
@@ -568,6 +564,19 @@ export async function runGraph(
             ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
             ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
           };
+        } else if (
+          node.type === 'apiMockStart' || node.type === 'apiMockApply' || node.type === 'apiMockResetState'
+          || node.type === 'apiMockStop' || node.type === 'apiMockAssertCalls'
+        ) {
+          const mockCaptured = capturedApiMockDetails.get(nodeId);
+          const mockResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = mockResults[mockResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(mockCaptured ? { apiMockDetails: mockCaptured } : {}),
+            ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
+            ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
+          };
         }
       } else {
         // Minimal: only capture error info for failed nodes
@@ -589,7 +598,9 @@ export async function runGraph(
             || node.type === 'graphqlAssert'
             || node.type === 'grpcUnary' || node.type === 'grpcServerStream'
             || node.type === 'grpcAssert'
-            || node.type === 'grpcLoadTest' || node.type === 'grpcSchemaDiff' || node.type === 'grpcMockAssert') {
+            || node.type === 'grpcLoadTest' || node.type === 'grpcSchemaDiff' || node.type === 'grpcMockAssert'
+            || node.type === 'apiMockStart' || node.type === 'apiMockApply' || node.type === 'apiMockResetState'
+            || node.type === 'apiMockStop' || node.type === 'apiMockAssertCalls') {
             const transportResults = results.filter(r => r.workflowNodeId === nodeId);
             const lastResult = transportResults[transportResults.length - 1];
             if (lastResult && !lastResult.passed && lastResult.errorMessage) {
@@ -681,6 +692,18 @@ export async function runGraph(
       await wsOperations.disconnectAll();
     } catch {
       // Best-effort cleanup — ignore disconnect failures
+    }
+  }
+
+  // ── API Mock cleanup — stop run-isolated listeners after pass/fail/cancel ──
+  if (nodes.some(n => isApiMockWorkflowNodeType(n.type))) {
+    try {
+      const cleaned = await cleanupApiMockServersForRun(runId);
+      if (cleaned.stopped.length) {
+        log({ prefix: '*', text: `Stopped ${cleaned.stopped.length} API Mock server(s) for this run` });
+      }
+    } catch {
+      // Best-effort cleanup
     }
   }
 

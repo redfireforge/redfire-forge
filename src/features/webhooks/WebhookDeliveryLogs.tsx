@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { WebhookDelivery } from '../../shared/types/server-api';
 import { formatTimestamp, formatPayload } from '../test-runner/utils/serverFormatters';
 import { toErrorMessage } from '../../shared/utils/helpers';
+import { subscribeLogStream } from '../../utils/logStream';
 import '../../styles/webhook-logs.css';
 
 export default function WebhookDeliveryLogs() {
@@ -44,24 +45,19 @@ export default function WebhookDeliveryLogs() {
   loadDeliveriesRef.current = loadDeliveries;
 
   useEffect(() => {
-    let es: EventSource | null = null;
     let debounce: ReturnType<typeof setTimeout> | null = null;
-    try {
-      es = new EventSource('/api/logs/stream');
-      es.onmessage = () => {
-        if (debounce) clearTimeout(debounce);
-        debounce = setTimeout(() => {
-          const today = new Date().toISOString().split('T')[0];
-          if (selectedDateRef.current === today) {
-            loadDeliveriesRef.current(today);
-          }
-        }, 500);
-      };
-      es.onerror = () => { /* server may not be running */ };
-    } catch { /* ignore */ }
+    const stop = subscribeLogStream(() => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        const today = new Date().toISOString().split('T')[0];
+        if (selectedDateRef.current === today) {
+          loadDeliveriesRef.current(today);
+        }
+      }, 500);
+    });
     return () => {
       if (debounce) clearTimeout(debounce);
-      es?.close();
+      stop();
     };
   }, []);
 

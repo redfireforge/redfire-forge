@@ -19,15 +19,41 @@ const PROXY_RETRY_CODES = new Set([
  * spam. Return HTTP 200 JSON instead so the browser stays quiet and the app can
  * treat the backend as disconnected / unreachable.
  */
+function writeSseUnavailable(
+  res: import('http').ServerResponse | import('net').Socket | undefined,
+): void {
+  if (!res) return;
+  if ('headersSent' in res && (res as import('http').ServerResponse).headersSent) {
+    if (!res.writableEnded) (res as import('http').ServerResponse).end();
+    return;
+  }
+  // EventSource reconnects on empty/network errors. HTTP 204 stops the browser retry.
+  if ('writeHead' in res) {
+    const serverRes = res as import('http').ServerResponse;
+    serverRes.writeHead(204, { 'Cache-Control': 'no-cache' });
+    serverRes.end();
+    return;
+  }
+  if ('end' in res) {
+    (res as import('net').Socket).end(
+      'HTTP/1.1 204 No Content\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n',
+    );
+  }
+}
+
 function writeSoftBackendFallback(
   req: import('http').IncomingMessage | undefined,
   res: import('http').ServerResponse | import('net').Socket | undefined,
 ): void {
+  const url = req?.url ?? '';
+  if (url.includes('/logs/stream')) {
+    writeSseUnavailable(res);
+    return;
+  }
   if (!res || !('writeHead' in res)) return;
   const serverRes = res as import('http').ServerResponse;
   if (serverRes.headersSent || serverRes.writableEnded) return;
 
-  const url = req?.url ?? '';
   const headers = { 'Content-Type': 'application/json; charset=utf-8' };
   const timestamp = new Date().toISOString();
 
@@ -170,9 +196,19 @@ function proxyPlugin(): Plugin {
             payload.url = resolveLoopbackUrl(payload.url);
           }
           payload.headers['Connection'] = 'keep-alive';
+          // Browser abort of POST /__proxy must cancel the upstream fetch.
+          // Without this, a timeout-fault mock holds the socket for the 1h
+          // safety cap and never journals — the lesson then clicks an old 503.
+          const ac = new AbortController();
+          const abortUpstream = () => {
+            if (!ac.signal.aborted) ac.abort();
+          };
+          req.on('close', abortUpstream);
+
           const fetchOpts: Record<string, unknown> = {
             method: payload.method,
             headers: payload.headers,
+            signal: ac.signal,
           };
           if (payload.body && payload.method !== 'GET') {
             fetchOpts.body = payload.body;
@@ -236,6 +272,7 @@ function proxyPlugin(): Plugin {
           try {
             result = await doFetch(fetchOpts);
           } catch (proxyErr) {
+            if (ac.signal.aborted) throw proxyErr;
             if (isProxy && isProxyError(proxyErr)) {
               const directOpts = { ...fetchOpts };
               delete directOpts.dispatcher;
@@ -243,8 +280,11 @@ function proxyPlugin(): Plugin {
             } else {
               throw proxyErr;
             }
+          } finally {
+            req.off('close', abortUpstream);
           }
 
+          if (res.writableEnded || res.destroyed) return;
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result));
         } catch (err) {
@@ -263,6 +303,7 @@ function proxyPlugin(): Plugin {
               break;
             }
           }
+          if (res.writableEnded || res.destroyed) return;
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             status: 0,
@@ -379,9 +420,15 @@ export default defineConfig({
     port: 5173,
     hmr: process.env.PHASE8_E2E_SWEEP !== '1',
     watch: {
-      // Runtime writes (API correlation store, E2E artifacts) must not trigger full reloads.
+      // Runtime writes (repo-root `data/` sqlite, E2E artifacts) must not trigger
+      // full reloads. Do not ignore `**/data/**` — that also matches `src/data`
+      // galleries and `src/features/*/data`, so catalog edits never HMR.
       ignored: [
-        '**/data/**',
+        (id: string) => {
+          const n = id.replace(/\\/g, '/');
+          const root = resolve(__dirname, 'data').replace(/\\/g, '/');
+          return n === root || n.startsWith(`${root}/`);
+        },
         '**/*.db',
         '**/*.db-journal',
         '**/.cursor/**',
@@ -395,7 +442,10 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        timeout: 60000,
+        // SSE (`/api/logs/stream`) stays open with no events until a log line.
+        // A finite timeout closes it as ERR_EMPTY_RESPONSE and EventSource retries.
+        timeout: 0,
+        proxyTimeout: 0,
         configure: (proxy) => {
           proxy.on('error', (_err, req, res) => {
             writeSoftBackendFallback(req, res);

@@ -70,9 +70,11 @@ export type SpotlightRingOptions = {
 export function showSpotlightRing(el: HTMLElement, opts?: SpotlightRingOptions): () => void {
   beginManualSpotlight();
   const ring = document.createElement('div');
-  ring.className = opts?.steady
-    ? 'demo-spotlight-ring demo-spotlight-ring--steady'
-    : 'demo-spotlight-ring';
+  ring.className = [
+    'demo-spotlight-ring',
+    'demo-spotlight-ring--local',
+    opts?.steady ? 'demo-spotlight-ring--steady' : '',
+  ].filter(Boolean).join(' ');
 
   let disposed = false;
   let interval: ReturnType<typeof setInterval> | null = null;

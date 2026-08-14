@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useCallback } from 'react';
 import { useAppLayoutSync } from './hooks/useAppLayoutSync';
 import { useAppStartupEffects } from './hooks/useAppStartupEffects';
 import { useGalleryMigration } from './hooks/useGalleryMigration';
+import { useAppTabSync } from './hooks/useAppTabSync';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
 import { useGalleryImport } from './hooks/useGalleryImport';
 import { useWorkbenchActions } from './hooks/useWorkbenchActions';
@@ -15,12 +16,14 @@ import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
 import { useAppNavigationCallbacks } from './hooks/useAppNavigationCallbacks';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
+import AppDemoShellMount from './components/AppDemoShellMount';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
 import AppSubNav from './components/AppSubNav';
 import AppSidebarRegion from './components/AppSidebarRegion';
 import AppShellOverlays from './components/AppShellOverlays';
 import AppProtocolStudios from './components/AppProtocolStudios';
+import { ExportToApiMockModal, type ExportToApiMockItem } from '../features/api-mock/components/ExportToApiMockModal';
 import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
@@ -50,17 +53,15 @@ import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolder
 import { useToast } from '../shared/hooks/useToast';
 import {
   type Tab,
-  isProtocolsTab,
   readTabFromUrl,
-  writeTabToUrl,
-  setLastProtocolsTab,
-  LAST_PROTOCOLS_TAB_STORAGE_KEY,
 } from './utils/appTabUtils';
-import { writeKey } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
 import { loadWorkflowPreviews, getPreviewEntriesForPalette } from '../shared/utils/workflowPreviewStorage';
 import type { WorkflowPreviewEntry } from '../shared/utils/workflowPreviewStorage';
-import { migratePreviewsToLocalStorage, migratePublishedToWorkflowPublication } from '../shared/utils/workflowPreviewMigration';
+import AppLoadingScreen from './components/AppLoadingScreen';
+import { useApiMockOpenInRequestsBridge } from './hooks/useApiMockOpenInRequestsBridge';
+import { useCatalogPreviewMigrations } from './hooks/useCatalogPreviewMigrations';
+import { useHarnessRequestIds } from './hooks/useHarnessRequestIds';
 import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
 import { DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
@@ -69,11 +70,8 @@ import { useDemoWorkspaceDefaultsBridge } from './hooks/useDemoWorkspaceDefaults
 import { useDemoHarnessBridge } from './hooks/useDemoHarnessBridge';
 import { useDemoCatalogBridge } from './hooks/useDemoCatalogBridge';
 import { useDemoRequestsBridge } from './hooks/useDemoRequestsBridge';
+import { useDemoApiMockBridge } from './hooks/useDemoApiMockBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
-
-const DemoShellHost = lazy(() =>
-  import('./demo/DemoShellHost').then((m) => ({ default: m.DemoShellHost })),
-);
 
 export default function App() {
   const {
@@ -98,29 +96,18 @@ export default function App() {
   const reqTabs = useRequestTabCoordinator(wb);
   const catalog = useCatalog();
   useDemoCatalogBridge(catalog, DEMO_HUB_ENABLED);
+  useDemoApiMockBridge(DEMO_HUB_ENABLED);
 
   const [wfPreviewEndpoints, setWfPreviewEndpoints] = useState<WorkflowPreviewEntry[]>([]);
   const refreshWfPreviews = useCallback(() => {
     loadWorkflowPreviews().then(map => setWfPreviewEndpoints(getPreviewEntriesForPalette(map)));
   }, []);
-  useEffect(() => {
-    if (!catalog.loaded) return;
-    let cancelled = false;
-    migratePreviewsToLocalStorage(catalog.entries, catalog.updateEntry)
-      .then(() => migratePublishedToWorkflowPublication(catalog.entries, catalog.updateEntry))
-      .then(() =>
-        loadWorkflowPreviews().then(map => {
-          if (!cancelled) setWfPreviewEndpoints(getPreviewEntriesForPalette(map));
-        }),
-      );
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.loaded]);
-  // Use coordinator removeCollection so demo silent deletes also prune open tabs.
+  useCatalogPreviewMigrations(catalog, setWfPreviewEndpoints);
   useDemoRequestsBridge(
-    { collections: wb.collections, removeCollection: reqTabs.removeCollection },
+    { collections: wb.collections, removeCollection: reqTabs.removeCollection, importCollection: wb.importCollection },
     DEMO_HUB_ENABLED,
   );
+
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
   const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const wfHook = useWorkflows();
@@ -156,8 +143,10 @@ export default function App() {
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
   const kafkaState = useKafkaState();
-  // ---- App shell state (declare before hooks that close over setActiveTab) ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
+
+  useApiMockOpenInRequestsBridge(wb, reqTabs, (tab) => setActiveTab(tab));
+
   const { handleWorkflowExport, handleWorkflowImport, handleExportFolder } = useWorkflowImportExport({
     wfHook, folders: wfFolders.folders, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
   });
@@ -172,7 +161,6 @@ export default function App() {
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
-  /** Demo lesson tab switches avoid flushSync to prevent lifecycle warnings/loops. */
   const navigateToTab = useCallback((t: string) => {
     setActiveTab(t as Tab);
   }, [setActiveTab]);
@@ -245,6 +233,8 @@ export default function App() {
     handleBatchConvertToOpenApi,
   } = useCatalogState(catalog, { showToast: toast.show });
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
+  const [exportToMockItems, setExportToMockItems] = useState<ExportToApiMockItem[] | null>(null);
+  const [exportToMockSourceKind, setExportToMockSourceKind] = useState<'requests' | 'catalog'>('catalog');
   useAppStartupEffects({
     loading,
     wb,
@@ -258,23 +248,11 @@ export default function App() {
 
   const [galleryInitialDomain, setGalleryInitialDomain] = useState<import('../data/galleries/types').GalleryDomain | undefined>(undefined);
 
-  // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
-  useEffect(() => {
-    writeTabToUrl(activeTab);
-    if (activeTab !== 'gallery') setGalleryInitialDomain(undefined);
-    if (isProtocolsTab(activeTab)) {
-      setLastProtocolsTab(activeTab);
-      void writeKey(LAST_PROTOCOLS_TAB_STORAGE_KEY, activeTab).catch(() => { /* silent */ });
-    }
-  }, [activeTab, setGalleryInitialDomain]);
+  useAppTabSync(activeTab, setExportToMockItems, setGalleryInitialDomain);
 
-  // ---- Layout CSS var sync (--header-h and --sidebar-w) ----
   const headerRef = useAppLayoutSync({ sidebarWidth, sidebarCollapsed });
 
-  // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
   useGalleryMigration({ loading, environments, microservices, setMicroservices });
-
-  // ---- Derived view state ----
 
   const {
     selectedEnv, selectedSvc, resolvedBaseUrl, isAdditionalEnv,
@@ -284,17 +262,7 @@ export default function App() {
     globalAuthProfiles: appGlobalAuthProfiles, selectedEnvId, selectedSvcId,
   });
 
-  const harnessRequestIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const fg of featureGroups) {
-      for (const sc of fg.scenarios) {
-        for (const t of sc.tests) {
-          if (t.sourceRequestId) ids.add(t.sourceRequestId);
-        }
-      }
-    }
-    return ids;
-  }, [featureGroups]);
+  const harnessRequestIds = useHarnessRequestIds(featureGroups);
 
   const { isRerunning, handleRerunFailed } = useRerunFailed({
     featureGroups, resolvedBaseUrl, globalAuthProfiles: appGlobalAuthProfiles, envFallbackAuth,
@@ -331,37 +299,26 @@ export default function App() {
     gallery,
   });
 
-  // ---- Loading screen ----
   if (loading) {
-    return (
-      <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <div style={{ textAlign: 'center', opacity: 0.7 }}>
-          <h2>RedfireForge</h2>
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen />;
   }
 
   return (
     <>
-      {DEMO_HUB_ENABLED && (
-        <Suspense fallback={null}>
-          <DemoShellHost
-            navigateToTab={navigateToTab}
-            activeTab={activeTab}
-            setSidebarCollapsed={setSidebarCollapsed}
-            setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
-            setWorkspaceDefaults={setWorkspaceDefaults}
-            selectedEnvId={selectedEnvId}
-            selectedSvcId={selectedSvcId}
-            setEnvironments={setEnvironments}
-            setMicroservices={setMicroservices}
-            setSelectedEnvId={setSelectedEnvId}
-            setSelectedSvcId={setSelectedSvcId}
-          />
-        </Suspense>
-      )}
+      <AppDemoShellMount
+        enabled={DEMO_HUB_ENABLED}
+        navigateToTab={navigateToTab}
+        activeTab={activeTab}
+        setSidebarCollapsed={setSidebarCollapsed}
+        setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+        setWorkspaceDefaults={setWorkspaceDefaults}
+        selectedEnvId={selectedEnvId}
+        selectedSvcId={selectedSvcId}
+        setEnvironments={setEnvironments}
+        setMicroservices={setMicroservices}
+        setSelectedEnvId={setSelectedEnvId}
+        setSelectedSvcId={setSelectedSvcId}
+      />
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <UpdateNotificationBanner />
       <AppHeader
@@ -477,6 +434,7 @@ export default function App() {
                 onImportCatalog={gallery.onImportCatalog}
                 onImportTest={gallery.onImportTest}
                 onImportWorkflow={gallery.onImportWorkflow}
+                onImportApiMock={gallery.onImportApiMock}
                 onNavigateTo={gallery.onNavigateTo}
                 initialDomain={galleryInitialDomain}
               />
@@ -676,6 +634,14 @@ export default function App() {
                 setCatalogHarnessEndpoint({ entry, endpoint, fromTryItOut });
                 setShowSendToHarness(true);
               }}
+              onExportEndpointToApiMock={(endpoint) => {
+                setExportToMockItems([{
+                  method: endpoint.method,
+                  path: endpoint.path,
+                  label: endpoint.summary ?? endpoint.operationId,
+                }]);
+                setExportToMockSourceKind('catalog');
+              }}
               onPreviewsChanged={refreshWfPreviews}
             />
           </div>
@@ -772,6 +738,13 @@ export default function App() {
         RustExecutorTestPanel={RustExecutorTestPanel}
       />
 
+      {exportToMockItems && (
+        <ExportToApiMockModal
+          items={exportToMockItems}
+          sourceKind={exportToMockSourceKind}
+          onClose={() => setExportToMockItems(null)}
+        />
+      )}
     </div>
     </>
   );

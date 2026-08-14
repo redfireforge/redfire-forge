@@ -1,5 +1,5 @@
 /** Live demo runner — setup, teardown, auto-play, step navigation. */
-import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { flushSync } from 'react-dom';
 import type { DemoHubState, DemoLesson, SpeedMultiplier, StepPhase } from './types';
 import type { useDemoProgress } from './useDemoProgress';
@@ -105,6 +105,15 @@ export function useDemoHubLiveDemo({
   suppressLiveTabExitRef,
   shouldResumeLiveRef,
 }: UseDemoHubLiveDemoOptions) {
+  /**
+   * True while an interrupted session is being replayed.
+   *
+   * A session saved mid-play restores `isPlaying: true`, so the auto-play effect
+   * fires in the same mount commit as the resume effect and bumps the generation
+   * the resume is guarded by — the replay then bails and never restores playback.
+   */
+  const resumingRef = useRef(false);
+
   const pauseAutoPlay = useCallback(() => {
     if (autoPlayRef.current) {
       clearTimeout(autoPlayRef.current);
@@ -209,6 +218,7 @@ export function useDemoHubLiveDemo({
       lesson.steps.length - 1,
     );
     const resumePlaying = session?.isPlaying ?? false;
+    resumingRef.current = true;
     autoPlayGenRef.current++;
     const gen = autoPlayGenRef.current;
     abortRef.current?.abort();
@@ -235,11 +245,13 @@ export function useDemoHubLiveDemo({
       }
 
       if (resumePlaying && isMountedRef.current) {
+        resumingRef.current = false;
         setState(prev => ({ ...prev, isPlaying: true, stepIndex }));
       } else {
         setStepPhase('done');
       }
     } finally {
+      resumingRef.current = false;
       clearDemoInitialSurface();
       setIsDemoBootstrapping(false);
       revealDemoBootSurface();
@@ -328,10 +340,15 @@ export function useDemoHubLiveDemo({
     if (!lesson) return;
     if (state.stepIndex >= lesson.steps.length - 1) return;
     if (stepPhaseRef.current === 'reading') {
+      const gen = autoPlayGenRef.current;
       await finishCurrentStepFromReading(lesson.steps[state.stepIndex], state.speed);
+      // Finishing the reading step runs its action, during which the user may have
+      // jumped elsewhere (stepper click, restart, exit). Advancing anyway would drag
+      // them off the step they chose.
+      if (autoPlayGenRef.current !== gen) return;
     }
     await goToStep(state.stepIndex + 1);
-  }, [state.selectedLesson, state.stepIndex, state.speed, goToStep, finishCurrentStepFromReading, stepPhaseRef]);
+  }, [state.selectedLesson, state.stepIndex, state.speed, goToStep, finishCurrentStepFromReading, stepPhaseRef, autoPlayGenRef]);
 
   const toggleAutoPlay = useCallback(() => {
     const shouldPause = isPlayingRef.current;
@@ -398,6 +415,8 @@ export function useDemoHubLiveDemo({
 
   useEffect(() => {
     if (!state.isPlaying || state.view !== 'live' || !state.selectedLesson) return;
+    // Resume owns the pipeline until it hands playback back.
+    if (resumingRef.current) return;
     const lesson = state.selectedLesson;
     if (state.stepIndex >= lesson.steps.length - 1) {
       setState(prev => ({ ...prev, isPlaying: false }));
