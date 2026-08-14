@@ -314,7 +314,11 @@ export async function prepareLesson19CreateOrderSpotlight(ctx: DemoActionContext
 }
 
 export async function prepareLesson19SubscriptionSpotlight(ctx: DemoActionContext): Promise<void> {
-  await closeWfConfigModalIfOpen(ctx);
+  // Only dismiss another node's config — closing and reopening the subscription
+  // panel makes the spotlight flicker for no reason.
+  if (!document.querySelector(GQL.WF_SUBSCRIPTION_PANEL)) {
+    await closeWfConfigModalIfOpen(ctx);
+  }
   await ensureLesson19SubConfigTabOpen(ctx, 'Subscription');
 }
 

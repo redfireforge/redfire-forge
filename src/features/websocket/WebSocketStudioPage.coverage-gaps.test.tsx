@@ -5,6 +5,11 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { WebSocketStudioPage, deriveTabLabel } from './WebSocketStudioPage';
+import {
+  DEMO_INITIAL_SURFACE_EVENT,
+  clearDemoInitialSurface,
+  setDemoInitialSurface,
+} from '../../shared/demoInitialSurface';
 
 const {
   mockLoadWsTabState,
@@ -126,6 +131,7 @@ beforeEach(() => {
   mockHistoryReturn.clearHistory.mockReset();
   capturedTabBarPropsRef.current = {};
   for (const key of Object.keys(capturedContentProps)) delete capturedContentProps[key];
+  clearDemoInitialSurface();
 });
 
 async function renderPage(state?: unknown) {
@@ -230,6 +236,20 @@ describe('WebSocketStudioPage coverage gaps', () => {
     const duplicateProps = capturedContentProps[tabs[1].id];
     expect(duplicateProps.initialDraft).toMatchObject({ subprotocols: '', headers: [], queryParams: [], auth: undefined });
     expect(duplicateProps.controlledMode).toBe('client');
+  });
+
+  it('duplicates an add-with-url tab and preserves the seeded protocol', async () => {
+    await renderPage();
+    fireEvent.click(screen.getByTestId('mock-ws-add-url'));
+
+    const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; url?: string }>;
+    const added = tabs.find((tab) => tab.url === 'ws://my%server:1234');
+    expect(added).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId(`mock-ws-duplicate-${added!.id}`));
+    const nextTabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; url?: string }>;
+    const duplicate = nextTabs.at(-1)!;
+    expect(capturedContentProps[duplicate.id].initialProtocol).toBe('graphql-ws');
   });
 
   it('keeps a connected tab open until confirm and then closes it', async () => {
@@ -337,6 +357,24 @@ describe('WebSocketStudioPage coverage gaps', () => {
     expect(tabs).toHaveLength(1);
     expect(tabs[0].url).toBe('ws://localhost:9876/path');
     expect((capturedContentProps['ws-tab-1'].mockPort as number)).toBe(9876);
+  });
+
+  it('closes a tab with a persisted mock port and leaves non-localhost survivor URLs unchanged', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true } as Response);
+    await renderPage({
+      tabs: [
+        { id: 'ws-tab-1', label: 'Remote', url: 'wss://echo.example/ws', viewTab: 'connect', mockPort: 9881 },
+        { id: 'ws-tab-2', label: 'CloseMe', url: '', viewTab: 'connect', mockPort: 9877 },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    });
+
+    fireEvent.click(screen.getByTestId('mock-ws-close-ws-tab-2'));
+    const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string; url?: string }>;
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].url).toBe('wss://echo.example/ws');
+    expect(fetchSpy).toHaveBeenCalledWith('/api/ws/mock/stop', expect.objectContaining({ method: 'POST' }));
   });
 
   it('reassigns conflicting mock ports and preserves existing owner where applicable', async () => {
@@ -450,5 +488,19 @@ describe('WebSocketStudioPage coverage gaps', () => {
 
     const tabs = capturedTabBarPropsRef.current.tabs as Array<{ id: string }>;
     expect(tabs).toHaveLength(1);
+  });
+
+  it('applies demo websocket mode on mount and when the demo surface event fires', async () => {
+    setDemoInitialSurface({ wsStudioMode: 'mock' });
+    await renderPage();
+
+    const tabId = (capturedTabBarPropsRef.current.tabs as Array<{ id: string }>)[0].id;
+    expect(capturedContentProps[tabId].controlledMode).toBe('mock');
+
+    setDemoInitialSurface({ wsStudioMode: 'saved' });
+    act(() => {
+      window.dispatchEvent(new Event(DEMO_INITIAL_SURFACE_EVENT));
+    });
+    expect(capturedContentProps[tabId].controlledMode).toBe('saved');
   });
 });

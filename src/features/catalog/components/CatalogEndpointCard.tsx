@@ -24,6 +24,7 @@ interface Props {
   linkedMicroservice?: Microservice;
   onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
+  onExportToApiMock?: (endpoint: CatalogEndpoint) => void;
   onSetWorkflowExposure?: (endpoint: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => void;
   /** Merged exposure mode from both CatalogEndpoint (published) and user-local preview storage. */
   currentExposureMode?: 'preview' | 'published';
@@ -41,7 +42,7 @@ const MBG: Record<string, string> = {
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onSetWorkflowExposure, currentExposureMode, isPublicationStale, publishPermission, coverage, onNavigateToRequest }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onExportToApiMock, onSetWorkflowExposure, currentExposureMode, isPublicationStale, publishPermission, coverage, onNavigateToRequest }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
@@ -327,6 +328,11 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
               {onSendToHarness && (
                 <button className="sw-export-btn" data-testid="catalog-send-to-harness-btn" style={{ borderColor: '#6c63ff44', color: '#6c63ff' }} onClick={() => onSendToHarness(endpoint)}>
                   Send to Harness
+                </button>
+              )}
+              {onExportToApiMock && (
+                <button className="sw-export-btn" data-testid="catalog-export-to-mock-btn" style={{ borderColor: '#f59e0b44', color: '#f59e0b' }} onClick={() => onExportToApiMock(endpoint)}>
+                  Export to API Mock
                 </button>
               )}
               {onSetWorkflowExposure && (

@@ -5,6 +5,7 @@ import type {
   KafkaConsumeActionConfig,
   KafkaResultMeta,
   GrpcResultMeta,
+  ApiMockResultMeta,
 } from './kafka';
 import type {
   ScenarioActionType,
@@ -578,6 +579,8 @@ export interface RequestResult {
   wsResultMeta?: WsResultMeta;
   /** gRPC-specific result metadata (workflow: `grpcUnary`/`grpcServerStream`; harness: `grpcCall`). */
   grpcResultMeta?: GrpcResultMeta;
+  /** API Mock workflow node metadata (Phase 11). */
+  apiMockResultMeta?: ApiMockResultMeta;
 }
 
 export interface TestSummary {
@@ -631,6 +634,7 @@ export type {
   KafkaFailureClass,
   CapturedWsNodeDetails,
   CapturedGrpcNodeDetails,
+  CapturedApiMockNodeDetails,
   WsFailureClass,
 } from './trace';
 

@@ -1,25 +1,3 @@
-/**
- * GraphqlMockPanel.tsx — Phase 3E (tasks 3E-4 through 3E-11)
- *
- * Mock Server control panel. Desktop-only — shows a guard banner in web mode.
- *
- * Panel tabs:
- *   Resolvers | Scenarios | Scalar Factories | Request Log
- *
- * Features:
- *   - Toggle mock mode ON/OFF
- *   - Schema source: "Use introspected" / "Custom SDL"
- *   - Per-type/field resolver override: Random / Fixed / Script / Error
- *   - Global latency slider + jitter input
- *   - Seed input for deterministic mocks
- *   - Scenario list: add, activate, delete
- *   - Custom scalar factory config (preset dropdown per scalar type)
- *   - Request log: auto-refreshed every 2s; expandable rows
- *   - Export / Import config as JSON
- *   - Copy mock endpoint URL
- *   - Reset all
- */
-
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { isTauri } from '../../../shared/utils/platform';
@@ -38,7 +16,6 @@ import type {
 import { loadCachedGraphqlSchemaSdl } from '../utils/graphqlSchemaCache';
 import { ResolversTab } from './GraphqlMockResolversTab';
 
-// Re-export FieldResolverRow so existing tests that import it from this module continue to work.
 export { FieldResolverRow } from './GraphqlMockResolversTab';
 
 const MOCK_ENDPOINT = 'http://localhost:3001/api/graphql/mock';
@@ -82,15 +59,12 @@ interface GraphqlMockPanelProps {
   schemaInfo:      GraphqlSchemaInfo | null;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelProps) {
   const [activeTab, setActiveTab] = useState<MockPanelTab>('resolvers');
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const { config, customSdl, schemaSource, syncError, syncing } = mockServer;
 
-  // All hooks must come before any conditional return (Rules of Hooks).
   const resolverCount = useMemo(() =>
     Object.values(config.resolvers).reduce((s, f) => s + Object.keys(f).length, 0),
   [config.resolvers]);
@@ -102,7 +76,6 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
     return () => window.removeEventListener('rf-gql-mock-reconcile', reconcile);
   }, [mockServer]);
 
-  // Desktop-only guard — placed after all hooks to avoid Rules of Hooks violation.
   if (!isTauri()) {
     return (
       <div className="gql-mock-guard" data-testid="gql-mock-guard">
@@ -145,7 +118,6 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
         seed:             config.seed,
         scenarios:        config.scenarios,
         scalarFactories:  config.scalarFactories,
-        // Include activeScenarioId so import can restore the active scenario
         activeScenarioId: config.activeScenarioId,
       },
       ...(schemaSource === 'custom' && customSdl ? { customSdl } : {}),
@@ -156,8 +128,6 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
     const a    = document.createElement('a');
     a.href     = url;
     a.download = `mock-config-${Date.now()}.json`;
-    // Must be attached to the DOM for Firefox; revoke after a tick so the browser
-    // has time to start the download before the object URL is invalidated.
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -174,7 +144,6 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
     reader.onload = (ev) => {
       try {
         const raw = JSON.parse(ev.target?.result as string) as Record<string, unknown>;
-        // Validate that the parsed JSON has the expected top-level shape.
         if (typeof raw !== 'object' || Array.isArray(raw) || !raw) {
           setImportError('Invalid mock config file — expected a JSON object.');
           return;
@@ -201,7 +170,6 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
 
   return (
     <div className="gql-mock-panel" data-testid="gql-mock-panel">
-      {/* ─ Header ─ */}
       <div className="gql-mock-header">
         <div className="gql-mock-header-top">
           <div className="gql-mock-header-copy">
@@ -440,8 +408,6 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
     </div>
   );
 }
-
-// ─── ScenariosTab ─────────────────────────────────────────────────────────────
 
 function ScenariosTab({ config, mockServer }: { config: GraphqlMockConfig; mockServer: UseGraphqlMockServerResult }) {
   const [adding, setAdding]         = useState(false);

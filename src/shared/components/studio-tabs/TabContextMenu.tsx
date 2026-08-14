@@ -86,13 +86,17 @@ export interface BuildContextMenuItemsOptions {
   totalTabs: number;
   canDuplicate: boolean;
   canClose: boolean;
+  /** Appended after the close group — e.g. a destructive "Delete" entry. */
+  extraItems?: TabContextMenuItem[];
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildContextMenuItems({
   tabIndex,
   totalTabs,
   canDuplicate,
   canClose,
+  extraItems = [],
 }: BuildContextMenuItemsOptions): TabContextMenuItem[] {
   return [
     { id: 'rename', label: 'Rename Tab' },
@@ -101,6 +105,7 @@ export function buildContextMenuItems({
     { id: 'close', label: 'Close Tab', dividerBefore: true, disabled: !canClose },
     { id: 'close-others', label: 'Close Other Tabs', disabled: totalTabs <= 1 },
     { id: 'close-right', label: 'Close Tabs to the Right', disabled: tabIndex >= totalTabs - 1 },
+    ...extraItems,
   ];
 }
 
@@ -112,6 +117,7 @@ export interface TabContextMenuState {
   y: number;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTabContextMenu(): {
   menuState: TabContextMenuState | null;
   openMenu: (tabId: string, e: RMouseEvent) => void;

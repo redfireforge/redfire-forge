@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type {
   WsBackoffMultiplier,
   WsCloseDetail,
@@ -13,7 +12,6 @@ import { formatUptime, WS_CLOSE_CODE_PRESETS } from '../../shared/websocket/type
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import type { SioServerParams } from './wsProtocolHelpers';
 import { CustomSelect } from '../../shared/components/CustomSelect';
-import AppModalFrame from '../../shared/components/AppModalFrame';
 import { WebSocketProtocolSelector } from './WebSocketProtocolSelector';
 import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import { getProtocolInfo } from '../../shared/websocket/protocols/protocolTypes';
@@ -22,6 +20,7 @@ import { KeyValueEditor } from './KeyValueEditor';
 import type { EndpointRowStatus } from '../environments/utils/protocolEndpointUtils';
 import { ProtocolEndpointPreview } from '../../shared/components/ProtocolEndpointPreview';
 import { MAX_REASON_BYTES, STATE_LABELS, useReconnectCountdown } from './WebSocketConnectPanel.helpers';
+import { WebSocketCloseCodeModal } from './WebSocketCloseCodeModal';
 
 interface WebSocketConnectPanelProps {
   draft: WsConnectionDraft;
@@ -585,123 +584,20 @@ export function WebSocketConnectPanel({
           >
             ▾
           </button>
-          {closeDropdownOpen && createPortal(
-            <AppModalFrame
-              open
-              title="Close with code"
-              titleId="ws-close-code-title"
-              onClose={closeCloseCodeModal}
-              overlayClassName="ws-close-code-overlay"
-              dialogClassName="ws-close-code-modal"
-              headerClassName="ws-close-code-header modal-header"
-              bodyClassName="ws-close-code-body"
-              footerClassName="ws-close-code-actions"
-              dialogTestId="close-code-dropdown"
-              overlayTestId="close-code-overlay"
-              showExpandButton={false}
-              showResizeHandles={false}
-              closeButtonKind="none"
-              footer={
-                <>
-                  <button
-                    type="button"
-                    className="ws-close-code-btn ws-close-code-btn-secondary"
-                    onClick={closeCloseCodeModal}
-                    data-testid="close-code-cancel"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="ws-close-code-btn ws-close-code-btn-danger"
-                    onClick={handleCloseWithCode}
-                    disabled={!canCloseWithCode}
-                    data-testid="close-with-code-btn"
-                  >
-                    Close with code
-                  </button>
-                </>
-              }
-            >
-              <p className="ws-close-code-subtitle">
-                Send a WebSocket close frame, then disconnect
-              </p>
-
-              <div className="ws-close-code-field">
-                <label className="ws-close-code-label" htmlFor="ws-close-code-input">
-                  Status code
-                </label>
-                <div className="ws-close-code-input-row">
-                  <input
-                    id="ws-close-code-input"
-                    type="number"
-                    className="ws-close-code-input"
-                    value={closeCode}
-                    onChange={(e) => setCloseCode(parseInt(e.target.value, 10) || 1000)}
-                    min={1000}
-                    max={4999}
-                    data-testid="close-code-input"
-                    aria-invalid={!isCodeValid}
-                    aria-describedby={isCodeValid ? 'ws-close-code-desc' : 'ws-close-code-error'}
-                  />
-                  {isCodeValid ? (
-                    <span id="ws-close-code-desc" className="ws-close-code-desc">
-                      {codeDescription}
-                    </span>
-                  ) : (
-                    <span id="ws-close-code-error" className="ws-close-code-error">
-                      Must be 1000–4999
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="ws-close-code-presets-block">
-                <span className="ws-close-code-section-label">Quick select</span>
-                <div className="ws-close-code-presets" data-testid="close-code-presets">
-                  {WS_CLOSE_CODE_PRESETS.map((p) => (
-                    <button
-                      key={p.code}
-                      type="button"
-                      className={`ws-close-preset-btn${closeCode === p.code ? ' is-active' : ''}`}
-                      onClick={() => setCloseCode(p.code)}
-                      title={p.description}
-                      aria-pressed={closeCode === p.code}
-                    >
-                      <span className="ws-close-preset-code">{p.code}</span>
-                      <span className="ws-close-preset-label">{p.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="ws-close-code-field">
-                <div className="ws-close-reason-header">
-                  <label className="ws-close-code-label" htmlFor="ws-close-reason-input">
-                    Reason
-                    <span className="ws-close-reason-optional">Optional</span>
-                  </label>
-                  <span
-                    className={`ws-close-reason-counter${!isReasonValid ? ' is-over' : ''}`}
-                    aria-live="polite"
-                  >
-                    {reasonBytes}/{MAX_REASON_BYTES} bytes
-                  </span>
-                </div>
-                <textarea
-                  id="ws-close-reason-input"
-                  className="ws-close-reason-input"
-                  value={closeReason}
-                  onChange={(e) => setCloseReason(e.target.value)}
-                  placeholder="Short explanation sent with the close frame…"
-                  maxLength={123}
-                  rows={2}
-                  data-testid="close-reason-input"
-                />
-              </div>
-            </AppModalFrame>,
-            document.body,
-          )}
+          <WebSocketCloseCodeModal
+            open={closeDropdownOpen}
+            closeCode={closeCode}
+            setCloseCode={setCloseCode}
+            closeReason={closeReason}
+            setCloseReason={setCloseReason}
+            reasonBytes={reasonBytes}
+            isCodeValid={isCodeValid}
+            isReasonValid={isReasonValid}
+            canCloseWithCode={canCloseWithCode}
+            codeDescription={codeDescription}
+            onCancel={closeCloseCodeModal}
+            onConfirm={handleCloseWithCode}
+          />
         </div>
         {onSaveAsProfile && (
           <button

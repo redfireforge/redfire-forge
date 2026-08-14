@@ -31,6 +31,9 @@ export type DemoGrpcAdvancedTab =
 /** API Catalog main-panel sub-view. Mirrors `ApiCatalog` view tabs. */
 export type DemoCatalogView = 'overview' | 'endpoints' | 'export' | 'published';
 
+/** WebSocket Studio top mode tabs. Mirrors `WsStudioMode`. */
+export type DemoWsStudioMode = 'client' | 'mock' | 'saved';
+
 export interface DemoInitialSurface {
   /** Land gRPC Studio on this panel instead of the default `studio` view. */
   grpcPanelView?: DemoGrpcPanelView;
@@ -38,6 +41,8 @@ export interface DemoInitialSurface {
   grpcAdvancedTab?: DemoGrpcAdvancedTab;
   /** Land API Catalog on this sub-view instead of restoring a saved Overview hop. */
   catalogView?: DemoCatalogView;
+  /** Land WebSocket Studio on this mode instead of the persisted tab mode. */
+  wsStudioMode?: DemoWsStudioMode;
 }
 
 let pendingSurface: DemoInitialSurface | null = null;

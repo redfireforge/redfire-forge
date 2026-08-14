@@ -150,6 +150,19 @@ const DEMO_GQL110_SPEC = '**/demo-gql-workspace-isolation.spec.ts';
 const DEMO_GRPC1_SPEC = '**/demo-grpc-first-call.spec.ts';
 /** REQ-3 only: Multi-Environment Requests (api › requests) smoke walk. */
 const DEMO_REQ3_SPEC = '**/demo-req-multi-env.spec.ts';
+/** Product: API Mock multi-server §12.2 (companion :3001). */
+const API_MOCK_MULTI_SERVER_SPEC = '**/api-mock-multi-server.spec.ts';
+/**
+ * AM-01…AM-24 — API Mock Studio demo curriculum v2. Each lesson gets an isolated
+ * project (`demo-am01` … `demo-am24`) so a single lesson can be run in dev.
+ */
+const AM_LESSON_IDS = [
+  '01', '02', '03', '04', '05', '06', '07', '08',
+  '09', '10', '11', '12', '13', '14', '15', '16',
+  '17', '18', '19', '20', '21', '22', '23', '24',
+] as const;
+const amLessonSpec = (n: string) => `**/demo-api-mock-am${n}.spec.ts`;
+const DEMO_AM_SPECS = AM_LESSON_IDS.map(amLessonSpec);
 /** Workflows domain (WF-1…WF-8) Demo Hub smoke walks. */
 const DEMO_WF_SPEC = '**/demo-wf-lessons.spec.ts';
 /** GQL-1..3 smoke — first three lessons auto-play (requires port 4010). */
@@ -223,6 +236,8 @@ export default defineConfig({
         DEMO_GQL_LESSONS_SPEC,
         DEMO_GRPC1_SPEC,
         DEMO_REQ3_SPEC,
+        API_MOCK_MULTI_SERVER_SPEC,
+        ...DEMO_AM_SPECS,
         DEMO_WF_SPEC,
       ],
       use: { browserName: 'chromium' },
@@ -439,6 +454,24 @@ export default defineConfig({
       retries: 0,
       use: { browserName: 'chromium' },
     },
+
+    // ── Product: API Mock multi-server (§12.2, companion :3001, workers: 1) ─
+    {
+      name: 'api-mock',
+      testMatch: API_MOCK_MULTI_SERVER_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── AM-01…AM-24: one isolated project per API Mock lesson (companion :3001) ─
+    ...AM_LESSON_IDS.map((n) => ({
+      name: `demo-am${n}`,
+      testMatch: amLessonSpec(n),
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' as const },
+    })),
 
     // ── Workflows domain: WF-1…WF-8 Demo Hub smoke walks ─
     {

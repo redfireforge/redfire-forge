@@ -22,6 +22,7 @@ export const EM = {
   /** Protocol selection — "+ Add protocol" trigger button inside an expanded service card. */
   ADD_PROTOCOL_BTN:     '[data-testid="em-add-protocol-btn"]',
   /** Derived-variables panel on a protocol tab (protocol key suffix). */
+  DERIVED_VARS_WS:      '[data-testid="derived-vars-websocket"]',
   DERIVED_VARS_GQL:     '[data-testid="derived-vars-graphql"]',
   DERIVED_VARS_GRPC:    '[data-testid="derived-vars-grpc"]',
   /** Workspace Defaults (Interpolation) section — bottom of the Environment Manager page. */

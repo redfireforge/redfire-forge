@@ -12,6 +12,7 @@ import {
   buildQueryConfigDom,
   buildFullAssertDom,
 } from './graphql-workflow-integration.testHelpers';
+import { recordConfigFieldFills } from './__test-utils__/graphql-test-fixtures';
 import { gqlWorkflowIntegrationLesson } from './graphql-workflow-integration';
 import { makeCtx } from './ws-test-utils';
 import { GQL, WF } from '@shared/selectors';
@@ -122,12 +123,13 @@ describe('gql-workflow-integration lesson — actions', () => {
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName = vi.fn(() => true);
+    const filled = recordConfigFieldFills();
     await ensureLesson11QueryNodeAdded(ctx);
     await ensureLesson11QueryConfigured(ctx);
     // fillWfConfigField uses fillControlledInput for inputs/textareas (not ctx.fill).
-    expect(document.querySelector<HTMLInputElement>(GQL.WF_ENDPOINT_INPUT)?.value).toBe(GQL_DEMO_VAR);
-    expect(document.querySelector<HTMLTextAreaElement>(GQL.WF_QUERY_EDITOR)?.value).toContain('health');
-    expect(document.querySelector<HTMLInputElement>(GQL.WF_OUTPUT_VARNAME)?.value).toBe(LESSON11_LATENCY_VAR);
+    expect(filled.get(GQL.WF_ENDPOINT_INPUT)).toBe(GQL_DEMO_VAR);
+    expect(filled.get(GQL.WF_QUERY_EDITOR)).toContain('health');
+    expect(filled.get(GQL.WF_OUTPUT_VARNAME)).toBe(LESSON11_LATENCY_VAR);
   });
 
   it('gql11-config-query action fills endpoint and output binding', async () => {
@@ -137,10 +139,11 @@ describe('gql-workflow-integration lesson — actions', () => {
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName = vi.fn(() => true);
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-config-query')!;
+    const filled = recordConfigFieldFills();
     await step.preAction!(ctx);
     expect(document.querySelector(GQL.WF_QUERY_PANEL)).toBeTruthy();
     await step.action!(ctx);
-    expect(document.querySelector<HTMLInputElement>(GQL.WF_ENDPOINT_INPUT)?.value).toBe(GQL_DEMO_VAR);
+    expect(filled.get(GQL.WF_ENDPOINT_INPUT)).toBe(GQL_DEMO_VAR);
   });
 
   it('gql11-assert-node searches Assert then clicks Assert, clearing match noise', async () => {
@@ -481,8 +484,9 @@ describe('gql-workflow-integration lesson — actions', () => {
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName = vi.fn(() => true);
     (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType = vi.fn(() => true);
+    const filled = recordConfigFieldFills();
     await ensureLesson11AssertRuleConfigured(ctx, '1');
-    expect(document.querySelector<HTMLInputElement>(GQL.WF_ASSERT_EXPECTED)?.value).toBe('1');
+    expect(filled.get(GQL.WF_ASSERT_EXPECTED)).toBe('1');
   });
 
   it('dismissWorkflowOnboarding clicks skip when tooltip visible', async () => {

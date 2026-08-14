@@ -851,6 +851,8 @@ describe('RequestsSidebar', () => {
     setup({ collections: [dirCol], selectedCollectionId: 'cd' });
     // catalog badge renders (meta truthy) with default 'From API Catalog' title (no sourceSpec)
     expect(document.querySelector('.req-req-catalog-badge')).toHaveAttribute('title', 'From API Catalog');
+    // The glyph alone is not self-explanatory, so it must carry an accessible name.
+    expect(screen.getByLabelText('Imported from API Catalog')).toBeTruthy();
     // not deprecated => no deprecated badge
     expect(document.querySelector('.req-req-deprecated-badge')).toBeNull();
   });
@@ -1003,11 +1005,10 @@ describe('RequestsSidebar', () => {
     expect(document.querySelector('.req-req-tab-dot')).not.toBeInTheDocument();
   });
 
-  it('passes onOpenInNewTab to SidebarContextMenu', () => {
-    const openInNewTab = vi.fn();
-    setup({ onOpenInNewTab: openInNewTab });
+  it('does not pass an onOpenInNewTab handler — selecting a request already opens its tab', () => {
+    setup();
     openCollectionCtx();
-    expect((h.ctx as Record<string, unknown>).onOpenInNewTab).toBe(openInNewTab);
+    expect((h.ctx as Record<string, unknown>).onOpenInNewTab).toBeUndefined();
   });
 
   it('renders safely with collection auth missing and folders undefined', () => {

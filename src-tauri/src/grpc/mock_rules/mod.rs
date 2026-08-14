@@ -14,3 +14,5 @@ pub use types::{
     GrpcMockEvaluationContext, GrpcMockRuleEvaluationResult, GrpcMockRuleResponse,
     GrpcMockRuleSet,
 };
+#[cfg(test)]
+pub use types::{GrpcMockDefaultResponse, GrpcMockPredicate, GrpcMockRule};

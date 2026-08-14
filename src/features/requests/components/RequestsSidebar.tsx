@@ -76,8 +76,7 @@ interface Props {
   harnessRequestIds?: Set<string>;
   /** Request IDs that currently have an open tab (shown as a dot indicator). */
   openTabRequestIds?: Set<string>;
-  /** Open request in a guaranteed-new tab (context menu "Open in New Tab"). */
-  onOpenInNewTab?: (colId: string, reqId: string) => void;
+  onExportToApiMock?: (colId: string, reqId: string) => void;
 }
 
 export type CtxMenuData = {
@@ -99,7 +98,7 @@ export default function RequestsSidebar({
   onSendFolderToHarness,
   harnessRequestIds,
   openTabRequestIds,
-  onOpenInNewTab,
+  onExportToApiMock,
 }: Props) {
   const toast = useToast();
   const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set(collections.map(c => c.id)));
@@ -696,7 +695,7 @@ export default function RequestsSidebar({
           handleExportGroup={handleExportGroup}
           onSendCollectionToHarness={onSendCollectionToHarness}
           onSendFolderToHarness={onSendFolderToHarness}
-          onOpenInNewTab={onOpenInNewTab}
+          onExportToApiMock={onExportToApiMock}
         />
       )}
 

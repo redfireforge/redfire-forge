@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { subscribeLogStream } from '../../../utils/logStream';
 import { loadConsoleRunBehavior, loadConsoleOpen, saveConsoleOpen, type ConsoleRunBehavior } from '../utils/workflowSessionStorage';
 
 import type { ConsoleLine } from '../../requests/hooks/useResponseCache';
@@ -34,20 +35,11 @@ export function useWorkflowConsole({ hasWebhookNode, pushConsoleLine }: UseWorkf
   // Subscribe to server-side webhook execution logs via SSE
   useEffect(() => {
     if (!consoleOpen || !hasWebhookNode) return;
-    let es: EventSource | null = null;
-    try {
-      es = new EventSource('/api/logs/stream');
-      es.onmessage = (event) => {
-        try {
-          const line = JSON.parse(event.data);
-          pushConsoleLine(line);
-        } catch { /* ignore malformed */ }
-      };
-      es.onerror = () => {
-        // Server may not be running; silently reconnect or close
-      };
-    } catch { /* EventSource creation failed */ }
-    return () => { es?.close(); };
+    return subscribeLogStream((data) => {
+      try {
+        pushConsoleLine(JSON.parse(data));
+      } catch { /* ignore malformed */ }
+    });
   }, [consoleOpen, hasWebhookNode, pushConsoleLine]);
 
   return {

@@ -1,7 +1,7 @@
 /**
  * Phase 12A — validate shipped gRPC lessons and the canonical roster.
  */
-import { GRPC, WF } from '@shared/selectors';
+import { EM, GRPC, WF } from '@shared/selectors';
 import { RES } from '@shared/selectors/res';
 import { REX } from '@shared/selectors/rex';
 import type { DemoLesson, DemoStep } from '../../../types';
@@ -29,12 +29,16 @@ function collectSelectorStrings(...namespaces: Array<Record<string, unknown>>): 
   return values;
 }
 
-/** GRPC studio + cross-surface workflow/results selectors used by GRPC-11/24. */
+/**
+ * GRPC studio + the cross-surface namespaces gRPC lessons legitimately visit:
+ * workflow/results (GRPC-11/24) and Environment Manager (GRPC-21).
+ */
 const GRPC_SELECTOR_VALUES = collectSelectorStrings(
   GRPC as unknown as Record<string, unknown>,
   WF as unknown as Record<string, unknown>,
   RES as unknown as Record<string, unknown>,
   REX as unknown as Record<string, unknown>,
+  EM as unknown as Record<string, unknown>,
 );
 const GRPC_DYNAMIC_SELECTOR_PATTERNS = [
   /^\[data-testid="grpc-service-[a-z0-9-]+"\]$/,
@@ -74,11 +78,20 @@ function isGrpcDemoLesson(lesson: DemoLesson): lesson is GrpcDemoLesson {
 function selectorUsesGrpcNamespace(value: string | undefined, path: string, issues: GrpcLessonValidationIssue[]): void {
   if (!value) return;
   if (!value.includes('data-testid=')) return;
-  if (!GRPC_SELECTOR_VALUES.has(value) && !GRPC_DYNAMIC_SELECTOR_PATTERNS.some((pattern) => pattern.test(value))) {
+  // A namespace constant may itself be a comma list of fallbacks, so accept the
+  // whole string first. Only hand-written compounds fall through to a per-part
+  // check, where the halves without a `data-testid` (ReactFlow node ids, classes)
+  // are skipped.
+  if (GRPC_SELECTOR_VALUES.has(value)) return;
+  for (const part of value.split(',').map((s) => s.trim()).filter(Boolean)) {
+    if (!part.includes('data-testid=')) continue;
+    if (GRPC_SELECTOR_VALUES.has(part) || GRPC_DYNAMIC_SELECTOR_PATTERNS.some((pattern) => pattern.test(part))) {
+      continue;
+    }
     issues.push(
       issue(
         path,
-        `Selector "${value}" is not a GRPC/WF/RES/REX.* constant from src/shared/selectors`,
+        `Selector "${part}" is not a GRPC/WF/RES/REX/EM.* constant from src/shared/selectors`,
       ),
     );
   }

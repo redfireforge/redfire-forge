@@ -4,17 +4,13 @@ import type { Node, Edge } from '@xyflow/react';
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 100;
 
-/** Compact node types get smaller layout dimensions. */
 const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end', 'webhook', 'schedule', 'switch', 'loop', 'setVariable', 'aggregate', 'errorHandler', 'logDebug', 'waitForCondition', 'subWorkflow']);
 const COMPACT_WIDTH = 160;
 const COMPACT_HEIGHT = 60;
 
 const SWITCH_LIKE_TYPES = new Set<string>(['switch', 'errorHandler']);
 
-/** Minimum gap between nodes on the same rank after overlap resolution. */
 const MIN_GAP = 30;
-
-/** Build adjacency maps from edges. Reused by multiple post-processing steps. */
 function buildGraphAdjacency(edges: Edge[]) {
   const bySource = new Map<string, Edge[]>();
   const childrenOf = new Map<string, string[]>();
@@ -40,9 +36,6 @@ function buildGraphAdjacency(edges: Edge[]) {
   return { bySource, childrenOf, outgoing, incoming };
 }
 
-/**
- * Collect subtree nodes via BFS, optionally stopping at (not including) any node in the stopSet.
- */
 function collectSubtree(
   root: string,
   childrenOf: Map<string, string[]>,
@@ -62,7 +55,6 @@ function collectSubtree(
   return visited;
 }
 
-/** Compute bounding box of a set of nodes on a given axis. */
 function getSubtreeBounds(
   nodeIds: Set<string>,
   positions: Map<string, { x: number; y: number }>,
@@ -79,10 +71,6 @@ function getSubtreeBounds(
   return { min, max, width: max - min };
 }
 
-/**
- * Compute auto-layout positions for a directed graph using dagre.
- * Returns new nodes array with updated positions (does not mutate originals).
- */
 export function getAutoLayoutNodes<N extends Node>(
   nodes: N[],
   edges: Edge[],
@@ -93,17 +81,13 @@ export function getAutoLayoutNodes<N extends Node>(
 
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
-  // Detect whether the graph has fork/join — increase spacing for parallel branches
   const hasFork = nodes.some(n => n.type === 'fork');
-  // Detect switch nodes with multiple cases — they need wider spacing too
   const hasSwitch = nodes.some(n => n.type === 'switch');
 
-  // Dynamically adjust spacing based on workflow complexity
   const n = nodes.length;
   const baseNodesep = n <= 5 ? 40 : n <= 15 ? 30 : 20;
   const baseRanksep = n <= 5 ? 50 : n <= 15 ? 40 : 30;
 
-  // Use moderately wider node separation for fork/join or switch to give branches room
   const needsWideSpacing = hasFork || hasSwitch;
   const nodesep = needsWideSpacing ? Math.max(baseNodesep, 50) : baseNodesep;
   const ranksep = needsWideSpacing ? Math.max(baseRanksep, 50) : baseRanksep;
@@ -144,43 +128,27 @@ export function getAutoLayoutNodes<N extends Node>(
     });
   }
 
-  // Post-process: for condition/start/fork/trigger nodes with branching source handles,
-  // ensure the "true"/Yes target is to the left of the "false"/No target to prevent
-  // edge crossings (the Yes handle is at left:30%, No handle at left:70%).
   fixBranchOrdering(layoutEdges, positioned, direction);
 
-  // Post-process: align direct children of fork nodes to the same rank (y in TB)
-  // so parallel branches visually start at the same level.
   if (hasFork) {
     alignForkChildren(nodes, layoutEdges, positioned, direction);
   }
 
-  // Post-process: resolve any node overlaps on the same rank
   resolveOverlaps(nodes, positioned, nodeWidths, nodeHeights, direction);
 
-  // Post-process: center condition branch children symmetrically under their parent
   centerConditionBranches(nodes, layoutEdges, positioned, nodeWidths, direction);
 
-  // Post-process: spread switch case children evenly under the switch node
   centerSwitchBranches(nodes, layoutEdges, positioned, nodeWidths, direction);
 
-  // Post-process: center fork/join/start/end/trigger nodes over their branches
   if (hasFork) {
     centerForkJoinNodes(nodes, layoutEdges, positioned, nodeWidths, nodeHeights, direction);
-    // Re-run overlap resolution after centering may have introduced new overlaps
     resolveOverlaps(nodes, positioned, nodeWidths, nodeHeights, direction);
   }
 
-  // Post-process: align nodes in linear chains (single parent + single child)
-  // to share the same center as their neighbors, fixing vertical misalignment
   alignLinearChains(nodes, layoutEdges, positioned, nodeWidths, direction);
 
-  // Post-process: resolve overlaps again after all centering operations
-  // This catches cases where end nodes were centered under close parents
   resolveOverlaps(nodes, positioned, nodeWidths, nodeHeights, direction);
 
-  // Final step: normalize positions to ensure all nodes have positive coordinates
-  // The centering operations above can shift nodes into negative territory
   const MARGIN = 20;
   let minX = Infinity;
   let minY = Infinity;
@@ -188,11 +156,9 @@ export function getAutoLayoutNodes<N extends Node>(
     minX = Math.min(minX, pos.x);
     minY = Math.min(minY, pos.y);
   }
-  
-  // If any coordinate is negative or too close to zero, shift all nodes
   const shiftX = minX < MARGIN ? MARGIN - minX : 0;
   const shiftY = minY < MARGIN ? MARGIN - minY : 0;
-  
+
   if (shiftX > 0 || shiftY > 0) {
     for (const pos of positioned.values()) {
       pos.x += shiftX;

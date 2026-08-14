@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { Tab } from '../utils/appTabUtils';
 import type { Microservice, GlobalAuthProfile } from '../../shared/types';
 import type { UseKafkaStateReturn } from '../hooks/useKafkaState';
@@ -6,6 +7,7 @@ import { WebSocketStudioPage } from '../../features/websocket/WebSocketStudioPag
 import { SseStudioPage } from '../../features/sse/SseStudioPage';
 import { GraphqlStudioPage } from '../../features/graphql/GraphqlStudioPage';
 import { GrpcStudioPage } from '../../features/grpc/GrpcStudioPage';
+import { ApiMockStudioPage } from '../../features/api-mock/ApiMockStudioPage';
 
 type Props = {
   activeTab: Tab;
@@ -36,6 +38,9 @@ export default function AppProtocolStudios({
   appGlobalAuthProfiles,
   workspaceDefaults,
 }: Props) {
+  const apiMockMounted = useRef(false);
+  if (activeTab === 'api-mock-studio') apiMockMounted.current = true;
+
   return (
     <>
       {activeTab === 'kafka-message-studio' && (
@@ -99,6 +104,12 @@ export default function AppProtocolStudios({
             workspaceDefaultsOverride={workspaceDefaults}
             globalAuthProfiles={appGlobalAuthProfiles}
           />
+        </div>
+      )}
+
+      {apiMockMounted.current && (
+        <div className="app-tab-pane" style={{ display: activeTab === 'api-mock-studio' ? 'flex' : 'none', flexDirection: 'column' }}>
+          <ApiMockStudioPage />
         </div>
       )}
     </>

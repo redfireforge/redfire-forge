@@ -19,7 +19,7 @@ describe('ws-basics lesson', () => {
     expect(wsBasicsLesson.steps.length).toBeGreaterThan(0);
     expect(wsBasicsLesson.concept.title).toBeTruthy();
     expect(wsBasicsLesson.concept.body).toBeTruthy();
-    expect(wsBasicsLesson.initialTab).toBe('websocket-studio');
+    expect(wsBasicsLesson.initialTab).toBe('environments');
   });
 
   it('has setup and cleanup functions', () => {
@@ -51,7 +51,7 @@ describe('ws-basics lesson', () => {
   it('has correct step IDs in order', () => {
     const ids = wsBasicsLesson.steps.map(s => s.id);
     expect(ids).toEqual([
-      'ws-nav', 'ws-add-protocol', 'ws-env-config', 'ws-mock', 'ws-header-select',
+      'ws-env-setup', 'ws-nav', 'ws-mock', 'ws-header-select',
       'ws-env-vars', 'ws-connect',
       'ws-send', 'ws-events', 'ws-tabs', 'ws-disconnect',
     ]);
@@ -66,6 +66,10 @@ describe('ws-basics lesson', () => {
     expect(wsBasicsLesson.allowedTabs).toContain('websocket-studio');
   });
 
+  it('lands on Mock Server via initialSurface so Preparing skips the blue veil', () => {
+    expect(wsBasicsLesson.initialSurface).toEqual({ wsStudioMode: 'mock' });
+  });
+
   it('steps ws-mock, ws-connect, ws-send each have a verify selector', () => {
     const verify = (id: string) => wsBasicsLesson.steps.find(s => s.id === id)?.verify;
     expect(verify('ws-mock')).toBeTruthy();
@@ -75,9 +79,10 @@ describe('ws-basics lesson', () => {
 
   // ── Setup ──────────────────────────────────────────────────────
 
-  it('setup resets flags and opens websocket studio without churn', async () => {
+  it('setup resets flags and opens Environments for step 1', async () => {
     const ctx = makeCtx();
     await expect(wsBasicsLesson.setup!(ctx)).resolves.not.toThrow();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
   });
 
   it('setup disconnects an active session (disconnect btn enabled)', async () => {
@@ -156,10 +161,13 @@ describe('ws-basics lesson', () => {
 
   // ── Step: ws-nav ───────────────────────────────────────────────
 
-  it('step ws-nav has no action and highlights mode-mock', () => {
+  it('step ws-nav has no action, highlights mode-mock, and opens studio in preAction', async () => {
     const step = wsBasicsLesson.steps.find(s => s.id === 'ws-nav')!;
     expect(step.action).toBeUndefined();
     expect(step.highlight).toContain('mode-mock');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('websocket-studio');
   });
 
   // ── Step: ws-mock ──────────────────────────────────────────────
@@ -229,51 +237,49 @@ describe('ws-basics lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
-  // ── Step: ws-add-protocol ─────────────────────────────────────
+  // ── Step: ws-env-setup (protocol + endpoint combined) ─────────
 
-  it('step ws-add-protocol action prepares WebSocket-only ws-demo microservice', async () => {
+  it('step ws-env-setup preAction navigates to Environments', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-setup')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
+  });
+
+  it('step ws-env-setup action prepares WebSocket protocol and saves endpoint', async () => {
     document.body.innerHTML = `
       <div class="env-manager"></div>
-      <div data-env-name="WebSocket Demo"></div>
-      <div data-svc-name="ws-demo"></div>
-      <div data-testid="microservice-protocol-panel">
-        <button data-testid="em-add-protocol-btn">+ Add protocol</button>
-        <button data-testid="em-protocol-tab-websocket">WebSocket</button>
-        <table>
-          <tr>
-            <td><input type="checkbox" aria-label="Deploy WebSocket Demo" /></td>
-            <td><span class="em-env-chip">WebSocket Demo</span></td>
-          </tr>
-        </table>
+      <input data-testid="em-new-env-input" />
+      <button data-testid="em-add-env-btn">Add</button>
+      <input data-testid="em-new-svc-input" />
+      <button data-testid="em-add-svc-btn">Add</button>
+      <div data-env-name="WebSocket Demo">WebSocket Demo</div>
+      <div data-svc-name="ws-demo">
+        <button data-testid="em-svc-configure-ws-demo">Collapse</button>
+        <div data-testid="microservice-protocol-panel">
+          <button data-testid="em-add-protocol-btn">+ Add protocol</button>
+          <button data-testid="em-protocol-tab-websocket">WebSocket</button>
+          <table>
+            <tr>
+              <td><input type="checkbox" checked aria-label="Deploy WebSocket Demo" /></td>
+              <td><span class="em-env-chip">WebSocket Demo</span></td>
+              <td><button data-testid="em-endpoint-edit-btn">Edit</button></td>
+              <td><code class="em-url-text"></code></td>
+            </tr>
+          </table>
+          <input data-testid="em-endpoint-edit-input" />
+          <button data-testid="em-endpoint-save-btn">Save</button>
+          <div data-testid="derived-vars-websocket">{{wsBaseUrl}}</div>
+        </div>
       </div>`;
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-add-protocol')!;
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-setup')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-websocket"]');
     expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="em-protocol-tab-http"]');
-  });
-
-  it('step ws-env-config action saves endpoint via ensureWsDemoEndpointConfigured', async () => {
-    document.body.innerHTML = `
-      <div class="env-manager"></div>
-      <div data-env-name="WebSocket Demo"></div>
-      <div data-svc-name="ws-demo"></div>
-      <div data-testid="microservice-protocol-panel">
-        <button data-testid="em-protocol-tab-websocket">WebSocket</button>
-        <table>
-          <tr>
-            <td><span class="em-env-chip">WebSocket Demo</span></td>
-            <td><button data-testid="em-endpoint-edit-btn">Edit</button></td>
-            <td><code class="em-url-text"></code></td>
-          </tr>
-        </table>
-        <input data-testid="em-endpoint-edit-input" />
-        <button data-testid="em-endpoint-save-btn">Save</button>
-      </div>`;
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-config')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith('[data-testid="em-endpoint-edit-input"]', 'ws://localhost:9876');
+    // Env/svc create path holds long enough for viewers to read the chip names
+    expect(ctx.delay.mock.calls.some(([ms]) => (ms as number) >= 1200)).toBe(true);
   });
 
   // ── Step: ws-header-select ──────────────────────────────────────
@@ -528,17 +534,6 @@ describe('ws-basics lesson', () => {
     const ctx = makeCtx();
     await wsBasicsLesson.cleanup!(ctx);
     expect(ctx.delay).toHaveBeenCalled();
-  });
-
-  it('ws-add-protocol preAction skips navigate when URL input already present', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-add-protocol')!;
-    const input = document.createElement('input');
-    input.setAttribute('aria-label', 'WebSocket URL');
-    document.body.appendChild(input);
-    makeVisible(input);
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('websocket-studio');
   });
 
   it('ws-connect action disconnects first when already connected', async () => {

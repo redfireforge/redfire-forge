@@ -1,28 +1,4 @@
-/**
- * graphqlClient.ts — Unified transport abstraction for GraphQL Studio.
- *
- * Phase 2.0 Sprint 2: Implements real WebSocket subscription transport.
- * Phase 2.0 Sprint 3: Implements real SSE subscription transport via `graphql-sse`.
- * Phase 2.0 Sprint 5: Implements legacy `graphql-ws` subprotocol (vendored minimal client).
- *
- *   - HTTP transport   — wraps `gqlFetch` (Phase 1, complete).
- *   - WS transport     — `graphql-transport-ws` subprotocol via `graphql-ws` npm package (Sprint 2).
- *                        `graphql-ws` legacy subprotocol via vendored minimal client (Sprint 5).
- *   - SSE transport    — `graphql-sse` npm package (Sprint 3, distinct-connections mode).
- *
- * Architecture: Option C hybrid (§23.13.13 / §23.16.1):
- *
- *   query/mutation          → always HTTP
- *   subscription, auto      → WS modern for ws:/wss:// endpoints; SSE for /stream URL heuristic.
- *                             WS proxied (via /api/graphql/subscribe) when TLS skip or Tauri (Sprint 2.1).
- *   subscription, sse       → SSE via `graphql-sse` (distinct-connections mode).
- *
- * Usage:
- *   const transport = selectTransport(connection, 'subscription');
- *   const unsub = transport.subscribe(query, variables, opName, params, callbacks);
- *   // later:
- *   unsub();
- */
+/** Unified transport abstraction for GraphQL Studio. */
 
 import { createClient } from 'graphql-ws';
 import { createClient as createSseClient } from 'graphql-sse';
@@ -47,8 +23,6 @@ export type {
   GraphqlTransport,
   GraphqlTransportSelector,
 } from './graphqlTransportTypes';
-
-// ─── HTTP transport ───────────────────────────────────────────────────────────
 
 /**
  * HTTP transport — wraps `gqlFetch`.
@@ -137,8 +111,6 @@ export function createHttpTransport(): GraphqlTransport {
     },
   };
 }
-
-// ─── Legacy WS transport (Sprint 5 — 2A-3) ───────────────────────────────────
 
 /**
  * Vendored minimal client for the legacy `graphql-ws` WebSocket subprotocol.
@@ -497,8 +469,6 @@ export function createWsTransport(
   };
 }
 
-// ─── SSE transport (Sprint 3 — real implementation) ───────────────────────────
-
 /**
  * Server-Sent Events subscription transport using `graphql-sse`.
  *
@@ -624,8 +594,6 @@ export function createSseTransport(
   };
 }
 
-// ─── URL conversion helpers ───────────────────────────────────────────────────
-
 /**
  * Converts a WebSocket endpoint URL to its HTTP equivalent for SSE.
  *
@@ -660,11 +628,7 @@ export function deriveWsEndpoint(httpUrl: string): string {
   return httpUrl; // already ws:// / wss:// or unknown protocol
 }
 
-// ─── Proxy transports — re-exported from graphqlProxyTransports.ts ───────────
-
 export { createWsProxyTransport, createSseProxyTransport } from './graphqlProxyTransports';
-
-// ─── Transport factory / router ───────────────────────────────────────────────
 
 /**
  * Returns true when the connection config requires proxying for WS/SSE subscriptions.
@@ -733,8 +697,6 @@ export function selectTransport(
     ? _createWsProxyTransport(subprotocol, selector.auth, onStateChange)
     : createWsTransport(subprotocol, selector.auth, 5, onStateChange);
 }
-
-// ─── Incremental delivery utilities (Sprint 7 — 2D-5) ────────────────────────
 
 /**
  * Returns true if the query contains at least one `@defer` or `@stream` directive.

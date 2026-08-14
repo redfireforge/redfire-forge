@@ -5,8 +5,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from '@testing-library/react';
 import { makeVisible } from './lessons/protocols/ws-test-utils';
 import {
+  advanceToResumedPhase,
   makeLesson,
   renderDemoHub,
+  withStubbedLessonBody,
 } from './useDemoHub.coverage-helpers';
 import {
   setupUseDemoHubCoverageBeforeEach,
@@ -138,37 +140,40 @@ describe('useDemoHub — coverage gaps (session & resume)', () => {
   });
 
   it('resumeInterruptedLiveDemo runs setup and completes restored step', async () => {
-    resetLiveDemoResumeConsumeForTests();
-    persistDemoLiveSession({
-      lessonId: gqlFirstQueryLesson.id,
-      stepIndex: 0,
-      isPlaying: false,
-      speed: 1,
-      savedAt: Date.now(),
+    await withStubbedLessonBody(gqlFirstQueryLesson, async () => {
+      resetLiveDemoResumeConsumeForTests();
+      persistDemoLiveSession({
+        lessonId: gqlFirstQueryLesson.id,
+        stepIndex: 0,
+        isPlaying: false,
+        speed: 1,
+        savedAt: Date.now(),
+      });
+      const { result } = renderDemoHub(navigateToTab);
+      await advanceToResumedPhase(result, 'done');
+      expect(result.current.state.view).toBe('live');
+      expect(result.current.state.selectedLesson?.id).toBe(gqlFirstQueryLesson.id);
+      expect(result.current.stepPhase).toBe('done');
     });
-    const { result } = renderDemoHub(navigateToTab);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(13000);
-    });
-    expect(result.current.state.view).toBe('live');
-    expect(result.current.state.selectedLesson?.id).toBe(gqlFirstQueryLesson.id);
-    expect(result.current.stepPhase).toBe('done');
   });
 
   it('resumeInterruptedLiveDemo restores isPlaying when session was playing', async () => {
-    resetLiveDemoResumeConsumeForTests();
-    persistDemoLiveSession({
-      lessonId: gqlFirstQueryLesson.id,
-      stepIndex: 0,
-      isPlaying: true,
-      speed: 1,
-      savedAt: Date.now(),
+    await withStubbedLessonBody(gqlFirstQueryLesson, async () => {
+      resetLiveDemoResumeConsumeForTests();
+      persistDemoLiveSession({
+        lessonId: gqlFirstQueryLesson.id,
+        stepIndex: 0,
+        isPlaying: true,
+        speed: 1,
+        savedAt: Date.now(),
+      });
+      const { result } = renderDemoHub(navigateToTab);
+      // Resume parks playback while it replays the step, then hands it back. The
+      // replay takes a few hundred ms and auto-play advances off the step ~4s
+      // later, so sample finely enough to land inside that window.
+      await advanceToResumedPhase(result, 'done', { stepMs: 50, maxMs: 4_000 });
+      expect(result.current.state.isPlaying).toBe(true);
     });
-    const { result } = renderDemoHub(navigateToTab);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(13000);
-    });
-    expect(result.current.state.isPlaying).toBe(true);
   });
 
   it('pauseAutoPlay aborts in-flight step and clears skipReading during auto-play pause', async () => {

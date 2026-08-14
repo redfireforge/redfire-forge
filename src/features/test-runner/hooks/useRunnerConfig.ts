@@ -4,6 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig, KafkaResultsPublishConfig } from '../../../shared/types';
+import type { ApiMockTestFixtureConfig } from '../utils/apiMockTestFixture';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 import { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
@@ -59,6 +60,8 @@ export interface UseRunnerConfigResult {
   setAutoReportFormat: React.Dispatch<React.SetStateAction<ReportOptions['format']>>;
   kafkaResultsPublish: KafkaResultsPublishConfig | undefined;
   setKafkaResultsPublish: React.Dispatch<React.SetStateAction<KafkaResultsPublishConfig | undefined>>;
+  apiMockFixture: ApiMockTestFixtureConfig | undefined;
+  setApiMockFixture: React.Dispatch<React.SetStateAction<ApiMockTestFixtureConfig | undefined>>;
   configLoaded: boolean;
 }
 
@@ -90,6 +93,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
   const [autoReport, setAutoReport] = useState(false);
   const [autoReportFormat, setAutoReportFormat] = useState<ReportOptions['format']>('html');
   const [kafkaResultsPublish, setKafkaResultsPublish] = useState<KafkaResultsPublishConfig | undefined>(undefined);
+  const [apiMockFixture, setApiMockFixture] = useState<ApiMockTestFixtureConfig | undefined>(undefined);
   const [configLoaded, setConfigLoaded] = useState(false);
 
   // Load config from storage when context key changes
@@ -130,6 +134,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       setAutoReport(cfg.autoReport);
       setAutoReportFormat(cfg.autoReportFormat);
       setKafkaResultsPublish(cfg.kafkaResultsPublish);
+      setApiMockFixture(cfg.apiMockFixture);
       setConfigLoaded(true);
     });
   }, [configContextKey]);
@@ -161,11 +166,12 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       autoReport,
       autoReportFormat,
       kafkaResultsPublish,
+      apiMockFixture,
     }, configContextKey);
   }, [configLoaded, configContextKey, concurrency, iterations, selectedScenarios, weights,
     skipValidation, skipAssertions, validationOverride, forceUnordered, hostMode, customBaseUrl, executionMode,
     loadProfile, arrivalRate, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors,
-    maxErrorRate, autoReport, autoReportFormat, kafkaResultsPublish]);
+    maxErrorRate, autoReport, autoReportFormat, kafkaResultsPublish, apiMockFixture]);
 
   return {
     concurrency, setConcurrency,
@@ -191,6 +197,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
     autoReport, setAutoReport,
     autoReportFormat, setAutoReportFormat,
     kafkaResultsPublish, setKafkaResultsPublish,
+    apiMockFixture, setApiMockFixture,
     configLoaded,
   };
 }

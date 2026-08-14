@@ -442,6 +442,7 @@ export const GRPC = {
   ADVANCED_TAB: (tab: string) => `[data-testid="grpc-advanced-tab-${tab}"]`,
   LOAD_TEST_PANEL: '[data-testid="grpc-load-test-panel"]',
   LOAD_TEST_METHOD_SELECT: '[data-testid="grpc-load-test-method-select"]',
+  LOAD_TEST_CONCURRENCY: '[data-testid="grpc-load-test-concurrency"]',
   LOAD_TEST_START: '[data-testid="grpc-load-test-start-btn"]',
   LOAD_TEST_STOP: '[data-testid="grpc-load-test-stop-btn"]',
   LOAD_TEST_STATUS: '[data-testid="grpc-load-test-status"]',

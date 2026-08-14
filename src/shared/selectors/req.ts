@@ -15,6 +15,7 @@ export const REQ = {
   GALLERY_SEARCH:           '[data-testid="gallery-search-input"]',
   GALLERY_DOMAIN_REQUESTS:  '[data-testid="gallery-domain-requests"]',
   GALLERY_DOMAIN_CATALOG:   '[data-testid="gallery-domain-catalog"]',
+  GALLERY_DOMAIN_API_MOCK:  '[data-testid="gallery-domain-api-mock"]',
   GALLERY_DETAIL_PANEL:     '[data-testid="gallery-detail-panel"]',
   GALLERY_DETAIL_ACTION:    '[data-testid="gallery-detail-action"]',
   GALLERY_DETAIL_SECONDARY: '[data-testid="gallery-detail-secondary"]',
