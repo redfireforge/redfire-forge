@@ -71,9 +71,10 @@ describe('ApiMockNodeConfigs', () => {
     fireEvent.click(screen.getByTestId('api-mock-wf-isolate'));
     expect(onChange).toHaveBeenCalledWith({ isolateRun: false });
 
-    changeRowInput('Save port as', 'portVar');
+    expect(screen.getByTestId('api-mock-wf-port-vars')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('api-mock-wf-save-port'), { target: { value: 'portVar' } });
     expect(onChange).toHaveBeenCalledWith({ savePortAs: 'portVar' });
-    changeRowInput('Save base URL as', 'baseVar');
+    fireEvent.change(screen.getByTestId('api-mock-wf-save-base-url'), { target: { value: 'baseVar' } });
     expect(onChange).toHaveBeenCalledWith({ saveBaseUrlAs: 'baseVar' });
 
     fireEvent.change(screen.getByLabelText('On error'), { target: { value: 'continue' } });
@@ -118,6 +119,7 @@ describe('ApiMockNodeConfigs', () => {
       <ApiMockApplyConfig data={{ serverId: 'srv-1', onError: 'fail' }} onChange={onChange} />,
     );
     expect(screen.getByTestId('api-mock-apply-config')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-wf-apply-isolate-hint')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('api-mock-wf-server')).toBeTruthy());
     fireEvent.change(screen.getByTestId('api-mock-wf-server'), { target: { value: 'srv-2' } });
     expect(onChange).toHaveBeenCalledWith({ serverId: 'srv-2' });
@@ -126,6 +128,7 @@ describe('ApiMockNodeConfigs', () => {
 
     rerender(<ApiMockResetStateConfig data={{ serverId: '' }} onChange={onChange} />);
     expect(screen.getByTestId('api-mock-reset-config')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-wf-reset-option')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('api-mock-wf-server')).toBeTruthy());
     fireEvent.change(screen.getByTestId('api-mock-wf-server'), { target: { value: 'srv-1' } });
     expect(onChange).toHaveBeenCalledWith({ serverId: 'srv-1' });
@@ -186,15 +189,15 @@ describe('ApiMockNodeConfigs', () => {
     expect(onChange).toHaveBeenLastCalledWith({ expectedMinCount: undefined });
     changeRowInput('Max count', '');
     expect(onChange).toHaveBeenLastCalledWith({ expectedMaxCount: undefined });
-    changeRowInput('Status', '');
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-status'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ expectedStatus: undefined });
-    changeRowInput('Body contains', '');
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-body'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ expectedBodyContains: undefined });
-    changeRowInput('Header key', '');
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-header'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ expectedHeaderKey: undefined });
-    changeRowInput('Header value', '');
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-header-value'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ expectedHeaderValue: undefined });
-    changeRowInput('Last call within (ms)', '');
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-recency'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ expectedLastCallWithinMs: undefined });
 
     rerender(
@@ -204,6 +207,8 @@ describe('ApiMockNodeConfigs', () => {
     expect(onChange).toHaveBeenLastCalledWith({ routeId: 'rte-2' });
     changeRowInput('Exact count', '9');
     expect(onChange).toHaveBeenLastCalledWith({ expectedCount: 9 });
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-status'), { target: { value: '201' } });
+    expect(onChange).toHaveBeenLastCalledWith({ expectedStatus: 201 });
     fireEvent.change(screen.getByLabelText('On error'), { target: { value: 'continue' } });
     expect(onChange).toHaveBeenLastCalledWith({ onError: 'continue' });
   });

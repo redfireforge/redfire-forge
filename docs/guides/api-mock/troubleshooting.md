@@ -21,7 +21,7 @@ Confirm `http://127.0.0.1:3001` is reachable. Restart the Vite app if the UI sti
 **Fix:**
 
 1. Stop the other mock tab or process using the port.
-2. Change the server port in settings (or create a new tab — allocation probes OS listeners in 4600–4699 and skips ports already bound).
+2. Change the server port in settings to a free value — **Save settings** is blocked while another saved mock (open or parked) already claims that port. Creating a new tab also probes OS listeners in 4600–4699 and skips ports already bound.
 3. On macOS: `lsof -nP -iTCP:<port> -sTCP:LISTEN` to find leftovers from a crashed companion / standalone CLI / another Studio runtime.
 
 UI may show Stopped while a leftover process still holds the port — stop the process or pick a new port.

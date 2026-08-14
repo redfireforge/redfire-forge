@@ -4,6 +4,7 @@
  */
 export const HAR = {
   // ── Navigation ──────────────────────────────────────────────────
+  NAV_HARNESS:         '[data-testid="nav-harness"]',
   NAV_SCENARIOS:       '[data-testid="nav-tab-scenarios"]',
   NAV_RUNNER:          '[data-testid="nav-tab-runner"]',
   NAV_PARAM_RUNNER:    '[data-testid="nav-tab-param-runner"]',
@@ -84,6 +85,16 @@ export const HAR = {
   LIVE_PROGRESS:       '[data-testid="har-live-progress"]',
   COMPLETION:          '[data-testid="har-completion"]',
   VIEW_RESULTS_BTN:    '[data-testid="har-view-results"]',
+  HARNESS_MOCK_FIXTURE: '[data-testid="har-apimock-fixture"]',
+  HARNESS_MOCK_ENABLED: '[data-testid="har-apimock-fixture-enabled"]',
+  HARNESS_MOCK_SERVER:  '[data-testid="har-apimock-fixture-server"]',
+  HARNESS_MOCK_ISOLATE: '[data-testid="har-apimock-fixture-isolate"]',
+  HARNESS_MOCK_OVERRIDE:'[data-testid="har-apimock-fixture-override"]',
+  HARNESS_MOCK_VAR:     '[data-testid="har-apimock-fixture-var"]',
+  HARNESS_MOCK_START:   '[data-testid="har-apimock-fixture-start"]',
+  HARNESS_MOCK_STOPPED: '[data-testid="har-apimock-fixture-stopped"]',
+  HARNESS_MOCK_PORT:    '[data-testid="har-apimock-fixture-port"]',
+  HARNESS_MOCK_FREED_PORT: '[data-testid="har-apimock-fixture-freed-port"]',
 
   // ── Data Source (TH-5) ────────────────────────────────────────
   DS_GRID:             '.data-source-grid',

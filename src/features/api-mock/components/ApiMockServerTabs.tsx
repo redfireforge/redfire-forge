@@ -28,6 +28,8 @@ interface Props {
   onClose: (id: string) => void;
   /** Close several tabs in one confirm (Close others / Close to the right). */
   onCloseMany?: (ids: string[]) => void;
+  /** Permanently remove the server from the saved library (context menu only). */
+  onDelete?: (id: string) => void;
   onRename?: (id: string, name: string) => void;
   onDuplicate?: (id: string) => void;
   onReorder?: (fromIndex: number, toIndex: number) => void;
@@ -51,6 +53,7 @@ export function ApiMockServerTabs({
   onCreate,
   onClose,
   onCloseMany,
+  onDelete,
   onRename,
   onDuplicate,
   onReorder,
@@ -142,8 +145,11 @@ export function ApiMockServerTabs({
         else ids.forEach(id => onClose(id));
         break;
       }
+      case 'delete':
+        onDelete?.(tabId);
+        break;
     }
-  }, [ctxMenu.menuState, servers, startEditing, onDuplicate, onClose, onCloseMany]);
+  }, [ctxMenu.menuState, servers, startEditing, onDuplicate, onClose, onCloseMany, onDelete]);
 
   const handleDragStart = useCallback((e: DragEvent<HTMLDivElement>, index: number, tabId: string) => {
     if (editingTabId || !onReorder) { e.preventDefault(); return; }
@@ -257,7 +263,7 @@ export function ApiMockServerTabs({
               role="button"
               tabIndex={-1}
               aria-label={`Close ${srv.name}`}
-              title={`Close ${srv.name}`}
+              title={`Close ${srv.name} — rules stay in Saved servers`}
               onClick={e => { e.stopPropagation(); onClose(srv.id); }}
               data-testid={`api-mock-tab-close-${srv.id}`}
             ><XIcon size={12} /></span>
@@ -268,7 +274,7 @@ export function ApiMockServerTabs({
         type="button"
         className="am-icon-btn"
         aria-label="New mock server"
-        title={atLimit ? `Maximum ${API_MOCK_MAX_TABS} mock servers` : 'New mock server'}
+        title={atLimit ? `Maximum ${API_MOCK_MAX_TABS} open tabs — close one first` : 'New mock server'}
         disabled={atLimit}
         onClick={() => { if (!atLimit) onCreate(); }}
         data-testid="api-mock-tab-add"
@@ -282,6 +288,9 @@ export function ApiMockServerTabs({
               totalTabs: servers.length,
               canDuplicate: !atLimit && Boolean(onDuplicate),
               canClose: true,
+              extraItems: onDelete
+                ? [{ id: 'delete', label: 'Delete Server…', dividerBefore: true, danger: true }]
+                : [],
             })
           : [],
         handleContextMenuAction,

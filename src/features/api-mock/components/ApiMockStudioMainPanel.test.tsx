@@ -151,6 +151,25 @@ describe('ApiMockStudioMainPanel', () => {
     expect(handlers.setRoutesDrawerOpen).toHaveBeenCalledWith(false);
     fireEvent.click(screen.getByTestId('api-mock-no-route-create'));
     expect(handlers.onCreateRoute).toHaveBeenCalled();
+    expect(screen.getByTestId('api-mock-no-route').textContent).toMatch(/returns 404/);
+
+    rerender(
+      <ApiMockStudioMainPanel
+        activeServer={{ ...active, routes: [] }}
+        mainView="studio"
+        routesDrawerOpen={false}
+        transactions={[]}
+        conflictFindings={[]}
+        conflictIds={[]}
+        runtimeRunning
+        dirty={false}
+        scenarioState={null}
+        consoleLines={[]}
+        {...handlers}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-no-route').textContent).toMatch(/Listening — no rules yet/);
+    expect(screen.getByTestId('api-mock-no-route').textContent).toMatch(/GET, POST/);
 
     rerender(
       <ApiMockStudioMainPanel

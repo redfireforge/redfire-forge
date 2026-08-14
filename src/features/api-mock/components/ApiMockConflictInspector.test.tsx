@@ -71,7 +71,17 @@ describe('ApiMockConflictInspector', () => {
     );
 
     expect(screen.getByTestId('api-mock-finding-cf-1')).toBeTruthy();
-    expect(screen.getByTestId('api-mock-conflict-witness').textContent).toMatch(/GET \/users\/admin/);
+    expect(screen.getByTestId('api-mock-conflict-witness').textContent).toMatch(/GET \/users\/admin HTTP\/1\.1/);
+    expect(screen.getByTestId('api-mock-conflict-witness').textContent).toMatch(/Host: 127\.0\.0\.1:4600/);
+    expect(screen.getByTestId('api-mock-conflict-witness').textContent).toMatch(/x-tenant: acme/);
+    expect(screen.getByTestId('api-mock-conflict-detail').textContent).toMatch(/Competing rules/);
+    expect(screen.getByTestId('api-mock-conflict-detail').textContent).toMatch(/Match dimensions/);
+    expect(screen.getByTestId('api-mock-conflict-compare')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-conflict-compare').querySelector('.am-conflict-compare-left')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-conflict-compare').querySelector('.am-conflict-compare-dims')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-conflict-compare').querySelectorAll('.am-dim-row')).toHaveLength(2);
+    expect(screen.getByTestId('api-mock-conflict-compare').querySelector('.am-conflict-pair-vs')).toBeNull();
+    expect(screen.getByTestId('api-mock-conflict-goto-left').className).toMatch(/am-conflict-open-studio/);
     fireEvent.click(screen.getByTestId('api-mock-conflict-filter-duplicate'));
     expect(screen.queryByTestId('api-mock-finding-cf-1')).toBeNull();
     expect(screen.getByTestId('api-mock-finding-cf-2')).toBeTruthy();
@@ -104,6 +114,29 @@ describe('ApiMockConflictInspector', () => {
     expect(conflictPeerLabel([], 'r-a', routes)).toBeUndefined();
   });
 
+  it('exposes full rule fingerprint hashes and a same/different badge', () => {
+    render(<ApiMockConflictInspector findings={[makeFinding()]} routes={routes} />);
+    expect(screen.getByTestId('api-mock-conflict-fingerprints-summary').textContent).toMatch(/Rule fingerprints/);
+    expect(screen.getByTestId('api-mock-conflict-fingerprint-left').textContent).toBe('fp1');
+    expect(screen.getByTestId('api-mock-conflict-fingerprint-right').textContent).toBe('fp2');
+    expect(screen.getByTestId('api-mock-conflict-fingerprint-relation').textContent).toMatch(/Different hashes/);
+    const table = screen.getByTestId('api-mock-conflict-fingerprint-table');
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(2);
+    expect(table.querySelectorAll('tbody tr:first-child > *')).toHaveLength(2);
+    expect(table.textContent).toMatch(/Left/);
+    expect(table.textContent).toMatch(/Right/);
+  });
+
+  it('labels matching fingerprints as the same hash', () => {
+    render(
+      <ApiMockConflictInspector
+        findings={[makeFinding({ ruleFingerprints: ['abc123', 'abc123'] })]}
+        routes={routes}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-conflict-fingerprint-relation').textContent).toMatch(/Same hash/);
+  });
+
   it('acknowledges findings and adjusts priority via the Adjust priority menu', () => {
     const onAcknowledge = vi.fn();
     const onAdjustPriority = vi.fn();
@@ -118,11 +151,21 @@ describe('ApiMockConflictInspector', () => {
     fireEvent.click(screen.getByTestId('api-mock-conflict-acknowledge'));
     expect(onAcknowledge).toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('api-mock-conflict-adjust-priority'));
+    expect(screen.getByTestId('api-mock-conflict-prio-left').textContent).toMatch(/Raise/);
+    expect(screen.getByTestId('api-mock-conflict-prio-right').textContent).toMatch(/Raise/);
     fireEvent.click(screen.getByTestId('api-mock-conflict-prio-left'));
     expect(onAdjustPriority).toHaveBeenCalledWith('r-a', 10);
     fireEvent.click(screen.getByTestId('api-mock-conflict-adjust-priority'));
     fireEvent.click(screen.getByTestId('api-mock-conflict-prio-right'));
     expect(onAdjustPriority).toHaveBeenCalledWith('r-b', 10);
+
+    const detail = screen.getByTestId('api-mock-conflict-detail');
+    const body = detail.querySelector('.am-conflict-detail-body');
+    const actions = detail.querySelector('.am-conflict-actions');
+    expect(body).toBeTruthy();
+    expect(actions).toBeTruthy();
+    expect(body?.contains(actions)).toBe(false);
+    expect(detail.lastElementChild).toBe(actions);
   });
 
   it('shows stale acknowledgement and always lists filter kinds', () => {

@@ -7,6 +7,7 @@ import {
   collapseAppSidebar,
   deselectAllWorkflowNodes,
   expandAppSidebar,
+  fitWorkflowCanvasView,
   getSelectedWorkflowName,
   getWorkflowByName,
   openWorkflowNodeConfig,
@@ -648,6 +649,19 @@ export async function cleanupWorkflowDemoRunUi(ctx: DemoActionContext): Promise<
   await ctx.delay(200);
 }
 
+/**
+ * Fit the canvas during setup/preAction, where no ripple should be shown.
+ * Falls back to the toolbar control when the designer bridge is not mounted yet,
+ * otherwise a seeded graph can open scrolled off-screen.
+ */
+export async function fitWfCanvasQuiet(ctx: DemoActionContext): Promise<void> {
+  if (fitWorkflowCanvasView({ duration: 0 })) return;
+  const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
+  if (!fitBtn) return;
+  fitBtn.click();
+  await ctx.delay(200);
+}
+
 /** Hide the app-level Workflows list sidebar so the canvas has maximum space. */
 export async function collapseWfDemoAppSidebar(ctx: DemoActionContext): Promise<void> {
   collapseAppSidebar();
@@ -686,12 +700,17 @@ const PALETTE_BLOCK_MAP: Record<string, { category: string; subGroup?: string }>
   graphqlIntrospect:   { category: 'actions', subGroup: 'graphql' },
   grpcUnary:           { category: 'actions', subGroup: 'grpc' },
   grpcServerStream:    { category: 'actions', subGroup: 'grpc' },
+  apiMockStart:        { category: 'actions', subGroup: 'apimock' },
+  apiMockApply:        { category: 'actions', subGroup: 'apimock' },
+  apiMockResetState:   { category: 'actions', subGroup: 'apimock' },
+  apiMockStop:         { category: 'actions', subGroup: 'apimock' },
   condition:           { category: 'logic' },
   switch:              { category: 'logic' },
   loop:                { category: 'logic' },
   waitForCondition:    { category: 'logic' },
   graphqlAssert:       { category: 'logic' },
   grpcAssert:          { category: 'logic' },
+  apiMockAssertCalls:  { category: 'logic' },
   setVariable:         { category: 'data' },
   aggregate:           { category: 'data' },
   logDebug:            { category: 'data' },

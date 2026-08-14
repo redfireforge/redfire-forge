@@ -167,6 +167,27 @@ export function stubMultiTabMonacoEditor(opts: {
   return { setDemoQuery, setLocalQuery };
 }
 
+/**
+ * Record what a lesson typed into each config field, keyed by its selector.
+ *
+ * Node config helpers dismiss the modal once they save, and without the designer
+ * bridge mounted that means dropping the panel from the DOM — so the fields are
+ * already gone by the time a test could read their values back.
+ */
+export function recordConfigFieldFills(): Map<string, string> {
+  const filled = new Map<string, string>();
+  document.addEventListener(
+    'input',
+    (event) => {
+      const el = event.target as HTMLInputElement | HTMLTextAreaElement | null;
+      const testId = el?.getAttribute?.('data-testid');
+      if (el && testId) filled.set(`[data-testid="${testId}"]`, el.value);
+    },
+    true,
+  );
+  return filled;
+}
+
 /** Minimal GraphQL Studio DOM shell for mutation/subscription/variables lessons. */
 export function stubGqlStudioShell(extra = ''): void {
   document.body.innerHTML = `

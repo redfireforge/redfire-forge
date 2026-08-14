@@ -4,6 +4,7 @@
 import type {
   ApiMockRouteV1,
   ApiMockCapturedRequestV1,
+  ApiMockCapturedResponseV1,
   ApiMockTransactionV1,
   ApiMockSimulationSampleV1,
 } from '../../shared/api-mock/contracts';
@@ -95,6 +96,30 @@ export function formatJournalRequestPreview(request: ApiMockCapturedRequestV1): 
   return request.body ? `${head}\n\n${request.body}` : head;
 }
 
+function prettyJournalBody(body: string | null | undefined): string {
+  if (!body) return '';
+  const trimmed = body.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+      return body;
+    }
+  }
+  return body;
+}
+
+export function formatJournalResponsePreview(
+  response: ApiMockCapturedResponseV1 | undefined | null,
+): string {
+  if (!response) return '';
+  const status = `HTTP ${response.status}${response.reasonPhrase ? ` ${response.reasonPhrase}` : ''}`;
+  const headerLines = Object.entries(response.headers ?? {}).map(([k, v]) => `${k}: ${joinCapturedHeaderValue(k, v)}`);
+  const head = [status, ...headerLines].join('\n');
+  const body = prettyJournalBody(response.body);
+  return body ? `${head}\n\n${body}` : head;
+}
+
 export function formatTransactionCopy(tx: ApiMockTransactionV1): string {
   const req = formatJournalRequestPreview(tx.request);
   const res = tx.response
@@ -103,14 +128,30 @@ export function formatTransactionCopy(tx: ApiMockTransactionV1): string {
   return `${req}${res}`;
 }
 
-export async function copyTransactionToClipboard(tx: ApiMockTransactionV1): Promise<boolean> {
-  const text = formatTransactionCopy(tx);
+export async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    return false;
+    try {
+      const el = document.createElement('textarea');
+      el.value = text;
+      el.setAttribute('readonly', '');
+      el.style.position = 'fixed';
+      el.style.left = '-9999px';
+      document.body.appendChild(el);
+      el.select();
+      const ok = typeof document.execCommand === 'function' && document.execCommand('copy');
+      document.body.removeChild(el);
+      return Boolean(ok);
+    } catch {
+      return false;
+    }
   }
+}
+
+export async function copyTransactionToClipboard(tx: ApiMockTransactionV1): Promise<boolean> {
+  return copyTextToClipboard(formatTransactionCopy(tx));
 }
 
 /** Filter journal rows by path, status, outcome, or matched rule id/name text. */

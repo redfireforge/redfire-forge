@@ -187,12 +187,15 @@ describe('gql-schema-exploration lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
   });
 
-  it('step gql4-browse preAction ensures introspected schema', async () => {
+  it('step gql4-browse preAction accepts the green badge instead of re-introspecting', async () => {
     stubSchemaExplorerDom();
     const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-browse')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_TYPE_QUERY, 8000);
+    // A usable badge is proof enough — re-introspecting here would steal the
+    // Schema tab from the step's own action.
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
   });
 
   it('step gql4-search preAction ensures Query type selected', async () => {

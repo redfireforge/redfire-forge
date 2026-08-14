@@ -34,7 +34,7 @@ describe('ApiMockResponseExpiresPicker coverage gaps', () => {
     const d = new Date(iso);
     const pad = (n: number) => String(n).padStart(2, '0');
     const expectedDraft = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    expect(screen.getByDisplayValue(expectedDraft)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('YYYY-MM-DDTHH:MM')).toHaveValue(expectedDraft);
   });
 
   it('ignores whitespace-only draft on commit', () => {

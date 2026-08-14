@@ -26,7 +26,7 @@ Navigation reminder:
 | # | Steps | Expected |
 |---|---|---|
 | A1 | Protocols → **API Mock** | Studio shell; empty state or restored workspace |
-| A2 | Create a mock server (**Create first mock server** or tab **+**) | Tab like `Mock Server 1:4600`; listen host/port visible |
+| A2 | Create a mock server (**Create first mock server** or tab **+**) | Tab like `Mock Server 1:4600`; listen host/port visible; empty Studio explains unmatched requests **404** until a rule exists; **Start** remains enabled |
 | A3 | **Studio** → **Add route** → Match: `GET` + `/health` (Exact) | Route selected in explorer |
 | A4 | **Response** tab → body `{ "ok": true }`, status 200 | Content editor shows body |
 | A5 | Server bar → **Start** | Status **Running**; copy address works |
@@ -36,6 +36,9 @@ Navigation reminder:
 | A9 | Server bar gear or Studio tools → **Simulate** (if opened from route/examples) | Offline match without needing live traffic |
 | A10 | Rename tab (F2) or **Duplicate** server | Rename sticks; duplicate gets next port and **no secrets** |
 | A11 | **Stop** | Status **Stopped**; curl fails to connect |
+| A12 | Close the tab (× or **Close Tab**) | Tab disappears; **Saved servers** count is unchanged; landing list appears if it was the last tab |
+| A13 | **Saved servers** → **Open** on the closed server | Tab returns with its rules, examples, and settings intact |
+| A14 | Tab context menu → **Delete Server…** → confirm, then **Undo** in the toast | Server leaves the library, then returns within the ~5s window |
 
 **Web note:** If Start fails with companion unavailable, start `npm run server:dev` and retry.  
 **Tauri note:** On TLS the server bar shows **HTTP/2** (same as web). Plaintext stays HTTP/1.1 (no h2c). Companion is still used to generate certificates. Capability-warning APIs remain wired for future stubs and currently return empty.

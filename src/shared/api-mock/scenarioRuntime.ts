@@ -45,7 +45,11 @@ export function applyTransition(
   const current = scenario.states[stateKey] ?? '';
 
   if (transition.currentState != null && transition.currentState !== current) {
-    return { applied: false, reason: `Guard failed: expected "${transition.currentState}", got "${current}"`, previousState: current };
+    // Empty runtime is the unnamed start of the machine. A named required
+    // state on the selected variant is allowed to enter from here.
+    if (current !== '') {
+      return { applied: false, reason: `Guard failed: expected "${transition.currentState}", got "${current}"`, previousState: current };
+    }
   }
 
   const previousState = current;

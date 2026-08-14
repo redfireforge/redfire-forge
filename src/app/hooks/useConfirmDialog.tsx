@@ -38,8 +38,8 @@ export function useConfirmDialog() {
 
   const confirmDialogElement =
     confirmAction && (
-      <div className="confirm-overlay">
-        <div className="confirm-dialog">
+      <div className="confirm-overlay" data-testid="confirm-overlay">
+        <div className="confirm-dialog" role="dialog" aria-modal="true" data-testid="confirm-dialog">
           {confirmAction.stage === 'warning' ? (
             <>
               <div className="confirm-icon confirm-icon-warn">&#9888;</div>
@@ -47,13 +47,14 @@ export function useConfirmDialog() {
               <p className="confirm-message">{confirmAction.message}</p>
               <div className="confirm-detail">{confirmAction.detail}</div>
               <div className="confirm-actions">
-                <button className="btn-cancel" type="button" onClick={() => setConfirmAction(null)}>
+                <button className="btn-cancel" type="button" onClick={() => setConfirmAction(null)} data-testid="confirm-cancel">
                   Cancel
                 </button>
                 <button
                   className="btn-danger"
                   type="button"
                   onClick={() => setConfirmAction({ ...confirmAction, stage: 'final' })}
+                  data-testid="confirm-continue"
                 >
                   Continue
                 </button>
@@ -62,18 +63,19 @@ export function useConfirmDialog() {
           ) : (
             <>
               <div className="confirm-icon confirm-icon-danger">&#128680;</div>
-              <p className="confirm-title">{confirmAction.title ?? 'Confirm Deletion'}</p>
+              <p className="confirm-title" data-testid="confirm-title">{confirmAction.title ?? 'Confirm Deletion'}</p>
               <p className="confirm-message">{confirmAction.message}</p>
               {confirmAction.finalNote !== '' && (
                 <p className="confirm-final-note">{confirmAction.finalNote ?? 'This action cannot be undone.'}</p>
               )}
               <div className="confirm-actions">
-                <button className="btn-cancel" type="button" onClick={() => setConfirmAction(null)}>
+                <button className="btn-cancel" type="button" onClick={() => setConfirmAction(null)} data-testid="confirm-cancel">
                   Cancel
                 </button>
                 <button
                   className="btn-danger"
                   type="button"
+                  data-testid="confirm-accept"
                   onClick={() => {
                     confirmAction.onConfirm();
                     setConfirmAction(null);

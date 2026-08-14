@@ -72,17 +72,34 @@ describe('kafka-workflow-consume-wait wrapper — coverage gaps', () => {
     expect(ctx.delay).toHaveBeenCalled();
   });
 
-  it('setup clicks fit view when fit button present', async () => {
+  it('setup falls back to the fit view control when the designer bridge is absent', async () => {
     const ctx = makeCtx();
-    const fitBtn = document.createElement('button');
-    fitBtn.title = 'Fit view';
-    const clickSpy = vi.spyOn(fitBtn, 'click');
-    document.body.innerHTML = `<div data-testid="wf-canvas"></div>`;
-    document.body.appendChild(fitBtn);
+    document.body.innerHTML = `
+      <div data-testid="wf-canvas"></div>
+      <div class="wf-designer"><button title="Fit view"></button></div>
+    `;
+    const clickSpy = vi.spyOn(document.querySelector<HTMLElement>('.wf-designer button')!, 'click');
     if (kafkaWorkflowConsumeWaitLesson.setup) {
       await kafkaWorkflowConsumeWaitLesson.setup(ctx);
     }
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('setup fits through the bridge without touching the toolbar control', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div data-testid="wf-canvas"></div>
+      <div class="wf-designer"><button title="Fit view"></button></div>
+    `;
+    const clickSpy = vi.spyOn(document.querySelector<HTMLElement>('.wf-designer button')!, 'click');
+    const fitBridge = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfFitView = fitBridge;
+    if (kafkaWorkflowConsumeWaitLesson.setup) {
+      await kafkaWorkflowConsumeWaitLesson.setup(ctx);
+    }
+    expect(fitBridge).toHaveBeenCalled();
+    expect(clickSpy).not.toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__wfFitView;
   });
 
   it('wait config preActions skip modal open when wait config already visible', async () => {
@@ -113,11 +130,13 @@ describe('kafka-workflow-consume-wait wrapper — coverage gaps', () => {
         </div>
       </div>
     `;
-    const closeBtn = document.querySelector<HTMLButtonElement>('.btn-ghost')!;
-    const closeSpy = vi.spyOn(closeBtn, 'click');
+    // Footer Close rolls the config back to the pre-open snapshot, so the modal is
+    // dismissed through __wfCloseConfigModal (or, with no bridge, by dropping the shell).
+    const closeSpy = vi.spyOn(document.querySelector<HTMLButtonElement>('.btn-ghost')!, 'click');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(closeSpy).toHaveBeenCalled();
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
+    expect(closeSpy).not.toHaveBeenCalled();
   });
 
   it('cw-load-mode action closes Wait config once without dropdown churn', async () => {

@@ -254,4 +254,41 @@ describe('ApiMockResponseSelectionPanel coverage gaps', () => {
     expect(screen.getByTestId('api-mock-variant-weight')).toHaveValue(1);
     expect(screen.getByTestId('api-mock-selection-panel').textContent).toMatch(/weighted/i);
   });
+
+  it('falls back to selector when JSONPath expected is not a pair and clears empty conditions', () => {
+    function Stateful() {
+      const [variant, setVariant] = useState<ApiMockResponseVariantV1>({
+        ...createDefaultResponse('resp-1'),
+        isDefault: false,
+        conditions: {
+          id: 'pg',
+          combinator: 'all',
+          children: [{
+            id: 'p1',
+            source: 'body',
+            selector: '$.sku',
+            operator: 'jsonPath_equals',
+            expected: 'MISSING',
+          }],
+        },
+      });
+      return (
+        <ApiMockResponseSelectionPanel
+          route={makeRoute({ responses: [variant] })}
+          activeVariant={variant}
+          conditionLabel="Any"
+          onUpdateRoute={vi.fn()}
+          onUpdateVariant={patch => setVariant(v => ({ ...v, ...patch }))}
+          onModeChange={vi.fn()}
+        />
+      );
+    }
+    render(<Stateful />);
+    expect(screen.getByTestId('api-mock-selection-condition-path')).toHaveValue('$.sku');
+    expect(screen.getByTestId('api-mock-selection-condition-value')).toHaveValue('MISSING');
+    fireEvent.change(screen.getByTestId('api-mock-selection-condition-path'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('api-mock-selection-condition-value'), { target: { value: '' } });
+    expect(screen.getByTestId('api-mock-selection-condition-path')).toHaveValue('');
+    expect(screen.getByTestId('api-mock-selection-condition-value')).toHaveValue('');
+  });
 });

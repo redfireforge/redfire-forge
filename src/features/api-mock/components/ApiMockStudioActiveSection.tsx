@@ -57,7 +57,7 @@ interface ApiMockStudioActiveSectionProps {
   onAcknowledgeConflict: (finding: ApiMockConflictFindingV1) => void;
   onAdjustPriority: (routeId: string, delta: number) => void;
   onOpenInRequests: (tx: ApiMockTransactionV1) => void;
-  onCreateRouteFromTransaction: (tx: ApiMockTransactionV1) => void;
+  onCreateRouteFromTransaction: (tx: ApiMockTransactionV1) => string | void;
   onSaveSampleFromTransaction: (tx: ApiMockTransactionV1) => void;
   onCopyTransaction: (tx: ApiMockTransactionV1) => void;
   onUpdateSample: (sample: ApiMockSimulationSampleV1) => void;

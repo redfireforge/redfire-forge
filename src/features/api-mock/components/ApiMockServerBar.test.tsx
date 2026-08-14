@@ -58,6 +58,10 @@ describe('ApiMockServerBar', () => {
 
     expect(screen.getByText('Stopped')).toBeTruthy();
     expect(screen.getByTestId('api-mock-address').textContent).toContain('http://127.0.0.1:4600/api');
+    expect(screen.getByTestId('api-mock-start')).toHaveAttribute(
+      'title',
+      'Start the listener. With no rules, every request returns 404 until you add one.',
+    );
     fireEvent.click(screen.getByTestId('api-mock-start'));
     expect(onStart).toHaveBeenCalled();
   });

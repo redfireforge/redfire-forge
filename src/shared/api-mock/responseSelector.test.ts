@@ -116,6 +116,16 @@ describe('selectStateResponse', () => {
     const v = selectStateResponse(r, scenario, 'flow');
     expect(v?.transition?.currentState).toBeUndefined();
   });
+
+  it('starts the machine on the first named state when every variant is guarded', () => {
+    const r = route('state', [
+      { transition: { currentState: 'EMPTY', targetState: 'HAS_ITEMS' } },
+      { transition: { currentState: 'HAS_ITEMS', targetState: 'CHECKED_OUT' } },
+    ]);
+    const scenario = createInitialState();
+    const v = selectStateResponse(r, scenario, 'flow');
+    expect(v?.transition?.currentState).toBe('EMPTY');
+  });
 });
 
 describe('isVariantEligible', () => {

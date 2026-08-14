@@ -36,6 +36,9 @@ describe('ApiMockWorkspaceNav', () => {
 
     fireEvent.click(screen.getByTestId('api-mock-export'));
     expect(screen.getByTestId('api-mock-export-menu-panel')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-export-group-workspace')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-export-group-server')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-export-group-interop')).toBeTruthy();
     fireEvent.click(screen.getByTestId('api-mock-export-workspace'));
     expect(onExport).toHaveBeenCalledWith({ scope: 'workspace', format: 'json' });
 

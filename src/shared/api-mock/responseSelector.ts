@@ -66,9 +66,15 @@ export function selectStateResponse(
 ): ApiMockResponseVariantV1 | undefined {
   const current = getState(scenario, stateKey);
   const enabled = route.responses.filter(r => r.enabled);
+  if (enabled.length === 0) return undefined;
   const guarded = enabled.find(r => r.transition?.currentState === current);
   if (guarded) return guarded;
-  return enabled.find(r => !r.transition?.currentState);
+  const unguarded = enabled.find(r => !r.transition?.currentState);
+  if (unguarded) return unguarded;
+  // No recorded state yet, and every variant names a required state: the first
+  // card is the start of the machine (e.g. EMPTY → HAS_ITEMS).
+  if (current === '') return enabled[0];
+  return undefined;
 }
 
 /**

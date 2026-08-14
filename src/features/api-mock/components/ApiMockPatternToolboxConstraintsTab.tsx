@@ -53,6 +53,7 @@ export function ApiMockPatternToolboxConstraintsTab({
                 size="sm"
                 className="am-cs"
                 aria-label="Constraint source"
+                data-testid={`api-mock-toolbox-constraint-source-${c.id}`}
               />
               <input
                 className="am-input mono"
@@ -69,6 +70,7 @@ export function ApiMockPatternToolboxConstraintsTab({
                 size="sm"
                 className="am-cs"
                 aria-label="Constraint operator"
+                data-testid={`api-mock-toolbox-constraint-operator-${c.id}`}
               />
               <input
                 className="am-input mono"

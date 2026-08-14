@@ -143,6 +143,30 @@ describe('ApiMockServerTabs', () => {
     expect(onCloseMany).toHaveBeenCalledWith(['srv-3']);
   });
 
+  it('offers Delete Server only when a delete handler is wired', () => {
+    const onDelete = vi.fn();
+    const servers = [makeServer('srv-1', 'Mock Server 1', 4600)];
+    const { rerender } = render(
+      <ApiMockServerTabs servers={servers} activeServerId="srv-1" onSelect={vi.fn()} onCreate={vi.fn()} onClose={vi.fn()} />,
+    );
+    fireEvent.contextMenu(screen.getByTestId('api-mock-tab-srv-1'));
+    expect(screen.queryByTestId('studio-tab-ctx-delete')).toBeNull();
+
+    rerender(
+      <ApiMockServerTabs
+        servers={servers}
+        activeServerId="srv-1"
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onClose={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByTestId('api-mock-tab-srv-1'));
+    fireEvent.click(screen.getByTestId('studio-tab-ctx-delete'));
+    expect(onDelete).toHaveBeenCalledWith('srv-1');
+  });
+
   it('covers remaining rename, close, and drag branches', () => {
     const onRename = vi.fn();
     const onSelect = vi.fn();

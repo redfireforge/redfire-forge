@@ -3,7 +3,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
 import { ApiMockDock } from './ApiMockDock';
 
@@ -60,6 +60,21 @@ describe('ApiMockDock', () => {
     expect(screen.getByTestId('api-mock-runtime-sample-curl').textContent).toContain('/users');
   });
 
+  it('opens the requested Runtime tab on the first paint', () => {
+    render(
+      <ApiMockDock
+        variant="page"
+        serverAddress="http://127.0.0.1:4600"
+        routes={baseRoutes()}
+        requestedTab="variables"
+        onVariablesChange={vi.fn()}
+        transactions={[]}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-dock-variables')).toBeTruthy();
+    expect(screen.queryByTestId('api-mock-runtime-guide')).toBeNull();
+  });
+
   it('exposes mockup Runtime tabs including Settings and Console', () => {
     const onServerPatch = vi.fn();
     const server = {
@@ -109,15 +124,19 @@ describe('ApiMockDock', () => {
     fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('GET /users');
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('Client-Cert-Subject: CN=integration-client');
+    expect(screen.getByTestId('api-mock-tx-request').textContent).toContain('GET /users');
+    expect(screen.getByTestId('api-mock-tx-response').textContent).toContain('HTTP 200');
+    expect(screen.getByTestId('api-mock-tx-io').children).toHaveLength(2);
     fireEvent.click(screen.getByTestId('api-mock-journal-clear'));
     expect(onClearTransactions).toHaveBeenCalled();
   });
 
   it('exposes journal Open in Requests / Create route / Copy actions', () => {
     const onOpenInRequests = vi.fn();
-    const onCreateRouteFromTransaction = vi.fn();
+    const onCreateRouteFromTransaction = vi.fn(() => 'route-new');
     const onSaveSampleFromTransaction = vi.fn();
     const onCopyTransaction = vi.fn();
+    const onSelectRoute = vi.fn();
     const tx = {
       id: 'tx-1', serverId: 'srv-1', generation: 2, receivedAt: '2026-08-12T00:00:00.000Z', completedAt: '2026-08-12T00:00:00.000Z',
       request: { method: 'GET', path: '/users', rawPath: '/users', query: {}, cookies: {}, headers: {}, body: null, bodyTruncated: false, receivedAt: '2026-08-12T00:00:00.000Z' },
@@ -129,6 +148,7 @@ describe('ApiMockDock', () => {
       <ApiMockDock
         routes={baseRoutes()}
         transactions={[tx]}
+        onSelectRoute={onSelectRoute}
         onOpenInRequests={onOpenInRequests}
         onCreateRouteFromTransaction={onCreateRouteFromTransaction}
         onSaveSampleFromTransaction={onSaveSampleFromTransaction}
@@ -136,10 +156,21 @@ describe('ApiMockDock', () => {
       />,
     );
     fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
+    expect(screen.getByTestId('api-mock-tx-splitter')).toBeTruthy();
     fireEvent.click(screen.getByTestId('api-mock-tx-open-requests'));
     fireEvent.click(screen.getByTestId('api-mock-tx-create-route'));
+    expect(screen.getByTestId('api-mock-tx-create-route').textContent).toContain('Created');
+    expect(screen.getByTestId('api-mock-tx-notice').textContent).toMatch(/Draft route created/i);
+    fireEvent.click(screen.getByTestId('api-mock-tx-open-created'));
+    expect(onSelectRoute).toHaveBeenCalledWith('route-new');
     fireEvent.click(screen.getByTestId('api-mock-tx-save-example'));
+    expect(screen.getByTestId('api-mock-tx-save-example').textContent).toContain('Saved');
+    fireEvent.click(screen.getByTestId('api-mock-tx-view-example'));
+    expect(onSelectRoute).toHaveBeenCalledWith('r1');
     fireEvent.click(screen.getByTestId('api-mock-tx-copy'));
+    expect(screen.getByTestId('api-mock-tx-copy').textContent).toContain('Copied');
+    fireEvent.click(screen.getByTestId('api-mock-tx-matched-route'));
+    expect(onSelectRoute).toHaveBeenCalledWith('r1');
     expect(onOpenInRequests).toHaveBeenCalled();
     expect(onCreateRouteFromTransaction).toHaveBeenCalled();
     expect(onSaveSampleFromTransaction).toHaveBeenCalled();
@@ -164,14 +195,30 @@ describe('ApiMockDock', () => {
       },
     ] as any;
 
-    render(<ApiMockDock routes={baseRoutes()} transactions={txs} />);
+    const onCreate = vi.fn();
+    const onSave = vi.fn();
+    render(
+      <ApiMockDock
+        routes={baseRoutes()}
+        transactions={txs}
+        onCreateRouteFromTransaction={onCreate}
+        onSaveSampleFromTransaction={onSave}
+      />,
+    );
     fireEvent.click(screen.getByTestId('api-mock-tx-tx-amb'));
     expect(screen.getByTestId('api-mock-tx-tx-amb').textContent).toContain('ambiguous');
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('POST /unknown?q=1');
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('accept: application/json');
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('payload');
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('gen 1');
-    expect(screen.getByTestId('api-mock-tx-detail').textContent).not.toContain('Response');
+    expect(screen.getByTestId('api-mock-tx-response').textContent).toMatch(/No response captured/i);
+    expect(screen.getByTestId('api-mock-tx-create-route').className).toContain('primary');
+    fireEvent.click(screen.getByTestId('api-mock-tx-create-route'));
+    expect(onCreate).toHaveBeenCalled();
+    expect(screen.queryByTestId('api-mock-tx-open-created')).toBeNull();
+    fireEvent.click(screen.getByTestId('api-mock-tx-save-example'));
+    expect(onSave).toHaveBeenCalled();
+    expect(screen.getByTestId('api-mock-tx-notice').textContent).toMatch(/Attach it to a rule/i);
 
     fireEvent.click(screen.getByTestId('api-mock-tx-tx-err'));
     expect(screen.getByTestId('api-mock-tx-tx-err').textContent).toContain('500');
@@ -204,7 +251,7 @@ describe('ApiMockDock', () => {
     openTab('Conflicts');
     expect(screen.getByTestId('api-mock-conflict-inspector')).toBeTruthy();
     expect(screen.getByTestId('api-mock-finding-cf-1').textContent).toMatch(/Potential overlap/i);
-    expect(screen.getByTestId('api-mock-conflict-detail').textContent).toMatch(/Dimension analysis/i);
+    expect(screen.getByTestId('api-mock-conflict-detail').textContent).toMatch(/Match dimensions/i);
   });
 
   it('renders static state model, masked variables, and live state reset', () => {
@@ -222,10 +269,12 @@ describe('ApiMockDock', () => {
     expect(screen.getByTestId('api-mock-dock-state-list').textContent).toContain('done');
     expect(screen.getByTestId('api-mock-dock-state-list').textContent).toContain('hits');
 
-    rerender(<ApiMockDock routes={baseRoutes()} variables={variables} running liveState={{ states: { default: 'done' }, counters: { hits: 2 } }} onResetState={onResetState} />);
+    rerender(<ApiMockDock routes={baseRoutes()} variables={variables} running liveState={{ states: { default: 'done' }, counters: { hits: 2 }, sequencePositions: { 'route-post-cart': 1 } }} onResetState={onResetState} />);
     openTab('State');
     expect(screen.getByTestId('api-mock-dock-state-live').textContent).toContain('default = done');
     expect(screen.getByTestId('api-mock-dock-state-live').textContent).toContain('hits: 2');
+    expect(screen.getByTestId('api-mock-dock-seq-row').textContent).toMatch(/seq /);
+    expect(screen.getByTestId('api-mock-dock-seq-row').textContent).toContain('1');
     fireEvent.click(screen.getByTestId('api-mock-state-reset'));
     expect(onResetState).toHaveBeenCalled();
   });
@@ -296,5 +345,32 @@ describe('ApiMockDock', () => {
     render(<ApiMockDock routes={baseRoutes()} consoleLines={[{ message: 'bare line' }]} />);
     openConsole();
     expect(screen.getByTestId('api-mock-dock-console').textContent).toContain('bare line');
+  });
+
+  it('copies request and response panes and exposes a keyboard-resizable splitter', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const tx = {
+      id: 'tx-1', serverId: 'srv-1', generation: 2, receivedAt: '2026-08-12T00:00:00.000Z', completedAt: '2026-08-12T00:00:00.000Z',
+      request: { method: 'GET', path: '/users', rawPath: '/users', query: {}, cookies: {}, headers: {}, body: null, bodyTruncated: false, receivedAt: '2026-08-12T00:00:00.000Z' },
+      response: { status: 404, headers: {}, cookies: [], body: 'missing', bodyTruncated: false, durationMs: 3, generationAtResponse: 2 },
+      outcome: 'unmatched', matchedRouteId: undefined, matchedResponseId: undefined, durationMs: 3,
+      explanation: { normalizedRequest: { method: 'GET', path: '/users', decodedPath: '/users', pathSegments: ['users'], query: {}, headerKeys: [], cookieKeys: [], bodySizeBytes: 0 }, candidates: [], policyDecision: { policy: 'highest_priority', equalPriorityPolicy: 'reject', matchedCount: 0, highestPriority: 0, tiedAtHighest: 0, outcome: 'unmatched' }, nearMisses: [] },
+    } as any;
+    render(<ApiMockDock routes={baseRoutes()} transactions={[tx]} />);
+    fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
+    expect(screen.getByTestId('api-mock-tx-io').getAttribute('style')).toBeNull();
+    expect(document.querySelector('.am-tx-time')).toBeTruthy();
+    expect(document.querySelector('.am-tx-status')).toBeTruthy();
+    const splitter = screen.getByTestId('api-mock-tx-splitter');
+    fireEvent.mouseDown(splitter, { clientX: 300 });
+    fireEvent.keyDown(splitter, { key: 'ArrowRight' });
+    fireEvent.click(screen.getByTestId('api-mock-tx-copy-request'));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('api-mock-tx-copy-response'));
+    await waitFor(() => expect(writeText.mock.calls.length).toBeGreaterThan(1));
+    expect(screen.getByTestId('api-mock-tx-response').textContent).toContain('404');
+    fireEvent.click(screen.getByTestId('api-mock-tx-copy'));
+    expect(screen.getByTestId('api-mock-tx-copy').textContent).toContain('Copied');
   });
 });

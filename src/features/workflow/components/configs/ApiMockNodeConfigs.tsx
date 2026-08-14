@@ -108,13 +108,25 @@ export function ApiMockStartConfig({
         />
         <span className="wf-hint">Ephemeral server id + auto cleanup</span>
       </div>
-      <div className="wf-form-row">
-        <label>Save port as</label>
-        <input value={data.savePortAs ?? 'mockPort'} onChange={e => onChange({ savePortAs: e.target.value })} />
-      </div>
-      <div className="wf-form-row">
-        <label>Save base URL as</label>
-        <input value={data.saveBaseUrlAs ?? 'mockBaseUrl'} onChange={e => onChange({ saveBaseUrlAs: e.target.value })} />
+      <div data-testid="api-mock-wf-port-vars">
+        <div className="wf-form-row">
+          <label>Save port as</label>
+          <input
+            value={data.savePortAs ?? 'mockPort'}
+            onChange={e => onChange({ savePortAs: e.target.value })}
+            data-testid="api-mock-wf-save-port"
+            aria-label="Save port as"
+          />
+        </div>
+        <div className="wf-form-row">
+          <label>Save base URL as</label>
+          <input
+            value={data.saveBaseUrlAs ?? 'mockBaseUrl'}
+            onChange={e => onChange({ saveBaseUrlAs: e.target.value })}
+            data-testid="api-mock-wf-save-base-url"
+            aria-label="Save base URL as"
+          />
+        </div>
       </div>
       <OnErrorRow value={data.onError} onChange={onError => onChange({ onError })} />
     </div>
@@ -132,7 +144,9 @@ export function ApiMockApplyConfig({
   return (
     <div className="wf-config-section" data-testid="api-mock-apply-config">
       <ServerPicker value={data.serverId} onChange={serverId => onChange({ serverId })} servers={servers} />
-      <p className="wf-hint">For isolated runs, set serverId to `{'{{mockServerId}}'}` from Start.</p>
+      <p className="wf-hint" data-testid="api-mock-wf-apply-isolate-hint">
+        For isolated runs, set serverId to `{'{{mockServerId}}'}` from Start.
+      </p>
       <OnErrorRow value={data.onError} onChange={onError => onChange({ onError })} />
     </div>
   );
@@ -149,6 +163,9 @@ export function ApiMockResetStateConfig({
   return (
     <div className="wf-config-section" data-testid="api-mock-reset-config">
       <ServerPicker value={data.serverId} onChange={serverId => onChange({ serverId })} servers={servers} />
+      <p className="wf-hint" data-testid="api-mock-wf-reset-option">
+        Rewinds scenario state, sequence cursors, and match counters on the running listener.
+      </p>
       <OnErrorRow value={data.onError} onChange={onError => onChange({ onError })} />
     </div>
   );
@@ -213,6 +230,8 @@ export function ApiMockAssertCallsConfig({
           type="number"
           value={data.expectedMinCount ?? ''}
           onChange={e => onChange({ expectedMinCount: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+          data-testid="api-mock-wf-assert-min"
+          aria-label="Min call count"
         />
       </div>
       <div className="wf-form-row">
@@ -229,19 +248,36 @@ export function ApiMockAssertCallsConfig({
           type="number"
           value={data.expectedStatus ?? ''}
           onChange={e => onChange({ expectedStatus: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+          data-testid="api-mock-wf-assert-status"
+          aria-label="Expected status"
         />
       </div>
       <div className="wf-form-row">
         <label>Body contains</label>
-        <input value={data.expectedBodyContains ?? ''} onChange={e => onChange({ expectedBodyContains: e.target.value || undefined })} />
+        <input
+          value={data.expectedBodyContains ?? ''}
+          onChange={e => onChange({ expectedBodyContains: e.target.value || undefined })}
+          data-testid="api-mock-wf-assert-body"
+          aria-label="Body contains"
+        />
       </div>
       <div className="wf-form-row">
         <label>Header key</label>
-        <input value={data.expectedHeaderKey ?? ''} onChange={e => onChange({ expectedHeaderKey: e.target.value || undefined })} />
+        <input
+          value={data.expectedHeaderKey ?? ''}
+          onChange={e => onChange({ expectedHeaderKey: e.target.value || undefined })}
+          data-testid="api-mock-wf-assert-header"
+          aria-label="Header key"
+        />
       </div>
       <div className="wf-form-row">
         <label>Header value</label>
-        <input value={data.expectedHeaderValue ?? ''} onChange={e => onChange({ expectedHeaderValue: e.target.value || undefined })} />
+        <input
+          value={data.expectedHeaderValue ?? ''}
+          onChange={e => onChange({ expectedHeaderValue: e.target.value || undefined })}
+          data-testid="api-mock-wf-assert-header-value"
+          aria-label="Header value"
+        />
       </div>
       <div className="wf-form-row">
         <label>Last call within (ms)</label>
@@ -251,6 +287,8 @@ export function ApiMockAssertCallsConfig({
           onChange={e => onChange({
             expectedLastCallWithinMs: e.target.value ? parseInt(e.target.value, 10) : undefined,
           })}
+          data-testid="api-mock-wf-assert-recency"
+          aria-label="Last call within milliseconds"
         />
       </div>
       <OnErrorRow value={data.onError} onChange={onError => onChange({ onError })} />

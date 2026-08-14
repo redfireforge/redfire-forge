@@ -24,6 +24,7 @@ interface ImportOptions {
 interface Props {
   folders?: ApiMockRouteFolderV1[];
   initialSource?: ApiMockImportSourceId;
+  lastNativeExport?: string;
   onImport: (routes: ApiMockRouteV1[], options: ImportOptions) => void;
   onCancel: () => void;
 }
@@ -66,7 +67,7 @@ interface RequestPick {
 /**
  * Mockup 06 Import & Promotion — source cards | review | preview.
  */
-export function ApiMockImportReview({ folders = [], initialSource = 'curl', onImport, onCancel }: Props) {
+export function ApiMockImportReview({ folders = [], initialSource = 'curl', lastNativeExport, onImport, onCancel }: Props) {
   const [source, setSource] = useState<ImportSource>(initialSource);
   const [curlInput, setCurlInput] = useState('');
   const [pasteInput, setPasteInput] = useState('');
@@ -98,6 +99,16 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
     if (folderSelection === '__new__') return '+ Create new folder';
     return folders.find(f => f.id === folderSelection)?.name ?? '+ Create new folder';
   }, [folderSelection, folders]);
+
+  const filteredCatalogPicks = useMemo(
+    () => catalogPicks.filter(p => !catalogFilter || p.label.toLowerCase().includes(catalogFilter) || p.method.toLowerCase().includes(catalogFilter)),
+    [catalogPicks, catalogFilter],
+  );
+
+  const filteredRequestPicks = useMemo(
+    () => requestPicks.filter(p => !requestFilter || p.label.toLowerCase().includes(requestFilter) || p.method.toLowerCase().includes(requestFilter)),
+    [requestPicks, requestFilter],
+  );
 
   useEffect(() => { setPreview(null); }, [selectedCatalog, selectedRequests]);
 
@@ -197,6 +208,10 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
       ...(folderId ? { folderId } : {}),
     }))
   ), [defaultPriority, folderId]);
+
+  useEffect(() => {
+    setPreview(prev => (prev ? { ...prev, routes: applyFolderPriority(prev.routes) } : prev));
+  }, [applyFolderPriority]);
 
   const handleParseCurl = () => {
     if (!curlInput.trim()) return;
@@ -323,6 +338,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
                   type="button"
                   className={`am-folder-option${folderSelection === '__new__' ? ' active' : ''}`}
                   onClick={() => { setFolderSelection('__new__'); setFolderDropdownOpen(false); }}
+                  data-testid="api-mock-import-folder-new"
                 >
                   + Create new folder
                 </button>
@@ -369,9 +385,14 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
           ))}
         </div>
       </div>
+      {mode === 'replace' && (
+        <div className="am-notice danger" style={{ margin: '8px 12px 0' }} data-testid="api-mock-import-replace-warning">
+          <span>Replace deletes every existing rule on this server and puts the import in their place. Merge and Import as copy do not.</span>
+        </div>
+      )}
 
       <div className="am-import-layout">
-        <aside className="am-import-sources">
+        <aside className="am-import-sources" data-testid="api-mock-import-sources">
           <div className="am-section-heading">Source</div>
           {SOURCES.map(s => (
             <button
@@ -434,6 +455,16 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
                 placeholder={source === 'openapi' ? 'Paste OpenAPI 3.x / Swagger JSON or YAML…' : source === 'har' ? 'Paste HAR JSON…' : 'Paste JSON…'}
                 data-testid="api-mock-import-paste"
               />
+              {source === 'native' && lastNativeExport && (
+                <button
+                  type="button"
+                  className="am-btn small"
+                  data-testid="api-mock-import-last-export"
+                  onClick={() => { setPasteInput(lastNativeExport); setPasteFormatError(''); }}
+                >
+                  Use last export
+                </button>
+              )}
               <label className="am-btn small" style={{ display: 'inline-flex', alignSelf: 'flex-start' }}>
                 Choose file
                 <input
@@ -462,7 +493,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
                 <span className="am-spacer" />
                 {catalogPicks.length > 0 && (
                   <span className="am-pick-actions">
-                    <button type="button" className="am-btn small ghost" onClick={() => setSelectedCatalog(new Set(catalogPicks.map(p => p.key)))}>Select all</button>
+                    <button type="button" className="am-btn small ghost" onClick={() => setSelectedCatalog(new Set(filteredCatalogPicks.map(p => p.key)))} data-testid="api-mock-import-catalog-select-all">Select all</button>
                     <button type="button" className="am-btn small ghost" onClick={() => setSelectedCatalog(new Set())}>None</button>
                   </span>
                 )}
@@ -478,7 +509,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
                 />
               )}
               <div className="am-pick-list" data-testid="api-mock-import-catalog-list">
-                {catalogPicks.filter(p => !catalogFilter || p.label.toLowerCase().includes(catalogFilter) || p.method.toLowerCase().includes(catalogFilter)).map(p => (
+                {filteredCatalogPicks.map(p => (
                   <label key={p.key} className={`am-pick-row${selectedCatalog.has(p.key) ? ' selected' : ''}`}>
                     <input
                       type="checkbox"
@@ -514,7 +545,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
                 <span className="am-spacer" />
                 {requestPicks.length > 0 && (
                   <span className="am-pick-actions">
-                    <button type="button" className="am-btn small ghost" onClick={() => setSelectedRequests(new Set(requestPicks.map(p => p.key)))}>Select all</button>
+                    <button type="button" className="am-btn small ghost" onClick={() => setSelectedRequests(new Set(filteredRequestPicks.map(p => p.key)))} data-testid="api-mock-import-requests-select-all">Select all</button>
                     <button type="button" className="am-btn small ghost" onClick={() => setSelectedRequests(new Set())}>None</button>
                   </span>
                 )}
@@ -527,7 +558,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
                 />
               )}
               <div className="am-pick-list" data-testid="api-mock-import-requests-list">
-                {requestPicks.filter(p => !requestFilter || p.label.toLowerCase().includes(requestFilter) || p.method.toLowerCase().includes(requestFilter)).map(p => (
+                {filteredRequestPicks.map(p => (
                   <label key={p.key} className={`am-pick-row${selectedRequests.has(p.key) ? ' selected' : ''}`}>
                     <input
                       type="checkbox"
@@ -571,14 +602,14 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
                 </div>
               ))}
               {preview.lossReport.length > 0 && (
-                <>
+                <div data-testid="api-mock-import-loss">
                   <div className="am-section-heading">Loss report</div>
                   {preview.lossReport.map((line, i) => (
                     <div key={i} className="am-notice warning" style={{ marginBottom: 4 }}>
                       <span>{line}</span>
                     </div>
                   ))}
-                </>
+                </div>
               )}
               <div className="am-section-heading">
                 Generated route{preview.routes.length > 1 ? `s (${preview.routes.length})` : ''}
@@ -595,7 +626,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', onIm
                   </div>
                   <div className="am-form-row">
                     <div className="am-form-label">Path</div>
-                    <div className="am-form-control"><span className="am-mono">{primaryRoute.path.value}</span></div>
+                    <div className="am-form-control"><span className="am-mono" data-testid="api-mock-import-preview-path">{primaryRoute.path.value}</span></div>
                   </div>
                   <div className="am-form-row">
                     <div className="am-form-label">Priority</div>

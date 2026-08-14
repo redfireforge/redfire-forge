@@ -57,12 +57,34 @@ describe('ApiMockConflictInspector coverage gaps', () => {
     expect(screen.getByTestId('api-mock-conflict-detail').textContent).toMatch(/409|reject ambiguous/i);
     expect(screen.getByTestId('api-mock-conflict-detail').textContent).toContain('Method differs');
 
+    expect(screen.getByTestId('api-mock-conflict-dimensions')).toBeTruthy();
+    expect(screen.getAllByTestId('api-mock-conflict-dim-row').length).toBeGreaterThan(0);
+    expect(document.querySelector('[data-testid="api-mock-conflict-dim-row"][data-result="unknown"]')).toBeTruthy();
+
     fireEvent.click(screen.getByTestId('api-mock-conflict-goto-right'));
     expect(onSelectRoute).toHaveBeenCalledWith('r-b');
 
     fireEvent.click(screen.getByTestId('api-mock-conflict-filter-duplicate'));
     rerender(<ApiMockConflictInspector findings={[makeFinding()]} routes={routes} focusRouteId="r-b" onSelectRoute={onSelectRoute} />);
+    expect(screen.getByTestId('api-mock-conflict-filter-empty')).toBeTruthy();
     expect(screen.getByText('No findings in this filter.')).toBeTruthy();
+  });
+
+  it('scrolls the Adjust priority menu into view when it opens', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    render(
+      <ApiMockConflictInspector
+        findings={[makeFinding()]}
+        routes={routes}
+        onAdjustPriority={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-conflict-adjust-priority'));
+    expect(screen.getByTestId('api-mock-conflict-prio-menu')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-conflict-prio-left').textContent).toMatch(/Raise/);
+    expect(screen.getByTestId('api-mock-conflict-prio-right').textContent).toMatch(/Raise/);
+    expect(scrollIntoView).toHaveBeenCalled();
   });
 
   it('covers empty findings and peer-label fallback when the peer route is missing', () => {

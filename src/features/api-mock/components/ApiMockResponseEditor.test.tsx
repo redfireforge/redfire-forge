@@ -19,7 +19,7 @@ const { createAdapter } = vi.hoisted(() => ({
 }));
 vi.mock('../../../shared/components/data-mapper/DataMapperModal', () => ({
   default: ({ onSave, onCancel }: { onSave: (v: string) => void; onCancel: () => void }) => (
-    <div data-testid="api-mock-body-mapper">
+    <div>
       <button type="button" data-testid="api-mock-body-mapper-save" onClick={() => onSave('{"mapped":true}')}>save</button>
       <button type="button" data-testid="api-mock-body-mapper-cancel" onClick={onCancel}>cancel</button>
     </div>
@@ -168,7 +168,13 @@ describe('ApiMockResponseEditor', () => {
     expect(screen.getByDisplayValue('X-Debug')).toBeTruthy();
     expect(screen.getByDisplayValue('sid')).toBeTruthy();
     expect(screen.getByDisplayValue('mode')).toBeTruthy();
-    expect(screen.getByTestId('api-mock-cookie-httpOnly-c1')).toBeChecked();
+    expect(screen.getAllByTestId('api-mock-cookie-httpOnly')[0]).toBeChecked();
+    const help = screen.getByTestId('api-mock-cookie-flag-help').textContent ?? '';
+    expect(help).toMatch(/HttpOnly/);
+    expect(help).toMatch(/Secure/);
+    expect(help).toMatch(/SameSite=Strict/);
+    expect(help).toMatch(/SameSite=Lax/);
+    expect(help).toMatch(/SameSite=None/);
   });
 
   it('adds editable cookies and selects fault cards', () => {
@@ -218,10 +224,13 @@ describe('ApiMockResponseEditor', () => {
   it('renders preview pane, empty placeholders, and helper notice', () => {
     render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={vi.fn()} />);
     expect(screen.getByTestId('api-mock-response-preview')).toBeTruthy();
+    expect(screen.getByText(/Template helpers:/i)).toBeTruthy();
+    expect(document.querySelector('.am-editor-body--fill')).toBeTruthy();
+    expect(document.querySelector('.am-preview-timeline')).toBeTruthy();
     openResponseTab('headers');
     expect(screen.getByText('No custom headers.')).toBeTruthy();
     expect(screen.getByText('No cookies.')).toBeTruthy();
-    expect(screen.getByText(/Template helpers:/i)).toBeTruthy();
+    expect(screen.queryByText(/Template helpers:/i)).toBeNull();
     expect(screen.getByTestId('api-mock-variant-tab-resp-1').textContent).toMatch(/Default/i);
   });
 
@@ -265,5 +274,99 @@ describe('ApiMockResponseEditor', () => {
     };
     render(<ApiMockResponseEditor route={makeRoute({ responses: [xml] })} onUpdateRoute={vi.fn()} />);
     expect(screen.getByTestId('api-mock-body-map')).toBeDisabled();
+  });
+
+  it('renders a sample request and resolved helpers in the preview pane', () => {
+    const templated = {
+      ...createDefaultResponse('resp-1'),
+      body: {
+        kind: 'json' as const,
+        contentType: 'application/json',
+        content: '{"id":"{{pathParam \'id\'}}","tenant":"{{variables.tenant}}"}',
+      },
+    };
+    render(
+      <ApiMockResponseEditor
+        route={makeRoute({
+          path: { kind: 'parameterized', value: '/products/:id' },
+          responses: [templated],
+        })}
+        onUpdateRoute={vi.fn()}
+        variables={[{ id: 'v1', key: 'tenant', value: 'acme', sensitive: false }]}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-body-template-badge')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-preview-sample').textContent).toContain('GET /products/42');
+    expect(screen.getByTestId('api-mock-preview-body').textContent).toContain('"id": "42"');
+    expect(screen.getByTestId('api-mock-preview-body').textContent).toContain('"tenant": "acme"');
+  });
+
+  it('reports a broken helper in the preview instead of emptying the body', () => {
+    const broken = {
+      ...createDefaultResponse('resp-1'),
+      body: {
+        kind: 'json' as const,
+        contentType: 'application/json',
+        content: '{"oops":"{{faker \'not.a.path\'}}"}',
+      },
+    };
+    render(<ApiMockResponseEditor route={makeRoute({ responses: [broken] })} onUpdateRoute={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-template-error').textContent).toMatch(/Unknown faker helper/);
+  });
+
+  it('summarizes extra template errors beyond the first', () => {
+    const broken = {
+      ...createDefaultResponse('resp-1'),
+      body: {
+        kind: 'json' as const,
+        contentType: 'application/json',
+        content: '{"a":"{{faker \'not.a.path\'}}","b":"{{faker}}"}',
+      },
+    };
+    render(<ApiMockResponseEditor route={makeRoute({ responses: [broken] })} onUpdateRoute={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-template-error').textContent).toMatch(/\+1 more/);
+  });
+
+  it('shows the Default badge, JSONPath condition label, and sequence order note', () => {
+    const missing = {
+      ...createDefaultResponse('resp-2'),
+      name: 'Not found',
+      isDefault: false,
+      status: 404,
+      conditions: {
+        id: 'pg-cond',
+        combinator: 'all' as const,
+        children: [{
+          id: 'p1',
+          source: 'body' as const,
+          selector: '',
+          operator: 'jsonPath_equals' as const,
+          expected: ['$.sku', 'MISSING'],
+        }],
+      },
+    };
+    const { rerender } = render(
+      <ApiMockResponseEditor
+        route={makeRoute({ responses: [createDefaultResponse('resp-1'), missing] })}
+        onUpdateRoute={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-variant-default-badge')).toHaveTextContent('Default');
+    expect(screen.getByTestId('api-mock-response-mode-bar')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-variant-tab-resp-2'));
+    openResponseTab('selection');
+    expect(screen.getByTestId('api-mock-selection-condition')).toHaveTextContent('$.sku = MISSING');
+
+    rerender(
+      <ApiMockResponseEditor
+        route={makeRoute({
+          responseMode: 'sequence',
+          responses: [createDefaultResponse('resp-1'), missing],
+        })}
+        onUpdateRoute={vi.fn()}
+        sequencePosition={1}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-sequence-order-note').textContent).toMatch(/top to bottom/);
   });
 });

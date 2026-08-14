@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from '@testing-library/react';
 import { makeVisible } from './lessons/protocols/ws-test-utils';
 import {
+  advanceToPhase,
   makeLesson,
   renderDemoHub,
 } from './useDemoHub.coverage-helpers';
@@ -330,10 +331,9 @@ describe('useDemoHub — coverage gaps (navigation & teardown)', () => {
       ],
     });
     act(() => result.current.selectLesson(lesson));
-    await act(async () => {
-      void result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(200);
-    });
+    await act(async () => { void result.current.startLiveDemo(); });
+    // nextStep only routes through finishCurrentStepFromReading while reading.
+    await advanceToPhase(result, 'reading');
     await act(async () => {
       void result.current.nextStep();
       await vi.advanceTimersByTimeAsync(100);

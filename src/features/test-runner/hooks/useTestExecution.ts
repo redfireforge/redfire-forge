@@ -21,6 +21,7 @@ import {
   setupApiMockFixture,
   teardownApiMockFixture,
   type ApiMockFixtureHandle,
+  type ApiMockFixtureRunStatus,
   type ApiMockTestFixtureConfig,
 } from '../utils/apiMockTestFixture';
 import { capResults, ensureChartableTimeSeries } from './useTestExecutionHelpers';
@@ -46,6 +47,7 @@ interface TestExecutionState {
   pendingRun: TestRun | null;
   profileMeta: ProgressMeta | null;
   timeSeries: TimeSeriesPoint[];
+  fixtureStatus: ApiMockFixtureRunStatus | null;
 }
 
 const PROGRESS_THROTTLE_MS = 500;
@@ -66,6 +68,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     pendingRun: null,
     profileMeta: null,
     timeSeries: [],
+    fixtureStatus: null,
   });
 
   const abortRef = useRef<AbortController | null>(null);
@@ -282,6 +285,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       pendingRun: null,
       profileMeta: null,
       timeSeries: [],
+      fixtureStatus: meta?.apiMockFixture?.enabled ? { phase: 'starting' } : null,
     });
 
     let lastTrackedCount = 0;
@@ -329,6 +333,10 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
           throw new Error(`API Mock fixture failed: ${setup.error}`);
         }
         fixtureHandle = setup.handle;
+        setState((prev) => ({
+          ...prev,
+          fixtureStatus: { phase: 'running', port: setup.handle.port, serverId: setup.handle.serverId },
+        }));
         if (fixtureConfig.overrideBaseUrl !== false) {
           runBaseUrl = `http://127.0.0.1:${setup.handle.port}`;
           scenariosToRun = applyApiMockFixtureBaseUrl(scenarios, runBaseUrl);
@@ -495,9 +503,18 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         ...prev,
         isRunning: false,
         error: toErrorMessage(err),
+        fixtureStatus: fixtureHandle ? prev.fixtureStatus : null,
       }));
     } finally {
+      const stoppedPort = fixtureHandle?.port;
+      const stoppedServerId = fixtureHandle?.serverId;
       await teardownApiMockFixture(fixtureHandle, fixtureConfig).catch(() => { /* best-effort */ });
+      if (stoppedPort != null) {
+        setState((prev) => ({
+          ...prev,
+          fixtureStatus: { phase: 'stopped', port: stoppedPort, serverId: stoppedServerId },
+        }));
+      }
     }
   }, [flushToState]);
 
@@ -557,6 +574,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       pendingRun: null,
       profileMeta: null,
       timeSeries: [],
+      fixtureStatus: null,
     });
 
     let lastTrackedCount = 0;

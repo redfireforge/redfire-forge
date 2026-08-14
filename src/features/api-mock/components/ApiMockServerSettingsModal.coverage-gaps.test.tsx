@@ -82,12 +82,19 @@ describe('ApiMockServerSettingsModal coverage gaps', () => {
 
     expect(screen.getByText('application/json')).toBeTruthy();
 
+    fireEvent.change(screen.getByTestId('api-mock-settings-ambiguity-body'), {
+      target: { value: '{"error":"catalog_ambiguous","competingRules":{{competingRuleCount}}}' },
+    });
+
     fireEvent.click(screen.getByTestId('api-mock-settings-save'));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       settings: expect.objectContaining({
         selection: expect.objectContaining({
           multipleMatchPolicy: 'reject_multiple',
           equalPriorityPolicy: 'specificity_then_id',
+          ambiguityResponse: expect.objectContaining({
+            body: '{"error":"catalog_ambiguous","competingRules":{{competingRuleCount}}}',
+          }),
         }),
         fallback: expect.objectContaining({ mode: 'closest_match_debug' }),
       }),
@@ -265,6 +272,22 @@ describe('ApiMockServerSettingsModal coverage gaps', () => {
     expect(onSave.mock.calls[0][0].settings.limits.maxConcurrentConnections).toBe(DEFAULT_SETTINGS.limits.maxConcurrentConnections);
     expect(onSave.mock.calls[0][0].settings.journal.maxEntries).toBe(DEFAULT_SETTINGS.journal.maxEntries);
     expect(onSave.mock.calls[0][0].settings.proxy!.timeoutMs).toBe(DEFAULT_SETTINGS.proxy!.timeoutMs);
+  });
+
+  it('shows default-deny and loop-guard notes and persists the private-network fence', () => {
+    const onSave = vi.fn();
+    render(<ApiMockServerSettingsModal server={makeServer()} onSave={onSave} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-settings-tab-proxy'));
+    expect(screen.getByTestId('api-mock-settings-proxy-deny').textContent).toMatch(/Default-deny/);
+    expect(screen.getByTestId('api-mock-settings-proxy-loop').textContent).toMatch(/508/);
+    expect(screen.getByTestId('api-mock-settings-proxy-private')).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByTestId('api-mock-settings-proxy-private'));
+    fireEvent.click(screen.getByTestId('api-mock-settings-save'));
+    expect(onSave.mock.calls[0][0].settings.proxy).toMatchObject({
+      blockPrivateNetworks: false,
+    });
   });
 
   it('uses server slug fallback for unnamed servers when exporting certificates', () => {

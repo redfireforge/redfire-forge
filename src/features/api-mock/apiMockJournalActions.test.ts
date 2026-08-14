@@ -6,10 +6,12 @@ import {
   API_MOCK_OPEN_IN_REQUESTS_EVENT,
   capturedRequestPath,
   copyTransactionToClipboard,
+  copyTextToClipboard,
   dispatchOpenInRequests,
   exportTransactionsJson,
   filterTransactions,
   formatJournalRequestPreview,
+  formatJournalResponsePreview,
   formatTransactionCopy,
   normalizeHttpMethod,
   transactionToOpenInRequestsDetail,
@@ -108,6 +110,64 @@ describe('apiMockJournalActions', () => {
     expect(filterTransactions([tx as never], 'integration-client')).toHaveLength(0);
   });
 
+  it('pretty-prints JSON responses and shares IO pane width by payload size', () => {
+    expect(formatJournalResponsePreview(undefined)).toBe('');
+    expect(formatJournalResponsePreview(null)).toBe('');
+    const json = formatJournalResponsePreview({
+      status: 200,
+      reasonPhrase: 'OK',
+      headers: { 'content-type': ['application/json'] },
+      cookies: [],
+      body: '{"ok":true}',
+      bodyTruncated: false,
+      durationMs: 3,
+      generationAtResponse: 1,
+    });
+    expect(json).toContain('HTTP 200 OK');
+    expect(json).toContain('content-type: application/json');
+    expect(json).toContain('"ok": true');
+
+    expect(formatJournalResponsePreview({
+      status: 204,
+      headers: undefined as never,
+      cookies: [],
+      body: null,
+      bodyTruncated: false,
+      durationMs: 1,
+      generationAtResponse: 1,
+    })).toBe('HTTP 204');
+
+    expect(formatJournalResponsePreview({
+      status: 500,
+      headers: {},
+      cookies: [],
+      body: 'not-json {oops',
+      bodyTruncated: false,
+      durationMs: 1,
+      generationAtResponse: 1,
+    })).toContain('not-json {oops');
+
+    expect(formatJournalResponsePreview({
+      status: 200,
+      headers: {},
+      cookies: [],
+      body: '{not valid json',
+      bodyTruncated: false,
+      durationMs: 1,
+      generationAtResponse: 1,
+    })).toContain('{not valid json');
+
+    expect(formatJournalResponsePreview({
+      status: 200,
+      headers: {},
+      cookies: [],
+      body: '[1,2]',
+      bodyTruncated: false,
+      durationMs: 1,
+      generationAtResponse: 1,
+    })).toContain('[\n  1,\n  2\n]');
+  });
+
   it('formats transactions without bodies or responses and copies with clipboard failures', async () => {
     const noBody = {
       ...tx,
@@ -121,6 +181,25 @@ describe('apiMockJournalActions', () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'));
     vi.stubGlobal('navigator', { clipboard: { writeText } });
     await expect(copyTransactionToClipboard(noBody as never)).resolves.toBe(false);
+  });
+
+  it('falls back to execCommand when the clipboard API is denied', async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: vi.fn().mockReturnValue(true) });
+    await expect(copyTextToClipboard('hello')).resolves.toBe(true);
+    vi.mocked(document.execCommand).mockReturnValue(false);
+    await expect(copyTextToClipboard('hello')).resolves.toBe(false);
+    Reflect.deleteProperty(document, 'execCommand');
+  });
+
+  it('returns false when clipboard and execCommand both throw', async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: vi.fn(() => { throw new Error('no'); }),
+    });
+    await expect(copyTextToClipboard('x')).resolves.toBe(false);
+    Reflect.deleteProperty(document, 'execCommand');
   });
 
   it('builds open-in-requests detail with defaults and scalar header values', () => {

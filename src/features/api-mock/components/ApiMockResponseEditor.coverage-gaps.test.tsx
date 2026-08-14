@@ -165,7 +165,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
     expect(screen.getByTestId('api-mock-body-format-error')).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('api-mock-variant-status-quick-404'));
-    expect(screen.getByTestId('api-mock-variant-status-reason')).toHaveTextContent('Not Found');
+    expect(screen.getByTestId('api-mock-variant-status-reason')).toHaveValue('Not Found');
 
     fireEvent.click(screen.getByTestId('api-mock-body-clear'));
     expect(screen.getByTestId('api-mock-variant-body')).toHaveValue('');
@@ -224,9 +224,9 @@ describe('ApiMockResponseEditor coverage gaps', () => {
     expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].behavior.probability).toBe(0.5);
 
     openTab('headers');
-    fireEvent.change(screen.getByTestId('api-mock-cookie-name-c1'), { target: { value: 'token' } });
-    fireEvent.change(screen.getByTestId('api-mock-cookie-value-c1'), { target: { value: 'abc' } });
-    fireEvent.click(screen.getByTestId('api-mock-cookie-httpOnly-c1'));
+    fireEvent.change(screen.getByTestId('api-mock-cookie-name'), { target: { value: 'token' } });
+    fireEvent.change(screen.getByTestId('api-mock-cookie-value'), { target: { value: 'abc' } });
+    fireEvent.click(screen.getByTestId('api-mock-cookie-httpOnly'));
     fireEvent.click(screen.getByTestId('api-mock-cookie-secure-c1'));
     pickSelect('api-mock-cookie-samesite-c1', 'Strict');
     fireEvent.click(screen.getByTestId('api-mock-cookie-delete-c1'));
@@ -376,7 +376,8 @@ describe('ApiMockResponseEditor coverage gaps', () => {
     render(<ApiMockResponseEditor route={makeRoute({ responses: [resp] })} onUpdateRoute={onUpdateRoute} />);
 
     expect(screen.getByTestId('api-mock-variant-tab-resp-1').textContent).toMatch(/2 condition/);
-    expect(screen.getByTestId('api-mock-variant-status-reason')).toHaveTextContent('Custom status');
+    expect(screen.getByTestId('api-mock-variant-status-reason')).toHaveValue('');
+    expect(screen.getByTestId('api-mock-variant-status-reason')).toHaveAttribute('placeholder', 'Custom status');
     expect(screen.getByTestId('api-mock-preview-headers')).toHaveTextContent('2 headers');
     expect(screen.getByTestId('api-mock-preview-cookies')).toHaveTextContent('2 cookies');
 
@@ -734,5 +735,63 @@ describe('ApiMockResponseEditor coverage gaps', () => {
     fireEvent.click(screen.getByTestId('api-mock-counter-remove-0'));
     fireEvent.click(screen.getByTestId('api-mock-counter-add'));
     expect(onSelectUpdate).toHaveBeenCalled();
+  });
+
+  it('edits the reason phrase, maps Content-Type to body kind, and shows a binary hint', () => {
+    const onUpdateRoute = vi.fn();
+    render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={onUpdateRoute} />);
+
+    fireEvent.change(screen.getByTestId('api-mock-variant-status'), { target: { value: '400' } });
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0]).toMatchObject({
+      status: 400,
+      reasonPhrase: 'Bad Request',
+    });
+
+    fireEvent.click(screen.getByTestId('api-mock-variant-status-quick-201'));
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0]).toMatchObject({
+      status: 201,
+      reasonPhrase: 'Created',
+    });
+
+    fireEvent.change(screen.getByTestId('api-mock-variant-status-reason'), { target: { value: 'Resource created' } });
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].reasonPhrase).toBe('Resource created');
+
+    pickSelect('api-mock-variant-content-type-select', 'text/html');
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].body).toMatchObject({
+      contentType: 'text/html',
+      kind: 'html',
+    });
+
+    pickSelect('api-mock-variant-content-type-select', 'application/octet-stream');
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].body.kind).toBe('binary_base64');
+
+    cleanup();
+    const customReason = {
+      ...createDefaultResponse('resp-1'),
+      status: 201,
+      reasonPhrase: 'Resource created',
+    };
+    const onStatus = vi.fn();
+    render(<ApiMockResponseEditor route={makeRoute({ responses: [customReason] })} onUpdateRoute={onStatus} />);
+    fireEvent.change(screen.getByTestId('api-mock-variant-status'), { target: { value: '202' } });
+    expect(onStatus.mock.calls.at(-1)?.[0].responses[0]).toMatchObject({
+      status: 202,
+      reasonPhrase: 'Resource created',
+    });
+
+    const binary = {
+      ...createDefaultResponse('resp-1'),
+      status: 201,
+      reasonPhrase: 'Resource created',
+      body: { kind: 'binary_base64' as const, content: 'AAECAwQ=', contentType: 'application/octet-stream' },
+      headers: [{ id: 'h1', key: 'x-request-id', value: 'req-1', enabled: true }],
+    };
+    cleanup();
+    render(<ApiMockResponseEditor route={makeRoute({ responses: [binary] })} onUpdateRoute={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-body-binary-hint')).toHaveTextContent(/base64/i);
+    expect(screen.getByTestId('api-mock-preview-status')).toHaveTextContent('201 Resource created');
+    expect(screen.getByTestId('api-mock-preview-body')).toHaveTextContent('AAECAwQ=');
+    openTab('headers');
+    expect(screen.getByTestId('api-mock-header-list')).toBeInTheDocument();
   });
 });

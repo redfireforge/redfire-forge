@@ -185,6 +185,16 @@ function resolveJsonPath(obj: Record<string, unknown>, path: string): unknown {
   let current: unknown = obj;
   for (const part of parts) {
     if (current == null || typeof current !== 'object') return undefined;
+    const indexed = part.match(/^([^[]+)\[(\d+)\]$/);
+    if (indexed) {
+      const key = indexed[1];
+      const idx = Number(indexed[2]);
+      if (BLOCKED_KEYS.has(key)) return undefined;
+      const arr = (current as Record<string, unknown>)[key];
+      if (!Array.isArray(arr)) return undefined;
+      current = arr[idx];
+      continue;
+    }
     if (BLOCKED_KEYS.has(part)) return undefined;
     current = (current as Record<string, unknown>)[part];
   }

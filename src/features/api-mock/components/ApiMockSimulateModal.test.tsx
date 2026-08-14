@@ -41,12 +41,27 @@ describe('ApiMockSimulateModal', () => {
   it('runs a matched simulation and shows the winner and candidate table', () => {
     render(<ApiMockSimulateModal server={makeServer()} initialPath="/users" initialMethod="GET" onClose={vi.fn()} />);
 
+    expect(screen.getByTestId('api-mock-simulate-body-expand')).toBeTruthy();
     fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
     const result = screen.getByTestId('api-mock-simulate-result');
     expect(result.textContent).toContain('MATCHED');
     expect(result.textContent).toContain('Users exact');
+    expect(screen.getByTestId('api-mock-sim-winner').textContent).toBe('Winner');
     expect(screen.getByText('Candidates evaluated (2)')).toBeTruthy();
     expect(screen.getByTestId('api-mock-sim-timeline-5').textContent).toMatch(/Virtual delay/i);
+  });
+
+  it('shows a specificity breakdown when two equal-priority rules tie', () => {
+    const server = makeServer();
+    server.routes[0].priority = 10;
+    server.routes[0].path = { kind: 'exact', value: '/users' };
+    server.routes[1].priority = 10;
+    server.routes[1].path = { kind: 'glob', value: '/users*' };
+    render(<ApiMockSimulateModal server={server} initialPath="/users" initialMethod="GET" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-sim-specificity')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-sim-specificity-r1').textContent).toMatch(/GET \/users/);
+    expect(screen.getByTestId('api-mock-sim-winner').textContent).toBe('Winner');
   });
 
   it('matches an ad-hoc request that carries a client certificate subject', () => {
@@ -73,6 +88,26 @@ describe('ApiMockSimulateModal', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Rendered response' }));
     expect(screen.getByTestId('api-mock-sim-virtual-delay').textContent).toContain('25');
     expect(screen.getByTestId('api-mock-sim-rendered-body').textContent).toContain('user');
+  });
+
+  it('pretty-prints the rendered JSON body when Format is clicked', () => {
+    const server = makeServer();
+    server.routes[0].responses[0].body = {
+      kind: 'json',
+      content: '{"id":42,"name":"Espresso"}',
+      contentType: 'application/json',
+    };
+    render(<ApiMockSimulateModal server={server} initialPath="/users" initialMethod="GET" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Rendered response' }));
+
+    const body = screen.getByTestId('api-mock-sim-rendered-body');
+    expect(body.textContent).toBe('{"id":42,"name":"Espresso"}');
+    const format = screen.getByTestId('api-mock-sim-rendered-format');
+    expect(format).not.toBeDisabled();
+    fireEvent.click(format);
+    expect(body.textContent).toBe('{\n  "id": 42,\n  "name": "Espresso"\n}');
+    expect(format).toBeDisabled();
   });
 
   it('parses headers/body input and shows an unmatched danger state with an empty path fallback', () => {
@@ -215,6 +250,8 @@ describe('ApiMockSimulateModal', () => {
     fireEvent.click(screen.getByTestId('api-mock-simulate-export'));
     expect(anchorClick).toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:sim');
+    expect(screen.getByTestId('api-mock-sim-export-confirm')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-sim-export-filename').textContent).toMatch(/api-mock-sim-trace-/);
     createObjectURL.mockRestore();
     revokeObjectURL.mockRestore();
   });
@@ -336,5 +373,154 @@ describe('ApiMockSimulateModal', () => {
     expect(screen.getByTestId('api-mock-sim-sample-s-q')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Filter samples'), { target: { value: 'no-such-sample' } });
     expect(screen.queryByTestId('api-mock-sim-sample-s-q')).toBeNull();
+  });
+
+  it('labels auto route stubs as From rules and hides the expand control', () => {
+    render(<ApiMockSimulateModal server={makeServer()} initialPath="/users" onClose={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-sim-section-from-rules')).toHaveTextContent('From rules');
+    expect(screen.getByTestId('api-mock-sim-section-from-rules')).toHaveTextContent('not saved');
+    fireEvent.click(screen.getByTestId('api-mock-sim-sample-auto-r1').querySelector('.am-sim-sample-btn') as HTMLElement);
+    expect(screen.getByTestId('api-mock-sim-readonly-hint').textContent).toMatch(/never saved/);
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveValue('/users');
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveProperty('readOnly', true);
+    expect(screen.queryByTestId('api-mock-simulate-save-sample')).toBeNull();
+    fireEvent.click(screen.getByTestId('api-mock-sim-edit-adhoc'));
+    expect(screen.getByTestId('api-mock-sim-sample-adhoc').className).toContain('active');
+    expect(screen.getByTestId('api-mock-simulate-save-sample')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-sim-section-from-rules')).toBeTruthy();
+    expect(screen.queryByTestId('api-mock-sim-section-saved')).toBeNull();
+    expect(document.querySelector('.modal-expand-btn')).toBeNull();
+    expect(screen.getByLabelText('Replay seed').getAttribute('title')).toMatch(/random choices/);
+    expect(screen.getByLabelText('Replay seed').closest('.am-form-row')).toHaveClass('am-form-row--tall');
+    expect(screen.getByTestId('api-mock-simulate-save-sample')).toHaveClass('primary');
+    expect(screen.queryByTestId('api-mock-simulate-sample-name')).toBeNull();
+    fireEvent.click(screen.getByTestId('api-mock-simulate-save-sample'));
+    expect(screen.getByTestId('api-mock-sim-section-saved')).toHaveTextContent('Saved samples');
+    expect(screen.getByTestId('api-mock-simulate-sample-name')).toHaveValue('GET /users');
+    expect(screen.queryByTestId('api-mock-sim-section-from-rules')).toBeNull();
+  });
+
+  it('saves the ad-hoc request then names it, and toggles Request / Results after a run', () => {
+    const onSaveSample = vi.fn();
+    const onUpdateSample = vi.fn();
+    render(
+      <ApiMockSimulateModal
+        server={makeServer()}
+        initialPath="/users"
+        initialMethod="GET"
+        onSaveSample={onSaveSample}
+        onUpdateSample={onUpdateSample}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('api-mock-sim-view-request')).toBeNull();
+    expect(screen.getByTestId('api-mock-sim-main').className).toContain('am-sim-main--request');
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-sim-main').className).toContain('am-sim-main--results');
+    expect(screen.getByTestId('api-mock-simulate-result')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-sim-view-request'));
+    expect(screen.getByTestId('api-mock-sim-main').className).toContain('am-sim-main--request');
+    expect(screen.queryByTestId('api-mock-simulate-result')).toBeNull();
+    fireEvent.click(screen.getByTestId('api-mock-simulate-save-sample'));
+    expect(onSaveSample).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'GET /users',
+      request: expect.objectContaining({ method: 'GET', path: '/users' }),
+    }));
+    expect(screen.getByTestId('api-mock-sim-section-saved')).toHaveTextContent('Saved samples');
+    expect(screen.queryByTestId('api-mock-sim-section-from-rules')).toBeNull();
+    fireEvent.change(screen.getByTestId('api-mock-simulate-sample-name'), { target: { value: 'Nightly health' } });
+    expect(onUpdateSample).toHaveBeenCalledWith(expect.objectContaining({ name: 'Nightly health' }));
+    expect(screen.getByTestId('api-mock-simulate-sample-name')).toHaveValue('Nightly health');
+    fireEvent.click(screen.getByTestId('api-mock-sim-view-results'));
+    expect(screen.getByTestId('api-mock-simulate-result')).toBeTruthy();
+  });
+
+  it('restores the full saved request when reopening a sample from the sidebar', () => {
+    const onSaveSample = vi.fn();
+    render(
+      <ApiMockSimulateModal
+        server={makeServer()}
+        initialPath="/users"
+        initialMethod="GET"
+        onSaveSample={onSaveSample}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('api-mock-simulate-path'), { target: { value: '/firmware' } });
+    fireEvent.change(screen.getByTestId('api-mock-simulate-headers'), { target: { value: 'X-Tenant: acme' } });
+    fireEvent.change(screen.getByTestId('api-mock-simulate-body'), { target: { value: '{"sha":"abc"}' } });
+    fireEvent.click(screen.getByTestId('api-mock-simulate-save-sample'));
+    const savedId = onSaveSample.mock.calls[0][0].id as string;
+    fireEvent.click(screen.getByTestId('api-mock-sim-sample-adhoc').querySelector('.am-sim-sample-btn') as HTMLElement);
+    fireEvent.change(screen.getByTestId('api-mock-simulate-path'), { target: { value: '/other' } });
+    fireEvent.change(screen.getByTestId('api-mock-simulate-headers'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('api-mock-simulate-body'), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId(`api-mock-sim-sample-${savedId}`).querySelector('.am-sim-sample-btn') as HTMLElement);
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveValue('/firmware');
+    expect(screen.getByTestId('api-mock-simulate-headers')).toHaveValue('X-Tenant: acme');
+    expect(screen.getByTestId('api-mock-simulate-body')).toHaveValue('{"sha":"abc"}');
+  });
+
+  it('restores the ad-hoc draft after clicking a From rules probe', () => {
+    render(<ApiMockSimulateModal server={makeServer()} initialPath="/users" onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('api-mock-simulate-path'), { target: { value: '/firmware' } });
+    fireEvent.change(screen.getByTestId('api-mock-simulate-headers'), { target: { value: 'X-Tenant: acme' } });
+    fireEvent.change(screen.getByTestId('api-mock-simulate-body'), { target: { value: '{"sha":"abc"}' } });
+    fireEvent.click(screen.getByTestId('api-mock-sim-sample-auto-r1').querySelector('.am-sim-sample-btn') as HTMLElement);
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveValue('/users');
+    expect(screen.getByTestId('api-mock-simulate-headers')).toHaveValue('');
+    fireEvent.click(screen.getByTestId('api-mock-sim-sample-adhoc').querySelector('.am-sim-sample-btn') as HTMLElement);
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveValue('/firmware');
+    expect(screen.getByTestId('api-mock-simulate-headers')).toHaveValue('X-Tenant: acme');
+    expect(screen.getByTestId('api-mock-simulate-body')).toHaveValue('{"sha":"abc"}');
+  });
+
+  it('shows a per-sample state chip after a sequential run-all', () => {
+    const server = makeServer();
+    const empty = createDefaultResponse('resp-empty');
+    empty.name = 'In cart';
+    empty.transition = { currentState: 'EMPTY', targetState: 'HAS_ITEMS', counterUpdates: [{ key: 'items', delta: 1 }] };
+    const hasItems = createDefaultResponse('resp-items');
+    hasItems.name = 'Has items';
+    hasItems.isDefault = false;
+    hasItems.transition = { currentState: 'HAS_ITEMS', targetState: 'CHECKED_OUT' };
+    server.routes = [{
+      id: 'r-cart', name: 'Add to cart', enabled: true, method: 'POST',
+      path: { kind: 'exact', value: '/cart' }, priority: 10,
+      predicates: { id: 'pg-cart', combinator: 'all', children: [] },
+      responseMode: 'state', responses: [empty, hasItems], tags: [], createdAt: ts, updatedAt: ts,
+    }];
+    render(<ApiMockSimulateModal server={server} initialPath="/cart" initialMethod="POST" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run-all'));
+    const chips = screen.getAllByTestId('api-mock-sim-sample-state');
+    expect(chips.length).toBeGreaterThan(0);
+    expect(chips[0].textContent).toMatch(/HAS_ITEMS|\(empty\)/);
+  });
+
+  it('edits expected status on the assertions table for a saved sample', () => {
+    const onUpdateSample = vi.fn();
+    const server = makeServer();
+    server.samples = [{
+      id: 's-health',
+      name: 'GET /users',
+      routeId: 'r1',
+      request: {
+        method: 'GET', path: '/users', rawPath: '/users', query: {},
+        headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts,
+      },
+      expected: { outcome: 'matched', status: 200 },
+    }];
+    render(<ApiMockSimulateModal server={server} initialSampleId="s-health" onUpdateSample={onUpdateSample} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Assertions' }));
+    fireEvent.change(screen.getByTestId('api-mock-sim-assert-status'), { target: { value: '201' } });
+    expect(onUpdateSample).toHaveBeenCalledWith(expect.objectContaining({
+      id: 's-health',
+      expected: expect.objectContaining({ status: 201 }),
+    }));
+    fireEvent.change(screen.getByTestId('api-mock-sim-assert-status'), { target: { value: '' } });
+    expect(onUpdateSample.mock.calls.at(-1)?.[0].expected.status).toBeUndefined();
+    fireEvent.change(screen.getByTestId('api-mock-sim-assert-body'), { target: { value: 'ok' } });
+    expect(onUpdateSample.mock.calls.at(-1)?.[0].expected.bodyContains).toBe('ok');
   });
 });

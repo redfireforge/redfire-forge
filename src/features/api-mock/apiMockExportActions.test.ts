@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { handleApiMockExport } from './apiMockExportActions';
+import { handleApiMockExport, inspectExportSecrets } from './apiMockExportActions';
 import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
 import type { ApiMockExportRequest } from './components/ApiMockWorkspaceNav';
 
@@ -85,11 +85,14 @@ describe('handleApiMockExport', () => {
 
   it('exports WireMock mappings and reports summary', async () => {
     const args = baseArgs();
-    await handleApiMockExport({ ...args, request: request('wiremock', 'routes') });
+    const result = await handleApiMockExport({ ...args, request: request('wiremock', 'routes') });
 
     expect(exportWireMockMappings).toHaveBeenCalledWith(args.servers[0].routes);
     expect(downloadJsonFile).toHaveBeenCalledTimes(1);
     expect(args.setLiveMessage).toHaveBeenCalledWith('WireMock export: 1 mapping(s), 1 loss note(s).');
+    expect(result.mappingCount).toBe(1);
+    expect(result.lossNotes).toEqual(['w']);
+    expect(result.cliCommand).toContain('cli mock simulate');
   });
 
   it('exports WireMock with empty route list when active server is missing', async () => {
@@ -101,7 +104,7 @@ describe('handleApiMockExport', () => {
 
   it('exports HAR and fetches server transactions when activeServerId exists', async () => {
     const args = baseArgs();
-    await handleApiMockExport({ ...args, request: request('har', 'routes') });
+    const har = await handleApiMockExport({ ...args, request: request('har', 'routes') });
 
     expect(transactionsMock).toHaveBeenCalledWith('srv-1');
     expect(exportHarForStudio).toHaveBeenCalledWith([{ id: 'from-server' }], args.servers[0].samples, {
@@ -111,6 +114,8 @@ describe('handleApiMockExport', () => {
     });
     expect(downloadJsonFile).toHaveBeenCalledTimes(1);
     expect(args.setLiveMessage).toHaveBeenCalledWith('HAR export: 2 entries, 1 loss note(s).');
+    expect(har.entryCount).toBe(2);
+    expect(har.lossNotes).toEqual(['x']);
   });
 
   it('exports HAR with singular entry message when entry count is 1', async () => {
@@ -130,6 +135,18 @@ describe('handleApiMockExport', () => {
       host: undefined,
       port: undefined,
       tls: false,
+    });
+  });
+
+  it('exports HAR from in-memory journal when the companion fetch fails', async () => {
+    transactionsMock.mockRejectedValueOnce(new Error('companion down'));
+    const args = baseArgs();
+    await handleApiMockExport({ ...args, request: request('har', 'routes') });
+
+    expect(exportHarForStudio).toHaveBeenCalledWith(args.transactions, args.servers[0].samples, {
+      host: '127.0.0.1',
+      port: 8080,
+      tls: true,
     });
   });
 
@@ -178,5 +195,49 @@ describe('handleApiMockExport', () => {
       { scope: 'routes', redact: true, format: 'json', sourceServerId: 'srv-1' },
     );
     expect(args.setLiveMessage).toHaveBeenCalledWith('Routes exported.');
+  });
+});
+
+describe('inspectExportSecrets', () => {
+  it('reads redacted TLS keys and sensitive variables from a workspace envelope', () => {
+    const envelope = {
+      _exportMeta: { kind: 'redfireforge-api-mock' as const, schemaVersion: 1 as const, exportedAt: 't', redacted: true },
+      data: {
+        scope: 'workspace' as const,
+        workspace: {
+          schemaVersion: 1 as const,
+          servers: [{
+            settings: { tls: { enabled: false, certPem: 'CERT', keyPem: '***REDACTED***' } },
+            variables: [
+              { id: 'v1', key: 'pub', value: 'ok', sensitive: false },
+              { id: 'v2', key: 'apiToken', value: '[REDACTED]', sensitive: true },
+            ],
+          }],
+          tabOrder: [],
+        },
+      },
+    };
+    const secrets = inspectExportSecrets(envelope as never);
+    expect(secrets.tlsKeyPem).toBe('***REDACTED***');
+    expect(secrets.sensitiveValues).toEqual([{ key: 'apiToken', value: '[REDACTED]' }]);
+  });
+
+  it('reads TLS keys from a servers-scope envelope', () => {
+    const secrets = inspectExportSecrets({
+      _exportMeta: { kind: 'redfireforge-api-mock', schemaVersion: 1, exportedAt: 't', redacted: true },
+      data: {
+        scope: 'servers',
+        servers: [{ settings: { tls: { enabled: false, certPem: '', keyPem: '' } }, variables: [] }],
+      },
+    } as never);
+    expect(secrets.tlsKeyPem).toBe('');
+  });
+
+  it('returns empty secrets when the envelope has no servers', () => {
+    expect(inspectExportSecrets(undefined).sensitiveValues).toEqual([]);
+    expect(inspectExportSecrets({
+      _exportMeta: { kind: 'redfireforge-api-mock', schemaVersion: 1, exportedAt: 't', redacted: true },
+      data: { scope: 'routes', sourceServerId: 'a', routes: [], samples: [] },
+    } as never).tlsKeyPem).toBeUndefined();
   });
 });

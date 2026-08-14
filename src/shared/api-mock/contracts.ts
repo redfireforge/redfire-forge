@@ -298,8 +298,14 @@ export interface ApiMockServerDefinitionV1 {
 export interface ApiMockWorkspaceV1 {
   schemaVersion: 1;
   activeServerId?: string;
+  /** Every saved server — the library. Servers stay here after their tab is closed. */
   servers: ApiMockServerDefinitionV1[];
   tabOrder: string[];
+  /**
+   * Ids of the servers currently open as tabs, in tab-bar order. Absent in
+   * workspaces written before the library split, where every server was open.
+   */
+  openTabIds?: string[];
 }
 
 // ── Diagnostics ─────────────────────────────────────────────────────

@@ -15,17 +15,19 @@ vi.mock('./components/ApiMockBodyEditor', () => ({
 }));
 vi.mock('../../shared/components/data-mapper/DataMapperModal', () => ({ default: () => null }));
 
-function studioWithRoute() {
+/** Creating a server asks the control plane for a free port, so it settles async. */
+async function studioWithRoute() {
   render(<ApiMockStudioPage />);
   fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  await screen.findByTestId('api-mock-studio');
   fireEvent.click(screen.getByTestId('api-mock-add-route'));
 }
 
 describe('API Mock Studio wiring', () => {
   beforeEach(() => localStorage.clear());
 
-  it('renders the full response editor in the Response tab', () => {
-    studioWithRoute();
+  it('renders the full response editor in the Response tab', async () => {
+    await studioWithRoute();
     const tablist = screen.getByRole('tablist', { name: 'Route editor sections' });
     fireEvent.click(within(tablist).getAllByRole('tab').find(t => t.textContent?.startsWith('Response'))!);
     expect(screen.getByTestId('api-mock-response-editor')).toBeTruthy();
@@ -33,8 +35,8 @@ describe('API Mock Studio wiring', () => {
     expect(screen.getByTestId('api-mock-variant-body')).toBeTruthy();
   });
 
-  it('exposes selection mode in Response and fault in Behavior', () => {
-    studioWithRoute();
+  it('exposes selection mode in Response and fault in Behavior', async () => {
+    await studioWithRoute();
     const tablist = screen.getByRole('tablist', { name: 'Route editor sections' });
     fireEvent.click(within(tablist).getAllByRole('tab').find(t => t.textContent?.startsWith('Response'))!);
     fireEvent.click(screen.getByTestId('api-mock-response-tab-selection'));
@@ -43,8 +45,8 @@ describe('API Mock Studio wiring', () => {
     expect(screen.getByTestId('api-mock-fault-select')).toBeTruthy();
   });
 
-  it('runs a simulation and shows the candidate trace', () => {
-    studioWithRoute();
+  it('runs a simulation and shows the candidate trace', async () => {
+    await studioWithRoute();
     fireEvent.click(screen.getByTestId('api-mock-simulate'));
     const pathInput = screen.getByTestId('api-mock-simulate-path') as HTMLInputElement;
     fireEvent.change(pathInput, { target: { value: '/' } });
@@ -53,9 +55,10 @@ describe('API Mock Studio wiring', () => {
     expect(result.textContent).toMatch(/MATCHED/i);
   });
 
-  it('opens the import modal from the title-bar Import menu', () => {
+  it('opens the import modal from the title-bar Import menu', async () => {
     render(<ApiMockStudioPage />);
     fireEvent.click(screen.getByTestId('api-mock-create-first'));
+    await screen.findByTestId('api-mock-studio');
     // Import is now a single button; the source is chosen inside the modal.
     fireEvent.click(screen.getByTestId('api-mock-import-menu'));
     expect(screen.getByTestId('api-mock-import-review')).toBeTruthy();
@@ -63,8 +66,8 @@ describe('API Mock Studio wiring', () => {
     expect(screen.getByTestId('api-mock-curl-input')).toBeTruthy();
   });
 
-  it('applies a path pattern from the pattern toolbox with a live test', () => {
-    studioWithRoute();
+  it('applies a path pattern from the pattern toolbox with a live test', async () => {
+    await studioWithRoute();
     fireEvent.click(screen.getByTestId('api-mock-path-toolbox'));
     fireEvent.click(screen.getByTestId('api-mock-toolbox-preset-/users/:id'));
     expect(screen.getByTestId('api-mock-toolbox-result').textContent).toMatch(/Matches/i);
@@ -72,8 +75,8 @@ describe('API Mock Studio wiring', () => {
     expect((screen.getByTestId('api-mock-path-input') as HTMLInputElement).value).toBe('/users/:id');
   });
 
-  it('opens Runtime from the live strip and shows Variables / State tabs', () => {
-    studioWithRoute();
+  it('opens Runtime from the live strip and shows Variables / State tabs', async () => {
+    await studioWithRoute();
     expect(screen.getByTestId('api-mock-live-strip')).toBeTruthy();
     fireEvent.click(screen.getByTestId('api-mock-open-runtime'));
     const dock = screen.getByTestId('api-mock-dock');

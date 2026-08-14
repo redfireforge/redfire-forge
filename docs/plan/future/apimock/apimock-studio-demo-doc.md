@@ -1,7 +1,7 @@
 # API Mock Studio — Phase 12D / 12E Docs, Demos & Release Pass
 
 > **Branch:** `feautre/apimock`  
-> **Status:** **12D exit met** (2026-08-13) — guides + Tracks A–C evidence on web and Tauri in [`VALIDATION_RECORD.md`](../../guides/api-mock/screenshots/VALIDATION_RECORD.md). **12E in progress** — selectors + Gallery `api-mock` (3 samples) done; Demo Hub lessons ([`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md)), Playwright, README/CHANGELOG still open.  
+> **Status:** **12D exit met** (2026-08-13) — guides + Tracks A–C evidence on web and Tauri in [`VALIDATION_RECORD.md`](../../guides/api-mock/screenshots/VALIDATION_RECORD.md). **12E in progress** — selectors + Gallery + multi-server Playwright done; Demo Hub is on [curriculum v2](./apimock-demo-curriculum-v2.md) (`am-01-studio-tour`, `am-02-multi-server`, `am-03-rule-library`, `am-04-path-matching`, `am-05-request-predicates` shipped — 12E lesson bar met); README/CHANGELOG/focused specs still open.  
 > **Created:** 2026-08-13  
 > **Last updated:** 2026-08-13  
 > **Parent plan:** [`apimock-studio-plan.md`](./apimock-studio-plan.md) (§11.3, Phase 12)  
@@ -57,7 +57,7 @@ This file is the **execution checklist** for that pass. It was produced by compa
 | Product architecture / security / ops docs (user-facing) | **Authored** — see guide index |
 | Gallery domain `api-mock` | **Not in** `GalleryDomain` / registry / training paths |
 | Demo Hub lessons | **Zero** files under `packages/demo-hub` for API Mock |
-| Playwright E2E (`e2e/*api-mock*`) | **None** |
+| Playwright E2E (`e2e/*api-mock*`) | Demo smoke: `npm run test:e2e:demo:am1`…`am4`. Product multi-server: `npm run test:e2e:api-mock-multi-server` (`e2e/api-mock-multi-server.spec.ts`). |
 | Top-level `README.md` / `ROADMAP.md` / `CHANGELOG.md` | **No API Mock Studio section** |
 | `.cursor/rules/project-conventions.mdc` key-file row | **Not synced** |
 | Centralized selectors | `src/shared/selectors/apiMock.ts` exists (**22** constants) but is **not** barrel-exported from `selectors.ts` and is **unused**; 100+ inline `data-testid`s in components |
@@ -243,6 +243,8 @@ Add domain **`api-mock`** to:
 | `am-gallery-health` | Health check mock | First Start + journal | Single server `:4600`, `GET /health` |
 | `am-gallery-users` | Users API | Parameterized path, JSON body, examples | Routes from plan fixture “Users API” |
 | `am-gallery-conflicts` | Ambiguous routes | Conflict Inspector | Two overlapping GETs + witness samples |
+| `am-gallery-suite` | Simulation suite | Simulate as a test suite | Eight samples with expectations (pass, ambiguous, fault, unmatched, weighted, state, unassociated) |
+| `am-gallery-response` | Plain 200 JSON | Response content | Single `GET /orders` answering `200 {}` |
 | `am-gallery-states` | Scenario state | State machine / sequence variant | Login → stateful GET |
 | `am-gallery-faults` | Fault injection | Timeout / reset | One route with fault variant |
 | `am-gallery-openapi` | From OpenAPI | Import story | Pre-imported stub set + note to re-import |
@@ -252,9 +254,39 @@ Add domain **`api-mock`** to:
 
 ### 5.3 Demo Hub lessons
 
-**Moved** to [`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md).
+**Moved** to [`apimock-demo-curriculum-v2.md`](./apimock-demo-curriculum-v2.md) (v1 roster in
+[`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md) is superseded and its 8 lessons
+are deleted).
 
-Summary: **8** planned (`AM-1`…`AM-8`); **≥4** required for 12E exit (`AM-1`…`AM-4`); `AM-7`/`AM-8` optional.
+Summary: **24** planned (`am-01-studio-tour` … `am-24-*`), shipped one at a time against the 5-item
+done checklist. **≥4** lessons required for 12E exit.
+
+| Lesson | Id | Steps | E2E project |
+|---|---|---:|---|
+| Studio Tour & Your First Mock | `am-01-studio-tour` | 8 | `demo-am01` |
+| Multi-Server Workspace: Tabs, Ports & Binding | `am-02-multi-server` | 8 | `demo-am02` |
+| Rule Library: Folders, Search, Filters & Docs | `am-03-rule-library` | 8 | `demo-am03` |
+| Path Matching & the Pattern Toolbox | `am-04-path-matching` | 7 | `demo-am04` |
+| Query, Header, Cookie & Security Conditions | `am-05-request-predicates` | 8 | `demo-am05` |
+| Body Matching: Subset, Strict, JSONPath & JSON Schema | `am-06-body-matching` | 6 | `demo-am06` |
+| Forms, Multipart, XML & Binary Matching | `am-07-payload-formats` | 7 | `demo-am07` |
+| Boolean Groups, Priority & Selection Policy | `am-08-selection-policy` | 8 | `demo-am08` |
+| Conflict Inspector: Four Overlap Kinds | `am-09-conflicts` | 8 | `demo-am09` |
+| Response Content: Status, Headers, Cookies & Body Kinds | `am-10-response-content` | 8 | `demo-am10` |
+| Dynamic Responses: Templates, Faker & Body Mapper | `am-11-templating` | 9 | `demo-am11` |
+| Response Variants: Rules & Sequence Modes | `am-12-variants-sequence` | 8 | `demo-am12` |
+| Stateful Mocks: State Machine, Counters & Weighted Chaos | `am-13-stateful` | 8 | `demo-am13` |
+| Latency, Eligibility & Connection Faults | `am-14-timing-faults` | 8 | `demo-am14` |
+| Import Everything: cURL, OpenAPI, WireMock, HAR, Catalog | `am-15-import` | 9 | `demo-am15` |
+| Export & Round-Trip: JSON/YAML, WireMock, HAR, Redaction | `am-16-export` | 7 | `demo-am16` |
+| Proxy Passthrough & Record-to-Drafts | `am-17-proxy-record` | 8 | `demo-am17` |
+| Journal Forensics: Near-Misses, Candidates & Promotion | `am-18-journal` | 8 | `demo-am18` |
+| Runtime Ops: CORS, Limits, Redaction, Diagnostics & Console | `am-19-runtime-ops` | 8 | `demo-am19` |
+| HTTPS, HTTP/2 & mTLS with Cert-Subject Matching | `am-20-tls-mtls` | 8 | `demo-am20` |
+| Simulation as a Test Suite: Examples, Seeds, Assertions, Trace | `am-21-simulation-suite` | 8 | `demo-am21` |
+| Workflow Orchestration: Start → Apply → Reset → Assert → Stop | `am-22-workflow` | 9 | `demo-am22` |
+| Test Runner Fixtures & CI Handoff | `am-23-harness-ci` | 7 | `demo-am23` |
+| Ship a Contract Mock | `am-24-capstone` | 9 | `demo-am24` |
 
 ### 5.4 Playwright E2E
 
@@ -311,7 +343,8 @@ Record evidence in `docs/guides/api-mock/a11y-zoom-pass.md` (short):
 - [ ] Selectors exported and used by lessons + E2E  
 - [ ] ≥3 Gallery samples import/run  
 - [ ] ≥4 Demo Hub lessons pass the 5-item checklist  
-- [ ] Multi-server Playwright spec green (HTML report)  
+- [x] Multi-server Playwright spec green (HTML report) — `npm run test:e2e:api-mock-multi-server`  
+- [ ] ≥2 additional focused Playwright specs (hot-apply / import / conflicts / …) 
 - [ ] README / ROADMAP / CHANGELOG / conventions updated  
 - [ ] Parent plan 12E row **Completed**  
 - [ ] User approval before merge to `develop` (per branching rules)
@@ -351,9 +384,10 @@ Record evidence in `docs/guides/api-mock/a11y-zoom-pass.md` (short):
 
 8. [x] Complete + export `API_MOCK` selectors (`src/shared/selectors/apiMock.ts` → `selectors.ts`)  
 9. [x] Gallery domain + first 3 samples (`am-gallery-health`, `am-gallery-users`, `am-gallery-conflicts`)  
-10. [ ] Demo Hub adapter + AM-1…AM-4 lessons — see [`apimock-studio-demo-lessons.md`](./apimock-studio-demo-lessons.md)  
-11. [ ] Playwright multi-server + 2 focused specs  
-12. [ ] Remaining optional lessons/samples (AM-5+, gallery pack) — see lessons plan Batch B/C  
+10. [x] Demo Hub adapter + curriculum v2 wiring — see [`apimock-demo-curriculum-v2.md`](./apimock-demo-curriculum-v2.md)  
+11. [x] Playwright multi-server (`npm run test:e2e:api-mock-multi-server`) — focused specs still open  
+
+12. [~] Demo lesson pack — v1 (AM-1…AM-8) deleted; v2 shipping one lesson at a time (`am-01-studio-tour`, `am-02-multi-server`, `am-03-rule-library`, `am-04-path-matching`, `am-05-request-predicates` done — 4-lesson 12E bar met)
 13. [ ] README / ROADMAP / CHANGELOG / conventions  
 14. [ ] Manual a11y/zoom evidence  
 15. [ ] Full product coverage gate + Playwright HTML report (merge gate)  
@@ -398,7 +432,7 @@ A new engineer can:
 
 1. Read `docs/guides/api-mock/README.md` and run Track A on web **and** Tauri without asking the team.  
 2. Import a Gallery sample and hit a running mock from Requests.  
-3. Play Demo Hub **AM-1** at 1× and finish with a visible journal row.  
+3. Play Demo Hub **Studio Tour & Your First Mock** at 1× and finish with a visible journal row.  
 4. Run `npx playwright test` for the API Mock multi-server project and get green.  
 5. Find API Mock described in README / CHANGELOG / ROADMAP consistently with this branch.
 

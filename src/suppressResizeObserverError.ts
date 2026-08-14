@@ -13,16 +13,25 @@ function isResizeObserverNoise(reasonOrMessage: unknown): boolean {
 }
 
 /** Monaco rejects cancelled work with a plain object (not Error) — Chrome shows "Object". */
+function isCanceledNoise(text: string): boolean {
+  const msg = text.trim().toLowerCase();
+  return (
+    msg === 'canceled'
+    || msg === 'cancelled'
+    || msg === 'canceled: canceled'
+    || msg === 'cancelled: cancelled'
+    || msg.includes('operation is manually canceled')
+    || msg.includes('operation is manually cancelled')
+  );
+}
+
 function isMonacoCancelation(reason: unknown): boolean {
+  if (typeof reason === 'string') return isCanceledNoise(reason);
   if (!reason || typeof reason !== 'object') return false;
   const r = reason as { type?: unknown; name?: unknown; msg?: unknown; message?: unknown };
   if (r.type === 'cancelation' || r.type === 'cancellation') return true;
   if (r.name === 'Canceled' || r.name === 'Cancelled') return true;
-  const msg = String(r.msg ?? r.message ?? '');
-  return (
-    msg.includes('operation is manually canceled')
-    || msg.includes('operation is manually cancelled')
-  );
+  return isCanceledNoise(String(r.msg ?? r.message ?? ''));
 }
 
 function isBenignConsoleNoise(event: Event): boolean {

@@ -26,6 +26,7 @@ function sample(overrides: Partial<ApiMockSimulationSampleV1> = {}): ApiMockSimu
 describe('ApiMockExamplesPanel', () => {
   it('shows the empty notice when there are no samples', () => {
     render(<ApiMockExamplesPanel samples={[]} />);
+    expect(screen.getByTestId('api-mock-examples-empty').textContent).toMatch(/Save as sample/);
     expect(screen.getByTestId('api-mock-examples-empty').textContent).toMatch(/Save as example/);
   });
 

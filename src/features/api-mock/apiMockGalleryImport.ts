@@ -11,7 +11,8 @@ import type {
 import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
 import { readKey, writeKey } from '../../shared/utils/storage';
 import { apiMockControlClient } from './apiMockControlClient';
-import { API_MOCK_MAX_TABS } from './apiMockPageHelpers';
+import { API_MOCK_MAX_TABS, pickNextAutoPort } from './apiMockPageHelpers';
+import { resolveOpenTabIds } from './apiMockServerLibrary';
 import { loadApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
 
 export const API_MOCK_GALLERY_IMPORTS_KEY = 'api-mock-gallery-imports-v1';
@@ -127,6 +128,7 @@ export async function markGallerySampleImported(sampleId: string, hash: string):
 export interface ApiMockWorkspaceChangedDetail {
   servers: ApiMockServerDefinitionV1[];
   activeServerId?: string;
+  openTabIds?: string[];
 }
 
 export function dispatchApiMockWorkspaceChanged(detail: ApiMockWorkspaceChangedDetail): void {
@@ -148,16 +150,25 @@ export async function importApiMockGalleryServer(
 ): Promise<GalleryImportResult> {
   const sampleHash = gallerySampleHash(template);
   const ws = await loadApiMockWorkspace();
-  if (ws.servers.length >= API_MOCK_MAX_TABS) {
+  const openTabIds = resolveOpenTabIds(ws.servers, ws.openTabIds);
+  if (openTabIds.length >= API_MOCK_MAX_TABS) {
     throw new Error(`You can have at most ${API_MOCK_MAX_TABS} mock servers open. Close a tab before importing another gallery sample.`);
   }
   const portRes = await apiMockControlClient.nextAutoPort(ws.servers.map(s => s.port));
-  if (!portRes.ok) {
-    throw new Error(portRes.error.message || 'No available mock port in 4600–4699.');
+  let port: number;
+  if (portRes.ok) {
+    port = portRes.data.port;
+  } else {
+    // Offline / companion-down lessons still need a listen port on the definition.
+    try {
+      port = pickNextAutoPort(ws.servers);
+    } catch {
+      throw new Error(portRes.error.message || 'No available mock port in 4600–4699.');
+    }
   }
-  const server = cloneServerForGalleryImport(template, portRes.data.port);
+  const server = cloneServerForGalleryImport(template, port);
   const servers = [...ws.servers, server];
-  const next = { servers, activeServerId: server.id };
+  const next = { servers, activeServerId: server.id, openTabIds: [...openTabIds, server.id] };
   await saveApiMockWorkspace(next);
   await markGallerySampleImported(sampleId, sampleHash);
   dispatchApiMockWorkspaceChanged(next);

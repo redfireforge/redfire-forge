@@ -52,6 +52,10 @@ export function ApiMockServerBar({
   const labelClass = running ? 'running' : status === 'error' ? 'error' : 'stopped';
   const nativeWarnings = isTauri() ? analyzeNativeUnsupported(server) : [];
   const tlsEnabled = Boolean(server.settings.tls?.enabled);
+  const emptyRules = server.routes.length === 0;
+  const startTitle = emptyRules
+    ? 'Start the listener. With no rules, every request returns 404 until you add one.'
+    : 'Start this mock server';
 
   const handleCopy = () => {
     void navigator.clipboard?.writeText(address).then(() => {
@@ -64,7 +68,7 @@ export function ApiMockServerBar({
     <div className="api-mock-server-bar" data-testid="api-mock-server-bar">
       <div className="am-server-bar-main">
         <span className={`am-status-dot ${status}`} />
-        <span className={`am-status-label ${labelClass}`}>{STATUS_LABEL[status]}</span>
+        <span className={`am-status-label ${labelClass}`} data-testid="api-mock-status-label">{STATUS_LABEL[status]}</span>
         <span className="am-address" data-testid="api-mock-address">{address}</span>
         <button
           className="am-icon-btn"
@@ -74,7 +78,7 @@ export function ApiMockServerBar({
           data-testid="api-mock-copy-address"
         >{copied ? <CheckIcon /> : <CopyIcon />}</button>
         {generation > 0 && (
-          <span className="am-generation">Generation {generation}</span>
+          <span className="am-generation" data-testid="api-mock-generation">Generation {generation}</span>
         )}
         {tlsEnabled && (
           <span className="am-badge" title="HTTPS listeners accept HTTP/2 (h2) and HTTP/1.1" data-testid="api-mock-http2-badge">HTTP/2</span>
@@ -90,7 +94,13 @@ export function ApiMockServerBar({
             <button className="am-btn danger" onClick={onStop} data-testid="api-mock-stop"><StopIcon /> Stop</button>
           </>
         ) : (
-          <button className="am-btn primary" onClick={onStart} disabled={busy} data-testid="api-mock-start">
+          <button
+            className="am-btn primary"
+            onClick={onStart}
+            disabled={busy}
+            title={startTitle}
+            data-testid="api-mock-start"
+          >
             <PlayIcon /> {status === 'starting' ? 'Starting…' : 'Start'}
           </button>
         )}

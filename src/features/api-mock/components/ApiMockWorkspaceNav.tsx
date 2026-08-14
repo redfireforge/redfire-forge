@@ -30,13 +30,39 @@ const TABS: Array<{ id: ApiMockMainView; label: string }> = [
   { id: 'conflicts', label: 'Conflicts' },
 ];
 
-const EXPORT_ITEMS: Array<{ req: ApiMockExportRequest; testId: string; label: string; hint: string }> = [
-  { req: { scope: 'workspace', format: 'json' }, testId: 'api-mock-export-workspace', label: 'Workspace JSON', hint: 'All servers (redacted)' },
-  { req: { scope: 'workspace', format: 'yaml' }, testId: 'api-mock-export-workspace-yaml', label: 'Workspace YAML', hint: 'Source-control friendly' },
-  { req: { scope: 'servers', format: 'json' }, testId: 'api-mock-export-servers', label: 'Active server JSON', hint: 'Current tab only' },
-  { req: { scope: 'routes', format: 'json' }, testId: 'api-mock-export-routes', label: 'Active server routes', hint: 'Rules + samples' },
-  { req: { scope: 'routes', format: 'wiremock' }, testId: 'api-mock-export-wiremock', label: 'WireMock mappings', hint: 'Subset + loss report file' },
-  { req: { scope: 'servers', format: 'har' }, testId: 'api-mock-export-har', label: 'HAR (journal)', hint: 'Captured traffic + loss report' },
+const EXPORT_GROUPS: Array<{
+  id: string;
+  label: string;
+  testId: string;
+  items: Array<{ req: ApiMockExportRequest; testId: string; label: string; hint: string }>;
+}> = [
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    testId: 'api-mock-export-group-workspace',
+    items: [
+      { req: { scope: 'workspace', format: 'json' }, testId: 'api-mock-export-workspace', label: 'Workspace JSON', hint: 'All servers (redacted)' },
+      { req: { scope: 'workspace', format: 'yaml' }, testId: 'api-mock-export-workspace-yaml', label: 'Workspace YAML', hint: 'Source-control friendly' },
+    ],
+  },
+  {
+    id: 'server',
+    label: 'This server',
+    testId: 'api-mock-export-group-server',
+    items: [
+      { req: { scope: 'servers', format: 'json' }, testId: 'api-mock-export-servers', label: 'Active server JSON', hint: 'Current tab only' },
+      { req: { scope: 'routes', format: 'json' }, testId: 'api-mock-export-routes', label: 'Active server routes', hint: 'Rules + samples' },
+    ],
+  },
+  {
+    id: 'interop',
+    label: 'Interop',
+    testId: 'api-mock-export-group-interop',
+    items: [
+      { req: { scope: 'routes', format: 'wiremock' }, testId: 'api-mock-export-wiremock', label: 'WireMock mappings', hint: 'Subset + loss report file' },
+      { req: { scope: 'servers', format: 'har' }, testId: 'api-mock-export-har', label: 'HAR (journal)', hint: 'Captured traffic + loss report' },
+    ],
+  },
 ];
 
 export function ApiMockWorkspaceNav({
@@ -112,17 +138,22 @@ export function ApiMockWorkspaceNav({
               </button>
               {exportOpen && (
                 <div className="am-dropdown-menu open" role="menu" data-testid="api-mock-export-menu-panel">
-                  {EXPORT_ITEMS.map(item => (
-                    <button
-                      key={item.testId}
-                      className="am-menu-item"
-                      role="menuitem"
-                      data-testid={item.testId}
-                      onClick={() => { setExportOpen(false); onExport(item.req); }}
-                    >
-                      <span className="am-menu-label">{item.label}</span>
-                      <span className="am-menu-hint">{item.hint}</span>
-                    </button>
+                  {EXPORT_GROUPS.map(group => (
+                    <div key={group.id} className="am-menu-group" data-testid={group.testId}>
+                      <div className="am-menu-group-label">{group.label}</div>
+                      {group.items.map(item => (
+                        <button
+                          key={item.testId}
+                          className="am-menu-item"
+                          role="menuitem"
+                          data-testid={item.testId}
+                          onClick={() => { setExportOpen(false); onExport(item.req); }}
+                        >
+                          <span className="am-menu-label">{item.label}</span>
+                          <span className="am-menu-hint">{item.hint}</span>
+                        </button>
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}

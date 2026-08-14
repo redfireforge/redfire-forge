@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ApiMockResponseSelectionPanel } from './ApiMockResponseSelectionPanel';
+import { ApiMockResponseSelectionPanel, readJsonPathCondition, writeJsonPathCondition } from './ApiMockResponseSelectionPanel';
 import { createDefaultResponse } from '../../../shared/api-mock/defaults';
 import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
 import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
@@ -113,5 +113,117 @@ describe('ApiMockResponseSelectionPanel', () => {
     renderPanel({ responseMode: 'sequence' });
     expect(screen.getByTestId('api-mock-selection-panel').textContent).toMatch(/sequence/i);
     expect(screen.getByTestId('api-mock-selection-panel').textContent).toMatch(/mode is active on the live listener/i);
+  });
+
+  it('authors a JSONPath condition on a non-default variant', () => {
+    const { onUpdateVariant } = renderPanel(
+      {},
+      { isDefault: false, name: 'Missing' },
+    );
+    expect(screen.getByTestId('api-mock-selection-default-note').textContent).toMatch(/Exactly one/);
+    fireEvent.change(screen.getByTestId('api-mock-selection-condition-path'), { target: { value: '$.sku' } });
+    expect(onUpdateVariant).toHaveBeenCalledWith({
+      conditions: expect.objectContaining({
+        combinator: 'all',
+        children: [expect.objectContaining({
+          operator: 'jsonPath_equals',
+          expected: ['$.sku', ''],
+        })],
+      }),
+    });
+    fireEvent.change(screen.getByTestId('api-mock-selection-condition-value'), { target: { value: 'MISSING' } });
+    expect(onUpdateVariant).toHaveBeenLastCalledWith({
+      conditions: expect.objectContaining({
+        children: [expect.objectContaining({ expected: ['', 'MISSING'] })],
+      }),
+    });
+  });
+
+  it('reads an existing JSONPath pair', () => {
+    renderPanel(
+      {},
+      {
+        isDefault: false,
+        conditions: {
+          id: 'pg-cond',
+          combinator: 'all',
+          children: [{
+            id: 'p1',
+            source: 'body',
+            selector: '',
+            operator: 'jsonPath_equals',
+            expected: ['$.sku', 'MISSING'],
+          }],
+        },
+      },
+    );
+    expect(screen.getByTestId('api-mock-selection-condition-path')).toHaveValue('$.sku');
+    expect(screen.getByTestId('api-mock-selection-condition-value')).toHaveValue('MISSING');
+  });
+
+  it('readJsonPathCondition falls back to selector when expected is not a pair', () => {
+    const base = createDefaultResponse('resp-r');
+    expect(readJsonPathCondition({
+      ...base,
+      conditions: {
+        id: 'pg',
+        combinator: 'all',
+        children: [{
+          id: 'p',
+          source: 'body',
+          selector: '$.id',
+          operator: 'jsonPath_equals',
+          expected: 'solo',
+        }],
+      },
+    })).toEqual({ path: '$.id', value: 'solo' });
+
+    expect(readJsonPathCondition({
+      ...base,
+      conditions: {
+        id: 'pg',
+        combinator: 'all',
+        children: [{
+          id: 'p',
+          source: 'body',
+          selector: '',
+          operator: 'jsonPath_equals',
+        }],
+      },
+    })).toEqual({ path: '', value: '' });
+
+    expect(readJsonPathCondition({
+      ...base,
+      conditions: {
+        id: 'pg',
+        combinator: 'all',
+        children: [{
+          id: 'p',
+          source: 'body',
+          selector: '',
+          operator: 'jsonPath_equals',
+          expected: [undefined, undefined],
+        }],
+      },
+    })).toEqual({ path: '', value: '' });
+  });
+
+  it('writeJsonPathCondition mints a group id when the variant has none', () => {
+    const written = writeJsonPathCondition(createDefaultResponse('resp-z'), '$.a', '1');
+    expect(written?.id).toBe('pg-cond-resp-z');
+    expect(writeJsonPathCondition(createDefaultResponse('resp-z'), '  ', '  ')).toBeUndefined();
+  });
+
+  it('updates state counters when the transition has no target state', () => {
+    const { onUpdateVariant } = renderPanel(
+      { responseMode: 'state' },
+      { transition: { currentState: 'A', counterUpdates: [{ key: 'n', delta: 1 }] } },
+    );
+    fireEvent.change(screen.getByLabelText('Counter 1 key'), { target: { value: 'hits' } });
+    fireEvent.change(screen.getByLabelText('Counter 1 delta'), { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('api-mock-counter-remove-0'));
+    expect(onUpdateVariant).toHaveBeenCalledWith(expect.objectContaining({
+      transition: expect.objectContaining({ targetState: 'Started' }),
+    }));
   });
 });

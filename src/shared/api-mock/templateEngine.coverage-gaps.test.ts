@@ -59,6 +59,10 @@ describe('templateEngine coverage gaps', () => {
     expect(renderTemplate("{{jsonPath '$.user.name'}}", ctx({ request: { ...ctx().request, body: null } })).output).toBe('');
     expect(renderTemplate("{{jsonPath '$.user.name'}}", ctx({ request: { ...ctx().request, body: 'raw-string' } })).output).toBe('');
     expect(renderTemplate("{{jsonPath '$.user.name.first'}}", ctx()).output).toBe('');
+    expect(renderTemplate("{{jsonPath '$.__proto__[0]'}}", ctx()).output).toBe('');
+    expect(renderTemplate("{{jsonPath '$.items[0].sku'}}", ctx({
+      request: { ...ctx().request, body: { items: [{ sku: 'RF-100' }] } },
+    })).output).toBe('RF-100');
   });
 
   it('covers parse-expression quoting and tab separation', () => {

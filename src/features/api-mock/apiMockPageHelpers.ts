@@ -1,6 +1,7 @@
 import type { ApiMockRouteV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1 } from '../../shared/api-mock/contracts';
 import { AUTO_PORT_RANGE, HARD_CEILINGS } from '../../shared/api-mock/defaults';
 import { stripCapturedRequestSecrets } from '../../shared/api-mock/harExport';
+import { resolveActiveTabId, resolveOpenTabIds } from './apiMockServerLibrary';
 import type { ApiMockRuntimeStatus } from './components/ApiMockServerTabs';
 
 /** W5 — open mock-server tabs cannot exceed the hard ceiling. */
@@ -15,13 +16,20 @@ export interface RuntimeInfoLike {
 
 export function computeHydrationResult(
   cancelled: boolean,
-  state: { activeServerId?: string; servers: ApiMockServerDefinitionV1[] },
-): { shouldApply: false } | { shouldApply: true; servers: ApiMockServerDefinitionV1[]; activeServerId?: string } {
+  state: { activeServerId?: string; servers: ApiMockServerDefinitionV1[]; openTabIds?: string[] },
+): { shouldApply: false } | {
+  shouldApply: true;
+  servers: ApiMockServerDefinitionV1[];
+  activeServerId?: string;
+  openTabIds: string[];
+} {
   if (cancelled || state.servers.length === 0) return { shouldApply: false };
+  const openTabIds = resolveOpenTabIds(state.servers, state.openTabIds);
   return {
     shouldApply: true,
     servers: state.servers,
-    activeServerId: resolveHydratedActiveServerId(state),
+    activeServerId: resolveActiveTabId(openTabIds, state.activeServerId),
+    openTabIds,
   };
 }
 
@@ -32,7 +40,22 @@ export function resolveHydratedActiveServerId(state: { activeServerId?: string; 
   return state.servers[0]?.id;
 }
 
-/** Lowest free auto-port in 4600–4699 not already claimed by open server tabs. */
+/** Another saved mock (open or parked) that already claims this listen port. */
+export function findPortOwner(
+  servers: Array<{ id: string; name: string; port: number }>,
+  port: number,
+  excludeId?: string,
+): { id: string; name: string; port: number } | undefined {
+  if (!Number.isInteger(port)) return undefined;
+  return servers.find(s => s.id !== excludeId && s.port === port);
+}
+
+export function formatPortTakenMessage(port: number, ownerName: string): string {
+  const name = ownerName.trim() || 'another mock server';
+  return `Port ${port} is already used by ${name}. Pick another port.`;
+}
+
+/** Lowest free auto-port in 4600–4699 not already claimed by saved servers. */
 export function pickNextAutoPort(
   servers: Array<{ port: number }>,
   range: { min: number; max: number } = AUTO_PORT_RANGE,
@@ -90,39 +113,12 @@ export function parsePortOwnerServerId(message: string): string | undefined {
   return match?.[1];
 }
 
-/** Drop closed servers from the tab list and activate the nearest remaining tab. */
-export function removeClosedServers(
-  servers: ApiMockServerDefinitionV1[],
-  closedIds: string[],
-  activeServerId: string | undefined,
-): { servers: ApiMockServerDefinitionV1[]; activeServerId: string | undefined } {
-  const closed = new Set(closedIds);
-  if (closed.size === 0) return { servers, activeServerId };
-  const activeIndex = servers.findIndex(s => s.id === activeServerId);
-  const next = servers.filter(s => !closed.has(s.id));
-  if (activeServerId && next.some(s => s.id === activeServerId)) {
-    return { servers: next, activeServerId };
-  }
-  if (next.length === 0) return { servers: next, activeServerId: undefined };
-  if (activeIndex < 0) return { servers: next, activeServerId: next[0]?.id };
-  return { servers: next, activeServerId: next[Math.min(activeIndex, next.length - 1)]?.id };
-}
-
-/** Drop a closed server from the tab list and activate the nearest remaining tab. */
-export function removeClosedServer(
-  servers: ApiMockServerDefinitionV1[],
-  closedId: string,
-  activeServerId: string | undefined,
-): { servers: ApiMockServerDefinitionV1[]; activeServerId: string | undefined } {
-  return removeClosedServers(servers, [closedId], activeServerId);
-}
-
 export function formatImportedRoutesMessage(count: number): string {
   return `Imported ${count} route${count === 1 ? '' : 's'} as drafts.`;
 }
 
 export function formatTabLimitMessage(max = API_MOCK_MAX_TABS): string {
-  return `You can have at most ${max} mock servers open. Close a tab to create or duplicate another.`;
+  return `You can have at most ${max} mock servers open at once. Close a tab — its rules stay in Saved servers — to open another.`;
 }
 
 /** Non-destructive confirm options for the 8-tab ceiling (not a delete). */
@@ -147,6 +143,16 @@ export function formatStopAndCloseMessage(names: string[]): string {
   if (names.length <= 1) return `Stop and close "${names[0] ?? 'mock server'}"?`;
   return `Stop and close ${names.length} mock servers? Running listeners will be stopped.`;
 }
+
+/**
+ * Closing a running tab stops a listener — it does not delete anything,
+ * so it must not borrow the delete dialog's wording.
+ */
+export const STOP_AND_CLOSE_CONFIRM_OPTIONS = {
+  title: 'Stop and close',
+  confirmLabel: 'Stop & Close',
+  finalNote: 'The listener stops and the port is freed. Rules stay in Saved servers.',
+} as const;
 
 /** Clone a server tab with a new id, next port, and no TLS/variable secrets (W5). */
 export function duplicateServerDefinition(

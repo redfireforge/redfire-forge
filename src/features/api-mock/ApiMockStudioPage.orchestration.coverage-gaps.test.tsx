@@ -127,6 +127,8 @@ vi.mock('./apiMockControlClient', () => ({
     recordedDrafts: (...args: unknown[]) => recordedDrafts(...args),
     ackRecordedDrafts: (...args: unknown[]) => ackRecordedDrafts(...args),
     nextAutoPort: (...args: unknown[]) => nextAutoPort(...args),
+    list: async () => ({ ok: true, data: [] }),
+    status: async () => ({ ok: true, data: { state: 'stopped', generation: 0 } }),
   },
 }));
 vi.mock('./useApiMockConsole', () => ({
@@ -145,9 +147,11 @@ vi.mock('./components/ApiMockServerTabs', () => ({
   API_MOCK_WORKSPACE_PANEL_ID: 'api-mock-workspace-panel',
 }));
 vi.mock('./components/ApiMockStudioTitleBar', () => ({
-  ApiMockStudioTitleBar: ({ servers, onCreate, onClose, onCloseMany, onSelect, onRename, onDuplicate, onReorder, statusById, dirtyById }: any) => (
+  ApiMockStudioTitleBar: ({ servers, onCreate, onClose, onCloseMany, onDelete, onSelect, onRename, onDuplicate, onReorder, onOpenLibrary, savedCount, parkedCount, statusById, dirtyById }: any) => (
     <div data-testid="mock-titlebar">
       <div data-testid="mock-server-tabs">
+        <button data-testid="mock-open-library" onClick={onOpenLibrary}>library:{savedCount}:{parkedCount}</button>
+        {servers[0] && <button data-testid="mock-delete-server" onClick={() => onDelete?.(servers[0].id)}>delete-server</button>}
         <button data-testid="mock-create-server" onClick={onCreate}>create-server</button>
         {servers.map((s: any) => (
           <button key={s.id} data-testid={`mock-select-${s.id}`} onClick={() => onSelect(s.id)}>
@@ -313,8 +317,22 @@ vi.mock('./components/ApiMockServerSettingsModal', () => ({
   ),
 }));
 vi.mock('./components/ApiMockSimulateModal', () => ({
-  ApiMockSimulateModal: ({ initialPath, initialMethod, onClose }: any) => (
-    <div data-testid="mock-simulate-modal">{initialMethod}:{initialPath}<button data-testid="mock-simulate-close" onClick={onClose}>close-simulate</button></div>
+  ApiMockSimulateModal: ({ initialPath, initialMethod, onClose, onSaveSample }: any) => (
+    <div data-testid="mock-simulate-modal">
+      {initialMethod}:{initialPath}
+      <button data-testid="mock-simulate-close" onClick={onClose}>close-simulate</button>
+      <button
+        data-testid="mock-simulate-save-sample"
+        onClick={() => onSaveSample?.({
+          id: 'sample-new',
+          name: 'GET /health',
+          request: {
+            method: 'GET', path: '/health', rawPath: '/health', query: {},
+            headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: '2026-08-13T00:00:00.000Z',
+          },
+        })}
+      >save-sample</button>
+    </div>
   ),
 }));
 vi.mock('./components/ApiMockImportReview', () => ({
@@ -381,6 +399,8 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-simulate-close'));
     fireEvent.click(screen.getByTestId('mock-route-simulate'));
     expect(screen.getByTestId('mock-simulate-modal')).toHaveTextContent('GET:/users');
+    fireEvent.click(screen.getByTestId('mock-simulate-save-sample'));
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Saved sample/);
     fireEvent.click(screen.getByTestId('mock-simulate-close'));
 
     fireEvent.click(screen.getByTestId('mock-add-folder'));
@@ -404,12 +424,20 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-delete-route'));
     expect(screen.getByTestId('api-mock-no-route')).toBeTruthy();
 
+    // Closing the last tab parks the server: the landing lists it instead of
+    // falling back to the first-run empty state.
     fireEvent.click(screen.getByTestId('mock-close-server'));
     await waitFor(() => expect(stop).toHaveBeenCalledWith('srv-1'));
-    await waitFor(() => expect(screen.getByTestId('api-mock-empty')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('api-mock-library-landing')).toBeTruthy());
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/still saved in Saved servers/i);
+    expect(screen.getByTestId('api-mock-library-row-srv-1')).toBeTruthy();
 
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
-    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4600/i));
+    fireEvent.click(screen.getByTestId('api-mock-library-open-srv-1'));
+    await waitFor(() => expect(screen.getByTestId('mock-select-srv-1')).toBeTruthy());
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/opened from Saved servers/i);
+
+    fireEvent.click(screen.getByTestId('mock-create-server'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4601/i));
   });
 
   it('hydrates from workspace-changed events and ignores empty details', async () => {
@@ -425,6 +453,14 @@ describe('ApiMockStudioPage orchestration coverage', () => {
 
     await waitFor(() => expect(screen.getByTestId('mock-select-srv-event')).toBeTruthy());
     expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Gallery mock server imported/i);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(API_MOCK_WORKSPACE_CHANGED_EVENT, {
+        detail: { servers: [], activeServerId: undefined, openTabIds: [] },
+      }));
+    });
+    await waitFor(() => expect(screen.queryByTestId('mock-select-srv-event')).toBeNull());
+    expect(screen.getByTestId('api-mock-empty')).toBeTruthy();
   });
 
   it('covers runtime success and failure branches, polling, dirty status, and dock actions', async () => {
@@ -711,20 +747,46 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Server started on port 4600/i));
   });
 
-  it('reuses the lowest free port after a tab is closed', async () => {
+  it('keeps a parked port claimed but frees it once the server is deleted', async () => {
     const a = { ...makeServer('srv-a'), port: 4600 };
     const b = { ...makeServer('srv-b'), port: 4601 };
     loadApiMockWorkspace.mockResolvedValueOnce({ servers: [a, b], activeServerId: 'srv-a' });
     const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
     render(<ApiMockStudioPage />);
     await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+
+    // Parking keeps 4600 reserved so reopening srv-a never collides.
     fireEvent.click(screen.getByTestId('mock-close-server')); // closes srv-a (first)
     await waitFor(() => expect(stop).toHaveBeenCalledWith('srv-a'));
     fireEvent.click(screen.getByTestId('mock-create-server'));
-    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4600/i));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4602/i));
     fireEvent.click(screen.getByTestId('mock-duplicate-server'));
     await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/duplicated on port/i));
+
+    // Deleting the first open tab (srv-b) releases 4601 for the next server.
+    fireEvent.click(screen.getByTestId('mock-delete-server'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/deleted/i));
+    fireEvent.click(screen.getByTestId('mock-create-server'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4601/i));
     fireEvent.click(screen.getByTestId('mock-reorder-servers'));
+  });
+
+  it('restores a deleted server from the undo toast', async () => {
+    loadApiMockWorkspace.mockResolvedValueOnce({
+      servers: [makeServer('srv-a'), makeServer('srv-b')],
+      activeServerId: 'srv-a',
+    });
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('mock-delete-server'));
+    await waitFor(() => expect(screen.queryByTestId('mock-select-srv-a')).toBeNull());
+    expect(screen.getByTestId('api-mock-undo-toast')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('api-mock-undo-restore'));
+    await waitFor(() => expect(screen.getByTestId('mock-select-srv-a')).toBeTruthy());
+    expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/restored/i);
   });
 
   it('closes several tabs with a single close-others action', async () => {
