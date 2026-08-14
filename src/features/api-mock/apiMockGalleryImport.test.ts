@@ -92,6 +92,8 @@ describe('apiMockGalleryImport', () => {
     expect(writeKey).toHaveBeenCalled();
     expect(events).toHaveLength(1);
     expect((events[0] as CustomEvent).detail.servers).toHaveLength(1);
+    // The import opens as a tab on top of whatever the library already held.
+    expect((events[0] as CustomEvent).detail.openTabIds).toEqual([result.server.id]);
 
     window.removeEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onChanged);
   });
@@ -311,10 +313,45 @@ describe('apiMockGalleryImport', () => {
       .rejects.toThrow(/at most 8/);
   });
 
-  it('rejects when nextAutoPort fails with explicit and fallback messages', async () => {
+  it('imports into a full library as long as a tab slot is free', async () => {
+    loadWorkspace.mockResolvedValue({
+      servers: Array.from({ length: 9 }, (_, i) => ({
+        ...createHealthCheckMock(),
+        id: `srv-${i}`,
+        port: 4600 + i,
+      })),
+      openTabIds: ['srv-0'],
+    });
+
+    const result = await importApiMockGalleryServer(createHealthCheckMock(), 'am-gallery-health');
+
+    expect(result.server.port).toBe(4609);
+    expect(saveWorkspace).toHaveBeenCalledWith(expect.objectContaining({
+      openTabIds: ['srv-0', result.server.id],
+    }));
+  });
+
+  it('falls back to a local auto-port when nextAutoPort fails', async () => {
+    nextAutoPort.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'COMPANION_UNAVAILABLE', message: 'companion down' },
+    });
+    const result = await importApiMockGalleryServer(createHealthCheckMock(), 'am-gallery-health');
+    expect(result.server.port).toBe(4600);
+  });
+
+  it('rejects when both companion nextAutoPort and the local range are exhausted', async () => {
     nextAutoPort.mockResolvedValueOnce({
       ok: false,
       error: { code: 'NO_PORT_AVAILABLE', message: 'no port left' },
+    });
+    loadWorkspace.mockResolvedValueOnce({
+      servers: Array.from({ length: 100 }, (_, i) => ({
+        id: `srv-${i}`,
+        name: `S${i}`,
+        port: 4600 + i,
+      })),
+      openTabIds: ['srv-0'],
     });
     await expect(importApiMockGalleryServer(createHealthCheckMock(), 'am-gallery-health'))
       .rejects.toThrow('no port left');
@@ -322,6 +359,14 @@ describe('apiMockGalleryImport', () => {
     nextAutoPort.mockResolvedValueOnce({
       ok: false,
       error: { code: 'NO_PORT_AVAILABLE', message: '' },
+    });
+    loadWorkspace.mockResolvedValueOnce({
+      servers: Array.from({ length: 100 }, (_, i) => ({
+        id: `srv-${i}`,
+        name: `S${i}`,
+        port: 4600 + i,
+      })),
+      openTabIds: ['srv-0'],
     });
     await expect(importApiMockGalleryServer(createHealthCheckMock(), 'am-gallery-health'))
       .rejects.toThrow('No available mock port in 4600–4699.');

@@ -67,6 +67,22 @@ describe('useApiMockConsole', () => {
     expect(result.current.lines).toEqual([]);
   });
 
+  it('caps the console history at 300 lines', () => {
+    const { result } = renderHook(() => useApiMockConsole(true));
+
+    act(() => {
+      for (let i = 0; i < 301; i += 1) {
+        FakeEventSource.instances[0].onmessage?.({
+          data: JSON.stringify({ source: 'api-mock', message: `line-${i}` }),
+        });
+      }
+    });
+
+    expect(result.current.lines).toHaveLength(300);
+    expect(result.current.lines[0]?.message).toBe('line-1');
+    expect(result.current.lines.at(-1)?.message).toBe('line-300');
+  });
+
   it('swallows EventSource construction failures', () => {
     vi.stubGlobal('EventSource', class BrokenEventSource {
       constructor() {

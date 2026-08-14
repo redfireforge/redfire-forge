@@ -34,6 +34,13 @@ export interface ApiMockFixtureHandle {
   definition: ApiMockServerDefinitionV1;
 }
 
+/** Live fixture bind/teardown line shown on the Test Runner panel. */
+export interface ApiMockFixtureRunStatus {
+  phase: 'starting' | 'running' | 'stopped';
+  port?: number;
+  serverId?: string;
+}
+
 export async function setupApiMockFixture(
   config: ApiMockTestFixtureConfig,
   runId: string,

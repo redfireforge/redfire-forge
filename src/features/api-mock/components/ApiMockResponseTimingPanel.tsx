@@ -1,5 +1,8 @@
 import type { ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
+import { formatEligibilitySummary, formatTimingSpread } from '../apiMockExpiresFormat';
 import { ApiMockResponseExpiresPicker } from './ApiMockResponseExpiresPicker';
+
+/** Timing tab: delay, jitter, eligibility, and expiry. */
 
 interface Props {
   variant: ApiMockResponseVariantV1;
@@ -37,6 +40,14 @@ export function ApiMockResponseTimingPanel({ variant, onUpdateVariant }: Props) 
             data-testid="api-mock-variant-jitter"
           />
           <span className="am-hint">± random added to delay</span>
+        </div>
+      </div>
+      <div className="am-form-row">
+        <div className="am-form-label">Spread</div>
+        <div className="am-form-control">
+          <span className="am-hint" data-testid="api-mock-timing-spread">
+            {formatTimingSpread(variant.behavior.delayMs, variant.behavior.jitterMs)}
+          </span>
         </div>
       </div>
       <div className="am-form-row">
@@ -94,6 +105,14 @@ export function ApiMockResponseTimingPanel({ variant, onUpdateVariant }: Props) 
             data-testid="api-mock-variant-probability"
           />
           <span className="am-hint">0–1 gate; empty = always eligible</span>
+        </div>
+      </div>
+      <div className="am-form-row">
+        <div className="am-form-label">Eligibility</div>
+        <div className="am-form-control">
+          <span className="am-hint" data-testid="api-mock-eligibility-summary">
+            {formatEligibilitySummary(variant.behavior)}
+          </span>
         </div>
       </div>
     </div>

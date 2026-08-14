@@ -92,5 +92,31 @@ describe('ApiMockResponseTimingPanel', () => {
     );
     expect(screen.getByTestId('api-mock-variant-max-matches')).toHaveValue(null);
     expect(screen.getByTestId('api-mock-variant-probability')).toHaveValue(null);
+    expect(screen.getByTestId('api-mock-timing-spread')).toHaveTextContent('0±0 ms');
+    expect(screen.getByTestId('api-mock-eligibility-summary')).toHaveTextContent(
+      'Unlimited matches · Never expires · Always eligible',
+    );
+  });
+
+  it('summarises a limited, expiring, flaky variant', () => {
+    render(
+      <ApiMockResponseTimingPanel
+        variant={{
+          ...createDefaultResponse('resp-1'),
+          behavior: {
+            delayMs: 800,
+            jitterMs: 200,
+            maxMatches: 1,
+            probability: 0.5,
+            expiresAt: '2026-12-01T12:00:00.000Z',
+          },
+        }}
+        onUpdateVariant={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-timing-spread')).toHaveTextContent('800±200 ms');
+    expect(screen.getByTestId('api-mock-eligibility-summary').textContent).toMatch(/Limit 1/);
+    expect(screen.getByTestId('api-mock-eligibility-summary').textContent).toMatch(/P=0\.5/);
+    expect(screen.getByTestId('api-mock-eligibility-summary').textContent).toMatch(/Expires/);
   });
 });

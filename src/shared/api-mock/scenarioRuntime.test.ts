@@ -33,6 +33,14 @@ describe('scenarioRuntime', () => {
     expect(getCounter(s, 'hits')).toBe(4);
   });
 
+  it('bootstraps a named start state from empty runtime', () => {
+    const s = createInitialState();
+    const result = applyTransition(s, 'flow', { currentState: 'EMPTY', targetState: 'HAS_ITEMS' });
+    expect(result.applied).toBe(true);
+    expect(result.newState).toBe('HAS_ITEMS');
+    expect(getState(s, 'flow')).toBe('HAS_ITEMS');
+  });
+
   it('resets all state', () => {
     const s = createInitialState();
     applyTransition(s, 'flow', { targetState: 'active', counterUpdates: [{ key: 'n', delta: 5 }] });

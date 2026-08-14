@@ -55,7 +55,7 @@ interface Props {
   onAcknowledgeConflict: (finding: ApiMockConflictFindingV1) => void;
   onAdjustPriority: (routeId: string, delta: number) => void;
   onOpenInRequests: (tx: ApiMockTransactionV1) => void;
-  onCreateRouteFromTransaction: (tx: ApiMockTransactionV1) => void;
+  onCreateRouteFromTransaction: (tx: ApiMockTransactionV1) => string | void;
   onSaveSampleFromTransaction?: (tx: ApiMockTransactionV1) => void;
   onCopyTransaction: (tx: ApiMockTransactionV1) => void;
   onUpdateSample?: (sample: ApiMockSimulationSampleV1) => void;
@@ -169,6 +169,7 @@ export function ApiMockStudioMainPanel({
             }}
             drawerOpen={routesDrawerOpen}
             onCloseDrawer={() => setRoutesDrawerOpen(false)}
+            running={runtimeRunning}
           />
           <div className="api-mock-editor">
             {selectedRoute ? (
@@ -190,13 +191,20 @@ export function ApiMockStudioMainPanel({
                 onUpdateSample={onUpdateSample}
                 onDeleteSample={onDeleteSample}
                 onTrySampleInRequests={onTrySampleInRequests}
+                variables={activeServer.variables}
               />
             ) : (
               <div className="api-mock-no-selection" data-testid="api-mock-no-route">
-                <h3>No rule selected</h3>
+                <h3>
+                  {activeServer.routes.length === 0
+                    ? (runtimeRunning ? 'Listening — no rules yet' : 'No rules yet')
+                    : 'No rule selected'}
+                </h3>
                 <p>
                   {activeServer.routes.length === 0
-                    ? 'This mock server has no rules yet. Create one to define how it answers requests.'
+                    ? (runtimeRunning
+                      ? 'This listener is running with no rules. Every request to this address — GET, POST, or any other method — is unmatched and returns 404 until you add a rule.'
+                      : 'This mock server has no rules yet. Create one to define how it answers requests. You can still Start the listener — until a rule exists, every request returns 404.')
                     : 'Pick a rule from the panel on the left to edit its matching, responses, and behavior.'}
                 </p>
                 <button className="am-btn primary" onClick={() => onCreateRoute()} data-testid="api-mock-no-route-create">

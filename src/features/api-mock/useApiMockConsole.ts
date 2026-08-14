@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { subscribeLogStream } from '../../utils/logStream';
 
 export interface ApiMockConsoleLine {
   ts?: string;
@@ -23,24 +24,18 @@ export function useApiMockConsole(active: boolean): { lines: ApiMockConsoleLine[
   }, []);
 
   useEffect(() => {
-    if (!active || typeof EventSource === 'undefined') return;
-    let es: EventSource | null = null;
-    try {
-      es = new EventSource('/api/logs/stream');
-      es.onmessage = (event) => {
-        try {
-          const raw = JSON.parse(event.data) as { source?: string; ts?: string; level?: string; message?: string; text?: string };
-          if (raw?.source !== 'api-mock') return;
-          const line: ApiMockConsoleLine = { ts: raw.ts, level: raw.level, message: raw.message ?? raw.text ?? '' };
-          setLines(prev => {
-            const next = [...prev, line];
-            return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
-          });
-        } catch { /* ignore malformed lines */ }
-      };
-      es.onerror = () => { /* companion may be down; EventSource retries automatically */ };
-    } catch { /* EventSource unavailable */ }
-    return () => { es?.close(); };
+    if (!active) return;
+    return subscribeLogStream((data) => {
+      try {
+        const raw = JSON.parse(data) as { source?: string; ts?: string; level?: string; message?: string; text?: string };
+        if (raw?.source !== 'api-mock') return;
+        const line: ApiMockConsoleLine = { ts: raw.ts, level: raw.level, message: raw.message ?? raw.text ?? '' };
+        setLines(prev => {
+          const next = [...prev, line];
+          return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
+        });
+      } catch { /* ignore malformed lines */ }
+    });
   }, [active]);
 
   return { lines, clear };

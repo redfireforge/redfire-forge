@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ApiMockRouteV1, ApiMockResponseCookieV1, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockRouteV1, ApiMockResponseCookieV1, ApiMockResponseVariantV1, ApiMockVariableV1, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
+import { previewResponseBody } from '../../../shared/api-mock/templatePreview';
 import { createDefaultResponse } from '../../../shared/api-mock/defaults';
+import { isPredicateGroup } from '../../../shared/api-mock/predicateTree';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { ApiMockVariantOutboundPanel } from './ApiMockVariantOutboundPanel';
 import { ApiMockBodyEditor } from './ApiMockBodyEditor';
@@ -9,9 +11,12 @@ import { createApiMockBodyAdapter } from '../../../shared/components/data-mapper
 import { parseBodyJson } from '../../../shared/components/data-mapper/adapters/requestBodyAdapter';
 import {
   CONTENT_TYPE_PRESETS,
+  COOKIE_FLAG_HELP,
+  COOKIE_SAMESITE_OPTIONS,
   CUSTOM_CONTENT_TYPE,
   QUICK_STATUSES,
   STATUS_REASONS,
+  kindFromContentType,
 } from './apiMockResponseEditorConstants';
 import { ApiMockResponseFaultsPanel } from './ApiMockResponseFaultsPanel';
 import { ApiMockResponseSelectionPanel } from './ApiMockResponseSelectionPanel';
@@ -22,6 +27,8 @@ interface Props {
   onUpdateRoute: (patch: Partial<ApiMockRouteV1>) => void;
   /** Live sequence cursor for this route (next index). */
   sequencePosition?: number;
+  /** Server variables so `{{variables.key}}` resolves in the preview pane. */
+  variables?: ApiMockVariableV1[];
 }
 
 type ContentTab = 'content' | 'headers' | 'timing' | 'faults' | 'selection' | 'outbound';
@@ -29,7 +36,7 @@ type ContentTab = 'content' | 'headers' | 'timing' | 'faults' | 'selection' | 'o
 /**
  * Mockup 03-inspired response editor: variant sidebar + content tabs + live preview pane.
  */
-export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }: Props) {
+export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, variables = [] }: Props) {
   const [activeVariantId, setActiveVariantId] = useState(route.responses[0]?.id);
   const [contentTab, setContentTab] = useState<ContentTab>('content');
   useEffect(() => {
@@ -39,18 +46,18 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
   }, [route.responses, activeVariantId]);
   const activeVariant = route.responses.find(v => v.id === activeVariantId) ?? route.responses[0];
 
-  const previewBody = useMemo(() => {
-    if (!activeVariant) return '';
-    const raw = activeVariant.body.content ?? '';
-    if ((activeVariant.body.contentType ?? '').includes('json')) {
-      try {
-        return JSON.stringify(JSON.parse(raw), null, 2);
-      } catch {
-        return raw;
-      }
+  const templatePreview = useMemo(() => {
+    if (!activeVariant) {
+      return { text: '', errors: [] as string[], isTemplate: false, samplePath: '/', sampleMethod: 'GET' };
     }
-    return raw;
-  }, [activeVariant]);
+    return previewResponseBody(
+      activeVariant.body.content ?? '',
+      activeVariant.body.contentType,
+      route,
+      variables,
+    );
+  }, [activeVariant, route, variables]);
+  const previewBody = templatePreview.text;
 
   const handleAddVariant = () => {
     const id = `resp-${crypto.randomUUID().slice(0, 8)}`;
@@ -204,6 +211,12 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
       return `weight ${activeVariant.weight}`;
     }
     if (activeVariant.isDefault) return 'Default variant';
+    const jsonPath = activeVariant.conditions?.children?.find(
+      (c): c is ApiMockPredicateV1 => !isPredicateGroup(c) && c.operator === 'jsonPath_equals',
+    );
+    if (jsonPath && Array.isArray(jsonPath.expected) && jsonPath.expected.length >= 2) {
+      return `${jsonPath.expected[0]} = ${jsonPath.expected[1]}`;
+    }
     return 'No extra condition';
   })();
 
@@ -214,7 +227,7 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
 
   return (
     <div className="api-mock-root api-mock-response-editor" data-testid="api-mock-response-editor">
-      <div className="am-response-mode-bar">
+      <div className="am-response-mode-bar" data-testid="api-mock-response-mode-bar">
         <span className="am-section-heading" style={{ margin: 0 }}>Selection mode</span>
         <div className="am-segmented" role="group" aria-label="Response selection mode">
           {([
@@ -234,37 +247,44 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
           ))}
         </div>
         <span className="am-spacer" />
+        {route.responseMode === 'sequence' && (
+          <span className="am-hint" data-testid="api-mock-sequence-order-note">
+            Order is top to bottom. Exhaustion cycles from the start.
+          </span>
+        )}
         <span className="am-hint">{route.responses.length} variant{route.responses.length === 1 ? '' : 's'}</span>
       </div>
       <div className="am-response-layout">
         <aside className="am-variant-sidebar" data-testid="api-mock-variant-sidebar">
-          {route.responses.map((v, i) => (
-            <button
-              key={v.id}
-              type="button"
-              className={`am-variant-card${v.id === activeVariant?.id ? ' active' : ''}`}
-              data-testid={`api-mock-variant-tab-${v.id}`}
-              onClick={() => setActiveVariantId(v.id)}
-            >
-              <span className="am-variant-card-head">
-                <span className={`am-badge ${v.status >= 400 ? 'warning' : 'success'}`}>{v.status}</span>
-                <span className="am-variant-name">{v.name}</span>
-                {v.isDefault && <span className="am-badge info">Default</span>}
-                {route.responses.length > 1 && (
-                  <span
-                    className="am-variant-delete"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Delete ${v.name}`}
-                    data-testid={`api-mock-delete-variant-${v.id}`}
-                    onClick={e => { e.stopPropagation(); handleDeleteVariant(v.id); }}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); handleDeleteVariant(v.id); } }}
-                  >×</span>
-                )}
-              </span>
-              <span className="am-variant-desc">{variantSummary(v, i)}</span>
-            </button>
-          ))}
+          <div className="am-variant-list" data-testid="api-mock-variant-list">
+            {route.responses.map((v, i) => (
+              <button
+                key={v.id}
+                type="button"
+                className={`am-variant-card${v.id === activeVariant?.id ? ' active' : ''}`}
+                data-testid={`api-mock-variant-tab-${v.id}`}
+                onClick={() => setActiveVariantId(v.id)}
+              >
+                <span className="am-variant-card-head">
+                  <span className={`am-badge ${v.status >= 400 ? 'warning' : 'success'}`}>{v.status}</span>
+                  <span className="am-variant-name">{v.name}</span>
+                  {v.isDefault && <span className="am-badge info" data-testid="api-mock-variant-default-badge">Default</span>}
+                  {route.responses.length > 1 && (
+                    <span
+                      className="am-variant-delete"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Delete ${v.name}`}
+                      data-testid={`api-mock-delete-variant-${v.id}`}
+                      onClick={e => { e.stopPropagation(); handleDeleteVariant(v.id); }}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); handleDeleteVariant(v.id); } }}
+                    >×</span>
+                  )}
+                </span>
+                <span className="am-variant-desc">{variantSummary(v, i)}</span>
+              </button>
+            ))}
+          </div>
           <button className="am-btn small" onClick={handleAddVariant} aria-label="Add response variant" title="Add response variant" data-testid="api-mock-add-variant">+ Variant</button>
         </aside>
 
@@ -293,7 +313,7 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
               ))}
             </div>
 
-            <div className="am-editor-body">
+            <div className={`am-editor-body${contentTab === 'content' ? ' am-editor-body--fill' : ''}`}>
               {contentTab === 'content' && (
                 <>
                   <div className="am-form-grid">
@@ -304,12 +324,25 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                           className="am-input num mono"
                           type="number"
                           value={activeVariant.status}
-                          onChange={e => handleUpdateVariant(activeVariant.id, { status: parseInt(e.target.value, 10) || 200 })}
+                          onChange={e => {
+                            const status = parseInt(e.target.value, 10) || 200;
+                            const prevDefault = STATUS_REASONS[activeVariant.status];
+                            const keepCustom = Boolean(activeVariant.reasonPhrase && activeVariant.reasonPhrase !== prevDefault);
+                            handleUpdateVariant(activeVariant.id, {
+                              status,
+                              reasonPhrase: keepCustom ? activeVariant.reasonPhrase : (STATUS_REASONS[status] ?? ''),
+                            });
+                          }}
                           data-testid="api-mock-variant-status"
                         />
-                        <span className="am-faint" data-testid="api-mock-variant-status-reason">
-                          {STATUS_REASONS[activeVariant.status] ?? 'Custom status'}
-                        </span>
+                        <input
+                          className="am-input mono am-reason"
+                          value={activeVariant.reasonPhrase ?? STATUS_REASONS[activeVariant.status] ?? ''}
+                          onChange={e => handleUpdateVariant(activeVariant.id, { reasonPhrase: e.target.value })}
+                          placeholder="Custom status"
+                          aria-label="Reason phrase"
+                          data-testid="api-mock-variant-status-reason"
+                        />
                         <span className="am-spacer" />
                         <div className="am-status-quick">
                           {QUICK_STATUSES.map(s => (
@@ -318,7 +351,10 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                               type="button"
                               className={`am-chip${activeVariant.status === s ? ' active' : ''}`}
                               title={`${s} ${STATUS_REASONS[s] ?? ''}`.trim()}
-                              onClick={() => handleUpdateVariant(activeVariant.id, { status: s })}
+                              onClick={() => handleUpdateVariant(activeVariant.id, {
+                                status: s,
+                                reasonPhrase: STATUS_REASONS[s] ?? '',
+                              })}
                               data-testid={`api-mock-variant-status-quick-${s}`}
                             >{s}</button>
                           ))}
@@ -349,6 +385,7 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                               body: {
                                 ...activeVariant.body,
                                 contentType: v === CUSTOM_CONTENT_TYPE ? '' : (v || undefined),
+                                kind: v === CUSTOM_CONTENT_TYPE ? activeVariant.body.kind : kindFromContentType(v),
                               },
                             });
                           }}
@@ -421,6 +458,7 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                     <ApiMockBodyEditor
                       value={bodyText}
                       onChange={setBody}
+                      height="100%"
                       language={
                         (activeVariant.body.contentType ?? '').includes('xml') || activeVariant.body.kind === 'xml'
                           ? 'xml'
@@ -432,17 +470,27 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                       }
                     />
                     {mapperSession && mapperSession.variantId === activeVariant?.id && (
-                      <DataMapperModal
-                        adapter={mapperSession.adapter}
-                        initialData={mapperSession.initial}
-                        onSave={output => { setBody(output); setMapperSession(null); }}
-                        onCancel={() => setMapperSession(null)}
-                        doneLabel="Apply body"
-                      />
+                      <div data-testid="api-mock-body-mapper">
+                        <DataMapperModal
+                          adapter={mapperSession.adapter}
+                          initialData={mapperSession.initial}
+                          onSave={output => { setBody(output); setMapperSession(null); }}
+                          onCancel={() => setMapperSession(null)}
+                          doneLabel="Apply body"
+                        />
+                      </div>
                     )}
                     {formatError && (
                       <div className="am-hint am-hint--error" data-testid="api-mock-body-format-error">{formatError}</div>
                     )}
+                    {kindFromContentType(activeVariant.body.contentType) === 'binary_base64' && (
+                      <div className="am-notice" data-testid="api-mock-body-binary-hint">
+                        Body is treated as base64 and decoded to bytes on the wire.
+                      </div>
+                    )}
+                    <div className="am-notice am-body-helpers">
+                      Template helpers: <code>{'{{uuid}}'}</code>, <code>{"{{header 'X-Tenant'}}"}</code>, <code>{'{{now}}'}</code>, <code>{'{{pathParam id}}'}</code>.
+                    </div>
                   </div>
                 </>
               )}
@@ -458,13 +506,15 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                   {activeVariant.headers.length === 0 && (
                     <div className="am-empty-conditions">No custom headers.</div>
                   )}
+                  <div data-testid="api-mock-header-list">
                   {activeVariant.headers.map(h => (
-                    <div key={h.id} className="am-matcher-row" style={{ gridTemplateColumns: '1fr 1fr auto' }}>
-                      <input className="am-input mono" value={h.key} onChange={e => updateHeader(h.id, { key: e.target.value })} aria-label="Header name" />
-                      <input className="am-input mono" value={h.value} onChange={e => updateHeader(h.id, { value: e.target.value })} aria-label="Header value" />
+                    <div key={h.id} className="am-matcher-row" style={{ gridTemplateColumns: '1fr 1fr auto' }} data-testid="api-mock-header-row">
+                      <input className="am-input mono" value={h.key} onChange={e => updateHeader(h.id, { key: e.target.value })} aria-label="Header name" data-testid="api-mock-header-key" />
+                      <input className="am-input mono" value={h.value} onChange={e => updateHeader(h.id, { value: e.target.value })} aria-label="Header value" data-testid="api-mock-header-value" />
                       <button type="button" className="am-icon-btn" aria-label="Remove header" onClick={() => removeHeader(h.id)}>×</button>
                     </div>
                   ))}
+                  </div>
 
                   <div className="am-section-heading">
                     Cookies
@@ -472,45 +522,57 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                     <span className="am-spacer" />
                     <button type="button" className="am-btn small ghost" onClick={addCookie} data-testid="api-mock-add-cookie">+ Cookie</button>
                   </div>
+                  <ul className="am-cookie-flag-help" data-testid="api-mock-cookie-flag-help">
+                    {COOKIE_FLAG_HELP.map(item => (
+                      <li key={item.term}>
+                        <strong>{item.term}</strong>
+                        {' — '}
+                        {item.meaning}
+                      </li>
+                    ))}
+                  </ul>
                   {activeVariant.cookies.length === 0 && (
                     <div className="am-empty-conditions">No cookies.</div>
                   )}
                   {activeVariant.cookies.map(c => (
-                    <div key={c.id} className="am-cookie-card" data-testid={`api-mock-cookie-${c.id}`}>
+                    <div key={c.id} className="am-cookie-card" data-testid="api-mock-cookie-row">
                       <div className="am-matcher-row" style={{ gridTemplateColumns: '1fr 1fr auto' }}>
                         <input
                           className="am-input mono"
                           value={c.name}
                           aria-label="Cookie name"
-                          data-testid={`api-mock-cookie-name-${c.id}`}
+                          data-testid="api-mock-cookie-name"
                           onChange={e => updateCookie(c.id, { name: e.target.value })}
                         />
                         <input
                           className="am-input mono"
                           value={c.value}
                           aria-label="Cookie value"
-                          data-testid={`api-mock-cookie-value-${c.id}`}
+                          data-testid="api-mock-cookie-value"
                           onChange={e => updateCookie(c.id, { value: e.target.value })}
                         />
                         <button type="button" className="am-icon-btn" aria-label="Remove cookie" data-testid={`api-mock-cookie-delete-${c.id}`} onClick={() => removeCookie(c.id)}>×</button>
                       </div>
                       <div className="am-cookie-flags">
-                        <label className={`am-chip${c.httpOnly ? ' active' : ''}`}>
-                          <input type="checkbox" checked={!!c.httpOnly} onChange={e => updateCookie(c.id, { httpOnly: e.target.checked })} data-testid={`api-mock-cookie-httpOnly-${c.id}`} /> HttpOnly
+                        <label
+                          className={`am-chip${c.httpOnly ? ' active' : ''}`}
+                          title={COOKIE_FLAG_HELP.find(h => h.term === 'HttpOnly')?.meaning}
+                        >
+                          <input type="checkbox" checked={!!c.httpOnly} onChange={e => updateCookie(c.id, { httpOnly: e.target.checked })} data-testid="api-mock-cookie-httpOnly" /> HttpOnly
                         </label>
-                        <label className={`am-chip${c.secure ? ' active' : ''}`}>
+                        <label
+                          className={`am-chip${c.secure ? ' active' : ''}`}
+                          title={COOKIE_FLAG_HELP.find(h => h.term === 'Secure')?.meaning}
+                        >
                           <input type="checkbox" checked={!!c.secure} onChange={e => updateCookie(c.id, { secure: e.target.checked })} data-testid={`api-mock-cookie-secure-${c.id}`} /> Secure
                         </label>
                         <CustomSelect
                           value={c.sameSite ?? 'Lax'}
                           onChange={v => updateCookie(c.id, { sameSite: v as ApiMockResponseCookieV1['sameSite'] })}
-                          options={[
-                            { value: 'Strict', label: 'SameSite=Strict' },
-                            { value: 'Lax', label: 'SameSite=Lax' },
-                            { value: 'None', label: 'SameSite=None' },
-                          ]}
+                          options={[...COOKIE_SAMESITE_OPTIONS]}
                           className="am-cs"
                           aria-label="SameSite"
+                          menuMinWidth={320}
                           data-testid={`api-mock-cookie-samesite-${c.id}`}
                         />
                       </div>
@@ -545,60 +607,74 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition }
                   onUpdate={patch => handleUpdateVariant(activeVariant.id, patch)}
                 />
               )}
-
-              <div className="am-notice" style={{ marginTop: 12 }}>
-                Template helpers: <code>{'{{uuid}}'}</code>, <code>{"{{header 'X-Tenant'}}"}</code>, <code>{'{{now}}'}</code>, <code>{'{{pathParam id}}'}</code>.
-              </div>
             </div>
           </div>
         )}
 
         {activeVariant && (
           <aside className="am-response-preview" data-testid="api-mock-response-preview">
-            <div className="am-section-heading">Rendered preview</div>
-            <div className="am-preview-meta">
-              <span className={`am-badge ${activeVariant.status >= 400 ? 'warning' : 'success'}`}>
-                {activeVariant.status} {STATUS_REASONS[activeVariant.status] ?? ''}
-              </span>
-              <span className="am-badge">{activeVariant.body.contentType || 'text/plain'}</span>
-              {(activeVariant.behavior.delayMs > 0 || activeVariant.behavior.jitterMs > 0) && (
-                <span className="am-badge info">
-                  {activeVariant.behavior.delayMs}±{activeVariant.behavior.jitterMs} ms
-                </span>
-              )}
-              {activeVariant.headers.length > 0 && (
-                <span className="am-badge" data-testid="api-mock-preview-headers">
-                  {activeVariant.headers.length} header{activeVariant.headers.length === 1 ? '' : 's'}
-                </span>
-              )}
-              {activeVariant.cookies.length > 0 && (
-                <span className="am-badge" data-testid="api-mock-preview-cookies">
-                  {activeVariant.cookies.length} cookie{activeVariant.cookies.length === 1 ? '' : 's'}
-                </span>
-              )}
-              {activeVariant.behavior.fault && activeVariant.behavior.fault !== 'none' && (
-                <span className="am-badge danger">fault: {activeVariant.behavior.fault}</span>
-              )}
-            </div>
-            <pre className="am-code-block am-preview-body">{previewBody || '(empty body)'}</pre>
-            <div className="am-section-heading">Timeline</div>
-            <div className="am-timing-lines" data-testid="api-mock-timing-lines">
-              <div className="am-timing-line">
-                <span className="am-muted">Match</span>
-                <div className="am-timing-bar"><span style={{ width: '8%' }} /></div>
-                <span className="am-mono">1 ms</span>
-              </div>
-              <div className="am-timing-line">
-                <span className="am-muted">Delay</span>
-                <div className="am-timing-bar">
-                  <span className="delay" style={{ width: `${Math.min(100, Math.max(8, activeVariant.behavior.delayMs / 2))}%` }} />
+            <div className="am-preview-stack">
+              <div className="am-section-heading">Rendered preview</div>
+              {templatePreview.isTemplate && (
+                <div className="am-faint" data-testid="api-mock-preview-sample">
+                  Preview uses {templatePreview.sampleMethod} {templatePreview.samplePath}
                 </div>
-                <span className="am-mono">{activeVariant.behavior.delayMs}±{activeVariant.behavior.jitterMs} ms</span>
+              )}
+              {templatePreview.errors.length > 0 && (
+                <div className="am-hint am-hint--error" data-testid="api-mock-template-error">
+                  {templatePreview.errors[0]}
+                  {templatePreview.errors.length > 1 ? ` (+${templatePreview.errors.length - 1} more)` : ''}
+                </div>
+              )}
+              <div className="am-preview-meta">
+                <span
+                  className={`am-badge ${activeVariant.status >= 400 ? 'warning' : 'success'}`}
+                  data-testid="api-mock-preview-status"
+                >
+                  {activeVariant.status} {activeVariant.reasonPhrase || STATUS_REASONS[activeVariant.status] || ''}
+                </span>
+                <span className="am-badge">{activeVariant.body.contentType || 'text/plain'}</span>
+                {(activeVariant.behavior.delayMs > 0 || activeVariant.behavior.jitterMs > 0) && (
+                  <span className="am-badge info" data-testid="api-mock-preview-spread">
+                    {activeVariant.behavior.delayMs}±{activeVariant.behavior.jitterMs} ms
+                  </span>
+                )}
+                {activeVariant.headers.length > 0 && (
+                  <span className="am-badge" data-testid="api-mock-preview-headers">
+                    {activeVariant.headers.length} header{activeVariant.headers.length === 1 ? '' : 's'}
+                  </span>
+                )}
+                {activeVariant.cookies.length > 0 && (
+                  <span className="am-badge" data-testid="api-mock-preview-cookies">
+                    {activeVariant.cookies.length} cookie{activeVariant.cookies.length === 1 ? '' : 's'}
+                  </span>
+                )}
+                {activeVariant.behavior.fault && activeVariant.behavior.fault !== 'none' && (
+                  <span className="am-badge danger">fault: {activeVariant.behavior.fault}</span>
+                )}
               </div>
-              <div className="am-timing-line">
-                <span className="am-muted">Render</span>
-                <div className="am-timing-bar"><span className="render" style={{ width: '12%' }} /></div>
-                <span className="am-mono">2 ms</span>
+              <pre className="am-code-block am-preview-body" data-testid="api-mock-preview-body">{previewBody || '(empty body)'}</pre>
+            </div>
+            <div className="am-preview-timeline">
+              <div className="am-section-heading">Timeline</div>
+              <div className="am-timing-lines" data-testid="api-mock-timing-lines">
+                <div className="am-timing-line">
+                  <span className="am-muted">Match</span>
+                  <div className="am-timing-bar"><span style={{ width: '8%' }} /></div>
+                  <span className="am-mono">1 ms</span>
+                </div>
+                <div className="am-timing-line">
+                  <span className="am-muted">Delay</span>
+                  <div className="am-timing-bar">
+                    <span className="delay" style={{ width: `${Math.min(100, Math.max(8, activeVariant.behavior.delayMs / 2))}%` }} />
+                  </div>
+                  <span className="am-mono">{activeVariant.behavior.delayMs}±{activeVariant.behavior.jitterMs} ms</span>
+                </div>
+                <div className="am-timing-line">
+                  <span className="am-muted">Render</span>
+                  <div className="am-timing-bar"><span className="render" style={{ width: '12%' }} /></div>
+                  <span className="am-mono">2 ms</span>
+                </div>
               </div>
             </div>
           </aside>

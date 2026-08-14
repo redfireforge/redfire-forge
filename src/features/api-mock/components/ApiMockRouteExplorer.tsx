@@ -38,6 +38,8 @@ interface Props {
   /** When true, show close control for the mobile/tablet drawer (mockup 08). */
   drawerOpen?: boolean;
   onCloseDrawer?: () => void;
+  /** Listener is bound — empty list should explain unmatched 404. */
+  running?: boolean;
 }
 
 export function ApiMockRouteExplorer({
@@ -57,6 +59,7 @@ export function ApiMockRouteExplorer({
   onAnalyze,
   drawerOpen = false,
   onCloseDrawer,
+  running = false,
 }: Props) {
   const [query, setQuery] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -183,6 +186,7 @@ export function ApiMockRouteExplorer({
               : route.name
         }
         data-testid={`api-mock-route-${route.id}`}
+        data-copied={route.name.endsWith(' (copy)') ? 'true' : undefined}
       >
         <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
         <span className="am-route-path">{route.path.value || '/'}</span>
@@ -206,9 +210,13 @@ export function ApiMockRouteExplorer({
     <aside className={`api-mock-route-panel${drawerOpen ? ' drawer-open' : ''}`} data-testid="api-mock-route-explorer">
       <div className="am-panel-head">
         <span className="am-panel-title">Rules</span>
-        <span className="am-count-badge">{routes.length}</span>
+        <span className="am-count-badge" data-testid="api-mock-rules-count">{routes.length}</span>
         {conflictSet.size > 0 && (
-          <span className="am-count-badge warning" title={`${conflictSet.size} conflicts`}>{conflictSet.size}</span>
+          <span
+            className="am-count-badge warning"
+            title={`${conflictSet.size} conflicts`}
+            data-testid="api-mock-conflicts-count"
+          >{conflictSet.size}</span>
         )}
         <span className="am-spacer" />
         <div className="am-filter-wrap" ref={filterWrapRef}>
@@ -303,7 +311,9 @@ export function ApiMockRouteExplorer({
       <div className="am-route-tree" role="tree" aria-label="Rule list" onKeyDown={onTreeKeyDown}>
         {routes.length === 0 && (
           <div className="am-route-empty" data-testid="api-mock-routes-empty">
-            No rules yet. Click + to create one.
+            {running
+              ? 'No rules yet. The listener is running — unmatched requests return 404.'
+              : 'No rules yet. Click + to create one. Start is allowed — unmatched requests return 404.'}
           </div>
         )}
         {routes.length > 0 && filtered.length === 0 && (
@@ -320,6 +330,7 @@ export function ApiMockRouteExplorer({
               key={folder.id}
               className={`am-tree-folder-block${isDrop ? ' drop-target' : ''}`}
               data-testid={`api-mock-folder-${folder.id}`}
+              data-folder-name={folder.name}
               onDragOver={e => {
                 if (!onMoveRoute || !draggingRouteId) return;
                 e.preventDefault();
@@ -359,6 +370,7 @@ export function ApiMockRouteExplorer({
                     onDoubleClick={() => onRenameFolder && setRenamingFolderId(folder.id)}
                     aria-expanded={folder.expanded}
                     title={onRenameFolder ? 'Click to expand · double-click to rename' : folder.name}
+                    data-testid={`api-mock-folder-toggle-${folder.id}`}
                   >
                     <span aria-hidden="true">{folder.expanded ? <ChevronDownIcon size={13} /> : <ChevronRightIcon size={13} />}</span>
                     <span className="am-folder-name">{folder.name}</span>
@@ -431,8 +443,30 @@ export function ApiMockRouteExplorer({
 
       {routes.length > 0 && (
         <div className="am-panel-foot">
-          <span className="am-faint">{enabledCount} enabled · {draftCount} draft{draftCount === 1 ? '' : 's'}</span>
+          <span className="am-faint" data-testid="api-mock-routes-footer">{enabledCount} enabled · {draftCount} draft{draftCount === 1 ? '' : 's'}</span>
           <span className="am-spacer" />
+          <label className="am-cli-simulate">
+            <code data-testid="api-mock-cli-simulate">cli mock simulate workspace.json</code>
+            <button
+              type="button"
+              className="am-btn small ghost"
+              data-testid="api-mock-cli-simulate-copy"
+              onClick={() => { void navigator.clipboard.writeText('cli mock simulate workspace.json').catch(() => undefined); }}
+            >
+              Copy
+            </button>
+          </label>
+          <label className="am-cli-simulate">
+            <code data-testid="api-mock-cli-verify">cli mock verify workspace.json</code>
+            <button
+              type="button"
+              className="am-btn small ghost"
+              data-testid="api-mock-cli-verify-copy"
+              onClick={() => { void navigator.clipboard.writeText('cli mock verify workspace.json').catch(() => undefined); }}
+            >
+              Copy
+            </button>
+          </label>
           <button className="am-btn small ghost" onClick={onAnalyze} data-testid="api-mock-analyze">Analyze all</button>
         </div>
       )}

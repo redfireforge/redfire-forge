@@ -90,8 +90,12 @@ describe('predicateEvaluator coverage gaps', () => {
     const pathEqShort = route({ predicates: preds('all', { id: 'p1', source: 'body', operator: 'jsonPath_equals', expected: ['$.a'] as any }) });
     expect(evaluateRoute(pathEqShort, req({ body: '{"a":1}' }), '').overallMatch).toBe(false);
 
-    const formBadExpected = route({ predicates: preds('all', { id: 'p1', source: 'body', operator: 'form_field_present', expected: 'csrf' as any }) });
-    expect(evaluateRoute(formBadExpected, req({ body: 'csrf=1' }), '').overallMatch).toBe(false);
+    // A bare string names the field for `present`; an empty one names nothing.
+    const formNamed = route({ predicates: preds('all', { id: 'p1', source: 'body', operator: 'form_field_present', expected: 'csrf' }) });
+    expect(evaluateRoute(formNamed, req({ body: 'csrf=1' }), '').overallMatch).toBe(true);
+
+    const formNoField = route({ predicates: preds('all', { id: 'p1', source: 'body', operator: 'form_field_present', expected: '' }) });
+    expect(evaluateRoute(formNoField, req({ body: 'csrf=1' }), '').overallMatch).toBe(false);
 
     const formRegexMissing = route({ predicates: preds('all', { id: 'p1', source: 'body', operator: 'form_field_regex', expected: ['csrf', 'tok.*'] }) });
     expect(evaluateRoute(formRegexMissing, req({ body: 'other=1' }), '').overallMatch).toBe(false);

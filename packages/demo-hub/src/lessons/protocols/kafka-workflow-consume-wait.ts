@@ -16,6 +16,7 @@ import {
   collapseWfDemoAppSidebar,
   ensureLessonWorkflowShown,
   ensureWfNodeConfigModalOpen,
+  fitWfCanvasQuiet,
   openWfConsoleIfClosed,
   openWfNodeConfigModal,
   setWfConfigDemoTiming,
@@ -25,7 +26,6 @@ import {
 } from '../wf-demo-helpers';
 import {
   deleteWorkflowByName,
-  fitWorkflowCanvasView,
   seedNamedWorkflow,
   selectWorkflowByName,
 } from '../../adapters';
@@ -184,7 +184,7 @@ async function kafkaWorkflowConsumeWaitSetup(ctx: DemoActionContext): Promise<vo
   await closeWfConsoleIfOpen(ctx);
   await closeWfConfigModalIfOpen(ctx);
   await collapseWfDemoAppSidebar(ctx);
-  fitWorkflowCanvasView({ duration: 0 });
+  await fitWfCanvasQuiet(ctx);
   await ctx.delay(60);
 }
 

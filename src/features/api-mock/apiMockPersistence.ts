@@ -14,8 +14,14 @@ import { readKey, writeKey } from '../../shared/utils/storage';
 export const API_MOCK_STORAGE_KEY = 'api-mock-workspace-v1';
 
 export interface ApiMockPersistedState {
+  /** Every saved server — closing a tab parks its definition here. */
   servers: ApiMockServerDefinitionV1[];
   activeServerId?: string;
+  /**
+   * Ids of servers open as tabs, in tab-bar order. Omit for legacy callers:
+   * every server is then treated as open.
+   */
+  openTabIds?: string[];
 }
 
 export async function loadApiMockWorkspace(): Promise<ApiMockPersistedState> {
@@ -31,17 +37,24 @@ export async function loadApiMockWorkspace(): Promise<ApiMockPersistedState> {
   // flagged non-fatal issues — only truly unparseable data drops user work.
   const result = safeLoadWorkspace(raw);
   if (result.workspace) {
-    return { servers: result.workspace.servers, activeServerId: result.workspace.activeServerId };
+    return {
+      servers: result.workspace.servers,
+      activeServerId: result.workspace.activeServerId,
+      openTabIds: result.workspace.openTabIds,
+    };
   }
   return { servers: [] };
 }
 
 export async function saveApiMockWorkspace(state: ApiMockPersistedState): Promise<void> {
+  const openTabIds = state.openTabIds ?? state.servers.map(s => s.id);
   const workspace: ApiMockWorkspaceV1 = {
     schemaVersion: CURRENT_SCHEMA_VERSION as 1,
     activeServerId: state.activeServerId,
     servers: state.servers,
-    tabOrder: state.servers.map(s => s.id),
+    // `tabOrder` stays the open-tab order so older builds and the CLI keep working.
+    tabOrder: openTabIds,
+    openTabIds,
   };
   try {
     await writeKey(API_MOCK_STORAGE_KEY, JSON.stringify(workspace), { notifyOnQuotaExhausted: false });

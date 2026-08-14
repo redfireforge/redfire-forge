@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { ApiMockConflictFindingV1, ApiMockRouteV1, ApiMockServerSettingsV1 } from '../../../shared/api-mock/contracts';
 import { ApiMockConflictGuide } from './ApiMockConflictGuide';
 import { ArrowUpDownIcon, CheckIcon, FlaskIcon } from './ApiMockIcons';
@@ -47,13 +47,23 @@ interface Props {
   serverPort?: number;
 }
 
-function routeLabel(routes: ApiMockRouteV1[], id: string): string {
-  const r = routes.find(x => x.id === id);
-  return r ? `${r.method} ${r.path.value || '/'}` : id.slice(0, 8);
+interface RouteChip {
+  id: string;
+  method: string;
+  path: string;
+  priority?: number;
+  found: boolean;
 }
 
-function routePriority(routes: ApiMockRouteV1[], id: string): number | undefined {
-  return routes.find(x => x.id === id)?.priority;
+function routeChip(routes: ApiMockRouteV1[], id: string): RouteChip {
+  const r = routes.find(x => x.id === id);
+  if (!r) return { id, method: '', path: id.slice(0, 8), found: false };
+  return { id, method: r.method, path: r.path.value || '/', priority: r.priority, found: true };
+}
+
+function routeLabel(routes: ApiMockRouteV1[], id: string): string {
+  const chip = routeChip(routes, id);
+  return chip.method ? `${chip.method} ${chip.path}` : chip.path;
 }
 
 function severityClass(severity: ApiMockConflictFindingV1['severity']): string {
@@ -68,10 +78,61 @@ function dimBadge(result: 'overlap' | 'disjoint' | 'unknown'): string {
   return 'info';
 }
 
+function prettyToken(value: string): string {
+  const spaced = value.replace(/_/g, ' ');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 function severityPolicyCopy(severity: ApiMockConflictFindingV1['severity']): string {
-  if (severity === 'error') return 'error (Apply blocked until resolved or severity policy allows)';
-  if (severity === 'warning') return 'warning (Apply permitted in warn mode)';
-  return 'info';
+  if (severity === 'error') return 'Apply is blocked until this is resolved or the severity policy allows it.';
+  if (severity === 'warning') return 'Apply is still permitted in warn mode.';
+  return 'Informational — no apply block.';
+}
+
+function methodClass(method: string): string {
+  return `am-method ${(method || 'any').toLowerCase()}`;
+}
+
+function RouteLine({ chip, action }: { chip: RouteChip; action?: ReactNode }) {
+  return (
+    <div className="am-finding-rule">
+      {chip.method && <span className={methodClass(chip.method)}>{chip.method}</span>}
+      <span className="am-finding-path">{chip.path}</span>
+      {chip.priority != null && <span className="am-finding-prio">P{chip.priority}</span>}
+      {action}
+    </div>
+  );
+}
+
+function OpenInStudioButton({ onClick, testId }: { onClick: () => void; testId: string }) {
+  return (
+    <button
+      type="button"
+      className="am-btn small am-conflict-open-studio"
+      data-testid={testId}
+      onClick={onClick}
+    >
+      Open in Studio
+    </button>
+  );
+}
+
+function witnessHttpText(
+  finding: ApiMockConflictFindingV1,
+  host: string,
+  port: number,
+): string {
+  const wr = finding.witnessRequest;
+  const lines = [
+    `${wr?.method ?? 'GET'} ${wr?.rawPath || wr?.path || '/'} HTTP/1.1`,
+    `Host: ${host}:${port}`,
+  ];
+  if (wr) {
+    for (const [key, value] of Object.entries(wr.headers)) {
+      lines.push(`${key}: ${Array.isArray(value) ? value.join(', ') : value}`);
+    }
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -129,10 +190,18 @@ export function ApiMockConflictInspector({
     );
   }
 
-  const leftLabel = selected ? routeLabel(routes, selected.ruleIds[0]) : '';
-  const rightLabel = selected ? routeLabel(routes, selected.ruleIds[1]) : '';
-  const leftP = selected ? routePriority(routes, selected.ruleIds[0]) : undefined;
-  const rightP = selected ? routePriority(routes, selected.ruleIds[1]) : undefined;
+  const left = selected ? routeChip(routes, selected.ruleIds[0]) : undefined;
+  const right = selected ? routeChip(routes, selected.ruleIds[1]) : undefined;
+  const leftLabel = left ? (left.method ? `${left.method} ${left.path}` : left.path) : '';
+  const rightLabel = right ? (right.method ? `${right.method} ${right.path}` : right.path) : '';
+  const equalPriority = left?.priority != null && right?.priority != null && left.priority === right.priority;
+  const equalPolicy = settings?.selection.equalPriorityPolicy ?? 'reject';
+  const rejectsOnTie = equalPolicy === 'reject' && equalPriority;
+  const fingerprintsMatch = Boolean(
+    selected
+    && selected.ruleFingerprints[0]
+    && selected.ruleFingerprints[0] === selected.ruleFingerprints[1],
+  );
 
   return (
     <div className="am-conflict-inspector" data-testid="api-mock-conflict-inspector">
@@ -141,7 +210,7 @@ export function ApiMockConflictInspector({
           <strong>{findings.length} finding{findings.length === 1 ? '' : 's'}</strong>
           {stats && (
             <span className="am-faint">
-              {' '}across {stats.analyzedRules} enabled rule{stats.analyzedRules === 1 ? '' : 's'} · Analysis took {stats.durationMs} ms
+              {' '}· {stats.analyzedRules} enabled rule{stats.analyzedRules === 1 ? '' : 's'} · {stats.durationMs} ms
             </span>
           )}
         </div>
@@ -177,13 +246,13 @@ export function ApiMockConflictInspector({
 
       <div className="am-conflict-layout">
         <div className="am-conflict-list" data-testid="api-mock-conflict-list">
+          <div className="am-conflict-list-label">Findings</div>
           {filtered.length === 0 ? (
-            <div className="am-dock-empty">No findings in this filter.</div>
+            <div className="am-dock-empty" data-testid="api-mock-conflict-filter-empty">No findings in this filter.</div>
           ) : filtered.map(f => {
             const active = selected?.id === f.id;
-            const [left, right] = f.ruleIds;
-            const lp = routePriority(routes, left);
-            const rp = routePriority(routes, right);
+            const a = routeChip(routes, f.ruleIds[0]);
+            const b = routeChip(routes, f.ruleIds[1]);
             return (
               <button
                 key={f.id}
@@ -192,148 +261,205 @@ export function ApiMockConflictInspector({
                 data-testid={`api-mock-finding-${f.id}`}
                 onClick={() => { setSelectedId(f.id); setPrioOpen(false); }}
               >
-                <span className={`am-finding-icon ${severityClass(f.severity)}`} aria-hidden="true">
-                  {f.severity === 'error' ? '✕' : '!'}
-                </span>
-                <div className="am-finding-summary">
-                  <div className="am-finding-title">
-                    {KIND_LABEL[f.kind]}
-                    {f.acknowledgementStale && <span className="am-badge warning" style={{ marginLeft: 6 }}>Stale</span>}
-                    {f.acknowledgedAt && !f.acknowledgementStale && <span className="am-badge info" style={{ marginLeft: 6 }}>Ack</span>}
-                  </div>
-                  <div className="am-muted">
-                    {routeLabel(routes, left)}
-                    {lp != null && <span className="am-faint"> P{lp}</span>}
-                    {' vs '}
-                    {routeLabel(routes, right)}
-                    {rp != null && <span className="am-faint"> P{rp}</span>}
-                  </div>
+                <div className="am-finding-row-head">
+                  <span className={`am-finding-icon ${severityClass(f.severity)}`} aria-hidden="true">
+                    {f.severity === 'error' ? '✕' : '!'}
+                  </span>
+                  <span className="am-finding-title">{KIND_LABEL[f.kind]}</span>
+                  {f.acknowledgementStale && <span className="am-badge warning">Stale</span>}
+                  {f.acknowledgedAt && !f.acknowledgementStale && <span className="am-badge info">Ack</span>}
+                  <span className={`am-badge ${severityClass(f.severity)}`}>{f.severity}</span>
                 </div>
-                <span className={`am-badge ${severityClass(f.severity)}`}>{f.severity}</span>
+                <RouteLine chip={a} />
+                <div className="am-finding-vs">vs</div>
+                <RouteLine chip={b} />
               </button>
             );
           })}
         </div>
 
-        {selected && (
+        {selected && left && right && (
           <div className="am-conflict-detail" data-testid="api-mock-conflict-detail">
-            <h3 className="am-conflict-detail-title">
-              {KIND_LABEL[selected.kind]} · {leftLabel} vs {rightLabel}
-            </h3>
+            <div className="am-conflict-detail-body">
+            <header className="am-conflict-detail-head">
+              <div>
+                <div className="am-conflict-detail-kicker">Selected finding</div>
+                <h3 className="am-conflict-detail-title">{KIND_LABEL[selected.kind]}</h3>
+              </div>
+              <div className="am-conflict-detail-chips">
+                <span className={`am-badge ${severityClass(selected.severity)}`}>{selected.severity}</span>
+                <span className="am-badge">{prettyToken(selected.selectionOutcome)}</span>
+              </div>
+            </header>
 
             <div className={`am-notice ${selected.severity === 'error' ? 'danger' : 'warning'}`}>
               <span>
                 {selected.dimensions.map(d => d.explanation).filter(Boolean).slice(0, 2).join(' ')
                   || 'Competing rules can match the same request under the current selection policy.'}
-                {(leftP != null && rightP != null && leftP === rightP) && (
-                  <> Both routes have equal priority {leftP}.</>
-                )}
+                {equalPriority && <> Both routes have equal priority {left.priority}.</>}
                 {' '}
-                {(settings?.selection.equalPriorityPolicy ?? 'reject') === 'reject' && leftP === rightP
+                {rejectsOnTie
                   ? <>Under <strong>reject</strong> equal-priority policy, this request returns <span className="am-badge warning">409</span>.</>
-                  : <>Outcome: <strong>{selected.selectionOutcome.replace(/_/g, ' ')}</strong>.</>}
+                  : <>Outcome: <strong>{prettyToken(selected.selectionOutcome)}</strong>.</>}
               </span>
             </div>
 
-            <div className="am-section-heading">Dimension analysis</div>
-            {selected.dimensions.map((d, i) => (
-              <div key={`${d.source}-${i}`} className="am-dim-row">
-                <span className="am-muted">{d.source}{d.selector ? ` · ${d.selector}` : ''}</span>
-                <span className={`am-badge ${dimBadge(d.result)}`}>{d.result}</span>
-                <span>{d.explanation}</span>
-              </div>
-            ))}
+            <div className="am-conflict-compare" data-testid="api-mock-conflict-compare">
+              <div className="am-section-heading am-conflict-compare-kicker">Competing rules</div>
+              <article className="am-conflict-rule-card am-conflict-compare-left">
+                <div className="am-conflict-rule-kicker">Left</div>
+                <RouteLine
+                  chip={left}
+                  action={onSelectRoute ? (
+                    <OpenInStudioButton
+                      testId="api-mock-conflict-goto-left"
+                      onClick={() => onSelectRoute(selected.ruleIds[0])}
+                    />
+                  ) : undefined}
+                />
+              </article>
+              <article className="am-conflict-rule-card am-conflict-compare-right">
+                <div className="am-conflict-rule-kicker">Right</div>
+                <RouteLine
+                  chip={right}
+                  action={onSelectRoute ? (
+                    <OpenInStudioButton
+                      testId="api-mock-conflict-goto-right"
+                      onClick={() => onSelectRoute(selected.ruleIds[1])}
+                    />
+                  ) : undefined}
+                />
+              </article>
 
-            <div className="am-section-heading">Policy outcome</div>
-            <div className="am-form-grid am-compact">
-              <div className="am-form-row">
-                <div className="am-form-label">Multiple match</div>
-                <div className="am-form-control">
-                  <span className="am-mono" data-testid="api-mock-conflict-policy-multiple">
-                    {settings?.selection.multipleMatchPolicy ?? 'highest_priority'}
-                  </span>
-                </div>
+              <div className="am-section-heading am-conflict-compare-dim-label">Match dimensions</div>
+              <div className="am-section-heading am-conflict-compare-policy-label">Selection policy</div>
+              <div className="am-dim-table am-conflict-compare-dims" data-testid="api-mock-conflict-dimensions">
+                {selected.dimensions.map((d, i) => (
+                  <div
+                    key={`${d.source}-${i}`}
+                    className="am-dim-row"
+                    data-testid="api-mock-conflict-dim-row"
+                    data-result={d.result}
+                  >
+                    <span className="am-dim-source">{d.source}{d.selector ? ` · ${d.selector}` : ''}</span>
+                    <span className={`am-badge ${dimBadge(d.result)}`}>{d.result}</span>
+                    <span className="am-dim-explain">{d.explanation || '—'}</span>
+                  </div>
+                ))}
               </div>
-              <div className="am-form-row">
-                <div className="am-form-label">Equal priority</div>
-                <div className="am-form-control">
-                  <span className="am-mono" data-testid="api-mock-conflict-policy-equal">
-                    {settings?.selection.equalPriorityPolicy ?? 'reject'}
-                  </span>
-                  {(settings?.selection.equalPriorityPolicy ?? 'reject') === 'reject' && (
-                    <>
-                      <span className="am-faint">→</span>
+              <div className="am-form-grid am-compact am-conflict-compare-policy">
+                <div className="am-form-row">
+                  <div className="am-form-label">Multiple match</div>
+                  <div className="am-form-control">
+                    <span data-testid="api-mock-conflict-policy-multiple">
+                      {prettyToken(settings?.selection.multipleMatchPolicy ?? 'highest_priority')}
+                    </span>
+                  </div>
+                </div>
+                <div className="am-form-row">
+                  <div className="am-form-label">Equal priority</div>
+                  <div className="am-form-control">
+                    <span data-testid="api-mock-conflict-policy-equal">
+                      {prettyToken(settings?.selection.equalPriorityPolicy ?? 'reject')}
+                    </span>
+                    {(settings?.selection.equalPriorityPolicy ?? 'reject') === 'reject' && (
                       <span className="am-badge warning">409 Ambiguous</span>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="am-form-row">
-                <div className="am-form-label">Selection</div>
-                <div className="am-form-control">{selected.selectionOutcome.replace(/_/g, ' ')}</div>
-              </div>
-              <div className="am-form-row">
-                <div className="am-form-label">Severity</div>
-                <div className="am-form-control">
-                  <span className={`am-badge ${severityClass(selected.severity)}`}>{selected.severity}</span>
-                  <span className="am-muted" style={{ marginLeft: 6, fontSize: 11 }}>
-                    {severityPolicyCopy(selected.severity)}
-                  </span>
+                <div className="am-form-row">
+                  <div className="am-form-label">Selection</div>
+                  <div className="am-form-control">{prettyToken(selected.selectionOutcome)}</div>
+                </div>
+                <div className="am-form-row">
+                  <div className="am-form-label">Severity</div>
+                  <div className="am-form-control">
+                    <span className={`am-badge ${severityClass(selected.severity)}`}>{selected.severity}</span>
+                    <span className="am-muted am-conflict-policy-note">{severityPolicyCopy(selected.severity)}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="am-section-heading">Witness request</div>
-            <pre className="am-code-block" data-testid="api-mock-conflict-witness">
-{`${selected.witnessRequest?.method ?? 'GET'} ${selected.witnessRequest?.rawPath || selected.witnessRequest?.path || '/'} HTTP/1.1`}
-{`Host: ${serverHost}:${serverPort}`}
-{selected.witnessRequest
-  ? Object.entries(selected.witnessRequest.headers).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('\n')
-  : ''}
-            </pre>
+            <div className="am-conflict-witness-card">
+              <div className="am-conflict-witness-head">
+                <div className="am-section-heading">Witness request</div>
+                {onSimulateWitness && (
+                  <button
+                    type="button"
+                    className="am-btn small"
+                    data-testid="api-mock-conflict-simulate"
+                    onClick={() => onSimulateWitness(selected)}
+                  >
+                    <FlaskIcon size={14} /> Simulate
+                  </button>
+                )}
+              </div>
+              <pre className="am-code-block" data-testid="api-mock-conflict-witness">{witnessHttpText(selected, serverHost, serverPort)}</pre>
+            </div>
 
             {selected.acknowledgementStale && (
-              <div className="am-notice warning" style={{ marginTop: 10 }} data-testid="api-mock-conflict-stale">
+              <div className="am-notice warning" data-testid="api-mock-conflict-stale">
                 <span>
                   Previously acknowledged finding is <span className="am-badge warning">Stale</span> —
-                  a rule edit changed fingerprints (
-                  <span className="am-mono">{selected.ruleFingerprints[0].slice(0, 4)}…</span>
-                  {' ≠ '}
-                  prior). Re-acknowledge after reviewing.
+                  a rule edit changed a fingerprint. Re-acknowledge after reviewing.
                 </span>
               </div>
             )}
 
             {selected.acknowledgedAt && !selected.acknowledgementStale && (
-              <div className="am-notice" style={{ marginTop: 10 }} data-testid="api-mock-conflict-ack">
+              <div className="am-notice" data-testid="api-mock-conflict-ack">
                 <span>
                   Acknowledged {new Date(selected.acknowledgedAt).toLocaleString()}. Valid until either rule fingerprint changes.
                 </span>
               </div>
             )}
 
-            <div className="am-section-heading">Rule fingerprints</div>
-            <div className="am-fingerprints" data-testid="api-mock-conflict-fingerprints">
-              <span className="am-mono am-faint" title={selected.ruleFingerprints[0]}>
-                {leftLabel}: {selected.ruleFingerprints[0].slice(0, 8)}…
-              </span>
-              <span className="am-mono am-faint" title={selected.ruleFingerprints[1]}>
-                {rightLabel}: {selected.ruleFingerprints[1].slice(0, 8)}…
-              </span>
-              <span className="am-hint">An acknowledgement goes stale when either fingerprint changes.</span>
+            <details className="am-fingerprints" data-testid="api-mock-conflict-fingerprints">
+              <summary data-testid="api-mock-conflict-fingerprints-summary">Rule fingerprints</summary>
+              <div className="am-fingerprints-body" data-testid="api-mock-conflict-fingerprint-hashes">
+                <span
+                  className={`am-badge${fingerprintsMatch ? '' : ' warning'}`}
+                  data-testid="api-mock-conflict-fingerprint-relation"
+                >
+                  {fingerprintsMatch ? 'Same hash' : 'Different hashes'}
+                </span>
+                <table className="am-fingerprint-table" data-testid="api-mock-conflict-fingerprint-table">
+                  <tbody>
+                    <tr>
+                      <th scope="row">
+                        <span className="am-fingerprint-side">Left</span>
+                        <span className="am-fingerprint-label">{leftLabel}</span>
+                      </th>
+                      <td>
+                        <code className="am-fingerprint-hash" data-testid="api-mock-conflict-fingerprint-left">
+                          {selected.ruleFingerprints[0]}
+                        </code>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">
+                        <span className="am-fingerprint-side">Right</span>
+                        <span className="am-fingerprint-label">{rightLabel}</span>
+                      </th>
+                      <td>
+                        <code className="am-fingerprint-hash" data-testid="api-mock-conflict-fingerprint-right">
+                          {selected.ruleFingerprints[1]}
+                        </code>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <span className="am-hint">
+                  Each hash is SHA-256 of that rule record (id, name, Match, response, priority).
+                  Duplicate means method, path, and Match agree — not that the hashes match.
+                  An acknowledgement goes stale when either hash changes.
+                </span>
+              </div>
+            </details>
             </div>
 
             <div className="am-conflict-actions">
-              {onSimulateWitness && (
-                <button
-                  type="button"
-                  className="am-btn"
-                  data-testid="api-mock-conflict-simulate"
-                  onClick={() => onSimulateWitness(selected)}
-                >
-                  <FlaskIcon size={14} /> Simulate witness
-                </button>
-              )}
               {onAcknowledge && (!selected.acknowledgedAt || selected.acknowledgementStale) && (
                 <button
                   type="button"
@@ -356,7 +482,16 @@ export function ApiMockConflictInspector({
                     <ArrowUpDownIcon size={14} /> Adjust priority
                   </button>
                   {prioOpen && (
-                    <div className="am-conflict-prio-menu" role="menu" data-testid="api-mock-conflict-prio-menu">
+                    <div
+                      className="am-conflict-prio-menu"
+                      role="menu"
+                      data-testid="api-mock-conflict-prio-menu"
+                      ref={(node) => {
+                        if (node && typeof node.scrollIntoView === 'function') {
+                          node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                        }
+                      }}
+                    >
                       <button
                         type="button"
                         role="menuitem"
@@ -364,7 +499,7 @@ export function ApiMockConflictInspector({
                         data-testid="api-mock-conflict-prio-left"
                         onClick={() => { onAdjustPriority(selected.ruleIds[0], 10); setPrioOpen(false); }}
                       >
-                        Raise {leftLabel}{leftP != null ? ` (P${leftP}→${leftP + 10})` : ''}
+                        Raise {leftLabel}{left.priority != null ? ` (P${left.priority}→${left.priority + 10})` : ''}
                       </button>
                       <button
                         type="button"
@@ -373,31 +508,11 @@ export function ApiMockConflictInspector({
                         data-testid="api-mock-conflict-prio-right"
                         onClick={() => { onAdjustPriority(selected.ruleIds[1], 10); setPrioOpen(false); }}
                       >
-                        Raise {rightLabel}{rightP != null ? ` (P${rightP}→${rightP + 10})` : ''}
+                        Raise {rightLabel}{right.priority != null ? ` (P${right.priority}→${right.priority + 10})` : ''}
                       </button>
                     </div>
                   )}
                 </div>
-              )}
-              {onSelectRoute && (
-                <>
-                  <button
-                    type="button"
-                    className="am-btn small ghost"
-                    data-testid="api-mock-conflict-goto-left"
-                    onClick={() => onSelectRoute(selected.ruleIds[0])}
-                  >
-                    Open left rule
-                  </button>
-                  <button
-                    type="button"
-                    className="am-btn small ghost"
-                    data-testid="api-mock-conflict-goto-right"
-                    onClick={() => onSelectRoute(selected.ruleIds[1])}
-                  >
-                    Open right rule
-                  </button>
-                </>
               )}
             </div>
           </div>

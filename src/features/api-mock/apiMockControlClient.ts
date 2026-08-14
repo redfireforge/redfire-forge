@@ -46,6 +46,16 @@ const TITLES: Record<RuntimeErrorCode, string> = {
 };
 
 function fromServerError(code: string | undefined, message: string): RuntimeDiagnostic {
+  // Companion 404s when the listener was wiped/stopped — do not keep retrying.
+  if (code === 'NOT_RUNNING' || code === 'NOT_FOUND') {
+    return {
+      code: 'MOCK_RUNTIME_ERROR',
+      title: 'Not running',
+      message,
+      recoverable: true,
+      retry: false,
+    };
+  }
   // The Vite dev proxy answers with this code (HTTP 200) when :3001 is down.
   if (code === 'BACKEND_UNREACHABLE') {
     return {
@@ -63,16 +73,35 @@ function fromServerError(code: string | undefined, message: string): RuntimeDiag
   return classifyRuntimeError(new Error(message));
 }
 
-async function call<T>(path: string, init?: RequestInit): Promise<ControlResult<T>> {
+/** Vite's /api proxy waits up to 60s when :3001 hangs. Demo wipe/import cannot. */
+const CONTROL_FETCH_TIMEOUT_MS = 2_500;
+
+function companionUnavailable(): RuntimeDiagnostic {
+  return {
+    code: 'COMPANION_UNAVAILABLE',
+    title: TITLES.COMPANION_UNAVAILABLE,
+    message: 'The companion runtime is not reachable. Start it with `npm run server:dev`, then retry.',
+    recoverable: true,
+    retry: true,
+  };
+}
+
+async function call<T>(path: string, init?: RequestInit, timeoutMs = 0): Promise<ControlResult<T>> {
   let res: Response;
+  const controller = timeoutMs > 0 ? new AbortController() : undefined;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
   try {
     res = await fetch(`${apiMockControlBase()}${path}`, {
       ...init,
+      signal: controller?.signal ?? init?.signal,
       headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     });
   } catch (e) {
+    if (controller?.signal.aborted) return { ok: false, error: companionUnavailable() };
     // Transport failure (companion down / network) — the /api proxy refused.
     return { ok: false, error: classifyRuntimeError(e) };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   const body = await res.json().catch(() => null) as { ok?: boolean; data?: T; error?: { code?: string; message?: string } } | null;
@@ -80,7 +109,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<ControlResult<
     const message = body?.error?.message ?? (res.status === 502 || res.status === 503
       ? 'The companion runtime is not reachable. Start it with `npm run server:dev`, then retry.'
       : `Request failed (${res.status}).`);
-    const code = body?.error?.code ?? (res.status >= 502 ? 'COMPANION_UNAVAILABLE' : undefined);
+    const code = body?.error?.code
+      ?? (res.status >= 502 ? 'COMPANION_UNAVAILABLE' : res.status === 404 ? 'NOT_FOUND' : undefined);
     return { ok: false, error: fromServerError(code, message) };
   }
   return { ok: true, data: body.data as T };
@@ -107,6 +137,11 @@ export const apiMockControlClient = {
     isTauri()
       ? nativeTauriControl.status(serverId)
       : call<ControlStatus>(`/api/mock/servers/${encodeURIComponent(serverId)}/status`, { method: 'GET' }),
+  /** Live pool inventory — used for refresh reconciliation (AMS-010 / W21). */
+  list: () =>
+    isTauri()
+      ? Promise.resolve({ ok: true as const, data: [] as ControlStatus[] })
+      : call<ControlStatus[]>('/api/mock/servers', { method: 'GET' }, CONTROL_FETCH_TIMEOUT_MS),
   transactions: (serverId: string, limit = HARD_CEILINGS.maxJournalEntries) =>
     isTauri()
       ? nativeTauriControl.transactions(serverId, limit)
@@ -178,8 +213,17 @@ export const apiMockControlClient = {
     const direct = await call<{ port: number }>(
       '/api/mock/ports/next',
       { method: 'POST', body: JSON.stringify({ exclude }) },
+      CONTROL_FETCH_TIMEOUT_MS,
     );
     if (direct.ok) return direct;
+    if (direct.error.code === 'COMPANION_UNAVAILABLE') {
+      try {
+        const { pickNextAutoPort } = await import('./apiMockPageHelpers');
+        return { ok: true, data: { port: pickNextAutoPort(exclude.map(p => ({ port: p }))) } };
+      } catch (e) {
+        return { ok: false, error: classifyRuntimeError(e) };
+      }
+    }
     // Older companions without /ports/next — walk with /ports/probe.
     const { resolveNextAutoPort } = await import('./apiMockPageHelpers');
     try {

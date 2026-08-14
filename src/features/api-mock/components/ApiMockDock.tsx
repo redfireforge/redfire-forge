@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ApiMockConflictFindingV1,
   ApiMockRouteV1,
@@ -8,13 +8,22 @@ import type {
   ApiMockVariableV1,
 } from '../../../shared/api-mock/contracts';
 import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
-import { exportTransactionsJson, filterTransactions, formatJournalRequestPreview } from '../apiMockJournalActions';
+import {
+  copyTextToClipboard,
+  copyTransactionToClipboard,
+  exportTransactionsJson,
+  filterTransactions,
+  formatJournalRequestPreview,
+  formatJournalResponsePreview,
+} from '../apiMockJournalActions';
 import type { ApiMockConsoleLine } from '../useApiMockConsole';
 import { ApiMockConflictInspector } from './ApiMockConflictInspector';
-import { ChevronDownIcon, ChevronUpIcon, MaximizeIcon, MinimizeIcon, PlusIcon, TrashIcon } from './ApiMockIcons';
+import { ChevronDownIcon, ChevronUpIcon, CopyIcon, MaximizeIcon, MinimizeIcon, PlusIcon, TrashIcon } from './ApiMockIcons';
 import { ApiMockRuntimeGuide } from './ApiMockRuntimeGuide';
 import { ApiMockRuntimeSettingsPanel } from './ApiMockRuntimeSettingsPanel';
 import { ApiMockDiagnosticsPanel } from './ApiMockDiagnosticsPanel';
+import { ApiMockConsolePanel } from './ApiMockConsolePanel';
+import { useSplitPaneResize } from '../../../shared/hooks/useSplitPaneResize';
 
 export type ApiMockDockTab = 'transactions' | 'conflicts' | 'state' | 'variables' | 'settings' | 'console' | 'diagnostics';
 type DockMode = 'normal' | 'maximized' | 'collapsed';
@@ -25,6 +34,14 @@ const PAGE_TABS: ApiMockDockTab[] = ['transactions', 'state', 'variables', 'sett
 /** Compact Studio dock tabs. */
 const DOCK_TABS: ApiMockDockTab[] = ['transactions', 'conflicts', 'state', 'variables', 'diagnostics', 'console'];
 const EMPTY_HIDDEN_TABS: ApiMockDockTab[] = [];
+
+function initialDockTab(
+  requestedTab: ApiMockDockTab | undefined,
+  visibleTabs: ApiMockDockTab[],
+): ApiMockDockTab {
+  if (requestedTab && visibleTabs.includes(requestedTab)) return requestedTab;
+  return visibleTabs[0] ?? 'transactions';
+}
 
 interface Props {
   routes: ApiMockRouteV1[];
@@ -52,7 +69,7 @@ interface Props {
   onAcknowledgeConflict?: (finding: ApiMockConflictFindingV1) => void;
   onAdjustPriority?: (routeId: string, delta: number) => void;
   onOpenInRequests?: (tx: ApiMockTransactionV1) => void;
-  onCreateRouteFromTransaction?: (tx: ApiMockTransactionV1) => void;
+  onCreateRouteFromTransaction?: (tx: ApiMockTransactionV1) => string | void;
   onSaveSampleFromTransaction?: (tx: ApiMockTransactionV1) => void;
   onCopyTransaction?: (tx: ApiMockTransactionV1) => void;
   /** Selection policy + last analysis stats for the conflict inspector. */
@@ -70,6 +87,18 @@ interface Props {
   variant?: 'dock' | 'page';
   /** Tabs to omit (e.g. Runtime page hides Conflicts — that is its own top-level view). */
   hiddenTabs?: ApiMockDockTab[];
+}
+
+const TX_SPLIT_STORAGE_KEY = 'redfire-api-mock-tx-split-v1';
+const TX_FLASH_MS = 2200;
+
+function httpStatusTone(status?: number): 'success' | 'warning' | 'danger' | 'info' | '' {
+  if (status == null) return '';
+  if (status >= 500) return 'danger';
+  if (status >= 400) return 'warning';
+  if (status >= 300) return 'info';
+  if (status >= 200) return 'success';
+  return 'info';
 }
 
 function timeOf(iso: string): string {
@@ -139,7 +168,7 @@ export function ApiMockDock({
     [hiddenKey, isPage],
   );
   const defaultTab = visibleTabs[0] ?? 'transactions';
-  const [tab, setTab] = useState<ApiMockDockTab>(defaultTab);
+  const [tab, setTab] = useState<ApiMockDockTab>(() => initialDockTab(requestedTab, visibleTabs));
   const [mode, setMode] = useState<DockMode>('normal');
   const [selectedTxId, setSelectedTxId] = useState<string | undefined>();
   const [txFilter, setTxFilter] = useState('');
@@ -156,6 +185,16 @@ export function ApiMockDock({
   );
   const selected = filteredTransactions.find(t => t.id === selectedTxId)
     ?? transactions.find(t => t.id === selectedTxId);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const { width: listWidth, dividerProps } = useSplitPaneResize({
+    storageKey: TX_SPLIT_STORAGE_KEY,
+    defaultWidth: 340,
+    minWidth: 240,
+    minOppositeWidth: 420,
+    maxWidthRatio: 0.5,
+    containerRef: splitContainerRef,
+    label: 'Resize transaction list',
+  });
   const scenario = deriveScenarioModel(routes);
   const collapsed = !isPage && mode === 'collapsed';
   const maximized = !isPage && mode === 'maximized';
@@ -167,12 +206,15 @@ export function ApiMockDock({
   useEffect(() => {
     if (!requestedTab) return;
     if (hiddenTabs.includes(requestedTab)) {
-      onRequestedTabConsumed?.();
-      return;
+      const skipId = window.setTimeout(() => onRequestedTabConsumed?.(), 0);
+      return () => window.clearTimeout(skipId);
     }
     setTab(requestedTab);
     if (!isPage) setMode(prev => (prev === 'collapsed' ? 'normal' : prev));
-    onRequestedTabConsumed?.();
+    // Defer consume so React Strict Mode's remount still sees requestedTab
+    // and paints Variables/Transactions instead of resetting to the default.
+    const id = window.setTimeout(() => onRequestedTabConsumed?.(), 0);
+    return () => window.clearTimeout(id);
     // hiddenTabs identity is unstable when callers pass inline arrays; key by hiddenKey.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedTab, onRequestedTabConsumed, hiddenKey, isPage]);
@@ -220,9 +262,6 @@ export function ApiMockDock({
           {dockTab('console', isPage ? 'Console' : 'Server console')}
         </div>
         <span className="am-spacer" />
-        {!collapsed && tab === 'console' && consoleLines.length > 0 && (
-          <button className="am-btn small ghost" onClick={onClearConsole} data-testid="api-mock-console-clear">Clear</button>
-        )}
         {!isPage && (
           <div className="am-dock-actions">
             {collapsed ? (
@@ -316,17 +355,20 @@ export function ApiMockDock({
                   Clear
                 </button>
               </div>
-              <div className="am-tx-main">
-              <div className="am-tx-table-wrap">
-                <table className="am-data-table" aria-label="Transaction log">
+              <div className="am-tx-main" ref={splitContainerRef}>
+              <div
+                className="am-tx-table-wrap"
+                style={selected ? { flex: '0 0 auto', width: listWidth, maxWidth: 'none' } : undefined}
+              >
+                <table className="am-data-table am-tx-table" aria-label="Transaction log">
                   <thead>
                     <tr>
-                      <th style={{ width: 82 }}>Time</th>
-                      <th style={{ width: 54 }}>Method</th>
-                      <th>Path</th>
-                      <th style={{ width: 58 }}>Status</th>
-                      <th style={{ width: 72 }}>Duration</th>
-                      <th style={{ width: 130 }}>Matched rule</th>
+                      <th className="am-tx-col-time">Time</th>
+                      <th className="am-tx-col-method">Method</th>
+                      <th className="am-tx-col-path">Path</th>
+                      <th className="am-tx-col-status">Status</th>
+                      <th className="am-tx-col-duration">Duration</th>
+                      <th className="am-tx-col-rule">Matched rule</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -344,16 +386,16 @@ export function ApiMockDock({
                         style={{ cursor: 'pointer' }}
                         data-testid={`api-mock-tx-${tx.id}`}
                       >
-                        <td>{timeOf(tx.receivedAt)}</td>
-                        <td><span className={`am-method ${tx.request.method.toLowerCase()}`}>{tx.request.method}</span></td>
-                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} className="am-mono">{tx.request.path}</td>
-                        <td>
+                        <td className="am-tx-time">{timeOf(tx.receivedAt)}</td>
+                        <td className="am-tx-method"><span className={`am-method ${tx.request.method.toLowerCase()}`}>{tx.request.method}</span></td>
+                        <td className="am-mono am-tx-path" title={tx.request.path}>{tx.request.path}</td>
+                        <td className="am-tx-status">
                           <span className={`am-badge ${tx.outcome === 'matched' ? 'success' : tx.outcome === 'ambiguous' ? 'warning' : tx.outcome === 'unmatched' ? '' : 'danger'}`}>
                             {tx.response?.status ?? tx.outcome}
                           </span>
                         </td>
-                        <td className="am-muted">{tx.durationMs != null ? `${tx.durationMs} ms` : '—'}</td>
-                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <td className="am-muted am-tx-duration" data-testid="api-mock-tx-duration">{tx.durationMs != null ? `${tx.durationMs} ms` : '—'}</td>
+                        <td className="am-tx-rule" title={tx.outcome === 'ambiguous' ? `Ambiguous · ${tx.explanation.policyDecision.matchedCount} rules` : routeName(tx.matchedRouteId)}>
                           {tx.outcome === 'ambiguous'
                             ? `Ambiguous · ${tx.explanation.policyDecision.matchedCount} rules`
                             : routeName(tx.matchedRouteId)}
@@ -364,80 +406,22 @@ export function ApiMockDock({
                 </table>
               </div>
               {selected && (
-                <div className="am-tx-detail" data-testid="api-mock-tx-detail">
-                  <div className="am-section-heading">Request</div>
-                  <pre className="am-code-block">{formatJournalRequestPreview(selected.request)}</pre>
-
-                  <div className="am-section-heading">Match explanation</div>
-                  <div style={{ fontSize: 11, marginBottom: 8 }}>
-                    <span className={`am-badge ${selected.outcome === 'matched' ? 'success' : selected.outcome === 'ambiguous' ? 'warning' : ''}`}>{selected.outcome}</span>
-                    {selected.matchedRouteId && <> → {routeName(selected.matchedRouteId)}</>}
-                    {' · '}gen {selected.generation}
-                    {' · '}policy {selected.explanation.policyDecision.policy.replace(/_/g, ' ')}
-                  </div>
-                  {selected.explanation.candidates.length > 0 && (
-                    <div className="am-tx-candidates" data-testid="api-mock-tx-candidates">
-                      {selected.explanation.candidates.slice(0, 6).map(c => (
-                        <div key={c.routeId} className="am-chip">
-                          {c.routeName || routeName(c.routeId)}
-                          <span className="am-faint"> P{c.priority}</span>
-                          {' · '}
-                          <span className={c.overallMatch ? 'am-ok' : 'am-muted'}>{c.overallMatch ? 'match' : 'miss'}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {selected.explanation.nearMisses.length > 0 && (
-                    <>
-                      <div className="am-section-heading">Near misses</div>
-                      <ul className="am-near-miss-list" data-testid="api-mock-tx-near-misses">
-                        {selected.explanation.nearMisses.slice(0, 4).map(n => (
-                          <li key={n.routeId}>
-                            <strong>{n.routeName || routeName(n.routeId)}</strong>
-                            {n.failedPredicates.slice(0, 2).map(fp => (
-                              <span key={fp.predicateId} className="am-muted"> — {fp.source}: {fp.reason}</span>
-                            ))}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-
-                  {selected.response && (
-                    <>
-                      <div className="am-section-heading">Response</div>
-                      <pre className="am-code-block">HTTP {selected.response.status}
-{selected.response.body}</pre>
-                      <div className="am-muted" style={{ fontSize: 11, marginTop: 4 }}>
-                        Duration: {selected.durationMs != null ? `${selected.durationMs} ms` : '—'}
-                        {selected.matchedResponseId ? ` · variant ${selected.matchedResponseId}` : ''}
-                      </div>
-                    </>
-                  )}
-
-                  <div className="am-tx-actions" data-testid="api-mock-tx-actions">
-                    {onOpenInRequests && (
-                      <button type="button" className="am-btn small" data-testid="api-mock-tx-open-requests" onClick={() => onOpenInRequests(selected)}>
-                        Open in Requests
-                      </button>
-                    )}
-                    {onCreateRouteFromTransaction && (
-                      <button type="button" className="am-btn small" data-testid="api-mock-tx-create-route" onClick={() => onCreateRouteFromTransaction(selected)}>
-                        Create route
-                      </button>
-                    )}
-                    {onSaveSampleFromTransaction && (
-                      <button type="button" className="am-btn small" data-testid="api-mock-tx-save-example" onClick={() => onSaveSampleFromTransaction(selected)}>
-                        Save as example
-                      </button>
-                    )}
-                    {onCopyTransaction && (
-                      <button type="button" className="am-btn small" data-testid="api-mock-tx-copy" onClick={() => onCopyTransaction(selected)}>
-                        Copy
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <>
+                  <div
+                    className="am-tx-split-divider"
+                    data-testid="api-mock-tx-splitter"
+                    {...dividerProps}
+                  />
+                  <ApiMockTransactionDetail
+                    selected={selected}
+                    routeName={routeName}
+                    onSelectRoute={onSelectRoute}
+                    onOpenInRequests={onOpenInRequests}
+                    onCreateRouteFromTransaction={onCreateRouteFromTransaction}
+                    onSaveSampleFromTransaction={onSaveSampleFromTransaction}
+                    onCopyTransaction={onCopyTransaction}
+                  />
+                </>
               )}
               </div>
             </div>
@@ -573,7 +557,7 @@ export function ApiMockDock({
                   {Object.entries(liveState.states).map(([k, v]) => <span key={`s-${k}`} className="am-chip">{k} = <strong>{v || '∅'}</strong></span>)}
                   {Object.entries(liveState.counters).map(([k, v]) => <span key={`c-${k}`} className="am-chip">{k}: <strong>{v}</strong></span>)}
                   {Object.entries(liveState.sequencePositions ?? {}).map(([routeId, pos]) => (
-                    <span key={`seq-${routeId}`} className="am-chip" data-testid={`api-mock-dock-seq-${routeId}`}>
+                    <span key={`seq-${routeId}`} className="am-chip" data-testid="api-mock-dock-seq-row">
                       seq {routeId.slice(0, 8)} → <strong>{pos}</strong>
                     </span>
                   ))}
@@ -612,18 +596,234 @@ export function ApiMockDock({
         )}
 
         {tab === 'console' && (
-          consoleLines.length === 0 ? (
-            <div className="am-dock-empty" data-testid="api-mock-dock-console-empty">
-              Server console output appears here. Start / Stop / Apply actions and lifecycle logs stream in from the running companion.
-            </div>
+          <ApiMockConsolePanel lines={consoleLines} onClear={onClearConsole} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+type TxFlash = 'copied' | 'saved' | 'created' | null;
+
+function ApiMockTransactionDetail({
+  selected,
+  routeName,
+  onSelectRoute,
+  onOpenInRequests,
+  onCreateRouteFromTransaction,
+  onSaveSampleFromTransaction,
+  onCopyTransaction,
+}: {
+  selected: ApiMockTransactionV1;
+  routeName: (id?: string) => string;
+  onSelectRoute?: (routeId: string) => void;
+  onOpenInRequests?: (tx: ApiMockTransactionV1) => void;
+  onCreateRouteFromTransaction?: (tx: ApiMockTransactionV1) => string | void;
+  onSaveSampleFromTransaction?: (tx: ApiMockTransactionV1) => void;
+  onCopyTransaction?: (tx: ApiMockTransactionV1) => void;
+}) {
+  const [flash, setFlash] = useState<TxFlash>(null);
+  const [copiedPane, setCopiedPane] = useState<'request' | 'response' | null>(null);
+  const [createdRouteId, setCreatedRouteId] = useState<string | undefined>();
+  const requestPreview = formatJournalRequestPreview(selected.request);
+  const responsePreview = formatJournalResponsePreview(selected.response);
+  const statusTone = httpStatusTone(selected.response?.status);
+  const outcomeTone = selected.outcome === 'matched' ? 'success'
+    : selected.outcome === 'ambiguous' ? 'warning'
+      : selected.outcome === 'unmatched' ? ''
+        : 'danger';
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = window.setTimeout(() => setFlash(null), TX_FLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [flash]);
+
+  useEffect(() => {
+    if (!copiedPane) return;
+    const t = window.setTimeout(() => setCopiedPane(null), TX_FLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [copiedPane]);
+
+  const copyPane = async (pane: 'request' | 'response', text: string) => {
+    const ok = await copyTextToClipboard(text);
+    if (ok) setCopiedPane(pane);
+  };
+
+  return (
+    <div className="am-tx-detail" data-testid="api-mock-tx-detail">
+      <div className="am-tx-match-bar">
+        <span className={`am-badge ${outcomeTone}`} data-testid="api-mock-tx-outcome">{selected.outcome}</span>
+        {selected.matchedRouteId && (
+          onSelectRoute ? (
+            <button
+              type="button"
+              className="am-tx-match-rule am-tx-match-rule-btn"
+              data-testid="api-mock-tx-matched-route"
+              onClick={() => onSelectRoute(selected.matchedRouteId!)}
+            >
+              → {routeName(selected.matchedRouteId)}
+            </button>
           ) : (
-            <div style={{ padding: 8, overflow: 'auto', height: '100%' }} data-testid="api-mock-dock-console">
-              <pre className="am-code-block" style={{ margin: 0 }}>{consoleLines.map(l =>
-                `${l.ts ? new Date(l.ts).toLocaleTimeString() : ''}${l.level ? ` [${l.level}]` : ''} ${l.message}`.trim(),
-              ).join('\n')}</pre>
-            </div>
+            <span className="am-tx-match-rule">→ {routeName(selected.matchedRouteId)}</span>
           )
         )}
+        <span className="am-tx-kv" data-testid="api-mock-tx-detail-duration">Duration: {selected.durationMs != null ? `${selected.durationMs} ms` : '—'}</span>
+        <span className="am-tx-kv">gen {selected.generation}</span>
+        <span className="am-tx-kv">policy {selected.explanation.policyDecision.policy.replace(/_/g, ' ')}</span>
+      </div>
+      <div className="am-tx-io" data-testid="api-mock-tx-io">
+        <section className="am-tx-io-pane" data-testid="api-mock-tx-request">
+          <div className="am-tx-io-head">
+            <span>Request</span>
+            <button
+              type="button"
+              className="am-btn ghost small"
+              data-testid="api-mock-tx-copy-request"
+              onClick={() => void copyPane('request', requestPreview)}
+            >
+              <CopyIcon size={12} /> {copiedPane === 'request' ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <pre className="am-code-block">{requestPreview}</pre>
+        </section>
+        <section className="am-tx-io-pane" data-testid="api-mock-tx-response">
+          <div className="am-tx-io-head">
+            <span className="am-tx-io-title">
+              Response
+              {selected.response && (
+                <span className={`am-badge ${statusTone}`} data-testid="api-mock-tx-response-status">{selected.response.status}</span>
+              )}
+            </span>
+            {selected.response && (
+              <button
+                type="button"
+                className="am-btn ghost small"
+                data-testid="api-mock-tx-copy-response"
+                onClick={() => void copyPane('response', responsePreview)}
+              >
+                <CopyIcon size={12} /> {copiedPane === 'response' ? 'Copied' : 'Copy'}
+              </button>
+            )}
+          </div>
+          {selected.response ? (
+            <pre className="am-code-block">{responsePreview}</pre>
+          ) : (
+            <div className="am-tx-io-empty">No response captured</div>
+          )}
+        </section>
+      </div>
+      {(selected.explanation.candidates.length > 0 || selected.explanation.nearMisses.length > 0) && (
+        <div className="am-tx-meta">
+          {selected.explanation.candidates.length > 0 && (
+            <div className="am-tx-candidates" data-testid="api-mock-tx-candidates">
+              {selected.explanation.candidates.slice(0, 6).map(c => {
+                const label = (
+                  <>
+                    {c.routeName || routeName(c.routeId)}
+                    <span className="am-faint"> P{c.priority}</span>
+                    {' · '}
+                    <span className={c.overallMatch ? 'am-ok' : 'am-muted'}>{c.overallMatch ? 'match' : 'miss'}</span>
+                  </>
+                );
+                return onSelectRoute ? (
+                  <button key={c.routeId} type="button" className="am-chip" onClick={() => onSelectRoute(c.routeId)}>
+                    {label}
+                  </button>
+                ) : (
+                  <div key={c.routeId} className="am-chip">{label}</div>
+                );
+              })}
+            </div>
+          )}
+          {selected.explanation.nearMisses.length > 0 && (
+            <>
+              <div className="am-section-heading">Near misses</div>
+              <ul className="am-near-miss-list" data-testid="api-mock-tx-near-misses">
+                {selected.explanation.nearMisses.slice(0, 4).map(n => (
+                  <li key={n.routeId}>
+                    <strong>{n.routeName || routeName(n.routeId)}</strong>
+                    {n.failedPredicates.slice(0, 2).map(fp => (
+                      <span key={fp.predicateId} className="am-muted"> — {fp.source}: {fp.reason}</span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
+      {flash === 'created' && (
+        <div className="am-notice am-notice--flush am-tx-notice" data-testid="api-mock-tx-notice">
+          <span>Draft route created from this transaction. Open it in Studio to review and enable matching.</span>
+          {createdRouteId && onSelectRoute && (
+            <button type="button" className="am-btn small primary" data-testid="api-mock-tx-open-created" onClick={() => onSelectRoute(createdRouteId)}>
+              Open in Studio
+            </button>
+          )}
+        </div>
+      )}
+      {flash === 'saved' && (
+        <div className="am-notice am-notice--flush am-tx-notice" data-testid="api-mock-tx-notice">
+          <span>
+            {selected.matchedRouteId
+              ? 'Example saved on the matched rule.'
+              : 'Example saved. Attach it to a rule from Studio → Examples.'}
+          </span>
+          {selected.matchedRouteId && onSelectRoute && (
+            <button type="button" className="am-btn small primary" data-testid="api-mock-tx-view-example" onClick={() => onSelectRoute(selected.matchedRouteId!)}>
+              View in Studio
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="am-tx-actions" data-testid="api-mock-tx-actions">
+        {onOpenInRequests && (
+          <button type="button" className="am-btn small" data-testid="api-mock-tx-open-requests" onClick={() => onOpenInRequests(selected)}>
+            Open in Requests
+          </button>
+        )}
+        {onCreateRouteFromTransaction && (
+          <button
+            type="button"
+            className={`am-btn small${selected.outcome !== 'matched' ? ' primary' : ''}`}
+            data-testid="api-mock-tx-create-route"
+            onClick={() => {
+              const id = onCreateRouteFromTransaction(selected);
+              setCreatedRouteId(typeof id === 'string' ? id : undefined);
+              setFlash('created');
+            }}
+          >
+            {flash === 'created' ? 'Created' : 'Create route'}
+          </button>
+        )}
+        {onSaveSampleFromTransaction && (
+          <button
+            type="button"
+            className="am-btn small"
+            data-testid="api-mock-tx-save-example"
+            onClick={() => {
+              onSaveSampleFromTransaction(selected);
+              setFlash('saved');
+            }}
+          >
+            {flash === 'saved' ? 'Saved' : 'Save as example'}
+          </button>
+        )}
+        <button
+          type="button"
+          className="am-btn small"
+          data-testid="api-mock-tx-copy"
+          onClick={() => {
+            void copyTransactionToClipboard(selected);
+            onCopyTransaction?.(selected);
+            setFlash('copied');
+          }}
+        >
+          {flash === 'copied' ? 'Copied' : 'Copy'}
+        </button>
       </div>
     </div>
   );

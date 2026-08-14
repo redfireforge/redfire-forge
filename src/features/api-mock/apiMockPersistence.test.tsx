@@ -37,6 +37,38 @@ describe('apiMockPersistence', () => {
     expect(loaded.servers).toHaveLength(2);
     expect(loaded.servers.map(s => s.name)).toEqual(['Alpha', 'Beta']);
     expect(loaded.activeServerId).toBe('srv-2');
+    // No explicit open-tab list: every saved server is treated as open.
+    expect(loaded.openTabIds).toEqual(['srv-1', 'srv-2']);
+  });
+
+  it('keeps a parked server in the library with no open tab', async () => {
+    const servers = [makeServer('srv-1', 'Alpha', 4600), makeServer('srv-2', 'Beta', 4601)];
+    await saveApiMockWorkspace({ servers, activeServerId: 'srv-1', openTabIds: ['srv-1'] });
+
+    const loaded = await loadApiMockWorkspace();
+    expect(loaded.servers.map(s => s.id)).toEqual(['srv-1', 'srv-2']);
+    expect(loaded.openTabIds).toEqual(['srv-1']);
+
+    const raw = JSON.parse(localStorage.getItem(API_MOCK_STORAGE_KEY) as string);
+    expect(raw.tabOrder).toEqual(['srv-1']);
+  });
+
+  it('round-trips a workspace where every tab was closed', async () => {
+    await saveApiMockWorkspace({ servers: [makeServer('srv-1', 'Alpha', 4600)], openTabIds: [] });
+
+    const loaded = await loadApiMockWorkspace();
+    expect(loaded.servers).toHaveLength(1);
+    expect(loaded.openTabIds).toEqual([]);
+  });
+
+  it('shows the saved-server landing when the stored workspace has no open tabs', async () => {
+    await saveApiMockWorkspace({ servers: [makeServer('srv-1', 'Parked API', 4611)], openTabIds: [] });
+
+    render(<ApiMockStudioPage />);
+
+    await waitFor(() => expect(screen.getByTestId('api-mock-library-landing')).toBeTruthy());
+    expect(screen.getByTestId('api-mock-library-row-srv-1')).toBeTruthy();
+    expect(screen.queryByTestId('api-mock-empty')).toBeNull();
   });
 
   it('preserves a route created inside a server', async () => {

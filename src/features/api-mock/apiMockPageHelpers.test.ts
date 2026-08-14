@@ -20,13 +20,14 @@ import {
   mergeRuntimeInfo,
   parsePortOwnerServerId,
   pickNextAutoPort,
+  findPortOwner,
+  formatPortTakenMessage,
   resolveNextAutoPort,
-  removeClosedServer,
-  removeClosedServers,
   reorderServers,
   duplicateServerDefinition,
   formatStopAndCloseMessage,
   formatTabLimitMessage,
+  STOP_AND_CLOSE_CONFIRM_OPTIONS,
   TAB_LIMIT_CONFIRM_OPTIONS,
   downloadJsonFile,
   resolveHydratedActiveServerId,
@@ -94,6 +95,18 @@ describe('apiMockPageHelpers', () => {
       Array.from({ length: 3 }, (_, i) => ({ port: 10 + i })),
       { min: 10, max: 12 },
     )).toThrow(/No available port/);
+  });
+
+  it('finds which saved mock already claims a listen port', () => {
+    const users = { id: 'srv-users', name: 'Users API', port: 4600 };
+    const payments = { id: 'srv-pay', name: 'Payments', port: 4602 };
+    const parked = { id: 'srv-parked', name: 'Catalog', port: 4603 };
+    expect(findPortOwner([users, payments], 4600, 'srv-pay')).toEqual(users);
+    expect(findPortOwner([users, payments], 4602, 'srv-pay')).toBeUndefined();
+    expect(findPortOwner([users, payments, parked], 4603, 'srv-pay')).toEqual(parked);
+    expect(findPortOwner([users], 4600.5, 'srv-pay')).toBeUndefined();
+    expect(formatPortTakenMessage(4600, 'Users API')).toBe('Port 4600 is already used by Users API. Pick another port.');
+    expect(formatPortTakenMessage(4600, '  ')).toBe('Port 4600 is already used by another mock server. Pick another port.');
   });
 
   it('resolves the next auto-port with an OS availability probe', async () => {
@@ -180,36 +193,6 @@ describe('apiMockPageHelpers', () => {
     expect(parsePortOwnerServerId('something else')).toBeUndefined();
   });
 
-  it('removes a closed server and reassigns active when needed', () => {
-    const a = makeServer('srv-a');
-    const b = makeServer('srv-b');
-    expect(removeClosedServer([a, b], 'srv-a', 'srv-a')).toEqual({ servers: [b], activeServerId: 'srv-b' });
-    expect(removeClosedServer([a, b], 'srv-a', 'srv-b')).toEqual({ servers: [b], activeServerId: 'srv-b' });
-    expect(removeClosedServer([a], 'srv-a', 'srv-a')).toEqual({ servers: [], activeServerId: undefined });
-    const c = makeServer('srv-c');
-    expect(removeClosedServer([a, b, c], 'srv-c', 'srv-c')).toEqual({
-      servers: [a, b],
-      activeServerId: 'srv-b',
-    });
-    expect(removeClosedServer([a, b, c], 'srv-missing', 'srv-a')).toEqual({
-      servers: [a, b, c],
-      activeServerId: 'srv-a',
-    });
-    expect(removeClosedServer([a, b], 'gone', 'gone').activeServerId).toBe('srv-a');
-    expect(removeClosedServers([a, b, c], ['srv-b', 'srv-c'], 'srv-b')).toEqual({
-      servers: [a],
-      activeServerId: 'srv-a',
-    });
-    expect(removeClosedServers([a, b, c], ['srv-a', 'srv-c'], 'srv-b')).toEqual({
-      servers: [b],
-      activeServerId: 'srv-b',
-    });
-    expect(removeClosedServers([a, b, c], [], 'srv-b')).toEqual({
-      servers: [a, b, c],
-      activeServerId: 'srv-b',
-    });
-  });
-
   it('computes hydration application only when not cancelled and servers exist', () => {
     expect(computeHydrationResult(true, { activeServerId: 'srv-1', servers: [makeServer('srv-1')] })).toEqual({ shouldApply: false });
     expect(computeHydrationResult(false, { activeServerId: undefined, servers: [] })).toEqual({ shouldApply: false });
@@ -217,11 +200,31 @@ describe('apiMockPageHelpers', () => {
       shouldApply: true,
       servers: [makeServer('srv-1')],
       activeServerId: 'srv-1',
+      openTabIds: ['srv-1'],
     });
     expect(computeHydrationResult(false, { activeServerId: 'gone', servers: [makeServer('srv-1')] })).toEqual({
       shouldApply: true,
       servers: [makeServer('srv-1')],
       activeServerId: 'srv-1',
+      openTabIds: ['srv-1'],
+    });
+  });
+
+  it('hydrates a parked server as library-only when it has no open tab', () => {
+    const a = makeServer('srv-a');
+    const b = makeServer('srv-b');
+    expect(computeHydrationResult(false, { activeServerId: 'srv-a', servers: [a, b], openTabIds: ['srv-b'] })).toEqual({
+      shouldApply: true,
+      servers: [a, b],
+      activeServerId: 'srv-b',
+      openTabIds: ['srv-b'],
+    });
+    // Every tab closed: the library still hydrates, just with nothing selected.
+    expect(computeHydrationResult(false, { activeServerId: 'srv-a', servers: [a, b], openTabIds: [] })).toEqual({
+      shouldApply: true,
+      servers: [a, b],
+      activeServerId: undefined,
+      openTabIds: [],
     });
   });
 
@@ -249,6 +252,12 @@ describe('apiMockPageHelpers', () => {
     expect(formatStopAndCloseMessage([])).toBe('Stop and close "mock server"?');
     expect(formatStopAndCloseMessage(['Alpha'])).toBe('Stop and close "Alpha"?');
     expect(formatStopAndCloseMessage(['Alpha', 'Beta'])).toBe('Stop and close 2 mock servers? Running listeners will be stopped.');
+  });
+
+  it('keeps delete wording out of the stop-and-close confirm', () => {
+    expect(STOP_AND_CLOSE_CONFIRM_OPTIONS.title).toBe('Stop and close');
+    expect(STOP_AND_CLOSE_CONFIRM_OPTIONS.confirmLabel).toBe('Stop & Close');
+    expect(STOP_AND_CLOSE_CONFIRM_OPTIONS.finalNote).not.toMatch(/cannot be undone/i);
   });
 
   it('builds runtime status and dirty maps', () => {

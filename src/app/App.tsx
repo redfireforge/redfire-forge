@@ -70,6 +70,7 @@ import { useDemoWorkspaceDefaultsBridge } from './hooks/useDemoWorkspaceDefaults
 import { useDemoHarnessBridge } from './hooks/useDemoHarnessBridge';
 import { useDemoCatalogBridge } from './hooks/useDemoCatalogBridge';
 import { useDemoRequestsBridge } from './hooks/useDemoRequestsBridge';
+import { useDemoApiMockBridge } from './hooks/useDemoApiMockBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 export default function App() {
@@ -95,6 +96,7 @@ export default function App() {
   const reqTabs = useRequestTabCoordinator(wb);
   const catalog = useCatalog();
   useDemoCatalogBridge(catalog, DEMO_HUB_ENABLED);
+  useDemoApiMockBridge(DEMO_HUB_ENABLED);
 
   const [wfPreviewEndpoints, setWfPreviewEndpoints] = useState<WorkflowPreviewEntry[]>([]);
   const refreshWfPreviews = useCallback(() => {
@@ -102,7 +104,7 @@ export default function App() {
   }, []);
   useCatalogPreviewMigrations(catalog, setWfPreviewEndpoints);
   useDemoRequestsBridge(
-    { collections: wb.collections, removeCollection: reqTabs.removeCollection },
+    { collections: wb.collections, removeCollection: reqTabs.removeCollection, importCollection: wb.importCollection },
     DEMO_HUB_ENABLED,
   );
 

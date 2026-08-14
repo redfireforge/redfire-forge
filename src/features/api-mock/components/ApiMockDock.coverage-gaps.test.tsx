@@ -2,10 +2,11 @@
  * @vitest-environment jsdom
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { StrictMode, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ApiMockDock } from './ApiMockDock';
+import { ApiMockDock, type ApiMockDockTab } from './ApiMockDock';
 
 function baseRoutes() {
   return [{
@@ -33,7 +34,7 @@ function openTab(label: string) {
 }
 
 describe('ApiMockDock coverage gaps', () => {
-  it('covers requested-tab consumption, conflict tab callback, and maximize toggle', () => {
+  it('covers requested-tab consumption, conflict tab callback, and maximize toggle', async () => {
     const onRequestedTabConsumed = vi.fn();
     const onOpenConflicts = vi.fn();
     const finding = {
@@ -58,7 +59,7 @@ describe('ApiMockDock coverage gaps', () => {
       />,
     );
 
-    expect(onRequestedTabConsumed).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onRequestedTabConsumed).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('api-mock-conflict-inspector')).toBeTruthy();
 
     openTab('Conflicts');
@@ -93,13 +94,61 @@ describe('ApiMockDock coverage gaps', () => {
       },
     } as any;
 
-    render(<ApiMockDock routes={[...baseRoutes(), { ...baseRoutes()[0], id: 'r2', path: { kind: 'exact', value: '/r2' } }] as any} transactions={[tx]} running />);
+    const onSelectRoute = vi.fn();
+    render(
+      <ApiMockDock
+        routes={[...baseRoutes(), { ...baseRoutes()[0], id: 'r2', path: { kind: 'exact', value: '/r2' } }] as any}
+        transactions={[tx]}
+        running
+        onSelectRoute={onSelectRoute}
+      />,
+    );
     fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
     expect(screen.getByTestId('api-mock-tx-candidates').textContent).toContain('miss');
+    fireEvent.click(screen.getByTestId('api-mock-tx-candidates').querySelector('button')!);
+    expect(onSelectRoute).toHaveBeenCalledWith('r1');
     expect(screen.getByTestId('api-mock-tx-near-misses').textContent).toContain('header: missing X-Tenant');
     expect(screen.getByTestId('api-mock-tx-detail').textContent).toContain('Duration: —');
 
     openTab('State');
     expect(screen.getByText(/Live counter\/state values update as requests hit stateful routes/i)).toBeTruthy();
+  });
+
+  it('consumes a hidden requested tab without switching', async () => {
+    const onRequestedTabConsumed = vi.fn();
+    render(
+      <ApiMockDock
+        routes={baseRoutes()}
+        requestedTab="conflicts"
+        hiddenTabs={['conflicts']}
+        onRequestedTabConsumed={onRequestedTabConsumed}
+      />,
+    );
+    await waitFor(() => expect(onRequestedTabConsumed).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('api-mock-dock-tab-conflicts')).toBeNull();
+  });
+
+  it('keeps a requested Runtime tab after StrictMode remounts the dock', async () => {
+    function Parent() {
+      const [requested, setRequested] = useState<ApiMockDockTab | undefined>('variables');
+      return (
+        <ApiMockDock
+          variant="page"
+          routes={baseRoutes()}
+          requestedTab={requested}
+          onRequestedTabConsumed={() => setRequested(undefined)}
+          onVariablesChange={vi.fn()}
+        />
+      );
+    }
+
+    render(
+      <StrictMode>
+        <Parent />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('api-mock-dock-variables')).toBeTruthy());
+    expect(screen.getByTestId('api-mock-dock-tab-variables').getAttribute('aria-selected')).toBe('true');
   });
 });

@@ -57,6 +57,9 @@ const state = vi.fn();
 const resetState = vi.fn();
 const recordedDrafts = vi.fn();
 const ackRecordedDrafts = vi.fn();
+const list = vi.fn();
+const status = vi.fn();
+const nextAutoPort = vi.fn();
 const analyzeConflicts = vi.fn();
 const clearConsole = vi.fn();
 
@@ -76,6 +79,10 @@ vi.mock('./apiMockControlClient', () => ({
     resetState: (...args: unknown[]) => resetState(...args),
     recordedDrafts: (...args: unknown[]) => recordedDrafts(...args),
     ackRecordedDrafts: (...args: unknown[]) => ackRecordedDrafts(...args),
+    // Hydration reconciles against the live pool; creation asks for a free port.
+    list: (...args: unknown[]) => list(...args),
+    status: (...args: unknown[]) => status(...args),
+    nextAutoPort: (...args: unknown[]) => nextAutoPort(...args),
   },
 }));
 vi.mock('./useApiMockConsole', () => ({
@@ -118,6 +125,9 @@ describe('ApiMockStudioPage coverage gaps', () => {
     resetState.mockResolvedValue({ ok: true, data: { reset: true } });
     recordedDrafts.mockResolvedValue({ ok: true, data: { drafts: [], total: 0 } });
     ackRecordedDrafts.mockResolvedValue({ ok: true, data: { removed: 0 } });
+    list.mockResolvedValue({ ok: true, data: [] });
+    status.mockResolvedValue({ ok: true, data: { serverId: 'srv-1', port: 4600, state: 'stopped', generation: 0 } });
+    nextAutoPort.mockResolvedValue({ ok: true, data: { port: 4601 } });
     analyzeConflicts.mockResolvedValue({ findings: [] });
   });
 
@@ -232,7 +242,8 @@ describe('ApiMockStudioPage coverage gaps', () => {
 
     fireEvent.click(screen.getByTestId('api-mock-tab-close-srv-1'));
     await waitFor(() => expect(stop).toHaveBeenCalledWith('srv-1'));
-    await waitFor(() => expect(screen.getByTestId('api-mock-empty')).toBeTruthy());
+    // Closing the last tab parks the server — the landing offers it back.
+    await waitFor(() => expect(screen.getByTestId('api-mock-library-landing')).toBeTruthy());
   });
 
   it('covers live strip deep links and empty-route selection copy', async () => {

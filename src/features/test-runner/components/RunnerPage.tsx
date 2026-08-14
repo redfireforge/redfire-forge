@@ -62,7 +62,7 @@ export default function RunnerPage({
     apiMockFixture, setApiMockFixture,
   } = config;
 
-  const { isRunning, liveResults, error, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = execution;
+  const { isRunning, liveResults, error, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun, fixtureStatus } = execution;
 
   const hasContent = variant.hasContent(featureGroups);
   const monitorRef = useRef<HTMLDivElement>(null);
@@ -105,6 +105,7 @@ export default function RunnerPage({
         value={apiMockFixture}
         onChange={setApiMockFixture}
         disabled={isRunning}
+        status={fixtureStatus}
       />
 
       <RunnerExecutionConfig

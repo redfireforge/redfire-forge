@@ -67,6 +67,12 @@ describe('computeRouteFingerprint', () => {
     r2.predicates.children.push({ id: 'p1', source: 'header', selector: 'x', operator: 'exact', expected: 'v' });
     expect(await computeRouteFingerprint(r1)).not.toBe(await computeRouteFingerprint(r2));
   });
+
+  it('differs for two copies that share Match but not identity or body', async () => {
+    const a = makeRoute('route-health-a');
+    const b = { ...makeRoute('route-health-b'), name: 'Health B' };
+    expect(await computeRouteFingerprint(a)).not.toBe(await computeRouteFingerprint(b));
+  });
 });
 
 describe('canonicalExportOrder', () => {

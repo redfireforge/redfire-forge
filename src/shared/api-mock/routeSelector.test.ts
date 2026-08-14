@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { selectRoute, computeSpecificity } from './routeSelector';
-import { evaluateRoute } from './predicateEvaluator';
+import { evaluateRoute, type RouteEvaluationResult } from './predicateEvaluator';
 import { createDefaultResponse, DEFAULT_SETTINGS } from './defaults';
-import type { ApiMockRouteV1, ApiMockCapturedRequestV1, ApiMockServerSettingsV1 } from './contracts';
+import type {
+  ApiMockCapturedRequestV1,
+  ApiMockPredicateResultV1,
+  ApiMockRouteV1,
+  ApiMockServerSettingsV1,
+} from './contracts';
 
 const ts = '2026-08-11T00:00:00.000Z';
 
@@ -25,6 +30,29 @@ function req(overrides: Partial<ApiMockCapturedRequestV1> = {}): ApiMockCaptured
 
 function settings(overrides: Partial<ApiMockServerSettingsV1['selection']> = {}): ApiMockServerSettingsV1 {
   return { ...DEFAULT_SETTINGS, selection: { ...DEFAULT_SETTINGS.selection, ...overrides } };
+}
+
+function stubEvaluation(
+  routeId: string,
+  predicateResults: Array<Pick<ApiMockPredicateResultV1, 'operator' | 'passed'>> = [],
+): RouteEvaluationResult {
+  return {
+    routeId,
+    routeName: 'Route',
+    priority: 10,
+    enabled: true,
+    methodMatch: true,
+    pathMatch: true,
+    pathParams: {},
+    overallMatch: true,
+    predicateResults: predicateResults.map((p, i) => ({
+      predicateId: `p${i}`,
+      groupId: 'g',
+      source: 'header',
+      evaluated: true,
+      ...p,
+    })),
+  };
 }
 
 describe('selectRoute', () => {
@@ -125,6 +153,27 @@ describe('selectRoute', () => {
       expect(result.outcome).toBe('matched');
       expect(result.selectedRouteId).toBe('a-specific');
     });
+
+    it('includes a specificity breakdown when two rules tie at the highest priority', () => {
+      const routes = [
+        route({ id: 'z-generic', path: { kind: 'glob', value: '/*' } }),
+        route({ id: 'a-specific', path: { kind: 'exact', value: '/test' } }),
+      ];
+      const result = selectRoute(routes, req(), settings({ equalPriorityPolicy: 'specificity_then_id' }), '');
+      const breakdown = result.explanation.policyDecision.specificityBreakdown;
+      expect(breakdown).toHaveLength(2);
+      expect(breakdown?.[0]).toMatchObject({ routeId: 'a-specific' });
+      expect(breakdown?.[1]).toMatchObject({ routeId: 'z-generic' });
+      expect(breakdown?.[0].score).toBeGreaterThan(breakdown?.[1].score ?? 0);
+      expect(breakdown?.[0].components.some(c => c.source === 'path')).toBe(true);
+    });
+  });
+
+  describe('specificity breakdown presence', () => {
+    it('omits the breakdown when a single rule matches', () => {
+      const result = selectRoute([route()], req(), DEFAULT_SETTINGS, '');
+      expect(result.explanation.policyDecision.specificityBreakdown).toBeUndefined();
+    });
   });
 
   describe('insertion order independence', () => {
@@ -197,37 +246,30 @@ describe('computeSpecificity', () => {
   });
 
   it('returns 0 for unknown route ids', () => {
-    const evaluation = { routeId: 'missing', predicateResults: [] } as any;
-    expect(computeSpecificity(evaluation, [route()])).toBe(0);
+    expect(computeSpecificity(stubEvaluation('missing'), [route()])).toBe(0);
   });
 
   it('covers regex paths, ANY method, skipped failed predicates, and default operator weighting', () => {
     const r = route({ id: 'rx', method: 'ANY', path: { kind: 'regex', value: '^/test$' } });
-    const evaluation = {
-      routeId: 'rx',
-      predicateResults: [
-        { operator: 'regex', passed: true },
-        { operator: 'json_strict', passed: true },
-        { operator: 'json_subset', passed: true },
-        { operator: 'jsonPath_exists', passed: true },
-        { operator: 'xmlSchema', passed: true },
-        { operator: 'exact', passed: false },
-      ],
-    } as any;
+    const evaluation = stubEvaluation('rx', [
+      { operator: 'regex', passed: true },
+      { operator: 'json_strict', passed: true },
+      { operator: 'json_subset', passed: true },
+      { operator: 'jsonPath_exists', passed: true },
+      { operator: 'xmlSchema', passed: true },
+      { operator: 'exact', passed: false },
+    ]);
     expect(computeSpecificity(evaluation, [r])).toBe(1 + 10 + 3 + 10 + 7 + 6 + 1);
   });
 
   it('covers contains/prefix/suffix and present/absent operator weights', () => {
     const r = route({ id: 'ops' });
-    const evaluation = {
-      routeId: 'ops',
-      predicateResults: [
-        { operator: 'contains', passed: true },
-        { operator: 'suffix', passed: true },
-        { operator: 'present', passed: true },
-        { operator: 'absent', passed: true },
-      ],
-    } as any;
+    const evaluation = stubEvaluation('ops', [
+      { operator: 'contains', passed: true },
+      { operator: 'suffix', passed: true },
+      { operator: 'present', passed: true },
+      { operator: 'absent', passed: true },
+    ]);
     expect(computeSpecificity(evaluation, [r])).toBe(10 + 50 + 5 + 5 + 2 + 2);
   });
 });

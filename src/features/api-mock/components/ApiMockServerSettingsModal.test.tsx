@@ -71,6 +71,45 @@ describe('ApiMockServerSettingsModal', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it('refuses a port already claimed by another saved mock', () => {
+    const onSave = vi.fn();
+    const payments = makeServer();
+    payments.id = 'srv-pay';
+    payments.name = 'Payments';
+    payments.port = 4602;
+    render(
+      <ApiMockServerSettingsModal
+        server={payments}
+        libraryServers={[
+          { id: 'srv-users', name: 'Users API', port: 4600 },
+          { id: 'srv-pay', name: 'Payments', port: 4602 },
+          { id: 'srv-parked', name: 'Catalog', port: 4603 },
+        ]}
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('api-mock-settings-port'), { target: { value: '4600' } });
+    expect(screen.getByTestId('api-mock-settings-port-taken').textContent).toBe(
+      'Port 4600 is already used by Users API. Pick another port.',
+    );
+    expect(screen.getByTestId('api-mock-settings-port')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByTestId('api-mock-settings-save')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('api-mock-settings-save'));
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByTestId('api-mock-settings-port'), { target: { value: '4603' } });
+    expect(screen.getByTestId('api-mock-settings-port-taken').textContent).toMatch(/Catalog/);
+    expect(screen.getByTestId('api-mock-settings-save')).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('api-mock-settings-port'), { target: { value: '4602' } });
+    expect(screen.queryByTestId('api-mock-settings-port-taken')).toBeNull();
+    expect(screen.getByTestId('api-mock-settings-save')).not.toBeDisabled();
+    fireEvent.click(screen.getByTestId('api-mock-settings-save'));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ port: 4602 }));
+  });
+
   it('disables save for blank names', () => {
     render(<ApiMockServerSettingsModal server={makeServer()} onSave={vi.fn()} onClose={vi.fn()} />);
 

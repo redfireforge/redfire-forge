@@ -33,9 +33,9 @@ export function ApiMockExamplesPanel({
     return (
       <div className="am-notice" data-testid="api-mock-examples-empty">
         <span>
-          Run <strong>Simulate</strong> to exercise this rule against sample requests.
-          Captured transactions can be promoted to examples from the journal
-          (<strong>Save as example</strong>).
+          Run <strong>Simulate</strong> and click <strong>Save as sample</strong> to keep the
+          request — name it after saving. Captured transactions can also be promoted from
+          the journal (<strong>Save as example</strong>).
         </span>
       </div>
     );

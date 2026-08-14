@@ -238,6 +238,7 @@ export function ApiMockVariantOutboundPanel({ variant, onUpdate }: Props) {
                 type="number"
                 value={cb.maxRetries}
                 aria-label="Max retries"
+                data-testid={`api-mock-callback-retries-${cb.id}`}
                 onChange={e => updateCallback(cb.id, { maxRetries: parseInt(e.target.value, 10) || 0 })}
               />
               <span className="am-hint">retries</span>

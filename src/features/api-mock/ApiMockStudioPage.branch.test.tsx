@@ -46,6 +46,10 @@ vi.mock('./apiMockControlClient', () => ({
     resetState: vi.fn(),
     recordedDrafts: vi.fn(),
     ackRecordedDrafts: vi.fn(),
+    // Hydration reconciles against the live pool; creation asks for a free port.
+    list: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+    status: vi.fn().mockResolvedValue({ ok: false, error: { kind: 'unavailable' } }),
+    nextAutoPort: vi.fn().mockResolvedValue({ ok: true, data: { port: 4600 } }),
   },
 }));
 vi.mock('../../shared/api-mock/conflictAnalyzer', () => ({ analyzeConflicts: vi.fn() }));

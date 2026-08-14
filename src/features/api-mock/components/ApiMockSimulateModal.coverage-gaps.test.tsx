@@ -109,7 +109,8 @@ describe('ApiMockSimulateModal coverage gaps', () => {
     render(<ApiMockSimulateModal server={server} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('api-mock-sim-sample-sample-1').querySelector('.am-sim-sample-btn') as HTMLElement);
     expect(screen.getByTestId('api-mock-sim-sample-sample-1')).toHaveClass('active');
-    expect(screen.queryByPlaceholderText('/users/42?active=true')).not.toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveValue('/users');
+    expect(screen.getByTestId('api-mock-simulate-path')).toHaveProperty('readOnly', true);
     fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
     expect(screen.getByTestId('api-mock-sim-sample-sample-1').textContent).toContain('FAIL');
     fireEvent.click(screen.getByRole('tab', { name: 'Assertions' }));

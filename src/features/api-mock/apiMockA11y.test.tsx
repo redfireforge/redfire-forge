@@ -13,37 +13,44 @@ import { ApiMockStudioPage } from './ApiMockStudioPage';
 
 beforeEach(() => localStorage.clear());
 
-function createServer() {
+/** Creating a server asks the control plane for a free port, so it settles async. */
+async function createServer() {
   render(<ApiMockStudioPage />);
   fireEvent.click(screen.getByTestId('api-mock-create-first'));
+  await screen.findByTestId('api-mock-studio');
 }
 
 function serverTablist() {
   return screen.getByRole('tablist', { name: 'Mock server tabs' });
 }
 
+/** Add a tab and wait for the auto-port round trip to land it in the tablist. */
+async function addServerTab(expectedTabs: number) {
+  fireEvent.click(screen.getByTestId('api-mock-tab-add'));
+  await waitFor(() => expect(within(serverTablist()).getAllByRole('tab')).toHaveLength(expectedTabs));
+}
+
 describe('API Mock Studio — live region', () => {
-  it('announces server creation via a polite status region', () => {
-    createServer();
+  it('announces server creation via a polite status region', async () => {
+    await createServer();
     const live = screen.getByTestId('api-mock-live-region');
     expect(live).toHaveAttribute('role', 'status');
     expect(live).toHaveAttribute('aria-live', 'polite');
     expect(live.textContent).toMatch(/created on port/i);
   });
 
-  it('announces route creation', () => {
-    createServer();
+  it('announces route creation', async () => {
+    await createServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     expect(screen.getByTestId('api-mock-live-region').textContent).toMatch(/added/i);
   });
 });
 
 describe('API Mock Studio — server tabs (ARIA tabs pattern)', () => {
-  it('applies roving tabindex and aria-controls', () => {
-    createServer();
-    fireEvent.click(screen.getByTestId('api-mock-tab-add'));
+  it('applies roving tabindex and aria-controls', async () => {
+    await createServer();
+    await addServerTab(2);
     const tabs = within(serverTablist()).getAllByRole('tab');
-    expect(tabs).toHaveLength(2);
     const selected = tabs.find(t => t.getAttribute('aria-selected') === 'true')!;
     const unselected = tabs.find(t => t.getAttribute('aria-selected') === 'false')!;
     expect(selected).toHaveAttribute('tabindex', '0');
@@ -51,9 +58,9 @@ describe('API Mock Studio — server tabs (ARIA tabs pattern)', () => {
     expect(selected).toHaveAttribute('aria-controls', 'api-mock-workspace-panel');
   });
 
-  it('navigates and activates tabs with arrow keys', () => {
-    createServer();
-    fireEvent.click(screen.getByTestId('api-mock-tab-add'));
+  it('navigates and activates tabs with arrow keys', async () => {
+    await createServer();
+    await addServerTab(2);
     const list = serverTablist();
     const tabs = within(list).getAllByRole('tab');
     tabs[1].focus();
@@ -62,16 +69,16 @@ describe('API Mock Studio — server tabs (ARIA tabs pattern)', () => {
   });
 
   it('closes the focused tab on Delete', async () => {
-    createServer();
-    fireEvent.click(screen.getByTestId('api-mock-tab-add'));
+    await createServer();
+    await addServerTab(2);
     const list = serverTablist();
     within(list).getAllByRole('tab')[1].focus();
     fireEvent.keyDown(list, { key: 'Delete' });
     await waitFor(() => expect(within(serverTablist()).getAllByRole('tab')).toHaveLength(1));
   });
 
-  it('labels the workspace panel by the active server tab', () => {
-    createServer();
+  it('labels the workspace panel by the active server tab', async () => {
+    await createServer();
     const panel = document.getElementById('api-mock-workspace-panel')!;
     expect(panel).toHaveAttribute('role', 'tabpanel');
     const active = within(serverTablist()).getByRole('tab', { selected: true });
@@ -80,8 +87,8 @@ describe('API Mock Studio — server tabs (ARIA tabs pattern)', () => {
 });
 
 describe('API Mock Studio — builder tabs', () => {
-  it('wires an ARIA tablist with a labelled panel', () => {
-    createServer();
+  it('wires an ARIA tablist with a labelled panel', async () => {
+    await createServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     const list = screen.getByRole('tablist', { name: 'Route editor sections' });
     const match = within(list).getAllByRole('tab').find(t => t.textContent?.startsWith('Match'))!;
@@ -93,8 +100,8 @@ describe('API Mock Studio — builder tabs', () => {
     expect(panel).toHaveAttribute('aria-labelledby', 'api-mock-btab-match');
   });
 
-  it('navigates builder tabs with arrow keys', () => {
-    createServer();
+  it('navigates builder tabs with arrow keys', async () => {
+    await createServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     const list = screen.getByRole('tablist', { name: 'Route editor sections' });
     within(list).getAllByRole('tab')[0].focus();
@@ -104,8 +111,8 @@ describe('API Mock Studio — builder tabs', () => {
 });
 
 describe('API Mock Studio — Runtime tabs', () => {
-  it('wires an ARIA tablist with a labelled panel on the Runtime page', () => {
-    createServer();
+  it('wires an ARIA tablist with a labelled panel on the Runtime page', async () => {
+    await createServer();
     fireEvent.click(screen.getByTestId('api-mock-view-runtime'));
     const dock = screen.getByTestId('api-mock-dock');
     const list = within(dock).getByRole('tablist', { name: 'Runtime inspector' });
@@ -118,8 +125,8 @@ describe('API Mock Studio — Runtime tabs', () => {
 });
 
 describe('API Mock Studio — route tree', () => {
-  it('applies roving tabindex to the selected route', () => {
-    createServer();
+  it('applies roving tabindex to the selected route', async () => {
+    await createServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     const tree = screen.getByRole('tree', { name: 'Rule list' });
@@ -130,8 +137,8 @@ describe('API Mock Studio — route tree', () => {
     expect(items.filter(i => i.getAttribute('tabindex') === '0')).toHaveLength(1);
   });
 
-  it('moves focus with arrow keys without changing selection', () => {
-    createServer();
+  it('moves focus with arrow keys without changing selection', async () => {
+    await createServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     const tree = screen.getByRole('tree', { name: 'Rule list' });
@@ -145,8 +152,8 @@ describe('API Mock Studio — route tree', () => {
 });
 
 describe('API Mock Studio — names, tooltips, and switch', () => {
-  it('gives icon-only controls accessible names and tooltips', () => {
-    createServer();
+  it('gives icon-only controls accessible names and tooltips', async () => {
+    await createServer();
     const addServer = screen.getByTestId('api-mock-tab-add');
     expect(addServer).toHaveAccessibleName('New mock server');
     expect(addServer).toHaveAttribute('title', 'New mock server');
@@ -155,8 +162,8 @@ describe('API Mock Studio — names, tooltips, and switch', () => {
     expect(addRoute).toHaveAttribute('title', 'Add rule');
   });
 
-  it('exposes the route enabled control as a switch', () => {
-    createServer();
+  it('exposes the route enabled control as a switch', async () => {
+    await createServer();
     fireEvent.click(screen.getByTestId('api-mock-add-route'));
     const toggle = screen.getByTestId('api-mock-route-enabled');
     expect(toggle).toHaveAttribute('role', 'switch');
