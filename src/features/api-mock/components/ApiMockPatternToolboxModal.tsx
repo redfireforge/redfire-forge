@@ -12,6 +12,7 @@ import {
   REGEX_LIBRARY,
   initialJsonPathDraft,
   initialRegexPattern,
+  initialRegexSamples,
   initialSchemaKind,
   initialSchemaText,
   initialXPathDraft,
@@ -19,8 +20,9 @@ import {
   type ToolTab,
 } from './apiMockPatternToolboxConstants';
 import { ApiMockSchemaToolboxPanel, ApiMockXPathToolboxPanel } from './ApiMockPatternToolboxExtraPanels';
-import { testRegex, regexTabMatcher, explainRegex } from './apiMockPatternToolboxRegexUtils';
+import * as regexUtils from './apiMockPatternToolboxRegexUtils';
 import { ApiMockPatternToolboxConstraintsTab } from './ApiMockPatternToolboxConstraintsTab';
+import { applyPatternToolbox } from './apiMockPatternToolboxApply';
 
 interface Props {
   initial: ApiMockPathMatcherV1;
@@ -73,12 +75,7 @@ export function ApiMockPatternToolboxModal({
     initialRegexPattern(predicateOperator, predicateExpected, initial.kind, initial.value),
   );
   const [libraryQuery, setLibraryQuery] = useState('');
-  const [samples, setSamples] = useState<SampleRow[]>([
-    { id: 's1', value: '42', shouldMatch: true },
-    { id: 's2', value: '100234', shouldMatch: true },
-    { id: 's3', value: 'admin', shouldMatch: false },
-    { id: 's4', value: '42a', shouldMatch: false },
-  ]);
+  const [samples, setSamples] = useState<SampleRow[]>(() => initialRegexSamples(predicateSource));
   const jsonPathDraft = initialJsonPathDraft(predicateOperator, predicateExpected);
   const xpathDraft = initialXPathDraft(predicateOperator, predicateExpected);
   const [jsonSample, setJsonSample] = useState(() => JSON.stringify(DEFAULT_JSON_SAMPLE, null, 2));
@@ -159,7 +156,7 @@ export function ApiMockPatternToolboxModal({
     );
   } catch { /* invalid pattern */ }
 
-  const regexApplied = regexTabMatcher(regexPattern, predicateOperator, Boolean(onApplyPredicate));
+  const regexApplied = regexUtils.regexTabMatcher(regexPattern, predicateOperator, Boolean(onApplyPredicate));
   const regexValidity = useMemo(() => {
     if (predicateOperator === 'glob') return true;
     try {
@@ -186,79 +183,25 @@ export function ApiMockPatternToolboxModal({
   };
 
   const handleApply = () => {
-    if (tab === 'jsonpath') {
-      const operator = jsonExpected.trim() ? 'jsonPath_equals' : 'jsonPath_exists';
-      const expected = jsonExpected.trim() ? [jsonPath, jsonExpected] : jsonPath;
-      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected });
-      else {
-        onApplyConditions?.([{
-          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-          source: 'body', selector: '', operator, expected,
-        }]);
-      }
-      onClose();
-      return;
-    }
-    if (tab === 'xpath') {
-      const operator = xpathValue.trim() ? 'xpath_equals' : 'xpath_exists';
-      const expected = xpathValue.trim() ? [xpath, xpathValue] : xpath;
-      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected });
-      else {
-        onApplyConditions?.([{
-          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-          source: 'body', selector: '', operator, expected,
-        }]);
-      }
-      onClose();
-      return;
-    }
-    if (tab === 'schema') {
-      const operator = schemaKind === 'xml' ? 'xmlSchema' : 'jsonSchema';
-      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected: schemaText });
-      else {
-        onApplyConditions?.([{
-          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-          source: 'body',
-          selector: '',
-          operator,
-          expected: schemaText,
-        }]);
-      }
-      onClose();
-      return;
-    }
-    if (tab === 'constraints') {
-      const usable = constraints.filter(c => c.selector.trim());
-      onApplyConditions?.(usable.map(c => ({
-        id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-        source: c.source,
-        selector: c.selector.trim(),
-        operator: c.operator,
-        expected: c.operator === 'present' || c.operator === 'absent' ? undefined : c.expected,
-      })));
-      onClose();
-      return;
-    }
-    if (tab === 'regex') {
-      // Regex/glob Apply writes a path-matcher shape. Only the route path and
-      // regex/glob rows consume that — never smash a schema/JSONPath/XPath row.
-      const regexOrGlobRow = !predicateOperator
-        || predicateOperator === 'regex'
-        || predicateOperator === 'glob';
-      if (regexOrGlobRow) {
-        onApply({
-          kind: regexApplied.kind,
-          value: regexApplied.value,
-          flags: caseInsensitive ? { caseInsensitive: true } : undefined,
-        });
-      }
-    } else if (onApplyPredicate) {
-      // Path tab rewrites the route matcher; never apply it onto a predicate row.
-      onClose();
-    } else {
-      onApply({ kind, value, flags: caseInsensitive ? { caseInsensitive: true } : undefined });
-    }
-    onClose();
+    applyPatternToolbox({
+      tab,
+      jsonPath,
+      jsonExpected,
+      xpath,
+      xpathValue,
+      schemaKind,
+      schemaText,
+      constraints,
+      predicateOperator,
+      regexApplied,
+      caseInsensitive,
+      kind,
+      value,
+      onApply,
+      onApplyConditions,
+      onApplyPredicate,
+      onClose,
+    });
   };
 
   const filteredLibrary = REGEX_LIBRARY.map(cat => ({
@@ -270,7 +213,7 @@ export function ApiMockPatternToolboxModal({
     ),
   })).filter(c => c.entries.length > 0);
 
-  const explanationLines = explainRegex(regexPattern).split('\n').filter(Boolean);
+  const explanationLines = regexUtils.explainRegex(regexPattern).split('\n').filter(Boolean);
   const activeLibrary = REGEX_LIBRARY.flatMap(cat => cat.entries).find(e => e.pattern === regexPattern)?.name;
   const appliedSource = predicateSource ?? 'path';
   const appliedSelector = (predicateSelector ?? '').trim()
@@ -400,7 +343,7 @@ export function ApiMockPatternToolboxModal({
                           className={`am-chip${caseInsensitive ? ' active' : ''}`}
                           data-testid="api-mock-toolbox-flag-ci"
                         >
-                          <input type="checkbox" checked={caseInsensitive} onChange={e => setCaseInsensitive(e.target.checked)} />
+                          <input type="checkbox" checked={caseInsensitive} onChange={() => setCaseInsensitive(true)} />
                           Ignore case
                         </label>
                         <label className={`am-chip${unicode ? ' active' : ''}`}>
@@ -441,6 +384,13 @@ export function ApiMockPatternToolboxModal({
                   </button>
                 </div>
                 <div className="am-sample-list">
+                  <div className="am-sample-head" aria-hidden="true">
+                    <span>You expect</span>
+                    <span>Value</span>
+                    <span>Pattern</span>
+                    <span>Check</span>
+                    <span />
+                  </div>
                   {samples.map(s => {
                     const actual = regexApplied.kind === 'glob'
                       ? evaluateOperator(
@@ -449,8 +399,10 @@ export function ApiMockPatternToolboxModal({
                         regexApplied.value,
                         { caseSensitive: caseInsensitive ? false : true },
                       )
-                      : testRegex(regexApplied.value, s.value, !caseInsensitive);
+                      : regexUtils.testRegex(regexApplied.value, s.value, !caseInsensitive);
                     const expectationOk = actual !== 'invalid' && actual === s.shouldMatch;
+                    const actualText = regexUtils.sampleActualLabel(actual);
+                    const checkText = regexUtils.sampleCheckLabel(expectationOk);
                     return (
                       <div
                         key={s.id}
@@ -459,12 +411,12 @@ export function ApiMockPatternToolboxModal({
                       >
                         <button
                           type="button"
-                          className={`am-badge ${s.shouldMatch ? 'success' : 'danger'} am-sample-expectation`}
+                          className="am-badge am-sample-expectation"
                           onClick={() => setSamples(rows => rows.map(r => r.id === s.id ? { ...r, shouldMatch: !r.shouldMatch } : r))}
-                          title="Toggle should match / should fail"
+                          title="Toggle whether you expect this value to match"
                           data-testid={`api-mock-toolbox-sample-expect-${s.id}`}
                         >
-                          {s.shouldMatch ? 'Should match' : 'Should fail'}
+                          {regexUtils.sampleExpectLabel(s.shouldMatch)}
                         </button>
                         <input
                           className="am-input am-input--fill mono"
@@ -474,10 +426,17 @@ export function ApiMockPatternToolboxModal({
                           data-testid={`api-mock-toolbox-sample-value-${s.id}`}
                         />
                         <span
-                          className={`am-matcher-result ${expectationOk ? 'pass' : 'fail'}`}
-                          aria-label={expectationOk ? 'expectation passed' : 'expectation failed'}
+                          className={`am-sample-actual${actual === true ? ' match' : actual === false ? ' miss' : ''}`}
+                          data-testid={`api-mock-toolbox-sample-actual-${s.id}`}
                         >
-                          {expectationOk ? '✓' : '✕'}
+                          {actualText}
+                        </span>
+                        <span
+                          className={`am-sample-check ${expectationOk ? 'pass' : 'fail'}`}
+                          aria-label={checkText}
+                          data-testid={`api-mock-toolbox-sample-check-${s.id}`}
+                        >
+                          {expectationOk ? '✓' : '✕'} {checkText}
                         </span>
                         <button
                           type="button"
@@ -493,7 +452,10 @@ export function ApiMockPatternToolboxModal({
                   })}
                 </div>
                 <div className="am-notice am-notice--flush">
-                  <span>Samples use the same predicate evaluator as simulation and the live listener.</span>
+                  <span>
+                    <strong>Matches</strong> / <strong>Does not match</strong> is what the pattern did.
+                    The check is only whether that agreed with <strong>Expect match</strong>.
+                  </span>
                 </div>
               </div>
             </article>

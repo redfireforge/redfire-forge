@@ -22,6 +22,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   spotlightBeat,
   spotlightElementBeat,
   ensureAdHocSimulateForm,
@@ -41,8 +42,8 @@ export const AM09_TIMING = {
   traceRow: 1400,
   simOutcome: 1800,
   beforeOpen: 1400,
-  reviewForm: 2200,
-  beforeRun: 2200,
+  reviewForm: 2400,
+  beforeRun: 2600,
 } as const;
 
 const T = AM09_TIMING;
@@ -219,10 +220,9 @@ export async function cleanupAm09(): Promise<void> {
   await wipeApiMockWorkspace();
 }
 
-export async function closeAm09Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm09Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm09SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(AM_DEMO_TIMING.panelReady);
+  await closeSimulateWorkspace(ctx, opts);
 }
 
 export async function ensureAm09StudioView(ctx: DemoActionContext): Promise<void> {
@@ -497,13 +497,13 @@ export async function runAm09Witness(ctx: DemoActionContext): Promise<string> {
   await reviewAndRunSimulation(ctx, {
     review: T.reviewForm,
     beforeRun: T.beforeRun,
-    sampleName: `GET ${AM09_HEALTH_PATH}`,
+    sampleName: `GET ${AM09_HEALTH_PATH} — witness`,
   });
   await ctx.waitFor(API_MOCK.SIMULATE_OUTCOME, 10_000);
   await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
   const outcome = am09SimOutcome();
   await am09Break(ctx);
-  await closeAm09Simulate(ctx);
+  await closeAm09Simulate(ctx, { review: true });
   if (firstVisibleElement(API_MOCK.CONFLICT_INSPECTOR)) {
     await am09Payoff(ctx, API_MOCK.CONFLICT_INSPECTOR);
   }

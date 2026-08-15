@@ -152,6 +152,8 @@ function mountSimulate(opts: {
   root.append(adhocWrap);
   root.append(input('api-mock-simulate-path', opts.path ?? AM21_ADHOC_PATH));
   root.append(input('api-mock-simulate-seed', opts.seed ?? '11111'));
+  root.append(el('button', undefined, 'api-mock-simulate-save-sample'));
+  root.append(input('api-mock-simulate-sample-name'));
   root.append(el('button', undefined, 'api-mock-simulate-run'));
   root.append(el('button', undefined, 'api-mock-simulate-run-all'));
   root.append(el('button', undefined, 'api-mock-simulate-export'));
@@ -228,7 +230,7 @@ describe('AM-21 simulation-suite helpers', () => {
   it('holds AM-21 spotlights longer than the shared pack', () => {
     expect(AM21_TIMING.look).toBeGreaterThan(AM_DEMO_TIMING.look);
     expect(AM21_TIMING.beforeOpen).toBe(1400);
-    expect(AM21_TIMING.beforeRun).toBe(2000);
+    expect(AM21_TIMING.beforeRun).toBe(2400);
     expect(AM21_CORPUS_SAMPLE).toBe('am-gallery-suite');
   });
 
@@ -368,7 +370,11 @@ describe('AM-21 simulation-suite helpers', () => {
     await runAm21SuiteAndScratchpad(ctx);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE);
     expect(fills(ctx.fill).some(f => f[0] === API_MOCK.SIMULATE_PATH && f[1] === AM21_ADHOC_PATH)).toBe(true);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
+    expect(calls(ctx.click).indexOf(API_MOCK.SIMULATE_RUN)).toBeGreaterThan(
+      calls(ctx.click).indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE),
+    );
   });
 
   it('holds the three result views without re-ringing the timeline', async () => {

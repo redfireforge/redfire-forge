@@ -271,6 +271,20 @@ describe('evaluateRoute', () => {
       expect(evaluateRoute(r, req({ headers: { 'x-b': ['yes'] } }), '').overallMatch).toBe(true);
     });
 
+    it('records a failed Any-of group when no child passed', () => {
+      const r = route({ predicates: {
+        id: 'pg', combinator: 'any', children: [
+          { id: 'p1', source: 'header', selector: 'x-a', operator: 'exact', expected: 'yes' },
+          { id: 'p2', source: 'header', selector: 'x-b', operator: 'exact', expected: 'yes' },
+        ],
+      } });
+      const result = evaluateRoute(r, req(), '');
+      expect(result.overallMatch).toBe(false);
+      const group = result.predicateResults.find(p => p.combinator === 'any');
+      expect(group?.passed).toBe(false);
+      expect(group?.reason).toContain('no child passed');
+    });
+
     it('supports nested groups as children', () => {
       const r = route({ predicates: {
         id: 'pg', combinator: 'any', children: [
@@ -304,6 +318,36 @@ describe('evaluateRoute', () => {
       expect(evaluateRoute(r, req({ headers: { 'x-block': ['yes'] } }), '').overallMatch).toBe(false);
     });
 
+    it('records a None-of group row when every leaf passed', () => {
+      const r = route({ predicates: {
+        id: 'pg', combinator: 'not', children: [
+          { id: 'p1', source: 'header', selector: 'x-debug', operator: 'present' },
+        ],
+      } });
+      const result = evaluateRoute(r, req({ headers: { 'x-debug': ['1'] } }), '');
+      expect(result.overallMatch).toBe(false);
+      const group = result.predicateResults.find(p => p.combinator === 'not');
+      expect(group?.passed).toBe(false);
+      expect(group?.reason).toContain('header "x-debug"');
+      expect(group?.reason).toMatch(/rejected/);
+      const leaf = result.predicateResults.find(p => p.predicateId === 'p1');
+      expect(leaf?.passed).toBe(true);
+      expect(leaf?.reason).toContain('rejected by None of');
+    });
+
+    it('records a passing None-of group row when no child matched', () => {
+      const r = route({ predicates: {
+        id: 'pg', combinator: 'not', children: [
+          { id: 'p1', source: 'header', selector: 'x-debug', operator: 'present' },
+        ],
+      } });
+      const result = evaluateRoute(r, req(), '');
+      expect(result.overallMatch).toBe(true);
+      const group = result.predicateResults.find(p => p.combinator === 'not');
+      expect(group?.passed).toBe(true);
+      expect(group?.reason).toContain('no child matched');
+    });
+
     it('supports nested groups under NOT', () => {
       const r = route({ predicates: {
         id: 'pg', combinator: 'not', children: [
@@ -325,7 +369,9 @@ describe('evaluateRoute', () => {
         combinator: 'weird' as any,
         children: [{ id: 'p1', source: 'header', selector: 'x-a', operator: 'present' }],
       } });
-      expect(evaluateRoute(r, req({ headers: { 'x-a': ['yes'] } }), '').overallMatch).toBe(false);
+      const result = evaluateRoute(r, req({ headers: { 'x-a': ['yes'] } }), '');
+      expect(result.overallMatch).toBe(false);
+      expect(result.predicateResults.some(p => p.reason?.includes('unknown combinator'))).toBe(true);
     });
   });
 

@@ -393,6 +393,10 @@ export interface ApiMockPredicateResultV1 {
   passed: boolean;
   evaluated: boolean;
   reason?: string;
+  /** Present on leaf rows so the trace can name the key that was read. */
+  selector?: string;
+  /** Set on group rows (All of / Any of / None of). Leaves omit this. */
+  combinator?: 'all' | 'any' | 'not';
 }
 
 export interface ApiMockMatchExplanationV1 {

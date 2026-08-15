@@ -17,6 +17,9 @@ import {
   extractValue,
   evaluateOperator,
   describeFailure,
+  combinatorLabel,
+  describeGroupOutcome,
+  predicateResultLabel,
 } from './predicateEvaluatorHelpers';
 
 export interface RouteEvaluationResult {
@@ -67,28 +70,44 @@ export function evaluatePredicateGroup(
   return evaluateGroup(group, request, pathParams, []);
 }
 
+function isKnownCombinator(combinator: string): combinator is 'all' | 'any' | 'not' {
+  return combinator === 'all' || combinator === 'any' || combinator === 'not';
+}
+
+/** Record None-of always (leaves can all pass while the group fails). Record Any-of / unknown only on failure. */
+function shouldRecordGroupResult(combinator: string, passed: boolean): boolean {
+  if (combinator === 'not') return true;
+  if (combinator === 'any' && !passed) return true;
+  return !isKnownCombinator(combinator);
+}
+
 function evaluateGroup(
   group: ApiMockPredicateGroupV1,
   request: ApiMockCapturedRequestV1,
   pathParams: Record<string, string>,
   results: ApiMockPredicateResultV1[],
+  parentGroupId = '',
 ): boolean {
+  const start = results.length;
   const evalChild = (child: ApiMockPredicateGroupV1['children'][number]) => {
     const before = results.length;
     const matched = 'combinator' in child
-      ? evaluateGroup(child, request, pathParams, results)
-      : evaluateSinglePredicate(child, request, pathParams, results);
+      ? evaluateGroup(child, request, pathParams, results, group.id)
+      : evaluateSinglePredicate(child, request, pathParams, results, group.id);
     return {
       matched,
       unevaluated: results.slice(before).some(r => r.evaluated === false),
     };
   };
 
+  let passed: boolean;
   switch (group.combinator) {
     case 'all':
-      return group.children.every(child => evalChild(child).matched);
+      passed = group.children.every(child => evalChild(child).matched);
+      break;
     case 'any':
-      return group.children.some(child => evalChild(child).matched);
+      passed = group.children.some(child => evalChild(child).matched);
+      break;
     case 'not': {
       // Fail closed: a stubbed operator must not make "None of" match every request.
       let unevaluated = false;
@@ -97,11 +116,36 @@ function evaluateGroup(
         if (result.unevaluated) unevaluated = true;
         return result.matched;
       });
-      return !unevaluated && !anyMatched;
+      passed = !unevaluated && !anyMatched;
+      break;
     }
     default:
-      return false;
+      passed = false;
   }
+
+  const childResults = results.slice(start);
+  if (group.combinator === 'not' && !passed) {
+    for (const child of childResults) {
+      if (child.passed && !child.combinator) {
+        child.reason = child.reason ?? `${predicateResultLabel(child)} matched — rejected by None of`;
+      }
+    }
+  }
+
+  if (shouldRecordGroupResult(group.combinator, passed)) {
+    results.push({
+      predicateId: `group:${group.id}`,
+      groupId: parentGroupId,
+      source: combinatorLabel(group.combinator),
+      operator: 'present',
+      passed,
+      evaluated: true,
+      reason: describeGroupOutcome(group.combinator, passed, childResults),
+      combinator: isKnownCombinator(group.combinator) ? group.combinator : undefined,
+    });
+  }
+
+  return passed;
 }
 
 function evaluateSinglePredicate(
@@ -109,16 +153,18 @@ function evaluateSinglePredicate(
   request: ApiMockCapturedRequestV1,
   pathParams: Record<string, string>,
   results: ApiMockPredicateResultV1[],
+  groupId = '',
 ): boolean {
   if (isUnavailablePredicateOperator(pred.operator)) {
     results.push({
       predicateId: pred.id,
-      groupId: '',
+      groupId,
       source: pred.source,
       operator: pred.operator,
       passed: false,
       evaluated: false,
       reason: `Operator "${pred.operator}" is not evaluated yet — this condition never matches`,
+      selector: pred.selector,
     });
     return false;
   }
@@ -130,12 +176,13 @@ function evaluateSinglePredicate(
 
   results.push({
     predicateId: pred.id,
-    groupId: '',
+    groupId,
     source: pred.source,
     operator: pred.operator,
     passed,
     evaluated: true,
     reason: passed ? undefined : describeFailure(pred, value),
+    selector: pred.selector,
   });
   return passed;
 }

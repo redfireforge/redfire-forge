@@ -80,8 +80,8 @@ const DIAGRAM = `
 
   <line x1="26" y1="330" x2="674" y2="330" stroke="#3b4a60" />
   <text x="26" y="354" fill="#f1f5f9" font-family="system-ui" font-size="13" font-weight="600">Reading the decision trace</text>
-  <text x="26" y="376" fill="#a8b8cc" font-family="system-ui" font-size="11">One row per leaf, in tree order. A failing row names the key it read: header "x-debug" was absent.</text>
-  <text x="26" y="398" fill="#a8b8cc" font-family="system-ui" font-size="11">Rows show leaf results — inside None of, a red row is the pass. The candidate badge is the rule's verdict.</text>
+  <text x="26" y="376" fill="#a8b8cc" font-family="system-ui" font-size="11">Leaves name the key they read. Groups get their own row: None of rejected — header "x-debug" matched.</text>
+  <text x="26" y="398" fill="#a8b8cc" font-family="system-ui" font-size="11">When the rule misses, failed rows (including None of) sort first so the reason is not buried under green ticks.</text>
   <text x="26" y="422" fill="#64748b" font-family="system-ui" font-size="10">Path and method gate first; conditions are only evaluated when both already matched.</text>
   <text x="26" y="440" fill="#64748b" font-family="system-ui" font-size="10">Values are case-sensitive unless you say otherwise; header and query *names* are normalized for you.</text>
 </svg>
@@ -98,7 +98,7 @@ export const apiMockAm05Lesson: DemoLesson = {
     + 'case-insensitive cookie regex, and a whole request shape composed in one pass.',
   estimatedMinutes: 9,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 4,
   concept: {
     title: 'Same path, different callers — conditions are how a mock tells them apart',
     body:
@@ -130,11 +130,11 @@ export const apiMockAm05Lesson: DemoLesson = {
       + 'in a single step, which is how you describe a whole request shape without adding rows one at '
       + 'a time.\n\n'
       + 'Then you prove it in **Simulate** — no listener, no traffic. The decision trace prints one '
-      + 'row per condition, in tree order, with a tick or a cross, and a failing row names the key it '
-      + 'read: `query "page" exact failed — got "3"`. That is the difference between "my mock did not '
-      + 'answer" and "the tenant header was wrong". One caveat when reading it: the rows are *leaf* '
-      + 'results, so inside a `None of` group a red row is exactly what you want — the rule\'s own '
-      + 'verdict is the badge on the candidate, not the ticks beneath it.\n\n'
+      + 'row per condition, with a tick or a cross, and a failing row names the key it read: '
+      + '`query "page" exact failed — got "3"`. Groups get a row too: when a `None of` guard rejects '
+      + 'the request, you see **None of** in red — `rejected — header "x-debug" matched` — even if '
+      + 'every leaf underneath is green. That is the difference between "my mock did not answer" and '
+      + '"the debug header tripped the guard".\n\n'
       + 'Body conditions get their own lesson in **Body Matching**, and what happens when two rules '
       + 'both match is **Boolean Groups, Priority & Policy**.',
     keyTerms: [
@@ -145,7 +145,7 @@ export const apiMockAm05Lesson: DemoLesson = {
       { term: 'Combinator', definition: 'How a group folds its children: All of (and), Any of (or), None of (reject when any child passes).' },
       { term: 'Guard group', definition: 'A nested None-of group holding what must not be true — the product\'s way to negate a matcher.' },
       { term: 'Ignore case', definition: 'A regex/glob flag set from the wand. Values are case-sensitive by default; header and query *names* are normalized regardless.' },
-      { term: 'Decision trace', definition: 'Simulate\'s per-candidate tick list — one row per condition leaf, with the reason a failing row rejected the request.' },
+      { term: 'Decision trace', definition: 'Simulate\'s per-candidate tick list — one row per condition and group, with the reason a failing row rejected the request.' },
     ],
     diagram: DIAGRAM,
   },
@@ -177,7 +177,8 @@ export const apiMockAm05Lesson: DemoLesson = {
       description:
         '**Simulate** evaluates a request against the real matcher with no listener bound, and for '
         + 'conditions it is the fastest way to find out what you actually wrote. Query parameters go '
-        + `in the path field, so \`${AM05_SIM_QUERY_MATCH}\` is the whole request — it comes back `
+        + `in the path field, so \`${AM05_SIM_QUERY_MATCH}\` is the whole request. **Save as sample**, `
+        + 'name it, hold the saved request so you can read it, then **Run simulation** — it comes back '
         + '**MATCHED**, and the trace lists the query condition with a tick beside it.\n\n'
         + `Now the run that teaches more: \`${AM05_SIM_QUERY_MISS}\` comes back **UNMATCHED**, the `
         + 'candidate is flagged **Conditions failed** — so you know the path was fine — and the row '
@@ -260,9 +261,10 @@ export const apiMockAm05Lesson: DemoLesson = {
         + 'session id has a *shape*, not a value, so **Regex** is the right test.\n\n'
         + 'Choosing Regex grows a **wand** on the row, and it opens the Pattern Toolbox on the same '
         + `expression you are editing. \`${AM05_COOKIE_REGEX}\` is the shape; the sample rows below `
-        + 'prove it against real values, and each row carries its own expectation (should match / '
-        + 'should fail) so a wrong pattern shows up as a cross immediately. One sample is lower-case '
-        + 'on purpose and fails — then **Ignore case** flips it green. That flag rides along with '
+        + 'prove it against real values. **Matches** / **Does not match** is what the pattern did. '
+        + '**As expected** is only whether that agreed with **Expect match**. One sample is '
+        + 'lower-case on purpose — **Does not match** until **Ignore case** — then it matches. '
+        + 'That flag rides along with '
         + '**Apply** onto the condition, which is the point: values are compared case-sensitively '
         + 'unless you deliberately say otherwise.',
       highlight: API_MOCK.ADD_CONDITION,
@@ -296,17 +298,22 @@ export const apiMockAm05Lesson: DemoLesson = {
       description:
         'One request, fully shaped: the page and format in the query string, the tenant and version '
         + 'headers, an `Authorization` header for the Security condition, and the session cookie on '
-        + 'a `Cookie:` line. It comes back **MATCHED**, and the trace walks the whole rule — method, '
-        + 'path, then one row per condition in tree order. The header name is sent in upper case on '
+        + 'a `Cookie:` line. Expand **Headers** and switch to **Table** — search '
+        + `\`${AM05_GUARD_KEY}\` and the count stays \`0/0\`. That header is not on this request. `
+        + 'Close the popup, **Save as sample**, then **Run simulation**. It comes back **MATCHED**, '
+        + 'and the trace walks the whole rule — '
+        + 'method, path, then one row per condition. The header name is sent in upper case on '
         + 'purpose, and it still matches: names are normalized, values are not.\n\n'
-        + `Look closely at the \`${AM05_GUARD_KEY}\` row: it is red, and the rule matched anyway. `
-        + 'That is the trace being literal — it prints *leaf* results, and inside a **None of** '
-        + 'group a failing leaf is exactly what makes the group pass. The rule\'s own verdict is the '
-        + 'badge on the candidate.\n\n'
-        + `Then the proof the guard works: send the same request plus \`${AM05_GUARD_KEY}\`, and the `
-        + 'rule goes **UNMATCHED** with **Conditions failed** — the debug row now ticks, and that '
-        + 'tick is the one you did not want. Seven conditions across five sources, every one of them '
-        + 'verified before a single byte was served.',
+        + `Look at **None of**: it is green — \`passed — no child matched\` — because \`${AM05_GUARD_KEY}\` `
+        + 'was absent. The leaf under it is red; that red row is what the guard wanted. The rule\'s '
+        + 'own verdict is the badge on the candidate.\n\n'
+        + `Then the proof the guard works: the same request plus \`${AM05_GUARD_KEY}\`. Expand `
+        + '**Headers** again — **Table** now has that row, and the search hits `1/1`. Close the '
+        + 'popup, **Save as sample**, then **Run simulation**. The rule goes **UNMATCHED** with '
+        + '**Conditions failed**. **None of** '
+        + `is now red — \`rejected — header "${AM05_GUARD_KEY}" matched\` — even though every leaf `
+        + 'is green. That red group row is why the rule missed. Seven conditions across five '
+        + 'sources, every one of them verified before a single byte was served.',
       highlight: API_MOCK.SIMULATE,
       preAction: ensureAm05FullShape,
       action: async (ctx) => {

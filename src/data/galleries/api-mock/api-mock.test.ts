@@ -167,6 +167,8 @@ describe('api-mock gallery catalog', () => {
       expect(matchPath(route.path, '/orders').matched).toBe(true);
       expect(route.predicates.children).toHaveLength(1);
       expect(baseline).toMatchObject({ source: 'body', operator: 'json_subset' });
+      expect(baseline.expected).toBe('{"customer":{"tier":"gold"}}');
+      expect(baseline.expected).not.toContain('\n');
     });
 
     it('accepts a payload with extra fields, because subset means "contains at least"', () => {

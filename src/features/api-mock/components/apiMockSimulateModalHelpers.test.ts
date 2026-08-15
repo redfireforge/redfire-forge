@@ -16,7 +16,12 @@ import {
   headersToText,
   isAutoRouteSample,
   mergeSimulateSamples,
+  nearMissConditionSummary,
+  orderTracePredicateResults,
   outcomeBadge,
+  predicateTraceDetail,
+  predicateTraceNote,
+  predicateTraceSource,
   parseSimulateHeaderLines,
   simulateRenderedBodyViews,
   suggestedSimulateSampleName,
@@ -208,5 +213,28 @@ describe('apiMockSimulateModalHelpers', () => {
       compact: '"just a string"',
       canFormat: true,
     });
+  });
+
+  it('orders failed predicate rows first and labels group vs leaf traces', () => {
+    const passed = { predicateId: 'p1', groupId: '', source: 'query', operator: 'exact' as const, passed: true, evaluated: true, selector: 'page' };
+    const failed = { predicateId: 'g1', groupId: '', source: 'None of', operator: 'present' as const, passed: false, evaluated: true, combinator: 'not' as const, reason: 'rejected — header "x-debug" matched' };
+    expect(orderTracePredicateResults([passed, failed], false).map(r => r.predicateId)).toEqual(['g1', 'p1']);
+    expect(orderTracePredicateResults([passed, failed], true)[0].predicateId).toBe('p1');
+    expect(predicateTraceSource(failed)).toBe('None of');
+    expect(predicateTraceSource(passed)).toBe('query');
+    expect(predicateTraceDetail(failed)).toContain('x-debug');
+    expect(predicateTraceDetail(passed)).toBe('page · exact');
+    expect(predicateTraceNote(failed)).toBe('rejected');
+    expect(predicateTraceNote(passed)).toBe('passed');
+    expect(predicateTraceNote({ ...passed, evaluated: false })).toBe('skipped');
+    expect(predicateTraceNote({ ...failed, passed: true })).toBe('held');
+    expect(predicateTraceDetail({ ...passed, selector: undefined })).toBe('exact');
+    expect(nearMissConditionSummary([
+      { routeName: 'List Reports', failedPredicates: [{ reason: 'rejected — header "x-debug" matched' }] },
+    ])).toContain('x-debug');
+    expect(nearMissConditionSummary([{ routeName: 'A' }, { routeName: 'B' }])).toBe(
+      'A, B matched method/path but failed conditions.',
+    );
+    expect(nearMissConditionSummary([])).toBe('Matched method/path but failed conditions.');
   });
 });

@@ -24,6 +24,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   spotlightElementBeat,
@@ -49,7 +50,7 @@ export const AM05_TIMING = {
   /** Filled Simulate path / headers, held so the viewer can read them before Run. */
   reviewForm: 1600,
   /** Ring on **Run simulation** before the click. */
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM05_TIMING;
@@ -153,6 +154,12 @@ export const AM05_SIM_QUERY_MATCH = `${AM05_RULE_PATH}?${AM05_QUERY_KEY}=${AM05_
 export const AM05_SIM_QUERY_MISS = `${AM05_RULE_PATH}?${AM05_QUERY_KEY}=3`;
 export const AM05_SIM_FULL_PATH =
   `${AM05_RULE_PATH}?${AM05_QUERY_KEY}=${AM05_QUERY_VALUE}&${AM05_FORMAT_KEY}=${AM05_FORMAT_VALUE}`;
+
+/** Saved-sample names — query and full-path probes share `/reports`, so purpose is required. */
+export const AM05_SAMPLE_QUERY_MATCH = `GET ${AM05_SIM_QUERY_MATCH} — page 2`;
+export const AM05_SAMPLE_QUERY_MISS = `GET ${AM05_SIM_QUERY_MISS} — page 3`;
+export const AM05_SAMPLE_ALL_MATCH = `GET ${AM05_SIM_FULL_PATH} — no debug`;
+export const AM05_SAMPLE_DEBUG = `GET ${AM05_SIM_FULL_PATH} — debug`;
 /** Upper-case header name on purpose: names are normalized, values are not. */
 export const AM05_SIM_HEADERS = [
   `AUTHORIZATION: ${AM05_SECURITY_VALUE} eyJhbGciOiJIUzI1NiJ9`,
@@ -338,14 +345,31 @@ export function am05SimOutcome(): string {
   return firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)?.textContent?.trim() ?? '';
 }
 
-/** Decision-trace predicate rows: Method, Path, then one per condition leaf. */
+export function isAm05HeadersExpandOpen(): boolean {
+  return Boolean(firstVisibleElement(API_MOCK.HEADERS_EXPAND_MODAL));
+}
+
+/** Table row whose Name cell equals `name` (case-insensitive). */
+export function am05HeadersTableRowByName(name: string): HTMLElement | null {
+  const needle = name.trim().toLowerCase();
+  if (!needle) return null;
+  const inputs = document.querySelectorAll<HTMLInputElement>('[data-testid^="api-mock-headers-expand-name-"]');
+  for (const input of inputs) {
+    if (input.value.trim().toLowerCase() === needle) {
+      return input.closest<HTMLElement>('.am-headers-expand-row') ?? input;
+    }
+  }
+  return null;
+}
+
+/** Decision-trace predicate rows: Method, Path, then one per condition / group. */
 export function am05TraceRows(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.SIMULATE_PREDICATE_ROWS));
 }
 
 /**
  * The trace row that mentions `needle`. Failing rows name the key they read
- * (`header "x-debug" was absent`); passing rows show the operator instead.
+ * (`header "x-debug" was absent`); a failed None-of group says why it rejected.
  */
 export function am05TraceRowByText(needle: string): HTMLElement | null {
   return am05TraceRows().find(row => (row.textContent ?? '').includes(needle)) ?? null;
@@ -392,11 +416,24 @@ export async function closeAm05Toolbox(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(AM_DEMO_TIMING.panelReady);
 }
 
+/** Dismiss the Headers expand popup left open by an early Next. */
+export async function closeAm05HeadersExpand(
+  ctx: DemoActionContext,
+  visible = false,
+): Promise<void> {
+  if (!isAm05HeadersExpandOpen()) return;
+  if (visible) {
+    await am05Click(ctx, API_MOCK.HEADERS_EXPAND_CLOSE, T.fieldFilled);
+    return;
+  }
+  firstVisibleElement<HTMLButtonElement>(API_MOCK.HEADERS_EXPAND_CLOSE)?.click();
+}
+
 /** Dismiss the Simulate workspace so the next step's spotlight lands on the Studio. */
-export async function closeAm05Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm05Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
+  await closeAm05HeadersExpand(ctx);
   if (!isAm05SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(AM_DEMO_TIMING.panelReady);
+  await closeSimulateWorkspace(ctx, opts);
 }
 
 // ── Guards ──────────────────────────────────────────────────────────────────
@@ -484,6 +521,7 @@ export async function ensureAm05CookieCondition(ctx: DemoActionContext): Promise
 
 /** Guard for the closing proof — the full request shape, constraints included. */
 export async function ensureAm05FullShape(ctx: DemoActionContext): Promise<void> {
+  await closeAm05HeadersExpand(ctx);
   await setAm05Conditions(ctx, [
     QUERY_PREDICATE, HEADER_PREDICATE, SECURITY_PREDICATE, GUARD_GROUP, COOKIE_PREDICATE,
     VERSION_PREDICATE, FORMAT_PREDICATE,
@@ -535,29 +573,91 @@ async function openAm05Simulate(ctx: DemoActionContext): Promise<void> {
 }
 
 /**
- * Shape one ad-hoc request and hold on the verdict. After the fields are filled the
- * viewer gets a dedicated review pass before **Run simulation**. A run swaps the
- * form for the results pane, so later runs go back through **Request** first —
- * filling the hidden mirror fields would change state the viewer never sees.
+ * Open the Headers popup on **Table**, search for the guard key, and hold on
+ * whether that row is present — then close so **Save as sample** / **Run** are free.
+ * Holds stay short so the step still has budget for Save and Run after both probes.
+ */
+export async function reviewAm05HeadersTable(
+  ctx: DemoActionContext,
+  opts?: { expectGuard?: boolean },
+): Promise<void> {
+  const expand = firstVisibleElement(API_MOCK.SIMULATE_HEADERS_EXPAND);
+  if (!expand && !isAm05HeadersExpandOpen()) return;
+  if (expand) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_HEADERS_EXPAND, { look: 400, hold: 500 });
+  }
+  await revealBeat(ctx, API_MOCK.HEADERS_EXPAND_MODAL, { timeout: 4_000, hold: 400 });
+
+  const tableBtn = firstVisibleElement(API_MOCK.HEADERS_EXPAND_VIEW_TABLE);
+  if (tableBtn && tableBtn.getAttribute('aria-pressed') !== 'true') {
+    await clickBeat(ctx, API_MOCK.HEADERS_EXPAND_VIEW_TABLE, { look: 300, hold: 400 });
+  }
+  await revealBeat(ctx, API_MOCK.HEADERS_EXPAND_TABLE, { timeout: 4_000, hold: 0 });
+
+  if (firstVisibleElement(API_MOCK.HEADERS_EXPAND_SEARCH)) {
+    await fillBeat(ctx, API_MOCK.HEADERS_EXPAND_SEARCH, AM05_GUARD_KEY, { look: 350, hold: 550 });
+  }
+  const row = am05HeadersTableRowByName(AM05_GUARD_KEY);
+  if (opts?.expectGuard && row) {
+    await spotlightElementBeat(ctx, row, 900);
+  } else {
+    await spotlightBeat(
+      ctx,
+      firstVisibleElement(API_MOCK.HEADERS_EXPAND_COUNT)
+        ? API_MOCK.HEADERS_EXPAND_COUNT
+        : API_MOCK.HEADERS_EXPAND_TABLE,
+      900,
+    );
+  }
+  if (firstVisibleElement(API_MOCK.HEADERS_EXPAND_CLOSE)) {
+    await clickBeat(ctx, API_MOCK.HEADERS_EXPAND_CLOSE, { look: 300, hold: 400 });
+  } else {
+    await closeAm05HeadersExpand(ctx);
+  }
+}
+
+/**
+ * Shape one ad-hoc request, **Save as sample**, hold the saved configuration, then
+ * **Run simulation**. A run swaps the form for the results pane, so later runs go
+ * back through **Request** first.
  */
 async function runAm05Simulation(
   ctx: DemoActionContext,
   path: string,
   headers?: string,
+  opts?: {
+    sampleName?: string;
+    compact?: boolean;
+    reviewHeadersTable?: boolean;
+    expectGuard?: boolean;
+  },
 ): Promise<string> {
-  await ensureAdHocSimulateForm(ctx, T.tabSwitch);
+  const compact = Boolean(opts?.compact);
+  await closeAm05HeadersExpand(ctx);
+  await ensureAdHocSimulateForm(ctx, compact ? T.fieldFilled : T.tabSwitch);
   await am05Fill(ctx, API_MOCK.SIMULATE_PATH, path);
   if (headers != null) {
-    await am05Fill(ctx, API_MOCK.SIMULATE_HEADERS, headers, T.simOutcome);
+    await am05Fill(ctx, API_MOCK.SIMULATE_HEADERS, headers, compact ? 400 : T.simOutcome);
+  }
+  if (opts?.reviewHeadersTable) {
+    await reviewAm05HeadersTable(ctx, { expectGuard: opts.expectGuard });
+    await closeAm05HeadersExpand(ctx);
+    await ensureAdHocSimulateForm(ctx, 400);
   }
   await reviewAndRunSimulation(ctx, {
-    review: T.reviewForm,
-    beforeRun: T.beforeRun,
-    // Two runs in one Acting budget — Save as sample is not the beat this lesson teaches.
-    saveSample: false,
+    review: compact ? T.look : T.reviewForm,
+    beforeRun: opts?.reviewHeadersTable ? 1_000 : compact ? T.look : T.beforeRun,
+    sampleName: opts?.sampleName ?? `GET ${path}`,
+    saveSample: true,
+    reviewFields: opts?.reviewHeadersTable ? false : undefined,
+    reviewHeaders: opts?.reviewHeadersTable ? false : undefined,
+    digest: false,
   });
-  await revealBeat(ctx, API_MOCK.SIMULATE_RESULT, { timeout: 4_000, hold: T.panelReady });
-  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
+  await revealBeat(ctx, API_MOCK.SIMULATE_RESULT, {
+    timeout: 4_000,
+    hold: compact ? T.fieldFilled : T.panelReady,
+  });
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, compact ? T.payoff : T.simOutcome);
   return am05SimOutcome();
 }
 
@@ -590,14 +690,18 @@ export async function runAm05ProveQuery(ctx: DemoActionContext): Promise<string[
   const outcomes: string[] = [];
   await openAm05Simulate(ctx);
 
-  outcomes.push(await runAm05Simulation(ctx, AM05_SIM_QUERY_MATCH));
+  outcomes.push(await runAm05Simulation(ctx, AM05_SIM_QUERY_MATCH, undefined, {
+    sampleName: AM05_SAMPLE_QUERY_MATCH,
+  }));
   await am05Trace(ctx, am05TraceRowByText('query'), T.simOutcome);
   await am05Break(ctx);
 
-  outcomes.push(await runAm05Simulation(ctx, AM05_SIM_QUERY_MISS));
+  outcomes.push(await runAm05Simulation(ctx, AM05_SIM_QUERY_MISS, undefined, {
+    sampleName: AM05_SAMPLE_QUERY_MISS,
+  }));
   await am05Look(ctx, API_MOCK.SIMULATE_CANDIDATES);
   await am05Trace(ctx, am05TraceRowByText(AM05_QUERY_KEY), T.simOutcome);
-  await closeAm05Simulate(ctx);
+  await closeAm05Simulate(ctx, { review: true });
   await spotlightAm05Count(ctx);
   return outcomes;
 }
@@ -687,28 +791,27 @@ export async function runAm05CookieRegex(ctx: DemoActionContext): Promise<void> 
   await am05Click(ctx, API_MOCK.conditionToolbox(id), 0);
   await am05Reveal(ctx, API_MOCK.PATTERN_TOOLBOX);
   await am05Fill(ctx, API_MOCK.TOOLBOX_REGEX, AM05_COOKIE_REGEX);
+  await am05Look(ctx, API_MOCK.TOOLBOX_SAFETY);
 
-  // Rewrite samples before the Safety hold — leftover Numeric ID rows (`42` should
-  // match) make `^S-[0-9]{4}$` look broken even though that is the session shape.
   const sampleIds = am05SampleRowIds();
   for (const [index, sample] of AM05_COOKIE_SAMPLES.entries()) {
     const sampleId = sampleIds[index];
     if (!sampleId) continue;
-    await am05Fill(ctx, API_MOCK.toolboxSampleValue(sampleId), sample.value);
+    const input = firstVisibleElement<HTMLInputElement>(API_MOCK.toolboxSampleValue(sampleId));
+    if (input && input.value !== sample.value) {
+      await am05Fill(ctx, API_MOCK.toolboxSampleValue(sampleId), sample.value);
+    }
     const expectBtn = firstVisibleElement(API_MOCK.toolboxSampleExpect(sampleId));
-    const expectsMatch = (expectBtn?.textContent ?? '').includes('Should match');
+    const expectsMatch = (expectBtn?.textContent ?? '').includes('Expect match');
     if (expectBtn && expectsMatch !== sample.shouldMatch) {
       await am05Click(ctx, API_MOCK.toolboxSampleExpect(sampleId), 0);
     }
-    await am05Look(ctx, API_MOCK.toolboxSampleRow(sampleId));
   }
-  await am05Look(ctx, API_MOCK.TOOLBOX_SAFETY);
   const caseSampleId = sampleIds[1];
   if (caseSampleId) {
     await am05Payoff(ctx, API_MOCK.toolboxSampleRow(caseSampleId));
   }
-  await am05Break(ctx);
-
+  await am05Look(ctx, API_MOCK.TOOLBOX_FLAG_CS);
   await am05Click(ctx, API_MOCK.TOOLBOX_FLAG_CI);
   if (caseSampleId) {
     await am05Payoff(ctx, API_MOCK.toolboxSampleRow(caseSampleId));
@@ -757,17 +860,23 @@ export async function runAm05ProveAll(ctx: DemoActionContext): Promise<string[]>
   const outcomes: string[] = [];
   await openAm05Simulate(ctx);
 
-  outcomes.push(await runAm05Simulation(ctx, AM05_SIM_FULL_PATH, AM05_SIM_HEADERS));
-  await am05Click(ctx, API_MOCK.SIMULATE_TAB_TRACE, T.tabSwitch);
-  for (const row of am05TraceRows()) {
-    await am05Trace(ctx, row);
-  }
-  await am05Trace(ctx, am05TraceRowByText(AM05_GUARD_KEY), T.simOutcome);
-  await am05Break(ctx);
+  // Two table tours plus Save → Run must finish inside the 45s Acting cap.
+  // Skip the first-run Decision-trace walk; the finale is Save as sample → Run.
+  outcomes.push(await runAm05Simulation(ctx, AM05_SIM_FULL_PATH, AM05_SIM_HEADERS, {
+    sampleName: AM05_SAMPLE_ALL_MATCH,
+    compact: true,
+    reviewHeadersTable: true,
+    expectGuard: false,
+  }));
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, 800);
 
-  outcomes.push(await runAm05Simulation(ctx, AM05_SIM_FULL_PATH, AM05_SIM_DEBUG_HEADERS));
-  await am05Look(ctx, API_MOCK.SIMULATE_CANDIDATES);
-  await am05Trace(ctx, am05TraceRowByText('present'), T.simOutcome);
+  outcomes.push(await runAm05Simulation(ctx, AM05_SIM_FULL_PATH, AM05_SIM_DEBUG_HEADERS, {
+    sampleName: AM05_SAMPLE_DEBUG,
+    compact: true,
+    reviewHeadersTable: true,
+    expectGuard: true,
+  }));
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.payoff);
   await closeAm05Simulate(ctx);
   await am05Payoff(ctx, API_MOCK.ROUTE_EXPLORER);
   return outcomes;

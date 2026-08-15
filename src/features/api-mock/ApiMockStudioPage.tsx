@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
 import { ApiMockStudioTitleBar } from './components/ApiMockStudioTitleBar';
 import { type ApiMockDockTab } from './components/ApiMockDock';
@@ -6,19 +6,14 @@ import { type ApiMockMainView } from './components/ApiMockWorkspaceNav';
 import { ApiMockStudioEmptyState } from './components/ApiMockStudioEmptyState';
 import { ApiMockStudioModals } from './components/ApiMockStudioModals';
 import { ApiMockStudioActiveSection } from './components/ApiMockStudioActiveSection';
-import { loadApiMockWorkspace, publishApiMockRuntimeChanged, publishApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
-import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
+import { publishApiMockRuntimeChanged } from './apiMockPersistence';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
-import { mergeRecordedDraftsIntoRoutes } from '../../shared/api-mock/proxyRecording';
-import { reconcileRuntimeState } from '../../shared/api-mock/recoveryDiagnostics';
-import { isTauri } from '../../shared/utils/platform';
 import type { ApiMockExportRequest } from './components/ApiMockWorkspaceNav';
 import type { ApiMockRouteFolderV1 } from '../../shared/api-mock/contracts';
 import {
   applyRouteUpdate,
   buildRuntimeMaps,
-  computeHydrationResult,
   duplicateServerDefinition,
   findSelectedRoute,
   formatImportedRoutesMessage,
@@ -32,9 +27,10 @@ import {
   reorderServers,
   runConflictAnalysis,
 } from './apiMockPageHelpers';
-import { resolveOpenTabIds } from './apiMockServerLibrary';
 import { useApiMockServerLibrary } from './useApiMockServerLibrary';
 import { useDemoApiMockRoutePatch } from './useDemoApiMockRoutePatch';
+import { useApiMockStudioJournal } from './useApiMockStudioJournal';
+import { useApiMockStudioPersistence } from './useApiMockStudioPersistence';
 import { ApiMockServerLibraryModal } from './components/ApiMockServerLibraryModal';
 import { ApiMockLibraryLanding } from './components/ApiMockLibraryLanding';
 import { useApiMockRouteUndo } from './useApiMockRouteUndo';
@@ -109,132 +105,25 @@ export function ApiMockStudioPage() {
   });
   const { openTabIds, setOpenTabIds, openServers, trackOpenedServer } = library;
 
-  // Persistence: hydrate from storage on mount, then autosave definitions.
-  const hydratedRef = useRef(false);
-  const hydrateGenRef = useRef(0);
-  const latestRef = useRef<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string; openTabIds: string[] }>({ servers: [], activeServerId: undefined, openTabIds: [] });
-  const autosaveTimerRef = useRef<number | undefined>(undefined);
-  latestRef.current = { servers, activeServerId, openTabIds };
+  const latestRef = useApiMockStudioPersistence({
+    servers,
+    activeServerId,
+    openTabIds,
+    setServers,
+    setActiveServerId,
+    setOpenTabIds,
+    setRuntime,
+    setTransactions,
+    setScenarioState,
+    setMainView,
+    setLiveMessage,
+  });
 
   useDemoApiMockRoutePatch({
-    getState: useCallback(() => latestRef.current, []),
+    getState: useCallback(() => latestRef.current, [latestRef]),
     selectedRouteId,
     setServers,
   });
-
-  useEffect(() => {
-    let cancelled = false;
-    const startedGen = hydrateGenRef.current;
-    const isStale = () => cancelled || hydrateGenRef.current !== startedGen;
-    void loadApiMockWorkspace().then(async state => {
-      if (isStale()) return;
-      const hydrated = computeHydrationResult(cancelled, state);
-      if (hydrated.shouldApply) {
-        setServers(hydrated.servers);
-        setOpenTabIds(hydrated.openTabIds);
-        setActiveServerId(hydrated.activeServerId);
-        // AMS-010 / W21 — reconcile live companion/native status (never trust disk for running).
-        let live: Array<{ serverId: string; state: 'running' | 'stopped'; generation?: number }> | null = null;
-        if (isTauri()) {
-          live = await Promise.all(hydrated.servers.map(async (s) => {
-            const st = await apiMockControlClient.status(s.id);
-            return st.ok
-              ? { serverId: s.id, state: st.data.state, generation: st.data.generation }
-              : { serverId: s.id, state: 'stopped' as const };
-          }));
-        } else {
-          const listRes = await apiMockControlClient.list();
-          if (isStale()) return;
-          live = listRes.ok
-            ? listRes.data.map(s => ({ serverId: s.serverId, state: s.state, generation: s.generation }))
-            : null;
-        }
-        if (isStale()) return;
-        const reconciled = reconcileRuntimeState(
-          hydrated.servers.map(s => ({ serverId: s.id, persistedRunning: false })),
-          live,
-        );
-        const genById = new Map((live ?? []).map(s => [s.serverId, s.generation ?? 0]));
-        setRuntime(prev => {
-          const next = { ...prev };
-          for (const row of reconciled.servers) {
-            if (row.state === 'running') {
-              next[row.serverId] = {
-                status: 'running',
-                generation: genById.get(row.serverId) ?? prev[row.serverId]?.generation ?? 0,
-                error: undefined,
-                appliedJson: prev[row.serverId]?.appliedJson,
-              };
-            } else if (row.state === 'stopped') {
-              next[row.serverId] = {
-                status: 'stopped',
-                generation: prev[row.serverId]?.generation ?? 0,
-                error: undefined,
-                appliedJson: prev[row.serverId]?.appliedJson,
-              };
-            }
-          }
-          return next;
-        });
-        // An unreachable companion attaches its notice to every server, and hydration
-        // only applies with at least one, so this covers both the "was running" and
-        // the companion-down cases.
-        const notice = reconciled.servers.find(s => s.message)?.message;
-        if (notice) setLiveMessage(notice);
-      }
-      hydratedRef.current = true;
-    });
-    const onWorkspaceChanged = (event: Event) => {
-      const detail = (event as CustomEvent<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string; openTabIds?: string[] }>).detail;
-      if (!detail?.servers) return;
-      // Invalidate in-flight mount hydration so a stale list() cannot mark
-      // wiped servers running and spam /transactions 404s during a lesson.
-      hydrateGenRef.current += 1;
-      // Cancel a pending autosave that could overwrite the imported workspace.
-      if (autosaveTimerRef.current != null) {
-        window.clearTimeout(autosaveTimerRef.current);
-        autosaveTimerRef.current = undefined;
-      }
-      const nextTabs = resolveOpenTabIds(detail.servers, detail.openTabIds);
-      latestRef.current = { servers: detail.servers, activeServerId: detail.activeServerId, openTabIds: nextTabs };
-      setServers(detail.servers);
-      setOpenTabIds(nextTabs);
-      setActiveServerId(detail.activeServerId);
-      setRuntime({});
-      setTransactions([]);
-      setScenarioState(null);
-      setMainView('studio');
-      setLiveMessage(detail.servers.length > 0 ? 'Gallery mock server imported.' : '');
-      hydratedRef.current = true;
-    };
-    window.addEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
-    };
-    // `setOpenTabIds` is a stable setState, so this still runs once on mount.
-  }, [setOpenTabIds]);
-
-  useEffect(() => {
-    if (!hydratedRef.current) return;
-    // Tell Test Runner immediately — disk write stays debounced.
-    publishApiMockWorkspace(latestRef.current);
-    autosaveTimerRef.current = window.setTimeout(() => {
-      autosaveTimerRef.current = undefined;
-      void saveApiMockWorkspace(latestRef.current);
-    }, 300);
-    return () => {
-      if (autosaveTimerRef.current != null) {
-        window.clearTimeout(autosaveTimerRef.current);
-        autosaveTimerRef.current = undefined;
-      }
-    };
-  }, [servers, activeServerId, openTabIds]);
-
-  // Flush the latest state on unmount so navigating away never drops a pending save.
-  useEffect(() => () => {
-    if (hydratedRef.current) void saveApiMockWorkspace(latestRef.current);
-  }, []);
 
   // Conflict markers and Simulate seed are per-server; drop them when the tab changes.
   useEffect(() => {
@@ -252,51 +141,17 @@ export function ApiMockStudioPage() {
     setSelectedRouteId(activeServerForSelection.routes[0]?.id);
   }, [activeServerForSelection, selectedRouteId]);
 
-  // Poll the running server's transaction journal for the live dock view.
   const activeStatus = runtime[activeServerId ?? '']?.status;
-  useEffect(() => {
-    setTransactions([]);
-    setScenarioState(null);
-  }, [activeServerId]);
-  useEffect(() => {
-    if (!activeServerId || activeStatus !== 'running') return;
-    let cancelled = false;
-    const poll = async () => {
-      const [txRes, stRes, draftRes] = await Promise.all([
-        apiMockControlClient.transactions(activeServerId),
-        apiMockControlClient.state(activeServerId),
-        apiMockControlClient.recordedDrafts(activeServerId),
-      ]);
-      if (cancelled) return;
-      // Listener gone (wipe, crash, lesson import) — stop polling so Chrome is not
-      // flooded with /state and /transactions 404s every 1.5s.
-      if (!stRes.ok && !stRes.error.retry) {
-        setRuntime(prev => mergeRuntimeInfo(prev, activeServerId, { status: 'stopped', error: undefined }));
-        return;
-      }
-      if (txRes.ok) setTransactions([...txRes.data.transactions].reverse());
-      if (stRes.ok) setScenarioState(stRes.data);
-      if (draftRes.ok && draftRes.data.drafts.length > 0) {
-        const drafts = draftRes.data.drafts;
-        const current = latestRef.current.servers.find(s => s.id === activeServerId);
-        if (current) {
-          const merged = mergeRecordedDraftsIntoRoutes(current.routes, drafts);
-          if (merged.added > 0) {
-            setServers(prev => prev.map(s => (
-              s.id === activeServerId
-                ? { ...s, routes: merged.routes, updatedAt: new Date().toISOString() }
-                : s
-            )));
-            setLiveMessage(`Recorded ${merged.added} proxied exchange(s) as inactive draft routes.`);
-          }
-        }
-        void apiMockControlClient.ackRecordedDrafts(activeServerId, drafts.map(d => d.id));
-      }
-    };
-    void poll();
-    const timer = window.setInterval(() => void poll(), 1500);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [activeServerId, activeStatus]);
+  useApiMockStudioJournal({
+    activeServerId,
+    activeStatus,
+    latestRef,
+    setTransactions,
+    setScenarioState,
+    setRuntime,
+    setServers,
+    setLiveMessage,
+  });
 
   const handleClearTransactions = useCallback(async () => {
     /* c8 ignore next */

@@ -104,6 +104,32 @@ export function initialRegexPattern(
   return '^[0-9]+$';
 }
 
+export type RegexSampleSeed = { id: string; value: string; shouldMatch: boolean };
+
+/** Path / Numeric ID defaults — used when the wand is on the route path. */
+export const NUMERIC_ID_REGEX_SAMPLES: RegexSampleSeed[] = [
+  { id: 's1', value: '42', shouldMatch: true },
+  { id: 's2', value: '100234', shouldMatch: true },
+  { id: 's3', value: 'admin', shouldMatch: false },
+  { id: 's4', value: '42a', shouldMatch: false },
+];
+
+/**
+ * Cookie rows are session-shaped, not numeric IDs. Seeding `42` here makes a
+ * `^S-[0-9]{4}$` expression look broken before the viewer rewrites anything.
+ */
+export const SESSION_COOKIE_REGEX_SAMPLES: RegexSampleSeed[] = [
+  { id: 's1', value: 'S-2048', shouldMatch: true },
+  { id: 's2', value: 's-2048', shouldMatch: true },
+  { id: 's3', value: 'admin', shouldMatch: false },
+  { id: 's4', value: 'S-20', shouldMatch: false },
+];
+
+export function initialRegexSamples(source?: ApiMockPredicateV1['source']): RegexSampleSeed[] {
+  const rows = source === 'cookie' ? SESSION_COOKIE_REGEX_SAMPLES : NUMERIC_ID_REGEX_SAMPLES;
+  return rows.map(row => ({ ...row }));
+}
+
 /** Schema editor text — skip JSONPath/XPath/regex expected so those rows don't pollute Schema. */
 export function initialSchemaText(operator?: string, expected?: unknown): string {
   if (operator && BODY_MATCHER_OPS.has(operator)) return DEFAULT_SCHEMA_TEXT;

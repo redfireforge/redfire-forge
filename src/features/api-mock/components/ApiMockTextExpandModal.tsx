@@ -67,6 +67,16 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
     el.setSelectionRange(start, start + needle.length);
   };
 
+  useEffect(() => {
+    if (!query.trim() || matches.length === 0) return;
+    const el = editorRef.current;
+    const needle = query.trim();
+    if (!el) return;
+    const start = matches[matchIndex] ?? 0;
+    el.focus();
+    el.setSelectionRange(start, start + needle.length);
+  }, [query, matchIndex, matches]);
+
   const goMatch = (direction: 1 | -1) => {
     const next = nextTextExpandMatch(matchIndex, matches.length, direction);
     setMatchIndex(next);

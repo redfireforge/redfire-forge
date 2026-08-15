@@ -297,7 +297,7 @@ describe('AM-12 variants-sequence helpers', () => {
     expect(AM12_TIMING.beforeOpen).toBe(1400);
     expect(AM12_TIMING.payoff).toBe(1600);
     expect(AM12_TIMING.simOutcome).toBe(1800);
-    expect(AM12_TIMING.beforeRun).toBe(2000);
+    expect(AM12_TIMING.beforeRun).toBe(2400);
   });
 
   it('reads workspace, variants, modes, and dock from the DOM', () => {

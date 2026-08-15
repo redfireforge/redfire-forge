@@ -337,7 +337,7 @@ describe('AM-14 timing-faults helpers', () => {
   it('exposes slower timing holds than the shared demo defaults', () => {
     expect(AM14_TIMING.beforeOpen).toBe(1400);
     expect(AM14_TIMING.payoff).toBe(1600);
-    expect(AM14_TIMING.beforeRun).toBe(2000);
+    expect(AM14_TIMING.beforeRun).toBe(2400);
   });
 
   it('prepareAm14Workspace wipes, imports the payment sample, and does not seed a sibling', async () => {

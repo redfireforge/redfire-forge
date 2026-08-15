@@ -84,7 +84,7 @@ export const apiMockAm18Lesson: DemoLesson = {
     + 'Simulate the example and hold the passing result.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 2,
   concept: {
     title: 'A miss is only useful if you can see why.',
     body:

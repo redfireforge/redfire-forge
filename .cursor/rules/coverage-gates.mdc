@@ -24,7 +24,7 @@ Otherwise **do not** run full gates during iteration, coverage fixes, or "fix to
 
 Also acceptable at merge: `npm run test:product:coverage`, `npx tsx scripts/verify-product-coverage-gaps.ts`, `npx tsx scripts/verify-demo-coverage-gaps.ts`.
 
-`bash scripts/run-product-coverage-fast.sh` also runs **monolith check** (≥900 lines, production files only).
+`bash scripts/run-product-coverage-fast.sh` also runs **monolith check** (≥750 lines, production files only).
 
 ## Workflow, shared, engine, graphql, gRPC, server, and CLI (in main product gate)
 

@@ -1,10 +1,12 @@
 import type {
   ApiMockCapturedRequestV1,
   ApiMockPredicateGroupV1,
+  ApiMockPredicateResultV1,
   ApiMockRouteV1,
   ApiMockSimulationResultV1,
   ApiMockSimulationSampleV1,
 } from '../../../shared/api-mock/contracts';
+import { combinatorLabel } from '../../../shared/api-mock/predicateEvaluatorHelpers';
 import { concreteMockPath } from '../apiMockPageHelpers';
 
 export const SIMULATE_SEED_HELP =
@@ -53,6 +55,14 @@ export function outcomeBadge(outcome: string): string {
   if (outcome === 'ambiguous') return 'warning';
   if (outcome === 'fault') return 'warning';
   return 'danger';
+}
+
+export function simulateSampleBadge(result?: ApiMockSimulationResultV1): 'PASS' | 'CONFLICT' | 'FAIL' | null {
+  if (!result) return null;
+  if (result.passed === true) return 'PASS';
+  if (result.outcome === 'ambiguous') return 'CONFLICT';
+  if (result.passed === false) return 'FAIL';
+  return 'PASS';
 }
 
 export function suggestedSimulateSampleName(method: string, path: string): string {
@@ -197,6 +207,45 @@ export function simulationTraceNoticePreview(
   resultCount: number,
 ): string {
   return JSON.stringify({ serverId, seed, generation: 'draft', resultCount }, null, 2);
+}
+
+/** Failed rows first when the candidate missed — None-of can fail while every leaf is green. */
+export function orderTracePredicateResults(
+  results: ApiMockPredicateResultV1[],
+  overallMatch: boolean,
+): ApiMockPredicateResultV1[] {
+  if (overallMatch || results.length < 2) return results;
+  return [...results].sort((a, b) => Number(a.passed) - Number(b.passed));
+}
+
+export function predicateTraceSource(pr: ApiMockPredicateResultV1): string {
+  if (pr.combinator) return combinatorLabel(pr.combinator);
+  return pr.source;
+}
+
+export function predicateTraceDetail(pr: ApiMockPredicateResultV1): string {
+  if (pr.reason) return pr.reason;
+  if (pr.selector) return `${pr.selector} · ${pr.operator}`;
+  return pr.operator;
+}
+
+export function predicateTraceNote(pr: ApiMockPredicateResultV1): string {
+  if (!pr.evaluated) return 'skipped';
+  if (pr.combinator) return pr.passed ? 'held' : 'rejected';
+  return pr.passed ? 'passed' : 'failed';
+}
+
+export function nearMissConditionSummary(
+  nearMisses: Array<{ routeName?: string; failedPredicates?: Array<{ reason?: string }> }>,
+): string {
+  const names = nearMisses.map(nm => nm.routeName).filter(Boolean).join(', ');
+  const reasons = [...new Set(
+    nearMisses.flatMap(nm => (nm.failedPredicates ?? []).map(fp => fp.reason).filter((r): r is string => Boolean(r && r !== 'failed'))),
+  )];
+  const head = names
+    ? `${names} matched method/path but failed conditions`
+    : 'Matched method/path but failed conditions';
+  return reasons.length ? `${head} — ${reasons.join('; ')}` : `${head}.`;
 }
 
 export function downloadSimulationTrace(

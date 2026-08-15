@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { API_MOCK, AMS } from './apiMock';
+import { API_MOCK_RUNTIME } from './apiMockRuntimeSelectors';
+import { API_MOCK_STUDIO } from './apiMockStudioSelectors';
 
 describe('API_MOCK selectors', () => {
   it('exports CSS selectors for studio shell and lifecycle controls', () => {
@@ -420,6 +422,21 @@ describe('API_MOCK selectors', () => {
       ['SIMULATE_BODY', '[data-testid="api-mock-simulate-body"]'],
       ['SIMULATE_CERT_SUBJECT', '[data-testid="api-mock-simulate-cert-subject"]'],
       ['SIMULATE_BODY_EXPAND', '[data-testid="api-mock-simulate-body-expand"]'],
+      ['SIMULATE_HEADERS_EXPAND', '[data-testid="api-mock-simulate-headers-expand"]'],
+      ['HEADERS_EXPAND_MODAL', '[data-testid="api-mock-headers-expand-modal"]'],
+      ['HEADERS_EXPAND_EDITOR', '[data-testid="api-mock-headers-expand-editor"]'],
+      ['HEADERS_EXPAND_TABLE', '[data-testid="api-mock-headers-expand-table"]'],
+      ['HEADERS_EXPAND_VIEW_RAW', '[data-testid="api-mock-headers-expand-view-raw"]'],
+      ['HEADERS_EXPAND_VIEW_TABLE', '[data-testid="api-mock-headers-expand-view-table"]'],
+      ['HEADERS_EXPAND_SEARCH', '[data-testid="api-mock-headers-expand-search"]'],
+      ['HEADERS_EXPAND_COUNT', '[data-testid="api-mock-headers-expand-count"]'],
+      ['HEADERS_EXPAND_PREV', '[data-testid="api-mock-headers-expand-prev"]'],
+      ['HEADERS_EXPAND_NEXT', '[data-testid="api-mock-headers-expand-next"]'],
+      ['HEADERS_EXPAND_ADD', '[data-testid="api-mock-headers-expand-add"]'],
+      ['HEADERS_EXPAND_UNDO', '[data-testid="api-mock-headers-expand-undo"]'],
+      ['HEADERS_EXPAND_REDO', '[data-testid="api-mock-headers-expand-redo"]'],
+      ['HEADERS_EXPAND_APPLY', '[data-testid="api-mock-headers-expand-apply"]'],
+      ['HEADERS_EXPAND_CLOSE', '[data-testid="api-mock-headers-expand-close"]'],
       ['TEXT_EXPAND_MODAL', '[data-testid="api-mock-text-expand-modal"]'],
       ['TEXT_EXPAND_EDITOR', '[data-testid="api-mock-text-expand-editor"]'],
       ['TEXT_EXPAND_SEARCH', '[data-testid="api-mock-text-expand-search"]'],
@@ -559,6 +576,7 @@ describe('API_MOCK selectors', () => {
       .toBe('[data-testid="api-mock-server-tabs"] [role="tab"][title^="Mock Server 1"]');
     expect(API_MOCK.route('route-a')).toBe('[data-testid="api-mock-route-route-a"]');
     expect(API_MOCK.routeDelete('route-a')).toBe('[data-testid="api-mock-route-delete-route-a"]');
+    expect(API_MOCK.folder('fld-1')).toBe('[data-testid="api-mock-folder-fld-1"]');
     expect(API_MOCK.folderNamed('Users'))
       .toBe('[data-testid="api-mock-route-explorer"] .am-tree-folder-block[data-folder-name="Users"]');
     expect(API_MOCK.folderToggle('fld-1')).toBe('[data-testid="api-mock-folder-toggle-fld-1"]');
@@ -581,6 +599,8 @@ describe('API_MOCK selectors', () => {
     expect(API_MOCK.toolboxSampleRow('p0')).toBe('[data-testid="api-mock-toolbox-sample-row-p0"]');
     expect(API_MOCK.toolboxSampleValue('p0')).toBe('[data-testid="api-mock-toolbox-sample-value-p0"]');
     expect(API_MOCK.toolboxSampleExpect('f0')).toBe('[data-testid="api-mock-toolbox-sample-expect-f0"]');
+    expect(API_MOCK.toolboxSampleActual('s2')).toBe('[data-testid="api-mock-toolbox-sample-actual-s2"]');
+    expect(API_MOCK.toolboxSampleCheck('s2')).toBe('[data-testid="api-mock-toolbox-sample-check-s2"]');
     expect(API_MOCK.toolboxConstraint('c1')).toBe('[data-testid="api-mock-toolbox-constraint-c1"]');
     expect(API_MOCK.toolboxConstraintSource('c1')).toBe('[data-testid="api-mock-toolbox-constraint-source-c1"]');
     expect(API_MOCK.toolboxConstraintName('c1')).toBe('[data-testid="api-mock-toolbox-constraint-name-c1"]');
@@ -628,9 +648,19 @@ describe('API_MOCK selectors', () => {
     expect(API_MOCK.exampleBodyPretty('sample-orphan')).toBe('[data-testid="api-mock-example-body-pretty-sample-orphan"]');
     expect(API_MOCK.consoleFilter('started')).toBe('[data-testid="api-mock-console-filter-started"]');
     expect(API_MOCK.consoleFilter('errors')).toBe('[data-testid="api-mock-console-filter-errors"]');
+    expect(API_MOCK.headersExpandName('hdr-1')).toBe('[data-testid="api-mock-headers-expand-name-hdr-1"]');
+    expect(API_MOCK.headersExpandValue('hdr-1')).toBe('[data-testid="api-mock-headers-expand-value-hdr-1"]');
+    expect(API_MOCK.headersExpandRemove('hdr-1')).toBe('[data-testid="api-mock-headers-expand-remove-hdr-1"]');
   });
 
   it('aliases AMS to API_MOCK', () => {
     expect(AMS).toBe(API_MOCK);
+  });
+
+  it('keeps split selector modules aligned with the barrel', () => {
+    expect(API_MOCK_STUDIO.STUDIO).toBe(API_MOCK.STUDIO);
+    expect(API_MOCK_RUNTIME.DOCK).toBe(API_MOCK.DOCK);
+    expect(API_MOCK_STUDIO.libraryRow('x')).toBe(API_MOCK.libraryRow('x'));
+    expect(API_MOCK_RUNTIME.dockTab('transactions')).toBe(API_MOCK.dockTab('transactions'));
   });
 });

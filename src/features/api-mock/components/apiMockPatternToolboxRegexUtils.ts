@@ -23,6 +23,19 @@ export function regexTabMatcher(
   return { kind: keepGlob ? 'glob' : 'regex', value };
 }
 
+export function sampleExpectLabel(shouldMatch: boolean): string {
+  return shouldMatch ? 'Expect match' : 'Expect no match';
+}
+
+export function sampleActualLabel(actual: boolean | 'invalid'): string {
+  if (actual === 'invalid') return 'Invalid';
+  return actual ? 'Matches' : 'Does not match';
+}
+
+export function sampleCheckLabel(expectationOk: boolean): string {
+  return expectationOk ? 'As expected' : 'Not as expected';
+}
+
 export function explainRegex(pattern: string): string {
   const lines: string[] = [];
   if (pattern.startsWith('^')) lines.push('^       start of value');

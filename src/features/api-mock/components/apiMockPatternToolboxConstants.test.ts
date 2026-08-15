@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialJsonPathDraft, initialRegexPattern, initialSchemaKind, initialSchemaText, initialXPathDraft, toolboxTabForOperator } from './apiMockPatternToolboxConstants';
+import { initialJsonPathDraft, initialRegexPattern, initialRegexSamples, initialSchemaKind, initialSchemaText, initialXPathDraft, toolboxTabForOperator } from './apiMockPatternToolboxConstants';
 
 describe('apiMockPatternToolboxConstants', () => {
   it('maps matcher operators onto toolbox tabs', () => {
@@ -46,5 +46,11 @@ describe('apiMockPatternToolboxConstants', () => {
     expect(initialSchemaText('jsonPath_exists', '$.user.email')).toContain('"type": "object"');
     expect(initialSchemaText(undefined, 'Order, Id')).toBe('Order, Id');
     expect(initialSchemaText()).toContain('"type": "object"');
+  });
+
+  it('seeds session-shaped live samples for a cookie row, Numeric ID for the path wand', () => {
+    expect(initialRegexSamples('cookie').map(s => s.value)).toEqual(['S-2048', 's-2048', 'admin', 'S-20']);
+    expect(initialRegexSamples().map(s => s.value)).toEqual(['42', '100234', 'admin', '42a']);
+    expect(initialRegexSamples('header').map(s => s.value)).toEqual(['42', '100234', 'admin', '42a']);
   });
 });

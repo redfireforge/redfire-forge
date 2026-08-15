@@ -81,7 +81,7 @@ export const apiMockAm12Lesson: DemoLesson = {
     + 'so the journal wraps around. The State tab shows the live cursor.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 3,
   concept: {
     title: 'A rule holds a set of responses. The mode decides which one fires.',
     body:

@@ -69,6 +69,9 @@ describe('ApiMockExpandableText', () => {
     fireEvent.click(screen.getByTestId('api-mock-condition-schema-p1-expand'));
     fireEvent.change(screen.getByTestId('api-mock-text-expand-search'), { target: { value: 'alpha' } });
     expect(screen.getByTestId('api-mock-text-expand-count')).toHaveTextContent('1/2');
+    const editor = screen.getByTestId('api-mock-text-expand-editor') as HTMLTextAreaElement;
+    expect(editor.selectionStart).toBe(0);
+    expect(editor.selectionEnd).toBe('alpha'.length);
     fireEvent.click(screen.getByTestId('api-mock-text-expand-next'));
     expect(screen.getByTestId('api-mock-text-expand-count')).toHaveTextContent('2/2');
     fireEvent.keyDown(screen.getByTestId('api-mock-text-expand-search'), { key: 'Enter' });

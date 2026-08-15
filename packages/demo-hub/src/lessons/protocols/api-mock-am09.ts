@@ -88,7 +88,7 @@ export const apiMockAm09Lesson: DemoLesson = {
     + 'the ack go stale when a fingerprint changes.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 3,
   concept: {
     title: 'The inspector names overlaps before a client ever sends them.',
     body:

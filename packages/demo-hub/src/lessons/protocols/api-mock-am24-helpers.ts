@@ -31,6 +31,7 @@ import {
   revealBeat,
   resolveApiMockStudioServerId,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   spotlightBeat,
   ensureAdHocSimulateForm,
   waitForApiMockStudioServerId,
@@ -65,8 +66,10 @@ export const AM24_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
   generate: 2000,
+  /** Hold the Import review so the viewer can read folder, routes, and loss. */
+  reviewModal: 2400,
 } as const;
 
 const T = AM24_TIMING;
@@ -472,11 +475,9 @@ export async function closeAm24Import(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
 }
 
-export async function closeAm24Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm24Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm24SimulateOpen()) return;
-  if (!firstVisibleElement(API_MOCK.SIMULATE_CLOSE)) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(400);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 400 });
 }
 
 async function closeAm24Export(ctx: DemoActionContext, visible: boolean): Promise<void> {
@@ -697,7 +698,12 @@ async function openAm24Simulate(ctx: DemoActionContext, visible: boolean): Promi
   }
 }
 
-async function runOrdersSimulation(ctx: DemoActionContext, body: string, name: string): Promise<void> {
+async function runOrdersSimulation(
+  ctx: DemoActionContext,
+  body: string,
+  name: string,
+  opts: { saveSample?: boolean } = {},
+): Promise<void> {
   await ensureAdHocSimulateForm(ctx, T.tabSwitch);
   if (firstVisibleElement(API_MOCK.SIMULATE_METHOD)) {
     await ctx.selectOption(API_MOCK.SIMULATE_METHOD, 'POST').catch(() => undefined);
@@ -712,6 +718,7 @@ async function runOrdersSimulation(ctx: DemoActionContext, body: string, name: s
     review: T.payoff,
     beforeRun: T.beforeRun,
     sampleName: name,
+    saveSample: opts.saveSample,
   });
   await am24Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
 }
@@ -921,8 +928,18 @@ export async function runAm24FromSpec(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.IMPORT_GENERALIZE) && !checkboxChecked(API_MOCK.IMPORT_GENERALIZE)) {
     await am24Aim(ctx, API_MOCK.IMPORT_GENERALIZE, T.payoff);
   }
+  if (firstVisibleElement(API_MOCK.IMPORT_LOSS)) {
+    await am24Look(ctx, API_MOCK.IMPORT_LOSS);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_FOLDER)) {
+    await am24Look(ctx, API_MOCK.IMPORT_FOLDER);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_PREVIEW)) {
+    await am24Look(ctx, API_MOCK.IMPORT_PREVIEW);
+  }
+  await am24Payoff(ctx, API_MOCK.IMPORT_REVIEW);
   if (firstVisibleElement(API_MOCK.IMPORT_CONFIRM)) {
-    await am24Aim(ctx, API_MOCK.IMPORT_CONFIRM);
+    await clickBeat(ctx, API_MOCK.IMPORT_CONFIRM, { look: T.reviewModal, hold: T.payoff });
   }
   await ctx.waitFor(API_MOCK.DRAFT_ROUTE, REVEAL_MS).catch(() => undefined);
   await closeAm24Import(ctx);
@@ -963,9 +980,9 @@ export async function runAm24Matching(ctx: DemoActionContext): Promise<void> {
   patchApiMockActiveRoute({ predicates: ROOT_GROUP });
   await am24Break(ctx);
   await openAm24Simulate(ctx, true);
-  await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME);
+  await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME, { saveSample: false });
   await am24Payoff(ctx, API_MOCK.SIMULATE_OUTCOME);
-  await closeAm24Simulate(ctx);
+  await closeAm24Simulate(ctx, { review: true });
   if (firstVisibleElement(API_MOCK.PATH_TOOLBOX)) {
     await am24Payoff(ctx, API_MOCK.PATH_TOOLBOX);
   }
@@ -1158,7 +1175,7 @@ export async function runAm24Suite(ctx: DemoActionContext): Promise<void> {
   }
   await am24Reveal(ctx, API_MOCK.SIMULATE_SUMMARY, T.simOutcome);
   await am24Payoff(ctx, API_MOCK.SIMULATE_SUMMARY);
-  await closeAm24Simulate(ctx);
+  await closeAm24Simulate(ctx, { review: true });
 }
 
 export async function runAm24Live(ctx: DemoActionContext): Promise<void> {
