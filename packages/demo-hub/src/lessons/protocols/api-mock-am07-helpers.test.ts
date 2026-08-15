@@ -73,6 +73,7 @@ import {
   am07TraceRows,
   cleanupAm07,
   closeAm07Simulate,
+  closeAm07TextExpand,
   closeAm07Toolbox,
   ensureAm07Corpus,
   ensureAm07FormExact,
@@ -86,7 +87,9 @@ import {
   isAm07RuleOpen,
   isAm07SimulateOpen,
   isAm07StudioViewActive,
+  isAm07TextExpandOpen,
   isAm07ToolboxOpen,
+  reviewAm07MultipartBody,
   openAm07Rule,
   prepareAm07Workspace,
   runAm07Binary,
@@ -244,6 +247,7 @@ interface SimulateSpec {
   method?: string;
   hasResult?: boolean;
   predicateRows?: string[];
+  bodyExpand?: boolean;
 }
 
 function mountSimulate(spec: SimulateSpec = {}): void {
@@ -252,6 +256,16 @@ function mountSimulate(spec: SimulateSpec = {}): void {
   workspace.append(input('api-mock-simulate-path'));
   workspace.append(textarea('api-mock-simulate-headers'));
   workspace.append(textarea('api-mock-simulate-body'));
+  workspace.append(el('button', 'am-icon-btn', 'api-mock-simulate-body-expand'));
+  if (spec.bodyExpand) {
+    const expand = el('div', 'am-text-expand-modal', 'api-mock-text-expand-modal');
+    expand.append(input('api-mock-text-expand-search'));
+    expand.append(el('span', 'am-text-expand-count', 'api-mock-text-expand-count'));
+    expand.append(el('button', 'am-icon-btn', 'api-mock-text-expand-next'));
+    expand.append(textarea('api-mock-text-expand-editor'));
+    expand.append(el('button', 'am-btn', 'api-mock-text-expand-close'));
+    workspace.append(expand);
+  }
   workspace.append(el('button', 'am-btn primary', 'api-mock-simulate-run'));
   workspace.append(el('button', 'am-btn', 'api-mock-simulate-close'));
   if (spec.hasResult) {
@@ -495,6 +509,7 @@ describe('AM-07 helpers', () => {
     expect(hasAm07RouteEditor()).toBe(false);
     expect(isAm07ToolboxOpen()).toBe(false);
     expect(isAm07SimulateOpen()).toBe(false);
+    expect(isAm07TextExpandOpen()).toBe(false);
     expect(am07SimOutcome()).toBe('');
     expect(am07SimMethod()).toBe('');
 
@@ -569,6 +584,18 @@ describe('AM-07 helpers', () => {
     await closeAm07Toolbox(ctx);
     await closeAm07Simulate(ctx);
     expect(calls(ctx.click)).toEqual([API_MOCK.TOOLBOX_CANCEL, API_MOCK.SIMULATE_CLOSE]);
+  });
+
+  it('reviewAm07MultipartBody no-ops without the expand control', async () => {
+    const ctx = makeCtx();
+    await reviewAm07MultipartBody(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('closeAm07TextExpand is quiet when the popup is already closed', async () => {
+    const ctx = makeCtx();
+    await closeAm07TextExpand(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   // ── guards ────────────────────────────────────────────────────────────────
@@ -885,6 +912,7 @@ describe('AM-07 helpers', () => {
     mountExplorer();
     mountEditor(AM07_UPLOAD_RULE, [MP_FIELD_COND, MP_FILE_COND]);
     mountSimulate({
+      bodyExpand: true,
       predicateRows: ['✓ body multipart_field', '✓ body multipart_file'],
     });
 
@@ -894,8 +922,14 @@ describe('AM-07 helpers', () => {
       [API_MOCK.SIMULATE_PATH, AM07_UPLOAD_RULE.path],
       [API_MOCK.SIMULATE_HEADERS, AM07_MULTIPART_CONTENT_TYPE],
       [API_MOCK.SIMULATE_BODY, AM07_MULTIPART_BODY],
+      [API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FIELD],
+      [API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FILENAME],
     ]);
     expect(calls(ctx.click)).toEqual([
+      API_MOCK.SIMULATE_BODY_EXPAND,
+      API_MOCK.TEXT_EXPAND_NEXT,
+      API_MOCK.TEXT_EXPAND_NEXT,
+      API_MOCK.TEXT_EXPAND_CLOSE,
       API_MOCK.SIMULATE_RUN,
       API_MOCK.SIMULATE_TAB_REQUEST,
       API_MOCK.SIMULATE_TAB_RENDERED,
@@ -909,7 +943,7 @@ describe('AM-07 helpers', () => {
 
     const ctx = reactiveCtx();
     vi.mocked(ctx.waitFor).mockImplementation(async (selector: string) => {
-      if (selector === API_MOCK.SIMULATE_WORKSPACE) mountSimulate({ method: 'GET' });
+      if (selector === API_MOCK.SIMULATE_WORKSPACE) mountSimulate({ method: 'GET', bodyExpand: true });
     });
     expect(await runAm07ProveMultipart(ctx)).toBe('MATCHED');
 

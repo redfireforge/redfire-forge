@@ -34,6 +34,10 @@ import {
   AM05_QUERY_VALUE,
   AM05_SECURITY_CERT_FACET,
   AM05_SECURITY_FACET,
+  AM05_SAMPLE_ALL_MATCH,
+  AM05_SAMPLE_DEBUG,
+  AM05_SAMPLE_QUERY_MATCH,
+  AM05_SAMPLE_QUERY_MISS,
   AM05_SECURITY_VALUE,
   AM05_SIM_DEBUG_HEADERS,
   AM05_SIM_FULL_PATH,
@@ -56,10 +60,12 @@ import {
   am05LastConditionId,
   am05RootGroupId,
   am05SampleRowIds,
+  am05HeadersTableRowByName,
   am05SimOutcome,
   am05TraceRowByText,
   am05TraceRows,
   cleanupAm05,
+  closeAm05HeadersExpand,
   closeAm05Simulate,
   closeAm05Toolbox,
   ensureAm05CookieCondition,
@@ -74,6 +80,7 @@ import {
   ensureAm05Workspace,
   hasAm05RouteEditor,
   hasAm05Workspace,
+  isAm05HeadersExpandOpen,
   isAm05SimulateOpen,
   isAm05StudioViewActive,
   isAm05ToolboxOpen,
@@ -83,6 +90,7 @@ import {
   runAm05FirstCondition,
   runAm05GuardGroup,
   runAm05HeaderOperators,
+  reviewAm05HeadersTable,
   runAm05ProveAll,
   runAm05ProveQuery,
   runAm05SecuritySource,
@@ -203,6 +211,7 @@ function mountToolbox(spec: ToolboxSpec = {}): void {
   }
   toolbox.append(input('api-mock-toolbox-regex', '/reports'));
   toolbox.append(el('span', 'am-badge success', 'api-mock-toolbox-safety'));
+  toolbox.append(el('label', 'am-chip active', 'api-mock-toolbox-flag-cs'));
   toolbox.append(el('label', 'am-chip', 'api-mock-toolbox-flag-ci'));
 
   const list = el('div', 'am-sample-list');
@@ -244,7 +253,32 @@ function mountSimulate(spec: SimulateSpec = {}): void {
   headers.setAttribute('data-testid', 'api-mock-simulate-headers');
   makeVisible(headers);
   workspace.append(headers);
+  workspace.append(el('button', 'am-icon-btn', 'api-mock-simulate-headers-expand'));
+  const adhoc = el('div', 'am-sim-sample active', 'api-mock-sim-sample-adhoc');
+  adhoc.append(el('button', 'am-sim-sample-btn'));
+  workspace.append(adhoc);
+  workspace.append(el('button', 'am-btn primary', 'api-mock-simulate-save-sample'));
+  workspace.append(input('api-mock-simulate-sample-name'));
   workspace.append(el('button', 'am-btn primary', 'api-mock-simulate-run'));
+
+  const modal = el('div', 'am-headers-expand-modal', 'api-mock-headers-expand-modal');
+  const tableBtn = el('button', 'am-segmented', 'api-mock-headers-expand-view-table');
+  tableBtn.setAttribute('aria-pressed', 'false');
+  modal.append(tableBtn);
+  const table = el('div', 'am-headers-expand-table', 'api-mock-headers-expand-table');
+  const tenant = el('div', 'am-headers-expand-row', 'api-mock-headers-expand-row-hdr-1');
+  tenant.append(input('api-mock-headers-expand-name-hdr-1', 'x-tenant'));
+  table.append(tenant);
+  const debug = el('div', 'am-headers-expand-row', 'api-mock-headers-expand-row-hdr-2');
+  debug.append(input('api-mock-headers-expand-name-hdr-2', 'x-debug'));
+  table.append(debug);
+  modal.append(table);
+  modal.append(input('api-mock-headers-expand-search'));
+  const count = el('span', 'am-text-expand-count', 'api-mock-headers-expand-count');
+  count.textContent = '0/0';
+  modal.append(count);
+  modal.append(el('button', 'am-btn', 'api-mock-headers-expand-close'));
+  workspace.append(modal);
   workspace.append(el('button', 'am-btn', 'api-mock-simulate-close'));
   if (spec.hasResult) {
     workspace.append(el('button', 'am-builder-tab', 'api-mock-sim-view-request'));
@@ -628,8 +662,15 @@ describe('AM-05 helpers', () => {
     const ctx = makeCtx();
     const outcomes = await runAm05ProveQuery(ctx);
 
-    expect(fills(ctx.fill).map(f => f[1])).toEqual([AM05_SIM_QUERY_MATCH, AM05_SIM_QUERY_MISS]);
+    expect(fills(ctx.fill)).toEqual([
+      [API_MOCK.SIMULATE_PATH, AM05_SIM_QUERY_MATCH],
+      [API_MOCK.SIMULATE_SAMPLE_NAME, AM05_SAMPLE_QUERY_MATCH],
+      [API_MOCK.SIMULATE_PATH, AM05_SIM_QUERY_MISS],
+      [API_MOCK.SIMULATE_SAMPLE_NAME, AM05_SAMPLE_QUERY_MISS],
+    ]);
     expect(outcomes).toEqual(['UNMATCHED', 'UNMATCHED']);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_VIEW_REQUEST);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
   });
@@ -869,6 +910,7 @@ describe('AM-05 helpers', () => {
         '✓ Path /reports',
         '✓ query exact',
         '× header "x-debug" was absent',
+        '✓ None of passed — no child matched',
         '✓ header present',
       ],
     });
@@ -880,11 +922,45 @@ describe('AM-05 helpers', () => {
     expect(fills(ctx.fill)).toEqual([
       [API_MOCK.SIMULATE_PATH, AM05_SIM_FULL_PATH],
       [API_MOCK.SIMULATE_HEADERS, AM05_SIM_HEADERS],
+      [API_MOCK.HEADERS_EXPAND_SEARCH, AM05_GUARD_KEY],
+      [API_MOCK.SIMULATE_SAMPLE_NAME, AM05_SAMPLE_ALL_MATCH],
       [API_MOCK.SIMULATE_PATH, AM05_SIM_FULL_PATH],
       [API_MOCK.SIMULATE_HEADERS, AM05_SIM_DEBUG_HEADERS],
+      [API_MOCK.HEADERS_EXPAND_SEARCH, AM05_GUARD_KEY],
+      [API_MOCK.SIMULATE_SAMPLE_NAME, AM05_SAMPLE_DEBUG],
     ]);
-    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_TRACE);
-    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
+    const clicks = calls(ctx.click);
+    expect(clicks.filter(c => c === API_MOCK.SIMULATE_SAVE_SAMPLE)).toHaveLength(2);
+    expect(clicks.filter(c => c === API_MOCK.SIMULATE_RUN)).toHaveLength(2);
+    expect(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE))
+      .toBeLessThan(clicks.indexOf(API_MOCK.SIMULATE_RUN));
+    expect(clicks).toContain(API_MOCK.SIMULATE_HEADERS_EXPAND);
+    expect(clicks).toContain(API_MOCK.HEADERS_EXPAND_VIEW_TABLE);
+    expect(clicks).toContain(API_MOCK.HEADERS_EXPAND_CLOSE);
+    expect(clicks).not.toContain(API_MOCK.SIMULATE_TAB_TRACE);
+    expect(clicks).toContain(API_MOCK.SIMULATE_CLOSE);
+  });
+
+  it('finds a Headers table row by name and ignores a blank needle', () => {
+    mountSimulate();
+    expect(isAm05HeadersExpandOpen()).toBe(true);
+    expect(am05HeadersTableRowByName(AM05_GUARD_KEY)?.getAttribute('data-testid'))
+      .toBe('api-mock-headers-expand-row-hdr-2');
+    expect(am05HeadersTableRowByName('X-DEBUG')?.textContent).toBeDefined();
+    expect(am05HeadersTableRowByName('')).toBeNull();
+    expect(am05HeadersTableRowByName('missing')).toBeNull();
+  });
+
+  it('reviewAm05HeadersTable no-ops without the expand control', async () => {
+    const ctx = makeCtx();
+    await reviewAm05HeadersTable(ctx, { expectGuard: true });
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('closeAm05HeadersExpand is quiet when the popup is already closed', async () => {
+    const ctx = makeCtx();
+    await closeAm05HeadersExpand(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step 8 sends the debug header only on the second run', () => {

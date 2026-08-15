@@ -19,6 +19,22 @@ import { ApiMockExamplesPanel } from './ApiMockExamplesPanel';
 import { WandIcon, TrashIcon, FlaskIcon, AlertIcon, PlusIcon } from './ApiMockIcons';
 import { ApiMockExpandableText } from './ApiMockExpandableText';
 import { toolboxTabForOperator } from './apiMockPatternToolboxConstants';
+import {
+  BUILDER_PANEL_ID,
+  BUILDER_TABS,
+  COMBINATOR_OPTIONS,
+  FAULT_OPTIONS,
+  METHOD_OPTIONS,
+  SECURITY_SELECTOR_OPTIONS,
+  SOURCE_LABELS,
+  SOURCE_OPTIONS,
+  TOOLBOX_OPERATORS,
+  expectedText,
+  operatorOptionsFor,
+  pairExpected,
+  securitySelectorValue,
+  type BuilderTab,
+} from './apiMockRouteEditorConstants';
 
 interface Props {
   route: ApiMockRouteV1;
@@ -42,110 +58,6 @@ interface Props {
   /** Server variables forwarded to the response preview so templates resolve. */
   variables?: ApiMockVariableV1[];
 }
-
-type BuilderTab = 'match' | 'response' | 'behavior' | 'examples' | 'docs';
-
-const BUILDER_PANEL_ID = 'api-mock-builder-panel';
-const BUILDER_TABS: ReadonlyArray<{ id: BuilderTab; label: string }> = [
-  { id: 'match', label: 'Match' },
-  { id: 'response', label: 'Response' },
-  { id: 'behavior', label: 'Behavior' },
-  { id: 'examples', label: 'Examples' },
-  { id: 'docs', label: 'Documentation' },
-];
-
-const METHODS = ['ANY', 'GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'TRACE'] as const;
-const OPERATOR_LABELS: Record<ApiMockPredicateV1['operator'], string> = {
-  exact: 'Exact',
-  contains: 'Contains',
-  prefix: 'Prefix',
-  suffix: 'Suffix',
-  regex: 'Regex',
-  glob: 'Glob',
-  present: 'Present',
-  absent: 'Absent',
-  jsonPath_exists: 'JSONPath exists',
-  jsonPath_equals: 'JSONPath equals',
-  xpath_exists: 'XPath exists',
-  xpath_equals: 'XPath equals',
-  json_strict: 'JSON strict',
-  json_subset: 'JSON subset',
-  jsonSchema: 'JSON Schema',
-  xmlSchema: 'XML Schema',
-  form_field_exact: 'Form field exact',
-  form_field_regex: 'Form field regex',
-  form_field_present: 'Form field present',
-  multipart_field: 'Multipart field',
-  multipart_file: 'Multipart file',
-  binary_exact: 'Binary exact',
-  binary_sha256: 'SHA-256',
-};
-const OPERATORS = Object.keys(OPERATOR_LABELS) as ApiMockPredicateV1['operator'][];
-const SOURCES: ApiMockPredicateV1['source'][] = ['pathParam', 'query', 'header', 'cookie', 'security', 'body', 'transport'];
-
-const SOURCE_LABELS: Record<ApiMockPredicateV1['source'], string> = {
-  pathParam: 'Path parameter',
-  query: 'Query',
-  header: 'Header',
-  cookie: 'Cookie',
-  security: 'Security',
-  body: 'Body',
-  transport: 'Transport',
-};
-const METHOD_OPTIONS = METHODS.map(m => ({ value: m, label: m }));
-const OPERATOR_OPTIONS = OPERATORS.map(o => ({ value: o, label: OPERATOR_LABELS[o] }));
-const SOURCE_OPTIONS = SOURCES.map(s => ({ value: s, label: SOURCE_LABELS[s] }));
-
-const TOOLBOX_OPERATORS = new Set<ApiMockPredicateV1['operator']>([
-  'regex', 'glob', 'jsonPath_exists', 'jsonPath_equals', 'xpath_exists', 'xpath_equals', 'jsonSchema', 'xmlSchema',
-]);
-
-function expectedText(expected: ApiMockPredicateV1['expected']): string {
-  if (typeof expected === 'string') return expected;
-  if (expected == null) return '';
-  try { return JSON.stringify(expected, null, 2); } catch { return String(expected); }
-}
-
-function pairExpected(expected: ApiMockPredicateV1['expected']): [string, string] {
-  return Array.isArray(expected)
-    ? [String(expected[0] ?? ''), String(expected[1] ?? '')]
-    : ['', ''];
-}
-
-const SECURITY_SELECTOR_OPTIONS = [
-  { value: 'scheme', label: 'Scheme' },
-  { value: 'username', label: 'Username' },
-  { value: 'tokenClaim', label: 'Token claim' },
-  { value: 'apiKeyName', label: 'API key name' },
-  { value: 'apiKeyLocation', label: 'API key location' },
-  { value: 'certSubject', label: 'Certificate subject' },
-];
-
-function operatorOptionsFor(operator: string) {
-  if (isUnavailablePredicateOperator(operator)) {
-    return [...OPERATOR_OPTIONS, { value: operator, label: `${operator} (unavailable)`, disabled: true }];
-  }
-  return OPERATOR_OPTIONS;
-}
-
-function securitySelectorValue(selector?: string): string {
-  return SECURITY_SELECTOR_OPTIONS.some(o => o.value === selector) ? selector! : '';
-}
-
-const COMBINATOR_OPTIONS = [
-  { value: 'all', label: 'All of' },
-  { value: 'any', label: 'Any of' },
-  { value: 'not', label: 'None of' },
-];
-
-const FAULT_OPTIONS: Array<{ value: ApiMockFaultKind; label: string }> = [
-  { value: 'none', label: 'None' },
-  { value: 'timeout', label: 'Timeout (no response)' },
-  { value: 'close', label: 'Close connection' },
-  { value: 'reset', label: 'Reset connection' },
-  { value: 'malformed', label: 'Malformed body' },
-  { value: 'dribble', label: 'Dribble (slow drip)' },
-];
 
 export function ApiMockRouteEditor({
   route,

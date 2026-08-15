@@ -212,6 +212,20 @@ describe('selectRoute', () => {
       expect(result.explanation.nearMisses[0].failedPredicates[0].source).toBe('header');
     });
 
+    it('names the None-of guard on a near miss when every leaf passed', () => {
+      const r = route({
+        name: 'List Reports',
+        predicates: { id: 'pg', combinator: 'not', children: [
+          { id: 'p1', source: 'header', selector: 'x-debug', operator: 'present' },
+        ] },
+      });
+      const result = selectRoute([r], req({ headers: { 'x-debug': ['1'] } }), DEFAULT_SETTINGS, '');
+      expect(result.outcome).toBe('unmatched');
+      const miss = result.explanation.nearMisses[0];
+      expect(miss.failedPredicates.some(p => p.source === 'None of')).toBe(true);
+      expect(miss.failedPredicates.some(p => p.reason.includes('x-debug'))).toBe(true);
+    });
+
     it('falls back to the raw malformed path when decodeURIComponent fails', () => {
       const bad = '/bad/%E0%A4%A';
       const result = selectRoute([route({ path: { kind: 'exact', value: bad } })], req({ path: bad, rawPath: bad }), DEFAULT_SETTINGS, '');

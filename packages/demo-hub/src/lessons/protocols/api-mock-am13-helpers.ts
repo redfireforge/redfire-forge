@@ -20,6 +20,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   ensureAdHocSimulateForm,
@@ -39,7 +40,7 @@ export const AM13_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM13_TIMING;
@@ -244,10 +245,9 @@ export async function ensureAm13StudioView(ctx: DemoActionContext): Promise<void
   await ctx.waitFor(API_MOCK.SERVER_BAR, 10_000);
 }
 
-export async function closeAm13Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm13Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm13SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(400);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 400 });
 }
 
 export async function ensureAm13Workspace(ctx: DemoActionContext): Promise<void> {
@@ -584,7 +584,7 @@ export async function runAm13ResetAndBatch(ctx: DemoActionContext): Promise<void
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN_ALL, { look: T.beforeRun, hold: 0 });
   await am13Reveal(ctx, API_MOCK.SIMULATE_SAMPLE_STATE, T.simOutcome);
   await am13Payoff(ctx, API_MOCK.SIMULATE_SAMPLE_STATE);
-  await closeAm13Simulate(ctx);
+  await closeAm13Simulate(ctx, { review: true });
 }
 
 /** Step 7 — controlled chaos, reproducibly. */
@@ -615,7 +615,8 @@ export async function runAm13WeightedAndSeed(ctx: DemoActionContext): Promise<vo
   await reviewAndRunSimulation(ctx, {
     review: T.payoff,
     beforeRun: T.beforeRun,
-    sampleName: `POST ${AM13_PATH} seed-a`,
+    digest: false,
+    sampleName: `POST ${AM13_PATH} — seed-a`,
   });
   await am13Reveal(ctx, API_MOCK.SIMULATE_RESULT);
   const statusSel = firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
@@ -629,10 +630,10 @@ export async function runAm13WeightedAndSeed(ctx: DemoActionContext): Promise<vo
   await reviewAndRunSimulation(ctx, {
     review: T.payoff,
     beforeRun: T.beforeRun,
-    sampleName: `POST ${AM13_PATH} seed-b`,
+    sampleName: `POST ${AM13_PATH} — seed-b`,
   });
   await am13Payoff(ctx, statusSel);
-  await closeAm13Simulate(ctx);
+  await closeAm13Simulate(ctx, { review: true });
 }
 
 /** Step 8 — variables feed templates; sensitive ones never reach an export. */

@@ -98,7 +98,7 @@ export const apiMockAm24Lesson: DemoLesson = {
   initialTab: 'api-mock-studio',
   allowedTabs: ['api-mock-studio', 'workflow'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 1,
+  contentVersion: 5,
   concept: {
     title: 'A contract mock is a spec you can run, not a screenshot of a 200.',
     body:

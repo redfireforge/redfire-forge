@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { loadApiMockWorkspace } from '../../../api-mock/apiMockPersistence';
+import { loadApiMockWorkspace, peekApiMockWorkspaceSnapshot } from '../../../api-mock/apiMockPersistence';
 import {
   ApiMockStartConfig,
   ApiMockApplyConfig,
@@ -67,6 +67,7 @@ describe('ApiMockNodeConfigs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(loadApiMockWorkspace).mockResolvedValue(defaultWorkspace);
+    vi.mocked(peekApiMockWorkspaceSnapshot).mockReturnValue(null);
   });
 
   it('renders Start config and patches all fields', async () => {
@@ -339,5 +340,114 @@ describe('ApiMockNodeConfigs', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
       expectedHeaders: [{ key: 'X-Id', value: 'abc' }],
     }));
+  });
+
+  it('hydrates the server list from an in-memory workspace snapshot', async () => {
+    vi.mocked(peekApiMockWorkspaceSnapshot).mockReturnValue({
+      servers: [{ id: 'srv-snap', name: 'Snap Mock', port: 4610 }],
+      activeServerId: 'srv-snap',
+    } as never);
+    render(
+      <ApiMockStartConfig
+        data={{ serverId: 'srv-snap' }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Snap Mock (:4610)')).toBeTruthy();
+    await waitFor(() => expect(loadApiMockWorkspace).toHaveBeenCalled());
+  });
+
+  it('reads sparse header rows and the legacy key-or-value pair', async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <ApiMockAssertCallsConfig
+        data={{
+          serverId: 'srv-1',
+          expectedHeaders: [
+            { key: undefined as unknown as string, value: undefined },
+            { key: 'X-Trace' },
+          ],
+        }}
+        onChange={onChange}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('api-mock-wf-assert-header-1')).toBeTruthy());
+    expect((screen.getByTestId('api-mock-wf-assert-header-1') as HTMLInputElement).value).toBe('X-Trace');
+
+    rerender(
+      <ApiMockAssertCallsConfig
+        data={{ serverId: 'srv-1', expectedHeaderValue: 'only-value' }}
+        onChange={onChange}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-wf-assert-header') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('api-mock-wf-assert-header-value') as HTMLInputElement).value).toBe('only-value');
+
+    rerender(
+      <ApiMockAssertCallsConfig
+        data={{ serverId: 'srv-1', expectedHeaderKey: 'X-Id' }}
+        onChange={onChange}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-wf-assert-header') as HTMLInputElement).value).toBe('X-Id');
+    expect((screen.getByTestId('api-mock-wf-assert-header-value') as HTMLInputElement).value).toBe('');
+  });
+
+  it('persists a value-only header list and clears the last row back to a blank pair', async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <ApiMockAssertCallsConfig
+        data={{
+          serverId: 'srv-1',
+          expectedHeaders: [
+            { key: '', value: 'present' },
+            { key: '', value: '' },
+          ],
+        }}
+        onChange={onChange}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('api-mock-wf-assert-header-value-1')).toBeTruthy());
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-header-value-1'), { target: { value: 'trace' } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      expectedHeaders: [
+        { key: '', value: 'present' },
+        { key: '', value: 'trace' },
+      ],
+      expectedHeaderKey: undefined,
+      expectedHeaderValue: undefined,
+    }));
+
+    rerender(
+      <ApiMockAssertCallsConfig
+        data={{ serverId: 'srv-1', expectedHeaders: [{ key: 'X-Id', value: 'abc' }] }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-wf-assert-header-remove'));
+    expect(onChange).toHaveBeenLastCalledWith({
+      expectedHeaders: undefined,
+      expectedHeaderKey: undefined,
+      expectedHeaderValue: undefined,
+    });
+  });
+
+  it('shows equals and regex placeholders on the body editor', async () => {
+    const { rerender } = render(
+      <ApiMockAssertCallsConfig
+        data={{ serverId: 'srv-1', expectedBodyMatch: 'equals' }}
+        onChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('api-mock-wf-assert-body')).toBeTruthy());
+    expect(screen.getByPlaceholderText('Exact response body')).toBeTruthy();
+
+    rerender(
+      <ApiMockAssertCallsConfig
+        data={{ serverId: 'srv-1', expectedBodyMatch: 'regex' }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByPlaceholderText('Regular expression, e.g. "id":\\s*"\\d+"')).toBeTruthy();
   });
 });

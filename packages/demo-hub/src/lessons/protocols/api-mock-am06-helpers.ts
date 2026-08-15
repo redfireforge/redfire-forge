@@ -25,6 +25,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   spotlightElementBeat,
@@ -50,7 +51,7 @@ export const AM06_TIMING = {
   /** Spotlight on a tab or modal trigger before the click, so the viewer can aim. */
   beforeOpen: 1400,
   /** Ring on **Run simulation** before the click. */
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM06_TIMING;
@@ -117,8 +118,14 @@ export const AM06_CORPUS_SAMPLE = 'am-gallery-bodies';
 export const AM06_RULE_PATH = '/orders';
 export const AM06_RULE_METHOD = 'POST';
 
-/** Step 1 — the baseline the corpus ships: "the body must contain at least this". */
-export const AM06_SUBSET_EXPECTED = '{\n  "customer": {\n    "tier": "gold"\n  }\n}';
+/** Step 1 — compact one-liner so the Match row shows the whole fragment. */
+export const AM06_SUBSET_EXPECTED = '{"customer":{"tier":"gold"}}';
+
+/** Saved-sample names — never just `POST /orders`, or the sidebar lists twins. */
+export const AM06_SAMPLE_EXTRAS = `POST ${AM06_RULE_PATH} — extra fields`;
+export const AM06_SAMPLE_STRICT = `POST ${AM06_RULE_PATH} — extras vs strict`;
+export const AM06_SAMPLE_INVALID = `POST ${AM06_RULE_PATH} — missing id`;
+export const AM06_SAMPLE_COMPLETE = `POST ${AM06_RULE_PATH} — complete order`;
 
 /**
  * The payload a real client sends: the gold tier the baseline asks for, plus an id,
@@ -357,10 +364,9 @@ export async function closeAm06Toolbox(ctx: DemoActionContext): Promise<void> {
 }
 
 /** Dismiss the Simulate workspace so the next step's spotlight lands on the Studio. */
-export async function closeAm06Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm06Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm06SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(AM_DEMO_TIMING.panelReady);
+  await closeSimulateWorkspace(ctx, opts);
 }
 
 // ── Guards ──────────────────────────────────────────────────────────────────
@@ -491,7 +497,11 @@ async function openAm06Simulate(ctx: DemoActionContext): Promise<void> {
  * — it is only picked when something left it on another verb. A run swaps the
  * form for the results pane, so later runs go back through **Request** first.
  */
-async function runAm06Simulation(ctx: DemoActionContext, body: string): Promise<string> {
+async function runAm06Simulation(
+  ctx: DemoActionContext,
+  body: string,
+  sampleName: string,
+): Promise<string> {
   await ensureAdHocSimulateForm(ctx, T.tabSwitch);
   if (am06SimMethod() !== AM06_RULE_METHOD) {
     await am06Select(ctx, API_MOCK.SIMULATE_METHOD, AM06_RULE_METHOD);
@@ -501,7 +511,7 @@ async function runAm06Simulation(ctx: DemoActionContext, body: string): Promise<
   await reviewAndRunSimulation(ctx, {
     review: T.payoff,
     beforeRun: T.beforeRun,
-    sampleName: `POST ${AM06_RULE_PATH}`,
+    sampleName,
   });
   await am06Reveal(ctx, API_MOCK.SIMULATE_RESULT);
   await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
@@ -524,9 +534,9 @@ export async function runAm06SubsetBaseline(ctx: DemoActionContext): Promise<str
   await am06Break(ctx);
 
   await openAm06Simulate(ctx);
-  const outcome = await runAm06Simulation(ctx, AM06_RICH_BODY);
+  const outcome = await runAm06Simulation(ctx, AM06_RICH_BODY, AM06_SAMPLE_EXTRAS);
   await am06Trace(ctx, am06TraceRowByText('json_subset'), T.simOutcome);
-  await closeAm06Simulate(ctx);
+  await closeAm06Simulate(ctx, { review: true });
   if (id) await am06Payoff(ctx, API_MOCK.conditionSchema(id));
   return outcome;
 }
@@ -543,10 +553,10 @@ export async function runAm06StrictAndBack(ctx: DemoActionContext): Promise<stri
   await am06Break(ctx);
 
   await openAm06Simulate(ctx);
-  const outcome = await runAm06Simulation(ctx, AM06_RICH_BODY);
+  const outcome = await runAm06Simulation(ctx, AM06_RICH_BODY, AM06_SAMPLE_STRICT);
   await am06Look(ctx, API_MOCK.SIMULATE_CANDIDATES);
   await am06Trace(ctx, am06TraceRowByText('json_strict'), T.simOutcome);
-  await closeAm06Simulate(ctx);
+  await closeAm06Simulate(ctx, { review: true });
   await am06Break(ctx);
 
   await am06Select(ctx, API_MOCK.conditionOperator(id), 'json_subset');
@@ -644,7 +654,7 @@ export async function runAm06ProveSchema(ctx: DemoActionContext): Promise<string
   const outcomes: string[] = [];
   await openAm06Simulate(ctx);
 
-  outcomes.push(await runAm06Simulation(ctx, AM06_INVALID_BODY));
+  outcomes.push(await runAm06Simulation(ctx, AM06_INVALID_BODY, AM06_SAMPLE_INVALID));
   await am06Look(ctx, API_MOCK.SIMULATE_CANDIDATES);
   for (const row of am06TraceRows()) {
     await am06Trace(ctx, row);
@@ -652,10 +662,10 @@ export async function runAm06ProveSchema(ctx: DemoActionContext): Promise<string
   await am06Trace(ctx, am06TraceRowByText('jsonSchema'), T.simOutcome);
   await am06Break(ctx);
 
-  outcomes.push(await runAm06Simulation(ctx, AM06_RICH_BODY));
+  outcomes.push(await runAm06Simulation(ctx, AM06_RICH_BODY, AM06_SAMPLE_COMPLETE));
   await am06Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
   await am06Payoff(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
-  await closeAm06Simulate(ctx);
+  await closeAm06Simulate(ctx, { review: true });
   await am06Payoff(ctx, API_MOCK.ROUTE_EXPLORER);
   return outcomes;
 }

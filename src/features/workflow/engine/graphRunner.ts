@@ -744,7 +744,6 @@ export async function runGraph(
     finalVariables: ctx.snapshot(),
     traversedEdges: traceCollector.getTraversedEdges(),
   };
-  
   callbacks.onComplete(results, allPassed, durationMs, iterationTrace);
   return results;
 }

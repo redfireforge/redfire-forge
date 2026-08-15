@@ -91,7 +91,7 @@ export const apiMockAm15Lesson: DemoLesson = {
     + 'the generalized draft, Apply, and prove it with a matched journal row.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 2,
   concept: {
     title: 'Every source becomes a draft. Enable is how it starts answering.',
     body:

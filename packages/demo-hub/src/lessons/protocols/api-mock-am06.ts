@@ -84,7 +84,7 @@ export const apiMockAm06Lesson: DemoLesson = {
     + 'exact vs substring comparison, and a JSON Schema — each proven in Simulate.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 4,
   concept: {
     title: 'Matching on the payload — from "contains this" to a real contract',
     body:
@@ -147,8 +147,9 @@ export const apiMockAm06Lesson: DemoLesson = {
         + 'rules in the previous lessons it already reads the request **body**. Look at the '
         + 'condition row: the key box is missing entirely. There is nothing to name, because the '
         + 'whole payload is the value, and the **operator** carries the meaning.\n\n'
-        + 'That operator is **JSON subset**, and the expected JSON below it is deliberately tiny: '
-        + 'a gold customer tier, nothing else. Now send a payload a real client would send — the '
+        + 'That operator is **JSON subset**, and the expected JSON is a compact one-liner so the '
+        + 'whole fragment fits the row: `{"customer":{"tier":"gold"}}` — a gold customer tier, '
+        + 'nothing else. Now send a payload a real client would send — the '
         + 'gold tier, plus a customer id, two line items, and a `note` field no matcher mentions '
         + 'at all. It comes back **MATCHED**.\n\n'
         + 'That is the whole idea of subset: the fields you wrote must be present and equal, and '

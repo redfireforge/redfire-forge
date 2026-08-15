@@ -87,7 +87,7 @@ export const apiMockAm20Lesson: DemoLesson = {
     + 'private key; Stop leaves the PEMs in the workspace.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 3,
   concept: {
     title: 'HTTPS is a listen setting. Who may call is a matcher.',
     body:

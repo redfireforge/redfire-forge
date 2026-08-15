@@ -42,6 +42,7 @@ describe('ApiMockSimulateModal', () => {
     render(<ApiMockSimulateModal server={makeServer()} initialPath="/users" initialMethod="GET" onClose={vi.fn()} />);
 
     expect(screen.getByTestId('api-mock-simulate-body-expand')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-simulate-headers-expand')).toBeTruthy();
     fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
     const result = screen.getByTestId('api-mock-simulate-result');
     expect(result.textContent).toContain('MATCHED');
@@ -89,6 +90,36 @@ describe('ApiMockSimulateModal', () => {
     fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
     expect(screen.getByTestId('api-mock-sim-candidate-route-regional').textContent).toContain('Winner');
     expect(screen.getByTestId('api-mock-simulate-result').textContent).toContain('MATCHED');
+  });
+
+  it('shows the None-of reason when every leaf passed but the guard rejected the request', () => {
+    const server = makeServer();
+    server.routes = [{
+      id: 'r-reports', name: 'List Reports', enabled: true, method: 'GET',
+      path: { kind: 'exact', value: '/reports' }, priority: 10,
+      predicates: {
+        id: 'pg', combinator: 'all', children: [
+          { id: 'p-page', source: 'query', selector: 'page', operator: 'exact', expected: '2' },
+          {
+            id: 'guard', combinator: 'not', children: [
+              { id: 'p-debug', source: 'header', selector: 'x-debug', operator: 'present' },
+            ],
+          },
+        ],
+      },
+      responseMode: 'rules', responses: [createDefaultResponse('resp-1')],
+      tags: [], createdAt: ts, updatedAt: ts,
+    }];
+    render(<ApiMockSimulateModal server={server} initialPath="/reports?page=2" initialMethod="GET" onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('api-mock-simulate-headers'), { target: { value: 'x-debug: 1' } });
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    const result = screen.getByTestId('api-mock-simulate-result');
+    expect(result.textContent).toContain('UNMATCHED');
+    expect(result.textContent).toContain('Conditions failed');
+    expect(result.textContent).toContain('None of');
+    expect(result.textContent).toMatch(/rejected/);
+    expect(result.textContent).toContain('x-debug');
+    expect(screen.getByTestId('api-mock-sim-predicate-group:guard').textContent).toMatch(/None of/);
   });
 
   it('reject-all-multiple-matches returns 409 before priority, including mixed-case saved headers', () => {

@@ -88,7 +88,7 @@ export const apiMockAm21Lesson: DemoLesson = {
     + 'bundle, then attach an unassociated example and Try in Requests.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 3,
   concept: {
     title: 'A sample without an expectation is a demo, not a test.',
     body:
@@ -127,8 +127,8 @@ export const apiMockAm21Lesson: DemoLesson = {
       description:
         'Click **Simulate**. Hold **Saved samples** — that list is the suite '
         + 'already in this workspace — then hold the **Scratch pad**. Fill '
-        + `the path with \`${AM21_ADHOC_PATH}\` and review the request.\n\n`
-        + 'Hold **Run simulation** before the click. The outcome is the '
+        + `the path with \`${AM21_ADHOC_PATH}\`. **Save as sample**, name it, hold the saved `
+        + 'request so you can read it, then hold **Run simulation** before the click. The outcome is the '
         + 'scratch-pad verdict: you did not start a listener, and you did not '
         + 'have to pick a saved sample to ask “what would this call do?”',
       highlight: API_MOCK.SIMULATE,

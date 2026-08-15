@@ -86,7 +86,7 @@ export const apiMockAm07Lesson: DemoLesson = {
     + 'list, and a firmware blob by its SHA-256 digest — each proven in Simulate.',
   estimatedMinutes: 9,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 2,
   concept: {
     title: 'Beyond JSON — the matcher follows the Content-Type',
     body:
@@ -216,7 +216,10 @@ export const apiMockAm07Lesson: DemoLesson = {
         'Paste the payload a browser would actually produce — boundary lines, a '
         + '`Content-Disposition` header per part, the file part carrying its own `Content-Type` — '
         + 'and set the request `Content-Type` to `multipart/form-data` with the matching boundary. '
-        + '**Save as sample**, name it, then **Run simulation** — the saved row is how you get this '
+        + 'Expand **Body** so the whole payload is readable. Search `title` and hold on that text '
+        + `part, then search \`${AM07_MULTIPART_FILENAME}\` — that is the \`${AM07_MULTIPART_FILE_PART}\` `
+        + 'file part. Close the popup, **Save as sample**, name it, then **Run simulation** — the '
+        + 'saved row is how you get this '
         + 'payload back; clicking a **From rules** probe will not.\n\n'
         + 'It comes back **MATCHED**, and both multipart rows tick in the trace. The boundary is '
         + 'the load-bearing detail: it comes from the header, and it is what lets the evaluator '

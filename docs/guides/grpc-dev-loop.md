@@ -83,7 +83,7 @@ npm run test:grpc:coverage
 npm run test:e2e:grpc
 ```
 
-Monolithic (>900 lines) refactors and coverage-gap fixes: scope to files you touch, or run only when explicitly requested — not as a gate on every sub-phase commit.
+Monolithic (>750 lines) refactors and coverage-gap fixes: scope to files you touch, or run only when explicitly requested — not as a gate on every sub-phase commit.
 
 ---
 

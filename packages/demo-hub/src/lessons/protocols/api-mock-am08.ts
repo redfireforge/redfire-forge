@@ -92,7 +92,7 @@ export const apiMockAm08Lesson: DemoLesson = {
     + 'reject every multiple match as 409, or break equal priority by specificity.',
   estimatedMinutes: 9,
   initialTab: 'api-mock-studio',
-  contentVersion: 2,
+  contentVersion: 4,
   concept: {
     title: 'Groups say whether a rule matches. Policy says which matching rule wins.',
     body:
@@ -263,7 +263,8 @@ export const apiMockAm08Lesson: DemoLesson = {
         + 'matches to that policy, then shape the **Ambiguous response** body — the status '
         + 'stays 409, and the placeholders `{{requestId}}` and `{{competingRuleCount}}` are '
         + 'filled when the mock actually answers.\n\n'
-        + 'Re-run the same request. **AMBIGUOUS**, and **Rendered** shows the body you just '
+        + '**Save as sample**, name the overlapping probe, review it, then **Run simulation**. '
+        + '**AMBIGUOUS**, and **Rendered** shows the body you just '
         + 'wrote, not a silent Regional 200. Use this when a guessed winner would hide a hole '
         + 'in the contract — a client should see the collision, not a coin flip.',
       highlight: API_MOCK.SETTINGS,
