@@ -30,6 +30,7 @@ import {
   STOP_AND_CLOSE_CONFIRM_OPTIONS,
   TAB_LIMIT_CONFIRM_OPTIONS,
   downloadJsonFile,
+  isApiMockLiveDemoActive,
   resolveHydratedActiveServerId,
   restoreDeletedRoute,
   restoreDeletedRouteInList,
@@ -177,10 +178,32 @@ describe('apiMockPageHelpers', () => {
     }) as typeof document.createElement);
     const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:helpers');
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    expect(isApiMockLiveDemoActive()).toBe(false);
     downloadJsonFile('demo.har', { ok: true });
     expect(click).toHaveBeenCalled();
     createObjectURL.mockRestore();
     revoke.mockRestore();
+    vi.restoreAllMocks();
+  });
+
+  it('skips JSON download while the live demo panel is open', () => {
+    const panel = document.createElement('div');
+    panel.className = 'demo-live-panel';
+    document.body.append(panel);
+    const click = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      if (tagName.toLowerCase() === 'a') {
+        const anchor = originalCreateElement.call(document, 'a', options) as HTMLAnchorElement;
+        anchor.click = click;
+        return anchor;
+      }
+      return originalCreateElement.call(document, tagName, options);
+    }) as typeof document.createElement);
+    expect(isApiMockLiveDemoActive()).toBe(true);
+    downloadJsonFile('demo.har', { ok: true });
+    expect(click).not.toHaveBeenCalled();
+    panel.remove();
     vi.restoreAllMocks();
   });
 

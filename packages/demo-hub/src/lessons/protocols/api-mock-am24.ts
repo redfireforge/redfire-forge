@@ -158,7 +158,8 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'from-spec',
       title: 'Import the spec as drafts, then enable the path you need',
       description:
-        'Open **Import**, pick **OpenAPI**, and paste the Orders spec. Parse '
+        'Open **Import**, pick **OpenAPI**, and paste the Orders spec. Click '
+        + '**Pretty format** so the spec is readable, then parse. The review '
         + 'lists `POST /orders` and `GET /orders/{id}` as stubs. Toggle '
         + '**Generalize paths** when it is offered so `{id}` becomes a '
         + 'parameter, then confirm. Drafts stay grey — they will not answer '
@@ -258,7 +259,7 @@ export const apiMockAm24Lesson: DemoLesson = {
         + '**Assertions** and set expected status to **201** — that is the '
         + 'grade, not a screenshot of MATCHED.\n\n'
         + '**Run all**. Hold the summary until every saved sample is green. '
-        + 'This is the unit suite CI will run with `cli mock simulate`. Close '
+        + 'This is the unit suite CI will run with `redfireforge mock simulate`. Close '
         + 'Simulate before live traffic.',
       highlight: API_MOCK.SIMULATE,
       preAction: ensureAm24ForSuite,
@@ -288,10 +289,11 @@ export const apiMockAm24Lesson: DemoLesson = {
         '**Export → Workspace JSON**, hold the confirmation (that file is what '
         + 'CI consumes), close it, then **WireMock** and hold any loss notes. '
         + 'Close the confirmation so the next surface is not covered.\n\n'
-        + 'Switch to the Designer. Drop **Start** (isolate, Import sandbox), '
+        +         'Switch to the Designer. Drop **Start Mock Server** (isolate, Import '
+        + 'sandbox), connect it to the Start trigger, and **Fit View**. Drop '
         + '**HTTP** `{{mockBaseUrl}}/orders`, **Assert** journal 201, and '
-        + '**Stop**. Wire Start → HTTP → Assert → Stop, then **Quick Test**. '
-        + 'Green on Assert is the in-app proof the contract ships.',
+        + '**Stop**, connecting each as it lands. Then **Quick Test**. Green '
+        + 'on Assert is the in-app proof the contract ships.',
       highlight: API_MOCK.EXPORT,
       preAction: ensureAm24ForShip,
       action: runAm24Ship,

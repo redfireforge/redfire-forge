@@ -230,7 +230,7 @@ export const apiMockAm18Lesson: DemoLesson = {
         + 'Click **Simulate**. Hold the passing result. A green unmatched '
         + 'example is a regression: the miss stays a miss until you enable '
         + 'and correct the new rule.',
-      highlight: API_MOCK.BTAB_EXAMPLES,
+      highlight: API_MOCK.EXAMPLE_SIMULATE,
       preAction: ensureAm18ForProve,
       action: runAm18ProveExample,
       verify: API_MOCK.SIMULATE_OUTCOME,

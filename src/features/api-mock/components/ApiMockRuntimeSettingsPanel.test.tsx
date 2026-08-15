@@ -203,6 +203,22 @@ describe('ApiMockRuntimeSettingsPanel', () => {
     expect(screen.getByTestId('api-mock-runtime-settings-cors-origins')).toHaveValue('*');
   });
 
+  it('gives hinted rows room so descriptions are not clipped', () => {
+    render(<ApiMockRuntimeSettingsPanel server={makeServer()} onSave={vi.fn()} />);
+
+    const persistHint = screen.getByText(/survives companion restart/i);
+    expect(persistHint.closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--hinted');
+    expect(persistHint.closest('.am-rt-stg-row')).not.toHaveClass('am-rt-stg-row--inline-hint');
+
+    const maxEntriesHint = screen.getByText(/Oldest entries drop when the cap is reached/i);
+    expect(maxEntriesHint.closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--hinted');
+    expect(maxEntriesHint.closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--inline-hint');
+
+    expect(screen.getByText('Comma-separated header names').closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--hinted');
+    expect(screen.getByText(/JSONPath expressions/i).closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--hinted');
+    expect(screen.getByText('Max concurrent · 500').closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--inline-hint');
+  });
+
   it('saves proxy fallback mode and localhost host', () => {
     const onSave = vi.fn();
     render(<ApiMockRuntimeSettingsPanel server={makeServer()} onSave={onSave} />);

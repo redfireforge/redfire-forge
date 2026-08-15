@@ -553,9 +553,10 @@ async function runAm05Simulation(
   await reviewAndRunSimulation(ctx, {
     review: T.reviewForm,
     beforeRun: T.beforeRun,
-    sampleName: headers ? `GET ${path} (headers)` : `GET ${path}`,
+    // Two runs in one Acting budget — Save as sample is not the beat this lesson teaches.
+    saveSample: false,
   });
-  await am05Reveal(ctx, API_MOCK.SIMULATE_RESULT);
+  await revealBeat(ctx, API_MOCK.SIMULATE_RESULT, { timeout: 4_000, hold: T.panelReady });
   await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
   return am05SimOutcome();
 }
@@ -686,15 +687,22 @@ export async function runAm05CookieRegex(ctx: DemoActionContext): Promise<void> 
   await am05Click(ctx, API_MOCK.conditionToolbox(id), 0);
   await am05Reveal(ctx, API_MOCK.PATTERN_TOOLBOX);
   await am05Fill(ctx, API_MOCK.TOOLBOX_REGEX, AM05_COOKIE_REGEX);
-  await am05Look(ctx, API_MOCK.TOOLBOX_SAFETY);
 
+  // Rewrite samples before the Safety hold — leftover Numeric ID rows (`42` should
+  // match) make `^S-[0-9]{4}$` look broken even though that is the session shape.
   const sampleIds = am05SampleRowIds();
   for (const [index, sample] of AM05_COOKIE_SAMPLES.entries()) {
     const sampleId = sampleIds[index];
     if (!sampleId) continue;
     await am05Fill(ctx, API_MOCK.toolboxSampleValue(sampleId), sample.value);
+    const expectBtn = firstVisibleElement(API_MOCK.toolboxSampleExpect(sampleId));
+    const expectsMatch = (expectBtn?.textContent ?? '').includes('Should match');
+    if (expectBtn && expectsMatch !== sample.shouldMatch) {
+      await am05Click(ctx, API_MOCK.toolboxSampleExpect(sampleId), 0);
+    }
     await am05Look(ctx, API_MOCK.toolboxSampleRow(sampleId));
   }
+  await am05Look(ctx, API_MOCK.TOOLBOX_SAFETY);
   const caseSampleId = sampleIds[1];
   if (caseSampleId) {
     await am05Payoff(ctx, API_MOCK.toolboxSampleRow(caseSampleId));

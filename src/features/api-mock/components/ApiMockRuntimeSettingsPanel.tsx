@@ -33,21 +33,33 @@ function FormRow({
   label,
   htmlFor,
   hint,
+  hintPlacement = 'below',
   children,
 }: {
   label: string;
   htmlFor?: string;
   hint?: string;
+  hintPlacement?: 'below' | 'inline';
   children: ReactNode;
 }) {
+  const hinted = Boolean(hint);
+  const rowClass = [
+    'am-rt-stg-row',
+    hinted ? 'am-rt-stg-row--hinted' : '',
+    hinted && hintPlacement === 'inline' ? 'am-rt-stg-row--inline-hint' : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className="am-rt-stg-row">
+    <div className={rowClass}>
       <div className="am-rt-stg-label">
         {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : <span>{label}</span>}
       </div>
       <div className="am-rt-stg-control">
-        <div className="am-rt-stg-control-main">{children}</div>
-        {hint && <div className="am-rt-stg-hint">{hint}</div>}
+        <div className="am-rt-stg-control-main">
+          {children}
+          {hint && hintPlacement === 'inline' && <div className="am-rt-stg-hint">{hint}</div>}
+        </div>
+        {hint && hintPlacement === 'below' && <div className="am-rt-stg-hint">{hint}</div>}
       </div>
     </div>
   );
@@ -220,7 +232,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
               onClick={() => mark(setCorsEnabled)(!corsEnabled)}
             />
           </FormRow>
-          <FormRow label="Allow origins" htmlFor="am-rt-cors-origins" hint="Comma-separated origins, or *">
+          <FormRow label="Allow origins" htmlFor="am-rt-cors-origins" hint="Comma-separated origins, or *" hintPlacement="inline">
             <input
               id="am-rt-cors-origins"
               className="am-input am-input--fill mono"
@@ -236,7 +248,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
           title="Limits"
           description="Protect the companion process from oversized bodies and hung drains."
         >
-          <FormRow label="Inbound body" htmlFor="am-rt-inbound" hint="Bytes · max 10 MiB">
+          <FormRow label="Inbound body" htmlFor="am-rt-inbound" hint="Bytes · max 10 MiB" hintPlacement="inline">
             <input
               id="am-rt-inbound"
               className="am-input am-input--num mono"
@@ -245,7 +257,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
               data-testid="api-mock-runtime-settings-inbound"
             />
           </FormRow>
-          <FormRow label="Connections" htmlFor="am-rt-conn" hint="Max concurrent · 500">
+          <FormRow label="Connections" htmlFor="am-rt-conn" hint="Max concurrent · 500" hintPlacement="inline">
             <input
               id="am-rt-conn"
               className="am-input am-input--num mono"
@@ -254,7 +266,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
               data-testid="api-mock-runtime-settings-conn"
             />
           </FormRow>
-          <FormRow label="Drain timeout" htmlFor="am-rt-drain" hint="Milliseconds · max 30s">
+          <FormRow label="Drain timeout" htmlFor="am-rt-drain" hint="Milliseconds · max 30s" hintPlacement="inline">
             <input
               id="am-rt-drain"
               className="am-input am-input--num mono"
@@ -297,7 +309,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
               onClick={() => mark(setJournalEnabled)(!journalEnabled)}
             />
           </FormRow>
-          <FormRow label="Max entries" htmlFor="am-rt-journal-max" hint="Oldest entries drop when the cap is reached">
+          <FormRow label="Max entries" htmlFor="am-rt-journal-max" hint="Oldest entries drop when the cap is reached" hintPlacement="inline">
             <input
               id="am-rt-journal-max"
               className="am-input am-input--num mono"
@@ -311,7 +323,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
           <FormRow
             label="Persist to disk"
             hint={journalEnabled
-              ? 'Writes a capped, redacted snapshot under the OS temp directory so the log survives companion restart'
+              ? 'Capped, redacted snapshot in the OS temp directory — survives companion restart'
               : 'Turn Journal on first — then a capped, redacted snapshot is written under the OS temp directory'}
           >
             <button

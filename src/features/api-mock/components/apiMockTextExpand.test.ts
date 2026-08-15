@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   findTextExpandMatches,
+  formatJsonBody,
   formatTextExpandCount,
+  minifyJsonBody,
   nextTextExpandMatch,
   prettyPrintJsonBody,
+  textExpandStats,
 } from './apiMockTextExpand';
 
 describe('apiMockTextExpand', () => {
@@ -34,5 +37,27 @@ describe('apiMockTextExpand', () => {
     expect(prettyPrintJsonBody('"just a string"')).toBeNull();
     expect(prettyPrintJsonBody('not json')).toBeNull();
     expect(prettyPrintJsonBody('null')).toBeNull();
+  });
+
+  it('minifies JSON objects and arrays to one line', () => {
+    expect(minifyJsonBody('{\n  "a": 1\n}')).toBe('{"a":1}');
+    expect(minifyJsonBody('[\n  1,\n  2\n]')).toBe('[1,2]');
+    expect(minifyJsonBody('  ')).toBeNull();
+    expect(minifyJsonBody('"just a string"')).toBeNull();
+    expect(minifyJsonBody('not json')).toBeNull();
+  });
+
+  it('returns both formats from one parse', () => {
+    expect(formatJsonBody('{"a":1}')).toEqual({
+      pretty: '{\n  "a": 1\n}',
+      minified: '{"a":1}',
+    });
+    expect(formatJsonBody('nope')).toBeNull();
+  });
+
+  it('counts lines and characters', () => {
+    expect(textExpandStats('')).toEqual({ lines: 1, chars: 0 });
+    expect(textExpandStats('ab')).toEqual({ lines: 1, chars: 2 });
+    expect(textExpandStats('a\nb\n')).toEqual({ lines: 3, chars: 4 });
   });
 });

@@ -16,7 +16,7 @@ import {
 } from './demo-player-helpers';
 import { stopAllCompanionListeners } from './api-mock-multi-server-helpers';
 
-export const AM_ECHO_HEALTH = 'http://127.0.0.1:4017/health';
+export const AM_ECHO_HEALTH = 'http://localhost:4017/health';
 
 /** True when the AM-17 Docker echo on :4017 answers GET /health. */
 export async function isApiMockEchoReady(request: APIRequestContext): Promise<boolean> {

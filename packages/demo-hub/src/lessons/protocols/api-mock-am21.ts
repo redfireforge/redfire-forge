@@ -65,7 +65,7 @@ const DIAGRAM = `
 
   <rect x="26" y="240" width="648" height="70" rx="8" fill="#1e293b" stroke="#3b4a60" />
   <text x="42" y="268" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Examples attach an unassociated sample to a rule and Try in Requests hands the case to a client tab.</text>
-  <text x="42" y="290" fill="#a8b8cc" font-family="system-ui" font-size="11">cli mock simulate workspace.json is the copyable unit-level command on the explorer footer.</text>
+  <text x="42" y="290" fill="#a8b8cc" font-family="system-ui" font-size="11">redfireforge mock simulate workspace.json is the copyable unit-level command on the explorer footer.</text>
 
   <rect x="26" y="328" width="648" height="78" rx="8" fill="#1e293b" stroke="#22c55e" />
   <text x="42" y="356" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Scratch pad → three views → edit expected → FAIL → run-all → seed twice → export → attach + try</text>
@@ -107,7 +107,7 @@ export const apiMockAm21Lesson: DemoLesson = {
       + '**Examples** on the rule keep those cases after Simulate closes. '
       + 'Attach an unassociated sample to the rule you meant, then **Try in '
       + 'Requests** hands the same call to a client tab. The explorer footer '
-      + 'copies `cli mock simulate workspace.json` for the unit-level counterpart.',
+      + 'copies `redfireforge mock simulate workspace.json` for the unit-level counterpart.',
     keyTerms: [
       { term: 'Saved sample', definition: 'A named request plus optional expectations stored on the mock. Simulate treats the list as a regression suite.' },
       { term: 'Scratch pad', definition: 'The ad-hoc request at the top of Simulate. Editable method, path, headers, and body that are not a saved sample until you click Save as sample.' },
@@ -251,7 +251,7 @@ export const apiMockAm21Lesson: DemoLesson = {
         + 'Click **Attach to this rule** and hold the card so the unassociated '
         + 'chip is gone.\n\n'
         + 'Click **Try in Requests** and hold the URL that opened in the '
-        + 'client tab. Come back to Studio and hold `cli mock simulate '
+        + 'client tab. Come back to Studio and hold `redfireforge mock simulate '
         + 'workspace.json` on the explorer footer — that is the unit-level '
         + 'handoff. The attached row stays on the rule after Simulate is gone.',
       highlight: API_MOCK.BTAB_EXAMPLES,

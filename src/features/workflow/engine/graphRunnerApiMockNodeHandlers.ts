@@ -26,6 +26,8 @@ import { buildCombinedResolver } from './graphRunnerHelpers';
 import { nextResultId } from '../../../engine/requestExecution';
 import type { RequestResult } from '../../../shared/types';
 import { toErrorMessage } from '../../../shared/utils/helpers';
+import { httpFetch } from '../../../shared/utils/httpClient';
+import { isTauri } from '../../../shared/utils/platform';
 
 type ApiMockTransport =
   | 'apiMockStart'
@@ -35,9 +37,49 @@ type ApiMockTransport =
   | 'apiMockAssertCalls';
 
 function controlBaseUrl(): string {
-  const base = apiMockControlBase();
-  if (base) return base;
-  return window.location.origin;
+  // Browser: '' → same-origin `/api/mock` (Vite proxies to localhost:3001).
+  // Do not prefix window.location.origin (:5173) or 127.0.0.1 — the companion
+  // is reached via the /api proxy, and 127.0.0.1:3001 is ECONNREFUSED when
+  // the process is bound to localhost only.
+  return apiMockControlBase();
+}
+
+function controlUrl(raw: string): string {
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  const base = controlBaseUrl();
+  return `${base}${raw.startsWith('/') ? raw : `/${raw}`}`;
+}
+
+/**
+ * Web: native fetch, same as Studio's control client (forwards POST body).
+ * Desktop: httpFetch → Tauri HTTP (webview fetch cannot reach the companion).
+ */
+export async function fetchApiMockControl(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const raw = typeof input === 'string'
+    ? input
+    : input instanceof URL
+      ? input.href
+      : input.url;
+  if (typeof raw !== 'string' || raw === 'true' || raw === 'false') {
+    throw new TypeError(`Invalid control URL: ${String(raw)}`);
+  }
+  const url = controlUrl(raw);
+  if (!isTauri()) {
+    return fetch(url, init);
+  }
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (init?.headers) {
+    new Headers(init.headers).forEach((value, key) => { headers[key] = value; });
+  }
+  const body = typeof init?.body === 'string' ? init.body : undefined;
+  const result = await httpFetch(url, method, headers, body);
+  if (result.error) throw new Error(result.error);
+  return new Response(result.body, {
+    status: result.status || 200,
+    statusText: result.statusText,
+    headers: result.headers,
+  });
 }
 
 function buildResult(
@@ -157,7 +199,7 @@ function makeCtx(
   const runId = hCtx.executionId ?? hCtx.workflowId ?? 'workflow';
   return {
     controlBaseUrl: controlBaseUrl(),
-    fetch: globalThis.fetch.bind(globalThis),
+    fetch: fetchApiMockControl,
     definition,
     runId,
     registerStarted: register
@@ -320,7 +362,7 @@ export async function handleApiMockAssertCallsNode(
   hCtx.log({ prefix: '→', text: `[${label}] ASSERT mock calls ${data.serverId}` });
   try {
     const base = controlBaseUrl();
-    const res = await fetch(`${base}/api/mock/servers/${encodeURIComponent(data.serverId)}/transactions?limit=500`);
+    const res = await fetchApiMockControl(`${base}/api/mock/servers/${encodeURIComponent(data.serverId)}/transactions?limit=500`);
     const json = await res.json() as {
       ok?: boolean;
       data?: { transactions?: import('../../../shared/api-mock/contracts').ApiMockTransactionV1[] };

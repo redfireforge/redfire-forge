@@ -532,7 +532,7 @@ export function ApiMockRouteEditor({
                     data-testid="api-mock-method-select"
                   />
                   <input
-                    className="am-input wide mono"
+                    className="am-input wide"
                     value={route.path.value}
                     onChange={e => onUpdate({
                       path: {
@@ -721,29 +721,26 @@ export function ApiMockRouteEditor({
           </div>
         )}
       </div>
-      {toolboxOpen && (
+      {toolboxOpen && (() => {
+        const toolboxPred = toolboxPredicateId
+          ? findLeafInTree(group, toolboxPredicateId)
+          : undefined;
+        return (
         <ApiMockPatternToolboxModal
           initial={route.path}
-          initialTab={toolboxPredicateId
-            ? toolboxTabForOperator(findLeafInTree(group, toolboxPredicateId)?.operator)
+          initialTab={toolboxPred
+            ? toolboxTabForOperator(toolboxPred.operator)
             : 'path'}
-          predicateExpected={toolboxPredicateId
-            ? findLeafInTree(group, toolboxPredicateId)?.expected
+          predicateExpected={toolboxPred?.expected}
+          predicateOperator={toolboxPred?.operator}
+          predicateSource={toolboxPred?.source}
+          predicateSelector={toolboxPred?.selector}
+          predicateCaseInsensitive={toolboxPred
+            ? toolboxPred.options?.caseSensitive === false
             : undefined}
-          predicateOperator={toolboxPredicateId
-            ? findLeafInTree(group, toolboxPredicateId)?.operator
-            : undefined}
-          predicateCaseInsensitive={toolboxPredicateId
-            ? findLeafInTree(group, toolboxPredicateId)?.options?.caseSensitive === false
-            : undefined}
-          contextLabel={(() => {
-            const pred = toolboxPredicateId
-              ? findLeafInTree(group, toolboxPredicateId)
-              : undefined;
-            return pred
-              ? `${pathTitle} · ${SOURCE_LABELS[pred.source]} “${pred.selector || '—'}”`
-              : `${pathTitle} · Request path`;
-          })()}
+          contextLabel={toolboxPred
+            ? `${pathTitle} · ${SOURCE_LABELS[toolboxPred.source]} “${toolboxPred.selector || '—'}”`
+            : `${pathTitle} · Request path`}
           onApply={m => {
             if (toolboxPredicateId) {
               const existing = findLeafInTree(group, toolboxPredicateId);
@@ -771,7 +768,8 @@ export function ApiMockRouteEditor({
           }}
           onClose={() => { setToolboxOpen(false); setToolboxPredicateId(undefined); }}
         />
-      )}
+        );
+      })()}
     </div>
   );
 }

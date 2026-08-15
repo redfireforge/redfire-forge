@@ -63,12 +63,14 @@ describe('useDemoApiMockBridge', () => {
       data: [{ serverId: 'srv-1', port: 4600, state: 'running', generation: 1 }],
     });
     delete (window as unknown as Record<string, unknown>).__demoWipeApiMockWorkspace;
+    delete (window as unknown as Record<string, unknown>).__demoListApiMockServers;
     delete (window as unknown as Record<string, unknown>).__demoImportApiMockGallerySample;
     delete (window as unknown as Record<string, unknown>).__demoEnsureBlankApiMockServer;
   });
 
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoWipeApiMockWorkspace;
+    delete (window as unknown as Record<string, unknown>).__demoListApiMockServers;
     delete (window as unknown as Record<string, unknown>).__demoImportApiMockGallerySample;
     delete (window as unknown as Record<string, unknown>).__demoEnsureBlankApiMockServer;
   });
@@ -88,6 +90,7 @@ describe('useDemoApiMockBridge', () => {
       __demoImportApiMockGallerySample: (id: string) => Promise<boolean>;
     }).__demoImportApiMockGallerySample;
     expect(wipe).toBeTypeOf('function');
+    expect((window as unknown as Record<string, unknown>).__demoListApiMockServers).toBeTypeOf('function');
     expect(importSample).toBeTypeOf('function');
     await expect(wipe()).resolves.toBe(true);
     expect(stop).toHaveBeenCalledWith('srv-1');
@@ -113,7 +116,35 @@ describe('useDemoApiMockBridge', () => {
     await expect(importSample('unknown-sample')).resolves.toBe(false);
     unmount();
     expect((window as unknown as Record<string, unknown>).__demoWipeApiMockWorkspace).toBeUndefined();
+    expect((window as unknown as Record<string, unknown>).__demoListApiMockServers).toBeUndefined();
     expect((window as unknown as Record<string, unknown>).__demoEnsureBlankApiMockServer).toBeUndefined();
+  });
+
+  it('lists remapped Studio servers with the active flag', async () => {
+    load.mockResolvedValueOnce({
+      servers: [makeServer({ id: 'srv-live', name: 'Cart API', port: 4601 })],
+      activeServerId: 'srv-live',
+    });
+    const { useDemoApiMockBridge } = await import('./useDemoApiMockBridge');
+    const { unmount } = renderHook(() => useDemoApiMockBridge(true));
+    const listServers = (window as unknown as {
+      __demoListApiMockServers: () => Promise<Array<{ id: string; name: string; port: number; active: boolean }>>;
+    }).__demoListApiMockServers;
+    await expect(listServers()).resolves.toEqual([
+      { id: 'srv-live', name: 'Cart API', port: 4601, active: true },
+    ]);
+    unmount();
+  });
+
+  it('returns an empty Studio list when load fails', async () => {
+    load.mockRejectedValueOnce(new Error('disk'));
+    const { useDemoApiMockBridge } = await import('./useDemoApiMockBridge');
+    const { unmount } = renderHook(() => useDemoApiMockBridge(true));
+    const listServers = (window as unknown as {
+      __demoListApiMockServers: () => Promise<Array<{ id: string }>>;
+    }).__demoListApiMockServers;
+    await expect(listServers()).resolves.toEqual([]);
+    unmount();
   });
 
   describe('__demoEnsureBlankApiMockServer', () => {

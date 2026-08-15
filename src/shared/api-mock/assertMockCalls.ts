@@ -3,6 +3,52 @@
  */
 import type { ApiMockTransactionOutcome, ApiMockTransactionV1 } from './contracts';
 
+export type AssertMockBodyMatch = 'contains' | 'equals' | 'regex';
+
+export interface AssertMockHeaderCriterion {
+  key: string;
+  value?: string;
+}
+
+export function resolveAssertBodyMatch(mode?: AssertMockBodyMatch): AssertMockBodyMatch {
+  return mode === 'equals' || mode === 'regex' ? mode : 'contains';
+}
+
+export function evaluateAssertBody(
+  actual: string | null | undefined,
+  expected: string,
+  mode: AssertMockBodyMatch = 'contains',
+): { ok: boolean; expected: string; actual: string } {
+  const preview = (value: string | null | undefined) => value?.slice(0, 100) ?? '(null)';
+  if (mode === 'equals') {
+    return {
+      ok: (actual ?? null) === expected,
+      expected: `body equals "${expected.slice(0, 80)}"`,
+      actual: `body = "${preview(actual)}"`,
+    };
+  }
+  if (mode === 'regex') {
+    try {
+      return {
+        ok: new RegExp(expected).test(actual ?? ''),
+        expected: `body matches /${expected}/`,
+        actual: `body = "${preview(actual)}"`,
+      };
+    } catch {
+      return {
+        ok: false,
+        expected: `body matches /${expected}/`,
+        actual: 'invalid regular expression',
+      };
+    }
+  }
+  return {
+    ok: actual?.includes(expected) ?? false,
+    expected: `body contains "${expected.slice(0, 80)}"`,
+    actual: `body = "${preview(actual)}"`,
+  };
+}
+
 export interface AssertMockCallsCriteria {
   serverId: string;
   routeId?: string;
@@ -12,11 +58,33 @@ export interface AssertMockCallsCriteria {
   expectedMinCount?: number;
   expectedMaxCount?: number;
   expectedStatus?: number;
+  /** Body text to check. Match mode is `expectedBodyMatch` (default: contains). */
   expectedBodyContains?: string;
+  expectedBodyMatch?: AssertMockBodyMatch;
+  /** Preferred: every listed header is checked on the newest matching call. */
+  expectedHeaders?: AssertMockHeaderCriterion[];
+  /** Legacy single-header fields — used when `expectedHeaders` is empty. */
   expectedHeaderKey?: string;
   expectedHeaderValue?: string;
   expectedLastCallWithinMs?: number;
   nowMs?: number;
+}
+
+/** Merge the header list with the legacy single key/value pair. */
+export function resolveAssertHeaderCriteria(
+  criteria: Pick<AssertMockCallsCriteria, 'expectedHeaders' | 'expectedHeaderKey' | 'expectedHeaderValue'>,
+): AssertMockHeaderCriterion[] {
+  const fromList = (criteria.expectedHeaders ?? [])
+    .map(header => ({
+      key: header.key.trim(),
+      value: header.value?.trim() || undefined,
+    }))
+    .filter(header => header.key);
+  if (fromList.length > 0) return fromList;
+  const legacyKey = criteria.expectedHeaderKey?.trim();
+  if (!legacyKey) return [];
+  const legacyValue = criteria.expectedHeaderValue?.trim();
+  return [{ key: legacyKey, value: legacyValue || undefined }];
 }
 
 export interface AssertMockCallsResult {
@@ -139,22 +207,27 @@ export function assertMockCalls(
   }
 
   if (criteria.expectedBodyContains) {
+    const bodyMode = resolveAssertBodyMatch(criteria.expectedBodyMatch);
+    const bodyCheck = evaluateAssertBody(
+      matching[matching.length - 1]?.response?.body,
+      criteria.expectedBodyContains,
+      bodyMode,
+    );
     if (matching.length === 0) {
       return {
         passed: false,
-        expected: `body contains "${criteria.expectedBodyContains}"`,
+        expected: bodyCheck.expected,
         actual: 'no matching calls',
         matchingCount: 0,
         matchingIds,
         nearMisses,
       };
     }
-    const last = matching[matching.length - 1];
-    if (!last.response?.body?.includes(criteria.expectedBodyContains)) {
+    if (!bodyCheck.ok) {
       return {
         passed: false,
-        expected: `body contains "${criteria.expectedBodyContains}"`,
-        actual: `body = "${last.response?.body?.slice(0, 100) ?? '(null)'}"`,
+        expected: bodyCheck.expected,
+        actual: bodyCheck.actual,
         matchingCount: count,
         matchingIds,
         nearMisses,
@@ -162,11 +235,12 @@ export function assertMockCalls(
     }
   }
 
-  if (criteria.expectedHeaderKey) {
+  const headerChecks = resolveAssertHeaderCriteria(criteria);
+  if (headerChecks.length > 0) {
     if (matching.length === 0) {
       return {
         passed: false,
-        expected: `header ${criteria.expectedHeaderKey} present`,
+        expected: `header ${headerChecks[0].key} present`,
         actual: 'no matching calls',
         matchingCount: 0,
         matchingIds,
@@ -174,26 +248,28 @@ export function assertMockCalls(
       };
     }
     const last = matching[matching.length - 1];
-    const headerVal = headerValue(last, criteria.expectedHeaderKey);
-    if (criteria.expectedHeaderValue != null && headerVal !== criteria.expectedHeaderValue) {
-      return {
-        passed: false,
-        expected: `header ${criteria.expectedHeaderKey} = "${criteria.expectedHeaderValue}"`,
-        actual: `header ${criteria.expectedHeaderKey} = "${headerVal ?? '(absent)'}"`,
-        matchingCount: count,
-        matchingIds,
-        nearMisses,
-      };
-    }
-    if (criteria.expectedHeaderValue == null && headerVal == null) {
-      return {
-        passed: false,
-        expected: `header ${criteria.expectedHeaderKey} present`,
-        actual: 'header absent',
-        matchingCount: count,
-        matchingIds,
-        nearMisses,
-      };
+    for (const header of headerChecks) {
+      const headerVal = headerValue(last, header.key);
+      if (header.value != null && headerVal !== header.value) {
+        return {
+          passed: false,
+          expected: `header ${header.key} = "${header.value}"`,
+          actual: `header ${header.key} = "${headerVal ?? '(absent)'}"`,
+          matchingCount: count,
+          matchingIds,
+          nearMisses,
+        };
+      }
+      if (header.value == null && headerVal == null) {
+        return {
+          passed: false,
+          expected: `header ${header.key} present`,
+          actual: 'header absent',
+          matchingCount: count,
+          matchingIds,
+          nearMisses,
+        };
+      }
     }
   }
 

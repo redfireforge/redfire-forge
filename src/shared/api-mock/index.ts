@@ -89,8 +89,8 @@ export {
 export type { ApiMockRecordedDraftV1, ProxiedResponseCapture, NativeProxyCaptureV1 } from './proxyRecording';
 export { applyResponseTransforms } from './responseTransforms';
 export type { TransformApplyResult } from './responseTransforms';
-export { assertMockCalls } from './assertMockCalls';
-export type { AssertMockCallsCriteria, AssertMockCallsResult } from './assertMockCalls';
+export { assertMockCalls, resolveAssertHeaderCriteria, resolveAssertBodyMatch, evaluateAssertBody } from './assertMockCalls';
+export type { AssertMockCallsCriteria, AssertMockCallsResult, AssertMockHeaderCriterion, AssertMockBodyMatch } from './assertMockCalls';
 export { cliSimulateSamples, cliLoadAndValidate, cliFetchJournal, cliAssertJournal } from './cliMock';
 export type { CliSimulateOptions, CliLoadResult, CliFetchJournalOptions } from './cliMock';
 export { checkProxyUrl, stripHopByHopHeaders, stripCredentialHeaders, addAntiRecursionHeader, hasAntiRecursionHeader, stripSetCookieFromResponse, ANTI_RECURSION_HEADER } from './proxyPolicy';

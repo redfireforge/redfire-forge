@@ -196,3 +196,45 @@ export const CalendarIcon = (p: IconProps) => (
     <path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" />
   </Svg>
 );
+
+/** lucide: shield-check — export redaction proof */
+export const ShieldCheckIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20 13c0 5-3.5 7.5-8 10-4.5-2.5-8-5-8-10V6l8-3 8 3Z" />
+    <path d="m9 12 2 2 4-4" />
+  </Svg>
+);
+
+/** lucide: workflow — outbound transforms */
+export const WorkflowIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect width="8" height="8" x="3" y="3" rx="2" />
+    <path d="M7 11v4a2 2 0 0 0 2 2h4" />
+    <rect width="8" height="8" x="13" y="13" rx="2" />
+  </Svg>
+);
+
+/** lucide: undo-2 — editor history */
+export const UndoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+  </Svg>
+);
+
+/** lucide: redo-2 — editor history */
+export const RedoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />
+  </Svg>
+);
+
+/** lucide: webhook — outbound callbacks */
+export const WebhookIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2" />
+    <path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06" />
+    <path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8" />
+  </Svg>
+);

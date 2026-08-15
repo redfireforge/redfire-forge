@@ -463,7 +463,7 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 2 **curl** — the fastest path from "it works in curl" to a mock · fill `CURL_INPUT` → click `CURL_PARSE` → hold on the preview → select `IMPORT_FOLDER`† + fill `IMPORT_PRIORITY`† → hold ⟂ click `IMPORT_GENERALIZE`† → hold on `/users/42` → `/users/:id` → **generalized preview**
 3 **drafts-are-safe** — imports land disabled so they cannot hijack traffic · click `IMPORT_CONFIRM` → reveal `DRAFT_ROUTE` → hold on the dimmed row → hold on footer tally → **`DRAFT_ROUTE`**
 4 **openapi** — a stub per operation, with operationIds intact · `importSource('openapi')` → paste spec → parse → hold on the operation list → confirm → hold on three drafts → **three drafts**
-5 **wiremock** — migrate matchers and scenarios, and hear what didn't survive · `importSource('wiremock')` → paste → parse → hold on mapped matchers ⟂ hold on `IMPORT_LOSS`† (honest, not silent) → **loss report**
+5 **wiremock** — a stub Studio can keep in full · `importSource('wiremock')` → paste `equalTo` header + query + fixed delay → parse → hold on mapped preview (`GET /orders/99`) → **`IMPORT_PREVIEW`** (no loss report)
 6 **har** — recorded browser traffic becomes rules · `importSource('har')` → paste → parse → hold on the request list → confirm → **rules created**
 7 **internal-sources** — Catalog endpoints and saved Requests promote directly · `importSource('catalog')` → select two → hold ⟂ `importSource('requests')` → select all → hold → confirm → **rules created**
 8 **replace-mode** — replace swaps the entire rule set; know before you click · hold on `IMPORT_MODE_REPLACE` → hold on the destructive-action warning → **warning visible**
@@ -552,22 +552,22 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 **Quiet corpus:** checkout mock + an empty workflow. **Live:** every node dropped, configured, and wired. **Companion:** required. `allowedTabs: ['workflow','api-mock-studio']`.
 **Tags:** `wf-start-node`, `wf-isolate`, `wf-port-vars`, `wf-apply-node`, `wf-reset-node`, `wf-stop-node`, `wf-assert-count`, `wf-assert-status`, `wf-assert-body`, `wf-assert-header`, `wf-assert-recency`, `wf-quick-test`, `state-reset`.
 
-1 **designer-palette** — mocks belong in the test graph, not a side terminal · open Designer → collapse app sidebar → expand `WF.PAL_API_MOCK_START` group → hold on the five mock blocks → **palette group**
-2 **start-node** — the lifecycle node, and why isolation matters · add `CANVAS_START` → open config → select `WF_SERVER` Checkout → toggle `WF_ISOLATE` (private port, cannot clobber your Studio tab) → hold on `WF_PORT_VARS`† (`mockPort` / `mockBaseUrl`) → Save → **node configured**
-3 **http-node** — downstream nodes consume the published base URL · add HTTP node → fill `{{mockBaseUrl}}/cart` → Save → **node configured**
-4 **apply-node** — hot-swap the rule set mid-run for a second scenario · add `CANVAS_APPLY`† → open config → select the definition → Save → **node configured**
-5 **reset-node** — rewind the state machine between iterations · add `CANVAS_RESET`† → open config → hold on the state-reset option → Save → **node configured**
-6 **assert-node** — assert against the journal, not your logs · add `CANVAS_ASSERT` → fill `WF_ASSERT_MIN` 1 → hold ⟂ fill `WF_ASSERT_STATUS`† → hold on body-contains / header / last-call-within fields → Save → **assertions set**
-7 **stop-node** — guaranteed teardown, even on failure · add `CANVAS_STOP` → open config → Save → hold on the node → **node configured**
-8 **wire** — Start → HTTP → Assert → Reset → Stop · connect each edge → Fit View → hold on the graph → **graph wired**
-9 **quick-test** — one click runs the whole lifecycle · click `WF.QUICK_TEST` → hold on nodes turning green in order → hold on the assert node's evidence (route + count) → **all green**
+1 **designer-palette** — mocks belong in the test graph, not a side terminal · open Designer → collapse app sidebar → type `Mock` in `WF.PAL_SEARCH` → hold each of the five matching blocks → **search + palette group**
+2 **start-node** — the lifecycle node, and why isolation matters · add `CANVAS_START` → connect Start trigger → Fit View → open config → select `WF_SERVER` Checkout → toggle `WF_ISOLATE` (private port, cannot clobber your Studio tab) → hold on `WF_PORT_VARS`† (`mockPort` / `mockBaseUrl`) → Save → **node configured**
+3 **apply-node** — hot-swap the rule set mid-run for a second scenario · add `CANVAS_APPLY`† → connect under Start Mock → Fit View → open config → select the definition → Save → **node configured**
+4 **http-node** — downstream nodes consume the published base URL · add HTTP node → connect under Apply → Fit View → fill `{{mockBaseUrl}}/cart` → Save → **node configured**
+5 **assert-node** — assert against the journal, not your logs · add `CANVAS_ASSERT` → connect under HTTP → Fit View → fill `WF_ASSERT_MIN` 1 → hold ⟂ fill `WF_ASSERT_STATUS`† → hold on body-contains / header / last-call-within fields → Save → **assertions set**
+6 **reset-node** — rewind the state machine between iterations · add `CANVAS_RESET`† → connect under Assert → Fit View → open config → hold on the state-reset option → Save → **node configured**
+7 **stop-node** — guaranteed teardown, even on failure · add `CANVAS_STOP` → connect under Reset → Fit View → open config → Save → hold on the node → **node configured**
+8 **wire** — Start Mock → Apply → HTTP → Assert → Reset → Stop · already wired as each node landed · walk the edges → Fit View → hold on the graph → **graph wired**
+9 **quick-test** — open Console, then one click runs the whole lifecycle · click `WF.CONSOLE_BADGE` → click `WF.QUICK_TEST` → hold on nodes turning green in order → hold on the assert node's evidence (route + count) → **all green**
 
 #### AM-23 `am-23-harness-ci` — Test Runner Fixtures & CI Handoff (7 steps)
 **Quiet corpus:** store library + a small scenario suite. **Live:** fixture configuration and the run. **Companion:** required. `allowedTabs: ['test-runner','api-mock-studio']`.
 **Tags:** `harness-fixture`, `wf-isolate`, `cli-concept`, `export-workspace-json`, `journal-export`, `sim-expected`.
 
 1 **fixture-panel** — scenario suites need a mock that starts and stops with the run · open Test Runner → hold on `HARNESS_MOCK_FIXTURE`† → select `HARNESS_MOCK_SERVER`† Store → hold → **fixture selected**
-2 **isolate** — a private port per run is what makes parallel suites safe · toggle `HARNESS_MOCK_ISOLATE`† → hold → hold on `HARNESS_MOCK_VAR`† (base URL published to scenarios) → **isolation on**
+2 **isolate** — a private port per run is what makes parallel suites safe · hold `HARNESS_MOCK_ISOLATE`† on (throwaway copy; Off would restore Studio's prior Running/Stopped) → **isolation on**
 3 **run** — the fixture starts before the first scenario · run the suite → hold on the fixture start line → hold on the results → **results**
 4 **teardown** — no orphan listeners after the run · hold on Stopped status → hold on the freed port → **stopped**
 5 **evidence** — the journal is the run's audit trail · click `DOCK_TAB_TRANSACTIONS` → hold on the run's rows → **journal rows**
@@ -586,7 +586,7 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 6 **conflicts** — Analyze → read a finding → fix priority → re-analyze clean
 7 **suite** — build the sample suite with expectations → Run all green
 8 **live** — Start → real traffic → journal check (matched + one near-miss)
-9 **ship** — export workspace + WireMock → workflow Quick Test green
+9 **ship** — export workspace + WireMock → drop+connect each workflow node + Fit View → Quick Test green
 
 ---
 

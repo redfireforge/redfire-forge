@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { wipeBridge, collapse, patchBridge, importBridge, settingsBridge, blankBridge, secretsBridge } = vi.hoisted(() => ({
+const { wipeBridge, collapse, patchBridge, importBridge, settingsBridge, blankBridge, secretsBridge, listBridge } = vi.hoisted(() => ({
   wipeBridge: vi.fn(async () => true),
   collapse: vi.fn(),
   patchBridge: vi.fn(() => true),
@@ -11,11 +11,13 @@ const { wipeBridge, collapse, patchBridge, importBridge, settingsBridge, blankBr
   settingsBridge: vi.fn(() => true),
   blankBridge: vi.fn(async () => true),
   secretsBridge: vi.fn(async () => true),
+  listBridge: vi.fn(async () => [{ id: 'srv-live', name: 'Cart API', port: 4601, active: true }]),
 }));
 
 vi.mock('./bridgeWindow', () => ({
   getDemoBridgeWindow: () => ({
     __demoWipeApiMockWorkspace: wipeBridge,
+    __demoListApiMockServers: listBridge,
     __demoCollapseAppSidebar: collapse,
     __demoPatchApiMockActiveRoute: patchBridge,
     __demoPatchApiMockServerSettings: settingsBridge,
@@ -37,6 +39,7 @@ describe('apiMockStudioAdapter', () => {
   it('wipes, imports gallery, patches route, and prepares chrome', async () => {
     const {
       wipeApiMockWorkspace,
+      listApiMockStudioServers,
       prepareApiMockStudioChrome,
       patchApiMockActiveRoute,
       importApiMockGallerySample,
@@ -45,6 +48,10 @@ describe('apiMockStudioAdapter', () => {
     } = await import('./apiMockStudioAdapter');
     await expect(wipeApiMockWorkspace()).resolves.toBe(true);
     expect(wipeBridge).toHaveBeenCalled();
+    await expect(listApiMockStudioServers()).resolves.toEqual([
+      { id: 'srv-live', name: 'Cart API', port: 4601, active: true },
+    ]);
+    expect(listBridge).toHaveBeenCalled();
     await expect(importApiMockGallerySample('am-gallery-health')).resolves.toBe(true);
     expect(importBridge).toHaveBeenCalledWith('am-gallery-health');
     await expect(ensureBlankApiMockServer()).resolves.toBe(true);
@@ -72,8 +79,9 @@ describe('apiMockStudioAdapter', () => {
     vi.doMock('./appShellAdapter', () => ({
       collapseAppSidebar: vi.fn(),
     }));
-    const { wipeApiMockWorkspace, patchApiMockActiveRoute, importApiMockGallerySample, patchApiMockServerSettings, ensureBlankApiMockServer, seedApiMockExportSecrets } = await import('./apiMockStudioAdapter');
+    const { wipeApiMockWorkspace, listApiMockStudioServers, patchApiMockActiveRoute, importApiMockGallerySample, patchApiMockServerSettings, ensureBlankApiMockServer, seedApiMockExportSecrets } = await import('./apiMockStudioAdapter');
     await expect(wipeApiMockWorkspace()).resolves.toBe(false);
+    await expect(listApiMockStudioServers()).resolves.toEqual([]);
     expect(patchApiMockActiveRoute({ path: '/health' })).toBe(false);
     expect(patchApiMockServerSettings({ equalPriorityPolicy: 'reject' })).toBe(false);
     await expect(importApiMockGallerySample('am-gallery-health')).resolves.toBe(false);

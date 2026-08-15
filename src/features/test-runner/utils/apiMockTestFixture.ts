@@ -5,6 +5,7 @@ import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contrac
 import type { Scenario } from '../../../shared/types';
 import { replaceHost } from '../../../shared/utils/urlUtils';
 import { apiMockControlClient } from '../../api-mock/apiMockControlClient';
+import { loadApiMockWorkspace } from '../../api-mock/apiMockPersistence';
 import { resolveApiMockDefinition } from '../../workflow/utils/apiMockWorkflowDefinitionResolver';
 import {
   cleanupApiMockServersForRun,
@@ -19,10 +20,7 @@ export interface ApiMockTestFixtureConfig {
   /** When true (default), use run-isolated server ids. */
   isolateRun?: boolean;
   teardown?: 'stop' | 'none';
-  /**
-   * When true (default), point the run's HTTP base URL at the mock listener.
-   * Disable if tests already use absolute URLs / {{mockBaseUrl}}.
-   */
+  /** Ignored — Mock Server always rewrites scenario URLs to the listener. */
   overrideBaseUrl?: boolean;
 }
 
@@ -32,6 +30,8 @@ export interface ApiMockFixtureHandle {
   port: number;
   generation: number;
   definition: ApiMockServerDefinitionV1;
+  /** Isolate off: Studio was already running before this run — leave it up. */
+  restoreRunning?: boolean;
 }
 
 /** Live fixture bind/teardown line shown on the Test Runner panel. */
@@ -41,18 +41,55 @@ export interface ApiMockFixtureRunStatus {
   serverId?: string;
 }
 
+/** Turn the Host → Mock Server option on, keeping the last server/isolate choices. */
+export function enableApiMockFixture(
+  prev?: ApiMockTestFixtureConfig,
+): ApiMockTestFixtureConfig {
+  return {
+    enabled: true,
+    serverId: prev?.serverId ?? '',
+    isolateRun: prev?.isolateRun !== false,
+    overrideBaseUrl: true,
+    teardown: prev?.teardown ?? 'stop',
+    portMode: prev?.portMode ?? 'auto',
+    port: prev?.port,
+  };
+}
+
+/** Prefer the requested id; if blank, use the active workspace server or the first one. */
+export function resolveFixtureServerId(
+  requested: string | undefined,
+  workspace: { servers: Array<{ id: string }>; activeServerId?: string },
+): string {
+  const id = requested?.trim() ?? '';
+  if (id) return id;
+  const active = workspace.activeServerId?.trim() ?? '';
+  if (active && workspace.servers.some(s => s.id === active)) return active;
+  return workspace.servers[0]?.id ?? '';
+}
+
 export async function setupApiMockFixture(
   config: ApiMockTestFixtureConfig,
   runId: string,
 ): Promise<{ ok: true; handle: ApiMockFixtureHandle } | { ok: false; error: string }> {
   if (!config.enabled) return { ok: false, error: 'API Mock fixture disabled' };
+  const workspace = await loadApiMockWorkspace();
+  const serverId = resolveFixtureServerId(config.serverId, workspace);
   const resolved = await resolveApiMockDefinition({
-    serverId: config.serverId,
+    serverId,
     portOverride: config.portMode === 'fixed' ? config.port : undefined,
     isolateRun: config.isolateRun !== false,
     runId,
+    loadWorkspace: async () => workspace,
   });
   if (!resolved.ok) return { ok: false, error: resolved.error };
+
+  const isolate = config.isolateRun !== false;
+  let restoreRunning = false;
+  if (!isolate) {
+    const prior = await apiMockControlClient.status(serverId);
+    restoreRunning = prior.ok && prior.data.state === 'running';
+  }
 
   const start = await apiMockControlClient.start(resolved.definition);
   if (!start.ok) return { ok: false, error: `${start.error.title}: ${start.error.message}` };
@@ -66,6 +103,7 @@ export async function setupApiMockFixture(
       port: start.data.port,
       generation: start.data.generation,
       definition: resolved.definition,
+      restoreRunning,
     },
   };
 }
@@ -76,6 +114,8 @@ export async function teardownApiMockFixture(
 ): Promise<void> {
   if (!handle) return;
   if (config?.teardown === 'none') return;
+  // Isolate off: put Studio's mock back the way it was.
+  if (config?.isolateRun === false && handle.restoreRunning) return;
   await cleanupApiMockServersForRun(handle.runId);
 }
 

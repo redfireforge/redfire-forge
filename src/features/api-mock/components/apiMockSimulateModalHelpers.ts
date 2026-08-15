@@ -1,5 +1,6 @@
 import type {
   ApiMockCapturedRequestV1,
+  ApiMockPredicateGroupV1,
   ApiMockRouteV1,
   ApiMockSimulationResultV1,
   ApiMockSimulationSampleV1,
@@ -26,9 +27,21 @@ export function parseSimulateHeaderLines(text: string): Record<string, string> {
 }
 
 export function capturedHeadersFromText(text: string): Record<string, string[]> {
-  return Object.fromEntries(
-    Object.entries(parseSimulateHeaderLines(text)).map(([k, v]) => [k, [v]]),
-  );
+  return lowercaseHeaderMap(parseSimulateHeaderLines(text));
+}
+
+/** Matcher lookups are lower-case. Saved / From-rules samples must use the same keys. */
+export function lowercaseHeaderMap(
+  headers: Record<string, string | string[] | undefined> | undefined,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(headers ?? {})) {
+    if (v == null) continue;
+    const key = k.toLowerCase();
+    const values = Array.isArray(v) ? v : [v];
+    out[key] = out[key] ? [...out[key], ...values] : [...values];
+  }
+  return out;
 }
 
 export function headersToText(headers: Record<string, string | string[]>): string {
@@ -64,6 +77,22 @@ export function mergeSimulateSamples(
   return next;
 }
 
+/** Exact header rows on an All-of group — enough for a From-rules probe to satisfy that rule. */
+export function exactHeadersFromAllOf(
+  group: ApiMockPredicateGroupV1 | undefined,
+): Record<string, string[]> {
+  if (!group || group.combinator !== 'all') return {};
+  const headers: Record<string, string[]> = {};
+  for (const child of group.children) {
+    if ('combinator' in child) continue;
+    if (child.source !== 'header' || child.operator !== 'exact') continue;
+    const key = child.selector?.trim();
+    if (!key || child.expected == null) continue;
+    headers[key.toLowerCase()] = [String(child.expected)];
+  }
+  return headers;
+}
+
 export function buildAutoRouteSamples(routes: ApiMockRouteV1[]): ApiMockSimulationSampleV1[] {
   return routes.slice(0, 5).map((r) => ({
     id: `auto-${r.id}`,
@@ -75,7 +104,7 @@ export function buildAutoRouteSamples(routes: ApiMockRouteV1[]): ApiMockSimulati
       rawPath: concreteMockPath(r.path.value),
       query: {},
       cookies: {},
-      headers: {},
+      headers: exactHeadersFromAllOf(r.predicates),
       body: null,
       bodyTruncated: false,
       receivedAt: new Date().toISOString(),
@@ -103,6 +132,14 @@ export function createSavedSimulationSample(
         }
       : { outcome: 'matched' },
   };
+}
+
+export function reannotateSimulatePass(
+  sample: ApiMockSimulationSampleV1,
+  res: ApiMockSimulationResultV1,
+): ApiMockSimulationResultV1 {
+  const { passed: _ignored, ...rest } = res;
+  return annotateSimulatePass(sample, rest as ApiMockSimulationResultV1);
 }
 
 export function annotateSimulatePass(

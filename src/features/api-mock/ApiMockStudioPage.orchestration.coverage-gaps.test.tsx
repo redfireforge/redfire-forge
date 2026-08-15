@@ -113,6 +113,8 @@ vi.mock('./apiMockJournalActions', () => ({
 vi.mock('./apiMockPersistence', () => ({
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),
   saveApiMockWorkspace: (...args: unknown[]) => saveApiMockWorkspace(...args),
+  publishApiMockWorkspace: vi.fn(),
+  publishApiMockRuntimeChanged: vi.fn(),
 }));
 vi.mock('./apiMockControlClient', () => ({
   apiMockControlClient: {

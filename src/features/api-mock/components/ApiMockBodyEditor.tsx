@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import Editor, { type OnMount } from '@monaco-editor/react';
+import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react';
 import type { editor as MonacoEditor, IDisposable, Position } from 'monaco-editor';
 import { mockTemplateCompletionsForPrefix } from './apiMockTemplateCompletions';
+import { API_MOCK_MONACO_THEME, defineApiMockMonacoTheme } from './apiMockMonacoTheme';
 
 interface Props {
   value: string;
@@ -23,7 +24,13 @@ export function ApiMockBodyEditor({
 }: Props) {
   const completionRef = useRef<IDisposable | null>(null);
 
+  const handleBeforeMount: BeforeMount = useCallback((monaco) => {
+    defineApiMockMonacoTheme(monaco);
+  }, []);
+
   const handleMount: OnMount = useCallback((editor, monaco) => {
+    defineApiMockMonacoTheme(monaco);
+    monaco.editor.setTheme(API_MOCK_MONACO_THEME);
     completionRef.current?.dispose();
     const languages = ['json', 'xml', 'html', 'plaintext'];
     const disposables = languages.map(lang => monaco.languages.registerCompletionItemProvider(lang, {
@@ -64,9 +71,10 @@ export function ApiMockBodyEditor({
       <Editor
         height={height}
         language={language}
-        theme="vs-dark"
+        theme={API_MOCK_MONACO_THEME}
         value={value}
         onChange={next => onChange(next ?? '')}
+        beforeMount={handleBeforeMount}
         onMount={handleMount}
         options={{
           readOnly,
