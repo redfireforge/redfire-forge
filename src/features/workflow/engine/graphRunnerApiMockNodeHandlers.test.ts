@@ -5,6 +5,7 @@ import {
   handleApiMockResetStateNode,
   handleApiMockStopNode,
   handleApiMockAssertCallsNode,
+  fetchApiMockControl,
 } from './graphRunnerApiMockNodeHandlers';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerContext';
 import type { WorkflowNode } from '../types/workflow';
@@ -20,6 +21,7 @@ import {
 import { resolveApiMockDefinition } from '../utils/apiMockWorkflowDefinitionResolver';
 import { registerApiMockServerForRun } from '../utils/apiMockRunIsolation';
 import { apiMockControlBase } from '../../../shared/api-mock/controlBase';
+import { httpFetch } from '../../../shared/utils/httpClient';
 
 vi.mock('./apiMockNodeHandlers', () => ({
   handleApiMockStart: vi.fn(),
@@ -39,6 +41,14 @@ vi.mock('../utils/apiMockRunIsolation', () => ({
 
 vi.mock('../../../shared/api-mock/controlBase', () => ({
   apiMockControlBase: vi.fn(() => 'http://127.0.0.1:3001'),
+}));
+
+vi.mock('../../../shared/utils/httpClient', () => ({
+  httpFetch: vi.fn(async (url: string) => {
+    const res = await fetch(url) as Response & { json: () => Promise<unknown> };
+    const payload = await res.json();
+    return { status: 200, statusText: 'OK', headers: {}, body: JSON.stringify(payload) };
+  }),
 }));
 
 const ts = '2026-08-12T00:00:00.000Z';
@@ -527,6 +537,7 @@ describe('graphRunnerApiMockNodeHandlers', () => {
 
       expect(fetchMock).toHaveBeenCalledWith(
         'http://127.0.0.1:3001/api/mock/servers/srv-1/transactions?limit=500',
+        undefined,
       );
       expect(handleApiMockAssertCalls).toHaveBeenCalledWith(
         expect.objectContaining({ serverId: 'srv-1' }),
@@ -643,7 +654,7 @@ describe('graphRunnerApiMockNodeHandlers', () => {
       );
     });
 
-    it('falls back to window.location.origin when control base is empty', async () => {
+    it('keeps a relative /api/mock URL when control base is empty (Vite proxy)', async () => {
       vi.mocked(apiMockControlBase).mockReturnValue('');
       const fetchMock = vi.fn().mockResolvedValue({
         json: async () => ({ ok: true, data: { transactions: [] } }),
@@ -656,7 +667,93 @@ describe('graphRunnerApiMockNodeHandlers', () => {
       await handleApiMockAssertCallsNode('n-assert', assertNode(), hCtx, passed);
 
       expect(fetchMock).toHaveBeenCalledWith(
-        'http://localhost:5173/api/mock/servers/srv-1/transactions?limit=500',
+        '/api/mock/servers/srv-1/transactions?limit=500',
+        undefined,
+      );
+    });
+  });
+
+  describe('fetchApiMockControl', () => {
+    it('forwards the POST body on web (native fetch)', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('{"ok":true}', { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+      const body = JSON.stringify({ id: 'srv-ff6eca94', name: 'Cart API' });
+
+      await fetchApiMockControl('/api/mock/servers/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:3001/api/mock/servers/start',
+        expect.objectContaining({ method: 'POST', body }),
+      );
+    });
+
+    it('accepts URL and Request inputs and prefixes a relative path without a slash', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+
+      await fetchApiMockControl(new URL('http://127.0.0.1:3001/api/mock/health'));
+      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:3001/api/mock/health', undefined);
+
+      await fetchApiMockControl(new Request('http://127.0.0.1:3001/api/mock/state'));
+      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:3001/api/mock/state', undefined);
+
+      await fetchApiMockControl('api/mock/ping');
+      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:3001/api/mock/ping', undefined);
+    });
+
+    it('rejects a non-string control URL', async () => {
+      await expect(fetchApiMockControl({ url: 'true' } as RequestInfo)).rejects.toThrow(/Invalid control URL/);
+      await expect(fetchApiMockControl({ url: 'false' } as RequestInfo)).rejects.toThrow(/Invalid control URL/);
+    });
+
+    it('uses httpFetch on Tauri and maps status, headers, and errors', async () => {
+      vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
+      vi.mocked(httpFetch).mockResolvedValueOnce({
+        status: 0,
+        statusText: 'OK',
+        headers: { 'x-mock': '1' },
+        body: '{"ok":true}',
+      });
+
+      const res = await fetchApiMockControl('/api/mock/health', {
+        method: 'GET',
+        headers: { 'X-Trace': 't1' },
+        body: '{"ping":true}',
+      });
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe('{"ok":true}');
+      expect(httpFetch).toHaveBeenCalledWith(
+        'http://127.0.0.1:3001/api/mock/health',
+        'GET',
+        expect.objectContaining({ 'Content-Type': 'application/json', 'x-trace': 't1' }),
+        '{"ping":true}',
+      );
+
+      vi.mocked(httpFetch).mockResolvedValueOnce({
+        status: 500,
+        statusText: 'ERR',
+        headers: {},
+        body: '',
+        error: 'companion down',
+      });
+      await expect(fetchApiMockControl('/api/mock/health')).rejects.toThrow('companion down');
+
+      vi.mocked(httpFetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '',
+      });
+      await fetchApiMockControl('/api/mock/health', { method: 'POST', body: new Blob() });
+      expect(httpFetch).toHaveBeenLastCalledWith(
+        'http://127.0.0.1:3001/api/mock/health',
+        'POST',
+        { 'Content-Type': 'application/json' },
+        undefined,
       );
     });
   });
@@ -682,6 +779,20 @@ describe('graphRunnerApiMockNodeHandlers', () => {
 
       expect(handleApiMockResetState).toHaveBeenCalledWith(
         expect.anything(),
+        expect.objectContaining({ runId: 'workflow' }),
+      );
+    });
+
+    it('start node uses workflowId then the workflow token for isolate runId', async () => {
+      const withWf = makeHCtx({ executionId: undefined, workflowId: 'wf-start' });
+      await handleApiMockStartNode('n-start', startNode(), withWf, { value: true });
+      expect(resolveApiMockDefinition).toHaveBeenCalledWith(
+        expect.objectContaining({ runId: 'wf-start' }),
+      );
+
+      const bare = makeHCtx({ executionId: undefined, workflowId: undefined });
+      await handleApiMockStartNode('n-start', startNode(), bare, { value: true });
+      expect(resolveApiMockDefinition).toHaveBeenCalledWith(
         expect.objectContaining({ runId: 'workflow' }),
       );
     });
