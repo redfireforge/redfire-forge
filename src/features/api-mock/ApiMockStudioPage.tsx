@@ -6,7 +6,7 @@ import { type ApiMockMainView } from './components/ApiMockWorkspaceNav';
 import { ApiMockStudioEmptyState } from './components/ApiMockStudioEmptyState';
 import { ApiMockStudioModals } from './components/ApiMockStudioModals';
 import { ApiMockStudioActiveSection } from './components/ApiMockStudioActiveSection';
-import { loadApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
+import { loadApiMockWorkspace, publishApiMockRuntimeChanged, publishApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
 import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
@@ -111,6 +111,7 @@ export function ApiMockStudioPage() {
 
   // Persistence: hydrate from storage on mount, then autosave definitions.
   const hydratedRef = useRef(false);
+  const hydrateGenRef = useRef(0);
   const latestRef = useRef<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string; openTabIds: string[] }>({ servers: [], activeServerId: undefined, openTabIds: [] });
   const autosaveTimerRef = useRef<number | undefined>(undefined);
   latestRef.current = { servers, activeServerId, openTabIds };
@@ -123,8 +124,10 @@ export function ApiMockStudioPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const startedGen = hydrateGenRef.current;
+    const isStale = () => cancelled || hydrateGenRef.current !== startedGen;
     void loadApiMockWorkspace().then(async state => {
-      if (cancelled) return;
+      if (isStale()) return;
       const hydrated = computeHydrationResult(cancelled, state);
       if (hydrated.shouldApply) {
         setServers(hydrated.servers);
@@ -141,12 +144,12 @@ export function ApiMockStudioPage() {
           }));
         } else {
           const listRes = await apiMockControlClient.list();
-          if (cancelled) return;
+          if (isStale()) return;
           live = listRes.ok
             ? listRes.data.map(s => ({ serverId: s.serverId, state: s.state, generation: s.generation }))
             : null;
         }
-        if (cancelled) return;
+        if (isStale()) return;
         const reconciled = reconcileRuntimeState(
           hydrated.servers.map(s => ({ serverId: s.id, persistedRunning: false })),
           live,
@@ -184,6 +187,9 @@ export function ApiMockStudioPage() {
     const onWorkspaceChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string; openTabIds?: string[] }>).detail;
       if (!detail?.servers) return;
+      // Invalidate in-flight mount hydration so a stale list() cannot mark
+      // wiped servers running and spam /transactions 404s during a lesson.
+      hydrateGenRef.current += 1;
       // Cancel a pending autosave that could overwrite the imported workspace.
       if (autosaveTimerRef.current != null) {
         window.clearTimeout(autosaveTimerRef.current);
@@ -211,6 +217,8 @@ export function ApiMockStudioPage() {
 
   useEffect(() => {
     if (!hydratedRef.current) return;
+    // Tell Test Runner immediately — disk write stays debounced.
+    publishApiMockWorkspace(latestRef.current);
     autosaveTimerRef.current = window.setTimeout(() => {
       autosaveTimerRef.current = undefined;
       void saveApiMockWorkspace(latestRef.current);
@@ -495,6 +503,9 @@ export function ApiMockStudioPage() {
 
   const patchRuntime = useCallback((id: string, patch: Partial<RuntimeInfo>) => {
     setRuntime(prev => mergeRuntimeInfo(prev, id, patch));
+    if (patch.status === 'running' || patch.status === 'stopped' || patch.status === 'error') {
+      publishApiMockRuntimeChanged();
+    }
   }, []);
 
   const handleStart = useCallback(async (server: ApiMockServerDefinitionV1) => {

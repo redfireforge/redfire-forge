@@ -140,6 +140,12 @@ export function hasAm21Result(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SIMULATE_OUTCOME) || firstVisibleElement(API_MOCK.SIMULATE_RESULT));
 }
 
+export function hasAm21SampleResult(id: string): boolean {
+  const row = firstVisibleElement(API_MOCK.simSample(id))
+    ?? document.querySelector(API_MOCK.simSample(id));
+  return Boolean(row?.querySelector('.am-badge, [data-testid="api-mock-sim-sample-fail"]'));
+}
+
 export function hasAm21Fail(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SIMULATE_FAIL_BADGE) || firstVisibleElement(API_MOCK.SIMULATE_ASSERT_FAIL));
 }
@@ -253,6 +259,17 @@ async function ensureAm21Result(ctx: DemoActionContext, visible: boolean): Promi
   await ctx.waitFor(API_MOCK.SIMULATE_OUTCOME, REVEAL_MS);
 }
 
+async function ensureAm21HealthResult(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  await selectAm21Sample(ctx, AM21_HEALTH_ID, visible);
+  if (hasAm21SampleResult(AM21_HEALTH_ID)) return;
+  if (visible) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
+  } else {
+    await ctx.click(API_MOCK.SIMULATE_RUN);
+  }
+  await ctx.waitFor(API_MOCK.SIMULATE_OUTCOME, REVEAL_MS);
+}
+
 async function showAm21RequestForm(ctx: DemoActionContext, visible: boolean): Promise<void> {
   if (!firstVisibleElement(API_MOCK.SIMULATE_VIEW_REQUEST)) return;
   if (visible) await am21Aim(ctx, API_MOCK.SIMULATE_VIEW_REQUEST, T.tabSwitch);
@@ -268,8 +285,7 @@ async function openAm21Assertions(ctx: DemoActionContext, visible: boolean): Pro
 
 export async function ensureAm21WrongExpectation(ctx: DemoActionContext, visible = false): Promise<void> {
   await openAm21Simulate(ctx, visible);
-  await selectAm21Sample(ctx, AM21_HEALTH_ID, visible);
-  await ensureAm21Result(ctx, visible);
+  await ensureAm21HealthResult(ctx, visible);
   await openAm21Assertions(ctx, visible);
   if (hasAm21WrongExpectation()) return;
   if (!firstVisibleElement(API_MOCK.SIMULATE_ASSERT_STATUS)) return;
@@ -291,8 +307,7 @@ export async function ensureAm21ForThreeViews(ctx: DemoActionContext): Promise<v
 export async function ensureAm21ForExpectations(ctx: DemoActionContext): Promise<void> {
   await ensureAm21Library(ctx);
   await openAm21Simulate(ctx, false);
-  await selectAm21Sample(ctx, AM21_HEALTH_ID, false);
-  await ensureAm21Result(ctx, false);
+  await ensureAm21HealthResult(ctx, false);
 }
 
 export async function ensureAm21ForFailLoudly(ctx: DemoActionContext): Promise<void> {
@@ -383,7 +398,11 @@ export async function runAm21Expectations(ctx: DemoActionContext): Promise<void>
 
 export async function runAm21FailLoudly(ctx: DemoActionContext): Promise<void> {
   await ensureAm21ForFailLoudly(ctx);
-  await am21ClickNow(ctx, API_MOCK.simSampleBtn(AM21_HEALTH_ID), T.fieldFilled);
+  if (!isAm21HealthSelected()) {
+    await am21ClickNow(ctx, API_MOCK.simSampleBtn(AM21_HEALTH_ID), T.fieldFilled);
+  } else {
+    await am21Look(ctx, API_MOCK.simSample(AM21_HEALTH_ID));
+  }
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   await am21Reveal(ctx, API_MOCK.SIMULATE_FAIL_BADGE, T.simOutcome);
   await am21Payoff(ctx, API_MOCK.SIMULATE_FAIL_BADGE);

@@ -838,7 +838,12 @@ describe('AM-08 helpers', () => {
       [API_MOCK.SETTINGS_AMBIGUITY_BODY, AM08_AMBIGUITY_BODY],
       [API_MOCK.SIMULATE_HEADERS, AM08_SIM_HEADERS],
     ]));
+    expect(patchApiMockServerSettings).toHaveBeenCalledWith({
+      multipleMatchPolicy: 'reject_multiple',
+      ambiguityBody: AM08_AMBIGUITY_BODY,
+    });
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_RENDERED);
+    expect(calls(ctx.click)).not.toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
     expect(isAm08SettingsOpen()).toBe(false);
     expect(isAm08SimulateOpen()).toBe(false);
   });

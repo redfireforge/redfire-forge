@@ -4,7 +4,7 @@ import { exportHarForStudio } from '../../shared/api-mock/harExport';
 import { exportWireMockMappings } from '../../shared/api-mock/wireMockExport';
 import type { ApiMockExportFormat, ApiMockExportRequest, ApiMockExportScope } from './components/ApiMockWorkspaceNav';
 import { apiMockControlClient } from './apiMockControlClient';
-import { downloadJsonFile } from './apiMockPageHelpers';
+import { downloadJsonFile, isApiMockLiveDemoActive } from './apiMockPageHelpers';
 
 export interface ApiMockExportResult {
   filename: string;
@@ -31,8 +31,14 @@ interface HandleApiMockExportArgs {
   setLiveMessage: (message: string) => void;
 }
 
+/** Installed binary — there is no `cli` command. */
+export const API_MOCK_CLI_SIMULATE = 'redfireforge mock simulate';
+export const API_MOCK_CLI_VERIFY = 'redfireforge mock verify';
+export const API_MOCK_CLI_SIMULATE_EXAMPLE = `${API_MOCK_CLI_SIMULATE} workspace.json`;
+export const API_MOCK_CLI_VERIFY_EXAMPLE = `${API_MOCK_CLI_VERIFY} workspace.json`;
+
 function cliCommandFor(filename: string): string {
-  return `cli mock simulate ${filename}`;
+  return `${API_MOCK_CLI_SIMULATE} ${filename}`;
 }
 
 function serversFromEnvelope(envelope: ApiMockExportV1 | undefined): ApiMockServerDefinitionV1[] {
@@ -60,6 +66,7 @@ export function inspectExportSecrets(envelope: ApiMockExportV1 | undefined): {
 }
 
 function downloadTextFile(filename: string, text: string, mime: string): void {
+  if (isApiMockLiveDemoActive()) return;
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

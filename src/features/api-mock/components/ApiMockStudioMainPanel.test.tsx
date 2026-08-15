@@ -280,6 +280,34 @@ describe('ApiMockStudioMainPanel', () => {
     expect(screen.getByTestId('api-mock-conflicts-page').textContent).toMatch(/0 findings/);
   });
 
+  it('exposes a keyboard-resizable rules-panel splitter in Studio', () => {
+    render(
+      <ApiMockStudioMainPanel
+        activeServer={server()}
+        mainView="studio"
+        routesDrawerOpen={false}
+        transactions={[]}
+        conflictFindings={[]}
+        conflictIds={[]}
+        runtimeRunning={false}
+        dirty={false}
+        scenarioState={null}
+        consoleLines={[]}
+        {...noopHandlers()}
+      />,
+    );
+    const splitter = screen.getByTestId('api-mock-explorer-splitter');
+    expect(splitter.getAttribute('role')).toBe('separator');
+    expect(splitter.getAttribute('aria-orientation')).toBe('vertical');
+    const workspace = splitter.parentElement as HTMLElement;
+    Object.defineProperty(workspace, 'clientWidth', { configurable: true, value: 1200 });
+    fireEvent.mouseDown(splitter, { clientX: 262 });
+    fireEvent.mouseMove(window, { clientX: 320 });
+    fireEvent.mouseUp(window);
+    fireEvent.keyDown(splitter, { key: 'ArrowRight' });
+    expect(Number(splitter.getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(262);
+  });
+
   it('closes the routes drawer on Escape when no dialog is open', () => {
     const handlers = noopHandlers();
     render(

@@ -345,7 +345,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
   it('covers outbound tab and blocks deleting the only variant', () => {
     render(<StatefulEditor initial={makeRoute()} />);
     openTab('outbound');
-    expect(screen.getByText(/^Transforms$/)).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-variant-outbound')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('api-mock-transform-add'));
     expect(document.querySelector('[data-testid^="api-mock-delete-variant-"]')).toBeNull();
   });

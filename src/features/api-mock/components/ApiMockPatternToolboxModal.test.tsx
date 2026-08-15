@@ -9,7 +9,14 @@ import type { ApiMockPathMatcherV1 } from '../../../shared/api-mock/contracts';
 
 function renderModal(
   initial: ApiMockPathMatcherV1 = { kind: 'parameterized', value: '/users/:id' },
-  extra?: { onApplyConditions?: ReturnType<typeof vi.fn>; contextLabel?: string },
+  extra?: {
+    onApplyConditions?: ReturnType<typeof vi.fn>;
+    contextLabel?: string;
+    predicateSource?: 'cookie' | 'header' | 'query' | 'pathParam';
+    predicateSelector?: string;
+    predicateOperator?: 'regex' | 'glob';
+    predicateExpected?: string;
+  },
 ) {
   const onApply = vi.fn();
   const onClose = vi.fn();
@@ -21,6 +28,10 @@ function renderModal(
       onApplyConditions={onApplyConditions}
       onClose={onClose}
       contextLabel={extra?.contextLabel}
+      predicateSource={extra?.predicateSource}
+      predicateSelector={extra?.predicateSelector}
+      predicateOperator={extra?.predicateOperator}
+      predicateExpected={extra?.predicateExpected}
     />,
   );
   return { onApply, onClose, onApplyConditions };
@@ -113,6 +124,29 @@ describe('ApiMockPatternToolboxModal', () => {
     expect(screen.getByText('Path param id')).toBeTruthy();
     expect(screen.getByTestId('api-mock-toolbox-regex')).toBeTruthy();
     expect(screen.getByTestId('api-mock-toolbox-apply').textContent).toBe('Apply pattern');
+    expect(screen.getByTestId('api-mock-toolbox-applied-source').textContent).toBe('path');
+    expect(screen.getByTestId('api-mock-toolbox-lib-Numeric ID').className).toContain('active');
+  });
+
+  it('names the open Match row in Applied condition and drops Numeric ID when the pattern is custom', () => {
+    renderModal(
+      { kind: 'exact', value: '/reports' },
+      {
+        contextLabel: 'GET /reports · Cookie “sid”',
+        predicateSource: 'cookie',
+        predicateSelector: 'sid',
+        predicateOperator: 'regex',
+        predicateExpected: '',
+      },
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-regex'));
+    expect(screen.getByTestId('api-mock-toolbox-applied-source').textContent).toBe('cookie');
+    expect(screen.getByTestId('api-mock-toolbox-applied-selector').textContent).toBe('sid');
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-regex'), { target: { value: '^S-[0-9]{4}$' } });
+    expect(screen.getByTestId('api-mock-toolbox-applied-expected').textContent).toBe('^S-[0-9]{4}$');
+    expect(screen.getByTestId('api-mock-toolbox-lib-Numeric ID').className).not.toContain('active');
+    expect(screen.getByTestId('api-mock-toolbox-sample-row-s1').textContent).toMatch(/Should match/);
+    expect(screen.getByTestId('api-mock-toolbox-sample-row-s1').className).toContain('fail');
   });
 
   it('covers regex library search, apply, flags, samples, and invalid pattern', () => {

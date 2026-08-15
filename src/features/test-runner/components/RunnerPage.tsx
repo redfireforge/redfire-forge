@@ -10,6 +10,7 @@ import ExecutionPlanPreview from './ExecutionPlanPreview';
 import RunnerSlaOverridePanel from './RunnerSlaOverridePanel';
 import ApiMockFixturePanel from './ApiMockFixturePanel';
 import type { RunnerVariant } from './runnerVariants';
+import { enableApiMockFixture } from '../utils/apiMockTestFixture';
 
 export interface RunnerPageProps {
   featureGroups: FeatureGroup[];
@@ -24,12 +25,15 @@ export interface RunnerPageProps {
   globalAuthProfiles?: GlobalAuthProfile[];
   envFallbackAuth?: import('../../../shared/types').AuthConfig;
   sharedDataSources?: SharedDataSource[];
+  /** Test Runner stays mounted; fixture reloads Studio servers when shown. */
+  visible?: boolean;
 }
 
 export default function RunnerPage({
   variant,
   featureGroups, onComplete, envName, svcName, envId, svcId, isAdditionalEnv,
   resolvedBaseUrl, microservices, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [],
+  visible = true,
 }: RunnerPageProps & { variant: RunnerVariant }) {
   const runner = useRunnerOrchestration({
     featureGroups, kind: variant.kind, envId, svcId, envName, svcName,
@@ -99,14 +103,23 @@ export default function RunnerPage({
         disabled={isRunning}
         isGalleryEnv={isGalleryEnv}
         namePrefix={variant.namePrefix}
+        fixtureOpen={Boolean(apiMockFixture?.enabled)}
+        onFixtureOpenChange={(open) => {
+          setApiMockFixture(open
+            ? enableApiMockFixture(apiMockFixture)
+            : (apiMockFixture ? { ...apiMockFixture, enabled: false } : undefined));
+        }}
       />
 
-      <ApiMockFixturePanel
-        value={apiMockFixture}
-        onChange={setApiMockFixture}
-        disabled={isRunning}
-        status={fixtureStatus}
-      />
+      {Boolean(apiMockFixture?.enabled) && (
+        <ApiMockFixturePanel
+          value={apiMockFixture}
+          onChange={setApiMockFixture}
+          disabled={isRunning}
+          status={fixtureStatus}
+          visible={visible}
+        />
+      )}
 
       <RunnerExecutionConfig
         executionMode={executionMode}

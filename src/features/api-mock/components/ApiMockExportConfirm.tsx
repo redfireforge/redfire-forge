@@ -5,12 +5,19 @@ import {
   formatTextExpandCount,
   nextTextExpandMatch,
 } from './apiMockTextExpand';
-import type { ApiMockExportResult } from '../apiMockExportActions';
+import {
+  API_MOCK_CLI_SIMULATE,
+  API_MOCK_CLI_VERIFY,
+  type ApiMockExportResult,
+} from '../apiMockExportActions';
+import { CheckIcon, CopyIcon, ShieldCheckIcon } from './ApiMockIcons';
 
 interface Props {
   result: ApiMockExportResult;
   onClose: () => void;
 }
+
+type CopiedId = 'preview' | 'cli' | 'verify';
 
 /**
  * Confirmation after an Export menu download — preview, redaction proof,
@@ -20,8 +27,10 @@ interface Props {
 export function ApiMockExportConfirm({ result, onClose }: Props) {
   const previewRef = useRef<HTMLTextAreaElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [query, setQuery] = useState('');
   const [matchIndex, setMatchIndex] = useState(0);
+  const [copied, setCopied] = useState<CopiedId | null>(null);
 
   const matches = useMemo(() => findTextExpandMatches(result.text, query), [result.text, query]);
 
@@ -39,6 +48,23 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
+
+  const markCopied = (id: CopiedId) => {
+    setCopied(id);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(null), 1600);
+  };
+
+  const copyText = async (id: CopiedId, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      markCopied(id);
+    } catch {
+      /* clipboard may be unavailable in tests / restricted iframes */
+    }
+  };
+
   const selectMatch = (index: number) => {
     const el = previewRef.current;
     const needle = query.trim();
@@ -54,33 +80,9 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
     selectMatch(next);
   };
 
-  const copyPreview = async () => {
-    try {
-      await navigator.clipboard.writeText(result.nativeJson ?? result.text);
-    } catch {
-      /* clipboard may be unavailable in tests / restricted iframes */
-    }
-  };
-
-  const copyCli = async () => {
-    try {
-      await navigator.clipboard.writeText(result.cliCommand);
-    } catch {
-      /* same as copyPreview */
-    }
-  };
-
-  const verifyCommand = result.cliCommand.replace('cli mock simulate', 'cli mock verify');
-
-  const copyCliVerify = async () => {
-    try {
-      await navigator.clipboard.writeText(verifyCommand);
-    } catch {
-      /* same as copyPreview */
-    }
-  };
-
+  const verifyCommand = result.cliCommand.replace(API_MOCK_CLI_SIMULATE, API_MOCK_CLI_VERIFY);
   const showRedaction = result.redacted && (result.tlsKeyPem != null || result.sensitiveValues.length > 0);
+  const showSecrets = result.tlsKeyPem != null || result.sensitiveValues.length > 0;
   const title = result.format === 'wiremock'
     ? 'WireMock mappings exported'
     : result.format === 'har'
@@ -93,10 +95,23 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
             ? 'Server JSON exported'
             : 'Routes exported';
 
+  const copyButton = (id: CopiedId, text: string, testId: string, label = 'Copy') => (
+    <button
+      type="button"
+      className="am-btn small"
+      onClick={() => { void copyText(id, text); }}
+      data-testid={testId}
+    >
+      {copied === id ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+      {copied === id ? 'Copied' : label}
+    </button>
+  );
+
   return (
     <AppModalFrame
       title={title}
       onClose={onClose}
+      overlayClassName="am-studio-modal-overlay"
       dialogClassName="modal am-studio-modal am-export-confirm-modal"
       bodyClassName="am-studio-modal-body"
       footerClassName="am-studio-modal-footer"
@@ -128,32 +143,49 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
         </div>
       )}
       footer={(
-        <div className="api-mock-root am-in-modal am-modal-toolbar" style={{ width: '100%' }}>
-          <span className="am-faint" data-testid="api-mock-export-filename">{result.filename}</span>
+        <div className="api-mock-root am-in-modal am-modal-toolbar am-export-confirm-footer">
+          <span className="am-export-filename" title={result.filename} data-testid="api-mock-export-filename">{result.filename}</span>
           <span className="am-spacer" />
-          <button type="button" className="am-btn" onClick={() => { void copyPreview(); }} data-testid="api-mock-export-copy">Copy</button>
+          {copyButton('preview', result.nativeJson ?? result.text, 'api-mock-export-copy', 'Copy JSON')}
           <button type="button" className="am-btn primary" onClick={onClose} data-testid="api-mock-export-close">Close</button>
         </div>
       )}
     >
       <div className="api-mock-root am-in-modal am-export-confirm" data-testid="api-mock-export-confirm-body">
         {showRedaction && (
-          <div className="am-notice" data-testid="api-mock-export-redaction">
-            TLS private keys and sensitive variables never leave the workspace. They are stripped from this file.
+          <div className="am-notice success am-export-banner" data-testid="api-mock-export-redaction">
+            <ShieldCheckIcon size={16} />
+            <div className="am-export-banner-copy">
+              <strong>Secrets stayed in the workspace</strong>
+              <p>TLS private keys and sensitive variables never leave the workspace. They are stripped from this file.</p>
+            </div>
           </div>
         )}
-        {result.tlsKeyPem != null && (
-          <div className="am-export-secret-row">
-            <span className="am-muted">TLS private key</span>
-            <code className="mono" data-testid="api-mock-export-tls-key">{result.tlsKeyPem || '(empty)'}</code>
-          </div>
+
+        {showSecrets && (
+          <section className="am-export-card">
+            <div className="am-section-heading">Stripped from this file</div>
+            <div className="am-form-grid">
+              {result.tlsKeyPem != null && (
+                <div className="am-form-row">
+                  <div className="am-form-label">TLS private key</div>
+                  <div className="am-form-control">
+                    <span className="am-export-redacted" data-testid="api-mock-export-tls-key">{result.tlsKeyPem || '(empty)'}</span>
+                  </div>
+                </div>
+              )}
+              {result.sensitiveValues.map(v => (
+                <div className="am-form-row" key={v.key}>
+                  <div className="am-form-label">{v.key}</div>
+                  <div className="am-form-control">
+                    <span className="am-export-redacted" data-testid="api-mock-export-secret">{v.value}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
-        {result.sensitiveValues.map(v => (
-          <div className="am-export-secret-row" key={v.key}>
-            <span className="am-muted">{v.key}</span>
-            <code className="mono" data-testid="api-mock-export-secret">{v.value}</code>
-          </div>
-        ))}
+
         {result.entryCount != null && (
           <div className="am-notice" data-testid="api-mock-export-har-count">
             HAR export: {result.entryCount} {result.entryCount === 1 ? 'entry' : 'entries'}
@@ -175,24 +207,41 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
             </ul>
           </div>
         )}
-        <label className="am-export-cli-row">
-          <span className="am-muted">CI handoff</span>
-          <code className="mono" data-testid="api-mock-export-cli">{result.cliCommand}</code>
-          <button type="button" className="am-btn small" onClick={() => { void copyCli(); }} data-testid="api-mock-export-cli-copy">Copy</button>
-        </label>
-        <label className="am-export-cli-row">
-          <span className="am-muted">Live journal</span>
-          <code className="mono" data-testid="api-mock-export-cli-verify">{verifyCommand}</code>
-          <button type="button" className="am-btn small" onClick={() => { void copyCliVerify(); }} data-testid="api-mock-export-cli-verify-copy">Copy</button>
-        </label>
-        <textarea
-          ref={previewRef}
-          className="am-textarea mono am-export-preview"
-          readOnly
-          value={result.text}
-          aria-label="Export preview"
-          data-testid="api-mock-export-preview"
-        />
+
+        <section className="am-export-card">
+          <div className="am-section-heading">
+            Next steps
+            <span className="am-hint">Replay or verify this file from the CLI</span>
+          </div>
+          <div className="am-form-grid">
+            <div className="am-form-row">
+              <div className="am-form-label">CI handoff</div>
+              <div className="am-form-control">
+                <code className="am-export-cli-cmd" data-testid="api-mock-export-cli">{result.cliCommand}</code>
+                {copyButton('cli', result.cliCommand, 'api-mock-export-cli-copy')}
+              </div>
+            </div>
+            <div className="am-form-row">
+              <div className="am-form-label">Live journal</div>
+              <div className="am-form-control">
+                <code className="am-export-cli-cmd" data-testid="api-mock-export-cli-verify">{verifyCommand}</code>
+                {copyButton('verify', verifyCommand, 'api-mock-export-cli-verify-copy')}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="am-export-preview-block">
+          <div className="am-section-heading">Preview</div>
+          <textarea
+            ref={previewRef}
+            className="am-textarea am-export-preview"
+            readOnly
+            value={result.text}
+            aria-label="Export preview"
+            data-testid="api-mock-export-preview"
+          />
+        </section>
       </div>
     </AppModalFrame>
   );

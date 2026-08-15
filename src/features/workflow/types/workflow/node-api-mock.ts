@@ -58,6 +58,10 @@ export interface ApiMockAssertCallsNodeData {
   expectedMaxCount?: number;
   expectedStatus?: number;
   expectedBodyContains?: string;
+  /** How to compare `expectedBodyContains`. Default is substring contains. */
+  expectedBodyMatch?: 'contains' | 'equals' | 'regex';
+  /** Preferred header checks. Legacy `expectedHeaderKey` / `expectedHeaderValue` still apply when this is empty. */
+  expectedHeaders?: Array<{ key: string; value?: string }>;
   expectedHeaderKey?: string;
   expectedHeaderValue?: string;
   /** Fail if the newest matching call is older than this many ms. */

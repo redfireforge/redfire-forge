@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ApiMockStudioPage } from './ApiMockStudioPage';
+import { resetApiMockWorkspaceSnapshot } from './apiMockPersistence';
 
 /** Creating a server asks the control plane for a free port, so it settles async. */
 async function createFirstServer() {
@@ -23,7 +24,10 @@ async function addServerTab(expectedTabs: number) {
 }
 
 describe('ApiMockStudioPage', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    resetApiMockWorkspaceSnapshot();
+  });
   it('renders empty state with create button', () => {
     render(<ApiMockStudioPage />);
     expect(screen.getByTestId('api-mock-empty')).toBeTruthy();

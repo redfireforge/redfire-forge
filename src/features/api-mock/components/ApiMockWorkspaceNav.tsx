@@ -79,7 +79,18 @@ export function ApiMockWorkspaceNav({
   useEffect(() => {
     if (!exportOpen) return;
     const onDoc = (e: MouseEvent) => {
-      if (!exportRef.current?.contains(e.target as Node)) setExportOpen(false);
+      const target = e.target;
+      if (exportRef.current?.contains(target as Node)) return;
+      // Demo rings, ripples, and the live panel sit on document.body. A
+      // mousedown there must not dismiss the menu mid-lesson (Acting then
+      // waits for a confirm that never opens).
+      if (
+        target instanceof Element
+        && target.closest('.demo-spotlight-ring, .demo-click-ripple, .demo-live-panel')
+      ) {
+        return;
+      }
+      setExportOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);

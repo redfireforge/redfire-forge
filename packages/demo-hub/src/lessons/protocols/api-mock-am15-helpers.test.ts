@@ -162,6 +162,7 @@ function mountImport(opts: {
   review.append(el('textarea', 'am-textarea', 'api-mock-curl-input'));
   review.append(el('button', 'am-btn', 'api-mock-curl-parse'));
   review.append(el('textarea', 'am-textarea', 'api-mock-import-paste'));
+  review.append(el('button', 'am-format-badge', 'api-mock-import-pretty'));
   review.append(el('button', 'am-btn', 'api-mock-import-parse'));
   review.append(el('button', 'am-folder-trigger', 'api-mock-import-folder'));
   const folderMenu = el('div', 'am-folder-menu', 'api-mock-import-folder-menu');
@@ -254,6 +255,11 @@ describe('AM-15 import helpers', () => {
     expect(AM15_PRIORITY).toBe('20');
     expect(JSON.parse(AM15_OPENAPI).paths['/widgets'].get).toBeTruthy();
     expect(JSON.parse(AM15_WIREMOCK).mappings).toHaveLength(1);
+    const wm = JSON.parse(AM15_WIREMOCK).mappings[0];
+    expect(wm.request.headers['X-Tenant'].equalTo).toBe('acme');
+    expect(wm.request.queryParameters.page.equalTo).toBe('1');
+    expect(wm.response.delayDistribution).toBeUndefined();
+    expect(wm.response.fixedDelayMilliseconds).toBe(40);
     expect(JSON.parse(AM15_HAR).log.entries).toHaveLength(2);
     expect(AM15_PROVE_PATH).toBe('/users/42');
   });
@@ -433,17 +439,19 @@ describe('AM-15 import helpers', () => {
     mountImport({ source: 'openapi', preview: true, routeList: true });
     await runAm15OpenApi(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.IMPORT_PASTE, AM15_OPENAPI);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PRETTY);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PARSE);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_CONFIRM);
   });
 
-  it('runAm15WireMock pastes mappings and holds the loss report', async () => {
+  it('runAm15WireMock pastes mappings and holds the mapped preview', async () => {
     const ctx = makeCtx();
     mountServerBar(false);
     mountExplorer(4);
-    mountImport({ source: 'wiremock', preview: true, loss: true });
+    mountImport({ source: 'wiremock', preview: true });
     await runAm15WireMock(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.IMPORT_PASTE, AM15_WIREMOCK);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PRETTY);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PARSE);
   });
 
@@ -454,6 +462,7 @@ describe('AM-15 import helpers', () => {
     mountImport({ source: 'har', preview: true, routeList: true });
     await runAm15Har(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.IMPORT_PASTE, AM15_HAR);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PRETTY);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_CONFIRM);
   });
 

@@ -7,6 +7,9 @@ import { makeCtx, makeVisible } from './ws-test-utils';
 
 const wipeApiMockWorkspace = vi.fn(async () => true);
 const ensureBlankApiMockServer = vi.fn(async () => true);
+const listApiMockStudioServers = vi.fn(async () => [
+  { id: 'srv-blank', name: 'Import sandbox', port: 4600, active: true },
+]);
 const prepareApiMockStudioChrome = vi.fn();
 const sendApiMockRequest = vi.fn(async () => ({ status: 201, body: '{}' }));
 const patchApiMockActiveRoute = vi.fn(() => true);
@@ -14,11 +17,13 @@ const deleteWorkflowByName = vi.fn(() => true);
 const addWorkflowNodeWithPreset = vi.fn(() => true);
 const patchWorkflowNodeDataById = vi.fn(() => true);
 const connectWorkflowNodes = vi.fn(() => true);
+const removeWorkflowEdge = vi.fn(() => true);
 const triggerWorkflowQuickTest = vi.fn();
 
 vi.mock('../../adapters', () => ({
   wipeApiMockWorkspace: (...a: unknown[]) => wipeApiMockWorkspace(...(a as [])),
   ensureBlankApiMockServer: (...a: unknown[]) => ensureBlankApiMockServer(...(a as [])),
+  listApiMockStudioServers: (...a: unknown[]) => listApiMockStudioServers(...(a as [])),
   prepareApiMockStudioChrome: (...a: unknown[]) => prepareApiMockStudioChrome(...(a as [])),
   sendApiMockRequest: (...a: unknown[]) => sendApiMockRequest(...(a as [])),
   patchApiMockActiveRoute: (...a: unknown[]) => patchApiMockActiveRoute(...(a as [])),
@@ -26,6 +31,7 @@ vi.mock('../../adapters', () => ({
   addWorkflowNodeWithPreset: (...a: unknown[]) => addWorkflowNodeWithPreset(...(a as [])),
   patchWorkflowNodeDataById: (...a: unknown[]) => patchWorkflowNodeDataById(...(a as [])),
   connectWorkflowNodes: (...a: unknown[]) => connectWorkflowNodes(...(a as [])),
+  removeWorkflowEdge: (...a: unknown[]) => removeWorkflowEdge(...(a as [])),
   triggerWorkflowQuickTest: (...a: unknown[]) => triggerWorkflowQuickTest(...(a as [])),
 }));
 
@@ -225,6 +231,9 @@ describe('AM-24 helpers', () => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
     ensureBlankApiMockServer.mockResolvedValue(true);
+    listApiMockStudioServers.mockResolvedValue([
+      { id: 'srv-blank', name: 'Import sandbox', port: 4600, active: true },
+    ]);
   });
 
   it('pins timing to the slower AM-14…AM-23 holds', () => {
@@ -395,6 +404,7 @@ describe('AM-24 helpers', () => {
         const src = el('button', undefined, 'api-mock-import-source-openapi');
         review.append(src);
         review.append(el('textarea', undefined, 'api-mock-import-paste'));
+        review.append(el('button', undefined, 'api-mock-import-pretty'));
         review.append(el('button', undefined, 'api-mock-import-parse'));
         review.append(el('div', undefined, 'api-mock-import-route-list'));
         review.append(checkbox('api-mock-import-generalize', false));
@@ -412,6 +422,7 @@ describe('AM-24 helpers', () => {
     await runAm24FromSpec(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_MENU);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.IMPORT_PASTE, AM24_OPENAPI);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PRETTY);
   });
 
   it('matching opens the toolbox, applies JSONPath, and runs Simulate', async () => {
@@ -696,6 +707,7 @@ describe('AM-24 helpers', () => {
         const review = el('div', undefined, 'api-mock-import-review');
         review.append(el('button', undefined, 'api-mock-import-source-openapi'));
         review.append(el('textarea', undefined, 'api-mock-import-paste'));
+        review.append(el('button', undefined, 'api-mock-import-pretty'));
         review.append(el('button', undefined, 'api-mock-import-parse'));
         review.append(el('button', undefined, 'api-mock-import-confirm'));
         review.append(el('button', undefined, 'api-mock-import-close'));
@@ -975,6 +987,7 @@ describe('AM-24 helpers', () => {
         const review = el('div', undefined, 'api-mock-import-review');
         review.append(el('button', undefined, 'api-mock-import-source-openapi'));
         review.append(el('textarea', undefined, 'api-mock-import-paste'));
+        review.append(el('button', undefined, 'api-mock-import-pretty'));
         review.append(el('button', undefined, 'api-mock-import-parse'));
         review.append(el('div', undefined, 'api-mock-import-route-list'));
         review.append(checkbox('api-mock-import-generalize', false));
@@ -1169,6 +1182,7 @@ describe('AM-24 helpers', () => {
       if (sel === API_MOCK.IMPORT_MENU) {
         const review = el('div', undefined, 'api-mock-import-review');
         review.append(el('textarea', undefined, 'api-mock-import-paste'));
+        review.append(el('button', undefined, 'api-mock-import-pretty'));
         review.append(el('button', undefined, 'api-mock-import-parse'));
         review.append(checkbox('api-mock-import-generalize', true));
         review.append(el('button', undefined, 'api-mock-import-confirm'));
@@ -1251,6 +1265,7 @@ describe('AM-24 helpers', () => {
         const review = el('div', undefined, 'api-mock-import-review');
         review.append(el('button', 'active', 'api-mock-import-source-openapi'));
         review.append(el('textarea', undefined, 'api-mock-import-paste'));
+        review.append(el('button', undefined, 'api-mock-import-pretty'));
         review.append(el('button', undefined, 'api-mock-import-parse'));
         review.append(el('div', undefined, 'api-mock-import-route-list'));
         review.append(el('button', undefined, 'api-mock-import-confirm'));
@@ -1280,6 +1295,7 @@ describe('AM-24 helpers', () => {
         const src = el('button', undefined, 'api-mock-import-source-openapi');
         review.append(src);
         review.append(el('textarea', undefined, 'api-mock-import-paste'));
+        review.append(el('button', undefined, 'api-mock-import-pretty'));
         review.append(el('button', undefined, 'api-mock-import-parse'));
         review.append(el('div', undefined, 'api-mock-import-route-list'));
         review.append(checkbox('api-mock-import-generalize', false));

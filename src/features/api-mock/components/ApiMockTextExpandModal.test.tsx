@@ -9,7 +9,10 @@ vi.mock('./apiMockTextExpand', () => ({
   findTextExpandMatches: (draft: string, query: string) => (query ? [0] : []),
   formatTextExpandCount: (index: number, length: number) => `${Math.min(index + 1, length)}/${length}`,
   nextTextExpandMatch: () => 5,
+  formatJsonBody: () => null,
   prettyPrintJsonBody: () => '',
+  minifyJsonBody: () => '',
+  textExpandStats: (text: string) => ({ lines: 1, chars: text.length }),
 }));
 
 import { ApiMockTextExpandModal } from './ApiMockTextExpandModal';
@@ -39,6 +42,10 @@ describe('ApiMockTextExpandModal branch guards', () => {
 
     const pretty = screen.getByTestId('api-mock-text-expand-pretty') as HTMLButtonElement;
     invokeReactClick(pretty);
+    expect(editor).toHaveValue('same');
+
+    const minify = screen.getByTestId('api-mock-text-expand-minify') as HTMLButtonElement;
+    invokeReactClick(minify);
     expect(editor).toHaveValue('same');
 
     const undo = screen.getByTestId('api-mock-text-expand-undo') as HTMLButtonElement;

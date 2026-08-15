@@ -4,6 +4,7 @@ import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
 import { isLoopbackUrl, preferLocalhostHostname, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
+import { probeApiMockEcho } from './src/shared/api-mock/echoHealthProbe'
 import { demoHubRootImportsPlugin } from './vite/demoHubRootImports'
 import { demoLiveGuardPlugin } from './vite/demoLiveGuardPlugin'
 import { createMonacoAwareLogger, monacoDevNoisePlugin } from './vite/monacoDevNoisePlugin'
@@ -153,6 +154,16 @@ function proxyPlugin(): Plugin {
     server.httpServer?.on('close', () => {
       pooledDispatcher?.close?.();
       pooledDispatcher = undefined;
+    });
+
+    // AM-17 PrerequisiteGate — same-origin 200 so Chrome never logs :4017
+    // CONNECTION_REFUSED. Uses Node http (no corporate HTTP_PROXY).
+    server.middlewares.use('/health/api-mock-echo', async (_req, res) => {
+      const probe = await probeApiMockEcho();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(probe.ok
+        ? { status: 'ok', source: 'api-mock-echo', httpStatus: probe.statusCode }
+        : { status: 'down', source: 'api-mock-echo', reason: probe.reason ?? 'unreachable' }));
     });
 
     server.middlewares.use('/__proxy', async (req, res) => {

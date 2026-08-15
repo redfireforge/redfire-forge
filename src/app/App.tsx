@@ -584,6 +584,7 @@ export default function App() {
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
               sharedDataSources={sharedDataSources}
+              visible={activeTab === 'runner'}
             />
           </div>
           {/* Keep ParameterizedRunner mounted so in-flight tests survive tab switches */}
@@ -601,6 +602,7 @@ export default function App() {
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
               sharedDataSources={sharedDataSources}
+              visible={activeTab === 'param-runner'}
             />
           </div>
           {activeTab === 'results' && (

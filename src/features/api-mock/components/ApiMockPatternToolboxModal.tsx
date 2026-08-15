@@ -35,6 +35,9 @@ interface Props {
   predicateOperator?: ApiMockPredicateV1['operator'];
   /** Seed Ignore case from the open matcher row (`options.caseSensitive === false`). */
   predicateCaseInsensitive?: boolean;
+  /** When opened from a Match row, Applied condition must name that row — not a hardcoded pathParam. */
+  predicateSource?: ApiMockPredicateV1['source'];
+  predicateSelector?: string;
 }
 
 
@@ -50,6 +53,7 @@ interface SampleRow {
 export function ApiMockPatternToolboxModal({
   initial, onApply, onApplyConditions, onApplyPredicate, onClose, contextLabel, initialTab,
   predicateExpected, predicateOperator, predicateCaseInsensitive,
+  predicateSource, predicateSelector,
 }: Props) {
   const [tab, setTab] = useState<ToolTab>(initialTab ?? (initial.kind === 'regex' ? 'regex' : 'path'));
   const [constraints, setConstraints] = useState<ConstraintDraft[]>([
@@ -69,7 +73,6 @@ export function ApiMockPatternToolboxModal({
     initialRegexPattern(predicateOperator, predicateExpected, initial.kind, initial.value),
   );
   const [libraryQuery, setLibraryQuery] = useState('');
-  const [activeLibrary, setActiveLibrary] = useState('Numeric ID');
   const [samples, setSamples] = useState<SampleRow[]>([
     { id: 's1', value: '42', shouldMatch: true },
     { id: 's2', value: '100234', shouldMatch: true },
@@ -173,8 +176,7 @@ export function ApiMockPatternToolboxModal({
     return p;
   }).join('/');
 
-  const applyLibrary = (name: string, pattern: string, pass: string[], fail: string[]) => {
-    setActiveLibrary(name);
+  const applyLibrary = (_name: string, pattern: string, pass: string[], fail: string[]) => {
     setRegexPattern(pattern);
     setTab('regex');
     setSamples([
@@ -269,6 +271,11 @@ export function ApiMockPatternToolboxModal({
   })).filter(c => c.entries.length > 0);
 
   const explanationLines = explainRegex(regexPattern).split('\n').filter(Boolean);
+  const activeLibrary = REGEX_LIBRARY.flatMap(cat => cat.entries).find(e => e.pattern === regexPattern)?.name;
+  const appliedSource = predicateSource ?? 'path';
+  const appliedSelector = (predicateSelector ?? '').trim()
+    || (predicateSource ? '—' : (initial.value || '/'));
+  const appliedOperator = predicateOperator === 'glob' ? 'glob' : 'regex';
 
   return (
     <AppModalFrame
@@ -505,10 +512,10 @@ export function ApiMockPatternToolboxModal({
                 </ul>
                 <div className="am-tool-block-title am-tool-preview-subtitle">Applied condition</div>
                 <dl className="am-kv-list">
-                  <div><dt>Source</dt><dd className="am-mono">pathParam</dd></div>
-                  <div><dt>Selector</dt><dd className="am-mono">id</dd></div>
-                  <div><dt>Operator</dt><dd className="am-mono">regex</dd></div>
-                  <div><dt>Expected</dt><dd className="am-mono">{regexPattern || '—'}</dd></div>
+                  <div><dt>Source</dt><dd className="am-mono" data-testid="api-mock-toolbox-applied-source">{appliedSource}</dd></div>
+                  <div><dt>Selector</dt><dd className="am-mono" data-testid="api-mock-toolbox-applied-selector">{appliedSelector}</dd></div>
+                  <div><dt>Operator</dt><dd className="am-mono" data-testid="api-mock-toolbox-applied-operator">{appliedOperator}</dd></div>
+                  <div><dt>Expected</dt><dd className="am-mono" data-testid="api-mock-toolbox-applied-expected">{regexPattern || '—'}</dd></div>
                   <div><dt>Case sensitive</dt><dd className="am-mono">{String(!caseInsensitive)}</dd></div>
                 </dl>
                 <div className="am-notice warning">

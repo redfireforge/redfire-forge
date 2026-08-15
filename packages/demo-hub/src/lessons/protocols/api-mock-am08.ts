@@ -92,7 +92,7 @@ export const apiMockAm08Lesson: DemoLesson = {
     + 'reject every multiple match as 409, or break equal priority by specificity.',
   estimatedMinutes: 9,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 2,
   concept: {
     title: 'Groups say whether a rule matches. Policy says which matching rule wins.',
     body:
@@ -278,14 +278,19 @@ export const apiMockAm08Lesson: DemoLesson = {
       title: 'Equal priority: score the matchers',
       description:
         'Put both rules back at 10 and leave Multiple matches on **Choose highest priority**. '
-        + 'The remaining question is the *equal*-priority policy. Switch it to **Specificity, '
-        + 'then stable ID**: score method, path kind, and every passing matcher, then break a '
-        + 'true dead heat with a stable rule id.\n\n'
-        + 'Same request again. Regional wins — not because of a number you typed, but because '
-        + 'a version header plus two tenant exacts plus a None-of guard outranks an empty '
-        + 'Match group. The **Specificity** list is that score, and timeline step 3 names it. '
-        + 'That is the tie-break you want when the overlap is real and you still do not want '
-        + 'to guess by insertion order.',
+        + 'The remaining question is the *equal*-priority policy — **Specificity, then stable ID**. '
+        + 'Those two words do different jobs:\n\n'
+        + '- **Specificity** — a score built from the rule: method (a concrete verb beats `ANY`), '
+        + 'path kind (exact beats parameterized, which beats glob), and every matcher that actually '
+        + 'passed (a header exact outranks an empty Match group).\n'
+        + '- **Stable ID** — the rule\'s id. Used only when two scores are identical. The smaller '
+        + 'id wins, so the pick is deterministic — not "whoever was added last".\n\n'
+        + 'Switch Equal priority to **Specificity, then stable ID** and send the same request. '
+        + 'Regional wins because a version header plus two tenant exacts plus a None-of guard '
+        + 'outranks Default\'s empty Match group — not because of a number you typed. The '
+        + '**Specificity** list is that score, and timeline step 3 names it. That is the '
+        + 'tie-break you want when the overlap is real and you still do not want to guess '
+        + 'by insertion order.',
       highlight: API_MOCK.SETTINGS,
       preAction: ensureAm08ForSpecificity,
       action: async (ctx) => {

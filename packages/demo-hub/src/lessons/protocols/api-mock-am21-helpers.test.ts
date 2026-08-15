@@ -46,6 +46,7 @@ import {
   hasAm21ExportConfirm,
   hasAm21Fail,
   hasAm21Result,
+  hasAm21SampleResult,
   hasAm21SavedSamples,
   hasAm21Server,
   hasAm21Summary,
@@ -103,7 +104,7 @@ function mountStudio(): void {
   explorer.append(row);
   document.body.append(explorer);
   const cli = el('code', undefined, 'api-mock-cli-simulate');
-  cli.textContent = 'cli mock simulate workspace.json';
+  cli.textContent = 'redfireforge mock simulate workspace.json';
   document.body.append(cli);
 }
 
@@ -136,7 +137,11 @@ function mountSimulate(opts: {
   root.append(saved, scratch);
   root.append(mountSample('adhoc', !opts.healthActive && !opts.diceActive));
   const health = mountSample(AM21_HEALTH_ID, opts.healthActive);
-  if (opts.fail) health.append(el('span', 'am-badge danger', 'api-mock-sim-sample-fail'));
+  if (opts.fail) {
+    health.append(el('span', 'am-badge danger', 'api-mock-sim-sample-fail'));
+  } else if (opts.healthActive && opts.outcome) {
+    health.append(el('span', 'am-badge success'));
+  }
   root.append(health);
   root.append(mountSample(AM21_DICE_ID, opts.diceActive));
   root.append(el('button', undefined, 'api-mock-sim-sample-adhoc'));
@@ -233,6 +238,7 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(isAm21SimulateOpen()).toBe(false);
     expect(isAm21StudioViewActive()).toBe(false);
     expect(hasAm21Result()).toBe(false);
+    expect(hasAm21SampleResult(AM21_HEALTH_ID)).toBe(false);
     expect(hasAm21Fail()).toBe(false);
     expect(hasAm21Summary()).toBe(false);
     expect(hasAm21ExportConfirm()).toBe(false);
@@ -260,6 +266,7 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(isAm21SimulateOpen()).toBe(true);
     expect(hasAm21SavedSamples()).toBe(true);
     expect(hasAm21Result()).toBe(true);
+    expect(hasAm21SampleResult(AM21_HEALTH_ID)).toBe(true);
     expect(hasAm21Fail()).toBe(true);
     expect(hasAm21Summary()).toBe(true);
     expect(hasAm21ExportConfirm()).toBe(true);
@@ -421,9 +428,26 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(fills(ctx.fill)).not.toContainEqual([API_MOCK.SIMULATE_ASSERT_STATUS, AM21_WRONG_STATUS]);
   });
 
+  it('runs the health sample even when the scratch pad already has a result', async () => {
+    mountStudio();
+    mountSimulate({ outcome: 'MATCHED' });
+    const ctx = makeCtx();
+    await ensureAm21ForExpectations(ctx);
+    expect(calls(ctx.click)).toContain(API_MOCK.simSampleBtn(AM21_HEALTH_ID));
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
+  });
+
   it('runs the failing sample and holds FAIL', async () => {
     mountStudio();
     mountSimulate({ outcome: 'MATCHED', healthActive: true, assertStatus: AM21_WRONG_STATUS, fail: true });
+    const ctx = makeCtx();
+    await runAm21FailLoudly(ctx);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
+  });
+
+  it('selects the health sample before the FAIL run when it is not active', async () => {
+    mountStudio();
+    mountSimulate({ outcome: 'MATCHED', assertStatus: AM21_WRONG_STATUS, fail: true });
     const ctx = makeCtx();
     await runAm21FailLoudly(ctx);
     expect(calls(ctx.click)).toContain(API_MOCK.simSampleBtn(AM21_HEALTH_ID));

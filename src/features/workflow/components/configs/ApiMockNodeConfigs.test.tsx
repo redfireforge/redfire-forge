@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { loadApiMockWorkspace } from '../../../api-mock/apiMockPersistence';
 import {
   ApiMockStartConfig,
   ApiMockApplyConfig,
@@ -10,8 +11,12 @@ import {
   ApiMockStopConfig,
   ApiMockAssertCallsConfig,
 } from './ApiMockNodeConfigs';
+import { pickHealedMockServerId } from './apiMockNodeConfigHelpers';
 
 vi.mock('../../../api-mock/apiMockPersistence', () => ({
+  API_MOCK_WORKSPACE_PERSISTED_EVENT: 'api-mock:workspace-persisted',
+  API_MOCK_RUNTIME_CHANGED_EVENT: 'api-mock:runtime-changed',
+  peekApiMockWorkspaceSnapshot: vi.fn(() => null),
   loadApiMockWorkspace: vi.fn(async () => ({
     servers: [
       { id: 'srv-1', name: 'Mock A', port: 4600 },
@@ -21,11 +26,15 @@ vi.mock('../../../api-mock/apiMockPersistence', () => ({
   })),
 }));
 
+vi.mock('../../../api-mock/apiMockGalleryImport', () => ({
+  API_MOCK_WORKSPACE_CHANGED_EVENT: 'api-mock:workspace-changed',
+}));
+
 vi.mock('../../../../shared/components/CustomSelect', () => ({
   CustomSelect: ({ value, onChange, options, 'aria-label': aria, 'data-testid': testId }: {
     value: string;
     onChange: (v: string) => void;
-    options: Array<{ value: string; label: string }>;
+    options: Array<{ value: string; label: string; disabled?: boolean }>;
     'aria-label'?: string;
     'data-testid'?: string;
   }) => (
@@ -46,9 +55,18 @@ function changeRowInput(label: string, value: string) {
   fireEvent.change(input, { target: { value } });
 }
 
+const defaultWorkspace = {
+  servers: [
+    { id: 'srv-1', name: 'Mock A', port: 4600 },
+    { id: 'srv-2', name: 'Mock B', port: 4601 },
+  ],
+  activeServerId: 'srv-1',
+};
+
 describe('ApiMockNodeConfigs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(loadApiMockWorkspace).mockResolvedValue(defaultWorkspace);
   });
 
   it('renders Start config and patches all fields', async () => {
@@ -100,6 +118,61 @@ describe('ApiMockNodeConfigs', () => {
     expect(onChange).toHaveBeenCalledWith({ portOverride: undefined });
   });
 
+  it('reloads the server list when Studio publishes an empty workspace', async () => {
+    vi.mocked(loadApiMockWorkspace)
+      .mockResolvedValueOnce({
+        servers: [{ id: 'srv-1', name: 'Mock A', port: 4600 }],
+        activeServerId: 'srv-1',
+      })
+      .mockResolvedValue({ servers: [], activeServerId: undefined });
+    render(
+      <ApiMockStartConfig
+        data={{ serverId: 'srv-1', isolateRun: true }}
+        onChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('Mock A (:4600)')).toBeTruthy());
+
+    window.dispatchEvent(new CustomEvent('api-mock:workspace-persisted'));
+
+    await waitFor(() => expect(screen.getByText('No Studio servers')).toBeTruthy());
+  });
+
+  it('heals a remapped-stale id to the active Studio server', async () => {
+    const onChange = vi.fn();
+    render(
+      <ApiMockStartConfig
+        data={{ serverId: 'srv-gallery-checkout' }}
+        onChange={onChange}
+      />,
+    );
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith({ serverId: 'srv-1' }));
+    expect(screen.queryByText('No Studio servers')).toBeNull();
+  });
+
+  it('says Select server when several mocks exist and the node has no id', async () => {
+    render(
+      <ApiMockStartConfig
+        data={{ serverId: '' }}
+        onChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('Select server…')).toBeTruthy());
+    expect(screen.queryByText('No Studio servers')).toBeNull();
+    expect(screen.getByText('Mock A (:4600)')).toBeTruthy();
+  });
+
+  it('picks a healed mock server id for stale, single, and empty libraries', () => {
+    const a = { id: 'srv-1', name: 'A', port: 4600 };
+    const b = { id: 'srv-2', name: 'B', port: 4601 };
+    expect(pickHealedMockServerId([], 'stale')).toBeUndefined();
+    expect(pickHealedMockServerId([a], 'srv-1')).toBeUndefined();
+    expect(pickHealedMockServerId([a, b], 'stale', 'srv-2')).toBe('srv-2');
+    expect(pickHealedMockServerId([a, b], 'stale')).toBe('srv-1');
+    expect(pickHealedMockServerId([a], '')).toBeUndefined();
+    expect(pickHealedMockServerId([a, b], '')).toBeUndefined();
+  });
+
   it('toggles isolateRun when currently false', async () => {
     const onChange = vi.fn();
     render(
@@ -120,7 +193,7 @@ describe('ApiMockNodeConfigs', () => {
     );
     expect(screen.getByTestId('api-mock-apply-config')).toBeTruthy();
     expect(screen.getByTestId('api-mock-wf-apply-isolate-hint')).toBeTruthy();
-    await waitFor(() => expect(screen.getByTestId('api-mock-wf-server')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Mock B (:4601)')).toBeTruthy());
     fireEvent.change(screen.getByTestId('api-mock-wf-server'), { target: { value: 'srv-2' } });
     expect(onChange).toHaveBeenCalledWith({ serverId: 'srv-2' });
     fireEvent.change(screen.getByLabelText('On error'), { target: { value: 'continue' } });
@@ -129,7 +202,10 @@ describe('ApiMockNodeConfigs', () => {
     rerender(<ApiMockResetStateConfig data={{ serverId: '' }} onChange={onChange} />);
     expect(screen.getByTestId('api-mock-reset-config')).toBeTruthy();
     expect(screen.getByTestId('api-mock-wf-reset-option')).toBeTruthy();
-    await waitFor(() => expect(screen.getByTestId('api-mock-wf-server')).toBeTruthy());
+    expect(screen.getByText('Clears')).toBeTruthy();
+    expect(screen.getByText('Sequence cursors')).toBeTruthy();
+    expect(screen.getByText('Match counters')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Mock A (:4600)')).toBeTruthy());
     fireEvent.change(screen.getByTestId('api-mock-wf-server'), { target: { value: 'srv-1' } });
     expect(onChange).toHaveBeenCalledWith({ serverId: 'srv-1' });
     fireEvent.change(screen.getByLabelText('On error'), { target: { value: 'continue' } });
@@ -137,7 +213,7 @@ describe('ApiMockNodeConfigs', () => {
 
     rerender(<ApiMockStopConfig data={{ serverId: 'srv-1', idempotent: true }} onChange={onChange} />);
     expect(screen.getByTestId('api-mock-stop-config')).toBeTruthy();
-    await waitFor(() => expect(screen.getByTestId('api-mock-wf-server')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Mock B (:4601)')).toBeTruthy());
     fireEvent.change(screen.getByTestId('api-mock-wf-server'), { target: { value: 'srv-2' } });
     expect(onChange).toHaveBeenCalledWith({ serverId: 'srv-2' });
     fireEvent.click(screen.getAllByRole('switch')[0]);
@@ -175,7 +251,11 @@ describe('ApiMockNodeConfigs', () => {
       />,
     );
     expect(screen.getByTestId('api-mock-assert-config')).toBeTruthy();
-    await waitFor(() => expect(screen.getByTestId('api-mock-wf-server')).toBeTruthy());
+    expect(screen.getByText('Target')).toBeTruthy();
+    expect(screen.getByText('Call count')).toBeTruthy();
+    expect(screen.getByText('Last matching call')).toBeTruthy();
+    expect(screen.getByText('Request headers')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Mock B (:4601)')).toBeTruthy());
     fireEvent.change(screen.getByTestId('api-mock-wf-server'), { target: { value: 'srv-2' } });
     expect(onChange).toHaveBeenCalledWith({ serverId: 'srv-2' });
 
@@ -193,10 +273,13 @@ describe('ApiMockNodeConfigs', () => {
     expect(onChange).toHaveBeenLastCalledWith({ expectedStatus: undefined });
     fireEvent.change(screen.getByTestId('api-mock-wf-assert-body'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ expectedBodyContains: undefined });
+    expect(screen.getByTestId('api-mock-wf-assert-body').tagName).toBe('TEXTAREA');
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-body-match'), { target: { value: 'equals' } });
+    expect(onChange).toHaveBeenLastCalledWith({ expectedBodyMatch: 'equals' });
     fireEvent.change(screen.getByTestId('api-mock-wf-assert-header'), { target: { value: '' } });
-    expect(onChange).toHaveBeenLastCalledWith({ expectedHeaderKey: undefined });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ expectedHeaderKey: undefined }));
     fireEvent.change(screen.getByTestId('api-mock-wf-assert-header-value'), { target: { value: '' } });
-    expect(onChange).toHaveBeenLastCalledWith({ expectedHeaderValue: undefined });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ expectedHeaderValue: undefined }));
     fireEvent.change(screen.getByTestId('api-mock-wf-assert-recency'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ expectedLastCallWithinMs: undefined });
 
@@ -211,5 +294,50 @@ describe('ApiMockNodeConfigs', () => {
     expect(onChange).toHaveBeenLastCalledWith({ expectedStatus: 201 });
     fireEvent.change(screen.getByLabelText('On error'), { target: { value: 'continue' } });
     expect(onChange).toHaveBeenLastCalledWith({ onError: 'continue' });
+  });
+
+  it('adds and removes request header rows', async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <ApiMockAssertCallsConfig
+        data={{ serverId: 'srv-1', expectedHeaderKey: 'X-Id', expectedHeaderValue: 'abc' }}
+        onChange={onChange}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('api-mock-wf-assert-headers')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('api-mock-wf-assert-header-add'));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      expectedHeaders: [
+        { key: 'X-Id', value: 'abc' },
+        { key: '', value: '' },
+      ],
+    }));
+
+    rerender(
+      <ApiMockAssertCallsConfig
+        data={{
+          serverId: 'srv-1',
+          expectedHeaders: [
+            { key: 'X-Id', value: 'abc' },
+            { key: '', value: '' },
+          ],
+        }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('api-mock-wf-assert-header-1'), { target: { value: 'X-Trace' } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      expectedHeaders: [
+        { key: 'X-Id', value: 'abc' },
+        { key: 'X-Trace', value: '' },
+      ],
+      expectedHeaderKey: 'X-Id',
+      expectedHeaderValue: 'abc',
+    }));
+
+    fireEvent.click(screen.getByLabelText('Remove header 2'));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      expectedHeaders: [{ key: 'X-Id', value: 'abc' }],
+    }));
   });
 });

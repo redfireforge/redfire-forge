@@ -306,6 +306,15 @@ describe('isHttpWorkflowNode', () => {
   it('returns false for known non-http workflow node types', () => {
     expect(isHttpWorkflowNode({ id: 'k', type: 'kafkaProduce', position: { x: 0, y: 0 }, data: {} })).toBe(false);
   });
+
+  it('does not treat API Mock nodes as HTTP even if data has a scenario key', () => {
+    expect(isHttpWorkflowNode({
+      id: 'am',
+      type: 'apiMockStart',
+      position: { x: 0, y: 0 },
+      data: { label: 'Start Mock Server', serverId: 'srv-1', scenario: { id: 'leak' } },
+    })).toBe(false);
+  });
 });
 
 describe('mergeWorkflowVariableHints', () => {
