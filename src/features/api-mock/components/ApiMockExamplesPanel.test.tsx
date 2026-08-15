@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { ApiMockExamplesPanel } from './ApiMockExamplesPanel';
 import type { ApiMockSimulationSampleV1 } from '../../../shared/api-mock/contracts';
 import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
@@ -154,5 +155,41 @@ describe('ApiMockExamplesPanel', () => {
     fireEvent.click(screen.getByTestId('api-mock-example-attach-s1'));
     expect(onUpdateSample.mock.calls.at(-1)?.[0].expected.outcome).toBe('matched');
     expect(onUpdateSample.mock.calls.at(-1)?.[0].expected.routeId).toBe('r1');
+  });
+
+  it('pretty-formats a compact JSON body exact', () => {
+    const onUpdateSample = vi.fn();
+    render(
+      <ApiMockExamplesPanel
+        samples={[sample({ expected: { outcome: 'unmatched', bodyExact: '{"error":"not_found","mode":"closest_match_debug"}' } })]}
+        onUpdateSample={onUpdateSample}
+      />,
+    );
+    const pretty = screen.getByTestId('api-mock-example-body-pretty-s1');
+    expect(pretty).toBeEnabled();
+    fireEvent.click(pretty);
+    expect(onUpdateSample.mock.calls.at(-1)?.[0].expected.bodyExact).toBe(
+      '{\n  "error": "not_found",\n  "mode": "closest_match_debug"\n}',
+    );
+  });
+
+  it('shows an error when Pretty format is clicked on invalid JSON and clears it on edit', () => {
+    const onUpdateSample = vi.fn();
+    render(
+      <ApiMockExamplesPanel
+        samples={[sample({ expected: { bodyExact: '{not-json' } })]}
+        onUpdateSample={onUpdateSample}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-example-body-pretty-s1'));
+    expect(screen.getByTestId('api-mock-example-body-pretty-error-s1')).toHaveTextContent(/JSON/i);
+    expect(onUpdateSample).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId('api-mock-example-body-exact-s1'), { target: { value: '{}' } });
+    expect(screen.queryByTestId('api-mock-example-body-pretty-error-s1')).toBeNull();
+  });
+
+  it('disables Pretty format when body exact is empty', () => {
+    render(<ApiMockExamplesPanel samples={[sample()]} />);
+    expect(screen.getByTestId('api-mock-example-body-pretty-s1')).toBeDisabled();
   });
 });

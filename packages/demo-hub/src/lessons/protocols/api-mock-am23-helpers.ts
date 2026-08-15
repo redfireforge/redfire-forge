@@ -46,8 +46,8 @@ export const AM23_CORPUS_SAMPLE = 'am-gallery-store';
 export const AM23_FG_NAME = 'Store smoke suite';
 export const AM23_SCENARIO_NAME = 'Store smoke';
 export const AM23_SERVER_ID = 'srv-gallery-store';
-export const AM23_CLI_SIMULATE = 'cli mock simulate workspace.json';
-export const AM23_CLI_VERIFY = 'cli mock verify workspace.json';
+export const AM23_CLI_SIMULATE = 'redfireforge mock simulate workspace.json';
+export const AM23_CLI_VERIFY = 'redfireforge mock verify workspace.json';
 export const AM23_PRODUCTS_PATH = '/products';
 export const AM23_CART_PATH = '/cart';
 
@@ -104,11 +104,6 @@ function checkboxChecked(selector: string): boolean {
   return Boolean(el?.checked);
 }
 
-function selectValue(selector: string): string {
-  const el = firstVisibleElement<HTMLSelectElement>(selector);
-  return typeof el?.value === 'string' ? el.value.trim() : '';
-}
-
 export function isAm23RunnerActive(): boolean {
   return Boolean(firstVisibleElement(HAR.HARNESS_MOCK_FIXTURE) || firstVisibleElement(HAR.RUN_BTN));
 }
@@ -118,21 +113,66 @@ export function isAm23StudioActive(): boolean {
 }
 
 export function isAm23FixtureEnabled(): boolean {
-  return checkboxChecked(HAR.HARNESS_MOCK_ENABLED);
+  return Boolean(firstVisibleElement(HAR.HARNESS_MOCK_FIXTURE));
+}
+
+type Am23ServerChoice = { value: string; label: string };
+
+function readAm23ServerChoices(el: Element): Am23ServerChoice[] {
+  if (el instanceof HTMLSelectElement) {
+    return Array.from(el.options)
+      .filter(o => o.value.trim().length > 0)
+      .map(o => ({ value: o.value, label: o.textContent ?? '' }));
+  }
+  const encoded = el.closest('[data-am-servers]')?.getAttribute('data-am-servers')
+    ?? el.getAttribute('data-am-servers');
+  if (!encoded) return [];
+  try {
+    const parsed = JSON.parse(encoded) as Am23ServerChoice[];
+    return parsed.filter(o => typeof o?.value === 'string' && o.value.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+function readAm23ServerValue(el: Element): string {
+  if (el instanceof HTMLSelectElement) return el.value.trim();
+  return (el.getAttribute('data-value') ?? '').trim();
+}
+
+function readAm23ServerLabel(el: Element): string {
+  if (el instanceof HTMLSelectElement) return el.selectedOptions[0]?.textContent ?? '';
+  return el.querySelector('.cs-text')?.textContent ?? '';
+}
+
+/**
+ * Gallery import remaps `srv-gallery-store` to a fresh `srv-*` id. Prefer the
+ * live select option (template id, then a Store-named row, then the first
+ * real option) so the lesson never writes a missing value that clears React state.
+ */
+export function am23StoreServerId(): string {
+  const el = firstVisibleElement(HAR.HARNESS_MOCK_SERVER);
+  if (!el) return '';
+  const options = readAm23ServerChoices(el);
+  const byTemplate = options.find(o => o.value === AM23_SERVER_ID);
+  if (byTemplate) return byTemplate.value;
+  const byName = options.find(o => /store/i.test(o.label));
+  if (byName) return byName.value;
+  return options[0]?.value ?? '';
 }
 
 export function isAm23StoreSelected(): boolean {
-  return selectValue(HAR.HARNESS_MOCK_SERVER) === AM23_SERVER_ID;
+  const el = firstVisibleElement(HAR.HARNESS_MOCK_SERVER);
+  if (!el) return false;
+  const current = readAm23ServerValue(el);
+  if (!current) return false;
+  if (current === AM23_SERVER_ID) return true;
+  return /store/i.test(readAm23ServerLabel(el));
 }
 
 export function isAm23IsolateOn(): boolean {
   if (!firstVisibleElement(HAR.HARNESS_MOCK_ISOLATE)) return false;
   return checkboxChecked(HAR.HARNESS_MOCK_ISOLATE);
-}
-
-export function isAm23OverrideOn(): boolean {
-  if (!firstVisibleElement(HAR.HARNESS_MOCK_OVERRIDE)) return false;
-  return checkboxChecked(HAR.HARNESS_MOCK_OVERRIDE);
 }
 
 export function hasAm23StartLine(): boolean {
@@ -277,21 +317,26 @@ async function selectAm23Scenario(ctx: DemoActionContext): Promise<void> {
   }
 }
 
+async function ensureAm23FixtureOpen(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  if (firstVisibleElement(HAR.HARNESS_MOCK_FIXTURE)) return;
+  if (!firstVisibleElement(HAR.HOST_MOCK_SERVER)) return;
+  if (visible) await am23ClickNow(ctx, HAR.HOST_MOCK_SERVER, T.panelReady);
+  else await ctx.click(HAR.HOST_MOCK_SERVER);
+}
+
 async function enableFixtureAndPickStore(ctx: DemoActionContext, visible: boolean): Promise<void> {
   await ensureAm23OnRunner(ctx);
+  await ensureAm23FixtureOpen(ctx, visible);
   if (!firstVisibleElement(HAR.HARNESS_MOCK_FIXTURE)) return;
-  if (!isAm23FixtureEnabled() && firstVisibleElement(HAR.HARNESS_MOCK_ENABLED)) {
-    if (visible) await am23ClickNow(ctx, HAR.HARNESS_MOCK_ENABLED, T.fieldFilled);
-    else await ctx.click(HAR.HARNESS_MOCK_ENABLED);
-    await ctx.delay(visible ? T.panelReady : 200);
-  }
   if (!firstVisibleElement(HAR.HARNESS_MOCK_SERVER)) return;
   if (isAm23StoreSelected()) return;
+  const serverId = am23StoreServerId();
+  if (!serverId) return;
   if (visible) {
     await am23Aim(ctx, HAR.HARNESS_MOCK_SERVER);
-    await am23SelectNow(ctx, HAR.HARNESS_MOCK_SERVER, AM23_SERVER_ID);
+    await am23SelectNow(ctx, HAR.HARNESS_MOCK_SERVER, serverId);
   } else {
-    await ctx.selectOption(HAR.HARNESS_MOCK_SERVER, AM23_SERVER_ID);
+    await ctx.selectOption(HAR.HARNESS_MOCK_SERVER, serverId);
   }
 }
 
@@ -305,22 +350,10 @@ async function holdOrEnableIsolate(ctx: DemoActionContext, visible: boolean): Pr
   else await ctx.click(HAR.HARNESS_MOCK_ISOLATE);
 }
 
-async function holdOrEnableOverride(ctx: DemoActionContext, visible: boolean): Promise<void> {
-  if (!firstVisibleElement(HAR.HARNESS_MOCK_OVERRIDE)) return;
-  if (!isAm23OverrideOn()) {
-    if (visible) await am23ClickNow(ctx, HAR.HARNESS_MOCK_OVERRIDE, T.fieldFilled);
-    else await ctx.click(HAR.HARNESS_MOCK_OVERRIDE);
-  }
-  if (visible && firstVisibleElement(HAR.HARNESS_MOCK_VAR)) {
-    await am23Payoff(ctx, HAR.HARNESS_MOCK_VAR);
-  }
-}
-
 async function quietRunIfNeeded(ctx: DemoActionContext): Promise<void> {
   if (hasAm23Stopped() && hasAm23Results()) return;
   await enableFixtureAndPickStore(ctx, false);
   await holdOrEnableIsolate(ctx, false);
-  await holdOrEnableOverride(ctx, false);
   await selectAm23Scenario(ctx);
   if (!firstVisibleElement(HAR.RUN_BTN)) return;
   await ctx.click(HAR.RUN_BTN);
@@ -390,7 +423,6 @@ export async function ensureAm23ForIsolate(ctx: DemoActionContext): Promise<void
 export async function ensureAm23ForRun(ctx: DemoActionContext): Promise<void> {
   await enableFixtureAndPickStore(ctx, false);
   await holdOrEnableIsolate(ctx, false);
-  await holdOrEnableOverride(ctx, false);
   await selectAm23Scenario(ctx);
 }
 
@@ -424,8 +456,9 @@ export async function runAm23FixturePanel(ctx: DemoActionContext): Promise<void>
 export async function runAm23Isolate(ctx: DemoActionContext): Promise<void> {
   await ensureAm23OnRunner(ctx);
   await holdOrEnableIsolate(ctx, true);
-  await am23Break(ctx);
-  await holdOrEnableOverride(ctx, true);
+  if (firstVisibleElement(HAR.HARNESS_MOCK_ISOLATE)) {
+    await am23Payoff(ctx, HAR.HARNESS_MOCK_ISOLATE);
+  }
 }
 
 export async function runAm23Suite(ctx: DemoActionContext): Promise<void> {
@@ -507,7 +540,6 @@ export const am23TestHooks = {
   am23SelectNow,
   enableFixtureAndPickStore,
   holdOrEnableIsolate,
-  holdOrEnableOverride,
   selectAm23Scenario,
   quietRunIfNeeded,
   closeAm23Export,

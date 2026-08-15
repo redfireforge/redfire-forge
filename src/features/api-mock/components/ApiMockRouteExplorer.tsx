@@ -3,6 +3,7 @@ import type { ApiMockRouteFolderV1, ApiMockRouteV1 } from '../../../shared/api-m
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { getNextTabIndex } from '../../../shared/utils/tabListKeyboard';
 import { PlusIcon, FolderPlusIcon, FilterIcon, XIcon, ChevronDownIcon, ChevronRightIcon, TrashIcon, CheckIcon } from './ApiMockIcons';
+import { API_MOCK_CLI_SIMULATE_EXAMPLE, API_MOCK_CLI_VERIFY_EXAMPLE } from '../apiMockExportActions';
 
 const METHOD_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All methods' },
@@ -443,26 +444,53 @@ export function ApiMockRouteExplorer({
 
       {routes.length > 0 && (
         <div className="am-panel-foot">
-          <span className="am-faint" data-testid="api-mock-routes-footer">{enabledCount} enabled · {draftCount} draft{draftCount === 1 ? '' : 's'}</span>
+          <div
+            className="am-route-tally"
+            data-testid="api-mock-routes-footer"
+            role="status"
+            aria-label={`${enabledCount} enabled · ${draftCount} draft${draftCount === 1 ? '' : 's'}`}
+          >
+            <span
+              className={`am-route-tally-chip${enabledCount > 0 ? ' is-live' : ' is-empty'}`}
+              data-testid="api-mock-routes-enabled"
+              title={`${enabledCount} rule${enabledCount === 1 ? '' : 's'} enabled for matching`}
+            >
+              <span className="am-route-tally-dot" aria-hidden="true" />
+              <span className="am-route-tally-value">{enabledCount}</span>
+              <span className="am-route-tally-label">Enabled</span>
+            </span>
+            <span
+              className={`am-route-tally-chip${draftCount > 0 ? ' is-draft' : ' is-empty'}`}
+              data-testid="api-mock-routes-draft"
+              title={`${draftCount} draft${draftCount === 1 ? '' : 's'} — saved but not matching`}
+            >
+              <span className="am-route-tally-dot" aria-hidden="true" />
+              <span className="am-route-tally-value">{draftCount}</span>
+              <span className="am-route-tally-label">Draft{draftCount === 1 ? '' : 's'}</span>
+            </span>
+            <span className="am-sr-only">
+              {enabledCount} enabled · {draftCount} draft{draftCount === 1 ? '' : 's'}
+            </span>
+          </div>
           <span className="am-spacer" />
           <label className="am-cli-simulate">
-            <code data-testid="api-mock-cli-simulate">cli mock simulate workspace.json</code>
+            <code data-testid="api-mock-cli-simulate">{API_MOCK_CLI_SIMULATE_EXAMPLE}</code>
             <button
               type="button"
               className="am-btn small ghost"
               data-testid="api-mock-cli-simulate-copy"
-              onClick={() => { void navigator.clipboard.writeText('cli mock simulate workspace.json').catch(() => undefined); }}
+              onClick={() => { void navigator.clipboard.writeText(API_MOCK_CLI_SIMULATE_EXAMPLE).catch(() => undefined); }}
             >
               Copy
             </button>
           </label>
           <label className="am-cli-simulate">
-            <code data-testid="api-mock-cli-verify">cli mock verify workspace.json</code>
+            <code data-testid="api-mock-cli-verify">{API_MOCK_CLI_VERIFY_EXAMPLE}</code>
             <button
               type="button"
               className="am-btn small ghost"
               data-testid="api-mock-cli-verify-copy"
-              onClick={() => { void navigator.clipboard.writeText('cli mock verify workspace.json').catch(() => undefined); }}
+              onClick={() => { void navigator.clipboard.writeText(API_MOCK_CLI_VERIFY_EXAMPLE).catch(() => undefined); }}
             >
               Copy
             </button>

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { assertMockCalls } from './assertMockCalls';
+import {
+  assertMockCalls,
+  evaluateAssertBody,
+  resolveAssertBodyMatch,
+  resolveAssertHeaderCriteria,
+} from './assertMockCalls';
 import type { ApiMockTransactionV1 } from './contracts';
 
 const ts = '2026-08-12T12:00:00.000Z';
@@ -90,5 +95,57 @@ describe('assertMockCalls', () => {
     expect(assertMockCalls([], { serverId: 'srv-1', expectedBodyContains: 'ok' }).passed).toBe(false);
     expect(assertMockCalls([], { serverId: 'srv-1', expectedHeaderKey: 'Authorization' }).passed).toBe(false);
     expect(assertMockCalls([], { serverId: 'srv-1', expectedHeaderKey: 'Authorization' }).actual).toBe('no matching calls');
+  });
+
+  it('checks every listed request header', () => {
+    const withBoth = tx({
+      request: { ...tx().request, headers: { 'x-id': ['abc'], 'x-trace': ['1'] } },
+    });
+    expect(assertMockCalls([withBoth], {
+      serverId: 'srv-1',
+      expectedHeaders: [
+        { key: 'X-Id', value: 'abc' },
+        { key: 'X-Trace', value: '1' },
+      ],
+    }).passed).toBe(true);
+
+    const missingSecond = assertMockCalls([withBoth], {
+      serverId: 'srv-1',
+      expectedHeaders: [
+        { key: 'X-Id', value: 'abc' },
+        { key: 'Authorization', value: 'Bearer' },
+      ],
+    });
+    expect(missingSecond.passed).toBe(false);
+    expect(missingSecond.expected).toContain('Authorization');
+  });
+
+  it('prefers expectedHeaders over the legacy single pair', () => {
+    expect(resolveAssertHeaderCriteria({
+      expectedHeaders: [{ key: ' X-Id ', value: ' abc ' }, { key: '', value: 'skip' }],
+      expectedHeaderKey: 'Legacy',
+      expectedHeaderValue: 'old',
+    })).toEqual([{ key: 'X-Id', value: 'abc' }]);
+    expect(resolveAssertHeaderCriteria({
+      expectedHeaderKey: 'Authorization',
+      expectedHeaderValue: '  ',
+    })).toEqual([{ key: 'Authorization' }]);
+  });
+
+  it('matches body with contains, equals, and regex', () => {
+    expect(resolveAssertBodyMatch(undefined)).toBe('contains');
+    expect(evaluateAssertBody('{"ok":true}', 'ok').ok).toBe(true);
+    expect(evaluateAssertBody('{"ok":true}', '{"ok":true}', 'equals').ok).toBe(true);
+    expect(evaluateAssertBody('{"ok":true}', '{"ok":false}', 'equals').ok).toBe(false);
+    expect(evaluateAssertBody('{"id":"12"}', '"id":\\s*"\\d+"', 'regex').ok).toBe(true);
+    expect(evaluateAssertBody('{"id":"12"}', '(', 'regex').actual).toBe('invalid regular expression');
+
+    const exactFail = assertMockCalls([tx()], {
+      serverId: 'srv-1',
+      expectedBodyContains: '{"ok":false}',
+      expectedBodyMatch: 'equals',
+    });
+    expect(exactFail.passed).toBe(false);
+    expect(exactFail.expected).toContain('body equals');
   });
 });

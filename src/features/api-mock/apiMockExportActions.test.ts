@@ -13,6 +13,7 @@ const exportHarForStudio = vi.fn();
 const exportWireMockMappings = vi.fn();
 const transactionsMock = vi.fn();
 const downloadJsonFile = vi.fn();
+const isApiMockLiveDemoActive = vi.fn(() => false);
 
 vi.mock('../../shared/api-mock/exportUtils', () => ({
   exportFilename: (...args: unknown[]) => exportFilename(...args),
@@ -36,6 +37,7 @@ vi.mock('./apiMockControlClient', () => ({
 
 vi.mock('./apiMockPageHelpers', () => ({
   downloadJsonFile: (...args: unknown[]) => downloadJsonFile(...args),
+  isApiMockLiveDemoActive: (...args: unknown[]) => isApiMockLiveDemoActive(...(args as [])),
 }));
 
 function request(format: ApiMockExportRequest['format'], scope: ApiMockExportRequest['scope']): ApiMockExportRequest {
@@ -92,7 +94,7 @@ describe('handleApiMockExport', () => {
     expect(args.setLiveMessage).toHaveBeenCalledWith('WireMock export: 1 mapping(s), 1 loss note(s).');
     expect(result.mappingCount).toBe(1);
     expect(result.lossNotes).toEqual(['w']);
-    expect(result.cliCommand).toContain('cli mock simulate');
+    expect(result.cliCommand).toContain('redfireforge mock simulate');
   });
 
   it('exports WireMock with empty route list when active server is missing', async () => {
@@ -148,6 +150,14 @@ describe('handleApiMockExport', () => {
       port: 8080,
       tls: true,
     });
+  });
+
+  it('skips the OS download while the live demo panel is open', async () => {
+    isApiMockLiveDemoActive.mockReturnValueOnce(true);
+    const args = baseArgs();
+    await handleApiMockExport({ ...args, request: request('json', 'workspace') });
+    expect(createObjectUrlSpy).not.toHaveBeenCalled();
+    expect(args.setLiveMessage).toHaveBeenCalledWith('Workspace exported.');
   });
 
   it('exports workspace payload and writes JSON download link', async () => {

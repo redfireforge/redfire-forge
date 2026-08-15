@@ -128,8 +128,14 @@ export const TAB_LIMIT_CONFIRM_OPTIONS = {
   finalNote: '',
 } as const;
 
+/** Live demo panel is mounted — skip OS downloads so Chrome's multi-file prompt cannot freeze Acting. */
+export function isApiMockLiveDemoActive(): boolean {
+  return typeof document !== 'undefined' && Boolean(document.querySelector('.demo-live-panel'));
+}
+
 /** Trigger a JSON/HAR file download from the browser. */
 export function downloadJsonFile(filename: string, payload: unknown): void {
+  if (isApiMockLiveDemoActive()) return;
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

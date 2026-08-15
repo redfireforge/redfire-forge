@@ -3,8 +3,8 @@
  *
  * Scenario: the store library is already in the workspace and a small
  * smoke suite is seeded. The lesson opens Test Runner, binds that mock
- * as a fixture with isolate + host override, runs the suite, then
- * exports the workspace and the copyable CLI commands CI consumes.
+ * as a fixture with Isolate on, runs the suite, then exports the
+ * workspace and the copyable CLI commands CI consumes.
  * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
  */
 import { API_MOCK, HAR } from '@shared/selectors';
@@ -67,8 +67,8 @@ const DIAGRAM = `
   </defs>
 
   <rect x="26" y="250" width="648" height="70" rx="8" fill="#1e293b" stroke="#3b4a60" />
-  <text x="42" y="278" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Isolate publishes a private port so parallel suites never share a listener.</text>
-  <text x="42" y="300" fill="#a8b8cc" font-family="system-ui" font-size="11">Override host rewrites scenario URLs to that mock base URL for the duration of the run.</text>
+  <text x="42" y="278" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Isolate on: a throwaway copy. Off: use Studio's mock and put it back the way it was.</text>
+  <text x="42" y="300" fill="#a8b8cc" font-family="system-ui" font-size="11">Mock Server rewrites scenario URLs to that listener for the duration of the run.</text>
 
   <rect x="26" y="338" width="648" height="70" rx="8" fill="#1e293b" stroke="#22c55e" />
   <text x="42" y="366" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">${AM23_CLI_SIMULATE} is unit-level. ${AM23_CLI_VERIFY} asserts the live journal.</text>
@@ -82,9 +82,9 @@ export const apiMockAm23Lesson: DemoLesson = {
   category: 'api-mock',
   name: 'Test Runner Fixtures & CI Handoff',
   description:
-    'Open Test Runner and bind the Store mock as a fixture that starts with '
-    + 'the suite. Isolate a private port, publish the mock base URL into '
-    + 'scenarios, run, and watch the listener stop so the port is freed. '
+    'Open Test Runner, pick Mock Server, and bind the Store mock as a '
+    + 'fixture. Leave Isolate on for a throwaway copy, run the suite, and '
+    + 'watch that copy stop so the port is freed. '
     + 'Then read the journal, export workspace JSON, and copy '
     + `\`${AM23_CLI_SIMULATE}\` for unit-level CI and \`${AM23_CLI_VERIFY}\` `
     + 'for live journals.',
@@ -92,7 +92,7 @@ export const apiMockAm23Lesson: DemoLesson = {
   initialTab: 'runner',
   allowedTabs: ['runner', 'api-mock-studio'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 1,
+  contentVersion: 2,
   concept: {
     title: 'A fixture is a mock that lives for the length of the suite.',
     body:
@@ -100,11 +100,12 @@ export const apiMockAm23Lesson: DemoLesson = {
       + 'contract becomes a suite fixture: the listener starts before the first '
       + 'scenario, scenarios hit the mock instead of a remote host, and the '
       + 'listener stops when the run ends — pass, fail, or cancel.\n\n'
-      + '**Isolate run** is why parallel CI jobs are safe. Each run binds a '
-      + 'private port so two suites cannot clobber the same Studio tab. '
-      + '**Override host → mock** publishes that base URL into the scenarios '
-      + 'for the duration of the run, so authored URLs never hard-code a '
-      + 'listen address.\n\n'
+      + '**Isolate on** (this lesson) is why parallel CI jobs are safe: each '
+      + 'run gets a throwaway copy so two suites cannot clobber the Studio '
+      + 'tab. **Isolate off** uses Studio\'s mock and restores its prior '
+      + 'Running or Stopped state when the suite ends. **Mock Server** '
+      + 'rewrites scenario hosts to that listener for the duration of the '
+      + 'run, so authored URLs never hard-code a listen address.\n\n'
       + 'After teardown there is no orphan listener. The **journal** is the '
       + 'run\'s audit trail. **Workspace JSON** is the file CI consumes. '
       + `\`${AM23_CLI_SIMULATE}\` is the unit-level counterpart (no sockets). `
@@ -120,12 +121,12 @@ export const apiMockAm23Lesson: DemoLesson = {
       {
         term: 'Isolate run ID',
         definition:
-          'Binds a run-scoped server id and a private port so this suite cannot collide with the Studio tab or another parallel job.',
+          'On: throwaway copy with a private id and port, stopped after the suite. Off: use Studio\'s mock and restore whether it was Running or Stopped.',
       },
       {
         term: 'Mock base URL',
         definition:
-          'The host override publishes http://127.0.0.1:<port> into scenarios for the duration of the run instead of a hard-coded listen address.',
+          'Mock Server publishes http://127.0.0.1:<port> into scenarios for the duration of the run instead of a hard-coded listen address.',
       },
       {
         term: 'Journal',
@@ -133,12 +134,12 @@ export const apiMockAm23Lesson: DemoLesson = {
           'The run\'s audit trail — matched calls, status, and bodies — readable in Runtime after the suite finishes.',
       },
       {
-        term: 'cli mock simulate',
+        term: 'redfireforge mock simulate',
         definition:
           'Unit-level CI: run the exported workspace as a sample suite with no live listener.',
       },
       {
-        term: 'cli mock verify',
+        term: 'redfireforge mock verify',
         definition:
           'Live-journal CI: assert matched calls, min count, and outcome against a running (or just-run) mock.',
       },
@@ -150,13 +151,14 @@ export const apiMockAm23Lesson: DemoLesson = {
       id: 'fixture-panel',
       title: 'Scenario suites need a mock that starts and stops with the run',
       description:
-        'Open **Test Runner**. The **API Mock fixture** panel is how a suite '
-        + 'borrows a Studio contract without leaving a listener running on your '
-        + 'desk. Enable it, then pick **Store API** from the server list and '
-        + 'hold the selection — that is the library this suite will hit.\n\n'
+        'Open **Test Runner**. Click **Mock Server** in the Host row — that '
+        + 'opens the **API Mock fixture** so a suite can borrow a Studio '
+        + 'contract without leaving a listener running on your desk. Pick '
+        + '**Store API** from the server list and hold the selection — that is '
+        + 'the library this suite will hit.\n\n'
         + 'Nothing is listening yet. The fixture starts only when you press '
         + 'Run, and it stops when the last scenario finishes.',
-      highlight: HAR.HARNESS_MOCK_FIXTURE,
+      highlight: HAR.HOST_MOCK_SERVER,
       action: runAm23FixturePanel,
       verify: HAR.HARNESS_MOCK_SERVER,
     },
@@ -165,16 +167,15 @@ export const apiMockAm23Lesson: DemoLesson = {
       title: 'A private port per run is what makes parallel suites safe',
       description:
         '**Isolate run ID** is already on — leave it on and hold the checkbox. '
-        + 'That is the difference between this suite and the Studio tab still '
-        + 'open on the side: the run gets its own server id and a private port.\n\n'
-        + 'Hold **Override host → mock** and the hint beneath it. Scenarios keep '
-        + 'their authored URLs; the runner rewrites the host to the mock base '
-        + 'URL for this run only. Two jobs can share a definition without '
-        + 'sharing a listener.',
+        + 'On is a throwaway copy: this suite gets its own server id and port, '
+        + 'then that copy is stopped. The Studio tab stays however you left it.\n\n'
+        + 'Off would use Studio\'s Store itself, then put it back — Stopped if '
+        + 'it was down, still Running if it was up. This lesson stays On so '
+        + 'two jobs can share a definition without sharing a listener.',
       highlight: HAR.HARNESS_MOCK_ISOLATE,
       preAction: ensureAm23ForIsolate,
       action: runAm23Isolate,
-      verify: HAR.HARNESS_MOCK_VAR,
+      verify: HAR.HARNESS_MOCK_ISOLATE,
     },
     {
       id: 'run',

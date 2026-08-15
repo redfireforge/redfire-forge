@@ -6,8 +6,11 @@ import { createDefaultResponse } from '../../../shared/api-mock/defaults';
 import type { ApiMockRouteV1, ApiMockSimulationResultV1 } from '../../../shared/api-mock/contracts';
 import {
   annotateSimulatePass,
+  reannotateSimulatePass,
   buildAutoRouteSamples,
+  exactHeadersFromAllOf,
   capturedHeadersFromText,
+  lowercaseHeaderMap,
   createSavedSimulationSample,
   downloadSimulationTrace,
   headersToText,
@@ -45,7 +48,14 @@ describe('apiMockSimulateModalHelpers', () => {
       'X-Tenant': 'acme',
       'X-Trace': 'a:b:c',
     });
-    expect(capturedHeadersFromText('X-Tenant: acme')).toEqual({ 'X-Tenant': ['acme'] });
+    expect(capturedHeadersFromText('X-Tenant: acme')).toEqual({ 'x-tenant': ['acme'] });
+    expect(lowercaseHeaderMap({ 'X-Api-Version': ['2024-11'], 'X-Tenant': 'acme-eu' })).toEqual({
+      'x-api-version': ['2024-11'],
+      'x-tenant': ['acme-eu'],
+    });
+    expect(lowercaseHeaderMap({ Accept: ['a'], accept: ['b'], skip: undefined })).toEqual({
+      accept: ['a', 'b'],
+    });
   });
 
   it('renders header maps including multi-value rows', () => {
@@ -77,6 +87,24 @@ describe('apiMockSimulateModalHelpers', () => {
     expect(mergeSimulateSamples(server, local).map(s => s.id)).toEqual(['s1', 's2', 's3']);
     expect(mergeSimulateSamples(server, local)[0].name).toBe('Renamed');
     expect(mergeSimulateSamples(undefined, local)).toHaveLength(2);
+  });
+
+  it('copies All-of exact header predicates onto from-rules probes', () => {
+    const route = makeRoute('catalog');
+    route.predicates = {
+      id: 'pg',
+      combinator: 'all',
+      children: [
+        { id: 'p-ver', source: 'header', selector: 'X-Api-Version', operator: 'exact', expected: '2024-11' },
+        { id: 'any', combinator: 'any', children: [
+          { id: 'p-eu', source: 'header', selector: 'x-tenant', operator: 'exact', expected: 'acme-eu' },
+        ] },
+      ],
+    };
+    expect(exactHeadersFromAllOf(route.predicates)).toEqual({ 'x-api-version': ['2024-11'] });
+    expect(buildAutoRouteSamples([route])[0]?.request.headers).toEqual({ 'x-api-version': ['2024-11'] });
+    expect(exactHeadersFromAllOf(undefined)).toEqual({});
+    expect(exactHeadersFromAllOf({ id: 'pg', combinator: 'any', children: [] })).toEqual({});
   });
 
   it('builds at most five from-rules probes and treats ANY as GET', () => {
@@ -138,6 +166,9 @@ describe('apiMockSimulateModalHelpers', () => {
     const bare = { ...sample, expected: undefined };
     expect(annotateSimulatePass(bare, { outcome: 'matched' } as ApiMockSimulationResultV1).passed).toBe(true);
     expect(annotateSimulatePass(bare, { outcome: 'ambiguous' } as ApiMockSimulationResultV1).passed).toBe(false);
+
+    const stalePass = { ...mismatch, passed: true } as ApiMockSimulationResultV1;
+    expect(reannotateSimulatePass({ ...sample, expected: { ...sample.expected!, status: 201 } }, stalePass).passed).toBe(false);
   });
 
   it('downloads a simulation trace JSON file', () => {

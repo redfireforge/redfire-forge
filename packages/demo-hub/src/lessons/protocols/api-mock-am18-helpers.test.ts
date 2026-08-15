@@ -507,7 +507,7 @@ describe('AM-18 step bodies', () => {
     mountEditor({ examples: true, simulate: true, missPath: true });
     const ctx = makeCtx();
     await runAm18ProveExample(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.BTAB_EXAMPLES);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.BTAB_EXAMPLES);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXAMPLE_SIMULATE);
   });
 });
@@ -580,6 +580,37 @@ describe('AM-18 guards', () => {
     const ctx = makeCtx();
     await closeAm18Simulate(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
+  });
+
+  it('does not open Runtime Settings when the create-route journal is already open', async () => {
+    mountServerBar(true);
+    mountJournal({
+      unmatched: true,
+      detail: true,
+      rows: [{ id: 'tx-miss', path: AM18_MISS_PATH }],
+    });
+    const ctx = makeCtx();
+    await ensureAm18ForCreateRoute(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.DOCK_TAB_SETTINGS);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VIEW_STUDIO);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VIEW_RUNTIME);
+    expect(patchApiMockServerSettings).toHaveBeenCalledWith({ fallbackMode: 'closest_match_debug' });
+  });
+
+  it('does not bounce Runtime back through Studio when the journal is already open', async () => {
+    mountServerBar(true);
+    mountJournal({
+      detail: true,
+      rows: [
+        { id: 'tx-1', path: AM18_MATCH_LIST },
+        { id: 'tx-2', path: AM18_MATCH_ITEM },
+      ],
+    });
+    const ctx = makeCtx();
+    await ensureAm18ForMiss(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VIEW_STUDIO);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VIEW_RUNTIME);
+    expect(hasAm18Library()).toBe(true);
   });
 
   it('clears a leftover journal filter', async () => {
@@ -692,6 +723,15 @@ describe('AM-18 guards', () => {
     const ctx = makeCtx();
     await ensureAm18ForProve(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.TX_SAVE_EXAMPLE);
+  });
+
+  it('opens the Examples tab quietly before the prove step reads', async () => {
+    mountServerBar(true);
+    mountExplorer({ missPath: true });
+    mountEditor({ missPath: true });
+    const ctx = makeCtx();
+    await ensureAm18ForProve(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.BTAB_EXAMPLES);
   });
 
   it('selects a journal row before copy when the detail pane is closed', async () => {

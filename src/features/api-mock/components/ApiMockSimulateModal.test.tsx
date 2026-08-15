@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockSimulateModal } from './ApiMockSimulateModal';
 import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
@@ -49,6 +49,99 @@ describe('ApiMockSimulateModal', () => {
     expect(screen.getByTestId('api-mock-sim-winner').textContent).toBe('Winner');
     expect(screen.getByText('Candidates evaluated (2)')).toBeTruthy();
     expect(screen.getByTestId('api-mock-sim-timeline-5').textContent).toMatch(/Virtual delay/i);
+  });
+
+  it('picks the higher-priority catalog rule only when the request carries its headers', () => {
+    const server = makeServer();
+    server.routes = [
+      {
+        id: 'route-regional', name: 'Regional catalog', enabled: true, method: 'GET',
+        path: { kind: 'exact', value: '/catalog' }, priority: 20,
+        predicates: {
+          id: 'pg-regional', combinator: 'all',
+          children: [{
+            id: 'pred-ver', source: 'header', selector: 'x-api-version',
+            operator: 'exact', expected: '2024-11',
+          }],
+        },
+        responseMode: 'rules', responses: [createDefaultResponse('resp-regional')],
+        tags: [], createdAt: ts, updatedAt: ts,
+      },
+      {
+        id: 'route-default', name: 'Default catalog', enabled: true, method: 'GET',
+        path: { kind: 'exact', value: '/catalog' }, priority: 10,
+        predicates: { id: 'pg-default', combinator: 'all', children: [] },
+        responseMode: 'rules', responses: [createDefaultResponse('resp-default')],
+        tags: [], createdAt: ts, updatedAt: ts,
+      },
+    ];
+    render(<ApiMockSimulateModal server={server} initialPath="/catalog" initialMethod="GET" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-simulate-result').textContent).toContain('MATCHED');
+    expect(screen.getByTestId('api-mock-sim-candidate-route-default').textContent).toContain('Winner');
+    expect(screen.getByTestId('api-mock-sim-candidate-route-regional').textContent).toMatch(/Conditions failed/);
+
+    cleanup();
+    render(<ApiMockSimulateModal server={server} initialPath="/catalog" initialMethod="GET" onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('api-mock-simulate-headers'), {
+      target: { value: 'X-Api-Version: 2024-11\nX-Tenant: acme-eu' },
+    });
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-sim-candidate-route-regional').textContent).toContain('Winner');
+    expect(screen.getByTestId('api-mock-simulate-result').textContent).toContain('MATCHED');
+  });
+
+  it('reject-all-multiple-matches returns 409 before priority, including mixed-case saved headers', () => {
+    const server = makeServer();
+    server.settings.selection.multipleMatchPolicy = 'reject_multiple';
+    server.settings.selection.equalPriorityPolicy = 'reject';
+    server.routes = [
+      {
+        id: 'route-regional', name: 'Regional catalog', enabled: true, method: 'GET',
+        path: { kind: 'exact', value: '/catalog' }, priority: 20,
+        predicates: {
+          id: 'pg-regional', combinator: 'all',
+          children: [{
+            id: 'pred-ver', source: 'header', selector: 'x-api-version',
+            operator: 'exact', expected: '2024-11',
+          }],
+        },
+        responseMode: 'rules', responses: [createDefaultResponse('resp-regional')],
+        tags: [], createdAt: ts, updatedAt: ts,
+      },
+      {
+        id: 'route-default', name: 'Default catalog', enabled: true, method: 'GET',
+        path: { kind: 'exact', value: '/catalog' }, priority: 10,
+        predicates: { id: 'pg-default', combinator: 'all', children: [] },
+        responseMode: 'rules', responses: [createDefaultResponse('resp-default')],
+        tags: [], createdAt: ts, updatedAt: ts,
+      },
+    ];
+    server.samples = [{
+      id: 's-catalog',
+      name: 'GET /catalog',
+      request: {
+        method: 'GET', path: '/catalog', rawPath: '/catalog', query: {},
+        headers: { 'X-Api-Version': ['2024-11'] }, cookies: {},
+        body: null, bodyTruncated: false, receivedAt: ts,
+      },
+    }];
+
+    render(<ApiMockSimulateModal server={server} initialPath="/catalog" initialMethod="GET" onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('api-mock-simulate-headers'), {
+      target: { value: 'X-Api-Version: 2024-11' },
+    });
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-sim-outcome').textContent).toBe('AMBIGUOUS');
+    fireEvent.click(screen.getByRole('tab', { name: 'Rendered response' }));
+    expect(screen.getByTestId('api-mock-sim-rendered').textContent).toContain('409');
+
+    cleanup();
+    render(<ApiMockSimulateModal server={server} initialSampleId="s-catalog" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByTestId('api-mock-sim-outcome').textContent).toBe('AMBIGUOUS');
+    fireEvent.click(screen.getByRole('tab', { name: 'Rendered response' }));
+    expect(screen.getByTestId('api-mock-sim-rendered').textContent).toContain('409');
   });
 
   it('shows a specificity breakdown when two equal-priority rules tie', () => {
@@ -457,7 +550,7 @@ describe('ApiMockSimulateModal', () => {
     fireEvent.change(screen.getByTestId('api-mock-simulate-body'), { target: { value: '' } });
     fireEvent.click(screen.getByTestId(`api-mock-sim-sample-${savedId}`).querySelector('.am-sim-sample-btn') as HTMLElement);
     expect(screen.getByTestId('api-mock-simulate-path')).toHaveValue('/firmware');
-    expect(screen.getByTestId('api-mock-simulate-headers')).toHaveValue('X-Tenant: acme');
+    expect(screen.getByTestId('api-mock-simulate-headers')).toHaveValue('x-tenant: acme');
     expect(screen.getByTestId('api-mock-simulate-body')).toHaveValue('{"sha":"abc"}');
   });
 
@@ -522,5 +615,25 @@ describe('ApiMockSimulateModal', () => {
     expect(onUpdateSample.mock.calls.at(-1)?.[0].expected.status).toBeUndefined();
     fireEvent.change(screen.getByTestId('api-mock-sim-assert-body'), { target: { value: 'ok' } });
     expect(onUpdateSample.mock.calls.at(-1)?.[0].expected.bodyContains).toBe('ok');
+  });
+
+  it('turns the sidebar badge to FAIL when expected status no longer matches the last run', () => {
+    const server = makeServer();
+    server.samples = [{
+      id: 's-health',
+      name: 'GET /users',
+      routeId: 'r1',
+      request: {
+        method: 'GET', path: '/users', rawPath: '/users', query: {},
+        headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts,
+      },
+      expected: { outcome: 'matched', status: 200 },
+    }];
+    render(<ApiMockSimulateModal server={server} initialSampleId="s-health" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    expect(screen.getByText('PASS')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Assertions' }));
+    fireEvent.change(screen.getByTestId('api-mock-sim-assert-status'), { target: { value: '201' } });
+    expect(screen.getByTestId('api-mock-sim-sample-fail')).toHaveTextContent('FAIL');
   });
 });

@@ -88,6 +88,7 @@ describe('API_MOCK selectors', () => {
       ['TX_OPEN_CREATED', '[data-testid="api-mock-tx-open-created"]'],
       ['TX_VIEW_EXAMPLE', '[data-testid="api-mock-tx-view-example"]'],
       ['ROUTE_EXPLORER', '[data-testid="api-mock-route-explorer"]'],
+      ['EXPLORER_SPLITTER', '[data-testid="api-mock-explorer-splitter"]'],
       ['ADD_ROUTE', '[data-testid="api-mock-add-route"]'],
       ['ADD_FOLDER', '[data-testid="api-mock-add-folder"]'],
       ['ROUTE_SEARCH', '[data-testid="api-mock-route-search"]'],
@@ -228,6 +229,7 @@ describe('API_MOCK selectors', () => {
       ['CALLBACK_RETRIES_FIRST', '[data-testid="api-mock-variant-outbound"] [data-testid^="api-mock-callback-retries-"]'],
       ['EXAMPLES_GRID', '[data-testid="api-mock-examples-grid"]'],
       ['EXAMPLES_EMPTY', '[data-testid="api-mock-examples-empty"]'],
+      ['EXAMPLE_BODY_PRETTY', '[data-testid="api-mock-examples-grid"] [data-testid^="api-mock-example-body-pretty-"]'],
       ['EXAMPLE_SIMULATE', '[data-testid="api-mock-examples-grid"] [data-testid^="api-mock-example-simulate-"]'],
       ['EXAMPLE_ATTACH', '[data-testid="api-mock-examples-grid"] [data-testid^="api-mock-example-attach-"]'],
       ['EXAMPLE_TRY_REQUESTS', '[data-testid="api-mock-examples-grid"] [data-testid^="api-mock-example-try-"]'],
@@ -341,6 +343,10 @@ describe('API_MOCK selectors', () => {
       ['TOOLBOX_JSON_EXPECTED', '[data-testid="api-mock-toolbox-json-expected"]'],
       ['TOOLBOX_JSON_RESULT', '[data-testid="api-mock-toolbox-json-result"]'],
       ['TOOLBOX_REGEX', '[data-testid="api-mock-toolbox-regex"]'],
+      ['TOOLBOX_APPLIED_SOURCE', '[data-testid="api-mock-toolbox-applied-source"]'],
+      ['TOOLBOX_APPLIED_SELECTOR', '[data-testid="api-mock-toolbox-applied-selector"]'],
+      ['TOOLBOX_APPLIED_OPERATOR', '[data-testid="api-mock-toolbox-applied-operator"]'],
+      ['TOOLBOX_APPLIED_EXPECTED', '[data-testid="api-mock-toolbox-applied-expected"]'],
       ['TOOLBOX_SAMPLE', '[data-testid="api-mock-toolbox-sample"]'],
       ['TOOLBOX_XPATH', '[data-testid="api-mock-toolbox-xpath"]'],
       ['TOOLBOX_XPATH_SAMPLE', '[data-testid="api-mock-toolbox-xpath-sample"]'],
@@ -379,6 +385,7 @@ describe('API_MOCK selectors', () => {
       ['CURL_INPUT', '[data-testid="api-mock-curl-input"]'],
       ['CURL_PARSE', '[data-testid="api-mock-curl-parse"]'],
       ['IMPORT_PASTE', '[data-testid="api-mock-import-paste"]'],
+      ['IMPORT_PRETTY', '[data-testid="api-mock-import-pretty"]'],
       ['IMPORT_PARSE', '[data-testid="api-mock-import-parse"]'],
       ['IMPORT_SOURCES', '[data-testid="api-mock-import-sources"]'],
       ['IMPORT_FOLDER', '[data-testid="api-mock-import-folder"]'],
@@ -399,6 +406,8 @@ describe('API_MOCK selectors', () => {
       ['DRAFT_ROUTE', '[data-testid="api-mock-route-explorer"] button.am-route-item.disabled[role="treeitem"]'],
       ['FIRST_DRAFT_ROUTE', '[data-testid="api-mock-route-explorer"] button.am-route-item.disabled[role="treeitem"]'],
       ['ROUTES_FOOTER', '[data-testid="api-mock-routes-footer"]'],
+      ['ROUTES_ENABLED', '[data-testid="api-mock-routes-enabled"]'],
+      ['ROUTES_DRAFT', '[data-testid="api-mock-routes-draft"]'],
       ['SIMULATE_WORKSPACE', '[data-testid="api-mock-simulate-workspace"]'],
       ['SIMULATE_RUN', '[data-testid="api-mock-simulate-run"]'],
       ['SIMULATE_RUN_ALL', '[data-testid="api-mock-simulate-run-all"]'],
@@ -506,6 +515,7 @@ describe('API_MOCK selectors', () => {
       ['WF_ASSERT_CONFIG', '[data-testid="api-mock-assert-config"]'],
       ['WF_STOP_CONFIG', '[data-testid="api-mock-stop-config"]'],
       ['WF_SERVER', '[data-testid="api-mock-wf-server"]'],
+      ['WF_SERVER_HOST', '[data-testid="api-mock-wf-server-host"]'],
       ['WF_PORT_OVERRIDE', '[data-testid="api-mock-wf-port-override"]'],
       ['WF_ISOLATE', '[data-testid="api-mock-wf-isolate"]'],
       ['WF_PORT_VARS', '[data-testid="api-mock-wf-port-vars"]'],
@@ -516,8 +526,11 @@ describe('API_MOCK selectors', () => {
       ['WF_ASSERT_MIN', '[data-testid="api-mock-wf-assert-min"]'],
       ['WF_ASSERT_STATUS', '[data-testid="api-mock-wf-assert-status"]'],
       ['WF_ASSERT_BODY', '[data-testid="api-mock-wf-assert-body"]'],
+      ['WF_ASSERT_BODY_MATCH', '[data-testid="api-mock-wf-assert-body-match"]'],
       ['WF_ASSERT_HEADER', '[data-testid="api-mock-wf-assert-header"]'],
       ['WF_ASSERT_HEADER_VALUE', '[data-testid="api-mock-wf-assert-header-value"]'],
+      ['WF_ASSERT_HEADERS', '[data-testid="api-mock-wf-assert-headers"]'],
+      ['WF_ASSERT_HEADER_ADD', '[data-testid="api-mock-wf-assert-header-add"]'],
       ['WF_ASSERT_RECENCY', '[data-testid="api-mock-wf-assert-recency"]'],
       ['CANVAS_START', '[data-testid="api-mock-canvas-apiMockStart"]'],
       ['CANVAS_APPLY', '[data-testid="api-mock-canvas-apiMockApply"]'],
@@ -612,6 +625,7 @@ describe('API_MOCK selectors', () => {
     expect(API_MOCK.exampleAttach('sample-orphan')).toBe('[data-testid="api-mock-example-attach-sample-orphan"]');
     expect(API_MOCK.exampleTry('sample-orphan')).toBe('[data-testid="api-mock-example-try-sample-orphan"]');
     expect(API_MOCK.exampleRow('sample-orphan')).toBe('[data-testid="api-mock-example-sample-orphan"]');
+    expect(API_MOCK.exampleBodyPretty('sample-orphan')).toBe('[data-testid="api-mock-example-body-pretty-sample-orphan"]');
     expect(API_MOCK.consoleFilter('started')).toBe('[data-testid="api-mock-console-filter-started"]');
     expect(API_MOCK.consoleFilter('errors')).toBe('[data-testid="api-mock-console-filter-errors"]');
   });

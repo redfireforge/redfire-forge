@@ -129,7 +129,9 @@ export function hasAm18Server(): boolean {
 }
 
 export function hasAm18Library(): boolean {
-  return Boolean(firstVisibleElement(API_MOCK.SERVER_BAR) && firstVisibleElement(API_MOCK.ROUTE_ROW));
+  if (firstVisibleElement(API_MOCK.ROUTE_ROW)) return true;
+  // Runtime unmounts the explorer — a bound server bar means the corpus is loaded.
+  return hasAm18Server() && isAm18RuntimeViewActive();
 }
 
 export function isAm18ServerRunning(): boolean {
@@ -248,6 +250,7 @@ export async function ensureAm18StudioView(ctx: DemoActionContext): Promise<void
 }
 
 export async function ensureAm18Library(ctx: DemoActionContext): Promise<void> {
+  if (hasAm18Library()) return;
   prepareApiMockStudioChrome();
   await ensureAm18StudioView(ctx);
   if (hasAm18Library()) return;
@@ -256,6 +259,8 @@ export async function ensureAm18Library(ctx: DemoActionContext): Promise<void> {
 }
 
 export async function ensureAm18Running(ctx: DemoActionContext): Promise<void> {
+  await ensureAm18OnApiMock(ctx);
+  if (isAm18ServerRunning()) return;
   await ensureAm18Library(ctx);
   if (isAm18ServerRunning()) return;
   if (!firstVisibleElement(API_MOCK.START)) return;
@@ -429,7 +434,10 @@ export async function ensureAm18ForClosestMatch(ctx: DemoActionContext): Promise
 }
 
 export async function ensureAm18ForCreateRoute(ctx: DemoActionContext): Promise<void> {
-  await ensureAm18ForClosestMatch(ctx);
+  await ensureAm18ForMiss(ctx);
+  await quietMiss(ctx);
+  quietClosestMatch();
+  await applyIfDirty(ctx, false);
   await openAm18Journal(ctx, false);
   await clearJournalFilter(ctx);
   if (!hasAm18MissRow()) await quietMiss(ctx);
@@ -459,6 +467,17 @@ export async function ensureAm18ForShare(ctx: DemoActionContext): Promise<void> 
   if (hasAm18Traffic()) await clickNewestJournalRow(ctx, false);
 }
 
+async function openAm18ExamplesTab(ctx: DemoActionContext): Promise<void> {
+  if (firstVisibleElement(API_MOCK.EXAMPLES_GRID) || firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE)) {
+    return;
+  }
+  if (!firstVisibleElement(API_MOCK.BTAB_EXAMPLES) && !document.querySelector(API_MOCK.BTAB_EXAMPLES)) {
+    return;
+  }
+  await ctx.click(API_MOCK.BTAB_EXAMPLES);
+  await ctx.waitFor(API_MOCK.EXAMPLES_GRID, REVEAL_MS);
+}
+
 export async function ensureAm18ForProve(ctx: DemoActionContext): Promise<void> {
   await returnFromRequests(ctx, false);
   await closeAm18Simulate(ctx);
@@ -469,6 +488,7 @@ export async function ensureAm18ForProve(ctx: DemoActionContext): Promise<void> 
   }
   await ensureAm18StudioView(ctx);
   await selectCreatedRoute(ctx, false);
+  await openAm18ExamplesTab(ctx);
 }
 
 // ── Multi-beat step bodies ──────────────────────────────────────────────────
@@ -538,7 +558,7 @@ export async function runAm18Filter(ctx: DemoActionContext): Promise<void> {
  * Reading already rang Address — do not re-ring it.
  */
 export async function runAm18TheMiss(ctx: DemoActionContext): Promise<number | null> {
-  await openAm18Journal(ctx, true);
+  await openAm18Journal(ctx, false);
   const res = await sendAm18(AM18_MISS_PATH);
   await ctx.delay(T.journalWrite);
   const miss = am18RowWithPath(AM18_MISS_PATH) ?? journalRows()[0];
@@ -590,7 +610,7 @@ export async function runAm18ClosestMatch(ctx: DemoActionContext): Promise<void>
  * seeded path. Reading already rang Create route.
  */
 export async function runAm18CreateRoute(ctx: DemoActionContext): Promise<void> {
-  await openAm18Journal(ctx, true);
+  await openAm18Journal(ctx, false);
   await selectMissRow(ctx, true);
   if (firstVisibleElement(API_MOCK.TX_CREATE_ROUTE)) {
     await am18ClickNow(ctx, API_MOCK.TX_CREATE_ROUTE);
@@ -676,21 +696,16 @@ export async function runAm18ShareAndReset(ctx: DemoActionContext): Promise<void
 }
 
 /**
- * Step 8 — Examples tab, Simulate the saved row, hold the passing result.
- * Reading already rang the Examples tab.
+ * Step 8 — Simulate the saved row, hold the passing result.
+ * Examples is already open from preAction; reading rang Simulate.
  */
 export async function runAm18ProveExample(ctx: DemoActionContext): Promise<void> {
   await returnFromRequests(ctx, false);
   await ensureAm18StudioView(ctx);
-  await selectCreatedRoute(ctx, true);
-  if (firstVisibleElement(API_MOCK.BTAB_EXAMPLES)) {
-    await am18ClickNow(ctx, API_MOCK.BTAB_EXAMPLES, 0);
-  }
-  if (firstVisibleElement(API_MOCK.EXAMPLES_GRID) || firstVisibleElement(API_MOCK.BTAB_EXAMPLES)) {
-    await am18Reveal(ctx, API_MOCK.EXAMPLES_GRID, T.tabSwitch);
-  }
+  await selectCreatedRoute(ctx, false);
+  await openAm18ExamplesTab(ctx);
   if (firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE)) {
-    await am18Aim(ctx, API_MOCK.EXAMPLE_SIMULATE);
+    await am18ClickNow(ctx, API_MOCK.EXAMPLE_SIMULATE);
   }
   const outcome = firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)
     ? API_MOCK.SIMULATE_OUTCOME

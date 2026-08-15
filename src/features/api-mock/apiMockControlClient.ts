@@ -145,7 +145,7 @@ export const apiMockControlClient = {
   transactions: (serverId: string, limit = HARD_CEILINGS.maxJournalEntries) =>
     isTauri()
       ? nativeTauriControl.transactions(serverId, limit)
-      : call<JournalPage>(`/api/mock/servers/${encodeURIComponent(serverId)}/transactions?limit=${limit}`, { method: 'GET' }),
+      : call<JournalPage>(`/api/mock/servers/${encodeURIComponent(serverId)}/transactions?limit=${limit}`, { method: 'GET' }, CONTROL_FETCH_TIMEOUT_MS),
   clearTransactions: (serverId: string) =>
     isTauri()
       ? nativeTauriControl.clearTransactions(serverId)
@@ -153,7 +153,7 @@ export const apiMockControlClient = {
   state: (serverId: string) =>
     isTauri()
       ? nativeTauriControl.state(serverId)
-      : call<ScenarioStateSnapshot>(`/api/mock/servers/${encodeURIComponent(serverId)}/state`, { method: 'GET' }),
+      : call<ScenarioStateSnapshot>(`/api/mock/servers/${encodeURIComponent(serverId)}/state`, { method: 'GET' }, CONTROL_FETCH_TIMEOUT_MS),
   resetState: (serverId: string) =>
     isTauri()
       ? nativeTauriControl.resetState(serverId)
@@ -174,6 +174,7 @@ export const apiMockControlClient = {
       : call<{ drafts: ApiMockRecordedDraftV1[]; total: number }>(
         `/api/mock/servers/${encodeURIComponent(serverId)}/recorded-drafts`,
         { method: 'GET' },
+        CONTROL_FETCH_TIMEOUT_MS,
       ),
   diagnostics: (serverId: string) =>
     isTauri()

@@ -114,6 +114,7 @@ export const API_MOCK = {
 
   // ── Route explorer ───────────────────────────────────────────────────────
   ROUTE_EXPLORER: '[data-testid="api-mock-route-explorer"]',
+  EXPLORER_SPLITTER: '[data-testid="api-mock-explorer-splitter"]',
   ADD_ROUTE: '[data-testid="api-mock-add-route"]',
   ADD_FOLDER: '[data-testid="api-mock-add-folder"]',
   ROUTE_SEARCH: '[data-testid="api-mock-route-search"]',
@@ -373,6 +374,8 @@ export const API_MOCK = {
   CALLBACK_RETRIES_FIRST: '[data-testid="api-mock-variant-outbound"] [data-testid^="api-mock-callback-retries-"]',
   EXAMPLES_GRID: '[data-testid="api-mock-examples-grid"]',
   EXAMPLES_EMPTY: '[data-testid="api-mock-examples-empty"]',
+  EXAMPLE_BODY_PRETTY: '[data-testid="api-mock-examples-grid"] [data-testid^="api-mock-example-body-pretty-"]',
+  exampleBodyPretty: (id: string) => `[data-testid="api-mock-example-body-pretty-${id}"]`,
   /** First Simulate button in the Examples grid (sample ids are minted at save). */
   EXAMPLE_SIMULATE: '[data-testid="api-mock-examples-grid"] [data-testid^="api-mock-example-simulate-"]',
   exampleSimulate: (id: string) => `[data-testid="api-mock-example-simulate-${id}"]`,
@@ -533,6 +536,10 @@ export const API_MOCK = {
   TOOLBOX_JSON_EXPECTED: '[data-testid="api-mock-toolbox-json-expected"]',
   TOOLBOX_JSON_RESULT: '[data-testid="api-mock-toolbox-json-result"]',
   TOOLBOX_REGEX: '[data-testid="api-mock-toolbox-regex"]',
+  TOOLBOX_APPLIED_SOURCE: '[data-testid="api-mock-toolbox-applied-source"]',
+  TOOLBOX_APPLIED_SELECTOR: '[data-testid="api-mock-toolbox-applied-selector"]',
+  TOOLBOX_APPLIED_OPERATOR: '[data-testid="api-mock-toolbox-applied-operator"]',
+  TOOLBOX_APPLIED_EXPECTED: '[data-testid="api-mock-toolbox-applied-expected"]',
   TOOLBOX_SAMPLE: '[data-testid="api-mock-toolbox-sample"]',
   /** XPath tab panel root. */
   TOOLBOX_XPATH: '[data-testid="api-mock-toolbox-xpath"]',
@@ -613,6 +620,7 @@ export const API_MOCK = {
   CURL_INPUT: '[data-testid="api-mock-curl-input"]',
   CURL_PARSE: '[data-testid="api-mock-curl-parse"]',
   IMPORT_PASTE: '[data-testid="api-mock-import-paste"]',
+  IMPORT_PRETTY: '[data-testid="api-mock-import-pretty"]',
   IMPORT_PARSE: '[data-testid="api-mock-import-parse"]',
   IMPORT_SOURCES: '[data-testid="api-mock-import-sources"]',
   IMPORT_FOLDER: '[data-testid="api-mock-import-folder"]',
@@ -637,6 +645,8 @@ export const API_MOCK = {
   FIRST_DRAFT_ROUTE: '[data-testid="api-mock-route-explorer"] button.am-route-item.disabled[role="treeitem"]',
   /** Explorer footer draft tally text. */
   ROUTES_FOOTER: '[data-testid="api-mock-routes-footer"]',
+  ROUTES_ENABLED: '[data-testid="api-mock-routes-enabled"]',
+  ROUTES_DRAFT: '[data-testid="api-mock-routes-draft"]',
 
   // ── Simulate ─────────────────────────────────────────────────────────────
   SIMULATE_WORKSPACE: '[data-testid="api-mock-simulate-workspace"]',
@@ -769,6 +779,8 @@ export const API_MOCK = {
   WF_ASSERT_CONFIG: '[data-testid="api-mock-assert-config"]',
   WF_STOP_CONFIG: '[data-testid="api-mock-stop-config"]',
   WF_SERVER: '[data-testid="api-mock-wf-server"]',
+  /** Host around the picker — `data-count` is the live Studio library size. */
+  WF_SERVER_HOST: '[data-testid="api-mock-wf-server-host"]',
   WF_PORT_OVERRIDE: '[data-testid="api-mock-wf-port-override"]',
   WF_ISOLATE: '[data-testid="api-mock-wf-isolate"]',
   WF_PORT_VARS: '[data-testid="api-mock-wf-port-vars"]',
@@ -779,8 +791,11 @@ export const API_MOCK = {
   WF_ASSERT_MIN: '[data-testid="api-mock-wf-assert-min"]',
   WF_ASSERT_STATUS: '[data-testid="api-mock-wf-assert-status"]',
   WF_ASSERT_BODY: '[data-testid="api-mock-wf-assert-body"]',
+  WF_ASSERT_BODY_MATCH: '[data-testid="api-mock-wf-assert-body-match"]',
   WF_ASSERT_HEADER: '[data-testid="api-mock-wf-assert-header"]',
   WF_ASSERT_HEADER_VALUE: '[data-testid="api-mock-wf-assert-header-value"]',
+  WF_ASSERT_HEADERS: '[data-testid="api-mock-wf-assert-headers"]',
+  WF_ASSERT_HEADER_ADD: '[data-testid="api-mock-wf-assert-header-add"]',
   WF_ASSERT_RECENCY: '[data-testid="api-mock-wf-assert-recency"]',
   CANVAS_START: '[data-testid="api-mock-canvas-apiMockStart"]',
   CANVAS_APPLY: '[data-testid="api-mock-canvas-apiMockApply"]',

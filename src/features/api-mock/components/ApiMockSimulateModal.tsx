@@ -14,9 +14,11 @@ import {
   SIMULATE_METHOD_OPTIONS,
   SIMULATE_SEED_HELP,
   annotateSimulatePass,
+  reannotateSimulatePass,
   buildAutoRouteSamples,
   capturedHeadersFromText,
   createSavedSimulationSample,
+  lowercaseHeaderMap,
   downloadSimulationTrace,
   headersToText,
   isAutoRouteSample,
@@ -113,14 +115,14 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
         rawPath: path || '/',
         query: {},
         cookies: {},
-        headers: {},
+        headers: capturedHeadersFromText(headers),
         body: body || null,
         bodyTruncated: false,
         receivedAt: new Date().toISOString(),
       },
     },
     ...allNonAdHoc.filter(s => !dismissedIds.has(s.id)),
-  ], [allNonAdHoc, dismissedIds, method, path, body]);
+  ], [allNonAdHoc, dismissedIds, method, path, headers, body]);
 
   const removeSample = useCallback((id: string) => {
     setDismissedIds(prev => new Set(prev).add(id));
@@ -150,19 +152,15 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
   const firstAutoIdx = filteredSamples.findIndex(s => isAutoRouteSample(s.id));
 
   const buildSample = (sample: ApiMockSimulationSampleV1): ApiMockSimulationSampleV1 => {
-    let captured = sample.request;
-    if (sample.id === adHocId) {
-      captured = {
-        ...normalizeRequest({
-          method,
-          url: path || '/',
-          headers: parseSimulateHeaderLines(headers),
-          body: body || null,
-          clientCertSubject: clientCertSubject.trim() || undefined,
-        }).captured,
-        headers: capturedHeadersFromText(headers),
-      };
-    }
+    const captured = sample.id === adHocId
+      ? normalizeRequest({
+        method,
+        url: path || '/',
+        headers: parseSimulateHeaderLines(headers),
+        body: body || null,
+        clientCertSubject: clientCertSubject.trim() || undefined,
+      }).captured
+      : { ...sample.request, headers: lowercaseHeaderMap(sample.request.headers) };
     return { id: sample.id, name: sample.name, request: captured, expected: sample.expected };
   };
 
@@ -223,6 +221,11 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
       return copy;
     });
     onUpdateSample?.(next);
+    setResultBySample(prev => {
+      const current = prev[next.id];
+      if (!current) return prev;
+      return { ...prev, [next.id]: reannotateSimulatePass(next, current) };
+    });
   };
 
   const selectSample = (sample: ApiMockSimulationSampleV1) => {
@@ -648,7 +651,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                         <span className={`am-method ${(trace.normalizedRequest?.method || method || 'get').toLowerCase()}`}>
                           {trace.normalizedRequest?.method || method}
                         </span>
-                        <strong className="am-mono">{trace.normalizedRequest?.path || path}</strong>
+                        <strong className="am-route-title">{trace.normalizedRequest?.path || path}</strong>
                         <span className="am-spacer" />
                         <span
                           className={`am-badge ${outcomeBadge(result.outcome)}`}
@@ -670,7 +673,14 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                           >
                             <div className="am-candidate-head">
                               <span className={`am-matcher-result ${c.overallMatch ? 'pass' : 'fail'}`}>{c.overallMatch ? '✓' : '×'}</span>
-                              <strong>{routeLabel(c.routeId)}</strong>
+                              {route ? (
+                                <>
+                                  <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
+                                  <strong className="am-route-title">{route.path.value}</strong>
+                                </>
+                              ) : (
+                                <strong className="am-route-title">{routeLabel(c.routeId)}</strong>
+                              )}
                               <span className="am-badge">Priority {c.priority}</span>
                               <span className="am-spacer" />
                               {c.routeId === winnerId
@@ -722,7 +732,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                               className="am-predicate"
                               data-testid={`api-mock-sim-specificity-${row.routeId}`}
                             >
-                              <strong>{routeLabel(row.routeId)}</strong>
+                              <strong className="am-route-title">{routeLabel(row.routeId)}</strong>
                               <span className="am-badge info">{row.score}</span>
                               <span className="am-mono">
                                 {row.components.map(c => `${c.source} +${c.weight}`).join(' · ')}
@@ -776,7 +786,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                             <strong>{step.title}</strong>
                             <div className="am-hint">{step.hint}</div>
                           </div>
-                          <span className="am-badge info">{String(step.badge)}</span>
+                          <span className="am-badge info" title={String(step.badge)}>{String(step.badge)}</span>
                         </div>
                       ))}
                       <div className="am-notice" style={{ marginTop: 10 }}>

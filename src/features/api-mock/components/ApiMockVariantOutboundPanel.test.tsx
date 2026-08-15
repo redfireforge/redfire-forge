@@ -141,8 +141,9 @@ describe('ApiMockVariantOutboundPanel', () => {
 
   it('shows empty-state copy when no transforms or callbacks exist', () => {
     render(<ApiMockVariantOutboundPanel variant={createDefaultResponse('v1')} onUpdate={vi.fn()} />);
-    expect(screen.getByText(/No transforms/)).toBeTruthy();
-    expect(screen.getByText(/No outbound callbacks/)).toBeTruthy();
+    expect(screen.getByTestId('api-mock-outbound-pipeline').textContent).toMatch(/Template/);
+    expect(screen.getByTestId('api-mock-transform-empty').textContent).toMatch(/No transforms/);
+    expect(screen.getByTestId('api-mock-callback-empty').textContent).toMatch(/No outbound callbacks/);
   });
 
   it('updates, toggles, and removes transform rows for each op', () => {

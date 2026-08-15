@@ -10,8 +10,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockStudioPage } from './ApiMockStudioPage';
+import { resetApiMockWorkspaceSnapshot } from './apiMockPersistence';
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  resetApiMockWorkspaceSnapshot();
+});
 
 /** Creating a server asks the control plane for a free port, so it settles async. */
 async function createServer() {

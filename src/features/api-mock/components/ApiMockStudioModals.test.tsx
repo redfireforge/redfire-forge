@@ -58,7 +58,7 @@ const exportResult: ApiMockExportResult = {
   redacted: true,
   sensitiveValues: [],
   lossNotes: [],
-  cliCommand: 'cli mock simulate workspace.json',
+  cliCommand: 'redfireforge mock simulate workspace.json',
   liveMessage: 'Workspace exported.',
 };
 

@@ -215,6 +215,9 @@ export async function executeHttpNode(
   let errorMessage: string | undefined;
 
   try {
+    if (url.includes('{{')) {
+      throw new Error(`Unresolved URL template: ${url}`);
+    }
     const result = await withTimeout(httpFetch(url, resolvedAbs.method, headers, reqBody, abortSignal), timeoutMs ?? 0);
     if (result.error) {
       errorMessage = result.error;

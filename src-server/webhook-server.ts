@@ -23,6 +23,7 @@ import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
 import { toErrorMessage } from '../src/shared/utils/helpers';
 import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts';
+import { probeApiMockEcho } from '../src/shared/api-mock/echoHealthProbe';
 
 const app = express();
 
@@ -184,6 +185,20 @@ app.get('/health/kafka-admin', async (req: Request, res: Response) => {
     clearTimeout(timer);
     return res.status(200).json({ status: 'down', source: 'kafka-admin', port, reason: toErrorMessage(error) });
   }
+});
+
+// API Mock Docker echo (:4017) — AM-17 PrerequisiteGate.
+// Probe with Node http (no HTTP_PROXY) so the browser never hits :4017 directly.
+app.get('/health/api-mock-echo', async (_req: Request, res: Response) => {
+  const probe = await probeApiMockEcho();
+  if (probe.ok) {
+    return res.status(200).json({ status: 'ok', source: 'api-mock-echo', httpStatus: probe.statusCode });
+  }
+  return res.status(200).json({
+    status: 'down',
+    source: 'api-mock-echo',
+    reason: probe.reason ?? 'unreachable',
+  });
 });
 
 // API: Get execution history

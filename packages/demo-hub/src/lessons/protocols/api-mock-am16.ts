@@ -109,7 +109,7 @@ export const apiMockAm16Lesson: DemoLesson = {
       { term: 'WireMock loss note', definition: 'An honest list of Studio features (templates, weights, glob paths) that have no WireMock equivalent.' },
       { term: 'HAR (journal)', definition: 'Captured traffic and saved samples, packaged so other tools can replay the same requests.' },
       { term: 'Import as copy', definition: 'The round-trip mode. Duplicates every imported rule with a new id so the original set stays intact.' },
-      { term: 'cli mock simulate', definition: 'The CI command that runs the exported file as a unit-level suite. The Studio footer keeps it copyable.' },
+      { term: 'redfireforge mock simulate', definition: 'The CI command that runs the exported file as a unit-level suite. The Studio footer keeps it copyable.' },
     ],
     diagram: DIAGRAM,
   },
@@ -192,7 +192,8 @@ export const apiMockAm16Lesson: DemoLesson = {
       description:
         'Click **Import**, switch to **RedfireForge export**, and choose '
         + '**Import as copy**. Click **Use last export** — that is the power-user '
-        + 'beat, the JSON you just confirmed, without fishing in Downloads.\n\n'
+        + 'beat, the JSON you just confirmed, without fishing in Downloads. Click '
+        + '**Pretty format** so you can read the file.\n\n'
         + 'Parse, then confirm. Hold the **duplicated rows**. New ids, `(copy)` '
         + 'names, originals untouched. A round-trip that clobbered the library '
         + 'would not be a round-trip.',

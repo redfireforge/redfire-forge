@@ -71,6 +71,12 @@ export async function handleApiMockStart(data: ApiMockStartNodeData, ctx: ApiMoc
   } else if (data.portOverride != null) {
     definition = { ...definition, port: data.portOverride };
   }
+  if (!definition.id && data.serverId) {
+    definition = { ...definition, id: data.serverId };
+  }
+  if (!definition.id) {
+    return { success: false, error: 'Server definition with id is required' };
+  }
 
   const result = await postJson(ctx, '/api/mock/servers/start', {
     method: 'POST',
@@ -140,6 +146,8 @@ export async function handleApiMockAssertCalls(
     expectedMaxCount: data.expectedMaxCount,
     expectedStatus: data.expectedStatus,
     expectedBodyContains: data.expectedBodyContains,
+    expectedBodyMatch: data.expectedBodyMatch,
+    expectedHeaders: data.expectedHeaders,
     expectedHeaderKey: data.expectedHeaderKey,
     expectedHeaderValue: data.expectedHeaderValue,
     expectedLastCallWithinMs: data.expectedLastCallWithinMs,

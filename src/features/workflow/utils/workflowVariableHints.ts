@@ -1,4 +1,5 @@
 import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WsConnectNodeData, WsSendNodeData, WsReceiveNodeData, WsTriggerNodeData, GraphqlQueryNodeData, GraphqlSubscriptionNodeData, GraphqlIntrospectNodeData } from '../types/workflow';
+import { API_MOCK_WORKFLOW_NODE_TYPES } from '../types/workflow/node-api-mock';
 
 /** Category for grouping sources in the Insert Variable modal. */
 export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations' | 'Data';
@@ -100,6 +101,7 @@ const NON_HTTP_TYPES = new Set([
   'wsConnect', 'wsSend', 'wsReceive', 'wsTrigger',
   'graphqlQuery', 'graphqlMutation', 'graphqlSubscription', 'graphqlIntrospect', 'graphqlAssert',
   'grpcUnary', 'grpcServerStream', 'grpcAssert', 'grpcLoadTest', 'grpcSchemaDiff', 'grpcMockAssert',
+  ...API_MOCK_WORKFLOW_NODE_TYPES,
 ]);
 
 /** True if this canvas node is an HTTP step (React Flow may omit `type` in edge cases). */

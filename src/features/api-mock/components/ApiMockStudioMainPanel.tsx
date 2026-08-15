@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
+import { useSplitPaneResize } from '../../../shared/hooks/useSplitPaneResize';
 import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
 import { mockClientOrigin } from '../../../shared/api-mock/harExport';
 import type { ScenarioStateSnapshot } from '../apiMockControlClient';
@@ -10,6 +11,11 @@ import { ApiMockLiveStrip } from './ApiMockLiveStrip';
 import { ApiMockDock, type ApiMockDockTab } from './ApiMockDock';
 import { ApiMockConflictInspector, conflictPeerLabel } from './ApiMockConflictInspector';
 import type { ApiMockMainView } from './ApiMockWorkspaceNav';
+
+const EXPLORER_SPLIT_STORAGE_KEY = 'redfire-api-mock-explorer-split-v1';
+const EXPLORER_DEFAULT_WIDTH = 262;
+const EXPLORER_MIN_WIDTH = 180;
+const EXPLORER_MIN_EDITOR_WIDTH = 360;
 
 interface ConflictStats {
   analyzedRules: number;
@@ -115,6 +121,17 @@ export function ApiMockStudioMainPanel({
   onApplyActiveServer,
   onUpdateServer,
 }: Props) {
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const { width: explorerWidth, dividerProps } = useSplitPaneResize({
+    storageKey: EXPLORER_SPLIT_STORAGE_KEY,
+    defaultWidth: EXPLORER_DEFAULT_WIDTH,
+    minWidth: EXPLORER_MIN_WIDTH,
+    minOppositeWidth: EXPLORER_MIN_EDITOR_WIDTH,
+    maxWidthRatio: 0.55,
+    containerRef: workspaceRef,
+    label: 'Resize rules panel',
+  });
+
   useEffect(() => {
     if (!routesDrawerOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -141,10 +158,12 @@ export function ApiMockStudioMainPanel({
           />
         )}
         <div
+          ref={workspaceRef}
           className={`api-mock-workspace${routesDrawerOpen ? ' routes-drawer-open' : ''}`}
           id={API_MOCK_WORKSPACE_PANEL_ID}
           role="tabpanel"
           aria-labelledby={`api-mock-tabhdr-${activeServer.id}`}
+          style={{ '--am-explorer-w': `${explorerWidth}px` } as CSSProperties}
         >
           <ApiMockRouteExplorer
             routes={activeServer.routes}
@@ -170,6 +189,11 @@ export function ApiMockStudioMainPanel({
             drawerOpen={routesDrawerOpen}
             onCloseDrawer={() => setRoutesDrawerOpen(false)}
             running={runtimeRunning}
+          />
+          <div
+            className="am-explorer-splitter"
+            data-testid="api-mock-explorer-splitter"
+            {...dividerProps}
           />
           <div className="api-mock-editor">
             {selectedRoute ? (
