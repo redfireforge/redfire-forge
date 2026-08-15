@@ -239,7 +239,8 @@ describe('AM-24 helpers', () => {
   it('pins timing to the slower AM-14…AM-23 holds', () => {
     expect(AM24_TIMING.look).toBe(900);
     expect(AM24_TIMING.beforeOpen).toBe(1400);
-    expect(AM24_TIMING.beforeRun).toBe(2000);
+    expect(AM24_TIMING.beforeRun).toBe(2400);
+    expect(AM24_TIMING.reviewModal).toBe(2400);
     expect(AM24_TIMING.payoff).toBe(1600);
     expect(JSON.parse(AM24_OPENAPI).paths['/orders'].post).toBeTruthy();
     expect(AM24_SKU).toBe('WIDGET');

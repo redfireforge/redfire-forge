@@ -37,6 +37,16 @@ describe('predicateEvaluator unavailable operators', () => {
       id: 'pg', combinator: 'not',
       children: [{ id: 'p1', source: 'body', operator: 'jsonSchema', expected: {} }],
     }, request)).toBe(false);
+
+    const guarded = evaluateRoute({
+      ...route,
+      predicates: {
+        id: 'pg', combinator: 'not',
+        children: [{ id: 'p1', source: 'body', operator: 'jsonSchema', expected: {} }],
+      },
+    }, request, '');
+    expect(guarded.overallMatch).toBe(false);
+    expect(guarded.predicateResults.some(p => p.reason?.includes('fail-closed'))).toBe(true);
   });
 
   it('rejects an unknown combinator', () => {

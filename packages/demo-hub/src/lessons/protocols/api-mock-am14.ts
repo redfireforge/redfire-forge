@@ -88,7 +88,7 @@ export const apiMockAm14Lesson: DemoLesson = {
     + 'catch a timeout, prove reset, then dribble chunks and read the fault timeline.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 4,
   concept: {
     title: 'A mock that is slow, retired, or silent is still a contract.',
     body:

@@ -18,6 +18,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   spotlightBeat,
   ensureAdHocSimulateForm,
 } from './api-mock-demo-helpers';
@@ -33,7 +34,7 @@ export const AM21_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
   generate: 2000,
 } as const;
 
@@ -223,11 +224,9 @@ export async function ensureAm21Library(ctx: DemoActionContext): Promise<void> {
   if (imported) await ctx.waitFor(API_MOCK.ROUTE_ROW, 10_000);
 }
 
-export async function closeAm21Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm21Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm21SimulateOpen()) return;
-  if (!firstVisibleElement(API_MOCK.SIMULATE_CLOSE)) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(200);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 200 });
 }
 
 export async function openAm21Simulate(ctx: DemoActionContext, visible: boolean): Promise<void> {
@@ -360,7 +359,7 @@ export async function runAm21SuiteAndScratchpad(ctx: DemoActionContext): Promise
   await reviewAndRunSimulation(ctx, {
     review: T.payoff,
     beforeRun: T.beforeRun,
-    saveSample: false,
+    sampleName: `GET ${AM21_ADHOC_PATH} — scratch pad`,
   });
   await am21Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
   await am21Payoff(ctx, API_MOCK.SIMULATE_OUTCOME);
@@ -455,6 +454,7 @@ export async function runAm21ExportTrace(ctx: DemoActionContext): Promise<void> 
   await am21Reveal(ctx, API_MOCK.SIMULATE_EXPORT_CONFIRM, T.payoff);
   await am21Look(ctx, API_MOCK.SIMULATE_EXPORT_PREVIEW);
   await am21Payoff(ctx, API_MOCK.SIMULATE_EXPORT_CONFIRM);
+  await closeAm21Simulate(ctx, { review: true });
 }
 
 export async function runAm21Examples(ctx: DemoActionContext): Promise<void> {

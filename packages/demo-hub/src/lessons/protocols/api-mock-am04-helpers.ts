@@ -23,6 +23,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   spotlightBeat,
   ensureAdHocSimulateForm,
 } from './api-mock-demo-helpers';
@@ -47,7 +48,7 @@ export const AM04_TIMING = {
   /** Filled Simulate path, held so the viewer can read it before Run. */
   reviewForm: 2200,
   /** Ring on **Run simulation** before the click. */
-  beforeRun: 2200,
+  beforeRun: 2600,
 } as const;
 
 const T = AM04_TIMING;
@@ -132,6 +133,12 @@ export const AM04_LIBRARY_SAMPLE_PATHS = ['/products/42', '/products/100234'] as
 export const AM04_SIM_PARAM_PATH = '/products/7';
 export const AM04_SIM_LOOSE_PATH = '/products/abc';
 export const AM04_SIM_LITERAL_PATH = '/products/42';
+
+/** Saved-sample names — same path is probed twice (param vs regex), so purpose is required. */
+export const AM04_SAMPLE_PARAM = `GET ${AM04_SIM_PARAM_PATH} — param match`;
+export const AM04_SAMPLE_LOOSE_PARAM = `GET ${AM04_SIM_LOOSE_PATH} — param still matches`;
+export const AM04_SAMPLE_LOOSE_REGEX = `GET ${AM04_SIM_LOOSE_PATH} — regex reject`;
+export const AM04_SAMPLE_LITERAL = `GET ${AM04_SIM_LITERAL_PATH} — regex match`;
 
 /** Every path form the products rule passes through — used to find its row again. */
 const PRODUCT_PATHS: string[] = [AM04_LITERAL_PATH, AM04_PARAM_PATH, AM04_REGEX_PATH];
@@ -264,10 +271,9 @@ export async function closeAm04Toolbox(ctx: DemoActionContext): Promise<void> {
 }
 
 /** Dismiss the Simulate workspace so the next step's spotlight lands on the Studio. */
-export async function closeAm04Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm04Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm04SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(AM_DEMO_TIMING.panelReady);
+  await closeSimulateWorkspace(ctx, opts);
 }
 
 // ── Guards ──────────────────────────────────────────────────────────────────
@@ -414,10 +420,10 @@ async function openAm04Simulate(ctx: DemoActionContext): Promise<void> {
  * form for the results pane, so later runs go back through **Request** first —
  * filling the hidden mirror field would change state the viewer never sees.
  */
-async function runAm04Simulation(ctx: DemoActionContext, path: string): Promise<string> {
+async function runAm04Simulation(ctx: DemoActionContext, path: string, sampleName: string): Promise<string> {
   await ensureAdHocSimulateForm(ctx, T.tabSwitch);
   await am04Fill(ctx, API_MOCK.SIMULATE_PATH, path);
-  await reviewAndRunSimulation(ctx, { review: T.reviewForm, beforeRun: T.beforeRun, sampleName: `GET ${path}` });
+  await reviewAndRunSimulation(ctx, { review: T.reviewForm, beforeRun: T.beforeRun, sampleName });
   await am04Reveal(ctx, API_MOCK.SIMULATE_RESULT);
   await am04Payoff(ctx, API_MOCK.SIMULATE_OUTCOME);
   return am04SimOutcome();
@@ -448,15 +454,15 @@ export async function runAm04ProveParam(ctx: DemoActionContext): Promise<string[
   const outcomes: string[] = [];
   await openAm04Simulate(ctx);
 
-  outcomes.push(await runAm04Simulation(ctx, AM04_SIM_PARAM_PATH));
+  outcomes.push(await runAm04Simulation(ctx, AM04_SIM_PARAM_PATH, AM04_SAMPLE_PARAM));
   await am04Payoff(ctx, am04ProductCandidateSelector());
   await am04Click(ctx, API_MOCK.SIMULATE_TAB_REQUEST, T.tabSwitch);
   await am04Payoff(ctx, API_MOCK.SIMULATE_NORMALIZED);
   await am04Break(ctx);
 
-  outcomes.push(await runAm04Simulation(ctx, AM04_SIM_LOOSE_PATH));
+  outcomes.push(await runAm04Simulation(ctx, AM04_SIM_LOOSE_PATH, AM04_SAMPLE_LOOSE_PARAM));
   await am04Payoff(ctx, am04ProductCandidateSelector());
-  await closeAm04Simulate(ctx);
+  await closeAm04Simulate(ctx, { review: true });
   await am04Look(ctx, API_MOCK.PATH_INPUT);
   return outcomes;
 }
@@ -594,15 +600,15 @@ export async function runAm04ProveRegex(ctx: DemoActionContext): Promise<string[
   const outcomes: string[] = [];
   await openAm04Simulate(ctx);
 
-  outcomes.push(await runAm04Simulation(ctx, AM04_SIM_LOOSE_PATH));
+  outcomes.push(await runAm04Simulation(ctx, AM04_SIM_LOOSE_PATH, AM04_SAMPLE_LOOSE_REGEX));
   await am04Payoff(ctx, am04ProductCandidateSelector());
   await am04Break(ctx);
 
-  outcomes.push(await runAm04Simulation(ctx, AM04_SIM_LITERAL_PATH));
+  outcomes.push(await runAm04Simulation(ctx, AM04_SIM_LITERAL_PATH, AM04_SAMPLE_LITERAL));
   await am04Payoff(ctx, am04ProductCandidateSelector());
   await am04Click(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
   await am04Payoff(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
-  await closeAm04Simulate(ctx);
+  await closeAm04Simulate(ctx, { review: true });
   await am04Payoff(ctx, API_MOCK.ROUTE_EXPLORER);
   return outcomes;
 }

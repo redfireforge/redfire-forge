@@ -21,6 +21,7 @@ import {
   revealBeat,
   resolveApiMockStudioServerId,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   ensureAdHocSimulateForm,
   ensureSimulateResultsPane,
   selectBeat,
@@ -178,14 +179,14 @@ describe('API Mock beat helpers', () => {
     expect(ctx.delay).toHaveBeenCalledWith(90);
   });
 
-  it('reviewAndRunSimulation runs Ad-hoc first, then saves a named sample', async () => {
+  it('reviewAndRunSimulation saves a named sample, then runs', async () => {
     mountSimulateForm({ path: '/products/42' });
     const ctx = makeCtx();
     await reviewAndRunSimulation(ctx);
 
     const clicks = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
-    expect(clicks.indexOf(API_MOCK.SIMULATE_RUN)).toBeGreaterThanOrEqual(0);
-    expect(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE)).toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_RUN));
+    expect(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE)).toBeGreaterThanOrEqual(0);
+    expect(clicks.indexOf(API_MOCK.SIMULATE_RUN)).toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE));
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAMPLE_NAME, 'GET /products/42');
   });
 
@@ -200,9 +201,30 @@ describe('API Mock beat helpers', () => {
 
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAMPLE_NAME, 'Gold order');
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
-    expect(ctx.delay).toHaveBeenNthCalledWith(1, 111);
-    expect(ctx.delay).toHaveBeenNthCalledWith(2, 111);
-    expect(ctx.delay).toHaveBeenNthCalledWith(3, 111);
+    expect(ctx.delay).toHaveBeenCalledWith(111);
+    expect(ctx.delay).toHaveBeenCalledWith(AM_DEMO_TIMING.digestRequest);
+  });
+
+  it('reviewAndRunSimulation can skip the quiet digest before Run', async () => {
+    mountSimulateForm({ path: '/health' });
+    const ctx = makeCtx();
+    await reviewAndRunSimulation(ctx, { saveSample: false, digest: false, beforeRun: 90 });
+    expect(ctx.delay).not.toHaveBeenCalledWith(AM_DEMO_TIMING.digestRequest);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
+  });
+
+  it('reviewAndRunSimulation can skip the field review after a Headers table tour', async () => {
+    mountSimulateForm({
+      path: '/reports',
+      headers: 'X-Tenant: acme',
+      body: '{"ok":true}',
+    });
+    const ctx = makeCtx();
+    await reviewAndRunSimulation(ctx, { review: 111, beforeRun: 90, reviewFields: false, saveSample: false });
+    expect(ctx.delay).toHaveBeenCalledWith(90);
+    expect(ctx.delay).not.toHaveBeenCalledWith(111);
+    expect(ctx.delay).not.toHaveBeenCalledWith(AM_DEMO_TIMING.digestRequest);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
   });
 
   it('reviewAndRunSimulation can skip Save as sample', async () => {
@@ -218,7 +240,7 @@ describe('API Mock beat helpers', () => {
     const ctx = makeCtx();
     await reviewAndRunSimulation(ctx, { review: 80, beforeRun: 90 });
 
-    expect(ctx.delay).toHaveBeenNthCalledWith(1, 80);
+    expect(ctx.delay).toHaveBeenCalledWith(80);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAVE_SAMPLE);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
   });
@@ -241,22 +263,48 @@ describe('API Mock beat helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN);
   });
 
-  it('reviewAndRunSimulation returns to Request after Run so Save as sample is visible', async () => {
-    mountSimulateForm({ path: '/catalog', viewRequest: true });
+  it('reviewAndRunSimulation clicks Ad-hoc when Save is hidden on Request', async () => {
+    mountSimulateForm({ path: '/reports', hideSave: true });
     const ctx = makeCtx();
-    await reviewAndRunSimulation(ctx, { sampleName: 'GET /catalog — two matches' });
+    vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
+      if (sel === API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN) {
+        const save = document.querySelector(API_MOCK.SIMULATE_SAVE_SAMPLE);
+        if (save) makeVisible(save);
+      }
+    });
+    await reviewAndRunSimulation(ctx, { sampleName: 'GET /reports — debug' });
     const clicks = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
-    expect(clicks.indexOf(API_MOCK.SIMULATE_VIEW_REQUEST)).toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_RUN));
-    expect(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE)).toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_VIEW_REQUEST));
+    expect(clicks.indexOf(API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN)).toBeGreaterThanOrEqual(0);
+    expect(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE))
+      .toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN));
+    expect(clicks.indexOf(API_MOCK.SIMULATE_RUN))
+      .toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE));
+    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAMPLE_NAME, 'GET /reports — debug');
   });
 
-  it('reviewAndRunSimulation returns to Results after Save so the verdict is mounted', async () => {
-    mountSimulateForm({ path: '/reports?page=2', viewRequest: true, viewResults: true });
+  it('reviewAndRunSimulation opens Request first when Save is behind Results', async () => {
+    mountSimulateForm({ path: '/catalog', hideSave: true, viewRequest: true });
+    const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
+      if (sel === API_MOCK.SIMULATE_VIEW_REQUEST) {
+        const save = document.querySelector(API_MOCK.SIMULATE_SAVE_SAMPLE);
+        if (save) makeVisible(save);
+      }
+    });
+    await reviewAndRunSimulation(ctx, { sampleName: 'GET /catalog — two matches' });
+    const clicks = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
+    expect(clicks.indexOf(API_MOCK.SIMULATE_VIEW_REQUEST)).toBeGreaterThanOrEqual(0);
+    expect(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE)).toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_VIEW_REQUEST));
+    expect(clicks.indexOf(API_MOCK.SIMULATE_RUN)).toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE));
+  });
+
+  it('reviewAndRunSimulation opens Results after Run so the verdict is mounted', async () => {
+    mountSimulateForm({ path: '/reports?page=2', viewResults: true });
     const ctx = makeCtx();
     await reviewAndRunSimulation(ctx, { sampleName: 'GET /reports?page=2' });
     const clicks = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
     expect(clicks.indexOf(API_MOCK.SIMULATE_VIEW_RESULTS)).toBeGreaterThan(
-      clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE),
+      clicks.indexOf(API_MOCK.SIMULATE_RUN),
     );
   });
 
@@ -266,6 +314,45 @@ describe('API Mock beat helpers', () => {
     await reviewAndRunSimulation(ctx, { saveSample: false, beforeRun: 90 });
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_VIEW_RESULTS);
     expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.SIMULATE_SAVE_SAMPLE);
+  });
+
+  it('closeSimulateWorkspace clicks Close without a verdict hold', async () => {
+    mountSimulateWorkspace({ close: true });
+    const ctx = makeCtx();
+    await closeSimulateWorkspace(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
+    expect(ctx.delay).not.toHaveBeenCalledWith(AM_DEMO_TIMING.beforeClose);
+  });
+
+  it('closeSimulateWorkspace holds the outcome before Close when review is on', async () => {
+    mountSimulateWorkspace({ close: true, outcome: true });
+    const ctx = makeCtx();
+    await closeSimulateWorkspace(ctx, { review: true, afterClose: 80 });
+    expect(ctx.delay).toHaveBeenCalledWith(AM_DEMO_TIMING.beforeClose);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
+    expect(ctx.delay).toHaveBeenCalledWith(80);
+  });
+
+  it('closeSimulateWorkspace falls back to the result pane when outcome is missing', async () => {
+    mountSimulateWorkspace({ close: true, result: true });
+    const ctx = makeCtx();
+    await closeSimulateWorkspace(ctx, { review: true, afterClose: 80 });
+    expect(ctx.delay).toHaveBeenCalledWith(AM_DEMO_TIMING.beforeClose);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
+  });
+
+  it('closeSimulateWorkspace still pauses when neither verdict node is mounted', async () => {
+    mountSimulateWorkspace({ close: true });
+    const ctx = makeCtx();
+    await closeSimulateWorkspace(ctx, { review: true, afterClose: 80 });
+    expect(ctx.delay).toHaveBeenCalledWith(AM_DEMO_TIMING.beforeClose);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
+  });
+
+  it('closeSimulateWorkspace is a no-op when Simulate is closed', async () => {
+    const ctx = makeCtx();
+    await closeSimulateWorkspace(ctx, { review: true });
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('ensureSimulateResultsPane is a no-op when the verdict is already showing', async () => {
@@ -339,6 +426,35 @@ function mountSimulateForm(opts: {
   if (opts.viewResults) makeVisible(viewResults);
 
   document.body.append(path, headers, body, save, name, saved, adhoc, run, viewRequest, viewResults);
+}
+
+function mountSimulateWorkspace(opts: {
+  close?: boolean;
+  outcome?: boolean;
+  result?: boolean;
+} = {}): void {
+  const workspace = document.createElement('div');
+  workspace.setAttribute('data-testid', 'api-mock-simulate-workspace');
+  makeVisible(workspace);
+  if (opts.close) {
+    const close = document.createElement('button');
+    close.setAttribute('data-testid', 'api-mock-simulate-close');
+    makeVisible(close);
+    workspace.append(close);
+  }
+  if (opts.result) {
+    const result = document.createElement('div');
+    result.setAttribute('data-testid', 'api-mock-simulate-result');
+    makeVisible(result);
+    workspace.append(result);
+  }
+  if (opts.outcome) {
+    const outcome = document.createElement('div');
+    outcome.setAttribute('data-testid', 'api-mock-sim-outcome');
+    makeVisible(outcome);
+    workspace.append(outcome);
+  }
+  document.body.append(workspace);
 }
 
 describe('API Mock Studio server resolve', () => {

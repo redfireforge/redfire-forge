@@ -21,6 +21,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   ensureAdHocSimulateForm,
@@ -40,7 +41,7 @@ export const AM12_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM12_TIMING;
@@ -235,10 +236,9 @@ export async function ensureAm12StudioView(ctx: DemoActionContext): Promise<void
   await ctx.waitFor(API_MOCK.SERVER_BAR, 10_000);
 }
 
-export async function closeAm12Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm12Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm12SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(400);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 400 });
 }
 
 export async function ensureAm12Workspace(ctx: DemoActionContext): Promise<void> {
@@ -538,12 +538,12 @@ export async function runAm12Default(ctx: DemoActionContext): Promise<void> {
 /** Step 5 — same path, two answers, decided by payload. */
 export async function runAm12ProveRules(ctx: DemoActionContext): Promise<void> {
   await openAm12Simulate(ctx);
-  await runAm12Simulation(ctx, AM12_MATCH_BODY, `POST ${AM12_PATH} missing`);
+  await runAm12Simulation(ctx, AM12_MATCH_BODY, `POST ${AM12_PATH} — missing sku`);
   await holdAm12RenderedResponse(ctx);
   await am12Break(ctx);
-  await runAm12Simulation(ctx, AM12_MISS_BODY, `POST ${AM12_PATH} in cart`, { saveSample: false });
+  await runAm12Simulation(ctx, AM12_MISS_BODY, `POST ${AM12_PATH} — in cart`);
   await holdAm12RenderedResponse(ctx);
-  await closeAm12Simulate(ctx);
+  await closeAm12Simulate(ctx, { review: true });
 }
 
 /** Step 6 — round-robin: the retry/backoff test mode. */

@@ -23,6 +23,10 @@ import {
   AM06_CORPUS_SAMPLE,
   AM06_INVALID_BODY,
   AM06_JSONPATH,
+  AM06_SAMPLE_COMPLETE,
+  AM06_SAMPLE_EXTRAS,
+  AM06_SAMPLE_INVALID,
+  AM06_SAMPLE_STRICT,
   AM06_PICK_TOKEN,
   AM06_RICH_BODY,
   AM06_RULE_METHOD,
@@ -294,6 +298,13 @@ describe('AM-06 helpers', () => {
     };
     const invalid = JSON.parse(AM06_INVALID_BODY) as { customer: { id?: string } };
     const subset = JSON.parse(AM06_SUBSET_EXPECTED) as { customer: { tier: string } };
+
+    // Compact one-liner so the Match row shows the whole fragment.
+    expect(AM06_SUBSET_EXPECTED).toBe('{"customer":{"tier":"gold"}}');
+    expect(AM06_SUBSET_EXPECTED).not.toContain('\n');
+    expect(new Set([
+      AM06_SAMPLE_EXTRAS, AM06_SAMPLE_STRICT, AM06_SAMPLE_INVALID, AM06_SAMPLE_COMPLETE,
+    ]).size).toBe(4);
 
     // Subset baseline is satisfied by both payloads — only the schema separates them.
     expect(rich.customer.tier).toBe(subset.customer.tier);

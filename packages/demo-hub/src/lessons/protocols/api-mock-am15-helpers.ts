@@ -579,8 +579,18 @@ export async function runAm15OpenApi(ctx: DemoActionContext): Promise<void> {
   await am15Click(ctx, API_MOCK.IMPORT_PARSE, T.payoff);
   await am15Reveal(ctx, API_MOCK.IMPORT_ROUTE_LIST, T.payoff);
   await am15Look(ctx, API_MOCK.IMPORT_ROUTE_LIST);
+  if (firstVisibleElement(API_MOCK.IMPORT_LOSS)) {
+    await am15Look(ctx, API_MOCK.IMPORT_LOSS);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_FOLDER)) {
+    await am15Look(ctx, API_MOCK.IMPORT_FOLDER);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_PREVIEW)) {
+    await am15Look(ctx, API_MOCK.IMPORT_PREVIEW);
+  }
+  await am15Payoff(ctx, API_MOCK.IMPORT_REVIEW);
   await am15Break(ctx);
-  await am15Click(ctx, API_MOCK.IMPORT_CONFIRM, T.payoff);
+  await clickBeat(ctx, API_MOCK.IMPORT_CONFIRM, { look: 2400, hold: T.payoff });
   await ctx.waitFor(API_MOCK.DRAFT_ROUTE, 10_000);
   const drafts = am15DraftRows().slice(-3);
   for (const row of drafts) {

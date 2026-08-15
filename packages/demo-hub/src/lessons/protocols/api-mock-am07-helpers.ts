@@ -25,6 +25,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   spotlightElementBeat,
@@ -48,7 +49,7 @@ export const AM07_TIMING = {
   /** Spotlight on a tab or modal trigger before the click. */
   beforeOpen: 1400,
   /** Ring on **Run simulation** before the click. */
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM07_TIMING;
@@ -348,6 +349,10 @@ export function isAm07SimulateOpen(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE));
 }
 
+export function isAm07TextExpandOpen(): boolean {
+  return Boolean(firstVisibleElement(API_MOCK.TEXT_EXPAND_MODAL));
+}
+
 /** The expression the XPath tab is composing. */
 export function am07ToolboxXPath(): string {
   return firstVisibleElement<HTMLInputElement>(API_MOCK.TOOLBOX_XPATH_EXPR)?.value ?? '';
@@ -407,11 +412,21 @@ export async function closeAm07Toolbox(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(AM_DEMO_TIMING.panelReady);
 }
 
+/** Dismiss the Request body popup so Save / Run are not sitting behind it. */
+export async function closeAm07TextExpand(ctx: DemoActionContext, visible = false): Promise<void> {
+  if (!isAm07TextExpandOpen()) return;
+  if (visible) {
+    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_CLOSE, { look: 300, hold: 400 });
+    return;
+  }
+  firstVisibleElement<HTMLButtonElement>(API_MOCK.TEXT_EXPAND_CLOSE)?.click();
+}
+
 /** Dismiss the Simulate workspace so the next step's spotlight lands on the Studio. */
-export async function closeAm07Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm07Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
+  await closeAm07TextExpand(ctx);
   if (!isAm07SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(AM_DEMO_TIMING.panelReady);
+  await closeSimulateWorkspace(ctx, opts);
 }
 
 // ── Guards ──────────────────────────────────────────────────────────────────
@@ -600,10 +615,53 @@ async function openAm07Simulate(ctx: DemoActionContext): Promise<void> {
  * runs go back through **Request** first. After the fields are filled the viewer gets
  * a dedicated review pass before **Run simulation**.
  */
+/**
+ * After the multipart body is pasted: open **Request body**, search the text part
+ * (`title`) then the file part (`report.pdf` on `document`), and hold each match.
+ */
+export async function reviewAm07MultipartBody(ctx: DemoActionContext): Promise<void> {
+  const expand = firstVisibleElement(API_MOCK.SIMULATE_BODY_EXPAND);
+  if (!expand && !isAm07TextExpandOpen()) return;
+  if (expand) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_BODY_EXPAND, { look: 500, hold: 500 });
+  }
+  await revealBeat(ctx, API_MOCK.TEXT_EXPAND_MODAL, { timeout: 4_000, hold: 700 });
+
+  if (firstVisibleElement(API_MOCK.TEXT_EXPAND_SEARCH)) {
+    await fillBeat(ctx, API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FIELD, { look: 400, hold: 550 });
+  }
+  if (firstVisibleElement(API_MOCK.TEXT_EXPAND_NEXT)) {
+    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_NEXT, { look: 200, hold: 0 });
+  }
+  await spotlightBeat(ctx, API_MOCK.TEXT_EXPAND_EDITOR, T.payoff);
+
+  if (firstVisibleElement(API_MOCK.TEXT_EXPAND_SEARCH)) {
+    await fillBeat(ctx, API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FILENAME, { look: 400, hold: 550 });
+  }
+  if (firstVisibleElement(API_MOCK.TEXT_EXPAND_NEXT)) {
+    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_NEXT, { look: 200, hold: 0 });
+  }
+  await spotlightBeat(ctx, API_MOCK.TEXT_EXPAND_EDITOR, T.simOutcome);
+
+  if (firstVisibleElement(API_MOCK.TEXT_EXPAND_CLOSE)) {
+    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_CLOSE, { look: 300, hold: 500 });
+  } else {
+    await closeAm07TextExpand(ctx);
+  }
+}
+
 async function runAm07Simulation(
   ctx: DemoActionContext,
-  req: { method: string; path: string; headers: string; body: string; sampleName: string },
+  req: {
+    method: string;
+    path: string;
+    headers: string;
+    body: string;
+    sampleName: string;
+    reviewMultipartBody?: boolean;
+  },
 ): Promise<string> {
+  await closeAm07TextExpand(ctx);
   await ensureAdHocSimulateForm(ctx, T.tabSwitch);
   if (am07SimMethod() !== req.method) {
     await am07Select(ctx, API_MOCK.SIMULATE_METHOD, req.method);
@@ -611,10 +669,17 @@ async function runAm07Simulation(
   await am07Fill(ctx, API_MOCK.SIMULATE_PATH, req.path);
   await am07Fill(ctx, API_MOCK.SIMULATE_HEADERS, req.headers, T.payoff);
   await am07Fill(ctx, API_MOCK.SIMULATE_BODY, req.body, T.simOutcome);
+  if (req.reviewMultipartBody) {
+    await reviewAm07MultipartBody(ctx);
+    await closeAm07TextExpand(ctx);
+    await ensureAdHocSimulateForm(ctx, 400);
+  }
   await reviewAndRunSimulation(ctx, {
     review: T.payoff,
-    beforeRun: T.beforeRun,
+    beforeRun: req.reviewMultipartBody ? 1_200 : T.beforeRun,
     sampleName: req.sampleName,
+    reviewFields: req.reviewMultipartBody ? false : undefined,
+    digest: req.reviewMultipartBody ? false : undefined,
   });
   await am07Reveal(ctx, API_MOCK.SIMULATE_RESULT);
   await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
@@ -664,7 +729,7 @@ export async function runAm07ProveForm(ctx: DemoActionContext): Promise<string[]
     sampleName: AM07_FORM_SAMPLE,
   }));
   await am07Trace(ctx, am07TraceRowByText('form_field_exact'), T.simOutcome);
-  await closeAm07Simulate(ctx);
+  await closeAm07Simulate(ctx, { review: true });
   await am07Break(ctx);
 
   if (!id) return outcomes;
@@ -681,7 +746,7 @@ export async function runAm07ProveForm(ctx: DemoActionContext): Promise<string[]
     sampleName: AM07_FORM_VARIANT_SAMPLE,
   }));
   await am07Trace(ctx, am07TraceRowByText('form_field_regex'), T.simOutcome);
-  await closeAm07Simulate(ctx);
+  await closeAm07Simulate(ctx, { review: true });
   await am07Payoff(ctx, API_MOCK.conditionRow(id));
   return outcomes;
 }
@@ -722,6 +787,7 @@ export async function runAm07ProveMultipart(ctx: DemoActionContext): Promise<str
     headers: AM07_MULTIPART_CONTENT_TYPE,
     body: AM07_MULTIPART_BODY,
     sampleName: AM07_UPLOAD_SAMPLE,
+    reviewMultipartBody: true,
   });
   await am07Trace(ctx, am07TraceRowByText('multipart_field'));
   await am07Trace(ctx, am07TraceRowByText('multipart_file'), T.simOutcome);
@@ -731,7 +797,7 @@ export async function runAm07ProveMultipart(ctx: DemoActionContext): Promise<str
   await am07Payoff(ctx, API_MOCK.SIMULATE_NORMALIZED);
   await am07Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
   await am07Payoff(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
-  await closeAm07Simulate(ctx);
+  await closeAm07Simulate(ctx, { review: true });
   return outcome;
 }
 
@@ -803,7 +869,7 @@ export async function runAm07XmlSchema(ctx: DemoActionContext): Promise<string[]
   }));
   await am07Trace(ctx, am07TraceRowByText('xpath_equals'));
   await am07Trace(ctx, am07TraceRowByText('xmlSchema'), T.simOutcome);
-  await closeAm07Simulate(ctx);
+  await closeAm07Simulate(ctx, { review: true });
   return outcomes;
 }
 
@@ -843,7 +909,7 @@ export async function runAm07Binary(ctx: DemoActionContext): Promise<string[]> {
     sampleName: AM07_BINARY_ALTERED_SAMPLE,
   }));
   await am07Trace(ctx, am07TraceRowByText('binary_sha256'), T.simOutcome);
-  await closeAm07Simulate(ctx);
+  await closeAm07Simulate(ctx, { review: true });
   await am07Payoff(ctx, API_MOCK.ROUTE_EXPLORER);
   return outcomes;
 }

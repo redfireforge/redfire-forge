@@ -145,8 +145,17 @@ describe('ApiMockPatternToolboxModal', () => {
     fireEvent.change(screen.getByTestId('api-mock-toolbox-regex'), { target: { value: '^S-[0-9]{4}$' } });
     expect(screen.getByTestId('api-mock-toolbox-applied-expected').textContent).toBe('^S-[0-9]{4}$');
     expect(screen.getByTestId('api-mock-toolbox-lib-Numeric ID').className).not.toContain('active');
-    expect(screen.getByTestId('api-mock-toolbox-sample-row-s1').textContent).toMatch(/Should match/);
-    expect(screen.getByTestId('api-mock-toolbox-sample-row-s1').className).toContain('fail');
+    expect(screen.getByTestId('api-mock-toolbox-sample-value-s1')).toHaveValue('S-2048');
+    expect(screen.getByTestId('api-mock-toolbox-sample-row-s1').className).toContain('pass');
+    expect(screen.getByTestId('api-mock-toolbox-sample-value-s2')).toHaveValue('s-2048');
+    expect(screen.getByTestId('api-mock-toolbox-sample-actual-s2').textContent).toBe('Does not match');
+    expect(screen.getByTestId('api-mock-toolbox-sample-check-s2').textContent).toMatch(/Not as expected/);
+    expect(screen.getByTestId('api-mock-toolbox-flag-cs').className).toContain('active');
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-flag-ci'));
+    expect(screen.getByTestId('api-mock-toolbox-flag-ci').className).toContain('active');
+    expect(screen.getByTestId('api-mock-toolbox-flag-cs').className).not.toContain('active');
+    expect(screen.getByTestId('api-mock-toolbox-sample-actual-s2').textContent).toBe('Matches');
+    expect(screen.getByTestId('api-mock-toolbox-sample-check-s2').textContent).toMatch(/As expected/);
   });
 
   it('covers regex library search, apply, flags, samples, and invalid pattern', () => {
@@ -168,16 +177,16 @@ describe('ApiMockPatternToolboxModal', () => {
     fireEvent.click(screen.getByLabelText('Case sensitive'));
 
     fireEvent.change(screen.getByTestId('api-mock-toolbox-regex'), { target: { value: '[' } });
-    expect(screen.getByText('Invalid')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-toolbox-safety').textContent).toBe('Invalid');
 
     fireEvent.click(screen.getByRole('button', { name: '+ Sample' }));
     const sampleInputs = screen.getAllByLabelText('Sample value');
     const newSample = sampleInputs[sampleInputs.length - 1] as HTMLInputElement;
     fireEvent.change(newSample, { target: { value: '550e8400-e29b-41d4-a716-446655440000' } });
 
-    const toggles = screen.getAllByTitle('Toggle should match / should fail');
+    const toggles = screen.getAllByTitle('Toggle whether you expect this value to match');
     fireEvent.click(toggles[0]);
-    expect(toggles[0].textContent).toBe('Should fail');
+    expect(toggles[0].textContent).toBe('Expect no match');
 
     const deleteButtonsBefore = screen.getAllByLabelText('Delete sample').length;
     fireEvent.click(screen.getAllByLabelText('Delete sample')[0]);

@@ -69,7 +69,7 @@ npm run test:e2e:grpc         # develop merge gate only
 
 - Full `npm run test:grpc:phase<phase>` once
 
-Monolithic (>900 lines) refactors and coverage-gap fixes: scope to files you touch, or run only when the user explicitly requests an audit — not as a gate on every sub-phase commit.
+Monolithic (>750 lines) refactors and coverage-gap fixes: scope to files you touch, or run only when the user explicitly requests an audit — not as a gate on every sub-phase commit.
 
 ---
 

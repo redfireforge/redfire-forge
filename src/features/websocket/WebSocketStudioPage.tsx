@@ -746,5 +746,4 @@ export function WebSocketStudioPage({
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export { deriveTabLabel } from './WebSocketStudioPage.helpers';
+export { deriveTabLabel } from './WebSocketStudioPage.helpers'; // eslint-disable-line react-refresh/only-export-components

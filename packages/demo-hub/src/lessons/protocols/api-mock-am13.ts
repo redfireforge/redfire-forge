@@ -88,7 +88,7 @@ export const apiMockAm13Lesson: DemoLesson = {
     + 'runs match. Finish by adding a sensitive tenant variable.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 4,
   concept: {
     title: 'A mock that remembers is a state machine, not a second rule.',
     body:

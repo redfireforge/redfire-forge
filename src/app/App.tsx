@@ -46,8 +46,7 @@ import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
-import { GalleryPage } from '../features/gallery/GalleryPage';
-import TrainingTracksView from '../features/training/TrainingTracksView';
+import { AppDiscoveryPanes } from './components/AppDiscoveryPanes';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
 import { useToast } from '../shared/hooks/useToast';
@@ -64,7 +63,6 @@ import { useCatalogPreviewMigrations } from './hooks/useCatalogPreviewMigrations
 import { useHarnessRequestIds } from './hooks/useHarnessRequestIds';
 import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
-import { DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
 import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import { useDemoWorkspaceDefaultsBridge } from './hooks/useDemoWorkspaceDefaultsBridge';
 import { useDemoHarnessBridge } from './hooks/useDemoHarnessBridge';
@@ -425,29 +423,12 @@ export default function App() {
               onBrowseGallery={handleBrowseGallery}
             />
           </div>
-          {activeTab === 'gallery' && (
-            <div className="app-tab-pane gallery-pane">
-              <GalleryPage
-                importedSamples={gallery.importedSamples}
-                onImportRequest={gallery.onImportRequest}
-                onTryItRequest={gallery.onTryItRequest}
-                onImportCatalog={gallery.onImportCatalog}
-                onImportTest={gallery.onImportTest}
-                onImportWorkflow={gallery.onImportWorkflow}
-                onImportApiMock={gallery.onImportApiMock}
-                onNavigateTo={gallery.onNavigateTo}
-                initialDomain={galleryInitialDomain}
-              />
-            </div>
-          )}
-          {DEMO_HUB_ENABLED && activeTab === 'demo-hub' && (
-            <div id={DEMO_HUB_MOUNT_ID} className="app-tab-pane demo-hub-pane" />
-          )}
-          {activeTab === 'training' && (
-            <div className="app-tab-pane training-pane">
-              <TrainingTracksView onNavigateToSample={(_sampleId) => { setGalleryInitialDomain(undefined); setActiveTab('gallery'); }} />
-            </div>
-          )}
+          <AppDiscoveryPanes
+            activeTab={activeTab}
+            gallery={gallery}
+            galleryInitialDomain={galleryInitialDomain}
+            onOpenGallery={() => { setGalleryInitialDomain(undefined); setActiveTab('gallery'); }}
+          />
           {activeTab === 'workflow-runner' && (
             <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
               <WorkflowRunner

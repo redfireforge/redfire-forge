@@ -21,6 +21,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   ensureAdHocSimulateForm,
@@ -40,7 +41,7 @@ export const AM14_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM14_TIMING;
@@ -291,10 +292,9 @@ export async function ensureAm14StudioView(ctx: DemoActionContext): Promise<void
   await ctx.waitFor(API_MOCK.SERVER_BAR, 10_000);
 }
 
-export async function closeAm14Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm14Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm14SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(400);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 400 });
 }
 
 export async function ensureAm14Workspace(ctx: DemoActionContext): Promise<void> {
@@ -573,7 +573,7 @@ export async function runAm14DelayAndJitter(ctx: DemoActionContext): Promise<voi
 /** Step 2 — Simulate previews latency without waiting; live traffic pays it. */
 export async function runAm14PreviewThenProve(ctx: DemoActionContext): Promise<void> {
   await ensureAm14Delay(ctx);
-  await runAm14Simulation(ctx, `POST ${AM14_PATH} delay`);
+  await runAm14Simulation(ctx, `POST ${AM14_PATH} — delay`);
   if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)) {
     await am14Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
   }
@@ -582,7 +582,7 @@ export async function runAm14PreviewThenProve(ctx: DemoActionContext): Promise<v
     : API_MOCK.SIMULATE_TIMELINE_DELAY;
   await am14Payoff(ctx, delayBadge);
   await am14Break(ctx);
-  await closeAm14Simulate(ctx);
+  await closeAm14Simulate(ctx, { review: true });
 
   await applyIfDirty(ctx);
   await sendAm14ProveRequest();
@@ -729,7 +729,7 @@ export async function runAm14DribbleAndTimeline(ctx: DemoActionContext): Promise
   await am14Payoff(ctx, API_MOCK.CHUNK_SCHEDULE);
   await am14Break(ctx);
 
-  await runAm14Simulation(ctx, `POST ${AM14_PATH} dribble`);
+  await runAm14Simulation(ctx, `POST ${AM14_PATH} — dribble`);
   if (firstVisibleElement(API_MOCK.SIMULATE_TAB_TRACE)) {
     await am14Aim(ctx, API_MOCK.SIMULATE_TAB_TRACE, T.tabSwitch);
   }
@@ -739,4 +739,5 @@ export async function runAm14DribbleAndTimeline(ctx: DemoActionContext): Promise
       ? API_MOCK.SIMULATE_FAULT_TIMELINE
       : API_MOCK.SIMULATE_RESULT);
   await am14Payoff(ctx, timeline);
+  await closeAm14Simulate(ctx, { review: true });
 }

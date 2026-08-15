@@ -36,9 +36,13 @@ export const AM_DEMO_TIMING = {
   /** Breather between logical groups inside one multi-beat step. */
   groupBreak: 500,
   /** Filled Simulate fields, held so the viewer can read them before Run. */
-  reviewForm: 2000,
+  reviewForm: 2400,
+  /** Quiet digest after the field tour — look at the whole request before Run. */
+  digestRequest: 2000,
   /** Ring on **Run simulation** before the click. */
-  beforeRun: 2000,
+  beforeRun: 2400,
+  /** Hold the verdict / results before **Close**. */
+  beforeClose: 2400,
 } as const;
 
 /**
@@ -158,8 +162,14 @@ export type AmSimulateReviewTiming = {
   beforeRun?: number;
   /** Name written after **Save as sample**. Defaults to `METHOD path`. */
   sampleName?: string;
-  /** Skip **Save as sample** (a later run in the same step already saved one). */
+  /** Skip **Save as sample** (retry, or the request is already a saved sample). */
   saveSample?: boolean;
+  /** Skip the path / headers / body hold when a dedicated review already ran. */
+  reviewFields?: boolean;
+  /** Skip the compact Headers textarea hold (the Table popup already showed them). */
+  reviewHeaders?: boolean;
+  /** Skip the whole-request digest pause (compact / retry paths). */
+  digest?: boolean;
 };
 
 /** Run swaps the form for Results. Click Request before filling the next probe. */
@@ -218,9 +228,8 @@ function defaultSimulateSampleName(): string {
 }
 
 /**
- * After the Simulate form is filled, walk the request the viewer must read,
- * save it so it can be reopened from the sidebar, name it, then hold on
- * **Run simulation** before clicking it.
+ * After the Simulate form is filled: **Save as sample** with a name, hold so the
+ * viewer can read the saved request, then hold on **Run simulation** before the click.
  */
 export async function reviewAndRunSimulation(
   ctx: DemoActionContext,
@@ -230,29 +239,16 @@ export async function reviewAndRunSimulation(
   const beforeRun = timing.beforeRun ?? AM_DEMO_TIMING.beforeRun;
   const sampleName = timing.sampleName ?? defaultSimulateSampleName();
 
-  const glance = firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)
-    ? Math.min(review, 800)
-    : review;
-
-  await spotlightBeat(ctx, API_MOCK.SIMULATE_PATH, glance);
-  if (simulateFieldValue(API_MOCK.SIMULATE_HEADERS)) {
-    await spotlightBeat(ctx, API_MOCK.SIMULATE_HEADERS, glance);
-  }
-  if (simulateFieldValue(API_MOCK.SIMULATE_BODY)) {
-    await spotlightBeat(ctx, API_MOCK.SIMULATE_BODY, glance);
-  }
-
-  // Run while Ad-hoc is still selected. Save as sample switches the sidebar to
-  // the stored copy; if that copy was missing headers, a catch-all rule won.
-  await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: beforeRun, hold: 0 });
-
   if (timing.saveSample !== false) {
-    if (firstVisibleElement(API_MOCK.SIMULATE_VIEW_REQUEST)) {
+    if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE) && firstVisibleElement(API_MOCK.SIMULATE_VIEW_REQUEST)) {
       await clickBeat(ctx, API_MOCK.SIMULATE_VIEW_REQUEST, { hold: AM_DEMO_TIMING.panelReady });
+    }
+    if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE) && firstVisibleElement(API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN)) {
+      await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: 0 });
     }
     if (firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)) {
       await clickBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, {
-        look: Math.min(review, 700),
+        look: AM_DEMO_TIMING.look,
         hold: AM_DEMO_TIMING.fieldFilled,
       });
       await ctx.waitFor(API_MOCK.SIMULATE_SAMPLE_NAME, 4_000);
@@ -260,13 +256,51 @@ export async function reviewAndRunSimulation(
         look: AM_DEMO_TIMING.look,
         hold: AM_DEMO_TIMING.fieldFilled,
       });
+    }
+  }
+
+  if (timing.reviewFields !== false) {
+    await spotlightBeat(ctx, API_MOCK.SIMULATE_PATH, review);
+    if (timing.reviewHeaders !== false && simulateFieldValue(API_MOCK.SIMULATE_HEADERS)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_HEADERS, review);
+    }
+    if (simulateFieldValue(API_MOCK.SIMULATE_BODY)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_BODY, review);
+    }
+    if (timing.saveSample !== false && firstVisibleElement(API_MOCK.SIMULATE_SECTION_SAVED)) {
       await spotlightBeat(ctx, API_MOCK.SIMULATE_SECTION_SAVED, Math.min(review, 800));
     }
   }
 
-  // Request (for Save) unmounts the verdict. Put Results back so the next beat
-  // can spotlight MATCHED / UNMATCHED instead of waiting 20s for a missing node.
+  if (timing.reviewFields !== false && timing.digest !== false) {
+    await ctx.delay(AM_DEMO_TIMING.digestRequest);
+  }
+
+  await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: beforeRun, hold: 0 });
   await ensureSimulateResultsPane(ctx);
+}
+
+/**
+ * Close Rule Simulation. Pass `review: true` after a run so the viewer can read
+ * the verdict before the workspace disappears. Guards / preAction stay quiet.
+ */
+export async function closeSimulateWorkspace(
+  ctx: DemoActionContext,
+  opts: { review?: boolean; afterClose?: number } = {},
+): Promise<void> {
+  if (!firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE)) return;
+  if (opts.review) {
+    if (firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, AM_DEMO_TIMING.beforeClose);
+    } else if (firstVisibleElement(API_MOCK.SIMULATE_RESULT)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_RESULT, AM_DEMO_TIMING.beforeClose);
+    } else {
+      await ctx.delay(AM_DEMO_TIMING.beforeClose);
+    }
+  }
+  if (!firstVisibleElement(API_MOCK.SIMULATE_CLOSE)) return;
+  await ctx.click(API_MOCK.SIMULATE_CLOSE);
+  await ctx.delay(opts.afterClose ?? AM_DEMO_TIMING.panelReady);
 }
 
 /**

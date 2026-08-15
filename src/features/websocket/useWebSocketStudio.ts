@@ -51,7 +51,6 @@ import {
 } from './useWebSocketStudioTypes';
 import { startWsProxyPolling } from './wsProxyPolling';
 import { disconnectWebSocketConnection } from './wsDisconnect';
-
 export type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter, WsTransportMode, UseWebSocketStudioReturn };
 
 export function useWebSocketStudio(

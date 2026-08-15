@@ -615,7 +615,7 @@ describe('AM-09 helpers', () => {
     expect(AM09_TIMING.look).toBe(900);
     expect(AM09_TIMING.payoff).toBe(1600);
     expect(AM09_TIMING.beforeOpen).toBe(1400);
-    expect(AM09_TIMING.reviewForm).toBe(2200);
-    expect(AM09_TIMING.beforeRun).toBe(2200);
+    expect(AM09_TIMING.reviewForm).toBe(2400);
+    expect(AM09_TIMING.beforeRun).toBe(2600);
   });
 });

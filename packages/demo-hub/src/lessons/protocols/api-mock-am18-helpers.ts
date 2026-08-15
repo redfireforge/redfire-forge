@@ -17,6 +17,7 @@ import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
+  closeSimulateWorkspace,
   revealBeat,
   spotlightBeat,
 } from './api-mock-demo-helpers';
@@ -32,7 +33,7 @@ export const AM18_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM18_TIMING;
@@ -268,11 +269,9 @@ export async function ensureAm18Running(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(API_MOCK.STOP, 20_000);
 }
 
-export async function closeAm18Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm18Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm18SimulateOpen()) return;
-  if (!firstVisibleElement(API_MOCK.SIMULATE_CLOSE)) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(200);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 200 });
 }
 
 async function applyIfDirty(ctx: DemoActionContext, visible: boolean): Promise<void> {
@@ -705,7 +704,7 @@ export async function runAm18ProveExample(ctx: DemoActionContext): Promise<void>
   await selectCreatedRoute(ctx, false);
   await openAm18ExamplesTab(ctx);
   if (firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE)) {
-    await am18ClickNow(ctx, API_MOCK.EXAMPLE_SIMULATE);
+    await clickBeat(ctx, API_MOCK.EXAMPLE_SIMULATE, { look: T.beforeRun, hold: 0 });
   }
   const outcome = firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)
     ? API_MOCK.SIMULATE_OUTCOME
@@ -714,4 +713,5 @@ export async function runAm18ProveExample(ctx: DemoActionContext): Promise<void>
     || firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE)) {
     await am18Reveal(ctx, outcome, T.simOutcome);
   }
+  await closeAm18Simulate(ctx, { review: true });
 }
