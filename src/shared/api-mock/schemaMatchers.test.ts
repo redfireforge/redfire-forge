@@ -8,6 +8,8 @@ import {
   matchXmlSchema,
   parseMultipart,
   isJsonSchemaCompileable,
+  xmlSafeLocalName,
+  xmlSchemaRequiredNames,
 } from './schemaMatchers';
 
 const MULTIPART = [
@@ -83,6 +85,10 @@ describe('schemaMatchers', () => {
     expect(matchXmlSchema('not xml', 'Order')).toBe(false);
     expect(matchXmlSchema(null, 'Order')).toBe(false);
     expect(matchXmlSchema([''], 'Order')).toBe(false);
+    expect(xmlSchemaRequiredNames('Order, Id')).toEqual(['Order', 'Id']);
+    expect(xmlSchemaRequiredNames({ required: ['Order'] })).toEqual(['Order']);
+    expect(xmlSafeLocalName('a:Order')).toBe('Order');
+    expect(xmlSafeLocalName("Order'")).toBeUndefined();
   });
 
   it('parses multipart fields and files', () => {

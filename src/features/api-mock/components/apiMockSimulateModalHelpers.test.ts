@@ -19,12 +19,17 @@ import {
   nearMissConditionSummary,
   orderTracePredicateResults,
   outcomeBadge,
+  isNoneOfChild,
   predicateTraceDetail,
   predicateTraceNote,
+  predicateTraceSatisfied,
   predicateTraceSource,
   parseSimulateHeaderLines,
+  SIMULATE_METHOD_OPTIONS,
+  SIMULATE_SEED_HELP,
   simulateRenderedBodyViews,
   suggestedSimulateSampleName,
+  createSimulateReplaySeed,
   simulationTraceFilename,
   simulationTraceNoticePreview,
 } from './apiMockSimulateModalHelpers';
@@ -42,6 +47,14 @@ function makeRoute(id: string, method: 'GET' | 'ANY' = 'GET'): ApiMockRouteV1 {
 }
 
 describe('apiMockSimulateModalHelpers', () => {
+  it('colors simulate method options like Requests', () => {
+    expect(SIMULATE_METHOD_OPTIONS[0]).toMatchObject({
+      value: 'GET',
+      detail: 'Retrieve data',
+      swatch: '#22c55e',
+    });
+  });
+
   it('detects auto-generated from-rules probes', () => {
     expect(isAutoRouteSample('auto-r1')).toBe(true);
     expect(isAutoRouteSample('sample-ab12')).toBe(false);
@@ -194,6 +207,12 @@ describe('apiMockSimulateModalHelpers', () => {
     expect(simulationTraceNoticePreview('srv-1', '12345', 2)).toContain('"resultCount": 2');
   });
 
+  it('mints a five-digit session seed from the random source', () => {
+    expect(createSimulateReplaySeed(() => 0)).toBe('10000');
+    expect(createSimulateReplaySeed(() => 0.9999)).toBe('99991');
+    expect(SIMULATE_SEED_HELP).toMatch(/Same number repeats random choices/);
+  });
+
   it('pretty-prints object and array JSON bodies and leaves everything else alone', () => {
     expect(simulateRenderedBodyViews('{"id":42,"name":"Espresso"}')).toEqual({
       pretty: '{\n  "id": 42,\n  "name": "Espresso"\n}',
@@ -229,6 +248,25 @@ describe('apiMockSimulateModalHelpers', () => {
     expect(predicateTraceNote({ ...passed, evaluated: false })).toBe('skipped');
     expect(predicateTraceNote({ ...failed, passed: true })).toBe('held');
     expect(predicateTraceDetail({ ...passed, selector: undefined })).toBe('exact');
+    expect(predicateTraceDetail({
+      ...passed, source: 'header', reason: 'header "x-debug" was absent — as required',
+    })).toBe('"x-debug" was absent — as required');
+
+    const noneOf = {
+      predicateId: 'group:guard', groupId: 'pg', source: 'None of', operator: 'present' as const,
+      passed: true, evaluated: true, combinator: 'not' as const, reason: 'passed — no child matched',
+    };
+    const absentLeaf = {
+      predicateId: 'p-debug', groupId: 'guard', source: 'header', operator: 'present' as const,
+      passed: false, evaluated: true, selector: 'x-debug', reason: 'header "x-debug" was absent — as required',
+    };
+    const presentLeaf = { ...absentLeaf, passed: true, reason: 'header "x-debug" matched — rejected by None of' };
+    expect(isNoneOfChild(absentLeaf, [absentLeaf, noneOf])).toBe(true);
+    expect(isNoneOfChild(noneOf, [absentLeaf, noneOf])).toBe(false);
+    expect(predicateTraceSatisfied(absentLeaf, [absentLeaf, noneOf])).toBe(true);
+    expect(predicateTraceNote(absentLeaf, [absentLeaf, noneOf])).toBe('held');
+    expect(predicateTraceSatisfied(presentLeaf, [presentLeaf, { ...noneOf, passed: false }])).toBe(false);
+    expect(predicateTraceNote(presentLeaf, [presentLeaf, { ...noneOf, passed: false }])).toBe('rejected');
     expect(nearMissConditionSummary([
       { routeName: 'List Reports', failedPredicates: [{ reason: 'rejected — header "x-debug" matched' }] },
     ])).toContain('x-debug');

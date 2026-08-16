@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { validateSchemaDraft } from '../../../shared/api-mock/schemaDraftValidation';
 import { matchPath } from '../../../shared/api-mock/pathMatcher';
 import { formatJsonPathValue, jsonPathFromSelection } from '../../../shared/api-mock/jsonPathFromCursor';
 import { evaluateOperator, resolveSimpleJsonPath } from '../../../shared/api-mock/predicateEvaluatorHelpers';
 import type { ApiMockPathMatcherV1, ApiMockPathMatcherKind, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
 import {
-  DEFAULT_JSON_SAMPLE,
   KIND_OPTIONS,
   PATH_PRESETS,
   REGEX_LIBRARY,
@@ -19,6 +19,11 @@ import {
   type ConstraintDraft,
   type ToolTab,
 } from './apiMockPatternToolboxConstants';
+import {
+  initialToolboxJsonSample,
+  initialToolboxXmlSample,
+  rememberToolboxBodySample,
+} from './apiMockPatternToolboxSamples';
 import { ApiMockSchemaToolboxPanel, ApiMockXPathToolboxPanel } from './ApiMockPatternToolboxExtraPanels';
 import * as regexUtils from './apiMockPatternToolboxRegexUtils';
 import { ApiMockPatternToolboxConstraintsTab } from './ApiMockPatternToolboxConstraintsTab';
@@ -78,10 +83,19 @@ export function ApiMockPatternToolboxModal({
   const [samples, setSamples] = useState<SampleRow[]>(() => initialRegexSamples(predicateSource));
   const jsonPathDraft = initialJsonPathDraft(predicateOperator, predicateExpected);
   const xpathDraft = initialXPathDraft(predicateOperator, predicateExpected);
-  const [jsonSample, setJsonSample] = useState(() => JSON.stringify(DEFAULT_JSON_SAMPLE, null, 2));
+  const samplePath = initial.value;
+  const [jsonSample, setJsonSampleState] = useState(() => initialToolboxJsonSample(samplePath));
+  const setJsonSample = useCallback((value: string) => {
+    rememberToolboxBodySample('json', samplePath, value);
+    setJsonSampleState(value);
+  }, [samplePath]);
   const [jsonPath, setJsonPath] = useState(jsonPathDraft.path);
   const [jsonExpected, setJsonExpected] = useState(jsonPathDraft.value);
-  const [xmlSample, setXmlSample] = useState('<Order><Id>1</Id></Order>');
+  const [xmlSample, setXmlSampleState] = useState(() => initialToolboxXmlSample(samplePath));
+  const setXmlSample = useCallback((value: string) => {
+    rememberToolboxBodySample('xml', samplePath, value);
+    setXmlSampleState(value);
+  }, [samplePath]);
   const [xpath, setXpath] = useState(xpathDraft.expr);
   const [xpathValue, setXpathValue] = useState(xpathDraft.value);
   const [schemaKind, setSchemaKind] = useState<'json' | 'xml'>(() => initialSchemaKind(predicateOperator, predicateExpected));
@@ -182,7 +196,14 @@ export function ApiMockPatternToolboxModal({
     ]);
   };
 
+  const schemaValidity = useMemo(
+    () => validateSchemaDraft(schemaKind, schemaText),
+    [schemaKind, schemaText],
+  );
+  const applyDisabled = tab === 'schema' && !schemaValidity.ok;
+
   const handleApply = () => {
+    if (applyDisabled) return;
     applyPatternToolbox({
       tab,
       jsonPath,
@@ -242,7 +263,13 @@ export function ApiMockPatternToolboxModal({
           <span className="am-badge success">Runtime-parity evaluator</span>
           <span className="am-spacer" />
           <button className="am-btn" onClick={onClose} data-testid="api-mock-toolbox-cancel">Cancel</button>
-          <button className="am-btn primary" onClick={handleApply} data-testid="api-mock-toolbox-apply">
+          <button
+            className="am-btn primary"
+            onClick={handleApply}
+            disabled={applyDisabled}
+            title={applyDisabled ? schemaValidity.message : undefined}
+            data-testid="api-mock-toolbox-apply"
+          >
             {tab === 'constraints' || tab === 'jsonpath' || tab === 'xpath' || tab === 'schema'
               ? (onApplyPredicate ? 'Apply matcher' : 'Add conditions')
               : 'Apply pattern'}

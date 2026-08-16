@@ -1,10 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
+import { clearToolboxBodySamples } from './apiMockPatternToolboxSamples';
 import type { ApiMockPathMatcherV1 } from '../../../shared/api-mock/contracts';
 
 function renderModal(
@@ -44,6 +45,10 @@ function pickCustomSelectByLabel(label: string, value: string, container: Parent
 }
 
 describe('ApiMockPatternToolboxModal', () => {
+  beforeEach(() => {
+    clearToolboxBodySamples();
+  });
+
   it('shows a live match with captured params and applies the matcher', () => {
     const { onApply, onClose } = renderModal();
     expect(screen.getByTestId('api-mock-toolbox-result').textContent).toContain('Matches');
@@ -361,11 +366,23 @@ describe('ApiMockPatternToolboxModal', () => {
     const { onApplyConditions, onClose } = renderModal();
     fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-schema'));
     fireEvent.click(screen.getByTestId('api-mock-toolbox-schema-kind-xml'));
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-schema-preset-XML names'));
     fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
     expect(onApplyConditions).toHaveBeenCalledWith([
-      expect.objectContaining({ operator: 'xmlSchema' }),
+      expect.objectContaining({ operator: 'xmlSchema', expected: 'Order, Id' }),
     ]);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('blocks Apply when the schema draft is invalid', () => {
+    const { onApplyConditions, onClose } = renderModal();
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-schema'));
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-schema-editor'), { target: { value: '{' } });
+    expect(screen.getByTestId('api-mock-toolbox-schema-error').textContent).toMatch(/Not valid JSON/);
+    expect(screen.getByTestId('api-mock-toolbox-apply')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyConditions).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('opens schema tab as XML when the expected value is not JSON', () => {
@@ -416,6 +433,34 @@ describe('ApiMockPatternToolboxModal', () => {
       operator: 'xpath_equals',
       expected: ['/*', 'open'],
     }));
+  });
+
+  it('keeps the XPath sample XML when the toolbox is closed and opened again', () => {
+    const soap = '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><orderId>A-1098</orderId></soap:Envelope>';
+    const props = {
+      initial: { kind: 'exact' as const, value: '/soap/orders' },
+      initialTab: 'xpath' as const,
+      onApply: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const first = render(<ApiMockPatternToolboxModal {...props} />);
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-xpath-sample'), { target: { value: soap } });
+    expect((screen.getByTestId('api-mock-toolbox-xpath-sample') as HTMLTextAreaElement).value).toBe(soap);
+    first.unmount();
+
+    render(<ApiMockPatternToolboxModal {...props} />);
+    expect((screen.getByTestId('api-mock-toolbox-xpath-sample') as HTMLTextAreaElement).value).toBe(soap);
+
+    cleanup();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/upload' }}
+        initialTab="xpath"
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-toolbox-xpath-sample') as HTMLTextAreaElement).value).toContain('<Order>');
   });
 
   it('applies jsonPath via onApplyPredicate', () => {

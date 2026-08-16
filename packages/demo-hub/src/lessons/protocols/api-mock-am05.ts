@@ -98,7 +98,7 @@ export const apiMockAm05Lesson: DemoLesson = {
     + 'case-insensitive cookie regex, and a whole request shape composed in one pass.',
   estimatedMinutes: 9,
   initialTab: 'api-mock-studio',
-  contentVersion: 4,
+  contentVersion: 5,
   concept: {
     title: 'Same path, different callers — conditions are how a mock tells them apart',
     body:
@@ -305,14 +305,14 @@ export const apiMockAm05Lesson: DemoLesson = {
         + 'method, path, then one row per condition. The header name is sent in upper case on '
         + 'purpose, and it still matches: names are normalized, values are not.\n\n'
         + `Look at **None of**: it is green — \`passed — no child matched\` — because \`${AM05_GUARD_KEY}\` `
-        + 'was absent. The leaf under it is red; that red row is what the guard wanted. The rule\'s '
-        + 'own verdict is the badge on the candidate.\n\n'
+        + 'was absent. The leaf under it is green too (**held** / as required): that miss is what '
+        + 'the guard asked for. The rule\'s own verdict is the badge on the candidate.\n\n'
         + `Then the proof the guard works: the same request plus \`${AM05_GUARD_KEY}\`. Expand `
         + '**Headers** again — **Table** now has that row, and the search hits `1/1`. Close the '
         + 'popup, **Save as sample**, then **Run simulation**. The rule goes **UNMATCHED** with '
         + '**Conditions failed**. **None of** '
-        + `is now red — \`rejected — header "${AM05_GUARD_KEY}" matched\` — even though every leaf `
-        + 'is green. That red group row is why the rule missed. Seven conditions across five '
+        + `is now red — \`rejected — header "${AM05_GUARD_KEY}" matched\` — and the debug leaf is `
+        + 'red too, because it matched. That red group row is why the rule missed. Seven conditions across five '
         + 'sources, every one of them verified before a single byte was served.',
       highlight: API_MOCK.SIMULATE,
       preAction: ensureAm05FullShape,

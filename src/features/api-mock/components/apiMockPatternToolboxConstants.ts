@@ -1,6 +1,8 @@
 import type { ApiMockPathMatcherKind, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
 import { formatJsonPathValue } from '../../../shared/api-mock/jsonPathFromCursor';
 
+export const DEFAULT_XPATH_SAMPLE = '<Order><Id>1</Id></Order>';
+
 export const DEFAULT_JSON_SAMPLE = {
   customer: { id: 'C-4421', tier: 'gold' },
   items: [{ sku: 'RF-100', qty: 2 }],
@@ -21,14 +23,29 @@ export const CONSTRAINT_SOURCE_OPTIONS = [
 ];
 
 export const CONSTRAINT_OPERATOR_OPTIONS = [
-  { value: 'exact', label: 'Exact' },
-  { value: 'contains', label: 'Contains' },
-  { value: 'prefix', label: 'Prefix' },
-  { value: 'suffix', label: 'Suffix' },
-  { value: 'regex', label: 'Regex' },
-  { value: 'glob', label: 'Glob' },
-  { value: 'present', label: 'Present' },
-  { value: 'absent', label: 'Absent' },
+  {
+    label: 'Text',
+    options: [
+      { value: 'exact', label: 'Exact', detail: 'Whole value' },
+      { value: 'contains', label: 'Contains', detail: 'Substring' },
+      { value: 'prefix', label: 'Prefix', detail: 'Starts with' },
+      { value: 'suffix', label: 'Suffix', detail: 'Ends with' },
+    ],
+  },
+  {
+    label: 'Pattern',
+    options: [
+      { value: 'regex', label: 'Regex', detail: 'Regular expression' },
+      { value: 'glob', label: 'Glob', detail: 'Wildcards * ?' },
+    ],
+  },
+  {
+    label: 'Presence',
+    options: [
+      { value: 'present', label: 'Present', detail: 'Key exists' },
+      { value: 'absent', label: 'Absent', detail: 'Key missing' },
+    ],
+  },
 ];
 
 export type ToolTab = 'regex' | 'path' | 'jsonpath' | 'constraints' | 'xpath' | 'schema';
@@ -167,13 +184,60 @@ export const REGEX_LIBRARY = [
 ];
 
 export const XPATH_PRESETS = [
-  { name: 'Root element', expr: '/*', sample: '<Order><Id>1</Id></Order>' },
+  { name: 'Root element', expr: '/*', sample: DEFAULT_XPATH_SAMPLE },
   { name: 'Local name', expr: "//*[local-name()='vin']", sample: "<Vehicle xmlns='urn:ex'><vin>1HGCM</vin></Vehicle>" },
   { name: 'Text value', expr: "//*[local-name()='status']/text()", sample: '<Item><status>open</status></Item>' },
 ];
 
 export const SCHEMA_PRESETS = [
   { name: 'JSON object', kind: 'json' as const, value: '{\n  "type": "object"\n}' },
-  { name: 'Required id', kind: 'json' as const, value: '{\n  "type": "object",\n  "required": ["id"]\n}' },
+  { name: 'Required id', kind: 'json' as const, value: '{\n  "type": "object",\n  "required": ["id"],\n  "properties": {\n    "id": { "type": "string" }\n  }\n}' },
   { name: 'XML names', kind: 'xml' as const, value: 'Order, Id' },
 ];
+
+/** Left-list restore target when the tab opened on a schema that is not a preset. */
+export const SCHEMA_CURRENT_PRESET_NAME = 'Current schema';
+
+export function normalizeSchemaDraft(kind: 'json' | 'xml', text: string): string {
+  const trimmed = text.trim();
+  if (kind === 'xml') {
+    return trimmed.split(',').map(part => part.trim()).filter(Boolean).join(',');
+  }
+  try {
+    return JSON.stringify(JSON.parse(trimmed));
+  } catch {
+    return trimmed;
+  }
+}
+
+export function matchingSchemaPresetName(
+  kind: 'json' | 'xml',
+  schema: string,
+): string | null {
+  const normalized = normalizeSchemaDraft(kind, schema);
+  const hit = SCHEMA_PRESETS.find(
+    preset => preset.kind === kind && normalizeSchemaDraft(preset.kind, preset.value) === normalized,
+  );
+  return hit?.name ?? null;
+}
+
+export function isCustomSchemaDraft(kind: 'json' | 'xml', schema: string): boolean {
+  return schema.trim().length > 0 && matchingSchemaPresetName(kind, schema) == null;
+}
+
+export function activeSchemaLibraryName(
+  kind: 'json' | 'xml',
+  schema: string,
+  seed?: { kind: 'json' | 'xml'; schema: string },
+): string | null {
+  const preset = matchingSchemaPresetName(kind, schema);
+  if (preset) return preset;
+  if (
+    seed
+    && isCustomSchemaDraft(seed.kind, seed.schema)
+    && normalizeSchemaDraft(kind, schema) === normalizeSchemaDraft(seed.kind, seed.schema)
+  ) {
+    return SCHEMA_CURRENT_PRESET_NAME;
+  }
+  return null;
+}

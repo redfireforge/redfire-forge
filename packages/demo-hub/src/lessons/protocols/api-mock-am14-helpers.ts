@@ -1,5 +1,5 @@
 /**
- * AM-14 `am-14-timing-faults` helpers — Latency, Eligibility & Connection Faults.
+ * AM-14 `am-14-timing-faults` helpers — When Payments Hang: Latency, Eligibility & Connection Faults.
  *
  * Quiet corpus is `POST /payments` with a plain 200. Delay, jitter, match limits,
  * expiry, probability, and every fault kind are authored in the UI. A retired

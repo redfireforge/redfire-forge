@@ -51,10 +51,14 @@ describe('applyPatternToolbox', () => {
     })]);
 
     onApplyConditions.mockClear();
-    applyPatternToolbox(base({ tab: 'schema', schemaKind: 'xml', schemaText: '<xs/>', onApplyConditions }));
+    applyPatternToolbox(base({ tab: 'schema', schemaKind: 'xml', schemaText: 'Order, Id', onApplyConditions }));
     expect(onApplyConditions).toHaveBeenCalledWith([expect.objectContaining({
-      operator: 'xmlSchema', expected: '<xs/>',
+      operator: 'xmlSchema', expected: 'Order, Id',
     })]);
+
+    onApplyConditions.mockClear();
+    applyPatternToolbox(base({ tab: 'schema', schemaKind: 'json', schemaText: '{', onApplyConditions }));
+    expect(onApplyConditions).not.toHaveBeenCalled();
 
     onApplyConditions.mockClear();
     applyPatternToolbox(base({ tab: 'schema', schemaKind: 'json', onApplyConditions }));

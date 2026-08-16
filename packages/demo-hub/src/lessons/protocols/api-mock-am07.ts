@@ -86,7 +86,7 @@ export const apiMockAm07Lesson: DemoLesson = {
     + 'list, and a firmware blob by its SHA-256 digest — each proven in Simulate.',
   estimatedMinutes: 9,
   initialTab: 'api-mock-studio',
-  contentVersion: 2,
+  contentVersion: 11,
   concept: {
     title: 'Beyond JSON — the matcher follows the Content-Type',
     body:
@@ -251,7 +251,10 @@ export const apiMockAm07Lesson: DemoLesson = {
         + `up as \`(no match)\` here rather than as a rule that never fires. Leave **Equals value** `
         + 'empty and the tick reports on `xpath_exists` — "the element is there". Fill in '
         + `\`${AM07_ORDER_ID}\` and the same row becomes \`xpath_equals\`. **Apply** lands it as an `
-        + 'ordinary condition row.',
+        + 'ordinary condition row.\n\n'
+        + 'Then **Simulate** the same envelope. Ring **Run simulation**, wait for **Results**, '
+        + 'and hold **MATCHED** — the `xpath_equals` row in the Decision trace is the proof '
+        + 'the expression selected `A-1098`.',
       highlight: API_MOCK.ROUTE_EXPLORER,
       preAction: ensureAm07XmlBare,
       action: runAm07XPath,
@@ -267,11 +270,12 @@ export const apiMockAm07Lesson: DemoLesson = {
         + `expected value is just a list: \`${AM07_XML_ELEMENTS}\`. Names are matched by local name, `
         + 'so namespace prefixes are irrelevant here too, and the payload must be well-formed XML '
         + 'before any of them are looked for.\n\n'
-        + 'Two runs make the point. The full envelope matches. The same envelope with `<customer>` '
-        + 'dropped — a truncated request, a partner mid-migration — comes back **UNMATCHED**, and '
-        + 'the trace is precise about why: the `xpath_equals` row still ticks, because the order id '
-        + 'is present and correct, and the red row is `xmlSchema`. That is the division of labour '
-        + 'worth keeping: XPath for the values you route on, an element list for the shape.',
+        + 'The previous step already **MATCHED** the full envelope on XPath. This step judges the '
+        + 'truncated one. After the body is pasted, **Request body** opens so you can search '
+        + '`customer` — it is missing — then **Save as sample** and ring **Run simulation**. '
+        + 'Hold **Results**: **UNMATCHED**. The `xpath_equals` row still ticks (the order id is '
+        + 'present), and the ring lands on the red `body xmlSchema failed` row. That is the '
+        + 'division of labour: XPath for the values you route on, an element list for the shape.',
       highlight: API_MOCK.PATH_TOOLBOX,
       preAction: ensureAm07XPathCondition,
       action: async (ctx) => {
@@ -291,9 +295,12 @@ export const apiMockAm07Lesson: DemoLesson = {
         + 'value box hints `64-char hex digest`, and that digest is already sitting in your build '
         + 'output next to the artifact — so the matcher becomes one readable line that pins an '
         + 'exact build, survives code review, and never bloats the workspace.\n\n'
-        + 'Run the matching payload: **MATCHED**. Run a payload with a single character changed — '
-        + '`v2.4.1` instead of `v2.4.0` — and it is **UNMATCHED**, with `binary_sha256` named in the '
-        + 'trace. That is the whole appeal of a digest matcher: it cannot be *almost* right.\n\n'
+        + '**Save as sample** the matching payload, then **Run simulation**: **MATCHED**. Save the '
+        + 'payload with a single character changed — `v2.4.1` instead of `v2.4.0` — as '
+        + '**Publish Firmware (altered)** and run it: **UNMATCHED**. The ring lands on the red '
+        + '`body binary_sha256 failed` row — one character in the payload, digest no longer '
+        + 'matches. Both stay in the sample list so you can replay either later. That is the '
+        + 'whole appeal of a digest matcher: it cannot be *almost* right.\n\n'
         + 'Four payload families, one grammar. The body source never changed; only the operator '
         + 'did, and every one of them was verified in Simulate before a port was ever bound.',
       highlight: API_MOCK.ROUTE_EXPLORER,

@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { initialJsonPathDraft, initialRegexPattern, initialRegexSamples, initialSchemaKind, initialSchemaText, initialXPathDraft, toolboxTabForOperator } from './apiMockPatternToolboxConstants';
+import {
+  SCHEMA_CURRENT_PRESET_NAME,
+  SCHEMA_PRESETS,
+  activeSchemaLibraryName,
+  initialJsonPathDraft,
+  initialRegexPattern,
+  initialRegexSamples,
+  initialSchemaKind,
+  initialSchemaText,
+  initialXPathDraft,
+  isCustomSchemaDraft,
+  matchingSchemaPresetName,
+  normalizeSchemaDraft,
+  toolboxTabForOperator,
+} from './apiMockPatternToolboxConstants';
 
 describe('apiMockPatternToolboxConstants', () => {
   it('maps matcher operators onto toolbox tabs', () => {
@@ -46,6 +60,28 @@ describe('apiMockPatternToolboxConstants', () => {
     expect(initialSchemaText('jsonPath_exists', '$.user.email')).toContain('"type": "object"');
     expect(initialSchemaText(undefined, 'Order, Id')).toBe('Order, Id');
     expect(initialSchemaText()).toContain('"type": "object"');
+  });
+
+  it('treats compact and pretty JSON as the same schema draft', () => {
+    expect(normalizeSchemaDraft('json', '{ "type": "object" }')).toBe(
+      normalizeSchemaDraft('json', SCHEMA_PRESETS[0].value),
+    );
+    expect(normalizeSchemaDraft('xml', 'Order,  Id')).toBe('Order,Id');
+    expect(normalizeSchemaDraft('json', '{')).toBe('{');
+    expect(matchingSchemaPresetName('json', '{"type":"object"}')).toBe('JSON object');
+    expect(matchingSchemaPresetName('json', '{"type":"object","required":["customer"]}')).toBeNull();
+    expect(isCustomSchemaDraft('json', '{"type":"object"}')).toBe(false);
+    expect(isCustomSchemaDraft('json', '{"required":["customer"]}')).toBe(true);
+    expect(isCustomSchemaDraft('json', '   ')).toBe(false);
+    expect(activeSchemaLibraryName('json', '{"type":"object"}')).toBe('JSON object');
+    expect(activeSchemaLibraryName('json', '{"required":["id"]}', {
+      kind: 'json',
+      schema: '{"required":["id"]}',
+    })).toBe(SCHEMA_CURRENT_PRESET_NAME);
+    expect(activeSchemaLibraryName('json', SCHEMA_PRESETS[1].value, {
+      kind: 'json',
+      schema: '{"required":["id"]}',
+    })).toBe('Required id');
   });
 
   it('seeds session-shaped live samples for a cookie row, Numeric ID for the path wand', () => {

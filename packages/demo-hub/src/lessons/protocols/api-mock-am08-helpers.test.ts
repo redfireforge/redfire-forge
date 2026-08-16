@@ -857,12 +857,17 @@ describe('AM-08 helpers', () => {
       ambiguityBody: AM08_AMBIGUITY_BODY,
     });
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_RENDERED);
+    expect(calls(ctx.click).indexOf(API_MOCK.SIMULATE_TAB_RENDERED)).toBeGreaterThan(
+      calls(ctx.click).indexOf(API_MOCK.SIMULATE_RUN),
+    );
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
     expect(calls(ctx.click).indexOf(API_MOCK.SIMULATE_RUN)).toBeGreaterThan(
       calls(ctx.click).indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE),
     );
     expect(isAm08SettingsOpen()).toBe(false);
     expect(isAm08SimulateOpen()).toBe(false);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeLessThan(32_000);
   });
 
   it('step 8 switches the equal-priority policy and holds the specificity list', async () => {
@@ -874,6 +879,8 @@ describe('AM-08 helpers', () => {
       [API_MOCK.SETTINGS_EQUAL_POLICY, 'specificity_then_id'],
     ]);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeLessThan(32_000);
   });
 
   it('step 1 no-ops when Regional cannot be focused', async () => {

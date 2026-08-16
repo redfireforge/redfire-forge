@@ -415,15 +415,20 @@ async function runAm12Simulation(
   if (am12SimMethod() !== AM12_METHOD && firstVisibleElement(API_MOCK.SIMULATE_METHOD)) {
     await selectBeat(ctx, API_MOCK.SIMULATE_METHOD, AM12_METHOD, { look: T.beforeOpen, hold: T.fieldFilled });
   }
-  await am12Fill(ctx, API_MOCK.SIMULATE_PATH, AM12_PATH);
+  const pathEl = firstVisibleElement<HTMLInputElement>(API_MOCK.SIMULATE_PATH);
+  if ((pathEl?.value ?? '').trim() !== AM12_PATH) {
+    await am12Fill(ctx, API_MOCK.SIMULATE_PATH, AM12_PATH);
+  }
   await am12Fill(ctx, API_MOCK.SIMULATE_BODY, body, T.fieldFilled);
   await reviewAndRunSimulation(ctx, {
-    review: T.payoff,
+    review: T.look,
     beforeRun: T.beforeRun,
     sampleName,
     saveSample: opts.saveSample,
+    reviewFields: false,
+    digest: false,
   });
-  await am12Reveal(ctx, API_MOCK.SIMULATE_RESULT);
+  await am12Reveal(ctx, API_MOCK.SIMULATE_RESULT, T.look);
 }
 
 /** Run resets Results to Decision trace — open Rendered and hold the wire body. */
@@ -540,10 +545,9 @@ export async function runAm12ProveRules(ctx: DemoActionContext): Promise<void> {
   await openAm12Simulate(ctx);
   await runAm12Simulation(ctx, AM12_MATCH_BODY, `POST ${AM12_PATH} — missing sku`);
   await holdAm12RenderedResponse(ctx);
-  await am12Break(ctx);
-  await runAm12Simulation(ctx, AM12_MISS_BODY, `POST ${AM12_PATH} — in cart`);
+  await runAm12Simulation(ctx, AM12_MISS_BODY, `POST ${AM12_PATH} — in cart`, { saveSample: false });
   await holdAm12RenderedResponse(ctx);
-  await closeAm12Simulate(ctx, { review: true });
+  await closeAm12Simulate(ctx);
 }
 
 /** Step 6 — round-robin: the retry/backoff test mode. */
@@ -555,13 +559,23 @@ export async function runAm12Sequence(ctx: DemoActionContext): Promise<void> {
   patchApiMockActiveRoute({ responseMode: 'sequence' });
   await am12Reveal(ctx, API_MOCK.SEQUENCE_ORDER_NOTE);
   await am12Payoff(ctx, API_MOCK.SEQUENCE_ORDER_NOTE);
+  if (firstVisibleElement(API_MOCK.VARIANT_CARD_FIRST)) {
+    await am12Payoff(ctx, API_MOCK.VARIANT_CARD_FIRST);
+  }
+  if (firstVisibleElement(API_MOCK.VARIANT_CARD_LAST)) {
+    await am12Look(ctx, API_MOCK.VARIANT_CARD_LAST);
+  }
   await am12Break(ctx);
   await am12Aim(ctx, API_MOCK.RESPONSE_TAB_SELECTION, T.tabSwitch);
   await am12Reveal(ctx, API_MOCK.SEQUENCE_POSITION);
   await am12Payoff(ctx, API_MOCK.SEQUENCE_POSITION);
+  if (firstVisibleElement(API_MOCK.VARIANT_CARD_LAST)) {
+    await am12Click(ctx, API_MOCK.VARIANT_CARD_LAST, 0);
+    await am12Payoff(ctx, API_MOCK.SEQUENCE_POSITION);
+  }
 }
 
-/** Step 7 — the same request, three different responses. */
+/** Step 7 — same request three times; the third call wraps to the first variant. */
 export async function runAm12ThreeCalls(ctx: DemoActionContext): Promise<void> {
   await ensureAm12StudioView(ctx);
   if (firstVisibleElement(API_MOCK.DIRTY_BADGE)) {

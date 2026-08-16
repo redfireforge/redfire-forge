@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 describe('suppressResizeObserverError', () => {
   let errorSpy: ReturnType<typeof vi.fn>;
   let rejectionSpy: ReturnType<typeof vi.fn>;
+  const originalConsoleError = console.error;
 
   beforeEach(async () => {
     errorSpy = vi.fn();
@@ -19,6 +20,7 @@ describe('suppressResizeObserverError', () => {
   afterEach(() => {
     window.removeEventListener('error', errorSpy);
     window.removeEventListener('unhandledrejection', rejectionSpy);
+    console.error = originalConsoleError;
     vi.resetModules();
   });
 
@@ -131,6 +133,24 @@ describe('suppressResizeObserverError', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('swallows ErrorEvent whose message is Uncaught (in promise) Canceled: Canceled', () => {
+    const event = new ErrorEvent('error', {
+      message: 'Uncaught (in promise) Canceled: Canceled',
+      cancelable: true,
+    });
+    const prevented = !window.dispatchEvent(event);
+    expect(prevented).toBe(true);
+  });
+
+  it('swallows ErrorEvent whose message is Canceled: Canceled', () => {
+    const event = new ErrorEvent('error', {
+      message: 'Canceled: Canceled',
+      cancelable: true,
+    });
+    const prevented = !window.dispatchEvent(event);
+    expect(prevented).toBe(true);
+  });
+
   it('swallows Error with Canceled message even when name is Error', () => {
     const event = new Event('unhandledrejection', { cancelable: true });
     Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
@@ -145,5 +165,40 @@ describe('suppressResizeObserverError', () => {
     Object.defineProperty(event, 'reason', { value: { type: 'other', msg: 'boom' } });
     window.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('swallows unhandledrejection whose object only has a canceled message field', () => {
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', { value: { message: 'Canceled: Canceled' } });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('swallows console.error when an argument is a canceled string', async () => {
+    vi.resetModules();
+    const native = vi.fn();
+    console.error = native;
+    await import('./suppressResizeObserverError');
+    console.error('Canceled: Canceled');
+    expect(native).not.toHaveBeenCalled();
+  });
+
+  it('swallows console.error when an argument is a Monaco cancelation object', async () => {
+    vi.resetModules();
+    const native = vi.fn();
+    console.error = native;
+    await import('./suppressResizeObserverError');
+    console.error({ type: 'cancelation', msg: 'operation is manually canceled' });
+    expect(native).not.toHaveBeenCalled();
+  });
+
+  it('forwards unrelated console.error arguments to the native logger', async () => {
+    vi.resetModules();
+    const native = vi.fn();
+    console.error = native;
+    await import('./suppressResizeObserverError');
+    console.error('real failure', 42);
+    expect(native).toHaveBeenCalledWith('real failure', 42);
   });
 });

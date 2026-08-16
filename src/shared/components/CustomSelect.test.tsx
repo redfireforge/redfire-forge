@@ -107,6 +107,25 @@ describe('CustomSelect', () => {
     expect(screen.getByText('Third letter')).toBeInTheDocument();
   });
 
+  it('renders a colored swatch and label for method-style options', () => {
+    const methodOptions = [
+      { value: 'GET', label: 'GET', detail: 'Retrieve data', swatch: '#22c55e' },
+      { value: 'POST', label: 'POST', detail: 'Create resource', swatch: '#f59e0b' },
+    ];
+    const { container } = render(
+      <CustomSelect value="GET" onChange={vi.fn()} options={methodOptions} />,
+    );
+    expect(container.querySelector('.cs-trigger .cs-swatch')).toHaveStyle({ background: '#22c55e' });
+    expect(container.querySelector('.cs-trigger .cs-text')).toHaveStyle({ color: '#22c55e' });
+
+    fireEvent.click(screen.getByRole('button'));
+    const post = screen.getByRole('option', { name: /POST/ });
+    expect(post).toHaveClass('cs-item--swatch');
+    expect(post.querySelector('.cs-swatch')).toHaveStyle({ background: '#f59e0b' });
+    expect(post.querySelector('.cs-item-label')).toHaveStyle({ color: '#f59e0b' });
+    expect(screen.getByText('Create resource')).toBeInTheDocument();
+  });
+
   it('calls onChange and closes on option click', () => {
     const onChange = vi.fn();
     render(<CustomSelect value="" onChange={onChange} options={simpleOptions} />);
@@ -496,5 +515,129 @@ describe('CustomSelect', () => {
     });
     vi.spyOn(window, 'getComputedStyle').mockRestore?.();
     Object.defineProperty(window, 'getComputedStyle', { configurable: true, value: originalGetComputedStyle });
+  });
+
+  const longOptions = Array.from({ length: 8 }, (_, i) => ({
+    value: `v${i}`,
+    label: `Option ${i}`,
+    detail: i === 5 ? 'Form field exact' : undefined,
+  }));
+
+  it('shows a filter field for long lists and narrows grouped results', () => {
+    const onChange = vi.fn();
+    render(
+      <CustomSelect
+        value="v0"
+        onChange={onChange}
+        options={[
+          { label: 'Text', options: longOptions.slice(0, 4) },
+          { label: 'Form', options: longOptions.slice(4) },
+        ]}
+        data-testid="op-select"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button'));
+    const search = screen.getByTestId('op-select-search');
+    expect(search).toBeInTheDocument();
+    expect(screen.getByText('Text')).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'field' } });
+    expect(screen.queryByText('Text')).toBeNull();
+    expect(screen.getByText('Form')).toBeInTheDocument();
+    expect(screen.getByText('Option 5')).toBeInTheDocument();
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith('v5');
+  });
+
+  it('shows an empty state and Escape clears then closes', () => {
+    render(<CustomSelect value="" onChange={vi.fn()} options={longOptions} searchable data-testid="long-select" />);
+    fireEvent.click(screen.getByRole('button'));
+    const search = screen.getByTestId('long-select-search');
+    fireEvent.change(search, { target: { value: 'zzzz' } });
+    expect(screen.getByTestId('cs-empty')).toHaveTextContent('No matching options');
+    fireEvent.keyDown(search, { key: 'Escape' });
+    expect(search).toHaveValue('');
+    fireEvent.keyDown(search, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('opens a wide menu to the right of the trigger when menuPlacement is end', () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        return {
+          left: 200, width: 120, top: 80, bottom: 108, right: 320, height: 28,
+          x: 200, y: 80, toJSON: () => ({}),
+        };
+      },
+    });
+
+    render(
+      <CustomSelect
+        value=""
+        onChange={vi.fn()}
+        options={simpleOptions}
+        menuPlacement="end"
+        menuMinWidth={420}
+        aria-label="end-select"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'end-select' }));
+    const menu = document.querySelector('.cs-menu') as HTMLElement;
+    expect(menu.classList.contains('cs-menu--end')).toBe(true);
+    expect(menu.style.left).toBe('326px');
+    expect(menu.style.width).toBe('420px');
+    expect(menu.style.top).toBe('80px');
+
+    Object.defineProperty(window, 'innerWidth', { value: originalInnerWidth, configurable: true });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: originalGetBoundingClientRect,
+    });
+  });
+
+  it('opens below the trigger and left-aligns when menuAlign is start', () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    Object.defineProperty(window, 'innerWidth', { value: 1400, configurable: true });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        return {
+          left: 880, width: 210, top: 80, bottom: 112, right: 1090, height: 32,
+          x: 880, y: 80, toJSON: () => ({}),
+        };
+      },
+    });
+
+    render(
+      <CustomSelect
+        value=""
+        onChange={vi.fn()}
+        options={simpleOptions}
+        menuAlign="start"
+        menuMinWidth={420}
+        aria-label="below-select"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'below-select' }));
+    const menu = document.querySelector('.cs-menu') as HTMLElement;
+    expect(menu.classList.contains('cs-menu--end')).toBe(false);
+    expect(menu.style.left).toBe('880px');
+    expect(menu.style.top).toBe('118px');
+
+    Object.defineProperty(window, 'innerWidth', { value: originalInnerWidth, configurable: true });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: originalGetBoundingClientRect,
+    });
+  });
+
+  it('can hide search even on long lists', () => {
+    render(<CustomSelect value="" onChange={vi.fn()} options={longOptions} searchable={false} />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.queryByTestId('cs-search')).toBeNull();
   });
 });

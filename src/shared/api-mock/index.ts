@@ -12,6 +12,14 @@ export {
 } from './schemaMatchers';
 export { sha256HexSync } from './sha256Sync';
 export { FAKER_HELPER_PATHS, renderFakerHelper } from './templateFaker';
+export {
+  TEMPLATE_HELPER_CATALOG,
+  TEMPLATE_ENGINE_HELPER_NAMES,
+  filterTemplateHelpers,
+  groupTemplateHelpers,
+  insertTemplateSnippet,
+} from './templateHelperCatalog';
+export type { TemplateHelperEntry, TemplateHelperCategory } from './templateHelperCatalog';
 export { summarizeMatchDurations, emptyOutcomeCounts, countRoutePredicates } from './localDiagnostics';
 export { computeDefinitionFingerprint, computeRouteFingerprint, canonicalExportOrder, canonicalVariableOrder } from './fingerprint';
 export { migrateWorkspace, registerMigration } from './migration';

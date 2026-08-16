@@ -20,6 +20,8 @@ function isCanceledNoise(text: string): boolean {
     || msg === 'cancelled'
     || msg === 'canceled: canceled'
     || msg === 'cancelled: cancelled'
+    || msg.includes('canceled: canceled')
+    || msg.includes('cancelled: cancelled')
     || msg.includes('operation is manually canceled')
     || msg.includes('operation is manually cancelled')
   );
@@ -42,7 +44,7 @@ function isBenignConsoleNoise(event: Event): boolean {
   const e = event as ErrorEvent;
   const m = e.message
     || (e.error instanceof Error ? e.error.message : e.error != null ? String(e.error) : '');
-  return isResizeObserverNoise(m) || isMonacoCancelation(e.error);
+  return isResizeObserverNoise(m) || isCanceledNoise(m) || isMonacoCancelation(e.error);
 }
 
 function swallowBenignConsoleNoise(event: Event) {
@@ -50,6 +52,17 @@ function swallowBenignConsoleNoise(event: Event) {
   event.preventDefault();
   event.stopImmediatePropagation();
 }
+
+function isCanceledConsoleArg(value: unknown): boolean {
+  if (typeof value === 'string') return isCanceledNoise(value);
+  return isMonacoCancelation(value);
+}
+
+const nativeConsoleError = console.error.bind(console);
+console.error = (...args: unknown[]) => {
+  if (args.some(isCanceledConsoleArg)) return;
+  nativeConsoleError(...args);
+};
 
 window.addEventListener('error', swallowBenignConsoleNoise, true);
 window.addEventListener('unhandledrejection', swallowBenignConsoleNoise, true);

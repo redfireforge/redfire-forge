@@ -124,10 +124,13 @@ function evaluateGroup(
   }
 
   const childResults = results.slice(start);
-  if (group.combinator === 'not' && !passed) {
+  if (group.combinator === 'not') {
     for (const child of childResults) {
-      if (child.passed && !child.combinator) {
+      if (child.combinator || !child.evaluated) continue;
+      if (!passed && child.passed) {
         child.reason = child.reason ?? `${predicateResultLabel(child)} matched — rejected by None of`;
+      } else if (passed && !child.passed && child.reason && !child.reason.includes('as required')) {
+        child.reason = `${child.reason} — as required`;
       }
     }
   }

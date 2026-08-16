@@ -354,6 +354,7 @@ describe('ApiMockRouteExplorer — per-rule delete', () => {
       />,
     );
     expect(screen.getByTestId('api-mock-route-r-copy')).toHaveAttribute('data-copied', 'true');
+    expect(screen.getByTestId('api-mock-route-r-copy')).toHaveAttribute('data-route-name', 'Users Route (copy)');
     fireEvent.click(screen.getByTestId('api-mock-cli-simulate-copy'));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('redfireforge mock simulate workspace.json');
     fireEvent.click(screen.getByTestId('api-mock-cli-verify-copy'));

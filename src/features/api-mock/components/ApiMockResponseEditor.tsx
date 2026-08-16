@@ -21,6 +21,8 @@ import {
 import { ApiMockResponseFaultsPanel } from './ApiMockResponseFaultsPanel';
 import { ApiMockResponseSelectionPanel } from './ApiMockResponseSelectionPanel';
 import { ApiMockResponseTimingPanel } from './ApiMockResponseTimingPanel';
+import { ApiMockTemplateHelperModal } from './ApiMockTemplateHelperModal';
+import { insertTemplateSnippet } from '../../../shared/api-mock/templateHelperCatalog';
 
 interface Props {
   route: ApiMockRouteV1;
@@ -39,6 +41,7 @@ type ContentTab = 'content' | 'headers' | 'timing' | 'faults' | 'selection' | 'o
 export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, variables = [] }: Props) {
   const [activeVariantId, setActiveVariantId] = useState(route.responses[0]?.id);
   const [contentTab, setContentTab] = useState<ContentTab>('content');
+  const [helpersOpen, setHelpersOpen] = useState(false);
   useEffect(() => {
     if (!route.responses.some(v => v.id === activeVariantId)) {
       setActiveVariantId(route.responses[0]?.id);
@@ -489,8 +492,25 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, 
                       </div>
                     )}
                     <div className="am-notice am-body-helpers">
-                      Template helpers: <code>{'{{uuid}}'}</code>, <code>{"{{header 'X-Tenant'}}"}</code>, <code>{'{{now}}'}</code>, <code>{'{{pathParam id}}'}</code>.
+                      <span>
+                        Template helpers: <code>{'{{uuid}}'}</code>, <code>{"{{header 'X-Tenant'}}"}</code>, <code>{'{{now}}'}</code>, <code>{"{{pathParam 'id'}}"}</code>.
+                        {' '}Type <code>{'{{'}</code> for autocomplete.
+                      </span>
+                      <button
+                        type="button"
+                        className="am-btn small ghost"
+                        data-testid="api-mock-template-helpers-browse"
+                        onClick={() => setHelpersOpen(true)}
+                      >
+                        Browse helpers
+                      </button>
                     </div>
+                    {helpersOpen && (
+                      <ApiMockTemplateHelperModal
+                        onInsert={snippet => setBody(insertTemplateSnippet(bodyText, snippet))}
+                        onClose={() => setHelpersOpen(false)}
+                      />
+                    )}
                   </div>
                 </>
               )}

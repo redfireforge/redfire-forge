@@ -92,6 +92,34 @@ describe('ApiMockSimulateModal', () => {
     expect(screen.getByTestId('api-mock-simulate-result').textContent).toContain('MATCHED');
   });
 
+  it('shows a held x-debug leaf when None of passes because the header is absent', () => {
+    const server = makeServer();
+    server.routes = [{
+      id: 'r-reports', name: 'List Reports', enabled: true, method: 'GET',
+      path: { kind: 'exact', value: '/reports' }, priority: 10,
+      predicates: {
+        id: 'pg', combinator: 'all', children: [
+          {
+            id: 'guard', combinator: 'not', children: [
+              { id: 'p-debug', source: 'header', selector: 'x-debug', operator: 'present' },
+            ],
+          },
+        ],
+      },
+      responseMode: 'rules', responses: [createDefaultResponse('resp-1')],
+      tags: [], createdAt: ts, updatedAt: ts,
+    }];
+    render(<ApiMockSimulateModal server={server} initialPath="/reports" initialMethod="GET" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
+    const leaf = screen.getByTestId('api-mock-sim-predicate-p-debug');
+    expect(leaf.className).not.toContain('am-predicate--fail');
+    expect(leaf.textContent).toMatch(/held/);
+    expect(leaf.textContent).toMatch(/as required/);
+    expect(leaf.querySelector('.am-matcher-result')?.className).toContain('pass');
+    expect(screen.getByTestId('api-mock-sim-predicate-group:guard').textContent).toMatch(/None of/);
+    expect(screen.getByTestId('api-mock-simulate-result').textContent).toContain('MATCHED');
+  });
+
   it('shows the None-of reason when every leaf passed but the guard rejected the request', () => {
     const server = makeServer();
     server.routes = [{
@@ -120,6 +148,9 @@ describe('ApiMockSimulateModal', () => {
     expect(result.textContent).toMatch(/rejected/);
     expect(result.textContent).toContain('x-debug');
     expect(screen.getByTestId('api-mock-sim-predicate-group:guard').textContent).toMatch(/None of/);
+    const leaf = screen.getByTestId('api-mock-sim-predicate-p-debug');
+    expect(leaf.className).toContain('am-predicate--fail');
+    expect(leaf.textContent).toMatch(/rejected/);
   });
 
   it('reject-all-multiple-matches returns 409 before priority, including mixed-case saved headers', () => {
@@ -184,7 +215,10 @@ describe('ApiMockSimulateModal', () => {
     render(<ApiMockSimulateModal server={server} initialPath="/users" initialMethod="GET" onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('api-mock-simulate-run'));
     expect(screen.getByTestId('api-mock-sim-specificity')).toBeTruthy();
-    expect(screen.getByTestId('api-mock-sim-specificity-r1').textContent).toMatch(/GET \/users/);
+    const first = screen.getByTestId('api-mock-sim-specificity-r1');
+    expect(first.className).toContain('am-specificity-row');
+    expect(first.textContent).toMatch(/GET/);
+    expect(first.textContent).toMatch(/\/users/);
     expect(screen.getByTestId('api-mock-sim-winner').textContent).toBe('Winner');
   });
 
@@ -300,8 +334,7 @@ describe('ApiMockSimulateModal', () => {
     expect(document.body.textContent).toContain('"method"');
     fireEvent.click(screen.getByRole('tab', { name: 'Assertions' }));
     expect(screen.getByText('Virtual delay')).toBeInTheDocument();
-    fireEvent.change(screen.getByTestId('api-mock-simulate-seed'), { target: { value: '' } });
-    expect(screen.getByTestId('api-mock-simulate-seed')).toHaveValue('0');
+    expect(screen.queryByTestId('api-mock-simulate-seed')).toBeNull();
   });
 
   it('shows fault delivery, state timeline, and selecting auto sample', () => {
@@ -514,8 +547,7 @@ describe('ApiMockSimulateModal', () => {
     expect(screen.getByTestId('api-mock-sim-section-from-rules')).toBeTruthy();
     expect(screen.queryByTestId('api-mock-sim-section-saved')).toBeNull();
     expect(document.querySelector('.modal-expand-btn')).toBeNull();
-    expect(screen.getByLabelText('Replay seed').getAttribute('title')).toMatch(/random choices/);
-    expect(screen.getByLabelText('Replay seed').closest('.am-form-row')).toHaveClass('am-form-row--tall');
+    expect(screen.queryByLabelText('Replay seed')).toBeNull();
     expect(screen.getByTestId('api-mock-simulate-save-sample')).toHaveClass('primary');
     expect(screen.queryByTestId('api-mock-simulate-sample-name')).toBeNull();
     fireEvent.click(screen.getByTestId('api-mock-simulate-save-sample'));

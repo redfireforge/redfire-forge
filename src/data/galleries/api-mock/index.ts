@@ -121,7 +121,7 @@ export const apiMockSampleCatalog: ApiMockSampleEntry[] = [
     tags: ['body', 'json-subset', 'json-strict', 'jsonpath', 'json-schema', 'simulate'],
     liveApis: [],
     routeCount: 1,
-    teaches: ['body-matching', 'jsonpath', 'match-style', 'json-schema'],
+    teaches: ['body-matching', 'jsonpath', 'json-schema'],
     factory: createBodyMatchingMock,
   },
   {

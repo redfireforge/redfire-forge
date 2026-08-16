@@ -170,6 +170,8 @@ export type AmSimulateReviewTiming = {
   reviewHeaders?: boolean;
   /** Skip the whole-request digest pause (compact / retry paths). */
   digest?: boolean;
+  /** Extra beats after Save / field review, immediately before **Run simulation**. */
+  afterReview?: (ctx: DemoActionContext) => Promise<void>;
 };
 
 /** Run swaps the form for Results. Click Request before filling the next probe. */
@@ -274,6 +276,10 @@ export async function reviewAndRunSimulation(
 
   if (timing.reviewFields !== false && timing.digest !== false) {
     await ctx.delay(AM_DEMO_TIMING.digestRequest);
+  }
+
+  if (timing.afterReview) {
+    await timing.afterReview(ctx);
   }
 
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: beforeRun, hold: 0 });

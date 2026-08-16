@@ -691,22 +691,37 @@ export async function runAm08RejectMultiple(ctx: DemoActionContext): Promise<str
   await closeAm08Simulate(ctx);
   await openAm08SelectionSettings(ctx);
   await am08Select(ctx, API_MOCK.SETTINGS_MULTIPLE_MATCH, 'reject_multiple');
-  await am08Look(ctx, API_MOCK.SETTINGS_AMBIGUITY_STATUS);
-  await am08Fill(ctx, API_MOCK.SETTINGS_AMBIGUITY_BODY, AM08_AMBIGUITY_BODY, T.payoff);
+  await spotlightBeat(ctx, API_MOCK.SETTINGS_AMBIGUITY_STATUS, AM_DEMO_TIMING.look);
+  await fillBeat(ctx, API_MOCK.SETTINGS_AMBIGUITY_BODY, AM08_AMBIGUITY_BODY, {
+    look: AM_DEMO_TIMING.look,
+    hold: T.fieldFilled,
+  });
   await saveAm08Settings(ctx);
   // Belt: UI Save can persist the previous policy if the select did not commit.
   applyAm08RejectMultiplePolicy();
-  await am08Break(ctx);
 
   await openAm08Simulate(ctx);
-  let outcome = await runAm08Simulation(ctx, { sampleName: AM08_REJECT_SAMPLE });
+  // Compact Simulate so Acting still has time to open **Rendered response**.
+  let outcome = await runAm08Simulation(ctx, {
+    sampleName: AM08_REJECT_SAMPLE,
+    skipReview: true,
+  });
   if (!/AMBIGUOUS/i.test(outcome)) {
     applyAm08RejectMultiplePolicy();
-    outcome = await runAm08Simulation(ctx, { saveSample: false, skipReview: true });
+    await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.look, hold: 0 });
+    await am08Reveal(ctx, API_MOCK.SIMULATE_RESULT);
+    outcome = am08SimOutcome();
   }
-  await am08Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
-  await am08Payoff(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
-  await closeAm08Simulate(ctx, { review: true });
+  await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, {
+    look: T.look,
+    hold: AM_DEMO_TIMING.tabSwitch,
+  });
+  await revealBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, {
+    timeout: 4_000,
+    hold: AM_DEMO_TIMING.panelReady,
+  });
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, T.payoff);
+  await closeAm08Simulate(ctx);
   return outcome;
 }
 
@@ -714,20 +729,19 @@ export async function runAm08RejectMultiple(ctx: DemoActionContext): Promise<str
  * Step 8 — equal priority again; specificity scores the matchers and Regional wins.
  */
 export async function runAm08Specificity(ctx: DemoActionContext): Promise<string> {
-  await am08Payoff(ctx, API_MOCK.PRIORITY_INPUT);
-  await am08Break(ctx);
   await openAm08SelectionSettings(ctx);
-  await am08Look(ctx, API_MOCK.SETTINGS_MULTIPLE_MATCH);
   await am08Select(ctx, API_MOCK.SETTINGS_EQUAL_POLICY, 'specificity_then_id');
   await am08Payoff(ctx, API_MOCK.SETTINGS_EQUAL_POLICY);
   await saveAm08Settings(ctx);
-  await am08Break(ctx);
 
   await openAm08Simulate(ctx);
-  const outcome = await runAm08Simulation(ctx, { sampleName: AM08_SPECIFICITY_SAMPLE });
+  const outcome = await runAm08Simulation(ctx, {
+    sampleName: AM08_SPECIFICITY_SAMPLE,
+    skipReview: true,
+  });
   await am08Look(ctx, API_MOCK.SIMULATE_WINNER);
   await am08Payoff(ctx, API_MOCK.SIMULATE_SPECIFICITY);
   await am08Payoff(ctx, API_MOCK.SIMULATE_TIMELINE_POLICY);
-  await closeAm08Simulate(ctx, { review: true });
+  await closeAm08Simulate(ctx);
   return outcome;
 }

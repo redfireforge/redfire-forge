@@ -368,8 +368,8 @@ export function am05TraceRows(): HTMLElement[] {
 }
 
 /**
- * The trace row that mentions `needle`. Failing rows name the key they read
- * (`header "x-debug" was absent`); a failed None-of group says why it rejected.
+ * The trace row that mentions `needle`. None-of misses name the key they read
+ * (`"x-debug" was absent — as required`); a failed None-of group says why it rejected.
  */
 export function am05TraceRowByText(needle: string): HTMLElement | null {
   return am05TraceRows().find(row => (row.textContent ?? '').includes(needle)) ?? null;

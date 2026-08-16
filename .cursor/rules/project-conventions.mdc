@@ -188,6 +188,8 @@ alwaysApply: true
 | `src/data/galleries/data-mapper/index.ts` | Data Mapper gallery entries: DataMapperSampleEntry[] catalog |
 | `src/data/galleries/trainingPaths/contentPaths.ts` | Training paths: Requests, Tests, Catalog, Data Mapper manual definitions |
 | `docs/guides/data-mapper-validation-guide.md` | Data Mapper validation guide: 24 operators, array assertions, DSL, ASSERT |
+| `src/shared/api-mock/templateHelperCatalog.ts` | API Mock `{{ }}` helper catalog (filter/group/insert) for Browse helpers |
+| `src/features/api-mock/components/ApiMockTemplateHelperModal.tsx` | Searchable template-helper reference modal (Copy / Insert) |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |
 

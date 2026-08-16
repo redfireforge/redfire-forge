@@ -1,5 +1,5 @@
 /**
- * AM-13 `am-13-stateful` helpers — Stateful Mocks: State Machine, Counters & Weighted Chaos.
+ * AM-13 `am-13-stateful` helpers — Stateful Mocks: A Cart That Remembers.
  *
  * Quiet corpus is `POST /cart` with two bodies and no state wiring. Mode, transitions,
  * counters, weights, seed, and the sensitive variable are authored in the UI. The
@@ -45,6 +45,17 @@ export const AM13_TIMING = {
 
 const T = AM13_TIMING;
 
+/** Two Simulate runs — leave ~10s for live ripple + CustomSelect under the 45s Acting cap. */
+const AM13_WEIGHTED = {
+  look: 400,
+  hold: 500,
+  weightHold: 750,
+  payoff: 1100,
+  beforeOpen: 700,
+  beforeRun: 1600,
+  groupBreak: 500,
+} as const;
+
 export const AM13_CORPUS_SAMPLE = 'am-gallery-checkout';
 export const AM13_PATH = '/cart';
 export const AM13_METHOD = 'POST';
@@ -58,7 +69,6 @@ export const AM13_HAS_ITEMS_BODY = '{"ok":true,"items":[{"sku":"RF-100"}]}';
 export const AM13_CONTENT_JSON = 'application/json';
 export const AM13_WEIGHT_A = '90';
 export const AM13_WEIGHT_B = '10';
-export const AM13_SEED = '4242';
 export const AM13_VAR_KEY = 'tenant';
 export const AM13_VAR_VALUE = 'acme';
 
@@ -440,7 +450,7 @@ async function selectAm13Card(ctx: DemoActionContext, which: 'first' | 'last'): 
 
 // ── Multi-beat step bodies ──────────────────────────────────────────────────
 
-/** Step 1 — real APIs remember: empty cart → items → checked out. */
+/** Step 1 — two static cards, then State so the mock can remember. */
 export async function runAm13WhyState(ctx: DemoActionContext): Promise<void> {
   await ensureAm13ResponseTab(ctx);
   await am13Look(ctx, API_MOCK.VARIANT_CARD_FIRST);
@@ -453,7 +463,7 @@ export async function runAm13WhyState(ctx: DemoActionContext): Promise<void> {
   await am13Payoff(ctx, API_MOCK.VARIANT_NEXT_STATE);
 }
 
-/** Step 2 — a variant requires a state and moves to the next one. */
+/** Step 2 — EMPTY → HAS_ITEMS plus items += 1. */
 export async function runAm13Transition(ctx: DemoActionContext): Promise<void> {
   await ensureAm13StateMode(ctx);
   await selectAm13Card(ctx, 'first');
@@ -476,7 +486,7 @@ export async function runAm13Transition(ctx: DemoActionContext): Promise<void> {
   await am13Payoff(ctx, API_MOCK.COUNTER_ROW);
 }
 
-/** Step 3 — the HAS_ITEMS variant answers differently. */
+/** Step 3 — Has items may speak only after the first hop. */
 export async function runAm13SecondVariant(ctx: DemoActionContext): Promise<void> {
   await ensureAm13Transition(ctx);
   await selectAm13Card(ctx, 'last');
@@ -502,7 +512,7 @@ export async function runAm13SecondVariant(ctx: DemoActionContext): Promise<void
   await am13Payoff(ctx, bodySel);
 }
 
-/** Step 4 — the machine starts in its initial state. */
+/** Step 4 — Apply, then one live POST /cart (empty cart). */
 export async function runAm13FirstCall(ctx: DemoActionContext): Promise<void> {
   await ensureAm13StudioView(ctx);
   if (firstVisibleElement(API_MOCK.DIRTY_BADGE)) {
@@ -526,7 +536,7 @@ export async function runAm13FirstCall(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-/** Step 5 — the current state and counters are observable. */
+/** Step 5 — State tab live, then the second POST (SKU). */
 export async function runAm13StateLive(ctx: DemoActionContext): Promise<void> {
   await closeAm13Simulate(ctx);
   if (!hasAm13Traffic()) {
@@ -587,56 +597,78 @@ export async function runAm13ResetAndBatch(ctx: DemoActionContext): Promise<void
   await closeAm13Simulate(ctx, { review: true });
 }
 
-/** Step 7 — controlled chaos, reproducibly. */
+async function holdAm13SimulateVerdict(ctx: DemoActionContext): Promise<void> {
+  await revealBeat(ctx, API_MOCK.SIMULATE_RESULT, { timeout: 4_000, hold: AM13_WEIGHTED.hold });
+  const statusSel = firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
+    ? API_MOCK.SIMULATE_RENDERED_STATUS
+    : firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)
+      ? API_MOCK.SIMULATE_OUTCOME
+      : API_MOCK.SIMULATE_RESULT;
+  await spotlightBeat(ctx, statusSel, AM13_WEIGHTED.payoff);
+}
+
+async function runAm13WeightedSimulation(
+  ctx: DemoActionContext,
+  sampleName: string,
+  opts: { saveSample?: boolean } = {},
+): Promise<void> {
+  await ensureAdHocSimulateForm(ctx, AM13_WEIGHTED.hold);
+  await reviewAndRunSimulation(ctx, {
+    review: AM13_WEIGHTED.look,
+    beforeRun: AM13_WEIGHTED.beforeRun,
+    sampleName,
+    saveSample: opts.saveSample,
+    reviewFields: false,
+    digest: false,
+  });
+  await holdAm13SimulateVerdict(ctx);
+}
+
+/** Step 7 — Weighted 90/10, two identical Simulate runs. */
 export async function runAm13WeightedAndSeed(ctx: DemoActionContext): Promise<void> {
   await closeAm13Simulate(ctx);
   await ensureAm13StudioView(ctx);
   await ensureAm13ResponseTab(ctx);
-  await am13Aim(ctx, API_MOCK.RESPONSE_MODE_WEIGHTED);
+  await clickBeat(ctx, API_MOCK.RESPONSE_MODE_WEIGHTED, { look: AM13_WEIGHTED.beforeOpen, hold: 0 });
   patchApiMockActiveRoute({ responseMode: 'weighted' });
   await ensureAm13SelectionTab(ctx);
   await selectAm13Card(ctx, 'first');
-  await am13Reveal(ctx, API_MOCK.VARIANT_WEIGHT);
-  await am13Fill(ctx, API_MOCK.VARIANT_WEIGHT, AM13_WEIGHT_A);
+  await revealBeat(ctx, API_MOCK.VARIANT_WEIGHT, { timeout: 4_000, hold: AM13_WEIGHTED.hold });
+  await fillBeat(ctx, API_MOCK.VARIANT_WEIGHT, AM13_WEIGHT_A, {
+    look: AM13_WEIGHTED.look,
+    hold: AM13_WEIGHTED.weightHold,
+  });
   patchApiMockActiveRoute({ variantIndex: 0, weight: 90 });
-  await am13Break(ctx);
+  await ctx.delay(AM13_WEIGHTED.groupBreak);
   await selectAm13Card(ctx, 'last');
-  await am13Fill(ctx, API_MOCK.VARIANT_WEIGHT, AM13_WEIGHT_B);
+  await fillBeat(ctx, API_MOCK.VARIANT_WEIGHT, AM13_WEIGHT_B, {
+    look: AM13_WEIGHTED.look,
+    hold: AM13_WEIGHTED.weightHold,
+  });
   patchApiMockActiveRoute({ variantIndex: 1, weight: 10 });
-  await am13Payoff(ctx, API_MOCK.VARIANT_WEIGHT);
+  await spotlightBeat(ctx, API_MOCK.VARIANT_WEIGHT, AM13_WEIGHTED.payoff);
 
-  await openAm13Simulate(ctx);
-  await ensureAdHocSimulateForm(ctx, T.tabSwitch);
+  if (!isAm13SimulateOpen()) {
+    await clickBeat(ctx, API_MOCK.SIMULATE, { look: AM13_WEIGHTED.beforeOpen, hold: 0 });
+    await revealBeat(ctx, API_MOCK.SIMULATE_WORKSPACE, { timeout: 4_000, hold: AM13_WEIGHTED.hold });
+  }
   if (am13SimMethod() !== AM13_METHOD && firstVisibleElement(API_MOCK.SIMULATE_METHOD)) {
-    await selectBeat(ctx, API_MOCK.SIMULATE_METHOD, AM13_METHOD, { look: T.beforeOpen, hold: T.fieldFilled });
+    await selectBeat(ctx, API_MOCK.SIMULATE_METHOD, AM13_METHOD, {
+      look: AM13_WEIGHTED.look,
+      hold: AM13_WEIGHTED.hold,
+    });
   }
-  await am13Fill(ctx, API_MOCK.SIMULATE_PATH, AM13_PATH);
-  await am13Fill(ctx, API_MOCK.SIMULATE_SEED, AM13_SEED, T.payoff);
-  await reviewAndRunSimulation(ctx, {
-    review: T.payoff,
-    beforeRun: T.beforeRun,
-    digest: false,
-    sampleName: `POST ${AM13_PATH} — seed-a`,
+  await fillBeat(ctx, API_MOCK.SIMULATE_PATH, AM13_PATH, {
+    look: AM13_WEIGHTED.look,
+    hold: AM13_WEIGHTED.hold,
   });
-  await am13Reveal(ctx, API_MOCK.SIMULATE_RESULT);
-  const statusSel = firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
-    ? API_MOCK.SIMULATE_RENDERED_STATUS
-    : API_MOCK.SIMULATE_OUTCOME;
-  if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)) {
-    await am13Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
-  }
-  await am13Payoff(ctx, statusSel);
-  await am13Break(ctx);
-  await reviewAndRunSimulation(ctx, {
-    review: T.payoff,
-    beforeRun: T.beforeRun,
-    sampleName: `POST ${AM13_PATH} — seed-b`,
-  });
-  await am13Payoff(ctx, statusSel);
-  await closeAm13Simulate(ctx, { review: true });
+  await runAm13WeightedSimulation(ctx, `POST ${AM13_PATH} — seed-a`);
+  await ctx.delay(AM13_WEIGHTED.groupBreak);
+  await runAm13WeightedSimulation(ctx, `POST ${AM13_PATH} — seed-b`, { saveSample: false });
+  await closeAm13Simulate(ctx);
 }
 
-/** Step 8 — variables feed templates; sensitive ones never reach an export. */
+/** Step 8 — tenant=acme, then Sensitive. */
 export async function runAm13Variables(ctx: DemoActionContext): Promise<void> {
   await closeAm13Simulate(ctx);
   await ensureAm13StudioView(ctx);

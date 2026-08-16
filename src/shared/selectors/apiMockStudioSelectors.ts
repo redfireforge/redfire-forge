@@ -132,6 +132,8 @@ export const API_MOCK_STUDIO = {
   FIRST_ROUTE: '[data-testid="api-mock-route-explorer"] button.am-route-item[role="treeitem"]',
   ANALYZE: '[data-testid="api-mock-analyze"]',
   route: (id: string) => `[data-testid="api-mock-route-${id}"]`,
+  /** Explorer row by rule name — route ids are minted on gallery import. */
+  routeNamed: (name: string) => `[data-testid="api-mock-route-explorer"] button.am-route-item[data-route-name="${name}"]`,
   /** Total rule count badge in the explorer head. */
   RULES_COUNT: '[data-testid="api-mock-rules-count"]',
   /** Conflict count badge — mounted only after Analyze finds overlaps. */
@@ -215,8 +217,10 @@ export const API_MOCK_STUDIO = {
   TEXT_EXPAND_REDO: '[data-testid="api-mock-text-expand-redo"]',
   TEXT_EXPAND_APPLY: '[data-testid="api-mock-text-expand-apply"]',
   TEXT_EXPAND_CLOSE: '[data-testid="api-mock-text-expand-close"]',
-  /** equals ↔ contains on a JSONPath / XPath equals row (`options.matchStyle`). */
+  /** Equals / Contains radios on a JSONPath or XPath equals row. */
   conditionMatchStyle: (predId: string) => `[data-testid="api-mock-condition-matchstyle-${predId}"]`,
+  conditionMatchStyleEquals: (predId: string) => `[data-testid="api-mock-condition-matchstyle-equals-${predId}"]`,
+  conditionMatchStyleContains: (predId: string) => `[data-testid="api-mock-condition-matchstyle-contains-${predId}"]`,
   /** Wand beside regex / glob / JSONPath / schema conditions. */
   conditionToolbox: (predId: string) => `[data-testid="api-mock-condition-toolbox-${predId}"]`,
   conditionRemove: (predId: string) => `[data-testid="api-mock-condition-remove-${predId}"]`,
@@ -276,6 +280,23 @@ export const API_MOCK_STUDIO = {
   /** Monaco `{{` completion widget — mounted while the suggest list is open. */
   BODY_COMPLETIONS: '.suggest-widget.visible',
   BODY_BINARY_HINT: '[data-testid="api-mock-body-binary-hint"]',
+  /** Browse-helpers catalog under the response body editor. */
+  TEMPLATE_HELPERS_BROWSE: '[data-testid="api-mock-template-helpers-browse"]',
+  TEMPLATE_HELPERS_MODAL: '[data-testid="api-mock-template-helpers-modal"]',
+  TEMPLATE_HELPERS_SEARCH: '[data-testid="api-mock-template-helpers-search"]',
+  TEMPLATE_HELPERS_COUNT: '[data-testid="api-mock-template-helpers-count"]',
+  TEMPLATE_HELPERS_PREV: '[data-testid="api-mock-template-helpers-prev"]',
+  TEMPLATE_HELPERS_NEXT: '[data-testid="api-mock-template-helpers-next"]',
+  TEMPLATE_HELPERS_ROW: '[data-testid="api-mock-template-helpers-row"]',
+  TEMPLATE_HELPERS_INSERT: '[data-testid="api-mock-template-helpers-insert"]',
+  TEMPLATE_HELPERS_COPY: '[data-testid="api-mock-template-helpers-copy"]',
+  TEMPLATE_HELPERS_CLOSE: '[data-testid="api-mock-template-helpers-close"]',
+  TEMPLATE_HELPERS_EMPTY: '[data-testid="api-mock-template-helpers-empty"]',
+  TEMPLATE_HELPERS_NAV: '[data-testid="api-mock-template-helpers-nav"]',
+  TEMPLATE_HELPERS_CATALOG: '[data-testid="api-mock-template-helpers-catalog"]',
+  templateHelpersGroup: (category: string) => `[data-testid="api-mock-template-helpers-group-${category}"]`,
+  templateHelpersCat: (category: string) => `[data-testid="api-mock-template-helpers-cat-${category}"]`,
+  templateHelpersRow: (id: string) => `[data-testid="api-mock-template-helpers-row"][data-helper-id="${id}"]`,
   /** Right-hand response preview pane (status line, headers tally, rendered body). */
   RESPONSE_PREVIEW: '[data-testid="api-mock-response-preview"]',
   PREVIEW_STATUS: '[data-testid="api-mock-preview-status"]',

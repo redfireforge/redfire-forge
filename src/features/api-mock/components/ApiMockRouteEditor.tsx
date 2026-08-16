@@ -59,6 +59,45 @@ interface Props {
   variables?: ApiMockVariableV1[];
 }
 
+function renderMatchStyleRadios(
+  pred: ApiMockPredicateV1,
+  updateCondition: (id: string, patch: Partial<ApiMockPredicateV1>) => void,
+) {
+  return (
+    <div
+      className="am-matchstyle-radios"
+      role="radiogroup"
+      aria-label="How the resolved value is compared"
+      data-testid={`api-mock-condition-matchstyle-${pred.id}`}
+    >
+      <label className="am-matchstyle-radio">
+        <input
+          type="radio"
+          name={`am-matchstyle-${pred.id}`}
+          checked={pred.options?.matchStyle !== 'subset'}
+          onChange={() => updateCondition(pred.id, {
+            options: { ...pred.options, matchStyle: 'exact' },
+          })}
+          data-testid={`api-mock-condition-matchstyle-equals-${pred.id}`}
+        />
+        Equals
+      </label>
+      <label className="am-matchstyle-radio">
+        <input
+          type="radio"
+          name={`am-matchstyle-${pred.id}`}
+          checked={pred.options?.matchStyle === 'subset'}
+          onChange={() => updateCondition(pred.id, {
+            options: { ...pred.options, matchStyle: 'subset' },
+          })}
+          data-testid={`api-mock-condition-matchstyle-contains-${pred.id}`}
+        />
+        Contains
+      </label>
+    </div>
+  );
+}
+
 export function ApiMockRouteEditor({
   route,
   onUpdate,
@@ -131,7 +170,7 @@ export function ApiMockRouteEditor({
         onChange={v => {
           const source = v as ApiMockPredicateV1['source'];
           const patch: Partial<ApiMockPredicateV1> = { source };
-          if (source === 'security' && !SECURITY_SELECTOR_OPTIONS.some(o => o.value === pred.selector)) {
+          if (source === 'security' && !securitySelectorValue(pred.selector)) {
             patch.selector = 'scheme';
           }
           updateCondition(pred.id, patch);
@@ -139,6 +178,8 @@ export function ApiMockRouteEditor({
         options={SOURCE_OPTIONS}
         size="sm"
         className="am-cs"
+        menuPlacement="end"
+        menuMinWidth={360}
         aria-label="Condition source"
         data-testid={`api-mock-condition-source-${pred.id}`}
       />
@@ -150,6 +191,8 @@ export function ApiMockRouteEditor({
           placeholder="Selector"
           size="sm"
           className="am-cs"
+          menuPlacement="end"
+          menuMinWidth={280}
           aria-label="Condition selector"
           data-testid={`api-mock-condition-selector-${pred.id}`}
         />
@@ -172,16 +215,18 @@ export function ApiMockRouteEditor({
       <CustomSelect
         value={pred.operator}
         onChange={v => updateCondition(pred.id, { operator: v as ApiMockPredicateV1['operator'] })}
-        options={operatorOptionsFor(pred.operator)}
-        size="sm"
-        className="am-cs"
+        options={operatorOptionsFor(pred.operator, pred.source)}
+        className="am-cs am-cs--operator"
+        menuAlign="start"
+        menuMinWidth={280}
+        menuMaxWidth={300}
         aria-label="Condition operator"
         data-testid={`api-mock-condition-operator-${pred.id}`}
       />
       {pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals'
         || pred.operator === 'multipart_field' || pred.operator === 'multipart_file'
         || pred.operator === 'form_field_exact' || pred.operator === 'form_field_regex' ? (
-        <div className="am-jsonpath-pair">
+        <div className={`am-jsonpath-pair${pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals' ? ' am-jsonpath-pair--matchstyle' : ''}`}>
           <input
             className="am-input mono"
             value={pairExpected(pred.expected)[0]}
@@ -206,31 +251,25 @@ export function ApiMockRouteEditor({
               })}
               testId={`api-mock-condition-value-${pred.id}`}
               ariaLabel="Condition value"
+              beforeExpand={(pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals')
+                ? renderMatchStyleRadios(pred, updateCondition)
+                : undefined}
             />
           ) : (
-            <input
-              className="am-input mono"
-              value={pairExpected(pred.expected)[1]}
-              placeholder={pred.operator === 'multipart_file' ? 'file.png' : 'value'}
-              onChange={e => updateCondition(pred.id, {
-                expected: [pairExpected(pred.expected)[0], e.target.value],
-              })}
-              aria-label="Condition value"
-              data-testid={`api-mock-condition-value-${pred.id}`}
-            />
-          )}
-          {(pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals') && (
-            <button
-              type="button"
-              className={`am-btn small ghost${pred.options?.matchStyle === 'subset' ? ' active' : ''}`}
-              title={pred.options?.matchStyle === 'subset'
-                ? 'Substring match — click for exact'
-                : 'Exact match — click for substring'}
-              onClick={() => updateCondition(pred.id, {
-                options: { ...pred.options, matchStyle: pred.options?.matchStyle === 'subset' ? 'exact' : 'subset' },
-              })}
-              data-testid={`api-mock-condition-matchstyle-${pred.id}`}
-            >{pred.options?.matchStyle === 'subset' ? 'contains' : 'equals'}</button>
+            <>
+              <input
+                className="am-input mono"
+                value={pairExpected(pred.expected)[1]}
+                placeholder={pred.operator === 'multipart_file' ? 'file.png' : 'value'}
+                onChange={e => updateCondition(pred.id, {
+                  expected: [pairExpected(pred.expected)[0], e.target.value],
+                })}
+                aria-label="Condition value"
+                data-testid={`api-mock-condition-value-${pred.id}`}
+              />
+              {(pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals')
+                && renderMatchStyleRadios(pred, updateCondition)}
+            </>
           )}
         </div>
       ) : pred.operator === 'jsonSchema' || pred.operator === 'xmlSchema' || pred.operator === 'json_strict' || pred.operator === 'json_subset' ? (
@@ -440,6 +479,7 @@ export function ApiMockRouteEditor({
                     onChange={v => onUpdate({ method: v as ApiMockRouteV1['method'] })}
                     options={METHOD_OPTIONS}
                     className="am-cs"
+                    menuMinWidth={240}
                     aria-label="Route method"
                     data-testid="api-mock-method-select"
                   />

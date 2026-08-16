@@ -15,6 +15,7 @@ import {
   buildAutoRouteSamples,
   capturedHeadersFromText,
   createSavedSimulationSample,
+  createSimulateReplaySeed,
   lowercaseHeaderMap,
   downloadSimulationTrace,
   headersToText,
@@ -26,6 +27,7 @@ import {
   parseSimulateHeaderLines,
   predicateTraceDetail,
   predicateTraceNote,
+  predicateTraceSatisfied,
   predicateTraceSource,
   simulationTraceFilename,
   simulationTraceNoticePreview,
@@ -62,7 +64,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
   const [headers, setHeaders] = useState(seededSample ? headersToText(seededSample.request.headers) : '');
   const [body, setBody] = useState(typeof seededSample?.request.body === 'string' ? seededSample.request.body : '');
   const [clientCertSubject, setClientCertSubject] = useState(seededSample?.request.clientCertSubject ?? '');
-  const [seed, setSeed] = useState(() => String(Math.floor(Math.random() * 90000) + 10000));
+  const [seed] = useState(createSimulateReplaySeed);
   const [filter, setFilter] = useState('');
   const [selectedSampleId, setSelectedSampleId] = useState(initialSampleId ?? adHocId);
   const [resultBySample, setResultBySample] = useState<Record<string, ApiMockSimulationResultV1>>({});
@@ -413,8 +415,6 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                 setBody={setBody}
                 clientCertSubject={clientCertSubject}
                 setClientCertSubject={setClientCertSubject}
-                seed={seed}
-                setSeed={setSeed}
                 requestReadOnly={requestReadOnly}
                 selectedIsAdHoc={selectedIsAdHoc}
                 selectedIsFromRules={selectedIsFromRules}
@@ -438,8 +438,6 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                 setBody={setBody}
                 clientCertSubject={clientCertSubject}
                 setClientCertSubject={setClientCertSubject}
-                seed={seed}
-                setSeed={setSeed}
               />
             )}
 
@@ -529,22 +527,25 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                               <span className="am-mono">{route?.path.value ?? '—'}</span>
                               <span className="am-muted">—</span>
                             </div>
-                            {orderTracePredicateResults(c.predicateResults, c.overallMatch).map(pr => (
+                            {orderTracePredicateResults(c.predicateResults, c.overallMatch).map(pr => {
+                              const ok = predicateTraceSatisfied(pr, c.predicateResults);
+                              return (
                               <div
                                 key={pr.predicateId}
                                 className={[
                                   'am-predicate',
-                                  pr.passed ? '' : 'am-predicate--fail',
+                                  ok ? '' : 'am-predicate--fail',
                                   pr.combinator ? 'am-predicate--group' : '',
                                 ].filter(Boolean).join(' ')}
                                 data-testid={`api-mock-sim-predicate-${pr.predicateId}`}
                               >
-                                <span className={`am-matcher-result ${pr.passed ? 'pass' : 'fail'}`}>{pr.passed ? '✓' : '×'}</span>
+                                <span className={`am-matcher-result ${ok ? 'pass' : 'fail'}`}>{ok ? '✓' : '×'}</span>
                                 <span>{predicateTraceSource(pr)}</span>
                                 <span className="am-mono">{predicateTraceDetail(pr)}</span>
-                                <span className="am-muted">{predicateTraceNote(pr)}</span>
+                                <span className="am-muted">{predicateTraceNote(pr, c.predicateResults)}</span>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         );
                       })}
@@ -561,19 +562,31 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                       {trace.policyDecision.specificityBreakdown && trace.policyDecision.specificityBreakdown.length > 0 && (
                         <div data-testid="api-mock-sim-specificity">
                           <div className="am-section-heading">Specificity</div>
-                          {trace.policyDecision.specificityBreakdown.map(row => (
-                            <div
-                              key={row.routeId}
-                              className="am-predicate"
-                              data-testid={`api-mock-sim-specificity-${row.routeId}`}
-                            >
-                              <strong className="am-route-title">{routeLabel(row.routeId)}</strong>
-                              <span className="am-badge info">{row.score}</span>
-                              <span className="am-mono">
-                                {row.components.map(c => `${c.source} +${c.weight}`).join(' · ')}
-                              </span>
-                            </div>
-                          ))}
+                          {trace.policyDecision.specificityBreakdown.map(row => {
+                            const route = server.routes.find(x => x.id === row.routeId);
+                            return (
+                              <div
+                                key={row.routeId}
+                                className="am-specificity-row"
+                                data-testid={`api-mock-sim-specificity-${row.routeId}`}
+                              >
+                                <div className="am-specificity-id">
+                                  {route ? (
+                                    <>
+                                      <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
+                                      <strong className="am-route-title">{route.path.value}</strong>
+                                    </>
+                                  ) : (
+                                    <strong className="am-route-title">{routeLabel(row.routeId)}</strong>
+                                  )}
+                                  <span className="am-badge info">{row.score}</span>
+                                </div>
+                                <span className="am-mono am-specificity-parts">
+                                  {row.components.map(c => `${c.source} +${c.weight}`).join(' · ')}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

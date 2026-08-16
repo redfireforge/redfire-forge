@@ -909,7 +909,7 @@ describe('AM-05 helpers', () => {
         '✓ Method match',
         '✓ Path /reports',
         '✓ query exact',
-        '× header "x-debug" was absent',
+        '✓ header "x-debug" was absent — as required',
         '✓ None of passed — no child matched',
         '✓ header present',
       ],

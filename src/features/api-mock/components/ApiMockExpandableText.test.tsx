@@ -156,4 +156,20 @@ describe('ApiMockExpandableText', () => {
 
     expect(editor).toHaveValue('same');
   });
+
+  it('renders extra controls between the field and the expand button', () => {
+    render(
+      <ApiMockExpandableText
+        label="Condition value"
+        value="ada.lovelace"
+        testId="api-mock-condition-value-p4"
+        beforeExpand={<span data-testid="before-expand">Equals</span>}
+      />,
+    );
+    const field = screen.getByTestId('api-mock-condition-value-p4');
+    const extra = screen.getByTestId('before-expand');
+    const expand = screen.getByTestId('api-mock-condition-value-p4-expand');
+    expect(field.compareDocumentPosition(extra) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(extra.compareDocumentPosition(expand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

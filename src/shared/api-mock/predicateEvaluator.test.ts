@@ -346,6 +346,9 @@ describe('evaluateRoute', () => {
       const group = result.predicateResults.find(p => p.combinator === 'not');
       expect(group?.passed).toBe(true);
       expect(group?.reason).toContain('no child matched');
+      const leaf = result.predicateResults.find(p => p.predicateId === 'p1');
+      expect(leaf?.passed).toBe(false);
+      expect(leaf?.reason).toContain('as required');
     });
 
     it('supports nested groups under NOT', () => {

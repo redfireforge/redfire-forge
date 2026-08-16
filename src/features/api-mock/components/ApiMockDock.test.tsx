@@ -286,6 +286,8 @@ describe('ApiMockDock', () => {
     ] as any;
     render(<ApiMockDock routes={baseRoutes()} variables={variables} onVariablesChange={onVariablesChange} />);
     openTab('Variables');
+    expect(screen.getByRole('table', { name: 'Server variables' }).className).toContain('am-vars-table');
+    expect(document.querySelector('.am-vars-col-key')).toBeTruthy();
     fireEvent.click(screen.getByTestId('api-mock-var-add'));
     expect(onVariablesChange).toHaveBeenCalled();
     expect(onVariablesChange.mock.calls.at(-1)?.[0]).toHaveLength(2);
