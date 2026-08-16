@@ -235,6 +235,23 @@ describe('API Mock beat helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
   });
 
+  it('reviewAndRunSimulation runs afterReview after Save and before Run', async () => {
+    mountSimulateForm({ path: '/orders', body: '{"ok":true}' });
+    const ctx = makeCtx();
+    const afterReview = vi.fn(async () => undefined);
+    await reviewAndRunSimulation(ctx, {
+      sampleName: 'POST /orders — extras vs strict',
+      reviewFields: false,
+      digest: false,
+      afterReview,
+    });
+
+    expect(afterReview).toHaveBeenCalledTimes(1);
+    const clicks = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
+    expect(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE)).toBeGreaterThanOrEqual(0);
+    expect(clicks.indexOf(API_MOCK.SIMULATE_RUN)).toBeGreaterThan(clicks.indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE));
+  });
+
   it('reviewAndRunSimulation skips empty headers and body', async () => {
     mountSimulateForm({ path: '/health', headers: '  ', body: '' });
     const ctx = makeCtx();

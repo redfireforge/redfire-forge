@@ -1,11 +1,16 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, expect, it } from 'vitest';
 import {
   findTextExpandMatches,
   formatJsonBody,
   formatTextExpandCount,
+  isNestedApiMockExpandPortal,
   minifyJsonBody,
   nextTextExpandMatch,
   prettyPrintJsonBody,
+  resolveApiMockExpandPortal,
   textExpandStats,
 } from './apiMockTextExpand';
 
@@ -23,6 +28,18 @@ describe('apiMockTextExpand', () => {
     expect(nextTextExpandMatch(-1, 3, -1)).toBe(2);
     expect(nextTextExpandMatch(2, 3, 1)).toBe(0);
     expect(nextTextExpandMatch(0, 3, -1)).toBe(2);
+  });
+
+  it('nests the expand portal in the Simulate request pane when present', () => {
+    expect(resolveApiMockExpandPortal()).toBe(document.body);
+    expect(isNestedApiMockExpandPortal(document.body)).toBe(false);
+    const host = document.createElement('section');
+    host.setAttribute('data-testid', 'api-mock-sim-main');
+    document.body.appendChild(host);
+    expect(resolveApiMockExpandPortal()).toBe(host);
+    expect(isNestedApiMockExpandPortal(host)).toBe(true);
+    host.remove();
+    expect(resolveApiMockExpandPortal()).toBe(document.body);
   });
 
   it('formats the search counter', () => {

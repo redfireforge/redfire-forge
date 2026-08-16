@@ -92,7 +92,7 @@ export const apiMockAm08Lesson: DemoLesson = {
     + 'reject every multiple match as 409, or break equal priority by specificity.',
   estimatedMinutes: 9,
   initialTab: 'api-mock-studio',
-  contentVersion: 4,
+  contentVersion: 6,
   concept: {
     title: 'Groups say whether a rule matches. Policy says which matching rule wins.',
     body:
@@ -205,7 +205,8 @@ export const apiMockAm08Lesson: DemoLesson = {
         `Simulate \`${AM08_PATH}\` with \`${AM08_VERSION_KEY}: ${AM08_VERSION_VALUE}\` and `
         + `\`${AM08_TENANT_KEY}: ${AM08_TENANT_EU}\` — no debug header. Regional's tree `
         + 'passes: the version row ticks, the eu tenant ticks, the us tenant misses (Any of '
-        + 'does not care), and the debug present misses (None of *wants* that).\n\n'
+        + 'does not care), and the debug present misses — the leaf is green **held** because '
+        + 'None of *wants* that miss.\n\n'
         + 'Default still matches on method and path alone. Two overall ticks, equal priority, '
         + 'and the default equal-priority policy **Reject as ambiguous**. The outcome is '
         + '**AMBIGUOUS**, not a silent pick. That is the honest answer until you choose a '

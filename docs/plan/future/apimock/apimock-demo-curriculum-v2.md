@@ -132,19 +132,19 @@ before step 1 with no visible import beat (§5.1).
 | AM-06 | `am-06-body-matching` | Body Matching: Subset, Strict, JSONPath & JSON Schema | 8 | 6 | 1 rule w/ subset predicate | strict switch, pick-from-JSON, match style, schema preset + paste |
 | AM-07 | `am-07-payload-formats` | Forms, Multipart, XML & Binary Matching | 9 | 7 | 4 bare rules (form/upload/xml/binary) | every format predicate + sha256 |
 | AM-08 | `am-08-selection-policy` | Boolean Groups, Priority & Selection Policy | 9 | 8 | 2 overlapping rules | groups, nesting, priority, both policies |
-| AM-09 | `am-09-conflicts` | Conflict Inspector: Four Overlap Kinds → Fix → Acknowledge | 7 | 8 | 4 overlapping pairs | analyze, filters, witness, goto, fix, acknowledge |
+| AM-09 | `am-09-conflicts` | Conflict Inspector: Four Overlap Kinds → Fix → Acknowledge | 13 | 12 | 4 overlapping pairs | analyze, pair-then-kind, witness, goto, shadowed-simulate, definite-simulate, potential-simulate, fix, acknowledge |
 | AM-10 | `am-10-response-content` | Response Content: Status, Headers, Cookies & Body Kinds | 6 | 8 | 1 rule w/ plain 200 | status/reason/type, headers, cookies, kinds, Format |
 | AM-11 | `am-11-templating` | Dynamic Responses: Templates, Faker & Body Mapper | 7 | 9 | 1 running rule, static body | every helper typed live, variables, Map body |
 | AM-12 | `am-12-variants-sequence` | Response Variants: Rules & Sequence Modes | 6 | 8 | 1 cart rule, 1 variant | 2nd variant, conditions, default, sequence, 3 calls |
-| AM-13 | `am-13-stateful` | Stateful Mocks: State Machine, Counters & Weighted Chaos | 7 | 8 | cart rule w/ 2 variants | state mode, transitions, counters, weights, seed |
-| AM-14 | `am-14-timing-faults` | Latency, Eligibility & Connection Faults | 7 | 8 | 1 payment rule | delay/jitter, eligibility, every fault kind, chunks |
+| AM-13 | `am-13-stateful` | Stateful Mocks: A Cart That Remembers | 7 | 8 | cart rule w/ 2 variants | same POST /cart twice, live state, reset, weighted, secret |
+| AM-14 | `am-14-timing-faults` | When Payments Hang: Latency, Eligibility & Connection Faults | 7 | 8 | 1 payment rule | slow bank, used-up offer, hang/reset, dribble |
 | AM-15 | `am-15-import` | Import Everything: cURL, OpenAPI, WireMock, HAR, Catalog | 7 | 9 | blank server + Catalog/Requests entries | all 7 import sources, modes, generalize, enable |
 | AM-16 | `am-16-export` | Export & Round-Trip: JSON/YAML, WireMock, HAR, Redaction | 6 | 7 | store library + TLS + secret var | all 6 exports, redaction check, re-import as copy |
 | AM-17 | `am-17-proxy-record` | Proxy Passthrough & Record-to-Drafts | 8 | 8 | blank server + Docker echo | proxy config, record, live proxied call, draft promote |
 | AM-18 | `am-18-journal` | Journal Forensics: Near-Misses, Candidates & Promotion | 7 | 8 | store library (running) | live traffic incl. a miss, promotion actions, export |
 | AM-19 | `am-19-runtime-ops` | Runtime Ops: CORS, Limits, Redaction, Diagnostics & Console | 7 | 8 | store library (running) | CORS, limits, redaction + proof, transforms, callbacks |
 | AM-20 | `am-20-tls-mtls` | HTTPS, HTTP/2 & mTLS with Cert-Subject Matching | 7 | 8 | 1 plain server + 1 rule | TLS generate, HTTPS proof, mTLS, cert predicate |
-| AM-21 | `am-21-simulation-suite` | Simulation as a Test Suite: Examples, Seeds, Assertions, Trace | 7 | 8 | 8 samples w/ expectations | ad-hoc run, expectations, run-all, seed, examples |
+| AM-21 | `am-21-simulation-suite` | Simulation as a Test Suite: Examples, Assertions, Trace | 7 | 8 | 8 samples w/ expectations | ad-hoc run, expectations, run-all, replay, examples |
 | AM-22 | `am-22-workflow` | Workflow Orchestration: Start → Apply → Reset → Assert → Stop | 8 | 9 | checkout mock + blank workflow | all 5 mock nodes wired + Quick Test |
 | AM-23 | `am-23-harness-ci` | Test Runner Fixtures & CI Handoff | 6 | 7 | store library + scenario suite | fixture config, isolated run, artifact export |
 | AM-24 | `am-24-capstone` | Capstone: Ship a Contract Mock | 8 | 9 | *(none — spec import is the first beat)* | the whole pipeline, start to CI artifact |
@@ -346,9 +346,9 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 2 **prove-form** — the `Content-Type` is what makes it a form · Simulate the urlencoded body + `application/x-www-form-urlencoded` → hold on MATCHED → hold on the `form_field_exact` trace row → close ⟂ select `form_field_regex` → fill `^ada\.` ⟂ Simulate the regional body (`ada.lovelace.eu`) → MATCHED → hold on the `form_field_regex` row → close → **`FIRST_CONDITION`**
 3 **multipart-fields** — text parts and file parts are matched separately · click the upload rule → hold on `CONDITIONS_EMPTY` ⟂ add `multipart_field` `title` / `Q3 revenue report` ⟂ add `multipart_file` `document` / `report.pdf` → hold on `groupCount`† → **`LAST_CONDITION`**
 4 **prove-multipart** — a real multipart body, matched with no server running · Simulate the boundary-delimited payload + `multipart/form-data; boundary=…` → MATCHED → hold on both multipart trace rows ⟂ `SIMULATE_TAB_REQUEST` → hold on `SIMULATE_NORMALIZED` → `SIMULATE_TAB_RENDERED` → hold on the `201` body → close → **`LAST_CONDITION`**
-5 **xpath** — let the toolbox write the namespace-safe expression · click the SOAP rule → hold on `CONDITIONS_EMPTY` ⟂ `PATH_TOOLBOX` → `TOOLBOX_TAB_XPATH`† → preset **Local name** → fill `TOOLBOX_XPATH_SAMPLE` with the real envelope → fill `TOOLBOX_XPATH_EXPR` → hold on `TOOLBOX_XPATH_RESOLVED`† ⟂ fill `TOOLBOX_XPATH_VALUE` `A-1098` → hold on `TOOLBOX_XPATH_RESULT`† → `TOOLBOX_APPLY` → hold on `groupCount`† → **`LAST_CONDITION`**
-6 **xml-schema** — required elements without the XSD ceremony · `TOOLBOX_TAB_SCHEMA` → preset **XML names** → hold on `TOOLBOX_SCHEMA_KIND_XML` → fill the element list → `TOOLBOX_APPLY` → hold on the `xmlSchema` row ⟂ Simulate the full envelope → MATCHED ⟂ Simulate the envelope missing `<customer>` → UNMATCHED → hold on the ticking `xpath_equals` row, then the red `xmlSchema` row → close → **`LAST_CONDITION`**
-7 **binary** — pin an upload by its bytes, or by its digest · click the firmware rule → add `binary_exact` → paste the blob ⟂ select `binary_sha256` → clear → fill the 64-char digest ⟂ Simulate the matching payload → MATCHED ⟂ Simulate `v2.4.1` → UNMATCHED → hold on the `binary_sha256` row → close → **`ROUTE_EXPLORER`**
+5 **xpath** — let the toolbox write the namespace-safe expression, then prove it · click the SOAP rule → hold on `CONDITIONS_EMPTY` ⟂ `PATH_TOOLBOX` → `TOOLBOX_TAB_XPATH`† → preset **Local name** → fill sample + expr → hold `TOOLBOX_XPATH_RESOLVED`† → fill value → `TOOLBOX_APPLY` → Simulate the full envelope → ring `SIMULATE_RUN` → hold **MATCHED** + `xpath_equals` → close → **`LAST_CONDITION`**
+6 **xml-schema** — required elements without the XSD ceremony · `TOOLBOX_TAB_SCHEMA` → preset **XML names** → fill the element list → `TOOLBOX_APPLY` → Simulate the envelope missing `<customer>` → ring `SIMULATE_RUN` → hold **UNMATCHED** → hold the ticking `xpath_equals` row, then the red `xmlSchema` row → close → **`LAST_CONDITION`**
+7 **binary** — pin an upload by its bytes, or by its digest · click the firmware rule → add `binary_exact` → paste the blob ⟂ select `binary_sha256` → fill the 64-char digest ⟂ Simulate the matching payload → ring `SIMULATE_RUN` → hold **MATCHED** ⟂ Simulate `v2.4.1` → ring `SIMULATE_RUN` → hold **UNMATCHED** → hold `SIMULATE_PREDICATE_FAIL`† (`body binary_sha256 failed`) → close → **`ROUTE_EXPLORER`**
 
 **Deviations from the original spec.** The corpus is **four** rules, not three: a firmware endpoint was added so the binary step has a rule of its own rather than borrowing the upload rule, and the old step 1 (**beyond-json**, a tour of the bare rules) is folded into the form step's opening beats — a reading pause to look at four empty rules is not a step. The XPath preset in the plan (`//Order/@id`) does not exist and would have taught the wrong thing: the product's presets are written with `local-name()`, which is what a namespaced SOAP envelope actually requires, so the step teaches that instead. `xmlSchema` takes a comma-separated **element list**, not an XSD, so the schema step fills that. The binary step pastes a short blob under `binary_exact` first — that is the beat that shows *why* the digest matcher exists — and re-points the same row to `binary_sha256` rather than adding a second row.
 
@@ -372,18 +372,22 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 
 **Product changes this lesson forced.** `selectRoute` now populates `policyDecision.specificityBreakdown` when two or more rules tie at the highest priority (the field existed on the contract but was never filled). Simulate renders that list and a **Winner** `data-testid`. The Selection settings tab gained an editable **Ambiguous response** body (`{{requestId}}` / `{{competingRuleCount}}`). None-of groups show a fail-closed note. The demo bridge can quietly patch the active server's selection policy so replayed policy steps start clean.
 
-#### AM-09 `am-09-conflicts` — Conflict Inspector (8 steps) — **IMPLEMENTED**
-**Quiet corpus:** `am-gallery-overlaps` — eight path-disjoint rules that analyze into one finding of each kind (duplicate / shadowed / definite / potential). **Live:** analyze, filters, witness, goto, fix, acknowledge. **Offline.**
+#### AM-09 `am-09-conflicts` — Conflict Inspector (12 steps) — **IMPLEMENTED**
+**Quiet corpus:** `am-gallery-overlaps` — eight path-disjoint rules that analyze into one finding of each kind (duplicate / shadowed / definite / potential). **Live:** analyze, Duplicate name → Simulate witness → Open in Studio, then Shadowed → Simulate MATCHED, then Definite → Simulate daily 409 and non-daily 200, then Potential → Simulate header 409 and no-header 404, fix, acknowledge. **Offline.**
 **Tags:** `analyze`, `kind-duplicate`, `kind-shadowed`, `kind-definite`, `kind-potential`, `conflict-dimensions`, `conflict-filters`, `witness-simulate`, `adjust-priority`, `goto-rule`, `acknowledge`, `ack-stale`.
 
-1 **analyze** — conflict detection is static: no listener, no traffic, pre-Apply safety · hold on `CONFLICT_NOTICE` in the explorer → click `VIEW_CONFLICTS` → click `CONFLICTS_ANALYZE` → reveal `CONFLICT_LIST` → hold on `CONFLICT_SUMMARY` (four findings) → **`CONFLICT_LIST`**
-2 **duplicate** — identical method, path, and Match · click `conflictFilter('duplicate')` → hold on the row → click `CONFLICT_FINGERPRINTS_SUMMARY` → hold **Different hashes** and the two full SHA-256 values (they differ: two rule records) → **`CONFLICT_FINGERPRINTS_OPEN`**
-3 **shadowed** — a higher-priority superset means the other rule can never win · click `conflictFilter('shadowed')` → hold on the detail → hold on the dimension analysis (method / path / predicate) → **`CONFLICT_DETAIL`**
-4 **definite-vs-potential** — "always collides" vs "cannot be decided statically" · click `conflictFilter('definite')` → hold → click `conflictFilter('potential')` → hold on the unknown dimension (regex vs regex) → **potential row**
-5 **witness** — every finding ships a request that triggers it · hold on `CONFLICT_WITNESS` → click `CONFLICT_SIMULATE` → run → hold on ambiguous → close → **ambiguous result**
-6 **goto-rule** — jump from finding to the offending rule · click `CONFLICT_GOTO_LEFT`† → reveal `ROUTE_EDITOR` → hold on the rule → back to Conflicts → **`ROUTE_EDITOR`**
-7 **fix-priority** — the quick-fix raises one side and re-analyzes · click `CONFLICT_PRIO_LEFT` → hold on the +10 → hold on the shrinking `CONFLICT_SUMMARY` → **summary dropped**
-8 **acknowledge** — accept what you meant, and get told when it changes · click `CONFLICT_ACKNOWLEDGE` → hold on `CONFLICT_ACK` ⟂ edit the rule → hold on `CONFLICT_STALE`† → **`CONFLICT_STALE`†**
+1 **analyze** — overlaps have names before any client sends · click `ANALYZE` → hold `CONFLICT_SUMMARY` (4 findings) → walk the list Duplicate → Shadowed → Definite → Potential → **`FIRST_FINDING`**
+2 **duplicate** — Duplicate is the request line, not the record · open both `/health` rules → `VIEW_CONFLICTS` → `conflictFilter('duplicate')` → fingerprints → **`CONFLICT_FINGERPRINTS_OPEN`**
+3 **witness** — Simulate this Duplicate; the mock refuses to guess · hold on `CONFLICT_WITNESS` → click `CONFLICT_SIMULATE` → run → hold on ambiguous → close → **ambiguous result**
+4 **goto-rule** — the same Duplicate, from the rule · click `CONFLICT_GOTO_LEFT`† → reveal `ROUTE_EDITOR` → hold on the rule → back to Conflicts → **`ROUTE_EDITOR`**
+5 **shadowed** — Shadowed is a rule that can never win · open both `/orders` rules → `VIEW_CONFLICTS` → `conflictFilter('shadowed')` → dimensions → **`CONFLICT_DETAIL`**
+6 **shadowed-witness** — Simulate this Shadowed; the catch-all still wins · hold on `CONFLICT_WITNESS` → fill `x-tenant: acme` → run → both `GET /orders` → Winner catch-all → Rendered **200** `scope: "all"` → close → **`CONFLICT_INSPECTOR`**
+7 **definite** — Definite is a collision the analyzer can prove · open Daily + Reports glob → `VIEW_CONFLICTS` → `conflictFilter('definite')` → dimensions → **`CONFLICT_DETAIL`**
+8 **definite-witness** — Simulate this Definite; one path collides, the other does not · Save as sample + `/reports/daily` → **409** ⟂ Save as sample + `/reports/non-daily` → glob Winner → **200** `{"report":"any"}` → close → **`CONFLICT_INSPECTOR`**
+9 **potential** — Potential is the honest “we cannot decide” · open both `/search` rules → `VIEW_CONFLICTS` → `conflictFilter('potential')` → **`CONFLICT_DIM_UNKNOWN`**
+10 **potential-witness** — Simulate this Potential; the header decides the status · Save as sample + `x-client: acme-west` → **409** ⟂ Save as sample + no header → **404** → close → **`CONFLICT_INSPECTOR`**
+11 **fix-priority** — ranking picks a winner, it does not delete the overlap · click `CONFLICT_PRIO_LEFT` → hold on the +10 → hold on the shrinking `CONFLICT_SUMMARY` → **summary dropped**
+12 **acknowledge** — a snapshot, not a lifetime waiver · click `CONFLICT_ACKNOWLEDGE` → hold on `CONFLICT_ACK` ⟂ edit the rule → hold on `CONFLICT_STALE`† → **`CONFLICT_STALE`†**
 
 ### Track C — Responses
 
@@ -402,9 +406,9 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 
 #### AM-11 `am-11-templating` — Dynamic Responses (9 steps) — **IMPLEMENTED**
 **Quiet corpus:** one running rule with a static body. **Live:** every helper typed into the editor. **Companion:** required.
-**Tags:** `tpl-pathparam`, `tpl-query-header-cookie`, `tpl-jsonpath`, `tpl-uuid-now-random`, `tpl-oneof-repeat`, `tpl-faker`, `tpl-variables`, `monaco-completions`, `map-body-datamapper`, `template-error-diagnostic` (power: **Monaco `{{` completions**, **Map body**).
+**Tags:** `tpl-pathparam`, `tpl-query-header-cookie`, `tpl-jsonpath`, `tpl-uuid-now-random`, `tpl-oneof-repeat`, `tpl-faker`, `tpl-variables`, `monaco-completions`, `browse-helpers`, `map-body-datamapper`, `template-error-diagnostic` (power: **Monaco `{{` completions**, **Browse helpers**, **Map body**).
 
-1 **static-problem** — a static body cannot echo the request · hold on `VARIANT_BODY` → type `{{` → hold **2000ms** on the Monaco completion list (every helper, documented inline) → **completion list**
+1 **static-problem** — a static body cannot echo the request · hold on `VARIANT_BODY` → type `{{` → hold **2000ms** on the Monaco completion list → **Browse helpers** → hold the Request group → search `uuid` → **Close** → **catalog closed**
 2 **echo-the-request** — templates read the request that arrived · patch `{{pathParam "id"}}` → hold on `BODY_TEMPLATE_BADGE`† ⟂ patch `{{query}}` / `{{header}}` / `{{cookie}}` → hold → patch `{{jsonPath "$.items[0].sku"}}` → hold → **template badge**
 3 **generated-values** — ids, timestamps, and controlled randomness · patch `{{uuid}}` + `{{now}}` → hold ⟂ patch `{{randomInt}}` + `{{oneOf}}` → hold on the varied output → **body preview**
 4 **repeat** — build list payloads of any length from one block · patch `{{repeat}}` → hold on the grown body → hold on `BODY_SIZE` → **body grew**
@@ -423,35 +427,35 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 3 **variant-conditions** — in rules mode a variant wins on its own conditions · set `SELECTION_CONDITION`† jsonPath condition → hold on the condition row → **condition set**
 4 **default-variant** — exactly one enabled default is the fallback · click `SELECTION_DEFAULT`† → hold on the Default badge → hold on the "one only" note → **Default badge**
 5 **prove-rules** — same path, two answers, decided by payload · Simulate matching body → hold on variant A → Simulate non-matching → hold on variant B → **two variants proven**
-6 **switch-sequence** — round-robin: the retry/backoff test mode · click `RESPONSE_MODE_SEQUENCE`† → hold on the order note → hold on `SEQUENCE_POSITION`† cursor → **sequence mode**
-7 **three-calls** — the same request, three different responses · click `APPLY` → fetch → hold on journal row 1 → fetch → hold on the different status → fetch → hold on the wrap-around → **three journal rows**
+6 **switch-sequence** — round-robin: the retry/backoff test mode · click `RESPONSE_MODE_SEQUENCE`† → hold card **Step 1 / Step 2** → hold `SEQUENCE_POSITION`† **Next: Step 1 of 2** on both cards → **shared cursor**
+7 **three-calls** — same request three times — then it wraps · click `APPLY` → fetch → hold on journal row 1 → fetch → hold on the different status → fetch → hold on the wrap-around (200 again) → **three journal rows, two variants**
 8 **state-tab** — the live cursor is visible, not guesswork · click `DOCK_TAB_STATE` → hold on `DOCK_SEQ_ROW`† → **`DOCK_SEQ_ROW`†**
 
-#### AM-13 `am-13-stateful` — Stateful Mocks & Weighted Chaos (8 steps) — **IMPLEMENTED**
+#### AM-13 `am-13-stateful` — Stateful Mocks: A Cart That Remembers (8 steps) — **IMPLEMENTED**
 **Quiet corpus:** cart rule with two response variants (bodies only — no state wiring). **Live:** state mode, transitions, counters, weights. **Companion:** required.
 **Tags:** `mode-state`, `state-transition`, `counters`, `state-tab-live`, `state-reset`, `mode-weighted`, `weights`, `variables-crud`, `variables-sensitive`, `sim-sequential-batch`.
 
-1 **why-state** — real APIs remember: empty cart → items → checked out · hold on the two variants → click `RESPONSE_MODE_STATE`† → hold on the new state fields → **state mode**
-2 **transition** — a variant requires a state and moves to the next one · fill `VARIANT_REQUIRED_STATE`† `EMPTY` → hold → fill `VARIANT_NEXT_STATE`† `HAS_ITEMS` → hold ⟂ click `COUNTER_ADD`† `items += 1` → hold on the counter row → **transition + counter**
-3 **second-variant** — the `HAS_ITEMS` variant answers differently · select variant 2 → fill required state `HAS_ITEMS` → hold on its body → **variant 2 wired**
-4 **first-call** — the machine starts in its initial state · click `APPLY` → fetch `POST /cart` → hold on the empty-cart response in `TX_DETAIL` → **journal row**
-5 **state-live** — the current state and counters are observable · click `DOCK_TAB_STATE` → hold on `DOCK_STATE_LIVE`† (`HAS_ITEMS`, `items=1`) ⟂ fetch the same request → hold on the *different* answer → **state advanced**
-6 **reset-and-batch** — rewind between tests without restarting · click `STATE_RESET` → hold on cleared state ⟂ click `SIMULATE_RUN_ALL` → hold on the per-sample state column (sequential, deterministic) → **batch states**
-7 **weighted-and-seed** — controlled chaos, reproducibly · click `RESPONSE_MODE_WEIGHTED`† → fill `VARIANT_WEIGHT`† 90/10 → hold ⟂ fill `SIMULATE_SEED` → run twice → hold on identical results → **identical seeded runs**
-8 **variables** — variables feed templates; sensitive ones never reach an export · click `VAR_ADD`† → add value → toggle sensitive → hold on the masked row → **masked variable**
+1 **why-state** — a real cart is never the same twice · hold on the two variants → click `RESPONSE_MODE_STATE`† → hold on the new state fields → **state mode**
+2 **transition** — the first POST starts the cart and leaves a mark · fill `VARIANT_REQUIRED_STATE`† `EMPTY` → hold → fill `VARIANT_NEXT_STATE`† `HAS_ITEMS` → hold ⟂ click `COUNTER_ADD`† `items += 1` → hold on the counter row → **transition + counter**
+3 **second-variant** — the next POST must already see the item · select variant 2 → fill required state `HAS_ITEMS` → hold on its body → **variant 2 wired**
+4 **first-call** — send it once, the empty cart answers · click `APPLY` → fetch `POST /cart` → hold on the empty-cart response in `TX_DETAIL` → **journal row**
+5 **state-live** — send it again, now there is a line item · click `DOCK_TAB_STATE` → hold on `DOCK_STATE_LIVE`† (`HAS_ITEMS`, `items=1`) ⟂ fetch the same request → hold on the *different* answer → **state advanced**
+6 **reset-and-batch** — rewind the cart without killing the server · click `STATE_RESET` → hold on cleared state ⟂ click `SIMULATE_RUN_ALL` → hold on the per-sample state column (sequential, deterministic) → **batch states**
+7 **weighted-and-seed** — most of the time empty, sometimes already a SKU · click `RESPONSE_MODE_WEIGHTED`† → fill `VARIANT_WEIGHT`† 90/10 → hold ⟂ run twice → hold on identical results → **identical session runs**
+8 **variables** — the tenant stays in the mock, never in the export · click `VAR_ADD`† → add value → toggle sensitive → hold on the masked row → **masked variable**
 
-#### AM-14 `am-14-timing-faults` — Latency, Eligibility & Faults (8 steps) — **IMPLEMENTED**
+#### AM-14 `am-14-timing-faults` — When Payments Hang: Latency, Eligibility & Connection Faults (8 steps) — **IMPLEMENTED**
 **Quiet corpus:** one payment rule with a plain 200. **Live:** all timing, eligibility, and fault config. **Companion:** required.
 **Tags:** `delay`, `jitter`, `max-matches`, `expires-at`, `expires-quick`, `probability`, `fault-timeout`, `fault-reset`, `fault-close`, `fault-malformed`, `fault-dribble`, `chunk-schedule`, `fault-timeline`, `outcome-fault`.
 
-1 **delay-and-jitter** — resilience testing needs *slow*, not just 500 · click `RESPONSE_TAB_TIMING`† → fill `VARIANT_DELAY`† 800 → hold → fill `VARIANT_JITTER`† 200 → hold on the spread note → **timing panel**
-2 **preview-then-prove** — Simulate previews latency without waiting; live traffic pays it · Simulate → hold on the virtual-delay badge ⟂ click `APPLY` → fetch → hold on the ~1s duration in `TX_DETAIL` → **duration column**
-3 **max-matches** — retire a variant after N hits: the first-call-only flow · fill `VARIANT_MAX_MATCHES`† 1 → hold → fetch → hold on variant A → fetch → hold on the fall-through to the sibling → **two outcomes**
-4 **expires-and-probability** — time-boxed and deliberately flaky variants · click `EXPIRES_QUICK_1H`† → hold on the resolved timestamp ⟂ fill `VARIANT_PROBABILITY`† 0.5 → hold on the eligibility summary → **eligibility set**
-5 **faults-panel** — faults live *below* HTTP: no status code involved · click `RESPONSE_TAB_FAULTS`† → reveal `FAULTS_PANEL` → hold on the five fault cards → **`FAULTS_PANEL`**
-6 **timeout** — hold the socket, never answer — the hardest client bug to reproduce · click `fault('timeout')`† → Apply → fetch (caught) → hold on outcome **fault** in `TX_DETAIL` → **fault outcome**
-7 **reset-close-malformed** — TCP-level failures your client's retry logic must survive · click `fault('reset')`† → Apply → fetch → hold on journal ⟂ hold on close + malformed cards → **fault row**
-8 **dribble-and-timeline** — drip the body in scheduled chunks, then read the whole timeline · click `fault('dribble')`† → click `CHUNK_ADD`† ×2 → hold on the schedule ⟂ Simulate → click `SIMULATE_TAB_TRACE` → hold on the fault timeline → **timeline steps**
+1 **delay-and-jitter** — clients hang on slow, not only on 500 · click `RESPONSE_TAB_TIMING`† → fill `VARIANT_DELAY`† 800 → hold → fill `VARIANT_JITTER`† 200 → hold on the spread note → **timing panel**
+2 **preview-then-prove** — preview the wait, then feel it for real · Simulate → hold on the virtual-delay badge ⟂ click `APPLY` → fetch → hold on the ~1s duration in `TX_DETAIL` → **duration column**
+3 **max-matches** — the paid answer is allowed once · fill `VARIANT_MAX_MATCHES`† 1 → hold → fetch → hold on variant A → fetch → hold on the fall-through to the sibling → **two outcomes**
+4 **expires-and-probability** — not forever, and not every time · click `EXPIRES_QUICK_1H`† → hold on the resolved timestamp ⟂ fill `VARIANT_PROBABILITY`† 0.5 → hold on the eligibility summary → **eligibility set**
+5 **faults-panel** — some failures never send HTTP · click `RESPONSE_TAB_FAULTS`† → reveal `FAULTS_PANEL` → hold on the five fault cards → **`FAULTS_PANEL`**
+6 **timeout** — the payment never comes back · click `fault('timeout')`† → Apply → fetch (caught) → hold on outcome **fault** in `TX_DETAIL` → **fault outcome**
+7 **reset-close-malformed** — the wire breaks, retry must survive · click `fault('reset')`† → Apply → fetch → hold on journal ⟂ hold on close + malformed cards → **fault row**
+8 **dribble-and-timeline** — the body arrives in pieces, then stops · click `fault('dribble')`† → click `CHUNK_ADD`† ×2 → hold on the schedule ⟂ Simulate → click `SIMULATE_TAB_TRACE` → hold on the fault timeline → **timeline steps**
 
 ### Track D — Traffic & Ops
 
@@ -544,7 +548,7 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 3 **expectations** — a sample without an expectation is a demo, not a test · click `SIMULATE_TAB_ASSERTIONS` → hold on outcome/status/body-contains rows → edit one → **expectation set**
 4 **fail-loudly** — a wrong expectation must fail visibly · pick the failing sample → run → hold on the FAIL row → hold on the reason → **FAIL row**
 5 **run-all** — the whole suite, sequentially, so state advances like production · click `SIMULATE_RUN_ALL` → hold on `SIMULATE_SUMMARY` tally → hold on the per-sample state column → **`SIMULATE_SUMMARY`**
-6 **seed** — weighted, jitter, and probability become reproducible · fill `SIMULATE_SEED` → run → hold → run again → hold on the identical result → **identical runs**
+6 **seed** — weighted, jitter, and probability become reproducible · run the dice sample → hold → run again → hold on the identical result → **identical session runs**
 7 **export-trace** — hand the evidence to a PR or bug report · click `SIMULATE_EXPORT` → hold on the bundle contents → **export confirmed**
 8 **examples** — per-rule regression cases that outlive the session · click `BTAB_EXAMPLES` → reveal `EXAMPLES_GRID` → click `EXAMPLE_ATTACH`† → hold ⟂ click `EXAMPLE_TRY_REQUESTS`† → hold on the handoff + `cli mock verify` note → **example row**
 

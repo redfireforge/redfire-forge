@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ApiMockRouteFolderV1, ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { httpMethodSelectOptions } from '../../../shared/constants/httpMethodColors';
 import { getNextTabIndex } from '../../../shared/utils/tabListKeyboard';
 import { PlusIcon, FolderPlusIcon, FilterIcon, XIcon, ChevronDownIcon, ChevronRightIcon, TrashIcon, CheckIcon } from './ApiMockIcons';
 import { API_MOCK_CLI_SIMULATE_EXAMPLE, API_MOCK_CLI_VERIFY_EXAMPLE } from '../apiMockExportActions';
 
 const METHOD_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All methods' },
-  { value: 'GET', label: 'GET' },
-  { value: 'POST', label: 'POST' },
-  { value: 'PUT', label: 'PUT' },
-  { value: 'PATCH', label: 'PATCH' },
-  { value: 'DELETE', label: 'DELETE' },
-  { value: 'HEAD', label: 'HEAD' },
-  { value: 'OPTIONS', label: 'OPTIONS' },
+  ...httpMethodSelectOptions(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'], { detail: false }),
 ];
 
 const ROUTE_DND_MIME = 'application/x-api-mock-route';
@@ -187,6 +182,7 @@ export function ApiMockRouteExplorer({
               : route.name
         }
         data-testid={`api-mock-route-${route.id}`}
+        data-route-name={route.name}
         data-copied={route.name.endsWith(' (copy)') ? 'true' : undefined}
       >
         <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>

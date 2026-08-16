@@ -82,6 +82,20 @@ describe('ApiMockConflictInspector', () => {
     expect(screen.getByTestId('api-mock-conflict-compare').querySelectorAll('.am-dim-row')).toHaveLength(2);
     expect(screen.getByTestId('api-mock-conflict-compare').querySelector('.am-conflict-pair-vs')).toBeNull();
     expect(screen.getByTestId('api-mock-conflict-goto-left').className).toMatch(/am-conflict-open-studio/);
+    const filterLabels = Array.from(screen.getByTestId('api-mock-conflict-filters').querySelectorAll('button'))
+      .map(btn => btn.textContent?.replace(/\d+/g, '').replace(/\s+/g, ' ').trim());
+    expect(filterLabels).toEqual([
+      'All',
+      'Duplicate',
+      'Shadowed',
+      'Definite',
+      'Potential',
+      'Unreachable',
+    ]);
+    const listKinds = Array.from(screen.getByTestId('api-mock-conflict-list').querySelectorAll('button'))
+      .map(btn => btn.getAttribute('data-kind'));
+    expect(listKinds).toEqual(['duplicate', 'potential_overlap']);
+    expect(screen.getByTestId('api-mock-finding-cf-2')).toHaveAttribute('data-kind', 'duplicate');
     fireEvent.click(screen.getByTestId('api-mock-conflict-filter-duplicate'));
     expect(screen.queryByTestId('api-mock-finding-cf-1')).toBeNull();
     expect(screen.getByTestId('api-mock-finding-cf-2')).toBeTruthy();
@@ -120,6 +134,9 @@ describe('ApiMockConflictInspector', () => {
     expect(screen.getByTestId('api-mock-conflict-fingerprint-left').textContent).toBe('fp1');
     expect(screen.getByTestId('api-mock-conflict-fingerprint-right').textContent).toBe('fp2');
     expect(screen.getByTestId('api-mock-conflict-fingerprint-relation').textContent).toMatch(/Different hashes/);
+    expect(screen.getByTestId('api-mock-conflict-fingerprint-why').textContent).toMatch(/Why these exist/);
+    expect(screen.getByTestId('api-mock-conflict-fingerprint-why').textContent).toMatch(/Acknowledge/);
+    expect(screen.getByTestId('api-mock-conflict-fingerprint-why').textContent).toMatch(/Stale/);
     const table = screen.getByTestId('api-mock-conflict-fingerprint-table');
     expect(table.querySelectorAll('tbody tr')).toHaveLength(2);
     expect(table.querySelectorAll('tbody tr:first-child > *')).toHaveLength(2);

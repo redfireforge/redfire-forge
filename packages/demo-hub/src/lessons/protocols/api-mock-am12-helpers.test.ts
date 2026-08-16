@@ -170,7 +170,7 @@ function mountEditor(opts: {
     );
     if (opts.sequence) {
       const pos = el('span', undefined, 'api-mock-sequence-position');
-      pos.textContent = 'Position 0 of 2';
+      pos.textContent = 'Next: Step 1 of 2';
       panel.append(pos);
     }
     response.append(panel);
@@ -259,6 +259,11 @@ function withClickSideEffects(ctx: DemoActionContext): void {
       value.setAttribute('data-testid', 'api-mock-selection-condition-value');
       makeVisible(value);
       panel.append(path, value, el('button', undefined, 'api-mock-selection-default'), el('span', undefined, 'api-mock-selection-default-note'));
+      if (document.querySelector(API_MOCK.RESPONSE_MODE_SEQUENCE)?.getAttribute('aria-pressed') === 'true') {
+        const pos = el('span', undefined, 'api-mock-sequence-position');
+        pos.textContent = 'Next: Step 1 of 2';
+        panel.append(pos);
+      }
       document.querySelector(API_MOCK.RESPONSE_EDITOR)?.append(panel);
     }
     if (selector === API_MOCK.RESPONSE_MODE_SEQUENCE) {
@@ -266,6 +271,12 @@ function withClickSideEffects(ctx: DemoActionContext): void {
       if (!document.querySelector(API_MOCK.SEQUENCE_ORDER_NOTE)) {
         document.querySelector(API_MOCK.RESPONSE_MODE_BAR)
           ?.append(el('span', 'am-hint', 'api-mock-sequence-order-note'));
+      }
+      const panel = document.querySelector(API_MOCK.SELECTION_PANEL);
+      if (panel && !document.querySelector(API_MOCK.SEQUENCE_POSITION)) {
+        const pos = el('span', undefined, 'api-mock-sequence-position');
+        pos.textContent = 'Next: Step 1 of 2';
+        panel.append(pos);
       }
     }
     if (selector === API_MOCK.LIVE_TRANSACTIONS && !document.querySelector(API_MOCK.DOCK)) {
@@ -610,6 +621,8 @@ describe('AM-12 variants-sequence helpers', () => {
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SIMULATE_BODY, AM12_MISS_BODY);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_TAB_RENDERED);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeLessThan(36_000);
   });
 
   it('runAm12Sequence clicks Sequence and holds the cursor', async () => {
@@ -627,6 +640,7 @@ describe('AM-12 variants-sequence helpers', () => {
     });
     await runAm12Sequence(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.RESPONSE_MODE_SEQUENCE);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.VARIANT_CARD_LAST);
     expect(patchApiMockActiveRoute).toHaveBeenCalledWith({ responseMode: 'sequence' });
   });
 

@@ -6,9 +6,9 @@
  * Prereqs: companion :3001 + dev server :5173 (Playwright `webServer`). Apply
  * and the two live fetches bind a listener and send real traffic.
  *
- * Proves the lesson's own beats end to end: Monaco `{{` completions, the
- * TEMPLATE badge, faker/variables preview, Apply + two journaled responses,
- * Map body, and a template diagnostic that clears.
+ * Proves the lesson's own beats end to end: Monaco `{{` completions, Browse
+ * helpers, the TEMPLATE badge, faker/variables preview, Apply + two journaled
+ * responses, Map body, and a template diagnostic that clears.
  */
 import { test, expect } from '@playwright/test';
 import { API_MOCK } from '../src/shared/selectors/apiMock';
@@ -45,6 +45,16 @@ test.describe('Demo lesson AM-11 — Dynamic Responses: Templates, Faker & Body 
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
     await expect(page.locator(API_MOCK.TEMPLATE_ERROR)).toHaveCount(0);
+  });
+
+  test('opens Browse helpers on step 1 then leaves the catalog closed', async ({ page }) => {
+    test.setTimeout(AM_LESSON_TIMEOUT);
+
+    await launchApiMockLesson(page, AM_LESSON_NAMES.am11);
+    await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+
+    await expect(page.locator(API_MOCK.TEMPLATE_HELPERS_BROWSE)).toBeVisible();
+    await expect(page.locator(API_MOCK.TEMPLATE_HELPERS_MODAL)).toHaveCount(0);
   });
 
   test('opens the TEMPLATE badge after echoing the request', async ({ page }) => {

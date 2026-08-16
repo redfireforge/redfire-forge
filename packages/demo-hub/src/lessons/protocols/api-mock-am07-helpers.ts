@@ -30,6 +30,7 @@ import {
   spotlightBeat,
   spotlightElementBeat,
   ensureAdHocSimulateForm,
+  ensureSimulateResultsPane,
 } from './api-mock-demo-helpers';
 
 /**
@@ -54,22 +55,35 @@ export const AM07_TIMING = {
 
 const T = AM07_TIMING;
 
-async function am07Click(
-  ctx: DemoActionContext,
-  selector: string,
-  hold: number = T.fieldFilled,
-): Promise<void> {
-  await clickBeat(ctx, selector, { look: T.look, hold });
-}
+/** Binary finale — author + two Save/Run cycles must finish inside 45s live (ripple + CustomSelect). */
+const FAST = {
+  look: 350,
+  hold: 400,
+  beforeRun: 450,
+  outcome: 700,
+} as const;
 
-/** Long ring on a tab or modal trigger, then click — viewer sees where we are going. */
-async function am07Aim(
-  ctx: DemoActionContext,
-  selector: string,
-  hold: number = 0,
-): Promise<void> {
-  await clickBeat(ctx, selector, { look: T.beforeOpen, hold });
-}
+/**
+ * XML / binary teaching beats — Schema, envelope search, **Run simulation**,
+ * MATCHED/UNMATCHED, red trace. Unit delay must stay ≲34s so live ripple +
+ * CustomSelect (~8–10s) still finish inside the 45s Acting cap.
+ */
+export const AM07_XML_TIMING = {
+  look: 650,
+  hold: 700,
+  beforeOpen: 900,
+  tab: 700,
+  payoff: 1200,
+  beforeRun: 1600,
+  /** Results land — short; the verdict ring is the hold. */
+  resultsTab: 400,
+  outcome: 1400,
+  groupBreak: 400,
+  bodyLook: 550,
+  bodyHold: 650,
+  bodyReveal: 450,
+  bodyEditor: 1100,
+} as const;
 
 async function am07Fill(
   ctx: DemoActionContext,
@@ -195,6 +209,8 @@ export const AM07_XPATH = "//*[local-name()='orderId']/text()";
 export const AM07_ORDER_ID = 'A-1098';
 export const AM07_SCHEMA_PRESET = 'XML names';
 export const AM07_XML_ELEMENTS = 'Envelope, SubmitOrder, orderId, customer';
+/** Body-modal search: present in the full envelope, missing from the truncated one. */
+export const AM07_XML_BODY_TOKEN = 'customer';
 
 /** Step 7 — a firmware blob, pinned first by bytes and then by digest. */
 export const AM07_BINARY_CONTENT_TYPE = 'Content-Type: application/octet-stream';
@@ -239,6 +255,14 @@ const XPATH_PREDICATE: ApiMockDemoPredicate = {
   selector: '',
   operator: 'xpath_equals',
   expected: [AM07_XPATH, AM07_ORDER_ID],
+};
+
+const XML_SCHEMA_PREDICATE: ApiMockDemoPredicate = {
+  id: 'pred-am07-xml-schema',
+  source: 'body',
+  selector: '',
+  operator: 'xmlSchema',
+  expected: AM07_XML_ELEMENTS,
 };
 
 // ── Rule identity ───────────────────────────────────────────────────────────
@@ -389,6 +413,48 @@ export function am07TraceRowByText(needle: string): HTMLElement | null {
   return am07TraceRows().find(row => (row.textContent ?? '').includes(needle)) ?? null;
 }
 
+/** The red Decision-trace row that names `needle` (e.g. `xmlSchema`). */
+export function am07FailedTraceRow(needle: string): HTMLElement | null {
+  return am07TraceRows().find((row) => {
+    const text = row.textContent ?? '';
+    const failed = row.classList.contains('am-predicate--fail') || /\bfailed\b/i.test(text);
+    return failed && text.includes(needle);
+  }) ?? null;
+}
+
+/** After Run: land on Results once, then hold the verdict — do not double-hold the pane. */
+async function holdAm07SimulateVerdict(
+  ctx: DemoActionContext,
+  opts: { land: number; outcome: number },
+): Promise<void> {
+  await ensureSimulateResultsPane(ctx, opts.land);
+  if (!firstVisibleElement(API_MOCK.SIMULATE_RESULT)) {
+    await revealBeat(ctx, API_MOCK.SIMULATE_RESULT, { timeout: 4_000, hold: opts.land });
+  }
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, opts.outcome);
+}
+
+async function holdAm07FailedTrace(
+  ctx: DemoActionContext,
+  needle: string,
+  opts?: { fast?: boolean; xml?: boolean; rowHold?: number },
+): Promise<void> {
+  const look = opts?.xml ? AM07_XML_TIMING.look : opts?.fast ? FAST.look : T.look;
+  const tabHold = opts?.xml ? AM07_XML_TIMING.tab : opts?.fast ? FAST.hold : T.tabSwitch;
+  const ring = opts?.rowHold
+    ?? (opts?.xml ? AM07_XML_TIMING.payoff : opts?.fast ? FAST.outcome : T.simOutcome);
+  if (firstVisibleElement(API_MOCK.SIMULATE_TAB_TRACE)) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_TAB_TRACE, { look, hold: tabHold });
+  }
+  const row = firstVisibleElement<HTMLElement>(API_MOCK.SIMULATE_PREDICATE_FAIL)
+    ?? am07FailedTraceRow(needle)
+    ?? am07TraceRowByText(needle);
+  if (row && typeof row.scrollIntoView === 'function') {
+    row.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }
+  await spotlightElementBeat(ctx, row, ring);
+}
+
 // ── Boot / cleanup ──────────────────────────────────────────────────────────
 
 /** Quiet boot: the four bare non-JSON rules and a collapsed app sidebar. */
@@ -534,6 +600,11 @@ export async function ensureAm07XPathCondition(ctx: DemoActionContext): Promise<
   await setAm07Conditions(ctx, AM07_XML_RULE, [XPATH_PREDICATE]);
 }
 
+/** Guard — XPath plus the element list the truncated-envelope step proves. */
+export async function ensureAm07XmlSchema(ctx: DemoActionContext): Promise<void> {
+  await setAm07Conditions(ctx, AM07_XML_RULE, [XPATH_PREDICATE, XML_SCHEMA_PREDICATE]);
+}
+
 // ── Authoring primitives ────────────────────────────────────────────────────
 
 /** Hold on the group's leaf tally — the payoff for any step that adds a matcher. */
@@ -551,14 +622,23 @@ async function spotlightAm07Count(ctx: DemoActionContext): Promise<void> {
  * open would risk reading as a double-click (which toggles the rule off), so an
  * already-open rule is spotlighted instead.
  */
-async function focusAm07Rule(ctx: DemoActionContext, ref: Am07RuleRef): Promise<boolean> {
+async function focusAm07Rule(
+  ctx: DemoActionContext,
+  ref: Am07RuleRef,
+  opts: { fast?: boolean; paced?: boolean } = {},
+): Promise<boolean> {
   const selector = am07RuleSelector(ref);
   if (!selector) return false;
   if (isAm07RuleOpen(ref)) {
-    await am07Payoff(ctx, selector);
+    await spotlightBeat(ctx, selector, opts.paced ? AM07_XML_TIMING.payoff : opts.fast ? FAST.look : T.payoff);
   } else {
-    await am07Aim(ctx, selector);
-    await am07Reveal(ctx, API_MOCK.ROUTE_EDITOR);
+    await clickBeat(ctx, selector, {
+      look: opts.paced ? AM07_XML_TIMING.beforeOpen : opts.fast ? FAST.look : T.beforeOpen,
+      hold: 0,
+    });
+    await revealBeat(ctx, API_MOCK.ROUTE_EDITOR, {
+      hold: opts.paced ? AM07_XML_TIMING.hold : opts.fast ? AM_DEMO_TIMING.panelReady : T.panelReady,
+    });
     for (let i = 0; i < 12 && !isAm07RuleOpen(ref); i++) {
       await ctx.delay(100);
     }
@@ -574,11 +654,15 @@ async function focusAm07Rule(ctx: DemoActionContext, ref: Am07RuleRef): Promise<
 async function addAm07BodyCondition(
   ctx: DemoActionContext,
   operator: string,
+  opts: { fast?: boolean; paced?: boolean } = {},
 ): Promise<string | null> {
   const existing = am07FindConditionByOperator(operator);
   if (existing) return existing;
   const before = new Set(am07ConditionIds());
-  await am07Click(ctx, API_MOCK.ADD_CONDITION, T.panelReady);
+  const look = opts.paced ? AM07_XML_TIMING.look : opts.fast ? FAST.look : T.look;
+  const hold = opts.paced ? AM07_XML_TIMING.hold : opts.fast ? FAST.hold : T.panelReady;
+  const selectHold = opts.paced ? AM07_XML_TIMING.payoff : opts.fast ? FAST.hold : T.payoff;
+  await clickBeat(ctx, API_MOCK.ADD_CONDITION, { look, hold });
   let id: string | undefined;
   for (let i = 0; i < 12; i++) {
     id = am07ConditionIds().find(candidate => !before.has(candidate));
@@ -586,49 +670,102 @@ async function addAm07BodyCondition(
     await ctx.delay(100);
   }
   if (!id) return null;
-  await am07Select(ctx, API_MOCK.conditionSource(id), 'body');
-  await am07Select(ctx, API_MOCK.conditionOperator(id), operator);
-  return id;
-}
-
-/** Open the Pattern Toolbox from the wand beside the request path, on one tab. */
-async function openAm07Toolbox(ctx: DemoActionContext, tab: string): Promise<void> {
-  if (!isAm07ToolboxOpen()) {
-    await am07Aim(ctx, API_MOCK.PATH_TOOLBOX);
-    await am07Reveal(ctx, API_MOCK.PATTERN_TOOLBOX);
+  const source = document.querySelector(API_MOCK.conditionSource(id))?.getAttribute('data-value') ?? '';
+  if (!opts.fast || source !== 'body') {
+    await selectBeat(ctx, API_MOCK.conditionSource(id), 'body', { look, hold: selectHold });
   }
-  await am07Aim(ctx, tab, T.tabSwitch);
+  await selectBeat(ctx, API_MOCK.conditionOperator(id), operator, { look, hold: selectHold });
+  return id;
 }
 
 // ── Simulate primitives ─────────────────────────────────────────────────────
 
-async function openAm07Simulate(ctx: DemoActionContext): Promise<void> {
+async function openAm07Simulate(ctx: DemoActionContext, opts: { fast?: boolean; xml?: boolean } = {}): Promise<void> {
   if (isAm07SimulateOpen()) return;
-  await am07Aim(ctx, API_MOCK.SIMULATE);
-  await am07Reveal(ctx, API_MOCK.SIMULATE_WORKSPACE);
+  await clickBeat(ctx, API_MOCK.SIMULATE, {
+    look: opts.xml ? AM07_XML_TIMING.beforeOpen : opts.fast ? FAST.look : T.look,
+    hold: 0,
+  });
+  await revealBeat(ctx, API_MOCK.SIMULATE_WORKSPACE, {
+    timeout: 4_000,
+    hold: opts.xml ? AM07_XML_TIMING.hold : opts.fast ? FAST.hold : AM_DEMO_TIMING.panelReady,
+  });
 }
 
 /**
  * Shape one ad-hoc request and hold on the verdict. Every payload here needs its own
  * `Content-Type`, because that header is what tells the form, multipart, XML and binary
  * matchers how to read the body. A run swaps the form for the results pane, so later
- * runs go back through **Request** first. After the fields are filled the viewer gets
- * a dedicated review pass before **Run simulation**.
+ * runs go back through **Request** first. Holds stay compact so two-run proof steps
+ * finish **Run simulation** inside the 45s Acting cap.
  */
 /**
  * After the multipart body is pasted: open **Request body**, search the text part
  * (`title`) then the file part (`report.pdf` on `document`), and hold each match.
  */
+/**
+ * After an XML body is pasted: open **Request body**, search a teaching token, and
+ * hold so the viewer can read the envelope (or see the 0/0 miss) before Save / Run.
+ */
+export async function reviewAm07SimulateBody(
+  ctx: DemoActionContext,
+  tokens: string[],
+  opts: { fast?: boolean; xml?: boolean } = {},
+): Promise<void> {
+  if (tokens.length === 0) return;
+  const expand = firstVisibleElement(API_MOCK.SIMULATE_BODY_EXPAND);
+  if (!expand && !isAm07TextExpandOpen()) return;
+  const look = opts.xml ? AM07_XML_TIMING.bodyLook : opts.fast ? 250 : 300;
+  const hold = opts.xml ? AM07_XML_TIMING.bodyHold : opts.fast ? 250 : 350;
+  if (expand) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_BODY_EXPAND, { look, hold });
+  }
+  await revealBeat(ctx, API_MOCK.TEXT_EXPAND_MODAL, {
+    timeout: 4_000,
+    hold: opts.xml ? AM07_XML_TIMING.bodyReveal : opts.fast ? 300 : 400,
+  });
+
+  for (const [index, token] of tokens.entries()) {
+    if (firstVisibleElement(API_MOCK.TEXT_EXPAND_SEARCH)) {
+      await fillBeat(ctx, API_MOCK.TEXT_EXPAND_SEARCH, token, {
+        look,
+        hold: opts.xml ? AM07_XML_TIMING.bodyHold : opts.fast ? 300 : 450,
+      });
+    }
+    if (!opts.xml && !opts.fast && firstVisibleElement(API_MOCK.TEXT_EXPAND_NEXT)) {
+      await clickBeat(ctx, API_MOCK.TEXT_EXPAND_NEXT, { look: 200, hold: 0 });
+    }
+    await spotlightBeat(
+      ctx,
+      API_MOCK.TEXT_EXPAND_EDITOR,
+      opts.xml
+        ? AM07_XML_TIMING.bodyEditor
+        : opts.fast
+          ? (index === tokens.length - 1 ? FAST.outcome : FAST.hold)
+          : (index === tokens.length - 1 ? T.payoff : AM_DEMO_TIMING.payoff),
+    );
+  }
+
+  if (firstVisibleElement(API_MOCK.TEXT_EXPAND_CLOSE)) {
+    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_CLOSE, {
+      look: opts.xml ? 300 : opts.fast ? 150 : 200,
+      hold: opts.xml ? 400 : opts.fast ? 250 : 300,
+    });
+  } else {
+    await closeAm07TextExpand(ctx);
+  }
+}
+
 export async function reviewAm07MultipartBody(ctx: DemoActionContext): Promise<void> {
   const expand = firstVisibleElement(API_MOCK.SIMULATE_BODY_EXPAND);
   if (!expand && !isAm07TextExpandOpen()) return;
   if (expand) {
-    await clickBeat(ctx, API_MOCK.SIMULATE_BODY_EXPAND, { look: 500, hold: 500 });
+    await clickBeat(ctx, API_MOCK.SIMULATE_BODY_EXPAND, { look: 300, hold: 350 });
   }
-  await revealBeat(ctx, API_MOCK.TEXT_EXPAND_MODAL, { timeout: 4_000, hold: 700 });
+  await revealBeat(ctx, API_MOCK.TEXT_EXPAND_MODAL, { timeout: 4_000, hold: 400 });
 
   if (firstVisibleElement(API_MOCK.TEXT_EXPAND_SEARCH)) {
-    await fillBeat(ctx, API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FIELD, { look: 400, hold: 550 });
+    await fillBeat(ctx, API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FIELD, { look: 300, hold: 450 });
   }
   if (firstVisibleElement(API_MOCK.TEXT_EXPAND_NEXT)) {
     await clickBeat(ctx, API_MOCK.TEXT_EXPAND_NEXT, { look: 200, hold: 0 });
@@ -636,15 +773,15 @@ export async function reviewAm07MultipartBody(ctx: DemoActionContext): Promise<v
   await spotlightBeat(ctx, API_MOCK.TEXT_EXPAND_EDITOR, T.payoff);
 
   if (firstVisibleElement(API_MOCK.TEXT_EXPAND_SEARCH)) {
-    await fillBeat(ctx, API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FILENAME, { look: 400, hold: 550 });
+    await fillBeat(ctx, API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FILENAME, { look: 300, hold: 450 });
   }
   if (firstVisibleElement(API_MOCK.TEXT_EXPAND_NEXT)) {
     await clickBeat(ctx, API_MOCK.TEXT_EXPAND_NEXT, { look: 200, hold: 0 });
   }
-  await spotlightBeat(ctx, API_MOCK.TEXT_EXPAND_EDITOR, T.simOutcome);
+  await spotlightBeat(ctx, API_MOCK.TEXT_EXPAND_EDITOR, T.payoff);
 
   if (firstVisibleElement(API_MOCK.TEXT_EXPAND_CLOSE)) {
-    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_CLOSE, { look: 300, hold: 500 });
+    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_CLOSE, { look: 200, hold: 300 });
   } else {
     await closeAm07TextExpand(ctx);
   }
@@ -659,30 +796,63 @@ async function runAm07Simulation(
     body: string;
     sampleName: string;
     reviewMultipartBody?: boolean;
+    reviewBodyTokens?: string[];
+    saveSample?: boolean;
+    outcomeHold?: number;
+    beforeRun?: number;
+    fast?: boolean;
+    xml?: boolean;
   },
 ): Promise<string> {
+  const look = req.fast || req.xml ? FAST.look : T.look;
+  const hold = req.fast || req.xml ? FAST.hold : T.fieldFilled;
   await closeAm07TextExpand(ctx);
-  await ensureAdHocSimulateForm(ctx, T.tabSwitch);
+  // Save as sample selects the new row (read-only). The next probe must start on Ad-hoc.
+  await ensureAdHocSimulateForm(
+    ctx,
+    req.fast || req.xml ? FAST.hold : AM_DEMO_TIMING.tabSwitch,
+  );
   if (am07SimMethod() !== req.method) {
-    await am07Select(ctx, API_MOCK.SIMULATE_METHOD, req.method);
+    await selectBeat(ctx, API_MOCK.SIMULATE_METHOD, req.method, {
+      look,
+      hold: req.fast || req.xml ? FAST.hold : T.payoff,
+    });
   }
-  await am07Fill(ctx, API_MOCK.SIMULATE_PATH, req.path);
-  await am07Fill(ctx, API_MOCK.SIMULATE_HEADERS, req.headers, T.payoff);
-  await am07Fill(ctx, API_MOCK.SIMULATE_BODY, req.body, T.simOutcome);
+  const pathEl = firstVisibleElement<HTMLInputElement>(API_MOCK.SIMULATE_PATH);
+  if ((pathEl?.value ?? '').trim() !== req.path) {
+    await fillBeat(ctx, API_MOCK.SIMULATE_PATH, req.path, { look, hold });
+  }
+  const headersEl = firstVisibleElement<HTMLTextAreaElement>(API_MOCK.SIMULATE_HEADERS);
+  if ((headersEl?.value ?? '').trim() !== req.headers.trim()) {
+    await fillBeat(ctx, API_MOCK.SIMULATE_HEADERS, req.headers, { look, hold });
+  }
+  const showBodyModal = Boolean(req.reviewMultipartBody || req.reviewBodyTokens?.length);
+  await fillBeat(ctx, API_MOCK.SIMULATE_BODY, req.body, {
+    look,
+    hold: req.fast || showBodyModal ? hold : T.payoff,
+  });
+  if (req.reviewBodyTokens?.length) {
+    await reviewAm07SimulateBody(ctx, req.reviewBodyTokens, { fast: req.fast, xml: req.xml });
+    await closeAm07TextExpand(ctx);
+  }
   if (req.reviewMultipartBody) {
     await reviewAm07MultipartBody(ctx);
     await closeAm07TextExpand(ctx);
-    await ensureAdHocSimulateForm(ctx, 400);
   }
   await reviewAndRunSimulation(ctx, {
-    review: T.payoff,
-    beforeRun: req.reviewMultipartBody ? 1_200 : T.beforeRun,
+    review: req.xml ? AM07_XML_TIMING.look : req.fast ? FAST.look : T.look,
+    beforeRun: req.beforeRun
+      ?? (req.xml ? AM07_XML_TIMING.beforeRun : req.fast ? FAST.beforeRun : T.beforeRun),
     sampleName: req.sampleName,
-    reviewFields: req.reviewMultipartBody ? false : undefined,
-    digest: req.reviewMultipartBody ? false : undefined,
+    saveSample: req.saveSample,
+    reviewFields: false,
+    digest: false,
   });
-  await am07Reveal(ctx, API_MOCK.SIMULATE_RESULT);
-  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
+  await holdAm07SimulateVerdict(ctx, {
+    land: req.xml ? AM07_XML_TIMING.resultsTab : req.fast ? FAST.hold : T.tabSwitch,
+    outcome: req.outcomeHold
+      ?? (req.xml ? AM07_XML_TIMING.outcome : req.fast ? FAST.outcome : T.simOutcome),
+  });
   return am07SimOutcome();
 }
 
@@ -728,14 +898,12 @@ export async function runAm07ProveForm(ctx: DemoActionContext): Promise<string[]
     body: AM07_FORM_BODY,
     sampleName: AM07_FORM_SAMPLE,
   }));
-  await am07Trace(ctx, am07TraceRowByText('form_field_exact'), T.simOutcome);
-  await closeAm07Simulate(ctx, { review: true });
-  await am07Break(ctx);
+  await am07Look(ctx, API_MOCK.SIMULATE_OUTCOME);
+  await closeAm07Simulate(ctx);
 
   if (!id) return outcomes;
   await am07Select(ctx, API_MOCK.conditionOperator(id), 'form_field_regex');
   await am07Fill(ctx, API_MOCK.conditionValue(id), AM07_FORM_PATTERN, T.payoff);
-  await am07Break(ctx);
 
   await openAm07Simulate(ctx);
   outcomes.push(await runAm07Simulation(ctx, {
@@ -745,9 +913,8 @@ export async function runAm07ProveForm(ctx: DemoActionContext): Promise<string[]
     body: AM07_FORM_BODY_VARIANT,
     sampleName: AM07_FORM_VARIANT_SAMPLE,
   }));
-  await am07Trace(ctx, am07TraceRowByText('form_field_regex'), T.simOutcome);
-  await closeAm07Simulate(ctx, { review: true });
-  await am07Payoff(ctx, API_MOCK.conditionRow(id));
+  await am07Trace(ctx, am07TraceRowByText('form_field_regex'), T.payoff);
+  await closeAm07Simulate(ctx);
   return outcomes;
 }
 
@@ -789,117 +956,154 @@ export async function runAm07ProveMultipart(ctx: DemoActionContext): Promise<str
     sampleName: AM07_UPLOAD_SAMPLE,
     reviewMultipartBody: true,
   });
-  await am07Trace(ctx, am07TraceRowByText('multipart_field'));
-  await am07Trace(ctx, am07TraceRowByText('multipart_file'), T.simOutcome);
-  await am07Break(ctx);
-
-  await am07Aim(ctx, API_MOCK.SIMULATE_TAB_REQUEST, T.tabSwitch);
-  await am07Payoff(ctx, API_MOCK.SIMULATE_NORMALIZED);
-  await am07Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
-  await am07Payoff(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
-  await closeAm07Simulate(ctx, { review: true });
+  await am07Look(ctx, API_MOCK.SIMULATE_OUTCOME);
+  await am07Trace(ctx, am07TraceRowByText('multipart_file'), T.payoff);
+  await clickBeat(ctx, API_MOCK.SIMULATE_TAB_REQUEST, {
+    look: T.look,
+    hold: AM_DEMO_TIMING.tabSwitch,
+  });
+  await am07Look(ctx, API_MOCK.SIMULATE_NORMALIZED);
+  await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, {
+    look: T.look,
+    hold: AM_DEMO_TIMING.tabSwitch,
+  });
+  await am07Look(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
+  await closeAm07Simulate(ctx);
   return outcome;
 }
 
 /**
  * Step 5 — switch to the SOAP rule and let the XPath tab compose the matcher: a preset
  * for the namespace-safe syntax, the real envelope as the sample, and a live read of
- * what the expression selects before anything is applied.
+ * what the expression selects before anything is applied. Then Simulate the full
+ * envelope: ring **Run simulation**, hold MATCHED, and hold the `xpath_equals` row.
+ * Preset / Resolved / Result / Run stay watchable; fills and chrome stay compact
+ * (no Save as sample) so toolbox + Simulate finish inside the 45s Acting cap.
  */
 export async function runAm07XPath(ctx: DemoActionContext): Promise<void> {
-  if (!await focusAm07Rule(ctx, AM07_XML_RULE)) return;
-  await am07Look(ctx, API_MOCK.CONDITIONS_EMPTY);
-  await am07Break(ctx);
+  if (!await focusAm07Rule(ctx, AM07_XML_RULE, { fast: true })) return;
 
-  await openAm07Toolbox(ctx, API_MOCK.TOOLBOX_TAB_XPATH);
-  await am07Aim(ctx, API_MOCK.toolboxXPathPreset(AM07_XPATH_PRESET), T.payoff);
-  await am07Fill(ctx, API_MOCK.TOOLBOX_XPATH_SAMPLE, AM07_XML_BODY, T.payoff);
-  await am07Fill(ctx, API_MOCK.TOOLBOX_XPATH_EXPR, AM07_XPATH);
-  await am07Payoff(ctx, API_MOCK.TOOLBOX_XPATH_RESOLVED);
-  await am07Break(ctx);
-
-  await am07Fill(ctx, API_MOCK.TOOLBOX_XPATH_VALUE, AM07_ORDER_ID);
-  await am07Payoff(ctx, API_MOCK.TOOLBOX_XPATH_RESULT);
-  await am07Aim(ctx, API_MOCK.TOOLBOX_APPLY, T.panelReady);
-  await spotlightAm07Count(ctx);
-
-  const id = am07FindConditionByOperator('xpath_equals');
-  await am07Trace(
-    ctx,
-    id
-      ? firstVisibleElement<HTMLElement>(API_MOCK.conditionRow(id))
-      : am07ConditionRows().at(-1),
-    T.payoff,
-  );
-}
-
-/**
- * Step 6 — an element list instead of an XSD, then both verdicts: the full envelope
- * matches, and the one missing `<customer>` is rejected by the schema row alone.
- */
-export async function runAm07XmlSchema(ctx: DemoActionContext): Promise<string[]> {
-  await openAm07Toolbox(ctx, API_MOCK.TOOLBOX_TAB_SCHEMA);
-  await am07Aim(ctx, API_MOCK.toolboxSchemaPreset(AM07_SCHEMA_PRESET), T.payoff);
-  await am07Look(ctx, API_MOCK.TOOLBOX_SCHEMA_KIND_XML);
-  await am07Fill(ctx, API_MOCK.TOOLBOX_SCHEMA_EDITOR, AM07_XML_ELEMENTS, T.payoff);
-  await am07Aim(ctx, API_MOCK.TOOLBOX_APPLY, T.panelReady);
-  const schemaId = am07FindConditionByOperator('xmlSchema');
-  if (schemaId) {
-    await am07Payoff(ctx, API_MOCK.conditionRow(schemaId));
+  if (!isAm07ToolboxOpen()) {
+    await clickBeat(ctx, API_MOCK.PATH_TOOLBOX, { look: FAST.look, hold: 0 });
+    await revealBeat(ctx, API_MOCK.PATTERN_TOOLBOX, { timeout: 4_000, hold: FAST.hold });
   }
-  await am07Break(ctx);
+  await clickBeat(ctx, API_MOCK.TOOLBOX_TAB_XPATH, { look: FAST.look, hold: FAST.hold });
+  await clickBeat(ctx, API_MOCK.toolboxXPathPreset(AM07_XPATH_PRESET), {
+    look: FAST.look,
+    hold: AM07_XML_TIMING.payoff,
+  });
+  await fillBeat(ctx, API_MOCK.TOOLBOX_XPATH_SAMPLE, AM07_XML_BODY, {
+    look: FAST.look,
+    hold: FAST.hold,
+  });
+  await fillBeat(ctx, API_MOCK.TOOLBOX_XPATH_EXPR, AM07_XPATH, {
+    look: FAST.look,
+    hold: FAST.hold,
+  });
+  await spotlightBeat(ctx, API_MOCK.TOOLBOX_XPATH_RESOLVED, AM07_XML_TIMING.payoff);
 
-  const outcomes: string[] = [];
-  await openAm07Simulate(ctx);
-  outcomes.push(await runAm07Simulation(ctx, {
+  await fillBeat(ctx, API_MOCK.TOOLBOX_XPATH_VALUE, AM07_ORDER_ID, {
+    look: FAST.look,
+    hold: FAST.hold,
+  });
+  await spotlightBeat(ctx, API_MOCK.TOOLBOX_XPATH_RESULT, AM07_XML_TIMING.payoff);
+  await clickBeat(ctx, API_MOCK.TOOLBOX_APPLY, { look: FAST.look, hold: FAST.hold });
+
+  await closeAm07Toolbox(ctx);
+  await openAm07Simulate(ctx, { fast: true });
+  await runAm07Simulation(ctx, {
     method: AM07_XML_RULE.method,
     path: AM07_XML_RULE.path,
     headers: AM07_XML_CONTENT_TYPE,
     body: AM07_XML_BODY,
     sampleName: AM07_XML_SAMPLE,
-  }));
-  await am07Break(ctx);
+    saveSample: false,
+    fast: true,
+    beforeRun: AM07_XML_TIMING.beforeRun,
+    outcomeHold: AM07_XML_TIMING.outcome,
+  });
+  await am07Trace(ctx, am07TraceRowByText('xpath_equals'), AM07_XML_TIMING.outcome);
+  await closeAm07Simulate(ctx);
+}
 
+/**
+ * Step 6 — an element list instead of an XSD, then the truncated envelope: missing
+ * `<customer>` is rejected by the schema row alone. One Save/Run so **Run simulation**
+ * and the UNMATCHED / failed `xmlSchema` row can be held inside the 45s Acting cap.
+ */
+export async function runAm07XmlSchema(ctx: DemoActionContext): Promise<string[]> {
+  if (!isAm07ToolboxOpen()) {
+    await clickBeat(ctx, API_MOCK.PATH_TOOLBOX, { look: AM07_XML_TIMING.beforeOpen, hold: 0 });
+    await revealBeat(ctx, API_MOCK.PATTERN_TOOLBOX, { hold: AM07_XML_TIMING.hold });
+  }
+  await clickBeat(ctx, API_MOCK.TOOLBOX_TAB_SCHEMA, {
+    look: AM07_XML_TIMING.beforeOpen,
+    hold: AM07_XML_TIMING.tab,
+  });
+  await clickBeat(ctx, API_MOCK.toolboxSchemaPreset(AM07_SCHEMA_PRESET), {
+    look: AM07_XML_TIMING.beforeOpen,
+    hold: AM07_XML_TIMING.payoff,
+  });
+  await fillBeat(ctx, API_MOCK.TOOLBOX_SCHEMA_EDITOR, AM07_XML_ELEMENTS, {
+    look: AM07_XML_TIMING.look,
+    hold: AM07_XML_TIMING.payoff,
+  });
+  await clickBeat(ctx, API_MOCK.TOOLBOX_APPLY, {
+    look: AM07_XML_TIMING.beforeOpen,
+    hold: AM07_XML_TIMING.hold,
+  });
+  await closeAm07Toolbox(ctx);
+
+  const outcomes: string[] = [];
+  await openAm07Simulate(ctx, { xml: true });
   outcomes.push(await runAm07Simulation(ctx, {
     method: AM07_XML_RULE.method,
     path: AM07_XML_RULE.path,
     headers: AM07_XML_CONTENT_TYPE,
     body: AM07_XML_BODY_INVALID,
     sampleName: AM07_XML_INVALID_SAMPLE,
+    reviewBodyTokens: [AM07_XML_BODY_TOKEN],
+    xml: true,
   }));
-  await am07Trace(ctx, am07TraceRowByText('xpath_equals'));
-  await am07Trace(ctx, am07TraceRowByText('xmlSchema'), T.simOutcome);
-  await closeAm07Simulate(ctx, { review: true });
+  await holdAm07FailedTrace(ctx, 'xmlSchema', { xml: true });
+  await closeAm07Simulate(ctx);
   return outcomes;
 }
 
 /**
  * Step 7 — the firmware rule: pin the upload by its bytes, swap that for the digest a
  * build pipeline publishes, then prove that one changed character rejects it.
+ * SHA-256, the digest, the altered **Run simulation**, and the red
+ * `binary_sha256 failed` row stay watchable. Rule pick, the exact-bytes paste,
+ * and the matching run stay compact so two Save/Run cycles finish inside 45s.
  */
 export async function runAm07Binary(ctx: DemoActionContext): Promise<string[]> {
-  if (!await focusAm07Rule(ctx, AM07_BINARY_RULE)) return [];
-  const id = await addAm07BodyCondition(ctx, 'binary_exact');
+  if (!await focusAm07Rule(ctx, AM07_BINARY_RULE, { fast: true })) return [];
+  const id = await addAm07BodyCondition(ctx, 'binary_exact', { fast: true });
   if (!id) return [];
-  await am07Fill(ctx, API_MOCK.conditionValue(id), AM07_BINARY_BODY, T.payoff);
-  await am07Break(ctx);
-
-  await am07Select(ctx, API_MOCK.conditionOperator(id), 'binary_sha256');
-  await am07Fill(ctx, API_MOCK.conditionValue(id), '');
-  await am07Payoff(ctx, API_MOCK.conditionValue(id));
-  await am07Fill(ctx, API_MOCK.conditionValue(id), AM07_BINARY_SHA256, T.payoff);
-  await am07Break(ctx);
+  await fillBeat(ctx, API_MOCK.conditionValue(id), AM07_BINARY_BODY, {
+    look: FAST.look,
+    hold: FAST.hold,
+  });
+  await selectBeat(ctx, API_MOCK.conditionOperator(id), 'binary_sha256', {
+    look: FAST.look,
+    hold: AM07_XML_TIMING.payoff,
+  });
+  await fillBeat(ctx, API_MOCK.conditionValue(id), AM07_BINARY_SHA256, {
+    look: FAST.look,
+    hold: AM07_XML_TIMING.payoff,
+  });
 
   const outcomes: string[] = [];
-  await openAm07Simulate(ctx);
+  await openAm07Simulate(ctx, { fast: true });
   outcomes.push(await runAm07Simulation(ctx, {
     method: AM07_BINARY_RULE.method,
     path: AM07_BINARY_RULE.path,
     headers: AM07_BINARY_CONTENT_TYPE,
     body: AM07_BINARY_BODY,
     sampleName: AM07_BINARY_SAMPLE,
+    fast: true,
   }));
-  await am07Break(ctx);
 
   outcomes.push(await runAm07Simulation(ctx, {
     method: AM07_BINARY_RULE.method,
@@ -907,9 +1111,11 @@ export async function runAm07Binary(ctx: DemoActionContext): Promise<string[]> {
     headers: AM07_BINARY_CONTENT_TYPE,
     body: AM07_BINARY_BODY_ALTERED,
     sampleName: AM07_BINARY_ALTERED_SAMPLE,
+    fast: true,
+    beforeRun: AM07_XML_TIMING.beforeRun,
+    outcomeHold: AM07_XML_TIMING.outcome,
   }));
-  await am07Trace(ctx, am07TraceRowByText('binary_sha256'), T.simOutcome);
-  await closeAm07Simulate(ctx, { review: true });
-  await am07Payoff(ctx, API_MOCK.ROUTE_EXPLORER);
+  await holdAm07FailedTrace(ctx, 'binary_sha256', { fast: true, rowHold: AM07_XML_TIMING.payoff });
+  await closeAm07Simulate(ctx);
   return outcomes;
 }

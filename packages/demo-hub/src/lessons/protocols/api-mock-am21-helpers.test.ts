@@ -22,7 +22,6 @@ import {
   AM21_DICE_ID,
   AM21_HEALTH_ID,
   AM21_ORPHAN_ID,
-  AM21_SEED,
   AM21_TIMING,
   AM21_WRONG_STATUS,
   am21InputValue,
@@ -259,7 +258,6 @@ describe('AM-21 simulation-suite helpers', () => {
       outcome: 'MATCHED',
       summary: true,
       fail: true,
-      seed: AM21_SEED,
       assertStatus: AM21_WRONG_STATUS,
       healthActive: true,
       exportConfirm: true,
@@ -276,7 +274,6 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(isAm21HealthSelected()).toBe(true);
     expect(am21SimOutcome()).toBe('MATCHED');
     expect(am21RenderedBody()).toContain('heads');
-    expect(am21InputValue(API_MOCK.SIMULATE_SEED)).toBe(AM21_SEED);
   });
 
   it('wipes, chromes, and imports the suite corpus', async () => {
@@ -476,21 +473,13 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN_ALL);
   });
 
-  it('fills the seed and runs the dice sample twice', async () => {
+  it('runs the dice sample twice without filling a seed', async () => {
     mountStudio();
-    mountSimulate({ outcome: 'MATCHED', diceActive: true, seed: '11111' });
+    mountSimulate({ outcome: 'MATCHED', diceActive: true });
     const ctx = makeCtx();
     await runAm21Seed(ctx);
-    expect(fills(ctx.fill)).toContainEqual([API_MOCK.SIMULATE_SEED, AM21_SEED]);
+    expect(fills(ctx.fill)).not.toContainEqual([API_MOCK.SIMULATE_SEED, expect.anything()]);
     expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_RUN).length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('skips filling the seed when it is already set', async () => {
-    mountStudio();
-    mountSimulate({ outcome: 'MATCHED', diceActive: true, seed: AM21_SEED });
-    const ctx = makeCtx();
-    await runAm21Seed(ctx);
-    expect(fills(ctx.fill)).not.toContainEqual([API_MOCK.SIMULATE_SEED, AM21_SEED]);
   });
 
   it('exports the trace and holds the confirmation', async () => {

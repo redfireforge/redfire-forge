@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { MaximizeIcon } from './ApiMockIcons';
 import { ApiMockHeadersExpandModal } from './ApiMockHeadersExpandModal';
 import { ApiMockTextExpandModal } from './ApiMockTextExpandModal';
@@ -16,6 +16,8 @@ interface Props {
   ariaLabel?: string;
   /** `headers` opens Raw / Table instead of the JSON body popup. */
   variant?: 'text' | 'headers';
+  /** Nodes between the field and the expand control (same row). */
+  beforeExpand?: ReactNode;
 }
 
 /**
@@ -33,6 +35,7 @@ export function ApiMockExpandableText({
   className,
   ariaLabel,
   variant = 'text',
+  beforeExpand,
 }: Props) {
   const [open, setOpen] = useState(false);
   const locked = readOnly || disabled;
@@ -63,6 +66,7 @@ export function ApiMockExpandableText({
           data-testid={testId}
         />
       )}
+      {beforeExpand}
       {!disabled && !open && (
         <button
           type="button"

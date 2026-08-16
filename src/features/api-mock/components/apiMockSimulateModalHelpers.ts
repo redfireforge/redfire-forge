@@ -7,13 +7,21 @@ import type {
   ApiMockSimulationSampleV1,
 } from '../../../shared/api-mock/contracts';
 import { combinatorLabel } from '../../../shared/api-mock/predicateEvaluatorHelpers';
+import { httpMethodSelectOptions } from '../../../shared/constants/httpMethodColors';
 import { concreteMockPath } from '../apiMockPageHelpers';
 
+/** Stable 5-digit seed for one Simulate session (weighted picks, templates, jitter). */
+export function createSimulateReplaySeed(random: () => number = Math.random): string {
+  return String(Math.floor(random() * 90_000) + 10_000);
+}
+
+/** Hint for the optional replay-seed field (kept exported so HMR can resolve older importers). */
 export const SIMULATE_SEED_HELP =
   'Optional. Same number repeats random choices — weighted variants, {{randomInt}} / faker templates, and delay jitter. Change it only when you want a different random outcome.';
 
-export const SIMULATE_METHOD_OPTIONS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
-  .map(m => ({ value: m, label: m }));
+export const SIMULATE_METHOD_OPTIONS = httpMethodSelectOptions(
+  ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
+);
 
 export function isAutoRouteSample(id: string): boolean {
   return id.startsWith('auto-');
@@ -223,16 +231,43 @@ export function predicateTraceSource(pr: ApiMockPredicateResultV1): string {
   return pr.source;
 }
 
+/** Direct child of a recorded None-of group — the leaf's raw pass is inverted for display. */
+export function isNoneOfChild(
+  pr: ApiMockPredicateResultV1,
+  all: ApiMockPredicateResultV1[],
+): boolean {
+  if (!pr.groupId) return false;
+  return all.some(row => row.combinator === 'not' && row.predicateId === `group:${pr.groupId}`);
+}
+
+/** Green/red for the trace: None of wants its children to miss. */
+export function predicateTraceSatisfied(
+  pr: ApiMockPredicateResultV1,
+  all: ApiMockPredicateResultV1[] = [],
+): boolean {
+  if (!pr.evaluated) return false;
+  if (isNoneOfChild(pr, all)) return !pr.passed;
+  return pr.passed;
+}
+
 export function predicateTraceDetail(pr: ApiMockPredicateResultV1): string {
-  if (pr.reason) return pr.reason;
+  if (pr.reason) {
+    const prefix = `${pr.source} `;
+    if (!pr.combinator && pr.reason.startsWith(prefix)) return pr.reason.slice(prefix.length);
+    return pr.reason;
+  }
   if (pr.selector) return `${pr.selector} · ${pr.operator}`;
   return pr.operator;
 }
 
-export function predicateTraceNote(pr: ApiMockPredicateResultV1): string {
+export function predicateTraceNote(
+  pr: ApiMockPredicateResultV1,
+  all: ApiMockPredicateResultV1[] = [],
+): string {
   if (!pr.evaluated) return 'skipped';
-  if (pr.combinator) return pr.passed ? 'held' : 'rejected';
-  return pr.passed ? 'passed' : 'failed';
+  const ok = predicateTraceSatisfied(pr, all);
+  if (pr.combinator || isNoneOfChild(pr, all)) return ok ? 'held' : 'rejected';
+  return ok ? 'passed' : 'failed';
 }
 
 export function nearMissConditionSummary(

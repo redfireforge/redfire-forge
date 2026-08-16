@@ -271,19 +271,19 @@ done checklist. **≥4** lessons required for 12E exit.
 | Body Matching: Subset, Strict, JSONPath & JSON Schema | `am-06-body-matching` | 6 | `demo-am06` |
 | Forms, Multipart, XML & Binary Matching | `am-07-payload-formats` | 7 | `demo-am07` |
 | Boolean Groups, Priority & Selection Policy | `am-08-selection-policy` | 8 | `demo-am08` |
-| Conflict Inspector: Four Overlap Kinds | `am-09-conflicts` | 8 | `demo-am09` |
+| Conflict Inspector: Four Overlap Kinds | `am-09-conflicts` | 13 | `demo-am09` |
 | Response Content: Status, Headers, Cookies & Body Kinds | `am-10-response-content` | 8 | `demo-am10` |
 | Dynamic Responses: Templates, Faker & Body Mapper | `am-11-templating` | 9 | `demo-am11` |
 | Response Variants: Rules & Sequence Modes | `am-12-variants-sequence` | 8 | `demo-am12` |
-| Stateful Mocks: State Machine, Counters & Weighted Chaos | `am-13-stateful` | 8 | `demo-am13` |
-| Latency, Eligibility & Connection Faults | `am-14-timing-faults` | 8 | `demo-am14` |
+| Stateful Mocks: A Cart That Remembers | `am-13-stateful` | 8 | `demo-am13` |
+| When Payments Hang: Latency, Eligibility & Connection Faults | `am-14-timing-faults` | 8 | `demo-am14` |
 | Import Everything: cURL, OpenAPI, WireMock, HAR, Catalog | `am-15-import` | 9 | `demo-am15` |
 | Export & Round-Trip: JSON/YAML, WireMock, HAR, Redaction | `am-16-export` | 7 | `demo-am16` |
 | Proxy Passthrough & Record-to-Drafts | `am-17-proxy-record` | 8 | `demo-am17` |
 | Journal Forensics: Near-Misses, Candidates & Promotion | `am-18-journal` | 8 | `demo-am18` |
 | Runtime Ops: CORS, Limits, Redaction, Diagnostics & Console | `am-19-runtime-ops` | 8 | `demo-am19` |
 | HTTPS, HTTP/2 & mTLS with Cert-Subject Matching | `am-20-tls-mtls` | 8 | `demo-am20` |
-| Simulation as a Test Suite: Examples, Seeds, Assertions, Trace | `am-21-simulation-suite` | 8 | `demo-am21` |
+| Simulation as a Test Suite: Examples, Assertions, Trace | `am-21-simulation-suite` | 8 | `demo-am21` |
 | Workflow Orchestration: Start → Apply → Reset → Assert → Stop | `am-22-workflow` | 9 | `demo-am22` |
 | Test Runner Fixtures & CI Handoff | `am-23-harness-ci` | 7 | `demo-am23` |
 | Ship a Contract Mock | `am-24-capstone` | 9 | `demo-am24` |

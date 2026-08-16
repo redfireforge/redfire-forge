@@ -13,6 +13,8 @@ vi.mock('./apiMockTextExpand', () => ({
   prettyPrintJsonBody: () => '',
   minifyJsonBody: () => '',
   textExpandStats: (text: string) => ({ lines: 1, chars: text.length }),
+  resolveApiMockExpandPortal: () => document.body,
+  isNestedApiMockExpandPortal: () => false,
 }));
 
 import { ApiMockTextExpandModal } from './ApiMockTextExpandModal';
@@ -25,6 +27,22 @@ function invokeReactClick(element: HTMLElement): void {
 }
 
 describe('ApiMockTextExpandModal branch guards', () => {
+  it('keeps the search cluster inside the dialog header controls', () => {
+    render(
+      <ApiMockTextExpandModal
+        title="Request body"
+        value="<xml/>"
+        readOnly
+        onClose={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByTestId('api-mock-text-expand-modal');
+    const cluster = screen.getByTestId('api-mock-text-expand-search-cluster');
+    expect(dialog.contains(cluster)).toBe(true);
+    expect(dialog.querySelector('.am-text-expand-header-controls')).toContainElement(cluster);
+  });
+
   it('safely no-ops when pretty, undo, and redo have no work and out-of-range next match is requested', () => {
     const onApply = vi.fn();
     const onClose = vi.fn();

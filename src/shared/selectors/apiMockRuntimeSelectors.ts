@@ -112,14 +112,17 @@ export const API_MOCK_RUNTIME = {
   CONFLICT_FINGERPRINT_LEFT: '[data-testid="api-mock-conflict-fingerprint-left"]',
   CONFLICT_FINGERPRINT_RIGHT: '[data-testid="api-mock-conflict-fingerprint-right"]',
   CONFLICT_FINGERPRINT_RELATION: '[data-testid="api-mock-conflict-fingerprint-relation"]',
+  CONFLICT_FINGERPRINT_WHY: '[data-testid="api-mock-conflict-fingerprint-why"]',
   CONFLICT_STALE: '[data-testid="api-mock-conflict-stale"]',
   CONFLICT_COMPARE: '[data-testid="api-mock-conflict-compare"]',
   CONFLICT_DIMENSIONS: '[data-testid="api-mock-conflict-dimensions"]',
   CONFLICT_DIM_ROW: '[data-testid="api-mock-conflict-dim-row"]',
   CONFLICT_DIM_UNKNOWN: '[data-testid="api-mock-conflict-dim-row"][data-result="unknown"]',
   CONFLICT_FILTER_EMPTY: '[data-testid="api-mock-conflict-filter-empty"]',
+  CONFLICT_FILTERS: '[data-testid="api-mock-conflict-filters"]',
   conflictFilter: (kind: string) => `[data-testid="api-mock-conflict-filter-${kind}"]`,
   finding: (id: string) => `[data-testid="api-mock-finding-${id}"]`,
+  findingByKind: (kind: string) => `[data-testid="api-mock-conflict-list"] button[data-kind="${kind}"]`,
 
   // ── Pattern Toolbox ──────────────────────────────────────────────────────
   PATTERN_TOOLBOX: '[data-testid="api-mock-pattern-toolbox"]',
@@ -168,6 +171,10 @@ export const API_MOCK_RUNTIME = {
   TOOLBOX_SCHEMA_EDITOR: '[data-testid="api-mock-toolbox-schema-editor"]',
   TOOLBOX_SCHEMA_KIND_JSON: '[data-testid="api-mock-toolbox-schema-kind-json"]',
   TOOLBOX_SCHEMA_KIND_XML: '[data-testid="api-mock-toolbox-schema-kind-xml"]',
+  /** Schema tab — Valid / Invalid badge for the draft in the editor. */
+  TOOLBOX_SCHEMA_STATUS: '[data-testid="api-mock-toolbox-schema-status"]',
+  /** Schema tab — why Apply is blocked when the draft is invalid. */
+  TOOLBOX_SCHEMA_ERROR: '[data-testid="api-mock-toolbox-schema-error"]',
   /** Schema tab presets — `JSON object`, `Required id`, `XML names`. */
   toolboxSchemaPreset: (name: string) => `[data-testid="api-mock-toolbox-schema-preset-${name}"]`,
   toolboxTab: (id: string) => `[data-testid="api-mock-toolbox-tab-${id}"]`,
@@ -343,6 +350,8 @@ export const API_MOCK_RUNTIME = {
   simCandidate: (routeId: string) => `[data-testid="api-mock-sim-candidate-${routeId}"]`,
   /** Per-predicate tick rows inside the trace — method, path, then one per condition. */
   SIMULATE_PREDICATE_ROWS: '[data-testid="api-mock-simulate-result"] .am-candidate .am-predicate',
+  /** Red Decision-trace rows — the matcher that rejected the candidate. */
+  SIMULATE_PREDICATE_FAIL: '[data-testid="api-mock-simulate-result"] .am-candidate .am-predicate--fail',
   simPredicateRows: (routeId: string) => `[data-testid="api-mock-sim-candidate-${routeId}"] .am-predicate`,
 
   // ── Server settings (TLS / Proxy) ─────────────────────────────────────────

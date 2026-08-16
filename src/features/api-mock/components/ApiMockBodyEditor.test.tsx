@@ -42,7 +42,10 @@ describe('ApiMockBodyEditor', () => {
       editor: { defineTheme: vi.fn(), setTheme: vi.fn() },
     };
     const { unmount } = render(<ApiMockBodyEditor value="{}" onChange={vi.fn()} language="xml" readOnly />);
-    const ownedModel = { getLineContent: (line: number) => (line === 1 ? '{"id": "{{f' : '') };
+    const ownedModel = {
+      isDisposed: () => false,
+      getLineContent: (line: number) => (line === 1 ? '{"id": "{{f' : ''),
+    };
     const editor = { getModel: () => ownedModel };
     act(() => {
       capturedBeforeMount?.(monaco);
@@ -53,7 +56,11 @@ describe('ApiMockBodyEditor', () => {
     const result = provider.provideCompletionItems(ownedModel, { lineNumber: 1, column: 12 });
     expect(result.suggestions.some((s: { label: string }) => String(s.label).includes('faker'))).toBe(true);
     expect(provider.provideCompletionItems(
-      { getLineContent: () => '{"id": "{{f' },
+      { isDisposed: () => false, getLineContent: () => '{"id": "{{f' },
+      { lineNumber: 1, column: 12 },
+    ).suggestions).toEqual([]);
+    expect(provider.provideCompletionItems(
+      { isDisposed: () => true, getLineContent: () => '{"id": "{{f' },
       { lineNumber: 1, column: 12 },
     ).suggestions).toEqual([]);
     expect(provider.provideCompletionItems(

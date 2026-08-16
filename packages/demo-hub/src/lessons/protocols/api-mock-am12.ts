@@ -81,7 +81,7 @@ export const apiMockAm12Lesson: DemoLesson = {
     + 'so the journal wraps around. The State tab shows the live cursor.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 3,
+  contentVersion: 7,
   concept: {
     title: 'A rule holds a set of responses. The mode decides which one fires.',
     body:
@@ -92,8 +92,10 @@ export const apiMockAm12Lesson: DemoLesson = {
       + 'Exactly one enabled Default is required; Make default moves the badge.\n\n'
       + '**Sequence** mode ignores those conditions. Order is the variant list, '
       + 'top to bottom. Exhaustion **cycles**. The same `POST /cart` then answers '
-      + '200, 404, 200. The **State** tab shows the live cursor so you do not '
-      + 'guess which step fires next.\n\n'
+      + '200, 404, 200. Each card’s **Step N of 2** is that playlist slot — it '
+      + 'does not move. **Next: Step N of 2** on Selection is one shared cursor '
+      + 'for the upcoming call; it flips 1 ↔ 2 after each hit. The **State** tab '
+      + 'shows the same number.\n\n'
       + `This lesson starts from \`${AM12_PATH}\` with one 200. **+ Variant**, `
       + `the **404** chip, and naming \`${AM12_VARIANT_NAME}\` are authored live. `
       + 'Simulate proves the payload split before a client asks. Apply hot-swaps '
@@ -104,7 +106,7 @@ export const apiMockAm12Lesson: DemoLesson = {
       { term: 'Default', definition: 'The fallback variant in rules mode. Exactly one enabled variant must be Default.' },
       { term: 'Variant condition', definition: 'A predicate group on a non-default variant. JSONPath $.sku = MISSING is how not-found wins.' },
       { term: 'Sequence mode', definition: 'Round-robin over enabled variants in list order. Conditions are cleared. Exhaustion cycles.' },
-      { term: 'Sequence position', definition: 'The live cursor for the next step. Visible on Selection and on the State tab after traffic.' },
+      { term: 'Sequence position', definition: 'The live “Next: Step N of M” cursor — which variant fires on the next matching call. Not the Step N label on a card. Same number on every variant and on the State tab.' },
       { term: 'Hot Apply', definition: 'Commit the dirty draft to a listener that is already running. Generation bumps; fetches then prove the new mode.' },
     ],
     diagram: DIAGRAM,
@@ -190,10 +192,11 @@ export const apiMockAm12Lesson: DemoLesson = {
       title: 'Round-robin: the retry and backoff test mode',
       description:
         'Click **Sequence**. Conditions are cleared — order is the variant list, top '
-        + 'to bottom. Hold the **order note**.\n\n'
-        + 'Open Selection and hold **sequence position**. That cursor is the next '
-        + 'step, not a guess. Exhaustion **cycles**, so a third call wraps to the '
-        + 'first variant.',
+        + 'to bottom.\n\n'
+        + '- **Step 1 of 2 / Step 2 of 2** on the cards — playlist slots. In cart is always step 1; Not found is always step 2. Those labels do not move.\n'
+        + '- **Next: Step 1 of 2** on Selection — one shared cursor for the *upcoming* call. Open the 404 card: the badge stays **Next: Step 1 of 2**. It is not “this card is step 2.”\n'
+        + '- **After a hit** — the cursor becomes **Next: Step 2 of 2**. After another, it wraps to 1. Exhaustion **cycles**.\n\n'
+        + 'Two numbers, two jobs: the card is the playlist; **Next** is what fires now.',
       highlight: API_MOCK.RESPONSE_MODE_SEQUENCE,
       preAction: ensureAm12Default,
       action: runAm12Sequence,
@@ -201,14 +204,15 @@ export const apiMockAm12Lesson: DemoLesson = {
     },
     {
       id: 'three-calls',
-      title: 'The same request, three different responses',
+      title: 'Same request three times — then it wraps',
       description:
         'The listener has been running since the first step, still on the original '
         + 'single 200. **Apply** hot-swaps sequence without a rebind. Hold '
         + '**Generation**.\n\n'
-        + `A real \`POST ${AM12_PATH}\` hits the bound listener. Open the journal: `
-        + '200, then 404, then 200 again. Three rows. That wrap-around is the '
-        + 'definition of cycle.',
+        +         `A real \`POST ${AM12_PATH}\` hits the bound listener. Open the journal: `
+        + '200, then 404, then 200 again. Three rows. After the first hit, '
+        + '**Next** flips to **Step 2 of 2**; after the third it is **Step 1** '
+        + 'again. That wrap-around is the definition of cycle.',
       highlight: API_MOCK.APPLY,
       preAction: ensureAm12ForApply,
       action: runAm12ThreeCalls,
@@ -219,10 +223,10 @@ export const apiMockAm12Lesson: DemoLesson = {
       title: 'The live cursor is visible, not guesswork',
       description:
         'Open the **State** tab on the dock. After three sequence hits the cursor '
-        + 'has advanced. Hold the **sequence row**.\n\n'
-        + 'You do not reconstruct order from journal statuses. The live cursor is '
-        + 'the same number Sequence shows in the editor — reset it from this tab '
-        + 'when a later lesson needs a clean start.',
+        + 'has advanced. Hold the **sequence row** — that is the same **Next: Step N of 2** '
+        + 'number Selection showed, not a card’s playlist slot.\n\n'
+        + 'You do not reconstruct order from journal statuses. Reset the cursor '
+        + 'from this tab when a later lesson needs a clean start.',
       highlight: API_MOCK.DOCK_TAB_STATE,
       preAction: ensureAm12StateLive,
       action: runAm12StateTab,

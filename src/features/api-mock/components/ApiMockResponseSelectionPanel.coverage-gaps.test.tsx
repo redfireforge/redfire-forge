@@ -42,7 +42,7 @@ describe('ApiMockResponseSelectionPanel coverage gaps', () => {
         onModeChange={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Position 0 of 1');
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Next: Step 1 of 1');
   });
 
   it('shows enabled response count in sequence mode', () => {
@@ -60,7 +60,7 @@ describe('ApiMockResponseSelectionPanel coverage gaps', () => {
         onModeChange={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Position 1 of 2');
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Next: Step 2 of 2');
   });
 
   it('updates counters through a stateful panel', () => {

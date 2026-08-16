@@ -1,6 +1,14 @@
+import { useRef } from 'react';
+import { validateSchemaDraft } from '../../../shared/api-mock/schemaDraftValidation';
 import { evaluateXPath } from '../../../shared/api-mock/xpathMatcher';
 import { ApiMockExpandableText } from './ApiMockExpandableText';
-import { SCHEMA_PRESETS, XPATH_PRESETS } from './apiMockPatternToolboxConstants';
+import {
+  SCHEMA_CURRENT_PRESET_NAME,
+  SCHEMA_PRESETS,
+  XPATH_PRESETS,
+  activeSchemaLibraryName,
+  isCustomSchemaDraft,
+} from './apiMockPatternToolboxConstants';
 
 interface XPathPanelProps {
   xmlSample: string;
@@ -139,16 +147,30 @@ interface SchemaPanelProps {
 }
 
 export function ApiMockSchemaToolboxPanel({ kind, schema, onKind, onSchema }: SchemaPanelProps) {
+  const seed = useRef({ kind, schema });
+  const showCurrent = isCustomSchemaDraft(seed.current.kind, seed.current.schema);
+  const activeName = activeSchemaLibraryName(kind, schema, seed.current);
+  const validity = validateSchemaDraft(kind, schema);
   return (
     <div className="am-tool-layout am-tool-layout-library" data-testid="api-mock-toolbox-schema">
       <aside className="am-tool-library">
         <div className="am-panel-head"><span className="am-panel-title">Schema presets</span></div>
         <div className="am-tool-library-list">
+          {showCurrent && (
+            <button
+              type="button"
+              className={`am-pattern-entry${activeName === SCHEMA_CURRENT_PRESET_NAME ? ' active' : ''}`}
+              onClick={() => { onKind(seed.current.kind); onSchema(seed.current.schema); }}
+              data-testid={`api-mock-toolbox-schema-preset-${SCHEMA_CURRENT_PRESET_NAME}`}
+            >
+              <strong>{SCHEMA_CURRENT_PRESET_NAME}</strong>
+            </button>
+          )}
           {SCHEMA_PRESETS.map(p => (
             <button
               key={p.name}
               type="button"
-              className="am-pattern-entry"
+              className={`am-pattern-entry${activeName === p.name ? ' active' : ''}`}
               onClick={() => { onKind(p.kind); onSchema(p.value); }}
               data-testid={`api-mock-toolbox-schema-preset-${p.name}`}
             >
@@ -158,26 +180,43 @@ export function ApiMockSchemaToolboxPanel({ kind, schema, onKind, onSchema }: Sc
         </div>
       </aside>
       <article className="am-tool-editor am-tool-editor--fill">
-        <div className="am-builder-tabs" role="tablist" aria-label="Schema kind">
-          {(['json', 'xml'] as const).map(id => (
-            <button
-              key={id}
-              type="button"
-              className={`am-builder-tab${kind === id ? ' active' : ''}`}
-              data-testid={`api-mock-toolbox-schema-kind-${id}`}
-              onClick={() => onKind(id)}
-            >{id === 'json' ? 'JSON Schema' : 'XML names / XSD'}</button>
-          ))}
+        <div className="am-tool-block-head">
+          <div className="am-builder-tabs" role="tablist" aria-label="Schema kind">
+            {(['json', 'xml'] as const).map(id => (
+              <button
+                key={id}
+                type="button"
+                className={`am-builder-tab${kind === id ? ' active' : ''}`}
+                data-testid={`api-mock-toolbox-schema-kind-${id}`}
+                onClick={() => onKind(id)}
+              >{id === 'json' ? 'JSON Schema' : 'XML names / XSD'}</button>
+            ))}
+          </div>
+          <span
+            className={`am-badge ${validity.ok ? 'success' : 'danger'}`}
+            data-testid="api-mock-toolbox-schema-status"
+          >{validity.ok ? 'Valid' : 'Invalid'}</span>
         </div>
         <textarea
           className="am-textarea mono am-textarea--expand"
           value={schema}
           onChange={e => onSchema(e.target.value)}
+          aria-invalid={!validity.ok}
+          aria-describedby={validity.ok ? undefined : 'api-mock-toolbox-schema-error'}
           data-testid="api-mock-toolbox-schema-editor"
         />
-        <p className="am-hint am-hint--wrap">
-          XML matching is a well-formedness plus required element-name subset, not a full XSD engine.
-        </p>
+        {validity.ok ? (
+          <p className="am-hint am-hint--wrap">
+            XML matching is a well-formedness plus required element-name subset, not a full XSD engine.
+          </p>
+        ) : (
+          <div
+            className="am-notice danger am-notice--flush"
+            role="alert"
+            id="api-mock-toolbox-schema-error"
+            data-testid="api-mock-toolbox-schema-error"
+          >{validity.message}</div>
+        )}
       </article>
     </div>
   );

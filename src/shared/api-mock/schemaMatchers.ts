@@ -84,7 +84,7 @@ function namesFromObject(rec: Record<string, unknown>): string[] | undefined {
   return namesFromList(rec.required) ?? namesFromList(rec.requiredElements) ?? namesFromList(rec.elements);
 }
 
-function requiredXmlNames(expected: unknown): string[] {
+export function xmlSchemaRequiredNames(expected: unknown): string[] {
   if (Array.isArray(expected)) return expected.map(v => String(v)).filter(Boolean);
   if (expected && typeof expected === 'object') {
     return namesFromObject(expected as Record<string, unknown>) ?? [];
@@ -116,7 +116,7 @@ function requiredXmlNames(expected: unknown): string[] {
  * (`ns:Order` → `Order`). Anything that is not an NCName fails closed so a
  * crafted expected value cannot change the XPath shape.
  */
-function xmlSafeLocalName(name: string): string | undefined {
+export function xmlSafeLocalName(name: string): string | undefined {
   const trimmed = name.trim();
   if (!trimmed) return undefined;
   const local = trimmed.includes(':') ? trimmed.slice(trimmed.lastIndexOf(':') + 1) : trimmed;
@@ -130,7 +130,7 @@ export function matchXmlSchema(value: string | string[] | null, expected: unknow
   if (body == null || !body.trim()) return false;
   const probe = evaluateXPath(body, '/*');
   if (!probe.ok) return false;
-  const names = requiredXmlNames(expected);
+  const names = xmlSchemaRequiredNames(expected);
   if (names.length === 0) return probe.matched;
   return names.every(name => {
     const local = xmlSafeLocalName(name);
