@@ -5,7 +5,9 @@ import {
   findTextExpandMatches,
   formatJsonBody,
   formatTextExpandCount,
+  isNestedApiMockExpandPortal,
   nextTextExpandMatch,
+  resolveApiMockExpandPortal,
   textExpandStats,
 } from './apiMockTextExpand';
 import { ChevronDownIcon, ChevronUpIcon, RedoIcon, UndoIcon } from './ApiMockIcons';
@@ -112,6 +114,9 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
       ? { label: 'JSON', kind: 'success' }
       : { label: 'Not JSON', kind: 'warning' };
 
+  const portalTarget = resolveApiMockExpandPortal();
+  const nested = isNestedApiMockExpandPortal(portalTarget);
+
   const modal = (
     <AppModalFrame
       title={
@@ -126,11 +131,12 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
       }
       onClose={onClose}
       dialogClassName="modal am-studio-modal am-text-expand-modal"
-      overlayClassName="am-text-expand-overlay"
+      overlayClassName={`am-text-expand-overlay${nested ? ' am-text-expand-overlay--nested' : ''}`}
       bodyClassName="am-studio-modal-body am-text-expand-body"
       footerClassName="am-studio-modal-footer"
       showExpandButton={false}
       closeOnOverlayClick={false}
+      controlsClassName="am-text-expand-header-controls"
       dialogTestId="api-mock-text-expand-modal"
       headerActions={
         <div className="api-mock-root am-in-modal am-text-expand-search-cluster" data-testid="api-mock-text-expand-search-cluster">
@@ -277,5 +283,5 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
     </AppModalFrame>
   );
 
-  return createPortal(modal, document.body);
+  return createPortal(modal, portalTarget);
 }

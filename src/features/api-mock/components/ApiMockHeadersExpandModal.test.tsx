@@ -31,10 +31,23 @@ describe('ApiMockHeadersExpandModal', () => {
     Element.prototype.scrollIntoView = vi.fn();
   });
 
+  it('opens inside the Rule Simulation request pane when that host exists', () => {
+    const host = document.createElement('section');
+    host.setAttribute('data-testid', 'api-mock-sim-main');
+    document.body.appendChild(host);
+    renderHeaders();
+    fireEvent.click(screen.getByTestId('api-mock-simulate-headers-expand'));
+    expect(host.querySelector('[data-testid="api-mock-headers-expand-modal"]')).toBeTruthy();
+    expect(host.querySelector('.am-text-expand-overlay--nested')).toBeTruthy();
+    host.remove();
+  });
+
   it('opens on Table, edits a row, and applies Name: value lines', () => {
     const onChange = renderHeaders();
     fireEvent.click(screen.getByTestId('api-mock-simulate-headers-expand'));
     expect(screen.getByTestId('api-mock-headers-expand-modal')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-headers-expand-modal').querySelector('.am-text-expand-header-controls'))
+      .toContainElement(screen.getByTestId('api-mock-headers-expand-search-cluster'));
     expect(screen.getByTestId('api-mock-headers-expand-table')).toBeTruthy();
     expect(screen.getByTestId('api-mock-headers-expand-badge')).toHaveTextContent('2 headers');
     expect(screen.getByTestId('api-mock-headers-expand-name-hdr-1')).toHaveValue('authorization');

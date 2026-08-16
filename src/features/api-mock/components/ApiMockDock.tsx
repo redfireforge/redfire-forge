@@ -433,13 +433,19 @@ export function ApiMockDock({
                 No variables defined. Add server variables to reference them as {'{{variable}}'} in responses.
               </div>
             ) : (
-              <table className="am-data-table" aria-label="Server variables">
+              <table className="am-data-table am-vars-table" aria-label="Server variables">
+                <colgroup>
+                  <col className="am-vars-col-key" />
+                  <col className="am-vars-col-value" />
+                  <col className="am-vars-col-sensitive" />
+                  {onVariablesChange && <col className="am-vars-col-actions" />}
+                </colgroup>
                 <thead>
                   <tr>
-                    <th style={{ width: 140 }}>Key</th>
+                    <th>Key</th>
                     <th>Value</th>
-                    <th style={{ width: 90 }}>Sensitive</th>
-                    {onVariablesChange && <th style={{ width: 50 }} />}
+                    <th>Sensitive</th>
+                    {onVariablesChange && <th />}
                   </tr>
                 </thead>
                 <tbody>

@@ -32,7 +32,6 @@ describe('ApiMockSimulateHiddenFields', () => {
     const setHeaders = vi.fn();
     const setBody = vi.fn();
     const setClientCertSubject = vi.fn();
-    const setSeed = vi.fn();
     render(
       <ApiMockSimulateHiddenFields
         method="GET" setMethod={setMethod}
@@ -40,7 +39,6 @@ describe('ApiMockSimulateHiddenFields', () => {
         headers="" setHeaders={setHeaders}
         body="" setBody={setBody}
         clientCertSubject="" setClientCertSubject={setClientCertSubject}
-        seed="1" setSeed={setSeed}
       />,
     );
     fireEvent.change(screen.getByTestId('api-mock-simulate-method'), { target: { value: 'POST' } });
@@ -48,10 +46,9 @@ describe('ApiMockSimulateHiddenFields', () => {
     fireEvent.change(screen.getByTestId('api-mock-simulate-headers'), { target: { value: 'A: 1' } });
     fireEvent.change(screen.getByTestId('api-mock-simulate-body'), { target: { value: '{}' } });
     fireEvent.change(screen.getByTestId('api-mock-simulate-cert-subject'), { target: { value: 'CN=a' } });
-    fireEvent.change(screen.getByTestId('api-mock-simulate-seed'), { target: { value: '' } });
     expect(setMethod).toHaveBeenCalledWith('POST');
     expect(setPath).toHaveBeenCalledWith('/x');
-    expect(setSeed).toHaveBeenCalledWith('0');
+    expect(screen.queryByTestId('api-mock-simulate-seed')).toBeNull();
   });
 });
 
@@ -62,7 +59,6 @@ describe('ApiMockSimulateRequestForm', () => {
     headers: '', setHeaders: vi.fn(),
     body: '', setBody: vi.fn(),
     clientCertSubject: '', setClientCertSubject: vi.fn(),
-    seed: '42', setSeed: vi.fn(),
     nameInputRef: createRef<HTMLInputElement>(),
     onSaveAsSample: vi.fn(),
     onRenameSavedSample: vi.fn(),
@@ -82,10 +78,9 @@ describe('ApiMockSimulateRequestForm', () => {
     fireEvent.change(screen.getByTestId('api-mock-simulate-headers'), { target: { value: 'H: 1' } });
     fireEvent.change(screen.getByTestId('api-mock-simulate-body'), { target: { value: '{}' } });
     fireEvent.change(screen.getByTestId('api-mock-simulate-cert-subject'), { target: { value: 'CN=x' } });
-    fireEvent.change(screen.getByTestId('api-mock-simulate-seed'), { target: { value: '' } });
     fireEvent.click(screen.getByTestId('api-mock-simulate-save-sample'));
     expect(fields.onSaveAsSample).toHaveBeenCalled();
-    expect(fields.setSeed).toHaveBeenCalledWith('0');
+    expect(screen.queryByTestId('api-mock-simulate-seed')).toBeNull();
   });
 
   it('renames a saved sample and offers Edit in Ad-hoc', () => {
@@ -115,5 +110,17 @@ describe('ApiMockSimulateRequestForm', () => {
     );
     expect(screen.queryByTestId('api-mock-simulate-sample-name')).toBeNull();
     expect(screen.getByTestId('api-mock-sim-edit-adhoc')).toBeTruthy();
+  });
+
+  it('uses an empty sample name when the saved probe has no name yet', () => {
+    render(
+      <ApiMockSimulateRequestForm
+        {...fields}
+        requestReadOnly
+        selectedIsAdHoc={false}
+        selectedIsFromRules={false}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-simulate-sample-name')).toHaveValue('');
   });
 });

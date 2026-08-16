@@ -4,7 +4,9 @@ import AppModalFrame from '../../../shared/components/AppModalFrame';
 import {
   findTextExpandMatches,
   formatTextExpandCount,
+  isNestedApiMockExpandPortal,
   nextTextExpandMatch,
+  resolveApiMockExpandPortal,
 } from './apiMockTextExpand';
 import {
   countNamedHeaderRows,
@@ -31,7 +33,7 @@ type HeadersView = 'raw' | 'table';
 
 /**
  * Headers editor popup: Raw (`Name: value` lines) and Table (one row per header).
- * Portaled so it stacks above Rule Simulation.
+ * Nests inside Rule Simulation's request pane when that host is mounted.
  */
 export function ApiMockHeadersExpandModal({
   title,
@@ -145,6 +147,9 @@ export function ApiMockHeadersExpandModal({
     commitRows(rows.length <= 1 ? [createHeaderDraftRow()] : rows.filter(r => r.id !== id));
   };
 
+  const portalTarget = resolveApiMockExpandPortal();
+  const nested = isNestedApiMockExpandPortal(portalTarget);
+
   const modal = (
     <AppModalFrame
       title={
@@ -159,11 +164,12 @@ export function ApiMockHeadersExpandModal({
       }
       onClose={onClose}
       dialogClassName="modal am-studio-modal am-text-expand-modal am-headers-expand-modal"
-      overlayClassName="am-text-expand-overlay"
+      overlayClassName={`am-text-expand-overlay${nested ? ' am-text-expand-overlay--nested' : ''}`}
       bodyClassName="am-studio-modal-body am-text-expand-body"
       footerClassName="am-studio-modal-footer"
       showExpandButton={false}
       closeOnOverlayClick={false}
+      controlsClassName="am-text-expand-header-controls"
       dialogTestId="api-mock-headers-expand-modal"
       headerActions={
         <div className="api-mock-root am-in-modal am-text-expand-search-cluster" data-testid="api-mock-headers-expand-search-cluster">
@@ -348,5 +354,5 @@ export function ApiMockHeadersExpandModal({
     </AppModalFrame>
   );
 
-  return createPortal(modal, document.body);
+  return createPortal(modal, portalTarget);
 }

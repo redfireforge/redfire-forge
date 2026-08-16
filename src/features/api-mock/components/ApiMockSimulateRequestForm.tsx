@@ -1,7 +1,7 @@
 import type { RefObject } from 'react';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { ApiMockExpandableText } from './ApiMockExpandableText';
-import { SIMULATE_METHOD_OPTIONS, SIMULATE_SEED_HELP } from './apiMockSimulateModalHelpers';
+import { SIMULATE_METHOD_OPTIONS } from './apiMockSimulateModalHelpers';
 
 export function ApiMockSimulateHiddenFields({
   method,
@@ -14,8 +14,6 @@ export function ApiMockSimulateHiddenFields({
   setBody,
   clientCertSubject,
   setClientCertSubject,
-  seed,
-  setSeed,
 }: {
   method: string;
   setMethod: (value: string) => void;
@@ -27,8 +25,6 @@ export function ApiMockSimulateHiddenFields({
   setBody: (value: string) => void;
   clientCertSubject: string;
   setClientCertSubject: (value: string) => void;
-  seed: string;
-  setSeed: (value: string) => void;
 }) {
   return (
     <div className="am-sr-only">
@@ -37,7 +33,6 @@ export function ApiMockSimulateHiddenFields({
       <textarea value={headers} onChange={e => setHeaders(e.target.value)} data-testid="api-mock-simulate-headers" />
       <textarea value={body} onChange={e => setBody(e.target.value)} data-testid="api-mock-simulate-body" />
       <input value={clientCertSubject} onChange={e => setClientCertSubject(e.target.value)} data-testid="api-mock-simulate-cert-subject" />
-      <input value={seed} onChange={e => setSeed(e.target.value || '0')} aria-label="Replay seed" data-testid="api-mock-simulate-seed" />
     </div>
   );
 }
@@ -53,8 +48,6 @@ export function ApiMockSimulateRequestForm({
   setBody,
   clientCertSubject,
   setClientCertSubject,
-  seed,
-  setSeed,
   requestReadOnly,
   selectedIsAdHoc,
   selectedIsFromRules,
@@ -74,8 +67,6 @@ export function ApiMockSimulateRequestForm({
   setBody: (value: string) => void;
   clientCertSubject: string;
   setClientCertSubject: (value: string) => void;
-  seed: string;
-  setSeed: (value: string) => void;
   requestReadOnly: boolean;
   selectedIsAdHoc: boolean;
   selectedIsFromRules: boolean;
@@ -95,6 +86,7 @@ export function ApiMockSimulateRequestForm({
             onChange={setMethod}
             options={SIMULATE_METHOD_OPTIONS}
             className="am-cs"
+            menuMinWidth={240}
             aria-label="Simulate method"
             data-testid="api-mock-simulate-method"
             disabled={requestReadOnly}
@@ -208,22 +200,6 @@ export function ApiMockSimulateRequestForm({
           </div>
         </>
       )}
-      <div className="am-form-row am-form-row--tall">
-        <div className="am-form-label">Replay seed</div>
-        <div className="am-form-control am-form-control-stack">
-          <label className="am-seed-field">
-            <input
-              className="am-input mono"
-              value={seed}
-              onChange={e => setSeed(e.target.value || '0')}
-              aria-label="Replay seed"
-              title={SIMULATE_SEED_HELP}
-              data-testid="api-mock-simulate-seed"
-            />
-          </label>
-          <span className="am-hint">{SIMULATE_SEED_HELP}</span>
-        </div>
-      </div>
     </div>
   );
 }

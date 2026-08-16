@@ -288,7 +288,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
       />,
     );
     openTab('selection');
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent(/Position 1/);
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent(/Next: Step 1 of 1/);
     expect(screen.getByText(/mode is active on the live listener/i)).toBeInTheDocument();
   });
 
@@ -567,7 +567,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
       />,
     );
     openTab('selection');
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent(/Position 0/);
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent(/Next: Step 1/);
   });
 
   it('covers counter row edits and state required-state target fallback', () => {

@@ -1,11 +1,11 @@
 /**
- * AM-21 `am-21-simulation-suite` — Simulation as a Test Suite: Examples, Seeds,
+ * AM-21 `am-21-simulation-suite` — Simulation as a Test Suite: Examples,
  * Assertions, Trace.
  *
  * Scenario: eight saved samples with expectations are already in the workspace.
  * Simulate is the unit-test runner — scratch pad, decision trace, assertions
- * you can edit, FAIL, run-all with sequential state, a replay seed, an export
- * bundle, then Examples that outlive the session. Curriculum:
+ * you can edit, FAIL, run-all with sequential state, two identical weighted
+ * runs, an export bundle, then Examples that outlive the session. Curriculum:
  * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
  */
 import { API_MOCK } from '@shared/selectors';
@@ -14,7 +14,6 @@ import {
   AM21_ADHOC_PATH,
   AM21_HEALTH_ID,
   AM21_ORPHAN_ID,
-  AM21_SEED,
   AM21_WRONG_STATUS,
   cleanupAm21,
   ensureAm21ForExamples,
@@ -36,11 +35,11 @@ import {
 } from './api-mock-am21-helpers';
 
 const DIAGRAM = `
-<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Simulation as a test suite with examples, seeds, assertions, and a trace export">
+<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Simulation as a test suite with examples, assertions, and a trace export">
   <rect x="0" y="0" width="700" height="430" fill="#0f172a" />
 
   <text x="26" y="34" fill="#f1f5f9" font-family="system-ui" font-size="16" font-weight="600">Simulate is a unit-test runner. Examples keep the cases.</text>
-  <text x="26" y="54" fill="#64748b" font-family="system-ui" font-size="10">saved samples · scratch pad · assertions · seed · export trace</text>
+  <text x="26" y="54" fill="#64748b" font-family="system-ui" font-size="10">saved samples · scratch pad · assertions · export trace</text>
 
   <rect x="26" y="72" width="210" height="150" rx="8" fill="#1e293b" stroke="#38bdf8" />
   <text x="42" y="96" fill="#38bdf8" font-family="system-ui" font-size="12" font-weight="600">Suite + scratch pad</text>
@@ -57,9 +56,9 @@ const DIAGRAM = `
   <text x="268" y="202" fill="#ef4444" font-family="system-ui" font-size="10">Wrong expected must fail loudly</text>
 
   <rect x="478" y="72" width="196" height="150" rx="8" fill="#1e293b" stroke="#a78bfa" />
-  <text x="494" y="96" fill="#a78bfa" font-family="system-ui" font-size="12" font-weight="600">Run all + seed</text>
+  <text x="494" y="96" fill="#a78bfa" font-family="system-ui" font-size="12" font-weight="600">Run all + replay</text>
   <text x="494" y="118" fill="#f1f5f9" font-family="ui-monospace" font-size="11">sequential batch</text>
-  <text x="494" y="138" fill="#f1f5f9" font-family="ui-monospace" font-size="11">seed ${AM21_SEED}</text>
+  <text x="494" y="138" fill="#f1f5f9" font-family="ui-monospace" font-size="11">run the dice twice</text>
   <text x="494" y="158" fill="#a8b8cc" font-family="system-ui" font-size="11">identical weighted runs</text>
   <text x="494" y="202" fill="#22c55e" font-family="system-ui" font-size="10">Export the evidence bundle</text>
 
@@ -77,18 +76,18 @@ export const apiMockAm21Lesson: DemoLesson = {
   id: 'am-21-simulation-suite',
   domainId: 'protocols',
   category: 'api-mock',
-  name: 'Simulation as a Test Suite: Examples, Seeds, Assertions, Trace',
+  name: 'Simulation as a Test Suite: Examples, Assertions, Trace',
   description:
     'Open Simulate on a workspace that already has eight saved samples with '
     + 'expectations. Use the scratch pad for an ad-hoc GET, then read the '
     + 'decision trace, the normalized request, and the rendered bytes. Edit '
     + `one expected status to ${AM21_WRONG_STATUS} so the next run fails `
-    + 'loudly. Run all samples so sequential state advances, pin a replay '
-    + `seed (${AM21_SEED}) so two weighted runs match, export the trace `
+    + 'loudly. Run all samples so sequential state advances, run the dice '
+    + 'sample twice so the weighted face matches, export the trace '
     + 'bundle, then attach an unassociated example and Try in Requests.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 3,
+  contentVersion: 4,
   concept: {
     title: 'A sample without an expectation is a demo, not a test.',
     body:
@@ -102,8 +101,8 @@ export const apiMockAm21Lesson: DemoLesson = {
       + 'body-contains are the contract. A wrong expected value must **FAIL** '
       + 'in the sidebar — silence is how regressions hide. **Run all** walks '
       + 'the suite sequentially so state and sequence advance like production. '
-      + 'A **replay seed** makes weighted, jitter, and probability choices '
-      + 'repeatable. **Export trace** is the evidence you attach to a PR.\n\n'
+      + 'Two runs in the same Simulate session repeat weighted, jitter, and '
+      + 'probability choices. **Export trace** is the evidence you attach to a PR.\n\n'
       + '**Examples** on the rule keep those cases after Simulate closes. '
       + 'Attach an unassociated sample to the rule you meant, then **Try in '
       + 'Requests** hands the same call to a client tab. The explorer footer '
@@ -112,7 +111,7 @@ export const apiMockAm21Lesson: DemoLesson = {
       { term: 'Saved sample', definition: 'A named request plus optional expectations stored on the mock. Simulate treats the list as a regression suite.' },
       { term: 'Scratch pad', definition: 'The ad-hoc request at the top of Simulate. Editable method, path, headers, and body that are not a saved sample until you click Save as sample.' },
       { term: 'Expectation', definition: 'The contract on a sample: expected outcome, status, body substring, and optionally which rule should win. Missing expectations make the run a demo.' },
-      { term: 'Replay seed', definition: 'A number that repeats random choices — weighted variants, template helpers, and delay jitter — so two runs with the same seed match.' },
+      { term: 'Reproducible run', definition: 'Simulate pins weighted variants, template helpers, and delay jitter for the session, so two runs match without typing a seed.' },
       { term: 'Sequential batch', definition: 'Run all samples in order so state machines, sequence cursors, and match counts advance across the suite the way production traffic would.' },
       { term: 'Trace export', definition: 'A JSON bundle of seed, generation, and per-sample results you can attach to a PR or bug report without starting a listener.' },
     ],
@@ -212,13 +211,12 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'seed',
       title: 'Weighted, jitter, and probability become reproducible',
       description:
-        `Fill **Replay seed** with \`${AM21_SEED}\`. Hold **Run simulation** `
-        + 'on the dice sample, then hold the rendered face. Run again with '
-        + 'the same seed and hold the identical outcome.\n\n'
-        + 'Change the seed only when you *want* a different random draw. The '
-        + 'point of a suite is that a flaky weighted mock is a test you can '
-        + 'replay, not a coin flip in CI.',
-      highlight: API_MOCK.SIMULATE_SEED,
+        'Hold **Run simulation** on the dice sample, then hold the rendered '
+        + 'face. Run again and hold the identical outcome.\n\n'
+        + 'Simulate pins the roll for this session — you do not type a seed. '
+        + 'The point of a suite is that a flaky weighted mock is a test you '
+        + 'can replay, not a coin flip in CI.',
+      highlight: API_MOCK.SIMULATE_RUN,
       preAction: ensureAm21ForSeed,
       action: async (ctx) => {
         await runAm21Seed(ctx);

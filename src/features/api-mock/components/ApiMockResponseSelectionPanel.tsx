@@ -39,6 +39,15 @@ export function writeJsonPathCondition(
   };
 }
 
+/** Live sequence cursor as 1-based “next step”, matching the variant list. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function sequenceCursorLabel(position: number | undefined, enabledCount: number): string {
+  const count = enabledCount > 0 ? enabledCount : 1;
+  const raw = position ?? 0;
+  const nextIndex = ((raw % count) + count) % count;
+  return `Next: Step ${nextIndex + 1} of ${count}`;
+}
+
 interface Props {
   route: ApiMockRouteV1;
   activeVariant: ApiMockResponseVariantV1;
@@ -83,8 +92,12 @@ export function ApiMockResponseSelectionPanel({
         <div className="am-form-control" style={{ flexWrap: 'wrap', gap: 8 }}>
           <span className="am-chip active" data-testid="api-mock-selection-condition">{conditionLabel}</span>
           {route.responseMode === 'sequence' && (
-            <span className="am-badge info" data-testid="api-mock-sequence-position">
-              Position {sequencePosition ?? 0} of {route.responses.filter(r => r.enabled).length || 1}
+            <span
+              className="am-badge info"
+              data-testid="api-mock-sequence-position"
+              title="Shared cursor for the next call — not this variant's list index"
+            >
+              {sequenceCursorLabel(sequencePosition, route.responses.filter(r => r.enabled).length)}
             </span>
           )}
           {route.responseMode === 'rules' && (
@@ -157,7 +170,7 @@ export function ApiMockResponseSelectionPanel({
               })}
               data-testid="api-mock-variant-weight"
             />
-            <span className="am-hint">Relative chance among eligible variants. Live seed = receivedAt:routeId:path; Simulation seed is editable.</span>
+            <span className="am-hint">Relative chance among eligible variants. Simulation pins the roll for the session so two runs match.</span>
           </div>
         </div>
       )}

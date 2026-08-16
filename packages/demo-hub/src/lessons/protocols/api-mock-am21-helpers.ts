@@ -47,7 +47,6 @@ export const AM21_DICE_ID = 'sample-dice';
 export const AM21_ORPHAN_ID = 'sample-orphan';
 export const AM21_ADHOC_PATH = '/health';
 export const AM21_WRONG_STATUS = '201';
-export const AM21_SEED = '4242';
 
 async function am21Aim(
   ctx: DemoActionContext,
@@ -73,16 +72,6 @@ async function am21AimFill(
   hold: number = T.fieldFilled,
 ): Promise<void> {
   await fillBeat(ctx, selector, value, { look: T.beforeOpen, hold });
-}
-
-async function am21FillNow(
-  ctx: DemoActionContext,
-  selector: string,
-  value: string,
-  hold: number = T.fieldFilled,
-): Promise<void> {
-  await ctx.fill(selector, value);
-  await ctx.delay(hold);
 }
 
 async function am21Reveal(
@@ -431,11 +420,6 @@ export async function runAm21Seed(ctx: DemoActionContext): Promise<void> {
   await ensureAm21ForSeed(ctx);
   await selectAm21Sample(ctx, AM21_DICE_ID, true);
   await showAm21RequestForm(ctx, true);
-  if (am21InputValue(API_MOCK.SIMULATE_SEED) !== AM21_SEED) {
-    await am21FillNow(ctx, API_MOCK.SIMULATE_SEED, AM21_SEED, T.payoff);
-  } else {
-    await am21Look(ctx, API_MOCK.SIMULATE_SEED);
-  }
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   await am21Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
   await am21Payoff(ctx, API_MOCK.SIMULATE_RENDERED);

@@ -739,7 +739,7 @@
   display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px;
 }
 .api-mock-root .am-request-line { flex-wrap: nowrap; }
-.api-mock-root .am-request-line .am-cs { flex: 0 0 96px; }
+.api-mock-root .am-request-line .am-cs { flex: 0 0 110px; }
 .api-mock-root .am-editor-title {
   font-family: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.25;
@@ -1016,10 +1016,13 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 .api-mock-root .am-input[aria-invalid="true"],
-.api-mock-root .am-input[aria-invalid="true"]:hover {
+.api-mock-root .am-input[aria-invalid="true"]:hover,
+.api-mock-root .am-textarea[aria-invalid="true"],
+.api-mock-root .am-textarea[aria-invalid="true"]:hover {
   border-color: var(--am-red);
 }
-.api-mock-root .am-input[aria-invalid="true"]:focus {
+.api-mock-root .am-input[aria-invalid="true"]:focus,
+.api-mock-root .am-textarea[aria-invalid="true"]:focus {
   border-color: var(--am-red);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--am-red) 22%, transparent);
 }
@@ -1036,10 +1039,13 @@
 /* Triggers must not resize when the selected label changes, so give selects a
    stable box: fill the grid cell in rows, fixed width in form controls. */
 .api-mock-root .am-matcher-row > .cs-wrapper.am-cs { width: 100%; }
+.api-mock-root .am-matcher-row > .cs-wrapper.am-cs--operator {
+  min-width: 210px;
+}
 .api-mock-root .am-form-control > .cs-wrapper.am-cs { width: min(280px, 100%); }
 .api-mock-root .cs-wrapper.am-cs.wide { width: 100%; }
 /* Request line keeps its compact method box. */
-.api-mock-root .am-request-line > .cs-wrapper.am-cs { width: 96px; flex: 0 0 96px; }
+.api-mock-root .am-request-line > .cs-wrapper.am-cs { width: 110px; flex: 0 0 110px; }
 .api-mock-root .cs-wrapper.am-cs .cs-trigger {
   background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text);
   font-family: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
@@ -1401,11 +1407,18 @@
 .api-mock-root .am-group-label .am-faint { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .api-mock-root .am-matcher-row {
   min-height: 42px; display: grid;
-  grid-template-columns: 118px minmax(90px,.9fr) minmax(140px, auto) minmax(120px,1.4fr) auto;
+  grid-template-columns: 118px minmax(90px,.9fr) minmax(210px, 240px) minmax(120px,1.4fr) auto;
   align-items: center; gap: 7px; padding: 5px 7px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
 }
-.api-mock-root .am-matcher-actions { display: flex; gap: 2px; }
+.api-mock-root .am-matcher-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  align-self: center;
+  gap: 2px;
+}
 .api-mock-root .am-matcher-schema { min-height: 64px; font-size: 11px; }
 .api-mock-response-editor .am-monaco-body {
   border: 1px solid var(--border); border-radius: 6px; overflow: hidden; min-height: 160px;
@@ -1651,6 +1664,37 @@
 .api-mock-root .am-matcher-result.fail { color: var(--am-red); }
 .api-mock-root .am-jsonpath-pair {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; min-width: 0;
+  align-items: center;
+}
+.api-mock-root .am-jsonpath-pair--matchstyle:not(:has(.am-expandable-text)) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+.api-mock-root .am-matchstyle-radios {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.api-mock-root .am-matchstyle-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.api-mock-root .am-matchstyle-radio:has(input:checked) { color: var(--text); }
+.api-mock-root .am-matchstyle-radio input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
 }
 .api-mock-root .am-empty-conditions {
   padding: 14px; text-align: center; color: var(--am-text-faint); font-size: 12px;
@@ -2323,6 +2367,16 @@
   flex-direction: column;
 }
 .api-mock-dock .am-dock-empty { padding: 18px; color: var(--am-text-faint); font-size: 12px; text-align: center; }
+.api-mock-dock .am-vars-table { table-layout: fixed; }
+.api-mock-dock .am-vars-col-key { width: 38%; }
+.api-mock-dock .am-vars-col-value { width: auto; }
+.api-mock-dock .am-vars-col-sensitive { width: 96px; }
+.api-mock-dock .am-vars-col-actions { width: 52px; }
+.api-mock-dock .am-vars-table .am-input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 
 /* ── Runtime console ── */
 .api-mock-dock .am-console {
@@ -3192,6 +3246,17 @@
   border-radius: 5px;
   background: var(--bg);
 }
+:is(.api-mock-dock, .am-conflicts-page-body) .am-fingerprint-why {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  white-space: normal;
+}
 :is(.api-mock-dock, .am-conflicts-page-body) .am-fingerprints .am-hint { white-space: normal; margin-top: 0; }
 :is(.api-mock-dock, .am-conflicts-page-body) .am-conflict-actions {
   flex: 0 0 auto;
@@ -3455,10 +3520,169 @@
 }
 .api-mock-response-editor .am-body-helpers {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin: 0;
   border-radius: 0;
   border: 0;
   border-top: 1px solid var(--border);
+}
+.api-mock-response-editor .am-body-helpers > span {
+  min-width: 0;
+}
+.api-mock-response-editor .am-body-helpers .am-btn {
+  flex: 0 0 auto;
+}
+
+.am-template-helpers-modal.modal {
+  width: min(1080px, 100%);
+  height: min(720px, 100%);
+  min-width: 0;
+}
+.am-template-helpers-modal.modal > .modal-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  min-width: 0;
+  overflow: hidden;
+  row-gap: 8px;
+}
+.am-template-helpers-modal.modal > .modal-header > :first-child {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.am-template-helpers-body.am-studio-modal-body > .am-template-helpers-fill {
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+}
+.am-template-helpers-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 8px;
+  overflow: auto;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+.am-template-helpers-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 0.76rem/1.2 var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+.am-template-helpers-nav-btn:hover {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+.am-template-helpers-nav-btn[data-active="true"] {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  color: var(--text);
+}
+.am-template-helpers-nav-count {
+  flex: 0 0 auto;
+  font: 600 0.68rem/1 var(--am-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: var(--text-muted);
+}
+.am-template-helpers-catalog {
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 14px 16px;
+  background: var(--bg);
+}
+.am-template-helpers-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.am-template-helpers-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 4px 2px 6px;
+  background: var(--bg);
+}
+.am-template-helpers-heading h4 {
+  margin: 0;
+  font: 600 0.72rem/1.2 var(--font);
+  color: var(--text-muted);
+}
+.am-template-helpers-heading-count {
+  font: 600 0.66rem/1 var(--am-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+.am-template-helpers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+.am-template-helpers-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.am-template-helpers-card:hover {
+  border-color: var(--primary);
+}
+.am-template-helpers-card[data-active="true"] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.am-template-helpers-name {
+  font: 500 0.68rem/1.2 var(--font);
+  color: var(--text-muted);
+  word-break: break-word;
+}
+.am-template-helpers-snippet {
+  font: 600 0.78rem/1.35 var(--am-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: color-mix(in srgb, var(--primary) 45%, var(--text));
+  word-break: break-all;
+}
+.am-template-helpers-detail {
+  margin: 0;
+  flex: 1;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+.am-template-helpers-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 2px;
+}
+.am-template-helpers-modal .am-studio-modal-footer {
+  justify-content: space-between;
 }
 
 /* Quick status chips */
@@ -3519,22 +3743,36 @@
 .api-mock-response-editor .am-response-main .am-editor-body--fill .am-form-grid { flex: 0 0 auto; }
 .api-mock-response-editor .am-response-preview {
   border-left: 1px solid var(--border); padding: 12px; background: var(--bg);
-  min-height: 0; display: flex; flex-direction: column; overflow: hidden; gap: 10px;
+  min-height: 0; display: flex; flex-direction: column; overflow: hidden; gap: 14px;
 }
 .api-mock-response-editor .am-preview-stack {
   flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+  gap: 10px;
 }
-.api-mock-response-editor .am-preview-stack > .am-section-heading { flex: 0 0 auto; }
-.api-mock-response-editor .am-preview-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; flex: 0 0 auto; }
+.api-mock-response-editor .am-preview-stack > .am-section-heading {
+  flex: 0 0 auto;
+  margin-top: 0;
+  min-height: 28px;
+  padding-bottom: 2px;
+}
+.api-mock-response-editor .am-preview-stack > .am-faint,
+.api-mock-response-editor .am-preview-stack > .am-hint--error {
+  flex: 0 0 auto;
+  line-height: 1.45;
+}
+.api-mock-response-editor .am-preview-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 2px; flex: 0 0 auto; }
 .api-mock-response-editor .am-preview-body {
   flex: 1; min-height: 80px; max-height: none; font-size: 11px; overflow: auto;
 }
 .api-mock-response-editor .am-preview-timeline {
   flex: 0 0 auto;
-  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
 }
-.api-mock-response-editor .am-preview-timeline > .am-section-heading { margin-top: 0; }
+.api-mock-response-editor .am-preview-timeline > .am-section-heading { margin-top: 0; min-height: 28px; }
 .api-mock-response-editor .am-timeline { display: flex; gap: 4px; height: 22px; }
 .api-mock-response-editor .am-timeline-bar {
   display: grid; place-items: center; font-size: 9px; font-weight: 700;
@@ -3543,12 +3781,13 @@
 .api-mock-response-editor .am-timeline-bar.match { background: color-mix(in srgb, var(--am-green) 28%, var(--surface)); }
 .api-mock-response-editor .am-timeline-bar.delay { background: color-mix(in srgb, var(--am-amber) 28%, var(--surface)); }
 .api-mock-response-editor .am-timeline-bar.render { background: color-mix(in srgb, var(--am-blue) 28%, var(--surface)); }
-.api-mock-response-editor .am-timing-lines { display: flex; flex-direction: column; gap: 8px; }
+.api-mock-response-editor .am-timing-lines { display: flex; flex-direction: column; gap: 12px; }
 .api-mock-response-editor .am-timing-line {
   display: grid;
   grid-template-columns: 70px 1fr 90px;
   gap: 8px;
   align-items: center;
+  min-height: 22px;
   font-size: 11px;
 }
 .api-mock-response-editor .am-timing-bar {
@@ -3843,6 +4082,13 @@
   justify-content: space-between;
   gap: 8px;
   min-height: 28px;
+}
+.am-tool-editor .am-tool-block-head > .am-builder-tabs {
+  flex: 1;
+  min-height: 32px;
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
 }
 .am-tool-block-title {
   margin: 0;
@@ -4302,7 +4548,7 @@
   color: var(--am-red);
   background: color-mix(in srgb, var(--am-red) 12%, transparent);
 }
-.am-sim-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); overflow: hidden; }
+.am-sim-main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); overflow: hidden; }
 .am-sim-main > .am-builder-tabs { flex: 0 0 auto; }
 .am-sim-view-toggle {
   flex: 0 0 auto;
@@ -4402,6 +4648,35 @@
 .am-predicate {
   display: grid; grid-template-columns: 22px 90px 1fr auto; gap: 7px; padding: 6px 8px;
   border-top: 1px solid var(--border); font-size: 11px;
+}
+.am-specificity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 36px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  font-size: 11px;
+}
+.am-specificity-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.am-specificity-id .am-route-title {
+  white-space: nowrap;
+}
+.am-specificity-parts {
+  flex: 1 1 12rem;
+  min-width: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 .am-predicate.am-predicate--fail {
   background: color-mix(in srgb, var(--am-red) 10%, var(--surface));
@@ -5041,7 +5316,7 @@
 /* ── Expandable body text (Simulate + Match conditions) ── */
 .api-mock-root .am-expandable-text {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 4px;
   min-width: 0;
   width: 100%;
@@ -5053,8 +5328,12 @@
 }
 .api-mock-root .am-expandable-text > .am-icon-btn {
   flex: 0 0 auto;
-  align-self: flex-start;
-  margin-top: 2px;
+  align-self: center;
+  margin-top: 0;
+}
+.api-mock-root .am-expandable-text > .am-matchstyle-radios {
+  flex: 0 0 auto;
+  align-self: center;
 }
 .api-mock-root .am-form-control > .am-expandable-text { width: 100%; }
 .api-mock-root .am-jsonpath-pair > .am-expandable-text { min-width: 0; }
@@ -5066,12 +5345,49 @@
   justify-content: center;
   align-items: center;
 }
+/* Nested inside Rule Simulation's request pane — not the full viewport. */
+.am-text-expand-overlay.am-text-expand-overlay--nested.modal-overlay {
+  position: absolute;
+  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 28px 12px 12px;
+}
+.am-text-expand-overlay--nested .am-text-expand-modal.modal {
+  width: min(820px, 100%);
+  height: min(580px, 100%);
+  max-height: calc(100% - 8px);
+}
 .am-text-expand-modal.modal {
   width: min(880px, 100%);
   height: min(620px, 100%);
+  min-width: 0;
 }
 .am-text-expand-modal.modal > .modal-header {
   align-items: flex-start;
+  flex-wrap: wrap;
+  min-width: 0;
+  overflow: hidden;
+  row-gap: 8px;
+}
+/* Title wrapper from AppModalFrame defaults to min-width:auto; the nowrap
+   subtitle then refuses to shrink and shoves Search / 0/0 past the right edge. */
+.am-text-expand-modal.modal > .modal-header > :first-child {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.am-text-expand-header-controls {
+  display: flex;
+  flex: 0 1 auto !important;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+  justify-content: flex-end;
 }
 .api-mock-root.am-in-modal.am-text-expand-search-cluster {
   display: flex;
@@ -5079,10 +5395,14 @@
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
 }
 .am-text-expand-search {
   width: 200px;
-  min-width: 160px;
+  min-width: 0;
+  max-width: 200px;
+  flex: 1 1 7rem;
   min-height: 30px;
 }
 .am-text-expand-count {

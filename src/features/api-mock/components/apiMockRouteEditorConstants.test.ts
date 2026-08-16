@@ -9,7 +9,9 @@ import {
   operatorOptionsFor,
   pairExpected,
   securitySelectorValue,
-  OPERATOR_OPTIONS,
+  METHOD_OPTIONS,
+  OPERATOR_GROUPS_ALL,
+  OPERATOR_GROUPS_SCALAR,
 } from './apiMockRouteEditorConstants';
 
 describe('apiMockRouteEditorConstants', () => {
@@ -29,12 +31,27 @@ describe('apiMockRouteEditorConstants', () => {
     expect(pairExpected('nope')).toEqual(['', '']);
   });
 
-  it('appends an unavailable operator option', () => {
-    expect(operatorOptionsFor('exact')).toEqual(OPERATOR_OPTIONS);
-    expect(operatorOptionsFor('legacy_op')).toEqual([
-      ...OPERATOR_OPTIONS,
-      { value: 'legacy_op', label: 'legacy_op (unavailable)', disabled: true },
-    ]);
+  it('groups operators and keeps an unavailable current value', () => {
+    expect(operatorOptionsFor('exact')).toEqual(OPERATOR_GROUPS_ALL);
+    expect(operatorOptionsFor('exact', 'header')).toEqual(OPERATOR_GROUPS_SCALAR);
+    expect(operatorOptionsFor('form_field_exact', 'body').some(g => g.label === 'Form')).toBe(true);
+    expect(operatorOptionsFor('form_field_exact', 'header').at(-1)).toEqual({
+      label: 'Current',
+      options: [{ value: 'form_field_exact', label: 'Form field exact (unavailable)', disabled: true }],
+    });
+    expect(operatorOptionsFor('legacy_op').at(-1)).toEqual({
+      label: 'Current',
+      options: [{ value: 'legacy_op', label: 'legacy_op (unavailable)', disabled: true }],
+    });
+  });
+
+  it('colors method options like Requests', () => {
+    const get = METHOD_OPTIONS.find(o => o.value === 'GET');
+    expect(get).toMatchObject({
+      label: 'GET',
+      detail: 'Retrieve data',
+      swatch: '#22c55e',
+    });
   });
 
   it('keeps known security selectors and blanks unknown ones', () => {

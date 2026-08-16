@@ -7,10 +7,12 @@
  * sends no traffic — analysis is static and the witness is proven in Simulate — so the
  * companion on :3001 is not required.
  *
- * Proves the lesson's own beats end to end: Analyze writes four findings, Duplicate
- * fingerprints, Shadowed dimensions, Definite vs Potential unknown, a GET /health
- * witness coming back AMBIGUOUS, Open in Studio then return, raising Daily reclassifies
- * Definite to empty, and acknowledging then editing a fingerprint marks the pair Stale.
+ * Proves the lesson's own beats end to end: Analyze writes four findings,
+ * Duplicate fingerprints, Simulate the health witness (AMBIGUOUS), Open in
+ * Studio then return, then Shadowed → Simulate MATCHED, then Definite →
+ * Simulate daily 409 and non-daily 200, then Potential → Simulate header
+ * 409 and no-header 404, raising Daily reclassifies Definite to empty, and
+ * acknowledging then editing a fingerprint marks the pair Stale.
  */
 import { test, expect } from '@playwright/test';
 import { API_MOCK } from '../src/shared/selectors/apiMock';
@@ -41,7 +43,7 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
     await cleanupApiMockLessonRun(request);
   });
 
-  test('walks all 8 steps and ends on a stale acknowledgement', async ({ page }) => {
+  test('walks all 12 steps and ends on a stale acknowledgement', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await walkApiMockLesson(page, 'am09');
@@ -68,6 +70,15 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
     await expect(page.locator(API_MOCK.CONFLICT_LIST)).toBeVisible();
     await expect(page.locator(API_MOCK.CONFLICT_SUMMARY)).toContainText('4 finding');
     await expect(page.locator(API_MOCK.FIRST_FINDING)).toHaveCount(4);
+    await expect(page.locator(API_MOCK.FIRST_FINDING).first()).toHaveAttribute('data-kind', 'duplicate');
+    await expect(page.locator(`${API_MOCK.CONFLICT_FILTERS} button`)).toHaveText([
+      /All/,
+      /Duplicate/,
+      /Shadowed/,
+      /Definite/,
+      /Potential/,
+      /Unreachable/,
+    ]);
   });
 
   test('filters Duplicate and opens rule fingerprints', async ({ page }) => {
@@ -86,36 +97,16 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
     await expect(page.locator(API_MOCK.FIRST_FINDING)).toHaveCount(1);
   });
 
-  test('filters Shadowed and shows the dimension table', async ({ page }) => {
-    test.setTimeout(AM_LESSON_TIMEOUT);
-
-    await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
-    await advanceSteps(page, 2, AM_LESSON_STEP_TIMEOUT);
-    await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
-
-    await expect(page.locator(FILTER_SHADOWED)).toHaveClass(/active/);
-    await expect(page.locator(API_MOCK.CONFLICT_DETAIL)).toBeVisible();
-    await expect(page.locator(API_MOCK.CONFLICT_DIMENSIONS)).toBeVisible();
-  });
-
-  test('contrasts Definite with Potential unknown', async ({ page }) => {
-    test.setTimeout(AM_LESSON_TIMEOUT);
-
-    await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
-    await advanceSteps(page, 3, AM_LESSON_STEP_TIMEOUT);
-    await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
-
-    await expect(page.locator(FILTER_POTENTIAL)).toHaveClass(/active/);
-    await expect(page.locator(API_MOCK.CONFLICT_DIM_UNKNOWN)).toBeVisible();
-    await expect(page.locator(FILTER_DEFINITE)).toBeVisible();
-  });
-
   test('simulates the duplicate witness then closes Simulate', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
-    await advanceSteps(page, 4, AM_LESSON_STEP_TIMEOUT);
-    await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+    await advanceSteps(page, 2, AM_LESSON_STEP_TIMEOUT);
+    const acting = completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/ambiguous/i, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await acting;
 
     await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0, {
       timeout: AM_LESSON_STEP_TIMEOUT,
@@ -127,18 +118,122 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
-    await advanceSteps(page, 5, AM_LESSON_STEP_TIMEOUT);
+    await advanceSteps(page, 3, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.CONFLICT_INSPECTOR)).toBeVisible();
     await expect(page.locator(API_MOCK.ROUTE_EDITOR)).toHaveCount(0);
   });
 
-  test('raises Daily priority and empties the Definite filter', async ({ page }) => {
+  test('filters Shadowed and shows the dimension table', async ({ page }) => {
+    test.setTimeout(AM_LESSON_TIMEOUT);
+
+    await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
+    await advanceSteps(page, 4, AM_LESSON_STEP_TIMEOUT);
+    await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+
+    await expect(page.locator(FILTER_SHADOWED)).toHaveClass(/active/);
+    await expect(page.locator(API_MOCK.CONFLICT_DETAIL)).toBeVisible();
+    await expect(page.locator(API_MOCK.CONFLICT_DIMENSIONS)).toBeVisible();
+  });
+
+  test('simulates the shadowed witness then closes Simulate', async ({ page }) => {
+    test.setTimeout(AM_LESSON_TIMEOUT);
+
+    await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
+    await advanceSteps(page, 5, AM_LESSON_STEP_TIMEOUT);
+    const acting = completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+    await expect(page.locator(API_MOCK.SIMULATE_WINNER)).toBeVisible({
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/"scope"\s*:\s*"all"/, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await acting;
+
+    await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.CONFLICT_INSPECTOR)).toBeVisible();
+  });
+
+  test('filters Definite and shows the daily vs glob pair', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
     await advanceSteps(page, 6, AM_LESSON_STEP_TIMEOUT);
+    await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+
+    await expect(page.locator(FILTER_DEFINITE)).toHaveClass(/active/);
+    await expect(page.locator(API_MOCK.CONFLICT_DETAIL)).toBeVisible();
+    await expect(page.locator(API_MOCK.CONFLICT_DIMENSIONS)).toBeVisible();
+  });
+
+  test('simulates Definite on /reports/daily then /reports/non-daily', async ({ page }) => {
+    test.setTimeout(AM_LESSON_TIMEOUT);
+
+    await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
+    await advanceSteps(page, 7, AM_LESSON_STEP_TIMEOUT);
+    const acting = completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/ambiguous/i, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.SIMULATE_WINNER)).toBeVisible({
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/"report"\s*:\s*"any"/, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await acting;
+
+    await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.CONFLICT_INSPECTOR)).toBeVisible();
+  });
+
+  test('filters Potential and shows the unknown header dimension', async ({ page }) => {
+    test.setTimeout(AM_LESSON_TIMEOUT);
+
+    await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
+    await advanceSteps(page, 8, AM_LESSON_STEP_TIMEOUT);
+    await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+
+    await expect(page.locator(FILTER_POTENTIAL)).toHaveClass(/active/);
+    await expect(page.locator(API_MOCK.CONFLICT_DIM_UNKNOWN)).toBeVisible();
+  });
+
+  test('simulates Potential with a matching header then no header', async ({ page }) => {
+    test.setTimeout(AM_LESSON_TIMEOUT);
+
+    await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
+    await advanceSteps(page, 9, AM_LESSON_STEP_TIMEOUT);
+    const acting = completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/ambiguous/i, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_STATUS)).toContainText('409', {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/not_found/i, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_STATUS)).toContainText('404', {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await acting;
+
+    await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.CONFLICT_INSPECTOR)).toBeVisible();
+  });
+
+  test('raises Daily priority and empties the Definite filter', async ({ page }) => {
+    test.setTimeout(AM_LESSON_TIMEOUT);
+
+    await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
+    await advanceSteps(page, 10, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.CONFLICT_SUMMARY)).toContainText('4 finding');
@@ -149,7 +244,7 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
-    await advanceSteps(page, 7, AM_LESSON_STEP_TIMEOUT);
+    await advanceSteps(page, 11, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.CONFLICT_STALE)).toBeVisible();

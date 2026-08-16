@@ -1,6 +1,6 @@
 /**
  * Demo lesson smoke — AM-13 `am-13-stateful`
- * (Stateful Mocks: State Machine, Counters & Weighted Chaos).
+ * (Stateful Mocks: A Cart That Remembers).
  *
  * Run: npm run test:e2e:demo:am13
  * Prereqs: companion :3001 + dev server :5173 (Playwright `webServer`). Apply
@@ -25,7 +25,7 @@ import {
 } from './api-mock-lesson-smoke-helpers';
 import { isApiMockCompanionReady } from './api-mock-multi-server-helpers';
 
-test.describe('Demo lesson AM-13 — Stateful Mocks: State Machine, Counters & Weighted Chaos', () => {
+test.describe('Demo lesson AM-13 — Stateful Mocks: A Cart That Remembers', () => {
   test.beforeEach(async ({ page, request }) => {
     test.skip(!(await isApiMockCompanionReady(request)), 'API Mock companion (:3001) not reachable');
     await prepareApiMockLessonRun(page, request);

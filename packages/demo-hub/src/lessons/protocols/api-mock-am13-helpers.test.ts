@@ -30,7 +30,6 @@ import {
   AM13_HAS_ITEMS_BODY,
   AM13_HAS_ITEMS_TRANSITION,
   AM13_PATH,
-  AM13_SEED,
   AM13_TIMING,
   AM13_VAR_KEY,
   AM13_VAR_VALUE,
@@ -734,7 +733,7 @@ describe('AM-13 stateful helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
   });
 
-  it('runAm13WeightedAndSeed fills 90/10 and a replay seed', async () => {
+  it('runAm13WeightedAndSeed fills 90/10 and runs Simulate twice', async () => {
     const ctx = makeCtx();
     withClickSideEffects(ctx);
     mountExplorer();
@@ -745,7 +744,12 @@ describe('AM-13 stateful helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.RESPONSE_MODE_WEIGHTED);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VARIANT_WEIGHT, AM13_WEIGHT_A);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VARIANT_WEIGHT, AM13_WEIGHT_B);
-    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SIMULATE_SEED, AM13_SEED);
+    expect(ctx.fill).not.toHaveBeenCalledWith(API_MOCK.SIMULATE_SEED, expect.anything());
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAVE_SAMPLE);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeGreaterThan(8_000);
+    expect(delayMs).toBeLessThan(28_000);
   });
 
   it('runAm13Variables adds a tenant row and toggles sensitive', async () => {
@@ -1012,7 +1016,7 @@ describe('AM-13 stateful helpers', () => {
       }
     }) as DemoActionContext['click'];
     await runAm13WeightedAndSeed(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SIMULATE_SEED, AM13_SEED);
+    expect(ctx.fill).not.toHaveBeenCalledWith(API_MOCK.SIMULATE_SEED, expect.anything());
   });
 
   it('am13HasTenantVariable matches a row whose text is the key', () => {

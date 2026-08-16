@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ApiMockResponseSelectionPanel, readJsonPathCondition, writeJsonPathCondition } from './ApiMockResponseSelectionPanel';
+import { ApiMockResponseSelectionPanel, readJsonPathCondition, sequenceCursorLabel, writeJsonPathCondition } from './ApiMockResponseSelectionPanel';
 import { createDefaultResponse } from '../../../shared/api-mock/defaults';
 import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
 import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
@@ -53,6 +53,17 @@ function renderPanel(
   return { onUpdateRoute, onUpdateVariant, onModeChange, activeVariant, route };
 }
 
+describe('sequenceCursorLabel', () => {
+  it('maps the shared 0-based cursor to a 1-based next step', () => {
+    expect(sequenceCursorLabel(undefined, 2)).toBe('Next: Step 1 of 2');
+    expect(sequenceCursorLabel(0, 2)).toBe('Next: Step 1 of 2');
+    expect(sequenceCursorLabel(1, 2)).toBe('Next: Step 2 of 2');
+    expect(sequenceCursorLabel(2, 2)).toBe('Next: Step 1 of 2');
+    expect(sequenceCursorLabel(2, 1)).toBe('Next: Step 1 of 1');
+    expect(sequenceCursorLabel(0, 0)).toBe('Next: Step 1 of 1');
+  });
+});
+
 describe('ApiMockResponseSelectionPanel', () => {
   it('changes response mode via CustomSelect', () => {
     const { onModeChange } = renderPanel();
@@ -82,7 +93,7 @@ describe('ApiMockResponseSelectionPanel', () => {
       {},
       { sequencePosition: 2 },
     );
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Position 2 of 1');
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Next: Step 1 of 1');
   });
 
   it('edits weighted variant weight', () => {

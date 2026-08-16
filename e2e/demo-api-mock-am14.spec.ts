@@ -1,6 +1,6 @@
 /**
  * Demo lesson smoke — AM-14 `am-14-timing-faults`
- * (Latency, Eligibility & Connection Faults).
+ * (When Payments Hang: Latency, Eligibility & Connection Faults).
  *
  * Run: npm run test:e2e:demo:am14
  * Prereqs: companion :3001 + dev server :5173 (Playwright `webServer`). Apply
@@ -26,7 +26,7 @@ import {
 } from './api-mock-lesson-smoke-helpers';
 import { isApiMockCompanionReady } from './api-mock-multi-server-helpers';
 
-test.describe('Demo lesson AM-14 — Latency, Eligibility & Connection Faults', () => {
+test.describe('Demo lesson AM-14 — When Payments Hang: Latency, Eligibility & Connection Faults', () => {
   test.beforeEach(async ({ page, request }) => {
     test.skip(!(await isApiMockCompanionReady(request)), 'API Mock companion (:3001) not reachable');
     await prepareApiMockLessonRun(page, request);

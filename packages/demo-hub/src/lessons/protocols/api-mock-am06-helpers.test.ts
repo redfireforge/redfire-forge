@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { matchJsonSchema } from '@shared/api-mock/schemaMatchers';
 import { API_MOCK } from '@shared/selectors';
 import { AM_DEMO_TIMING } from './api-mock-demo-helpers';
 import { makeCtx, makeVisible } from './ws-test-utils';
@@ -21,7 +22,11 @@ vi.mock('../../adapters', () => ({
 import {
   AM06_TIMING,
   AM06_CORPUS_SAMPLE,
+  AM06_COMPLETE_ID,
   AM06_INVALID_BODY,
+  AM06_INVALID_CUSTOMER,
+  AM06_RICH_NOTE,
+  AM06_RICH_TIER,
   AM06_JSONPATH,
   AM06_SAMPLE_COMPLETE,
   AM06_SAMPLE_EXTRAS,
@@ -129,9 +134,19 @@ function buildCondition(spec: CondSpec): HTMLElement {
   if (spec.expr != null) {
     row.append(input(`api-mock-condition-expr-${spec.id}`, spec.expr));
     row.append(input(`api-mock-condition-value-${spec.id}`, spec.value ?? ''));
-    const style = el('button', 'am-btn small ghost', `api-mock-condition-matchstyle-${spec.id}`);
-    style.textContent = spec.matchStyle === 'subset' ? 'contains' : 'equals';
-    row.append(style);
+    const radios = el('div', 'am-matchstyle-radios', `api-mock-condition-matchstyle-${spec.id}`);
+    const equals = document.createElement('input');
+    equals.type = 'radio';
+    equals.setAttribute('data-testid', `api-mock-condition-matchstyle-equals-${spec.id}`);
+    equals.checked = spec.matchStyle !== 'subset';
+    makeVisible(equals);
+    const contains = document.createElement('input');
+    contains.type = 'radio';
+    contains.setAttribute('data-testid', `api-mock-condition-matchstyle-contains-${spec.id}`);
+    contains.checked = spec.matchStyle === 'subset';
+    makeVisible(contains);
+    radios.append(equals, contains);
+    row.append(radios);
   } else {
     row.append(textarea(`api-mock-condition-schema-${spec.id}`, spec.schema ?? ''));
   }
@@ -213,6 +228,8 @@ interface SimulateSpec {
   method?: string;
   hasResult?: boolean;
   predicateRows?: string[];
+  bodyExpand?: boolean;
+  saveSample?: boolean;
 }
 
 function mountSimulate(spec: SimulateSpec = {}): void {
@@ -221,6 +238,19 @@ function mountSimulate(spec: SimulateSpec = {}): void {
   workspace.append(input('api-mock-simulate-path'));
   workspace.append(textarea('api-mock-simulate-headers'));
   workspace.append(textarea('api-mock-simulate-body'));
+  workspace.append(el('button', 'am-icon-btn', 'api-mock-simulate-body-expand'));
+  if (spec.bodyExpand) {
+    const expand = el('div', 'am-text-expand-modal', 'api-mock-text-expand-modal');
+    expand.append(input('api-mock-text-expand-search'));
+    expand.append(el('span', 'am-text-expand-count', 'api-mock-text-expand-count'));
+    expand.append(textarea('api-mock-text-expand-editor'));
+    expand.append(el('button', 'am-btn', 'api-mock-text-expand-close'));
+    workspace.append(expand);
+  }
+  if (spec.saveSample) {
+    workspace.append(el('button', 'am-btn', 'api-mock-simulate-save-sample'));
+    workspace.append(input('api-mock-simulate-sample-name'));
+  }
   workspace.append(el('button', 'am-btn primary', 'api-mock-simulate-run'));
   workspace.append(el('button', 'am-btn', 'api-mock-simulate-close'));
   if (spec.hasResult) {
@@ -315,6 +345,11 @@ describe('AM-06 helpers', () => {
     expect(rich.items[0].sku).toBe(AM06_SKU);
     expect(AM06_JSONPATH).toBe('$.items[0].sku');
     expect(AM06_RICH_BODY.split(AM06_PICK_TOKEN)).toHaveLength(2);
+    expect(AM06_RICH_BODY).toContain(AM06_RICH_TIER);
+    expect(AM06_RICH_BODY).toContain(AM06_RICH_NOTE);
+    expect(AM06_INVALID_BODY).toContain(AM06_INVALID_CUSTOMER);
+    expect(AM06_INVALID_BODY).not.toContain(AM06_COMPLETE_ID);
+    expect(AM06_RICH_BODY).toContain(AM06_COMPLETE_ID);
     // Extra fields no matcher mentions are the point of step 1.
     expect(rich.note).toBeTruthy();
     expect(rich.items).toHaveLength(2);
@@ -325,11 +360,31 @@ describe('AM-06 helpers', () => {
 
   it('ships a JSON Schema the rich body satisfies and the short one breaks', () => {
     const schema = JSON.parse(AM06_SCHEMA) as {
+      type: string;
       required: string[];
-      properties: { customer: { required: string[] } };
+      properties: {
+        customer: {
+          required: string[];
+          properties: { id: { type: string }; tier: { type: string; enum: string[] } };
+        };
+        items: { type: string; minItems: number; items: { type: string; required: string[] } };
+      };
     };
+    expect(schema.type).toBe('object');
     expect(schema.required).toEqual(['customer', 'items']);
-    expect(schema.properties.customer.required).toContain('id');
+    expect(schema.properties.customer.required).toEqual(['id', 'tier']);
+    expect(Object.keys(schema.properties.customer.properties)).toEqual(
+      expect.arrayContaining(schema.properties.customer.required),
+    );
+    expect(schema.properties.customer.properties.id.type).toBe('string');
+    expect(schema.properties.customer.properties.tier.type).toBe('string');
+    expect(schema.properties.customer.properties.tier.enum).toEqual(['gold', 'platinum']);
+    expect(schema.properties.items.type).toBe('array');
+    expect(schema.properties.items.minItems).toBe(1);
+    expect(schema.properties.items.items.type).toBe('object');
+    expect(schema.properties.items.items.required).toContain('sku');
+    expect(matchJsonSchema(AM06_RICH_BODY, AM06_SCHEMA)).toBe(true);
+    expect(matchJsonSchema(AM06_INVALID_BODY, AM06_SCHEMA)).toBe(false);
   });
 
   // ── row identity ──────────────────────────────────────────────────────────
@@ -363,7 +418,7 @@ describe('AM-06 helpers', () => {
     expect(am06FindConditionByOperator('json_strict')).toBeNull();
   });
 
-  it('reads the contains reading off the match-style button label', () => {
+  it('reads the contains reading off the checked match-style radio', () => {
     mountEditor([{ ...JSONPATH_COND, matchStyle: 'subset', value: AM06_SKU_FAMILY }]);
     expect(am06MatchStyleLabel('p-path')).toBe('contains');
     expect(am06ConditionValue('p-path')).toBe(AM06_SKU_FAMILY);
@@ -580,7 +635,7 @@ describe('AM-06 helpers', () => {
   it('step 1 reads the baseline, then proves a payload with extras still matches', async () => {
     mountExplorer();
     mountEditor([SUBSET_COND]);
-    mountSimulate({ predicateRows: ['✓ body json_subset'] });
+    mountSimulate({ bodyExpand: true, predicateRows: ['✓ body json_subset'] });
 
     const ctx = makeCtx();
     const outcome = await runAm06SubsetBaseline(ctx);
@@ -589,9 +644,13 @@ describe('AM-06 helpers', () => {
     expect(fills(ctx.fill)).toEqual([
       [API_MOCK.SIMULATE_PATH, AM06_RULE_PATH],
       [API_MOCK.SIMULATE_BODY, AM06_RICH_BODY],
+      [API_MOCK.TEXT_EXPAND_SEARCH, AM06_RICH_TIER],
     ]);
     // Simulate opens seeded from the POST rule, so no method pick is needed.
     expect(ctx.selectOption).not.toHaveBeenCalled();
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_BODY_EXPAND);
+    expect(calls(ctx.click)).toContain(API_MOCK.TEXT_EXPAND_CLOSE);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
   });
 
@@ -626,6 +685,7 @@ describe('AM-06 helpers', () => {
     mountEditor([SUBSET_COND]);
     mountSimulate({
       hasResult: true,
+      bodyExpand: true,
       outcome: 'UNMATCHED',
       predicateRows: ['body json_strict failed — got "{…}"'],
     });
@@ -639,6 +699,11 @@ describe('AM-06 helpers', () => {
       [API_MOCK.conditionOperator('p-subset'), 'json_subset'],
     ]);
     expect(fills(ctx.fill)).toContainEqual([API_MOCK.SIMULATE_BODY, AM06_RICH_BODY]);
+    expect(fills(ctx.fill)).toContainEqual([API_MOCK.TEXT_EXPAND_SEARCH, AM06_RICH_NOTE]);
+    expect(fills(ctx.fill)).not.toContainEqual([API_MOCK.TEXT_EXPAND_SEARCH, AM06_RICH_TIER]);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_BODY_EXPAND);
+    expect(calls(ctx.click)).toContain(API_MOCK.TEXT_EXPAND_CLOSE);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_VIEW_REQUEST);
   });
 
@@ -654,7 +719,7 @@ describe('AM-06 helpers', () => {
   it('step 3 derives the JSONPath from a selection instead of typing it', async () => {
     mountExplorer();
     mountEditor([SUBSET_COND]);
-    mountToolbox({ sample: AM06_RICH_BODY, jsonPath: AM06_JSONPATH });
+    mountToolbox({ sample: AM06_RICH_BODY, jsonPath: AM06_JSONPATH, expected: AM06_SKU });
 
     const ctx = makeCtx();
     const selected: Array<[number, number]> = [];
@@ -668,11 +733,9 @@ describe('AM-06 helpers', () => {
     // The token was highlighted, so the product derives the path from the caret.
     const at = AM06_RICH_BODY.indexOf(AM06_PICK_TOKEN);
     expect(selected).toEqual([[at, at + AM06_PICK_TOKEN.length]]);
-    // Expected is cleared (exists) then filled (equals) — the path is never typed.
+    // The pick already wrote Expected — do not clear it to demo exists.
     expect(fills(ctx.fill)).toEqual([
       [API_MOCK.TOOLBOX_JSON_SAMPLE, AM06_RICH_BODY],
-      [API_MOCK.TOOLBOX_JSON_EXPECTED, ''],
-      [API_MOCK.TOOLBOX_JSON_EXPECTED, AM06_SKU],
     ]);
     // The toolbox was already open, so the wand is not clicked a second time.
     expect(calls(ctx.click)).toEqual([API_MOCK.TOOLBOX_TAB_JSONPATH, API_MOCK.TOOLBOX_APPLY]);
@@ -687,6 +750,7 @@ describe('AM-06 helpers', () => {
     await runAm06PickFromJson(ctx);
 
     expect(fills(ctx.fill)).toContainEqual([API_MOCK.TOOLBOX_JSONPATH, AM06_JSONPATH]);
+    expect(fills(ctx.fill)).toContainEqual([API_MOCK.TOOLBOX_JSON_EXPECTED, AM06_SKU]);
   });
 
   it('step 3 opens the toolbox from the wand beside the path when it is closed', async () => {
@@ -715,7 +779,7 @@ describe('AM-06 helpers', () => {
     const ctx = makeCtx();
     await runAm06MatchStyle(ctx);
 
-    expect(calls(ctx.click)).toEqual([API_MOCK.conditionMatchStyle('p-path')]);
+    expect(calls(ctx.click)).toEqual([API_MOCK.conditionMatchStyleContains('p-path')]);
     expect(fills(ctx.fill)).toEqual([[API_MOCK.conditionValue('p-path'), AM06_SKU_FAMILY]]);
   });
 
@@ -770,6 +834,8 @@ describe('AM-06 helpers', () => {
     mountEditor([SUBSET_COND, JSONPATH_COND, SCHEMA_COND]);
     mountSimulate({
       hasResult: true,
+      bodyExpand: true,
+      saveSample: true,
       predicateRows: [
         '✓ Method match',
         '✓ body json_subset',
@@ -782,10 +848,23 @@ describe('AM-06 helpers', () => {
     const outcomes = await runAm06ProveSchema(ctx);
 
     expect(outcomes).toEqual(['MATCHED', 'MATCHED']);
-    expect(fills(ctx.fill).map(f => f[1])).toEqual([
-      AM06_RULE_PATH, AM06_INVALID_BODY, AM06_RULE_PATH, AM06_RICH_BODY,
+    expect(fills(ctx.fill)).toEqual([
+      [API_MOCK.SIMULATE_PATH, AM06_RULE_PATH],
+      [API_MOCK.SIMULATE_BODY, AM06_INVALID_BODY],
+      [API_MOCK.SIMULATE_SAMPLE_NAME, AM06_SAMPLE_INVALID],
+      [API_MOCK.TEXT_EXPAND_SEARCH, AM06_INVALID_CUSTOMER],
+      [API_MOCK.SIMULATE_PATH, AM06_RULE_PATH],
+      [API_MOCK.SIMULATE_BODY, AM06_RICH_BODY],
+      [API_MOCK.SIMULATE_SAMPLE_NAME, AM06_SAMPLE_COMPLETE],
+      [API_MOCK.TEXT_EXPAND_SEARCH, AM06_COMPLETE_ID],
     ]);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_SAVE_SAMPLE)).toHaveLength(2);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_BODY_EXPAND)).toHaveLength(2);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.TEXT_EXPAND_CLOSE)).toHaveLength(2);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_RUN)).toHaveLength(2);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_RENDERED);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeLessThan(38_000);
   });
 });
