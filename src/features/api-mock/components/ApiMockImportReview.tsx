@@ -626,18 +626,18 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
                   </div>
                   <div className="am-form-row">
                     <div className="am-form-label">Path</div>
-                    <div className="am-form-control"><span className="am-mono" data-testid="api-mock-import-preview-path">{primaryRoute.path.value}</span></div>
+                    <div className="am-form-control"><span data-testid="api-mock-import-preview-path">{primaryRoute.path.value}</span></div>
                   </div>
                   <div className="am-form-row">
                     <div className="am-form-label">Priority</div>
-                    <div className="am-form-control"><span className="am-mono">P{primaryRoute.priority}</span></div>
+                    <div className="am-form-control"><span>P{primaryRoute.priority}</span></div>
                   </div>
                 </div>
               )}
               {preview.routes.length > 1 && (
                 <ul className="am-import-route-list" data-testid="api-mock-import-route-list">
                   {preview.routes.map(r => (
-                    <li key={r.id} className="am-mono">
+                    <li key={r.id}>
                       <span className={`am-method-pill ${r.method.toLowerCase()}`}>{r.method}</span>
                       {r.path.value}
                     </li>

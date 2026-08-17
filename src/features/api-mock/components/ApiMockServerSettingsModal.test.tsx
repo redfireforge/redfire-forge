@@ -127,6 +127,18 @@ describe('ApiMockServerSettingsModal', () => {
     expect(screen.getByText(/exposes this mock server to your local network/i)).toBeTruthy();
   });
 
+  it('adds a catalog header from the Journal reference chips', () => {
+    const onSave = vi.fn();
+    render(<ApiMockServerSettingsModal server={makeServer()} onSave={onSave} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-settings-tab-journal'));
+    expect(screen.getByTestId('api-mock-settings-redact-header-picker')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('api-mock-redact-header-chip-x-csrf-token'));
+    fireEvent.click(screen.getByTestId('api-mock-settings-save'));
+
+    expect(onSave.mock.calls[0][0].settings.redaction.headerNames).toContain('x-csrf-token');
+  });
+
   it('cancels without saving', () => {
     const onSave = vi.fn();
     const onClose = vi.fn();
@@ -135,6 +147,29 @@ describe('ApiMockServerSettingsModal', () => {
     fireEvent.click(screen.getByTestId('api-mock-settings-cancel'));
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not close when clicking the overlay backdrop', () => {
+    const onClose = vi.fn();
+    render(<ApiMockServerSettingsModal server={makeServer()} onSave={vi.fn()} onClose={onClose} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-settings-overlay'));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId('api-mock-settings-modal')).toBeTruthy();
+  });
+
+  it('places default-deny and loop-guard under the Enabled toggle, not Record drafts', () => {
+    render(<ApiMockServerSettingsModal server={makeServer()} onSave={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-settings-tab-proxy'));
+    const enabled = screen.getByTestId('api-mock-settings-proxy-enabled');
+    const deny = screen.getByTestId('api-mock-settings-proxy-deny');
+    const loop = screen.getByTestId('api-mock-settings-proxy-loop');
+    const record = screen.getByTestId('api-mock-settings-proxy-record');
+    expect(deny.textContent).toMatch(/Default-deny/);
+    expect(loop.textContent).toMatch(/508/);
+    expect(enabled.closest('.am-stg-row-ctrl')).toBe(deny.closest('.am-stg-row-ctrl'));
+    expect(enabled.closest('.am-stg-row-ctrl')).toBe(loop.closest('.am-stg-row-ctrl'));
+    expect(record.closest('.am-stg-row-ctrl')).not.toBe(loop.closest('.am-stg-row-ctrl'));
   });
 
   describe('TLS certificate sharing', () => {

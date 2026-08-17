@@ -18,6 +18,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   spotlightBeat,
   ensureAdHocSimulateForm,
 } from './api-mock-demo-helpers';
@@ -33,7 +34,7 @@ export const AM21_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
   generate: 2000,
 } as const;
 
@@ -46,7 +47,6 @@ export const AM21_DICE_ID = 'sample-dice';
 export const AM21_ORPHAN_ID = 'sample-orphan';
 export const AM21_ADHOC_PATH = '/health';
 export const AM21_WRONG_STATUS = '201';
-export const AM21_SEED = '4242';
 
 async function am21Aim(
   ctx: DemoActionContext,
@@ -72,16 +72,6 @@ async function am21AimFill(
   hold: number = T.fieldFilled,
 ): Promise<void> {
   await fillBeat(ctx, selector, value, { look: T.beforeOpen, hold });
-}
-
-async function am21FillNow(
-  ctx: DemoActionContext,
-  selector: string,
-  value: string,
-  hold: number = T.fieldFilled,
-): Promise<void> {
-  await ctx.fill(selector, value);
-  await ctx.delay(hold);
 }
 
 async function am21Reveal(
@@ -138,6 +128,12 @@ export function isAm21StudioViewActive(): boolean {
 
 export function hasAm21Result(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SIMULATE_OUTCOME) || firstVisibleElement(API_MOCK.SIMULATE_RESULT));
+}
+
+export function hasAm21SampleResult(id: string): boolean {
+  const row = firstVisibleElement(API_MOCK.simSample(id))
+    ?? document.querySelector(API_MOCK.simSample(id));
+  return Boolean(row?.querySelector('.am-badge, [data-testid="api-mock-sim-sample-fail"]'));
 }
 
 export function hasAm21Fail(): boolean {
@@ -217,11 +213,9 @@ export async function ensureAm21Library(ctx: DemoActionContext): Promise<void> {
   if (imported) await ctx.waitFor(API_MOCK.ROUTE_ROW, 10_000);
 }
 
-export async function closeAm21Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm21Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm21SimulateOpen()) return;
-  if (!firstVisibleElement(API_MOCK.SIMULATE_CLOSE)) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(200);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 200 });
 }
 
 export async function openAm21Simulate(ctx: DemoActionContext, visible: boolean): Promise<void> {
@@ -253,6 +247,17 @@ async function ensureAm21Result(ctx: DemoActionContext, visible: boolean): Promi
   await ctx.waitFor(API_MOCK.SIMULATE_OUTCOME, REVEAL_MS);
 }
 
+async function ensureAm21HealthResult(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  await selectAm21Sample(ctx, AM21_HEALTH_ID, visible);
+  if (hasAm21SampleResult(AM21_HEALTH_ID)) return;
+  if (visible) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
+  } else {
+    await ctx.click(API_MOCK.SIMULATE_RUN);
+  }
+  await ctx.waitFor(API_MOCK.SIMULATE_OUTCOME, REVEAL_MS);
+}
+
 async function showAm21RequestForm(ctx: DemoActionContext, visible: boolean): Promise<void> {
   if (!firstVisibleElement(API_MOCK.SIMULATE_VIEW_REQUEST)) return;
   if (visible) await am21Aim(ctx, API_MOCK.SIMULATE_VIEW_REQUEST, T.tabSwitch);
@@ -268,8 +273,7 @@ async function openAm21Assertions(ctx: DemoActionContext, visible: boolean): Pro
 
 export async function ensureAm21WrongExpectation(ctx: DemoActionContext, visible = false): Promise<void> {
   await openAm21Simulate(ctx, visible);
-  await selectAm21Sample(ctx, AM21_HEALTH_ID, visible);
-  await ensureAm21Result(ctx, visible);
+  await ensureAm21HealthResult(ctx, visible);
   await openAm21Assertions(ctx, visible);
   if (hasAm21WrongExpectation()) return;
   if (!firstVisibleElement(API_MOCK.SIMULATE_ASSERT_STATUS)) return;
@@ -291,8 +295,7 @@ export async function ensureAm21ForThreeViews(ctx: DemoActionContext): Promise<v
 export async function ensureAm21ForExpectations(ctx: DemoActionContext): Promise<void> {
   await ensureAm21Library(ctx);
   await openAm21Simulate(ctx, false);
-  await selectAm21Sample(ctx, AM21_HEALTH_ID, false);
-  await ensureAm21Result(ctx, false);
+  await ensureAm21HealthResult(ctx, false);
 }
 
 export async function ensureAm21ForFailLoudly(ctx: DemoActionContext): Promise<void> {
@@ -345,7 +348,7 @@ export async function runAm21SuiteAndScratchpad(ctx: DemoActionContext): Promise
   await reviewAndRunSimulation(ctx, {
     review: T.payoff,
     beforeRun: T.beforeRun,
-    saveSample: false,
+    sampleName: `GET ${AM21_ADHOC_PATH} — scratch pad`,
   });
   await am21Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
   await am21Payoff(ctx, API_MOCK.SIMULATE_OUTCOME);
@@ -383,7 +386,11 @@ export async function runAm21Expectations(ctx: DemoActionContext): Promise<void>
 
 export async function runAm21FailLoudly(ctx: DemoActionContext): Promise<void> {
   await ensureAm21ForFailLoudly(ctx);
-  await am21ClickNow(ctx, API_MOCK.simSampleBtn(AM21_HEALTH_ID), T.fieldFilled);
+  if (!isAm21HealthSelected()) {
+    await am21ClickNow(ctx, API_MOCK.simSampleBtn(AM21_HEALTH_ID), T.fieldFilled);
+  } else {
+    await am21Look(ctx, API_MOCK.simSample(AM21_HEALTH_ID));
+  }
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   await am21Reveal(ctx, API_MOCK.SIMULATE_FAIL_BADGE, T.simOutcome);
   await am21Payoff(ctx, API_MOCK.SIMULATE_FAIL_BADGE);
@@ -413,11 +420,6 @@ export async function runAm21Seed(ctx: DemoActionContext): Promise<void> {
   await ensureAm21ForSeed(ctx);
   await selectAm21Sample(ctx, AM21_DICE_ID, true);
   await showAm21RequestForm(ctx, true);
-  if (am21InputValue(API_MOCK.SIMULATE_SEED) !== AM21_SEED) {
-    await am21FillNow(ctx, API_MOCK.SIMULATE_SEED, AM21_SEED, T.payoff);
-  } else {
-    await am21Look(ctx, API_MOCK.SIMULATE_SEED);
-  }
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   await am21Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
   await am21Payoff(ctx, API_MOCK.SIMULATE_RENDERED);
@@ -436,6 +438,7 @@ export async function runAm21ExportTrace(ctx: DemoActionContext): Promise<void> 
   await am21Reveal(ctx, API_MOCK.SIMULATE_EXPORT_CONFIRM, T.payoff);
   await am21Look(ctx, API_MOCK.SIMULATE_EXPORT_PREVIEW);
   await am21Payoff(ctx, API_MOCK.SIMULATE_EXPORT_CONFIRM);
+  await closeAm21Simulate(ctx, { review: true });
 }
 
 export async function runAm21Examples(ctx: DemoActionContext): Promise<void> {

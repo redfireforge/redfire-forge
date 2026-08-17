@@ -1,7 +1,7 @@
 /**
  * API Mock gallery sample factories — deterministic server definitions.
  */
-export { createHealthCheckMock, createUsersApiMock, createStoreLibraryMock } from './presets-getting-started';
+export { createHealthCheckMock, createUsersApiMock, createStoreLibraryMock, createStoreForensicsMock } from './presets-getting-started';
 export {
   createPathMatchingMock,
   createPredicateStarterMock,

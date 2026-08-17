@@ -1,12 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from 'vitest';
 import {
+  combinatorLabel,
   describeFailure,
+  describeGroupOutcome,
   evaluateOperator,
   extractSecurityValue,
   extractValue,
   formatJsonPathValue,
   parseBodyCached,
+  predicateResultLabel,
   stripBasePath,
 } from './predicateEvaluatorHelpers';
 import type { ApiMockCapturedRequestV1, ApiMockPredicateV1 } from './contracts';
@@ -220,6 +223,34 @@ describe('predicateEvaluatorHelpers', () => {
     const mp = ['------b', 'Content-Disposition: form-data; name="note"', '', 'hi', '------b--', ''].join('\r\n');
     expect(evaluateOperator('multipart_field', mp, 'note', undefined, { contentType: 'multipart/form-data; boundary=----b' })).toBe(true);
     expect(evaluateOperator('unknown' as any, 'data', 'x')).toBe(false);
+  });
+
+  it('labels combinators and group outcomes for the decision trace', () => {
+    expect(combinatorLabel('all')).toBe('All of');
+    expect(combinatorLabel('any')).toBe('Any of');
+    expect(combinatorLabel('not')).toBe('None of');
+    expect(combinatorLabel('weird')).toBe('Group');
+    expect(predicateResultLabel({ source: 'header', selector: 'x-debug' })).toBe('header "x-debug"');
+    expect(predicateResultLabel({ source: 'None of', combinator: 'not' })).toBe('None of');
+    expect(describeGroupOutcome('not', false, [
+      { passed: true, evaluated: true, source: 'header', selector: 'x-debug' },
+    ])).toBe('rejected — header "x-debug" matched');
+    expect(describeGroupOutcome('not', true, [
+      { passed: false, evaluated: true, source: 'header', selector: 'x-debug' },
+    ])).toBe('passed — no child matched');
+    expect(describeGroupOutcome('not', false, [
+      { passed: false, evaluated: false, source: 'body' },
+    ])).toBe('fail-closed — a child could not be evaluated');
+    expect(describeGroupOutcome('any', false, [])).toBe('failed — no child passed');
+    expect(describeGroupOutcome('all', false, [
+      { passed: false, evaluated: true, source: 'query', selector: 'page' },
+    ])).toBe('failed — query "page" did not match');
+    expect(describeGroupOutcome('weird', false, [])).toContain('fail-closed');
+    expect(describeGroupOutcome('not', false, [
+      { passed: false, evaluated: true, source: 'header' },
+    ])).toBe('rejected — a child matched');
+    expect(describeGroupOutcome('all', false, [])).toBe('failed — every child must pass');
+    expect(describeGroupOutcome('all', true, [])).toBe('passed');
   });
 
   it('formats absent, joined, and truncated failure descriptions', () => {

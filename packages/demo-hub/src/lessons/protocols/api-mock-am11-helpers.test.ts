@@ -37,6 +37,8 @@ import {
   AM11_TIMING,
   AM11_VARIABLES_BODY,
   am11HasCompletions,
+  am11HasHelpersBrowse,
+  am11HasHelpersModal,
   am11HasMapper,
   am11HasTemplateBadge,
   am11HasTemplateError,
@@ -44,6 +46,7 @@ import {
   am11PreviewText,
   am11VariableKeys,
   cleanupAm11,
+  closeAm11HelpersIfOpen,
   closeAm11MapperIfOpen,
   ensureAm11EchoBody,
   ensureAm11FakerBody,
@@ -68,6 +71,7 @@ import {
   prepareAm11Workspace,
   runAm11Completions,
   runAm11Echo,
+  runAm11HelpersCatalog,
   runAm11Faker,
   runAm11Generated,
   runAm11MapBody,
@@ -179,6 +183,34 @@ function mountEditor(opts: {
   document.body.append(editor);
 }
 
+function mountHelpersBrowse(): HTMLButtonElement {
+  const existing = document.querySelector<HTMLButtonElement>(API_MOCK.TEMPLATE_HELPERS_BROWSE);
+  if (existing) return existing;
+  const browse = el('button', 'am-btn', 'api-mock-template-helpers-browse') as HTMLButtonElement;
+  browse.textContent = 'Browse helpers';
+  const editor = document.querySelector(API_MOCK.RESPONSE_EDITOR) ?? document.body;
+  editor.append(browse);
+  return browse;
+}
+
+function mountHelpersModal(): HTMLElement {
+  document.querySelector(API_MOCK.TEMPLATE_HELPERS_MODAL)?.remove();
+  const modal = el('div', 'am-template-helpers-modal', 'api-mock-template-helpers-modal');
+  const group = el('section', 'am-template-helpers-group', 'api-mock-template-helpers-group-request');
+  const row = el('div', 'am-template-helpers-row', 'api-mock-template-helpers-row');
+  row.setAttribute('data-helper-id', 'uuid');
+  row.textContent = '{{uuid}}';
+  group.append(row);
+  modal.append(group);
+  const search = document.createElement('input');
+  search.setAttribute('data-testid', 'api-mock-template-helpers-search');
+  makeVisible(search);
+  modal.append(search);
+  modal.append(el('button', 'am-btn', 'api-mock-template-helpers-close'));
+  document.body.append(modal);
+  return modal;
+}
+
 function mountLiveStrip(): void {
   const strip = el('div', 'am-live-strip', 'api-mock-live-strip');
   const tx = el('button', 'am-chip', 'api-mock-live-transactions');
@@ -263,7 +295,10 @@ describe('AM-11 templating helpers', () => {
     expect(AM11_TIMING.beforeOpen).toBe(1400);
     expect(AM11_TIMING.payoff).toBe(1600);
     expect(AM11_TIMING.completions).toBe(2000);
+    expect(AM11_TIMING.helpersCatalog).toBe(2000);
     expect(AM11_TIMING.fakerPreview).toBe(1500);
+    expect(AM11_TIMING.brokenExpression).toBe(4500);
+    expect(AM11_TIMING.brokenExpression).toBeGreaterThan(AM11_TIMING.templateError);
     expect(AM11_TIMING.templateError).toBe(3200);
   });
 
@@ -276,6 +311,8 @@ describe('AM-11 templating helpers', () => {
     expect(am11HasTemplateError()).toBe(false);
     expect(am11HasMapper()).toBe(false);
     expect(am11HasCompletions()).toBe(false);
+    expect(am11HasHelpersBrowse()).toBe(false);
+    expect(am11HasHelpersModal()).toBe(false);
 
     mountExplorer();
     mountServerBar(true, true);
@@ -546,6 +583,7 @@ describe('AM-11 templating helpers', () => {
     mountExplorer();
     mountEditor({ templateError: true });
     await runAm11TemplateError(ctx);
+    expect(ctx.delay).toHaveBeenCalledWith(AM11_TIMING.brokenExpression);
     expect(ctx.delay).toHaveBeenCalledWith(AM11_TIMING.templateError);
     expect(patchApiMockActiveRoute).toHaveBeenCalledWith({ body: AM11_BROKEN_BODY, contentType: AM11_CONTENT_JSON });
     expect(patchApiMockActiveRoute).toHaveBeenLastCalledWith({
@@ -766,6 +804,68 @@ describe('AM-11 templating helpers', () => {
     document.body.append(suggest);
     await runAm11Completions(ctx);
     expect(clicks(ctx)).toContain(API_MOCK.VARIANT_BODY);
+  });
+
+  it('runAm11Completions opens Browse helpers, searches uuid, and closes', async () => {
+    const ctx = makeCtx();
+    mountExplorer();
+    mountEditor();
+    mountHelpersBrowse();
+    (ctx.click as ReturnType<typeof vi.fn>).mockImplementation(async (selector: string) => {
+      if (selector === API_MOCK.TEMPLATE_HELPERS_BROWSE) mountHelpersModal();
+      if (selector === API_MOCK.TEMPLATE_HELPERS_CLOSE) {
+        document.querySelector(API_MOCK.TEMPLATE_HELPERS_MODAL)?.remove();
+      }
+    });
+    await runAm11Completions(ctx);
+    expect(clicks(ctx)).toEqual(expect.arrayContaining([
+      API_MOCK.VARIANT_BODY,
+      API_MOCK.TEMPLATE_HELPERS_BROWSE,
+      API_MOCK.TEMPLATE_HELPERS_CLOSE,
+    ]));
+    expect(fills(ctx)).toContainEqual([API_MOCK.TEMPLATE_HELPERS_SEARCH, 'uuid']);
+    expect(am11HasHelpersModal()).toBe(false);
+  });
+
+  it('runAm11HelpersCatalog is a no-op without Browse helpers', async () => {
+    const ctx = makeCtx();
+    mountEditor();
+    await runAm11HelpersCatalog(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('closeAm11HelpersIfOpen is quiet when the catalog is already closed', async () => {
+    const ctx = makeCtx();
+    await closeAm11HelpersIfOpen(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('closeAm11HelpersIfOpen dismisses an open catalog quietly', async () => {
+    const ctx = makeCtx();
+    mountHelpersModal();
+    (ctx.click as ReturnType<typeof vi.fn>).mockImplementation(async (selector: string) => {
+      if (selector === API_MOCK.TEMPLATE_HELPERS_CLOSE) {
+        document.querySelector(API_MOCK.TEMPLATE_HELPERS_MODAL)?.remove();
+      }
+    });
+    await closeAm11HelpersIfOpen(ctx);
+    expect(clicks(ctx)).toEqual([API_MOCK.TEMPLATE_HELPERS_CLOSE]);
+    expect(am11HasHelpersModal()).toBe(false);
+  });
+
+  it('ensureAm11Workspace closes a leftover helpers catalog', async () => {
+    const ctx = makeCtx();
+    mountExplorer();
+    mountServerBar(true, true);
+    mountEditor();
+    mountHelpersModal();
+    (ctx.click as ReturnType<typeof vi.fn>).mockImplementation(async (selector: string) => {
+      if (selector === API_MOCK.TEMPLATE_HELPERS_CLOSE) {
+        document.querySelector(API_MOCK.TEMPLATE_HELPERS_MODAL)?.remove();
+      }
+    });
+    await ensureAm11Workspace(ctx);
+    expect(clicks(ctx)).toContain(API_MOCK.TEMPLATE_HELPERS_CLOSE);
   });
 
   it('runAm11Variables clicks the Variables dock tab when it is not selected', async () => {

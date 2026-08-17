@@ -25,6 +25,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   spotlightElementBeat,
@@ -50,7 +51,7 @@ export const AM06_TIMING = {
   /** Spotlight on a tab or modal trigger before the click, so the viewer can aim. */
   beforeOpen: 1400,
   /** Ring on **Run simulation** before the click. */
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM06_TIMING;
@@ -117,8 +118,14 @@ export const AM06_CORPUS_SAMPLE = 'am-gallery-bodies';
 export const AM06_RULE_PATH = '/orders';
 export const AM06_RULE_METHOD = 'POST';
 
-/** Step 1 — the baseline the corpus ships: "the body must contain at least this". */
-export const AM06_SUBSET_EXPECTED = '{\n  "customer": {\n    "tier": "gold"\n  }\n}';
+/** Step 1 — compact one-liner so the Match row shows the whole fragment. */
+export const AM06_SUBSET_EXPECTED = '{"customer":{"tier":"gold"}}';
+
+/** Saved-sample names — never just `POST /orders`, or the sidebar lists twins. */
+export const AM06_SAMPLE_EXTRAS = `POST ${AM06_RULE_PATH} — extra fields`;
+export const AM06_SAMPLE_STRICT = `POST ${AM06_RULE_PATH} — extras vs strict`;
+export const AM06_SAMPLE_INVALID = `POST ${AM06_RULE_PATH} — missing id`;
+export const AM06_SAMPLE_COMPLETE = `POST ${AM06_RULE_PATH} — complete order`;
 
 /**
  * The payload a real client sends: the gold tier the baseline asks for, plus an id,
@@ -154,6 +161,14 @@ export const AM06_PICK_TOKEN = '"RF-100"';
 export const AM06_JSONPATH = '$.items[0].sku';
 export const AM06_SKU = 'RF-100';
 
+/** Step 1 / 2 — the subset fragment, and an extra field no matcher mentions. */
+export const AM06_RICH_TIER = '"tier": "gold"';
+export const AM06_RICH_NOTE = '"note": "gift wrap"';
+
+/** Step 6 — tokens searched in the Body expand modal so the viewer can read the shape. */
+export const AM06_INVALID_CUSTOMER = '"customer": { "tier": "gold" }';
+export const AM06_COMPLETE_ID = '"id": "C-4421"';
+
 /** Step 4 — a substring reading accepts the whole SKU family, not one part number. */
 export const AM06_SKU_FAMILY = 'RF-';
 
@@ -168,10 +183,21 @@ export const AM06_SCHEMA = [
   '      "type": "object",',
   '      "required": ["id", "tier"],',
   '      "properties": {',
-  '        "tier": { "enum": ["gold", "platinum"] }',
+  '        "id": { "type": "string", "minLength": 1 },',
+  '        "tier": { "type": "string", "enum": ["gold", "platinum"] }',
   '      }',
   '    },',
-  '    "items": { "type": "array", "minItems": 1 }',
+  '    "items": {',
+  '      "type": "array",',
+  '      "minItems": 1,',
+  '      "items": {',
+  '        "type": "object",',
+  '        "required": ["sku"],',
+  '        "properties": {',
+  '          "sku": { "type": "string" }',
+  '        }',
+  '      }',
+  '    }',
   '  }',
   '}',
 ].join('\n');
@@ -260,9 +286,11 @@ export function am06ConditionValue(id: string): string {
   return document.querySelector<HTMLInputElement>(API_MOCK.conditionValue(id))?.value ?? '';
 }
 
-/** `equals` or `contains` — the button label *is* the current reading. */
+/** `equals` or `contains` — read from the checked radio, not the group label. */
 export function am06MatchStyleLabel(id: string): string {
-  return document.querySelector(API_MOCK.conditionMatchStyle(id))?.textContent?.trim() ?? '';
+  const contains = document.querySelector<HTMLInputElement>(API_MOCK.conditionMatchStyleContains(id));
+  if (contains) return contains.checked ? 'contains' : 'equals';
+  return document.querySelector(API_MOCK.conditionMatchStyle(id))?.textContent?.trim().toLowerCase() ?? '';
 }
 
 /** Root group — the only one carrying the un-suffixed `+ Condition` button. */
@@ -294,6 +322,10 @@ export function isAm06ToolboxOpen(): boolean {
 
 export function isAm06SimulateOpen(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE));
+}
+
+export function isAm06TextExpandOpen(): boolean {
+  return Boolean(firstVisibleElement(API_MOCK.TEXT_EXPAND_MODAL));
 }
 
 /** The JSONPath the toolbox derived from the sample body. */
@@ -356,11 +388,21 @@ export async function closeAm06Toolbox(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(AM_DEMO_TIMING.panelReady);
 }
 
+/** Dismiss the Request body popup so Save / Run are not sitting behind it. */
+export async function closeAm06TextExpand(ctx: DemoActionContext, visible = false): Promise<void> {
+  if (!isAm06TextExpandOpen()) return;
+  if (visible) {
+    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_CLOSE, { look: 300, hold: 400 });
+    return;
+  }
+  firstVisibleElement<HTMLButtonElement>(API_MOCK.TEXT_EXPAND_CLOSE)?.click();
+}
+
 /** Dismiss the Simulate workspace so the next step's spotlight lands on the Studio. */
-export async function closeAm06Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm06Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
+  await closeAm06TextExpand(ctx);
   if (!isAm06SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(AM_DEMO_TIMING.panelReady);
+  await closeSimulateWorkspace(ctx, opts);
 }
 
 // ── Guards ──────────────────────────────────────────────────────────────────
@@ -485,26 +527,103 @@ async function openAm06Simulate(ctx: DemoActionContext): Promise<void> {
 }
 
 /**
+ * After the body is pasted: open **Request body**, search each teaching token so
+ * the editor selects it, and hold the ring on the highlighted JSON.
+ */
+export async function reviewAm06SimulateBody(
+  ctx: DemoActionContext,
+  tokens: string[],
+  opts: { compact?: boolean } = {},
+): Promise<void> {
+  const compact = Boolean(opts.compact);
+  const expand = firstVisibleElement(API_MOCK.SIMULATE_BODY_EXPAND);
+  if (!expand && !isAm06TextExpandOpen()) return;
+  if (expand) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_BODY_EXPAND, {
+      look: compact ? 300 : 500,
+      hold: compact ? 350 : 500,
+    });
+  }
+  await revealBeat(ctx, API_MOCK.TEXT_EXPAND_MODAL, {
+    timeout: 4_000,
+    hold: compact ? 400 : 700,
+  });
+
+  for (const [index, token] of tokens.entries()) {
+    if (firstVisibleElement(API_MOCK.TEXT_EXPAND_SEARCH)) {
+      await fillBeat(ctx, API_MOCK.TEXT_EXPAND_SEARCH, token, {
+        look: compact ? 300 : 400,
+        hold: compact ? 450 : 550,
+      });
+    }
+    const last = index === tokens.length - 1;
+    await spotlightBeat(
+      ctx,
+      API_MOCK.TEXT_EXPAND_EDITOR,
+      compact ? (last ? T.payoff : 800) : (last ? T.simOutcome : T.payoff),
+    );
+  }
+
+  if (firstVisibleElement(API_MOCK.TEXT_EXPAND_CLOSE)) {
+    await clickBeat(ctx, API_MOCK.TEXT_EXPAND_CLOSE, {
+      look: compact ? 200 : 300,
+      hold: compact ? 300 : 500,
+    });
+  } else {
+    await closeAm06TextExpand(ctx);
+  }
+}
+
+/**
  * Shape one ad-hoc request and hold on the verdict. After the path and body are
  * filled the viewer gets a dedicated review pass before **Run simulation**.
  * Simulate opens seeded from the selected rule, so the method is already `POST`
  * — it is only picked when something left it on another verb. A run swaps the
  * form for the results pane, so later runs go back through **Request** first.
  */
-async function runAm06Simulation(ctx: DemoActionContext, body: string): Promise<string> {
-  await ensureAdHocSimulateForm(ctx, T.tabSwitch);
+async function runAm06Simulation(
+  ctx: DemoActionContext,
+  body: string,
+  sampleName: string,
+  opts: {
+    highlightTokens?: string[];
+    saveSample?: boolean;
+    /** Two-run finale — shorter holds so Acting stays under 45s. */
+    compact?: boolean;
+    outcomeHold?: number;
+  } = {},
+): Promise<string> {
+  const compact = Boolean(opts.compact);
+  await closeAm06TextExpand(ctx);
+  await ensureAdHocSimulateForm(ctx, compact ? AM_DEMO_TIMING.tabSwitch : T.tabSwitch);
   if (am06SimMethod() !== AM06_RULE_METHOD) {
     await am06Select(ctx, API_MOCK.SIMULATE_METHOD, AM06_RULE_METHOD);
   }
-  await am06Fill(ctx, API_MOCK.SIMULATE_PATH, AM06_RULE_PATH);
-  await am06Fill(ctx, API_MOCK.SIMULATE_BODY, body, T.simOutcome);
+  const pathEl = firstVisibleElement<HTMLInputElement>(API_MOCK.SIMULATE_PATH);
+  if ((pathEl?.value ?? '').trim() !== AM06_RULE_PATH) {
+    await am06Fill(ctx, API_MOCK.SIMULATE_PATH, AM06_RULE_PATH);
+  }
+  await am06Fill(ctx, API_MOCK.SIMULATE_BODY, body, compact ? T.payoff : T.simOutcome);
+  const tokens = opts.highlightTokens ?? [];
   await reviewAndRunSimulation(ctx, {
     review: T.payoff,
-    beforeRun: T.beforeRun,
-    sampleName: `POST ${AM06_RULE_PATH}`,
+    beforeRun: tokens.length > 0 ? (compact ? 800 : 1_200) : T.beforeRun,
+    sampleName,
+    saveSample: opts.saveSample,
+    reviewFields: tokens.length > 0 ? false : undefined,
+    digest: tokens.length > 0 ? false : undefined,
+    afterReview: tokens.length > 0
+      ? async () => {
+          await reviewAm06SimulateBody(ctx, tokens, { compact });
+          await closeAm06TextExpand(ctx);
+        }
+      : undefined,
   });
-  await am06Reveal(ctx, API_MOCK.SIMULATE_RESULT);
-  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
+  await revealBeat(ctx, API_MOCK.SIMULATE_RESULT, {
+    timeout: 4_000,
+    hold: compact ? AM_DEMO_TIMING.panelReady : T.panelReady,
+  });
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, opts.outcomeHold ?? (compact ? T.payoff : T.simOutcome));
   return am06SimOutcome();
 }
 
@@ -524,9 +643,11 @@ export async function runAm06SubsetBaseline(ctx: DemoActionContext): Promise<str
   await am06Break(ctx);
 
   await openAm06Simulate(ctx);
-  const outcome = await runAm06Simulation(ctx, AM06_RICH_BODY);
+  const outcome = await runAm06Simulation(ctx, AM06_RICH_BODY, AM06_SAMPLE_EXTRAS, {
+    highlightTokens: [AM06_RICH_TIER],
+  });
   await am06Trace(ctx, am06TraceRowByText('json_subset'), T.simOutcome);
-  await closeAm06Simulate(ctx);
+  await closeAm06Simulate(ctx, { review: true });
   if (id) await am06Payoff(ctx, API_MOCK.conditionSchema(id));
   return outcome;
 }
@@ -543,10 +664,12 @@ export async function runAm06StrictAndBack(ctx: DemoActionContext): Promise<stri
   await am06Break(ctx);
 
   await openAm06Simulate(ctx);
-  const outcome = await runAm06Simulation(ctx, AM06_RICH_BODY);
+  const outcome = await runAm06Simulation(ctx, AM06_RICH_BODY, AM06_SAMPLE_STRICT, {
+    highlightTokens: [AM06_RICH_NOTE],
+  });
   await am06Look(ctx, API_MOCK.SIMULATE_CANDIDATES);
   await am06Trace(ctx, am06TraceRowByText('json_strict'), T.simOutcome);
-  await closeAm06Simulate(ctx);
+  await closeAm06Simulate(ctx, { review: true });
   await am06Break(ctx);
 
   await am06Select(ctx, API_MOCK.conditionOperator(id), 'json_subset');
@@ -556,8 +679,7 @@ export async function runAm06StrictAndBack(ctx: DemoActionContext): Promise<stri
 
 /**
  * Step 3 — the JSON body tab writes the matcher for you: paste a payload, click the
- * value you care about, read what the path resolves to, and choose between "the field
- * exists" and "the field equals this".
+ * value you care about, and read the path and expected value the toolbox derived.
  */
 export async function runAm06PickFromJson(ctx: DemoActionContext): Promise<void> {
   await openAm06Toolbox(ctx, API_MOCK.TOOLBOX_TAB_JSONPATH);
@@ -571,11 +693,11 @@ export async function runAm06PickFromJson(ctx: DemoActionContext): Promise<void>
   }
   await am06Payoff(ctx, API_MOCK.TOOLBOX_JSONPATH);
   await am06Payoff(ctx, API_MOCK.TOOLBOX_JSON_RESOLVED);
-  await am06Break(ctx);
-
-  await am06Fill(ctx, API_MOCK.TOOLBOX_JSON_EXPECTED, '');
-  await am06Payoff(ctx, API_MOCK.TOOLBOX_JSON_RESULT);
-  await am06Fill(ctx, API_MOCK.TOOLBOX_JSON_EXPECTED, AM06_SKU);
+  if (am06ToolboxExpected() !== AM06_SKU) {
+    await am06Fill(ctx, API_MOCK.TOOLBOX_JSON_EXPECTED, AM06_SKU);
+  } else {
+    await am06Payoff(ctx, API_MOCK.TOOLBOX_JSON_EXPECTED);
+  }
   await am06Payoff(ctx, API_MOCK.TOOLBOX_JSON_RESULT);
   await am06Break(ctx);
 
@@ -592,9 +714,9 @@ export async function runAm06PickFromJson(ctx: DemoActionContext): Promise<void>
 }
 
 /**
- * Step 4 — one button decides how the resolved value is compared. `equals` is exact;
- * `contains` accepts a substring of a scalar, or a partial object for object-valued
- * paths — which is what turns one part number into a whole SKU family.
+ * Step 4 — Equals / Contains decides how the resolved value is compared. `equals`
+ * is exact; `contains` accepts a substring of a scalar, or a partial object for
+ * object-valued paths — which is what turns one part number into a whole SKU family.
  */
 export async function runAm06MatchStyle(ctx: DemoActionContext): Promise<void> {
   const id = am06FindConditionByOperator('jsonPath_equals');
@@ -604,9 +726,10 @@ export async function runAm06MatchStyle(ctx: DemoActionContext): Promise<void> {
   await am06Break(ctx);
 
   if (am06MatchStyleLabel(id) !== 'contains') {
-    await am06Aim(ctx, API_MOCK.conditionMatchStyle(id), T.payoff);
+    await am06Aim(ctx, API_MOCK.conditionMatchStyleContains(id), T.payoff);
   }
   await am06Fill(ctx, API_MOCK.conditionValue(id), AM06_SKU_FAMILY, T.payoff);
+  await am06Payoff(ctx, API_MOCK.conditionMatchStyleContains(id));
   await am06Payoff(ctx, API_MOCK.conditionRow(id));
 }
 
@@ -644,18 +767,26 @@ export async function runAm06ProveSchema(ctx: DemoActionContext): Promise<string
   const outcomes: string[] = [];
   await openAm06Simulate(ctx);
 
-  outcomes.push(await runAm06Simulation(ctx, AM06_INVALID_BODY));
+  // Two body-modal tours plus Save → Run → Rendered must finish inside 45s.
+  // Compact holds; skip the extra group break and a second Close-time verdict
+  // hold (Rendered is the last teaching beat). Both probes are saved by name.
+  outcomes.push(await runAm06Simulation(ctx, AM06_INVALID_BODY, AM06_SAMPLE_INVALID, {
+    highlightTokens: [AM06_INVALID_CUSTOMER],
+    compact: true,
+  }));
   await am06Look(ctx, API_MOCK.SIMULATE_CANDIDATES);
-  for (const row of am06TraceRows()) {
-    await am06Trace(ctx, row);
-  }
-  await am06Trace(ctx, am06TraceRowByText('jsonSchema'), T.simOutcome);
-  await am06Break(ctx);
+  await am06Trace(ctx, am06TraceRowByText('jsonSchema'), T.payoff);
 
-  outcomes.push(await runAm06Simulation(ctx, AM06_RICH_BODY));
-  await am06Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
-  await am06Payoff(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
+  outcomes.push(await runAm06Simulation(ctx, AM06_RICH_BODY, AM06_SAMPLE_COMPLETE, {
+    highlightTokens: [AM06_COMPLETE_ID],
+    compact: true,
+    outcomeHold: T.look,
+  }));
+  await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, {
+    look: T.look,
+    hold: AM_DEMO_TIMING.tabSwitch,
+  });
+  await am06Look(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
   await closeAm06Simulate(ctx);
-  await am06Payoff(ctx, API_MOCK.ROUTE_EXPLORER);
   return outcomes;
 }

@@ -6,10 +6,24 @@ import { collapseAppSidebar } from './appShellAdapter';
 
 export { collapseAppSidebar };
 
+export interface ApiMockStudioServerRow {
+  id: string;
+  name: string;
+  port: number;
+  active: boolean;
+}
+
 /** Wipe mock workspace + stop orphan listeners (no Studio UI flash tour). */
 export async function wipeApiMockWorkspace(): Promise<boolean> {
   const fn = getDemoBridgeWindow().__demoWipeApiMockWorkspace;
   if (!fn) return false;
+  return fn();
+}
+
+/** Live Studio mocks — gallery import remaps template ids (`srv-gallery-*` → `srv-<uuid>`). */
+export async function listApiMockStudioServers(): Promise<ApiMockStudioServerRow[]> {
+  const fn = getDemoBridgeWindow().__demoListApiMockServers;
+  if (!fn) return [];
   return fn();
 }
 

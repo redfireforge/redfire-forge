@@ -286,6 +286,8 @@ describe('ApiMockDock', () => {
     ] as any;
     render(<ApiMockDock routes={baseRoutes()} variables={variables} onVariablesChange={onVariablesChange} />);
     openTab('Variables');
+    expect(screen.getByRole('table', { name: 'Server variables' }).className).toContain('am-vars-table');
+    expect(document.querySelector('.am-vars-col-key')).toBeTruthy();
     fireEvent.click(screen.getByTestId('api-mock-var-add'));
     expect(onVariablesChange).toHaveBeenCalled();
     expect(onVariablesChange.mock.calls.at(-1)?.[0]).toHaveLength(2);
@@ -372,5 +374,25 @@ describe('ApiMockDock', () => {
     expect(screen.getByTestId('api-mock-tx-response').textContent).toContain('404');
     fireEvent.click(screen.getByTestId('api-mock-tx-copy'));
     expect(screen.getByTestId('api-mock-tx-copy').textContent).toContain('Copied');
+  });
+
+  it('collapses and re-shows the transaction detail pane via the middle toggle', () => {
+    const tx = {
+      id: 'tx-1', serverId: 'srv-1', generation: 2, receivedAt: '2026-08-12T00:00:00.000Z', completedAt: '2026-08-12T00:00:00.000Z',
+      request: { method: 'GET', path: '/users', rawPath: '/users', query: {}, cookies: {}, headers: {}, body: null, bodyTruncated: false, receivedAt: '2026-08-12T00:00:00.000Z' },
+      response: { status: 200, headers: {}, cookies: [], body: 'ok', bodyTruncated: false, durationMs: 3, generationAtResponse: 2 },
+      outcome: 'matched', matchedRouteId: undefined, matchedResponseId: undefined, durationMs: 3,
+      explanation: { normalizedRequest: { method: 'GET', path: '/users', decodedPath: '/users', pathSegments: ['users'], query: {}, headerKeys: [], cookieKeys: [], bodySizeBytes: 0 }, candidates: [], policyDecision: { policy: 'highest_priority', equalPriorityPolicy: 'reject', matchedCount: 1, highestPriority: 0, tiedAtHighest: 1, outcome: 'matched' }, nearMisses: [] },
+    } as any;
+    render(<ApiMockDock routes={baseRoutes()} transactions={[tx]} />);
+    fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
+    expect(screen.getByTestId('api-mock-tx-detail')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('api-mock-tx-detail-toggle'));
+    expect(screen.queryByTestId('api-mock-tx-detail')).toBeNull();
+    expect(document.querySelector<HTMLElement>('.am-tx-table-wrap')!.style.width).toBe('');
+
+    fireEvent.click(screen.getByTestId('api-mock-tx-detail-toggle'));
+    expect(screen.getByTestId('api-mock-tx-detail')).toBeTruthy();
   });
 });

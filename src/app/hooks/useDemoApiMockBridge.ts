@@ -192,8 +192,28 @@ async function sendMockRequest(req: {
   }
 }
 
+async function listStudioServers(): Promise<Array<{
+  id: string;
+  name: string;
+  port: number;
+  active: boolean;
+}>> {
+  try {
+    const ws = await loadApiMockWorkspace();
+    return ws.servers.map(s => ({
+      id: s.id,
+      name: s.name,
+      port: s.port,
+      active: s.id === ws.activeServerId,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 function bindDemoApiMockBridge(win: DemoBridgeWindow): void {
   win.__demoWipeApiMockWorkspace = wipeWorkspace;
+  win.__demoListApiMockServers = listStudioServers;
   win.__demoImportApiMockGallerySample = importGallerySample;
   win.__demoEnsureBlankApiMockServer = ensureBlankApiMockServer;
   win.__demoSeedApiMockExportSecrets = seedExportSecrets;
@@ -203,6 +223,7 @@ function bindDemoApiMockBridge(win: DemoBridgeWindow): void {
 
 function unbindDemoApiMockBridge(win: DemoBridgeWindow): void {
   delete win.__demoWipeApiMockWorkspace;
+  delete win.__demoListApiMockServers;
   delete win.__demoImportApiMockGallerySample;
   delete win.__demoEnsureBlankApiMockServer;
   delete win.__demoSeedApiMockExportSecrets;

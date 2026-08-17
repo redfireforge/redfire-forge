@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ApiMockStudioPage } from './ApiMockStudioPage';
+import { resetApiMockWorkspaceSnapshot } from './apiMockPersistence';
 
 vi.mock('./components/ApiMockBodyEditor', () => ({
   ApiMockBodyEditor: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
@@ -24,7 +25,10 @@ async function studioWithRoute() {
 }
 
 describe('API Mock Studio wiring', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    resetApiMockWorkspaceSnapshot();
+  });
 
   it('renders the full response editor in the Response tab', async () => {
     await studioWithRoute();

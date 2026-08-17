@@ -141,8 +141,19 @@ describe('ApiMockVariantOutboundPanel', () => {
 
   it('shows empty-state copy when no transforms or callbacks exist', () => {
     render(<ApiMockVariantOutboundPanel variant={createDefaultResponse('v1')} onUpdate={vi.fn()} />);
-    expect(screen.getByText(/No transforms/)).toBeTruthy();
-    expect(screen.getByText(/No outbound callbacks/)).toBeTruthy();
+    expect(screen.getByTestId('api-mock-outbound-pipeline').textContent).toMatch(/Template/);
+    expect(screen.getByTestId('api-mock-transform-empty').textContent).toMatch(/No transforms/);
+    expect(screen.getByTestId('api-mock-callback-empty').textContent).toMatch(/No outbound callbacks/);
+  });
+
+  it('marks Transforms and Callbacks as configured but Template and Client as passive markers', () => {
+    render(<ApiMockVariantOutboundPanel variant={createDefaultResponse('v1')} onUpdate={vi.fn()} />);
+    const stepFor = (label: string) =>
+      screen.getByText(label, { selector: '.am-outbound-step' }).closest('.am-outbound-step');
+    expect(stepFor('Transforms')?.className).toContain('am-outbound-step--edit');
+    expect(stepFor('Callbacks')?.className).toContain('am-outbound-step--edit');
+    expect(stepFor('Template')?.className).toContain('am-outbound-step--passive');
+    expect(stepFor('Client')?.className).toContain('am-outbound-step--passive');
   });
 
   it('updates, toggles, and removes transform rows for each op', () => {

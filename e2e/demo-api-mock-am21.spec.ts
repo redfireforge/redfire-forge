@@ -1,6 +1,6 @@
 /**
  * Demo lesson smoke — AM-21 `am-21-simulation-suite`
- * (Simulation as a Test Suite: Examples, Seeds, Assertions, Trace).
+ * (Simulation as a Test Suite: Examples, Assertions, Trace).
  *
  * Run: npm run test:e2e:demo:am21
  * Prereqs: dev server :5173 (Playwright `webServer`). The lesson never starts

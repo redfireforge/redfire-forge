@@ -63,7 +63,7 @@ const DIAGRAM = `
 
   <rect x="26" y="316" width="648" height="76" rx="8" fill="#1e293b" stroke="#a855f7" />
   <text x="42" y="338" fill="#a855f7" font-family="system-ui" font-size="12" font-weight="600">JSON Schema — validate the shape, not the values</text>
-  <text x="42" y="360" fill="#a8b8cc" font-family="ui-monospace" font-size="10">required: [customer, items]  ·  customer.required: [id, tier]  ·  items: minItems 1</text>
+  <text x="42" y="360" fill="#a8b8cc" font-family="ui-monospace" font-size="10">customer.id: string  ·  tier: gold|platinum  ·  items[] { sku } minItems 1</text>
   <text x="42" y="382" fill="#64748b" font-family="system-ui" font-size="10">Types, required fields, enums, array bounds — the contract-testing matcher.</text>
 
   <line x1="26" y1="408" x2="674" y2="408" stroke="#3b4a60" />
@@ -84,7 +84,7 @@ export const apiMockAm06Lesson: DemoLesson = {
     + 'exact vs substring comparison, and a JSON Schema — each proven in Simulate.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 4,
   concept: {
     title: 'Matching on the payload — from "contains this" to a real contract',
     body:
@@ -147,10 +147,12 @@ export const apiMockAm06Lesson: DemoLesson = {
         + 'rules in the previous lessons it already reads the request **body**. Look at the '
         + 'condition row: the key box is missing entirely. There is nothing to name, because the '
         + 'whole payload is the value, and the **operator** carries the meaning.\n\n'
-        + 'That operator is **JSON subset**, and the expected JSON below it is deliberately tiny: '
-        + 'a gold customer tier, nothing else. Now send a payload a real client would send — the '
-        + 'gold tier, plus a customer id, two line items, and a `note` field no matcher mentions '
-        + 'at all. It comes back **MATCHED**.\n\n'
+        + 'That operator is **JSON subset**, and the expected JSON is a compact one-liner so the '
+        + 'whole fragment fits the row: `{"customer":{"tier":"gold"}}` — a gold customer tier, '
+        + 'nothing else. Now send a payload a real client would send. Expand the body and read '
+        + '`tier`: gold — that is the fragment the matcher asked for. The customer id, line items, '
+        + 'and `note` sit next to it and do not matter. **Run simulation**. It comes back '
+        + '**MATCHED**.\n\n'
         + 'That is the whole idea of subset: the fields you wrote must be present and equal, and '
         + 'everything else is ignored, at any depth. Formatting is irrelevant too — both sides are '
         + 'parsed before they are compared, so key order and whitespace never matter. For a mock '
@@ -169,7 +171,9 @@ export const apiMockAm06Lesson: DemoLesson = {
       description:
         'Change nothing but the operator. **JSON strict** reads the *same* expected JSON and asks a '
         + 'completely different question: is the whole document deeply equal to this?\n\n'
-        + 'Re-run the payload that just matched and it now comes back **UNMATCHED**. The candidate '
+        + 'Re-run the same payload. Expand the body and read `note`: gift wrap — an extra field '
+        + 'the subset matcher ignored and strict will not allow. **Run simulation** and it now '
+        + 'comes back **UNMATCHED**. The candidate '
         + 'is flagged **Conditions failed** — so the method and path were fine — and the trace row '
         + 'underneath names the operator that rejected it and shows the body it read: the customer '
         + 'id, the line items, and the `note` field are all extras, and strict allows none of them. '
@@ -199,10 +203,9 @@ export const apiMockAm06Lesson: DemoLesson = {
         + 'syntax memorized, no array index counted by hand.\n\n'
         + 'The **Resolved** box below is the live read of that path against your sample, which is '
         + 'how you catch a typo before it becomes a rule: a wrong path shows `(no match)` there. '
-        + 'And **Expected** is the switch between two matchers — clear it and the tick mark reports '
-        + 'on `jsonPath_exists` ("the field is there at all"), fill it back in and the same row '
-        + 'becomes `jsonPath_equals`. **Apply** lands it as an ordinary condition row beside the '
-        + 'subset baseline, and the group\'s condition count goes to two.',
+        + `**Expected** stays \`${AM06_SKU}\` — the value the pick wrote — so **Apply** lands a `
+        + '`jsonPath_equals` row beside the subset baseline, and the group\'s condition count goes '
+        + 'to two.',
       highlight: API_MOCK.PATH_TOOLBOX,
       preAction: ensureAm06SubsetBaseline,
       action: runAm06PickFromJson,
@@ -210,16 +213,16 @@ export const apiMockAm06Lesson: DemoLesson = {
     },
     {
       id: 'match-style',
-      title: 'One button decides how the value is compared',
+      title: 'Equals or Contains decides how the value is compared',
       description:
         'The applied row has two boxes — the path on the left, the expected value on the right — '
-        + 'and a small button after them reading **equals**. That button is the match style, and it '
-        + 'is easy to miss for something that changes the meaning of the whole condition.\n\n'
-        + `**equals** is exact: the resolved value must be \`${AM06_SKU}\` and nothing else. Click `
-        + 'it and it flips to **contains**, which for a scalar means substring — so '
-        + `\`${AM06_SKU_FAMILY}\` now matches every part number in that family, and one rule covers `
-        + 'a whole product line instead of a single item.\n\n'
-        + 'For object-valued paths the same toggle means *partial containment* — the resolved object '
+        + 'and **Equals** / **Contains** radios after them. That is the match style, and it is easy '
+        + 'to miss for something that changes the meaning of the whole condition.\n\n'
+        + `**Equals** is exact: the resolved value must be \`${AM06_SKU}\` and nothing else. Switch `
+        + `to **Contains**, then widen the value to \`${AM06_SKU_FAMILY}\` — a substring, so every `
+        + 'part number in that family matches and one rule covers a whole product line instead of '
+        + 'a single item.\n\n'
+        + 'For object-valued paths **Contains** means *partial containment* — the resolved object '
         + 'must contain the fields you wrote, the way subset works one level down. It is the same '
         + 'trade-off as subset versus strict, made per field instead of per payload, which is why '
         + 'it lives on the row rather than in the operator list.',
@@ -241,8 +244,8 @@ export const apiMockAm06Lesson: DemoLesson = {
         + 'lands a minimal object-with-required-field schema in the editor so you can see the '
         + 'format before replacing it.\n\n'
         + 'The real contract goes further: `customer` and `items` are required at the top level, '
-        + '`customer` must carry both an `id` and a `tier`, that tier must be one of `gold` or '
-        + '`platinum`, and `items` must be an array with at least one entry. The **JSON Schema** / '
+        + '`customer.id` is a non-empty string, `customer.tier` must be `gold` or `platinum`, and '
+        + '`items` is a non-empty array of objects that each carry a `sku`. The **JSON Schema** / '
         + '**XML names** switch above the editor is how the same tab handles SOAP-shaped payloads. '
         + '**Apply** turns it into a third condition row — same body source, no key, operator '
         + '`jsonSchema` — and because conditions are ANDed, the rule now demands all three.',
@@ -257,17 +260,19 @@ export const apiMockAm06Lesson: DemoLesson = {
       description:
         'Three body matchers on one rule, and the point of a schema is the payload that gets past '
         + 'the other two. Send an order that is one field short — a gold customer with no `id`, and '
-        + 'a line item whose SKU is right. Subset is satisfied. The JSONPath row is satisfied. The '
-        + 'rule still comes back **UNMATCHED**, flagged **Conditions failed**.\n\n'
-        + 'Walk the trace and the reason is one red row among the ticks: the `jsonSchema` matcher, '
-        + 'with the body it read printed beside it. That is what makes a schema worth the extra '
-        + 'condition — it catches the shape problems no field-level matcher was written for, and '
-        + 'the trace tells you which of the three said no rather than leaving you to guess.\n\n'
-        + 'Then the complete order, with the customer id restored: **MATCHED**, and the '
-        + '**Rendered** tab shows the `201` confirmation body the rule serves. The rule went from '
-        + '"any payload mentioning a gold tier" to a contract — subset for the fields that must be '
-        + 'there, a JSONPath for the value it routes on, and a schema for the shape — and every '
-        + 'step of that was verified before a listener was ever bound.',
+        + 'a line item whose SKU is right. Expand the body and read `customer`: `tier` is gold, but '
+        + '`id` is missing. **Run simulation**. Subset is satisfied. The JSONPath row is satisfied. '
+        + 'The rule still comes back **UNMATCHED**, flagged **Conditions failed**.\n\n'
+        + 'The Decision trace names the matcher that said no: one red `jsonSchema` row among the '
+        + 'ticks, with the body it read printed beside it. That is what makes a schema worth the '
+        + 'extra condition — it catches the shape problems no field-level matcher was written for.\n\n'
+        + 'Then the complete order. **Save as sample** as `POST /orders — complete order`. Expand '
+        + 'the body again — `customer.id` is `C-4421` — and **Run simulation**: **MATCHED**, and '
+        + 'the **Rendered** tab shows the `201` confirmation body '
+        + 'the rule serves. The rule went from "any payload mentioning a gold tier" to a contract '
+        + '— subset for the fields that must be there, a JSONPath for the value it routes on, and '
+        + 'a schema for the shape — and every step of that was verified before a listener was ever '
+        + 'bound.',
       highlight: API_MOCK.SIMULATE,
       preAction: ensureAm06Schema,
       action: async (ctx) => {

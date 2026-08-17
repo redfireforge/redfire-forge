@@ -25,8 +25,8 @@ import {
 
 /**
  * Same slower holds as AM-10, plus curriculum extras for Monaco completions
- * (2000ms), the faker preview (1500ms), and the broken-helper diagnostic
- * (3200ms — the last step’s whole point is to read that error).
+ * (2000ms), the faker preview (1500ms), the first broken-expression editor
+ * hold (4500ms), and the diagnostic (3200ms).
  */
 export const AM11_TIMING = {
   look: 900,
@@ -39,7 +39,11 @@ export const AM11_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   completions: 2000,
+  /** Hold the Browse helpers catalog so the grouped list can be read. */
+  helpersCatalog: 2000,
   fakerPreview: 1500,
+  /** First paint of `{{faker 'not.a.path'}}` in the editor — read the helper. */
+  brokenExpression: 4500,
   templateError: 3200,
 } as const;
 
@@ -213,6 +217,44 @@ export function am11HasCompletions(): boolean {
   return Boolean(document.querySelector(API_MOCK.BODY_COMPLETIONS));
 }
 
+export function am11HasHelpersBrowse(): boolean {
+  return Boolean(firstVisibleElement(API_MOCK.TEMPLATE_HELPERS_BROWSE));
+}
+
+export function am11HasHelpersModal(): boolean {
+  return Boolean(
+    firstVisibleElement(API_MOCK.TEMPLATE_HELPERS_MODAL)
+    ?? document.querySelector(API_MOCK.TEMPLATE_HELPERS_MODAL),
+  );
+}
+
+/** Dismiss Browse helpers so the next spotlight is not behind the catalog. */
+export async function closeAm11HelpersIfOpen(ctx: DemoActionContext, visible = false): Promise<void> {
+  if (!am11HasHelpersModal()) return;
+  const close = firstVisibleElement(API_MOCK.TEMPLATE_HELPERS_CLOSE)
+    ?? document.querySelector<HTMLElement>(API_MOCK.TEMPLATE_HELPERS_CLOSE);
+  if (!close) return;
+  if (visible) {
+    await clickBeat(ctx, API_MOCK.TEMPLATE_HELPERS_CLOSE, { look: T.look, hold: 700 });
+    return;
+  }
+  await ctx.click(API_MOCK.TEMPLATE_HELPERS_CLOSE);
+  await ctx.delay(200);
+}
+
+/** Open Browse helpers, hold the grouped catalog, search uuid, then Close. */
+export async function runAm11HelpersCatalog(ctx: DemoActionContext): Promise<void> {
+  if (!am11HasHelpersBrowse()) return;
+  await am11Aim(ctx, API_MOCK.TEMPLATE_HELPERS_BROWSE);
+  await am11Reveal(ctx, API_MOCK.TEMPLATE_HELPERS_MODAL, T.panelReady);
+  await spotlightBeat(ctx, API_MOCK.templateHelpersGroup('request'), T.helpersCatalog);
+  if (firstVisibleElement(API_MOCK.TEMPLATE_HELPERS_SEARCH)) {
+    await am11Fill(ctx, API_MOCK.TEMPLATE_HELPERS_SEARCH, 'uuid');
+    await am11Reveal(ctx, API_MOCK.templateHelpersRow('uuid'), T.payoff);
+  }
+  await closeAm11HelpersIfOpen(ctx, true);
+}
+
 export function am11VariableKeys(): string[] {
   return Array.from(
     document.querySelectorAll<HTMLInputElement>(
@@ -317,6 +359,7 @@ export async function ensureAm11Workspace(ctx: DemoActionContext): Promise<void>
   prepareApiMockStudioChrome();
   await ensureAm11StudioView(ctx);
   await closeAm11MapperIfOpen(ctx);
+  await closeAm11HelpersIfOpen(ctx);
   if (!hasAm11Workspace()) {
     const imported = await importApiMockGallerySample(AM11_CORPUS_SAMPLE);
     if (!imported) {
@@ -444,9 +487,10 @@ export async function sendAm11ProveRequest(): Promise<{ status: number; body: st
 
 // ── Multi-beat step bodies ──────────────────────────────────────────────────
 
-/** Step 1 — type `{{` and hold the Monaco completion list. */
+/** Step 1 — type `{{`, hold completions, then Browse helpers and Close. */
 export async function runAm11Completions(ctx: DemoActionContext): Promise<void> {
   await ensureAm11ResponseTab(ctx);
+  await closeAm11HelpersIfOpen(ctx);
   await am11Look(ctx, API_MOCK.VARIANT_BODY);
   await am11Click(ctx, API_MOCK.VARIANT_BODY, 0);
   triggerAm11TemplateCompletions();
@@ -457,6 +501,8 @@ export async function runAm11Completions(ctx: DemoActionContext): Promise<void> 
   } else {
     await spotlightBeat(ctx, API_MOCK.VARIANT_BODY, T.completions);
   }
+  await am11Break(ctx);
+  await runAm11HelpersCatalog(ctx);
 }
 
 /** Step 2 — echo path / query / header / cookie / jsonPath. */
@@ -578,7 +624,8 @@ export async function runAm11TemplateError(ctx: DemoActionContext): Promise<void
   await ensureAm11StudioView(ctx);
   await ensureAm11ResponseTab(ctx);
   patchBody(AM11_BROKEN_BODY);
-  await am11Look(ctx, API_MOCK.VARIANT_BODY);
+  await am11Reveal(ctx, API_MOCK.VARIANT_BODY);
+  await spotlightBeat(ctx, API_MOCK.VARIANT_BODY, T.brokenExpression);
   await am11Reveal(ctx, API_MOCK.DIAG_TEMPLATE_ERRORS);
   await spotlightBeat(ctx, API_MOCK.DIAG_TEMPLATE_ERRORS, T.templateError);
   await am11Look(ctx, API_MOCK.PREVIEW_BODY);

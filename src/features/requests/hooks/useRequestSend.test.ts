@@ -222,6 +222,18 @@ describe('buildRequestHeaders', () => {
     expect(result).toEqual({ Real: 'header' });
   });
 
+  it('skips hop-by-hop headers that undici rejects on Send', async () => {
+    const scenario = {
+      headers: [
+        { key: 'connection', value: 'keep-alive' },
+        { key: 'host', value: '127.0.0.1:4500' },
+        { key: 'accept', value: '*/*' },
+      ],
+    } as Scenario;
+    const result = await buildRequestHeaders(scenario, null, noAuth);
+    expect(result).toEqual({ accept: '*/*' });
+  });
+
   it('sets Content-Type from contentType arg when not in headers', async () => {
     const scenario = { headers: [] } as unknown as Scenario;
     const result = await buildRequestHeaders(scenario, 'application/json', noAuth);

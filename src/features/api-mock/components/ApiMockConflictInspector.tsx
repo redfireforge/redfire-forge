@@ -13,14 +13,28 @@ const KIND_LABEL: Record<ApiMockConflictFindingV1['kind'], string> = {
   unreachable: 'Unreachable',
 };
 
+/** Same order as the Findings list: Duplicate → Shadowed → Definite → Potential. */
+const KIND_LIST_ORDER: ApiMockConflictFindingV1['kind'][] = [
+  'duplicate',
+  'shadowed',
+  'definite_overlap',
+  'potential_overlap',
+  'unreachable',
+];
+
 const FILTERS: Array<{ id: KindFilter; label: string }> = [
   { id: 'all', label: 'All' },
-  { id: 'definite_overlap', label: 'Definite' },
-  { id: 'potential_overlap', label: 'Potential' },
   { id: 'duplicate', label: 'Duplicate' },
   { id: 'shadowed', label: 'Shadowed' },
+  { id: 'definite_overlap', label: 'Definite' },
+  { id: 'potential_overlap', label: 'Potential' },
   { id: 'unreachable', label: 'Unreachable' },
 ];
+
+function kindListRank(kind: ApiMockConflictFindingV1['kind']): number {
+  const index = KIND_LIST_ORDER.indexOf(kind);
+  return index === -1 ? KIND_LIST_ORDER.length : index;
+}
 
 interface Props {
   findings: ApiMockConflictFindingV1[];
@@ -157,10 +171,10 @@ export function ApiMockConflictInspector({
 }: Props) {
   const [filter, setFilter] = useState<KindFilter>('all');
   const [prioOpen, setPrioOpen] = useState(false);
-  const filtered = useMemo(
-    () => (filter === 'all' ? findings : findings.filter(f => f.kind === filter)),
-    [findings, filter],
-  );
+  const filtered = useMemo(() => {
+    const rows = filter === 'all' ? findings : findings.filter(f => f.kind === filter);
+    return [...rows].sort((a, b) => kindListRank(a.kind) - kindListRank(b.kind) || a.id.localeCompare(b.id));
+  }, [findings, filter]);
   const initialId = useMemo(() => {
     if (focusRouteId) {
       const hit = filtered.find(f => f.ruleIds.includes(focusRouteId));
@@ -214,7 +228,7 @@ export function ApiMockConflictInspector({
             </span>
           )}
         </div>
-        <div className="am-conflict-filters" role="toolbar" aria-label="Conflict kind filters">
+        <div className="am-conflict-filters" role="toolbar" aria-label="Conflict kind filters" data-testid="api-mock-conflict-filters">
           {FILTERS.map(f => {
             const count = f.id === 'all' ? findings.length : findings.filter(x => x.kind === f.id).length;
             return (
@@ -259,6 +273,7 @@ export function ApiMockConflictInspector({
                 type="button"
                 className={`am-finding-row${active ? ' active' : ''}`}
                 data-testid={`api-mock-finding-${f.id}`}
+                data-kind={f.kind}
                 onClick={() => { setSelectedId(f.id); setPrioOpen(false); }}
               >
                 <div className="am-finding-row-head">
@@ -418,6 +433,14 @@ export function ApiMockConflictInspector({
             <details className="am-fingerprints" data-testid="api-mock-conflict-fingerprints">
               <summary data-testid="api-mock-conflict-fingerprints-summary">Rule fingerprints</summary>
               <div className="am-fingerprints-body" data-testid="api-mock-conflict-fingerprint-hashes">
+                <p className="am-fingerprint-why" data-testid="api-mock-conflict-fingerprint-why">
+                  <strong>Why these exist.</strong>
+                  <br />
+                  Acknowledge means you reviewed this exact pair.
+                  Each hash is a snapshot of one rule. Edit either rule and the ack goes{' '}
+                  <strong>Stale</strong> — you must look again. Without fingerprints, an ack would
+                  stay valid forever even after the overlap changed.
+                </p>
                 <span
                   className={`am-badge${fingerprintsMatch ? '' : ' warning'}`}
                   data-testid="api-mock-conflict-fingerprint-relation"
@@ -451,9 +474,8 @@ export function ApiMockConflictInspector({
                   </tbody>
                 </table>
                 <span className="am-hint">
-                  Each hash is SHA-256 of that rule record (id, name, Match, response, priority).
-                  Duplicate means method, path, and Match agree — not that the hashes match.
-                  An acknowledgement goes stale when either hash changes.
+                  Each hash is SHA-256 of that rule (id, name, Match, response, priority).
+                  Duplicate is method + path + Match — the hashes can still differ.
                 </span>
               </div>
             </details>

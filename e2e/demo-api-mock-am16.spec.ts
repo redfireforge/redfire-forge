@@ -51,6 +51,7 @@ test.describe('Demo lesson AM-16 — Export & Round-Trip: JSON/YAML, WireMock, H
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.EXPORT_CONFIRM)).toBeVisible();
+    await expect(page.locator(API_MOCK.EXPORT_SAVE)).toBeVisible();
     await expect(page.locator(API_MOCK.EXPORT_PREVIEW)).toBeVisible();
   });
 

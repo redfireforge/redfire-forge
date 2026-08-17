@@ -33,6 +33,7 @@ import {
   AM23_SERVER_ID,
   AM23_TIMING,
   am23ServerRunning,
+  am23StoreServerId,
   am23TestHooks,
   cleanupAm23,
   ensureAm23ForArtifact,
@@ -51,7 +52,6 @@ import {
   isAm23ExportConfirmOpen,
   isAm23FixtureEnabled,
   isAm23IsolateOn,
-  isAm23OverrideOn,
   isAm23RunnerActive,
   isAm23StoreSelected,
   isAm23StudioActive,
@@ -100,25 +100,16 @@ function mountFixture(opts: {
   enabled?: boolean;
   serverId?: string;
   isolate?: boolean;
-  override?: boolean;
   start?: boolean;
   stopped?: boolean;
   port?: string;
 } = {}): HTMLElement {
   const fieldset = el('fieldset', undefined, 'har-apimock-fixture');
-  const enabled = checkbox('har-apimock-fixture-enabled', opts.enabled ?? false);
-  fieldset.append(enabled);
-  if (opts.enabled) {
-    fieldset.append(select('har-apimock-fixture-server', opts.serverId ?? '', [
-      { value: AM23_SERVER_ID, label: 'Store API (:4600)' },
-      { value: 'srv-other', label: 'Other (:4601)' },
-    ]));
-    fieldset.append(checkbox('har-apimock-fixture-isolate', opts.isolate !== false));
-    fieldset.append(checkbox('har-apimock-fixture-override', opts.override !== false));
-    const hint = el('span', undefined, 'har-apimock-fixture-var');
-    hint.textContent = 'Publishes mock base URL to scenarios';
-    fieldset.append(hint);
-  }
+  fieldset.append(select('har-apimock-fixture-server', opts.serverId ?? '', [
+    { value: AM23_SERVER_ID, label: 'Store API (:4600)' },
+    { value: 'srv-other', label: 'Other (:4601)' },
+  ]));
+  fieldset.append(checkbox('har-apimock-fixture-isolate', opts.isolate !== false));
   if (opts.start) {
     const start = el('p', undefined, 'har-apimock-fixture-start');
     start.textContent = `Started mock on :${opts.port ?? '4612'}`;
@@ -190,7 +181,7 @@ describe('AM-23 helpers', () => {
   it('probes runner and studio surfaces', () => {
     expect(isAm23RunnerActive()).toBe(false);
     expect(isAm23StudioActive()).toBe(false);
-    mountFixture({ enabled: true, serverId: AM23_SERVER_ID, isolate: true, override: true, start: true, stopped: true });
+    mountFixture({ enabled: true, serverId: AM23_SERVER_ID, isolate: true, start: true, stopped: true });
     mountRunnerChrome({ results: true });
     mountStudio();
     expect(isAm23RunnerActive()).toBe(true);
@@ -198,7 +189,6 @@ describe('AM-23 helpers', () => {
     expect(isAm23FixtureEnabled()).toBe(true);
     expect(isAm23StoreSelected()).toBe(true);
     expect(isAm23IsolateOn()).toBe(true);
-    expect(isAm23OverrideOn()).toBe(true);
     expect(hasAm23StartLine()).toBe(true);
     expect(hasAm23Stopped()).toBe(true);
     expect(hasAm23Results()).toBe(true);
@@ -270,20 +260,71 @@ describe('AM-23 helpers', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('api-mock-studio');
   });
 
-  it('enables the fixture and picks Store when the server is new', async () => {
-    mountFixture({ enabled: false });
+  it('opens Mock Server when the fixture panel is hidden', async () => {
+    const mock = document.createElement('input');
+    mock.type = 'radio';
+    mock.setAttribute('data-testid', 'har-host-mock');
+    makeVisible(mock);
+    document.body.append(mock);
     const ctx = makeCtx();
     ctx.click.mockImplementation(async (sel: string) => {
-      if (sel === HAR.HARNESS_MOCK_ENABLED) {
-        const fieldset = document.querySelector(HAR.HARNESS_MOCK_FIXTURE);
-        fieldset?.append(select('har-apimock-fixture-server', '', [
-          { value: AM23_SERVER_ID, label: 'Store API (:4600)' },
-        ]));
+      if (sel === HAR.HOST_MOCK_SERVER) {
+        mountFixture({ enabled: true, serverId: AM23_SERVER_ID });
       }
     });
+    await am23TestHooks.enableFixtureAndPickStore(ctx, false);
+    expect(ctx.click).toHaveBeenCalledWith(HAR.HOST_MOCK_SERVER);
+  });
+
+  it('picks Store when the fixture is open and the server is new', async () => {
+    mountFixture({ serverId: '' });
+    const ctx = makeCtx();
     await runAm23FixturePanel(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(HAR.HARNESS_MOCK_ENABLED);
     expect(ctx.selectOption).toHaveBeenCalledWith(HAR.HARNESS_MOCK_SERVER, AM23_SERVER_ID);
+  });
+
+  it('reads a remapped Store id from CustomSelect metadata', () => {
+    const wrap = el('div');
+    wrap.setAttribute('data-am-servers', JSON.stringify([
+      { value: 'srv-live-store', label: 'Store API (:4612)' },
+    ]));
+    const cs = el('div', 'cs-wrapper', 'har-apimock-fixture-server');
+    cs.setAttribute('data-value', '');
+    const text = el('span', 'cs-text');
+    text.textContent = 'No Studio servers';
+    cs.append(text);
+    wrap.append(cs);
+    document.body.append(wrap);
+    expect(am23StoreServerId()).toBe('srv-live-store');
+    expect(isAm23StoreSelected()).toBe(false);
+    cs.setAttribute('data-value', 'srv-live-store');
+    text.textContent = 'Store API (:4612)';
+    expect(isAm23StoreSelected()).toBe(true);
+  });
+
+  it('ignores malformed CustomSelect server metadata', () => {
+    const cs = el('div', 'cs-wrapper', 'har-apimock-fixture-server');
+    cs.setAttribute('data-am-servers', '{not-json');
+    cs.setAttribute('data-value', '');
+    document.body.append(cs);
+    expect(am23StoreServerId()).toBe('');
+    expect(isAm23StoreSelected()).toBe(false);
+  });
+
+  it('picks a remapped Store id instead of the gallery template id', async () => {
+    mountFixture({ enabled: true, serverId: '' });
+    const selectEl = document.querySelector(HAR.HARNESS_MOCK_SERVER) as HTMLSelectElement;
+    selectEl.innerHTML = '';
+    const remapped = document.createElement('option');
+    remapped.value = 'srv-live-store';
+    remapped.textContent = 'Store API (:4612)';
+    selectEl.append(remapped);
+    selectEl.value = '';
+    expect(am23StoreServerId()).toBe('srv-live-store');
+    expect(isAm23StoreSelected()).toBe(false);
+    const ctx = makeCtx();
+    await am23TestHooks.enableFixtureAndPickStore(ctx, false);
+    expect(ctx.selectOption).toHaveBeenCalledWith(HAR.HARNESS_MOCK_SERVER, 'srv-live-store');
   });
 
   it('skips enable and select when Store is already chosen', async () => {
@@ -301,12 +342,10 @@ describe('AM-23 helpers', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(HAR.HARNESS_MOCK_ISOLATE);
 
     document.body.innerHTML = '';
-    mountFixture({ enabled: true, serverId: AM23_SERVER_ID, isolate: false, override: false });
+    mountFixture({ enabled: true, serverId: AM23_SERVER_ID, isolate: false });
     const ctx2 = makeCtx();
     await am23TestHooks.holdOrEnableIsolate(ctx2, true);
     expect(ctx2.click).toHaveBeenCalledWith(HAR.HARNESS_MOCK_ISOLATE);
-    await am23TestHooks.holdOrEnableOverride(ctx2, true);
-    expect(ctx2.click).toHaveBeenCalledWith(HAR.HARNESS_MOCK_OVERRIDE);
   });
 
   it('selects the first scenario after deselecting stale checks', async () => {
@@ -486,19 +525,17 @@ describe('AM-23 helpers', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.EXPORT);
   });
 
-  it('covers quiet fixture/isolate/override paths and missing controls', async () => {
+  it('covers quiet fixture/isolate paths and missing controls', async () => {
     const ctx = makeCtx();
     await am23TestHooks.enableFixtureAndPickStore(ctx, false);
     await am23TestHooks.holdOrEnableIsolate(ctx, false);
-    await am23TestHooks.holdOrEnableOverride(ctx, false);
     await am23TestHooks.selectAm23Scenario(ctx);
     await am23TestHooks.closeAm23Export(ctx, false);
     expect(isAm23IsolateOn()).toBe(false);
-    expect(isAm23OverrideOn()).toBe(false);
 
-    mountFixture();
+    mountFixture({ serverId: '' });
     await am23TestHooks.enableFixtureAndPickStore(ctx, false);
-    expect(ctx.click).toHaveBeenCalledWith(HAR.HARNESS_MOCK_ENABLED);
+    expect(ctx.selectOption).toHaveBeenCalledWith(HAR.HARNESS_MOCK_SERVER, AM23_SERVER_ID);
 
     document.body.innerHTML = '';
     mountFixture({ enabled: true, serverId: 'srv-other' });
@@ -507,18 +544,10 @@ describe('AM-23 helpers', () => {
     expect(ctx2.selectOption).toHaveBeenCalledWith(HAR.HARNESS_MOCK_SERVER, AM23_SERVER_ID);
 
     document.body.innerHTML = '';
-    mountFixture({ enabled: true, serverId: AM23_SERVER_ID, isolate: false, override: true });
+    mountFixture({ enabled: true, serverId: AM23_SERVER_ID, isolate: false });
     const ctx3 = makeCtx();
     await am23TestHooks.holdOrEnableIsolate(ctx3, false);
     expect(ctx3.click).toHaveBeenCalledWith(HAR.HARNESS_MOCK_ISOLATE);
-    await am23TestHooks.holdOrEnableOverride(ctx3, true);
-    expect(ctx3.click).not.toHaveBeenCalledWith(HAR.HARNESS_MOCK_OVERRIDE);
-
-    document.body.innerHTML = '';
-    mountFixture({ enabled: true, serverId: AM23_SERVER_ID, override: false });
-    const ctx4 = makeCtx();
-    await am23TestHooks.holdOrEnableOverride(ctx4, false);
-    expect(ctx4.click).toHaveBeenCalledWith(HAR.HARNESS_MOCK_OVERRIDE);
   });
 
   it('skips scenario select when the first box is already the only selection', async () => {

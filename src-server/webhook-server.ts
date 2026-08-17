@@ -23,16 +23,42 @@ import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
 import { toErrorMessage } from '../src/shared/utils/helpers';
 import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts';
+import { probeApiMockEcho } from '../src/shared/api-mock/echoHealthProbe';
 
 const app = express();
 
 // ── SSE log broadcast ────────────────────────────────
 const sseClients = new Set<Response>();
 
+// Short-lived replay buffer. A client that flips a mock to `starting` opens its
+// EventSource in the same tick it POSTs /start, so the "Started …" line is often
+// broadcast before the new subscriber is registered in `sseClients` — the line
+// is lost and the console looks empty until the first Apply/Stop. Buffering the
+// last few seconds of lines and replaying them on connect closes that race for
+// every log source without dumping stale session history on reconnect.
+const LOG_REPLAY_WINDOW_MS = 4000;
+const LOG_REPLAY_MAX = 200;
+const recentLogLines: { line: LogLine; at: number }[] = [];
+
 function broadcastLog(line: LogLine) {
+  const now = Date.now();
+  recentLogLines.push({ line, at: now });
+  const cutoff = now - LOG_REPLAY_WINDOW_MS;
+  while (recentLogLines.length > 0
+    && (recentLogLines[0].at < cutoff || recentLogLines.length > LOG_REPLAY_MAX)) {
+    recentLogLines.shift();
+  }
   const data = JSON.stringify(line);
   for (const client of sseClients) {
     client.write(`data: ${data}\n\n`);
+  }
+}
+
+function replayRecentLogs(client: Response) {
+  const cutoff = Date.now() - LOG_REPLAY_WINDOW_MS;
+  for (const entry of recentLogLines) {
+    if (entry.at < cutoff) continue;
+    client.write(`data: ${JSON.stringify(entry.line)}\n\n`);
   }
 }
 
@@ -184,6 +210,20 @@ app.get('/health/kafka-admin', async (req: Request, res: Response) => {
     clearTimeout(timer);
     return res.status(200).json({ status: 'down', source: 'kafka-admin', port, reason: toErrorMessage(error) });
   }
+});
+
+// API Mock Docker echo (:4017) — AM-17 PrerequisiteGate.
+// Probe with Node http (no HTTP_PROXY) so the browser never hits :4017 directly.
+app.get('/health/api-mock-echo', async (_req: Request, res: Response) => {
+  const probe = await probeApiMockEcho();
+  if (probe.ok) {
+    return res.status(200).json({ status: 'ok', source: 'api-mock-echo', httpStatus: probe.statusCode });
+  }
+  return res.status(200).json({
+    status: 'down',
+    source: 'api-mock-echo',
+    reason: probe.reason ?? 'unreachable',
+  });
 });
 
 // API: Get execution history
@@ -467,6 +507,7 @@ app.get('/api/logs/stream', (req: Request, res: Response) => {
   res.flushHeaders();
 
   sseClients.add(res);
+  replayRecentLogs(res);
   console.log(`[SSE] Client connected (${sseClients.size} total)`);
 
   req.on('close', () => {

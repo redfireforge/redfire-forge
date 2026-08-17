@@ -6,6 +6,7 @@
  * every click into its own step. `spotlightBeat` is the mechanism — it reuses the
  * step-level spotlight visual so the viewer reads it as "the ring moved here".
  */
+import { listApiMockStudioServers } from '../../adapters';
 import { showSpotlightRing } from '../../demoRipple';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import { API_MOCK } from '@shared/selectors';
@@ -35,9 +36,13 @@ export const AM_DEMO_TIMING = {
   /** Breather between logical groups inside one multi-beat step. */
   groupBreak: 500,
   /** Filled Simulate fields, held so the viewer can read them before Run. */
-  reviewForm: 2000,
+  reviewForm: 2400,
+  /** Quiet digest after the field tour — look at the whole request before Run. */
+  digestRequest: 2000,
   /** Ring on **Run simulation** before the click. */
-  beforeRun: 2000,
+  beforeRun: 2400,
+  /** Hold the verdict / results before **Close**. */
+  beforeClose: 2400,
 } as const;
 
 /**
@@ -86,6 +91,23 @@ export async function clickBeat(
   await spotlightBeat(ctx, selector, opts.look ?? AM_DEMO_TIMING.look);
   await ctx.click(selector);
   await ctx.delay(opts.hold ?? AM_DEMO_TIMING.fieldFilled);
+}
+
+/**
+ * Click **Pretty format** after a JSON paste so the viewer can read the payload.
+ * No-ops when the control is missing (cURL / Catalog / Requests have no paste JSON).
+ */
+export async function prettyFormatImportPaste(
+  ctx: DemoActionContext,
+  opts: { look?: number; hold?: number } = {},
+): Promise<void> {
+  if (!firstVisibleElement(API_MOCK.IMPORT_PRETTY)) return;
+  const hold = opts.hold ?? AM_DEMO_TIMING.payoff;
+  await clickBeat(ctx, API_MOCK.IMPORT_PRETTY, {
+    look: opts.look ?? AM_DEMO_TIMING.look,
+    hold,
+  });
+  await spotlightBeat(ctx, API_MOCK.IMPORT_PASTE, hold);
 }
 
 /** Fill a field with a spotlight beforehand and a read pause after. */
@@ -140,9 +162,20 @@ export type AmSimulateReviewTiming = {
   beforeRun?: number;
   /** Name written after **Save as sample**. Defaults to `METHOD path`. */
   sampleName?: string;
-  /** Skip **Save as sample** (a later run in the same step already saved one). */
+  /** Skip **Save as sample** (retry, or the request is already a saved sample). */
   saveSample?: boolean;
+  /** Skip the path / headers / body hold when a dedicated review already ran. */
+  reviewFields?: boolean;
+  /** Skip the compact Headers textarea hold (the Table popup already showed them). */
+  reviewHeaders?: boolean;
+  /** Skip the whole-request digest pause (compact / retry paths). */
+  digest?: boolean;
+  /** Extra beats after Save / field review, immediately before **Run simulation**. */
+  afterReview?: (ctx: DemoActionContext) => Promise<void>;
 };
+
+/** Run swaps the form for Results. Click Request before filling the next probe. */
+const ADHOC_FORM_REVEAL_MS = 4_000;
 
 export async function ensureAdHocSimulateForm(
   ctx: DemoActionContext,
@@ -152,10 +185,40 @@ export async function ensureAdHocSimulateForm(
     await clickBeat(ctx, API_MOCK.SIMULATE_VIEW_REQUEST, { hold });
   }
   const adhoc = firstVisibleElement(API_MOCK.SIMULATE_SAMPLE_ADHOC);
-  if (adhoc && !adhoc.classList.contains('active')) {
+  const onAdhoc = Boolean(adhoc?.classList.contains('active'));
+  if (adhoc && !onAdhoc) {
     await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: 0 });
-    await revealBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, { hold: AM_DEMO_TIMING.panelReady });
+    if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)) {
+      await revealBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, {
+        timeout: ADHOC_FORM_REVEAL_MS,
+        hold: AM_DEMO_TIMING.panelReady,
+      });
+    }
   }
+  // A selected saved sample still shows the request form (read-only) without Save.
+  if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE) && firstVisibleElement(API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN)) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: 0 });
+    if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)) {
+      await revealBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, {
+        timeout: ADHOC_FORM_REVEAL_MS,
+        hold: AM_DEMO_TIMING.panelReady,
+      });
+    }
+  }
+}
+
+/**
+ * Run parks on Results; Save as sample switches back to Request and unmounts the
+ * verdict. Lessons that wait for `SIMULATE_RESULT` must land here or Acting sits
+ * on a 20s reveal that never comes.
+ */
+export async function ensureSimulateResultsPane(
+  ctx: DemoActionContext,
+  hold: number = AM_DEMO_TIMING.tabSwitch,
+): Promise<void> {
+  if (firstVisibleElement(API_MOCK.SIMULATE_RESULT)) return;
+  if (!firstVisibleElement(API_MOCK.SIMULATE_VIEW_RESULTS)) return;
+  await clickBeat(ctx, API_MOCK.SIMULATE_VIEW_RESULTS, { hold });
 }
 
 function defaultSimulateSampleName(): string {
@@ -167,9 +230,8 @@ function defaultSimulateSampleName(): string {
 }
 
 /**
- * After the Simulate form is filled, walk the request the viewer must read,
- * save it so it can be reopened from the sidebar, name it, then hold on
- * **Run simulation** before clicking it.
+ * After the Simulate form is filled: **Save as sample** with a name, hold so the
+ * viewer can read the saved request, then hold on **Run simulation** before the click.
  */
 export async function reviewAndRunSimulation(
   ctx: DemoActionContext,
@@ -179,30 +241,135 @@ export async function reviewAndRunSimulation(
   const beforeRun = timing.beforeRun ?? AM_DEMO_TIMING.beforeRun;
   const sampleName = timing.sampleName ?? defaultSimulateSampleName();
 
-  const glance = firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)
-    ? Math.min(review, 800)
-    : review;
-
-  await spotlightBeat(ctx, API_MOCK.SIMULATE_PATH, glance);
-  if (simulateFieldValue(API_MOCK.SIMULATE_HEADERS)) {
-    await spotlightBeat(ctx, API_MOCK.SIMULATE_HEADERS, glance);
+  if (timing.saveSample !== false) {
+    if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE) && firstVisibleElement(API_MOCK.SIMULATE_VIEW_REQUEST)) {
+      await clickBeat(ctx, API_MOCK.SIMULATE_VIEW_REQUEST, { hold: AM_DEMO_TIMING.panelReady });
+    }
+    if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE) && firstVisibleElement(API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN)) {
+      await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: 0 });
+    }
+    if (firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)) {
+      await clickBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, {
+        look: AM_DEMO_TIMING.look,
+        hold: AM_DEMO_TIMING.fieldFilled,
+      });
+      await ctx.waitFor(API_MOCK.SIMULATE_SAMPLE_NAME, 4_000);
+      await fillBeat(ctx, API_MOCK.SIMULATE_SAMPLE_NAME, sampleName, {
+        look: AM_DEMO_TIMING.look,
+        hold: AM_DEMO_TIMING.fieldFilled,
+      });
+    }
   }
-  if (simulateFieldValue(API_MOCK.SIMULATE_BODY)) {
-    await spotlightBeat(ctx, API_MOCK.SIMULATE_BODY, glance);
+
+  if (timing.reviewFields !== false) {
+    await spotlightBeat(ctx, API_MOCK.SIMULATE_PATH, review);
+    if (timing.reviewHeaders !== false && simulateFieldValue(API_MOCK.SIMULATE_HEADERS)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_HEADERS, review);
+    }
+    if (simulateFieldValue(API_MOCK.SIMULATE_BODY)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_BODY, review);
+    }
+    if (timing.saveSample !== false && firstVisibleElement(API_MOCK.SIMULATE_SECTION_SAVED)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_SECTION_SAVED, Math.min(review, 800));
+    }
   }
 
-  if (timing.saveSample !== false && firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)) {
-    await clickBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, {
-      look: Math.min(review, 700),
-      hold: AM_DEMO_TIMING.fieldFilled,
-    });
-    await ctx.waitFor(API_MOCK.SIMULATE_SAMPLE_NAME, 8_000);
-    await fillBeat(ctx, API_MOCK.SIMULATE_SAMPLE_NAME, sampleName, {
-      look: AM_DEMO_TIMING.look,
-      hold: AM_DEMO_TIMING.fieldFilled,
-    });
-    await spotlightBeat(ctx, API_MOCK.SIMULATE_SECTION_SAVED, Math.min(review, 800));
+  if (timing.reviewFields !== false && timing.digest !== false) {
+    await ctx.delay(AM_DEMO_TIMING.digestRequest);
+  }
+
+  if (timing.afterReview) {
+    await timing.afterReview(ctx);
   }
 
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: beforeRun, hold: 0 });
+  await ensureSimulateResultsPane(ctx);
+}
+
+/**
+ * Close Rule Simulation. Pass `review: true` after a run so the viewer can read
+ * the verdict before the workspace disappears. Guards / preAction stay quiet.
+ */
+export async function closeSimulateWorkspace(
+  ctx: DemoActionContext,
+  opts: { review?: boolean; afterClose?: number } = {},
+): Promise<void> {
+  if (!firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE)) return;
+  if (opts.review) {
+    if (firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, AM_DEMO_TIMING.beforeClose);
+    } else if (firstVisibleElement(API_MOCK.SIMULATE_RESULT)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_RESULT, AM_DEMO_TIMING.beforeClose);
+    } else {
+      await ctx.delay(AM_DEMO_TIMING.beforeClose);
+    }
+  }
+  if (!firstVisibleElement(API_MOCK.SIMULATE_CLOSE)) return;
+  await ctx.click(API_MOCK.SIMULATE_CLOSE);
+  await ctx.delay(opts.afterClose ?? AM_DEMO_TIMING.panelReady);
+}
+
+/**
+ * Gallery import remaps template ids (`srv-gallery-*` / `srv-blank` → `srv-<uuid>`).
+ * Prefer the live name, then the template id if it still exists, then active / first.
+ */
+export async function resolveApiMockStudioServerId(opts?: {
+  name?: string;
+  templateId?: string;
+}): Promise<string | null> {
+  const rows = await listApiMockStudioServers();
+  if (rows.length === 0) return null;
+  if (opts?.name) {
+    const want = opts.name.toLowerCase();
+    const byName = rows.find(s => s.name.toLowerCase() === want);
+    if (byName) return byName.id;
+  }
+  if (opts?.templateId) {
+    const byId = rows.find(s => s.id === opts.templateId);
+    if (byId) return byId.id;
+  }
+  return rows.find(s => s.active)?.id ?? rows[0]?.id ?? null;
+}
+
+export async function waitForApiMockStudioServerId(
+  ctx: DemoActionContext,
+  opts?: { name?: string; templateId?: string; timeout?: number },
+): Promise<string> {
+  const timeout = opts?.timeout ?? 8_000;
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const id = await resolveApiMockStudioServerId(opts);
+    if (id) return id;
+    await ctx.delay(150);
+  }
+  return (await resolveApiMockStudioServerId(opts)) ?? opts?.templateId ?? '';
+}
+
+/** Reset the workflow picker to “Select server…” so the next pick is visible. */
+export function clearApiMockWfServerPicker(): boolean {
+  const el = firstVisibleElement(API_MOCK.WF_SERVER);
+  if (!el) return false;
+  const wrap = el.classList.contains('cs-wrapper') ? el : el.closest('.cs-wrapper');
+  if (!wrap) return false;
+  if (!(wrap.getAttribute('data-value') ?? '')) return false;
+  wrap.dispatchEvent(new CustomEvent('custom-select:set-value', { detail: { value: '' } }));
+  return true;
+}
+
+/** True when the workflow picker has loaded Studio options (or already shows `serverId`). */
+export async function waitForApiMockWfServerReady(
+  ctx: DemoActionContext,
+  serverId: string,
+  timeout = 8_000,
+): Promise<boolean> {
+  const host = firstVisibleElement(API_MOCK.WF_SERVER_HOST);
+  if (!host) return true;
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const count = Number(firstVisibleElement(API_MOCK.WF_SERVER_HOST)?.getAttribute('data-count') ?? 0);
+    const value = firstVisibleElement(API_MOCK.WF_SERVER)?.getAttribute('data-value') ?? '';
+    if (count > 0 || (serverId && value === serverId)) return true;
+    await ctx.delay(100);
+  }
+  return false;
 }

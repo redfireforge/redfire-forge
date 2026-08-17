@@ -180,6 +180,13 @@ export type DemoBridgeWindow = Window &
     }) => void;
     /** Wipe API Mock Studio workspace + stop orphan listeners (quiet demo setup). */
     __demoWipeApiMockWorkspace?: () => Promise<boolean>;
+    /** Live Studio mock library (ids are remapped on gallery import). */
+    __demoListApiMockServers?: () => Promise<Array<{
+      id: string;
+      name: string;
+      port: number;
+      active: boolean;
+    }>>;
     /** Quiet Gallery → Studio import by sample id (`am-gallery-health`, …). */
     __demoImportApiMockGallerySample?: (sampleId: string) => Promise<boolean>;
     /** Ensure an empty mock server is open (no rules). Used by import lessons. */

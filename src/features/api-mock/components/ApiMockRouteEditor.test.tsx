@@ -316,7 +316,7 @@ describe('ApiMockRouteEditor', () => {
     expect((screen.getByTestId('api-mock-docs-tags') as HTMLInputElement).value).toBe('');
   });
 
-  it('toggles matchStyle from subset back to exact when rerendered', () => {
+  it('keeps Equals and Contains radios on one line and switches matchStyle', () => {
     const onUpdate = vi.fn();
     const route = makeRoute({
       predicates: {
@@ -328,23 +328,36 @@ describe('ApiMockRouteEditor', () => {
           selector: '',
           operator: 'jsonPath_equals',
           expected: ['$.a', 'b'],
-          options: { matchStyle: 'subset' },
         }],
       } as any,
     });
     const { rerender } = render(<ApiMockRouteEditor route={route} onUpdate={onUpdate} />);
-    fireEvent.click(screen.getByTestId('api-mock-condition-matchstyle-pred-jp'));
-    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].options.matchStyle).toBe('exact');
+    const equals = screen.getByTestId('api-mock-condition-matchstyle-equals-pred-jp') as HTMLInputElement;
+    const contains = screen.getByTestId('api-mock-condition-matchstyle-contains-pred-jp') as HTMLInputElement;
+    expect(equals.checked).toBe(true);
+    expect(contains.checked).toBe(false);
+    expect(screen.getByTestId('api-mock-condition-matchstyle-pred-jp').className).toContain('am-matchstyle-radios');
+    const value = screen.getByTestId('api-mock-condition-value-pred-jp');
+    const radios = screen.getByTestId('api-mock-condition-matchstyle-pred-jp');
+    const expand = screen.getByTestId('api-mock-condition-value-pred-jp-expand');
+    expect(value.compareDocumentPosition(radios) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(radios.compareDocumentPosition(expand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(contains);
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].options.matchStyle).toBe('subset');
 
     const updated = {
       ...route,
       predicates: {
         ...route.predicates,
-        children: [{ ...route.predicates.children[0], options: { matchStyle: 'exact' as const } }],
+        children: [{ ...route.predicates.children[0], options: { matchStyle: 'subset' as const } }],
       },
     };
     rerender(<ApiMockRouteEditor route={updated} onUpdate={onUpdate} />);
-    expect(screen.getByTestId('api-mock-condition-matchstyle-pred-jp').textContent).toBe('equals');
+    expect((screen.getByTestId('api-mock-condition-matchstyle-contains-pred-jp') as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(screen.getByTestId('api-mock-condition-matchstyle-equals-pred-jp'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].options.matchStyle).toBe('exact');
   });
 
   it('handles behavior tab when there is no default variant to update', () => {

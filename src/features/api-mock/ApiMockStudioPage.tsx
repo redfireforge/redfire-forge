@@ -1,24 +1,19 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
 import { ApiMockStudioTitleBar } from './components/ApiMockStudioTitleBar';
 import { type ApiMockDockTab } from './components/ApiMockDock';
 import { type ApiMockMainView } from './components/ApiMockWorkspaceNav';
 import { ApiMockStudioEmptyState } from './components/ApiMockStudioEmptyState';
 import { ApiMockStudioModals } from './components/ApiMockStudioModals';
-import { ApiMockStudioActiveSection } from './components/ApiMockStudioActiveSection';
-import { loadApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
-import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
+import { ApiMockStudioActivePanel } from './components/ApiMockStudioActivePanel';
+import { publishApiMockRuntimeChanged } from './apiMockPersistence';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
-import { mergeRecordedDraftsIntoRoutes } from '../../shared/api-mock/proxyRecording';
-import { reconcileRuntimeState } from '../../shared/api-mock/recoveryDiagnostics';
-import { isTauri } from '../../shared/utils/platform';
 import type { ApiMockExportRequest } from './components/ApiMockWorkspaceNav';
 import type { ApiMockRouteFolderV1 } from '../../shared/api-mock/contracts';
 import {
   applyRouteUpdate,
   buildRuntimeMaps,
-  computeHydrationResult,
   duplicateServerDefinition,
   findSelectedRoute,
   formatImportedRoutesMessage,
@@ -32,9 +27,10 @@ import {
   reorderServers,
   runConflictAnalysis,
 } from './apiMockPageHelpers';
-import { resolveOpenTabIds } from './apiMockServerLibrary';
 import { useApiMockServerLibrary } from './useApiMockServerLibrary';
 import { useDemoApiMockRoutePatch } from './useDemoApiMockRoutePatch';
+import { useApiMockStudioJournal } from './useApiMockStudioJournal';
+import { useApiMockStudioPersistence } from './useApiMockStudioPersistence';
 import { ApiMockServerLibraryModal } from './components/ApiMockServerLibraryModal';
 import { ApiMockLibraryLanding } from './components/ApiMockLibraryLanding';
 import { useApiMockRouteUndo } from './useApiMockRouteUndo';
@@ -55,7 +51,6 @@ import { analyzeConflicts } from '../../shared/api-mock/conflictAnalyzer';
 import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
 import './api-mock-studio.css';
 const ts = nowIso;
-
 export function ApiMockStudioPage() {
   const [servers, setServers] = useState<ApiMockServerDefinitionV1[]>([]);
   const [activeServerId, setActiveServerId] = useState<string | undefined>();
@@ -77,9 +72,14 @@ export function ApiMockStudioPage() {
   const [routesDrawerOpen, setRoutesDrawerOpen] = useState(false);
   const [transactions, setTransactions] = useState<ApiMockTransactionV1[]>([]);
   const [scenarioState, setScenarioState] = useState<ScenarioStateSnapshot | null>(null);
-  const listenerLive = Object.values(runtime).some(r => r.status === 'running');
+  const consoleStreamActive = Object.values(runtime).some(
+    r => r.status === 'running'
+      || r.status === 'starting'
+      || r.status === 'applying'
+      || r.status === 'draining',
+  );
   const { confirm, confirmDialogElement } = useConfirmDialog();
-  const { lines: consoleLines, clear: clearConsole } = useApiMockConsole(listenerLive);
+  const { lines: consoleLines, clear: clearConsole } = useApiMockConsole(consoleStreamActive);
 
   const forgetRuntime = useCallback((ids: string[]) => {
     setRuntime(prev => {
@@ -94,7 +94,6 @@ export function ApiMockStudioPage() {
       return changed ? next : prev;
     });
   }, []);
-
   const library = useApiMockServerLibrary({
     servers,
     setServers,
@@ -108,135 +107,44 @@ export function ApiMockStudioPage() {
     forgetRuntime,
   });
   const { openTabIds, setOpenTabIds, openServers, trackOpenedServer } = library;
+  const dismissStudioOverlays = useCallback(() => {
+    setExportResult(null);
+    setImportOpen(false);
+    setSimulateOpen(false);
+    setSettingsOpen(false);
+    setConflictIds([]);
+    setConflictFindings([]);
+    setConflictStats(undefined);
+  }, []);
 
-  // Persistence: hydrate from storage on mount, then autosave definitions.
-  const hydratedRef = useRef(false);
-  const latestRef = useRef<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string; openTabIds: string[] }>({ servers: [], activeServerId: undefined, openTabIds: [] });
-  const autosaveTimerRef = useRef<number | undefined>(undefined);
-  latestRef.current = { servers, activeServerId, openTabIds };
+  const latestRef = useApiMockStudioPersistence({
+    servers,
+    activeServerId,
+    openTabIds,
+    setServers,
+    setActiveServerId,
+    setOpenTabIds,
+    setRuntime,
+    setTransactions,
+    setScenarioState,
+    setMainView,
+    setLiveMessage,
+    onWorkspaceReplaced: dismissStudioOverlays,
+  });
 
   useDemoApiMockRoutePatch({
-    getState: useCallback(() => latestRef.current, []),
+    getState: useCallback(() => latestRef.current, [latestRef]),
     selectedRouteId,
     setServers,
   });
 
   useEffect(() => {
-    let cancelled = false;
-    void loadApiMockWorkspace().then(async state => {
-      if (cancelled) return;
-      const hydrated = computeHydrationResult(cancelled, state);
-      if (hydrated.shouldApply) {
-        setServers(hydrated.servers);
-        setOpenTabIds(hydrated.openTabIds);
-        setActiveServerId(hydrated.activeServerId);
-        // AMS-010 / W21 — reconcile live companion/native status (never trust disk for running).
-        let live: Array<{ serverId: string; state: 'running' | 'stopped'; generation?: number }> | null = null;
-        if (isTauri()) {
-          live = await Promise.all(hydrated.servers.map(async (s) => {
-            const st = await apiMockControlClient.status(s.id);
-            return st.ok
-              ? { serverId: s.id, state: st.data.state, generation: st.data.generation }
-              : { serverId: s.id, state: 'stopped' as const };
-          }));
-        } else {
-          const listRes = await apiMockControlClient.list();
-          if (cancelled) return;
-          live = listRes.ok
-            ? listRes.data.map(s => ({ serverId: s.serverId, state: s.state, generation: s.generation }))
-            : null;
-        }
-        if (cancelled) return;
-        const reconciled = reconcileRuntimeState(
-          hydrated.servers.map(s => ({ serverId: s.id, persistedRunning: false })),
-          live,
-        );
-        const genById = new Map((live ?? []).map(s => [s.serverId, s.generation ?? 0]));
-        setRuntime(prev => {
-          const next = { ...prev };
-          for (const row of reconciled.servers) {
-            if (row.state === 'running') {
-              next[row.serverId] = {
-                status: 'running',
-                generation: genById.get(row.serverId) ?? prev[row.serverId]?.generation ?? 0,
-                error: undefined,
-                appliedJson: prev[row.serverId]?.appliedJson,
-              };
-            } else if (row.state === 'stopped') {
-              next[row.serverId] = {
-                status: 'stopped',
-                generation: prev[row.serverId]?.generation ?? 0,
-                error: undefined,
-                appliedJson: prev[row.serverId]?.appliedJson,
-              };
-            }
-          }
-          return next;
-        });
-        // An unreachable companion attaches its notice to every server, and hydration
-        // only applies with at least one, so this covers both the "was running" and
-        // the companion-down cases.
-        const notice = reconciled.servers.find(s => s.message)?.message;
-        if (notice) setLiveMessage(notice);
-      }
-      hydratedRef.current = true;
-    });
-    const onWorkspaceChanged = (event: Event) => {
-      const detail = (event as CustomEvent<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string; openTabIds?: string[] }>).detail;
-      if (!detail?.servers) return;
-      // Cancel a pending autosave that could overwrite the imported workspace.
-      if (autosaveTimerRef.current != null) {
-        window.clearTimeout(autosaveTimerRef.current);
-        autosaveTimerRef.current = undefined;
-      }
-      const nextTabs = resolveOpenTabIds(detail.servers, detail.openTabIds);
-      latestRef.current = { servers: detail.servers, activeServerId: detail.activeServerId, openTabIds: nextTabs };
-      setServers(detail.servers);
-      setOpenTabIds(nextTabs);
-      setActiveServerId(detail.activeServerId);
-      setRuntime({});
-      setTransactions([]);
-      setScenarioState(null);
-      setMainView('studio');
-      setLiveMessage(detail.servers.length > 0 ? 'Gallery mock server imported.' : '');
-      hydratedRef.current = true;
-    };
-    window.addEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
-    };
-    // `setOpenTabIds` is a stable setState, so this still runs once on mount.
-  }, [setOpenTabIds]);
-
-  useEffect(() => {
-    if (!hydratedRef.current) return;
-    autosaveTimerRef.current = window.setTimeout(() => {
-      autosaveTimerRef.current = undefined;
-      void saveApiMockWorkspace(latestRef.current);
-    }, 300);
-    return () => {
-      if (autosaveTimerRef.current != null) {
-        window.clearTimeout(autosaveTimerRef.current);
-        autosaveTimerRef.current = undefined;
-      }
-    };
-  }, [servers, activeServerId, openTabIds]);
-
-  // Flush the latest state on unmount so navigating away never drops a pending save.
-  useEffect(() => () => {
-    if (hydratedRef.current) void saveApiMockWorkspace(latestRef.current);
-  }, []);
-
-  // Conflict markers and Simulate seed are per-server; drop them when the tab changes.
-  useEffect(() => {
     setConflictIds([]);
+    setConflictFindings([]);
+    setConflictStats(undefined);
     setSimulateOpen(false);
     setSimulateSeed(undefined);
   }, [activeServerId]);
-
-  // Never leave the editor blank when the active server has rules (e.g. after
-  // hydration or switching tabs) — select the first rule instead.
   const activeServerForSelection = servers.find(s => s.id === activeServerId);
   useEffect(() => {
     if (!activeServerForSelection) return;
@@ -244,54 +152,19 @@ export function ApiMockStudioPage() {
     setSelectedRouteId(activeServerForSelection.routes[0]?.id);
   }, [activeServerForSelection, selectedRouteId]);
 
-  // Poll the running server's transaction journal for the live dock view.
   const activeStatus = runtime[activeServerId ?? '']?.status;
-  useEffect(() => {
-    setTransactions([]);
-    setScenarioState(null);
-  }, [activeServerId]);
-  useEffect(() => {
-    if (!activeServerId || activeStatus !== 'running') return;
-    let cancelled = false;
-    const poll = async () => {
-      const [txRes, stRes, draftRes] = await Promise.all([
-        apiMockControlClient.transactions(activeServerId),
-        apiMockControlClient.state(activeServerId),
-        apiMockControlClient.recordedDrafts(activeServerId),
-      ]);
-      if (cancelled) return;
-      // Listener gone (wipe, crash, lesson import) — stop polling so Chrome is not
-      // flooded with /state and /transactions 404s every 1.5s.
-      if (!stRes.ok && !stRes.error.retry) {
-        setRuntime(prev => mergeRuntimeInfo(prev, activeServerId, { status: 'stopped', error: undefined }));
-        return;
-      }
-      if (txRes.ok) setTransactions([...txRes.data.transactions].reverse());
-      if (stRes.ok) setScenarioState(stRes.data);
-      if (draftRes.ok && draftRes.data.drafts.length > 0) {
-        const drafts = draftRes.data.drafts;
-        const current = latestRef.current.servers.find(s => s.id === activeServerId);
-        if (current) {
-          const merged = mergeRecordedDraftsIntoRoutes(current.routes, drafts);
-          if (merged.added > 0) {
-            setServers(prev => prev.map(s => (
-              s.id === activeServerId
-                ? { ...s, routes: merged.routes, updatedAt: new Date().toISOString() }
-                : s
-            )));
-            setLiveMessage(`Recorded ${merged.added} proxied exchange(s) as inactive draft routes.`);
-          }
-        }
-        void apiMockControlClient.ackRecordedDrafts(activeServerId, drafts.map(d => d.id));
-      }
-    };
-    void poll();
-    const timer = window.setInterval(() => void poll(), 1500);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [activeServerId, activeStatus]);
+  useApiMockStudioJournal({
+    activeServerId,
+    activeStatus,
+    latestRef,
+    setTransactions,
+    setScenarioState,
+    setRuntime,
+    setServers,
+    setLiveMessage,
+  });
 
   const handleClearTransactions = useCallback(async () => {
-    /* c8 ignore next */
     if (!activeServerId) return;
     await apiMockControlClient.clearTransactions(activeServerId);
     setTransactions([]);
@@ -395,7 +268,6 @@ export function ApiMockStudioPage() {
     if (open) setSimulateSeed(undefined);
     setSimulateOpen(open);
   }, []);
-
   const handleSimulateSample = useCallback((sample: ApiMockSimulationSampleV1) => {
     const method = sample.request.method && sample.request.method !== 'ANY' ? sample.request.method : 'GET';
     setSimulateSeed({
@@ -495,6 +367,9 @@ export function ApiMockStudioPage() {
 
   const patchRuntime = useCallback((id: string, patch: Partial<RuntimeInfo>) => {
     setRuntime(prev => mergeRuntimeInfo(prev, id, patch));
+    if (patch.status === 'running' || patch.status === 'stopped' || patch.status === 'error') {
+      publishApiMockRuntimeChanged();
+    }
   }, []);
 
   const handleStart = useCallback(async (server: ApiMockServerDefinitionV1) => {
@@ -535,7 +410,6 @@ export function ApiMockStudioPage() {
       patchRuntime(server.id, { status: 'running', generation: res.data.generation, error: undefined, appliedJson: JSON.stringify(server) });
       setLiveMessage(`Applied generation ${res.data.generation}.`);
     } else {
-      // A rejected draft leaves the previous generation running untouched.
       patchRuntime(server.id, { status: 'running', error: `${res.error.title}: ${res.error.message}` });
     }
   }, [patchRuntime]);
@@ -704,7 +578,6 @@ export function ApiMockStudioPage() {
     if (!activeServerId || !activeServer) return;
     const folder = activeServer.folders.find(f => f.id === folderId);
     if (!folder) return;
-    // Deleting a folder never deletes its rules; they fall back to Ungrouped.
     confirm(`Delete folder "${folder.name}"? Rules inside it move to Ungrouped.`, () => {
       handleUpdateServer(activeServerId, {
         folders: activeServer.folders.filter(f => f.id !== folderId),
@@ -732,7 +605,6 @@ export function ApiMockStudioPage() {
     : undefined;
 
   const { statusById, dirtyById } = buildRuntimeMaps(openServers, runtime);
-  /* c8 ignore next */
   const modalRuntimeStatus = runtime[activeServer?.id ?? '']?.status ?? 'stopped';
 
   if (servers.length === 0) {
@@ -770,7 +642,7 @@ export function ApiMockStudioPage() {
         />
       )}
       {activeServer && (
-        <ApiMockStudioActiveSection
+        <ApiMockStudioActivePanel
           activeServer={activeServer}
           mainView={mainView}
           setMainView={setMainView}

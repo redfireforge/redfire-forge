@@ -87,9 +87,10 @@ export function createPredicateStarterMock(): ApiMockServerDefinitionV1 {
  *
  * `POST /orders` accepts any payload that *contains* `customer.tier = "gold"`, which
  * is the forgiving default (`json_subset`) and the right place to start explaining
- * body matchers. Strict equality, JSONPath, the match-style toggle, and a JSON Schema
- * contract are all authored live in the lesson, so the corpus ships one honest
- * baseline rather than a finished matcher stack.
+ * body matchers. The expected fragment is a compact one-liner so the Match row
+ * shows the whole matcher. Strict equality, JSONPath, and
+ * a JSON Schema contract are all authored live in the lesson, so the corpus ships
+ * one honest baseline rather than a finished matcher stack.
  */
 export function createBodyMatchingMock(): ApiMockServerDefinitionV1 {
   return {
@@ -118,7 +119,7 @@ export function createBodyMatchingMock(): ApiMockServerDefinitionV1 {
             source: 'body',
             selector: '',
             operator: 'json_subset',
-            expected: '{\n  "customer": {\n    "tier": "gold"\n  }\n}',
+            expected: '{"customer":{"tier":"gold"}}',
           }],
         },
         body: '{"orderId":"O-7781","status":"confirmed","tier":"gold","total":1240}',

@@ -141,7 +141,23 @@ export function hasAm19Library(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SERVER_BAR) && firstVisibleElement(API_MOCK.ROUTE_ROW));
 }
 
+/**
+ * The runtime banner shows this when the companion lost the listener — e.g. the
+ * dev server restarted mid-session and its in-memory pool is empty. The status
+ * badge can still read "Running" (it only re-reconciles on a full page load), so
+ * a demo guard that trusts the badge alone would skip recovery and every live
+ * `send` / journal / diagnostics call would silently fail against a dead port.
+ */
+export function isAm19CompanionUnavailable(): boolean {
+  const notice = (firstVisibleElement(API_MOCK.LIVE_REGION)?.textContent ?? '').toLowerCase();
+  return notice.includes('not reachable')
+    || notice.includes('companion unavailable')
+    || notice.includes('start it, then retry');
+}
+
 export function isAm19ServerRunning(): boolean {
+  // A stale "Running" badge over an unreachable companion is not actually live.
+  if (isAm19CompanionUnavailable()) return false;
   const label = firstVisibleElement(API_MOCK.STATUS_LABEL);
   return (label?.textContent ?? '').toLowerCase().includes('running');
 }
@@ -280,9 +296,28 @@ export async function ensureAm19Library(ctx: DemoActionContext): Promise<void> {
 export async function ensureAm19Running(ctx: DemoActionContext): Promise<void> {
   await ensureAm19Library(ctx);
   if (isAm19ServerRunning()) return;
-  if (!firstVisibleElement(API_MOCK.START)) return;
-  await ctx.click(API_MOCK.START);
-  await ctx.waitFor(API_MOCK.STOP, 20_000);
+  // Cold start — the badge reads "Stopped" and Start is available.
+  if (firstVisibleElement(API_MOCK.START)) {
+    await ctx.click(API_MOCK.START);
+    await ctx.waitFor(API_MOCK.STOP, 20_000);
+    await settleAm19Running(ctx);
+    return;
+  }
+  // Badge says "Running" but the companion lost the listener (Start is hidden in
+  // that state). Restart re-creates the listener on a live port so the following
+  // send / journal / diagnostics steps have real traffic to show.
+  if (firstVisibleElement(API_MOCK.RESTART)) {
+    await ctx.click(API_MOCK.RESTART);
+    await settleAm19Running(ctx);
+  }
+}
+
+/** Poll until the companion confirms the listener is live again (or give up). */
+async function settleAm19Running(ctx: DemoActionContext): Promise<void> {
+  for (let i = 0; i < 16; i++) {
+    if (isAm19ServerRunning()) return;
+    await ctx.delay(500);
+  }
 }
 
 export async function closeAm19SettingsModal(ctx: DemoActionContext): Promise<void> {
@@ -499,6 +534,18 @@ async function quietSecretFetch(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
 }
 
+/**
+ * Seed one plain (non-secret) journal row so the redaction step does not open on
+ * an empty journal — CORS preflights are intentionally not journaled, so without
+ * this the viewer reads "the new journal row" against nothing. The secret POST
+ * fired by the step action is then genuinely the *new* row to contrast against.
+ */
+async function quietWarmupFetch(ctx: DemoActionContext): Promise<void> {
+  if (hasAm19Traffic()) return;
+  await sendApiMockRequest({ path: AM19_PRODUCTS, method: 'GET' });
+  await ctx.delay(400);
+}
+
 async function quietTransform(ctx: DemoActionContext): Promise<void> {
   await openOutbound(ctx, false);
   if (!hasAm19Transform() && firstVisibleElement(API_MOCK.TRANSFORM_ADD)) {
@@ -533,6 +580,8 @@ export async function ensureAm19ForRedactionConfig(ctx: DemoActionContext): Prom
 export async function ensureAm19ForProveRedaction(ctx: DemoActionContext): Promise<void> {
   await ensureAm19ForRedactionConfig(ctx);
   await quietRedaction(ctx);
+  await openJournal(ctx, false);
+  await quietWarmupFetch(ctx);
 }
 
 export async function ensureAm19ForPersist(ctx: DemoActionContext): Promise<void> {
@@ -665,8 +714,18 @@ export async function runAm19Console(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.DOCK_TAB_CONSOLE)) {
     await am19ClickNow(ctx, API_MOCK.DOCK_TAB_CONSOLE, T.tabSwitch);
   }
-  if (firstVisibleElement(API_MOCK.CONSOLE_EMPTY) && firstVisibleElement(API_MOCK.APPLY)) {
-    await applyIfDirty(ctx, true);
+  // Lifecycle lines only stream in while the console is attached — an idle,
+  // already-running server shows nothing. Generate one on demand so the viewer
+  // sees real output: commit a pending change if dirty, else Restart the running
+  // server (the companion now logs "Restarted …" and the stream stays attached
+  // through the transition).
+  if (!firstVisibleElement(API_MOCK.CONSOLE_LINE)) {
+    if (firstVisibleElement(API_MOCK.APPLY)) {
+      await applyIfDirty(ctx, true);
+    } else if (firstVisibleElement(API_MOCK.RESTART)) {
+      await am19Aim(ctx, API_MOCK.RESTART, T.lifecycle);
+    }
+    await ctx.delay(T.lifecycle);
   }
   if (firstVisibleElement(API_MOCK.CONSOLE_LINE)) {
     await am19Reveal(ctx, API_MOCK.CONSOLE_LINE, T.payoff);

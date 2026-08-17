@@ -1,5 +1,5 @@
 /**
- * AM-14 `am-14-timing-faults` helpers — Latency, Eligibility & Connection Faults.
+ * AM-14 `am-14-timing-faults` helpers — When Payments Hang: Latency, Eligibility & Connection Faults.
  *
  * Quiet corpus is `POST /payments` with a plain 200. Delay, jitter, match limits,
  * expiry, probability, and every fault kind are authored in the UI. A retired
@@ -21,6 +21,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   ensureAdHocSimulateForm,
@@ -40,7 +41,7 @@ export const AM14_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
 } as const;
 
 const T = AM14_TIMING;
@@ -85,6 +86,15 @@ export const AM14_CLEAR_ELIGIBILITY = {
   expiresAt: null,
   probability: null,
 } as const;
+
+/** Timeout hang: drop leftover delay/jitter so journal Duration ≈ Hold for (ms). */
+export const AM14_TIMEOUT_BEHAVIOR = {
+  fault: 'timeout' as const,
+  longRunningMs: AM14_TIMEOUT_HOLD_MS,
+  delayMs: 0,
+  jitterMs: 0,
+  ...AM14_CLEAR_ELIGIBILITY,
+};
 
 async function am14Click(
   ctx: DemoActionContext,
@@ -291,10 +301,9 @@ export async function ensureAm14StudioView(ctx: DemoActionContext): Promise<void
   await ctx.waitFor(API_MOCK.SERVER_BAR, 10_000);
 }
 
-export async function closeAm14Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm14Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm14SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(400);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 400 });
 }
 
 export async function ensureAm14Workspace(ctx: DemoActionContext): Promise<void> {
@@ -411,8 +420,8 @@ export async function ensureAm14ForFaults(ctx: DemoActionContext): Promise<void>
 
 export async function ensureAm14ForTimeout(ctx: DemoActionContext): Promise<void> {
   await ensureAm14ForFaults(ctx);
-  // Live faults must not coin-flip or fall through to the retired 503 sibling.
-  patchApiMockActiveRoute({ variantIndex: 0, behavior: { ...AM14_CLEAR_ELIGIBILITY } });
+  // Live faults must not coin-flip, fall through to 503, or add leftover delay to Duration.
+  patchApiMockActiveRoute({ variantIndex: 0, behavior: { delayMs: 0, jitterMs: 0, ...AM14_CLEAR_ELIGIBILITY } });
   await resetAm14Runtime(ctx);
 }
 
@@ -573,7 +582,7 @@ export async function runAm14DelayAndJitter(ctx: DemoActionContext): Promise<voi
 /** Step 2 — Simulate previews latency without waiting; live traffic pays it. */
 export async function runAm14PreviewThenProve(ctx: DemoActionContext): Promise<void> {
   await ensureAm14Delay(ctx);
-  await runAm14Simulation(ctx, `POST ${AM14_PATH} delay`);
+  await runAm14Simulation(ctx, `POST ${AM14_PATH} — delay`);
   if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)) {
     await am14Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
   }
@@ -582,7 +591,7 @@ export async function runAm14PreviewThenProve(ctx: DemoActionContext): Promise<v
     : API_MOCK.SIMULATE_TIMELINE_DELAY;
   await am14Payoff(ctx, delayBadge);
   await am14Break(ctx);
-  await closeAm14Simulate(ctx);
+  await closeAm14Simulate(ctx, { review: true });
 
   await applyIfDirty(ctx);
   await sendAm14ProveRequest();
@@ -676,13 +685,12 @@ export async function runAm14Timeout(ctx: DemoActionContext): Promise<void> {
   await am14Aim(ctx, API_MOCK.FAULT_TIMEOUT);
   patchApiMockActiveRoute({
     variantIndex: 0,
-    behavior: {
-      fault: 'timeout',
-      longRunningMs: AM14_TIMEOUT_HOLD_MS,
-      ...AM14_CLEAR_ELIGIBILITY,
-    },
+    behavior: AM14_TIMEOUT_BEHAVIOR,
   });
   await am14Payoff(ctx, API_MOCK.FAULT_TIMEOUT);
+  if (firstVisibleElement(API_MOCK.FAULT_TIMEOUT_HOLD)) {
+    await am14Payoff(ctx, API_MOCK.FAULT_TIMEOUT_HOLD);
+  }
   await am14Break(ctx);
 
   await applyIfDirty(ctx);
@@ -692,13 +700,23 @@ export async function runAm14Timeout(ctx: DemoActionContext): Promise<void> {
   if (!opened) return;
   const outcome = firstVisibleElement(API_MOCK.TX_OUTCOME) ? API_MOCK.TX_OUTCOME : API_MOCK.TX_DETAIL;
   await am14Payoff(ctx, outcome);
+  const detailDuration = firstVisibleElement(API_MOCK.TX_DETAIL_DURATION)
+    ? API_MOCK.TX_DETAIL_DURATION
+    : API_MOCK.TX_DETAIL;
+  await am14Payoff(ctx, detailDuration);
+  if (firstVisibleElement(API_MOCK.TX_DURATION)) {
+    await am14Payoff(ctx, API_MOCK.TX_DURATION);
+  }
 }
 
 /** Step 7 — TCP-level failures the client's retry logic must survive. */
 export async function runAm14ResetCloseMalformed(ctx: DemoActionContext): Promise<void> {
   await ensureAm14FaultsTab(ctx);
   await am14Aim(ctx, API_MOCK.FAULT_RESET);
-  patchApiMockActiveRoute({ variantIndex: 0, behavior: { fault: 'reset', ...AM14_CLEAR_ELIGIBILITY } });
+  patchApiMockActiveRoute({
+    variantIndex: 0,
+    behavior: { fault: 'reset', delayMs: 0, jitterMs: 0, ...AM14_CLEAR_ELIGIBILITY },
+  });
   await am14Payoff(ctx, API_MOCK.FAULT_RESET);
   await am14Break(ctx);
 
@@ -706,14 +724,27 @@ export async function runAm14ResetCloseMalformed(ctx: DemoActionContext): Promis
   await resetAm14Runtime(ctx);
   await sendAm14ProveRequest();
   const opened = await openFaultJournalDetail(ctx);
-  if (opened && firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW)) {
+  if (!opened) {
+    await am14Look(ctx, API_MOCK.FAULT_CLOSE);
+    await am14Look(ctx, API_MOCK.FAULT_MALFORMED);
+    return;
+  }
+  if (firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW)) {
     await am14Payoff(ctx, API_MOCK.JOURNAL_FIRST_ROW);
   }
-  await am14Break(ctx);
-  await am14Look(ctx, API_MOCK.FAULT_CLOSE);
-  await am14Look(ctx, API_MOCK.FAULT_MALFORMED);
   const outcome = firstVisibleElement(API_MOCK.TX_OUTCOME) ? API_MOCK.TX_OUTCOME : API_MOCK.TX_DETAIL;
   await am14Payoff(ctx, outcome);
+  const detailDuration = firstVisibleElement(API_MOCK.TX_DETAIL_DURATION)
+    ? API_MOCK.TX_DETAIL_DURATION
+    : API_MOCK.TX_DETAIL;
+  await am14Payoff(ctx, detailDuration);
+  if (firstVisibleElement(API_MOCK.TX_DURATION)) {
+    await am14Payoff(ctx, API_MOCK.TX_DURATION);
+  }
+  await am14Break(ctx);
+  // Empty / close + Malformed — the other two wire-break cards beside Reset.
+  await am14Look(ctx, API_MOCK.FAULT_CLOSE);
+  await am14Look(ctx, API_MOCK.FAULT_MALFORMED);
 }
 
 /** Step 8 — drip the body in scheduled chunks, then read the timeline. */
@@ -729,14 +760,34 @@ export async function runAm14DribbleAndTimeline(ctx: DemoActionContext): Promise
   await am14Payoff(ctx, API_MOCK.CHUNK_SCHEDULE);
   await am14Break(ctx);
 
-  await runAm14Simulation(ctx, `POST ${AM14_PATH} dribble`);
-  if (firstVisibleElement(API_MOCK.SIMULATE_TAB_TRACE)) {
-    await am14Aim(ctx, API_MOCK.SIMULATE_TAB_TRACE, T.tabSwitch);
+  await runAm14Simulation(ctx, `POST ${AM14_PATH} — dribble`);
+  // Rendered response — On the wire vs Intended body is the lesson payoff.
+  if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)) {
+    await am14Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
   }
-  const timeline = firstVisibleElement(API_MOCK.SIMULATE_TIMELINE_FAULT)
-    ? API_MOCK.SIMULATE_TIMELINE_FAULT
-    : (firstVisibleElement(API_MOCK.SIMULATE_FAULT_TIMELINE)
-      ? API_MOCK.SIMULATE_FAULT_TIMELINE
+  await am14Reveal(ctx, API_MOCK.SIMULATE_RENDERED, T.simOutcome);
+  if (firstVisibleElement(API_MOCK.SIMULATE_DRIBBLE_NOTICE)) {
+    await am14Look(ctx, API_MOCK.SIMULATE_DRIBBLE_NOTICE);
+  }
+  const wire = firstVisibleElement(API_MOCK.SIMULATE_WIRE_SECTION)
+    ? API_MOCK.SIMULATE_WIRE_SECTION
+    : (firstVisibleElement(API_MOCK.SIMULATE_WIRE_BODY)
+      ? API_MOCK.SIMULATE_WIRE_BODY
+      : API_MOCK.SIMULATE_RENDERED);
+  await am14Payoff(ctx, wire);
+  await am14Break(ctx);
+  const intended = firstVisibleElement(API_MOCK.SIMULATE_INTENDED_SECTION)
+    ? API_MOCK.SIMULATE_INTENDED_SECTION
+    : (firstVisibleElement(API_MOCK.SIMULATE_RENDERED_BODY)
+      ? API_MOCK.SIMULATE_RENDERED_BODY
+      : API_MOCK.SIMULATE_RENDERED);
+  await am14Payoff(ctx, intended);
+  await am14Break(ctx);
+  const timeline = firstVisibleElement(API_MOCK.SIMULATE_FAULT_TIMELINE)
+    ? API_MOCK.SIMULATE_FAULT_TIMELINE
+    : (firstVisibleElement(API_MOCK.SIMULATE_TIMELINE_FAULT)
+      ? API_MOCK.SIMULATE_TIMELINE_FAULT
       : API_MOCK.SIMULATE_RESULT);
   await am14Payoff(ctx, timeline);
+  // Leave Simulate open on Rendered — last-step payoff is wire vs intended.
 }

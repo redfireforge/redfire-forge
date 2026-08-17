@@ -2,7 +2,7 @@ import type { ApiMockFaultKind, ApiMockResponseBodyKind } from '../../../shared/
 
 export const FAULT_CARDS: Array<{ id: ApiMockFaultKind; title: string; description: string }> = [
   { id: 'none', title: 'No fault', description: 'Return the configured response normally.' },
-  { id: 'timeout', title: 'Timeout / no response', description: 'Hold the connection until the safety limit.' },
+  { id: 'timeout', title: 'Timeout / no response', description: 'Hold the socket with no HTTP response. Set the hold below — each hung request occupies one connection.' },
   { id: 'reset', title: 'Connection reset', description: 'Reset the socket before completing the body.' },
   { id: 'dribble', title: 'Dribble chunks', description: 'Leak the body in scheduled pieces. An empty row waits without writing bytes.' },
   { id: 'close', title: 'Empty / close', description: 'Close the connection with an empty body.' },

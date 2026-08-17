@@ -207,12 +207,21 @@ describe('ApiMockRouteExplorer', () => {
 
     const first = screen.getByTestId('api-mock-route-r1');
     const second = screen.getByTestId('api-mock-route-r2');
-    expect(second).toHaveAttribute('title', 'Users Route');
+    expect(first).toHaveClass('is-live');
+    expect(second).toHaveClass('disabled', 'is-draft');
+    expect(second).toHaveAttribute('title', 'Draft — not matching');
+    expect(second).toHaveAttribute('data-enabled', 'false');
+    expect(screen.getByTestId('api-mock-route-state-r1')).toHaveTextContent('On');
+    expect(screen.getByTestId('api-mock-route-state-r2')).toHaveTextContent('Draft');
     expect(within(second).getByText('/')).toBeInTheDocument();
     expect(screen.getByText('1 enabled · 1 draft')).toBeInTheDocument();
     expect(screen.getByTestId('api-mock-routes-footer')).toHaveTextContent('1 enabled · 1 draft');
-    expect(screen.getByTestId('api-mock-cli-simulate')).toHaveTextContent('cli mock simulate workspace.json');
-    expect(screen.getByTestId('api-mock-cli-verify')).toHaveTextContent('cli mock verify workspace.json');
+    expect(screen.getByTestId('api-mock-routes-enabled')).toHaveClass('is-live');
+    expect(screen.getByTestId('api-mock-routes-draft')).toHaveClass('is-draft');
+    expect(screen.getByTestId('api-mock-routes-enabled')).toHaveTextContent('1Enabled');
+    expect(screen.getByTestId('api-mock-routes-draft')).toHaveTextContent('1Draft');
+    expect(screen.getByTestId('api-mock-cli-simulate')).toHaveTextContent('redfireforge mock simulate workspace.json');
+    expect(screen.getByTestId('api-mock-cli-verify')).toHaveTextContent('redfireforge mock verify workspace.json');
 
     fireEvent.click(first);
     fireEvent.doubleClick(second);
@@ -220,6 +229,23 @@ describe('ApiMockRouteExplorer', () => {
     expect(onSelect).toHaveBeenCalledWith('r1');
     expect(onToggle).toHaveBeenCalledWith('r2', true);
     expect(onAnalyze).toHaveBeenCalled();
+  });
+
+  it('styles the footer chips for a draft-only library', () => {
+    render(
+      <ApiMockRouteExplorer
+        routes={[route({ enabled: false })]}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('api-mock-routes-footer')).toHaveTextContent('0 enabled · 1 draft');
+    expect(screen.getByTestId('api-mock-routes-enabled')).toHaveClass('is-empty');
+    expect(screen.getByTestId('api-mock-routes-draft')).toHaveClass('is-draft');
+    expect(screen.getByTestId('api-mock-routes-draft')).toHaveTextContent('1Draft');
   });
 
   it('supports tree roving keyboard navigation and no-op branches', () => {
@@ -333,9 +359,10 @@ describe('ApiMockRouteExplorer — per-rule delete', () => {
       />,
     );
     expect(screen.getByTestId('api-mock-route-r-copy')).toHaveAttribute('data-copied', 'true');
+    expect(screen.getByTestId('api-mock-route-r-copy')).toHaveAttribute('data-route-name', 'Users Route (copy)');
     fireEvent.click(screen.getByTestId('api-mock-cli-simulate-copy'));
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('cli mock simulate workspace.json');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('redfireforge mock simulate workspace.json');
     fireEvent.click(screen.getByTestId('api-mock-cli-verify-copy'));
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('cli mock verify workspace.json');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('redfireforge mock verify workspace.json');
   });
 });

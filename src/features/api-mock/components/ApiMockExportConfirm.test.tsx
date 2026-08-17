@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockExportConfirm } from './ApiMockExportConfirm';
 import type { ApiMockExportResult } from '../apiMockExportActions';
@@ -17,7 +17,7 @@ const result: ApiMockExportResult = {
   tlsKeyPem: '***REDACTED***',
   sensitiveValues: [{ key: 'apiToken', value: '[REDACTED]' }],
   lossNotes: [],
-  cliCommand: 'cli mock simulate api-mock-workspace-Store-API-2026-08-14.json',
+  cliCommand: 'redfireforge mock simulate api-mock-workspace-Store-API-2026-08-14.json',
   liveMessage: 'Workspace exported.',
 };
 
@@ -32,14 +32,19 @@ describe('ApiMockExportConfirm', () => {
   it('shows redaction proof, TLS key, secret, CLI, and preview', () => {
     const onClose = vi.fn();
     render(<ApiMockExportConfirm result={result} onClose={onClose} />);
-    expect(screen.getByTestId('api-mock-export-confirm')).toBeTruthy();
+    const dialog = screen.getByTestId('api-mock-export-confirm');
+    expect(dialog).toBeTruthy();
+    expect(dialog.closest('.am-studio-modal-overlay')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-export-redaction').textContent).toMatch(/Secrets stayed in the workspace/);
     expect(screen.getByTestId('api-mock-export-redaction').textContent).toMatch(/TLS private keys/);
     expect(screen.getByTestId('api-mock-export-tls-key')).toHaveTextContent('***REDACTED***');
     expect(screen.getByTestId('api-mock-export-secret')).toHaveTextContent('[REDACTED]');
-    expect(screen.getByTestId('api-mock-export-cli')).toHaveTextContent('cli mock simulate');
-    expect(screen.getByTestId('api-mock-export-cli-verify')).toHaveTextContent('cli mock verify');
+    expect(screen.getByTestId('api-mock-export-cli')).toHaveTextContent('redfireforge mock simulate');
+    expect(screen.getByTestId('api-mock-export-cli-verify')).toHaveTextContent('redfireforge mock verify');
     expect(screen.getByTestId('api-mock-export-preview')).toHaveValue(result.text);
     expect(screen.getByTestId('api-mock-export-filename')).toHaveTextContent(result.filename);
+    expect(screen.getByTestId('api-mock-export-save')).toHaveTextContent('Save to disk');
+    expect(screen.getByTestId('api-mock-export-copy')).toHaveTextContent('Copy JSON');
     fireEvent.click(screen.getByTestId('api-mock-export-close'));
     expect(onClose).toHaveBeenCalled();
   });
@@ -48,11 +53,12 @@ describe('ApiMockExportConfirm', () => {
     render(<ApiMockExportConfirm result={result} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('api-mock-export-copy'));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('{"ok":true}');
+    await waitFor(() => expect(screen.getByTestId('api-mock-export-copy')).toHaveTextContent('Copied'));
     fireEvent.click(screen.getByTestId('api-mock-export-cli-copy'));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(result.cliCommand);
     fireEvent.click(screen.getByTestId('api-mock-export-cli-verify-copy'));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      'cli mock verify api-mock-workspace-Store-API-2026-08-14.json',
+      'redfireforge mock verify api-mock-workspace-Store-API-2026-08-14.json',
     );
 
     fireEvent.change(screen.getByTestId('api-mock-export-search'), { target: { value: 'REDACTED' } });
@@ -101,6 +107,28 @@ describe('ApiMockExportConfirm', () => {
       />,
     );
     expect(screen.getByTestId('api-mock-export-har-count')).toHaveTextContent('2 entries');
+    expect(screen.getByTestId('api-mock-export-copy')).toHaveTextContent('Copy HAR');
+  });
+
+  it('saves the preview to disk from the footer', () => {
+    const click = vi.fn();
+    const originalCreateElement = Document.prototype.createElement;
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      if (tagName.toLowerCase() === 'a') {
+        const anchor = originalCreateElement.call(document, 'a', options) as HTMLAnchorElement;
+        anchor.click = click;
+        return anchor;
+      }
+      return originalCreateElement.call(document, tagName, options);
+    }) as typeof document.createElement);
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:export');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    render(<ApiMockExportConfirm result={result} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-export-save'));
+    expect(click).toHaveBeenCalled();
+    createObjectURL.mockRestore();
+    revoke.mockRestore();
+    vi.restoreAllMocks();
   });
 
   it('shows an empty TLS key as (empty)', () => {
@@ -118,6 +146,7 @@ describe('ApiMockExportConfirm', () => {
       <ApiMockExportConfirm result={{ ...result, format: 'yaml' }} onClose={vi.fn()} />,
     );
     expect(screen.getByText('Workspace YAML exported')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-export-copy')).toHaveTextContent('Copy YAML');
     rerender(<ApiMockExportConfirm result={{ ...result, format: 'json', scope: 'servers' }} onClose={vi.fn()} />);
     expect(screen.getByText('Server JSON exported')).toBeTruthy();
     rerender(<ApiMockExportConfirm result={{ ...result, format: 'json', scope: 'routes' }} onClose={vi.fn()} />);
