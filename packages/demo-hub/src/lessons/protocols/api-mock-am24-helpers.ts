@@ -425,7 +425,16 @@ async function dismissWfOnboarding(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(300);
 }
 
+/** Close leftover Import / Export / Simulate chrome — wipe does not unmount those modals. */
+export function dismissAm24Overlays(): void {
+  document.querySelector<HTMLElement>(API_MOCK.EXPORT_CLOSE)?.click();
+  document.querySelector<HTMLElement>(API_MOCK.IMPORT_CLOSE)?.click();
+  document.querySelector<HTMLElement>(API_MOCK.IMPORT_CANCEL)?.click();
+  document.querySelector<HTMLElement>(API_MOCK.SIMULATE_CLOSE)?.click();
+}
+
 export async function prepareAm24Workspace(): Promise<void> {
+  dismissAm24Overlays();
   await wipeApiMockWorkspace();
   prepareApiMockStudioChrome();
   const blank = await ensureBlankApiMockServer();
@@ -435,8 +444,17 @@ export async function prepareAm24Workspace(): Promise<void> {
 }
 
 export async function cleanupAm24(): Promise<void> {
+  dismissAm24Overlays();
   deleteWorkflowByName(AM24_WF_NAME);
   await wipeApiMockWorkspace();
+}
+
+/** Step 1 reading guard — do not wipe or recreate. That empty→sandbox hop was the boot flash. */
+export async function ensureAm24ForImport(_ctx: DemoActionContext): Promise<void> {
+  dismissAm24Overlays();
+  prepareApiMockStudioChrome();
+  if (hasAm24Server()) return;
+  await ensureBlankApiMockServer();
 }
 
 export async function ensureAm24OnStudio(ctx: DemoActionContext): Promise<void> {

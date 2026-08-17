@@ -671,6 +671,44 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       const joined = sseChunks.join('');
       expect(joined).toMatch(/data:.*Webhook/i);
     });
+
+    it('replays a recently broadcast log line to a client that connects after it', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'success',
+        passed: true,
+        duration: 1,
+        results: [],
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const server = await new Promise<http.Server>((resolve, reject) => {
+        const s = app.listen(0, '127.0.0.1', () => resolve(s));
+        s.on('error', reject);
+      });
+      const { port } = server.address() as import('net').AddressInfo;
+
+      // Broadcast a log line BEFORE any SSE client is connected.
+      await request(server).post('/webhooks/wf-1/trigger-1').send({}).expect(200);
+
+      const sseChunks: string[] = [];
+      await new Promise<void>((resolve, reject) => {
+        const sseReq = http.get(`http://127.0.0.1:${port}/api/logs/stream`, (res) => {
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => sseChunks.push(chunk));
+          setTimeout(() => {
+            res.socket?.destroy();
+            server.close(() => resolve());
+          }, 40);
+        });
+        sseReq.on('error', reject);
+      });
+
+      // The line was broadcast before connect, yet the replay buffer delivers it.
+      expect(sseChunks.join('')).toMatch(/data:.*Webhook/i);
+    });
   });
 
   describe('Express error handler (Vitest-only route)', () => {

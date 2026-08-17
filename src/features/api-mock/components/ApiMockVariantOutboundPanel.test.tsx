@@ -146,6 +146,16 @@ describe('ApiMockVariantOutboundPanel', () => {
     expect(screen.getByTestId('api-mock-callback-empty').textContent).toMatch(/No outbound callbacks/);
   });
 
+  it('marks Transforms and Callbacks as configured but Template and Client as passive markers', () => {
+    render(<ApiMockVariantOutboundPanel variant={createDefaultResponse('v1')} onUpdate={vi.fn()} />);
+    const stepFor = (label: string) =>
+      screen.getByText(label, { selector: '.am-outbound-step' }).closest('.am-outbound-step');
+    expect(stepFor('Transforms')?.className).toContain('am-outbound-step--edit');
+    expect(stepFor('Callbacks')?.className).toContain('am-outbound-step--edit');
+    expect(stepFor('Template')?.className).toContain('am-outbound-step--passive');
+    expect(stepFor('Client')?.className).toContain('am-outbound-step--passive');
+  });
+
   it('updates, toggles, and removes transform rows for each op', () => {
     const onUpdate = vi.fn();
     const variant = variantWithTransform({

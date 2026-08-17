@@ -58,6 +58,7 @@ import {
   hasAm19Traffic,
   hasAm19Transform,
   hasAm19TransformHeader,
+  isAm19CompanionUnavailable,
   isAm19CorsOn,
   isAm19PersistOn,
   isAm19RuntimeViewActive,
@@ -86,11 +87,12 @@ function el(tag: string, className?: string, testid?: string): HTMLElement {
   return node;
 }
 
-function mountServerBar(running: boolean, extras: { apply?: boolean; address?: boolean; dirty?: boolean } = {}): HTMLElement {
+function mountServerBar(running: boolean, extras: { apply?: boolean; address?: boolean; dirty?: boolean; restart?: boolean } = {}): HTMLElement {
   const bar = el('div', undefined, 'api-mock-server-bar');
   const status = el('span', undefined, 'api-mock-status-label');
   status.textContent = running ? 'Running' : 'Stopped';
   bar.append(status, el('button', undefined, running ? 'api-mock-stop' : 'api-mock-start'));
+  if (extras.restart) bar.append(el('button', undefined, 'api-mock-restart'));
   if (extras.apply) bar.append(el('button', undefined, 'api-mock-apply'));
   if (extras.dirty) bar.append(el('span', undefined, 'api-mock-dirty-badge'));
   if (extras.address) {
@@ -522,6 +524,36 @@ describe('AM-19 step bodies', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APPLY);
   });
 
+  it('restarts the running server when the console is empty and nothing is dirty', async () => {
+    mountServerBar(true, { restart: true });
+    mountExplorer();
+    mountJournal();
+    mountConsole({ empty: true });
+    const ctx = makeCtx();
+    await runAm19Console(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.RESTART);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.APPLY);
+  });
+
+  it('treats a "not reachable" banner as not-running and recovers via Restart', async () => {
+    // Badge frozen at "Running" (companion restarted mid-session, pool empty) but
+    // the live region carries the unavailable notice.
+    mountServerBar(true, { restart: true });
+    mountExplorer();
+    const notice = el('div', undefined, 'api-mock-live-region');
+    notice.textContent = 'Companion unavailable: The companion runtime is not reachable. Start it, then retry.';
+    document.body.append(notice);
+
+    expect(isAm19CompanionUnavailable()).toBe(true);
+    // The stale badge must not read as live while the companion is unreachable.
+    expect(isAm19ServerRunning()).toBe(false);
+
+    const ctx = makeCtx();
+    await ensureAm19Running(ctx);
+    // Start is hidden on a "Running" bar — Restart is the only path back to a live port.
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.RESTART);
+  });
+
   it('adds a transform and callback then fills the allowlist', async () => {
     mountServerBar(true);
     mountExplorer();
@@ -595,6 +627,15 @@ describe('AM-19 guards', () => {
     await ensureAm19ForProveRedaction(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.RUNTIME_SETTINGS_INBOUND, AM19_INBOUND);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.RUNTIME_SETTINGS_REDACT_PATHS, AM19_REDACT_PATHS);
+  });
+
+  it('seeds a plain products row so the redaction step opens on a non-empty journal', async () => {
+    mountServerBar(true, { apply: true });
+    mountExplorer();
+    mountRuntimeSettings({ cors: true, paths: AM19_REDACT_PATHS, inbound: AM19_INBOUND, drain: AM19_DRAIN });
+    const ctx = makeCtx();
+    await ensureAm19ForProveRedaction(ctx);
+    expect(sendApiMockRequest).toHaveBeenCalledWith({ path: AM19_PRODUCTS, method: 'GET' });
   });
 
   it('sends a secret fetch when the journal is empty', async () => {

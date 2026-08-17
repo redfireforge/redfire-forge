@@ -18,7 +18,7 @@ import { apiMockAm09Lesson } from './api-mock-am09-lesson';
 import { apiMockAm10Lesson } from './api-mock-am10';
 import { apiMockAm11Lesson } from './api-mock-am11';
 import { apiMockAm12Lesson } from './api-mock-am12';
-import { apiMockAm13Lesson } from './api-mock-am13';
+import { apiMockAm13Lesson } from './api-mock-am13-lesson';
 import { apiMockAm14Lesson } from './api-mock-am14';
 import { apiMockAm15Lesson } from './api-mock-am15';
 import { apiMockAm16Lesson } from './api-mock-am16';

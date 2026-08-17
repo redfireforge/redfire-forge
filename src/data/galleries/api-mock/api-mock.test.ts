@@ -6,6 +6,7 @@ import { evaluateOperator } from '../../../shared/api-mock/predicateEvaluatorHel
 import {
   createHealthCheckMock,
   createStoreLibraryMock,
+  createStoreForensicsMock,
   createUsersApiMock,
 } from './presets-getting-started';
 import {
@@ -33,6 +34,7 @@ describe('api-mock gallery catalog', () => {
       'am-gallery-health',
       'am-gallery-users',
       'am-gallery-store',
+      'am-gallery-store-lite',
       'am-gallery-paths',
       'am-gallery-predicates',
       'am-gallery-bodies',
@@ -102,6 +104,38 @@ describe('api-mock gallery catalog', () => {
       expect(pair.map(r => r?.path.value).sort()).toEqual(['/orders/:id', '/orders/latest']);
       expect(pair[0]?.priority).toBe(pair[1]?.priority);
       expect(findings[0].selectionOutcome).toBe('reject_ambiguous');
+    });
+  });
+
+  describe('storefront basics sample', () => {
+    const server = createStoreForensicsMock();
+
+    it('files six rules across the three storefront folders', () => {
+      expect(server.routes).toHaveLength(6);
+      expect(server.folders.map(f => f.name)).toEqual(['Catalog', 'Cart', 'Orders']);
+      for (const route of server.routes) {
+        expect(server.folders.some(f => f.id === route.folderId), route.name).toBe(true);
+      }
+    });
+
+    it('keeps the two load-bearing Catalog rules so a typo near-misses the parameterized rule', () => {
+      const list = server.routes.find(r => r.path.value === '/products');
+      const item = server.routes.find(r => r.path.value === '/products/:id');
+      expect(list?.enabled).toBe(true);
+      expect(item?.enabled).toBe(true);
+      expect(item?.path.kind).toBe('parameterized');
+      // The typo `/produts/42` matches neither, but scores against `/products/:id`.
+      expect(matchPath(item!.path, '/products/42').matched).toBe(true);
+      expect(matchPath(item!.path, '/produts/42').matched).toBe(false);
+    });
+
+    it('ships exactly one disabled draft so the show-disabled filter has a subject', () => {
+      const drafts = server.routes.filter(r => !r.enabled);
+      expect(drafts.map(r => r.path.value)).toEqual(['/products/search']);
+    });
+
+    it('seeds no examples so the Save-as-example beat starts from an empty grid', () => {
+      expect(server.samples).toEqual([]);
     });
   });
 

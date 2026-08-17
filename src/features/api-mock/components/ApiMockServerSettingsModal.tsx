@@ -4,8 +4,10 @@ import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { ApiMockServerDefinitionV1, ApiMockServerSettingsV1 } from '../../../shared/api-mock/contracts';
 import { DEFAULT_PROXY_SETTINGS } from '../../../shared/api-mock/proxyContracts';
 import { DEFAULT_CALLBACK_SETTINGS } from '../../../shared/api-mock/callbackContracts';
+import { HARD_CEILINGS } from '../../../shared/api-mock/defaults';
 import { apiMockControlClient } from '../apiMockControlClient';
 import { findPortOwner, formatPortTakenMessage } from '../apiMockPageHelpers';
+import { ApiMockRedactHeaderPicker } from './ApiMockRedactHeaderPicker';
 
 interface Props {
   server: ApiMockServerDefinitionV1;
@@ -38,9 +40,9 @@ const FALLBACK_OPTIONS: Array<{ value: ApiMockServerSettingsV1['fallback']['mode
   { value: 'proxy', label: 'Proxy to allowlisted upstream' },
 ];
 
-function FormRow({ label, htmlFor, tall, children }: { label: string; htmlFor?: string; tall?: boolean; children: ReactNode }) {
+function FormRow({ label, htmlFor, tall, rowClassName, children }: { label: string; htmlFor?: string; tall?: boolean; rowClassName?: string; children: ReactNode }) {
   return (
-    <div className={`am-stg-row${tall ? ' am-stg-row--tall' : ''}`}>
+    <div className={`am-stg-row${tall ? ' am-stg-row--tall' : ''}${rowClassName ? ` ${rowClassName}` : ''}`}>
       <div className="am-stg-row-label">
         {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : label}
       </div>
@@ -73,6 +75,7 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
   const [corsOrigins, setCorsOrigins] = useState(server.settings.cors.allowOrigins.join(', '));
   const [maxInbound, setMaxInbound] = useState(String(server.settings.limits.maxInboundBodyBytes));
   const [maxConnections, setMaxConnections] = useState(String(server.settings.limits.maxConcurrentConnections));
+  const [timeoutHoldMax, setTimeoutHoldMax] = useState(String(server.settings.limits.longRunningMaxMs));
   const [journalEnabled, setJournalEnabled] = useState(server.settings.journal.enabled);
   const [journalMax, setJournalMax] = useState(String(server.settings.journal.maxEntries));
   const [redactionHeaders, setRedactionHeaders] = useState(server.settings.redaction.headerNames.join(', '));
@@ -237,6 +240,11 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
           ...server.settings.limits,
           maxInboundBodyBytes: parseInt(maxInbound, 10) || server.settings.limits.maxInboundBodyBytes,
           maxConcurrentConnections: parseInt(maxConnections, 10) || server.settings.limits.maxConcurrentConnections,
+          longRunningMaxMs: (() => {
+            const n = parseInt(timeoutHoldMax, 10);
+            if (!Number.isFinite(n) || n <= 0) return server.settings.limits.longRunningMaxMs;
+            return Math.min(n, HARD_CEILINGS.maxLongRunningMs);
+          })(),
         },
         journal: { ...server.settings.journal, enabled: journalEnabled, maxEntries: parseInt(journalMax, 10) || server.settings.journal.maxEntries },
         redaction: { ...server.settings.redaction, headerNames: redactionHeaders.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) },
@@ -258,9 +266,12 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
     <AppModalFrame
       title={titleNode}
       onClose={onClose}
+      overlayClassName="modal-overlay am-stg-overlay"
       dialogClassName="modal am-stg-modal"
       bodyClassName="am-stg-body"
       footerClassName="am-stg-footer"
+      overlayTestId="api-mock-settings-overlay"
+      closeOnOverlayClick={false}
       showExpandButton={false}
       showResizeHandles
       constrainDragToViewport
@@ -385,23 +396,40 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
             <div data-testid="api-mock-settings-panel-network">
               <div className="am-stg-section-label">CORS</div>
               <div className="am-stg-form">
-                <FormRow label="Enabled">
+                <FormRow label="Enabled" rowClassName="am-stg-row--network">
                   <button type="button" className={`am-toggle${corsEnabled ? ' on' : ''}`} role="switch" aria-checked={corsEnabled} aria-label="Enable CORS" data-testid="api-mock-settings-cors" onClick={() => setCorsEnabled(v => !v)} />
                 </FormRow>
-                <FormRow label="Allow origins" htmlFor="am-settings-cors-origins">
+                <FormRow label="Allow origins" htmlFor="am-settings-cors-origins" rowClassName="am-stg-row--network">
                   <input id="am-settings-cors-origins" className="am-input am-input--fill mono" value={corsOrigins} onChange={e => setCorsOrigins(e.target.value)} data-testid="api-mock-settings-cors-origins" disabled={!corsEnabled} />
                 </FormRow>
               </div>
               <div className="am-stg-section-label" style={{ marginTop: 18 }}>Limits</div>
               <div className="am-stg-form">
-                <FormRow label="Max inbound body" htmlFor="am-settings-max-inbound">
+                <FormRow label="Max inbound body" htmlFor="am-settings-max-inbound" rowClassName="am-stg-row--network">
                   <div className="am-stg-inline">
                     <input id="am-settings-max-inbound" className="am-input num mono am-input--num-lg" type="number" value={maxInbound} onChange={e => setMaxInbound(e.target.value)} data-testid="api-mock-settings-max-inbound" />
                     <span className="am-stg-hint">bytes</span>
                   </div>
                 </FormRow>
-                <FormRow label="Max connections" htmlFor="am-settings-max-conn">
-                  <input id="am-settings-max-conn" className="am-input num mono am-input--num-lg" type="number" value={maxConnections} onChange={e => setMaxConnections(e.target.value)} data-testid="api-mock-settings-max-conn" />
+                <FormRow label="Max connections" htmlFor="am-settings-max-conn" rowClassName="am-stg-row--network">
+                  <div className="am-stg-inline">
+                    <input id="am-settings-max-conn" className="am-input mono am-input--num-sm" type="number" value={maxConnections} onChange={e => setMaxConnections(e.target.value)} data-testid="api-mock-settings-max-conn" />
+                  </div>
+                </FormRow>
+                <FormRow label="Timeout hold max" htmlFor="am-settings-timeout-hold-max" rowClassName="am-stg-row--network">
+                  <div className="am-stg-inline">
+                    <input
+                      id="am-settings-timeout-hold-max"
+                      className="am-input num mono am-input--num-lg"
+                      type="number"
+                      min={1}
+                      max={HARD_CEILINGS.maxLongRunningMs}
+                      value={timeoutHoldMax}
+                      onChange={e => setTimeoutHoldMax(e.target.value)}
+                      data-testid="api-mock-settings-timeout-hold-max"
+                    />
+                    <span className="am-stg-hint">ms · default 30s · max 1h</span>
+                  </div>
                 </FormRow>
               </div>
             </div>
@@ -416,9 +444,14 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
                   <span className="am-stg-hint">max entries</span>
                 </div>
               </FormRow>
-              <FormRow label="Redact headers" htmlFor="am-settings-redaction">
+              <FormRow label="Redact headers" htmlFor="am-settings-redaction" tall>
                 <input id="am-settings-redaction" className="am-input am-input--fill mono" value={redactionHeaders} onChange={e => setRedactionHeaders(e.target.value)} data-testid="api-mock-settings-redaction" />
-                <span className="am-stg-hint">Comma-separated header names to scrub from journal entries</span>
+                <ApiMockRedactHeaderPicker
+                  value={redactionHeaders}
+                  onChange={setRedactionHeaders}
+                  testId="api-mock-settings-redact-header-picker"
+                />
+                <span className="am-stg-hint am-stg-hint--block">Click a name to add or remove it. Type any other header above, comma-separated.</span>
               </FormRow>
             </div>
           )}
@@ -430,20 +463,21 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
                 {proxyForwardAuth && <span className="am-badge warning" style={{ marginLeft: 8 }} data-testid="api-mock-proxy-cred-badge">Credentials forwarded</span>}
               </div>
               <div className="am-stg-form" data-testid="api-mock-settings-proxy">
-                <FormRow label="Enabled">
+                <FormRow label="Enabled" tall>
                   <div className="am-stg-inline">
                     <button type="button" className={`am-toggle${proxyEnabled ? ' on' : ''}`} role="switch" aria-checked={proxyEnabled} aria-label="Enable unmatched proxy" data-testid="api-mock-settings-proxy-enabled" onClick={() => setProxyEnabled(v => !v)} />
                     <span className="am-stg-hint">Active when unmatched mode is Proxy</span>
                   </div>
-                </FormRow>
-                {proxyEnabled && (
-                  <p className="am-stg-hint" data-testid="api-mock-settings-proxy-deny">
+                  <span className="am-stg-hint am-stg-hint--block" data-testid="api-mock-settings-proxy-deny">
                     Default-deny: unmatched traffic is not forwarded until an origin is allowlisted.
-                  </p>
-                )}
+                  </span>
+                  <span className="am-stg-hint am-stg-hint--block" data-testid="api-mock-settings-proxy-loop">
+                    Loop guard: a proxied hop that comes back to this mock (header <code>X-RedfireForge-Mock</code>) is rejected with <strong>508 Loop Detected</strong> — the HTTP status for "a request looped back on itself." Mocks refuse to proxy themselves.
+                  </span>
+                </FormRow>
                 <FormRow label="Allowlist" tall>
                   <textarea className="am-textarea mono am-textarea--expand" value={proxyAllowlist} onChange={e => setProxyAllowlist(e.target.value)} placeholder={'https://api.example.com\nhttps://staging.example.com:8443'} data-testid="api-mock-settings-proxy-allowlist" />
-                  <span className="am-stg-hint">One origin per line (scheme+host[+port]). No wildcards.</span>
+                  <span className="am-stg-hint am-stg-hint--block">One origin per line (scheme+host[+port]). No wildcards. Tried top to bottom — the next line is used only if a server is unreachable or returns 5xx / 404.</span>
                 </FormRow>
                 <FormRow label="Block private nets">
                   <div className="am-stg-inline">
@@ -469,9 +503,6 @@ export function ApiMockServerSettingsModal({ server, onSave, onClose, statusLabe
                     <span className="am-stg-hint">Successful proxies become disabled drafts</span>
                   </div>
                 </FormRow>
-                <p className="am-stg-hint" data-testid="api-mock-settings-proxy-loop">
-                  Loop guard: a proxied hop that comes back to this mock (header <code>X-RedfireForge-Mock</code>) is rejected with <strong>508</strong>. Mocks refuse to proxy themselves.
-                </p>
               </div>
               <div className="am-stg-section-label" style={{ marginTop: 18 }}>Callbacks</div>
               <div className="am-stg-form am-stg-form--grow" data-testid="api-mock-settings-callbacks">

@@ -143,6 +143,12 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
     await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
     await advanceSteps(page, 5, AM_LESSON_STEP_TIMEOUT);
     const acting = completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/"scope"\s*:\s*"all"/, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.SIMULATE_HEADERS).filter({ visible: true })).toHaveValue(/x-tenant:\s*acme/, {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
     await expect(page.locator(API_MOCK.SIMULATE_WINNER)).toBeVisible({
       timeout: AM_LESSON_STEP_TIMEOUT,
     });

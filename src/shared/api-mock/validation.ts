@@ -274,6 +274,7 @@ function validateSettingsLimits(settings: ApiMockServerSettingsV1, basePath: str
     ['maxResponseBodyBytes', l.maxResponseBodyBytes, HARD_CEILINGS.maxResponseBodyBytes],
     ['maxConcurrentConnections', l.maxConcurrentConnections, HARD_CEILINGS.maxConcurrentConnections],
     ['gracefulDrainMs', l.gracefulDrainMs, HARD_CEILINGS.maxGracefulDrainMs],
+    ['longRunningMaxMs', l.longRunningMaxMs, HARD_CEILINGS.maxLongRunningMs],
   ];
   for (const [key, value, ceiling] of checks) {
     if (value > ceiling) {

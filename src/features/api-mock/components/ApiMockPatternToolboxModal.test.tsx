@@ -660,4 +660,47 @@ describe('ApiMockPatternToolboxModal', () => {
     );
     expect((screen.getByTestId('api-mock-toolbox-schema-editor') as HTMLTextAreaElement).value).toContain('"type": "object"');
   });
+
+  it('locks to the JSONPath picker when only that tab is allowed', () => {
+    const onApplyPredicate = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/cart' }}
+        initialTab="path"
+        allowedTabs={['jsonpath']}
+        title="Pick JSONPath from sample"
+        onApply={vi.fn()}
+        onApplyPredicate={onApplyPredicate}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Pick JSONPath from sample')).toBeInTheDocument();
+    expect(screen.queryByTestId('api-mock-toolbox-tab-regex')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('api-mock-toolbox-tab-jsonpath')).not.toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-toolbox-jsonpath')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-toolbox-apply')).toHaveTextContent('Apply JSONPath');
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-jsonpath'), { target: { value: '$.sku' } });
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-json-expected'), { target: { value: 'MISSING' } });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyPredicate).toHaveBeenCalledWith({
+      source: 'body',
+      selector: '',
+      operator: 'jsonPath_equals',
+      expected: ['$.sku', 'MISSING'],
+    });
+  });
+
+  it('seeds the JSONPath sample body when jsonSampleSeed is set', () => {
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/cart' }}
+        initialTab="jsonpath"
+        allowedTabs={['jsonpath']}
+        jsonSampleSeed={'{\n  "sku": "MISSING"\n}'}
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-toolbox-json-sample') as HTMLTextAreaElement).value).toContain('"sku": "MISSING"');
+  });
 });

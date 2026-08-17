@@ -43,6 +43,8 @@ describe('ApiMockExportConfirm', () => {
     expect(screen.getByTestId('api-mock-export-cli-verify')).toHaveTextContent('redfireforge mock verify');
     expect(screen.getByTestId('api-mock-export-preview')).toHaveValue(result.text);
     expect(screen.getByTestId('api-mock-export-filename')).toHaveTextContent(result.filename);
+    expect(screen.getByTestId('api-mock-export-save')).toHaveTextContent('Save to disk');
+    expect(screen.getByTestId('api-mock-export-copy')).toHaveTextContent('Copy JSON');
     fireEvent.click(screen.getByTestId('api-mock-export-close'));
     expect(onClose).toHaveBeenCalled();
   });
@@ -105,6 +107,28 @@ describe('ApiMockExportConfirm', () => {
       />,
     );
     expect(screen.getByTestId('api-mock-export-har-count')).toHaveTextContent('2 entries');
+    expect(screen.getByTestId('api-mock-export-copy')).toHaveTextContent('Copy HAR');
+  });
+
+  it('saves the preview to disk from the footer', () => {
+    const click = vi.fn();
+    const originalCreateElement = Document.prototype.createElement;
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      if (tagName.toLowerCase() === 'a') {
+        const anchor = originalCreateElement.call(document, 'a', options) as HTMLAnchorElement;
+        anchor.click = click;
+        return anchor;
+      }
+      return originalCreateElement.call(document, tagName, options);
+    }) as typeof document.createElement);
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:export');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    render(<ApiMockExportConfirm result={result} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-export-save'));
+    expect(click).toHaveBeenCalled();
+    createObjectURL.mockRestore();
+    revoke.mockRestore();
+    vi.restoreAllMocks();
   });
 
   it('shows an empty TLS key as (empty)', () => {
@@ -122,6 +146,7 @@ describe('ApiMockExportConfirm', () => {
       <ApiMockExportConfirm result={{ ...result, format: 'yaml' }} onClose={vi.fn()} />,
     );
     expect(screen.getByText('Workspace YAML exported')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-export-copy')).toHaveTextContent('Copy YAML');
     rerender(<ApiMockExportConfirm result={{ ...result, format: 'json', scope: 'servers' }} onClose={vi.fn()} />);
     expect(screen.getByText('Server JSON exported')).toBeTruthy();
     rerender(<ApiMockExportConfirm result={{ ...result, format: 'json', scope: 'routes' }} onClose={vi.fn()} />);

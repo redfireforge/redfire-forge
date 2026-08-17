@@ -55,7 +55,7 @@ export const DEFAULT_SETTINGS: ApiMockServerSettingsV1 = {
     maxConcurrentConnections: 100,
     maxDelayMs: 0,
     longRunningEnabled: false,
-    longRunningMaxMs: 3_600_000,
+    longRunningMaxMs: 30_000,
     gracefulDrainMs: 5_000,
   },
   journal: {
@@ -126,5 +126,26 @@ export const HARD_CEILINGS = {
   maxTemplateNesting: 32,
   maxTemplateOperations: 10_000,
 } as const;
+
+/** Default Timeout-fault hold when `behavior.longRunningMs` is unset. */
+export const DEFAULT_TIMEOUT_HOLD_MS = 5_000;
+
+/**
+ * Effective Timeout-fault hold: 5s when unset, never below 1ms, never above the
+ * server cap (itself clamped to {@link HARD_CEILINGS.maxLongRunningMs}).
+ */
+export function clampTimeoutHoldMs(requested: number | undefined, capMs: number): number {
+  const cap = Math.max(
+    1,
+    Math.min(
+      Number.isFinite(capMs) && capMs > 0 ? Math.floor(capMs) : HARD_CEILINGS.maxLongRunningMs,
+      HARD_CEILINGS.maxLongRunningMs,
+    ),
+  );
+  const raw = requested != null && Number.isFinite(requested) && requested > 0
+    ? Math.floor(requested)
+    : Math.min(DEFAULT_TIMEOUT_HOLD_MS, cap);
+  return Math.max(1, Math.min(raw, cap));
+}
 
 export const AUTO_PORT_RANGE = { min: 4600, max: 4699 } as const;

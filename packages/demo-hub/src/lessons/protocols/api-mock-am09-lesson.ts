@@ -3,7 +3,7 @@
  *
  * Scenario: eight rules already overlap in four path-disjoint pairs. The corpus is
  * the *problem*. Duplicate is one arc (name → Simulate AMBIGUOUS → Open in Studio),
- * then Shadowed → Simulate MATCHED, then Definite → two Simulate probes, then Potential → two header probes, then rank and acknowledge-then-stale.
+ * then Shadowed → two Simulate probes, then Definite → two Simulate probes, then Potential → two header probes, then rank and acknowledge-then-stale.
  * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track B.
  */
 import { API_MOCK } from '@shared/selectors';
@@ -21,6 +21,7 @@ const AM09_TENANT_HEADER = am09.AM09_TENANT_HEADER;
 const AM09_DAILY_PATH = am09.AM09_DAILY_PATH;
 const AM09_GLOB_PATH = am09.AM09_GLOB_PATH;
 const AM09_NON_DAILY_PATH = am09.AM09_NON_DAILY_PATH;
+const AM09_PRIORITY_DEFAULT = am09.AM09_PRIORITY_DEFAULT;
 const AM09_PRIORITY_RAISED = am09.AM09_PRIORITY_RAISED;
 const AM09_PRIORITY_STALE = am09.AM09_PRIORITY_STALE;
 const AM09_REPORTS_GLOB = am09.AM09_REPORTS_GLOB;
@@ -79,13 +80,13 @@ export const apiMockAm09Lesson: DemoLesson = {
   name: 'Conflict Inspector: Four Overlap Kinds',
   description:
     'Two rules that can answer the same request are worse than a mock that '
-    + 'answers nothing — the client gets the wrong body, or a 409, and you '
+    + 'answers nothing — the client gets the wrong body, or a **409 Conflict**, and you '
     + 'find out at runtime. The inspector names how they collide, proves it '
     + 'with a witness, and lets you rank a winner or acknowledge an overlap '
     + 'you meant — then tells you when that ack is no longer the pair you reviewed.',
   estimatedMinutes: 13,
   initialTab: 'api-mock-studio',
-  contentVersion: 23,
+  contentVersion: 41,
   concept: {
     title: 'Name the overlap before a client ever pays for a 409.',
     body:
@@ -102,11 +103,13 @@ export const apiMockAm09Lesson: DemoLesson = {
       + `- **Definite** — not copies, but the collision is provable (\`${AM09_DAILY_PATH}\` vs \`${AM09_GLOB_PATH}\`).\n`
       + '- **Potential** — a dimension is undecidable. Regex ∩ regex is the textbook case. The honest answer is *unknown*.\n\n'
       + 'Each finding carries **fingerprints** (SHA-256 of the whole rule '
-      + 'record), a **dimension** table, and a **witness request**. Simulate '
-      + 'a Duplicate witness and you see **AMBIGUOUS**. Simulate a Shadowed '
-      + 'witness and you see **MATCHED** — the wrong body, not a 409. '
-      + `Simulate Definite twice: \`${AM09_DAILY_PATH}\` collides; \`${AM09_NON_DAILY_PATH}\` does not. `
-      + `Simulate Potential twice: \`${AM09_CLIENT_HEADER_HIT}\` is **409**; no header is **404**. `
+      + 'record), a **dimension** table, and a **witness request** — the '
+      + 'smallest call that triggers the overlap. Simulate that witness and '
+      + 'the finding stops being a label:\n\n'
+      + '- **Duplicate** → **AMBIGUOUS** — a **409 Conflict** (the server won’t choose). The mock refuses to pick either copy.\n'
+      + '- **Shadowed** → **MATCHED**. The wrong body ships — not a 409.\n'
+      + `- **Definite** → \`${AM09_DAILY_PATH}\` collides; \`${AM09_NON_DAILY_PATH}\` does not.\n`
+      + `- **Potential** → \`${AM09_CLIENT_HEADER_HIT}\` is **409 Conflict**; no header is **404 Not Found**.\n\n`
       + '**Adjust priority** ranks a winner — the finding count stays four, '
       + 'because ranking is not deleting. **Acknowledge** is for overlaps you '
       + 'meant; edit either hash and the ack goes **Stale**.',
@@ -129,16 +132,21 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'analyze',
       title: 'Overlaps have names — before any client sends',
       description:
-        'If two rules can answer the same request, a caller already received '
-        + 'the wrong body — or a **409 AMBIGUOUS**. **Analyze** names that '
-        + 'overlap before anyone pays for it.\n\n'
-        + '- **Static pass** — every enabled pair, compared on method, path, and Match. No port. No traffic.\n'
-        + `- **Duplicate** — two \`${AM09_HEALTH_PATH}\` copies, same Match\n`
-        + '- **Shadowed** — a catch-all that makes a tenant rule dead at runtime\n'
-        + '- **Definite** — a glob that swallows a literal path\n'
-        + '- **Potential** — two regexes the analyzer cannot intersect\n\n'
-        + 'Four kinds, because they are four different bugs. Next we name '
-        + '**Duplicate**, then **Simulate** that request so you see the decision.',
+        'Two rules that can both answer the same request is a bug that only '
+        + 'surfaces at runtime — a caller gets the wrong body, or '
+        + 'a **409 Conflict** — the mock’s **AMBIGUOUS** verdict — and you hear '
+        + 'about it from a support ticket. '
+        + '**Analyze** catches it far earlier: a static pass over every enabled '
+        + 'pair, with no server started and no traffic sent.\n\n'
+        + 'What it hands back is not a vague "these look similar" warning — it '
+        + 'is a named diagnosis. The overlaps sort into four kinds because they '
+        + 'are four genuinely different bugs, each with its own fix:\n\n'
+        + '- **Duplicate** — two rules with the identical request line\n'
+        + '- **Shadowed** — a catch-all that makes a narrower rule dead at runtime\n'
+        + '- **Definite** — a provable collision, like a glob that swallows a literal path\n'
+        + '- **Potential** — an overlap the analyzer honestly cannot decide, such as two regexes\n\n'
+        + 'The rest of the lesson walks all four, and each time proves the name '
+        + 'with a real request.',
       highlight: API_MOCK.ANALYZE,
       preAction: (ctx) => am09.ensureAm09Workspace(ctx),
       action: (ctx) => am09.runAm09Analyze(ctx),
@@ -148,15 +156,19 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'duplicate',
       title: 'Duplicate is the request line — not the record',
       description:
-        `**${AM09_HEALTH_A}** and **${AM09_HEALTH_B}** are two library rows `
-        + `with the same request line: \`GET ${AM09_HEALTH_PATH}\`, empty Match, `
-        + 'priority 10.\n\n'
-        + '- **Request line** — method + path + Match. Duplicate ignores id and name.\n'
-        + '- **Record** — each row is its own object, with its own identity.\n'
-        + '- **Rule fingerprints** — SHA-256 of the whole record (id, name, Match, response, priority).\n'
-        + '- **Two hashes** — different, because these are two records, not one row copied in memory.\n'
-        + '- **Acknowledge** — locked to this exact pair. Edit either side and the waiver expires.\n\n'
-        + 'The next step runs this pair’s witness in **Simulate** — same overlap, as a decision.',
+        'The first and bluntest kind. '
+        + `**${AM09_HEALTH_A}** and **${AM09_HEALTH_B}** answer the identical `
+        + `request line — \`GET ${AM09_HEALTH_PATH}\`, empty Match, priority 10. `
+        + 'Different names, different IDs, but to the router they are '
+        + 'indistinguishable.\n\n'
+        + 'What is worth absorbing here is *how the inspector knows*. Each rule '
+        + 'carries a **fingerprint** — a hash of its whole record — and this '
+        + 'pair shows two different hashes over one request line, proof that it '
+        + 'is two real records rather than one row counted twice. That same '
+        + 'fingerprint is what will make an **Acknowledge** trustworthy later: '
+        + 'the instant either rule is edited its hash changes and the waiver '
+        + 'expires. Next you send the request they both claim and watch the '
+        + 'mock refuse to choose.',
       highlight: API_MOCK.routeNamed(AM09_HEALTH_A),
       preAction: (ctx) => am09.ensureAm09ReadyForPair(ctx, AM09_HEALTH_A),
       action: (ctx) => am09.runAm09Duplicate(ctx),
@@ -166,14 +178,17 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'witness',
       title: 'Simulate this Duplicate — the mock refuses to guess',
       description:
-        `You just named the pair. Now send the request they both match: `
-        + `\`GET ${AM09_HEALTH_PATH}\`.\n\n`
-        + '- **Witness** — the finding already ships that request. No headers. Both copies match.\n'
-        + '- **Both GET /health** — Decision trace lists two matches at priority 10. Neither is a Winner.\n'
-        + '- **AMBIGUOUS** — equal priority plus reject. The mock does not pick Health A or Health B.\n'
-        + '- **Rendered response** — status **409** and `{"error":"ambiguous",…}`. That is what a caller would receive.\n\n'
-        + 'A label without this run is only a name. This is what the conflict *does*.',
-      highlight: API_MOCK.CONFLICT_WITNESS,
+        'A label on a finding is just a claim until you make it happen. Every '
+        + 'finding ships a **witness** — the smallest request that triggers the '
+        + `overlap, here a bare \`GET ${AM09_HEALTH_PATH}\` — so you never have `
+        + 'to hand-craft one.\n\n'
+        + 'Running it is the payoff. Both copies match at equal priority, '
+        + 'neither is crowned a winner, and because the server rejects ties the '
+        + 'caller receives a **409 Conflict** (the mock’s **AMBIGUOUS** verdict) '
+        + '— not one of the two bodies. '
+        + 'That is the entire case for the Duplicate kind in a single run: the '
+        + 'mock would rather refuse than silently guess which copy you meant.',
+      highlight: API_MOCK.CONFLICT_SIMULATE,
       preAction: (ctx) => am09.ensureAm09ForWitness(ctx),
       action: async (ctx) => { await am09.runAm09Witness(ctx); },
       verify: API_MOCK.CONFLICT_INSPECTOR,
@@ -182,12 +197,16 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'goto-rule',
       title: 'The same Duplicate, from the rule',
       description:
-        'You saw **AMBIGUOUS**. **Open in Studio** is the same pair from the '
-        + 'editor — where a Match would change.\n\n'
-        + `- **Selected rule** — the left-hand copy, path \`${AM09_HEALTH_PATH}\`.\n`
-        + '- **Match-tab notice** — names the peer that just tied in Simulate.\n'
-        + '- **One object** — the finding and the rule.\n\n'
-        + 'The other three kinds use the same pattern: two Studio rules, then the inspector name.',
+        'A finding is only useful if it leads you to the thing you can change. '
+        + '**Open in Studio** closes that gap — it jumps from the inspector '
+        + `straight to the offending \`${AM09_HEALTH_PATH}\` rule in the editor, `
+        + 'the exact copy whose Match you would edit to break the tie.\n\n'
+        + 'Notice the notice: the Match tab calls out the peer that just tied '
+        + 'with it in Simulate, so the line from "the analyzer flagged this" to '
+        + '"here is the rule to fix" is never left to memory. The finding and '
+        + 'the rule are one object. Every one of the remaining three kinds '
+        + 'follows this same rhythm — name the pair, prove it with a request, '
+        + 'then land on the rule.',
       highlight: API_MOCK.CONFLICT_GOTO_LEFT,
       preAction: (ctx) => am09.ensureAm09ForGoto(ctx),
       action: (ctx) => am09.runAm09GotoRule(ctx),
@@ -197,15 +216,17 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'shadowed',
       title: 'Shadowed is a rule that can never win',
       description:
-        `**${AM09_ORDERS_CATCHALL}** is \`GET /orders\` at priority 20 with `
-        + `an empty Match. **${AM09_ORDERS_TENANT}** is the same path plus `
-        + '`x-tenant: acme`, at priority 10.\n\n'
-        + '- **Superset** — every tenant request also matches the empty catch-all.\n'
-        + '- **Priority** — 20 ranks above 10, so the catch-all always wins.\n'
-        + '- **Shadowed** — the tenant rule stays in the library and is dead at runtime.\n'
-        + '- **Dimensions** — method and path overlap; the header is the difference.\n'
-        + '- **Unlike Duplicate** — a caller still gets an answer. The wrong rule wins; there is no 409.\n\n'
-        + 'The next step runs this pair’s witness in **Simulate** — same overlap, as a decision.',
+        'Shadowing is subtler than duplication and, in practice, more '
+        + `dangerous, because nothing errors. **${AM09_ORDERS_CATCHALL}** is a `
+        + `broad \`GET ${AM09_ORDERS_PATH}\` with an empty Match at priority 20, `
+        + `and **${AM09_ORDERS_TENANT}** is the same path plus \`x-tenant: acme\` `
+        + 'at priority 10.\n\n'
+        + 'Because the catch-all matches everything the tenant rule matches '
+        + '*and more*, and outranks it, the tenant rule can never win a single '
+        + 'request — it is dead code that still looks alive in the library. '
+        + 'Unlike a Duplicate there is no **409 Conflict** to tip you off; the caller just '
+        + 'quietly gets the wrong rule’s answer. The next step sends the exact '
+        + 'request the tenant rule was written for and shows it still losing.',
       highlight: API_MOCK.routeNamed(AM09_ORDERS_CATCHALL),
       preAction: (ctx) => am09.ensureAm09ReadyForPair(ctx, AM09_ORDERS_CATCHALL),
       action: (ctx) => am09.runAm09Shadowed(ctx),
@@ -213,16 +234,20 @@ export const apiMockAm09Lesson: DemoLesson = {
     },
     {
       id: 'shadowed-witness',
-      title: 'Simulate this Shadowed — the catch-all still wins',
+      title: 'Simulate this Shadowed — the tenant header still loses',
       description:
-        `You just named the pair. Now send the request the tenant rule was `
-        + `written for: \`GET ${AM09_ORDERS_PATH}\` with \`${AM09_TENANT_HEADER}\`.\n\n`
-        + '- **Witness** — the finding already ships that request, including the tenant header. Both rules match.\n'
-        + '- **Both GET /orders** — Decision trace lists two matches. The catch-all is **Winner**.\n'
-        + '- **MATCHED** — ranking already picked a winner. Unlike Duplicate, there is no 409.\n'
-        + '- **Rendered response** — status **200** and `{"orders":[],"scope":"all"}`. The tenant body never ships.\n\n'
-        + 'A caller still gets an answer. It is the catch-all’s answer — the more specific rule never ran.',
-      highlight: API_MOCK.CONFLICT_WITNESS,
+        'Two runs of the same pair, and the whole lesson is in watching the '
+        + 'catch-all win both:\n\n'
+        + `- **No header** — a plain \`${AM09_ORDERS_PATH}\`. The tenant rule is `
+        + 'out of the race for an obvious reason (its header is absent), so the '
+        + 'caller gets the catch-all’s **200 OK** `scope: "all"`.\n'
+        + `- **With \`${AM09_TENANT_HEADER}\`** — the request **${AM09_ORDERS_TENANT}** `
+        + 'was written for. Its condition passes this time, and it *still* '
+        + 'loses: priority 20 decided the winner before the header ever '
+        + 'mattered, so the same wrong body ships.\n\n'
+        + 'Matching is necessary to win, but ranking is what actually decides — '
+        + 'which is exactly why a shadowed rule stays invisible until you look.',
+      highlight: API_MOCK.CONFLICT_SIMULATE,
       preAction: (ctx) => am09.ensureAm09ForShadowedWitness(ctx),
       action: async (ctx) => { await am09.runAm09ShadowedWitness(ctx); },
       verify: API_MOCK.CONFLICT_INSPECTOR,
@@ -231,13 +256,18 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'definite',
       title: 'Definite is a collision the analyzer can prove',
       description:
-        `**${AM09_DAILY}** is the exact path \`${AM09_DAILY_PATH}\`. `
-        + `**${AM09_REPORTS_GLOB}** is \`${AM09_GLOB_PATH}\`.\n\n`
-        + '- **Not Duplicate** — the Match trees differ.\n'
-        + '- **Provable collision** — every daily request hits both. No traffic required.\n'
-        + '- **Equal priority + reject** — a real caller receives **409**, same family as the health Simulate.\n'
-        + '- **No unknown dimension** — unlike Potential, the glob swallowing the literal is decided.\n\n'
-        + 'The next step Simulates two paths — the collision, then a request the glob owns alone.',
+        'Not every collision is a copy. '
+        + `The exact-path **${AM09_DAILY}** (\`${AM09_DAILY_PATH}\`) and the `
+        + `**${AM09_REPORTS_GLOB}** glob (\`${AM09_GLOB_PATH}\`) are plainly `
+        + 'different rules — yet every request for the daily report hits both. '
+        + 'The overlap is real, and unlike the regex case coming later the '
+        + 'analyzer can *prove* it without running anything.\n\n'
+        + 'That provability is what separates **Definite** from **Potential**: '
+        + 'there is no undecidable dimension here, just a literal path the glob '
+        + `fully contains. With equal priority and reject on, a caller to `
+        + `\`${AM09_DAILY_PATH}\` gets the same **409 Conflict** family you saw with the `
+        + 'health duplicates. Next you send two URLs to show this is about the '
+        + 'request, not the rule pair in the abstract.',
       highlight: API_MOCK.routeNamed(AM09_DAILY),
       preAction: (ctx) => am09.ensureAm09ReadyForPair(ctx, AM09_DAILY),
       action: (ctx) => am09.runAm09Definite(ctx),
@@ -247,13 +277,18 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'definite-witness',
       title: 'Simulate this Definite — one path collides, the other does not',
       description:
-        `Definite is not “every request under the glob.” Two probes, same pair — `
-        + 'watch what the caller actually receives.\n\n'
-        + `- **\`${AM09_DAILY_PATH}\`** — **409** and \`{"error":"ambiguous",…}\`. Both rules match; equal priority plus reject. The mock refuses to pick Daily or the glob.\n`
-        + `- **\`${AM09_NON_DAILY_PATH}\`** — **200** and \`{"report":"any"}\`. Daily’s exact path misses. Only \`${AM09_GLOB_PATH}\` matches, so the glob is Winner and its body ships.\n`
-        + '- **Path failed** — Daily stays in the library; it simply does not apply to this URL.\n\n'
-        + 'Same pair. One URL is a collision. The other is a normal 200.',
-      highlight: API_MOCK.CONFLICT_WITNESS,
+        'The trap with a Definite overlap is assuming the glob rule is broken '
+        + 'everywhere. It is not — the collision exists only on the URLs both '
+        + 'rules claim, and this step draws that line sharply:\n\n'
+        + `- **\`${AM09_DAILY_PATH}\`** — both rules match: equal priority, `
+        + 'reject, **409 Conflict**, the mock refuses to pick.\n'
+        + `- **\`${AM09_NON_DAILY_PATH}\`** — the exact-path rule’s path fails, `
+        + `so \`${AM09_GLOB_PATH}\` wins alone and the caller gets a clean `
+        + '**200 OK**.\n\n'
+        + 'Same pair of rules, two completely different outcomes, decided '
+        + 'entirely by the request. A Definite finding points at *where* to '
+        + 'look, never a rule to delete.',
+      highlight: API_MOCK.CONFLICT_SIMULATE,
       preAction: (ctx) => am09.ensureAm09ForDefiniteWitness(ctx),
       action: async (ctx) => { await am09.runAm09DefiniteWitness(ctx); },
       verify: API_MOCK.CONFLICT_INSPECTOR,
@@ -262,14 +297,18 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'potential',
       title: 'Potential is the honest “we cannot decide”',
       description:
-        `**${AM09_SEARCH_PREFIX}** matches \`x-client\` \`^acme\`. `
-        + `**${AM09_SEARCH_REGION}** matches \`^acme-.*\`. Same path, two `
-        + 'regular expressions.\n\n'
-        + '- **Regex ∩ regex** — undecidable in the general case. The analyzer does not invent an intersection.\n'
-        + '- **Unknown dimension** — the header row stays unknown. That row is the finding.\n'
-        + '- **Potential** — “cannot decide,” not “guessed they collide.”\n'
-        + '- **Unlike Duplicate** — the analyzer cannot prove a 409. A concrete header can.\n\n'
-        + 'The next step Simulates two headers — one that hits both regexes, one that hits neither.',
+        'The last kind is the most honest one. On the same path, '
+        + `**${AM09_SEARCH_PREFIX}** matches \`x-client\` against \`^acme\` and `
+        + `**${AM09_SEARCH_REGION}** against \`^acme-.*\` — and whether two `
+        + 'regular expressions can ever match the same value is, in general, '
+        + 'undecidable. A lesser tool would either ignore it or invent a '
+        + 'confident-sounding answer.\n\n'
+        + 'The inspector does neither. It marks the header dimension '
+        + '**unknown** and files the pair as **Potential** — "these might '
+        + 'collide and I cannot prove it either way," not a guessed collision. '
+        + 'That restraint *is* the finding. The analyzer cannot manufacture a '
+        + '**409 Conflict**, but a concrete request can settle it — which is exactly what '
+        + 'the next step does with two headers.',
       highlight: API_MOCK.routeNamed(AM09_SEARCH_PREFIX),
       preAction: (ctx) => am09.ensureAm09ReadyForPair(ctx, AM09_SEARCH_PREFIX),
       action: (ctx) => am09.runAm09Potential(ctx),
@@ -279,13 +318,19 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'potential-witness',
       title: 'Simulate this Potential — the header decides the status',
       description:
-        `Potential stays unknown until a real \`${AM09_SEARCH_PATH}\` request `
-        + 'carries a header. Two probes, same pair — watch the status.\n\n'
-        + `- **\`${AM09_CLIENT_HEADER_HIT}\`** — **409** and \`{"error":"ambiguous",…}\`. Both \`^acme\` and \`^acme-.*\` match this value. The collision is real for this request.\n`
-        + `- **No \`x-client\`** — **404** and \`{"error":"not_found",…}\`. Neither rule matches. Same pair, no collision.\n`
-        + '- **Save as sample** — each probe is kept so you can re-run either header.\n\n'
-        + 'The analyzer would not invent that intersection. Simulate decides per request.',
-      highlight: API_MOCK.CONFLICT_WITNESS,
+        'What the analyzer left as "unknown" turns concrete the instant a '
+        + `real \`${AM09_SEARCH_PATH}\` request carries a header, and this step `
+        + 'settles it both ways:\n\n'
+        + `- **\`${AM09_CLIENT_HEADER_HIT}\`** — matches both regexes at once, `
+        + 'so the collision is real for that request and the caller gets a '
+        + '**409 Conflict**.\n'
+        + '- **No `x-client`** — neither rule matches, so the same pair '
+        + 'produces a clean **404 Not Found** — no collision at all.\n\n'
+        + 'Both probes are kept as samples you can replay. The takeaway is the '
+        + 'division of labor: static analysis is right to stay silent when it '
+        + 'cannot know, and Simulate is where an individual request gets a '
+        + 'definite answer.',
+      highlight: API_MOCK.CONFLICT_SIMULATE,
       preAction: (ctx) => am09.ensureAm09ForPotentialWitness(ctx),
       action: async (ctx) => { await am09.runAm09PotentialWitness(ctx); },
       verify: API_MOCK.CONFLICT_INSPECTOR,
@@ -294,14 +339,20 @@ export const apiMockAm09Lesson: DemoLesson = {
       id: 'fix-priority',
       title: 'Ranking picks a winner — it does not delete the overlap',
       description:
-        `**${AM09_DAILY}** and **${AM09_REPORTS_GLOB}** are still Definite, `
-        + 'both at priority 10.\n\n'
-        + `- **Adjust priority** — raises the exact path to **${AM09_PRIORITY_RAISED}**. Analysis re-runs.\n`
-        + '- **Kind change** — the exact path always wins, so the pair becomes **Shadowed**.\n'
-        + '- **Glob still matches** — it cannot win on `/reports/daily`.\n'
-        + '- **Definite empties** — the pair did not vanish.\n'
-        + '- **Summary stays 4** — ranking picks a winner; it does not delete a copy.\n\n'
-        + 'A caller no longer receives 409 on `/reports/daily`. The glob remains in the library.',
+        'There are two very different things you might mean by "fix a '
+        + 'conflict." Raise the exact path’s priority to '
+        + `**${AM09_PRIORITY_RAISED}** on the still-Definite `
+        + `**${AM09_DAILY}** / **${AM09_REPORTS_GLOB}** pair and this step draws `
+        + 'the line:\n\n'
+        + '- **The symptom, cured** — analysis re-runs and the pair is now '
+        + `**Shadowed**; the exact rule outranks the glob on `
+        + `\`${AM09_DAILY_PATH}\`, so the caller stops getting a **409 Conflict** there.\n`
+        + '- **The overlap, still on the books** — the summary still reads '
+        + '**four** findings. The glob did not disappear; you ranked a winner, '
+        + 'you did not remove a rule.\n\n'
+        + 'Ranking cures the symptom a client feels while deliberately keeping '
+        + 'the overlap visible, because pretending it is gone is how the next '
+        + 'surprise gets planted.',
       highlight: API_MOCK.CONFLICT_ADJUST_PRIORITY,
       preAction: (ctx) => am09.ensureAm09ForFix(ctx),
       action: (ctx) => am09.runAm09FixPriority(ctx),
@@ -309,16 +360,23 @@ export const apiMockAm09Lesson: DemoLesson = {
     },
     {
       id: 'acknowledge',
-      title: 'Acknowledge is a snapshot — not a lifetime waiver',
+      title: 'Acknowledge this Duplicate — then break the snapshot',
       description:
-        'Some overlaps are intentional. **Acknowledge** records that you '
-        + 'reviewed this pair.\n\n'
-        + '- **Bound to fingerprints** — the banner is valid only while both SHA-256 hashes stay the same.\n'
-        + `- **Priority edit** — the left copy moves to **${AM09_PRIORITY_STALE}**.\n`
-        + '- **Kind unchanged** — Duplicate ignores priority, so the classification stays Duplicate.\n'
-        + '- **Hash changed** — the record is no longer the pair you reviewed.\n'
-        + '- **Stale** — Re-analyze marks the same pair. Review again.\n\n'
-        + 'A waiver that survived edits would hide a new collision.',
+        'Some overlaps are intentional — a team keeps both copies on purpose — '
+        + 'so the inspector needs a way to say "yes, we know" without nagging '
+        + `forever. That is **Acknowledge**, applied here to the `
+        + `**${AM09_HEALTH_A}** / **${AM09_HEALTH_B}** Duplicate `
+        + `(\`GET ${AM09_HEALTH_PATH}\`), not the Definite pair from the last `
+        + 'step.\n\n'
+        + 'The property that matters is that the waiver is pinned to *this exact '
+        + 'snapshot* of both rules through their fingerprints — not a blanket, '
+        + `permanent excuse. To prove it, nudge one copy’s priority `
+        + `(${AM09_PRIORITY_DEFAULT} → ${AM09_PRIORITY_STALE}) and re-analyze: `
+        + 'the pair is still a Duplicate, but the acknowledgement flips to '
+        + '**Stale**, because a fingerprint changed and what you approved is no '
+        + 'longer what is on screen. A waiver that survived edits would be worse '
+        + 'than none — it would quietly hide a brand-new collision behind an '
+        + 'old approval.',
       highlight: API_MOCK.CONFLICT_ACKNOWLEDGE,
       preAction: (ctx) => am09.ensureAm09ForAcknowledge(ctx),
       action: (ctx) => am09.runAm09Acknowledge(ctx),

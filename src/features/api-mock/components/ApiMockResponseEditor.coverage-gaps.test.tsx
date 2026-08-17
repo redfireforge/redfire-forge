@@ -664,7 +664,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
     );
     openTab('selection');
     fireEvent.change(screen.getByTestId('api-mock-variant-required-state'), { target: { value: 'Boot' } });
-    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].transition?.targetState).toBe('Boot');
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].transition?.currentState).toBe('Boot');
   });
 
   it('covers extracted panel edge branches directly', () => {

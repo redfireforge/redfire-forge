@@ -1,5 +1,6 @@
 import { isTauri, isNode } from './platform';
 import { isLoopbackUrl, resolveLoopbackUrl } from './loopbackUrl';
+import { withKeepAliveConnection } from './outboundRequestHeaders';
 import type { TimingBreakdown } from '../types';
 
 /** Walk the error `.cause` chain to build a detailed message string. */
@@ -366,7 +367,7 @@ async function nodeFetch(
   try {
     const targetUrl = resolveLoopbackUrl(url);
     const { dispatcher, isProxy } = await getNodeDispatcher();
-    const pooledHeaders = { ...headers, 'Connection': 'keep-alive' };
+    const pooledHeaders = withKeepAliveConnection(headers);
     const opts: Record<string, unknown> = { method, headers: pooledHeaders };
     if (body && method !== 'GET') opts.body = body;
     const useProxyDispatcher = Boolean(dispatcher) && !isLoopbackUrl(targetUrl);

@@ -85,13 +85,13 @@ export const apiMockAm15Lesson: DemoLesson = {
   description:
     'Start from a blank mock. Open Import and read the seven sources and three '
     + 'modes. Paste a curl that hits `/users/42`, generalize it to `/users/:id`, '
-    + 'and import it as a dimmed draft. Then pull in an OpenAPI spec, a WireMock '
+    + 'and import it as a Draft. Then pull in an OpenAPI spec, a WireMock '
     + 'mapping that Studio can keep, a HAR capture, and Catalog plus Requests. '
     + 'Hold the Replace warning so you know it swaps the whole rule set. Enable '
     + 'the generalized draft, Apply, and prove it with a matched journal row.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 2,
+  contentVersion: 3,
   concept: {
     title: 'Every source becomes a draft. Enable is how it starts answering.',
     body:
@@ -157,7 +157,7 @@ export const apiMockAm15Lesson: DemoLesson = {
       id: 'drafts-are-safe',
       title: 'Imports land disabled so they cannot hijack traffic',
       description:
-        'Click **Import as draft**. The review closes. Hold the **dimmed row** in '
+        'Click **Import as draft**. The review closes. Hold the **Draft** row in '
         + 'the explorer — opacity is the signal that this rule is inactive.\n\n'
         + 'Hold the **footer tally**. Enabled stays at zero; drafts went up by one. '
         + 'Nothing on the listener changed. An import is a proposal until you '
@@ -245,7 +245,7 @@ export const apiMockAm15Lesson: DemoLesson = {
       title: 'A draft only matters once it answers traffic',
       description:
         `Select the generalized \`${AM15_GENERALIZED}\` draft and toggle **Enable**. `
-        + 'Hold the control so the dimmed row is no longer a draft.\n\n'
+        + 'Hold the control so the amber **Draft** row turns **On**.\n\n'
         + `Click **Apply**, then fetch \`${AM15_PROVE_PATH}\`. Hold the journal `
         + '**matched** row. That is the only proof an import shipped: live traffic, '
         + 'not a preview card.',

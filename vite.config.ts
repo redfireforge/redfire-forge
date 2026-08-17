@@ -4,6 +4,7 @@ import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
 import { isLoopbackUrl, preferLocalhostHostname, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
+import { withKeepAliveConnection } from './src/shared/utils/outboundRequestHeaders'
 import { probeApiMockEcho } from './src/shared/api-mock/echoHealthProbe'
 import { demoHubRootImportsPlugin } from './vite/demoHubRootImports'
 import { demoLiveGuardPlugin } from './vite/demoLiveGuardPlugin'
@@ -206,7 +207,9 @@ function proxyPlugin(): Plugin {
           } else {
             payload.url = resolveLoopbackUrl(payload.url);
           }
-          payload.headers['Connection'] = 'keep-alive';
+          // Drop journal `connection`/`host` first — a second Connection key
+          // (any casing) makes undici throw invalid connection header.
+          payload.headers = withKeepAliveConnection(payload.headers ?? {});
           // Browser abort of POST /__proxy must cancel the upstream fetch.
           // Without this, a timeout-fault mock holds the socket for the 1h
           // safety cap and never journals — the lesson then clicks an old 503.

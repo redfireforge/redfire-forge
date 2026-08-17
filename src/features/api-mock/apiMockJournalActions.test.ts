@@ -219,6 +219,24 @@ describe('apiMockJournalActions', () => {
     expect(detail.headers).toEqual([{ key: 'x-test', value: 'plain', enabled: true }]);
   });
 
+  it('strips hop-by-hop headers when opening a journal row in Requests', () => {
+    const detail = transactionToOpenInRequestsDetail({
+      ...tx,
+      request: {
+        ...tx.request,
+        headers: {
+          host: ['127.0.0.1:4500'],
+          connection: ['keep-alive'],
+          accept: ['*/*'],
+          'user-agent': ['node'],
+          'accept-encoding': ['gzip, deflate'],
+        },
+      },
+    } as never);
+    expect(detail.headers.map(h => h.key.toLowerCase()).sort()).toEqual(['accept', 'user-agent']);
+    expect(detail.headers.find(h => h.key === 'accept')?.value).toBe('*/*');
+  });
+
   it('open-in-requests and route drafts tolerate missing headers', () => {
     const missing = { ...tx, request: { ...tx.request, headers: undefined, query: undefined } };
     expect(transactionToOpenInRequestsDetail(missing as never).headers).toEqual([]);

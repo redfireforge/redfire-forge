@@ -304,9 +304,23 @@ export async function ensureAm12NotFoundVariant(ctx: DemoActionContext): Promise
   await ctx.waitFor(API_MOCK.VARIANT_CARD_LAST, 6_000);
 }
 
+export function isAm12ToolboxOpen(): boolean {
+  return Boolean(firstVisibleElement(API_MOCK.PATTERN_TOOLBOX));
+}
+
+export async function closeAm12Toolbox(ctx: DemoActionContext): Promise<void> {
+  if (!isAm12ToolboxOpen()) return;
+  if (!firstVisibleElement(API_MOCK.TOOLBOX_CANCEL) && !document.querySelector(API_MOCK.TOOLBOX_CANCEL)) {
+    return;
+  }
+  await ctx.click(API_MOCK.TOOLBOX_CANCEL);
+  await ctx.delay(200);
+}
+
 export async function ensureAm12Conditions(ctx: DemoActionContext): Promise<void> {
   await ensureAm12NotFoundVariant(ctx);
   await ensureAm12SelectionTab(ctx);
+  await closeAm12Toolbox(ctx);
   if (am12HasJsonPathCondition()) return;
   patchApiMockActiveRoute({
     variantIndex: 1,
@@ -321,6 +335,7 @@ export async function ensureAm12Conditions(ctx: DemoActionContext): Promise<void
 
 export async function ensureAm12Default(ctx: DemoActionContext): Promise<void> {
   await ensureAm12Conditions(ctx);
+  await closeAm12Toolbox(ctx);
   patchApiMockActiveRoute({ variantIndex: 0, isDefault: true });
 }
 
@@ -508,15 +523,54 @@ export async function runAm12AddVariant(ctx: DemoActionContext): Promise<void> {
   await am12Payoff(ctx, API_MOCK.VARIANT_CARD_LAST);
 }
 
+/**
+ * Select a value in the sample body so the toolbox derives the JSONPath —
+ * same pick-from-JSON beat as AM-06, not a typed path on the Selection row.
+ */
+async function pickAm12JsonToken(ctx: DemoActionContext, token: string): Promise<boolean> {
+  await spotlightBeat(ctx, API_MOCK.TOOLBOX_JSON_SAMPLE, T.payoff);
+  const editor = firstVisibleElement<HTMLTextAreaElement>(API_MOCK.TOOLBOX_JSON_SAMPLE);
+  const index = editor?.value.indexOf(token) ?? -1;
+  if (!editor || index < 0) return false;
+  editor.focus();
+  editor.setSelectionRange?.(index, index + token.length);
+  editor.dispatchEvent(new Event('select', { bubbles: true }));
+  editor.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  await ctx.delay(T.simOutcome);
+  return true;
+}
+
 /** Step 3 — in rules mode a variant wins on its own conditions. */
 export async function runAm12Conditions(ctx: DemoActionContext): Promise<void> {
   await ensureAm12NotFoundVariant(ctx);
   await selectAm12NotFoundCard(ctx);
   await am12Aim(ctx, API_MOCK.RESPONSE_TAB_SELECTION, T.tabSwitch);
   await am12Reveal(ctx, API_MOCK.SELECTION_PANEL);
-  await am12Reveal(ctx, API_MOCK.SELECTION_CONDITION_PATH);
-  await am12Fill(ctx, API_MOCK.SELECTION_CONDITION_PATH, AM12_JSONPATH);
-  await am12Fill(ctx, API_MOCK.SELECTION_CONDITION_VALUE, AM12_SKU_MISSING);
+  if (!firstVisibleElement(API_MOCK.SELECTION_CONDITION_TOOLBOX)
+    && !document.querySelector(API_MOCK.SELECTION_CONDITION_TOOLBOX)) {
+    await am12Fill(ctx, API_MOCK.SELECTION_CONDITION_PATH, AM12_JSONPATH);
+    await am12Fill(ctx, API_MOCK.SELECTION_CONDITION_VALUE, AM12_SKU_MISSING);
+    patchApiMockActiveRoute({
+      variantIndex: 1,
+      variantConditions: AM12_NOT_FOUND_CONDITIONS,
+      isDefault: false,
+    });
+    await am12Payoff(ctx, API_MOCK.SELECTION_CONDITION);
+    return;
+  }
+  await am12Aim(ctx, API_MOCK.SELECTION_CONDITION_TOOLBOX);
+  await am12Reveal(ctx, API_MOCK.PATTERN_TOOLBOX);
+  const picked = await pickAm12JsonToken(ctx, AM12_SKU_MISSING);
+  if (!picked) {
+    await am12Fill(ctx, API_MOCK.TOOLBOX_JSONPATH, AM12_JSONPATH);
+    await am12Fill(ctx, API_MOCK.TOOLBOX_JSON_EXPECTED, AM12_SKU_MISSING);
+  } else {
+    await am12Look(ctx, API_MOCK.TOOLBOX_JSONPATH);
+    await am12Look(ctx, API_MOCK.TOOLBOX_JSON_EXPECTED);
+  }
+  if (firstVisibleElement(API_MOCK.TOOLBOX_APPLY) || document.querySelector(API_MOCK.TOOLBOX_APPLY)) {
+    await am12Aim(ctx, API_MOCK.TOOLBOX_APPLY);
+  }
   patchApiMockActiveRoute({
     variantIndex: 1,
     variantConditions: AM12_NOT_FOUND_CONDITIONS,

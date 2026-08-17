@@ -44,6 +44,7 @@ import {
   am12VariantCount,
   cleanupAm12,
   closeAm12Simulate,
+  closeAm12Toolbox,
   ensureAm12Conditions,
   ensureAm12Default,
   ensureAm12ForApply,
@@ -165,6 +166,7 @@ function mountEditor(opts: {
       chip,
       path,
       value,
+      el('button', undefined, 'api-mock-selection-condition-toolbox'),
       el('button', undefined, 'api-mock-selection-default'),
       el('span', undefined, 'api-mock-selection-default-note'),
     );
@@ -258,7 +260,13 @@ function withClickSideEffects(ctx: DemoActionContext): void {
       const value = document.createElement('input');
       value.setAttribute('data-testid', 'api-mock-selection-condition-value');
       makeVisible(value);
-      panel.append(path, value, el('button', undefined, 'api-mock-selection-default'), el('span', undefined, 'api-mock-selection-default-note'));
+      panel.append(
+        path,
+        value,
+        el('button', undefined, 'api-mock-selection-condition-toolbox'),
+        el('button', undefined, 'api-mock-selection-default'),
+        el('span', undefined, 'api-mock-selection-default-note'),
+      );
       if (document.querySelector(API_MOCK.RESPONSE_MODE_SEQUENCE)?.getAttribute('aria-pressed') === 'true') {
         const pos = el('span', undefined, 'api-mock-sequence-position');
         pos.textContent = 'Next: Step 1 of 2';
@@ -291,7 +299,40 @@ function withClickSideEffects(ctx: DemoActionContext): void {
       mountExplorer();
       mountServerBar(true, true);
     }
+    if (selector === API_MOCK.SELECTION_CONDITION_TOOLBOX && !document.querySelector(API_MOCK.PATTERN_TOOLBOX)) {
+      mountToolbox();
+    }
+    if (selector === API_MOCK.TOOLBOX_APPLY) {
+      const chip = document.querySelector('[data-testid="api-mock-selection-condition"]');
+      if (chip) chip.textContent = `${AM12_JSONPATH} = ${AM12_SKU_MISSING}`;
+      document.querySelector(API_MOCK.PATTERN_TOOLBOX)?.remove();
+    }
+    if (selector === API_MOCK.TOOLBOX_CANCEL) {
+      document.querySelector(API_MOCK.PATTERN_TOOLBOX)?.remove();
+    }
   }) as DemoActionContext['click'];
+}
+
+function mountToolbox(): void {
+  const box = el('div', undefined, 'api-mock-pattern-toolbox');
+  const sample = document.createElement('textarea');
+  sample.setAttribute('data-testid', 'api-mock-toolbox-json-sample');
+  sample.value = '{\n  "sku": "MISSING"\n}';
+  makeVisible(sample);
+  const path = document.createElement('input');
+  path.setAttribute('data-testid', 'api-mock-toolbox-jsonpath');
+  makeVisible(path);
+  const expected = document.createElement('input');
+  expected.setAttribute('data-testid', 'api-mock-toolbox-json-expected');
+  makeVisible(expected);
+  box.append(
+    sample,
+    path,
+    expected,
+    el('button', undefined, 'api-mock-toolbox-apply'),
+    el('button', undefined, 'api-mock-toolbox-cancel'),
+  );
+  document.body.append(box);
 }
 
 describe('AM-12 variants-sequence helpers', () => {
@@ -569,7 +610,7 @@ describe('AM-12 variants-sequence helpers', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.ADD_VARIANT);
   });
 
-  it('runAm12Conditions fills JSONPath on the Selection tab', async () => {
+  it('runAm12Conditions opens Pick from sample and applies the derived path', async () => {
     const ctx = makeCtx();
     withClickSideEffects(ctx);
     mountExplorer();
@@ -581,8 +622,18 @@ describe('AM-12 variants-sequence helpers', () => {
       ],
     });
     await runAm12Conditions(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SELECTION_CONDITION_PATH, AM12_JSONPATH);
-    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SELECTION_CONDITION_VALUE, AM12_SKU_MISSING);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SELECTION_CONDITION_TOOLBOX);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.TOOLBOX_APPLY);
+    expect(ctx.fill).not.toHaveBeenCalledWith(API_MOCK.SELECTION_CONDITION_PATH, AM12_JSONPATH);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      variantConditions: AM12_NOT_FOUND_CONDITIONS,
+    }));
+  });
+
+  it('closeAm12Toolbox is a no-op when the picker is closed', async () => {
+    const ctx = makeCtx();
+    await closeAm12Toolbox(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('runAm12Default clicks Make default on the 200 card', async () => {

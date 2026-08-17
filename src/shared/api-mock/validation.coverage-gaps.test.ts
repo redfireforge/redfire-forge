@@ -176,9 +176,11 @@ describe('validation coverage gaps', () => {
     settings.limits.maxConcurrentConnections = HARD_CEILINGS.maxConcurrentConnections + 1;
     settings.limits.gracefulDrainMs = HARD_CEILINGS.maxGracefulDrainMs + 1;
     settings.limits.maxDelayMs = HARD_CEILINGS.maxDelayMs + 1;
+    settings.limits.longRunningMaxMs = HARD_CEILINGS.maxLongRunningMs + 1;
     const diags = validateServer(makeServer({ settings }));
-    expect(diags.filter(d => d.code === 'AMS-LIMIT-EXCEEDED').length).toBeGreaterThanOrEqual(4);
+    expect(diags.filter(d => d.code === 'AMS-LIMIT-EXCEEDED').length).toBeGreaterThanOrEqual(5);
     expect(diags.some(d => d.path.includes('/maxDelayMs'))).toBe(true);
+    expect(diags.some(d => d.path.includes('/longRunningMaxMs'))).toBe(true);
   });
 
   it('covers callback allowlist, route callbacks, and outbound capability info', () => {

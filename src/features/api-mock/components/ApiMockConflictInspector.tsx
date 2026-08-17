@@ -434,7 +434,9 @@ export function ApiMockConflictInspector({
               <summary data-testid="api-mock-conflict-fingerprints-summary">Rule fingerprints</summary>
               <div className="am-fingerprints-body" data-testid="api-mock-conflict-fingerprint-hashes">
                 <p className="am-fingerprint-why" data-testid="api-mock-conflict-fingerprint-why">
-                  <strong>Why these exist.</strong> Acknowledge means you reviewed this exact pair.
+                  <strong>Why these exist.</strong>
+                  <br />
+                  Acknowledge means you reviewed this exact pair.
                   Each hash is a snapshot of one rule. Edit either rule and the ack goes{' '}
                   <strong>Stale</strong> — you must look again. Without fingerprints, an ack would
                   stay valid forever even after the overlap changed.

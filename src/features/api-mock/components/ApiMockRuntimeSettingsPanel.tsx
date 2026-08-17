@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { ApiMockServerDefinitionV1, ApiMockServerSettingsV1 } from '../../../shared/api-mock/contracts';
+import { HARD_CEILINGS } from '../../../shared/api-mock/defaults';
+import { ApiMockRedactHeaderPicker } from './ApiMockRedactHeaderPicker';
 
 interface Props {
   server: ApiMockServerDefinitionV1;
@@ -98,6 +100,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
   const [corsOrigins, setCorsOrigins] = useState(server.settings.cors.allowOrigins.join(', ') || '*');
   const [maxInbound, setMaxInbound] = useState(String(server.settings.limits.maxInboundBodyBytes));
   const [maxConnections, setMaxConnections] = useState(String(server.settings.limits.maxConcurrentConnections));
+  const [timeoutHoldMax, setTimeoutHoldMax] = useState(String(server.settings.limits.longRunningMaxMs));
   const [drainMs, setDrainMs] = useState(String(server.settings.limits.gracefulDrainMs));
   const [journalEnabled, setJournalEnabled] = useState(server.settings.journal.enabled);
   const [persistDisk, setPersistDisk] = useState(server.settings.journal.persistToDisk);
@@ -115,6 +118,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
     setCorsOrigins(server.settings.cors.allowOrigins.join(', ') || '*');
     setMaxInbound(String(server.settings.limits.maxInboundBodyBytes));
     setMaxConnections(String(server.settings.limits.maxConcurrentConnections));
+    setTimeoutHoldMax(String(server.settings.limits.longRunningMaxMs));
     setDrainMs(String(server.settings.limits.gracefulDrainMs));
     setJournalEnabled(server.settings.journal.enabled);
     setPersistDisk(server.settings.journal.persistToDisk);
@@ -151,6 +155,11 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
           ...server.settings.limits,
           maxInboundBodyBytes: parseInt(maxInbound, 10) || server.settings.limits.maxInboundBodyBytes,
           maxConcurrentConnections: parseInt(maxConnections, 10) || server.settings.limits.maxConcurrentConnections,
+          longRunningMaxMs: (() => {
+            const n = parseInt(timeoutHoldMax, 10);
+            if (!Number.isFinite(n) || n <= 0) return server.settings.limits.longRunningMaxMs;
+            return Math.min(n, HARD_CEILINGS.maxLongRunningMs);
+          })(),
           gracefulDrainMs: parseInt(drainMs, 10) || server.settings.limits.gracefulDrainMs,
         },
         journal: {
@@ -246,7 +255,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
 
         <SectionCard
           title="Limits"
-          description="Protect the companion process from oversized bodies and hung drains."
+          description="Protect the companion from oversized bodies, hung Timeout faults, and long drains."
         >
           <FormRow label="Inbound body" htmlFor="am-rt-inbound" hint="Bytes · max 10 MiB" hintPlacement="inline">
             <input
@@ -264,6 +273,18 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
               value={maxConnections}
               onChange={e => mark(setMaxConnections)(e.target.value)}
               data-testid="api-mock-runtime-settings-conn"
+            />
+          </FormRow>
+          <FormRow label="Timeout hold max" htmlFor="am-rt-timeout-hold" hint="Milliseconds · default 30s · max 1h" hintPlacement="inline">
+            <input
+              id="am-rt-timeout-hold"
+              className="am-input am-input--num mono"
+              type="number"
+              min={1}
+              max={HARD_CEILINGS.maxLongRunningMs}
+              value={timeoutHoldMax}
+              onChange={e => mark(setTimeoutHoldMax)(e.target.value)}
+              data-testid="api-mock-runtime-settings-timeout-hold"
             />
           </FormRow>
           <FormRow label="Drain timeout" htmlFor="am-rt-drain" hint="Milliseconds · max 30s" hintPlacement="inline">
@@ -336,14 +357,25 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
               onClick={() => mark(setPersistDisk)(!persistDisk)}
             />
           </FormRow>
-          <FormRow label="Redact headers" htmlFor="am-rt-redact-h" hint="Comma-separated header names">
-            <input
-              id="am-rt-redact-h"
-              className="am-input am-input--fill mono"
-              value={redactionHeaders}
-              onChange={e => mark(setRedactionHeaders)(e.target.value)}
-              data-testid="api-mock-runtime-settings-redact-headers"
-            />
+          <FormRow
+            label="Redact headers"
+            htmlFor="am-rt-redact-h"
+            hint="Click a name to add or remove it. Type any other header above, comma-separated."
+          >
+            <div className="am-redact-headers-field">
+              <input
+                id="am-rt-redact-h"
+                className="am-input am-input--fill mono"
+                value={redactionHeaders}
+                onChange={e => mark(setRedactionHeaders)(e.target.value)}
+                data-testid="api-mock-runtime-settings-redact-headers"
+              />
+              <ApiMockRedactHeaderPicker
+                value={redactionHeaders}
+                onChange={mark(setRedactionHeaders)}
+                testId="api-mock-runtime-settings-redact-header-picker"
+              />
+            </div>
           </FormRow>
           <FormRow label="Redact paths" htmlFor="am-rt-redact-p" hint="JSONPath expressions in request/response bodies">
             <input

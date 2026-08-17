@@ -87,7 +87,7 @@ export const apiMockAm21Lesson: DemoLesson = {
     + 'bundle, then attach an unassociated example and Try in Requests.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 4,
+  contentVersion: 5,
   concept: {
     title: 'A sample without an expectation is a demo, not a test.',
     body:
@@ -124,12 +124,16 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'suite-and-scratchpad',
       title: 'Simulate is a unit-test runner, plus a scratch pad',
       description:
-        'Click **Simulate**. Hold **Saved samples** — that list is the suite '
-        + 'already in this workspace — then hold the **Scratch pad**. Fill '
-        + `the path with \`${AM21_ADHOC_PATH}\`. **Save as sample**, name it, hold the saved `
-        + 'request so you can read it, then hold **Run simulation** before the click. The outcome is the '
-        + 'scratch-pad verdict: you did not start a listener, and you did not '
-        + 'have to pick a saved sample to ask “what would this call do?”',
+        'The most useful thing about **Simulate** is what it *isn’t*: no '
+        + 'listener, no live state to mutate, no client to wire up. It is a '
+        + 'unit-test runner for your mock. The **Saved samples** on the left '
+        + 'are the suite that already ships in this workspace; the **Scratch '
+        + 'pad** at the top is for the throwaway question — “what would *this* '
+        + 'call do?”\n\n'
+        + `Here that question is a quick \`GET ${AM21_ADHOC_PATH}\`. Save it as `
+        + 'a sample and run it, and the verdict comes back with none of the '
+        + 'usual ceremony. You asked the mock a question and got an answer, in '
+        + 'place.',
       highlight: API_MOCK.SIMULATE,
       action: async (ctx) => {
         await runAm21SuiteAndScratchpad(ctx);
@@ -140,13 +144,15 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'three-views',
       title: 'Decision trace, normalized request, rendered response',
       description:
-        'Hold the first timeline step — that is the seven-step pipeline the '
-        + 'engine walked. Open the **Request** tab and hold the normalized '
-        + 'JSON: method, path, and headers the way matchers actually see them, '
-        + 'not the raw URL bar.\n\n'
-        + 'Then open **Rendered** and hold the shipped bytes. Trace explains '
-        + 'the choice; Normalized is the input; Rendered is what the client '
-        + 'would have received.',
+        'A verdict you cannot explain is a verdict you cannot trust, so '
+        + 'Simulate shows its work in three views. The **decision trace** is '
+        + 'the seven-step pipeline the engine actually walked to reach its '
+        + 'choice. **Normalized** is the request as the *matchers* saw it — '
+        + 'method, path, headers — not the raw URL you typed. **Rendered** is '
+        + 'the exact bytes that would have gone on the wire.\n\n'
+        + 'Read together they answer three different questions: *why* this rule '
+        + 'won (trace), *what* it matched against (normalized), and *what* the '
+        + 'client would have received (rendered).',
       highlight: API_MOCK.SIMULATE_TIMELINE_FIRST,
       preAction: ensureAm21ForThreeViews,
       action: async (ctx) => {
@@ -158,13 +164,14 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'expectations',
       title: 'A sample without an expectation is a demo, not a test',
       description:
-        'Open the **Assertions** tab. Hold the outcome row, then status, then '
-        + 'body-contains — those are the contract columns, expected versus '
-        + 'actual. A saved sample already ships a 200; that is why the status '
-        + 'row is green.\n\n'
-        + `Edit expected status to \`${AM21_WRONG_STATUS}\`. Hold the field. `
-        + 'The table is now a test you can fail on purpose. The next step '
-        + 'proves the suite notices.',
+        'A run that always “passes” proves nothing — it is a demo, not a '
+        + 'test. What turns a saved sample into a test is an **expectation**: '
+        + 'the contract columns on the **Assertions** tab, expected versus '
+        + 'actual for outcome, status, and body-contains. This sample already '
+        + 'ships a `200`, which is why the status row is green.\n\n'
+        + `Now break it on purpose — edit expected status to \`${AM21_WRONG_STATUS}\`. `
+        + 'Nothing fails *yet*; you have simply written a contract the mock is '
+        + 'about to violate. The next step is where the suite has to notice.',
       highlight: API_MOCK.SIMULATE_TAB_ASSERTIONS,
       preAction: ensureAm21ForExpectations,
       action: async (ctx) => {
@@ -176,12 +183,13 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'fail-loudly',
       title: 'A wrong expectation must fail visibly',
       description:
-        'Select the health sample and hold **Run simulation** before the '
-        + 'click. The sidebar badge turns **FAIL** — not a quiet mismatch in '
-        + 'a log. Hold that badge, then hold the Fail reason on the status '
-        + 'row.\n\n'
-        + 'If a suite cannot fail, it cannot catch a regression. The red '
-        + 'badge is the product doing its job.',
+        'This is the step that earns the word “test.” Re-run the health '
+        + 'sample against the expectation you just broke, and the sidebar badge '
+        + 'turns **FAIL** — loud, in the UI, not a quiet mismatch buried in a '
+        + 'log. The Fail reason names the row that broke the contract.\n\n'
+        + 'The principle underneath: a suite that cannot fail cannot catch a '
+        + 'regression, and silence is exactly how regressions slip through. A '
+        + 'red badge here is the product doing its job — not a problem to fix.',
       highlight: API_MOCK.simSample(AM21_HEALTH_ID),
       preAction: ensureAm21ForFailLoudly,
       action: async (ctx) => {
@@ -193,13 +201,15 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'run-all',
       title: 'The whole suite, sequentially, so state advances like production',
       description:
-        'Click **Run all samples**. Hold the footer tally — passed versus '
-        + 'conflicts — then hold the per-sample **state** chip on the cart '
-        + 'row. Run-all is not eight independent clicks: sequential batch '
-        + 'lets the state machine walk opened → done the way live traffic '
-        + 'would.\n\n'
-        + 'The tally is the suite result. One FAIL in the list is still a '
-        + 'failed run, and that is correct.',
+        'One sample at a time answers “does this case work?” **Run all '
+        + 'samples** answers the bigger question — “does the suite still hold '
+        + 'together?” — and it does so *sequentially*, on purpose. This is not '
+        + 'eight independent clicks: state machines, sequence cursors, and '
+        + 'match counts advance across the run the way real traffic would move '
+        + 'them (watch the cart sample’s **state** chip walk opened → done).\n\n'
+        + 'The footer tally — passed versus conflicts — is the suite result. '
+        + 'And the one FAIL you planted still counts: a suite with a known '
+        + 'failure is a failed run, which is exactly correct.',
       highlight: API_MOCK.SIMULATE_RUN_ALL,
       preAction: ensureAm21ForRunAll,
       action: async (ctx) => {
@@ -211,11 +221,13 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'seed',
       title: 'Weighted, jitter, and probability become reproducible',
       description:
-        'Hold **Run simulation** on the dice sample, then hold the rendered '
-        + 'face. Run again and hold the identical outcome.\n\n'
-        + 'Simulate pins the roll for this session — you do not type a seed. '
-        + 'The point of a suite is that a flaky weighted mock is a test you '
-        + 'can replay, not a coin flip in CI.',
+        'A weighted or jittered mock is the classic flaky test: green '
+        + 'locally, red in CI, and nobody can reproduce it. Simulate removes '
+        + 'the coin flip by pinning the roll for the session — run the dice '
+        + 'sample once, then again, and the rendered face is *identical*.\n\n'
+        + 'You never typed a seed; reproducibility is the default. That is '
+        + 'what lets a probabilistic mock live in a regression suite at all — a '
+        + 'case you can replay is a case you can debug.',
       highlight: API_MOCK.SIMULATE_RUN,
       preAction: ensureAm21ForSeed,
       action: async (ctx) => {
@@ -227,12 +239,14 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'export-trace',
       title: 'Hand the evidence to a PR or bug report',
       description:
-        'Click **Export trace**. Hold the confirmation — filename and a '
-        + 'preview of the bundle: server id, seed, draft generation, and how '
-        + 'many sample results travelled with it.\n\n'
-        + 'That JSON is the audit trail without starting a listener. The next '
-        + 'step closes Simulate and lives on the rule — Examples outlive this '
-        + 'modal.',
+        'A green suite on your screen convinces *you*; a colleague needs '
+        + 'evidence. **Export trace** packages exactly that — server id, seed, '
+        + 'draft generation, and every per-sample result — into one JSON '
+        + 'bundle you can attach to a PR or a bug report.\n\n'
+        + 'Because it captures the pinned seed and generation, someone else '
+        + 'can see precisely what ran without ever starting a listener. It is '
+        + 'the audit trail for a test run that has no live server. Next the '
+        + 'cases move somewhere permanent — onto the rule itself.',
       highlight: API_MOCK.SIMULATE_EXPORT,
       preAction: ensureAm21ForExport,
       action: async (ctx) => {
@@ -244,14 +258,16 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'examples',
       title: 'Per-rule regression cases that outlive the session',
       description:
-        'Open the **Examples** tab. The grid is every sample this rule can '
-        + 'see — including the unassociated GET that has no `routeId` yet. '
-        + 'Click **Attach to this rule** and hold the card so the unassociated '
-        + 'chip is gone.\n\n'
-        + 'Click **Try in Requests** and hold the URL that opened in the '
-        + 'client tab. Come back to Studio and hold `redfireforge mock simulate '
-        + 'workspace.json` on the explorer footer — that is the unit-level '
-        + 'handoff. The attached row stays on the rule after Simulate is gone.',
+        'Everything so far lived inside the Simulate modal and vanishes when '
+        + 'it closes. **Examples** are how a good case survives: the tab lists '
+        + 'every sample the rule can see — including that unassociated `GET` '
+        + 'with no `routeId` yet. **Attach to this rule** adopts it, and the '
+        + '“unassociated” chip disappears.\n\n'
+        + 'From there the case has two homes: **Try in Requests** hands the '
+        + 'same call to a real client tab, and the explorer footer copies '
+        + '`redfireforge mock simulate workspace.json` for the CLI equivalent. '
+        + 'Close Simulate and the attached example is still there — a '
+        + 'regression case that now belongs to the rule, not the session.',
       highlight: API_MOCK.BTAB_EXAMPLES,
       preAction: ensureAm21ForExamples,
       action: async (ctx) => {

@@ -50,6 +50,32 @@ export const CONSTRAINT_OPERATOR_OPTIONS = [
 
 export type ToolTab = 'regex' | 'path' | 'jsonpath' | 'constraints' | 'xpath' | 'schema';
 
+export const TOOL_TAB_ITEMS: ReadonlyArray<readonly [ToolTab, string]> = [
+  ['regex', 'Regex builder'],
+  ['path', 'Path template'],
+  ['jsonpath', 'JSON body / JSONPath'],
+  ['xpath', 'XPath'],
+  ['schema', 'Schema'],
+  ['constraints', 'Query & headers'],
+];
+
+export function visibleToolboxTabs(allowedTabs?: ToolTab[]): typeof TOOL_TAB_ITEMS {
+  if (!allowedTabs?.length) return TOOL_TAB_ITEMS;
+  const allowed = new Set(allowedTabs);
+  return TOOL_TAB_ITEMS.filter(([id]) => allowed.has(id));
+}
+
+export function resolveToolboxTab(
+  preferred: ToolTab | undefined,
+  pathKind?: string,
+  allowedTabs?: ToolTab[],
+): ToolTab {
+  const fallback: ToolTab = preferred ?? (pathKind === 'regex' ? 'regex' : 'path');
+  const visible = visibleToolboxTabs(allowedTabs);
+  if (visible.some(([id]) => id === fallback)) return fallback;
+  return visible[0]?.[0] ?? 'path';
+}
+
 export function toolboxTabForOperator(operator?: string): ToolTab {
   if (operator === 'regex' || operator === 'glob') return 'regex';
   if (operator === 'jsonPath_exists' || operator === 'jsonPath_equals') return 'jsonpath';

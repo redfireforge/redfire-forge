@@ -96,6 +96,36 @@ describe('ApiMockSimulateRenderedPane', () => {
     expect(screen.getByTestId('api-mock-sim-fault-timeline')).toBeInTheDocument();
   });
 
+  it('splits dribble into wire bytes vs the intended body', () => {
+    render(<ApiMockSimulateRenderedPane result={result({
+      outcome: 'fault',
+      preview: {
+        fault: 'dribble',
+        virtualDelayMs: 799,
+        httpCompleted: true,
+        wireBody: '{"ok":tr',
+        faultTimeline: [
+          { atMs: 0, label: 'Write headers (Transfer-Encoding: chunked)' },
+          { atMs: 50, label: 'Chunk "{\\"ok\\":tr"' },
+        ],
+      },
+      renderedResponse: {
+        status: 200,
+        body: '{"ok":true,"id":"pay-1001"}',
+        contentType: 'application/json',
+        headers: {},
+      },
+    })} />);
+    expect(screen.getByTestId('api-mock-sim-rendered-status')).toHaveTextContent('200');
+    expect(screen.getByTestId('api-mock-sim-rendered-status').className).toContain('warning');
+    expect(screen.getByText('in headers')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-sim-dribble-notice').textContent).toMatch(/not an HTTP error/i);
+    expect(screen.getByTestId('api-mock-sim-wire-section')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-sim-wire-body').textContent).toBe('{"ok":tr');
+    expect(screen.getByTestId('api-mock-sim-intended-section')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-sim-rendered-body').textContent).toBe('{"ok":true,"id":"pay-1001"}');
+  });
+
   it('shows an empty state when nothing was rendered', () => {
     render(<ApiMockSimulateRenderedPane result={result({ renderedResponse: undefined, preview: undefined })} />);
     expect(screen.getByText('No response rendered for this outcome.')).toBeInTheDocument();
