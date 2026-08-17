@@ -17,6 +17,7 @@ import {
   AM14_MAX_MATCHES,
   AM14_PATH,
   AM14_PROBABILITY,
+  AM14_TIMEOUT_HOLD_MS,
   AM14_VARIANT_FALLBACK,
   cleanupAm14,
   ensureAm14ForDribble,
@@ -87,7 +88,7 @@ export const apiMockAm14Lesson: DemoLesson = {
     + 'other bank — hang, retry, first-call-only — not another status chip.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 6,
+  contentVersion: 11,
   concept: {
     title: 'A payment client fails on hang, retry, and “used up” — not only on 500.',
     body:
@@ -195,10 +196,14 @@ export const apiMockAm14Lesson: DemoLesson = {
         'A 500 is still a response. Your client can parse it, retry on it, '
         + 'assert it. A hung socket, a reset, a truncated drip — those never '
         + 'give you a status.\n\n'
-        + '**Faults** live below HTTP. Five ways the wire can die: **Timeout**, '
-        + '**Connection reset**, **Empty / close**, **Malformed**, **Dribble '
-        + 'chunks**. The socket itself is the answer. This step is only the '
-        + 'map — so the next hang is not mistaken for another status chip.',
+        + '**Faults** live below HTTP. Five ways the wire can die:\n\n'
+        + '- **Timeout**\n'
+        + '- **Connection reset**\n'
+        + '- **Empty / close**\n'
+        + '- **Malformed**\n'
+        + '- **Dribble chunks**\n\n'
+        + 'The socket itself is the answer. This step is only the map — so the '
+        + 'next hang is not mistaken for another status chip.',
       highlight: API_MOCK.RESPONSE_TAB_FAULTS,
       preAction: ensureAm14ForFaults,
       action: runAm14FaultsPanel,
@@ -211,10 +216,11 @@ export const apiMockAm14Lesson: DemoLesson = {
         'The hardest client bug: the request left, the spinner never stops, '
         + 'there is no status. **Timeout** holds the socket and refuses to '
         + 'finish. That is a hang, not a 504.\n\n'
-        + 'Watch the journal land on **fault**. There is nothing to assert '
-        + 'except “it never completed.” The demo cuts the wait short so you '
-        + 'are not sitting through the safety cap — the intention is the hang, '
-        + 'not the hour.',
+        + 'Watch the journal land on **fault**, then on **Duration**. That number '
+        + `is the **Hold for** (\`${AM14_TIMEOUT_HOLD_MS} ms\`) — not an hour, `
+        + 'and not the delay from earlier. The demo clears leftover latency so '
+        + 'Duration is the hang itself. There is nothing to assert except '
+        + '“it never completed.”',
       highlight: API_MOCK.FAULT_TIMEOUT,
       preAction: ensureAm14ForTimeout,
       action: runAm14Timeout,
@@ -227,10 +233,12 @@ export const apiMockAm14Lesson: DemoLesson = {
         'Timeout is a hang. The other three are faster: the socket dies or '
         + 'the framing is garbage. **Connection reset**, **Empty / close**, '
         + 'and **Malformed** are why retry logic exists — not a tidy 500.\n\n'
-        + 'Watch reset fire. The journal is still **fault**, just quicker. '
-        + 'The other two cards sit beside it so you know where they live when '
-        + 'a client story needs them. You do not have to fire every one to '
-        + 'understand the family.',
+        + 'Watch **Connection reset** fire. The journal is still **fault**, '
+        + 'and **Duration** is ~`0 ms` — the wire dies immediately, not after '
+        + 'a hold. Then the spotlight moves to the other two Faults cards — '
+        + '**Empty / close** and **Malformed** — so you know where they live '
+        + 'when a client story needs them. You do not have to fire every one '
+        + 'to understand the family.',
       highlight: API_MOCK.FAULT_RESET,
       preAction: ensureAm14ForReset,
       action: runAm14ResetCloseMalformed,
@@ -246,13 +254,16 @@ export const apiMockAm14Lesson: DemoLesson = {
         + 'The first piece is only `{"ok":tr`. The extra rows are **pauses** — '
         + 'they wait and write **zero bytes**. They are not “the rest of the '
         + 'JSON later.” End stream does not flush what you left untyped.\n\n'
-        + '**Rendered** is what you intended. **Trace** is what hit the wire: '
-        + 'headers, the truncated chunk, the empty gaps, then stop. That '
-        + 'timeline is the contract. A 200 badge on the intended body is not.',
+        + 'Open **Rendered response**. **On the wire** is what the client '
+        + 'actually received (`{"ok":tr`). **Intended body** is the full JSON '
+        + 'you authored — still sitting in the editor, never completed on the '
+        + 'socket. Then read the virtual **Fault timeline**: headers, the '
+        + 'truncated chunk, the empty gaps, then stop. That timeline is the '
+        + 'contract. A 200 badge on the intended body is not.',
       highlight: API_MOCK.FAULT_DRIBBLE,
       preAction: ensureAm14ForDribble,
       action: runAm14DribbleAndTimeline,
-      verify: API_MOCK.SIMULATE_TIMELINE_FAULT,
+      verify: API_MOCK.SIMULATE_WIRE_BODY,
     },
   ],
 };

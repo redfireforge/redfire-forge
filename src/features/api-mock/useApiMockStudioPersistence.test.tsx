@@ -173,6 +173,34 @@ describe('useApiMockStudioPersistence', () => {
     expect(screen.queryByTestId('rt-srv-1')).toBeNull();
   });
 
+  it('notifies onWorkspaceReplaced when a gallery import replaces the library', async () => {
+    const onWorkspaceReplaced = vi.fn();
+    function ProbeWithReplace() {
+      const [servers, setServers] = useState<ApiMockServerDefinitionV1[]>([]);
+      const [activeServerId, setActiveServerId] = useState<string | undefined>();
+      const [openTabIds, setOpenTabIds] = useState<string[]>([]);
+      const [runtime, setRuntime] = useState<Record<string, RuntimeInfo>>({});
+      const [transactions, setTransactions] = useState<ApiMockTransactionV1[]>([]);
+      const [scenarioState, setScenarioState] = useState<ScenarioStateSnapshot | null>(null);
+      const [mainView, setMainView] = useState<ApiMockMainView>('studio');
+      const [liveMessage, setLiveMessage] = useState('');
+      useApiMockStudioPersistence({
+        servers, activeServerId, openTabIds, setServers, setActiveServerId, setOpenTabIds,
+        setRuntime, setTransactions, setScenarioState, setMainView, setLiveMessage,
+        onWorkspaceReplaced,
+      });
+      return <span data-testid="live">{liveMessage}</span>;
+    }
+    render(<ProbeWithReplace />);
+    await waitFor(() => expect(screen.getByTestId('live')).toBeTruthy());
+    act(() => {
+      window.dispatchEvent(new CustomEvent(API_MOCK_WORKSPACE_CHANGED_EVENT, {
+        detail: { servers: [] },
+      }));
+    });
+    expect(onWorkspaceReplaced).toHaveBeenCalled();
+  });
+
   it('clears the studio when an import wipes every server', async () => {
     render(<Probe />);
     await waitFor(() => expect(screen.getByTestId('rt-srv-1')).toBeTruthy());

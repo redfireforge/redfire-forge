@@ -57,6 +57,8 @@ interface Props {
   onTrySampleInRequests?: (sample: ApiMockSimulationSampleV1) => void;
   /** Server variables forwarded to the response preview so templates resolve. */
   variables?: ApiMockVariableV1[];
+  /** Server-wide Timeout hold ceiling forwarded to the Faults tab. */
+  timeoutHoldMaxMs?: number;
 }
 
 function renderMatchStyleRadios(
@@ -114,6 +116,7 @@ export function ApiMockRouteEditor({
   onDeleteSample,
   onTrySampleInRequests,
   variables = [],
+  timeoutHoldMaxMs,
 }: Props) {
   const [tab, setTab] = useState<BuilderTab>('match');
   const [toolboxOpen, setToolboxOpen] = useState(false);
@@ -549,7 +552,13 @@ export function ApiMockRouteEditor({
         )}
 
         {tab === 'response' && (
-          <ApiMockResponseEditor route={route} onUpdateRoute={onUpdate} sequencePosition={sequencePosition} variables={variables} />
+          <ApiMockResponseEditor
+            route={route}
+            onUpdateRoute={onUpdate}
+            sequencePosition={sequencePosition}
+            variables={variables}
+            timeoutHoldMaxMs={timeoutHoldMaxMs}
+          />
         )}
         {tab === 'behavior' && (
           <>

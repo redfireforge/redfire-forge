@@ -36,13 +36,13 @@ test.describe('Demo lesson AM-14 — When Payments Hang: Latency, Eligibility & 
     await cleanupApiMockLessonRun(request);
   });
 
-  test('walks all 8 steps and ends on the fault timeline', async ({ page }) => {
+  test('walks all 8 steps and ends on the dribble wire body', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await walkApiMockLesson(page, 'am14');
 
     expect(await readStepCounter(page)).toContain(`${AM_LESSON_STEPS.am14} / ${AM_LESSON_STEPS.am14}`);
-    await expect(page.locator(API_MOCK.SIMULATE_TIMELINE_FAULT).first()).toBeVisible({
+    await expect(page.locator(API_MOCK.SIMULATE_WIRE_BODY).first()).toBeVisible({
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
   });

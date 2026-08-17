@@ -23,6 +23,7 @@ import {
   closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
+  spotlightElementBeat,
   ensureAdHocSimulateForm,
 } from './api-mock-demo-helpers';
 
@@ -71,6 +72,8 @@ export const AM13_WEIGHT_A = '90';
 export const AM13_WEIGHT_B = '10';
 export const AM13_VAR_KEY = 'tenant';
 export const AM13_VAR_VALUE = 'acme';
+export const AM13_VAR_SNIPPET = '{{variables.tenant}}';
+export const AM13_TENANT_BODY = `{"ok":true,"tenant":"${AM13_VAR_SNIPPET}","items":[]}`;
 
 export const AM13_EMPTY_TRANSITION = {
   currentState: AM13_EMPTY,
@@ -183,6 +186,10 @@ export function am13HasEmptyTransition(): boolean {
   return am13RequiredState() === AM13_EMPTY && am13NextState() === AM13_HAS_ITEMS && am13HasCounter();
 }
 
+export function am13HasHasItemsTransition(): boolean {
+  return am13RequiredState() === AM13_HAS_ITEMS && am13NextState() === AM13_CHECKED_OUT;
+}
+
 export function isAm13SimulateOpen(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE));
 }
@@ -195,19 +202,35 @@ export function am13SimOutcome(): string {
   return firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)?.textContent?.trim() ?? '';
 }
 
-export function am13HasLiveState(): boolean {
+export function am13LiveStateText(): string {
   const live = firstVisibleElement(API_MOCK.DOCK_STATE_LIVE)
     ?? document.querySelector<HTMLElement>(API_MOCK.DOCK_STATE_LIVE);
-  const text = live?.textContent ?? '';
-  return /HAS_ITEMS|items/i.test(text);
+  return live?.textContent ?? '';
+}
+
+export function am13HasLiveState(): boolean {
+  return /HAS_ITEMS|CHECKED_OUT|items/i.test(am13LiveStateText());
+}
+
+export function am13IsHasItems(): boolean {
+  return /HAS_ITEMS/i.test(am13LiveStateText());
+}
+
+export function am13IsCheckedOut(): boolean {
+  return /CHECKED_OUT/i.test(am13LiveStateText());
+}
+
+export function am13TxCount(): number {
+  const chip = firstVisibleElement(API_MOCK.LIVE_TRANSACTIONS)
+    ?? document.querySelector<HTMLElement>(API_MOCK.LIVE_TRANSACTIONS);
+  const n = Number(chip?.querySelector('.am-count-badge')?.textContent?.trim());
+  if (Number.isFinite(n) && n > 0) return n;
+  return journalRows().length;
 }
 
 export function hasAm13Traffic(): boolean {
   if (firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW)) return true;
-  const chip = firstVisibleElement(API_MOCK.LIVE_TRANSACTIONS)
-    ?? document.querySelector<HTMLElement>(API_MOCK.LIVE_TRANSACTIONS);
-  const n = Number(chip?.querySelector('.am-count-badge')?.textContent?.trim());
-  return Number.isFinite(n) && n > 0;
+  return am13TxCount() > 0;
 }
 
 export function am13HasTenantVariable(): boolean {
@@ -323,8 +346,66 @@ export async function ensureAm13StateMode(ctx: DemoActionContext): Promise<void>
   patchApiMockActiveRoute({ responseMode: 'state' });
 }
 
+async function selectAm13CardQuiet(
+  ctx: DemoActionContext,
+  which: 'first' | 'last',
+): Promise<void> {
+  const selector = which === 'first' ? API_MOCK.VARIANT_CARD_FIRST : API_MOCK.VARIANT_CARD_LAST;
+  if (!firstVisibleElement(selector)) return;
+  await ctx.click(selector);
+  await ctx.delay(80);
+}
+
+/**
+ * Commit a dirty draft before live POSTs. Without this, Runtime still serves the
+ * previous generation (often rules-mode) — both seeds return `items: []` and State
+ * stays "No state changes yet" while the bar shows Draft changed.
+ */
+async function applyAm13IfDirty(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  if (!firstVisibleElement(API_MOCK.APPLY) && !firstVisibleElement(API_MOCK.DIRTY_BADGE)) return;
+  if (visible && firstVisibleElement(API_MOCK.DIRTY_BADGE)) {
+    await spotlightBeat(ctx, API_MOCK.DIRTY_BADGE, 450);
+  }
+  if (!firstVisibleElement(API_MOCK.APPLY)) return;
+  if (visible) {
+    await spotlightBeat(ctx, API_MOCK.APPLY, 450);
+    await ctx.click(API_MOCK.APPLY);
+  } else {
+    await ctx.click(API_MOCK.APPLY);
+  }
+  await ctx.delay(T.lifecycle);
+}
+
+/** Wait until Runtime State text matches (poll). Opens State quietly if needed. */
+async function waitAm13LiveState(
+  ctx: DemoActionContext,
+  pattern: RegExp,
+  attempts = 20,
+): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    if (pattern.test(am13LiveStateText())) return true;
+    await openAm13RuntimeState(ctx, false);
+    if (pattern.test(am13LiveStateText())) return true;
+    await ctx.delay(120);
+  }
+  return pattern.test(am13LiveStateText());
+}
+
+/** Two live POSTs that walk EMPTY → HAS_ITEMS → CHECKED_OUT (live must already be Applied). */
+async function seedAm13CheckoutWalk(ctx: DemoActionContext): Promise<void> {
+  await sendAm13ProveRequest();
+  await ctx.delay(T.journalWrite);
+  await waitAm13LiveState(ctx, /HAS_ITEMS/i);
+  await sendAm13ProveRequest();
+  await ctx.delay(T.journalWrite);
+  await waitAm13LiveState(ctx, /CHECKED_OUT/i);
+}
+
 export async function ensureAm13Transition(ctx: DemoActionContext): Promise<void> {
   await ensureAm13StateMode(ctx);
+  await ensureAm13SelectionTab(ctx);
+  // Selection fields follow the selected card — read the EMPTY hop on card 1.
+  await selectAm13CardQuiet(ctx, 'first');
   await ensureAm13SelectionTab(ctx);
   if (am13HasEmptyTransition()) return;
   patchApiMockActiveRoute({
@@ -335,6 +416,11 @@ export async function ensureAm13Transition(ctx: DemoActionContext): Promise<void
 
 export async function ensureAm13SecondVariant(ctx: DemoActionContext): Promise<void> {
   await ensureAm13Transition(ctx);
+  await selectAm13CardQuiet(ctx, 'last');
+  await ensureAm13SelectionTab(ctx);
+  // Idempotent — always-patching here dirties the draft on every preAction and
+  // leaves Runtime serving a generation without the state machine.
+  if (am13HasHasItemsTransition()) return;
   patchApiMockActiveRoute({
     variantIndex: 1,
     variantName: AM13_VARIANT_2_NAME,
@@ -360,10 +446,7 @@ export async function sendAm13ProveRequest(): Promise<{ status: number; body: st
 
 export async function ensureAm13FirstCall(ctx: DemoActionContext): Promise<void> {
   await ensureAm13ForApply(ctx);
-  if (firstVisibleElement(API_MOCK.APPLY)) {
-    await ctx.click(API_MOCK.APPLY);
-    await ctx.delay(400);
-  }
+  await applyAm13IfDirty(ctx, false);
   if (!hasAm13Traffic()) {
     await sendAm13ProveRequest();
     await ctx.delay(400);
@@ -398,8 +481,46 @@ async function openAm13RuntimeState(ctx: DemoActionContext, visible: boolean): P
   }
 }
 
+async function openAm13RuntimeTransactions(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  const txOpen = firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS)?.getAttribute('aria-selected') === 'true'
+    && Boolean(firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW) ?? firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS));
+  if (txOpen && firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW)) return;
+
+  if (!firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS)) {
+    const runtimeSel = firstVisibleElement(API_MOCK.VIEW_RUNTIME)
+      ? API_MOCK.VIEW_RUNTIME
+      : firstVisibleElement(API_MOCK.OPEN_RUNTIME)
+        ? API_MOCK.OPEN_RUNTIME
+        : null;
+    if (!runtimeSel) return;
+    if (visible) await am13Aim(ctx, runtimeSel, T.tabSwitch);
+    else await ctx.click(runtimeSel);
+    if (!visible) await ctx.delay(200);
+  }
+
+  const tab = firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS);
+  if (tab && tab.getAttribute('aria-selected') !== 'true') {
+    if (visible) await am13Aim(ctx, API_MOCK.DOCK_TAB_TRANSACTIONS, T.tabSwitch);
+    else await ctx.click(API_MOCK.DOCK_TAB_TRANSACTIONS);
+  }
+}
+
 export async function ensureAm13StateLive(ctx: DemoActionContext): Promise<void> {
   await ensureAm13FirstCall(ctx);
+  await openAm13RuntimeState(ctx, false);
+}
+
+/** Quiet: Reset + Clear + two POSTs so State is CHECKED_OUT with two journal rows. */
+export async function ensureAm13HasItemsHop(ctx: DemoActionContext): Promise<void> {
+  await ensureAm13FirstCall(ctx);
+  if (am13IsCheckedOut() && am13TxCount() >= 2) {
+    await openAm13RuntimeState(ctx, false);
+    return;
+  }
+  await applyAm13IfDirty(ctx, false);
+  await rewindAm13StateQuiet(ctx);
+  await clearAm13JournalQuiet(ctx);
+  await seedAm13CheckoutWalk(ctx);
   await openAm13RuntimeState(ctx, false);
 }
 
@@ -440,6 +561,67 @@ async function openAm13Simulate(ctx: DemoActionContext): Promise<void> {
 async function clickNewestJournalRow(ctx: DemoActionContext): Promise<void> {
   const newest = journalRows()[0];
   if (newest) await ctx.click(`[data-testid="${newest.getAttribute('data-testid')}"]`);
+}
+
+/**
+ * Journal list is newest-first. "Arrived first" is the oldest row (last in the
+ * DOM list); "arrived second" is the newest (first in the list).
+ */
+function am13JournalRowByArrival(order: 'first' | 'second'): HTMLElement | undefined {
+  const rows = journalRows();
+  if (rows.length === 0) return undefined;
+  if (order === 'first') return rows[rows.length - 1];
+  return rows[0];
+}
+
+/**
+ * After the two seed POSTs: open Transactions, click arrived-first (`items: []`),
+ * then arrived-second (`RF-100`), hold each response body, then open State.
+ * Compact holds — Reset/Clear + two live POSTs already spend most of the Acting budget.
+ */
+async function holdAm13SeededTransactionsThenState(ctx: DemoActionContext): Promise<void> {
+  const walk = { look: 500, hold: 700, payoff: 1100, break: 500 } as const;
+  await openAm13RuntimeTransactions(ctx, true);
+  const tab = firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS)
+    ? API_MOCK.DOCK_TAB_TRANSACTIONS
+    : API_MOCK.LIVE_TRANSACTIONS;
+  if (firstVisibleElement(tab)) {
+    await spotlightBeat(ctx, tab, walk.look);
+  }
+
+  // Arrived first — empty cart body (oldest row; list is newest-first).
+  const first = am13JournalRowByArrival('first');
+  if (first) {
+    const id = first.getAttribute('data-testid');
+    if (id) {
+      await spotlightElementBeat(ctx, first, walk.look);
+      await ctx.click(`[data-testid="${id}"]`);
+      await ctx.delay(walk.hold);
+    }
+  }
+  await revealBeat(ctx, API_MOCK.TX_DETAIL, { hold: walk.hold, timeout: 4_000 });
+  if (firstVisibleElement(API_MOCK.TX_RESPONSE)) {
+    await spotlightBeat(ctx, API_MOCK.TX_RESPONSE, walk.payoff);
+  }
+  await ctx.delay(walk.break);
+
+  // Arrived second — HAS_ITEMS body with RF-100 (newest row).
+  const second = am13JournalRowByArrival('second');
+  if (second) {
+    const id = second.getAttribute('data-testid');
+    if (id) {
+      await spotlightElementBeat(ctx, second, walk.look);
+      await ctx.click(`[data-testid="${id}"]`);
+      await ctx.delay(walk.hold);
+    }
+  }
+  await revealBeat(ctx, API_MOCK.TX_DETAIL, { hold: walk.hold, timeout: 4_000 });
+  if (firstVisibleElement(API_MOCK.TX_RESPONSE)) {
+    await spotlightBeat(ctx, API_MOCK.TX_RESPONSE, walk.payoff);
+  }
+  await ctx.delay(walk.break);
+
+  await holdAm13DockState(ctx, true);
 }
 
 async function selectAm13Card(ctx: DemoActionContext, which: 'first' | 'last'): Promise<void> {
@@ -491,6 +673,9 @@ export async function runAm13SecondVariant(ctx: DemoActionContext): Promise<void
   await ensureAm13Transition(ctx);
   await selectAm13Card(ctx, 'last');
   await ensureAm13SelectionTab(ctx);
+  // Author Required first, then Next — the Selection editor no longer mirrors
+  // Required into an empty Next, so EMPTY → HAS_ITEMS / HAS_ITEMS → CHECKED_OUT
+  // read in natural order.
   await am13Fill(ctx, API_MOCK.VARIANT_REQUIRED_STATE, AM13_HAS_ITEMS);
   await am13Fill(ctx, API_MOCK.VARIANT_NEXT_STATE, AM13_CHECKED_OUT);
   patchApiMockActiveRoute({
@@ -534,39 +719,92 @@ export async function runAm13FirstCall(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.TX_RESPONSE)) {
     await am13Payoff(ctx, API_MOCK.TX_RESPONSE);
   }
+  await holdAm13DockState(ctx, true);
 }
 
-/** Step 5 — State tab live, then the second POST (SKU). */
-export async function runAm13StateLive(ctx: DemoActionContext): Promise<void> {
-  await closeAm13Simulate(ctx);
-  if (!hasAm13Traffic()) {
-    await sendAm13ProveRequest();
-    await ctx.delay(T.journalWrite);
-  }
-  await openAm13RuntimeState(ctx, true);
+async function holdAm13DockState(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  await openAm13RuntimeState(ctx, visible);
   if (firstVisibleElement(API_MOCK.DOCK_STATE) || firstVisibleElement(API_MOCK.DOCK_TAB_STATE)) {
     await am13Reveal(ctx, API_MOCK.DOCK_STATE);
   }
   if (firstVisibleElement(API_MOCK.DOCK_STATE_LIVE) ?? document.querySelector(API_MOCK.DOCK_STATE_LIVE)) {
     await am13Payoff(ctx, API_MOCK.DOCK_STATE_LIVE);
   }
-  await am13Break(ctx);
+}
 
-  await sendAm13ProveRequest();
-  await ctx.delay(T.journalWrite);
-  if (firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS)
-    && firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS)?.getAttribute('aria-selected') !== 'true') {
-    await am13Aim(ctx, API_MOCK.DOCK_TAB_TRANSACTIONS, T.tabSwitch);
+/** Sample rows in the Simulate SAMPLES panel (one per saved/ad-hoc sample). */
+function am13SampleRows(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('.am-sim-sample'));
+}
+
+/**
+ * After **Run all** — walk each sample's verdict one at a time so the viewer reads
+ * the first status, then the second, instead of one flash. For each row: spotlight
+ * the row (name + PASS/FAIL badge), then hold on its per-sample state chip — that
+ * `before → after` column is the proof the suite shared one memory in order.
+ */
+async function holdAm13SampleResults(ctx: DemoActionContext): Promise<void> {
+  await am13Reveal(ctx, API_MOCK.SIMULATE_SAMPLE_STATE, T.simOutcome);
+  const rows = am13SampleRows();
+  if (rows.length === 0) {
+    await am13Payoff(ctx, API_MOCK.SIMULATE_SAMPLE_STATE);
+    return;
   }
-  await clickNewestJournalRow(ctx);
-  if (firstVisibleElement(API_MOCK.TX_DETAIL) || document.querySelector(API_MOCK.TX_DETAIL)) {
-    await am13Reveal(ctx, API_MOCK.TX_DETAIL, T.payoff);
+  for (const row of rows) {
+    const badge = row.querySelector<HTMLElement>('.am-badge');
+    await spotlightElementBeat(ctx, badge ?? row, T.simOutcome);
+    const state = row.querySelector<HTMLElement>(API_MOCK.SIMULATE_SAMPLE_STATE);
+    if (state) await spotlightElementBeat(ctx, state, T.payoff);
+    await am13Break(ctx);
   }
-  if (firstVisibleElement(API_MOCK.TX_RESPONSE)) {
-    await am13Payoff(ctx, API_MOCK.TX_RESPONSE);
-  } else if (firstVisibleElement(API_MOCK.TX_DETAIL)) {
-    await am13Payoff(ctx, API_MOCK.TX_DETAIL);
+}
+
+/** Quiet: Reset state so a hop demo starts from EMPTY. */
+async function rewindAm13StateQuiet(ctx: DemoActionContext): Promise<void> {
+  await openAm13RuntimeState(ctx, false);
+  if (!firstVisibleElement(API_MOCK.STATE_RESET)) return;
+  await ctx.click(API_MOCK.STATE_RESET);
+  await ctx.delay(200);
+}
+
+/** Empty the journal quietly so a hop demo can start from zero transactions. */
+async function clearAm13JournalQuiet(ctx: DemoActionContext): Promise<void> {
+  await openAm13RuntimeTransactions(ctx, false);
+  if (!firstVisibleElement(API_MOCK.JOURNAL_CLEAR)) return;
+  await ctx.click(API_MOCK.JOURNAL_CLEAR);
+  await ctx.delay(200);
+}
+
+/** Visible: Reset state, then Clear the journal — totally clean before seeding. */
+async function clearAm13RuntimeVisible(ctx: DemoActionContext): Promise<void> {
+  await openAm13RuntimeState(ctx, true);
+  if (firstVisibleElement(API_MOCK.STATE_RESET)) {
+    await am13Aim(ctx, API_MOCK.STATE_RESET);
   }
+  await openAm13RuntimeTransactions(ctx, true);
+  if (firstVisibleElement(API_MOCK.JOURNAL_CLEAR)) {
+    await am13Aim(ctx, API_MOCK.JOURNAL_CLEAR);
+  }
+}
+
+/** Stale HMR / old lesson module imported this name after the State step split. */
+export async function runAm13StateLive(ctx: DemoActionContext): Promise<void> {
+  await runAm13HasItemsHop(ctx);
+}
+
+/**
+ * Step 5 — Apply if the draft is still dirty, start from a blank Runtime
+ * (Reset + Clear), then two live POSTs seed the journal:
+ * EMPTY → HAS_ITEMS → CHECKED_OUT. Walk both transaction bodies
+ * (arrived-first empty cart, then RF-100) before opening State on CHECKED_OUT.
+ */
+export async function runAm13HasItemsHop(ctx: DemoActionContext): Promise<void> {
+  await closeAm13Simulate(ctx);
+  // Live POSTs must hit the Applied state machine — not a stale generation.
+  await applyAm13IfDirty(ctx, true);
+  await clearAm13RuntimeVisible(ctx);
+  await seedAm13CheckoutWalk(ctx);
+  await holdAm13SeededTransactionsThenState(ctx);
 }
 
 /** Step 6 — rewind between tests without restarting. */
@@ -592,19 +830,32 @@ export async function runAm13ResetAndBatch(ctx: DemoActionContext): Promise<void
   }
   await am13Fill(ctx, API_MOCK.SIMULATE_PATH, AM13_PATH);
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN_ALL, { look: T.beforeRun, hold: 0 });
-  await am13Reveal(ctx, API_MOCK.SIMULATE_SAMPLE_STATE, T.simOutcome);
-  await am13Payoff(ctx, API_MOCK.SIMULATE_SAMPLE_STATE);
+  await holdAm13SampleResults(ctx);
   await closeAm13Simulate(ctx, { review: true });
 }
 
 async function holdAm13SimulateVerdict(ctx: DemoActionContext): Promise<void> {
-  await revealBeat(ctx, API_MOCK.SIMULATE_RESULT, { timeout: 4_000, hold: AM13_WEIGHTED.hold });
+  const W = AM13_WEIGHTED;
+  await revealBeat(ctx, API_MOCK.SIMULATE_RESULT, { timeout: 4_000, hold: W.hold });
+  // Run resets Results to Decision trace — open Rendered and hold the empty-cart body.
+  const tab = firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)
+    ?? document.querySelector<HTMLElement>(API_MOCK.SIMULATE_TAB_RENDERED);
+  if (tab) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, { look: W.look, hold: 0 });
+  }
+  const body = firstVisibleElement(API_MOCK.SIMULATE_RENDERED_BODY)
+    ?? document.querySelector<HTMLElement>(API_MOCK.SIMULATE_RENDERED_BODY);
+  if (body) {
+    await revealBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, { timeout: 4_000, hold: W.hold });
+    await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, W.payoff);
+    return;
+  }
   const statusSel = firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
     ? API_MOCK.SIMULATE_RENDERED_STATUS
     : firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)
       ? API_MOCK.SIMULATE_OUTCOME
       : API_MOCK.SIMULATE_RESULT;
-  await spotlightBeat(ctx, statusSel, AM13_WEIGHTED.payoff);
+  await spotlightBeat(ctx, statusSel, W.payoff);
 }
 
 async function runAm13WeightedSimulation(
@@ -648,6 +899,10 @@ export async function runAm13WeightedAndSeed(ctx: DemoActionContext): Promise<vo
   patchApiMockActiveRoute({ variantIndex: 1, weight: 10 });
   await spotlightBeat(ctx, API_MOCK.VARIANT_WEIGHT, AM13_WEIGHTED.payoff);
 
+  // Push Weighted 90/10 onto the live listener before Simulate — otherwise the
+  // bar stays on Draft changed and the runs are against the old generation.
+  await applyAm13IfDirty(ctx, true);
+
   if (!isAm13SimulateOpen()) {
     await clickBeat(ctx, API_MOCK.SIMULATE, { look: AM13_WEIGHTED.beforeOpen, hold: 0 });
     await revealBeat(ctx, API_MOCK.SIMULATE_WORKSPACE, { timeout: 4_000, hold: AM13_WEIGHTED.hold });
@@ -668,28 +923,55 @@ export async function runAm13WeightedAndSeed(ctx: DemoActionContext): Promise<vo
   await closeAm13Simulate(ctx);
 }
 
-/** Step 8 — tenant=acme, then Sensitive. */
+async function showAm13TenantInBody(ctx: DemoActionContext): Promise<void> {
+  await ensureAm13StudioView(ctx);
+  await ensureAm13ResponseTab(ctx);
+  await selectAm13Card(ctx, 'first');
+  if (firstVisibleElement(API_MOCK.RESPONSE_TAB_CONTENT)) {
+    await am13Aim(ctx, API_MOCK.RESPONSE_TAB_CONTENT, T.tabSwitch);
+  }
+  if (firstVisibleElement(API_MOCK.VARIANT_BODY)) {
+    await am13Reveal(ctx, API_MOCK.VARIANT_BODY);
+  }
+  patchApiMockActiveRoute({
+    variantIndex: 0,
+    body: AM13_TENANT_BODY,
+    contentType: AM13_CONTENT_JSON,
+  });
+  const preview = firstVisibleElement(API_MOCK.PREVIEW_BODY)
+    ? API_MOCK.PREVIEW_BODY
+    : API_MOCK.VARIANT_BODY;
+  await am13Reveal(ctx, preview);
+  await am13Payoff(ctx, preview);
+}
+
+/** Step 8 — tenant=acme (Sensitive), then {{variables.tenant}} in the empty-cart body. */
 export async function runAm13Variables(ctx: DemoActionContext): Promise<void> {
   await closeAm13Simulate(ctx);
-  await ensureAm13StudioView(ctx);
   if (firstVisibleElement(API_MOCK.LIVE_VARIABLES)) {
     await am13Aim(ctx, API_MOCK.LIVE_VARIABLES, 0);
+  } else if (firstVisibleElement(API_MOCK.VIEW_RUNTIME)) {
+    await am13Aim(ctx, API_MOCK.VIEW_RUNTIME, T.tabSwitch);
+  } else if (firstVisibleElement(API_MOCK.OPEN_RUNTIME)) {
+    await am13Aim(ctx, API_MOCK.OPEN_RUNTIME, T.tabSwitch);
   }
-  await am13Reveal(ctx, API_MOCK.DOCK_VARIABLES);
   if (firstVisibleElement(API_MOCK.DOCK_TAB_VARIABLES)
     && firstVisibleElement(API_MOCK.DOCK_TAB_VARIABLES)?.getAttribute('aria-selected') !== 'true') {
     await am13Aim(ctx, API_MOCK.DOCK_TAB_VARIABLES, T.tabSwitch);
   }
-  if (am13HasTenantVariable()) {
+  await am13Reveal(ctx, API_MOCK.DOCK_VARIABLES);
+  if (!am13HasTenantVariable()) {
+    await am13Aim(ctx, API_MOCK.VAR_ADD);
+    await am13Reveal(ctx, API_MOCK.VAR_KEY_LAST);
+    await am13Fill(ctx, API_MOCK.VAR_KEY_LAST, AM13_VAR_KEY);
+    await am13Fill(ctx, API_MOCK.VAR_VALUE_LAST, AM13_VAR_VALUE);
+    if (firstVisibleElement(API_MOCK.VAR_SENSITIVE_LAST)) {
+      await am13Aim(ctx, API_MOCK.VAR_SENSITIVE_LAST);
+    }
+  }
+  if (firstVisibleElement(API_MOCK.VAR_ROW)) {
     await am13Payoff(ctx, API_MOCK.VAR_ROW);
-    return;
   }
-  await am13Aim(ctx, API_MOCK.VAR_ADD);
-  await am13Reveal(ctx, API_MOCK.VAR_KEY_LAST);
-  await am13Fill(ctx, API_MOCK.VAR_KEY_LAST, AM13_VAR_KEY);
-  await am13Fill(ctx, API_MOCK.VAR_VALUE_LAST, AM13_VAR_VALUE);
-  if (firstVisibleElement(API_MOCK.VAR_SENSITIVE_LAST)) {
-    await am13Aim(ctx, API_MOCK.VAR_SENSITIVE_LAST);
-  }
-  await am13Payoff(ctx, API_MOCK.VAR_VALUE_LAST);
+  await am13Break(ctx);
+  await showAm13TenantInBody(ctx);
 }

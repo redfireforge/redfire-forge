@@ -31,6 +31,8 @@ interface Props {
   sequencePosition?: number;
   /** Server variables so `{{variables.key}}` resolves in the preview pane. */
   variables?: ApiMockVariableV1[];
+  /** Server-wide Timeout hold ceiling forwarded to the Faults tab. */
+  timeoutHoldMaxMs?: number;
 }
 
 type ContentTab = 'content' | 'headers' | 'timing' | 'faults' | 'selection' | 'outbound';
@@ -38,7 +40,7 @@ type ContentTab = 'content' | 'headers' | 'timing' | 'faults' | 'selection' | 'o
 /**
  * Mockup 03-inspired response editor: variant sidebar + content tabs + live preview pane.
  */
-export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, variables = [] }: Props) {
+export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, variables = [], timeoutHoldMaxMs }: Props) {
   const [activeVariantId, setActiveVariantId] = useState(route.responses[0]?.id);
   const [contentTab, setContentTab] = useState<ContentTab>('content');
   const [helpersOpen, setHelpersOpen] = useState(false);
@@ -606,7 +608,11 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, 
               )}
 
               {contentTab === 'faults' && (
-                <ApiMockResponseFaultsPanel variant={activeVariant} onUpdateVariant={patchActiveVariant} />
+                <ApiMockResponseFaultsPanel
+                  variant={activeVariant}
+                  onUpdateVariant={patchActiveVariant}
+                  timeoutHoldMaxMs={timeoutHoldMaxMs}
+                />
               )}
 
               {contentTab === 'selection' && (

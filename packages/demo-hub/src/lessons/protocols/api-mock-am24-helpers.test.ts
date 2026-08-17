@@ -93,9 +93,11 @@ import {
   am24ServerRunning,
   am24TestHooks,
   cleanupAm24,
+  dismissAm24Overlays,
   closeAm24Import,
   closeAm24Simulate,
   ensureAm24Designer,
+  ensureAm24ForImport,
   ensureAm24ForConflicts,
   ensureAm24ForLive,
   ensureAm24ForMatching,
@@ -319,6 +321,37 @@ describe('AM-24 helpers', () => {
   it('throws when the blank server cannot be created', async () => {
     ensureBlankApiMockServer.mockResolvedValueOnce(false);
     await expect(prepareAm24Workspace()).rejects.toThrow('blank mock server');
+  });
+
+  it('dismissAm24Overlays closes leftover export, import, and simulate chrome', () => {
+    const exportClose = el('button', undefined, 'api-mock-export-close');
+    const importClose = el('button', undefined, 'api-mock-import-close');
+    const simulateClose = el('button', undefined, 'api-mock-simulate-close');
+    const exportClick = vi.fn();
+    const importClick = vi.fn();
+    const simulateClick = vi.fn();
+    exportClose.addEventListener('click', exportClick);
+    importClose.addEventListener('click', importClick);
+    simulateClose.addEventListener('click', simulateClick);
+    document.body.append(exportClose, importClose, simulateClose);
+    dismissAm24Overlays();
+    expect(exportClick).toHaveBeenCalled();
+    expect(importClick).toHaveBeenCalled();
+    expect(simulateClick).toHaveBeenCalled();
+  });
+
+  it('ensureAm24ForImport does not recreate a server that is already on screen', async () => {
+    mountStudio();
+    ensureBlankApiMockServer.mockClear();
+    await ensureAm24ForImport(makeCtx());
+    expect(ensureBlankApiMockServer).not.toHaveBeenCalled();
+    expect(prepareApiMockStudioChrome).toHaveBeenCalled();
+  });
+
+  it('ensureAm24ForImport creates a blank server only when Studio is empty', async () => {
+    ensureBlankApiMockServer.mockClear();
+    await ensureAm24ForImport(makeCtx());
+    expect(ensureBlankApiMockServer).toHaveBeenCalled();
   });
 
   it('ensureAm24OnStudio is a no-op when explorer is visible', async () => {

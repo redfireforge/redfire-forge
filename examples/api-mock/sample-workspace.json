@@ -96,7 +96,7 @@
           "maxConcurrentConnections": 100,
           "maxDelayMs": 0,
           "longRunningEnabled": false,
-          "longRunningMaxMs": 3600000,
+          "longRunningMaxMs": 30000,
           "gracefulDrainMs": 5000
         },
         "journal": {

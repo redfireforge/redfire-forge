@@ -27,7 +27,14 @@ const CALLBACK_METHODS: Array<{ value: ApiMockCallbackV1['method']; label: strin
   { value: 'PATCH', label: 'PATCH' },
 ];
 
-const PIPELINE_STEPS = ['Template', 'Transforms', 'Client'] as const;
+// The four-stage legend maps the response lifecycle. Only `edit: true` stages are
+// configured on this tab — Template is the rendered response body (Content tab) and
+// Client is the moment of delivery, both passive markers shown for ordering context.
+const PIPELINE_STEPS: Array<{ label: string; edit: boolean }> = [
+  { label: 'Template', edit: false },
+  { label: 'Transforms', edit: true },
+  { label: 'Client', edit: false },
+];
 
 /** Pretty-print or minify JSON callback bodies (templates must stay inside JSON strings). */
 // eslint-disable-next-line react-refresh/only-export-components
@@ -160,25 +167,33 @@ export function ApiMockVariantOutboundPanel({ variant, onUpdate }: Props) {
     <div className="am-outbound" data-testid="api-mock-variant-outbound">
       <div className="am-outbound-pipeline" data-testid="api-mock-outbound-pipeline">
         <div className="am-outbound-steps" aria-label="Outbound order">
-          {PIPELINE_STEPS.map((label, i) => (
-            <span key={label} className="am-outbound-step-cluster">
+          {PIPELINE_STEPS.map((step, i) => (
+            <span key={step.label} className="am-outbound-step-cluster">
               {i > 0 && <ChevronRightIcon size={12} className="am-icon am-outbound-arrow" />}
-              <span className="am-outbound-step">
+              <span
+                className={`am-outbound-step ${step.edit ? 'am-outbound-step--edit' : 'am-outbound-step--passive'}`}
+                title={step.edit ? 'Configured on this tab' : 'Lifecycle stage — not configured here'}
+              >
                 <span className="am-outbound-step-num">{i + 1}</span>
-                {label}
+                {step.label}
               </span>
             </span>
           ))}
           <span className="am-outbound-then">then</span>
-          <span className="am-outbound-step am-outbound-step--later">
+          <span
+            className="am-outbound-step am-outbound-step--later am-outbound-step--edit"
+            title="Configured on this tab"
+          >
             <span className="am-outbound-step-num">4</span>
             Callbacks
           </span>
         </div>
         <p className="am-outbound-pipeline-hint">
-          Transforms rewrite the rendered body before delivery. Callbacks fire after the
-          client is answered and never change the mock reply. Allowlist URLs under
-          Settings → Callbacks.
+          You configure <strong>Transforms</strong> and <strong>Callbacks</strong> here.
+          Template is the rendered response body (Content tab) and Client is the point of
+          delivery — both shown for ordering. Transforms rewrite the body before delivery;
+          Callbacks fire after the client is answered and never change the mock reply.
+          Allowlist URLs under Settings → Callbacks.
         </p>
       </div>
 

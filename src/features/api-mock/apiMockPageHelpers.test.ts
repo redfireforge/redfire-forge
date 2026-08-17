@@ -31,6 +31,7 @@ import {
   TAB_LIMIT_CONFIRM_OPTIONS,
   downloadJsonFile,
   isApiMockLiveDemoActive,
+  saveTextFileToDisk,
   resolveHydratedActiveServerId,
   restoreDeletedRoute,
   restoreDeletedRouteInList,
@@ -203,6 +204,8 @@ describe('apiMockPageHelpers', () => {
     expect(isApiMockLiveDemoActive()).toBe(true);
     downloadJsonFile('demo.har', { ok: true });
     expect(click).not.toHaveBeenCalled();
+    saveTextFileToDisk('forced.json', '{"ok":true}', 'application/json');
+    expect(click).toHaveBeenCalled();
     panel.remove();
     vi.restoreAllMocks();
   });

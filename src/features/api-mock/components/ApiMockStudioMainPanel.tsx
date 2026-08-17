@@ -216,6 +216,7 @@ export function ApiMockStudioMainPanel({
                 onDeleteSample={onDeleteSample}
                 onTrySampleInRequests={onTrySampleInRequests}
                 variables={activeServer.variables}
+                timeoutHoldMaxMs={activeServer.settings.limits.longRunningMaxMs}
               />
             ) : (
               <div className="api-mock-no-selection" data-testid="api-mock-no-route">

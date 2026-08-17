@@ -109,6 +109,7 @@ export interface ApiMockResponseBodyV1 {
 export interface ApiMockBehaviorV1 {
   delayMs: number;
   jitterMs: number;
+  /** Timeout-fault hold (ms). Defaults to 5s; clamped to `settings.limits.longRunningMaxMs`. */
   longRunningMs?: number;
   chunkSchedule?: Array<{ afterMs: number; body: string }>;
   maxMatches?: number;
@@ -257,6 +258,7 @@ export interface ApiMockServerSettingsV1 {
     maxConcurrentConnections: number;
     maxDelayMs: number;
     longRunningEnabled: boolean;
+    /** Ceiling for Timeout-fault holds (ms). Default 30s; hard max 1h. */
     longRunningMaxMs: number;
     gracefulDrainMs: number;
   };
@@ -578,6 +580,8 @@ export interface ApiMockSimulationPreviewV1 {
   fault: ApiMockFaultKind;
   faultTimeline: Array<{ atMs: number; label: string }>;
   httpCompleted: boolean;
+  /** Bytes that left the socket. For dribble this is the chunk schedule, not the intended body. */
+  wireBody?: string;
   stateKey?: string;
   stateBefore?: string;
   stateAfter?: string;

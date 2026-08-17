@@ -1,7 +1,7 @@
 /**
  * AM-18 `am-18-journal` helpers — Journal Forensics: Near-Misses, Candidates & Promotion.
  *
- * Quiet corpus is the store library, started. Live traffic (including the
+ * Quiet corpus is the compact storefront (6 rules), started. Live traffic (including the
  * `/produts/42` typo), closest-match, and every promotion action are authored
  * in the UI. Companion required — Start + live fetch is the proof.
  */
@@ -18,8 +18,10 @@ import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
   closeSimulateWorkspace,
+  reviewAndRunSimulation,
   revealBeat,
   spotlightBeat,
+  spotlightElementBeat,
 } from './api-mock-demo-helpers';
 
 export const AM18_TIMING = {
@@ -36,10 +38,21 @@ export const AM18_TIMING = {
   beforeRun: 2400,
 } as const;
 
+/** End steps (copy/export/clear + prove) — keep Acting brisk; earlier steps stay full pace. */
+export const AM18_END_TIMING = {
+  look: 450,
+  hold: 650,
+  break: 500,
+  payoff: 850,
+  beforeRun: 800,
+  simOutcome: 1000,
+} as const;
+
 const T = AM18_TIMING;
+const TE = AM18_END_TIMING;
 const REVEAL_MS = 8_000;
 
-export const AM18_CORPUS_SAMPLE = 'am-gallery-store';
+export const AM18_CORPUS_SAMPLE = 'am-gallery-store-lite';
 export const AM18_MATCH_LIST = '/products';
 export const AM18_MATCH_ITEM = '/products/42';
 export const AM18_MISS_PATH = '/produts/42';
@@ -178,6 +191,11 @@ export function hasAm18CreatedRoute(): boolean {
 
 export function hasAm18NearMisses(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.TX_NEAR_MISSES));
+}
+
+/** Each near-miss row (`List Products`, `Get Product by ID`, …) so the ring can land on one at a time. */
+export function am18NearMissItems(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.TX_NEAR_MISS_ITEM));
 }
 
 export function hasAm18Example(): boolean {
@@ -574,7 +592,14 @@ export async function runAm18TheMiss(ctx: DemoActionContext): Promise<number | n
     await am18Payoff(ctx, API_MOCK.TX_CANDIDATES);
   }
   if (firstVisibleElement(API_MOCK.TX_NEAR_MISSES) || firstVisibleElement(API_MOCK.TX_DETAIL)) {
-    await am18Reveal(ctx, API_MOCK.TX_NEAR_MISSES, T.payoff);
+    // Reveal the list, then move the ring onto each near-miss rule in turn so the
+    // viewer reads them one at a time instead of scanning the whole panel.
+    await am18Reveal(ctx, API_MOCK.TX_NEAR_MISSES, T.panelReady);
+    const items = am18NearMissItems();
+    for (let i = 0; i < items.length; i++) {
+      const isLast = i === items.length - 1;
+      await spotlightElementBeat(ctx, items[i], isLast ? T.payoff : T.fieldFilled);
+    }
   }
   return res?.status ?? null;
 }
@@ -620,12 +645,20 @@ export async function runAm18CreateRoute(ctx: DemoActionContext): Promise<void> 
   if (firstVisibleElement(API_MOCK.TX_OPEN_CREATED)) {
     await am18Aim(ctx, API_MOCK.TX_OPEN_CREATED);
   }
-  if (firstVisibleElement(API_MOCK.ROUTE_EDITOR) || firstVisibleElement(API_MOCK.TX_OPEN_CREATED)
-    || firstVisibleElement(API_MOCK.VIEW_STUDIO)) {
-    await am18Reveal(ctx, API_MOCK.ROUTE_EDITOR, T.payoff);
+  // The route editor lives on the Studio view — Open in Studio can race the view
+  // switch, so drive it explicitly and re-select the seeded draft. Without this
+  // the demo can stall on the Runtime notice and the viewer never sees the editor.
+  await ensureAm18StudioView(ctx);
+  await selectCreatedRoute(ctx, false);
+  if (firstVisibleElement(API_MOCK.ROUTE_EDITOR) || firstVisibleElement(API_MOCK.VIEW_STUDIO)) {
+    await am18Reveal(ctx, API_MOCK.ROUTE_EDITOR, T.panelReady);
   }
   if (firstVisibleElement(API_MOCK.PATH_INPUT)) {
     await am18Payoff(ctx, API_MOCK.PATH_INPUT);
+  }
+  // It landed *disabled* — spotlight the Enabled toggle so the draft reads as a draft.
+  if (firstVisibleElement(API_MOCK.ROUTE_ENABLED)) {
+    await am18Payoff(ctx, API_MOCK.ROUTE_ENABLED);
   }
 }
 
@@ -665,6 +698,7 @@ export async function runAm18SaveExample(ctx: DemoActionContext): Promise<void> 
 
 /**
  * Step 7 — Copy, Export, Clear. Reading already rang Copy.
+ * Compact holds — three beats should not burn half a minute of Acting.
  */
 export async function runAm18ShareAndReset(ctx: DemoActionContext): Promise<void> {
   await returnFromRequests(ctx, false);
@@ -673,24 +707,23 @@ export async function runAm18ShareAndReset(ctx: DemoActionContext): Promise<void
     await clickNewestJournalRow(ctx, true);
   }
   if (firstVisibleElement(API_MOCK.TX_COPY)) {
-    await am18ClickNow(ctx, API_MOCK.TX_COPY);
-    await am18Payoff(ctx, API_MOCK.TX_COPY);
+    await ctx.click(API_MOCK.TX_COPY);
+    await spotlightBeat(ctx, API_MOCK.TX_COPY, TE.hold);
   }
-  await am18Break(ctx);
+  await ctx.delay(TE.break);
   if (firstVisibleElement(API_MOCK.JOURNAL_EXPORT)) {
-    await am18Aim(ctx, API_MOCK.JOURNAL_EXPORT);
-    await am18Payoff(ctx, API_MOCK.JOURNAL_EXPORT);
+    await clickBeat(ctx, API_MOCK.JOURNAL_EXPORT, { look: TE.look, hold: TE.hold });
   }
-  await am18Break(ctx);
+  await ctx.delay(TE.break);
   if (firstVisibleElement(API_MOCK.JOURNAL_CLEAR)) {
-    await am18Aim(ctx, API_MOCK.JOURNAL_CLEAR);
+    await clickBeat(ctx, API_MOCK.JOURNAL_CLEAR, { look: TE.look, hold: 0 });
   }
   const emptySel = firstVisibleElement(API_MOCK.RUNTIME_GUIDE)
     ? API_MOCK.RUNTIME_GUIDE
     : API_MOCK.JOURNAL_EMPTY;
   if (firstVisibleElement(emptySel) || firstVisibleElement(API_MOCK.JOURNAL_CLEAR)
     || firstVisibleElement(API_MOCK.RUNTIME_GUIDE)) {
-    await am18Reveal(ctx, emptySel, T.payoff);
+    await am18Reveal(ctx, emptySel, TE.payoff);
   }
 }
 
@@ -703,15 +736,26 @@ export async function runAm18ProveExample(ctx: DemoActionContext): Promise<void>
   await ensureAm18StudioView(ctx);
   await selectCreatedRoute(ctx, false);
   await openAm18ExamplesTab(ctx);
+  // Open the seeded Simulate workspace from the saved example …
   if (firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE)) {
-    await clickBeat(ctx, API_MOCK.EXAMPLE_SIMULATE, { look: T.beforeRun, hold: 0 });
+    await clickBeat(ctx, API_MOCK.EXAMPLE_SIMULATE, { look: TE.beforeRun, hold: 0 });
+    await am18Reveal(ctx, API_MOCK.SIMULATE_WORKSPACE, TE.hold);
+  }
+  // … then actually run it. The example is already a saved sample carrying its
+  // Unmatched/404 expectation, so Run evaluates that expectation and turns green.
+  if (firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE)) {
+    await reviewAndRunSimulation(ctx, {
+      saveSample: false,
+      reviewFields: false,
+      beforeRun: TE.beforeRun,
+    });
   }
   const outcome = firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)
     ? API_MOCK.SIMULATE_OUTCOME
     : API_MOCK.SIMULATE_RESULT;
-  if (firstVisibleElement(outcome) || firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE)
-    || firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE)) {
-    await am18Reveal(ctx, outcome, T.simOutcome);
+  if (firstVisibleElement(outcome)) {
+    await am18Reveal(ctx, outcome, TE.simOutcome);
   }
-  await closeAm18Simulate(ctx, { review: true });
+  // Verdict already held above — close without a second beforeClose review.
+  await closeAm18Simulate(ctx, { review: false });
 }

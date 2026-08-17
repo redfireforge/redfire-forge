@@ -27,6 +27,15 @@ function jsonError(res: Response, status: number, code: string, message: string)
   res.status(status).json({ ok: false, error: { code, message } });
 }
 
+/**
+ * Expected idle (listener not running / no journal yet). HTTP 200 so Chrome does
+ * not log "Failed to load resource" on the Runtime journal/state polls.
+ * The client already treats `ok: false` + NOT_RUNNING / NOT_FOUND as terminal.
+ */
+function jsonIdle(res: Response, code: string, message: string) {
+  jsonError(res, 200, code, message);
+}
+
 export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): Router {
   const router = Router();
   const journals = new Map<string, ApiMockTransactionJournal>();
@@ -83,6 +92,7 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
       if (!definition?.id) return jsonError(res, 400, 'INVALID_REQUEST', 'Server definition with id is required');
       getOrCreateJournal(definition);
       const status = await apiMockPool.restart(definition);
+      options.onLog?.({ ts: new Date().toISOString(), level: 'info', source: 'api-mock', message: `Restarted "${definition.name}" on :${status.port}` });
       json200(res, status);
     } catch (e) {
       const diag = classifyRuntimeError(e);
@@ -108,13 +118,13 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
 
   router.get('/api/mock/servers/:serverId/status', (req: Request, res: Response) => {
     const status = apiMockPool.status(req.params.serverId);
-    if (!status) return jsonError(res, 404, 'NOT_FOUND', `Server "${req.params.serverId}" not found`);
+    if (!status) return jsonIdle(res, 'NOT_FOUND', `Server "${req.params.serverId}" not found`);
     json200(res, status);
   });
 
   router.get('/api/mock/servers/:serverId/state', (req: Request, res: Response) => {
     const state = apiMockPool.getRuntimeState(req.params.serverId);
-    if (!state) return jsonError(res, 404, 'NOT_RUNNING', `Server "${req.params.serverId}" is not running`);
+    if (!state) return jsonIdle(res, 'NOT_RUNNING', `Server "${req.params.serverId}" is not running`);
     json200(res, state);
   });
 
@@ -179,7 +189,7 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
 
   router.get('/api/mock/servers/:serverId/transactions', (req: Request, res: Response) => {
     const journal = journals.get(req.params.serverId);
-    if (!journal) return jsonError(res, 404, 'NOT_FOUND', `No journal for "${req.params.serverId}"`);
+    if (!journal) return jsonIdle(res, 'NOT_FOUND', `No journal for "${req.params.serverId}"`);
     const afterCursor = req.query.afterCursor ? parseInt(req.query.afterCursor as string, 10) : undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
     json200(res, journal.query({
@@ -219,7 +229,7 @@ export function createApiMockRouter(options: CreateApiMockRouterOptions = {}): R
     const live = apiMockPool.getListenerDiagnostics(req.params.serverId);
     const status = apiMockPool.status(req.params.serverId);
     if (!journal && !live && !status) {
-      return jsonError(res, 404, 'NOT_FOUND', `No diagnostics for "${req.params.serverId}"`);
+      return jsonIdle(res, 'NOT_FOUND', `No diagnostics for "${req.params.serverId}"`);
     }
     const data: ApiMockLocalDiagnosticsV1 = {
       generation: live?.generation ?? status?.generation ?? 0,

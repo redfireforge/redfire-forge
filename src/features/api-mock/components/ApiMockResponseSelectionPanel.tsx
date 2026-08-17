@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type {
   ApiMockPredicateGroupV1,
   ApiMockPredicateV1,
@@ -5,6 +6,8 @@ import type {
   ApiMockResponseVariantV1,
 } from '../../../shared/api-mock/contracts';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
+import { WandIcon } from './ApiMockIcons';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function readJsonPathCondition(variant: ApiMockResponseVariantV1): { path: string; value: string } {
@@ -39,6 +42,27 @@ export function writeJsonPathCondition(
   };
 }
 
+/** Map Pattern Toolbox Apply onto the variant JSONPath pair (equals or exists). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function applyToolboxPredicateToSelection(
+  variant: ApiMockResponseVariantV1,
+  patch: Partial<ApiMockPredicateV1>,
+): ApiMockPredicateGroupV1 | undefined {
+  const current = readJsonPathCondition(variant);
+  if (patch.operator === 'jsonPath_equals') {
+    if (Array.isArray(patch.expected) && patch.expected.length >= 2) {
+      return writeJsonPathCondition(variant, String(patch.expected[0] ?? ''), String(patch.expected[1] ?? ''));
+    }
+    if (typeof patch.expected === 'string') {
+      return writeJsonPathCondition(variant, patch.expected, current.value);
+    }
+  }
+  if (patch.operator === 'jsonPath_exists' && typeof patch.expected === 'string') {
+    return writeJsonPathCondition(variant, patch.expected, current.value);
+  }
+  return variant.conditions;
+}
+
 /** Live sequence cursor as 1-based “next step”, matching the variant list. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function sequenceCursorLabel(position: number | undefined, enabledCount: number): string {
@@ -67,6 +91,8 @@ export function ApiMockResponseSelectionPanel({
   onUpdateVariant,
   onModeChange,
 }: Props) {
+  const [toolboxOpen, setToolboxOpen] = useState(false);
+  const currentCondition = readJsonPathCondition(activeVariant);
   return (
     <div className="am-form-grid" data-testid="api-mock-selection-panel">
       <div className="am-form-row">
@@ -90,7 +116,7 @@ export function ApiMockResponseSelectionPanel({
       <div className="am-form-row">
         <div className="am-form-label">Condition</div>
         <div className="am-form-control" style={{ flexWrap: 'wrap', gap: 8 }}>
-          <span className="am-chip active" data-testid="api-mock-selection-condition">{conditionLabel}</span>
+          <span className="am-chip active am-selection-condition-chip" data-testid="api-mock-selection-condition">{conditionLabel}</span>
           {route.responseMode === 'sequence' && (
             <span
               className="am-badge info"
@@ -123,38 +149,62 @@ export function ApiMockResponseSelectionPanel({
         </div>
       </div>
       {route.responseMode === 'rules' && !activeVariant.isDefault && (
-        <div className="am-form-row">
+        <div className="am-form-row am-selection-jsonpath-row">
           <div className="am-form-label">JSONPath</div>
-          <div className="am-form-control" style={{ flexWrap: 'wrap', gap: 8 }}>
-            {(() => {
-              const current = readJsonPathCondition(activeVariant);
-              return (
-                <>
-                  <input
-                    className="am-input wide mono"
-                    value={current.path}
-                    placeholder="$.sku"
-                    aria-label="Variant JSONPath expression"
-                    data-testid="api-mock-selection-condition-path"
-                    onChange={e => onUpdateVariant({
-                      conditions: writeJsonPathCondition(activeVariant, e.target.value, current.value),
-                    })}
-                  />
-                  <input
-                    className="am-input wide mono"
-                    value={current.value}
-                    placeholder="MISSING"
-                    aria-label="Variant JSONPath expected value"
-                    data-testid="api-mock-selection-condition-value"
-                    onChange={e => onUpdateVariant({
-                      conditions: writeJsonPathCondition(activeVariant, current.path, e.target.value),
-                    })}
-                  />
-                </>
-              );
-            })()}
+          <div className="am-form-control">
+            <input
+              className="am-input mono"
+              value={currentCondition.path}
+              placeholder="$.sku"
+              aria-label="Variant JSONPath expression"
+              data-testid="api-mock-selection-condition-path"
+              onChange={e => onUpdateVariant({
+                conditions: writeJsonPathCondition(activeVariant, e.target.value, currentCondition.value),
+              })}
+            />
+            <input
+              className="am-input mono"
+              value={currentCondition.value}
+              placeholder="MISSING"
+              aria-label="Variant JSONPath expected value"
+              data-testid="api-mock-selection-condition-value"
+              onChange={e => onUpdateVariant({
+                conditions: writeJsonPathCondition(activeVariant, currentCondition.path, e.target.value),
+              })}
+            />
+            <button
+              type="button"
+              className="am-btn small"
+              data-testid="api-mock-selection-condition-toolbox"
+              aria-label="Pick JSONPath from sample body"
+              title="Click a key in a sample body instead of typing the path"
+              onClick={() => setToolboxOpen(true)}
+            >
+              <WandIcon size={13} /> Pick from sample
+            </button>
           </div>
         </div>
+      )}
+      {toolboxOpen && (
+        <ApiMockPatternToolboxModal
+          initial={route.path}
+          initialTab="jsonpath"
+          allowedTabs={['jsonpath']}
+          title="Pick JSONPath from sample"
+          jsonSampleSeed={'{\n  "sku": "MISSING"\n}'}
+          contextLabel={`${route.method} ${route.path.value} · Variant condition`}
+          predicateOperator="jsonPath_equals"
+          predicateExpected={
+            currentCondition.path
+              ? [currentCondition.path, currentCondition.value]
+              : undefined
+          }
+          onApply={() => {}}
+          onApplyPredicate={patch => {
+            onUpdateVariant({ conditions: applyToolboxPredicateToSelection(activeVariant, patch) });
+          }}
+          onClose={() => setToolboxOpen(false)}
+        />
       )}
       {route.responseMode === 'weighted' && (
         <div className="am-form-row">
@@ -186,7 +236,9 @@ export function ApiMockResponseSelectionPanel({
                 onChange={e => onUpdateVariant({
                   transition: {
                     currentState: e.target.value || undefined,
-                    targetState: activeVariant.transition?.targetState || e.target.value || 'Started',
+                    // Keep Next as-is — do not invent Started (or mirror Required).
+                    // An empty Next stays blank until the author fills it.
+                    targetState: activeVariant.transition?.targetState ?? '',
                     counterUpdates: activeVariant.transition?.counterUpdates,
                   },
                 })}
@@ -236,11 +288,12 @@ export function ApiMockResponseSelectionPanel({
           {(() => {
             const counterUpdates = activeVariant.transition?.counterUpdates ?? [];
             return counterUpdates.map((cu, idx) => (
-            <div key={`cu-${idx}`} className="am-chunk-row" data-testid={`api-mock-counter-row-${idx}`}>
+            <div key={`cu-${idx}`} className="am-counter-row" data-testid={`api-mock-counter-row-${idx}`}>
               <input
                 className="am-input wide mono"
                 aria-label={`Counter ${idx + 1} key`}
                 data-testid={`api-mock-counter-key-${idx}`}
+                placeholder="items"
                 value={cu.key}
                 onChange={e => {
                   const next = [...counterUpdates];

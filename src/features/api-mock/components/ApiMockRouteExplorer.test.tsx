@@ -207,7 +207,12 @@ describe('ApiMockRouteExplorer', () => {
 
     const first = screen.getByTestId('api-mock-route-r1');
     const second = screen.getByTestId('api-mock-route-r2');
-    expect(second).toHaveAttribute('title', 'Users Route');
+    expect(first).toHaveClass('is-live');
+    expect(second).toHaveClass('disabled', 'is-draft');
+    expect(second).toHaveAttribute('title', 'Draft — not matching');
+    expect(second).toHaveAttribute('data-enabled', 'false');
+    expect(screen.getByTestId('api-mock-route-state-r1')).toHaveTextContent('On');
+    expect(screen.getByTestId('api-mock-route-state-r2')).toHaveTextContent('Draft');
     expect(within(second).getByText('/')).toBeInTheDocument();
     expect(screen.getByText('1 enabled · 1 draft')).toBeInTheDocument();
     expect(screen.getByTestId('api-mock-routes-footer')).toHaveTextContent('1 enabled · 1 draft');

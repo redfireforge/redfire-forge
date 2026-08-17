@@ -135,6 +135,7 @@ describe('ApiMockConflictInspector', () => {
     expect(screen.getByTestId('api-mock-conflict-fingerprint-right').textContent).toBe('fp2');
     expect(screen.getByTestId('api-mock-conflict-fingerprint-relation').textContent).toMatch(/Different hashes/);
     expect(screen.getByTestId('api-mock-conflict-fingerprint-why').textContent).toMatch(/Why these exist/);
+    expect(screen.getByTestId('api-mock-conflict-fingerprint-why').querySelector('br')).toBeTruthy();
     expect(screen.getByTestId('api-mock-conflict-fingerprint-why').textContent).toMatch(/Acknowledge/);
     expect(screen.getByTestId('api-mock-conflict-fingerprint-why').textContent).toMatch(/Stale/);
     const table = screen.getByTestId('api-mock-conflict-fingerprint-table');

@@ -76,19 +76,19 @@ export const apiMockAm18Lesson: DemoLesson = {
   category: 'api-mock',
   name: 'Journal Forensics: Near-Misses, Candidates & Promotion',
   description:
-    'Open the journal and send two matching storefront requests so the table '
-    + 'has real rows. Filter it, then fetch a typo — unmatched — and read the '
-    + 'candidates and near-misses. Switch unmatched fallback to closest-match '
-    + 'so the 404 body explains the miss. Promote that row into a seeded rule '
-    + 'and a saved example, hand it to Requests, then copy / export / clear. '
-    + 'Simulate the example and hold the passing result.',
+    'A running mock hides its reasoning — a client gets a **404 Not Found** and you are left '
+    + 'guessing which rule should have fired. This lesson makes every decision '
+    + 'visible: read why a typo request missed, push that explanation into the '
+    + 'response body so nobody has to open Studio, then turn the captured miss '
+    + 'into a real draft rule and a regression example so the same bug can '
+    + 'never sneak back.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 2,
+  contentVersion: 8,
   concept: {
     title: 'A miss is only useful if you can see why.',
     body:
-      'A running mock without a journal is a black box: the client got a 404, '
+      'A running mock without a journal is a black box: the client got a **404 Not Found**, '
       + 'and you guess which rule should have fired. The **Transactions** dock '
       + 'is the audit log — every request, matched or not, with an outcome chip '
       + '(matched, unmatched, ambiguous, fault, proxied).\n\n'
@@ -106,7 +106,7 @@ export const apiMockAm18Lesson: DemoLesson = {
       { term: 'Outcome chip', definition: 'matched, unmatched, ambiguous, fault, or proxied — the decision the mock made, not just the HTTP status.' },
       { term: 'Candidates', definition: 'Every rule evaluated for this request, with priority and match/miss, so you can see the full field.' },
       { term: 'Near-misses', definition: 'Rules that almost matched, with the predicate that failed — the difference between a typo and a missing rule.' },
-      { term: 'Closest-match debug', definition: 'Unmatched traffic returns a JSON body naming the nearest rule instead of a bare 404.' },
+      { term: 'Closest-match debug', definition: 'Unmatched traffic returns a JSON body naming the nearest rule instead of a bare 404 (Not Found).' },
       { term: 'Create route', definition: 'Promote an unmatched (or any) transaction into a disabled draft with the captured path and body.' },
       { term: 'Save as example', definition: 'Freeze the captured request as a simulation sample you can re-run from the Examples tab.' },
     ],
@@ -119,13 +119,14 @@ export const apiMockAm18Lesson: DemoLesson = {
       id: 'journal-tour',
       title: 'Every request and every decision in one table',
       description:
-        'Click **Live transactions** to open the Runtime journal. The store '
-        + 'library is already running — fetch `GET /products` and '
-        + '`GET /products/42` so two **matched** rows land.\n\n'
-        + 'Hold the table, then the outcome chip. Five chips exist '
-        + '(matched / unmatched / ambiguous / fault / proxied); today you '
-        + 'are looking at **matched**. This table is the audit log for '
-        + 'everything the listener saw.',
+        'A running mock will happily answer — or refuse — hundreds of calls '
+        + 'without ever telling you which rule fired. That black box is what '
+        + 'the **Runtime journal** exists to open up.\n\n'
+        + 'As two ordinary storefront calls come in, watch them land as '
+        + '**matched** rows. What matters here is the outcome chip on each '
+        + 'row: it reports the *decision* the mock made — matched, unmatched, '
+        + 'ambiguous, fault, or proxied — not just an HTTP number. This table '
+        + 'is the single source of truth the rest of the lesson builds on.',
       highlight: API_MOCK.LIVE_TRANSACTIONS,
       action: runAm18JournalTour,
       verify: API_MOCK.JOURNAL_FIRST_ROW,
@@ -134,12 +135,13 @@ export const apiMockAm18Lesson: DemoLesson = {
       id: 'filter',
       title: 'Find the call you care about, and get an honest empty state',
       description:
-        'The filter box searches path, status, and rule name. Type `products` '
-        + 'and hold the narrowed table — both catalog rows stay, cart noise '
-        + 'would drop.\n\n'
-        + 'Then type nonsense. **No transactions match this filter** is '
-        + 'honest emptiness, not a hang. Clear the box and the table comes '
-        + 'back. You will use this when a long run has hundreds of rows.',
+        'After a real load run this table holds hundreds of rows and the one '
+        + 'you actually care about is buried. Filtering — by path, status, or '
+        + 'rule name — is how you pull it back out.\n\n'
+        + 'The quiet point of this step is trust. When the filter matches '
+        + 'nothing, the journal says so plainly instead of hanging or leaving '
+        + 'a stale list on screen. That honest empty state is exactly what '
+        + 'lets you believe the table when it is full.',
       highlight: API_MOCK.JOURNAL_FILTER,
       preAction: ensureAm18ForFilter,
       action: runAm18Filter,
@@ -149,12 +151,16 @@ export const apiMockAm18Lesson: DemoLesson = {
       id: 'the-miss',
       title: 'Why didn\'t my request match?',
       description:
-        `Watch the listen address, then fetch \`${AM18_MISS_PATH}\` — one `
-        + 'character off `/products/42`. The new row is **unmatched**.\n\n'
-        + 'Open it. **Candidates** are every rule the engine scored. '
-        + '**Near misses** name the catalog template that almost won, and '
-        + 'the predicate that failed (path). That list is why this journal '
-        + 'exists: a 404 without a near-miss is a guess.',
+        'This is the question the whole journal was built to answer. A client '
+        + `fires a request that is one character off — \`${AM18_MISS_PATH}\` `
+        + 'instead of `/products/42` — gets a **404 Not Found**, and normally your only '
+        + 'move is to squint at the library and guess.\n\n'
+        + 'Instead, the unmatched row explains itself. It names the '
+        + '**candidates** the engine scored, then the **Near misses** panel '
+        + 'lists the rules that almost won — watch each one light up in turn, '
+        + 'down to the predicate that failed. Knowing whether no rule exists or '
+        + 'a rule was a typo away is the difference between an hour of debugging '
+        + 'and a five-second fix.',
       highlight: API_MOCK.ADDRESS,
       preAction: ensureAm18ForMiss,
       action: async (ctx) => { await runAm18TheMiss(ctx); },
@@ -164,12 +170,15 @@ export const apiMockAm18Lesson: DemoLesson = {
       id: 'closest-match',
       title: 'Put that explanation in the 404 body itself',
       description:
-        'Open Runtime **Settings**. Set **Unmatched fallback** to **Closest '
-        + 'match debug**, then **Save settings**. If the listener is dirty, '
-        + '**Apply** so the running snapshot picks it up.\n\n'
-        + `Fetch \`${AM18_MISS_PATH}\` again. The response body is no longer `
-        + 'a bare 404 — it names the nearest rule. A client log or a bug '
-        + 'report can now see *why* without opening Studio.',
+        'The near-miss diagnosis is powerful, but so far it only helps '
+        + 'whoever is staring at Studio. The teammate reading a CI log, or the '
+        + 'client developer who just got a **404 Not Found**, still sees nothing useful.\n\n'
+        + 'This step moves the explanation onto the wire. With **closest-match** '
+        + 'fallback turned on, an unmatched request stops returning a bare 404 '
+        + 'and starts returning a body that names the nearest rule. Now the '
+        + 'answer travels with the response — a log line or a bug report '
+        + 'carries its own diagnosis, and nobody has to open the mock to '
+        + 'understand the failure.',
       highlight: API_MOCK.RUNTIME_SETTINGS_FALLBACK,
       preAction: ensureAm18ForClosestMatch,
       action: runAm18ClosestMatch,
@@ -179,12 +188,18 @@ export const apiMockAm18Lesson: DemoLesson = {
       id: 'create-route',
       title: 'Promote an unmatched request into a real rule',
       description:
-        'Click **Create route**. The journal writes a **disabled** draft from '
-        + 'this transaction — method, path, headers — so the mock never starts '
-        + 'answering a path you have not reviewed.\n\n'
-        + 'Click **Open in Studio**. The editor is already seeded with '
-        + `\`${AM18_MISS_PATH}\`. That is the promotion: a miss becomes a `
-        + 'rule you can enable after you spell the path correctly.',
+        'A captured miss is evidence; the goal is to turn it into a fix. '
+        + '**Create route** promotes the unmatched request into a rule that is '
+        + 'already seeded with its real method, path, and headers — no retyping '
+        + 'what the client actually sent.\n\n'
+        + 'The safety detail that makes this trustworthy: the new rule lands '
+        + '**disabled**. The mock will not suddenly start answering a path you '
+        + 'have not reviewed. You get a draft to inspect and correct on your '
+        + 'own terms. Watch **Open in Studio** jump straight to the route '
+        + 'editor, with the captured path filled in and the **Enabled** toggle '
+        + 'off — proof the draft is parked until you say otherwise. That is the '
+        + 'promotion loop — a fleeting runtime miss becomes a first-class rule '
+        + 'in the library.',
       highlight: API_MOCK.TX_CREATE_ROUTE,
       preAction: ensureAm18ForCreateRoute,
       action: runAm18CreateRoute,
@@ -194,12 +209,14 @@ export const apiMockAm18Lesson: DemoLesson = {
       id: 'save-example',
       title: 'Freeze a transaction as a regression case',
       description:
-        'Back on the unmatched row, click **Save as example**. The captured '
-        + 'request becomes a simulation sample — expected outcome included — '
-        + 'so you can re-run the miss after you change the library.\n\n'
-        + 'Then **Open in Requests**: the same call lands in the HTTP client '
-        + 'as a real request you can send again. Come back to Studio → '
-        + '**Examples** and hold the new row.',
+        'Fixing a bug once is not enough if nothing stops it from returning. '
+        + '**Save as example** freezes this exact request — expected outcome '
+        + 'and all — as a sample you can replay after any future change to the '
+        + 'library.\n\n'
+        + 'The same captured call can also be handed straight to the '
+        + '**Requests** client, so whoever reproduces the bug sends the '
+        + 'identical request you saw, not an approximation of it. One miss '
+        + 'becomes both a regression guard and a shareable repro.',
       highlight: API_MOCK.TX_SAVE_EXAMPLE,
       preAction: ensureAm18ForSaveExample,
       action: runAm18SaveExample,
@@ -209,12 +226,14 @@ export const apiMockAm18Lesson: DemoLesson = {
       id: 'share-and-reset',
       title: 'Copy for a bug report, export for the record, clear between runs',
       description:
-        'Click **Copy** on the selected row — the button flashes **Copied**. '
-        + 'Paste that into a ticket and a reviewer sees method, path, headers, '
-        + 'and the outcome without a screenshot.\n\n'
-        + '**Export** downloads the (filtered) journal as JSON. **Clear** '
-        + 'empties the table so the next run starts honest. The listener stays '
-        + 'up; only the log is gone.',
+        'A journal only earns its keep if the evidence can leave the tool. '
+        + '**Copy** turns the selected row into text you can paste straight '
+        + 'into a ticket — method, path, headers, outcome — so a reviewer '
+        + 'grasps the failure without a screenshot.\n\n'
+        + '**Export** saves the whole (filtered) log as JSON for the record, '
+        + 'and **Clear** wipes the table so the next run starts from an honest, '
+        + 'empty slate. Note what does *not* happen: the listener keeps '
+        + 'running the entire time. You are clearing the log, never the mock.',
       highlight: API_MOCK.TX_COPY,
       preAction: ensureAm18ForShare,
       action: runAm18ShareAndReset,
@@ -224,12 +243,15 @@ export const apiMockAm18Lesson: DemoLesson = {
       id: 'prove-example',
       title: 'The saved example runs green',
       description:
-        'Open the seeded rule\'s **Examples** tab. The saved row is the typo '
-        + 'you captured — expected **unmatched**, because the draft is still '
-        + 'disabled and `/products/:id` does not spell `produts`.\n\n'
-        + 'Click **Simulate**. Hold the passing result. A green unmatched '
-        + 'example is a regression: the miss stays a miss until you enable '
-        + 'and correct the new rule.',
+        'A regression case you never run is just a hope. This final step '
+        + 'proves the guard you saved actually fires.\n\n'
+        + 'When the example is simulated it passes as **unmatched** — which is '
+        + 'exactly right, because the draft rule is still disabled and '
+        + '`/products/:id` does not spell `produts`. A green result here means '
+        + 'the guard is live: this miss stays caught until someone '
+        + 'deliberately enables and corrects the new rule. That is the loop '
+        + 'closed — from an invisible **404 Not Found** to a rule and a test that watch '
+        + 'your back.',
       highlight: API_MOCK.EXAMPLE_SIMULATE,
       preAction: ensureAm18ForProve,
       action: runAm18ProveExample,

@@ -1,8 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { handleApiMockExport, inspectExportSecrets } from './apiMockExportActions';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  apiMockExportCopyLabel,
+  apiMockExportMime,
+  handleApiMockExport,
+  inspectExportSecrets,
+  saveApiMockExportToDisk,
+} from './apiMockExportActions';
 import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
 import type { ApiMockExportRequest } from './components/ApiMockWorkspaceNav';
 
@@ -14,6 +20,7 @@ const exportWireMockMappings = vi.fn();
 const transactionsMock = vi.fn();
 const downloadJsonFile = vi.fn();
 const isApiMockLiveDemoActive = vi.fn(() => false);
+const saveTextFileToDisk = vi.fn();
 
 vi.mock('../../shared/api-mock/exportUtils', () => ({
   exportFilename: (...args: unknown[]) => exportFilename(...args),
@@ -38,6 +45,7 @@ vi.mock('./apiMockControlClient', () => ({
 vi.mock('./apiMockPageHelpers', () => ({
   downloadJsonFile: (...args: unknown[]) => downloadJsonFile(...args),
   isApiMockLiveDemoActive: (...args: unknown[]) => isApiMockLiveDemoActive(...(args as [])),
+  saveTextFileToDisk: (...args: unknown[]) => saveTextFileToDisk(...args),
 }));
 
 function request(format: ApiMockExportRequest['format'], scope: ApiMockExportRequest['scope']): ApiMockExportRequest {
@@ -64,9 +72,6 @@ function baseArgs() {
 }
 
 describe('handleApiMockExport', () => {
-  let createObjectUrlSpy: ReturnType<typeof vi.spyOn>;
-  let revokeObjectUrlSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
     vi.resetAllMocks();
     exportFilename.mockReturnValue('export.json');
@@ -75,14 +80,6 @@ describe('handleApiMockExport', () => {
     exportHarForStudio.mockReturnValue({ entryCount: 2, lossReport: ['x'], har: { log: { entries: [] } } });
     exportWireMockMappings.mockReturnValue({ mappings: [{ id: 'm1' }], lossReport: ['w'] });
     transactionsMock.mockResolvedValue({ ok: true, data: { transactions: [{ id: 'from-server' }] } });
-
-    createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
-    revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    createObjectUrlSpy?.mockRestore();
-    revokeObjectUrlSpy?.mockRestore();
   });
 
   it('exports WireMock mappings and reports summary', async () => {
@@ -156,7 +153,7 @@ describe('handleApiMockExport', () => {
     isApiMockLiveDemoActive.mockReturnValueOnce(true);
     const args = baseArgs();
     await handleApiMockExport({ ...args, request: request('json', 'workspace') });
-    expect(createObjectUrlSpy).not.toHaveBeenCalled();
+    expect(saveTextFileToDisk).not.toHaveBeenCalled();
     expect(args.setLiveMessage).toHaveBeenCalledWith('Workspace exported.');
   });
 
@@ -169,8 +166,7 @@ describe('handleApiMockExport', () => {
       { scope: 'workspace', redact: true, format: 'json' },
     );
     expect(serializeExport).toHaveBeenCalledWith({ payload: true }, 'json');
-    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1);
-    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:mock');
+    expect(saveTextFileToDisk).toHaveBeenCalledWith('export.json', '{"ok":true}', 'application/json');
     expect(args.setLiveMessage).toHaveBeenCalledWith('Workspace exported.');
   });
 
@@ -183,6 +179,7 @@ describe('handleApiMockExport', () => {
       { scope: 'servers', redact: true, format: 'yaml', selectedServerIds: [] },
     );
     expect(serializeExport).toHaveBeenCalledWith({ payload: true }, 'yaml');
+    expect(saveTextFileToDisk).toHaveBeenCalledWith('export.json', '{"ok":true}', 'text/yaml');
     expect(args.setLiveMessage).toHaveBeenCalledWith('Server exported.');
   });
 
@@ -249,5 +246,30 @@ describe('inspectExportSecrets', () => {
       _exportMeta: { kind: 'redfireforge-api-mock', schemaVersion: 1, exportedAt: 't', redacted: true },
       data: { scope: 'routes', sourceServerId: 'a', routes: [], samples: [] },
     } as never).tlsKeyPem).toBeUndefined();
+  });
+});
+
+describe('saveApiMockExportToDisk', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('labels copy and mime by format', () => {
+    expect(apiMockExportCopyLabel('json')).toBe('Copy JSON');
+    expect(apiMockExportCopyLabel('yaml')).toBe('Copy YAML');
+    expect(apiMockExportCopyLabel('har')).toBe('Copy HAR');
+    expect(apiMockExportCopyLabel('wiremock')).toBe('Copy JSON');
+    expect(apiMockExportMime('json')).toBe('application/json');
+    expect(apiMockExportMime('yaml')).toBe('text/yaml');
+    expect(apiMockExportMime('har')).toBe('application/json');
+  });
+
+  it('writes the confirmation payload even while a live demo is open', () => {
+    saveApiMockExportToDisk({
+      filename: 'workspace.yaml',
+      text: 'servers: []',
+      format: 'yaml',
+    });
+    expect(saveTextFileToDisk).toHaveBeenCalledWith('workspace.yaml', 'servers: []', 'text/yaml');
   });
 });

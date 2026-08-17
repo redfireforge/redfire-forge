@@ -31,20 +31,30 @@ export function useApiMockStudioJournal(opts: {
     if (!activeServerId || activeStatus !== 'running') return;
     let cancelled = false;
     const poll = async () => {
-      const [txRes, stRes, draftRes] = await Promise.all([
+      // Probe `state` first. A missing/unreachable listener answers 404 for every
+      // endpoint, so firing transactions + state + drafts in parallel sprays three
+      // 404s into the console before we can react. Gating the rest behind a live
+      // `state` means at most one request touches a dead listener, and we reconcile
+      // the (possibly stale "Running") badge to `stopped` so polling halts.
+      const stRes = await apiMockControlClient.state(activeServerId);
+      if (cancelled) return;
+      if (!stRes.ok) {
+        // A hard failure (wipe, crash, companion restart) is terminal — flip the
+        // badge so the effect tears the interval down. A retryable failure (the
+        // companion is briefly unreachable) keeps the badge and just skips this
+        // cycle's fetches; the next tick retries once the companion is back.
+        if (!stRes.error.retry) {
+          setRuntime(prev => mergeRuntimeInfo(prev, activeServerId, { status: 'stopped', error: undefined }));
+        }
+        return;
+      }
+      setScenarioState(stRes.data);
+      const [txRes, draftRes] = await Promise.all([
         apiMockControlClient.transactions(activeServerId),
-        apiMockControlClient.state(activeServerId),
         apiMockControlClient.recordedDrafts(activeServerId),
       ]);
       if (cancelled) return;
-      // Listener gone (wipe, crash, lesson import) — stop polling so Chrome is not
-      // flooded with /state and /transactions 404s every 1.5s.
-      if (!stRes.ok && !stRes.error.retry) {
-        setRuntime(prev => mergeRuntimeInfo(prev, activeServerId, { status: 'stopped', error: undefined }));
-        return;
-      }
       if (txRes.ok) setTransactions([...txRes.data.transactions].reverse());
-      if (stRes.ok) setScenarioState(stRes.data);
       if (draftRes.ok && draftRes.data.drafts.length > 0) {
         const drafts = draftRes.data.drafts;
         const current = latestRef.current.servers.find(s => s.id === activeServerId);

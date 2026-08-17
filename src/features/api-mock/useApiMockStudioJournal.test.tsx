@@ -97,7 +97,7 @@ describe('useApiMockStudioJournal', () => {
     expect(transactions.mock.calls.length).toBeGreaterThan(first);
   });
 
-  it('stops polling when state says the listener is gone', async () => {
+  it('stops polling when state says the listener is gone without touching other endpoints', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     state.mockResolvedValue({
       ok: false,
@@ -105,9 +105,26 @@ describe('useApiMockStudioJournal', () => {
     });
     render(<Probe />);
     await waitFor(() => expect(screen.getByTestId('rt-srv-1')).toHaveTextContent('stopped'));
-    const afterGone = transactions.mock.calls.length;
+    // state-first gating means transactions/drafts never fire against a dead listener.
+    expect(transactions).not.toHaveBeenCalled();
+    expect(recordedDrafts).not.toHaveBeenCalled();
     await act(async () => { await vi.advanceTimersByTimeAsync(4500); });
-    expect(transactions.mock.calls.length).toBe(afterGone);
+    expect(transactions).not.toHaveBeenCalled();
+  });
+
+  it('skips transactions and drafts on a retryable state failure but keeps polling', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    state.mockResolvedValueOnce({ ok: false, error: { retry: true } });
+    render(<Probe />);
+    // First cycle: state failed retryably — the other endpoints are not touched.
+    await waitFor(() => expect(state).toHaveBeenCalled());
+    expect(transactions).not.toHaveBeenCalled();
+    expect(recordedDrafts).not.toHaveBeenCalled();
+    // Badge is left alone (not reconciled to stopped) so the poll continues.
+    expect(screen.queryByTestId('rt-srv-1')).toBeNull();
+    // Next tick: state recovers and the journal fills in.
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    await waitFor(() => expect(transactions).toHaveBeenCalledWith('srv-1'));
   });
 
   it('merges recorded drafts and acknowledges them', async () => {
@@ -136,8 +153,8 @@ describe('useApiMockStudioJournal', () => {
 
   it('skips a poll that resolves after unmount', async () => {
     let settle!: (value: unknown) => void;
+    state.mockResolvedValue({ ok: true, data: { states: {}, counters: {} } });
     transactions.mockReturnValue(new Promise(resolve => { settle = resolve; }));
-    state.mockReturnValue(new Promise(() => {}));
     recordedDrafts.mockReturnValue(new Promise(() => {}));
     const { unmount } = render(<Probe />);
     await waitFor(() => expect(transactions).toHaveBeenCalled());
@@ -147,9 +164,9 @@ describe('useApiMockStudioJournal', () => {
     });
   });
 
-  it('keeps polling when state fails with retry and ignores missing draft host', async () => {
-    transactions.mockResolvedValue({ ok: false, error: { retry: true } });
-    state.mockResolvedValue({ ok: false, error: { retry: true } });
+  it('acks recorded drafts even when the draft host is missing from the library', async () => {
+    // state is live, so the poll proceeds to drafts; the active server is not in
+    // the library (servers=[]), so the merge is skipped but the drafts are acked.
     recordedDrafts.mockResolvedValue({
       ok: true,
       data: { drafts: [{ id: 'orphan' }] },

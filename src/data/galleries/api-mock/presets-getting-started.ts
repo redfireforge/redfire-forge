@@ -403,3 +403,100 @@ export function createStoreLibraryMock(): ApiMockServerDefinitionV1 {
     updatedAt: TS,
   };
 }
+
+/**
+ * Compact storefront (6 rules) for the Journal Forensics lesson (AM-18). Big
+ * enough that Filter and the near-miss Candidates list read as a real library,
+ * small enough that the runtime journal is not a wall of rules. Keeps the two
+ * load-bearing Catalog rules — `/products` and `/products/:id` — so the
+ * `/produts/42` typo near-misses the parameterized rule, plus one disabled
+ * draft so the show-disabled filter has a subject.
+ */
+export function createStoreForensicsMock(): ApiMockServerDefinitionV1 {
+  return {
+    id: 'srv-gallery-store-lite',
+    name: 'Store API',
+    enabled: true,
+    host: '127.0.0.1',
+    port: 4600,
+    basePath: '',
+    folders: [
+      { id: 'folder-catalog', name: 'Catalog', expanded: true, sortOrder: 0 },
+      { id: 'folder-cart', name: 'Cart', expanded: true, sortOrder: 1 },
+      { id: 'folder-orders', name: 'Orders', expanded: true, sortOrder: 2 },
+    ],
+    routes: [
+      storeRoute({
+        id: 'route-list-products',
+        folderId: 'folder-catalog',
+        name: 'List Products',
+        method: 'GET',
+        path: { kind: 'exact', value: '/products' },
+        priority: 10,
+        operationId: 'listProducts',
+        tags: ['store', 'catalog', 'smoke'],
+        body: '{"products":[{"id":1,"name":"Espresso"},{"id":2,"name":"Cold Brew"}]}',
+      }),
+      storeRoute({
+        id: 'route-get-product',
+        folderId: 'folder-catalog',
+        name: 'Get Product by ID',
+        method: 'GET',
+        path: { kind: 'parameterized', value: '/products/:id', paramNames: ['id'] },
+        priority: 20,
+        operationId: 'getProduct',
+        tags: ['store', 'catalog'],
+        body: '{"id":"{{pathParam \'id\'}}","name":"Product {{pathParam \'id\'}}"}',
+      }),
+      storeRoute({
+        id: 'route-search-products',
+        folderId: 'folder-catalog',
+        name: 'Search Products',
+        method: 'GET',
+        path: { kind: 'exact', value: '/products/search' },
+        priority: 30,
+        enabled: false,
+        tags: ['store'],
+        body: '{"query":"{{query \'q\'}}","results":[]}',
+      }),
+      storeRoute({
+        id: 'route-get-cart',
+        folderId: 'folder-cart',
+        name: 'Get Cart',
+        method: 'GET',
+        path: { kind: 'exact', value: '/cart' },
+        priority: 10,
+        operationId: 'getCart',
+        tags: ['store', 'cart', 'smoke'],
+        body: '{"items":[],"total":0}',
+      }),
+      storeRoute({
+        id: 'route-list-orders',
+        folderId: 'folder-orders',
+        name: 'List Orders',
+        method: 'GET',
+        path: { kind: 'exact', value: '/orders' },
+        priority: 10,
+        operationId: 'listOrders',
+        tags: ['store', 'orders', 'smoke'],
+        body: '{"orders":[{"id":"o-1001","status":"shipped"}]}',
+      }),
+      storeRoute({
+        id: 'route-get-order',
+        folderId: 'folder-orders',
+        name: 'Get Order by ID',
+        method: 'GET',
+        path: { kind: 'parameterized', value: '/orders/:id', paramNames: ['id'] },
+        priority: 20,
+        operationId: 'getOrder',
+        tags: ['store', 'orders'],
+        body: '{"id":"{{pathParam \'id\'}}","status":"shipped"}',
+      }),
+    ],
+    samples: [],
+    variables: [],
+    settings: structuredClone(DEFAULT_SETTINGS),
+    createdAt: TS,
+    updatedAt: TS,
+  };
+}
