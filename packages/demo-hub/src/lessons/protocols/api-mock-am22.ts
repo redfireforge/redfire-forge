@@ -4,9 +4,9 @@
  *
  * Scenario: a checkout mock is already in the workspace and the Designer
  * opens on an empty canvas. The lesson drops the five mock blocks plus an
- * HTTP call, configures isolation and journal assertions live, wires
- * Start → Apply → HTTP → Assert → Reset → Stop, then Quick Test runs the
- * lifecycle green. Curriculum:
+ * HTTP call, configures isolation and journal assertions live, and
+ * connects each node as it lands (Start → Apply → HTTP → Assert → Reset
+ * → Stop). Quick Test then runs the lifecycle green. Curriculum:
  * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
  */
 import { API_MOCK, WF } from '@shared/selectors';
@@ -20,6 +20,7 @@ import {
   am22PassSelector,
   cleanupAm22,
   ensureAm22Designer,
+  ensureAm22ForPalette,
   ensureAm22ForApply,
   ensureAm22ForAssert,
   ensureAm22ForHttp,
@@ -98,7 +99,7 @@ export const apiMockAm22Lesson: DemoLesson = {
   initialTab: 'workflow',
   allowedTabs: ['workflow', 'api-mock-studio'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 1,
+  contentVersion: 4,
   concept: {
     title: 'A mock that lives in the graph can start, prove, rewind, and stop with the run.',
     body:
@@ -165,14 +166,18 @@ export const apiMockAm22Lesson: DemoLesson = {
       id: 'designer-palette',
       title: 'Mocks belong in the test graph, not a side terminal',
       description:
-        'The Designer is already on a blank canvas. Collapse the app '
-        + 'Workflows list so the palette and canvas have the width. Open the '
-        + '**Actions** rail, click the **API Mock** chip, and hold each of the '
-        + 'four lifecycle blocks — Start, Apply, Reset, Stop.\n\n'
-        + 'Then open **Logic** and hold **Assert Mock Calls**. Five blocks, '
-        + 'one job: the mock is a node you drop, not a process you babysit in '
-        + 'a terminal. The chip is the group; the next steps drop them live.',
-      highlight: WF.PAL_CHIP_APIMOCK,
+        'A mock is usually something you babysit: a terminal window, a port '
+        + 'to remember, a process to kill when you are done. The **Workflow '
+        + 'Designer** treats it as what it should be — a node you drop into a '
+        + 'graph. Search **Mock** in the palette and the whole family lights up '
+        + 'at once, Actions and Logic together: Start, Apply, Reset, Stop, and '
+        + '**Assert Mock Calls**.\n\n'
+        + 'That is the mental shift for this entire lesson — five blocks, one '
+        + 'job. The *lifecycle* of a mock becomes part of the test graph '
+        + 'instead of a thing you run on the side. The next steps drop them '
+        + 'onto the canvas one at a time.',
+      highlight: WF.PAL_SEARCH,
+      preAction: ensureAm22ForPalette,
       action: async (ctx) => {
         await runAm22DesignerPalette(ctx);
       },
@@ -182,13 +187,16 @@ export const apiMockAm22Lesson: DemoLesson = {
       id: 'start-node',
       title: 'The lifecycle node, and why isolation matters',
       description:
-        'Click **Start Mock Server** to drop it. Open config and pick **Cart '
-        + 'API** — that is the checkout mock already in the workspace. Hold '
-        + '**Isolate run**: it stays on so this graph gets a private port and '
-        + 'cannot clobber the Studio tab.\n\n'
-        + 'Hold **Save port as** `mockPort` and **Save base URL as** '
-        + '`mockBaseUrl`. Those names are what HTTP will consume. Save, then '
-        + 'hold the configured node on the canvas.',
+        '**Start Mock Server** is where the lifecycle begins, and its most '
+        + 'important setting is **Isolate run**. Left on, it binds an '
+        + '*ephemeral* server id and a private port for this graph alone — '
+        + 'which is the only reason you can run this workflow while a Studio '
+        + 'tab is still live on the same mock without the two clobbering each '
+        + 'other.\n\n'
+        + 'Point it at the **Cart API** already in the workspace, and have it '
+        + 'publish its port and address as `mockPort` / `mockBaseUrl`. Those '
+        + 'names matter: they are the handle every downstream node uses instead '
+        + 'of hard-coding a port that isolation is free to change.',
       highlight: WF.PAL_API_MOCK_START,
       preAction: ensureAm22ForStart,
       action: async (ctx) => {
@@ -197,34 +205,19 @@ export const apiMockAm22Lesson: DemoLesson = {
       verify: API_MOCK.CANVAS_START,
     },
     {
-      id: 'http-node',
-      title: 'Downstream nodes consume the published base URL',
-      description:
-        'Click **HTTP Request** in the palette and drop it. Open config, set '
-        + `the method to **POST**, and fill the URL with \`${AM22_HTTP_URL}\`. `
-        + 'Hold the filled field so the template is readable — there is no '
-        + 'hard-coded port.\n\n'
-        + 'Start has not run yet, so the URL is a promise: when Quick Test '
-        + 'binds the isolated listener, this node posts `/cart` at whatever '
-        + 'port isolation chose. Save, then hold the HTTP node.',
-      highlight: WF.PAL_HTTP,
-      preAction: ensureAm22ForHttp,
-      action: async (ctx) => {
-        await runAm22HttpNode(ctx);
-      },
-      verify: WF.NODE_HTTP,
-    },
-    {
       id: 'apply-node',
       title: 'Hot-swap the rule set mid-run for a second scenario',
       description:
-        'Click **Apply Definition** and drop it. Open config and pick **Cart '
-        + 'API** so this node knows which contract to push. Hold the isolated-'
-        + 'run hint — downstream mock nodes talk to `{{mockServerId}}` from '
-        + 'Start, not the Studio tab\'s id.\n\n'
-        + 'Apply is how a second scenario swaps routes without a restart. This '
-        + 'first run reapplies the cart definition before the POST. Save, then '
-        + 'hold the node.',
+        'Starting a listener binds the port; **Apply Definition** decides '
+        + '*what rules it serves*. Separating the two is what makes a second '
+        + 'scenario possible — Apply can hot-swap the route set onto the '
+        + 'running listener mid-run, with no restart, so one graph can test '
+        + '“empty cart” then “full cart” back to back.\n\n'
+        + 'Point this node at the **Cart API** too, and note it talks to '
+        + '`{{mockServerId}}` from Start, not the Studio tab’s id — the '
+        + 'isolation from the previous step flows straight through. This first '
+        + 'run simply reapplies the cart contract before the POST, '
+        + 'establishing the pattern.',
       highlight: WF.PAL_API_MOCK_APPLY,
       preAction: ensureAm22ForApply,
       action: async (ctx) => {
@@ -233,33 +226,39 @@ export const apiMockAm22Lesson: DemoLesson = {
       verify: API_MOCK.CANVAS_APPLY,
     },
     {
-      id: 'reset-node',
-      title: 'Rewind the state machine between iterations',
+      id: 'http-node',
+      title: 'Downstream nodes consume the published base URL',
       description:
-        'Click **Reset Mock State** and drop it. Open config, pick the server, '
-        + 'and hold the rewind hint: this node clears scenario state, sequence '
-        + 'cursors, and match counters on the running listener.\n\n'
-        + 'Without Reset, the next loop would inherit the last cart. With it, '
-        + 'every iteration starts EMPTY even though this checkout mock is a '
-        + 'simple POST today. Save, then hold the node.',
-      highlight: WF.PAL_API_MOCK_RESET,
-      preAction: ensureAm22ForReset,
+        'This is the payoff of publishing `mockBaseUrl`: the **HTTP Request** '
+        + `node posts to \`${AM22_HTTP_URL}\` — a template, not a hard-coded `
+        + '`localhost:4600`. Start has not run yet, so that URL is a '
+        + '*promise*.\n\n'
+        + 'When Quick Test binds the isolated listener on whatever port it '
+        + 'chooses, this node resolves the variable and hits the right place '
+        + 'automatically. That indirection is exactly what lets the same graph '
+        + 'run in parallel, in CI, or on a colleague’s machine without anyone '
+        + 'editing a port by hand.',
+      highlight: WF.PAL_HTTP,
+      preAction: ensureAm22ForHttp,
       action: async (ctx) => {
-        await runAm22ResetNode(ctx);
+        await runAm22HttpNode(ctx);
       },
-      verify: API_MOCK.CANVAS_RESET,
+      verify: WF.NODE_HTTP,
     },
     {
       id: 'assert-node',
       title: 'Assert against the journal, not your logs',
       description:
-        'Click **Assert Mock Calls** under Logic and drop it. Pick the server, '
-        + `fill **Min count** ${AM22_ASSERT_MIN}, **Status** ${AM22_ASSERT_STATUS}, `
-        + `and **Body contains** \`${AM22_ASSERT_BODY}\`. Hold **Header key** / `
-        + `**Header value**, then fill **Last call within** ${AM22_ASSERT_RECENCY} ms.\n\n`
-        + 'The journal is the audit trail. A green HTTP node only means the '
-        + 'request returned; this node proves the mock actually saw it. Save, '
-        + 'then hold the assert node.',
+        'A green HTTP node only tells you the *request came back* — it says '
+        + 'nothing about whether the mock actually did the right thing. '
+        + '**Assert Mock Calls** closes that gap by reading the mock’s '
+        + `**journal** directly: min count ${AM22_ASSERT_MIN}, status `
+        + `${AM22_ASSERT_STATUS}, body containing \`${AM22_ASSERT_BODY}\`, an `
+        + `optional header, and how recently (${AM22_ASSERT_RECENCY} ms) the `
+        + 'last matching call arrived.\n\n'
+        + 'That is the difference between a smoke test and a real one: instead '
+        + 'of scraping logs and hoping, the assertion queries the source of '
+        + 'truth about what the mock actually received.',
       highlight: WF.PAL_API_MOCK_ASSERT,
       preAction: ensureAm22ForAssert,
       action: async (ctx) => {
@@ -268,15 +267,37 @@ export const apiMockAm22Lesson: DemoLesson = {
       verify: API_MOCK.CANVAS_ASSERT,
     },
     {
+      id: 'reset-node',
+      title: 'Rewind the state machine between iterations',
+      description:
+        'State is what makes the *second* iteration lie. A stateful mock that '
+        + 'still remembers the last cart will happily pass a run that should '
+        + 'have started empty. **Reset Mock State** rewinds scenario state, '
+        + 'sequence cursors, and match counters on the running listener so '
+        + 'every loop begins from a known-clean baseline.\n\n'
+        + 'Today’s checkout mock is a simple POST, so the effect is subtle — '
+        + 'but wiring Reset in now is the habit that keeps a stateful suite '
+        + 'honest later. A test you cannot repeat cleanly is not really a test.',
+      highlight: WF.PAL_API_MOCK_RESET,
+      preAction: ensureAm22ForReset,
+      action: async (ctx) => {
+        await runAm22ResetNode(ctx);
+      },
+      verify: API_MOCK.CANVAS_RESET,
+    },
+    {
       id: 'stop-node',
       title: 'Guaranteed teardown, even on failure',
       description:
-        'Click **Stop Mock Server** and drop it. Open config, pick the server, '
-        + 'and Save. Hold the node on the canvas — teardown is a first-class '
-        + 'step, not an afterthought you hope the process exit will handle.\n\n'
-        + 'Stop is idempotent by default: an already-dead listener is still '
-        + 'success. That is what keeps Quick Test from leaving an orphan port '
-        + 'when an earlier node fails.',
+        'Teardown is a first-class step, not something you hope the process '
+        + 'exit will handle. **Stop Mock Server** releases the isolated port '
+        + 'deterministically, and it is idempotent by design — stopping an '
+        + 'already-dead listener still counts as success.\n\n'
+        + 'That idempotency is what makes it safe to run *unconditionally* at '
+        + 'the end of the graph: even if an earlier node fails, Stop still '
+        + 'fires and you do not leak an orphan port. Reliable cleanup is what '
+        + 'lets you run this workflow a hundred times without slowly filling '
+        + 'the machine with zombie listeners.',
       highlight: WF.PAL_API_MOCK_STOP,
       preAction: ensureAm22ForStop,
       action: async (ctx) => {
@@ -288,13 +309,14 @@ export const apiMockAm22Lesson: DemoLesson = {
       id: 'wire',
       title: 'Start → Apply → HTTP → Assert → Reset → Stop',
       description:
-        'Connect the blank Start trigger into **Start Mock Server**, then '
-        + 'Start → Apply → HTTP → Assert → Reset → Stop. Each edge is the '
-        + 'execution order — Apply sits on the path so the definition is hot-'
-        + 'swapped before the POST.\n\n'
-        + 'Click **Fit View** and hold the graph. Five mock nodes plus HTTP, '
-        + 'wired. The next click runs the whole lifecycle.',
-      highlight: API_MOCK.CANVAS_START,
+        'With every node on the canvas, the last thing to confirm is the '
+        + '*order*, because execution follows the wires. Trace the chain '
+        + '**Start → Apply → HTTP → Assert → Reset → Stop** and one placement '
+        + 'earns a second look: Apply sits *before* the POST, so the contract '
+        + 'is hot-swapped in before any traffic arrives.\n\n'
+        + 'Fit the whole graph in view and read it as one lifecycle — five '
+        + 'mock nodes plus HTTP, connected end to end. The next click runs it.',
+      highlight: WF.FIT_VIEW_BTN,
       preAction: ensureAm22ForWire,
       action: async (ctx) => {
         await runAm22Wire(ctx);
@@ -305,14 +327,17 @@ export const apiMockAm22Lesson: DemoLesson = {
       id: 'quick-test',
       title: 'One click runs the whole lifecycle',
       description:
-        'Click **Quick Test**. Hold each node as it turns green in order: '
-        + 'Start, Apply, HTTP, Assert, Reset, Stop. Then hold the assert '
-        + 'node\'s evidence — the sublabel still shows min count, and the '
-        + 'pass badge is the journal proof, not a log line.\n\n'
-        + 'All green means the isolated listener started, `/cart` was posted, '
-        + 'the journal matched, state rewound, and the port was released. '
-        + 'That is the orchestration the Studio tab cannot do alone.',
-      highlight: WF.QUICK_TEST,
+        '**Quick Test** runs the entire graph once, and the payoff is '
+        + 'watching the lifecycle prove itself: nodes turn green in order — '
+        + 'Start, Apply, HTTP, Assert, Reset, Stop — each one gating the next. '
+        + 'Open the **Console** first so the run log stays on screen beside '
+        + 'the canvas.\n\n'
+        + 'The assert node is the one to linger on: its pass badge and the '
+        + 'min-count sublabel are *journal evidence*, not a log line you have '
+        + 'to trust. All green means the isolated listener started, `/cart` was '
+        + 'posted and seen, state rewound, and the port was released — the full '
+        + 'orchestration a lone Studio tab simply cannot perform.',
+      highlight: WF.CONSOLE_BADGE,
       preAction: ensureAm22ForQuickTest,
       action: async (ctx) => {
         await runAm22QuickTest(ctx);

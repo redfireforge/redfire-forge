@@ -225,6 +225,7 @@ describe('ApiMockResponseEditor', () => {
     render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={vi.fn()} />);
     expect(screen.getByTestId('api-mock-response-preview')).toBeTruthy();
     expect(screen.getByText(/Template helpers:/i)).toBeTruthy();
+    expect(screen.getByTestId('api-mock-template-helpers-browse')).toBeTruthy();
     expect(document.querySelector('.am-editor-body--fill')).toBeTruthy();
     expect(document.querySelector('.am-preview-timeline')).toBeTruthy();
     openResponseTab('headers');
@@ -232,6 +233,19 @@ describe('ApiMockResponseEditor', () => {
     expect(screen.getByText('No cookies.')).toBeTruthy();
     expect(screen.queryByText(/Template helpers:/i)).toBeNull();
     expect(screen.getByTestId('api-mock-variant-tab-resp-1').textContent).toMatch(/Default/i);
+  });
+
+  it('opens Browse helpers, inserts a snippet, and closes', () => {
+    const onUpdateRoute = vi.fn();
+    render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={onUpdateRoute} />);
+    fireEvent.click(screen.getByTestId('api-mock-template-helpers-browse'));
+    expect(screen.getByTestId('api-mock-template-helpers-modal')).toBeTruthy();
+    fireEvent.click(screen.getAllByTestId('api-mock-template-helpers-insert')[0]);
+    expect(onUpdateRoute).toHaveBeenCalled();
+    const body = onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].body.content as string;
+    expect(body).toContain('{{');
+    fireEvent.click(screen.getByTestId('api-mock-template-helpers-close'));
+    expect(screen.queryByTestId('api-mock-template-helpers-modal')).toBeNull();
   });
 
   it('opens the body mapper and applies the mapped template', () => {

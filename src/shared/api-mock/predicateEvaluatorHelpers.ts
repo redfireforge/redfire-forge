@@ -2,6 +2,7 @@ import type {
   ApiMockCapturedRequestV1,
   ApiMockPredicateExpectedValue,
   ApiMockPredicateOperator,
+  ApiMockPredicateResultV1,
   ApiMockPredicateV1,
 } from './contracts';
 import { getByPath } from '../utils/jsonPath';
@@ -332,6 +333,48 @@ function deepStrictEqual(a: unknown, b: unknown): boolean {
   return aKeys.every((key, i) =>
     key === bKeys[i] && deepStrictEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
   );
+}
+
+export function combinatorLabel(combinator: string): string {
+  if (combinator === 'all') return 'All of';
+  if (combinator === 'any') return 'Any of';
+  if (combinator === 'not') return 'None of';
+  return 'Group';
+}
+
+export function predicateResultLabel(result: Pick<ApiMockPredicateResultV1, 'source' | 'selector' | 'combinator'>): string {
+  if (result.combinator) return combinatorLabel(result.combinator);
+  return result.selector ? `${result.source} "${result.selector}"` : result.source;
+}
+
+export function describeGroupOutcome(
+  combinator: string,
+  passed: boolean,
+  childResults: Array<Pick<ApiMockPredicateResultV1, 'passed' | 'evaluated' | 'source' | 'selector' | 'combinator'>>,
+): string {
+  if (combinator === 'not') {
+    if (childResults.some(r => r.evaluated === false)) {
+      return 'fail-closed — a child could not be evaluated';
+    }
+    if (passed) return 'passed — no child matched';
+    const matching = childResults.filter(r => r.passed);
+    if (matching.length) {
+      return `rejected — ${matching.map(predicateResultLabel).join(', ')} matched`;
+    }
+    return 'rejected — a child matched';
+  }
+  if (combinator === 'any' && !passed) return 'failed — no child passed';
+  if (combinator === 'all' && !passed) {
+    const failed = childResults.filter(r => !r.passed);
+    if (failed.length) {
+      return `failed — ${failed.map(predicateResultLabel).join(', ')} did not match`;
+    }
+    return 'failed — every child must pass';
+  }
+  if (combinator !== 'all' && combinator !== 'any' && combinator !== 'not') {
+    return `unknown combinator "${combinator}" — fail-closed`;
+  }
+  return passed ? 'passed' : 'failed';
 }
 
 function isSubset(expected: unknown, actual: unknown): boolean {

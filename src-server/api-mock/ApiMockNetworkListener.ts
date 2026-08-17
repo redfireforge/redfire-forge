@@ -40,7 +40,7 @@ import {
 } from '../../src/shared/api-mock/proxyRecording.js';
 import { applyResponseTransforms } from '../../src/shared/api-mock/responseTransforms.js';
 import { deliverWithFault } from './apiMockFaultExecutor.js';
-import { buildUpstreamUrl, executeProxy, pickAllowlistedOrigin } from './apiMockProxyExecutor.js';
+import { executeProxyWithFailover, listProxyOrigins } from './apiMockProxyExecutor.js';
 import { executeCallbacks } from './apiMockCallbackExecutor.js';
 import { peerCertificateAttrs, validateTlsMaterial } from './apiMockTls.js';
 import { stripHopByHopHeaders } from '../../src/shared/api-mock/proxyPolicy.js';
@@ -473,19 +473,20 @@ export class ApiMockNetworkListener {
 
     const proxy = this.definition.settings.proxy ?? DEFAULT_PROXY_SETTINGS;
     if (this.definition.settings.fallback.mode === 'proxy' && proxy.enabled) {
-      const origin = pickAllowlistedOrigin(proxy);
-      if (!origin) {
+      if (listProxyOrigins(proxy).length === 0) {
         res.writeHead(502, this.mergeCorsHeaders(req, { 'Content-Type': 'application/json' }));
         const errBody = JSON.stringify({ error: 'proxy_misconfigured', message: 'Proxy enabled but allowlist is empty' });
         res.end(errBody);
         recordDelivery('error', 502, errBody);
         return;
       }
-      const upstreamUrl = buildUpstreamUrl(origin, captured.path, req.url ?? captured.path);
-      const proxied = await executeProxy({
+      // Try each allowlisted origin top-to-bottom until one owns the path
+      // (stops on a real 2xx/3xx; falls over on unreachable / 5xx / 404).
+      const proxied = await executeProxyWithFailover({
         req,
         proxy,
-        upstreamUrl,
+        capturedPath: captured.path,
+        inboundUrl: req.url ?? captured.path,
         activeMockPorts: this.getActiveMockPorts?.() ?? [this.port],
         body: bodyBuf,
       });

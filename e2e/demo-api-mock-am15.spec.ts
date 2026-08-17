@@ -8,8 +8,8 @@
  * and sends live traffic so the journal can show matched.
  *
  * Proves the lesson's own beats end to end: import review, generalized
- * `/users/:id`, a draft row, three OpenAPI drafts, a WireMock loss report,
- * and a matched journal row after enable.
+ * `/users/:id`, a draft row, three OpenAPI drafts, a lossless WireMock
+ * preview, and a matched journal row after enable.
  */
 import { test, expect } from '@playwright/test';
 import { API_MOCK } from '../src/shared/selectors/apiMock';
@@ -78,13 +78,15 @@ test.describe('Demo lesson AM-15 — Import Everything: cURL, OpenAPI, WireMock,
     await expect(page.locator(API_MOCK.DRAFT_ROUTE).first()).toBeVisible();
   });
 
-  test('shows the WireMock loss report after the fifth step', async ({ page }) => {
+  test('shows the mapped WireMock preview after the fifth step', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am15);
     await advanceSteps(page, 4, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
-    await expect(page.locator(API_MOCK.IMPORT_LOSS)).toBeVisible();
+    await expect(page.locator(API_MOCK.IMPORT_PREVIEW)).toBeVisible();
+    await expect(page.locator(API_MOCK.IMPORT_LOSS)).toHaveCount(0);
+    await expect(page.locator(API_MOCK.IMPORT_PREVIEW_PATH)).toHaveText('/orders/99');
   });
 });

@@ -1,15 +1,23 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
+import { clearToolboxBodySamples } from './apiMockPatternToolboxSamples';
 import type { ApiMockPathMatcherV1 } from '../../../shared/api-mock/contracts';
 
 function renderModal(
   initial: ApiMockPathMatcherV1 = { kind: 'parameterized', value: '/users/:id' },
-  extra?: { onApplyConditions?: ReturnType<typeof vi.fn>; contextLabel?: string },
+  extra?: {
+    onApplyConditions?: ReturnType<typeof vi.fn>;
+    contextLabel?: string;
+    predicateSource?: 'cookie' | 'header' | 'query' | 'pathParam';
+    predicateSelector?: string;
+    predicateOperator?: 'regex' | 'glob';
+    predicateExpected?: string;
+  },
 ) {
   const onApply = vi.fn();
   const onClose = vi.fn();
@@ -21,6 +29,10 @@ function renderModal(
       onApplyConditions={onApplyConditions}
       onClose={onClose}
       contextLabel={extra?.contextLabel}
+      predicateSource={extra?.predicateSource}
+      predicateSelector={extra?.predicateSelector}
+      predicateOperator={extra?.predicateOperator}
+      predicateExpected={extra?.predicateExpected}
     />,
   );
   return { onApply, onClose, onApplyConditions };
@@ -33,6 +45,10 @@ function pickCustomSelectByLabel(label: string, value: string, container: Parent
 }
 
 describe('ApiMockPatternToolboxModal', () => {
+  beforeEach(() => {
+    clearToolboxBodySamples();
+  });
+
   it('shows a live match with captured params and applies the matcher', () => {
     const { onApply, onClose } = renderModal();
     expect(screen.getByTestId('api-mock-toolbox-result').textContent).toContain('Matches');
@@ -113,6 +129,38 @@ describe('ApiMockPatternToolboxModal', () => {
     expect(screen.getByText('Path param id')).toBeTruthy();
     expect(screen.getByTestId('api-mock-toolbox-regex')).toBeTruthy();
     expect(screen.getByTestId('api-mock-toolbox-apply').textContent).toBe('Apply pattern');
+    expect(screen.getByTestId('api-mock-toolbox-applied-source').textContent).toBe('path');
+    expect(screen.getByTestId('api-mock-toolbox-lib-Numeric ID').className).toContain('active');
+  });
+
+  it('names the open Match row in Applied condition and drops Numeric ID when the pattern is custom', () => {
+    renderModal(
+      { kind: 'exact', value: '/reports' },
+      {
+        contextLabel: 'GET /reports · Cookie “sid”',
+        predicateSource: 'cookie',
+        predicateSelector: 'sid',
+        predicateOperator: 'regex',
+        predicateExpected: '',
+      },
+    );
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-regex'));
+    expect(screen.getByTestId('api-mock-toolbox-applied-source').textContent).toBe('cookie');
+    expect(screen.getByTestId('api-mock-toolbox-applied-selector').textContent).toBe('sid');
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-regex'), { target: { value: '^S-[0-9]{4}$' } });
+    expect(screen.getByTestId('api-mock-toolbox-applied-expected').textContent).toBe('^S-[0-9]{4}$');
+    expect(screen.getByTestId('api-mock-toolbox-lib-Numeric ID').className).not.toContain('active');
+    expect(screen.getByTestId('api-mock-toolbox-sample-value-s1')).toHaveValue('S-2048');
+    expect(screen.getByTestId('api-mock-toolbox-sample-row-s1').className).toContain('pass');
+    expect(screen.getByTestId('api-mock-toolbox-sample-value-s2')).toHaveValue('s-2048');
+    expect(screen.getByTestId('api-mock-toolbox-sample-actual-s2').textContent).toBe('Does not match');
+    expect(screen.getByTestId('api-mock-toolbox-sample-check-s2').textContent).toMatch(/Not as expected/);
+    expect(screen.getByTestId('api-mock-toolbox-flag-cs').className).toContain('active');
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-flag-ci'));
+    expect(screen.getByTestId('api-mock-toolbox-flag-ci').className).toContain('active');
+    expect(screen.getByTestId('api-mock-toolbox-flag-cs').className).not.toContain('active');
+    expect(screen.getByTestId('api-mock-toolbox-sample-actual-s2').textContent).toBe('Matches');
+    expect(screen.getByTestId('api-mock-toolbox-sample-check-s2').textContent).toMatch(/As expected/);
   });
 
   it('covers regex library search, apply, flags, samples, and invalid pattern', () => {
@@ -134,16 +182,16 @@ describe('ApiMockPatternToolboxModal', () => {
     fireEvent.click(screen.getByLabelText('Case sensitive'));
 
     fireEvent.change(screen.getByTestId('api-mock-toolbox-regex'), { target: { value: '[' } });
-    expect(screen.getByText('Invalid')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-toolbox-safety').textContent).toBe('Invalid');
 
     fireEvent.click(screen.getByRole('button', { name: '+ Sample' }));
     const sampleInputs = screen.getAllByLabelText('Sample value');
     const newSample = sampleInputs[sampleInputs.length - 1] as HTMLInputElement;
     fireEvent.change(newSample, { target: { value: '550e8400-e29b-41d4-a716-446655440000' } });
 
-    const toggles = screen.getAllByTitle('Toggle should match / should fail');
+    const toggles = screen.getAllByTitle('Toggle whether you expect this value to match');
     fireEvent.click(toggles[0]);
-    expect(toggles[0].textContent).toBe('Should fail');
+    expect(toggles[0].textContent).toBe('Expect no match');
 
     const deleteButtonsBefore = screen.getAllByLabelText('Delete sample').length;
     fireEvent.click(screen.getAllByLabelText('Delete sample')[0]);
@@ -318,11 +366,23 @@ describe('ApiMockPatternToolboxModal', () => {
     const { onApplyConditions, onClose } = renderModal();
     fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-schema'));
     fireEvent.click(screen.getByTestId('api-mock-toolbox-schema-kind-xml'));
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-schema-preset-XML names'));
     fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
     expect(onApplyConditions).toHaveBeenCalledWith([
-      expect.objectContaining({ operator: 'xmlSchema' }),
+      expect.objectContaining({ operator: 'xmlSchema', expected: 'Order, Id' }),
     ]);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('blocks Apply when the schema draft is invalid', () => {
+    const { onApplyConditions, onClose } = renderModal();
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-tab-schema'));
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-schema-editor'), { target: { value: '{' } });
+    expect(screen.getByTestId('api-mock-toolbox-schema-error').textContent).toMatch(/Not valid JSON/);
+    expect(screen.getByTestId('api-mock-toolbox-apply')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyConditions).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('opens schema tab as XML when the expected value is not JSON', () => {
@@ -373,6 +433,34 @@ describe('ApiMockPatternToolboxModal', () => {
       operator: 'xpath_equals',
       expected: ['/*', 'open'],
     }));
+  });
+
+  it('keeps the XPath sample XML when the toolbox is closed and opened again', () => {
+    const soap = '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><orderId>A-1098</orderId></soap:Envelope>';
+    const props = {
+      initial: { kind: 'exact' as const, value: '/soap/orders' },
+      initialTab: 'xpath' as const,
+      onApply: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const first = render(<ApiMockPatternToolboxModal {...props} />);
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-xpath-sample'), { target: { value: soap } });
+    expect((screen.getByTestId('api-mock-toolbox-xpath-sample') as HTMLTextAreaElement).value).toBe(soap);
+    first.unmount();
+
+    render(<ApiMockPatternToolboxModal {...props} />);
+    expect((screen.getByTestId('api-mock-toolbox-xpath-sample') as HTMLTextAreaElement).value).toBe(soap);
+
+    cleanup();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/upload' }}
+        initialTab="xpath"
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-toolbox-xpath-sample') as HTMLTextAreaElement).value).toContain('<Order>');
   });
 
   it('applies jsonPath via onApplyPredicate', () => {
@@ -571,5 +659,48 @@ describe('ApiMockPatternToolboxModal', () => {
       />,
     );
     expect((screen.getByTestId('api-mock-toolbox-schema-editor') as HTMLTextAreaElement).value).toContain('"type": "object"');
+  });
+
+  it('locks to the JSONPath picker when only that tab is allowed', () => {
+    const onApplyPredicate = vi.fn();
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/cart' }}
+        initialTab="path"
+        allowedTabs={['jsonpath']}
+        title="Pick JSONPath from sample"
+        onApply={vi.fn()}
+        onApplyPredicate={onApplyPredicate}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Pick JSONPath from sample')).toBeInTheDocument();
+    expect(screen.queryByTestId('api-mock-toolbox-tab-regex')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('api-mock-toolbox-tab-jsonpath')).not.toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-toolbox-jsonpath')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-toolbox-apply')).toHaveTextContent('Apply JSONPath');
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-jsonpath'), { target: { value: '$.sku' } });
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-json-expected'), { target: { value: 'MISSING' } });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onApplyPredicate).toHaveBeenCalledWith({
+      source: 'body',
+      selector: '',
+      operator: 'jsonPath_equals',
+      expected: ['$.sku', 'MISSING'],
+    });
+  });
+
+  it('seeds the JSONPath sample body when jsonSampleSeed is set', () => {
+    render(
+      <ApiMockPatternToolboxModal
+        initial={{ kind: 'exact', value: '/cart' }}
+        initialTab="jsonpath"
+        allowedTabs={['jsonpath']}
+        jsonSampleSeed={'{\n  "sku": "MISSING"\n}'}
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect((screen.getByTestId('api-mock-toolbox-json-sample') as HTMLTextAreaElement).value).toContain('"sku": "MISSING"');
   });
 });

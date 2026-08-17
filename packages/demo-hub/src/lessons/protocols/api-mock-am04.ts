@@ -90,7 +90,7 @@ export const apiMockAm04Lesson: DemoLesson = {
     + 'tested in the toolbox and proven in Simulate.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 3,
   concept: {
     title: 'The path is the first thing every request is judged on',
     body:
@@ -240,7 +240,8 @@ export const apiMockAm04Lesson: DemoLesson = {
         + 'When a segment has a *shape*, the matcher should say so — and the **Regex builder** tab ships a '
         + `pattern library so you are not hand-rolling one. Searching for **${AM04_LIBRARY_ENTRY.toLowerCase()}** `
         + `surfaces **${AM04_LIBRARY_ENTRY}**, and picking it loads the expression together with live `
-        + 'samples: two that should match, two that should not, each with a pass/fail verdict. The '
+        + 'samples: two you expect to match, two you do not. **Matches** / **Does not match** is '
+        + 'what the pattern did; the check is whether that agreed with your expectation. The '
         + '**Safety** badge confirms the expression compiles.\n\n'
         + 'The library gives you a *fragment* — an id shape, not a path. A path matcher has to describe '
         + `the whole path, anchored, so the expression becomes \`${AM04_REGEX_PATH}\` and the samples are `

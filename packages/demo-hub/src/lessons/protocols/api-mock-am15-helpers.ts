@@ -21,6 +21,7 @@ import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
   fillBeat,
+  prettyFormatImportPaste,
   revealBeat,
   spotlightBeat,
   spotlightElementBeat,
@@ -84,13 +85,12 @@ export const AM15_WIREMOCK = JSON.stringify({
     request: {
       method: 'GET',
       url: '/orders/99',
-      headers: { 'X-Tenant': { matches: 'acme.*' } },
-      queryParameters: { page: { contains: '1' } },
+      headers: { 'X-Tenant': { equalTo: 'acme' } },
+      queryParameters: { page: { equalTo: '1' } },
     },
     response: {
       status: 200,
       jsonBody: { ok: true },
-      delayDistribution: { type: 'lognormal', median: 80, sigma: 0.4 },
       fixedDelayMilliseconds: 40,
     },
   }],
@@ -575,11 +575,22 @@ export async function runAm15Drafts(ctx: DemoActionContext): Promise<void> {
 export async function runAm15OpenApi(ctx: DemoActionContext): Promise<void> {
   await selectAm15Source(ctx, 'openapi', true);
   await am15Fill(ctx, API_MOCK.IMPORT_PASTE, AM15_OPENAPI, T.payoff);
+  await prettyFormatImportPaste(ctx, { look: T.look, hold: T.payoff });
   await am15Click(ctx, API_MOCK.IMPORT_PARSE, T.payoff);
   await am15Reveal(ctx, API_MOCK.IMPORT_ROUTE_LIST, T.payoff);
   await am15Look(ctx, API_MOCK.IMPORT_ROUTE_LIST);
+  if (firstVisibleElement(API_MOCK.IMPORT_LOSS)) {
+    await am15Look(ctx, API_MOCK.IMPORT_LOSS);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_FOLDER)) {
+    await am15Look(ctx, API_MOCK.IMPORT_FOLDER);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_PREVIEW)) {
+    await am15Look(ctx, API_MOCK.IMPORT_PREVIEW);
+  }
+  await am15Payoff(ctx, API_MOCK.IMPORT_REVIEW);
   await am15Break(ctx);
-  await am15Click(ctx, API_MOCK.IMPORT_CONFIRM, T.payoff);
+  await clickBeat(ctx, API_MOCK.IMPORT_CONFIRM, { look: 2400, hold: T.payoff });
   await ctx.waitFor(API_MOCK.DRAFT_ROUTE, 10_000);
   const drafts = am15DraftRows().slice(-3);
   for (const row of drafts) {
@@ -591,17 +602,20 @@ export async function runAm15OpenApi(ctx: DemoActionContext): Promise<void> {
 export async function runAm15WireMock(ctx: DemoActionContext): Promise<void> {
   await selectAm15Source(ctx, 'wiremock', true);
   await am15Fill(ctx, API_MOCK.IMPORT_PASTE, AM15_WIREMOCK, T.payoff);
+  await prettyFormatImportPaste(ctx, { look: T.look, hold: T.payoff });
   await am15Click(ctx, API_MOCK.IMPORT_PARSE, T.payoff);
   await am15Reveal(ctx, API_MOCK.IMPORT_PREVIEW, T.payoff);
   await am15Look(ctx, API_MOCK.IMPORT_PREVIEW);
-  await am15Break(ctx);
-  await am15Reveal(ctx, API_MOCK.IMPORT_LOSS, T.payoff);
-  await am15Payoff(ctx, API_MOCK.IMPORT_LOSS);
+  if (firstVisibleElement(API_MOCK.IMPORT_PREVIEW_PATH)) {
+    await am15Look(ctx, API_MOCK.IMPORT_PREVIEW_PATH);
+  }
+  await am15Payoff(ctx, API_MOCK.IMPORT_PREVIEW);
 }
 
 export async function runAm15Har(ctx: DemoActionContext): Promise<void> {
   await selectAm15Source(ctx, 'har', true);
   await am15Fill(ctx, API_MOCK.IMPORT_PASTE, AM15_HAR, T.payoff);
+  await prettyFormatImportPaste(ctx, { look: T.look, hold: T.payoff });
   await am15Click(ctx, API_MOCK.IMPORT_PARSE, T.payoff);
   await am15Reveal(ctx, API_MOCK.IMPORT_ROUTE_LIST, T.payoff);
   await am15Look(ctx, API_MOCK.IMPORT_ROUTE_LIST);

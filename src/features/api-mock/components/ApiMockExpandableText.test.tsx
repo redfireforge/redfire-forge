@@ -24,14 +24,24 @@ describe('ApiMockExpandableText', () => {
     expect(screen.queryByLabelText('Expand modal')).toBeNull();
     expect(screen.queryByTestId('api-mock-simulate-body-expand')).toBeNull();
     expect(screen.getByTestId('api-mock-text-expand-close').parentElement).toHaveClass('am-text-expand-footer');
-    expect(screen.getByTestId('api-mock-text-expand-close').parentElement).toHaveStyle({ justifyContent: 'flex-end' });
+    expect(screen.getByTestId('api-mock-text-expand-json-badge')).toHaveTextContent('JSON');
+    expect(screen.getByTestId('api-mock-text-expand-stats')).toHaveTextContent('1 line');
 
     fireEvent.click(screen.getByTestId('api-mock-text-expand-pretty'));
     expect(screen.getByTestId('api-mock-text-expand-editor')).toHaveValue('{\n  "name": "Alice"\n}');
+    expect(screen.getByTestId('api-mock-text-expand-pretty')).toBeDisabled();
+    expect(screen.getByTestId('api-mock-text-expand-stats')).toHaveTextContent('3 lines');
+
+    fireEvent.click(screen.getByTestId('api-mock-text-expand-minify'));
+    expect(screen.getByTestId('api-mock-text-expand-editor')).toHaveValue('{"name":"Alice"}');
+    expect(screen.getByTestId('api-mock-text-expand-minify')).toBeDisabled();
 
     fireEvent.click(screen.getByTestId('api-mock-text-expand-undo'));
-    expect(screen.getByTestId('api-mock-text-expand-editor')).toHaveValue('{"name":"Alice"}');
+    expect(screen.getByTestId('api-mock-text-expand-editor')).toHaveValue('{\n  "name": "Alice"\n}');
     fireEvent.click(screen.getByTestId('api-mock-text-expand-redo'));
+    expect(screen.getByTestId('api-mock-text-expand-editor')).toHaveValue('{"name":"Alice"}');
+
+    fireEvent.click(screen.getByTestId('api-mock-text-expand-pretty'));
     expect(screen.getByTestId('api-mock-text-expand-editor')).toHaveValue('{\n  "name": "Alice"\n}');
 
     fireEvent.click(screen.getByTestId('api-mock-text-expand-apply'));
@@ -59,6 +69,9 @@ describe('ApiMockExpandableText', () => {
     fireEvent.click(screen.getByTestId('api-mock-condition-schema-p1-expand'));
     fireEvent.change(screen.getByTestId('api-mock-text-expand-search'), { target: { value: 'alpha' } });
     expect(screen.getByTestId('api-mock-text-expand-count')).toHaveTextContent('1/2');
+    const editor = screen.getByTestId('api-mock-text-expand-editor') as HTMLTextAreaElement;
+    expect(editor.selectionStart).toBe(0);
+    expect(editor.selectionEnd).toBe('alpha'.length);
     fireEvent.click(screen.getByTestId('api-mock-text-expand-next'));
     expect(screen.getByTestId('api-mock-text-expand-count')).toHaveTextContent('2/2');
     fireEvent.keyDown(screen.getByTestId('api-mock-text-expand-search'), { key: 'Enter' });
@@ -82,6 +95,7 @@ describe('ApiMockExpandableText', () => {
     expect(screen.getByTestId('api-mock-text-expand-editor')).toHaveProperty('readOnly', true);
     expect(screen.queryByTestId('api-mock-text-expand-apply')).toBeNull();
     expect(screen.queryByTestId('api-mock-text-expand-pretty')).toBeNull();
+    expect(screen.queryByTestId('api-mock-text-expand-minify')).toBeNull();
     fireEvent.click(screen.getByTestId('api-mock-text-expand-close'));
     expect(screen.queryByTestId('api-mock-text-expand-modal')).toBeNull();
   });
@@ -113,6 +127,8 @@ describe('ApiMockExpandableText', () => {
 
     fireEvent.click(screen.getByTestId('api-mock-condition-value-p2-expand'));
     expect(screen.getByTestId('api-mock-text-expand-pretty')).toBeDisabled();
+    expect(screen.getByTestId('api-mock-text-expand-minify')).toBeDisabled();
+    expect(screen.getByTestId('api-mock-text-expand-json-badge')).toHaveTextContent('Not JSON');
     fireEvent.click(screen.getByTestId('api-mock-text-expand-next'));
     fireEvent.keyDown(screen.getByTestId('api-mock-text-expand-search'), { key: 'Enter', shiftKey: true });
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', metaKey: true, bubbles: true, cancelable: true }));
@@ -139,5 +155,21 @@ describe('ApiMockExpandableText', () => {
     fireEvent.click(screen.getByTestId('api-mock-text-expand-redo'));
 
     expect(editor).toHaveValue('same');
+  });
+
+  it('renders extra controls between the field and the expand button', () => {
+    render(
+      <ApiMockExpandableText
+        label="Condition value"
+        value="ada.lovelace"
+        testId="api-mock-condition-value-p4"
+        beforeExpand={<span data-testid="before-expand">Equals</span>}
+      />,
+    );
+    const field = screen.getByTestId('api-mock-condition-value-p4');
+    const extra = screen.getByTestId('before-expand');
+    const expand = screen.getByTestId('api-mock-condition-value-p4-expand');
+    expect(field.compareDocumentPosition(extra) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(extra.compareDocumentPosition(expand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

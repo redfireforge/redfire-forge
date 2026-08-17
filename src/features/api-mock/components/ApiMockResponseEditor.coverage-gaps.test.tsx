@@ -288,7 +288,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
       />,
     );
     openTab('selection');
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent(/Position 1/);
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent(/Next: Step 1 of 1/);
     expect(screen.getByText(/mode is active on the live listener/i)).toBeInTheDocument();
   });
 
@@ -345,7 +345,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
   it('covers outbound tab and blocks deleting the only variant', () => {
     render(<StatefulEditor initial={makeRoute()} />);
     openTab('outbound');
-    expect(screen.getByText(/^Transforms$/)).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-variant-outbound')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('api-mock-transform-add'));
     expect(document.querySelector('[data-testid^="api-mock-delete-variant-"]')).toBeNull();
   });
@@ -567,7 +567,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
       />,
     );
     openTab('selection');
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent(/Position 0/);
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent(/Next: Step 1/);
   });
 
   it('covers counter row edits and state required-state target fallback', () => {
@@ -664,7 +664,7 @@ describe('ApiMockResponseEditor coverage gaps', () => {
     );
     openTab('selection');
     fireEvent.change(screen.getByTestId('api-mock-variant-required-state'), { target: { value: 'Boot' } });
-    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].transition?.targetState).toBe('Boot');
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].transition?.currentState).toBe('Boot');
   });
 
   it('covers extracted panel edge branches directly', () => {

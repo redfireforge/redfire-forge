@@ -19,7 +19,9 @@ vi.mock('../../adapters', () => ({
 
 import {
   AM16_CLI,
+  AM16_CONFIRM_MS,
   AM16_CORPUS_SAMPLE,
+  AM16_REVEAL_MS,
   AM16_SECRET_REDACTED,
   AM16_TIMING,
   AM16_TLS_REDACTED,
@@ -29,7 +31,9 @@ import {
   cleanupAm16,
   closeAm16Export,
   closeAm16Import,
+  dismissAm16Overlays,
   ensureAm16ForCi,
+  ensureAm16ForExportMenu,
   ensureAm16ForHar,
   ensureAm16ForNarrower,
   ensureAm16ForRedaction,
@@ -107,9 +111,11 @@ function mountExportChrome(opts: { menu?: boolean; confirm?: boolean; redaction?
     const close = el('button', undefined, 'api-mock-export-close');
     const filename = el('span', undefined, 'api-mock-export-filename');
     filename.textContent = 'api-mock-workspace.json';
+    const save = el('button', undefined, 'api-mock-export-save');
+    save.textContent = 'Save to disk';
     const preview = el('textarea', undefined, 'api-mock-export-preview') as HTMLTextAreaElement;
     preview.value = '{"ok":true}';
-    confirm.append(close, filename, preview);
+    confirm.append(close, filename, save, preview);
     if (opts.redaction) {
       confirm.append(el('div', undefined, 'api-mock-export-redaction'));
       const tls = el('code', undefined, 'api-mock-export-tls-key');
@@ -145,10 +151,17 @@ function mountImport(opts: { source?: string; lastExport?: boolean; copy?: boole
   review.append(close, sources, copy);
   if (opts.lastExport) review.append(el('button', undefined, 'api-mock-import-last-export'));
   review.append(el('textarea', undefined, 'api-mock-import-paste'));
+  review.append(el('button', undefined, 'api-mock-import-pretty'));
   review.append(el('button', undefined, 'api-mock-import-parse'));
   if (opts.preview) review.append(el('div', undefined, 'api-mock-import-preview-block'));
   review.append(el('button', undefined, 'api-mock-import-confirm'));
   document.body.append(review, el('button', undefined, 'api-mock-import-menu'));
+}
+
+function spyNativeClick(testid: string): ReturnType<typeof vi.fn> {
+  const fn = vi.fn();
+  document.querySelector(`[data-testid="${testid}"]`)?.addEventListener('click', fn);
+  return fn;
 }
 
 function mountCopies(count: number): void {
@@ -173,10 +186,16 @@ describe('AM-16 export helpers', () => {
   it('pins timing and redaction placeholders', () => {
     expect(AM16_TIMING.payoff).toBe(1600);
     expect(AM16_TIMING.beforeOpen).toBe(1400);
+    expect(AM16_TIMING.importLook).toBe(1200);
+    expect(AM16_TIMING.importHold).toBe(1700);
+    expect(AM16_TIMING.importRead).toBe(1900);
+    expect(AM16_TIMING.importBreak).toBe(1100);
+    expect(AM16_REVEAL_MS).toBe(8_000);
+    expect(AM16_CONFIRM_MS).toBe(3_000);
     expect(AM16_CORPUS_SAMPLE).toBe('am-gallery-store');
     expect(AM16_TLS_REDACTED).toBe('***REDACTED***');
     expect(AM16_SECRET_REDACTED).toBe('[REDACTED]');
-    expect(AM16_CLI).toContain('cli mock simulate');
+    expect(AM16_CLI).toContain('redfireforge mock simulate');
   });
 
   it('probes are false on an empty document', () => {
@@ -278,46 +297,90 @@ describe('AM-16 export helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_CLOSE);
   });
 
+  it('dismissAm16Overlays clicks Export Close when the confirm is leftover', () => {
+    mountExportChrome({ confirm: true });
+    const close = document.querySelector(API_MOCK.EXPORT_CLOSE) as HTMLButtonElement;
+    const spy = vi.spyOn(close, 'click');
+    dismissAm16Overlays();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('prepare and cleanup dismiss leftover Export confirm', async () => {
+    mountExportChrome({ confirm: true });
+    const close = document.querySelector(API_MOCK.EXPORT_CLOSE) as HTMLButtonElement;
+    const spy = vi.spyOn(close, 'click');
+    await prepareAm16Workspace();
+    expect(spy).toHaveBeenCalled();
+    await cleanupAm16();
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('ensureAm16ForExportMenu closes a leftover confirm', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    mountExportChrome({ confirm: true });
+    await ensureAm16ForExportMenu(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_CLOSE);
+  });
+
   it('runAm16ExportMenu opens the menu, holds groups, then workspace JSON', async () => {
     const ctx = makeCtx();
     mountStudio();
     mountExportChrome({ menu: true, confirm: true });
+    const workspace = spyNativeClick('api-mock-export-workspace');
     await runAm16ExportMenu(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_WORKSPACE);
+    expect(workspace).toHaveBeenCalled();
   });
 
   it('runAm16NarrowerScopes exports YAML, server, and routes', async () => {
     const ctx = makeCtx();
     mountStudio();
     mountExportChrome({ menu: true, confirm: true });
+    const yaml = spyNativeClick('api-mock-export-workspace-yaml');
+    const servers = spyNativeClick('api-mock-export-servers');
+    const routes = spyNativeClick('api-mock-export-routes');
     await runAm16NarrowerScopes(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_WORKSPACE_YAML);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_SERVERS);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_ROUTES);
+    expect(yaml).toHaveBeenCalled();
+    expect(servers).toHaveBeenCalled();
+    expect(routes).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalledWith(API_MOCK.EXPORT_CONFIRM, AM16_CONFIRM_MS);
+  });
+
+  it('runAm16NarrowerScopes skips filename/preview holds when confirm chrome is missing', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    mountExportChrome({ menu: true });
+    const yaml = spyNativeClick('api-mock-export-workspace-yaml');
+    await runAm16NarrowerScopes(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(API_MOCK.EXPORT_CONFIRM, AM16_CONFIRM_MS);
+    expect(yaml).toHaveBeenCalled();
   });
 
   it('runAm16Redaction holds the callout and the stripped TLS key', async () => {
     const ctx = makeCtx();
     mountStudio();
     mountExportChrome({ menu: true, confirm: true, redaction: true });
+    const workspace = spyNativeClick('api-mock-export-workspace');
     await runAm16Redaction(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_WORKSPACE);
+    expect(workspace).toHaveBeenCalled();
   });
 
   it('runAm16WireMock holds the loss report', async () => {
     const ctx = makeCtx();
     mountStudio();
     mountExportChrome({ menu: true, confirm: true, loss: true });
+    const wiremock = spyNativeClick('api-mock-export-wiremock');
     await runAm16WireMock(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_WIREMOCK);
+    expect(wiremock).toHaveBeenCalled();
   });
 
   it('runAm16Har holds the entry count', async () => {
     const ctx = makeCtx();
     mountStudio();
     mountExportChrome({ menu: true, confirm: true, har: true });
+    const har = spyNativeClick('api-mock-export-har');
     await runAm16Har(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_HAR);
+    expect(har).toHaveBeenCalled();
   });
 
   it('runAm16RoundTrip uses last export as copy and confirms', async () => {
@@ -329,6 +392,7 @@ describe('AM-16 export helpers', () => {
     await runAm16RoundTrip(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_MODE_COPY);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_LAST_EXPORT);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PRETTY);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PARSE);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_CONFIRM);
   });
@@ -358,13 +422,17 @@ describe('AM-16 export helpers', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.IMPORT_MENU);
   });
 
-  it('ensureAm16ForRoundTrip quietly exports workspace JSON when last export is missing', async () => {
+  it('ensureAm16ForRoundTrip closes leftover export confirm without re-opening Export', async () => {
     const ctx = makeCtx();
     mountStudio();
-    mountExportChrome({ menu: true });
+    mountExportChrome({ menu: true, confirm: true, har: true });
     document.body.append(el('button', undefined, 'api-mock-import-menu'));
+    const workspace = spyNativeClick('api-mock-export-workspace');
+    const exportBtn = spyNativeClick('api-mock-export');
     await ensureAm16ForRoundTrip(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_WORKSPACE);
+    expect(workspace).not.toHaveBeenCalled();
+    expect(exportBtn).not.toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_CLOSE);
   });
 
   it('ensureAm16ForCi quietly round-trips when copies are missing', async () => {
@@ -423,10 +491,12 @@ describe('AM-16 export helpers', () => {
     const ctx = makeCtx();
     mountStudio();
     mountExportChrome({ menu: true, confirm: true });
+    const workspace = spyNativeClick('api-mock-export-workspace');
+    const wiremock = spyNativeClick('api-mock-export-wiremock');
     await runAm16Redaction(ctx);
     await runAm16WireMock(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_WORKSPACE);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_WIREMOCK);
+    expect(workspace).toHaveBeenCalled();
+    expect(wiremock).toHaveBeenCalled();
   });
 
   it('ensureAm16ForCi skips when copies already exist', async () => {
@@ -462,6 +532,16 @@ describe('AM-16 export helpers', () => {
     mountStudio();
     await runAm16RoundTrip(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.IMPORT_MENU);
+  });
+
+  it('retries opening Export when a narrower-scope menu item is missing', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    document.body.append(el('button', undefined, 'api-mock-export'));
+    await runAm16NarrowerScopes(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT);
+    expect(ctx.waitFor).toHaveBeenCalledWith(API_MOCK.EXPORT_MENU, 3_000);
+    expect(ctx.waitFor).not.toHaveBeenCalledWith(API_MOCK.EXPORT_CONFIRM, AM16_CONFIRM_MS);
   });
 
   it('runAm16ExportMenu skips the workspace click when the menu item is missing', async () => {

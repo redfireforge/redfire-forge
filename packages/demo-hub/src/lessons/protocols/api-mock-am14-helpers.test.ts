@@ -29,6 +29,7 @@ import {
   AM14_JITTER,
   AM14_MAX_MATCHES,
   AM14_MAX_MATCHES_BEHAVIOR,
+  AM14_TIMEOUT_BEHAVIOR,
   AM14_TIMEOUT_HOLD_MS,
   AM14_PATH,
   AM14_PROBABILITY,
@@ -200,7 +201,7 @@ function mountEditor(opts: {
   document.body.append(editor);
 }
 
-function mountSimulate(extra: { delay?: boolean; timeline?: boolean } = {}): void {
+function mountSimulate(extra: { delay?: boolean; timeline?: boolean; dribble?: boolean } = {}): void {
   const workspace = el('div', undefined, 'api-mock-simulate-workspace');
   const method = el('div', undefined, 'api-mock-simulate-method');
   method.setAttribute('data-value', 'POST');
@@ -222,7 +223,20 @@ function mountSimulate(extra: { delay?: boolean; timeline?: boolean } = {}): voi
     badge.textContent = 'Virtual delay 800 ms';
     rendered.append(badge);
   }
-  if (extra.timeline) {
+  if (extra.dribble) {
+    rendered.append(el('div', undefined, 'api-mock-sim-dribble-notice'));
+    const wireSection = el('div', undefined, 'api-mock-sim-wire-section');
+    const wire = el('pre', undefined, 'api-mock-sim-wire-body');
+    wire.textContent = '{"ok":tr';
+    wireSection.append(wire);
+    rendered.append(wireSection);
+    const intendedSection = el('div', undefined, 'api-mock-sim-intended-section');
+    const intended = el('pre', undefined, 'api-mock-sim-rendered-body');
+    intended.textContent = '{"ok":true,"id":"pay-1001"}';
+    intendedSection.append(intended);
+    rendered.append(intendedSection);
+  }
+  if (extra.timeline || extra.dribble) {
     rendered.append(el('div', undefined, 'api-mock-sim-fault-timeline'));
     workspace.append(el('div', undefined, 'api-mock-sim-timeline-6'));
   }
@@ -284,7 +298,7 @@ function withClickSideEffects(ctx: DemoActionContext): void {
       mountEditor({ faults: true });
     }
     if (selector === API_MOCK.SIMULATE && !document.querySelector('[data-testid="api-mock-simulate-workspace"]')) {
-      mountSimulate({ delay: true, timeline: true });
+      mountSimulate({ delay: true, timeline: true, dribble: true });
     }
     if (selector === API_MOCK.SIMULATE_CLOSE) {
       document.querySelector('[data-testid="api-mock-simulate-workspace"]')?.remove();
@@ -337,7 +351,7 @@ describe('AM-14 timing-faults helpers', () => {
   it('exposes slower timing holds than the shared demo defaults', () => {
     expect(AM14_TIMING.beforeOpen).toBe(1400);
     expect(AM14_TIMING.payoff).toBe(1600);
-    expect(AM14_TIMING.beforeRun).toBe(2000);
+    expect(AM14_TIMING.beforeRun).toBe(2400);
   });
 
   it('prepareAm14Workspace wipes, imports the payment sample, and does not seed a sibling', async () => {
@@ -594,7 +608,10 @@ describe('AM-14 timing-faults helpers', () => {
     mountSimulate();
     await ensureAm14ForFaults(ctx);
     await ensureAm14ForTimeout(ctx);
-    expect(patchApiMockActiveRoute).toHaveBeenCalledWith({ variantIndex: 0, behavior: { ...AM14_CLEAR_ELIGIBILITY } });
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith({
+      variantIndex: 0,
+      behavior: { delayMs: 0, jitterMs: 0, ...AM14_CLEAR_ELIGIBILITY },
+    });
     await ensureAm14ForReset(ctx);
     await ensureAm14ForDribble(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.STATE_RESET);
@@ -727,7 +744,7 @@ describe('AM-14 timing-faults helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.FAULT_TIMEOUT);
     expect(patchApiMockActiveRoute).toHaveBeenCalledWith({
       variantIndex: 0,
-      behavior: { fault: 'timeout', longRunningMs: AM14_TIMEOUT_HOLD_MS, ...AM14_CLEAR_ELIGIBILITY },
+      behavior: AM14_TIMEOUT_BEHAVIOR,
     });
     expect(sendApiMockRequest).toHaveBeenCalledWith(expect.objectContaining({
       timeoutMs: AM14_FETCH_TIMEOUT_MS,
@@ -773,6 +790,10 @@ describe('AM-14 timing-faults helpers', () => {
     await runAm14ResetCloseMalformed(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.FAULT_RESET);
     expect(sendApiMockRequest).toHaveBeenCalled();
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith({
+      variantIndex: 0,
+      behavior: { fault: 'reset', delayMs: 0, jitterMs: 0, ...AM14_CLEAR_ELIGIBILITY },
+    });
   });
 
   it('runAm14DribbleAndTimeline adds chunks then holds the fault timeline', async () => {
@@ -785,6 +806,9 @@ describe('AM-14 timing-faults helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.FAULT_DRIBBLE);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.CHUNK_ADD);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_TAB_RENDERED);
+    expect(document.querySelector(API_MOCK.SIMULATE_WIRE_SECTION)).toBeTruthy();
+    expect(document.querySelector(API_MOCK.SIMULATE_INTENDED_SECTION)).toBeTruthy();
   });
 
   it('ensureAm14ForReset patches timeout when it is not selected', async () => {
@@ -1095,6 +1119,8 @@ describe('AM-14 timing-faults helpers', () => {
       document.querySelector('[data-testid="api-mock-sim-timeline-6"]')?.remove();
       document.querySelector('[data-testid="api-mock-sim-fault-timeline"]')?.remove();
       document.querySelector('[data-testid="api-mock-sim-tab-trace"]')?.remove();
+      document.querySelector('[data-testid="api-mock-sim-wire-body"]')?.remove();
+      document.querySelector('[data-testid="api-mock-sim-rendered-body"]')?.remove();
       document.querySelector('[data-testid="api-mock-chunk-add"]')?.remove();
     });
     mountExplorer();

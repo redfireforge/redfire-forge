@@ -22,10 +22,13 @@ vi.mock('../../adapters', () => ({
 
 import {
   AM07_TIMING,
+  AM07_XML_TIMING,
+  AM07_BINARY_ALTERED_SAMPLE,
   AM07_BINARY_BODY,
   AM07_BINARY_BODY_ALTERED,
   AM07_BINARY_CONTENT_TYPE,
   AM07_BINARY_RULE,
+  AM07_BINARY_SAMPLE,
   AM07_BINARY_SHA256,
   AM07_CORPUS_SAMPLE,
   AM07_FORM_BODY,
@@ -47,8 +50,10 @@ import {
   AM07_UPLOAD_RULE,
   AM07_XML_BODY,
   AM07_XML_BODY_INVALID,
+  AM07_XML_BODY_TOKEN,
   AM07_XML_CONTENT_TYPE,
   AM07_XML_ELEMENTS,
+  AM07_XML_INVALID_SAMPLE,
   AM07_XML_RULE,
   AM07_XPATH,
   AM07_XPATH_PRESET,
@@ -69,10 +74,12 @@ import {
   am07ToolboxSchemaText,
   am07ToolboxXPath,
   am07ToolboxXPathResolved,
+  am07FailedTraceRow,
   am07TraceRowByText,
   am07TraceRows,
   cleanupAm07,
   closeAm07Simulate,
+  closeAm07TextExpand,
   closeAm07Toolbox,
   ensureAm07Corpus,
   ensureAm07FormExact,
@@ -86,7 +93,10 @@ import {
   isAm07RuleOpen,
   isAm07SimulateOpen,
   isAm07StudioViewActive,
+  isAm07TextExpandOpen,
   isAm07ToolboxOpen,
+  reviewAm07MultipartBody,
+  reviewAm07SimulateBody,
   openAm07Rule,
   prepareAm07Workspace,
   runAm07Binary,
@@ -244,6 +254,8 @@ interface SimulateSpec {
   method?: string;
   hasResult?: boolean;
   predicateRows?: string[];
+  bodyExpand?: boolean;
+  saveSample?: boolean;
 }
 
 function mountSimulate(spec: SimulateSpec = {}): void {
@@ -252,6 +264,20 @@ function mountSimulate(spec: SimulateSpec = {}): void {
   workspace.append(input('api-mock-simulate-path'));
   workspace.append(textarea('api-mock-simulate-headers'));
   workspace.append(textarea('api-mock-simulate-body'));
+  workspace.append(el('button', 'am-icon-btn', 'api-mock-simulate-body-expand'));
+  if (spec.bodyExpand) {
+    const expand = el('div', 'am-text-expand-modal', 'api-mock-text-expand-modal');
+    expand.append(input('api-mock-text-expand-search'));
+    expand.append(el('span', 'am-text-expand-count', 'api-mock-text-expand-count'));
+    expand.append(el('button', 'am-icon-btn', 'api-mock-text-expand-next'));
+    expand.append(textarea('api-mock-text-expand-editor'));
+    expand.append(el('button', 'am-btn', 'api-mock-text-expand-close'));
+    workspace.append(expand);
+  }
+  if (spec.saveSample) {
+    workspace.append(el('button', 'am-btn', 'api-mock-simulate-save-sample'));
+    workspace.append(input('api-mock-simulate-sample-name'));
+  }
   workspace.append(el('button', 'am-btn primary', 'api-mock-simulate-run'));
   workspace.append(el('button', 'am-btn', 'api-mock-simulate-close'));
   if (spec.hasResult) {
@@ -269,7 +295,8 @@ function mountSimulate(spec: SimulateSpec = {}): void {
   result.append(el('pre', 'am-code', 'api-mock-sim-rendered-body'));
   const candidate = el('div', 'am-candidate winner', 'api-mock-sim-candidate-r-form');
   for (const text of spec.predicateRows ?? []) {
-    const row = el('div', 'am-predicate');
+    const failed = /\bfailed\b/i.test(text);
+    const row = el('div', failed ? 'am-predicate am-predicate--fail' : 'am-predicate');
     row.textContent = text;
     candidate.append(row);
   }
@@ -495,6 +522,7 @@ describe('AM-07 helpers', () => {
     expect(hasAm07RouteEditor()).toBe(false);
     expect(isAm07ToolboxOpen()).toBe(false);
     expect(isAm07SimulateOpen()).toBe(false);
+    expect(isAm07TextExpandOpen()).toBe(false);
     expect(am07SimOutcome()).toBe('');
     expect(am07SimMethod()).toBe('');
 
@@ -539,6 +567,7 @@ describe('AM-07 helpers', () => {
 
     expect(am07TraceRows()).toHaveLength(3);
     expect(am07TraceRowByText('xmlSchema')?.textContent).toContain('failed');
+    expect(am07FailedTraceRow('xmlSchema')?.className).toContain('am-predicate--fail');
     expect(am07TraceRowByText('binary_sha256')).toBeNull();
   });
 
@@ -569,6 +598,25 @@ describe('AM-07 helpers', () => {
     await closeAm07Toolbox(ctx);
     await closeAm07Simulate(ctx);
     expect(calls(ctx.click)).toEqual([API_MOCK.TOOLBOX_CANCEL, API_MOCK.SIMULATE_CLOSE]);
+  });
+
+  it('reviewAm07MultipartBody no-ops without the expand control', async () => {
+    const ctx = makeCtx();
+    await reviewAm07MultipartBody(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('reviewAm07SimulateBody no-ops without tokens or the expand control', async () => {
+    const ctx = makeCtx();
+    await reviewAm07SimulateBody(ctx, []);
+    await reviewAm07SimulateBody(ctx, [AM07_XML_BODY_TOKEN]);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('closeAm07TextExpand is quiet when the popup is already closed', async () => {
+    const ctx = makeCtx();
+    await closeAm07TextExpand(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   // ── guards ────────────────────────────────────────────────────────────────
@@ -736,6 +784,10 @@ describe('AM-07 helpers', () => {
     expect(AM07_TIMING.simOutcome).toBeGreaterThan(AM07_TIMING.payoff);
     expect(AM07_TIMING.beforeOpen).toBeGreaterThan(AM07_TIMING.look);
     expect(AM07_TIMING.beforeRun).toBeGreaterThan(AM07_TIMING.beforeOpen);
+    expect(AM07_XML_TIMING.beforeRun).toBeGreaterThan(1_400);
+    expect(AM07_XML_TIMING.outcome).toBeGreaterThan(1_200);
+    expect(AM07_XML_TIMING.bodyEditor).toBeGreaterThan(1_000);
+    expect(AM07_XML_TIMING.payoff).toBeGreaterThan(1_100);
   });
 
   it('step 1 opens the token rule and authors the form field pair', async () => {
@@ -824,9 +876,11 @@ describe('AM-07 helpers', () => {
     expect(fills(ctx.fill).map(f => f[1])).toEqual([
       AM07_FORM_RULE.path, AM07_FORM_CONTENT_TYPE, AM07_FORM_BODY,
       AM07_FORM_PATTERN,
-      AM07_FORM_RULE.path, AM07_FORM_CONTENT_TYPE, AM07_FORM_BODY_VARIANT,
+      AM07_FORM_BODY_VARIANT,
     ]);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeLessThan(42_000);
   });
 
   it('step 2 stops after the first proof when the form row is gone', async () => {
@@ -885,6 +939,7 @@ describe('AM-07 helpers', () => {
     mountExplorer();
     mountEditor(AM07_UPLOAD_RULE, [MP_FIELD_COND, MP_FILE_COND]);
     mountSimulate({
+      bodyExpand: true,
       predicateRows: ['✓ body multipart_field', '✓ body multipart_file'],
     });
 
@@ -894,13 +949,21 @@ describe('AM-07 helpers', () => {
       [API_MOCK.SIMULATE_PATH, AM07_UPLOAD_RULE.path],
       [API_MOCK.SIMULATE_HEADERS, AM07_MULTIPART_CONTENT_TYPE],
       [API_MOCK.SIMULATE_BODY, AM07_MULTIPART_BODY],
+      [API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FIELD],
+      [API_MOCK.TEXT_EXPAND_SEARCH, AM07_MULTIPART_FILENAME],
     ]);
     expect(calls(ctx.click)).toEqual([
+      API_MOCK.SIMULATE_BODY_EXPAND,
+      API_MOCK.TEXT_EXPAND_NEXT,
+      API_MOCK.TEXT_EXPAND_NEXT,
+      API_MOCK.TEXT_EXPAND_CLOSE,
       API_MOCK.SIMULATE_RUN,
       API_MOCK.SIMULATE_TAB_REQUEST,
       API_MOCK.SIMULATE_TAB_RENDERED,
       API_MOCK.SIMULATE_CLOSE,
     ]);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeLessThan(42_000);
   });
 
   it('step 4 opens Simulate and picks the verb when it came up on another one', async () => {
@@ -909,7 +972,7 @@ describe('AM-07 helpers', () => {
 
     const ctx = reactiveCtx();
     vi.mocked(ctx.waitFor).mockImplementation(async (selector: string) => {
-      if (selector === API_MOCK.SIMULATE_WORKSPACE) mountSimulate({ method: 'GET' });
+      if (selector === API_MOCK.SIMULATE_WORKSPACE) mountSimulate({ method: 'GET', bodyExpand: true });
     });
     expect(await runAm07ProveMultipart(ctx)).toBe('MATCHED');
 
@@ -926,32 +989,48 @@ describe('AM-07 helpers', () => {
     const ctx = reactiveCtx();
     vi.mocked(ctx.waitFor).mockImplementation(async (selector: string) => {
       if (selector === API_MOCK.PATTERN_TOOLBOX) mountToolbox();
+      if (selector === API_MOCK.SIMULATE_WORKSPACE) {
+        mountSimulate({ hasResult: true, saveSample: true, predicateRows: ['✓ body xpath_equals'] });
+      }
     });
     await runAm07XPath(ctx);
 
-    expect(calls(ctx.click)).toEqual([
+    expect(calls(ctx.click)).toEqual(expect.arrayContaining([
       '[data-testid="api-mock-route-r-xml"]',
       API_MOCK.PATH_TOOLBOX,
       API_MOCK.TOOLBOX_TAB_XPATH,
       API_MOCK.toolboxXPathPreset(AM07_XPATH_PRESET),
       API_MOCK.TOOLBOX_APPLY,
-    ]);
+      API_MOCK.SIMULATE,
+      API_MOCK.SIMULATE_RUN,
+      API_MOCK.SIMULATE_CLOSE,
+    ]));
     expect(fills(ctx.fill)).toEqual([
       [API_MOCK.TOOLBOX_XPATH_SAMPLE, AM07_XML_BODY],
       [API_MOCK.TOOLBOX_XPATH_EXPR, AM07_XPATH],
       [API_MOCK.TOOLBOX_XPATH_VALUE, AM07_ORDER_ID],
+      [API_MOCK.SIMULATE_PATH, AM07_XML_RULE.path],
+      [API_MOCK.SIMULATE_HEADERS, AM07_XML_CONTENT_TYPE],
+      [API_MOCK.SIMULATE_BODY, AM07_XML_BODY],
     ]);
+    expect(calls(ctx.click)).not.toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_RUN)).toHaveLength(1);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeGreaterThan(8_000);
+    expect(delayMs).toBeLessThan(24_000);
   });
 
   it('step 5 spotlights the applied row when the toolbox minted one', async () => {
     mountExplorer();
     mountEditor(AM07_XML_RULE, [XPATH_COND]);
     mountToolbox();
+    mountSimulate({ hasResult: true, saveSample: true, predicateRows: ['✓ body xpath_equals'] });
 
     const ctx = reactiveCtx();
     await runAm07XPath(ctx);
     expect(am07FindConditionByOperator('xpath_equals')).toBe('p-xpath');
     expect(calls(ctx.click)).toContain(API_MOCK.TOOLBOX_APPLY);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
   });
 
   it('step 5 bails when the SOAP rule is missing', async () => {
@@ -967,26 +1046,47 @@ describe('AM-07 helpers', () => {
     mountToolbox();
     mountSimulate({
       hasResult: true,
+      bodyExpand: true,
+      saveSample: true,
       predicateRows: ['✓ body xpath_equals', 'body xmlSchema failed — got "<…>"'],
     });
 
     const ctx = reactiveCtx();
     const outcomes = await runAm07XmlSchema(ctx);
 
-    expect(outcomes).toEqual(['MATCHED', 'MATCHED']);
+    expect(outcomes).toEqual(['MATCHED']);
     expect(calls(ctx.click)).toContain(API_MOCK.toolboxSchemaPreset(AM07_SCHEMA_PRESET));
+    expect(calls(ctx.click)).toContain(API_MOCK.TOOLBOX_CANCEL);
     expect(fills(ctx.fill)).toContainEqual([API_MOCK.TOOLBOX_SCHEMA_EDITOR, AM07_XML_ELEMENTS]);
     expect(fills(ctx.fill).map(f => f[1])).toEqual([
       AM07_XML_ELEMENTS,
-      AM07_XML_RULE.path, AM07_XML_CONTENT_TYPE, AM07_XML_BODY,
       AM07_XML_RULE.path, AM07_XML_CONTENT_TYPE, AM07_XML_BODY_INVALID,
+      AM07_XML_BODY_TOKEN, AM07_XML_INVALID_SAMPLE,
     ]);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_BODY_EXPAND)).toHaveLength(1);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_SAVE_SAMPLE)).toHaveLength(1);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_RUN)).toHaveLength(1);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_TRACE);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    // Live Acting is 45s; leave ~10s for ripple + CustomSelect. Do not regress to FAST flash.
+    expect(delayMs).toBeGreaterThan(14_000);
+    expect(delayMs).toBeLessThan(34_000);
   });
 
   it('step 7 pins the firmware by bytes, swaps to the digest, and proves both runs', async () => {
     mountExplorer();
     mountEditor(AM07_XML_RULE, [XPATH_COND]);
-    mountSimulate({ hasResult: true, method: 'PUT', predicateRows: ['✓ body binary_sha256'] });
+    mountSimulate({
+      hasResult: true,
+      method: 'PUT',
+      saveSample: true,
+      predicateRows: [
+        '✓ Method match',
+        '✓ Path /firmware',
+        'body binary_sha256 failed — got "RFW1|firmware|v2.4.1"',
+      ],
+    });
 
     const ctx = reactiveCtx();
     const outcomes = await runAm07Binary(ctx);
@@ -997,10 +1097,19 @@ describe('AM-07 helpers', () => {
     ]);
     expect(fills(ctx.fill).map(f => f[1])).toEqual([
       AM07_BINARY_BODY,
-      '', AM07_BINARY_SHA256,
+      AM07_BINARY_SHA256,
       AM07_BINARY_RULE.path, AM07_BINARY_CONTENT_TYPE, AM07_BINARY_BODY,
-      AM07_BINARY_RULE.path, AM07_BINARY_CONTENT_TYPE, AM07_BINARY_BODY_ALTERED,
+      AM07_BINARY_SAMPLE,
+      AM07_BINARY_BODY_ALTERED,
+      AM07_BINARY_ALTERED_SAMPLE,
     ]);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_SAVE_SAMPLE)).toHaveLength(2);
+    expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_RUN)).toHaveLength(2);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_TRACE);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeGreaterThan(8_000);
+    expect(delayMs).toBeLessThan(24_000);
   });
 
   it('step 7 bails when the firmware rule is missing', async () => {

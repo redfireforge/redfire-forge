@@ -1,77 +1,56 @@
 /**
- * AM-13 `am-13-stateful` — Stateful Mocks: State Machine, Counters & Weighted Chaos.
+ * AM-13 `am-13-stateful` — Stateful Mocks: A Cart That Remembers.
  *
- * Scenario: a cart rule already answers `POST /cart` with two bodies and no
- * state wiring. State mode, EMPTY → HAS_ITEMS → CHECKED_OUT, a counter, a live
- * fetch pair, Reset + Run all, Weighted 90/10 with a replay seed, and a
- * sensitive variable are authored live. The listener is started quietly so
- * Apply is a hot-swap, not a first Start.
+ * Helpers are imported as a namespace so Vite HMR cannot leave
+ * `runAm13StateLive` / `ensureAm13FirstCall` as unbound names on this path.
  * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track C.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
-import {
-  AM13_CHECKED_OUT,
-  AM13_COUNTER_KEY,
-  AM13_EMPTY,
-  AM13_HAS_ITEMS,
-  AM13_PATH,
-  AM13_SEED,
-  AM13_VAR_KEY,
-  AM13_VARIANT_2_NAME,
-  cleanupAm13,
-  ensureAm13ForApply,
-  ensureAm13ForWeighted,
-  ensureAm13StateLive,
-  ensureAm13StateMode,
-  ensureAm13Transition,
-  ensureAm13Weighted,
-  ensureAm13Workspace,
-  prepareAm13Workspace,
-  runAm13FirstCall,
-  runAm13ResetAndBatch,
-  runAm13SecondVariant,
-  runAm13StateLive,
-  runAm13Transition,
-  runAm13Variables,
-  runAm13WeightedAndSeed,
-  runAm13WhyState,
-} from './api-mock-am13-helpers';
+import * as am13 from './api-mock-am13-helpers';
+
+const AM13_CHECKED_OUT = am13.AM13_CHECKED_OUT;
+const AM13_COUNTER_KEY = am13.AM13_COUNTER_KEY;
+const AM13_EMPTY = am13.AM13_EMPTY;
+const AM13_HAS_ITEMS = am13.AM13_HAS_ITEMS;
+const AM13_PATH = am13.AM13_PATH;
+const AM13_VAR_KEY = am13.AM13_VAR_KEY;
+const AM13_VARIANT_2_NAME = am13.AM13_VARIANT_2_NAME;
 
 const DIAGRAM = `
-<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cart mock that remembers EMPTY, HAS_ITEMS, and CHECKED_OUT">
+<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Checkout calls POST /cart twice. First empty, then a SKU, because the mock remembers">
   <rect x="0" y="0" width="700" height="430" fill="#0f172a" />
 
-  <text x="26" y="34" fill="#f1f5f9" font-family="system-ui" font-size="16" font-weight="600">The mock remembers</text>
-  <text x="26" y="54" fill="#64748b" font-family="system-ui" font-size="10">State mode picks the variant. A counter ticks. Weighted chaos is seeded so it repeats.</text>
+  <text x="26" y="34" fill="#f1f5f9" font-family="system-ui" font-size="16" font-weight="600">Imagine checkout. Same URL. Two lives of the cart.</text>
+  <text x="26" y="54" fill="#64748b" font-family="system-ui" font-size="10">A static mock always returns the same JSON. The page never leaves empty. Memory is the point of this lesson.</text>
 
   <rect x="26" y="72" width="318" height="118" rx="8" fill="#1e293b" stroke="#3b82f6" />
-  <text x="42" y="96" fill="#3b82f6" font-family="system-ui" font-size="12" font-weight="600">State machine</text>
-  <text x="42" y="118" fill="#f1f5f9" font-family="ui-monospace" font-size="11">EMPTY  →  HAS_ITEMS  →  CHECKED_OUT</text>
-  <text x="42" y="138" fill="#f1f5f9" font-family="ui-monospace" font-size="11">items += 1 on the first hop</text>
-  <text x="42" y="162" fill="#64748b" font-family="system-ui" font-size="10">Same POST /cart. Two bodies. The required state decides.</text>
+  <text x="42" y="96" fill="#3b82f6" font-family="system-ui" font-size="12" font-weight="600">1 · First POST /cart</text>
+  <text x="42" y="118" fill="#f1f5f9" font-family="ui-monospace" font-size="11">{"ok":true,"items":[]}</text>
+  <text x="42" y="138" fill="#a8b8cc" font-family="system-ui" font-size="11">Allowed only while EMPTY · then HAS_ITEMS</text>
+  <text x="42" y="162" fill="#64748b" font-family="system-ui" font-size="10">items ticks to 1 — the hop you can see without JSON.</text>
 
   <rect x="356" y="72" width="318" height="118" rx="8" fill="#1e293b" stroke="#22c55e" />
-  <text x="372" y="96" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Live + State tab</text>
-  <text x="372" y="118" fill="#f1f5f9" font-family="system-ui" font-size="11">Apply, fetch the empty cart, read the journal.</text>
-  <text x="372" y="138" fill="#a8b8cc" font-family="system-ui" font-size="11">HAS_ITEMS and items=1 are on the dock.</text>
-  <text x="372" y="162" fill="#64748b" font-family="system-ui" font-size="10">The second fetch is a different answer. Reset rewinds.</text>
+  <text x="372" y="96" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">2 · Same POST /cart again</text>
+  <text x="372" y="118" fill="#f1f5f9" font-family="ui-monospace" font-size="11">{"items":[{"sku":"RF-100"}]}</text>
+  <text x="372" y="138" fill="#a8b8cc" font-family="system-ui" font-size="11">Allowed only while HAS_ITEMS · State tab proves it</text>
+  <text x="372" y="162" fill="#64748b" font-family="system-ui" font-size="10">Not a flake. Not a second URL. The cart moved.</text>
 
   <rect x="26" y="204" width="318" height="118" rx="8" fill="#1e293b" stroke="#a78bfa" />
-  <text x="42" y="228" fill="#a78bfa" font-family="system-ui" font-size="12" font-weight="600">Run all samples</text>
-  <text x="42" y="250" fill="#f1f5f9" font-family="system-ui" font-size="11">Sequential batch walks the machine virtually.</text>
-  <text x="42" y="270" fill="#a8b8cc" font-family="system-ui" font-size="11">Each sample row shows empty → HAS_ITEMS.</text>
-  <text x="42" y="294" fill="#64748b" font-family="system-ui" font-size="10">No listener mutation. Close Simulate before Weighted.</text>
+  <text x="42" y="228" fill="#a78bfa" font-family="system-ui" font-size="12" font-weight="600">3 · Rewind for the next test</text>
+  <text x="42" y="250" fill="#f1f5f9" font-family="system-ui" font-size="11">Reset state empties memory. The server stays up.</text>
+  <text x="42" y="270" fill="#a8b8cc" font-family="system-ui" font-size="11">Run all samples walks that same cart in order.</text>
+  <text x="42" y="294" fill="#64748b" font-family="system-ui" font-size="10">The next case starts clean. No Restart.</text>
 
   <rect x="356" y="204" width="318" height="118" rx="8" fill="#1e293b" stroke="#f59e0b" />
-  <text x="372" y="228" fill="#f59e0b" font-family="system-ui" font-size="12" font-weight="600">Weighted + seed</text>
-  <text x="372" y="250" fill="#f1f5f9" font-family="system-ui" font-size="11">90 / 10 on the two cards. Replay seed 4242.</text>
-  <text x="372" y="270" fill="#a8b8cc" font-family="system-ui" font-size="11">Run twice. Identical results. Then a secret var.</text>
-  <text x="372" y="294" fill="#64748b" font-family="system-ui" font-size="10">Sensitive values mask. Exports never see them.</text>
+  <text x="372" y="228" fill="#f59e0b" font-family="system-ui" font-size="12" font-weight="600">4 · Chance, then a tenant secret</text>
+  <text x="372" y="250" fill="#f1f5f9" font-family="system-ui" font-size="11">Weighted 90 / 10 — luck among the two answers.</text>
+  <text x="372" y="270" fill="#a8b8cc" font-family="system-ui" font-size="11">Run twice. Same pick. tenant=acme stays masked.</text>
+  <text x="372" y="294" fill="#64748b" font-family="system-ui" font-size="10">Exports never see the secret in the clear.</text>
 
   <rect x="26" y="336" width="648" height="70" rx="8" fill="#1e293b" stroke="#22c55e" />
-  <text x="42" y="364" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">State decides the body · Weight decides the dice · Seed makes the dice fair</text>
-  <text x="42" y="386" fill="#a8b8cc" font-family="system-ui" font-size="11">+ Counter, Run all samples, and Replay seed are the power-user beats. Reset is how tests start clean.</text>
+  <text x="42" y="364" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Remember · Watch it move · Rewind · Then roll the dice</text>
+  <text x="42" y="386" fill="#a8b8cc" font-family="system-ui" font-size="11">One mock. Two answers. The second POST is different only because the first one happened.</text>
 </svg>
 `;
 
@@ -79,157 +58,182 @@ export const apiMockAm13Lesson: DemoLesson = {
   id: 'am-13-stateful',
   domainId: 'protocols',
   category: 'api-mock',
-  name: 'Stateful Mocks: State Machine, Counters & Weighted Chaos',
+  name: 'Stateful Mocks: A Cart That Remembers',
   description:
-    'Start from a cart rule that already has two bodies for POST /cart. Switch to '
-    + 'State, require EMPTY then HAS_ITEMS, add an items counter, wire the second '
-    + 'variant, Apply, and fetch so the journal and the State tab agree. Reset, '
-    + 'Run all samples, then switch to Weighted 90/10 with a replay seed so two '
-    + 'runs match. Finish by adding a sensitive tenant variable.',
+    'Imagine a checkout page. It calls POST /cart twice — first the cart is '
+    + 'empty, then the same URL must already show a SKU. A normal mock cannot '
+    + 'do that: it always returns the same JSON, so the page never leaves '
+    + 'empty. This lesson gives the mock that memory, lets you rewind it for '
+    + 'the next test, then shows chance among the two answers and a tenant '
+    + 'secret that never leaves the server.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 26,
   concept: {
-    title: 'A mock that remembers is a state machine, not a second rule.',
+    title: 'Same POST /cart. Empty the first time. Full the second.',
     body:
-      'A cart that is empty and a cart that has items are the same `POST /cart`, '
-      + 'not two paths. **State** mode picks the variant whose **required state** '
-      + `matches the live machine. The first hop is \`${AM13_EMPTY}\` → `
-      + `\`${AM13_HAS_ITEMS}\` with \`${AM13_COUNTER_KEY} += 1\`. The sibling named `
-      + `\`${AM13_VARIANT_2_NAME}\` requires \`${AM13_HAS_ITEMS}\` and advances to `
-      + `\`${AM13_CHECKED_OUT}\`.\n\n`
-      + 'The **State** tab is how you see `HAS_ITEMS` and `items=1` without '
-      + 'guessing. **Reset state** rewinds between tests. **Run all samples** walks '
-      + 'the same machine virtually, in order, so each sample row shows the hop.\n\n'
-      + '**Weighted** mode is controlled chaos: 90/10 on the two cards, a **replay '
-      + `seed** of \`${AM13_SEED}\`, two identical runs. Server variables feed `
-      + `templates; mark \`${AM13_VAR_KEY}\` **sensitive** so exports never see it.`,
+      'Picture a checkout page you are building. It does not have two URLs. '
+      + `It hits **\`POST ${AM13_PATH}\` twice** and expects two different lives `
+      + 'of the same cart:\n\n'
+      + '1. First call — empty: `{"ok":true,"items":[]}`\n'
+      + '2. Second call — already a SKU: `{"ok":true,"items":[{"sku":"RF-100"}]}`\n\n'
+      + 'A mock that always returns the same JSON is fine for `/health`. It is '
+      + 'useless here. If both answers are hard-coded, the page never leaves '
+      + 'empty. **The mock has to remember that the first call happened.** '
+      + 'That memory is what this lesson is for.\n\n'
+      + '**State** is how one mock picks which body goes out. **Required state** '
+      + `is when an answer may speak — \`${AM13_EMPTY}\` for the empty cart, `
+      + `\`${AM13_HAS_ITEMS}\` for the SKU. **Next state** is where memory goes `
+      + `after. A **counter** named \`${AM13_COUNTER_KEY}\` ticks so the hop is `
+      + 'visible without opening JSON. The **State** tab is live memory — '
+      + '`HAS_ITEMS`, then `CHECKED_OUT` — not a guess from the last response.\n\n'
+      + 'Still on this cart:\n\n'
+      + '- **Reset state** — rewind memory for the next test. The server stays up.\n'
+      + '- **Weighted** — luck among the two answers. This window repeats the pick, so “random” is still a test.\n'
+      + `- **Sensitive** \`${AM13_VAR_KEY}=acme\` — templates can read it; exports never see it in the clear.`,
     keyTerms: [
-      { term: 'State mode', definition: 'The enabled variant whose required state matches the live machine wins. The unnamed start is empty until the first hop.' },
-      { term: 'Required state', definition: 'The named state a variant is eligible in. EMPTY is how the empty cart answers the first POST /cart.' },
-      { term: 'Next state', definition: 'Where the machine moves after that variant fires. HAS_ITEMS then CHECKED_OUT are the rest of the cart life-cycle.' },
-      { term: 'Counter', definition: 'A named integer the transition bumps. items += 1 is how you prove the first hop happened without reading the body.' },
-      { term: 'Reset state', definition: 'Clears live states and counters without stopping the listener. Tests start clean; the port stays bound.' },
-      { term: 'Weighted mode', definition: 'Relative chance among eligible variants. 90/10 is chaos you can still describe in a contract.' },
-      { term: 'Replay seed', definition: 'The number Simulation uses instead of a wall-clock seed. The same seed produces the same weighted pick twice.' },
-      { term: 'Sensitive variable', definition: 'A server variable whose value is masked in the dock and stripped from exports. tenant = acme is the example.' },
+      { term: 'State', definition: 'The mock picks an answer from what it already remembers — not from a second URL. Same POST /cart, different body after the first hop.' },
+      { term: 'Required state', definition: 'When this answer is allowed to speak. EMPTY is the empty cart. HAS_ITEMS is the cart that already has a SKU.' },
+      { term: 'Next state', definition: 'Where memory moves after this answer fires. EMPTY becomes HAS_ITEMS. HAS_ITEMS becomes CHECKED_OUT.' },
+      { term: 'Counter', definition: 'A number the hop bumps. items += 1 proves the first POST landed without opening the JSON.' },
+      { term: 'State tab', definition: 'Live memory on the dock: the current name and the counters. Read HAS_ITEMS, then CHECKED_OUT, here instead of guessing from the last response.' },
+      { term: 'Reset state', definition: 'Clears memory and counters. The server stays running, so the next test does not need Restart.' },
+      { term: 'Weighted', definition: 'Luck among the two answers — 90 empty, 10 already has a SKU. Simulate repeats the same pick for this window so “random” is still a test.' },
+      { term: 'Sensitive variable', definition: 'A server value templates can read (tenant = acme). The dock masks it and exports strip it. The secret stays in the mock.' },
     ],
     diagram: DIAGRAM,
   },
-  prepareBeforeNavigate: prepareAm13Workspace,
-  cleanup: cleanupAm13,
+  prepareBeforeNavigate: am13.prepareAm13Workspace,
+  cleanup: am13.cleanupAm13,
   steps: [
     {
       id: 'why-state',
-      title: 'Real APIs remember: empty cart, then items, then checked out',
+      title: 'A real cart is never the same twice',
       description:
-        'Hold the **two variant cards**. An empty cart and a cart that already has '
-        + 'a SKU are two answers on one rule — not two paths.\n\n'
-        + 'Click **State**. Required state and Next state appear on Selection. Hold '
-        + 'those fields. From here the machine, not a JSONPath, decides which body '
-        + `fires for \`POST ${AM13_PATH}\`.`,
+        'These two cards are already two lives of the cart — empty, and SKU '
+        + '`RF-100`. Today they are just static answers. The mock does not '
+        + 'know which life the cart is in.\n\n'
+        + '- **State** — the mode that gives those answers memory\n'
+        + '- **Required state** — when this body is allowed to speak\n'
+        + '- **Next state** — where memory goes after it does\n\n'
+        + `Same \`POST ${AM13_PATH}\`. Memory decides which body goes out — not a second URL.`,
       highlight: API_MOCK.RESPONSE_MODE_STATE,
-      preAction: ensureAm13Workspace,
-      action: runAm13WhyState,
+      preAction: (ctx) => am13.ensureAm13Workspace(ctx),
+      action: (ctx) => am13.runAm13WhyState(ctx),
       verify: API_MOCK.VARIANT_REQUIRED_STATE,
     },
     {
       id: 'transition',
-      title: 'A variant requires a state and moves to the next one',
+      title: 'The first POST starts the cart — and leaves a mark',
       description:
-        `Fill **Required state** \`${AM13_EMPTY}\` and **Next state** `
-        + `\`${AM13_HAS_ITEMS}\`. Hold each field so the hop is readable.\n\n`
-        + `**+ Counter** is the power-user beat. Name it \`${AM13_COUNTER_KEY}\` `
-        + 'with delta 1. Hold the **counter row**. The first successful POST both '
-        + 'answers the empty cart and ticks items.',
+        'The empty-cart answer is only honest while the cart is empty.\n\n'
+        + `- **Required state** \`${AM13_EMPTY}\` — this body may speak only then\n`
+        + `- **Next state** \`${AM13_HAS_ITEMS}\` — memory after it speaks\n`
+        + `- **Counter** \`${AM13_COUNTER_KEY}\` — ticks by 1 so the hop is visible without opening JSON\n\n`
+        + 'The first successful POST both returns `[]` and leaves that mark.',
       highlight: API_MOCK.COUNTER_ADD,
-      preAction: ensureAm13StateMode,
-      action: runAm13Transition,
+      preAction: (ctx) => am13.ensureAm13StateMode(ctx),
+      action: (ctx) => am13.runAm13Transition(ctx),
       verify: API_MOCK.COUNTER_ROW,
     },
     {
       id: 'second-variant',
-      title: 'The HAS_ITEMS variant answers differently',
+      title: 'The next POST must already see the item',
       description:
-        `Select **${AM13_VARIANT_2_NAME}**. Fill required state \`${AM13_HAS_ITEMS}\` `
-        + `and next state \`${AM13_CHECKED_OUT}\` so the machine has a third named `
-        + 'state even though only two bodies exist.\n\n'
-        + 'Hold the **body**. The second POST is not a 404 and not a second rule — '
-        + 'it is the same path after the machine has moved.',
+        `**${AM13_VARIANT_2_NAME}** is the body checkout needs on the *second* `
+        + 'call — already a SKU.\n\n'
+        + `- **Required state** \`${AM13_HAS_ITEMS}\` — it may speak only after the first hop\n`
+        + `- **Next state** \`${AM13_CHECKED_OUT}\` — a third named life, even though there are only two bodies\n`
+        + '- **Body** — `RF-100` is what the page was waiting for\n\n'
+        + 'The second POST is not a 404 and not a second mock. It is the same path after the cart has moved.',
       highlight: API_MOCK.VARIANT_CARD_LAST,
-      preAction: ensureAm13Transition,
-      action: runAm13SecondVariant,
+      preAction: (ctx) => am13.ensureAm13Transition(ctx),
+      action: (ctx) => am13.runAm13SecondVariant(ctx),
       verify: API_MOCK.VARIANT_CARD_LAST,
     },
     {
       id: 'first-call',
-      title: 'The machine starts in its initial state',
+      title: 'The empty cart answers first',
       description:
-        'The listener has been running since the first step, still on two unguarded '
-        + 'bodies. **Apply** hot-swaps the state machine without a rebind. Hold '
-        + '**Generation**.\n\n'
-        + `A real \`POST ${AM13_PATH}\` hits the bound listener. Open the journal `
-        + 'and hold the **empty-cart** response. That is EMPTY answering, then '
-        + 'moving to HAS_ITEMS.',
+        'The listener is already up. **Apply** hot-swaps the new memory onto '
+        + 'it — no Restart. **Generation** is the snapshot that just took effect.\n\n'
+        + `- **Live \`POST ${AM13_PATH}\`** — the empty-cart body\n`
+        + `- **Transactions** — one row. EMPTY spoke.\n`
+        + `- **State** — memory is now \`${AM13_HAS_ITEMS}\` and \`${AM13_COUNTER_KEY}=1\`\n\n`
+        + 'That is the first life of the cart, on the real port.',
       highlight: API_MOCK.APPLY,
-      preAction: ensureAm13ForApply,
-      action: runAm13FirstCall,
-      verify: API_MOCK.TX_DETAIL,
+      preAction: (ctx) => am13.ensureAm13ForApply(ctx),
+      action: (ctx) => am13.runAm13FirstCall(ctx),
+      verify: API_MOCK.DOCK_STATE_LIVE,
     },
     {
-      id: 'state-live',
-      title: 'The current state and counters are observable',
+      id: 'has-items-hop',
+      title: 'Clean slate, then two POSTs walk the cart',
       description:
-        'Open the **State** tab. Hold **live state**: `HAS_ITEMS` and `items=1`. '
-        + 'You do not reconstruct the hop from the journal body.\n\n'
-        + `Fetch \`POST ${AM13_PATH}\` again. Hold the **different** answer — the `
-        + 'Has items body. The machine advanced. The second call is not a flake; '
-        + 'it is the next state.',
-      highlight: API_MOCK.DOCK_TAB_STATE,
-      preAction: ensureAm13StateLive,
-      action: runAm13StateLive,
+        'Step 4 left memory and a journal row behind. Start over so the walk is '
+        + 'unmistakable — if **Draft changed** is still lit, **Apply** first so the '
+        + 'live mock owns the state machine. Then **Reset state** rewinds memory and '
+        + '**Clear** empties the journal. Then the same \`POST /cart\` fires twice:\n\n'
+        + `- **First POST** — \`${AM13_EMPTY}\` → \`${AM13_HAS_ITEMS}\` — response \`items: []\`\n`
+        + `- **Second POST** — \`${AM13_HAS_ITEMS}\` → \`${AM13_CHECKED_OUT}\` — response includes \`RF-100\`\n`
+        + '- **Transactions** — click the arrived-first row (`items: []`), then the arrived-second '
+        + 'row (`RF-100`), with the spotlight on each body\n'
+        + `- **State** — read \`${AM13_CHECKED_OUT}\` on the dock — not a guess from the last JSON\n\n`
+        + 'Totally clear, then two seeds. Both journal answers, then the mark the page was '
+        + 'waiting for — not a flake, and not a second URL.',
+      highlight: API_MOCK.STATE_RESET,
+      preAction: (ctx) => am13.ensureAm13FirstCall(ctx),
+      action: (ctx) => am13.runAm13HasItemsHop(ctx),
       verify: API_MOCK.DOCK_STATE_LIVE,
     },
     {
       id: 'reset-and-batch',
-      title: 'Rewind between tests without restarting',
+      title: 'Rewind the cart without killing the server',
       description:
-        'Click **Reset state**. Hold the **cleared** live panel. The listener stays '
-        + 'bound; only the machine rewound.\n\n'
-        + '**Run all samples** is the other power-user beat. Sequential batch walks '
-        + 'the machine virtually. Hold the **per-sample state** column, then close '
-        + 'Simulate so Weighted is not typed behind a modal.',
+        'A test that just filled the cart cannot start the next case from dirty memory.\n\n'
+        + '- **Reset state** — only the cart rewinds. The server stays up\n'
+        + '- **Run all samples** — the same memory walks every saved request, in order\n\n'
+        + 'Read the two verdicts in order — both **PASS**, and the per-sample '
+        + '**state** column is why:\n\n'
+        + `- **First sample** — runs against the freshly-reset cart: \`${AM13_EMPTY}\` → \`${AM13_HAS_ITEMS}\`. It only passes because Reset actually cleared memory\n`
+        + `- **Second sample** — inherits that memory and moves on: \`${AM13_HAS_ITEMS}\` → \`${AM13_CHECKED_OUT}\`\n\n`
+        + 'That is a suite starting clean and walking one shared memory in order — '
+        + 'no Restart, because memory was cleared, not because the process died.',
       highlight: API_MOCK.STATE_RESET,
-      preAction: ensureAm13StateLive,
-      action: runAm13ResetAndBatch,
+      preAction: (ctx) => am13.ensureAm13HasItemsHop(ctx),
+      action: (ctx) => am13.runAm13ResetAndBatch(ctx),
       verify: API_MOCK.RESPONSE_MODE_STATE,
     },
     {
       id: 'weighted-and-seed',
-      title: 'Controlled chaos, reproducibly',
+      title: 'Most of the time empty. Sometimes already a SKU.',
       description:
-        'Click **Weighted**. Fill **Weight** 90 on the empty cart and 10 on Has '
-        + 'items. Hold each field. Chaos you can still put in a contract.\n\n'
-        + `Fill **Replay seed** \`${AM13_SEED}\` and run twice. Hold the **identical** `
-        + 'results. The seed, not the wall clock, picked the variant. Close '
-        + 'Simulate before the last step.',
+        'Memory is one job. Chance is another — still these two answers, still no second URL.\n\n'
+        + '- **Weighted** — luck among the two bodies: empty cart **90**, already a SKU **10**\n'
+        + '- **Apply** — push that luck onto the live listener before you Simulate\n'
+        + '- **Two Simulate runs** — after each **Run simulation**, open **Rendered response** and '
+        + 'read the same empty-cart body `{"ok":true,"items":[]}`\n'
+        + '- **Pinned luck** — this window repeats the draw, so “random” is still a test\n\n'
+        + 'You are not flipping a coin in CI. You are pinning luck for the session.',
       highlight: API_MOCK.RESPONSE_MODE_WEIGHTED,
-      preAction: ensureAm13ForWeighted,
-      action: runAm13WeightedAndSeed,
+      preAction: (ctx) => am13.ensureAm13ForWeighted(ctx),
+      action: (ctx) => am13.runAm13WeightedAndSeed(ctx),
       verify: API_MOCK.RESPONSE_MODE_WEIGHTED,
     },
     {
       id: 'variables',
-      title: 'Sensitive variables never reach an export',
+      title: 'The body reads tenant — the dock keeps the secret',
       description:
-        `**+ Variable** adds a row. Name it \`${AM13_VAR_KEY}\` and set the value `
-        + 'to `acme`. Hold the filled row.\n\n'
-        + 'Toggle **Sensitive**. Hold the **masked** value. Templates can still '
-        + 'resolve it; exports and the dock must not show it in the clear.',
+        'This cart belongs to a tenant. The name lives once, not in every body.\n\n'
+        + `- **\`${AM13_VAR_KEY}=acme\`** — a server variable. Sensitive, so the dock masks it\n`
+        + '- **`{{variables.tenant}}`** — the empty-cart body reads that key\n'
+        + '- **Preview** — resolves to `acme`. Change the variable later; every template picks it up\n'
+        + '- **Exports** — strip the secret. The value never leaves in the clear\n\n'
+        + 'The tenant stays on the server. The JSON only names the key.',
       highlight: API_MOCK.VAR_ADD,
-      preAction: ensureAm13Weighted,
-      action: runAm13Variables,
-      verify: API_MOCK.VAR_VALUE_LAST,
+      preAction: (ctx) => am13.ensureAm13Weighted(ctx),
+      action: (ctx) => am13.runAm13Variables(ctx),
+      verify: API_MOCK.PREVIEW_BODY,
     },
   ],
 };

@@ -305,4 +305,57 @@ describe('ApiMockResponseFaultsPanel coverage gaps', () => {
     );
     expect(screen.getByTestId('api-mock-fault-timeout')).toHaveClass('selected');
   });
+
+  it('seeds a 5s timeout hold and clamps edits to the server cap', () => {
+    const onUpdateVariant = vi.fn();
+    const { rerender } = render(
+      <ApiMockResponseFaultsPanel
+        variant={makeVariant()}
+        onUpdateVariant={onUpdateVariant}
+        timeoutHoldMaxMs={10_000}
+      />,
+    );
+    expect(screen.queryByTestId('api-mock-fault-timeout-hold')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('api-mock-fault-timeout'));
+    expect(onUpdateVariant).toHaveBeenCalledWith({
+      behavior: expect.objectContaining({ fault: 'timeout', longRunningMs: 5_000, chunkSchedule: undefined }),
+    });
+
+    rerender(
+      <ApiMockResponseFaultsPanel
+        variant={makeVariant({
+          behavior: { delayMs: 0, jitterMs: 0, fault: 'timeout', longRunningMs: 5_000 },
+        })}
+        onUpdateVariant={onUpdateVariant}
+        timeoutHoldMaxMs={10_000}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('api-mock-fault-timeout-hold'), { target: { value: '99999' } });
+    expect(onUpdateVariant).toHaveBeenLastCalledWith({
+      behavior: expect.objectContaining({ longRunningMs: 10_000 }),
+    });
+
+    fireEvent.change(screen.getByTestId('api-mock-fault-timeout-hold'), { target: { value: '' } });
+    expect(onUpdateVariant).toHaveBeenLastCalledWith({
+      behavior: expect.objectContaining({ longRunningMs: 5_000 }),
+    });
+  });
+
+  it('keeps an existing timeout hold when re-selecting Timeout', () => {
+    const onUpdateVariant = vi.fn();
+    render(
+      <ApiMockResponseFaultsPanel
+        variant={makeVariant({
+          behavior: { delayMs: 0, jitterMs: 0, fault: 'timeout', longRunningMs: 3_200 },
+        })}
+        onUpdateVariant={onUpdateVariant}
+        timeoutHoldMaxMs={0}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-fault-timeout-hold')).toHaveValue(3200);
+    fireEvent.click(screen.getByTestId('api-mock-fault-timeout'));
+    expect(onUpdateVariant).toHaveBeenCalledWith({
+      behavior: expect.objectContaining({ fault: 'timeout', longRunningMs: 3_200 }),
+    });
+  });
 });

@@ -22,7 +22,6 @@ import {
   AM21_DICE_ID,
   AM21_HEALTH_ID,
   AM21_ORPHAN_ID,
-  AM21_SEED,
   AM21_TIMING,
   AM21_WRONG_STATUS,
   am21InputValue,
@@ -46,6 +45,7 @@ import {
   hasAm21ExportConfirm,
   hasAm21Fail,
   hasAm21Result,
+  hasAm21SampleResult,
   hasAm21SavedSamples,
   hasAm21Server,
   hasAm21Summary,
@@ -103,7 +103,7 @@ function mountStudio(): void {
   explorer.append(row);
   document.body.append(explorer);
   const cli = el('code', undefined, 'api-mock-cli-simulate');
-  cli.textContent = 'cli mock simulate workspace.json';
+  cli.textContent = 'redfireforge mock simulate workspace.json';
   document.body.append(cli);
 }
 
@@ -136,7 +136,11 @@ function mountSimulate(opts: {
   root.append(saved, scratch);
   root.append(mountSample('adhoc', !opts.healthActive && !opts.diceActive));
   const health = mountSample(AM21_HEALTH_ID, opts.healthActive);
-  if (opts.fail) health.append(el('span', 'am-badge danger', 'api-mock-sim-sample-fail'));
+  if (opts.fail) {
+    health.append(el('span', 'am-badge danger', 'api-mock-sim-sample-fail'));
+  } else if (opts.healthActive && opts.outcome) {
+    health.append(el('span', 'am-badge success'));
+  }
   root.append(health);
   root.append(mountSample(AM21_DICE_ID, opts.diceActive));
   root.append(el('button', undefined, 'api-mock-sim-sample-adhoc'));
@@ -147,6 +151,8 @@ function mountSimulate(opts: {
   root.append(adhocWrap);
   root.append(input('api-mock-simulate-path', opts.path ?? AM21_ADHOC_PATH));
   root.append(input('api-mock-simulate-seed', opts.seed ?? '11111'));
+  root.append(el('button', undefined, 'api-mock-simulate-save-sample'));
+  root.append(input('api-mock-simulate-sample-name'));
   root.append(el('button', undefined, 'api-mock-simulate-run'));
   root.append(el('button', undefined, 'api-mock-simulate-run-all'));
   root.append(el('button', undefined, 'api-mock-simulate-export'));
@@ -223,7 +229,7 @@ describe('AM-21 simulation-suite helpers', () => {
   it('holds AM-21 spotlights longer than the shared pack', () => {
     expect(AM21_TIMING.look).toBeGreaterThan(AM_DEMO_TIMING.look);
     expect(AM21_TIMING.beforeOpen).toBe(1400);
-    expect(AM21_TIMING.beforeRun).toBe(2000);
+    expect(AM21_TIMING.beforeRun).toBe(2400);
     expect(AM21_CORPUS_SAMPLE).toBe('am-gallery-suite');
   });
 
@@ -233,6 +239,7 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(isAm21SimulateOpen()).toBe(false);
     expect(isAm21StudioViewActive()).toBe(false);
     expect(hasAm21Result()).toBe(false);
+    expect(hasAm21SampleResult(AM21_HEALTH_ID)).toBe(false);
     expect(hasAm21Fail()).toBe(false);
     expect(hasAm21Summary()).toBe(false);
     expect(hasAm21ExportConfirm()).toBe(false);
@@ -251,7 +258,6 @@ describe('AM-21 simulation-suite helpers', () => {
       outcome: 'MATCHED',
       summary: true,
       fail: true,
-      seed: AM21_SEED,
       assertStatus: AM21_WRONG_STATUS,
       healthActive: true,
       exportConfirm: true,
@@ -260,6 +266,7 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(isAm21SimulateOpen()).toBe(true);
     expect(hasAm21SavedSamples()).toBe(true);
     expect(hasAm21Result()).toBe(true);
+    expect(hasAm21SampleResult(AM21_HEALTH_ID)).toBe(true);
     expect(hasAm21Fail()).toBe(true);
     expect(hasAm21Summary()).toBe(true);
     expect(hasAm21ExportConfirm()).toBe(true);
@@ -267,7 +274,6 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(isAm21HealthSelected()).toBe(true);
     expect(am21SimOutcome()).toBe('MATCHED');
     expect(am21RenderedBody()).toContain('heads');
-    expect(am21InputValue(API_MOCK.SIMULATE_SEED)).toBe(AM21_SEED);
   });
 
   it('wipes, chromes, and imports the suite corpus', async () => {
@@ -361,7 +367,11 @@ describe('AM-21 simulation-suite helpers', () => {
     await runAm21SuiteAndScratchpad(ctx);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE);
     expect(fills(ctx.fill).some(f => f[0] === API_MOCK.SIMULATE_PATH && f[1] === AM21_ADHOC_PATH)).toBe(true);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
+    expect(calls(ctx.click).indexOf(API_MOCK.SIMULATE_RUN)).toBeGreaterThan(
+      calls(ctx.click).indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE),
+    );
   });
 
   it('holds the three result views without re-ringing the timeline', async () => {
@@ -421,9 +431,26 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(fills(ctx.fill)).not.toContainEqual([API_MOCK.SIMULATE_ASSERT_STATUS, AM21_WRONG_STATUS]);
   });
 
+  it('runs the health sample even when the scratch pad already has a result', async () => {
+    mountStudio();
+    mountSimulate({ outcome: 'MATCHED' });
+    const ctx = makeCtx();
+    await ensureAm21ForExpectations(ctx);
+    expect(calls(ctx.click)).toContain(API_MOCK.simSampleBtn(AM21_HEALTH_ID));
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
+  });
+
   it('runs the failing sample and holds FAIL', async () => {
     mountStudio();
     mountSimulate({ outcome: 'MATCHED', healthActive: true, assertStatus: AM21_WRONG_STATUS, fail: true });
+    const ctx = makeCtx();
+    await runAm21FailLoudly(ctx);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
+  });
+
+  it('selects the health sample before the FAIL run when it is not active', async () => {
+    mountStudio();
+    mountSimulate({ outcome: 'MATCHED', assertStatus: AM21_WRONG_STATUS, fail: true });
     const ctx = makeCtx();
     await runAm21FailLoudly(ctx);
     expect(calls(ctx.click)).toContain(API_MOCK.simSampleBtn(AM21_HEALTH_ID));
@@ -446,21 +473,13 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN_ALL);
   });
 
-  it('fills the seed and runs the dice sample twice', async () => {
+  it('runs the dice sample twice without filling a seed', async () => {
     mountStudio();
-    mountSimulate({ outcome: 'MATCHED', diceActive: true, seed: '11111' });
+    mountSimulate({ outcome: 'MATCHED', diceActive: true });
     const ctx = makeCtx();
     await runAm21Seed(ctx);
-    expect(fills(ctx.fill)).toContainEqual([API_MOCK.SIMULATE_SEED, AM21_SEED]);
+    expect(fills(ctx.fill)).not.toContainEqual([API_MOCK.SIMULATE_SEED, expect.anything()]);
     expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_RUN).length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('skips filling the seed when it is already set', async () => {
-    mountStudio();
-    mountSimulate({ outcome: 'MATCHED', diceActive: true, seed: AM21_SEED });
-    const ctx = makeCtx();
-    await runAm21Seed(ctx);
-    expect(fills(ctx.fill)).not.toContainEqual([API_MOCK.SIMULATE_SEED, AM21_SEED]);
   });
 
   it('exports the trace and holds the confirmation', async () => {

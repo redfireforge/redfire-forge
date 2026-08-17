@@ -181,12 +181,13 @@ test.describe('Demo lesson AM-07 — Forms, Multipart, XML & Binary', () => {
     // 4 advances from step 1 → step 5 reading: through the multipart proof.
     await advanceSteps(page, 4, AM_LESSON_STEP_TIMEOUT);
 
-    // Step 5 switches to the SOAP rule and applies from the XPath tab.
+    // Step 5 applies XPath, then Run simulation on the full envelope and closes.
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.PATTERN_TOOLBOX)).toHaveCount(0, {
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
+    await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0);
     await expect(page.locator(API_MOCK.CONDITION_ROWS)).toHaveCount(1);
     // A filled Equals value is what makes this equals rather than exists.
     await expect(page.locator(CONDITION_OPERATORS).first())
@@ -202,7 +203,7 @@ test.describe('Demo lesson AM-07 — Forms, Multipart, XML & Binary', () => {
     // 5 advances from step 1 → step 6 reading: through the XPath beat.
     await advanceSteps(page, 5, AM_LESSON_STEP_TIMEOUT);
 
-    // Step 6 applies the element list, then runs the full and the truncated envelope.
+    // Step 6 applies the element list, then runs the truncated envelope.
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.PATTERN_TOOLBOX)).toHaveCount(0, {

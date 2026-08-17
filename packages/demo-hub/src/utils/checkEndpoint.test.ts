@@ -187,6 +187,28 @@ describe('checkEndpoint', () => {
     expect(spy).not.toHaveBeenCalledWith('http://127.0.0.1:50055/', expect.any(Object));
   });
 
+  it('routes AM-17 echo :4017 probes through Express /health/api-mock-echo', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+
+    const promise = checkEndpoint('http://localhost:4017/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith('/health/api-mock-echo', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://localhost:4017/health', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://127.0.0.1:4017/health', expect.any(Object));
+  });
+
+  it('routes AM-17 echo 127.0.0.1:4017 probes through the same Express proxy', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+
+    const promise = checkEndpoint('http://127.0.0.1:4017/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith('/health/api-mock-echo', expect.any(Object));
+  });
+
   it('routes Envoy 127.0.0.1:50055 probes through the same Express proxy', async () => {
     const spy = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));

@@ -9,7 +9,12 @@ vi.mock('./apiMockTextExpand', () => ({
   findTextExpandMatches: (draft: string, query: string) => (query ? [0] : []),
   formatTextExpandCount: (index: number, length: number) => `${Math.min(index + 1, length)}/${length}`,
   nextTextExpandMatch: () => 5,
+  formatJsonBody: () => null,
   prettyPrintJsonBody: () => '',
+  minifyJsonBody: () => '',
+  textExpandStats: (text: string) => ({ lines: 1, chars: text.length }),
+  resolveApiMockExpandPortal: () => document.body,
+  isNestedApiMockExpandPortal: () => false,
 }));
 
 import { ApiMockTextExpandModal } from './ApiMockTextExpandModal';
@@ -22,6 +27,22 @@ function invokeReactClick(element: HTMLElement): void {
 }
 
 describe('ApiMockTextExpandModal branch guards', () => {
+  it('keeps the search cluster inside the dialog header controls', () => {
+    render(
+      <ApiMockTextExpandModal
+        title="Request body"
+        value="<xml/>"
+        readOnly
+        onClose={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByTestId('api-mock-text-expand-modal');
+    const cluster = screen.getByTestId('api-mock-text-expand-search-cluster');
+    expect(dialog.contains(cluster)).toBe(true);
+    expect(dialog.querySelector('.am-text-expand-header-controls')).toContainElement(cluster);
+  });
+
   it('safely no-ops when pretty, undo, and redo have no work and out-of-range next match is requested', () => {
     const onApply = vi.fn();
     const onClose = vi.fn();
@@ -39,6 +60,10 @@ describe('ApiMockTextExpandModal branch guards', () => {
 
     const pretty = screen.getByTestId('api-mock-text-expand-pretty') as HTMLButtonElement;
     invokeReactClick(pretty);
+    expect(editor).toHaveValue('same');
+
+    const minify = screen.getByTestId('api-mock-text-expand-minify') as HTMLButtonElement;
+    invokeReactClick(minify);
     expect(editor).toHaveValue('same');
 
     const undo = screen.getByTestId('api-mock-text-expand-undo') as HTMLButtonElement;

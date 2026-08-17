@@ -27,6 +27,7 @@ import {
   AM18_MATCH_LIST,
   AM18_MISS_PATH,
   AM18_TIMING,
+  AM18_END_TIMING,
   am18FilterValue,
   am18PathInputValue,
   am18RowWithPath,
@@ -184,7 +185,14 @@ function mountJournal(opts: {
     detail.append(el('div', undefined, 'api-mock-tx-response'));
     if (opts.unmatched) {
       detail.append(el('div', undefined, 'api-mock-tx-candidates'));
-      detail.append(el('ul', undefined, 'api-mock-tx-near-misses'));
+      const nearMisses = el('ul', undefined, 'api-mock-tx-near-misses');
+      for (const name of ['List Products', 'Get Product by ID', 'Get Cart', 'List Orders']) {
+        const li = document.createElement('li');
+        makeVisible(li);
+        li.textContent = name;
+        nearMisses.append(li);
+      }
+      detail.append(nearMisses);
     }
     const actions = el('div', undefined, 'api-mock-tx-actions');
     actions.append(
@@ -240,6 +248,7 @@ function mountEditor(opts: { examples?: boolean; simulate?: boolean; missPath?: 
   document.body.append(editor);
   if (opts.simulate) {
     document.body.append(el('div', undefined, 'api-mock-simulate-workspace'));
+    document.body.append(el('button', undefined, 'api-mock-simulate-run'));
     document.body.append(el('div', undefined, 'api-mock-simulate-result'));
     const outcome = el('span', undefined, 'api-mock-sim-outcome');
     outcome.textContent = 'unmatched';
@@ -259,7 +268,7 @@ beforeEach(() => {
 
 describe('AM-18 helpers', () => {
   it('pins corpus paths, filter strings, and slower timing', () => {
-    expect(AM18_CORPUS_SAMPLE).toBe('am-gallery-store');
+    expect(AM18_CORPUS_SAMPLE).toBe('am-gallery-store-lite');
     expect(AM18_MATCH_LIST).toBe('/products');
     expect(AM18_MATCH_ITEM).toBe('/products/42');
     expect(AM18_MISS_PATH).toBe('/produts/42');
@@ -267,6 +276,8 @@ describe('AM-18 helpers', () => {
     expect(AM18_FILTER_MISS).toContain('zzzz');
     expect(AM18_TIMING.beforeOpen).toBe(1400);
     expect(AM18_TIMING.payoff).toBe(1600);
+    expect(AM18_END_TIMING.payoff).toBe(850);
+    expect(AM18_END_TIMING.beforeRun).toBeLessThan(AM18_TIMING.beforeRun);
   });
 
   it('reads probes from an empty document as false', () => {
@@ -507,8 +518,10 @@ describe('AM-18 step bodies', () => {
     mountEditor({ examples: true, simulate: true, missPath: true });
     const ctx = makeCtx();
     await runAm18ProveExample(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.BTAB_EXAMPLES);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.BTAB_EXAMPLES);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXAMPLE_SIMULATE);
+    // The example must actually be run so the green verdict appears.
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
   });
 });
 
@@ -580,6 +593,37 @@ describe('AM-18 guards', () => {
     const ctx = makeCtx();
     await closeAm18Simulate(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
+  });
+
+  it('does not open Runtime Settings when the create-route journal is already open', async () => {
+    mountServerBar(true);
+    mountJournal({
+      unmatched: true,
+      detail: true,
+      rows: [{ id: 'tx-miss', path: AM18_MISS_PATH }],
+    });
+    const ctx = makeCtx();
+    await ensureAm18ForCreateRoute(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.DOCK_TAB_SETTINGS);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VIEW_STUDIO);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VIEW_RUNTIME);
+    expect(patchApiMockServerSettings).toHaveBeenCalledWith({ fallbackMode: 'closest_match_debug' });
+  });
+
+  it('does not bounce Runtime back through Studio when the journal is already open', async () => {
+    mountServerBar(true);
+    mountJournal({
+      detail: true,
+      rows: [
+        { id: 'tx-1', path: AM18_MATCH_LIST },
+        { id: 'tx-2', path: AM18_MATCH_ITEM },
+      ],
+    });
+    const ctx = makeCtx();
+    await ensureAm18ForMiss(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VIEW_STUDIO);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VIEW_RUNTIME);
+    expect(hasAm18Library()).toBe(true);
   });
 
   it('clears a leftover journal filter', async () => {
@@ -692,6 +736,15 @@ describe('AM-18 guards', () => {
     const ctx = makeCtx();
     await ensureAm18ForProve(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.TX_SAVE_EXAMPLE);
+  });
+
+  it('opens the Examples tab quietly before the prove step reads', async () => {
+    mountServerBar(true);
+    mountExplorer({ missPath: true });
+    mountEditor({ missPath: true });
+    const ctx = makeCtx();
+    await ensureAm18ForProve(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.BTAB_EXAMPLES);
   });
 
   it('selects a journal row before copy when the detail pane is closed', async () => {

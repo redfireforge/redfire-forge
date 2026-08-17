@@ -1,26 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { validateSchemaDraft } from '../../../shared/api-mock/schemaDraftValidation';
 import { matchPath } from '../../../shared/api-mock/pathMatcher';
 import { formatJsonPathValue, jsonPathFromSelection } from '../../../shared/api-mock/jsonPathFromCursor';
 import { evaluateOperator, resolveSimpleJsonPath } from '../../../shared/api-mock/predicateEvaluatorHelpers';
 import type { ApiMockPathMatcherV1, ApiMockPathMatcherKind, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
 import {
-  DEFAULT_JSON_SAMPLE,
   KIND_OPTIONS,
   PATH_PRESETS,
   REGEX_LIBRARY,
   initialJsonPathDraft,
   initialRegexPattern,
+  initialRegexSamples,
   initialSchemaKind,
   initialSchemaText,
   initialXPathDraft,
+  resolveToolboxTab,
+  visibleToolboxTabs,
   type ConstraintDraft,
   type ToolTab,
 } from './apiMockPatternToolboxConstants';
+import {
+  initialToolboxJsonSample,
+  initialToolboxXmlSample,
+  rememberToolboxBodySample,
+} from './apiMockPatternToolboxSamples';
 import { ApiMockSchemaToolboxPanel, ApiMockXPathToolboxPanel } from './ApiMockPatternToolboxExtraPanels';
-import { testRegex, regexTabMatcher, explainRegex } from './apiMockPatternToolboxRegexUtils';
+import * as regexUtils from './apiMockPatternToolboxRegexUtils';
 import { ApiMockPatternToolboxConstraintsTab } from './ApiMockPatternToolboxConstraintsTab';
+import { applyPatternToolbox } from './apiMockPatternToolboxApply';
+import { ApiMockPatternToolboxTabBar } from './ApiMockPatternToolboxTabBar';
 
 interface Props {
   initial: ApiMockPathMatcherV1;
@@ -31,10 +41,18 @@ interface Props {
   onClose: () => void;
   contextLabel?: string;
   initialTab?: ToolTab;
+  /** When set, only these tabs appear. A single tab hides the tab bar (JSONPath picker). */
+  allowedTabs?: ToolTab[];
+  title?: string;
+  /** When set, the JSONPath sample starts from this body instead of the remembered default. */
+  jsonSampleSeed?: string;
   predicateExpected?: ApiMockPredicateV1['expected'];
   predicateOperator?: ApiMockPredicateV1['operator'];
   /** Seed Ignore case from the open matcher row (`options.caseSensitive === false`). */
   predicateCaseInsensitive?: boolean;
+  /** When opened from a Match row, Applied condition must name that row — not a hardcoded pathParam. */
+  predicateSource?: ApiMockPredicateV1['source'];
+  predicateSelector?: string;
 }
 
 
@@ -49,9 +67,13 @@ interface SampleRow {
  */
 export function ApiMockPatternToolboxModal({
   initial, onApply, onApplyConditions, onApplyPredicate, onClose, contextLabel, initialTab,
+  allowedTabs, title, jsonSampleSeed,
   predicateExpected, predicateOperator, predicateCaseInsensitive,
+  predicateSource, predicateSelector,
 }: Props) {
-  const [tab, setTab] = useState<ToolTab>(initialTab ?? (initial.kind === 'regex' ? 'regex' : 'path'));
+  const visibleTabs = visibleToolboxTabs(allowedTabs);
+  const pickerMode = allowedTabs?.length === 1 && allowedTabs[0] === 'jsonpath';
+  const [tab, setTab] = useState<ToolTab>(() => resolveToolboxTab(initialTab, initial.kind, allowedTabs));
   const [constraints, setConstraints] = useState<ConstraintDraft[]>([
     { id: 'c1', source: 'header', selector: '', operator: 'exact', expected: '' },
   ]);
@@ -69,19 +91,24 @@ export function ApiMockPatternToolboxModal({
     initialRegexPattern(predicateOperator, predicateExpected, initial.kind, initial.value),
   );
   const [libraryQuery, setLibraryQuery] = useState('');
-  const [activeLibrary, setActiveLibrary] = useState('Numeric ID');
-  const [samples, setSamples] = useState<SampleRow[]>([
-    { id: 's1', value: '42', shouldMatch: true },
-    { id: 's2', value: '100234', shouldMatch: true },
-    { id: 's3', value: 'admin', shouldMatch: false },
-    { id: 's4', value: '42a', shouldMatch: false },
-  ]);
+  const [samples, setSamples] = useState<SampleRow[]>(() => initialRegexSamples(predicateSource));
   const jsonPathDraft = initialJsonPathDraft(predicateOperator, predicateExpected);
   const xpathDraft = initialXPathDraft(predicateOperator, predicateExpected);
-  const [jsonSample, setJsonSample] = useState(() => JSON.stringify(DEFAULT_JSON_SAMPLE, null, 2));
+  const samplePath = initial.value;
+  const [jsonSample, setJsonSampleState] = useState(() =>
+    jsonSampleSeed?.trim() ? jsonSampleSeed : initialToolboxJsonSample(samplePath),
+  );
+  const setJsonSample = useCallback((value: string) => {
+    rememberToolboxBodySample('json', samplePath, value);
+    setJsonSampleState(value);
+  }, [samplePath]);
   const [jsonPath, setJsonPath] = useState(jsonPathDraft.path);
   const [jsonExpected, setJsonExpected] = useState(jsonPathDraft.value);
-  const [xmlSample, setXmlSample] = useState('<Order><Id>1</Id></Order>');
+  const [xmlSample, setXmlSampleState] = useState(() => initialToolboxXmlSample(samplePath));
+  const setXmlSample = useCallback((value: string) => {
+    rememberToolboxBodySample('xml', samplePath, value);
+    setXmlSampleState(value);
+  }, [samplePath]);
   const [xpath, setXpath] = useState(xpathDraft.expr);
   const [xpathValue, setXpathValue] = useState(xpathDraft.value);
   const [schemaKind, setSchemaKind] = useState<'json' | 'xml'>(() => initialSchemaKind(predicateOperator, predicateExpected));
@@ -156,7 +183,7 @@ export function ApiMockPatternToolboxModal({
     );
   } catch { /* invalid pattern */ }
 
-  const regexApplied = regexTabMatcher(regexPattern, predicateOperator, Boolean(onApplyPredicate));
+  const regexApplied = regexUtils.regexTabMatcher(regexPattern, predicateOperator, Boolean(onApplyPredicate));
   const regexValidity = useMemo(() => {
     if (predicateOperator === 'glob') return true;
     try {
@@ -173,8 +200,7 @@ export function ApiMockPatternToolboxModal({
     return p;
   }).join('/');
 
-  const applyLibrary = (name: string, pattern: string, pass: string[], fail: string[]) => {
-    setActiveLibrary(name);
+  const applyLibrary = (_name: string, pattern: string, pass: string[], fail: string[]) => {
     setRegexPattern(pattern);
     setTab('regex');
     setSamples([
@@ -183,80 +209,33 @@ export function ApiMockPatternToolboxModal({
     ]);
   };
 
+  const schemaValidity = useMemo(
+    () => validateSchemaDraft(schemaKind, schemaText),
+    [schemaKind, schemaText],
+  );
+  const applyDisabled = tab === 'schema' && !schemaValidity.ok;
+
   const handleApply = () => {
-    if (tab === 'jsonpath') {
-      const operator = jsonExpected.trim() ? 'jsonPath_equals' : 'jsonPath_exists';
-      const expected = jsonExpected.trim() ? [jsonPath, jsonExpected] : jsonPath;
-      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected });
-      else {
-        onApplyConditions?.([{
-          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-          source: 'body', selector: '', operator, expected,
-        }]);
-      }
-      onClose();
-      return;
-    }
-    if (tab === 'xpath') {
-      const operator = xpathValue.trim() ? 'xpath_equals' : 'xpath_exists';
-      const expected = xpathValue.trim() ? [xpath, xpathValue] : xpath;
-      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected });
-      else {
-        onApplyConditions?.([{
-          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-          source: 'body', selector: '', operator, expected,
-        }]);
-      }
-      onClose();
-      return;
-    }
-    if (tab === 'schema') {
-      const operator = schemaKind === 'xml' ? 'xmlSchema' : 'jsonSchema';
-      if (onApplyPredicate) onApplyPredicate({ source: 'body', selector: '', operator, expected: schemaText });
-      else {
-        onApplyConditions?.([{
-          id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-          source: 'body',
-          selector: '',
-          operator,
-          expected: schemaText,
-        }]);
-      }
-      onClose();
-      return;
-    }
-    if (tab === 'constraints') {
-      const usable = constraints.filter(c => c.selector.trim());
-      onApplyConditions?.(usable.map(c => ({
-        id: `pred-${crypto.randomUUID().slice(0, 8)}`,
-        source: c.source,
-        selector: c.selector.trim(),
-        operator: c.operator,
-        expected: c.operator === 'present' || c.operator === 'absent' ? undefined : c.expected,
-      })));
-      onClose();
-      return;
-    }
-    if (tab === 'regex') {
-      // Regex/glob Apply writes a path-matcher shape. Only the route path and
-      // regex/glob rows consume that — never smash a schema/JSONPath/XPath row.
-      const regexOrGlobRow = !predicateOperator
-        || predicateOperator === 'regex'
-        || predicateOperator === 'glob';
-      if (regexOrGlobRow) {
-        onApply({
-          kind: regexApplied.kind,
-          value: regexApplied.value,
-          flags: caseInsensitive ? { caseInsensitive: true } : undefined,
-        });
-      }
-    } else if (onApplyPredicate) {
-      // Path tab rewrites the route matcher; never apply it onto a predicate row.
-      onClose();
-    } else {
-      onApply({ kind, value, flags: caseInsensitive ? { caseInsensitive: true } : undefined });
-    }
-    onClose();
+    if (applyDisabled) return;
+    applyPatternToolbox({
+      tab,
+      jsonPath,
+      jsonExpected,
+      xpath,
+      xpathValue,
+      schemaKind,
+      schemaText,
+      constraints,
+      predicateOperator,
+      regexApplied,
+      caseInsensitive,
+      kind,
+      value,
+      onApply,
+      onApplyConditions,
+      onApplyPredicate,
+      onClose,
+    });
   };
 
   const filteredLibrary = REGEX_LIBRARY.map(cat => ({
@@ -268,13 +247,18 @@ export function ApiMockPatternToolboxModal({
     ),
   })).filter(c => c.entries.length > 0);
 
-  const explanationLines = explainRegex(regexPattern).split('\n').filter(Boolean);
+  const explanationLines = regexUtils.explainRegex(regexPattern).split('\n').filter(Boolean);
+  const activeLibrary = REGEX_LIBRARY.flatMap(cat => cat.entries).find(e => e.pattern === regexPattern)?.name;
+  const appliedSource = predicateSource ?? 'path';
+  const appliedSelector = (predicateSelector ?? '').trim()
+    || (predicateSource ? '—' : (initial.value || '/'));
+  const appliedOperator = predicateOperator === 'glob' ? 'glob' : 'regex';
 
   return (
     <AppModalFrame
       title={
         <div className="am-modal-title-block">
-          <div className="am-modal-title">Pattern Toolbox</div>
+          <div className="am-modal-title">{title ?? 'Pattern Toolbox'}</div>
           {contextLabel && <div className="am-modal-subtitle">{contextLabel}</div>}
         </div>
       }
@@ -292,37 +276,24 @@ export function ApiMockPatternToolboxModal({
           <span className="am-badge success">Runtime-parity evaluator</span>
           <span className="am-spacer" />
           <button className="am-btn" onClick={onClose} data-testid="api-mock-toolbox-cancel">Cancel</button>
-          <button className="am-btn primary" onClick={handleApply} data-testid="api-mock-toolbox-apply">
-            {tab === 'constraints' || tab === 'jsonpath' || tab === 'xpath' || tab === 'schema'
-              ? (onApplyPredicate ? 'Apply matcher' : 'Add conditions')
-              : 'Apply pattern'}
+          <button
+            className="am-btn primary"
+            onClick={handleApply}
+            disabled={applyDisabled}
+            title={applyDisabled ? schemaValidity.message : undefined}
+            data-testid="api-mock-toolbox-apply"
+          >
+            {pickerMode
+              ? 'Apply JSONPath'
+              : tab === 'constraints' || tab === 'jsonpath' || tab === 'xpath' || tab === 'schema'
+                ? (onApplyPredicate ? 'Apply matcher' : 'Add conditions')
+                : 'Apply pattern'}
           </button>
         </div>
       }
     >
       <div className="api-mock-root am-in-modal am-pattern-toolbox" data-testid="api-mock-pattern-toolbox">
-        <div className="am-builder-tabs am-pattern-tabs" role="tablist" aria-label="Pattern toolbox sections">
-          {([
-            ['regex', 'Regex builder'],
-            ['path', 'Path template'],
-            ['jsonpath', 'JSON body / JSONPath'],
-            ['xpath', 'XPath'],
-            ['schema', 'Schema'],
-            ['constraints', 'Query & headers'],
-          ] as const).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              className={`am-builder-tab${tab === id ? ' active' : ''}`}
-              data-testid={`api-mock-toolbox-tab-${id}`}
-              onClick={() => setTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <ApiMockPatternToolboxTabBar visibleTabs={visibleTabs} tab={tab} onSelect={setTab} />
 
         {tab === 'regex' && (
           <div className="am-tool-layout">
@@ -393,7 +364,7 @@ export function ApiMockPatternToolboxModal({
                           className={`am-chip${caseInsensitive ? ' active' : ''}`}
                           data-testid="api-mock-toolbox-flag-ci"
                         >
-                          <input type="checkbox" checked={caseInsensitive} onChange={e => setCaseInsensitive(e.target.checked)} />
+                          <input type="checkbox" checked={caseInsensitive} onChange={() => setCaseInsensitive(true)} />
                           Ignore case
                         </label>
                         <label className={`am-chip${unicode ? ' active' : ''}`}>
@@ -434,6 +405,13 @@ export function ApiMockPatternToolboxModal({
                   </button>
                 </div>
                 <div className="am-sample-list">
+                  <div className="am-sample-head" aria-hidden="true">
+                    <span>You expect</span>
+                    <span>Value</span>
+                    <span>Pattern</span>
+                    <span>Check</span>
+                    <span />
+                  </div>
                   {samples.map(s => {
                     const actual = regexApplied.kind === 'glob'
                       ? evaluateOperator(
@@ -442,8 +420,10 @@ export function ApiMockPatternToolboxModal({
                         regexApplied.value,
                         { caseSensitive: caseInsensitive ? false : true },
                       )
-                      : testRegex(regexApplied.value, s.value, !caseInsensitive);
+                      : regexUtils.testRegex(regexApplied.value, s.value, !caseInsensitive);
                     const expectationOk = actual !== 'invalid' && actual === s.shouldMatch;
+                    const actualText = regexUtils.sampleActualLabel(actual);
+                    const checkText = regexUtils.sampleCheckLabel(expectationOk);
                     return (
                       <div
                         key={s.id}
@@ -452,12 +432,12 @@ export function ApiMockPatternToolboxModal({
                       >
                         <button
                           type="button"
-                          className={`am-badge ${s.shouldMatch ? 'success' : 'danger'} am-sample-expectation`}
+                          className="am-badge am-sample-expectation"
                           onClick={() => setSamples(rows => rows.map(r => r.id === s.id ? { ...r, shouldMatch: !r.shouldMatch } : r))}
-                          title="Toggle should match / should fail"
+                          title="Toggle whether you expect this value to match"
                           data-testid={`api-mock-toolbox-sample-expect-${s.id}`}
                         >
-                          {s.shouldMatch ? 'Should match' : 'Should fail'}
+                          {regexUtils.sampleExpectLabel(s.shouldMatch)}
                         </button>
                         <input
                           className="am-input am-input--fill mono"
@@ -467,10 +447,17 @@ export function ApiMockPatternToolboxModal({
                           data-testid={`api-mock-toolbox-sample-value-${s.id}`}
                         />
                         <span
-                          className={`am-matcher-result ${expectationOk ? 'pass' : 'fail'}`}
-                          aria-label={expectationOk ? 'expectation passed' : 'expectation failed'}
+                          className={`am-sample-actual${actual === true ? ' match' : actual === false ? ' miss' : ''}`}
+                          data-testid={`api-mock-toolbox-sample-actual-${s.id}`}
                         >
-                          {expectationOk ? '✓' : '✕'}
+                          {actualText}
+                        </span>
+                        <span
+                          className={`am-sample-check ${expectationOk ? 'pass' : 'fail'}`}
+                          aria-label={checkText}
+                          data-testid={`api-mock-toolbox-sample-check-${s.id}`}
+                        >
+                          {expectationOk ? '✓' : '✕'} {checkText}
                         </span>
                         <button
                           type="button"
@@ -486,7 +473,10 @@ export function ApiMockPatternToolboxModal({
                   })}
                 </div>
                 <div className="am-notice am-notice--flush">
-                  <span>Samples use the same predicate evaluator as simulation and the live listener.</span>
+                  <span>
+                    <strong>Matches</strong> / <strong>Does not match</strong> is what the pattern did.
+                    The check is only whether that agreed with <strong>Expect match</strong>.
+                  </span>
                 </div>
               </div>
             </article>
@@ -505,10 +495,10 @@ export function ApiMockPatternToolboxModal({
                 </ul>
                 <div className="am-tool-block-title am-tool-preview-subtitle">Applied condition</div>
                 <dl className="am-kv-list">
-                  <div><dt>Source</dt><dd className="am-mono">pathParam</dd></div>
-                  <div><dt>Selector</dt><dd className="am-mono">id</dd></div>
-                  <div><dt>Operator</dt><dd className="am-mono">regex</dd></div>
-                  <div><dt>Expected</dt><dd className="am-mono">{regexPattern || '—'}</dd></div>
+                  <div><dt>Source</dt><dd className="am-mono" data-testid="api-mock-toolbox-applied-source">{appliedSource}</dd></div>
+                  <div><dt>Selector</dt><dd className="am-mono" data-testid="api-mock-toolbox-applied-selector">{appliedSelector}</dd></div>
+                  <div><dt>Operator</dt><dd className="am-mono" data-testid="api-mock-toolbox-applied-operator">{appliedOperator}</dd></div>
+                  <div><dt>Expected</dt><dd className="am-mono" data-testid="api-mock-toolbox-applied-expected">{regexPattern || '—'}</dd></div>
                   <div><dt>Case sensitive</dt><dd className="am-mono">{String(!caseInsensitive)}</dd></div>
                 </dl>
                 <div className="am-notice warning">
@@ -701,9 +691,20 @@ export function ApiMockPatternToolboxModal({
               </div>
               <div className="am-notice am-notice--flush">
                 <span>
-                  <strong>Add condition</strong> attaches a body predicate using the runtime JSONPath evaluator —
-                  <span className="am-mono"> jsonPath_equals</span> when an expected value is set, otherwise
-                  <span className="am-mono"> jsonPath_exists</span>.
+                  {pickerMode ? (
+                    <>
+                      <strong>Apply JSONPath</strong> fills the variant condition. Click a key in the sample
+                      to build the path. An expected value uses
+                      <span className="am-mono"> jsonPath_equals</span>; leave it empty to keep the current value
+                      and only update the path.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Add condition</strong> attaches a body predicate using the runtime JSONPath evaluator —
+                      <span className="am-mono"> jsonPath_equals</span> when an expected value is set, otherwise
+                      <span className="am-mono"> jsonPath_exists</span>.
+                    </>
+                  )}
                 </span>
               </div>
             </div>

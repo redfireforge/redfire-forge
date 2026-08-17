@@ -21,6 +21,7 @@ vi.mock('../../adapters', () => ({
 }));
 
 import {
+  AM13_CHECKED_OUT,
   AM13_CORPUS_SAMPLE,
   AM13_COUNTER_KEY,
   AM13_EMPTY,
@@ -30,9 +31,10 @@ import {
   AM13_HAS_ITEMS_BODY,
   AM13_HAS_ITEMS_TRANSITION,
   AM13_PATH,
-  AM13_SEED,
   AM13_TIMING,
+  AM13_TENANT_BODY,
   AM13_VAR_KEY,
+  AM13_VAR_SNIPPET,
   AM13_VAR_VALUE,
   AM13_VARIANT_2_NAME,
   AM13_WEIGHT_A,
@@ -52,6 +54,7 @@ import {
   ensureAm13FirstCall,
   ensureAm13ForApply,
   ensureAm13ForWeighted,
+  ensureAm13HasItemsHop,
   ensureAm13JournalOpen,
   ensureAm13ResponseTab,
   ensureAm13RuleOpen,
@@ -75,9 +78,10 @@ import {
   isAm13WeightedMode,
   prepareAm13Workspace,
   runAm13FirstCall,
+  runAm13HasItemsHop,
   runAm13ResetAndBatch,
-  runAm13SecondVariant,
   runAm13StateLive,
+  runAm13SecondVariant,
   runAm13Transition,
   runAm13Variables,
   runAm13WeightedAndSeed,
@@ -205,6 +209,22 @@ function mountEditor(opts: {
   document.body.append(editor);
 }
 
+function mountSimSampleRow(id: string, name: string, stateLine: string): HTMLElement {
+  const row = el('div', 'am-sim-sample', `api-mock-sim-sample-${id}`);
+  const btn = el('button', 'am-sim-sample-btn');
+  const rowLine = el('div', 'am-row');
+  const nameEl = el('span', 'am-sim-sample-name');
+  nameEl.textContent = name;
+  const badge = el('span', 'am-badge success');
+  badge.textContent = 'PASS';
+  rowLine.append(nameEl, badge);
+  const chip = el('span', 'am-chip', 'api-mock-sim-sample-state');
+  chip.textContent = stateLine;
+  btn.append(rowLine, chip);
+  row.append(btn);
+  return row;
+}
+
 function mountSimulate(outcome = 'MATCHED'): void {
   const workspace = el('div', undefined, 'api-mock-simulate-workspace');
   const method = el('div', undefined, 'api-mock-simulate-method');
@@ -226,10 +246,14 @@ function mountSimulate(outcome = 'MATCHED'): void {
   const status = el('span', undefined, 'api-mock-sim-rendered-status');
   status.textContent = '200';
   rendered.append(status);
+  const body = el('pre', 'am-code', 'api-mock-sim-rendered-body');
+  body.textContent = AM13_EMPTY_BODY;
+  rendered.append(body);
   workspace.append(rendered);
-  const chip = el('span', 'am-chip', 'api-mock-sim-sample-state');
-  chip.textContent = '(empty) → HAS_ITEMS';
-  workspace.append(chip);
+  const samples = el('aside', undefined, 'api-mock-sim-samples');
+  samples.append(mountSimSampleRow('adhoc', 'Ad-hoc request', '(empty) → HAS_ITEMS'));
+  samples.append(mountSimSampleRow('add-to-cart', 'Add to cart', 'HAS_ITEMS → CHECKED_OUT'));
+  workspace.append(samples);
   document.body.append(workspace);
 }
 
@@ -245,6 +269,7 @@ function mountLiveStrip(): void {
 function mountJournal(liveText = 'default = HAS_ITEMS items: 1'): void {
   const dock = el('div', undefined, 'api-mock-dock');
   dock.append(el('button', undefined, 'api-mock-dock-tab-transactions'));
+  dock.append(el('button', 'am-btn small danger', 'api-mock-journal-clear'));
   const stateTab = el('button', undefined, 'api-mock-dock-tab-state');
   stateTab.setAttribute('aria-selected', 'false');
   dock.append(stateTab);
@@ -366,7 +391,21 @@ describe('AM-13 stateful helpers', () => {
     vi.clearAllMocks();
     importApiMockGallerySample.mockResolvedValue(true);
     patchApiMockActiveRoute.mockReturnValue(true);
-    sendApiMockRequest.mockResolvedValue({ status: 200, body: AM13_EMPTY_BODY });
+    // Advance the dock State label the way a live stateful listener would, so
+    // seed waits in hop helpers do not spin when the draft was Applied.
+    sendApiMockRequest.mockImplementation(async () => {
+      const live = document.querySelector<HTMLElement>('[data-testid="api-mock-dock-state-live"]');
+      const text = live?.textContent ?? '';
+      if (live && (/No state changes/i.test(text) || text.trim() === '')) {
+        live.textContent = 'default = HAS_ITEMS\nitems: 1';
+        return { status: 200, body: AM13_EMPTY_BODY };
+      }
+      if (live && /HAS_ITEMS/i.test(text) && !/CHECKED_OUT/i.test(text)) {
+        live.textContent = 'default = CHECKED_OUT\nitems: 1';
+        return { status: 200, body: AM13_HAS_ITEMS_BODY };
+      }
+      return { status: 200, body: AM13_EMPTY_BODY };
+    });
   });
 
   it('exposes corpus constants and slower timing', () => {
@@ -375,6 +414,7 @@ describe('AM-13 stateful helpers', () => {
     expect(AM13_HAS_ITEMS_BODY).toContain('RF-100');
     expect(AM13_EMPTY_TRANSITION.currentState).toBe(AM13_EMPTY);
     expect(AM13_HAS_ITEMS_TRANSITION.targetState).toBe('CHECKED_OUT');
+    expect(AM13_TENANT_BODY).toContain(AM13_VAR_SNIPPET);
     expect(AM13_TIMING.beforeOpen).toBe(1400);
     expect(AM13_TIMING.payoff).toBe(1600);
   });
@@ -524,6 +564,26 @@ describe('AM-13 stateful helpers', () => {
     }));
   });
 
+  it('ensureAm13SecondVariant skips when the second hop is already authored', async () => {
+    const ctx = makeCtx();
+    mountExplorer();
+    mountServerBar(true, true);
+    mountEditor({
+      state: true,
+      required: AM13_HAS_ITEMS,
+      next: AM13_CHECKED_OUT,
+    });
+    // First-card probe still needs EMPTY→HAS_ITEMS + counter on card 1.
+    patchApiMockActiveRoute.mockClear();
+    await ensureAm13SecondVariant(ctx);
+    // May patch variant 0 if the visible fields are the second hop; must not
+    // keep re-patching variant 1 once HAS_ITEMS→CHECKED_OUT is showing.
+    const secondPatches = patchApiMockActiveRoute.mock.calls.filter(
+      (c) => (c[0] as { variantIndex?: number }).variantIndex === 1,
+    );
+    expect(secondPatches).toHaveLength(0);
+  });
+
   it('ensureAm13ForApply and first-call send a probe when the journal is empty', async () => {
     const ctx = makeCtx();
     mountExplorer();
@@ -540,6 +600,8 @@ describe('AM-13 stateful helpers', () => {
     expect(sendApiMockRequest).toHaveBeenCalled();
     await ensureAm13StateLive(ctx);
     await ensureAm13ForWeighted(ctx);
+    await runAm13StateLive(ctx);
+    expect(sendApiMockRequest).toHaveBeenCalled();
   });
 
   it('ensureAm13Weighted switches mode and sets 90/10', async () => {
@@ -664,6 +726,10 @@ describe('AM-13 stateful helpers', () => {
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VARIANT_NEXT_STATE, AM13_HAS_ITEMS);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.COUNTER_ADD);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.COUNTER_KEY, AM13_COUNTER_KEY);
+    // Required then Next — natural EMPTY → HAS_ITEMS order (no editor mirror).
+    const fillTargets = vi.mocked(ctx.fill).mock.calls.map(c => c[0]);
+    expect(fillTargets.indexOf(API_MOCK.VARIANT_REQUIRED_STATE))
+      .toBeLessThan(fillTargets.indexOf(API_MOCK.VARIANT_NEXT_STATE));
   });
 
   it('runAm13SecondVariant selects the last card and holds its body', async () => {
@@ -679,7 +745,12 @@ describe('AM-13 stateful helpers', () => {
     });
     await runAm13SecondVariant(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VARIANT_REQUIRED_STATE, AM13_HAS_ITEMS);
+    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VARIANT_NEXT_STATE, AM13_CHECKED_OUT);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.VARIANT_CARD_LAST);
+    // Required then Next — natural HAS_ITEMS → CHECKED_OUT order.
+    const fillTargets = vi.mocked(ctx.fill).mock.calls.map(c => c[0]);
+    expect(fillTargets.indexOf(API_MOCK.VARIANT_REQUIRED_STATE))
+      .toBeLessThan(fillTargets.indexOf(API_MOCK.VARIANT_NEXT_STATE));
   });
 
   it('runAm13FirstCall Applies and opens the journal', async () => {
@@ -692,22 +763,10 @@ describe('AM-13 stateful helpers', () => {
     await runAm13FirstCall(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APPLY);
     expect(sendApiMockRequest).toHaveBeenCalled();
-  });
-
-  it('runAm13StateLive opens Runtime then the State tab and fetches again', async () => {
-    const ctx = makeCtx();
-    withClickSideEffects(ctx);
-    mountExplorer();
-    mountServerBar(true, true);
-    mountEditor({ state: true });
-    mountLiveStrip();
-    await runAm13StateLive(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.VIEW_RUNTIME);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.DOCK_TAB_STATE);
-    expect(sendApiMockRequest).toHaveBeenCalled();
   });
 
-  it('runAm13StateLive opens the State tab then fetches again', async () => {
+  it('runAm13HasItemsHop resets, clears, seeds two POSTs, then walks both journal rows', async () => {
     const ctx = makeCtx();
     withClickSideEffects(ctx);
     mountExplorer();
@@ -715,9 +774,24 @@ describe('AM-13 stateful helpers', () => {
     mountEditor({ state: true });
     mountLiveStrip();
     mountJournal();
-    await runAm13StateLive(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.DOCK_TAB_STATE);
-    expect(sendApiMockRequest).toHaveBeenCalled();
+    // Newest-first list: tx-2 (arrived second) above tx-1 (arrived first).
+    const tbody = document.querySelector('tbody');
+    tbody?.replaceChildren(
+      el('tr', undefined, 'api-mock-tx-2'),
+      el('tr', undefined, 'api-mock-tx-1'),
+    );
+    await runAm13HasItemsHop(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APPLY);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.STATE_RESET);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.JOURNAL_CLEAR);
+    expect(sendApiMockRequest).toHaveBeenCalledTimes(2);
+    const clicks = vi.mocked(ctx.click).mock.calls.map(c => c[0]);
+    const firstArrived = clicks.indexOf('[data-testid="api-mock-tx-1"]');
+    const secondArrived = clicks.indexOf('[data-testid="api-mock-tx-2"]');
+    expect(firstArrived).toBeGreaterThan(-1);
+    expect(secondArrived).toBeGreaterThan(-1);
+    expect(firstArrived).toBeLessThan(secondArrived);
+    expect(clicks.lastIndexOf(API_MOCK.DOCK_TAB_STATE)).toBeGreaterThan(secondArrived);
   });
 
   it('runAm13ResetAndBatch resets then runs all samples', async () => {
@@ -732,9 +806,12 @@ describe('AM-13 stateful helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.STATE_RESET);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN_ALL);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_CLOSE);
+    // Walks both sample verdicts: waits for the per-sample state before holding
+    // each row (spotlight badge + state chip) one at a time.
+    expect(ctx.waitFor).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAMPLE_STATE, expect.any(Number));
   });
 
-  it('runAm13WeightedAndSeed fills 90/10 and a replay seed', async () => {
+  it('runAm13WeightedAndSeed fills 90/10 and runs Simulate twice', async () => {
     const ctx = makeCtx();
     withClickSideEffects(ctx);
     mountExplorer();
@@ -745,7 +822,21 @@ describe('AM-13 stateful helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.RESPONSE_MODE_WEIGHTED);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VARIANT_WEIGHT, AM13_WEIGHT_A);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VARIANT_WEIGHT, AM13_WEIGHT_B);
-    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SIMULATE_SEED, AM13_SEED);
+    expect(ctx.fill).not.toHaveBeenCalledWith(API_MOCK.SIMULATE_SEED, expect.anything());
+    const clicks = vi.mocked(ctx.click).mock.calls.map(c => c[0]);
+    const applyAt = clicks.indexOf(API_MOCK.APPLY);
+    const simulateAt = clicks.indexOf(API_MOCK.SIMULATE);
+    expect(applyAt).toBeGreaterThan(-1);
+    expect(simulateAt).toBeGreaterThan(applyAt);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAVE_SAMPLE);
+    const renderedClicks = vi.mocked(ctx.click).mock.calls.filter(
+      (c) => c[0] === API_MOCK.SIMULATE_TAB_RENDERED,
+    );
+    expect(renderedClicks).toHaveLength(2);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeGreaterThan(8_000);
+    expect(delayMs).toBeLessThan(34_000);
   });
 
   it('runAm13Variables adds a tenant row and toggles sensitive', async () => {
@@ -760,6 +851,10 @@ describe('AM-13 stateful helpers', () => {
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VAR_KEY_LAST, AM13_VAR_KEY);
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.VAR_VALUE_LAST, AM13_VAR_VALUE);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.VAR_SENSITIVE_LAST);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.RESPONSE_TAB_CONTENT);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      body: AM13_TENANT_BODY,
+    }));
   });
 
   it('runAm13Variables skips add when the tenant row already exists', async () => {
@@ -772,6 +867,9 @@ describe('AM-13 stateful helpers', () => {
     appendVarRow();
     await runAm13Variables(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.VAR_ADD);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      body: AM13_TENANT_BODY,
+    }));
   });
 
   it('probe fallbacks when the matching nodes are missing', () => {
@@ -878,15 +976,20 @@ describe('AM-13 stateful helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APPLY);
   });
 
-  it('runAm13StateLive sends a probe when the journal is empty', async () => {
+  it('runAm13HasItemsHop always clears then seeds two POSTs', async () => {
     const ctx = makeCtx();
     mountExplorer();
     mountServerBar(true, true);
     mountEditor({ state: true });
     const detail = el('div', undefined, 'api-mock-tx-detail');
     document.body.append(detail);
-    await runAm13StateLive(ctx);
-    expect(sendApiMockRequest).toHaveBeenCalled();
+    mountJournal();
+    document.querySelector('tbody')?.append(el('tr', undefined, 'api-mock-tx-2'));
+    await runAm13HasItemsHop(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APPLY);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.STATE_RESET);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.JOURNAL_CLEAR);
+    expect(sendApiMockRequest).toHaveBeenCalledTimes(2);
   });
 
   it('runAm13ResetAndBatch selects POST when Simulate is still on GET', async () => {
@@ -930,6 +1033,23 @@ describe('AM-13 stateful helpers', () => {
     ctx.fill = ctxFill;
     await runAm13WeightedAndSeed(ctx);
     expect(ctx.selectOption).toHaveBeenCalledWith(API_MOCK.SIMULATE_METHOD, 'POST');
+  });
+
+  it('ensureAm13HasItemsHop rewinds and sends when only one transaction exists', async () => {
+    const ctx = makeCtx();
+    mountExplorer();
+    mountServerBar(true, true);
+    mountEditor({
+      state: true,
+      required: AM13_EMPTY,
+      next: AM13_HAS_ITEMS,
+      counter: true,
+    });
+    mountLiveStrip();
+    mountJournal();
+    await ensureAm13HasItemsHop(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.STATE_RESET);
+    expect(sendApiMockRequest).toHaveBeenCalled();
   });
 
   it('ensureAm13StateLive opens the State tab when it is not selected', async () => {
@@ -1012,7 +1132,7 @@ describe('AM-13 stateful helpers', () => {
       }
     }) as DemoActionContext['click'];
     await runAm13WeightedAndSeed(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.SIMULATE_SEED, AM13_SEED);
+    expect(ctx.fill).not.toHaveBeenCalledWith(API_MOCK.SIMULATE_SEED, expect.anything());
   });
 
   it('am13HasTenantVariable matches a row whose text is the key', () => {

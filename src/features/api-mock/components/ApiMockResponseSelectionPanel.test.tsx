@@ -4,7 +4,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ApiMockResponseSelectionPanel, readJsonPathCondition, writeJsonPathCondition } from './ApiMockResponseSelectionPanel';
+import {
+  ApiMockResponseSelectionPanel,
+  applyToolboxPredicateToSelection,
+  readJsonPathCondition,
+  sequenceCursorLabel,
+  writeJsonPathCondition,
+} from './ApiMockResponseSelectionPanel';
 import { createDefaultResponse } from '../../../shared/api-mock/defaults';
 import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
 import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
@@ -53,6 +59,17 @@ function renderPanel(
   return { onUpdateRoute, onUpdateVariant, onModeChange, activeVariant, route };
 }
 
+describe('sequenceCursorLabel', () => {
+  it('maps the shared 0-based cursor to a 1-based next step', () => {
+    expect(sequenceCursorLabel(undefined, 2)).toBe('Next: Step 1 of 2');
+    expect(sequenceCursorLabel(0, 2)).toBe('Next: Step 1 of 2');
+    expect(sequenceCursorLabel(1, 2)).toBe('Next: Step 2 of 2');
+    expect(sequenceCursorLabel(2, 2)).toBe('Next: Step 1 of 2');
+    expect(sequenceCursorLabel(2, 1)).toBe('Next: Step 1 of 1');
+    expect(sequenceCursorLabel(0, 0)).toBe('Next: Step 1 of 1');
+  });
+});
+
 describe('ApiMockResponseSelectionPanel', () => {
   it('changes response mode via CustomSelect', () => {
     const { onModeChange } = renderPanel();
@@ -82,7 +99,7 @@ describe('ApiMockResponseSelectionPanel', () => {
       {},
       { sequencePosition: 2 },
     );
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Position 2 of 1');
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Next: Step 1 of 1');
   });
 
   it('edits weighted variant weight', () => {
@@ -102,6 +119,7 @@ describe('ApiMockResponseSelectionPanel', () => {
     fireEvent.change(screen.getByTestId('api-mock-variant-required-state'), { target: { value: 'Boot' } });
     fireEvent.change(screen.getByTestId('api-mock-variant-required-state'), { target: { value: '' } });
     fireEvent.change(screen.getByTestId('api-mock-variant-next-state'), { target: { value: '' } });
+    expect(screen.getByTestId('api-mock-counter-row-0')).toHaveClass('am-counter-row');
     fireEvent.change(screen.getByLabelText('Counter 1 key'), { target: { value: 'hits' } });
     fireEvent.change(screen.getByLabelText('Counter 1 delta'), { target: { value: 'abc' } });
     fireEvent.click(screen.getByTestId('api-mock-counter-remove-0'));
@@ -113,6 +131,12 @@ describe('ApiMockResponseSelectionPanel', () => {
     renderPanel({ responseMode: 'sequence' });
     expect(screen.getByTestId('api-mock-selection-panel').textContent).toMatch(/sequence/i);
     expect(screen.getByTestId('api-mock-selection-panel').textContent).toMatch(/mode is active on the live listener/i);
+  });
+
+  it('shows Pick from sample on the JSONPath row for a non-default variant', () => {
+    renderPanel({}, { isDefault: false, name: 'Missing' });
+    expect(screen.getByTestId('api-mock-selection-condition-toolbox')).toHaveTextContent('Pick from sample');
+    expect(screen.getByTestId('api-mock-selection-condition-path').closest('.am-selection-jsonpath-row')).toBeTruthy();
   });
 
   it('authors a JSONPath condition on a non-default variant', () => {
@@ -206,6 +230,99 @@ describe('ApiMockResponseSelectionPanel', () => {
         }],
       },
     })).toEqual({ path: '', value: '' });
+  });
+
+  it('opens the JSONPath picker and applies a sample path', () => {
+    const { onUpdateVariant } = renderPanel({}, { isDefault: false, name: 'Missing' });
+    fireEvent.click(screen.getByTestId('api-mock-selection-condition-toolbox'));
+    expect(screen.getByTestId('api-mock-pattern-toolbox')).toBeInTheDocument();
+    expect(screen.queryByTestId('api-mock-toolbox-tab-regex')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-jsonpath'), { target: { value: '$.sku' } });
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-json-expected'), { target: { value: 'MISSING' } });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onUpdateVariant).toHaveBeenCalledWith({
+      conditions: expect.objectContaining({
+        children: [expect.objectContaining({
+          operator: 'jsonPath_equals',
+          expected: ['$.sku', 'MISSING'],
+        })],
+      }),
+    });
+    expect(screen.queryByTestId('api-mock-pattern-toolbox')).not.toBeInTheDocument();
+  });
+
+  it('seeds the JSONPath picker from the current condition and keeps the value on exists', () => {
+    const { onUpdateVariant } = renderPanel(
+      {},
+      {
+        isDefault: false,
+        conditions: {
+          id: 'pg-cond',
+          combinator: 'all',
+          children: [{
+            id: 'p1',
+            source: 'body',
+            selector: '',
+            operator: 'jsonPath_equals',
+            expected: ['$.sku', 'MISSING'],
+          }],
+        },
+      },
+    );
+    fireEvent.click(screen.getByTestId('api-mock-selection-condition-toolbox'));
+    expect(screen.getByTestId('api-mock-toolbox-jsonpath')).toHaveValue('$.sku');
+    expect(screen.getByTestId('api-mock-toolbox-json-expected')).toHaveValue('MISSING');
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-jsonpath'), { target: { value: '$.items[0].sku' } });
+    fireEvent.change(screen.getByTestId('api-mock-toolbox-json-expected'), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-apply'));
+    expect(onUpdateVariant).toHaveBeenCalledWith({
+      conditions: expect.objectContaining({
+        children: [expect.objectContaining({ expected: ['$.items[0].sku', 'MISSING'] })],
+      }),
+    });
+  });
+
+  it('cancels the JSONPath picker without writing a condition', () => {
+    const { onUpdateVariant } = renderPanel({}, { isDefault: false, name: 'Missing' });
+    fireEvent.click(screen.getByTestId('api-mock-selection-condition-toolbox'));
+    fireEvent.click(screen.getByTestId('api-mock-toolbox-cancel'));
+    expect(onUpdateVariant).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('api-mock-pattern-toolbox')).not.toBeInTheDocument();
+  });
+
+  it('applyToolboxPredicateToSelection maps equals, exists, and ignores other operators', () => {
+    const base = {
+      ...createDefaultResponse('resp-r'),
+      conditions: {
+        id: 'pg',
+        combinator: 'all' as const,
+        children: [{
+          id: 'p',
+          source: 'body' as const,
+          selector: '',
+          operator: 'jsonPath_equals' as const,
+          expected: ['$.sku', 'MISSING'],
+        }],
+      },
+    };
+    expect(applyToolboxPredicateToSelection(base, {
+      operator: 'jsonPath_equals',
+      expected: ['$.items[0].sku', 'RF-100'],
+    })?.children).toEqual([expect.objectContaining({ expected: ['$.items[0].sku', 'RF-100'] })]);
+    expect(applyToolboxPredicateToSelection(base, {
+      operator: 'jsonPath_equals',
+      expected: '$.id',
+    })?.children).toEqual([expect.objectContaining({ expected: ['$.id', 'MISSING'] })]);
+    expect(applyToolboxPredicateToSelection(base, {
+      operator: 'jsonPath_exists',
+      expected: '$.customer.id',
+    })?.children).toEqual([expect.objectContaining({ expected: ['$.customer.id', 'MISSING'] })]);
+    expect(applyToolboxPredicateToSelection(base, { operator: 'regex', expected: 'x' })).toBe(base.conditions);
+    expect(applyToolboxPredicateToSelection(base, { operator: 'jsonPath_equals' })).toBe(base.conditions);
+    expect(applyToolboxPredicateToSelection(createDefaultResponse('empty'), {
+      operator: 'jsonPath_equals',
+      expected: [undefined, undefined],
+    })).toBeUndefined();
   });
 
   it('writeJsonPathCondition mints a group id when the variant has none', () => {

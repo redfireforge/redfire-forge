@@ -1,16 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { HttpMethod } from '../../../shared/types';
-import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { METHOD_COLORS, METHOD_DESCRIPTIONS } from '../../../shared/constants/httpMethodColors';
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
-
-const METHOD_DESCRIPTIONS: Record<string, string> = {
-  GET: 'Retrieve data',
-  POST: 'Create resource',
-  PUT: 'Replace resource',
-  PATCH: 'Partial update',
-  DELETE: 'Remove resource',
-};
 
 interface Props {
   value: HttpMethod;

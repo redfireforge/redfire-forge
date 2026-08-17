@@ -50,6 +50,18 @@ function isSchemaRegistryUrl(url: string): boolean {
   }
 }
 
+/** API Mock Docker echo (:4017) — corporate proxy intercepts browser 127.0.0.1. */
+function isApiMockEchoHealthUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    return isLoopback && parsed.port === '4017';
+  } catch {
+    return false;
+  }
+}
+
 /** Envoy gRPC-Web sidecar (:50055) — bare GET returns 415; probe via Express proxy. */
 function isEnvoyGrpcWebProbeUrl(url: string): boolean {
   try {
@@ -185,6 +197,11 @@ export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<bool
     // Route through Express so PrerequisiteGate stays quiet in DevTools.
     if (isEnvoyGrpcWebProbeUrl(url)) {
       return checkProxyHealth('/health/envoy', timeoutMs);
+    }
+    // AM-17 echo :4017 — same-origin proxy so DevTools stays quiet and the
+    // corporate proxy cannot intercept 127.0.0.1 loopback candidates.
+    if (isApiMockEchoHealthUrl(url)) {
+      return checkProxyHealth('/health/api-mock-echo', timeoutMs);
     }
     // Redpanda Admin API probes are routed through the server proxy for the same reason.
     if (isRedpandaAdminUrl(url)) {

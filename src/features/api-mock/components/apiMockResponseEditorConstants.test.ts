@@ -13,6 +13,7 @@ import {
 describe('apiMockResponseEditorConstants', () => {
   it('exports fault cards and content presets', () => {
     expect(FAULT_CARDS.map(c => c.id)).toEqual(['none', 'timeout', 'reset', 'dribble', 'close', 'malformed']);
+    expect(FAULT_CARDS.find(c => c.id === 'timeout')?.description).toMatch(/connection/i);
     expect(CONTENT_TYPE_PRESETS).toContain('application/json');
     expect(CUSTOM_CONTENT_TYPE).toBe('__custom__');
     expect(QUICK_STATUSES).toContain(404);

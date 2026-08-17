@@ -1,7 +1,18 @@
+import { useState } from 'react';
 import { capturedRequestPath } from '../apiMockJournalActions';
 import type { ApiMockSimulationSampleV1, ApiMockTransactionOutcome } from '../../../shared/api-mock/contracts';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { FlaskIcon, TrashIcon } from './ApiMockIcons';
+
+function prettyJsonBody(raw: string): { ok: true; text: string } | { ok: false; error: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: false, error: 'Body is empty.' };
+  try {
+    return { ok: true, text: JSON.stringify(JSON.parse(trimmed), null, 2) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Not valid JSON.' };
+  }
+}
 
 const OUTCOMES: Array<{ value: ApiMockTransactionOutcome; label: string }> = [
   { value: 'matched', label: 'Matched' },
@@ -29,6 +40,8 @@ export function ApiMockExamplesPanel({
   onDeleteSample,
   onTryInRequests,
 }: Props) {
+  const [prettyErrors, setPrettyErrors] = useState<Record<string, string>>({});
+
   if (samples.length === 0) {
     return (
       <div className="am-notice" data-testid="api-mock-examples-empty">
@@ -122,24 +135,71 @@ export function ApiMockExamplesPanel({
                 />
               </div>
             </div>
-            <div className="am-form-row">
+            <div className="am-form-row am-form-row--tall am-example-body-exact-row">
               <div className="am-form-label">Body exact</div>
-              <div className="am-form-control">
-                <input
-                  className="am-input wide"
+              <div className="am-form-control am-form-control-stack">
+                <div className="am-callback-body-toolbar">
+                  <button
+                    type="button"
+                    className="am-format-badge"
+                    disabled={!(sample.expected?.bodyExact ?? '').trim()}
+                    title="Pretty-print JSON"
+                    aria-label="Pretty format"
+                    data-testid={`api-mock-example-body-pretty-${sample.id}`}
+                    onClick={() => {
+                      const result = prettyJsonBody(sample.expected?.bodyExact ?? '');
+                      if (!result.ok) {
+                        setPrettyErrors(prev => ({ ...prev, [sample.id]: result.error }));
+                        return;
+                      }
+                      setPrettyErrors(prev => {
+                        if (!(sample.id in prev)) return prev;
+                        const next = { ...prev };
+                        delete next[sample.id];
+                        return next;
+                      });
+                      onUpdateSample?.({
+                        ...sample,
+                        expected: {
+                          outcome: sample.expected?.outcome ?? 'matched',
+                          ...sample.expected,
+                          bodyExact: result.text,
+                        },
+                      });
+                    }}
+                  >
+                    Pretty format
+                  </button>
+                </div>
+                <textarea
+                  className="am-textarea mono am-example-body-exact-editor"
                   placeholder="optional exact body"
                   value={sample.expected?.bodyExact ?? ''}
+                  spellCheck={false}
                   aria-label="Expected body exact"
                   data-testid={`api-mock-example-body-exact-${sample.id}`}
-                  onChange={e => onUpdateSample?.({
-                    ...sample,
-                    expected: {
-                      outcome: sample.expected?.outcome ?? 'matched',
-                      ...sample.expected,
-                      bodyExact: e.target.value || undefined,
-                    },
-                  })}
+                  onChange={e => {
+                    setPrettyErrors(prev => {
+                      if (!(sample.id in prev)) return prev;
+                      const next = { ...prev };
+                      delete next[sample.id];
+                      return next;
+                    });
+                    onUpdateSample?.({
+                      ...sample,
+                      expected: {
+                        outcome: sample.expected?.outcome ?? 'matched',
+                        ...sample.expected,
+                        bodyExact: e.target.value || undefined,
+                      },
+                    });
+                  }}
                 />
+                {prettyErrors[sample.id] && (
+                  <div className="am-hint am-hint--error" data-testid={`api-mock-example-body-pretty-error-${sample.id}`}>
+                    {prettyErrors[sample.id]}
+                  </div>
+                )}
               </div>
             </div>
           </div>

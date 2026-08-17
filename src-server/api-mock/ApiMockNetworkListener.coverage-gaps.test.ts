@@ -886,27 +886,29 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     listeners.push(listener);
     await listener.start();
 
-    vi.spyOn(proxyExecutor, 'executeProxy').mockResolvedValue({
+    vi.spyOn(proxyExecutor, 'executeProxyWithFailover').mockResolvedValue({
       ok: true,
       status: 200,
       headers: { 'x-multi': ['a', 'b'] },
       body: '{"ok":true}',
+      attempts: 1,
     });
 
     const res = await fetch(`http://127.0.0.1:${port}/proxy-path`);
     expect(res.status).toBe(200);
     await vi.waitFor(() => expect(txs.length).toBe(1));
     expect(txs[0].response.headers['x-multi']).toEqual(['a', 'b']);
-    expect(vi.mocked(proxyExecutor.executeProxy).mock.calls[0][0].activeMockPorts).toEqual([port]);
+    expect(vi.mocked(proxyExecutor.executeProxyWithFailover).mock.calls[0][0].activeMockPorts).toEqual([port]);
   });
 
   it('returns proxy_failed with a default message when upstream error is missing', async () => {
     const port = getPort();
-    vi.spyOn(proxyExecutor, 'executeProxy').mockResolvedValue({
+    vi.spyOn(proxyExecutor, 'executeProxyWithFailover').mockResolvedValue({
       ok: false,
       status: 502,
       headers: {},
       body: '',
+      attempts: 1,
     });
 
     const listener = new ApiMockNetworkListener({
@@ -937,9 +939,9 @@ describe('ApiMockNetworkListener coverage gaps', () => {
 
   it('does not journal a proxied exchange after the client has gone', async () => {
     let finishProxy: (value: {
-      ok: true; status: number; headers: Record<string, string>; body: string;
+      ok: true; status: number; headers: Record<string, string>; body: string; attempts: number;
     }) => void = () => {};
-    vi.spyOn(proxyExecutor, 'executeProxy').mockImplementation(() => new Promise(resolve => {
+    vi.spyOn(proxyExecutor, 'executeProxyWithFailover').mockImplementation(() => new Promise(resolve => {
       finishProxy = resolve;
     }));
 
@@ -978,7 +980,7 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     req.emit('end');
     await Promise.resolve();
     res.headersSent = true;
-    finishProxy({ ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'late' });
+    finishProxy({ ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'late', attempts: 1 });
     await Promise.resolve();
     expect(res.writeHead).not.toHaveBeenCalled();
     expect(txs).toEqual([]);
@@ -1014,9 +1016,9 @@ describe('ApiMockNetworkListener coverage gaps', () => {
 
   it('does not journal a proxied exchange after the HTTP/2 stream closes', async () => {
     let finishProxy: (value: {
-      ok: true; status: number; headers: Record<string, string>; body: string;
+      ok: true; status: number; headers: Record<string, string>; body: string; attempts: number;
     }) => void = () => {};
-    vi.spyOn(proxyExecutor, 'executeProxy').mockImplementation(() => new Promise(resolve => {
+    vi.spyOn(proxyExecutor, 'executeProxyWithFailover').mockImplementation(() => new Promise(resolve => {
       finishProxy = resolve;
     }));
 
@@ -1056,7 +1058,7 @@ describe('ApiMockNetworkListener coverage gaps', () => {
     req.emit('end');
     await Promise.resolve();
     req.stream.closed = true;
-    finishProxy({ ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'late' });
+    finishProxy({ ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'late', attempts: 1 });
     await Promise.resolve();
     expect(res.writeHead).not.toHaveBeenCalled();
     expect(txs).toEqual([]);

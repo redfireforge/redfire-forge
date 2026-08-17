@@ -10,7 +10,7 @@ Category **API Mock** (`apimock`):
 | **Apply Definition** | `apiMockApply` | Hot-apply definition to a running listener |
 | **Reset Mock State** | `apiMockResetState` | Clear scenario/sequence state |
 | **Stop Mock Server** | `apiMockStop` | Stop listener (optional idempotent) |
-| **Assert Mock Calls** | `apiMockAssertCalls` | Journal asserts: min/max, route, status, body substring, header, recency |
+| **Assert Mock Calls** | `apiMockAssertCalls` | Journal asserts: min/max, route, status, body (contains / equals / regex), request headers, recency |
 
 Typical pattern:
 
@@ -30,10 +30,10 @@ Nodes resolve the server definition from the persisted Studio workspace (`apiMoc
 
 **Runner** page → API Mock fixture panel (`ApiMockFixturePanel`):
 
-1. Select a Studio server.
-2. Optionally enable isolate-run / host override so tests hit the mock base URL.
-3. On run start: `setupApiMockFixture` starts the listener.
-4. On complete: `teardownApiMockFixture` stops isolated servers.
+1. Pick **Mock Server** in the Host row (opens the fixture; scenarios always hit the mock).
+2. Select a Studio server. **Isolate on** (default) starts a throwaway copy and stops it after the suite. **Isolate off** uses Studio's server and restores its prior Running/Stopped state.
+3. On run start: `setupApiMockFixture` starts the listener (copy or Studio server).
+4. On complete: `teardownApiMockFixture` stops an isolated copy, or restores Studio's prior status when isolate is off.
 
 Wired through `useTestExecution` / `apiMockTestFixture.ts`.
 

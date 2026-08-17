@@ -12,6 +12,27 @@ export {
 } from './schemaMatchers';
 export { sha256HexSync } from './sha256Sync';
 export { FAKER_HELPER_PATHS, renderFakerHelper } from './templateFaker';
+export {
+  TEMPLATE_HELPER_CATALOG,
+  TEMPLATE_ENGINE_HELPER_NAMES,
+  filterTemplateHelpers,
+  groupTemplateHelpers,
+  insertTemplateSnippet,
+} from './templateHelperCatalog';
+export type { TemplateHelperEntry, TemplateHelperCategory } from './templateHelperCatalog';
+export {
+  REDACT_HEADER_CATALOG,
+  REDACT_HEADER_GROUP_LABELS,
+  parseRedactHeaderList,
+  formatRedactHeaderList,
+  defaultRedactHeaderList,
+  isRedactHeaderSelected,
+  toggleRedactHeader,
+  groupRedactHeaders,
+  titleCaseHeader,
+  redactHeaderDefaultEntry,
+} from './redactHeaderCatalog';
+export type { RedactHeaderCatalogEntry, RedactHeaderGroup } from './redactHeaderCatalog';
 export { summarizeMatchDurations, emptyOutcomeCounts, countRoutePredicates } from './localDiagnostics';
 export { computeDefinitionFingerprint, computeRouteFingerprint, canonicalExportOrder, canonicalVariableOrder } from './fingerprint';
 export { migrateWorkspace, registerMigration } from './migration';
@@ -89,8 +110,8 @@ export {
 export type { ApiMockRecordedDraftV1, ProxiedResponseCapture, NativeProxyCaptureV1 } from './proxyRecording';
 export { applyResponseTransforms } from './responseTransforms';
 export type { TransformApplyResult } from './responseTransforms';
-export { assertMockCalls } from './assertMockCalls';
-export type { AssertMockCallsCriteria, AssertMockCallsResult } from './assertMockCalls';
+export { assertMockCalls, resolveAssertHeaderCriteria, resolveAssertBodyMatch, evaluateAssertBody } from './assertMockCalls';
+export type { AssertMockCallsCriteria, AssertMockCallsResult, AssertMockHeaderCriterion, AssertMockBodyMatch } from './assertMockCalls';
 export { cliSimulateSamples, cliLoadAndValidate, cliFetchJournal, cliAssertJournal } from './cliMock';
 export type { CliSimulateOptions, CliLoadResult, CliFetchJournalOptions } from './cliMock';
 export { checkProxyUrl, stripHopByHopHeaders, stripCredentialHeaders, addAntiRecursionHeader, hasAntiRecursionHeader, stripSetCookieFromResponse, ANTI_RECURSION_HEADER } from './proxyPolicy';

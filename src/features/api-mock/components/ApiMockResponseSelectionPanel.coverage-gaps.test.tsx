@@ -42,7 +42,7 @@ describe('ApiMockResponseSelectionPanel coverage gaps', () => {
         onModeChange={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Position 0 of 1');
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Next: Step 1 of 1');
   });
 
   it('shows enabled response count in sequence mode', () => {
@@ -60,7 +60,7 @@ describe('ApiMockResponseSelectionPanel coverage gaps', () => {
         onModeChange={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Position 1 of 2');
+    expect(screen.getByTestId('api-mock-sequence-position')).toHaveTextContent('Next: Step 2 of 2');
   });
 
   it('updates counters through a stateful panel', () => {
@@ -99,7 +99,7 @@ describe('ApiMockResponseSelectionPanel coverage gaps', () => {
     expect(screen.queryByTestId('api-mock-counter-row-0')).toBeNull();
   });
 
-  it('fills required state target when empty', () => {
+  it('does not invent a next state when required state is filled', () => {
     const onUpdateVariant = vi.fn();
     render(
       <ApiMockResponseSelectionPanel
@@ -113,7 +113,25 @@ describe('ApiMockResponseSelectionPanel coverage gaps', () => {
     );
     fireEvent.change(screen.getByTestId('api-mock-variant-required-state'), { target: { value: 'Idle' } });
     expect(onUpdateVariant).toHaveBeenCalledWith({
-      transition: expect.objectContaining({ currentState: 'Idle', targetState: 'Idle' }),
+      transition: expect.objectContaining({ currentState: 'Idle', targetState: '' }),
+    });
+  });
+
+  it('keeps an existing next state when required state is edited', () => {
+    const onUpdateVariant = vi.fn();
+    render(
+      <ApiMockResponseSelectionPanel
+        route={makeRoute({ responseMode: 'state' })}
+        activeVariant={{ ...createDefaultResponse('resp-1'), transition: { targetState: 'HAS_ITEMS' } }}
+        conditionLabel="Any"
+        onUpdateRoute={vi.fn()}
+        onUpdateVariant={onUpdateVariant}
+        onModeChange={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('api-mock-variant-required-state'), { target: { value: 'EMPTY' } });
+    expect(onUpdateVariant).toHaveBeenCalledWith({
+      transition: expect.objectContaining({ currentState: 'EMPTY', targetState: 'HAS_ITEMS' }),
     });
   });
 

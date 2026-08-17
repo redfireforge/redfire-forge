@@ -60,6 +60,11 @@ describe('ApiMockWorkspaceNav', () => {
 
     fireEvent.click(screen.getByTestId('api-mock-export'));
     expect(screen.getByTestId('api-mock-export-menu-panel')).toBeTruthy();
+    const ring = document.createElement('div');
+    ring.className = 'demo-spotlight-ring';
+    document.body.append(ring);
+    fireEvent.mouseDown(ring);
+    expect(screen.getByTestId('api-mock-export-menu-panel')).toBeTruthy();
     fireEvent.mouseDown(document.body);
     expect(screen.queryByTestId('api-mock-export-menu-panel')).toBeNull();
   });
