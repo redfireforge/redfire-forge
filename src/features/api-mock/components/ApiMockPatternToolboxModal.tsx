@@ -16,6 +16,8 @@ import {
   initialSchemaKind,
   initialSchemaText,
   initialXPathDraft,
+  resolveToolboxTab,
+  visibleToolboxTabs,
   type ConstraintDraft,
   type ToolTab,
 } from './apiMockPatternToolboxConstants';
@@ -28,6 +30,7 @@ import { ApiMockSchemaToolboxPanel, ApiMockXPathToolboxPanel } from './ApiMockPa
 import * as regexUtils from './apiMockPatternToolboxRegexUtils';
 import { ApiMockPatternToolboxConstraintsTab } from './ApiMockPatternToolboxConstraintsTab';
 import { applyPatternToolbox } from './apiMockPatternToolboxApply';
+import { ApiMockPatternToolboxTabBar } from './ApiMockPatternToolboxTabBar';
 
 interface Props {
   initial: ApiMockPathMatcherV1;
@@ -38,6 +41,11 @@ interface Props {
   onClose: () => void;
   contextLabel?: string;
   initialTab?: ToolTab;
+  /** When set, only these tabs appear. A single tab hides the tab bar (JSONPath picker). */
+  allowedTabs?: ToolTab[];
+  title?: string;
+  /** When set, the JSONPath sample starts from this body instead of the remembered default. */
+  jsonSampleSeed?: string;
   predicateExpected?: ApiMockPredicateV1['expected'];
   predicateOperator?: ApiMockPredicateV1['operator'];
   /** Seed Ignore case from the open matcher row (`options.caseSensitive === false`). */
@@ -59,10 +67,13 @@ interface SampleRow {
  */
 export function ApiMockPatternToolboxModal({
   initial, onApply, onApplyConditions, onApplyPredicate, onClose, contextLabel, initialTab,
+  allowedTabs, title, jsonSampleSeed,
   predicateExpected, predicateOperator, predicateCaseInsensitive,
   predicateSource, predicateSelector,
 }: Props) {
-  const [tab, setTab] = useState<ToolTab>(initialTab ?? (initial.kind === 'regex' ? 'regex' : 'path'));
+  const visibleTabs = visibleToolboxTabs(allowedTabs);
+  const pickerMode = allowedTabs?.length === 1 && allowedTabs[0] === 'jsonpath';
+  const [tab, setTab] = useState<ToolTab>(() => resolveToolboxTab(initialTab, initial.kind, allowedTabs));
   const [constraints, setConstraints] = useState<ConstraintDraft[]>([
     { id: 'c1', source: 'header', selector: '', operator: 'exact', expected: '' },
   ]);
@@ -84,7 +95,9 @@ export function ApiMockPatternToolboxModal({
   const jsonPathDraft = initialJsonPathDraft(predicateOperator, predicateExpected);
   const xpathDraft = initialXPathDraft(predicateOperator, predicateExpected);
   const samplePath = initial.value;
-  const [jsonSample, setJsonSampleState] = useState(() => initialToolboxJsonSample(samplePath));
+  const [jsonSample, setJsonSampleState] = useState(() =>
+    jsonSampleSeed?.trim() ? jsonSampleSeed : initialToolboxJsonSample(samplePath),
+  );
   const setJsonSample = useCallback((value: string) => {
     rememberToolboxBodySample('json', samplePath, value);
     setJsonSampleState(value);
@@ -245,7 +258,7 @@ export function ApiMockPatternToolboxModal({
     <AppModalFrame
       title={
         <div className="am-modal-title-block">
-          <div className="am-modal-title">Pattern Toolbox</div>
+          <div className="am-modal-title">{title ?? 'Pattern Toolbox'}</div>
           {contextLabel && <div className="am-modal-subtitle">{contextLabel}</div>}
         </div>
       }
@@ -270,36 +283,17 @@ export function ApiMockPatternToolboxModal({
             title={applyDisabled ? schemaValidity.message : undefined}
             data-testid="api-mock-toolbox-apply"
           >
-            {tab === 'constraints' || tab === 'jsonpath' || tab === 'xpath' || tab === 'schema'
-              ? (onApplyPredicate ? 'Apply matcher' : 'Add conditions')
-              : 'Apply pattern'}
+            {pickerMode
+              ? 'Apply JSONPath'
+              : tab === 'constraints' || tab === 'jsonpath' || tab === 'xpath' || tab === 'schema'
+                ? (onApplyPredicate ? 'Apply matcher' : 'Add conditions')
+                : 'Apply pattern'}
           </button>
         </div>
       }
     >
       <div className="api-mock-root am-in-modal am-pattern-toolbox" data-testid="api-mock-pattern-toolbox">
-        <div className="am-builder-tabs am-pattern-tabs" role="tablist" aria-label="Pattern toolbox sections">
-          {([
-            ['regex', 'Regex builder'],
-            ['path', 'Path template'],
-            ['jsonpath', 'JSON body / JSONPath'],
-            ['xpath', 'XPath'],
-            ['schema', 'Schema'],
-            ['constraints', 'Query & headers'],
-          ] as const).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              className={`am-builder-tab${tab === id ? ' active' : ''}`}
-              data-testid={`api-mock-toolbox-tab-${id}`}
-              onClick={() => setTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <ApiMockPatternToolboxTabBar visibleTabs={visibleTabs} tab={tab} onSelect={setTab} />
 
         {tab === 'regex' && (
           <div className="am-tool-layout">
@@ -697,9 +691,20 @@ export function ApiMockPatternToolboxModal({
               </div>
               <div className="am-notice am-notice--flush">
                 <span>
-                  <strong>Add condition</strong> attaches a body predicate using the runtime JSONPath evaluator —
-                  <span className="am-mono"> jsonPath_equals</span> when an expected value is set, otherwise
-                  <span className="am-mono"> jsonPath_exists</span>.
+                  {pickerMode ? (
+                    <>
+                      <strong>Apply JSONPath</strong> fills the variant condition. Click a key in the sample
+                      to build the path. An expected value uses
+                      <span className="am-mono"> jsonPath_equals</span>; leave it empty to keep the current value
+                      and only update the path.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Add condition</strong> attaches a body predicate using the runtime JSONPath evaluator —
+                      <span className="am-mono"> jsonPath_equals</span> when an expected value is set, otherwise
+                      <span className="am-mono"> jsonPath_exists</span>.
+                    </>
+                  )}
                 </span>
               </div>
             </div>

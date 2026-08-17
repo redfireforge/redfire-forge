@@ -5,7 +5,7 @@ import { type ApiMockDockTab } from './components/ApiMockDock';
 import { type ApiMockMainView } from './components/ApiMockWorkspaceNav';
 import { ApiMockStudioEmptyState } from './components/ApiMockStudioEmptyState';
 import { ApiMockStudioModals } from './components/ApiMockStudioModals';
-import { ApiMockStudioActiveSection } from './components/ApiMockStudioActiveSection';
+import { ApiMockStudioActivePanel } from './components/ApiMockStudioActivePanel';
 import { publishApiMockRuntimeChanged } from './apiMockPersistence';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
@@ -51,7 +51,6 @@ import { analyzeConflicts } from '../../shared/api-mock/conflictAnalyzer';
 import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
 import './api-mock-studio.css';
 const ts = nowIso;
-
 export function ApiMockStudioPage() {
   const [servers, setServers] = useState<ApiMockServerDefinitionV1[]>([]);
   const [activeServerId, setActiveServerId] = useState<string | undefined>();
@@ -73,9 +72,14 @@ export function ApiMockStudioPage() {
   const [routesDrawerOpen, setRoutesDrawerOpen] = useState(false);
   const [transactions, setTransactions] = useState<ApiMockTransactionV1[]>([]);
   const [scenarioState, setScenarioState] = useState<ScenarioStateSnapshot | null>(null);
-  const listenerLive = Object.values(runtime).some(r => r.status === 'running');
+  const consoleStreamActive = Object.values(runtime).some(
+    r => r.status === 'running'
+      || r.status === 'starting'
+      || r.status === 'applying'
+      || r.status === 'draining',
+  );
   const { confirm, confirmDialogElement } = useConfirmDialog();
-  const { lines: consoleLines, clear: clearConsole } = useApiMockConsole(listenerLive);
+  const { lines: consoleLines, clear: clearConsole } = useApiMockConsole(consoleStreamActive);
 
   const forgetRuntime = useCallback((ids: string[]) => {
     setRuntime(prev => {
@@ -90,7 +94,6 @@ export function ApiMockStudioPage() {
       return changed ? next : prev;
     });
   }, []);
-
   const library = useApiMockServerLibrary({
     servers,
     setServers,
@@ -104,6 +107,15 @@ export function ApiMockStudioPage() {
     forgetRuntime,
   });
   const { openTabIds, setOpenTabIds, openServers, trackOpenedServer } = library;
+  const dismissStudioOverlays = useCallback(() => {
+    setExportResult(null);
+    setImportOpen(false);
+    setSimulateOpen(false);
+    setSettingsOpen(false);
+    setConflictIds([]);
+    setConflictFindings([]);
+    setConflictStats(undefined);
+  }, []);
 
   const latestRef = useApiMockStudioPersistence({
     servers,
@@ -117,6 +129,7 @@ export function ApiMockStudioPage() {
     setScenarioState,
     setMainView,
     setLiveMessage,
+    onWorkspaceReplaced: dismissStudioOverlays,
   });
 
   useDemoApiMockRoutePatch({
@@ -125,15 +138,13 @@ export function ApiMockStudioPage() {
     setServers,
   });
 
-  // Conflict markers and Simulate seed are per-server; drop them when the tab changes.
   useEffect(() => {
     setConflictIds([]);
+    setConflictFindings([]);
+    setConflictStats(undefined);
     setSimulateOpen(false);
     setSimulateSeed(undefined);
   }, [activeServerId]);
-
-  // Never leave the editor blank when the active server has rules (e.g. after
-  // hydration or switching tabs) — select the first rule instead.
   const activeServerForSelection = servers.find(s => s.id === activeServerId);
   useEffect(() => {
     if (!activeServerForSelection) return;
@@ -154,7 +165,6 @@ export function ApiMockStudioPage() {
   });
 
   const handleClearTransactions = useCallback(async () => {
-    /* c8 ignore next */
     if (!activeServerId) return;
     await apiMockControlClient.clearTransactions(activeServerId);
     setTransactions([]);
@@ -258,7 +268,6 @@ export function ApiMockStudioPage() {
     if (open) setSimulateSeed(undefined);
     setSimulateOpen(open);
   }, []);
-
   const handleSimulateSample = useCallback((sample: ApiMockSimulationSampleV1) => {
     const method = sample.request.method && sample.request.method !== 'ANY' ? sample.request.method : 'GET';
     setSimulateSeed({
@@ -401,7 +410,6 @@ export function ApiMockStudioPage() {
       patchRuntime(server.id, { status: 'running', generation: res.data.generation, error: undefined, appliedJson: JSON.stringify(server) });
       setLiveMessage(`Applied generation ${res.data.generation}.`);
     } else {
-      // A rejected draft leaves the previous generation running untouched.
       patchRuntime(server.id, { status: 'running', error: `${res.error.title}: ${res.error.message}` });
     }
   }, [patchRuntime]);
@@ -570,7 +578,6 @@ export function ApiMockStudioPage() {
     if (!activeServerId || !activeServer) return;
     const folder = activeServer.folders.find(f => f.id === folderId);
     if (!folder) return;
-    // Deleting a folder never deletes its rules; they fall back to Ungrouped.
     confirm(`Delete folder "${folder.name}"? Rules inside it move to Ungrouped.`, () => {
       handleUpdateServer(activeServerId, {
         folders: activeServer.folders.filter(f => f.id !== folderId),
@@ -598,7 +605,6 @@ export function ApiMockStudioPage() {
     : undefined;
 
   const { statusById, dirtyById } = buildRuntimeMaps(openServers, runtime);
-  /* c8 ignore next */
   const modalRuntimeStatus = runtime[activeServer?.id ?? '']?.status ?? 'stopped';
 
   if (servers.length === 0) {
@@ -636,7 +642,7 @@ export function ApiMockStudioPage() {
         />
       )}
       {activeServer && (
-        <ApiMockStudioActiveSection
+        <ApiMockStudioActivePanel
           activeServer={activeServer}
           mainView={mainView}
           setMainView={setMainView}
