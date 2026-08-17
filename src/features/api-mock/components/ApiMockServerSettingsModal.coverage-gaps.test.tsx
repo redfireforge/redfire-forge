@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockServerSettingsModal } from './ApiMockServerSettingsModal';
-import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
+import { DEFAULT_SETTINGS, HARD_CEILINGS } from '../../../shared/api-mock/defaults';
 import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
 
 const generateSelfSignedTls = vi.fn();
@@ -130,6 +130,7 @@ describe('ApiMockServerSettingsModal coverage gaps', () => {
     });
     fireEvent.change(screen.getByTestId('api-mock-settings-max-inbound'), { target: { value: '2048' } });
     fireEvent.change(screen.getByTestId('api-mock-settings-max-conn'), { target: { value: '50' } });
+    fireEvent.change(screen.getByTestId('api-mock-settings-timeout-hold-max'), { target: { value: '8000' } });
 
     fireEvent.click(screen.getByTestId('api-mock-settings-tab-journal'));
     fireEvent.click(screen.getByTestId('api-mock-settings-journal'));
@@ -160,6 +161,7 @@ describe('ApiMockServerSettingsModal coverage gaps', () => {
     expect(saved.settings.limits).toMatchObject({
       maxInboundBodyBytes: 2048,
       maxConcurrentConnections: 50,
+      longRunningMaxMs: 8000,
     });
     expect(saved.settings.journal).toMatchObject({ enabled: false, maxEntries: 120 });
     expect(saved.settings.redaction.headerNames).toEqual(['authorization', 'x-secret']);
@@ -260,6 +262,7 @@ describe('ApiMockServerSettingsModal coverage gaps', () => {
     fireEvent.click(screen.getByTestId('api-mock-settings-tab-network'));
     fireEvent.change(screen.getByTestId('api-mock-settings-max-inbound'), { target: { value: 'abc' } });
     fireEvent.change(screen.getByTestId('api-mock-settings-max-conn'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('api-mock-settings-timeout-hold-max'), { target: { value: '0' } });
 
     fireEvent.click(screen.getByTestId('api-mock-settings-tab-journal'));
     fireEvent.change(screen.getByTestId('api-mock-settings-journal-max'), { target: { value: 'xyz' } });
@@ -270,8 +273,20 @@ describe('ApiMockServerSettingsModal coverage gaps', () => {
     fireEvent.click(screen.getByTestId('api-mock-settings-save'));
     expect(onSave.mock.calls[0][0].settings.limits.maxInboundBodyBytes).toBe(DEFAULT_SETTINGS.limits.maxInboundBodyBytes);
     expect(onSave.mock.calls[0][0].settings.limits.maxConcurrentConnections).toBe(DEFAULT_SETTINGS.limits.maxConcurrentConnections);
+    expect(onSave.mock.calls[0][0].settings.limits.longRunningMaxMs).toBe(DEFAULT_SETTINGS.limits.longRunningMaxMs);
     expect(onSave.mock.calls[0][0].settings.journal.maxEntries).toBe(DEFAULT_SETTINGS.journal.maxEntries);
     expect(onSave.mock.calls[0][0].settings.proxy!.timeoutMs).toBe(DEFAULT_SETTINGS.proxy!.timeoutMs);
+  });
+
+  it('clamps timeout hold max to the hard ceiling on save', () => {
+    const onSave = vi.fn();
+    render(<ApiMockServerSettingsModal server={makeServer()} onSave={onSave} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('api-mock-settings-tab-network'));
+    fireEvent.change(screen.getByTestId('api-mock-settings-timeout-hold-max'), {
+      target: { value: String(HARD_CEILINGS.maxLongRunningMs + 5_000) },
+    });
+    fireEvent.click(screen.getByTestId('api-mock-settings-save'));
+    expect(onSave.mock.calls[0][0].settings.limits.longRunningMaxMs).toBe(HARD_CEILINGS.maxLongRunningMs);
   });
 
   it('shows default-deny and loop-guard notes and persists the private-network fence', () => {

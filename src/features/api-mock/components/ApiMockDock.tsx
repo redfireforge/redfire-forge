@@ -138,6 +138,7 @@ export function ApiMockDock({
   const [tab, setTab] = useState<ApiMockDockTab>(() => initialDockTab(requestedTab, visibleTabs));
   const [mode, setMode] = useState<DockMode>('normal');
   const [selectedTxId, setSelectedTxId] = useState<string | undefined>();
+  const [detailCollapsed, setDetailCollapsed] = useState(false);
   const [txFilter, setTxFilter] = useState('');
   const routeName = (id?: string) => {
     if (!id) return '—';
@@ -325,7 +326,7 @@ export function ApiMockDock({
               <div className="am-tx-main" ref={splitContainerRef}>
               <div
                 className="am-tx-table-wrap"
-                style={selected ? { flex: '0 0 auto', width: listWidth, maxWidth: 'none' } : undefined}
+                style={selected && !detailCollapsed ? { flex: '0 0 auto', width: listWidth, maxWidth: 'none' } : undefined}
               >
                 <table className="am-data-table am-tx-table" aria-label="Transaction log">
                   <thead>
@@ -373,22 +374,54 @@ export function ApiMockDock({
                 </table>
               </div>
               {selected && (
-                <>
+                detailCollapsed ? (
                   <div
-                    className="am-tx-split-divider"
+                    className="am-tx-split-divider am-tx-split-divider--collapsed"
                     data-testid="api-mock-tx-splitter"
-                    {...dividerProps}
-                  />
-                  <ApiMockTransactionDetail
-                    selected={selected}
-                    routeName={routeName}
-                    onSelectRoute={onSelectRoute}
-                    onOpenInRequests={onOpenInRequests}
-                    onCreateRouteFromTransaction={onCreateRouteFromTransaction}
-                    onSaveSampleFromTransaction={onSaveSampleFromTransaction}
-                    onCopyTransaction={onCopyTransaction}
-                  />
-                </>
+                  >
+                    <button
+                      type="button"
+                      className="am-tx-detail-toggle"
+                      data-testid="api-mock-tx-detail-toggle"
+                      onClick={() => setDetailCollapsed(false)}
+                      aria-expanded={false}
+                      aria-label="Show transaction details"
+                      title="Show transaction details"
+                    >
+                      <span aria-hidden="true">‹</span>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      className="am-tx-split-divider"
+                      data-testid="api-mock-tx-splitter"
+                      {...dividerProps}
+                    >
+                      <button
+                        type="button"
+                        className="am-tx-detail-toggle"
+                        data-testid="api-mock-tx-detail-toggle"
+                        onClick={() => setDetailCollapsed(true)}
+                        onMouseDown={e => e.stopPropagation()}
+                        aria-expanded={true}
+                        aria-label="Hide transaction details"
+                        title="Hide transaction details"
+                      >
+                        <span aria-hidden="true">›</span>
+                      </button>
+                    </div>
+                    <ApiMockTransactionDetail
+                      selected={selected}
+                      routeName={routeName}
+                      onSelectRoute={onSelectRoute}
+                      onOpenInRequests={onOpenInRequests}
+                      onCreateRouteFromTransaction={onCreateRouteFromTransaction}
+                      onSaveSampleFromTransaction={onSaveSampleFromTransaction}
+                      onCopyTransaction={onCopyTransaction}
+                    />
+                  </>
+                )
               )}
               </div>
             </div>

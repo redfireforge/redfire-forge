@@ -133,16 +133,21 @@ export function isApiMockLiveDemoActive(): boolean {
   return typeof document !== 'undefined' && Boolean(document.querySelector('.demo-live-panel'));
 }
 
-/** Trigger a JSON/HAR file download from the browser. */
-export function downloadJsonFile(filename: string, payload: unknown): void {
-  if (isApiMockLiveDemoActive()) return;
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+/** Write a file to disk. Always runs — used by the export confirm Save button. */
+export function saveTextFileToDisk(filename: string, text: string, mime = 'application/json'): void {
+  const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/** Trigger a JSON/HAR file download from the browser. */
+export function downloadJsonFile(filename: string, payload: unknown): void {
+  if (isApiMockLiveDemoActive()) return;
+  saveTextFileToDisk(filename, JSON.stringify(payload, null, 2), 'application/json');
 }
 
 export function formatStopAndCloseMessage(names: string[]): string {

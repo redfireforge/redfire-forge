@@ -35,13 +35,16 @@ test.describe('Demo lesson AM-13 — Stateful Mocks: A Cart That Remembers', () 
     await cleanupApiMockLessonRun(request);
   });
 
-  test('walks all 8 steps and ends on a masked variable', async ({ page }) => {
+  test('walks all 8 steps and ends on a resolved tenant preview', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await walkApiMockLesson(page, 'am13');
 
     expect(await readStepCounter(page)).toContain(`${AM_LESSON_STEPS.am13} / ${AM_LESSON_STEPS.am13}`);
     await expect(page.locator(API_MOCK.VAR_VALUE_LAST).first()).toHaveAttribute('type', 'password', {
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
+    await expect(page.locator(API_MOCK.PREVIEW_BODY)).toContainText('acme', {
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
   });
@@ -74,6 +77,6 @@ test.describe('Demo lesson AM-13 — Stateful Mocks: A Cart That Remembers', () 
     await advanceSteps(page, 3, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
-    await expect(page.locator(API_MOCK.TX_DETAIL)).toBeVisible({ timeout: AM_LESSON_STEP_TIMEOUT });
+    await expect(page.locator(API_MOCK.DOCK_STATE_LIVE)).toBeVisible({ timeout: AM_LESSON_STEP_TIMEOUT });
   });
 });

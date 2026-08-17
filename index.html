@@ -68,6 +68,7 @@
         window.addEventListener('unhandledrejection', swallow, true);
       })();
     </script>
+    <!-- AM-13 HMR bust 2026-08-16: force full reload after poisoned api-mock-am13.ts -->
     <script type="module" src="/src/app/main.tsx"></script>
   </body>
 </html>

@@ -56,6 +56,76 @@ export function pickAllowlistedOrigin(proxy: ApiMockProxySettingsV1, inboundHost
   return proxy.allowlist[0];
 }
 
+/** Ordered, non-empty allowlist origins — the failover chain (top to bottom). */
+export function listProxyOrigins(proxy: ApiMockProxySettingsV1): string[] {
+  if (!proxy.enabled) return [];
+  return proxy.allowlist.map(o => o.trim()).filter(Boolean);
+}
+
+/**
+ * Failover rule: move to the next allowlisted server when the current one cannot
+ * be trusted to own the path. A server is "not the owner" when it is unreachable
+ * (transport failure → `ok:false`), returns a 5xx, or returns a 404. Any other
+ * real HTTP reply (2xx/3xx, or a 4xx like 401/403) is the final answer and stops
+ * the chain.
+ */
+export function shouldTryNextOrigin(result: ProxyExecutorResult): boolean {
+  if (!result.ok) return true;
+  if (result.status === 404) return true;
+  if (result.status >= 500 && result.status <= 599) return true;
+  return false;
+}
+
+export interface ProxyFailoverInput {
+  req: http.IncomingMessage;
+  proxy: ApiMockProxySettingsV1;
+  /** Inbound path captured by the listener (used to build each upstream URL). */
+  capturedPath: string;
+  /** Raw inbound URL (`req.url`) so query strings are preserved. */
+  inboundUrl: string;
+  activeMockPorts: number[];
+  body: Buffer | null;
+}
+
+export interface ProxyFailoverResult extends ProxyExecutorResult {
+  /** The allowlisted origin that produced the returned result (last attempted). */
+  attemptedOrigin?: string;
+  /** How many origins were tried before stopping. */
+  attempts: number;
+}
+
+/**
+ * Try each allowlisted origin in order until one returns a real answer
+ * (see {@link shouldTryNextOrigin}). Returns the last attempt when every origin
+ * fails, so the caller still gets a meaningful status/body to deliver and record.
+ */
+export async function executeProxyWithFailover(input: ProxyFailoverInput): Promise<ProxyFailoverResult> {
+  const origins = listProxyOrigins(input.proxy);
+  let last: ProxyExecutorResult = {
+    ok: false,
+    status: 502,
+    headers: {},
+    body: '',
+    error: 'Proxy enabled but allowlist is empty',
+  };
+  let attempts = 0;
+  let attemptedOrigin: string | undefined;
+  for (const origin of origins) {
+    attempts++;
+    attemptedOrigin = origin;
+    const upstreamUrl = buildUpstreamUrl(origin, input.capturedPath, input.inboundUrl);
+    last = await executeProxy({
+      req: input.req,
+      proxy: input.proxy,
+      upstreamUrl,
+      activeMockPorts: input.activeMockPorts,
+      body: input.body,
+    });
+    if (!shouldTryNextOrigin(last)) break;
+  }
+  return { ...last, attemptedOrigin, attempts };
+}
+
 export async function executeProxy(input: ProxyExecutorInput): Promise<ProxyExecutorResult> {
   const { proxy, upstreamUrl, activeMockPorts, body, req } = input;
   const timeoutMs = Math.min(Math.max(1, proxy.timeoutMs), PROXY_HARD_CEILINGS.timeoutMs);

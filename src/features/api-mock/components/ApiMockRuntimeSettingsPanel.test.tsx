@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
+import { DEFAULT_SETTINGS, HARD_CEILINGS } from '../../../shared/api-mock/defaults';
 import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
 import { selectOptionByTestId } from '../../../test-utils/customSelectHelper';
 import { ApiMockRuntimeSettingsPanel } from './ApiMockRuntimeSettingsPanel';
@@ -75,6 +75,7 @@ describe('ApiMockRuntimeSettingsPanel', () => {
 
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-inbound'), { target: { value: '2048' } });
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-conn'), { target: { value: '50' } });
+    fireEvent.change(screen.getByTestId('api-mock-runtime-settings-timeout-hold'), { target: { value: '8000' } });
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-drain'), { target: { value: '3000' } });
 
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-journal-max'), { target: { value: '100' } });
@@ -95,6 +96,7 @@ describe('ApiMockRuntimeSettingsPanel', () => {
     expect(patch.settings.cors.allowOrigins).toEqual(['https://a.test', 'https://b.test']);
     expect(patch.settings.limits.maxInboundBodyBytes).toBe(2048);
     expect(patch.settings.limits.maxConcurrentConnections).toBe(50);
+    expect(patch.settings.limits.longRunningMaxMs).toBe(8000);
     expect(patch.settings.limits.gracefulDrainMs).toBe(3000);
     expect(patch.settings.journal.maxEntries).toBe(100);
     expect(patch.settings.journal.persistToDisk).toBe(true);
@@ -147,6 +149,7 @@ describe('ApiMockRuntimeSettingsPanel', () => {
 
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-inbound'), { target: { value: 'abc' } });
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-conn'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('api-mock-runtime-settings-timeout-hold'), { target: { value: '-1' } });
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-drain'), { target: { value: 'NaN' } });
     fireEvent.change(screen.getByTestId('api-mock-runtime-settings-journal-max'), { target: { value: 'x' } });
 
@@ -155,6 +158,7 @@ describe('ApiMockRuntimeSettingsPanel', () => {
     const patch = onSave.mock.calls[0][0];
     expect(patch.settings.limits.maxInboundBodyBytes).toBe(DEFAULT_SETTINGS.limits.maxInboundBodyBytes);
     expect(patch.settings.limits.maxConcurrentConnections).toBe(DEFAULT_SETTINGS.limits.maxConcurrentConnections);
+    expect(patch.settings.limits.longRunningMaxMs).toBe(DEFAULT_SETTINGS.limits.longRunningMaxMs);
     expect(patch.settings.limits.gracefulDrainMs).toBe(DEFAULT_SETTINGS.limits.gracefulDrainMs);
     expect(patch.settings.journal.maxEntries).toBe(DEFAULT_SETTINGS.journal.maxEntries);
   });
@@ -214,9 +218,22 @@ describe('ApiMockRuntimeSettingsPanel', () => {
     expect(maxEntriesHint.closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--hinted');
     expect(maxEntriesHint.closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--inline-hint');
 
-    expect(screen.getByText('Comma-separated header names').closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--hinted');
+    expect(screen.getByText(/Click a name to add or remove it/i).closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--hinted');
     expect(screen.getByText(/JSONPath expressions/i).closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--hinted');
     expect(screen.getByText('Max concurrent · 500').closest('.am-rt-stg-row')).toHaveClass('am-rt-stg-row--inline-hint');
+  });
+
+  it('adds a catalog header from the reference chips', () => {
+    const onSave = vi.fn();
+    render(<ApiMockRuntimeSettingsPanel server={makeServer()} onSave={onSave} />);
+
+    expect(screen.getByTestId('api-mock-runtime-settings-redact-header-picker')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('api-mock-redact-header-chip-x-csrf-token'));
+    expect(screen.getByTestId('api-mock-runtime-settings-redact-headers')).toHaveValue(
+      `${DEFAULT_SETTINGS.redaction.headerNames.join(', ')}, x-csrf-token`,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-runtime-settings-save'));
+    expect(onSave.mock.calls[0][0].settings.redaction.headerNames).toContain('x-csrf-token');
   });
 
   it('saves proxy fallback mode and localhost host', () => {
@@ -231,5 +248,15 @@ describe('ApiMockRuntimeSettingsPanel', () => {
     const patch = onSave.mock.calls[0][0];
     expect(patch.settings.fallback.mode).toBe('proxy');
     expect(patch.host).toBe('localhost');
+  });
+
+  it('clamps timeout hold max to the hard ceiling on save', () => {
+    const onSave = vi.fn();
+    render(<ApiMockRuntimeSettingsPanel server={makeServer()} onSave={onSave} />);
+    fireEvent.change(screen.getByTestId('api-mock-runtime-settings-timeout-hold'), {
+      target: { value: String(HARD_CEILINGS.maxLongRunningMs + 1) },
+    });
+    fireEvent.click(screen.getByTestId('api-mock-runtime-settings-save'));
+    expect(onSave.mock.calls[0][0].settings.limits.longRunningMaxMs).toBe(HARD_CEILINGS.maxLongRunningMs);
   });
 });

@@ -2,7 +2,7 @@
  * AM-09 `am-09-conflicts` helpers — Conflict Inspector: four overlap kinds.
  *
  * Quiet corpus is eight path-disjoint rules that analyze into one finding of
- * each kind. Analysis, filters, Duplicate and Shadowed witness Simulate, Open in Studio, the priority
+ * each kind. Analysis, filters, Duplicate and Shadowed two-probe Simulate, Open in Studio, the priority
  * quick-fix, and acknowledge-then-stale are authored live. Gallery import
  * remints route ids, so explorer rows are located by the delete-button name
  * and findings by kind filter (never by minted `conflict-*` ids).
@@ -24,6 +24,7 @@ import {
   reviewAndRunSimulation,
   closeSimulateWorkspace,
   spotlightBeat,
+  spotlightElementBeat,
   ensureAdHocSimulateForm,
 } from './api-mock-demo-helpers';
 
@@ -47,15 +48,43 @@ export const AM09_TIMING = {
 
 const T = AM09_TIMING;
 
-/** Two-run witness finales — leave ~10s for live ripple under the 45s Acting cap. */
-const AM09_WITNESS = {
-  look: 400,
-  hold: 500,
-  payoff: 1100,
-  beforeOpen: 700,
+type Am09WitnessPace = {
+  look: number;
+  hold: number;
+  payoff: number;
+  beforeOpen: number;
+  beforeRun: number;
+  groupBreak: number;
+};
+
+/**
+ * Two-run witness finales. After **Run simulation** the verdict, the Decision-trace
+ * cards, and the Rendered response all paint at once — so each of those beats gets a
+ * real hold the viewer can read, not a flash. Budget ~34s of Acting for two probes,
+ * leaving headroom for live ripple under the 45s cap.
+ */
+const AM09_WITNESS: Am09WitnessPace = {
+  look: 500,
+  hold: 650,
+  payoff: 1400,
+  beforeOpen: 850,
+  beforeRun: 1800,
+  groupBreak: 800,
+};
+
+/**
+ * Step 6 (Shadowed) — same two-probe shape, but longer post-run holds so the
+ * viewer can read MATCHED / winner / Conditions / Rendered before the next Run.
+ * Still under the 45s Acting cap with compact open/run.
+ */
+const AM09_SHADOWED_WITNESS: Am09WitnessPace = {
+  look: 650,
+  hold: 1000,
+  payoff: 2200,
+  beforeOpen: 800,
   beforeRun: 1600,
-  groupBreak: 500,
-} as const;
+  groupBreak: 1200,
+};
 
 export const AM09_CORPUS_SAMPLE = 'am-gallery-overlaps';
 export const AM09_HEALTH_A = 'Health A';
@@ -69,6 +98,9 @@ export const AM09_SEARCH_REGION = 'Search region';
 export const AM09_HEALTH_PATH = '/health';
 export const AM09_ORDERS_PATH = '/orders';
 export const AM09_TENANT_HEADER = 'x-tenant: acme';
+export const AM09_TENANT_HEADER_MISS = '';
+export const AM09_ORDERS_MISS_SAMPLE = `GET ${AM09_ORDERS_PATH} — no tenant`;
+export const AM09_ORDERS_HIT_SAMPLE = `GET ${AM09_ORDERS_PATH} — tenant header`;
 export const AM09_DAILY_PATH = '/reports/daily';
 export const AM09_GLOB_PATH = '/reports/*';
 export const AM09_NON_DAILY_PATH = '/reports/non-daily';
@@ -120,6 +152,13 @@ async function am09Look(ctx: DemoActionContext, selector: string): Promise<void>
 
 async function am09Payoff(ctx: DemoActionContext, selector: string): Promise<void> {
   await spotlightBeat(ctx, selector, T.payoff);
+}
+
+/** Ring each Match-dimension row — never the whole dimensions table. */
+async function holdAm09DimRows(ctx: DemoActionContext): Promise<void> {
+  for (const row of am09DimRows()) {
+    await spotlightElementBeat(ctx, row, T.look);
+  }
 }
 
 async function am09Break(ctx: DemoActionContext): Promise<void> {
@@ -424,7 +463,8 @@ export async function ensureAm09PriorityRaised(ctx: DemoActionContext): Promise<
 }
 
 export async function ensureAm09ForAcknowledge(ctx: DemoActionContext): Promise<void> {
-  await ensureAm09PriorityRaised(ctx);
+  await ensureAm09Analyzed(ctx);
+  await closeAm09Simulate(ctx);
   await ensureAm09Filter(ctx, AM09_KIND_DUPLICATE);
 }
 
@@ -483,18 +523,21 @@ async function tourLessonKinds(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-/** Finding card + competing rules. Dimensions are one hold — the pair tour already showed the rules. */
+/** Finding row + Open-in-Studio chips. Dimension rows one at a time — never the whole compare/detail. */
 async function readFinding(
   ctx: DemoActionContext,
   opts: { dimensions?: boolean; payoff?: string } = {},
 ): Promise<void> {
   await am09Reveal(ctx, API_MOCK.FIRST_FINDING);
   await am09Payoff(ctx, API_MOCK.FIRST_FINDING);
-  if (firstVisibleElement(API_MOCK.CONFLICT_COMPARE)) {
-    await am09Look(ctx, API_MOCK.CONFLICT_COMPARE);
+  if (firstVisibleElement(API_MOCK.CONFLICT_GOTO_LEFT)) {
+    await am09Look(ctx, API_MOCK.CONFLICT_GOTO_LEFT);
   }
-  if (opts.dimensions && firstVisibleElement(API_MOCK.CONFLICT_DIMENSIONS)) {
-    await am09Payoff(ctx, API_MOCK.CONFLICT_DIMENSIONS);
+  if (firstVisibleElement(API_MOCK.CONFLICT_GOTO_RIGHT)) {
+    await am09Look(ctx, API_MOCK.CONFLICT_GOTO_RIGHT);
+  }
+  if (opts.dimensions) {
+    await holdAm09DimRows(ctx);
   }
   if (opts.payoff && firstVisibleElement(opts.payoff)) {
     await am09Payoff(ctx, opts.payoff);
@@ -557,20 +600,12 @@ async function openAm09FingerprintsLive(ctx: DemoActionContext): Promise<void> {
   if (hashes && typeof hashes.scrollIntoView === 'function') {
     hashes.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
-  if (firstVisibleElement(API_MOCK.CONFLICT_FINGERPRINT_WHY)) {
-    await am09Payoff(ctx, API_MOCK.CONFLICT_FINGERPRINT_WHY);
-  }
   if (firstVisibleElement(API_MOCK.CONFLICT_FINGERPRINT_RELATION)) {
     await am09Look(ctx, API_MOCK.CONFLICT_FINGERPRINT_RELATION);
   }
   if (firstVisibleElement(API_MOCK.CONFLICT_FINGERPRINT_LEFT)) {
     await am09Look(ctx, API_MOCK.CONFLICT_FINGERPRINT_LEFT);
     await am09Payoff(ctx, API_MOCK.CONFLICT_FINGERPRINT_RIGHT);
-  } else if (!firstVisibleElement(API_MOCK.CONFLICT_FINGERPRINT_WHY)) {
-    await am09Payoff(
-      ctx,
-      hashes ? API_MOCK.CONFLICT_FINGERPRINT_HASHES : API_MOCK.CONFLICT_FINGERPRINTS,
-    );
   }
 }
 
@@ -584,7 +619,7 @@ export async function runAm09Shadowed(ctx: DemoActionContext): Promise<void> {
     [API_MOCK.PATH_INPUT, API_MOCK.PRIORITY_INPUT, API_MOCK.FIRST_CONDITION],
     AM09_KIND_SHADOWED,
   );
-  await readFinding(ctx, { dimensions: true, payoff: API_MOCK.CONFLICT_DETAIL });
+  await readFinding(ctx, { dimensions: true });
 }
 
 /** Step 7 — Studio exact vs glob, then Conflicts names it Definite. */
@@ -597,7 +632,7 @@ export async function runAm09Definite(ctx: DemoActionContext): Promise<void> {
     [API_MOCK.PATH_INPUT, API_MOCK.PRIORITY_INPUT],
     AM09_KIND_DEFINITE,
   );
-  await readFinding(ctx, { dimensions: true, payoff: API_MOCK.CONFLICT_DETAIL });
+  await readFinding(ctx, { dimensions: true });
 }
 
 /** Step 9 — Studio two regexes, then Conflicts names it Potential. */
@@ -631,24 +666,211 @@ function am09CandidateSelectors(pathNeedle: string): string[] {
     .filter(Boolean);
 }
 
+export function am09ConditionsFailedCandidate(): HTMLElement | null {
+  return Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.SIMULATE_CANDIDATES))
+    .find(node => (node.textContent ?? '').includes('Conditions failed')) ?? null;
+}
+
+export function am09FailedPredicateRow(needle?: string): HTMLElement | null {
+  const rows = Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.SIMULATE_PREDICATE_FAIL));
+  if (needle) {
+    return rows.find(row => (row.textContent ?? '').includes(needle)) ?? rows[0] ?? null;
+  }
+  return rows[0] ?? null;
+}
+
+/** /orders that matched but is not Winner — the shadowed tenant rule. */
+export function am09MatchedLoserCandidate(pathNeedle: string): HTMLElement | null {
+  return Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.SIMULATE_CANDIDATES))
+    .find((node) => {
+      const text = node.textContent ?? '';
+      if (!text.includes(pathNeedle)) return false;
+      if (text.includes('Winner')) return false;
+      if (/Path failed|Method failed|Conditions failed/.test(text)) return false;
+      return true;
+    }) ?? null;
+}
+
+export function am09PassedPredicateRow(
+  needle: string,
+  root?: HTMLElement | null,
+): HTMLElement | null {
+  const rows = root
+    ? Array.from(root.querySelectorAll<HTMLElement>('.am-predicate'))
+    : Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.SIMULATE_PREDICATE_ROWS));
+  return rows
+    .find((row) => {
+      if (row.classList.contains('am-predicate--fail')) return false;
+      const text = row.textContent ?? '';
+      return text.includes(needle) && /passed|exact/i.test(text);
+    }) ?? null;
+}
+
+/** A candidate that matched this path (not Path/Method/Conditions failed). */
+export function am09MatchingCandidate(pathNeedle: string): HTMLElement | null {
+  return Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.SIMULATE_CANDIDATES))
+    .find((node) => {
+      const text = node.textContent ?? '';
+      if (!text.includes(pathNeedle)) return false;
+      if (/Path failed|Method failed|Conditions failed/.test(text)) return false;
+      return true;
+    }) ?? null;
+}
+
+export function am09PathFailedCandidate(): HTMLElement | null {
+  return Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.SIMULATE_CANDIDATES))
+    .find(node => (node.textContent ?? '').includes('Path failed')) ?? null;
+}
+
+export function am09PathPredicateRow(
+  pathNeedle: string,
+  root?: HTMLElement | null,
+): HTMLElement | null {
+  const rows = root
+    ? Array.from(root.querySelectorAll<HTMLElement>('.am-predicate'))
+    : Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.SIMULATE_PREDICATE_ROWS));
+  return rows.find((row) => {
+    const text = row.textContent ?? '';
+    return /path/i.test(text) && text.includes(pathNeedle);
+  }) ?? null;
+}
+
+/** Conditions-failed card, then the red header/path row the viewer must read. */
+async function holdAm09FailedCondition(
+  ctx: DemoActionContext,
+  opts: { needle?: string; cardHold: number; rowHold: number },
+): Promise<void> {
+  if (
+    !document.querySelector(API_MOCK.SIMULATE_CANDIDATES)
+    && firstVisibleElement(API_MOCK.SIMULATE_TAB_TRACE)
+  ) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_TAB_TRACE, { look: 400, hold: 0 });
+  }
+  const card = am09ConditionsFailedCandidate();
+  if (card) {
+    card.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    await spotlightElementBeat(ctx, card, opts.cardHold);
+  }
+  const row = am09FailedPredicateRow(opts.needle);
+  if (row) {
+    row.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    await spotlightElementBeat(ctx, row, opts.rowHold);
+  }
+}
+
+/** Matched-but-lost card, then the green header row the viewer must read. */
+async function holdAm09MatchedLoser(
+  ctx: DemoActionContext,
+  opts: { pathNeedle: string; needle?: string; cardHold: number; rowHold: number },
+): Promise<void> {
+  if (
+    !document.querySelector(API_MOCK.SIMULATE_CANDIDATES)
+    && firstVisibleElement(API_MOCK.SIMULATE_TAB_TRACE)
+  ) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_TAB_TRACE, { look: 400, hold: 0 });
+  }
+  const card = am09MatchedLoserCandidate(opts.pathNeedle);
+  if (card) {
+    card.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    await spotlightElementBeat(ctx, card, opts.cardHold);
+  }
+  const row = am09PassedPredicateRow(opts.needle ?? opts.pathNeedle, card);
+  if (row) {
+    row.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    await spotlightElementBeat(ctx, row, opts.rowHold);
+  }
+}
+
+/** Matching Decision-trace card, then the Path row the viewer must read. */
+async function holdAm09MatchingCard(
+  ctx: DemoActionContext,
+  opts: { pathNeedle: string; cardHold: number; rowHold: number },
+): Promise<void> {
+  if (
+    !document.querySelector(API_MOCK.SIMULATE_CANDIDATES)
+    && firstVisibleElement(API_MOCK.SIMULATE_TAB_TRACE)
+  ) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_TAB_TRACE, { look: 400, hold: 0 });
+  }
+  const card = am09MatchingCandidate(opts.pathNeedle);
+  if (card) {
+    card.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    await spotlightElementBeat(ctx, card, opts.cardHold);
+  }
+  const row = am09PathPredicateRow(opts.pathNeedle, card);
+  if (row) {
+    row.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    await spotlightElementBeat(ctx, row, opts.rowHold);
+  }
+}
+
+/** Path-failed card, then the red Path row the viewer must read. */
+async function holdAm09PathFailed(
+  ctx: DemoActionContext,
+  opts: { pathNeedle: string; cardHold: number; rowHold: number },
+): Promise<void> {
+  if (
+    !document.querySelector(API_MOCK.SIMULATE_CANDIDATES)
+    && firstVisibleElement(API_MOCK.SIMULATE_TAB_TRACE)
+  ) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_TAB_TRACE, { look: 400, hold: 0 });
+  }
+  const card = am09PathFailedCandidate();
+  if (card) {
+    card.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    await spotlightElementBeat(ctx, card, opts.cardHold);
+  }
+  const row = am09PathPredicateRow(opts.pathNeedle, card)
+    ?? am09FailedPredicateRow(opts.pathNeedle);
+  if (row) {
+    row.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    await spotlightElementBeat(ctx, row, opts.rowHold);
+  }
+}
+
+/** Ring each matching Decision-trace card. Scrolls into view — /search sits below the path-failed rows. */
+async function holdAm09Candidates(
+  ctx: DemoActionContext,
+  pathNeedles: string[],
+  holdMs: number,
+): Promise<void> {
+  if (
+    !document.querySelector(API_MOCK.SIMULATE_CANDIDATES)
+    && firstVisibleElement(API_MOCK.SIMULATE_TAB_TRACE)
+  ) {
+    await clickBeat(ctx, API_MOCK.SIMULATE_TAB_TRACE, { look: 400, hold: 0 });
+  }
+  const seen = new Set<string>();
+  for (const needle of pathNeedles) {
+    for (const sel of am09CandidateSelectors(needle)) {
+      if (seen.has(sel)) continue;
+      seen.add(sel);
+      const node = document.querySelector<HTMLElement>(sel);
+      if (node) await spotlightElementBeat(ctx, node, holdMs);
+    }
+  }
+}
+
 async function openAm09FindingSimulate(
   ctx: DemoActionContext,
   kind: string,
-  opts: { compact?: boolean } = {},
+  opts: { compact?: boolean; pace?: Am09WitnessPace } = {},
 ): Promise<void> {
+  const pace = opts.pace ?? AM09_WITNESS;
   if (opts.compact) {
     await ensureAm09Filter(ctx, kind);
     if (!isAm09SimulateOpen() && firstVisibleElement(API_MOCK.CONFLICT_SIMULATE)) {
-      await clickBeat(ctx, API_MOCK.CONFLICT_SIMULATE, { look: AM09_WITNESS.beforeOpen, hold: 0 });
+      await clickBeat(ctx, API_MOCK.CONFLICT_SIMULATE, { look: pace.beforeOpen, hold: 0 });
     }
-    await revealBeat(ctx, API_MOCK.SIMULATE_WORKSPACE, { timeout: 4_000, hold: AM09_WITNESS.hold });
-    await ensureAdHocSimulateForm(ctx, AM09_WITNESS.hold);
+    await revealBeat(ctx, API_MOCK.SIMULATE_WORKSPACE, { timeout: 4_000, hold: pace.hold });
+    await ensureAdHocSimulateForm(ctx, pace.hold);
     return;
   }
 
   await applyFilter(ctx, kind);
-  await am09Reveal(ctx, API_MOCK.CONFLICT_WITNESS);
-  await am09Payoff(ctx, API_MOCK.CONFLICT_WITNESS);
+  if (firstVisibleElement(API_MOCK.CONFLICT_SIMULATE)) {
+    await am09Look(ctx, API_MOCK.CONFLICT_SIMULATE);
+  }
 
   if (!isAm09SimulateOpen() && firstVisibleElement(API_MOCK.CONFLICT_SIMULATE)) {
     await am09Aim(ctx, API_MOCK.CONFLICT_SIMULATE);
@@ -664,25 +886,94 @@ async function holdAm09SimulateResult(
     holdWinner?: boolean;
     candidateHold?: number;
     compact?: boolean;
+    pace?: Am09WitnessPace;
+    holdRenderedBody?: boolean;
+    holdCandidates?: boolean;
+    holdFailedCondition?: boolean;
+    failedPredicateNeedle?: string;
+    holdMatchedLoser?: boolean;
+    matchedPredicateNeedle?: string;
+    holdMatchingCard?: string;
+    holdPathFailed?: string;
   },
 ): Promise<string> {
+  const pace = opts.pace ?? AM09_WITNESS;
   if (opts.compact) {
     await ctx.waitFor(API_MOCK.SIMULATE_OUTCOME, 4_000);
-    await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, AM09_WITNESS.payoff);
+    await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, pace.payoff);
     if (opts.holdWinner && firstVisibleElement(API_MOCK.SIMULATE_WINNER)) {
-      await spotlightBeat(ctx, API_MOCK.SIMULATE_WINNER, AM09_WITNESS.hold);
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_WINNER, pace.hold);
     }
-    if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)
+    if (opts.holdFailedCondition) {
+      await holdAm09FailedCondition(ctx, {
+        needle: opts.failedPredicateNeedle,
+        cardHold: pace.payoff,
+        rowHold: pace.hold,
+      });
+    }
+    if (opts.holdMatchedLoser) {
+      await holdAm09MatchedLoser(ctx, {
+        pathNeedle: opts.pathNeedles[0] ?? '',
+        needle: opts.matchedPredicateNeedle,
+        cardHold: pace.payoff,
+        rowHold: pace.hold,
+      });
+    }
+    if (opts.holdMatchingCard) {
+      await holdAm09MatchingCard(ctx, {
+        pathNeedle: opts.holdMatchingCard,
+        cardHold: pace.payoff,
+        rowHold: pace.hold,
+      });
+    }
+    if (opts.holdPathFailed) {
+      await holdAm09PathFailed(ctx, {
+        pathNeedle: opts.holdPathFailed,
+        cardHold: pace.payoff,
+        rowHold: pace.hold,
+      });
+    }
+    if (opts.holdCandidates) {
+      await holdAm09Candidates(ctx, opts.pathNeedles, opts.candidateHold ?? pace.payoff);
+    }
+    if (opts.holdRenderedBody) {
+      const tab = firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)
+        ?? document.querySelector<HTMLElement>(API_MOCK.SIMULATE_TAB_RENDERED);
+      if (tab) {
+        await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, { look: pace.look, hold: 0 });
+      }
+      if (firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
+        || document.querySelector(API_MOCK.SIMULATE_RENDERED_STATUS)) {
+        await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_STATUS, pace.hold);
+      }
+      if (firstVisibleElement(API_MOCK.SIMULATE_RENDERED_BODY)
+        || document.querySelector(API_MOCK.SIMULATE_RENDERED_BODY)) {
+        await revealBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, {
+          timeout: 4_000,
+          hold: pace.hold,
+        });
+        await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, pace.payoff);
+      } else if (!firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)) {
+        await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, pace.payoff);
+      }
+    } else if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)
       && !firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
       && !firstVisibleElement(API_MOCK.SIMULATE_RENDERED_BODY)) {
-      await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, { look: AM09_WITNESS.look, hold: 0 });
+      await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, { look: pace.look, hold: 0 });
+      if (firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)) {
+        await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_STATUS, pace.hold);
+      }
+    } else {
+      if (firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)) {
+        await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_STATUS, pace.hold);
+      }
+      if (!firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)) {
+        const fallback = firstVisibleElement(API_MOCK.SIMULATE_RENDERED_BODY)
+          ? API_MOCK.SIMULATE_RENDERED_BODY
+          : API_MOCK.SIMULATE_OUTCOME;
+        await spotlightBeat(ctx, fallback, pace.payoff);
+      }
     }
-    const statusSel = firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
-      ? API_MOCK.SIMULATE_RENDERED_STATUS
-      : firstVisibleElement(API_MOCK.SIMULATE_RENDERED_BODY)
-        ? API_MOCK.SIMULATE_RENDERED_BODY
-        : API_MOCK.SIMULATE_OUTCOME;
-    await spotlightBeat(ctx, statusSel, AM09_WITNESS.payoff);
     return am09SimOutcome();
   }
 
@@ -723,10 +1014,22 @@ async function runAm09SimulateProbe(
     candidateHold?: number;
     saveSample?: boolean;
     compact?: boolean;
+    pace?: Am09WitnessPace;
+    holdRenderedBody?: boolean;
+    reviewHeaders?: boolean;
+    reviewPath?: boolean;
+    holdCandidates?: boolean;
+    holdFailedCondition?: boolean;
+    failedPredicateNeedle?: string;
+    holdMatchedLoser?: boolean;
+    matchedPredicateNeedle?: string;
+    holdMatchingCard?: string;
+    holdPathFailed?: string;
   },
 ): Promise<string> {
-  const look = opts.compact ? AM09_WITNESS.look : T.look;
-  const hold = opts.compact ? AM09_WITNESS.hold : T.fieldFilled;
+  const pace = opts.pace ?? AM09_WITNESS;
+  const look = opts.compact ? pace.look : T.look;
+  const hold = opts.compact ? pace.hold : T.fieldFilled;
   if (opts.path && firstVisibleElement(API_MOCK.SIMULATE_PATH)) {
     await fillBeat(ctx, API_MOCK.SIMULATE_PATH, opts.path, { look, hold });
   }
@@ -734,18 +1037,38 @@ async function runAm09SimulateProbe(
     await fillBeat(ctx, API_MOCK.SIMULATE_HEADERS, opts.headers, { look, hold });
   }
 
+  const reviewRequest = opts.reviewPath || opts.reviewHeaders;
   await reviewAndRunSimulation(ctx, {
     reviewFields: false,
     digest: false,
     saveSample: opts.saveSample,
-    beforeRun: opts.compact ? AM09_WITNESS.beforeRun : T.beforeOpen,
+    beforeRun: opts.compact ? pace.beforeRun : T.beforeOpen,
     sampleName: opts.sampleName,
+    afterReview: reviewRequest
+      ? async () => {
+        if (opts.reviewPath && firstVisibleElement(API_MOCK.SIMULATE_PATH)) {
+          await spotlightBeat(ctx, API_MOCK.SIMULATE_PATH, pace.payoff);
+        }
+        if (opts.reviewHeaders && firstVisibleElement(API_MOCK.SIMULATE_HEADERS)) {
+          await spotlightBeat(ctx, API_MOCK.SIMULATE_HEADERS, pace.payoff);
+        }
+      }
+      : undefined,
   });
   return holdAm09SimulateResult(ctx, {
     pathNeedles: opts.pathNeedles,
     holdWinner: opts.holdWinner,
     candidateHold: opts.candidateHold,
     compact: opts.compact,
+    pace,
+    holdRenderedBody: opts.holdRenderedBody,
+    holdCandidates: opts.holdCandidates,
+    holdFailedCondition: opts.holdFailedCondition,
+    failedPredicateNeedle: opts.failedPredicateNeedle,
+    holdMatchedLoser: opts.holdMatchedLoser,
+    matchedPredicateNeedle: opts.matchedPredicateNeedle,
+    holdMatchingCard: opts.holdMatchingCard,
+    holdPathFailed: opts.holdPathFailed,
   });
 }
 
@@ -754,8 +1077,8 @@ async function finishAm09Simulate(
   opts: { compact?: boolean } = {},
 ): Promise<void> {
   await closeAm09Simulate(ctx, opts.compact ? {} : { review: true });
-  if (!opts.compact && firstVisibleElement(API_MOCK.CONFLICT_INSPECTOR)) {
-    await am09Payoff(ctx, API_MOCK.CONFLICT_INSPECTOR);
+  if (!opts.compact && firstVisibleElement(API_MOCK.FIRST_FINDING)) {
+    await am09Payoff(ctx, API_MOCK.FIRST_FINDING);
   }
 }
 
@@ -790,33 +1113,64 @@ export async function runAm09Witness(ctx: DemoActionContext): Promise<string> {
   });
 }
 
-/** Step 6 — Shadowed witness → both GET /orders → Winner catch-all → Rendered 200. */
-export async function runAm09ShadowedWitness(ctx: DemoActionContext): Promise<string> {
+/** Step 6 — Shadowed: no tenant header (catch-all only); then x-tenant: acme (both match, catch-all still wins). */
+export async function runAm09ShadowedWitness(
+  ctx: DemoActionContext,
+): Promise<{ miss: string; hit: string }> {
+  const pace = AM09_SHADOWED_WITNESS;
   await ensureAm09ForShadowedWitness(ctx);
-  return runAm09FindingSimulate(ctx, {
-    kind: AM09_KIND_SHADOWED,
-    pathNeedle: AM09_ORDERS_PATH,
-    sampleName: `GET ${AM09_ORDERS_PATH} — shadowed witness`,
+  await openAm09FindingSimulate(ctx, AM09_KIND_SHADOWED, { compact: true, pace });
+
+  const miss = await runAm09SimulateProbe(ctx, {
+    pathNeedles: [AM09_ORDERS_PATH],
+    sampleName: AM09_ORDERS_MISS_SAMPLE,
+    headers: AM09_TENANT_HEADER_MISS,
+    holdWinner: true,
+    compact: true,
+    pace,
+    holdFailedCondition: true,
+    failedPredicateNeedle: 'x-tenant',
+    holdRenderedBody: true,
+  });
+
+  await ctx.delay(pace.groupBreak);
+  await ensureAdHocSimulateForm(ctx, pace.hold);
+
+  const hit = await runAm09SimulateProbe(ctx, {
+    pathNeedles: [AM09_ORDERS_PATH],
+    sampleName: AM09_ORDERS_HIT_SAMPLE,
     headers: AM09_TENANT_HEADER,
     holdWinner: true,
+    compact: true,
+    pace,
+    holdMatchedLoser: true,
+    matchedPredicateNeedle: 'x-tenant',
+    holdRenderedBody: true,
   });
+
+  await finishAm09Simulate(ctx, { compact: true });
+  return { miss, hit };
 }
 
 /** Step 8 — Definite: /reports/daily collides (409); /reports/non-daily is glob-only (200). */
 export async function runAm09DefiniteWitness(
   ctx: DemoActionContext,
 ): Promise<{ daily: string; globOnly: string }> {
+  const pace = AM09_WITNESS;
   await ensureAm09ForDefiniteWitness(ctx);
-  await openAm09FindingSimulate(ctx, AM09_KIND_DEFINITE, { compact: true });
+  await openAm09FindingSimulate(ctx, AM09_KIND_DEFINITE, { compact: true, pace });
 
   const daily = await runAm09SimulateProbe(ctx, {
     pathNeedles: [AM09_DAILY_PATH, AM09_GLOB_PATH],
     sampleName: AM09_DAILY_SAMPLE,
     compact: true,
+    pace,
+    holdMatchingCard: AM09_DAILY_PATH,
+    holdRenderedBody: true,
   });
 
-  await ctx.delay(AM09_WITNESS.groupBreak);
-  await ensureAdHocSimulateForm(ctx, AM09_WITNESS.hold);
+  await ctx.delay(pace.groupBreak);
+  await ensureAdHocSimulateForm(ctx, pace.hold);
 
   const globOnly = await runAm09SimulateProbe(ctx, {
     path: AM09_NON_DAILY_PATH,
@@ -824,6 +1178,9 @@ export async function runAm09DefiniteWitness(
     sampleName: AM09_NON_DAILY_SAMPLE,
     holdWinner: true,
     compact: true,
+    pace,
+    holdPathFailed: AM09_DAILY_PATH,
+    holdRenderedBody: true,
   });
 
   await finishAm09Simulate(ctx, { compact: true });
@@ -834,24 +1191,32 @@ export async function runAm09DefiniteWitness(
 export async function runAm09PotentialWitness(
   ctx: DemoActionContext,
 ): Promise<{ hit: string; miss: string }> {
+  const pace = AM09_WITNESS;
   await ensureAm09ForPotentialWitness(ctx);
-  await openAm09FindingSimulate(ctx, AM09_KIND_POTENTIAL, { compact: true });
+  await openAm09FindingSimulate(ctx, AM09_KIND_POTENTIAL, { compact: true, pace });
 
   const hit = await runAm09SimulateProbe(ctx, {
     pathNeedles: [AM09_SEARCH_PATH],
     sampleName: AM09_SEARCH_HIT_SAMPLE,
     headers: AM09_CLIENT_HEADER_HIT,
     compact: true,
+    pace,
+    holdCandidates: true,
+    holdRenderedBody: true,
   });
 
-  await ctx.delay(AM09_WITNESS.groupBreak);
-  await ensureAdHocSimulateForm(ctx, AM09_WITNESS.hold);
+  await ctx.delay(pace.groupBreak);
+  await ensureAdHocSimulateForm(ctx, pace.hold);
 
   const miss = await runAm09SimulateProbe(ctx, {
     pathNeedles: [AM09_SEARCH_PATH],
     sampleName: AM09_SEARCH_MISS_SAMPLE,
     headers: AM09_CLIENT_HEADER_MISS,
     compact: true,
+    pace,
+    holdFailedCondition: true,
+    failedPredicateNeedle: 'x-client',
+    holdRenderedBody: true,
   });
 
   await finishAm09Simulate(ctx, { compact: true });
@@ -874,7 +1239,9 @@ export async function runAm09GotoRule(ctx: DemoActionContext): Promise<void> {
   await am09Break(ctx);
   await am09Aim(ctx, API_MOCK.VIEW_CONFLICTS);
   await am09Reveal(ctx, API_MOCK.CONFLICT_INSPECTOR);
-  await am09Payoff(ctx, API_MOCK.CONFLICT_INSPECTOR);
+  if (firstVisibleElement(API_MOCK.FIRST_FINDING)) {
+    await am09Payoff(ctx, API_MOCK.FIRST_FINDING);
+  }
 }
 
 /** Step 11 — raise Daily +10; Definite empties because the pair is now Shadowed. */
@@ -902,15 +1269,20 @@ export async function runAm09FixPriority(ctx: DemoActionContext): Promise<void> 
   await am09Payoff(ctx, API_MOCK.CONFLICT_SUMMARY);
 }
 
-/** Step 12 — acknowledge the duplicate, edit a fingerprint, Re-analyze → Stale. */
+/** Step 12 — acknowledge the Duplicate /health pair, edit a fingerprint, Re-analyze → Stale. */
 export async function runAm09Acknowledge(ctx: DemoActionContext): Promise<void> {
   await ensureAm09ForAcknowledge(ctx);
-  await ensureAm09Filter(ctx, AM09_KIND_DUPLICATE);
+  await applyFilter(ctx, AM09_KIND_DUPLICATE);
+  if (firstVisibleElement(API_MOCK.FIRST_FINDING)) {
+    await am09Payoff(ctx, API_MOCK.FIRST_FINDING);
+  }
 
   if (firstVisibleElement(API_MOCK.CONFLICT_STALE)) {
     await spotlightBeat(ctx, API_MOCK.CONFLICT_STALE, T.payoff);
     return;
   }
+
+  await openAm09FingerprintsLive(ctx);
 
   if (firstVisibleElement(API_MOCK.CONFLICT_ACKNOWLEDGE)) {
     await clickBeat(ctx, API_MOCK.CONFLICT_ACKNOWLEDGE, { look: T.look, hold: 0 });

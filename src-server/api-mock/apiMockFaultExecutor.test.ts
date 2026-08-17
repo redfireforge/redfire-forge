@@ -77,6 +77,40 @@ describe('apiMockFaultExecutor', () => {
     vi.useRealTimers();
   });
 
+  it('defaults an unset timeout hold to 5s, clamped to the server cap', async () => {
+    vi.useFakeTimers();
+    const { req, res, socket } = mockPair();
+    const pending = deliverWithFault({
+      req, res, fault: 'timeout',
+      behavior: { delayMs: 0, jitterMs: 0 },
+      longRunningMaxMs: 10_000,
+      status: 200, headers: {}, body: 'x',
+    });
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(socket.destroy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await pending;
+    expect(result.outcome).toBe('fault');
+    expect(socket.destroy).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('clamps a requested timeout hold to the server cap', async () => {
+    vi.useFakeTimers();
+    const { req, res, socket } = mockPair();
+    const pending = deliverWithFault({
+      req, res, fault: 'timeout',
+      behavior: { delayMs: 0, jitterMs: 0, longRunningMs: 50_000 },
+      longRunningMaxMs: 80,
+      status: 200, headers: {}, body: 'x',
+    });
+    await vi.advanceTimersByTimeAsync(80);
+    const result = await pending;
+    expect(result.outcome).toBe('fault');
+    expect(socket.destroy).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it('resolves an HTTP/2 timeout when the stream closes without destroying later', async () => {
     vi.useFakeTimers();
     const { req, res, socket } = mockPair();
@@ -124,7 +158,7 @@ describe('apiMockFaultExecutor', () => {
     expect(result.completedHttp).toBe(true);
     expect(resMock.write).toHaveBeenCalled();
     expect(resMock.end).toHaveBeenCalled();
-    socket.emit('close');
+    _socket.emit('close');
     vi.useRealTimers();
   });
 

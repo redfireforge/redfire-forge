@@ -31,7 +31,9 @@ import {
   cleanupAm16,
   closeAm16Export,
   closeAm16Import,
+  dismissAm16Overlays,
   ensureAm16ForCi,
+  ensureAm16ForExportMenu,
   ensureAm16ForHar,
   ensureAm16ForNarrower,
   ensureAm16ForRedaction,
@@ -109,9 +111,11 @@ function mountExportChrome(opts: { menu?: boolean; confirm?: boolean; redaction?
     const close = el('button', undefined, 'api-mock-export-close');
     const filename = el('span', undefined, 'api-mock-export-filename');
     filename.textContent = 'api-mock-workspace.json';
+    const save = el('button', undefined, 'api-mock-export-save');
+    save.textContent = 'Save to disk';
     const preview = el('textarea', undefined, 'api-mock-export-preview') as HTMLTextAreaElement;
     preview.value = '{"ok":true}';
-    confirm.append(close, filename, preview);
+    confirm.append(close, filename, save, preview);
     if (opts.redaction) {
       confirm.append(el('div', undefined, 'api-mock-export-redaction'));
       const tls = el('code', undefined, 'api-mock-export-tls-key');
@@ -182,6 +186,10 @@ describe('AM-16 export helpers', () => {
   it('pins timing and redaction placeholders', () => {
     expect(AM16_TIMING.payoff).toBe(1600);
     expect(AM16_TIMING.beforeOpen).toBe(1400);
+    expect(AM16_TIMING.importLook).toBe(1200);
+    expect(AM16_TIMING.importHold).toBe(1700);
+    expect(AM16_TIMING.importRead).toBe(1900);
+    expect(AM16_TIMING.importBreak).toBe(1100);
     expect(AM16_REVEAL_MS).toBe(8_000);
     expect(AM16_CONFIRM_MS).toBe(3_000);
     expect(AM16_CORPUS_SAMPLE).toBe('am-gallery-store');
@@ -289,6 +297,32 @@ describe('AM-16 export helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_CLOSE);
   });
 
+  it('dismissAm16Overlays clicks Export Close when the confirm is leftover', () => {
+    mountExportChrome({ confirm: true });
+    const close = document.querySelector(API_MOCK.EXPORT_CLOSE) as HTMLButtonElement;
+    const spy = vi.spyOn(close, 'click');
+    dismissAm16Overlays();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('prepare and cleanup dismiss leftover Export confirm', async () => {
+    mountExportChrome({ confirm: true });
+    const close = document.querySelector(API_MOCK.EXPORT_CLOSE) as HTMLButtonElement;
+    const spy = vi.spyOn(close, 'click');
+    await prepareAm16Workspace();
+    expect(spy).toHaveBeenCalled();
+    await cleanupAm16();
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('ensureAm16ForExportMenu closes a leftover confirm', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    mountExportChrome({ confirm: true });
+    await ensureAm16ForExportMenu(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_CLOSE);
+  });
+
   it('runAm16ExportMenu opens the menu, holds groups, then workspace JSON', async () => {
     const ctx = makeCtx();
     mountStudio();
@@ -388,14 +422,17 @@ describe('AM-16 export helpers', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.IMPORT_MENU);
   });
 
-  it('ensureAm16ForRoundTrip quietly exports workspace JSON when last export is missing', async () => {
+  it('ensureAm16ForRoundTrip closes leftover export confirm without re-opening Export', async () => {
     const ctx = makeCtx();
     mountStudio();
-    mountExportChrome({ menu: true });
+    mountExportChrome({ menu: true, confirm: true, har: true });
     document.body.append(el('button', undefined, 'api-mock-import-menu'));
     const workspace = spyNativeClick('api-mock-export-workspace');
+    const exportBtn = spyNativeClick('api-mock-export');
     await ensureAm16ForRoundTrip(ctx);
-    expect(workspace).toHaveBeenCalled();
+    expect(workspace).not.toHaveBeenCalled();
+    expect(exportBtn).not.toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_CLOSE);
   });
 
   it('ensureAm16ForCi quietly round-trips when copies are missing', async () => {

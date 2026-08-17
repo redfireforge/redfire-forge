@@ -2,7 +2,7 @@
  * Pure fault + delay preview (side-effect-free twin of apiMockFaultExecutor).
  */
 import type { ApiMockBehaviorV1, ApiMockFaultKind, ApiMockResponseVariantV1 } from './contracts';
-import { HARD_CEILINGS } from './defaults';
+import { clampTimeoutHoldMs, HARD_CEILINGS } from './defaults';
 
 export interface VirtualDelayPreview {
   baseMs: number;
@@ -21,6 +21,8 @@ export interface FaultPreview {
   httpCompleted: boolean;
   effectiveStatus: number;
   effectiveBody: string;
+  /** Bytes that actually leave the socket (dribble chunks). Same as effectiveBody when complete. */
+  wireBody: string;
   timeline: FaultTimelineStep[];
 }
 
@@ -70,18 +72,20 @@ export function previewFaultDelivery(
       httpCompleted: true,
       effectiveStatus: rendered.status,
       effectiveBody: rendered.body,
+      wireBody: rendered.body,
       timeline: [{ atMs: 0, label: 'Write status + body' }],
     };
   }
 
   if (kind === 'timeout') {
-    const holdMs = Math.max(1, Math.min(behavior.longRunningMs ?? longRunningMaxMs, longRunningMaxMs));
+    const holdMs = clampTimeoutHoldMs(behavior.longRunningMs, longRunningMaxMs);
     return {
       fault: kind,
       deliveryOutcome: 'fault',
       httpCompleted: false,
       effectiveStatus: 0,
       effectiveBody: '',
+      wireBody: '',
       timeline: [
         { atMs: 0, label: 'Hold socket open (no HTTP response)' },
         { atMs: holdMs, label: 'Destroy socket (timeout)' },
@@ -96,6 +100,7 @@ export function previewFaultDelivery(
       httpCompleted: false,
       effectiveStatus: 0,
       effectiveBody: '',
+      wireBody: '',
       timeline: [{ atMs: 0, label: 'Socket destroy (TCP reset)' }],
     };
   }
@@ -107,6 +112,7 @@ export function previewFaultDelivery(
       httpCompleted: false,
       effectiveStatus: 0,
       effectiveBody: '',
+      wireBody: '',
       timeline: [{ atMs: 0, label: 'Abrupt end without status line' }],
     };
   }
@@ -118,6 +124,7 @@ export function previewFaultDelivery(
       httpCompleted: false,
       effectiveStatus: 0,
       effectiveBody: '',
+      wireBody: '',
       timeline: [{ atMs: 0, label: 'Write invalid bytes + destroy' }],
     };
   }
@@ -141,12 +148,14 @@ export function previewFaultDelivery(
     });
   }
   timeline.push({ atMs: cursor, label: 'End stream' });
+  const wireBody = schedule.map(chunk => chunk.body).join('');
   return {
     fault: 'dribble',
     deliveryOutcome: 'fault',
     httpCompleted: true,
     effectiveStatus: rendered.status,
     effectiveBody: rendered.body,
+    wireBody,
     timeline,
   };
 }

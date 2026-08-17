@@ -81,7 +81,7 @@ export const apiMockAm12Lesson: DemoLesson = {
     + 'so the journal wraps around. The State tab shows the live cursor.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 7,
+  contentVersion: 8,
   concept: {
     title: 'A rule holds a set of responses. The mode decides which one fires.',
     body:
@@ -147,12 +147,13 @@ export const apiMockAm12Lesson: DemoLesson = {
       title: 'In rules mode a variant wins on its own conditions',
       description:
         'Open **Selection**. A non-default variant is eligible only when its '
-        + `conditions match. Fill JSONPath \`${AM12_JSONPATH}\` and the value `
-        + `\`${AM12_SKU_MISSING}\`.\n\n`
+        + 'conditions match. Click **Pick from sample** — that is the power-user '
+        + `beat. Select \`${AM12_SKU_MISSING}\` in the cart body so the tool writes `
+        + `\`${AM12_JSONPATH}\`, then **Apply JSONPath**.\n\n`
         + 'Hold the **condition chip**. That chip is the sentence the engine evaluates: '
         + 'this 404 fires when the body says the SKU is missing, not when the path '
         + 'happens to be `/cart`.',
-      highlight: API_MOCK.SELECTION_CONDITION,
+      highlight: API_MOCK.SELECTION_CONDITION_TOOLBOX,
       preAction: ensureAm12NotFoundVariant,
       action: runAm12Conditions,
       verify: API_MOCK.SELECTION_CONDITION,

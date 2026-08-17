@@ -12,10 +12,23 @@ import {
   isCustomSchemaDraft,
   matchingSchemaPresetName,
   normalizeSchemaDraft,
+  resolveToolboxTab,
   toolboxTabForOperator,
+  visibleToolboxTabs,
 } from './apiMockPatternToolboxConstants';
 
 describe('apiMockPatternToolboxConstants', () => {
+  it('filters toolbox tabs and clamps the opening tab', () => {
+    expect(visibleToolboxTabs().map(([id]) => id)).toContain('regex');
+    expect(visibleToolboxTabs([]).map(([id]) => id)).toContain('path');
+    expect(visibleToolboxTabs(['jsonpath']).map(([id]) => id)).toEqual(['jsonpath']);
+    expect(resolveToolboxTab(undefined, 'exact')).toBe('path');
+    expect(resolveToolboxTab(undefined, 'regex')).toBe('regex');
+    expect(resolveToolboxTab('path', 'exact', ['jsonpath'])).toBe('jsonpath');
+    expect(resolveToolboxTab('jsonpath', 'exact', ['jsonpath', 'xpath'])).toBe('jsonpath');
+    expect(resolveToolboxTab(undefined, 'exact', [])).toBe('path');
+  });
+
   it('maps matcher operators onto toolbox tabs', () => {
     expect(toolboxTabForOperator('regex')).toBe('regex');
     expect(toolboxTabForOperator('glob')).toBe('regex');

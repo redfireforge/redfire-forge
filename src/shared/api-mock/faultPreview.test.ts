@@ -70,6 +70,11 @@ describe('previewFaultDelivery', () => {
     expect(p.timeline.some(s => s.atMs === 1_500)).toBe(true);
   });
 
+  it('defaults an unset timeout hold to 5s, clamped to the server cap', () => {
+    expect(previewFaultDelivery('timeout', behavior, rendered, 30_000).timeline.some(s => s.atMs === 5_000)).toBe(true);
+    expect(previewFaultDelivery('timeout', behavior, rendered, 1_000).timeline.some(s => s.atMs === 1_000)).toBe(true);
+  });
+
   it('previews dribble chunks', () => {
     const p = previewFaultDelivery(
       'dribble',
@@ -79,6 +84,8 @@ describe('previewFaultDelivery', () => {
     );
     expect(p.deliveryOutcome).toBe('fault');
     expect(p.httpCompleted).toBe(true);
+    expect(p.effectiveBody).toBe('hello-world');
+    expect(p.wireBody).toBe('ab');
     expect(p.timeline.length).toBeGreaterThan(2);
   });
 
@@ -90,5 +97,6 @@ describe('previewFaultDelivery', () => {
     const longBody = 'x'.repeat(100);
     const dribble = previewFaultDelivery('dribble', behavior, { status: 200, body: longBody }, 5_000);
     expect(dribble.timeline.some(step => step.label.includes('…'))).toBe(true);
+    expect(dribble.wireBody).toBe(longBody);
   });
 });

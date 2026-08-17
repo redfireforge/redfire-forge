@@ -1,41 +1,21 @@
 /**
  * AM-13 `am-13-stateful` — Stateful Mocks: A Cart That Remembers.
  *
- * Scenario: a cart rule already answers `POST /cart` with two bodies and no
- * state wiring. State mode, EMPTY → HAS_ITEMS → CHECKED_OUT, a counter, a live
- * fetch pair, Reset + Run all, Weighted 90/10 (two identical Simulate runs), and a
- * sensitive variable are authored live. The listener is started quietly so
- * Apply is a hot-swap, not a first Start.
+ * Helpers are imported as a namespace so Vite HMR cannot leave
+ * `runAm13StateLive` / `ensureAm13FirstCall` as unbound names on this path.
  * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track C.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
-import {
-  AM13_CHECKED_OUT,
-  AM13_COUNTER_KEY,
-  AM13_EMPTY,
-  AM13_HAS_ITEMS,
-  AM13_PATH,
-  AM13_VAR_KEY,
-  AM13_VARIANT_2_NAME,
-  cleanupAm13,
-  ensureAm13ForApply,
-  ensureAm13ForWeighted,
-  ensureAm13StateLive,
-  ensureAm13StateMode,
-  ensureAm13Transition,
-  ensureAm13Weighted,
-  ensureAm13Workspace,
-  prepareAm13Workspace,
-  runAm13FirstCall,
-  runAm13ResetAndBatch,
-  runAm13SecondVariant,
-  runAm13StateLive,
-  runAm13Transition,
-  runAm13Variables,
-  runAm13WeightedAndSeed,
-  runAm13WhyState,
-} from './api-mock-am13-helpers';
+import * as am13 from './api-mock-am13-helpers';
+
+const AM13_CHECKED_OUT = am13.AM13_CHECKED_OUT;
+const AM13_COUNTER_KEY = am13.AM13_COUNTER_KEY;
+const AM13_EMPTY = am13.AM13_EMPTY;
+const AM13_HAS_ITEMS = am13.AM13_HAS_ITEMS;
+const AM13_PATH = am13.AM13_PATH;
+const AM13_VAR_KEY = am13.AM13_VAR_KEY;
+const AM13_VARIANT_2_NAME = am13.AM13_VARIANT_2_NAME;
 
 const DIAGRAM = `
 <svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Checkout calls POST /cart twice. First empty, then a SKU, because the mock remembers">
@@ -88,7 +68,7 @@ export const apiMockAm13Lesson: DemoLesson = {
     + 'secret that never leaves the server.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 8,
+  contentVersion: 26,
   concept: {
     title: 'Same POST /cart. Empty the first time. Full the second.',
     body:
@@ -101,108 +81,109 @@ export const apiMockAm13Lesson: DemoLesson = {
       + 'useless here. If both answers are hard-coded, the page never leaves '
       + 'empty. **The mock has to remember that the first call happened.** '
       + 'That memory is what this lesson is for.\n\n'
-      + 'You will put those two answers on **one** mock. Click **State**. '
-      + '**Required state** is “when may this answer speak” — '
-      + `\`${AM13_EMPTY}\` for the empty cart, \`${AM13_HAS_ITEMS}\` for the `
-      + 'SKU. **Next state** is “where memory goes after.” A **counter** named '
-      + `\`${AM13_COUNTER_KEY}\` ticks so you can see the hop without opening `
-      + 'JSON. Save with **Apply**, then send two real POSTs. The **State** '
-      + 'tab shows `HAS_ITEMS` and `items=1` — you do not guess from the last '
-      + 'response.\n\n'
-      + 'Checkout also needs three more things, still on this cart:\n\n'
+      + '**State** is how one mock picks which body goes out. **Required state** '
+      + `is when an answer may speak — \`${AM13_EMPTY}\` for the empty cart, `
+      + `\`${AM13_HAS_ITEMS}\` for the SKU. **Next state** is where memory goes `
+      + `after. A **counter** named \`${AM13_COUNTER_KEY}\` ticks so the hop is `
+      + 'visible without opening JSON. The **State** tab is live memory — '
+      + '`HAS_ITEMS`, then `CHECKED_OUT` — not a guess from the last response.\n\n'
+      + 'Still on this cart:\n\n'
       + '- **Reset state** — rewind memory for the next test. The server stays up.\n'
-      + '- **Weighted** — luck among the two answers (90 / 10). Run twice; the pick repeats, so it is a test, not a coin flip.\n'
+      + '- **Weighted** — luck among the two answers. This window repeats the pick, so “random” is still a test.\n'
       + `- **Sensitive** \`${AM13_VAR_KEY}=acme\` — templates can read it; exports never see it in the clear.`,
     keyTerms: [
       { term: 'State', definition: 'The mock picks an answer from what it already remembers — not from a second URL. Same POST /cart, different body after the first hop.' },
       { term: 'Required state', definition: 'When this answer is allowed to speak. EMPTY is the empty cart. HAS_ITEMS is the cart that already has a SKU.' },
       { term: 'Next state', definition: 'Where memory moves after this answer fires. EMPTY becomes HAS_ITEMS. HAS_ITEMS becomes CHECKED_OUT.' },
       { term: 'Counter', definition: 'A number the hop bumps. items += 1 proves the first POST landed without opening the JSON.' },
-      { term: 'State tab', definition: 'Live memory on the dock: the current name and the counters. Read HAS_ITEMS here instead of guessing from the last response.' },
+      { term: 'State tab', definition: 'Live memory on the dock: the current name and the counters. Read HAS_ITEMS, then CHECKED_OUT, here instead of guessing from the last response.' },
       { term: 'Reset state', definition: 'Clears memory and counters. The server stays running, so the next test does not need Restart.' },
       { term: 'Weighted', definition: 'Luck among the two answers — 90 empty, 10 already has a SKU. Simulate repeats the same pick for this window so “random” is still a test.' },
       { term: 'Sensitive variable', definition: 'A server value templates can read (tenant = acme). The dock masks it and exports strip it. The secret stays in the mock.' },
     ],
     diagram: DIAGRAM,
   },
-  prepareBeforeNavigate: prepareAm13Workspace,
-  cleanup: cleanupAm13,
+  prepareBeforeNavigate: am13.prepareAm13Workspace,
+  cleanup: am13.cleanupAm13,
   steps: [
     {
       id: 'why-state',
       title: 'A real cart is never the same twice',
       description:
-        'This is the problem, not the solution yet.\n\n'
-        + '- Look at the **two cards** on the left\n'
-        + '- One body is an empty cart. The other already has SKU `RF-100`\n'
-        + '- Today they are just two static answers — the mock does not know which life the cart is in\n'
-        + '- Click **State** on the mode bar\n'
-        + '- **Required state** and **Next state** appear. Hold those fields\n\n'
-        + `From here the mock remembers. Same \`POST ${AM13_PATH}\`. Memory decides which body goes out — not a second URL.`,
+        'These two cards are already two lives of the cart — empty, and SKU '
+        + '`RF-100`. Today they are just static answers. The mock does not '
+        + 'know which life the cart is in.\n\n'
+        + '- **State** — the mode that gives those answers memory\n'
+        + '- **Required state** — when this body is allowed to speak\n'
+        + '- **Next state** — where memory goes after it does\n\n'
+        + `Same \`POST ${AM13_PATH}\`. Memory decides which body goes out — not a second URL.`,
       highlight: API_MOCK.RESPONSE_MODE_STATE,
-      preAction: ensureAm13Workspace,
-      action: runAm13WhyState,
+      preAction: (ctx) => am13.ensureAm13Workspace(ctx),
+      action: (ctx) => am13.runAm13WhyState(ctx),
       verify: API_MOCK.VARIANT_REQUIRED_STATE,
     },
     {
       id: 'transition',
       title: 'The first POST starts the cart — and leaves a mark',
       description:
-        'Wire the empty-cart answer so the first call can start the story.\n\n'
-        + `- **Required state** = \`${AM13_EMPTY}\` — this body may speak only while the cart is empty\n`
-        + `- **Next state** = \`${AM13_HAS_ITEMS}\` — after it speaks, memory moves\n`
-        + '- Hold each field so the hop is readable\n'
-        + `- Click **+ Counter**, name it \`${AM13_COUNTER_KEY}\`, delta 1\n`
-        + '- Hold the **counter row**\n\n'
-        + 'The first successful POST both returns `[]` and ticks items to 1. That tick is how you see the hop without opening JSON.',
+        'The empty-cart answer is only honest while the cart is empty.\n\n'
+        + `- **Required state** \`${AM13_EMPTY}\` — this body may speak only then\n`
+        + `- **Next state** \`${AM13_HAS_ITEMS}\` — memory after it speaks\n`
+        + `- **Counter** \`${AM13_COUNTER_KEY}\` — ticks by 1 so the hop is visible without opening JSON\n\n`
+        + 'The first successful POST both returns `[]` and leaves that mark.',
       highlight: API_MOCK.COUNTER_ADD,
-      preAction: ensureAm13StateMode,
-      action: runAm13Transition,
+      preAction: (ctx) => am13.ensureAm13StateMode(ctx),
+      action: (ctx) => am13.runAm13Transition(ctx),
       verify: API_MOCK.COUNTER_ROW,
     },
     {
       id: 'second-variant',
       title: 'The next POST must already see the item',
       description:
-        'Now the body the checkout page needs on the *second* call.\n\n'
-        + `- Select **${AM13_VARIANT_2_NAME}**\n`
-        + `- **Required state** = \`${AM13_HAS_ITEMS}\` — it may speak only after the first hop\n`
-        + `- **Next state** = \`${AM13_CHECKED_OUT}\` — a third named life, even though there are only two bodies\n`
-        + '- Hold the **body** — that is the SKU the page was waiting for\n\n'
+        `**${AM13_VARIANT_2_NAME}** is the body checkout needs on the *second* `
+        + 'call — already a SKU.\n\n'
+        + `- **Required state** \`${AM13_HAS_ITEMS}\` — it may speak only after the first hop\n`
+        + `- **Next state** \`${AM13_CHECKED_OUT}\` — a third named life, even though there are only two bodies\n`
+        + '- **Body** — `RF-100` is what the page was waiting for\n\n'
         + 'The second POST is not a 404 and not a second mock. It is the same path after the cart has moved.',
       highlight: API_MOCK.VARIANT_CARD_LAST,
-      preAction: ensureAm13Transition,
-      action: runAm13SecondVariant,
+      preAction: (ctx) => am13.ensureAm13Transition(ctx),
+      action: (ctx) => am13.runAm13SecondVariant(ctx),
       verify: API_MOCK.VARIANT_CARD_LAST,
     },
     {
       id: 'first-call',
-      title: 'Send it once — the empty cart answers',
+      title: 'The empty cart answers first',
       description:
-        'The mock server is already running. We only need to save the memory onto it.\n\n'
-        + '- Click **Apply** — no Restart\n'
-        + '- Hold **Generation** so you see the new snapshot take effect\n'
-        + `- A real \`POST ${AM13_PATH}\` hits the port\n`
-        + '- Open the traffic list and hold the **empty-cart** response\n\n'
-        + 'That is EMPTY speaking, then stepping to HAS_ITEMS.',
+        'The listener is already up. **Apply** hot-swaps the new memory onto '
+        + 'it — no Restart. **Generation** is the snapshot that just took effect.\n\n'
+        + `- **Live \`POST ${AM13_PATH}\`** — the empty-cart body\n`
+        + `- **Transactions** — one row. EMPTY spoke.\n`
+        + `- **State** — memory is now \`${AM13_HAS_ITEMS}\` and \`${AM13_COUNTER_KEY}=1\`\n\n`
+        + 'That is the first life of the cart, on the real port.',
       highlight: API_MOCK.APPLY,
-      preAction: ensureAm13ForApply,
-      action: runAm13FirstCall,
-      verify: API_MOCK.TX_DETAIL,
+      preAction: (ctx) => am13.ensureAm13ForApply(ctx),
+      action: (ctx) => am13.runAm13FirstCall(ctx),
+      verify: API_MOCK.DOCK_STATE_LIVE,
     },
     {
-      id: 'state-live',
-      title: 'Send it again — now there is a line item',
+      id: 'has-items-hop',
+      title: 'Clean slate, then two POSTs walk the cart',
       description:
-        'Do not reconstruct the hop from the last JSON. Read memory itself.\n\n'
-        + '- Open the **State** tab on the dock\n'
-        + '- Hold **live state**: `HAS_ITEMS` and `items=1`\n'
-        + `- Send \`POST ${AM13_PATH}\` again\n`
-        + '- Hold the **different** answer — the Has items body\n\n'
-        + 'The second call is not a flake. The cart moved. That is what the checkout page was waiting for.',
-      highlight: API_MOCK.DOCK_TAB_STATE,
-      preAction: ensureAm13StateLive,
-      action: runAm13StateLive,
+        'Step 4 left memory and a journal row behind. Start over so the walk is '
+        + 'unmistakable — if **Draft changed** is still lit, **Apply** first so the '
+        + 'live mock owns the state machine. Then **Reset state** rewinds memory and '
+        + '**Clear** empties the journal. Then the same \`POST /cart\` fires twice:\n\n'
+        + `- **First POST** — \`${AM13_EMPTY}\` → \`${AM13_HAS_ITEMS}\` — response \`items: []\`\n`
+        + `- **Second POST** — \`${AM13_HAS_ITEMS}\` → \`${AM13_CHECKED_OUT}\` — response includes \`RF-100\`\n`
+        + '- **Transactions** — click the arrived-first row (`items: []`), then the arrived-second '
+        + 'row (`RF-100`), with the spotlight on each body\n'
+        + `- **State** — read \`${AM13_CHECKED_OUT}\` on the dock — not a guess from the last JSON\n\n`
+        + 'Totally clear, then two seeds. Both journal answers, then the mark the page was '
+        + 'waiting for — not a flake, and not a second URL.',
+      highlight: API_MOCK.STATE_RESET,
+      preAction: (ctx) => am13.ensureAm13FirstCall(ctx),
+      action: (ctx) => am13.runAm13HasItemsHop(ctx),
       verify: API_MOCK.DOCK_STATE_LIVE,
     },
     {
@@ -210,47 +191,49 @@ export const apiMockAm13Lesson: DemoLesson = {
       title: 'Rewind the cart without killing the server',
       description:
         'A test that just filled the cart cannot start the next case from dirty memory.\n\n'
-        + '- Click **Reset state**\n'
-        + '- Hold the **cleared** panel — only the cart rewound; the server stays up\n'
-        + '- Open **Simulate**, then **Run all samples**\n'
-        + '- Hold the **per-sample state** column — the same memory walks every saved request in order\n'
-        + '- **Close** so the next step is not typed behind the window\n\n'
-        + 'That is how a suite starts clean without Restart.',
+        + '- **Reset state** — only the cart rewinds. The server stays up\n'
+        + '- **Run all samples** — the same memory walks every saved request, in order\n\n'
+        + 'Read the two verdicts in order — both **PASS**, and the per-sample '
+        + '**state** column is why:\n\n'
+        + `- **First sample** — runs against the freshly-reset cart: \`${AM13_EMPTY}\` → \`${AM13_HAS_ITEMS}\`. It only passes because Reset actually cleared memory\n`
+        + `- **Second sample** — inherits that memory and moves on: \`${AM13_HAS_ITEMS}\` → \`${AM13_CHECKED_OUT}\`\n\n`
+        + 'That is a suite starting clean and walking one shared memory in order — '
+        + 'no Restart, because memory was cleared, not because the process died.',
       highlight: API_MOCK.STATE_RESET,
-      preAction: ensureAm13StateLive,
-      action: runAm13ResetAndBatch,
+      preAction: (ctx) => am13.ensureAm13HasItemsHop(ctx),
+      action: (ctx) => am13.runAm13ResetAndBatch(ctx),
       verify: API_MOCK.RESPONSE_MODE_STATE,
     },
     {
       id: 'weighted-and-seed',
       title: 'Most of the time empty. Sometimes already a SKU.',
       description:
-        'Memory is one job. Chance is another — still on these two answers, still no second URL.\n\n'
-        + '- Click **Weighted**\n'
-        + '- Empty cart **90**, Has items **10**. Hold each field\n'
-        + '- **Run simulation** twice\n'
-        + '- Hold the **identical** results — this window repeats the pick, so “random” is still a test\n'
-        + '- **Close** Simulate before the last step\n\n'
+        'Memory is one job. Chance is another — still these two answers, still no second URL.\n\n'
+        + '- **Weighted** — luck among the two bodies: empty cart **90**, already a SKU **10**\n'
+        + '- **Apply** — push that luck onto the live listener before you Simulate\n'
+        + '- **Two Simulate runs** — after each **Run simulation**, open **Rendered response** and '
+        + 'read the same empty-cart body `{"ok":true,"items":[]}`\n'
+        + '- **Pinned luck** — this window repeats the draw, so “random” is still a test\n\n'
         + 'You are not flipping a coin in CI. You are pinning luck for the session.',
       highlight: API_MOCK.RESPONSE_MODE_WEIGHTED,
-      preAction: ensureAm13ForWeighted,
-      action: runAm13WeightedAndSeed,
+      preAction: (ctx) => am13.ensureAm13ForWeighted(ctx),
+      action: (ctx) => am13.runAm13WeightedAndSeed(ctx),
       verify: API_MOCK.RESPONSE_MODE_WEIGHTED,
     },
     {
       id: 'variables',
-      title: 'The tenant stays in the mock — never in the export',
+      title: 'The body reads tenant — the dock keeps the secret',
       description:
-        'This cart belongs to a tenant. The name should live once, not in every body.\n\n'
-        + `- Click **+ Variable**\n`
-        + `- Name it \`${AM13_VAR_KEY}\`, value \`acme\`. Hold the filled row\n`
-        + '- Toggle **Sensitive**\n'
-        + '- Hold the **masked** value\n\n'
-        + 'Templates can still read it. The dock hides it. Exports strip it. The secret stays on the server.',
+        'This cart belongs to a tenant. The name lives once, not in every body.\n\n'
+        + `- **\`${AM13_VAR_KEY}=acme\`** — a server variable. Sensitive, so the dock masks it\n`
+        + '- **`{{variables.tenant}}`** — the empty-cart body reads that key\n'
+        + '- **Preview** — resolves to `acme`. Change the variable later; every template picks it up\n'
+        + '- **Exports** — strip the secret. The value never leaves in the clear\n\n'
+        + 'The tenant stays on the server. The JSON only names the key.',
       highlight: API_MOCK.VAR_ADD,
-      preAction: ensureAm13Weighted,
-      action: runAm13Variables,
-      verify: API_MOCK.VAR_VALUE_LAST,
+      preAction: (ctx) => am13.ensureAm13Weighted(ctx),
+      action: (ctx) => am13.runAm13Variables(ctx),
+      verify: API_MOCK.PREVIEW_BODY,
     },
   ],
 };

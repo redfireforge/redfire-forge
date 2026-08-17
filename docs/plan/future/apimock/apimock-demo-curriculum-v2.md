@@ -373,7 +373,7 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 **Product changes this lesson forced.** `selectRoute` now populates `policyDecision.specificityBreakdown` when two or more rules tie at the highest priority (the field existed on the contract but was never filled). Simulate renders that list and a **Winner** `data-testid`. The Selection settings tab gained an editable **Ambiguous response** body (`{{requestId}}` / `{{competingRuleCount}}`). None-of groups show a fail-closed note. The demo bridge can quietly patch the active server's selection policy so replayed policy steps start clean.
 
 #### AM-09 `am-09-conflicts` — Conflict Inspector (12 steps) — **IMPLEMENTED**
-**Quiet corpus:** `am-gallery-overlaps` — eight path-disjoint rules that analyze into one finding of each kind (duplicate / shadowed / definite / potential). **Live:** analyze, Duplicate name → Simulate witness → Open in Studio, then Shadowed → Simulate MATCHED, then Definite → Simulate daily 409 and non-daily 200, then Potential → Simulate header 409 and no-header 404, fix, acknowledge. **Offline.**
+**Quiet corpus:** `am-gallery-overlaps` — eight path-disjoint rules that analyze into one finding of each kind (duplicate / shadowed / definite / potential). **Live:** analyze, Duplicate name → Simulate witness → Open in Studio, then Shadowed → Simulate no-header 200 and tenant-header 200, then Definite → Simulate daily 409 and non-daily 200, then Potential → Simulate header 409 and no-header 404, fix, acknowledge. **Offline.**
 **Tags:** `analyze`, `kind-duplicate`, `kind-shadowed`, `kind-definite`, `kind-potential`, `conflict-dimensions`, `conflict-filters`, `witness-simulate`, `adjust-priority`, `goto-rule`, `acknowledge`, `ack-stale`.
 
 1 **analyze** — overlaps have names before any client sends · click `ANALYZE` → hold `CONFLICT_SUMMARY` (4 findings) → walk the list Duplicate → Shadowed → Definite → Potential → **`FIRST_FINDING`**
@@ -381,13 +381,13 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 3 **witness** — Simulate this Duplicate; the mock refuses to guess · hold on `CONFLICT_WITNESS` → click `CONFLICT_SIMULATE` → run → hold on ambiguous → close → **ambiguous result**
 4 **goto-rule** — the same Duplicate, from the rule · click `CONFLICT_GOTO_LEFT`† → reveal `ROUTE_EDITOR` → hold on the rule → back to Conflicts → **`ROUTE_EDITOR`**
 5 **shadowed** — Shadowed is a rule that can never win · open both `/orders` rules → `VIEW_CONFLICTS` → `conflictFilter('shadowed')` → dimensions → **`CONFLICT_DETAIL`**
-6 **shadowed-witness** — Simulate this Shadowed; the catch-all still wins · hold on `CONFLICT_WITNESS` → fill `x-tenant: acme` → run → both `GET /orders` → Winner catch-all → Rendered **200** `scope: "all"` → close → **`CONFLICT_INSPECTOR`**
+6 **shadowed-witness** — Simulate this Shadowed; the tenant header still loses · Save as sample + no `x-tenant` → catch-all Winner → hold **Conditions failed** + `"x-tenant" was absent` → **200** `scope: "all"` ⟂ Save as sample + `x-tenant: acme` → both `GET /orders` → catch-all still Winner → hold tenant card + `x-tenant · exact` **passed** → **200** `scope: "all"` → close → **`CONFLICT_INSPECTOR`**
 7 **definite** — Definite is a collision the analyzer can prove · open Daily + Reports glob → `VIEW_CONFLICTS` → `conflictFilter('definite')` → dimensions → **`CONFLICT_DETAIL`**
-8 **definite-witness** — Simulate this Definite; one path collides, the other does not · Save as sample + `/reports/daily` → **409** ⟂ Save as sample + `/reports/non-daily` → glob Winner → **200** `{"report":"any"}` → close → **`CONFLICT_INSPECTOR`**
+8 **definite-witness** — Simulate this Definite; one path collides, the other does not · Save as sample + `/reports/daily` → **409** → hold `GET /reports/daily` (Method + Path match) ⟂ Save as sample + `/reports/non-daily` → glob Winner → hold **Path failed** on `GET /reports/daily` → **200** `{"report":"any"}` → close → **`CONFLICT_INSPECTOR`**
 9 **potential** — Potential is the honest “we cannot decide” · open both `/search` rules → `VIEW_CONFLICTS` → `conflictFilter('potential')` → **`CONFLICT_DIM_UNKNOWN`**
 10 **potential-witness** — Simulate this Potential; the header decides the status · Save as sample + `x-client: acme-west` → **409** ⟂ Save as sample + no header → **404** → close → **`CONFLICT_INSPECTOR`**
 11 **fix-priority** — ranking picks a winner, it does not delete the overlap · click `CONFLICT_PRIO_LEFT` → hold on the +10 → hold on the shrinking `CONFLICT_SUMMARY` → **summary dropped**
-12 **acknowledge** — a snapshot, not a lifetime waiver · click `CONFLICT_ACKNOWLEDGE` → hold on `CONFLICT_ACK` ⟂ edit the rule → hold on `CONFLICT_STALE`† → **`CONFLICT_STALE`†**
+12 **acknowledge** — stay on Duplicate (`GET /health`); fingerprints → Acknowledge → left priority 11 → Re-analyze → **Stale**. Does not open Definite (that was step 11).
 
 ### Track C — Responses
 
@@ -424,7 +424,7 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 
 1 **one-rule-many-answers** — a rule holds a *set* of responses, chosen by a mode · hold on the variant list → hold on the four mode buttons → hold on `RESPONSE_MODE_RULES`† (the default) → **mode bar**
 2 **add-variant** — a 404 sibling for the not-found case · click `ADD_VARIANT` → reveal card → fill `VARIANT_NAME`† → click `VARIANT_STATUS_QUICK_404`† → hold → **new variant card**
-3 **variant-conditions** — in rules mode a variant wins on its own conditions · set `SELECTION_CONDITION`† jsonPath condition → hold on the condition row → **condition set**
+3 **variant-conditions** — in rules mode a variant wins on its own conditions · `SELECTION_CONDITION_TOOLBOX` → pick `MISSING` in the sample → `TOOLBOX_APPLY` → hold the condition chip → **condition set**
 4 **default-variant** — exactly one enabled default is the fallback · click `SELECTION_DEFAULT`† → hold on the Default badge → hold on the "one only" note → **Default badge**
 5 **prove-rules** — same path, two answers, decided by payload · Simulate matching body → hold on variant A → Simulate non-matching → hold on variant B → **two variants proven**
 6 **switch-sequence** — round-robin: the retry/backoff test mode · click `RESPONSE_MODE_SEQUENCE`† → hold card **Step 1 / Step 2** → hold `SEQUENCE_POSITION`† **Next: Step 1 of 2** on both cards → **shared cursor**
@@ -438,11 +438,11 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 1 **why-state** — a real cart is never the same twice · hold on the two variants → click `RESPONSE_MODE_STATE`† → hold on the new state fields → **state mode**
 2 **transition** — the first POST starts the cart and leaves a mark · fill `VARIANT_REQUIRED_STATE`† `EMPTY` → hold → fill `VARIANT_NEXT_STATE`† `HAS_ITEMS` → hold ⟂ click `COUNTER_ADD`† `items += 1` → hold on the counter row → **transition + counter**
 3 **second-variant** — the next POST must already see the item · select variant 2 → fill required state `HAS_ITEMS` → hold on its body → **variant 2 wired**
-4 **first-call** — send it once, the empty cart answers · click `APPLY` → fetch `POST /cart` → hold on the empty-cart response in `TX_DETAIL` → **journal row**
-5 **state-live** — send it again, now there is a line item · click `DOCK_TAB_STATE` → hold on `DOCK_STATE_LIVE`† (`HAS_ITEMS`, `items=1`) ⟂ fetch the same request → hold on the *different* answer → **state advanced**
+4 **first-call** — the empty cart answers first · click `APPLY` → fetch `POST /cart` → hold `TX_DETAIL` ⟂ open **State** → hold `HAS_ITEMS` → **1 transaction + State**
+5 **has-items-hop** — Apply if dirty · Reset + Clear · two `POST /cart` seeds (`EMPTY → HAS_ITEMS → CHECKED_OUT`) · walk arrived-first (`items: []`) then arrived-second (`RF-100`) · hold State `CHECKED_OUT` → **2 transactions + State**
 6 **reset-and-batch** — rewind the cart without killing the server · click `STATE_RESET` → hold on cleared state ⟂ click `SIMULATE_RUN_ALL` → hold on the per-sample state column (sequential, deterministic) → **batch states**
-7 **weighted-and-seed** — most of the time empty, sometimes already a SKU · click `RESPONSE_MODE_WEIGHTED`† → fill `VARIANT_WEIGHT`† 90/10 → hold ⟂ run twice → hold on identical results → **identical session runs**
-8 **variables** — the tenant stays in the mock, never in the export · click `VAR_ADD`† → add value → toggle sensitive → hold on the masked row → **masked variable**
+7 **weighted-and-seed** — most of the time empty, sometimes already a SKU · click `RESPONSE_MODE_WEIGHTED`† → fill `VARIANT_WEIGHT`† 90/10 → hold → **Apply** → Simulate twice → each time open `SIMULATE_TAB_RENDERED`† and hold `SIMULATE_RENDERED_BODY`† `{"ok":true,"items":[]}` → **identical empty-cart bodies**
+8 **variables** — the body reads tenant, the dock keeps the secret · click `VAR_ADD`† → `tenant=acme` + Sensitive → Studio body `{{variables.tenant}}` → hold `PREVIEW_BODY` `acme` → **resolved variable**
 
 #### AM-14 `am-14-timing-faults` — When Payments Hang: Latency, Eligibility & Connection Faults (8 steps) — **IMPLEMENTED**
 **Quiet corpus:** one payment rule with a plain 200. **Live:** all timing, eligibility, and fault config. **Companion:** required.
@@ -477,7 +477,7 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 **Quiet corpus:** store library + a TLS key + a sensitive variable (so redaction has something to strip). **Live:** every export + the re-import. **Offline.**
 **Tags:** `export-workspace-json`, `export-workspace-yaml`, `export-servers`, `export-routes`, `export-wiremock`, `export-har`, `export-redaction`, `round-trip-reimport`.
 
-1 **export-menu** — six shapes for six jobs · click `EXPORT` → reveal `EXPORT_MENU` → hold on each group → click `EXPORT_WORKSPACE` → hold on the confirmation → **`EXPORT_MENU`**
+1 **export-menu** — six shapes for six jobs · name all six Export types (Workspace JSON / YAML, Active server JSON / routes, WireMock, HAR) → click `EXPORT` → hold each group → click `EXPORT_WORKSPACE` → hold the filename → hold **Save to disk** → **`EXPORT_SAVE`**
 2 **narrower-scopes** — YAML for review, one server for a teammate, rules alone to graft · click `EXPORT_WORKSPACE_YAML` → hold ⟂ click `EXPORT_SERVERS` → hold ⟂ click `EXPORT_ROUTES` → hold → **three exports**
 3 **redaction** — TLS keys and sensitive variables never leave the workspace · hold on the redaction callout → hold on the empty `SETTINGS_TLS_KEY` field in the exported shape → **redaction proof**
 4 **wiremock** — hand a mapping set to a team still on WireMock, with a loss note · click `EXPORT_WIREMOCK` → hold on the confirmation → hold on the lossy-feature note → **loss note**

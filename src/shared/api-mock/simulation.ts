@@ -149,6 +149,7 @@ export function simulateSingle(
         fault: faultPreview.fault,
         faultTimeline: faultPreview.timeline,
         httpCompleted: faultPreview.httpCompleted,
+        wireBody: faultPreview.wireBody,
         stateKey: DEFAULT_STATE_KEY,
         stateBefore,
         stateAfter: getState(ctx.scenario!, DEFAULT_STATE_KEY),

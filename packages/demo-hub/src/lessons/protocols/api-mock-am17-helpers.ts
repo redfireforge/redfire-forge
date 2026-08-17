@@ -547,7 +547,7 @@ export async function runAm17TakeOver(ctx: DemoActionContext): Promise<void> {
 }
 
 /**
- * Step 8 — 508 loop-guard note, then closest-match as the debugging fallback.
+ * Step 8 — 508 Loop Detected guard note, then closest-match as the debugging fallback.
  * Reading already rang Settings — click immediately.
  */
 export async function runAm17Guards(ctx: DemoActionContext): Promise<void> {

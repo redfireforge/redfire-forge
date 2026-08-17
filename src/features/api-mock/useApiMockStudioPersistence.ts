@@ -29,10 +29,13 @@ export function useApiMockStudioPersistence(opts: {
   setScenarioState: Dispatch<SetStateAction<ScenarioStateSnapshot | null>>;
   setMainView: Dispatch<SetStateAction<ApiMockMainView>>;
   setLiveMessage: Dispatch<SetStateAction<string>>;
+  /** Wipe/import replaces the library — drop export/import/simulate chrome that is not on disk. */
+  onWorkspaceReplaced?: () => void;
 }): MutableRefObject<ApiMockWorkspaceSnapshot> {
   const {
-    servers, activeServerId, openTabIds, setServers, setActiveServerId, setOpenTabIds,
+    servers, activeServerId, openTabIds,     setServers, setActiveServerId, setOpenTabIds,
     setRuntime, setTransactions, setScenarioState, setMainView, setLiveMessage,
+    onWorkspaceReplaced,
   } = opts;
 
   const hydratedRef = useRef(false);
@@ -124,6 +127,7 @@ export function useApiMockStudioPersistence(opts: {
       setScenarioState(null);
       setMainView('studio');
       setLiveMessage(detail.servers.length > 0 ? 'Gallery mock server imported.' : '');
+      onWorkspaceReplaced?.();
       hydratedRef.current = true;
     };
     window.addEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
@@ -132,7 +136,7 @@ export function useApiMockStudioPersistence(opts: {
       window.removeEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
     };
     // `setOpenTabIds` is a stable setState, so this still runs once on mount.
-  }, [setOpenTabIds, setServers, setActiveServerId, setRuntime, setTransactions, setScenarioState, setMainView, setLiveMessage]);
+  }, [setOpenTabIds, setServers, setActiveServerId, setRuntime, setTransactions, setScenarioState, setMainView, setLiveMessage, onWorkspaceReplaced]);
 
   useEffect(() => {
     if (!hydratedRef.current) return;

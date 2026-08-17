@@ -33,6 +33,11 @@ export const AM16_TIMING = {
   journalWrite: 1400,
   simOutcome: 1800,
   beforeRun: 2000,
+  /** Import tour — longer than export clicks so each mode/file/preview beat can be read. */
+  importLook: 1200,
+  importHold: 1700,
+  importRead: 1900,
+  importBreak: 1100,
 } as const;
 
 const T = AM16_TIMING;
@@ -46,12 +51,13 @@ export const AM16_TLS_REDACTED = '***REDACTED***';
 export const AM16_SECRET_REDACTED = '[REDACTED]';
 export const AM16_CLI = 'redfireforge mock simulate workspace.json';
 
-async function am16Click(
+/** Import beats stay on screen longer than the export-menu clicks. */
+async function am16ImportClick(
   ctx: DemoActionContext,
   selector: string,
-  hold: number = T.fieldFilled,
+  hold: number = T.importHold,
 ): Promise<void> {
-  await clickBeat(ctx, selector, { look: T.look, hold });
+  await clickBeat(ctx, selector, { look: T.importLook, hold });
 }
 
 /** Click without a beforeOpen re-ring — the step highlight is already on this control. */
@@ -62,14 +68,6 @@ async function am16ClickNow(
 ): Promise<void> {
   await ctx.click(selector);
   await ctx.delay(hold);
-}
-
-async function am16Aim(
-  ctx: DemoActionContext,
-  selector: string,
-  hold: number = 0,
-): Promise<void> {
-  await clickBeat(ctx, selector, { look: T.beforeOpen, hold });
 }
 
 async function am16Reveal(
@@ -156,7 +154,14 @@ export function isAm16CopyModeActive(): boolean {
 
 // ── Boot / cleanup ──────────────────────────────────────────────────────────
 
+/** Close leftover Export/Import chrome after X / Restart — wipe does not unmount those modals. */
+export function dismissAm16Overlays(): void {
+  document.querySelector<HTMLElement>(API_MOCK.EXPORT_CLOSE)?.click();
+  document.querySelector<HTMLElement>(API_MOCK.IMPORT_CLOSE)?.click();
+}
+
 export async function prepareAm16Workspace(): Promise<void> {
+  dismissAm16Overlays();
   await wipeApiMockWorkspace();
   prepareApiMockStudioChrome();
   const imported = await importApiMockGallerySample(AM16_CORPUS_SAMPLE);
@@ -170,6 +175,7 @@ export async function prepareAm16Workspace(): Promise<void> {
 }
 
 export async function cleanupAm16(): Promise<void> {
+  dismissAm16Overlays();
   await wipeApiMockWorkspace();
 }
 
@@ -267,6 +273,12 @@ async function quietWorkspaceExport(ctx: DemoActionContext): Promise<void> {
 
 // ── Guards ──────────────────────────────────────────────────────────────────
 
+export async function ensureAm16ForExportMenu(ctx: DemoActionContext): Promise<void> {
+  await ensureAm16Library(ctx);
+  await closeAm16Import(ctx);
+  await closeAm16Export(ctx, false);
+}
+
 export async function ensureAm16ForNarrower(ctx: DemoActionContext): Promise<void> {
   await ensureAm16Library(ctx);
   await closeAm16Import(ctx);
@@ -293,12 +305,12 @@ export async function ensureAm16ForHar(ctx: DemoActionContext): Promise<void> {
 
 export async function ensureAm16ForRoundTrip(ctx: DemoActionContext): Promise<void> {
   await ensureAm16Library(ctx);
+  // HAR (and every earlier export) leaves the confirm open for verify. Dismiss it
+  // silently and do not re-open Export — that menu/confirm flash is what the
+  // viewer saw before the Import reading page. Last-export JSON is already in
+  // Studio state from the native exports in this lesson.
   await closeAm16Export(ctx, false);
-  if (hasAm16Copies()) {
-    await closeAm16Import(ctx);
-    return;
-  }
-  await quietWorkspaceExport(ctx);
+  await closeAm16Import(ctx);
 }
 
 export async function ensureAm16ForCi(ctx: DemoActionContext): Promise<void> {
@@ -356,7 +368,7 @@ export async function runAm16ExportMenu(ctx: DemoActionContext): Promise<void> {
     if (document.querySelector(API_MOCK.EXPORT_CONFIRM)) await ctx.delay(T.payoff);
   }
   await am16Look(ctx, API_MOCK.EXPORT_FILENAME);
-  await am16Payoff(ctx, API_MOCK.EXPORT_CONFIRM);
+  await am16Payoff(ctx, API_MOCK.EXPORT_SAVE);
 }
 
 export async function runAm16NarrowerScopes(ctx: DemoActionContext): Promise<void> {
@@ -397,33 +409,38 @@ export async function runAm16Har(ctx: DemoActionContext): Promise<void> {
 }
 
 export async function runAm16RoundTrip(ctx: DemoActionContext): Promise<void> {
-  await closeAm16Export(ctx, true);
+  await closeAm16Export(ctx, false);
   await closeAm16Import(ctx);
   if (!firstVisibleElement(API_MOCK.IMPORT_MENU)) return;
-  await am16Aim(ctx, API_MOCK.IMPORT_MENU);
-  await am16Reveal(ctx, API_MOCK.IMPORT_REVIEW);
+  await am16ImportClick(ctx, API_MOCK.IMPORT_MENU, T.importRead);
+  await am16Reveal(ctx, API_MOCK.IMPORT_REVIEW, T.importHold);
+  await ctx.delay(T.importBreak);
   const native = API_MOCK.importSource('native');
   if (firstVisibleElement(native)) {
-    await am16Aim(ctx, native);
+    await am16ImportClick(ctx, native, T.importHold);
+    await ctx.delay(T.importBreak);
   }
-  await am16Look(ctx, API_MOCK.IMPORT_MODE_COPY);
-  await am16Aim(ctx, API_MOCK.IMPORT_MODE_COPY);
+  if (firstVisibleElement(API_MOCK.IMPORT_MODE_COPY)) {
+    await am16ImportClick(ctx, API_MOCK.IMPORT_MODE_COPY, T.importHold);
+    await ctx.delay(T.importBreak);
+  }
   if (firstVisibleElement(API_MOCK.IMPORT_LAST_EXPORT)) {
-    await am16Click(ctx, API_MOCK.IMPORT_LAST_EXPORT, T.payoff);
-    await prettyFormatImportPaste(ctx, { look: T.look, hold: T.payoff });
-    await am16Look(ctx, API_MOCK.IMPORT_PASTE);
+    await am16ImportClick(ctx, API_MOCK.IMPORT_LAST_EXPORT, T.importRead);
+    await prettyFormatImportPaste(ctx, { look: T.importLook, hold: T.importRead });
+    await ctx.delay(T.importBreak);
   }
   if (firstVisibleElement(API_MOCK.IMPORT_PARSE)) {
-    await am16Click(ctx, API_MOCK.IMPORT_PARSE, T.payoff);
-    await am16Reveal(ctx, API_MOCK.IMPORT_PREVIEW, T.payoff);
+    await am16ImportClick(ctx, API_MOCK.IMPORT_PARSE, T.importHold);
+    await am16Reveal(ctx, API_MOCK.IMPORT_PREVIEW, T.importRead);
+    await ctx.delay(T.importBreak);
   }
   if (firstVisibleElement(API_MOCK.IMPORT_CONFIRM)) {
-    await am16Click(ctx, API_MOCK.IMPORT_CONFIRM, T.payoff);
+    await am16ImportClick(ctx, API_MOCK.IMPORT_CONFIRM, T.importRead);
   }
-  await am16Reveal(ctx, API_MOCK.COPIED_ROUTE, T.payoff);
+  await am16Reveal(ctx, API_MOCK.COPIED_ROUTE, T.importRead);
   const copies = am16CopiedRows().slice(0, 3);
   for (const row of copies) {
-    await spotlightElementBeat(ctx, row, T.look);
+    await spotlightElementBeat(ctx, row, T.importLook);
   }
   await am16Payoff(ctx, API_MOCK.ROUTES_FOOTER);
 }

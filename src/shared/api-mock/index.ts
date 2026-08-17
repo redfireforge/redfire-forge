@@ -20,6 +20,19 @@ export {
   insertTemplateSnippet,
 } from './templateHelperCatalog';
 export type { TemplateHelperEntry, TemplateHelperCategory } from './templateHelperCatalog';
+export {
+  REDACT_HEADER_CATALOG,
+  REDACT_HEADER_GROUP_LABELS,
+  parseRedactHeaderList,
+  formatRedactHeaderList,
+  defaultRedactHeaderList,
+  isRedactHeaderSelected,
+  toggleRedactHeader,
+  groupRedactHeaders,
+  titleCaseHeader,
+  redactHeaderDefaultEntry,
+} from './redactHeaderCatalog';
+export type { RedactHeaderCatalogEntry, RedactHeaderGroup } from './redactHeaderCatalog';
 export { summarizeMatchDurations, emptyOutcomeCounts, countRoutePredicates } from './localDiagnostics';
 export { computeDefinitionFingerprint, computeRouteFingerprint, canonicalExportOrder, canonicalVariableOrder } from './fingerprint';
 export { migrateWorkspace, registerMigration } from './migration';

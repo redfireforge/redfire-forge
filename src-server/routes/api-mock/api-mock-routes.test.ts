@@ -146,7 +146,7 @@ describe('createApiMockRouter', () => {
   });
 
   it('handles stop, restart, commit, status, state, list, and probe routes', async () => {
-    const { app } = buildApp();
+    const { app, onLog } = buildApp();
 
     stop.mockResolvedValueOnce({ serverId: 'srv-1', port: 4600, state: 'stopped', generation: 1 });
     let res = await request(app).post('/api/mock/servers/srv-1/stop');
@@ -162,6 +162,7 @@ describe('createApiMockRouter', () => {
     restart.mockResolvedValueOnce({ serverId: 'srv-1', port: 4600, state: 'running', generation: 2 });
     res = await request(app).post('/api/mock/servers/srv-1/restart').send(makeDef());
     expect(res.status).toBe(200);
+    expect(onLog).toHaveBeenCalledWith(expect.objectContaining({ source: 'api-mock', message: expect.stringContaining('Restarted') }));
 
     restart.mockRejectedValueOnce(new Error('fetch failed'));
     res = await request(app).post('/api/mock/servers/srv-1/restart').send(makeDef());
@@ -186,7 +187,9 @@ describe('createApiMockRouter', () => {
 
     status.mockReturnValueOnce(undefined);
     res = await request(app).get('/api/mock/servers/srv-1/status');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error.code).toBe('NOT_FOUND');
 
     status.mockReturnValueOnce({ serverId: 'srv-1', port: 4600, state: 'running', generation: 3 });
     res = await request(app).get('/api/mock/servers/srv-1/status');
@@ -194,7 +197,9 @@ describe('createApiMockRouter', () => {
 
     getRuntimeState.mockReturnValueOnce(undefined);
     res = await request(app).get('/api/mock/servers/srv-1/state');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error.code).toBe('NOT_RUNNING');
 
     getRuntimeState.mockReturnValueOnce({
       states: { default: 'advanced' },
@@ -246,7 +251,9 @@ describe('createApiMockRouter', () => {
     const { app, txHandler } = buildApp();
 
     let res = await request(app).get('/api/mock/servers/srv-1/transactions');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error.code).toBe('NOT_FOUND');
 
     start.mockResolvedValueOnce({ serverId: 'srv-1', port: 4600, state: 'running', generation: 1 });
     await request(app).post('/api/mock/servers/start').send(makeDef());
@@ -330,7 +337,9 @@ describe('createApiMockRouter', () => {
   it('returns local diagnostics without payloads', async () => {
     const { app } = buildApp();
     let res = await request(app).get('/api/mock/servers/missing/diagnostics');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error.code).toBe('NOT_FOUND');
 
     start.mockResolvedValueOnce({ serverId: 'srv-1', port: 4600, state: 'running', generation: 2 });
     await request(app).post('/api/mock/servers/start').send(makeDef());

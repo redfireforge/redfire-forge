@@ -160,7 +160,7 @@ export function ApiMockRouteExplorer({
         aria-selected={route.id === selectedRouteId}
         tabIndex={tabIndex}
         draggable={!!onMoveRoute}
-        className={`am-route-item${route.id === selectedRouteId ? ' active' : ''}${!route.enabled ? ' disabled' : ''}${conflict ? ' conflict' : ''}${draggingRouteId === route.id ? ' dragging' : ''}`}
+        className={`am-route-item${route.enabled ? ' is-live' : ' disabled is-draft'}${route.id === selectedRouteId ? ' active' : ''}${conflict ? ' conflict' : ''}${draggingRouteId === route.id ? ' dragging' : ''}`}
         onClick={() => onSelect(route.id)}
         onDoubleClick={() => onToggle(route.id, !route.enabled)}
         onDragStart={e => {
@@ -177,17 +177,25 @@ export function ApiMockRouteExplorer({
         title={
           conflict
             ? 'Potential overlap with another route'
-            : onMoveRoute
-              ? `${route.name} — drag into a folder`
-              : route.name
+            : `${route.enabled ? 'Enabled' : 'Draft — not matching'}${onMoveRoute ? ' · drag into a folder' : ''}`
         }
+        aria-label={`${route.method} ${route.path.value || '/'} — ${route.enabled ? 'enabled' : 'draft'}`}
         data-testid={`api-mock-route-${route.id}`}
         data-route-name={route.name}
+        data-enabled={route.enabled ? 'true' : 'false'}
         data-copied={route.name.endsWith(' (copy)') ? 'true' : undefined}
       >
         <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
         <span className="am-route-path">{route.path.value || '/'}</span>
-        <span className={`am-badge${priorityClass}`}>P{route.priority}</span>
+        <span className="am-route-meta">
+          <span
+            className={`am-route-state ${route.enabled ? 'is-live' : 'is-draft'}`}
+            data-testid={`api-mock-route-state-${route.id}`}
+          >
+            {route.enabled ? 'On' : 'Draft'}
+          </span>
+          <span className={`am-badge${priorityClass}`}>P{route.priority}</span>
+        </span>
       </button>
         <button
           type="button"

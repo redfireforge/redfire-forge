@@ -26,6 +26,9 @@ import {
   AM09_HEALTH_PATH,
   AM09_ORDERS_PATH,
   AM09_TENANT_HEADER,
+  AM09_TENANT_HEADER_MISS,
+  AM09_ORDERS_MISS_SAMPLE,
+  AM09_ORDERS_HIT_SAMPLE,
   AM09_DAILY_PATH,
   AM09_GLOB_PATH,
   AM09_NON_DAILY_PATH,
@@ -58,6 +61,13 @@ import {
   am09RuleRow,
   am09RuleRows,
   am09RuleSelector,
+  am09ConditionsFailedCandidate,
+  am09FailedPredicateRow,
+  am09MatchedLoserCandidate,
+  am09MatchingCandidate,
+  am09PassedPredicateRow,
+  am09PathFailedCandidate,
+  am09PathPredicateRow,
   am09SimOutcome,
   am09SummaryText,
   cleanupAm09,
@@ -213,6 +223,11 @@ function paintSimulateResult(result: HTMLElement, outcome: string, path: string)
     const failed = el('span', 'am-badge danger');
     failed.textContent = 'Path failed';
     daily.querySelector('.am-candidate-head')?.append(failed);
+    const method = el('div', 'am-predicate');
+    method.textContent = 'Method match';
+    const pathRow = el('div', 'am-predicate am-predicate--fail');
+    pathRow.textContent = `Path ${AM09_DAILY_PATH} failed`;
+    daily.append(method, pathRow);
     const glob = mountHealthCandidate('reports-glob', AM09_GLOB_PATH);
     const winner = el('span', 'am-badge success', 'api-mock-sim-winner');
     winner.textContent = 'Winner';
@@ -221,8 +236,19 @@ function paintSimulateResult(result: HTMLElement, outcome: string, path: string)
     return;
   }
   if (path.includes('/reports')) {
-    result.append(mountHealthCandidate('reports-daily', AM09_DAILY_PATH));
-    result.append(mountHealthCandidate('reports-glob', AM09_GLOB_PATH));
+    const daily = mountHealthCandidate('reports-daily', AM09_DAILY_PATH);
+    const dailyMethod = el('div', 'am-predicate');
+    dailyMethod.textContent = 'Method match';
+    const dailyPath = el('div', 'am-predicate');
+    dailyPath.textContent = `Path ${AM09_DAILY_PATH}`;
+    daily.append(dailyMethod, dailyPath);
+    const glob = mountHealthCandidate('reports-glob', AM09_GLOB_PATH);
+    const globMethod = el('div', 'am-predicate');
+    globMethod.textContent = 'Method match';
+    const globPath = el('div', 'am-predicate');
+    globPath.textContent = `Path ${AM09_GLOB_PATH}`;
+    glob.append(globMethod, globPath);
+    result.append(daily, glob);
     return;
   }
   if (outcome === 'MATCHED') {
@@ -231,7 +257,20 @@ function paintSimulateResult(result: HTMLElement, outcome: string, path: string)
     winner.textContent = 'Winner';
     catchAll.querySelector('.am-candidate-head')?.append(winner);
     result.append(catchAll);
-    result.append(mountHealthCandidate('orders-tenant', AM09_ORDERS_PATH));
+    const tenant = mountHealthCandidate('orders-tenant', AM09_ORDERS_PATH);
+    if (!currentSimHeaders().includes('acme')) {
+      const failed = el('span', 'am-badge warning');
+      failed.textContent = 'Conditions failed';
+      tenant.querySelector('.am-candidate-head')?.append(failed);
+      const pred = el('div', 'am-predicate am-predicate--fail');
+      pred.textContent = 'header "x-tenant" was absent failed';
+      tenant.append(pred);
+    } else {
+      const pred = el('div', 'am-predicate');
+      pred.textContent = 'header x-tenant · exact passed';
+      tenant.append(pred);
+    }
+    result.append(tenant);
     return;
   }
   result.append(mountHealthCandidate('health-a', AM09_HEALTH_PATH));
@@ -708,21 +747,66 @@ describe('AM-09 helpers', () => {
     ]));
   });
 
-  it('step 6 simulates the shadowed witness and closes Simulate', async () => {
+  it('step 6 simulates no-tenant then tenant-header, catch-all wins both', async () => {
     mountExplorer();
     mountConflicts();
     const ctx = reactiveCtx();
-    const outcome = await runAm09ShadowedWitness(ctx);
-    expect(outcome).toBe('MATCHED');
-    expect(calls(ctx.click)).toContain(API_MOCK.CONFLICT_SIMULATE);
-    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
-    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_RENDERED);
-    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
+    const { miss, hit } = await runAm09ShadowedWitness(ctx);
+    expect(miss).toBe('MATCHED');
+    expect(hit).toBe('MATCHED');
+    expect(calls(ctx.click).filter(sel => sel === API_MOCK.SIMULATE_RUN)).toHaveLength(2);
+    expect(calls(ctx.click).filter(sel => sel === API_MOCK.SIMULATE_SAVE_SAMPLE)).toHaveLength(2);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_VIEW_REQUEST);
+    expect(vi.mocked(ctx.fill).mock.calls).toContainEqual([
+      API_MOCK.SIMULATE_HEADERS,
+      AM09_TENANT_HEADER_MISS,
+    ]);
     expect(vi.mocked(ctx.fill).mock.calls).toContainEqual([
       API_MOCK.SIMULATE_HEADERS,
       AM09_TENANT_HEADER,
     ]);
+    expect(vi.mocked(ctx.fill).mock.calls).toContainEqual([
+      API_MOCK.SIMULATE_SAMPLE_NAME,
+      AM09_ORDERS_MISS_SAMPLE,
+    ]);
+    expect(vi.mocked(ctx.fill).mock.calls).toContainEqual([
+      API_MOCK.SIMULATE_SAMPLE_NAME,
+      AM09_ORDERS_HIT_SAMPLE,
+    ]);
     expect(isAm09SimulateOpen()).toBe(false);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeGreaterThan(12_000);
+    expect(delayMs).toBeLessThan(40_000);
+  });
+
+  it('finds the Conditions-failed card and the absent x-tenant row', () => {
+    mountConflicts();
+    setFilterActive(AM09_KIND_SHADOWED);
+    mountSimulate('MATCHED', AM09_ORDERS_PATH);
+    const card = am09ConditionsFailedCandidate();
+    expect(card?.textContent).toContain('Conditions failed');
+    expect(card?.textContent).toContain(AM09_ORDERS_PATH);
+    const row = am09FailedPredicateRow('x-tenant');
+    expect(row?.className).toContain('am-predicate--fail');
+    expect(row?.textContent).toContain('x-tenant');
+    expect(row?.textContent).toMatch(/absent/i);
+  });
+
+  it('finds the matched-but-lost tenant card and the passed x-tenant row', () => {
+    mountConflicts();
+    setFilterActive(AM09_KIND_SHADOWED);
+    mountSimulate('MATCHED', AM09_ORDERS_PATH);
+    const headers = document.querySelector<HTMLTextAreaElement>(API_MOCK.SIMULATE_HEADERS);
+    if (headers) headers.value = AM09_TENANT_HEADER;
+    const result = document.querySelector<HTMLElement>(API_MOCK.SIMULATE_RESULT);
+    if (result) paintSimulateResult(result, 'MATCHED', AM09_ORDERS_PATH);
+    const card = am09MatchedLoserCandidate(AM09_ORDERS_PATH);
+    expect(card?.textContent).toContain(AM09_ORDERS_PATH);
+    expect(card?.textContent).not.toContain('Winner');
+    const row = am09PassedPredicateRow('x-tenant', card);
+    expect(row?.className).not.toContain('am-predicate--fail');
+    expect(row?.textContent).toContain('x-tenant');
+    expect(row?.textContent).toMatch(/passed/i);
   });
 
   it('step 7 shows daily vs glob, then Definite', async () => {
@@ -759,6 +843,33 @@ describe('AM-09 helpers', () => {
       AM09_NON_DAILY_SAMPLE,
     ]);
     expect(isAm09SimulateOpen()).toBe(false);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeGreaterThan(8_000);
+    expect(delayMs).toBeLessThan(28_000);
+  });
+
+  it('finds the matching GET /reports/daily card and Path row', () => {
+    mountConflicts();
+    setFilterActive(AM09_KIND_DEFINITE);
+    mountSimulate('AMBIGUOUS', AM09_DAILY_PATH);
+    const card = am09MatchingCandidate(AM09_DAILY_PATH);
+    expect(card?.textContent).toContain(AM09_DAILY_PATH);
+    expect(card?.textContent).not.toContain('Path failed');
+    const row = am09PathPredicateRow(AM09_DAILY_PATH, card);
+    expect(row?.textContent).toContain(AM09_DAILY_PATH);
+    expect(row?.textContent).toMatch(/path/i);
+  });
+
+  it('finds the Path-failed GET /reports/daily card and Path row', () => {
+    mountConflicts();
+    setFilterActive(AM09_KIND_DEFINITE);
+    mountSimulate('MATCHED', AM09_NON_DAILY_PATH);
+    const card = am09PathFailedCandidate();
+    expect(card?.textContent).toContain('Path failed');
+    expect(card?.textContent).toContain(AM09_DAILY_PATH);
+    const row = am09PathPredicateRow(AM09_DAILY_PATH, card);
+    expect(row?.className).toContain('am-predicate--fail');
+    expect(row?.textContent).toContain(AM09_DAILY_PATH);
   });
 
   it('compat runner still walks Definite then Potential', async () => {
@@ -809,6 +920,7 @@ describe('AM-09 helpers', () => {
       AM09_SEARCH_MISS_SAMPLE,
     ]);
     expect(isAm09SimulateOpen()).toBe(false);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_RENDERED);
     const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
     expect(delayMs).toBeGreaterThan(6_000);
     expect(delayMs).toBeLessThan(28_000);
@@ -867,8 +979,10 @@ describe('AM-09 helpers', () => {
       String(AM09_PRIORITY_STALE),
     ]);
     expect(document.querySelector(API_MOCK.CONFLICT_STALE)).toBeTruthy();
+    expect(calls(ctx.click)).not.toContain(API_MOCK.conflictFilter(AM09_KIND_DEFINITE));
+    expect(calls(ctx.click)).toContain(API_MOCK.conflictFilter(AM09_KIND_DUPLICATE));
     const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
-    expect(delayMs).toBeLessThan(28_000);
+    expect(delayMs).toBeLessThan(32_000);
   });
 
   it('step 12 no-ops further edits when Stale is already on screen', async () => {

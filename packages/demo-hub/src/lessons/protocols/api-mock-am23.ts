@@ -92,7 +92,7 @@ export const apiMockAm23Lesson: DemoLesson = {
   initialTab: 'runner',
   allowedTabs: ['runner', 'api-mock-studio'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 2,
+  contentVersion: 3,
   concept: {
     title: 'A fixture is a mock that lives for the length of the suite.',
     body:
@@ -151,13 +151,15 @@ export const apiMockAm23Lesson: DemoLesson = {
       id: 'fixture-panel',
       title: 'Scenario suites need a mock that starts and stops with the run',
       description:
-        'Open **Test Runner**. Click **Mock Server** in the Host row — that '
-        + 'opens the **API Mock fixture** so a suite can borrow a Studio '
-        + 'contract without leaving a listener running on your desk. Pick '
-        + '**Store API** from the server list and hold the selection — that is '
-        + 'the library this suite will hit.\n\n'
-        + 'Nothing is listening yet. The fixture starts only when you press '
-        + 'Run, and it stops when the last scenario finishes.',
+        'A suite that points at `store.example` is only as reliable as that '
+        + 'host is on the day CI runs. Binding the mock as a **fixture** '
+        + 'removes that dependency: **Test Runner** borrows a Studio contract, '
+        + 'stands it up for the length of the run, and tears it down after — so '
+        + 'nothing is left listening on your desk.\n\n'
+        + 'Pick **Store API** from the fixture’s server list and that becomes '
+        + 'the library every scenario hits. Nothing is listening *yet*, though: '
+        + 'the fixture starts only when you press Run and stops when the last '
+        + 'scenario finishes. The mock’s lifetime is exactly the suite’s.',
       highlight: HAR.HOST_MOCK_SERVER,
       action: runAm23FixturePanel,
       verify: HAR.HARNESS_MOCK_SERVER,
@@ -166,12 +168,15 @@ export const apiMockAm23Lesson: DemoLesson = {
       id: 'isolate',
       title: 'A private port per run is what makes parallel suites safe',
       description:
-        '**Isolate run ID** is already on — leave it on and hold the checkbox. '
-        + 'On is a throwaway copy: this suite gets its own server id and port, '
-        + 'then that copy is stopped. The Studio tab stays however you left it.\n\n'
-        + 'Off would use Studio\'s Store itself, then put it back — Stopped if '
-        + 'it was down, still Running if it was up. This lesson stays On so '
-        + 'two jobs can share a definition without sharing a listener.',
+        '**Isolate run** is the difference between a suite that can run in '
+        + 'parallel and one that fights over a port. Left on, this run gets a '
+        + '*throwaway copy* — its own server id and port — that is discarded '
+        + 'when the suite ends, so the Studio tab you have open is never '
+        + 'touched.\n\n'
+        + 'Off would borrow Studio’s own Store and politely restore it '
+        + 'afterward (Stopped if it was down, Running if it was up). This '
+        + 'lesson stays **On** because that is what lets two CI jobs share one '
+        + 'definition without ever sharing a listener.',
       highlight: HAR.HARNESS_MOCK_ISOLATE,
       preAction: ensureAm23ForIsolate,
       action: runAm23Isolate,
@@ -181,11 +186,15 @@ export const apiMockAm23Lesson: DemoLesson = {
       id: 'run',
       title: 'The fixture starts before the first scenario',
       description:
-        'Press **Run**. Watch the fixture start line — the mock binds before '
-        + 'any scenario fires. Then hold the results banner. List products and '
-        + 'Get cart went to the isolated listener, not `store.example`.\n\n'
-        + 'That start line is the proof the suite did not race the bind. If it '
-        + 'were missing, the first request would miss.',
+        'Ordering is the whole game here: the fixture has to bind *before* the '
+        + 'first scenario fires, or the opening request races an unready '
+        + 'listener and misses. Press **Run** and the start line is the proof '
+        + 'that did not happen — the mock comes up first, then List Products '
+        + 'and Get Cart go to the isolated listener instead of '
+        + '`store.example`.\n\n'
+        + 'The results banner is the reward, but the start line above it is the '
+        + 'reassurance: the suite and its mock came up in the right order, with '
+        + 'nothing for you to sequence by hand.',
       highlight: HAR.RUN_BTN,
       preAction: ensureAm23ForRun,
       action: runAm23Suite,
@@ -195,11 +204,15 @@ export const apiMockAm23Lesson: DemoLesson = {
       id: 'teardown',
       title: 'No orphan listeners after the run',
       description:
-        'Hold **Stopped** on the fixture panel, then the freed port. The '
-        + 'listener is gone the moment the suite ends — pass, fail, or cancel. '
-        + 'Studio itself never bound this run; isolation kept that tab Stopped.\n\n'
-        + 'This is why you can run the same suite again immediately, or in '
-        + 'parallel with another job, without a port conflict toast.',
+        'A fixture that starts cleanly but never stops is worse than no '
+        + 'fixture — it leaks ports and poisons the next run. The payoff of the '
+        + 'isolated copy is right here: the moment the suite ends — pass, fail, '
+        + '*or* cancel — the listener is **Stopped** and its port is freed. '
+        + 'Studio’s own tab stayed down the whole time; isolation never '
+        + 'borrowed it.\n\n'
+        + 'That guaranteed teardown is exactly why you can re-run this suite '
+        + 'immediately, or fire another job alongside it, without a '
+        + 'port-conflict toast.',
       highlight: HAR.HARNESS_MOCK_STOPPED,
       preAction: ensureAm23ForTeardown,
       action: runAm23Teardown,
@@ -209,12 +222,15 @@ export const apiMockAm23Lesson: DemoLesson = {
       id: 'evidence',
       title: 'The journal is the run\'s audit trail',
       description:
-        'Switch to API Mock Studio and open the Runtime **Transactions** dock. '
-        + 'Hold the first journal row — GET `/products` from the smoke suite. '
-        + 'Then hold **Export journal** so you know the audit trail is a file, '
-        + 'not a screenshot.\n\n'
-        + 'Simulate expectations still live on the samples. The journal is what '
-        + 'actually arrived on the wire during the run.',
+        'After the run, the question a reviewer asks is “what actually hit the '
+        + 'mock?” — and the **journal** answers it with facts, not a '
+        + 'screenshot. Open the Runtime **Transactions** dock and the smoke '
+        + 'suite’s real traffic is there, starting with `GET /products`.\n\n'
+        + 'Hold the distinction: Simulate *expectations* live on the samples '
+        + 'and describe what *should* happen; the journal records what *did* '
+        + 'arrive on the wire during the run. **Export journal** turns that '
+        + 'audit trail into a file you can attach, so the evidence outlives the '
+        + 'session.',
       highlight: API_MOCK.DOCK_TAB_TRANSACTIONS,
       preAction: ensureAm23ForEvidence,
       action: runAm23Evidence,
@@ -224,12 +240,14 @@ export const apiMockAm23Lesson: DemoLesson = {
       id: 'artifact',
       title: 'Export the workspace as the file CI consumes',
       description:
-        'Open **Export** and download **Workspace JSON**. Hold the confirmation '
-        + 'until the filename and both CLI lines are readable — '
-        + `\`${AM23_CLI_SIMULATE}\` for the unit-level suite, `
-        + `\`${AM23_CLI_VERIFY}\` for the live journal.\n\n`
-        + 'That file is the artifact. The confirmation is what you would paste '
-        + 'into a pipeline, not a toast that disappears.',
+        'Everything so far happened inside the app; CI needs a *file*. '
+        + '**Workspace JSON** is that artifact — the whole mock exported so a '
+        + 'pipeline can consume it without your machine in the loop. Hold the '
+        + 'confirmation until the filename and both CLI lines are readable.\n\n'
+        + `Those two commands are the point: \`${AM23_CLI_SIMULATE}\` for the `
+        + `unit-level suite and \`${AM23_CLI_VERIFY}\` for the live journal. `
+        + 'The confirmation is deliberately something you can copy straight '
+        + 'into a pipeline — not a toast that disappears before you can use it.',
       highlight: API_MOCK.EXPORT,
       preAction: ensureAm23ForArtifact,
       action: runAm23Artifact,
@@ -239,12 +257,15 @@ export const apiMockAm23Lesson: DemoLesson = {
       id: 'cli-handoff',
       title: 'Simulate is unit-level. Verify is the live journal.',
       description:
-        'Close the confirmation so the explorer footer is visible again. Hold '
-        + `\`${AM23_CLI_SIMULATE}\`, then \`${AM23_CLI_VERIFY}\`. Simulate runs `
-        + 'saved samples with no sockets. Verify asserts matched calls against '
-        + 'a live (or just-run) journal.\n\n'
-        + 'The recap on the footer is the pack in one line: Studio authors, '
-        + 'Simulate proves, Test Runner / Workflow run it, CLI is CI.',
+        'The two CLI commands answer two different questions CI asks. '
+        + `\`${AM23_CLI_SIMULATE}\` replays the saved samples with *no sockets `
+        + 'at all* — fast, hermetic, the unit test of your mock. '
+        + `\`${AM23_CLI_VERIFY}\` goes the other way, asserting matched calls, `
+        + 'counts, and outcomes against a *live* (or just-run) journal.\n\n'
+        + 'Together they close the loop this whole pack has been building '
+        + 'toward, and the footer recap says it in one line: Studio authors, '
+        + 'Simulate proves, Test Runner / Workflow run it, and the CLI is the '
+        + 'handoff to CI.',
       highlight: API_MOCK.CLI_SIMULATE,
       preAction: ensureAm23ForCli,
       action: runAm23CliHandoff,

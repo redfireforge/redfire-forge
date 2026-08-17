@@ -4,7 +4,7 @@ import { exportHarForStudio } from '../../shared/api-mock/harExport';
 import { exportWireMockMappings } from '../../shared/api-mock/wireMockExport';
 import type { ApiMockExportFormat, ApiMockExportRequest, ApiMockExportScope } from './components/ApiMockWorkspaceNav';
 import { apiMockControlClient } from './apiMockControlClient';
-import { downloadJsonFile, isApiMockLiveDemoActive } from './apiMockPageHelpers';
+import { downloadJsonFile, isApiMockLiveDemoActive, saveTextFileToDisk } from './apiMockPageHelpers';
 
 export interface ApiMockExportResult {
   filename: string;
@@ -67,13 +67,22 @@ export function inspectExportSecrets(envelope: ApiMockExportV1 | undefined): {
 
 function downloadTextFile(filename: string, text: string, mime: string): void {
   if (isApiMockLiveDemoActive()) return;
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveTextFileToDisk(filename, text, mime);
+}
+
+export function apiMockExportCopyLabel(format: ApiMockExportFormat): string {
+  if (format === 'yaml') return 'Copy YAML';
+  if (format === 'har') return 'Copy HAR';
+  return 'Copy JSON';
+}
+
+export function apiMockExportMime(format: ApiMockExportFormat): string {
+  return format === 'yaml' ? 'text/yaml' : 'application/json';
+}
+
+/** Always write the confirmation payload — the viewer asked for this file. */
+export function saveApiMockExportToDisk(result: Pick<ApiMockExportResult, 'filename' | 'text' | 'format'>): void {
+  saveTextFileToDisk(result.filename, result.text, apiMockExportMime(result.format));
 }
 
 export async function handleApiMockExport({

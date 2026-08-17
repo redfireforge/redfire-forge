@@ -87,7 +87,7 @@ export const apiMockAm20Lesson: DemoLesson = {
     + 'private key; Stop leaves the PEMs in the workspace.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 3,
+  contentVersion: 4,
   concept: {
     title: 'HTTPS is a listen setting. Who may call is a matcher.',
     body:
@@ -121,12 +121,16 @@ export const apiMockAm20Lesson: DemoLesson = {
       id: 'generate-tls',
       title: 'Clients that refuse plaintext need a real certificate, not OpenSSL',
       description:
-        'Click **Settings** on the server bar — that is the server modal, not '
-        + 'Runtime Settings. Open the **TLS** tab, toggle **HTTPS** on, then '
-        + 'click **Generate self-signed**.\n\n'
-        + 'Hold the certificate and key fields while the PEMs fill. This is a '
-        + '365-day localhost cert with SANs for the bind host. You did not '
-        + 'leave Studio, and you do not need a terminal.',
+        'A client configured to refuse plaintext will not accept a *story* '
+        + 'about a certificate — it needs a real one presented at the '
+        + 'handshake. The usual path is an OpenSSL incantation in a terminal; '
+        + 'the whole point of **Generate self-signed** (on the server bar’s '
+        + 'TLS tab, the definition — not Runtime Settings) is that you never '
+        + 'leave Studio to get one.\n\n'
+        + 'One click mints a 365-day localhost certificate and private key, '
+        + 'with SANs for the bind host, straight into the server definition. '
+        + 'Watching the PEM fields fill *is* the point — that is a working '
+        + 'cert, no ceremony, ready for the listener to bind.',
       highlight: API_MOCK.SETTINGS,
       action: runAm20GenerateTls,
       verify: API_MOCK.SETTINGS_TLS_CERT,
@@ -135,12 +139,15 @@ export const apiMockAm20Lesson: DemoLesson = {
       id: 'inspect-cert',
       title: 'Know what you generated: the public half, and where the key lives',
       description:
-        'Hold the **Certificate** PEM — that is the public half you can share '
-        + 'with clients so they trust this mock. Then hold **Private key**.\n\n'
-        + 'The hint under the key is the contract: **Never share this. '
-        + 'Redacted from all exports.** The key stays in this workspace. A '
-        + 'later export step will prove the redaction; do not copy the key '
-        + 'into a ticket.',
+        'A generated cert is two halves with opposite rules, and knowing which '
+        + 'is which is the entire security habit. The **Certificate** is the '
+        + 'public half — you hand it to clients so they will trust this mock. '
+        + 'The **Private key** is the half that proves the mock is the mock, '
+        + 'and it must never leave here.\n\n'
+        + 'The hint under the key states that contract out loud: *Never share '
+        + 'this. Redacted from all exports.* A later step will prove the '
+        + 'redaction actually happens — for now, just register that the key '
+        + 'lives in this workspace and never belongs in a ticket.',
       highlight: API_MOCK.SETTINGS_TLS_CERT,
       preAction: ensureAm20ForInspect,
       action: runAm20InspectCert,
@@ -150,12 +157,15 @@ export const apiMockAm20Lesson: DemoLesson = {
       id: 'https-live',
       title: 'The address changes scheme, and HTTP/2 comes free via ALPN',
       description:
-        'Click **Save settings**. The modal closes and the definition now has '
-        + 'TLS on. Click **Start**. Hold the listen **address** — it is '
-        + '`https://`, not `http://`.\n\n'
-        + 'Then hold the **HTTP/2** badge. ALPN negotiates HTTP/2 only when '
-        + 'TLS is on; a plaintext mock stays 1.1. The badge is how you see '
-        + 'the protocol without opening a client.',
+        'A cert sitting in Settings is not serving anything yet — the listener '
+        + 'has to bind it. Save the definition and **Start**, and the proof is '
+        + 'right there in the chrome: the listen address flips from `http://` '
+        + 'to `https://`.\n\n'
+        + 'The **HTTP/2** badge is the bonus you did not have to ask for. ALPN '
+        + 'negotiates HTTP/2 during the TLS handshake, so switching on HTTPS '
+        + 'quietly upgrades the protocol too (plaintext stays HTTP/1.1). '
+        + 'Between the scheme and the badge, both transport facts are visible '
+        + 'without ever opening a client.',
       highlight: API_MOCK.SETTINGS_SAVE,
       preAction: ensureAm20ForHttpsLive,
       action: runAm20HttpsLive,
@@ -165,11 +175,14 @@ export const apiMockAm20Lesson: DemoLesson = {
       id: 'prove-https',
       title: 'A real TLS request, not a claim',
       description:
-        `Watch the listen address, then fetch \`GET ${AM20_HEALTH}\` through `
-        + 'the app proxy. Open the new journal row.\n\n'
-        + 'Hold **200** on the response. That status arrived over TLS — the '
-        + 'same health rule as before, now on `https://`. If this fetch had '
-        + 'stayed on plaintext, the address would still say `http://`.',
+        'The badge tells you TLS is *configured*; a live request tells you it '
+        + `*works*. A \`GET ${AM20_HEALTH}\` goes out through the app proxy and `
+        + 'lands in the journal as a real **200 (OK)** — the very same health '
+        + 'rule as before, now answered over an encrypted connection.\n\n'
+        + 'That is the distinction worth holding: nothing about the rule '
+        + 'changed, only the transport beneath it. Had the handshake failed, '
+        + 'the fetch would never have reached 200 and the address would still '
+        + 'read `http://`.',
       highlight: API_MOCK.ADDRESS,
       preAction: ensureAm20ForProveHttps,
       action: runAm20ProveHttps,
@@ -179,13 +192,16 @@ export const apiMockAm20Lesson: DemoLesson = {
       id: 'mtls',
       title: 'Now make the client prove identity',
       description:
-        'Toggle **Require client cert**. Fill the common name with '
-        + `\`${AM20_CN}\`, then click **Generate client certificate**. Hold `
-        + 'the issued bundle and the download hints — cert, key, and CA — '
-        + 'for a couple of seconds so the filenames are readable.\n\n'
-        + '**Save settings**, then **Restart** so the running listener '
-        + 'actually requires the client cert. A browser cannot attach that '
-        + 'PEM; the next steps use Simulate for the match proof.',
+        'So far TLS proved the *server* to the client. **mTLS** flips the '
+        + 'requirement around: the client must now present a certificate of '
+        + 'its own, or the handshake fails. That normally means standing up a '
+        + 'CA — so Studio plays the CA for you, issuing a named bundle (cert, '
+        + 'key, and CA) you can download and hand straight to the caller.\n\n'
+        + `Here the client is \`CN=${AM20_CN}\`. **Restart** is what makes the `
+        + 'running listener actually *demand* the cert — until then it is only '
+        + 'a saved intention. A browser has no way to attach that PEM, which '
+        + 'is exactly why the next steps prove identity through **Simulate** '
+        + 'rather than a live fetch.',
       highlight: API_MOCK.SETTINGS_MTLS_ENABLED,
       preAction: ensureAm20ForMtls,
       action: runAm20Mtls,
@@ -195,12 +211,16 @@ export const apiMockAm20Lesson: DemoLesson = {
       id: 'cert-predicate',
       title: 'A rule only certain clients can reach',
       description:
-        'Back on **Match**, click **+ Condition**. Set the source to '
-        + '**security** — that is the product\'s way to read identity without '
-        + 'parsing a header. Set the selector to **certSubject**, then fill '
-        + `the expected value \`${AM20_CERT_SUBJECT}\`.\n\n`
-        + 'Hold the row. This condition is why mTLS is not only a listen '
-        + 'flag: the mock can answer one client and reject another by name.',
+        'Requiring *a* client cert is coarse — it lets in anyone the CA ever '
+        + 'issued. The sharper control is admitting exactly *one* client, and '
+        + 'that lives on the rule as a **Match condition**, not in the listen '
+        + 'settings.\n\n'
+        + 'Add a condition whose source is **security** — the product’s way to '
+        + 'read *verified* identity — and whose selector is **certSubject**, '
+        + `pinned to \`${AM20_CERT_SUBJECT}\`. You are not string-parsing a `
+        + 'certificate header by hand; the mock hands the rule the verified '
+        + 'subject and the rule decides. This is what lets one mock answer one '
+        + 'client and turn another away by name.',
       highlight: API_MOCK.ADD_CONDITION,
       preAction: ensureAm20ForCertPredicate,
       action: runAm20CertPredicate,
@@ -210,12 +230,14 @@ export const apiMockAm20Lesson: DemoLesson = {
       id: 'prove-cert-match',
       title: 'Browsers cannot attach a PEM, so Simulate carries the subject',
       description:
-        'Click **Simulate**. Fill **Client cert subject** with the pinned '
-        + `\`${AM20_CERT_SUBJECT}\`, review the request, then hold **Run `
-        + 'simulation** before the click. The outcome is **MATCHED**.\n\n'
-        + 'Change the subject to a different CN and run again. **UNMATCHED** '
-        + 'is the other half of the proof — the rule is not "any cert", it is '
-        + 'this name. Close Simulate when both verdicts have been held.',
+        'Because no browser can attach a client PEM, **Simulate** is how you '
+        + 'exercise the condition — it carries the cert subject straight into '
+        + `the match engine. Run it once with the pinned \`${AM20_CERT_SUBJECT}\` `
+        + 'and the verdict is **MATCHED**.\n\n'
+        + 'The miss is the half people skip. Change the subject to a different '
+        + 'CN and run again — **UNMATCHED**. Both verdicts together are the '
+        + 'real proof: the rule is not "any valid cert", it is *this name*. '
+        + 'The guarantee only becomes true once you have seen it fail closed.',
       highlight: API_MOCK.SIMULATE,
       preAction: ensureAm20ForProveCert,
       action: async (ctx) => {
@@ -227,12 +249,16 @@ export const apiMockAm20Lesson: DemoLesson = {
       id: 'redaction-parity',
       title: 'PEMs are stripped from exports; Stop keeps the keys local',
       description:
-        'Click **Export** → **Workspace**. Hold the redaction note, then the '
-        + 'TLS key placeholder — `***REDACTED***`, never the PEM. Close the '
-        + 'confirmation.\n\n'
-        + 'If a native parity warning is showing, hold it; it is absent when '
-        + 'this platform bound HTTPS cleanly. Click **Stop**. The listener '
-        + 'is down and the keys are still in Settings for the next Start.',
+        'A workspace export is a file you *will* share, so the one thing it '
+        + 'must never contain is the private key. **Export → Workspace** and '
+        + 'the TLS key comes out as `***REDACTED***` — the public cert '
+        + 'travels, the secret half does not, so a shared file cannot leak the '
+        + 'mock’s identity.\n\n'
+        + 'If this platform could not bind TLS the same way, a native parity '
+        + 'warning explains why (a clean bind shows none). Finally **Stop** the '
+        + 'listener — and notice the PEMs stay in Settings, so the next Start '
+        + 'is still HTTPS. Turning the mock off does not throw away the '
+        + 'certificate you just made.',
       highlight: API_MOCK.EXPORT,
       preAction: ensureAm20ForRedaction,
       action: runAm20RedactionParity,

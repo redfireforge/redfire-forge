@@ -8,9 +8,11 @@ import {
 import {
   API_MOCK_CLI_SIMULATE,
   API_MOCK_CLI_VERIFY,
+  apiMockExportCopyLabel,
+  saveApiMockExportToDisk,
   type ApiMockExportResult,
 } from '../apiMockExportActions';
-import { CheckIcon, CopyIcon, ShieldCheckIcon } from './ApiMockIcons';
+import { CheckIcon, CopyIcon, DownloadIcon, ShieldCheckIcon } from './ApiMockIcons';
 
 interface Props {
   result: ApiMockExportResult;
@@ -20,9 +22,10 @@ interface Props {
 type CopiedId = 'preview' | 'cli' | 'verify';
 
 /**
- * Confirmation after an Export menu download — preview, redaction proof,
- * WireMock loss, HAR count, and the CLI handoff. The file already saved;
- * this is what the viewer (and the round-trip import) can actually read.
+ * Confirmation after an Export menu pick — preview, redaction proof,
+ * WireMock loss, HAR count, and the CLI handoff. Save to disk writes the
+ * file; Copy keeps it on the clipboard. Auto-download from the menu is
+ * skipped while a live demo is open so Chrome cannot freeze Acting.
  */
 export function ApiMockExportConfirm({ result, onClose }: Props) {
   const previewRef = useRef<HTMLTextAreaElement>(null);
@@ -146,8 +149,17 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
         <div className="api-mock-root am-in-modal am-modal-toolbar am-export-confirm-footer">
           <span className="am-export-filename" title={result.filename} data-testid="api-mock-export-filename">{result.filename}</span>
           <span className="am-spacer" />
-          {copyButton('preview', result.nativeJson ?? result.text, 'api-mock-export-copy', 'Copy JSON')}
-          <button type="button" className="am-btn primary" onClick={onClose} data-testid="api-mock-export-close">Close</button>
+          {copyButton('preview', result.nativeJson ?? result.text, 'api-mock-export-copy', apiMockExportCopyLabel(result.format))}
+          <button
+            type="button"
+            className="am-btn primary"
+            onClick={() => { saveApiMockExportToDisk(result); }}
+            data-testid="api-mock-export-save"
+          >
+            <DownloadIcon size={12} />
+            Save to disk
+          </button>
+          <button type="button" className="am-btn" onClick={onClose} data-testid="api-mock-export-close">Close</button>
         </div>
       )}
     >

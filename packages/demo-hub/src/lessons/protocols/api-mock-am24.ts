@@ -14,6 +14,7 @@ import {
   AM24_SKU,
   cleanupAm24,
   ensureAm24ForConflicts,
+  ensureAm24ForImport,
   ensureAm24ForLive,
   ensureAm24ForMatching,
   ensureAm24ForResilience,
@@ -98,7 +99,7 @@ export const apiMockAm24Lesson: DemoLesson = {
   initialTab: 'api-mock-studio',
   allowedTabs: ['api-mock-studio', 'workflow'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 5,
+  contentVersion: 7,
   concept: {
     title: 'A contract mock is a spec you can run, not a screenshot of a 200.',
     body:
@@ -158,16 +159,19 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'from-spec',
       title: 'Import the spec as drafts, then enable the path you need',
       description:
-        'Open **Import**, pick **OpenAPI**, and paste the Orders spec. Click '
-        + '**Pretty format** so the spec is readable, then parse. The review '
-        + 'lists `POST /orders` and `GET /orders/{id}` as stubs. Toggle '
-        + '**Generalize paths** when it is offered so `{id}` becomes a '
-        + 'parameter, then confirm. Drafts stay grey — they will not answer '
-        + 'a client yet.\n\n'
-        + 'Select `POST /orders` and **Enable** it. That is the contract this '
-        + 'lesson authors. The GET item route can wait; one enabled path is '
-        + 'enough to start matching on.',
+        'A spec is a promise; a mock is a promise you can call. This capstone '
+        + 'starts from the promise — paste the Orders **OpenAPI** spec — but '
+        + 'the safety that matters is that it lands as **drafts**: every path '
+        + 'imports *disabled*, so an OpenAPI import can never silently begin '
+        + 'answering production traffic. Generalizing `{id}` into a real path '
+        + 'parameter is the one cleanup that turns those stubs into usable '
+        + 'rules.\n\n'
+        + 'Then make a deliberate choice — enable only `POST /orders`, the one '
+        + 'path this lesson authors. The GET item route can stay a draft: a '
+        + 'contract mock serves exactly what you turned on, never what you '
+        + 'merely imported.',
       highlight: API_MOCK.IMPORT_MENU,
+      preAction: ensureAm24ForImport,
       action: runAm24FromSpec,
       verify: API_MOCK.ROUTE_ENABLED,
     },
@@ -175,13 +179,15 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'matching',
       title: 'A JSONPath predicate is what makes two POSTs different',
       description:
-        'Open the Pattern Toolbox and the **JSON body** tab. Paste a create '
-        + `payload, point the expression at \`${AM24_JSONPATH}\`, and set `
-        + `equals \`${AM24_SKU}\`. **Apply** lands the row on Match — the `
-        + 'rule no longer answers every body.\n\n'
-        + 'Prove it in **Simulate**: same path, that SKU, **Run simulation**. '
-        + 'MATCHED is the unit-level proof before a listener exists. Close '
-        + 'Simulate so the editor is visible again.',
+        'Two clients can POST to the very same `/orders` URL and mean '
+        + 'completely different things — the difference lives in the *body*. A '
+        + `**JSONPath predicate** is what lets the rule see it: point it at `
+        + `\`${AM24_JSONPATH}\` and require \`${AM24_SKU}\`, and the rule stops `
+        + 'answering “any body” and starts answering *this* order.\n\n'
+        + 'Then prove it before a listener even exists. **Simulate** the same '
+        + 'path with that SKU and the verdict is MATCHED — unit-level '
+        + 'confidence that the matcher is right, with nothing bound to a port '
+        + 'yet.',
       highlight: API_MOCK.PATH_TOOLBOX,
       preAction: ensureAm24ForMatching,
       action: runAm24Matching,
@@ -191,12 +197,15 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'response',
       title: 'Template the 201 so every example looks like a person',
       description:
-        'Switch to **Response**. Replace the static stub with a templated '
-        + 'body: echo `$.sku`, mint a `uuid`, and fill `buyer` / `email` from '
-        + '**faker**. Hold the editor so the helpers are readable.\n\n'
-        + 'Click **Format** — that is the power-user tidy for minified JSON — '
-        + 'then hold the **preview**. The preview evaluates helpers against a '
-        + 'sample request, so you see a name, not the mustache.',
+        'A mock that always returns the same hard-coded name is obviously '
+        + 'fake, and reviewers quietly stop trusting it. Templating the **201** '
+        + 'fixes that: echo the caller’s `$.sku`, mint a fresh `uuid`, and let '
+        + '**faker** fill `buyer` / `email`, so every response reads like a '
+        + 'real, distinct order.\n\n'
+        + 'The **preview** is the whole point — it evaluates those helpers '
+        + 'against a sample request, so you see an actual name and id rather '
+        + 'than the `{{mustache}}`. That is the difference between a template '
+        + 'you *hope* works and one you can *watch* working.',
       highlight: API_MOCK.BTAB_RESPONSE,
       preAction: ensureAm24ForResponse,
       action: runAm24Response,
@@ -206,13 +215,15 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'variants',
       title: 'A 404 sibling, then sequence as the retry lab',
       description:
-        '**Add variant**, name it **Not found**, and click **404**. On '
-        + '**Selection**, condition that sibling on the missing SKU so rules '
-        + 'mode can pick it from the payload.\n\n'
-        + 'Switch to **Sequence** and hold the order note — that is the retry '
-        + 'lab, round-robin for backoff tests. Then switch back to **Rules**. '
-        + 'The rest of the contract must stay deterministic: one default 201, '
-        + 'one conditioned 404.',
+        'One rule, one response is a stub; a real contract has *branches*. Add '
+        + 'a **404** sibling and condition it on the missing SKU, so the same '
+        + 'endpoint answers 201 for a known order and 404 for an unknown one — '
+        + 'the client’s real happy and sad paths in a single rule.\n\n'
+        + '**Sequence** mode is worth a glance as the retry lab (round-robin '
+        + 'responses for backoff tests), but switch back to **Rules**: the rest '
+        + 'of this contract must stay *deterministic* — one default 201, one '
+        + 'conditioned 404 — so the suite and Quick Test later are repeatable, '
+        + 'not a dice roll.',
       highlight: API_MOCK.ADD_VARIANT,
       preAction: ensureAm24ForVariants,
       action: runAm24Variants,
@@ -222,13 +233,16 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'resilience',
       title: 'Delay and probability on the 201; a timeout on the 404',
       description:
-        'On the default variant open **Timing**. Set **Delay** to 200 ms and '
-        + '**Probability** to 1 so the happy path is always eligible but never '
-        + 'instant. Clients that ignore latency will notice; the suite will not '
-        + 'flake.\n\n'
-        + 'Select the 404 sibling, open **Faults**, and pick **Timeout**. That '
-        + 'fault only fires when the missing-SKU condition wins, so the 201 '
-        + 'path you will Simulate and Quick Test stays a real HTTP response.',
+        'Real services are slow and occasionally broken, and a mock that '
+        + 'answers instantly and perfectly hides the bugs that only surface '
+        + 'under those conditions. On the 201, a 200 ms **delay** — with '
+        + '**probability** 1, so it is always eligible but never instant — is '
+        + 'enough to shake out clients that assume latency is zero.\n\n'
+        + 'The **timeout** fault goes on the 404 sibling *on purpose*: it fires '
+        + 'only when the missing-SKU branch wins, so the 201 path you are about '
+        + 'to Simulate and Quick Test stays a real, clean HTTP response. You '
+        + 'are adding failure exactly where the retry story needs it, and '
+        + 'nowhere it would break the proof.',
       highlight: API_MOCK.RESPONSE_TAB_TIMING,
       preAction: ensureAm24ForResilience,
       action: runAm24Resilience,
@@ -238,13 +252,15 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'conflicts',
       title: 'Analyze the overlap you just created, then raise priority',
       description:
-        '**Add route** and point it at the same `POST /orders`. Two enabled '
-        + 'rules on one path is how duplicates happen in a real library — '
-        + 'not a gallery of overlaps.\n\n'
-        + 'Click **Analyze**, hold the first finding, then **Adjust priority** '
-        + '(or type 20 on the authored rule) and re-analyze. Clean means the '
-        + 'inspector is empty or the pair is no longer a duplicate. Return to '
-        + 'Studio before the next step.',
+        'Authoring a second rule on `POST /orders` is how duplicates actually '
+        + 'creep into a library — not from a gallery of contrived overlaps, but '
+        + 'from someone adding “just one more” rule on a busy path. That is why '
+        + 'the step is here: create the overlap, then let **Analyze** catch '
+        + 'it.\n\n'
+        + 'The fix is not deletion but *precedence* — raise the authored rule’s '
+        + 'priority and re-analyze until the inspector is clean. Shipping a '
+        + 'contract mock means shipping it *unambiguous*, so the client’s '
+        + 'request can only ever resolve one way.',
       highlight: API_MOCK.ANALYZE,
       preAction: ensureAm24ForConflicts,
       action: runAm24Conflicts,
@@ -254,13 +270,14 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'suite',
       title: 'Save the sample with an expected 201, then Run all green',
       description:
-        'Open **Simulate**. If the WIDGET probe is not already a saved sample, '
-        + 'run it from the scratch pad and **Save as sample**. Open '
-        + '**Assertions** and set expected status to **201** — that is the '
-        + 'grade, not a screenshot of MATCHED.\n\n'
-        + '**Run all**. Hold the summary until every saved sample is green. '
-        + 'This is the unit suite CI will run with `redfireforge mock simulate`. Close '
-        + 'Simulate before live traffic.',
+        'MATCHED in Simulate proves the matcher; it does not prove the '
+        + '*response*. Turning the WIDGET probe into a saved sample with an '
+        + 'expected status of **201** turns a demo into a graded test — the run '
+        + 'now checks the contract, not just that some rule won.\n\n'
+        + '**Run all** green is the unit suite in miniature, and it is exactly '
+        + 'what CI runs with `redfireforge mock simulate` — no listener at all. '
+        + 'Prove the suite here and the CI command is just the same check on a '
+        + 'build machine.',
       highlight: API_MOCK.SIMULATE,
       preAction: ensureAm24ForSuite,
       action: runAm24Suite,
@@ -270,13 +287,15 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'live',
       title: 'Start, post the contract, then read a near-miss in the journal',
       description:
-        '**Apply** if the badge is dirty, then **Start**. Hold **Running** — '
-        + 'the listener is the difference between Simulate and the wire. POST '
-        + '`/orders` with the WIDGET body; the first journal row is the match.\n\n'
-        + 'Then GET `/ordrs/42` — a typo, not a second contract. Open that '
-        + 'row and hold **Near-misses**. Closest-match is how you debug a path '
-        + 'the library almost had. The suite stayed green; the journal is '
-        + 'honest about the miss.',
+        'Simulate is hermetic; the wire is the truth. **Start** the listener '
+        + 'and POST the WIDGET order for real — the first journal row is the '
+        + 'contract answering an actual socket, not an in-memory '
+        + 'evaluation.\n\n'
+        + 'Then fumble on purpose: `GET /ordrs/42`, a typo, not a new contract. '
+        + 'The **Near-misses** on that row are the debugging story — '
+        + 'closest-match tells you the library *almost* had this path. Notice '
+        + 'that the suite stayed green while the journal stayed honest about '
+        + 'the miss: two different truths, both worth having.',
       highlight: API_MOCK.START,
       preAction: ensureAm24ForLive,
       action: runAm24Live,
@@ -286,14 +305,15 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'ship',
       title: 'Export the artifacts, then Quick Test the graph green',
       description:
-        '**Export → Workspace JSON**, hold the confirmation (that file is what '
-        + 'CI consumes), close it, then **WireMock** and hold any loss notes. '
-        + 'Close the confirmation so the next surface is not covered.\n\n'
-        +         'Switch to the Designer. Drop **Start Mock Server** (isolate, Import '
-        + 'sandbox), connect it to the Start trigger, and **Fit View**. Drop '
-        + '**HTTP** `{{mockBaseUrl}}/orders`, **Assert** journal 201, and '
-        + '**Stop**, connecting each as it lands. Then **Quick Test**. Green '
-        + 'on Assert is the in-app proof the contract ships.',
+        'A contract mock is only shippable if someone else can run it, so this '
+        + 'final step produces the hand-offs. **Workspace JSON** is the file CI '
+        + 'consumes; **WireMock** is the export for teams on that stack — hold '
+        + 'the loss notes, because not every feature round-trips.\n\n'
+        + 'Then the last proof closes the whole pack: a Designer graph that '
+        + '**Starts** an isolated listener, **POSTs** `{{mockBaseUrl}}/orders`, '
+        + '**Asserts** a 201 in the journal, and **Stops**. A green Assert on '
+        + '**Quick Test** is the contract proving itself end to end — authored '
+        + 'in Studio, proven in Simulate, run as a workflow, exported for CI.',
       highlight: API_MOCK.EXPORT,
       preAction: ensureAm24ForShip,
       action: runAm24Ship,
@@ -301,6 +321,5 @@ export const apiMockAm24Lesson: DemoLesson = {
     },
   ],
   prepareBeforeNavigate: prepareAm24Workspace,
-  setup: prepareAm24Workspace,
   cleanup: cleanupAm24,
 };
