@@ -5,6 +5,7 @@ import http from 'node:http';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts.js';
+import { probeApiMockEcho } from '../src/shared/api-mock/echoHealthProbe.js';
 import { app } from './webhook-server.js';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
@@ -19,6 +20,12 @@ vi.mock('./file-storage.js', () => ({
 
 vi.mock('./webhook-extractor.js', () => ({
   extractWebhookVariables: vi.fn(),
+}));
+
+vi.mock('../src/shared/api-mock/echoHealthProbe.js', () => ({
+  probeApiMockEcho: vi.fn(),
+  API_MOCK_ECHO_PORT: 4017,
+  API_MOCK_ECHO_HEALTH_PATH: '/health',
 }));
 
 vi.mock('./executeWorkflow.js', () => ({
@@ -340,6 +347,31 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     });
   });
 
+  describe('GET /health/api-mock-echo', () => {
+    it('returns ok when the Docker echo answers', async () => {
+      vi.mocked(probeApiMockEcho).mockResolvedValueOnce({ ok: true, statusCode: 200 });
+      const res = await request(app).get('/health/api-mock-echo');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ status: 'ok', source: 'api-mock-echo', httpStatus: 200 });
+    });
+
+    it('returns down when the Docker echo is unreachable', async () => {
+      vi.mocked(probeApiMockEcho).mockResolvedValueOnce({ ok: false, reason: 'connect ECONNREFUSED' });
+      const res = await request(app).get('/health/api-mock-echo');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('down');
+      expect(res.body.source).toBe('api-mock-echo');
+      expect(res.body.reason).toContain('ECONNREFUSED');
+    });
+
+    it('returns down with a fallback reason when the probe is empty', async () => {
+      vi.mocked(probeApiMockEcho).mockResolvedValueOnce({ ok: false });
+      const res = await request(app).get('/health/api-mock-echo');
+      expect(res.status).toBe(200);
+      expect(res.body.reason).toBe('unreachable');
+    });
+  });
+
   describe('GET /api/executions', () => {
     it('returns execution history', async () => {
       const mockExecutions = [{ id: 'exec-1', workflowId: 'wf-1', status: 'success' }];
@@ -638,6 +670,44 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const joined = sseChunks.join('');
       expect(joined).toMatch(/data:.*Webhook/i);
+    });
+
+    it('replays a recently broadcast log line to a client that connects after it', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'success',
+        passed: true,
+        duration: 1,
+        results: [],
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const server = await new Promise<http.Server>((resolve, reject) => {
+        const s = app.listen(0, '127.0.0.1', () => resolve(s));
+        s.on('error', reject);
+      });
+      const { port } = server.address() as import('net').AddressInfo;
+
+      // Broadcast a log line BEFORE any SSE client is connected.
+      await request(server).post('/webhooks/wf-1/trigger-1').send({}).expect(200);
+
+      const sseChunks: string[] = [];
+      await new Promise<void>((resolve, reject) => {
+        const sseReq = http.get(`http://127.0.0.1:${port}/api/logs/stream`, (res) => {
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => sseChunks.push(chunk));
+          setTimeout(() => {
+            res.socket?.destroy();
+            server.close(() => resolve());
+          }, 40);
+        });
+        sseReq.on('error', reject);
+      });
+
+      // The line was broadcast before connect, yet the replay buffer delivers it.
+      expect(sseChunks.join('')).toMatch(/data:.*Webhook/i);
     });
   });
 

@@ -47,7 +47,7 @@ const DIAGRAM = `
   <text x="42" y="96" fill="#3b82f6" font-family="system-ui" font-size="12" font-weight="600">Sources</text>
   <text x="42" y="118" fill="#f1f5f9" font-family="system-ui" font-size="11">cURL is the fastest path</text>
   <text x="42" y="138" fill="#a8b8cc" font-family="system-ui" font-size="11">OpenAPI: one stub per operation</text>
-  <text x="42" y="158" fill="#a8b8cc" font-family="system-ui" font-size="11">WireMock keeps an honest loss report</text>
+  <text x="42" y="158" fill="#a8b8cc" font-family="system-ui" font-size="11">WireMock equalTo + fixed delay survive</text>
   <text x="42" y="178" fill="#64748b" font-family="system-ui" font-size="10">HAR, Catalog, and Requests promote too</text>
   <text x="42" y="202" fill="#64748b" font-family="system-ui" font-size="10">Native round-trip is the seventh card</text>
 
@@ -68,12 +68,12 @@ const DIAGRAM = `
   <text x="486" y="202" fill="#22c55e" font-family="system-ui" font-size="10">Journal outcome: matched</text>
 
   <rect x="26" y="240" width="648" height="70" rx="8" fill="#1e293b" stroke="#3b4a60" />
-  <text x="42" y="268" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Loss is a feature. Silent drop is not.</text>
-  <text x="42" y="290" fill="#a8b8cc" font-family="system-ui" font-size="11">WireMock matchers that have no Studio equivalent show up in the loss report so you can finish them by hand.</text>
+  <text x="42" y="268" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Supported WireMock lands as a mapped preview.</text>
+  <text x="42" y="290" fill="#a8b8cc" font-family="system-ui" font-size="11">equalTo headers and query plus a fixed delay become Studio predicates. A loss report only appears when the stub uses more than that.</text>
 
   <rect x="26" y="328" width="648" height="78" rx="8" fill="#1e293b" stroke="#22c55e" />
   <text x="42" y="356" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Parse → review → Import as draft → enable the one you need</text>
-  <text x="42" y="378" fill="#a8b8cc" font-family="system-ui" font-size="11">Seven sources, three modes, one generalize, one honest loss report, one live fetch. That is the whole import contract.</text>
+  <text x="42" y="378" fill="#a8b8cc" font-family="system-ui" font-size="11">Seven sources, three modes, one generalize, one mapped WireMock preview, one live fetch. That is the whole import contract.</text>
 </svg>
 `;
 
@@ -85,13 +85,13 @@ export const apiMockAm15Lesson: DemoLesson = {
   description:
     'Start from a blank mock. Open Import and read the seven sources and three '
     + 'modes. Paste a curl that hits `/users/42`, generalize it to `/users/:id`, '
-    + 'and import it as a dimmed draft. Then pull in an OpenAPI spec, a WireMock '
-    + 'mapping with a loss report, a HAR capture, and Catalog plus Requests. '
+    + 'and import it as a Draft. Then pull in an OpenAPI spec, a WireMock '
+    + 'mapping that Studio can keep, a HAR capture, and Catalog plus Requests. '
     + 'Hold the Replace warning so you know it swaps the whole rule set. Enable '
     + 'the generalized draft, Apply, and prove it with a matched journal row.',
   estimatedMinutes: 7,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 3,
   concept: {
     title: 'Every source becomes a draft. Enable is how it starts answering.',
     body:
@@ -101,9 +101,10 @@ export const apiMockAm15Lesson: DemoLesson = {
       + `rules. Paste \`${AM15_CURL_PATH}\`, hit **Parse & review**, then `
       + `**Generalize path** so \`${AM15_CURL_PATH}\` becomes \`${AM15_GENERALIZED}\` `
       + '— that is the power-user beat, not a cleanup afterthought.\n\n'
-      + 'OpenAPI lands **one stub per operation**. WireMock maps what it can and '
-      + 'writes a **loss report** for the rest, so a `matches` header is not '
-      + 'silently dropped. HAR, Catalog, and Requests promote the same way. '
+      + 'OpenAPI lands **one stub per operation**. WireMock `equalTo` headers '
+      + 'and query plus a **fixed delay** become Studio predicates — a loss '
+      + 'report only appears when the stub uses more than that subset. HAR, '
+      + 'Catalog, and Requests promote the same way. '
       + '**Merge** adds. **Import as copy** duplicates ids. **Replace** deletes '
       + 'every existing rule — the warning is the point of that mode.\n\n'
       + 'Imported rows stay **inactive**. The footer tally is how you see drafts '
@@ -115,7 +116,7 @@ export const apiMockAm15Lesson: DemoLesson = {
       { term: 'Merge / Replace / Copy', definition: 'Merge appends. Replace swaps the entire rule set. Import as copy duplicates with new ids. Replace warns first.' },
       { term: 'Generalize path', definition: 'Rewrites numeric segments such as /users/42 into /users/:id so one imported call covers the whole resource.' },
       { term: 'Draft', definition: 'An imported rule that is disabled. It cannot answer traffic until you enable it and Apply.' },
-      { term: 'Loss report', definition: 'An honest list of WireMock (or HAR) features that have no Studio equivalent, so you finish them by hand instead of losing them silently.' },
+      { term: 'Loss report', definition: 'A list that appears only when a source uses features Studio cannot keep (for example WireMock matches or delayDistribution). This lesson’s stub is the supported subset, so the report stays empty.' },
       { term: 'Catalog / Requests', definition: 'In-app sources. Catalog operations and saved Requests promote into the same draft pipeline as a pasted spec.' },
     ],
     diagram: DIAGRAM,
@@ -156,7 +157,7 @@ export const apiMockAm15Lesson: DemoLesson = {
       id: 'drafts-are-safe',
       title: 'Imports land disabled so they cannot hijack traffic',
       description:
-        'Click **Import as draft**. The review closes. Hold the **dimmed row** in '
+        'Click **Import as draft**. The review closes. Hold the **Draft** row in '
         + 'the explorer — opacity is the signal that this rule is inactive.\n\n'
         + 'Hold the **footer tally**. Enabled stays at zero; drafts went up by one. '
         + 'Nothing on the listener changed. An import is a proposal until you '
@@ -170,8 +171,9 @@ export const apiMockAm15Lesson: DemoLesson = {
       id: 'openapi',
       title: 'A stub per operation, with operationIds intact',
       description:
-        'Switch the source to **OpenAPI / Swagger**. Paste a three-operation spec '
-        + 'and parse. Hold the **operation list** — list, create, and get each '
+        'Switch the source to **OpenAPI / Swagger**. Paste a three-operation spec. '
+        + 'Click **Pretty format** so the spec is readable — that is the power-user '
+        + 'beat — then parse. Hold the **operation list** — list, create, and get each '
         + 'become their own route.\n\n'
         + 'Confirm. Hold the **three new drafts**. A spec is a catalog of stubs, '
         + 'not one blob. You enable the operations you need and leave the rest dimmed.',
@@ -182,24 +184,27 @@ export const apiMockAm15Lesson: DemoLesson = {
     },
     {
       id: 'wiremock',
-      title: 'Migrate matchers — and hear what did not survive',
+      title: 'A WireMock stub Studio can keep in full',
       description:
-        'Switch to **WireMock mappings**. Paste a stub that uses a regex header, '
-        + 'a contains query, and a delay distribution. Parse, then hold the '
-        + '**mapped preview** so you see what Studio kept.\n\n'
-        + 'Hold the **loss report**. Features with no equivalent are named, not '
-        + 'dropped on the floor. That honesty is the whole point of this source.',
+        'Switch to **WireMock mappings**. Paste a stub that uses `equalTo` on '
+        + '`X-Tenant` and `page`, plus a **fixed delay**. Click **Pretty format** '
+        + 'so the mapping is readable, then parse.\n\n'
+        + 'Hold the **mapped preview** — `GET /orders/99`, the header and query, '
+        + 'and the 40 ms delay all survive. A loss report would list `matches`, '
+        + '`contains`, or `delayDistribution`; this sample does not use them, so '
+        + 'the report stays empty.',
       highlight: API_MOCK.importSource('wiremock'),
       preAction: ensureAm15ForWireMock,
       action: runAm15WireMock,
-      verify: API_MOCK.IMPORT_LOSS,
+      verify: API_MOCK.IMPORT_PREVIEW,
     },
     {
       id: 'har',
       title: 'Recorded browser traffic becomes rules',
       description:
-        'Switch to **HAR capture**. Paste two recorded GETs and parse. Hold the '
-        + '**request list** — session and session/me are now candidate rules.\n\n'
+        'Switch to **HAR capture**. Paste two recorded GETs. Click **Pretty format** '
+        + 'so the capture is readable, then parse. Hold the **request list** — '
+        + 'session and session/me are now candidate rules.\n\n'
         + 'Confirm. Cookies and auth are redacted on the way in. What lands is a '
         + 'draft you can enable, not a replay of someone\'s browser secrets.',
       highlight: API_MOCK.importSource('har'),
@@ -240,7 +245,7 @@ export const apiMockAm15Lesson: DemoLesson = {
       title: 'A draft only matters once it answers traffic',
       description:
         `Select the generalized \`${AM15_GENERALIZED}\` draft and toggle **Enable**. `
-        + 'Hold the control so the dimmed row is no longer a draft.\n\n'
+        + 'Hold the control so the amber **Draft** row turns **On**.\n\n'
         + `Click **Apply**, then fetch \`${AM15_PROVE_PATH}\`. Hold the journal `
         + '**matched** row. That is the only proof an import shipped: live traffic, '
         + 'not a preview card.',

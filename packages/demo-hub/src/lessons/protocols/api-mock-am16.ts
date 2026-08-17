@@ -14,6 +14,7 @@ import {
   AM16_TLS_REDACTED,
   cleanupAm16,
   ensureAm16ForCi,
+  ensureAm16ForExportMenu,
   ensureAm16ForHar,
   ensureAm16ForNarrower,
   ensureAm16ForRedaction,
@@ -84,7 +85,7 @@ export const apiMockAm16Lesson: DemoLesson = {
     + `CLI line — \`${AM16_CLI}\` — is the artifact CI runs against.`,
   estimatedMinutes: 6,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 6,
   concept: {
     title: 'The export is the file. Redaction is why you can share it.',
     body:
@@ -109,7 +110,7 @@ export const apiMockAm16Lesson: DemoLesson = {
       { term: 'WireMock loss note', definition: 'An honest list of Studio features (templates, weights, glob paths) that have no WireMock equivalent.' },
       { term: 'HAR (journal)', definition: 'Captured traffic and saved samples, packaged so other tools can replay the same requests.' },
       { term: 'Import as copy', definition: 'The round-trip mode. Duplicates every imported rule with a new id so the original set stays intact.' },
-      { term: 'cli mock simulate', definition: 'The CI command that runs the exported file as a unit-level suite. The Studio footer keeps it copyable.' },
+      { term: 'redfireforge mock simulate', definition: 'The CI command that runs the exported file as a unit-level suite. The Studio footer keeps it copyable.' },
     ],
     diagram: DIAGRAM,
   },
@@ -120,15 +121,24 @@ export const apiMockAm16Lesson: DemoLesson = {
       id: 'export-menu',
       title: 'Six shapes for six jobs',
       description:
-        'Click **Export**. Hold **Workspace**, then **This server**, then '
-        + '**Interop**. JSON and YAML are the whole library. Active server and '
-        + 'routes are the narrower gifts. WireMock and HAR leave Studio.\n\n'
-        + 'Click **Workspace JSON**. Hold the **confirmation** — filename, preview, '
-        + 'and the download already happened. The confirmation is what you can '
-        + 'actually read.',
+        '**Export** is six files for six jobs. This lesson walks each one. '
+        + 'Open the menu and read the groups before we download anything.\n\n'
+        + '**Workspace** — the whole library, every server, already redacted.\n'
+        + '- **Workspace JSON** — the portable contract tools and CI can load\n'
+        + '- **Workspace YAML** — the same contract, source-control friendly\n\n'
+        + '**This server** — you do not hand the whole workspace when a teammate only needs this tab.\n'
+        + '- **Active server JSON** — the current tab only\n'
+        + '- **Active server routes** — rules and samples to graft onto another mock\n\n'
+        + '**Interop** — files that leave Studio.\n'
+        + '- **WireMock mappings** — the subset another team can load, plus a loss report\n'
+        + '- **HAR (journal)** — captured traffic and samples other tools already know how to replay\n\n'
+        + 'This step opens **Export** and takes **Workspace JSON**. The confirmation '
+        + 'shows the filename and preview. **Save to disk** writes that file to '
+        + 'Downloads. **Copy JSON** only puts it on the clipboard.',
       highlight: API_MOCK.EXPORT,
+      preAction: ensureAm16ForExportMenu,
       action: runAm16ExportMenu,
-      verify: API_MOCK.EXPORT_CONFIRM,
+      verify: API_MOCK.EXPORT_SAVE,
     },
     {
       id: 'narrower-scopes',
@@ -192,7 +202,8 @@ export const apiMockAm16Lesson: DemoLesson = {
       description:
         'Click **Import**, switch to **RedfireForge export**, and choose '
         + '**Import as copy**. Click **Use last export** — that is the power-user '
-        + 'beat, the JSON you just confirmed, without fishing in Downloads.\n\n'
+        + 'beat, the JSON you just confirmed, without fishing in Downloads. Click '
+        + '**Pretty format** so you can read the file.\n\n'
         + 'Parse, then confirm. Hold the **duplicated rows**. New ids, `(copy)` '
         + 'names, originals untouched. A round-trip that clobbered the library '
         + 'would not be a round-trip.',

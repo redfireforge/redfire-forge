@@ -1,18 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ApiMockRouteFolderV1, ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { httpMethodSelectOptions } from '../../../shared/constants/httpMethodColors';
 import { getNextTabIndex } from '../../../shared/utils/tabListKeyboard';
 import { PlusIcon, FolderPlusIcon, FilterIcon, XIcon, ChevronDownIcon, ChevronRightIcon, TrashIcon, CheckIcon } from './ApiMockIcons';
+import { API_MOCK_CLI_SIMULATE_EXAMPLE, API_MOCK_CLI_VERIFY_EXAMPLE } from '../apiMockExportActions';
 
 const METHOD_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All methods' },
-  { value: 'GET', label: 'GET' },
-  { value: 'POST', label: 'POST' },
-  { value: 'PUT', label: 'PUT' },
-  { value: 'PATCH', label: 'PATCH' },
-  { value: 'DELETE', label: 'DELETE' },
-  { value: 'HEAD', label: 'HEAD' },
-  { value: 'OPTIONS', label: 'OPTIONS' },
+  ...httpMethodSelectOptions(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'], { detail: false }),
 ];
 
 const ROUTE_DND_MIME = 'application/x-api-mock-route';
@@ -164,7 +160,7 @@ export function ApiMockRouteExplorer({
         aria-selected={route.id === selectedRouteId}
         tabIndex={tabIndex}
         draggable={!!onMoveRoute}
-        className={`am-route-item${route.id === selectedRouteId ? ' active' : ''}${!route.enabled ? ' disabled' : ''}${conflict ? ' conflict' : ''}${draggingRouteId === route.id ? ' dragging' : ''}`}
+        className={`am-route-item${route.enabled ? ' is-live' : ' disabled is-draft'}${route.id === selectedRouteId ? ' active' : ''}${conflict ? ' conflict' : ''}${draggingRouteId === route.id ? ' dragging' : ''}`}
         onClick={() => onSelect(route.id)}
         onDoubleClick={() => onToggle(route.id, !route.enabled)}
         onDragStart={e => {
@@ -181,16 +177,25 @@ export function ApiMockRouteExplorer({
         title={
           conflict
             ? 'Potential overlap with another route'
-            : onMoveRoute
-              ? `${route.name} — drag into a folder`
-              : route.name
+            : `${route.enabled ? 'Enabled' : 'Draft — not matching'}${onMoveRoute ? ' · drag into a folder' : ''}`
         }
+        aria-label={`${route.method} ${route.path.value || '/'} — ${route.enabled ? 'enabled' : 'draft'}`}
         data-testid={`api-mock-route-${route.id}`}
+        data-route-name={route.name}
+        data-enabled={route.enabled ? 'true' : 'false'}
         data-copied={route.name.endsWith(' (copy)') ? 'true' : undefined}
       >
         <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
         <span className="am-route-path">{route.path.value || '/'}</span>
-        <span className={`am-badge${priorityClass}`}>P{route.priority}</span>
+        <span className="am-route-meta">
+          <span
+            className={`am-route-state ${route.enabled ? 'is-live' : 'is-draft'}`}
+            data-testid={`api-mock-route-state-${route.id}`}
+          >
+            {route.enabled ? 'On' : 'Draft'}
+          </span>
+          <span className={`am-badge${priorityClass}`}>P{route.priority}</span>
+        </span>
       </button>
         <button
           type="button"
@@ -443,26 +448,53 @@ export function ApiMockRouteExplorer({
 
       {routes.length > 0 && (
         <div className="am-panel-foot">
-          <span className="am-faint" data-testid="api-mock-routes-footer">{enabledCount} enabled · {draftCount} draft{draftCount === 1 ? '' : 's'}</span>
+          <div
+            className="am-route-tally"
+            data-testid="api-mock-routes-footer"
+            role="status"
+            aria-label={`${enabledCount} enabled · ${draftCount} draft${draftCount === 1 ? '' : 's'}`}
+          >
+            <span
+              className={`am-route-tally-chip${enabledCount > 0 ? ' is-live' : ' is-empty'}`}
+              data-testid="api-mock-routes-enabled"
+              title={`${enabledCount} rule${enabledCount === 1 ? '' : 's'} enabled for matching`}
+            >
+              <span className="am-route-tally-dot" aria-hidden="true" />
+              <span className="am-route-tally-value">{enabledCount}</span>
+              <span className="am-route-tally-label">Enabled</span>
+            </span>
+            <span
+              className={`am-route-tally-chip${draftCount > 0 ? ' is-draft' : ' is-empty'}`}
+              data-testid="api-mock-routes-draft"
+              title={`${draftCount} draft${draftCount === 1 ? '' : 's'} — saved but not matching`}
+            >
+              <span className="am-route-tally-dot" aria-hidden="true" />
+              <span className="am-route-tally-value">{draftCount}</span>
+              <span className="am-route-tally-label">Draft{draftCount === 1 ? '' : 's'}</span>
+            </span>
+            <span className="am-sr-only">
+              {enabledCount} enabled · {draftCount} draft{draftCount === 1 ? '' : 's'}
+            </span>
+          </div>
           <span className="am-spacer" />
           <label className="am-cli-simulate">
-            <code data-testid="api-mock-cli-simulate">cli mock simulate workspace.json</code>
+            <code data-testid="api-mock-cli-simulate">{API_MOCK_CLI_SIMULATE_EXAMPLE}</code>
             <button
               type="button"
               className="am-btn small ghost"
               data-testid="api-mock-cli-simulate-copy"
-              onClick={() => { void navigator.clipboard.writeText('cli mock simulate workspace.json').catch(() => undefined); }}
+              onClick={() => { void navigator.clipboard.writeText(API_MOCK_CLI_SIMULATE_EXAMPLE).catch(() => undefined); }}
             >
               Copy
             </button>
           </label>
           <label className="am-cli-simulate">
-            <code data-testid="api-mock-cli-verify">cli mock verify workspace.json</code>
+            <code data-testid="api-mock-cli-verify">{API_MOCK_CLI_VERIFY_EXAMPLE}</code>
             <button
               type="button"
               className="am-btn small ghost"
               data-testid="api-mock-cli-verify-copy"
-              onClick={() => { void navigator.clipboard.writeText('cli mock verify workspace.json').catch(() => undefined); }}
+              onClick={() => { void navigator.clipboard.writeText(API_MOCK_CLI_VERIFY_EXAMPLE).catch(() => undefined); }}
             >
               Copy
             </button>

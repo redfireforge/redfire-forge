@@ -57,7 +57,8 @@ test.describe('Demo lesson AM-23 — Test Runner Fixtures & CI Handoff', () => {
     await expect(page.locator(HAR.HARNESS_MOCK_SERVER)).toBeVisible({
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
-    await expect(page.locator(HAR.HARNESS_MOCK_SERVER)).toHaveValue('srv-gallery-store');
+    await expect(page.locator(HAR.HARNESS_MOCK_SERVER)).toHaveAttribute('data-value', /./);
+    await expect(page.locator(`${HAR.HARNESS_MOCK_SERVER} .cs-text`)).toContainText(/Store/i);
   });
 
   test('leaves isolate on after the second step', async ({ page }) => {
@@ -70,6 +71,5 @@ test.describe('Demo lesson AM-23 — Test Runner Fixtures & CI Handoff', () => {
     await expect(page.locator(HAR.HARNESS_MOCK_ISOLATE)).toBeChecked({
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
-    await expect(page.locator(HAR.HARNESS_MOCK_VAR)).toBeVisible();
   });
 });

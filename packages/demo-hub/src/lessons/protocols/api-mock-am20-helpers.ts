@@ -20,6 +20,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   ensureAdHocSimulateForm,
@@ -36,7 +37,7 @@ export const AM20_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
   /** PEM / client-bundle fill after Generate — curriculum 2000ms. */
   generate: 2000,
 } as const;
@@ -320,11 +321,9 @@ export async function closeAm20SettingsModal(ctx: DemoActionContext): Promise<vo
   }
 }
 
-export async function closeAm20Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm20Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm20SimulateOpen()) return;
-  if (!firstVisibleElement(API_MOCK.SIMULATE_CLOSE)) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(200);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 200 });
 }
 
 export async function closeAm20Export(ctx: DemoActionContext): Promise<void> {
@@ -490,6 +489,7 @@ async function openSimulate(ctx: DemoActionContext): Promise<void> {
 async function runCertSimulation(
   ctx: DemoActionContext,
   subject: string,
+  opts: { digest?: boolean } = {},
 ): Promise<string> {
   await ensureAdHocSimulateForm(ctx, T.tabSwitch);
   if (am20InputValue(API_MOCK.SIMULATE_PATH) !== AM20_HEALTH) {
@@ -501,7 +501,10 @@ async function runCertSimulation(
   await reviewAndRunSimulation(ctx, {
     review: T.look,
     beforeRun: T.beforeRun,
-    saveSample: false,
+    digest: opts.digest,
+    sampleName: subject === AM20_CERT_SUBJECT
+      ? `GET ${AM20_HEALTH} — cert match`
+      : `GET ${AM20_HEALTH} — cert miss`,
   });
   if (firstVisibleElement(API_MOCK.SIMULATE_RESULT)) {
     await am20Reveal(ctx, API_MOCK.SIMULATE_RESULT, T.panelReady);
@@ -687,9 +690,10 @@ export async function runAm20ProveCertMatch(ctx: DemoActionContext): Promise<str
   await closeAm20SettingsModal(ctx);
   await openSimulate(ctx);
   const outcomes: string[] = [];
-  outcomes.push(await runCertSimulation(ctx, AM20_CERT_SUBJECT));
+  outcomes.push(await runCertSimulation(ctx, AM20_CERT_SUBJECT, { digest: false }));
   await am20Break(ctx);
   outcomes.push(await runCertSimulation(ctx, AM20_CERT_SUBJECT_WRONG));
+  await closeAm20Simulate(ctx, { review: true });
   return outcomes;
 }
 

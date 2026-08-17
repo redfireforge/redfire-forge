@@ -9,6 +9,7 @@ import {
   addWorkflowNodeWithPreset,
   connectWorkflowNodes,
   deleteWorkflowByName,
+  removeWorkflowEdge,
   ensureBlankApiMockServer,
   patchApiMockActiveRoute,
   patchWorkflowNodeDataById,
@@ -24,11 +25,17 @@ import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
+  clearApiMockWfServerPicker,
   fillBeat,
+  prettyFormatImportPaste,
   revealBeat,
+  resolveApiMockStudioServerId,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   spotlightBeat,
   ensureAdHocSimulateForm,
+  waitForApiMockStudioServerId,
+  waitForApiMockWfServerReady,
 } from './api-mock-demo-helpers';
 import {
   closeWfConfigModalIfOpen,
@@ -59,14 +66,17 @@ export const AM24_TIMING = {
   lifecycle: 1600,
   journalWrite: 1400,
   simOutcome: 1800,
-  beforeRun: 2000,
+  beforeRun: 2400,
   generate: 2000,
+  /** Hold the Import review so the viewer can read folder, routes, and loss. */
+  reviewModal: 2400,
 } as const;
 
 const T = AM24_TIMING;
 const REVEAL_MS = 8_000;
 
 export const AM24_SERVER_ID = 'srv-blank';
+export const AM24_SERVER_NAME = 'Import sandbox';
 export const AM24_WF_NAME = 'Ship contract mock';
 export const AM24_ORDERS_PATH = '/orders';
 export const AM24_ITEM_PATH = '/orders/:id';
@@ -142,6 +152,14 @@ const POS = {
   assert: { x: 280, y: 480 },
   stop: { x: 280, y: 630 },
 };
+
+const AM24_CHAIN = [
+  WF.NODE_START,
+  API_MOCK.CANVAS_START,
+  WF.NODE_HTTP,
+  API_MOCK.CANVAS_ASSERT,
+  API_MOCK.CANVAS_STOP,
+] as const;
 
 const JSONPATH_PREDICATE: ApiMockDemoPredicate = {
   id: 'pred-am24-sku',
@@ -407,7 +425,16 @@ async function dismissWfOnboarding(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(300);
 }
 
+/** Close leftover Import / Export / Simulate chrome — wipe does not unmount those modals. */
+export function dismissAm24Overlays(): void {
+  document.querySelector<HTMLElement>(API_MOCK.EXPORT_CLOSE)?.click();
+  document.querySelector<HTMLElement>(API_MOCK.IMPORT_CLOSE)?.click();
+  document.querySelector<HTMLElement>(API_MOCK.IMPORT_CANCEL)?.click();
+  document.querySelector<HTMLElement>(API_MOCK.SIMULATE_CLOSE)?.click();
+}
+
 export async function prepareAm24Workspace(): Promise<void> {
+  dismissAm24Overlays();
   await wipeApiMockWorkspace();
   prepareApiMockStudioChrome();
   const blank = await ensureBlankApiMockServer();
@@ -417,8 +444,17 @@ export async function prepareAm24Workspace(): Promise<void> {
 }
 
 export async function cleanupAm24(): Promise<void> {
+  dismissAm24Overlays();
   deleteWorkflowByName(AM24_WF_NAME);
   await wipeApiMockWorkspace();
+}
+
+/** Step 1 reading guard — do not wipe or recreate. That empty→sandbox hop was the boot flash. */
+export async function ensureAm24ForImport(_ctx: DemoActionContext): Promise<void> {
+  dismissAm24Overlays();
+  prepareApiMockStudioChrome();
+  if (hasAm24Server()) return;
+  await ensureBlankApiMockServer();
 }
 
 export async function ensureAm24OnStudio(ctx: DemoActionContext): Promise<void> {
@@ -457,11 +493,9 @@ export async function closeAm24Import(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
 }
 
-export async function closeAm24Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm24Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm24SimulateOpen()) return;
-  if (!firstVisibleElement(API_MOCK.SIMULATE_CLOSE)) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(400);
+  await closeSimulateWorkspace(ctx, { ...opts, afterClose: 400 });
 }
 
 async function closeAm24Export(ctx: DemoActionContext, visible: boolean): Promise<void> {
@@ -682,7 +716,12 @@ async function openAm24Simulate(ctx: DemoActionContext, visible: boolean): Promi
   }
 }
 
-async function runOrdersSimulation(ctx: DemoActionContext, body: string, name: string): Promise<void> {
+async function runOrdersSimulation(
+  ctx: DemoActionContext,
+  body: string,
+  name: string,
+  opts: { saveSample?: boolean } = {},
+): Promise<void> {
   await ensureAdHocSimulateForm(ctx, T.tabSwitch);
   if (firstVisibleElement(API_MOCK.SIMULATE_METHOD)) {
     await ctx.selectOption(API_MOCK.SIMULATE_METHOD, 'POST').catch(() => undefined);
@@ -697,6 +736,7 @@ async function runOrdersSimulation(ctx: DemoActionContext, body: string, name: s
     review: T.payoff,
     beforeRun: T.beforeRun,
     sampleName: name,
+    saveSample: opts.saveSample,
   });
   await am24Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
 }
@@ -738,16 +778,36 @@ function quietAdd(
   addWorkflowNodeWithPreset(type, id, label, position);
 }
 
-async function quietStart(ctx: DemoActionContext): Promise<void> {
-  quietAdd('apiMockStart', AM24_NODE.start, 'Start Mock Server', POS.start, API_MOCK.CANVAS_START);
-  await ctx.delay(80);
+async function selectAm24StudioServer(ctx: DemoActionContext): Promise<string> {
+  const serverId = await waitForApiMockStudioServerId(ctx, {
+    name: AM24_SERVER_NAME,
+    templateId: AM24_SERVER_ID,
+  }) || AM24_SERVER_ID;
+  await waitForApiMockWfServerReady(ctx, serverId);
+  if (clearApiMockWfServerPicker()) await ctx.delay(T.fieldFilled);
+  await selectWfConfigOption(ctx, API_MOCK.WF_SERVER, serverId);
+  await holdWfSpotlight(ctx, API_MOCK.WF_SERVER, T.payoff);
+  return serverId;
+}
+
+async function persistAm24Start(serverId?: string): Promise<void> {
   const id = am24CanvasNodeId(API_MOCK.CANVAS_START) ?? AM24_NODE.start;
+  const resolved = serverId
+    ?? (await resolveApiMockStudioServerId({ name: AM24_SERVER_NAME, templateId: AM24_SERVER_ID }))
+    ?? AM24_SERVER_ID;
   patchWorkflowNodeDataById(id, {
-    serverId: AM24_SERVER_ID,
+    serverId: resolved,
     isolateRun: true,
     savePortAs: 'mockPort',
     saveBaseUrlAs: 'mockBaseUrl',
   });
+}
+
+async function quietStart(ctx: DemoActionContext): Promise<void> {
+  quietAdd('apiMockStart', AM24_NODE.start, 'Start Mock Server', POS.start, API_MOCK.CANVAS_START);
+  await ctx.delay(80);
+  await persistAm24Start();
+  await linkIntoChain(ctx, API_MOCK.CANVAS_START, false);
 }
 
 async function quietHttp(ctx: DemoActionContext): Promise<void> {
@@ -766,6 +826,7 @@ async function quietHttp(ctx: DemoActionContext): Promise<void> {
       validation: { mode: 'none' },
     },
   });
+  await linkIntoChain(ctx, WF.NODE_HTTP, false);
 }
 
 async function quietAssert(ctx: DemoActionContext): Promise<void> {
@@ -779,6 +840,7 @@ async function quietAssert(ctx: DemoActionContext): Promise<void> {
     bodyContains: AM24_ASSERT_BODY,
     recencyMs: Number(AM24_ASSERT_RECENCY),
   });
+  await linkIntoChain(ctx, API_MOCK.CANVAS_ASSERT, false);
 }
 
 async function quietStop(ctx: DemoActionContext): Promise<void> {
@@ -786,13 +848,16 @@ async function quietStop(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(80);
   const id = am24CanvasNodeId(API_MOCK.CANVAS_STOP) ?? AM24_NODE.stop;
   patchWorkflowNodeDataById(id, { serverId: AM24_ISOLATED_SERVER });
+  await linkIntoChain(ctx, API_MOCK.CANVAS_STOP, false);
 }
 
 async function quietWire(): Promise<void> {
+  const trigger = am24CanvasNodeId(WF.NODE_START);
   const start = am24CanvasNodeId(API_MOCK.CANVAS_START);
   const http = am24CanvasNodeId(WF.NODE_HTTP);
   const assert = am24CanvasNodeId(API_MOCK.CANVAS_ASSERT);
   const stop = am24CanvasNodeId(API_MOCK.CANVAS_STOP);
+  if (trigger && start) connectWorkflowNodes(trigger, start);
   if (start && http) connectWorkflowNodes(start, http);
   if (http && assert) connectWorkflowNodes(http, assert);
   if (assert && stop) connectWorkflowNodes(assert, stop);
@@ -870,6 +935,7 @@ export async function runAm24FromSpec(ctx: DemoActionContext): Promise<void> {
   await selectOpenApiSource(ctx, true);
   if (firstVisibleElement(API_MOCK.IMPORT_PASTE)) {
     await am24AimFill(ctx, API_MOCK.IMPORT_PASTE, AM24_OPENAPI, T.payoff);
+    await prettyFormatImportPaste(ctx, { look: T.look, hold: T.payoff });
   }
   if (firstVisibleElement(API_MOCK.IMPORT_PARSE)) {
     await am24Aim(ctx, API_MOCK.IMPORT_PARSE);
@@ -880,8 +946,18 @@ export async function runAm24FromSpec(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.IMPORT_GENERALIZE) && !checkboxChecked(API_MOCK.IMPORT_GENERALIZE)) {
     await am24Aim(ctx, API_MOCK.IMPORT_GENERALIZE, T.payoff);
   }
+  if (firstVisibleElement(API_MOCK.IMPORT_LOSS)) {
+    await am24Look(ctx, API_MOCK.IMPORT_LOSS);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_FOLDER)) {
+    await am24Look(ctx, API_MOCK.IMPORT_FOLDER);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_PREVIEW)) {
+    await am24Look(ctx, API_MOCK.IMPORT_PREVIEW);
+  }
+  await am24Payoff(ctx, API_MOCK.IMPORT_REVIEW);
   if (firstVisibleElement(API_MOCK.IMPORT_CONFIRM)) {
-    await am24Aim(ctx, API_MOCK.IMPORT_CONFIRM);
+    await clickBeat(ctx, API_MOCK.IMPORT_CONFIRM, { look: T.reviewModal, hold: T.payoff });
   }
   await ctx.waitFor(API_MOCK.DRAFT_ROUTE, REVEAL_MS).catch(() => undefined);
   await closeAm24Import(ctx);
@@ -922,9 +998,9 @@ export async function runAm24Matching(ctx: DemoActionContext): Promise<void> {
   patchApiMockActiveRoute({ predicates: ROOT_GROUP });
   await am24Break(ctx);
   await openAm24Simulate(ctx, true);
-  await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME);
+  await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME, { saveSample: false });
   await am24Payoff(ctx, API_MOCK.SIMULATE_OUTCOME);
-  await closeAm24Simulate(ctx);
+  await closeAm24Simulate(ctx, { review: true });
   if (firstVisibleElement(API_MOCK.PATH_TOOLBOX)) {
     await am24Payoff(ctx, API_MOCK.PATH_TOOLBOX);
   }
@@ -1117,7 +1193,7 @@ export async function runAm24Suite(ctx: DemoActionContext): Promise<void> {
   }
   await am24Reveal(ctx, API_MOCK.SIMULATE_SUMMARY, T.simOutcome);
   await am24Payoff(ctx, API_MOCK.SIMULATE_SUMMARY);
-  await closeAm24Simulate(ctx);
+  await closeAm24Simulate(ctx, { review: true });
 }
 
 export async function runAm24Live(ctx: DemoActionContext): Promise<void> {
@@ -1210,6 +1286,52 @@ async function connectPair(
   await ctx.delay(T.fieldFilled);
 }
 
+async function fitAm24Canvas(ctx: DemoActionContext): Promise<void> {
+  if (firstVisibleElement(WF.FIT_VIEW_BTN)) {
+    await am24Aim(ctx, WF.FIT_VIEW_BTN, T.fieldFilled);
+  } else {
+    await fitWfCanvasQuiet(ctx);
+  }
+}
+
+function nearestAm24Neighbor(addedSel: string, dir: -1 | 1): string | null {
+  const idx = AM24_CHAIN.indexOf(addedSel as typeof AM24_CHAIN[number]);
+  if (idx < 0) return null;
+  for (let i = idx + dir; i >= 0 && i < AM24_CHAIN.length; i += dir) {
+    if (am24CanvasNodeId(AM24_CHAIN[i])) return AM24_CHAIN[i];
+  }
+  return null;
+}
+
+async function linkIntoChain(
+  ctx: DemoActionContext,
+  addedSel: string,
+  visible: boolean,
+): Promise<void> {
+  const upstream = nearestAm24Neighbor(addedSel, -1);
+  const downstream = nearestAm24Neighbor(addedSel, 1);
+  if (upstream && downstream) {
+    const from = am24CanvasNodeId(upstream);
+    const to = am24CanvasNodeId(downstream);
+    if (from && to) removeWorkflowEdge(from, to);
+  }
+  if (visible) {
+    if (upstream) await connectPair(ctx, upstream, addedSel);
+    if (downstream) await connectPair(ctx, addedSel, downstream);
+    await fitAm24Canvas(ctx);
+    return;
+  }
+  const added = am24CanvasNodeId(addedSel);
+  if (upstream && added) {
+    const from = am24CanvasNodeId(upstream);
+    if (from) connectWorkflowNodes(from, added);
+  }
+  if (added && downstream) {
+    const to = am24CanvasNodeId(downstream);
+    if (to) connectWorkflowNodes(added, to);
+  }
+}
+
 export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
   await closeAm24Simulate(ctx);
   await ensureAm24OnStudio(ctx);
@@ -1227,9 +1349,12 @@ export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
 
   await ensureAm24Designer(ctx);
   await dropFromPalette(ctx, WF.PAL_API_MOCK_START, API_MOCK.CANVAS_START);
+  await linkIntoChain(ctx, API_MOCK.CANVAS_START, true);
+  await am24Break(ctx);
   await openWfNodeConfigModal(ctx, { canvasTestId: API_MOCK.CANVAS_START });
   await waitForWfConfigPanel(ctx, API_MOCK.WF_START_CONFIG);
-  await selectWfConfigOption(ctx, API_MOCK.WF_SERVER, AM24_SERVER_ID);
+  await ctx.delay(T.panelReady);
+  const serverId = await selectAm24StudioServer(ctx);
   await pauseWfConfigSection(ctx);
   await holdOrEnableIsolate(ctx);
   if (firstVisibleElement(API_MOCK.WF_SAVE_PORT)) {
@@ -1239,9 +1364,12 @@ export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
     await holdWfSpotlight(ctx, API_MOCK.WF_SAVE_BASE_URL, T.payoff);
   }
   await saveAndCloseWfConfigModal(ctx);
+  await persistAm24Start(serverId);
   await am24Break(ctx);
 
   await dropFromPalette(ctx, WF.PAL_HTTP, WF.NODE_HTTP);
+  await linkIntoChain(ctx, WF.NODE_HTTP, true);
+  await am24Break(ctx);
   await openWfNodeConfigModal(ctx, { canvasTestId: WF.NODE_HTTP, nodeSelector: WF.NODE_HTTP });
   await waitForWfConfigPanel(ctx, WF.CFG_HTTP_URL);
   await selectWfConfigOption(ctx, WF.CFG_HTTP_METHOD, AM24_HTTP_METHOD);
@@ -1252,9 +1380,11 @@ export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
   await am24Break(ctx);
 
   await dropFromPalette(ctx, WF.PAL_API_MOCK_ASSERT, API_MOCK.CANVAS_ASSERT);
+  await linkIntoChain(ctx, API_MOCK.CANVAS_ASSERT, true);
+  await am24Break(ctx);
   await openWfNodeConfigModal(ctx, { canvasTestId: API_MOCK.CANVAS_ASSERT });
   await waitForWfConfigPanel(ctx, API_MOCK.WF_ASSERT_CONFIG);
-  await selectWfConfigOption(ctx, API_MOCK.WF_SERVER, AM24_SERVER_ID);
+  await selectAm24StudioServer(ctx);
   if (inputValue(API_MOCK.WF_ASSERT_MIN) !== AM24_ASSERT_MIN) {
     await fillWfConfigField(ctx, API_MOCK.WF_ASSERT_MIN, AM24_ASSERT_MIN);
   }
@@ -1267,21 +1397,20 @@ export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
   await am24Break(ctx);
 
   await dropFromPalette(ctx, WF.PAL_API_MOCK_STOP, API_MOCK.CANVAS_STOP);
+  await linkIntoChain(ctx, API_MOCK.CANVAS_STOP, true);
+  await am24Break(ctx);
   await openWfNodeConfigModal(ctx, { canvasTestId: API_MOCK.CANVAS_STOP });
   await waitForWfConfigPanel(ctx, API_MOCK.WF_STOP_CONFIG);
-  await selectWfConfigOption(ctx, API_MOCK.WF_SERVER, AM24_SERVER_ID);
+  await selectAm24StudioServer(ctx);
   await saveAndCloseWfConfigModal(ctx);
   const stopId = am24CanvasNodeId(API_MOCK.CANVAS_STOP);
   if (stopId) patchWorkflowNodeDataById(stopId, { serverId: AM24_ISOLATED_SERVER });
 
+  await connectPair(ctx, WF.NODE_START, API_MOCK.CANVAS_START);
   await connectPair(ctx, API_MOCK.CANVAS_START, WF.NODE_HTTP);
   await connectPair(ctx, WF.NODE_HTTP, API_MOCK.CANVAS_ASSERT);
   await connectPair(ctx, API_MOCK.CANVAS_ASSERT, API_MOCK.CANVAS_STOP);
-  if (firstVisibleElement(WF.FIT_VIEW_BTN)) {
-    await am24Aim(ctx, WF.FIT_VIEW_BTN, T.fieldFilled);
-  } else {
-    await fitWfCanvasQuiet(ctx);
-  }
+  await fitAm24Canvas(ctx);
   await am24Break(ctx);
 
   if (firstVisibleElement(WF.QUICK_TEST)) {
@@ -1334,6 +1463,7 @@ export const am24TestHooks = {
   ensureAm24Running,
   openAm24Simulate,
   connectPair,
+  linkIntoChain,
   runOrdersSimulation,
   selectOrdersRoute,
 };

@@ -35,6 +35,10 @@ import {
   AM04_PRESET_NESTED,
   AM04_PRESET_SINGLE,
   AM04_REGEX_PATH,
+  AM04_SAMPLE_LITERAL,
+  AM04_SAMPLE_LOOSE_PARAM,
+  AM04_SAMPLE_LOOSE_REGEX,
+  AM04_SAMPLE_PARAM,
   AM04_SIM_LITERAL_PATH,
   AM04_SIM_LOOSE_PATH,
   AM04_SIM_PARAM_PATH,
@@ -221,6 +225,12 @@ describe('AM-04 helpers', () => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
     patchApiMockActiveRoute.mockReturnValue(true);
+  });
+
+  it('names saved samples by purpose so param and regex probes do not collide', () => {
+    expect(new Set([
+      AM04_SAMPLE_PARAM, AM04_SAMPLE_LOOSE_PARAM, AM04_SAMPLE_LOOSE_REGEX, AM04_SAMPLE_LITERAL,
+    ]).size).toBe(4);
   });
 
   // ── row identity ──────────────────────────────────────────────────────────

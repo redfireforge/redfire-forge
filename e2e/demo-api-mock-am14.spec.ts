@@ -1,6 +1,6 @@
 /**
  * Demo lesson smoke — AM-14 `am-14-timing-faults`
- * (Latency, Eligibility & Connection Faults).
+ * (When Payments Hang: Latency, Eligibility & Connection Faults).
  *
  * Run: npm run test:e2e:demo:am14
  * Prereqs: companion :3001 + dev server :5173 (Playwright `webServer`). Apply
@@ -26,7 +26,7 @@ import {
 } from './api-mock-lesson-smoke-helpers';
 import { isApiMockCompanionReady } from './api-mock-multi-server-helpers';
 
-test.describe('Demo lesson AM-14 — Latency, Eligibility & Connection Faults', () => {
+test.describe('Demo lesson AM-14 — When Payments Hang: Latency, Eligibility & Connection Faults', () => {
   test.beforeEach(async ({ page, request }) => {
     test.skip(!(await isApiMockCompanionReady(request)), 'API Mock companion (:3001) not reachable');
     await prepareApiMockLessonRun(page, request);
@@ -36,13 +36,13 @@ test.describe('Demo lesson AM-14 — Latency, Eligibility & Connection Faults', 
     await cleanupApiMockLessonRun(request);
   });
 
-  test('walks all 8 steps and ends on the fault timeline', async ({ page }) => {
+  test('walks all 8 steps and ends on the dribble wire body', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await walkApiMockLesson(page, 'am14');
 
     expect(await readStepCounter(page)).toContain(`${AM_LESSON_STEPS.am14} / ${AM_LESSON_STEPS.am14}`);
-    await expect(page.locator(API_MOCK.SIMULATE_TIMELINE_FAULT).first()).toBeVisible({
+    await expect(page.locator(API_MOCK.SIMULATE_WIRE_BODY).first()).toBeVisible({
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
   });

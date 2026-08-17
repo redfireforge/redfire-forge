@@ -36,7 +36,7 @@ npx playwright test e2e/some.spec.ts --reporter=html --workers=40 --timeout=1500
 
 ## Monolithic File Threshold
 
-A file is considered **monolithic** when it has **≥ 900 lines**. When found:
+A file is considered **monolithic** when it has **≥ 750 lines**. When found:
 1. Split into focused modules/hooks/utils
 2. Remove redundant code
 3. Ensure unit tests cover all extracted modules at > 90%

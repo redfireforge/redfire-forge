@@ -20,16 +20,26 @@
           var m = value && value.message ? value.message : String(value || '');
           return String(m).indexOf('ResizeObserver') !== -1;
         }
-        /** Monaco / @monaco-editor/react remount cancelations — plain object, not Error. */
+        function isCanceledNoise(text) {
+          var msg = String(text || '').trim().toLowerCase();
+          return (
+            msg === 'canceled'
+            || msg === 'cancelled'
+            || msg === 'canceled: canceled'
+            || msg === 'cancelled: cancelled'
+            || msg.indexOf('canceled: canceled') !== -1
+            || msg.indexOf('cancelled: cancelled') !== -1
+            || msg.indexOf('operation is manually canceled') !== -1
+            || msg.indexOf('operation is manually cancelled') !== -1
+          );
+        }
+        /** Monaco cancelations — string, Error (`Canceled: Canceled`), or remount object. */
         function isMonacoCancelation(reason) {
+          if (typeof reason === 'string') return isCanceledNoise(reason);
           if (!reason || typeof reason !== 'object') return false;
           if (reason.type === 'cancelation' || reason.type === 'cancellation') return true;
           if (reason.name === 'Canceled' || reason.name === 'Cancelled') return true;
-          var msg = String(reason.msg || reason.message || '');
-          return (
-            msg.indexOf('operation is manually canceled') !== -1
-            || msg.indexOf('operation is manually cancelled') !== -1
-          );
+          return isCanceledNoise(String(reason.msg || reason.message || reason));
         }
         function isBenign(e) {
           if (e.type === 'unhandledrejection') {
@@ -38,17 +48,27 @@
           }
           var ev = e;
           var m = ev.message || (ev.error && ev.error.message) || (ev.error != null ? String(ev.error) : '');
-          return isResizeObserverNoise(m) || isMonacoCancelation(ev.error);
+          return isResizeObserverNoise(m) || isCanceledNoise(m) || isMonacoCancelation(ev.error);
         }
         function swallow(e) {
           if (!isBenign(e)) return;
           e.preventDefault();
           e.stopImmediatePropagation();
         }
+        var nativeError = console.error.bind(console);
+        console.error = function () {
+          for (var i = 0; i < arguments.length; i++) {
+            var arg = arguments[i];
+            if (typeof arg === 'string' && isCanceledNoise(arg)) return;
+            if (isMonacoCancelation(arg)) return;
+          }
+          nativeError.apply(console, arguments);
+        };
         window.addEventListener('error', swallow, true);
         window.addEventListener('unhandledrejection', swallow, true);
       })();
     </script>
+    <!-- AM-13 HMR bust 2026-08-16: force full reload after poisoned api-mock-am13.ts -->
     <script type="module" src="/src/app/main.tsx"></script>
   </body>
 </html>

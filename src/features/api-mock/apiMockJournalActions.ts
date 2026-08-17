@@ -11,6 +11,7 @@ import type {
 import { convertSourceToRule } from '../../shared/api-mock/sourceToRule';
 import { joinCapturedHeaderValue, mockClientOrigin, stripCapturedRequestSecrets } from '../../shared/api-mock/harExport';
 import type { HttpMethod, KeyValue } from '../../shared/types';
+import { isClientManagedRequestHeader } from '../../shared/utils/outboundRequestHeaders';
 
 export const API_MOCK_OPEN_IN_REQUESTS_EVENT = 'api-mock-open-in-requests';
 
@@ -24,14 +25,17 @@ export interface ApiMockOpenInRequestsDetail {
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
+/** Headers safe to replay from Requests / Send (drops connection, host, …). */
 function capturedHeadersToKeyValues(
   headers: Record<string, string[] | string> | undefined,
 ): KeyValue[] {
-  return Object.entries(headers ?? {}).map(([key, value]) => ({
-    key,
-    value: joinCapturedHeaderValue(key, value),
-    enabled: true,
-  }));
+  return Object.entries(headers ?? {})
+    .filter(([key]) => !isClientManagedRequestHeader(key))
+    .map(([key, value]) => ({
+      key,
+      value: joinCapturedHeaderValue(key, value),
+      enabled: true,
+    }));
 }
 
 export function normalizeHttpMethod(method: string): HttpMethod {

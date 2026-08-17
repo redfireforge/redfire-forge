@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { normalizeRequest } from '../../../shared/api-mock/requestNormalization';
 import { simulateSingle, simulateBatch } from '../../../shared/api-mock/simulation';
 import { capturedRequestPath } from '../apiMockJournalActions';
@@ -11,25 +10,33 @@ import type {
   ApiMockSimulationSampleV1,
 } from '../../../shared/api-mock/contracts';
 import {
-  SIMULATE_METHOD_OPTIONS,
-  SIMULATE_SEED_HELP,
   annotateSimulatePass,
+  reannotateSimulatePass,
   buildAutoRouteSamples,
   capturedHeadersFromText,
   createSavedSimulationSample,
+  createSimulateReplaySeed,
+  lowercaseHeaderMap,
   downloadSimulationTrace,
   headersToText,
   isAutoRouteSample,
   mergeSimulateSamples,
+  nearMissConditionSummary,
+  orderTracePredicateResults,
   outcomeBadge,
   parseSimulateHeaderLines,
+  predicateTraceDetail,
+  predicateTraceNote,
+  predicateTraceSatisfied,
+  predicateTraceSource,
   simulationTraceFilename,
   simulationTraceNoticePreview,
   suggestedSimulateSampleName,
 } from './apiMockSimulateModalHelpers';
-import { ApiMockExpandableText } from './ApiMockExpandableText';
 import { ApiMockSimulateAssertionsTable } from './ApiMockSimulateAssertionsTable';
 import { ApiMockSimulateRenderedPane } from './ApiMockSimulateRenderedPane';
+import { ApiMockSimulateHiddenFields, ApiMockSimulateRequestForm } from './ApiMockSimulateRequestForm';
+import { ApiMockSimulateSampleList } from './ApiMockSimulateSampleList';
 
 interface Props {
   server: ApiMockServerDefinitionV1;
@@ -57,7 +64,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
   const [headers, setHeaders] = useState(seededSample ? headersToText(seededSample.request.headers) : '');
   const [body, setBody] = useState(typeof seededSample?.request.body === 'string' ? seededSample.request.body : '');
   const [clientCertSubject, setClientCertSubject] = useState(seededSample?.request.clientCertSubject ?? '');
-  const [seed, setSeed] = useState(() => String(Math.floor(Math.random() * 90000) + 10000));
+  const [seed] = useState(createSimulateReplaySeed);
   const [filter, setFilter] = useState('');
   const [selectedSampleId, setSelectedSampleId] = useState(initialSampleId ?? adHocId);
   const [resultBySample, setResultBySample] = useState<Record<string, ApiMockSimulationResultV1>>({});
@@ -113,14 +120,14 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
         rawPath: path || '/',
         query: {},
         cookies: {},
-        headers: {},
+        headers: capturedHeadersFromText(headers),
         body: body || null,
         bodyTruncated: false,
         receivedAt: new Date().toISOString(),
       },
     },
     ...allNonAdHoc.filter(s => !dismissedIds.has(s.id)),
-  ], [allNonAdHoc, dismissedIds, method, path, body]);
+  ], [allNonAdHoc, dismissedIds, method, path, headers, body]);
 
   const removeSample = useCallback((id: string) => {
     setDismissedIds(prev => new Set(prev).add(id));
@@ -150,19 +157,15 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
   const firstAutoIdx = filteredSamples.findIndex(s => isAutoRouteSample(s.id));
 
   const buildSample = (sample: ApiMockSimulationSampleV1): ApiMockSimulationSampleV1 => {
-    let captured = sample.request;
-    if (sample.id === adHocId) {
-      captured = {
-        ...normalizeRequest({
-          method,
-          url: path || '/',
-          headers: parseSimulateHeaderLines(headers),
-          body: body || null,
-          clientCertSubject: clientCertSubject.trim() || undefined,
-        }).captured,
-        headers: capturedHeadersFromText(headers),
-      };
-    }
+    const captured = sample.id === adHocId
+      ? normalizeRequest({
+        method,
+        url: path || '/',
+        headers: parseSimulateHeaderLines(headers),
+        body: body || null,
+        clientCertSubject: clientCertSubject.trim() || undefined,
+      }).captured
+      : { ...sample.request, headers: lowercaseHeaderMap(sample.request.headers) };
     return { id: sample.id, name: sample.name, request: captured, expected: sample.expected };
   };
 
@@ -223,6 +226,11 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
       return copy;
     });
     onUpdateSample?.(next);
+    setResultBySample(prev => {
+      const current = prev[next.id];
+      if (!current) return prev;
+      return { ...prev, [next.id]: reannotateSimulatePass(next, current) };
+    });
   };
 
   const selectSample = (sample: ApiMockSimulationSampleV1) => {
@@ -336,89 +344,21 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
     >
       <div className="api-mock-root am-in-modal am-simulate-workspace" data-testid="api-mock-simulate-workspace">
         <div className="am-sim-layout">
-          <aside className="am-sim-samples" data-testid="api-mock-sim-samples">
-            <div className="am-panel-head">
-              <span className="am-panel-title">Samples</span>
-              <span className="am-count-badge">{samples.length}</span>
-            </div>
-            <div style={{ padding: 8 }}>
-              <input
-                className="am-search"
-                placeholder="Filter samples…"
-                value={filter}
-                onChange={e => setFilter(e.target.value)}
-                aria-label="Filter samples"
-              />
-            </div>
-            {filteredSamples.map((s, idx) => {
-              const r = resultBySample[s.id];
-              const badge = !r ? null
-                : r.passed === true ? 'PASS'
-                  : r.outcome === 'ambiguous' ? 'CONFLICT'
-                    : r.passed === false ? 'FAIL'
-                      : 'PASS';
-              const isAdHoc = s.id === adHocId;
-              return (
-                <div key={s.id}>
-                  {isAdHoc && (
-                    <div className="am-sim-sample-section" data-testid="api-mock-sim-section-scratch">Scratch pad</div>
-                  )}
-                  {!isAdHoc && !isAutoRouteSample(s.id) && idx === firstPersistedIdx && (
-                    <div className="am-sim-sample-section" data-testid="api-mock-sim-section-saved">Saved samples</div>
-                  )}
-                  {isAutoRouteSample(s.id) && idx === firstAutoIdx && (
-                    <div className="am-sim-sample-section" data-testid="api-mock-sim-section-from-rules">
-                      From rules
-                      <span className="am-sim-sample-section-note">Suggested probes — not saved</span>
-                    </div>
-                  )}
-                  <div
-                    className={`am-sim-sample${selectedSampleId === s.id ? ' active' : ''}`}
-                    data-testid={`api-mock-sim-sample-${s.id}`}
-                  >
-                    <button
-                      type="button"
-                      className="am-sim-sample-btn"
-                      onClick={() => selectSample(s)}
-                    >
-                      <div className="am-row">
-                        <span className="am-sim-sample-name">{s.name}</span>
-                        <span className="am-spacer" />
-                        {badge && (
-                          <span
-                            className={`am-badge ${badge === 'PASS' ? 'success' : badge === 'CONFLICT' ? 'warning' : 'danger'}`}
-                            data-testid={badge === 'FAIL' ? 'api-mock-sim-sample-fail' : undefined}
-                          >{badge}</span>
-                        )}
-                      </div>
-                      <div className="am-hint am-mono">
-                        {isAdHoc
-                          ? 'Editable draft — try any method/path'
-                          : `${s.request.method} ${capturedRequestPath(s.request)}`}
-                      </div>
-                      {r?.preview?.stateAfter != null && r.preview.responseMode === 'state' && (
-                        <span className="am-chip" data-testid="api-mock-sim-sample-state">
-                          {r.preview.stateBefore || '(empty)'} → {r.preview.stateAfter || '(empty)'}
-                        </span>
-                      )}
-                    </button>
-                    {!isAdHoc && (
-                      <button
-                        type="button"
-                        className="am-sim-sample-remove"
-                        aria-label={`Remove sample ${s.name}`}
-                        data-testid={`api-mock-sim-sample-remove-${s.id}`}
-                        onClick={e => { e.stopPropagation(); removeSample(s.id); }}
-                      >×</button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            <div className="am-panel-foot">
-              <span className="am-faint">{passedCount} passed · {conflictCount} conflict{conflictCount === 1 ? '' : 's'}</span>
-            </div>
-          </aside>
+          <ApiMockSimulateSampleList
+            adHocId={adHocId}
+            samples={samples}
+            filteredSamples={filteredSamples}
+            firstPersistedIdx={firstPersistedIdx}
+            firstAutoIdx={firstAutoIdx}
+            selectedSampleId={selectedSampleId}
+            resultBySample={resultBySample}
+            filter={filter}
+            setFilter={setFilter}
+            passedCount={passedCount}
+            conflictCount={conflictCount}
+            onSelectSample={selectSample}
+            onRemoveSample={removeSample}
+          />
 
           <section
             className={`am-sim-main${showResultsPane ? ' am-sim-main--results' : ' am-sim-main--request'}`}
@@ -464,153 +404,41 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
               </p>
             )}
             {showRequestForm && (
-              <div className={`am-form-grid am-sim-adhoc-form${requestReadOnly ? ' am-sim-adhoc-form--readonly' : ''}`}>
-                <div className="am-form-row">
-                  <div className="am-form-label">Method</div>
-                  <div className="am-form-control">
-                    <CustomSelect
-                      value={method}
-                      onChange={setMethod}
-                      options={SIMULATE_METHOD_OPTIONS}
-                      className="am-cs"
-                      aria-label="Simulate method"
-                      data-testid="api-mock-simulate-method"
-                      disabled={requestReadOnly}
-                    />
-                  </div>
-                </div>
-                <div className="am-form-row">
-                  <div className="am-form-label">Path</div>
-                  <div className="am-form-control">
-                    <input
-                      className="am-input wide mono"
-                      value={path}
-                      onChange={e => setPath(e.target.value)}
-                      placeholder="/users/42?active=true"
-                      data-testid="api-mock-simulate-path"
-                      readOnly={requestReadOnly}
-                    />
-                  </div>
-                </div>
-                <div className="am-form-row am-form-row--tall">
-                  <div className="am-form-label">Headers</div>
-                  <div className="am-form-control">
-                    <textarea
-                      className="am-textarea am-textarea--compact"
-                      value={headers}
-                      onChange={e => setHeaders(e.target.value)}
-                      placeholder={'X-Tenant: acme\nAuthorization: Bearer …'}
-                      data-testid="api-mock-simulate-headers"
-                      readOnly={requestReadOnly}
-                    />
-                  </div>
-                </div>
-                <div className="am-form-row am-form-row--tall">
-                  <div className="am-form-label">Body</div>
-                  <div className="am-form-control">
-                    <ApiMockExpandableText
-                      label="Request body"
-                      value={body}
-                      onChange={setBody}
-                      placeholder='{"name":"Alice"}'
-                      testId="api-mock-simulate-body"
-                      multiline
-                      className="am-textarea--compact"
-                      readOnly={requestReadOnly}
-                    />
-                  </div>
-                </div>
-                <div className="am-form-row">
-                  <div className="am-form-label">Client cert subject</div>
-                  <div className="am-form-control">
-                    <input
-                      className="am-input wide mono"
-                      value={clientCertSubject}
-                      onChange={e => setClientCertSubject(e.target.value)}
-                      placeholder="CN=client-name"
-                      aria-label="Simulate client certificate subject"
-                      data-testid="api-mock-simulate-cert-subject"
-                      readOnly={requestReadOnly}
-                    />
-                  </div>
-                </div>
-                {selectedIsAdHoc ? (
-                  <div className="am-form-row">
-                    <div className="am-form-label">Keep this request</div>
-                    <div className="am-form-control am-form-control-stack">
-                      <button
-                        type="button"
-                        className="am-btn primary"
-                        onClick={saveAsSample}
-                        data-testid="api-mock-simulate-save-sample"
-                      >
-                        Save as sample
-                      </button>
-                      <span className="am-hint">Stores method, path, headers, and body under Saved samples. Name it after saving.</span>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {!selectedIsFromRules && (
-                      <div className="am-form-row">
-                        <div className="am-form-label">Sample name</div>
-                        <div className="am-form-control">
-                          <input
-                            ref={nameInputRef}
-                            className="am-input wide"
-                            value={selectedSample?.name ?? ''}
-                            onChange={e => renameSavedSample(e.target.value)}
-                            placeholder="Health check — happy path"
-                            aria-label="Sample name"
-                            data-testid="api-mock-simulate-sample-name"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <div className="am-form-row">
-                      <div className="am-form-label">Change this request</div>
-                      <div className="am-form-control am-form-control-stack">
-                        <button
-                          type="button"
-                          className="am-btn primary"
-                          onClick={editInAdhoc}
-                          data-testid="api-mock-sim-edit-adhoc"
-                        >
-                          Edit in Ad-hoc
-                        </button>
-                        <span className="am-hint">Copies this probe into the scratch pad so you can change method, path, or headers.</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div className="am-form-row am-form-row--tall">
-                  <div className="am-form-label">Replay seed</div>
-                  <div className="am-form-control am-form-control-stack">
-                    <label className="am-seed-field">
-                      <input
-                        className="am-input mono"
-                        value={seed}
-                        onChange={e => setSeed(e.target.value || '0')}
-                        aria-label="Replay seed"
-                        title={SIMULATE_SEED_HELP}
-                        data-testid="api-mock-simulate-seed"
-                      />
-                    </label>
-                    <span className="am-hint">{SIMULATE_SEED_HELP}</span>
-                  </div>
-                </div>
-              </div>
+              <ApiMockSimulateRequestForm
+                method={method}
+                setMethod={setMethod}
+                path={path}
+                setPath={setPath}
+                headers={headers}
+                setHeaders={setHeaders}
+                body={body}
+                setBody={setBody}
+                clientCertSubject={clientCertSubject}
+                setClientCertSubject={setClientCertSubject}
+                requestReadOnly={requestReadOnly}
+                selectedIsAdHoc={selectedIsAdHoc}
+                selectedIsFromRules={selectedIsFromRules}
+                selectedName={selectedSample?.name}
+                nameInputRef={nameInputRef}
+                onSaveAsSample={saveAsSample}
+                onRenameSavedSample={renameSavedSample}
+                onEditInAdhoc={editInAdhoc}
+              />
             )}
 
             {!showRequestForm && (
-              <div className="am-sr-only">
-                <CustomSelect value={method} onChange={setMethod} options={SIMULATE_METHOD_OPTIONS} className="am-cs" aria-label="Simulate method" data-testid="api-mock-simulate-method" />
-                <input value={path} onChange={e => setPath(e.target.value)} data-testid="api-mock-simulate-path" />
-                <textarea value={headers} onChange={e => setHeaders(e.target.value)} data-testid="api-mock-simulate-headers" />
-                <textarea value={body} onChange={e => setBody(e.target.value)} data-testid="api-mock-simulate-body" />
-                <input value={clientCertSubject} onChange={e => setClientCertSubject(e.target.value)} data-testid="api-mock-simulate-cert-subject" />
-                <input value={seed} onChange={e => setSeed(e.target.value || '0')} aria-label="Replay seed" data-testid="api-mock-simulate-seed" />
-              </div>
+              <ApiMockSimulateHiddenFields
+                method={method}
+                setMethod={setMethod}
+                path={path}
+                setPath={setPath}
+                headers={headers}
+                setHeaders={setHeaders}
+                body={body}
+                setBody={setBody}
+                clientCertSubject={clientCertSubject}
+                setClientCertSubject={setClientCertSubject}
+              />
             )}
 
             {showRequestForm && (
@@ -648,7 +476,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                         <span className={`am-method ${(trace.normalizedRequest?.method || method || 'get').toLowerCase()}`}>
                           {trace.normalizedRequest?.method || method}
                         </span>
-                        <strong className="am-mono">{trace.normalizedRequest?.path || path}</strong>
+                        <strong className="am-route-title">{trace.normalizedRequest?.path || path}</strong>
                         <span className="am-spacer" />
                         <span
                           className={`am-badge ${outcomeBadge(result.outcome)}`}
@@ -670,7 +498,14 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                           >
                             <div className="am-candidate-head">
                               <span className={`am-matcher-result ${c.overallMatch ? 'pass' : 'fail'}`}>{c.overallMatch ? '✓' : '×'}</span>
-                              <strong>{routeLabel(c.routeId)}</strong>
+                              {route ? (
+                                <>
+                                  <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
+                                  <strong className="am-route-title">{route.path.value}</strong>
+                                </>
+                              ) : (
+                                <strong className="am-route-title">{routeLabel(c.routeId)}</strong>
+                              )}
                               <span className="am-badge">Priority {c.priority}</span>
                               <span className="am-spacer" />
                               {c.routeId === winnerId
@@ -692,14 +527,25 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                               <span className="am-mono">{route?.path.value ?? '—'}</span>
                               <span className="am-muted">—</span>
                             </div>
-                            {c.predicateResults.map(pr => (
-                              <div key={pr.predicateId} className="am-predicate">
-                                <span className={`am-matcher-result ${pr.passed ? 'pass' : 'fail'}`}>{pr.passed ? '✓' : '×'}</span>
-                                <span>{pr.source}</span>
-                                <span className="am-mono">{pr.reason || pr.operator}</span>
-                                <span className="am-muted">—</span>
+                            {orderTracePredicateResults(c.predicateResults, c.overallMatch).map(pr => {
+                              const ok = predicateTraceSatisfied(pr, c.predicateResults);
+                              return (
+                              <div
+                                key={pr.predicateId}
+                                className={[
+                                  'am-predicate',
+                                  ok ? '' : 'am-predicate--fail',
+                                  pr.combinator ? 'am-predicate--group' : '',
+                                ].filter(Boolean).join(' ')}
+                                data-testid={`api-mock-sim-predicate-${pr.predicateId}`}
+                              >
+                                <span className={`am-matcher-result ${ok ? 'pass' : 'fail'}`}>{ok ? '✓' : '×'}</span>
+                                <span>{predicateTraceSource(pr)}</span>
+                                <span className="am-mono">{predicateTraceDetail(pr)}</span>
+                                <span className="am-muted">{predicateTraceNote(pr, c.predicateResults)}</span>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         );
                       })}
@@ -708,7 +554,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                         <>
                           <div className="am-section-heading">Near misses</div>
                           <div className="am-notice warning">
-                            <span>{trace.nearMisses.map(nm => nm.routeName).join(', ')} matched method/path but failed conditions.</span>
+                            <span>{nearMissConditionSummary(trace.nearMisses)}</span>
                           </div>
                         </>
                       )}
@@ -716,19 +562,31 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                       {trace.policyDecision.specificityBreakdown && trace.policyDecision.specificityBreakdown.length > 0 && (
                         <div data-testid="api-mock-sim-specificity">
                           <div className="am-section-heading">Specificity</div>
-                          {trace.policyDecision.specificityBreakdown.map(row => (
-                            <div
-                              key={row.routeId}
-                              className="am-predicate"
-                              data-testid={`api-mock-sim-specificity-${row.routeId}`}
-                            >
-                              <strong>{routeLabel(row.routeId)}</strong>
-                              <span className="am-badge info">{row.score}</span>
-                              <span className="am-mono">
-                                {row.components.map(c => `${c.source} +${c.weight}`).join(' · ')}
-                              </span>
-                            </div>
-                          ))}
+                          {trace.policyDecision.specificityBreakdown.map(row => {
+                            const route = server.routes.find(x => x.id === row.routeId);
+                            return (
+                              <div
+                                key={row.routeId}
+                                className="am-specificity-row"
+                                data-testid={`api-mock-sim-specificity-${row.routeId}`}
+                              >
+                                <div className="am-specificity-id">
+                                  {route ? (
+                                    <>
+                                      <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
+                                      <strong className="am-route-title">{route.path.value}</strong>
+                                    </>
+                                  ) : (
+                                    <strong className="am-route-title">{routeLabel(row.routeId)}</strong>
+                                  )}
+                                  <span className="am-badge info">{row.score}</span>
+                                </div>
+                                <span className="am-mono am-specificity-parts">
+                                  {row.components.map(c => `${c.source} +${c.weight}`).join(' · ')}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -776,7 +634,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                             <strong>{step.title}</strong>
                             <div className="am-hint">{step.hint}</div>
                           </div>
-                          <span className="am-badge info">{String(step.badge)}</span>
+                          <span className="am-badge info" title={String(step.badge)}>{String(step.badge)}</span>
                         </div>
                       ))}
                       <div className="am-notice" style={{ marginTop: 10 }}>

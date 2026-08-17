@@ -1,12 +1,41 @@
-import type { ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockFaultKind, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
+import { clampTimeoutHoldMs, DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
 import { FAULT_CARDS } from './apiMockResponseEditorConstants';
 
 interface Props {
   variant: ApiMockResponseVariantV1;
   onUpdateVariant: (patch: Partial<ApiMockResponseVariantV1>) => void;
+  /** Server-wide Timeout hold ceiling (`settings.limits.longRunningMaxMs`). */
+  timeoutHoldMaxMs?: number;
 }
 
-export function ApiMockResponseFaultsPanel({ variant, onUpdateVariant }: Props) {
+function nextFaultBehavior(
+  variant: ApiMockResponseVariantV1,
+  cardId: ApiMockFaultKind,
+  timeoutHoldMaxMs: number,
+) {
+  const next = {
+    ...variant.behavior,
+    fault: cardId === 'none' ? undefined : cardId,
+    ...(cardId === 'dribble' && !variant.behavior.chunkSchedule?.length
+      ? { chunkSchedule: [{ afterMs: 50, body: (variant.body.content ?? '').slice(0, 8) || '…' }, { afterMs: 100, body: '' }] }
+      : cardId !== 'dribble' ? { chunkSchedule: undefined } : {}),
+  };
+  if (cardId === 'timeout') {
+    next.longRunningMs = clampTimeoutHoldMs(variant.behavior.longRunningMs, timeoutHoldMaxMs);
+  }
+  return next;
+}
+
+export function ApiMockResponseFaultsPanel({
+  variant,
+  onUpdateVariant,
+  timeoutHoldMaxMs = DEFAULT_SETTINGS.limits.longRunningMaxMs,
+}: Props) {
+  const cap = timeoutHoldMaxMs > 0 ? timeoutHoldMaxMs : DEFAULT_SETTINGS.limits.longRunningMaxMs;
+  const timeoutSelected = (variant.behavior.fault ?? 'none') === 'timeout';
+  const holdMs = clampTimeoutHoldMs(variant.behavior.longRunningMs, cap);
+
   return (
     <div data-testid="api-mock-faults-panel">
       <div className="am-notice warning" style={{ marginBottom: 12 }}>
@@ -21,15 +50,7 @@ export function ApiMockResponseFaultsPanel({ variant, onUpdateVariant }: Props) 
               type="button"
               className={`am-fault-card${selected ? ' selected' : ''}`}
               data-testid={`api-mock-fault-${card.id}`}
-              onClick={() => onUpdateVariant({
-                behavior: {
-                  ...variant.behavior,
-                  fault: card.id === 'none' ? undefined : card.id,
-                  ...(card.id === 'dribble' && !variant.behavior.chunkSchedule?.length
-                    ? { chunkSchedule: [{ afterMs: 50, body: (variant.body.content ?? '').slice(0, 8) || '…' }, { afterMs: 100, body: '' }] }
-                    : card.id !== 'dribble' ? { chunkSchedule: undefined } : {}),
-                },
-              })}
+              onClick={() => onUpdateVariant({ behavior: nextFaultBehavior(variant, card.id, cap) })}
             >
               <strong>{card.title}</strong>
               <p>{card.description}</p>
@@ -37,6 +58,37 @@ export function ApiMockResponseFaultsPanel({ variant, onUpdateVariant }: Props) 
           );
         })}
       </div>
+      {timeoutSelected && (
+        <div className="am-form-grid am-form-grid--aligned am-timeout-hold" data-testid="api-mock-fault-timeout-hold-panel">
+          <div className="am-form-row">
+            <div className="am-form-label">Hold for (ms)</div>
+            <div className="am-form-control">
+              <input
+                className="am-input num mono"
+                type="number"
+                min={1}
+                max={cap}
+                value={holdMs}
+                aria-label="Timeout hold milliseconds"
+                data-testid="api-mock-fault-timeout-hold"
+                onChange={e => {
+                  const raw = parseInt(e.target.value, 10);
+                  onUpdateVariant({
+                    behavior: {
+                      ...variant.behavior,
+                      longRunningMs: clampTimeoutHoldMs(Number.isFinite(raw) ? raw : undefined, cap),
+                    },
+                  });
+                }}
+              />
+              <span className="am-hint">
+                Each hung Timeout occupies one connection until this hold ends. Capped at {cap} ms
+                (Settings → Network → Limits).
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
       {(variant.behavior.fault ?? 'none') === 'dribble' && (
         <div className="am-chunk-schedule" data-testid="api-mock-chunk-schedule">
           <div className="am-chunk-schedule-head">
@@ -118,10 +170,10 @@ export function ApiMockResponseFaultsPanel({ variant, onUpdateVariant }: Props) 
             </div>
           )}
           {(variant.behavior.chunkSchedule ?? []).length > 0 && (
-            <p className="am-hint" data-testid="api-mock-chunk-empty-hint">
+            <p className="am-hint am-hint--wrap" data-testid="api-mock-chunk-empty-hint">
               An empty payload is a pause with no bytes. End stream does not send the rest of the
               body — paste remaining characters into a later row if you want them on the wire.
-              Rendered response still shows the full intended body.
+              Rendered response shows what hit the wire and the intended body underneath.
             </p>
           )}
           {(variant.behavior.chunkSchedule ?? []).length === 0 && (

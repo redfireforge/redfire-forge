@@ -89,7 +89,7 @@ export const apiMockAm19Lesson: DemoLesson = {
     + 'Apply, and hold the injected header on a live response.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 4,
   concept: {
     title: 'Rules answer traffic. Runtime Settings keeps that traffic safe to operate.',
     body:
@@ -125,13 +125,15 @@ export const apiMockAm19Lesson: DemoLesson = {
       id: 'cors',
       title: 'Browser clients need CORS, and preflights stay off the journal',
       description:
-        'Click **Settings** on the live strip — that is Runtime Settings, not '
-        + 'the server modal. Toggle **CORS** on, fill Allow origins with '
-        + `\`${AM19_CORS_ORIGIN}\`, then **Save settings**. If the listener is `
-        + 'dirty, **Apply** so the running snapshot picks it up.\n\n'
-        + `Fetch \`OPTIONS ${AM19_PRODUCTS}\`. The preflight answers **204** and `
-        + 'the transaction count does **not** move. Preflights are invisible '
-        + 'on purpose — the journal is for the calls you care about.',
+        'A rule can answer `/products` flawlessly and a browser will still '
+        + 'refuse to read it — the preflight fails first. **CORS** is how you '
+        + `let a real front-end (here \`${AM19_CORS_ORIGIN}\`) talk to the mock, `
+        + 'and it lives on the **live strip’s Settings** — the ops desk for the '
+        + 'running listener, not the server-definition modal.\n\n'
+        + `The payoff is what you *don’t* see: the \`OPTIONS ${AM19_PRODUCTS}\` `
+        + 'preflight answers **204 (No Content)** and the transaction count '
+        + 'stays put. Preflights are plumbing, not traffic — keeping them off '
+        + 'the journal means the log only holds the calls you actually care about.',
       highlight: API_MOCK.LIVE_SETTINGS,
       action: runAm19Cors,
       verify: API_MOCK.LIVE_TRANSACTIONS,
@@ -140,13 +142,15 @@ export const apiMockAm19Lesson: DemoLesson = {
       id: 'limits',
       title: 'Cap payloads, connections, and the drain window',
       description:
-        'A mock without limits is a process that will accept anything. Fill '
-        + '**Inbound body** (bytes), then **Connections**, then **Drain '
-        + 'timeout** (milliseconds). Hold each field so the numbers are '
-        + 'readable.\n\n'
-        + 'These caps protect the companion from an oversized POST or a hung '
-        + 'Stop. Save so the next Apply carries them. You are not trying to '
-        + 'trip the cap today — you are putting a fence up before the long run.',
+        'An unbounded mock trusts every caller: it will accept a gigabyte '
+        + 'POST, hold every socket a load test throws at it, and hang on Stop. '
+        + '**Limits** are the fence you raise *before* the long run, not after '
+        + 'something falls over — a ceiling on **inbound body** bytes, on '
+        + 'concurrent **connections**, and on the graceful **drain** window at '
+        + 'shutdown.\n\n'
+        + 'You are not trying to trip a cap today. The point is simply that the '
+        + 'companion now has a ceiling — a bounded process is one you can leave '
+        + 'running overnight without wondering what a stray client might send.',
       highlight: API_MOCK.RUNTIME_SETTINGS_INBOUND,
       preAction: ensureAm19ForLimits,
       action: runAm19Limits,
@@ -156,13 +160,15 @@ export const apiMockAm19Lesson: DemoLesson = {
       id: 'redaction-config',
       title: 'Secrets must not land in a journal you will export',
       description:
-        'The journal is useful because you will copy it, export it, and paste '
-        + 'it into a ticket. Fill **Redact headers** with `authorization` and '
-        + '**Redact paths** with `$.password`, then **Save settings**.\n\n'
-        + 'Default header names already include Authorization. Narrowing the '
-        + 'list and adding a JSONPath is how you decide what this workspace is '
-        + 'allowed to remember. Apply so the running listener scrubs the next '
-        + 'request.',
+        'The journal is valuable precisely because you will copy it into a '
+        + 'ticket, a PR, or a chat — which is also why a live token landing '
+        + 'there is a real incident. **Redaction** decides, per workspace, what '
+        + 'the log is allowed to remember: header names like `authorization` '
+        + 'and JSONPaths like `$.password` are scrubbed to `[REDACTED]` before '
+        + 'anything is written.\n\n'
+        + '`Authorization` already ships in the defaults; adding `$.password` '
+        + 'shows how you extend that policy to your own payload shape. You set '
+        + 'it once, and every future capture is safe to share by default.',
       highlight: API_MOCK.RUNTIME_SETTINGS_REDACT_HEADERS,
       preAction: ensureAm19ForRedactionConfig,
       action: runAm19RedactionConfig,
@@ -172,13 +178,16 @@ export const apiMockAm19Lesson: DemoLesson = {
       id: 'prove-redaction',
       title: 'Send a real secret and watch it disappear',
       description:
-        `Watch the listen address, then POST \`${AM19_CART_PATH}\` with `
-        + '`Authorization: Bearer s3cret-token` and a JSON body that includes '
-        + '`password`. Open the new journal row.\n\n'
-        + 'The request preview shows `Bearer [REDACTED]` — the scheme stays, '
-        + 'the token does not. Then `password` is `[REDACTED]` in the body. '
-        + 'That is the proof: the mock still matched, and the log is safe to '
-        + 'share.',
+        'Configuration is a promise — this step is the proof. Against the real '
+        + `running listener, a \`POST ${AM19_CART_PATH}\` carries a genuine `
+        + '`Bearer` token and a body with a `password`: exactly the shape you '
+        + 'never want to see in a log.\n\n'
+        + 'A plain `GET /products` row is already in the journal for contrast. '
+        + 'Open the **new** row and read the request: the scheme survives '
+        + 'but the token is `Bearer [REDACTED]`, and `password` reads '
+        + '`[REDACTED]` in the body. The mock still matched and answered '
+        + 'normally — redaction changed only what was *remembered*, not what '
+        + 'happened. That is a log you can hand to anyone.',
       highlight: API_MOCK.ADDRESS,
       preAction: ensureAm19ForProveRedaction,
       action: runAm19ProveRedaction,
@@ -188,13 +197,16 @@ export const apiMockAm19Lesson: DemoLesson = {
       id: 'persistence-and-diagnostics',
       title: 'Long runs need a durable journal and a latency budget',
       description:
-        'Toggle **Persist to disk** so a capped, redacted snapshot lands under '
-        + 'the OS temp directory and survives a companion restart. Save, then '
-        + 'open the **Diagnostics** dock tab.\n\n'
-        + 'Hold **Match p95** — it should be sub-millisecond for this library — '
-        + 'then the outcome counters. Diagnostics never shows URLs, headers, '
-        + 'or bodies. It is how you know the mock is cheap without reading '
-        + 'payloads.',
+        'A long soak needs two things a live in-memory log cannot give you: a '
+        + 'record that survives a companion restart, and a way to confirm the '
+        + 'mock is cheap without reopening every request. **Persist to disk** '
+        + 'answers the first — a capped, redacted snapshot under the OS temp '
+        + 'directory.\n\n'
+        + '**Diagnostics** answers the second, and does it with counters only: '
+        + '**Match p95** (sub-millisecond for a library this size) and outcome '
+        + 'tallies — never a URL, header, or body. It is the health signal you '
+        + 'can watch on a dashboard without ever exposing what the traffic '
+        + 'contained.',
       highlight: API_MOCK.RUNTIME_SETTINGS_PERSIST,
       preAction: ensureAm19ForPersist,
       action: runAm19PersistAndDiagnostics,
@@ -204,12 +216,16 @@ export const apiMockAm19Lesson: DemoLesson = {
       id: 'console',
       title: 'Lifecycle truth: start, commit, stop, errors',
       description:
-        'Click the **Console** dock tab. These lines are what the companion '
-        + 'actually did — listener start, generation commit after Apply, stop, '
-        + 'and errors — not a pretty reconstruction.\n\n'
-        + 'When a Start looks green in the chrome but the mock is silent, this '
-        + 'is the first place to look. Hold the start and commit lines. The '
-        + 'journal is traffic; the console is the process.',
+        'When **Start** looks green but nothing answers, the journal is no '
+        + 'help — there is no traffic to show. The **Console** is the other '
+        + 'half of the story: what the companion process actually did — '
+        + 'listener start, the generation commit after each Apply, stop, and '
+        + 'any errors — not a tidy reconstruction after the fact.\n\n'
+        + 'These lines stream live from the running companion, so watch a '
+        + '**Restart** land a fresh lifecycle entry the instant it happens.\n\n'
+        + 'Hold that framing: the journal is *traffic*, the console is the '
+        + '*process*. Any time the mock’s behaviour and its status badge '
+        + 'disagree, these lifecycle lines are the first place you look.',
       highlight: API_MOCK.DOCK_TAB_CONSOLE,
       preAction: ensureAm19ForConsole,
       action: runAm19Console,
@@ -219,14 +235,17 @@ export const apiMockAm19Lesson: DemoLesson = {
       id: 'transforms-and-callbacks',
       title: 'Rewrite after render; fire webhooks after delivery',
       description:
-        'Back on **List Products**, open Response → **Outbound**. Click **+ Add** '
-        + 'under Transforms — the default is **Set header** '
-        + `\`${AM19_TRANSFORM_HEADER}: RedfireForge\`. Hold the row; the op `
-        + 'menu also has set status and replace body.\n\n'
-        + 'Then **+ Add** a callback. Fill the URL and body, then the retries '
-        + `field. Open Settings → Proxy and put \`${AM19_CALLBACK_URL}\` on the `
-        + 'allowlist. Callbacks never change the mock reply; they only fire if '
-        + 'the URL is listed.',
+        'Everything so far shaped what the mock *stores*. **Outbound** shapes '
+        + 'what it *sends* and who it *tells*. A **transform** rewrites the '
+        + 'rendered response one last time before the client reads it — here a '
+        + `set-header stamping \`${AM19_TRANSFORM_HEADER}: RedfireForge\`, with `
+        + 'set-status and replace-body waiting in the same op menu.\n\n'
+        + 'A **callback** reaches further: after the client already has its '
+        + 'reply, the mock POSTs a webhook to a downstream system — but only to '
+        + `a URL on the **Proxy allowlist** (\`${AM19_CALLBACK_URL}\`), and only `
+        + 'within a retry budget. Callbacks never touch the reply the client '
+        + 'saw, and an empty allowlist blocks every one, so nothing fires by '
+        + 'accident.',
       highlight: API_MOCK.TRANSFORM_ADD,
       preAction: ensureAm19ForTransforms,
       action: runAm19TransformsAndCallbacks,
@@ -236,13 +255,15 @@ export const apiMockAm19Lesson: DemoLesson = {
       id: 'prove-transform',
       title: 'The transform lands on a real response',
       description:
-        'Click **Apply** so the running snapshot includes the new transform. '
-        + `Fetch \`GET ${AM19_PRODUCTS}\`. Open the journal row and hold the `
-        + `response headers — \`${AM19_TRANSFORM_HEADER}: RedfireForge\` is on `
-        + 'the wire, not only in the editor.\n\n'
-        + 'That is the contract: Outbound rewrites after templates render, '
-        + 'before the client reads the body. A header you can grep in a log '
-        + 'is how you prove the mock — not the origin — answered.',
+        'An edit in the Outbound panel means nothing until it is on the wire, '
+        + 'so **Apply** publishes the snapshot and a real '
+        + `\`GET ${AM19_PRODUCTS}\` goes out. Open the journal row and read the `
+        + `response headers: \`${AM19_TRANSFORM_HEADER}: RedfireForge\` is `
+        + 'really there — not just in the editor.\n\n'
+        + 'That is the whole contract of a transform: it runs *after* templates '
+        + 'render and *before* the client reads the body. And a header you can '
+        + 'grep in a log is how you prove, months later, that the mock answered '
+        + 'a call — not the real origin.',
       highlight: API_MOCK.APPLY,
       preAction: ensureAm19ForProveTransform,
       action: runAm19ProveTransform,

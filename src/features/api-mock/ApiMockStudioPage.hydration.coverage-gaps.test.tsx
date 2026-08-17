@@ -28,6 +28,8 @@ const isTauri = vi.fn(() => false);
 vi.mock('./apiMockPersistence', () => ({
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),
   saveApiMockWorkspace: (...args: unknown[]) => saveApiMockWorkspace(...args),
+  publishApiMockWorkspace: vi.fn(),
+  publishApiMockRuntimeChanged: vi.fn(),
 }));
 vi.mock('../../shared/utils/platform', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../shared/utils/platform')>()),

@@ -1,32 +1,24 @@
 import { useEffect, useRef, useState, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  filterSelectItems,
+  flattenSelectItems,
+  isGroupedSelectItems,
+  shouldShowSelectSearch,
+} from './customSelectFilter';
+import { computeSelectMenuPos, type CustomSelectMenuAlign, type CustomSelectMenuPlacement } from './customSelectMenuPos';
+import type { CustomSelectOption, CustomSelectItems } from './customSelectTypes';
+
+export type { CustomSelectGroup, CustomSelectItems, CustomSelectOption } from './customSelectTypes';
+
+/** Alias kept so HMR never evaluates a body that still calls the old name. */
+function flattenItems(items: CustomSelectItems): CustomSelectOption[] {
+  return flattenSelectItems(items);
+}
 
 const CUSTOM_SELECT_OPEN_EVENT = 'custom-select:open';
 /** Demo / automation: set value without opening the menu (avoids flicker). */
 export const CUSTOM_SELECT_SET_VALUE_EVENT = 'custom-select:set-value';
-
-export interface CustomSelectOption {
-  value: string;
-  label: string;
-  detail?: string;
-  disabled?: boolean;
-}
-
-export interface CustomSelectGroup {
-  label: string;
-  options: CustomSelectOption[];
-}
-
-export type CustomSelectItems = CustomSelectOption[] | CustomSelectGroup[];
-
-function isGrouped(items: CustomSelectItems): items is CustomSelectGroup[] {
-  return items.length > 0 && 'options' in items[0];
-}
-
-function flattenItems(items: CustomSelectItems): CustomSelectOption[] {
-  if (isGrouped(items)) return items.flatMap(g => g.options);
-  return items;
-}
 
 /** True when the trigger (and ancestors) are not display:none / visibility:hidden. */
 function isSelectTriggerLaidOut(el: HTMLElement): boolean {
@@ -70,6 +62,22 @@ export interface CustomSelectProps {
    * Cap the open menu width (px). Ignored when `menuMatchTriggerWidth` is set.
    */
   menuMaxWidth?: number;
+  /**
+   * Show a filter field in the open menu. `'auto'` (default) turns it on when
+   * there are 8+ options — long operator/source lists stay scannable.
+   */
+  searchable?: boolean | 'auto';
+  /**
+   * `below` (default) drops under the trigger. `end` opens a wider panel to
+   * the right of the trigger (or the left if the viewport is tight).
+   */
+  menuPlacement?: CustomSelectMenuPlacement;
+  /**
+   * Horizontal alignment for `below` menus. `start` pins to the trigger's
+   * left edge (flips only if the menu would overflow). `auto` (default) uses
+   * the right-half heuristic.
+   */
+  menuAlign?: CustomSelectMenuAlign;
 }
 
 export function CustomSelect({
@@ -84,12 +92,18 @@ export function CustomSelect({
   menuMinWidth,
   menuMatchTriggerWidth = false,
   menuMaxWidth,
+  searchable = 'auto',
+  menuPlacement = 'below',
+  menuAlign = 'auto',
   ...rest
 }: CustomSelectProps) {
+  const showSearch = shouldShowSelectSearch(searchable, options);
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const selectId = useId();
 
   const testId = rest['data-testid'];
@@ -153,46 +167,17 @@ export function CustomSelect({
       return;
     }
     const rect = anchor.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const up = spaceBelow < 200;
-    // When the trigger centre is in the right half of the viewport, anchor the
-    // menu to the trigger's right edge so it opens leftward and never clips.
-    const rightHalf = rect.left + rect.width / 2 > window.innerWidth / 2;
-    const hPos = rightHalf
-      ? { right: window.innerWidth - rect.right }
-      : { left: rect.left };
-    const vPos = up
-      ? { bottom: window.innerHeight - rect.top + 3 }
-      : { top: rect.bottom + 3 };
-    // Lock width to the trigger so CSS `width: max-content` cannot balloon
-    // past the closed control (common in form rows with long option labels).
-    let minWidth = Math.max(rect.width, menuMinWidth ?? 0);
-    let width: number | undefined;
-    let maxWidth: number | undefined;
-    if (menuMatchTriggerWidth) {
-      minWidth = rect.width;
-      width = rect.width;
-      maxWidth = rect.width;
-    } else if (menuMaxWidth != null) {
-      maxWidth = menuMaxWidth;
-      minWidth = Math.min(minWidth, menuMaxWidth);
-    }
-    const next: {
-      left?: number;
-      right?: number;
-      minWidth: number;
-      width?: number;
-      maxWidth?: number;
-      top?: number;
-      bottom?: number;
-    } = {
-      ...hPos,
-      minWidth,
-      ...(width != null ? { width } : {}),
-      ...(maxWidth != null ? { maxWidth } : {}),
-      ...vPos,
-    };
-    setOpenUp(up);
+    const next = computeSelectMenuPos({
+      rect,
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      placement: menuPlacement,
+      menuAlign,
+      menuMinWidth,
+      menuMaxWidth,
+      menuMatchTriggerWidth,
+      searchable: shouldShowSelectSearch(searchable, options),
+    });
+    setOpenUp(next.openUp);
     setMenuPos((prev) => {
       if (
         prev
@@ -206,9 +191,10 @@ export function CustomSelect({
       ) {
         return prev;
       }
-      return next;
+      const { openUp: _openUp, ...pos } = next;
+      return pos;
     });
-  }, [menuMatchTriggerWidth, menuMaxWidth, menuMinWidth]);
+  }, [menuAlign, menuMatchTriggerWidth, menuMaxWidth, menuMinWidth, menuPlacement, options, searchable]);
 
   useEffect(() => {
     if (!open) { setMenuPos(null); return; }
@@ -255,6 +241,23 @@ export function CustomSelect({
     }
   }, [open, menuPos]);
 
+  const flat = flattenItems(options);
+  const selected = flat.find(o => o.value === value);
+  const displayText = selected?.label ?? placeholder ?? '';
+  const isPlaceholder = !selected;
+  const visibleItems = filterSelectItems(options, query);
+  const visibleFlat = flattenItems(visibleItems);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+      return;
+    }
+    if (!showSearch) return;
+    const frame = window.requestAnimationFrame(() => searchRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, showSearch]);
+
   const announceOpen = useCallback(() => {
     document.dispatchEvent(new CustomEvent(CUSTOM_SELECT_OPEN_EVENT, { detail: { id: selectId } }));
   }, [selectId]);
@@ -270,11 +273,6 @@ export function CustomSelect({
       setOpen(false);
     }
   }, [announceOpen, disabled, open]);
-
-  const flat = flattenItems(options);
-  const selected = flat.find(o => o.value === value);
-  const displayText = selected?.label ?? placeholder ?? '';
-  const isPlaceholder = !selected;
 
   const handleSelect = (val: string) => {
     onChange(val);
@@ -305,11 +303,15 @@ export function CustomSelect({
       role="option"
       data-value={o.value}
       aria-selected={value === o.value}
-      className={`cs-item${value === o.value ? ' active' : ''}${o.disabled ? ' disabled' : ''}`}
+      className={`cs-item${value === o.value ? ' active' : ''}${o.disabled ? ' disabled' : ''}${o.swatch ? ' cs-item--swatch' : ''}`}
       onClick={() => { if (!o.disabled) handleSelect(o.value); }}
       disabled={o.disabled}
     >
-      <span className="cs-item-label">{o.label}</span>
+      {o.swatch && <span className="cs-swatch" style={{ background: o.swatch }} aria-hidden />}
+      <span
+        className={`cs-item-label${o.swatch ? ' cs-item-label--method' : ''}`}
+        style={o.swatch ? { color: o.swatch } : undefined}
+      >{o.label}</span>
       {o.detail && <span className="cs-item-detail">{o.detail}</span>}
       {value === o.value && <span className="cs-check">✓</span>}
     </button>
@@ -342,7 +344,8 @@ export function CustomSelect({
         aria-label={ariaLabel}
         disabled={disabled}
       >
-        <span className="cs-text">
+        {selected?.swatch && <span className="cs-swatch" style={{ background: selected.swatch }} aria-hidden />}
+        <span className="cs-text" style={selected?.swatch ? { color: selected.swatch, fontWeight: 700 } : undefined}>
           {displayText}
           {showDetailInTrigger && selected?.detail
             ? <span className="cs-text-detail"> ({selected.detail})</span>
@@ -352,7 +355,7 @@ export function CustomSelect({
       </button>
       {open && menuPos && createPortal(
         <div
-          className={`cs-menu${openUp ? ' cs-menu-up' : ''}`}
+          className={`cs-menu${openUp ? ' cs-menu-up' : ''}${showSearch ? ' cs-menu--searchable' : ''}${menuPlacement === 'end' ? ' cs-menu--end' : ''}`}
           role="listbox"
           ref={menuRef}
           style={{
@@ -372,14 +375,45 @@ export function CustomSelect({
             ...(menuPos.bottom !== undefined ? { bottom: menuPos.bottom } : {}),
           }}
         >
-          {isGrouped(options)
-            ? options.map(g => (
-                <div key={g.label} className="cs-group">
+          {showSearch && (
+            <div className="cs-search-wrap">
+              <input
+                ref={searchRef}
+                className="cs-search"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => {
+                  e.stopPropagation();
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    if (query) setQuery('');
+                    else setOpen(false);
+                    return;
+                  }
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  const first = visibleFlat.find(o => !o.disabled);
+                  if (first) handleSelect(first.value);
+                }}
+                placeholder="Filter…"
+                aria-label="Filter options"
+                data-testid={testId ? `${testId}-search` : 'cs-search'}
+              />
+            </div>
+          )}
+          {visibleFlat.length === 0 ? (
+            <div className="cs-empty" data-testid="cs-empty">No matching options</div>
+          ) : isGroupedSelectItems(visibleItems)
+            ? visibleItems.map(g => (
+                <div
+                  key={g.label}
+                  className={`cs-group${g.options.some(o => o.value === value) ? ' cs-group--selected' : ''}`}
+                >
                   <div className="cs-group-label">{g.label}</div>
                   {g.options.map(renderOption)}
                 </div>
               ))
-            : options.map(renderOption)
+            : visibleItems.map(renderOption)
           }
         </div>,
         document.body

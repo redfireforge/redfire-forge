@@ -58,6 +58,7 @@ test.describe('Demo lesson AM-22 — Workflow Orchestration', () => {
     await expect(page.locator(WF.PAL_API_MOCK_APPLY)).toBeVisible();
     await expect(page.locator(WF.PAL_API_MOCK_RESET)).toBeVisible();
     await expect(page.locator(WF.PAL_API_MOCK_STOP)).toBeVisible();
+    await expect(page.locator(WF.PAL_SEARCH)).toHaveValue('Mock');
   });
 
   test('drops a Start Mock node after the second step', async ({ page }) => {

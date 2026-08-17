@@ -16,6 +16,15 @@ export function ApiMockSimulateRenderedPane({ result }: Props) {
   }, [rawBody]);
 
   const displayBody = showPretty ? pretty : rawBody;
+  const faultKind = result.preview?.fault;
+  const hasFault = Boolean(faultKind && faultKind !== 'none');
+  const wireBody = result.preview?.wireBody;
+  const dribbleIncomplete = faultKind === 'dribble' && wireBody != null && wireBody !== rawBody;
+  const statusClass = result.preview?.httpCompleted === false
+    ? 'danger'
+    : hasFault
+      ? 'warning'
+      : result.renderedResponse && result.renderedResponse.status < 400 ? 'success' : 'warning';
 
   return (
     <div className="am-editor-body am-sim-fill-pane" data-testid="api-mock-sim-rendered">
@@ -23,19 +32,22 @@ export function ApiMockSimulateRenderedPane({ result }: Props) {
         <>
           <div className="am-row am-sim-rendered-meta">
             <span
-              className={`am-badge ${result.preview?.httpCompleted === false ? 'danger' : result.renderedResponse.status < 400 ? 'success' : 'warning'}`}
+              className={`am-badge ${statusClass}`}
               data-testid="api-mock-sim-rendered-status"
             >
               {result.preview?.httpCompleted === false ? '—' : result.renderedResponse.status}
             </span>
+            {hasFault && result.preview?.httpCompleted !== false && (
+              <span className="am-hint">in headers</span>
+            )}
             <span className="am-badge">{result.renderedResponse.contentType ?? result.renderedResponse.headers?.['content-type']?.[0] ?? '—'}</span>
             {result.preview && (
               <span className="am-badge info" data-testid="api-mock-sim-virtual-delay">
                 Virtual delay {result.preview.virtualDelayMs} ms
               </span>
             )}
-            {result.preview?.fault && result.preview.fault !== 'none' && (
-              <span className="am-badge warning">FAULT: {result.preview.fault}</span>
+            {hasFault && (
+              <span className="am-badge warning">FAULT: {faultKind}</span>
             )}
             <span className="am-spacer" />
             <button
@@ -51,6 +63,28 @@ export function ApiMockSimulateRenderedPane({ result }: Props) {
             <div className="am-notice warning" style={{ marginTop: 10 }}>
               <span>No HTTP body would reach the client — connection-level fault ({result.preview.fault}).</span>
             </div>
+          ) : dribbleIncomplete ? (
+            <>
+              <div className="am-notice warning" style={{ marginTop: 10 }} data-testid="api-mock-sim-dribble-notice">
+                <span>
+                  Headers went out as {result.renderedResponse.status}. FAIL is the dribble fault,
+                  not an HTTP error. The client only received the chunks on the wire — not the
+                  intended body.
+                </span>
+              </div>
+              <div data-testid="api-mock-sim-wire-section">
+                <div className="am-section-heading">On the wire</div>
+                <pre className="am-code-block am-sim-fill-code" data-testid="api-mock-sim-wire-body">
+                  {wireBody || '(no bytes)'}
+                </pre>
+              </div>
+              <div data-testid="api-mock-sim-intended-section">
+                <div className="am-section-heading">Intended body</div>
+                <pre className="am-code-block am-sim-fill-code" data-testid="api-mock-sim-rendered-body">
+                  {displayBody}
+                </pre>
+              </div>
+            </>
           ) : (
             <pre className="am-code-block am-sim-fill-code" data-testid="api-mock-sim-rendered-body">
               {displayBody}

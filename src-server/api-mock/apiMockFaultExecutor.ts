@@ -4,6 +4,7 @@
  */
 import type http from 'node:http';
 import type { ApiMockBehaviorV1, ApiMockFaultKind } from '../../src/shared/api-mock/contracts.js';
+import { clampTimeoutHoldMs } from '../../src/shared/api-mock/defaults.js';
 import { stripHopByHopHeaders } from '../../src/shared/api-mock/proxyPolicy.js';
 
 export interface FaultDeliveryInput {
@@ -82,7 +83,7 @@ export function deliverWithFault(input: FaultDeliveryInput): Promise<FaultDelive
   }
 
   if (fault === 'timeout') {
-    const holdMs = Math.max(1, Math.min(behavior.longRunningMs ?? longRunningMaxMs, longRunningMaxMs));
+    const holdMs = clampTimeoutHoldMs(behavior.longRunningMs, longRunningMaxMs);
     return new Promise(resolve => {
       let settled = false;
       // Assigned after callbacks are defined so early-settle paths can still clear it safely.

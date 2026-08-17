@@ -1,16 +1,27 @@
 import type {
   ApiMockCapturedRequestV1,
+  ApiMockPredicateGroupV1,
+  ApiMockPredicateResultV1,
   ApiMockRouteV1,
   ApiMockSimulationResultV1,
   ApiMockSimulationSampleV1,
 } from '../../../shared/api-mock/contracts';
+import { combinatorLabel } from '../../../shared/api-mock/predicateEvaluatorHelpers';
+import { httpMethodSelectOptions } from '../../../shared/constants/httpMethodColors';
 import { concreteMockPath } from '../apiMockPageHelpers';
 
+/** Stable 5-digit seed for one Simulate session (weighted picks, templates, jitter). */
+export function createSimulateReplaySeed(random: () => number = Math.random): string {
+  return String(Math.floor(random() * 90_000) + 10_000);
+}
+
+/** Hint for the optional replay-seed field (kept exported so HMR can resolve older importers). */
 export const SIMULATE_SEED_HELP =
   'Optional. Same number repeats random choices — weighted variants, {{randomInt}} / faker templates, and delay jitter. Change it only when you want a different random outcome.';
 
-export const SIMULATE_METHOD_OPTIONS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
-  .map(m => ({ value: m, label: m }));
+export const SIMULATE_METHOD_OPTIONS = httpMethodSelectOptions(
+  ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
+);
 
 export function isAutoRouteSample(id: string): boolean {
   return id.startsWith('auto-');
@@ -26,9 +37,21 @@ export function parseSimulateHeaderLines(text: string): Record<string, string> {
 }
 
 export function capturedHeadersFromText(text: string): Record<string, string[]> {
-  return Object.fromEntries(
-    Object.entries(parseSimulateHeaderLines(text)).map(([k, v]) => [k, [v]]),
-  );
+  return lowercaseHeaderMap(parseSimulateHeaderLines(text));
+}
+
+/** Matcher lookups are lower-case. Saved / From-rules samples must use the same keys. */
+export function lowercaseHeaderMap(
+  headers: Record<string, string | string[] | undefined> | undefined,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(headers ?? {})) {
+    if (v == null) continue;
+    const key = k.toLowerCase();
+    const values = Array.isArray(v) ? v : [v];
+    out[key] = out[key] ? [...out[key], ...values] : [...values];
+  }
+  return out;
 }
 
 export function headersToText(headers: Record<string, string | string[]>): string {
@@ -40,6 +63,14 @@ export function outcomeBadge(outcome: string): string {
   if (outcome === 'ambiguous') return 'warning';
   if (outcome === 'fault') return 'warning';
   return 'danger';
+}
+
+export function simulateSampleBadge(result?: ApiMockSimulationResultV1): 'PASS' | 'CONFLICT' | 'FAIL' | null {
+  if (!result) return null;
+  if (result.passed === true) return 'PASS';
+  if (result.outcome === 'ambiguous') return 'CONFLICT';
+  if (result.passed === false) return 'FAIL';
+  return 'PASS';
 }
 
 export function suggestedSimulateSampleName(method: string, path: string): string {
@@ -64,6 +95,22 @@ export function mergeSimulateSamples(
   return next;
 }
 
+/** Exact header rows on an All-of group — enough for a From-rules probe to satisfy that rule. */
+export function exactHeadersFromAllOf(
+  group: ApiMockPredicateGroupV1 | undefined,
+): Record<string, string[]> {
+  if (!group || group.combinator !== 'all') return {};
+  const headers: Record<string, string[]> = {};
+  for (const child of group.children) {
+    if ('combinator' in child) continue;
+    if (child.source !== 'header' || child.operator !== 'exact') continue;
+    const key = child.selector?.trim();
+    if (!key || child.expected == null) continue;
+    headers[key.toLowerCase()] = [String(child.expected)];
+  }
+  return headers;
+}
+
 export function buildAutoRouteSamples(routes: ApiMockRouteV1[]): ApiMockSimulationSampleV1[] {
   return routes.slice(0, 5).map((r) => ({
     id: `auto-${r.id}`,
@@ -75,7 +122,7 @@ export function buildAutoRouteSamples(routes: ApiMockRouteV1[]): ApiMockSimulati
       rawPath: concreteMockPath(r.path.value),
       query: {},
       cookies: {},
-      headers: {},
+      headers: exactHeadersFromAllOf(r.predicates),
       body: null,
       bodyTruncated: false,
       receivedAt: new Date().toISOString(),
@@ -103,6 +150,14 @@ export function createSavedSimulationSample(
         }
       : { outcome: 'matched' },
   };
+}
+
+export function reannotateSimulatePass(
+  sample: ApiMockSimulationSampleV1,
+  res: ApiMockSimulationResultV1,
+): ApiMockSimulationResultV1 {
+  const { passed: _ignored, ...rest } = res;
+  return annotateSimulatePass(sample, rest as ApiMockSimulationResultV1);
 }
 
 export function annotateSimulatePass(
@@ -160,6 +215,72 @@ export function simulationTraceNoticePreview(
   resultCount: number,
 ): string {
   return JSON.stringify({ serverId, seed, generation: 'draft', resultCount }, null, 2);
+}
+
+/** Failed rows first when the candidate missed — None-of can fail while every leaf is green. */
+export function orderTracePredicateResults(
+  results: ApiMockPredicateResultV1[],
+  overallMatch: boolean,
+): ApiMockPredicateResultV1[] {
+  if (overallMatch || results.length < 2) return results;
+  return [...results].sort((a, b) => Number(a.passed) - Number(b.passed));
+}
+
+export function predicateTraceSource(pr: ApiMockPredicateResultV1): string {
+  if (pr.combinator) return combinatorLabel(pr.combinator);
+  return pr.source;
+}
+
+/** Direct child of a recorded None-of group — the leaf's raw pass is inverted for display. */
+export function isNoneOfChild(
+  pr: ApiMockPredicateResultV1,
+  all: ApiMockPredicateResultV1[],
+): boolean {
+  if (!pr.groupId) return false;
+  return all.some(row => row.combinator === 'not' && row.predicateId === `group:${pr.groupId}`);
+}
+
+/** Green/red for the trace: None of wants its children to miss. */
+export function predicateTraceSatisfied(
+  pr: ApiMockPredicateResultV1,
+  all: ApiMockPredicateResultV1[] = [],
+): boolean {
+  if (!pr.evaluated) return false;
+  if (isNoneOfChild(pr, all)) return !pr.passed;
+  return pr.passed;
+}
+
+export function predicateTraceDetail(pr: ApiMockPredicateResultV1): string {
+  if (pr.reason) {
+    const prefix = `${pr.source} `;
+    if (!pr.combinator && pr.reason.startsWith(prefix)) return pr.reason.slice(prefix.length);
+    return pr.reason;
+  }
+  if (pr.selector) return `${pr.selector} · ${pr.operator}`;
+  return pr.operator;
+}
+
+export function predicateTraceNote(
+  pr: ApiMockPredicateResultV1,
+  all: ApiMockPredicateResultV1[] = [],
+): string {
+  if (!pr.evaluated) return 'skipped';
+  const ok = predicateTraceSatisfied(pr, all);
+  if (pr.combinator || isNoneOfChild(pr, all)) return ok ? 'held' : 'rejected';
+  return ok ? 'passed' : 'failed';
+}
+
+export function nearMissConditionSummary(
+  nearMisses: Array<{ routeName?: string; failedPredicates?: Array<{ reason?: string }> }>,
+): string {
+  const names = nearMisses.map(nm => nm.routeName).filter(Boolean).join(', ');
+  const reasons = [...new Set(
+    nearMisses.flatMap(nm => (nm.failedPredicates ?? []).map(fp => fp.reason).filter((r): r is string => Boolean(r && r !== 'failed'))),
+  )];
+  const head = names
+    ? `${names} matched method/path but failed conditions`
+    : 'Matched method/path but failed conditions';
+  return reasons.length ? `${head} — ${reasons.join('; ')}` : `${head}.`;
 }
 
 export function downloadSimulationTrace(

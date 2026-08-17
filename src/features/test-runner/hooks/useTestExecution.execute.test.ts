@@ -73,7 +73,7 @@ describe('useTestExecution - Execute', () => {
   beforeEach(() => {
     mockSetupApiMockFixture.mockResolvedValue({
       ok: true,
-      handle: { port: 4010, serverId: 'mock-1', generation: 1, stop: vi.fn() },
+      handle: { port: 4010, serverId: 'mock-1', generation: 1, restoreRunning: false, stop: vi.fn() },
     });
     mockTeardownApiMockFixture.mockResolvedValue(undefined);
     mockApplyApiMockFixtureBaseUrl.mockImplementation((scenarios: unknown[]) => scenarios);
@@ -690,9 +690,55 @@ describe('useTestExecution - Execute', () => {
     });
   });
 
-  it('skips base url override when api mock fixture opts out', async () => {
+  it('does not mark the fixture stopped when isolate is off and Studio was already running', async () => {
+    mockSetupApiMockFixture.mockResolvedValueOnce({
+      ok: true,
+      handle: { port: 4010, serverId: 'mock-1', generation: 1, restoreRunning: true },
+    });
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+
+    const { result } = renderHook(() => useTestExecution());
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()], {
+        apiMockFixture: { enabled: true, serverId: 'mock-1', isolateRun: false },
+      });
+    });
+
+    expect(mockTeardownApiMockFixture).toHaveBeenCalled();
+    expect(result.current.fixtureStatus).toEqual({
+      phase: 'running',
+      port: 4010,
+      serverId: 'mock-1',
+    });
+  });
+
+  it('marks the fixture stopped when isolate is off and Studio was down before the run', async () => {
+    mockSetupApiMockFixture.mockResolvedValueOnce({
+      ok: true,
+      handle: { port: 4010, serverId: 'mock-1', generation: 1, restoreRunning: false },
+    });
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+
+    const { result } = renderHook(() => useTestExecution());
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()], {
+        apiMockFixture: { enabled: true, serverId: 'mock-1', isolateRun: false },
+      });
+    });
+
+    expect(result.current.fixtureStatus).toEqual({
+      phase: 'stopped',
+      port: 4010,
+      serverId: 'mock-1',
+    });
+  });
+
+  it('rewrites scenario URLs to the mock even if a persisted fixture opted out', async () => {
     mockRunTest.mockResolvedValue({ results: [createMockResult()] });
     const scenarios = [createMockScenario()];
+    mockApplyApiMockFixtureBaseUrl.mockReturnValue([createMockScenario('sc-overridden')]);
 
     const { result } = renderHook(() => useTestExecution());
 
@@ -703,9 +749,9 @@ describe('useTestExecution - Execute', () => {
       });
     });
 
-    expect(mockApplyApiMockFixtureBaseUrl).not.toHaveBeenCalled();
+    expect(mockApplyApiMockFixtureBaseUrl).toHaveBeenCalledWith(scenarios, 'http://127.0.0.1:4010');
     expect(mockSetupApiMockFixture).toHaveBeenCalled();
-    expect(result.current.finalRun?.baseUrl).toBe('http://original.test');
+    expect(result.current.finalRun?.baseUrl).toBe('http://127.0.0.1:4010');
   });
 
   it('surfaces api mock fixture setup failure as execution error', async () => {

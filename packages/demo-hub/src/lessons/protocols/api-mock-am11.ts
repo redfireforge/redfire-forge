@@ -66,7 +66,7 @@ const DIAGRAM = `
   <text x="372" y="294" fill="#64748b" font-family="system-ui" font-size="10">Never a silently empty field.</text>
 
   <rect x="26" y="336" width="648" height="70" rx="8" fill="#1e293b" stroke="#22c55e" />
-  <text x="42" y="364" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Type {{  ·  the completion list names every helper</text>
+  <text x="42" y="364" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Type {{  ·  Browse helpers lists the same catalog</text>
   <text x="42" y="386" fill="#a8b8cc" font-family="system-ui" font-size="11">Apply, then GET /products/42 twice. The journal shows 42 echoed and a fresh uuid each call.</text>
 </svg>
 `;
@@ -78,14 +78,15 @@ export const apiMockAm11Lesson: DemoLesson = {
   name: 'Dynamic Responses: Templates, Faker & Body Mapper',
   description:
     'Start from a rule that answers GET /products/:id with a hard-coded JSON '
-    + 'object. Type {{ to open Monaco completions, echo the request with '
-    + 'pathParam / query / header / cookie / jsonPath, mint uuid and now values, '
-    + 'grow a body with repeat, fill names with faker, add a tenant server '
-    + 'variable, Apply and fetch twice so the uuid changes, Map body from the '
-    + 'request, then break a helper and watch the diagnostic clear when you fix it.',
+    + 'object. Type {{ to open Monaco completions, then Browse helpers for the '
+    + 'full searchable catalog. Echo the request with pathParam / query / header '
+    + '/ cookie / jsonPath, mint uuid and now values, grow a body with repeat, '
+    + 'fill names with faker, add a tenant server variable, Apply and fetch twice '
+    + 'so the uuid changes, Map body from the request, then break a helper and '
+    + 'watch the diagnostic clear when you fix it.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 1,
+  contentVersion: 2,
   concept: {
     title: 'A template is evaluated per request — never a second static blob.',
     body:
@@ -95,7 +96,9 @@ export const apiMockAm11Lesson: DemoLesson = {
       + `the payload. This lesson starts from \`GET ${AM11_PATH_TEMPLATE}\` `
       + 'answering a hard-coded Widget. Nothing about the body is dynamic yet.\n\n'
       + 'Type `{{` in the Monaco editor and the **completion list** names every '
-      + 'helper, documented inline — you do not memorize the catalog. '
+      + 'helper, documented inline. **Browse helpers** under the body opens the '
+      + 'same catalog as a searchable list — Copy or Insert any snippet. You do '
+      + 'not memorize the catalog. '
       + `\`{{pathParam 'id'}}\` echoes \`${AM11_PROVE_PATH.split('?')[0]}\`. `
       + '`{{query}}`, `{{header}}`, and `{{cookie}}` take the field name. '
       + '`{{jsonPath \'$.items[0].sku\'}}` reads the request body. '
@@ -109,7 +112,7 @@ export const apiMockAm11Lesson: DemoLesson = {
       + 'Apply, then fetch twice: the journal shows `42` echoed and a **different '
       + 'uuid** each call.',
     keyTerms: [
-      { term: 'Template helper', definition: 'A {{name}} expression evaluated when the mock renders a response. Completions list every helper when you type {{.' },
+      { term: 'Template helper', definition: 'A {{name}} expression evaluated when the mock renders a response. Type {{ for completions, or Browse helpers for the full searchable catalog.' },
       { term: 'pathParam', definition: 'Reads a named capture from the matched path. GET /products/42 fills {{pathParam \'id\'}} with 42.' },
       { term: 'jsonPath', definition: 'Selects a value from the request JSON body. Array indexes like $.items[0].sku are supported.' },
       { term: 'faker', definition: 'A curated subset of realistic names, emails, and places. The preview draws a new value when the body changes.' },
@@ -130,9 +133,11 @@ export const apiMockAm11Lesson: DemoLesson = {
         'The corpus still says `{"id":"static","name":"Widget"}` — that is the '
         + 'problem, not the lesson. Hold the **body editor**. A client that '
         + 'called `/products/42` will never see `42` in that blob.\n\n'
-        + 'Click the editor and type `{{`. The **completion list** is every '
-        + 'helper, documented inline: pathParam, query, header, cookie, uuid, '
-        + 'now, faker, jsonPath. Hold it. You do not memorize this catalog.',
+        +         'Click the editor and type `{{`. The **completion list** names every '
+        + 'helper, documented inline. Then **Browse helpers** under the editor '
+        + 'opens the same catalog as a searchable list — Request, Faker, Copy, '
+        + 'Insert. Search `uuid`, hold the row, then **Close**. You do not '
+        + 'memorize this catalog.',
       highlight: API_MOCK.VARIANT_BODY,
       preAction: ensureAm11Workspace,
       action: runAm11Completions,

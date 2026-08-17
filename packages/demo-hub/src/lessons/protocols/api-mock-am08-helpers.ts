@@ -26,6 +26,7 @@ import {
   fillBeat,
   revealBeat,
   reviewAndRunSimulation,
+  closeSimulateWorkspace,
   selectBeat,
   spotlightBeat,
   spotlightElementBeat,
@@ -51,7 +52,7 @@ export const AM08_TIMING = {
   /** Filled Simulate path / headers, held so the viewer can read them before Run. */
   reviewForm: 2200,
   /** Ring on **Run simulation** before the click. */
-  beforeRun: 2200,
+  beforeRun: 2600,
 } as const;
 
 const T = AM08_TIMING;
@@ -96,7 +97,7 @@ async function am08Reveal(
   selector: string,
   hold: number = T.panelReady,
 ): Promise<void> {
-  await revealBeat(ctx, selector, { hold });
+  await revealBeat(ctx, selector, { hold, timeout: 8_000 });
 }
 
 async function am08Look(ctx: DemoActionContext, selector: string): Promise<void> {
@@ -145,6 +146,12 @@ export const AM08_SIM_HEADERS = [
 /** Live-edited 409 body — placeholders stay so Simulate can fill them. */
 export const AM08_AMBIGUITY_BODY =
   '{"error":"catalog_ambiguous","requestId":"{{requestId}}","competingRules":{{competingRuleCount}}}';
+
+/** Distinct from earlier `GET /catalog` saves so this run is not a leftover 200. */
+export const AM08_LOGIC_SAMPLE = `GET ${AM08_PATH} — equal priority`;
+export const AM08_PRIORITY_SAMPLE = `GET ${AM08_PATH} — highest priority`;
+export const AM08_REJECT_SAMPLE = `GET ${AM08_PATH} — two matches`;
+export const AM08_SPECIFICITY_SAMPLE = `GET ${AM08_PATH} — specificity`;
 
 const AM08_ROOT_GROUP_ID = 'grp-am08-root';
 const AM08_ANY_GROUP_ID = 'grp-am08-any';
@@ -352,10 +359,9 @@ export async function cleanupAm08(): Promise<void> {
 
 // ── Overlay hygiene ─────────────────────────────────────────────────────────
 
-export async function closeAm08Simulate(ctx: DemoActionContext): Promise<void> {
+export async function closeAm08Simulate(ctx: DemoActionContext, opts: { review?: boolean } = {}): Promise<void> {
   if (!isAm08SimulateOpen()) return;
-  await ctx.click(API_MOCK.SIMULATE_CLOSE);
-  await ctx.delay(AM_DEMO_TIMING.panelReady);
+  await closeSimulateWorkspace(ctx, opts);
 }
 
 export async function closeAm08Settings(ctx: DemoActionContext): Promise<void> {
@@ -465,6 +471,8 @@ export async function ensureAm08FullLogic(ctx: DemoActionContext): Promise<void>
 
 /** Guard — full tree, Regional raised to 20, quiet policy still highest-priority. */
 export async function ensureAm08PriorityRaised(ctx: DemoActionContext): Promise<void> {
+  await closeAm08Simulate(ctx);
+  await closeAm08Settings(ctx);
   await setAm08Regional(ctx, FULL_LOGIC, AM08_PRIORITY_RAISED);
   patchDefaultSelection();
 }
@@ -522,17 +530,27 @@ async function openAm08Simulate(ctx: DemoActionContext): Promise<void> {
  * Shape the overlapping catalog request and hold on the verdict. After path and
  * headers are filled the viewer gets a dedicated review pass before **Run simulation**.
  */
-async function runAm08Simulation(ctx: DemoActionContext): Promise<string> {
+async function runAm08Simulation(
+  ctx: DemoActionContext,
+  opts?: { sampleName?: string; saveSample?: boolean; skipReview?: boolean },
+): Promise<string> {
   await ensureAdHocSimulateForm(ctx, T.tabSwitch);
   await am08Fill(ctx, API_MOCK.SIMULATE_PATH, AM08_PATH);
-  await am08Fill(ctx, API_MOCK.SIMULATE_HEADERS, AM08_SIM_HEADERS, T.simOutcome);
+  await am08Fill(
+    ctx,
+    API_MOCK.SIMULATE_HEADERS,
+    AM08_SIM_HEADERS,
+    opts?.skipReview ? T.fieldFilled : T.simOutcome,
+  );
   await reviewAndRunSimulation(ctx, {
-    review: T.reviewForm,
-    beforeRun: T.beforeRun,
-    sampleName: `GET ${AM08_PATH}`,
+    review: opts?.skipReview ? T.look : T.reviewForm,
+    beforeRun: opts?.skipReview ? T.look : T.beforeRun,
+    sampleName: opts?.sampleName ?? AM08_LOGIC_SAMPLE,
+    digest: opts?.skipReview ? false : undefined,
+    saveSample: opts?.saveSample,
   });
   await am08Reveal(ctx, API_MOCK.SIMULATE_RESULT);
-  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, opts?.skipReview ? T.look : T.simOutcome);
   return am08SimOutcome();
 }
 
@@ -621,14 +639,14 @@ export async function runAm08NotGroup(ctx: DemoActionContext): Promise<void> {
  */
 export async function runAm08ProveLogic(ctx: DemoActionContext): Promise<string> {
   await openAm08Simulate(ctx);
-  const outcome = await runAm08Simulation(ctx);
+  const outcome = await runAm08Simulation(ctx, { sampleName: AM08_LOGIC_SAMPLE });
   await am08Aim(ctx, API_MOCK.SIMULATE_TAB_TRACE, T.tabSwitch);
   await am08Trace(ctx, am08CandidateByName(AM08_REGIONAL_NAME), T.look);
   await am08Trace(ctx, am08TraceRowByText(AM08_TENANT_EU), T.payoff);
   await am08Trace(ctx, am08TraceRowByText(AM08_TENANT_US), T.look);
   await am08Break(ctx);
   await am08Trace(ctx, am08CandidateByName(AM08_DEFAULT_NAME), T.payoff);
-  await closeAm08Simulate(ctx);
+  await closeAm08Simulate(ctx, { review: true });
   return outcome;
 }
 
@@ -650,12 +668,19 @@ export async function runAm08Priority(ctx: DemoActionContext): Promise<void> {
  */
 export async function runAm08HighestPriority(ctx: DemoActionContext): Promise<string> {
   await openAm08Simulate(ctx);
-  const outcome = await runAm08Simulation(ctx);
+  const outcome = await runAm08Simulation(ctx, { sampleName: AM08_PRIORITY_SAMPLE });
   await am08Payoff(ctx, API_MOCK.SIMULATE_WINNER);
   await am08Trace(ctx, am08CandidateByName(AM08_REGIONAL_NAME), T.look);
   await am08Trace(ctx, am08CandidateByName(AM08_DEFAULT_NAME), T.payoff);
-  await closeAm08Simulate(ctx);
+  await closeAm08Simulate(ctx, { review: true });
   return outcome;
+}
+
+function applyAm08RejectMultiplePolicy(): void {
+  patchApiMockServerSettings({
+    multipleMatchPolicy: 'reject_multiple',
+    ambiguityBody: AM08_AMBIGUITY_BODY,
+  });
 }
 
 /**
@@ -663,19 +688,39 @@ export async function runAm08HighestPriority(ctx: DemoActionContext): Promise<st
  * the 409 body, then prove it in Simulate.
  */
 export async function runAm08RejectMultiple(ctx: DemoActionContext): Promise<string> {
+  await closeAm08Simulate(ctx);
   await openAm08SelectionSettings(ctx);
   await am08Select(ctx, API_MOCK.SETTINGS_MULTIPLE_MATCH, 'reject_multiple');
-  await am08Payoff(ctx, API_MOCK.SETTINGS_MULTIPLE_MATCH);
-  await am08Look(ctx, API_MOCK.SETTINGS_AMBIGUITY_STATUS);
-  await am08Fill(ctx, API_MOCK.SETTINGS_AMBIGUITY_BODY, AM08_AMBIGUITY_BODY, T.payoff);
-  await am08Payoff(ctx, API_MOCK.SETTINGS_AMBIGUITY_BODY);
+  await spotlightBeat(ctx, API_MOCK.SETTINGS_AMBIGUITY_STATUS, AM_DEMO_TIMING.look);
+  await fillBeat(ctx, API_MOCK.SETTINGS_AMBIGUITY_BODY, AM08_AMBIGUITY_BODY, {
+    look: AM_DEMO_TIMING.look,
+    hold: T.fieldFilled,
+  });
   await saveAm08Settings(ctx);
-  await am08Break(ctx);
+  // Belt: UI Save can persist the previous policy if the select did not commit.
+  applyAm08RejectMultiplePolicy();
 
   await openAm08Simulate(ctx);
-  const outcome = await runAm08Simulation(ctx);
-  await am08Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
-  await am08Payoff(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
+  // Compact Simulate so Acting still has time to open **Rendered response**.
+  let outcome = await runAm08Simulation(ctx, {
+    sampleName: AM08_REJECT_SAMPLE,
+    skipReview: true,
+  });
+  if (!/AMBIGUOUS/i.test(outcome)) {
+    applyAm08RejectMultiplePolicy();
+    await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.look, hold: 0 });
+    await am08Reveal(ctx, API_MOCK.SIMULATE_RESULT);
+    outcome = am08SimOutcome();
+  }
+  await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, {
+    look: T.look,
+    hold: AM_DEMO_TIMING.tabSwitch,
+  });
+  await revealBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, {
+    timeout: 4_000,
+    hold: AM_DEMO_TIMING.panelReady,
+  });
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, T.payoff);
   await closeAm08Simulate(ctx);
   return outcome;
 }
@@ -684,17 +729,16 @@ export async function runAm08RejectMultiple(ctx: DemoActionContext): Promise<str
  * Step 8 — equal priority again; specificity scores the matchers and Regional wins.
  */
 export async function runAm08Specificity(ctx: DemoActionContext): Promise<string> {
-  await am08Payoff(ctx, API_MOCK.PRIORITY_INPUT);
-  await am08Break(ctx);
   await openAm08SelectionSettings(ctx);
-  await am08Look(ctx, API_MOCK.SETTINGS_MULTIPLE_MATCH);
   await am08Select(ctx, API_MOCK.SETTINGS_EQUAL_POLICY, 'specificity_then_id');
   await am08Payoff(ctx, API_MOCK.SETTINGS_EQUAL_POLICY);
   await saveAm08Settings(ctx);
-  await am08Break(ctx);
 
   await openAm08Simulate(ctx);
-  const outcome = await runAm08Simulation(ctx);
+  const outcome = await runAm08Simulation(ctx, {
+    sampleName: AM08_SPECIFICITY_SAMPLE,
+    skipReview: true,
+  });
   await am08Look(ctx, API_MOCK.SIMULATE_WINNER);
   await am08Payoff(ctx, API_MOCK.SIMULATE_SPECIFICITY);
   await am08Payoff(ctx, API_MOCK.SIMULATE_TIMELINE_POLICY);

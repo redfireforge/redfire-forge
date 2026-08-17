@@ -10,6 +10,7 @@ mod engine;
 mod faker;
 mod journal;
 mod listener;
+mod listener_http;
 mod matchers;
 mod outbound;
 mod path_match;

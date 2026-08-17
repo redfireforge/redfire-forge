@@ -76,6 +76,7 @@ export const HAR = {
 
   // ── Test Runner (TH-4) ────────────────────────────────────────
   HOST_SELECTOR:       '[data-testid="har-host-selector"]',
+  HOST_MOCK_SERVER:    '[data-testid="har-host-mock"]',
   HOST_CUSTOM_INPUT:   '.runner-custom-url-input',
   EXEC_CONFIG:         '[data-testid="har-exec-config"]',
   SCENARIO_SELECTOR:   '[data-testid="har-scenario-selector"]',
@@ -86,11 +87,8 @@ export const HAR = {
   COMPLETION:          '[data-testid="har-completion"]',
   VIEW_RESULTS_BTN:    '[data-testid="har-view-results"]',
   HARNESS_MOCK_FIXTURE: '[data-testid="har-apimock-fixture"]',
-  HARNESS_MOCK_ENABLED: '[data-testid="har-apimock-fixture-enabled"]',
   HARNESS_MOCK_SERVER:  '[data-testid="har-apimock-fixture-server"]',
   HARNESS_MOCK_ISOLATE: '[data-testid="har-apimock-fixture-isolate"]',
-  HARNESS_MOCK_OVERRIDE:'[data-testid="har-apimock-fixture-override"]',
-  HARNESS_MOCK_VAR:     '[data-testid="har-apimock-fixture-var"]',
   HARNESS_MOCK_START:   '[data-testid="har-apimock-fixture-start"]',
   HARNESS_MOCK_STOPPED: '[data-testid="har-apimock-fixture-stopped"]',
   HARNESS_MOCK_PORT:    '[data-testid="har-apimock-fixture-port"]',

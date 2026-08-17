@@ -69,6 +69,8 @@ export function ApiMockPatternToolboxConstraintsTab({
                 options={CONSTRAINT_OPERATOR_OPTIONS}
                 size="sm"
                 className="am-cs"
+                menuPlacement="end"
+                menuMinWidth={360}
                 aria-label="Constraint operator"
                 data-testid={`api-mock-toolbox-constraint-operator-${c.id}`}
               />

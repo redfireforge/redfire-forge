@@ -68,6 +68,34 @@ describe('handleApiMockStart', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Connection refused');
   });
+
+  it('POSTs the definition with id', async () => {
+    const ctx = mockCtx({ serverId: 'srv-1', port: 4600, generation: 1 });
+    await handleApiMockStart({ label: 'Start', serverId: 'srv-1' }, ctx);
+    expect(ctx.fetch).toHaveBeenCalledWith(
+      'http://localhost:3001/api/mock/servers/start',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"id":"srv-1"'),
+      }),
+    );
+  });
+
+  it('copies serverId onto a definition that is missing id before POST', async () => {
+    const ctx = mockCtx({ serverId: 'srv-ff6eca94', port: 4601, generation: 1 });
+    ctx.definition = { ...makeDef(), id: '' };
+    await handleApiMockStart({ label: 'Start', serverId: 'srv-ff6eca94' }, ctx);
+    const body = JSON.parse(String(vi.mocked(ctx.fetch).mock.calls[0]?.[1]?.body));
+    expect(body.id).toBe('srv-ff6eca94');
+  });
+
+  it('fails locally when neither definition.id nor serverId is set', async () => {
+    const ctx = mockCtx({ serverId: 'srv-1', port: 4600, generation: 1 });
+    ctx.definition = { ...makeDef(), id: '' };
+    const result = await handleApiMockStart({ label: 'Start', serverId: '' }, ctx);
+    expect(result).toEqual({ success: false, error: 'Server definition with id is required' });
+    expect(ctx.fetch).not.toHaveBeenCalled();
+  });
 });
 
 describe('handleApiMockStop', () => {
@@ -140,6 +168,19 @@ describe('handleApiMockAssertCalls', () => {
     expect(result.success).toBe(false);
   });
 
+  it('checks exact body match', async () => {
+    const pass = await handleApiMockAssertCalls(
+      { label: 'Assert', serverId: 'srv-1', expectedBodyContains: '{"ok":true}', expectedBodyMatch: 'equals' },
+      mockCtx({}), [makeTx()],
+    );
+    expect(pass.success).toBe(true);
+    const fail = await handleApiMockAssertCalls(
+      { label: 'Assert', serverId: 'srv-1', expectedBodyContains: '{"ok":false}', expectedBodyMatch: 'equals' },
+      mockCtx({}), [makeTx()],
+    );
+    expect(fail.success).toBe(false);
+  });
+
   it('checks body contains', async () => {
     const result = await handleApiMockAssertCalls(
       { label: 'Assert', serverId: 'srv-1', expectedBodyContains: 'missing' },
@@ -153,6 +194,24 @@ describe('handleApiMockAssertCalls', () => {
     const tx = makeTx({ request: { ...makeTx().request, headers: { 'x-custom': ['val'] } } });
     const result = await handleApiMockAssertCalls(
       { label: 'Assert', serverId: 'srv-1', expectedHeaderKey: 'x-custom', expectedHeaderValue: 'val' },
+      mockCtx({}), [tx],
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it('checks a list of request headers', async () => {
+    const tx = makeTx({
+      request: { ...makeTx().request, headers: { 'x-id': ['abc'], 'x-trace': ['1'] } },
+    });
+    const result = await handleApiMockAssertCalls(
+      {
+        label: 'Assert',
+        serverId: 'srv-1',
+        expectedHeaders: [
+          { key: 'X-Id', value: 'abc' },
+          { key: 'X-Trace', value: '1' },
+        ],
+      },
       mockCtx({}), [tx],
     );
     expect(result.success).toBe(true);

@@ -9,6 +9,7 @@ import { stripTrailingSlash } from '../utils/workflowHostResolve';
 export function ensureAbsoluteUrlWithBase(url: string, ctx: VariableContext): string {
   const t = url.trim();
   if (!t) return t;
+  if (t.includes('{{')) return t;
   if (/^https?:\/\//i.test(t)) return t;
   const base = ctx.get('baseUrl') ? stripTrailingSlash(ctx.get('baseUrl')!) : undefined;
   if (!base) return t;

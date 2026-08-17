@@ -229,7 +229,8 @@ describe('ApiMockRouteEditor coverage gaps', () => {
 
     fireEvent.change(screen.getByLabelText('Condition JSONPath'), { target: { value: '$.tier' } });
     fireEvent.change(screen.getAllByLabelText('Condition value')[0], { target: { value: 'gold' } });
-    fireEvent.click(screen.getByTestId('api-mock-condition-matchstyle-pred-n'));
+    expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].children[0].expected).toEqual(['$.a', 'gold']);
+    fireEvent.click(screen.getByTestId('api-mock-condition-matchstyle-contains-pred-n'));
     expect(onUpdate.mock.calls.at(-1)?.[0].predicates.children[0].children[0].options.matchStyle).toBe('subset');
 
     fireEvent.click(screen.getByTestId('api-mock-condition-toolbox-pred-path'));

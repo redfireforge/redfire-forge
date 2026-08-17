@@ -26,10 +26,14 @@ import {
   AM08_CORPUS_SAMPLE,
   AM08_DEBUG_KEY,
   AM08_DEFAULT_NAME,
+  AM08_LOGIC_SAMPLE,
   AM08_PATH,
+  AM08_PRIORITY_SAMPLE,
   AM08_PRIORITY_DEFAULT,
   AM08_PRIORITY_RAISED,
+  AM08_REJECT_SAMPLE,
   AM08_REGIONAL_NAME,
+  AM08_SPECIFICITY_SAMPLE,
   AM08_SIM_HEADERS,
   AM08_TENANT_EU,
   AM08_TENANT_KEY,
@@ -228,6 +232,9 @@ function mountSimulate(spec: SimulateSpec = {}): void {
   workspace.append(select('api-mock-simulate-method', 'GET'));
   workspace.append(input('api-mock-simulate-path', AM08_PATH));
   workspace.append(textarea('api-mock-simulate-headers'));
+  workspace.append(el('button', 'am-btn', 'api-mock-simulate-save-sample'));
+  workspace.append(input('api-mock-simulate-sample-name'));
+  workspace.append(el('div', 'am-sim-section', 'api-mock-sim-section-saved'));
   workspace.append(el('button', 'am-btn primary', 'api-mock-simulate-run'));
   workspace.append(el('button', 'am-btn', 'api-mock-simulate-close'));
   if (spec.hasResult) {
@@ -358,6 +365,12 @@ describe('AM-08 helpers', () => {
     patchApiMockActiveRoute.mockReturnValue(true);
     patchApiMockServerSettings.mockReturnValue(true);
     mountChrome();
+  });
+
+  it('names each catalog probe so Saved samples do not list four GET /catalog rows', () => {
+    expect(new Set([
+      AM08_LOGIC_SAMPLE, AM08_PRIORITY_SAMPLE, AM08_REJECT_SAMPLE, AM08_SPECIFICITY_SAMPLE,
+    ]).size).toBe(4);
   });
 
   it('boots the overlapping catalog corpus and wipes on cleanup', async () => {
@@ -796,6 +809,7 @@ describe('AM-08 helpers', () => {
     expect(fills(ctx.fill)).toEqual([
       [API_MOCK.SIMULATE_PATH, AM08_PATH],
       [API_MOCK.SIMULATE_HEADERS, AM08_SIM_HEADERS],
+      [API_MOCK.SIMULATE_SAMPLE_NAME, AM08_LOGIC_SAMPLE],
     ]);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
     expect(isAm08SimulateOpen()).toBe(false);
@@ -838,9 +852,22 @@ describe('AM-08 helpers', () => {
       [API_MOCK.SETTINGS_AMBIGUITY_BODY, AM08_AMBIGUITY_BODY],
       [API_MOCK.SIMULATE_HEADERS, AM08_SIM_HEADERS],
     ]));
+    expect(patchApiMockServerSettings).toHaveBeenCalledWith({
+      multipleMatchPolicy: 'reject_multiple',
+      ambiguityBody: AM08_AMBIGUITY_BODY,
+    });
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_RENDERED);
+    expect(calls(ctx.click).indexOf(API_MOCK.SIMULATE_TAB_RENDERED)).toBeGreaterThan(
+      calls(ctx.click).indexOf(API_MOCK.SIMULATE_RUN),
+    );
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
+    expect(calls(ctx.click).indexOf(API_MOCK.SIMULATE_RUN)).toBeGreaterThan(
+      calls(ctx.click).indexOf(API_MOCK.SIMULATE_SAVE_SAMPLE),
+    );
     expect(isAm08SettingsOpen()).toBe(false);
     expect(isAm08SimulateOpen()).toBe(false);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeLessThan(32_000);
   });
 
   it('step 8 switches the equal-priority policy and holds the specificity list', async () => {
@@ -852,6 +879,8 @@ describe('AM-08 helpers', () => {
       [API_MOCK.SETTINGS_EQUAL_POLICY, 'specificity_then_id'],
     ]);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_CLOSE);
+    const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
+    expect(delayMs).toBeLessThan(32_000);
   });
 
   it('step 1 no-ops when Regional cannot be focused', async () => {

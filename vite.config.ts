@@ -4,6 +4,8 @@ import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
 import { isLoopbackUrl, preferLocalhostHostname, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
+import { withKeepAliveConnection } from './src/shared/utils/outboundRequestHeaders'
+import { probeApiMockEcho } from './src/shared/api-mock/echoHealthProbe'
 import { demoHubRootImportsPlugin } from './vite/demoHubRootImports'
 import { demoLiveGuardPlugin } from './vite/demoLiveGuardPlugin'
 import { createMonacoAwareLogger, monacoDevNoisePlugin } from './vite/monacoDevNoisePlugin'
@@ -155,6 +157,16 @@ function proxyPlugin(): Plugin {
       pooledDispatcher = undefined;
     });
 
+    // AM-17 PrerequisiteGate — same-origin 200 so Chrome never logs :4017
+    // CONNECTION_REFUSED. Uses Node http (no corporate HTTP_PROXY).
+    server.middlewares.use('/health/api-mock-echo', async (_req, res) => {
+      const probe = await probeApiMockEcho();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(probe.ok
+        ? { status: 'ok', source: 'api-mock-echo', httpStatus: probe.statusCode }
+        : { status: 'down', source: 'api-mock-echo', reason: probe.reason ?? 'unreachable' }));
+    });
+
     server.middlewares.use('/__proxy', async (req, res) => {
         if (req.method !== 'POST') {
           res.writeHead(405);
@@ -195,7 +207,9 @@ function proxyPlugin(): Plugin {
           } else {
             payload.url = resolveLoopbackUrl(payload.url);
           }
-          payload.headers['Connection'] = 'keep-alive';
+          // Drop journal `connection`/`host` first — a second Connection key
+          // (any casing) makes undici throw invalid connection header.
+          payload.headers = withKeepAliveConnection(payload.headers ?? {});
           // Browser abort of POST /__proxy must cancel the upstream fetch.
           // Without this, a timeout-fault mock holds the socket for the 1h
           // safety cap and never journals — the lesson then clicks an old 503.

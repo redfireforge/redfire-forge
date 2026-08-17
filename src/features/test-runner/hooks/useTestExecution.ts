@@ -337,10 +337,8 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
           ...prev,
           fixtureStatus: { phase: 'running', port: setup.handle.port, serverId: setup.handle.serverId },
         }));
-        if (fixtureConfig.overrideBaseUrl !== false) {
-          runBaseUrl = `http://127.0.0.1:${setup.handle.port}`;
-          scenariosToRun = applyApiMockFixtureBaseUrl(scenarios, runBaseUrl);
-        }
+        runBaseUrl = `http://127.0.0.1:${setup.handle.port}`;
+        scenariosToRun = applyApiMockFixtureBaseUrl(scenarios, runBaseUrl);
       }
 
       const useRust = !workflow && !resolveSubWorkflow
@@ -508,8 +506,9 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     } finally {
       const stoppedPort = fixtureHandle?.port;
       const stoppedServerId = fixtureHandle?.serverId;
+      const leaveStudioServer = fixtureConfig?.isolateRun === false && fixtureHandle?.restoreRunning;
       await teardownApiMockFixture(fixtureHandle, fixtureConfig).catch(() => { /* best-effort */ });
-      if (stoppedPort != null) {
+      if (stoppedPort != null && !leaveStudioServer) {
         setState((prev) => ({
           ...prev,
           fixtureStatus: { phase: 'stopped', port: stoppedPort, serverId: stoppedServerId },

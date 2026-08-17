@@ -1,4 +1,7 @@
+pub use crate::executor_circuit::CircuitBreakerState;
 pub(crate) use crate::executor_detail_level::filter_batch;
+#[allow(unused_imports)]
+pub use crate::executor_think_time::{apply_think_time, compute_think_time};
 use crate::histogram::{MetricsSnapshot, StreamingMetrics};
 use crate::types::*;
 use crate::validation_result::build_validation_result;
@@ -6,7 +9,7 @@ use crate::validation_types::{Assertion, ValidationConfig, ValidationMode};
 use rand::Rng;
 use reqwest::Client;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Emitter;
@@ -47,102 +50,6 @@ pub(crate) fn cap_body(body: &str) -> String {
 
 pub(crate) fn round_ms(ms: f64) -> f64 {
     (ms * 100.0).round() / 100.0
-}
-
-// ── Think Time ───────────────────────────────────────────
-
-pub fn compute_think_time(config: &ThinkTimeConfig) -> u64 {
-    match config {
-        ThinkTimeConfig::None => 0,
-        ThinkTimeConfig::Constant { delay_ms } => *delay_ms,
-        ThinkTimeConfig::Uniform { min_ms, max_ms } => {
-            if max_ms <= min_ms {
-                return *min_ms;
-            }
-            rand::rng().random_range(*min_ms..=*max_ms)
-        }
-        ThinkTimeConfig::Gaussian { mean_ms, std_dev_ms } => {
-            let mean = *mean_ms as f64;
-            let std_dev = *std_dev_ms as f64;
-            // Box-Muller: guard against u1=0 to avoid ln(0) = -inf
-            let mut u1: f64 = rand::rng().random();
-            while u1 == 0.0 {
-                u1 = rand::rng().random();
-            }
-            let u2: f64 = rand::rng().random();
-            let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
-            let value = mean + z * std_dev;
-            value.max(0.0) as u64
-        }
-    }
-}
-
-pub async fn apply_think_time(config: &ThinkTimeConfig, cancel: &CancellationToken) {
-    let delay = compute_think_time(config);
-    if delay == 0 || cancel.is_cancelled() {
-        return;
-    }
-    tokio::select! {
-        _ = tokio::time::sleep(Duration::from_millis(delay)) => {}
-        _ = cancel.cancelled() => {}
-    }
-}
-
-// ── Circuit Breaker ──────────────────────────────────────
-
-pub struct CircuitBreakerState {
-    config: CircuitBreakerConfig,
-    total: AtomicU64,
-    errors: AtomicU64,
-    tripped: AtomicBool,
-}
-
-impl CircuitBreakerState {
-    pub fn new(config: CircuitBreakerConfig) -> Self {
-        Self {
-            config,
-            total: AtomicU64::new(0),
-            errors: AtomicU64::new(0),
-            tripped: AtomicBool::new(false),
-        }
-    }
-
-    pub fn record(&self, is_error: bool) {
-        self.total.fetch_add(1, Ordering::Relaxed);
-        if is_error {
-            self.errors.fetch_add(1, Ordering::Relaxed);
-        }
-        match &self.config {
-            CircuitBreakerConfig::Continue => {}
-            CircuitBreakerConfig::StopFirst => {
-                if is_error {
-                    self.tripped.store(true, Ordering::Relaxed);
-                }
-            }
-            CircuitBreakerConfig::StopThreshold {
-                max_errors,
-                max_error_rate,
-                min_sample_size,
-            } => {
-                let errs = self.errors.load(Ordering::Relaxed);
-                if errs >= *max_errors {
-                    self.tripped.store(true, Ordering::Relaxed);
-                    return;
-                }
-                let total = self.total.load(Ordering::Relaxed);
-                if total >= *min_sample_size && total > 0 {
-                    let rate = errs as f64 / total as f64;
-                    if rate >= *max_error_rate {
-                        self.tripped.store(true, Ordering::Relaxed);
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn should_stop(&self) -> bool {
-        self.tripped.load(Ordering::Relaxed)
-    }
 }
 
 // ── Result Builder Helper ────────────────────────────────
