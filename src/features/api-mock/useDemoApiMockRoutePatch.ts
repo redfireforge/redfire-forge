@@ -120,13 +120,11 @@ export function useDemoApiMockRoutePatch({ getState, selectedRouteId, setServers
             if (patch.responseMode) {
               const mode = patch.responseMode;
               next.responseMode = mode;
-              next.responses = next.responses.map(resp => {
-                if (mode === 'weighted') return { ...resp, weight: resp.weight ?? 1, conditions: undefined };
-                if (mode === 'sequence' || mode === 'state') {
-                  return { ...resp, weight: undefined, conditions: undefined };
-                }
-                return { ...resp, weight: undefined };
-              });
+              next.responses = next.responses.map(resp => (
+                mode === 'weighted'
+                  ? { ...resp, weight: resp.weight ?? 1 }
+                  : { ...resp, weight: undefined }
+              ));
             }
             if (patch.addVariant && next.responses.length < 2) {
               const id = `resp-demo-${next.responses.length + 1}`;

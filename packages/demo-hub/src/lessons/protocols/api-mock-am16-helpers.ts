@@ -288,7 +288,12 @@ export async function ensureAm16ForNarrower(ctx: DemoActionContext): Promise<voi
 export async function ensureAm16ForRedaction(ctx: DemoActionContext): Promise<void> {
   await ensureAm16Library(ctx);
   await closeAm16Import(ctx);
-  await closeAm16Export(ctx, false);
+  // Reuse the Workspace JSON confirm the map step left open (redaction callout
+  // visible) — do not re-export. Only a *different* leftover confirm is closed so
+  // the redaction step can re-export a clean Workspace JSON when it must.
+  if (isAm16ExportConfirmOpen() && !isAm16RedactionVisible()) {
+    await closeAm16Export(ctx, false);
+  }
 }
 
 export async function ensureAm16ForWireMock(ctx: DemoActionContext): Promise<void> {
@@ -298,6 +303,13 @@ export async function ensureAm16ForWireMock(ctx: DemoActionContext): Promise<voi
 }
 
 export async function ensureAm16ForHar(ctx: DemoActionContext): Promise<void> {
+  await ensureAm16Library(ctx);
+  await closeAm16Import(ctx);
+  await closeAm16Export(ctx, false);
+}
+
+/** Interop step (HAR + WireMock) — same clean-slate guard as the native scopes. */
+export async function ensureAm16ForInterop(ctx: DemoActionContext): Promise<void> {
   await ensureAm16Library(ctx);
   await closeAm16Import(ctx);
   await closeAm16Export(ctx, false);
@@ -382,7 +394,12 @@ export async function runAm16NarrowerScopes(ctx: DemoActionContext): Promise<voi
 }
 
 export async function runAm16Redaction(ctx: DemoActionContext): Promise<void> {
-  await pickAm16Export(ctx, API_MOCK.EXPORT_WORKSPACE, true);
+  // Reuse the Workspace JSON confirm from the map step when it is still open —
+  // the redaction proof is about *that* file, not a fresh download. Re-export
+  // only when the modal was dismissed (rapid Next / replay).
+  if (!isAm16RedactionVisible()) {
+    await pickAm16Export(ctx, API_MOCK.EXPORT_WORKSPACE, true);
+  }
   if (firstVisibleElement(API_MOCK.EXPORT_REDACTION)) {
     await am16Look(ctx, API_MOCK.EXPORT_REDACTION);
   }
@@ -406,6 +423,18 @@ export async function runAm16Har(ctx: DemoActionContext): Promise<void> {
   await pickAm16Export(ctx, API_MOCK.EXPORT_HAR, true);
   await am16Reveal(ctx, API_MOCK.EXPORT_HAR_COUNT, T.panelReady);
   await am16Payoff(ctx, API_MOCK.EXPORT_HAR_COUNT);
+}
+
+/**
+ * Interop step — two non-native shapes that both teach *honesty about what does
+ * not survive the trip*. HAR first (journal + samples other tools replay, with
+ * cookies/auth redacted), then WireMock so the **loss report** is the payoff the
+ * step ends on.
+ */
+export async function runAm16Interop(ctx: DemoActionContext): Promise<void> {
+  await runAm16Har(ctx);
+  await am16Break(ctx);
+  await runAm16WireMock(ctx);
 }
 
 export async function runAm16RoundTrip(ctx: DemoActionContext): Promise<void> {

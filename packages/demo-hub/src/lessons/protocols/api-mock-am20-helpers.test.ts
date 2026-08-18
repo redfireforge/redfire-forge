@@ -125,13 +125,15 @@ function mountServerBar(running: boolean, extras: {
   warnings?: boolean;
 } = {}): HTMLElement {
   const bar = el('div', undefined, 'api-mock-server-bar');
+  const listen = el('div', 'am-listen-url', 'api-mock-listen-url');
   const status = el('span', undefined, 'api-mock-status-label');
   status.textContent = running ? 'Running' : 'Stopped';
-  bar.append(status, el('button', undefined, running ? 'api-mock-stop' : 'api-mock-start'));
-  if (extras.restart) bar.append(el('button', undefined, 'api-mock-restart'));
   const addr = el('span', undefined, 'api-mock-address');
   addr.textContent = extras.address ?? 'http://127.0.0.1:4600';
-  bar.append(addr);
+  listen.append(status, addr);
+  bar.append(listen);
+  bar.append(el('button', undefined, running ? 'api-mock-stop' : 'api-mock-start'));
+  if (extras.restart) bar.append(el('button', undefined, 'api-mock-restart'));
   if (extras.http2) bar.append(el('span', undefined, 'api-mock-http2-badge'));
   if (extras.warnings) bar.append(el('div', undefined, 'api-mock-native-warnings'));
   bar.append(el('button', undefined, 'api-mock-settings'));

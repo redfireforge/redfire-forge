@@ -1,9 +1,10 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { stubScrollIntoView } from '../../../test-utils/domMocks';
 
 vi.mock('./apiMockTextExpand', () => ({
   findTextExpandMatches: (draft: string, query: string) => (query ? [0] : []),
@@ -27,6 +28,8 @@ function invokeReactClick(element: HTMLElement): void {
 }
 
 describe('ApiMockTextExpandModal branch guards', () => {
+  beforeAll(() => stubScrollIntoView());
+
   it('keeps the search cluster inside the dialog header controls', () => {
     render(
       <ApiMockTextExpandModal
@@ -82,5 +85,48 @@ describe('ApiMockTextExpandModal branch guards', () => {
     fireEvent.click(screen.getByTestId('api-mock-text-expand-apply'));
     expect(onApply).toHaveBeenCalledWith('same');
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('disables the Tree view when the draft is not valid JSON', () => {
+    render(
+      <ApiMockTextExpandModal
+        title="Request body"
+        value="<xml/>"
+        readOnly
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-text-expand-view-tree')).toBeDisabled();
+    expect(screen.getByTestId('api-mock-text-expand-editor')).toBeInTheDocument();
+    expect(screen.queryByTestId('api-mock-text-expand-tree')).toBeNull();
+  });
+
+  it('swaps the editor for a JSON tree and drives search from the tree in Tree view', () => {
+    render(
+      <ApiMockTextExpandModal
+        title="Condition body"
+        value={'{\n  "query": "{{query \'q\'}}",\n  "results": []\n}'}
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const treeBtn = screen.getByTestId('api-mock-text-expand-view-tree');
+    expect(treeBtn).not.toBeDisabled();
+    fireEvent.click(treeBtn);
+
+    // Editor is gone; interactive tree + its expand/collapse controls appear.
+    expect(screen.queryByTestId('api-mock-text-expand-editor')).toBeNull();
+    expect(screen.getByTestId('api-mock-text-expand-tree')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-text-expand-tree-expand-all')).toBeInTheDocument();
+    expect(screen.getByTestId('api-mock-text-expand-tree-collapse-all')).toBeInTheDocument();
+
+    // Searching keys/values reports tree-node matches in the shared count.
+    fireEvent.change(screen.getByTestId('api-mock-text-expand-search'), { target: { value: 'query' } });
+    expect(screen.getByTestId('api-mock-text-expand-count').textContent).not.toBe('0/0');
+
+    // Back to Text restores the editor.
+    fireEvent.click(screen.getByTestId('api-mock-text-expand-view-text'));
+    expect(screen.getByTestId('api-mock-text-expand-editor')).toBeInTheDocument();
   });
 });

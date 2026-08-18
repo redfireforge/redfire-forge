@@ -36,6 +36,7 @@ describe('ApiMockSimulateAssertionsTable', () => {
     expect(screen.getByTestId('api-mock-sim-assert-row-outcome').textContent).toContain('matched');
     expect(screen.queryByTestId('api-mock-sim-assert-status')).toBeNull();
     expect(screen.queryByTestId('api-mock-sim-assert-fail')).toBeNull();
+    expect(screen.getByTestId('api-mock-sim-assert-hint').textContent).toMatch(/saved sample/i);
   });
 
   it('marks mismatched status and body-contains as Fail', () => {
@@ -90,5 +91,6 @@ describe('ApiMockSimulateAssertionsTable', () => {
     expect(onPatchExpected.mock.calls.at(-1)?.[0].status).toBeUndefined();
     fireEvent.change(screen.getByTestId('api-mock-sim-assert-body'), { target: { value: 'ok' } });
     expect(onPatchExpected.mock.calls.at(-1)?.[0].bodyContains).toBe('ok');
+    expect(screen.getByTestId('api-mock-sim-assert-hint').textContent).toMatch(/Status and Body contains/i);
   });
 });

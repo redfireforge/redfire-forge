@@ -11,7 +11,9 @@ import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
 import {
   AM24_JSONPATH,
+  AM24_SHIP_ACTION_TIMEOUT_MS,
   AM24_SKU,
+  AM24_SKU_MISSING,
   cleanupAm24,
   ensureAm24ForConflicts,
   ensureAm24ForImport,
@@ -99,7 +101,7 @@ export const apiMockAm24Lesson: DemoLesson = {
   initialTab: 'api-mock-studio',
   allowedTabs: ['api-mock-studio', 'workflow'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 7,
+  contentVersion: 9,
   concept: {
     title: 'A contract mock is a spec you can run, not a screenshot of a 200.',
     body:
@@ -219,15 +221,16 @@ export const apiMockAm24Lesson: DemoLesson = {
         + 'a **404** sibling and condition it on the missing SKU, so the same '
         + 'endpoint answers 201 for a known order and 404 for an unknown one — '
         + 'the client’s real happy and sad paths in a single rule.\n\n'
-        + '**Sequence** mode is worth a glance as the retry lab (round-robin '
-        + 'responses for backoff tests), but switch back to **Rules**: the rest '
-        + 'of this contract must stay *deterministic* — one default 201, one '
-        + 'conditioned 404 — so the suite and Quick Test later are repeatable, '
-        + 'not a dice roll.',
+        + '**Sequence** mode is a glance at the retry lab (round-robin for '
+        + 'backoff tests). Switching back to **Rules** keeps the 404’s '
+        + '`' + AM24_JSONPATH + ' = ' + AM24_SKU_MISSING + '` condition — that '
+        + 'predicate is what the suite and Quick Test will use, not the 404 '
+        + 'body text. The contract stays *deterministic*: one default 201, one '
+        + 'conditioned 404.',
       highlight: API_MOCK.ADD_VARIANT,
       preAction: ensureAm24ForVariants,
       action: runAm24Variants,
-      verify: API_MOCK.RESPONSE_MODE_RULES,
+      verify: API_MOCK.SELECTION_CONDITION,
     },
     {
       id: 'resilience',
@@ -287,15 +290,16 @@ export const apiMockAm24Lesson: DemoLesson = {
       id: 'live',
       title: 'Start, post the contract, then read a near-miss in the journal',
       description:
-        'Simulate is hermetic; the wire is the truth. **Start** the listener '
-        + 'and POST the WIDGET order for real — the first journal row is the '
-        + 'contract answering an actual socket, not an in-memory '
-        + 'evaluation.\n\n'
-        + 'Then fumble on purpose: `GET /ordrs/42`, a typo, not a new contract. '
-        + 'The **Near-misses** on that row are the debugging story — '
-        + 'closest-match tells you the library *almost* had this path. Notice '
-        + 'that the suite stayed green while the journal stayed honest about '
-        + 'the miss: two different truths, both worth having.',
+        'This step moves from a unit check to real network traffic. First, '
+        + 'the selected rule is **POST /orders** and its WIDGET body is the '
+        + 'contract we are about to exercise. **Start** binds the listener; '
+        + 'then the app sends that POST for real. The first journal row is the '
+        + 'proof that the rule answered an actual socket, not Simulate in memory.\n\n'
+        + 'Next, the demo sends `GET /ordrs/42` on purpose — the path is misspelled, '
+        + 'so it should not match the contract. Open that newest journal row and '
+        + 'read **Near-misses**: closest-match explains which route the library '
+        + 'nearly matched. The suite can stay green while the live journal records '
+        + 'this miss; those are two different kinds of proof.',
       highlight: API_MOCK.START,
       preAction: ensureAm24ForLive,
       action: runAm24Live,
@@ -303,20 +307,23 @@ export const apiMockAm24Lesson: DemoLesson = {
     },
     {
       id: 'ship',
-      title: 'Export the artifacts, then Quick Test the graph green',
+      title: 'Export the contract, then prove it in Workflow',
       description:
-        'A contract mock is only shippable if someone else can run it, so this '
-        + 'final step produces the hand-offs. **Workspace JSON** is the file CI '
-        + 'consumes; **WireMock** is the export for teams on that stack — hold '
-        + 'the loss notes, because not every feature round-trips.\n\n'
-        + 'Then the last proof closes the whole pack: a Designer graph that '
-        + '**Starts** an isolated listener, **POSTs** `{{mockBaseUrl}}/orders`, '
-        + '**Asserts** a 201 in the journal, and **Stops**. A green Assert on '
-        + '**Quick Test** is the contract proving itself end to end — authored '
-        + 'in Studio, proven in Simulate, run as a workflow, exported for CI.',
+        'This final step answers two handoff questions. First, can another team '
+        + 'run the mock? **Workspace JSON** is the CI artifact and **WireMock** '
+        + 'is the interoperable export; the loss note tells you what cannot '
+        + 'round-trip.\n\n'
+        + 'Second, does the contract still work outside Studio? That is why the '
+        + 'lesson deliberately moves to **Workflow**. It builds a small graph: '
+        + '**Start** an isolated listener, **POST** `{{mockBaseUrl}}/orders`, '
+        + '**Assert** a 201 in the journal, then **Stop**. **Quick Test** runs '
+        + 'that graph end to end. Workflow is the final consumer of the mock, '
+        + 'not an unrelated screen; Simulate proved the rule earlier, while this '
+        + 'proves the listener and journal handoff.',
       highlight: API_MOCK.EXPORT,
       preAction: ensureAm24ForShip,
       action: runAm24Ship,
+      actionTimeoutMs: AM24_SHIP_ACTION_TIMEOUT_MS,
       verify: am24PassSelector(API_MOCK.CANVAS_ASSERT),
     },
   ],

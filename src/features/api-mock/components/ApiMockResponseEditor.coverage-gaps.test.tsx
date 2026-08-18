@@ -595,14 +595,23 @@ describe('ApiMockResponseEditor coverage gaps', () => {
 
   it('covers mode bar sequence/state switches clearing weights', () => {
     const onUpdateRoute = vi.fn();
-    const weightedResp = { ...createDefaultResponse('resp-1'), weight: 4, isDefault: false };
+    const conditions = { id: 'c', combinator: 'all' as const, children: [] };
+    const weightedResp = {
+      ...createDefaultResponse('resp-1'),
+      weight: 4,
+      isDefault: false,
+      conditions,
+    };
     render(
       <ApiMockResponseEditor route={makeRoute({ responseMode: 'weighted', responses: [weightedResp] })} onUpdateRoute={onUpdateRoute} />,
     );
     fireEvent.click(screen.getByTestId('api-mock-response-mode-sequence'));
-    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].weight).toBeUndefined();
+    const seqPatch = onUpdateRoute.mock.calls.at(-1)?.[0];
+    expect(seqPatch.responses[0].weight).toBeUndefined();
+    expect(seqPatch.responses[0].conditions).toEqual(conditions);
     fireEvent.click(screen.getByTestId('api-mock-response-mode-state'));
     expect(onUpdateRoute.mock.calls.at(-1)?.[0].responseMode).toBe('state');
+    expect(onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].conditions).toEqual(conditions);
   });
 
   it('covers non-default variant summary and expires escape plus invalid commit', () => {

@@ -15,19 +15,17 @@ import {
   cleanupAm16,
   ensureAm16ForCi,
   ensureAm16ForExportMenu,
-  ensureAm16ForHar,
+  ensureAm16ForInterop,
   ensureAm16ForNarrower,
   ensureAm16ForRedaction,
   ensureAm16ForRoundTrip,
-  ensureAm16ForWireMock,
   prepareAm16Workspace,
   runAm16CiHandoff,
   runAm16ExportMenu,
-  runAm16Har,
+  runAm16Interop,
   runAm16NarrowerScopes,
   runAm16Redaction,
   runAm16RoundTrip,
-  runAm16WireMock,
 } from './api-mock-am16-helpers';
 
 const DIAGRAM = `
@@ -85,7 +83,7 @@ export const apiMockAm16Lesson: DemoLesson = {
     + `CLI line — \`${AM16_CLI}\` — is the artifact CI runs against.`,
   estimatedMinutes: 6,
   initialTab: 'api-mock-studio',
-  contentVersion: 6,
+  contentVersion: 7,
   concept: {
     title: 'The export is the file. Redaction is why you can share it.',
     body:
@@ -118,95 +116,92 @@ export const apiMockAm16Lesson: DemoLesson = {
   cleanup: cleanupAm16,
   steps: [
     {
-      id: 'export-menu',
-      title: 'Six shapes for six jobs',
+      id: 'export-map',
+      title: 'The Export menu is a map, not a button',
       description:
-        '**Export** is six files for six jobs. This lesson walks each one. '
-        + 'Open the menu and read the groups before we download anything.\n\n'
-        + '**Workspace** — the whole library, every server, already redacted.\n'
-        + '- **Workspace JSON** — the portable contract tools and CI can load\n'
-        + '- **Workspace YAML** — the same contract, source-control friendly\n\n'
-        + '**This server** — you do not hand the whole workspace when a teammate only needs this tab.\n'
-        + '- **Active server JSON** — the current tab only\n'
-        + '- **Active server routes** — rules and samples to graft onto another mock\n\n'
-        + '**Interop** — files that leave Studio.\n'
-        + '- **WireMock mappings** — the subset another team can load, plus a loss report\n'
-        + '- **HAR (journal)** — captured traffic and samples other tools already know how to replay\n\n'
-        + 'This step opens **Export** and takes **Workspace JSON**. The confirmation '
-        + 'shows the filename and preview. **Save to disk** writes that file to '
-        + 'Downloads. **Copy JSON** only puts it on the clipboard.',
+        'A mock that only lives in this Studio cannot be shared. The moment it '
+        + 'has to reach a teammate, a PR, or CI, it becomes a **file** — and the '
+        + 'Export menu is where you choose which shape of file to make.\n\n'
+        + 'Read the map before downloading anything. The six shapes fall into '
+        + 'three groups, one per audience:\n'
+        + '- **Workspace** — the entire library (JSON for tools and CI, YAML for source control)\n'
+        + '- **This server** — just this tab, or just its rules to graft onto another mock\n'
+        + '- **Interop** — files for tools that are not RedfireForge (WireMock, HAR)\n\n'
+        + 'To make it concrete, take the baseline: **Workspace JSON**. The '
+        + 'confirmation is the point — a download you cannot read is not a demo. '
+        + 'Note the two ways out: **Save to disk** writes the file to Downloads; '
+        + '**Copy** only puts it on the clipboard.',
       highlight: API_MOCK.EXPORT,
       preAction: ensureAm16ForExportMenu,
       action: runAm16ExportMenu,
       verify: API_MOCK.EXPORT_SAVE,
     },
     {
-      id: 'narrower-scopes',
-      title: 'YAML for review, one server for a teammate, rules to graft',
-      description:
-        'Click **Workspace YAML**. Hold the confirmation so the YAML preview is '
-        + 'readable — that is the source-control shape of the same contract.\n\n'
-        + 'Then **Active server JSON**, then **Active server routes**. Three '
-        + 'exports, three jobs. You do not send the whole workspace when a '
-        + 'teammate only needs this tab.',
-      highlight: API_MOCK.EXPORT,
-      preAction: ensureAm16ForNarrower,
-      action: runAm16NarrowerScopes,
-      verify: API_MOCK.EXPORT_CONFIRM,
-    },
-    {
       id: 'redaction',
-      title: 'TLS keys and sensitive variables never leave the workspace',
+      title: 'The same file — and it is already safe to share',
       description:
-        'Export **Workspace JSON** again. Hold the **redaction callout** — '
-        + 'private keys and sensitive variables are stripped from this file.\n\n'
-        + `Hold the TLS private key field. It reads \`${AM16_TLS_REDACTED}\`, not `
-        + 'the PEM that still sits in Settings. Hold the `apiToken` row: '
-        + '`[REDACTED]`. That is the proof you can share the file.',
+        'The whole reason a mock can leave your laptop is that the file does '
+        + '**not** carry your secrets. Stay on the Workspace JSON you just made '
+        + '— no new download — and read the **redaction callout** at the top.\n\n'
+        + `The TLS private key reads \`${AM16_TLS_REDACTED}\`, not the PEM that `
+        + 'still sits untouched in Settings. The `apiToken` you marked sensitive '
+        + 'reads `[REDACTED]`. The callout is the contract: keys and secrets are '
+        + 'stripped from every native export, so this file is safe to attach to '
+        + 'a PR.',
       highlight: API_MOCK.EXPORT,
       preAction: ensureAm16ForRedaction,
       action: runAm16Redaction,
       verify: API_MOCK.EXPORT_TLS_KEY,
     },
     {
-      id: 'wiremock',
-      title: 'Hand a mapping set to a team still on WireMock',
+      id: 'scopes',
+      title: 'Hand over exactly as much as the reader needs',
       description:
-        'Click **WireMock mappings**. Hold the confirmation, then the **lossy '
-        + 'feature** list. Store templates such as `{{pathParam}}` have no '
-        + 'WireMock equivalent, so they are named instead of silently dropped.\n\n'
-        + 'A mapping file without that note would lie. The loss report is the '
-        + 'reason this export is safe to hand over.',
+        'You rarely send the whole library. The same contract has narrower cuts, '
+        + 'each matched to a different reader — that is one idea, three exports.\n'
+        + '- **Workspace YAML** — the same library in a diff-friendly form, so a reviewer reads the change in a PR instead of a wall of JSON\n'
+        + '- **Active server** — one tab for a teammate who only needs this mock\n'
+        + '- **Active server routes** — the rules alone, to graft onto someone else\'s mock\n\n'
+        + 'Watch the preview shrink as the scope narrows: the whole library, then '
+        + 'one server, then just its rules.',
       highlight: API_MOCK.EXPORT,
-      preAction: ensureAm16ForWireMock,
-      action: runAm16WireMock,
-      verify: API_MOCK.EXPORT_LOSS,
+      preAction: ensureAm16ForNarrower,
+      action: runAm16NarrowerScopes,
+      verify: API_MOCK.EXPORT_CONFIRM,
     },
     {
-      id: 'har',
-      title: 'Replay journal traffic in other tools',
+      id: 'interop',
+      title: 'Leaving RedfireForge — honestly',
       description:
-        'Click **HAR (journal)**. Hold the **entry count**. Saved samples travel '
-        + 'with the file even when the listener never ran — two store probes in '
-        + 'this library become HAR entries other tools already know how to play.\n\n'
-        + 'Cookies and auth are redacted on the way out. What you share is the '
-        + 'shape of traffic, not someone\'s session.',
+        'Some readers are not on RedfireForge at all. The Interop group speaks '
+        + 'their formats, and the honest part is that it tells you what does '
+        + 'not survive the trip.\n\n'
+        + '**HAR (journal)** packages captured traffic and saved samples so any '
+        + 'HAR tool can replay the same requests — the two store probes travel '
+        + 'even though the listener never ran, and cookies and auth are redacted '
+        + 'on the way out. So you share the *shape* of traffic, not a session.\n\n'
+        + '**WireMock mappings** hands a set to a team still on WireMock. Studio '
+        + 'features like `{{pathParam}}` templates and weighted variants have no '
+        + 'WireMock equivalent — so they are named in a **loss report** rather '
+        + 'than dropped in silence. A mapping file without that note would lie.',
       highlight: API_MOCK.EXPORT,
-      preAction: ensureAm16ForHar,
-      action: runAm16Har,
-      verify: API_MOCK.EXPORT_HAR_COUNT,
+      preAction: ensureAm16ForInterop,
+      action: runAm16Interop,
+      verify: API_MOCK.EXPORT_LOSS,
     },
     {
       id: 'round-trip',
       title: 'The real test of an export is importing it back',
       description:
-        'Click **Import**, switch to **RedfireForge export**, and choose '
-        + '**Import as copy**. Click **Use last export** — that is the power-user '
-        + 'beat, the JSON you just confirmed, without fishing in Downloads. Click '
-        + '**Pretty format** so you can read the file.\n\n'
-        + 'Parse, then confirm. Hold the **duplicated rows**. New ids, `(copy)` '
-        + 'names, originals untouched. A round-trip that clobbered the library '
-        + 'would not be a round-trip.',
+        'An export you never re-read is a guess. Prove this one round-trips: '
+        + '**Import**, switch to **RedfireForge export**, and choose **Import as '
+        + 'copy** so the originals are never at risk.\n\n'
+        + '**Use last export** is the power-user beat — it pulls the JSON you '
+        + 'just confirmed straight back in, no fishing in Downloads. **Pretty '
+        + 'format** so it is readable, then parse and confirm.\n\n'
+        + 'The payoff is the **duplicated rows**: new ids, `(copy)` names, '
+        + 'originals untouched. A round-trip that clobbered the library would '
+        + 'not be a round-trip.',
       highlight: API_MOCK.IMPORT_MENU,
       preAction: ensureAm16ForRoundTrip,
       action: runAm16RoundTrip,
@@ -214,13 +209,14 @@ export const apiMockAm16Lesson: DemoLesson = {
     },
     {
       id: 'ci-handoff',
-      title: 'The export file is the artifact CI runs against',
+      title: 'The file is the artifact CI runs against',
       description:
-        'Hold the **footer tally**. Enabled and draft counts are the library you '
-        + 'just duplicated.\n\n'
-        + `Hold the copyable \`${AM16_CLI}\` line. That command runs the file as `
-        + 'a unit-level suite. Studio authors. Simulate proves. The CLI is how '
-        + 'the same contract leaves the laptop.',
+        'The last question is how the file runs without a person. The footer '
+        + 'tally is the library you just duplicated — enabled and draft counts, '
+        + 'the same set CI will load.\n\n'
+        + `The copyable \`${AM16_CLI}\` line closes the loop: it runs the exported `
+        + 'file as a unit-level suite. Studio authors it, Simulate proves it, and '
+        + 'this command is how the very same contract leaves the laptop.',
       highlight: API_MOCK.ROUTES_FOOTER,
       preAction: ensureAm16ForCi,
       action: runAm16CiHandoff,

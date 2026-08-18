@@ -139,7 +139,7 @@ before step 1 with no visible import beat (§5.1).
 | AM-13 | `am-13-stateful` | Stateful Mocks: A Cart That Remembers | 7 | 8 | cart rule w/ 2 variants | same POST /cart twice, live state, reset, weighted, secret |
 | AM-14 | `am-14-timing-faults` | When Payments Hang: Latency, Eligibility & Connection Faults | 7 | 8 | 1 payment rule | slow bank, used-up offer, hang/reset, dribble |
 | AM-15 | `am-15-import` | Import Everything: cURL, OpenAPI, WireMock, HAR, Catalog | 7 | 9 | blank server + Catalog/Requests entries | all 7 import sources, modes, generalize, enable |
-| AM-16 | `am-16-export` | Export & Round-Trip: JSON/YAML, WireMock, HAR, Redaction | 6 | 7 | store library + TLS + secret var | all 6 exports, redaction check, re-import as copy |
+| AM-16 | `am-16-export` | Export & Round-Trip: JSON/YAML, WireMock, HAR, Redaction | 6 | 6 | store library + TLS + secret var | all 6 exports, redaction check, re-import as copy |
 | AM-17 | `am-17-proxy-record` | Proxy Passthrough & Record-to-Drafts | 8 | 8 | blank server + Docker echo | proxy config, record, live proxied call, draft promote |
 | AM-18 | `am-18-journal` | Journal Forensics: Near-Misses, Candidates & Promotion | 7 | 8 | store library (running) | live traffic incl. a miss, promotion actions, export |
 | AM-19 | `am-19-runtime-ops` | Runtime Ops: CORS, Limits, Redaction, Diagnostics & Console | 7 | 8 | store library (running) | CORS, limits, redaction + proof, transforms, callbacks |
@@ -473,17 +473,18 @@ Format: `#` **step-id** — concept · beats (`→` = next beat, spotlight moves
 8 **replace-mode** — replace swaps the entire rule set; know before you click · hold on `IMPORT_MODE_REPLACE` → hold on the destructive-action warning → **warning visible**
 9 **enable-and-prove** — an imported draft only matters once it answers traffic · toggle `ROUTE_ENABLED` → click `APPLY` → fetch → hold on the matched journal row → **matched row**
 
-#### AM-16 `am-16-export` — Export & Round-Trip (7 steps)
+#### AM-16 `am-16-export` — Export & Round-Trip (6 steps)
 **Quiet corpus:** store library + a TLS key + a sensitive variable (so redaction has something to strip). **Live:** every export + the re-import. **Offline.**
 **Tags:** `export-workspace-json`, `export-workspace-yaml`, `export-servers`, `export-routes`, `export-wiremock`, `export-har`, `export-redaction`, `round-trip-reimport`.
 
-1 **export-menu** — six shapes for six jobs · name all six Export types (Workspace JSON / YAML, Active server JSON / routes, WireMock, HAR) → click `EXPORT` → hold each group → click `EXPORT_WORKSPACE` → hold the filename → hold **Save to disk** → **`EXPORT_SAVE`**
-2 **narrower-scopes** — YAML for review, one server for a teammate, rules alone to graft · click `EXPORT_WORKSPACE_YAML` → hold ⟂ click `EXPORT_SERVERS` → hold ⟂ click `EXPORT_ROUTES` → hold → **three exports**
-3 **redaction** — TLS keys and sensitive variables never leave the workspace · hold on the redaction callout → hold on the empty `SETTINGS_TLS_KEY` field in the exported shape → **redaction proof**
-4 **wiremock** — hand a mapping set to a team still on WireMock, with a loss note · click `EXPORT_WIREMOCK` → hold on the confirmation → hold on the lossy-feature note → **loss note**
-5 **har** — replay journal traffic in other tools · click `EXPORT_HAR` → hold on the entry count → **HAR export**
-6 **round-trip** — the real test of an export is importing it back · click `IMPORT_MENU` → native source → **copy** mode → confirm → hold on duplicated rules with new ids → **rules duplicated**
-7 **ci-handoff** — the export file is the artifact CI runs against · hold on `ROUTES_FOOTER` → hold on the copyable `cli mock simulate <file>` line → **command visible**
+Reorganized around the menu's own three groups (Workspace / This server / Interop) plus the two "use the file" actions, so no step repeats another. The redaction step reuses the map step's Workspace JSON confirm (no duplicate export); WireMock + HAR are one **interop** step.
+
+1 **export-map** — the menu is a map: six shapes, three groups · click `EXPORT` → hold each group (Workspace / This server / Interop) → click `EXPORT_WORKSPACE` → hold filename → hold **Save to disk** vs Copy → **`EXPORT_SAVE`**
+2 **redaction** — the same file, already safe to share · reuse the open Workspace JSON confirm → hold the redaction callout → `EXPORT_TLS_KEY` reads `***REDACTED***` → `EXPORT_SECRET` reads `[REDACTED]` → **redaction proof**
+3 **scopes** — hand over exactly as much as the reader needs · click `EXPORT_WORKSPACE_YAML` (diff-friendly) → hold ⟂ `EXPORT_SERVERS` (one tab) → hold ⟂ `EXPORT_ROUTES` (graft) → **three narrower cuts**
+4 **interop** — leaving RedfireForge, honestly · `EXPORT_HAR` → hold entry count (samples travel, cookies/auth redacted) ⟂ `EXPORT_WIREMOCK` → hold `EXPORT_LOSS` (features with no equivalent are named, not dropped) → **honest interop**
+5 **round-trip** — the real test of an export is importing it back · click `IMPORT_MENU` → native source → **copy** mode → Use last export → Pretty → parse → confirm → hold duplicated rows with new ids → **rules duplicated**
+6 **ci-handoff** — the export file is the artifact CI runs against · hold on `ROUTES_FOOTER` → hold on the copyable `cli mock simulate <file>` line → **command visible**
 
 #### AM-17 `am-17-proxy-record` — Proxy & Record-to-Drafts (8 steps)
 **Quiet corpus:** blank server (no proxy config — it is authored live). **Docker:** echo upstream (`docker/api-mock/`). **Companion:** required.

@@ -189,6 +189,34 @@ describe('useDemoHub — coverage gaps (autoplay & steps)', () => {
     highlightEl.remove();
   });
 
+  it('executeCurrentStep does not scroll when skipHighlightScroll is set', async () => {
+    const highlightEl = document.createElement('div');
+    highlightEl.className = 'gap-skip-scroll-target';
+    makeVisible(highlightEl);
+    highlightEl.scrollIntoView = vi.fn();
+    document.body.appendChild(highlightEl);
+
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      steps: [{
+        id: 's1',
+        title: 'No scroll',
+        description: 'Short.',
+        pauseAfter: 0,
+        highlight: '.gap-skip-scroll-target',
+        skipHighlightScroll: true,
+      }],
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(9000);
+      await p;
+    });
+    expect(highlightEl.scrollIntoView).not.toHaveBeenCalled();
+    highlightEl.remove();
+  });
+
   it('pauseAutoPlay resolves skipReading during reading phase', async () => {
     const { result } = renderDemoHub(navigateToTab);
     // Two steps: on a single-step lesson toggling at the end replays instead of pausing.

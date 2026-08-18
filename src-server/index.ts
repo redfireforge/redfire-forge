@@ -20,7 +20,7 @@ import { wsMockPool } from './websocket/websocket-mock-service.js';
 import { grpcMockServerPool } from './grpc/grpcMockServerPool.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
-const HOST = process.env.HOST || 'localhost'; // Localhost by default (IPv4/IPv6-friendly)
+const HOST = process.env.HOST || '127.0.0.1';
 
 let server: ReturnType<typeof app.listen> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
