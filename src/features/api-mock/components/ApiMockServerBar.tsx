@@ -67,9 +67,11 @@ export function ApiMockServerBar({
   return (
     <div className="api-mock-server-bar" data-testid="api-mock-server-bar">
       <div className="am-server-bar-main">
-        <span className={`am-status-dot ${status}`} />
-        <span className={`am-status-label ${labelClass}`} data-testid="api-mock-status-label">{STATUS_LABEL[status]}</span>
-        <span className="am-address" data-testid="api-mock-address">{address}</span>
+        <div className="am-listen-url" data-testid="api-mock-listen-url">
+          <span className={`am-status-dot ${status}`} />
+          <span className={`am-status-label ${labelClass}`} data-testid="api-mock-status-label">{STATUS_LABEL[status]}</span>
+          <span className="am-address" data-testid="api-mock-address">{address}</span>
+        </div>
         <button
           className="am-icon-btn"
           aria-label="Copy address"

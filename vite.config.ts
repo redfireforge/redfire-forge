@@ -231,12 +231,18 @@ function proxyPlugin(): Plugin {
           // TLS: create a one-off Agent when skip-cert, CA, or mTLS client creds are set.
           let isProxy = false;
           const loopback = isLoopbackUrl(payload.url);
+          const isHttps = payload.url.startsWith('https://');
+          // A self-signed localhost mock cert (API Mock Studio "Generate self-signed")
+          // can never chain to a public CA, so the default fetch rejects the handshake
+          // and the live GET never journals. Loopback is not a MITM surface, so treat
+          // any loopback HTTPS request as skip-verify even without explicit TLS opts.
+          const loopbackHttps = isHttps && loopback;
           const hasCustomTls =
-            (payload.skipTlsVerify && payload.url.startsWith('https://')) ||
+            (payload.skipTlsVerify && isHttps) ||
             !!payload.caCert?.trim() ||
             !!payload.clientCert?.trim() ||
             !!payload.clientKey?.trim();
-          if (hasCustomTls && payload.url.startsWith('https://')) {
+          if ((hasCustomTls || loopbackHttps) && isHttps) {
             try {
               const { Agent } = await import('undici');
               const connect: Record<string, unknown> = {};

@@ -40,6 +40,9 @@ export const AM20_TIMING = {
   beforeRun: 2400,
   /** PEM / client-bundle fill after Generate — curriculum 2000ms. */
   generate: 2000,
+  /** Keep the HTTPS-to-HTTP/2 transition brisk after the scheme is visible. */
+  httpsTransition: 350,
+  http2Highlight: 1800,
 } as const;
 
 const T = AM20_TIMING;
@@ -491,7 +494,7 @@ async function runCertSimulation(
   subject: string,
   opts: { digest?: boolean } = {},
 ): Promise<string> {
-  await ensureAdHocSimulateForm(ctx, T.tabSwitch);
+  await ensureAdHocSimulateForm(ctx, T.tabSwitch, T.fieldFilled);
   if (am20InputValue(API_MOCK.SIMULATE_PATH) !== AM20_HEALTH) {
     await am20AimFill(ctx, API_MOCK.SIMULATE_PATH, AM20_HEALTH);
   }
@@ -501,6 +504,7 @@ async function runCertSimulation(
   await reviewAndRunSimulation(ctx, {
     review: T.look,
     beforeRun: T.beforeRun,
+    controlHold: T.fieldFilled,
     digest: opts.digest,
     sampleName: subject === AM20_CERT_SUBJECT
       ? `GET ${AM20_HEALTH} — cert match`
@@ -602,20 +606,28 @@ export async function runAm20InspectCert(ctx: DemoActionContext): Promise<void> 
   }
 }
 
-/** Step 3 — Save, Start, hold https:// and HTTP/2. */
+/** Step 3 — Save, Start, hold the https:// listen URL, then HTTP/2. */
 export async function runAm20HttpsLive(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.SETTINGS_SAVE)) {
-    await am20ClickNow(ctx, API_MOCK.SETTINGS_SAVE, T.lifecycle);
+    await am20ClickNow(ctx, API_MOCK.SETTINGS_SAVE, T.httpsTransition);
   }
+  // Save closes the modal — wait until the server bar is free to read.
+  for (let i = 0; i < 20 && isAm20SettingsOpen(); i++) await ctx.delay(100);
   if (!isAm20ServerRunning() && firstVisibleElement(API_MOCK.START)) {
-    await am20Aim(ctx, API_MOCK.START, T.lifecycle);
-    await am20Reveal(ctx, API_MOCK.STOP, T.lifecycle);
+    await clickBeat(ctx, API_MOCK.START, { look: T.httpsTransition, hold: T.httpsTransition });
+    await am20Reveal(ctx, API_MOCK.STOP, T.httpsTransition);
   }
-  if (firstVisibleElement(API_MOCK.ADDRESS)) {
-    await am20Payoff(ctx, API_MOCK.ADDRESS);
+  // Scheme flip is the teaching beat — wait for https:// then ring Running + URL.
+  for (let i = 0; i < 30 && !isAm20HttpsAddress(); i++) await ctx.delay(100);
+  const listen = firstVisibleElement(API_MOCK.LISTEN_URL)
+    ? API_MOCK.LISTEN_URL
+    : API_MOCK.ADDRESS;
+  if (firstVisibleElement(listen) || firstVisibleElement(API_MOCK.ADDRESS)) {
+    await am20Reveal(ctx, listen, T.httpsTransition);
   }
+  await ctx.delay(T.httpsTransition);
   if (firstVisibleElement(API_MOCK.HTTP2_BADGE)) {
-    await am20Payoff(ctx, API_MOCK.HTTP2_BADGE);
+    await spotlightBeat(ctx, API_MOCK.HTTP2_BADGE, T.http2Highlight);
   }
 }
 
@@ -693,7 +705,6 @@ export async function runAm20ProveCertMatch(ctx: DemoActionContext): Promise<str
   outcomes.push(await runCertSimulation(ctx, AM20_CERT_SUBJECT, { digest: false }));
   await am20Break(ctx);
   outcomes.push(await runCertSimulation(ctx, AM20_CERT_SUBJECT_WRONG));
-  await closeAm20Simulate(ctx, { review: true });
   return outcomes;
 }
 
@@ -722,7 +733,18 @@ export async function runAm20RedactionParity(ctx: DemoActionContext): Promise<vo
   if (firstVisibleElement(API_MOCK.STOP)) {
     await am20Aim(ctx, API_MOCK.STOP, T.lifecycle);
   }
-  if (firstVisibleElement(API_MOCK.START)) {
-    await am20Look(ctx, API_MOCK.START);
+  if (firstVisibleElement(API_MOCK.SETTINGS)) {
+    await am20Aim(ctx, API_MOCK.SETTINGS, T.panelReady);
+    await am20Reveal(ctx, API_MOCK.SETTINGS_MODAL, T.panelReady);
+  }
+  if (!isAm20TlsPanelOpen() && firstVisibleElement(API_MOCK.SETTINGS_TAB_TLS)) {
+    await am20Aim(ctx, API_MOCK.SETTINGS_TAB_TLS, T.tabSwitch);
+    await am20Reveal(ctx, API_MOCK.SETTINGS_TLS_CERT, T.panelReady);
+  }
+  if (firstVisibleElement(API_MOCK.SETTINGS_TLS_CERT)) {
+    await am20Payoff(ctx, API_MOCK.SETTINGS_TLS_CERT);
+  }
+  if (firstVisibleElement(API_MOCK.SETTINGS_TLS_KEY)) {
+    await am20Payoff(ctx, API_MOCK.SETTINGS_TLS_KEY);
   }
 }

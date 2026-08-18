@@ -185,13 +185,14 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, 
     }
   };
 
-  /** Mutual exclusion: clear incompatible variant fields when switching modes. */
+  /**
+   * Weights are mode-specific. JSONPath conditions stay: a Rules → Sequence glance
+   * must not throw away a 404 predicate such as `$.sku = MISSING`.
+   */
   const handleModeChange = (mode: ApiMockRouteV1['responseMode']) => {
-    const responses = route.responses.map(r => {
-      if (mode === 'weighted') return { ...r, weight: r.weight ?? 1, conditions: undefined };
-      if (mode === 'sequence' || mode === 'state') return { ...r, weight: undefined, conditions: undefined };
-      return { ...r, weight: undefined };
-    });
+    const responses = route.responses.map(r => (
+      mode === 'weighted' ? { ...r, weight: r.weight ?? 1 } : { ...r, weight: undefined }
+    ));
     onUpdateRoute({ responseMode: mode, responses });
   };
 
@@ -422,7 +423,6 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, 
                   <div className="am-body-block">
                     <div className="am-body-head">
                       <h4 className="am-body-title">Response body</h4>
-                      {bodyIsTemplate && <span className="am-badge info" data-testid="api-mock-body-template-badge">TEMPLATE</span>}
                       <span className="am-faint" data-testid="api-mock-body-size">{bodyBytes} B</span>
                       <span className="am-spacer" />
                       <button
@@ -498,14 +498,18 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, 
                         Template helpers: <code>{'{{uuid}}'}</code>, <code>{"{{header 'X-Tenant'}}"}</code>, <code>{'{{now}}'}</code>, <code>{"{{pathParam 'id'}}"}</code>.
                         {' '}Type <code>{'{{'}</code> for autocomplete.
                       </span>
-                      <button
-                        type="button"
-                        className="am-btn small ghost"
-                        data-testid="api-mock-template-helpers-browse"
-                        onClick={() => setHelpersOpen(true)}
-                      >
-                        Browse helpers
-                      </button>
+                      {bodyIsTemplate && (
+                        <button
+                          type="button"
+                          className="am-btn small ghost am-template-badge-button"
+                          aria-label="Browse template helpers"
+                          title="Browse template helpers"
+                          data-testid="api-mock-template-helpers-browse"
+                          onClick={() => setHelpersOpen(true)}
+                        >
+                          <span className="am-badge info" data-testid="api-mock-body-template-badge">TEMPLATE</span>
+                        </button>
+                      )}
                     </div>
                     {helpersOpen && (
                       <ApiMockTemplateHelperModal

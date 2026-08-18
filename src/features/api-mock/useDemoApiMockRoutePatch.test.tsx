@@ -347,19 +347,20 @@ describe('useDemoApiMockRoutePatch', () => {
     expect(responses[1].conditions).not.toBe(conditions);
   });
 
-  it('switches to sequence mode and clears variant conditions', () => {
+  it('switches to sequence mode and keeps variant conditions', () => {
     const { state } = setup();
+    const conditions: ApiMockPredicateGroupV1 = {
+      id: 'pg',
+      combinator: 'all',
+      children: [{ id: 'p', source: 'query', selector: 'q', operator: 'exact', expected: '1' }],
+    };
     bridge()?.({
       addVariant: true,
-      variantConditions: {
-        id: 'pg',
-        combinator: 'all',
-        children: [{ id: 'p', source: 'query', selector: 'q', operator: 'exact', expected: '1' }],
-      },
+      variantConditions: conditions,
     });
     expect(bridge()?.({ responseMode: 'sequence' })).toBe(true);
     expect(state.servers[0].routes[0].responseMode).toBe('sequence');
-    expect(state.servers[0].routes[0].responses.every(r => r.conditions === undefined)).toBe(true);
+    expect(state.servers[0].routes[0].responses[1].conditions).toEqual(conditions);
   });
 
   it('marks a specific variant as the sole default', () => {

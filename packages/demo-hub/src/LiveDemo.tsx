@@ -113,6 +113,7 @@ export default function LiveDemo({
         found
         && el
         && !autoScrolledRef.current
+        && !step.skipHighlightScroll
         && !isDemoAutoScrollPaused()
         && !isElementVisibleInViewport(el)
       ) {

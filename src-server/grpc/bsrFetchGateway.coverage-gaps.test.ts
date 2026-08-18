@@ -362,9 +362,20 @@ describe('bsrFetchGateway coverage gaps', () => {
   it('retries BSR fetch without proxy when corporate proxy DNS fails', async () => {
     const prevHttps = process.env.HTTPS_PROXY;
     const prevHttpsLower = process.env.https_proxy;
+    const prevNoProxy = process.env.NO_PROXY;
+    const prevNoProxyLower = process.env.no_proxy;
     process.env.HTTPS_PROXY = 'http://naproxy.gm.com:80';
     delete process.env.https_proxy;
+    delete process.env.NO_PROXY;
+    delete process.env.no_proxy;
     vi.resetModules();
+    vi.doMock('node:module', () => ({
+      createRequire: () => () => ({
+        ProxyAgent: class {
+          constructor(public proxyUrl: string) {}
+        },
+      }),
+    }));
 
     const payload = Buffer.from('eliza-protoset-bytes');
     let callCount = 0;
@@ -393,6 +404,9 @@ describe('bsrFetchGateway coverage gaps', () => {
       fetchSpy.mockRestore();
       process.env.HTTPS_PROXY = prevHttps;
       process.env.https_proxy = prevHttpsLower;
+      process.env.NO_PROXY = prevNoProxy;
+      process.env.no_proxy = prevNoProxyLower;
+      vi.doUnmock('node:module');
       vi.resetModules();
     }
   });

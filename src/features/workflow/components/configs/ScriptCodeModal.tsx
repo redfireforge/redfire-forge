@@ -34,7 +34,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
   const [viewMode, setViewMode] = useState<'text' | 'tree'>(() => (isValidJson(initialValue) ? 'tree' : 'text'));
   const [searchTerm, setSearchTermState] = useState('');
   const [searchMatchCount, setSearchMatchCount] = useState(0);
-  const { collapsedSet, handleTreeToggle: handleToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
+  const { collapsedSet, expandAllActive, handleTreeToggle: handleToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
   const debouncedSearch = useDebounce(searchTerm, 200);
 
   const isPretty = draft.includes('\n');
@@ -158,6 +158,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
               collapsedSet={collapsedSet}
               onToggle={handleToggle}
               prebuiltTree={jTree}
+              forceExpandAll={expandAllActive}
             />
           </div>
         </div>

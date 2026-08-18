@@ -29,6 +29,21 @@ describe('useJsonTreeCollapseState', () => {
     });
     expect(result.current.collapsedSet.size).toBe(0);
   });
+
+  it('tracks the sticky Expand all mode: on for expand-all, off for collapse-all, unchanged by a single toggle', () => {
+    const { result } = renderHook(() => useJsonTreeCollapseState());
+    expect(result.current.expandAllActive).toBe(false);
+
+    act(() => { result.current.handleExpandAll(); });
+    expect(result.current.expandAllActive).toBe(true);
+
+    // A single node toggle keeps the sticky mode (the node just re-enters the collapsed set).
+    act(() => { result.current.handleTreeToggle('a'); });
+    expect(result.current.expandAllActive).toBe(true);
+
+    act(() => { result.current.handleCollapseAll(new Set(['a', 'b'])); });
+    expect(result.current.expandAllActive).toBe(false);
+  });
 });
 
 describe('useMatchCountChange', () => {

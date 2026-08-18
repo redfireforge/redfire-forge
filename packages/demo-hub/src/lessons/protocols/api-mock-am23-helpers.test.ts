@@ -104,12 +104,18 @@ function mountFixture(opts: {
   stopped?: boolean;
   port?: string;
 } = {}): HTMLElement {
+  const setup = el('div', undefined, 'har-runner-mock-setup');
+  setup.append(el('div', undefined, 'har-host-selector'));
   const fieldset = el('fieldset', undefined, 'har-apimock-fixture');
   fieldset.append(select('har-apimock-fixture-server', opts.serverId ?? '', [
     { value: AM23_SERVER_ID, label: 'Store API (:4600)' },
     { value: 'srv-other', label: 'Other (:4601)' },
   ]));
-  fieldset.append(checkbox('har-apimock-fixture-isolate', opts.isolate !== false));
+  const isolateRow = el('div', undefined, 'har-apimock-fixture-isolate-row');
+  isolateRow.append(checkbox('har-apimock-fixture-isolate', opts.isolate !== false));
+  fieldset.append(isolateRow);
+  setup.append(fieldset);
+  document.body.append(setup);
   if (opts.start) {
     const start = el('p', undefined, 'har-apimock-fixture-start');
     start.textContent = `Started mock on :${opts.port ?? '4612'}`;
@@ -126,7 +132,6 @@ function mountFixture(opts: {
     stopped.append(freed);
     fieldset.append(stopped);
   }
-  document.body.append(fieldset);
   return fieldset;
 }
 
@@ -346,6 +351,13 @@ describe('AM-23 helpers', () => {
     const ctx2 = makeCtx();
     await am23TestHooks.holdOrEnableIsolate(ctx2, true);
     expect(ctx2.click).toHaveBeenCalledWith(HAR.HARNESS_MOCK_ISOLATE);
+  });
+
+  it('does not re-click or re-tour Isolate when it is already on', async () => {
+    mountFixture({ enabled: true, serverId: AM23_SERVER_ID, isolate: true });
+    const ctx = makeCtx();
+    await runAm23Isolate(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('selects the first scenario after deselecting stale checks', async () => {

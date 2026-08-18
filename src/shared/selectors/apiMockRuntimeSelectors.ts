@@ -322,6 +322,7 @@ export const API_MOCK_RUNTIME = {
   SIMULATE_WIRE_BODY: '[data-testid="api-mock-sim-wire-body"]',
   SIMULATE_INTENDED_SECTION: '[data-testid="api-mock-sim-intended-section"]',
   SIMULATE_ASSERTIONS: '[data-testid="api-mock-sim-assertions"]',
+  SIMULATE_ASSERT_HINT: '[data-testid="api-mock-sim-assert-hint"]',
   SIMULATE_SAVE_SAMPLE: '[data-testid="api-mock-simulate-save-sample"]',
   SIMULATE_SAMPLE_NAME: '[data-testid="api-mock-simulate-sample-name"]',
   SIMULATE_SAMPLE_ADHOC: '[data-testid="api-mock-sim-sample-adhoc"]',

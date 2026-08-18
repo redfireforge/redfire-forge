@@ -12,8 +12,7 @@ import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
 import {
   AM21_ADHOC_PATH,
-  AM21_HEALTH_ID,
-  AM21_ORPHAN_ID,
+  AM21_DICE_NAME,
   AM21_WRONG_STATUS,
   cleanupAm21,
   ensureAm21ForExamples,
@@ -87,7 +86,7 @@ export const apiMockAm21Lesson: DemoLesson = {
     + 'bundle, then attach an unassociated example and Try in Requests.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 5,
+  contentVersion: 11,
   concept: {
     title: 'A sample without an expectation is a demo, not a test.',
     body:
@@ -165,10 +164,12 @@ export const apiMockAm21Lesson: DemoLesson = {
       title: 'A sample without an expectation is a demo, not a test',
       description:
         'A run that always “passes” proves nothing — it is a demo, not a '
-        + 'test. What turns a saved sample into a test is an **expectation**: '
-        + 'the contract columns on the **Assertions** tab, expected versus '
-        + 'actual for outcome, status, and body-contains. This sample already '
-        + 'ships a `200`, which is why the status row is green.\n\n'
+        + 'test. What turns a saved sample into a test is an **expectation**. '
+        + 'On the **Assertions** tab, only two Expected cells are inputs: '
+        + '**Status** and **Body contains**. Those are the contract you can '
+        + 'rewrite here. Outcome, Rule, Response, Body exact, Fault, and '
+        + 'Virtual delay are recorded from the sample or observed from this '
+        + 'run — they are not fields you type.\n\n'
         + `Now break it on purpose — edit expected status to \`${AM21_WRONG_STATUS}\`. `
         + 'Nothing fails *yet*; you have simply written a contract the mock is '
         + 'about to violate. The next step is where the suite has to notice.',
@@ -183,14 +184,16 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'fail-loudly',
       title: 'A wrong expectation must fail visibly',
       description:
-        'This is the step that earns the word “test.” Re-run the health '
-        + 'sample against the expectation you just broke, and the sidebar badge '
-        + 'turns **FAIL** — loud, in the UI, not a quiet mismatch buried in a '
-        + 'log. The Fail reason names the row that broke the contract.\n\n'
-        + 'The principle underneath: a suite that cannot fail cannot catch a '
-        + 'regression, and silence is exactly how regressions slip through. A '
-        + 'red badge here is the product doing its job — not a problem to fix.',
-      highlight: API_MOCK.simSample(AM21_HEALTH_ID),
+        `**What you'll do:** click **Run simulation** on \`GET /health\` — `
+        + `the sample whose expected status you just set to \`${AM21_WRONG_STATUS}\`.\n\n`
+        + '**What you\'ll see:** the sample’s sidebar badge turns red **FAIL**. '
+        + `On **Assertions**, Status is expected \`${AM21_WRONG_STATUS}\`, actual `
+        + '`200`, result **fail**. The **Decision trace** can still say '
+        + '**MATCHED** — the health rule still won; the *test* failed.\n\n'
+        + '**Why it matters:** matching a rule is not the same as passing the '
+        + 'contract. A red **FAIL** is the suite doing its job. If a wrong '
+        + 'expectation stayed green, regressions would slip through silently.',
+      highlight: API_MOCK.SIMULATE_SECTION_SAVED,
       preAction: ensureAm21ForFailLoudly,
       action: async (ctx) => {
         await runAm21FailLoudly(ctx);
@@ -221,13 +224,16 @@ export const apiMockAm21Lesson: DemoLesson = {
       id: 'seed',
       title: 'Weighted, jitter, and probability become reproducible',
       description:
-        'A weighted or jittered mock is the classic flaky test: green '
-        + 'locally, red in CI, and nobody can reproduce it. Simulate removes '
-        + 'the coin flip by pinning the roll for the session — run the dice '
-        + 'sample once, then again, and the rendered face is *identical*.\n\n'
-        + 'You never typed a seed; reproducibility is the default. That is '
-        + 'what lets a probabilistic mock live in a regression suite at all — a '
-        + 'case you can replay is a case you can debug.',
+        `**What you'll do:** select \`${AM21_DICE_NAME}\` and click `
+        + '**Run simulation** twice — same sample, back to back. You do not '
+        + 'type a seed.\n\n'
+        + '**What you\'ll see:** **Rendered response** shows the same dice '
+        + 'face both times. The roll is pinned for this Simulate session, so '
+        + 'the second run is a replay, not a new coin flip.\n\n'
+        + '**Why it matters:** a weighted or jittered mock is the classic '
+        + 'flaky test — green on your machine, red in CI, and nobody can '
+        + 'reproduce it. A pinned seed is what lets that mock live in a '
+        + 'regression suite: a case you can replay is a case you can debug.',
       highlight: API_MOCK.SIMULATE_RUN,
       preAction: ensureAm21ForSeed,
       action: async (ctx) => {
@@ -273,7 +279,7 @@ export const apiMockAm21Lesson: DemoLesson = {
       action: async (ctx) => {
         await runAm21Examples(ctx);
       },
-      verify: API_MOCK.exampleRow(AM21_ORPHAN_ID),
+      verify: API_MOCK.EXAMPLES_GRID,
     },
   ],
 };

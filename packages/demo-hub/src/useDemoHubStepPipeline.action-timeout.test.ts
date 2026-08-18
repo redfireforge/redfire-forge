@@ -65,4 +65,33 @@ describe('runActionWithTimeout', () => {
     warn.mockRestore();
     vi.useRealTimers();
   });
+
+  it('honours a longer per-step actionTimeoutMs', async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ac = new AbortController();
+    const onTimeout = vi.fn();
+    const step: DemoStep = {
+      id: 'ship',
+      title: 'Ship',
+      description: 'long tour',
+      actionTimeoutMs: 80_000,
+      action: async (ctx) => {
+        await ctx.delay(50_000);
+      },
+    };
+    const ctx = makeCtx();
+    ctx.delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    const run = runActionWithTimeout(step, ctx, ac.signal, onTimeout);
+    await vi.advanceTimersByTimeAsync(DEMO_ACTION_TIMEOUT_MS);
+    expect(onTimeout).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5_000);
+    await run;
+
+    expect(onTimeout).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('action timed out'));
+    warn.mockRestore();
+    vi.useRealTimers();
+  });
 });

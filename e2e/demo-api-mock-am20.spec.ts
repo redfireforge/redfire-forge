@@ -64,6 +64,9 @@ test.describe('Demo lesson AM-20 — HTTPS, HTTP/2 & mTLS with Cert-Subject Matc
     await advanceSteps(page, 2, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
+    await expect(page.locator(API_MOCK.LISTEN_URL)).toBeVisible({
+      timeout: AM_LESSON_STEP_TIMEOUT,
+    });
     await expect(page.locator(API_MOCK.ADDRESS)).toContainText(/https:\/\//, {
       timeout: AM_LESSON_STEP_TIMEOUT,
     });

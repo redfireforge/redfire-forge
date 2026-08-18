@@ -68,6 +68,8 @@ export const API_MOCK_STUDIO = {
   SERVER_TABS: '[data-testid="api-mock-server-tabs"]',
   TAB_ADD: '[data-testid="api-mock-tab-add"]',
   SERVER_BAR: '[data-testid="api-mock-server-bar"]',
+  /** Status + listen URL cluster (scheme flip to https:// lives here). */
+  LISTEN_URL: '[data-testid="api-mock-listen-url"]',
   ADDRESS: '[data-testid="api-mock-address"]',
   COPY_ADDRESS: '[data-testid="api-mock-copy-address"]',
   HTTP2_BADGE: '[data-testid="api-mock-http2-badge"]',
@@ -411,6 +413,8 @@ export const API_MOCK_STUDIO = {
   EXAMPLE_TRY_REQUESTS: '[data-testid="api-mock-examples-grid"] [data-testid^="api-mock-example-try-"]',
   exampleTry: (id: string) => `[data-testid="api-mock-example-try-${id}"]`,
   exampleRow: (id: string) => `[data-testid="api-mock-example-${id}"]`,
+  exampleStatus: (id: string) => `[data-testid="api-mock-example-status-${id}"]`,
+  exampleBody: (id: string) => `[data-testid="api-mock-example-body-${id}"]`,
 
   // ── Live strip ───────────────────────────────────────────────────────────
   LIVE_STRIP: '[data-testid="api-mock-live-strip"]',

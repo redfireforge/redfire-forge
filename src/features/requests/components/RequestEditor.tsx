@@ -112,7 +112,7 @@ export default function RequestEditor({
     goPrev: goPrevSearchMatch,
     clear: clearResponseSearch,
   } = useSearchMatchNavigation(searchMatchCount);
-  const { collapsedSet, handleTreeToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
+  const { collapsedSet, expandAllActive, handleTreeToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
 
   const {
     response, setResponse,
@@ -579,6 +579,7 @@ export default function RequestEditor({
             {!sending && response && !sendAllResults && responseTab === 'preview' && (
               <JsonPreview body={response.body} error={response.error} search={responseSearch}
                 collapsedSet={collapsedSet} onToggle={handleTreeToggle} prebuiltTree={responseTree}
+                forceExpandAll={expandAllActive}
                 currentMatchIdx={searchMatchIdx} onMatchCountChange={handleMatchCountChange} />
             )}
 
