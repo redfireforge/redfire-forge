@@ -19,7 +19,7 @@ import {
   handleApiMockAssertCalls,
 } from './apiMockNodeHandlers';
 import { resolveApiMockDefinition } from '../utils/apiMockWorkflowDefinitionResolver';
-import { registerApiMockServerForRun } from '../utils/apiMockRunIsolation';
+import { listApiMockServersForRun, registerApiMockServerForRun } from '../utils/apiMockRunIsolation';
 import { apiMockControlBase } from '../../../shared/api-mock/controlBase';
 import { httpFetch } from '../../../shared/utils/httpClient';
 
@@ -33,10 +33,13 @@ vi.mock('./apiMockNodeHandlers', () => ({
 
 vi.mock('../utils/apiMockWorkflowDefinitionResolver', () => ({
   resolveApiMockDefinition: vi.fn(),
+  isolateApiMockServerId: (serverId: string, runId: string) =>
+    `${serverId}__run_${(runId.replace(/[^a-zA-Z0-9_-]+/g, '').slice(0, 24)) || 'run'}`,
 }));
 
 vi.mock('../utils/apiMockRunIsolation', () => ({
   registerApiMockServerForRun: vi.fn(),
+  listApiMockServersForRun: vi.fn(() => [] as string[]),
 }));
 
 vi.mock('../../../shared/api-mock/controlBase', () => ({
@@ -486,6 +489,29 @@ describe('graphRunnerApiMockNodeHandlers', () => {
 
       expect(passed.value).toBe(false);
       expect(hCtx.results[0]?.errorMessage).toBe('reset boom');
+    });
+
+    it('retargets a base server id onto the run-isolated server started this run', async () => {
+      // Start isolated the run as srv-1__run_run-1 (registry), but the Reset node
+      // still references the base workspace id — retarget so it hits the live server.
+      vi.mocked(listApiMockServersForRun).mockReturnValue(['srv-1__run_run-1']);
+      const hCtx = makeHCtx();
+      const passed: PassedFlag = { value: true };
+
+      await handleApiMockResetStateNode('n-reset', resetNode({ serverId: 'srv-1' }), hCtx, passed);
+
+      expect(vi.mocked(handleApiMockResetState).mock.calls[0]![0].serverId).toBe('srv-1__run_run-1');
+      expect(passed.value).toBe(true);
+    });
+
+    it('leaves the server id untouched when nothing was isolated for the run', async () => {
+      vi.mocked(listApiMockServersForRun).mockReturnValue([]);
+      const hCtx = makeHCtx();
+      const passed: PassedFlag = { value: true };
+
+      await handleApiMockResetStateNode('n-reset', resetNode({ serverId: 'srv-1' }), hCtx, passed);
+
+      expect(vi.mocked(handleApiMockResetState).mock.calls[0]![0].serverId).toBe('srv-1');
     });
   });
 

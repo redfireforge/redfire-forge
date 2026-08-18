@@ -50,6 +50,17 @@
   z-index: 1200;
   isolation: isolate;
 }
+/* Rule Simulation docks near the icon rail — never centered over the app,
+   even when an ancestor's `.sidebar-visible` would otherwise center
+   `.modal-overlay`'s content, and never offset by an expanded app sidebar
+   that isn't even shown on this tab. Nudged slightly off the rail edge. */
+.modal-overlay:has(.am-simulate-modal) {
+  left: 64px !important;
+  justify-content: flex-start !important;
+}
+.am-simulate-modal.modal {
+  margin-top: 72px;
+}
 .am-studio-modal.modal {
   width: min(1180px, 100%);
   max-width: 100%;
@@ -435,6 +446,10 @@
 .api-mock-server-bar .am-server-bar-main {
   display: flex; align-items: center; gap: 9px; min-height: 32px; min-width: 0;
 }
+.api-mock-server-bar .am-listen-url {
+  display: inline-flex; align-items: center; gap: 9px; min-width: 0;
+  flex: 1 1 22rem; max-width: 40rem;
+}
 .api-mock-server-bar .am-status-label { font-size: 11px; font-weight: 700; }
 .api-mock-server-bar .am-status-label.running { color: var(--am-green); }
 .api-mock-server-bar .am-status-label.stopped { color: var(--text-muted); }
@@ -443,7 +458,7 @@
   padding: 5px 9px; color: var(--text); background: var(--bg);
   border: 1px solid var(--border); border-radius: 6px;
   font: 11px var(--am-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  flex: 1 1 22rem; min-width: 18rem; max-width: 40rem;
+  flex: 1 1 auto; min-width: 12rem; max-width: 100%;
 }
 .api-mock-server-bar .am-generation {
   color: var(--text-muted); font-size: 11px; padding-left: 9px; border-left: 1px solid var(--border);
@@ -975,6 +990,10 @@
 }
 .api-mock-root .am-form-row--tall .am-form-label { align-items: flex-start; padding-top: 12px; }
 .api-mock-root .am-form-row--tall .am-form-control { align-items: flex-start; padding-top: 10px; }
+.api-mock-root .am-docs-form-grid .am-form-row--tall .am-form-label {
+  align-items: center;
+  padding: 8px 12px;
+}
 
 /* Callback body: tall row + grows when the bottom dock is hidden. */
 .api-mock-root .am-callback-body-row .am-form-control-stack {
@@ -1497,7 +1516,7 @@
 .api-mock-root .am-group-label .am-faint { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .api-mock-root .am-matcher-row {
   min-height: 42px; display: grid;
-  grid-template-columns: 118px minmax(90px,.9fr) minmax(210px, 240px) minmax(120px,1.4fr) auto;
+  grid-template-columns: 280px minmax(180px,.7fr) minmax(225px, 260px) minmax(120px,1.4fr) auto;
   align-items: center; gap: 7px; padding: 5px 7px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
 }
@@ -1771,11 +1790,11 @@
 .api-mock-root .am-matcher-result.pass { color: var(--am-green); }
 .api-mock-root .am-matcher-result.fail { color: var(--am-red); }
 .api-mock-root .am-jsonpath-pair {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; min-width: 0;
+  display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 6px; min-width: 0;
   align-items: center;
 }
 .api-mock-root .am-jsonpath-pair--matchstyle:not(:has(.am-expandable-text)) {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr) auto;
 }
 .api-mock-root .am-matchstyle-radios {
   display: flex;
@@ -4718,6 +4737,27 @@
   line-height: 1.4;
   opacity: 0.8;
 }
+.am-sim-assertions-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.am-sim-assertions-hint {
+  margin: 0;
+  padding: 0 2px;
+  white-space: normal;
+  line-height: 1.45;
+}
+.api-mock-root .am-data-table td.am-sim-assert-edit {
+  overflow: visible;
+  white-space: normal;
+}
+.api-mock-root .am-data-table td.am-sim-assert-edit .am-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 160px;
+}
 .am-sim-empty-hint p { margin: 0 0 6px; }
 .am-sim-empty-hint p:last-child { font-size: 11.5px; opacity: 0.7; }
 .am-sim-empty-hint strong { color: var(--text); }
@@ -5725,6 +5765,16 @@
   padding: 12px 14px 14px;
   background: var(--surface);
 }
+/* Tree view shares the editor shell's frame; the tree scrolls inside its own card. */
+.am-text-expand-tree-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
 .am-text-expand-editor.am-textarea {
   flex: 1;
   min-height: 0;
@@ -5809,6 +5859,76 @@
   height: min(720px, 100%);
   isolation: isolate;
   background: var(--surface);
+}
+.am-export-preview-json-modal.am-studio-modal.modal {
+  width: min(960px, 100%);
+  height: min(800px, 100%);
+  isolation: isolate;
+  background: var(--surface);
+}
+/* Preview header lives on the title row: "Preview  [search ▲ ▼]  Expand Collapse Copy". */
+.am-export-preview-json-modal.am-studio-modal.modal > .modal-header {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.am-export-preview-json-header-controls {
+  flex: 1 1 auto !important;
+  min-width: 0;
+}
+.api-mock-root.am-in-modal.am-export-preview-json-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.am-export-preview-json-search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.am-export-preview-json-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 30px;
+}
+.am-export-preview-json-search-count {
+  flex: 0 0 auto;
+  min-width: 2.6em;
+  text-align: right;
+  font-size: 0.7rem;
+  font-family: var(--am-ui);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.am-export-preview-json-search .am-icon-btn {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+.am-export-preview-json-search .am-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.am-export-preview-json-header-btns {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.am-export-preview-json-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.am-export-preview-json-footer {
+  width: 100%;
+  justify-content: flex-end;
 }
 .am-export-search {
   display: flex;
@@ -5922,12 +6042,70 @@
   margin-top: 0;
   padding-top: 0;
 }
+.am-export-preview-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+}
+/* Inline JSON tree preview — mirrors the maximized popup's tree, sized to fill the
+   preview block and scroll internally (.req-json-preview-wrapper → .jt-tree). */
+.am-export-preview-tree-wrap {
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.am-export-preview-backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  pointer-events: none;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--am-editor-mono);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.am-export-preview-backdrop .am-export-preview-match {
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
+  border-radius: 2px;
+}
+.am-export-preview-backdrop .am-export-preview-match-current {
+  background: var(--primary);
+  color: var(--bg);
+}
+.am-export-preview-backdrop .am-export-preview-current-line {
+  display: block;
+  background: color-mix(in srgb, var(--am-amber) 18%, transparent);
+}
 .am-export-preview {
+  position: relative;
   flex: 1;
   min-height: 160px;
   font-family: var(--am-editor-mono);
   font-size: 12px;
   line-height: 1.45;
+}
+/* Higher specificity than the base `.api-mock-root .am-textarea` rule so the highlight
+   backdrop shows through instead of the textarea's own opaque text. */
+.api-mock-root .am-export-preview {
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+}
+.api-mock-root .am-export-preview::selection {
+  background: color-mix(in srgb, var(--primary) 35%, transparent);
+  color: transparent;
 }
 .am-export-confirm .am-notice ul {
   margin: 6px 0 0;

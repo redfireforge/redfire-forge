@@ -84,6 +84,7 @@ import {
   AM24_ORDERS_PATH,
   AM24_SERVER_ID,
   AM24_SKU,
+  AM24_SHIP_ACTION_TIMEOUT_MS,
   AM24_TIMING,
   AM24_WF_NAME,
   am24CanvasNodeId,
@@ -97,6 +98,8 @@ import {
   closeAm24Import,
   closeAm24Simulate,
   ensureAm24Designer,
+  AM24_JSONPATH,
+  AM24_SKU_MISSING,
   ensureAm24ForImport,
   ensureAm24ForConflicts,
   ensureAm24ForLive,
@@ -244,6 +247,7 @@ describe('AM-24 helpers', () => {
     expect(AM24_TIMING.beforeRun).toBe(2400);
     expect(AM24_TIMING.reviewModal).toBe(2400);
     expect(AM24_TIMING.payoff).toBe(1600);
+    expect(AM24_SHIP_ACTION_TIMEOUT_MS).toBe(120_000);
     expect(JSON.parse(AM24_OPENAPI).paths['/orders'].post).toBeTruthy();
     expect(AM24_SKU).toBe('WIDGET');
     expect(AM24_ITEM_PATH).toBe('/orders/:id');
@@ -512,6 +516,9 @@ describe('AM-24 helpers', () => {
     document.body.append(el('button', undefined, 'api-mock-response-tab-selection'));
     document.body.append(input('api-mock-selection-condition-path'));
     document.body.append(input('api-mock-selection-condition-value'));
+    const chip = el('span', undefined, 'api-mock-selection-condition');
+    chip.textContent = `${AM24_JSONPATH} = ${AM24_SKU_MISSING}`;
+    document.body.append(chip);
     document.body.append(el('button', undefined, 'api-mock-response-mode-sequence'));
     document.body.append(el('div', undefined, 'api-mock-sequence-order-note'));
     document.body.append(el('button', undefined, 'api-mock-response-mode-rules'));
@@ -525,7 +532,17 @@ describe('AM-24 helpers', () => {
     });
     await runAm24Variants(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.ADD_VARIANT);
-    expect(patchApiMockActiveRoute).toHaveBeenCalled();
+    const conditionPatches = patchApiMockActiveRoute.mock.calls.filter(
+      ([patch]) => patch && typeof patch === 'object' && 'variantConditions' in patch,
+    );
+    expect(conditionPatches.length).toBeGreaterThanOrEqual(2);
+    const lastCondition = conditionPatches.at(-1)?.[0] as { variantConditions?: { id?: string } };
+    expect(lastCondition.variantConditions?.id).toBe('pg-am24-404');
+    const modes = patchApiMockActiveRoute.mock.calls
+      .map(([patch]) => (patch as { responseMode?: string } | undefined)?.responseMode)
+      .filter(Boolean);
+    expect(modes).toContain('sequence');
+    expect(modes.at(-1)).toBe('rules');
   });
 
   it('skips adding a variant when a 404 sibling already exists', async () => {
@@ -538,9 +555,32 @@ describe('AM-24 helpers', () => {
     list.append(a, b);
     document.body.append(list);
     document.body.append(el('button', undefined, 'api-mock-response-mode-rules'));
+    const chip = el('span', undefined, 'api-mock-selection-condition');
+    chip.textContent = 'No extra condition';
+    document.body.append(chip);
     const ctx = makeCtx();
     await runAm24Variants(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.ADD_VARIANT);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      variantConditions: expect.objectContaining({ id: 'pg-am24-404' }),
+    }));
+  });
+
+  it('quietNotFoundVariant restores the missing-SKU condition when the 404 already exists', async () => {
+    mountStudio({ enabled: true });
+    mountEditor();
+    const list = el('div', undefined, 'api-mock-variant-list');
+    const a = el('button', undefined, 'api-mock-variant-tab-0');
+    const b = el('button', undefined, 'api-mock-variant-tab-1');
+    b.textContent = '404 Not found';
+    list.append(a, b);
+    document.body.append(list);
+    const ctx = makeCtx();
+    await am24TestHooks.quietNotFoundVariant(ctx);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      variantConditions: expect.objectContaining({ id: 'pg-am24-404' }),
+    }));
+    expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({ addVariant: true }));
   });
 
   it('resilience fills delay + probability then a timeout fault', async () => {

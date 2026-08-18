@@ -181,8 +181,8 @@ export function ApiMockRouteEditor({
         options={SOURCE_OPTIONS}
         size="sm"
         className="am-cs"
-        menuPlacement="end"
-        menuMinWidth={360}
+        menuPlacement="below"
+        menuMinWidth={280}
         aria-label="Condition source"
         data-testid={`api-mock-condition-source-${pred.id}`}
       />
@@ -194,7 +194,7 @@ export function ApiMockRouteEditor({
           placeholder="Selector"
           size="sm"
           className="am-cs"
-          menuPlacement="end"
+          menuPlacement="below"
           menuMinWidth={280}
           aria-label="Condition selector"
           data-testid={`api-mock-condition-selector-${pred.id}`}
@@ -622,7 +622,7 @@ export function ApiMockRouteEditor({
           />
         )}
         {tab === 'docs' && (
-          <div className="am-form-grid">
+          <div className="am-form-grid am-docs-form-grid">
             <div className="am-form-row am-form-row--tall">
               <div className="am-form-label">Folder</div>
               <div className="am-form-control am-form-control-stack">

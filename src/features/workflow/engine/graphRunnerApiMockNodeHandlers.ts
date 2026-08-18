@@ -20,8 +20,8 @@ import {
   handleApiMockStop,
   type ApiMockNodeResult,
 } from './apiMockNodeHandlers';
-import { resolveApiMockDefinition } from '../utils/apiMockWorkflowDefinitionResolver';
-import { registerApiMockServerForRun } from '../utils/apiMockRunIsolation';
+import { isolateApiMockServerId, resolveApiMockDefinition } from '../utils/apiMockWorkflowDefinitionResolver';
+import { listApiMockServersForRun, registerApiMockServerForRun } from '../utils/apiMockRunIsolation';
 import { buildCombinedResolver } from './graphRunnerHelpers';
 import { nextResultId } from '../../../engine/requestExecution';
 import type { RequestResult } from '../../../shared/types';
@@ -191,6 +191,28 @@ function resolveStr(hCtx: NodeHandlerContext, value: string | undefined): string
   return buildCombinedResolver(hCtx.ctx.snapshot())(value);
 }
 
+function runIdFor(hCtx: NodeHandlerContext): string {
+  return hCtx.executionId ?? hCtx.workflowId ?? 'workflow';
+}
+
+/**
+ * Map a downstream node's target server id onto the server actually running for
+ * this run. When the Start node isolates the run it launches `<id>__run_<runId>`
+ * and registers that isolated id; a downstream Apply/Reset/Stop/Assert that still
+ * references the base workspace id (a picked studio server, or a `{{var}}` that
+ * resolved to it) would otherwise hit a server that was never started. If the
+ * base id is not in the run registry but its isolated variant is, retarget to the
+ * isolated id. Leaves ids untouched when nothing was isolated for this run, so
+ * non-isolated runs and explicit isolated ids behave exactly as before.
+ */
+function resolveRunServerId(hCtx: NodeHandlerContext, serverId: string): string {
+  if (!serverId) return serverId;
+  const started = listApiMockServersForRun(runIdFor(hCtx));
+  if (started.length === 0 || started.includes(serverId)) return serverId;
+  const isolated = isolateApiMockServerId(serverId, runIdFor(hCtx));
+  return started.includes(isolated) ? isolated : serverId;
+}
+
 function makeCtx(
   hCtx: NodeHandlerContext,
   definition?: import('../../../shared/api-mock/contracts').ApiMockServerDefinitionV1,
@@ -267,7 +289,7 @@ export async function handleApiMockApplyNode(
   passed: PassedFlag,
 ): Promise<void> {
   const raw = node.data as ApiMockApplyNodeData;
-  const data: ApiMockApplyNodeData = { ...raw, serverId: resolveStr(hCtx, raw.serverId) };
+  const data: ApiMockApplyNodeData = { ...raw, serverId: resolveRunServerId(hCtx, resolveStr(hCtx, raw.serverId)) };
   const label = hCtx.nodeLabel(nodeId);
   const onError = data.onError ?? 'fail';
   const t0 = performance.now();
@@ -305,7 +327,7 @@ export async function handleApiMockResetStateNode(
   passed: PassedFlag,
 ): Promise<void> {
   const raw = node.data as ApiMockResetStateNodeData;
-  const data: ApiMockResetStateNodeData = { ...raw, serverId: resolveStr(hCtx, raw.serverId) };
+  const data: ApiMockResetStateNodeData = { ...raw, serverId: resolveRunServerId(hCtx, resolveStr(hCtx, raw.serverId)) };
   const label = hCtx.nodeLabel(nodeId);
   const onError = data.onError ?? 'fail';
   const t0 = performance.now();
@@ -328,7 +350,7 @@ export async function handleApiMockStopNode(
   passed: PassedFlag,
 ): Promise<void> {
   const raw = node.data as ApiMockStopNodeData;
-  const data: ApiMockStopNodeData = { ...raw, serverId: resolveStr(hCtx, raw.serverId) };
+  const data: ApiMockStopNodeData = { ...raw, serverId: resolveRunServerId(hCtx, resolveStr(hCtx, raw.serverId)) };
   const label = hCtx.nodeLabel(nodeId);
   const onError = data.onError ?? 'fail';
   const t0 = performance.now();
@@ -353,7 +375,7 @@ export async function handleApiMockAssertCallsNode(
   const raw = node.data as ApiMockAssertCallsNodeData;
   const data: ApiMockAssertCallsNodeData = {
     ...raw,
-    serverId: resolveStr(hCtx, raw.serverId),
+    serverId: resolveRunServerId(hCtx, resolveStr(hCtx, raw.serverId)),
     routeId: resolveStr(hCtx, raw.routeId) || undefined,
   };
   const label = hCtx.nodeLabel(nodeId);

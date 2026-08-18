@@ -77,6 +77,8 @@ export const HAR = {
   // ── Test Runner (TH-4) ────────────────────────────────────────
   HOST_SELECTOR:       '[data-testid="har-host-selector"]',
   HOST_MOCK_SERVER:    '[data-testid="har-host-mock"]',
+  /** Host radios + API Mock fixture — keep this cluster on screen for Isolate. */
+  RUNNER_MOCK_SETUP:   '[data-testid="har-runner-mock-setup"]',
   HOST_CUSTOM_INPUT:   '.runner-custom-url-input',
   EXEC_CONFIG:         '[data-testid="har-exec-config"]',
   SCENARIO_SELECTOR:   '[data-testid="har-scenario-selector"]',
@@ -89,6 +91,7 @@ export const HAR = {
   HARNESS_MOCK_FIXTURE: '[data-testid="har-apimock-fixture"]',
   HARNESS_MOCK_SERVER:  '[data-testid="har-apimock-fixture-server"]',
   HARNESS_MOCK_ISOLATE: '[data-testid="har-apimock-fixture-isolate"]',
+  HARNESS_MOCK_ISOLATE_ROW: '[data-testid="har-apimock-fixture-isolate-row"]',
   HARNESS_MOCK_START:   '[data-testid="har-apimock-fixture-start"]',
   HARNESS_MOCK_STOPPED: '[data-testid="har-apimock-fixture-stopped"]',
   HARNESS_MOCK_PORT:    '[data-testid="har-apimock-fixture-port"]',

@@ -25,7 +25,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
     goPrev: goPrevSearchMatch,
     clear: clearResponseSearch,
   } = useSearchMatchNavigation(searchMatchCount);
-  const { collapsedSet, handleTreeToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
+  const { collapsedSet, expandAllActive, handleTreeToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
 
   const responseTree = useMemo(() => {
     return buildJTreeFromBody(result?.responseBody);
@@ -318,6 +318,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
                 collapsedSet={collapsedSet}
                 onToggle={handleTreeToggle}
                 prebuiltTree={responseTree}
+                forceExpandAll={expandAllActive}
                 currentMatchIdx={searchMatchIdx}
                 onMatchCountChange={handleMatchCountChange}
               />

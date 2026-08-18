@@ -25,14 +25,16 @@ interface Props {
 function FixtureRow({
   label,
   htmlFor,
+  testId,
   children,
 }: {
   label: string;
   htmlFor?: string;
+  testId?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="am-fixture-row">
+    <div className="am-fixture-row" data-testid={testId}>
       <div className="am-fixture-label">
         {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : <span>{label}</span>}
       </div>
@@ -197,7 +199,7 @@ export default function ApiMockFixturePanel({ value, onChange, disabled, status,
           </div>
         </FixtureRow>
 
-        <FixtureRow label="Isolate run ID">
+        <FixtureRow label="Isolate run ID" testId="har-apimock-fixture-isolate-row">
           <FixtureCheck
             checked={cfg.isolateRun !== false}
             disabled={disabled}

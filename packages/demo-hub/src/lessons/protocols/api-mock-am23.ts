@@ -71,8 +71,11 @@ const DIAGRAM = `
   <text x="42" y="300" fill="#a8b8cc" font-family="system-ui" font-size="11">Mock Server rewrites scenario URLs to that listener for the duration of the run.</text>
 
   <rect x="26" y="338" width="648" height="70" rx="8" fill="#1e293b" stroke="#22c55e" />
-  <text x="42" y="366" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">${AM23_CLI_SIMULATE} is unit-level. ${AM23_CLI_VERIFY} asserts the live journal.</text>
-  <text x="42" y="388" fill="#a8b8cc" font-family="system-ui" font-size="11">Studio authors. Simulate proves. Test Runner / Workflow run it. CLI is the CI handoff.</text>
+  <text x="42" y="358" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">
+    <tspan x="42" dy="0">${AM23_CLI_SIMULATE} is unit-level.</tspan>
+    <tspan x="42" dy="16">${AM23_CLI_VERIFY} asserts the live journal.</tspan>
+  </text>
+  <text x="42" y="398" fill="#a8b8cc" font-family="system-ui" font-size="11">Studio authors. Simulate proves. Test Runner / Workflow run it. CLI is the CI handoff.</text>
 </svg>
 `;
 
@@ -92,7 +95,7 @@ export const apiMockAm23Lesson: DemoLesson = {
   initialTab: 'runner',
   allowedTabs: ['runner', 'api-mock-studio'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 3,
+  contentVersion: 7,
   concept: {
     title: 'A fixture is a mock that lives for the length of the suite.',
     body:
@@ -177,7 +180,8 @@ export const apiMockAm23Lesson: DemoLesson = {
         + 'afterward (Stopped if it was down, Running if it was up). This '
         + 'lesson stays **On** because that is what lets two CI jobs share one '
         + 'definition without ever sharing a listener.',
-      highlight: HAR.HARNESS_MOCK_ISOLATE,
+      highlight: HAR.HARNESS_MOCK_ISOLATE_ROW,
+      skipHighlightScroll: true,
       preAction: ensureAm23ForIsolate,
       action: runAm23Isolate,
       verify: HAR.HARNESS_MOCK_ISOLATE,
@@ -244,8 +248,9 @@ export const apiMockAm23Lesson: DemoLesson = {
         + '**Workspace JSON** is that artifact — the whole mock exported so a '
         + 'pipeline can consume it without your machine in the loop. Hold the '
         + 'confirmation until the filename and both CLI lines are readable.\n\n'
-        + `Those two commands are the point: \`${AM23_CLI_SIMULATE}\` for the `
-        + `unit-level suite and \`${AM23_CLI_VERIFY}\` for the live journal. `
+        + 'Those two commands are the point:\n\n'
+        + `- \`${AM23_CLI_SIMULATE}\` — unit-level suite\n`
+        + `- \`${AM23_CLI_VERIFY}\` — live journal\n\n`
         + 'The confirmation is deliberately something you can copy straight '
         + 'into a pipeline — not a toast that disappears before you can use it.',
       highlight: API_MOCK.EXPORT,
