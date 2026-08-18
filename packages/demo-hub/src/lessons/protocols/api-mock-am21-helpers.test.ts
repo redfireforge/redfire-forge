@@ -19,9 +19,10 @@ vi.mock('../../adapters', () => ({
 import {
   AM21_ADHOC_PATH,
   AM21_CORPUS_SAMPLE,
-  AM21_DICE_ID,
-  AM21_HEALTH_ID,
-  AM21_ORPHAN_ID,
+  AM21_DICE_NAME,
+  AM21_EXAMPLES_TIMING,
+  AM21_HEALTH_NAME,
+  AM21_ORPHAN_NAME,
   AM21_TIMING,
   AM21_WRONG_STATUS,
   am21InputValue,
@@ -91,6 +92,13 @@ function fills(fn: DemoActionContext['fill']): Array<[string, string]> {
 
 type DemoActionContext = ReturnType<typeof makeCtx>;
 
+// Gallery import remaps sample/example ids; the lesson resolves them by their
+// stable name. These synthetic ids stand in for the remapped values so the
+// fixtures exercise the name-based resolver (not the authored corpus ids).
+const HEALTH_ID = 'sample-7766c234';
+const DICE_ID = 'sample-d543b1ea';
+const ORPHAN_ID = 'sample-96216e0d';
+
 function mountStudio(): void {
   const bar = el('div', undefined, 'api-mock-server-bar');
   bar.append(el('span', undefined, 'api-mock-status-label'));
@@ -107,9 +115,13 @@ function mountStudio(): void {
   document.body.append(cli);
 }
 
-function mountSample(id: string, active = false): HTMLElement {
+function mountSample(id: string, name: string, active = false): HTMLElement {
   const wrap = el('div', active ? 'am-sim-sample active' : 'am-sim-sample', `api-mock-sim-sample-${id}`);
   const btn = el('button', 'am-sim-sample-btn');
+  const label = document.createElement('span');
+  label.className = 'am-sim-sample-name';
+  label.textContent = name;
+  btn.append(label);
   wrap.append(btn);
   makeVisible(btn);
   return wrap;
@@ -134,15 +146,15 @@ function mountSimulate(opts: {
   const scratch = el('div', undefined, 'api-mock-sim-section-scratch');
   scratch.textContent = 'Scratch pad';
   root.append(saved, scratch);
-  root.append(mountSample('adhoc', !opts.healthActive && !opts.diceActive));
-  const health = mountSample(AM21_HEALTH_ID, opts.healthActive);
+  root.append(mountSample('adhoc', 'Ad-hoc request', !opts.healthActive && !opts.diceActive));
+  const health = mountSample(HEALTH_ID, AM21_HEALTH_NAME, opts.healthActive);
   if (opts.fail) {
     health.append(el('span', 'am-badge danger', 'api-mock-sim-sample-fail'));
   } else if (opts.healthActive && opts.outcome) {
     health.append(el('span', 'am-badge success'));
   }
   root.append(health);
-  root.append(mountSample(AM21_DICE_ID, opts.diceActive));
+  root.append(mountSample(DICE_ID, AM21_DICE_NAME, opts.diceActive));
   root.append(el('button', undefined, 'api-mock-sim-sample-adhoc'));
   const adhocBtn = el('button', 'am-sim-sample-btn');
   const adhocWrap = el('div', undefined, 'api-mock-sim-sample-adhoc');
@@ -185,7 +197,9 @@ function mountSimulate(opts: {
   table.append(el('tr', undefined, 'api-mock-sim-assert-row-body'));
   table.append(input('api-mock-sim-assert-status', opts.assertStatus ?? '200'));
   if (opts.fail) table.append(el('span', 'am-badge danger', 'api-mock-sim-assert-fail'));
-  root.append(table);
+  const hint = el('p', undefined, 'api-mock-sim-assert-hint');
+  hint.textContent = 'Only Status and Body contains are editable.';
+  root.append(hint, table);
   if (opts.exportConfirm) {
     const confirm = el('div', undefined, 'api-mock-sim-export-confirm');
     confirm.append(el('div', undefined, 'api-mock-sim-export-filename'));
@@ -206,11 +220,14 @@ function tabButton(id: string): HTMLElement {
 
 function mountExamples(opts: { attach?: boolean } = {}): void {
   const grid = el('div', undefined, 'api-mock-examples-grid');
-  const row = el('article', undefined, `api-mock-example-${AM21_ORPHAN_ID}`);
+  const row = el('article', undefined, `api-mock-example-${ORPHAN_ID}`);
+  row.append(input(`api-mock-example-name-${ORPHAN_ID}`, AM21_ORPHAN_NAME));
+  row.append(input(`api-mock-example-status-${ORPHAN_ID}`, '200'));
+  row.append(input(`api-mock-example-body-${ORPHAN_ID}`, 'ok'));
   if (opts.attach !== false) {
-    row.append(el('button', undefined, `api-mock-example-attach-${AM21_ORPHAN_ID}`));
+    row.append(el('button', undefined, `api-mock-example-attach-${ORPHAN_ID}`));
   }
-  row.append(el('button', undefined, `api-mock-example-try-${AM21_ORPHAN_ID}`));
+  row.append(el('button', undefined, `api-mock-example-try-${ORPHAN_ID}`));
   grid.append(row);
   document.body.append(grid);
   document.body.append(tabButton('api-mock-btab-examples'));
@@ -230,6 +247,8 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(AM21_TIMING.look).toBeGreaterThan(AM_DEMO_TIMING.look);
     expect(AM21_TIMING.beforeOpen).toBe(1400);
     expect(AM21_TIMING.beforeRun).toBe(2400);
+    expect(AM21_EXAMPLES_TIMING.look).toBeGreaterThan(AM21_TIMING.look);
+    expect(AM21_EXAMPLES_TIMING.payoff).toBeGreaterThan(AM21_TIMING.payoff);
     expect(AM21_CORPUS_SAMPLE).toBe('am-gallery-suite');
   });
 
@@ -239,7 +258,7 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(isAm21SimulateOpen()).toBe(false);
     expect(isAm21StudioViewActive()).toBe(false);
     expect(hasAm21Result()).toBe(false);
-    expect(hasAm21SampleResult(AM21_HEALTH_ID)).toBe(false);
+    expect(hasAm21SampleResult(HEALTH_ID)).toBe(false);
     expect(hasAm21Fail()).toBe(false);
     expect(hasAm21Summary()).toBe(false);
     expect(hasAm21ExportConfirm()).toBe(false);
@@ -266,7 +285,7 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(isAm21SimulateOpen()).toBe(true);
     expect(hasAm21SavedSamples()).toBe(true);
     expect(hasAm21Result()).toBe(true);
-    expect(hasAm21SampleResult(AM21_HEALTH_ID)).toBe(true);
+    expect(hasAm21SampleResult(HEALTH_ID)).toBe(true);
     expect(hasAm21Fail()).toBe(true);
     expect(hasAm21Summary()).toBe(true);
     expect(hasAm21ExportConfirm()).toBe(true);
@@ -436,7 +455,7 @@ describe('AM-21 simulation-suite helpers', () => {
     mountSimulate({ outcome: 'MATCHED' });
     const ctx = makeCtx();
     await ensureAm21ForExpectations(ctx);
-    expect(calls(ctx.click)).toContain(API_MOCK.simSampleBtn(AM21_HEALTH_ID));
+    expect(calls(ctx.click)).toContain(API_MOCK.simSampleBtn(HEALTH_ID));
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
   });
 
@@ -453,7 +472,7 @@ describe('AM-21 simulation-suite helpers', () => {
     mountSimulate({ outcome: 'MATCHED', assertStatus: AM21_WRONG_STATUS, fail: true });
     const ctx = makeCtx();
     await runAm21FailLoudly(ctx);
-    expect(calls(ctx.click)).toContain(API_MOCK.simSampleBtn(AM21_HEALTH_ID));
+    expect(calls(ctx.click)).toContain(API_MOCK.simSampleBtn(HEALTH_ID));
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_RUN);
   });
 
@@ -495,6 +514,7 @@ describe('AM-21 simulation-suite helpers', () => {
     });
     await runAm21ExportTrace(ctx);
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_EXPORT);
+    expect(calls(ctx.click)).not.toContain(API_MOCK.SIMULATE_CLOSE);
   });
 
   it('attaches the orphan example and tries it in Requests', async () => {
@@ -503,8 +523,8 @@ describe('AM-21 simulation-suite helpers', () => {
     const ctx = makeCtx();
     await runAm21Examples(ctx);
     expect(calls(ctx.click)).toContain(API_MOCK.BTAB_EXAMPLES);
-    expect(calls(ctx.click)).toContain(API_MOCK.exampleAttach(AM21_ORPHAN_ID));
-    expect(calls(ctx.click)).toContain(API_MOCK.exampleTry(AM21_ORPHAN_ID));
+    expect(calls(ctx.click)).toContain(API_MOCK.exampleAttach(ORPHAN_ID));
+    expect(calls(ctx.click)).toContain(API_MOCK.exampleTry(ORPHAN_ID));
   });
 
   it('skips Attach when the orphan is already attached', async () => {
@@ -512,7 +532,7 @@ describe('AM-21 simulation-suite helpers', () => {
     mountExamples({ attach: false });
     const ctx = makeCtx();
     await runAm21Examples(ctx);
-    expect(calls(ctx.click)).not.toContain(API_MOCK.exampleAttach(AM21_ORPHAN_ID));
+    expect(calls(ctx.click)).not.toContain(API_MOCK.exampleAttach(ORPHAN_ID));
   });
 
   it('quiet guards recreate Simulate state without a second open', async () => {
@@ -653,7 +673,7 @@ describe('AM-21 simulation-suite helpers', () => {
     mountExamples();
     const ctx = makeCtx();
     vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
-      if (sel === API_MOCK.exampleTry(AM21_ORPHAN_ID) || sel === API_MOCK.EXAMPLE_TRY_REQUESTS) {
+      if (sel === API_MOCK.exampleTry(ORPHAN_ID) || sel === API_MOCK.EXAMPLE_TRY_REQUESTS) {
         document.querySelector('[data-testid="api-mock-examples-grid"]')?.remove();
       }
     });
@@ -664,7 +684,7 @@ describe('AM-21 simulation-suite helpers', () => {
   it('skips Try in Requests when no try button is mounted', async () => {
     mountStudio();
     const grid = el('div', undefined, 'api-mock-examples-grid');
-    grid.append(el('article', undefined, `api-mock-example-${AM21_ORPHAN_ID}`));
+    grid.append(el('article', undefined, `api-mock-example-${ORPHAN_ID}`));
     document.body.append(grid);
     document.body.append(tabButton('api-mock-btab-examples'));
     const ctx = makeCtx();

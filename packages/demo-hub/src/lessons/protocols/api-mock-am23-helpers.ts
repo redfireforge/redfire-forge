@@ -37,6 +37,7 @@ export const AM23_TIMING = {
   simOutcome: 1800,
   beforeRun: 2000,
   generate: 2000,
+  cliHandoffHighlight: 2600,
 } as const;
 
 const T = AM23_TIMING;
@@ -418,6 +419,7 @@ async function openAm23Journal(ctx: DemoActionContext, visible: boolean): Promis
 
 export async function ensureAm23ForIsolate(ctx: DemoActionContext): Promise<void> {
   await enableFixtureAndPickStore(ctx, false);
+  await holdOrEnableIsolate(ctx, false);
 }
 
 export async function ensureAm23ForRun(ctx: DemoActionContext): Promise<void> {
@@ -453,12 +455,9 @@ export async function runAm23FixturePanel(ctx: DemoActionContext): Promise<void>
   await am23Payoff(ctx, HAR.HARNESS_MOCK_SERVER);
 }
 
+/** Isolate is already on and on screen from step 1 — do not scroll or re-ring. */
 export async function runAm23Isolate(ctx: DemoActionContext): Promise<void> {
-  await ensureAm23OnRunner(ctx);
-  await holdOrEnableIsolate(ctx, true);
-  if (firstVisibleElement(HAR.HARNESS_MOCK_ISOLATE)) {
-    await am23Payoff(ctx, HAR.HARNESS_MOCK_ISOLATE);
-  }
+  await holdOrEnableIsolate(ctx, false);
 }
 
 export async function runAm23Suite(ctx: DemoActionContext): Promise<void> {
@@ -467,8 +466,6 @@ export async function runAm23Suite(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(HAR.RUN_BTN)) {
     await am23ClickNow(ctx, HAR.RUN_BTN, T.fieldFilled);
   }
-  await am23Reveal(ctx, HAR.HARNESS_MOCK_START, T.simOutcome);
-  await am23Payoff(ctx, HAR.HARNESS_MOCK_START);
   await am23Break(ctx);
   if (firstVisibleElement(HAR.LIVE_PROGRESS)) {
     await am23Look(ctx, HAR.LIVE_PROGRESS);
@@ -528,9 +525,9 @@ export async function runAm23CliHandoff(ctx: DemoActionContext): Promise<void> {
     await am23Aim(ctx, API_MOCK.VIEW_STUDIO);
   }
   if (firstVisibleElement(API_MOCK.CLI_VERIFY)) {
-    await am23Payoff(ctx, API_MOCK.CLI_VERIFY);
+    await spotlightBeat(ctx, API_MOCK.CLI_VERIFY, T.cliHandoffHighlight);
   }
-  await am23Payoff(ctx, API_MOCK.ROUTES_FOOTER);
+  await spotlightBeat(ctx, API_MOCK.ROUTES_FOOTER, T.cliHandoffHighlight);
 }
 
 /** @internal exported for helper tests */

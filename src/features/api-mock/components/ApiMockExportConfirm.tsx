@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
 import {
   findTextExpandMatches,
@@ -12,7 +12,12 @@ import {
   saveApiMockExportToDisk,
   type ApiMockExportResult,
 } from '../apiMockExportActions';
-import { CheckIcon, CopyIcon, DownloadIcon, ShieldCheckIcon } from './ApiMockIcons';
+import { CheckIcon, CopyIcon, DownloadIcon, MaximizeIcon, ShieldCheckIcon } from './ApiMockIcons';
+import { ApiMockTextExpandModal } from './ApiMockTextExpandModal';
+import JsonPreview, { buildJTree, collectJTreePaths } from '../../requests/components/JsonTreePreview';
+import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import { useJsonTreeCollapseState } from '../../../shared/hooks/useJsonTreeCollapseState';
 
 interface Props {
   result: ApiMockExportResult;
@@ -29,15 +34,135 @@ type CopiedId = 'preview' | 'cli' | 'verify';
  */
 export function ApiMockExportConfirm({ result, onClose }: Props) {
   const previewRef = useRef<HTMLTextAreaElement>(null);
+  const previewBackdropRef = useRef<HTMLPreElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [query, setQuery] = useState('');
   const [matchIndex, setMatchIndex] = useState(0);
   const [copied, setCopied] = useState<CopiedId | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [jsonPreviewSearch, setJsonPreviewSearchState] = useState('');
+  const [jsonPreviewMatchCount, setJsonPreviewMatchCount] = useState(0);
+  const {
+    collapsedSet: jsonPreviewCollapsed,
+    handleTreeToggle: toggleJsonPreviewNode,
+    handleCollapseAll: collapseAllJsonPreview,
+    handleExpandAll: expandAllJsonPreview,
+    expandAllActive: jsonPreviewExpandAllActive,
+  } = useJsonTreeCollapseState();
+  const {
+    currentMatchIndex: jsonPreviewMatchIdx,
+    setCurrentMatchIndex: setJsonPreviewMatchIdx,
+    goNext: jsonPreviewGoNext,
+    goPrev: jsonPreviewGoPrev,
+    clear: clearJsonPreviewNav,
+  } = useSearchMatchNavigation(jsonPreviewMatchCount);
 
+  const setJsonPreviewSearch = (value: string) => {
+    setJsonPreviewSearchState(value);
+    setJsonPreviewMatchIdx(0);
+  };
+  const clearJsonPreviewSearch = () => {
+    setJsonPreviewSearchState('');
+    clearJsonPreviewNav();
+  };
+
+  // Structured tree source: YAML downloads carry the equivalent JSON envelope in
+  // `nativeJson`; every other format's `text` is already JSON. Either way we render
+  // the parsed structure as a collapsible tree — a YAML export shows the same tree as
+  // its JSON round-trip. Unparseable bodies fall back to the plain text preview.
+  const jsonPreviewTree = useMemo(() => {
+    const source = result.format === 'yaml' ? result.nativeJson : result.text;
+    if (!source) return null;
+    try { return buildJTree(JSON.parse(source), ''); }
+    catch { return null; }
+  }, [result.format, result.text, result.nativeJson]);
+
+  const jsonPreviewAllPaths = useMemo(
+    () => (jsonPreviewTree ? collectJTreePaths(jsonPreviewTree, '') : []),
+    [jsonPreviewTree],
+  );
+  const collapseAllJsonPreviewNodes = () => collapseAllJsonPreview(new Set(jsonPreviewAllPaths));
+
+  // The inline Preview shows the tree (and the maximized popup uses it too) whenever the
+  // export parses into a structure — the two share one search/collapse state so a query
+  // typed inline carries into the maximized view. An unparseable body keeps the plain
+  // text preview with its own text-match search.
+  const showInlineTree = !!jsonPreviewTree;
+
+  useEffect(() => {
+    // Preserve the inline tree's search when the maximized popup closes; only reset
+    // the popup-only case (unparseable body → popup uses the raw text preview).
+    if (previewExpanded || showInlineTree) return;
+    setJsonPreviewSearchState('');
+    setJsonPreviewMatchCount(0);
+  }, [previewExpanded, showInlineTree]);
+
+  const needle = query.trim();
   const matches = useMemo(() => findTextExpandMatches(result.text, query), [result.text, query]);
 
+  // Marked up copy of the preview text, rendered behind the (invisible-text) textarea so
+  // matches stay visible without needing focus — typing in the search input keeps focus there.
+  // The current match's whole line gets a row highlight, like the Requests-tab response search.
+  const previewNodes = useMemo(() => {
+    if (!needle || matches.length === 0) return result.text;
+    const text = result.text;
+
+    const markMatches = (from: number, to: number): ReactNode[] => {
+      const nodes: ReactNode[] = [];
+      let cursor = from;
+      matches.forEach((start, i) => {
+        const end = start + needle.length;
+        if (end <= from || start >= to) return;
+        const clampedStart = Math.max(start, from);
+        const clampedEnd = Math.min(end, to);
+        if (clampedStart > cursor) nodes.push(text.slice(cursor, clampedStart));
+        nodes.push(
+          <mark
+            key={start}
+            className={i === matchIndex ? 'am-export-preview-match am-export-preview-match-current' : 'am-export-preview-match'}
+          >
+            {text.slice(clampedStart, clampedEnd)}
+          </mark>,
+        );
+        cursor = clampedEnd;
+      });
+      if (cursor < to) nodes.push(text.slice(cursor, to));
+      return nodes;
+    };
+
+    const currentStart = matches[matchIndex] ?? 0;
+    const lineStart = text.lastIndexOf('\n', currentStart) + 1;
+    const lineEndIdx = text.indexOf('\n', currentStart);
+    const lineEnd = lineEndIdx === -1 ? text.length : lineEndIdx;
+
+    return [
+      ...markMatches(0, lineStart),
+      <span key="current-line" className="am-export-preview-current-line">{markMatches(lineStart, lineEnd)}</span>,
+      ...markMatches(lineEnd, text.length),
+    ];
+  }, [result.text, matches, needle, matchIndex]);
+
+  const syncPreviewScroll = () => {
+    const el = previewRef.current;
+    const backdrop = previewBackdropRef.current;
+    if (!el || !backdrop) return;
+    backdrop.scrollTop = el.scrollTop;
+    backdrop.scrollLeft = el.scrollLeft;
+  };
+
   useEffect(() => { setMatchIndex(0); }, [query, result.text]);
+
+  // Scroll the current match into view without touching focus.
+  useEffect(() => {
+    const el = previewRef.current;
+    const backdrop = previewBackdropRef.current;
+    if (!el || !backdrop || !needle || matches.length === 0) return;
+    const current = backdrop.querySelector<HTMLElement>('.am-export-preview-match-current');
+    if (!current) return;
+    el.scrollTop = Math.max(0, current.offsetTop - el.clientHeight / 2 + current.clientHeight / 2);
+    backdrop.scrollTop = el.scrollTop;
+  }, [matchIndex, matches, needle]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -68,19 +193,9 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
     }
   };
 
-  const selectMatch = (index: number) => {
-    const el = previewRef.current;
-    const needle = query.trim();
-    if (!el || !needle || matches.length === 0) return;
-    const start = matches[index] ?? 0;
-    el.focus();
-    el.setSelectionRange(start, start + needle.length);
-  };
-
   const goMatch = (direction: 1 | -1) => {
     const next = nextTextExpandMatch(matchIndex, matches.length, direction);
     setMatchIndex(next);
-    selectMatch(next);
   };
 
   const verifyCommand = result.cliCommand.replace(API_MOCK_CLI_SIMULATE, API_MOCK_CLI_VERIFY);
@@ -110,6 +225,19 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
     </button>
   );
 
+  // Copy the exported artifact in its native shape: YAML text for a YAML download,
+  // the JSON envelope otherwise (matches the "Copy YAML" / "Copy JSON" label).
+  const previewCopyText = result.format === 'yaml' ? result.text : (result.nativeJson ?? result.text);
+
+  // Inline Preview search binds to the tree when it is shown, else to the text search.
+  const inlineSearchValue = showInlineTree ? jsonPreviewSearch : query;
+  const setInlineSearch = showInlineTree ? setJsonPreviewSearch : setQuery;
+  const inlineGoPrev = showInlineTree ? jsonPreviewGoPrev : () => goMatch(-1);
+  const inlineGoNext = showInlineTree ? jsonPreviewGoNext : () => goMatch(1);
+  const inlineCountLabel = showInlineTree
+    ? (jsonPreviewMatchCount > 0 ? `${jsonPreviewMatchIdx + 1}/${jsonPreviewMatchCount}` : '0/0')
+    : formatTextExpandCount(matchIndex, matches.length);
+
   return (
     <AppModalFrame
       title={title}
@@ -121,35 +249,11 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
       showExpandButton={false}
       closeOnOverlayClick={false}
       dialogTestId="api-mock-export-confirm"
-      headerActions={(
-        <div className="am-export-search">
-          <input
-            ref={searchRef}
-            className="am-input am-export-search-input"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search preview"
-            aria-label="Search export preview"
-            data-testid="api-mock-export-search"
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                goMatch(e.shiftKey ? -1 : 1);
-              }
-            }}
-          />
-          <span className="am-export-search-count" data-testid="api-mock-export-search-count">
-            {formatTextExpandCount(matchIndex, matches.length)}
-          </span>
-          <button type="button" className="am-btn small" aria-label="Previous match" data-testid="api-mock-export-search-prev" onClick={() => goMatch(-1)}>▲</button>
-          <button type="button" className="am-btn small" aria-label="Next match" data-testid="api-mock-export-search-next" onClick={() => goMatch(1)}>▼</button>
-        </div>
-      )}
       footer={(
         <div className="api-mock-root am-in-modal am-modal-toolbar am-export-confirm-footer">
           <span className="am-export-filename" title={result.filename} data-testid="api-mock-export-filename">{result.filename}</span>
           <span className="am-spacer" />
-          {copyButton('preview', result.nativeJson ?? result.text, 'api-mock-export-copy', apiMockExportCopyLabel(result.format))}
+          {copyButton('preview', previewCopyText, 'api-mock-export-copy', apiMockExportCopyLabel(result.format))}
           <button
             type="button"
             className="am-btn primary"
@@ -244,17 +348,152 @@ export function ApiMockExportConfirm({ result, onClose }: Props) {
         </section>
 
         <section className="am-export-preview-block">
-          <div className="am-section-heading">Preview</div>
-          <textarea
-            ref={previewRef}
-            className="am-textarea am-export-preview"
-            readOnly
-            value={result.text}
-            aria-label="Export preview"
-            data-testid="api-mock-export-preview"
-          />
+          <div className="am-section-heading">
+            Preview
+            <div className="am-export-search">
+              <input
+                ref={searchRef}
+                className="am-input am-export-search-input"
+                value={inlineSearchValue}
+                onChange={e => setInlineSearch(e.target.value)}
+                placeholder="Search preview"
+                aria-label="Search export preview"
+                data-testid="api-mock-export-search"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (e.shiftKey) inlineGoPrev(); else inlineGoNext();
+                  }
+                }}
+              />
+              <span className="am-export-search-count" data-testid="api-mock-export-search-count">
+                {inlineCountLabel}
+              </span>
+              <button type="button" className="am-btn small" aria-label="Previous match" data-testid="api-mock-export-search-prev" onClick={inlineGoPrev}>▲</button>
+              <button type="button" className="am-btn small" aria-label="Next match" data-testid="api-mock-export-search-next" onClick={inlineGoNext}>▼</button>
+            </div>
+            {showInlineTree && (
+              <>
+                <button type="button" className="am-btn small" onClick={expandAllJsonPreview} data-testid="api-mock-export-preview-inline-expand-all">Expand all</button>
+                <button type="button" className="am-btn small" onClick={collapseAllJsonPreviewNodes} data-testid="api-mock-export-preview-inline-collapse-all">Collapse all</button>
+              </>
+            )}
+            <button
+              type="button"
+              className="am-icon-btn"
+              aria-label="Expand preview"
+              title="Expand preview"
+              onClick={() => setPreviewExpanded(true)}
+              data-testid="api-mock-export-preview-expand"
+            >
+              <MaximizeIcon size={15} />
+            </button>
+          </div>
+          {showInlineTree ? (
+            <div className="am-export-preview-tree-wrap" data-testid="api-mock-export-preview-tree">
+              <JsonPreview
+                body={result.text}
+                search={jsonPreviewSearch}
+                currentMatchIdx={jsonPreviewMatchIdx}
+                onMatchCountChange={setJsonPreviewMatchCount}
+                collapsedSet={jsonPreviewCollapsed}
+                onToggle={toggleJsonPreviewNode}
+                prebuiltTree={jsonPreviewTree}
+                forceExpandAll={jsonPreviewExpandAllActive}
+              />
+            </div>
+          ) : (
+            <div className="am-export-preview-wrap">
+              <pre ref={previewBackdropRef} className="am-export-preview-backdrop" aria-hidden="true">{previewNodes}</pre>
+              <textarea
+                ref={previewRef}
+                className="am-textarea am-export-preview"
+                readOnly
+                value={result.text}
+                aria-label="Export preview"
+                data-testid="api-mock-export-preview"
+                onScroll={syncPreviewScroll}
+              />
+            </div>
+          )}
         </section>
       </div>
+      {previewExpanded && showInlineTree && (
+        <AppModalFrame
+          title="Preview"
+          onClose={() => setPreviewExpanded(false)}
+          overlayClassName="am-studio-modal-overlay"
+          dialogClassName="modal am-studio-modal am-export-preview-json-modal"
+          bodyClassName="am-studio-modal-body"
+          footerClassName="am-studio-modal-footer"
+          showExpandButton={false}
+          closeOnOverlayClick={false}
+          dialogTestId="api-mock-export-preview-json-modal"
+          controlsClassName="am-export-preview-json-header-controls"
+          headerActions={(
+            <div className="api-mock-root am-in-modal am-export-preview-json-toolbar" data-testid="api-mock-export-preview-json-toolbar">
+              <SearchMatchBar
+                className="am-export-preview-json-search"
+                value={jsonPreviewSearch}
+                onChange={setJsonPreviewSearch}
+                currentMatch={jsonPreviewMatchIdx + 1}
+                totalMatches={jsonPreviewMatchCount}
+                onPrev={jsonPreviewGoPrev}
+                onNext={jsonPreviewGoNext}
+                onClear={clearJsonPreviewSearch}
+                inputType="search"
+                placeholder="Search keys or values…"
+                inputClassName="am-input am-export-preview-json-search-input"
+                countClassName="am-export-preview-json-search-count"
+                navClassName="am-icon-btn am-export-preview-json-search-nav"
+                clearClassName="am-icon-btn am-export-preview-json-search-clear"
+                showNavWhenEmpty
+                ariaLabel="Search preview"
+                inputTestId="api-mock-export-preview-json-search"
+                prevTitle="Previous match (Shift+Enter)"
+                nextTitle="Next match (Enter)"
+                onKeyDown={e => {
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  if (e.shiftKey) jsonPreviewGoPrev(); else jsonPreviewGoNext();
+                }}
+              />
+              <div className="am-export-preview-json-header-btns">
+                <button type="button" className="am-btn small" onClick={expandAllJsonPreview} data-testid="api-mock-export-preview-json-expand-all">Expand all</button>
+                <button type="button" className="am-btn small" onClick={collapseAllJsonPreviewNodes} data-testid="api-mock-export-preview-json-collapse-all">Collapse all</button>
+                {copyButton('preview', previewCopyText, 'api-mock-export-preview-json-copy', apiMockExportCopyLabel(result.format))}
+              </div>
+            </div>
+          )}
+          footer={(
+            <div className="api-mock-root am-in-modal am-modal-toolbar am-export-preview-json-footer">
+              <span className="am-spacer" />
+              <button type="button" className="am-btn" onClick={() => setPreviewExpanded(false)} data-testid="api-mock-export-preview-json-close">Close</button>
+            </div>
+          )}
+        >
+          <div className="api-mock-root am-in-modal am-export-preview-json-body" data-testid="api-mock-export-preview-json-body">
+            <JsonPreview
+              body={result.text}
+              search={jsonPreviewSearch}
+              currentMatchIdx={jsonPreviewMatchIdx}
+              onMatchCountChange={setJsonPreviewMatchCount}
+              collapsedSet={jsonPreviewCollapsed}
+              onToggle={toggleJsonPreviewNode}
+              prebuiltTree={jsonPreviewTree}
+              forceExpandAll={jsonPreviewExpandAllActive}
+            />
+          </div>
+        </AppModalFrame>
+      )}
+      {previewExpanded && !showInlineTree && (
+        <ApiMockTextExpandModal
+          title="Preview"
+          value={result.text}
+          readOnly
+          onClose={() => setPreviewExpanded(false)}
+        />
+      )}
     </AppModalFrame>
   );
 }

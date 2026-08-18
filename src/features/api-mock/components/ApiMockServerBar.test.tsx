@@ -146,6 +146,7 @@ describe('ApiMockServerBar', () => {
     };
     render(<ApiMockServerBar server={server} onUpdate={vi.fn()} />);
     expect(screen.getByTestId('api-mock-address').textContent).toContain('https://127.0.0.1:4600/api');
+    expect(screen.getByTestId('api-mock-listen-url')).toContainElement(screen.getByTestId('api-mock-address'));
     expect(screen.getByTestId('api-mock-http2-badge')).toHaveTextContent('HTTP/2');
     fireEvent.click(screen.getByTestId('api-mock-copy-address'));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://127.0.0.1:4600/api');

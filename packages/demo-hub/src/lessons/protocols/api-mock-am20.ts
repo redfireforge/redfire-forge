@@ -63,12 +63,18 @@ const DIAGRAM = `
   <text x="494" y="202" fill="#22c55e" font-family="system-ui" font-size="10">Browsers cannot attach a PEM</text>
 
   <rect x="26" y="240" width="648" height="70" rx="8" fill="#1e293b" stroke="#3b4a60" />
-  <text x="42" y="268" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">The private key never leaves the workspace. Exports show ***REDACTED***. Desktop parity warnings surface when TLS cannot bind.</text>
-  <text x="42" y="290" fill="#a8b8cc" font-family="system-ui" font-size="11">Stop the listener. The PEMs stay in Settings so the next Start is still HTTPS.</text>
+  <text x="42" y="262" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">
+    <tspan x="42" dy="0">The private key never leaves the workspace. Exports show ***REDACTED***.</tspan>
+    <tspan x="42" dy="16">Desktop parity warnings surface when TLS cannot bind.</tspan>
+  </text>
+  <text x="42" y="298" fill="#a8b8cc" font-family="system-ui" font-size="11">Stop the listener. The PEMs stay in Settings so the next Start is still HTTPS.</text>
 
   <rect x="26" y="328" width="648" height="78" rx="8" fill="#1e293b" stroke="#22c55e" />
-  <text x="42" y="356" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Generate → inspect → Start HTTPS → live 200 → mTLS bundle → cert predicate → Simulate both ways → redact + Stop</text>
-  <text x="42" y="378" fill="#a8b8cc" font-family="system-ui" font-size="11">TLS is a server setting. Who may call is a Match condition. Identity is not a header you parse by hand.</text>
+  <text x="42" y="348" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">
+    <tspan x="42" dy="0">Generate → inspect → Start HTTPS → live 200 → mTLS bundle → cert predicate</tspan>
+    <tspan x="42" dy="16">→ Simulate both ways → redact + Stop</tspan>
+  </text>
+  <text x="42" y="388" fill="#a8b8cc" font-family="system-ui" font-size="11">TLS is a server setting. Who may call is a Match condition. Identity is not a header you parse by hand.</text>
 </svg>
 `;
 
@@ -87,7 +93,7 @@ export const apiMockAm20Lesson: DemoLesson = {
     + 'private key; Stop leaves the PEMs in the workspace.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 4,
+  contentVersion: 5,
   concept: {
     title: 'HTTPS is a listen setting. Who may call is a matcher.',
     body:
@@ -169,7 +175,7 @@ export const apiMockAm20Lesson: DemoLesson = {
       highlight: API_MOCK.SETTINGS_SAVE,
       preAction: ensureAm20ForHttpsLive,
       action: runAm20HttpsLive,
-      verify: API_MOCK.HTTP2_BADGE,
+      verify: API_MOCK.LISTEN_URL,
     },
     {
       id: 'prove-https',
@@ -262,7 +268,7 @@ export const apiMockAm20Lesson: DemoLesson = {
       highlight: API_MOCK.EXPORT,
       preAction: ensureAm20ForRedaction,
       action: runAm20RedactionParity,
-      verify: API_MOCK.START,
+      verify: API_MOCK.SETTINGS_TLS_CERT,
     },
   ],
 };

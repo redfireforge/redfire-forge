@@ -136,6 +136,8 @@ export interface DemoStep {
   /** Optional inline SVG diagram rendered below the step description. */
   diagram?: string;
   highlight?: string;
+  /** When true, do not auto-scroll the page to the highlight (ring appears in place). */
+  skipHighlightScroll?: boolean;
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
   /** Invisible setup before spotlight (navigate to tab, switch mode, etc.) */
   preAction?: (ctx: DemoActionContext) => Promise<void>;
@@ -143,6 +145,11 @@ export interface DemoStep {
   readingSync?: (ctx: DemoActionContext, signal?: AbortSignal) => Promise<void>;
   /** Visible action after user has read narration (click button, etc.) */
   action?: (ctx: DemoActionContext) => Promise<void>;
+  /**
+   * Hard cap for this step's `action()` (ms). Defaults to 45s.
+   * Use for multi-modal tours (export + Workflow graph) that need more time.
+   */
+  actionTimeoutMs?: number;
   /** Selector to poll after action — step won't advance until this appears */
   verify?: string;
   fallbackImage?: string;

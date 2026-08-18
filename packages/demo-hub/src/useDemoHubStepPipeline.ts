@@ -55,6 +55,7 @@ export async function runActionWithTimeout(
   onTimeout: () => void,
 ): Promise<void> {
   if (!step.action) return;
+  const budget = step.actionTimeoutMs ?? DEMO_ACTION_TIMEOUT_MS;
   let actionSettled = false;
   const timeoutAc = new AbortController();
   const onStepAbort = () => timeoutAc.abort();
@@ -72,10 +73,10 @@ export async function runActionWithTimeout(
   let timedOut = false;
   await Promise.race([
     actionPromise,
-    abortableSleep(DEMO_ACTION_TIMEOUT_MS, timeoutAc.signal).then(() => {
+    abortableSleep(budget, timeoutAc.signal).then(() => {
       if (!actionSettled && !signal.aborted) {
         timedOut = true;
-        console.warn(`[DemoHub] action timed out after ${DEMO_ACTION_TIMEOUT_MS}ms for step ${step.id}`);
+        console.warn(`[DemoHub] action timed out after ${budget}ms for step ${step.id}`);
       }
     }),
   ]);
@@ -218,7 +219,7 @@ export function useDemoHubStepPipeline({
           if (signal.aborted) return;
           const allHighlight = document.querySelectorAll(step.highlight);
           const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
-          if (el instanceof HTMLElement) {
+          if (el instanceof HTMLElement && !step.skipHighlightScroll) {
             scrollDemoTargetIntoView(el, { block: 'center' });
           }
         } else {
@@ -238,7 +239,7 @@ export function useDemoHubStepPipeline({
         if (signal.aborted) return;
         const allHighlight = document.querySelectorAll(step.highlight);
         const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
-        if (el instanceof HTMLElement) {
+        if (el instanceof HTMLElement && !step.skipHighlightScroll) {
           scrollDemoTargetIntoView(el, { block: 'center' });
         }
         await abortableSleep(DEMO_SPOTLIGHT_SETTLE_MS, signal);
