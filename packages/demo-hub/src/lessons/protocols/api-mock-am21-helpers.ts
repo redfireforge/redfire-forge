@@ -38,13 +38,28 @@ export const AM21_TIMING = {
   generate: 2000,
 } as const;
 
+/** Last step (Examples) — longer rings so Attach, the contract fields, and Try can be read. */
+export const AM21_EXAMPLES_TIMING = {
+  look: 1600,
+  hold: 1800,
+  tabSwitch: 1500,
+  payoff: 2400,
+  break: 1600,
+  beforeOpen: 1800,
+} as const;
+
 const T = AM21_TIMING;
 const REVEAL_MS = 8_000;
 
 export const AM21_CORPUS_SAMPLE = 'am-gallery-suite';
-export const AM21_HEALTH_ID = 'sample-health';
-export const AM21_DICE_ID = 'sample-dice';
-export const AM21_ORPHAN_ID = 'sample-orphan';
+// Gallery import remaps every sample id (`sample-health` → `sample-<uuid>`), so
+// the lesson can never select a corpus sample by its authored id. Sample and
+// example NAMES survive the import untouched, so we resolve the live (remapped)
+// id from the DOM by name at call time — see `resolveAm21SampleId` /
+// `resolveAm21ExampleId` below.
+export const AM21_HEALTH_NAME = 'GET /health';
+export const AM21_DICE_NAME = 'GET /dice';
+export const AM21_ORPHAN_NAME = 'Unassociated GET /health';
 export const AM21_ADHOC_PATH = '/health';
 export const AM21_WRONG_STATUS = '201';
 
@@ -110,6 +125,32 @@ export function am21RenderedBody(): string {
     ?? '';
 }
 
+/**
+ * Simulate sample rows keep their authored name after import even though their
+ * ids are remapped. Resolve the live (remapped) id from the sidebar by name.
+ */
+export function resolveAm21SampleId(name: string): string | undefined {
+  const rows = document.querySelectorAll<HTMLElement>('.am-sim-sample');
+  for (const row of rows) {
+    const label = row.querySelector('.am-sim-sample-name')?.textContent?.trim();
+    if (label !== name) continue;
+    const id = (row.getAttribute('data-testid') ?? '').replace('api-mock-sim-sample-', '');
+    if (id) return id;
+  }
+  return undefined;
+}
+
+/** Example cards keep their name too; the card id is the remapped sample id. */
+export function resolveAm21ExampleId(name: string): string | undefined {
+  const labels = document.querySelectorAll<HTMLInputElement>('[data-testid^="api-mock-example-name-"]');
+  for (const label of labels) {
+    if (label.value?.trim() !== name) continue;
+    const id = (label.getAttribute('data-testid') ?? '').replace('api-mock-example-name-', '');
+    if (id) return id;
+  }
+  return undefined;
+}
+
 export function hasAm21Server(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SERVER_BAR) || firstVisibleElement(API_MOCK.ROUTE_ROW));
 }
@@ -153,7 +194,8 @@ export function hasAm21Examples(): boolean {
 }
 
 export function hasAm21Attach(): boolean {
-  return Boolean(firstVisibleElement(API_MOCK.exampleAttach(AM21_ORPHAN_ID)));
+  const id = resolveAm21ExampleId(AM21_ORPHAN_NAME);
+  return Boolean(id && firstVisibleElement(API_MOCK.exampleAttach(id)));
 }
 
 export function hasAm21WrongExpectation(): boolean {
@@ -161,11 +203,13 @@ export function hasAm21WrongExpectation(): boolean {
 }
 
 export function isAm21HealthSelected(): boolean {
-  return Boolean(firstVisibleElement(API_MOCK.simSample(AM21_HEALTH_ID))?.classList.contains('active'));
+  const id = resolveAm21SampleId(AM21_HEALTH_NAME);
+  return Boolean(id && firstVisibleElement(API_MOCK.simSample(id))?.classList.contains('active'));
 }
 
 export function isAm21DiceSelected(): boolean {
-  return Boolean(firstVisibleElement(API_MOCK.simSample(AM21_DICE_ID))?.classList.contains('active'));
+  const id = resolveAm21SampleId(AM21_DICE_NAME);
+  return Boolean(id && firstVisibleElement(API_MOCK.simSample(id))?.classList.contains('active'));
 }
 
 export async function prepareAm21Workspace(): Promise<void> {
@@ -247,9 +291,19 @@ async function ensureAm21Result(ctx: DemoActionContext, visible: boolean): Promi
   await ctx.waitFor(API_MOCK.SIMULATE_OUTCOME, REVEAL_MS);
 }
 
+async function selectAm21SampleByName(
+  ctx: DemoActionContext,
+  name: string,
+  visible: boolean,
+): Promise<string | undefined> {
+  const id = resolveAm21SampleId(name);
+  if (id) await selectAm21Sample(ctx, id, visible);
+  return id;
+}
+
 async function ensureAm21HealthResult(ctx: DemoActionContext, visible: boolean): Promise<void> {
-  await selectAm21Sample(ctx, AM21_HEALTH_ID, visible);
-  if (hasAm21SampleResult(AM21_HEALTH_ID)) return;
+  const id = await selectAm21SampleByName(ctx, AM21_HEALTH_NAME, visible);
+  if (id && hasAm21SampleResult(id)) return;
   if (visible) {
     await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   } else {
@@ -310,7 +364,7 @@ export async function ensureAm21ForRunAll(ctx: DemoActionContext): Promise<void>
 export async function ensureAm21ForSeed(ctx: DemoActionContext): Promise<void> {
   await ensureAm21Library(ctx);
   await openAm21Simulate(ctx, false);
-  await selectAm21Sample(ctx, AM21_DICE_ID, false);
+  await selectAm21SampleByName(ctx, AM21_DICE_NAME, false);
   await showAm21RequestForm(ctx, false);
 }
 
@@ -374,7 +428,9 @@ export async function runAm21Expectations(ctx: DemoActionContext): Promise<void>
   await ensureAm21ForExpectations(ctx);
   await am21ClickNow(ctx, API_MOCK.SIMULATE_TAB_ASSERTIONS, T.tabSwitch);
   await am21Reveal(ctx, API_MOCK.SIMULATE_ASSERTIONS);
-  await am21Look(ctx, API_MOCK.SIMULATE_ASSERT_ROW_OUTCOME);
+  if (firstVisibleElement(API_MOCK.SIMULATE_ASSERT_HINT)) {
+    await am21Look(ctx, API_MOCK.SIMULATE_ASSERT_HINT);
+  }
   await am21Look(ctx, API_MOCK.SIMULATE_ASSERT_ROW_STATUS);
   await am21Look(ctx, API_MOCK.SIMULATE_ASSERT_ROW_BODY);
   await am21Break(ctx);
@@ -386,10 +442,11 @@ export async function runAm21Expectations(ctx: DemoActionContext): Promise<void>
 
 export async function runAm21FailLoudly(ctx: DemoActionContext): Promise<void> {
   await ensureAm21ForFailLoudly(ctx);
-  if (!isAm21HealthSelected()) {
-    await am21ClickNow(ctx, API_MOCK.simSampleBtn(AM21_HEALTH_ID), T.fieldFilled);
-  } else {
-    await am21Look(ctx, API_MOCK.simSample(AM21_HEALTH_ID));
+  const healthId = resolveAm21SampleId(AM21_HEALTH_NAME);
+  if (healthId && !isAm21HealthSelected()) {
+    await am21ClickNow(ctx, API_MOCK.simSampleBtn(healthId), T.fieldFilled);
+  } else if (healthId) {
+    await am21Look(ctx, API_MOCK.simSample(healthId));
   }
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   await am21Reveal(ctx, API_MOCK.SIMULATE_FAIL_BADGE, T.simOutcome);
@@ -418,7 +475,7 @@ export async function runAm21RunAll(ctx: DemoActionContext): Promise<void> {
 
 export async function runAm21Seed(ctx: DemoActionContext): Promise<void> {
   await ensureAm21ForSeed(ctx);
-  await selectAm21Sample(ctx, AM21_DICE_ID, true);
+  await selectAm21SampleByName(ctx, AM21_DICE_NAME, true);
   await showAm21RequestForm(ctx, true);
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   await am21Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
@@ -438,35 +495,43 @@ export async function runAm21ExportTrace(ctx: DemoActionContext): Promise<void> 
   await am21Reveal(ctx, API_MOCK.SIMULATE_EXPORT_CONFIRM, T.payoff);
   await am21Look(ctx, API_MOCK.SIMULATE_EXPORT_PREVIEW);
   await am21Payoff(ctx, API_MOCK.SIMULATE_EXPORT_CONFIRM);
-  await closeAm21Simulate(ctx, { review: true });
 }
 
 export async function runAm21Examples(ctx: DemoActionContext): Promise<void> {
+  const E = AM21_EXAMPLES_TIMING;
   await ensureAm21ForExamples(ctx);
-  await am21ClickNow(ctx, API_MOCK.BTAB_EXAMPLES, T.tabSwitch);
-  await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID);
-  if (hasAm21Attach()) {
-    await am21Aim(ctx, API_MOCK.exampleAttach(AM21_ORPHAN_ID), T.payoff);
-    await am21Look(ctx, API_MOCK.exampleRow(AM21_ORPHAN_ID));
+  await am21ClickNow(ctx, API_MOCK.BTAB_EXAMPLES, E.tabSwitch);
+  await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID, E.payoff);
+  let orphanId = resolveAm21ExampleId(AM21_ORPHAN_NAME);
+  if (orphanId && hasAm21Attach()) {
+    await clickBeat(ctx, API_MOCK.exampleAttach(orphanId), { look: E.beforeOpen, hold: E.hold });
+    await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), E.payoff);
+    if (firstVisibleElement(API_MOCK.exampleStatus(orphanId))) {
+      await spotlightBeat(ctx, API_MOCK.exampleStatus(orphanId), E.look);
+    }
+    if (firstVisibleElement(API_MOCK.exampleBody(orphanId))) {
+      await spotlightBeat(ctx, API_MOCK.exampleBody(orphanId), E.look);
+    }
   }
-  await am21Break(ctx);
-  const tryBtn = firstVisibleElement(API_MOCK.exampleTry(AM21_ORPHAN_ID))
-    ? API_MOCK.exampleTry(AM21_ORPHAN_ID)
+  await ctx.delay(E.break);
+  const tryBtn = orphanId && firstVisibleElement(API_MOCK.exampleTry(orphanId))
+    ? API_MOCK.exampleTry(orphanId)
     : API_MOCK.EXAMPLE_TRY_REQUESTS;
   if (firstVisibleElement(tryBtn)) {
-    await am21Aim(ctx, tryBtn, T.fieldFilled);
-    await am21Reveal(ctx, REQ.URL_INPUT, T.payoff);
-    await am21Payoff(ctx, REQ.URL_INPUT);
+    await clickBeat(ctx, tryBtn, { look: E.beforeOpen, hold: E.hold });
+    await am21Reveal(ctx, REQ.URL_INPUT, E.payoff);
+    await spotlightBeat(ctx, REQ.URL_INPUT, E.payoff);
   }
   await ensureAm21OnApiMock(ctx);
   await ensureAm21StudioView(ctx);
   if (firstVisibleElement(API_MOCK.CLI_SIMULATE)) {
-    await am21Look(ctx, API_MOCK.CLI_SIMULATE);
-    await am21Payoff(ctx, API_MOCK.CLI_SIMULATE);
+    await spotlightBeat(ctx, API_MOCK.CLI_SIMULATE, E.look);
+    await spotlightBeat(ctx, API_MOCK.CLI_SIMULATE, E.payoff);
   }
   if (!hasAm21Examples() && firstVisibleElement(API_MOCK.BTAB_EXAMPLES)) {
-    await am21Aim(ctx, API_MOCK.BTAB_EXAMPLES, T.tabSwitch);
-    await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID);
+    await clickBeat(ctx, API_MOCK.BTAB_EXAMPLES, { look: E.beforeOpen, hold: E.tabSwitch });
+    await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID, E.payoff);
   }
-  await am21Payoff(ctx, API_MOCK.exampleRow(AM21_ORPHAN_ID));
+  orphanId = resolveAm21ExampleId(AM21_ORPHAN_NAME) ?? orphanId;
+  if (orphanId) await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), E.payoff);
 }

@@ -35,6 +35,7 @@ import {
   ensureAm16ForCi,
   ensureAm16ForExportMenu,
   ensureAm16ForHar,
+  ensureAm16ForInterop,
   ensureAm16ForNarrower,
   ensureAm16ForRedaction,
   ensureAm16ForRoundTrip,
@@ -55,6 +56,7 @@ import {
   runAm16CiHandoff,
   runAm16ExportMenu,
   runAm16Har,
+  runAm16Interop,
   runAm16NarrowerScopes,
   runAm16Redaction,
   runAm16RoundTrip,
@@ -356,10 +358,22 @@ describe('AM-16 export helpers', () => {
     expect(yaml).toHaveBeenCalled();
   });
 
-  it('runAm16Redaction holds the callout and the stripped TLS key', async () => {
+  it('runAm16Redaction reuses an open Workspace JSON confirm without re-exporting', async () => {
     const ctx = makeCtx();
     mountStudio();
+    // Map step already left the redacted Workspace JSON confirm open.
     mountExportChrome({ menu: true, confirm: true, redaction: true });
+    const workspace = spyNativeClick('api-mock-export-workspace');
+    await runAm16Redaction(ctx);
+    expect(workspace).not.toHaveBeenCalled();
+    expect(am16TlsKeyText()).toBe(AM16_TLS_REDACTED);
+  });
+
+  it('runAm16Redaction re-exports Workspace JSON when the confirm was dismissed', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    // No confirm open (rapid Next / replay) — the step must re-export.
+    mountExportChrome({ menu: true });
     const workspace = spyNativeClick('api-mock-export-workspace');
     await runAm16Redaction(ctx);
     expect(workspace).toHaveBeenCalled();
@@ -381,6 +395,40 @@ describe('AM-16 export helpers', () => {
     const har = spyNativeClick('api-mock-export-har');
     await runAm16Har(ctx);
     expect(har).toHaveBeenCalled();
+  });
+
+  it('runAm16Interop exports HAR then WireMock, ending on the loss report', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    mountExportChrome({ menu: true, confirm: true, loss: true, har: true });
+    const har = spyNativeClick('api-mock-export-har');
+    const wiremock = spyNativeClick('api-mock-export-wiremock');
+    await runAm16Interop(ctx);
+    expect(har).toHaveBeenCalled();
+    expect(wiremock).toHaveBeenCalled();
+  });
+
+  it('ensureAm16ForInterop skips work when the library is already up', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    await ensureAm16ForInterop(ctx);
+    expect(importApiMockGallerySample).not.toHaveBeenCalled();
+  });
+
+  it('ensureAm16ForRedaction keeps an open Workspace JSON confirm for reuse', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    mountExportChrome({ confirm: true, redaction: true });
+    await ensureAm16ForRedaction(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.EXPORT_CLOSE);
+  });
+
+  it('ensureAm16ForRedaction closes a non-redacted leftover confirm', async () => {
+    const ctx = makeCtx();
+    mountStudio();
+    mountExportChrome({ confirm: true });
+    await ensureAm16ForRedaction(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT_CLOSE);
   });
 
   it('runAm16RoundTrip uses last export as copy and confirms', async () => {

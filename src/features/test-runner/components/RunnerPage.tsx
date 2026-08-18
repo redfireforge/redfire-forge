@@ -94,32 +94,34 @@ export default function RunnerPage({
         </div>
       </div>
 
-      <HostSelector
-        hostMode={hostMode}
-        onHostModeChange={setHostMode}
-        customBaseUrl={customBaseUrl}
-        onCustomBaseUrlChange={setCustomBaseUrl}
-        resolvedBaseUrl={resolvedBaseUrl}
-        disabled={isRunning}
-        isGalleryEnv={isGalleryEnv}
-        namePrefix={variant.namePrefix}
-        fixtureOpen={Boolean(apiMockFixture?.enabled)}
-        onFixtureOpenChange={(open) => {
-          setApiMockFixture(open
-            ? enableApiMockFixture(apiMockFixture)
-            : (apiMockFixture ? { ...apiMockFixture, enabled: false } : undefined));
-        }}
-      />
-
-      {Boolean(apiMockFixture?.enabled) && (
-        <ApiMockFixturePanel
-          value={apiMockFixture}
-          onChange={setApiMockFixture}
+      <div className="runner-mock-setup" data-testid="har-runner-mock-setup">
+        <HostSelector
+          hostMode={hostMode}
+          onHostModeChange={setHostMode}
+          customBaseUrl={customBaseUrl}
+          onCustomBaseUrlChange={setCustomBaseUrl}
+          resolvedBaseUrl={resolvedBaseUrl}
           disabled={isRunning}
-          status={fixtureStatus}
-          visible={visible}
+          isGalleryEnv={isGalleryEnv}
+          namePrefix={variant.namePrefix}
+          fixtureOpen={Boolean(apiMockFixture?.enabled)}
+          onFixtureOpenChange={(open) => {
+            setApiMockFixture(open
+              ? enableApiMockFixture(apiMockFixture)
+              : (apiMockFixture ? { ...apiMockFixture, enabled: false } : undefined));
+          }}
         />
-      )}
+
+        {Boolean(apiMockFixture?.enabled) && (
+          <ApiMockFixturePanel
+            value={apiMockFixture}
+            onChange={setApiMockFixture}
+            disabled={isRunning}
+            status={fixtureStatus}
+            visible={visible}
+          />
+        )}
+      </div>
 
       <RunnerExecutionConfig
         executionMode={executionMode}

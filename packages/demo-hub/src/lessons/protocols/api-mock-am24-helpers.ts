@@ -55,6 +55,9 @@ import {
   clickWfConfigControl,
 } from '../wf-demo-helpers';
 
+/** Ship authors two exports + four Workflow config modals — over the 45s default. */
+export const AM24_SHIP_ACTION_TIMEOUT_MS = 120_000;
+
 export const AM24_TIMING = {
   look: 900,
   fieldFilled: 850,
@@ -629,22 +632,30 @@ async function quietFakerBody(ctx: DemoActionContext): Promise<void> {
   });
 }
 
-async function quietNotFoundVariant(ctx: DemoActionContext): Promise<void> {
-  await ensureAm24ResponseTab(ctx);
-  if (hasAm24NotFoundVariant() && am24VariantCards().length >= 2) {
-    patchApiMockActiveRoute({ responseMode: 'rules', variantIndex: 0, isDefault: true });
-    return;
-  }
-  patchApiMockActiveRoute({ addVariant: true });
+function applyAm24NotFoundCondition(): void {
   patchApiMockActiveRoute({
     variantIndex: 1,
-    variantName: AM24_VARIANT_NAME,
-    status: 404,
-    body: AM24_ERR_BODY,
-    contentType: AM24_CONTENT_JSON,
-    isDefault: false,
     variantConditions: NOT_FOUND_CONDITIONS,
+    isDefault: false,
   });
+}
+
+async function quietNotFoundVariant(ctx: DemoActionContext): Promise<void> {
+  await ensureAm24ResponseTab(ctx);
+  if (!(hasAm24NotFoundVariant() && am24VariantCards().length >= 2)) {
+    patchApiMockActiveRoute({ addVariant: true });
+    patchApiMockActiveRoute({
+      variantIndex: 1,
+      variantName: AM24_VARIANT_NAME,
+      status: 404,
+      body: AM24_ERR_BODY,
+      contentType: AM24_CONTENT_JSON,
+      isDefault: false,
+      variantConditions: NOT_FOUND_CONDITIONS,
+    });
+  } else {
+    applyAm24NotFoundCondition();
+  }
   patchApiMockActiveRoute({ variantIndex: 0, isDefault: true, responseMode: 'rules' });
 }
 
@@ -720,21 +731,31 @@ async function runOrdersSimulation(
   ctx: DemoActionContext,
   body: string,
   name: string,
-  opts: { saveSample?: boolean } = {},
+  opts: {
+    saveSample?: boolean;
+    formHold?: number;
+    fieldHold?: number;
+    reviewHold?: number;
+    beforeRunHold?: number;
+  } = {},
 ): Promise<void> {
-  await ensureAdHocSimulateForm(ctx, T.tabSwitch);
+  const formHold = opts.formHold ?? T.tabSwitch;
+  const fieldHold = opts.fieldHold ?? T.simOutcome;
+  const reviewHold = opts.reviewHold ?? T.payoff;
+  const beforeRunHold = opts.beforeRunHold ?? T.beforeRun;
+  await ensureAdHocSimulateForm(ctx, formHold);
   if (firstVisibleElement(API_MOCK.SIMULATE_METHOD)) {
     await ctx.selectOption(API_MOCK.SIMULATE_METHOD, 'POST').catch(() => undefined);
   }
   if (inputValue(API_MOCK.SIMULATE_PATH) !== AM24_ORDERS_PATH && firstVisibleElement(API_MOCK.SIMULATE_PATH)) {
-    await am24AimFill(ctx, API_MOCK.SIMULATE_PATH, AM24_ORDERS_PATH);
+    await am24AimFill(ctx, API_MOCK.SIMULATE_PATH, AM24_ORDERS_PATH, fieldHold);
   }
   if (firstVisibleElement(API_MOCK.SIMULATE_BODY)) {
-    await am24AimFill(ctx, API_MOCK.SIMULATE_BODY, body, T.simOutcome);
+    await am24AimFill(ctx, API_MOCK.SIMULATE_BODY, body, fieldHold);
   }
   await reviewAndRunSimulation(ctx, {
-    review: T.payoff,
-    beforeRun: T.beforeRun,
+    review: reviewHold,
+    beforeRun: beforeRunHold,
     sampleName: name,
     saveSample: opts.saveSample,
   });
@@ -918,7 +939,6 @@ export async function ensureAm24ForSuite(ctx: DemoActionContext): Promise<void> 
 
 export async function ensureAm24ForLive(ctx: DemoActionContext): Promise<void> {
   await ensureAm24ForSuite(ctx);
-  await quietSample(ctx);
   await closeAm24Simulate(ctx);
 }
 
@@ -998,7 +1018,7 @@ export async function runAm24Matching(ctx: DemoActionContext): Promise<void> {
   patchApiMockActiveRoute({ predicates: ROOT_GROUP });
   await am24Break(ctx);
   await openAm24Simulate(ctx, true);
-  await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME, { saveSample: false });
+  await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME);
   await am24Payoff(ctx, API_MOCK.SIMULATE_OUTCOME);
   await closeAm24Simulate(ctx, { review: true });
   if (firstVisibleElement(API_MOCK.PATH_TOOLBOX)) {
@@ -1065,11 +1085,10 @@ export async function runAm24Variants(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.SELECTION_CONDITION_VALUE)) {
     await am24AimFill(ctx, API_MOCK.SELECTION_CONDITION_VALUE, AM24_SKU_MISSING);
   }
-  patchApiMockActiveRoute({
-    variantIndex: 1,
-    variantConditions: NOT_FOUND_CONDITIONS,
-    isDefault: false,
-  });
+  applyAm24NotFoundCondition();
+  if (firstVisibleElement(API_MOCK.SELECTION_CONDITION)) {
+    await am24Payoff(ctx, API_MOCK.SELECTION_CONDITION);
+  }
   await am24Break(ctx);
   if (firstVisibleElement(API_MOCK.RESPONSE_MODE_SEQUENCE)) {
     await am24Aim(ctx, API_MOCK.RESPONSE_MODE_SEQUENCE);
@@ -1083,7 +1102,19 @@ export async function runAm24Variants(ctx: DemoActionContext): Promise<void> {
     await am24Aim(ctx, API_MOCK.RESPONSE_MODE_RULES);
   }
   patchApiMockActiveRoute({ responseMode: 'rules', variantIndex: 0, isDefault: true });
-  await am24Payoff(ctx, API_MOCK.RESPONSE_MODE_RULES);
+  applyAm24NotFoundCondition();
+  const card = am24VariantCards().at(-1);
+  const cardId = card?.getAttribute('data-testid');
+  if (cardId) await am24ClickNow(ctx, `[data-testid="${cardId}"]`, 0);
+  if (!firstVisibleElement(API_MOCK.SELECTION_CONDITION) && firstVisibleElement(API_MOCK.RESPONSE_TAB_SELECTION)) {
+    await am24Aim(ctx, API_MOCK.RESPONSE_TAB_SELECTION, T.tabSwitch);
+  }
+  await am24Payoff(
+    ctx,
+    firstVisibleElement(API_MOCK.SELECTION_CONDITION)
+      ? API_MOCK.SELECTION_CONDITION
+      : API_MOCK.RESPONSE_MODE_RULES,
+  );
 }
 
 export async function runAm24Resilience(ctx: DemoActionContext): Promise<void> {
@@ -1179,7 +1210,12 @@ export async function runAm24Suite(ctx: DemoActionContext): Promise<void> {
   }
   await am24Reveal(ctx, API_MOCK.SIMULATE_WORKSPACE);
   if (!hasAm24Sample()) {
-    await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME);
+    await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME, {
+      formHold: 1800,
+      fieldHold: 1800,
+      reviewHold: 2200,
+      beforeRunHold: 2800,
+    });
   }
   if (firstVisibleElement(API_MOCK.SIMULATE_TAB_ASSERTIONS)) {
     await am24Aim(ctx, API_MOCK.SIMULATE_TAB_ASSERTIONS, T.tabSwitch);
@@ -1199,6 +1235,9 @@ export async function runAm24Suite(ctx: DemoActionContext): Promise<void> {
 export async function runAm24Live(ctx: DemoActionContext): Promise<void> {
   await closeAm24Simulate(ctx);
   await ensureAm24StudioView(ctx);
+  if (firstVisibleElement(API_MOCK.ROUTE_TITLE)) {
+    await am24Payoff(ctx, API_MOCK.ROUTE_TITLE);
+  }
   await applyIfDirty(ctx);
   if (!am24ServerRunning() && firstVisibleElement(API_MOCK.START)) {
     await am24ClickNow(ctx, API_MOCK.START, T.fieldFilled);
