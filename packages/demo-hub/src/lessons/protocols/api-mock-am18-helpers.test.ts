@@ -10,6 +10,7 @@ const importApiMockGallerySample = vi.fn(async () => true);
 const prepareApiMockStudioChrome = vi.fn();
 const sendApiMockRequest = vi.fn(async () => ({ status: 200, body: '{"products":[]}' }));
 const patchApiMockServerSettings = vi.fn(() => true);
+const deleteCollectionsByName = vi.fn(() => 0);
 
 vi.mock('../../adapters', () => ({
   wipeApiMockWorkspace: (...a: unknown[]) => wipeApiMockWorkspace(...(a as [])),
@@ -17,6 +18,7 @@ vi.mock('../../adapters', () => ({
   prepareApiMockStudioChrome: (...a: unknown[]) => prepareApiMockStudioChrome(...(a as [])),
   sendApiMockRequest: (...a: unknown[]) => sendApiMockRequest(...(a as [])),
   patchApiMockServerSettings: (...a: unknown[]) => patchApiMockServerSettings(...(a as [])),
+  deleteCollectionsByName: (...a: unknown[]) => deleteCollectionsByName(...(a as [])),
 }));
 
 import {
@@ -264,6 +266,7 @@ beforeEach(() => {
   prepareApiMockStudioChrome.mockClear();
   sendApiMockRequest.mockClear().mockResolvedValue({ status: 200, body: '{}' });
   patchApiMockServerSettings.mockClear().mockReturnValue(true);
+  deleteCollectionsByName.mockClear().mockReturnValue(0);
 });
 
 describe('AM-18 helpers', () => {
@@ -357,8 +360,12 @@ describe('AM-18 helpers', () => {
     expect(wipeApiMockWorkspace).toHaveBeenCalled();
     expect(prepareApiMockStudioChrome).toHaveBeenCalled();
     expect(importApiMockGallerySample).toHaveBeenCalledWith(AM18_CORPUS_SAMPLE);
+    // Step 6 "Open in Requests" leaves rows in this Requests collection — both
+    // boot and cleanup must remove it so replays do not accumulate orphans.
+    expect(deleteCollectionsByName).toHaveBeenCalledWith('API Mock Journal');
     await cleanupAm18();
     expect(wipeApiMockWorkspace).toHaveBeenCalledTimes(2);
+    expect(deleteCollectionsByName).toHaveBeenCalledTimes(2);
   });
 
   it('throws when the store library cannot be imported', async () => {
@@ -479,6 +486,36 @@ describe('AM-18 step bodies', () => {
     const ctx = makeCtx();
     await runAm18CreateRoute(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.TX_CREATE_ROUTE);
+    expect(ctx.waitFor).toHaveBeenCalledWith(API_MOCK.TX_OPEN_CREATED, expect.any(Number));
+    expect(ctx.delay).toHaveBeenCalledWith(AM18_TIMING.simOutcome);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.TX_OPEN_CREATED);
+  });
+
+  it('rings Open in Studio even when the button reports a zero box', async () => {
+    mountServerBar(true);
+    mountExplorer();
+    mountJournal({
+      unmatched: true,
+      created: true,
+      rows: [{ id: 'tx-miss', path: AM18_MISS_PATH }],
+    });
+    mountEditor({ missPath: true });
+    const btn = document.querySelector<HTMLElement>('[data-testid="api-mock-tx-open-created"]');
+    expect(btn).toBeTruthy();
+    btn!.getBoundingClientRect = () => ({
+      width: 0,
+      height: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => '{}',
+    } as DOMRect);
+    const ctx = makeCtx();
+    await runAm18CreateRoute(ctx);
+    expect(ctx.delay).toHaveBeenCalledWith(AM18_TIMING.simOutcome);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.TX_OPEN_CREATED);
   });
 
@@ -549,24 +586,24 @@ describe('AM-18 guards', () => {
     expect(importApiMockGallerySample).toHaveBeenCalledWith(AM18_CORPUS_SAMPLE);
   });
 
-  it('quietly patches closest-match when the settings panel is closed', async () => {
+  it('leaves fallback configuration untouched during preparation', async () => {
     mountServerBar(true);
     mountExplorer();
     mountJournal({ unmatched: true, rows: [{ id: 'tx-miss', path: AM18_MISS_PATH }] });
     const ctx = makeCtx();
     await ensureAm18ForClosestMatch(ctx);
-    expect(patchApiMockServerSettings).toHaveBeenCalledWith({ fallbackMode: 'closest_match_debug' });
+    expect(patchApiMockServerSettings).not.toHaveBeenCalledWith({ fallbackMode: 'closest_match_debug' });
   });
 
-  it('selects closest-match through the open runtime settings panel', async () => {
+  it('leaves the open runtime settings panel for the visible step', async () => {
     mountServerBar(true);
     mountExplorer();
     mountJournal({ unmatched: true, rows: [{ id: 'tx-miss', path: AM18_MISS_PATH }] });
     mountRuntimeSettings();
     const ctx = makeCtx();
     await ensureAm18ForClosestMatch(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(API_MOCK.RUNTIME_SETTINGS_FALLBACK, 'closest_match_debug');
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.RUNTIME_SETTINGS_SAVE);
+    expect(ctx.selectOption).not.toHaveBeenCalledWith(API_MOCK.RUNTIME_SETTINGS_FALLBACK, 'closest_match_debug');
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.RUNTIME_SETTINGS_SAVE);
   });
 
   it('clicks Create route when the draft is missing', async () => {
@@ -710,13 +747,13 @@ describe('AM-18 guards', () => {
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.DOCK_TAB_SETTINGS);
   });
 
-  it('quietly Applies after patching closest-match', async () => {
+  it('does not quietly Apply during closest-match preparation', async () => {
     mountServerBar(true, { apply: true });
     mountExplorer();
     mountJournal({ unmatched: true, rows: [{ id: 'tx-miss', path: AM18_MISS_PATH }] });
     const ctx = makeCtx();
     await ensureAm18ForClosestMatch(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APPLY);
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.APPLY);
   });
 
   it('selects the seeded draft when the editor is on another path', async () => {

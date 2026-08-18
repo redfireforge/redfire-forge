@@ -11,6 +11,9 @@ import {
   textExpandStats,
 } from './apiMockTextExpand';
 import { ChevronDownIcon, ChevronUpIcon, RedoIcon, UndoIcon } from './ApiMockIcons';
+import JsonPreview, { buildJTree, collectJTreePaths } from '../../requests/components/JsonTreePreview';
+import { useJsonTreeCollapseState } from '../../../shared/hooks/useJsonTreeCollapseState';
+import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
 
 interface Props {
   title: string;
@@ -35,6 +38,21 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
   const [future, setFuture] = useState<string[]>([]);
   const [query, setQuery] = useState('');
   const [matchIndex, setMatchIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<'text' | 'tree'>('text');
+  const [treeMatchCount, setTreeMatchCount] = useState(0);
+  const {
+    currentMatchIndex: treeMatchIdx,
+    setCurrentMatchIndex: setTreeMatchIdx,
+    goNext: treeGoNext,
+    goPrev: treeGoPrev,
+  } = useSearchMatchNavigation(treeMatchCount);
+  const {
+    collapsedSet: treeCollapsed,
+    expandAllActive: treeExpandAllActive,
+    handleTreeToggle: toggleTreeNode,
+    handleCollapseAll: collapseAllTree,
+    handleExpandAll: expandAllTree,
+  } = useJsonTreeCollapseState();
 
   const matches = useMemo(() => findTextExpandMatches(draft, query), [draft, query]);
   const formatted = useMemo(() => formatJsonBody(draft), [draft]);
@@ -43,6 +61,23 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
   const minified = formatted?.minified ?? null;
   const prettyActive = Boolean(pretty && pretty === draft);
   const minifyActive = Boolean(minified && minified === draft);
+
+  // Read-only JSON tree of the current draft (structure browsing while editing).
+  const jsonTree = useMemo(() => {
+    try { return buildJTree(JSON.parse(draft), ''); }
+    catch { return null; }
+  }, [draft]);
+  const allTreePaths = useMemo(() => (jsonTree ? collectJTreePaths(jsonTree, '') : []), [jsonTree]);
+  const canTree = !!jsonTree;
+  const treeMode = viewMode === 'tree' && canTree;
+
+  // Search count / navigation follow the active view (text-match vs tree-node match).
+  const activeMatchCount = treeMode ? treeMatchCount : matches.length;
+  const activeCountLabel = treeMode
+    ? (treeMatchCount > 0 ? `${treeMatchIdx + 1}/${treeMatchCount}` : '0/0')
+    : formatTextExpandCount(matchIndex, matches.length);
+  const activeGoPrev = () => { if (treeMode) treeGoPrev(); else goMatch(-1); };
+  const activeGoNext = () => { if (treeMode) treeGoNext(); else goMatch(1); };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -58,7 +93,8 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
 
   useEffect(() => {
     setMatchIndex(0);
-  }, [query, draft]);
+    setTreeMatchIdx(0);
+  }, [query, draft, setTreeMatchIdx]);
 
   const selectMatch = (index: number) => {
     const el = editorRef.current;
@@ -148,20 +184,20 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
             onKeyDown={e => {
               if (e.key !== 'Enter') return;
               e.preventDefault();
-              goMatch(e.shiftKey ? -1 : 1);
+              if (e.shiftKey) activeGoPrev(); else activeGoNext();
             }}
             placeholder="Search…"
             aria-label="Search body text"
             data-testid="api-mock-text-expand-search"
           />
           <span className="am-text-expand-count" data-testid="api-mock-text-expand-count">
-            {formatTextExpandCount(matchIndex, matches.length)}
+            {activeCountLabel}
           </span>
           <button
             type="button"
             className="am-icon-btn"
-            onClick={() => goMatch(-1)}
-            disabled={matches.length === 0}
+            onClick={activeGoPrev}
+            disabled={activeMatchCount === 0}
             data-testid="api-mock-text-expand-prev"
             aria-label="Previous match"
           >
@@ -170,8 +206,8 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
           <button
             type="button"
             className="am-icon-btn"
-            onClick={() => goMatch(1)}
-            disabled={matches.length === 0}
+            onClick={activeGoNext}
+            disabled={activeMatchCount === 0}
             data-testid="api-mock-text-expand-next"
             aria-label="Next match"
           >
@@ -212,8 +248,49 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
               {' · '}
               {stats.chars.toLocaleString()} {stats.chars === 1 ? 'char' : 'chars'}
             </span>
+            <div className="am-segmented am-text-expand-view" role="group" aria-label="Preview mode">
+              <button
+                type="button"
+                className={treeMode ? '' : 'active'}
+                onClick={() => setViewMode('text')}
+                aria-pressed={!treeMode}
+                data-testid="api-mock-text-expand-view-text"
+              >
+                Text
+              </button>
+              <button
+                type="button"
+                className={treeMode ? 'active' : ''}
+                onClick={() => setViewMode('tree')}
+                disabled={!canTree}
+                aria-pressed={treeMode}
+                title={canTree ? 'Browse as a JSON tree' : 'Valid JSON only'}
+                data-testid="api-mock-text-expand-view-tree"
+              >
+                Tree
+              </button>
+            </div>
           </div>
-          {!readOnly && (
+          {treeMode ? (
+            <div className="am-text-expand-actions">
+              <button
+                type="button"
+                className="am-btn small"
+                onClick={expandAllTree}
+                data-testid="api-mock-text-expand-tree-expand-all"
+              >
+                Expand all
+              </button>
+              <button
+                type="button"
+                className="am-btn small"
+                onClick={() => collapseAllTree(new Set(allTreePaths))}
+                data-testid="api-mock-text-expand-tree-collapse-all"
+              >
+                Collapse all
+              </button>
+            </div>
+          ) : !readOnly && (
             <div className="am-text-expand-actions">
               <div className="am-text-expand-history">
                 <button
@@ -266,19 +343,36 @@ export function ApiMockTextExpandModal({ title, value, readOnly = false, placeho
             </div>
           )}
         </div>
-        <div className="am-text-expand-editor-shell">
-          <textarea
-            ref={editorRef}
-            className="am-textarea mono am-textarea--expand am-text-expand-editor"
-            value={draft}
-            onChange={e => commitDraft(e.target.value)}
-            placeholder={placeholder}
-            readOnly={readOnly}
-            spellCheck={false}
-            aria-label={title}
-            data-testid="api-mock-text-expand-editor"
-          />
-        </div>
+        {treeMode ? (
+          <div className="am-text-expand-editor-shell am-text-expand-tree-shell">
+            <div className="am-text-expand-tree-wrap" data-testid="api-mock-text-expand-tree">
+              <JsonPreview
+                body={draft}
+                search={query}
+                currentMatchIdx={treeMatchIdx}
+                onMatchCountChange={setTreeMatchCount}
+                collapsedSet={treeCollapsed}
+                onToggle={toggleTreeNode}
+                prebuiltTree={jsonTree}
+                forceExpandAll={treeExpandAllActive}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="am-text-expand-editor-shell">
+            <textarea
+              ref={editorRef}
+              className="am-textarea mono am-textarea--expand am-text-expand-editor"
+              value={draft}
+              onChange={e => commitDraft(e.target.value)}
+              placeholder={placeholder}
+              readOnly={readOnly}
+              spellCheck={false}
+              aria-label={title}
+              data-testid="api-mock-text-expand-editor"
+            />
+          </div>
+        )}
       </div>
     </AppModalFrame>
   );

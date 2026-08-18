@@ -45,6 +45,7 @@ describe('ApiMockFixturePanel', () => {
     expect(screen.getByTestId('har-apimock-fixture')).toBeTruthy();
     expect(screen.queryByText('Start with run')).toBeNull();
     expect(screen.getByTestId('har-apimock-fixture-server')).toBeTruthy();
+    expect(screen.getByTestId('har-apimock-fixture-isolate-row')).toBeTruthy();
   });
 
   it('shows Server first and loads workspace servers', async () => {

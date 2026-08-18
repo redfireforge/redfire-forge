@@ -225,7 +225,7 @@ describe('ApiMockResponseEditor', () => {
     render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={vi.fn()} />);
     expect(screen.getByTestId('api-mock-response-preview')).toBeTruthy();
     expect(screen.getByText(/Template helpers:/i)).toBeTruthy();
-    expect(screen.getByTestId('api-mock-template-helpers-browse')).toBeTruthy();
+    expect(screen.queryByTestId('api-mock-template-helpers-browse')).toBeNull();
     expect(document.querySelector('.am-editor-body--fill')).toBeTruthy();
     expect(document.querySelector('.am-preview-timeline')).toBeTruthy();
     openResponseTab('headers');
@@ -233,19 +233,6 @@ describe('ApiMockResponseEditor', () => {
     expect(screen.getByText('No cookies.')).toBeTruthy();
     expect(screen.queryByText(/Template helpers:/i)).toBeNull();
     expect(screen.getByTestId('api-mock-variant-tab-resp-1').textContent).toMatch(/Default/i);
-  });
-
-  it('opens Browse helpers, inserts a snippet, and closes', () => {
-    const onUpdateRoute = vi.fn();
-    render(<ApiMockResponseEditor route={makeRoute()} onUpdateRoute={onUpdateRoute} />);
-    fireEvent.click(screen.getByTestId('api-mock-template-helpers-browse'));
-    expect(screen.getByTestId('api-mock-template-helpers-modal')).toBeTruthy();
-    fireEvent.click(screen.getAllByTestId('api-mock-template-helpers-insert')[0]);
-    expect(onUpdateRoute).toHaveBeenCalled();
-    const body = onUpdateRoute.mock.calls.at(-1)?.[0].responses[0].body.content as string;
-    expect(body).toContain('{{');
-    fireEvent.click(screen.getByTestId('api-mock-template-helpers-close'));
-    expect(screen.queryByTestId('api-mock-template-helpers-modal')).toBeNull();
   });
 
   it('opens the body mapper and applies the mapped template', () => {
@@ -382,5 +369,42 @@ describe('ApiMockResponseEditor', () => {
       />,
     );
     expect(screen.getByTestId('api-mock-sequence-order-note').textContent).toMatch(/top to bottom/);
+  });
+
+  it('keeps JSONPath conditions when switching to sequence and back to rules', () => {
+    const onUpdateRoute = vi.fn();
+    const conditions = {
+      id: 'pg-404',
+      combinator: 'all' as const,
+      children: [{
+        id: 'pred-missing',
+        source: 'body' as const,
+        selector: '',
+        operator: 'jsonPath_equals' as const,
+        expected: ['$.sku', 'MISSING'],
+      }],
+    };
+    const notFound = {
+      ...createDefaultResponse('resp-2'),
+      isDefault: false,
+      name: 'Not found',
+      status: 404,
+      conditions,
+    };
+    render(
+      <ApiMockResponseEditor
+        route={makeRoute({ responses: [createDefaultResponse('resp-1'), notFound] })}
+        onUpdateRoute={onUpdateRoute}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-response-mode-sequence'));
+    const seqPatch = onUpdateRoute.mock.calls.at(-1)?.[0];
+    expect(seqPatch.responseMode).toBe('sequence');
+    expect(seqPatch.responses[1].conditions).toEqual(conditions);
+
+    fireEvent.click(screen.getByTestId('api-mock-response-mode-rules'));
+    const rulesPatch = onUpdateRoute.mock.calls.at(-1)?.[0];
+    expect(rulesPatch.responseMode).toBe('rules');
+    expect(rulesPatch.responses[1].conditions).toEqual(conditions);
   });
 });

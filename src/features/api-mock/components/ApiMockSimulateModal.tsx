@@ -312,10 +312,12 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
         </div>
       }
       onClose={onClose}
-      dialogClassName="modal am-studio-modal"
+      dialogClassName="modal am-studio-modal am-simulate-modal"
       bodyClassName="am-studio-modal-body"
       footerClassName="am-studio-modal-footer"
       showExpandButton={false}
+      closeOnOverlayClick={false}
+      constrainDragToViewport
       headerActions={
         <div className="api-mock-root am-in-modal am-modal-toolbar">
           <button

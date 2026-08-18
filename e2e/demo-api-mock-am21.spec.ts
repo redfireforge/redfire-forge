@@ -39,9 +39,22 @@ test.describe('Demo lesson AM-21 — Simulation as a Test Suite', () => {
     await walkApiMockLesson(page, 'am21');
 
     expect(await readStepCounter(page)).toContain(`${AM_LESSON_STEPS.am21} / ${AM_LESSON_STEPS.am21}`);
-    await expect(page.locator(API_MOCK.exampleRow('sample-orphan'))).toBeVisible({
+    // Gallery import remaps sample ids, so the orphan example card id is dynamic.
+    // Assert the Examples grid rendered and the orphan example is present by name.
+    await expect(page.locator(API_MOCK.EXAMPLES_GRID)).toBeVisible({
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
+    await expect
+      .poll(
+        async () =>
+          page
+            .locator('input[data-testid^="api-mock-example-name-"]')
+            .evaluateAll(els =>
+              els.some(el => (el as HTMLInputElement).value.trim() === 'Unassociated GET /health'),
+            ),
+        { timeout: AM_LESSON_STEP_TIMEOUT },
+      )
+      .toBe(true);
     await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0);
   });
 

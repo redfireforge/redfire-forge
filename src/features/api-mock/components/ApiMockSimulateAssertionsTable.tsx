@@ -53,7 +53,13 @@ export function ApiMockSimulateAssertionsTable({
   };
 
   return (
-    <table className="am-data-table" aria-label="Simulation assertions" data-testid="api-mock-sim-assertions">
+    <div className="am-sim-assertions-wrap" data-testid="api-mock-sim-assertions-wrap">
+      <p className="am-hint am-sim-assertions-hint" data-testid="api-mock-sim-assert-hint">
+        {canEdit
+          ? 'Only Status and Body contains are editable. Other Expected cells are saved with the sample or observed from this run.'
+          : 'Pick a saved sample to edit Status and Body contains. The scratch pad and From-rules rows are read-only.'}
+      </p>
+      <table className="am-data-table" aria-label="Simulation assertions" data-testid="api-mock-sim-assertions">
       <thead>
         <tr><th>Expectation</th><th>Expected</th><th>Actual</th><th>Result</th></tr>
       </thead>
@@ -78,7 +84,7 @@ export function ApiMockSimulateAssertionsTable({
         </tr>
         <tr data-testid="api-mock-sim-assert-row-status">
           <td>Status</td>
-          <td>
+          <td className={canEdit ? 'am-sim-assert-edit' : undefined}>
             {canEdit ? (
               <input
                 className="am-input"
@@ -98,7 +104,7 @@ export function ApiMockSimulateAssertionsTable({
         </tr>
         <tr data-testid="api-mock-sim-assert-row-body">
           <td>Body contains</td>
-          <td>
+          <td className={canEdit ? 'am-sim-assert-edit' : undefined}>
             {canEdit ? (
               <input
                 className="am-input"
@@ -132,6 +138,7 @@ export function ApiMockSimulateAssertionsTable({
           <td>{resultBadge(undefined, '—')}</td>
         </tr>
       </tbody>
-    </table>
+      </table>
+    </div>
   );
 }

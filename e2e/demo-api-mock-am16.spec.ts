@@ -33,7 +33,7 @@ test.describe('Demo lesson AM-16 — Export & Round-Trip: JSON/YAML, WireMock, H
     await cleanupApiMockLessonRun(request);
   });
 
-  test('walks all 7 steps and ends on the CLI handoff', async ({ page }) => {
+  test('walks all 6 steps and ends on the CLI handoff', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await walkApiMockLesson(page, 'am16');
@@ -59,18 +59,20 @@ test.describe('Demo lesson AM-16 — Export & Round-Trip: JSON/YAML, WireMock, H
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am16);
+    // Step 1 exports Workspace JSON; step 2 (redaction) reuses that same confirm.
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
-    await advanceSteps(page, 2, AM_LESSON_STEP_TIMEOUT);
+    await advanceSteps(page, 1, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.EXPORT_TLS_KEY)).toHaveText('***REDACTED***');
     await expect(page.locator(API_MOCK.EXPORT_REDACTION)).toBeVisible();
   });
 
-  test('shows the WireMock loss report after the fourth step', async ({ page }) => {
+  test('shows the WireMock loss report after the interop step', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am16);
+    // Step 4 (interop) exports HAR then WireMock, ending on the loss report.
     await advanceSteps(page, 3, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
@@ -81,7 +83,8 @@ test.describe('Demo lesson AM-16 — Export & Round-Trip: JSON/YAML, WireMock, H
     test.setTimeout(AM_LESSON_TIMEOUT);
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am16);
-    await advanceSteps(page, 5, AM_LESSON_STEP_TIMEOUT);
+    // Round-trip is now step 5.
+    await advanceSteps(page, 4, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.COPIED_ROUTE).first()).toBeVisible({

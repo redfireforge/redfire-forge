@@ -172,6 +172,8 @@ export type AmSimulateReviewTiming = {
   digest?: boolean;
   /** Extra beats after Save / field review, immediately before **Run simulation**. */
   afterReview?: (ctx: DemoActionContext) => Promise<void>;
+  /** Optional readable hold for controls that switch the simulation view. */
+  controlHold?: number;
 };
 
 /** Run swaps the form for Results. Click Request before filling the next probe. */
@@ -180,6 +182,7 @@ const ADHOC_FORM_REVEAL_MS = 4_000;
 export async function ensureAdHocSimulateForm(
   ctx: DemoActionContext,
   hold: number = AM_DEMO_TIMING.tabSwitch,
+  transitionHold = 0,
 ): Promise<void> {
   if (firstVisibleElement(API_MOCK.SIMULATE_VIEW_REQUEST)) {
     await clickBeat(ctx, API_MOCK.SIMULATE_VIEW_REQUEST, { hold });
@@ -187,7 +190,7 @@ export async function ensureAdHocSimulateForm(
   const adhoc = firstVisibleElement(API_MOCK.SIMULATE_SAMPLE_ADHOC);
   const onAdhoc = Boolean(adhoc?.classList.contains('active'));
   if (adhoc && !onAdhoc) {
-    await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: 0 });
+    await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: transitionHold });
     if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)) {
       await revealBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, {
         timeout: ADHOC_FORM_REVEAL_MS,
@@ -197,7 +200,7 @@ export async function ensureAdHocSimulateForm(
   }
   // A selected saved sample still shows the request form (read-only) without Save.
   if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE) && firstVisibleElement(API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN)) {
-    await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: 0 });
+    await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: transitionHold });
     if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)) {
       await revealBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, {
         timeout: ADHOC_FORM_REVEAL_MS,
@@ -239,6 +242,7 @@ export async function reviewAndRunSimulation(
 ): Promise<void> {
   const review = timing.review ?? AM_DEMO_TIMING.reviewForm;
   const beforeRun = timing.beforeRun ?? AM_DEMO_TIMING.beforeRun;
+  const controlHold = timing.controlHold ?? 0;
   const sampleName = timing.sampleName ?? defaultSimulateSampleName();
 
   if (timing.saveSample !== false) {
@@ -246,7 +250,7 @@ export async function reviewAndRunSimulation(
       await clickBeat(ctx, API_MOCK.SIMULATE_VIEW_REQUEST, { hold: AM_DEMO_TIMING.panelReady });
     }
     if (!firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE) && firstVisibleElement(API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN)) {
-      await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: 0 });
+      await clickBeat(ctx, API_MOCK.SIMULATE_SAMPLE_ADHOC_BTN, { hold: controlHold });
     }
     if (firstVisibleElement(API_MOCK.SIMULATE_SAVE_SAMPLE)) {
       await clickBeat(ctx, API_MOCK.SIMULATE_SAVE_SAMPLE, {
@@ -282,7 +286,7 @@ export async function reviewAndRunSimulation(
     await timing.afterReview(ctx);
   }
 
-  await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: beforeRun, hold: 0 });
+  await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: beforeRun, hold: controlHold });
   await ensureSimulateResultsPane(ctx);
 }
 
