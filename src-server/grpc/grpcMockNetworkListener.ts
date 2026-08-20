@@ -185,29 +185,45 @@ export class GrpcMockNetworkListener {
     this.logBuffer = [];
     this.logCursor = 0;
 
-    const port = config.port ?? await tryAllocateGrpcMockListenerPort(new Set());
-    const server = new grpc.Server();
     const implementation = this.buildServiceImplementations(config.descriptor);
 
-    for (const service of config.descriptor.services) {
-      const serviceDef = buildServiceDefinition(config.descriptor, service.fullName, service.methods);
-      server.addService(serviceDef, implementation[service.fullName] ?? {});
-    }
+    const explicitPort = config.port;
+    const reserved = new Set<number>();
+    let port = explicitPort ?? await tryAllocateGrpcMockListenerPort(reserved);
+    let server: grpc.Server | undefined;
+    for (;;) {
+      const candidate = new grpc.Server();
+      for (const service of config.descriptor.services) {
+        const serviceDef = buildServiceDefinition(config.descriptor, service.fullName, service.methods);
+        candidate.addService(serviceDef, implementation[service.fullName] ?? {});
+      }
 
-    await new Promise<void>((resolve, reject) => {
-      server.bindAsync(
-        `${LISTEN_HOST}:${port}`,
-        grpc.ServerCredentials.createInsecure(),
-        (error, boundPort) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          this.port = boundPort ?? port;
-          resolve();
-        },
-      );
-    });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          candidate.bindAsync(
+            `${LISTEN_HOST}:${port}`,
+            grpc.ServerCredentials.createInsecure(),
+            (error, boundPort) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+              this.port = boundPort ?? port;
+              resolve();
+            },
+          );
+        });
+        server = candidate;
+        break;
+      } catch (error) {
+        candidate.forceShutdown();
+        if (explicitPort != null || !/EADDRINUSE|address already in use/i.test(String(error))) {
+          throw error;
+        }
+        reserved.add(port);
+        port = await tryAllocateGrpcMockListenerPort(reserved);
+      }
+    }
 
     this.grpcServer = server;
     this.startedAt = new Date().toISOString();
