@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { simulateSingle, simulateBatch } from './simulation';
 import { createDefaultResponse, DEFAULT_SETTINGS } from './defaults';
-import type { ApiMockRouteV1, ApiMockSimulationSampleV1, ApiMockCapturedRequestV1 } from './contracts';
+import type { ApiMockRouteV1, ApiMockSimulationSampleV1, ApiMockCapturedRequestV1, ApiMockPredicateGroupV1 } from './contracts';
 
 const ts = '2026-08-11T00:00:00.000Z';
 
@@ -174,5 +174,125 @@ describe('simulateSingle Phase 7 preview', () => {
     expect(first.preview?.stateAfter).toBe('opened');
     expect(first.preview?.transitionApplied).toBe(true);
     expect(runtime.scenario?.states).toEqual({});
+  });
+});
+
+function skuEquals(id: string, sku: string): ApiMockPredicateGroupV1 {
+  return {
+    id,
+    combinator: 'all',
+    children: [{
+      id: `${id}-p`,
+      source: 'body',
+      selector: '',
+      operator: 'jsonPath_equals',
+      expected: ['$.sku', sku],
+    }],
+  };
+}
+
+/** AM-24 leftover: route still requires WIDGET while variants claim MISSING / FLAKY. */
+function ordersContractRoute(opts?: { flakyFault?: boolean; flakyProbability?: number }): ApiMockRouteV1 {
+  const happy = createDefaultResponse('v-201');
+  happy.isDefault = true;
+  happy.status = 201;
+  happy.body = { kind: 'json', content: '{"sku":"WIDGET"}', contentType: 'application/json' };
+
+  const missing = createDefaultResponse('v-404');
+  missing.isDefault = false;
+  missing.status = 404;
+  missing.conditions = skuEquals('pg-missing', 'MISSING');
+  missing.body = { kind: 'json', content: '{"error":"not_found","sku":"MISSING"}', contentType: 'application/json' };
+
+  const flaky = createDefaultResponse('v-503');
+  flaky.isDefault = false;
+  flaky.status = 503;
+  flaky.conditions = skuEquals('pg-flaky', 'FLAKY');
+  flaky.body = { kind: 'json', content: '{"error":"unavailable","sku":"FLAKY"}', contentType: 'application/json' };
+  if (opts?.flakyFault) {
+    flaky.behavior = {
+      ...flaky.behavior,
+      fault: 'timeout',
+      probability: opts.flakyProbability ?? 0.5,
+    };
+  }
+
+  return route({
+    id: 'orders',
+    name: 'POST /orders',
+    method: 'POST',
+    path: { kind: 'exact', value: '/orders' },
+    predicates: skuEquals('pg-root', 'WIDGET'),
+    responses: [happy, missing, flaky],
+  });
+}
+
+function ordersSample(sku: string, id = 'sample-flaky'): ApiMockSimulationSampleV1 {
+  return sample({
+    id,
+    name: `POST /orders - ${sku}`,
+    request: req({
+      method: 'POST',
+      path: '/orders',
+      rawPath: '/orders',
+      body: JSON.stringify({ sku, qty: 1 }),
+    }),
+  });
+}
+
+describe('simulateSingle — leftover route predicate vs variant SKUs', () => {
+  it('renders 503 for FLAKY instead of the unmatched 404 fallback', () => {
+    const result = simulateSingle(ordersSample('FLAKY'), { routes: [ordersContractRoute()] });
+    expect(result.outcome).toBe('matched');
+    expect(result.renderedResponse?.status).toBe(503);
+    expect(result.renderedResponse?.body).toBe('{"error":"unavailable","sku":"FLAKY"}');
+    expect(result.renderedResponse?.body).not.toContain('"requestId"');
+  });
+
+  it('renders the Not found variant for MISSING, not the unmatched fallback', () => {
+    const result = simulateSingle(ordersSample('MISSING', 'sample-missing'), {
+      routes: [ordersContractRoute()],
+    });
+    expect(result.outcome).toBe('matched');
+    expect(result.renderedResponse?.status).toBe(404);
+    expect(result.renderedResponse?.body).toBe('{"error":"not_found","sku":"MISSING"}');
+  });
+
+  it('still serves the default 201 for WIDGET', () => {
+    const result = simulateSingle(ordersSample('WIDGET', 'sample-widget'), {
+      routes: [ordersContractRoute()],
+    });
+    expect(result.outcome).toBe('matched');
+    expect(result.renderedResponse?.status).toBe(201);
+  });
+
+  it('keeps unmatched 404 when no variant claims the SKU', () => {
+    const result = simulateSingle(ordersSample('OTHER', 'sample-other'), {
+      routes: [ordersContractRoute()],
+    });
+    expect(result.outcome).toBe('unmatched');
+    expect(result.renderedResponse?.status).toBe(404);
+    expect(result.renderedResponse?.body).toContain('"error":"not_found"');
+    expect(result.renderedResponse?.body).toContain('"requestId":"sample-other"');
+  });
+
+  it('does not fall back to 201 when FLAKY probability misses a timeout fault', () => {
+    const result = simulateSingle(ordersSample('FLAKY'), {
+      routes: [ordersContractRoute({ flakyFault: true, flakyProbability: 0 })],
+      seed: 'flaky-prob-miss',
+    });
+    expect(result.outcome).toBe('matched');
+    expect(result.renderedResponse?.status).toBe(503);
+    expect(result.preview?.fault).toBe('none');
+  });
+
+  it('applies the timeout when FLAKY probability always hits, still not unmatched', () => {
+    const result = simulateSingle(ordersSample('FLAKY'), {
+      routes: [ordersContractRoute({ flakyFault: true, flakyProbability: 1 })],
+      seed: 'flaky-timeout',
+    });
+    expect(result.outcome).toBe('fault');
+    expect(result.outcome).not.toBe('unmatched');
+    expect(result.preview?.selectedResponseId).toBe('v-503');
   });
 });

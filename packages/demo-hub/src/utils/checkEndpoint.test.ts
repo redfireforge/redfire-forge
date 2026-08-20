@@ -2,7 +2,21 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+vi.mock('@shared/utils/platform', () => ({
+  isTauri: vi.fn(() => false),
+}));
+
+vi.mock('@shared/utils/httpClient', () => ({
+  resolveCompanionServerUrl: (url: string) => (
+    url.startsWith('/') ? `http://localhost:3001${url}` : url
+  ),
+  httpFetch: vi.fn(),
+}));
+
 import { checkEndpoint } from './checkEndpoint';
+import { isTauri } from '@shared/utils/platform';
+import { httpFetch } from '@shared/utils/httpClient';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -19,7 +33,11 @@ function mockFetchReject() {
 // ─── Tests ──────────────────────────────────────────────────────
 
 describe('checkEndpoint', () => {
-  beforeEach(() => { vi.useFakeTimers(); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(isTauri).mockReturnValue(false);
+    vi.mocked(httpFetch).mockReset();
+  });
   afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
   it('returns true when HTTP health check succeeds', async () => {
@@ -207,6 +225,52 @@ describe('checkEndpoint', () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(await promise).toBe(true);
     expect(spy).toHaveBeenCalledWith('/health/api-mock-echo', expect.any(Object));
+  });
+
+  it('on Tauri, probes AM-17 echo via native httpFetch to the companion (not webview fetch)', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(httpFetch).mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: JSON.stringify({ status: 'ok' }),
+    });
+    const spy = vi.spyOn(globalThis, 'fetch');
+
+    const promise = checkEndpoint('http://localhost:4017/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(httpFetch).toHaveBeenCalledWith(
+      'http://localhost:3001/health/api-mock-echo',
+      'GET',
+      {},
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('on Tauri, generic HTTP probes use native httpFetch not webview fetch', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(httpFetch).mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: 'ok',
+    });
+    const spy = vi.spyOn(globalThis, 'fetch');
+
+    const promise = checkEndpoint('http://localhost:4100/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(httpFetch).toHaveBeenCalledWith(
+      'http://localhost:4100/health',
+      'GET',
+      {},
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('routes Envoy 127.0.0.1:50055 probes through the same Express proxy', async () => {

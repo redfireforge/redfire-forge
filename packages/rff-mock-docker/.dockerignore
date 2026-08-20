@@ -1,0 +1,7 @@
+node_modules
+.git
+src
+src-tauri
+packages/*/node_modules
+*.test.*
+*.spec.*

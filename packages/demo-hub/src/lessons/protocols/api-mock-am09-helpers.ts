@@ -1314,6 +1314,9 @@ export async function runAm09Acknowledge(ctx: DemoActionContext): Promise<void> 
   if (firstVisibleElement(API_MOCK.CONFLICTS_ANALYZE)) {
     await clickBeat(ctx, API_MOCK.CONFLICTS_ANALYZE, { look: T.beforeOpen, hold: 0 });
   }
-  await ensureAm09Filter(ctx, AM09_KIND_DUPLICATE);
+  // After the priority bump (10 → 11), the health pair reclassifies from
+  // Duplicate to Shadowed (priorities now differ). Switch to All so that
+  // filtered[0] auto-selects the stale Shadowed finding and the banner renders.
+  await ensureAm09Filter(ctx, AM09_KIND_ALL);
   await revealBeat(ctx, API_MOCK.CONFLICT_STALE, { timeout: 4_000, hold: T.payoff });
 }

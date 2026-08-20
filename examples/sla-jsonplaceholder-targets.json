@@ -19,7 +19,7 @@
     "id": "create-post-tps",
     "metric": "tps",
     "operator": "gte",
-    "value": 10,
+    "value": 100,
     "label": "Create Post TPS",
     "scenarioName": "Create Post"
   },

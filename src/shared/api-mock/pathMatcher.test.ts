@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchPath, inferPathKind, pathParamNames } from './pathMatcher';
+import { matchPath, inferPathKind, pathParamNames, normalizePathMatcher } from './pathMatcher';
 
 describe('inferPathKind', () => {
   it('detects parameterized paths from :param and {param}', () => {
@@ -47,8 +47,18 @@ describe('matchPath', () => {
     it('is case-sensitive by default', () => {
       expect(matchPath({ kind: 'exact', value: '/Users' }, '/users').matched).toBe(false);
     });
-    it('case-insensitive with flag', () => {
-      expect(matchPath({ kind: 'exact', value: '/Users', flags: { caseInsensitive: true } }, '/users').matched).toBe(true);
+    it('promotes OpenAPI {id} and :id exact paths to parameterized matches', () => {
+      expect(matchPath({ kind: 'exact', value: '/orders/{id}' }, '/orders/42')).toEqual({
+        matched: true,
+        params: { id: '42' },
+      });
+      expect(matchPath({ kind: 'exact', value: '/orders/:id' }, '/orders/42')).toEqual({
+        matched: true,
+        params: { id: '42' },
+      });
+    });
+    it('promotes exact glob values so they are not compared as literals', () => {
+      expect(matchPath({ kind: 'exact', value: '/api/*/health' }, '/api/v1/health').matched).toBe(true);
     });
   });
 
@@ -101,6 +111,44 @@ describe('matchPath', () => {
     });
     it('case-insensitive regex with flag', () => {
       expect(matchPath({ kind: 'regex', value: '^/users$', flags: { caseInsensitive: true } }, '/USERS').matched).toBe(true);
+    });
+  });
+});
+
+describe('normalizePathMatcher', () => {
+  it('upgrades exact OpenAPI templates and fills paramNames', () => {
+    expect(normalizePathMatcher({ kind: 'exact', value: '/orders/{id}' })).toEqual({
+      kind: 'parameterized',
+      value: '/orders/{id}',
+      paramNames: ['id'],
+    });
+  });
+
+  it('leaves literal exact paths and explicit regex/glob unchanged', () => {
+    expect(normalizePathMatcher({ kind: 'exact', value: '/orders' })).toEqual({ kind: 'exact', value: '/orders' });
+    const regex = { kind: 'regex' as const, value: '^/orders/\\d+$' };
+    expect(normalizePathMatcher(regex)).toBe(regex);
+    const glob = { kind: 'glob' as const, value: '/api/*' };
+    expect(normalizePathMatcher(glob)).toBe(glob);
+  });
+
+  it('promotes exact glob syntax to glob kind', () => {
+    expect(normalizePathMatcher({ kind: 'exact', value: '/api/*/health' })).toEqual({
+      kind: 'glob',
+      value: '/api/*/health',
+    });
+  });
+
+  it('fills missing paramNames on an already-parameterized matcher', () => {
+    expect(normalizePathMatcher({ kind: 'parameterized', value: '/users/:id' }).paramNames).toEqual(['id']);
+    const named = { kind: 'parameterized' as const, value: '/users/:id', paramNames: ['id'] };
+    expect(normalizePathMatcher(named)).toBe(named);
+  });
+
+  it('does not invent paramNames for parameterized paths with empty tokens', () => {
+    expect(normalizePathMatcher({ kind: 'parameterized', value: '/users/:' })).toEqual({
+      kind: 'parameterized',
+      value: '/users/:',
     });
   });
 });

@@ -13,6 +13,7 @@ export function ApiMockSimulateSampleList({
   filter,
   setFilter,
   passedCount,
+  failedCount,
   conflictCount,
   onSelectSample,
   onRemoveSample,
@@ -27,6 +28,7 @@ export function ApiMockSimulateSampleList({
   filter: string;
   setFilter: (value: string) => void;
   passedCount: number;
+  failedCount: number;
   conflictCount: number;
   onSelectSample: (sample: ApiMockSimulationSampleV1) => void;
   onRemoveSample: (id: string) => void;
@@ -108,7 +110,10 @@ export function ApiMockSimulateSampleList({
         );
       })}
       <div className="am-panel-foot">
-        <span className="am-faint">{passedCount} passed · {conflictCount} conflict{conflictCount === 1 ? '' : 's'}</span>
+        <span className="am-faint">
+          {failedCount > 0 && <span className="am-text-danger">{failedCount} failed · </span>}
+          {passedCount} passed · {conflictCount} conflict{conflictCount === 1 ? '' : 's'}
+        </span>
       </div>
     </aside>
   );

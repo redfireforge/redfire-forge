@@ -5,7 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { API_MOCK, WF } from '@shared/selectors';
 import { makeCtx, makeVisible } from './ws-test-utils';
 
+const upsertApiMockServerSamples = vi.fn(() => true);
 const wipeApiMockWorkspace = vi.fn(async () => true);
+const clearApiMockServerSamples = vi.fn(() => true);
 const ensureBlankApiMockServer = vi.fn(async () => true);
 const listApiMockStudioServers = vi.fn(async () => [
   { id: 'srv-blank', name: 'Import sandbox', port: 4600, active: true },
@@ -22,6 +24,8 @@ const triggerWorkflowQuickTest = vi.fn();
 
 vi.mock('../../adapters', () => ({
   wipeApiMockWorkspace: (...a: unknown[]) => wipeApiMockWorkspace(...(a as [])),
+  clearApiMockServerSamples: (...a: unknown[]) => clearApiMockServerSamples(...(a as [])),
+  upsertApiMockServerSamples: (...a: unknown[]) => upsertApiMockServerSamples(...(a as [])),
   ensureBlankApiMockServer: (...a: unknown[]) => ensureBlankApiMockServer(...(a as [])),
   listApiMockStudioServers: (...a: unknown[]) => listApiMockStudioServers(...(a as [])),
   prepareApiMockStudioChrome: (...a: unknown[]) => prepareApiMockStudioChrome(...(a as [])),
@@ -80,7 +84,11 @@ vi.mock('./api-mock-demo-helpers', async () => {
 
 import {
   AM24_ITEM_PATH,
+  AM24_ITEM_OPENAPI_PATH,
+  AM24_HIT_PATH,
+  AM24_MISS_PATH,
   AM24_OPENAPI,
+  AM24_HEALTH_PATH,
   AM24_ORDERS_PATH,
   AM24_SERVER_ID,
   AM24_SKU,
@@ -119,7 +127,6 @@ import {
   hasAm24Draft,
   hasAm24EnabledOrders,
   hasAm24FakerBody,
-  hasAm24Finding,
   hasAm24Http,
   hasAm24JournalRow,
   hasAm24JsonPath,
@@ -143,6 +150,7 @@ import {
   runAm24Matching,
   runAm24Resilience,
   runAm24Response,
+  runAm24Export,
   runAm24Ship,
   runAm24Suite,
   runAm24Variants,
@@ -251,6 +259,9 @@ describe('AM-24 helpers', () => {
     expect(JSON.parse(AM24_OPENAPI).paths['/orders'].post).toBeTruthy();
     expect(AM24_SKU).toBe('WIDGET');
     expect(AM24_ITEM_PATH).toBe('/orders/:id');
+    expect(AM24_ITEM_OPENAPI_PATH).toBe('/orders/{id}');
+    expect(AM24_HIT_PATH).toBe('/orders/42');
+    expect(AM24_MISS_PATH).toBe('/ordrs/42');
   });
 
   it('probes studio, drafts, variants, and designer surfaces', () => {
@@ -578,20 +589,28 @@ describe('AM-24 helpers', () => {
     const ctx = makeCtx();
     await am24TestHooks.quietNotFoundVariant(ctx);
     expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      selectPath: AM24_ORDERS_PATH,
+      selectMethod: 'POST',
       variantConditions: expect.objectContaining({ id: 'pg-am24-404' }),
+    }));
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      selectPath: AM24_ORDERS_PATH,
+      predicates: expect.objectContaining({ children: [] }),
     }));
     expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({ addVariant: true }));
   });
 
-  it('resilience fills delay + probability then a timeout fault', async () => {
+  it('resilience delays the 201, adds a 503 degraded branch, and faults only it', async () => {
     mountStudio({ enabled: true });
     mountEditor();
     const list = el('div', undefined, 'api-mock-variant-list');
     list.append(el('button', undefined, 'api-mock-variant-tab-0'));
-    const last = el('button', undefined, 'api-mock-variant-tab-1');
-    last.textContent = '404';
-    list.append(last);
+    const notFound = el('button', undefined, 'api-mock-variant-tab-1');
+    notFound.textContent = '404';
+    list.append(notFound);
     document.body.append(list);
+    document.body.append(el('button', undefined, 'api-mock-add-variant'));
+    document.body.append(input('api-mock-variant-name'));
     document.body.append(el('button', undefined, 'api-mock-response-tab-timing'));
     document.body.append(el('div', undefined, 'api-mock-timing-panel'));
     document.body.append(input('api-mock-variant-delay'));
@@ -600,15 +619,44 @@ describe('AM-24 helpers', () => {
     document.body.append(el('div', undefined, 'api-mock-faults-panel'));
     document.body.append(el('button', undefined, 'api-mock-fault-timeout'));
     const ctx = makeCtx();
+    ctx.click.mockImplementation(async (sel: string) => {
+      if (sel === API_MOCK.ADD_VARIANT) {
+        const degraded = el('button', undefined, 'api-mock-variant-tab-2');
+        degraded.textContent = '503 Degraded';
+        document.querySelector('[data-testid="api-mock-variant-list"]')?.append(degraded);
+      }
+    });
     await runAm24Resilience(ctx);
     expect(ctx.fill).toHaveBeenCalled();
-    expect(patchApiMockActiveRoute).toHaveBeenCalled();
+    // Happy path 201 gets a delay, never a fault.
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      variantIndex: 0,
+      behavior: expect.objectContaining({ delayMs: 200, probability: 1 }),
+    }));
+    // The degraded branch is a real 503 on its own flaky-SKU condition.
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      variantIndex: 2,
+      status: 503,
+      variantConditions: expect.objectContaining({ id: 'pg-am24-503' }),
+    }));
+    // The timeout lives only on the degraded branch, probability-gated.
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      variantIndex: 2,
+      behavior: expect.objectContaining({ fault: 'timeout', probability: 0.5 }),
+    }));
+    // The 404 (variant 1) never receives a fault.
+    const faultOn404 = patchApiMockActiveRoute.mock.calls.some(([patch]) => {
+      const p = patch as { variantIndex?: number; behavior?: { fault?: string } } | undefined;
+      return p?.variantIndex === 1 && Boolean(p?.behavior?.fault);
+    });
+    expect(faultOn404).toBe(false);
   });
 
-  it('conflicts add an overlap, analyze, and raise priority', async () => {
+  it('conflicts add an overlap, analyze, click finding, click prio-left, re-analyze, payoff on detail', async () => {
     mountStudio({ enabled: true });
     mountEditor();
     document.body.append(el('button', undefined, 'api-mock-add-route'));
+    document.body.append(input('api-mock-path-input'));
     document.body.append(el('button', undefined, 'api-mock-analyze'));
     document.body.append(input('api-mock-priority-input', '0'));
     const ctx = makeCtx();
@@ -618,18 +666,31 @@ describe('AM-24 helpers', () => {
         list.append(el('button', undefined, 'api-mock-finding-1'));
         document.body.append(list);
         document.body.append(el('div', undefined, 'api-mock-conflict-summary'));
+        document.body.append(el('div', undefined, 'api-mock-conflict-detail'));
         document.body.append(el('button', undefined, 'api-mock-conflict-adjust-priority'));
         document.body.append(el('button', undefined, 'api-mock-conflict-prio-left'));
         document.body.append(el('button', undefined, 'api-mock-conflicts-analyze'));
-        document.body.append(el('div', undefined, 'api-mock-conflict-filter-empty'));
       }
     });
     await runAm24Conflicts(ctx);
+    // Beat 1: authored /health routes
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.ADD_ROUTE);
+    expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.PATH_INPUT, AM24_HEALTH_PATH);
+    // Beat 2: clicked Analyze and the first finding row (to open detail)
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.ANALYZE);
-    expect(hasAm24Finding() || hasAm24ConflictsClean()).toBe(true);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.FIRST_FINDING);
+    // Beat 3: clicked Adjust priority and then Raise Left
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.CONFLICT_ADJUST_PRIORITY);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.CONFLICT_PRIO_LEFT);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      selectPath: AM24_HEALTH_PATH,
+      priority: 20,
+    }));
+    // Beat 4: re-analyzed and payoff on conflict detail
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.CONFLICTS_ANALYZE);
   });
 
-  it('conflicts fall back to View Conflicts and the priority field', async () => {
+  it('conflicts fall back to View Conflicts and the priority field when Analyze absent', async () => {
     mountStudio({ enabled: true });
     mountEditor();
     document.body.append(el('button', undefined, 'api-mock-view-conflicts'));
@@ -637,8 +698,11 @@ describe('AM-24 helpers', () => {
     const ctx = makeCtx();
     ctx.click.mockImplementation(async (sel: string) => {
       if (sel === API_MOCK.VIEW_CONFLICTS) {
-        document.body.append(el('div', undefined, 'api-mock-conflict-list'));
+        const list = el('div', undefined, 'api-mock-conflict-list');
+        list.append(el('button', undefined, 'api-mock-finding-1'));
+        document.body.append(list);
         document.body.append(el('div', undefined, 'api-mock-conflict-summary'));
+        document.body.append(el('div', undefined, 'api-mock-conflict-detail'));
       }
     });
     await runAm24Conflicts(ctx);
@@ -663,14 +727,15 @@ describe('AM-24 helpers', () => {
     });
     await runAm24Suite(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE);
+    expect(upsertApiMockServerSamples).toHaveBeenCalled();
   });
 
-  it('live starts the listener, posts, then records a near-miss', async () => {
+  it('live starts the listener, opens Transactions, posts, then records a near-miss', async () => {
     mountStudio({ enabled: true, running: false });
     mountEditor();
     document.body.append(el('button', undefined, 'api-mock-start'));
     document.body.append(el('button', undefined, 'api-mock-apply'));
-    document.body.append(el('button', undefined, 'api-mock-dock-tab-transactions'));
+    document.body.append(el('button', undefined, 'api-mock-live-transactions'));
     const ctx = makeCtx();
     ctx.click.mockImplementation(async (sel: string) => {
       if (sel === API_MOCK.START) {
@@ -678,7 +743,10 @@ describe('AM-24 helpers', () => {
         document.body.append(stop);
         const label = document.querySelector(API_MOCK.STATUS_LABEL);
         if (label) label.textContent = 'Running';
+      }
+      if (sel === API_MOCK.LIVE_TRANSACTIONS || sel === API_MOCK.DOCK_TAB_TRANSACTIONS) {
         const dock = el('div', undefined, 'api-mock-dock');
+        dock.append(el('div', undefined, 'api-mock-journal-toolbar'));
         const table = document.createElement('table');
         const tbody = document.createElement('tbody');
         const tr = document.createElement('tr');
@@ -689,12 +757,26 @@ describe('AM-24 helpers', () => {
         dock.append(table);
         document.body.append(dock);
         document.body.append(el('div', undefined, 'api-mock-tx-detail'));
+        document.body.append(el('div', undefined, 'api-mock-tx-outcome'));
         document.body.append(el('div', undefined, 'api-mock-tx-near-misses'));
       }
     });
     await runAm24Live(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.START);
-    expect(sendApiMockRequest).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APPLY);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.LIVE_TRANSACTIONS);
+    expect(sendApiMockRequest).toHaveBeenCalledWith(expect.objectContaining({
+      path: AM24_ORDERS_PATH,
+      method: 'POST',
+    }));
+    expect(sendApiMockRequest).toHaveBeenCalledWith(expect.objectContaining({
+      path: AM24_HIT_PATH,
+      method: 'GET',
+    }));
+    expect(sendApiMockRequest).toHaveBeenCalledWith(expect.objectContaining({
+      path: AM24_MISS_PATH,
+      method: 'GET',
+    }));
   });
 
   it('ship exports workspace + WireMock then Quick Tests the graph', async () => {
@@ -755,8 +837,9 @@ describe('AM-24 helpers', () => {
         document.body.append(el('div', undefined, 'api-mock-canvas-apiMockStop'));
       }
     });
-    await runAm24Ship(ctx);
+    await runAm24Export(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXPORT);
+    await runAm24Ship(ctx);
     expect(triggerWorkflowQuickTest).not.toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST);
   });
@@ -816,27 +899,104 @@ describe('AM-24 helpers', () => {
     await ensureAm24ForResponse(ctx);
     await ensureAm24ForVariants(ctx);
     await ensureAm24ForResilience(ctx);
-    await ensureAm24ForConflicts(ctx);
     await ensureAm24ForSuite(ctx);
+    await ensureAm24ForConflicts(ctx);
     await ensureAm24ForLive(ctx);
     await ensureAm24ForShip(ctx);
     expect(patchApiMockActiveRoute).toHaveBeenCalled();
   });
 
-  it('quiet overlap clicks Add route only when a second POST is missing', async () => {
+  it('quiet overlap patches health routes to exactly 2 without clicking ADD_ROUTE', async () => {
     mountStudio({ enabled: true });
     mountEditor();
-    document.body.append(el('button', undefined, 'api-mock-add-route'));
-    document.body.append(input('api-mock-path-input'));
-    document.body.append(select('api-mock-method-select', 'GET'));
-    const ctx = makeCtx();
-    await am24TestHooks.quietOverlap(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.ADD_ROUTE);
-    ctx.click.mockClear();
     const explorer = document.querySelector(API_MOCK.ROUTE_EXPLORER);
-    explorer?.append(mountRoute({ id: 'api-mock-route-dup', draft: false }));
+    const ctx = makeCtx();
+
+    // Case A: 0 health routes — should add 2 via patch.
+    patchApiMockActiveRoute.mockClear();
     await am24TestHooks.quietOverlap(ctx);
-    expect(ctx.click).not.toHaveBeenCalled();
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({ addRoute: true, path: AM24_HEALTH_PATH }));
+    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.ADD_ROUTE);
+
+    // Case B: 2 health routes already — no add, no remove.
+    explorer?.append(mountRoute({ method: 'GET', path: AM24_HEALTH_PATH, id: 'api-mock-route-h1' }));
+    explorer?.append(mountRoute({ method: 'GET', path: AM24_HEALTH_PATH, id: 'api-mock-route-h2' }));
+    patchApiMockActiveRoute.mockClear();
+    await am24TestHooks.quietOverlap(ctx);
+    expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({ addRoute: true }));
+    expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({ removeRoute: true, selectPath: AM24_HEALTH_PATH }));
+
+    // Case C: 3 health routes — should remove 1.
+    explorer?.append(mountRoute({ method: 'GET', path: AM24_HEALTH_PATH, id: 'api-mock-route-h3' }));
+    patchApiMockActiveRoute.mockClear();
+    await am24TestHooks.quietOverlap(ctx);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({ removeRoute: true, selectPath: AM24_HEALTH_PATH }));
+    expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({ addRoute: true }));
+  });
+
+  it('conflicts preAction does not seed /health; live preAction does', async () => {
+    mountStudio({ enabled: true });
+    mountEditor();
+    const ctx = makeCtx();
+    // Test ensureAm24ForConflicts: seed 2 /health rows then verify they are purged.
+    const explorer2 = document.querySelector(API_MOCK.ROUTE_EXPLORER);
+    explorer2?.append(mountRoute({ method: 'GET', path: AM24_HEALTH_PATH, id: 'api-mock-route-hA' }));
+    explorer2?.append(mountRoute({ method: 'GET', path: AM24_HEALTH_PATH, id: 'api-mock-route-hB' }));
+    patchApiMockActiveRoute.mockClear();
+    await ensureAm24ForConflicts(ctx);
+    expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({ addRoute: true }));
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      removeRoute: true,
+      selectPath: AM24_HEALTH_PATH,
+    }));
+    expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({
+      selectPath: AM24_HEALTH_PATH,
+      priority: 20,
+    }));
+
+    // Test ensureAm24ForLive: remove the DOM health rows (simulating the state
+    // purge that would have happened in real React) so quietOverlap finds 0 and adds 2.
+    document.querySelector('[data-testid="api-mock-route-hA"]')?.remove();
+    document.querySelector('[data-testid="api-mock-route-hB"]')?.remove();
+    patchApiMockActiveRoute.mockClear();
+    await ensureAm24ForLive(ctx);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      addRoute: true,
+      path: AM24_HEALTH_PATH,
+    }));
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      selectPath: AM24_HEALTH_PATH,
+      priority: 20,
+    }));
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      selectPath: AM24_ITEM_OPENAPI_PATH,
+      selectMethod: 'GET',
+      enabled: true,
+    }));
+    expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({
+      pathKind: 'parameterized',
+    }));
+  });
+
+  it('quietEnableGetOrderId enables GET /orders/{id} without rewriting path kind', async () => {
+    mountStudio({ enabled: true });
+    mountEditor();
+    const ctx = makeCtx();
+    patchApiMockActiveRoute.mockClear();
+    await am24TestHooks.quietEnableGetOrderId(ctx);
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      selectPath: AM24_ITEM_OPENAPI_PATH,
+      selectMethod: 'GET',
+      enabled: true,
+    }));
+    expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      selectPath: AM24_ITEM_PATH,
+      selectMethod: 'GET',
+      enabled: true,
+    }));
+    expect(patchApiMockActiveRoute).not.toHaveBeenCalledWith(expect.objectContaining({
+      pathKind: 'parameterized',
+    }));
   });
 
   it('quiet journal sends traffic only when no row exists', async () => {
@@ -1035,6 +1195,15 @@ describe('AM-24 helpers', () => {
     expect(ctx.click).toHaveBeenCalled();
 
     document.body.innerHTML = '';
+    const explorer = mountStudio({ enabled: true });
+    explorer.append(mountRoute({ path: '/health', method: 'GET', draft: false, id: 'api-mock-route-health' }));
+    document.querySelector('[data-testid="api-mock-route-health"]')?.classList.add('active');
+    mountEditor();
+    const ctxOrders = makeCtx();
+    await am24TestHooks.ensureAm24RuleOpen(ctxOrders);
+    expect(ctxOrders.click).toHaveBeenCalled();
+
+    document.body.innerHTML = '';
     mountStudio({ enabled: true });
     const matchTab = el('button');
     matchTab.id = 'api-mock-btab-match';
@@ -1112,6 +1281,7 @@ describe('AM-24 helpers', () => {
       }
     });
     await am24TestHooks.quietSample(ctx6);
+    expect(upsertApiMockServerSamples).toHaveBeenCalled();
     expect(ctx6.click).toHaveBeenCalledWith(API_MOCK.SIMULATE);
 
     document.body.innerHTML = '';
@@ -1423,7 +1593,7 @@ describe('AM-24 helpers', () => {
     });
     await runAm24Conflicts(ctxConf);
     expect(ctxConf.click).toHaveBeenCalledWith(API_MOCK.ANALYZE);
-    expect(ctxConf.fill).toHaveBeenCalledWith(API_MOCK.PATH_INPUT, AM24_ORDERS_PATH);
+    expect(ctxConf.fill).toHaveBeenCalledWith(API_MOCK.PATH_INPUT, AM24_HEALTH_PATH);
 
     document.body.innerHTML = '';
     mountStudio({ enabled: true });

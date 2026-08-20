@@ -37,6 +37,7 @@ import { useApiMockRouteUndo } from './useApiMockRouteUndo';
 import { createRoute, createServer, nowIso, type RuntimeInfo } from './apiMockStudioFactory';
 import { handleApiMockExport } from './apiMockExportActions';
 import type { ApiMockExportResult } from './apiMockExportActions';
+import { prepareImportedRoutes, type ImportRoutesOptions } from './apiMockImportRoutes';
 import {
   capturedRequestPath,
   copyTransactionToClipboard,
@@ -49,6 +50,7 @@ import {
 import { useApiMockConsole } from './useApiMockConsole';
 import { analyzeConflicts } from '../../shared/api-mock/conflictAnalyzer';
 import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
+import { buildRuntimeActionBindings } from './apiMockRuntimeActionBindings';
 import './api-mock-studio.css';
 const ts = nowIso;
 export function ApiMockStudioPage() {
@@ -438,39 +440,14 @@ export function ApiMockStudioPage() {
 
   const handleImportRoutes = useCallback((
     routes: ApiMockServerDefinitionV1['routes'],
-    options: { mode: 'merge' | 'replace' | 'copy'; newFolderName?: string } = { mode: 'merge' },
+    options: ImportRoutesOptions = { mode: 'merge' },
   ) => {
     if (!activeServerId || !activeServer || routes.length === 0) return;
-    let nextFolders = activeServer.folders;
-    let assignFolderId: string | undefined;
-    if (options.newFolderName) {
-      const newFolder: ApiMockRouteFolderV1 = {
-        id: `fld-${crypto.randomUUID().slice(0, 8)}`,
-        name: options.newFolderName,
-        expanded: true,
-        sortOrder: activeServer.folders.length,
-      };
-      nextFolders = [...activeServer.folders, newFolder];
-      assignFolderId = newFolder.id;
-    }
-    let prepared = options.mode === 'copy'
-      ? routes.map(r => ({
-        ...r,
-        id: `rte-${crypto.randomUUID().slice(0, 8)}`,
-        name: `${r.name} (copy)`,
-        responses: r.responses.map(resp => ({ ...resp, id: `rsp-${crypto.randomUUID().slice(0, 8)}` })),
-      }))
-      : routes;
-    if (assignFolderId) {
-      prepared = prepared.map(r => ({ ...r, folderId: assignFolderId }));
-    }
-    const nextRoutes = options.mode === 'replace'
-      ? prepared
-      : [...activeServer.routes, ...prepared];
-    handleUpdateServer(activeServerId, { routes: nextRoutes, folders: nextFolders });
-    setSelectedRouteId(prepared[0].id);
+    const prepared = prepareImportedRoutes({ activeServer, routes, options });
+    handleUpdateServer(activeServerId, { routes: prepared.nextRoutes, folders: prepared.nextFolders });
+    setSelectedRouteId(prepared.selectedRouteId);
     setImportOpen(false);
-    setLiveMessage(formatImportedRoutesMessage(prepared.length));
+    setLiveMessage(formatImportedRoutesMessage(prepared.importedCount));
   }, [activeServerId, activeServer, handleUpdateServer]);
 
   const handleAnalyzeConflicts = useCallback(async () => {
@@ -614,6 +591,16 @@ export function ApiMockStudioPage() {
 
   const { statusById, dirtyById } = buildRuntimeMaps(openServers, runtime);
   const modalRuntimeStatus = runtime[activeServer?.id ?? '']?.status ?? 'stopped';
+  const runtimeActionBindings = activeServer
+    ? buildRuntimeActionBindings({
+      latestRef,
+      activeServer,
+      onStartServer: handleStart,
+      onStopServer: handleStop,
+      onApplyServer: handleApply,
+      onRestartServer: handleRestart,
+    })
+    : null;
 
   if (servers.length === 0) {
     return <ApiMockStudioEmptyState onCreateServer={handleCreateServer} />;
@@ -677,28 +664,10 @@ export function ApiMockStudioPage() {
           }}
           onExport={handleExport}
           onAnalyzeConflicts={() => { void handleAnalyzeConflicts(); }}
-          /* c8 ignore start */
-          onStart={() => {
-            const id = latestRef.current.activeServerId ?? activeServer.id;
-            const latest = latestRef.current.servers.find(s => s.id === id);
-            void handleStart(latest ?? activeServer);
-          }}
-          onStop={() => {
-            const id = latestRef.current.activeServerId ?? activeServer.id;
-            const latest = latestRef.current.servers.find(s => s.id === id);
-            void handleStop(latest ?? activeServer);
-          }}
-          onApply={() => {
-            const id = latestRef.current.activeServerId ?? activeServer.id;
-            const latest = latestRef.current.servers.find(s => s.id === id);
-            void handleApply(latest ?? activeServer);
-          }}
-          onRestart={() => {
-            const id = latestRef.current.activeServerId ?? activeServer.id;
-            const latest = latestRef.current.servers.find(s => s.id === id);
-            void handleRestart(latest ?? activeServer);
-          }}
-          /* c8 ignore stop */
+          onStart={runtimeActionBindings!.onStart}
+          onStop={runtimeActionBindings!.onStop}
+          onApply={runtimeActionBindings!.onApply}
+          onRestart={runtimeActionBindings!.onRestart}
           onSettings={() => setSettingsOpen(true)}
           onCreateRoute={handleCreateRoute}
           onConfirmDeleteRoute={confirmDeleteRoute}

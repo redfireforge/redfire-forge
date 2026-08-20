@@ -53,6 +53,34 @@ export function prepareApiMockStudioChrome(): void {
   collapseAppSidebar();
 }
 
+/** Clear all server-level simulate samples (removes stale FAIL badges on lesson replay). */
+export function clearApiMockServerSamples(): boolean {
+  const fn = getDemoBridgeWindow().__demoClearApiMockServerSamples;
+  if (!fn) return false;
+  return fn();
+}
+
+export type ApiMockDemoSampleDraft = {
+  name: string;
+  method: string;
+  path: string;
+  body?: string | null;
+  contentType?: string;
+  expected?: {
+    outcome: 'matched' | 'unmatched' | 'ambiguous' | 'fault' | 'error' | 'proxied';
+    status?: number;
+    bodyContains?: string;
+  };
+};
+
+/** Upsert saved Simulate samples by display name (idempotent). */
+export function upsertApiMockServerSamples(drafts: ApiMockDemoSampleDraft[]): boolean {
+  const fn = getDemoBridgeWindow().__demoUpsertApiMockServerSamples;
+  if (!fn) return false;
+  return fn(drafts);
+}
+
+
 export interface ApiMockDemoRequest {
   path?: string;
   method?: string;
@@ -112,6 +140,8 @@ export interface ApiMockDemoPredicateGroup {
 export function patchApiMockActiveRoute(patch: {
   path?: string;
   pathKind?: ApiMockDemoPathKind;
+  selectPath?: string;
+  selectMethod?: string;
   body?: string;
   contentType?: string;
   status?: number;
@@ -120,6 +150,10 @@ export function patchApiMockActiveRoute(patch: {
   predicates?: ApiMockDemoPredicateGroup;
   responseMode?: ApiMockDemoResponseMode;
   addVariant?: boolean;
+  addRoute?: boolean;
+  removeRoute?: boolean;
+  enabled?: boolean;
+  method?: string;
   variantIndex?: number;
   variantName?: string;
   variantConditions?: ApiMockDemoPredicateGroup;

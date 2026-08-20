@@ -90,7 +90,7 @@ test.describe('Demo lesson AM-03 — Rule Library', () => {
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
     await expect(page.locator(API_MOCK.DOCS_TAGS)).toHaveValue(/regression/);
-    await expect(page.locator(API_MOCK.ROUTE_TITLE)).toContainText('Search products by keyword');
+    await expect(page.locator(API_MOCK.ROUTE_TITLE)).toContainText('GET /products/search');
     // The step probes search with the new tag and clears it again.
     await expect(page.locator(API_MOCK.ROUTE_SEARCH)).toHaveValue('');
   });

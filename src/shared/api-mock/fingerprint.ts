@@ -2,6 +2,7 @@
  * API Mock Studio — deterministic fingerprints and canonical ordering (Phase 1A).
  */
 import type { ApiMockServerDefinitionV1, ApiMockRouteV1 } from './contracts';
+import { sha256HexSync } from './sha256Sync';
 
 function sortObjectKeys(obj: unknown): unknown {
   if (obj === null || typeof obj !== 'object') return obj;
@@ -18,9 +19,8 @@ async function sha256Hex(text: string): Promise<string> {
     const buf = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
   }
-  // Node fallback
-  const { createHash } = await import('node:crypto');
-  return createHash('sha256').update(text).digest('hex');
+  // Fallback for environments without WebCrypto subtle.
+  return sha256HexSync(text);
 }
 
 function canonicalJson(obj: unknown, exclude: Set<string>): string {
