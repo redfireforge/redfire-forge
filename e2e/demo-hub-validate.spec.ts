@@ -165,13 +165,14 @@ test.describe('Demo Hub — Top-level Navigation', () => {
   test('Protocols domain opens and shows category tabs', async ({ page }) => {
     await openDemoHub(page);
     await selectDomain(page);
-    await expect(page.locator('.demo-category-tab')).toHaveCount(5);
+    await expect(page.locator('.demo-category-tab')).toHaveCount(6);
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'Kafka' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'WebSocket' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'SSE' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'GraphQL' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'gRPC' })).toBeVisible();
-    console.log('[PASS] Category tabs: Kafka, WebSocket, SSE, GraphQL, gRPC visible');
+    await expect(page.locator('.demo-category-tab').filter({ hasText: 'API Mock' })).toBeVisible();
+    console.log('[PASS] Category tabs: Kafka, WebSocket, SSE, GraphQL, gRPC, API Mock visible');
   });
 
   test('Kafka category shows 13 lessons', async ({ page }) => {
