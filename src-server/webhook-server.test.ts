@@ -372,6 +372,61 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     });
   });
 
+  describe('GET /health/api-mock/:probe', () => {
+    it('rejects unknown probe values', async () => {
+      const res = await request(app).get('/health/api-mock/unknown?port=4600');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('probe must be');
+    });
+
+    it('rejects invalid or missing ports', async () => {
+      const missingPort = await request(app).get('/health/api-mock/live');
+      expect(missingPort.status).toBe(400);
+
+      const invalidPort = await request(app).get('/health/api-mock/ready?port=99999');
+      expect(invalidPort.status).toBe(400);
+      expect(invalidPort.body.error).toContain('port query param is required');
+    });
+
+    it('returns ok for live probe when upstream health endpoint is healthy', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ probe: 'live' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const res = await request(app).get('/health/api-mock/live?port=4600');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(String(res.body.source)).toContain('/__rff/health/live');
+      expect(res.body.probe).toBe('live');
+    });
+
+    it('returns not_ready for ready probe when upstream returns non-ok', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: 'warming' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const res = await request(app).get('/health/api-mock/ready?port=4600');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('not_ready');
+      expect(res.body.detail).toBe('warming');
+    });
+
+    it('returns down when probe fetch throws a non-Error value', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce('network unreachable');
+
+      const res = await request(app).get('/health/api-mock/live?port=4600');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('down');
+      expect(res.body.reason).toBe('unreachable');
+    });
+  });
+
   describe('GET /api/executions', () => {
     it('returns execution history', async () => {
       const mockExecutions = [{ id: 'exec-1', workflowId: 'wf-1', status: 'success' }];
@@ -708,6 +763,50 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       // The line was broadcast before connect, yet the replay buffer delivers it.
       expect(sseChunks.join('')).toMatch(/data:.*Webhook/i);
+    });
+
+    it('skips stale replay entries older than the replay window', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'success',
+        passed: true,
+        duration: 1,
+        results: [],
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+
+      const server = await new Promise<http.Server>((resolve, reject) => {
+        const s = app.listen(0, '127.0.0.1', () => resolve(s));
+        s.on('error', reject);
+      });
+      const { port } = server.address() as import('net').AddressInfo;
+
+      // Seed replay buffer at an old timestamp.
+      await request(server).post('/webhooks/wf-1/trigger-1').send({}).expect(200);
+
+      // Move virtual time far beyond any prior test timestamps so all replay
+      // entries (including cross-test residue) are stale.
+      nowSpy.mockReturnValue(9_000_000_000_000_000);
+
+      const sseChunks: string[] = [];
+      await new Promise<void>((resolve, reject) => {
+        const sseReq = http.get(`http://127.0.0.1:${port}/api/logs/stream`, (res) => {
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => sseChunks.push(chunk));
+          setTimeout(() => {
+            res.socket?.destroy();
+            server.close(() => resolve());
+          }, 40);
+        });
+        sseReq.on('error', reject);
+      });
+
+      expect(sseChunks.join('')).not.toMatch(/data:.*Webhook/i);
+      nowSpy.mockRestore();
     });
   });
 
