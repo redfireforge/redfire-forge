@@ -28,7 +28,7 @@ export function buildClosestMatchDebugBody(
     nearMissCount: explanation.nearMisses.length,
     nearMisses,
     hint: nearMisses.length > 0
-      ? 'Closest candidates matched method/path but failed conditions.'
+      ? 'Closest library rules that almost matched this request.'
       : 'No near-miss candidates; check method, path, or base path.',
   };
 

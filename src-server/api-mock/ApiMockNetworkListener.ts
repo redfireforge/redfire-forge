@@ -17,7 +17,7 @@ import { normalizeRequest } from '../../src/shared/api-mock/requestNormalization
 import { selectRoute } from '../../src/shared/api-mock/routeSelector.js';
 import {
   selectResponseForRoute,
-  isVariantEligible,
+  resolveEligibleVariant,
   createSequenceState,
   resetSequence,
   type SequenceState,
@@ -57,6 +57,16 @@ import {
 const DEFAULT_STATE_KEY = 'default';
 
 const LISTEN_HOST = '127.0.0.1';
+
+/**
+ * Reserved health check paths — intercepted before route matching and journaling.
+ * Use these as Kubernetes liveness / readiness probe targets.
+ *
+ *   Liveness:  GET /__rff/health/live   → 200 while the HTTP server is accepting connections
+ *   Readiness: GET /__rff/health/ready  → 200 once routes are committed; 503 before first commit
+ */
+export const HEALTH_PATH_LIVE  = '/__rff/health/live';
+export const HEALTH_PATH_READY = '/__rff/health/ready';
 
 export interface ListenerConfig {
   serverId: string;
@@ -104,16 +114,10 @@ export class ApiMockNetworkListener {
       seed: `${request.receivedAt}:${route.id}:${request.path}`,
     });
     if (!selected) return undefined;
-    const count = this.variantMatchCounts[selected.id] ?? 0;
-    const eligibility = isVariantEligible(selected, count);
-    if (!eligibility.eligible) {
-      // Fall back to default/enabled sibling when the chosen variant is exhausted.
-      const fallback = route.responses.find(v => (
-        v.enabled && v.id !== selected.id && isVariantEligible(v, this.variantMatchCounts[v.id] ?? 0).eligible
-      ));
-      return fallback ?? selected;
-    }
-    return selected;
+    return resolveEligibleVariant(route, selected, {
+      matchCount: this.variantMatchCounts[selected.id] ?? 0,
+      siblingMatchCount: (id) => this.variantMatchCounts[id] ?? 0,
+    }).variant;
   }
 
   /** Snapshot of live scenario state + counters for the control plane. */
@@ -338,6 +342,32 @@ export class ApiMockNetworkListener {
       res.writeHead(508, this.mergeCorsHeaders(req, { 'Content-Type': 'application/json' }));
       res.end(JSON.stringify({ error: 'loop_detected', message: 'X-RedfireForge-Mock recursion rejected' }));
       return;
+    }
+
+    // ── Built-in health check endpoints (Kubernetes liveness / readiness probes) ──
+    // Intercepted before route matching and journaling so they never appear in the
+    // journal and cannot be shadowed by user-defined routes.
+    //
+    //   GET /__rff/health/live   — liveness:  always 200 while the server process is up
+    //   GET /__rff/health/ready  — readiness: 200 when routes are committed (generation ≥ 1)
+    //                                         503 if the server started but no definition committed yet
+    if (req.method === 'GET') {
+      const rawUrl = req.url ?? '/';
+      const urlPath = rawUrl.split('?')[0];
+      if (urlPath === HEALTH_PATH_LIVE || urlPath === HEALTH_PATH_READY) {
+        const isReady = gen >= 1;
+        const status = urlPath === HEALTH_PATH_READY && !isReady ? 503 : 200;
+        const body = JSON.stringify({
+          status: status === 200 ? 'ok' : 'not_ready',
+          probe: urlPath === HEALTH_PATH_LIVE ? 'liveness' : 'readiness',
+          serverId: this.definition.id,
+          generation: gen,
+          uptime: process.uptime(),
+        });
+        res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(body);
+        return;
+      }
     }
 
     const bodyBuf = bodyChunks.length > 0 ? Buffer.concat(bodyChunks) : null;

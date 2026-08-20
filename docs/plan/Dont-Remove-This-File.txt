@@ -12,6 +12,17 @@ You should switch to strict one-by-one execution: fix one coverage file, run its
 
 Please go ahead. 
 
+--------------------------------------------------------------------------
+Monorithic class
+
+Based on entire code bases including this feature branch, if there is any monoritic class which has above 750 lines except demo, css, script and test file, please refactor them. 
+After done, please run full coverage script again to verify code coverage over 90%. Here is command. 
+bash scripts/run-product-coverage-fast.sh 2>&1. 
+You should switch to strict one-by-one execution: fix one coverage file, run its targeted tests, check that file’s gap status, then move to the next file. 
+
+Please go ahead.
+--------------------------------------------------------------------------
+
 
 Consider all of files for unit test including this branch. 
 Please thoroughly review this feature branch and if there is any monorithic class which is above 900 lines or it requires refactoring, make module for common codes. And also fix any existing bug or issues even though you didn't touch. Please remove any redundant codes and make module. And add unit tests. Test code quality is very important and also code coverage should be above 90 %. Repeat several rounds of these processes until there is no issue found. Make sure you should not break any existing logic. And alwasy show max lines for 10 classes and lowest 10 code coverage codes. Also fix eslint issues. 

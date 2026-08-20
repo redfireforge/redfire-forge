@@ -42,7 +42,8 @@ const CONDITION_OPERATORS = '[data-testid^="api-mock-condition-operator-"]';
 const CONDITION_SCHEMAS = 'textarea[aria-label="Condition schema"]';
 const CONDITION_JSONPATHS = 'input[aria-label="Condition JSONPath"]';
 const CONDITION_VALUES = `${API_MOCK.CONDITION_ROWS} input[aria-label="Condition value"]`;
-const CONDITION_MATCH_STYLES = '[data-testid^="api-mock-condition-matchstyle-"]';
+const CONDITION_MATCH_STYLE_EQUALS = '[data-testid^="api-mock-condition-matchstyle-equals-"]';
+const CONDITION_MATCH_STYLE_CONTAINS = '[data-testid^="api-mock-condition-matchstyle-contains-"]';
 
 test.describe('Demo lesson AM-06 — Body Matching', () => {
   test.beforeEach(async ({ page, request }) => {
@@ -134,7 +135,7 @@ test.describe('Demo lesson AM-06 — Body Matching', () => {
     await expect(page.locator(CONDITION_JSONPATHS).last()).toHaveValue(JSONPATH);
     await expect(page.locator(CONDITION_VALUES).last()).toHaveValue(SKU);
     // A filled Expected value is what makes this equals rather than exists.
-    await expect(page.locator(CONDITION_MATCH_STYLES)).toHaveText('equals');
+    await expect(page.locator(CONDITION_MATCH_STYLE_EQUALS).last()).toBeChecked();
   });
 
   test('widens the JSONPath row from equals to contains', async ({ page }) => {
@@ -144,14 +145,12 @@ test.describe('Demo lesson AM-06 — Body Matching', () => {
     // 3 advances from step 1 → step 4 reading: through the pick-from-JSON beat.
     await advanceSteps(page, 3, AM_LESSON_STEP_TIMEOUT);
 
-    await expect(page.locator(CONDITION_MATCH_STYLES)).toHaveText('equals', {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
+    await expect(page.locator(CONDITION_MATCH_STYLE_EQUALS).last()).toBeChecked();
 
     // Step 4 flips the match style and widens the value to the SKU family.
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
-    await expect(page.locator(CONDITION_MATCH_STYLES)).toHaveText('contains');
+    await expect(page.locator(CONDITION_MATCH_STYLE_CONTAINS).last()).toBeChecked();
     await expect(page.locator(CONDITION_VALUES).last()).toHaveValue(SKU_FAMILY);
     await expect(page.locator(CONDITION_JSONPATHS).last()).toHaveValue(JSONPATH);
   });

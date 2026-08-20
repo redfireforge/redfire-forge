@@ -41,9 +41,8 @@ test.describe('Demo lesson AM-13 — Stateful Mocks: A Cart That Remembers', () 
     await walkApiMockLesson(page, 'am13');
 
     expect(await readStepCounter(page)).toContain(`${AM_LESSON_STEPS.am13} / ${AM_LESSON_STEPS.am13}`);
-    await expect(page.locator(API_MOCK.VAR_VALUE_LAST).first()).toHaveAttribute('type', 'password', {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
+    // Lesson ends in Studio view (showAm13TenantInBody navigates away from Runtime),
+    // so dock-variables is not in DOM — check the preview body instead.
     await expect(page.locator(API_MOCK.PREVIEW_BODY)).toContainText('acme', {
       timeout: AM_LESSON_STEP_TIMEOUT,
     });

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { ApiMockNetworkListener } from './ApiMockNetworkListener';
+import { ApiMockNetworkListener, HEALTH_PATH_LIVE, HEALTH_PATH_READY } from './ApiMockNetworkListener';
 import { DEFAULT_SETTINGS, createDefaultResponse } from '../../src/shared/api-mock/defaults';
 import type { ApiMockServerDefinitionV1 } from '../../src/shared/api-mock/contracts';
 
@@ -233,5 +233,130 @@ describe('ApiMockNetworkListener', () => {
     });
     expect(res.status).toBe(200);
     expect(res.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  // ── Built-in health check endpoints ──────────────────────────────────────
+
+  it('liveness probe responds 200 immediately after start', async () => {
+    const port = getPort();
+    const listener = new ApiMockNetworkListener({ serverId: 'srv-health', definition: makeDef(port) });
+    listeners.push(listener);
+    await listener.start();
+
+    const res = await fetch(`http://127.0.0.1:${port}${HEALTH_PATH_LIVE}`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.status).toBe('ok');
+    expect(body.probe).toBe('liveness');
+    // serverId comes from definition.id (makeDef hardcodes 'srv-test')
+    expect(typeof body.serverId).toBe('string');
+    expect(typeof body.generation).toBe('number');
+    expect(typeof body.uptime).toBe('number');
+    expect(res.headers.get('content-type')).toContain('application/json');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('readiness probe responds 200 after routes are committed (generation ≥ 1)', async () => {
+    const port = getPort();
+    const listener = new ApiMockNetworkListener({ serverId: 'srv-ready', definition: makeDef(port) });
+    listeners.push(listener);
+    await listener.start(); // start() sets generation to 1
+
+    const res = await fetch(`http://127.0.0.1:${port}${HEALTH_PATH_READY}`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.status).toBe('ok');
+    expect(body.probe).toBe('readiness');
+    expect(body.generation).toBeGreaterThanOrEqual(1);
+  });
+
+  it('health endpoints are not journaled (do not appear in transaction callbacks)', async () => {
+    const port = getPort();
+    const transactions: unknown[] = [];
+    const listener = new ApiMockNetworkListener({
+      serverId: 'srv-no-journal',
+      definition: makeDef(port),
+      onTransaction: tx => transactions.push(tx),
+    });
+    listeners.push(listener);
+    await listener.start();
+
+    await fetch(`http://127.0.0.1:${port}${HEALTH_PATH_LIVE}`);
+    await fetch(`http://127.0.0.1:${port}${HEALTH_PATH_READY}`);
+    // Allow any async callbacks to flush.
+    await new Promise(r => setTimeout(r, 50));
+    expect(transactions).toHaveLength(0);
+  });
+
+  it('health endpoints do not shadow user-defined routes on other paths', async () => {
+    const port = getPort();
+    const listener = new ApiMockNetworkListener({ serverId: 'srv-shadow', definition: makeDef(port) });
+    listeners.push(listener);
+    await listener.start();
+
+    // Normal route still works.
+    const normalRes = await fetch(`http://127.0.0.1:${port}/hello`);
+    expect(normalRes.status).toBe(200);
+    expect(await normalRes.text()).toBe('Hello from mock');
+
+    // Health routes are intercepted.
+    const healthRes = await fetch(`http://127.0.0.1:${port}${HEALTH_PATH_READY}`);
+    expect(healthRes.status).toBe(200);
+  });
+
+  it('health paths ignore query strings', async () => {
+    const port = getPort();
+    const listener = new ApiMockNetworkListener({ serverId: 'srv-qs', definition: makeDef(port) });
+    listeners.push(listener);
+    await listener.start();
+
+    const res = await fetch(`http://127.0.0.1:${port}${HEALTH_PATH_LIVE}?v=1`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.probe).toBe('liveness');
+  });
+
+  it('serves FLAKY as 503 even when the route predicate still requires WIDGET', async () => {
+    const port = getPort();
+    const skuEquals = (id: string, sku: string) => ({
+      id,
+      combinator: 'all' as const,
+      children: [{
+        id: `${id}-p`,
+        source: 'body' as const,
+        selector: '',
+        operator: 'jsonPath_equals' as const,
+        expected: ['$.sku', sku],
+      }],
+    });
+    const happy = { ...createDefaultResponse('v-201'), isDefault: true, status: 201 };
+    const flaky = {
+      ...createDefaultResponse('v-503'),
+      isDefault: false,
+      status: 503,
+      conditions: skuEquals('pg-flaky', 'FLAKY'),
+      body: { kind: 'json' as const, content: '{"error":"unavailable","sku":"FLAKY"}', contentType: 'application/json' },
+    };
+    const def = makeDef(port, {
+      routes: [{
+        id: 'orders', name: 'POST /orders', enabled: true, method: 'POST',
+        path: { kind: 'exact', value: '/orders' }, priority: 10,
+        predicates: skuEquals('pg-root', 'WIDGET'),
+        responseMode: 'rules',
+        responses: [happy, flaky],
+        tags: [], createdAt: ts, updatedAt: ts,
+      }],
+    });
+    const listener = new ApiMockNetworkListener({ serverId: 'srv-flaky', definition: def });
+    listeners.push(listener);
+    await listener.start();
+
+    const res = await fetch(`http://127.0.0.1:${port}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sku: 'FLAKY', qty: 1 }),
+    });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'unavailable', sku: 'FLAKY' });
   });
 });

@@ -65,6 +65,19 @@ describe('analyzeConflicts', () => {
     expect(findings[0].severity).toBe('error');
   });
 
+  it('classifies same-path same-predicates routes as shadowed (not duplicate) when priorities differ', async () => {
+    // P20 vs P10 — P20 wins deterministically; this is "shadowed", not "duplicate" (which implies 409).
+    const routes = [
+      route({ id: 'a', priority: 20, path: { kind: 'exact', value: '/health' } }),
+      route({ id: 'b', priority: 10, path: { kind: 'exact', value: '/health' } }),
+    ];
+    const { findings } = await analyzeConflicts(routes, 'srv-1');
+    expect(findings.some(f => f.kind === 'duplicate')).toBe(false);
+    expect(findings.some(f => f.kind === 'shadowed')).toBe(true);
+    expect(findings[0].severity).toBe('warning');
+    expect(findings[0].selectionOutcome).toBe('left_wins');
+  });
+
   it('detects definite overlap with identical method and exact path', async () => {
     const routes = [
       route({ id: 'a', predicates: { id: 'pg', combinator: 'all', children: [{ id: 'p1', source: 'header', selector: 'x', operator: 'exact', expected: 'val' }] } }),

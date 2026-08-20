@@ -145,6 +145,68 @@ export function isVariantEligible(
   return { eligible: true };
 }
 
+export interface ResolveEligibleVariantResult {
+  variant: ApiMockResponseVariantV1;
+  fallbackUsed: boolean;
+  eligibilityReason?: string;
+}
+
+/**
+ * Apply match-count / expiry / probability gates after a variant is selected.
+ *
+ * Probability on a *conditional* rules variant gates its fault, not its
+ * identity: a `$.sku == FLAKY` 503 with a 0.5 timeout must not fall through
+ * to the default 201 (or unmatched 404). Exhaustion and expiry still fall
+ * back to a sibling.
+ */
+export function resolveEligibleVariant(
+  route: ApiMockRouteV1,
+  selected: ApiMockResponseVariantV1,
+  opts: {
+    matchCount: number;
+    now?: Date;
+    probabilityRoll?: number;
+    siblingMatchCount: (id: string) => number;
+    siblingProbabilityRoll?: (id: string) => number;
+  },
+): ResolveEligibleVariantResult {
+  const eligibility = isVariantEligible(selected, opts.matchCount, opts.now, opts.probabilityRoll);
+  if (eligibility.eligible) {
+    return { variant: selected, fallbackUsed: false };
+  }
+
+  const probabilityMiss = Boolean(eligibility.reason?.startsWith('Probability'));
+  const selectedByCondition = !selected.isDefault && Boolean(selected.conditions?.children.length);
+  if (probabilityMiss && selectedByCondition) {
+    return {
+      variant: stripVariantFault(selected),
+      fallbackUsed: false,
+      eligibilityReason: eligibility.reason,
+    };
+  }
+
+  const fallback = route.responses.find(v => (
+    v.enabled
+    && v.id !== selected.id
+    && isVariantEligible(
+      v,
+      opts.siblingMatchCount(v.id),
+      opts.now,
+      opts.siblingProbabilityRoll?.(v.id),
+    ).eligible
+  ));
+  return {
+    variant: fallback ?? selected,
+    fallbackUsed: Boolean(fallback),
+    eligibilityReason: eligibility.reason,
+  };
+}
+
+function stripVariantFault(variant: ApiMockResponseVariantV1): ApiMockResponseVariantV1 {
+  if (!variant.behavior.fault || variant.behavior.fault === 'none') return variant;
+  return { ...variant, behavior: { ...variant.behavior, fault: undefined } };
+}
+
 function seededRandom(seed: string, min: number, max: number): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {

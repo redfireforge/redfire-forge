@@ -6,6 +6,7 @@
  * in the UI. Companion required — Start + live fetch is the proof.
  */
 import {
+  clearApiMockServerSamples,
   deleteCollectionsByName,
   importApiMockGallerySample,
   patchApiMockServerSettings,
@@ -202,6 +203,7 @@ export function am18NearMissItems(): HTMLElement[] {
 }
 
 export function hasAm18Example(): boolean {
+  if (am18ExampleSavedFlag) return true;
   return Boolean(firstVisibleElement(API_MOCK.EXAMPLES_GRID) ?? firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE));
 }
 
@@ -249,7 +251,13 @@ export async function prepareAm18Workspace(): Promise<void> {
   }
 }
 
+/** Module flag — set after TX_SAVE_EXAMPLE succeeds so DOM-blind preActions don't re-save. */
+let am18ExampleSavedFlag = false;
+export function markAm18ExampleSaved(): void { am18ExampleSavedFlag = true; }
+export function resetAm18ExampleSaved(): void { am18ExampleSavedFlag = false; }
+
 export async function cleanupAm18(): Promise<void> {
+  am18ExampleSavedFlag = false;
   await wipeApiMockWorkspace();
   deleteCollectionsByName(AM18_JOURNAL_COLLECTION);
 }
@@ -416,10 +424,7 @@ async function openRuntimeSettings(ctx: DemoActionContext, visible: boolean): Pr
     if (!visible) return;
     const panel = firstVisibleElement<HTMLElement>(API_MOCK.RUNTIME_SETTINGS_PANEL);
     const content = panel?.querySelector<HTMLElement>('.am-rt-stg-grid');
-    if (content) {
-      content.scrollTop = 0;
-      content.scrollIntoView?.({ block: 'start', inline: 'nearest' });
-    }
+    if (content) content.scrollTop = 0;
     return;
   }
   if (!firstVisibleElement(API_MOCK.DOCK_TAB_SETTINGS)) return;
@@ -429,10 +434,7 @@ async function openRuntimeSettings(ctx: DemoActionContext, visible: boolean): Pr
   else await ctx.waitFor(API_MOCK.RUNTIME_SETTINGS_PANEL, REVEAL_MS);
   const panel = firstVisibleElement<HTMLElement>(API_MOCK.RUNTIME_SETTINGS_PANEL);
   const content = panel?.querySelector<HTMLElement>('.am-rt-stg-grid');
-  if (content) {
-    content.scrollTop = 0;
-    if (visible) content.scrollIntoView?.({ block: 'start', inline: 'nearest' });
-  }
+  if (content) content.scrollTop = 0;
 }
 
 async function selectCreatedRoute(ctx: DemoActionContext, visible: boolean): Promise<void> {
@@ -482,11 +484,17 @@ export async function ensureAm18ForSaveExample(ctx: DemoActionContext): Promise<
   await returnFromRequests(ctx, false);
   await closeAm18Simulate(ctx);
   await ensureAm18ForCreateRoute(ctx);
-  if (hasAm18CreatedRoute()) return;
+  if (hasAm18CreatedRoute()) {
+    // Route already exists — apply any lingering draft silently (created in a prior step).
+    await applyIfDirty(ctx, false);
+    return;
+  }
   if (firstVisibleElement(API_MOCK.TX_CREATE_ROUTE)) {
     await ctx.click(API_MOCK.TX_CREATE_ROUTE);
     await ctx.delay(200);
   }
+  // Apply the newly created draft so "Draft changed" is gone before Acting begins.
+  await applyIfDirty(ctx, false);
 }
 
 export async function ensureAm18ForShare(ctx: DemoActionContext): Promise<void> {
@@ -502,23 +510,51 @@ export async function ensureAm18ForShare(ctx: DemoActionContext): Promise<void> 
 }
 
 async function openAm18ExamplesTab(ctx: DemoActionContext): Promise<void> {
-  if (firstVisibleElement(API_MOCK.EXAMPLES_GRID) || firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE)) {
+  if (firstVisibleElement(API_MOCK.EXAMPLES_GRID) || firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE)
+    || firstVisibleElement(API_MOCK.EXAMPLES_EMPTY)) {
     return;
   }
   if (!firstVisibleElement(API_MOCK.BTAB_EXAMPLES) && !document.querySelector(API_MOCK.BTAB_EXAMPLES)) {
     return;
   }
   await ctx.click(API_MOCK.BTAB_EXAMPLES);
-  await ctx.waitFor(API_MOCK.EXAMPLES_GRID, REVEAL_MS);
+  // Accept either the populated grid or the empty-state placeholder — waiting
+  // only for EXAMPLES_GRID timed out (8 s) when the route has no examples yet.
+  await Promise.race([
+    ctx.waitFor(API_MOCK.EXAMPLES_GRID, 3_000).catch(() => undefined),
+    ctx.waitFor(API_MOCK.EXAMPLES_EMPTY, 3_000).catch(() => undefined),
+  ]);
 }
 
 export async function ensureAm18ForProve(ctx: DemoActionContext): Promise<void> {
   await returnFromRequests(ctx, false);
   await closeAm18Simulate(ctx);
+  // Clear any server-side simulate samples left from a previous lesson pass.
+  // These show a stale FAIL badge even after the route is rebuilt, because
+  // server.samples persists in React state until the workspace is wiped.
+  clearApiMockServerSamples();
+  // Full fast path: route selected, studio visible, examples grid visible.
+  if (hasAm18CreatedRoute() && isAm18StudioViewActive() && hasAm18Example()) return;
+  // Partial fast path: route exists in the sidebar — no network calls needed.
+  // Just select it, ensure the example exists, open the Examples tab.
+  if (hasAm18CreatedRoute()) {
+    await ensureAm18StudioView(ctx);
+    await selectCreatedRoute(ctx, false);
+    await applyIfDirty(ctx, false);
+    if (!hasAm18Example() && firstVisibleElement(API_MOCK.TX_SAVE_EXAMPLE)) {
+      await ctx.click(API_MOCK.TX_SAVE_EXAMPLE);
+      await ctx.delay(200);
+      markAm18ExampleSaved();
+    }
+    await openAm18ExamplesTab(ctx);
+    return;
+  }
+  // Slow path: route missing — need the full setup chain (includes network calls).
   await ensureAm18ForSaveExample(ctx);
   if (!hasAm18Example() && firstVisibleElement(API_MOCK.TX_SAVE_EXAMPLE)) {
     await ctx.click(API_MOCK.TX_SAVE_EXAMPLE);
     await ctx.delay(200);
+    markAm18ExampleSaved();
   }
   await ensureAm18StudioView(ctx);
   await selectCreatedRoute(ctx, false);
@@ -674,7 +710,14 @@ async function highlightAm18OpenInStudio(ctx: DemoActionContext): Promise<void> 
 export async function runAm18CreateRoute(ctx: DemoActionContext): Promise<void> {
   await openAm18Journal(ctx, false);
   await selectMissRow(ctx, true);
-  if (firstVisibleElement(API_MOCK.TX_CREATE_ROUTE) || document.querySelector(API_MOCK.TX_CREATE_ROUTE)) {
+  // Guard: if the draft already appears in the sidebar route list (step replayed),
+  // skip Create route to avoid accumulating duplicate drafts. Check the route-path
+  // elements only — not the path input, which shows AM18_MISS_PATH even while the
+  // journal is open (selected row pre-fills the detail panel).
+  const alreadyInSidebar = Array.from(document.querySelectorAll<HTMLElement>(API_MOCK.ROUTE_PATH))
+    .some(el => (el.textContent ?? '').includes(AM18_MISS_PATH));
+  if (!alreadyInSidebar
+    && (firstVisibleElement(API_MOCK.TX_CREATE_ROUTE) || document.querySelector(API_MOCK.TX_CREATE_ROUTE))) {
     await clickBeat(ctx, API_MOCK.TX_CREATE_ROUTE, { look: 350, hold: 600 });
   }
   await highlightAm18OpenInStudio(ctx);
@@ -682,7 +725,18 @@ export async function runAm18CreateRoute(ctx: DemoActionContext): Promise<void> 
   // switch, so drive it explicitly and re-select the seeded draft. Without this
   // the demo can stall on the Runtime notice and the viewer never sees the editor.
   await ensureAm18StudioView(ctx);
-  await selectCreatedRoute(ctx, false);
+  // Ring the draft chip in the sidebar FIRST so the viewer sees where it landed,
+  // then click it to open the editor.
+  const draftRow = Array.from(document.querySelectorAll<HTMLElement>('button.am-route-item'))
+    .find(el => (el.textContent ?? '').includes(AM18_MISS_PATH));
+  if (draftRow) {
+    draftRow.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    await spotlightElementBeat(ctx, draftRow, T.payoff);
+    await ctx.click(`[data-testid="${draftRow.getAttribute('data-testid')}"]`);
+    await ctx.delay(T.panelReady);
+  } else {
+    await selectCreatedRoute(ctx, false);
+  }
   if (firstVisibleElement(API_MOCK.ROUTE_EDITOR) || firstVisibleElement(API_MOCK.VIEW_STUDIO)) {
     await am18Reveal(ctx, API_MOCK.ROUTE_EDITOR, T.fieldFilled);
   }
@@ -693,48 +747,79 @@ export async function runAm18CreateRoute(ctx: DemoActionContext): Promise<void> 
   if (firstVisibleElement(API_MOCK.ROUTE_ENABLED)) {
     await am18Payoff(ctx, API_MOCK.ROUTE_ENABLED);
   }
+  // Draft changed badge is showing — ring it then Apply so the companion syncs
+  // the disabled draft before the next step.
+  await am18Break(ctx);
+  await applyIfDirty(ctx, true);
 }
 
 /**
- * Step 6 — Save as example, Open in Requests, hold the handoff, come back,
- * hold the Examples grid. Highlight Save as example before clicking it.
+ * Step 6 — Save as example → confirm notice → Open in Requests (spotlit) →
+ * hold Requests sidebar → return → select draft in sidebar → Examples tab → grid.
  */
 export async function runAm18SaveExample(ctx: DemoActionContext): Promise<void> {
   await returnFromRequests(ctx, false);
   await openAm18Journal(ctx, true);
   await selectMissRow(ctx, true);
+
+  // Beat 1 — ring Save as example, click it, hold the confirmation notice.
   if (firstVisibleElement(API_MOCK.TX_SAVE_EXAMPLE)) {
-    await am18Aim(ctx, API_MOCK.TX_SAVE_EXAMPLE, T.payoff);
+    await am18Click(ctx, API_MOCK.TX_SAVE_EXAMPLE, T.payoff);
+    markAm18ExampleSaved();
   }
-  // Saved-example notice — wait for it, then hold a ring ON it. A bare reveal
-  // pause leaves no highlight, so the confirmation reads as a flash.
-  if (firstVisibleElement(API_MOCK.TX_NOTICE) || firstVisibleElement(API_MOCK.TX_SAVE_EXAMPLE)) {
+  if (firstVisibleElement(API_MOCK.TX_NOTICE) || document.querySelector(API_MOCK.TX_NOTICE)) {
     await am18Reveal(ctx, API_MOCK.TX_NOTICE, T.panelReady);
-    if (firstVisibleElement(API_MOCK.TX_NOTICE)) {
-      await am18Payoff(ctx, API_MOCK.TX_NOTICE);
-    }
+    await am18Payoff(ctx, API_MOCK.TX_NOTICE);
   }
   await am18Break(ctx);
-  if (firstVisibleElement(API_MOCK.TX_OPEN_REQUESTS)) {
-    await am18Aim(ctx, API_MOCK.TX_OPEN_REQUESTS);
+
+  // Beat 2 — ring Open in Requests explicitly (querySelector fallback for dock layouts).
+  const openReqBtn = firstVisibleElement<HTMLElement>(API_MOCK.TX_OPEN_REQUESTS)
+    ?? document.querySelector<HTMLElement>(API_MOCK.TX_OPEN_REQUESTS);
+  if (openReqBtn) {
+    openReqBtn.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    await spotlightElementBeat(ctx, openReqBtn, T.simOutcome);
+    await ctx.click(API_MOCK.TX_OPEN_REQUESTS);
+    await ctx.delay(T.panelReady);
   }
-  if (firstVisibleElement(REQ.SIDEBAR) || firstVisibleElement(REQ.NAV_REQUESTS)
-    || firstVisibleElement(API_MOCK.TX_OPEN_REQUESTS)) {
-    await am18Reveal(ctx, REQ.SIDEBAR, T.payoff);
-    if (firstVisibleElement(REQ.SIDEBAR)) {
-      await am18Payoff(ctx, REQ.SIDEBAR);
-    }
+
+  // Beat 3 — spotlight the specific "Mock journal · GET /produts/42" item
+  // in the Requests sidebar so the viewer sees exactly where it landed.
+  await ctx.delay(T.panelReady);
+  const journalReqItem = Array.from(document.querySelectorAll<HTMLElement>(REQ.REQ_ITEM))
+    .find(el => (el.textContent ?? '').includes(AM18_MISS_PATH));
+  if (journalReqItem) {
+    journalReqItem.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    await spotlightElementBeat(ctx, journalReqItem, T.payoff);
+  } else if (firstVisibleElement(REQ.SIDEBAR)) {
+    await am18Payoff(ctx, REQ.SIDEBAR);
   }
+
+  // Beat 4 — navigate back and spotlight the draft route chip in the sidebar.
   await returnFromRequests(ctx, true);
   await ensureAm18StudioView(ctx);
-  await selectCreatedRoute(ctx, true);
-  if (firstVisibleElement(API_MOCK.BTAB_EXAMPLES)) {
-    await am18Aim(ctx, API_MOCK.BTAB_EXAMPLES, T.tabSwitch);
+  const draftRow = Array.from(document.querySelectorAll<HTMLElement>('button.am-route-item'))
+    .find(el => (el.textContent ?? '').includes(AM18_MISS_PATH));
+  if (draftRow) {
+    draftRow.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    await spotlightElementBeat(ctx, draftRow, T.fieldFilled);
+    await ctx.click(`[data-testid="${draftRow.getAttribute('data-testid')}"]`);
+    await ctx.delay(T.panelReady);
+  } else {
+    await selectCreatedRoute(ctx, false);
   }
-  // Examples grid — wait for the seeded row, then hold a ring ON the grid so the
-  // step ends on a highlight, not a ring-less pause after the tab-switch flash.
-  if (firstVisibleElement(API_MOCK.EXAMPLES_GRID) || firstVisibleElement(API_MOCK.EXAMPLES_EMPTY)
-    || firstVisibleElement(API_MOCK.BTAB_EXAMPLES)) {
+
+  // Beat 5 — ring the Examples tab, open it, hold the grid.
+  if (firstVisibleElement(API_MOCK.BTAB_EXAMPLES) || document.querySelector(API_MOCK.BTAB_EXAMPLES)) {
+    const exTab = firstVisibleElement<HTMLElement>(API_MOCK.BTAB_EXAMPLES)
+      ?? document.querySelector<HTMLElement>(API_MOCK.BTAB_EXAMPLES);
+    if (exTab) {
+      await spotlightElementBeat(ctx, exTab, T.beforeOpen);
+      await ctx.click(API_MOCK.BTAB_EXAMPLES);
+      await ctx.delay(T.tabSwitch);
+    }
+  }
+  if (firstVisibleElement(API_MOCK.EXAMPLES_GRID) || firstVisibleElement(API_MOCK.EXAMPLES_EMPTY)) {
     await am18Reveal(ctx, API_MOCK.EXAMPLES_GRID, T.panelReady);
     if (firstVisibleElement(API_MOCK.EXAMPLES_GRID)) {
       await am18Payoff(ctx, API_MOCK.EXAMPLES_GRID);
@@ -748,6 +833,7 @@ export async function runAm18SaveExample(ctx: DemoActionContext): Promise<void> 
  */
 export async function runAm18ShareAndReset(ctx: DemoActionContext): Promise<void> {
   await returnFromRequests(ctx, false);
+  await applyIfDirty(ctx, true);
   await openAm18Journal(ctx, true);
   if (hasAm18Traffic() && !firstVisibleElement(API_MOCK.TX_COPY)) {
     await clickNewestJournalRow(ctx, true);
@@ -778,32 +864,48 @@ export async function runAm18ShareAndReset(ctx: DemoActionContext): Promise<void
 }
 
 /**
- * Step 8 — Simulate the saved row, hold the passing result.
- * Examples is already open from preAction; reading rang Simulate.
+ * Step 8 — Show the saved example then open Simulate from scratch, save the
+ * request as a named sample, run it, and hold the green UNMATCHED verdict.
+ *
+ * Flow:
+ *  Beat 1  — spotlight the Examples grid (example exists from step 6)
+ *  Beat 2  — ring the route-header Simulate button, click it (scratch pad,
+ *             path pre-filled as /produts/42, NO stale server samples)
+ *  Beat 3  — Save as sample (fills the suggested name "GET /produts/42")
+ *  Beat 4  — Run simulation → hold UNMATCHED verdict
  */
 export async function runAm18ProveExample(ctx: DemoActionContext): Promise<void> {
   await returnFromRequests(ctx, false);
   await ensureAm18StudioView(ctx);
   await selectCreatedRoute(ctx, false);
   await openAm18ExamplesTab(ctx);
-  // Open the seeded Simulate workspace from the saved example — ring the button,
-  // then reveal + hold the workspace so the viewer sees it open.
-  if (firstVisibleElement(API_MOCK.EXAMPLE_SIMULATE)) {
-    await clickBeat(ctx, API_MOCK.EXAMPLE_SIMULATE, { look: T.beforeOpen, hold: 0 });
+
+  // Beat 1 — show the Examples grid so the viewer sees the saved example.
+  if (firstVisibleElement(API_MOCK.EXAMPLES_GRID)) {
+    await am18Payoff(ctx, API_MOCK.EXAMPLES_GRID);
+  }
+
+  // Beat 2 — ring the route-header Simulate button (not the example row's button)
+  // so Simulate opens in scratch-pad mode with /produts/42 pre-filled and no
+  // stale FAIL entries. The preAction already called clearApiMockServerSamples().
+  if (firstVisibleElement(API_MOCK.SIMULATE)) {
+    await clickBeat(ctx, API_MOCK.SIMULATE, { look: T.beforeOpen, hold: 0 });
     await am18Reveal(ctx, API_MOCK.SIMULATE_WORKSPACE, T.panelReady);
   }
-  // Show WHAT is being simulated (the saved request + its Unmatched/404
-  // expectation), hold a real ring on **Run** before the click, then run it. The
-  // example is already a saved sample, so Run evaluates that expectation.
+
+  // Beat 3 + 4 — Save as sample (creates the named entry the viewer can see),
+  // then hold Run, click, show the UNMATCHED (green) verdict.
   if (firstVisibleElement(API_MOCK.SIMULATE_WORKSPACE)) {
     await reviewAndRunSimulation(ctx, {
-      saveSample: false,
+      // saveSample: true (default) — click "Save as sample", fill "GET /produts/42"
+      reviewFields: false,
+      digest: false,
       review: T.look,
       beforeRun: T.beforeRun,
     });
   }
-  // The green verdict is the payoff — reveal it, then hold a ring ON it (a
-  // ring-less reveal made the pass flash by too fast to read).
+
+  // Payoff — reveal the verdict and hold a ring on it.
   const outcome = firstVisibleElement(API_MOCK.SIMULATE_OUTCOME)
     ? API_MOCK.SIMULATE_OUTCOME
     : API_MOCK.SIMULATE_RESULT;

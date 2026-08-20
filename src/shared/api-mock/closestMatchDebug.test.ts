@@ -69,6 +69,6 @@ describe('buildClosestMatchDebugBody', () => {
     const parsed = JSON.parse(body.body) as { nearMissCount: number; nearMisses: unknown[]; hint: string };
     expect(parsed.nearMissCount).toBe(7);
     expect(parsed.nearMisses).toHaveLength(5);
-    expect(parsed.hint).toMatch(/Closest candidates/);
+    expect(parsed.hint).toMatch(/Closest library rules/);
   });
 });

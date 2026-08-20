@@ -7,15 +7,18 @@
 import { readFileSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
-import type { DataSource, DataSourceColumn, DataSourceRow } from '../src/types';
+import type { DataSource, DataSourceColumn, DataSourceRow } from '../src/shared/types';
 
 /**
  * Load a data file (CSV or JSON) and return a DataSource.
  * Column types are inferred from column names:
  *   - `validate:*` → validate column
  *   - `header:*` → header column
+ *   - `_tags`, `_label`, `_note`, `_enabled` → row metadata (not sent as request params)
  *   - everything else → param (query/body variable)
  */
+const SPECIAL_ROW_COLUMNS = new Set(['_tags', '_label', '_note', '_enabled']);
+
 export function loadDataFile(filePath: string): DataSource {
   const content = readFileSync(filePath, 'utf-8');
   const ext = filePath.toLowerCase();
@@ -53,8 +56,9 @@ export function loadDataFile(filePath: string): DataSource {
     throw new Error(`Data file is empty: ${filePath}`);
   }
 
-  // Build columns from the keys of the first row
-  const colNames = Object.keys(rawRows[0]);
+  // Build columns from the keys of the first row — special row-metadata columns
+  // (_tags/_label/_note/_enabled) are excluded so they never leak into requests as params.
+  const colNames = Object.keys(rawRows[0]).filter(name => !SPECIAL_ROW_COLUMNS.has(name));
   const columns: DataSourceColumn[] = colNames.map((name) => {
     const id = uuidv4();
     let type: DataSourceColumn['type'] = 'param';
@@ -77,11 +81,19 @@ export function loadDataFile(filePath: string): DataSource {
     for (let i = 0; i < colNames.length; i++) {
       values[columns[i].id] = raw[colNames[i]] ?? '';
     }
+    const tags = raw._tags
+      ? raw._tags.split(';').map(t => t.trim().toLowerCase()).filter(Boolean)
+      : undefined;
+    const label = raw._label?.trim() || `Row ${idx + 1}`;
+    const note = raw._note?.trim() || undefined;
+    const enabled = raw._enabled?.trim().toLowerCase() !== 'false';
     return {
       id: uuidv4(),
-      label: `Row ${idx + 1}`,
+      label,
       values,
-      enabled: true,
+      enabled,
+      tags: tags?.length ? tags : undefined,
+      note,
     };
   });
 

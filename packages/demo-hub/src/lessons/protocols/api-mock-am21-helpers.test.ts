@@ -9,11 +9,13 @@ import { makeCtx, makeVisible } from './ws-test-utils';
 const wipeApiMockWorkspace = vi.fn(async () => true);
 const importApiMockGallerySample = vi.fn(async () => true);
 const prepareApiMockStudioChrome = vi.fn();
+const deleteCollectionsByName = vi.fn(() => 0);
 
 vi.mock('../../adapters', () => ({
   wipeApiMockWorkspace: (...a: unknown[]) => wipeApiMockWorkspace(...(a as [])),
   importApiMockGallerySample: (...a: unknown[]) => importApiMockGallerySample(...(a as [])),
   prepareApiMockStudioChrome: (...a: unknown[]) => prepareApiMockStudioChrome(...(a as [])),
+  deleteCollectionsByName: (...a: unknown[]) => deleteCollectionsByName(...(a as [])),
 }));
 
 import {

@@ -79,6 +79,55 @@ describe('DomainSelector', () => {
     // Progress ring still renders (pct=0)
     expect(container.querySelector('.demo-progress-ring')).toBeTruthy();
   });
+
+  const richDomain = () => makeDomain({
+    categories: [
+      { id: 'websocket', label: 'WebSocket', icon: '🔌' },
+      { id: 'sse', label: 'SSE', icon: '📡' },
+    ],
+    lessons: [
+      makeLesson({ id: 'a', category: 'websocket', estimatedMinutes: 10 }),
+      makeLesson({ id: 'b', category: 'websocket', estimatedMinutes: 20 }),
+      makeLesson({ id: 'c', category: 'sse', estimatedMinutes: 90 }),
+      makeLesson({ id: 'd', estimatedMinutes: 0 }),
+    ],
+  });
+
+  it('summarizes lessons, categories, and estimated total time', () => {
+    render(<DomainSelector domains={[richDomain()]} progress={baseProgress} onSelect={vi.fn()} />);
+    expect(screen.getByText('4 lessons · 2 categories')).toBeTruthy();
+    // 10 + 20 + 90 = 120 min → "2h"
+    expect(screen.getByText('2h')).toBeTruthy();
+  });
+
+  it('renders a per-category chip with its lesson count plus an uncategorized "+more" chip', () => {
+    const { container } = render(<DomainSelector domains={[richDomain()]} progress={baseProgress} onSelect={vi.fn()} />);
+    const counts = [...container.querySelectorAll('.demo-domain-cat-count')].map(n => n.textContent);
+    expect(counts).toEqual(['2', '1']);
+    expect(screen.getByText('+1 more')).toBeTruthy();
+  });
+
+  it('shows the correct status and progress fill width as lessons complete', () => {
+    // Two of four complete → in progress, 50%.
+    const partial: DemoProgress = { ...baseProgress, completedLessons: ['a', 'b'] };
+    const { container, rerender } = render(
+      <DomainSelector domains={[richDomain()]} progress={partial} onSelect={vi.fn()} />,
+    );
+    expect(screen.getByText('In progress')).toBeTruthy();
+    expect(screen.getByText('2/4')).toBeTruthy();
+    expect((container.querySelector('.demo-domain-progress-fill') as HTMLElement)?.style.width).toBe('50%');
+
+    // All four complete → completed, status class applied.
+    const done: DemoProgress = { ...baseProgress, completedLessons: ['a', 'b', 'c', 'd'] };
+    rerender(<DomainSelector domains={[richDomain()]} progress={done} onSelect={vi.fn()} />);
+    expect(screen.getByText('Completed')).toBeTruthy();
+    expect(container.querySelector('.demo-domain-card.status-complete')).toBeTruthy();
+  });
+
+  it('marks an untouched domain as "Start learning"', () => {
+    render(<DomainSelector domains={[richDomain()]} progress={baseProgress} onSelect={vi.fn()} />);
+    expect(screen.getByText('Start learning')).toBeTruthy();
+  });
 });
 
 // ── DemoSpotlight ───────────────────────────────────────────────

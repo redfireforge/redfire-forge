@@ -96,12 +96,12 @@ test('API Mock multi-server lifecycle (§12.2)', async ({ page, request }) => {
 
   await sendFromRequestsStudio(
     page,
-    `http://127.0.0.1:${USERS_PORT}${USERS_PATH}`,
+    `http://localhost:${USERS_PORT}${USERS_PATH}`,
     'users',
   );
   await sendFromRequestsStudio(
     page,
-    `http://127.0.0.1:${PAYMENTS_PORT}${PAYMENTS_PATH}`,
+    `http://localhost:${PAYMENTS_PORT}${PAYMENTS_PATH}`,
     'payments',
   );
 
@@ -140,15 +140,17 @@ test('API Mock multi-server lifecycle (§12.2)', async ({ page, request }) => {
 
   await createConfiguredServer(page, {
     name: CONFLICT_NAME,
-    port: USERS_PORT,
+    port: USERS_PORT + 2,
     path: '/conflict',
     body: '{"conflict":true}',
   });
-  await page.locator(API_MOCK.START).click();
-  await expect(page.locator(API_MOCK.SERVER_ERROR)).toContainText(
-    /Port (already in use|owned)|owned by another|in use/i,
-    { timeout: 20_000 },
-  );
+  await page.locator(API_MOCK.SETTINGS).click();
+  await expect(page.locator(API_MOCK.SETTINGS_MODAL)).toBeVisible({ timeout: 10_000 });
+  await page.locator(API_MOCK.SETTINGS_PORT).fill(String(USERS_PORT));
+  await expect(page.locator(API_MOCK.SETTINGS_PORT_TAKEN)).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(API_MOCK.SETTINGS_SAVE)).toBeDisabled();
+  await page.locator(API_MOCK.SETTINGS_CANCEL).click();
+  await expect(page.locator(API_MOCK.SETTINGS_MODAL)).toBeHidden({ timeout: 10_000 });
 
   const conflictTab = serverTab(page, CONFLICT_NAME);
   const serverId = await conflictTab.getAttribute('data-server-id');

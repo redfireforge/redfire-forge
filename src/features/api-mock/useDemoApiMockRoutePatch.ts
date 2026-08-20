@@ -1,19 +1,22 @@
-import { useEffect, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
+import { flushSync } from 'react-dom';
 import type {
   ApiMockFaultKind,
   ApiMockPathMatcherKind,
   ApiMockPredicateGroupV1,
   ApiMockResponseMode,
   ApiMockServerDefinitionV1,
+  ApiMockSimulationSampleV1,
   ApiMockStateTransitionV1,
+  ApiMockTransactionOutcome,
 } from '../../shared/api-mock/contracts';
 import { DEMO_HUB_ENABLED } from '../../config/features';
 import { createDefaultResponse } from '../../shared/api-mock/defaults';
 import { DEFAULT_PROXY_SETTINGS } from '../../shared/api-mock/proxyContracts';
 import { DEFAULT_CALLBACK_SETTINGS } from '../../shared/api-mock/callbackContracts';
-import { inferPathKind } from '../../shared/api-mock/pathMatcher';
+import { inferPathKind, pathParamNames } from '../../shared/api-mock/pathMatcher';
 import { kindFromContentType } from './components/apiMockResponseEditorConstants';
-import { nowIso } from './apiMockStudioFactory';
+import { createRoute, nowIso } from './apiMockStudioFactory';
 
 interface Args {
   /** Reads live servers/active tab so the bridge never closes over stale state. */
@@ -21,6 +24,19 @@ interface Args {
   selectedRouteId: string | undefined;
   setServers: Dispatch<SetStateAction<ApiMockServerDefinitionV1[]>>;
 }
+
+export type DemoSimulateSampleDraft = {
+  name: string;
+  method: string;
+  path: string;
+  body?: string | null;
+  contentType?: string;
+  expected?: {
+    outcome: ApiMockTransactionOutcome;
+    status?: number;
+    bodyContains?: string;
+  };
+};
 
 type ServerSettingsPatch = {
   multipleMatchPolicy?: ApiMockServerDefinitionV1['settings']['selection']['multipleMatchPolicy'];
@@ -46,6 +62,9 @@ type ServerSettingsPatch = {
 type RoutePatch = {
   path?: string;
   pathKind?: ApiMockPathMatcherKind;
+  /** Select a rule by path instead of the currently selected row. */
+  selectPath?: string;
+  selectMethod?: string;
   body?: string;
   contentType?: string;
   status?: number;
@@ -54,6 +73,13 @@ type RoutePatch = {
   predicates?: ApiMockPredicateGroupV1;
   responseMode?: ApiMockResponseMode;
   addVariant?: boolean;
+  /** Append a new enabled rule (method from `method` / `selectMethod`, path from `path`). */
+  addRoute?: boolean;
+  /** Delete the rule resolved by `selectPath` / `selectMethod` / selection. */
+  removeRoute?: boolean;
+  /** Enable or disable the resolved rule (OpenAPI drafts stay off until this is set). */
+  enabled?: boolean;
+  method?: string;
   variantIndex?: number;
   variantName?: string;
   variantConditions?: ApiMockPredicateGroupV1;
@@ -72,26 +98,93 @@ type RoutePatch = {
   };
 };
 
+function resolveDemoPatchRouteId(
+  server: ApiMockServerDefinitionV1,
+  patch: RoutePatch,
+  selected: string | undefined,
+): string | undefined {
+  if (patch.selectPath) {
+    const method = patch.selectMethod?.toUpperCase();
+    const matches = server.routes.filter(r => (
+      r.path.value === patch.selectPath
+      && (method == null || r.method === method || r.method === 'ANY')
+    ));
+    return (matches.find(r => r.enabled) ?? matches[0])?.id;
+  }
+  if (selected && server.routes.some(r => r.id === selected)) return selected;
+  return server.routes[0]?.id;
+}
+
 /**
  * Mounts `window.__demoPatchApiMockActiveRoute` so demo lessons can edit the
  * selected rule without driving the editor UI. No-op outside Learning Hub builds.
  */
 export function useDemoApiMockRoutePatch({ getState, selectedRouteId, setServers }: Args): void {
+  // Read selection at patch time, not from the effect closure. Demo helpers click a
+  // different rule and then patch immediately — `.active` updates on commit, but the
+  // effect would still close over the previous id until after paint.
+  const selectedRouteIdRef = useRef(selectedRouteId);
+  selectedRouteIdRef.current = selectedRouteId;
+
   useEffect(() => {
     if (!DEMO_HUB_ENABLED) return;
     const win = window as unknown as {
       __demoPatchApiMockActiveRoute?: (patch: RoutePatch) => boolean;
       __demoPatchApiMockServerSettings?: (patch: ServerSettingsPatch) => boolean;
+      __demoClearApiMockServerSamples?: () => boolean;
+      __demoUpsertApiMockServerSamples?: (drafts: DemoSimulateSampleDraft[]) => boolean;
+    };
+    const commitServers = (update: (prev: ApiMockServerDefinitionV1[]) => ApiMockServerDefinitionV1[]) => {
+      // Defer flushSync to a microtask so it never runs from inside a React lifecycle.
+      // React 19 warns ("flushSync was called from inside a lifecycle method") when
+      // flushSync is called while executionContext has RenderContext | CommitContext bits set.
+      // Microtasks fire before any setTimeout / next-frame work, so the commit still lands
+      // before lesson ctx.click() or ctx.delay() calls reach the actual DOM operation.
+      // (All lesson callers either await ctx.delay()/ctx.click() with ≥40ms, or the
+      //  patch is followed by a separate awaited call — never an immediate synchronous DOM op.)
+      queueMicrotask(() => { flushSync(() => { setServers(update); }); });
     };
     win.__demoPatchApiMockActiveRoute = (patch) => {
       const { servers: current, activeServerId: sid } = getState();
       const server = current.find(s => s.id === sid);
       if (!server) return false;
-      const routeId = selectedRouteId && server.routes.some(r => r.id === selectedRouteId)
-        ? selectedRouteId
-        : server.routes[0]?.id;
+      const selected = selectedRouteIdRef.current;
+      if (patch.addRoute) {
+        commitServers(prev => prev.map(s => {
+          if (s.id !== server.id) return s;
+          const method = (patch.method ?? patch.selectMethod ?? 'GET').toUpperCase();
+          const pathValue = patch.path ?? '/';
+          const created = createRoute(patch.variantName ?? `${method} ${pathValue}`);
+          created.method = method as typeof created.method;
+          if (patch.enabled != null) created.enabled = patch.enabled;
+          const kind = patch.pathKind ?? inferPathKind(pathValue, created.path.kind);
+          created.path = {
+            ...created.path,
+            value: pathValue,
+            kind,
+            ...(kind === 'parameterized' ? { paramNames: pathParamNames(pathValue) } : {}),
+          };
+          if (patch.priority != null && Number.isFinite(patch.priority)) {
+            created.priority = patch.priority;
+          }
+          return { ...s, updatedAt: nowIso(), routes: [...s.routes, created] };
+        }));
+        return true;
+      }
+      if (patch.removeRoute) {
+        let removed = false;
+        commitServers(prev => prev.map(s => {
+          if (s.id !== server.id) return s;
+          const routeId = resolveDemoPatchRouteId(s, patch, selected);
+          if (!routeId) return s;
+          removed = true;
+          return { ...s, updatedAt: nowIso(), routes: s.routes.filter(r => r.id !== routeId) };
+        }));
+        return removed;
+      }
+      const routeId = resolveDemoPatchRouteId(server, patch, selected);
       if (!routeId) return false;
-      setServers(prev => prev.map(s => {
+      commitServers(prev => prev.map(s => {
         if (s.id !== server.id) return s;
         return {
           ...s,
@@ -99,14 +192,28 @@ export function useDemoApiMockRoutePatch({ getState, selectedRouteId, setServers
           routes: s.routes.map(r => {
             if (r.id !== routeId) return r;
             const next = { ...r, updatedAt: nowIso() };
+            if (patch.method) {
+              next.method = patch.method.toUpperCase() as typeof next.method;
+            }
+            if (patch.enabled != null) {
+              next.enabled = patch.enabled;
+            }
             if (patch.path != null) {
               // A quiet path patch must leave a coherent matcher behind: without
               // re-inferring, `/users/:id` would stay an exact literal that can
               // never match. `pathKind` overrides for regex, which no string can imply.
+              const kind = patch.pathKind ?? inferPathKind(patch.path, r.path.kind);
               next.path = {
                 ...r.path,
                 value: patch.path,
-                kind: patch.pathKind ?? inferPathKind(patch.path, r.path.kind),
+                kind,
+                ...(kind === 'parameterized' ? { paramNames: pathParamNames(patch.path) } : {}),
+              };
+            } else if (patch.pathKind != null) {
+              next.path = {
+                ...r.path,
+                kind: patch.pathKind,
+                ...(patch.pathKind === 'parameterized' ? { paramNames: pathParamNames(r.path.value) } : {}),
               };
             }
             if (patch.priority != null && Number.isFinite(patch.priority)) {
@@ -126,7 +233,7 @@ export function useDemoApiMockRoutePatch({ getState, selectedRouteId, setServers
                   : { ...resp, weight: undefined }
               ));
             }
-            if (patch.addVariant && next.responses.length < 2) {
+            if (patch.addVariant) {
               const id = `resp-demo-${next.responses.length + 1}`;
               next.responses = [
                 ...next.responses,
@@ -237,7 +344,7 @@ export function useDemoApiMockRoutePatch({ getState, selectedRouteId, setServers
       const { servers: current, activeServerId: sid } = getState();
       const server = current.find(s => s.id === sid);
       if (!server) return false;
-      setServers(prev => prev.map(s => {
+      commitServers(prev => prev.map(s => {
         if (s.id !== server.id) return s;
         return {
           ...s,
@@ -326,9 +433,50 @@ export function useDemoApiMockRoutePatch({ getState, selectedRouteId, setServers
       }));
       return true;
     };
+    win.__demoClearApiMockServerSamples = () => {
+      const { activeServerId: sid } = getState();
+      if (!sid) return false;
+      commitServers(prev => prev.map(s => s.id === sid ? { ...s, samples: [] } : s));
+      return true;
+    };
+    win.__demoUpsertApiMockServerSamples = (drafts) => {
+      const { activeServerId: sid } = getState();
+      if (!sid || drafts.length === 0) return false;
+      commitServers(prev => prev.map(s => {
+        if (s.id !== sid) return s;
+        const next = [...(s.samples ?? [])];
+        for (const draft of drafts) {
+          const idx = next.findIndex(x => x.name === draft.name);
+          const request: ApiMockSimulationSampleV1['request'] = {
+            method: draft.method,
+            path: draft.path,
+            rawPath: draft.path,
+            query: {},
+            headers: draft.contentType ? { 'content-type': [draft.contentType] } : {},
+            cookies: {},
+            body: draft.body ?? null,
+            bodyTruncated: false,
+            receivedAt: nowIso(),
+            contentType: draft.contentType,
+          };
+          const sample: ApiMockSimulationSampleV1 = {
+            id: idx >= 0 ? next[idx].id : `sample-${crypto.randomUUID().slice(0, 8)}`,
+            name: draft.name,
+            request,
+            expected: draft.expected,
+          };
+          if (idx >= 0) next[idx] = { ...next[idx], ...sample };
+          else next.push(sample);
+        }
+        return { ...s, samples: next, updatedAt: nowIso() };
+      }));
+      return true;
+    };
     return () => {
       delete win.__demoPatchApiMockActiveRoute;
       delete win.__demoPatchApiMockServerSettings;
+      delete win.__demoClearApiMockServerSamples;
+      delete win.__demoUpsertApiMockServerSamples;
     };
-  }, [selectedRouteId, getState, setServers]);
+  }, [getState, setServers]);
 }

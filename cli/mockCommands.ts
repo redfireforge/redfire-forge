@@ -3,147 +3,31 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
-import { parse as parseYaml } from 'yaml';
 import {
   cliAssertJournal,
   cliFetchJournal,
   cliLoadAndValidate,
   cliSimulateSamples,
 } from '../src/shared/api-mock/cliMock';
-import type { ApiMockServerDefinitionV1, ApiMockTransactionOutcome, ApiMockWorkspaceV1 } from '../src/shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionOutcome } from '../src/shared/api-mock/contracts';
 import { startStandaloneServers } from './mockStandalone';
+import {
+  asWorkspace,
+  companionUnreachable,
+  escapeXml,
+  findFreePort,
+  isFailedSimulation,
+  loadDefinitionFile,
+  readNonNegInt,
+  readPortOverride,
+  reportValidation,
+  requireExistingServer,
+  requireWorkspaceServers,
+  resolveServerId,
+  rollbackCompanionStarts,
+  sleep,
+} from './mockCommandShared';
 
-function loadDefinitionFile(file: string): Record<string, unknown> {
-  const abs = resolve(file);
-  if (!existsSync(abs)) throw new Error(`File not found: ${abs}`);
-  const text = readFileSync(abs, 'utf8');
-  const parsed = /\.ya?ml$/i.test(abs) ? parseYaml(text) : JSON.parse(text);
-  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`File is not a mock workspace object: ${abs}`);
-  }
-  return parsed as Record<string, unknown>;
-}
-
-function coerceWorkspaceServerPorts(raw: Record<string, unknown>): Record<string, unknown> {
-  if (!Array.isArray(raw.servers)) return raw;
-  return {
-    ...raw,
-    servers: raw.servers.map(s => {
-      if (!s || typeof s !== 'object' || Array.isArray(s)) return s;
-      const rec = s as Record<string, unknown>;
-      const port = coerceListenPort(rec.port);
-      return port != null ? { ...rec, port } : rec;
-    }),
-  };
-}
-
-function asWorkspace(raw: Record<string, unknown>): Record<string, unknown> {
-  // Accept full workspace, export envelope, or single server definition.
-  if (raw._exportMeta && raw.data && typeof raw.data === 'object') {
-    const data = raw.data as Record<string, unknown>;
-    if (data.scope === 'workspace' && data.workspace && typeof data.workspace === 'object') {
-      return coerceWorkspaceServerPorts(data.workspace as Record<string, unknown>);
-    }
-    if (data.scope === 'servers' && Array.isArray(data.servers)) {
-      return coerceWorkspaceServerPorts({
-        schemaVersion: 1,
-        servers: data.servers,
-        tabOrder: (data.servers as { id: string }[]).map(s => s.id),
-      });
-    }
-  }
-  if (Array.isArray((raw as ApiMockWorkspaceV1).servers)) return coerceWorkspaceServerPorts(raw);
-  const port = coerceListenPort(raw.port);
-  if (typeof raw.id === 'string' && port != null) {
-    const srv = { ...raw, port } as unknown as ApiMockServerDefinitionV1;
-    return { schemaVersion: 1, servers: [srv], activeServerId: srv.id, tabOrder: [srv.id] };
-  }
-  return raw;
-}
-
-function coerceListenPort(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isInteger(value)) return value;
-  if (typeof value === 'string' && value.trim() !== '') {
-    const n = Number(value);
-    if (Number.isInteger(n)) return n;
-  }
-  return undefined;
-}
-
-const ROLLBACK_ERROR = 'Rolled back because another listener failed to start';
-
-function reportValidation(errors: string[]): boolean {
-  if (!errors.length) return false;
-  console.error('Validation errors:');
-  for (const e of errors) console.error(`  - ${e}`);
-  return true;
-}
-
-function requireWorkspaceServers(workspace: ApiMockWorkspaceV1): boolean {
-  if (workspace.servers.length > 0) return false;
-  console.error('No servers in definition.');
-  return true;
-}
-
-function resolveServerId(workspace: ApiMockWorkspaceV1, requested?: string): string | undefined {
-  if (requested) return requested;
-  if (workspace.activeServerId && workspace.servers.some(s => s.id === workspace.activeServerId)) {
-    return workspace.activeServerId;
-  }
-  return workspace.servers[0]?.id;
-}
-
-function requireExistingServer(workspace: ApiMockWorkspaceV1, serverId?: string): serverId is string {
-  if (!serverId) {
-    console.error('No server id found in definition.');
-    return false;
-  }
-  if (!workspace.servers.some(s => s.id === serverId)) {
-    console.error(`Server ${serverId} not found in definition.`);
-    return false;
-  }
-  return true;
-}
-
-function readPortOverride(port: number | undefined): { ok: true; port?: number } | { ok: false } {
-  if (port == null) return { ok: true };
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    console.error('--port must be an integer between 1 and 65535.');
-    return { ok: false };
-  }
-  return { ok: true, port };
-}
-
-function readNonNegInt(value: number | undefined, flag: string): { ok: true; value?: number } | { ok: false } {
-  if (value == null) return { ok: true };
-  if (!Number.isInteger(value) || value < 0) {
-    console.error(`${flag} must be a non-negative integer.`);
-    return { ok: false };
-  }
-  return { ok: true, value };
-}
-
-function markRolledBack<T extends { ok: boolean; port?: number; error?: string }>(results: T[]): void {
-  for (const r of results) {
-    if (!r.ok) continue;
-    r.ok = false;
-    r.port = undefined;
-    r.error = ROLLBACK_ERROR;
-  }
-}
-
-async function rollbackCompanionStarts(
-  results: Array<{ ok: boolean; serverId: string; port?: number; error?: string }>,
-  base: string,
-): Promise<void> {
-  for (const r of results) {
-    if (!r.ok) continue;
-    try {
-      await fetch(`${base}/api/mock/servers/${encodeURIComponent(r.serverId)}/stop`, { method: 'POST' });
-    } catch { /* ignore */ }
-  }
-  markRolledBack(results);
-}
 
 export async function runMockSimulate(opts: {
   file: string;
@@ -219,13 +103,14 @@ async function startViaCompanion(
   return results;
 }
 
-function companionUnreachable(results: Array<{ ok: boolean; error?: string }>): boolean {
-  return results.every(r => !r.ok && /unreachable|ECONNREFUSED|fetch failed|Failed to fetch/i.test(r.error ?? ''));
-}
-
 export async function runMockStart(opts: {
   file: string;
-  port?: number;
+  /** Fixed port number, the string 'auto' to pick a free OS port, or undefined to use the definition's port. */
+  port?: number | 'auto';
+  /** Write the bound port number to this file path (e.g. `.rff-mock-port`). */
+  portFile?: string;
+  /** Write `API_MOCK_PORT=<port>` to this file path (e.g. `.env.mock`). */
+  envFile?: string;
   controlBase?: string;
   waitReady?: boolean;
   standalone?: boolean;
@@ -237,14 +122,26 @@ export async function runMockStart(opts: {
   if (reportValidation(loaded.validationErrors)) return 1;
   if (requireWorkspaceServers(loaded.workspace)) return 1;
 
-  const portOpt = readPortOverride(opts.port);
-  if (!portOpt.ok) return 1;
-  if (portOpt.port != null && portOpt.port + loaded.workspace.servers.length - 1 > 65535) {
+  let resolvedPort: number | undefined;
+  if (opts.port === 'auto') {
+    try {
+      resolvedPort = await findFreePort();
+    } catch (e) {
+      console.error(`Failed to allocate a free port: ${e instanceof Error ? e.message : String(e)}`);
+      return 1;
+    }
+  } else {
+    const portOpt = readPortOverride(opts.port);
+    if (!portOpt.ok) return 1;
+    resolvedPort = portOpt.port;
+  }
+
+  if (resolvedPort != null && resolvedPort + loaded.workspace.servers.length - 1 > 65535) {
     console.error('--port range exceeds 65535 for this workspace.');
     return 1;
   }
   const servers = loaded.workspace.servers.map((srv, i) => (
-    portOpt.port != null ? { ...srv, port: portOpt.port + i } : srv
+    resolvedPort != null ? { ...srv, port: resolvedPort! + i } : srv
   ));
   const base = (opts.controlBase ?? 'http://127.0.0.1:3001').replace(/\/$/, '');
 
@@ -269,10 +166,26 @@ export async function runMockStart(opts: {
     }
   }
 
-  console.log(JSON.stringify({ ready: results.every(r => r.ok), results }, null, 2));
+  const allOk = results.every(r => r.ok);
+  console.log(JSON.stringify({ ready: allOk, results }, null, 2));
+
+  // Write port discovery files so CI pipelines can consume the dynamic port.
+  if (allOk && (opts.portFile || opts.envFile)) {
+    const boundPort = results[0]?.port ?? resolvedPort;
+    if (boundPort != null) {
+      if (opts.portFile) {
+        writeFileSync(resolve(opts.portFile), String(boundPort), 'utf8');
+        console.error(`Port written to ${opts.portFile}`);
+      }
+      if (opts.envFile) {
+        writeFileSync(resolve(opts.envFile), `API_MOCK_PORT=${boundPort}\n`, 'utf8');
+        console.error(`Env file written to ${opts.envFile}`);
+      }
+    }
+  }
 
   const inProcess = Boolean(stopAll);
-  if ((opts.waitReady || inProcess) && results.every(r => r.ok)) {
+  if ((opts.waitReady || inProcess) && allOk) {
     console.error(inProcess && !opts.waitReady
       ? 'In-process listeners keep this process alive. Press Ctrl+C to stop.'
       : 'Listeners running. Press Ctrl+C to stop.');
@@ -284,7 +197,7 @@ export async function runMockStart(opts: {
     });
   }
 
-  return results.every(r => r.ok) ? 0 : 1;
+  return allOk ? 0 : 1;
 }
 
 /** Keep the CLI process alive until SIGINT/SIGTERM. `hold: false` shuts down immediately (tests). */
@@ -445,12 +358,286 @@ export async function runMockVerify(opts: {
   return 0;
 }
 
-function isFailedSimulation(r: { passed?: boolean; outcome: string }): boolean {
-  if (r.passed === false) return true;
-  if (r.passed === true) return false;
-  return r.outcome === 'ambiguous';
+// ── mock wait-ready ──────────────────────────────────────────
+
+/**
+ * Poll a mock server's port until it reports ready via the built-in
+ * `GET /__rff/health/ready` endpoint (or a custom `--health-path`).
+ *
+ * Port can be supplied as:
+ *  - `--port <n>`        explicit port number
+ *  - `--port-file <p>`   read port from a file written by `mock start --port-file`
+ *  - `--env-file <p>`    read API_MOCK_PORT=<n> from a file written by `mock start --env-file`
+ *
+ * By default polls `/__rff/health/ready` which returns 200 once routes are loaded
+ * and 503 while still initializing — matching Kubernetes readiness probe semantics.
+ */
+export async function runMockWaitReady(opts: {
+  port?: number;
+  portFile?: string;
+  envFile?: string;
+  host?: string;
+  /** Path to poll (default: /__rff/health/ready). Use / to accept any HTTP response. */
+  healthPath?: string;
+  /** Max seconds to wait (default: 30). */
+  timeoutSecs?: number;
+  /** Interval between poll attempts in ms (default: 250). */
+  intervalMs?: number;
+  fetchImpl?: typeof fetch;
+}): Promise<number> {
+  const timeoutSecs = opts.timeoutSecs ?? 30;
+  const intervalMs  = opts.intervalMs  ?? 250;
+
+  // Resolve port from the three possible sources.
+  let port: number | undefined = opts.port;
+
+  if (port == null && opts.portFile) {
+    const abs = resolve(opts.portFile);
+    if (!existsSync(abs)) {
+      // File may not be written yet if the server is still starting — wait up to timeout.
+      const deadline = Date.now() + timeoutSecs * 1000;
+      while (!existsSync(abs)) {
+        if (Date.now() >= deadline) {
+          console.error(`wait-ready: port file not found after ${timeoutSecs}s: ${abs}`);
+          return 1;
+        }
+        await sleep(intervalMs);
+      }
+    }
+    const raw = readFileSync(abs, 'utf8').trim();
+    const n = parseInt(raw, 10);
+    if (!Number.isInteger(n) || n < 1 || n > 65535) {
+      console.error(`wait-ready: invalid port in ${abs}: "${raw}"`);
+      return 1;
+    }
+    port = n;
+  }
+
+  if (port == null && opts.envFile) {
+    const abs = resolve(opts.envFile);
+    if (!existsSync(abs)) {
+      const deadline = Date.now() + timeoutSecs * 1000;
+      while (!existsSync(abs)) {
+        if (Date.now() >= deadline) {
+          console.error(`wait-ready: env file not found after ${timeoutSecs}s: ${abs}`);
+          return 1;
+        }
+        await sleep(intervalMs);
+      }
+    }
+    const lines = readFileSync(abs, 'utf8').split('\n');
+    const match = lines.map(l => /^API_MOCK_PORT=(\d+)/.exec(l)).find(Boolean);
+    if (!match) {
+      console.error(`wait-ready: API_MOCK_PORT not found in ${abs}`);
+      return 1;
+    }
+    port = parseInt(match[1], 10);
+  }
+
+  if (port == null) {
+    console.error('wait-ready: specify --port, --port-file, or --env-file');
+    return 1;
+  }
+
+  const host       = opts.host       ?? '127.0.0.1';
+  const healthPath = opts.healthPath ?? '/__rff/health/ready';
+  const url        = `http://${host}:${port}${healthPath}`;
+  const fetchImpl  = opts.fetchImpl ?? fetch;
+  const deadline   = Date.now() + timeoutSecs * 1000;
+
+  console.error(`wait-ready: polling ${url} (timeout ${timeoutSecs}s)...`);
+
+  while (Date.now() < deadline) {
+    try {
+      const r = await fetchImpl(url);
+      if (r.ok) {
+        // 200 → liveness or readiness confirmed.
+        console.error(`wait-ready: server is ready on port ${port}`);
+        console.log(String(port));
+        return 0;
+      }
+      // 503 on /__rff/health/ready means "alive but not ready yet" — keep polling.
+      // Any other non-2xx falls through to the sleep and retry loop.
+    } catch {
+      // ECONNREFUSED / ENOTFOUND — server process not yet accepting connections.
+    }
+    await sleep(intervalMs);
+  }
+
+  console.error(`wait-ready: server did not become ready on port ${port} within ${timeoutSecs}s`);
+  return 1;
 }
 
-function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// ── mock stop ────────────────────────────────────────────────
+
+/**
+ * Stop one or all mock servers defined in a workspace file.
+ * Only works when the companion is running; standalone servers must be stopped
+ * with SIGINT/SIGTERM to their process.
+ */
+export async function runMockStop(opts: {
+  file: string;
+  serverId?: string;
+  all?: boolean;
+  controlBase?: string;
+  fetchImpl?: typeof fetch;
+}): Promise<number> {
+  const raw = asWorkspace(loadDefinitionFile(opts.file));
+  const loaded = cliLoadAndValidate(raw);
+  /* c8 ignore next */
+  if (reportValidation(loaded.validationErrors)) return 1;
+  /* c8 ignore next */
+  if (requireWorkspaceServers(loaded.workspace)) return 1;
+
+  const base = (opts.controlBase ?? 'http://127.0.0.1:3001').replace(/\/$/, '');
+  const fetchImpl = opts.fetchImpl ?? fetch;
+
+  // Determine which server(s) to stop.
+  let toStop: ApiMockServerDefinitionV1[];
+  if (opts.all) {
+    toStop = loaded.workspace.servers;
+  } else {
+    const serverId = resolveServerId(loaded.workspace, opts.serverId);
+    if (!requireExistingServer(loaded.workspace, serverId)) return 1;
+    toStop = loaded.workspace.servers.filter(s => s.id === serverId);
+  }
+
+  const results: Array<{ serverId: string; ok: boolean; error?: string }> = [];
+  for (const srv of toStop) {
+    try {
+      const res = await fetchImpl(`${base}/api/mock/servers/${encodeURIComponent(srv.id)}/stop`, {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        results.push({ serverId: srv.id, ok: false, error: body.error?.message ?? `HTTP ${res.status}` });
+      } else {
+        results.push({ serverId: srv.id, ok: true });
+      }
+    } catch (e) {
+      results.push({
+        serverId: srv.id,
+        ok: false,
+        error: e instanceof Error ? `${e.message} — companion unreachable` : 'Companion unreachable',
+      });
+    }
+  }
+
+  console.log(JSON.stringify({ stopped: results.every(r => r.ok), results }, null, 2));
+  const failed = results.filter(r => !r.ok);
+  if (failed.length) {
+    console.error(`Failed to stop ${failed.length} server(s).`);
+    return 1;
+  }
+  console.error(`Stopped ${results.length} server(s).`);
+  return 0;
+}
+
+// ── mock verify --all-routes ─────────────────────────────────
+
+/** Per-route coverage row for the --all-routes report. */
+export interface RouteCoverageRow {
+  routeId: string;
+  routeName: string;
+  method: string;
+  path: string;
+  hitCount: number;
+  passed: boolean;
+}
+
+/**
+ * Check that every enabled route in the definition was called at least
+ * `minCallsPerRoute` times (default 1). Fetches the live journal from the
+ * companion and counts `matchedRouteId` per route.
+ */
+export async function runMockVerifyAllRoutes(opts: {
+  file: string;
+  serverId?: string;
+  minCallsPerRoute?: number;
+  controlBase?: string;
+  fetchImpl?: typeof fetch;
+}): Promise<number> {
+  const minPerRoute = opts.minCallsPerRoute ?? 1;
+  if (!Number.isInteger(minPerRoute) || minPerRoute < 1) {
+    console.error('--min-calls must be a positive integer when used with --all-routes.');
+    return 1;
+  }
+
+  const raw = asWorkspace(loadDefinitionFile(opts.file));
+  const loaded = cliLoadAndValidate(raw);
+  /* c8 ignore next */
+  if (reportValidation(loaded.validationErrors)) return 1;
+  /* c8 ignore next */
+  if (requireWorkspaceServers(loaded.workspace)) return 1;
+
+  const serverId = resolveServerId(loaded.workspace, opts.serverId);
+  /* c8 ignore next */
+  if (!requireExistingServer(loaded.workspace, serverId)) return 1;
+
+  const server = loaded.workspace.servers.find(s => s.id === serverId)!;
+
+  // All routes live on `server.routes`; folders are just metadata with a `folderId` FK on each route.
+  const enabledRoutes: ApiMockRouteV1[] = server.routes.filter(r => r.enabled);
+
+  if (enabledRoutes.length === 0) {
+    console.error('No enabled routes found in server definition.');
+    return 1;
+  }
+
+  // Fetch the full live journal.
+  const journal = await cliFetchJournal({
+    controlBase: opts.controlBase ?? 'http://127.0.0.1:3001',
+    serverId,
+    fetchImpl: opts.fetchImpl,
+  });
+  if (!journal.ok) {
+    console.error(`Live journal fetch failed: ${journal.error}`);
+    return 1;
+  }
+
+  // Count hits per route.
+  const hitCounts = new Map<string, number>();
+  for (const tx of journal.transactions) {
+    if (tx.matchedRouteId) {
+      hitCounts.set(tx.matchedRouteId, (hitCounts.get(tx.matchedRouteId) ?? 0) + 1);
+    }
+  }
+
+  const rows: RouteCoverageRow[] = enabledRoutes.map(route => {
+    const hits = hitCounts.get(route.id) ?? 0;
+    const pathStr = route.path?.value ?? '(unknown)';
+    return {
+      routeId: route.id,
+      routeName: route.name,
+      method: route.method,
+      path: pathStr,
+      hitCount: hits,
+      passed: hits >= minPerRoute,
+    };
+  });
+
+  const failed = rows.filter(r => !r.passed);
+  const passed = rows.filter(r => r.passed);
+
+  console.log(JSON.stringify({
+    mode: 'all-routes',
+    serverId,
+    minCallsPerRoute: minPerRoute,
+    totalRoutes: rows.length,
+    passedRoutes: passed.length,
+    failedRoutes: failed.length,
+    allPassed: failed.length === 0,
+    routes: rows,
+  }, null, 2));
+
+  if (failed.length > 0) {
+    console.error(`Contract coverage FAILED: ${failed.length}/${rows.length} route(s) not called:`);
+    for (const r of failed) {
+      console.error(`  ✗ [${r.method}] ${r.path}  "${r.routeName}"  (hits: ${r.hitCount}, required: ${minPerRoute})`);
+    }
+    return 1;
+  }
+
+  console.error(`Contract coverage PASSED: all ${rows.length} route(s) called ≥ ${minPerRoute} time(s).`);
+  return 0;
 }

@@ -3,7 +3,7 @@
  * into N concrete Scenarios, one per enabled data row, with variables substituted
  * into URL path, query params, headers, body, and validation fields.
  */
-import type { Scenario, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource, TestScenario, FeatureGroup } from '../shared/types';
+import type { Scenario, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource, TestScenario, FeatureGroup, Assertion } from '../shared/types';
 import { interpolateGrpcHarnessCallAction } from '../shared/grpc/grpcHarnessDataSourceInterpolation';
 import { isTemplateToken, decodeTemplateBraces, substituteBodyColumnTemplateVars } from '../shared/utils/templateHelpers';
 
@@ -60,6 +60,47 @@ export function buildRowLabel(row: DataSourceRow, columns: DataSourceColumn[], i
 /** Replace all `{{varName}}` placeholders in a string with values from the variable map. */
 function substituteVariables(template: string, vars: Record<string, string>): string {
   return substituteBodyColumnTemplateVars(template, vars);
+}
+
+/** Substitute into a numeric assertion field: template as a string, then re-parse as a number. */
+function substituteNumericValue(raw: number, vars: Record<string, string>): number {
+  const substituted = substituteVariables(String(raw), vars);
+  if (!substituted.trim()) return raw;
+  const parsed = Number(substituted);
+  return Number.isNaN(parsed) ? raw : parsed;
+}
+
+/**
+ * Substitute {{columnName}} row variables into an assertion's simple string/number fields.
+ * Assertion types with structured or code-like fields (`date`'s reference object, `jsonSchema`,
+ * `custom` expressions) are left untouched — blind substitution there would be unsafe or meaningless.
+ */
+function substituteAssertionVariables(a: Assertion, vars: Record<string, string>): Assertion {
+  switch (a.type) {
+    case 'status':
+      return { ...a, expected: substituteVariables(a.expected, vars) };
+    case 'header':
+    case 'each':
+    case 'kafkaField':
+    case 'wsField':
+      return a.value !== undefined ? { ...a, value: substituteVariables(a.value, vars) } : a;
+    case 'regex':
+      return { ...a, pattern: substituteVariables(a.pattern, vars) };
+    case 'arrayLength':
+    case 'numeric':
+    case 'bodySize':
+      return { ...a, value: substituteNumericValue(a.value, vars) };
+    case 'wsNumericField':
+      return { ...a, value: substituteNumericValue(a.value, vars) };
+    case 'arrayContains':
+      return { ...a, value: substituteVariables(a.value, vars) };
+    case 'containsSubset':
+      return { ...a, expected: substituteVariables(a.expected, vars) };
+    case 'datePrecise':
+      return { ...a, reference: substituteVariables(a.reference, vars) };
+    default:
+      return a;
+  }
 }
 
 function normalizeUnresolvedQueryPlaceholders(url: string): string {
@@ -202,6 +243,19 @@ export function resolveScenarioFromDataRow(
     bodyVars[col.mapping] = row.values[col.id] ?? '';
   }
   const hasBodyVars = bodyCols.length > 0;
+
+  // Build a variable map for assertion-field substitution from ALL data source columns —
+  // broader than bodyVars above, since custom assertions may template off any column
+  // (e.g. a `validate` column's expected value), not just `body` ones. Path/param/body
+  // columns key by their variable-name `mapping`; `validate` columns key by their
+  // human-readable `name` instead, since their `mapping` holds a JSONPath.
+  const assertionVars: Record<string, string> = { ...bodyVars };
+  for (const col of columns) {
+    if (col.type === 'body') continue;
+    const key = col.type === 'validate' ? col.name : col.mapping;
+    assertionVars[key] = row.values[col.id] ?? '';
+  }
+  const hasAssertionVars = Object.keys(assertionVars).length > 0;
 
   // Apply variable substitution to Kafka produce config fields
   const kafkaProduceAction = base.kafkaProduceAction && hasBodyVars
@@ -357,23 +411,13 @@ export function resolveScenarioFromDataRow(
     validation = { ...validation, unorderedArrays: true };
   }
 
-  // Substitute variables in kafkaField/wsField/wsNumericField assertion values so parameterized
-  // rows can template expected values (e.g. kafka.key equals "{{orderId}}", ws.size < "{{maxBytes}}").
-  if (hasBodyVars && validation.assertions?.some(a => a.type === 'kafkaField' || a.type === 'wsField' || a.type === 'wsNumericField')) {
+  // Substitute row-driven {{columnName}} variables into assertion fields so parameterized
+  // rows can template expected values (e.g. status expected "{{expectedStatus}}", regex pattern
+  // "{{expectedName}}", kafka.key equals "{{orderId}}", ws.size < "{{maxBytes}}").
+  if (hasAssertionVars && validation.assertions?.length) {
     validation = {
       ...validation,
-      assertions: validation.assertions!.map(a => {
-        if ((a.type === 'kafkaField' || a.type === 'wsField') && a.value !== undefined) {
-          return { ...a, value: substituteVariables(a.value, bodyVars) };
-        }
-        if (a.type === 'wsNumericField' && a.value !== undefined) {
-          const substituted = substituteVariables(String(a.value), bodyVars);
-          if (!substituted.trim()) return a;
-          const parsed = Number(substituted);
-          return { ...a, value: Number.isNaN(parsed) ? a.value : parsed };
-        }
-        return a;
-      }),
+      assertions: validation.assertions.map(a => substituteAssertionVariables(a, assertionVars)),
     };
   }
 
