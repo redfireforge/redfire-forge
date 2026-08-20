@@ -22,6 +22,7 @@ import {
   ensureAm15ForInternal,
   ensureAm15ForOpenApi,
   ensureAm15ForProve,
+  ensureAm15ForPushFromClients,
   ensureAm15ForReplace,
   ensureAm15ForWireMock,
   prepareAm15Workspace,
@@ -32,13 +33,14 @@ import {
   runAm15ImportPanel,
   runAm15InternalSources,
   runAm15OpenApi,
+  runAm15PushFromClients,
   runAm15ReplaceMode,
   runAm15WireMock,
 } from './api-mock-am15-helpers';
 
 const DIAGRAM = `
-<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Seven import sources become draft rules, then one is enabled">
-  <rect x="0" y="0" width="700" height="430" fill="#0f172a" />
+<svg viewBox="0 0 700 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Seven import sources become draft rules, then one is enabled">
+  <rect x="0" y="0" width="700" height="440" fill="#0f172a" />
 
   <text x="26" y="34" fill="#f1f5f9" font-family="system-ui" font-size="16" font-weight="600">Import lands as a draft. Enable is a separate decision.</text>
   <text x="26" y="54" fill="#64748b" font-family="system-ui" font-size="10">cURL · OpenAPI · WireMock · HAR · Catalog · Requests · native export</text>
@@ -67,13 +69,15 @@ const DIAGRAM = `
   <text x="486" y="178" fill="#64748b" font-family="system-ui" font-size="10">Enable + Apply is the live proof</text>
   <text x="486" y="202" fill="#22c55e" font-family="system-ui" font-size="10">Journal outcome: matched</text>
 
-  <rect x="26" y="240" width="648" height="70" rx="8" fill="#1e293b" stroke="#3b4a60" />
-  <text x="42" y="268" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Supported WireMock lands as a mapped preview.</text>
-  <text x="42" y="290" fill="#a8b8cc" font-family="system-ui" font-size="11">equalTo headers and query plus a fixed delay become Studio predicates. A loss report only appears when the stub uses more than that.</text>
+  <rect x="26" y="240" width="648" height="88" rx="8" fill="#1e293b" stroke="#3b4a60" />
+  <text x="42" y="264" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Supported WireMock lands as a mapped preview.</text>
+  <text x="42" y="284" fill="#a8b8cc" font-family="system-ui" font-size="11">equalTo headers and query plus a fixed delay become Studio predicates.</text>
+  <text x="42" y="302" fill="#a8b8cc" font-family="system-ui" font-size="11">A loss report only appears when the stub uses more than that subset.</text>
 
-  <rect x="26" y="328" width="648" height="78" rx="8" fill="#1e293b" stroke="#22c55e" />
-  <text x="42" y="356" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Parse → review → Import as draft → enable the one you need</text>
-  <text x="42" y="378" fill="#a8b8cc" font-family="system-ui" font-size="11">Seven sources, three modes, one generalize, one mapped WireMock preview, one live fetch. That is the whole import contract.</text>
+  <rect x="26" y="340" width="648" height="86" rx="8" fill="#1e293b" stroke="#22c55e" />
+  <text x="42" y="364" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Parse → review → Import as draft → enable the one you need</text>
+  <text x="42" y="384" fill="#a8b8cc" font-family="system-ui" font-size="11">Seven sources, three modes, one generalize, one mapped WireMock preview,</text>
+  <text x="42" y="402" fill="#a8b8cc" font-family="system-ui" font-size="11">one live fetch. That is the whole import contract.</text>
 </svg>
 `;
 
@@ -89,9 +93,10 @@ export const apiMockAm15Lesson: DemoLesson = {
     + 'mapping that Studio can keep, a HAR capture, and Catalog plus Requests. '
     + 'Hold the Replace warning so you know it swaps the whole rule set. Enable '
     + 'the generalized draft, Apply, and prove it with a matched journal row.',
-  estimatedMinutes: 7,
+  estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 3,
+  allowedTabs: ['api-mock-studio', 'requests', 'catalog'],
+  contentVersion: 4,
   concept: {
     title: 'Every source becomes a draft. Enable is how it starts answering.',
     body:
@@ -224,6 +229,24 @@ export const apiMockAm15Lesson: DemoLesson = {
       highlight: API_MOCK.importSource('catalog'),
       preAction: ensureAm15ForInternal,
       action: runAm15InternalSources,
+      verify: API_MOCK.ROUTES_FOOTER,
+    },
+    {
+      id: 'push-from-clients',
+      title: 'The push direction: Requests and Catalog both have Export to API Mock',
+      description:
+        'Everything so far pulled imports **into** API Mock Studio. The product also '
+        + 'works in reverse.\n\n'
+        + 'Switch to **Requests**, right-click `List inventory` in the seeded collection, '
+        + 'and choose **Export to API Mock**. The modal picks your active server, lets you '
+        + 'choose or create a folder, and previews the route before it writes anything. '
+        + 'Confirm — the route lands as a draft.\n\n'
+        + 'Switch to **Catalog**, open the `Import demo API` entry, and click **Export to '
+        + 'API Mock** on the `GET /catalog/widgets` endpoint card. Same modal, same draft '
+        + 'pipeline. Return to API Mock Studio and hold the footer — both routes are there.',
+      highlight: API_MOCK.EXPORT_TO_MOCK_BODY,
+      preAction: ensureAm15ForPushFromClients,
+      action: runAm15PushFromClients,
       verify: API_MOCK.ROUTES_FOOTER,
     },
     {

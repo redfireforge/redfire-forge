@@ -62,7 +62,8 @@ const DIAGRAM = `
 
   <rect x="26" y="240" width="648" height="70" rx="8" fill="#1e293b" stroke="#3b4a60" />
   <text x="42" y="268" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">A 404 without a near-miss is a guess. The journal names what almost matched.</text>
-  <text x="42" y="290" fill="#a8b8cc" font-family="system-ui" font-size="11">Closest-match puts that explanation in the response body so a client, a log, or a bug report can see it without opening Studio.</text>
+  <text x="42" y="284" fill="#a8b8cc" font-family="system-ui" font-size="11">Closest-match puts that explanation in the response body so a client, a log,</text>
+  <text x="42" y="298" fill="#a8b8cc" font-family="system-ui" font-size="11">or a bug report can see it without opening Studio.</text>
 
   <rect x="26" y="328" width="648" height="78" rx="8" fill="#1e293b" stroke="#22c55e" />
   <text x="42" y="356" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Tour → filter → miss → closest-match → create route → example → copy/export/clear → simulate</text>
@@ -82,7 +83,7 @@ export const apiMockAm18Lesson: DemoLesson = {
     + 'and prove the guard runs green.',
   estimatedMinutes: 8,
   initialTab: 'api-mock-studio',
-  contentVersion: 12,
+  contentVersion: 13,
   concept: {
     title: 'A miss is only useful if you can see why.',
     body:
@@ -182,6 +183,7 @@ export const apiMockAm18Lesson: DemoLesson = {
         + 'whoever had Studio open. On the wire, a CI log or a bug report '
         + 'carries the explanation with it — nobody has to reopen the mock.',
       highlight: API_MOCK.RUNTIME_SETTINGS_FALLBACK,
+      skipHighlightScroll: true,
       preAction: ensureAm18ForClosestMatch,
       action: runAm18ClosestMatch,
       verify: API_MOCK.TX_RESPONSE,

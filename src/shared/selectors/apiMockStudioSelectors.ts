@@ -47,7 +47,7 @@ export const API_MOCK_STUDIO = {
   EXPORT_REDACTION: '[data-testid="api-mock-export-redaction"]',
   EXPORT_TLS_KEY: '[data-testid="api-mock-export-tls-key"]',
   EXPORT_SECRET: '[data-testid="api-mock-export-secret"]',
-  EXPORT_PREVIEW: '[data-testid="api-mock-export-preview"]',
+  EXPORT_PREVIEW: '[data-testid="api-mock-export-preview-tree"], [data-testid="api-mock-export-preview"]',
   EXPORT_LOSS: '[data-testid="api-mock-export-loss"]',
   EXPORT_HAR_COUNT: '[data-testid="api-mock-export-har-count"]',
   EXPORT_MAPPING_COUNT: '[data-testid="api-mock-export-mapping-count"]',
@@ -57,6 +57,15 @@ export const API_MOCK_STUDIO = {
   EXPORT_SAVE: '[data-testid="api-mock-export-save"]',
   EXPORT_FILENAME: '[data-testid="api-mock-export-filename"]',
   IMPORT_LAST_EXPORT: '[data-testid="api-mock-import-last-export"]',
+
+  // ── Export to API Mock modal (push from Requests / Catalog) ─────────────
+  EXPORT_TO_MOCK_BODY:      '[data-testid="export-to-mock-body"]',
+  EXPORT_TO_MOCK_SERVER:    '[data-testid="export-to-mock-server"]',
+  EXPORT_TO_MOCK_FOLDER:    '[data-testid="export-to-mock-folder"]',
+  EXPORT_TO_MOCK_PRIORITY:  '[data-testid="export-to-mock-priority"]',
+  EXPORT_TO_MOCK_ROUTES:    '[data-testid="export-to-mock-routes"]',
+  EXPORT_TO_MOCK_CONFIRM:   '[data-testid="export-to-mock-confirm"]',
+  EXPORT_TO_MOCK_CANCEL:    '[data-testid="export-to-mock-cancel"]',
   CLI_SIMULATE: '[data-testid="api-mock-cli-simulate"]',
   CLI_SIMULATE_COPY: '[data-testid="api-mock-cli-simulate-copy"]',
   CLI_VERIFY: '[data-testid="api-mock-cli-verify"]',
@@ -131,6 +140,8 @@ export const API_MOCK_STUDIO = {
   ROUTES_NO_MATCH: '[data-testid="api-mock-routes-no-match"]',
   /** Explorer rule rows only — never filter/search/add (`api-mock-route-filter` etc.). */
   ROUTE_ROW: '[data-testid="api-mock-route-explorer"] button.am-route-item[role="treeitem"]',
+  /** Enable/disable chip on the selected explorer row (sibling of the treeitem). */
+  ROUTE_LIST_ENABLE: '.am-tree-route-row:has(.am-route-item.active) > .am-route-state',
   /** First rule row — same as ROUTE_ROW; querySelector returns the first. */
   FIRST_ROUTE: '[data-testid="api-mock-route-explorer"] button.am-route-item[role="treeitem"]',
   ANALYZE: '[data-testid="api-mock-analyze"]',

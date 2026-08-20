@@ -212,6 +212,45 @@ describe('selectRoute', () => {
       expect(result.explanation.nearMisses[0].failedPredicates[0].source).toBe('header');
     });
 
+    it('matches GET /orders/42 against an imported exact /orders/{id} template', () => {
+      const item = route({
+        id: 'item',
+        name: 'GET /orders/{id}',
+        path: { kind: 'exact', value: '/orders/{id}' },
+      });
+      const result = selectRoute(
+        [item],
+        req({ path: '/orders/42', rawPath: '/orders/42' }),
+        DEFAULT_SETTINGS,
+        '',
+      );
+      expect(result.outcome).toBe('matched');
+      expect(result.selectedRouteId).toBe('item');
+    });
+
+    it('ranks a path typo against the parameterized draft, not an unrelated GET', () => {
+      const item = route({
+        id: 'item',
+        name: 'GET /orders/{id}',
+        enabled: false,
+        path: { kind: 'parameterized', value: '/orders/{id}', paramNames: ['id'] },
+      });
+      const health = route({
+        id: 'health',
+        name: 'GET /health',
+        path: { kind: 'exact', value: '/health' },
+      });
+      const result = selectRoute(
+        [item, health],
+        req({ path: '/ordrs/42', rawPath: '/ordrs/42' }),
+        DEFAULT_SETTINGS,
+        '',
+      );
+      expect(result.outcome).toBe('unmatched');
+      expect(result.explanation.nearMisses.map(n => n.routeId)).toEqual(['item']);
+      expect(result.explanation.nearMisses[0].failedPredicates[0].reason).toBe(`'ordrs' ≠ 'orders'`);
+    });
+
     it('names the None-of guard on a near miss when every leaf passed', () => {
       const r = route({
         name: 'List Reports',
@@ -237,6 +276,16 @@ describe('selectRoute', () => {
     it('skips disabled routes', () => {
       const result = selectRoute([route({ enabled: false })], req(), DEFAULT_SETTINGS, '');
       expect(result.outcome).toBe('unmatched');
+    });
+
+    it('still lists a disabled exact match as a near miss', () => {
+      const result = selectRoute([route({ id: 'draft', enabled: false, name: 'Draft' })], req(), DEFAULT_SETTINGS, '');
+      expect(result.explanation.nearMisses).toEqual([
+        expect.objectContaining({
+          routeId: 'draft',
+          failedPredicates: [expect.objectContaining({ source: 'enabled', reason: 'rule is disabled' })],
+        }),
+      ]);
     });
   });
 

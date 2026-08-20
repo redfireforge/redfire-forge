@@ -507,4 +507,143 @@ describe('ApiMockImportReview coverage gaps', () => {
     fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
     expect(onImport).not.toHaveBeenCalled();
   });
+
+  it('disables pretty format when paste is empty', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    render(<ApiMockImportReview onImport={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-openapi'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: '   ' } });
+    expect(screen.getByTestId('api-mock-import-pretty')).toBeDisabled();
+    expect(screen.queryByTestId('api-mock-import-pretty-error')).toBeNull();
+  });
+
+  it('parses curl without URL and skips empty header keys', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    render(<ApiMockImportReview onImport={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.change(screen.getByTestId('api-mock-curl-input'), {
+      target: { value: "curl -X POST -H ': bad' --data-raw '{\"a\":1}'" },
+    });
+    fireEvent.click(screen.getByTestId('api-mock-curl-parse'));
+
+    expect(screen.getByTestId('api-mock-import-preview-path')).toHaveTextContent('/');
+    expect(screen.getAllByText('POST').length).toBeGreaterThan(0);
+  });
+
+  it('keeps folder menu open on inside click and closes on outside click', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    render(<ApiMockImportReview folders={sampleFolders} onImport={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-folder'));
+    expect(screen.getByTestId('api-mock-import-folder-menu')).toBeTruthy();
+
+    fireEvent.mouseDown(screen.getByTestId('api-mock-import-folder'));
+    expect(screen.getByTestId('api-mock-import-folder-menu')).toBeTruthy();
+
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => {
+      expect(screen.queryByTestId('api-mock-import-folder-menu')).toBeNull();
+    });
+  });
+
+  it('renders redirect, client, and server status variants with parameterized path markup', async () => {
+    vi.doMock('../../../shared/api-mock/importParsers', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../../../shared/api-mock/importParsers')>();
+      return {
+        ...actual,
+        batchToRoutes: () => ({
+          routes: [
+            {
+              id: 'r-302', name: 'r302', enabled: false, method: 'GET',
+              path: { kind: 'exact', value: '/items/{id}' }, priority: 10,
+              predicates: { id: 'pg302', combinator: 'all', children: [] },
+              responseMode: 'rules' as const,
+              responses: [{
+                id: 'v302', name: 'r302', enabled: true, isDefault: true, status: 302,
+                headers: [], cookies: [],
+                body: { kind: 'json' as const, content: '{}', contentType: 'application/json' },
+                behavior: { delayMs: 0, jitterMs: 0 },
+              }],
+              tags: [], createdAt: 't', updatedAt: 't',
+            },
+            {
+              id: 'r-404', name: 'r404', enabled: false, method: 'GET',
+              path: { kind: 'exact', value: '/items/{id}' }, priority: 10,
+              predicates: { id: 'pg404', combinator: 'all', children: [] },
+              responseMode: 'rules' as const,
+              responses: [{
+                id: 'v404', name: 'r404', enabled: true, isDefault: true, status: 404,
+                headers: [], cookies: [],
+                body: { kind: 'json' as const, content: '{}', contentType: 'application/json' },
+                behavior: { delayMs: 0, jitterMs: 0 },
+              }],
+              tags: [], createdAt: 't', updatedAt: 't',
+            },
+            {
+              id: 'r-503', name: 'r503', enabled: false, method: 'GET',
+              path: { kind: 'exact', value: '/items/{id}' }, priority: 10,
+              predicates: { id: 'pg503', combinator: 'all', children: [] },
+              responseMode: 'rules' as const,
+              responses: [{
+                id: 'v503', name: 'r503', enabled: true, isDefault: true, status: 503,
+                headers: [], cookies: [],
+                body: { kind: 'json' as const, content: '{}', contentType: 'application/json' },
+                behavior: { delayMs: 0, jitterMs: 0 },
+              }],
+              tags: [], createdAt: 't', updatedAt: 't',
+            },
+          ],
+          diagnostics: [],
+          lossReport: [],
+        }),
+      };
+    });
+
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    render(<ApiMockImportReview onImport={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-openapi'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: multiOpenApiPaste } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+
+    expect(screen.getAllByText('Redirect').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Client Error').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Server Error').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('{id}').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('api-mock-import-preview-request-1')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-import-preview-response-2')).toBeTruthy();
+  });
+
+  it('maps request imports with empty headers and missing body values', async () => {
+    mockLoadRequests.mockResolvedValue({
+      collections: [{
+        id: 'col-edge',
+        name: 'Edge',
+        mode: 'direct',
+        requests: [{
+          id: 'req-edge',
+          name: 'Edge req',
+          method: 'PUT',
+          url: 'https://api.example.com/edge',
+          headers: [{ key: '', value: 'drop-me' }, { key: 'X-Keep', value: 'ok' }],
+          body: undefined as unknown as string,
+          auth: { type: 'none' },
+        }],
+        folders: [],
+      }],
+    });
+
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    const onImport = vi.fn();
+    render(<ApiMockImportReview onImport={onImport} onCancel={vi.fn()} initialSource="requests" />);
+
+    await waitFor(() => expect(screen.getByTestId('api-mock-import-load-msg')).toHaveTextContent('1 request(s)'));
+    fireEvent.click(screen.getByTestId('api-mock-import-request-req-edge'));
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+
+    expect(onImport).toHaveBeenCalled();
+    expect(onImport.mock.calls[0][0][0].method).toBe('PUT');
+  });
 });

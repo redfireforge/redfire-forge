@@ -72,4 +72,20 @@ describe('API Mock lesson roster (curriculum v2)', () => {
       }
     }
   });
+
+  it('AM-24 grades POST /orders before the GET /health overlap', () => {
+    const am24 = apiMockLessons.find(l => l.id === 'am-24-capstone');
+    expect(am24?.steps.map(s => s.id)).toEqual([
+      'from-spec',
+      'matching',
+      'response',
+      'variants',
+      'resilience',
+      'suite',
+      'conflicts',
+      'live',
+      'export',
+      'ship',
+    ]);
+  });
 });

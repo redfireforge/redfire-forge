@@ -39,6 +39,28 @@ describe('printConsoleSummary', () => {
     expect(output).toContain('FAILED');
   });
 
+  // ─── Sequential Mode Concurrency Display (NOTE-2 fix) ────────────
+
+  it('shows C:1 for sequential mode regardless of configured concurrency', () => {
+    const summary = makeSummary();
+    const config = makeConfig({ executionMode: 'sequential', concurrency: 5 });
+
+    printConsoleSummary(summary, config);
+
+    const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+    expect(output).toContain('Mode:         sequential (C:1 I:10)');
+  });
+
+  it('shows the real configured concurrency for non-sequential modes', () => {
+    const summary = makeSummary();
+    const config = makeConfig({ executionMode: 'pool', concurrency: 5 });
+
+    printConsoleSummary(summary, config);
+
+    const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+    expect(output).toContain('Mode:         pool (C:5 I:10)');
+  });
+
   it('prints data row breakdown when results have data rows', () => {
     const summary = makeSummary();
     const config = makeConfig();

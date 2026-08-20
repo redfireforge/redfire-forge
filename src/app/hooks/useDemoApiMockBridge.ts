@@ -21,17 +21,9 @@ const EMPTY_WORKSPACE = { servers: [] as ApiMockServerDefinitionV1[], activeServ
 
 type DemoBridgeWindow = Record<string, unknown>;
 
-/** Always read the live catalog module — HMR of `src/data` must not leave a stale factory map. */
 async function resolveGalleryFactory(
   sampleId: string,
 ): Promise<(() => ApiMockServerDefinitionV1) | undefined> {
-  try {
-    const { apiMockSampleCatalog: live } = await import('../../data/galleries/api-mock');
-    const hit = live.find(entry => entry.id === sampleId)?.factory;
-    if (hit) return hit;
-  } catch (error) {
-    console.warn('[api-mock demo] live gallery catalog failed to load', error);
-  }
   return apiMockSampleCatalog.find(entry => entry.id === sampleId)?.factory;
 }
 

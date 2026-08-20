@@ -11,6 +11,7 @@ import type {
   ApiMockResponseVariantV1,
 } from './contracts';
 import { evaluateRoute, type RouteEvaluationResult } from './predicateEvaluator';
+import { collectNearMisses } from './nearMissRanking';
 
 export interface SelectionResult {
   outcome: ApiMockTransactionOutcome;
@@ -155,19 +156,12 @@ function buildResult(
     }).sort((a, b) => b.score - a.score || a.routeId.localeCompare(b.routeId))
     : undefined;
 
-  const nearMisses = evaluations
-    .filter(e => e.enabled && !e.overallMatch && (e.methodMatch || e.pathMatch))
-    .map(e => ({
-      routeId: e.routeId,
-      routeName: e.routeName,
-      failedPredicates: e.predicateResults.filter(p => !p.passed).map(p => ({
-        predicateId: p.predicateId,
-        source: p.source,
-        reason: p.reason ?? 'failed',
-      })),
-      missDistance: e.predicateResults.filter(p => p.passed).length,
-    }))
-    .sort((a, b) => b.missDistance - a.missDistance);
+  const nearMisses = collectNearMisses(
+    evaluations,
+    routes,
+    normalizedRequest.path,
+    normalizedRequest.method,
+  );
 
   const explanation: ApiMockMatchExplanationV1 = {
     normalizedRequest,

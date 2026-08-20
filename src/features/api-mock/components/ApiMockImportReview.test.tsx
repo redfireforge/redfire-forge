@@ -177,8 +177,8 @@ describe('ApiMockImportReview', () => {
     fireEvent.click(screen.getByTestId('api-mock-curl-parse'));
 
     expect(screen.getByText('Generated route')).toBeTruthy();
-    expect(screen.getByText('POST')).toBeTruthy();
-    expect(screen.getByText('/users')).toBeTruthy();
+    expect(screen.getAllByText('POST').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('/users').length).toBeGreaterThan(0);
     expect(screen.getByTestId('api-mock-import-confirm')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('api-mock-import-confirm'));

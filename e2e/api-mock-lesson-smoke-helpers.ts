@@ -49,7 +49,7 @@ export const AM_LESSON_STEPS: Record<string, number> = {
   am12: 8,
   am13: 8,
   am14: 8,
-  am15: 9,
+  am15: 10,
   am16: 6,
   am17: 8,
   am18: 8,
@@ -58,7 +58,7 @@ export const AM_LESSON_STEPS: Record<string, number> = {
   am21: 8,
   am22: 9,
   am23: 7,
-  am24: 9,
+  am24: 10,
 };
 
 /**
@@ -116,10 +116,14 @@ export async function readStepCounter(page: Page): Promise<string> {
 }
 
 /** Launch a lesson by key and walk every step (safe on the final step). */
-export async function walkApiMockLesson(page: Page, key: keyof typeof AM_LESSON_STEPS): Promise<void> {
+export async function walkApiMockLesson(
+  page: Page,
+  key: keyof typeof AM_LESSON_STEPS,
+  stepTimeoutMs = AM_LESSON_STEP_TIMEOUT,
+): Promise<void> {
   const steps = AM_LESSON_STEPS[key];
   const name = AM_LESSON_NAMES[key];
   expect(steps, `unknown AM lesson key ${key}`).toBeGreaterThan(0);
   await launchApiMockLesson(page, name);
-  await playThroughLesson(page, steps, AM_LESSON_STEP_TIMEOUT);
+  await playThroughLesson(page, steps, stepTimeoutMs);
 }

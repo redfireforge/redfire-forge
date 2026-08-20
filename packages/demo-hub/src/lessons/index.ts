@@ -41,6 +41,7 @@ import { grpcLessons } from './protocols/grpc-lessons';
 import { apiMockLessons } from './protocols/api-mock-lessons';
 import { apiLessons } from './api';
 import { harnessLessons } from './harness';
+import { cliLessons } from './cli';
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -106,10 +107,26 @@ export const harnessDomain: DemoDomain = {
   lessons: harnessLessons,
 };
 
+export const cliDomain: DemoDomain = {
+  id: 'cli',
+  name: 'CLI',
+  icon: '⌨️',
+  description: 'Run tests, workflows, and API mocks headlessly from the terminal — same engine as the desktop app.',
+  available: true,
+  categories: [
+    { id: 'getting-started', label: 'Getting Started', icon: '🚀' },
+    { id: 'data-and-ci',     label: 'Data & CI/CD', icon: '📊' },
+    { id: 'reliability',     label: 'Reliability', icon: '🛡️' },
+    { id: 'execution',       label: 'Execution', icon: '▶' },
+  ],
+  lessons: cliLessons,
+};
+
 // ─── All domains in display order ────────────────────────────────
 export const allDomains: DemoDomain[] = [
   protocolsDomain,
   apiDomain,
   workflowDomain,
   harnessDomain,
+  cliDomain,
 ];

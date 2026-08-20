@@ -11,6 +11,7 @@ import { classifyRuntimeError, type RuntimeDiagnostic, type RuntimeErrorCode } f
 import { apiMockControlBase } from '../../shared/api-mock/controlBase';
 import { isTauri } from '../../shared/utils/platform';
 import { nativeTauriControl } from '../../shared/api-mock/nativeTauriControl';
+import { pickNextAutoPort, resolveNextAutoPort } from './apiMockPageHelpers';
 
 export interface ControlStatus {
   serverId: string;
@@ -218,15 +219,9 @@ export const apiMockControlClient = {
     );
     if (direct.ok) return direct;
     if (direct.error.code === 'COMPANION_UNAVAILABLE') {
-      try {
-        const { pickNextAutoPort } = await import('./apiMockPageHelpers');
-        return { ok: true, data: { port: pickNextAutoPort(exclude.map(p => ({ port: p }))) } };
-      } catch (e) {
-        return { ok: false, error: classifyRuntimeError(e) };
-      }
+      return { ok: true, data: { port: pickNextAutoPort(exclude.map(p => ({ port: p }))) } };
     }
     // Older companions without /ports/next — walk with /ports/probe.
-    const { resolveNextAutoPort } = await import('./apiMockPageHelpers');
     try {
       const port = await resolveNextAutoPort(
         exclude.map(p => ({ port: p })),

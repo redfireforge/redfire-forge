@@ -87,6 +87,23 @@ describe('convertSourceToRule', () => {
     expect(result.source.importedAt).toBeTruthy();
   });
 
+  it('infers parameterized kind for OpenAPI {id} and :id paths', () => {
+    const openApi = convertSourceToRule({ method: 'GET', path: '/orders/{id}' }, { ...opts, sourceKind: 'openapi' });
+    expect(openApi.route.path).toEqual({
+      kind: 'parameterized',
+      value: '/orders/{id}',
+      paramNames: ['id'],
+    });
+    const colon = convertSourceToRule({ method: 'GET', path: '/users/:id' }, opts);
+    expect(colon.route.path.kind).toBe('parameterized');
+    expect(colon.route.path.paramNames).toEqual(['id']);
+  });
+
+  it('keeps literal paths exact', () => {
+    const result = convertSourceToRule({ method: 'GET', path: '/users' }, opts);
+    expect(result.route.path).toEqual({ kind: 'exact', value: '/users' });
+  });
+
   it('produces query in sample rawPath', () => {
     const input: SourceRequest = { method: 'GET', path: '/search', query: { q: 'hello' } };
     const result = convertSourceToRule(input, opts);

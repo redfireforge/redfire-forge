@@ -226,6 +226,41 @@ app.get('/health/api-mock-echo', async (_req: Request, res: Response) => {
   });
 });
 
+/**
+ * Probe the liveness / readiness of a running mock server listener.
+ * Forwards to the mock server's built-in /__rff/health/* endpoint.
+ *
+ *   GET /health/api-mock/live?port=4600
+ *   GET /health/api-mock/ready?port=4600
+ *
+ * Always responds HTTP 200 with { status: 'ok' | 'down', ... } so
+ * PrerequisiteGate polls don't create 503 noise in DevTools.
+ * Kubernetes / CI should hit the mock's own port directly instead.
+ */
+app.get('/health/api-mock/:probe', async (req: Request, res: Response) => {
+  const probe = req.params.probe; // 'live' or 'ready'
+  if (probe !== 'live' && probe !== 'ready') {
+    return res.status(400).json({ error: 'probe must be "live" or "ready"' });
+  }
+  const portStr = req.query.port as string | undefined;
+  const port = portStr ? parseInt(portStr, 10) : undefined;
+  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) {
+    return res.status(400).json({ error: 'port query param is required and must be 1–65535' });
+  }
+  const url = `http://127.0.0.1:${port}/__rff/health/${probe}`;
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    const body = await r.json() as Record<string, unknown>;
+    return res.status(200).json({ status: r.ok ? 'ok' : 'not_ready', source: url, ...body });
+  } catch (e) {
+    return res.status(200).json({
+      status: 'down',
+      source: url,
+      reason: e instanceof Error ? e.message : 'unreachable',
+    });
+  }
+});
+
 // API: Get execution history
 app.get('/api/executions', async (req: Request, res: Response) => {
   try {

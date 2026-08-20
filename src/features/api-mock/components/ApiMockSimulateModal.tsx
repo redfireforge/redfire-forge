@@ -3,7 +3,7 @@ import AppModalFrame from '../../../shared/components/AppModalFrame';
 import { normalizeRequest } from '../../../shared/api-mock/requestNormalization';
 import { simulateSingle, simulateBatch } from '../../../shared/api-mock/simulation';
 import { capturedRequestPath } from '../apiMockJournalActions';
-import { PlayIcon, DownloadIcon } from './ApiMockIcons';
+import { PlayIcon, DownloadIcon, CheckIcon } from './ApiMockIcons';
 import type {
   ApiMockServerDefinitionV1,
   ApiMockSimulationResultV1,
@@ -12,7 +12,6 @@ import type {
 import {
   annotateSimulatePass,
   reannotateSimulatePass,
-  buildAutoRouteSamples,
   capturedHeadersFromText,
   createSavedSimulationSample,
   createSimulateReplaySeed,
@@ -88,15 +87,10 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
     [server.samples, localSaved],
   );
 
-  const autoFromRoutes: ApiMockSimulationSampleV1[] = useMemo(
-    () => (persistedSamples.length > 0 ? [] : buildAutoRouteSamples(server.routes)),
-    [persistedSamples.length, server.routes],
-  );
-
-  const allNonAdHoc: ApiMockSimulationSampleV1[] = useMemo(
-    () => [...persistedSamples, ...autoFromRoutes],
-    [persistedSamples, autoFromRoutes],
-  );
+  // Scratch pad + samples the user actually saved. Do not auto-inject
+  // From-rules probes — they flash in on an empty server and vanish the
+  // moment anything is saved, which reads as the modal deleting itself.
+  const allNonAdHoc = persistedSamples;
 
   useEffect(() => {
     if (!focusSavedName) return;
@@ -235,7 +229,11 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
 
   const selectSample = (sample: ApiMockSimulationSampleV1) => {
     setSelectedSampleId(sample.id);
-    setMainPane('request');
+    // If this sample already has a result (e.g. from Run all), jump straight to
+    // the Results pane so the user can read the trace without an extra click.
+    const alreadyHasResult = Boolean(resultBySample[sample.id]);
+    setMainPane(alreadyHasResult ? 'results' : 'request');
+    if (alreadyHasResult) setTab('trace');
     if (sample.id === adHocId) {
       const draft = adHocDraftRef.current;
       setMethod(draft.method);
@@ -295,6 +293,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
   const winnerId = trace?.policyDecision.selectedRouteId;
   const passedCount = Object.values(resultBySample).filter(r => r.passed === true).length;
   const conflictCount = Object.values(resultBySample).filter(r => r.outcome === 'ambiguous' && r.passed !== true).length;
+  const failedCount = Object.keys(resultBySample).length - passedCount - conflictCount;
 
   const routeLabel = (id?: string) => {
     const r = id ? server.routes.find(x => x.id === id) : undefined;
@@ -336,6 +335,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
           <span className="am-badge">Draft generation</span>
           {Object.keys(resultBySample).length > 0 && (
             <span className="am-faint" data-testid="api-mock-simulate-summary">
+              {failedCount > 0 && <span className="am-text-danger">{failedCount} failed · </span>}
               {passedCount} passed · {conflictCount} conflict{conflictCount === 1 ? '' : 's'}
             </span>
           )}
@@ -357,6 +357,7 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
             filter={filter}
             setFilter={setFilter}
             passedCount={passedCount}
+            failedCount={failedCount}
             conflictCount={conflictCount}
             onSelectSample={selectSample}
             onRemoveSample={removeSample}
@@ -689,9 +690,19 @@ export function ApiMockSimulateModal({ server, initialPath = '/', initialMethod 
                   </div>
                 )}
                 {exportNotice && (
-                  <div className="am-notice" data-testid="api-mock-sim-export-confirm">
-                    <div className="am-mono" data-testid="api-mock-sim-export-filename">{exportNotice.filename}</div>
-                    <pre className="am-code-block" data-testid="api-mock-sim-export-preview">{exportNotice.preview}</pre>
+                  <div className="am-sim-export-card" data-testid="api-mock-sim-export-confirm">
+                    <div className="am-sim-export-header">
+                      <DownloadIcon size={13} className="am-sim-export-icon" />
+                      <span className="am-sim-export-filename" data-testid="api-mock-sim-export-filename">
+                        {exportNotice.filename}
+                      </span>
+                      <span className="am-badge success am-sim-export-badge">
+                        <CheckIcon size={10} /> Saved
+                      </span>
+                    </div>
+                    <pre className="am-code-block am-sim-export-pre" data-testid="api-mock-sim-export-preview">
+                      {exportNotice.preview}
+                    </pre>
                   </div>
                 )}
               </div>

@@ -67,6 +67,9 @@ function analyzeRoutePair(
 function isDuplicate(a: ApiMockRouteV1, b: ApiMockRouteV1): boolean {
   if (a.method !== b.method) return false;
   if (a.path.kind !== b.path.kind || a.path.value !== b.path.value) return false;
+  // Different priorities mean one rule wins deterministically — classify as shadowed,
+  // not duplicate (duplicate implies guaranteed 409 Ambiguous on every request).
+  if (a.priority !== b.priority) return false;
   return predicateTreesEqual(a.predicates, b.predicates);
 }
 

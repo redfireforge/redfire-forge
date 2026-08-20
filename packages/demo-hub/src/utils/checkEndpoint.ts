@@ -7,6 +7,8 @@
  *
  * Returns true as soon as either probe succeeds, false if both time out or error.
  */
+import { isTauri } from '@shared/utils/platform';
+import { httpFetch, resolveCompanionServerUrl, type HttpResponse } from '@shared/utils/httpClient';
 import { GRPC_SPRING_FIXTURE_HTTP_PORT } from '@shared/grpc/grpcSpringFixturePorts';
 function loopbackProbeCandidates(url: string): string[] {
   try {
@@ -93,9 +95,39 @@ function isRedpandaAdminUrl(url: string): boolean {
   }
 }
 
+function companionStatusOk(body: string): boolean {
+  try {
+    const parsed = JSON.parse(body) as { status?: unknown };
+    return parsed?.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
+async function checkHttpNative(url: string, timeoutMs: number): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res: HttpResponse = await httpFetch(url, 'GET', {}, undefined, controller.signal);
+    return !res.error && res.status >= 200 && res.status < 300;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Try an HTTP GET health check. Resolves true on any 2xx response. */
 async function checkHttp(url: string, timeoutMs: number): Promise<boolean> {
   const candidates = loopbackProbeCandidates(url);
+  // WKWebView fetch cannot reach loopback Docker ports (and 127.0.0.1 is
+  // intercepted by ALL_PROXY on this network). Desktop uses native plugin-http.
+  if (isTauri()) {
+    for (const probeUrl of candidates) {
+      if (await checkHttpNative(probeUrl, timeoutMs)) return true;
+    }
+    return false;
+  }
   for (const probeUrl of candidates) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -113,16 +145,16 @@ async function checkHttp(url: string, timeoutMs: number): Promise<boolean> {
   return false;
 }
 
-/**
- * Same-origin Express health-proxy check.
- * Proxies always respond HTTP 200 with `{ status: 'ok' | 'down' }` so DevTools
- * stays quiet while Docker is offline. Treat legacy non-2xx as down too.
- */
-async function checkProxyHealth(url: string, timeoutMs: number): Promise<boolean> {
+async function readCompanionHealth(probeUrl: string, timeoutMs: number): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    if (isTauri()) {
+      const res = await httpFetch(probeUrl, 'GET', {}, undefined, controller.signal);
+      if (res.error || res.status < 200 || res.status >= 300) return false;
+      return companionStatusOk(res.body);
+    }
+    const res = await fetch(probeUrl, { signal: controller.signal });
     if (!res.ok) return false;
     try {
       const body = await res.json() as { status?: unknown };
@@ -135,6 +167,26 @@ async function checkProxyHealth(url: string, timeoutMs: number): Promise<boolean
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Same-origin Express health-proxy check.
+ * Proxies always respond HTTP 200 with `{ status: 'ok' | 'down' }` so DevTools
+ * stays quiet while Docker is offline. Treat legacy non-2xx as down too.
+ *
+ * Web: relative `/health/...` hits Vite middleware (or the Vite→:3001 proxy).
+ * Tauri: there is no Vite origin — rewrite to the companion and probe with
+ * native plugin-http. WKWebView `fetch()` cannot reach loopback servers.
+ */
+async function checkProxyHealth(url: string, timeoutMs: number): Promise<boolean> {
+  if (!isTauri()) {
+    return readCompanionHealth(url, timeoutMs);
+  }
+  const absolute = resolveCompanionServerUrl(url);
+  for (const probeUrl of loopbackProbeCandidates(absolute)) {
+    if (await readCompanionHealth(probeUrl, timeoutMs)) return true;
+  }
+  return false;
 }
 
 /** Try a WebSocket handshake. Resolves true on open, false on error or timeout. */
