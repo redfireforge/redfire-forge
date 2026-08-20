@@ -16,7 +16,7 @@ import { DEFAULT_SETTINGS } from './defaults';
 import { renderFallbackBody } from './fallbackBody';
 import {
   createSequenceState,
-  isVariantEligible,
+  resolveEligibleVariant,
   selectResponseForRoute,
   type SequenceState,
 } from './responseSelector';
@@ -227,28 +227,13 @@ function selectVariantForPreview(
   });
   if (!selected) return { variant: undefined, fallbackUsed: false };
 
-  const probabilityRoll = hashUnit(`${opts.seed}:prob`);
-  const count = ctx.variantMatchCounts![selected.id] ?? 0;
-  const eligibility = isVariantEligible(selected, count, opts.now, probabilityRoll);
-  if (eligibility.eligible) {
-    return { variant: selected, fallbackUsed: false };
-  }
-
-  const fallback = route.responses.find(v => (
-    v.enabled
-    && v.id !== selected.id
-    && isVariantEligible(
-      v,
-      ctx.variantMatchCounts![v.id] ?? 0,
-      opts.now,
-      hashUnit(`${opts.seed}:prob:${v.id}`),
-    ).eligible
-  ));
-  return {
-    variant: fallback ?? selected,
-    fallbackUsed: Boolean(fallback),
-    eligibilityReason: eligibility.reason,
-  };
+  return resolveEligibleVariant(route, selected, {
+    matchCount: ctx.variantMatchCounts![selected.id] ?? 0,
+    now: opts.now,
+    probabilityRoll: hashUnit(`${opts.seed}:prob`),
+    siblingMatchCount: (id) => ctx.variantMatchCounts![id] ?? 0,
+    siblingProbabilityRoll: (id) => hashUnit(`${opts.seed}:prob:${id}`),
+  });
 }
 
 function checkExpectations(

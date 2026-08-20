@@ -1,0 +1,36 @@
+{
+  "name": "@redfireforge/mock-jest",
+  "version": "0.1.0",
+  "description": "Jest / Vitest global setup helpers for RedfireForge API Mock",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./vitest": {
+      "import": "./dist/vitest.js",
+      "types": "./dist/vitest.d.ts"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules ../../node_modules/.bin/vitest run tests/"
+  },
+  "keywords": ["jest", "vitest", "api-mock", "redfireforge", "testing"],
+  "peerDependencies": {
+    "jest": ">=29",
+    "vitest": ">=1"
+  },
+  "peerDependenciesMeta": {
+    "jest": { "optional": true },
+    "vitest": { "optional": true }
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
+  }
+}

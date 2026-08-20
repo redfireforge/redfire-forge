@@ -281,11 +281,13 @@ describe('ApiMockStudioPage hydration reconciliation', () => {
     await waitFor(() => expect(screen.getByTestId('mock-start')).toBeTruthy());
 
     fireEvent.click(screen.getByTestId('mock-start'));
-    await waitFor(() => expect(transactions).toHaveBeenCalledWith('srv-1'));
-    const afterGone = transactions.mock.calls.length;
+    // Poll probes state first and halts immediately on terminal failures.
+    await waitFor(() => expect(state).toHaveBeenCalledWith('srv-1'));
+    expect(transactions).not.toHaveBeenCalled();
+    const afterGone = state.mock.calls.length;
 
     await act(async () => { await vi.advanceTimersByTimeAsync(4500); });
-    expect(transactions.mock.calls.length).toBe(afterGone);
+    expect(state.mock.calls.length).toBe(afterGone);
     await waitFor(() => expect(screen.getByTestId('mock-runtime')).toHaveTextContent('srv-1:stopped:'));
   });
 

@@ -11,6 +11,7 @@ const prepareApiMockStudioChrome = vi.fn();
 const sendApiMockRequest = vi.fn(async () => ({ status: 200, body: '{"products":[]}' }));
 const patchApiMockServerSettings = vi.fn(() => true);
 const deleteCollectionsByName = vi.fn(() => 0);
+const clearApiMockServerSamples = vi.fn(() => true);
 
 vi.mock('../../adapters', () => ({
   wipeApiMockWorkspace: (...a: unknown[]) => wipeApiMockWorkspace(...(a as [])),
@@ -19,6 +20,7 @@ vi.mock('../../adapters', () => ({
   sendApiMockRequest: (...a: unknown[]) => sendApiMockRequest(...(a as [])),
   patchApiMockServerSettings: (...a: unknown[]) => patchApiMockServerSettings(...(a as [])),
   deleteCollectionsByName: (...a: unknown[]) => deleteCollectionsByName(...(a as [])),
+  clearApiMockServerSamples: (...a: unknown[]) => clearApiMockServerSamples(...(a as [])),
 }));
 
 import {
@@ -70,6 +72,7 @@ import {
   runAm18SaveExample,
   runAm18ShareAndReset,
   runAm18TheMiss,
+  resetAm18ExampleSaved,
 } from './api-mock-am18-helpers';
 
 function el(tag: string, className?: string, testid?: string): HTMLElement {
@@ -242,6 +245,8 @@ function mountEditor(opts: { examples?: boolean; simulate?: boolean; missPath?: 
   examplesTab.id = 'api-mock-btab-examples';
   makeVisible(examplesTab);
   editor.append(examplesTab);
+  // Main Simulate button (route-header, always present in the editor).
+  editor.append(el('button', undefined, 'api-mock-simulate'));
   if (opts.examples) {
     const grid = el('div', undefined, 'api-mock-examples-grid');
     grid.append(el('button', undefined, 'api-mock-example-simulate-s1'));
@@ -250,6 +255,11 @@ function mountEditor(opts: { examples?: boolean; simulate?: boolean; missPath?: 
   document.body.append(editor);
   if (opts.simulate) {
     document.body.append(el('div', undefined, 'api-mock-simulate-workspace'));
+    document.body.append(el('button', undefined, 'api-mock-simulate-save-sample'));
+    const sampleNameInput = document.createElement('input');
+    sampleNameInput.setAttribute('data-testid', 'api-mock-simulate-sample-name');
+    makeVisible(sampleNameInput);
+    document.body.append(sampleNameInput);
     document.body.append(el('button', undefined, 'api-mock-simulate-run'));
     document.body.append(el('div', undefined, 'api-mock-simulate-result'));
     const outcome = el('span', undefined, 'api-mock-sim-outcome');
@@ -261,12 +271,14 @@ function mountEditor(opts: { examples?: boolean; simulate?: boolean; missPath?: 
 
 beforeEach(() => {
   document.body.replaceChildren();
+  resetAm18ExampleSaved();
   wipeApiMockWorkspace.mockClear().mockResolvedValue(true);
   importApiMockGallerySample.mockClear().mockResolvedValue(true);
   prepareApiMockStudioChrome.mockClear();
   sendApiMockRequest.mockClear().mockResolvedValue({ status: 200, body: '{}' });
   patchApiMockServerSettings.mockClear().mockReturnValue(true);
   deleteCollectionsByName.mockClear().mockReturnValue(0);
+  clearApiMockServerSamples.mockClear().mockReturnValue(true);
 });
 
 describe('AM-18 helpers', () => {
@@ -555,8 +567,10 @@ describe('AM-18 step bodies', () => {
     mountEditor({ examples: true, simulate: true, missPath: true });
     const ctx = makeCtx();
     await runAm18ProveExample(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(API_MOCK.BTAB_EXAMPLES);
-    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.EXAMPLE_SIMULATE);
+    // Opens via the route-header Simulate button (scratch-pad mode), not the example row.
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE);
+    // Saves the request as a named sample before running.
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_SAVE_SAMPLE);
     // The example must actually be run so the green verdict appears.
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.SIMULATE_RUN);
   });

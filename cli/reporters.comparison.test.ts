@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { printComparisonSummary, buildComparisonMarkdown } from './reporters';
 import type { RunComparison } from '../src/features/results/utils/runBaselines';
-import type { TestRun } from '../src/types';
+import type { TestRun } from '../src/shared/types';
 import { makeSummary } from './reporters.test.utils';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

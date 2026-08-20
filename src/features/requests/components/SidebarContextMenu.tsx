@@ -548,7 +548,7 @@ export default function SidebarContextMenu({
         )}
 
         {onExportToApiMock && (
-          <button onClick={() => { onExportToApiMock(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Export to API Mock</button>
+          <button data-testid="req-ctx-export-to-mock" onClick={() => { onExportToApiMock(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Export to API Mock</button>
         )}
 
         <button className="danger" onClick={() => {

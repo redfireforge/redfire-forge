@@ -23,10 +23,10 @@ export function useApiMockOpenInRequestsBridge(
   setActiveTab: (tab: 'requests') => void,
 ): void {
   useEffect(() => {
+    const colName = 'API Mock Journal';
     const onOpen = (event: Event) => {
       const detail = (event as CustomEvent<ApiMockOpenInRequestsDetail>).detail;
       if (!detail) return;
-      const colName = 'API Mock Journal';
       const existing = wb.collections.find(c => c.name === colName);
       const colId = existing
         ? existing.id

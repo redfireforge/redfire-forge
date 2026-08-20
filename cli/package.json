@@ -27,7 +27,8 @@
   "type": "module",
   "main": "dist/redfireforge.mjs",
   "bin": {
-    "redfireforge": "dist/redfireforge.mjs"
+    "redfireforge": "dist/redfireforge.mjs",
+    "rff": "dist/redfireforge.mjs"
   },
   "files": [
     "dist/",

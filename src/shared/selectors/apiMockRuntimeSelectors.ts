@@ -97,6 +97,10 @@ export const API_MOCK_RUNTIME = {
   CONFLICT_LIST: '[data-testid="api-mock-conflict-list"]',
   /** First conflict finding row in the list. */
   FIRST_FINDING: '[data-testid="api-mock-conflict-list"] button[data-testid^="api-mock-finding-"]',
+  /** Filter button for "Duplicate" kind — shows count badge; lit up when count > 0. */
+  CONFLICT_FILTER_DUPLICATE: '[data-testid="api-mock-conflict-filter-duplicate"]',
+  /** Filter button for "Shadowed" kind — shows count badge; lit up when count > 0. */
+  CONFLICT_FILTER_SHADOWED: '[data-testid="api-mock-conflict-filter-shadowed"]',
   CONFLICT_DETAIL: '[data-testid="api-mock-conflict-detail"]',
   CONFLICT_WITNESS: '[data-testid="api-mock-conflict-witness"]',
   CONFLICT_POLICY_MULTIPLE: '[data-testid="api-mock-conflict-policy-multiple"]',

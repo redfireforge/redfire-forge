@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 describe('fingerprint coverage gaps', () => {
-  it('falls back to node crypto when webcrypto subtle digest is unavailable', async () => {
+  it('falls back to sync SHA-256 when webcrypto subtle digest is unavailable', async () => {
     const originalCrypto = globalThis.crypto;
     Object.defineProperty(globalThis, 'crypto', {
       configurable: true,

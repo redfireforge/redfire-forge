@@ -13,14 +13,12 @@ import { parseHarEntries } from '../../../shared/api-mock/harImport';
 import { loadCatalogEntries, loadRequests } from '../../../shared/utils/storage';
 import type { CatalogEndpoint } from '../../catalog/types/catalog';
 import type { RequestItem } from '../../../shared/types/requests';
-
 export type ApiMockImportSourceId = 'curl' | 'catalog' | 'requests' | 'openapi' | 'wiremock' | 'native' | 'har';
 
 interface ImportOptions {
   mode: ImportMode;
   newFolderName?: string;
 }
-
 interface Props {
   folders?: ApiMockRouteFolderV1[];
   initialSource?: ApiMockImportSourceId;
@@ -31,7 +29,6 @@ interface Props {
 
 type ImportMode = 'merge' | 'replace' | 'copy';
 type ImportSource = ApiMockImportSourceId
-
 const SOURCES: Array<{ id: ImportSource; label: string; hint: string }> = [
   { id: 'curl', label: 'cURL command', hint: 'Generate rule and sample' },
   { id: 'openapi', label: 'OpenAPI / Swagger', hint: 'Paste JSON or YAML' },
@@ -47,7 +44,6 @@ interface PreviewState {
   diagnostics: ApiMockDiagnosticV1[];
   lossReport: string[];
 }
-
 interface CatalogPick {
   key: string;
   label: string;
@@ -63,10 +59,6 @@ interface RequestPick {
   headers: Array<{ key: string; value: string }>;
   body: string;
 }
-
-/**
- * Mockup 06 Import & Promotion — source cards | review | preview.
- */
 export function ApiMockImportReview({ folders = [], initialSource = 'curl', lastNativeExport, onImport, onCancel }: Props) {
   const [source, setSource] = useState<ImportSource>(initialSource);
   const [curlInput, setCurlInput] = useState('');
@@ -86,15 +78,12 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
   const [loadMessage, setLoadMessage] = useState('');
   const [catalogFilter, setCatalogFilter] = useState('');
   const [requestFilter, setRequestFilter] = useState('');
-
   const isCreatingFolder = folderSelection === '__new__';
   const folderId = useMemo(() => {
     if (folderSelection === '__new__') return undefined;
     return folderSelection;
   }, [folderSelection]);
-
   const defaultPriority = parseInt(priority, 10) || 10;
-
   const folderDisplayLabel = useMemo(() => {
     if (folderSelection === '__new__') return '+ Create new folder';
     return folders.find(f => f.id === folderSelection)?.name ?? '+ Create new folder';
@@ -615,7 +604,9 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
                 Generated route{preview.routes.length > 1 ? `s (${preview.routes.length})` : ''}
                 <span className="am-spacer" />
                 {preview.routes.length === 1 && (
-                  <button type="button" className="am-btn small ghost" onClick={generalizePath} data-testid="api-mock-import-generalize">Generalize path</button>
+                  <button type="button" className="am-btn-generalize" onClick={generalizePath} data-testid="api-mock-import-generalize">
+                    <span aria-hidden="true">✦</span> Generalize path
+                  </button>
                 )}
               </div>
               {preview.routes.length === 1 && primaryRoute && (
@@ -666,32 +657,78 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
             </div>
           )}
         </div>
-
         <aside className="am-import-preview">
           <div className="am-section-heading">Preview</div>
           {!preview || preview.routes.length === 0 ? (
             <div className="am-muted" style={{ fontSize: 11 }}>Parse a source to preview the generated sample request and default response template.</div>
           ) : (
-            preview.routes.map((r, idx) => (
-              <div key={r.id} style={idx > 0 ? { marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 10 } : undefined}>
-                <div className="am-section-heading">Sample request{preview.routes.length > 1 ? ` ${idx + 1}` : ''}</div>
-                <pre className="am-code-block" data-testid={`api-mock-import-preview-request${preview.routes.length > 1 ? `-${idx}` : ''}`}>
-{`${r.method} ${r.path.value} HTTP/1.1`}
-                </pre>
-                <div className="am-section-heading">Default response</div>
-                <pre className="am-code-block" data-testid={`api-mock-import-preview-response${preview.routes.length > 1 ? `-${idx}` : ''}`}>
-{`HTTP ${r.responses[0]?.status ?? 200}
-${r.responses[0]?.body.content || '{}'}`}
-                </pre>
-              </div>
-            ))
+            preview.routes.map((r, idx) => {
+              const resp = r.responses[0];
+              const status = resp?.status ?? 200;
+              const body = resp?.body.content || '{}';
+              const ct = resp?.body.contentType ?? 'application/json';
+              const statusClass = status < 300 ? 'success' : status < 500 ? 'warning' : 'danger';
+              const statusText = status < 300 ? 'OK' : status < 400 ? 'Redirect' : status < 500 ? 'Client Error' : 'Server Error';
+              const pathParts = r.path.value.split(/(\{[^}]+\})/);
+              const multi = preview.routes.length > 1;
+              return (
+                <div key={r.id} className={`am-import-preview-card${idx > 0 ? ' am-import-preview-card--sep' : ''}`}>
+                  <div className="am-import-preview-card-head">
+                    {multi && <span className="am-import-preview-num">{idx + 1}</span>}
+                    <span className={`am-method ${r.method.toLowerCase()}`}>{r.method}</span>
+                    <span className="am-import-preview-head-path">
+                      {pathParts.map((part, i) =>
+                        part.startsWith('{') ? (
+                          <span key={i} className="am-import-preview-param">{part}</span>
+                        ) : (
+                          <span key={i}>{part}</span>
+                        )
+                      )}
+                    </span>
+                  </div>
+                  <div className="am-import-preview-card-body">
+                    <div className="am-import-preview-label">Sample request</div>
+                    <div
+                      className="am-import-preview-req"
+                      data-testid={`api-mock-import-preview-request${multi ? `-${idx}` : ''}`}
+                    >
+                      <div className="am-import-preview-req-line">
+                        <span className={`am-method ${r.method.toLowerCase()}`}>{r.method}</span>
+                        <span className="am-import-preview-path">
+                          {pathParts.map((part, i) =>
+                            part.startsWith('{') ? (
+                              <span key={i} className="am-import-preview-param">{part}</span>
+                            ) : (
+                              <span key={i}>{part}</span>
+                            )
+                          )}
+                        </span>
+                        <span className="am-import-preview-proto">HTTP/1.1</span>
+                      </div>
+                    </div>
+                    <div className="am-import-preview-label" style={{ marginTop: 8 }}>Default response</div>
+                    <div
+                      className="am-import-preview-resp"
+                      data-testid={`api-mock-import-preview-response${multi ? `-${idx}` : ''}`}
+                    >
+                      <div className="am-import-preview-resp-head">
+                        <span className={`am-badge ${statusClass}`}>{status}</span>
+                        <span className="am-import-preview-status-text">{statusText}</span>
+                        <span className="am-spacer" />
+                        <span className="am-import-preview-ct">{ct}</span>
+                      </div>
+                      <pre className="am-import-preview-body">{body}</pre>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </aside>
       </div>
     </div>
   );
 }
-
 function parseCurlToSource(curl: string): SourceRequest {
   const method = curl.match(/-X\s+(\w+)/i)?.[1] ?? 'GET';
   const urlMatch = curl.match(/(?:curl\s+)?(?:-[^\s]+\s+)*['"]?(https?:\/\/[^\s'"]+)/i) ?? curl.match(/['"]?(\/[^\s'"]*)/);

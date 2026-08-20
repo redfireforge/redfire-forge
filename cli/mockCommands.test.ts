@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { stringify as stringifyYaml } from 'yaml';
@@ -13,7 +13,7 @@ vi.mock('./mockStandalone', () => ({
   startStandaloneServers: (...args: unknown[]) => startStandaloneServers(...args),
 }));
 
-import { holdMockStartUntilSignal, runMockSimulate, runMockStart, runMockVerify } from './mockCommands';
+import { holdMockStartUntilSignal, runMockSimulate, runMockStart, runMockStop, runMockVerify, runMockVerifyAllRoutes, runMockWaitReady } from './mockCommands';
 
 const ts = '2026-08-13T00:00:00.000Z';
 
@@ -429,14 +429,16 @@ servers: []
 
   it('passes live journal filters through to assertions', async () => {
     const file = writeWs('ws.json', makeWorkspace());
+    // Use a fresh receivedAt so time-based assertions (lastCallWithinMs) don't drift.
+    const recentTs = new Date().toISOString();
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         ok: true,
         data: {
           transactions: [{
-            id: 'tx-1', serverId: 'srv-1', generation: 1, receivedAt: ts,
-            request: { method: 'GET', path: '/health', rawPath: '/health', query: {}, headers: {}, cookies: {}, body: '{"ok":true}', bodyTruncated: false, receivedAt: ts },
+            id: 'tx-1', serverId: 'srv-1', generation: 1, receivedAt: recentTs,
+            request: { method: 'GET', path: '/health', rawPath: '/health', query: {}, headers: {}, cookies: {}, body: '{"ok":true}', bodyTruncated: false, receivedAt: recentTs },
             outcome: 'matched', matchedRouteId: 'r1',
             explanation: { normalizedRequest: { method: 'GET', path: '/health', decodedPath: '/health', pathSegments: ['health'], query: {}, headerKeys: [], cookieKeys: [], bodySizeBytes: 0 }, candidates: [], policyDecision: { policy: 'highest_priority', equalPriorityPolicy: 'reject', matchedCount: 1, highestPriority: 10, tiedAtHighest: 1, outcome: 'matched' }, nearMisses: [] },
             response: { status: 200, headers: {}, cookies: [], body: '{"ok":true}', bodyTruncated: false, durationMs: 1, generationAtResponse: 1 },
@@ -515,5 +517,258 @@ servers: []
     const file = writeWs('ambiguous.json', ws);
     expect(await runMockSimulate({ file })).toBe(0);
     expect(await runMockVerify({ file, simulate: true, expectOutcome: 'ambiguous' })).toBe(0);
+  });
+
+  // ── --port auto ───────────────────────────────────────────────────────────
+
+  it('mock start --port auto picks a free port and writes port-file + env-file', async () => {
+    startStandaloneServers.mockResolvedValue({
+      results: [{ serverId: 'srv-1', ok: true, port: 51234 }],
+      stopAll: vi.fn().mockResolvedValue(undefined),
+    });
+    const portFile = join(dir, '.rff-mock-port');
+    const envFile  = join(dir, '.env.mock');
+    const file = writeWs('ws.json', makeWorkspace());
+    const code = await runMockStart({ file, port: 'auto', portFile, envFile, standalone: true, hold: false });
+    expect(code).toBe(0);
+    // The standalone servers received an integer port (not 'auto').
+    const [serversArg] = startStandaloneServers.mock.calls[0] as [Array<{ port: number }>, ...unknown[]];
+    expect(typeof serversArg[0].port).toBe('number');
+    expect(serversArg[0].port).toBeGreaterThan(0);
+    // Port discovery files were written with the port the standalone server actually bound.
+    expect(readFileSync(portFile, 'utf8')).toMatch(/^\d+$/);
+    expect(readFileSync(envFile, 'utf8')).toMatch(/^API_MOCK_PORT=\d+\n$/);
+  });
+
+  it('mock start --port auto does not write files when start fails', async () => {
+    startStandaloneServers.mockResolvedValue({
+      results: [{ serverId: 'srv-1', ok: false, error: 'bind failed' }],
+      stopAll: vi.fn().mockResolvedValue(undefined),
+    });
+    const portFile = join(dir, '.rff-mock-port-fail');
+    const file = writeWs('ws.json', makeWorkspace());
+    const code = await runMockStart({ file, port: 'auto', portFile, standalone: true, hold: false });
+    expect(code).toBe(1);
+    expect(existsSync(portFile)).toBe(false);
+  });
+
+  // ── mock stop ─────────────────────────────────────────────────────────────
+
+  it('mock stop calls companion stop endpoint and returns 0 on success', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    const code = await runMockStop({ file, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      expect.stringContaining('/api/mock/servers/srv-1/stop'),
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('mock stop --all stops every server in the workspace', async () => {
+    const ws = makeWorkspace();
+    ws.servers.push({ ...ws.servers[0], id: 'srv-2', name: 'Two', port: 4601 });
+    const file = writeWs('multi.json', ws);
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    const code = await runMockStop({ file, all: true, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledWith(expect.stringContaining('/srv-1/stop'), expect.anything());
+    expect(fetchImpl).toHaveBeenCalledWith(expect.stringContaining('/srv-2/stop'), expect.anything());
+  });
+
+  it('mock stop returns 1 when companion is unreachable', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const code = await runMockStop({ file, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(1);
+  });
+
+  it('mock stop reports HTTP error when response is non-ok and body cannot be parsed', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new Error('invalid json');
+      },
+    });
+    const code = await runMockStop({ file, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(1);
+  });
+
+  it('mock stop reports generic companion unreachable error for non-Error throws', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    const fetchImpl = vi.fn().mockRejectedValue('boom');
+    const code = await runMockStop({ file, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(1);
+  });
+
+  it('mock stop returns 1 when server not found in definition', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    const fetchImpl = vi.fn();
+    const code = await runMockStop({ file, serverId: 'does-not-exist', fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(1);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  // ── mock verify --all-routes ──────────────────────────────────────────────
+
+  function makeJournalFetch(transactions: Array<{ matchedRouteId?: string }>) {
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: {
+          transactions: transactions.map((t, i) => ({
+            id: `tx-${i}`, serverId: 'srv-1', generation: 1, receivedAt: ts,
+            request: { method: 'GET', path: '/health', rawPath: '/health', query: {}, headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts },
+            outcome: 'matched',
+            matchedRouteId: t.matchedRouteId,
+            explanation: { normalizedRequest: { method: 'GET', path: '/health', decodedPath: '/health', pathSegments: [], query: {}, headerKeys: [], cookieKeys: [], bodySizeBytes: 0 }, candidates: [], policyDecision: { policy: 'highest_priority', equalPriorityPolicy: 'reject', matchedCount: 1, highestPriority: 10, tiedAtHighest: 1, outcome: 'matched' }, nearMisses: [] },
+            durationMs: 1,
+          })),
+        },
+      }),
+    });
+  }
+
+  it('verify --all-routes passes when all enabled routes were called', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    const fetchImpl = makeJournalFetch([{ matchedRouteId: 'r1' }]);
+    const code = await runMockVerifyAllRoutes({ file, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(0);
+  });
+
+  it('verify --all-routes fails when a route was never called', async () => {
+    const ws = makeWorkspace();
+    ws.servers[0].routes.push({
+      ...ws.servers[0].routes[0],
+      id: 'r2',
+      name: 'Orders',
+      method: 'POST',
+      path: { kind: 'exact', value: '/orders' },
+    });
+    const file = writeWs('ws.json', ws);
+    // Only r1 was called — r2 was not.
+    const fetchImpl = makeJournalFetch([{ matchedRouteId: 'r1' }]);
+    const code = await runMockVerifyAllRoutes({ file, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(1);
+  });
+
+  it('verify --all-routes respects --min-calls per route', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    // Only 1 call, but we require 3.
+    const fetchImpl = makeJournalFetch([{ matchedRouteId: 'r1' }]);
+    expect(await runMockVerifyAllRoutes({ file, minCallsPerRoute: 3, fetchImpl: fetchImpl as unknown as typeof fetch })).toBe(1);
+    // 3 calls — passes.
+    const fetchImpl3 = makeJournalFetch([
+      { matchedRouteId: 'r1' }, { matchedRouteId: 'r1' }, { matchedRouteId: 'r1' },
+    ]);
+    expect(await runMockVerifyAllRoutes({ file, minCallsPerRoute: 3, fetchImpl: fetchImpl3 as unknown as typeof fetch })).toBe(0);
+  });
+
+  it('verify --all-routes skips disabled routes', async () => {
+    const ws = makeWorkspace();
+    ws.servers[0].routes.push({
+      ...ws.servers[0].routes[0],
+      id: 'r2',
+      name: 'Disabled',
+      enabled: false,
+      method: 'POST',
+      path: { kind: 'exact', value: '/disabled' },
+    });
+    const file = writeWs('ws.json', ws);
+    // r2 is disabled — only r1 must be called.
+    const fetchImpl = makeJournalFetch([{ matchedRouteId: 'r1' }]);
+    expect(await runMockVerifyAllRoutes({ file, fetchImpl: fetchImpl as unknown as typeof fetch })).toBe(0);
+  });
+
+  it('verify --all-routes returns 1 when companion is unreachable', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    expect(await runMockVerifyAllRoutes({ file, fetchImpl: fetchImpl as unknown as typeof fetch })).toBe(1);
+  });
+
+  it('verify --all-routes returns 1 for empty route list', async () => {
+    const ws = makeWorkspace();
+    ws.servers[0].routes = [];
+    const file = writeWs('ws.json', ws);
+    const fetchImpl = makeJournalFetch([]);
+    expect(await runMockVerifyAllRoutes({ file, fetchImpl: fetchImpl as unknown as typeof fetch })).toBe(1);
+  });
+
+  it('verify --all-routes rejects non-positive --min-calls values', async () => {
+    const file = writeWs('ws.json', makeWorkspace());
+    expect(await runMockVerifyAllRoutes({ file, minCallsPerRoute: 0 })).toBe(1);
+  });
+
+  it('verify --all-routes uses unknown path label when route path is missing', async () => {
+    const ws = makeWorkspace();
+    ws.servers[0].routes[0] = {
+      ...ws.servers[0].routes[0],
+      path: { kind: 'exact', value: undefined as unknown as string },
+    };
+    const file = writeWs('ws-pathless.json', ws);
+    const fetchImpl = makeJournalFetch([{ matchedRouteId: 'r1' }]);
+    expect(await runMockVerifyAllRoutes({ file, fetchImpl: fetchImpl as unknown as typeof fetch })).toBe(0);
+  });
+
+  // ── mock wait-ready ───────────────────────────────────────────────────────
+
+  it('wait-ready polls /__rff/health/ready by default and passes on 200', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const code = await runMockWaitReady({ port: 51432, fetchImpl: fetchImpl as unknown as typeof fetch, intervalMs: 10 });
+    expect(code).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledWith('http://127.0.0.1:51432/__rff/health/ready');
+  });
+
+  it('wait-ready keeps retrying on 503 (alive but not ready yet) until timeout', async () => {
+    // 503 = "not ready yet" — should keep polling, not pass immediately
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+    const code = await runMockWaitReady({ port: 4600, timeoutSecs: 0.1, intervalMs: 20, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(1);
+  });
+
+  it('wait-ready accepts custom --health-path to poll root instead', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    await runMockWaitReady({ port: 4600, healthPath: '/', fetchImpl: fetchImpl as unknown as typeof fetch, intervalMs: 10 });
+    expect(fetchImpl).toHaveBeenCalledWith('http://127.0.0.1:4600/');
+  });
+
+  it('wait-ready reads port from --port-file and polls health endpoint', async () => {
+    const portFile = join(dir, '.rff-mock-port');
+    writeFileSync(portFile, '54321', 'utf8');
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
+    const code = await runMockWaitReady({ portFile, fetchImpl: fetchImpl as unknown as typeof fetch, intervalMs: 10 });
+    expect(code).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledWith('http://127.0.0.1:54321/__rff/health/ready');
+  });
+
+  it('wait-ready reads port from --env-file and polls health endpoint', async () => {
+    const envFile = join(dir, '.env.mock');
+    writeFileSync(envFile, 'API_MOCK_PORT=54322\n', 'utf8');
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
+    const code = await runMockWaitReady({ envFile, fetchImpl: fetchImpl as unknown as typeof fetch, intervalMs: 10 });
+    expect(code).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledWith('http://127.0.0.1:54322/__rff/health/ready');
+  });
+
+  it('wait-ready times out when server never becomes ready', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const code = await runMockWaitReady({ port: 59999, timeoutSecs: 0.1, intervalMs: 20, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(code).toBe(1);
+  });
+
+  it('wait-ready returns 1 when port-file has invalid content', async () => {
+    const portFile = join(dir, '.bad-port');
+    writeFileSync(portFile, 'not-a-number', 'utf8');
+    const code = await runMockWaitReady({ portFile, intervalMs: 10 });
+    expect(code).toBe(1);
+  });
+
+  it('wait-ready returns 1 when no port source is provided', async () => {
+    const code = await runMockWaitReady({});
+    expect(code).toBe(1);
   });
 });

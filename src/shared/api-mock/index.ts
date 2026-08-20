@@ -39,7 +39,7 @@ export { migrateWorkspace, registerMigration } from './migration';
 export type { MigrationResult } from './migration';
 export { normalizeRequest } from './requestNormalization';
 export type { RawRequestInput, NormalizedRequestSummary, NormalizationResult } from './requestNormalization';
-export { matchPath } from './pathMatcher';
+export { matchPath, inferPathKind, normalizePathMatcher, pathParamNames } from './pathMatcher';
 export type { PathMatchResult } from './pathMatcher';
 export { evaluateRoute, evaluatePredicateGroup } from './predicateEvaluator';
 export type { RouteEvaluationResult } from './predicateEvaluator';
@@ -78,6 +78,7 @@ export {
   selectRulesResponse,
   selectResponseForRoute,
   isVariantEligible,
+  resolveEligibleVariant,
 } from './responseSelector';
 export type { SequenceState } from './responseSelector';
 export { exportWorkspace, serializeExport, exportFilename } from './exportUtils';

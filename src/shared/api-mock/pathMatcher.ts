@@ -24,6 +24,29 @@ export function inferPathKind(value: string, current?: ApiMockPathMatcherKind): 
   return 'exact';
 }
 
+/**
+ * Promote an `exact` matcher whose value is clearly a template (`:id`, `{id}`,
+ * globs) so OpenAPI imports and typed paths cannot stay as unmatchable literals.
+ * Explicit regex / glob / parameterized kinds are left alone.
+ */
+export function normalizePathMatcher(matcher: ApiMockPathMatcherV1): ApiMockPathMatcherV1 {
+  if (matcher.kind !== 'exact') {
+    if (matcher.kind === 'parameterized' && !matcher.paramNames?.length) {
+      const paramNames = pathParamNames(matcher.value);
+      return paramNames.length > 0 ? { ...matcher, paramNames } : matcher;
+    }
+    return matcher;
+  }
+  const kind = inferPathKind(matcher.value, matcher.kind);
+  if (kind === 'exact') return matcher;
+  const paramNames = kind === 'parameterized' ? pathParamNames(matcher.value) : undefined;
+  return {
+    ...matcher,
+    kind,
+    ...(paramNames && paramNames.length > 0 ? { paramNames } : {}),
+  };
+}
+
 /** Unique `:name` / `{name}` captures from path segments, matching `matchParameterizedPath`. */
 export function pathParamNames(value: string): string[] {
   const names: string[] = [];
@@ -41,12 +64,13 @@ export function pathParamNames(value: string): string[] {
 }
 
 export function matchPath(matcher: ApiMockPathMatcherV1, requestPath: string): PathMatchResult {
-  const ci = matcher.flags?.caseInsensitive ?? false;
-  switch (matcher.kind) {
-    case 'exact': return matchExactPath(matcher.value, requestPath, ci);
-    case 'parameterized': return matchParameterizedPath(matcher.value, requestPath, ci);
-    case 'glob': return matchGlobPath(matcher.value, requestPath, ci);
-    case 'regex': return matchRegexPath(matcher.value, requestPath, ci);
+  const resolved = normalizePathMatcher(matcher);
+  const ci = resolved.flags?.caseInsensitive ?? false;
+  switch (resolved.kind) {
+    case 'exact': return matchExactPath(resolved.value, requestPath, ci);
+    case 'parameterized': return matchParameterizedPath(resolved.value, requestPath, ci);
+    case 'glob': return matchGlobPath(resolved.value, requestPath, ci);
+    case 'regex': return matchRegexPath(resolved.value, requestPath, ci);
     default: return NO_MATCH;
   }
 }

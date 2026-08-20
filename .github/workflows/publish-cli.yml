@@ -1,5 +1,11 @@
 name: Publish CLI to npm
 
+# NOTE (future reference, added 2026-08-18): as of this date, `redfireforge-cli`
+# has never actually been published — the real npm registry returns 404 for it.
+# This workflow is ready to run (triggers on `v*` tags, or manually via
+# workflow_dispatch), it just needs a maintainer to actually push a version tag
+# (or run it manually) once the project is ready for a public CLI release.
+
 on:
   push:
     tags:
