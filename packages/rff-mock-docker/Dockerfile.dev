@@ -1,0 +1,32 @@
+# RedfireForge API Mock — Local / Dev Build
+#
+# Builds the Docker image from the monorepo cli/dist/ output.
+# Run from the monorepo root after `npm run build:cli`:
+#
+#   docker build -f packages/rff-mock-docker/Dockerfile.dev \
+#                -t rff-mock:local .
+
+FROM node:20-alpine
+
+# Copy the pre-built CLI bundle from the monorepo
+WORKDIR /app
+COPY cli/dist/              ./dist/
+COPY cli/package.json       ./package.json
+
+# Wire the binary so `rff` is on PATH
+RUN npm install --omit=dev --ignore-scripts 2>/dev/null; \
+    ln -sf /app/dist/redfireforge.mjs /usr/local/bin/rff; \
+    chmod +x /usr/local/bin/rff
+
+RUN addgroup -S rff && adduser -S rff -G rff
+USER rff
+
+WORKDIR /workspace
+EXPOSE 4600
+ENV RFF_MOCK_PORT=4600
+ENV RFF_MOCK_FILE=/workspace/mock.json
+
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=6 \
+  CMD wget -qO- "http://localhost:${RFF_MOCK_PORT}/__rff/health/ready" | grep -q '"status":"ok"' || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec rff mock start \"${RFF_MOCK_FILE}\" --standalone --port \"${RFF_MOCK_PORT}\""]

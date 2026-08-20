@@ -12,6 +12,8 @@ Run API performance tests and workflows using YAML or JSON test files. The CLI u
 npm install -g redfireforge-cli
 ```
 
+This installs two equivalent commands: `redfireforge` (full name) and **`rff`** (short alias — same binary, just less to type). `rff` is never claimed by the desktop app installer, so it's always unambiguous even on a machine that also has the desktop app installed.
+
 ### Option 2: Desktop App CLI Mode
 
 If you have the RedfireForge desktop app installed, use the `--cli` flag:
@@ -23,6 +25,8 @@ redfireforge --cli run tests/test.yaml
 # Windows (added to PATH during installation)
 redfireforge --cli run tests/test.yaml
 ```
+
+> **Note:** the desktop app's own `redfireforge` command launches the GUI by default (`--cli` switches it to CLI mode) — this is a *different* binary than Option 1's npm package, even though they share the same name. If you have both installed, prefer `rff` (Option 1) or `redfireforge --cli` (Option 2) explicitly rather than relying on bare `redfireforge`, since whichever one wins your `$PATH` determines which behavior you get.
 
 ### Option 3: From Source
 
@@ -47,6 +51,9 @@ redfireforge run tests/api-test.yaml -c 10 -i 100
 
 # Run a workflow performance test
 redfireforge workflow tests/checkout-flow.yaml -i 50 -c 5
+
+# Every command above also works with the short "rff" alias:
+rff run tests/api-test.yaml -c 10 -i 100
 ```
 
 ## Commands

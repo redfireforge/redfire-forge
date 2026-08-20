@@ -36,6 +36,7 @@ export const REQ = {
   COL_ITEM:                 '[data-testid="req-col-item"]',
   REQ_ITEM:                 '[data-testid="req-req-item"]',
   CONTEXT_MENU:             '[data-testid="req-context-menu"]',
+  CTX_EXPORT_TO_MOCK:       '[data-testid="req-ctx-export-to-mock"]',
   FOLDER_NAME_INPUT:        '[data-testid="req-folder-name-input"]',
   colByName: (name: string) => `[data-col-name="${name}"]`,
   reqByName: (name: string) => `[data-req-name="${name}"]`,

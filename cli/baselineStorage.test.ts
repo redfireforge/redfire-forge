@@ -11,7 +11,7 @@ import {
   LATEST_BASELINE_SENTINEL,
   type CliBaseline,
 } from './baselineStorage';
-import type { TestSummary } from '../src/types';
+import type { TestSummary } from '../src/shared/types';
 
 // ── Mock node:fs ────────────────────────────────────────────────────────────
 

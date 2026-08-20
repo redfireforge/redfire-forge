@@ -422,4 +422,66 @@ describe('evaluateRoute', () => {
       }), '').overallMatch).toBe(true);
     });
   });
+
+  describe('rules-mode variant conditions as alternate matchers', () => {
+    const skuEquals = (id: string, sku: string): ApiMockPredicateGroupV1 => ({
+      id,
+      combinator: 'all',
+      children: [{
+        id: `${id}-p`,
+        source: 'body',
+        selector: '',
+        operator: 'jsonPath_equals',
+        expected: ['$.sku', sku],
+      }],
+    });
+
+    const ordersRoute = (mode: ApiMockRouteV1['responseMode'] = 'rules'): ApiMockRouteV1 => {
+      const happy = createDefaultResponse('v-201');
+      happy.isDefault = true;
+      happy.status = 201;
+      const missing = createDefaultResponse('v-404');
+      missing.isDefault = false;
+      missing.status = 404;
+      missing.conditions = skuEquals('pg-missing', 'MISSING');
+      const flaky = createDefaultResponse('v-503');
+      flaky.isDefault = false;
+      flaky.status = 503;
+      flaky.conditions = skuEquals('pg-flaky', 'FLAKY');
+      return route({
+        method: 'POST',
+        path: { kind: 'exact', value: '/orders' },
+        predicates: skuEquals('pg-root', 'WIDGET'),
+        responseMode: mode,
+        responses: [happy, missing, flaky],
+      });
+    };
+
+    const postOrders = (sku: string) => req({
+      method: 'POST',
+      path: '/orders',
+      rawPath: '/orders',
+      body: JSON.stringify({ sku, qty: 1 }),
+    });
+
+    it('matches FLAKY even when the route predicate still requires WIDGET', () => {
+      expect(evaluateRoute(ordersRoute(), postOrders('FLAKY'), '').overallMatch).toBe(true);
+    });
+
+    it('matches MISSING even when the route predicate still requires WIDGET', () => {
+      expect(evaluateRoute(ordersRoute(), postOrders('MISSING'), '').overallMatch).toBe(true);
+    });
+
+    it('still matches WIDGET via the route predicate', () => {
+      expect(evaluateRoute(ordersRoute(), postOrders('WIDGET'), '').overallMatch).toBe(true);
+    });
+
+    it('stays unmatched when no variant condition claims the SKU', () => {
+      expect(evaluateRoute(ordersRoute(), postOrders('OTHER'), '').overallMatch).toBe(false);
+    });
+
+    it('does not use variant conditions in sequence mode', () => {
+      expect(evaluateRoute(ordersRoute('sequence'), postOrders('FLAKY'), '').overallMatch).toBe(false);
+    });
+  });
 });

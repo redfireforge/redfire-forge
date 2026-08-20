@@ -208,6 +208,14 @@ describe('ApiMockSimulateModal coverage gaps', () => {
     );
 
     const { ApiMockSimulateModal } = await import('./ApiMockSimulateModal');
+    const req = {
+      method: 'GET' as const, path: '/a', rawPath: '/a', query: {}, cookies: {},
+      headers: {}, body: null, bodyTruncated: false, receivedAt: ts,
+    };
+    server.samples = [
+      { id: 's-a', name: 'A', request: { ...req, path: '/a', rawPath: '/a' } },
+      { id: 's-b', name: 'B', request: { ...req, path: '/b', rawPath: '/b' } },
+    ];
     render(<ApiMockSimulateModal server={server} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('api-mock-simulate-run-all'));
     expect(screen.getByTestId('api-mock-simulate-summary').textContent).toMatch(/2 conflicts/);

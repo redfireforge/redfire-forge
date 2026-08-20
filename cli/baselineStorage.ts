@@ -10,7 +10,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, join } from 'path';
-import type { TestSummary } from '../src/types';
+import type { TestSummary } from '../src/shared/types';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

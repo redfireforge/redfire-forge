@@ -16,6 +16,8 @@ vi.mock('../../config/features', () => ({
 type Patch = {
   path?: string;
   pathKind?: 'exact' | 'parameterized' | 'glob' | 'regex';
+  selectPath?: string;
+  selectMethod?: string;
   body?: string;
   contentType?: string;
   status?: number;
@@ -23,6 +25,10 @@ type Patch = {
   priority?: number;
   predicates?: ApiMockPredicateGroupV1;
   responseMode?: 'rules' | 'sequence' | 'weighted' | 'state';
+  addRoute?: boolean;
+  removeRoute?: boolean;
+  enabled?: boolean;
+  method?: string;
   addVariant?: boolean;
   variantIndex?: number;
   variantName?: string;
@@ -71,11 +77,14 @@ function setup(options: { server?: ApiMockServerDefinitionV1 | null; selectedRou
   const setServers = vi.fn((update: unknown) => {
     state.servers = (update as (prev: ApiMockServerDefinitionV1[]) => ApiMockServerDefinitionV1[])(state.servers);
   });
-  const rendered = renderHook(() => useDemoApiMockRoutePatch({
-    getState: () => state,
-    selectedRouteId: options.selectedRouteId,
-    setServers: setServers as never,
-  }));
+  const rendered = renderHook(
+    ({ selectedRouteId }: { selectedRouteId?: string }) => useDemoApiMockRoutePatch({
+      getState: () => state,
+      selectedRouteId,
+      setServers: setServers as never,
+    }),
+    { initialProps: { selectedRouteId: options.selectedRouteId } },
+  );
   return { rendered, state, setServers, route: server?.routes[0] };
 }
 
@@ -142,6 +151,43 @@ describe('useDemoApiMockRoutePatch', () => {
     const patched = state.servers[0].routes[0];
     expect(patched.path).toMatchObject({ value: '^/v1/.*$', kind: 'regex' });
     expect(patched.priority).toBe(route?.priority);
+  });
+
+  it('enables a draft GET /orders/{id} and promotes it to parameterized', () => {
+    const item = {
+      ...createRoute('Get order'),
+      method: 'GET' as const,
+      enabled: false,
+      path: { kind: 'exact' as const, value: '/orders/{id}' },
+    };
+    const { state } = setup({ server: makeServer([item]), selectedRouteId: item.id });
+    expect(bridge()?.({
+      selectPath: '/orders/{id}',
+      selectMethod: 'GET',
+      path: '/orders/{id}',
+      pathKind: 'parameterized',
+      enabled: true,
+    })).toBe(true);
+    expect(state.servers[0].routes[0].enabled).toBe(true);
+    expect(state.servers[0].routes[0].path).toEqual({
+      kind: 'parameterized',
+      value: '/orders/{id}',
+      paramNames: ['id'],
+    });
+  });
+
+  it('pathKind-only patches fill param names on an existing template', () => {
+    const item = {
+      ...createRoute('Get order'),
+      path: { kind: 'exact' as const, value: '/orders/{id}' },
+    };
+    const { state } = setup({ server: makeServer([item]), selectedRouteId: item.id });
+    expect(bridge()?.({ pathKind: 'parameterized' })).toBe(true);
+    expect(state.servers[0].routes[0].path).toMatchObject({
+      kind: 'parameterized',
+      value: '/orders/{id}',
+      paramNames: ['id'],
+    });
   });
 
   it('replaces the whole match group so a replayed lesson step cannot stack rows', () => {
@@ -284,6 +330,31 @@ describe('useDemoApiMockRoutePatch', () => {
     expect(state.servers[0].routes[1].priority).toBe(7);
   });
 
+  it('patches whichever rule is selected at call time, not mount time', () => {
+    const first = createRoute('First');
+    const second = createRoute('Second');
+    const { rendered, state } = setup({ server: makeServer([first, second]), selectedRouteId: first.id });
+    rendered.rerender({ selectedRouteId: second.id });
+    expect(bridge()?.({ priority: 7 })).toBe(true);
+    expect(state.servers[0].routes[0].priority).toBe(first.priority);
+    expect(state.servers[0].routes[1].priority).toBe(7);
+  });
+
+  it('selectPath patches that rule even when another row is selected', () => {
+    const health = { ...createRoute('Health'), method: 'GET' as const, path: { ...createRoute('Health').path, value: '/' } };
+    const orders = { ...createRoute('Orders'), method: 'POST' as const, path: { ...createRoute('Orders').path, value: '/orders' } };
+    const { state } = setup({ server: makeServer([health, orders]), selectedRouteId: health.id });
+    expect(bridge()?.({ selectPath: '/orders', selectMethod: 'POST', predicates: { id: 'open', combinator: 'all', children: [] } })).toBe(true);
+    expect(state.servers[0].routes[0].predicates.children).toEqual(health.predicates.children);
+    expect(state.servers[0].routes[1].predicates).toEqual({ id: 'open', combinator: 'all', children: [] });
+  });
+
+  it('returns false when selectPath matches no rule', () => {
+    const { setServers } = setup();
+    expect(bridge()?.({ selectPath: '/missing', selectMethod: 'POST', priority: 1 })).toBe(false);
+    expect(setServers).not.toHaveBeenCalled();
+  });
+
   it('falls back to the first rule when the selection is stale', () => {
     const { state } = setup({ selectedRouteId: 'gone' });
     expect(bridge()?.({ priority: 3 })).toBe(true);
@@ -372,16 +443,17 @@ describe('useDemoApiMockRoutePatch', () => {
     expect(responses[1].isDefault).toBe(true);
   });
 
-  it('skips addVariant when two responses already exist and honours weighted/state mode', () => {
+  it('appends a third variant and honours weighted/state mode', () => {
     const first = createRoute('Cart');
     first.responses = [
       { ...first.responses[0], isDefault: true },
       { ...createDefaultResponse('resp-2'), isDefault: false, name: 'Alt' },
     ];
     const { state } = setup({ server: makeServer([first]) });
-    expect(bridge()?.({ addVariant: true, variantName: 'Ignored' })).toBe(true);
-    expect(state.servers[0].routes[0].responses).toHaveLength(2);
-    expect(state.servers[0].routes[0].responses[1].name).toBe('Ignored');
+    expect(bridge()?.({ addVariant: true, variantName: 'Degraded', status: 503 })).toBe(true);
+    expect(state.servers[0].routes[0].responses).toHaveLength(3);
+    expect(state.servers[0].routes[0].responses[1].name).toBe('Alt');
+    expect(state.servers[0].routes[0].responses[2]).toMatchObject({ name: 'Degraded', status: 503 });
 
     expect(bridge()?.({ responseMode: 'weighted' })).toBe(true);
     expect(state.servers[0].routes[0].responseMode).toBe('weighted');
@@ -480,5 +552,139 @@ describe('useDemoApiMockRoutePatch', () => {
     expect(state.servers[0].routes[0].responses[0].behavior.maxMatches).toBeUndefined();
     expect(state.servers[0].routes[0].responses[0].behavior.probability).toBeUndefined();
     expect(state.servers[0].routes[0].responses[0].behavior.fault).toBeUndefined();
+  });
+
+  it('upserts Simulate samples by name without duplicating', () => {
+    const { state } = setup();
+    const upsert = (window as unknown as {
+      __demoUpsertApiMockServerSamples?: (drafts: Array<{
+        name: string;
+        method: string;
+        path: string;
+        body?: string;
+        contentType?: string;
+        expected?: { outcome: 'matched'; status: number };
+      }>) => boolean;
+    }).__demoUpsertApiMockServerSamples;
+    expect(upsert?.([
+      {
+        name: 'POST /orders FLAKY',
+        method: 'POST',
+        path: '/orders',
+        body: '{"sku":"FLAKY","qty":1}',
+        contentType: 'application/json',
+        expected: { outcome: 'matched', status: 503 },
+      },
+      {
+        name: 'POST /orders - MISSING',
+        method: 'POST',
+        path: '/orders',
+        body: '{"sku":"MISSING","qty":1}',
+        contentType: 'application/json',
+        expected: { outcome: 'matched', status: 404 },
+      },
+    ])).toBe(true);
+    expect(state.servers[0].samples).toHaveLength(2);
+    expect(state.servers[0].samples.map(s => s.name)).toEqual([
+      'POST /orders FLAKY',
+      'POST /orders - MISSING',
+    ]);
+    expect(state.servers[0].samples[0].expected?.status).toBe(503);
+    const flakyId = state.servers[0].samples[0].id;
+    expect(upsert?.([{
+      name: 'POST /orders FLAKY',
+      method: 'POST',
+      path: '/orders',
+      body: '{"sku":"FLAKY","qty":1}',
+      contentType: 'application/json',
+      expected: { outcome: 'matched', status: 503 },
+    }])).toBe(true);
+    expect(state.servers[0].samples).toHaveLength(2);
+    expect(state.servers[0].samples[0].id).toBe(flakyId);
+  });
+
+  it('appends GET /health and deletes leftover GET / by path', () => {
+    const orders = createRoute('Create order');
+    orders.method = 'POST';
+    orders.path = { ...orders.path, value: '/orders' };
+    const { state } = setup({ server: makeServer([orders]) });
+    expect(bridge()?.({ addRoute: true, path: '/health', method: 'GET', priority: 20 })).toBe(true);
+    expect(state.servers[0].routes).toHaveLength(2);
+    expect(state.servers[0].routes[1]).toMatchObject({
+      method: 'GET',
+      path: { value: '/health' },
+      priority: 20,
+    });
+
+    expect(bridge()?.({ addRoute: true, path: '/', method: 'GET' })).toBe(true);
+    expect(bridge()?.({ addRoute: true, path: '/', method: 'GET' })).toBe(true);
+    expect(state.servers[0].routes.filter(r => r.path.value === '/')).toHaveLength(2);
+    expect(bridge()?.({ removeRoute: true, selectPath: '/', selectMethod: 'GET' })).toBe(true);
+    expect(bridge()?.({ removeRoute: true, selectPath: '/', selectMethod: 'GET' })).toBe(true);
+    expect(state.servers[0].routes.filter(r => r.path.value === '/')).toHaveLength(0);
+    expect(state.servers[0].routes.some(r => r.path.value === '/health')).toBe(true);
+    expect(state.servers[0].routes.some(r => r.path.value === '/orders')).toBe(true);
+  });
+
+  it('changes method on the selected rule', () => {
+    const { state } = setup();
+    expect(bridge()?.({ method: 'POST' })).toBe(true);
+    expect(state.servers[0].routes[0].method).toBe('POST');
+  });
+
+  it('addRoute honours enabled false and infers {id} as parameterized', () => {
+    const { state } = setup();
+    expect(bridge()?.({
+      addRoute: true,
+      method: 'GET',
+      path: '/orders/{id}',
+      enabled: false,
+    })).toBe(true);
+    const added = state.servers[0].routes[1];
+    expect(added.enabled).toBe(false);
+    expect(added.path).toMatchObject({
+      kind: 'parameterized',
+      value: '/orders/{id}',
+      paramNames: ['id'],
+    });
+  });
+
+  it('pathKind-only exact does not invent param names', () => {
+    const { state } = setup();
+    expect(bridge()?.({ pathKind: 'exact' })).toBe(true);
+    expect(state.servers[0].routes[0].path.kind).toBe('exact');
+  });
+
+  it('disables an enabled rule', () => {
+    const { state } = setup();
+    expect(bridge()?.({ enabled: false })).toBe(true);
+    expect(state.servers[0].routes[0].enabled).toBe(false);
+  });
+
+  it('clear samples reports false without an active server', () => {
+    setup({ server: null });
+    const clear = (window as unknown as { __demoClearApiMockServerSamples?: () => boolean })
+      .__demoClearApiMockServerSamples;
+    expect(clear?.()).toBe(false);
+  });
+
+  it('clears Simulate samples on the active server only', () => {
+    const { state } = setup();
+    state.servers[0].samples = [{ id: 's1', name: 'keep-me-not' } as never];
+    state.servers.push({ ...makeServer([createRoute('Other')]), id: 'srv-b', samples: [{ id: 's2', name: 'other' } as never] });
+    const clear = (window as unknown as { __demoClearApiMockServerSamples?: () => boolean })
+      .__demoClearApiMockServerSamples;
+    expect(clear?.()).toBe(true);
+    expect(state.servers[0].samples).toEqual([]);
+    expect(state.servers[1].samples).toHaveLength(1);
+  });
+
+  it('addRoute defaults method from selectMethod and path to slash', () => {
+    const { state } = setup();
+    expect(bridge()?.({ addRoute: true, selectMethod: 'PUT', pathKind: 'glob' })).toBe(true);
+    expect(state.servers[0].routes[1]).toMatchObject({
+      method: 'PUT',
+      path: { value: '/', kind: 'glob' },
+    });
   });
 });

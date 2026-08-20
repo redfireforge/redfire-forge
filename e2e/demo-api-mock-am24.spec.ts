@@ -39,7 +39,7 @@ test.describe('Demo lesson AM-24 — Ship a Contract Mock', () => {
   test('walks all 9 steps and ends on a green Assert node', async ({ page }) => {
     test.setTimeout(AM_LESSON_TIMEOUT);
 
-    await walkApiMockLesson(page, 'am24');
+    await walkApiMockLesson(page, 'am24', 240_000);
 
     expect(await readStepCounter(page)).toContain(`${AM_LESSON_STEPS.am24} / ${AM_LESSON_STEPS.am24}`);
     await expect(page.locator(`${API_MOCK.CANVAS_ASSERT}.wf-node-pass`)).toBeVisible({

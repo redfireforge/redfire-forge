@@ -39,9 +39,15 @@ export function evaluateRoute(route: ApiMockRouteV1, request: ApiMockCapturedReq
   const fullPath = stripBasePath(request.path, basePath);
   const pathResult = matchPath(route.path, fullPath);
   const predicateResults: ApiMockPredicateResultV1[] = [];
-  const predicatesMatch = methodMatch && pathResult.matched
+  const methodAndPath = methodMatch && pathResult.matched;
+  const predicatesMatch = methodAndPath
     ? evaluateGroup(route.predicates, request, pathResult.params, predicateResults)
     : false;
+  // Rules-mode variant conditions are an alternate matcher. A leftover
+  // route-level body predicate (e.g. `$.sku == WIDGET`) must not 404 a
+  // request that a sibling variant already claims (`$.sku == FLAKY` → 503).
+  const variantConditionMatch = methodAndPath && !predicatesMatch
+    && routeMatchesViaRulesVariant(route, request, pathResult.params);
 
   return {
     routeId: route.id,
@@ -52,8 +58,22 @@ export function evaluateRoute(route: ApiMockRouteV1, request: ApiMockCapturedReq
     pathMatch: pathResult.matched,
     pathParams: pathResult.params,
     predicateResults,
-    overallMatch: route.enabled && methodMatch && pathResult.matched && predicatesMatch,
+    overallMatch: route.enabled && methodAndPath && (predicatesMatch || variantConditionMatch),
   };
+}
+
+function routeMatchesViaRulesVariant(
+  route: ApiMockRouteV1,
+  request: ApiMockCapturedRequestV1,
+  pathParams: Record<string, string>,
+): boolean {
+  if (route.responseMode !== 'rules') return false;
+  return route.responses.some((variant) => (
+    variant.enabled
+    && !variant.isDefault
+    && Boolean(variant.conditions?.children.length)
+    && evaluatePredicateGroup(variant.conditions!, request, pathParams)
+  ));
 }
 
 function matchMethod(routeMethod: ApiMockMethod, requestMethod: string): boolean {

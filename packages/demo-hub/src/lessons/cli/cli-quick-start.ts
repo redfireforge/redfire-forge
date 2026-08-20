@@ -189,6 +189,7 @@ export const cliQuickStartLesson: DemoLesson = {
         'Same output as the previous step — now let\'s read the three sections:\n\n' +
         '- **P50 / P95 / P99 / P99.9** — percentile latencies, not just an average. Averages hide tail latency; P95 tells you what the slowest 5% of users actually experience.\n' +
         '- **Timing Breakdown** — DNS / TCP / TLS / TTFB / Download. Tells you _where_ time was spent, not just how much total.\n' +
+        '  - **What is TTFB?** Time To First Byte — how long from sending the request until the first byte of the response arrives. It measures server think-time plus network delay, before the body download starts.\n' +
         '- **Tags** — every tag seen across the run. This is a preview of the `--scenario-tags` filtering covered in the Data-Driven lesson.',
       terminalOutput:
         '  Loading: cli-basic-test.yaml\n' +

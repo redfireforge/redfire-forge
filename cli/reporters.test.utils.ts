@@ -2,7 +2,7 @@
  * Shared test utilities for reporter tests
  */
 import { makeResult as _makeResult, makeSummary } from '../src/test-utils/factories';
-import type { TestConfig } from '../src/types';
+import type { TestConfig } from '../src/shared/types';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 export const makeResult = (overrides: Parameters<typeof _makeResult>[0] = {}) =>

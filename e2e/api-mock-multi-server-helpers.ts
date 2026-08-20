@@ -21,7 +21,7 @@ export const USERS_BODY = '{"service":"users","ok":true}';
 export const USERS_BODY_V2 = '{"service":"users","ok":true,"v":2}';
 export const PAYMENTS_BODY = '{"service":"payments","ok":true}';
 
-export const MULTI_SERVER_TIMEOUT = 600_000;
+export const MULTI_SERVER_TIMEOUT = 180_000;
 
 export async function isApiMockCompanionReady(request: APIRequestContext): Promise<boolean> {
   return isBackendHealthy(request);
@@ -30,11 +30,11 @@ export async function isApiMockCompanionReady(request: APIRequestContext): Promi
 /** Stop every companion listener (including orphans from prior runs). */
 export async function stopAllCompanionListeners(request: APIRequestContext): Promise<void> {
   try {
-    const res = await request.get('http://127.0.0.1:3001/api/mock/servers', { timeout: 5_000 });
+    const res = await request.get('http://localhost:3001/api/mock/servers', { timeout: 5_000 });
     if (!res.ok()) return;
     const body = await res.json() as { ok?: boolean; data?: Array<{ serverId: string }> };
     for (const row of body.data ?? []) {
-      await request.post(`http://127.0.0.1:3001/api/mock/servers/${encodeURIComponent(row.serverId)}/stop`, {
+      await request.post(`http://localhost:3001/api/mock/servers/${encodeURIComponent(row.serverId)}/stop`, {
         timeout: 5_000,
       }).catch(() => undefined);
     }
@@ -214,7 +214,7 @@ export async function openTransactionsDock(page: Page): Promise<void> {
 
 export async function expectJournalMatch(page: Page): Promise<void> {
   await openTransactionsDock(page);
-  await expect(page.locator(API_MOCK.JOURNAL_FIRST_ROW)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(API_MOCK.JOURNAL_FIRST_ROW).first()).toBeVisible({ timeout: 15_000 });
 }
 
 /**
@@ -273,6 +273,6 @@ export async function fetchMock(
   port: number,
   path: string,
 ): Promise<{ status: number; body: string }> {
-  const res = await request.get(`http://127.0.0.1:${port}${path}`, { timeout: 10_000 });
+  const res = await request.get(`http://localhost:${port}${path}`, { timeout: 10_000 });
   return { status: res.status(), body: await res.text() };
 }

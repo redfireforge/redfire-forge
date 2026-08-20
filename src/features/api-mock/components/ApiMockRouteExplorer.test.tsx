@@ -225,6 +225,7 @@ describe('ApiMockRouteExplorer', () => {
 
     fireEvent.click(first);
     fireEvent.doubleClick(second);
+    fireEvent.click(screen.getByTestId('api-mock-route-state-r2'));
     fireEvent.click(screen.getByTestId('api-mock-analyze'));
     expect(onSelect).toHaveBeenCalledWith('r1');
     expect(onToggle).toHaveBeenCalledWith('r2', true);

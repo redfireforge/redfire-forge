@@ -8,6 +8,7 @@ import {
   deleteCatalogEntryByName,
   deleteCollectionsByName,
   ensureBlankApiMockServer,
+  expandAppSidebar,
   isCatalogLoaded,
   prepareApiMockStudioChrome,
   seedCatalogEntry,
@@ -15,7 +16,7 @@ import {
   sendApiMockRequest,
   wipeApiMockWorkspace,
 } from '../../adapters';
-import { API_MOCK } from '@shared/selectors';
+import { API_MOCK, CAT, REQ } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
@@ -58,10 +59,26 @@ export const AM15_CATALOG_SPEC = JSON.stringify({
   info: { title: 'Import demo API', version: '1.0.0' },
   paths: {
     '/catalog/widgets': {
-      get: { operationId: 'listWidgets', summary: 'List widgets', responses: { '200': { description: 'ok' } } },
+      get: {
+        operationId: 'listWidgets',
+        summary: 'List widgets',
+        // Query param makes the "Try it out" button appear so Export to API Mock
+        // is reachable — the button only renders when tryItOpen=true.
+        parameters: [
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Filter by name' },
+        ],
+        responses: { '200': { description: 'ok' } },
+      },
     },
     '/catalog/widgets/{id}': {
-      get: { operationId: 'getWidget', summary: 'Get widget', responses: { '200': { description: 'ok' } } },
+      get: {
+        operationId: 'getWidget',
+        summary: 'Get widget',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Widget ID' },
+        ],
+        responses: { '200': { description: 'ok' } },
+      },
     },
   },
 });
@@ -689,4 +706,184 @@ export async function runAm15EnableAndProve(ctx: DemoActionContext): Promise<voi
   await sendApiMockRequest({ path: AM15_PROVE_PATH, method: 'GET' });
   await ctx.delay(T.journalWrite);
   await openJournalMatched(ctx);
+}
+
+// ── Push-from-clients (Requests + Catalog → Export to API Mock) ────────────
+
+export const AM15_PUSH_REQ_NAME = 'List inventory';
+export const AM15_PUSH_CAT_ENTRY = AM15_CATALOG_NAME;
+export const AM15_PUSH_CAT_PATH = '/catalog/widgets';
+const REVEAL_MS = 3_000;
+
+/** Trigger the browser contextmenu event on a request sidebar item by name. */
+function triggerRequestContextMenu(reqName: string): void {
+  const el = document.querySelector<HTMLElement>(REQ.reqByName(reqName));
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  el.dispatchEvent(new MouseEvent('contextmenu', {
+    bubbles: true,
+    cancelable: true,
+    clientX: rect.left + rect.width / 2,
+    clientY: rect.top + rect.height / 2,
+  }));
+}
+
+export function hasAm15PushRouteFromRequests(): boolean {
+  return Array.from(document.querySelectorAll<HTMLElement>('.am-route-path'))
+    .some(el => el.textContent?.trim().includes('inventory'));
+}
+
+export function hasAm15PushRouteFromCatalog(): boolean {
+  return Array.from(document.querySelectorAll<HTMLElement>('.am-route-path'))
+    .some(el => el.textContent?.trim().includes('catalog/widgets'));
+}
+
+async function closeExportToMockModal(ctx: DemoActionContext): Promise<void> {
+  if (!firstVisibleElement(API_MOCK.EXPORT_TO_MOCK_BODY)) return;
+  const cancel = firstVisibleElement(API_MOCK.EXPORT_TO_MOCK_CANCEL);
+  if (cancel) {
+    await ctx.click(API_MOCK.EXPORT_TO_MOCK_CANCEL);
+    await ctx.delay(300);
+  }
+}
+
+/** Navigate to the Requests tab and open the context menu for a saved request. */
+async function pushFromRequests(ctx: DemoActionContext): Promise<void> {
+  // Expand the unified sidebar BEFORE navigating — the sidebar mounts only when
+  // sidebarCollapsed=false. Without this, REQ.SIDEBAR is absent from the DOM
+  // entirely, and the contextmenu event fires on a non-existent element.
+  expandAppSidebar();
+  await ctx.delay(400);
+
+  ctx.navigateToTab('requests');
+
+  // Wait until the sidebar element is in the DOM AND has real layout dimensions.
+  // ctx.waitFor only checks DOM presence; we need actual width/height > 0.
+  for (let i = 0; i < 30; i++) {
+    if (firstVisibleElement(REQ.SIDEBAR)) break;
+    await ctx.delay(200);
+  }
+  await ctx.delay(T.tabSwitch);
+
+  // Spotlight the sidebar so the viewer's eye lands on the left panel.
+  await spotlightBeat(ctx, REQ.SIDEBAR, T.look);
+
+  const reqSel = REQ.reqInCollection(AM15_REQUESTS_NAME, AM15_PUSH_REQ_NAME);
+  const colSel = REQ.colByName(AM15_REQUESTS_NAME);
+
+  // If the seeded request isn't visible the collection is collapsed — expand it
+  // with a visible clickBeat so the viewer sees the collection open.
+  if (!firstVisibleElement(reqSel) && firstVisibleElement(colSel)) {
+    await clickBeat(ctx, colSel, { look: T.look, hold: T.fieldFilled });
+  }
+
+  // Spotlight the specific request item.
+  await spotlightBeat(ctx, reqSel, T.look);
+
+  // Programmatic right-click — element has real bounding rect now so the context
+  // menu positions correctly next to the item on screen.
+  triggerRequestContextMenu(AM15_PUSH_REQ_NAME);
+  await ctx.waitFor(REQ.CONTEXT_MENU, 4_000);
+  await ctx.delay(500);
+
+  // Spotlight and click "Export to API Mock".
+  await spotlightBeat(ctx, REQ.CTX_EXPORT_TO_MOCK, T.look);
+  await ctx.click(REQ.CTX_EXPORT_TO_MOCK);
+  await ctx.waitFor(API_MOCK.EXPORT_TO_MOCK_BODY, 6_000);
+  await ctx.delay(T.panelReady);
+}
+
+/** Navigate to the Catalog tab and click the "Export to API Mock" button. */
+async function pushFromCatalog(ctx: DemoActionContext): Promise<void> {
+  // Ensure sidebar is expanded so the Catalog sidebar tree is mounted.
+  expandAppSidebar();
+  await ctx.delay(400);
+
+  ctx.navigateToTab('catalog');
+  // Wait for sidebar to have real layout dimensions, not just DOM presence.
+  for (let i = 0; i < 30; i++) {
+    if (firstVisibleElement(CAT.SIDEBAR)) break;
+    await ctx.delay(200);
+  }
+  await ctx.delay(T.tabSwitch);
+
+  // Select the seeded demo catalog entry with a visible spotlight.
+  const entrySel = CAT.entryByName(AM15_PUSH_CAT_ENTRY);
+  if (firstVisibleElement(entrySel)) {
+    await clickBeat(ctx, entrySel, { look: T.look, hold: T.panelReady });
+  }
+
+  // Switch to the Endpoints sub-tab with a spotlight so the viewer sees the tab change.
+  if (firstVisibleElement(CAT.VIEW_ENDPOINTS)) {
+    await clickBeat(ctx, CAT.VIEW_ENDPOINTS, { look: T.look, hold: T.panelReady });
+  }
+
+  // Spotlight the first endpoint card header so the viewer knows where to look.
+  await spotlightBeat(ctx, CAT.ENDPOINT_CARD, T.look);
+
+  // Step 1: Click the card header row to expand the card body.
+  // The outer .sw-card div does NOT toggle expanded — only .sw-header does.
+  await clickBeat(ctx, CAT.ENDPOINT_CARD_HEADER, { look: T.look, hold: T.fieldFilled });
+
+  // Step 2: Click "Try it out" — only rendered after the card is expanded AND
+  // the endpoint has parameters (guaranteed by the seeded spec).
+  if (firstVisibleElement(CAT.TRYIT_BTN)) {
+    await clickBeat(ctx, CAT.TRYIT_BTN, { look: T.look, hold: T.fieldFilled });
+  }
+
+  // Step 3: Spotlight and click "Export to API Mock" (only visible after tryItOpen=true).
+  if (!firstVisibleElement(CAT.EXPORT_TO_MOCK_BTN)) return;
+  await spotlightBeat(ctx, CAT.EXPORT_TO_MOCK_BTN, T.look);
+  await ctx.click(CAT.EXPORT_TO_MOCK_BTN);
+  await ctx.waitFor(API_MOCK.EXPORT_TO_MOCK_BODY, 6_000);
+  await ctx.delay(T.panelReady);
+}
+
+/** Configure and confirm the ExportToApiMockModal. */
+async function confirmExportToMockModal(ctx: DemoActionContext): Promise<void> {
+  // Spotlight the server selector (the target API Mock server)
+  if (firstVisibleElement(API_MOCK.EXPORT_TO_MOCK_SERVER)) {
+    await spotlightBeat(ctx, API_MOCK.EXPORT_TO_MOCK_SERVER, T.look);
+  }
+  // Spotlight the routes preview
+  if (firstVisibleElement(API_MOCK.EXPORT_TO_MOCK_ROUTES)) {
+    await spotlightBeat(ctx, API_MOCK.EXPORT_TO_MOCK_ROUTES, T.fieldFilled);
+  }
+  // Confirm
+  if (firstVisibleElement(API_MOCK.EXPORT_TO_MOCK_CONFIRM)) {
+    await am15Click(ctx, API_MOCK.EXPORT_TO_MOCK_CONFIRM, T.panelReady);
+  }
+  await ctx.waitFor(`:not(${API_MOCK.EXPORT_TO_MOCK_BODY})`, REVEAL_MS).catch(() => undefined);
+  await ctx.delay(T.panelReady);
+}
+
+export async function runAm15PushFromClients(ctx: DemoActionContext): Promise<void> {
+  // ── Group 1: Push from Requests ──────────────────────────────────────────
+  await pushFromRequests(ctx);
+  await confirmExportToMockModal(ctx);
+  await am15Break(ctx);
+
+  // ── Group 2: Push from Catalog ───────────────────────────────────────────
+  await pushFromCatalog(ctx);
+  await confirmExportToMockModal(ctx);
+  await am15Break(ctx);
+
+  // ── Return to API Mock Studio and show the result ─────────────────────────
+  ctx.navigateToTab('api-mock-studio');
+  await ctx.waitFor(API_MOCK.ROUTE_EXPLORER, 8_000);
+  await ctx.delay(T.tabSwitch);
+  await am15Payoff(ctx, API_MOCK.ROUTES_FOOTER);
+}
+
+export async function ensureAm15ForPushFromClients(ctx: DemoActionContext): Promise<void> {
+  // Close stray Export to API Mock modal if open from a prior run
+  await closeExportToMockModal(ctx);
+  // Ensure the server is present and import is closed
+  await closeAm15Import(ctx);
+  await ensureAm15Server(ctx);
+  // If we're not on API Mock Studio, navigate back
+  if (!isAm15StudioViewActive()) {
+    ctx.navigateToTab('api-mock-studio');
+    await ctx.waitFor(API_MOCK.ROUTE_EXPLORER, 6_000).catch(() => undefined);
+  }
 }

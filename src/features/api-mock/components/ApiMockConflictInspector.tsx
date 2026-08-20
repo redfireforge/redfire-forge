@@ -303,7 +303,7 @@ export function ApiMockConflictInspector({
               </div>
               <div className="am-conflict-detail-chips">
                 <span className={`am-badge ${severityClass(selected.severity)}`}>{selected.severity}</span>
-                <span className="am-badge">{prettyToken(selected.selectionOutcome)}</span>
+                <span className={`am-badge${selected.selectionOutcome === 'left_wins' || selected.selectionOutcome === 'right_wins' ? ' success' : ''}`}>{prettyToken(selected.selectionOutcome)}</span>
               </div>
             </header>
 
@@ -384,7 +384,11 @@ export function ApiMockConflictInspector({
                 </div>
                 <div className="am-form-row">
                   <div className="am-form-label">Selection</div>
-                  <div className="am-form-control">{prettyToken(selected.selectionOutcome)}</div>
+                  <div className="am-form-control">
+                    {selected.selectionOutcome === 'left_wins' || selected.selectionOutcome === 'right_wins'
+                      ? <span className="am-badge success">{prettyToken(selected.selectionOutcome)}</span>
+                      : prettyToken(selected.selectionOutcome)}
+                  </div>
                 </div>
                 <div className="am-form-row">
                   <div className="am-form-label">Severity</div>

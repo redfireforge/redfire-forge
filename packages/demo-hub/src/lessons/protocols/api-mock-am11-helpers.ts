@@ -502,6 +502,10 @@ export async function runAm11Completions(ctx: DemoActionContext): Promise<void> 
     await spotlightBeat(ctx, API_MOCK.VARIANT_BODY, T.completions);
   }
   await am11Break(ctx);
+  // bodyIsTemplate requires a complete {{helper}} expression; patch now so the
+  // Browse button renders before runAm11HelpersCatalog checks for it.
+  patchBody(AM11_ECHO_BODY);
+  await ctx.delay(300);
   await runAm11HelpersCatalog(ctx);
 }
 

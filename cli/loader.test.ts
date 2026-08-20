@@ -292,6 +292,68 @@ tests:
       expect(scenarios[0].validation.mode).toBe('none');
     });
 
+    // ─── Top-Level `assertions:` Shorthand Tests (BUG-5 fix) ────────────
+
+    it('attaches a top-level assertions array to validation.assertions', () => {
+      const file = {
+        tests: [{
+          name: 'Test',
+          url: '/users',
+          assertions: [{ type: 'status', expected: '200' }],
+        }],
+      };
+
+      const scenarios = buildScenarios(file);
+
+      expect(scenarios[0].validation.assertions).toEqual([{ type: 'status', expected: '200' }]);
+    });
+
+    it('keeps mode: none while still attaching top-level assertions (assertions run independent of mode)', () => {
+      const file = {
+        tests: [{
+          name: 'Test',
+          url: '/users',
+          assertions: [{ type: 'status', expected: '200' }],
+        }],
+      };
+
+      const scenarios = buildScenarios(file);
+
+      expect(scenarios[0].validation.mode).toBe('none');
+      expect(scenarios[0].validation.assertions).toHaveLength(1);
+    });
+
+    it('merges top-level assertions with assertions already nested under validation:', () => {
+      const file = {
+        tests: [{
+          name: 'Test',
+          url: '/users',
+          validation: {
+            mode: 'full' as const,
+            assertions: [{ type: 'status', expected: '200' }],
+          },
+          assertions: [{ type: 'jsonPath', jsonPath: '$.id', operator: 'exists' }],
+        }],
+      };
+
+      const scenarios = buildScenarios(file);
+
+      expect(scenarios[0].validation.assertions).toEqual([
+        { type: 'status', expected: '200' },
+        { type: 'jsonPath', jsonPath: '$.id', operator: 'exists' },
+      ]);
+    });
+
+    it('leaves validation.assertions undefined when neither top-level nor nested assertions are present', () => {
+      const file = {
+        tests: [{ name: 'Test', url: '/users' }],
+      };
+
+      const scenarios = buildScenarios(file);
+
+      expect(scenarios[0].validation.assertions).toBeUndefined();
+    });
+
     // ─── Extraction Tests ────────────────────────────────
 
     it('parses extractions', () => {
@@ -370,6 +432,226 @@ tests:
       const scenarios = buildScenarios(file, undefined, externalDataSource);
 
       expect(scenarios[0].dataSource).toBe(externalDataSource);
+    });
+
+    // ─── Native dataSource Field Tests (BUG-1 fix) ────────────────────
+
+    describe('native dataSource field', () => {
+      it('builds a DataSource from the full native schema, preserving column types and row tags', () => {
+        const file = {
+          tests: [{
+            name: 'Get User by ID',
+            url: '/users/{{id}}',
+            dataSource: {
+              columns: [
+                { id: 'c-id', name: 'id', type: 'path', mapping: 'id' },
+                { id: 'c-name', name: 'expectedName', type: 'validate', mapping: '$.name' },
+              ],
+              rows: [
+                { id: 'r1', values: { 'c-id': '1', 'c-name': 'Leanne Graham' }, tags: ['smoke', 'Critical'] },
+                { id: 'r2', values: { 'c-id': '2', 'c-name': 'Ervin Howell' }, tags: ['smoke'] },
+              ],
+            },
+          }],
+        };
+
+        const scenarios = buildScenarios(file);
+        const ds = scenarios[0].dataSource!;
+
+        expect(ds.columns).toHaveLength(2);
+        expect(ds.columns[0]).toMatchObject({ id: 'c-id', name: 'id', type: 'path', mapping: 'id' });
+        expect(ds.rows).toHaveLength(2);
+        expect(ds.rows[0].values).toEqual({ 'c-id': '1', 'c-name': 'Leanne Graham' });
+        expect(ds.rows[0].enabled).toBe(true);
+        // Tags are lowercased/trimmed, same normalization as scenario-level tags.
+        expect(ds.rows[0].tags).toEqual(['smoke', 'critical']);
+      });
+
+      it('resolves row values keyed by column name as well as column id', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: {
+              columns: [{ name: 'userId', type: 'param' }],
+              rows: [{ values: { userId: '42' } }],
+            },
+          }],
+        };
+
+        const scenarios = buildScenarios(file);
+        const ds = scenarios[0].dataSource!;
+
+        expect(ds.rows[0].values[ds.columns[0].id]).toBe('42');
+      });
+
+      it('generates ids for columns and rows that omit them', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: {
+              columns: [{ name: 'userId', type: 'param' }],
+              rows: [{ values: { userId: '1' } }],
+            },
+          }],
+        };
+
+        const scenarios = buildScenarios(file);
+        const ds = scenarios[0].dataSource!;
+
+        expect(ds.id).toBeTruthy();
+        expect(ds.columns[0].id).toBeTruthy();
+        expect(ds.rows[0].id).toBeTruthy();
+      });
+
+      it('defaults enabled to true and respects explicit enabled: false', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: {
+              columns: [{ name: 'userId', type: 'param' }],
+              rows: [
+                { values: { userId: '1' } },
+                { values: { userId: '2' }, enabled: false },
+              ],
+            },
+          }],
+        };
+
+        const scenarios = buildScenarios(file);
+        const ds = scenarios[0].dataSource!;
+
+        expect(ds.rows[0].enabled).toBe(true);
+        expect(ds.rows[1].enabled).toBe(false);
+      });
+
+      it('preserves row label and note', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: {
+              columns: [{ name: 'userId', type: 'param' }],
+              rows: [{ values: { userId: '1' }, label: 'happy-path', note: 'Standard lookup' }],
+            },
+          }],
+        };
+
+        const scenarios = buildScenarios(file);
+        const row = scenarios[0].dataSource!.rows[0];
+
+        expect(row.label).toBe('happy-path');
+        expect(row.note).toBe('Standard lookup');
+      });
+
+      it('externalDataSource still takes priority over the native dataSource field', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: {
+              columns: [{ name: 'userId', type: 'param' }],
+              rows: [{ values: { userId: '1' } }],
+            },
+          }],
+        };
+        const externalDataSource = {
+          columns: [{ id: 'c1', name: 'external' }],
+          rows: [{ id: 'r1', values: { c1: 'ext' }, enabled: true }],
+        };
+
+        const scenarios = buildScenarios(file, undefined, externalDataSource);
+
+        expect(scenarios[0].dataSource).toBe(externalDataSource);
+      });
+
+      it('native dataSource field takes priority over the compact data: shorthand', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            data: { columns: ['userId'], rows: [['shorthand-value']] },
+            dataSource: {
+              columns: [{ name: 'userId', type: 'param' }],
+              rows: [{ values: { userId: 'native-value' } }],
+            },
+          }],
+        };
+
+        const scenarios = buildScenarios(file);
+        const ds = scenarios[0].dataSource!;
+
+        expect(ds.rows[0].values[ds.columns[0].id]).toBe('native-value');
+      });
+
+      it('throws a clear error when columns is missing or empty', () => {
+        const file = {
+          tests: [{ name: 'Test', url: '/users', dataSource: { rows: [{ values: {} }] } }],
+        };
+
+        expect(() => buildScenarios(file)).toThrow('dataSource.columns must be a non-empty array');
+      });
+
+      it('throws a clear error when rows is missing or empty', () => {
+        const file = {
+          tests: [{ name: 'Test', url: '/users', dataSource: { columns: [{ name: 'userId' }], rows: [] } }],
+        };
+
+        expect(() => buildScenarios(file)).toThrow('dataSource.rows must be a non-empty array');
+      });
+
+      it('throws a clear error when a column is missing "name"', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: { columns: [{ type: 'param' }], rows: [{ values: { userId: '1' } }] },
+          }],
+        };
+
+        expect(() => buildScenarios(file)).toThrow('missing required "name"');
+      });
+
+      it('throws a clear error when a column has an invalid "type"', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: { columns: [{ name: 'userId', type: 'bogus' }], rows: [{ values: { userId: '1' } }] },
+          }],
+        };
+
+        expect(() => buildScenarios(file)).toThrow('invalid type "bogus"');
+      });
+
+      it('throws a clear error when a "validate" column is missing "mapping" instead of silently defaulting to the column name', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: {
+              columns: [{ name: 'expectedName', type: 'validate' }],
+              rows: [{ values: { expectedName: 'Leanne Graham' } }],
+            },
+          }],
+        };
+
+        expect(() => buildScenarios(file)).toThrow('must specify a "mapping" (JSONPath');
+      });
+
+      it('throws a clear error when a row is missing "values"', () => {
+        const file = {
+          tests: [{
+            name: 'Test',
+            url: '/users',
+            dataSource: { columns: [{ name: 'userId' }], rows: [{ id: 'r1' }] },
+          }],
+        };
+
+        expect(() => buildScenarios(file)).toThrow('missing a "values" object');
+      });
     });
 
     it('featureGroupName and groupName are set from file', () => {
