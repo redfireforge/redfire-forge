@@ -28,6 +28,7 @@ import {
   restartLesson,
   waitForReadingPhase,
   skipReadingPause,
+  waitForActionPhase,
 } from './demo-player-helpers';
 
 const STEP_TIMEOUT = 20_000;
@@ -106,6 +107,14 @@ async function startDemoAndValidate(page: Page, lessonName: string) {
   await expect(nextBtn).toBeVisible({ timeout: STEP_TIMEOUT });
   await waitForReadingPhase(page, STEP_TIMEOUT);
   await skipReadingPause(page);
+  await waitForActionPhase(page, STEP_TIMEOUT);
+  await page.waitForFunction(
+    () => {
+      const phase = document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase');
+      return phase === 'reading' || phase === 'done';
+    },
+    { timeout: STEP_TIMEOUT },
+  );
   await expect(nextBtn).toBeEnabled({ timeout: STEP_TIMEOUT });
 
   console.log(`[PASS] ${lessonName}: live demo started, step rendered, Next enabled`);
