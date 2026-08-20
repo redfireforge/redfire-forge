@@ -179,6 +179,8 @@ const withGrpcServer = process.env.E2E_GRPC_SERVER === '1';
 const withWsServer = process.env.E2E_WS_SERVER === '1';
 const withGql5Docker = process.env.E2E_GQL5_DOCKER === '1';
 const withAnyDockerInfra = withDocker || withGraphqlServer || withGrpcServer || withWsServer || withGql5Docker;
+/** Reuse manually running dev servers only when explicitly requested. */
+const reuseExistingE2EServers = process.env.E2E_REUSE_SERVERS === '1';
 
 export default defineConfig({
   testDir: './e2e',
@@ -516,17 +518,15 @@ export default defineConfig({
     {
       command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run server',
       url: 'http://localhost:3001/health',
-      // Backend may already be running from local dev or another batch.
-      // Reuse it to avoid false startup failures on port 3001.
-      reuseExistingServer: true,
+      // Release gates must start a fresh companion; opt into reuse for local debugging.
+      reuseExistingServer: reuseExistingE2EServers,
       timeout: 30_000,
     },
     {
       command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run dev',
       url: 'http://localhost:5173',
-      // Reuse existing frontend server to avoid startup collisions on 5173
-      // when running strict small-batch E2E loops.
-      reuseExistingServer: true,
+      // Release gates must start a fresh frontend; opt into reuse for local debugging.
+      reuseExistingServer: reuseExistingE2EServers,
       timeout: 30_000,
     },
   ],
