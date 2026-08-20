@@ -27,6 +27,7 @@ import {
   runNextStep,
   restartLesson,
   waitForReadingPhase,
+  skipReadingPause,
 } from './demo-player-helpers';
 
 const STEP_TIMEOUT = 20_000;
@@ -103,6 +104,8 @@ async function startDemoAndValidate(page: Page, lessonName: string) {
 
   const nextBtn = panel.locator('[aria-label="Next step"]');
   await expect(nextBtn).toBeVisible({ timeout: STEP_TIMEOUT });
+  await waitForReadingPhase(page, STEP_TIMEOUT);
+  await skipReadingPause(page);
   await expect(nextBtn).toBeEnabled({ timeout: STEP_TIMEOUT });
 
   console.log(`[PASS] ${lessonName}: live demo started, step rendered, Next enabled`);
