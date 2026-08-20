@@ -14,7 +14,7 @@ import { REDFIREFORGE_IDB_VERSION, seedAppData } from './helpers';
 
 export const GRPC_HEALTH = 'http://localhost:50052/health';
 export const GRPC_TARGET = 'localhost:50051';
-export const BACKEND_HEALTH = 'http://localhost:3001/health';
+export const BACKEND_HEALTH = 'http://127.0.0.1:3001/health';
 /** Envoy gRPC-Web sidecar (Phase 12D) — has no HTTP health endpoint, only a raw listener. */
 export const GRPC_ENVOY_TARGET = 'localhost:50055';
 
@@ -111,7 +111,7 @@ export async function startGrpcMockListener(
   let lastErrorBody: unknown;
   for (let attempt = 0; attempt < 8; attempt += 1) {
     payload.port = preferredPort;
-    const response = await request.post('http://localhost:3001/api/grpc/mock/start', {
+    const response = await request.post('http://127.0.0.1:3001/api/grpc/mock/start', {
       data: payload,
     });
 
@@ -181,7 +181,7 @@ export async function waitForGrpcMockListenerStopped(
     let response;
     try {
       response = await request.get(
-        `http://localhost:3001/api/grpc/mock/status?tabId=${encodeURIComponent(tabId)}`,
+        `http://127.0.0.1:3001/api/grpc/mock/status?tabId=${encodeURIComponent(tabId)}`,
       );
     } catch (error) {
       const msg = String(error);
@@ -245,7 +245,7 @@ export async function waitForGrpcListenTargetClosed(
 
 export async function stopGrpcMockListener(request: APIRequestContext, tabId: string): Promise<void> {
   try {
-    const response = await request.post('http://localhost:3001/api/grpc/mock/stop', {
+    const response = await request.post('http://127.0.0.1:3001/api/grpc/mock/stop', {
       data: { tabId },
     });
     expect(response.ok()).toBeTruthy();
