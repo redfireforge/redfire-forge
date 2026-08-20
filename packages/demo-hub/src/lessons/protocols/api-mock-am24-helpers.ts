@@ -16,6 +16,7 @@ import {
   patchWorkflowNodeDataById,
   prepareApiMockStudioChrome,
   sendApiMockRequest,
+  triggerWorkflowQuickTest,
   upsertApiMockServerSamples,
   wipeApiMockWorkspace,
   type ApiMockDemoPredicate,
@@ -1986,7 +1987,12 @@ export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
   await spotlightBeat(ctx, WF.CONSOLE, T.look);
 
   // Quick Test results can take up to 30s — use explicit timeouts instead of the 8s default.
-  await am24ClickNow(ctx, WF.QUICK_TEST, T.lifecycle);
+  if (firstVisibleElement(WF.QUICK_TEST)) {
+    await am24ClickNow(ctx, WF.QUICK_TEST, T.lifecycle);
+  } else {
+    triggerWorkflowQuickTest();
+    await ctx.delay(T.lifecycle);
+  }
   await am24Reveal(ctx, am24PassSelector(API_MOCK.CANVAS_START), T.simOutcome, 60_000);
   if (document.querySelector(am24PassSelector(WF.NODE_HTTP))) {
     await am24Look(ctx, am24PassSelector(WF.NODE_HTTP));
