@@ -157,8 +157,9 @@ test.describe('Demo Hub — Top-level Navigation', () => {
     const protocolsCard = page.locator('.demo-domain-card').filter({ hasText: 'Protocols' });
     await expect(protocolsCard).toBeVisible();
     const comingSoon = await page.locator('.demo-domain-card.coming-soon').count();
-    expect(comingSoon).toBeGreaterThanOrEqual(1);
-    console.log('[PASS] Domain selector: Protocols available, Coming Soon cards present');
+    expect(comingSoon).toBe(0);
+    await expect(protocolsCard).not.toHaveClass(/coming-soon/);
+    console.log('[PASS] Domain selector: Protocols available and all registered paths are actionable');
   });
 
   test('Protocols domain opens and shows category tabs', async ({ page }) => {
