@@ -127,6 +127,7 @@ export async function runMockStart(opts: {
     try {
       resolvedPort = await findFreePort();
     } catch (e) {
+      /* c8 ignore next 2 -- OS port allocation failure is environment-dependent. */
       console.error(`Failed to allocate a free port: ${e instanceof Error ? e.message : String(e)}`);
       return 1;
     }
@@ -239,6 +240,7 @@ export async function holdMockStartUntilSignal(opts: {
     await shutdown();
     return;
   }
+  /* c8 ignore next -- this is the intentional long-lived CLI process path. */
   await new Promise(() => { /* keep alive */ });
 }
 
