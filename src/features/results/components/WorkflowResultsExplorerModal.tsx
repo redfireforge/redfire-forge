@@ -230,6 +230,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
     const node = (currentTrace.workflowSnapshot.nodes as ReplaySnapshotNode[]).find(n => n.id === nodeId);
     if (node?.type !== 'subWorkflow') return;
 
+    // A single trace with no logical index zero is an invalid pinned lookup,
+    // not an aggregate view that should fall back to its last array entry.
+    if (
+      selectedIteration === undefined
+      && currentTrace.totalIterations === 1
+      && currentTrace.iterations[0]?.index !== 0
+    ) return;
+
     const iterToCheck = selectedIteration !== undefined
       ? getIterationByIndex(currentTrace, selectedIteration)
       : currentTrace.iterations[currentTrace.iterations.length - 1];
