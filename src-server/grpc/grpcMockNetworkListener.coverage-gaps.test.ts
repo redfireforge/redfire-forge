@@ -329,6 +329,30 @@ describe('grpcMockNetworkListener helper coverage', () => {
     await expect(failing.start({ tabId: 'tab-2', connectionId: 'conn-2', descriptor: makeDescriptor(), port: 50091 })).rejects.toThrow('bind failed');
   });
 
+  it('reallocates an automatic port after an EADDRINUSE bind race', async () => {
+    const { GrpcMockNetworkListener } = await loadModule();
+    mockCreateServer.mockImplementation(() => {
+      const server = new EventEmitter() as MockServer;
+      server.once = function once(event: string, handler: (...args: unknown[]) => void) {
+        EventEmitter.prototype.once.call(this, event, handler);
+        return this;
+      };
+      server.close = (callback: () => void) => callback();
+      server.listen = () => { queueMicrotask(() => server.emit('listening')); };
+      return server;
+    });
+    mockBindAsync
+      .mockImplementationOnce((_addr, _creds, cb) => cb(new Error('listen EADDRINUSE: address already in use')))
+      .mockImplementationOnce((_addr, _creds, cb) => cb(null, 50062));
+
+    const listener = new GrpcMockNetworkListener('tab-race', makeManager());
+    const status = await listener.start({ tabId: 'tab-race', connectionId: 'conn-race', descriptor: makeDescriptor() });
+
+    expect(status.port).toBe(50062);
+    expect(mockBindAsync).toHaveBeenCalledTimes(2);
+    expect(mockForceShutdown).toHaveBeenCalledTimes(1);
+  });
+
   it('allocates a port when start is called without an explicit port', async () => {
     const { GrpcMockNetworkListener } = await loadModule();
     mockCreateServer.mockImplementationOnce(() => {
