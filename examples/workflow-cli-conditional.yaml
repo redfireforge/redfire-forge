@@ -1,5 +1,5 @@
 # Workflow CLI Conditional Example
-# Demonstrates conditional branching based on response data
+# Demonstrates conditional branching via a Switch node, driven by --var overrides
 #
 # Run with default settings:
 #   npx tsx cli/index.ts workflow examples/workflow-cli-conditional.yaml
@@ -10,9 +10,14 @@
 #
 # Load test:
 #   npx tsx cli/index.ts workflow examples/workflow-cli-conditional.yaml -i 30 -c 3
+#
+# Note: the Switch branches on the `country` variable itself (not on an HTTP response
+# field) — restcountries.com's v3.1 API (used below purely to demonstrate a real HTTP
+# call with variable substitution) was deprecated after this fixture was first authored
+# and now always returns an error body, so it can no longer drive real branching logic.
 
 name: Conditional Country Lookup
-description: Look up country data and branch based on region
+description: Look up a country, then branch on the requested country/region
 
 variables:
   country: "france"
@@ -39,13 +44,14 @@ nodes:
     position: { x: 300, y: 220 }
     data:
       label: Check Region
-      expression: $response.body[0].region
+      expression: "{{country}}"
       cases:
-        - value: Europe
-          targetNodeId: european-action
-        - value: Asia
-          targetNodeId: asian-action
-      defaultTargetNodeId: other-region
+        - id: c-germany
+          value: germany
+          label: Germany (Europe)
+        - id: c-japan
+          value: japan
+          label: Japan (Asia)
 
   - id: european-action
     type: http
@@ -53,9 +59,7 @@ nodes:
     data:
       label: European Country
       method: GET
-      url: https://restcountries.com/v3.1/subregion/western%20europe
-      headers:
-        Accept: application/json
+      url: https://jsonplaceholder.typicode.com/users/2
 
   - id: asian-action
     type: http
@@ -63,9 +67,7 @@ nodes:
     data:
       label: Asian Country
       method: GET
-      url: https://restcountries.com/v3.1/subregion/eastern%20asia
-      headers:
-        Accept: application/json
+      url: https://jsonplaceholder.typicode.com/users/3
 
   - id: other-region
     type: http
@@ -73,9 +75,7 @@ nodes:
     data:
       label: Other Region
       method: GET
-      url: https://restcountries.com/v3.1/all?fields=name,region
-      headers:
-        Accept: application/json
+      url: https://jsonplaceholder.typicode.com/users/1
 
   - id: end-1
     type: end
@@ -93,12 +93,15 @@ edges:
   - id: e3
     source: check-region
     target: european-action
+    sourceHandle: case-c-germany
   - id: e4
     source: check-region
     target: asian-action
+    sourceHandle: case-c-japan
   - id: e5
     source: check-region
     target: other-region
+    sourceHandle: default
   - id: e6
     source: european-action
     target: end-1

@@ -93,6 +93,36 @@ enum Commands {
         /// Tag matching mode: any (default) or all
         #[arg(long)]
         tag_mode: Option<String>,
+        /// Run only scenarios with these tags (comma-separated)
+        #[arg(long)]
+        scenario_tags: Option<String>,
+        /// Scenario tag matching mode: any (default) or all
+        #[arg(long)]
+        scenario_tag_mode: Option<String>,
+        /// JSON file of SLA targets to evaluate after the run (SlaTarget[])
+        #[arg(long)]
+        sla_config: Option<String>,
+        /// Exit code 4 if any SLA violations are detected (requires --sla-config)
+        #[arg(long)]
+        fail_on_sla: bool,
+        /// Compare run against a saved baseline ("latest-baseline" or a specific runId)
+        #[arg(long)]
+        compare_baseline: Option<String>,
+        /// Exit code 2 (regression only) or 3 (also test failures) when regressions are detected
+        #[arg(long)]
+        fail_on_regression: bool,
+        /// Save this run as a new baseline after completion
+        #[arg(long)]
+        save_baseline: bool,
+        /// Human-readable label for the saved baseline
+        #[arg(long)]
+        baseline_label: Option<String>,
+        /// Directory for the baseline store
+        #[arg(long)]
+        baselines_dir: Option<String>,
+        /// Write the Markdown comparison report to a file
+        #[arg(long)]
+        comparison_report: Option<String>,
         /// Suppress progress output
         #[arg(short, long)]
         quiet: bool,
@@ -122,6 +152,15 @@ enum Commands {
         /// Stop at error rate % (threshold mode)
         #[arg(long)]
         max_error_rate: Option<f32>,
+        /// Base URL for HTTP nodes with relative paths
+        #[arg(long)]
+        base_url: Option<String>,
+        /// Trace capture level: minimal, standard, full, debug (default: standard)
+        #[arg(long)]
+        trace_level: Option<String>,
+        /// Write the full execution trace (per-node/per-iteration) as JSON to file
+        #[arg(long)]
+        trace_output: Option<String>,
         /// Exit code 1 if any request fails
         #[arg(long)]
         fail_on_error: bool,
@@ -151,6 +190,23 @@ enum Commands {
         /// Path to a workflow .yaml, .yml, or .json file
         file: String,
     },
+}
+
+/// Detect whether this binary was invoked via the `rff` symlink/alias rather than
+/// `redfireforge` — if so, `main()` defaults straight to CLI mode without requiring
+/// `--cli`, mirroring the npm package's `rff` bin alias. Reads argv[0] (the name we
+/// were actually invoked as), not `current_exe()`, so it reflects the symlink name
+/// rather than the resolved binary path.
+fn invoked_as_rff() -> bool {
+    std::env::args()
+        .next()
+        .and_then(|arg0| {
+            PathBuf::from(arg0)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(|name| name.eq_ignore_ascii_case("rff"))
+        })
+        .unwrap_or(false)
 }
 
 /// Get the path to the bundled CLI script
@@ -221,7 +277,9 @@ fn build_cli_args(cmd: &Commands) -> Vec<String> {
             file, concurrency, transactions, mode, timeout, retries, retry_delay,
             duration, base_url, data, scenario, env, error_policy, max_errors,
             max_error_rate, fail_on_error, fail_threshold, output, junit, markdown,
-            data_rows_summary, tags, tag_mode, quiet
+            data_rows_summary, tags, tag_mode, scenario_tags, scenario_tag_mode,
+            sla_config, fail_on_sla, compare_baseline, fail_on_regression,
+            save_baseline, baseline_label, baselines_dir, comparison_report, quiet
         } => {
             args.push("run".to_string());
             args.push(file.clone());
@@ -247,12 +305,22 @@ fn build_cli_args(cmd: &Commands) -> Vec<String> {
             if let Some(d) = data_rows_summary { args.extend(["--data-rows-summary".to_string(), d.clone()]); }
             if let Some(t) = tags { args.extend(["--tags".to_string(), t.clone()]); }
             if let Some(t) = tag_mode { args.extend(["--tag-mode".to_string(), t.clone()]); }
+            if let Some(t) = scenario_tags { args.extend(["--scenario-tags".to_string(), t.clone()]); }
+            if let Some(t) = scenario_tag_mode { args.extend(["--scenario-tag-mode".to_string(), t.clone()]); }
+            if let Some(s) = sla_config { args.extend(["--sla-config".to_string(), s.clone()]); }
+            if *fail_on_sla { args.push("--fail-on-sla".to_string()); }
+            if let Some(b) = compare_baseline { args.extend(["--compare-baseline".to_string(), b.clone()]); }
+            if *fail_on_regression { args.push("--fail-on-regression".to_string()); }
+            if *save_baseline { args.push("--save-baseline".to_string()); }
+            if let Some(l) = baseline_label { args.extend(["--baseline-label".to_string(), l.clone()]); }
+            if let Some(d) = baselines_dir { args.extend(["--baselines-dir".to_string(), d.clone()]); }
+            if let Some(r) = comparison_report { args.extend(["--comparison-report".to_string(), r.clone()]); }
             if *quiet { args.push("-q".to_string()); }
         },
         Commands::Workflow {
             file, iterations, concurrency, vars, timeout, error_policy,
-            max_errors, max_error_rate, fail_on_error, fail_threshold,
-            output, junit, markdown, quiet
+            max_errors, max_error_rate, base_url, trace_level, trace_output,
+            fail_on_error, fail_threshold, output, junit, markdown, quiet
         } => {
             args.push("workflow".to_string());
             args.push(file.clone());
@@ -263,6 +331,9 @@ fn build_cli_args(cmd: &Commands) -> Vec<String> {
             if let Some(p) = error_policy { args.extend(["--error-policy".to_string(), p.clone()]); }
             if let Some(n) = max_errors { args.extend(["--max-errors".to_string(), n.to_string()]); }
             if let Some(r) = max_error_rate { args.extend(["--max-error-rate".to_string(), r.to_string()]); }
+            if let Some(b) = base_url { args.extend(["--base-url".to_string(), b.clone()]); }
+            if let Some(t) = trace_level { args.extend(["--trace-level".to_string(), t.clone()]); }
+            if let Some(t) = trace_output { args.extend(["--trace-output".to_string(), t.clone()]); }
             if *fail_on_error { args.push("--fail-on-error".to_string()); }
             if let Some(f) = fail_threshold { args.extend(["--fail-threshold".to_string(), f.to_string()]); }
             if let Some(o) = output { args.extend(["-o".to_string(), o.clone()]); }
@@ -284,9 +355,10 @@ fn build_cli_args(cmd: &Commands) -> Vec<String> {
 }
 
 fn main() {
+    let invoked_as_rff = invoked_as_rff();
     let cli = Cli::parse();
-    
-    if cli.cli {
+
+    if cli.cli || invoked_as_rff {
         // CLI mode: run the Node.js CLI script
         if let Some(command) = cli.command {
             let args = build_cli_args(&command);
@@ -294,9 +366,10 @@ fn main() {
             exit(exit_code);
         } else {
             // No subcommand provided, show help
+            let invocation = if invoked_as_rff { "rff" } else { "redfireforge --cli" };
             eprintln!("RedfireForge CLI Mode");
             eprintln!();
-            eprintln!("Usage: redfireforge --cli <COMMAND>");
+            eprintln!("Usage: {invocation} <COMMAND>");
             eprintln!();
             eprintln!("Commands:");
             eprintln!("  run                Execute a test file");
@@ -304,7 +377,7 @@ fn main() {
             eprintln!("  validate           Validate a test file without running it");
             eprintln!("  validate-workflow  Validate a workflow file without running it");
             eprintln!();
-            eprintln!("Run 'redfireforge --cli <COMMAND> --help' for more information on a command.");
+            eprintln!("Run '{invocation} <COMMAND> --help' for more information on a command.");
             exit(0);
         }
     } else {

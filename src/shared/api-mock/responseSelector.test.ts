@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createSequenceState, selectSequenceResponse, resetSequence,
   selectWeightedResponse, selectStateResponse, selectRulesResponse, isVariantEligible,
+  resolveEligibleVariant,
 } from './responseSelector';
 import { createInitialState, applyTransition } from './scenarioRuntime';
 import { createDefaultResponse } from './defaults';
@@ -238,5 +239,47 @@ describe('selectRulesResponse', () => {
   it('falls back to the first enabled variant when no default exists', () => {
     const r = route('rules', [{ isDefault: false, status: 299 }]);
     expect(selectRulesResponse(r, request)?.status).toBe(299);
+  });
+});
+
+describe('resolveEligibleVariant', () => {
+  it('keeps a conditional variant when probability misses and strips its fault', () => {
+    const r = route('rules', [
+      { isDefault: true, status: 201 },
+      {
+        isDefault: false,
+        status: 503,
+        behavior: { delayMs: 0, jitterMs: 0, probability: 0, fault: 'timeout' },
+        conditions: {
+          id: 'pg-flaky',
+          combinator: 'all',
+          children: [{
+            id: 'p1', source: 'body', selector: '', operator: 'jsonPath_equals', expected: ['$.sku', 'FLAKY'],
+          }],
+        },
+      },
+    ]);
+    const selected = r.responses[1];
+    const resolved = resolveEligibleVariant(r, selected, {
+      matchCount: 0,
+      probabilityRoll: 0.9,
+      siblingMatchCount: () => 0,
+    });
+    expect(resolved.fallbackUsed).toBe(false);
+    expect(resolved.variant.status).toBe(503);
+    expect(resolved.variant.behavior.fault).toBeUndefined();
+  });
+
+  it('still falls back when a default variant is exhausted', () => {
+    const r = route('rules', [
+      { isDefault: true, status: 201, behavior: { delayMs: 0, jitterMs: 0, maxMatches: 0 } },
+      { isDefault: false, status: 503 },
+    ]);
+    const resolved = resolveEligibleVariant(r, r.responses[0], {
+      matchCount: 0,
+      siblingMatchCount: () => 0,
+    });
+    expect(resolved.fallbackUsed).toBe(true);
+    expect(resolved.variant.status).toBe(503);
   });
 });

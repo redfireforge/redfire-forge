@@ -197,7 +197,9 @@ export function overallSlaStatus(checks: SlaCheckResult[]): SlaStatus | null {
 
 /**
  * Print a formatted SLA evaluation report to stdout.
- * No-ops when quiet is true.
+ * No-ops when `quiet` is true. Callers should pass `false` for `quiet` even in
+ * quiet mode when the report is about to cause a non-zero exit (e.g. `--fail-on-sla`
+ * tripped) — otherwise a quiet CI log shows the exit code with no explanation.
  */
 export function printSlaReport(checks: SlaCheckResult[], quiet: boolean): void {
   if (quiet) return;

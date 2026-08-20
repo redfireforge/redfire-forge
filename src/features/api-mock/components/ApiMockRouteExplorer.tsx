@@ -188,15 +188,21 @@ export function ApiMockRouteExplorer({
         <span className={`am-method ${route.method.toLowerCase()}`}>{route.method}</span>
         <span className="am-route-path">{route.path.value || '/'}</span>
         <span className="am-route-meta">
-          <span
-            className={`am-route-state ${route.enabled ? 'is-live' : 'is-draft'}`}
-            data-testid={`api-mock-route-state-${route.id}`}
-          >
-            {route.enabled ? 'On' : 'Draft'}
-          </span>
           <span className={`am-badge${priorityClass}`}>P{route.priority}</span>
         </span>
       </button>
+        <button
+          type="button"
+          className={`am-route-state ${route.enabled ? 'is-live' : 'is-draft'}`}
+          aria-pressed={route.enabled}
+          aria-label={route.enabled ? `Disable ${route.method} ${route.path.value || '/'}` : `Enable ${route.method} ${route.path.value || '/'}`}
+          title={route.enabled ? 'Disable this rule' : 'Enable this rule — drafts do not match incoming traffic'}
+          data-testid={`api-mock-route-state-${route.id}`}
+          data-enabled={route.enabled ? 'true' : 'false'}
+          onClick={() => onToggle(route.id, !route.enabled)}
+        >
+          {route.enabled ? 'On' : 'Draft'}
+        </button>
         <button
           type="button"
           className="am-icon-btn am-route-delete"

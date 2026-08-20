@@ -150,6 +150,22 @@ describe('httpFetch', () => {
       );
     });
 
+    it('resolves relative /health/* demo probes to the companion server on port 3001', async () => {
+      const mockHeaders = new Map([['content-type', 'application/json']]);
+      mockTFetch.mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: { forEach: (fn: (v: string, k: string) => void) => mockHeaders.forEach((v, k) => fn(v, k)) },
+        text: () => Promise.resolve('{"status":"ok"}'),
+      });
+
+      await httpFetch('/health/api-mock-echo', 'GET', {});
+      expect(mockTFetch).toHaveBeenCalledWith(
+        'http://localhost:3001/health/api-mock-echo',
+        expect.objectContaining({ method: 'GET' }),
+      );
+    });
+
     it('does not attach body to GET requests', async () => {
       const mockHeaders = new Map();
       mockTFetch.mockResolvedValueOnce({

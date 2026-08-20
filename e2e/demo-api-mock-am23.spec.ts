@@ -71,8 +71,8 @@ test.describe('Demo lesson AM-23 — Test Runner Fixtures & CI Handoff', () => {
     await expect(page.locator(HAR.HARNESS_MOCK_ISOLATE)).toBeChecked({
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
-    await expect(page.locator(HAR.HOST_SELECTOR)).toBeVisible();
-    await expect(page.locator(HAR.HOST_MOCK_SERVER)).toBeVisible();
-    await expect(page.locator(HAR.HARNESS_MOCK_SERVER)).toBeVisible();
+    await expect(page.locator(HAR.HOST_SELECTOR).first()).toBeVisible();
+    await expect(page.locator(HAR.HOST_MOCK_SERVER).first()).toBeVisible();
+    await expect(page.locator(HAR.HARNESS_MOCK_SERVER).first()).toBeVisible();
   });
 });

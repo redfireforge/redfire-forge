@@ -13,6 +13,7 @@ import type {
   ApiMockMethod,
 } from './contracts';
 import { createDefaultResponse, EMPTY_PREDICATE_GROUP } from './defaults';
+import { normalizePathMatcher } from './pathMatcher';
 
 export interface SourceRequest {
   method: string;
@@ -103,7 +104,7 @@ export function convertSourceToRule(input: SourceRequest, options: ConversionOpt
     name: scenario?.name ? `${method} ${input.path} [${scenario.name}]` : `${method} ${input.path}`,
     enabled: false,
     method,
-    path: { kind: 'exact', value: input.path },
+    path: normalizePathMatcher({ kind: 'exact', value: input.path }),
     priority: input.priority ?? options.defaultPriority ?? 10,
     predicates,
     responseMode: 'rules',

@@ -7,6 +7,7 @@
  */
 import {
   addWorkflowNodeWithPreset,
+  clearApiMockServerSamples,
   connectWorkflowNodes,
   deleteWorkflowByName,
   removeWorkflowEdge,
@@ -15,7 +16,7 @@ import {
   patchWorkflowNodeDataById,
   prepareApiMockStudioChrome,
   sendApiMockRequest,
-  triggerWorkflowQuickTest,
+  upsertApiMockServerSamples,
   wipeApiMockWorkspace,
   type ApiMockDemoPredicate,
   type ApiMockDemoPredicateGroup,
@@ -46,6 +47,7 @@ import {
   fillWfConfigField,
   fitWfCanvasQuiet,
   holdWfSpotlight,
+  openWfConsoleIfClosed,
   openWfNodeConfigModal,
   pauseWfConfigSection,
   revealPaletteBlock,
@@ -56,7 +58,9 @@ import {
 } from '../wf-demo-helpers';
 
 /** Ship authors two exports + four Workflow config modals — over the 45s default. */
-export const AM24_SHIP_ACTION_TIMEOUT_MS = 120_000;
+export const AM24_SHIP_ACTION_TIMEOUT_MS = 240_000;
+/** Suite may need to author + save a sample before running all — over the 45s default. */
+export const AM24_SUITE_ACTION_TIMEOUT_MS = 90_000;
 
 export const AM24_TIMING = {
   look: 900,
@@ -82,7 +86,10 @@ export const AM24_SERVER_ID = 'srv-blank';
 export const AM24_SERVER_NAME = 'Import sandbox';
 export const AM24_WF_NAME = 'Ship contract mock';
 export const AM24_ORDERS_PATH = '/orders';
+export const AM24_HEALTH_PATH = '/health';
 export const AM24_ITEM_PATH = '/orders/:id';
+export const AM24_ITEM_OPENAPI_PATH = '/orders/{id}';
+export const AM24_HIT_PATH = '/orders/42';
 export const AM24_MISS_PATH = '/ordrs/42';
 export const AM24_SKU = 'WIDGET';
 export const AM24_SKU_MISSING = 'MISSING';
@@ -91,6 +98,10 @@ export const AM24_PRIORITY = '20';
 export const AM24_DELAY = '200';
 export const AM24_PROBABILITY = '1';
 export const AM24_VARIANT_NAME = 'Not found';
+export const AM24_SKU_FLAKY = 'FLAKY';
+export const AM24_FLAKY_VARIANT_NAME = 'Degraded';
+export const AM24_FLAKY_STATUS = '503';
+export const AM24_FAULT_PROBABILITY = '0.5';
 export const AM24_CONTENT_JSON = 'application/json';
 export const AM24_HTTP_URL = '{{mockBaseUrl}}/orders';
 export const AM24_HTTP_METHOD = 'POST';
@@ -100,6 +111,8 @@ export const AM24_ASSERT_BODY = 'sku';
 export const AM24_ASSERT_RECENCY = '10000';
 export const AM24_ISOLATED_SERVER = '{{mockServerId}}';
 export const AM24_SAMPLE_NAME = 'POST /orders WIDGET';
+export const AM24_SAMPLE_NAME_MISSING = 'POST /orders - MISSING';
+export const AM24_SAMPLE_NAME_FLAKY = 'POST /orders FLAKY';
 
 export const AM24_OPENAPI = JSON.stringify({
   openapi: '3.0.0',
@@ -134,6 +147,7 @@ export const AM24_OPENAPI = JSON.stringify({
 
 export const AM24_MATCH_BODY = JSON.stringify({ sku: AM24_SKU, qty: 1 });
 export const AM24_MISS_BODY = JSON.stringify({ sku: AM24_SKU_MISSING, qty: 1 });
+export const AM24_FLAKY_REQ_BODY = JSON.stringify({ sku: AM24_SKU_FLAKY, qty: 1 });
 export const AM24_FAKER_BODY = JSON.stringify({
   id: '{{uuid}}',
   sku: "{{jsonPath '$.sku'}}",
@@ -141,6 +155,7 @@ export const AM24_FAKER_BODY = JSON.stringify({
   email: "{{faker 'internet.email'}}",
 }, null, 2);
 export const AM24_ERR_BODY = JSON.stringify({ error: 'not_found', sku: AM24_SKU_MISSING });
+export const AM24_FLAKY_BODY = JSON.stringify({ error: 'unavailable', sku: AM24_SKU_FLAKY });
 
 export const AM24_NODE = {
   start: 'am24-start',
@@ -178,6 +193,17 @@ const ROOT_GROUP: ApiMockDemoPredicateGroup = {
   children: [JSONPATH_PREDICATE],
 };
 
+// Route predicate used from step 4 onwards — no body condition so all SKUs
+// (WIDGET, MISSING, FLAKY) can reach the route and be differentiated by
+// variant-level conditions (NOT_FOUND_CONDITIONS, DEGRADED_CONDITIONS).
+// Step 2 demonstrates the WIDGET predicate, then this clears it so the
+// variant conditions actually work.
+const OPEN_GROUP: ApiMockDemoPredicateGroup = {
+  id: 'pg-am24-root',
+  combinator: 'all',
+  children: [],
+};
+
 const NOT_FOUND_CONDITIONS: ApiMockDemoPredicateGroup = {
   id: 'pg-am24-404',
   combinator: 'all',
@@ -189,6 +215,46 @@ const NOT_FOUND_CONDITIONS: ApiMockDemoPredicateGroup = {
     expected: [AM24_JSONPATH, AM24_SKU_MISSING],
   }],
 };
+
+const DEGRADED_CONDITIONS: ApiMockDemoPredicateGroup = {
+  id: 'pg-am24-503',
+  combinator: 'all',
+  children: [{
+    id: 'pred-am24-flaky',
+    source: 'body',
+    selector: '',
+    operator: 'jsonPath_equals',
+    expected: [AM24_JSONPATH, AM24_SKU_FLAKY],
+  }],
+};
+
+function patchAm24Orders(
+  patch: Parameters<typeof patchApiMockActiveRoute>[0],
+): boolean {
+  return patchApiMockActiveRoute({
+    selectMethod: 'POST',
+    selectPath: AM24_ORDERS_PATH,
+    ...patch,
+  });
+}
+
+function patchAm24Health(
+  patch: Parameters<typeof patchApiMockActiveRoute>[0],
+): boolean {
+  return patchApiMockActiveRoute({
+    selectMethod: 'GET',
+    selectPath: AM24_HEALTH_PATH,
+    ...patch,
+  });
+}
+
+function am24HealthRows(): HTMLElement[] {
+  return am24RouteRows().filter(row => rowPath(row) === AM24_HEALTH_PATH && rowMethod(row) === 'GET');
+}
+
+function am24StrayRootRows(): HTMLElement[] {
+  return am24RouteRows().filter(row => rowPath(row) === '/' && rowMethod(row) === 'GET');
+}
 
 async function am24Aim(
   ctx: DemoActionContext,
@@ -251,6 +317,18 @@ function inputValue(selector: string): string {
   return typeof el?.value === 'string' ? el.value.trim() : '';
 }
 
+/** Resolve a live simulate sample's remapped id from its visible name in the sidebar. */
+function resolveAm24SampleId(name: string): string | undefined {
+  const rows = document.querySelectorAll<HTMLElement>('.am-sim-sample');
+  for (const row of rows) {
+    const label = row.querySelector('.am-sim-sample-name')?.textContent?.trim();
+    if (label !== name) continue;
+    const id = (row.getAttribute('data-testid') ?? '').replace('api-mock-sim-sample-', '');
+    if (id) return id;
+  }
+  return undefined;
+}
+
 function checkboxChecked(selector: string): boolean {
   const el = firstVisibleElement<HTMLInputElement>(selector);
   return Boolean(el?.checked);
@@ -262,6 +340,10 @@ export function hasAm24Server(): boolean {
 
 export function isAm24StudioActive(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.ROUTE_EXPLORER) ?? firstVisibleElement(API_MOCK.EMPTY));
+}
+
+export function isAm24RuntimeViewActive(): boolean {
+  return Boolean(firstVisibleElement(API_MOCK.RUNTIME_PAGE) ?? firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS));
 }
 
 export function isAm24ImportOpen(): boolean {
@@ -355,6 +437,13 @@ export function hasAm24NotFoundVariant(): boolean {
   });
 }
 
+export function hasAm24DegradedVariant(): boolean {
+  return am24VariantCards().some(card => {
+    const text = card.textContent ?? '';
+    return text.includes(AM24_FLAKY_STATUS) || text.includes(AM24_FLAKY_VARIANT_NAME);
+  });
+}
+
 export function hasAm24Delay(): boolean {
   return inputValue(API_MOCK.VARIANT_DELAY) === AM24_DELAY;
 }
@@ -370,6 +459,49 @@ export function hasAm24ConflictsClean(): boolean {
 
 export function hasAm24Sample(): boolean {
   return Boolean(firstVisibleElement(API_MOCK.SIMULATE_SECTION_SAVED));
+}
+
+function hasAm24NamedSample(name: string): boolean {
+  return Boolean(resolveAm24SampleId(name));
+}
+
+function hasAm24ContractSamples(): boolean {
+  return hasAm24NamedSample(AM24_SAMPLE_NAME)
+    && hasAm24NamedSample(AM24_SAMPLE_NAME_MISSING)
+    && hasAm24NamedSample(AM24_SAMPLE_NAME_FLAKY);
+}
+
+function am24ContractSampleDrafts() {
+  return [
+    {
+      name: AM24_SAMPLE_NAME,
+      method: 'POST',
+      path: AM24_ORDERS_PATH,
+      body: AM24_MATCH_BODY,
+      contentType: AM24_CONTENT_JSON,
+      expected: { outcome: 'matched' as const, status: 201 },
+    },
+    {
+      name: AM24_SAMPLE_NAME_MISSING,
+      method: 'POST',
+      path: AM24_ORDERS_PATH,
+      body: AM24_MISS_BODY,
+      contentType: AM24_CONTENT_JSON,
+      expected: { outcome: 'matched' as const, status: 404, bodyContains: 'not_found' },
+    },
+    {
+      name: AM24_SAMPLE_NAME_FLAKY,
+      method: 'POST',
+      path: AM24_ORDERS_PATH,
+      body: AM24_FLAKY_REQ_BODY,
+      contentType: AM24_CONTENT_JSON,
+      expected: { outcome: 'matched' as const, status: 503, bodyContains: 'unavailable' },
+    },
+  ];
+}
+
+function upsertAm24ContractSamples(): boolean {
+  return upsertApiMockServerSamples(am24ContractSampleDrafts());
 }
 
 export function hasAm24Summary(): boolean {
@@ -438,6 +570,7 @@ export function dismissAm24Overlays(): void {
 
 export async function prepareAm24Workspace(): Promise<void> {
   dismissAm24Overlays();
+  clearApiMockServerSamples();
   await wipeApiMockWorkspace();
   prepareApiMockStudioChrome();
   const blank = await ensureBlankApiMockServer();
@@ -448,6 +581,7 @@ export async function prepareAm24Workspace(): Promise<void> {
 
 export async function cleanupAm24(): Promise<void> {
   dismissAm24Overlays();
+  clearApiMockServerSamples();
   deleteWorkflowByName(AM24_WF_NAME);
   await wipeApiMockWorkspace();
 }
@@ -521,17 +655,96 @@ async function clickRouteRow(
   else await ctx.click(selector);
 }
 
-async function selectOrdersRoute(ctx: DemoActionContext, visible: boolean): Promise<void> {
-  const row = am24FindRoute(AM24_ORDERS_PATH, 'POST') ?? am24FindRoute(AM24_ORDERS_PATH);
+async function selectHealthRoute(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  const row = am24FindRoute(AM24_HEALTH_PATH, 'GET', true)
+    ?? am24FindRoute(AM24_HEALTH_PATH, 'GET')
+    ?? am24FindRoute(AM24_HEALTH_PATH);
   await clickRouteRow(ctx, row, visible);
   if (row && !firstVisibleElement(API_MOCK.ROUTE_EDITOR)) {
     await ctx.waitFor(API_MOCK.ROUTE_EDITOR, REVEAL_MS).catch(() => undefined);
   }
 }
 
+async function selectOrdersRoute(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  const row = am24FindRoute(AM24_ORDERS_PATH, 'POST', true)
+    ?? am24FindRoute(AM24_ORDERS_PATH, 'POST')
+    ?? am24FindRoute(AM24_ORDERS_PATH);
+  await clickRouteRow(ctx, row, visible);
+  await waitUntilOrdersRouteActive(ctx);
+  if (!firstVisibleElement(API_MOCK.ROUTE_EDITOR)) {
+    await ctx.waitFor(API_MOCK.ROUTE_EDITOR, REVEAL_MS).catch(() => undefined);
+  }
+}
+
+function am24FindGetItemRoute(enabled?: boolean): HTMLElement | undefined {
+  return am24FindRoute(AM24_ITEM_OPENAPI_PATH, 'GET', enabled)
+    ?? am24FindRoute(AM24_ITEM_PATH, 'GET', enabled);
+}
+
+async function selectGetItemRoute(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  const row = am24FindGetItemRoute(true)
+    ?? am24FindGetItemRoute(false)
+    ?? am24FindGetItemRoute();
+  await clickRouteRow(ctx, row, visible);
+  if (row && !firstVisibleElement(API_MOCK.ROUTE_EDITOR)) {
+    await ctx.waitFor(API_MOCK.ROUTE_EDITOR, REVEAL_MS).catch(() => undefined);
+  }
+}
+
+/** Enable GET /orders/{id} the same way a user does: the list Draft/On chip
+ *  (or the editor Enable toggle). `{id}` matching is the engine; this only
+ *  flips `enabled` so the listener is allowed to answer. */
+async function enableGetOrderIdFromUi(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  await ensureAm24StudioView(ctx);
+  if (!am24FindGetItemRoute(true)) {
+    await selectGetItemRoute(ctx, visible);
+    const chip = firstVisibleElement(API_MOCK.ROUTE_LIST_ENABLE);
+    if (chip && chip.getAttribute('aria-pressed') !== 'true') {
+      if (visible) await am24Aim(ctx, API_MOCK.ROUTE_LIST_ENABLE, T.payoff);
+      else await ctx.click(API_MOCK.ROUTE_LIST_ENABLE);
+      await ctx.delay(200);
+    } else if (!isAm24RouteEnabled() && firstVisibleElement(API_MOCK.ROUTE_ENABLED)) {
+      if (visible) await am24Aim(ctx, API_MOCK.ROUTE_ENABLED, T.payoff);
+      else await ctx.click(API_MOCK.ROUTE_ENABLED);
+      await ctx.delay(200);
+    }
+  }
+  // Reconstruct Enable for Rapid Next / missing explorer (same field the chip writes).
+  for (const path of [AM24_ITEM_OPENAPI_PATH, AM24_ITEM_PATH]) {
+    patchApiMockActiveRoute({
+      selectPath: path,
+      selectMethod: 'GET',
+      enabled: true,
+    });
+  }
+  await ctx.delay(200);
+  await applyIfDirty(ctx);
+}
+
+/** Rapid-Next reconstruction of Enable on GET /orders/{id}. */
+async function quietEnableGetOrderId(ctx: DemoActionContext): Promise<void> {
+  await enableGetOrderIdFromUi(ctx, false);
+}
+
+async function waitUntilOrdersRouteActive(ctx: DemoActionContext): Promise<void> {
+  for (let i = 0; i < 20; i++) {
+    const current = am24FindRoute(AM24_ORDERS_PATH, 'POST', true)
+      ?? am24FindRoute(AM24_ORDERS_PATH, 'POST')
+      ?? am24FindRoute(AM24_ORDERS_PATH);
+    if (current?.classList.contains('active')) return;
+    await ctx.delay(50);
+  }
+}
+
 async function ensureAm24RuleOpen(ctx: DemoActionContext): Promise<void> {
   await ensureAm24StudioView(ctx);
-  if (firstVisibleElement(API_MOCK.ROUTE_EDITOR)) return;
+  const ordersRow = am24FindRoute(AM24_ORDERS_PATH, 'POST', true)
+    ?? am24FindRoute(AM24_ORDERS_PATH, 'POST')
+    ?? am24FindRoute(AM24_ORDERS_PATH);
+  // Return early only when POST /orders is the rule in the editor. After Conflicts,
+  // a health route may be selected; patching then would write 404/timeout onto the
+  // wrong rule and leave orders as the OpenAPI 200 default.
+  if (ordersRow?.classList.contains('active') && firstVisibleElement(API_MOCK.ROUTE_EDITOR)) return;
   await selectOrdersRoute(ctx, false);
 }
 
@@ -613,6 +826,12 @@ async function quietEnableOrders(ctx: DemoActionContext): Promise<void> {
 }
 
 async function applyIfDirty(ctx: DemoActionContext): Promise<void> {
+  // Apply only exists while the listener is running *and* the draft differs.
+  // Wait for the button after a quiet patch so we don't fire traffic against
+  // the pre-patch snapshot.
+  if (am24ServerRunning()) {
+    await ctx.waitFor(API_MOCK.APPLY, T.lifecycle).catch(() => undefined);
+  }
   if (!firstVisibleElement(API_MOCK.APPLY)) return;
   await ctx.click(API_MOCK.APPLY);
   await ctx.delay(T.lifecycle);
@@ -620,12 +839,12 @@ async function applyIfDirty(ctx: DemoActionContext): Promise<void> {
 
 async function quietJsonPath(ctx: DemoActionContext): Promise<void> {
   await ensureAm24RuleOpen(ctx);
-  patchApiMockActiveRoute({ predicates: ROOT_GROUP });
+  patchAm24Orders({ predicates: ROOT_GROUP });
 }
 
 async function quietFakerBody(ctx: DemoActionContext): Promise<void> {
   await ensureAm24ResponseTab(ctx);
-  patchApiMockActiveRoute({
+  patchAm24Orders({
     body: AM24_FAKER_BODY,
     contentType: AM24_CONTENT_JSON,
     status: 201,
@@ -633,7 +852,7 @@ async function quietFakerBody(ctx: DemoActionContext): Promise<void> {
 }
 
 function applyAm24NotFoundCondition(): void {
-  patchApiMockActiveRoute({
+  patchAm24Orders({
     variantIndex: 1,
     variantConditions: NOT_FOUND_CONDITIONS,
     isDefault: false,
@@ -643,8 +862,8 @@ function applyAm24NotFoundCondition(): void {
 async function quietNotFoundVariant(ctx: DemoActionContext): Promise<void> {
   await ensureAm24ResponseTab(ctx);
   if (!(hasAm24NotFoundVariant() && am24VariantCards().length >= 2)) {
-    patchApiMockActiveRoute({ addVariant: true });
-    patchApiMockActiveRoute({
+    patchAm24Orders({ addVariant: true });
+    patchAm24Orders({
       variantIndex: 1,
       variantName: AM24_VARIANT_NAME,
       status: 404,
@@ -656,35 +875,86 @@ async function quietNotFoundVariant(ctx: DemoActionContext): Promise<void> {
   } else {
     applyAm24NotFoundCondition();
   }
-  patchApiMockActiveRoute({ variantIndex: 0, isDefault: true, responseMode: 'rules' });
+  patchAm24Orders({ variantIndex: 0, isDefault: true, responseMode: 'rules' });
+  // Clear the route-level body predicate (set in step 2 to demonstrate $.sku == WIDGET).
+  // From step 4 onwards, variant conditions (MISSING/FLAKY) do the differentiation.
+  // Keeping the route predicate would block those SKUs before variant conditions are evaluated.
+  patchAm24Orders({ predicates: OPEN_GROUP });
+}
+
+function applyAm24DegradedCondition(): void {
+  patchAm24Orders({
+    variantIndex: 2,
+    variantConditions: DEGRADED_CONDITIONS,
+    isDefault: false,
+  });
+}
+
+async function quietDegradedVariant(ctx: DemoActionContext): Promise<void> {
+  await quietNotFoundVariant(ctx);
+  if (!(hasAm24DegradedVariant() && am24VariantCards().length >= 3)) {
+    patchAm24Orders({ addVariant: true });
+    patchAm24Orders({
+      variantIndex: 2,
+      variantName: AM24_FLAKY_VARIANT_NAME,
+      status: Number(AM24_FLAKY_STATUS),
+      body: AM24_FLAKY_BODY,
+      contentType: AM24_CONTENT_JSON,
+      isDefault: false,
+      variantConditions: DEGRADED_CONDITIONS,
+    });
+  } else {
+    applyAm24DegradedCondition();
+  }
+  patchAm24Orders({ variantIndex: 0, isDefault: true, responseMode: 'rules' });
 }
 
 async function quietDelayAndFault(ctx: DemoActionContext): Promise<void> {
-  await quietNotFoundVariant(ctx);
-  patchApiMockActiveRoute({
+  await quietDegradedVariant(ctx);
+  // Happy path (201): a latency, never a transport fault.
+  patchAm24Orders({
     variantIndex: 0,
     behavior: { delayMs: Number(AM24_DELAY), probability: 1 },
   });
-  patchApiMockActiveRoute({
-    variantIndex: 1,
-    behavior: { fault: 'timeout', longRunningMs: 50 },
+  // The 404 (variant 1) stays a clean contract response — no fault.
+  // The timeout lives only on the degraded branch (variant 2), gated by probability.
+  patchAm24Orders({
+    variantIndex: 2,
+    behavior: { fault: 'timeout', longRunningMs: 50, probability: Number(AM24_FAULT_PROBABILITY) },
   });
+}
+
+async function quietRemoveStrayRootRoutes(): Promise<void> {
+  const stray = am24StrayRootRows().length;
+  for (let i = 0; i < stray; i++) {
+    patchApiMockActiveRoute({
+      removeRoute: true,
+      selectPath: '/',
+      selectMethod: 'GET',
+    });
+  }
 }
 
 async function quietOverlap(ctx: DemoActionContext): Promise<void> {
   await ensureAm24StudioView(ctx);
-  const extras = am24RouteRows().filter(row => (
-    rowPath(row) === AM24_ORDERS_PATH && rowMethod(row) === 'POST'
-  ));
-  if (extras.length >= 2) return;
-  if (!firstVisibleElement(API_MOCK.ADD_ROUTE)) return;
-  await ctx.click(API_MOCK.ADD_ROUTE);
-  await ctx.delay(200);
-  if (firstVisibleElement(API_MOCK.PATH_INPUT)) {
-    await ctx.fill(API_MOCK.PATH_INPUT, AM24_ORDERS_PATH);
+  await quietRemoveStrayRootRoutes();
+  // Read counts from DOM once before any patches — DOM is accurate at this point.
+  const haveHealth = am24HealthRows().length;
+  // Remove excess (> 2) then add shortfall (< 2).
+  for (let i = haveHealth; i > 2; i--) {
+    patchApiMockActiveRoute({
+      removeRoute: true,
+      selectPath: AM24_HEALTH_PATH,
+      selectMethod: 'GET',
+    });
   }
-  if (firstVisibleElement(API_MOCK.METHOD_SELECT)) {
-    await ctx.selectOption(API_MOCK.METHOD_SELECT, 'POST');
+  for (let i = haveHealth; i < 2; i++) {
+    patchApiMockActiveRoute({
+      addRoute: true,
+      path: AM24_HEALTH_PATH,
+      method: 'GET',
+      selectMethod: 'GET',
+    });
   }
 }
 
@@ -707,11 +977,11 @@ async function quietAnalyze(ctx: DemoActionContext): Promise<void> {
 
 async function quietFixPriority(ctx: DemoActionContext): Promise<void> {
   await ensureAm24StudioView(ctx);
-  await selectOrdersRoute(ctx, false);
+  await selectHealthRoute(ctx, false);
   if (firstVisibleElement(API_MOCK.PRIORITY_INPUT) && inputValue(API_MOCK.PRIORITY_INPUT) !== AM24_PRIORITY) {
     await ctx.fill(API_MOCK.PRIORITY_INPUT, AM24_PRIORITY);
   }
-  patchApiMockActiveRoute({ priority: Number(AM24_PRIORITY) });
+  patchAm24Health({ priority: Number(AM24_PRIORITY) });
 }
 
 async function openAm24Simulate(ctx: DemoActionContext, visible: boolean): Promise<void> {
@@ -763,9 +1033,18 @@ async function runOrdersSimulation(
 }
 
 async function quietSample(ctx: DemoActionContext): Promise<void> {
-  if (hasAm24Sample() || hasAm24Summary()) return;
+  upsertAm24ContractSamples();
   await openAm24Simulate(ctx, false);
-  await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME);
+  if (hasAm24ContractSamples() || hasAm24Summary()) return;
+  if (!hasAm24NamedSample(AM24_SAMPLE_NAME)) {
+    await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME);
+  }
+  if (!hasAm24NamedSample(AM24_SAMPLE_NAME_MISSING)) {
+    await runOrdersSimulation(ctx, AM24_MISS_BODY, AM24_SAMPLE_NAME_MISSING);
+  }
+  if (!hasAm24NamedSample(AM24_SAMPLE_NAME_FLAKY)) {
+    await runOrdersSimulation(ctx, AM24_FLAKY_REQ_BODY, AM24_SAMPLE_NAME_FLAKY);
+  }
 }
 
 async function ensureAm24Running(ctx: DemoActionContext): Promise<void> {
@@ -774,6 +1053,29 @@ async function ensureAm24Running(ctx: DemoActionContext): Promise<void> {
   if (!firstVisibleElement(API_MOCK.START)) return;
   await ctx.click(API_MOCK.START);
   await ctx.waitFor(API_MOCK.STOP, REVEAL_MS).catch(() => undefined);
+}
+
+async function openAm24Journal(ctx: DemoActionContext, visible: boolean): Promise<void> {
+  if (firstVisibleElement(API_MOCK.JOURNAL_TOOLBAR) || firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW)) {
+    return;
+  }
+  if (isAm24RuntimeViewActive() && firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS)) {
+    if (visible) await am24Aim(ctx, API_MOCK.DOCK_TAB_TRANSACTIONS, T.tabSwitch);
+    else await ctx.click(API_MOCK.DOCK_TAB_TRANSACTIONS);
+    await ctx.delay(visible ? T.tabSwitch : 200);
+    return;
+  }
+  if (firstVisibleElement(API_MOCK.LIVE_TRANSACTIONS)) {
+    if (visible) await am24Aim(ctx, API_MOCK.LIVE_TRANSACTIONS, T.tabSwitch);
+    else await ctx.click(API_MOCK.LIVE_TRANSACTIONS);
+    await ctx.delay(visible ? T.tabSwitch : 200);
+    return;
+  }
+  if (firstVisibleElement(API_MOCK.VIEW_RUNTIME)) {
+    if (visible) await am24Aim(ctx, API_MOCK.VIEW_RUNTIME);
+    else await ctx.click(API_MOCK.VIEW_RUNTIME);
+    await ctx.delay(visible ? T.tabSwitch : 200);
+  }
 }
 
 async function quietJournal(ctx: DemoActionContext): Promise<void> {
@@ -924,28 +1226,53 @@ export async function ensureAm24ForResilience(ctx: DemoActionContext): Promise<v
   await quietNotFoundVariant(ctx);
 }
 
-export async function ensureAm24ForConflicts(ctx: DemoActionContext): Promise<void> {
+/** preAction for the suite step (step 6) — prove POST /orders before any health overlap. */
+export async function ensureAm24ForSuite(ctx: DemoActionContext): Promise<void> {
   await ensureAm24ForResilience(ctx);
   await quietDelayAndFault(ctx);
+  // Pre-seed WIDGET + MISSING + FLAKY so Simulate opens onto Saved samples
+  // the viewer can re-run. If the live matching step already saved WIDGET,
+  // upsert keeps that row and adds the other two.
+  await quietSample(ctx);
   await closeAm24Simulate(ctx);
 }
 
-export async function ensureAm24ForSuite(ctx: DemoActionContext): Promise<void> {
-  await ensureAm24ForConflicts(ctx);
-  await quietOverlap(ctx);
-  await quietFixPriority(ctx);
+/** preAction for the conflicts step (step 7) — purge any /health routes left from a
+ *  prior run so the live step always authors them from zero, and strip leftover GET /. */
+export async function ensureAm24ForConflicts(ctx: DemoActionContext): Promise<void> {
+  await ensureAm24ForSuite(ctx);
+  await quietRemoveStrayRootRoutes();
+  // Count /health rows from the DOM (accurate here — no health patches yet in this call).
+  const haveHealth = am24HealthRows().length;
+  for (let i = 0; i < haveHealth; i++) {
+    patchApiMockActiveRoute({
+      removeRoute: true,
+      selectPath: AM24_HEALTH_PATH,
+      selectMethod: 'GET',
+    });
+  }
   await closeAm24Simulate(ctx);
 }
 
 export async function ensureAm24ForLive(ctx: DemoActionContext): Promise<void> {
-  await ensureAm24ForSuite(ctx);
+  await ensureAm24ForConflicts(ctx);
+  await quietOverlap(ctx);
+  await quietFixPriority(ctx);
+  await quietAnalyze(ctx);
+  await quietEnableGetOrderId(ctx);
   await closeAm24Simulate(ctx);
 }
 
-export async function ensureAm24ForShip(ctx: DemoActionContext): Promise<void> {
+/** preAction for the export step (step 9). */
+export async function ensureAm24ForExport(ctx: DemoActionContext): Promise<void> {
   await ensureAm24ForLive(ctx);
   await closeAm24Export(ctx, false);
   await closeAm24Simulate(ctx);
+}
+
+/** preAction for the workflow Quick Test step (step 10). */
+export async function ensureAm24ForShip(ctx: DemoActionContext): Promise<void> {
+  await ensureAm24ForExport(ctx);
 }
 
 export async function runAm24FromSpec(ctx: DemoActionContext): Promise<void> {
@@ -992,6 +1319,10 @@ export async function runAm24FromSpec(ctx: DemoActionContext): Promise<void> {
     await am24Aim(ctx, API_MOCK.ROUTE_ENABLED, T.payoff);
   }
   await am24Payoff(ctx, API_MOCK.ROUTE_ENABLED);
+  await am24Break(ctx);
+  await enableGetOrderIdFromUi(ctx, true);
+  await selectOrdersRoute(ctx, true);
+  await am24Payoff(ctx, API_MOCK.ROUTE_ENABLED);
 }
 
 export async function runAm24Matching(ctx: DemoActionContext): Promise<void> {
@@ -1015,7 +1346,7 @@ export async function runAm24Matching(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.TOOLBOX_APPLY)) {
     await am24Aim(ctx, API_MOCK.TOOLBOX_APPLY, T.panelReady);
   }
-  patchApiMockActiveRoute({ predicates: ROOT_GROUP });
+  patchAm24Orders({ predicates: ROOT_GROUP });
   await am24Break(ctx);
   await openAm24Simulate(ctx, true);
   await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME);
@@ -1033,7 +1364,7 @@ export async function runAm24Response(ctx: DemoActionContext): Promise<void> {
     await am24ClickNow(ctx, API_MOCK.BTAB_RESPONSE, T.tabSwitch);
   }
   await am24Reveal(ctx, API_MOCK.VARIANT_BODY);
-  patchApiMockActiveRoute({
+  patchAm24Orders({
     body: AM24_FAKER_BODY,
     contentType: AM24_CONTENT_JSON,
     status: 201,
@@ -1062,7 +1393,7 @@ export async function runAm24Variants(ctx: DemoActionContext): Promise<void> {
     if (firstVisibleElement(API_MOCK.VARIANT_STATUS_QUICK_404)) {
       await am24Aim(ctx, API_MOCK.VARIANT_STATUS_QUICK_404);
     }
-    patchApiMockActiveRoute({
+    patchAm24Orders({
       variantIndex: 1,
       variantName: AM24_VARIANT_NAME,
       status: 404,
@@ -1093,7 +1424,7 @@ export async function runAm24Variants(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.RESPONSE_MODE_SEQUENCE)) {
     await am24Aim(ctx, API_MOCK.RESPONSE_MODE_SEQUENCE);
   }
-  patchApiMockActiveRoute({ responseMode: 'sequence' });
+  patchAm24Orders({ responseMode: 'sequence' });
   if (firstVisibleElement(API_MOCK.SEQUENCE_ORDER_NOTE)) {
     await am24Payoff(ctx, API_MOCK.SEQUENCE_ORDER_NOTE);
   }
@@ -1101,8 +1432,11 @@ export async function runAm24Variants(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.RESPONSE_MODE_RULES)) {
     await am24Aim(ctx, API_MOCK.RESPONSE_MODE_RULES);
   }
-  patchApiMockActiveRoute({ responseMode: 'rules', variantIndex: 0, isDefault: true });
+  patchAm24Orders({ responseMode: 'rules', variantIndex: 0, isDefault: true });
   applyAm24NotFoundCondition();
+  // Clear the route-level body predicate so MISSING and FLAKY SKUs can
+  // reach the route and be handled by variant conditions.
+  patchAm24Orders({ predicates: OPEN_GROUP });
   const card = am24VariantCards().at(-1);
   const cardId = card?.getAttribute('data-testid');
   if (cardId) await am24ClickNow(ctx, `[data-testid="${cardId}"]`, 0);
@@ -1119,6 +1453,9 @@ export async function runAm24Variants(ctx: DemoActionContext): Promise<void> {
 
 export async function runAm24Resilience(ctx: DemoActionContext): Promise<void> {
   await ensureAm24ResponseTab(ctx);
+
+  // Beat 1 — latency on the happy path: a 200 ms delay at probability 1 on the
+  // default 201 so every good order is slightly slow (and never faults).
   if (firstVisibleElement(API_MOCK.VARIANT_CARD_FIRST)) {
     await am24ClickNow(ctx, API_MOCK.VARIANT_CARD_FIRST, 0);
   }
@@ -1132,14 +1469,52 @@ export async function runAm24Resilience(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.VARIANT_PROBABILITY)) {
     await am24AimFill(ctx, API_MOCK.VARIANT_PROBABILITY, AM24_PROBABILITY, T.payoff);
   }
-  patchApiMockActiveRoute({
+  patchAm24Orders({
     variantIndex: 0,
     behavior: { delayMs: Number(AM24_DELAY), probability: 1 },
   });
   await am24Break(ctx);
+
+  // Beat 2 — add a third "degraded" branch (503) for an unreliable dependency,
+  // conditioned on its own flaky SKU so it never overlaps the 201 or the real 404.
+  if (!(hasAm24DegradedVariant() && am24VariantCards().length >= 3)) {
+    if (firstVisibleElement(API_MOCK.ADD_VARIANT)) {
+      await am24ClickNow(ctx, API_MOCK.ADD_VARIANT, T.fieldFilled);
+    }
+    if (am24VariantCards().length < 3) {
+      patchAm24Orders({ addVariant: true });
+    }
+    await am24Reveal(ctx, API_MOCK.VARIANT_CARD_LAST);
+    if (firstVisibleElement(API_MOCK.VARIANT_NAME)) {
+      await am24AimFill(ctx, API_MOCK.VARIANT_NAME, AM24_FLAKY_VARIANT_NAME);
+    }
+    patchAm24Orders({
+      variantIndex: 2,
+      variantName: AM24_FLAKY_VARIANT_NAME,
+      status: Number(AM24_FLAKY_STATUS),
+      body: AM24_FLAKY_BODY,
+      contentType: AM24_CONTENT_JSON,
+      isDefault: false,
+      variantConditions: DEGRADED_CONDITIONS,
+    });
+    await am24Payoff(ctx, API_MOCK.VARIANT_CARD_LAST);
+  } else {
+    applyAm24DegradedCondition();
+  }
+  await am24Break(ctx);
+
+  // Beat 3 — the degraded branch is the *only* place the transport fault lives:
+  // gate it at 50% on Timing, then arm the timeout on Faults. A 404 is a
+  // response; a timeout is no response — they must stay on separate variants.
   const last = am24VariantCards().at(-1);
   const lastId = last?.getAttribute('data-testid');
   if (lastId) await am24ClickNow(ctx, `[data-testid="${lastId}"]`, 0);
+  if (firstVisibleElement(API_MOCK.RESPONSE_TAB_TIMING)) {
+    await am24Aim(ctx, API_MOCK.RESPONSE_TAB_TIMING, T.tabSwitch);
+  }
+  if (firstVisibleElement(API_MOCK.VARIANT_PROBABILITY)) {
+    await am24AimFill(ctx, API_MOCK.VARIANT_PROBABILITY, AM24_FAULT_PROBABILITY, T.payoff);
+  }
   if (firstVisibleElement(API_MOCK.RESPONSE_TAB_FAULTS)) {
     await am24Aim(ctx, API_MOCK.RESPONSE_TAB_FAULTS, T.tabSwitch);
   }
@@ -1147,56 +1522,131 @@ export async function runAm24Resilience(ctx: DemoActionContext): Promise<void> {
   if (firstVisibleElement(API_MOCK.FAULT_TIMEOUT)) {
     await am24Aim(ctx, API_MOCK.FAULT_TIMEOUT);
   }
-  patchApiMockActiveRoute({
-    variantIndex: 1,
-    behavior: { fault: 'timeout', longRunningMs: 50 },
+  patchAm24Orders({
+    variantIndex: 2,
+    behavior: { fault: 'timeout', longRunningMs: 50, probability: Number(AM24_FAULT_PROBABILITY) },
   });
   await am24Payoff(ctx, API_MOCK.FAULTS_PANEL);
+}
+
+async function authorAm24HealthRoute(ctx: DemoActionContext): Promise<void> {
+  if (!firstVisibleElement(API_MOCK.ADD_ROUTE)) {
+    patchApiMockActiveRoute({
+      addRoute: true,
+      path: AM24_HEALTH_PATH,
+      method: 'GET',
+      selectMethod: 'GET',
+    });
+    return;
+  }
+  await am24Aim(ctx, API_MOCK.ADD_ROUTE, T.fieldFilled);
+  if (firstVisibleElement(API_MOCK.ROUTE_EDITOR)) {
+    await am24Reveal(ctx, API_MOCK.ROUTE_EDITOR, T.panelReady);
+  } else {
+    await ctx.waitFor(API_MOCK.ROUTE_EDITOR, REVEAL_MS).catch(() => undefined);
+  }
+  await ctx.delay(200);
+  // Type /health in the new rule's editor (ADD_ROUTE defaults to GET /).
+  if (firstVisibleElement(API_MOCK.PATH_INPUT) && inputValue(API_MOCK.PATH_INPUT) !== AM24_HEALTH_PATH) {
+    await am24AimFill(ctx, API_MOCK.PATH_INPUT, AM24_HEALTH_PATH);
+  }
+  if (firstVisibleElement(API_MOCK.METHOD_SELECT)) {
+    await ctx.selectOption(API_MOCK.METHOD_SELECT, 'GET').catch(() => undefined);
+  }
+  // Belt: retarget leftover GET / — never patch the selected POST /orders rule.
+  patchApiMockActiveRoute({
+    selectPath: '/',
+    selectMethod: 'GET',
+    path: AM24_HEALTH_PATH,
+    method: 'GET',
+  });
 }
 
 export async function runAm24Conflicts(ctx: DemoActionContext): Promise<void> {
   await closeAm24Simulate(ctx);
   await ensureAm24StudioView(ctx);
-  await quietOverlap(ctx);
-  if (firstVisibleElement(API_MOCK.ADD_ROUTE) && am24RouteRows().filter(r => rowPath(r) === AM24_ORDERS_PATH).length < 2) {
-    await am24ClickNow(ctx, API_MOCK.ADD_ROUTE, T.fieldFilled);
-    if (firstVisibleElement(API_MOCK.PATH_INPUT)) {
-      await am24AimFill(ctx, API_MOCK.PATH_INPUT, AM24_ORDERS_PATH);
-    }
+  await quietRemoveStrayRootRoutes();
+
+  // Beat 1 — author two GET /health rules (the duplicate the description names).
+  // Read DOM count NOW (before any state patches) — accurate at this point.
+  // Do NOT re-check after authoring: patchApiMockActiveRoute is async React state
+  // and the DOM won't update until the next render cycle.
+  if (firstVisibleElement(API_MOCK.ROUTE_EXPLORER)) {
+    await am24Look(ctx, API_MOCK.ROUTE_EXPLORER);
   }
+  const healthAtStart = am24HealthRows().length;
+  const toAdd = Math.max(0, 2 - healthAtStart);
+  for (let i = 0; i < toAdd; i++) {
+    await authorAm24HealthRoute(ctx);
+  }
+  const healthRows = am24HealthRows();
+  if (healthRows[0]) await am24Look(ctx, `[data-testid="${healthRows[0].getAttribute('data-testid')}"]`);
+  if (healthRows[1]) await am24Look(ctx, `[data-testid="${healthRows[1].getAttribute('data-testid')}"]`);
   await am24Break(ctx);
+
+  // Beat 2 — Analyze and click the finding to open its detail.
+  // With both health routes at P10 (equal priority + reject policy) the detail
+  // shows "returns 409" — that is the BEFORE state the viewer needs to see.
+  // Spotlight the "Duplicate" filter badge so the viewer sees the kind label BEFORE the fix.
   if (firstVisibleElement(API_MOCK.ANALYZE)) {
-    await am24ClickNow(ctx, API_MOCK.ANALYZE, T.fieldFilled);
+    await am24Aim(ctx, API_MOCK.ANALYZE, T.fieldFilled);
   } else if (firstVisibleElement(API_MOCK.VIEW_CONFLICTS)) {
     await am24Aim(ctx, API_MOCK.VIEW_CONFLICTS);
   }
   await am24Reveal(ctx, API_MOCK.CONFLICT_LIST);
+  if (firstVisibleElement(API_MOCK.CONFLICT_FILTER_DUPLICATE)) {
+    // Spotlight the "Duplicate" badge — the BEFORE kind (error, equal priority → reject tie).
+    await am24Look(ctx, API_MOCK.CONFLICT_FILTER_DUPLICATE);
+  }
   if (firstVisibleElement(API_MOCK.FIRST_FINDING)) {
-    await am24Payoff(ctx, API_MOCK.FIRST_FINDING);
+    // Click the row to open the detail panel showing the 409 / reject notice.
+    await am24Aim(ctx, API_MOCK.FIRST_FINDING, T.fieldFilled);
+  }
+  if (firstVisibleElement(API_MOCK.CONFLICT_DETAIL)) {
+    await am24Payoff(ctx, API_MOCK.CONFLICT_DETAIL);
   }
   await am24Break(ctx);
+
+  // Beat 3 — raise one GET /health so it wins.
+  // Click CONFLICT_ADJUST_PRIORITY to open the prio menu, then click
+  // CONFLICT_PRIO_LEFT ("Raise left"). Belt: always patch state too.
   if (firstVisibleElement(API_MOCK.CONFLICT_ADJUST_PRIORITY)) {
-    await am24Aim(ctx, API_MOCK.CONFLICT_ADJUST_PRIORITY);
+    await am24Aim(ctx, API_MOCK.CONFLICT_ADJUST_PRIORITY, T.fieldFilled);
     if (firstVisibleElement(API_MOCK.CONFLICT_PRIO_LEFT)) {
-      await am24ClickNow(ctx, API_MOCK.CONFLICT_PRIO_LEFT, T.fieldFilled);
+      await am24Aim(ctx, API_MOCK.CONFLICT_PRIO_LEFT, T.fieldFilled);
     }
   } else {
-    await selectOrdersRoute(ctx, true);
+    await selectHealthRoute(ctx, true);
     if (firstVisibleElement(API_MOCK.PRIORITY_INPUT)) {
       await am24AimFill(ctx, API_MOCK.PRIORITY_INPUT, AM24_PRIORITY);
     }
-    patchApiMockActiveRoute({ priority: Number(AM24_PRIORITY) });
   }
+  patchAm24Health({ priority: Number(AM24_PRIORITY) });
+
+  // Beat 4 — Re-analyze. The detail now shows "Outcome: Left wins" instead of
+  // "returns 409" — that is the AFTER / "clean" state: one unambiguous winner.
+  // The kind badge transitions from "Duplicate" (error) → "Shadowed" (warning).
   if (firstVisibleElement(API_MOCK.CONFLICTS_ANALYZE)) {
-    await am24Aim(ctx, API_MOCK.CONFLICTS_ANALYZE);
+    await am24Aim(ctx, API_MOCK.CONFLICTS_ANALYZE, T.fieldFilled);
   } else if (firstVisibleElement(API_MOCK.ANALYZE)) {
-    await am24Aim(ctx, API_MOCK.ANALYZE);
+    await am24Aim(ctx, API_MOCK.ANALYZE, T.fieldFilled);
   }
-  if (firstVisibleElement(API_MOCK.CONFLICT_FILTER_EMPTY)) {
-    await am24Payoff(ctx, API_MOCK.CONFLICT_FILTER_EMPTY);
+  // Re-select the finding so the detail refreshes with the new outcome.
+  if (firstVisibleElement(API_MOCK.FIRST_FINDING)) {
+    await am24Aim(ctx, API_MOCK.FIRST_FINDING, T.fieldFilled);
+  }
+  if (firstVisibleElement(API_MOCK.CONFLICT_FILTER_SHADOWED)) {
+    // Spotlight the "Shadowed" badge — the AFTER kind (warning, left wins deterministically).
+    await am24Look(ctx, API_MOCK.CONFLICT_FILTER_SHADOWED);
+  }
+  // Payoff on the detail showing "Left wins" (not "1 finding" summary).
+  if (firstVisibleElement(API_MOCK.CONFLICT_DETAIL)) {
+    await am24Payoff(ctx, API_MOCK.CONFLICT_DETAIL);
   } else if (firstVisibleElement(API_MOCK.CONFLICT_SUMMARY)) {
     await am24Payoff(ctx, API_MOCK.CONFLICT_SUMMARY);
   }
+
+  // Beat 5 — return to Studio view.
   if (firstVisibleElement(API_MOCK.VIEW_STUDIO) && !isAm24StudioActive()) {
     await am24Aim(ctx, API_MOCK.VIEW_STUDIO);
   }
@@ -1205,17 +1655,38 @@ export async function runAm24Conflicts(ctx: DemoActionContext): Promise<void> {
 export async function runAm24Suite(ctx: DemoActionContext): Promise<void> {
   await ensureAm24StudioView(ctx);
   await closeAm24Simulate(ctx);
+  upsertAm24ContractSamples();
   if (firstVisibleElement(API_MOCK.SIMULATE)) {
-    await am24ClickNow(ctx, API_MOCK.SIMULATE, T.panelReady);
+    await am24Aim(ctx, API_MOCK.SIMULATE, T.panelReady);
   }
   await am24Reveal(ctx, API_MOCK.SIMULATE_WORKSPACE);
-  if (!hasAm24Sample()) {
-    await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME, {
-      formHold: 1800,
-      fieldHold: 1800,
-      reviewHold: 2200,
-      beforeRunHold: 2800,
-    });
+  if (!hasAm24ContractSamples()) {
+    if (!hasAm24NamedSample(AM24_SAMPLE_NAME)) {
+      await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME, {
+        formHold: 1800,
+        fieldHold: 1800,
+        reviewHold: 2200,
+        beforeRunHold: 2800,
+      });
+    }
+    if (!hasAm24NamedSample(AM24_SAMPLE_NAME_MISSING)) {
+      await runOrdersSimulation(ctx, AM24_MISS_BODY, AM24_SAMPLE_NAME_MISSING);
+    }
+    if (!hasAm24NamedSample(AM24_SAMPLE_NAME_FLAKY)) {
+      await runOrdersSimulation(ctx, AM24_FLAKY_REQ_BODY, AM24_SAMPLE_NAME_FLAKY);
+    }
+  }
+  if (firstVisibleElement(API_MOCK.SIMULATE_SECTION_SAVED)) {
+    await am24Reveal(ctx, API_MOCK.SIMULATE_SECTION_SAVED, T.panelReady);
+  }
+  const missingId = resolveAm24SampleId(AM24_SAMPLE_NAME_MISSING);
+  const flakyId = resolveAm24SampleId(AM24_SAMPLE_NAME_FLAKY);
+  if (missingId) await am24Look(ctx, API_MOCK.simSample(missingId));
+  if (flakyId) await am24Look(ctx, API_MOCK.simSample(flakyId));
+  const widgetId = resolveAm24SampleId(AM24_SAMPLE_NAME);
+  if (widgetId) {
+    await am24Look(ctx, API_MOCK.simSample(widgetId));
+    await am24Aim(ctx, API_MOCK.simSampleBtn(widgetId), T.panelReady);
   }
   if (firstVisibleElement(API_MOCK.SIMULATE_TAB_ASSERTIONS)) {
     await am24Aim(ctx, API_MOCK.SIMULATE_TAB_ASSERTIONS, T.tabSwitch);
@@ -1224,50 +1695,86 @@ export async function runAm24Suite(ctx: DemoActionContext): Promise<void> {
     await am24AimFill(ctx, API_MOCK.SIMULATE_ASSERT_STATUS, '201');
   }
   await am24Break(ctx);
+
+  // Beat — ring + click "Run all samples" → wait for suite summary.
   if (firstVisibleElement(API_MOCK.SIMULATE_RUN_ALL)) {
     await am24Aim(ctx, API_MOCK.SIMULATE_RUN_ALL);
   }
   await am24Reveal(ctx, API_MOCK.SIMULATE_SUMMARY, T.simOutcome);
   await am24Payoff(ctx, API_MOCK.SIMULATE_SUMMARY);
+  await am24Break(ctx);
+
+  // Beat — open FLAKY so the viewer can re-check 503 (not the unmatched 404).
+  if (flakyId) {
+    await am24Look(ctx, API_MOCK.simSample(flakyId));
+    await am24Aim(ctx, API_MOCK.simSampleBtn(flakyId), T.panelReady);
+  } else if (widgetId) {
+    await am24Look(ctx, API_MOCK.simSample(widgetId));
+    await am24Aim(ctx, API_MOCK.simSampleBtn(widgetId), T.panelReady);
+  }
+  if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)) {
+    await am24Aim(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
+  }
+  const renderedTarget = firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
+    ? API_MOCK.SIMULATE_RENDERED_STATUS
+    : API_MOCK.SIMULATE_RENDERED;
+  await am24Reveal(ctx, renderedTarget, T.panelReady);
+  await am24Payoff(ctx, renderedTarget);
+
   await closeAm24Simulate(ctx, { review: true });
 }
 
 export async function runAm24Live(ctx: DemoActionContext): Promise<void> {
   await closeAm24Simulate(ctx);
   await ensureAm24StudioView(ctx);
-  if (firstVisibleElement(API_MOCK.ROUTE_TITLE)) {
-    await am24Payoff(ctx, API_MOCK.ROUTE_TITLE);
-  }
+  await enableGetOrderIdFromUi(ctx, true);
   await applyIfDirty(ctx);
+
+  // Beat 1 — Start the listener so real traffic can reach it.
   if (!am24ServerRunning() && firstVisibleElement(API_MOCK.START)) {
-    await am24ClickNow(ctx, API_MOCK.START, T.fieldFilled);
+    await am24Aim(ctx, API_MOCK.START, T.lifecycle);
     await am24Reveal(ctx, API_MOCK.STOP, T.lifecycle);
   }
+  // Re-enable from the list (product control) + Apply after Start so a
+  // listener that booted while GET /orders/{id} was still a draft picks it up.
+  await enableGetOrderIdFromUi(ctx, false);
+  await applyIfDirty(ctx);
   await am24Payoff(ctx, API_MOCK.STATUS_LABEL);
   await am24Break(ctx);
+
+  // Beat 2 — Send POST /orders first (so the row arrives while the journal is
+  // opening), then click Transactions and hold on the row that's already there.
   await sendApiMockRequest({
     path: AM24_ORDERS_PATH,
     method: 'POST',
     headers: { 'Content-Type': AM24_CONTENT_JSON },
     body: AM24_MATCH_BODY,
   });
+  await ctx.delay(600);
+  await openAm24Journal(ctx, true);
+  await am24Reveal(ctx, API_MOCK.JOURNAL_FIRST_ROW, T.journalWrite);
+  await am24Payoff(ctx, API_MOCK.JOURNAL_FIRST_ROW);
+  await am24Break(ctx);
+
+  // Beat 3 — GET /orders/42 hits the parameterized GET /orders/{id} rule.
+  await sendApiMockRequest({ path: AM24_HIT_PATH, method: 'GET' });
   await ctx.delay(T.journalWrite);
-  if (firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS)) {
-    await am24ClickNow(ctx, API_MOCK.DOCK_TAB_TRANSACTIONS, T.tabSwitch);
-  }
-  if (firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW)) {
-    await am24Reveal(ctx, API_MOCK.JOURNAL_FIRST_ROW, T.journalWrite);
-    await am24Payoff(ctx, API_MOCK.JOURNAL_FIRST_ROW);
+  await am24Aim(ctx, API_MOCK.JOURNAL_FIRST_ROW, T.tabSwitch);
+  await am24Reveal(ctx, API_MOCK.TX_DETAIL, T.journalWrite);
+  if (firstVisibleElement(API_MOCK.TX_OUTCOME)) {
+    await am24Payoff(ctx, API_MOCK.TX_OUTCOME);
+  } else {
+    await am24Payoff(ctx, API_MOCK.TX_DETAIL);
   }
   await am24Break(ctx);
+
+  // Beat 4 — Fire GET /ordrs/42 (misspelled) → near-miss row in the journal.
   await sendApiMockRequest({ path: AM24_MISS_PATH, method: 'GET' });
   await ctx.delay(T.journalWrite);
-  const newest = document.querySelector<HTMLElement>(API_MOCK.JOURNAL_FIRST_ROW);
-  if (newest) {
-    const testid = newest.getAttribute('data-testid');
-    if (testid) await am24ClickNow(ctx, `[data-testid="${testid}"]`, 0);
-  }
-  await am24Reveal(ctx, API_MOCK.TX_DETAIL, T.payoff);
+  // JOURNAL_FIRST_ROW is always the newest row — ring it, click to expand, hold.
+  await am24Aim(ctx, API_MOCK.JOURNAL_FIRST_ROW, T.tabSwitch);
+  await am24Reveal(ctx, API_MOCK.TX_DETAIL, T.journalWrite);
+  await am24Payoff(ctx, API_MOCK.TX_DETAIL);
   if (firstVisibleElement(API_MOCK.TX_NEAR_MISSES)) {
     await am24Payoff(ctx, API_MOCK.TX_NEAR_MISSES);
   } else if (firstVisibleElement(API_MOCK.TX_OUTCOME)) {
@@ -1371,7 +1878,7 @@ async function linkIntoChain(
   }
 }
 
-export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
+export async function runAm24Export(ctx: DemoActionContext): Promise<void> {
   await closeAm24Simulate(ctx);
   await ensureAm24OnStudio(ctx);
   await pickExport(ctx, API_MOCK.EXPORT_WORKSPACE, true);
@@ -1384,7 +1891,27 @@ export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
   }
   await am24Payoff(ctx, API_MOCK.EXPORT_CONFIRM);
   await closeAm24Export(ctx, true);
-  await am24Break(ctx);
+}
+
+/**
+ * Quietly stop the AM24 main server so the Quick Test's isolated copy can
+ * claim port 4600. The isolated definition copies the workspace port; if the
+ * main server is still running on that port the pool rejects the start with 409.
+ * This is the last lesson step — the server is no longer needed after the test.
+ */
+async function quietStopAm24Server(ctx: DemoActionContext): Promise<void> {
+  await ensureAm24StudioView(ctx);
+  if (!am24ServerRunning()) return;
+  if (!firstVisibleElement(API_MOCK.STOP)) return;
+  await ctx.click(API_MOCK.STOP);
+  await ctx.waitFor(API_MOCK.START, REVEAL_MS).catch(() => undefined);
+}
+
+export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
+  await closeAm24Export(ctx, false);
+  await closeAm24Simulate(ctx);
+  // Free port 4600 before the Quick Test's Start Mock Server tries to claim it.
+  await quietStopAm24Server(ctx);
 
   await ensureAm24Designer(ctx);
   await dropFromPalette(ctx, WF.PAL_API_MOCK_START, API_MOCK.CANVAS_START);
@@ -1452,17 +1979,19 @@ export async function runAm24Ship(ctx: DemoActionContext): Promise<void> {
   await fitAm24Canvas(ctx);
   await am24Break(ctx);
 
-  if (firstVisibleElement(WF.QUICK_TEST)) {
-    await am24ClickNow(ctx, WF.QUICK_TEST, T.fieldFilled);
-  } else {
-    triggerWorkflowQuickTest();
-    await ctx.delay(T.fieldFilled);
-  }
-  await am24Reveal(ctx, am24PassSelector(API_MOCK.CANVAS_START), T.simOutcome);
+  // Beat — open the Console so the viewer can see live logs before clicking Quick Test.
+  await openWfConsoleIfClosed(ctx);
+  await ctx.delay(T.panelReady);
+  // Spotlight only — do NOT click the panel container (that shifts focus away from the toolbar).
+  await spotlightBeat(ctx, WF.CONSOLE, T.look);
+
+  // Quick Test results can take up to 30s — use explicit timeouts instead of the 8s default.
+  await am24ClickNow(ctx, WF.QUICK_TEST, T.lifecycle);
+  await am24Reveal(ctx, am24PassSelector(API_MOCK.CANVAS_START), T.simOutcome, 60_000);
   if (document.querySelector(am24PassSelector(WF.NODE_HTTP))) {
     await am24Look(ctx, am24PassSelector(WF.NODE_HTTP));
   }
-  await am24Payoff(ctx, am24PassSelector(API_MOCK.CANVAS_ASSERT));
+  await am24Reveal(ctx, am24PassSelector(API_MOCK.CANVAS_ASSERT), T.simOutcome, 60_000);
 }
 
 /** @internal exported for helper tests */
@@ -1479,6 +2008,7 @@ export const am24TestHooks = {
   quietJsonPath,
   quietFakerBody,
   quietNotFoundVariant,
+  quietDegradedVariant,
   quietDelayAndFault,
   quietOverlap,
   quietAnalyze,
@@ -1500,9 +2030,12 @@ export const am24TestHooks = {
   ensureAm24ResponseTab,
   ensureAm24RuleOpen,
   ensureAm24Running,
+  ensureAm24ForExport,
   openAm24Simulate,
   connectPair,
   linkIntoChain,
   runOrdersSimulation,
   selectOrdersRoute,
+  resolveAm24SampleId,
+  quietEnableGetOrderId,
 };

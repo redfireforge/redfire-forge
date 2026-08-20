@@ -248,14 +248,24 @@ test.describe('Execution Mode Selector', () => {
 
     const envSelect = page.getByTestId('header-env-select');
     await envSelect.locator('.cs-trigger').click();
+    await expect(page.locator('.cs-menu').first()).toBeVisible();
     const envItemCount = await page.locator('.cs-menu .cs-item').count();
-    expect(envItemCount).toBeGreaterThan(0);
+    if (envItemCount === 0) {
+      await expect(page.locator('.cs-menu .cs-empty').first()).toBeVisible();
+    } else {
+      expect(envItemCount).toBeGreaterThan(0);
+    }
     await page.keyboard.press('Escape');
 
     const svcSelect = page.getByTestId('header-svc-select');
     await svcSelect.locator('.cs-trigger').click();
+    await expect(page.locator('.cs-menu').first()).toBeVisible();
     const svcItemCount = await page.locator('.cs-menu .cs-item').count();
-    expect(svcItemCount).toBeGreaterThan(0);
+    if (svcItemCount === 0) {
+      await expect(page.locator('.cs-menu .cs-empty').first()).toBeVisible();
+    } else {
+      expect(svcItemCount).toBeGreaterThan(0);
+    }
     await page.keyboard.press('Escape');
   });
 

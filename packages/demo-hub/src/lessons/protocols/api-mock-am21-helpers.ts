@@ -9,6 +9,7 @@ import {
   importApiMockGallerySample,
   prepareApiMockStudioChrome,
   wipeApiMockWorkspace,
+  deleteCollectionsByName,
 } from '../../adapters';
 import { API_MOCK, APP, REQ } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
@@ -222,6 +223,7 @@ export async function prepareAm21Workspace(): Promise<void> {
 }
 
 export async function cleanupAm21(): Promise<void> {
+  deleteCollectionsByName('API Mock Journal');
   await wipeApiMockWorkspace();
 }
 
@@ -475,17 +477,59 @@ export async function runAm21RunAll(ctx: DemoActionContext): Promise<void> {
 
 export async function runAm21Seed(ctx: DemoActionContext): Promise<void> {
   await ensureAm21ForSeed(ctx);
+
+  // Beat 1 — close Simulate, go to Studio, select the /dice route, open Response tab.
+  // Shows the viewer *why* the roll is pinned: a weighted route with two variants.
+  await closeAm21Simulate(ctx);
+  await ensureAm21StudioView(ctx);
+  const diceRouteSel = API_MOCK.routeNamed('Dice');
+  if (firstVisibleElement(diceRouteSel) ?? document.querySelector(diceRouteSel)) {
+    await am21Aim(ctx, diceRouteSel, T.panelReady);
+  }
+  if (firstVisibleElement(API_MOCK.BTAB_RESPONSE) ?? document.querySelector(API_MOCK.BTAB_RESPONSE)) {
+    await am21ClickNow(ctx, API_MOCK.BTAB_RESPONSE, T.tabSwitch);
+  }
+  // Image 1 — Weighted mode: Heads (Default) + Tails variant list
+  if (firstVisibleElement(API_MOCK.VARIANT_SIDEBAR)) {
+    await am21Payoff(ctx, API_MOCK.VARIANT_SIDEBAR);
+  }
+
+  // Beat 2 — click the Tails variant → switch to Selection tab → spotlight Weight 50.
+  // This is Image 2: shows the probability weight that makes Tails a 50 % flip.
+  if (firstVisibleElement(API_MOCK.VARIANT_CARD_LAST)) {
+    await am21Aim(ctx, API_MOCK.VARIANT_CARD_LAST, T.tabSwitch);
+  }
+  if (firstVisibleElement(API_MOCK.RESPONSE_TAB_SELECTION) ?? document.querySelector(API_MOCK.RESPONSE_TAB_SELECTION)) {
+    await am21ClickNow(ctx, API_MOCK.RESPONSE_TAB_SELECTION, T.tabSwitch);
+  }
+  if (firstVisibleElement(API_MOCK.VARIANT_WEIGHT)) {
+    await am21Payoff(ctx, API_MOCK.VARIANT_WEIGHT);
+  }
+  await am21Break(ctx);
+
+  // Beat 3 onwards — open Simulate visibly, run dice twice to prove same seed.
+  await openAm21Simulate(ctx, true);
   await selectAm21SampleByName(ctx, AM21_DICE_NAME, true);
   await showAm21RequestForm(ctx, true);
+
+  // Run 1 — click Run, switch to Rendered response tab, spotlight the body.
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   await am21Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
-  await am21Payoff(ctx, API_MOCK.SIMULATE_RENDERED);
+  if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED) ?? document.querySelector(API_MOCK.SIMULATE_TAB_RENDERED)) {
+    await am21ClickNow(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
+  }
+  await am21Payoff(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
   const firstBody = am21RenderedBody();
   await am21Break(ctx);
+
+  // Run 2 — same sample, same seed → same body; viewer sees matching dice face.
   await showAm21RequestForm(ctx, true);
   await clickBeat(ctx, API_MOCK.SIMULATE_RUN, { look: T.beforeRun, hold: 0 });
   await am21Reveal(ctx, API_MOCK.SIMULATE_OUTCOME, T.simOutcome);
-  if (firstBody) await am21Look(ctx, API_MOCK.SIMULATE_RENDERED);
+  if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED) ?? document.querySelector(API_MOCK.SIMULATE_TAB_RENDERED)) {
+    await am21ClickNow(ctx, API_MOCK.SIMULATE_TAB_RENDERED, T.tabSwitch);
+  }
+  if (firstBody) await am21Look(ctx, API_MOCK.SIMULATE_RENDERED_BODY);
   await am21Payoff(ctx, API_MOCK.SIMULATE_OUTCOME);
 }
 
@@ -498,40 +542,77 @@ export async function runAm21ExportTrace(ctx: DemoActionContext): Promise<void> 
 }
 
 export async function runAm21Examples(ctx: DemoActionContext): Promise<void> {
-  const E = AM21_EXAMPLES_TIMING;
+  // Use standard T timings (not E) — E values (1600–2400 ms each) make this
+  // dense step exceed the 45 s action timeout.
   await ensureAm21ForExamples(ctx);
-  await am21ClickNow(ctx, API_MOCK.BTAB_EXAMPLES, E.tabSwitch);
-  await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID, E.payoff);
+
+  // Beat 1 — ring Examples tab → open → hold on grid.
+  await clickBeat(ctx, API_MOCK.BTAB_EXAMPLES, { look: T.beforeOpen, hold: T.tabSwitch });
+  await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID, T.payoff);
+
+  // Beat 2 — ring the orphan row ("Unassociated" chip) → ring + click Attach.
   let orphanId = resolveAm21ExampleId(AM21_ORPHAN_NAME);
-  if (orphanId && hasAm21Attach()) {
-    await clickBeat(ctx, API_MOCK.exampleAttach(orphanId), { look: E.beforeOpen, hold: E.hold });
-    await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), E.payoff);
-    if (firstVisibleElement(API_MOCK.exampleStatus(orphanId))) {
-      await spotlightBeat(ctx, API_MOCK.exampleStatus(orphanId), E.look);
+  if (orphanId) {
+    await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), T.look);
+    if (hasAm21Attach()) {
+      await clickBeat(ctx, API_MOCK.exampleAttach(orphanId), { look: T.beforeOpen, hold: T.panelReady });
+      await ctx.delay(T.tabSwitch);
     }
-    if (firstVisibleElement(API_MOCK.exampleBody(orphanId))) {
-      await spotlightBeat(ctx, API_MOCK.exampleBody(orphanId), E.look);
+    // Beat 3 — ring attached row, then one field to show the assertion snapshot.
+    if (firstVisibleElement(API_MOCK.exampleRow(orphanId))) {
+      await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), T.look);
+    }
+    if (firstVisibleElement(API_MOCK.exampleStatus(orphanId))) {
+      await spotlightBeat(ctx, API_MOCK.exampleStatus(orphanId), T.look);
     }
   }
-  await ctx.delay(E.break);
+  await ctx.delay(T.groupBreak);
+
+  // Beat 4 — ring Start → click → wait for Running (8 s max).
+  const alreadyRunning = (firstVisibleElement(API_MOCK.STATUS_LABEL)?.textContent ?? '').toLowerCase().includes('running');
+  if (!alreadyRunning && (firstVisibleElement(API_MOCK.START) ?? document.querySelector(API_MOCK.START))) {
+    await spotlightBeat(ctx, API_MOCK.START, T.look);
+    await clickBeat(ctx, API_MOCK.START, { look: T.beforeOpen, hold: 0 });
+    await ctx.waitFor(API_MOCK.STOP, 8_000).catch(() => undefined);
+    await ctx.delay(T.tabSwitch);
+  }
+
+  // Beat 5 — ring Try in Requests → click → hold on URL input.
   const tryBtn = orphanId && firstVisibleElement(API_MOCK.exampleTry(orphanId))
     ? API_MOCK.exampleTry(orphanId)
     : API_MOCK.EXAMPLE_TRY_REQUESTS;
   if (firstVisibleElement(tryBtn)) {
-    await clickBeat(ctx, tryBtn, { look: E.beforeOpen, hold: E.hold });
-    await am21Reveal(ctx, REQ.URL_INPUT, E.payoff);
-    await spotlightBeat(ctx, REQ.URL_INPUT, E.payoff);
+    await spotlightBeat(ctx, tryBtn, T.look);
+    await clickBeat(ctx, tryBtn, { look: T.beforeOpen, hold: T.panelReady });
+    await am21Reveal(ctx, REQ.URL_INPUT, T.tabSwitch);
+    await spotlightBeat(ctx, REQ.URL_INPUT, T.payoff);
   }
+
+  // Beat 6 — ring Send → click → ring status badge → ring response body.
+  if (firstVisibleElement(REQ.SEND_BTN)) {
+    await clickBeat(ctx, REQ.SEND_BTN, { look: T.beforeOpen, hold: 0 });
+    await ctx.waitFor(REQ.STATUS_PILL, 6_000).catch(() => undefined);
+    await ctx.delay(T.tabSwitch);
+    if (firstVisibleElement(REQ.STATUS_PILL)) await spotlightBeat(ctx, REQ.STATUS_PILL, T.look);
+    if (firstVisibleElement(REQ.JSON_PREVIEW)) await spotlightBeat(ctx, REQ.JSON_PREVIEW, T.payoff);
+  }
+
+  // Beat 7 — return to Studio → ring + click Stop.
   await ensureAm21OnApiMock(ctx);
   await ensureAm21StudioView(ctx);
+  if (firstVisibleElement(API_MOCK.STOP) ?? document.querySelector(API_MOCK.STOP)) {
+    await spotlightBeat(ctx, API_MOCK.STOP, T.look);
+    await clickBeat(ctx, API_MOCK.STOP, { look: T.beforeOpen, hold: T.tabSwitch });
+  }
+
+  // Beat 8 — payoff: Examples tab → ring attached example row.
   if (firstVisibleElement(API_MOCK.CLI_SIMULATE)) {
-    await spotlightBeat(ctx, API_MOCK.CLI_SIMULATE, E.look);
-    await spotlightBeat(ctx, API_MOCK.CLI_SIMULATE, E.payoff);
+    await spotlightBeat(ctx, API_MOCK.CLI_SIMULATE, T.payoff);
   }
   if (!hasAm21Examples() && firstVisibleElement(API_MOCK.BTAB_EXAMPLES)) {
-    await clickBeat(ctx, API_MOCK.BTAB_EXAMPLES, { look: E.beforeOpen, hold: E.tabSwitch });
-    await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID, E.payoff);
+    await clickBeat(ctx, API_MOCK.BTAB_EXAMPLES, { look: T.beforeOpen, hold: T.tabSwitch });
+    await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID, T.payoff);
   }
   orphanId = resolveAm21ExampleId(AM21_ORPHAN_NAME) ?? orphanId;
-  if (orphanId) await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), E.payoff);
+  if (orphanId) await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), T.payoff);
 }

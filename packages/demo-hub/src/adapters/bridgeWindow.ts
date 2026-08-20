@@ -201,6 +201,13 @@ export type DemoBridgeWindow = Window &
     __demoPatchApiMockActiveRoute?: (patch: {
       path?: string;
       pathKind?: 'exact' | 'parameterized' | 'glob' | 'regex';
+      selectPath?: string;
+      selectMethod?: string;
+      method?: string;
+      addRoute?: boolean;
+      removeRoute?: boolean;
+      enabled?: boolean;
+      addVariant?: boolean;
       body?: string;
       contentType?: string;
       status?: number;
@@ -223,6 +230,21 @@ export type DemoBridgeWindow = Window &
         chunkSchedule?: Array<{ afterMs: number; body: string }> | null;
       };
     }) => boolean;
+    /** Clear all saved Simulate samples on the active server (lesson replay). */
+    __demoClearApiMockServerSamples?: () => boolean;
+    /** Upsert saved Simulate samples by name (AM-24 WIDGET / MISSING / FLAKY suite). */
+    __demoUpsertApiMockServerSamples?: (drafts: Array<{
+      name: string;
+      method: string;
+      path: string;
+      body?: string | null;
+      contentType?: string;
+      expected?: {
+        outcome: 'matched' | 'unmatched' | 'ambiguous' | 'fault' | 'error' | 'proxied';
+        status?: number;
+        bodyContains?: string;
+      };
+    }>) => boolean;
     /** Quiet patch of the active server's selection policy (guards, not live beats). */
     __demoPatchApiMockServerSettings?: (patch: {
       multipleMatchPolicy?: 'highest_priority' | 'reject_multiple';

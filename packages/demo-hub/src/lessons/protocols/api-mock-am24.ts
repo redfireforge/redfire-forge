@@ -3,19 +3,24 @@
  *
  * Scenario: the workspace starts empty. The lesson imports an OpenAPI spec
  * as drafts, authors matching, a templated response, variants, resilience,
- * and a conflict fix live, then proves the contract in Simulate, on the
- * wire, and as a Workflow Quick Test after exporting the artifact.
+ * then proves the contract in Simulate, analyzes a duplicate health-check,
+ * and ships it on the wire and as a Workflow Quick Test after exporting.
  * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
 import {
   AM24_JSONPATH,
+  AM24_SAMPLE_NAME,
+  AM24_SAMPLE_NAME_FLAKY,
+  AM24_SAMPLE_NAME_MISSING,
   AM24_SHIP_ACTION_TIMEOUT_MS,
+  AM24_SUITE_ACTION_TIMEOUT_MS,
   AM24_SKU,
   AM24_SKU_MISSING,
   cleanupAm24,
   ensureAm24ForConflicts,
+  ensureAm24ForExport,
   ensureAm24ForImport,
   ensureAm24ForLive,
   ensureAm24ForMatching,
@@ -26,6 +31,7 @@ import {
   ensureAm24ForVariants,
   prepareAm24Workspace,
   runAm24Conflicts,
+  runAm24Export,
   runAm24FromSpec,
   runAm24Live,
   runAm24Matching,
@@ -50,15 +56,15 @@ const DIAGRAM = `
   <text x="214" y="110" fill="#a78bfa" font-family="system-ui" font-size="12" font-weight="600">Match + body</text>
   <rect x="366" y="76" width="150" height="58" rx="8" fill="#1e293b" stroke="#f59e0b" />
   <text x="386" y="110" fill="#f59e0b" font-family="system-ui" font-size="12" font-weight="600">Variants + delay</text>
-  <rect x="536" y="76" width="138" height="58" rx="8" fill="#1e293b" stroke="#22c55e" />
-  <text x="558" y="110" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Analyze clean</text>
+  <rect x="536" y="76" width="138" height="58" rx="8" fill="#1e293b" stroke="#38bdf8" />
+  <text x="558" y="110" fill="#38bdf8" font-family="system-ui" font-size="12" font-weight="600">Suite all green</text>
 
   <path d="M176 105 H196" stroke="#64748b" stroke-width="2" marker-end="url(#am24arrow)" />
   <path d="M346 105 H366" stroke="#64748b" stroke-width="2" marker-end="url(#am24arrow)" />
   <path d="M516 105 H536" stroke="#64748b" stroke-width="2" marker-end="url(#am24arrow)" />
 
-  <rect x="26" y="168" width="200" height="58" rx="8" fill="#1e293b" stroke="#38bdf8" />
-  <text x="62" y="202" fill="#38bdf8" font-family="system-ui" font-size="12" font-weight="600">Suite all green</text>
+  <rect x="26" y="168" width="200" height="58" rx="8" fill="#1e293b" stroke="#22c55e" />
+  <text x="58" y="202" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Analyze /health</text>
   <rect x="246" y="168" width="200" height="58" rx="8" fill="#1e293b" stroke="#f97316" />
   <text x="278" y="202" fill="#f97316" font-family="system-ui" font-size="12" font-weight="600">Live + near-miss</text>
   <rect x="466" y="168" width="208" height="58" rx="8" fill="#1e293b" stroke="#22c55e" />
@@ -75,7 +81,7 @@ const DIAGRAM = `
   </defs>
 
   <rect x="26" y="250" width="648" height="70" rx="8" fill="#1e293b" stroke="#3b4a60" />
-  <text x="42" y="278" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Drafts stay off until you enable the one path the client will hit.</text>
+  <text x="42" y="278" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">Drafts stay off until you enable the paths the client will hit.</text>
   <text x="42" y="300" fill="#a8b8cc" font-family="system-ui" font-size="11">Simulate is the unit suite. The journal is the live audit. Workspace JSON is the CI artifact.</text>
 
   <rect x="26" y="338" width="648" height="70" rx="8" fill="#1e293b" stroke="#22c55e" />
@@ -91,34 +97,41 @@ export const apiMockAm24Lesson: DemoLesson = {
   name: 'Ship a Contract Mock',
   description:
     'Start from an empty Studio and import an OpenAPI spec as disabled drafts. '
-    + 'Generalize the paths, enable `POST /orders`, then author a JSONPath '
-    + 'predicate, a faker-templated 201, a 404 sibling, delay, and a fault '
-    + 'variant. Analyze the overlap you just created, raise priority, and '
-    + 're-analyze clean. Prove the suite green, send live traffic (including '
-    + 'a near-miss), export workspace JSON plus WireMock, and finish with a '
-    + 'Workflow Quick Test that starts, posts, asserts, and stops.',
-  estimatedMinutes: 8,
+    + 'Generalize the paths, enable `POST /orders` and `GET /orders/{id}`, then author a JSONPath '
+    + 'predicate, a faker-templated 201, and a 404 sibling — then delay the '
+    + 'happy path and isolate a probability-gated timeout on a separate degraded '
+    + 'branch. Prove the suite green, then author a duplicate `GET /health`, '
+    + 'Analyze the overlap, raise priority, and re-analyze clean. Send live '
+    + 'traffic (including a near-miss), export workspace JSON plus WireMock, '
+    + 'and finish with a Workflow Quick Test that starts, posts, asserts, and stops.',
+  estimatedMinutes: 9,
   initialTab: 'api-mock-studio',
   allowedTabs: ['api-mock-studio', 'workflow'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 9,
+  contentVersion: 19,
   concept: {
     title: 'A contract mock is a spec you can run, not a screenshot of a 200.',
     body:
       'The pack taught each surface on its own: import, matchers, templates, '
-      + 'variants, faults, conflicts, Simulate, the journal, export, and '
+      + 'variants, faults, Simulate, conflicts, the journal, export, and '
       + 'Workflow. This lesson is the timed integration — one Orders contract '
       + 'authored live from a spec, then proven three ways.\n\n'
       + '**Drafts** are how OpenAPI lands without silently answering production '
-      + 'traffic. You generalize `{id}` paths, then enable only `POST /orders`. '
+      + 'traffic. You generalize `{id}` paths, then enable `POST /orders` and '
+      + '`GET /orders/{id}` from the rule list. '
       + 'A **JSONPath** predicate is the difference between "any body" and the '
       + 'SKU the client actually sends. **Faker** keeps examples human without '
-      + 'hard-coding names. A **404 variant** plus delay and a fault sibling '
-      + 'are the retry story the suite will hit. **Analyze** is how you notice '
-      + 'the duplicate you just added; raising priority and re-analyzing is '
-      + 'how you ship clean.\n\n'
+      + 'hard-coding names. A **404 variant** is the contract\'s sad path; a '
+      + '**delay** on the 201 and a **probability-gated timeout** on a separate '
+      + 'degraded branch are the resilience story — a 404 and a timeout are '
+      + 'different failures, so they live on different variants. **Simulate** '
+      + 'grades that contract (the suite still proves the clean 201) before '
+      + 'anything else is added to the library. **Analyze** is how you notice '
+      + 'a duplicate `GET /health` you then author on purpose; raising '
+      + 'priority and re-analyzing is how you ship the library unambiguous.\n\n'
       + '**Simulate** is unit-level (no sockets). **Start** plus a real POST '
-      + 'writes the journal, and a typo path is the near-miss you would debug. '
+      + 'and a matched `GET /orders/42` write the journal; a typo path is the '
+      + 'near-miss you would debug. '
       + '**Workspace JSON** and **WireMock** are the artifacts. **Quick Test** '
       + 'is the in-app proof that isolate, the mock base URL, and the journal '
       + 'assertion survive a graph run.',
@@ -159,55 +172,56 @@ export const apiMockAm24Lesson: DemoLesson = {
   steps: [
     {
       id: 'from-spec',
-      title: 'Import the spec as drafts, then enable the path you need',
+      title: 'Import the spec as drafts, then enable the paths you will hit',
       description:
-        'A spec is a promise; a mock is a promise you can call. This capstone '
-        + 'starts from the promise — paste the Orders **OpenAPI** spec — but '
-        + 'the safety that matters is that it lands as **drafts**: every path '
-        + 'imports *disabled*, so an OpenAPI import can never silently begin '
-        + 'answering production traffic. Generalizing `{id}` into a real path '
-        + 'parameter is the one cleanup that turns those stubs into usable '
-        + 'rules.\n\n'
-        + 'Then make a deliberate choice — enable only `POST /orders`, the one '
-        + 'path this lesson authors. The GET item route can stay a draft: a '
-        + 'contract mock serves exactly what you turned on, never what you '
-        + 'merely imported.',
+        'Paste the Orders **OpenAPI** spec and parse it. Every path lands as a '
+        + '**draft** — disabled by default — so importing a spec can never '
+        + 'silently start answering real traffic. Checking **Generalize** '
+        + 'turns the spec\'s `/orders/{id}` into a real path parameter '
+        + '(`/orders/:id`) instead of leaving `{id}` as literal text.\n\n'
+        + 'Then enable `POST /orders` and `GET /orders/{id}` from the rule '
+        + 'list **Draft** chip — the two paths live traffic will hit. Drafts '
+        + 'do not match; that chip is what turns a template into a live rule.',
       highlight: API_MOCK.IMPORT_MENU,
       preAction: ensureAm24ForImport,
       action: runAm24FromSpec,
+      actionTimeoutMs: AM24_SUITE_ACTION_TIMEOUT_MS,
       verify: API_MOCK.ROUTE_ENABLED,
     },
     {
       id: 'matching',
       title: 'A JSONPath predicate is what makes two POSTs different',
       description:
-        'Two clients can POST to the very same `/orders` URL and mean '
-        + 'completely different things — the difference lives in the *body*. A '
-        + `**JSONPath predicate** is what lets the rule see it: point it at `
-        + `\`${AM24_JSONPATH}\` and require \`${AM24_SKU}\`, and the rule stops `
-        + 'answering “any body” and starts answering *this* order.\n\n'
-        + 'Then prove it before a listener even exists. **Simulate** the same '
-        + 'path with that SKU and the verdict is MATCHED — unit-level '
-        + 'confidence that the matcher is right, with nothing bound to a port '
+        'Two POSTs to the same `/orders` URL can carry completely different '
+        + 'orders — the only way to tell them apart is the request *body*. '
+        + `Point a **JSONPath** predicate at \`${AM24_JSONPATH}\`, require `
+        + `\`${AM24_SKU}\`, and apply it: the rule now matches on that field `
+        + 'instead of matching every POST to the path.\n\n'
+        + 'Then prove it before any listener exists. **Simulate** a POST with '
+        + `\`{"sku":"${AM24_SKU}",...}\` and the verdict comes back MATCHED — `
+        + 'confidence the predicate is right, with nothing bound to a port '
         + 'yet.',
       highlight: API_MOCK.PATH_TOOLBOX,
       preAction: ensureAm24ForMatching,
       action: runAm24Matching,
+      actionTimeoutMs: AM24_SUITE_ACTION_TIMEOUT_MS,
       verify: API_MOCK.PATH_TOOLBOX,
     },
     {
       id: 'response',
       title: 'Template the 201 so every example looks like a person',
       description:
-        'A mock that always returns the same hard-coded name is obviously '
-        + 'fake, and reviewers quietly stop trusting it. Templating the **201** '
-        + 'fixes that: echo the caller’s `$.sku`, mint a fresh `uuid`, and let '
-        + '**faker** fill `buyer` / `email`, so every response reads like a '
-        + 'real, distinct order.\n\n'
-        + 'The **preview** is the whole point — it evaluates those helpers '
-        + 'against a sample request, so you see an actual name and id rather '
-        + 'than the `{{mustache}}`. That is the difference between a template '
-        + 'you *hope* works and one you can *watch* working.',
+        'A response that always returns the same hard-coded name is obviously '
+        + 'fake. Template the **201** instead, so every response reads like '
+        + 'a distinct, real order:\n\n'
+        + '- `$.sku` — echoed straight from the caller’s request body\n'
+        + '- `{{uuid}}` — a fresh id minted on every response\n'
+        + '- `buyer` / `email` — filled in by **faker** helpers, never '
+        + 'hard-coded\n\n'
+        + 'The **preview** pane evaluates those helpers against a sample '
+        + 'request right now, so you see an actual generated name and id — '
+        + 'not the raw `{{mustache}}` syntax. That is the difference between '
+        + 'a template you *hope* works and one you can *watch* working.',
       highlight: API_MOCK.BTAB_RESPONSE,
       preAction: ensureAm24ForResponse,
       action: runAm24Response,
@@ -215,18 +229,25 @@ export const apiMockAm24Lesson: DemoLesson = {
     },
     {
       id: 'variants',
-      title: 'A 404 sibling, then sequence as the retry lab',
+      title: 'Add a 404 sibling, then a quick look at Sequence mode',
       description:
-        'One rule, one response is a stub; a real contract has *branches*. Add '
-        + 'a **404** sibling and condition it on the missing SKU, so the same '
-        + 'endpoint answers 201 for a known order and 404 for an unknown one — '
-        + 'the client’s real happy and sad paths in a single rule.\n\n'
-        + '**Sequence** mode is a glance at the retry lab (round-robin for '
-        + 'backoff tests). Switching back to **Rules** keeps the 404’s '
-        + '`' + AM24_JSONPATH + ' = ' + AM24_SKU_MISSING + '` condition — that '
-        + 'predicate is what the suite and Quick Test will use, not the 404 '
-        + 'body text. The contract stays *deterministic*: one default 201, one '
-        + 'conditioned 404.',
+        'One rule with one response is just a stub. Add a **404** variant '
+        + `next to the 201 and condition it on \`${AM24_JSONPATH} = ${AM24_SKU_MISSING}\`. `
+        + 'The route-level body predicate from step 2 is also removed here: '
+        + 'from this point the route accepts **any** `POST /orders` body, '
+        + 'and variant conditions alone decide the response:\n\n'
+        + '- 201 — default, catches every SKU that no sibling claims\n'
+        + `- 404 — \`${AM24_JSONPATH} = ${AM24_SKU_MISSING}\`, fires only for the missing SKU\n\n`
+        + 'Switching to **Sequence** mode is worth a quick look:\n\n'
+        + '- Clears every condition — variants no longer depend on the '
+        + 'request body\n'
+        + '- Round-robins through the list in request order instead — useful '
+        + 'for retry/backoff tests where you want the Nth call to fail '
+        + 'predictably, not condition-based tests like this one\n\n'
+        + 'Switching back to **Rules** restores the 404’s '
+        + `\`${AM24_JSONPATH} = ${AM24_SKU_MISSING}\` condition — that `
+        + 'predicate, not response order, is what the suite and Quick Test '
+        + 'use to pick 404 only for the missing SKU.',
       highlight: API_MOCK.ADD_VARIANT,
       preAction: ensureAm24ForVariants,
       action: runAm24Variants,
@@ -234,93 +255,128 @@ export const apiMockAm24Lesson: DemoLesson = {
     },
     {
       id: 'resilience',
-      title: 'Delay and probability on the 201; a timeout on the 404',
+      title: 'Latency on the 201, a real 404, and a timeout on a degraded branch',
       description:
-        'Real services are slow and occasionally broken, and a mock that '
-        + 'answers instantly and perfectly hides the bugs that only surface '
-        + 'under those conditions. On the 201, a 200 ms **delay** — with '
-        + '**probability** 1, so it is always eligible but never instant — is '
-        + 'enough to shake out clients that assume latency is zero.\n\n'
-        + 'The **timeout** fault goes on the 404 sibling *on purpose*: it fires '
-        + 'only when the missing-SKU branch wins, so the 201 path you are about '
-        + 'to Simulate and Quick Test stays a real, clean HTTP response. You '
-        + 'are adding failure exactly where the retry story needs it, and '
-        + 'nowhere it would break the proof.',
+        'Real services are slow, and occasionally a dependency degrades or '
+        + 'hangs. A mock that answers instantly and perfectly hides the bugs '
+        + 'that only surface under those conditions, so give `POST /orders` '
+        + 'three distinct behaviors:\n\n'
+        + '- **201** (known SKU) — a 200 ms **delay** at **probability 1**: '
+        + 'always slightly slow, to catch clients that assume latency is zero\n'
+        + '- **404** (missing SKU) — a real **404 Not Found**, left untouched: '
+        + 'a clean contract error, *not* a transport failure\n'
+        + '- **Degraded** (a flaky SKU) — a **503 Service Unavailable** carrying '
+        + 'a **probability-gated timeout** fault, so only this branch '
+        + 'occasionally hangs\n\n'
+        + 'Keeping the timeout on its own branch is the whole point: a **404** '
+        + 'and a **timeout** are different failures — a 404 *is* a response, a '
+        + 'timeout is *no* response — so they must never share one variant. The '
+        + 'next step grades the happy-path 201 in Simulate, so the fault stays '
+        + 'on the flaky SKU and nowhere that would break that proof.',
       highlight: API_MOCK.RESPONSE_TAB_TIMING,
       preAction: ensureAm24ForResilience,
       action: runAm24Resilience,
       verify: API_MOCK.FAULTS_PANEL,
     },
     {
-      id: 'conflicts',
-      title: 'Analyze the overlap you just created, then raise priority',
+      id: 'suite',
+      title: 'Add a 201 assertion, then Run all samples green',
       description:
-        'Authoring a second rule on `POST /orders` is how duplicates actually '
-        + 'creep into a library — not from a gallery of contrived overlaps, but '
-        + 'from someone adding “just one more” rule on a busy path. That is why '
-        + 'the step is here: create the overlap, then let **Analyze** catch '
-        + 'it.\n\n'
-        + 'The fix is not deletion but *precedence* — raise the authored rule’s '
-        + 'priority and re-analyze until the inspector is clean. Shipping a '
-        + 'contract mock means shipping it *unambiguous*, so the client’s '
-        + 'request can only ever resolve one way.',
+        `Simulate now has three saved samples — \`${AM24_SAMPLE_NAME}\`, `
+        + `\`${AM24_SAMPLE_NAME_MISSING}\`, and \`${AM24_SAMPLE_NAME_FLAKY}\` — `
+        + 'so you can re-run each SKU without typing the body again. The '
+        + 'WIDGET row already proved MATCHED when the predicate was authored; '
+        + 'this step turns the 201 / 404 / 503 contract into a gradable suite:\n\n'
+        + '- **Assertions** tab — expected status **201** on WIDGET\n'
+        + '- **Run all samples** — grades WIDGET (201), MISSING (404), and '
+        + 'FLAKY (503) at once, the same way CI runs `redfireforge mock simulate`\n'
+        + '- **Rendered** response — open **FLAKY** afterward and confirm '
+        + 'the **503** body, not the unmatched library 404',
+      highlight: API_MOCK.SIMULATE,
+      preAction: ensureAm24ForSuite,
+      action: runAm24Suite,
+      actionTimeoutMs: AM24_SUITE_ACTION_TIMEOUT_MS,
+      verify: API_MOCK.SIMULATE,
+    },
+    {
+      id: 'conflicts',
+      title: 'Author a duplicate GET /health, then Re-analyze until Left wins',
+      description:
+        'The Orders contract is proven. Now a different problem: add two '
+        + '`GET /health` routes — this is exactly how duplicate routes creep '
+        + 'into a real mock library: two feature branches both register the '
+        + 'same health-check endpoint without noticing each other. The fix '
+        + 'follows a repeatable loop:\n\n'
+        + '- Author both overlapping rules at the same priority\n'
+        + '- **Analyze** — the finding badge shows **Duplicate** ❌ (error). '
+        + 'Equal priority triggers the reject-on-tie policy; the detail reads “returns **409**”\n'
+        + '- Raise one rule’s priority so it wins — do not delete either rule\n'
+        + '- **Re-analyze** — the badge changes from **Duplicate** to **Shadowed** ⚠ (warning). '
+        + 'The detail now reads “Outcome: **Left wins**” and Apply is no longer blocked.\n\n'
+        + 'Shipping a contract mock means shipping the *library* unambiguous: '
+        + 'the client’s request can only ever resolve one way.',
       highlight: API_MOCK.ANALYZE,
       preAction: ensureAm24ForConflicts,
       action: runAm24Conflicts,
       verify: API_MOCK.ROUTE_EXPLORER,
     },
     {
-      id: 'suite',
-      title: 'Save the sample with an expected 201, then Run all green',
-      description:
-        'MATCHED in Simulate proves the matcher; it does not prove the '
-        + '*response*. Turning the WIDGET probe into a saved sample with an '
-        + 'expected status of **201** turns a demo into a graded test — the run '
-        + 'now checks the contract, not just that some rule won.\n\n'
-        + '**Run all** green is the unit suite in miniature, and it is exactly '
-        + 'what CI runs with `redfireforge mock simulate` — no listener at all. '
-        + 'Prove the suite here and the CI command is just the same check on a '
-        + 'build machine.',
-      highlight: API_MOCK.SIMULATE,
-      preAction: ensureAm24ForSuite,
-      action: runAm24Suite,
-      verify: API_MOCK.SIMULATE,
-    },
-    {
       id: 'live',
-      title: 'Start, post the contract, then read a near-miss in the journal',
+      title: 'Start, prove a match, then read a near-miss in the journal',
       description:
-        'This step moves from a unit check to real network traffic. First, '
-        + 'the selected rule is **POST /orders** and its WIDGET body is the '
-        + 'contract we are about to exercise. **Start** binds the listener; '
-        + 'then the app sends that POST for real. The first journal row is the '
-        + 'proof that the rule answered an actual socket, not Simulate in memory.\n\n'
-        + 'Next, the demo sends `GET /ordrs/42` on purpose — the path is misspelled, '
-        + 'so it should not match the contract. Open that newest journal row and '
-        + 'read **Near-misses**: closest-match explains which route the library '
-        + 'nearly matched. The suite can stay green while the live journal records '
-        + 'this miss; those are two different kinds of proof.',
-      highlight: API_MOCK.START,
+        'This step moves from a unit check to real network traffic. '
+        + '**Start** binds the listener, then the app fires three real '
+        + 'requests at it:\n\n'
+        + '- `POST /orders` with the same WIDGET body as before — the first '
+        + 'journal row is proof the rule answered an actual socket, not '
+        + 'Simulate running in memory\n'
+        + '- `GET /orders/42` — `{id}` fills with `42`, so this row **matches** '
+        + '`GET /orders/{id}`\n'
+        + '- `GET /ordrs/42` — the path is misspelled on purpose, so nothing '
+        + 'should match\n\n'
+        + 'Open that newest journal row and read **Near-misses**: it shows '
+        + 'the closest route the library almost matched. The suite can stay '
+        + 'all-green while the live journal records this miss — those are '
+        + 'two different kinds of proof.',
+      highlight: API_MOCK.LIVE_TRANSACTIONS,
       preAction: ensureAm24ForLive,
       action: runAm24Live,
       verify: API_MOCK.JOURNAL_FIRST_ROW,
     },
     {
-      id: 'ship',
-      title: 'Export the contract, then prove it in Workflow',
+      id: 'export',
+      title: 'Export as Workspace JSON, then as WireMock',
       description:
-        'This final step answers two handoff questions. First, can another team '
-        + 'run the mock? **Workspace JSON** is the CI artifact and **WireMock** '
-        + 'is the interoperable export; the loss note tells you what cannot '
-        + 'round-trip.\n\n'
-        + 'Second, does the contract still work outside Studio? That is why the '
-        + 'lesson deliberately moves to **Workflow**. It builds a small graph: '
-        + '**Start** an isolated listener, **POST** `{{mockBaseUrl}}/orders`, '
-        + '**Assert** a 201 in the journal, then **Stop**. **Quick Test** runs '
-        + 'that graph end to end. Workflow is the final consumer of the mock, '
-        + 'not an unrelated screen; Simulate proved the rule earlier, while this '
-        + 'proves the listener and journal handoff.',
+        'A contract mock is only useful if another team can run it without '
+        + 'this Studio. Two exports, two audiences:\n\n'
+        + '- **Workspace JSON** — the CI artifact; import it into any Studio '
+        + 'instance and the mock is ready to go\n'
+        + '- **WireMock** — an interoperable format any WireMock-compatible '
+        + 'runner can load outside Studio entirely\n\n'
+        + 'The loss note on the WireMock export names exactly what cannot '
+        + 'round-trip into that format, so a downstream team gets no '
+        + 'surprises when they import the file.',
       highlight: API_MOCK.EXPORT,
+      preAction: ensureAm24ForExport,
+      action: runAm24Export,
+      verify: API_MOCK.EXPORT_CONFIRM,
+    },
+    {
+      id: 'ship',
+      title: 'Prove the listener in Workflow with a Quick Test',
+      description:
+        'Simulate proved the rule in memory. This step proves the exported '
+        + 'contract still works over a real socket, outside Studio. In '
+        + '**Workflow**, build a small graph:\n\n'
+        + '- **Start** — an *isolated* copy of the mock, its own listener, '
+        + 'not the one Studio was running\n'
+        + '- **HTTP** — `POST {{mockBaseUrl}}/orders`\n'
+        + '- **Assert** — a 201 in that instance’s journal\n'
+        + '- **Stop** — the isolated listener\n\n'
+        + '**Quick Test** runs that graph end to end. The passing Assert '
+        + 'node is the strongest proof the contract can give: it answered a '
+        + 'real HTTP call on a fresh listener, and the journal recorded it.',
+      highlight: API_MOCK.CANVAS_START,
       preAction: ensureAm24ForShip,
       action: runAm24Ship,
       actionTimeoutMs: AM24_SHIP_ACTION_TIMEOUT_MS,

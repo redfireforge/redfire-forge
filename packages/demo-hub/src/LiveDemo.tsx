@@ -2,6 +2,7 @@
 import { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { DemoLesson, StepPhase } from './types';
 import DemoSpotlight from './DemoSpotlight';
+import DemoTerminal from './DemoTerminal';
 import { renderMarkdown } from './ConceptSlide';
 import StepOverviewDrawer from './StepOverviewDrawer';
 import { useLiveDemoPanelLayout } from './useLiveDemoPanelLayout';
@@ -130,9 +131,15 @@ export default function LiveDemo({
     return () => {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
-  }, [step?.highlight, stepIndex, overviewOpen]);
+  }, [step?.highlight, step?.skipHighlightScroll, stepIndex, overviewOpen]);
 
   if (!step) return null;
+
+  // Terminal steps (CLI-domain lessons) have no DOM to spotlight — the transcript
+  // is pinned, real output, so it's always immediately "available", unlike a DOM
+  // target that must be polled for. Feeds the same Live/Guide badge as DOM steps.
+  const isTerminalStep = Boolean(step.terminalCommand || step.terminalOutput);
+  const stepReady = targetFound || isTerminalStep;
 
   const totalSteps = lesson.steps.length;
   const progressPct = ((stepIndex + 1) / totalSteps) * 100;
@@ -166,6 +173,15 @@ export default function LiveDemo({
           selector={step.highlight}
           active={true}
           frozen={false}
+        />
+      )}
+
+      {/* Terminal surface — CLI-domain lessons render a pinned transcript instead of a DOM spotlight. */}
+      {surfaceReady && isTerminalStep && !overviewOpen && (
+        <DemoTerminal
+          command={step.terminalCommand}
+          output={step.terminalOutput}
+          highlightLines={step.terminalHighlightLines}
         />
       )}
 
@@ -230,8 +246,8 @@ export default function LiveDemo({
           <span className="demo-live-step-counter">
             {stepIndex + 1} / {totalSteps}
           </span>
-          <span className={`demo-live-mode-badge ${targetFound ? 'live' : 'guide'}`}>
-            {targetFound ? '🟢 Live' : '📖 Guide'}
+          <span className={`demo-live-mode-badge ${stepReady ? 'live' : 'guide'}`}>
+            {stepReady ? '🟢 Live' : '📖 Guide'}
           </span>
           <button
             className={`demo-live-overview-btn${overviewOpen ? ' active' : ''}`}

@@ -10,7 +10,7 @@ Integrate RedfireForge performance tests into your CI/CD pipelines for automated
 # Install globally or use npx
 npm install -g redfireforge-cli
 
-# Run tests
+# Run tests (the short "rff" alias works identically to "redfireforge")
 redfireforge run tests/api-test.yaml \
   --junit results.xml \
   --fail-on-error \
@@ -18,6 +18,8 @@ redfireforge run tests/api-test.yaml \
 ```
 
 ### Option 2: Using Source Repository
+
+Only relevant if your pipeline has this exact `redfire-forge` repository checked out (e.g. testing RedfireForge itself). If you're testing your **own** service, use Option 1 instead.
 
 ```bash
 # Install dependencies
@@ -29,6 +31,8 @@ npx tsx cli/index.ts run tests/api-test.yaml \
   --fail-on-error \
   -q
 ```
+
+> **Every example below uses `npx tsx cli/index.ts run ...`** for brevity, since this guide is maintained inside the `redfire-forge` repo itself. **If you're integrating RedfireForge into your own project's pipeline** (the common case), replace `npx tsx cli/index.ts run` with `npx redfireforge-cli run` (or `redfireforge run` after `npm install -g redfireforge-cli`) everywhere below — every flag shown is identical either way, only the invocation prefix changes. You do **not** need to check out this repository.
 
 ---
 
@@ -85,7 +89,7 @@ jobs:
 
 ### Basic Test Job (Using Source)
 
-If you have the full source repository:
+Only if your pipeline has the full `redfire-forge` source repository checked out — for testing your own service, use the npm-package job above and swap `npx tsx cli/index.ts run` for `npx redfireforge-cli run`:
 
 ```yaml
 name: API Performance Tests
@@ -279,6 +283,8 @@ jobs:
 
 ## GitLab CI
 
+> Examples below use `npx tsx cli/index.ts run` (source-repo form). Testing your own service? Swap in `npx redfireforge-cli run` — see the note in [Quick Start](#quick-start).
+
 ### Basic Pipeline
 
 ```yaml
@@ -400,6 +406,8 @@ production-test:
 
 ## Jenkins
 
+> Examples below use `npx tsx cli/index.ts run` (source-repo form). Testing your own service? Swap in `npx redfireforge-cli run` — see the note in [Quick Start](#quick-start).
+
 ### Jenkinsfile (Declarative Pipeline)
 
 ```groovy
@@ -515,6 +523,8 @@ pipeline {
 
 ## Azure DevOps
 
+> Examples below use `npx tsx cli/index.ts run` (source-repo form). Testing your own service? Swap in `npx redfireforge-cli run` — see the note in [Quick Start](#quick-start).
+
 ### azure-pipelines.yml
 
 ```yaml
@@ -598,6 +608,8 @@ stages:
 
 ## CircleCI
 
+> Examples below use `npx tsx cli/index.ts run` (source-repo form). Testing your own service? Swap in `npx redfireforge-cli run` — see the note in [Quick Start](#quick-start).
+
 ### .circleci/config.yml
 
 ```yaml
@@ -670,6 +682,8 @@ workflows:
 ---
 
 ## Best Practices
+
+> Examples below use `npx tsx cli/index.ts run` (source-repo form). Testing your own service? Swap in `npx redfireforge-cli run` — see the note in [Quick Start](#quick-start).
 
 ### 1. Use Quiet Mode in CI
 

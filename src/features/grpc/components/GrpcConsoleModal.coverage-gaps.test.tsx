@@ -201,4 +201,83 @@ describe('GrpcConsoleModal coverage gaps', () => {
     const ascList = getByTestId('grpc-console-wire-list').textContent ?? '';
     expect(ascList.indexOf('Alpha')).toBeGreaterThanOrEqual(0);
   });
+
+  it('shows filtered-empty message when events exist but search removes all rows', () => {
+    const { getByTestId } = render(
+      <GrpcConsoleModal
+        events={makeMultiEvents()}
+        onClearEvents={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(getByTestId('grpc-console-search'), { target: { value: 'no-match-query' } });
+    expect(getByTestId('grpc-console-wire-empty').textContent).toContain('No events match your current search filter.');
+  });
+
+  it('uses null fallbacks for missing payloads in both live and pinned views', () => {
+    const events: GrpcConsoleWireEvent[] = [
+      {
+        id: 'evt-missing-payload',
+        timestamp: '2026-07-05T12:00:00.000Z',
+        direction: 'event',
+        summary: 'Missing payload',
+      },
+    ];
+
+    const { getByTestId } = render(
+      <GrpcConsoleModal
+        events={events}
+        onClearEvents={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(getByTestId('grpc-console-wire-live-feed').textContent).toContain('null');
+
+    fireEvent.click(getByTestId('grpc-console-wire-row-evt-missing-payload'));
+    expect(getByTestId('grpc-console-wire-detail').textContent).toContain('null');
+
+    fireEvent.change(getByTestId('grpc-console-search'), { target: { value: 'missing payload' } });
+    expect(getByTestId('grpc-console-wire-row-evt-missing-payload')).toBeTruthy();
+  });
+
+  it('recomputes style and header drag behavior in expanded mode', () => {
+    const { container, getByTestId, rerender } = render(
+      <GrpcConsoleModal
+        events={makeEventsForExpansion()}
+        onClearEvents={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const expandBtn = container.querySelector('.modal-expand-btn') as HTMLButtonElement;
+    fireEvent.click(expandBtn);
+
+    const modal = getByTestId('grpc-console-modal');
+    expect(modal.className).toMatch(/modal-fullscreen/);
+    expect(modal.getAttribute('style') ?? '').toContain('width: 100vw');
+
+    fireEvent.mouseDown(getByTestId('grpc-console-modal-header'));
+
+    rerender(
+      <GrpcConsoleModal
+        events={makeEventsForExpansion()}
+        onClearEvents={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(getByTestId('grpc-console-modal')).toBeTruthy();
+  });
 });
+
+function makeEventsForExpansion(): GrpcConsoleWireEvent[] {
+  return [{
+    id: 'evt-expand',
+    timestamp: '2026-07-05T12:00:00.000Z',
+    direction: 'send',
+    summary: 'Expand me',
+    payload: { ok: true },
+  }];
+}

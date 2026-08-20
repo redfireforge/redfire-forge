@@ -4,6 +4,14 @@
 # Each test uses `featureGroup` and `scenario` so that imported results show
 # the same hierarchical structure as a Scenario Builder run.
 #
+# Note on the "Create Post TPS" target (>= 100 req/s): with `iterations: 1`,
+# each scenario's TPS is a single-sample rate (1000 / responseTimeMs), not a
+# real throughput measurement — a threshold anywhere near realistic single-request
+# latency (typically 20-200ms against a live public API) will flip pass/fail
+# purely from network jitter. 100 req/s requires a sub-10ms round trip, which a
+# real HTTPS call over the internet won't hit — this deliberately, deterministically
+# fails every run, so the "mix of passing and failing targets" demo is reproducible.
+#
 # Run with SLA targets (recommended):
 #   node dist-cli/redfireforge.mjs run examples/sla-jsonplaceholder-test.yaml \
 #     --sla-config examples/sla-jsonplaceholder-targets.json \

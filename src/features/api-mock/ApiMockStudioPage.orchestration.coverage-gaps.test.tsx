@@ -703,11 +703,10 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     resolveLoad({ servers: [makeServer()], activeServerId: 'srv-1' });
     await Promise.resolve();
 
-    let resolveTx!: (v: unknown) => void;
     let resolveState!: (v: unknown) => void;
     loadApiMockWorkspace.mockResolvedValueOnce({ servers: [makeServer()], activeServerId: 'srv-1' });
     start.mockResolvedValueOnce({ ok: true, data: { serverId: 'srv-1', port: 4600, state: 'running', generation: 1 } });
-    transactions.mockImplementationOnce(() => new Promise(r => { resolveTx = r; }));
+    transactions.mockResolvedValueOnce({ ok: true, data: { transactions: [], cursor: 0, total: 0, capped: false } });
     state.mockImplementationOnce(() => new Promise(r => { resolveState = r; }));
 
     const rendered = render(<ApiMockStudioPage />);
@@ -715,9 +714,9 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     fireEvent.click(screen.getByTestId('mock-start'));
     await waitFor(() => expect(start).toHaveBeenCalled());
     rendered.unmount();
-    resolveTx({ ok: true, data: { transactions: [], cursor: 0, total: 0, capped: false } });
     resolveState({ ok: true, data: { states: {}, counters: {} } });
     await Promise.resolve();
+    expect(screen.queryByTestId('api-mock-studio')).toBeNull();
   });
 
   it('covers empty persisted load without hydrating servers', async () => {

@@ -68,7 +68,7 @@ await finishDemoStep(page, timeout);
 | GQL-1 | 12 | `walkFullGql1Lesson` |
 | GQL-2 | 16 | `walkFullGql2Lesson` |
 | GQL-3 | 15 | `walkFullGql3Lesson` |
-| AM-01…AM-24 (curriculum v2) | 8/8/8/7/8/5/7/8/12/8/9/8/9/8/9/7/8/8/8/8/8/9/7/9 (`AM_LESSON_STEPS`) | `walkApiMockLesson(page, 'am24')` (`e2e/api-mock-lesson-smoke-helpers.ts`) |
+| AM-01…AM-24 (curriculum v2) | 8/8/8/7/8/5/7/8/12/8/9/8/9/8/9/7/8/8/8/8/8/9/7/10 (`AM_LESSON_STEPS`) | `walkApiMockLesson(page, 'am24')` (`e2e/api-mock-lesson-smoke-helpers.ts`) |
 
 ---
 
