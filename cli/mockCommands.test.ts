@@ -483,6 +483,25 @@ servers: []
     await expect(runMockSimulate({ file: writeWs('null.json', null) })).rejects.toThrow(/not a mock workspace/);
   });
 
+  it('covers missing live/simulated servers and wait-ready file timeouts', async () => {
+    const workspace = makeWorkspace();
+    workspace.activeServerId = 'missing';
+    const file = writeWs('missing-server.json', workspace);
+    expect(await runMockVerify({ file, serverId: 'missing', simulate: true })).toBe(1);
+    expect(await runMockVerify({ file, serverId: 'missing', fetchImpl: vi.fn() as unknown as typeof fetch })).toBe(1);
+
+    expect(await runMockWaitReady({
+      portFile: join(dir, 'missing.port'),
+      timeoutSecs: 0,
+      intervalMs: 1,
+    })).toBe(1);
+    expect(await runMockWaitReady({
+      envFile: join(dir, 'missing.env'),
+      timeoutSecs: 0,
+      intervalMs: 1,
+    })).toBe(1);
+  });
+
   it('rolls back companion listeners when a later start fails', async () => {
     const ws = makeWorkspace();
     ws.servers.push({ ...ws.servers[0], id: 'srv-2', name: 'Two', port: 4601 });
