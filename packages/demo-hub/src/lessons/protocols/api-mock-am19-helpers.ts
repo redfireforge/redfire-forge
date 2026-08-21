@@ -13,12 +13,13 @@ import {
   sendApiMockRequest,
   wipeApiMockWorkspace,
 } from '../../adapters';
-import { API_MOCK, APP } from '@shared/selectors';
+import { API_MOCK } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
   fillBeat,
+  openApiMockFromActivityBar,
   revealBeat,
   spotlightBeat,
 } from './api-mock-demo-helpers';
@@ -265,14 +266,7 @@ export async function ensureAm19OnApiMock(ctx: DemoActionContext): Promise<void>
   if (hasAm19Server() || firstVisibleElement(API_MOCK.STUDIO) || firstVisibleElement(API_MOCK.RUNTIME_PAGE)) {
     return;
   }
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    await ctx.click(APP.AB_PROTOCOLS);
-  }
-  if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
-    await ctx.click(API_MOCK.APP_SUBNAV);
-    await ctx.delay(200);
-    return;
-  }
+  if (await openApiMockFromActivityBar(ctx)) return;
   ctx.navigateToTab('api-mock-studio');
   await ctx.delay(200);
 }

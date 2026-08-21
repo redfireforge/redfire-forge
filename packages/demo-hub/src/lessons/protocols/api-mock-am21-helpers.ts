@@ -11,12 +11,13 @@ import {
   wipeApiMockWorkspace,
   deleteCollectionsByName,
 } from '../../adapters';
-import { API_MOCK, APP, REQ } from '@shared/selectors';
+import { API_MOCK, REQ } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
   fillBeat,
+  openApiMockFromActivityBar,
   revealBeat,
   reviewAndRunSimulation,
   closeSimulateWorkspace,
@@ -231,14 +232,7 @@ export async function ensureAm21OnApiMock(ctx: DemoActionContext): Promise<void>
   if (hasAm21Server() || firstVisibleElement(API_MOCK.STUDIO) || isAm21SimulateOpen()) {
     return;
   }
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    await ctx.click(APP.AB_PROTOCOLS);
-  }
-  if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
-    await ctx.click(API_MOCK.APP_SUBNAV);
-    await ctx.delay(200);
-    return;
-  }
+  if (await openApiMockFromActivityBar(ctx)) return;
   ctx.navigateToTab('api-mock-studio');
   await ctx.delay(200);
 }

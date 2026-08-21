@@ -18,10 +18,13 @@ const list = vi.fn();
 const status = vi.fn();
 const isTauri = vi.fn(() => false);
 
+const isApiMockDemoPersistenceActive = vi.fn(() => false);
+
 vi.mock('./apiMockPersistence', () => ({
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),
   saveApiMockWorkspace: (...args: unknown[]) => saveApiMockWorkspace(...args),
   publishApiMockWorkspace: (...args: unknown[]) => publishApiMockWorkspace(...args),
+  isApiMockDemoPersistenceActive: (...args: unknown[]) => isApiMockDemoPersistenceActive(...args),
 }));
 vi.mock('../../shared/utils/platform', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../shared/utils/platform')>()),
@@ -89,6 +92,7 @@ function Probe() {
 describe('useApiMockStudioPersistence', () => {
   beforeEach(() => {
     isTauri.mockReturnValue(false);
+    isApiMockDemoPersistenceActive.mockReturnValue(false);
     loadApiMockWorkspace.mockResolvedValue({ servers: [makeServer('srv-1'), makeServer('srv-2')], activeServerId: 'srv-1' });
     saveApiMockWorkspace.mockResolvedValue(undefined);
     list.mockResolvedValue({ ok: true, data: [] });
@@ -179,10 +183,10 @@ describe('useApiMockStudioPersistence', () => {
       const [servers, setServers] = useState<ApiMockServerDefinitionV1[]>([]);
       const [activeServerId, setActiveServerId] = useState<string | undefined>();
       const [openTabIds, setOpenTabIds] = useState<string[]>([]);
-      const [runtime, setRuntime] = useState<Record<string, RuntimeInfo>>({});
-      const [transactions, setTransactions] = useState<ApiMockTransactionV1[]>([]);
-      const [scenarioState, setScenarioState] = useState<ScenarioStateSnapshot | null>(null);
-      const [mainView, setMainView] = useState<ApiMockMainView>('studio');
+      const [_runtime, setRuntime] = useState<Record<string, RuntimeInfo>>({});
+      const [_transactions, setTransactions] = useState<ApiMockTransactionV1[]>([]);
+      const [_scenarioState, setScenarioState] = useState<ScenarioStateSnapshot | null>(null);
+      const [_mainView, setMainView] = useState<ApiMockMainView>('studio');
       const [liveMessage, setLiveMessage] = useState('');
       useApiMockStudioPersistence({
         servers, activeServerId, openTabIds, setServers, setActiveServerId, setOpenTabIds,
@@ -225,5 +229,16 @@ describe('useApiMockStudioPersistence', () => {
     expect(saveApiMockWorkspace).toHaveBeenCalled();
     unmount();
     expect(saveApiMockWorkspace.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it('pins a demo-session autosave so a later restore cannot clobber the user library', async () => {
+    isApiMockDemoPersistenceActive.mockReturnValue(true);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { unmount } = render(<Probe />);
+    await waitFor(() => expect(screen.getByTestId('rt-srv-1')).toBeTruthy());
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(saveApiMockWorkspace).toHaveBeenCalledWith(expect.anything(), { persistAs: 'demo' });
+    unmount();
+    expect(saveApiMockWorkspace).toHaveBeenCalledWith(expect.anything(), { persistAs: 'demo' });
   });
 });

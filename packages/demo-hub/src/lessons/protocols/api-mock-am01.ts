@@ -88,11 +88,11 @@ const DIAGRAM = `
 
 export const apiMockAm01Lesson: DemoLesson = {
   id: 'am-01-studio-tour',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Studio Tour & Your First Mock',
   description:
-    'Build a real HTTP mock from an empty workspace: create a server, author GET /health, '
+    'Build a real HTTP mock: create a server, author GET /health, '
     + 'start the listener, send live traffic from the app, and read the journal.',
   estimatedMinutes: 5,
   initialTab: 'api-mock-studio',
@@ -113,7 +113,7 @@ export const apiMockAm01Lesson: DemoLesson = {
       + 'The Studio splits that into three views. **Studio** is where you author rules. **Runtime** is where '
       + 'you watch traffic and tune server settings. **Conflicts** tells you when two rules could answer the '
       + 'same request — the failure mode that wastes the most debugging time in mocking.\n\n'
-      + 'This lesson builds all of it live on an empty workspace — nothing is imported. Eight steps walk the '
+      + 'This lesson builds all of it live — nothing is imported. Eight steps walk the '
       + 'full loop: create → author → start → call → inspect → stop. Every later lesson in this track goes '
       + 'deeper on one of those beats.',
     keyTerms: [
@@ -139,8 +139,8 @@ export const apiMockAm01Lesson: DemoLesson = {
       description:
         'Before building anything, learn the geography. The spotlight walks the header nav: **Runtime** '
         + '(live traffic, settings, diagnostics), **Conflicts** (rules that fight over the same request), '
-        + 'and back to **Studio**, where rules are authored. Both side views are empty — there is no server '
-        + 'yet, which is exactly where every mock starts.',
+        + 'and back to **Studio**, where rules are authored. Open tabs close for the tour — your Mock Servers '
+        + 'library (folders and saved servers) stays in the sidebar.',
       highlight: API_MOCK.WORKSPACE_NAV,
       preAction: async () => {
         await prepareAm01Workspace();
@@ -152,7 +152,7 @@ export const apiMockAm01Lesson: DemoLesson = {
       id: 'create-server',
       title: 'Create a server and grab its address',
       description:
-        'An empty workspace offers one button. **Create mock server** adds a definition and claims the next '
+        'The canvas offers **New mock server**, which adds a definition and claims the next '
         + 'free **auto-port** in 4600–4699, so you never hand-pick ports. Then the spotlight moves along the '
         + 'server bar: the **listen address** your frontend `.env` needs, **Copy address** (watch the icon '
         + 'flip to a tick), and the **status**, which reads Stopped — the definition exists, but nothing is '

@@ -6,7 +6,7 @@ import type { ApiMockMainView } from './components/ApiMockWorkspaceNav';
 import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
-import { loadApiMockWorkspace, publishApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
+import { isApiMockDemoPersistenceActive, loadApiMockWorkspace, publishApiMockWorkspace, saveApiMockWorkspace } from './apiMockPersistence';
 import { computeHydrationResult } from './apiMockPageHelpers';
 import { resolveOpenTabIds } from './apiMockServerLibrary';
 import type { RuntimeInfo } from './apiMockStudioFactory';
@@ -142,9 +142,10 @@ export function useApiMockStudioPersistence(opts: {
     if (!hydratedRef.current) return;
     // Tell Test Runner immediately — disk write stays debounced.
     publishApiMockWorkspace(latestRef.current);
+    const persistAs = isApiMockDemoPersistenceActive() ? 'demo' : 'user';
     autosaveTimerRef.current = window.setTimeout(() => {
       autosaveTimerRef.current = undefined;
-      void saveApiMockWorkspace(latestRef.current);
+      void saveApiMockWorkspace(latestRef.current, { persistAs });
     }, 300);
     return () => {
       if (autosaveTimerRef.current != null) {
@@ -156,7 +157,10 @@ export function useApiMockStudioPersistence(opts: {
 
   // Flush the latest state on unmount so navigating away never drops a pending save.
   useEffect(() => () => {
-    if (hydratedRef.current) void saveApiMockWorkspace(latestRef.current);
+    if (hydratedRef.current) {
+      const persistAs = isApiMockDemoPersistenceActive() ? 'demo' : 'user';
+      void saveApiMockWorkspace(latestRef.current, { persistAs });
+    }
   }, []);
 
   return latestRef;

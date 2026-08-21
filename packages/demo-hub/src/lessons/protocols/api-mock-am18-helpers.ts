@@ -14,12 +14,13 @@ import {
   sendApiMockRequest,
   wipeApiMockWorkspace,
 } from '../../adapters';
-import { API_MOCK, APP, REQ } from '@shared/selectors';
+import { API_MOCK, REQ } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
   closeSimulateWorkspace,
+  openApiMockFromActivityBar,
   reviewAndRunSimulation,
   revealBeat,
   spotlightBeat,
@@ -268,14 +269,7 @@ export async function ensureAm18OnApiMock(ctx: DemoActionContext): Promise<void>
   if (hasAm18Server() || firstVisibleElement(API_MOCK.STUDIO) || firstVisibleElement(API_MOCK.RUNTIME_PAGE)) {
     return;
   }
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    await ctx.click(APP.AB_PROTOCOLS);
-  }
-  if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
-    await ctx.click(API_MOCK.APP_SUBNAV);
-    await ctx.delay(200);
-    return;
-  }
+  if (await openApiMockFromActivityBar(ctx)) return;
   ctx.navigateToTab('api-mock-studio');
   await ctx.delay(200);
 }
@@ -403,10 +397,6 @@ async function returnFromRequests(ctx: DemoActionContext, visible: boolean): Pro
   if (visible) {
     if (firstVisibleElement(REQ.SIDEBAR)) await am18Payoff(ctx, REQ.SIDEBAR);
     else if (firstVisibleElement(REQ.NAV_REQUESTS)) await am18Payoff(ctx, REQ.NAV_REQUESTS);
-  }
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    if (visible) await am18Aim(ctx, APP.AB_PROTOCOLS);
-    else await ctx.click(APP.AB_PROTOCOLS);
   }
   if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
     if (visible) await am18Aim(ctx, API_MOCK.APP_SUBNAV);

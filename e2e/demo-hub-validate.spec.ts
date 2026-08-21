@@ -184,17 +184,26 @@ test.describe('Demo Hub — Top-level Navigation', () => {
     console.log('[PASS] Domain selector: Protocols available and all registered paths are actionable');
   });
 
+  test('API Mock domain card is its own Learning Hub entry', async ({ page }) => {
+    await openDemoHub(page);
+    const card = page.getByTestId('demo-domain-card-api-mock');
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('API Mock');
+    await card.click();
+    await expect(page.locator('.demo-lesson-list')).toBeVisible();
+    await expect(page.locator('.demo-lesson-item')).toHaveCount(24);
+  });
+
   test('Protocols domain opens and shows category tabs', async ({ page }) => {
     await openDemoHub(page);
     await selectDomain(page);
-    await expect(page.locator('.demo-category-tab')).toHaveCount(6);
+    await expect(page.locator('.demo-category-tab')).toHaveCount(5);
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'Kafka' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'WebSocket' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'SSE' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'GraphQL' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'gRPC' })).toBeVisible();
-    await expect(page.locator('.demo-category-tab').filter({ hasText: 'API Mock' })).toBeVisible();
-    console.log('[PASS] Category tabs: Kafka, WebSocket, SSE, GraphQL, gRPC, API Mock visible');
+    console.log('[PASS] Category tabs: Kafka, WebSocket, SSE, GraphQL, gRPC visible');
   });
 
   test('Kafka category shows 13 lessons', async ({ page }) => {

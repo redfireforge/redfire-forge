@@ -85,7 +85,7 @@ const DIAGRAM = `
 
 export const apiMockAm22Lesson: DemoLesson = {
   id: 'am-22-workflow',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Workflow Orchestration: Start → Apply → Reset → Assert → Stop',
   description:

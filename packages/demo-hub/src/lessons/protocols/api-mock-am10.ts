@@ -74,7 +74,7 @@ const DIAGRAM = `
 
 export const apiMockAm10Lesson: DemoLesson = {
   id: 'am-10-response-content',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Response Content: Status, Headers, Cookies & Body Kinds',
   description:

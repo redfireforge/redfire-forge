@@ -5,12 +5,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { useApiMockServerList } from './ApiMockServerListBridge';
 
 import { proxiedExchangeToDraft, toRecordedDraft, draftFingerprint } from '../../shared/api-mock/proxyRecording';
 import * as apiMockJournalActions from './apiMockJournalActions';
 import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
 
 const ts = '2026-08-12T00:00:00.000Z';
+
+function ReorderProbe() {
+  const state = useApiMockServerList();
+  return (
+    <>
+      <button data-testid="reorder-missing" onClick={() => state?.onReorder('missing', 'also-missing')} />
+      <button data-testid="reorder-same" onClick={() => state?.onReorder('srv-a', 'srv-a')} />
+    </>
+  );
+}
 
 function makeServer(id = 'srv-1', method = 'GET') {
   return {
@@ -110,11 +121,15 @@ vi.mock('./apiMockJournalActions', () => ({
     updatedAt: ts,
   })),
 }));
+const isApiMockDemoPersistenceActive = vi.fn(() => false);
+const rememberApiMockDemoImportedServer = vi.fn();
 vi.mock('./apiMockPersistence', () => ({
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),
   saveApiMockWorkspace: (...args: unknown[]) => saveApiMockWorkspace(...args),
   publishApiMockWorkspace: vi.fn(),
   publishApiMockRuntimeChanged: vi.fn(),
+  isApiMockDemoPersistenceActive: () => isApiMockDemoPersistenceActive(),
+  rememberApiMockDemoImportedServer: (...args: unknown[]) => rememberApiMockDemoImportedServer(...args),
 }));
 vi.mock('./apiMockControlClient', () => ({
   apiMockControlClient: {
@@ -149,10 +164,9 @@ vi.mock('./components/ApiMockServerTabs', () => ({
   API_MOCK_WORKSPACE_PANEL_ID: 'api-mock-workspace-panel',
 }));
 vi.mock('./components/ApiMockStudioTitleBar', () => ({
-  ApiMockStudioTitleBar: ({ servers, onCreate, onClose, onCloseMany, onDelete, onSelect, onRename, onDuplicate, onReorder, onOpenLibrary, savedCount, parkedCount, statusById, dirtyById }: any) => (
+  ApiMockStudioTitleBar: ({ servers, onCreate, onClose, onCloseMany, onDelete, onSelect, onRename, onDuplicate, onReorder, statusById, dirtyById }: any) => (
     <div data-testid="mock-titlebar">
       <div data-testid="mock-server-tabs">
-        <button data-testid="mock-open-library" onClick={onOpenLibrary}>library:{savedCount}:{parkedCount}</button>
         {servers[0] && <button data-testid="mock-delete-server" onClick={() => onDelete?.(servers[0].id)}>delete-server</button>}
         <button data-testid="mock-create-server" onClick={onCreate}>create-server</button>
         {servers.map((s: any) => (
@@ -385,7 +399,8 @@ describe('ApiMockStudioPage orchestration coverage', () => {
 
   it('covers create/select/update/import/settings/simulate/delete and close-server flows', async () => {
     const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
-    render(<ApiMockStudioPage />);
+    const { default: ApiMockSidebar } = await import('./components/ApiMockSidebar');
+    render(<><ApiMockStudioPage /><ApiMockSidebar /></>);
     await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
 
     fireEvent.click(screen.getByTestId('mock-select-route'));
@@ -432,14 +447,80 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     await waitFor(() => expect(stop).toHaveBeenCalledWith('srv-1'));
     await waitFor(() => expect(screen.getByTestId('api-mock-library-landing')).toBeTruthy());
     expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/still saved in Saved servers/i);
-    expect(screen.getByTestId('api-mock-library-row-srv-1')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-sidebar-item-srv-1')).toBeTruthy();
 
-    fireEvent.click(screen.getByTestId('api-mock-library-open-srv-1'));
+    fireEvent.click(screen.getByTestId('api-mock-sidebar-item-srv-1'));
     await waitFor(() => expect(screen.getByTestId('mock-select-srv-1')).toBeTruthy());
     expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/opened from Saved servers/i);
 
     fireEvent.click(screen.getByTestId('mock-create-server'));
     await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4601/i));
+  });
+
+  it('covers duplicate, library reorder, demo naming, and no-port failures', async () => {
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('mock-duplicate-server'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/duplicated on port 4601/i));
+
+    fireEvent.click(screen.getByTestId('mock-reorder-servers'));
+    fireEvent.click(screen.getByTestId('mock-duplicate-missing'));
+
+    isApiMockDemoPersistenceActive.mockReturnValueOnce(true);
+    fireEvent.click(screen.getByTestId('mock-create-server'));
+    await waitFor(() => expect(rememberApiMockDemoImportedServer).toHaveBeenCalled());
+
+    nextAutoPort.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'NO_PORT_AVAILABLE', message: 'No port', retry: false },
+    });
+    fireEvent.click(screen.getByTestId('mock-create-server'));
+    await waitFor(() => expect(nextAutoPort).toHaveBeenCalled());
+  });
+
+  it('reorders the persisted library through the sidebar drag callback', async () => {
+    loadApiMockWorkspace.mockResolvedValueOnce({
+      servers: [makeServer('srv-a'), makeServer('srv-b')],
+      activeServerId: 'srv-a',
+    });
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    const { default: ApiMockSidebar } = await import('./components/ApiMockSidebar');
+    render(<><ApiMockStudioPage /><ApiMockSidebar /><ReorderProbe /></>);
+    await waitFor(() => expect(screen.getByTestId('api-mock-sidebar-item-srv-a')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('reorder-missing'));
+    fireEvent.click(screen.getByTestId('reorder-same'));
+
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' };
+    fireEvent.dragStart(screen.getByTestId('api-mock-sidebar-item-srv-a'), { dataTransfer });
+    fireEvent.drop(screen.getByTestId('api-mock-sidebar-item-srv-b'), { dataTransfer });
+
+    await waitFor(() => {
+      const list = screen.getByTestId('api-mock-sidebar-list');
+      expect(list.firstElementChild?.getAttribute('data-testid')).toBe('api-mock-sidebar-item-srv-b');
+    });
+  });
+
+  it('announces moving a library server into and out of a folder', async () => {
+    loadApiMockWorkspace.mockResolvedValueOnce({
+      servers: [makeServer('srv-a'), { ...makeServer('srv-b'), serverFolder: 'Prod' }],
+      activeServerId: 'srv-a',
+    });
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    const { default: ApiMockSidebar } = await import('./components/ApiMockSidebar');
+    render(<><ApiMockStudioPage /><ApiMockSidebar /></>);
+    await waitFor(() => expect(screen.getByTestId('api-mock-sidebar-item-srv-a')).toBeTruthy());
+
+    fireEvent.contextMenu(screen.getByTestId('api-mock-sidebar-item-srv-a'));
+    fireEvent.click(screen.getByTestId('api-mock-sidebar-ctx-move-folder'));
+    fireEvent.click(screen.getByTestId('api-mock-sidebar-move-to-Prod'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Moved to "Prod"/));
+
+    fireEvent.contextMenu(screen.getByTestId('api-mock-sidebar-item-srv-a'));
+    fireEvent.click(screen.getByTestId('api-mock-sidebar-ctx-move-folder'));
+    fireEvent.click(screen.getByTestId('api-mock-sidebar-move-no-folder'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/Removed from folder/));
   });
 
   it('hydrates from workspace-changed events and ignores empty details', async () => {
@@ -462,7 +543,7 @@ describe('ApiMockStudioPage orchestration coverage', () => {
       }));
     });
     await waitFor(() => expect(screen.queryByTestId('mock-select-srv-event')).toBeNull());
-    expect(screen.getByTestId('api-mock-empty')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-library-landing')).toBeTruthy();
   });
 
   it('covers runtime success and failure branches, polling, dirty status, and dock actions', async () => {
@@ -723,7 +804,7 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     loadApiMockWorkspace.mockResolvedValueOnce({ servers: [], activeServerId: undefined });
     const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
     render(<ApiMockStudioPage />);
-    await waitFor(() => expect(screen.getByTestId('api-mock-empty')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('api-mock-library-landing')).toBeTruthy());
   });
 
   it('reclaims an orphan companion listener when Start hits MOCK_PORT_OWNED', async () => {
@@ -1259,8 +1340,20 @@ describe('ApiMockStudioPage orchestration coverage', () => {
     await waitFor(() => expect(screen.getAllByTestId(/mock-select-srv-/)).toHaveLength(1));
   });
 
-  it('saves an unassociated example when the journal row has no matched route', async () => {
-    loadApiMockWorkspace.mockResolvedValueOnce({
+  it('registers the duplicate server id when demo persistence is active', async () => {
+    loadApiMockWorkspace.mockResolvedValueOnce({ servers: [makeServer('srv-1')], activeServerId: 'srv-1' });
+    isApiMockDemoPersistenceActive.mockReturnValue(true);
+    rememberApiMockDemoImportedServer.mockClear();
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('mock-duplicate-server'));
+    await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/duplicated on port/i));
+    expect(rememberApiMockDemoImportedServer).toHaveBeenCalledTimes(1);
+    isApiMockDemoPersistenceActive.mockReturnValue(false);
+  });
+
+  it('saves an unassociated example when the journal row has no matched route', async () => {    loadApiMockWorkspace.mockResolvedValueOnce({
       servers: [makeServer()],
       activeServerId: 'srv-1',
     });

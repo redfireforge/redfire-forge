@@ -92,7 +92,7 @@ const DIAGRAM = `
 
 export const apiMockAm24Lesson: DemoLesson = {
   id: 'am-24-capstone',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Ship a Contract Mock',
   description:

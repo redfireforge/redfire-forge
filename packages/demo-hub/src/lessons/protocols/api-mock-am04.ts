@@ -81,7 +81,7 @@ const DIAGRAM = `
 
 export const apiMockAm04Lesson: DemoLesson = {
   id: 'am-04-path-matching',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Path Matching & the Pattern Toolbox',
   description:

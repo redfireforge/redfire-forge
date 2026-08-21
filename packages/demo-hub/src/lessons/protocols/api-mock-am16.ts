@@ -71,7 +71,7 @@ const DIAGRAM = `
 
 export const apiMockAm16Lesson: DemoLesson = {
   id: 'am-16-export',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Export & Round-Trip: JSON/YAML, WireMock, HAR, Redaction',
   description:

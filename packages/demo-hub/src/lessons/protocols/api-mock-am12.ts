@@ -70,7 +70,7 @@ const DIAGRAM = `
 
 export const apiMockAm12Lesson: DemoLesson = {
   id: 'am-12-variants-sequence',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Response Variants: Rules & Sequence Modes',
   description:

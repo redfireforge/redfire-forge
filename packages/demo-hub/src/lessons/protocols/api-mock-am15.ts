@@ -83,7 +83,7 @@ const DIAGRAM = `
 
 export const apiMockAm15Lesson: DemoLesson = {
   id: 'am-15-import',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Import Everything: cURL, OpenAPI, WireMock, HAR, Catalog',
   description:

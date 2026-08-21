@@ -10,6 +10,7 @@ import {
   loadDemoPriorPageEndpointBackup,
   loadDemoSession,
   purgeOrphanDemoTabs,
+  restoreApiMockUserWorkspace,
   restorePageEndpointSnapshot,
 } from './adapters';
 import { clearDemoLiveSession, readDemoLiveSession } from './demoLiveSession';
@@ -72,6 +73,25 @@ export async function closeGraphqlDemoWorkspaceQuiet(lessonId: string): Promise<
     './lessons/protocols/graphql-lesson-helpers/gql-demo-tab'
   );
   await closeGqlDemoWorkspaceQuiet(lessonId);
+}
+
+/** Lesson cleanup, then put the user's mock library back. */
+export async function runApiMockStudioLessonTeardown(
+  lesson: DemoLesson,
+  ctx: DemoActionContext,
+): Promise<void> {
+  try {
+    if (lesson.cleanup) {
+      await lesson.cleanup(ctx);
+    }
+  } catch (e) {
+    console.warn('[DemoHub] Lesson cleanup failed:', e);
+  }
+  try {
+    await restoreApiMockUserWorkspace();
+  } catch (e) {
+    console.warn('[DemoHub] API Mock user library restore failed:', e);
+  }
 }
 
 /** Lesson-specific cleanup + GraphQL Studio demo env / EM teardown. */

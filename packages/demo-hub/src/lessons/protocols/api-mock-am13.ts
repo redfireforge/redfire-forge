@@ -56,7 +56,7 @@ const DIAGRAM = `
 
 export const apiMockAm13Lesson: DemoLesson = {
   id: 'am-13-stateful',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Stateful Mocks: A Cart That Remembers',
   description:
@@ -173,7 +173,7 @@ export const apiMockAm13Lesson: DemoLesson = {
         'Step 4 left memory and a journal row behind. Start over so the walk is '
         + 'unmistakable — if **Draft changed** is still lit, **Apply** first so the '
         + 'live mock owns the state machine. Then **Reset state** rewinds memory and '
-        + '**Clear** empties the journal. Then the same \`POST /cart\` fires twice:\n\n'
+        + '**Clear** empties the journal. Then the same `POST /cart` fires twice:\n\n'
         + `- **First POST** — \`${AM13_EMPTY}\` → \`${AM13_HAS_ITEMS}\` — response \`items: []\`\n`
         + `- **Second POST** — \`${AM13_HAS_ITEMS}\` → \`${AM13_CHECKED_OUT}\` — response includes \`RF-100\`\n`
         + '- **Transactions** — click the arrived-first row (`items: []`), then the arrived-second '
