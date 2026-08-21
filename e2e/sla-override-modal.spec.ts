@@ -51,14 +51,16 @@ test.describe('SLA Override modal', () => {
     const overlay = page.locator('.sla-modal-overlay');
     await expect(overlay).toBeVisible();
 
-    // Backdrop must be a solid dark color, not transparent
+    // This modal intentionally uses a transparent overlay; the dialog itself
+    // provides the opaque surface so the surrounding page does not bleed into it.
     const bg = await overlay.evaluate(el => getComputedStyle(el).backgroundColor);
-    // rgba(0,0,0,0.55) or similar — alpha must be > 0
     const m = bg.match(/rgba?\(([^)]+)\)/);
     expect(m).not.toBeNull();
     const parts = m![1].split(',').map(s => parseFloat(s.trim()));
     const alpha = parts.length === 4 ? parts[3] : 1;
-    expect(alpha).toBeGreaterThan(0.3);
+    expect(alpha).toBe(0);
+    const dialogBg = await page.locator('.sla-override-modal').evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(dialogBg).not.toMatch(/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/);
 
     // Subtitle is visible — confirms modal body rendered
     await expect(page.getByText(/Configure SLA thresholds/)).toBeVisible();

@@ -231,16 +231,16 @@ test('WL-05: Duration presets (5s/10s/15s/30s/60s)', async ({ page }) => {
 
   // Check preset buttons exist (5s, 10s, 15s, 30s, 60s)
   for (const d of [5, 10, 15, 30, 60]) {
-    const btn = page.locator(`.ws-lt-duration-btn:text-is("${d}s")`);
+    const btn = page.locator(`.ws-lt-seg-btn:text-is("${d}s")`);
     await expect(btn).toBeVisible();
   }
 
   // Click 15s preset
-  await page.locator('.ws-lt-duration-btn:text-is("15s")').click();
+  await page.locator('.ws-lt-seg-btn:text-is("15s")').click();
   await expect(duration).toHaveValue('15');
 
   // Click 30s preset
-  await page.locator('.ws-lt-duration-btn:text-is("30s")').click();
+  await page.locator('.ws-lt-seg-btn:text-is("30s")').click();
   await expect(duration).toHaveValue('30');
 });
 
@@ -328,7 +328,7 @@ test('WL-07: Constant-rate test execution with live metrics', async ({ page }) =
   // Running state should appear
   const running = page.locator('[data-testid="lt-running"]');
   await expect(running).toBeVisible({ timeout: 5000 });
-  await expect(running).toContainText('Load Test Running');
+  await expect(running).toContainText('Load test running');
 
   // Live metrics should update — poll until sent counter > 0
   const sentMetric = running.locator('.ws-lt-metric-value').first();

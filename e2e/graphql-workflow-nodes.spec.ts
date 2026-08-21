@@ -453,6 +453,8 @@ test.describe('GraphQL workflow nodes — palette registration', () => {
     await seedGraphqlWorkflow(page);
     await gotoAppTab(page, 'workflow');
     await clickFitViewIfVisible(page, 3000);
+    await page.locator('[data-testid="wf-palette-rail-actions"]').click();
+    await page.locator('[data-testid="wf-palette-chip-graphql"]').click();
   });
 
   test('palette shows graphqlQuery block', async ({ page }) => {
@@ -493,6 +495,7 @@ test.describe('GraphQL workflow nodes — palette registration', () => {
     if (await blocksTab.isVisible({ timeout: 4000 }).catch(() => false)) {
       await blocksTab.click();
     }
+    await page.locator('[data-testid="wf-palette-rail-logic"]').click();
     await expect(page.locator('.wf-palette-block-graphqlAssert')).toBeVisible({ timeout: 6000 });
   });
 });

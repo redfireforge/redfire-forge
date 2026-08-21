@@ -121,16 +121,10 @@ async function clickDataTab(page: Page) {
 /** Select a shared data source by partial name match */
 async function selectSharedDs(page: Page, partialName: string) {
   const select = page.locator('.data-source-toolbar-select').first();
-  const options = select.locator('option');
-  const count = await options.count();
-  for (let i = 0; i < count; i++) {
-    const text = await options.nth(i).textContent();
-    if (text && text.includes(partialName)) {
-      await select.selectOption({ index: i });
-      return;
-    }
-  }
-  throw new Error(`No option found containing "${partialName}"`);
+  await select.locator('.cs-trigger').click();
+  const option = page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: partialName });
+  await expect(option).toBeVisible();
+  await option.click();
 }
 
 test.describe('Promote & Demote Shared Data Sources', () => {
@@ -279,8 +273,10 @@ test.describe('Promote & Demote Shared Data Sources', () => {
       await clickDataTab(page);
 
       const select = page.locator('.data-source-toolbar-select').first();
-      await expect(select.locator('option', { hasText: 'Products Shared DS' })).toBeAttached();
-      await expect(select.locator('option', { hasText: 'Other Shared DS' })).toBeAttached();
+      await select.locator('.cs-trigger').click();
+      const options = page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]');
+      await expect(options.filter({ hasText: 'Products Shared DS' })).toBeVisible();
+      await expect(options.filter({ hasText: 'Other Shared DS' })).toBeVisible();
     });
 
     test('Selecting shared DS links test to it', async ({ page }) => {
