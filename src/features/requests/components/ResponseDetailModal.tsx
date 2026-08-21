@@ -25,7 +25,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
     goPrev: goPrevSearchMatch,
     clear: clearResponseSearch,
   } = useSearchMatchNavigation(searchMatchCount);
-  const { collapsedSet, handleTreeToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
+  const { collapsedSet, expandAllActive, handleTreeToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
 
   const responseTree = useMemo(() => {
     return buildJTreeFromBody(result?.responseBody);
@@ -54,13 +54,22 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
   const wsMeta = result.wsResultMeta;
   const hasWsMeta = !!(wsMeta && (wsMeta.url || wsMeta.connectionId || wsMeta.protocol || wsMeta.frameType || wsMeta.messageSize != null || wsMeta.closeCode != null));
 
-  // WS-appropriate section labels
+  // Transport-appropriate section labels
   const requestBodyTitle = isWs
     ? (result.transportType === 'wsConnect' ? 'Connection Config' : result.transportType === 'wsReceive' ? 'Match Criteria' : 'Sent Message')
     : 'Request Body';
-  const responseBodyTitle = isWs
-    ? (result.transportType === 'wsConnect' ? 'Connection Result' : 'Received Message')
-    : 'Response Body';
+  const responseBodyTitle = family === 'kafka'
+    ? (result.transportType === 'kafkaConsume' ? 'Consumed Message' : 'Message Body')
+    : isWs
+      ? (result.transportType === 'wsConnect' ? 'Connection Result' : 'Received Message')
+      : 'Response Body';
+  const responseHeadersTitle = family === 'kafka' ? 'Message Headers' : 'Response Headers';
+  const kafkaHeaders = result.kafkaResultMeta?.headers;
+  const hasKafkaHeaders = !!(kafkaHeaders && Object.keys(kafkaHeaders).length > 0);
+  // Older workflow runs stored headers only on kafkaResultMeta — surface them too.
+  const showKafkaMetaHeaders = family === 'kafka'
+    && hasKafkaHeaders
+    && !(result.responseHeaders && Object.keys(result.responseHeaders).length > 0);
 
   const familyIcon = family === 'kafka'
     ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
@@ -148,9 +157,36 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
                 <span className="rd-kv-label">Topic</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.topic}</span>
                 <span className="rd-kv-label">Partition</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.partition}</span>
                 <span className="rd-kv-label">Offset</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.offset}</span>
-                {result.kafkaResultMeta.key != null && <><span className="rd-kv-label">Key</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.key}</span></>}
-                {result.kafkaResultMeta.matchedMessages != null && <><span className="rd-kv-label">Matched Messages</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.matchedMessages}</span></>}
+                {result.kafkaResultMeta.key != null && result.kafkaResultMeta.key !== '' && (
+                  <><span className="rd-kv-label">Key</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.key}</span></>
+                )}
+                {result.kafkaResultMeta.matchedMessages != null && (
+                  <><span className="rd-kv-label">Matched Messages</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.matchedMessages}</span></>
+                )}
               </div>
+            </div>
+          )}
+
+          {/* ── Kafka Headers (legacy results that only populated kafkaResultMeta.headers) ── */}
+          {showKafkaMetaHeaders && kafkaHeaders && (
+            <div className="rd-section">
+              <h4 className="rd-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+                Message Headers
+              </h4>
+              <table className="response-headers-table">
+                <thead>
+                  <tr><th>Header</th><th>Value</th></tr>
+                </thead>
+                <tbody>
+                  {Object.entries(kafkaHeaders).map(([k, v]) => (
+                    <tr key={k}>
+                      <td className="header-name">{k}</td>
+                      <td className="header-value">{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 
@@ -235,12 +271,12 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             </div>
           )}
 
-          {/* ── Response Headers ── */}
+          {/* ── Response / Message Headers ── */}
           {result.responseHeaders && Object.keys(result.responseHeaders).length > 0 && (
             <div className="rd-section">
               <h4 className="rd-section-title">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
-                Response Headers
+                {responseHeadersTitle}
               </h4>
               <table className="response-headers-table">
                 <thead>
@@ -282,6 +318,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
                 collapsedSet={collapsedSet}
                 onToggle={handleTreeToggle}
                 prebuiltTree={responseTree}
+                forceExpandAll={expandAllActive}
                 currentMatchIdx={searchMatchIdx}
                 onMatchCountChange={handleMatchCountChange}
               />

@@ -81,6 +81,7 @@ export function KafkaTemplateControls({
       e.stopPropagation();
       const tpl = templates.find((t) => t.id === id);
       void onDelete(id).then(() => {
+        setDropdownOpen(false);
         showToast(`Template "${tpl?.name ?? id}" deleted`, 'delete');
       });
     },

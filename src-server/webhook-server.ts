@@ -16,22 +16,49 @@ import { createWebSocketMockRouter } from './routes/websocket-mock-routes.js';
 import { createGraphqlRouter } from './routes/graphql/graphql-routes.js';
 import { createGrpcRouter } from './routes/grpc/grpc-routes.js';
 import { createGrpcMockRouter } from './routes/grpc/grpc-mock-routes.js';
+import { createApiMockRouter } from './routes/api-mock/api-mock-routes.js';
 import { kafkaTriggerSubscriptionManager } from './kafka/kafkaTriggerSubscriptionManager.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
 import { toErrorMessage } from '../src/shared/utils/helpers';
 import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts';
+import { probeApiMockEcho } from '../src/shared/api-mock/echoHealthProbe';
 
 const app = express();
 
 // ── SSE log broadcast ────────────────────────────────
 const sseClients = new Set<Response>();
 
+// Short-lived replay buffer. A client that flips a mock to `starting` opens its
+// EventSource in the same tick it POSTs /start, so the "Started …" line is often
+// broadcast before the new subscriber is registered in `sseClients` — the line
+// is lost and the console looks empty until the first Apply/Stop. Buffering the
+// last few seconds of lines and replaying them on connect closes that race for
+// every log source without dumping stale session history on reconnect.
+const LOG_REPLAY_WINDOW_MS = 4000;
+const LOG_REPLAY_MAX = 200;
+const recentLogLines: { line: LogLine; at: number }[] = [];
+
 function broadcastLog(line: LogLine) {
+  const now = Date.now();
+  recentLogLines.push({ line, at: now });
+  const cutoff = now - LOG_REPLAY_WINDOW_MS;
+  while (recentLogLines.length > 0
+    && (recentLogLines[0].at < cutoff || recentLogLines.length > LOG_REPLAY_MAX)) {
+    recentLogLines.shift();
+  }
   const data = JSON.stringify(line);
   for (const client of sseClients) {
     client.write(`data: ${data}\n\n`);
+  }
+}
+
+function replayRecentLogs(client: Response) {
+  const cutoff = Date.now() - LOG_REPLAY_WINDOW_MS;
+  for (const entry of recentLogLines) {
+    if (entry.at < cutoff) continue;
+    client.write(`data: ${JSON.stringify(entry.line)}\n\n`);
   }
 }
 
@@ -59,6 +86,11 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Demo Hub prerequisite health proxies.
+// Always respond HTTP 200 with `{ status: 'ok' | 'down' }` so PrerequisiteGate
+// polls do not flood Chrome DevTools with "Failed to load resource: 503" while
+// Docker fixtures are offline. Clients must read the JSON `status` field.
+
 // Spring fixture health proxy used by Demo Hub prerequisite checks.
 app.get('/health/spring', async (_req: Request, res: Response) => {
   const controller = new AbortController();
@@ -70,7 +102,7 @@ app.get('/health/spring', async (_req: Request, res: Response) => {
     });
 
     if (!response.ok) {
-      return res.status(503).json({
+      return res.status(200).json({
         status: 'down',
         source: 'spring-actuator',
         reason: `http_${response.status}`,
@@ -89,14 +121,14 @@ app.get('/health/spring', async (_req: Request, res: Response) => {
       : 'UP';
     const up = springStatus.toUpperCase() === 'UP';
 
-    return res.status(up ? 200 : 503).json({
+    return res.status(200).json({
       status: up ? 'ok' : 'down',
       source: 'spring-actuator',
       springStatus,
       payload,
     });
   } catch (error) {
-    return res.status(503).json({
+    return res.status(200).json({
       status: 'down',
       source: 'spring-actuator',
       reason: toErrorMessage(error),
@@ -123,7 +155,7 @@ app.get('/health/envoy', async (_req: Request, res: Response) => {
       httpStatus: response.status,
     });
   } catch (error) {
-    return res.status(503).json({
+    return res.status(200).json({
       status: 'down',
       source: 'envoy-grpc-web',
       reason: toErrorMessage(error),
@@ -149,10 +181,10 @@ app.get('/health/schema-registry', async (req: Request, res: Response) => {
     if (response.ok) {
       return res.status(200).json({ status: 'ok', source: 'schema-registry' });
     }
-    return res.status(503).json({ status: 'down', source: 'schema-registry', reason: `http_${response.status}` });
+    return res.status(200).json({ status: 'down', source: 'schema-registry', reason: `http_${response.status}` });
   } catch (error) {
     clearTimeout(timer);
-    return res.status(503).json({ status: 'down', source: 'schema-registry', reason: toErrorMessage(error) });
+    return res.status(200).json({ status: 'down', source: 'schema-registry', reason: toErrorMessage(error) });
   }
 });
 
@@ -173,10 +205,59 @@ app.get('/health/kafka-admin', async (req: Request, res: Response) => {
     if (response.ok || response.status === 404) {
       return res.status(200).json({ status: 'ok', source: 'kafka-admin', port });
     }
-    return res.status(503).json({ status: 'down', source: 'kafka-admin', port, reason: `http_${response.status}` });
+    return res.status(200).json({ status: 'down', source: 'kafka-admin', port, reason: `http_${response.status}` });
   } catch (error) {
     clearTimeout(timer);
-    return res.status(503).json({ status: 'down', source: 'kafka-admin', port, reason: toErrorMessage(error) });
+    return res.status(200).json({ status: 'down', source: 'kafka-admin', port, reason: toErrorMessage(error) });
+  }
+});
+
+// API Mock Docker echo (:4017) — AM-17 PrerequisiteGate.
+// Probe with Node http (no HTTP_PROXY) so the browser never hits :4017 directly.
+app.get('/health/api-mock-echo', async (_req: Request, res: Response) => {
+  const probe = await probeApiMockEcho();
+  if (probe.ok) {
+    return res.status(200).json({ status: 'ok', source: 'api-mock-echo', httpStatus: probe.statusCode });
+  }
+  return res.status(200).json({
+    status: 'down',
+    source: 'api-mock-echo',
+    reason: probe.reason ?? 'unreachable',
+  });
+});
+
+/**
+ * Probe the liveness / readiness of a running mock server listener.
+ * Forwards to the mock server's built-in /__rff/health/* endpoint.
+ *
+ *   GET /health/api-mock/live?port=4600
+ *   GET /health/api-mock/ready?port=4600
+ *
+ * Always responds HTTP 200 with { status: 'ok' | 'down', ... } so
+ * PrerequisiteGate polls don't create 503 noise in DevTools.
+ * Kubernetes / CI should hit the mock's own port directly instead.
+ */
+app.get('/health/api-mock/:probe', async (req: Request, res: Response) => {
+  const probe = req.params.probe; // 'live' or 'ready'
+  if (probe !== 'live' && probe !== 'ready') {
+    return res.status(400).json({ error: 'probe must be "live" or "ready"' });
+  }
+  const portStr = req.query.port as string | undefined;
+  const port = portStr ? parseInt(portStr, 10) : undefined;
+  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) {
+    return res.status(400).json({ error: 'port query param is required and must be 1–65535' });
+  }
+  const url = `http://127.0.0.1:${port}/__rff/health/${probe}`;
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    const body = await r.json() as Record<string, unknown>;
+    return res.status(200).json({ status: r.ok ? 'ok' : 'not_ready', source: url, ...body });
+  } catch (e) {
+    return res.status(200).json({
+      status: 'down',
+      source: url,
+      reason: e instanceof Error ? e.message : 'unreachable',
+    });
   }
 });
 
@@ -268,6 +349,9 @@ app.use(createGrpcMockRouter({ onLog: broadcastLog }));
 
 // WebSocket mock server routes
 app.use(createWebSocketMockRouter({ onLog: broadcastLog }));
+
+// API Mock Studio control-plane routes (start/stop/restart/commit/status/journal)
+app.use(createApiMockRouter({ onLog: broadcastLog }));
 
 // Webhook endpoint - handles all HTTP methods
 app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) => {
@@ -458,6 +542,7 @@ app.get('/api/logs/stream', (req: Request, res: Response) => {
   res.flushHeaders();
 
   sseClients.add(res);
+  replayRecentLogs(res);
   console.log(`[SSE] Client connected (${sseClients.size} total)`);
 
   req.on('close', () => {

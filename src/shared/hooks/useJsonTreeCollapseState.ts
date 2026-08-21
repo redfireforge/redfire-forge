@@ -7,6 +7,11 @@ import { useState, useCallback, useRef } from 'react';
  */
 export function useJsonTreeCollapseState() {
   const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
+  // Sticky "Expand all" intent. While active it overrides the search-focus
+  // auto-collapse (which otherwise keeps only match branches open), so
+  // Expand all actually expands every node even during a live search.
+  // Cleared by Collapse all; a single collapse toggle just re-adds that node.
+  const [expandAllActive, setExpandAllActive] = useState(false);
 
   const handleTreeToggle = useCallback((path: string) => {
     setCollapsedSet(prev => {
@@ -17,14 +22,16 @@ export function useJsonTreeCollapseState() {
   }, []);
 
   const handleCollapseAll = useCallback((paths: Set<string>) => {
+    setExpandAllActive(false);
     setCollapsedSet(paths);
   }, []);
 
   const handleExpandAll = useCallback(() => {
+    setExpandAllActive(true);
     setCollapsedSet(new Set());
   }, []);
 
-  return { collapsedSet, handleTreeToggle, handleCollapseAll, handleExpandAll };
+  return { collapsedSet, expandAllActive, handleTreeToggle, handleCollapseAll, handleExpandAll };
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   selectCatalogEntryByName,
   publishCatalogEndpointByName,
   isCatalogLoaded,
+  seedRequestCollection,
 } from './catalogConvertAdapter';
 
 const WIN = () => window as unknown as Record<string, unknown>;
@@ -19,6 +20,7 @@ describe('catalogConvertAdapter', () => {
     delete WIN().__demoSelectCatalogByName;
     delete WIN().__demoPublishCatalogEndpoint;
     delete WIN().__demoCatalogLoaded;
+    delete WIN().__demoSeedRequestCollection;
   });
 
   describe('seedSwagger2CatalogEntry', () => {
@@ -78,6 +80,19 @@ describe('catalogConvertAdapter', () => {
 
     it('returns false when the bridge is absent', () => {
       expect(publishCatalogEndpointByName('Demo', 'GET', '/x')).toBe(false);
+    });
+  });
+
+  describe('seedRequestCollection', () => {
+    it('forwards to the bridge when present', () => {
+      const fn = vi.fn().mockReturnValue('col-1');
+      WIN().__demoSeedRequestCollection = fn;
+      expect(seedRequestCollection('Demo', [{ name: 'List', method: 'GET', url: '/x' }])).toBe('col-1');
+      expect(fn).toHaveBeenCalledWith('Demo', [{ name: 'List', method: 'GET', url: '/x' }]);
+    });
+
+    it('returns null when the bridge is absent', () => {
+      expect(seedRequestCollection('Demo', [])).toBeNull();
     });
   });
 });

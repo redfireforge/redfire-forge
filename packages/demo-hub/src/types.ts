@@ -18,12 +18,20 @@ const READING_WPM = 130;
  *  glance between the narration panel and the spotlighted element. */
 const LOOK_AT_TARGET_MS = 2200;
 
+/** Extra ms per line of terminalOutput — gives user time to read captured
+ *  CLI stdout, capped so a very long transcript doesn't stall the demo. */
+const TERMINAL_LINE_MS = 220;
+const TERMINAL_LOOK_MAX_MS = 6000;
+
 /** Calculate how long a user needs to read a step's narration (ms). */
 export function calcReadingTime(step: DemoStep): number {
   const words = (step.title + ' ' + step.description).split(/\s+/).length;
   const readMs = (words / READING_WPM) * 60_000;
   const lookMs = step.highlight ? LOOK_AT_TARGET_MS : 0;
-  return Math.max(MIN_STEP_DISPLAY, Math.round(readMs + lookMs));
+  const terminalMs = step.terminalOutput
+    ? Math.min(TERMINAL_LOOK_MAX_MS, step.terminalOutput.split('\n').length * TERMINAL_LINE_MS)
+    : 0;
+  return Math.max(MIN_STEP_DISPLAY, Math.round(readMs + lookMs + terminalMs));
 }
 
 /** Phases within a single step's execution */
@@ -136,13 +144,39 @@ export interface DemoStep {
   /** Optional inline SVG diagram rendered below the step description. */
   diagram?: string;
   highlight?: string;
+  /** When true, do not auto-scroll the page to the highlight (ring appears in place). */
+  skipHighlightScroll?: boolean;
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
+  /**
+   * Command "typed" into the DemoTerminal surface (terminal-based lessons, e.g. the
+   * `cli` domain — no real app DOM to spotlight). Renders alongside `terminalOutput`
+   * instead of a DOM highlight.
+   */
+  terminalCommand?: string;
+  /**
+   * Pinned, real captured stdout for `terminalCommand` — rendered verbatim by
+   * `DemoTerminal`. Captured once against the real CLI so the transcript matches
+   * byte-for-byte; refresh it if the underlying CLI output format changes.
+   */
+  terminalOutput?: string;
+  /**
+   * 1-based inclusive [start, end] line range(s) within `terminalOutput` to visually
+   * emphasize — the terminal equivalent of `highlight`. When more than one range is
+   * given, `DemoTerminal` auto-cycles between them (sequential "beats" over one step,
+   * e.g. calling out the latency block, then the timing breakdown, then the tags line).
+   */
+  terminalHighlightLines?: [number, number][];
   /** Invisible setup before spotlight (navigate to tab, switch mode, etc.) */
   preAction?: (ctx: DemoActionContext) => Promise<void>;
   /** Poll/sync UI during reading pause (e.g. async IDB schema cache on Tauri). */
   readingSync?: (ctx: DemoActionContext, signal?: AbortSignal) => Promise<void>;
   /** Visible action after user has read narration (click button, etc.) */
   action?: (ctx: DemoActionContext) => Promise<void>;
+  /**
+   * Hard cap for this step's `action()` (ms). Defaults to 45s.
+   * Use for multi-modal tours (export + Workflow graph) that need more time.
+   */
+  actionTimeoutMs?: number;
   /** Selector to poll after action — step won't advance until this appears */
   verify?: string;
   fallbackImage?: string;

@@ -18,6 +18,7 @@ import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
 import { useHasLayoutSize } from '../../workflow/hooks/useHasLayoutSize';
+import { reactFlowOnError } from '../../workflow/utils/reactFlowOnError';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
 import {
@@ -107,7 +108,8 @@ export default function WorkflowExecutionCanvas({
   const hasFittedAfterMeasure = useRef(false);
   const rfInstanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasHasSize = useHasLayoutSize(containerRef);
+  const reactFlowHostRef = useRef<HTMLDivElement>(null);
+  const canvasHasSize = useHasLayoutSize(reactFlowHostRef);
 
   useEffect(() => {
     if (fitViewTrigger) {
@@ -583,7 +585,7 @@ export default function WorkflowExecutionCanvas({
 
   return (
     <div ref={containerRef} className="results-explorer-canvas-wrap">
-      <div className="results-explorer-flow-host">
+      <div ref={reactFlowHostRef} className="results-explorer-flow-host">
       {canvasHasSize && (
       <ReactFlow
         key={trace.workflowId}
@@ -597,6 +599,7 @@ export default function WorkflowExecutionCanvas({
         onNodeMouseLeave={handleNodeMouseLeave}
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
+        onError={reactFlowOnError}
         onInit={(instance) => {
           rfInstanceRef.current = instance;
           scheduleReplayFitView(instance, undefined, containerRef.current);

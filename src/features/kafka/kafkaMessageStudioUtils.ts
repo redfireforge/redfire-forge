@@ -101,6 +101,25 @@ export function headersToRecord(rows: KafkaHeaderRow[]): Record<string, string> 
   return Object.fromEntries(enabled.map((r) => [r.key.trim(), r.value]));
 }
 
+// ── Result search (client-side table filter) ───────────────────────────────
+
+/**
+ * Case-insensitive substring match across offset, partition, key, and value.
+ * Blank query matches every row (no filtering).
+ */
+export function matchesKafkaResultSearch(
+  row: Pick<KafkaConsumeResultRow, 'offset' | 'partition' | 'key' | 'value'>,
+  query: string,
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (String(row.offset).toLowerCase().includes(q)) return true;
+  if (String(row.partition).toLowerCase().includes(q)) return true;
+  if ((row.key ?? '').toLowerCase().includes(q)) return true;
+  if ((row.value ?? '').toLowerCase().includes(q)) return true;
+  return false;
+}
+
 // ── Filter builder ─────────────────────────────────────────────────────────
 
 /**

@@ -79,7 +79,7 @@ interface Props {
   handleExportGroup: (groupId: string) => void;
   onSendCollectionToHarness?: (colId: string) => void;
   onSendFolderToHarness?: (colId: string, folderId: string) => void;
-  onOpenInNewTab?: (colId: string, reqId: string) => void;
+  onExportToApiMock?: (colId: string, reqId: string) => void;
 }
 
 function findReqInFoldersDeep(folders: RequestFolder[], reqId: string): string | undefined {
@@ -148,7 +148,7 @@ export default function SidebarContextMenu({
   onDeleteGroup, onDuplicateGroup, onMoveToGroup, handleExportGroup,
   onSendCollectionToHarness,
   onSendFolderToHarness,
-  onOpenInNewTab,
+  onExportToApiMock,
 }: Props) {
   const [showColMoveMenu, setShowColMoveMenu] = useState(false);
   const [reqMoveNav, setReqMoveNav] = useState<{ colId: string; folderId: string | null } | null>(null);
@@ -458,9 +458,6 @@ export default function SidebarContextMenu({
 
       {/* ── Request context menu ── */}
       {contextMenu.type === 'request' && contextMenu.reqId && (<>
-        {onOpenInNewTab && (
-          <button onClick={() => { onOpenInNewTab(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Open in New Tab</button>
-        )}
         <button onClick={() => { onDuplicateRequest(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Duplicate</button>
 
         {ctxCol && (
@@ -548,6 +545,10 @@ export default function SidebarContextMenu({
               })()}
             </PositionedSubmenu>
           </div>
+        )}
+
+        {onExportToApiMock && (
+          <button data-testid="req-ctx-export-to-mock" onClick={() => { onExportToApiMock(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Export to API Mock</button>
         )}
 
         <button className="danger" onClick={() => {

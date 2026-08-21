@@ -40,6 +40,16 @@ import {
 } from './graphql-lesson-helpers';
 import { stubGqlStudioShell, stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
 
+/**
+ * Introspection is triggered with a plain DOM click so setup/preAction stay
+ * quiet — assert on the button, not on the rippling `ctx.click`.
+ */
+function spyOnIntrospectClick() {
+  const btn = document.querySelector<HTMLElement>(GQL.INTROSPECT_BTN);
+  if (!btn) throw new Error('Introspect button missing from the stubbed shell');
+  return vi.spyOn(btn, 'click');
+}
+
 describe('graphql-lesson-helpers — helpers', () => {
   beforeEach(() => {
     setupGraphqlFirstQueryBeforeEach();
@@ -188,8 +198,9 @@ it('fillGqlEditor sets monaco model value', async () => {
         document.body.insertAdjacentHTML('beforeend', '<span data-testid="gql-schema-badge-ok"></span>');
       }
     });
+    const clicked = spyOnIntrospectClick();
     await ensureIntrospected(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    expect(clicked).toHaveBeenCalled();
   });
 
   it('seedDemoUsers stores Alice and Bob ids', async () => {
@@ -311,19 +322,20 @@ it('fillGqlEditor sets monaco model value', async () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 
-  it('ensureIntrospected re-introspects when badge ok but Query type missing from explorer', async () => {
+  it('ensureIntrospected re-introspects when the badge reports zero types', async () => {
     resetGqlLessonSessionFlags();
     stubGqlStudioShell(`
       <div data-testid="gql-studio-page"></div>
       <select data-testid="header-env-select"><option>GraphQL Demo</option></select>
       <select data-testid="header-svc-select"><option>graphql-demo</option></select>
       <button data-testid="gql-right-tab-schema"></button>
-      <span data-testid="gql-schema-badge-ok"></span>
+      <span data-testid="gql-schema-badge-ok">Schema (0)</span>
     `);
     document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = GQL_DEMO_HTTP;
     const ctx = makeCtx();
+    const clicked = spyOnIntrospectClick();
     await ensureIntrospected(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    expect(clicked).toHaveBeenCalled();
   });
 
   it('openSchemaExplorer re-introspects when Query type not listed', async () => {
@@ -333,13 +345,14 @@ it('fillGqlEditor sets monaco model value', async () => {
       <select data-testid="header-env-select"><option>GraphQL Demo</option></select>
       <select data-testid="header-svc-select"><option>graphql-demo</option></select>
       <button data-testid="gql-right-tab-schema"></button>
-      <span data-testid="gql-schema-badge-ok"></span>
+      <span data-testid="gql-schema-badge-ok">Schema (0)</span>
       <div data-testid="gql-schema-explorer"></div>
     `);
     document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = GQL_DEMO_HTTP;
     const ctx = makeCtx();
+    const clicked = spyOnIntrospectClick();
     await openSchemaExplorer(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    expect(clicked).toHaveBeenCalled();
   });
 
   it('openSchemaExplorer skips re-introspect when Query type already listed', async () => {

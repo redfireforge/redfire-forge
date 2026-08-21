@@ -27,6 +27,7 @@ pub mod mock_rules;
 pub mod state;
 pub mod stream;
 pub mod stream_registry;
+pub mod stream_registry_types;
 pub mod tls;
 pub mod types;
 pub mod unary;

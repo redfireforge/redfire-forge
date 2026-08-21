@@ -212,6 +212,7 @@ export default function SharedDataSourceModal({
       showExpandButton={false}
       closeButtonKind="none"
       closeOnOverlayClick={false}
+      disableDrag
       constrainDragToViewport
       dragViewportPadding={12}
       minWidth={980}
@@ -280,7 +281,8 @@ export default function SharedDataSourceModal({
                       onBlur={() => listPanel.handleRename(ds.id, listPanel.renameValue)}
                       onKeyDown={e => {
                         if (e.key === 'Enter') listPanel.handleRename(ds.id, listPanel.renameValue);
-                        if (e.key === 'Escape') listPanel.cancelRenaming();
+                        // Escape cancels the rename only; don't let the modal close too.
+                        if (e.key === 'Escape') { e.preventDefault(); listPanel.cancelRenaming(); }
                       }}
                       autoFocus
                       onClick={e => e.stopPropagation()}

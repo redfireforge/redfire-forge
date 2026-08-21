@@ -1045,6 +1045,45 @@ describe('useKafkaState', () => {
     expect(result.current.topics).toEqual(TOPICS);
   });
 
+  it('does not re-fetch topics when status poll returns the same connected snapshot', async () => {
+    let topicsCalls = 0;
+    mocks.dispatchKafkaOperation.mockImplementation(async (op: string) => {
+      if (op === 'status') {
+        return {
+          ok: true,
+          op: 'status',
+          data: { state: 'connected', clusterId: 'cluster-b', connectedAt: '2026-01-01T00:00:00.000Z' },
+        };
+      }
+      if (op === 'topics') {
+        topicsCalls += 1;
+        return {
+          ok: true,
+          op: 'topics',
+          data: { clusterId: 'cluster-b', topics: TOPICS },
+        };
+      }
+      return { ok: true, op, data: {} };
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    await act(async () => {
+      await result.current.refreshConnectionStatus({ force: true });
+    });
+    await waitFor(() => expect(result.current.topics).toEqual(TOPICS));
+    const topicsAfterConnect = topicsCalls;
+
+    await act(async () => {
+      await result.current.refreshConnectionStatus({ force: true });
+      await result.current.refreshConnectionStatus({ force: true });
+    });
+
+    expect(topicsCalls).toBe(topicsAfterConnect);
+    expect(result.current.connection.state).toBe('connected');
+  });
+
   it('demo delete bridges remove clusters by id and name', async () => {
     const { result } = renderHook(() => useKafkaState());
     await waitFor(() => expect(result.current.loaded).toBe(true));
@@ -1076,6 +1115,73 @@ describe('useKafkaState', () => {
     });
     await waitFor(() => {
       expect(result.current.clusters.some((cluster) => cluster.clusterId === 'cluster-c')).toBe(false);
+    });
+  });
+
+  it('demo ensure-plaintext bridge upserts Demo Cluster and mark-connected syncs state', async () => {
+    mocks.loadKafkaClusters.mockResolvedValue([]);
+    mocks.loadSelectedKafkaClusterId.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    const w = window as unknown as Record<string, unknown>;
+    expect(typeof w.__demoEnsurePlaintextKafkaCluster).toBe('function');
+    expect(typeof w.__demoMarkKafkaConnected).toBe('function');
+
+    act(() => {
+      (w.__demoEnsurePlaintextKafkaCluster as () => void)();
+    });
+    await waitFor(() => {
+      expect(result.current.clusters.some((c) => c.clusterId === 'demo-cluster')).toBe(true);
+      expect(result.current.selectedClusterId).toBe('demo-cluster');
+    });
+
+    act(() => {
+      (w.__demoMarkKafkaConnected as (clusterId: string) => void)('demo-cluster');
+    });
+    await waitFor(() => {
+      expect(result.current.connection.state).toBe('connected');
+      expect(result.current.connection.clusterId).toBe('demo-cluster');
+    });
+  });
+
+  it('demo clear-all bridge empties clusters and disconnects', async () => {
+    mocks.loadKafkaClusters.mockResolvedValue([CLUSTER_A, CLUSTER_B]);
+    mocks.loadSelectedKafkaClusterId.mockResolvedValue('cluster-b');
+    mocks.dispatchKafkaOperation.mockImplementation(async (op: string) => {
+      if (op === 'status') {
+        return {
+          ok: true,
+          op: 'status',
+          data: { state: 'connected', clusterId: 'cluster-b' },
+        };
+      }
+      if (op === 'disconnect') {
+        return {
+          ok: true,
+          op: 'disconnect',
+          data: { state: 'disconnected' },
+        };
+      }
+      return { ok: true, op, data: {} };
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    await waitFor(() => expect(result.current.clusters.length).toBeGreaterThan(0));
+
+    const w = window as unknown as Record<string, unknown>;
+    expect(typeof w.__demoClearAllKafkaClusters).toBe('function');
+
+    act(() => {
+      (w.__demoClearAllKafkaClusters as () => void)();
+    });
+
+    await waitFor(() => {
+      expect(result.current.clusters).toEqual([]);
+      expect(result.current.connection.state).toBe('disconnected');
+      expect(result.current.selectedClusterId).toBeNull();
     });
   });
 });

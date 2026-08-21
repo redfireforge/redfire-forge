@@ -5,6 +5,7 @@ import http from 'node:http';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts.js';
+import { probeApiMockEcho } from '../src/shared/api-mock/echoHealthProbe.js';
 import { app } from './webhook-server.js';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
@@ -19,6 +20,12 @@ vi.mock('./file-storage.js', () => ({
 
 vi.mock('./webhook-extractor.js', () => ({
   extractWebhookVariables: vi.fn(),
+}));
+
+vi.mock('../src/shared/api-mock/echoHealthProbe.js', () => ({
+  probeApiMockEcho: vi.fn(),
+  API_MOCK_ECHO_PORT: 4017,
+  API_MOCK_ECHO_HEALTH_PATH: '/health',
 }));
 
 vi.mock('./executeWorkflow.js', () => ({
@@ -152,7 +159,8 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const res = await request(app).get('/health/spring');
 
-      expect(res.status).toBe(503);
+      // HTTP 200 + status:down — avoids Chrome DevTools 503 spam while Docker is offline
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.source).toBe('spring-actuator');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
@@ -163,7 +171,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
         new Response('Service Unavailable', { status: 503 }),
       );
       const res = await request(app).get('/health/spring');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.reason).toBe('http_503');
     });
@@ -178,7 +186,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const res = await request(app).get('/health/spring');
 
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.springStatus).toBe('DOWN');
     });
@@ -221,7 +229,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const res = await request(app).get('/health/envoy');
 
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.source).toBe('envoy-grpc-web');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
@@ -245,7 +253,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
         new Response('forbidden', { status: 403 }),
       );
       const res = await request(app).get('/health/schema-registry?url=http://localhost:8085');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.reason).toBe('http_403');
     });
@@ -253,7 +261,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     it('returns down when registry is unreachable (network error)', async () => {
       vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('ECONNREFUSED'));
       const res = await request(app).get('/health/schema-registry');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
     });
@@ -293,7 +301,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     it('returns down when Admin API is unreachable (network error)', async () => {
       vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('ECONNREFUSED'));
       const res = await request(app).get('/health/kafka-admin?port=19648');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(String(res.body.reason)).toContain('ECONNREFUSED');
     });
@@ -311,7 +319,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
         new Response('Service Unavailable', { status: 503 }),
       );
       const res = await request(app).get('/health/kafka-admin?port=19648');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(res.body.reason).toBe('http_503');
       expect(res.body.port).toBe(19648);
@@ -333,9 +341,89 @@ describe('webhook-server', { timeout: 30_000 }, () => {
         }),
       );
       const res = await request(app).get('/health/kafka-admin?port=19648');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body.status).toBe('down');
       expect(String(res.body.reason)).toContain('aborted');
+    });
+  });
+
+  describe('GET /health/api-mock-echo', () => {
+    it('returns ok when the Docker echo answers', async () => {
+      vi.mocked(probeApiMockEcho).mockResolvedValueOnce({ ok: true, statusCode: 200 });
+      const res = await request(app).get('/health/api-mock-echo');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ status: 'ok', source: 'api-mock-echo', httpStatus: 200 });
+    });
+
+    it('returns down when the Docker echo is unreachable', async () => {
+      vi.mocked(probeApiMockEcho).mockResolvedValueOnce({ ok: false, reason: 'connect ECONNREFUSED' });
+      const res = await request(app).get('/health/api-mock-echo');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('down');
+      expect(res.body.source).toBe('api-mock-echo');
+      expect(res.body.reason).toContain('ECONNREFUSED');
+    });
+
+    it('returns down with a fallback reason when the probe is empty', async () => {
+      vi.mocked(probeApiMockEcho).mockResolvedValueOnce({ ok: false });
+      const res = await request(app).get('/health/api-mock-echo');
+      expect(res.status).toBe(200);
+      expect(res.body.reason).toBe('unreachable');
+    });
+  });
+
+  describe('GET /health/api-mock/:probe', () => {
+    it('rejects unknown probe values', async () => {
+      const res = await request(app).get('/health/api-mock/unknown?port=4600');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('probe must be');
+    });
+
+    it('rejects invalid or missing ports', async () => {
+      const missingPort = await request(app).get('/health/api-mock/live');
+      expect(missingPort.status).toBe(400);
+
+      const invalidPort = await request(app).get('/health/api-mock/ready?port=99999');
+      expect(invalidPort.status).toBe(400);
+      expect(invalidPort.body.error).toContain('port query param is required');
+    });
+
+    it('returns ok for live probe when upstream health endpoint is healthy', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ probe: 'live' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const res = await request(app).get('/health/api-mock/live?port=4600');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(String(res.body.source)).toContain('/__rff/health/live');
+      expect(res.body.probe).toBe('live');
+    });
+
+    it('returns not_ready for ready probe when upstream returns non-ok', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: 'warming' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const res = await request(app).get('/health/api-mock/ready?port=4600');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('not_ready');
+      expect(res.body.detail).toBe('warming');
+    });
+
+    it('returns down when probe fetch throws a non-Error value', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce('network unreachable');
+
+      const res = await request(app).get('/health/api-mock/live?port=4600');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('down');
+      expect(res.body.reason).toBe('unreachable');
     });
   });
 
@@ -637,6 +725,88 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const joined = sseChunks.join('');
       expect(joined).toMatch(/data:.*Webhook/i);
+    });
+
+    it('replays a recently broadcast log line to a client that connects after it', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'success',
+        passed: true,
+        duration: 1,
+        results: [],
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const server = await new Promise<http.Server>((resolve, reject) => {
+        const s = app.listen(0, '127.0.0.1', () => resolve(s));
+        s.on('error', reject);
+      });
+      const { port } = server.address() as import('net').AddressInfo;
+
+      // Broadcast a log line BEFORE any SSE client is connected.
+      await request(server).post('/webhooks/wf-1/trigger-1').send({}).expect(200);
+
+      const sseChunks: string[] = [];
+      await new Promise<void>((resolve, reject) => {
+        const sseReq = http.get(`http://127.0.0.1:${port}/api/logs/stream`, (res) => {
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => sseChunks.push(chunk));
+          setTimeout(() => {
+            res.socket?.destroy();
+            server.close(() => resolve());
+          }, 40);
+        });
+        sseReq.on('error', reject);
+      });
+
+      // The line was broadcast before connect, yet the replay buffer delivers it.
+      expect(sseChunks.join('')).toMatch(/data:.*Webhook/i);
+    });
+
+    it('skips stale replay entries older than the replay window', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'success',
+        passed: true,
+        duration: 1,
+        results: [],
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+
+      const server = await new Promise<http.Server>((resolve, reject) => {
+        const s = app.listen(0, '127.0.0.1', () => resolve(s));
+        s.on('error', reject);
+      });
+      const { port } = server.address() as import('net').AddressInfo;
+
+      // Seed replay buffer at an old timestamp.
+      await request(server).post('/webhooks/wf-1/trigger-1').send({}).expect(200);
+
+      // Move virtual time far beyond any prior test timestamps so all replay
+      // entries (including cross-test residue) are stale.
+      nowSpy.mockReturnValue(9_000_000_000_000_000);
+
+      const sseChunks: string[] = [];
+      await new Promise<void>((resolve, reject) => {
+        const sseReq = http.get(`http://127.0.0.1:${port}/api/logs/stream`, (res) => {
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => sseChunks.push(chunk));
+          setTimeout(() => {
+            res.socket?.destroy();
+            server.close(() => resolve());
+          }, 40);
+        });
+        sseReq.on('error', reject);
+      });
+
+      expect(sseChunks.join('')).not.toMatch(/data:.*Webhook/i);
+      nowSpy.mockRestore();
     });
   });
 

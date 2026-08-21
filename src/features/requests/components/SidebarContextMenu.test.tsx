@@ -318,7 +318,7 @@ describe('SidebarContextMenu', () => {
     expect(baseCallbacks.onMoveRequest).toHaveBeenCalledWith('c1', 'r9', 'fold1');
   });
 
-  it('request menu: open in new tab action delegates and dismisses', () => {
+  it('request menu: no "Open in New Tab" action — clicking a request already opens its tab', () => {
     const col: RequestCollection = {
       id: 'c1',
       name: 'C',
@@ -326,17 +326,14 @@ describe('SidebarContextMenu', () => {
       requests: [req('r9', 'Nine')],
       folders: [],
     };
-    const onOpenInNewTab = vi.fn();
-    const dismiss = vi.fn();
     renderMenu(
       { x: 0, y: 0, type: 'request', colId: 'c1', reqId: 'r9' },
       [col],
-      { onOpenInNewTab, dismiss },
+      {},
     );
 
-    fireEvent.click(screen.getByText('Open in New Tab'));
-    expect(onOpenInNewTab).toHaveBeenCalledWith('c1', 'r9');
-    expect(dismiss).toHaveBeenCalled();
+    expect(screen.queryByText('Open in New Tab')).toBeNull();
+    expect(screen.getByText('Duplicate')).toBeTruthy();
   });
 
   it('folder menu: send-to-harness delegates and dismisses', () => {

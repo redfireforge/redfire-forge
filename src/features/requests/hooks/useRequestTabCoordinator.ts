@@ -237,13 +237,6 @@ export function useRequestTabCoordinator(wb: UseRequestsReturn) {
     openTab(colId, reqId, req?.name || req?.url || 'Untitled');
   }, [openTab]);
 
-  const handleOpenInNewTab = useCallback((colId: string, reqId: string) => {
-    const col = dataRef.current.collections.find(c => c.id === colId);
-    if (!col) return;
-    const req = findRequestInCollection(col, reqId);
-    openTab(colId, reqId, req?.name || req?.url || 'Untitled');
-  }, [openTab]);
-
   const openTabRequestIds = useMemo(
     () => new Set(tabs.map(t => t.requestId)),
     [tabs],
@@ -263,7 +256,6 @@ export function useRequestTabCoordinator(wb: UseRequestsReturn) {
     closeTabsToRight,
     envChange: handleEnvChange,
     selectRequest: handleSelectRequest,
-    openInNewTab: handleOpenInNewTab,
     openTabRequestIds,
     removeRequest: removeRequestWithCleanup,
     removeCollection: removeCollectionWithCleanup,

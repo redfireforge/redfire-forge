@@ -2,6 +2,7 @@
 import { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { DemoLesson, StepPhase } from './types';
 import DemoSpotlight from './DemoSpotlight';
+import DemoTerminal from './DemoTerminal';
 import { renderMarkdown } from './ConceptSlide';
 import StepOverviewDrawer from './StepOverviewDrawer';
 import { useLiveDemoPanelLayout } from './useLiveDemoPanelLayout';
@@ -22,6 +23,8 @@ interface LiveDemoProps {
   stepIndex: number;
   isPlaying: boolean;
   stepPhase: StepPhase;
+  /** False while Preparing boot veil is up — keep spotlight off until Studio is revealed. */
+  surfaceReady?: boolean;
   onNext: () => void;
   onTogglePlay: () => void;
   onSkipReading: () => void;
@@ -60,6 +63,7 @@ export default function LiveDemo({
   stepIndex,
   isPlaying,
   stepPhase,
+  surfaceReady = true,
   onNext,
   onTogglePlay,
   onSkipReading,
@@ -110,6 +114,7 @@ export default function LiveDemo({
         found
         && el
         && !autoScrolledRef.current
+        && !step.skipHighlightScroll
         && !isDemoAutoScrollPaused()
         && !isElementVisibleInViewport(el)
       ) {
@@ -126,21 +131,27 @@ export default function LiveDemo({
     return () => {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
-  }, [step?.highlight, stepIndex, overviewOpen]);
+  }, [step?.highlight, step?.skipHighlightScroll, stepIndex, overviewOpen]);
 
   if (!step) return null;
+
+  // Terminal steps (CLI-domain lessons) have no DOM to spotlight — the transcript
+  // is pinned, real output, so it's always immediately "available", unlike a DOM
+  // target that must be polled for. Feeds the same Live/Guide badge as DOM steps.
+  const isTerminalStep = Boolean(step.terminalCommand || step.terminalOutput);
+  const stepReady = targetFound || isTerminalStep;
 
   const totalSteps = lesson.steps.length;
   const progressPct = ((stepIndex + 1) / totalSteps) * 100;
   const isLast = stepIndex >= totalSteps - 1;
-  // Next / → when done, or during reading (runs the step action then advances).
-  // Disabled while Preparing / Acting / Verifying so the viewer cannot interrupt
-  // an in-flight spotlight tour.
-  const canNavigate = stepPhase === 'done' || stepPhase === 'reading';
-  const nextDisabledReason = 'Please wait — action in progress';
-  const nextTitle = stepPhase === 'reading'
-    ? 'Next (→) — finish this step then advance'
-    : 'Next (→)';
+  // Next / → only after the step finishes (done). Disabled during Reading so
+  // viewers cannot skip the action tour — skip reading via the phase badge,
+  // then wait for Acting/Verifying to complete before advancing.
+  const canNavigate = stepPhase === 'done';
+  const nextDisabledReason = stepPhase === 'reading'
+    ? 'Finish reading first — click the Reading badge to skip'
+    : 'Please wait — action in progress';
+  const nextTitle = 'Next (→)';
 
   // Phase label for user feedback (pinned above controls — always visible)
   const phaseLabel = stepPhase === 'pre' ? '⏳ Preparing'
@@ -153,14 +164,24 @@ export default function LiveDemo({
   return (
     <>
       {/* Reading-phase ring only — hide during action/done so in-action spotlights never overlap
-          and finished steps don't leave a stale ring on the original target */}
-      {targetFound && step.highlight && stepPhase === 'reading' && !overviewOpen && (
+          and finished steps don't leave a stale ring on the original target.
+          Also wait for boot veil lift so the ring does not float over opacity-0 Studio. */}
+      {surfaceReady && targetFound && step.highlight && stepPhase === 'reading' && !overviewOpen && (
         <DemoSpotlight
           key={`${stepIndex}:${step.highlight}`}
           trackKey={`${stepIndex}:${step.highlight}`}
           selector={step.highlight}
           active={true}
           frozen={false}
+        />
+      )}
+
+      {/* Terminal surface — CLI-domain lessons render a pinned transcript instead of a DOM spotlight. */}
+      {surfaceReady && isTerminalStep && !overviewOpen && (
+        <DemoTerminal
+          command={step.terminalCommand}
+          output={step.terminalOutput}
+          highlightLines={step.terminalHighlightLines}
         />
       )}
 
@@ -225,8 +246,8 @@ export default function LiveDemo({
           <span className="demo-live-step-counter">
             {stepIndex + 1} / {totalSteps}
           </span>
-          <span className={`demo-live-mode-badge ${targetFound ? 'live' : 'guide'}`}>
-            {targetFound ? '🟢 Live' : '📖 Guide'}
+          <span className={`demo-live-mode-badge ${stepReady ? 'live' : 'guide'}`}>
+            {stepReady ? '🟢 Live' : '📖 Guide'}
           </span>
           <button
             className={`demo-live-overview-btn${overviewOpen ? ' active' : ''}`}

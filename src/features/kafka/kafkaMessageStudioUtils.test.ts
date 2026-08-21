@@ -9,9 +9,42 @@ import {
   buildPublishRequest,
   buildConsumeRequest,
   buildSubscribeRequest,
+  matchesKafkaResultSearch,
   valuePreview,
 } from './kafkaMessageStudioUtils';
 import type { KafkaConsumeDraft, KafkaPublishDraft } from './types';
+
+// ── matchesKafkaResultSearch ───────────────────────────────────────────────
+
+describe('matchesKafkaResultSearch', () => {
+  const row = {
+    offset: '102',
+    partition: 0,
+    key: 'order-42',
+    value: '{"status":"CREATED","id":7}',
+  };
+
+  it('matches everything when query is blank', () => {
+    expect(matchesKafkaResultSearch(row, '')).toBe(true);
+    expect(matchesKafkaResultSearch(row, '   ')).toBe(true);
+  });
+
+  it('matches offset, partition, key, and value (case-insensitive)', () => {
+    expect(matchesKafkaResultSearch(row, '102')).toBe(true);
+    expect(matchesKafkaResultSearch(row, 'ORDER-42')).toBe(true);
+    expect(matchesKafkaResultSearch(row, 'created')).toBe(true);
+    expect(matchesKafkaResultSearch(row, '0')).toBe(true);
+  });
+
+  it('returns false when nothing matches', () => {
+    expect(matchesKafkaResultSearch(row, 'zzzz-missing')).toBe(false);
+  });
+
+  it('treats missing key as empty string', () => {
+    expect(matchesKafkaResultSearch({ ...row, key: undefined }, 'order')).toBe(false);
+    expect(matchesKafkaResultSearch({ ...row, key: undefined }, 'CREATED')).toBe(true);
+  });
+});
 
 // ── validateAndFormatJson ──────────────────────────────────────────────────
 

@@ -34,6 +34,13 @@ import GrpcMockAssertConfig from '../configs/GrpcMockAssertConfig';
 import GrpcUnaryConfig from '../configs/GrpcUnaryConfig';
 import GrpcServerStreamConfig from '../configs/GrpcServerStreamConfig';
 import GrpcAssertConfig from '../configs/GrpcAssertConfig';
+import {
+  ApiMockApplyConfig,
+  ApiMockAssertCallsConfig,
+  ApiMockResetStateConfig,
+  ApiMockStartConfig,
+  ApiMockStopConfig,
+} from '../configs/ApiMockNodeConfigs';
 import VariablesSection from '../panels/VariablesSection';
 import StartConfig from '../configs/StartConfig';
 import { KafkaCard } from '../configs/KafkaConfigUi';
@@ -82,6 +89,13 @@ import type {
   GrpcMockAssertNodeData,
   GrpcSchemaDiffNodeData,
 } from '../../types/workflow/node-grpc-advanced';
+import type {
+  ApiMockApplyNodeData,
+  ApiMockAssertCallsNodeData,
+  ApiMockResetStateNodeData,
+  ApiMockStartNodeData,
+  ApiMockStopNodeData,
+} from '../../types/workflow/node-api-mock';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { isHttpWorkflowNode } from '../../utils/workflowVariableHints';
 
@@ -476,6 +490,37 @@ export default function WorkflowNodeConfigTypePanels({
         <GrpcMockAssertConfig
           data={draftNode.data as GrpcMockAssertNodeData}
           onChange={(data) => updateDraft(data)}
+        />
+      )}
+
+      {draftNode.type === 'apiMockStart' && (
+        <ApiMockStartConfig
+          data={draftNode.data as ApiMockStartNodeData}
+          onChange={(patch) => updateDraft(patch)}
+        />
+      )}
+      {draftNode.type === 'apiMockApply' && (
+        <ApiMockApplyConfig
+          data={draftNode.data as ApiMockApplyNodeData}
+          onChange={(patch) => updateDraft(patch)}
+        />
+      )}
+      {draftNode.type === 'apiMockResetState' && (
+        <ApiMockResetStateConfig
+          data={draftNode.data as ApiMockResetStateNodeData}
+          onChange={(patch) => updateDraft(patch)}
+        />
+      )}
+      {draftNode.type === 'apiMockStop' && (
+        <ApiMockStopConfig
+          data={draftNode.data as ApiMockStopNodeData}
+          onChange={(patch) => updateDraft(patch)}
+        />
+      )}
+      {draftNode.type === 'apiMockAssertCalls' && (
+        <ApiMockAssertCallsConfig
+          data={draftNode.data as ApiMockAssertCallsNodeData}
+          onChange={(patch) => updateDraft(patch)}
         />
       )}
 

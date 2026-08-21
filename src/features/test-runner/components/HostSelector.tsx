@@ -13,6 +13,9 @@ interface Props {
    * browser radio group and breaks selection.
    */
   namePrefix?: string;
+  /** Host → Mock Server is selected; the fixture panel is open. */
+  fixtureOpen?: boolean;
+  onFixtureOpenChange?: (open: boolean) => void;
 }
 
 export default function HostSelector({
@@ -24,8 +27,14 @@ export default function HostSelector({
   disabled = false,
   isGalleryEnv = false,
   namePrefix = 'runner',
+  fixtureOpen = false,
+  onFixtureOpenChange,
 }: Props) {
   const radioName = `${namePrefix}-hostMode`;
+  const pickHost = (mode: 'hardcoded' | 'settings' | 'custom') => {
+    onFixtureOpenChange?.(false);
+    onHostModeChange(mode);
+  };
 
   if (isGalleryEnv) {
     return (
@@ -43,8 +52,8 @@ export default function HostSelector({
         <input
           type="radio"
           name={radioName}
-          checked={hostMode === 'hardcoded'}
-          onChange={() => onHostModeChange('hardcoded')}
+          checked={!fixtureOpen && hostMode === 'hardcoded'}
+          onChange={() => pickHost('hardcoded')}
           disabled={disabled}
         />
         Original
@@ -53,8 +62,8 @@ export default function HostSelector({
         <input
           type="radio"
           name={radioName}
-          checked={hostMode === 'settings'}
-          onChange={() => onHostModeChange('settings')}
+          checked={!fixtureOpen && hostMode === 'settings'}
+          onChange={() => pickHost('settings')}
           disabled={disabled || !resolvedBaseUrl}
         />
         Settings
@@ -67,8 +76,19 @@ export default function HostSelector({
         <input
           type="radio"
           name={radioName}
-          checked={hostMode === 'custom'}
-          onChange={() => onHostModeChange('custom')}
+          checked={fixtureOpen}
+          onChange={() => onFixtureOpenChange?.(true)}
+          disabled={disabled}
+          data-testid="har-host-mock"
+        />
+        Mock Server
+      </label>
+      <label className="radio-label">
+        <input
+          type="radio"
+          name={radioName}
+          checked={!fixtureOpen && hostMode === 'custom'}
+          onChange={() => pickHost('custom')}
           disabled={disabled}
         />
         Custom

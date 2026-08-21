@@ -1,9 +1,15 @@
-import type { RequestResult, TestSummary, TestConfig, TestRun, TimingBreakdown } from '../src/types';
+import type { RequestResult, TestSummary, TestConfig, TestRun, TimingBreakdown } from '../src/shared/types';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 import { formatFailureDetails } from '../src/shared/utils/helpers';
 import { percentile } from '../src/shared/utils/percentiles';
 import { redactGrpcHarnessRunnerArtifactsForExport } from '../src/shared/grpc/grpcHarnessExport';
 export { printComparisonSummary, buildComparisonMarkdown } from './reporters-comparison';
+
+/** `sequential` mode processes one request at a time regardless of configured concurrency —
+ *  display 1 instead of the (unused) configured value so the header isn't misleading. */
+function displayConcurrency(config: TestConfig): number {
+  return config.executionMode === 'sequential' ? 1 : config.concurrency;
+}
 
 // ── JSON report ─────────────────────────────────────────────
 
@@ -158,7 +164,7 @@ export function buildMarkdownReport(
   lines.push('');
   if (meta.env) lines.push(`**Environment:** ${meta.env}  `);
   lines.push(`**Date:** ${new Date().toISOString()}  `);
-  lines.push(`**Mode:** ${config.executionMode} | Concurrency: ${config.concurrency} | Iterations: ${config.iterations}  `);
+  lines.push(`**Mode:** ${config.executionMode} | Concurrency: ${displayConcurrency(config)} | Iterations: ${config.iterations}  `);
   lines.push('');
 
   lines.push('## Summary');
@@ -233,7 +239,7 @@ export function printConsoleSummary(summary: TestSummary, config: TestConfig, re
   console.log(bar);
   console.log('  RedfireForge — Test Run Summary');
   console.log(bar);
-  console.log(`  Mode:         ${config.executionMode} (C:${config.concurrency} I:${config.iterations})`);
+  console.log(`  Mode:         ${config.executionMode} (C:${displayConcurrency(config)} I:${config.iterations})`);
   console.log(`  Duration:     ${(summary.totalDurationMs / 1000).toFixed(2)}s`);
   console.log(`  TPS:          ${summary.tps}`);
   console.log(`  Avg Response: ${summary.avgResponseTime} ms`);

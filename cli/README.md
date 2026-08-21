@@ -12,6 +12,8 @@ Run API performance tests and workflows using YAML or JSON test files. The CLI u
 npm install -g redfireforge-cli
 ```
 
+This installs two equivalent commands: `redfireforge` (full name) and **`rff`** (short alias — same binary, just less to type). `rff` is never claimed by the desktop app installer, so it's always unambiguous even on a machine that also has the desktop app installed.
+
 ### Option 2: Desktop App CLI Mode
 
 If you have the RedfireForge desktop app installed, use the `--cli` flag:
@@ -23,6 +25,8 @@ redfireforge --cli run tests/test.yaml
 # Windows (added to PATH during installation)
 redfireforge --cli run tests/test.yaml
 ```
+
+> **Note:** the desktop app's own `redfireforge` command launches the GUI by default (`--cli` switches it to CLI mode) — this is a *different* binary than Option 1's npm package, even though they share the same name. If you have both installed, prefer `rff` (Option 1) or `redfireforge --cli` (Option 2) explicitly rather than relying on bare `redfireforge`, since whichever one wins your `$PATH` determines which behavior you get.
 
 ### Option 3: From Source
 
@@ -47,6 +51,9 @@ redfireforge run tests/api-test.yaml -c 10 -i 100
 
 # Run a workflow performance test
 redfireforge workflow tests/checkout-flow.yaml -i 50 -c 5
+
+# Every command above also works with the short "rff" alias:
+rff run tests/api-test.yaml -c 10 -i 100
 ```
 
 ## Commands
@@ -57,6 +64,46 @@ redfireforge workflow tests/checkout-flow.yaml -i 50 -c 5
 | `workflow <file>` | Execute a workflow as a performance test |
 | `validate <file>` | Validate a test file without running |
 | `validate-workflow <file>` | Validate a workflow file without running |
+| `mock simulate <file>` | Run saved API Mock samples (side-effect-free) |
+| `mock verify <file>` | Assert live journal calls (or `--simulate` for offline corpus) |
+| `mock start <file>` | Start mock listeners (companion, or in-process `--standalone`) |
+
+### API Mock Studio (`mock`)
+
+Headless helpers for API Mock Studio definitions (native JSON/YAML export envelopes or workspace files).
+
+```bash
+# Simulate samples against a definition (same engine as GUI)
+npx tsx cli/index.ts mock simulate ./api-mock-workspace.json -o results.json --junit junit.xml
+
+# Verify live journal (requires companion + running mock)
+npx tsx cli/index.ts mock verify ./api-mock-workspace.json --expect-outcome matched --min-calls 1
+
+# Offline corpus (same engine as GUI Simulate)
+npx tsx cli/index.ts mock verify ./api-mock-workspace.json --simulate --expect-outcome matched --min-calls 1
+
+# Start listeners. Companion on :3001 is preferred; falls back to in-process.
+npx tsx cli/index.ts mock start ./api-mock-workspace.json --port 4600 --wait-ready
+
+# Force in-process listeners (no companion) — useful in Docker/CI
+npx tsx cli/index.ts mock start ./api-mock-workspace.json --standalone --wait-ready
+```
+
+| Option | Commands | Description |
+|--------|----------|-------------|
+| `--server <id>` | simulate, verify | Target server (default: active / first) |
+| `-o, --output <path>` | simulate | Write JSON results |
+| `--junit <path>` | simulate | Write JUnit XML |
+| `--min-calls <n>` | verify | Require at least N matching journal calls (samples when `--simulate`) |
+| `--expect-outcome <outcome>` | verify | Require matching outcome |
+| `--route <id>` | verify | Restrict assertions to a route (live journal, or `--simulate` samples) |
+| `--last-call-within-ms <n>` | verify | Last matching call recency (live journal only) |
+| `--body-contains <text>` | verify | Matching response body substring (live journal last call, or `--simulate` samples) |
+| `--simulate` | verify | Offline corpus instead of live journal |
+| `--port <n>` | start | Port override for the first server; later servers increment |
+| `--control-base <url>` | start, verify | Companion base (default `http://127.0.0.1:3001`) |
+| `--wait-ready` | start | Stay alive until SIGINT/SIGTERM, then stop (implied for `--standalone`) |
+| `--standalone` | start | In-process listeners (no companion) |
 
 ## Common Options
 

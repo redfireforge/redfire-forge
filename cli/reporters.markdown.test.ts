@@ -27,6 +27,26 @@ describe('buildMarkdownReport', () => {
     expect(md).toContain('**Environment:** staging');
   });
 
+  // ─── Sequential Mode Concurrency Display (NOTE-2 fix) ────────────
+
+  it('shows Concurrency: 1 for sequential mode regardless of configured concurrency', () => {
+    const summary = makeSummary();
+    const config = makeConfig({ executionMode: 'sequential', concurrency: 5 });
+
+    const md = buildMarkdownReport(summary, config, { name: 'Test' });
+
+    expect(md).toContain('**Mode:** sequential | Concurrency: 1 | Iterations: 10');
+  });
+
+  it('shows the real configured concurrency for non-sequential modes', () => {
+    const summary = makeSummary();
+    const config = makeConfig({ executionMode: 'pool', concurrency: 5 });
+
+    const md = buildMarkdownReport(summary, config, { name: 'Test' });
+
+    expect(md).toContain('**Mode:** pool | Concurrency: 5 | Iterations: 10');
+  });
+
   it('includes timing breakdown when results have timing', () => {
     const summary = makeSummary();
     const config = makeConfig();

@@ -33,6 +33,24 @@ describe('calcReadingTime', () => {
     expect(calcReadingTime(withHighlight)).toBeGreaterThan(calcReadingTime(noHighlight));
   });
 
+  it('adds extra time proportional to terminalOutput line count', () => {
+    const longDescription = Array.from({ length: 220 }, (_, i) => `word${i}`).join(' ');
+    const noTerminal = makeStep({ description: longDescription });
+    const withTerminal = makeStep({
+      description: longDescription,
+      terminalOutput: Array.from({ length: 10 }, (_, i) => `line ${i}`).join('\n'),
+    });
+    expect(calcReadingTime(withTerminal)).toBeGreaterThan(calcReadingTime(noTerminal));
+  });
+
+  it('caps the terminalOutput bonus for very long transcripts', () => {
+    const short = makeStep({ terminalOutput: Array.from({ length: 5 }, (_, i) => `line ${i}`).join('\n') });
+    const veryLong = makeStep({ terminalOutput: Array.from({ length: 500 }, (_, i) => `line ${i}`).join('\n') });
+    // Both are dominated by the same MIN_STEP_DISPLAY floor plus a capped bonus —
+    // the very long transcript should not grow unbounded with line count.
+    expect(calcReadingTime(veryLong) - calcReadingTime(short)).toBeLessThan(6000);
+  });
+
   it('returns a rounded integer', () => {
     const step = makeStep();
     const result = calcReadingTime(step);

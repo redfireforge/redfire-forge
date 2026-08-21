@@ -1,4 +1,6 @@
 import type { WsConnectionTabInfo } from './WsConnectionTabBar';
+import { peekDemoInitialSurface } from '../../shared/demoInitialSurface';
+import type { WsStudioLocation } from '../../shared/websocket/types';
 
 export const MAX_TABS = 8;
 export const MOCK_PORT_BASE = 9876;
@@ -39,4 +41,56 @@ export function deriveTabLabel(url: string): string | null {
     }
     return null;
   }
+}
+
+/** Apply armed demo landing mode onto studio locations (non-destructive peek). */
+export function applyDemoWsStudioMode(
+  locs: Record<string, WsStudioLocation>,
+): Record<string, WsStudioLocation> {
+  const mode = peekDemoInitialSurface()?.wsStudioMode;
+  if (!mode) return locs;
+  const next: Record<string, WsStudioLocation> = {};
+  for (const [id, loc] of Object.entries(locs)) {
+    next[id] = { ...loc, mode };
+  }
+  return next;
+}
+
+/** Finds the lowest port >= base not already in `used`. */
+export function nextFreePort(used: Set<number>, base = MOCK_PORT_BASE): number {
+  let p = base;
+  while (used.has(p)) p++;
+  return p;
+}
+
+/**
+ * Prune ghost port entries, optionally pin a sole survivor to base, then compute
+ * the next available port for a new tab.
+ */
+export function preparePortsForNewTab(
+  currentPorts: Record<string, number>,
+  liveTabIds: string[],
+): {
+  ports: Record<string, number>;
+  nextPort: number;
+  remappedSoleTabId: string | null;
+} {
+  const live = new Set(liveTabIds);
+  const ports: Record<string, number> = {};
+  for (const [id, port] of Object.entries(currentPorts)) {
+    if (live.has(id)) ports[id] = port;
+  }
+  let remappedSoleTabId: string | null = null;
+  if (liveTabIds.length === 1) {
+    const soleId = liveTabIds[0];
+    const current = ports[soleId];
+    if (current === undefined) {
+      ports[soleId] = MOCK_PORT_BASE;
+    } else if (current !== MOCK_PORT_BASE && isAutoMockPort(current)) {
+      ports[soleId] = MOCK_PORT_BASE;
+      remappedSoleTabId = soleId;
+    }
+  }
+  const nextPort = nextFreePort(new Set(Object.values(ports)));
+  return { ports, nextPort, remappedSoleTabId };
 }

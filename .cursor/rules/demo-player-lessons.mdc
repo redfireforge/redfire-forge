@@ -136,17 +136,57 @@ slow down that step — do not rely on E2E or unit tests to prove watchability.
 
 ---
 
-## 2. One Concept Per Step
+## 2. One Concept Per Step — *Several Actions* Per Step
 
-Split into separate steps when any of the following is true:
+A step is **one idea**, not one click. Lessons where every step does a single thing are
+worse to watch, not better: the viewer sits through a reading pause and a **Next** press
+to see one field get filled, and the lesson feels endless while covering almost nothing.
 
-- There are two conceptually distinct things to explain (e.g. "enable the toggle"
-  vs. "fill the form")
-- The action sequence takes more than ~5–6 seconds of wall time
-- The user needs to understand part A before part B makes sense
+**Split on concept. Never split on click.**
 
-Combining "enable validation + open form + fill all fields + save" into one step is
-too dense. A viewer who blinks will miss the point.
+| Situation | Ruling |
+|---|---|
+| Two beats share one sentence of narration | **Same step** |
+| "Open the tab, set the status, fill the body, read the preview" | **Same step** — one idea: what the client receives |
+| Part B is meaningless until the viewer understands part A | Separate steps |
+| Two genuinely different concepts (configure TLS vs. match on cert subject) | Separate steps |
+| The step would run more than ~20–25s of wall time | Split at the nearest concept seam |
+
+### Multi-beat steps: move the spotlight, pause on each beat
+
+Density is only a problem when the viewer cannot follow *where to look*. Fix that by
+moving the ring, not by splitting the step. `showSpotlightRing` (from `demoRipple`) draws
+the same visual as the step-level spotlight, so a mid-step ring reads as "the spotlight
+moved here". Wrap it in a beat helper (see `api-mock-demo-helpers.ts` for the reference
+implementation: `spotlightBeat` / `clickBeat` / `fillBeat` / `revealBeat`).
+
+```typescript
+// ✅ One step, four beats, spotlight moves, viewer never lost
+await clickBeat(ctx, SEL.RESPONSE_TAB);                    // spotlight → click → hold
+await clickBeat(ctx, SEL.STATUS_200, { hold: 550 });
+await ctx.delay(TIMING.groupBreak);                        // 1000ms between clusters
+patchBody(payload);
+await revealBeat(ctx, SEL.BODY_SIZE);                      // waitFor → hold
+await spotlightBeat(ctx, SEL.PREVIEW, TIMING.payoff);      // 1200ms on the payoff
+
+// ❌ Four separate steps for the above — four reading pauses, four Next clicks
+```
+
+Requirements for a multi-beat step:
+
+1. **Every visible beat gets its own spotlight position** — a five-beat step has five ring
+   positions, never one ring around the container.
+2. **`groupBreak` (~1000ms) between clusters** inside the step, so it does not read as a blur.
+3. **The last beat is the payoff**, held 800–1200ms.
+4. **`preAction` recreates the state of *all* beats** — rapid **Next** skips the whole group.
+5. **Narration names the beats in order**, so reading the description and watching the step
+   line up.
+
+### Step count
+
+Target **6–12 steps** per lesson. Under 6 usually means the lesson is not teaching a
+scenario; over 12 almost always means beats that share a concept were split apart. Assert
+the bound in the lesson roster test so it cannot drift back.
 
 ---
 
@@ -161,6 +201,21 @@ replaces what it produces.
 - Only then modify / refine the result
 
 Skipping these buttons leaves viewers unaware the feature exists.
+
+### 3b. Build it live — never demo by importing a finished sample
+
+A lesson must show the feature **being authored in the UI**. Clicking "Import gallery sample"
+and narrating over the result teaches nothing: the viewer never sees where the setting lives
+or how it is reached.
+
+| Layer | Rule |
+|---|---|
+| Anything the lesson teaches | Authored **live**, with visible clicks and spotlights |
+| Background corpus the lesson only *acts on* (a 12-rule library to filter, overlapping rules to analyze, samples to run) | Seeded **quietly** in `prepareBeforeNavigate` — no visible import beat, not narrated as an import |
+| Gallery / preset content | Fine to reproduce the *same* scenario live; the preset stays a product feature, not the demo's content |
+
+Corollary: keep quiet corpus **minimal**. If the seed already contains the feature the lesson
+teaches, there is nothing left to author and the lesson degrades into a slideshow.
 
 ---
 
@@ -390,12 +445,12 @@ exhaustive wrapper unit tests.
 
 ## 11. `estimatedMinutes` Must Reflect Actual Step Count
 
-Re-calculate after any restructure. Rough guide: each step contributes ~25–35 seconds
-at 1× speed (reading pause + action delays). Round up to the nearest minute.
+Re-calculate after any restructure. With multi-beat steps (§2) each step contributes
+~35–50 seconds at 1× speed (reading pause + several beats). Round up to the nearest minute.
 
-- 6 steps ≈ 3 min
-- 9 steps ≈ 4 min
-- 12 steps ≈ 5 min
+- 6 steps ≈ 4 min
+- 8 steps ≈ 5 min
+- 12 steps ≈ 8 min
 
 Update the lesson card in the domain list too — it displays `estimatedMinutes`.
 

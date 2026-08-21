@@ -13,6 +13,16 @@ vi.mock('@shared/kafka/kafkaClient', () => ({
   }),
 }));
 
+const clearAllKafkaClusters = vi.fn();
+const ensurePlaintextKafkaCluster = vi.fn();
+const markKafkaConnected = vi.fn();
+vi.mock('../adapters/kafkaStudioAdapter', () => ({
+  clearAllKafkaClusters: (...args: unknown[]) => clearAllKafkaClusters(...args),
+  deleteKafkaClusterByName: vi.fn(),
+  ensurePlaintextKafkaCluster: (...args: unknown[]) => ensurePlaintextKafkaCluster(...args),
+  markKafkaConnected: (...args: unknown[]) => markKafkaConnected(...args),
+}));
+
 import {
   startMockServer,
   startMockServerQuiet,
@@ -59,6 +69,9 @@ describe('setup-helpers', () => {
   beforeEach(() => {
     ctx = makeCtx();
     document.body.innerHTML = '';
+    clearAllKafkaClusters.mockClear();
+    ensurePlaintextKafkaCluster.mockClear();
+    markKafkaConnected.mockClear();
     vi.mocked(dispatchKafkaOperation).mockResolvedValue({
       ok: true,
       op: 'status',
@@ -422,81 +435,24 @@ describe('setup-helpers', () => {
 
   // ─── kafkaPublishSetup ───────────────────────────────────────────
 
-  it('kafkaPublishSetup returns early to message-studio when already connected', async () => {
+  it('kafkaPublishSetup seeds quietly and lands on message-studio (no Settings tour)', async () => {
     document.body.innerHTML = '';
     await kafkaPublishSetup(ctx);
+    expect(ensurePlaintextKafkaCluster).toHaveBeenCalled();
+    expect(markKafkaConnected).toHaveBeenCalledWith('demo-cluster');
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
     expect(ctx.navigateToTab).not.toHaveBeenCalledWith('kafka-settings');
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
-  it('kafkaPublishSetup navigates to kafka-settings when disconnected and settings page not mounted', async () => {
-    const { dispatchKafkaOperation } = await import('@shared/kafka/kafkaClient');
-    vi.mocked(dispatchKafkaOperation).mockResolvedValueOnce({
-      ok: true, op: 'status', data: { state: 'disconnected' },
-    } as ReturnType<typeof dispatchKafkaOperation> extends Promise<infer R> ? R : never);
+  it('kafkaPublishSetup still lands on message-studio when broker connect fails', async () => {
+    vi.mocked(dispatchKafkaOperation).mockRejectedValue(new Error('server down'));
     document.body.innerHTML = '';
     await kafkaPublishSetup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(ensurePlaintextKafkaCluster).toHaveBeenCalled();
+    expect(markKafkaConnected).not.toHaveBeenCalled();
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
-  });
-
-  it('kafkaPublishSetup with settings page but no empty-create-btn polls for connect', async () => {
-    const { dispatchKafkaOperation } = await import('@shared/kafka/kafkaClient');
-    vi.mocked(dispatchKafkaOperation).mockResolvedValueOnce({
-      ok: true, op: 'status', data: { state: 'disconnected' },
-    } as ReturnType<typeof dispatchKafkaOperation> extends Promise<infer R> ? R : never);
-    const page = document.createElement('div');
-    page.setAttribute('data-testid', 'kafka-settings-page');
-    document.body.appendChild(page);
-    await kafkaPublishSetup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
-    page.remove();
-  });
-
-  it('kafkaPublishSetup with empty-create-btn, name input, save btn, and connect btn', async () => {
-    const { dispatchKafkaOperation } = await import('@shared/kafka/kafkaClient');
-    vi.mocked(dispatchKafkaOperation).mockResolvedValueOnce({
-      ok: true, op: 'status', data: { state: 'disconnected' },
-    } as ReturnType<typeof dispatchKafkaOperation> extends Promise<infer R> ? R : never);
-    const page = document.createElement('div');
-    page.setAttribute('data-testid', 'kafka-settings-page');
-
-    const emptyBtn = document.createElement('button');
-    emptyBtn.setAttribute('data-testid', 'kafka-empty-create-btn');
-
-    const nameInput = document.createElement('input');
-    nameInput.id = 'kafka-cluster-name';
-
-    const saveBtn = document.createElement('button');
-    saveBtn.setAttribute('data-testid', 'kafka-save-cluster-btn');
-
-    const connectBtn = document.createElement('button');
-    connectBtn.setAttribute('data-testid', 'kafka-connect-btn');
-
-    document.body.append(page, emptyBtn, nameInput, saveBtn, connectBtn);
-    await kafkaPublishSetup(ctx);
-
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
-    [page, emptyBtn, nameInput, saveBtn, connectBtn].forEach(el => el.remove());
-  });
-
-  it('kafkaPublishSetup with connect btn already disabled skips connect', async () => {
-    const { dispatchKafkaOperation } = await import('@shared/kafka/kafkaClient');
-    vi.mocked(dispatchKafkaOperation).mockResolvedValueOnce({
-      ok: true, op: 'status', data: { state: 'disconnected' },
-    } as ReturnType<typeof dispatchKafkaOperation> extends Promise<infer R> ? R : never);
-    const page = document.createElement('div');
-    page.setAttribute('data-testid', 'kafka-settings-page');
-    const connectBtn = document.createElement('button');
-    connectBtn.setAttribute('data-testid', 'kafka-connect-btn');
-    connectBtn.disabled = true;
-    document.body.append(page, connectBtn);
-    await kafkaPublishSetup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
-    page.remove();
-    connectBtn.remove();
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('kafka-settings');
   });
 
   // ─── kafkaCleanup ────────────────────────────────────────────────
@@ -508,48 +464,12 @@ describe('setup-helpers', () => {
 
   // ─── kafkaQuickStartCleanup ───────────────────────────────────────
 
-  it('kafkaQuickStartCleanup navigates to kafka-settings', async () => {
+  it('kafkaQuickStartCleanup clears clusters quietly (no Settings UI tour)', async () => {
     document.body.innerHTML = '';
     await kafkaQuickStartCleanup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-  });
-
-  it('kafkaQuickStartCleanup is a no-op when no cluster cards exist', async () => {
-    document.body.innerHTML = '';
-    await kafkaQuickStartCleanup(ctx);
-    // No clicks should happen — nothing to delete
+    expect(clearAllKafkaClusters).toHaveBeenCalled();
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
     expect(ctx.click).not.toHaveBeenCalled();
-  });
-
-  it('kafkaQuickStartCleanup clicks cluster card, delete btn, and confirm btn when all present', async () => {
-    document.body.innerHTML = '';
-
-    const card = document.createElement('div');
-    card.setAttribute('data-testid', 'kafka-cluster-card-demo-cluster');
-    document.body.appendChild(card);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
-    document.body.appendChild(deleteBtn);
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.setAttribute('data-testid', 'kafka-confirm-delete-btn');
-    document.body.appendChild(confirmBtn);
-
-    await kafkaQuickStartCleanup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    expect(ctx.delay).toHaveBeenCalled();
-  });
-
-  it('kafkaQuickStartCleanup exits early when delete btn is not found after card click', async () => {
-    document.body.innerHTML = '';
-
-    const card = document.createElement('div');
-    card.setAttribute('data-testid', 'kafka-cluster-card-demo-cluster');
-    document.body.appendChild(card);
-    // No delete button — should exit gracefully
-
-    await expect(kafkaQuickStartCleanup(ctx)).resolves.not.toThrow();
   });
 
   // ─── kafkaTopicsSetup ─────────────────────────────────────────────
@@ -914,69 +834,12 @@ describe('setup-helpers', () => {
 
   // ─── kafkaQuickStartSetup ───────────────────────────────────────
 
-  it('kafkaQuickStartSetup disconnects and deletes existing clusters', async () => {
-    const disconnectBtn = document.createElement('button');
-    disconnectBtn.setAttribute('data-testid', 'kafka-disconnect-btn');
-    document.body.appendChild(disconnectBtn);
-
-    const card = document.createElement('div');
-    card.setAttribute('data-testid', 'kafka-cluster-card-demo');
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn';
-    card.appendChild(editBtn);
-    document.body.appendChild(card);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
-    const confirmBtn = document.createElement('button');
-    confirmBtn.setAttribute('data-testid', 'kafka-confirm-delete-btn');
-    document.body.append(deleteBtn, confirmBtn);
-
-    await kafkaQuickStartSetup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    [disconnectBtn, card, deleteBtn, confirmBtn].forEach(el => el.remove());
-  });
-
-  it('kafkaQuickStartSetup is a no-op when no clusters exist', async () => {
+  it('kafkaQuickStartSetup clears clusters quietly then lands on kafka-settings', async () => {
     document.body.innerHTML = '';
     await kafkaQuickStartSetup(ctx);
+    expect(clearAllKafkaClusters).toHaveBeenCalled();
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-  });
-
-  // ─── kafkaPublishSetup — status API throws ──────────────────────
-
-  it('kafkaPublishSetup falls through to UI setup when status API throws', async () => {
-    vi.mocked(dispatchKafkaOperation).mockRejectedValueOnce(new Error('server down'));
-    document.body.innerHTML = '';
-    await kafkaPublishSetup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
-  });
-
-  // ─── kafkaPublishSetup — connect with disconnect enabled wait ───
-
-  it('kafkaPublishSetup clicks connect and waits for enabled disconnect button', async () => {
-    vi.mocked(dispatchKafkaOperation).mockResolvedValueOnce({
-      ok: true,
-      op: 'status',
-      data: { state: 'disconnected' },
-    } as Awaited<ReturnType<typeof dispatchKafkaOperation>>);
-
-    const page = document.createElement('div');
-    page.setAttribute('data-testid', 'kafka-settings-page');
-    const connectBtn = document.createElement('button');
-    connectBtn.setAttribute('data-testid', 'kafka-connect-btn');
-    const disconnectBtn = document.createElement('button');
-    disconnectBtn.setAttribute('data-testid', 'kafka-disconnect-btn');
-    disconnectBtn.disabled = true;
-    document.body.append(page, connectBtn, disconnectBtn);
-
-    const enableTimer = setTimeout(() => { disconnectBtn.disabled = false; }, 50);
-    await kafkaPublishSetup(ctx);
-    clearTimeout(enableTimer);
-
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
-    [page, connectBtn, disconnectBtn].forEach(el => el.remove());
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   // ─── kafkaTopicsSetup — topic row polling ───────────────────────
@@ -996,67 +859,4 @@ describe('setup-helpers', () => {
     table.remove();
   });
 
-  // ─── deleteDemoCluster — missing edit/delete branches ───────────
-
-  it('kafkaQuickStartCleanup skips confirm when delete button missing after edit', async () => {
-    const card = document.createElement('div');
-    card.setAttribute('data-testid', 'kafka-cluster-card-demo');
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn';
-    card.appendChild(editBtn);
-    document.body.appendChild(card);
-
-    await kafkaQuickStartCleanup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    card.remove();
-  });
-
-  it('kafkaQuickStartCleanup confirms deletion when all buttons present', async () => {
-    const card = document.createElement('div');
-    card.setAttribute('data-testid', 'kafka-cluster-card-demo');
-    const actions = document.createElement('div');
-    actions.className = 'kafka-cluster-card-actions';
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn';
-    actions.appendChild(editBtn);
-    card.appendChild(actions);
-    const deleteBtn = document.createElement('button');
-    deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
-    const confirmBtn = document.createElement('button');
-    confirmBtn.setAttribute('data-testid', 'kafka-confirm-delete-btn');
-    document.body.append(card, deleteBtn, confirmBtn);
-
-    await kafkaQuickStartCleanup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
-    [card, deleteBtn, confirmBtn].forEach(el => el.remove());
-  });
-
-  it('kafkaQuickStartCleanup disconnects active connection before delete flow', async () => {
-    const disconnectBtn = document.createElement('button');
-    disconnectBtn.setAttribute('data-testid', 'kafka-disconnect-btn');
-
-    const card = document.createElement('div');
-    card.setAttribute('data-testid', 'kafka-cluster-card-demo');
-    const actions = document.createElement('div');
-    actions.className = 'kafka-cluster-card-actions';
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn';
-    const editClickSpy = vi.spyOn(editBtn, 'click');
-    actions.appendChild(editBtn);
-    card.appendChild(actions);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
-    const confirmBtn = document.createElement('button');
-    confirmBtn.setAttribute('data-testid', 'kafka-confirm-delete-btn');
-
-    document.body.append(disconnectBtn, card, deleteBtn, confirmBtn);
-    const disconnectClickSpy = vi.spyOn(disconnectBtn, 'click');
-
-    await kafkaQuickStartCleanup(ctx);
-
-    expect(disconnectClickSpy).toHaveBeenCalled();
-    expect(editClickSpy).toHaveBeenCalled();
-    [disconnectBtn, card, deleteBtn, confirmBtn].forEach((el) => el.remove());
-  });
 });

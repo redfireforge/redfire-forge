@@ -332,4 +332,32 @@ describe('useLiveDemoPanelLayout — coverage gaps', () => {
     expect(result.current.panelStyle.left).toBe(leftBefore);
     expect(result.current.panelStyle.top).toBe(topBefore);
   });
+
+  it('dodges horizontally when a tall target blocks every vertical slot', () => {
+    const { result } = renderHook(() => useLiveDemoPanelLayout());
+    const leftBefore = Number(result.current.panelStyle.left);
+    const width = Number(result.current.panelStyle.width);
+    // Full-height band under the default panel — vertical candidates still overlap.
+    const target = {
+      top: 8,
+      left: leftBefore + 40,
+      right: leftBefore + width - 40,
+      bottom: window.innerHeight - 8,
+    };
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DEMO_PANEL_CLEAR_TARGET_EVENT, { detail: target }));
+    });
+
+    const left = Number(result.current.panelStyle.left);
+    const top = Number(result.current.panelStyle.top);
+    const height = Number(result.current.panelStyle.height);
+    const stillOverlaps =
+      left < target.right
+      && left + width > target.left
+      && top < target.bottom
+      && top + height > target.top;
+    expect(stillOverlaps).toBe(false);
+    expect(left).not.toBe(leftBefore);
+  });
 });

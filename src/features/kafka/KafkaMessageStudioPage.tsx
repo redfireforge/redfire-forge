@@ -10,6 +10,7 @@ import { KafkaTopicExplorerContent } from './KafkaTopicExplorerPage';
 import { KafkaSchemaRegistryContent } from './KafkaSchemaRegistryPage';
 
 type KafkaStudioTab = 'publish' | 'consume' | 'topics' | 'schema';
+export type KafkaConsumeMode = 'once' | 'stream';
 
 interface KafkaMessageStudioPageProps {
   kafkaState: UseKafkaStateReturn;
@@ -25,6 +26,8 @@ export function KafkaMessageStudioPage({
   lastWorkflowOutput,
 }: KafkaMessageStudioPageProps) {
   const [activeTab, setActiveTab] = useState<KafkaStudioTab>('publish');
+  /** Survives Publish/Topics/Schema switches — ConsumeStudio unmounts with the outer tab. */
+  const [consumeMode, setConsumeMode] = useState<KafkaConsumeMode>('once');
   const studio = useKafkaMessageStudio(kafkaState);
   const templates = useKafkaTemplates();
   const streamMode = useKafkaStreamMode(kafkaState);
@@ -134,6 +137,8 @@ export function KafkaMessageStudioPage({
             onLoadConsumeTemplate={handleLoadConsumeTemplate}
             onDeleteConsumeTemplate={templates.deleteConsumeTemplate}
             streamMode={streamMode}
+            consumeMode={consumeMode}
+            onConsumeModeChange={setConsumeMode}
             onUseAsWorkflowInput={onUseAsWorkflowInput}
             connected={isConnected}
           />

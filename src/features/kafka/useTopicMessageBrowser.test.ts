@@ -528,6 +528,34 @@ describe('useTopicMessageBrowser', () => {
     }));
   });
 
+  it("timeWindow 'latest' seeks newest available via sortOrder desc", async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        topic: 'orders.created',
+        messages: [
+          { topic: 'orders.created', partition: 0, offset: '20', value: '{"n":2}', timestamp: '2' },
+          { topic: 'orders.created', partition: 0, offset: '10', value: '{"n":1}', timestamp: '1' },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    // Default draft is Latest + Oldest First (asc display preference)
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(dispatch).toHaveBeenCalledWith('consume-once', expect.objectContaining({
+      fromBeginning: false,
+      sortOrder: 'desc',
+      timeoutMs: 10_000,
+    }));
+    // Re-sorted to Oldest First for display
+    expect(result.current.result?.map((r) => r.offset)).toEqual(['10', '20']);
+  });
+
   it('loadMore: no-op when nextCursor is null', async () => {
     const dispatch = vi.fn();
     const { result } = renderHook(() =>
