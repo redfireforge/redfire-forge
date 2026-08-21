@@ -1,7 +1,7 @@
 {
   "name": "redfire-forge",
   "private": true,
-  "version": "0.7.1-alpha.1",
+  "version": "0.8.0",
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -73,6 +73,8 @@
     "test:watch": "vitest",
     "test:coverage": "npm run test:product:coverage",
     "test:e2e": "playwright test",
+    "test:e2e:balanced:3": "bash scripts/run-e2e-balanced-shard.sh 3",
+    "test:e2e:balanced:4": "bash scripts/run-e2e-balanced-shard.sh 4",
     "test:e2e:graphql:clean": "bash ./scripts/run-graphql-e2e-clean.sh",
     "test:e2e:graphql:clean:headed": "bash ./scripts/run-graphql-e2e-clean.sh --headed",
     "test:e2e:headed": "playwright test --headed",

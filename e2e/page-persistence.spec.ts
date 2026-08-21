@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
 
+async function selectHeaderOption(page: import('@playwright/test').Page, testId: string, label: string) {
+  const select = page.locator(`[data-testid="${testId}"]`);
+  await select.locator('.cs-trigger').click();
+  await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: label }).click();
+}
+
+async function expectHeaderValue(select: import('@playwright/test').Locator, value: string) {
+  await expect(select).toHaveAttribute('data-value', value);
+}
+
 /**
  * Seeds multi-env data via addInitScript so it is available on the FIRST page
  * load.  A localStorage guard prevents the initScript from overwriting
@@ -45,15 +55,15 @@ test.describe('Page persistence across refresh', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the app to fully load - header dropdown must be visible
-    const envDropdown = page.locator('.header-select-group select').first();
+    const envDropdown = page.locator('[data-testid="header-env-select"]');
     await expect(envDropdown).toBeVisible({ timeout: 10_000 });
-    await expect(envDropdown).toHaveValue('gal-env', { timeout: 5_000 });
+    await expectHeaderValue(envDropdown, 'gal-env');
 
     // Click t01 in sidebar
     await page.locator('.sidebar-item-name', { hasText: 't01' }).click();
 
     // Verify selection changed
-    await expect(envDropdown).toHaveValue('t01-env');
+    await expectHeaderValue(envDropdown, 't01-env');
 
     // Check localStorage was updated
     const stored = await page.evaluate(() => ({
@@ -72,7 +82,7 @@ test.describe('Page persistence across refresh', () => {
 
     // After reload: wait for dropdown to be ready, then verify t01 is selected
     await expect(envDropdown).toBeVisible({ timeout: 10_000 });
-    await expect(envDropdown).toHaveValue('t01-env', { timeout: 5_000 });
+    await expectHeaderValue(envDropdown, 't01-env');
 
     // Sidebar should show t01 as selected and expanded
     await expect(page.locator('.sidebar-item.selected .sidebar-item-name')).toHaveText('t01');
@@ -89,13 +99,13 @@ test.describe('Page persistence across refresh', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for dropdowns to be ready
-    const envDropdown = page.locator('.header-select-group select').first();
-    const svcDropdown = page.locator('.header-select-group select').nth(1);
+    const envDropdown = page.locator('[data-testid="header-env-select"]');
+    const svcDropdown = page.locator('[data-testid="header-svc-select"]');
     await expect(envDropdown).toBeVisible({ timeout: 10_000 });
 
     // Select t01 via header dropdown
-    await envDropdown.selectOption('t01-env');
-    await svcDropdown.selectOption('t01-svc');
+    await selectHeaderOption(page, 'header-env-select', 't01');
+    await selectHeaderOption(page, 'header-svc-select', 'sales-product-autoassign');
 
     // Wait for the selection to propagate (feature card should appear)
     await expect(page.locator('.feature-group-card', { hasText: 'My Tests' })).toBeVisible({ timeout: 5_000 });
@@ -106,8 +116,8 @@ test.describe('Page persistence across refresh', () => {
 
     // Wait for dropdown to be ready, then verify persistence
     await expect(envDropdown).toBeVisible({ timeout: 10_000 });
-    await expect(envDropdown).toHaveValue('t01-env', { timeout: 5_000 });
-    await expect(svcDropdown).toHaveValue('t01-svc', { timeout: 5_000 });
+    await expectHeaderValue(envDropdown, 't01-env');
+    await expectHeaderValue(svcDropdown, 't01-svc');
     await expect(page.locator('.feature-group-card', { hasText: 'My Tests' })).toBeVisible({ timeout: 5_000 });
   });
 
@@ -161,7 +171,7 @@ test.describe('Page persistence across refresh', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for app to fully load
-    const envDropdown = page.locator('.header-select-group select').first();
+    const envDropdown = page.locator('[data-testid="header-env-select"]');
     await expect(envDropdown).toBeVisible({ timeout: 10_000 });
 
     // Check that localStorage still has t01, not overwritten to gallery or empty
@@ -173,7 +183,7 @@ test.describe('Page persistence across refresh', () => {
     expect(stored.svcId).toBe('t01-svc');
 
     // Header should show t01
-    await expect(envDropdown).toHaveValue('t01-env');
+    await expectHeaderValue(envDropdown, 't01-env');
 
     // Feature groups for t01 should be visible
     await expect(page.locator('.feature-group-card', { hasText: 'My Tests' })).toBeVisible();

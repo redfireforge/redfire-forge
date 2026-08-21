@@ -64,6 +64,7 @@ test.describe('Demo lesson AM-17 — Proxy Passthrough & Record-to-Drafts', () =
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am17);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
+    await advanceSteps(page, 1, AM_LESSON_STEP_TIMEOUT);
     await completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
 
     await expect(page.locator(API_MOCK.SETTINGS_PROXY_PRIVATE)).toHaveAttribute('aria-checked', 'false');

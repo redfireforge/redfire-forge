@@ -238,7 +238,9 @@ async function openDiffFromChangelog(page: Page) {
   const compareBar = page.locator('[data-testid="gql-changelog-compare-bar"]');
   await compareBar.waitFor({ state: 'visible', timeout: 8000 });
 
-  await page.locator('[data-testid="gql-changelog-compare-select"]').selectOption({ value: 'snap-v2' });
+  const compareSelect = page.locator('[data-testid="gql-changelog-compare-select"]');
+  await compareSelect.locator('.cs-trigger').click();
+  await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"][data-value="snap-v2"]').click();
   await page.waitForTimeout(200);
 
   await page.locator('[data-testid="gql-changelog-diff-btn"]').click();
