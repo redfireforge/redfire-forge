@@ -51,6 +51,7 @@ const pauseWfConfigSection = vi.fn(async () => undefined);
 const saveAndCloseWfConfigModal = vi.fn(async () => true);
 const closeWfConfigModalIfOpen = vi.fn(async () => undefined);
 const closeWfConsoleIfOpen = vi.fn(async () => undefined);
+const openWfConsoleIfClosed = vi.fn(async () => undefined);
 const closeWfSamplePreviewIfOpen = vi.fn(async () => undefined);
 const holdWfSpotlight = vi.fn(async () => undefined);
 const fitWfCanvasQuiet = vi.fn(async () => undefined);
@@ -68,6 +69,7 @@ vi.mock('../wf-demo-helpers', () => ({
   saveAndCloseWfConfigModal: (...a: unknown[]) => saveAndCloseWfConfigModal(...(a as [])),
   closeWfConfigModalIfOpen: (...a: unknown[]) => closeWfConfigModalIfOpen(...(a as [])),
   closeWfConsoleIfOpen: (...a: unknown[]) => closeWfConsoleIfOpen(...(a as [])),
+  openWfConsoleIfClosed: (...a: unknown[]) => openWfConsoleIfClosed(...(a as [])),
   closeWfSamplePreviewIfOpen: (...a: unknown[]) => closeWfSamplePreviewIfOpen(...(a as [])),
   holdWfSpotlight: (...a: unknown[]) => holdWfSpotlight(...(a as [])),
   fitWfCanvasQuiet: (...a: unknown[]) => fitWfCanvasQuiet(...(a as [])),
@@ -255,7 +257,7 @@ describe('AM-24 helpers', () => {
     expect(AM24_TIMING.beforeRun).toBe(2400);
     expect(AM24_TIMING.reviewModal).toBe(2400);
     expect(AM24_TIMING.payoff).toBe(1600);
-    expect(AM24_SHIP_ACTION_TIMEOUT_MS).toBe(120_000);
+    expect(AM24_SHIP_ACTION_TIMEOUT_MS).toBe(240_000);
     expect(JSON.parse(AM24_OPENAPI).paths['/orders'].post).toBeTruthy();
     expect(AM24_SKU).toBe('WIDGET');
     expect(AM24_ITEM_PATH).toBe('/orders/:id');

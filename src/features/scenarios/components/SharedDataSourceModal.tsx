@@ -212,6 +212,7 @@ export default function SharedDataSourceModal({
       showExpandButton={false}
       closeButtonKind="none"
       closeOnOverlayClick={false}
+      disableDrag
       constrainDragToViewport
       dragViewportPadding={12}
       minWidth={980}

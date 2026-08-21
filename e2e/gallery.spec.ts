@@ -17,8 +17,8 @@ test.describe('Gallery Page', () => {
 
   test('gallery shows domain filter buttons', async ({ page }) => {
     const domainBtns = page.locator('.gallery-domain-btn');
-    // All + 6 domains (including data-mapper)
-    await expect(domainBtns).toHaveCount(7);
+    // All + every registered gallery domain.
+    await expect(domainBtns).toHaveCount(8);
   });
 
   test('can filter by domain', async ({ page }) => {
@@ -46,7 +46,7 @@ test.describe('Gallery Page', () => {
   test('clicking a card opens detail panel', async ({ page }) => {
     await page.locator('.gallery-card').first().click();
     await expect(page.locator('.gallery-detail-panel')).toBeVisible();
-    await expect(page.locator('[aria-label="Close detail panel"]')).toBeVisible();
+    await expect(page.locator('[data-testid="gallery-detail-close"]')).toBeVisible();
   });
 
   test('detail panel shows entry info', async ({ page }) => {
@@ -86,7 +86,7 @@ test.describe('Gallery Page', () => {
   test('closing detail panel works', async ({ page }) => {
     await page.locator('.gallery-card').first().click();
     await expect(page.locator('.gallery-detail-panel')).toBeVisible();
-    await page.locator('[aria-label="Close detail panel"]').click();
+    await page.locator('[data-testid="gallery-detail-close"]').click();
     await expect(page.locator('.gallery-detail-panel')).not.toBeVisible();
   });
 
@@ -105,7 +105,8 @@ test.describe('Gallery Page', () => {
 
   test('can filter by difficulty', async ({ page }) => {
     const diffSelect = page.locator('[aria-label="Filter by difficulty"]');
-    await diffSelect.selectOption('easy');
+    await diffSelect.click();
+    await page.locator('.cs-menu .cs-item', { hasText: 'Easy' }).click();
     await page.waitForTimeout(200);
     const cards = await page.locator('.gallery-card').count();
     expect(cards).toBeGreaterThan(0);

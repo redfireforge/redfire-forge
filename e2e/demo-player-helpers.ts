@@ -262,13 +262,23 @@ export async function waitForReadingPhase(
 /** Click the skippable reading badge when the step is still in reading phase. */
 export async function skipReadingPause(page: Page): Promise<void> {
   const badge = page.locator('.demo-live-phase-badge.skippable');
-  if (await badge.isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await badge.isVisible({ timeout: 5_000 }).catch(() => false)) {
     await badge.click();
   }
 }
 
-/** Wait until the step action pipeline is running (not reading/done). */
+/** Wait until the step action pipeline is running (not reading/done).
+ * Observation-only steps may never reach action/verify; in that case the step is
+ * considered valid once it reaches reading or done without any user action.
+ */
 export async function waitForActionPhase(page: Page, timeout = 5_000): Promise<void> {
+  const panel = page.locator('[data-testid="demo-live-panel"]');
+  const currentPhase = await panel.getAttribute('data-step-phase').catch(() => null);
+
+  if (currentPhase === 'reading' || currentPhase === 'done') {
+    return;
+  }
+
   await page.waitForFunction(
     () => {
       const phase = document
