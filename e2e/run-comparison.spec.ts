@@ -8,6 +8,11 @@ const __dirname = dirname(__filename);
 
 const phase25Dir = resolve(__dirname, '..', 'docs', 'test-data', 'phase25-run-comparison');
 
+async function selectCustomOption(page: Page, select: import('@playwright/test').Locator, label: string) {
+  await select.locator('.cs-trigger').click();
+  await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: label }).click();
+}
+
 async function waitForImportedRunLabel(page: Page, labelFragment: string) {
   await expect.poll(async () => {
     const optionCount = await page.locator('.results-run-select-option').count();
@@ -58,12 +63,10 @@ async function markSelectedRunAsBaseline(page: Page) {
 
 async function selectCompareOptionByLabelFragment(page: Page, labelFragment: string) {
   const compareSelect = page.locator('.baseline-compare-select');
-  const optionValue = await compareSelect.evaluate((select, fragment) => {
-    const options = Array.from((select as HTMLSelectElement).options);
-    return options.find((option) => option.textContent?.includes(fragment as string))?.value ?? '';
-  }, labelFragment);
-  expect(optionValue).not.toBe('');
-  await compareSelect.selectOption({ value: optionValue });
+  await compareSelect.locator('.cs-trigger').click();
+  const option = page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: labelFragment }).first();
+  await expect(option).toBeVisible();
+  await option.click();
 }
 
 test.describe('Phase 25 run comparison and trends', () => {
@@ -121,7 +124,8 @@ test.describe('Phase 25 run comparison and trends', () => {
     await page.getByRole('tab', { name: 'Comparison & Trends' }).click();
     const compareSelect = page.locator('.baseline-compare-select');
     await expect(compareSelect).toBeVisible();
-    const optionTexts = await compareSelect.locator('option').allTextContents();
+    await compareSelect.locator('.cs-trigger').click();
+    const optionTexts = await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]').allTextContents();
     expect(optionTexts.some((text) => text.includes('★'))).toBe(true);
     expect(optionTexts.some((text) => text.includes('TPS'))).toBe(true);
   });
@@ -182,7 +186,7 @@ test.describe('Phase 25 run comparison and trends', () => {
     await page.getByRole('button', { name: 'Show Trend' }).click();
     const scopeSelect = page.locator('.trend-scope-select');
     await expect(scopeSelect).toBeVisible();
-    await scopeSelect.selectOption('workflow');
+    await selectCustomOption(page, scopeSelect, 'Workflow');
     await expect(page.locator('.empty-hint').filter({ hasText: 'Only 1 run match this scope' })).toBeVisible();
   });
 

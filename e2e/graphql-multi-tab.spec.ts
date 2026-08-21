@@ -272,20 +272,23 @@ test.describe('GraphQL Studio — Phase 6G batch endpoint groups (6G-7)', () => 
 
     const groupSelect = page.locator(GQL.ADV_BATCH_GROUP_SELECT);
     await expect(groupSelect).toBeVisible({ timeout: 10_000 });
-    await expect(groupSelect.locator('option')).toHaveCount(2);
+    await groupSelect.locator('.cs-trigger').click();
+    const groupOptions = page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]');
+    await expect(groupOptions).toHaveCount(2);
 
-    const optionLabels = await groupSelect.locator('option').allTextContents();
+    const optionLabels = await groupOptions.allTextContents();
     expect(optionLabels.some((l) => /staging\.example\.com/i.test(l))).toBe(true);
     expect(optionLabels.some((l) => /prod\.example\.com/i.test(l))).toBe(true);
 
-    const optionMeta = await groupSelect.locator('option').evaluateAll((els) =>
-      els.map((el) => ({ value: el.getAttribute('value') ?? '', text: el.textContent ?? '' })),
+    const optionMeta = await groupOptions.evaluateAll((els) =>
+      els.map((el) => ({ value: el.getAttribute('data-value') ?? '', text: el.textContent ?? '' })),
     );
 
-    for (const host of ['staging.example.com', 'prod.example.com']) {
+    for (const [index, host] of ['staging.example.com', 'prod.example.com'].entries()) {
       const match = optionMeta.find((o) => o.text.includes(host));
       expect(match, `batch group for ${host}`).toBeDefined();
-      await groupSelect.selectOption(match!.value);
+      if (index > 0) await groupSelect.locator('.cs-trigger').click();
+      await page.locator(`.cs-menu[role="listbox"] .cs-item[role="option"][data-value="${match!.value}"]`).click();
 
       const groupCheckboxes = page.locator(
         `${GQL.ADV_BATCH_PANEL} [data-testid^="gql-adv-batch-tab-cb-"]`,

@@ -267,8 +267,18 @@ export async function skipReadingPause(page: Page): Promise<void> {
   }
 }
 
-/** Wait until the step action pipeline is running (not reading/done). */
+/** Wait until the step action pipeline is running (not reading/done).
+ * Observation-only steps may never reach action/verify; in that case the step is
+ * considered valid once it reaches reading or done without any user action.
+ */
 export async function waitForActionPhase(page: Page, timeout = 5_000): Promise<void> {
+  const panel = page.locator('[data-testid="demo-live-panel"]');
+  const currentPhase = await panel.getAttribute('data-step-phase').catch(() => null);
+
+  if (currentPhase === 'reading' || currentPhase === 'done') {
+    return;
+  }
+
   await page.waitForFunction(
     () => {
       const phase = document
