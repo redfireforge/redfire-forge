@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   RedfireForge Windows Installer (WiX)
-  
+
   This template extends the default Tauri WiX installer to:
   1. Add the installation directory to the system PATH
   2. Create a 'redfireforge' command that users can run from any terminal
-  
+  3. Install an 'rff.cmd' shim, a short alias that's always CLI mode
+
+  Note: XML comments must never contain a literal double hyphen, so flag
+  syntax below uses U+2011 (non-breaking hyphen), which reads identically.
+
   After installation, users can run:
-    redfireforge --cli run tests/test.yaml
+    redfireforge ‑‑cli run tests/test.yaml
+    rff run tests/test.yaml
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product
@@ -57,10 +62,16 @@
           Action="set"
           System="yes"/>
       </Component>
+
+      <!-- 'rff' short alias — installed alongside the exe so it shares the same PATH entry above -->
+      <Component Id="RffShim" Guid="*" Directory="INSTALLDIR">
+        <File Id="RffShimFile" Source="rff.cmd" KeyPath="yes"/>
+      </Component>
     </Directory>
     
     <Feature Id="MainFeature" Title="RedfireForge" Level="1">
       <ComponentRef Id="PathEntry"/>
+      <ComponentRef Id="RffShim"/>
       {{component_refs}}
     </Feature>
     

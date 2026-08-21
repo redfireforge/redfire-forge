@@ -2,6 +2,12 @@
 
 This directory contains sample configurations demonstrating various features of RedfireForge.
 
+## API Mock Studio
+
+See [`api-mock/README.md`](./api-mock/README.md) for `mock start` / `mock verify` / Docker / CI examples.
+
+---
+
 ## Test Examples (CLI)
 
 Simple test files for CLI execution with `npx redfireforge run <file>`:

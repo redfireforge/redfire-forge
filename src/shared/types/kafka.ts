@@ -16,7 +16,7 @@ export type KafkaActionType = 'http' | 'kafkaProduce' | 'kafkaConsume';
  * Broader transport type union that includes both Kafka, WebSocket, and GraphQL transports.
  * Used on `RequestResult.transportType` where any transport may appear.
  */
-export type TransportType = KafkaActionType | 'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' | 'graphqlQuery' | 'graphqlMutation' | 'graphqlSubscription' | 'graphqlIntrospect' | 'graphqlAssert' | 'grpcUnary' | 'grpcServerStream' | 'grpcAssert' | 'grpcLoadTest' | 'grpcSchemaDiff' | 'grpcMockAssert' | 'grpcCall';
+export type TransportType = KafkaActionType | 'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' | 'graphqlQuery' | 'graphqlMutation' | 'graphqlSubscription' | 'graphqlIntrospect' | 'graphqlAssert' | 'grpcUnary' | 'grpcServerStream' | 'grpcAssert' | 'grpcLoadTest' | 'grpcSchemaDiff' | 'grpcMockAssert' | 'grpcCall' | 'apiMockStart' | 'apiMockApply' | 'apiMockResetState' | 'apiMockStop' | 'apiMockAssertCalls';
 
 /**
  * Kafka message assertion target selector paths.
@@ -119,6 +119,18 @@ export interface GrpcResultMeta {
   errorCategory?: GrpcHarnessErrorCategory;
   /** Canonical harness result publication (Phase 8G). */
   harnessResult?: GrpcHarnessResult;
+}
+
+/** API Mock workflow node result metadata (Phase 11). */
+export interface ApiMockResultMeta {
+  serverId?: string;
+  port?: number;
+  generation?: number;
+  /** Matching journal transaction IDs (assert node). */
+  transactionIds?: string[];
+  nearMisses?: string[];
+  expected?: string;
+  actual?: string;
 }
 
 // ─── Phase 8: Results Publishing to Kafka ────────────────────────────────────

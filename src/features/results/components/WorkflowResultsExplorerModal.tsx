@@ -18,6 +18,7 @@ import type { MappingTrace } from '../../../shared/components/data-mapper/utils/
 import MappingTraceOverlay from './MappingTraceOverlay';
 import { useExplorerExport } from '../hooks/useExplorerExport';
 import { useIterationTransition } from '../hooks/useIterationTransition';
+import { useResultsExplorerKeyboard } from '../hooks/useResultsExplorerKeyboard';
 
 type ReplaySnapshotNode = {
   id: string;
@@ -181,74 +182,22 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
     return Math.round(total / currentTrace.iterations.length * 100) / 100;
   }, [currentTrace.iterations]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (mapperOverlay) {
-          setMapperOverlay(null);
-        } else if (consoleOpen) {
-          setConsoleOpen(false);
-        } else if (selectedNodeId) {
-          setSelectedNodeId(undefined);
-        } else {
-          onClose();
-        }
-        return;
-      }
-
-      // Cmd/Ctrl+J toggles console
-      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
-        e.preventDefault();
-        setConsoleOpen(prev => !prev);
-        return;
-      }
-
-      if (currentTrace.totalIterations <= 1) return;
-
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setSelectedIteration(prev => {
-          if (prev === undefined) return currentTrace.totalIterations - 1;
-          return prev > 0 ? prev - 1 : prev;
-        });
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setSelectedIteration(prev => {
-          if (prev === undefined) return 0;
-          return prev < currentTrace.totalIterations - 1 ? prev + 1 : prev;
-        });
-      } else if ((e.key === 'a' || e.key === 'A') && !e.ctrlKey && !e.metaKey) {
-        setSelectedIteration(undefined);
-      } else if (e.key === 'm' || e.key === 'M') {
-        setMatrixCollapsed(prev => !prev);
-      } else if (e.key === ' ') {
-        e.preventDefault();
-        setSelectedIteration(prev => prev === undefined ? 0 : undefined);
-      } else if (e.key >= '1' && e.key <= '9') {
-        const idx = parseInt(e.key, 10) - 1;
-        if (idx < currentTrace.totalIterations) {
-          setSelectedIteration(idx);
-        }
-      } else if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
-        const active = document.activeElement;
-        if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      } else if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey) {
-        const active = document.activeElement;
-        if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
-        setViewMode(prev => prev === 'diagram' ? 'timeline' : 'diagram');
-      } else if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey) {
-        const active = document.activeElement;
-        if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
-        setDetailCollapsed(prev => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, selectedNodeId, currentTrace.totalIterations, consoleOpen, mapperOverlay]);
+  useResultsExplorerKeyboard({
+    onClose,
+    selectedNodeId,
+    currentTrace,
+    selectedIteration,
+    consoleOpen,
+    mapperOverlayOpen: Boolean(mapperOverlay),
+    setMapperOverlayOpen: (open) => setMapperOverlay(open ? mapperOverlay : null),
+    setConsoleOpen,
+    setSelectedNodeId,
+    setSelectedIteration,
+    setMatrixCollapsed,
+    setViewMode,
+    setDetailCollapsed,
+    focusSearchInput: () => searchInputRef.current?.focus(),
+  });
 
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId || undefined);
@@ -280,6 +229,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
     if (!nodeId) return;
     const node = (currentTrace.workflowSnapshot.nodes as ReplaySnapshotNode[]).find(n => n.id === nodeId);
     if (node?.type !== 'subWorkflow') return;
+
+    // A single trace with no logical index zero is an invalid pinned lookup,
+    // not an aggregate view that should fall back to its last array entry.
+    if (
+      selectedIteration === undefined
+      && currentTrace.totalIterations === 1
+      && currentTrace.iterations[0]?.index !== 0
+    ) return;
 
     const iterToCheck = selectedIteration !== undefined
       ? getIterationByIndex(currentTrace, selectedIteration)

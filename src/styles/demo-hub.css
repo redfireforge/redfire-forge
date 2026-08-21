@@ -28,6 +28,16 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
   opacity: 0;
 }
 
+/* Kafka Quick Start: hide cluster list/editor during quiet clear so leftover
+ * cards cannot flash before the empty-state paint settles. Header stays. */
+body[data-demo-bootstrapping="1"] .kafka-settings-content {
+  opacity: 0;
+}
+
+/* Do NOT opacity:0 .ws-studio-page during boot — that paints an empty --bg
+ * "blue screen" between Concept and step 1. Land Mock/Client via
+ * initialSurface.wsStudioMode instead (see demoInitialSurface.ts). */
+
 /* Parked when another tab is active. */
 #demo-hub-mount[data-demo-hub-active="0"] {
   display: none;
@@ -181,52 +191,242 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
 
 .demo-domain-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  max-width: 900px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px;
+  max-width: 1080px;
 }
 
 .demo-domain-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 28px 20px;
+  align-items: stretch;
+  gap: 14px;
+  padding: 20px 22px 18px;
   border: 1px solid var(--border, #3b4a60);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%),
+    var(--surface, #1e293b);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
   font-family: inherit;
   color: var(--text, #f1f5f9);
-  text-align: center;
+  text-align: left;
+  overflow: hidden;
 }
 
 .demo-domain-card:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--primary, #3b82f6) 55%, var(--border, #3b4a60));
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32), 0 0 0 1px color-mix(in srgb, var(--primary, #3b82f6) 22%, transparent);
+}
+
+.demo-domain-card:focus-visible {
+  outline: none;
   border-color: var(--primary, #3b82f6);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #3b82f6) 30%, transparent);
 }
 
 .demo-domain-card.coming-soon {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.demo-domain-icon {
-  font-size: 32px;
+/* Left status accent rail */
+.demo-domain-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--primary, #3b82f6);
+  opacity: 0.75;
+}
+.demo-domain-card.status-complete .demo-domain-accent { background: #22c55e; }
+.demo-domain-card.status-in-progress .demo-domain-accent { background: var(--primary, #3b82f6); }
+.demo-domain-card.status-new .demo-domain-accent { background: color-mix(in srgb, var(--primary, #3b82f6) 45%, var(--border, #3b4a60)); }
+.demo-domain-card.coming-soon .demo-domain-accent { background: var(--border, #3b4a60); }
+
+/* ── Head: icon tile + title + ring ── */
+.demo-domain-card-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.demo-domain-icon-tile {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  font-size: 24px;
+  background: color-mix(in srgb, var(--primary, #3b82f6) 14%, var(--bg, #0f172a));
+  border: 1px solid color-mix(in srgb, var(--primary, #3b82f6) 26%, var(--border, #3b4a60));
+}
+
+.demo-domain-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .demo-domain-name {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .demo-domain-count {
   font-size: 12px;
   color: var(--text-muted, #a8b8cc);
 }
+
+.demo-domain-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted, #a8b8cc);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em;
+}
+
+/* ── Category chips ── */
+.demo-domain-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.demo-domain-cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 7px;
+  border-radius: 999px;
+  background: var(--bg, #0f172a);
+  border: 1px solid var(--border, #3b4a60);
+  font-size: 11px;
+  color: var(--text, #f1f5f9);
+  line-height: 1.4;
+}
+
+.demo-domain-card:hover:not(:disabled) .demo-domain-cat-chip {
+  border-color: color-mix(in srgb, var(--primary, #3b82f6) 30%, var(--border, #3b4a60));
+}
+
+.demo-domain-cat-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.demo-domain-cat-label {
+  color: var(--text-muted, #a8b8cc);
+}
+
+.demo-domain-cat-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #f1f5f9);
+  padding-left: 3px;
+  border-left: 1px solid var(--border, #3b4a60);
+}
+
+.demo-domain-cat-chip--more {
+  background: transparent;
+  border-style: dashed;
+}
+.demo-domain-cat-chip--more .demo-domain-cat-label { color: var(--text-muted, #a8b8cc); }
+
+/* ── Progress bar ── */
+.demo-domain-progress {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.demo-domain-progress-track {
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg, #0f172a);
+  border: 1px solid var(--border, #3b4a60);
+  overflow: hidden;
+}
+
+.demo-domain-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary, #3b82f6), color-mix(in srgb, var(--primary, #3b82f6) 60%, #22c55e));
+  transition: width 0.35s ease;
+  min-width: 0;
+}
+.demo-domain-card.status-complete .demo-domain-progress-fill {
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+
+.demo-domain-progress-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted, #a8b8cc);
+}
+
+/* ── Footer: status pill + est. time ── */
+.demo-domain-foot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border, #3b4a60) 60%, transparent);
+}
+
+.demo-domain-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.demo-domain-status--complete { color: #22c55e; }
+.demo-domain-status--in-progress { color: var(--primary, #3b82f6); }
+.demo-domain-status--new { color: var(--text-muted, #a8b8cc); }
+
+.demo-domain-status-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: color-mix(in srgb, #22c55e 20%, transparent);
+  font-size: 9px;
+}
+
+.demo-domain-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-muted, #a8b8cc);
+  font-variant-numeric: tabular-nums;
+}
+.demo-domain-time-icon { font-size: 12px; opacity: 0.8; }
 
 .demo-domain-badge {
   font-size: 10px;
@@ -239,7 +439,7 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
 }
 
 .demo-progress-ring {
-  margin-top: 4px;
+  flex: 0 0 auto;
 }
 
 /* ─── Category Tabs ──────────────────────────────────────────── */
@@ -1299,12 +1499,21 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
   pointer-events: none;
 }
 
+/*
+ * Clickthrough must let app controls under the card receive clicks.
+ * Do NOT set pointer-events:auto on the whole .demo-live-panel-body —
+ * that opaque hit-target blocked Kafka "Validate & Format JSON" (and other
+ * action-row buttons) whenever the card overlapped them. Re-enable only the
+ * interactive chrome + readable narration text.
+ */
 .demo-live-panel--clickthrough .demo-live-resize-handle,
 .demo-live-panel--clickthrough .demo-live-overview-btn,
 .demo-live-panel--clickthrough .demo-live-notes-btn-wrap,
 .demo-live-panel--clickthrough .demo-live-drag-handle,
 .demo-live-panel--clickthrough .demo-live-lesson-name,
-.demo-live-panel--clickthrough .demo-live-panel-body,
+.demo-live-panel--clickthrough .demo-live-step-title,
+.demo-live-panel--clickthrough .demo-live-step-desc,
+.demo-live-panel--clickthrough .demo-live-panel-status,
 .demo-live-panel--clickthrough .demo-live-phase-badge.skippable,
 .demo-live-panel--clickthrough .demo-live-panel-controls,
 .demo-live-panel--clickthrough .demo-live-btn {
@@ -1429,6 +1638,96 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ─── Demo Terminal (CLI-domain lessons — no real app DOM to spotlight) ─── */
+.demo-terminal {
+  position: fixed;
+  z-index: 10090;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(760px, 86vw);
+  max-height: 72vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: #0b1220;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  pointer-events: none;
+  animation: demo-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.demo-terminal-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: #161f2e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.demo-terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.demo-terminal-dot--red { background: #ff5f56; }
+.demo-terminal-dot--yellow { background: #ffbd2e; }
+.demo-terminal-dot--green { background: #27c93f; }
+
+.demo-terminal-title {
+  margin-left: 8px;
+  font-family: var(--font-mono, 'SFMono-Regular', Consolas, monospace);
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.demo-terminal-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  font-family: var(--font-mono, 'SFMono-Regular', Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.demo-terminal-command-line {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #e2e8f0;
+}
+
+.demo-terminal-prompt {
+  color: #27c93f;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.demo-terminal-command {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.demo-terminal-output {
+  margin: 0;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.demo-terminal-line {
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.demo-terminal-line--highlight {
+  background: color-mix(in srgb, var(--primary, #3b82f6) 22%, transparent);
+  box-shadow: inset 2px 0 0 var(--primary, #3b82f6);
+}
+
 .demo-live-panel-header {
   display: flex;
   align-items: center;
@@ -1526,6 +1825,8 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
   font-weight: 600;
   margin: 0 0 6px;
   color: var(--text, #f1f5f9);
+  font-family: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  font-synthesis: none;
   user-select: text;
   -webkit-user-select: text;
   cursor: text;
@@ -1533,37 +1834,64 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
 
 .demo-live-step-desc {
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   margin: 0;
   color: var(--text-muted, #a8b8cc);
+  font-family: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  font-synthesis: none;
   user-select: text;
   cursor: text;
+}
+
+.demo-live-step-desc * {
+  font-family: inherit;
+}
+
+.demo-live-step-desc p,
+.demo-live-step-desc li {
+  font-family: inherit;
+}
+
+.demo-live-step-desc code,
+.demo-live-step-desc pre {
+  font-family: var(--font-mono, 'SF Mono', ui-monospace, Menlo, Consolas, monospace);
+  font-size: 0.92em;
+}
+
+.demo-live-step-desc ul,
+.demo-live-step-desc ol {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+
+.demo-live-step-desc li {
+  margin-bottom: 6px;
 }
 
 .demo-live-panel-status {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 0 16px 10px;
-  border-top: 1px solid color-mix(in srgb, var(--border, #3b4a60) 55%, transparent);
-  background: color-mix(in srgb, var(--bg, #0f172a) 35%, var(--surface, #1e293b));
+  padding: 4px 16px 6px;
+  background: transparent;
   flex-shrink: 0;
 }
 
 .demo-live-phase-badge {
-  display: inline-block;
-  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0;
   font-size: 10px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: var(--primary, #3b82f6);
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface));
+  color: var(--primary);
   font-weight: 600;
   animation: demo-fade-in 0.2s ease;
 }
 
 .demo-live-panel-status .demo-live-phase-badge {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .demo-live-phase-badge.skippable {
@@ -1572,7 +1900,7 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
 }
 
 .demo-live-phase-badge.skippable:hover {
-  background: rgba(59, 130, 246, 0.25);
+  background: color-mix(in srgb, var(--primary) 28%, var(--surface));
   transform: scale(1.05);
 }
 
@@ -2569,7 +2897,7 @@ body[data-demo-bootstrapping="1"] .react-flow__viewport {
   }
 
   .demo-domain-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .demo-lesson-player {

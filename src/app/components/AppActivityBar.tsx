@@ -40,6 +40,7 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         className={`ab-btn ${domainOf(activeTab) === 'api' ? 'active' : ''}`}
         onClick={() => { if (!isApiTab(activeTab)) setActiveTab('requests'); }}
         title="API"
+        data-testid="ab-api"
       >
         <span className="ab-icon">
           <ActivityBarIcon>

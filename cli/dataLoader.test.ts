@@ -100,6 +100,84 @@ describe('dataLoader', () => {
 
         expect(result.rows).toHaveLength(1);
       });
+
+      // ─── Special Row-Metadata Columns (BUG-3 / BUG-2 CSV half) ────────
+
+      describe('_tags/_label/_note/_enabled columns', () => {
+        it('excludes special columns from the columns list (no longer leak as params)', () => {
+          const csvContent = `userId,name,_tags,_label,_note,_enabled
+1,Alice,smoke;critical,happy-path,Standard lookup,true`;
+          vi.mocked(readFileSync).mockReturnValue(csvContent);
+
+          const result = loadDataFile('/path/to/data.csv');
+
+          expect(result.columns.map(c => c.name)).toEqual(['userId', 'name']);
+        });
+
+        it('parses _tags as a semicolon-separated, lowercased, trimmed tag array', () => {
+          const csvContent = `userId,_tags
+1,"smoke;Critical ; regression"`;
+          vi.mocked(readFileSync).mockReturnValue(csvContent);
+
+          const result = loadDataFile('/path/to/data.csv');
+
+          expect(result.rows[0].tags).toEqual(['smoke', 'critical', 'regression']);
+        });
+
+        it('leaves tags undefined when _tags is empty or missing', () => {
+          const csvContent = `userId,_tags
+1,`;
+          vi.mocked(readFileSync).mockReturnValue(csvContent);
+
+          const result = loadDataFile('/path/to/data.csv');
+
+          expect(result.rows[0].tags).toBeUndefined();
+        });
+
+        it('uses _label as the row label, overriding the default "Row N"', () => {
+          const csvContent = `userId,_label
+1,happy-path`;
+          vi.mocked(readFileSync).mockReturnValue(csvContent);
+
+          const result = loadDataFile('/path/to/data.csv');
+
+          expect(result.rows[0].label).toBe('happy-path');
+        });
+
+        it('falls back to "Row N" when _label is empty', () => {
+          const csvContent = `userId,_label
+1,`;
+          vi.mocked(readFileSync).mockReturnValue(csvContent);
+
+          const result = loadDataFile('/path/to/data.csv');
+
+          expect(result.rows[0].label).toBe('Row 1');
+        });
+
+        it('maps _note to row.note', () => {
+          const csvContent = `userId,_note
+1,Edge case`;
+          vi.mocked(readFileSync).mockReturnValue(csvContent);
+
+          const result = loadDataFile('/path/to/data.csv');
+
+          expect(result.rows[0].note).toBe('Edge case');
+        });
+
+        it('parses _enabled: false disables the row; anything else (including missing) is enabled', () => {
+          const csvContent = `userId,_enabled
+1,false
+2,true
+3,`;
+          vi.mocked(readFileSync).mockReturnValue(csvContent);
+
+          const result = loadDataFile('/path/to/data.csv');
+
+          expect(result.rows[0].enabled).toBe(false);
+          expect(result.rows[1].enabled).toBe(true);
+          expect(result.rows[2].enabled).toBe(true);
+        });
+      });
     });
 
     describe('JSON files', () => {

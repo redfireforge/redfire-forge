@@ -8,7 +8,9 @@ import LiveProgressPanel from './LiveProgressPanel';
 import ScenarioSelector from './ScenarioSelector';
 import ExecutionPlanPreview from './ExecutionPlanPreview';
 import RunnerSlaOverridePanel from './RunnerSlaOverridePanel';
+import ApiMockFixturePanel from './ApiMockFixturePanel';
 import type { RunnerVariant } from './runnerVariants';
+import { enableApiMockFixture } from '../utils/apiMockTestFixture';
 
 export interface RunnerPageProps {
   featureGroups: FeatureGroup[];
@@ -23,12 +25,15 @@ export interface RunnerPageProps {
   globalAuthProfiles?: GlobalAuthProfile[];
   envFallbackAuth?: import('../../../shared/types').AuthConfig;
   sharedDataSources?: SharedDataSource[];
+  /** Test Runner stays mounted; fixture reloads Studio servers when shown. */
+  visible?: boolean;
 }
 
 export default function RunnerPage({
   variant,
   featureGroups, onComplete, envName, svcName, envId, svcId, isAdditionalEnv,
   resolvedBaseUrl, microservices, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [],
+  visible = true,
 }: RunnerPageProps & { variant: RunnerVariant }) {
   const runner = useRunnerOrchestration({
     featureGroups, kind: variant.kind, envId, svcId, envName, svcName,
@@ -58,9 +63,10 @@ export default function RunnerPage({
     retryDelayMs, setRetryDelayMs, errorPolicy, setErrorPolicy,
     maxErrors, setMaxErrors, maxErrorRate, setMaxErrorRate,
     autoReport, setAutoReport, autoReportFormat, setAutoReportFormat,
+    apiMockFixture, setApiMockFixture,
   } = config;
 
-  const { isRunning, liveResults, error, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = execution;
+  const { isRunning, liveResults, error, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun, fixtureStatus } = execution;
 
   const hasContent = variant.hasContent(featureGroups);
   const monitorRef = useRef<HTMLDivElement>(null);
@@ -88,16 +94,34 @@ export default function RunnerPage({
         </div>
       </div>
 
-      <HostSelector
-        hostMode={hostMode}
-        onHostModeChange={setHostMode}
-        customBaseUrl={customBaseUrl}
-        onCustomBaseUrlChange={setCustomBaseUrl}
-        resolvedBaseUrl={resolvedBaseUrl}
-        disabled={isRunning}
-        isGalleryEnv={isGalleryEnv}
-        namePrefix={variant.namePrefix}
-      />
+      <div className="runner-mock-setup" data-testid="har-runner-mock-setup">
+        <HostSelector
+          hostMode={hostMode}
+          onHostModeChange={setHostMode}
+          customBaseUrl={customBaseUrl}
+          onCustomBaseUrlChange={setCustomBaseUrl}
+          resolvedBaseUrl={resolvedBaseUrl}
+          disabled={isRunning}
+          isGalleryEnv={isGalleryEnv}
+          namePrefix={variant.namePrefix}
+          fixtureOpen={Boolean(apiMockFixture?.enabled)}
+          onFixtureOpenChange={(open) => {
+            setApiMockFixture(open
+              ? enableApiMockFixture(apiMockFixture)
+              : (apiMockFixture ? { ...apiMockFixture, enabled: false } : undefined));
+          }}
+        />
+
+        {Boolean(apiMockFixture?.enabled) && (
+          <ApiMockFixturePanel
+            value={apiMockFixture}
+            onChange={setApiMockFixture}
+            disabled={isRunning}
+            status={fixtureStatus}
+            visible={visible}
+          />
+        )}
+      </div>
 
       <RunnerExecutionConfig
         executionMode={executionMode}

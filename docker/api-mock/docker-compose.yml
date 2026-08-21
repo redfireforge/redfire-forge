@@ -1,0 +1,26 @@
+# API Mock echo upstream — AM-17 Proxy Passthrough & Record-to-Drafts.
+#
+# Usage:
+#   cd docker/api-mock && docker compose up -d
+#   curl http://localhost:4017/health
+#   curl http://localhost:4017/widgets/42
+#
+# Port 4017 avoids GraphQL 4010, companion 3001, and mock listeners 4600–4699.
+# Allowlist origin in Studio: http://localhost:4017  (hostname, not 127.0.0.1)
+services:
+  api-mock-echo:
+    build: .
+    container_name: api-mock-echo
+    ports:
+      - "4017:4017"
+    environment:
+      - PORT=4017
+      - NO_PROXY=localhost,127.0.0.1,::1
+      - no_proxy=localhost,127.0.0.1,::1
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4017/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped

@@ -100,3 +100,10 @@ export {
   handleGrpcSchemaDiffNode,
   handleGrpcMockAssertNode,
 } from './graphRunnerGrpcAdvancedNodeHandlers';
+export {
+  handleApiMockStartNode,
+  handleApiMockApplyNode,
+  handleApiMockResetStateNode,
+  handleApiMockStopNode,
+  handleApiMockAssertCallsNode,
+} from './graphRunnerApiMockNodeHandlers';

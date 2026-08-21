@@ -51,6 +51,12 @@ export const galleryDomains: GalleryDomainConfig[] = [
     icon: '🔀',
     description: 'Visual mapping samples demonstrating drag-and-drop, expressions, and advanced features',
   },
+  {
+    key: 'api-mock',
+    label: 'API Mock',
+    icon: '🧪',
+    description: 'Local HTTP mock-server samples for API Mock Studio (Start, match, conflicts)',
+  },
 ];
 
 export const galleryDomainMap = new Map(

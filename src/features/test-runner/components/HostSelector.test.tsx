@@ -17,6 +17,7 @@ describe('HostSelector', () => {
     
     expect(screen.getByLabelText('Original')).toBeInTheDocument();
     expect(screen.getByLabelText(/Settings/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Mock Server')).toBeInTheDocument();
     expect(screen.getByLabelText('Custom')).toBeInTheDocument();
   });
 
@@ -84,8 +85,44 @@ describe('HostSelector', () => {
         resolvedBaseUrl="https://api.example.com"
       />
     );
-    fireEvent.click(screen.getAllByRole('radio')[2]);
+    fireEvent.click(screen.getAllByRole('radio')[3]);
     expect(onHostModeChange).toHaveBeenLastCalledWith('custom');
+  });
+
+  it('opens the fixture from Mock Server and closes it when another host is picked', () => {
+    const onHostModeChange = vi.fn();
+    const onFixtureOpenChange = vi.fn();
+    const { rerender } = render(
+      <HostSelector
+        hostMode="settings"
+        onHostModeChange={onHostModeChange}
+        customBaseUrl=""
+        onCustomBaseUrlChange={vi.fn()}
+        resolvedBaseUrl="https://api.example.com"
+        onFixtureOpenChange={onFixtureOpenChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('har-host-mock'));
+    expect(onFixtureOpenChange).toHaveBeenCalledWith(true);
+    expect(onHostModeChange).not.toHaveBeenCalled();
+
+    rerender(
+      <HostSelector
+        hostMode="settings"
+        onHostModeChange={onHostModeChange}
+        customBaseUrl=""
+        onCustomBaseUrlChange={vi.fn()}
+        resolvedBaseUrl="https://api.example.com"
+        fixtureOpen
+        onFixtureOpenChange={onFixtureOpenChange}
+      />,
+    );
+    expect((screen.getByTestId('har-host-mock') as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(screen.getByLabelText(/Settings/));
+    expect(onFixtureOpenChange).toHaveBeenLastCalledWith(false);
+    expect(onHostModeChange).toHaveBeenCalledWith('settings');
   });
 
   it('enables custom URL input only when custom mode is selected', () => {
@@ -183,8 +220,8 @@ describe('HostSelector', () => {
 
     const names = Array.from(container.querySelectorAll<HTMLInputElement>('input[type="radio"]'))
       .map((r) => r.name);
-    expect(names.filter((n) => n === 'test-runner-hostMode')).toHaveLength(3);
-    expect(names.filter((n) => n === 'param-runner-hostMode')).toHaveLength(3);
+    expect(names.filter((n) => n === 'test-runner-hostMode')).toHaveLength(4);
+    expect(names.filter((n) => n === 'param-runner-hostMode')).toHaveLength(4);
     expect(names.includes('hostMode')).toBe(false);
   });
 });

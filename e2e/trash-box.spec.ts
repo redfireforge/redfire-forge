@@ -55,7 +55,7 @@ test.describe('Trash Box', () => {
     const trashBtn = page.locator('button:has-text("Trash")');
     await trashBtn.click();
 
-    const trashPanel = page.locator('.popup-modal');
+    const trashPanel = page.locator('.trash-modal');
     await expect(trashPanel).toBeVisible({ timeout: 5000 });
     await expect(trashPanel).toContainText('E2E Feature');
   });
@@ -65,7 +65,7 @@ test.describe('Trash Box', () => {
 
     await page.locator('button:has-text("Trash")').click();
 
-    const trashPanel = page.locator('.popup-modal');
+    const trashPanel = page.locator('.trash-modal');
     await expect(trashPanel).toBeVisible({ timeout: 5000 });
 
     const restoreBtn = trashPanel.locator('button:has-text("Restore")').first();

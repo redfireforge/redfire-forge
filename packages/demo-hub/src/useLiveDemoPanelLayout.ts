@@ -169,7 +169,7 @@ export function useLiveDemoPanelLayout(): {
         return;
       }
 
-      // Vertical-only candidates — keep the same left edge.
+      // Prefer vertical-only dodges (same left edge) so the card stays put.
       const candidates: LiveDemoPanelGeometry[] = [
         { width, height, left, top: target.bottom + 20 },
         { width, height, left, top: Math.max(8, target.top - height - 20) },
@@ -187,7 +187,22 @@ export function useLiveDemoPanelLayout(): {
           return;
         }
       }
-      // Cannot clear without changing left — stay put (panel is clickthrough).
+
+      // Horizontal fallback — action rows under the card (e.g. Kafka Validate &
+      // Format) stay blocked if we only rely on clickthrough, because narration
+      // text still captures pointer events.
+      const { top } = anchor;
+      const horizontal: LiveDemoPanelGeometry[] = [
+        { width, height, top, left: Math.max(8, target.left - width - 20) },
+        { width, height, top, left: target.right + 20 },
+      ];
+      for (const candidate of horizontal) {
+        const clamped = clampGeometry(candidate);
+        if (!overlaps(clamped, target)) {
+          commitGeometry(clamped, { persist: false, ephemeral: true });
+          return;
+        }
+      }
     };
 
     window.addEventListener(DEMO_PANEL_CLEAR_TARGET_EVENT, onClearTarget as EventListener);

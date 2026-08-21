@@ -27,9 +27,9 @@ export const DEMO_BOOT_SURFACE_MS = 120;
 /** Extra settle after the highlight is found so Studio chrome finishes committing. */
 /** Two frames — longer settles kept a dark empty veil over an already-ready step 1. */
 export const DEMO_BOOT_REVEAL_SETTLE_MS = 32;
-export const DEMO_SPOTLIGHT_SETTLE_MS = 1200;
-export const DEMO_POST_ACTION_SETTLE_MS = 350;
-export const DEMO_VERIFY_ABSORB_MS = 1100;
+export const DEMO_SPOTLIGHT_SETTLE_MS = 700;
+export const DEMO_POST_ACTION_SETTLE_MS = 180;
+export const DEMO_VERIFY_ABSORB_MS = 550;
 /** Cap how long Verifying can poll for a selector (fail fast when missing). */
 export const DEMO_VERIFY_WAIT_MS = 3_200;
 export const DEMO_VERIFY_WAIT_FROM_READING_MS = 3_600;
@@ -55,6 +55,7 @@ export async function runActionWithTimeout(
   onTimeout: () => void,
 ): Promise<void> {
   if (!step.action) return;
+  const budget = step.actionTimeoutMs ?? DEMO_ACTION_TIMEOUT_MS;
   let actionSettled = false;
   const timeoutAc = new AbortController();
   const onStepAbort = () => timeoutAc.abort();
@@ -72,10 +73,10 @@ export async function runActionWithTimeout(
   let timedOut = false;
   await Promise.race([
     actionPromise,
-    abortableSleep(DEMO_ACTION_TIMEOUT_MS, timeoutAc.signal).then(() => {
+    abortableSleep(budget, timeoutAc.signal).then(() => {
       if (!actionSettled && !signal.aborted) {
         timedOut = true;
-        console.warn(`[DemoHub] action timed out after ${DEMO_ACTION_TIMEOUT_MS}ms for step ${step.id}`);
+        console.warn(`[DemoHub] action timed out after ${budget}ms for step ${step.id}`);
       }
     }),
   ]);
@@ -218,7 +219,7 @@ export function useDemoHubStepPipeline({
           if (signal.aborted) return;
           const allHighlight = document.querySelectorAll(step.highlight);
           const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
-          if (el instanceof HTMLElement) {
+          if (el instanceof HTMLElement && !step.skipHighlightScroll) {
             scrollDemoTargetIntoView(el, { block: 'center' });
           }
         } else {
@@ -238,7 +239,7 @@ export function useDemoHubStepPipeline({
         if (signal.aborted) return;
         const allHighlight = document.querySelectorAll(step.highlight);
         const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
-        if (el instanceof HTMLElement) {
+        if (el instanceof HTMLElement && !step.skipHighlightScroll) {
           scrollDemoTargetIntoView(el, { block: 'center' });
         }
         await abortableSleep(DEMO_SPOTLIGHT_SETTLE_MS, signal);

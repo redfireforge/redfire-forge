@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { REDFIREFORGE_IDB_VERSION } from './helpers';
 
+async function selectCustomOption(page: import('@playwright/test').Page, select: import('@playwright/test').Locator, label: string) {
+  await select.locator('.cs-trigger').click();
+  await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: label }).click();
+}
+
 test.describe('Results Dashboard — Failed Only filter', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -103,8 +108,7 @@ test.describe('Results Dashboard — Failed Only filter', () => {
     await expect(allDetailRows).toHaveCount(6);
 
     // Select "Failed Only" from the filter dropdown
-    const filterSelect = page.locator('select').filter({ has: page.locator('option:has-text("Failed Only")') });
-    await filterSelect.selectOption('failed');
+    await selectCustomOption(page, page.locator('.filter-row > .cs-wrapper').first(), 'Failed Only');
 
     // Wait for filter to apply
     await expect(filterCount).toContainText('2 results');
@@ -175,8 +179,7 @@ test.describe('Results Dashboard — Failed Only filter', () => {
     await expect(filterCount).toContainText('6 results');
 
     // Select "Failed Only"
-    const filterSelect = page.locator('select').filter({ has: page.locator('option:has-text("Failed Only")') });
-    await filterSelect.selectOption('failed');
+    await selectCustomOption(page, page.locator('.filter-row > .cs-wrapper').first(), 'Failed Only');
 
     // BUG REPRODUCTION: with strict r.passed === true, passed=1 is treated
     // as "not passed", so ALL 6 results appear under "Failed Only".
@@ -192,12 +195,10 @@ test.describe('Results Dashboard — Failed Only filter', () => {
     await expect(filterCount).toBeVisible({ timeout: 5000 });
 
     // Switch to flat view
-    const groupBySelect = page.locator('.group-by-controls select').first();
-    await groupBySelect.selectOption('test');
+    await selectCustomOption(page, page.locator('.group-by-controls .cs-wrapper').first(), 'Test Name (flat)');
 
     // Select "Failed Only"
-    const filterSelect = page.locator('select').filter({ has: page.locator('option:has-text("Failed Only")') });
-    await filterSelect.selectOption('failed');
+    await selectCustomOption(page, page.locator('.filter-row > .cs-wrapper').first(), 'Failed Only');
 
     // Should show 2 results
     await expect(filterCount).toContainText('2 results');

@@ -5,8 +5,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from '@testing-library/react';
 import { makeVisible } from './lessons/protocols/ws-test-utils';
 import {
+  advanceToPhase,
+  advanceToResumedPhase,
   makeLesson,
   renderDemoHub,
+  withStubbedLessonBody,
 } from './useDemoHub.coverage-helpers';
 import {
   setupUseDemoHubCoverageBeforeEach,
@@ -186,36 +189,69 @@ describe('useDemoHub — coverage gaps (autoplay & steps)', () => {
     highlightEl.remove();
   });
 
-  it('pauseAutoPlay resolves skipReading during reading phase', async () => {
+  it('executeCurrentStep does not scroll when skipHighlightScroll is set', async () => {
+    const highlightEl = document.createElement('div');
+    highlightEl.className = 'gap-skip-scroll-target';
+    makeVisible(highlightEl);
+    highlightEl.scrollIntoView = vi.fn();
+    document.body.appendChild(highlightEl);
+
     const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
-      steps: [{ id: 's1', title: 'S1', description: 'A'.repeat(600) }],
+      steps: [{
+        id: 's1',
+        title: 'No scroll',
+        description: 'Short.',
+        pauseAfter: 0,
+        highlight: '.gap-skip-scroll-target',
+        skipHighlightScroll: true,
+      }],
     });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
-      void result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(100);
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(9000);
+      await p;
     });
+    expect(highlightEl.scrollIntoView).not.toHaveBeenCalled();
+    highlightEl.remove();
+  });
+
+  it('pauseAutoPlay resolves skipReading during reading phase', async () => {
+    const { result } = renderDemoHub(navigateToTab);
+    // Two steps: on a single-step lesson toggling at the end replays instead of pausing.
+    const lesson = makeLesson({
+      steps: [
+        { id: 's1', title: 'S1', description: 'A'.repeat(600) },
+        { id: 's2', title: 'S2', description: 'B'.repeat(600) },
+      ],
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => { void result.current.startLiveDemo(); });
+    await advanceToPhase(result, 'reading');
+    act(() => result.current.toggleAutoPlay());
+    expect(result.current.state.isPlaying).toBe(true);
+
     act(() => result.current.toggleAutoPlay());
     expect(result.current.stepPhase).toBe('done');
     expect(result.current.state.isPlaying).toBe(false);
   });
 
   it('resumeInterruptedLiveDemo sets done phase when session was not playing', async () => {
-    resetLiveDemoResumeConsumeForTests();
-    persistDemoLiveSession({
-      lessonId: gqlFirstQueryLesson.id,
-      stepIndex: 0,
-      isPlaying: false,
-      speed: 1,
-      savedAt: Date.now(),
+    await withStubbedLessonBody(gqlFirstQueryLesson, async () => {
+      resetLiveDemoResumeConsumeForTests();
+      persistDemoLiveSession({
+        lessonId: gqlFirstQueryLesson.id,
+        stepIndex: 0,
+        isPlaying: false,
+        speed: 1,
+        savedAt: Date.now(),
+      });
+      const { result } = renderDemoHub(navigateToTab);
+      await advanceToResumedPhase(result, 'done');
+      expect(result.current.state.isPlaying).toBe(false);
+      expect(result.current.stepPhase).toBe('done');
     });
-    const { result } = renderDemoHub(navigateToTab);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(13000);
-    });
-    expect(result.current.state.isPlaying).toBe(false);
-    expect(result.current.stepPhase).toBe('done');
   });
 
   it('toggleAutoPlay at-end does not restart after hook unmounts', async () => {

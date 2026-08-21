@@ -45,6 +45,7 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
     { tab: 'sse-studio', label: 'SSE' },
     { tab: 'graphql-studio', label: 'GraphQL' },
     { tab: 'grpc-studio', label: 'gRPC' },
+    { tab: 'api-mock-studio', label: 'API Mock' },
   ],
   demo: [
     { tab: 'demo-hub', label: 'Learning Hub' },

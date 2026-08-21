@@ -2,7 +2,21 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+vi.mock('@shared/utils/platform', () => ({
+  isTauri: vi.fn(() => false),
+}));
+
+vi.mock('@shared/utils/httpClient', () => ({
+  resolveCompanionServerUrl: (url: string) => (
+    url.startsWith('/') ? `http://localhost:3001${url}` : url
+  ),
+  httpFetch: vi.fn(),
+}));
+
 import { checkEndpoint } from './checkEndpoint';
+import { isTauri } from '@shared/utils/platform';
+import { httpFetch } from '@shared/utils/httpClient';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -19,7 +33,11 @@ function mockFetchReject() {
 // ─── Tests ──────────────────────────────────────────────────────
 
 describe('checkEndpoint', () => {
-  beforeEach(() => { vi.useFakeTimers(); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(isTauri).mockReturnValue(false);
+    vi.mocked(httpFetch).mockReset();
+  });
   afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
   it('returns true when HTTP health check succeeds', async () => {
@@ -108,7 +126,10 @@ describe('checkEndpoint', () => {
 
   it('uses Express Spring health proxy for actuator checks when available', async () => {
     const spy = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
 
     const promise = checkEndpoint('http://localhost:8081/actuator/health');
     await vi.advanceTimersByTimeAsync(100);
@@ -116,7 +137,21 @@ describe('checkEndpoint', () => {
     expect(spy).toHaveBeenCalledWith('/health/spring', expect.any(Object));
   });
 
-  it('treats Express /health/spring HTTP 503 as Spring down (not no-cors false-positive)', async () => {
+  it('treats Express /health/spring status:down as Spring down (not no-cors false-positive)', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'down' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    const promise = checkEndpoint('http://localhost:8081/actuator/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(false);
+    expect(spy).toHaveBeenCalledWith('/health/spring', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://localhost:8081/actuator/health', expect.any(Object));
+  });
+
+  it('treats legacy Express /health/spring HTTP 503 as Spring down', async () => {
     const spy = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'down' }), { status: 503 }));
 
@@ -124,7 +159,38 @@ describe('checkEndpoint', () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(await promise).toBe(false);
     expect(spy).toHaveBeenCalledWith('/health/spring', expect.any(Object));
-    expect(spy).not.toHaveBeenCalledWith('http://localhost:8081/actuator/health', expect.any(Object));
+  });
+
+  it('routes Schema Registry probes through Express /health/schema-registry', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    const promise = checkEndpoint('http://localhost:8085');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith(
+      '/health/schema-registry?url=http%3A%2F%2Flocalhost%3A8085',
+      expect.any(Object),
+    );
+  });
+
+  it('treats Schema Registry proxy status:down as unreachable without relying on HTTP 503', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'down' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    const promise = checkEndpoint('http://localhost:8085');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(false);
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('/health/schema-registry'),
+      expect.any(Object),
+    );
   });
 
   it('routes Envoy :50055 probes through Express /health/envoy (avoids browser 415 noise)', async () => {
@@ -137,6 +203,74 @@ describe('checkEndpoint', () => {
     expect(spy).toHaveBeenCalledWith('/health/envoy', expect.any(Object));
     expect(spy).not.toHaveBeenCalledWith('http://localhost:50055/', expect.any(Object));
     expect(spy).not.toHaveBeenCalledWith('http://127.0.0.1:50055/', expect.any(Object));
+  });
+
+  it('routes AM-17 echo :4017 probes through Express /health/api-mock-echo', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+
+    const promise = checkEndpoint('http://localhost:4017/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith('/health/api-mock-echo', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://localhost:4017/health', expect.any(Object));
+    expect(spy).not.toHaveBeenCalledWith('http://127.0.0.1:4017/health', expect.any(Object));
+  });
+
+  it('routes AM-17 echo 127.0.0.1:4017 probes through the same Express proxy', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+
+    const promise = checkEndpoint('http://127.0.0.1:4017/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith('/health/api-mock-echo', expect.any(Object));
+  });
+
+  it('on Tauri, probes AM-17 echo via native httpFetch to the companion (not webview fetch)', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(httpFetch).mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: JSON.stringify({ status: 'ok' }),
+    });
+    const spy = vi.spyOn(globalThis, 'fetch');
+
+    const promise = checkEndpoint('http://localhost:4017/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(httpFetch).toHaveBeenCalledWith(
+      'http://localhost:3001/health/api-mock-echo',
+      'GET',
+      {},
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('on Tauri, generic HTTP probes use native httpFetch not webview fetch', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(httpFetch).mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: 'ok',
+    });
+    const spy = vi.spyOn(globalThis, 'fetch');
+
+    const promise = checkEndpoint('http://localhost:4100/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(httpFetch).toHaveBeenCalledWith(
+      'http://localhost:4100/health',
+      'GET',
+      {},
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('routes Envoy 127.0.0.1:50055 probes through the same Express proxy', async () => {

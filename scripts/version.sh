@@ -26,6 +26,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PKG_JSON="$ROOT_DIR/package.json"
 TAURI_CONF="$ROOT_DIR/src-tauri/tauri.conf.json"
 CARGO_TOML="$ROOT_DIR/src-tauri/Cargo.toml"
+CLI_PKG_JSON="$ROOT_DIR/cli/package.json"
 
 # ── Parse arguments ──────────────────────────────────────────
 
@@ -174,6 +175,24 @@ fi
 
 sed -i.bak "s/^version = \".*\"/version = \"$CARGO_VERSION\"/" "$CARGO_TOML" && rm -f "$CARGO_TOML.bak"
 
+# ── Update cli/package.json ──────────────────────────────────
+# Kept in sync here too so the checked-in repo never drifts from the root
+# version between releases (publish-cli.yml re-syncs this again at publish
+# time, but that shouldn't be the only place this file gets updated).
+
+if [[ -f "$CLI_PKG_JSON" ]]; then
+  if command -v node &>/dev/null; then
+    node -e "
+      const fs = require('fs');
+      const pkg = JSON.parse(fs.readFileSync('$CLI_PKG_JSON', 'utf8'));
+      pkg.version = '$FULL_VERSION';
+      fs.writeFileSync('$CLI_PKG_JSON', JSON.stringify(pkg, null, 2) + '\n');
+    "
+  else
+    sed -i.bak "s/\"version\": \".*\"/\"version\": \"$FULL_VERSION\"/" "$CLI_PKG_JSON" && rm -f "$CLI_PKG_JSON.bak"
+  fi
+fi
+
 # ── Summary ──────────────────────────────────────────────────
 
 echo ""
@@ -183,9 +202,10 @@ echo "Files changed:"
 echo "  • $PKG_JSON"
 echo "  • $TAURI_CONF"
 echo "  • $CARGO_TOML"
+echo "  • $CLI_PKG_JSON"
 echo ""
 echo "Next steps:"
-echo "  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml"
+echo "  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml cli/package.json"
 echo "  git commit -m \"chore: bump version to $FULL_VERSION\""
 if [[ -z "$PRE_TAG" ]]; then
   echo "  git tag v$FULL_VERSION"

@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import type { Ref } from 'react';
 import { sampleWorkflowCatalog } from '../data/galleries/workflows';
+import { API_MOCK_OPEN_IN_REQUESTS_EVENT } from '../features/api-mock/apiMockJournalActions';
 
 /* ── Shared mutable mock state (hoisted above vi.mock factories) ────────── */
 const h = vi.hoisted(() => {
@@ -119,15 +120,18 @@ const h = vi.hoisted(() => {
 
     reqTabs: {
       tabs: [] as unknown[],
-      activeTabId: '',
+      activeTabId: 'tab-1',
       activeTab: null as unknown,
       selectTab: fn(),
       closeTab: fn(),
       addTab: fn(),
       renameTab: fn(),
+      reorderTabs: fn(),
+      duplicateTab: fn(),
+      closeOtherTabs: fn(),
+      closeTabsToRight: fn(),
       envChange: fn(),
       selectRequest: fn(),
-      openInNewTab: fn(),
       openTabRequestIds: new Set<string>(),
       removeRequest: fn(),
       removeCollection: fn(),
@@ -268,6 +272,7 @@ const h = vi.hoisted(() => {
       catalogEditId: null as unknown,
       setCatalogEditId: fn(),
       handleExportSpec: fn(),
+      handleConvertToOpenApi: fn(),
     },
 
     derived: {
@@ -291,6 +296,8 @@ const h = vi.hoisted(() => {
       onImportWorkflow: vi.fn(),
       onNavigateTo: fn(),
     },
+
+    exportModalProps: {} as Record<string, unknown>,
   };
 });
 
@@ -437,6 +444,13 @@ vi.mock('../features/requests/Requests', () => ({
       <button data-testid="req-clear-preview" onClick={() => h.call(props, 'onClearPreview')}>c</button>
       <button data-testid="req-send-harness" onClick={() => h.call(props, 'onSendToHarness')}>h</button>
       <button data-testid="req-import-preview" onClick={() => h.call(props, 'onImportPreview')}>i</button>
+      <button data-testid="req-close-all-tabs" onClick={() => h.call(props, 'onCloseAllTabs')}>a</button>
+      <button data-testid="req-close-tabs-right" onClick={() => h.call(props, 'onCloseTabsToRight', 'tab-1')}>r</button>
+      <button data-testid="req-reorder-tabs" onClick={() => h.call(props, 'onReorderTabs', 0, 1)}>o</button>
+      <button data-testid="req-duplicate-tab" onClick={() => h.call(props, 'onDuplicateTab', 'tab-1')}>d</button>
+      <button data-testid="req-env-change" onClick={() => h.call(props, 'onEnvChange', 'env-2')}>e</button>
+      <button data-testid="req-update-tab-ui" onClick={() => h.call(props, 'onUpdateTabUI', 'tab-1', { dirty: true })}>u</button>
+      <button data-testid="req-sync-tab-label" onClick={() => h.call(props, 'onSyncTabLabel', 'tab-1', 'Renamed')}>s</button>
     </div>
   ),
 }));
@@ -452,8 +466,27 @@ vi.mock('../features/catalog/ApiCatalog', () => ({
         data-testid="ac-send-harness"
         onClick={() => h.call(props, 'onSendEndpointToHarness', { id: 'e1' }, { id: 'ep1' }, false)}
       >h</button>
+      <button data-testid="ac-convert" onClick={() => h.call(props, 'onConvertToOpenApi', 'e1')}>c</button>
+      <button data-testid="ac-send-req" onClick={() => h.call(props, 'onSendToRequests', { id: 'e1' })}>s</button>
+      <button data-testid="ac-export-ep" onClick={() => h.call(props, 'onExportSingleEndpoint', { id: 'e1' }, { id: 'ep1' })}>x</button>
+      <button data-testid="ac-export-confirm" onClick={() => h.call(props, 'onExportConfirm', { ok: true })}>f</button>
+      <button data-testid="ac-previews-changed" onClick={() => h.call(props, 'onPreviewsChanged')}>p</button>
+      <button
+        data-testid="ac-export-mock-summary"
+        onClick={() => h.call(props, 'onExportEndpointToApiMock', { method: 'GET', path: '/pets', summary: 'List pets' })}
+      >m</button>
+      <button
+        data-testid="ac-export-mock-opid"
+        onClick={() => h.call(props, 'onExportEndpointToApiMock', { method: 'POST', path: '/pets', operationId: 'createPet' })}
+      >o</button>
     </div>
   ),
+}));
+vi.mock('../features/api-mock/components/ExportToApiMockModal', () => ({
+  ExportToApiMockModal: (props: Record<string, unknown>) => {
+    h.exportModalProps = props;
+    return <div data-testid="export-to-mock-modal" />;
+  },
 }));
 vi.mock('../features/catalog/components/CatalogSidebar', () => ({
   default: (props: Record<string, unknown>) => (
@@ -1060,6 +1093,36 @@ describe('App — ApiCatalog page handlers', () => {
     fireEvent.click(screen.getByTestId('ac-send-harness'));
     expect(h.harness.setCatalogHarnessEndpoint).toHaveBeenCalled();
     expect(h.harness.setShowSendToHarness).toHaveBeenCalledWith(true);
+    fireEvent.click(screen.getByTestId('ac-convert'));
+    expect(h.catalogState.handleConvertToOpenApi).toHaveBeenCalledWith('e1');
+    fireEvent.click(screen.getByTestId('ac-send-req'));
+    expect(h.catalogExport.handleSendToRequests).toHaveBeenCalledWith({ id: 'e1' });
+    fireEvent.click(screen.getByTestId('ac-export-ep'));
+    expect(h.catalogExport.handleExportSingleEndpoint).toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('ac-export-confirm'));
+    expect(h.catalogExport.handleInlineExportConfirm).toHaveBeenCalledWith({ ok: true });
+    fireEvent.click(screen.getByTestId('ac-previews-changed'));
+  });
+
+  it('opens export-to-api-mock modal from catalog endpoint export', () => {
+    render(<App />);
+    fireEvent.click(screen.getByTestId('ac-export-mock-summary'));
+    expect(screen.getByTestId('export-to-mock-modal')).toBeTruthy();
+    expect(h.exportModalProps.items).toEqual([{
+      method: 'GET',
+      path: '/pets',
+      label: 'List pets',
+    }]);
+    expect(h.exportModalProps.sourceKind).toBe('catalog');
+    act(() => { h.call(h.exportModalProps, 'onClose'); });
+    expect(screen.queryByTestId('export-to-mock-modal')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('ac-export-mock-opid'));
+    expect(h.exportModalProps.items).toEqual([{
+      method: 'POST',
+      path: '/pets',
+      label: 'createPet',
+    }]);
   });
 });
 
@@ -1127,6 +1190,25 @@ describe('App — requests page handlers', () => {
     fireEvent.click(screen.getByTestId('req-import-preview'));
     expect(h.wb.addCollection).toHaveBeenCalledWith({ name: 'Gallery Samples', mode: 'direct' });
     expect(h.wb.addRequest).toHaveBeenCalledWith('new-col');
+  });
+
+  it('wires request tab coordinator callbacks', () => {
+    render(<App />);
+    goto('requests');
+    fireEvent.click(screen.getByTestId('req-close-all-tabs'));
+    expect(h.reqTabs.closeOtherTabs).toHaveBeenCalledWith('tab-1');
+    fireEvent.click(screen.getByTestId('req-close-tabs-right'));
+    expect(h.reqTabs.closeTabsToRight).toHaveBeenCalledWith('tab-1');
+    fireEvent.click(screen.getByTestId('req-reorder-tabs'));
+    expect(h.reqTabs.reorderTabs).toHaveBeenCalledWith(0, 1);
+    fireEvent.click(screen.getByTestId('req-duplicate-tab'));
+    expect(h.reqTabs.duplicateTab).toHaveBeenCalledWith('tab-1');
+    fireEvent.click(screen.getByTestId('req-env-change'));
+    expect(h.reqTabs.envChange).toHaveBeenCalledWith('env-2');
+    fireEvent.click(screen.getByTestId('req-update-tab-ui'));
+    expect(h.reqTabs.updateTabUI).toHaveBeenCalledWith('tab-1', { dirty: true });
+    fireEvent.click(screen.getByTestId('req-sync-tab-label'));
+    expect(h.reqTabs.syncTabLabel).toHaveBeenCalledWith('tab-1', 'Renamed');
   });
 });
 
@@ -1430,5 +1512,67 @@ describe('App — coverage gaps', () => {
     await act(async () => { await Promise.resolve(); });
     expect(screen.getByTestId('requests-sidebar')).toBeTruthy();
     expect(document.getElementById('demo-hub-mount')).toBeNull();
+  });
+
+  it('opens api mock journal entry in requests using existing collection', () => {
+    h.wb.collections = [{ id: 'journal-col', name: 'API Mock Journal', requests: [], folders: [] }];
+    render(<App />);
+    act(() => {
+      window.dispatchEvent(new CustomEvent(API_MOCK_OPEN_IN_REQUESTS_EVENT, {
+        detail: {
+          name: 'Mock GET /pets',
+          method: 'GET',
+          url: 'http://127.0.0.1:4010/pets',
+          headers: [{ key: 'Accept', value: 'application/json', enabled: true }],
+          body: '{"limit":10}',
+        },
+      }));
+    });
+    expect(h.wb.addCollection).not.toHaveBeenCalled();
+    expect(h.wb.addRequest).toHaveBeenCalledWith('journal-col', undefined, 'Mock GET /pets');
+    expect(h.wb.updateRequest).toHaveBeenCalledWith('journal-col', 'new-req', expect.objectContaining({
+      bodyType: 'json',
+      auth: { type: 'none' },
+    }));
+    expect(h.reqTabs.selectRequest).toHaveBeenCalledWith('journal-col', 'new-req');
+    expect(screen.getByTestId('requests-page')).toBeTruthy();
+  });
+
+  it('creates API Mock Journal collection when opening mock entry in requests', () => {
+    h.wb.collections = [];
+    render(<App />);
+    act(() => {
+      window.dispatchEvent(new CustomEvent(API_MOCK_OPEN_IN_REQUESTS_EVENT, {
+        detail: {
+          name: 'Mock POST /pets',
+          method: 'POST',
+          url: 'http://127.0.0.1:4010/pets',
+          headers: [],
+          body: '',
+        },
+      }));
+    });
+    expect(h.wb.addCollection).toHaveBeenCalledWith({ name: 'API Mock Journal', mode: 'direct' });
+    expect(h.wb.updateRequest).toHaveBeenCalledWith('new-col', 'new-req', expect.objectContaining({
+      bodyType: 'none',
+    }));
+  });
+
+  it('ignores api mock open-in-requests events without detail', () => {
+    render(<App />);
+    act(() => {
+      window.dispatchEvent(new CustomEvent(API_MOCK_OPEN_IN_REQUESTS_EVENT));
+    });
+    expect(h.wb.addRequest).not.toHaveBeenCalled();
+  });
+
+  it('removes api mock open-in-requests listener on unmount', () => {
+    const { unmount } = render(<App />);
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
+    unmount();
+    expect(removeSpy).toHaveBeenCalledWith(API_MOCK_OPEN_IN_REQUESTS_EVENT, expect.any(Function));
+    addSpy.mockRestore();
+    removeSpy.mockRestore();
   });
 });

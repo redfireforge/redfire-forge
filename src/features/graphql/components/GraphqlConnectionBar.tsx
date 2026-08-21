@@ -1,19 +1,3 @@
-/**
- * GraphqlConnectionBar — the horizontal bar at the top of the GraphQL Studio.
- *
- * Phase 1A: endpoint URL input + Execute (disabled) + Introspect (disabled).
- * Phase 1B: schema introspection, schema status badge, polling indicator.
- * Phase 1C: execute handler, operation-name selector, Cancel button.
- * Phase 1D: GQL method badge, auth badge (focuses bottom Auth tab), recent endpoints dropdown.
- * Phase 1E: env badge button (opens environment manager modal).
- * Phase 1 Gap: TLS skip toggle, schema polling config popover.
- *
- * Extracted modules:
- *   hooks/useGqlPollingPopover           — polling state + a11y effects
- *   connection-bar/GqlPollingPopoverContent — polling dialog JSX (shared by two locations)
- *   connection-bar/GqlSubscriptionControls — transport selector + status + subscribe/stop
- */
-
 import { useMemo } from 'react';
 import type React from 'react';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
@@ -30,11 +14,7 @@ import { GraphqlTlsPanel } from './GraphqlTlsPanel';
 import type { EndpointRowStatus } from '../../environments/utils/protocolEndpointUtils';
 import { ProtocolEndpointPreview } from '../../../shared/components/ProtocolEndpointPreview';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const MAX_ENV_NAME_LEN = 18;
-
-// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface GraphqlConnectionBarProps {
   endpoint: string;
@@ -129,8 +109,6 @@ interface GraphqlConnectionBarProps {
   endpointLinkPending?: boolean;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export function GraphqlConnectionBar({
   endpoint,
   onEndpointChange,
@@ -224,16 +202,13 @@ export function GraphqlConnectionBar({
 
   const isHttps = endpoint.toLowerCase().startsWith('https://');
 
-  // ── Polling popover (hook extracts all state + effects) ───────────────────
   const polling = useGqlPollingPopover({
     pollingEnabled,
     pollingIntervalSeconds,
     onPollingChange,
   });
 
-  // ── Auth badge ───────────────────────────────────────────────────────────
-
-  const authLabel     = authBadgePresentation?.label ?? authBadgeLabel(auth, globalAuthProfiles);
+  const authLabel = authBadgePresentation?.label ?? authBadgeLabel(auth, globalAuthProfiles);
   const authConfigured = authBadgePresentation?.configured ?? isAuthConfigured(auth, globalAuthProfiles);
   const authBadgeVariant = authBadgePresentation?.variant ?? (authConfigured ? 'default' : 'inherit');
   const authBadgeScope = authBadgePresentation?.scope ?? null;
@@ -250,7 +225,6 @@ export function GraphqlConnectionBar({
         : authBadgeScope === 'profile' ? 'Profile'
           : null;
 
-  // ── Recent endpoints dropdown ────────────────────────────────────────────
   const previewEnvMap = useMemo(() => {
     const local: Record<string, string> = {};
     for (const v of activeEnvironment?.variables ?? []) {
@@ -259,7 +233,6 @@ export function GraphqlConnectionBar({
     return { ...(globalEnvMap ?? {}), ...local };
   }, [globalEnvMap, activeEnvironment]);
 
-  // ── Shared polling popover props ─────────────────────────────────────────
   const pollingPopoverSharedProps = {
     pollingEnabled,
     pollingIntervalSeconds,

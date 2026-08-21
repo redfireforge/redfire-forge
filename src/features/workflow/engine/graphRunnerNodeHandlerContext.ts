@@ -292,6 +292,8 @@ export interface NodeHandlerContext {
    * Populated by handleGrpcUnaryNode/handleGrpcServerStreamNode.
    */
   capturedGrpcDetails?: Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>;
+  /** API Mock node capture for Results Explorer (Phase 11). */
+  capturedApiMockDetails?: Map<string, import('../../../shared/types').CapturedApiMockNodeDetails>;
   /** Frozen per-run gRPC step results for grpcAssert evaluation (Phase 6E). */
   grpcStepResultStore?: import('../utils/grpcWorkflowStepResultStore').GrpcWorkflowStepResultStore;
   /** Collision-safe output namespace publisher (Phase 6F). */

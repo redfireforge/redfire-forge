@@ -96,6 +96,8 @@ export const CAT = {
   /** Tag group addressed by tag name (case-sensitive). */
   tagByName: (name: string) => `[data-testid="catalog-tag-group"][data-tag-name="${name}"]`,
   ENDPOINT_CARD:            '[data-testid="catalog-endpoint-card"]',
+  /** Clickable header row inside the first endpoint card — click to expand. */
+  ENDPOINT_CARD_HEADER:     '[data-testid="catalog-endpoint-card"] .sw-header',
   /** Endpoint card addressed by method + path. */
   endpointCard: (method: string, path: string) => `[data-testid="catalog-endpoint-card"][data-endpoint-method="${method}"][data-endpoint-path="${path}"]`,
 
@@ -111,6 +113,7 @@ export const CAT = {
 
   // ── Endpoint card: Actions / Export / Coverage ──────────────
   EXPORT_TO_REQ_BTN:        '[data-testid="catalog-export-to-req-btn"]',
+  EXPORT_TO_MOCK_BTN:       '[data-testid="catalog-export-to-mock-btn"]',
   SEND_TO_HARNESS_BTN:      '[data-testid="catalog-send-to-harness-btn"]',
   SAVE_AS_TEST_BTN:         '[data-testid="catalog-save-as-test-btn"]',
   EXPOSE_TO_WORKFLOW:       '[data-testid="catalog-expose-to-workflow"]',

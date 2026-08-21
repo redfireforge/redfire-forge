@@ -51,7 +51,6 @@ import {
 } from './useWebSocketStudioTypes';
 import { startWsProxyPolling } from './wsProxyPolling';
 import { disconnectWebSocketConnection } from './wsDisconnect';
-
 export type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter, WsTransportMode, UseWebSocketStudioReturn };
 
 export function useWebSocketStudio(
@@ -114,8 +113,6 @@ export function useWebSocketStudio(
   const unlistenClosedRef = useRef<(() => void) | null>(null);
   const envVarMapRef = useRef<Record<string, string>>(envVarMap ?? {});
   const globalAuthProfilesRef = useRef<GlobalAuthProfile[]>(globalAuthProfiles ?? []);
-  // Auth resolved at connect time (headers + query params) — re-resolved on
-  // every connect/reconnect so OAuth2 tokens stay fresh.
   const resolvedAuthRef = useRef<ResolvedAuth>({ headers: [], queryParams: [] });
 
   maxMessagesRef.current = maxMessages;
@@ -137,9 +134,6 @@ export function useWebSocketStudio(
   }, []);
 
   const setTlsConfig = useCallback((patch: Partial<WsTlsConfig>) => {
-    // Update the ref synchronously BEFORE setState. Connect reads tlsConfigRef,
-    // and React may defer functional updaters until render — so putting the ref
-    // write inside setState((prev) => …) still races apply-then-Connect demos.
     const next = { ...tlsConfigRef.current, ...patch };
     tlsConfigRef.current = next;
     setTlsConfigFull(next);
@@ -174,16 +168,15 @@ export function useWebSocketStudio(
     }
   }, []);
 
-  // Tear down a proxy connection lost mid-poll (caller supplies the state patch:
-  // block A clears `lastError`, block B leaves it untouched).
   const failProxyConnection = useCallback(
     (next: Partial<WsConnectionSnapshot>) => {
       stopProxyPolling();
       setConnection((prev) => ({ ...prev, ...next }));
       resetConnectionTiming();
       proxyConnectionIdRef.current = null;
-      // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- short-circuit reconnect scheduling
-      !manualDisconnectRef.current && scheduleReconnectRef.current();
+      if (!manualDisconnectRef.current) {
+        scheduleReconnectRef.current();
+      }
     },
     [stopProxyPolling, resetConnectionTiming, scheduleReconnectRef],
   );
@@ -282,12 +275,8 @@ export function useWebSocketStudio(
     unlistenClosedRef.current = unlistenClosed;
   }, [stopNativeListeners, appendMessage, resetConnectionTiming, updateDetectedProtocol, lastReconnectErrorRef, scheduleReconnectRef]);
 
-  // ── Cleanup ─────────────────────────────────────────────────────────────────
-
   const cleanupRef = useRef(() => {});
   cleanupRef.current = () => {
-    // Only fully cancel reconnect on cleanup if NOT in a reconnect cycle
-    // (during reconnect, the reconnect hook manages its own timer)
     if (!reconnectingRef.current) {
       cancelReconnect();
     }
@@ -314,8 +303,6 @@ export function useWebSocketStudio(
     stopNativeListeners();
     resetConnectionTiming();
   };
-
-  // ── Direct Transport ────────────────────────────────────────────────────────
 
   const connectDirect = useCallback(() => {
     const effectiveUrl = appendAuthQueryParams(
@@ -446,8 +433,6 @@ export function useWebSocketStudio(
     };
   }, [appendMessage, startUptimeTimer, resetConnectionTiming, updateDetectedProtocol, connectedAtRef, cancelReconnect, lastReconnectErrorRef, scheduleReconnectRef]);
 
-  // ── Proxy Transport ─────────────────────────────────────────────────────────
-
   const connectProxy = useCallback(async () => {
     const currentDraft = draftRef.current;
     const evm = envVarMapRef.current;
@@ -530,8 +515,6 @@ export function useWebSocketStudio(
     }
   }, [startUptimeTimer, startProxyPolling, startNativeListeners, appendMessage, updateDetectedProtocol, connectedAtRef, cancelReconnect, lastReconnectErrorRef, scheduleReconnectRef]);
 
-  // ── Public API ──────────────────────────────────────────────────────────────
-
   const connect = useCallback(() => {
     const evm = envVarMapRef.current;
     const effectiveUrlForDisplay = buildResolvedEffectiveUrl(draftRef.current, evm);
@@ -546,20 +529,12 @@ export function useWebSocketStudio(
     }
     cleanupRef.current();
 
-    // Choose a transport from the resolved auth. Header-based auth forces the
-    // proxy in the browser since the direct WebSocket transport cannot set
-    // custom headers; query-based auth (API key in query) works on every
-    // transport.
     const route = (resolvedAuth: ResolvedAuth) => {
       resolvedAuthRef.current = resolvedAuth;
       if (isTauri()) {
         connectProxy();
         return;
       }
-      // wss://localhost and wss://127.0.0.1 with self-signed certs always fail
-      // in the browser's Direct transport (the browser rejects untrusted certs).
-      // Route through the Node.js proxy so TLS options can be applied server-side.
-      // This also avoids corporate proxy / VPN interference with localhost.
       const isLocalWss = resolvedEffective.startsWith('wss://') &&
         /^wss:\/\/(localhost|127\.0\.0\.1)([:/?#]|$)/i.test(resolvedEffective);
       const needsProxy = hasCustomHeaders(draftRef.current) ||
@@ -573,9 +548,6 @@ export function useWebSocketStudio(
       }
     };
 
-    // No auth configured → connect synchronously (preserves legacy timing and
-    // avoids a needless microtask). Auth is resolved asynchronously only when
-    // present, since OAuth2 may fetch a token.
     const effectiveAuth = resolveEffectiveAuth(draftRef.current.auth, globalAuthProfilesRef.current);
     if (!effectiveAuth) {
       route({ headers: [], queryParams: [] });
@@ -641,8 +613,6 @@ export function useWebSocketStudio(
           .catch(async (err) => {
             if (!mountedRef.current) return;
             const msg = toErrorMessage(err);
-            // If the error indicates the connection is already gone, verify its current state
-            // and properly tear it down so the UI reflects reality (prevents silent "nothing happened").
             if (msg.includes('WS_NOT_CONNECTED') || msg.includes('not found') || msg.includes('not open')) {
               try {
                 const statusEnv = await dispatchWsOperation<{ state: string; lastError?: string }>(
@@ -712,13 +682,9 @@ export function useWebSocketStudio(
     setReceivedCount(0);
   }, []);
 
-  // Wire connectFnRef so the reconnect hook can call connect()
   connectFnRef.current = connect;
 
   useEffect(() => {
-    // Set true on (re)mount — React 18 StrictMode mounts, unmounts (cleanup sets
-    // this false), then remounts in dev; without resetting here the ref would stay
-    // false and silently disable reconnect/polling guards.
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;

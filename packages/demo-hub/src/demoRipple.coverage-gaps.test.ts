@@ -92,6 +92,7 @@ describe('demoRipple', () => {
     const dispose = showSpotlightRing(target, { steady: true });
     const ring = document.querySelector('.demo-spotlight-ring');
     expect(ring?.classList.contains('demo-spotlight-ring--steady')).toBe(true);
+    expect(ring?.classList.contains('demo-spotlight-ring--local')).toBe(true);
     dispose();
   });
 

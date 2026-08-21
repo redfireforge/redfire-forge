@@ -1,5 +1,6 @@
 import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig, KafkaResultsPublishConfig } from '../../../shared/types';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
+import type { ApiMockTestFixtureConfig } from '../utils/apiMockTestFixture';
 
 export type HostMode = 'hardcoded' | 'settings' | 'custom';
 export type UnorderedOverride = 'default' | 'force-on' | 'force-off';
@@ -29,6 +30,8 @@ export interface RunnerConfig {
   autoReportFormat?: ReportOptions['format'];
   /** Optional Kafka results publishing configuration. When present and enabled, run summaries are published after completion. */
   kafkaResultsPublish?: KafkaResultsPublishConfig;
+  /** Optional API Mock Studio fixture (Phase 11C). */
+  apiMockFixture?: ApiMockTestFixtureConfig;
 }
 
 export const defaultLoadProfile: LoadProfileConfig = {
@@ -74,6 +77,8 @@ export interface ResolvedConfig {
   autoReportFormat: ReportOptions['format'];
   /** Optional Kafka results publishing configuration. Passed through as-is from saved config (no default applied — field is opt-in). */
   kafkaResultsPublish?: KafkaResultsPublishConfig;
+  /** Optional API Mock Studio fixture (Phase 11C). */
+  apiMockFixture?: ApiMockTestFixtureConfig;
 }
 
 /**
@@ -109,5 +114,6 @@ export function resolveLoadedConfig(raw: unknown): ResolvedConfig | null {
     autoReport: saved.autoReport ?? false,
     autoReportFormat: saved.autoReportFormat ?? 'html',
     kafkaResultsPublish: saved.kafkaResultsPublish,
+    apiMockFixture: saved.apiMockFixture,
   };
 }

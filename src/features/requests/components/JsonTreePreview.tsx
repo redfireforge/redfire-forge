@@ -109,17 +109,20 @@ function highlightSearch(text: string, search: string): ReactNode {
   return parts.length > 0 ? <>{parts}</> : text;
 }
 
-function JsonTreeNode({ node, depth, search, activeMatchNode, activeMatchRef, collapsedSet, onToggle, path }: {
+function JsonTreeNode({ node, depth, search, activeMatchNode, activeMatchRef, collapsedSet, onToggle, path, forceExpandAll }: {
   node: JNode; depth: number; search: string;
   activeMatchNode: JNode | null; activeMatchRef: RefObject<HTMLDivElement | null>;
   collapsedSet: Set<string>; onToggle: (path: string) => void; path: string;
+  forceExpandAll?: boolean;
 }) {
   const hasChildren = (node.children?.length ?? 0) > 0;
   const hasMatchDescendant = useMemo(() => search ? nodeMatches(node, search) : false, [node, search]);
 
   // User's explicit collapse (collapsedSet) always wins.
-  // When search is active, auto-expand nodes with matching descendants (unless user collapsed).
-  const expanded = !collapsedSet.has(path) && (!search || hasMatchDescendant);
+  // When search is active, auto-expand nodes with matching descendants — unless
+  // Expand all is in effect (forceExpandAll), in which case every node stays open
+  // so the user can browse the whole document while a search is highlighted.
+  const expanded = !collapsedSet.has(path) && (forceExpandAll || !search || hasMatchDescendant);
 
   const lower = search?.toLowerCase() ?? '';
   const keyMatch = lower && node.key.toLowerCase().includes(lower);
@@ -176,7 +179,8 @@ function JsonTreeNode({ node, depth, search, activeMatchNode, activeMatchRef, co
           {node.children!.map((child, i) => (
             <JsonTreeNode key={`${child.key}-${i}`} node={child} depth={depth + 1}
               search={search} activeMatchNode={activeMatchNode} activeMatchRef={activeMatchRef}
-              collapsedSet={collapsedSet} onToggle={onToggle} path={`${path}/${child.key}`} />
+              collapsedSet={collapsedSet} onToggle={onToggle} path={`${path}/${child.key}`}
+              forceExpandAll={forceExpandAll} />
           ))}
           <div className="jt-row" style={{ paddingLeft: depth * 18 }}>
             <span className="jt-toggle-spacer" />
@@ -247,12 +251,14 @@ function RawBodyWithSearch({ body, search, currentMatchIdx = 0, onMatchCountChan
   );
 }
 
-export default function JsonPreview({ body, error, search, currentMatchIdx = 0, onMatchCountChange, collapsedSet, onToggle, prebuiltTree }: {
+export default function JsonPreview({ body, error, search, currentMatchIdx = 0, onMatchCountChange, collapsedSet, onToggle, prebuiltTree, forceExpandAll }: {
   body: string; error?: string; search?: string;
   currentMatchIdx?: number;
   onMatchCountChange?: (count: number) => void;
   collapsedSet: Set<string>; onToggle: (path: string) => void;
   prebuiltTree?: JNode | null;
+  /** When true, Expand all overrides the search-focus auto-collapse so every node stays open. */
+  forceExpandAll?: boolean;
 }) {
   const activeMatchRef = useRef<HTMLDivElement>(null);
 
@@ -309,7 +315,8 @@ export default function JsonPreview({ body, error, search, currentMatchIdx = 0, 
       <div className="jt-tree">
         <JsonTreeNode node={tree} depth={0} search={search ?? ''}
           activeMatchNode={activeNode} activeMatchRef={activeMatchRef}
-          collapsedSet={collapsedSet} onToggle={onToggle} path="" />
+          collapsedSet={collapsedSet} onToggle={onToggle} path=""
+          forceExpandAll={forceExpandAll} />
       </div>
     </div>
   );

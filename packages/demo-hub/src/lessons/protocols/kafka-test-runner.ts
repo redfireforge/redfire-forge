@@ -15,9 +15,20 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { ensureKafkaConnected } from '../setup-helpers';
-import { deleteWorkflowByName, seedNamedWorkflow } from '../../adapters';
-import { HAR } from '@shared/selectors';
-import { showSpotlightRing } from '../../demoRipple';
+import {
+  applyRunnerBatchConfig,
+  deleteWorkflowByName,
+  seedNamedWorkflow,
+  selectAndRunRunnerWorkflow,
+  selectRunnerWorkflowByName,
+  waitForRunnerBridge,
+} from '../../adapters';
+import { HAR, WFR } from '@shared/selectors';
+import { showClickRipple, showSpotlightRing } from '../../demoRipple';
+
+const DEMO_WF_NAME = 'Kafka Produce Demo';
+const DEMO_ITERATIONS = 3;
+const DEMO_CONCURRENCY = 1;
 
 // ── Kafka Produce Demo Workflow Factory ────────────────────────────
 
@@ -28,7 +39,7 @@ function createKafkaHarnessDemoWorkflow(): Record<string, unknown> {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    name: 'Kafka Produce Demo',
+    name: DEMO_WF_NAME,
     schemaVersion: 6,
     variables: { topic: 'orders.created' },
     services: [],
@@ -47,7 +58,7 @@ function createKafkaHarnessDemoWorkflow(): Record<string, unknown> {
         position: { x: 250, y: 160 },
         data: {
           label: 'Kafka Produce',
-          clusterId: '',
+          clusterId: 'demo-cluster',
           topic: '{{topic}}',
           keyTemplate: '',
           partition: undefined,
@@ -80,7 +91,7 @@ async function kafkaHarnessRunSetup(ctx: DemoActionContext): Promise<void> {
   // Connect to the plaintext broker via API (bypasses UI state issues)
   await ensureKafkaConnected();
 
-  await seedNamedWorkflow(ctx, 'Kafka Produce Demo', createKafkaHarnessDemoWorkflow(), {
+  await seedNamedWorkflow(ctx, DEMO_WF_NAME, createKafkaHarnessDemoWorkflow(), {
     deleteDelayMs: 0,
     insertPreDelayMs: 100,
     insertDelayMs: 0,
@@ -91,7 +102,7 @@ async function kafkaHarnessRunSetup(ctx: DemoActionContext): Promise<void> {
 }
 
 async function kafkaHarnessRunCleanup(ctx: DemoActionContext): Promise<void> {
-  deleteWorkflowByName('Kafka Produce Demo');
+  deleteWorkflowByName(DEMO_WF_NAME);
   ctx.navigateToTab('workflow-runner');
   await ctx.delay(300);
 }
@@ -104,22 +115,83 @@ async function selectKafkaProduceDemo(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor('.wfp-dropdown-panel');
   await ctx.delay(400);
   const items = Array.from(document.querySelectorAll('.wfp-dropdown-item'));
-  const target = items.find((el) => el.textContent?.includes('Kafka Produce Demo')) as HTMLElement | undefined;
+  const target = items.find((el) => el.textContent?.includes(DEMO_WF_NAME)) as HTMLElement | undefined;
   if (target) {
     target.click();
     await ctx.delay(700);
+  } else {
+    selectRunnerWorkflowByName(DEMO_WF_NAME);
+    await ctx.delay(400);
   }
 }
 
-/** Click Run Workflow and wait for the completion section to appear. */
+/** Locate ▶ Run Workflow — test id preferred (not nested under .config-form). */
+function findKafkaRunnerRunButton(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(WFR.RUN_BTN)
+    ?? Array.from(document.querySelectorAll<HTMLElement>('.workflow-runner-run-bar .btn-primary, .form-actions .btn-primary'))
+      .find((el) => el.textContent?.includes('Run Workflow'))
+    ?? null;
+}
+
+/**
+ * Click Run Workflow and wait for the completion section.
+ * Uses the Workflow Runner test id + runner bridge — the old
+ * `.config-form .form-actions .btn-primary` selector never matched the run bar,
+ * so Acting sat in a silent 15s poll with no click.
+ */
 async function runKafkaWorkflow(ctx: DemoActionContext): Promise<void> {
-  await ctx.click('.config-form .form-actions .btn-primary');
-  for (let i = 0; i < 30; i++) {
-    await ctx.delay(500);
-    if (document.querySelector('.completion-section')) break;
+  if (document.querySelector('.completion-section')) return;
+
+  await waitForRunnerBridge(ctx, 4000);
+  selectRunnerWorkflowByName(DEMO_WF_NAME);
+  applyRunnerBatchConfig(DEMO_ITERATIONS, DEMO_CONCURRENCY, 'standard');
+  await ctx.delay(200);
+
+  const runBtn = findKafkaRunnerRunButton();
+  if (runBtn) {
+    runBtn.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    await ctx.delay(400);
+    showClickRipple(runBtn);
+    await ctx.delay(350);
   }
-  document.querySelector('.completion-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  await ctx.delay(600);
+
+  // Prefer bridge start (reliable); fall back to a real button click.
+  let started = selectAndRunRunnerWorkflow(DEMO_WF_NAME);
+  if (!started && runBtn) {
+    runBtn.click();
+    started = true;
+  } else if (!started) {
+    await ctx.click(WFR.RUN_BTN);
+    started = !!document.querySelector(WFR.STOP_BTN) || !!document.querySelector('.completion-section');
+  }
+
+  if (!started && !document.querySelector(WFR.STOP_BTN)) {
+    console.warn('[DemoHub] Kafka harness: Run Workflow did not start — is Kafka/server:dev running?');
+    return;
+  }
+
+  // Poll for completion; spotlight live progress when present so Acting isn't blank.
+  for (let i = 0; i < 40; i++) {
+    if (document.querySelector('.completion-section')) break;
+    const progress = document.querySelector<HTMLElement>('.live-progress-panel, [data-testid="live-progress"], .progress-section');
+    if (progress && i % 4 === 0) {
+      const dispose = showSpotlightRing(progress);
+      await ctx.delay(700);
+      dispose();
+    } else {
+      await ctx.delay(350);
+    }
+  }
+
+  const completion = document.querySelector<HTMLElement>('.completion-section');
+  completion?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (completion) {
+    const dispose = showSpotlightRing(completion);
+    await ctx.delay(1000);
+    dispose();
+  } else {
+    await ctx.delay(400);
+  }
 }
 
 // ── Lesson Definition ──────────────────────────────────────────────
@@ -323,10 +395,16 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
       title: 'Run the Kafka Workflow',
       description:
         'Click **▶ Run Workflow**. The harness executes 3 iterations sequentially. Each iteration runs Start → kafkaProduce (produce one message to `orders.created`) → End. A progress indicator shows each node completing.',
-      highlight: '.config-form .form-actions .btn-primary',
+      highlight: WFR.RUN_BTN,
+      preAction: async (ctx) => {
+        selectRunnerWorkflowByName(DEMO_WF_NAME);
+        applyRunnerBatchConfig(DEMO_ITERATIONS, DEMO_CONCURRENCY, 'standard');
+        await ctx.delay(80);
+      },
       action: async (ctx) => {
         await runKafkaWorkflow(ctx);
       },
+      verify: '.completion-section',
     },
 
     // Step 6: Completion banner
@@ -341,7 +419,7 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
         '2. Start the stack if needed: `cd docker/kafka/plaintext && docker compose up -d`\n' +
         '3. Go to **Kafka Settings** → click **Connect** to reconnect\n' +
         '4. Re-run the workflow after the broker is up',
-      highlight: '.completion-section, .wfp-completion-banner',
+      highlight: WFR.COMPLETION,
     },
 
     // Step 7: Navigate to Results Dashboard
@@ -350,18 +428,31 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
       title: 'View Results Dashboard',
       description:
         'Click **View Full Results →** (or navigate to the **Results** tab). The dashboard automatically filters to this workflow run. You\'ll see 3 rows — one per iteration — each showing the PRODUCE method badge.',
-      highlight: '.completion-section a, .wfp-view-results-btn',
+      highlight: WFR.VIEW_RESULTS_BTN,
+      preAction: async (ctx) => {
+        const btn = document.querySelector<HTMLElement>(WFR.VIEW_RESULTS_BTN)
+          ?? document.querySelector<HTMLElement>(`${WFR.COMPLETION} .btn-primary`);
+        btn?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        await ctx.delay(120);
+      },
       action: async (ctx) => {
-        // Try clicking the "View Full Results" link first
-        const link = document.querySelector<HTMLElement>('.wfp-view-results-btn, .completion-section a, [data-testid="view-results-btn"]');
-        if (link) {
-          link.click();
-          await ctx.delay(600);
+        const btn = document.querySelector<HTMLElement>(WFR.VIEW_RESULTS_BTN)
+          ?? document.querySelector<HTMLElement>(`${WFR.COMPLETION} .btn-primary`);
+        if (btn) {
+          btn.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          const dispose = showSpotlightRing(btn);
+          await ctx.delay(1200);
+          dispose();
+          showClickRipple(btn);
+          await ctx.delay(350);
+          btn.click();
+          await ctx.delay(700);
         } else {
           ctx.navigateToTab('results');
           await ctx.delay(600);
         }
       },
+      verify: '.results-run-filter-tabs, [data-testid="results-tab-requests"], .results-dashboard',
     },
 
     // Step 8: PRODUCE badges

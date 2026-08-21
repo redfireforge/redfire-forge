@@ -5,8 +5,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from '@testing-library/react';
 import { makeVisible } from './lessons/protocols/ws-test-utils';
 import {
+  advanceToPhase,
   makeLesson,
   renderDemoHub,
+  withStubbedLessonBody,
 } from './useDemoHub.coverage-helpers';
 import {
   setupUseDemoHubCoverageBeforeEach,
@@ -330,10 +332,9 @@ describe('useDemoHub — coverage gaps (navigation & teardown)', () => {
       ],
     });
     act(() => result.current.selectLesson(lesson));
-    await act(async () => {
-      void result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(200);
-    });
+    await act(async () => { void result.current.startLiveDemo(); });
+    // nextStep only routes through finishCurrentStepFromReading while reading.
+    await advanceToPhase(result, 'reading');
     await act(async () => {
       void result.current.nextStep();
       await vi.advanceTimersByTimeAsync(100);
@@ -614,31 +615,26 @@ describe('useDemoHub — coverage gaps (navigation & teardown)', () => {
       speed: 1,
       savedAt: Date.now(),
     });
-    const { result } = renderDemoHub(navigateToTab);
-    act(() => result.current.selectLesson(gqlFirstQueryLesson));
-    // gqlFirstQueryLesson.steps[0] has pauseAfter:true → calcReadingTime returns ~34s.
-    // Advance 40s of fake time so the reading pause fires within advanceTimersByTimeAsync.
-    await act(async () => {
-      const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(35000);
-      await p;
-    });
-    act(() => {
-      result.current.selectDomain({
-        id: gqlFirstQueryLesson.domainId,
-        name: 'Protocols',
-        icon: 'P',
-        description: 'Protocol demos',
-        lessons: [],
-        available: true,
+    await withStubbedLessonBody(gqlFirstQueryLesson, async () => {
+      const { result } = renderDemoHub(navigateToTab);
+      act(() => result.current.selectLesson(gqlFirstQueryLesson));
+      act(() => {
+        result.current.selectDomain({
+          id: gqlFirstQueryLesson.domainId,
+          name: 'Protocols',
+          icon: 'P',
+          description: 'Protocol demos',
+          lessons: [],
+          available: true,
+        });
       });
+      await act(async () => {
+        const p = result.current.exitLiveDemo();
+        await vi.advanceTimersByTimeAsync(2000);
+        await p;
+      });
+      expect(teardownSpy).toHaveBeenCalled();
     });
-    await act(async () => {
-      const p = result.current.exitLiveDemo();
-      await vi.advanceTimersByTimeAsync(2000);
-      await p;
-    });
-    expect(teardownSpy).toHaveBeenCalled();
     teardownSpy.mockRestore();
     readSpy.mockRestore();
   });

@@ -2,9 +2,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { readStructuredFile } from './fileParsing';
 import type {
   Scenario, TestConfig, AuthConfig, ValidationConfig, Assertion, Extraction,
-  KeyValue, ExecutionMode, ErrorPolicy, LoadProfileConfig, DataSource,
-} from '../src/types';
+  KeyValue, ExecutionMode, ErrorPolicy, LoadProfileConfig, DataSource, DataSourceColumn, DataSourceRow,
+} from '../src/shared/types';
 import { buildDataSourceFromInline } from './dataLoader';
+
+const DATA_SOURCE_COLUMN_TYPES: DataSourceColumn['type'][] = ['path', 'param', 'body', 'header', 'validate'];
 
 // ── YAML/JSON test file schema ──────────────────────────────
 
@@ -28,8 +30,21 @@ interface TestFileScenario {
   weight?: number;
   featureGroup?: string;
   scenario?: string;
-  /** Inline data source for parameterized testing */
+  /** Inline data source for parameterized testing (compact CLI shorthand) */
   data?: { columns?: string[]; rows: (string[] | Record<string, unknown>)[] };
+  /**
+   * Inline data source using the full native schema (same shape the GUI exports/imports —
+   * columns with id/name/type/mapping, rows with id/values/tags/enabled/note). Takes priority
+   * over `data` when both are present. Row `values` may be keyed by column `id` or column `name`.
+   */
+  dataSource?: Record<string, unknown>;
+  /**
+   * Custom assertions directly on the test (compact shorthand for `validation.assertions`).
+   * Merged with any assertions already nested under `validation:` when both are present.
+   * Assertions run regardless of `validation.mode` — mode only gates the separate
+   * expectedJson/expectedFields checks.
+   */
+  assertions?: Assertion[];
   /** Scenario-level tags for CLI filtering (e.g., ['smoke', 'regression']) */
   tags?: string[];
 }
@@ -121,8 +136,16 @@ function toAuth(a?: TestFileAuth): AuthConfig {
   };
 }
 
-function toValidation(v?: TestFileValidation): ValidationConfig {
-  if (!v || v.mode === 'none') return { mode: 'none', assertions: v?.assertions };
+/**
+ * Merges `v.assertions` (nested under `validation:`) with `topLevelAssertions` (the compact
+ * top-level `assertions:` shorthand on a test) — see BUG-5. Assertions run regardless of
+ * `mode`; `mode` only gates the separate `expectedJson`/`expectedFields` checks below.
+ */
+function toValidation(v: TestFileValidation | undefined, topLevelAssertions?: Assertion[]): ValidationConfig {
+  const assertions = [...(v?.assertions ?? []), ...(topLevelAssertions ?? [])];
+  const merged = assertions.length ? assertions : undefined;
+
+  if (!v || v.mode === 'none') return { mode: 'none', assertions: merged };
   return {
     mode: v.mode,
     expectedJson: v.expectedJson,
@@ -130,13 +153,103 @@ function toValidation(v?: TestFileValidation): ValidationConfig {
     selectiveMode: v.selectiveMode,
     excludedPaths: v.excludedPaths,
     unorderedArrays: v.unorderedArrays,
-    assertions: v.assertions,
+    assertions: merged,
   };
 }
 
 function toHeaders(h?: Record<string, string>): KeyValue[] {
   if (!h) return [];
   return Object.entries(h).map(([key, value]) => ({ key, value }));
+}
+
+// ── Native inline dataSource (full GUI-native schema) ────────
+
+function toNativeDataSourceColumn(raw: unknown, index: number, testName: string): DataSourceColumn {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error(`Test "${testName}": dataSource.columns[${index}] must be an object.`);
+  }
+  const c = raw as Record<string, unknown>;
+  const name = typeof c.name === 'string' ? c.name.trim() : '';
+  if (!name) {
+    throw new Error(`Test "${testName}": dataSource.columns[${index}] is missing required "name".`);
+  }
+  const type = (typeof c.type === 'string' ? c.type : 'param') as DataSourceColumn['type'];
+  if (!DATA_SOURCE_COLUMN_TYPES.includes(type)) {
+    throw new Error(
+      `Test "${testName}": dataSource.columns[${index}] ("${name}") has invalid type "${type}". ` +
+      `Expected one of: ${DATA_SOURCE_COLUMN_TYPES.join(', ')}.`,
+    );
+  }
+  const mapping = typeof c.mapping === 'string' ? c.mapping.trim() : '';
+  if (type === 'validate' && !mapping) {
+    // Unlike path/param/body/header (where defaulting mapping to the column name is a
+    // reasonable shorthand), a validate column's mapping IS the JSONPath the engine matches
+    // against — defaulting it to the human-readable name would silently produce a bogus
+    // JSONPath that never matches anything, so this must be explicit.
+    throw new Error(
+      `Test "${testName}": dataSource.columns[${index}] ("${name}") is type "validate" and must ` +
+      `specify a "mapping" (JSONPath, e.g. "$.name") — it cannot default to the column name.`,
+    );
+  }
+  return {
+    id: typeof c.id === 'string' && c.id ? c.id : uuidv4(),
+    name,
+    type,
+    mapping: mapping || name,
+    description: typeof c.description === 'string' ? c.description : undefined,
+  };
+}
+
+function toNativeDataSourceRow(raw: unknown, index: number, columns: DataSourceColumn[], testName: string): DataSourceRow {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error(`Test "${testName}": dataSource.rows[${index}] must be an object.`);
+  }
+  const r = raw as Record<string, unknown>;
+  if (!r.values || typeof r.values !== 'object') {
+    throw new Error(`Test "${testName}": dataSource.rows[${index}] is missing a "values" object.`);
+  }
+  // Accept values keyed by column id (native/GUI export) or column name (friendlier for hand-authored files).
+  const idByName = new Map(columns.map(col => [col.name, col.id]));
+  const knownIds = new Set(columns.map(col => col.id));
+  const values: Record<string, string> = {};
+  for (const [key, value] of Object.entries(r.values as Record<string, unknown>)) {
+    const columnId = knownIds.has(key) ? key : idByName.get(key) ?? key;
+    values[columnId] = value == null ? '' : String(value);
+  }
+  const tags = Array.isArray(r.tags)
+    ? r.tags.map(t => String(t).toLowerCase().trim()).filter(Boolean)
+    : undefined;
+  return {
+    id: typeof r.id === 'string' && r.id ? r.id : uuidv4(),
+    label: typeof r.label === 'string' ? r.label : undefined,
+    values,
+    enabled: r.enabled !== false,
+    tags: tags?.length ? tags : undefined,
+    note: typeof r.note === 'string' ? r.note : undefined,
+  };
+}
+
+/**
+ * Build a DataSource from the full native `dataSource:` schema (same shape the GUI
+ * exports/imports) instead of the compact `data:` shorthand. Unlike `data:`, this
+ * preserves row-level tags/notes/labels and every column type (path/param/body/header/validate).
+ */
+function buildDataSourceFromNative(raw: Record<string, unknown>, testName: string): DataSource {
+  if (!Array.isArray(raw.columns) || raw.columns.length === 0) {
+    throw new Error(`Test "${testName}": dataSource.columns must be a non-empty array.`);
+  }
+  if (!Array.isArray(raw.rows) || raw.rows.length === 0) {
+    throw new Error(`Test "${testName}": dataSource.rows must be a non-empty array.`);
+  }
+  const columns = raw.columns.map((c, i) => toNativeDataSourceColumn(c, i, testName));
+  const rows = raw.rows.map((r, i) => toNativeDataSourceRow(r, i, columns, testName));
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : uuidv4(),
+    label: typeof raw.label === 'string' && raw.label ? raw.label : testName,
+    columns,
+    rows,
+    source: { type: 'inline' },
+  };
 }
 
 function resolveUrl(url: string, baseUrl?: string): string {
@@ -168,8 +281,12 @@ export function buildScenarios(file: TestFile, cliBaseUrl?: string, externalData
       fallback: e.fallback,
     }));
 
-    // Data source: CLI --data flag takes priority, then inline YAML data
+    // Data source: CLI --data flag wins, then the native dataSource: schema (fuller —
+    // preserves row tags/notes), then the compact data: shorthand.
     let dataSource: DataSource | undefined = externalDataSource;
+    if (!dataSource && t.dataSource) {
+      dataSource = buildDataSourceFromNative(t.dataSource, t.name);
+    }
     if (!dataSource && t.data) {
       dataSource = buildDataSourceFromInline(t.data);
     }
@@ -186,7 +303,7 @@ export function buildScenarios(file: TestFile, cliBaseUrl?: string, externalData
       body: t.body ?? '',
       bodyType: (t.bodyType as Scenario['bodyType']) ?? undefined,
       auth: t.auth ? toAuth(t.auth) : defaultAuth,
-      validation: toValidation(t.validation),
+      validation: toValidation(t.validation, t.assertions),
       extractions,
       featureGroupName: t.featureGroup,
       groupName: t.scenario,

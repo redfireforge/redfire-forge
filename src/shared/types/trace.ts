@@ -165,6 +165,9 @@ export interface ExecutionEventDetails {
   /** Structured gRPC execution details (captured at standard+ trace level) */
   grpcDetails?: CapturedGrpcNodeDetails;
 
+  /** Structured API Mock execution details (Phase 11) */
+  apiMockDetails?: CapturedApiMockNodeDetails;
+
   // Errors
   error?: string;
   errorStack?: string;
@@ -221,6 +224,20 @@ export interface CapturedGrpcNodeDetails {
   bodyPreview?: string;
 }
 
+/** Structured capture of an API Mock workflow node for Results Explorer (Phase 11). */
+export interface CapturedApiMockNodeDetails {
+  transport: 'apiMockStart' | 'apiMockApply' | 'apiMockResetState' | 'apiMockStop' | 'apiMockAssertCalls';
+  serverId?: string;
+  port?: number;
+  generation?: number;
+  durationMs: number;
+  /** Journal transaction IDs for assert / deep-link */
+  transactionIds?: string[];
+  nearMisses?: string[];
+  expected?: string;
+  actual?: string;
+}
+
 /**
  * Single node execution event within a workflow iteration.
  * Ordered list of these events represents the execution path.
@@ -236,7 +253,8 @@ export interface ExecutionEvent {
            'webhook' | 'schedule' | 'start' | 'errorHandler' |
            'kafkaProduce' | 'kafkaConsume' | 'kafkaTrigger' | 'kafkaWait' |
            'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' |
-           'grpcUnary' | 'grpcServerStream' | 'grpcAssert';
+           'grpcUnary' | 'grpcServerStream' | 'grpcAssert' |
+           'apiMockStart' | 'apiMockApply' | 'apiMockResetState' | 'apiMockStop' | 'apiMockAssertCalls';
 
   /** User-visible node label */
   nodeLabel: string;

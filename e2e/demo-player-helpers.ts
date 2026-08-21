@@ -131,7 +131,7 @@ export async function selectProtocolsDomain(page: Page): Promise<void> {
 /** Click a category tab by name. */
 export async function selectCategory(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC' | 'API Mock',
 ): Promise<void> {
   const tab = page
     .locator('.demo-category-tab')
@@ -172,7 +172,7 @@ export async function startLesson(page: Page): Promise<void> {
  */
 export async function launchLesson(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC' | 'API Mock',
   lessonNameFragment: string,
 ): Promise<void> {
   await openDemoHub(page);
@@ -180,6 +180,17 @@ export async function launchLesson(
   await selectCategory(page, category);
   await openLesson(page, lessonNameFragment);
   await startLesson(page);
+}
+
+/**
+ * Demo Hub → Protocols → API Mock → lesson → Start.
+ * Every AM lesson that starts a listener or sends traffic needs the companion (:3001).
+ */
+export async function launchApiMockLesson(
+  page: Page,
+  lessonNameFragment: string,
+): Promise<void> {
+  await launchLesson(page, 'API Mock', lessonNameFragment);
 }
 
 /** Wait for a Docker PrerequisiteGate to report the server is up (enables Start Demo). */
@@ -251,13 +262,23 @@ export async function waitForReadingPhase(
 /** Click the skippable reading badge when the step is still in reading phase. */
 export async function skipReadingPause(page: Page): Promise<void> {
   const badge = page.locator('.demo-live-phase-badge.skippable');
-  if (await badge.isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await badge.isVisible({ timeout: 5_000 }).catch(() => false)) {
     await badge.click();
   }
 }
 
-/** Wait until the step action pipeline is running (not reading/done). */
+/** Wait until the step action pipeline is running (not reading/done).
+ * Observation-only steps may never reach action/verify; in that case the step is
+ * considered valid once it reaches reading or done without any user action.
+ */
 export async function waitForActionPhase(page: Page, timeout = 5_000): Promise<void> {
+  const panel = page.locator('[data-testid="demo-live-panel"]');
+  const currentPhase = await panel.getAttribute('data-step-phase').catch(() => null);
+
+  if (currentPhase === 'reading' || currentPhase === 'done') {
+    return;
+  }
+
   await page.waitForFunction(
     () => {
       const phase = document
@@ -303,7 +324,6 @@ export async function runNextStep(
   actionTimeoutMs = STEP_TIMEOUT,
 ): Promise<void> {
   const panelSel = '[data-testid="demo-live-panel"]';
-  const counterSel = '.demo-live-step-counter';
   const nextBtn = page.locator('[aria-label="Next step"]');
   let phase = await page.locator(panelSel).getAttribute('data-step-phase');
   if (phase === 'done') {
@@ -312,25 +332,7 @@ export async function runNextStep(
     return;
   }
 
-  if (phase === 'reading') {
-    const beforeCounter = (await page.locator(counterSel).textContent().catch(() => null))?.trim() ?? '';
-    if (await nextBtn.isEnabled().catch(() => false)) {
-      await nextBtn.click();
-      const advanced = await page.waitForFunction(
-        ({ sel, before }) => {
-          const el = document.querySelector(sel);
-          return !!el && (el.textContent ?? '').trim() !== before;
-        },
-        { sel: counterSel, before: beforeCounter },
-        { timeout: actionTimeoutMs },
-      ).then(() => true).catch(() => false);
-      if (advanced) {
-        await waitForReadingPhase(page, actionTimeoutMs);
-        return;
-      }
-    }
-  }
-
+  // Next is disabled during reading — always complete the step action first.
   if (phase !== 'reading') {
     await waitForReadingPhase(page, actionTimeoutMs);
     phase = await page.locator(panelSel).getAttribute('data-step-phase');

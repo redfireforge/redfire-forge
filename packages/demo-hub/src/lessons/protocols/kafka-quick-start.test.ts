@@ -1,11 +1,18 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaQuickStartLesson } from './kafka-quick-start';
 
 vi.mock('../../demoRipple', () => ({ showSpotlightRing: () => () => {} }));
+
+const clearAllKafkaClusters = vi.fn();
+vi.mock('../../adapters/kafkaStudioAdapter', () => ({
+  clearAllKafkaClusters: (...args: unknown[]) => clearAllKafkaClusters(...args),
+  deleteKafkaClusterById: vi.fn(),
+  deleteKafkaClusterByName: vi.fn(),
+}));
 
 describe('kafka-quick-start lesson', () => {
   beforeEach(() => {
@@ -83,38 +90,19 @@ describe('kafka-quick-start lesson', () => {
     expect(typeof kafkaQuickStartLesson.cleanup).toBe('function');
   });
 
-  it('cleanup navigates to kafka-settings and handles empty DOM gracefully', async () => {
+  it('cleanup clears clusters quietly without navigating Settings', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = '';
+    clearAllKafkaClusters.mockClear();
     await expect(kafkaQuickStartLesson.cleanup!(ctx)).resolves.not.toThrow();
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(clearAllKafkaClusters).toHaveBeenCalled();
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
   });
 
-  it('cleanup clicks Edit then Delete when a cluster card exists', async () => {
-    const ctx = makeCtx();
-
-    // Simulate: card div with Edit button inside
-    const card = document.createElement('div');
-    card.setAttribute('data-testid', 'kafka-cluster-card-demo-cluster');
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'kafka-cluster-card-actions';
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn';
-    editBtn.textContent = 'Edit';
-    actionsDiv.appendChild(editBtn);
-    card.appendChild(actionsDiv);
-    document.body.appendChild(card);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
-    document.body.appendChild(deleteBtn);
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.setAttribute('data-testid', 'kafka-confirm-delete-btn');
-    document.body.appendChild(confirmBtn);
-
-    await kafkaQuickStartLesson.cleanup!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+  it('prepareBeforeNavigate clears clusters before Settings paints', async () => {
+    clearAllKafkaClusters.mockClear();
+    await kafkaQuickStartLesson.prepareBeforeNavigate!(makeCtx());
+    expect(clearAllKafkaClusters).toHaveBeenCalled();
   });
 
   it('step ks-intro preAction clears selected class from cluster cards', async () => {

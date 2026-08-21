@@ -4,6 +4,7 @@
  */
 export const HAR = {
   // ── Navigation ──────────────────────────────────────────────────
+  NAV_HARNESS:         '[data-testid="nav-harness"]',
   NAV_SCENARIOS:       '[data-testid="nav-tab-scenarios"]',
   NAV_RUNNER:          '[data-testid="nav-tab-runner"]',
   NAV_PARAM_RUNNER:    '[data-testid="nav-tab-param-runner"]',
@@ -75,6 +76,9 @@ export const HAR = {
 
   // ── Test Runner (TH-4) ────────────────────────────────────────
   HOST_SELECTOR:       '[data-testid="har-host-selector"]',
+  HOST_MOCK_SERVER:    '[data-testid="har-host-mock"]',
+  /** Host radios + API Mock fixture — keep this cluster on screen for Isolate. */
+  RUNNER_MOCK_SETUP:   '[data-testid="har-runner-mock-setup"]',
   HOST_CUSTOM_INPUT:   '.runner-custom-url-input',
   EXEC_CONFIG:         '[data-testid="har-exec-config"]',
   SCENARIO_SELECTOR:   '[data-testid="har-scenario-selector"]',
@@ -84,6 +88,14 @@ export const HAR = {
   LIVE_PROGRESS:       '[data-testid="har-live-progress"]',
   COMPLETION:          '[data-testid="har-completion"]',
   VIEW_RESULTS_BTN:    '[data-testid="har-view-results"]',
+  HARNESS_MOCK_FIXTURE: '[data-testid="har-apimock-fixture"]',
+  HARNESS_MOCK_SERVER:  '[data-testid="har-apimock-fixture-server"]',
+  HARNESS_MOCK_ISOLATE: '[data-testid="har-apimock-fixture-isolate"]',
+  HARNESS_MOCK_ISOLATE_ROW: '[data-testid="har-apimock-fixture-isolate-row"]',
+  HARNESS_MOCK_START:   '[data-testid="har-apimock-fixture-start"]',
+  HARNESS_MOCK_STOPPED: '[data-testid="har-apimock-fixture-stopped"]',
+  HARNESS_MOCK_PORT:    '[data-testid="har-apimock-fixture-port"]',
+  HARNESS_MOCK_FREED_PORT: '[data-testid="har-apimock-fixture-freed-port"]',
 
   // ── Data Source (TH-5) ────────────────────────────────────────
   DS_GRID:             '.data-source-grid',

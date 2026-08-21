@@ -1,21 +1,3 @@
-/**
- * GraphqlScriptEditorModal — Phase 3B (tasks 3B-2, 3B-4, 3B-8)
- *
- * Modal for editing pre-request and post-response scripts for:
- *   - Individual collection items (item.scripts.preRequest / .postResponse)
- *   - Collection-level scripts (collection.preRequestScript / .postResponseScript)
- *
- * Features:
- *   - Monaco JavaScript editor (fills available height when modal is resized)
- *   - Movable (drag header) + resizable (edge/corner handles)
- *   - rf.* completion items (3B-2)
- *   - Script template library dropdown (3B-4) with 7 built-in templates
- *   - Pre-Request / Post-Response tabs
- *   - Execution order diagram (3B-10, collapsible)
- *   - "enabled" toggle for item scripts
- *   - Save / Cancel actions
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
 import { useModalDrag } from '../../../shared/hooks/useModalDrag';
@@ -34,13 +16,10 @@ const handleScriptEditorBeforeMount: BeforeMount = (monaco) => {
   defineGraphqlTheme(monaco);
 };
 
-// ─── Script template library (3B-4) ───────────────────────────────────────────
-
 interface ScriptTemplate {
   label: string;
   description: string;
   code: string;
-  /** Which tab this template is intended for */
   phase: 'pre' | 'post' | 'both';
 }
 
@@ -140,8 +119,6 @@ rf.setHeader('X-API-Key', apiKey);`,
   },
 ];
 
-// ─── rf.* completion items ────────────────────────────────────────────────────
-
 const RF_COMPLETIONS = [
   { label: 'rf.getEnv', insertText: "rf.getEnv('${1:key}')", detail: 'getEnv(key: string): string | undefined' },
   { label: 'rf.setEnv', insertText: "rf.setEnv('${1:key}', '${2:value}')", detail: 'setEnv(key, value): void' },
@@ -171,44 +148,18 @@ const RF_COMPLETIONS = [
   { label: 'rf.operation.variables', insertText: 'rf.operation.variables', detail: 'Record<string, unknown>' },
 ];
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
 export type ScriptEditorContext = 'item' | 'collection';
 
 export interface GraphqlScriptEditorModalProps {
   open: boolean;
-  /** Display name of the item or collection being edited */
   name: string;
-  /** 'item' = per-item scripts; 'collection' = collection-level scripts */
   context: ScriptEditorContext;
-  /** Current script config (for items) */
   scripts?: GraphqlScriptConfig;
-  /** Pre-request script (for collection context) */
   collectionPreScript?: string;
-  /** Post-response script (for collection context) */
   collectionPostScript?: string;
-  /**
-   * Stable unique key for the item/collection being edited (e.g. itemId or collectionId).
-   * When this changes while `open` stays true, the modal resets all editor state so it
-   * reflects the newly-selected item rather than showing stale data.
-   */
   resetKey?: string;
-  /**
-   * Most recent HTTP response from history — used by "Test Script" dry-run.
-   * Pre-request dry-runs always use response=undefined; post-response dry-runs
-   * inject this as rf.response if provided.
-   */
   testResponse?: RfResponseContext;
-  /**
-   * Active environment variables snapshot — injected into the dry-run context so
-   * rf.getEnv() returns real values during "Test Script". When omitted the dry-run
-   * runs with an empty environment (all rf.getEnv() calls return undefined).
-   */
   envSnapshot?: Record<string, string>;
-  /**
-   * Collection-level variables snapshot — injected into the dry-run context for
-   * rf.getCollectionVar() calls. Defaults to empty when omitted.
-   */
   collectionVarsSnapshot?: Record<string, string>;
   onSave: (updated: ScriptEditorSavePayload) => void;
   onClose: () => void;
@@ -216,22 +167,15 @@ export interface GraphqlScriptEditorModalProps {
 
 export interface ScriptEditorSavePayload {
   context: ScriptEditorContext;
-  /** For item context — full updated GraphqlScriptConfig */
   scripts?: GraphqlScriptConfig;
-  /** For collection context — updated collection-level pre-request script */
   collectionPreScript?: string;
-  /** For collection context — updated collection-level post-response script */
   collectionPostScript?: string;
 }
-
-// ─── Phase hints ──────────────────────────────────────────────────────────────
 
 const PHASE_HINTS: Record<'pre' | 'post', string> = {
   pre: 'Runs before the HTTP request — set headers, refresh tokens, or abort early.',
   post: 'Runs after the response — assert results, extract values, or chain to later items.',
 };
-
-// ─── Execution order diagram ──────────────────────────────────────────────────
 
 function ExecutionOrderDiagram() {
   return (
@@ -248,8 +192,6 @@ function ExecutionOrderDiagram() {
     </div>
   );
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function GraphqlScriptEditorModal({
   open,

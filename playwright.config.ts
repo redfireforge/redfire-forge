@@ -150,6 +150,19 @@ const DEMO_GQL110_SPEC = '**/demo-gql-workspace-isolation.spec.ts';
 const DEMO_GRPC1_SPEC = '**/demo-grpc-first-call.spec.ts';
 /** REQ-3 only: Multi-Environment Requests (api › requests) smoke walk. */
 const DEMO_REQ3_SPEC = '**/demo-req-multi-env.spec.ts';
+/** Product: API Mock multi-server §12.2 (companion :3001). */
+const API_MOCK_MULTI_SERVER_SPEC = '**/api-mock-multi-server.spec.ts';
+/**
+ * AM-01…AM-24 — API Mock Studio demo curriculum v2. Each lesson gets an isolated
+ * project (`demo-am01` … `demo-am24`) so a single lesson can be run in dev.
+ */
+const AM_LESSON_IDS = [
+  '01', '02', '03', '04', '05', '06', '07', '08',
+  '09', '10', '11', '12', '13', '14', '15', '16',
+  '17', '18', '19', '20', '21', '22', '23', '24',
+] as const;
+const amLessonSpec = (n: string) => `**/demo-api-mock-am${n}.spec.ts`;
+const DEMO_AM_SPECS = AM_LESSON_IDS.map(amLessonSpec);
 /** Workflows domain (WF-1…WF-8) Demo Hub smoke walks. */
 const DEMO_WF_SPEC = '**/demo-wf-lessons.spec.ts';
 /** GQL-1..3 smoke — first three lessons auto-play (requires port 4010). */
@@ -166,6 +179,8 @@ const withGrpcServer = process.env.E2E_GRPC_SERVER === '1';
 const withWsServer = process.env.E2E_WS_SERVER === '1';
 const withGql5Docker = process.env.E2E_GQL5_DOCKER === '1';
 const withAnyDockerInfra = withDocker || withGraphqlServer || withGrpcServer || withWsServer || withGql5Docker;
+/** Reuse manually running dev servers only when explicitly requested. */
+const reuseExistingE2EServers = process.env.E2E_REUSE_SERVERS === '1';
 
 export default defineConfig({
   testDir: './e2e',
@@ -223,6 +238,8 @@ export default defineConfig({
         DEMO_GQL_LESSONS_SPEC,
         DEMO_GRPC1_SPEC,
         DEMO_REQ3_SPEC,
+        API_MOCK_MULTI_SERVER_SPEC,
+        ...DEMO_AM_SPECS,
         DEMO_WF_SPEC,
       ],
       use: { browserName: 'chromium' },
@@ -440,6 +457,24 @@ export default defineConfig({
       use: { browserName: 'chromium' },
     },
 
+    // ── Product: API Mock multi-server (§12.2, companion :3001, workers: 1) ─
+    {
+      name: 'api-mock',
+      testMatch: API_MOCK_MULTI_SERVER_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── AM-01…AM-24: one isolated project per API Mock lesson (companion :3001) ─
+    ...AM_LESSON_IDS.map((n) => ({
+      name: `demo-am${n}`,
+      testMatch: amLessonSpec(n),
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' as const },
+    })),
+
     // ── Workflows domain: WF-1…WF-8 Demo Hub smoke walks ─
     {
       name: 'demo-wf',
@@ -483,17 +518,15 @@ export default defineConfig({
     {
       command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run server',
       url: 'http://localhost:3001/health',
-      // Backend may already be running from local dev or another batch.
-      // Reuse it to avoid false startup failures on port 3001.
-      reuseExistingServer: true,
+      // Release gates must start a fresh companion; opt into reuse for local debugging.
+      reuseExistingServer: reuseExistingE2EServers,
       timeout: 30_000,
     },
     {
       command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run dev',
       url: 'http://localhost:5173',
-      // Reuse existing frontend server to avoid startup collisions on 5173
-      // when running strict small-batch E2E loops.
-      reuseExistingServer: true,
+      // Release gates must start a fresh frontend; opt into reuse for local debugging.
+      reuseExistingServer: reuseExistingE2EServers,
       timeout: 30_000,
     },
   ],

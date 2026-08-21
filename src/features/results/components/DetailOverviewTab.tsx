@@ -274,8 +274,66 @@ export default function OverviewTab({ events, stats, currentEvent, selectedItera
         </div>
       )}
 
+      {/* API Mock Details (Phase 11) */}
+      {currentEvent && currentEvent.details?.apiMockDetails && (
+        <div className="exec-card" data-testid="exec-apimock-details">
+          <div className="exec-card-header">
+            <span className="exec-card-title">API Mock Details</span>
+            <span className={`exec-status-badge ${currentEvent.state === 'pass' ? 'success' : 'error'}`}>
+              {currentEvent.details.apiMockDetails.transport.replace('apiMock', '').toUpperCase()}
+            </span>
+          </div>
+          <div className="exec-kv-grid">
+            {currentEvent.details.apiMockDetails.serverId && (
+              <>
+                <span className="exec-kv-label">Server</span>
+                <span className="exec-kv-value">{currentEvent.details.apiMockDetails.serverId}</span>
+              </>
+            )}
+            {currentEvent.details.apiMockDetails.port !== undefined && (
+              <>
+                <span className="exec-kv-label">Port</span>
+                <span className="exec-kv-value">{currentEvent.details.apiMockDetails.port}</span>
+              </>
+            )}
+            {currentEvent.details.apiMockDetails.generation !== undefined && (
+              <>
+                <span className="exec-kv-label">Generation</span>
+                <span className="exec-kv-value">{currentEvent.details.apiMockDetails.generation}</span>
+              </>
+            )}
+            <span className="exec-kv-label">Duration</span>
+            <span className="exec-kv-value">{formatDurationMs(currentEvent.details.apiMockDetails.durationMs)}</span>
+            {currentEvent.details.apiMockDetails.expected && (
+              <>
+                <span className="exec-kv-label">Expected</span>
+                <span className="exec-kv-value">{currentEvent.details.apiMockDetails.expected}</span>
+              </>
+            )}
+            {currentEvent.details.apiMockDetails.actual && (
+              <>
+                <span className="exec-kv-label">Actual</span>
+                <span className="exec-kv-value">{currentEvent.details.apiMockDetails.actual}</span>
+              </>
+            )}
+            {!!currentEvent.details.apiMockDetails.transactionIds?.length && (
+              <>
+                <span className="exec-kv-label">Journal IDs</span>
+                <span className="exec-kv-value">{currentEvent.details.apiMockDetails.transactionIds.join(', ')}</span>
+              </>
+            )}
+            {!!currentEvent.details.apiMockDetails.nearMisses?.length && (
+              <>
+                <span className="exec-kv-label">Near misses</span>
+                <span className="exec-kv-value">{currentEvent.details.apiMockDetails.nearMisses.slice(0, 5).join(' · ')}</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Current Event Details — Card Layout (skip for nodes with transport-specific cards above) */}
-      {currentEvent && currentEvent.details && !currentEvent.details.wsDetails && !currentEvent.details.wsTriggerDetails && !currentEvent.details.kafkaDetails && !currentEvent.details.kafkaTriggerDetails && (
+      {currentEvent && currentEvent.details && !currentEvent.details.wsDetails && !currentEvent.details.wsTriggerDetails && !currentEvent.details.kafkaDetails && !currentEvent.details.kafkaTriggerDetails && !currentEvent.details.apiMockDetails && (
         <div className="exec-card">
           <div className="exec-card-header">
             <span className="exec-card-title">Last Execution</span>

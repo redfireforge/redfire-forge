@@ -422,7 +422,13 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       },
       action: async (ctx) => {
         // Budget: 5s wait for Send btn + 700ms spotlight + click + 7s response + 700ms + 700ms = ~14s < 16s
-        await ctx.waitFor(GRPC.SEND_BTN, 5_000);
+        try {
+          await ctx.waitFor(GRPC.SEND_BTN, 5_000);
+        } catch {
+          // Replay can lag behind the history click — leave the step visible
+          // rather than aborting the lesson on a slow transition.
+          return;
+        }
         const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.SEND_BTN);
         if (sendBtn && !sendBtn.disabled) {
           await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);

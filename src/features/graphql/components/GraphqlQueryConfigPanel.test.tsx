@@ -878,8 +878,19 @@ describe('GqlAuthSection — all auth type branches', () => {
         variableHints={[]}
       />,
     );
-    selectOption(screen.getByTestId('gql-wf-auth-type-select'), 'Bearer Token');
+    selectOption(screen.getByTestId('gql-wf-auth-type-select'), 'Bearer token');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: 'bearer' }));
+  });
+
+  it('renders inherited profile hint when type is inherit', () => {
+    render(
+      <GqlAuthSection
+        auth={{ type: 'inherit' }}
+        onChange={vi.fn()}
+        variableHints={[]}
+      />,
+    );
+    expect(screen.getByText('Uses the currently selected global auth profile.')).toBeInTheDocument();
   });
 
   it('calls onChange with undefined when setType is called with "none"', () => {
@@ -1043,7 +1054,7 @@ describe('GqlAuthSection — all auth type branches', () => {
     // With auth=undefined, type='none', no bearer fields visible → can't click Insert
     // This test covers the re-render branch path for auth=undefined
     // The onChange for setType to 'bearer' when auth=undefined covers L139[1]:
-    selectOption(screen.getByTestId('gql-wf-auth-type-select'), 'Bearer Token');
+    selectOption(screen.getByTestId('gql-wf-auth-type-select'), 'Bearer token');
     // setType called with 'bearer' → onChange({ ...(auth ?? {}), type: 'bearer' })
     // auth=undefined → auth ?? {} = {} → [1] branch!
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: 'bearer' }));

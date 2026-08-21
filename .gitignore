@@ -54,3 +54,6 @@ playwright-report/
 e2e/screenshots/
 test-script-paste.cjs
 .playwright-mcp/
+
+# Tauri sidecar binaries (built by scripts/build-sidecar.mjs, ~115MB)
+src-tauri/binaries/

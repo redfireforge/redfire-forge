@@ -25,6 +25,8 @@ function ExhResultBody({ body }: { body: string }) {
   const [matchIdx, setMatchIdx] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  // Sticky Expand all — overrides search-focus auto-collapse (see JsonPreview.forceExpandAll).
+  const [expandAllActive, setExpandAllActive] = useState(false);
 
   const tree = useMemo(() => {
     try { return buildJTree(JSON.parse(body), ''); } catch { return null; }
@@ -71,8 +73,8 @@ function ExhResultBody({ body }: { body: string }) {
             <button className="req-resp-search-clear" onClick={() => { setSearch(''); setMatchIdx(0); setMatchCount(0); }}>×</button>
           </>
         )}
-        <button className="jt-expand-collapse-btn" onClick={() => setCollapsed(new Set())}>Expand All</button>
-        <button className="jt-expand-collapse-btn" onClick={() => setCollapsed(new Set(allPaths))}>Collapse All</button>
+        <button className="jt-expand-collapse-btn" onClick={() => { setExpandAllActive(true); setCollapsed(new Set()); }}>Expand All</button>
+        <button className="jt-expand-collapse-btn" onClick={() => { setExpandAllActive(false); setCollapsed(new Set(allPaths)); }}>Collapse All</button>
       </div>
       <JsonPreview
         body={body}
@@ -82,6 +84,7 @@ function ExhResultBody({ body }: { body: string }) {
         collapsedSet={collapsed}
         onToggle={handleToggle}
         prebuiltTree={tree}
+        forceExpandAll={expandAllActive}
       />
     </div>
   );
