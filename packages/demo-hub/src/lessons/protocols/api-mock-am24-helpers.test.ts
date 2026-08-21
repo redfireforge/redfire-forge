@@ -220,7 +220,7 @@ function mountStudio(opts: { running?: boolean; draft?: boolean; enabled?: boole
   status.textContent = opts.running ? 'Running' : 'Stopped';
   document.body.append(status);
   document.body.append(el('button', undefined, 'api-mock-view-studio'));
-  document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+  document.body.append(el('button', undefined, 'ab-api-mock'));
   return explorer;
 }
 
@@ -381,7 +381,7 @@ describe('AM-24 helpers', () => {
   it('ensureAm24OnStudio clicks subnav or falls back to navigateToTab', async () => {
     const ctx = makeCtx();
     document.body.append(el('button', undefined, 'ab-protocols'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     await ensureAm24OnStudio(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APP_SUBNAV);
 
@@ -1421,7 +1421,7 @@ describe('AM-24 helpers', () => {
 
     document.body.append(el('div', undefined, 'api-mock-server-bar'));
     document.body.append(el('div', undefined, 'api-mock-route-explorer'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     const ctxImport = makeCtx();
     ctxImport.waitFor.mockImplementation(async () => Promise.reject(new Error('timeout')));
     ctxImport.click.mockImplementation(async (sel: string) => {
@@ -1503,7 +1503,7 @@ describe('AM-24 helpers', () => {
     const emptyExplorer = el('div', undefined, 'api-mock-route-explorer');
     document.body.append(emptyExplorer);
     document.body.append(el('div', undefined, 'api-mock-server-bar'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     document.body.append(el('button', undefined, 'api-mock-import-menu'));
     const ctxMatch = makeCtx();
     ctxMatch.click.mockImplementation(async (sel: string) => {

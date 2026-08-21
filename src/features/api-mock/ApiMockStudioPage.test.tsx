@@ -4,13 +4,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ApiMockStudioPage } from './ApiMockStudioPage';
-import { resetApiMockWorkspaceSnapshot } from './apiMockPersistence';
+import { beginApiMockDemoPersistence, resetApiMockWorkspaceSnapshot } from './apiMockPersistence';
 
 /** Creating a server asks the control plane for a free port, so it settles async. */
 async function createFirstServer() {
   render(<ApiMockStudioPage />);
-  fireEvent.click(screen.getByTestId('api-mock-create-first'));
-  await screen.findByTestId('api-mock-studio');
+  fireEvent.click(screen.getByTestId('api-mock-landing-create'));
+  await screen.findByTestId('api-mock-server-bar');
 }
 
 function serverTabs() {
@@ -28,16 +28,23 @@ describe('ApiMockStudioPage', () => {
     localStorage.clear();
     resetApiMockWorkspaceSnapshot();
   });
-  it('renders empty state with create button', () => {
+  it('renders the library landing with create button', () => {
     render(<ApiMockStudioPage />);
-    expect(screen.getByTestId('api-mock-empty')).toBeTruthy();
-    expect(screen.getByTestId('api-mock-create-first')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-library-landing')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-landing-create')).toBeTruthy();
   });
 
   it('creates a server and shows studio', async () => {
     await createFirstServer();
     expect(screen.getByTestId('api-mock-server-tabs')).toBeTruthy();
     expect(screen.getByTestId('api-mock-server-bar')).toBeTruthy();
+  });
+
+  it('names a server created during a demo lesson Demo Mock Server', async () => {
+    await beginApiMockDemoPersistence();
+    await createFirstServer();
+    expect(screen.getByTestId('api-mock-server-tabs').textContent).toContain('Demo Mock Server');
+    expect(screen.getByTestId('api-mock-server-tabs').textContent).not.toContain('Mock Server 1');
   });
 
   it('creates a route and shows editor', async () => {

@@ -57,9 +57,17 @@ export const protocolsDomain: DemoDomain = {
     { id: 'sse',       label: 'SSE',       icon: '📡' },
     { id: 'graphql',   label: 'GraphQL',   icon: '◈' },
     { id: 'grpc',      label: 'gRPC',      icon: '⚡' },
-    { id: 'api-mock',  label: 'API Mock',  icon: '🪞' },
   ],
-  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, sseTabsLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons, ...grpcLessons, ...apiMockLessons],
+  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, sseTabsLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons, ...grpcLessons],
+};
+
+export const apiMockDomain: DemoDomain = {
+  id: 'api-mock',
+  name: 'API Mock',
+  icon: '🪞',
+  description: 'Design, serve, and ship HTTP contract mocks — from OpenAPI import to workflow integration.',
+  available: true,
+  lessons: apiMockLessons,
 };
 
 export const apiDomain: DemoDomain = {
@@ -124,9 +132,10 @@ export const cliDomain: DemoDomain = {
 
 // ─── All domains in display order ────────────────────────────────
 export const allDomains: DemoDomain[] = [
-  protocolsDomain,
   apiDomain,
+  apiMockDomain,
   workflowDomain,
   harnessDomain,
+  protocolsDomain,
   cliDomain,
 ];

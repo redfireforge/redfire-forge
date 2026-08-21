@@ -22,13 +22,14 @@ import {
   type ApiMockDemoPredicate,
   type ApiMockDemoPredicateGroup,
 } from '../../adapters';
-import { API_MOCK, APP, WF } from '@shared/selectors';
+import { API_MOCK, WF } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
   clearApiMockWfServerPicker,
   fillBeat,
+  openApiMockFromActivityBar,
   prettyFormatImportPaste,
   revealBeat,
   resolveApiMockStudioServerId,
@@ -597,14 +598,7 @@ export async function ensureAm24ForImport(_ctx: DemoActionContext): Promise<void
 
 export async function ensureAm24OnStudio(ctx: DemoActionContext): Promise<void> {
   if (isAm24StudioActive()) return;
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    await ctx.click(APP.AB_PROTOCOLS);
-  }
-  if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
-    await ctx.click(API_MOCK.APP_SUBNAV);
-    await ctx.delay(200);
-    return;
-  }
+  if (await openApiMockFromActivityBar(ctx)) return;
   ctx.navigateToTab('api-mock-studio');
   await ctx.delay(200);
 }

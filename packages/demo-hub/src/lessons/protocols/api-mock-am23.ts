@@ -81,7 +81,7 @@ const DIAGRAM = `
 
 export const apiMockAm23Lesson: DemoLesson = {
   id: 'am-23-harness-ci',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Test Runner Fixtures & CI Handoff',
   description:

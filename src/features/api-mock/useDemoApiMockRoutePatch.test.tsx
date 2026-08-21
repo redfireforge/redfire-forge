@@ -91,6 +91,9 @@ function setup(options: { server?: ApiMockServerDefinitionV1 | null; selectedRou
 describe('useDemoApiMockRoutePatch', () => {
   beforeEach(() => {
     features.enabled = true;
+    // The bridge defers commits via queueMicrotask(() => flushSync(...)) to dodge a
+    // React 19 lifecycle warning. Flatten it here so synchronous assertions see the commit.
+    vi.spyOn(globalThis, 'queueMicrotask').mockImplementation((cb: () => void) => { cb(); });
     delete (window as unknown as Record<string, unknown>).__demoPatchApiMockActiveRoute;
     delete (window as unknown as Record<string, unknown>).__demoPatchApiMockServerSettings;
   });

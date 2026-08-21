@@ -78,7 +78,6 @@ describe('useApiMockServerLibrary', () => {
     expect(rendered.result.current.openTabIds).toEqual([]);
     expect(rendered.result.current.openServers).toEqual([]);
     expect(rendered.result.current.parkedCount).toBe(2);
-    expect(rendered.result.current.libraryEntries.every(e => !e.open)).toBe(true);
   });
 
   it('parks a closed tab without touching the library', async () => {
@@ -137,7 +136,6 @@ describe('useApiMockServerLibrary', () => {
     const { rendered, confirm } = setup({ servers });
     act(() => rendered.result.current.setOpenTabIds(servers.slice(0, 8).map(s => s.id)));
 
-    expect(rendered.result.current.atTabLimit).toBe(true);
     act(() => rendered.result.current.handleOpenFromLibrary('srv-8'));
     expect(confirm).toHaveBeenCalledWith(
       expect.stringContaining('at most 8 mock servers open'),
@@ -249,14 +247,5 @@ describe('useApiMockServerLibrary', () => {
     act(() => rendered.result.current.handleOpenFromLibrary('missing'));
     expect(rendered.result.current.openTabIds).toEqual(['srv-a', 'srv-b']);
     expect(setLiveMessage).not.toHaveBeenCalled();
-  });
-
-  it('toggles the library dialog', () => {
-    const { rendered } = setup();
-    expect(rendered.result.current.libraryOpen).toBe(false);
-    act(() => rendered.result.current.openLibrary());
-    expect(rendered.result.current.libraryOpen).toBe(true);
-    act(() => rendered.result.current.closeLibrary());
-    expect(rendered.result.current.libraryOpen).toBe(false);
   });
 });
