@@ -77,7 +77,7 @@ const DIAGRAM = `
 
 export const apiMockAm07Lesson: DemoLesson = {
   id: 'am-07-payload-formats',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Forms, Multipart, XML & Binary Matching',
   description:

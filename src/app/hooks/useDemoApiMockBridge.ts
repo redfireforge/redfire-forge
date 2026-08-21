@@ -13,11 +13,17 @@ import {
   dispatchApiMockWorkspaceChanged,
   importApiMockGalleryServer,
 } from '../../features/api-mock/apiMockGalleryImport';
-import { loadApiMockWorkspace, saveApiMockWorkspace } from '../../features/api-mock/apiMockPersistence';
+import { beginApiMockDemoPersistence, dropApiMockDemoLessonServers, loadApiMockWorkspace, rememberApiMockDemoImportedServer, restoreApiMockUserWorkspace, resumeApiMockDemoPersistenceIfNeeded, saveApiMockWorkspace } from '../../features/api-mock/apiMockPersistence';
 import { DEFAULT_SETTINGS } from '../../shared/api-mock/defaults';
 import { isTauri } from '../../shared/utils/platform';
 
-const EMPTY_WORKSPACE = { servers: [] as ApiMockServerDefinitionV1[], activeServerId: undefined, openTabIds: [] as string[] };
+function parkedLibrary(ws: { servers: ApiMockServerDefinitionV1[] }) {
+  return {
+    servers: ws.servers,
+    activeServerId: undefined as string | undefined,
+    openTabIds: [] as string[],
+  };
+}
 
 type DemoBridgeWindow = Record<string, unknown>;
 
@@ -29,7 +35,10 @@ async function resolveGalleryFactory(
 
 async function wipeWorkspace(): Promise<boolean> {
   try {
+    const isolated = await beginApiMockDemoPersistence();
+    if (!isolated) return false;
     const ws = await loadApiMockWorkspace();
+    const parked = parkedLibrary(dropApiMockDemoLessonServers(ws));
     // Only POST /stop for listeners that are actually running. Parked / never-started
     // saved servers 404 on the companion, which Chrome logs as a failed request.
     const listed = await apiMockControlClient.list();
@@ -41,9 +50,10 @@ async function wipeWorkspace(): Promise<boolean> {
     const idsToStop = runningIds.length > 0
       ? runningIds
       : (isTauri() ? ws.servers.map(s => s.id) : []);
-    // Clear the studio first so journal/state polling stops before /stop 404s.
-    await saveApiMockWorkspace(EMPTY_WORKSPACE);
-    dispatchApiMockWorkspaceChanged(EMPTY_WORKSPACE);
+    // Close lesson tabs so AM-01 still lands on the empty canvas — keep every
+    // saved server (and its folder) in Mock Servers.
+    await saveApiMockWorkspace(parked);
+    dispatchApiMockWorkspaceChanged(parked);
     for (const id of idsToStop) {
       try {
         await apiMockControlClient.stop(id);
@@ -64,9 +74,14 @@ async function importGallerySample(sampleId: string): Promise<boolean> {
     return false;
   }
   try {
-    // Lesson boot must not inherit parked tabs — 8 open tabs reject gallery import.
-    await saveApiMockWorkspace(EMPTY_WORKSPACE);
-    await importApiMockGalleryServer(factory(), sampleId);
+    const isolated = await beginApiMockDemoPersistence();
+    if (!isolated) return false;
+    const ws = await loadApiMockWorkspace();
+    // Close open tabs so import is not rejected at the 8-tab ceiling. Do not
+    // delete the user's library — parked servers stay in the sidebar.
+    await saveApiMockWorkspace(parkedLibrary(dropApiMockDemoLessonServers(ws)));
+    const imported = await importApiMockGalleryServer(factory(), sampleId);
+    rememberApiMockDemoImportedServer(imported.server.id);
     return true;
   } catch (error) {
     console.warn('[api-mock demo] gallery import failed', sampleId, error);
@@ -78,7 +93,7 @@ function blankServerTemplate(): ApiMockServerDefinitionV1 {
   const now = new Date().toISOString();
   return {
     id: 'srv-blank',
-    name: 'Import sandbox',
+    name: 'Demo Mock Server',
     enabled: true,
     host: '127.0.0.1',
     port: 4600,
@@ -98,7 +113,8 @@ async function ensureBlankApiMockServer(): Promise<boolean> {
   try {
     const ws = await loadApiMockWorkspace();
     if (ws.servers.length > 0) return true;
-    await importApiMockGalleryServer(blankServerTemplate(), 'am-demo-blank');
+    const imported = await importApiMockGalleryServer(blankServerTemplate(), 'am-demo-blank');
+    rememberApiMockDemoImportedServer(imported.server.id);
     return true;
   } catch (error) {
     console.warn('[api-mock demo] blank server create failed', error);
@@ -203,8 +219,40 @@ async function listStudioServers(): Promise<Array<{
   }
 }
 
+const DEMO_LIVE_SESSION_KEY = 'redfire-demo-live-session-v1';
+
+function isDemoLiveSessionActive(): boolean {
+  try {
+    return Boolean(sessionStorage.getItem(DEMO_LIVE_SESSION_KEY));
+  } catch {
+    return false;
+  }
+}
+
+async function restoreUserWorkspace(): Promise<boolean> {
+  try {
+    const ok = await restoreApiMockUserWorkspace();
+    if (!ok) return false;
+    const ws = await loadApiMockWorkspace();
+    dispatchApiMockWorkspaceChanged(ws);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Restore the pre-demo library when Demo Hub is not mid-lesson (reload / leftover stash). */
+async function restoreUserWorkspaceIfIdle(): Promise<boolean> {
+  if (isDemoLiveSessionActive()) {
+    await resumeApiMockDemoPersistenceIfNeeded();
+    return false;
+  }
+  return restoreUserWorkspace();
+}
+
 function bindDemoApiMockBridge(win: DemoBridgeWindow): void {
   win.__demoWipeApiMockWorkspace = wipeWorkspace;
+  win.__demoRestoreApiMockUserWorkspace = restoreUserWorkspace;
   win.__demoListApiMockServers = listStudioServers;
   win.__demoImportApiMockGallerySample = importGallerySample;
   win.__demoEnsureBlankApiMockServer = ensureBlankApiMockServer;
@@ -215,6 +263,7 @@ function bindDemoApiMockBridge(win: DemoBridgeWindow): void {
 
 function unbindDemoApiMockBridge(win: DemoBridgeWindow): void {
   delete win.__demoWipeApiMockWorkspace;
+  delete win.__demoRestoreApiMockUserWorkspace;
   delete win.__demoListApiMockServers;
   delete win.__demoImportApiMockGallerySample;
   delete win.__demoEnsureBlankApiMockServer;
@@ -228,6 +277,7 @@ export function useDemoApiMockBridge(enabled: boolean): void {
     if (!enabled) return;
     const win = window as unknown as DemoBridgeWindow;
     bindDemoApiMockBridge(win);
+    void restoreUserWorkspaceIfIdle();
     return () => unbindDemoApiMockBridge(win);
   }, [enabled]);
 

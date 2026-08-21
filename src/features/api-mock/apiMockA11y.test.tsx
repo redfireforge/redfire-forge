@@ -20,8 +20,8 @@ beforeEach(() => {
 /** Creating a server asks the control plane for a free port, so it settles async. */
 async function createServer() {
   render(<ApiMockStudioPage />);
-  fireEvent.click(screen.getByTestId('api-mock-create-first'));
-  await screen.findByTestId('api-mock-studio');
+  fireEvent.click(screen.getByTestId('api-mock-landing-create'));
+  await screen.findByTestId('api-mock-server-bar');
 }
 
 function serverTablist() {

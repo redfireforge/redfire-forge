@@ -1,23 +1,46 @@
 import { useEffect, type Dispatch, type SetStateAction } from 'react';
+import {
+  beginDemoAppSidebarSession,
+  endDemoAppSidebarSession,
+  isDemoAppSidebarPinned,
+} from '../../shared/demoAppSidebarSession';
+
+export {
+  beginDemoAppSidebarSession,
+  endDemoAppSidebarSession,
+  isDemoAppSidebarSession,
+  isDemoAppSidebarPinned,
+  isDemoLiveSessionActive,
+  markDemoAppSidebarUserCollapsed,
+  markDemoAppSidebarUserExpanded,
+} from '../../shared/demoAppSidebarSession';
 
 /**
- * Demo-player bridge for the app-level workflows list sidebar.
- *   - `__demoCollapseAppSidebar()` — hide sidebar (e.g. after + New workflow)
- *   - `__demoExpandAppSidebar()` — show sidebar (e.g. demo restart before create step)
+ * Demo-player bridge for the app-level list sidebar.
+ *   - `__demoCollapseAppSidebar()` — hide unless the user pinned it open
+ *   - `__demoExpandAppSidebar()` — show sidebar
  */
 export function useDemoSidebarBridge(
   setSidebarCollapsed: Dispatch<SetStateAction<boolean>>,
 ): void {
   useEffect(() => {
-    const collapse = () => setSidebarCollapsed(true);
+    const collapse = () => {
+      if (isDemoAppSidebarPinned()) return;
+      setSidebarCollapsed(true);
+    };
     const expand = () => setSidebarCollapsed(false);
 
-    (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar = collapse;
-    (window as unknown as Record<string, unknown>).__demoExpandAppSidebar = expand;
+    const win = window as unknown as Record<string, unknown>;
+    win.__demoCollapseAppSidebar = collapse;
+    win.__demoExpandAppSidebar = expand;
+    win.__demoBeginAppSidebarSession = beginDemoAppSidebarSession;
+    win.__demoEndAppSidebarSession = endDemoAppSidebarSession;
 
     return () => {
-      delete (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar;
-      delete (window as unknown as Record<string, unknown>).__demoExpandAppSidebar;
+      delete win.__demoCollapseAppSidebar;
+      delete win.__demoExpandAppSidebar;
+      delete win.__demoBeginAppSidebarSession;
+      delete win.__demoEndAppSidebarSession;
     };
   }, [setSidebarCollapsed]);
 }

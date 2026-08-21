@@ -89,7 +89,7 @@ const DIAGRAM = `
 
 export const apiMockAm05Lesson: DemoLesson = {
   id: 'am-05-request-predicates',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Query, Header, Cookie & Security Conditions',
   description:

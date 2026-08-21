@@ -111,4 +111,10 @@ describe('AppSubNav', () => {
     render(<AppSubNav activeTab="demo-hub" setActiveTab={setActiveTab} />);
     expect(screen.getByRole('button', { name: 'Learning Hub' }).className).toContain('active');
   });
+
+  it('hides the horizontal sub-nav on the API Mock domain', () => {
+    const setActiveTab = vi.fn();
+    const { container } = render(<AppSubNav activeTab="api-mock-studio" setActiveTab={setActiveTab} />);
+    expect(container.querySelector('.sub-nav')).toBeNull();
+  });
 });

@@ -1,7 +1,7 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from 'react';
 import type { Environment, FeatureGroup, Microservice, RequestCollection } from '../../shared/types';
 import type { Tab } from '../utils/appTabUtils';
-import { domainOf, isApiTab, isHarnessTab, isWorkflowTab } from '../utils/appTabUtils';
+import { domainOf, isApiMockTab, isApiTab, isHarnessTab, isWorkflowTab } from '../utils/appTabUtils';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
 import type { UseRequestTabCoordinatorReturn } from '../../features/requests/hooks/useRequestTabCoordinator';
@@ -12,8 +12,14 @@ import CatalogSidebar from '../../features/catalog/components/CatalogSidebar';
 import RequestsSidebar from '../../features/requests/components/RequestsSidebar';
 import WorkflowSidebar from '../../features/workflow/components/panels/WorkflowSidebar';
 import Sidebar from '../Sidebar';
+import ApiMockSidebar from '../../features/api-mock/components/ApiMockSidebar';
 import { ExportToApiMockModal, type ExportToApiMockItem } from '../../features/api-mock/components/ExportToApiMockModal';
 import { findRequestInCollection } from '../../features/requests/utils/requestTree';
+import {
+  isDemoAppSidebarSession,
+  markDemoAppSidebarUserCollapsed,
+  markDemoAppSidebarUserExpanded,
+} from '../../shared/demoAppSidebarSession';
 
 export interface AppSidebarRegionProps {
   activeTab: Tab;
@@ -113,6 +119,14 @@ export default function AppSidebarRegion({
   useEffect(() => {
     if (activeTab !== 'requests') setExportToMockItems(null);
   }, [activeTab]);
+
+  // Expand when entering API Mock so the server list is visible. Skip during a
+  // live demo (default-hide). Do not re-open if the user hides it on this tab.
+  useEffect(() => {
+    if (!isApiMockTab(activeTab)) return;
+    if (isDemoAppSidebarSession()) return;
+    setSidebarCollapsed(false);
+  }, [activeTab, setSidebarCollapsed]);
 
   const hideSidebar = domainOf(activeTab) === 'settings'
     || domainOf(activeTab) === 'gallery'
@@ -244,6 +258,7 @@ export default function AppSidebarRegion({
                 onSidebarViewChange={setSidebarView}
               />
             )}
+            {isApiMockTab(activeTab) && <ApiMockSidebar />}
           </div>
 
           <button className="usb-settings-btn" onClick={() => setActiveTab('preferences')}>⚙ Settings</button>
@@ -254,7 +269,12 @@ export default function AppSidebarRegion({
       )}
       <button
         className={`usb-toggle-btn ${sidebarCollapsed || hideSidebar ? 'collapsed' : ''}`}
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onClick={() => {
+          const nextCollapsed = !sidebarCollapsed;
+          if (nextCollapsed) markDemoAppSidebarUserCollapsed();
+          else markDemoAppSidebarUserExpanded();
+          setSidebarCollapsed(nextCollapsed);
+        }}
         title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
         style={hideSidebar ? { display: 'none' } : undefined}
       >

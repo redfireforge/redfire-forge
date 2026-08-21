@@ -73,7 +73,7 @@ const DIAGRAM = `
 
 export const apiMockAm18Lesson: DemoLesson = {
   id: 'am-18-journal',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Journal Forensics: Near-Misses, Candidates & Promotion',
   description:

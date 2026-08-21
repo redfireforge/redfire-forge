@@ -113,6 +113,10 @@ describe('appTabUtils', () => {
       expect(domainOf('kafka-settings')).toBe('settings');
     });
 
+    it('returns "api-mock" for the API Mock studio', () => {
+      expect(domainOf('api-mock-studio')).toBe('api-mock');
+    });
+
     it('returns "protocols" for protocol studio tabs', () => {
       expect(domainOf('kafka-message-studio')).toBe('protocols');
       expect(domainOf('graphql-studio')).toBe('protocols');

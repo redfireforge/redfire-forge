@@ -7,6 +7,7 @@
  * `ensure*` guard so rapid **Next** still leaves the next step something real.
  */
 import {
+  expandAppSidebar,
   importApiMockGallerySample,
   prepareApiMockStudioChrome,
   wipeApiMockWorkspace,
@@ -498,10 +499,9 @@ export async function runAm02PersistAndClose(ctx: DemoActionContext): Promise<vo
   await clickBeat(ctx, API_MOCK.CONFIRM_ACCEPT, { hold: AM_DEMO_TIMING.lifecycle });
   await walkAm02TabOrder(ctx, AM_DEMO_TIMING.payoff);
 
-  // The payoff of the close is what did *not* happen: the definition is still saved.
+  // The payoff of the close is what did *not* happen: the definition is still saved
+  // — it stays in the left sidebar, just marked closed.
+  expandAppSidebar();
   await ctx.delay(AM_DEMO_TIMING.groupBreak);
-  await spotlightBeat(ctx, API_MOCK.OPEN_LIBRARY, AM_DEMO_TIMING.payoff);
-  if (document.querySelector(API_MOCK.PARKED_COUNT)) {
-    await spotlightBeat(ctx, API_MOCK.PARKED_COUNT, AM_DEMO_TIMING.payoff);
-  }
+  await spotlightBeat(ctx, API_MOCK.SIDEBAR, AM_DEMO_TIMING.payoff);
 }

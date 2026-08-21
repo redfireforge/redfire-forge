@@ -118,12 +118,12 @@ export async function openDemoHub(page: Page): Promise<void> {
   await page.waitForSelector('.demo-domain-card', { timeout: HUB_TIMEOUT });
 }
 
-/** Click the first non-Coming-Soon domain card (Protocols). */
+/** Click the Protocols domain card (by name, not position). */
 export async function selectProtocolsDomain(page: Page): Promise<void> {
   const card = page
     .locator('.demo-domain-card')
     .filter({ hasNot: page.locator('.coming-soon') })
-    .first();
+    .filter({ hasText: 'Protocols' });
   await card.click();
   await page.waitForSelector('.demo-lesson-list', { timeout: HUB_TIMEOUT });
 }
@@ -131,7 +131,7 @@ export async function selectProtocolsDomain(page: Page): Promise<void> {
 /** Click a category tab by name. */
 export async function selectCategory(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC' | 'API Mock',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
 ): Promise<void> {
   const tab = page
     .locator('.demo-category-tab')
@@ -172,7 +172,7 @@ export async function startLesson(page: Page): Promise<void> {
  */
 export async function launchLesson(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC' | 'API Mock',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
   lessonNameFragment: string,
 ): Promise<void> {
   await openDemoHub(page);
@@ -183,14 +183,18 @@ export async function launchLesson(
 }
 
 /**
- * Demo Hub → Protocols → API Mock → lesson → Start.
- * Every AM lesson that starts a listener or sends traffic needs the companion (:3001).
+ * Demo Hub → API Mock domain card → lesson → Start.
+ * API Mock is now its own top-level Learning Hub card.
  */
 export async function launchApiMockLesson(
   page: Page,
   lessonNameFragment: string,
 ): Promise<void> {
-  await launchLesson(page, 'API Mock', lessonNameFragment);
+  await openDemoHub(page);
+  await page.getByTestId('demo-domain-card-api-mock').click();
+  await page.waitForSelector('.demo-lesson-list', { timeout: HUB_TIMEOUT });
+  await openLesson(page, lessonNameFragment);
+  await startLesson(page);
 }
 
 /** Wait for a Docker PrerequisiteGate to report the server is up (enables Start Demo). */

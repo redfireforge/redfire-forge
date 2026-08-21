@@ -78,7 +78,7 @@ const DIAGRAM = `
 
 export const apiMockAm14Lesson: DemoLesson = {
   id: 'am-14-timing-faults',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'When Payments Hang: Latency, Eligibility & Connection Faults',
   description:
