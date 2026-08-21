@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { makeCtx } from '../ws-test-utils';
 import { stubWorkflowSeedBridge, clearWorkflowSeedBridge } from '../../../test-utils/workflowBridgeStubs';
+import { recordConfigFieldFills } from '../__test-utils__/graphql-test-fixtures';
 import { GQL, WF } from '@shared/selectors';
 import {
   LESSON19_WF_NAME,
@@ -271,9 +272,10 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     document.querySelectorAll(GQL.WF_OUTPUT_FIELD_SELECT).forEach((el) => el.remove());
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    const filled = recordConfigFieldFills();
     await performLesson19SubscriptionOutputBound(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.WF_OUTPUT_ADD_BTN);
-    expect(fieldValue(GQL.WF_OUTPUT_VARNAME)).toBe(LESSON19_FINAL_STATUS_VAR);
+    expect(filled.get(GQL.WF_OUTPUT_VARNAME)).toBe(LESSON19_FINAL_STATUS_VAR);
   });
 
   it('ensureLesson19SubscriptionConfigured skips when operation already ready', async () => {

@@ -18,6 +18,12 @@ import { loadConvertPref, saveConvertPref, loadPrettyPref, savePrettyPref } from
 import { prettifyOpenApiYaml } from '../utils/prettyYaml';
 import { lintOpenApi, type LintResult } from '../utils/openApiLint';
 import type { ToastType } from '../../workflow/components/WorkflowToastProvider';
+import {
+  countOperations,
+  escapeHtml,
+  extractWarningSearchTerm,
+  highlightRawLine,
+} from './catalogConvertOpenApiHelpers';
 
 /** Metadata handed back to the host when saving the converted result as a version. */
 export interface SaveAsVersionArgs {
@@ -54,84 +60,6 @@ const ENGINE_LABELS: Record<ConvertEngine, string> = {
 /** Every target the UI can offer; availability is narrowed per source format + engine. */
 const ALL_TARGETS: ConvertTarget[] = ['3.0', '3.1', '3.2'];
 
-const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace']);
-
-/** Count operations across the converted document's paths (for the endpoint chip). */
-function countOperations(openapi: Record<string, unknown>): number {
-  const paths = openapi.paths;
-  if (!paths || typeof paths !== 'object') return 0;
-  let n = 0;
-  for (const item of Object.values(paths as Record<string, unknown>)) {
-    if (!item || typeof item !== 'object') continue;
-    for (const key of Object.keys(item as Record<string, unknown>)) {
-      if (HTTP_METHODS.has(key)) n++;
-    }
-  }
-  return n;
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-/**
- * Escape a raw line for HTML while wrapping each case-insensitive match of `re`
- * (built against RAW text) in a `<mark>`. Matching happens on the raw line — the same
- * basis as the match count / gutter / scroll target — so highlighting never diverges
- * from the reported count when the YAML contains HTML-special chars (`<`, `>`, `&`),
- * e.g. `List<String>` or `value < 10` in a description. Both the match and the
- * surrounding text are escaped before insertion.
- */
-function highlightRawLine(rawLine: string, re: RegExp, active: boolean): string {
-  const cls = active ? 'cat-convert-hit cat-convert-hit--active' : 'cat-convert-hit';
-  let html = '';
-  let last = 0;
-  // The shared `gi` regex is reused per line, so reset its cursor before scanning.
-  // `exec` (unlike `matchAll`) types `index` as a plain number and the search query
-  // is always non-empty here, so matches never have zero length.
-  re.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(rawLine)) !== null) {
-    html += escapeHtml(rawLine.slice(last, m.index));
-    html += `<mark class="${cls}">${escapeHtml(m[0])}</mark>`;
-    last = m.index + m[0].length;
-  }
-  html += escapeHtml(rawLine.slice(last));
-  return html;
-}
-
-/**
- * Extract a YAML-searchable term from a conversion warning string.
- * Attempts multiple patterns and returns the best search keyword.
- */
-function extractWarningSearchTerm(warning: string): string | null {
-  // Skip "Removed" warnings — the field won't exist in the output YAML
-  if (/^Removed\b/i.test(warning)) return null;
-
-  // Pattern 1: JSON pointer component ref — "#/components/.../Name" → "Name"
-  const refMatch = warning.match(/#\/components\/[^/]+\/(\w+)/);
-  if (refMatch) return refMatch[1];
-
-  // Pattern 2: HTTP path — "at (METHOD) /path/..." → "/path"
-  const pathMatch = warning.match(/at (?:GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s+(\/[^\s:]+)/i);
-  if (pathMatch) return pathMatch[1];
-
-  // Pattern 3: Quoted field name — "'fieldName'" → "fieldName:"
-  const quotedField = warning.match(/'([a-zA-Z][\w-]*)'/);
-  if (quotedField) return quotedField[1] + ':';
-
-  // Pattern 4: "example" keyword (collapsed examples[] pattern) → "example:"
-  if (/\bexamples?\[\].*\bexample\b/i.test(warning)) return 'example:';
-
-  // Pattern 5: External $ref — "$ref not resolved: <url>" → the ref path
-  const extRef = warning.match(/\$ref[^:]*:\s*(.+)/);
-  if (extRef) return extRef[1].trim();
-
-  // Pattern 6: requestBody / parameters keyword → "requestBody:"
-  if (/\brequestBody\b/.test(warning)) return 'requestBody:';
-
-  return null;
-}
 
 /**
  * Convert / Upgrade to OpenAPI modal (P1 + P4-A/D). Auto-routes on the source format:

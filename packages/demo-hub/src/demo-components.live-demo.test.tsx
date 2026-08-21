@@ -106,11 +106,11 @@ describe('LiveDemo', () => {
     expect(nextBtn).toHaveProperty('disabled', true);
   });
 
-  it('enables next button during reading phase (finishes step then advances)', () => {
+  it('disables next button during reading phase', () => {
     render(<LiveDemo {...liveProps} stepPhase="reading" stepIndex={0} />);
     const nextBtn = screen.getByLabelText('Next step');
-    expect(nextBtn).toHaveProperty('disabled', false);
-    expect(nextBtn.getAttribute('title')).toContain('finish this step');
+    expect(nextBtn).toHaveProperty('disabled', true);
+    expect(nextBtn.getAttribute('title')).toContain('Finish reading first');
   });
 
   it('enables next button when step is done', () => {
@@ -173,11 +173,11 @@ describe('LiveDemo', () => {
     expect(screen.getByText('Lesson 1')).toBeTruthy();
   });
 
-  it('calls onNext when next is clicked during reading phase', () => {
+  it('does not call onNext when next is clicked during reading phase', () => {
     const onNext = vi.fn();
     render(<LiveDemo {...liveProps} stepPhase="reading" onNext={onNext} />);
     fireEvent.click(screen.getByLabelText('Next step'));
-    expect(onNext).toHaveBeenCalled();
+    expect(onNext).not.toHaveBeenCalled();
   });
 
   it('calls onNext when next button is clicked after step is done', () => {
@@ -568,6 +568,39 @@ describe('LiveDemo', () => {
     const { container } = render(<LiveDemo {...liveProps} lesson={lessonHL} stepPhase="pre" />);
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(container.querySelector('.demo-spotlight')).toBeNull();
+    document.body.removeChild(target);
+    vi.useRealTimers();
+  });
+
+  it('hides spotlight while surfaceReady is false (boot veil)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const target = document.createElement('div');
+    target.className = 'boot-veil-target';
+    target.style.width = '100px';
+    target.style.height = '50px';
+    target.scrollIntoView = vi.fn();
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 10, left: 10, width: 100, height: 50,
+      right: 110, bottom: 60, x: 10, y: 10, toJSON: () => ({}),
+    });
+    document.body.appendChild(target);
+
+    const lessonHL = makeLesson({
+      steps: [
+        { id: 's1', title: 'HL', description: 'D1', highlight: '.boot-veil-target' },
+        { id: 's2', title: 'S2', description: 'D2' },
+      ],
+    });
+
+    const { rerender } = render(
+      <LiveDemo {...liveProps} lesson={lessonHL} stepPhase="reading" surfaceReady={false} />,
+    );
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(document.querySelector('.demo-spotlight-ring')).toBeNull();
+
+    rerender(<LiveDemo {...liveProps} lesson={lessonHL} stepPhase="reading" surfaceReady />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    expect(document.querySelector('.demo-spotlight-ring')).toBeTruthy();
     document.body.removeChild(target);
     vi.useRealTimers();
   });

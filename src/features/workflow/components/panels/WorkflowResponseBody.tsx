@@ -113,7 +113,7 @@ interface Props {
 export default function WorkflowResponseBody({ body, subtitle }: Props) {
   const [searchTerm, setSearchTermState] = useState('');
   const [searchMatchCount, setSearchMatchCount] = useState(0);
-  const { collapsedSet, handleTreeToggle: handleToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
+  const { collapsedSet, expandAllActive, handleTreeToggle: handleToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
   const rawFallbackRef = useRef<HTMLPreElement>(null);
   const debouncedSearch = useDebounce(searchTerm, 200);
 
@@ -326,6 +326,7 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
                   collapsedSet={collapsedSet}
                   onToggle={handleToggle}
                   prebuiltTree={jTree}
+                  forceExpandAll={expandAllActive}
                 />
               </div>
             ) : (

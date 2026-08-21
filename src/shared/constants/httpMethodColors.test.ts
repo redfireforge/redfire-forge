@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   METHOD_COLORS,
+  METHOD_DESCRIPTIONS,
   SWAGGER_METHOD_COLORS,
   WORKFLOW_METHOD_COLORS,
+  httpMethodSelectOptions,
+  methodSwatch,
 } from './httpMethodColors';
 
 describe('httpMethodColors', () => {
@@ -171,6 +174,33 @@ describe('httpMethodColors', () => {
       expect(METHOD_COLORS.DELETE).toBe(WORKFLOW_METHOD_COLORS.DELETE);
       // Swagger DELETE is slightly different
       expect(METHOD_COLORS.DELETE).not.toBe(SWAGGER_METHOD_COLORS.DELETE);
+    });
+  });
+
+  describe('methodSwatch and select options', () => {
+    it('uses standard colors, then extras, then slate fallback', () => {
+      expect(methodSwatch('GET')).toBe('#22c55e');
+      expect(methodSwatch('ANY')).toBe('#94a3b8');
+      expect(methodSwatch('UNKNOWN')).toBe('#94a3b8');
+    });
+
+    it('builds colored select options with descriptions', () => {
+      expect(httpMethodSelectOptions(['GET', 'TRACE'])).toEqual([
+        { value: 'GET', label: 'GET', detail: METHOD_DESCRIPTIONS.GET, swatch: '#22c55e' },
+        { value: 'TRACE', label: 'TRACE', detail: METHOD_DESCRIPTIONS.TRACE, swatch: '#14b8a6' },
+      ]);
+    });
+
+    it('can omit descriptions for compact filters', () => {
+      expect(httpMethodSelectOptions(['POST'], { detail: false })).toEqual([
+        { value: 'POST', label: 'POST', swatch: '#f59e0b' },
+      ]);
+    });
+
+    it('uses an empty detail when the method has no description', () => {
+      expect(httpMethodSelectOptions(['CUSTOM'], { detail: true })).toEqual([
+        { value: 'CUSTOM', label: 'CUSTOM', detail: '', swatch: '#94a3b8' },
+      ]);
     });
   });
 

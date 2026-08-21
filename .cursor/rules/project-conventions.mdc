@@ -188,6 +188,12 @@ alwaysApply: true
 | `src/data/galleries/data-mapper/index.ts` | Data Mapper gallery entries: DataMapperSampleEntry[] catalog |
 | `src/data/galleries/trainingPaths/contentPaths.ts` | Training paths: Requests, Tests, Catalog, Data Mapper manual definitions |
 | `docs/guides/data-mapper-validation-guide.md` | Data Mapper validation guide: 24 operators, array assertions, DSL, ASSERT |
+| `src/shared/api-mock/templateHelperCatalog.ts` | API Mock `{{ }}` helper catalog (filter/group/insert) for Browse helpers |
+| `src/shared/api-mock/redactHeaderCatalog.ts` | Journal redact-header reference (defaults + common names, parse/toggle) |
+| `src/features/api-mock/components/ApiMockRedactHeaderPicker.tsx` | Clickable redact-header chips for Runtime Settings and Settings → Journal |
+| `src/features/api-mock/components/ApiMockResponseFaultsPanel.tsx` | Connection faults plus Timeout **Hold for (ms)** (clamped by `limits.longRunningMaxMs`) |
+| `src/features/api-mock/components/ApiMockTemplateHelperModal.tsx` | Searchable template-helper reference modal (Copy / Insert) |
+| `src/features/api-mock/components/ApiMockResponseSelectionPanel.tsx` | Variant selection (rules / sequence / weighted / state) plus **Pick from sample** JSONPath picker |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |
 

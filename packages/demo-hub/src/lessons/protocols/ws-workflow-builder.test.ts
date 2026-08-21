@@ -343,7 +343,7 @@ describe('ws-workflow-builder lesson', () => {
     vi.restoreAllMocks();
   });
 
-  it('cleanup clicks cfg close and deletes demo workflow', async () => {
+  it('cleanup dismisses the cfg modal through the bridge and deletes the demo workflow', async () => {
     const modal = document.createElement('div');
     modal.className = 'wf-config-modal';
     const footer = document.createElement('div');
@@ -356,14 +356,33 @@ describe('ws-workflow-builder lesson', () => {
     footer.appendChild(saveBtn);
     modal.appendChild(footer);
     document.body.appendChild(modal);
+    // Footer Close runs handleCancel and would roll back a just-saved config, so
+    // cleanup must go through __wfCloseConfigModal instead of clicking it.
     const closeSpy = vi.spyOn(closeBtn, 'click');
+    const bridgeClose = vi.fn(() => { modal.remove(); });
+    (window as unknown as Record<string, unknown>).__wfCloseConfigModal = bridgeClose;
 
     const wfDelete = vi.fn();
     (window as unknown as Record<string, unknown>).__wfDeleteByName = wfDelete;
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
     await wsWorkflowBuilderLesson.cleanup!(makeCtx());
-    expect(closeSpy).toHaveBeenCalled();
+    expect(bridgeClose).toHaveBeenCalled();
+    expect(closeSpy).not.toHaveBeenCalled();
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
     expect(wfDelete).toHaveBeenCalledWith('WS Echo Demo');
+    delete (window as unknown as Record<string, unknown>).__wfCloseConfigModal;
+    delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
+    vi.restoreAllMocks();
+  });
+
+  it('cleanup still clears the cfg modal when the bridge is missing', async () => {
+    const modal = document.createElement('div');
+    modal.className = 'wf-config-modal';
+    document.body.appendChild(modal);
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
+    await wsWorkflowBuilderLesson.cleanup!(makeCtx());
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
     vi.restoreAllMocks();
   });

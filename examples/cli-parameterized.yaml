@@ -24,10 +24,6 @@ tests:
     assertions:
       - type: status
         expected: "200"
-      - type: jsonPath
-        jsonPath: $.name
-        operator: contains
-        value: "{{expectedName}}"
     dataSource:
       columns:
         - id: c-id

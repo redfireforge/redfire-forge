@@ -13,16 +13,27 @@ function isResizeObserverNoise(reasonOrMessage: unknown): boolean {
 }
 
 /** Monaco rejects cancelled work with a plain object (not Error) — Chrome shows "Object". */
+function isCanceledNoise(text: string): boolean {
+  const msg = text.trim().toLowerCase();
+  return (
+    msg === 'canceled'
+    || msg === 'cancelled'
+    || msg === 'canceled: canceled'
+    || msg === 'cancelled: cancelled'
+    || msg.includes('canceled: canceled')
+    || msg.includes('cancelled: cancelled')
+    || msg.includes('operation is manually canceled')
+    || msg.includes('operation is manually cancelled')
+  );
+}
+
 function isMonacoCancelation(reason: unknown): boolean {
+  if (typeof reason === 'string') return isCanceledNoise(reason);
   if (!reason || typeof reason !== 'object') return false;
   const r = reason as { type?: unknown; name?: unknown; msg?: unknown; message?: unknown };
   if (r.type === 'cancelation' || r.type === 'cancellation') return true;
   if (r.name === 'Canceled' || r.name === 'Cancelled') return true;
-  const msg = String(r.msg ?? r.message ?? '');
-  return (
-    msg.includes('operation is manually canceled')
-    || msg.includes('operation is manually cancelled')
-  );
+  return isCanceledNoise(String(r.msg ?? r.message ?? ''));
 }
 
 function isBenignConsoleNoise(event: Event): boolean {
@@ -33,7 +44,7 @@ function isBenignConsoleNoise(event: Event): boolean {
   const e = event as ErrorEvent;
   const m = e.message
     || (e.error instanceof Error ? e.error.message : e.error != null ? String(e.error) : '');
-  return isResizeObserverNoise(m) || isMonacoCancelation(e.error);
+  return isResizeObserverNoise(m) || isCanceledNoise(m) || isMonacoCancelation(e.error);
 }
 
 function swallowBenignConsoleNoise(event: Event) {
@@ -41,6 +52,17 @@ function swallowBenignConsoleNoise(event: Event) {
   event.preventDefault();
   event.stopImmediatePropagation();
 }
+
+function isCanceledConsoleArg(value: unknown): boolean {
+  if (typeof value === 'string') return isCanceledNoise(value);
+  return isMonacoCancelation(value);
+}
+
+const nativeConsoleError = console.error.bind(console);
+console.error = (...args: unknown[]) => {
+  if (args.some(isCanceledConsoleArg)) return;
+  nativeConsoleError(...args);
+};
 
 window.addEventListener('error', swallowBenignConsoleNoise, true);
 window.addEventListener('unhandledrejection', swallowBenignConsoleNoise, true);

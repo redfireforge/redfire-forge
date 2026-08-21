@@ -1,5 +1,6 @@
 import { isTauri, isNode } from './platform';
 import { isLoopbackUrl, resolveLoopbackUrl } from './loopbackUrl';
+import { withKeepAliveConnection } from './outboundRequestHeaders';
 import type { TimingBreakdown } from '../types';
 
 /** Walk the error `.cause` chain to build a detailed message string. */
@@ -39,11 +40,20 @@ export type HttpTransportFn = (
   body?: string,
 ) => Promise<HttpResponse>;
 
+// Prefer hostname `localhost` over `127.0.0.1`. Corporate ALL_PROXY intercepts
+// `127.0.0.1` (NO_PROXY `127.*` is not honored by curl / WKWebView), while
+// `localhost` is an exact NO_PROXY match. The companion binds 127.0.0.1, which
+// `localhost` resolves to on IPv4. Tauri probes try both via loopbackProbeCandidates.
 const COMPANION_SERVER_BASE = 'http://localhost:3001';
 
 /** Tauri has no Vite /api proxy — resolve companion-server routes to :3001. */
 export function resolveCompanionServerUrl(url: string): string {
-  if (url.startsWith('/api/') || url === '/health' || url.startsWith('/health?')) {
+  if (
+    url.startsWith('/api/')
+    || url === '/health'
+    || url.startsWith('/health/')
+    || url.startsWith('/health?')
+  ) {
     return `${COMPANION_SERVER_BASE}${url}`;
   }
   return url;
@@ -366,7 +376,7 @@ async function nodeFetch(
   try {
     const targetUrl = resolveLoopbackUrl(url);
     const { dispatcher, isProxy } = await getNodeDispatcher();
-    const pooledHeaders = { ...headers, 'Connection': 'keep-alive' };
+    const pooledHeaders = withKeepAliveConnection(headers);
     const opts: Record<string, unknown> = { method, headers: pooledHeaders };
     if (body && method !== 'GET') opts.body = body;
     const useProxyDispatcher = Boolean(dispatcher) && !isLoopbackUrl(targetUrl);

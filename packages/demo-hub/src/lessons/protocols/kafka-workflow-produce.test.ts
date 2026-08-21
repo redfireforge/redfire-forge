@@ -23,7 +23,9 @@ describe('kafka-workflow-produce lesson', () => {
     expect(kafkaWorkflowProduceLesson.domainId).toBe('protocols');
     expect(kafkaWorkflowProduceLesson.category).toBe('kafka');
     expect(kafkaWorkflowProduceLesson.estimatedMinutes).toBeGreaterThan(0);
-    expect(kafkaWorkflowProduceLesson.initialTab).toBeUndefined();
+    expect(kafkaWorkflowProduceLesson.initialTab).toBe('workflow');
+    expect(kafkaWorkflowProduceLesson.collapseAppSidebarOnStart).toBe(true);
+    expect(typeof kafkaWorkflowProduceLesson.prepareBeforeNavigate).toBe('function');
   });
 
   it('has concept with title, body, keyTerms, and SVG diagram', () => {
@@ -150,24 +152,21 @@ describe('kafka-workflow-produce lesson', () => {
     expect(document.querySelector('[data-testid="kafka-produce-config"]')).toBeTruthy();
   });
 
-  it('step wp-open-console preAction closes config modal via footer Close button', async () => {
+  it('step wp-open-console preAction closes config modal via bridge (or removes shell)', async () => {
     const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-open-console')!;
     expect(step.preAction).toBeDefined();
+    const closeBridge = vi.fn(() => {
+      document.querySelector('.wf-config-modal')?.remove();
+    });
+    (window as unknown as Record<string, unknown>).__wfCloseConfigModal = closeBridge;
     const modal = document.createElement('div');
     modal.className = 'wf-config-modal';
-    const footer = document.createElement('div');
-    footer.className = 'wf-config-modal-footer-actions';
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'btn btn-sm btn-ghost';
-    closeBtn.textContent = 'Close';
-    const clickSpy = vi.fn();
-    closeBtn.addEventListener('click', clickSpy);
-    footer.appendChild(closeBtn);
-    modal.appendChild(footer);
     document.body.appendChild(modal);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
+    expect(closeBridge).toHaveBeenCalled();
+    expect(document.querySelector('.wf-config-modal')).toBeNull();
+    delete (window as unknown as Record<string, unknown>).__wfCloseConfigModal;
   });
 
   it('step wp-open-console action opens console via badge if panel not present', async () => {
@@ -209,31 +208,27 @@ describe('kafka-workflow-produce lesson', () => {
     expect(ctx.delay).toHaveBeenCalledWith(1500);
   });
 
-  it('step wp-fields preAction ensures produce config is open', async () => {
+  it('step wp-fields preAction keeps produce config open when already showing', async () => {
     const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-fields')!;
     expect(step.preAction).toBeDefined();
     expect(step.highlight).toBe('[data-testid="kafka-produce-cluster-input"]');
     expect(step.verify).toBe('[data-testid="kafka-produce-body-textarea"]');
 
-    const rfNode = document.createElement('div');
-    rfNode.className = 'react-flow__node';
-    rfNode.setAttribute('data-id', 'produce-1');
-    const node = document.createElement('div');
-    node.className = 'wf-node-kafkaProduce';
-    rfNode.appendChild(node);
-    document.body.appendChild(rfNode);
-    node.addEventListener('dblclick', () => {
-      const modal = document.createElement('div');
-      modal.className = 'wf-config-modal';
-      const panel = document.createElement('div');
-      panel.setAttribute('data-testid', 'kafka-produce-config');
-      modal.appendChild(panel);
-      const scroll = document.createElement('div');
-      scroll.className = 'wf-config-modal-scroll';
-      scroll.scrollTo = vi.fn();
-      modal.appendChild(scroll);
-      document.body.appendChild(modal);
-    });
+    (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = () => 'Kafka Produce Demo';
+    (window as unknown as Record<string, unknown>).__wfGetByName = () => ({ name: 'Kafka Produce Demo' });
+    document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+
+    const modal = document.createElement('div');
+    modal.className = 'wf-config-modal';
+    const panel = document.createElement('div');
+    panel.setAttribute('data-testid', 'kafka-produce-config');
+    modal.appendChild(panel);
+    const scroll = document.createElement('div');
+    scroll.className = 'wf-config-modal-scroll';
+    scroll.scrollTo = vi.fn();
+    modal.appendChild(scroll);
+    document.body.appendChild(modal);
 
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -310,9 +305,15 @@ describe('kafka-workflow-produce lesson', () => {
 
   it('step wp-bindings preAction checks the On checkbox if it starts unchecked', async () => {
     const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-bindings')!;
+    (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = () => 'Kafka Produce Demo';
+    (window as unknown as Record<string, unknown>).__wfGetByName = () => ({ name: 'Kafka Produce Demo' });
+
     const modal = document.createElement('div');
     modal.className = 'wf-config-modal';
-    document.body.appendChild(modal);
+    const panel = document.createElement('div');
+    panel.setAttribute('data-testid', 'kafka-produce-config');
+    modal.appendChild(panel);
     const section = document.createElement('div');
     section.setAttribute('data-testid', 'output-bindings-section');
     section.className = 'wf-kafka-section';
@@ -325,14 +326,15 @@ describe('kafka-workflow-produce lesson', () => {
     checkbox.addEventListener('click', clickSpy);
     toggleWrap.appendChild(checkbox);
     section.appendChild(toggleWrap);
-    document.body.appendChild(section);
+    modal.appendChild(section);
+    document.body.appendChild(modal);
+    document.body.insertAdjacentHTML('afterbegin', '<div class="wf-canvas-area"></div>');
+
     const ctx = makeCtx();
     await step.preAction!(ctx);
     // jsdom auto-toggles checked on .click(), so after one click it becomes true
     expect(clickSpy).toHaveBeenCalled();
     expect(checkbox.checked).toBe(true);
-    document.body.removeChild(modal);
-    document.body.removeChild(section);
   });
 
   it('step wp-result action spotlights produce line and body line in console', async () => {
@@ -367,18 +369,11 @@ describe('kafka-workflow-produce lesson', () => {
     document.body.removeChild(body);
   });
 
-  it('setup calls __wfDeleteByName when set on window', async () => {
-    const { deleteByName: deleteSpy } = stubWorkflowSeedBridge('Kafka Produce Demo');
+  it('prepareBeforeNavigate seeds workflow via bridge (quiet, before tab mount)', async () => {
+    const { deleteByName: deleteSpy, insertWorkflow: insertSpy } = stubWorkflowSeedBridge('Kafka Produce Demo');
     const ctx = makeCtx();
-    await kafkaWorkflowProduceLesson.setup!(ctx);
+    await kafkaWorkflowProduceLesson.prepareBeforeNavigate!(ctx);
     expect(deleteSpy).toHaveBeenCalledWith('Kafka Produce Demo');
-    clearWorkflowSeedBridge();
-  });
-
-  it('setup calls __wfInsertWorkflow when set on window', async () => {
-    const { insertWorkflow: insertSpy } = stubWorkflowSeedBridge('Kafka Produce Demo');
-    const ctx = makeCtx();
-    await kafkaWorkflowProduceLesson.setup!(ctx);
     expect(insertSpy).toHaveBeenCalled();
     clearWorkflowSeedBridge();
   });
@@ -420,18 +415,33 @@ describe('kafka-workflow-produce lesson', () => {
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
   });
 
-  it('wp-intro preAction clicks sidebar item when matching workflow found', async () => {
+  it('wp-intro preAction selects quietly without expanding the Workflows sidebar', async () => {
     const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-intro')!;
-    (window as unknown as Record<string, unknown>).__demoExpandAppSidebar = vi.fn();
+    const expandSpy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoExpandAppSidebar = expandSpy;
     (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar = vi.fn();
-    document.body.innerHTML =
-      '<div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Kafka Produce Demo</span></div>';
-    const item = document.querySelector<HTMLElement>('.wf-sidebar-item')!;
-    const clickSpy = vi.spyOn(item, 'click');
+    (window as unknown as Record<string, unknown>).__wfSelectByName = vi.fn().mockReturnValue(true);
+    (window as unknown as Record<string, unknown>).__wfGetByName = vi.fn().mockReturnValue({ name: 'Kafka Produce Demo' });
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = vi.fn().mockReturnValue('Kafka Produce Demo');
+    document.body.innerHTML = '<div class="wf-canvas-area"></div>';
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(expandSpy).not.toHaveBeenCalled();
+  });
+
+  it('wp-intro action fits the canvas quietly (no Fit view button click)', async () => {
+    const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-intro')!;
+    const fitSpy = vi.fn().mockReturnValue(true);
+    (window as unknown as Record<string, unknown>).__wfFitView = fitSpy;
+    const fitBtn = document.createElement('button');
+    fitBtn.title = 'Fit view';
+    const fitClickSpy = vi.fn();
+    fitBtn.addEventListener('click', fitClickSpy);
+    document.body.appendChild(fitBtn);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(fitSpy).toHaveBeenCalledWith({ duration: 0 });
+    expect(fitClickSpy).not.toHaveBeenCalled();
   });
 
   it('setup runs without throwing when DOM is empty', async () => {
@@ -488,19 +498,6 @@ describe('kafka-workflow-produce lesson', () => {
     const ctx = makeCtx();
     await kafkaWorkflowProduceLesson.setup!(ctx);
     expect(badgeClickSpy).toHaveBeenCalled();
-  });
-
-  it('wp-intro action clicks Fit view when the button is present', async () => {
-    const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-intro')!;
-    const fitBtn = document.createElement('button');
-    fitBtn.title = 'Fit view';
-    const fitClickSpy = vi.fn();
-    fitBtn.addEventListener('click', fitClickSpy);
-    document.body.appendChild(fitBtn);
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(fitClickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(120);
   });
 
   it('wp-summary preAction closes console when panel is present', async () => {

@@ -1,0 +1,16 @@
+{
+  "_exportMeta": {
+    "kind": "redfireforge-api-mock",
+    "schemaVersion": 1,
+    "exportedAt": "2026-08-11T00:00:00.000Z",
+    "redacted": false
+  },
+  "data": {
+    "scope": "workspace",
+    "workspace": {
+      "schemaVersion": 1,
+      "servers": [],
+      "tabOrder": []
+    }
+  }
+}

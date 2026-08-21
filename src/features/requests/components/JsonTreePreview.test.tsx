@@ -198,6 +198,20 @@ describe('JsonTreePreview', () => {
       expect(highlights.length).toBeGreaterThan(0);
     });
 
+    it('auto-collapses non-matching branches during search, but forceExpandAll reopens them', () => {
+      const body = '{"match":"hit","other":{"deep":"buried"}}';
+      // Default: the "other" branch has no matching descendant → collapsed, "deep" hidden.
+      const { rerender } = render(
+        <JsonPreview body={body} collapsedSet={new Set<string>()} onToggle={vi.fn()} search="match" />,
+      );
+      expect(screen.queryByText(/"deep"/)).toBeNull();
+      // Expand all in effect: every node stays open even while the search is active.
+      rerender(
+        <JsonPreview body={body} collapsedSet={new Set<string>()} onToggle={vi.fn()} search="match" forceExpandAll />,
+      );
+      expect(screen.getByText(/"deep"/)).toBeInTheDocument();
+    });
+
     it('calls onMatchCountChange when matches change', () => {
       const onMatchCountChange = vi.fn();
       render(

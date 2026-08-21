@@ -30,8 +30,9 @@ const SUB_GROUP_META: Record<string, { label: string; color: string }> = {
   websocket: { label: 'WebSocket', color: 'var(--proto-ws)' },
   graphql:   { label: 'GraphQL',   color: 'var(--proto-gql)' },
   grpc:      { label: 'gRPC',      color: 'var(--proto-grpc)' },
+  apimock:   { label: 'API Mock',  color: 'var(--proto-apimock)' },
 };
-const SUB_GROUP_ORDER = ['http', 'kafka', 'websocket', 'graphql', 'grpc'];
+const SUB_GROUP_ORDER = ['http', 'kafka', 'websocket', 'graphql', 'grpc', 'apimock'];
 
 const ALL_BLOCKS: BlockDef[] = [
   { type: 'start', title: 'Manual Start', desc: 'Workflow entry point', category: 'triggers' },
@@ -56,6 +57,11 @@ const ALL_BLOCKS: BlockDef[] = [
   { type: 'grpcUnary', title: 'gRPC Unary', desc: 'Execute a unary gRPC call', category: 'actions', subGroup: 'grpc' },
   { type: 'grpcServerStream', title: 'gRPC Server Stream', desc: 'Execute and collect a server stream', category: 'actions', subGroup: 'grpc' },
   { type: 'grpcAssert', title: 'gRPC Assert', desc: 'Assert an upstream gRPC step result', category: 'logic' },
+  { type: 'apiMockStart', title: 'Start Mock Server', desc: 'Start an API Mock Studio listener', category: 'actions', subGroup: 'apimock' },
+  { type: 'apiMockApply', title: 'Apply Definition', desc: 'Hot-apply mock routes to a running listener', category: 'actions', subGroup: 'apimock' },
+  { type: 'apiMockResetState', title: 'Reset Mock State', desc: 'Clear scenario/sequence counters', category: 'actions', subGroup: 'apimock' },
+  { type: 'apiMockStop', title: 'Stop Mock Server', desc: 'Stop a mock listener', category: 'actions', subGroup: 'apimock' },
+  { type: 'apiMockAssertCalls', title: 'Assert Mock Calls', desc: 'Verify journal call counts and payloads', category: 'logic' },
   { type: 'condition', title: 'Condition', desc: 'If/Else branching', category: 'logic' },
   { type: 'switch', title: 'Switch', desc: 'Multi-way branching', category: 'logic' },
   { type: 'loop', title: 'Loop', desc: 'Repeat / For-Each / While', category: 'logic' },

@@ -1,0 +1,17 @@
+{
+  "_comment": "schemaVersion 999 must be rejected with AMS-IMPORT-VERSION-UNKNOWN",
+  "_exportMeta": {
+    "kind": "redfireforge-api-mock",
+    "schemaVersion": 999,
+    "exportedAt": "2030-01-01T00:00:00.000Z",
+    "redacted": false
+  },
+  "data": {
+    "scope": "workspace",
+    "workspace": {
+      "schemaVersion": 999,
+      "servers": [],
+      "tabOrder": []
+    }
+  }
+}

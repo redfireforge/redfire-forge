@@ -6,6 +6,7 @@ import { resolve, basename, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { loadTestFile, buildScenarios, buildTestConfig } from './loader';
 import { loadDataFile } from './dataLoader';
+import { parseTagFilter, filterScenariosByRowTags } from './tagFilter';
 import { loadWorkflowFile } from './workflowLoader';
 import { runTest, type ProgressMeta } from '../src/engine/executor';
 import { runGraphLoad } from '../src/features/workflow/engine/graphLoadRunner';
@@ -23,7 +24,7 @@ import {
   printComparisonSummary,
   buildComparisonMarkdown,
 } from './reporters';
-import type { RequestResult, ErrorPolicy } from '../src/types';
+import type { RequestResult, ErrorPolicy } from '../src/shared/types';
 import { toErrorMessage } from '../src/shared/utils/helpers';
 import {
   loadSlaTargetFile,
@@ -43,7 +44,8 @@ import {
   compareRuns,
   DEFAULT_THRESHOLDS,
 } from '../src/features/results/utils/runBaselines';
-import type { TestRun } from '../src/types';
+import type { TestRun } from '../src/shared/types';
+import { registerMockCommands } from './mockCommandRegistration';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -149,22 +151,20 @@ program
 
       // ─── Data row tag filtering ──────────────────────
       if (opts.tags) {
-        const filterTags = (opts.tags as string).split(',').map((t: string) => t.trim().toLowerCase()).filter(Boolean);
+        const filterTags = parseTagFilter(opts.tags as string);
         const tagMode = (opts.tagMode === 'all' ? 'all' : 'any') as 'any' | 'all';
-        for (const sc of scenarios) {
-          if (sc.dataSource && sc.dataSource.rows.length > 0) {
-            sc.dataSource.rows = sc.dataSource.rows.filter(row => {
-              const rowTags = row.tags ?? [];
-              if (rowTags.length === 0) return false;
-              return tagMode === 'any'
-                ? filterTags.some(t => rowTags.includes(t))
-                : filterTags.every(t => rowTags.includes(t));
-            });
+        const before = scenarios.length;
+        const result = filterScenariosByRowTags(scenarios, filterTags, tagMode);
+        scenarios = result.scenarios;
+        if (!opts.quiet) {
+          console.log(`  Tags:    ${filterTags.join(', ')} (mode: ${tagMode}, ${result.matchingRowCount} matching rows, ${scenarios.length}/${before} scenarios retained)`);
+          if (result.droppedScenarioNames.length > 0) {
+            console.log(`  Dropped: ${result.droppedScenarioNames.join(', ')} (no rows matched the tag filter)`);
           }
         }
-        if (!opts.quiet) {
-          const totalRows = scenarios.reduce((n, s) => n + (s.dataSource?.rows.length ?? 0), 0);
-          console.log(`  Tags:    ${filterTags.join(', ')} (mode: ${tagMode}, ${totalRows} matching rows)`);
+        if (scenarios.length === 0) {
+          console.error('\n  ❌ No data rows match the specified tags.\n');
+          process.exit(1);
         }
       }
 
@@ -264,10 +264,11 @@ program
       let hasSlaFail = false;
       if (slaTargets) {
         const checks = evaluateCliSla(summary, results, slaTargets);
-        printSlaReport(checks, opts.quiet as boolean);
-        if (opts.failOnSla && slaOverallStatus(checks) === 'fail') {
-          hasSlaFail = true;
-        }
+        hasSlaFail = !!(opts.failOnSla && slaOverallStatus(checks) === 'fail');
+        // Always surface the report when it's about to cause a non-zero exit —
+        // not gated on `-q`, since without it a quiet CI log shows only exit code 4
+        // with no indication of which SLA target actually failed (NOTE-3).
+        printSlaReport(checks, (opts.quiet as boolean) && !hasSlaFail);
       }
 
       // ── Baseline comparison ────────────────────────────────────────────────
@@ -365,7 +366,9 @@ program
         process.exit(testFail ? 3 : 2);
       }
       if (testFail) {
-        if (!opts.quiet && overThreshold) {
+        // Always surface why the run is about to exit non-zero — not gated on `-q`,
+        // since without this line a quiet CI log shows only a bare exit code.
+        if (overThreshold) {
           console.log(`  Error rate ${summary.errorRate}% exceeds threshold ${opts.failThreshold}%`);
         }
         process.exit(1);
@@ -392,6 +395,7 @@ program
   .option('--max-error-rate <pct>', 'Stop at error rate % (threshold mode)', (v) => parseFloat(v))
   .option('--base-url <url>', 'Base URL for HTTP nodes with relative paths')
   .option('--trace-level <level>', 'Trace capture level: minimal, standard, full, debug (default: standard)')
+  .option('--trace-output <path>', 'Write the full execution trace (per-node/per-iteration) as JSON to file')
   .option('--fail-on-error', 'Exit code 1 if any request fails')
   .option('--fail-threshold <pct>', 'Exit code 1 if error rate exceeds this %', (v) => parseFloat(v))
   .option('-o, --output <path>', 'Write JSON report to file')
@@ -480,7 +484,7 @@ program
       }
       const traceLevel = (cliTraceLevel as typeof validTraceLevels[number]) ?? 'standard';
 
-      const { results } = await runGraphLoad(workflow, {
+      const { results, trace } = await runGraphLoad(workflow, {
         iterations,
         concurrency,
         initialVariables: variables,
@@ -535,15 +539,20 @@ program
         console.log(`  Markdown:    ${opts.markdown}`);
       }
 
+      if (opts.traceOutput) {
+        writeFileSync(resolve(opts.traceOutput), JSON.stringify(trace, null, 2));
+        console.log(`  Trace:       ${opts.traceOutput}`);
+      }
+
       // Exit code logic
       const passed = summary.failedRequests === 0 && summary.failedValidations === 0;
       if (opts.failOnError && !passed) {
         process.exit(1);
       }
       if (opts.failThreshold != null && summary.errorRate > opts.failThreshold) {
-        if (!opts.quiet) {
-          console.log(`  Error rate ${summary.errorRate}% exceeds threshold ${opts.failThreshold}%`);
-        }
+        // Always surface why the run is about to exit non-zero — not gated on `-q`,
+        // since without this line a quiet CI log shows only a bare exit code.
+        console.log(`  Error rate ${summary.errorRate}% exceeds threshold ${opts.failThreshold}%`);
         process.exit(1);
       }
 
@@ -606,5 +615,7 @@ program
       process.exit(2);
     }
   });
+
+registerMockCommands(program);
 
 program.parse();

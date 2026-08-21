@@ -1,14 +1,18 @@
 pub mod assertion_evaluator;
 mod arrival_executor;
 mod commands;
+mod companion;
 mod graphql;
 mod grpc;
 mod kafka;
 mod websocket;
+mod api_mock;
 pub mod date_helpers;
 pub mod histogram;
 pub mod deep_compare;
+mod executor_circuit;
 mod executor_detail_level;
+mod executor_think_time;
 mod executor;
 pub mod field_operator;
 pub mod http_helpers;
@@ -86,6 +90,7 @@ pub fn run() {
     .manage(KafkaState::new())
     .manage(WsState::new())
     .manage(GrpcState::new())
+    .manage(api_mock::ApiMockNativeState::new())
     .invoke_handler(tauri::generate_handler![
       commands::start_load_test,
       commands::abort_load_test,
@@ -123,6 +128,21 @@ pub fn run() {
       grpc::mock_server::grpc_mock_listener_status,
       grpc::mock_server::grpc_mock_listener_commit,
       grpc::mock_server::grpc_mock_listener_log,
+      api_mock::commands::api_mock_listener_start,
+      api_mock::commands::api_mock_listener_stop,
+      api_mock::commands::api_mock_listener_restart,
+      api_mock::commands::api_mock_listener_commit,
+      api_mock::commands::api_mock_listener_status,
+      api_mock::commands::api_mock_listener_transactions_query,
+      api_mock::commands::api_mock_listener_transactions_clear,
+      api_mock::commands::api_mock_listener_state,
+      api_mock::commands::api_mock_listener_reset_state,
+      api_mock::commands::api_mock_listener_diagnostics,
+      api_mock::commands::api_mock_listener_recorded_drafts,
+      api_mock::commands::api_mock_listener_recorded_drafts_ack,
+      api_mock::commands::api_mock_listener_recorded_drafts_clear,
+      api_mock::commands::api_mock_ports_next,
+      api_mock::commands::api_mock_ports_probe,
     ]);
 
   #[cfg(debug_assertions)]
@@ -131,9 +151,11 @@ pub fn run() {
   }
 
   builder
+    .manage(companion::CompanionState::default())
     .setup(|app| {
       let grpc_state = app.state::<GrpcState>();
       lifecycle::start_orphan_supervisor(grpc_state.inner().clone());
+      companion::start(app.handle());
 
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -149,6 +171,8 @@ pub fn run() {
         let state = window.state::<GrpcState>();
         lifecycle::shutdown_all(&state);
         let _ = grpc::mock_server::shutdown_all_mock_listeners();
+        api_mock::shutdown_all_listeners(&window.state::<api_mock::ApiMockNativeState>());
+        companion::stop(window.app_handle());
       }
     })
     .build(tauri::generate_context!())
@@ -158,6 +182,8 @@ pub fn run() {
         let state = app_handle.state::<GrpcState>();
         lifecycle::shutdown_all(&state);
         let _ = grpc::mock_server::shutdown_all_mock_listeners();
+        api_mock::shutdown_all_listeners(&app_handle.state::<api_mock::ApiMockNativeState>());
+        companion::stop(app_handle);
       }
     });
 }

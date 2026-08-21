@@ -832,4 +832,24 @@ describe('SidebarContextMenu', () => {
       HTMLElement.prototype.getBoundingClientRect = origRect;
     }
   });
+
+  it('request menu exports to api mock when callback is provided', () => {
+    const onExportToApiMock = vi.fn();
+    const dismiss = vi.fn();
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'direct',
+      requests: [req('r1', 'Get pets')],
+      folders: [],
+    };
+    renderMenu(
+      { x: 0, y: 0, type: 'request', colId: 'c1', reqId: 'r1' },
+      [col],
+      { onExportToApiMock, dismiss },
+    );
+    fireEvent.click(screen.getByText('Export to API Mock'));
+    expect(onExportToApiMock).toHaveBeenCalledWith('c1', 'r1');
+    expect(dismiss).toHaveBeenCalled();
+  });
 });

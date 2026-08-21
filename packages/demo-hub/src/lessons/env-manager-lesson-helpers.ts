@@ -3,12 +3,36 @@
  * Used by WebSocket, SSE, and GraphQL protocol lessons.
  */
 import type { DemoActionContext } from '../types';
-import { APP, EM, emAddProtocolItemSel, emRemoveProtocolSel } from '@shared/selectors';
+import {
+  APP,
+  EM,
+  emAddProtocolItemSel,
+  emEnvByNameSel,
+  emRemoveProtocolSel,
+  emSvcByNameSel,
+} from '@shared/selectors';
 import type { ProtocolKey } from '@shared/types';
 import { isDemoTargetVisible } from '../demoSpotlightUtils';
 import { showSpotlightRing } from '../demoRipple';
 import { fillControlledInput } from './setup-helpers';
 import { getDemoBridgeWindow } from '../adapters/bridgeWindow';
+
+/** Spotlight a selector and hold so live-demo viewers can read it. */
+async function spotlightAndHold(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs: number,
+): Promise<void> {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return;
+  el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  const remove = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    remove();
+  }
+}
 
 /** Shared SSE demo lesson identifiers and endpoint (basic + advanced lessons). */
 export const SSE_DEMO_ENV_NAME = 'SSE Demo';
@@ -614,6 +638,59 @@ async function submitEmAddRow(
   }
   addBtn?.click();
   await ctx.delay(120);
+}
+
+/**
+ * Visibly create (or reuse) a named environment + microservice for live demos.
+ * Paces fill → Add → chip hold so viewers can follow — unlike quiet `ensure*` helpers.
+ */
+export async function createNamedEnvAndSvcVisible(
+  ctx: DemoActionContext,
+  envName: string,
+  svcName: string,
+): Promise<void> {
+  await navigateToEnvironmentManager(ctx);
+  await ctx.delay(400);
+  await ctx.waitFor(EM.ADD_ENV_INPUT, 2200);
+
+  const envSel = emEnvByNameSel(envName);
+  if (!document.querySelector(envSel)) {
+    await spotlightAndHold(ctx, EM.ADD_ENV_INPUT, 800);
+    const envInput = document.querySelector<HTMLInputElement>(EM.ADD_ENV_INPUT);
+    if (envInput) {
+      envInput.focus();
+      await ctx.delay(250);
+      fillControlledInput(envInput, envName);
+      await ctx.delay(900); // viewer reads the typed environment name
+    }
+    await spotlightAndHold(ctx, EM.ADD_ENV_BTN, 600);
+    // Native click so React/DOM listeners fire (ctx.click is often mocked in unit tests).
+    const envAddBtn = await waitForEnabledButton(ctx, EM.ADD_ENV_BTN);
+    envAddBtn?.click();
+    await ctx.waitFor(envSel, 2200);
+    await ctx.delay(400);
+  }
+  // Hold on the environment chip — the beat viewers must not miss.
+  await spotlightAndHold(ctx, envSel, 1400);
+
+  const svcSel = emSvcByNameSel(svcName);
+  await ctx.waitFor(EM.ADD_SVC_INPUT, 2200);
+  if (!document.querySelector(svcSel)) {
+    await spotlightAndHold(ctx, EM.ADD_SVC_INPUT, 800);
+    const svcInput = document.querySelector<HTMLInputElement>(EM.ADD_SVC_INPUT);
+    if (svcInput) {
+      svcInput.focus();
+      await ctx.delay(250);
+      fillControlledInput(svcInput, svcName);
+      await ctx.delay(900); // viewer reads the typed microservice name
+    }
+    await spotlightAndHold(ctx, EM.ADD_SVC_BTN, 600);
+    const svcAddBtn = await waitForEnabledButton(ctx, EM.ADD_SVC_BTN);
+    svcAddBtn?.click();
+    await ctx.waitFor(svcSel, 2200);
+    await ctx.delay(400);
+  }
+  await spotlightAndHold(ctx, svcSel, 1200);
 }
 
 /**

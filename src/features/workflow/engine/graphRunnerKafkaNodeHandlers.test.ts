@@ -69,6 +69,28 @@ describe('handleKafkaProduceNode', () => {
     expect(passed.value).toBe(true);
     expect(cbResult.states['p1']?.state).toBe('pass');
     expect(hCtx.visitOutgoing).toHaveBeenCalledWith('p1', 'main');
+    expect(hCtx.results[0]).toMatchObject({
+      transportType: 'kafkaProduce',
+      responseBody: '{"msg": "hello"}',
+      kafkaResultMeta: expect.objectContaining({ topic: 'test-topic' }),
+    });
+  });
+
+  it('stores produced headers on the RequestResult for Results detail', async () => {
+    const ops = mockKafkaOps();
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, kafkaOperations: ops });
+    const passed = makePassedFlag();
+    const node = produceNode('p1', {
+      headers: [{ id: 'h1', key: 'X-Trace', value: 'abc', enabled: true }],
+    });
+
+    await handleKafkaProduceNode('p1', node, hCtx, passed);
+
+    expect(hCtx.results[0]).toMatchObject({
+      responseBody: '{"msg": "hello"}',
+      responseHeaders: { 'X-Trace': 'abc' },
+      kafkaResultMeta: expect.objectContaining({ headers: { 'X-Trace': 'abc' } }),
+    });
   });
 
   it('resolves template variables in topic, key, body, and headers', async () => {
@@ -204,6 +226,11 @@ describe('handleKafkaConsumeNode', () => {
     expect(passed.value).toBe(true);
     expect(cbResult.states['c1']?.state).toBe('pass');
     expect(hCtx.visitOutgoing).toHaveBeenCalledWith('c1', 'main');
+    expect(hCtx.results[0]).toMatchObject({
+      transportType: 'kafkaConsume',
+      responseBody: '{"status":"ok"}',
+      kafkaResultMeta: expect.objectContaining({ offset: 55, key: 'k1' }),
+    });
   });
 
   it('writes output bindings from consumed message', async () => {

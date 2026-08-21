@@ -24,6 +24,7 @@ import {
   cleanupDemoCatalog,
   ensureCatalogTab,
   ensureCatalogOverviewView,
+  prepareDemoCatalogBeforeNavigate,
   spotlight,
   spotlightEl,
 } from './cat-demo-helpers';
@@ -39,6 +40,8 @@ export const catConvertOpenApiLesson: DemoLesson = {
     'validate the output, deep-lint it, save as a new version, and batch-convert all remaining Swagger entries.',
   estimatedMinutes: 5,
   initialTab: 'catalog',
+  // Arm Overview before Catalog mounts so Start/Restart never paints CatalogWelcome.
+  initialSurface: { catalogView: 'overview' },
   allowedTabs: ['catalog'],
 
   concept: {
@@ -79,6 +82,12 @@ export const catConvertOpenApiLesson: DemoLesson = {
       <defs><marker id="arr5" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
         <polygon points="0 0, 8 3, 0 6" fill="#94a3b8"/></marker></defs>
     </svg>`,
+  },
+
+  // Seed + select BEFORE Catalog mounts so Start/Restart never paints CatalogWelcome.
+  prepareBeforeNavigate: async (ctx) => {
+    await cleanupOtherRequestDemoCollections(ctx);
+    await prepareDemoCatalogBeforeNavigate(ctx);
   },
 
   setup: async (ctx) => {

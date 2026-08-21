@@ -74,6 +74,12 @@ describe('AppLiveDemoOverlay', () => {
     expect(screen.getByTestId('live-demo')).toBeInTheDocument();
     expect(screen.queryByTestId('demo-content-veil')).toBeNull();
     expect(screen.queryByTestId('demo-boot-concept-cover')).toBeNull();
+    expect(capturedProps.surfaceReady).toBe(false);
+  });
+
+  it('marks surfaceReady once bootstrapping ends', () => {
+    render(<AppLiveDemoOverlay demoHub={makeDemoHub({ isDemoBootstrapping: false })} navigateToTab={vi.fn()} />);
+    expect(capturedProps.surfaceReady).toBe(true);
   });
 
   it('onExit exits live mode before pinning demo-hub, then pins again after cleanup', async () => {

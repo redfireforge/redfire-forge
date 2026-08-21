@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "RedfireForge",
-  "version": "0.7.0",
+  "version": "0.8.0-beta.1",
   "identifier": "com.redfireforge.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build:prod"
+    "beforeBuildCommand": "npm run build:prod && npm run build:sidecar"
   },
   "app": {
     "withGlobalTauri": true,
@@ -45,6 +45,9 @@
     ],
     "resources": [
       "../cli/dist/redfireforge.mjs"
+    ],
+    "externalBin": [
+      "binaries/redfireforge-companion"
     ],
     "macOS": {
       "signingIdentity": null,

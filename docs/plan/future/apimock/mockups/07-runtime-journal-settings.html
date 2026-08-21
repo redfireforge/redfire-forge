@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>API Mock — Runtime, Journal &amp; Settings</title><link rel="stylesheet" href="shared.css">
+<style>.runtime-layout{flex:1;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto}.journal-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0}.journal-detail>*{overflow:auto;padding:12px}.journal-detail>*+*{border-left:1px solid var(--border)}.tx-row{display:grid;grid-template-columns:80px 55px minmax(0,1fr) 65px 70px minmax(0,1fr);align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent);font-size:11px;cursor:pointer}.tx-row:hover{background:var(--surface-hover)}.tx-row.active{background:var(--primary-soft)}</style></head>
+<body><div class="app-shell">
+<header class="app-header"><div class="brand"><span class="brand-mark">RF</span><span>RedfireForge <small>Workbench</small></span></div><div class="header-actions"><span class="badge success">Users API :4600</span><span class="generation">Gen 12</span></div></header>
+<nav class="screen-nav"><span class="screen-nav-label">Mockups</span><a class="screen-link" href="01-main-studio.html">Studio</a><a class="screen-link" href="02-pattern-toolbox.html">Patterns</a><a class="screen-link" href="03-response-behavior.html">Responses</a><a class="screen-link" href="04-simulation-trace.html">Simulation</a><a class="screen-link" href="05-conflict-inspector.html">Conflicts</a><a class="screen-link" href="06-import-promotion.html">Import</a><a class="screen-link active" href="07-runtime-journal-settings.html">Runtime</a><a class="screen-link" href="08-responsive-layouts.html">Responsive</a><span class="spacer"></span><a class="screen-link" href="index.html">All screens</a></nav>
+<main class="mockup-stage tab-scope">
+<div class="page-titlebar"><div><div class="page-title">Runtime, Journal &amp; Settings</div><div class="page-subtitle">Transaction log, state, variables, and server policy</div></div><span class="spacer"></span>
+<div class="builder-tabs"><button class="builder-tab active" data-tab-target="journal-tab">Transactions <span class="count-badge">24</span></button><button class="builder-tab" data-tab-target="state-tab">State</button><button class="builder-tab" data-tab-target="vars-tab">Variables</button><button class="builder-tab" data-tab-target="settings-tab">Settings</button><button class="builder-tab" data-tab-target="console-tab">Console</button></div></div>
+
+<div id="journal-tab" class="builder-tab-content active" style="display:flex;flex-direction:column;min-height:0">
+<div style="padding:8px 12px;display:flex;gap:8px;border-bottom:1px solid var(--border)"><input class="search" placeholder="Filter by path, status, or rule…" style="max-width:350px"><span class="spacer"></span><button class="btn small">Export</button><button class="btn small danger">Clear</button></div>
+<div style="overflow:auto;flex:1">
+<div class="tx-row active"><span>10:42:31</span><span class="method get">GET</span><span class="mono">/users/42?include=profile</span><span><span class="badge success">200</span></span><span>143 ms</span><span class="muted">GET /users/:id</span></div>
+<div class="tx-row"><span>10:41:18</span><span class="method get">GET</span><span class="mono">/users/admin</span><span><span class="badge warning">409</span></span><span>4 ms</span><span class="muted">Ambiguous · 2 rules</span></div>
+<div class="tx-row"><span>10:39:02</span><span class="method post">POST</span><span class="mono">/users</span><span><span class="badge success">201</span></span><span>88 ms</span><span class="muted">POST /users</span></div>
+<div class="tx-row"><span>10:37:45</span><span class="method get">GET</span><span class="mono">/health</span><span><span class="badge success">200</span></span><span>2 ms</span><span class="muted">GET /health</span></div>
+<div class="tx-row"><span>10:36:11</span><span class="method delete">DEL</span><span class="mono">/users/7</span><span><span class="badge">404</span></span><span>3 ms</span><span class="muted">No match · 1 near miss</span></div>
+</div>
+<div class="journal-detail" style="flex:0 0 280px;border-top:1px solid var(--border)">
+<div>
+<div class="section-heading">Request</div>
+<div class="code-block">GET /users/42?include=profile HTTP/1.1
+Host: 127.0.0.1:4600
+X-Tenant: acme
+Accept: application/json
+Authorization: Bearer [REDACTED]</div>
+<div class="section-heading" style="margin-top:10px">Match explanation</div>
+<div style="font-size:11px;margin-bottom:6px"><strong>Outcome:</strong> <span class="badge success">matched</span> GET /users/:id (priority 20)</div>
+<div style="font-size:11px;margin-bottom:6px"><strong>Candidates:</strong> 2 evaluated, 1 matched</div>
+<div style="font-size:11px;margin-bottom:4px"><strong>Predicates:</strong></div>
+<div class="matcher-row" style="grid-template-columns:18px minmax(0,1fr);padding:3px 6px;font-size:10px"><span class="matcher-result pass">✓</span><span>pathParam id regex <span class="mono">^[0-9]+$</span> → <span class="mono">42</span></span></div>
+<div class="matcher-row" style="grid-template-columns:18px minmax(0,1fr);padding:3px 6px;font-size:10px"><span class="matcher-result pass">✓</span><span>header X-Tenant exact → <span class="mono">acme</span></span></div>
+<div style="font-size:11px;margin-top:8px"><strong>Near misses:</strong> GET /users/admin (path mismatch: <span class="mono">/users/42</span> ≠ <span class="mono">/users/admin</span>)</div>
+<div class="row" style="margin-top:10px;gap:6px"><button class="btn small"><i data-lucide="send"></i> Open in Requests</button><button class="btn small"><i data-lucide="plus"></i> Create route</button><button class="btn small"><i data-lucide="copy"></i> Copy</button></div>
+</div>
+<div>
+<div class="section-heading">Response</div>
+<div class="code-block">HTTP/1.1 200 OK
+Content-Type: application/json
+X-Mock-Generation: 12
+
+{
+  "id": "42",
+  "name": "Grace",
+  "tenant": "acme",
+  "profile": {
+    "status": "active",
+    "memberSince": "2026-08-11"
+  }
+}</div>
+<div style="font-size:11px;margin-top:8px"><strong>Duration:</strong> 143 ms (120 ms delay + 23 ms processing)<br><strong>Generation:</strong> 12<br><strong>Variant:</strong> 200 Default</div>
+</div>
+</div>
+</div>
+
+<div id="state-tab" class="builder-tab-content"><div class="editor-body"><div class="section-heading">Scenario state <span class="spacer"></span><button class="btn small danger"><i data-lucide="rotate-ccw"></i> Reset all</button></div><div class="notice"><i data-lucide="info"></i><div>Scenario state and counters are Phase 7 capabilities. This view shows the state journal once those features are active.</div></div></div></div>
+
+<div id="vars-tab" class="builder-tab-content"><div class="editor-body"><div class="section-heading">Server variables <span class="spacer"></span><button class="btn small"><i data-lucide="plus"></i> Variable</button></div><div class="form-grid"><div class="form-row"><div class="form-label">tenant</div><div class="form-control"><span class="mono">acme</span></div></div><div class="form-row"><div class="form-label">apiKey</div><div class="form-control"><span class="mono">[REDACTED]</span> <span class="badge info">sensitive</span></div></div><div class="form-row"><div class="form-label">baseUrl</div><div class="form-control"><span class="mono">https://staging.example.com</span> <span class="badge">environment</span></div></div></div></div></div>
+
+<div id="settings-tab" class="builder-tab-content"><div class="editor-body">
+<div class="section-heading">Selection policy</div>
+<div class="form-grid"><div class="form-row"><div class="form-label">Multiple matches</div><div class="form-control"><select class="select wide"><option>Choose highest priority</option><option>Reject all multiple matches</option></select></div></div><div class="form-row"><div class="form-label">Equal priority</div><div class="form-control"><select class="select wide"><option>Reject as ambiguous</option><option>Specificity, then stable ID</option></select></div></div></div>
+<div class="section-heading" style="margin-top:14px">CORS</div>
+<div class="form-grid"><div class="form-row"><div class="form-label">Enabled</div><div class="form-control"><button class="toggle" role="switch" aria-checked="false" aria-label="Enable CORS"></button></div></div><div class="form-row"><div class="form-label">Allow origins</div><div class="form-control"><input class="input wide" value="*" disabled></div></div></div>
+<div class="section-heading" style="margin-top:14px">Limits</div>
+<div class="form-grid"><div class="form-row"><div class="form-label">Inbound body</div><div class="form-control"><input class="input mono" value="1048576" style="width:110px"><span class="hint">bytes (max 10 MiB)</span></div></div><div class="form-row"><div class="form-label">Connections</div><div class="form-control"><input class="input mono" value="100" style="width:80px"><span class="hint">max 500</span></div></div><div class="form-row"><div class="form-label">Drain timeout</div><div class="form-control"><input class="input mono" value="5000" style="width:80px"><span class="hint">ms (max 30s)</span></div></div></div>
+<div class="section-heading" style="margin-top:14px">Journal &amp; redaction</div>
+<div class="form-grid"><div class="form-row"><div class="form-label">Journal</div><div class="form-control"><button class="toggle on" role="switch" aria-checked="true" aria-label="Enable journal"></button><span class="hint">500 entries max</span></div></div><div class="form-row"><div class="form-label">Persist to disk</div><div class="form-control"><button class="toggle" role="switch" aria-checked="false" aria-label="Persist journal"></button></div></div><div class="form-row"><div class="form-label">Redact headers</div><div class="form-control"><input class="input wide mono" value="authorization, cookie, x-api-key, x-auth-token"></div></div><div class="form-row"><div class="form-label">Redact paths</div><div class="form-control"><input class="input wide mono" value="$.password, $.secret" placeholder="JSONPath expressions"></div></div></div>
+<div class="section-heading" style="margin-top:14px">Fallback</div>
+<div class="form-grid"><div class="form-row"><div class="form-label">Unmatched</div><div class="form-control"><select class="select wide"><option>Default response (404)</option><option>Closest match debug</option></select></div></div></div>
+<div class="section-heading" style="margin-top:14px">LAN binding</div>
+<div class="form-grid"><div class="form-row"><div class="form-label">Host</div><div class="form-control"><select class="select"><option>127.0.0.1 (loopback)</option><option>0.0.0.0 (LAN exposed)</option></select><span class="badge warning" style="display:none">LAN</span></div></div></div>
+<div class="notice warning" style="margin-top:8px"><i data-lucide="wifi"></i><div>Selecting <strong>0.0.0.0</strong> requires explicit confirmation before Start and shows an always-visible LAN badge.</div></div>
+</div></div>
+
+<div id="console-tab" class="builder-tab-content"><div class="editor-body"><div class="section-heading">Server console</div><div class="code-block" style="min-height:160px">10:35:00 [INFO] Mock server "Users API" started on http://127.0.0.1:4600
+10:35:00 [INFO] Generation 12 committed (7 routes, 3 folders)
+10:41:18 [WARN] Ambiguous match: GET /users/admin matched 2 routes at priority 20
+10:42:31 [INFO] Matched GET /users/42 → GET /users/:id (143 ms)</div></div></div>
+</main></div>
+<div class="toast"></div><script src="https://unpkg.com/lucide@latest"></script><script src="mockup-shared.js"></script></body></html>

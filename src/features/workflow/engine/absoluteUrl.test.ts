@@ -42,4 +42,9 @@ describe('ensureAbsoluteUrlWithBase', () => {
     const ctx = new VariableContext({}, { baseUrl: 'https://api.example.com' });
     expect(ensureAbsoluteUrlWithBase('   ', ctx)).toBe('');
   });
+
+  it('does not prepend env baseUrl onto unresolved {{templates}}', () => {
+    const ctx = new VariableContext({}, { baseUrl: 'https://jsonplaceholder.typicode.com' });
+    expect(ensureAbsoluteUrlWithBase('{{mockBaseUrl}}/cart', ctx)).toBe('{{mockBaseUrl}}/cart');
+  });
 });

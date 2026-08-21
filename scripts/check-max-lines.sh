@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MAX_LINES="${MAX_LINES:-900}"
+MAX_LINES="${MAX_LINES:-750}"
 
 # Intended scope: production source files only.
 # Excludes demo and test assets per branch policy.
@@ -26,15 +26,15 @@ for file in "${files[@]}"; do
   fi
 
   line_count=$(wc -l < "$file" | tr -d ' ')
-  if (( line_count > MAX_LINES )); then
+  if (( line_count >= MAX_LINES )); then
     violations+=("$line_count $file")
   fi
 done
 
 if (( ${#violations[@]} > 0 )); then
-  echo "Monolithic file check failed: files over ${MAX_LINES} lines (excluding demo/test)"
+  echo "Monolithic file check failed: files ≥ ${MAX_LINES} lines (excluding demo/test)"
   printf '%s\n' "${violations[@]}" | sort -nr
   exit 1
 fi
 
-echo "Monolithic file check passed: all non-demo/non-test files are <= ${MAX_LINES} lines."
+echo "Monolithic file check passed: all non-demo/non-test files are under ${MAX_LINES} lines."

@@ -32,6 +32,14 @@
   animation: none;
 }
 
+/* Acting-phase rings: outline the control only — never a viewport-sized scrim. */
+.demo-spotlight-ring--local {
+  animation: none;
+  box-shadow:
+    0 0 0 2px var(--primary, #3b82f6),
+    0 0 10px 1px color-mix(in srgb, var(--primary, #3b82f6) 40%, transparent);
+}
+
 @keyframes demo-pulse {
   0%, 100% {
     box-shadow:

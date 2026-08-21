@@ -4,6 +4,8 @@ import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
 import { isLoopbackUrl, preferLocalhostHostname, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
+import { withKeepAliveConnection } from './src/shared/utils/outboundRequestHeaders'
+import { probeApiMockEcho } from './src/shared/api-mock/echoHealthProbe'
 import { demoHubRootImportsPlugin } from './vite/demoHubRootImports'
 import { demoLiveGuardPlugin } from './vite/demoLiveGuardPlugin'
 import { createMonacoAwareLogger, monacoDevNoisePlugin } from './vite/monacoDevNoisePlugin'
@@ -12,6 +14,93 @@ const PROXY_RETRY_CODES = new Set([
   'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
   'UND_ERR_ABORTED', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET',
 ]);
+
+/**
+ * When localhost:3001 is down, Vite's default proxy emits empty HTTP 502s.
+ * Kafka status polls that every few seconds → DevTools "Failed to load resource"
+ * spam. Return HTTP 200 JSON instead so the browser stays quiet and the app can
+ * treat the backend as disconnected / unreachable.
+ */
+function writeSseUnavailable(
+  res: import('http').ServerResponse | import('net').Socket | undefined,
+): void {
+  if (!res) return;
+  if ('headersSent' in res && (res as import('http').ServerResponse).headersSent) {
+    if (!res.writableEnded) (res as import('http').ServerResponse).end();
+    return;
+  }
+  // EventSource reconnects on empty/network errors. HTTP 204 stops the browser retry.
+  if ('writeHead' in res) {
+    const serverRes = res as import('http').ServerResponse;
+    serverRes.writeHead(204, { 'Cache-Control': 'no-cache' });
+    serverRes.end();
+    return;
+  }
+  if ('end' in res) {
+    (res as import('net').Socket).end(
+      'HTTP/1.1 204 No Content\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n',
+    );
+  }
+}
+
+function writeSoftBackendFallback(
+  req: import('http').IncomingMessage | undefined,
+  res: import('http').ServerResponse | import('net').Socket | undefined,
+): void {
+  const url = req?.url ?? '';
+  if (url.includes('/logs/stream')) {
+    writeSseUnavailable(res);
+    return;
+  }
+  if (!res || !('writeHead' in res)) return;
+  const serverRes = res as import('http').ServerResponse;
+  if (serverRes.headersSent || serverRes.writableEnded) return;
+
+  const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+  const timestamp = new Date().toISOString();
+
+  // Kafka connection indicator polls this continuously — soft-disconnected.
+  if (url.startsWith('/api/kafka/status')) {
+    let clusterId: string | undefined;
+    try {
+      clusterId = new URL(url, 'http://localhost').searchParams.get('clusterId') ?? undefined;
+    } catch { /* ignore malformed URL */ }
+    serverRes.writeHead(200, headers);
+    serverRes.end(JSON.stringify({
+      ok: true,
+      op: 'status',
+      data: {
+        state: 'disconnected',
+        ...(clusterId ? { clusterId } : {}),
+        subscriptionCount: 0,
+      },
+      meta: { timestamp },
+    }));
+    return;
+  }
+
+  // Demo Hub health proxies expect HTTP 200 + { status: 'ok' | 'down' }.
+  if (url.startsWith('/health/')) {
+    serverRes.writeHead(200, headers);
+    serverRes.end(JSON.stringify({ status: 'down', reason: 'backend unreachable' }));
+    return;
+  }
+
+  // Other /api calls: 200 + ok:false so clients classify as retryable failure
+  // without Chrome logging a 502 network error on every attempt.
+  const kafkaOp = url.match(/^\/api\/kafka\/([^/?]+)/)?.[1];
+  serverRes.writeHead(200, headers);
+  serverRes.end(JSON.stringify({
+    ok: false,
+    op: kafkaOp ?? 'unknown',
+    error: {
+      code: 'BACKEND_UNREACHABLE',
+      message: 'Backend server is not running on localhost:3001. Start it with npm run server:dev.',
+      retryable: true,
+    },
+    meta: { timestamp },
+  }));
+}
 
 function isProxyError(err: unknown): boolean {
   const codes = new Set<string>();
@@ -68,6 +157,16 @@ function proxyPlugin(): Plugin {
       pooledDispatcher = undefined;
     });
 
+    // AM-17 PrerequisiteGate — same-origin 200 so Chrome never logs :4017
+    // CONNECTION_REFUSED. Uses Node http (no corporate HTTP_PROXY).
+    server.middlewares.use('/health/api-mock-echo', async (_req, res) => {
+      const probe = await probeApiMockEcho();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(probe.ok
+        ? { status: 'ok', source: 'api-mock-echo', httpStatus: probe.statusCode }
+        : { status: 'down', source: 'api-mock-echo', reason: probe.reason ?? 'unreachable' }));
+    });
+
     server.middlewares.use('/__proxy', async (req, res) => {
         if (req.method !== 'POST') {
           res.writeHead(405);
@@ -108,10 +207,22 @@ function proxyPlugin(): Plugin {
           } else {
             payload.url = resolveLoopbackUrl(payload.url);
           }
-          payload.headers['Connection'] = 'keep-alive';
+          // Drop journal `connection`/`host` first — a second Connection key
+          // (any casing) makes undici throw invalid connection header.
+          payload.headers = withKeepAliveConnection(payload.headers ?? {});
+          // Browser abort of POST /__proxy must cancel the upstream fetch.
+          // Without this, a timeout-fault mock holds the socket for the 1h
+          // safety cap and never journals — the lesson then clicks an old 503.
+          const ac = new AbortController();
+          const abortUpstream = () => {
+            if (!ac.signal.aborted) ac.abort();
+          };
+          req.on('close', abortUpstream);
+
           const fetchOpts: Record<string, unknown> = {
             method: payload.method,
             headers: payload.headers,
+            signal: ac.signal,
           };
           if (payload.body && payload.method !== 'GET') {
             fetchOpts.body = payload.body;
@@ -120,12 +231,18 @@ function proxyPlugin(): Plugin {
           // TLS: create a one-off Agent when skip-cert, CA, or mTLS client creds are set.
           let isProxy = false;
           const loopback = isLoopbackUrl(payload.url);
+          const isHttps = payload.url.startsWith('https://');
+          // A self-signed localhost mock cert (API Mock Studio "Generate self-signed")
+          // can never chain to a public CA, so the default fetch rejects the handshake
+          // and the live GET never journals. Loopback is not a MITM surface, so treat
+          // any loopback HTTPS request as skip-verify even without explicit TLS opts.
+          const loopbackHttps = isHttps && loopback;
           const hasCustomTls =
-            (payload.skipTlsVerify && payload.url.startsWith('https://')) ||
+            (payload.skipTlsVerify && isHttps) ||
             !!payload.caCert?.trim() ||
             !!payload.clientCert?.trim() ||
             !!payload.clientKey?.trim();
-          if (hasCustomTls && payload.url.startsWith('https://')) {
+          if ((hasCustomTls || loopbackHttps) && isHttps) {
             try {
               const { Agent } = await import('undici');
               const connect: Record<string, unknown> = {};
@@ -175,6 +292,7 @@ function proxyPlugin(): Plugin {
           try {
             result = await doFetch(fetchOpts);
           } catch (proxyErr) {
+            if (ac.signal.aborted) throw proxyErr;
             if (isProxy && isProxyError(proxyErr)) {
               const directOpts = { ...fetchOpts };
               delete directOpts.dispatcher;
@@ -182,8 +300,11 @@ function proxyPlugin(): Plugin {
             } else {
               throw proxyErr;
             }
+          } finally {
+            req.off('close', abortUpstream);
           }
 
+          if (res.writableEnded || res.destroyed) return;
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result));
         } catch (err) {
@@ -202,6 +323,7 @@ function proxyPlugin(): Plugin {
               break;
             }
           }
+          if (res.writableEnded || res.destroyed) return;
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             status: 0,
@@ -318,9 +440,15 @@ export default defineConfig({
     port: 5173,
     hmr: process.env.PHASE8_E2E_SWEEP !== '1',
     watch: {
-      // Runtime writes (API correlation store, E2E artifacts) must not trigger full reloads.
+      // Runtime writes (repo-root `data/` sqlite, E2E artifacts) must not trigger
+      // full reloads. Do not ignore `**/data/**` — that also matches `src/data`
+      // galleries and `src/features/*/data`, so catalog edits never HMR.
       ignored: [
-        '**/data/**',
+        (id: string) => {
+          const n = id.replace(/\\/g, '/');
+          const root = resolve(__dirname, 'data').replace(/\\/g, '/');
+          return n === root || n.startsWith(`${root}/`);
+        },
         '**/*.db',
         '**/*.db-journal',
         '**/.cursor/**',
@@ -334,10 +462,13 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        timeout: 60000,
+        // SSE (`/api/logs/stream`) stays open with no events until a log line.
+        // A finite timeout closes it as ERR_EMPTY_RESPONSE and EventSource retries.
+        timeout: 0,
+        proxyTimeout: 0,
         configure: (proxy) => {
-          proxy.on('error', (_err, _req, res) => {
-            if (res && 'writeHead' in res) { (res as import('http').ServerResponse).writeHead(502); (res as import('http').ServerResponse).end(); }
+          proxy.on('error', (_err, req, res) => {
+            writeSoftBackendFallback(req, res);
           });
         },
       },
@@ -346,8 +477,8 @@ export default defineConfig({
         changeOrigin: true,
         timeout: 5000,
         configure: (proxy) => {
-          proxy.on('error', (_err, _req, res) => {
-            if (res && 'writeHead' in res) { (res as import('http').ServerResponse).writeHead(502); (res as import('http').ServerResponse).end(); }
+          proxy.on('error', (_err, req, res) => {
+            writeSoftBackendFallback(req, res);
           });
         },
       },

@@ -72,6 +72,21 @@ export function deleteCollectionsByName(name: string): number {
   return getDemoBridgeWindow().__demoDeleteCollectionsByName?.(name) ?? 0;
 }
 
+export interface DemoSeedRequestItem {
+  id?: string;
+  name: string;
+  method: string;
+  url: string;
+  body?: string;
+}
+
+/** Quiet seed of a Requests collection (idempotent by name). Returns the collection id. */
+export function seedRequestCollection(name: string, requests: DemoSeedRequestItem[]): string | null {
+  const fn = getDemoBridgeWindow().__demoSeedRequestCollection;
+  if (!fn) return null;
+  return fn(name, requests);
+}
+
 /** Remove all workflow preview endpoints from storage (demo cleanup). */
 export async function clearAllWorkflowPreviews(): Promise<void> {
   await getDemoBridgeWindow().__demoClearAllWorkflowPreviews?.();

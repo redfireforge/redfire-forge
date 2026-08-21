@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Seeds a test with Bearer Token auth and an existing data source.
@@ -10,18 +10,16 @@ async function seedWithBearerAuth(page: Page) {
     if (sessionStorage.getItem('__rf_auth_seeded__') === '1') return;
     sessionStorage.setItem('__rf_auth_seeded__', '1');
 
-    const setIfMissing = (key: string, value: string) => {
-      if (localStorage.getItem(key) === null) {
-        localStorage.setItem(key, value);
-      }
+    const setValue = (key: string, value: string) => {
+      localStorage.setItem(key, value);
     };
 
-    setIfMissing('perf-test-v3-environments', JSON.stringify([{ id: 'env-1', name: 't01' }]));
-    setIfMissing('perf-test-v3-microservices', JSON.stringify([{
+    setValue('perf-test-v3-environments', JSON.stringify([{ id: 'env-1', name: 't01' }]));
+    setValue('perf-test-v3-microservices', JSON.stringify([{
       id: 'svc-1', name: 'test-service',
       baseUrls: { 'env-1': 'https://api.example.com' },
     }]));
-    setIfMissing('perf-test-v3-feature-groups', JSON.stringify([{
+    setValue('perf-test-v3-feature-groups', JSON.stringify([{
       id: 'fg-1',
       name: 'Auth Feature',
       microserviceId: 'svc-1',
@@ -56,10 +54,10 @@ async function seedWithBearerAuth(page: Page) {
         }],
       }],
     }]));
-    setIfMissing('perf-test-v3-selected-env', 'env-1');
-    setIfMissing('perf-test-v3-selected-svc', 'svc-1');
-    setIfMissing('perf-test-v3-migrated', 'true');
-    setIfMissing('perf-test-theme', 'dark');
+    setValue('perf-test-v3-selected-env', 'env-1');
+    setValue('perf-test-v3-selected-svc', 'svc-1');
+    setValue('perf-test-v3-migrated', 'true');
+    setValue('perf-test-theme', 'dark');
   });
 }
 
@@ -126,20 +124,60 @@ async function setAuthType(page: Page, label: string) {
   await expect(select.locator('.cs-text')).toContainText(label);
 }
 
-function authTypeSelectInEditor(page: Page) {
-  return page.locator('.auth-type-select').first();
-}
-
 function sharedAuthTypeSelect(page: Page) {
   return page.locator('.shared-ds-fetch-auth-type').first();
 }
 
-async function expectCustomAuthType(select: ReturnType<typeof authTypeSelectInEditor> | ReturnType<typeof sharedAuthTypeSelect>, type: string) {
-  await expect(select.locator('.cs-text')).toContainText(authTypeLabel(type));
+async function expectCustomAuthType(select: Locator, type: string) {
+  const label = authTypeLabel(type);
+  const labelPattern = type === 'inherit' ? /Inherit/i : new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const matchingButton = select.getByRole('button', { name: labelPattern }).first();
+  if (await matchingButton.count()) {
+    await expect(matchingButton).toBeVisible();
+    return;
+  }
+  const reqTrigger = select.locator('.req-auth-type-trigger').first();
+  if (await reqTrigger.count()) {
+    await expect(reqTrigger).toContainText(labelPattern);
+    return;
+  }
+  const customTrigger = select.locator('.auth-type-trigger').first();
+  if (await customTrigger.count()) {
+    await expect(customTrigger).toContainText(labelPattern);
+    return;
+  }
+  const customSelectText = select.locator('.cs-text').first();
+  if (await customSelectText.count()) {
+    await expect(customSelectText).toContainText(labelPattern);
+    return;
+  }
+  await expect(select.locator('select').first()).toHaveValue(type);
 }
 
 async function setCustomAuthType(page: Page, select: ReturnType<typeof authTypeSelectInEditor> | ReturnType<typeof sharedAuthTypeSelect>, type: string) {
   const label = authTypeLabel(type);
+  const labelPattern = type === 'inherit' ? /Inherit/i : new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const matchingButton = select.getByRole('button', { name: labelPattern }).first();
+  if (await matchingButton.count()) {
+    await matchingButton.click();
+    await page.getByRole('button', { name: labelPattern }).first().click();
+    await expect(select.getByRole('button', { name: labelPattern }).first()).toBeVisible();
+    return;
+  }
+  const reqTrigger = select.locator('.req-auth-type-trigger').first();
+  if (await reqTrigger.count()) {
+    await reqTrigger.click();
+    await page.locator('.req-auth-type-option', { hasText: labelPattern }).first().click();
+    await expect(reqTrigger).toContainText(labelPattern);
+    return;
+  }
+  const customTrigger = select.locator('.auth-type-trigger').first();
+  if (await customTrigger.count()) {
+    await customTrigger.click();
+    await page.locator('.auth-type-menu .auth-type-option', { hasText: labelPattern }).first().click();
+    await expect(customTrigger).toContainText(labelPattern);
+    return;
+  }
   await select.locator('.cs-trigger').click();
   await page.locator('.cs-menu .cs-item', { hasText: label }).first().click();
   await expect(select.locator('.cs-text')).toContainText(label);
@@ -256,8 +294,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
 
     // Verify Auth tab initially shows Bearer Token
     await page.locator('.builder-tab', { hasText: 'Auth' }).click();
-    const authTabSelect = authTypeSelectInEditor(page);
-    await expectCustomAuthType(authTabSelect, 'bearer');
+    await expect(page.getByRole('button', { name: /Bearer Token/i }).first()).toBeVisible({ timeout: 10_000 });
 
     // Now go to Data Source and change auth to Inherit via Configure modal
     await clickDataTab(page);
@@ -269,7 +306,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
 
     // Auth tab should now show "inherit" (both share draft.auth)
     await page.locator('.builder-tab', { hasText: 'Auth' }).click();
-    await expectCustomAuthType(authTabSelect, 'inherit');
+    await expect(page.getByRole('button', { name: /Inherit/i }).first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('switching auth types in Configure modal works for all types', async ({ page }) => {

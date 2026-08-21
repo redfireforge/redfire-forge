@@ -1,6 +1,6 @@
 /** Lesson K6: Topic Explorer — browse topics, partitions, and consumer group lag */
 import type { DemoLesson, DemoActionContext } from '../../types';
-import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
+import { kafkaPublishSetup, kafkaCleanup, preparePlaintextKafkaStudio } from '../setup-helpers';
 import { KAFKA } from '@shared/selectors';
 import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
 
@@ -38,13 +38,31 @@ async function ensureTopicsTab(ctx: DemoActionContext): Promise<void> {
   if (document.querySelector(TOPIC_ROW_SELECTOR)) return;
 
   await ctx.click(KAFKA.TOPICS_TAB);
-  try { await ctx.waitFor(KAFKA.TOPIC_TABLE, 5000); } catch { /* may not appear */ }
-  await ctx.delay(600);
+  try {
+    await ctx.waitFor(TOPIC_ROW_SELECTOR, 4000);
+  } catch {
+    try { await ctx.waitFor(KAFKA.TOPIC_TABLE, 1500); } catch { /* may not appear */ }
+  }
+  await ctx.delay(200);
+}
 
-  // Topics load asynchronously — wait for at least one row to render
-  for (let i = 0; i < 20; i++) {
-    if (document.querySelector(TOPIC_ROW_SELECTOR)) break;
-    await ctx.delay(500);
+/** Set Topic Explorer Messages time window via the CustomSelect control. */
+async function setDetailTimeWindow(ctx: DemoActionContext, label: string): Promise<void> {
+  const trigger = document.querySelector<HTMLElement>(
+    `${KAFKA.DETAIL_TIME_WINDOW} .cs-trigger, ${KAFKA.DETAIL_MESSAGES_TAB} [data-testid="detail-time-window"] .cs-trigger`,
+  ) ?? document.querySelector<HTMLElement>('[data-testid="detail-time-window"] .cs-trigger');
+  if (!trigger) return;
+  if (trigger.textContent?.includes(label)) return;
+  trigger.click();
+  await ctx.delay(250);
+  const menu = document.querySelector<HTMLElement>('.cs-menu');
+  if (!menu) return;
+  for (const item of menu.querySelectorAll<HTMLElement>('.cs-item')) {
+    if (item.textContent?.includes(label)) {
+      item.click();
+      await ctx.delay(250);
+      return;
+    }
   }
 }
 
@@ -78,29 +96,27 @@ export const kafkaTopicExplorerLesson: DemoLesson = {
     'Browse topics, inspect partition metrics, and drill into consumer group lag without touching the CLI.',
   estimatedMinutes: 7,
   initialTab: 'kafka-message-studio',
-  allowedTabs: ['kafka-settings'],
+  allowedTabs: ['kafka-message-studio'],
 
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
   tag: '🐳 Docker',
 
-  setup: async (ctx) => {
-    await kafkaPublishSetup(ctx);
-    // Seed messages into audit.login so the detail panel has data
+  // Connect + seed before Message Studio mounts so Preparing stays short.
+  // Do NOT open Topics here — step 1 (te-intro) teaches that click.
+  prepareBeforeNavigate: async () => {
+    await preparePlaintextKafkaStudio();
     await seedAuditLoginMessages();
+  },
 
-    // Wait for the KafkaStudioGuard to disappear (React connection state updates
-    // asynchronously via status polling after kafkaPublishSetup connects).
-    // If the guard is still showing, the Topics page hasn't connected yet.
-    for (let i = 0; i < 30; i++) {
+  setup: async (ctx) => {
+    // Idempotent belt for Restart — quiet connect, land on Publish (default).
+    // Avoid polling for topic rows: they only exist after Topics is clicked.
+    await kafkaPublishSetup(ctx);
+    await seedAuditLoginMessages();
+    for (let i = 0; i < 6; i++) {
       if (!document.querySelector('.kafka-studio-guard')) break;
-      await ctx.delay(500);
-    }
-
-    // Topics load asynchronously — wait for at least one row
-    for (let i = 0; i < 30; i++) {
-      if (document.querySelector(TOPIC_ROW_SELECTOR)) break;
-      await ctx.delay(500);
+      await ctx.delay(80);
     }
   },
   cleanup: kafkaCleanup,
@@ -551,8 +567,8 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       id: 'te-browse',
       title: 'Browse Messages',
       description:
-        'The compact **browse bar** lets you pick a time window, partition, sort order, and max count — then click **Consume Once**. ' +
-        'The **⫧ Filters** toggle reveals advanced filters (Key, Header, JSONPath, Body Contains) for high-volume topics. ' +
+        'The **Messages** browse form lets you pick a time window, partition, filters, max count, **timeout**, and sort order — then click **Consume Once**. ' +
+        '**Latest** returns the newest available records (not only brand-new publishes). Filters cover Key, Header, JSONPath, and Body Contains. ' +
         'Watch the results appear inline below.',
       preAction: async (ctx) => {
         await ensureTopicsTab(ctx);
@@ -578,24 +594,8 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
         const messagesTab = document.querySelector<HTMLElement>(KAFKA.DETAIL_TAB_MESSAGES);
         if (messagesTab) messagesTab.click();
         await ctx.delay(300);
-        // Switch time window to Earliest via CustomSelect (.cs-item)
-        const browseBarPre = document.querySelector<HTMLElement>('.td-browse-bar');
-        if (browseBarPre) {
-          const triggers = browseBarPre.querySelectorAll<HTMLElement>('.cs-trigger');
-          const twTrigger = triggers[0]; // first select = Time Window
-          if (twTrigger && !twTrigger.textContent?.includes('Earliest')) {
-            twTrigger.click();
-            await ctx.delay(300);
-            const menu = browseBarPre.querySelector<HTMLElement>('.cs-menu');
-            if (menu) {
-              const items = menu.querySelectorAll<HTMLElement>('.cs-item');
-              for (const item of items) {
-                if (item.textContent?.includes('Earliest')) { item.click(); break; }
-              }
-            }
-            await ctx.delay(300);
-          }
-        }
+        // Latest now returns newest available records; Earliest still demos full replay.
+        await setDetailTimeWindow(ctx, 'Earliest');
 
         // Produce fresh messages so consume always has data
         await seedAuditLoginMessages();
@@ -603,37 +603,23 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       action: async (ctx) => {
         const { showSpotlightRing } = await import('../../demoRipple');
 
-        // 1. Spotlight the browse bar
-        const browseBar = document.querySelector<HTMLElement>('.td-browse-bar');
-        if (browseBar) {
-          const rm1 = showSpotlightRing(browseBar);
+        // 1. Spotlight the browse form (time window, max, timeout, filters)
+        const browseForm = document.querySelector<HTMLElement>('[data-testid="detail-messages-filters"]');
+        if (browseForm) {
+          const rm1 = showSpotlightRing(browseForm, { steady: true });
           await ctx.delay(1500);
           rm1();
         }
 
-        // 2. Spotlight the Filters toggle and click to open
-        const filterToggle = document.querySelector<HTMLElement>('.td-filter-toggle');
-        if (filterToggle) {
-          const rm2 = showSpotlightRing(filterToggle);
+        // 2. Spotlight Timeout so viewers see it matches Consume Studio
+        const timeoutInput = document.querySelector<HTMLElement>(KAFKA.DETAIL_TIMEOUT);
+        if (timeoutInput) {
+          const rmT = showSpotlightRing(timeoutInput, { steady: true });
           await ctx.delay(1000);
-          rm2();
-          filterToggle.click();
-          await ctx.delay(1200);
-
-          // 3. Spotlight the filter section
-          const filterSection = document.querySelector<HTMLElement>('.td-filter-section');
-          if (filterSection) {
-            const rm3 = showSpotlightRing(filterSection);
-            await ctx.delay(1500);
-            rm3();
-          }
-
-          // 4. Close filters
-          filterToggle.click();
-          await ctx.delay(600);
+          rmT();
         }
 
-        // 5. Click Consume Once and wait for real React-managed rows
+        // 3. Click Consume Once and wait for real React-managed rows
         await ctx.click(KAFKA.DETAIL_CONSUME_BTN);
         // Wait for real rows (data-testid="detail-row-0" is set by React)
         for (let i = 0; i < 50; i++) {
@@ -690,26 +676,11 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
         // 3. If real React rows already exist, we're good — skip consume
         if (document.querySelector('[data-testid="detail-row-0"]')) return;
 
-        // 4. Switch time window to Earliest via CustomSelect (.cs-item, not .cs-option)
-        const browseBar = document.querySelector<HTMLElement>('.td-browse-bar');
-        if (browseBar) {
-          const triggers = browseBar.querySelectorAll<HTMLElement>('.cs-trigger');
-          const twTrigger = triggers[0]; // first select = Time Window
-          if (twTrigger && !twTrigger.textContent?.includes('Earliest')) {
-            twTrigger.click();
-            await ctx.delay(300);
-            const menu = browseBar.querySelector<HTMLElement>('.cs-menu');
-            if (menu) {
-              const items = menu.querySelectorAll<HTMLElement>('.cs-item');
-              for (const item of items) {
-                if (item.textContent?.includes('Earliest')) { item.click(); break; }
-              }
-            }
-            await ctx.delay(300);
-          }
-        }
+        // 4. Prefer Earliest so replay demos always have rows; Latest also works now
+        //    (newest-available seek) but Earliest matches the lesson narration.
+        await setDetailTimeWindow(ctx, 'Earliest');
 
-        // 5. Produce fresh messages so even Latest has data
+        // 5. Produce fresh messages so consume always has data
         await seedAuditLoginMessages();
 
         // 6. Clear old injected results

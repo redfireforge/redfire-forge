@@ -1,6 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
 
+async function selectCustomOption(page: import('@playwright/test').Page, select: import('@playwright/test').Locator, label: string) {
+  await select.locator('.cs-trigger').click();
+  await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: label }).click();
+}
+
+async function expectCustomValue(select: import('@playwright/test').Locator, value: string) {
+  await expect(select).toHaveAttribute('data-value', value);
+}
+
 /**
  * Helper: navigate to Feature Groups tab, create a Feature Group + Scenario,
  * open the test editor, and switch to the Validation tab.
@@ -53,7 +62,7 @@ test.describe('Structured Assertions UI', () => {
 
     // Verify inputs are present
     await expect(row.locator('input.assertion-input-path')).toBeVisible();
-    await expect(row.locator('select.assertion-select')).toBeVisible();
+    await expect(row.locator('.assertion-select')).toBeVisible();
     await expect(row.locator('input[type="number"]')).toBeVisible();
   });
 
@@ -81,8 +90,8 @@ test.describe('Structured Assertions UI', () => {
     await expect(row.locator('input.assertion-input-path')).toBeVisible();
 
     // Verify "today" is the default reference
-    const refSelect = row.locator('select').nth(1);
-    await expect(refSelect).toHaveValue('today');
+    const refSelect = row.locator('.assertion-select').nth(1);
+    await expectCustomValue(refSelect, 'today');
   });
 
   test('edit Array Length assertion fields', async ({ page }) => {
@@ -99,9 +108,9 @@ test.describe('Structured Assertions UI', () => {
     await expect(pathInput).toHaveValue('$.items');
 
     // Change operator
-    const operatorSelect = row.locator('select.assertion-select');
-    await operatorSelect.selectOption('>');
-    await expect(operatorSelect).toHaveValue('>');
+    const operatorSelect = row.locator('.assertion-select').first();
+    await selectCustomOption(page, operatorSelect, '>');
+    await expectCustomValue(operatorSelect, '>');
 
     // Set value
     const valueInput = row.locator('input[type="number"]');
@@ -118,12 +127,12 @@ test.describe('Structured Assertions UI', () => {
     const row = page.locator('.assertion-row').last();
 
     // Default is "today" — should show timezone select
-    const refSelect = row.locator('select').nth(1);
-    await expect(refSelect).toHaveValue('today');
-    await expect(row.locator('select').nth(2)).toBeVisible(); // timezone select
+    const refSelect = row.locator('.assertion-select').nth(1);
+    await expectCustomValue(refSelect, 'today');
+    await expect(row.locator('.assertion-select').nth(2)).toBeVisible(); // timezone select
 
     // Switch to "fixed date"
-    await refSelect.selectOption('fixed');
+    await selectCustomOption(page, refSelect, 'fixed date');
     await expect(row.locator('input[type="date"]')).toBeVisible();
   });
 

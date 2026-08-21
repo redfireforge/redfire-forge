@@ -365,12 +365,14 @@ test.describe('Results Explorer Console Panel', () => {
       await expect(panel).toHaveClass(/re-console-docked/);
 
       // Switch to maximized
-      await modeSelect.selectOption('maximized');
+      await modeSelect.locator('.cs-trigger').click();
+      await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: 'Full Screen' }).click();
       await page.waitForTimeout(300);
       await expect(panel).toHaveClass(/re-console-maximized/);
 
       // Switch back to docked
-      await modeSelect.selectOption('docked');
+      await modeSelect.locator('.cs-trigger').click();
+      await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: 'Bottom' }).click();
       await page.waitForTimeout(300);
       await expect(panel).toHaveClass(/re-console-docked/);
     }

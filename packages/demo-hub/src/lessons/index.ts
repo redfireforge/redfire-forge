@@ -38,8 +38,10 @@ import { kafkaTlsLesson } from './protocols/kafka-tls';
 import { kafkaTestRunnerLesson } from './protocols/kafka-test-runner';
 import { graphqlLessons } from './protocols/graphql-lessons';
 import { grpcLessons } from './protocols/grpc-lessons';
+import { apiMockLessons } from './protocols/api-mock-lessons';
 import { apiLessons } from './api';
 import { harnessLessons } from './harness';
+import { cliLessons } from './cli';
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -55,8 +57,9 @@ export const protocolsDomain: DemoDomain = {
     { id: 'sse',       label: 'SSE',       icon: '📡' },
     { id: 'graphql',   label: 'GraphQL',   icon: '◈' },
     { id: 'grpc',      label: 'gRPC',      icon: '⚡' },
+    { id: 'api-mock',  label: 'API Mock',  icon: '🪞' },
   ],
-  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, sseTabsLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons, ...grpcLessons],
+  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, sseTabsLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons, ...grpcLessons, ...apiMockLessons],
 };
 
 export const apiDomain: DemoDomain = {
@@ -104,10 +107,26 @@ export const harnessDomain: DemoDomain = {
   lessons: harnessLessons,
 };
 
+export const cliDomain: DemoDomain = {
+  id: 'cli',
+  name: 'CLI',
+  icon: '⌨️',
+  description: 'Run tests, workflows, and API mocks headlessly from the terminal — same engine as the desktop app.',
+  available: true,
+  categories: [
+    { id: 'getting-started', label: 'Getting Started', icon: '🚀' },
+    { id: 'data-and-ci',     label: 'Data & CI/CD', icon: '📊' },
+    { id: 'reliability',     label: 'Reliability', icon: '🛡️' },
+    { id: 'execution',       label: 'Execution', icon: '▶' },
+  ],
+  lessons: cliLessons,
+};
+
 // ─── All domains in display order ────────────────────────────────
 export const allDomains: DemoDomain[] = [
   protocolsDomain,
   apiDomain,
   workflowDomain,
   harnessDomain,
+  cliDomain,
 ];

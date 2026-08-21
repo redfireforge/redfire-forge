@@ -7,6 +7,7 @@ import { httpFetch } from '../../../shared/utils/httpClient';
 import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
 import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
+import { isClientManagedRequestHeader } from '../../../shared/utils/outboundRequestHeaders';
 import type { ConsoleLine, ResponseHistoryEntry } from './useResponseCache';
 import { resolveFullSendUrl } from '../utils/requestUrlResolver';
 import { formatBytes, toErrorMessage } from '../../../shared/utils/helpers';
@@ -66,7 +67,12 @@ export async function buildRequestHeaders(
   const h: Record<string, string> = {};
   for (const kv of scenario.headers) {
     if (kv.enabled === false) continue;
-    if (kv.key.trim()) h[kv.key.trim()] = kv.value;
+    const key = kv.key.trim();
+    if (!key) continue;
+    // Skip hop-by-hop / transport headers so undici does not see
+    // `connection` + `Connection` (journal Open in Requests → Send).
+    if (isClientManagedRequestHeader(key)) continue;
+    h[key] = kv.value;
   }
   if (contentType) {
     if (contentType.startsWith('multipart/form-data')) h['Content-Type'] = contentType;
