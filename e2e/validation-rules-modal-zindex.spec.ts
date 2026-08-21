@@ -8,6 +8,11 @@ const sampleResponse = {
   ],
 };
 
+async function selectModalMode(page: Page, modal: import('@playwright/test').Locator, label: string) {
+  await modal.locator('.vr-modal-mode-select .cs-trigger').click();
+  await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]', { hasText: label }).click();
+}
+
 async function openValidationMapper(page: Page) {
   await seedAppData(page);
   await page.goto('/?tab=scenarios');
@@ -101,13 +106,13 @@ test.describe('Validation Rules Modal z-index', () => {
     await expect(modal).toBeVisible({ timeout: 3000 });
     expect(await modal.getAttribute('class')).toContain('vr-modal-panel--docked');
 
-    await modal.locator('.vr-modal-mode-select').selectOption('floating');
+    await selectModalMode(page, modal, 'Floating');
     await expect(page.locator('.vr-modal-panel--floating')).toBeVisible();
 
-    await page.locator('.vr-modal-panel--floating .vr-modal-mode-select').selectOption('maximized');
+    await selectModalMode(page, page.locator('.vr-modal-panel--floating'), 'Full Screen');
     await expect(page.locator('.vr-modal-panel--maximized')).toBeVisible();
 
-    await page.locator('.vr-modal-panel--maximized .vr-modal-mode-select').selectOption('docked');
+    await selectModalMode(page, page.locator('.vr-modal-panel--maximized'), 'Bottom');
     await expect(page.locator('.vr-modal-panel--docked')).toBeVisible();
   });
 
