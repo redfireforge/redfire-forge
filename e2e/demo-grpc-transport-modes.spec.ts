@@ -40,6 +40,8 @@ async function mockGrpcHealthProbe(page: Parameters<typeof silenceLogStream>[0])
   await page.route('http://127.0.0.1:50052/health', fulfill);
   await page.route('http://localhost:3001/health', fulfill);
   await page.route('http://127.0.0.1:3001/health', fulfill);
+  // Envoy sidecar (:50055) is probed via Vite→Express proxy at /health/envoy
+  await page.route('**/health/envoy', fulfill);
 }
 
 test.beforeEach(async ({ page }) => {
