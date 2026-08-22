@@ -912,10 +912,11 @@ async function quietDelayAndFault(ctx: DemoActionContext): Promise<void> {
     behavior: { delayMs: Number(AM24_DELAY), probability: 1 },
   });
   // The 404 (variant 1) stays a clean contract response — no fault.
-  // The timeout lives only on the degraded branch (variant 2), gated by probability.
+  // The degraded branch (variant 2) returns a clean 503 — no transport fault.
+  // To simulate hangs, the viewer can later add a timeout fault manually.
   patchAm24Orders({
     variantIndex: 2,
-    behavior: { fault: 'timeout', longRunningMs: 50, probability: Number(AM24_FAULT_PROBABILITY) },
+    behavior: { delayMs: 0, jitterMs: 0, probability: 1 },
   });
 }
 
