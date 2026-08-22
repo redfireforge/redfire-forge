@@ -46,8 +46,8 @@ export class VariableContext {
   private nodeIdToLabel = new Map<string, string>();
 
   constructor(initial?: Record<string, string>, env?: Record<string, string>) {
-    if (initial) for (const [k, v] of Object.entries(initial)) this.manual.set(k, v);
-    if (env) for (const [k, v] of Object.entries(env)) this.environment.set(k, v);
+    if (initial) for (const [k, v] of Object.entries(initial)) this.manual.set(k, v ?? '');
+    if (env) for (const [k, v] of Object.entries(env)) this.environment.set(k, v ?? '');
   }
 
   /**
