@@ -75,15 +75,15 @@ const AM09_WITNESS: Am09WitnessPace = {
 /**
  * Step 6 (Shadowed) — same two-probe shape, but longer post-run holds so the
  * viewer can read MATCHED / winner / Conditions / Rendered before the next Run.
- * Still under the 45s Acting cap with compact open/run.
+ * Sized to stay comfortably under the 45s Acting cap with compact open/run.
  */
 const AM09_SHADOWED_WITNESS: Am09WitnessPace = {
   look: 650,
-  hold: 1000,
-  payoff: 2200,
+  hold: 800,
+  payoff: 1700,
   beforeOpen: 800,
-  beforeRun: 1600,
-  groupBreak: 1200,
+  beforeRun: 1400,
+  groupBreak: 900,
 };
 
 export const AM09_CORPUS_SAMPLE = 'am-gallery-overlaps';
@@ -846,7 +846,11 @@ async function holdAm09Candidates(
       if (seen.has(sel)) continue;
       seen.add(sel);
       const node = document.querySelector<HTMLElement>(sel);
-      if (node) await spotlightElementBeat(ctx, node, holdMs);
+      if (node) {
+        // Scroll the card's last row into view so the full card clears the panel bottom.
+        (node.lastElementChild as HTMLElement | null)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+        await spotlightElementBeat(ctx, node, holdMs);
+      }
     }
   }
 }
@@ -879,6 +883,26 @@ async function openAm09FindingSimulate(
   await ensureAdHocSimulateForm(ctx, T.tabSwitch);
 }
 
+/**
+ * Switch Results to Rendered response and wait for the pane to mount. Run resets the
+ * tab to Decision trace, and under E2E pacing a single click's synchronous follow-up
+ * check races React's commit — so wait for the pane, and click once more if the first
+ * click did not land.
+ */
+async function openAm09RenderedTab(ctx: DemoActionContext): Promise<void> {
+  const rendered = () => firstVisibleElement(API_MOCK.SIMULATE_RENDERED)
+    ?? document.querySelector(API_MOCK.SIMULATE_RENDERED);
+  const tabPresent = () => firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)
+    ?? document.querySelector<HTMLElement>(API_MOCK.SIMULATE_TAB_RENDERED);
+  if (rendered() || !tabPresent()) return;
+  await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, { look: AM09_WITNESS.look, hold: 0 });
+  await ctx.waitFor(API_MOCK.SIMULATE_RENDERED, 2_000);
+  if (!rendered() && tabPresent()) {
+    await ctx.click(API_MOCK.SIMULATE_TAB_RENDERED);
+    await ctx.waitFor(API_MOCK.SIMULATE_RENDERED, 2_000);
+  }
+}
+
 async function holdAm09SimulateResult(
   ctx: DemoActionContext,
   opts: {
@@ -901,8 +925,13 @@ async function holdAm09SimulateResult(
   if (opts.compact) {
     await ctx.waitFor(API_MOCK.SIMULATE_OUTCOME, 4_000);
     await spotlightBeat(ctx, API_MOCK.SIMULATE_OUTCOME, pace.payoff);
-    if (opts.holdWinner && firstVisibleElement(API_MOCK.SIMULATE_WINNER)) {
-      await spotlightBeat(ctx, API_MOCK.SIMULATE_WINNER, pace.hold);
+    if (opts.holdWinner) {
+      const winnerBadge = firstVisibleElement(API_MOCK.SIMULATE_WINNER);
+      if (winnerBadge) {
+        const card = winnerBadge.closest<HTMLElement>('.am-candidate');
+        (card?.lastElementChild as HTMLElement | null)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+        await spotlightElementBeat(ctx, card ?? winnerBadge, pace.hold);
+      }
     }
     if (opts.holdFailedCondition) {
       await holdAm09FailedCondition(ctx, {
@@ -937,11 +966,7 @@ async function holdAm09SimulateResult(
       await holdAm09Candidates(ctx, opts.pathNeedles, opts.candidateHold ?? pace.payoff);
     }
     if (opts.holdRenderedBody) {
-      const tab = firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)
-        ?? document.querySelector<HTMLElement>(API_MOCK.SIMULATE_TAB_RENDERED);
-      if (tab) {
-        await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, { look: pace.look, hold: 0 });
-      }
+      await openAm09RenderedTab(ctx);
       if (firstVisibleElement(API_MOCK.SIMULATE_RENDERED_STATUS)
         || document.querySelector(API_MOCK.SIMULATE_RENDERED_STATUS)) {
         await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_STATUS, pace.hold);
@@ -988,8 +1013,13 @@ async function holdAm09SimulateResult(
       }
     }
   }
-  if (opts.holdWinner && firstVisibleElement(API_MOCK.SIMULATE_WINNER)) {
-    await am09Payoff(ctx, API_MOCK.SIMULATE_WINNER);
+  if (opts.holdWinner) {
+    const winnerBadge = firstVisibleElement(API_MOCK.SIMULATE_WINNER);
+    if (winnerBadge) {
+      const card = winnerBadge.closest<HTMLElement>('.am-candidate');
+      (card?.lastElementChild as HTMLElement | null)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      await spotlightElementBeat(ctx, card ?? winnerBadge, T.payoff);
+    }
   }
 
   if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)) {
@@ -1161,6 +1191,7 @@ export async function runAm09DefiniteWitness(
   await openAm09FindingSimulate(ctx, AM09_KIND_DEFINITE, { compact: true, pace });
 
   const daily = await runAm09SimulateProbe(ctx, {
+    path: AM09_DAILY_PATH,
     pathNeedles: [AM09_DAILY_PATH, AM09_GLOB_PATH],
     sampleName: AM09_DAILY_SAMPLE,
     compact: true,
@@ -1210,6 +1241,7 @@ export async function runAm09PotentialWitness(
 
   const miss = await runAm09SimulateProbe(ctx, {
     pathNeedles: [AM09_SEARCH_PATH],
+    path: AM09_SEARCH_PATH,
     sampleName: AM09_SEARCH_MISS_SAMPLE,
     headers: AM09_CLIENT_HEADER_MISS,
     compact: true,

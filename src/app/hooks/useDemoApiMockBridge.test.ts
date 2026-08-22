@@ -180,10 +180,25 @@ describe('useDemoApiMockBridge', () => {
       return { ensure, unmount };
     };
 
-    it('no-ops when a server already exists', async () => {
+    it('no-ops when a blank demo server is already the active open tab', async () => {
+      load.mockResolvedValueOnce({
+        servers: [makeServer({ id: 'srv-blank', name: 'Demo Mock Server' })],
+        activeServerId: 'srv-blank',
+        openTabIds: ['srv-blank'],
+      });
       const { ensure, unmount } = await mountBlank();
       await expect(ensure()).resolves.toBe(true);
       expect(importGallery).not.toHaveBeenCalled();
+      unmount();
+    });
+
+    it('imports a blank server when user servers are parked after wipe', async () => {
+      // After wipeApiMockWorkspace, user servers remain but openTabIds is cleared.
+      // The old `servers.length > 0` guard fired here — the new guard skips correctly.
+      load.mockResolvedValueOnce({ servers: [makeServer()], activeServerId: undefined, openTabIds: [] });
+      const { ensure, unmount } = await mountBlank();
+      await expect(ensure()).resolves.toBe(true);
+      expect(importGallery).toHaveBeenCalled();
       unmount();
     });
 

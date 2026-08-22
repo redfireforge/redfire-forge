@@ -14,6 +14,7 @@ import {
   importApiMockGalleryServer,
 } from '../../features/api-mock/apiMockGalleryImport';
 import { beginApiMockDemoPersistence, dropApiMockDemoLessonServers, loadApiMockWorkspace, rememberApiMockDemoImportedServer, restoreApiMockUserWorkspace, resumeApiMockDemoPersistenceIfNeeded, saveApiMockWorkspace } from '../../features/api-mock/apiMockPersistence';
+import { isApiMockDemoServerName } from '../../features/api-mock/apiMockDemoServers';
 import { DEFAULT_SETTINGS } from '../../shared/api-mock/defaults';
 import { isTauri } from '../../shared/utils/platform';
 
@@ -108,11 +109,24 @@ function blankServerTemplate(): ApiMockServerDefinitionV1 {
   };
 }
 
-/** Open an empty mock server when the workspace has none — import lessons start from nothing. */
+/** Open an empty mock server for lessons that start from a blank slate.
+ *
+ * Returns early only when a blank demo server is already the active open tab so
+ * repeated calls during a lesson do not create duplicates.  The old guard
+ * (`servers.length > 0`) was too broad: after `wipeApiMockWorkspace` the user's
+ * pre-demo servers remain parked in storage (no open tabs), so the guard fired
+ * while `activeServerId` was undefined — the landing page showed and `IMPORT_MENU`
+ * was never rendered, leaving step 1 silently doing nothing.
+ */
 async function ensureBlankApiMockServer(): Promise<boolean> {
   try {
     const ws = await loadApiMockWorkspace();
-    if (ws.servers.length > 0) return true;
+    // Only skip when a demo server is already open and is the active tab.
+    const activeId = ws.activeServerId;
+    if (activeId && ws.openTabIds?.includes(activeId)) {
+      const activeName = ws.servers.find(s => s.id === activeId)?.name;
+      if (isApiMockDemoServerName(activeName)) return true;
+    }
     const imported = await importApiMockGalleryServer(blankServerTemplate(), 'am-demo-blank');
     rememberApiMockDemoImportedServer(imported.server.id);
     return true;

@@ -42,6 +42,7 @@
 
 import { type Page, expect } from '@playwright/test';
 import { PHASE8_E2E_GUARD_BYPASS_KEY } from '../packages/demo-hub/src/demoLiveGuard';
+import { DEMO_E2E_FAST_MODE_KEY } from '../packages/demo-hub/src/demoE2EFastMode';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -51,6 +52,18 @@ export async function installPhase8DemoGuardBypass(page: Page): Promise<void> {
   await page.addInitScript((key) => {
     (window as Window & Record<string, unknown>)[key] = true;
   }, PHASE8_E2E_GUARD_BYPASS_KEY);
+}
+
+/**
+ * Collapse lesson pacing to a tick. Steps are authored with presentation holds
+ * (ring, payoff, pre-Run) that add minutes to a walk without asserting anything.
+ * Opt out with `DEMO_E2E_REAL_PACING=1` when validating the pacing itself.
+ */
+export async function installDemoFastMode(page: Page): Promise<void> {
+  if (process.env.DEMO_E2E_REAL_PACING === '1') return;
+  await page.addInitScript((key) => {
+    (window as Window & Record<string, unknown>)[key] = true;
+  }, DEMO_E2E_FAST_MODE_KEY);
 }
 
 // ─── Timeouts ─────────────────────────────────────────────────────────────────
@@ -109,6 +122,7 @@ export async function clearDemoE2EStorage(page: Page): Promise<void> {
 /** Navigate to the root page and open the Demo Hub pane. */
 export async function openDemoHub(page: Page): Promise<void> {
   await installPhase8DemoGuardBypass(page);
+  await installDemoFastMode(page);
   await gotoAppWithRetry(page, 'http://localhost:5173');
   if (process.env.PHASE8_E2E_SWEEP === '1') {
     await clearDemoE2EStorage(page);
@@ -162,8 +176,16 @@ export async function startLesson(page: Page): Promise<void> {
   await expect(startBtn).toBeEnabled({ timeout: HUB_TIMEOUT });
   await startBtn.click();
   await page.waitForSelector('.demo-live-panel', { timeout: HUB_TIMEOUT });
-  // startLiveDemo kicks off step 0 asynchronously — wait until it reaches reading.
-  await waitForReadingPhase(page, RESTART_TIMEOUT);
+  // startLiveDemo kicks off step 0 asynchronously. Fast mode can leave
+  // `reading` in a 30ms window, so also accept `done` on the first step.
+  await page.waitForFunction(
+    (sel) => {
+      const phase = document.querySelector(sel)?.getAttribute('data-step-phase');
+      return phase === 'reading' || phase === 'done';
+    },
+    '[data-testid="demo-live-panel"]',
+    { timeout: RESTART_TIMEOUT },
+  );
 }
 
 /**
@@ -209,6 +231,7 @@ export async function waitForPrerequisiteGateUp(
       document
         .querySelector('[data-testid="prereq-status"]')
         ?.classList.contains('prereq-status--up') === true,
+    undefined,
     { timeout },
   );
 }
@@ -257,8 +280,9 @@ export async function waitForReadingPhase(
   timeout = STEP_TIMEOUT,
 ): Promise<void> {
   await page.waitForFunction(
-    () =>
-      document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase') === 'reading',
+    (sel) =>
+      document.querySelector(sel)?.getAttribute('data-step-phase') === 'reading',
+    '[data-testid="demo-live-panel"]',
     { timeout },
   );
 }
@@ -284,12 +308,11 @@ export async function waitForActionPhase(page: Page, timeout = 5_000): Promise<v
   }
 
   await page.waitForFunction(
-    () => {
-      const phase = document
-        .querySelector('[data-testid="demo-live-panel"]')
-        ?.getAttribute('data-step-phase');
+    (sel) => {
+      const phase = document.querySelector(sel)?.getAttribute('data-step-phase');
       return phase === 'action' || phase === 'verify' || phase === 'pre';
     },
+    '[data-testid="demo-live-panel"]',
     { timeout },
   ).catch(() => { /* zero-action observation step */ });
 }
@@ -305,16 +328,23 @@ export async function completeCurrentStepAction(
   page: Page,
   actionTimeoutMs = STEP_TIMEOUT,
 ): Promise<void> {
-  await waitForReadingPhase(page, actionTimeoutMs);
-  const phase = await page
-    .locator('[data-testid="demo-live-panel"]')
-    .getAttribute('data-step-phase');
+  const panelSel = '[data-testid="demo-live-panel"]';
+  // Fast mode can skip past `reading` before the waiter polls. Do not require it.
+  await page.waitForFunction(
+    (sel) => {
+      const phase = document.querySelector(sel)?.getAttribute('data-step-phase');
+      return phase === 'reading' || phase === 'action' || phase === 'verify' || phase === 'done';
+    },
+    panelSel,
+    { timeout: actionTimeoutMs },
+  );
+  const phase = await page.locator(panelSel).getAttribute('data-step-phase');
   if (phase === 'reading') {
     await skipReadingPause(page);
   }
   await page.waitForFunction(
-    () =>
-      document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase') === 'done',
+    (sel) => document.querySelector(sel)?.getAttribute('data-step-phase') === 'done',
+    panelSel,
     { timeout: actionTimeoutMs },
   );
 }

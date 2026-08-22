@@ -12,6 +12,15 @@ function isResizeObserverNoise(reasonOrMessage: unknown): boolean {
   return msg.includes('ResizeObserver');
 }
 
+/** Vite HMR / forward-console: sending after the websocket dropped loops forever (#22407). */
+function isViteHmrDisconnectNoise(reasonOrMessage: unknown): boolean {
+  const msg = reasonOrMessage instanceof Error
+    ? reasonOrMessage.message
+    : String(reasonOrMessage ?? '');
+  return msg.includes('send was called before connect')
+    || msg.includes('invoke was called before connect');
+}
+
 /** Monaco rejects cancelled work with a plain object (not Error) — Chrome shows "Object". */
 function isCanceledNoise(text: string): boolean {
   const msg = text.trim().toLowerCase();
@@ -39,12 +48,17 @@ function isMonacoCancelation(reason: unknown): boolean {
 function isBenignConsoleNoise(event: Event): boolean {
   if (event.type === 'unhandledrejection') {
     const reason = (event as PromiseRejectionEvent).reason;
-    return isResizeObserverNoise(reason) || isMonacoCancelation(reason);
+    return isResizeObserverNoise(reason)
+      || isViteHmrDisconnectNoise(reason)
+      || isMonacoCancelation(reason);
   }
   const e = event as ErrorEvent;
   const m = e.message
     || (e.error instanceof Error ? e.error.message : e.error != null ? String(e.error) : '');
-  return isResizeObserverNoise(m) || isCanceledNoise(m) || isMonacoCancelation(e.error);
+  return isResizeObserverNoise(m)
+    || isViteHmrDisconnectNoise(m)
+    || isCanceledNoise(m)
+    || isMonacoCancelation(e.error);
 }
 
 function swallowBenignConsoleNoise(event: Event) {
@@ -54,7 +68,10 @@ function swallowBenignConsoleNoise(event: Event) {
 }
 
 function isCanceledConsoleArg(value: unknown): boolean {
-  if (typeof value === 'string') return isCanceledNoise(value);
+  if (typeof value === 'string') {
+    return isCanceledNoise(value) || isViteHmrDisconnectNoise(value);
+  }
+  if (value instanceof Error) return isViteHmrDisconnectNoise(value);
   return isMonacoCancelation(value);
 }
 

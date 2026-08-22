@@ -156,6 +156,9 @@ export const apiMockAm14Lesson: DemoLesson = {
       preAction: ensureAm14ForPreview,
       action: runAm14PreviewThenProve,
       verify: API_MOCK.TX_DETAIL_DURATION,
+      // Simulate review + real 800 ms HTTP request + journal detail can reach ~43 s
+      // on a slower machine; give the step a generous budget to avoid spurious timeouts.
+      actionTimeoutMs: 70_000,
     },
     {
       id: 'max-matches',

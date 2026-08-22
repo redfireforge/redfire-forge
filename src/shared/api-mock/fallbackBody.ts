@@ -19,6 +19,20 @@ export function renderFallbackBody(body: string, vars: FallbackTemplateVars): st
     name === 'requestId' ? vars.requestId : String(vars.competingRuleCount ?? 0));
 }
 
+/**
+ * `candidates` is every evaluated rule. The ambiguity template wants how many
+ * actually matched — otherwise an 8-rule library reports `competingRules: 8`
+ * for a 2-rule collision.
+ */
+export function countCompetingRules(explanation?: {
+  policyDecision?: { matchedCount?: number };
+  candidates?: Array<{ overallMatch?: boolean }>;
+}): number {
+  const matched = explanation?.policyDecision?.matchedCount;
+  if (typeof matched === 'number') return matched;
+  return explanation?.candidates?.filter(c => c.overallMatch).length ?? 0;
+}
+
 /** Journal ids and fallback correlation ids come from here so they always match. */
 export function newTransactionId(): string {
   return `tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

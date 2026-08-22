@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { renderFallbackBody, newTransactionId } from './fallbackBody';
+import { countCompetingRules, renderFallbackBody, newTransactionId } from './fallbackBody';
 
 describe('renderFallbackBody', () => {
   it('substitutes the correlation id', () => {
@@ -29,6 +29,25 @@ describe('renderFallbackBody', () => {
 
   it('does not touch unknown placeholders', () => {
     expect(renderFallbackBody('{{somethingElse}}', { requestId: 'tx-4' })).toBe('{{somethingElse}}');
+  });
+});
+
+describe('countCompetingRules', () => {
+  it('prefers policy matchedCount over the full candidate list', () => {
+    expect(countCompetingRules({
+      policyDecision: { matchedCount: 2 },
+      candidates: [{ overallMatch: true }, { overallMatch: false }, { overallMatch: false }],
+    })).toBe(2);
+  });
+
+  it('counts overallMatch when matchedCount is missing', () => {
+    expect(countCompetingRules({
+      candidates: [{ overallMatch: true }, { overallMatch: true }, { overallMatch: false }],
+    })).toBe(2);
+  });
+
+  it('is 0 when there is no explanation', () => {
+    expect(countCompetingRules()).toBe(0);
   });
 });
 

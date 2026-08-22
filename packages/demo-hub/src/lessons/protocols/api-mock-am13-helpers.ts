@@ -6,10 +6,12 @@
  * listener is started quietly so Apply in the first-call step is a hot-swap.
  */
 import {
+  clearApiMockServerSamples,
   importApiMockGallerySample,
   patchApiMockActiveRoute,
   prepareApiMockStudioChrome,
   sendApiMockRequest,
+  upsertApiMockServerSamples,
   wipeApiMockWorkspace,
 } from '../../adapters';
 import { API_MOCK } from '@shared/selectors';
@@ -60,6 +62,8 @@ const AM13_WEIGHTED = {
 export const AM13_CORPUS_SAMPLE = 'am-gallery-checkout';
 export const AM13_PATH = '/cart';
 export const AM13_METHOD = 'POST';
+/** Named sample saved before step 6 — pairs with the ad-hoc entry so Run all fires 2. */
+const AM13_BATCH_SAMPLE_NAME = `POST ${AM13_PATH} — second hop`;
 export const AM13_VARIANT_2_NAME = 'Has items';
 export const AM13_EMPTY = 'EMPTY';
 export const AM13_HAS_ITEMS = 'HAS_ITEMS';
@@ -515,6 +519,7 @@ export async function ensureAm13HasItemsHop(ctx: DemoActionContext): Promise<voi
   await ensureAm13FirstCall(ctx);
   if (am13IsCheckedOut() && am13TxCount() >= 2) {
     await openAm13RuntimeState(ctx, false);
+    upsertApiMockServerSamples([{ name: AM13_BATCH_SAMPLE_NAME, method: AM13_METHOD, path: AM13_PATH }]);
     return;
   }
   await applyAm13IfDirty(ctx, false);
@@ -522,6 +527,7 @@ export async function ensureAm13HasItemsHop(ctx: DemoActionContext): Promise<voi
   await clearAm13JournalQuiet(ctx);
   await seedAm13CheckoutWalk(ctx);
   await openAm13RuntimeState(ctx, false);
+  upsertApiMockServerSamples([{ name: AM13_BATCH_SAMPLE_NAME, method: AM13_METHOD, path: AM13_PATH }]);
 }
 
 export async function ensureAm13ForWeighted(ctx: DemoActionContext): Promise<void> {
@@ -581,6 +587,13 @@ function am13JournalRowByArrival(order: 'first' | 'second'): HTMLElement | undef
  */
 async function holdAm13SeededTransactionsThenState(ctx: DemoActionContext): Promise<void> {
   const walk = { look: 500, hold: 700, payoff: 1100, break: 500 } as const;
+
+  // Journal polls every 1500 ms. After the two seed POSTs both transactions must
+  // appear before we try to spotlight them. Poll up to ~3500 ms (two poll cycles).
+  for (let i = 0; i < 18 && am13TxCount() < 2; i++) {
+    await ctx.delay(200);
+  }
+
   await openAm13RuntimeTransactions(ctx, true);
   const tab = firstVisibleElement(API_MOCK.DOCK_TAB_TRANSACTIONS)
     ? API_MOCK.DOCK_TAB_TRANSACTIONS
@@ -740,8 +753,8 @@ function am13SampleRows(): HTMLElement[] {
 /**
  * After **Run all** — walk each sample's verdict one at a time so the viewer reads
  * the first status, then the second, instead of one flash. For each row: spotlight
- * the row (name + PASS/FAIL badge), then hold on its per-sample state chip — that
- * `before → after` column is the proof the suite shared one memory in order.
+ * the row (name + PASS/FAIL badge), hold on its per-sample state chip, then open
+ * Rendered response so the viewer sees what the mock actually returned.
  */
 async function holdAm13SampleResults(ctx: DemoActionContext): Promise<void> {
   await am13Reveal(ctx, API_MOCK.SIMULATE_SAMPLE_STATE, T.simOutcome);
@@ -755,6 +768,19 @@ async function holdAm13SampleResults(ctx: DemoActionContext): Promise<void> {
     await spotlightElementBeat(ctx, badge ?? row, T.simOutcome);
     const state = row.querySelector<HTMLElement>(API_MOCK.SIMULATE_SAMPLE_STATE);
     if (state) await spotlightElementBeat(ctx, state, T.payoff);
+
+    // Select row then open Rendered response to prove the body is correct.
+    const btn = row.querySelector<HTMLElement>('.am-sim-sample-btn');
+    if (btn) await ctx.click(`[data-testid="${row.getAttribute('data-testid')}"] .am-sim-sample-btn`);
+    if (firstVisibleElement(API_MOCK.SIMULATE_TAB_RENDERED)
+      ?? document.querySelector(API_MOCK.SIMULATE_TAB_RENDERED)) {
+      await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, { look: T.look, hold: 0 });
+    }
+    if (firstVisibleElement(API_MOCK.SIMULATE_RENDERED_BODY)
+      ?? document.querySelector(API_MOCK.SIMULATE_RENDERED_BODY)) {
+      await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, T.payoff);
+    }
+
     await am13Break(ctx);
   }
 }
@@ -784,6 +810,12 @@ async function clearAm13RuntimeVisible(ctx: DemoActionContext): Promise<void> {
   await openAm13RuntimeTransactions(ctx, true);
   if (firstVisibleElement(API_MOCK.JOURNAL_CLEAR)) {
     await am13Aim(ctx, API_MOCK.JOURNAL_CLEAR);
+    // onClick fires handleClearTransactions as void — the async DELETE races the
+    // first seed POST.  Poll until the count drops to 0 so the companion log is
+    // empty before any POST fires (count 0 means DELETE + setTransactions([]) done).
+    for (let i = 0; i < 20 && am13TxCount() > 0; i++) {
+      await ctx.delay(100);
+    }
   }
 }
 
@@ -809,6 +841,8 @@ export async function runAm13HasItemsHop(ctx: DemoActionContext): Promise<void> 
 
 /** Step 6 — rewind between tests without restarting. */
 export async function runAm13ResetAndBatch(ctx: DemoActionContext): Promise<void> {
+  clearApiMockServerSamples();
+  upsertApiMockServerSamples([{ name: AM13_BATCH_SAMPLE_NAME, method: AM13_METHOD, path: AM13_PATH }]);
   await closeAm13Simulate(ctx);
   await openAm13RuntimeState(ctx, true);
   if (firstVisibleElement(API_MOCK.DOCK_STATE) || firstVisibleElement(API_MOCK.DOCK_TAB_STATE)) {
@@ -974,4 +1008,21 @@ export async function runAm13Variables(ctx: DemoActionContext): Promise<void> {
   }
   await am13Break(ctx);
   await showAm13TenantInBody(ctx);
+
+  // Simulate to prove {{variables.tenant}} resolves to the live value.
+  await openAm13Simulate(ctx);
+  await ensureAdHocSimulateForm(ctx, T.tabSwitch);
+  if (am13SimMethod() !== AM13_METHOD && firstVisibleElement(API_MOCK.SIMULATE_METHOD)) {
+    await selectBeat(ctx, API_MOCK.SIMULATE_METHOD, AM13_METHOD, { look: T.look, hold: T.fieldFilled });
+  }
+  await am13Fill(ctx, API_MOCK.SIMULATE_PATH, AM13_PATH);
+  await reviewAndRunSimulation(ctx, {
+    review: T.look,
+    beforeRun: T.beforeRun,
+    saveSample: false,
+    reviewFields: false,
+    digest: false,
+  });
+  await holdAm13SimulateVerdict(ctx);
+  await closeAm13Simulate(ctx);
 }

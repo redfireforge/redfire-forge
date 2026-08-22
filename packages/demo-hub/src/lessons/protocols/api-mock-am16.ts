@@ -29,8 +29,8 @@ import {
 } from './api-mock-am16-helpers';
 
 const DIAGRAM = `
-<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Six export shapes, redaction, and a round-trip copy">
-  <rect x="0" y="0" width="700" height="430" fill="#0f172a" />
+<svg viewBox="0 0 700 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Six export shapes, redaction, and a round-trip copy">
+  <rect x="0" y="0" width="700" height="440" fill="#0f172a" />
 
   <text x="26" y="34" fill="#f1f5f9" font-family="system-ui" font-size="16" font-weight="600">Six shapes. Keys stay here. The file is what CI runs.</text>
   <text x="26" y="54" fill="#64748b" font-family="system-ui" font-size="10">JSON · YAML · server · routes · WireMock · HAR</text>
@@ -59,13 +59,15 @@ const DIAGRAM = `
   <text x="486" y="178" fill="#64748b" font-family="system-ui" font-size="10">Footer carries the CLI line</text>
   <text x="486" y="202" fill="#22c55e" font-family="system-ui" font-size="10">${AM16_CLI}</text>
 
-  <rect x="26" y="240" width="648" height="70" rx="8" fill="#1e293b" stroke="#3b4a60" />
-  <text x="42" y="268" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">A download you cannot read is not a demo.</text>
-  <text x="42" y="290" fill="#a8b8cc" font-family="system-ui" font-size="11">Every export opens a confirmation: preview, redaction proof, loss notes, entry count. Use last export is the round-trip beat.</text>
+  <rect x="26" y="240" width="648" height="90" rx="8" fill="#1e293b" stroke="#3b4a60" />
+  <text x="42" y="265" fill="#f1f5f9" font-family="system-ui" font-size="12" font-weight="600">A download you cannot read is not a demo.</text>
+  <text x="42" y="284" fill="#a8b8cc" font-family="system-ui" font-size="11">Every export opens a confirmation: preview, redaction proof, loss notes,</text>
+  <text x="42" y="302" fill="#a8b8cc" font-family="system-ui" font-size="11">entry count. Use last export is the round-trip beat.</text>
 
-  <rect x="26" y="328" width="648" height="78" rx="8" fill="#1e293b" stroke="#22c55e" />
-  <text x="42" y="356" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Export → read the file → import as copy → hand CI the same artifact</text>
-  <text x="42" y="378" fill="#a8b8cc" font-family="system-ui" font-size="11">Six shapes, one redaction proof, one loss note, one duplicated library, one copyable command. That is the export contract.</text>
+  <rect x="26" y="342" width="648" height="90" rx="8" fill="#1e293b" stroke="#22c55e" />
+  <text x="42" y="367" fill="#22c55e" font-family="system-ui" font-size="12" font-weight="600">Export → read the file → import as copy → hand CI the same artifact</text>
+  <text x="42" y="386" fill="#a8b8cc" font-family="system-ui" font-size="11">Six shapes, one redaction proof, one loss note, one duplicated library,</text>
+  <text x="42" y="404" fill="#a8b8cc" font-family="system-ui" font-size="11">one copyable command. That is the export contract.</text>
 </svg>
 `;
 
