@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useApiMockServerList, type ApiMockServerListEntry } from '../ApiMockServerListBridge';
 import { useConfirmDialog } from '../../../app/hooks/useConfirmDialog';
+import {
+  ApiMockSidebarContextMenus,
+  ApiMockSidebarFolderCreateRow,
+  type CtxMenuState,
+  type FolderCtxMenuState,
+  type FolderMenuState,
+  type FolderMoveMenuState,
+} from './ApiMockSidebarContextMenus';
 import {
   buildFolderTree,
   childFolderNames,
@@ -15,21 +22,11 @@ import {
   renameFolderPaths,
   type FolderTreeNode,
 } from '../apiMockFolderTree';
-
-interface CtxMenuState { id: string; name: string; x: number; y: number; }
 interface RenameState { id: string; value: string; }
-/** Move-a-server-to-folder submenu, keyed by server id. */
-interface FolderMenuState { id: string; x: number; y: number; }
-/** Folder right-click menu, keyed by full folder path. */
-interface FolderCtxMenuState { path: string; x: number; y: number; }
-/** Move-a-folder-into-folder submenu, keyed by full folder path. */
-interface FolderMoveMenuState { path: string; x: number; y: number; }
 interface FolderRenameState { path: string; value: string; }
 /** Inline folder-create row. `parent` undefined = top level (subfolder otherwise). */
 interface FolderDraftState { parent: string | undefined; value: string; }
-
 interface FlatFolder { path: string; name: string; depth: number; }
-
 /**
  * Left-sidebar server list.  Reads from the module-level bridge published by
  * ApiMockStudioPage.  Supports search, drag-to-reorder, and a nested folder
@@ -484,34 +481,15 @@ export default function ApiMockSidebar() {
   );
 
   const renderFolderCreateRow = (parent: string | undefined) => (
-    <div className="am-sidebar-folder-create-row">
-      <input
-        ref={folderDraftRef}
-        className="am-sidebar-folder-create-input"
-        placeholder={parent ? 'Subfolder name…' : 'Folder name…'}
-        value={folderDraft?.value ?? ''}
-        autoFocus
-        onChange={ev => setFolderDraft(d => d ? { ...d, value: ev.target.value } : d)}
-        onKeyDown={ev => {
-          if (ev.key === 'Enter') { ev.preventDefault(); confirmFolderCreate(); }
-          if (ev.key === 'Escape') setFolderDraft(null);
-        }}
-        data-testid="api-mock-sidebar-folder-create-input"
-      />
-      <button
-        type="button"
-        className="am-sidebar-new-folder-btn"
-        disabled={!folderDraft?.value.trim() || childFolderNames(allFolderPaths, parent).some(n => n.toLowerCase() === folderDraft.value.trim().toLowerCase())}
-        onClick={confirmFolderCreate}
-        data-testid="api-mock-sidebar-folder-create-confirm"
-      >Add</button>
-      <button
-        type="button"
-        className="am-sidebar-folder-create-cancel"
-        onClick={() => setFolderDraft(null)}
-        title="Cancel"
-      >×</button>
-    </div>
+    <ApiMockSidebarFolderCreateRow
+      parent={parent}
+      value={folderDraft?.value ?? ''}
+      isNameTaken={childFolderNames(allFolderPaths, parent).some(n => n.toLowerCase() === folderDraft?.value.trim().toLowerCase())}
+      setValue={value => setFolderDraft(draft => draft ? { ...draft, value } : draft)}
+      onConfirm={confirmFolderCreate}
+      onCancel={() => setFolderDraft(null)}
+      inputRef={folderDraftRef}
+    />
   );
 
   const renderFolderNode = (node: FolderTreeNode) => {
@@ -632,8 +610,6 @@ export default function ApiMockSidebar() {
     );
   };
 
-  const moveMenuLeft = (baseX: number) => baseX + 155;
-
   return (
     <div className="am-sidebar" data-testid="api-mock-sidebar">
       <div className="am-sidebar-header">
@@ -745,154 +721,27 @@ export default function ApiMockSidebar() {
         )}
       </div>
 
-      {/* Server right-click context menu */}
-      {ctxMenu && createPortal(
-        <>
-          <div
-            className="am-sidebar-ctx-backdrop"
-            onClick={() => { setCtxMenu(null); setFolderMenu(null); }}
-            onContextMenu={ev => { ev.preventDefault(); setCtxMenu(null); setFolderMenu(null); }}
-            role="presentation"
-          />
-          <div
-            className="am-sidebar-ctx-menu"
-            style={{ top: ctxMenu.y, left: ctxMenu.x }}
-            role="menu"
-            data-testid="api-mock-sidebar-ctx-menu"
-          >
-            <button type="button" className="am-sidebar-ctx-item" role="menuitem"
-              onClick={() => startRename(ctxMenu.id, ctxMenu.name)}
-              data-testid="api-mock-sidebar-ctx-rename"
-            >Rename</button>
-            <button type="button" className="am-sidebar-ctx-item am-sidebar-ctx-item-has-arrow" role="menuitem"
-              onClick={ev => { setFolderMenu(folderMenu ? null : { id: ctxMenu.id, x: ctxMenu.x, y: ev.clientY }); setNewFolderInput(''); }}
-              data-testid="api-mock-sidebar-ctx-move-folder"
-            >Move to folder <span className="am-sidebar-ctx-arrow">›</span></button>
-            <div className="am-sidebar-ctx-divider" />
-            <button type="button" className="am-sidebar-ctx-item am-sidebar-ctx-item-danger" role="menuitem"
-              onClick={() => { state?.onDelete(ctxMenu.id); setCtxMenu(null); }}
-              data-testid="api-mock-sidebar-ctx-delete"
-            >Delete</button>
-          </div>
-          {/* Move-server-to-folder submenu — shows the nested folder structure */}
-          {folderMenu && (
-            <div
-              className="am-sidebar-ctx-menu am-sidebar-folder-submenu"
-              style={{ top: folderMenu.y, left: moveMenuLeft(ctxMenu.x) }}
-              role="menu"
-              data-testid="api-mock-sidebar-folder-submenu"
-            >
-              {flatFolders.filter(f => f.path !== entries.find(e => e.id === folderMenu.id)?.serverFolder).map(f => (
-                <button key={f.path} type="button" className="am-sidebar-ctx-item am-sidebar-ctx-item-folder" role="menuitem"
-                  style={{ paddingLeft: 10 + f.depth * 14 }}
-                  onClick={() => moveToFolder(folderMenu.id, f.path)}
-                  data-testid={`api-mock-sidebar-move-to-${f.path}`}
-                >
-                  <span className="am-sidebar-ctx-folder-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 7A1.5 1.5 0 0 1 4.5 5.5h3.6l1.6 2H19.5A1.5 1.5 0 0 1 21 9v7.5A1.5 1.5 0 0 1 19.5 18h-15A1.5 1.5 0 0 1 3 16.5z" />
-                    </svg>
-                  </span>
-                  {f.name}
-                </button>
-              ))}
-              {entries.find(e => e.id === folderMenu.id)?.serverFolder && (
-                <button type="button" className="am-sidebar-ctx-item" role="menuitem"
-                  onClick={() => moveToFolder(folderMenu.id, undefined)}
-                  data-testid="api-mock-sidebar-move-no-folder"
-                >No folder</button>
-              )}
-              {flatFolders.length > 0 && <div className="am-sidebar-ctx-divider" />}
-              <div className="am-sidebar-new-folder-row">
-                <input
-                  className="am-sidebar-new-folder-input"
-                  placeholder="New folder…"
-                  value={newFolderInput}
-                  onChange={ev => setNewFolderInput(ev.target.value)}
-                  onKeyDown={ev => {
-                    if (ev.key === 'Enter' && newFolderInput.trim()) moveToFolder(folderMenu.id, newFolderInput.trim());
-                    if (ev.key === 'Escape') setFolderMenu(null);
-                  }}
-                  data-testid="api-mock-sidebar-new-folder-input"
-                  autoFocus
-                />
-                <button type="button" className="am-sidebar-new-folder-btn"
-                  disabled={!newFolderInput.trim()}
-                  onClick={() => { if (newFolderInput.trim()) moveToFolder(folderMenu.id, newFolderInput.trim()); }}
-                  data-testid="api-mock-sidebar-new-folder-btn"
-                >Add</button>
-              </div>
-            </div>
-          )}
-        </>,
-        document.body,
-      )}
-
-      {/* Folder right-click context menu */}
-      {folderCtxMenu && createPortal(
-        <>
-          <div
-            className="am-sidebar-ctx-backdrop"
-            onClick={() => { setFolderCtxMenu(null); setFolderMoveMenu(null); }}
-            onContextMenu={ev => { ev.preventDefault(); setFolderCtxMenu(null); setFolderMoveMenu(null); }}
-            role="presentation"
-          />
-          <div
-            className="am-sidebar-ctx-menu"
-            style={{ top: folderCtxMenu.y, left: folderCtxMenu.x }}
-            role="menu"
-            data-testid="api-mock-sidebar-folder-ctx-menu"
-          >
-            <button type="button" className="am-sidebar-ctx-item" role="menuitem"
-              onClick={() => startFolderCreate(folderCtxMenu.path)}
-              data-testid="api-mock-sidebar-folder-ctx-subfolder"
-            >Create subfolder</button>
-            <button type="button" className="am-sidebar-ctx-item" role="menuitem"
-              onClick={() => startFolderRename(folderCtxMenu.path)}
-              data-testid="api-mock-sidebar-folder-ctx-rename"
-            >Rename</button>
-            <button type="button" className="am-sidebar-ctx-item am-sidebar-ctx-item-has-arrow" role="menuitem"
-              onClick={ev => setFolderMoveMenu(folderMoveMenu ? null : { path: folderCtxMenu.path, x: folderCtxMenu.x, y: ev.clientY })}
-              data-testid="api-mock-sidebar-folder-ctx-move"
-            >Move to folder <span className="am-sidebar-ctx-arrow">›</span></button>
-            <div className="am-sidebar-ctx-divider" />
-            <button type="button" className="am-sidebar-ctx-item am-sidebar-ctx-item-danger" role="menuitem"
-              onClick={() => deleteFolder(folderCtxMenu.path)}
-              data-testid="api-mock-sidebar-folder-ctx-delete"
-            >Delete</button>
-          </div>
-          {/* Move-this-folder submenu — nested folder structure, self+descendants excluded */}
-          {folderMoveMenu && (
-            <div
-              className="am-sidebar-ctx-menu am-sidebar-folder-submenu"
-              style={{ top: folderMoveMenu.y, left: moveMenuLeft(folderCtxMenu.x) }}
-              role="menu"
-              data-testid="api-mock-sidebar-folder-move-submenu"
-            >
-              <button type="button" className="am-sidebar-ctx-item" role="menuitem"
-                onClick={() => moveFolderInto(folderMoveMenu.path, undefined)}
-                data-testid="api-mock-sidebar-folder-move-top"
-              >Top level</button>
-              {flatFolders.filter(f => !isSameOrDescendant(f.path, folderMoveMenu.path)).length > 0 && <div className="am-sidebar-ctx-divider" />}
-              {flatFolders.filter(f => !isSameOrDescendant(f.path, folderMoveMenu.path)).map(f => (
-                <button key={f.path} type="button" className="am-sidebar-ctx-item am-sidebar-ctx-item-folder" role="menuitem"
-                  style={{ paddingLeft: 10 + f.depth * 14 }}
-                  onClick={() => moveFolderInto(folderMoveMenu.path, f.path)}
-                  data-testid={`api-mock-sidebar-folder-move-to-${f.path}`}
-                >
-                  <span className="am-sidebar-ctx-folder-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 7A1.5 1.5 0 0 1 4.5 5.5h3.6l1.6 2H19.5A1.5 1.5 0 0 1 21 9v7.5A1.5 1.5 0 0 1 19.5 18h-15A1.5 1.5 0 0 1 3 16.5z" />
-                    </svg>
-                  </span>
-                  {f.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </>,
-        document.body,
-      )}
+      <ApiMockSidebarContextMenus
+        entries={entries}
+        flatFolders={flatFolders}
+        ctxMenu={ctxMenu}
+        setCtxMenu={setCtxMenu}
+        folderMenu={folderMenu}
+        setFolderMenu={setFolderMenu}
+        folderCtxMenu={folderCtxMenu}
+        setFolderCtxMenu={setFolderCtxMenu}
+        folderMoveMenu={folderMoveMenu}
+        setFolderMoveMenu={setFolderMoveMenu}
+        newFolderInput={newFolderInput}
+        setNewFolderInput={setNewFolderInput}
+        startRename={startRename}
+        moveToFolder={moveToFolder}
+        onDeleteServer={(id) => state?.onDelete(id)}
+        startFolderCreate={startFolderCreate}
+        startFolderRename={startFolderRename}
+        moveFolderInto={moveFolderInto}
+        deleteFolder={deleteFolder}
+      />
 
       {confirmDialogElement}
     </div>

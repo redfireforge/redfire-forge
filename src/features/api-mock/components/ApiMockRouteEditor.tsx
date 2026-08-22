@@ -16,6 +16,7 @@ import {
 import { ApiMockResponseEditor } from './ApiMockResponseEditor';
 import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
 import { ApiMockExamplesPanel } from './ApiMockExamplesPanel';
+import { ApiMockMatchStyleRadios } from './ApiMockMatchStyleRadios';
 import { WandIcon, TrashIcon, FlaskIcon, AlertIcon, PlusIcon } from './ApiMockIcons';
 import { ApiMockExpandableText } from './ApiMockExpandableText';
 import { toolboxTabForOperator } from './apiMockPatternToolboxConstants';
@@ -40,104 +41,33 @@ interface Props {
   route: ApiMockRouteV1;
   onUpdate: (patch: Partial<ApiMockRouteV1>) => void;
   hasConflict?: boolean;
-  /** Peer rule label from conflict analysis, e.g. "GET /users/admin". */
   conflictPeer?: string;
-  /** Journal hits for this rule (mockup meta line). */
   matchCount?: number;
-  /** Live sequence cursor for this route. */
   sequencePosition?: number;
   onSimulate?: (sample?: ApiMockSimulationSampleV1) => void;
   onReviewConflicts?: () => void;
   folderName?: string;
-  /** Folders on the owning server, so the route can be filed into one. */
   folders?: ApiMockRouteFolderV1[];
   samples?: ApiMockSimulationSampleV1[];
   onUpdateSample?: (sample: ApiMockSimulationSampleV1) => void;
   onDeleteSample?: (sampleId: string) => void;
   onTrySampleInRequests?: (sample: ApiMockSimulationSampleV1) => void;
-  /** Server variables forwarded to the response preview so templates resolve. */
   variables?: ApiMockVariableV1[];
-  /** Server-wide Timeout hold ceiling forwarded to the Faults tab. */
   timeoutHoldMaxMs?: number;
 }
 
-function renderMatchStyleRadios(
-  pred: ApiMockPredicateV1,
-  updateCondition: (id: string, patch: Partial<ApiMockPredicateV1>) => void,
-) {
-  return (
-    <div
-      className="am-matchstyle-radios"
-      role="radiogroup"
-      aria-label="How the resolved value is compared"
-      data-testid={`api-mock-condition-matchstyle-${pred.id}`}
-    >
-      <label className="am-matchstyle-radio">
-        <input
-          type="radio"
-          name={`am-matchstyle-${pred.id}`}
-          checked={pred.options?.matchStyle !== 'subset'}
-          onChange={() => updateCondition(pred.id, {
-            options: { ...pred.options, matchStyle: 'exact' },
-          })}
-          data-testid={`api-mock-condition-matchstyle-equals-${pred.id}`}
-        />
-        Equals
-      </label>
-      <label className="am-matchstyle-radio">
-        <input
-          type="radio"
-          name={`am-matchstyle-${pred.id}`}
-          checked={pred.options?.matchStyle === 'subset'}
-          onChange={() => updateCondition(pred.id, {
-            options: { ...pred.options, matchStyle: 'subset' },
-          })}
-          data-testid={`api-mock-condition-matchstyle-contains-${pred.id}`}
-        />
-        Contains
-      </label>
-    </div>
-  );
-}
-
-export function ApiMockRouteEditor({
-  route,
-  onUpdate,
-  hasConflict = false,
-  conflictPeer,
-  matchCount,
-  sequencePosition,
-  onSimulate,
-  onReviewConflicts,
-  folderName,
-  folders = [],
-  samples = [],
-  onUpdateSample,
-  onDeleteSample,
-  onTrySampleInRequests,
-  variables = [],
-  timeoutHoldMaxMs,
-}: Props) {
+export function ApiMockRouteEditor({ route, onUpdate, hasConflict = false, conflictPeer, matchCount, sequencePosition, onSimulate, onReviewConflicts, folderName, folders = [], samples = [], onUpdateSample, onDeleteSample, onTrySampleInRequests, variables = [], timeoutHoldMaxMs }: Props) {
   const [tab, setTab] = useState<BuilderTab>('match');
   const [toolboxOpen, setToolboxOpen] = useState(false);
   const [toolboxPredicateId, setToolboxPredicateId] = useState<string | undefined>();
   const group = route.predicates;
   const leaves = countLeaves(group);
-  const routeSamples = samples.filter(s => s.routeId === route.id || !s.routeId);
+  const routeSamples = samples.filter(sample => sample.routeId === route.id || !sample.routeId);
   const pathTitle = `${route.method === 'ANY' ? 'ANY' : route.method} ${route.path.value || '/'}`;
   const shortId = route.id.length > 12 ? route.id.slice(0, 12) : route.id;
-  const metaParts = [
-    folderName,
-    `Rule ID ${shortId}`,
-    matchCount != null ? `${matchCount} match${matchCount === 1 ? '' : 'es'}` : null,
-    route.operationId ? `op ${route.operationId}` : null,
-  ].filter(Boolean);
-
-  const updateGroup = (patch: Partial<ApiMockPredicateGroupV1>) =>
-    onUpdate({ predicates: { ...group, ...patch } });
-
+  const metaParts = [folderName, `Rule ID ${shortId}`, matchCount != null ? `${matchCount} match${matchCount === 1 ? '' : 'es'}` : null, route.operationId ? `op ${route.operationId}` : null].filter(Boolean);
+  const updateGroup = (patch: Partial<ApiMockPredicateGroupV1>) => onUpdate({ predicates: { ...group, ...patch } });
   const setTree = (next: ApiMockPredicateGroupV1) => onUpdate({ predicates: next });
-
   const newLeaf = (): ApiMockPredicateV1 => ({
     id: `pred-${crypto.randomUUID().slice(0, 8)}`,
     source: 'header',
@@ -255,7 +185,7 @@ export function ApiMockRouteEditor({
               testId={`api-mock-condition-value-${pred.id}`}
               ariaLabel="Condition value"
               beforeExpand={(pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals')
-                ? renderMatchStyleRadios(pred, updateCondition)
+                ? <ApiMockMatchStyleRadios predicate={pred} onUpdate={updateCondition} />
                 : undefined}
             />
           ) : (
@@ -271,7 +201,7 @@ export function ApiMockRouteEditor({
                 data-testid={`api-mock-condition-value-${pred.id}`}
               />
               {(pred.operator === 'jsonPath_equals' || pred.operator === 'xpath_equals')
-                && renderMatchStyleRadios(pred, updateCondition)}
+                && <ApiMockMatchStyleRadios predicate={pred} onUpdate={updateCondition} />}
             </>
           )}
         </div>

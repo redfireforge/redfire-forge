@@ -325,4 +325,34 @@ describe('ApiMockRouteEditor coverage gaps', () => {
     fireEvent.click(screen.getByTestId('mock-pattern-apply-conditions-empty'));
     fireEvent.click(screen.getByTestId('mock-pattern-close'));
   });
+
+  it('shows each non-timeout fault hint and normalizes fault probability', () => {
+    const onUpdate = vi.fn();
+    const response = {
+      ...createDefaultResponse('resp-fault'),
+      behavior: { fault: 'close' as const, probability: 0.5 },
+    };
+    const { rerender } = render(
+      <ApiMockRouteEditor route={makeRoute({ responses: [response] })} onUpdate={onUpdate} />,
+    );
+
+    openTab('Behavior');
+    expect(screen.getByText(/socket is closed abruptly/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('api-mock-behavior-probability'), { target: { value: '2' } });
+    expect(onUpdate.mock.calls.at(-1)?.[0].responses[0].behavior.probability).toBe(1);
+    fireEvent.change(screen.getByTestId('api-mock-behavior-probability'), { target: { value: '-1' } });
+    expect(onUpdate.mock.calls.at(-1)?.[0].responses[0].behavior.probability).toBe(0);
+    fireEvent.change(screen.getByTestId('api-mock-behavior-probability'), { target: { value: 'invalid' } });
+    expect(onUpdate.mock.calls.at(-1)?.[0].responses[0].behavior.probability).toBe(1);
+
+    for (const [fault, hint] of [
+      ['reset', /TCP RST/],
+      ['malformed', /Garbage bytes/],
+      ['dribble', /one byte at a time/],
+    ] as const) {
+      rerender(<ApiMockRouteEditor route={makeRoute({ responses: [{ ...response, behavior: { fault } }] })} onUpdate={onUpdate} />);
+      expect(screen.getByText(hint)).toBeInTheDocument();
+    }
+  });
 });

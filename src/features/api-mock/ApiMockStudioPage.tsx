@@ -23,7 +23,6 @@ import {
   isLiveRuntimeStatus,
   mergeConflictAcknowledgements,
   mergeRuntimeInfo,
-  parsePortOwnerServerId,
   API_MOCK_MAX_TABS,
   reorderServers,
   runConflictAnalysis,
@@ -51,6 +50,7 @@ import { useApiMockConsole } from './useApiMockConsole';
 import { analyzeConflicts } from '../../shared/api-mock/conflictAnalyzer';
 import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
 import { buildRuntimeActionBindings } from './apiMockRuntimeActionBindings';
+import { useApiMockRuntimeActions } from './useApiMockRuntimeActions';
 import './api-mock-studio.css';
 const ts = nowIso;
 export function ApiMockStudioPage() {
@@ -405,62 +405,11 @@ export function ApiMockStudioPage() {
       publishApiMockRuntimeChanged();
     }
   }, []);
-
-  const handleStart = useCallback(async (server: ApiMockServerDefinitionV1) => {
-    const latest = latestRef.current.servers.find(s => s.id === server.id) ?? server;
-    const workspace = latestRef.current.servers;
-    patchRuntime(latest.id, { status: 'starting', error: undefined });
-    let res = await apiMockControlClient.start(latest);
-    // If a closed tab left an orphan listener on this port, stop it and retry once.
-    if (!res.ok && res.error.code === 'MOCK_PORT_OWNED') {
-      const ownerId = parsePortOwnerServerId(res.error.message);
-      if (ownerId && ownerId !== latest.id && !workspace.some(s => s.id === ownerId)) {
-        await apiMockControlClient.stop(ownerId);
-        res = await apiMockControlClient.start(latest);
-      }
-    }
-    if (res.ok) {
-      patchRuntime(latest.id, { status: 'running', generation: res.data.generation, error: undefined, appliedJson: JSON.stringify(latest) });
-      setLiveMessage(`Server started on port ${res.data.port}.`);
-    } else {
-      patchRuntime(latest.id, { status: 'error', error: `${res.error.title}: ${res.error.message}` });
-      setLiveMessage(`${res.error.title}. ${res.error.message}`);
-    }
-  }, [patchRuntime, latestRef]);
-
-  const handleStop = useCallback(async (server: ApiMockServerDefinitionV1) => {
-    patchRuntime(server.id, { status: 'draining' });
-    const res = await apiMockControlClient.stop(server.id);
-    if (res.ok) {
-      patchRuntime(server.id, { status: 'stopped', error: undefined });
-      setLiveMessage('Server stopped.');
-    } else {
-      patchRuntime(server.id, { status: 'error', error: `${res.error.title}: ${res.error.message}` });
-    }
-  }, [patchRuntime]);
-
-  const handleApply = useCallback(async (server: ApiMockServerDefinitionV1) => {
-    const latest = latestRef.current.servers.find(s => s.id === server.id) ?? server;
-    patchRuntime(latest.id, { status: 'applying' });
-    const res = await apiMockControlClient.commit(latest);
-    if (res.ok) {
-      patchRuntime(latest.id, { status: 'running', generation: res.data.generation, error: undefined, appliedJson: JSON.stringify(latest) });
-      setLiveMessage(`Applied generation ${res.data.generation}.`);
-    } else {
-      patchRuntime(latest.id, { status: 'running', error: `${res.error.title}: ${res.error.message}` });
-    }
-  }, [patchRuntime, latestRef]);
-
-  const handleRestart = useCallback(async (server: ApiMockServerDefinitionV1) => {
-    const latest = latestRef.current.servers.find(s => s.id === server.id) ?? server;
-    patchRuntime(latest.id, { status: 'starting' });
-    const res = await apiMockControlClient.restart(latest);
-    if (res.ok) {
-      patchRuntime(latest.id, { status: 'running', generation: res.data.generation, error: undefined, appliedJson: JSON.stringify(latest) });
-    } else {
-      patchRuntime(latest.id, { status: 'error', error: `${res.error.title}: ${res.error.message}` });
-    }
-  }, [patchRuntime, latestRef]);
+  const { handleStart, handleStop, handleApply, handleRestart } = useApiMockRuntimeActions({
+    getServers: () => latestRef.current.servers,
+    patchRuntime,
+    setLiveMessage,
+  });
 
   const confirmDeleteRoute = useCallback((route: ApiMockServerDefinitionV1['routes'][0]) => {
     confirm(`Delete route "${route.name}"? Samples associated with this route will become unassociated. You can Undo for a few seconds.`, () => handleDeleteRoute(route.id), undefined, { finalNote: '', confirmLabel: 'Delete' });

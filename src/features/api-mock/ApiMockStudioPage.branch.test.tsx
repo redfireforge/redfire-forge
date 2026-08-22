@@ -11,6 +11,7 @@ const loadApiMockWorkspace = vi.fn();
 const saveApiMockWorkspace = vi.fn();
 
 vi.mock('./apiMockPersistence', () => ({
+  isApiMockDemoPersistenceActive: vi.fn(() => false),
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),
   saveApiMockWorkspace: (...args: unknown[]) => saveApiMockWorkspace(...args),
   publishApiMockWorkspace: vi.fn(),
