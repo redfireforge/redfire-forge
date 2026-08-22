@@ -14,6 +14,7 @@ import {
   AM18_MATCH_LIST,
   AM18_MISS_PATH,
   cleanupAm18,
+  ensureAm18ForClosestMatch,
   ensureAm18ForCreateRoute,
   ensureAm18ForFilter,
   ensureAm18ForMiss,
@@ -22,6 +23,7 @@ import {
   ensureAm18ForShare,
   prepareAm18Workspace,
   runAm18CreateRoute,
+  runAm18ClosestMatch,
   runAm18Filter,
   runAm18JournalTour,
   runAm18ProveExample,
@@ -175,13 +177,15 @@ export const apiMockAm18Lesson: DemoLesson = {
         + '**fallback** to **closest-match**, Save, and fire the same typo '
         + 'request again.\n\n'
         + '**What you\'ll see:** the **404 Not Found** stops being empty — its '
-            + `with the real method, path (\`${AM18_MISS_PATH}\`), and headers `
-            + 'already filled in — and the **Enabled** toggle **off**.\n\n'
-            + '**Why Create route:** the path and headers are pre-filled from what '
-            + 'the client actually sent — no retyping, no guessing. The draft lands '
-            + '**disabled** so it cannot silently start matching live traffic until '
-            + 'you review and enable it. A runtime miss becomes a first-class rule '
-            + 'in seconds.',
+        + 'response body now names the closest candidate and the predicate that '
+        + 'missed.\n\n'
+        + '**Why it matters:** clients and logs receive a useful failure explanation '
+        + 'without opening Studio, while the response remains a real 404 for normal '
+        + 'error handling.',
+      highlight: API_MOCK.RUNTIME_SETTINGS_FALLBACK,
+      preAction: ensureAm18ForClosestMatch,
+      action: runAm18ClosestMatch,
+      verify: API_MOCK.TX_RESPONSE,
     },
     {
       id: 'create-route',
