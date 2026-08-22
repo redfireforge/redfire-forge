@@ -412,14 +412,14 @@ describe('AM-18 helpers', () => {
 
   it('navigates back to API Mock from Requests via the activity bar', async () => {
     document.body.append(el('button', undefined, 'ab-protocols'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     const ctx = makeCtx();
     await ensureAm18OnApiMock(ctx);
     expect(ctx.click).toHaveBeenCalledWith(APP_AB);
   });
 });
 
-const APP_AB = '[data-testid="ab-protocols"]';
+const APP_AB = '[data-testid="ab-api-mock"]';
 
 describe('AM-18 step bodies', () => {
   it('starts the listener and fetches two matching paths', async () => {
@@ -542,7 +542,7 @@ describe('AM-18 step bodies', () => {
     mountEditor({ examples: true, missPath: true });
     document.body.append(el('div', undefined, 'req-sidebar'));
     document.body.append(el('button', undefined, 'ab-protocols'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     const ctx = makeCtx();
     await runAm18SaveExample(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.TX_SAVE_EXAMPLE);

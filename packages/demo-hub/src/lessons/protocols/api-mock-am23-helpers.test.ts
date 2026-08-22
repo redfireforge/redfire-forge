@@ -255,7 +255,7 @@ describe('AM-23 helpers', () => {
 
     document.body.innerHTML = '';
     document.body.append(el('button', undefined, 'ab-protocols'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     await ensureAm23OnStudio(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APP_SUBNAV);
 
@@ -695,11 +695,11 @@ describe('AM-23 helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(HAR.NAV_RUNNER);
   });
 
-  it('clicks Protocols then falls through to navigateToTab without a subnav', async () => {
+  it('falls through to navigateToTab without the API Mock activity bar', async () => {
     document.body.append(el('button', undefined, 'ab-protocols'));
     const ctx = makeCtx();
     await ensureAm23OnStudio(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
     expect(ctx.navigateToTab).toHaveBeenCalledWith('api-mock-studio');
   });
 

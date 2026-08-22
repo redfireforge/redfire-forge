@@ -93,7 +93,7 @@ const DIAGRAM = `
 
 export const apiMockAm02Lesson: DemoLesson = {
   id: 'am-02-multi-server',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Multi-Server Workspace: Tabs, Ports & Binding',
   description:

@@ -18,23 +18,23 @@ import type { DemoActionContext } from '../../types';
  */
 export const AM_DEMO_TIMING = {
   /** Workspace view switch (Studio / Runtime / Conflicts). */
-  viewSwitch: 550,
+  viewSwitch: 850,
   /** Panel or editor painted after a create/open click. */
-  panelReady: 500,
+  panelReady: 750,
   /** Body tab / dock tab switch. */
-  tabSwitch: 500,
+  tabSwitch: 800,
   /** A field the viewer must read after it was filled. */
-  fieldFilled: 350,
+  fieldFilled: 600,
   /** Spotlight hold while the viewer looks at a control before it is used. */
-  look: 400,
+  look: 700,
   /** The outcome a step is teaching (badge, preview, detail pane). */
-  payoff: 750,
+  payoff: 1100,
   /** Listener bind / drain round-trip. */
-  lifecycle: 1100,
+  lifecycle: 1300,
   /** Journal write after real traffic. */
-  journalWrite: 900,
+  journalWrite: 1100,
   /** Breather between logical groups inside one multi-beat step. */
-  groupBreak: 500,
+  groupBreak: 700,
   /** Filled Simulate fields, held so the viewer can read them before Run. */
   reviewForm: 2400,
   /** Quiet digest after the field tour — look at the whole request before Run. */
@@ -347,6 +347,20 @@ export async function waitForApiMockStudioServerId(
     await ctx.delay(150);
   }
   return (await resolveApiMockStudioServerId(opts)) ?? opts?.templateId ?? '';
+}
+
+/**
+ * Open API Mock Studio from the activity bar.
+ * API Mock is its own domain now — do not click Protocols first.
+ */
+export async function openApiMockFromActivityBar(
+  ctx: DemoActionContext,
+  delayMs = 200,
+): Promise<boolean> {
+  if (!firstVisibleElement(API_MOCK.APP_SUBNAV)) return false;
+  await ctx.click(API_MOCK.APP_SUBNAV);
+  await ctx.delay(delayMs);
+  return true;
 }
 
 /** Reset the workflow picker to “Select server…” so the next pick is visible. */

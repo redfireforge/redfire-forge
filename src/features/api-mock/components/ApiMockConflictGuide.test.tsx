@@ -80,4 +80,52 @@ describe('ApiMockConflictGuide', () => {
     expect(onAnalyze).toHaveBeenCalledTimes(1);
     expect(onOpenStudio).toHaveBeenCalledTimes(1);
   });
+
+  it('renders "Ready to analyze" and default labels when no stats or settings provided', () => {
+    render(<ApiMockConflictGuide routes={[]} />);
+    const guide = screen.getByTestId('api-mock-conflict-guide');
+    expect(guide.textContent).toMatch(/Ready to analyze/);
+    expect(guide.textContent).toMatch(/Check rules before they collide/);
+    expect(guide.textContent).toMatch(/Not run yet/);
+    expect(guide.textContent).toMatch(/Highest priority/);
+    expect(guide.textContent).toMatch(/Reject as ambiguous/);
+    expect(screen.queryByTestId('api-mock-conflict-guide-analyze')).toBeNull();
+    expect(screen.queryByTestId('api-mock-conflict-guide-studio')).toBeNull();
+  });
+
+  it('shows "highest_priority" multiLabel when policy is highest_priority', () => {
+    const settings = {
+      selection: {
+        multipleMatchPolicy: 'highest_priority',
+        equalPriorityPolicy: 'reject',
+      },
+    } as unknown as ApiMockServerSettingsV1;
+    render(<ApiMockConflictGuide routes={[]} settings={settings} />);
+    expect(screen.getByTestId('api-mock-conflict-guide').textContent).toMatch(/Choose highest priority/);
+    expect(screen.getByTestId('api-mock-conflict-guide').textContent).toMatch(/Reject as ambiguous \(409\)/);
+  });
+
+  it('shows "specificity" equalLabel when equalPriorityPolicy is specificity_then_id', () => {
+    const settings = {
+      selection: {
+        multipleMatchPolicy: 'reject_multiple',
+        equalPriorityPolicy: 'specificity_then_id',
+      },
+    } as unknown as ApiMockServerSettingsV1;
+    render(<ApiMockConflictGuide routes={[]} settings={settings} />);
+    expect(screen.getByTestId('api-mock-conflict-guide').textContent).toMatch(/Specificity, then stable ID/);
+  });
+
+  it('counts enabled routes only and shows analyzed stats when hasRun', () => {
+    const routes: ApiMockRouteV1[] = [
+      { id: 'r1', enabled: true } as unknown as ApiMockRouteV1,
+      { id: 'r2', enabled: true } as unknown as ApiMockRouteV1,
+      { id: 'r3', enabled: false } as unknown as ApiMockRouteV1,
+    ];
+    render(<ApiMockConflictGuide routes={routes} stats={{ analyzedRules: 2, durationMs: 15 }} />);
+    const guide = screen.getByTestId('api-mock-conflict-guide');
+    expect(guide.textContent).toMatch(/No route conflicts detected/);
+    expect(guide.textContent).toMatch(/2 rules · 15 ms/);
+    expect(guide.textContent).toMatch(/2 \/ 3/);
+  });
 });

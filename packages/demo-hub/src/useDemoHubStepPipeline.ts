@@ -15,8 +15,10 @@ import {
   abortableSleep,
   buildDemoActionContext,
   buildQuietDemoActionContext,
+  isDemoE2EFastMode,
   isElementVisible,
   waitForElement,
+  DEMO_E2E_FAST_DELAY_MS,
 } from './useDemoHubHelpers';
 import { purgeAllSpotlightRings } from './demoRipple';
 
@@ -174,7 +176,15 @@ export function useDemoHubStepPipeline({
     // or the user advances — otherwise orphaned awaits keep running for tens of seconds.
     const quietCtx = buildQuietDemoActionContext(navigateToTab, signal);
     const visibleCtx = buildDemoActionContext(navigateToTab, signal);
-    const scaleMs = (ms: number) => Math.round(ms / speed);
+    // Pedagogical holds (reading, spotlight) exist for the viewer, so fast mode
+    // collapses them. Settle windows below are correctness waits — they let the
+    // action's state commit before the step reports `done` — so they only follow
+    // the speed control and are never collapsed.
+    const scalePacing = (ms: number) => (
+      isDemoE2EFastMode() ? Math.min(ms, DEMO_E2E_FAST_DELAY_MS) : Math.round(ms / speed)
+    );
+    const scaleSettle = (ms: number) => Math.round(ms / speed);
+    const scaleMs = scalePacing;
 
     try {
       const lesson = selectedLesson;
@@ -242,7 +252,7 @@ export function useDemoHubStepPipeline({
         if (el instanceof HTMLElement && !step.skipHighlightScroll) {
           scrollDemoTargetIntoView(el, { block: 'center' });
         }
-        await abortableSleep(DEMO_SPOTLIGHT_SETTLE_MS, signal);
+        await abortableSleep(scaleMs(DEMO_SPOTLIGHT_SETTLE_MS), signal);
       })();
 
       const readingSyncWork = (async () => {
@@ -267,7 +277,7 @@ export function useDemoHubStepPipeline({
         } catch (e) {
           console.warn('[DemoHub] action failed:', e);
         }
-        await abortableSleep(scaleMs(DEMO_POST_ACTION_SETTLE_MS), signal);
+        await abortableSleep(scaleSettle(DEMO_POST_ACTION_SETTLE_MS), signal);
         if (signal.aborted) return;
       }
 
@@ -277,7 +287,7 @@ export function useDemoHubStepPipeline({
         stepVerified = await waitForElement(step.verify, DEMO_VERIFY_WAIT_MS, signal);
         if (signal.aborted) return;
         if (stepVerified) {
-          await abortableSleep(scaleMs(DEMO_VERIFY_ABSORB_MS), signal);
+          await abortableSleep(scaleSettle(DEMO_VERIFY_ABSORB_MS), signal);
           if (signal.aborted) return;
         }
       }

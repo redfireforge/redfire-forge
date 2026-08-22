@@ -3,8 +3,15 @@
  */
 import { getDemoBridgeWindow } from './bridgeWindow';
 import { collapseAppSidebar } from './appShellAdapter';
+import type { DemoLesson } from '../types';
 
 export { collapseAppSidebar };
+
+export function isApiMockStudioLesson(lesson: Pick<DemoLesson, 'category' | 'domainId' | 'initialTab'>): boolean {
+  return lesson.category === 'api-mock'
+    || lesson.domainId === 'api-mock'
+    || lesson.initialTab === 'api-mock-studio';
+}
 
 export interface ApiMockStudioServerRow {
   id: string;
@@ -13,9 +20,16 @@ export interface ApiMockStudioServerRow {
   active: boolean;
 }
 
-/** Wipe mock workspace + stop orphan listeners (no Studio UI flash tour). */
+/** Wipe mock workspace listeners and close Studio tabs (saved servers stay in the library). */
 export async function wipeApiMockWorkspace(): Promise<boolean> {
   const fn = getDemoBridgeWindow().__demoWipeApiMockWorkspace;
+  if (!fn) return false;
+  return fn();
+}
+
+/** Restore the user mock library captured before the lesson wipe. */
+export async function restoreApiMockUserWorkspace(): Promise<boolean> {
+  const fn = getDemoBridgeWindow().__demoRestoreApiMockUserWorkspace;
   if (!fn) return false;
   return fn();
 }

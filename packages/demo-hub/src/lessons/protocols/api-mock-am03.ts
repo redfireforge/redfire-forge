@@ -109,7 +109,7 @@ const DIAGRAM = `
 
 export const apiMockAm03Lesson: DemoLesson = {
   id: 'am-03-rule-library',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Rule Library: Folders, Search, Filters & Docs',
   description:

@@ -411,6 +411,34 @@ describe('useWebSocketMockServer', () => {
     });
   });
 
+  it('stops polling after max consecutive status failures (companion down)', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/status')) {
+        return mockFetchNetworkError();
+      }
+      if (typeof url === 'string' && url.includes('/log')) {
+        return mockFetchResponse({ entries: [], cursor: 0 });
+      }
+      return mockFetchResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { unmount } = renderHook(() => useWebSocketMockServer(9876, true));
+    // Advance through the initial call + 5 interval ticks = 6 failures (the max).
+    await act(async () => { await vi.advanceTimersByTimeAsync(500 * 6); });
+    const countAtMax = fetchMock.mock.calls.filter(
+      ([url]: [string]) => typeof url === 'string' && url.includes('/status'),
+    ).length;
+    expect(countAtMax).toBeGreaterThanOrEqual(6);
+    // Interval must be cleared — no further status requests.
+    await act(async () => { await vi.advanceTimersByTimeAsync(500 * 20); });
+    const countAfter = fetchMock.mock.calls.filter(
+      ([url]: [string]) => typeof url === 'string' && url.includes('/status'),
+    ).length;
+    expect(countAfter).toBe(countAtMax);
+    unmount();
+  });
+
   it('pollStatus leaves status unchanged when backend fails while already stopped', async () => {
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (typeof url === 'string' && url.includes('/status')) {

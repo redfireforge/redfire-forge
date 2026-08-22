@@ -75,7 +75,7 @@ const DIAGRAM = `
 
 export const apiMockAm06Lesson: DemoLesson = {
   id: 'am-06-body-matching',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Body Matching: Subset, Strict, JSONPath & JSON Schema',
   description:

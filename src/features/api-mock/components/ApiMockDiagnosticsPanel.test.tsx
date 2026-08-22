@@ -38,7 +38,7 @@ describe('ApiMockDiagnosticsPanel', () => {
     const { unmount } = render(<ApiMockDiagnosticsPanel serverId="srv-1" running />);
     await waitFor(() => expect(screen.getByTestId('api-mock-diag-generation').textContent).toBe('4'));
     expect(screen.getByTestId('api-mock-diag-drops').textContent).toBe('3');
-    expect(screen.getByTestId('api-mock-diag-outcomes').textContent).toMatch(/matched 7/);
+    expect(screen.getByTestId('api-mock-diag-outcomes').textContent).toMatch(/matched.*7/);
     unmount();
   });
 
@@ -133,5 +133,28 @@ describe('ApiMockDiagnosticsPanel', () => {
     render(<ApiMockDiagnosticsPanel serverId="srv-1" running={false} />);
     await waitFor(() => expect(screen.getByTestId('api-mock-diag-generation').textContent).toBe('4'));
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders fallback outcome colors, warning counters, and a zero-capacity journal', async () => {
+    const data = {
+      ...SAMPLE,
+      openConnections: 2,
+      inFlight: 1,
+      templateErrors: 3,
+      matchDuration: { ...SAMPLE.matchDuration, p95Ms: 11 },
+      outcomes: { custom: 1 },
+      journal: { drops: 1, truncations: 1, size: 5, maxEntries: 0 },
+    };
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({ ok: true, data }),
+    })));
+
+    render(<ApiMockDiagnosticsPanel serverId="srv-1" running={false} />);
+
+    await waitFor(() => expect(screen.getByTestId('api-mock-diag-journal-size').textContent).toBe('5/0'));
+    expect(screen.getByText('0%')).toBeTruthy();
+    expect(screen.getByText('custom')).toBeTruthy();
+    expect(document.querySelectorAll('.am-diag-metric--warn')).toHaveLength(6);
   });
 });

@@ -291,6 +291,8 @@ export interface ApiMockServerDefinitionV1 {
   variables: ApiMockVariableV1[];
   settings: ApiMockServerSettingsV1;
   source?: ApiMockImportSourceV1;
+  /** Sidebar folder/group this server belongs to (UI-only, excluded from fingerprint). */
+  serverFolder?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -358,9 +358,14 @@ export function useKafkaState(): UseKafkaStateReturn {
           return;
         }
 
-        // Keep probing at a capped interval so stale transient errors
-        // (for example backend restarts) recover automatically without
-        // requiring manual cluster re-selection or reconnect.
+        // Stop polling once the max failure streak is reached to prevent
+        // console flooding when the companion server is unreachable.
+        // Polling resumes via bumpRefreshNonce() on the next user-triggered
+        // action (connect, cluster change, etc.).
+        if (statusPollFailureStreakRef.current >= STATUS_POLL_MAX_FAILURE_STREAK) {
+          return;
+        }
+
         schedulePoll(nextBackoffDelayMs(statusPollFailureStreakRef.current));
       }, delayMs);
     };

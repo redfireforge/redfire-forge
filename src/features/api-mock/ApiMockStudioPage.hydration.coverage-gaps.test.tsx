@@ -26,6 +26,7 @@ const recordedDrafts = vi.fn();
 const isTauri = vi.fn(() => false);
 
 vi.mock('./apiMockPersistence', () => ({
+  isApiMockDemoPersistenceActive: vi.fn(() => false),
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),
   saveApiMockWorkspace: (...args: unknown[]) => saveApiMockWorkspace(...args),
   publishApiMockWorkspace: vi.fn(),

@@ -2,6 +2,7 @@ import {
   type Tab,
   domainOf,
   isApiTab,
+  isApiMockTab,
   isWorkflowTab,
   isHarnessTab,
   isGalleryTab,
@@ -50,6 +51,21 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         <span className="ab-label">API</span>
       </button>
       <button
+        className={`ab-btn ${domainOf(activeTab) === 'api-mock' ? 'active' : ''}`}
+        onClick={() => { if (!isApiMockTab(activeTab)) setActiveTab('api-mock-studio'); }}
+        title="API Mock"
+        data-testid="ab-api-mock"
+      >
+        <span className="ab-icon">
+          <ActivityBarIcon>
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18" />
+            <path d="M9 21V9" />
+          </ActivityBarIcon>
+        </span>
+        <span className="ab-label">API Mock</span>
+      </button>
+      <button
         className={`ab-btn ${domainOf(activeTab) === 'workflow' ? 'active' : ''}`}
         onClick={() => { if (!isWorkflowTab(activeTab)) setActiveTab('workflow'); }}
         title="Workflow"
@@ -77,21 +93,6 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
           </ActivityBarIcon>
         </span>
         <span className="ab-label">Harness</span>
-      </button>
-      <button
-        className={`ab-btn ${domainOf(activeTab) === 'gallery' ? 'active' : ''}`}
-        onClick={() => { if (!isGalleryTab(activeTab)) setActiveTab('gallery'); }}
-        title="Gallery"
-      >
-        <span className="ab-icon">
-          <ActivityBarIcon>
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-          </ActivityBarIcon>
-        </span>
-        <span className="ab-label">Gallery</span>
       </button>
       <button
         className={`ab-btn ${domainOf(activeTab) === 'protocols' ? 'active' : ''}`}
@@ -127,6 +128,21 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         <span className="ab-label">Demo Hub</span>
       </button>
       )}
+      <button
+        className={`ab-btn ${domainOf(activeTab) === 'gallery' ? 'active' : ''}`}
+        onClick={() => { if (!isGalleryTab(activeTab)) setActiveTab('gallery'); }}
+        title="Gallery"
+      >
+        <span className="ab-icon">
+          <ActivityBarIcon>
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+          </ActivityBarIcon>
+        </span>
+        <span className="ab-label">Gallery</span>
+      </button>
       <div className="ab-spacer" />
       <button
         className={`ab-btn ${domainOf(activeTab) === 'settings' ? 'active' : ''}`}
