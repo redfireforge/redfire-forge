@@ -733,8 +733,9 @@ test('WF-26: Edit and Delete schema', async ({ page }) => {
     const editBtn = cards.first().locator('button', { hasText: 'Edit' });
     if (await editBtn.isVisible()) {
       await editBtn.click();
-      await page.waitForTimeout(300);
-      // Editor should reopen
+      await page.locator('[data-testid="ws-schema-editor"]').waitFor();
+      await page.click('[data-testid="ws-schema-save-btn"]');
+      await page.locator('[data-testid="ws-schema-editor"]').waitFor({ state: 'hidden' });
     }
 
     // Delete — click Delete then Confirm
