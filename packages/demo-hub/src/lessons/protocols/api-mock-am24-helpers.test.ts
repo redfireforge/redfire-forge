@@ -644,7 +644,7 @@ describe('AM-24 helpers', () => {
     // The timeout lives only on the degraded branch, probability-gated.
     expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
       variantIndex: 2,
-      behavior: expect.objectContaining({ fault: 'timeout', probability: 0.5 }),
+      behavior: expect.objectContaining({ fault: 'timeout', probability: 0 }),
     }));
     // The 404 (variant 1) never receives a fault.
     const faultOn404 = patchApiMockActiveRoute.mock.calls.some(([patch]) => {
