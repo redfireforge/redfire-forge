@@ -968,12 +968,10 @@ async function quietAnalyze(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-async function quietFixPriority(ctx: DemoActionContext): Promise<void> {
-  await ensureAm24StudioView(ctx);
-  await selectHealthRoute(ctx, false);
-  if (firstVisibleElement(API_MOCK.PRIORITY_INPUT) && inputValue(API_MOCK.PRIORITY_INPUT) !== AM24_PRIORITY) {
-    await ctx.fill(API_MOCK.PRIORITY_INPUT, AM24_PRIORITY);
-  }
+async function quietFixPriority(_ctx: DemoActionContext): Promise<void> {
+  // Patch the priority directly in state — patchAm24Health targets the route by
+  // path + method so no UI click is needed.  Calling selectHealthRoute here would
+  // switch the route editor to /health and cause a visible flash in preAction.
   patchAm24Health({ priority: Number(AM24_PRIORITY) });
 }
 
@@ -1027,8 +1025,8 @@ async function runOrdersSimulation(
 
 async function quietSample(ctx: DemoActionContext): Promise<void> {
   upsertAm24ContractSamples();
-  await openAm24Simulate(ctx, false);
   if (hasAm24ContractSamples() || hasAm24Summary()) return;
+  await openAm24Simulate(ctx, false);
   if (!hasAm24NamedSample(AM24_SAMPLE_NAME)) {
     await runOrdersSimulation(ctx, AM24_MATCH_BODY, AM24_SAMPLE_NAME);
   }
@@ -1231,36 +1229,64 @@ export async function ensureAm24ForSuite(ctx: DemoActionContext): Promise<void> 
 }
 
 /** preAction for the conflicts step (step 7) — purge any /health routes left from a
- *  prior run so the live step always authors them from zero, and strip leftover GET /. */
-export async function ensureAm24ForConflicts(ctx: DemoActionContext): Promise<void> {
+ *  prior run so the live step always authors them from zero, and strip leftover GET /.
+ *
+ *  `purgeHealth` is `true` for step 7's own preAction (routes must start at 0 so the
+ *  action can author them visibly).  Steps 8+ pass `false` because `quietOverlap`
+ *  immediately follows and will correct the count without the remove → re-add flash. */
+export async function ensureAm24ForConflicts(ctx: DemoActionContext, purgeHealth = true): Promise<void> {
   await ensureAm24ForSuite(ctx);
   await quietRemoveStrayRootRoutes();
-  // Count /health rows from the DOM (accurate here — no health patches yet in this call).
-  const haveHealth = am24HealthRows().length;
-  for (let i = 0; i < haveHealth; i++) {
-    patchApiMockActiveRoute({
-      removeRoute: true,
-      selectPath: AM24_HEALTH_PATH,
-      selectMethod: 'GET',
-    });
+  if (purgeHealth) {
+    // Count /health rows from the DOM (accurate here — no health patches yet in this call).
+    const haveHealth = am24HealthRows().length;
+    for (let i = 0; i < haveHealth; i++) {
+      patchApiMockActiveRoute({
+        removeRoute: true,
+        selectPath: AM24_HEALTH_PATH,
+        selectMethod: 'GET',
+      });
+    }
   }
   await closeAm24Simulate(ctx);
 }
 
+/** True when a sequential play-through already authored the live/export library.
+ *  Reconstructing (Simulate open/close, Response tab, Analyze) is what flashes
+ *  at the start of steps 8 and 9 — skip that work when the surface is ready. */
+function isAm24ContractLibraryReady(): boolean {
+  return hasAm24Server()
+    && isAm24StudioActive()
+    && hasAm24EnabledOrders()
+    && am24HealthRows().length >= 2
+    && Boolean(am24FindGetItemRoute());
+}
+
+async function settleAm24StudioOverlays(ctx: DemoActionContext): Promise<void> {
+  await closeAm24Simulate(ctx);
+  await closeAm24Export(ctx, false);
+  await ensureAm24StudioView(ctx);
+}
+
 export async function ensureAm24ForLive(ctx: DemoActionContext): Promise<void> {
-  await ensureAm24ForConflicts(ctx);
+  await settleAm24StudioOverlays(ctx);
+  if (isAm24ContractLibraryReady()) return;
+  // Skip the health-route purge — quietOverlap below enforces the exact count of 2.
+  // Purging all then re-adding them causes a visible route-list flash when coming
+  // from step 7 where the state is already correct.
+  await ensureAm24ForConflicts(ctx, false);
   await quietOverlap(ctx);
   await quietFixPriority(ctx);
-  await quietAnalyze(ctx);
   await quietEnableGetOrderId(ctx);
   await closeAm24Simulate(ctx);
 }
 
 /** preAction for the export step (step 9). */
 export async function ensureAm24ForExport(ctx: DemoActionContext): Promise<void> {
+  await settleAm24StudioOverlays(ctx);
+  if (isAm24ContractLibraryReady()) return;
   await ensureAm24ForLive(ctx);
-  await closeAm24Export(ctx, false);
-  await closeAm24Simulate(ctx);
+  await settleAm24StudioOverlays(ctx);
 }
 
 /** preAction for the workflow Quick Test step (step 10). */
@@ -1508,6 +1534,17 @@ export async function runAm24Resilience(ctx: DemoActionContext): Promise<void> {
     behavior: { delayMs: 0, jitterMs: 0 },
   });
   await am24Payoff(ctx, API_MOCK.FAULTS_PANEL);
+  await am24Break(ctx);
+
+  // Beat 4 — show the Selection tab so viewers see the JSONPath condition that
+  // routes $.sku = FLAKY to this branch without overlapping the 201 or 404.
+  if (firstVisibleElement(API_MOCK.RESPONSE_TAB_SELECTION)) {
+    await am24Aim(ctx, API_MOCK.RESPONSE_TAB_SELECTION, T.tabSwitch);
+  }
+  await am24Reveal(ctx, API_MOCK.SELECTION_PANEL);
+  if (firstVisibleElement(API_MOCK.SELECTION_CONDITION)) {
+    await am24Payoff(ctx, API_MOCK.SELECTION_CONDITION);
+  }
 }
 
 async function authorAm24HealthRoute(ctx: DemoActionContext): Promise<void> {
@@ -1706,19 +1743,17 @@ export async function runAm24Suite(ctx: DemoActionContext): Promise<void> {
 }
 
 export async function runAm24Live(ctx: DemoActionContext): Promise<void> {
-  await closeAm24Simulate(ctx);
-  await ensureAm24StudioView(ctx);
-  await enableGetOrderIdFromUi(ctx, true);
-  await applyIfDirty(ctx);
-
   // Beat 1 — Start the listener so real traffic can reach it.
   if (!am24ServerRunning() && firstVisibleElement(API_MOCK.START)) {
     await am24Aim(ctx, API_MOCK.START, T.lifecycle);
     await am24Reveal(ctx, API_MOCK.STOP, T.lifecycle);
   }
-  // Re-enable from the list (product control) + Apply after Start so a
-  // listener that booted while GET /orders/{id} was still a draft picks it up.
-  await enableGetOrderIdFromUi(ctx, false);
+  // Re-apply after Start so a listener that booted while GET /orders/{id}
+  // was still a draft picks it up. Skip the select-and-enable hop when the
+  // rule is already On — that hop is the route-editor flash after Start.
+  if (!am24FindGetItemRoute(true)) {
+    await enableGetOrderIdFromUi(ctx, false);
+  }
   await applyIfDirty(ctx);
   await am24Payoff(ctx, API_MOCK.STATUS_LABEL);
   await am24Break(ctx);
@@ -1860,8 +1895,6 @@ async function linkIntoChain(
 }
 
 export async function runAm24Export(ctx: DemoActionContext): Promise<void> {
-  await closeAm24Simulate(ctx);
-  await ensureAm24OnStudio(ctx);
   await pickExport(ctx, API_MOCK.EXPORT_WORKSPACE, true);
   await am24Payoff(ctx, API_MOCK.EXPORT_CONFIRM);
   await closeAm24Export(ctx, true);
