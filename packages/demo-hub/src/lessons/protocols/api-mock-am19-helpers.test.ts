@@ -77,7 +77,7 @@ import {
   runAm19TransformsAndCallbacks,
 } from './api-mock-am19-helpers';
 
-const APP_AB = '[data-testid="ab-protocols"]';
+const APP_AB = '[data-testid="ab-api-mock"]';
 
 function el(tag: string, className?: string, testid?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -396,7 +396,7 @@ describe('AM-19 helpers', () => {
 
   it('navigates to API Mock from the activity bar', async () => {
     document.body.append(el('button', undefined, 'ab-protocols'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     const ctx = makeCtx();
     await ensureAm19OnApiMock(ctx);
     expect(ctx.click).toHaveBeenCalledWith(APP_AB);

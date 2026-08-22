@@ -464,5 +464,6 @@ export const API_MOCK_RUNTIME = {
   UNDO_DISMISS: '[data-testid="api-mock-undo-dismiss"]',
 
   // ── App navigation helpers ───────────────────────────────────────────────
-  APP_SUBNAV: '[data-testid="nav-tab-api-mock-studio"]',
+  /** Activity-bar button — API Mock is its own domain (no Protocols sub-nav). */
+  APP_SUBNAV: '[data-testid="ab-api-mock"]',
 } as const;

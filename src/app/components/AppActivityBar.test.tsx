@@ -102,4 +102,17 @@ describe('AppActivityBar', () => {
     fireEvent.click(screen.getByTitle('Protocols'));
     expect(setActiveTab).toHaveBeenCalledWith('graphql-studio');
   });
+
+  it('routes to API Mock Studio from the dedicated activity-bar domain', () => {
+    const { setActiveTab } = renderBar('requests');
+    fireEvent.click(screen.getByTitle('API Mock'));
+    expect(setActiveTab).toHaveBeenCalledWith('api-mock-studio');
+  });
+
+  it('does not re-route when API Mock is already active', () => {
+    const { setActiveTab } = renderBar('api-mock-studio');
+    expect(screen.getByTitle('API Mock').className).toContain('active');
+    fireEvent.click(screen.getByTitle('API Mock'));
+    expect(setActiveTab).not.toHaveBeenCalled();
+  });
 });

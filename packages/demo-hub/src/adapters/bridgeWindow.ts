@@ -13,6 +13,8 @@ export type DemoBridgeWindow = Window &
     __demoGetGrpcActiveDescriptorKey?: () => string | null;
     __demoCollapseAppSidebar?: () => void;
     __demoExpandAppSidebar?: () => void;
+    __demoBeginAppSidebarSession?: () => void;
+    __demoEndAppSidebarSession?: () => void;
     __demoUpsertGlobalAuthProfile?: (profile: GlobalAuthProfile) => void;
     __demoPurgeGlobalAuthProfiles?: (names: string[], ids: string[]) => void;
     /** Clear per-tab auth override without opening the Auth panel (lesson setup). */
@@ -180,6 +182,8 @@ export type DemoBridgeWindow = Window &
     }) => void;
     /** Wipe API Mock Studio workspace + stop orphan listeners (quiet demo setup). */
     __demoWipeApiMockWorkspace?: () => Promise<boolean>;
+    /** Restore the user mock library captured before a lesson wipe. */
+    __demoRestoreApiMockUserWorkspace?: () => Promise<boolean>;
     /** Live Studio mock library (ids are remapped on gallery import). */
     __demoListApiMockServers?: () => Promise<Array<{
       id: string;

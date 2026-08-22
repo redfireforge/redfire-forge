@@ -8,11 +8,13 @@ import { makeCtx, makeVisible } from './ws-test-utils';
 const wipeApiMockWorkspace = vi.fn(async () => true);
 const importApiMockGallerySample = vi.fn(async () => true);
 const prepareApiMockStudioChrome = vi.fn();
+const expandAppSidebar = vi.fn();
 
 vi.mock('../../adapters', () => ({
   wipeApiMockWorkspace: (...a: unknown[]) => wipeApiMockWorkspace(...(a as [])),
   importApiMockGallerySample: (...a: unknown[]) => importApiMockGallerySample(...(a as [string])),
   prepareApiMockStudioChrome: (...a: unknown[]) => prepareApiMockStudioChrome(...(a as [])),
+  expandAppSidebar: (...a: unknown[]) => expandAppSidebar(...(a as [])),
 }));
 
 import {
@@ -700,6 +702,7 @@ describe('AM-02 helpers', () => {
     await runAm02PersistAndClose(ctx);
     expect(calls(ctx.click)).toEqual([API_MOCK.tabClose('srv-b'), API_MOCK.CONFIRM_ACCEPT]);
     expect(calls(ctx.waitFor)).toContain(API_MOCK.CONFIRM_DIALOG);
+    expect(expandAppSidebar).toHaveBeenCalled();
   });
 
   it('step 8 stops after the persistence beats when there is nothing to close', async () => {

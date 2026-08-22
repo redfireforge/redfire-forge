@@ -51,7 +51,7 @@ export function isAm01ServerRunning(): boolean {
 
 // ── Boot / cleanup ──────────────────────────────────────────────────────────
 
-/** Quiet boot: empty workspace + collapsed app sidebar so step 1 opens on a clean Studio. */
+/** Quiet boot: park open tabs (keep saved servers) + collapsed app sidebar so step 1 opens on a clean Studio canvas. */
 export async function prepareAm01Workspace(): Promise<void> {
   await wipeApiMockWorkspace();
   prepareApiMockStudioChrome();

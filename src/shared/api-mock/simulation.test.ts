@@ -101,6 +101,26 @@ describe('simulateBatch', () => {
     expect(results[0].outcome).toBe('ambiguous');
   });
 
+  it('counts only matching rules in the ambiguity body', () => {
+    const routes = [
+      route({ id: 'daily', path: { kind: 'exact', value: '/reports/daily' } }),
+      route({ id: 'glob', path: { kind: 'glob', value: '/reports/*' } }),
+      route({ id: 'health', path: { kind: 'exact', value: '/health' } }),
+    ];
+    const result = simulateSingle(
+      sample({ request: req({ path: '/reports/daily', rawPath: '/reports/daily' }) }),
+      {
+        routes,
+        settings: {
+          selection: { ...DEFAULT_SETTINGS.selection, multipleMatchPolicy: 'reject_multiple' },
+        },
+      },
+    );
+    expect(result.outcome).toBe('ambiguous');
+    expect(result.trace.candidates).toHaveLength(3);
+    expect(result.renderedResponse?.body).toContain('"competingRules":2');
+  });
+
   it('advances sequence across samples when sequential', () => {
     const r1 = createDefaultResponse('a');
     r1.status = 200;

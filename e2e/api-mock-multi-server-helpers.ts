@@ -52,8 +52,7 @@ export async function openApiMockStudio(page: Page): Promise<void> {
 
 /** In-app nav back to API Mock without full reload (keeps Studio mounted). */
 export async function switchToApiMockStudio(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Protocols', exact: true }).click();
-  await page.locator('[data-testid="nav-tab-api-mock-studio"]').click();
+  await page.locator(API_MOCK.APP_SUBNAV).click();
   await expect(
     page.locator(API_MOCK.STUDIO).or(page.locator(API_MOCK.EMPTY)),
   ).toBeVisible({ timeout: 15_000 });
@@ -100,8 +99,11 @@ export async function expectTabStatus(
 
 async function createBlankServer(page: Page): Promise<void> {
   const emptyCreate = page.locator(API_MOCK.CREATE_FIRST);
+  const landingCreate = page.locator(API_MOCK.LANDING_CREATE);
   if (await emptyCreate.isVisible().catch(() => false)) {
     await emptyCreate.click();
+  } else if (await landingCreate.isVisible().catch(() => false)) {
+    await landingCreate.click();
   } else {
     await page.locator(API_MOCK.TAB_ADD).click();
   }

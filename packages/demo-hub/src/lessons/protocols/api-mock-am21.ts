@@ -73,7 +73,7 @@ const DIAGRAM = `
 
 export const apiMockAm21Lesson: DemoLesson = {
   id: 'am-21-simulation-suite',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Simulation as a Test Suite: Examples, Assertions, Trace',
   description:
