@@ -255,7 +255,7 @@ export function ApiMockRuntimeSettingsPanel({ server, onSave }: Props) {
 
         <SectionCard
           title="Limits"
-          description="Protect the companion from oversized bodies, hung Timeout faults, and long drains."
+          description="Protect the companion from oversized bodies, hung faults, and long drains."
         >
           <FormRow label="Inbound body" htmlFor="am-rt-inbound" hint="Bytes · max 10 MiB" hintPlacement="inline">
             <input

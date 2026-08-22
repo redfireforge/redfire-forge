@@ -108,7 +108,7 @@ export const apiMockAm24Lesson: DemoLesson = {
   initialTab: 'api-mock-studio',
   allowedTabs: ['api-mock-studio', 'workflow'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 19,
+  contentVersion: 20,
   concept: {
     title: 'A contract mock is a spec you can run, not a screenshot of a 200.',
     body:
@@ -255,7 +255,7 @@ export const apiMockAm24Lesson: DemoLesson = {
     },
     {
       id: 'resilience',
-      title: 'Latency on the 201, a real 404, and a timeout on a degraded branch',
+      title: 'Latency on the 201, a real 404, and a 503 degraded branch',
       description:
         'Real services are slow, and occasionally a dependency degrades or '
         + 'hangs. A mock that answers instantly and perfectly hides the bugs '
@@ -265,14 +265,18 @@ export const apiMockAm24Lesson: DemoLesson = {
         + 'always slightly slow, to catch clients that assume latency is zero\n'
         + '- **404** (missing SKU) — a real **404 Not Found**, left untouched: '
         + 'a clean contract error, *not* a transport failure\n'
-        + '- **Degraded** (a flaky SKU) — a **503 Service Unavailable** carrying '
-        + 'a **probability-gated timeout** fault, so only this branch '
-        + 'occasionally hangs\n\n'
+        + '- **Degraded** (a flaky SKU) — a **503 Service Unavailable** with '
+        + 'a **timeout** fault at **probability 0**\n\n'
+        + '**Two cases depending on probability:**\n'
+        + '- **Probability 0** (current) — the fault never fires; the client '
+        + 'always receives the 503 body. Use this to test retry logic that '
+        + 'inspects the status code.\n'
+        + '- **Probability > 0** (e.g. 0.5) — the fault fires on that fraction '
+        + 'of requests; the connection hangs and *no* HTTP response is sent. '
+        + 'Use this to test client timeout handling.\n\n'
         + 'Keeping the timeout on its own branch is the whole point: a **404** '
         + 'and a **timeout** are different failures — a 404 *is* a response, a '
-        + 'timeout is *no* response — so they must never share one variant. The '
-        + 'next step grades the happy-path 201 in Simulate, so the fault stays '
-        + 'on the flaky SKU and nowhere that would break that proof.',
+        + 'timeout is *no* response — so they must never share one variant.',
       highlight: API_MOCK.RESPONSE_TAB_TIMING,
       preAction: ensureAm24ForResilience,
       action: runAm24Resilience,

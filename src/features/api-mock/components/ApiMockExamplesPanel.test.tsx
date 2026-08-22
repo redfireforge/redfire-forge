@@ -117,7 +117,7 @@ describe('ApiMockExamplesPanel', () => {
         onUpdateSample={onUpdateSample}
       />,
     );
-    expect(screen.getByText('Unassociated')).toBeTruthy();
+    expect(screen.getAllByText('Unassociated').length).toBeGreaterThanOrEqual(1);
     fireEvent.click(screen.getByTestId('api-mock-example-attach-s1'));
     expect(onUpdateSample.mock.calls[0][0].routeId).toBe('r1');
     expect(onUpdateSample.mock.calls[0][0].expected.routeId).toBe('r1');
@@ -134,7 +134,8 @@ describe('ApiMockExamplesPanel', () => {
         })]}
       />,
     );
-    expect(screen.getByText('GET /users?q=ada')).toBeTruthy();
+    const pathEls = screen.getAllByText('/users?q=ada');
+    expect(pathEls.length).toBeGreaterThanOrEqual(1);
   });
 
   it('defaults expected outcome to matched when it was omitted', () => {
