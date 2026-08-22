@@ -345,9 +345,21 @@ async function clickJournalRow(
   ctx: DemoActionContext,
   row: HTMLElement | undefined,
   visible: boolean,
+  expectedOutcome?: string,
 ): Promise<void> {
   const selector = rowSelector(row) ?? API_MOCK.JOURNAL_FIRST_ROW;
   if (!firstVisibleElement(selector)) return;
+  if (expectedOutcome) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (visible) await am18Click(ctx, selector, T.fieldFilled);
+      else await ctx.click(selector);
+      for (let i = 0; i < 20 && !am18TxOutcome().includes(expectedOutcome); i++) {
+        await ctx.delay(200);
+      }
+      if (am18TxOutcome().includes(expectedOutcome)) return;
+    }
+    return;
+  }
   if (visible) await am18Click(ctx, selector, T.fieldFilled);
   else await ctx.click(selector);
 }
@@ -357,8 +369,8 @@ async function clickNewestJournalRow(ctx: DemoActionContext, visible: boolean): 
 }
 
 async function selectMissRow(ctx: DemoActionContext, visible: boolean): Promise<void> {
-  const row = am18RowWithPath(AM18_MISS_PATH) ?? journalRows()[0];
-  await clickJournalRow(ctx, row, visible);
+  const row = am18RowWithPath(AM18_MISS_PATH);
+  await clickJournalRow(ctx, row, visible, 'unmatched');
   if (visible && (firstVisibleElement(API_MOCK.TX_DETAIL) || firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW))) {
     await am18Reveal(ctx, API_MOCK.TX_DETAIL, T.payoff);
   }
@@ -380,6 +392,15 @@ async function quietMiss(ctx: DemoActionContext): Promise<void> {
   if (hasAm18MissRow()) return;
   await sendAm18(AM18_MISS_PATH);
   await ctx.delay(400);
+}
+
+async function waitForAm18MissRow(ctx: DemoActionContext): Promise<HTMLElement | undefined> {
+  for (let i = 0; i < 20; i++) {
+    const row = am18RowWithPath(AM18_MISS_PATH);
+    if (row) return row;
+    await ctx.delay(200);
+  }
+  return am18RowWithPath(AM18_MISS_PATH);
 }
 
 function quietClosestMatch(): void {
@@ -620,8 +641,7 @@ export async function runAm18Filter(ctx: DemoActionContext): Promise<void> {
 export async function runAm18TheMiss(ctx: DemoActionContext): Promise<number | null> {
   await openAm18Journal(ctx, false);
   const res = await sendAm18(AM18_MISS_PATH);
-  await ctx.delay(T.journalWrite);
-  const miss = am18RowWithPath(AM18_MISS_PATH) ?? journalRows()[0];
+  const miss = await waitForAm18MissRow(ctx);
   if (miss) {
     const selector = rowSelector(miss);
     if (selector) await am18Payoff(ctx, selector);

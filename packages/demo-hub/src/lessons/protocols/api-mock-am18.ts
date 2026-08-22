@@ -14,7 +14,6 @@ import {
   AM18_MATCH_LIST,
   AM18_MISS_PATH,
   cleanupAm18,
-  ensureAm18ForClosestMatch,
   ensureAm18ForCreateRoute,
   ensureAm18ForFilter,
   ensureAm18ForMiss,
@@ -22,7 +21,6 @@ import {
   ensureAm18ForSaveExample,
   ensureAm18ForShare,
   prepareAm18Workspace,
-  runAm18ClosestMatch,
   runAm18CreateRoute,
   runAm18Filter,
   runAm18JournalTour,
@@ -177,16 +175,13 @@ export const apiMockAm18Lesson: DemoLesson = {
         + '**fallback** to **closest-match**, Save, and fire the same typo '
         + 'request again.\n\n'
         + '**What you\'ll see:** the **404 Not Found** stops being empty — its '
-        + '**response body** now names the nearest rule (`GET /products/:id`) '
-        + 'and why it missed, right in the reply.\n\n'
-        + '**Why it matters:** the near-miss diagnosis was only visible to '
-        + 'whoever had Studio open. On the wire, a CI log or a bug report '
-        + 'carries the explanation with it — nobody has to reopen the mock.',
-      highlight: API_MOCK.RUNTIME_SETTINGS_FALLBACK,
-      skipHighlightScroll: true,
-      preAction: ensureAm18ForClosestMatch,
-      action: runAm18ClosestMatch,
-      verify: API_MOCK.TX_RESPONSE,
+            + `with the real method, path (\`${AM18_MISS_PATH}\`), and headers `
+            + 'already filled in — and the **Enabled** toggle **off**.\n\n'
+            + '**Why Create route:** the path and headers are pre-filled from what '
+            + 'the client actually sent — no retyping, no guessing. The draft lands '
+            + '**disabled** so it cannot silently start matching live traffic until '
+            + 'you review and enable it. A runtime miss becomes a first-class rule '
+            + 'in seconds.',
     },
     {
       id: 'create-route',
@@ -197,10 +192,11 @@ export const apiMockAm18Lesson: DemoLesson = {
         + '**What you\'ll see:** **Open in Studio** jumps to the route editor '
         + `with the real method, path (\`${AM18_MISS_PATH}\`), and headers `
         + 'already filled in — and the **Enabled** toggle **off**.\n\n'
-        + '**Why it matters:** you never retype what the client sent, and the '
-        + 'draft lands **disabled** so the mock can\'t start answering a path '
-        + 'you haven\'t reviewed. A fleeting runtime miss becomes a first-class '
-        + 'draft in the library.',
+        + '**Why Create route:** the path and headers are pre-filled from what the '
+        + 'client actually sent — no retyping, no guessing. The draft lands '
+        + '**disabled** so it cannot silently start matching live traffic until '
+        + 'you review and enable it. A runtime miss becomes a first-class rule '
+        + 'in seconds.',
       highlight: API_MOCK.TX_CREATE_ROUTE,
       preAction: ensureAm18ForCreateRoute,
       action: runAm18CreateRoute,
@@ -215,10 +211,14 @@ export const apiMockAm18Lesson: DemoLesson = {
         + '**What you\'ll see:** the captured call appears as a row in the '
         + '**Examples** grid (expected outcome and all), and the same request '
         + 'opens in the **Requests** client, ready to send.\n\n'
-        + '**Why it matters:** the example is a replayable regression case; the '
-        + 'Requests handoff is a shareable repro. One captured miss becomes '
-        + 'both a guard you can re-run and an exact reproduction a teammate can '
-        + 'send.',
+        + '**Why Save as example:** freezes the request and its expected outcome '
+        + 'as a named simulation sample. It runs in `redfireforge mock verify` '
+        + 'and CI pipelines — one captured miss becomes a permanent regression '
+        + 'guard that fails the build if the rule ever regresses.\n\n'
+        + '**Why Open in Requests:** sends the identical call — method, path, '
+        + 'headers, body — to the Requests client in one click. You can replay '
+        + 'it live against any environment, or hand the collection item to a '
+        + 'teammate as a runnable repro without reconstructing anything.',
       highlight: API_MOCK.TX_SAVE_EXAMPLE,
       preAction: ensureAm18ForSaveExample,
       action: runAm18SaveExample,

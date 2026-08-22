@@ -55,6 +55,7 @@ test.describe('Demo lesson AM-18 — Journal Forensics: Near-Misses, Candidates 
     await expect(page.locator(API_MOCK.JOURNAL_FIRST_ROW).first()).toBeVisible({
       timeout: AM_LESSON_STEP_TIMEOUT,
     });
+    await page.locator(API_MOCK.JOURNAL_FIRST_ROW).first().click();
     await expect(page.locator(API_MOCK.TX_OUTCOME).first()).toContainText(/matched/i);
   });
 
