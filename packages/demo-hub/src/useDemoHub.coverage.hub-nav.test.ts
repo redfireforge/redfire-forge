@@ -79,6 +79,71 @@ describe('useDemoHub (branch coverage — hub navigation)', () => {
     closeSpy.mockRestore();
   });
 
+  it('closeHub restores the user mock library when concept view has an api-mock lesson', async () => {
+    const adapter = await import('./adapters');
+    const restoreSpy = vi.spyOn(adapter, 'restoreApiMockUserWorkspace').mockResolvedValue(true);
+    const cleanup = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      id: 'am-01-studio-tour',
+      category: 'api-mock',
+      domainId: 'api-mock',
+      initialTab: 'api-mock-studio',
+      cleanup,
+    });
+    act(() => result.current.selectLesson(lesson));
+    act(() => result.current.openHub());
+    act(() => result.current.closeHub());
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(cleanup).toHaveBeenCalled();
+    expect(restoreSpy).toHaveBeenCalled();
+    restoreSpy.mockRestore();
+  });
+
+  it('closeHub still restores the mock library when api-mock cleanup rejects', async () => {
+    const adapter = await import('./adapters');
+    const restoreSpy = vi.spyOn(adapter, 'restoreApiMockUserWorkspace').mockResolvedValue(true);
+    const cleanup = vi.fn().mockRejectedValue(new Error('cleanup boom'));
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      id: 'am-01-studio-tour',
+      category: 'api-mock',
+      domainId: 'api-mock',
+      initialTab: 'api-mock-studio',
+      cleanup,
+    });
+    act(() => result.current.selectLesson(lesson));
+    act(() => result.current.openHub());
+    act(() => result.current.closeHub());
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(cleanup).toHaveBeenCalled();
+    expect(restoreSpy).toHaveBeenCalled();
+    restoreSpy.mockRestore();
+  });
+
+  it('closeHub swallows API Mock restore failures', async () => {
+    const adapter = await import('./adapters');
+    const restoreSpy = vi.spyOn(adapter, 'restoreApiMockUserWorkspace').mockRejectedValue(new Error('restore boom'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cleanup = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      id: 'am-01-studio-tour',
+      category: 'api-mock',
+      domainId: 'api-mock',
+      initialTab: 'api-mock-studio',
+      cleanup,
+    });
+    act(() => result.current.selectLesson(lesson));
+    act(() => result.current.openHub());
+    act(() => result.current.closeHub());
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(result.current.hubOpen).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith('[DemoHub] API Mock user library restore failed:', expect.any(Error));
+    restoreSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
   it('goBack from domains is a no-op on view state', () => {
     const { result } = renderDemoHub(navigateToTab);
     act(() => result.current.goBack());

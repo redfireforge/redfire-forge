@@ -9,8 +9,11 @@ import {
   dispatchGqlTabsReload,
   collapseAppSidebar,
   expandAppSidebar,
+  beginDemoAppSidebarSession,
+  endDemoAppSidebarSession,
   isGraphqlStudioLesson,
   completeGrpcStudioLessonRun,
+  isApiMockStudioLesson,
   isGrpcStudioLesson,
   clearGrpcStudioLessonRun,
   loadDemoSession,
@@ -29,6 +32,7 @@ import { syncDemoLiveGuard } from './demoLiveGuard';
 import {
   closeGraphqlDemoWorkspaceQuiet,
   findLessonById,
+  runApiMockStudioLessonTeardown,
   runGqlDemoStorageHygiene,
   runGqlStudioLessonTeardown,
   runGrpcDemoStorageHygiene,
@@ -38,9 +42,10 @@ import { clearDemoBootFreeze, installDemoBootFreeze, revealDemoBootSurface } fro
 import { clearDemoInitialSurface, setDemoInitialSurface } from '@shared/demoInitialSurface';
 import type { DemoStep } from './types';
 
-/** Expand for most lessons; collapse when the lesson paints Designer without the list. */
+/** Expand for most lessons; collapse API Mock / Designer so the canvas has room. */
 function applyLessonAppSidebarForBoot(lesson: DemoLesson): void {
-  if (lesson.collapseAppSidebarOnStart) collapseAppSidebar();
+  beginDemoAppSidebarSession();
+  if (lesson.collapseAppSidebarOnStart || isApiMockStudioLesson(lesson)) collapseAppSidebar();
   else expandAppSidebar();
 }
 
@@ -152,6 +157,8 @@ export function useDemoHubLiveDemo({
         await runGqlStudioLessonTeardown(lesson, ctx);
       } else if (isGrpcStudioLesson(lesson)) {
         await runGrpcStudioLessonTeardown(lesson, ctx);
+      } else if (isApiMockStudioLesson(lesson)) {
+        await runApiMockStudioLessonTeardown(lesson, ctx);
       } else if (lesson.cleanup) {
         await lesson.cleanup(ctx).catch((e) => {
           console.warn('[DemoHub] Lesson cleanup failed:', e);
@@ -277,6 +284,7 @@ export function useDemoHubLiveDemo({
     skipReadingRef.current = null;
 
     resetGqlModalSessionFlags();
+    beginDemoAppSidebarSession();
     // Arm BEFORE the tab mounts so GrpcStudio (etc.) initializes on step 1's
     // sub-panel — not Studio/Load testing, then hop.
     setDemoInitialSurface(lesson.initialSurface ?? null);
@@ -459,6 +467,7 @@ export function useDemoHubLiveDemo({
       clearGrpcStudioLessonRun();
     }
     clearGqlIntroSessionFlags();
+    beginDemoAppSidebarSession();
     closeWorkflowConfigModal();
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     autoPlayGenRef.current++;
@@ -528,6 +537,7 @@ export function useDemoHubLiveDemo({
 
     resetGqlModalSessionFlags();
     clearDemoLiveSession();
+    endDemoAppSidebarSession();
     closeWorkflowConfigModal();
     if (autoPlayRef.current) {
       clearTimeout(autoPlayRef.current);
@@ -567,6 +577,10 @@ export function useDemoHubLiveDemo({
           }
         } else if (isGrpcStudioLesson(lesson)) {
           try { await runGrpcStudioLessonTeardown(lesson, ctx); } catch (e) {
+            console.warn('[DemoHub] Lesson cleanup failed:', e);
+          }
+        } else if (isApiMockStudioLesson(lesson)) {
+          try { await runApiMockStudioLessonTeardown(lesson, ctx); } catch (e) {
             console.warn('[DemoHub] Lesson cleanup failed:', e);
           }
         } else if (lesson.cleanup) {

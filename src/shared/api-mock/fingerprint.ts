@@ -27,7 +27,7 @@ function canonicalJson(obj: unknown, exclude: Set<string>): string {
   return JSON.stringify(sortObjectKeys(obj), (key, value) => (exclude.has(key) ? undefined : value));
 }
 
-const DEFINITION_EXCLUDE = new Set(['createdAt', 'updatedAt', 'source']);
+const DEFINITION_EXCLUDE = new Set(['createdAt', 'updatedAt', 'source', 'serverFolder']);
 const ROUTE_EXCLUDE = new Set(['createdAt', 'updatedAt', 'tags', 'operationId']);
 
 export async function computeDefinitionFingerprint(def: ApiMockServerDefinitionV1): Promise<string> {

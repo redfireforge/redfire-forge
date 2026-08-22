@@ -206,6 +206,29 @@ describe('demoLiveGuard — coverage gaps', () => {
     vi.useRealTimers();
   });
 
+  it('heartbeat stops after max consecutive POST failures', async () => {
+    const {
+      startDemoLiveGuardHeartbeat,
+      setDemoLiveGuardEnvForTests,
+      DEMO_LIVE_GUARD_HEARTBEAT_MS,
+    } = await import('./demoLiveGuard');
+    setDemoLiveGuardEnvForTests({ mode: 'development', dev: true });
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockRejectedValue(new Error('ERR_CONNECTION_REFUSED'));
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('navigator', { webdriver: false });
+    vi.stubGlobal('window', {});
+    startDemoLiveGuardHeartbeat('gql-first-query');
+    // Drive 3 interval ticks to saturate the streak.
+    await vi.advanceTimersByTimeAsync(DEMO_LIVE_GUARD_HEARTBEAT_MS * 3 + 1);
+    const countAtMax = fetchMock.mock.calls.length;
+    expect(countAtMax).toBeGreaterThanOrEqual(3); // initial + 3 ticks
+    // Interval must be cleared — no further fetch calls after streak saturates.
+    await vi.advanceTimersByTimeAsync(DEMO_LIVE_GUARD_HEARTBEAT_MS * 5);
+    expect(fetchMock.mock.calls.length).toBe(countAtMax);
+    vi.useRealTimers();
+  });
+
   it('isAutomatedDemoBrowser returns true when webdriver is set', async () => {
     vi.stubGlobal('navigator', { webdriver: true });
     const { isAutomatedDemoBrowser } = await import('./demoLiveGuard');

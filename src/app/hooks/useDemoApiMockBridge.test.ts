@@ -16,6 +16,9 @@ const makeServer = (over: Record<string, unknown> = {}) => ({
 const load = vi.fn(async () => ({ servers: [makeServer()], activeServerId: 'srv-1' }));
 const httpFetch = vi.fn(async () => ({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }));
 const save = vi.fn(async () => undefined);
+const stash = vi.fn(async () => true);
+const restoreUser = vi.fn(async () => false);
+const resumeDemo = vi.fn(async () => false);
 const dispatch = vi.fn();
 const importGallery = vi.fn(async () => ({ server: { id: 'srv-g' }, sampleHash: 'h' }));
 
@@ -31,6 +34,15 @@ vi.mock('../../shared/utils/platform', () => ({
 vi.mock('../../features/api-mock/apiMockPersistence', () => ({
   loadApiMockWorkspace: (...args: unknown[]) => load(...args),
   saveApiMockWorkspace: (...args: unknown[]) => save(...args),
+  beginApiMockDemoPersistence: (...args: unknown[]) => stash(...args),
+  stashApiMockUserWorkspaceIfNeeded: (...args: unknown[]) => stash(...args),
+  resumeApiMockDemoPersistenceIfNeeded: (...args: unknown[]) => resumeDemo(...args),
+  restoreApiMockUserWorkspace: (...args: unknown[]) => restoreUser(...args),
+  rememberApiMockDemoImportedServer: vi.fn(),
+  dropApiMockDemoLessonServers: (ws: { servers?: Array<{ id: string; name?: string }> }) => ({
+    ...ws,
+    servers: (ws.servers ?? []).filter(s => !/^Demo Mock Server(?: \d+)?$/.test(s.name ?? '')),
+  }),
 }));
 vi.mock('../../features/api-mock/apiMockGalleryImport', () => ({
   API_MOCK_WORKSPACE_CHANGED_EVENT: 'api-mock:workspace-changed',
@@ -58,18 +70,24 @@ describe('useDemoApiMockBridge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tauri = false;
+    stash.mockResolvedValue(true);
+    resumeDemo.mockResolvedValue(false);
+    restoreUser.mockResolvedValue(false);
     list.mockResolvedValue({
       ok: true,
       data: [{ serverId: 'srv-1', port: 4600, state: 'running', generation: 1 }],
     });
     delete (window as unknown as Record<string, unknown>).__demoWipeApiMockWorkspace;
+    delete (window as unknown as Record<string, unknown>).__demoRestoreApiMockUserWorkspace;
     delete (window as unknown as Record<string, unknown>).__demoListApiMockServers;
     delete (window as unknown as Record<string, unknown>).__demoImportApiMockGallerySample;
     delete (window as unknown as Record<string, unknown>).__demoEnsureBlankApiMockServer;
   });
 
   afterEach(() => {
+    sessionStorage.removeItem('redfire-demo-live-session-v1');
     delete (window as unknown as Record<string, unknown>).__demoWipeApiMockWorkspace;
+    delete (window as unknown as Record<string, unknown>).__demoRestoreApiMockUserWorkspace;
     delete (window as unknown as Record<string, unknown>).__demoListApiMockServers;
     delete (window as unknown as Record<string, unknown>).__demoImportApiMockGallerySample;
     delete (window as unknown as Record<string, unknown>).__demoEnsureBlankApiMockServer;
@@ -93,6 +111,7 @@ describe('useDemoApiMockBridge', () => {
     expect((window as unknown as Record<string, unknown>).__demoListApiMockServers).toBeTypeOf('function');
     expect(importSample).toBeTypeOf('function');
     await expect(wipe()).resolves.toBe(true);
+    expect(stash).toHaveBeenCalled();
     expect(stop).toHaveBeenCalledWith('srv-1');
     await expect(importSample('am-gallery-health')).resolves.toBe(true);
     expect(importGallery).toHaveBeenCalled();
@@ -112,7 +131,12 @@ describe('useDemoApiMockBridge', () => {
     expect(importGallery).toHaveBeenLastCalledWith({ id: 'response' }, 'am-gallery-response');
     await expect(importSample('am-gallery-templating')).resolves.toBe(true);
     expect(importGallery).toHaveBeenLastCalledWith({ id: 'templating' }, 'am-gallery-templating');
-    expect(save).toHaveBeenCalledWith({ servers: [], activeServerId: undefined, openTabIds: [] });
+    expect(stash).toHaveBeenCalled();
+    expect(save).toHaveBeenCalledWith({
+      servers: [expect.objectContaining({ id: 'srv-1' })],
+      activeServerId: undefined,
+      openTabIds: [],
+    });
     await expect(importSample('unknown-sample')).resolves.toBe(false);
     unmount();
     expect((window as unknown as Record<string, unknown>).__demoWipeApiMockWorkspace).toBeUndefined();
@@ -156,10 +180,25 @@ describe('useDemoApiMockBridge', () => {
       return { ensure, unmount };
     };
 
-    it('no-ops when a server already exists', async () => {
+    it('no-ops when a blank demo server is already the active open tab', async () => {
+      load.mockResolvedValueOnce({
+        servers: [makeServer({ id: 'srv-blank', name: 'Demo Mock Server' })],
+        activeServerId: 'srv-blank',
+        openTabIds: ['srv-blank'],
+      });
       const { ensure, unmount } = await mountBlank();
       await expect(ensure()).resolves.toBe(true);
       expect(importGallery).not.toHaveBeenCalled();
+      unmount();
+    });
+
+    it('imports a blank server when user servers are parked after wipe', async () => {
+      // After wipeApiMockWorkspace, user servers remain but openTabIds is cleared.
+      // The old `servers.length > 0` guard fired here — the new guard skips correctly.
+      load.mockResolvedValueOnce({ servers: [makeServer()], activeServerId: undefined, openTabIds: [] });
+      const { ensure, unmount } = await mountBlank();
+      await expect(ensure()).resolves.toBe(true);
+      expect(importGallery).toHaveBeenCalled();
       unmount();
     });
 
@@ -168,7 +207,7 @@ describe('useDemoApiMockBridge', () => {
       const { ensure, unmount } = await mountBlank();
       await expect(ensure()).resolves.toBe(true);
       expect(importGallery).toHaveBeenCalled();
-      expect(importGallery.mock.calls[0][0]).toMatchObject({ name: 'Import sandbox', routes: [] });
+      expect(importGallery.mock.calls[0][0]).toMatchObject({ name: 'Demo Mock Server', routes: [] });
       expect(importGallery.mock.calls[0][1]).toBe('am-demo-blank');
       unmount();
     });
@@ -191,12 +230,64 @@ describe('useDemoApiMockBridge', () => {
       return { wipe, unmount };
     };
 
+    it('does not empty the workspace when demo isolation fails', async () => {
+      stash.mockResolvedValueOnce(false);
+      const { wipe, unmount } = await mountWipe();
+      await expect(wipe()).resolves.toBe(false);
+      expect(save).not.toHaveBeenCalled();
+      unmount();
+    });
+
+    it('parks open tabs but keeps foldered mock servers in the library', async () => {
+      load.mockResolvedValueOnce({
+        servers: [makeServer({ id: 'srv-keep', name: 'Keep Me', serverFolder: 'QA' })],
+        activeServerId: 'srv-keep',
+        openTabIds: ['srv-keep'],
+      });
+      const { wipe, unmount } = await mountWipe();
+      await expect(wipe()).resolves.toBe(true);
+      expect(save).toHaveBeenCalledWith({
+        servers: [expect.objectContaining({ id: 'srv-keep', name: 'Keep Me', serverFolder: 'QA' })],
+        activeServerId: undefined,
+        openTabIds: [],
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        servers: [expect.objectContaining({ id: 'srv-keep', name: 'Keep Me', serverFolder: 'QA' })],
+        activeServerId: undefined,
+        openTabIds: [],
+      });
+      unmount();
+    });
+
+    it('drops Demo Mock Server lesson artifacts and keeps a user server named Demo 1', async () => {
+      load.mockResolvedValueOnce({
+        servers: [
+          makeServer({ id: 'srv-keep', name: 'Demo 1', serverFolder: 'Folder' }),
+          makeServer({ id: 'srv-demo', name: 'Demo Mock Server' }),
+        ],
+        activeServerId: 'srv-demo',
+        openTabIds: ['srv-demo'],
+      });
+      const { wipe, unmount } = await mountWipe();
+      await expect(wipe()).resolves.toBe(true);
+      expect(save).toHaveBeenCalledWith({
+        servers: [expect.objectContaining({ id: 'srv-keep', name: 'Demo 1' })],
+        activeServerId: undefined,
+        openTabIds: [],
+      });
+      unmount();
+    });
+
     it('does not POST stop when the companion pool has no running listeners', async () => {
       list.mockResolvedValueOnce({ ok: true, data: [] });
       const { wipe, unmount } = await mountWipe();
       await expect(wipe()).resolves.toBe(true);
       expect(stop).not.toHaveBeenCalled();
-      expect(save).toHaveBeenCalledWith({ servers: [], activeServerId: undefined, openTabIds: [] });
+      expect(save).toHaveBeenCalledWith({
+        servers: [expect.objectContaining({ id: 'srv-1' })],
+        activeServerId: undefined,
+        openTabIds: [],
+      });
       unmount();
     });
 
@@ -219,7 +310,11 @@ describe('useDemoApiMockBridge', () => {
       const { wipe, unmount } = await mountWipe();
       await expect(wipe()).resolves.toBe(true);
       expect(stop).not.toHaveBeenCalled();
-      expect(save).toHaveBeenCalledWith({ servers: [], activeServerId: undefined, openTabIds: [] });
+      expect(save).toHaveBeenCalledWith({
+        servers: [expect.objectContaining({ id: 'srv-1' })],
+        activeServerId: undefined,
+        openTabIds: [],
+      });
       unmount();
     });
 
@@ -334,6 +429,72 @@ describe('useDemoApiMockBridge', () => {
         .__demoSeedApiMockExportSecrets;
       await expect(seed()).resolves.toBe(false);
       unmount();
+    });
+  });
+
+  describe('user library stash / restore', () => {
+    it('restores the stashed library and dispatches workspace-changed', async () => {
+      restoreUser.mockResolvedValue(true);
+      load.mockResolvedValueOnce({
+        servers: [makeServer({ name: 'Mine' })],
+        activeServerId: 'srv-1',
+      });
+      const { useDemoApiMockBridge } = await import('./useDemoApiMockBridge');
+      const { unmount } = renderHook(() => useDemoApiMockBridge(true));
+      const restore = (window as unknown as { __demoRestoreApiMockUserWorkspace: () => Promise<boolean> })
+        .__demoRestoreApiMockUserWorkspace;
+      await expect(restore()).resolves.toBe(true);
+      expect(restoreUser).toHaveBeenCalled();
+      expect(dispatch).toHaveBeenCalled();
+      unmount();
+      expect((window as unknown as Record<string, unknown>).__demoRestoreApiMockUserWorkspace).toBeUndefined();
+    });
+
+    it('returns false when there is no stash without dispatching', async () => {
+      restoreUser.mockResolvedValue(false);
+      dispatch.mockClear();
+      const { useDemoApiMockBridge } = await import('./useDemoApiMockBridge');
+      const { unmount } = renderHook(() => useDemoApiMockBridge(true));
+      const restore = (window as unknown as { __demoRestoreApiMockUserWorkspace: () => Promise<boolean> })
+        .__demoRestoreApiMockUserWorkspace;
+      await expect(restore()).resolves.toBe(false);
+      expect(dispatch).not.toHaveBeenCalled();
+      unmount();
+    });
+
+    it('returns false when restore throws', async () => {
+      restoreUser.mockRejectedValueOnce(new Error('idb'));
+      const { useDemoApiMockBridge } = await import('./useDemoApiMockBridge');
+      const { unmount } = renderHook(() => useDemoApiMockBridge(true));
+      const restore = (window as unknown as { __demoRestoreApiMockUserWorkspace: () => Promise<boolean> })
+        .__demoRestoreApiMockUserWorkspace;
+      await expect(restore()).resolves.toBe(false);
+      unmount();
+    });
+
+    it('skips idle restore and resumes demo persist while a live demo session is active', async () => {
+      sessionStorage.setItem('redfire-demo-live-session-v1', JSON.stringify({ lessonId: 'am-01-studio-tour' }));
+      restoreUser.mockClear();
+      resumeDemo.mockResolvedValue(true);
+      const { useDemoApiMockBridge } = await import('./useDemoApiMockBridge');
+      const { unmount } = renderHook(() => useDemoApiMockBridge(true));
+      await Promise.resolve();
+      expect(restoreUser).not.toHaveBeenCalled();
+      expect(resumeDemo).toHaveBeenCalled();
+      unmount();
+    });
+
+    it('treats sessionStorage errors as idle and attempts restore', async () => {
+      const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('blocked');
+      });
+      restoreUser.mockClear();
+      const { useDemoApiMockBridge } = await import('./useDemoApiMockBridge');
+      const { unmount } = renderHook(() => useDemoApiMockBridge(true));
+      await Promise.resolve();
+      expect(restoreUser).toHaveBeenCalled();
+      unmount();
+      getItem.mockRestore();
     });
   });
 });

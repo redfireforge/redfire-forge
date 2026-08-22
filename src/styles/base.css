@@ -1297,6 +1297,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   border-left: 3px solid #f56565;
   border-radius: 0 4px 4px 0;
   font-size: 12.5px;
+  white-space: pre-line;
   line-height: 1.5;
   color: #f56565;
   font-weight: 600;

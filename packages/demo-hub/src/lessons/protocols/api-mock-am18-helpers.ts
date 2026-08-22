@@ -14,12 +14,13 @@ import {
   sendApiMockRequest,
   wipeApiMockWorkspace,
 } from '../../adapters';
-import { API_MOCK, APP, REQ } from '@shared/selectors';
+import { API_MOCK, REQ } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
   closeSimulateWorkspace,
+  openApiMockFromActivityBar,
   reviewAndRunSimulation,
   revealBeat,
   spotlightBeat,
@@ -268,14 +269,7 @@ export async function ensureAm18OnApiMock(ctx: DemoActionContext): Promise<void>
   if (hasAm18Server() || firstVisibleElement(API_MOCK.STUDIO) || firstVisibleElement(API_MOCK.RUNTIME_PAGE)) {
     return;
   }
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    await ctx.click(APP.AB_PROTOCOLS);
-  }
-  if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
-    await ctx.click(API_MOCK.APP_SUBNAV);
-    await ctx.delay(200);
-    return;
-  }
+  if (await openApiMockFromActivityBar(ctx)) return;
   ctx.navigateToTab('api-mock-studio');
   await ctx.delay(200);
 }
@@ -351,9 +345,21 @@ async function clickJournalRow(
   ctx: DemoActionContext,
   row: HTMLElement | undefined,
   visible: boolean,
+  expectedOutcome?: string,
 ): Promise<void> {
   const selector = rowSelector(row) ?? API_MOCK.JOURNAL_FIRST_ROW;
   if (!firstVisibleElement(selector)) return;
+  if (expectedOutcome) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (visible) await am18Click(ctx, selector, T.fieldFilled);
+      else await ctx.click(selector);
+      for (let i = 0; i < 20 && !am18TxOutcome().includes(expectedOutcome); i++) {
+        await ctx.delay(200);
+      }
+      if (am18TxOutcome().includes(expectedOutcome)) return;
+    }
+    return;
+  }
   if (visible) await am18Click(ctx, selector, T.fieldFilled);
   else await ctx.click(selector);
 }
@@ -363,8 +369,8 @@ async function clickNewestJournalRow(ctx: DemoActionContext, visible: boolean): 
 }
 
 async function selectMissRow(ctx: DemoActionContext, visible: boolean): Promise<void> {
-  const row = am18RowWithPath(AM18_MISS_PATH) ?? journalRows()[0];
-  await clickJournalRow(ctx, row, visible);
+  const row = am18RowWithPath(AM18_MISS_PATH);
+  await clickJournalRow(ctx, row, visible, 'unmatched');
   if (visible && (firstVisibleElement(API_MOCK.TX_DETAIL) || firstVisibleElement(API_MOCK.JOURNAL_FIRST_ROW))) {
     await am18Reveal(ctx, API_MOCK.TX_DETAIL, T.payoff);
   }
@@ -388,6 +394,15 @@ async function quietMiss(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
 }
 
+async function waitForAm18MissRow(ctx: DemoActionContext): Promise<HTMLElement | undefined> {
+  for (let i = 0; i < 20; i++) {
+    const row = am18RowWithPath(AM18_MISS_PATH);
+    if (row) return row;
+    await ctx.delay(200);
+  }
+  return am18RowWithPath(AM18_MISS_PATH);
+}
+
 function quietClosestMatch(): void {
   patchApiMockServerSettings({ fallbackMode: 'closest_match_debug' });
 }
@@ -403,10 +418,6 @@ async function returnFromRequests(ctx: DemoActionContext, visible: boolean): Pro
   if (visible) {
     if (firstVisibleElement(REQ.SIDEBAR)) await am18Payoff(ctx, REQ.SIDEBAR);
     else if (firstVisibleElement(REQ.NAV_REQUESTS)) await am18Payoff(ctx, REQ.NAV_REQUESTS);
-  }
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    if (visible) await am18Aim(ctx, APP.AB_PROTOCOLS);
-    else await ctx.click(APP.AB_PROTOCOLS);
   }
   if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
     if (visible) await am18Aim(ctx, API_MOCK.APP_SUBNAV);
@@ -630,8 +641,7 @@ export async function runAm18Filter(ctx: DemoActionContext): Promise<void> {
 export async function runAm18TheMiss(ctx: DemoActionContext): Promise<number | null> {
   await openAm18Journal(ctx, false);
   const res = await sendAm18(AM18_MISS_PATH);
-  await ctx.delay(T.journalWrite);
-  const miss = am18RowWithPath(AM18_MISS_PATH) ?? journalRows()[0];
+  const miss = await waitForAm18MissRow(ctx);
   if (miss) {
     const selector = rowSelector(miss);
     if (selector) await am18Payoff(ctx, selector);

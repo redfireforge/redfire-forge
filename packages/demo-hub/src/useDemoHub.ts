@@ -8,7 +8,7 @@ import type {
   StepPhase,
 } from './types';
 import { useDemoProgress } from './useDemoProgress';
-import { isGraphqlStudioLesson, isGrpcStudioLesson, runGrpcStudioLessonTeardown } from './adapters';
+import { endDemoAppSidebarSession, isApiMockStudioLesson, isGraphqlStudioLesson, isGrpcStudioLesson, runGrpcStudioLessonTeardown } from './adapters';
 import { GQL_MODAL_LOCK_OPEN, syncGqlModalLock } from './adapters/gqlModalLockBridge';
 import {
   clearDemoLiveSession,
@@ -18,6 +18,7 @@ import { startDemoLiveGuardHeartbeat, syncDemoLiveGuard } from './demoLiveGuard'
 import {
   findLessonById,
   restoreStateFromProgress,
+  runApiMockStudioLessonTeardown,
   runGqlStudioLessonTeardown,
 } from './useDemoHubHelpers';
 import { useDemoHubStudioIsolation } from './useDemoHubStudioIsolation';
@@ -216,6 +217,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const lesson = leavingLive ? state.selectedLesson : null;
     if (leavingLive) {
       clearDemoLiveSession();
+      endDemoAppSidebarSession();
       void syncDemoLiveGuard(false);
       if (lesson) void runLiveLessonCleanup(lesson);
     }
@@ -235,11 +237,14 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const lesson = state.selectedLesson;
     const liveLesson = state.view === 'live' ? lesson : null;
     if (liveLesson) {
+      endDemoAppSidebarSession();
       void runLiveLessonCleanup(liveLesson);
     } else if (lesson && isGraphqlStudioLesson(lesson)) {
       void runGqlStudioLessonTeardown(lesson, buildQuietContextRef.current());
     } else if (lesson && isGrpcStudioLesson(lesson)) {
       void runGrpcStudioLessonTeardown(lesson, buildQuietContextRef.current());
+    } else if (lesson && isApiMockStudioLesson(lesson)) {
+      void runApiMockStudioLessonTeardown(lesson, buildQuietContextRef.current());
     }
     setHubOpen(false);
     setState(prev => ({ ...prev, isPlaying: false }));
@@ -251,6 +256,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     if (leavingLive) {
       clearDemoLiveSession();
+      endDemoAppSidebarSession();
       void syncDemoLiveGuard(false);
     }
     setState(prev => {

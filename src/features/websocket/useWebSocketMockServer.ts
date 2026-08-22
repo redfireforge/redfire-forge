@@ -29,6 +29,7 @@ export interface UseWebSocketMockServerReturn {
 }
 
 const POLL_INTERVAL_MS = 500;
+const WS_POLL_MAX_FAILURE_STREAK = 6;
 
 function emptyStatus(port: number): WsMockStatus {
   return { running: false, port, clientCount: 0, clients: [] };
@@ -81,6 +82,7 @@ export function useWebSocketMockServer(port: number, active: boolean): UseWebSoc
   const logCursorRef = useRef(-1);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollLogsInFlightRef = useRef(false);
+  const pollFailureStreakRef = useRef(0);
 
   // Sync config.port whenever the port prop changes (e.g. user edits port while server is stopped).
   // The async load below may override this if there is a saved config for the new port.
@@ -129,14 +131,26 @@ export function useWebSocketMockServer(port: number, active: boolean): UseWebSoc
     } catch { /* server may not be running */ }
   }, [port]);
 
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
   const pollStatus = useCallback(async () => {
     try {
       const s = await mockFetch<WsMockStatus>('GET', `/api/ws/mock/status?port=${port}`);
+      pollFailureStreakRef.current = 0;
       setStatus(s);
     } catch {
       setStatus((prev) => prev.running ? { ...prev, running: false, error: 'Backend unreachable' } : prev);
+      pollFailureStreakRef.current++;
+      if (pollFailureStreakRef.current >= WS_POLL_MAX_FAILURE_STREAK) {
+        stopPolling();
+      }
     }
-  }, [port]);
+  }, [port, stopPolling]);
 
   const pollLogs = useCallback(async () => {
     // Prevent overlapping concurrent polls — avoids duplicate entries.
@@ -168,20 +182,12 @@ export function useWebSocketMockServer(port: number, active: boolean): UseWebSoc
     }, POLL_INTERVAL_MS);
   }, [pollStatus, pollLogs]);
 
-  const stopPolling = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-  }, []);
-
   useEffect(() => {
     if (!active) {
       stopPolling();
       return;
     }
-    // Immediately fetch both status AND logs so the UI reflects current server state
-    // without waiting for the first interval tick (≤ POLL_INTERVAL_MS delay).
+    pollFailureStreakRef.current = 0;
     pollStatus();
     pollLogs();
     startPolling();

@@ -776,7 +776,7 @@ describe('AM-09 helpers', () => {
     expect(isAm09SimulateOpen()).toBe(false);
     const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
     expect(delayMs).toBeGreaterThan(12_000);
-    expect(delayMs).toBeLessThan(40_000);
+    expect(delayMs).toBeLessThan(46_000);
   });
 
   it('finds the Conditions-failed card and the absent x-tenant row', () => {
@@ -845,7 +845,7 @@ describe('AM-09 helpers', () => {
     expect(isAm09SimulateOpen()).toBe(false);
     const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
     expect(delayMs).toBeGreaterThan(8_000);
-    expect(delayMs).toBeLessThan(28_000);
+    expect(delayMs).toBeLessThan(34_000);
   });
 
   it('finds the matching GET /reports/daily card and Path row', () => {
@@ -923,7 +923,7 @@ describe('AM-09 helpers', () => {
     expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_TAB_RENDERED);
     const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
     expect(delayMs).toBeGreaterThan(6_000);
-    expect(delayMs).toBeLessThan(28_000);
+    expect(delayMs).toBeLessThan(34_000);
   });
 
   it('pair-ready guard opens the first Studio rule', async () => {

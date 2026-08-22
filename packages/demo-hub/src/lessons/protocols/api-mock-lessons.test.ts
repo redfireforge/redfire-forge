@@ -14,7 +14,7 @@ describe('API Mock lesson roster (curriculum v2)', () => {
   it('ships every lesson under the api-mock category with a concept and steps', () => {
     expect(apiMockLessons.length).toBeGreaterThan(0);
     for (const lesson of apiMockLessons) {
-      expect(lesson.domainId).toBe('protocols');
+      expect(lesson.domainId).toBe('api-mock');
       expect(lesson.category).toBe('api-mock');
       expect(['api-mock-studio', 'workflow', 'test-runner', 'runner']).toContain(lesson.initialTab);
       expect(lesson.allowedTabs ?? [lesson.initialTab]).toContain(lesson.initialTab);

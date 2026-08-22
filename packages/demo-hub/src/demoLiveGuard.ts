@@ -6,6 +6,9 @@ export { DEMO_LIVE_GUARD_HEARTBEAT_MS } from './demoLiveGuardPolicy';
 
 export const DEMO_LIVE_GUARD_ENDPOINT = '/__demo-live-guard';
 
+/** Stop heartbeat after this many consecutive POST failures (Vite down). */
+const DEMO_LIVE_GUARD_MAX_FAILURE_STREAK = 3;
+
 /** Vitest hook — compile-time env inlining prevents vi.stubEnv from reaching readViteEnv. */
 let demoLiveGuardEnvOverride: { mode?: string; dev?: boolean } | undefined;
 
@@ -102,11 +105,22 @@ export function startDemoLiveGuardHeartbeat(lessonId: string): () => void {
   if (!shouldRunDemoLiveGuardHeartbeat() || typeof globalThis.setInterval !== 'function') {
     return () => { void syncDemoLiveGuard(false); };
   }
-  const heartbeat = globalThis.setInterval(() => {
-    void syncDemoLiveGuard(true, { lessonId });
+  let failureStreak = 0;
+  let heartbeat: ReturnType<typeof globalThis.setInterval> | null = globalThis.setInterval(() => {
+    void syncDemoLiveGuard(true, { lessonId }).then(ok => {
+      if (ok) {
+        failureStreak = 0;
+      } else {
+        failureStreak++;
+        if (failureStreak >= DEMO_LIVE_GUARD_MAX_FAILURE_STREAK && heartbeat !== null) {
+          globalThis.clearInterval(heartbeat);
+          heartbeat = null;
+        }
+      }
+    });
   }, DEMO_LIVE_GUARD_HEARTBEAT_MS);
   return () => {
-    globalThis.clearInterval(heartbeat);
+    if (heartbeat !== null) globalThis.clearInterval(heartbeat);
     void syncDemoLiveGuard(false);
   };
 }

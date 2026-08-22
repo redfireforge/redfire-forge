@@ -130,17 +130,6 @@ export function ApiMockStudioActiveSection({
 }: ApiMockStudioActiveSectionProps) {
   return (
     <>
-      <ApiMockWorkspaceNav
-        view={mainView}
-        onChange={view => {
-          setMainView(view);
-          if (view === 'conflicts' && conflictFindings.length === 0) onAnalyzeConflicts();
-        }}
-        transactionCount={transactions.length}
-        conflictCount={conflictFindings.length || conflictIds.length}
-        onImport={onImportOpen}
-        onExport={onExport}
-      />
       <ApiMockServerBar
         server={activeServer}
         onUpdate={onUpdateServer}
@@ -154,6 +143,17 @@ export function ApiMockStudioActiveSection({
         onRestart={onRestart}
         onSettings={onSettings}
         onOpenRoutes={() => { setMainView('studio'); setRoutesDrawerOpen(true); }}
+      />
+      <ApiMockWorkspaceNav
+        view={mainView}
+        onChange={view => {
+          setMainView(view);
+          if (view === 'conflicts' && conflictFindings.length === 0) onAnalyzeConflicts();
+        }}
+        transactionCount={transactions.length}
+        conflictCount={conflictFindings.length || conflictIds.length}
+        onImport={onImportOpen}
+        onExport={onExport}
       />
       <ApiMockStudioMainPanel
         activeServer={activeServer}

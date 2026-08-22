@@ -127,6 +127,22 @@ describe('useApiMockStudioJournal', () => {
     await waitFor(() => expect(transactions).toHaveBeenCalledWith('srv-1'));
   });
 
+  it('stops polling after consecutive retryable state failures (companion down)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    state.mockResolvedValue({ ok: false, error: { retry: true } });
+    render(<Probe />);
+    // Drive 4 consecutive retryable failures (initial call + 3 interval ticks).
+    await waitFor(() => expect(state).toHaveBeenCalledTimes(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500 * 3); });
+    const countAtMax = state.mock.calls.length;
+    expect(countAtMax).toBeGreaterThanOrEqual(4);
+    // After streak is saturated the interval is cleared — no more calls.
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500 * 10); });
+    expect(state.mock.calls.length).toBe(countAtMax);
+    // Badge is never reconciled to stopped for a retryable failure.
+    expect(screen.queryByTestId('rt-srv-1')).toBeNull();
+  });
+
   it('merges recorded drafts and acknowledges them', async () => {
     recordedDrafts.mockResolvedValue({
       ok: true,
@@ -162,6 +178,42 @@ describe('useApiMockStudioJournal', () => {
     await act(async () => {
       settle({ ok: true, data: { transactions: [{ id: 'late' }] } });
     });
+  });
+
+  it('skips a poll that resolves after unmount during the state fetch', async () => {
+    let resolveState!: (value: unknown) => void;
+    state.mockReturnValue(new Promise(resolve => { resolveState = resolve; }));
+    const { unmount } = render(<Probe />);
+    await waitFor(() => expect(state).toHaveBeenCalledWith('srv-1'));
+    unmount();
+    await act(async () => {
+      resolveState({ ok: true, data: { states: {}, counters: {} } });
+    });
+    expect(transactions).not.toHaveBeenCalled();
+  });
+
+  it('skips a poll that resolves after unmount during journal fetches', async () => {
+    let resolveTransactions!: (value: unknown) => void;
+    let resolveDrafts!: (value: unknown) => void;
+    state.mockResolvedValue({ ok: true, data: { states: {}, counters: {} } });
+    transactions.mockReturnValue(new Promise(resolve => { resolveTransactions = resolve; }));
+    recordedDrafts.mockReturnValue(new Promise(resolve => { resolveDrafts = resolve; }));
+    const { unmount } = render(<Probe />);
+    await waitFor(() => expect(transactions).toHaveBeenCalled());
+    unmount();
+    await act(async () => {
+      resolveTransactions({ ok: true, data: { transactions: [] } });
+      resolveDrafts({ ok: true, data: { drafts: [] } });
+    });
+  });
+
+  it('leaves non-active servers unchanged when merging recorded drafts', async () => {
+    const second = { id: 'srv-2', routes: [] } as unknown as ApiMockServerDefinitionV1;
+    recordedDrafts.mockResolvedValue({ ok: true, data: { drafts: [{ id: 'd3' }] } });
+    mergeRecordedDraftsIntoRoutes.mockReturnValue({ added: 1, routes: [{ id: 'draft-3' }] });
+    render(<Probe servers={[server, second]} />);
+    await waitFor(() => expect(screen.getByTestId('live')).toHaveTextContent(/Recorded 1 proxied exchange/));
+    expect(screen.getByTestId('routes')).toHaveTextContent('1');
   });
 
   it('acks recorded drafts even when the draft host is missing from the library', async () => {

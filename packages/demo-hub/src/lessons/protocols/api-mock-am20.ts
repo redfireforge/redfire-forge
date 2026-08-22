@@ -80,7 +80,7 @@ const DIAGRAM = `
 
 export const apiMockAm20Lesson: DemoLesson = {
   id: 'am-20-tls-mtls',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'HTTPS, HTTP/2 & mTLS with Cert-Subject Matching',
   description:

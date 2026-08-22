@@ -12,17 +12,12 @@ interface Props {
   onRename?: (id: string, name: string) => void;
   onDuplicate?: (id: string) => void;
   onReorder?: (fromIndex: number, toIndex: number) => void;
-  onOpenLibrary?: () => void;
-  /** Total saved servers, open tabs included. */
-  savedCount?: number;
-  /** Saved servers without an open tab. */
-  parkedCount?: number;
   statusById?: Record<string, ApiMockRuntimeStatus>;
   dirtyById?: Record<string, boolean>;
 }
 
 /**
- * Server tab strip + saved-server library entry.
+ * Server tab strip. The saved-server list lives in the left sidebar now.
  * Protocol chrome already names this view — no page title/tagline.
  */
 export function ApiMockStudioTitleBar({
@@ -36,9 +31,6 @@ export function ApiMockStudioTitleBar({
   onRename,
   onDuplicate,
   onReorder,
-  onOpenLibrary,
-  savedCount,
-  parkedCount = 0,
   statusById,
   dirtyById,
 }: Props) {
@@ -59,23 +51,6 @@ export function ApiMockStudioTitleBar({
         dirtyById={dirtyById}
         embedded
       />
-      {onOpenLibrary && (
-        <button
-          type="button"
-          className="am-btn am-saved-servers-btn"
-          onClick={onOpenLibrary}
-          title="Browse every saved mock server, including closed tabs"
-          data-testid="api-mock-open-library"
-        >
-          Saved servers
-          <span className="am-saved-servers-count">{savedCount ?? 0}</span>
-          {parkedCount > 0 && (
-            <span className="am-saved-servers-parked" data-testid="api-mock-parked-count">
-              {parkedCount} closed
-            </span>
-          )}
-        </button>
-      )}
     </div>
   );
 }

@@ -6,6 +6,12 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import AppSidebarRegion from './AppSidebarRegion';
 import type { AppSidebarRegionProps } from './AppSidebarRegion';
 import type { RequestCollection } from '../../shared/types';
+import {
+  beginDemoAppSidebarSession,
+  DEMO_SIDEBAR_PIN_KEY,
+  DEMO_SIDEBAR_SESSION_KEY,
+  isDemoAppSidebarPinned,
+} from '../../shared/demoAppSidebarSession';
 
 const h = vi.hoisted(() => {
   const call = (p: Record<string, unknown>, k: string, ...args: unknown[]) => {
@@ -48,6 +54,10 @@ vi.mock('../Sidebar', () => ({
     h.harnessProps = props;
     return <div data-testid="harness-sidebar" />;
   },
+}));
+
+vi.mock('../../features/api-mock/components/ApiMockSidebar', () => ({
+  default: () => <div data-testid="api-mock-sidebar" />,
 }));
 
 vi.mock('../../features/api-mock/components/ExportToApiMockModal', () => ({
@@ -189,6 +199,8 @@ describe('AppSidebarRegion', () => {
     h.workflowProps = {};
     h.harnessProps = {};
     h.exportModalProps = {};
+    sessionStorage.removeItem(DEMO_SIDEBAR_PIN_KEY);
+    sessionStorage.removeItem(DEMO_SIDEBAR_SESSION_KEY);
   });
 
   it('renders requests sidebar and tab toggles on api tabs', () => {
@@ -432,6 +444,42 @@ describe('AppSidebarRegion', () => {
     render(<AppSidebarRegion {...props} />);
     expect(screen.getByTitle('Show sidebar').textContent).toBe('▶');
     expect(document.querySelector('.usb-toggle-btn.collapsed')).toBeTruthy();
+  });
+
+  it('expands the sidebar when navigating to API Mock', () => {
+    const props = makeProps({ activeTab: 'requests', sidebarCollapsed: true });
+    const { rerender } = render(<AppSidebarRegion {...props} />);
+    expect(props.setSidebarCollapsed).not.toHaveBeenCalled();
+
+    rerender(<AppSidebarRegion {...props} activeTab="api-mock-studio" />);
+    expect(props.setSidebarCollapsed).toHaveBeenCalledWith(false);
+  });
+
+  it('does not reopen the sidebar when the user hides it on API Mock', () => {
+    const props = makeProps({ activeTab: 'api-mock-studio', sidebarCollapsed: false });
+    render(<AppSidebarRegion {...props} />);
+    props.setSidebarCollapsed.mockClear();
+
+    fireEvent.click(screen.getByTitle('Hide sidebar'));
+    expect(props.setSidebarCollapsed).toHaveBeenCalledWith(true);
+    expect(props.setSidebarCollapsed).not.toHaveBeenCalledWith(false);
+  });
+
+  it('does not auto-expand API Mock during a live demo session', () => {
+    beginDemoAppSidebarSession();
+    const props = makeProps({ activeTab: 'requests', sidebarCollapsed: true });
+    const { rerender } = render(<AppSidebarRegion {...props} />);
+    rerender(<AppSidebarRegion {...props} activeTab="api-mock-studio" />);
+    expect(props.setSidebarCollapsed).not.toHaveBeenCalledWith(false);
+  });
+
+  it('keeps the sidebar shown after the user clicks Show during a demo', () => {
+    beginDemoAppSidebarSession();
+    const props = makeProps({ activeTab: 'api-mock-studio', sidebarCollapsed: true });
+    render(<AppSidebarRegion {...props} />);
+    fireEvent.click(screen.getByTitle('Show sidebar'));
+    expect(props.setSidebarCollapsed).toHaveBeenCalledWith(false);
+    expect(isDemoAppSidebarPinned()).toBe(true);
   });
 
   it('skips catalog and requests sidebars when not loaded', () => {

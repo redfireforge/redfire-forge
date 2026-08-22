@@ -75,7 +75,7 @@ const DIAGRAM = `
 
 export const apiMockAm09Lesson: DemoLesson = {
   id: 'am-09-conflicts',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Conflict Inspector: Four Overlap Kinds',
   description:

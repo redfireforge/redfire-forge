@@ -2,21 +2,18 @@ import { useCallback, useMemo, useRef, useState, type Dispatch, type ReactNode, 
 import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
 import type { ConfirmOptions } from '../../app/hooks/useConfirmDialog';
 import {
-  buildLibraryEntries,
   deleteServersFromLibrary,
   formatDeleteServersMessage,
   formatDeletedServersMessage,
   formatOpenedFromLibraryMessage,
   formatParkedMessage,
   formatRestoredServersMessage,
-  isAtTabLimit,
   openServerTab,
   parkServerTabs,
   restoreDeletedServers,
   selectOpenServers,
   snapshotDeletedServers,
   DELETE_SERVER_CONFIRM_OPTIONS,
-  type ApiMockLibraryEntry,
   type DeletedServerSnapshot,
 } from './apiMockServerLibrary';
 import {
@@ -47,12 +44,7 @@ export interface ApiMockServerLibraryApi {
   openTabIds: string[];
   setOpenTabIds: Dispatch<SetStateAction<string[]>>;
   openServers: ApiMockServerDefinitionV1[];
-  libraryEntries: ApiMockLibraryEntry[];
   parkedCount: number;
-  atTabLimit: boolean;
-  libraryOpen: boolean;
-  openLibrary: () => void;
-  closeLibrary: () => void;
   /** Close (park) tabs — definitions stay in the library. */
   handleCloseServers: (ids: string[]) => void;
   handleCloseServer: (id: string) => void;
@@ -82,7 +74,6 @@ export function useApiMockServerLibrary({
   forgetRuntime,
 }: Args): ApiMockServerLibraryApi {
   const [openTabIds, setOpenTabIds] = useState<string[]>([]);
-  const [libraryOpen, setLibraryOpen] = useState(false);
   const [serverUndo, setServerUndo] = useState<DeletedServerSnapshot | null>(null);
 
   // Handlers run after awaited stop() calls — always read state through the ref.
@@ -90,9 +81,7 @@ export function useApiMockServerLibrary({
   stateRef.current = { servers, openTabIds, activeServerId };
 
   const openServers = useMemo(() => selectOpenServers(servers, openTabIds), [servers, openTabIds]);
-  const libraryEntries = useMemo(() => buildLibraryEntries(servers, openTabIds), [servers, openTabIds]);
   const parkedCount = servers.length - openServers.length;
-  const atTabLimit = isAtTabLimit(openTabIds);
 
   const resolveTargets = useCallback((ids: string[]): ApiMockServerDefinitionV1[] => {
     const unique = [...new Set(ids)];
@@ -162,7 +151,6 @@ export function useApiMockServerLibrary({
     setOpenTabIds(result.openTabIds);
     setActiveServerId(result.activeServerId);
     if (!alreadyOpen) setSelectedRouteId(undefined);
-    setLibraryOpen(false);
     setLiveMessage(alreadyOpen ? `Switched to ${server.name}.` : formatOpenedFromLibraryMessage(server.name));
   }, [confirm, setActiveServerId, setSelectedRouteId, setLiveMessage]);
 
@@ -227,12 +215,7 @@ export function useApiMockServerLibrary({
     openTabIds,
     setOpenTabIds,
     openServers,
-    libraryEntries,
     parkedCount,
-    atTabLimit,
-    libraryOpen,
-    openLibrary: useCallback(() => setLibraryOpen(true), []),
-    closeLibrary: useCallback(() => setLibraryOpen(false), []),
     handleCloseServers,
     handleCloseServer,
     handleOpenFromLibrary,

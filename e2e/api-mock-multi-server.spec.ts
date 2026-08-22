@@ -162,12 +162,10 @@ test('API Mock multi-server lifecycle (§12.2)', async ({ page, request }) => {
   }
   await expect(page.locator('[data-testid^="api-mock-tab-"]').filter({ hasText: CONFLICT_NAME })).toHaveCount(0);
 
-  // Closing parks the definition — it must still be reachable from Saved servers.
-  await page.locator(API_MOCK.OPEN_LIBRARY).click();
-  await expect(page.locator(API_MOCK.LIBRARY_MODAL)).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator(API_MOCK.libraryRow(serverId as string))).toBeVisible();
-  await page.locator(API_MOCK.LIBRARY_CLOSE).click();
-  await expect(page.locator(API_MOCK.LIBRARY_MODAL)).toHaveCount(0);
+  // Closing parks the definition — it must still be reachable from the sidebar.
+  const sidebarItem = page.locator(`[data-testid="api-mock-sidebar-item-${serverId}"]`);
+  await expect(sidebarItem).toBeVisible({ timeout: 10_000 });
+  await expect(sidebarItem).toHaveClass(/am-sidebar-item-parked/);
 
   await selectServerTab(page, USERS_NAME);
   await stopActiveServer(page);
