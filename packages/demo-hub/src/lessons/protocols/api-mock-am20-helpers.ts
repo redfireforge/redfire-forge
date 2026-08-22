@@ -632,6 +632,16 @@ export async function runAm20ProveHttps(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(T.journalWrite);
   await openJournal(ctx);
   await clickNewestJournalRow(ctx);
+  // Confirm detail opened; retry click up to 3 times if the response pane doesn't appear.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (let i = 0; i < 20 && !firstVisibleElement(API_MOCK.TX_RESPONSE_STATUS) && !firstVisibleElement(API_MOCK.TX_RESPONSE); i++) {
+      await ctx.delay(200);
+    }
+    if (firstVisibleElement(API_MOCK.TX_RESPONSE_STATUS) || firstVisibleElement(API_MOCK.TX_RESPONSE)) break;
+    const row = journalRows()[0];
+    const selector = rowSelector(row) ?? API_MOCK.JOURNAL_FIRST_ROW;
+    if (firstVisibleElement(selector)) await ctx.click(selector);
+  }
   if (firstVisibleElement(API_MOCK.TX_RESPONSE_STATUS)) {
     await am20Payoff(ctx, API_MOCK.TX_RESPONSE_STATUS);
   } else if (firstVisibleElement(API_MOCK.TX_RESPONSE)) {
