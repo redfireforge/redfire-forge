@@ -4637,6 +4637,135 @@
 /* Quick status chips */
 .api-mock-root .am-status-quick { display: flex; gap: 4px; flex-wrap: wrap; }
 .api-mock-root .am-status-quick .am-chip { font: 700 10px var(--am-mono); padding: 2px 7px; }
+.api-mock-root .am-status-quick .am-status-more-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: 600 10px var(--am-mono); padding: 2px 9px 2px 7px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 50%, var(--border));
+  border-radius: 4px; cursor: pointer;
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  color: color-mix(in srgb, var(--primary) 70%, var(--text));
+  transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.api-mock-root .am-status-quick .am-status-more-btn:hover {
+  border-color: var(--primary); border-style: solid;
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+/* ── Status Picker Modal ────────────────────────────────── */
+.am-sp-overlay {
+  position: fixed; inset: 0; z-index: 9000; display: flex;
+  align-items: center; justify-content: center; background: transparent;
+}
+.am-sp-modal {
+  width: 580px; max-height: 72vh; display: flex; flex-direction: column;
+  background: var(--surface); border-radius: 10px;
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.am-sp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px 0; flex-shrink: 0;
+}
+.am-sp-title { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+.am-sp-match-count { font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.am-sp-search-bar {
+  position: relative; padding: 10px 18px 6px; flex-shrink: 0;
+}
+.am-sp-search {
+  width: 100%; padding: 8px 32px 8px 12px; font-size: 0.82rem;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); outline: none; transition: border-color 0.15s;
+}
+.am-sp-search:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
+.am-sp-search::placeholder { color: var(--text-muted); opacity: 0.6; font-style: italic; }
+.am-sp-clear {
+  position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 1rem; padding: 2px 4px; line-height: 1;
+}
+.am-sp-clear:hover { color: var(--text); }
+
+.am-sp-categories {
+  display: flex; gap: 6px; padding: 4px 18px 10px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.am-sp-cat-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 10px; font-size: 0.72rem; font-weight: 600;
+  border: 1px solid; border-radius: 12px; background: transparent;
+  color: var(--text); cursor: pointer; transition: background 0.15s, opacity 0.15s;
+}
+.am-sp-cat-btn:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.am-sp-cat-btn--dim { opacity: 0.35; }
+.am-sp-cat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.am-sp-list {
+  flex: 1; overflow-y: auto; padding: 6px 0; min-height: 0;
+}
+.am-sp-group { margin-bottom: 4px; }
+.am-sp-group-head {
+  position: sticky; top: 0; z-index: 1;
+  padding: 6px 18px; font-size: 0.72rem; font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;
+  background: var(--surface); border-left: 3px solid;
+  display: flex; align-items: center; gap: 8px;
+}
+.am-sp-group-range { font-weight: 500; opacity: 0.6; }
+
+.am-sp-row {
+  display: grid; grid-template-columns: 52px 1fr; column-gap: 10px;
+  padding: 7px 18px 7px 24px; width: 100%; text-align: left;
+  background: transparent; border: none; color: var(--text);
+  cursor: pointer; transition: background 0.1s; font-size: 0.78rem;
+}
+.am-sp-row:hover, .am-sp-row--active { background: var(--surface-hover); }
+.am-sp-row--current { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+.am-sp-row--current:hover { background: color-mix(in srgb, var(--primary) 18%, var(--surface)); }
+
+.am-sp-badge {
+  display: inline-block; font-weight: 700; font-size: 0.74rem;
+  font-family: var(--am-mono, monospace); padding: 1px 6px;
+  border-radius: 4px; text-align: center; line-height: 1.5;
+}
+.am-sp-badge--1xx { background: color-mix(in srgb, #60a5fa 18%, transparent); color: #93c5fd; }
+.am-sp-badge--2xx { background: color-mix(in srgb, #34d399 18%, transparent); color: #6ee7b7; }
+.am-sp-badge--3xx { background: color-mix(in srgb, #a78bfa 18%, transparent); color: #c4b5fd; }
+.am-sp-badge--4xx { background: color-mix(in srgb, #fbbf24 18%, transparent); color: #fcd34d; }
+.am-sp-badge--5xx { background: color-mix(in srgb, #f87171 18%, transparent); color: #fca5a5; }
+
+.am-sp-reason {
+  font-weight: 600; color: var(--text); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.am-sp-desc {
+  grid-column: 2; font-size: 0.7rem; color: var(--text-muted);
+  line-height: 1.4; margin-top: 1px;
+}
+
+.am-sp-empty {
+  padding: 24px 18px; text-align: center; color: var(--text-muted);
+  font-size: 0.82rem; font-style: italic;
+}
+
+.am-sp-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 18px; border-top: 1px solid var(--border); flex-shrink: 0;
+}
+.am-sp-hint { font-size: 0.68rem; color: var(--text-muted); opacity: 0.7; }
+.am-sp-close-btn {
+  padding: 5px 16px; font-size: 0.76rem; font-weight: 500;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); cursor: pointer; transition: border-color 0.15s;
+}
+.am-sp-close-btn:hover { border-color: var(--primary); }
+
 .api-mock-response-editor .am-response-layout {
   display: grid;
   grid-template-columns: minmax(190px, 15%) minmax(0, 1fr) minmax(260px, 26%);
