@@ -144,10 +144,19 @@ export function resolveAm21SampleId(name: string): string | undefined {
 
 /** Example cards keep their name too; the card id is the remapped sample id. */
 export function resolveAm21ExampleId(name: string): string | undefined {
+  // Check the currently-open detail pane first (input is only rendered when selected).
   const labels = document.querySelectorAll<HTMLInputElement>('[data-testid^="api-mock-example-name-"]');
   for (const label of labels) {
     if (label.value?.trim() !== name) continue;
     const id = (label.getAttribute('data-testid') ?? '').replace('api-mock-example-name-', '');
+    if (id) return id;
+  }
+  // Fall back: scan list item buttons (always rendered, name in .am-example-list-name).
+  const items = document.querySelectorAll<HTMLButtonElement>('[data-testid^="api-mock-example-list-"]');
+  for (const item of items) {
+    const span = item.querySelector<HTMLElement>('.am-example-list-name');
+    if (span?.textContent?.trim() !== name) continue;
+    const id = (item.getAttribute('data-testid') ?? '').replace('api-mock-example-list-', '');
     if (id) return id;
   }
   return undefined;
@@ -544,10 +553,14 @@ export async function runAm21Examples(ctx: DemoActionContext): Promise<void> {
   await clickBeat(ctx, API_MOCK.BTAB_EXAMPLES, { look: T.beforeOpen, hold: T.tabSwitch });
   await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID, T.payoff);
 
-  // Beat 2 — ring the orphan row ("Unassociated" chip) → ring + click Attach.
+  // Beat 2 — ring the orphan row ("Unassociated" chip) → click to open detail → ring + click Attach.
   let orphanId = resolveAm21ExampleId(AM21_ORPHAN_NAME);
   if (orphanId) {
-    await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), T.look);
+    const orphanListSel = `[data-testid="api-mock-example-list-${orphanId}"]`;
+    // Click the list item first to open its detail pane (Attach button lives inside it).
+    if (firstVisibleElement(orphanListSel)) {
+      await clickBeat(ctx, orphanListSel, { look: T.look, hold: T.tabSwitch });
+    }
     if (hasAm21Attach()) {
       await clickBeat(ctx, API_MOCK.exampleAttach(orphanId), { look: T.beforeOpen, hold: T.panelReady });
       await ctx.delay(T.tabSwitch);
@@ -608,5 +621,14 @@ export async function runAm21Examples(ctx: DemoActionContext): Promise<void> {
     await am21Reveal(ctx, API_MOCK.EXAMPLES_GRID, T.payoff);
   }
   orphanId = resolveAm21ExampleId(AM21_ORPHAN_NAME) ?? orphanId;
-  if (orphanId) await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), T.payoff);
+  if (orphanId) {
+    const orphanListSel = `[data-testid="api-mock-example-list-${orphanId}"]`;
+    // Re-select the orphan row so its detail pane (and name input) remains in the DOM for the test.
+    if (firstVisibleElement(orphanListSel)) {
+      await clickBeat(ctx, orphanListSel, { look: T.look, hold: T.tabSwitch });
+    }
+    if (firstVisibleElement(API_MOCK.exampleRow(orphanId))) {
+      await spotlightBeat(ctx, API_MOCK.exampleRow(orphanId), T.payoff);
+    }
+  }
 }
