@@ -18,6 +18,7 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
     { tab: 'requests', label: 'Requests' },
     { tab: 'catalog', label: 'Catalog' },
   ],
+  'api-mock': [],
   workflow: [
     { tab: 'workflow', label: 'Designer' },
     { tab: 'workflow-executions', label: 'Executions' },
@@ -45,7 +46,6 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
     { tab: 'sse-studio', label: 'SSE' },
     { tab: 'graphql-studio', label: 'GraphQL' },
     { tab: 'grpc-studio', label: 'gRPC' },
-    { tab: 'api-mock-studio', label: 'API Mock' },
   ],
   demo: [
     { tab: 'demo-hub', label: 'Learning Hub' },
@@ -67,6 +67,9 @@ function renderTabs(items: SubNavItem[], activeTab: Tab, setActiveTab: (tab: Tab
 
 export default function AppSubNav({ activeTab, setActiveTab }: AppSubNavProps) {
   const domain = domainOf(activeTab);
+
+  // api-mock uses the left sidebar for its server list — no horizontal sub-nav
+  if (domain === 'api-mock') return null;
 
   return (
     <div className="sub-nav">

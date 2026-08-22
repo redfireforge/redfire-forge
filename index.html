@@ -20,6 +20,12 @@
           var m = value && value.message ? value.message : String(value || '');
           return String(m).indexOf('ResizeObserver') !== -1;
         }
+        /** Vite #22407 — forward-console send() after HMR disconnect loops forever. */
+        function isViteHmrDisconnectNoise(value) {
+          var m = value && value.message ? value.message : String(value || '');
+          return String(m).indexOf('send was called before connect') !== -1
+            || String(m).indexOf('invoke was called before connect') !== -1;
+        }
         function isCanceledNoise(text) {
           var msg = String(text || '').trim().toLowerCase();
           return (
@@ -44,11 +50,11 @@
         function isBenign(e) {
           if (e.type === 'unhandledrejection') {
             var r = e.reason;
-            return isResizeObserverNoise(r) || isMonacoCancelation(r);
+            return isResizeObserverNoise(r) || isViteHmrDisconnectNoise(r) || isMonacoCancelation(r);
           }
           var ev = e;
           var m = ev.message || (ev.error && ev.error.message) || (ev.error != null ? String(ev.error) : '');
-          return isResizeObserverNoise(m) || isCanceledNoise(m) || isMonacoCancelation(ev.error);
+          return isResizeObserverNoise(m) || isViteHmrDisconnectNoise(m) || isCanceledNoise(m) || isMonacoCancelation(ev.error);
         }
         function swallow(e) {
           if (!isBenign(e)) return;
@@ -59,7 +65,8 @@
         console.error = function () {
           for (var i = 0; i < arguments.length; i++) {
             var arg = arguments[i];
-            if (typeof arg === 'string' && isCanceledNoise(arg)) return;
+            if (typeof arg === 'string' && (isCanceledNoise(arg) || isViteHmrDisconnectNoise(arg))) return;
+            if (arg && arg.message && isViteHmrDisconnectNoise(arg)) return;
             if (isMonacoCancelation(arg)) return;
           }
           nativeError.apply(console, arguments);

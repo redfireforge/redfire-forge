@@ -76,7 +76,7 @@ import {
   runAm20RedactionParity,
 } from './api-mock-am20-helpers';
 
-const APP_AB = '[data-testid="ab-protocols"]';
+const APP_AB = '[data-testid="ab-api-mock"]';
 const PEM = '-----BEGIN CERTIFICATE-----\nMII\n-----END CERTIFICATE-----';
 const KEY = '-----BEGIN PRIVATE KEY-----\nKEY\n-----END PRIVATE KEY-----';
 
@@ -343,7 +343,7 @@ describe('AM-20 boot', () => {
 describe('AM-20 quiet chrome', () => {
   it('navigates to API Mock from the activity bar', async () => {
     document.body.append(el('button', undefined, 'ab-protocols'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     const ctx = makeCtx();
     await ensureAm20OnApiMock(ctx);
     expect(ctx.click).toHaveBeenCalledWith(APP_AB);
@@ -740,8 +740,8 @@ describe('AM-20 step bodies', () => {
 });
 
 describe('AM-20 remaining branches', () => {
-  it('clicks the studio subnav when the activity bar is already Protocols', async () => {
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+  it('clicks the API Mock activity bar', async () => {
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     const ctx = makeCtx();
     await ensureAm20OnApiMock(ctx);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APP_SUBNAV);

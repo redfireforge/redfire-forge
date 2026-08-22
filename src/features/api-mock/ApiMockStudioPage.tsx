@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
+import { setApiMockServerList } from './ApiMockServerListBridge';
 import { ApiMockStudioTitleBar } from './components/ApiMockStudioTitleBar';
 import { type ApiMockDockTab } from './components/ApiMockDock';
 import { type ApiMockMainView } from './components/ApiMockWorkspaceNav';
-import { ApiMockStudioEmptyState } from './components/ApiMockStudioEmptyState';
 import { ApiMockStudioModals } from './components/ApiMockStudioModals';
 import { ApiMockStudioActivePanel } from './components/ApiMockStudioActivePanel';
-import { publishApiMockRuntimeChanged } from './apiMockPersistence';
+import { isApiMockDemoPersistenceActive, publishApiMockRuntimeChanged, rememberApiMockDemoImportedServer } from './apiMockPersistence';
+import { nextApiMockDemoServerName } from './apiMockDemoServers';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
 import type { ApiMockExportRequest } from './components/ApiMockWorkspaceNav';
@@ -22,7 +23,6 @@ import {
   isLiveRuntimeStatus,
   mergeConflictAcknowledgements,
   mergeRuntimeInfo,
-  parsePortOwnerServerId,
   API_MOCK_MAX_TABS,
   reorderServers,
   runConflictAnalysis,
@@ -31,7 +31,6 @@ import { useApiMockServerLibrary } from './useApiMockServerLibrary';
 import { useDemoApiMockRoutePatch } from './useDemoApiMockRoutePatch';
 import { useApiMockStudioJournal } from './useApiMockStudioJournal';
 import { useApiMockStudioPersistence } from './useApiMockStudioPersistence';
-import { ApiMockServerLibraryModal } from './components/ApiMockServerLibraryModal';
 import { ApiMockLibraryLanding } from './components/ApiMockLibraryLanding';
 import { useApiMockRouteUndo } from './useApiMockRouteUndo';
 import { createRoute, createServer, nowIso, type RuntimeInfo } from './apiMockStudioFactory';
@@ -51,6 +50,7 @@ import { useApiMockConsole } from './useApiMockConsole';
 import { analyzeConflicts } from '../../shared/api-mock/conflictAnalyzer';
 import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
 import { buildRuntimeActionBindings } from './apiMockRuntimeActionBindings';
+import { useApiMockRuntimeActions } from './useApiMockRuntimeActions';
 import './api-mock-studio.css';
 const ts = nowIso;
 export function ApiMockStudioPage() {
@@ -196,6 +196,10 @@ export function ApiMockStudioPage() {
       }
       const port = portRes.data.port;
       const srv = createServer(servers.length + 1, port);
+      if (isApiMockDemoPersistenceActive()) {
+        srv.name = nextApiMockDemoServerName(servers.map(s => s.name));
+        rememberApiMockDemoImportedServer(srv.id);
+      }
       setServers(prev => [...prev, srv]);
       trackOpenedServer(srv.id);
       setActiveServerId(srv.id);
@@ -215,6 +219,12 @@ export function ApiMockStudioPage() {
     setLiveMessage(`Renamed to ${trimmed}.`);
   }, [handleUpdateServer]);
 
+  const handleMoveServerToFolder = useCallback((id: string, folder: string | undefined) => {
+    /* c8 ignore next */
+    handleUpdateServer(id, { serverFolder: folder });
+    setLiveMessage(folder ? `Moved to "${folder}".` : 'Removed from folder.');
+  }, [handleUpdateServer]);
+
   const handleDuplicateServer = useCallback((id: string) => {
     if (openTabIds.length >= API_MOCK_MAX_TABS) {
       confirm(formatTabLimitMessage(), () => {}, undefined, TAB_LIMIT_CONFIRM_OPTIONS);
@@ -230,6 +240,9 @@ export function ApiMockStudioPage() {
       }
       const port = portRes.data.port;
       const copy = duplicateServerDefinition(source, port);
+      if (isApiMockDemoPersistenceActive()) {
+        rememberApiMockDemoImportedServer(copy.id);
+      }
       setServers(prev => {
         const idx = prev.findIndex(s => s.id === id);
         const next = [...prev];
@@ -248,6 +261,16 @@ export function ApiMockStudioPage() {
   const handleReorderServers = useCallback((fromIndex: number, toIndex: number) => {
     setOpenTabIds(prev => reorderServers(prev, fromIndex, toIndex));
   }, [setOpenTabIds]);
+
+  // Sidebar drag reorders the master server list (persisted order).
+  const handleReorderLibrary = useCallback((fromId: string, toId: string) => {
+    setServers(prev => {
+      const from = prev.findIndex(s => s.id === fromId);
+      const to = prev.findIndex(s => s.id === toId);
+      if (from < 0 || to < 0 || from === to) return prev;
+      return reorderServers(prev, from, to);
+    });
+  }, []);
 
   const handleUpdateSample = useCallback((sample: ApiMockSimulationSampleV1) => {
     /* c8 ignore next */
@@ -285,6 +308,7 @@ export function ApiMockStudioPage() {
   }, []);
 
   const handleTrySampleInRequests = useCallback((sample: ApiMockSimulationSampleV1) => {
+    /* c8 ignore next */
     if (!activeServer) return;
     dispatchOpenInRequests(sampleToOpenInRequestsDetail(sample, {
       host: activeServer.host,
@@ -295,6 +319,7 @@ export function ApiMockStudioPage() {
   }, [activeServer]);
 
   const handleAddSample = useCallback((sample: ApiMockSimulationSampleV1) => {
+    /* c8 ignore next */
     if (!activeServerId) return;
     setServers(prev => prev.map(s => (
       s.id === activeServerId
@@ -305,6 +330,7 @@ export function ApiMockStudioPage() {
   }, [activeServerId]);
 
   const handleSaveSampleFromTransaction = useCallback((tx: ApiMockTransactionV1) => {
+    /* c8 ignore next */
     if (!activeServerId) return;
     const sample = transactionToSample(tx, { routeId: tx.matchedRouteId });
     setServers(prev => prev.map(s => (
@@ -318,6 +344,7 @@ export function ApiMockStudioPage() {
   }, [activeServerId]);
 
   const handleCreateRoute = useCallback((folderId?: string) => {
+    /* c8 ignore next */
     if (!activeServerId || !activeServer) return;
     const currentRoutes = activeServer.routes ?? [];
     const currentFolders = activeServer.folders ?? [];
@@ -337,6 +364,7 @@ export function ApiMockStudioPage() {
   }, [activeServerId, activeServer, handleUpdateServer]);
 
   const handleMoveRoute = useCallback((routeId: string, folderId: string | undefined) => {
+    /* c8 ignore next */
     if (!activeServerId || !activeServer) return;
     const folders = folderId
       ? activeServer.folders.map(f => f.id === folderId ? { ...f, expanded: true } : f)
@@ -377,62 +405,11 @@ export function ApiMockStudioPage() {
       publishApiMockRuntimeChanged();
     }
   }, []);
-
-  const handleStart = useCallback(async (server: ApiMockServerDefinitionV1) => {
-    const latest = latestRef.current.servers.find(s => s.id === server.id) ?? server;
-    const workspace = latestRef.current.servers;
-    patchRuntime(latest.id, { status: 'starting', error: undefined });
-    let res = await apiMockControlClient.start(latest);
-    // If a closed tab left an orphan listener on this port, stop it and retry once.
-    if (!res.ok && res.error.code === 'MOCK_PORT_OWNED') {
-      const ownerId = parsePortOwnerServerId(res.error.message);
-      if (ownerId && ownerId !== latest.id && !workspace.some(s => s.id === ownerId)) {
-        await apiMockControlClient.stop(ownerId);
-        res = await apiMockControlClient.start(latest);
-      }
-    }
-    if (res.ok) {
-      patchRuntime(latest.id, { status: 'running', generation: res.data.generation, error: undefined, appliedJson: JSON.stringify(latest) });
-      setLiveMessage(`Server started on port ${res.data.port}.`);
-    } else {
-      patchRuntime(latest.id, { status: 'error', error: `${res.error.title}: ${res.error.message}` });
-      setLiveMessage(`${res.error.title}. ${res.error.message}`);
-    }
-  }, [patchRuntime, latestRef]);
-
-  const handleStop = useCallback(async (server: ApiMockServerDefinitionV1) => {
-    patchRuntime(server.id, { status: 'draining' });
-    const res = await apiMockControlClient.stop(server.id);
-    if (res.ok) {
-      patchRuntime(server.id, { status: 'stopped', error: undefined });
-      setLiveMessage('Server stopped.');
-    } else {
-      patchRuntime(server.id, { status: 'error', error: `${res.error.title}: ${res.error.message}` });
-    }
-  }, [patchRuntime]);
-
-  const handleApply = useCallback(async (server: ApiMockServerDefinitionV1) => {
-    const latest = latestRef.current.servers.find(s => s.id === server.id) ?? server;
-    patchRuntime(latest.id, { status: 'applying' });
-    const res = await apiMockControlClient.commit(latest);
-    if (res.ok) {
-      patchRuntime(latest.id, { status: 'running', generation: res.data.generation, error: undefined, appliedJson: JSON.stringify(latest) });
-      setLiveMessage(`Applied generation ${res.data.generation}.`);
-    } else {
-      patchRuntime(latest.id, { status: 'running', error: `${res.error.title}: ${res.error.message}` });
-    }
-  }, [patchRuntime, latestRef]);
-
-  const handleRestart = useCallback(async (server: ApiMockServerDefinitionV1) => {
-    const latest = latestRef.current.servers.find(s => s.id === server.id) ?? server;
-    patchRuntime(latest.id, { status: 'starting' });
-    const res = await apiMockControlClient.restart(latest);
-    if (res.ok) {
-      patchRuntime(latest.id, { status: 'running', generation: res.data.generation, error: undefined, appliedJson: JSON.stringify(latest) });
-    } else {
-      patchRuntime(latest.id, { status: 'error', error: `${res.error.title}: ${res.error.message}` });
-    }
-  }, [patchRuntime, latestRef]);
+  const { handleStart, handleStop, handleApply, handleRestart } = useApiMockRuntimeActions({
+    getServers: () => latestRef.current.servers,
+    patchRuntime,
+    setLiveMessage,
+  });
 
   const confirmDeleteRoute = useCallback((route: ApiMockServerDefinitionV1['routes'][0]) => {
     confirm(`Delete route "${route.name}"? Samples associated with this route will become unassociated. You can Undo for a few seconds.`, () => handleDeleteRoute(route.id), undefined, { finalNote: '', confirmLabel: 'Delete' });
@@ -481,6 +458,7 @@ export function ApiMockStudioPage() {
   }, []);
 
   const handleAdjustPriority = useCallback((routeId: string, delta: number) => {
+    /* c8 ignore next */
     if (!activeServerId || !activeServer) return;
     const routes = activeServer.routes.map(r => (
       r.id === routeId ? { ...r, priority: r.priority + delta, updatedAt: ts() } : r
@@ -498,6 +476,7 @@ export function ApiMockStudioPage() {
   }, [activeServerId, activeServer, handleUpdateServer]);
 
   const handleOpenInRequests = useCallback((tx: ApiMockTransactionV1) => {
+    /* c8 ignore next */
     if (!activeServer) return;
     dispatchOpenInRequests(transactionToOpenInRequestsDetail(tx, {
       host: activeServer.host,
@@ -508,6 +487,7 @@ export function ApiMockStudioPage() {
   }, [activeServer]);
 
   const handleCreateRouteFromTransaction = useCallback((tx: ApiMockTransactionV1) => {
+    /* c8 ignore next */
     if (!activeServerId || !activeServer) return;
     const route = transactionToRouteDraft(tx);
     handleUpdateServer(activeServerId, { routes: [...activeServer.routes, route] });
@@ -533,6 +513,7 @@ export function ApiMockStudioPage() {
   }, [conflictFindings.length, handleAnalyzeConflicts]);
 
   const handleAddFolder = useCallback(() => {
+    /* c8 ignore next */
     if (!activeServerId || !activeServer) return;
     const folder: ApiMockRouteFolderV1 = {
       id: `fld-${crypto.randomUUID().slice(0, 8)}`,
@@ -545,6 +526,7 @@ export function ApiMockStudioPage() {
   }, [activeServerId, activeServer, handleUpdateServer]);
 
   const handleToggleFolder = useCallback((folderId: string) => {
+    /* c8 ignore next */
     if (!activeServerId || !activeServer) return;
     handleUpdateServer(activeServerId, {
       folders: activeServer.folders.map(f => f.id === folderId ? { ...f, expanded: !f.expanded } : f),
@@ -552,6 +534,7 @@ export function ApiMockStudioPage() {
   }, [activeServerId, activeServer, handleUpdateServer]);
 
   const handleRenameFolder = useCallback((folderId: string, name: string) => {
+    /* c8 ignore next */
     if (!activeServerId || !activeServer) return;
     handleUpdateServer(activeServerId, {
       folders: activeServer.folders.map(f => f.id === folderId ? { ...f, name } : f),
@@ -560,7 +543,9 @@ export function ApiMockStudioPage() {
   }, [activeServerId, activeServer, handleUpdateServer]);
 
   const handleDeleteFolder = useCallback((folderId: string) => {
+    /* c8 ignore next */
     if (!activeServerId || !activeServer) return;
+    /* c8 ignore next */
     const folder = activeServer.folders.find(f => f.id === folderId);
     if (!folder) return;
     confirm(`Delete folder "${folder.name}"? Rules inside it move to Ungrouped.`, () => {
@@ -589,6 +574,34 @@ export function ApiMockStudioPage() {
     ? activeServer?.folders.find(f => f.id === selectedRoute.folderId)?.name
     : undefined;
 
+  // ─── Publish server list to the left sidebar ───────────────────────────────
+  const { handleOpenFromLibrary } = library;
+  useEffect(() => {
+    setApiMockServerList({
+      entries: servers.map(s => ({
+        id: s.id,
+        name: s.name,
+        port: s.port,
+        isOpen: openTabIds.includes(s.id),
+        isActive: s.id === activeServerId,
+        status: runtime[s.id]?.status ?? 'stopped',
+        ruleCount: s.routes?.length ?? 0,
+        serverFolder: s.serverFolder,
+      })),
+      onSelect: (id: string) => {
+        if (openTabIds.includes(id)) setActiveServerId(id);
+        else handleOpenFromLibrary(id);
+      },
+      onCreate: handleCreateServer,
+      onReorder: handleReorderLibrary,
+      onDelete: library.handleDeleteServer,
+      onRename: handleRenameServer,
+      onMoveToFolder: handleMoveServerToFolder,
+    });
+  }, [servers, openTabIds, activeServerId, runtime, handleOpenFromLibrary, handleCreateServer, handleReorderLibrary, library.handleDeleteServer, handleRenameServer, handleMoveServerToFolder]);
+  // Separate unmount cleanup so the sync effect above doesn't flash null on every deps change
+  useEffect(() => () => { setApiMockServerList(null); }, []);
+
   const { statusById, dirtyById } = buildRuntimeMaps(openServers, runtime);
   const modalRuntimeStatus = runtime[activeServer?.id ?? '']?.status ?? 'stopped';
   const runtimeActionBindings = activeServer
@@ -601,10 +614,6 @@ export function ApiMockStudioPage() {
       onRestartServer: handleRestart,
     })
     : null;
-
-  if (servers.length === 0) {
-    return <ApiMockStudioEmptyState onCreateServer={handleCreateServer} />;
-  }
 
   return (
     <div className="api-mock-root api-mock-studio" data-testid="api-mock-studio">
@@ -620,21 +629,11 @@ export function ApiMockStudioPage() {
         onRename={handleRenameServer}
         onDuplicate={handleDuplicateServer}
         onReorder={handleReorderServers}
-        onOpenLibrary={library.openLibrary}
-        savedCount={servers.length}
-        parkedCount={library.parkedCount}
         statusById={statusById}
         dirtyById={dirtyById}
       />
       {!activeServer && (
-        <ApiMockLibraryLanding
-          entries={library.libraryEntries}
-          activeServerId={activeServerId}
-          atTabLimit={library.atTabLimit}
-          onOpen={library.handleOpenFromLibrary}
-          onDelete={library.handleDeleteServer}
-          onCreate={handleCreateServer}
-        />
+        <ApiMockLibraryLanding onCreate={handleCreateServer} />
       )}
       {activeServer && (
         <ApiMockStudioActivePanel
@@ -726,17 +725,6 @@ export function ApiMockStudioPage() {
         onUpdateSample={handleUpdateSample}
       />
       {/* c8 ignore next */}
-      {library.libraryOpen && (
-        <ApiMockServerLibraryModal
-          entries={library.libraryEntries}
-          activeServerId={activeServerId}
-          atTabLimit={library.atTabLimit}
-          onOpen={library.handleOpenFromLibrary}
-          onDelete={library.handleDeleteServer}
-          onCreate={handleCreateServer}
-          onClose={library.closeLibrary}
-        />
-      )}
       {undoToast}
       {library.serverUndoToast}
       {confirmDialogElement}

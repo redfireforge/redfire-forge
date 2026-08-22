@@ -83,7 +83,7 @@ const DIAGRAM = `
 
 export const apiMockAm08Lesson: DemoLesson = {
   id: 'am-08-selection-policy',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Boolean Groups, Priority & Selection Policy',
   description:

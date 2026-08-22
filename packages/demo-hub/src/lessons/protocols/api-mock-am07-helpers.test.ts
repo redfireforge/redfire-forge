@@ -55,6 +55,7 @@ import {
   AM07_XML_ELEMENTS,
   AM07_XML_INVALID_SAMPLE,
   AM07_XML_RULE,
+  AM07_XML_SAMPLE,
   AM07_XPATH,
   AM07_XPATH_PRESET,
   am07ConditionCount,
@@ -1003,6 +1004,7 @@ describe('AM-07 helpers', () => {
       API_MOCK.TOOLBOX_APPLY,
       API_MOCK.SIMULATE,
       API_MOCK.SIMULATE_RUN,
+      API_MOCK.SIMULATE_TAB_RENDERED,
       API_MOCK.SIMULATE_CLOSE,
     ]));
     expect(fills(ctx.fill)).toEqual([
@@ -1012,12 +1014,13 @@ describe('AM-07 helpers', () => {
       [API_MOCK.SIMULATE_PATH, AM07_XML_RULE.path],
       [API_MOCK.SIMULATE_HEADERS, AM07_XML_CONTENT_TYPE],
       [API_MOCK.SIMULATE_BODY, AM07_XML_BODY],
+      [API_MOCK.SIMULATE_SAMPLE_NAME, AM07_XML_SAMPLE],
     ]);
-    expect(calls(ctx.click)).not.toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
+    expect(calls(ctx.click)).toContain(API_MOCK.SIMULATE_SAVE_SAMPLE);
     expect(calls(ctx.click).filter(s => s === API_MOCK.SIMULATE_RUN)).toHaveLength(1);
     const delayMs = vi.mocked(ctx.delay).mock.calls.reduce((sum, [ms]) => sum + Number(ms ?? 0), 0);
     expect(delayMs).toBeGreaterThan(8_000);
-    expect(delayMs).toBeLessThan(24_000);
+    expect(delayMs).toBeLessThan(30_000);
   });
 
   it('step 5 spotlights the applied row when the toolbox minted one', async () => {

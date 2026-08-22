@@ -112,7 +112,7 @@ const DIAGRAM = `
 
 export const apiMockAm17Lesson: DemoLesson = {
   id: 'am-17-proxy-record',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Proxy Passthrough & Record-to-Drafts',
   description:

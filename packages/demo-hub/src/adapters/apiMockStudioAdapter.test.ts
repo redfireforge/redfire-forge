@@ -3,8 +3,9 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { wipeBridge, collapse, patchBridge, importBridge, settingsBridge, blankBridge, secretsBridge, listBridge, upsertSamplesBridge } = vi.hoisted(() => ({
+const { wipeBridge, restoreBridge, collapse, patchBridge, importBridge, settingsBridge, blankBridge, secretsBridge, listBridge, upsertSamplesBridge } = vi.hoisted(() => ({
   wipeBridge: vi.fn(async () => true),
+  restoreBridge: vi.fn(async () => true),
   collapse: vi.fn(),
   patchBridge: vi.fn(() => true),
   importBridge: vi.fn(async () => true),
@@ -18,6 +19,7 @@ const { wipeBridge, collapse, patchBridge, importBridge, settingsBridge, blankBr
 vi.mock('./bridgeWindow', () => ({
   getDemoBridgeWindow: () => ({
     __demoWipeApiMockWorkspace: wipeBridge,
+    __demoRestoreApiMockUserWorkspace: restoreBridge,
     __demoListApiMockServers: listBridge,
     __demoCollapseAppSidebar: collapse,
     __demoPatchApiMockActiveRoute: patchBridge,
@@ -41,6 +43,7 @@ describe('apiMockStudioAdapter', () => {
   it('wipes, imports gallery, patches route, and prepares chrome', async () => {
     const {
       wipeApiMockWorkspace,
+      restoreApiMockUserWorkspace,
       listApiMockStudioServers,
       prepareApiMockStudioChrome,
       patchApiMockActiveRoute,
@@ -50,6 +53,8 @@ describe('apiMockStudioAdapter', () => {
     } = await import('./apiMockStudioAdapter');
     await expect(wipeApiMockWorkspace()).resolves.toBe(true);
     expect(wipeBridge).toHaveBeenCalled();
+    await expect(restoreApiMockUserWorkspace()).resolves.toBe(true);
+    expect(restoreBridge).toHaveBeenCalled();
     await expect(listApiMockStudioServers()).resolves.toEqual([
       { id: 'srv-live', name: 'Cart API', port: 4601, active: true },
     ]);
@@ -101,8 +106,9 @@ describe('apiMockStudioAdapter', () => {
     vi.doMock('./appShellAdapter', () => ({
       collapseAppSidebar: vi.fn(),
     }));
-    const { wipeApiMockWorkspace, listApiMockStudioServers, patchApiMockActiveRoute, importApiMockGallerySample, patchApiMockServerSettings, ensureBlankApiMockServer, seedApiMockExportSecrets, upsertApiMockServerSamples } = await import('./apiMockStudioAdapter');
+    const { wipeApiMockWorkspace, restoreApiMockUserWorkspace, listApiMockStudioServers, patchApiMockActiveRoute, importApiMockGallerySample, patchApiMockServerSettings, ensureBlankApiMockServer, seedApiMockExportSecrets, upsertApiMockServerSamples, isApiMockStudioLesson } = await import('./apiMockStudioAdapter');
     await expect(wipeApiMockWorkspace()).resolves.toBe(false);
+    await expect(restoreApiMockUserWorkspace()).resolves.toBe(false);
     await expect(listApiMockStudioServers()).resolves.toEqual([]);
     expect(patchApiMockActiveRoute({ path: '/health' })).toBe(false);
     expect(patchApiMockServerSettings({ equalPriorityPolicy: 'reject' })).toBe(false);
@@ -110,5 +116,7 @@ describe('apiMockStudioAdapter', () => {
     await expect(ensureBlankApiMockServer()).resolves.toBe(false);
     await expect(seedApiMockExportSecrets()).resolves.toBe(false);
     expect(upsertApiMockServerSamples([{ name: 'x', method: 'GET', path: '/' }])).toBe(false);
+    expect(isApiMockStudioLesson({ category: 'api-mock', domainId: 'api-mock', initialTab: 'api-mock-studio' })).toBe(true);
+    expect(isApiMockStudioLesson({ category: 'graphql', domainId: 'graphql', initialTab: 'graphql-studio' })).toBe(false);
   });
 });

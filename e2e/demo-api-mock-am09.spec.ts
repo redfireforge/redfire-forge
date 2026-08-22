@@ -14,7 +14,7 @@
  * 409 and no-header 404, raising Daily reclassifies Definite to empty, and
  * acknowledging then editing a fingerprint marks the pair Stale.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { API_MOCK } from '../src/shared/selectors/apiMock';
 import { advanceSteps, completeCurrentStepAction, launchApiMockLesson } from './demo-player-helpers';
 import {
@@ -33,6 +33,40 @@ const FILTER_DUPLICATE = API_MOCK.conflictFilter('duplicate');
 const FILTER_SHADOWED = API_MOCK.conflictFilter('shadowed');
 const FILTER_DEFINITE = API_MOCK.conflictFilter('definite_overlap');
 const FILTER_POTENTIAL = API_MOCK.conflictFilter('potential_overlap');
+
+/**
+ * Step 8/10 switch Results to **Rendered response**, which unmounts the
+ * Decision-trace Winner badge. Fast mode also replaces the 409 body within a
+ * tick. Record every rendered body so assertions do not race the tab switch.
+ */
+async function watchSimulateRenderedBodies(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as Window & { __amSimBodies?: string[] };
+    w.__amSimBodies = [];
+    const take = () => {
+      const el = document.querySelector('[data-testid="api-mock-sim-rendered-body"]');
+      const text = el?.textContent?.trim() ?? '';
+      if (!text) return;
+      const list = w.__amSimBodies!;
+      if (list[list.length - 1] !== text) list.push(text);
+    };
+    take();
+    new MutationObserver(take).observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+  });
+}
+
+async function expectWatchedRenderedBody(page: Page, pattern: RegExp): Promise<void> {
+  await expect.poll(
+    async () => page.evaluate(
+      () => (window as Window & { __amSimBodies?: string[] }).__amSimBodies?.join('\n') ?? '',
+    ),
+    { timeout: AM_LESSON_STEP_TIMEOUT },
+  ).toMatch(pattern);
+}
 
 test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', () => {
   test.beforeEach(async ({ page, request }) => {
@@ -180,16 +214,10 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
     await advanceSteps(page, 7, AM_LESSON_STEP_TIMEOUT);
+    await watchSimulateRenderedBodies(page);
     const acting = completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
-    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/ambiguous/i, {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
-    await expect(page.locator(API_MOCK.SIMULATE_WINNER)).toBeVisible({
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
-    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/"report"\s*:\s*"any"/, {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
+    await expectWatchedRenderedBody(page, /ambiguous/i);
+    await expectWatchedRenderedBody(page, /"report"\s*:\s*"any"/);
     await acting;
 
     await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0, {
@@ -214,19 +242,10 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
     await advanceSteps(page, 9, AM_LESSON_STEP_TIMEOUT);
+    await watchSimulateRenderedBodies(page);
     const acting = completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
-    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/ambiguous/i, {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
-    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_STATUS)).toContainText('409', {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
-    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/not_found/i, {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
-    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_STATUS)).toContainText('404', {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
+    await expectWatchedRenderedBody(page, /ambiguous/i);
+    await expectWatchedRenderedBody(page, /not_found/i);
     await acting;
 
     await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0, {

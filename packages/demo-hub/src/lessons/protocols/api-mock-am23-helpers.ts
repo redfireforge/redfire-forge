@@ -15,11 +15,12 @@ import {
   sendApiMockRequest,
   wipeApiMockWorkspace,
 } from '../../adapters';
-import { API_MOCK, APP, HAR } from '@shared/selectors';
+import { API_MOCK, HAR } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
 import {
   clickBeat,
+  openApiMockFromActivityBar,
   revealBeat,
   spotlightBeat,
 } from './api-mock-demo-helpers';
@@ -284,14 +285,7 @@ export async function ensureAm23OnRunner(ctx: DemoActionContext): Promise<void> 
 
 export async function ensureAm23OnStudio(ctx: DemoActionContext): Promise<void> {
   if (isAm23StudioActive()) return;
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    await ctx.click(APP.AB_PROTOCOLS);
-  }
-  if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
-    await ctx.click(API_MOCK.APP_SUBNAV);
-    await ctx.delay(200);
-    return;
-  }
+  if (await openApiMockFromActivityBar(ctx)) return;
   ctx.navigateToTab('api-mock-studio');
   await ctx.delay(200);
 }

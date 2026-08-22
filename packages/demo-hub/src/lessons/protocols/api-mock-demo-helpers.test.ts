@@ -30,6 +30,7 @@ import {
   waitForApiMockStudioServerId,
   waitForApiMockWfServerReady,
   clearApiMockWfServerPicker,
+  openApiMockFromActivityBar,
 } from './api-mock-demo-helpers';
 
 const SEL = '[data-testid="beat-target"]';
@@ -545,5 +546,28 @@ describe('API Mock Studio server resolve', () => {
     document.body.append(host);
     const ctx = makeCtx();
     await expect(waitForApiMockWfServerReady(ctx, 'srv-x', 5)).resolves.toBe(false);
+  });
+});
+
+describe('openApiMockFromActivityBar', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('clicks the API Mock activity-bar button when it is visible', async () => {
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'ab-api-mock');
+    makeVisible(btn);
+    document.body.append(btn);
+    const ctx = makeCtx();
+    await expect(openApiMockFromActivityBar(ctx, 50)).resolves.toBe(true);
+    expect(ctx.click).toHaveBeenCalledWith(API_MOCK.APP_SUBNAV);
+    expect(ctx.delay).toHaveBeenCalledWith(50);
+  });
+
+  it('returns false when the activity-bar button is missing', async () => {
+    const ctx = makeCtx();
+    await expect(openApiMockFromActivityBar(ctx)).resolves.toBe(false);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 });
