@@ -291,7 +291,9 @@ export async function waitForReadingPhase(
 export async function skipReadingPause(page: Page): Promise<void> {
   const badge = page.locator('.demo-live-phase-badge.skippable');
   if (await badge.isVisible({ timeout: 5_000 }).catch(() => false)) {
-    await badge.click();
+    // The reading phase may complete between visibility and click; a detached
+    // badge means there is nothing left to skip.
+    await badge.click({ timeout: 1_000 }).catch(() => undefined);
   }
 }
 
