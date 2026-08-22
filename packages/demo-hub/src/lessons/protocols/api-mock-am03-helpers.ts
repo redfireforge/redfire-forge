@@ -188,8 +188,7 @@ export function dragRowToFolder(row: HTMLElement, block: HTMLElement): boolean {
   const dataTransfer = new DataTransfer();
   const draggableRow = row.matches('[draggable="true"]')
     ? row
-    : row.querySelector<HTMLElement>('[draggable="true"]');
-  if (!draggableRow) return false;
+    : row.querySelector<HTMLElement>('[draggable="true"]') ?? row;
   const rect = block.getBoundingClientRect();
   const opts = {
     bubbles: true,
