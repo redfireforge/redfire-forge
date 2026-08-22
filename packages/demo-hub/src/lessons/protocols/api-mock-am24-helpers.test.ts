@@ -616,7 +616,6 @@ describe('AM-24 helpers', () => {
     document.body.append(el('button', undefined, 'api-mock-response-tab-timing'));
     document.body.append(el('div', undefined, 'api-mock-timing-panel'));
     document.body.append(input('api-mock-variant-delay'));
-    document.body.append(input('api-mock-variant-probability'));
     document.body.append(el('button', undefined, 'api-mock-response-tab-faults'));
     document.body.append(el('div', undefined, 'api-mock-faults-panel'));
     document.body.append(el('button', undefined, 'api-mock-fault-timeout'));
@@ -630,10 +629,10 @@ describe('AM-24 helpers', () => {
     });
     await runAm24Resilience(ctx);
     expect(ctx.fill).toHaveBeenCalled();
-    // Happy path 201 gets a delay, never a fault.
+    // Happy path 201 gets a delay (probability left empty = always eligible).
     expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
       variantIndex: 0,
-      behavior: expect.objectContaining({ delayMs: 200, probability: 1 }),
+      behavior: expect.objectContaining({ delayMs: 200 }),
     }));
     // The degraded branch is a real 503 on its own flaky-SKU condition.
     expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
@@ -641,10 +640,10 @@ describe('AM-24 helpers', () => {
       status: 503,
       variantConditions: expect.objectContaining({ id: 'pg-am24-503' }),
     }));
-    // The timeout lives only on the degraded branch, probability-gated.
+    // The degraded branch has no fault — a clean 503 response.
     expect(patchApiMockActiveRoute).toHaveBeenCalledWith(expect.objectContaining({
       variantIndex: 2,
-      behavior: expect.objectContaining({ fault: 'timeout', probability: 0 }),
+      behavior: expect.objectContaining({ delayMs: 0, jitterMs: 0 }),
     }));
     // The 404 (variant 1) never receives a fault.
     const faultOn404 = patchApiMockActiveRoute.mock.calls.some(([patch]) => {

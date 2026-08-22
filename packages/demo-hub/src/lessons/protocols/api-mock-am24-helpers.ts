@@ -98,12 +98,10 @@ export const AM24_SKU_MISSING = 'MISSING';
 export const AM24_JSONPATH = '$.sku';
 export const AM24_PRIORITY = '20';
 export const AM24_DELAY = '200';
-export const AM24_PROBABILITY = '1';
 export const AM24_VARIANT_NAME = 'Not found';
 export const AM24_SKU_FLAKY = 'FLAKY';
 export const AM24_FLAKY_VARIANT_NAME = 'Degraded';
 export const AM24_FLAKY_STATUS = '503';
-export const AM24_FAULT_PROBABILITY = '0';
 export const AM24_CONTENT_JSON = 'application/json';
 export const AM24_HTTP_URL = '{{mockBaseUrl}}/orders';
 export const AM24_HTTP_METHOD = 'POST';
@@ -909,14 +907,13 @@ async function quietDelayAndFault(ctx: DemoActionContext): Promise<void> {
   // Happy path (201): a latency, never a transport fault.
   patchAm24Orders({
     variantIndex: 0,
-    behavior: { delayMs: Number(AM24_DELAY), probability: 1 },
+    behavior: { delayMs: Number(AM24_DELAY) },
   });
   // The 404 (variant 1) stays a clean contract response — no fault.
   // The degraded branch (variant 2) returns a clean 503 — no transport fault.
-  // To simulate hangs, the viewer can later add a timeout fault manually.
   patchAm24Orders({
     variantIndex: 2,
-    behavior: { delayMs: 0, jitterMs: 0, probability: 1 },
+    behavior: { delayMs: 0, jitterMs: 0 },
   });
 }
 
@@ -1450,8 +1447,8 @@ export async function runAm24Variants(ctx: DemoActionContext): Promise<void> {
 export async function runAm24Resilience(ctx: DemoActionContext): Promise<void> {
   await ensureAm24ResponseTab(ctx);
 
-  // Beat 1 — latency on the happy path: a 200 ms delay at probability 1 on the
-  // default 201 so every good order is slightly slow (and never faults).
+  // Beat 1 — latency on the happy path: a 200 ms delay on the default 201 so
+  // every good order is slightly slow. Probability stays empty (= always eligible).
   if (firstVisibleElement(API_MOCK.VARIANT_CARD_FIRST)) {
     await am24ClickNow(ctx, API_MOCK.VARIANT_CARD_FIRST, 0);
   }
@@ -1460,14 +1457,11 @@ export async function runAm24Resilience(ctx: DemoActionContext): Promise<void> {
   }
   await am24Reveal(ctx, API_MOCK.TIMING_PANEL);
   if (firstVisibleElement(API_MOCK.VARIANT_DELAY)) {
-    await am24AimFill(ctx, API_MOCK.VARIANT_DELAY, AM24_DELAY);
-  }
-  if (firstVisibleElement(API_MOCK.VARIANT_PROBABILITY)) {
-    await am24AimFill(ctx, API_MOCK.VARIANT_PROBABILITY, AM24_PROBABILITY, T.payoff);
+    await am24AimFill(ctx, API_MOCK.VARIANT_DELAY, AM24_DELAY, T.payoff);
   }
   patchAm24Orders({
     variantIndex: 0,
-    behavior: { delayMs: Number(AM24_DELAY), probability: 1 },
+    behavior: { delayMs: Number(AM24_DELAY) },
   });
   await am24Break(ctx);
 
@@ -1499,28 +1493,19 @@ export async function runAm24Resilience(ctx: DemoActionContext): Promise<void> {
   }
   await am24Break(ctx);
 
-  // Beat 3 — the degraded branch is the *only* place the transport fault lives:
-  // gate it at 50% on Timing, then arm the timeout on Faults. A 404 is a
-  // response; a timeout is no response — they must stay on separate variants.
+  // Beat 3 — select the degraded branch to show it's a clean 503 with no
+  // transport fault. The Faults tab stays on "No fault" — a 404 is a response,
+  // a timeout is no response, and this branch delivers a proper HTTP error.
   const last = am24VariantCards().at(-1);
   const lastId = last?.getAttribute('data-testid');
   if (lastId) await am24ClickNow(ctx, `[data-testid="${lastId}"]`, 0);
-  if (firstVisibleElement(API_MOCK.RESPONSE_TAB_TIMING)) {
-    await am24Aim(ctx, API_MOCK.RESPONSE_TAB_TIMING, T.tabSwitch);
-  }
-  if (firstVisibleElement(API_MOCK.VARIANT_PROBABILITY)) {
-    await am24AimFill(ctx, API_MOCK.VARIANT_PROBABILITY, AM24_FAULT_PROBABILITY, T.payoff);
-  }
   if (firstVisibleElement(API_MOCK.RESPONSE_TAB_FAULTS)) {
     await am24Aim(ctx, API_MOCK.RESPONSE_TAB_FAULTS, T.tabSwitch);
   }
   await am24Reveal(ctx, API_MOCK.FAULTS_PANEL);
-  if (firstVisibleElement(API_MOCK.FAULT_TIMEOUT)) {
-    await am24Aim(ctx, API_MOCK.FAULT_TIMEOUT);
-  }
   patchAm24Orders({
     variantIndex: 2,
-    behavior: { fault: 'timeout', longRunningMs: 50, probability: Number(AM24_FAULT_PROBABILITY) },
+    behavior: { delayMs: 0, jitterMs: 0 },
   });
   await am24Payoff(ctx, API_MOCK.FAULTS_PANEL);
 }
