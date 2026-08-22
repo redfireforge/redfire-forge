@@ -7,7 +7,6 @@
 export const API_MOCK_DEMO_SERVER_NAME = 'Demo Mock Server';
 
 const TOUR_CREATED_NAME = /^Demo Mock Server(?: \d+)?$/;
-const UNTITLED_MOCK_NAME = /^Mock Server \d+$/;
 
 /** True only for the names this tour assigns — not `Demo 1`, `Demo Health Check`, etc. */
 export function isApiMockDemoServerName(name: string | undefined): boolean {
@@ -35,6 +34,8 @@ export interface ApiMockDemoServerRef {
  * - ids the lesson imported / created (remembered)
  * - exact `Demo Mock Server` names the tour assigned
  * - leftover untitled `Mock Server N` that were never in the pre-demo library
+ * - any server not in the pre-demo user library and not in a sidebar folder (catches
+ *   gallery imports after a page reload when demoImportedServerIds has been reset)
  *
  * Never drop a server whose id was already in the user's library, regardless of name.
  */
@@ -48,5 +49,7 @@ export function isApiMockDemoLessonServer(
   if (isApiMockDemoServerName(server.name)) return true;
   if (!userLibraryIds || userLibraryIds.size === 0) return false;
   if (server.serverFolder) return false;
-  return UNTITLED_MOCK_NAME.test(server.name ?? '');
+  // Pre-demo user library is known: any server absent from it is a demo artifact.
+  // This covers gallery imports whose remembered IDs were lost on page reload.
+  return true;
 }

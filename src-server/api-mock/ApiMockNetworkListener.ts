@@ -26,7 +26,7 @@ import {
   createInitialState, applyTransition, resetState, type ScenarioState,
 } from '../../src/shared/api-mock/scenarioRuntime.js';
 import { renderResponseVariant } from '../../src/shared/api-mock/responseRenderer.js';
-import { renderFallbackBody, newTransactionId } from '../../src/shared/api-mock/fallbackBody.js';
+import { countCompetingRules, renderFallbackBody, newTransactionId } from '../../src/shared/api-mock/fallbackBody.js';
 import { computeVirtualDelayMs } from '../../src/shared/api-mock/faultPreview.js';
 import { buildClosestMatchDebugBody } from '../../src/shared/api-mock/closestMatchDebug.js';
 import { hasAntiRecursionHeader } from '../../src/shared/api-mock/proxyPolicy.js';
@@ -483,7 +483,7 @@ export class ApiMockNetworkListener {
       const ambResp = this.definition.settings.selection.ambiguityResponse;
       const body = renderFallbackBody(ambResp.body, {
         requestId,
-        competingRuleCount: result.explanation?.candidates?.length ?? 0,
+        competingRuleCount: countCompetingRules(result.explanation),
       });
       res.writeHead(ambResp.status, this.mergeCorsHeaders(req, { 'Content-Type': ambResp.contentType }));
       res.end(body);

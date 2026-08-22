@@ -646,7 +646,7 @@ export async function runAm08ProveLogic(ctx: DemoActionContext): Promise<string>
   await am08Trace(ctx, am08TraceRowByText(AM08_TENANT_US), T.look);
   await am08Break(ctx);
   await am08Trace(ctx, am08CandidateByName(AM08_DEFAULT_NAME), T.payoff);
-  await closeAm08Simulate(ctx, { review: true });
+  await closeAm08Simulate(ctx);
   return outcome;
 }
 
