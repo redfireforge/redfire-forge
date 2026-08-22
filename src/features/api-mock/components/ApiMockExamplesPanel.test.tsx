@@ -138,6 +138,41 @@ describe('ApiMockExamplesPanel', () => {
     expect(pathEls.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('renders each outcome and HTTP method display variant', () => {
+    const samples = [
+      sample({ id: 'get', request: { ...sample().request, method: 'GET' }, expected: { outcome: 'matched' } }),
+      sample({ id: 'post', request: { ...sample().request, method: 'POST' }, expected: { outcome: 'unmatched' } }),
+      sample({ id: 'put', request: { ...sample().request, method: 'PUT' }, expected: { outcome: 'ambiguous' } }),
+      sample({ id: 'patch', request: { ...sample().request, method: 'PATCH' }, expected: { outcome: 'proxied' } }),
+      sample({ id: 'delete', request: { ...sample().request, method: 'DELETE' }, expected: { outcome: 'fault' } }),
+      sample({ id: 'other', request: { ...sample().request, method: 'OPTIONS' }, expected: { outcome: 'error' } }),
+    ];
+
+    render(<ApiMockExamplesPanel samples={samples} />);
+
+    for (const outcome of ['matched', 'unmatched', 'ambiguous', 'proxied', 'fault', 'error']) {
+      expect(screen.getByText(outcome)).toBeInTheDocument();
+    }
+    expect(screen.getByTestId('api-mock-example-list-other').querySelector('.am-example-method-badge')).not.toHaveClass('am-example-method--get');
+  });
+
+  it('switches detail to a selected second example with no optional expected fields', () => {
+    const second = sample({
+      id: 's2',
+      name: '',
+      routeId: undefined,
+      expected: undefined,
+    });
+    render(<ApiMockExamplesPanel samples={[sample(), second]} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-example-list-s2'));
+
+    expect(screen.getByTestId('api-mock-example-s2')).toBeInTheDocument();
+    expect(screen.getByText('Untitled')).toBeInTheDocument();
+    expect(screen.getAllByText('Unassociated').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByTestId('api-mock-example-status-chip')).toBeNull();
+  });
+
   it('defaults expected outcome to matched when it was omitted', () => {
     const onUpdateSample = vi.fn();
     render(
