@@ -8,9 +8,13 @@ describe('API_MOCK selectors', () => {
     const expectations: Array<[keyof typeof API_MOCK, string]> = [
       ['STUDIO', '[data-testid="api-mock-studio"]'],
       ['LIVE_REGION', '[data-testid="api-mock-live-region"]'],
-      ['EMPTY', '[data-testid="api-mock-empty"]'],
-      ['CREATE_FIRST', '[data-testid="api-mock-create-first"]'],
+      ['EMPTY', '[data-testid="api-mock-empty"], [data-testid="api-mock-library-landing"]'],
+      ['CREATE_FIRST', '[data-testid="api-mock-create-first"], [data-testid="api-mock-landing-create"]'],
+      ['LANDING_CREATE', '[data-testid="api-mock-landing-create"]'],
       ['TITLEBAR', '[data-testid="api-mock-titlebar"]'],
+      ['LIBRARY_LANDING', '[data-testid="api-mock-library-landing"]'],
+      ['SIDEBAR', '[data-testid="api-mock-sidebar"]'],
+      ['SIDEBAR_NEW', '[data-testid="api-mock-sidebar-new"]'],
       ['WORKSPACE_NAV', '[data-testid="api-mock-workspace-nav"]'],
       ['VIEW_STUDIO', '[data-testid="api-mock-view-studio"]'],
       ['VIEW_RUNTIME', '[data-testid="api-mock-view-runtime"]'],
@@ -600,7 +604,7 @@ describe('API_MOCK selectors', () => {
       ['UNDO_TOAST', '[data-testid="api-mock-undo-toast"]'],
       ['UNDO_RESTORE', '[data-testid="api-mock-undo-restore"]'],
       ['UNDO_DISMISS', '[data-testid="api-mock-undo-dismiss"]'],
-      ['APP_SUBNAV', '[data-testid="nav-tab-api-mock-studio"]'],
+      ['APP_SUBNAV', '[data-testid="ab-api-mock"]'],
     ];
 
     for (const [key, value] of expectations) {
@@ -609,9 +613,6 @@ describe('API_MOCK selectors', () => {
   });
 
   it('builds dynamic tab / route / dock selectors', () => {
-    expect(API_MOCK.libraryRow('srv-1')).toBe('[data-testid="api-mock-library-row-srv-1"]');
-    expect(API_MOCK.libraryOpen('srv-1')).toBe('[data-testid="api-mock-library-open-srv-1"]');
-    expect(API_MOCK.libraryDelete('srv-1')).toBe('[data-testid="api-mock-library-delete-srv-1"]');
     expect(API_MOCK.tab('srv-1')).toBe('[data-testid="api-mock-tab-srv-1"]');
     expect(API_MOCK.tabClose('srv-1')).toBe('[data-testid="api-mock-tab-close-srv-1"]');
     expect(API_MOCK.tabRename('srv-1')).toBe('[data-testid="api-mock-tab-rename-srv-1"]');
@@ -716,7 +717,7 @@ describe('API_MOCK selectors', () => {
   it('keeps split selector modules aligned with the barrel', () => {
     expect(API_MOCK_STUDIO.STUDIO).toBe(API_MOCK.STUDIO);
     expect(API_MOCK_RUNTIME.DOCK).toBe(API_MOCK.DOCK);
-    expect(API_MOCK_STUDIO.libraryRow('x')).toBe(API_MOCK.libraryRow('x'));
+    expect(API_MOCK_STUDIO.tab('x')).toBe(API_MOCK.tab('x'));
     expect(API_MOCK_RUNTIME.dockTab('transactions')).toBe(API_MOCK.dockTab('transactions'));
   });
 });

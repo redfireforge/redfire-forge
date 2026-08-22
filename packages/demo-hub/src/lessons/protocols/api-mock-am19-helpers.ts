@@ -13,12 +13,19 @@ import {
   sendApiMockRequest,
   wipeApiMockWorkspace,
 } from '../../adapters';
-import { API_MOCK, APP } from '@shared/selectors';
+import { API_MOCK } from '@shared/selectors';
 import { firstVisibleElement } from '../../utils/domVisibility';
 import type { DemoActionContext } from '../../types';
+import { showSpotlightRing } from '../../demoRipple';
+import {
+  findScrollableParent,
+  markDemoProgrammaticScroll,
+  pauseDemoAutoScroll,
+} from '../../demoSpotlightUtils';
 import {
   clickBeat,
   fillBeat,
+  openApiMockFromActivityBar,
   revealBeat,
   spotlightBeat,
 } from './api-mock-demo-helpers';
@@ -121,6 +128,37 @@ async function am19Payoff(ctx: DemoActionContext, selector: string): Promise<voi
 
 async function am19Break(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(T.groupBreak);
+}
+
+/** Pin the editor pane to its bottom so Callbacks stay in view. Never scroll back up. */
+async function am19ScrollEditorToBottom(ctx: DemoActionContext): Promise<void> {
+  const bodyEl = document.querySelector<HTMLElement>(API_MOCK.CALLBACK_BODY_FIRST);
+  const scrollParent = (bodyEl && findScrollableParent(bodyEl))
+    ?? document.querySelector<HTMLElement>('.am-editor-body');
+  markDemoProgrammaticScroll(1_000);
+  if (scrollParent) {
+    scrollParent.scrollTo({ top: scrollParent.scrollHeight, behavior: 'smooth' });
+  } else {
+    bodyEl?.scrollIntoView?.({ behavior: 'smooth', block: 'end' });
+  }
+  pauseDemoAutoScroll(12_000);
+  await ctx.delay(T.panelReady);
+}
+
+/** Fill + ring a field that is already on screen — no scrollIntoView. */
+async function am19FillPinned(
+  ctx: DemoActionContext,
+  selector: string,
+  value: string,
+  hold: number = T.fieldFilled,
+): Promise<void> {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return;
+  await ctx.fill(selector, value);
+  await ctx.delay(hold);
+  const dispose = showSpotlightRing(el);
+  await ctx.delay(hold);
+  dispose();
 }
 
 // ── Probes ──────────────────────────────────────────────────────────────────
@@ -265,14 +303,7 @@ export async function ensureAm19OnApiMock(ctx: DemoActionContext): Promise<void>
   if (hasAm19Server() || firstVisibleElement(API_MOCK.STUDIO) || firstVisibleElement(API_MOCK.RUNTIME_PAGE)) {
     return;
   }
-  if (firstVisibleElement(APP.AB_PROTOCOLS)) {
-    await ctx.click(APP.AB_PROTOCOLS);
-  }
-  if (firstVisibleElement(API_MOCK.APP_SUBNAV)) {
-    await ctx.click(API_MOCK.APP_SUBNAV);
-    await ctx.delay(200);
-    return;
-  }
+  if (await openApiMockFromActivityBar(ctx)) return;
   ctx.navigateToTab('api-mock-studio');
   await ctx.delay(200);
 }
@@ -679,6 +710,16 @@ export async function runAm19ProveRedaction(ctx: DemoActionContext): Promise<voi
   await ctx.delay(T.journalWrite);
   await openJournal(ctx, true);
   await clickNewestJournalRow(ctx, true);
+  // Confirm detail switched to the POST row with redacted content; retry if needed.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (let i = 0; i < 20 && !hasAm19RedactedDetail(); i++) {
+      await ctx.delay(200);
+    }
+    if (hasAm19RedactedDetail()) break;
+    const row = journalRows()[0];
+    const selector = rowSelector(row) ?? API_MOCK.JOURNAL_FIRST_ROW;
+    if (firstVisibleElement(selector)) await ctx.click(selector);
+  }
   if (firstVisibleElement(API_MOCK.TX_REQUEST)) {
     await am19Payoff(ctx, API_MOCK.TX_REQUEST);
     await am19Break(ctx);
@@ -752,28 +793,24 @@ export async function runAm19TransformsAndCallbacks(ctx: DemoActionContext): Pro
   }
   await am19Break(ctx);
   if (!hasAm19Callback() && firstVisibleElement(API_MOCK.CALLBACK_ADD)) {
-    await am19Aim(ctx, API_MOCK.CALLBACK_ADD, T.fieldFilled);
+    await am19ClickNow(ctx, API_MOCK.CALLBACK_ADD, T.fieldFilled);
   }
-  if (firstVisibleElement(API_MOCK.CALLBACK_URL_FIRST)) {
-    await am19AimFill(ctx, API_MOCK.CALLBACK_URL_FIRST, AM19_CALLBACK_URL, T.fieldFilled);
-  }
-  if (firstVisibleElement(API_MOCK.CALLBACK_BODY_FIRST)) {
-    await am19AimFill(ctx, API_MOCK.CALLBACK_BODY_FIRST, AM19_CALLBACK_BODY, T.fieldFilled);
-  }
-  if (firstVisibleElement(API_MOCK.CALLBACK_RETRIES_FIRST)) {
-    await am19AimFill(ctx, API_MOCK.CALLBACK_RETRIES_FIRST, AM19_CALLBACK_RETRIES, T.fieldFilled);
-    await am19Payoff(ctx, API_MOCK.CALLBACK_RETRIES_FIRST);
-  }
+  // One downward pin: editor pane to the bottom so URL → Body are all on screen.
+  // Later fills/rings must not call scrollIntoView — that snaps the pane back up.
+  await am19ScrollEditorToBottom(ctx);
+  await am19FillPinned(ctx, API_MOCK.CALLBACK_URL_FIRST, AM19_CALLBACK_URL);
+  await am19FillPinned(ctx, API_MOCK.CALLBACK_RETRIES_FIRST, AM19_CALLBACK_RETRIES);
+  await am19FillPinned(ctx, API_MOCK.CALLBACK_BODY_FIRST, AM19_CALLBACK_BODY, T.payoff);
   if (!firstVisibleElement(API_MOCK.SETTINGS)) return;
-  await am19Aim(ctx, API_MOCK.SETTINGS, T.panelReady);
+  await am19ClickNow(ctx, API_MOCK.SETTINGS, T.panelReady);
   if (firstVisibleElement(API_MOCK.SETTINGS_TAB_PROXY)) {
-    await am19Aim(ctx, API_MOCK.SETTINGS_TAB_PROXY, T.tabSwitch);
+    await am19ClickNow(ctx, API_MOCK.SETTINGS_TAB_PROXY, T.tabSwitch);
   }
   if (firstVisibleElement(API_MOCK.SETTINGS_CALLBACK_ALLOWLIST)) {
-    await am19AimFill(ctx, API_MOCK.SETTINGS_CALLBACK_ALLOWLIST, AM19_CALLBACK_URL, T.payoff);
+    await am19FillNow(ctx, API_MOCK.SETTINGS_CALLBACK_ALLOWLIST, AM19_CALLBACK_URL, T.payoff);
   }
   if (firstVisibleElement(API_MOCK.SETTINGS_SAVE)) {
-    await am19Aim(ctx, API_MOCK.SETTINGS_SAVE, T.fieldFilled);
+    await am19ClickNow(ctx, API_MOCK.SETTINGS_SAVE, T.fieldFilled);
   }
   await closeAm19SettingsModal(ctx);
   await ctx.delay(T.panelReady);
@@ -790,6 +827,17 @@ export async function runAm19ProveTransform(ctx: DemoActionContext): Promise<voi
   await ctx.delay(T.journalWrite);
   await openJournal(ctx, true);
   await clickNewestJournalRow(ctx, true);
+  // Confirm TX_RESPONSE switched to the GET /products row with the injected header;
+  // retry the click up to 3 times if the detail did not update in time.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (let i = 0; i < 20 && !hasAm19TransformHeader(); i++) {
+      await ctx.delay(200);
+    }
+    if (hasAm19TransformHeader()) break;
+    const row = journalRows()[0];
+    const selector = rowSelector(row) ?? API_MOCK.JOURNAL_FIRST_ROW;
+    if (firstVisibleElement(selector)) await ctx.click(selector);
+  }
   if (firstVisibleElement(API_MOCK.TX_RESPONSE)) {
     await am19Payoff(ctx, API_MOCK.TX_RESPONSE);
   } else if (firstVisibleElement(API_MOCK.TX_DETAIL)) {

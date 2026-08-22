@@ -18,6 +18,7 @@ import {
   STATUS_REASONS,
   kindFromContentType,
 } from './apiMockResponseEditorConstants';
+import { ApiMockStatusPickerModal } from './ApiMockStatusPickerModal';
 import { ApiMockResponseFaultsPanel } from './ApiMockResponseFaultsPanel';
 import { ApiMockResponseSelectionPanel } from './ApiMockResponseSelectionPanel';
 import { ApiMockResponseTimingPanel } from './ApiMockResponseTimingPanel';
@@ -44,6 +45,7 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, 
   const [activeVariantId, setActiveVariantId] = useState(route.responses[0]?.id);
   const [contentTab, setContentTab] = useState<ContentTab>('content');
   const [helpersOpen, setHelpersOpen] = useState(false);
+  const [statusPickerOpen, setStatusPickerOpen] = useState(false);
   useEffect(() => {
     if (!route.responses.some(v => v.id === activeVariantId)) {
       setActiveVariantId(route.responses[0]?.id);
@@ -364,6 +366,18 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, 
                               data-testid={`api-mock-variant-status-quick-${s}`}
                             >{s}</button>
                           ))}
+                          <button
+                            type="button"
+                            className="am-status-more-btn"
+                            onClick={() => setStatusPickerOpen(true)}
+                            title="Browse all HTTP status codes"
+                            data-testid="api-mock-status-picker-open"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="6.5" cy="6.5" r="5" /><line x1="10.2" y1="10.2" x2="14.5" y2="14.5" />
+                            </svg>
+                            More
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -710,6 +724,17 @@ export function ApiMockResponseEditor({ route, onUpdateRoute, sequencePosition, 
           </aside>
         )}
       </div>
+
+      {statusPickerOpen && activeVariant && (
+        <ApiMockStatusPickerModal
+          currentStatus={activeVariant.status}
+          onPick={(code, reason) => handleUpdateVariant(activeVariant.id, {
+            status: code,
+            reasonPhrase: reason,
+          })}
+          onClose={() => setStatusPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

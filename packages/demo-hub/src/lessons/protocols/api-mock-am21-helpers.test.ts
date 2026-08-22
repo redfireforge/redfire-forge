@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { API_MOCK, APP } from '@shared/selectors';
+import { API_MOCK } from '@shared/selectors';
 import { AM_DEMO_TIMING } from './api-mock-demo-helpers';
 import { makeCtx, makeVisible } from './ws-test-utils';
 
@@ -320,12 +320,11 @@ describe('AM-21 simulation-suite helpers', () => {
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
   });
 
-  it('clicks Protocols then the API Mock subnav when studio is missing', async () => {
-    document.body.append(el('button', undefined, 'ab-protocols'));
-    document.body.append(el('button', undefined, 'nav-tab-api-mock-studio'));
+  it('clicks the API Mock activity bar when studio is missing', async () => {
+    document.body.append(el('button', undefined, 'ab-api-mock'));
     const ctx = makeCtx();
     await ensureAm21OnApiMock(ctx);
-    expect(calls(ctx.click)).toEqual([APP.AB_PROTOCOLS, API_MOCK.APP_SUBNAV]);
+    expect(calls(ctx.click)).toEqual([API_MOCK.APP_SUBNAV]);
   });
 
   it('falls back to navigateToTab when no subnav is mounted', async () => {

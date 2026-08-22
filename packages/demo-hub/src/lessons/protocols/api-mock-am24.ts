@@ -92,15 +92,15 @@ const DIAGRAM = `
 
 export const apiMockAm24Lesson: DemoLesson = {
   id: 'am-24-capstone',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Ship a Contract Mock',
   description:
     'Start from an empty Studio and import an OpenAPI spec as disabled drafts. '
     + 'Generalize the paths, enable `POST /orders` and `GET /orders/{id}`, then author a JSONPath '
     + 'predicate, a faker-templated 201, and a 404 sibling — then delay the '
-    + 'happy path and isolate a probability-gated timeout on a separate degraded '
-    + 'branch. Prove the suite green, then author a duplicate `GET /health`, '
+    + 'happy path and add a clean 503 degraded branch. '
+    + 'Prove the suite green, then author a duplicate `GET /health`, '
     + 'Analyze the overlap, raise priority, and re-analyze clean. Send live '
     + 'traffic (including a near-miss), export workspace JSON plus WireMock, '
     + 'and finish with a Workflow Quick Test that starts, posts, asserts, and stops.',
@@ -108,7 +108,7 @@ export const apiMockAm24Lesson: DemoLesson = {
   initialTab: 'api-mock-studio',
   allowedTabs: ['api-mock-studio', 'workflow'],
   collapseAppSidebarOnStart: true,
-  contentVersion: 19,
+  contentVersion: 22,
   concept: {
     title: 'A contract mock is a spec you can run, not a screenshot of a 200.',
     body:
@@ -122,9 +122,9 @@ export const apiMockAm24Lesson: DemoLesson = {
       + 'A **JSONPath** predicate is the difference between "any body" and the '
       + 'SKU the client actually sends. **Faker** keeps examples human without '
       + 'hard-coding names. A **404 variant** is the contract\'s sad path; a '
-      + '**delay** on the 201 and a **probability-gated timeout** on a separate '
-      + 'degraded branch are the resilience story — a 404 and a timeout are '
-      + 'different failures, so they live on different variants. **Simulate** '
+      + '**delay** on the 201 and a clean **503** on a separate degraded branch '
+      + 'are the resilience story — a 404 and a 503 are different contract errors, '
+      + 'so they live on different variants. **Simulate** '
       + 'grades that contract (the suite still proves the clean 201) before '
       + 'anything else is added to the library. **Analyze** is how you notice '
       + 'a duplicate `GET /health` you then author on purpose; raising '
@@ -255,24 +255,27 @@ export const apiMockAm24Lesson: DemoLesson = {
     },
     {
       id: 'resilience',
-      title: 'Latency on the 201, a real 404, and a timeout on a degraded branch',
+      title: 'Latency on the 201, a real 404, and a clean 503 for degraded',
       description:
-        'Real services are slow, and occasionally a dependency degrades or '
-        + 'hangs. A mock that answers instantly and perfectly hides the bugs '
+        'Real services are slow, and occasionally a dependency returns an '
+        + 'error. A mock that answers instantly and perfectly hides the bugs '
         + 'that only surface under those conditions, so give `POST /orders` '
         + 'three distinct behaviors:\n\n'
-        + '- **201** (known SKU) — a 200 ms **delay** at **probability 1**: '
-        + 'always slightly slow, to catch clients that assume latency is zero\n'
+        + '- **201** (known SKU) — a 200 ms **delay** so every good order '
+        + 'is slightly slow, catching clients that assume zero latency\n'
         + '- **404** (missing SKU) — a real **404 Not Found**, left untouched: '
         + 'a clean contract error, *not* a transport failure\n'
-        + '- **Degraded** (a flaky SKU) — a **503 Service Unavailable** carrying '
-        + 'a **probability-gated timeout** fault, so only this branch '
-        + 'occasionally hangs\n\n'
-        + 'Keeping the timeout on its own branch is the whole point: a **404** '
-        + 'and a **timeout** are different failures — a 404 *is* a response, a '
-        + 'timeout is *no* response — so they must never share one variant. The '
-        + 'next step grades the happy-path 201 in Simulate, so the fault stays '
-        + 'on the flaky SKU and nowhere that would break that proof.',
+        + '- **Degraded** (flaky SKU) — a **503 Service Unavailable** with '
+        + 'a proper body the client can parse and retry on\n\n'
+        + 'All three use the default Probability (empty = always eligible). '
+        + 'The routing decides which variant fires: if the body contains the '
+        + 'flaky SKU the 503 answers; if it contains a missing SKU the 404 '
+        + 'answers; everything else gets the happy 201.\n\n'
+        + 'If you later want to simulate hangs, add a **Timeout** fault '
+        + 'to the Degraded branch on the **Faults** tab. A 503 and a '
+        + 'timeout are different failures — a 503 *is* a response, a '
+        + 'timeout is *no* response — so keep them on separate branches '
+        + 'if you need both.',
       highlight: API_MOCK.RESPONSE_TAB_TIMING,
       preAction: ensureAm24ForResilience,
       action: runAm24Resilience,

@@ -201,4 +201,29 @@ describe('suppressResizeObserverError', () => {
     console.error('real failure', 42);
     expect(native).toHaveBeenCalledWith('real failure', 42);
   });
+
+  it('swallows unhandledrejection from Vite HMR send-before-connect', () => {
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', { value: new Error('send was called before connect') });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('swallows unhandledrejection from Vite HMR invoke-before-connect', () => {
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', { value: new Error('invoke was called before connect') });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('swallows console.error for Vite HMR send-before-connect', async () => {
+    vi.resetModules();
+    const native = vi.fn();
+    console.error = native;
+    await import('./suppressResizeObserverError');
+    console.error(new Error('send was called before connect'));
+    expect(native).not.toHaveBeenCalled();
+  });
 });

@@ -10,9 +10,15 @@ import {
   loadDemoPriorPageEndpointBackup,
   loadDemoSession,
   purgeOrphanDemoTabs,
+  restoreApiMockUserWorkspace,
   restorePageEndpointSnapshot,
 } from './adapters';
 import { clearDemoLiveSession, readDemoLiveSession } from './demoLiveSession';
+import {
+  DEMO_E2E_FAST_DELAY_MS,
+  clampDemoPacing,
+  isDemoE2EFastMode,
+} from './demoE2EFastMode';
 
 /** preAction is invisible — scale lesson delay() so Preparing does not linger. */
 export const DEMO_QUIET_DELAY_FACTOR = 0.25;
@@ -21,6 +27,16 @@ export const DEMO_QUIET_DELAY_MAX_MS = 280;
 
 export const DEMO_VISIBLE_RIPPLE_MS = 560;
 export const DEMO_VISIBLE_FILL_PAUSE_MS = 420;
+
+export {
+  DEMO_E2E_FAST_MODE_KEY,
+} from './demoE2EFastMode';
+export { DEMO_E2E_FAST_DELAY_MS, clampDemoPacing, isDemoE2EFastMode };
+
+/** Visible-pacing delay, collapsed to a tick under E2E fast mode. */
+export function scaleVisibleDelay(ms: number): number {
+  return clampDemoPacing(ms);
+}
 
 export const INITIAL_STATE: DemoHubState = {
   view: 'domains',
@@ -32,6 +48,7 @@ export const INITIAL_STATE: DemoHubState = {
 };
 
 export function scaleQuietDelay(ms: number): number {
+  if (isDemoE2EFastMode()) return Math.min(ms, DEMO_E2E_FAST_DELAY_MS);
   return Math.min(
     DEMO_QUIET_DELAY_MAX_MS,
     Math.max(DEMO_QUIET_DELAY_MIN_MS, Math.round(ms * DEMO_QUIET_DELAY_FACTOR)),
@@ -72,6 +89,25 @@ export async function closeGraphqlDemoWorkspaceQuiet(lessonId: string): Promise<
     './lessons/protocols/graphql-lesson-helpers/gql-demo-tab'
   );
   await closeGqlDemoWorkspaceQuiet(lessonId);
+}
+
+/** Lesson cleanup, then put the user's mock library back. */
+export async function runApiMockStudioLessonTeardown(
+  lesson: DemoLesson,
+  ctx: DemoActionContext,
+): Promise<void> {
+  try {
+    if (lesson.cleanup) {
+      await lesson.cleanup(ctx);
+    }
+  } catch (e) {
+    console.warn('[DemoHub] Lesson cleanup failed:', e);
+  }
+  try {
+    await restoreApiMockUserWorkspace();
+  } catch (e) {
+    console.warn('[DemoHub] API Mock user library restore failed:', e);
+  }
 }
 
 /** Lesson-specific cleanup + GraphQL Studio demo env / EM teardown. */
@@ -218,17 +254,52 @@ export function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> 
   });
 }
 
+/** How long an action beat waits for its target before giving up. */
+export const DEMO_TARGET_WAIT_MS = 2_000;
+
+function isElementDisabled(el: HTMLElement): boolean {
+  if ('disabled' in el && (el as HTMLButtonElement).disabled) return true;
+  return el.getAttribute('aria-disabled') === 'true';
+}
+
+/**
+ * Resolve an action target, polling until it paints and (for clicks) stops being
+ * disabled.
+ *
+ * Without this a beat whose target has not rendered — or whose Apply button is still
+ * validating — silently no-ops, so the step reports success while the edit never
+ * landed. Lesson pacing used to hide that: the ring holds gave React time to commit
+ * and validate. That made the bug reappear whenever pacing was reduced or the machine
+ * was slow. Falls through with whatever was found at the deadline so a genuinely
+ * disabled control still behaves as before.
+ */
+async function resolveActionTarget(
+  selector: string,
+  signal?: AbortSignal,
+  options?: { requireEnabled?: boolean; timeoutMs?: number },
+): Promise<HTMLElement | null> {
+  const deadline = Date.now() + (options?.timeoutMs ?? DEMO_TARGET_WAIT_MS);
+  let found: HTMLElement | null = null;
+  for (;;) {
+    if (signal?.aborted) return null;
+    found = firstVisible(selector) ?? found;
+    if (found && !(options?.requireEnabled && isElementDisabled(found))) return found;
+    if (Date.now() >= deadline) return found;
+    await abortableSleep(50, signal);
+  }
+}
+
 /** Visible demo action context — click ripple and paced delays for live steps. */
 export function buildDemoActionContext(
   navigateToTab: (tab: string) => void,
   signal?: AbortSignal,
 ): DemoActionContext {
-  const sleep = (ms: number) => abortableSleep(ms, signal);
+  const sleep = (ms: number) => abortableSleep(scaleVisibleDelay(ms), signal);
   return {
     navigateToTab,
     click: async (selector: string) => {
       if (signal?.aborted) return;
-      const el = firstVisible(selector);
+      const el = await resolveActionTarget(selector, signal, { requireEnabled: true });
       if (el) {
         showClickRipple(el);
         await sleep(DEMO_VISIBLE_RIPPLE_MS);
@@ -238,7 +309,7 @@ export function buildDemoActionContext(
     },
     fill: async (selector: string, value: string) => {
       if (signal?.aborted) return;
-      const el = firstVisible(selector);
+      const el = await resolveActionTarget(selector, signal);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         showClickRipple(el);
         await sleep(DEMO_VISIBLE_FILL_PAUSE_MS);
@@ -248,7 +319,7 @@ export function buildDemoActionContext(
     },
     selectOption: async (selector: string, value: string) => {
       if (signal?.aborted) return;
-      const el = firstVisible(selector);
+      const el = await resolveActionTarget(selector, signal);
       if (!el) return;
 
       if (el instanceof HTMLSelectElement) {

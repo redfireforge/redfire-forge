@@ -13,7 +13,7 @@ import type {
 } from './contracts';
 import { selectRoute } from './routeSelector';
 import { DEFAULT_SETTINGS } from './defaults';
-import { renderFallbackBody } from './fallbackBody';
+import { countCompetingRules, renderFallbackBody } from './fallbackBody';
 import {
   createSequenceState,
   resolveEligibleVariant,
@@ -166,7 +166,7 @@ export function simulateSingle(
     const amb = settings.selection.ambiguityResponse;
     const body = renderFallbackBody(amb.body, {
       requestId: sample.id,
-      competingRuleCount: result.explanation?.candidates?.length ?? 0,
+      competingRuleCount: countCompetingRules(result.explanation),
     });
     renderedResponse = staticCaptured(amb.status, amb.contentType, body, input.generation);
     preview = emptyPreview();
