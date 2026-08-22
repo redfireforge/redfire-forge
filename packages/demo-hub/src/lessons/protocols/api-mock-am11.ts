@@ -73,7 +73,7 @@ const DIAGRAM = `
 
 export const apiMockAm11Lesson: DemoLesson = {
   id: 'am-11-templating',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Dynamic Responses: Templates, Faker & Body Mapper',
   description:

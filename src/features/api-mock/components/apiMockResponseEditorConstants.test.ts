@@ -5,6 +5,7 @@ import {
   COOKIE_SAMESITE_OPTIONS,
   CUSTOM_CONTENT_TYPE,
   FAULT_CARDS,
+  HTTP_STATUS_CATALOG,
   QUICK_STATUSES,
   STATUS_REASONS,
   kindFromContentType,
@@ -28,6 +29,19 @@ describe('apiMockResponseEditorConstants', () => {
     expect(COOKIE_FLAG_HELP.every(h => h.meaning.length > 12)).toBe(true);
     expect(COOKIE_SAMESITE_OPTIONS.map(o => o.value)).toEqual(['Strict', 'Lax', 'None']);
     expect(COOKIE_SAMESITE_OPTIONS.every(o => o.detail.length > 8)).toBe(true);
+  });
+
+  it('HTTP_STATUS_CATALOG covers all five ranges with no duplicate codes', () => {
+    expect(HTTP_STATUS_CATALOG).toHaveLength(5);
+    const allCodes = HTTP_STATUS_CATALOG.flatMap(c => c.entries.map(e => e.code));
+    expect(allCodes.length).toBeGreaterThanOrEqual(50);
+    expect(new Set(allCodes).size).toBe(allCodes.length);
+    for (const cat of HTTP_STATUS_CATALOG) {
+      for (const entry of cat.entries) {
+        expect(entry.reason.length).toBeGreaterThan(0);
+        expect(entry.description.length).toBeGreaterThan(10);
+      }
+    }
   });
 
   it('maps Content-Type strings onto body kinds', () => {

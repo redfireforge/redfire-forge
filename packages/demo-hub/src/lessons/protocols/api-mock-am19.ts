@@ -76,7 +76,7 @@ const DIAGRAM = `
 
 export const apiMockAm19Lesson: DemoLesson = {
   id: 'am-19-runtime-ops',
-  domainId: 'protocols',
+  domainId: 'api-mock',
   category: 'api-mock',
   name: 'Runtime Ops: CORS, Limits, Redaction, Diagnostics & Console',
   description:

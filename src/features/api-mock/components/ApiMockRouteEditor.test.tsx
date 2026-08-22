@@ -287,7 +287,7 @@ describe('ApiMockRouteEditor', () => {
     render(<ApiMockRouteEditor route={route} onUpdate={onUpdate} />);
 
     openTab('Behavior');
-    expect(screen.getByText(/Fault “timeout”/)).toBeTruthy();
+    expect(screen.getByText(/never send a response/)).toBeTruthy();
 
     const fault = screen.getByTestId('api-mock-fault-select');
     fireEvent.click(fault.querySelector('.cs-trigger') as HTMLElement);

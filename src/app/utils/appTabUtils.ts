@@ -2,7 +2,7 @@ import { DEMO_HUB_ENABLED } from '../../config/features';
 
 export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio' | 'websocket-studio' | 'sse-studio' | 'graphql-studio' | 'grpc-studio' | 'api-mock-studio' | 'demo-hub';
 
-export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols' | 'demo';
+export type Domain = 'api' | 'api-mock' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols' | 'demo';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'param-runner', 'workflow-runner', 'results']);
 export const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
@@ -19,8 +19,11 @@ export const isApiTab = (t: Tab) => API_TABS.has(t);
 const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings']);
 export const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 
-const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio', 'grpc-studio', 'api-mock-studio']);
+const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio', 'grpc-studio']);
 export const isProtocolsTab = (t: Tab) => PROTOCOLS_TABS.has(t);
+
+const API_MOCK_TABS = new Set<Tab>(['api-mock-studio']);
+export const isApiMockTab = (t: Tab) => API_MOCK_TABS.has(t);
 
 export const PROTOCOLS_DEFAULT_TAB: Tab = 'kafka-message-studio';
 export const LAST_PROTOCOLS_TAB_STORAGE_KEY = 'app-last-protocols-tab';
@@ -44,6 +47,7 @@ export const isDemoTab = (t: Tab) => DEMO_HUB_ENABLED && DEMO_TABS.has(t);
 /** Derive the active domain from the current tab. */
 export function domainOf(tab: Tab): Domain {
   if (isApiTab(tab)) return 'api';
+  if (isApiMockTab(tab)) return 'api-mock';
   if (isWorkflowTab(tab)) return 'workflow';
   if (isGalleryTab(tab)) return 'gallery';
   if (isHarnessTab(tab)) return 'testing';

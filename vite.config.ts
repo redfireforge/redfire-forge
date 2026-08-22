@@ -438,6 +438,11 @@ export default defineConfig({
   server: {
     strictPort: true,
     port: 5173,
+    // Vite 8 turns this on inside Cursor (`determineAgent().isAgent`). When the
+    // HMR websocket drops, forward-console send() rejects and the same
+    // unhandledrejection listener re-sends — an infinite console loop
+    // (vitejs/vite#22407). Keep log forwarding off until that is patched.
+    forwardConsole: false,
     hmr: process.env.PHASE8_E2E_SWEEP !== '1',
     watch: {
       // Runtime writes (repo-root `data/` sqlite, E2E artifacts) must not trigger

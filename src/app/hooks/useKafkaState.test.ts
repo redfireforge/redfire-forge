@@ -1338,3 +1338,107 @@ describe('useKafkaState – race-boundary: poll suppression during connect/disco
     });
   });
 });
+
+describe('useKafkaState – polling stops at max failure streak', () => {
+  const MAX_STREAK = 6;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mocks.loadKafkaClusters.mockResolvedValue([CLUSTER_A]);
+    mocks.loadSelectedKafkaClusterId.mockResolvedValue('cluster-a');
+    mocks.loadKafkaAutoConnectOnStartup.mockResolvedValue(false);
+    mocks.saveKafkaClusters.mockResolvedValue(undefined);
+    mocks.saveSelectedKafkaClusterId.mockResolvedValue(undefined);
+    mocks.saveKafkaAutoConnectOnStartup.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('statusPollFailureStreak saturates at max and no further timers fire', async () => {
+    let statusCallCount = 0;
+    mocks.dispatchKafkaOperation.mockImplementation((op: string) => {
+      if (op === 'status') {
+        statusCallCount++;
+        return Promise.reject(new Error('ERR_CONNECTION_REFUSED'));
+      }
+      return Promise.resolve({ ok: true, op, data: {} });
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+
+    // Drain the initial load (storage promises) without advancing poll timers
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Advance just enough to trigger the loaded state + forced status call
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    // Wait for loaded = true
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Saturate the failure streak via exposed refreshConnectionStatus
+    for (let i = 0; i < MAX_STREAK; i++) {
+      await act(async () => {
+        await result.current.refreshConnectionStatus({ force: true });
+      });
+    }
+    expect(result.current.statusPollFailureStreak).toBe(MAX_STREAK);
+
+    // Flush any pending poll timer (the initial 4 s timer may still be queued).
+    // It fires, fails, and since streak >= max it does NOT schedule a new timer.
+    await act(async () => {
+      vi.advanceTimersByTime(5_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const countAtMaxStreak = statusCallCount;
+
+    // Advance far past the max backoff — no new timers should have been scheduled.
+    await act(async () => {
+      vi.advanceTimersByTime(300_000);
+      await Promise.resolve();
+    });
+
+    expect(statusCallCount).toBe(countAtMaxStreak);
+  });
+
+  it('connectSelectedCluster success resets streak to 0', async () => {
+    mocks.dispatchKafkaOperation.mockImplementation((op: string) => {
+      if (op === 'status') return Promise.reject(new Error('ERR_CONNECTION_REFUSED'));
+      if (op === 'connect') return Promise.resolve({ ok: true, op: 'connect', data: { state: 'connected', clusterId: 'cluster-a' } });
+      return Promise.resolve({ ok: true, op, data: {} });
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Saturate failure streak
+    for (let i = 0; i < MAX_STREAK; i++) {
+      await act(async () => {
+        await result.current.refreshConnectionStatus({ force: true });
+      });
+    }
+    expect(result.current.statusPollFailureStreak).toBe(MAX_STREAK);
+
+    // Now make status succeed, then connect
+    mocks.dispatchKafkaOperation.mockImplementation((op: string) => {
+      if (op === 'status') return Promise.resolve({ ok: true, op: 'status', data: { state: 'connected', clusterId: 'cluster-a' } });
+      if (op === 'connect') return Promise.resolve({ ok: true, op: 'connect', data: { state: 'connected', clusterId: 'cluster-a' } });
+      return Promise.resolve({ ok: true, op, data: {} });
+    });
+
+    await act(async () => {
+      await result.current.connectSelectedCluster();
+    });
+
+    // After a successful connect, streak resets to 0
+    expect(result.current.statusPollFailureStreak).toBe(0);
+  });
+});

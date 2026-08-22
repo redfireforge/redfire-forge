@@ -19,8 +19,8 @@ vi.mock('../../shared/components/data-mapper/DataMapperModal', () => ({ default:
 /** Creating a server asks the control plane for a free port, so it settles async. */
 async function studioWithRoute() {
   render(<ApiMockStudioPage />);
-  fireEvent.click(screen.getByTestId('api-mock-create-first'));
-  await screen.findByTestId('api-mock-studio');
+  fireEvent.click(screen.getByTestId('api-mock-landing-create'));
+  await screen.findByTestId('api-mock-server-bar');
   fireEvent.click(screen.getByTestId('api-mock-add-route'));
 }
 
@@ -61,8 +61,8 @@ describe('API Mock Studio wiring', () => {
 
   it('opens the import modal from the title-bar Import menu', async () => {
     render(<ApiMockStudioPage />);
-    fireEvent.click(screen.getByTestId('api-mock-create-first'));
-    await screen.findByTestId('api-mock-studio');
+    fireEvent.click(screen.getByTestId('api-mock-landing-create'));
+    await screen.findByTestId('api-mock-server-bar');
     // Import is now a single button; the source is chosen inside the modal.
     fireEvent.click(screen.getByTestId('api-mock-import-menu'));
     expect(screen.getByTestId('api-mock-import-review')).toBeTruthy();

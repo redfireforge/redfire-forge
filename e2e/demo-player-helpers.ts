@@ -42,6 +42,7 @@
 
 import { type Page, expect } from '@playwright/test';
 import { PHASE8_E2E_GUARD_BYPASS_KEY } from '../packages/demo-hub/src/demoLiveGuard';
+import { DEMO_E2E_FAST_MODE_KEY } from '../packages/demo-hub/src/demoE2EFastMode';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -51,6 +52,18 @@ export async function installPhase8DemoGuardBypass(page: Page): Promise<void> {
   await page.addInitScript((key) => {
     (window as Window & Record<string, unknown>)[key] = true;
   }, PHASE8_E2E_GUARD_BYPASS_KEY);
+}
+
+/**
+ * Collapse lesson pacing to a tick. Steps are authored with presentation holds
+ * (ring, payoff, pre-Run) that add minutes to a walk without asserting anything.
+ * Opt out with `DEMO_E2E_REAL_PACING=1` when validating the pacing itself.
+ */
+export async function installDemoFastMode(page: Page): Promise<void> {
+  if (process.env.DEMO_E2E_REAL_PACING === '1') return;
+  await page.addInitScript((key) => {
+    (window as Window & Record<string, unknown>)[key] = true;
+  }, DEMO_E2E_FAST_MODE_KEY);
 }
 
 // ─── Timeouts ─────────────────────────────────────────────────────────────────
@@ -109,6 +122,7 @@ export async function clearDemoE2EStorage(page: Page): Promise<void> {
 /** Navigate to the root page and open the Demo Hub pane. */
 export async function openDemoHub(page: Page): Promise<void> {
   await installPhase8DemoGuardBypass(page);
+  await installDemoFastMode(page);
   await gotoAppWithRetry(page, 'http://localhost:5173');
   if (process.env.PHASE8_E2E_SWEEP === '1') {
     await clearDemoE2EStorage(page);
@@ -118,12 +132,12 @@ export async function openDemoHub(page: Page): Promise<void> {
   await page.waitForSelector('.demo-domain-card', { timeout: HUB_TIMEOUT });
 }
 
-/** Click the first non-Coming-Soon domain card (Protocols). */
+/** Click the Protocols domain card (by name, not position). */
 export async function selectProtocolsDomain(page: Page): Promise<void> {
   const card = page
     .locator('.demo-domain-card')
     .filter({ hasNot: page.locator('.coming-soon') })
-    .first();
+    .filter({ hasText: 'Protocols' });
   await card.click();
   await page.waitForSelector('.demo-lesson-list', { timeout: HUB_TIMEOUT });
 }
@@ -131,7 +145,7 @@ export async function selectProtocolsDomain(page: Page): Promise<void> {
 /** Click a category tab by name. */
 export async function selectCategory(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC' | 'API Mock',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
 ): Promise<void> {
   const tab = page
     .locator('.demo-category-tab')
@@ -162,8 +176,16 @@ export async function startLesson(page: Page): Promise<void> {
   await expect(startBtn).toBeEnabled({ timeout: HUB_TIMEOUT });
   await startBtn.click();
   await page.waitForSelector('.demo-live-panel', { timeout: HUB_TIMEOUT });
-  // startLiveDemo kicks off step 0 asynchronously — wait until it reaches reading.
-  await waitForReadingPhase(page, RESTART_TIMEOUT);
+  // startLiveDemo kicks off step 0 asynchronously. Fast mode can leave
+  // `reading` in a 30ms window, so also accept `done` on the first step.
+  await page.waitForFunction(
+    (sel) => {
+      const phase = document.querySelector(sel)?.getAttribute('data-step-phase');
+      return phase === 'reading' || phase === 'done';
+    },
+    '[data-testid="demo-live-panel"]',
+    { timeout: RESTART_TIMEOUT },
+  );
 }
 
 /**
@@ -172,7 +194,7 @@ export async function startLesson(page: Page): Promise<void> {
  */
 export async function launchLesson(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC' | 'API Mock',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
   lessonNameFragment: string,
 ): Promise<void> {
   await openDemoHub(page);
@@ -183,14 +205,18 @@ export async function launchLesson(
 }
 
 /**
- * Demo Hub → Protocols → API Mock → lesson → Start.
- * Every AM lesson that starts a listener or sends traffic needs the companion (:3001).
+ * Demo Hub → API Mock domain card → lesson → Start.
+ * API Mock is now its own top-level Learning Hub card.
  */
 export async function launchApiMockLesson(
   page: Page,
   lessonNameFragment: string,
 ): Promise<void> {
-  await launchLesson(page, 'API Mock', lessonNameFragment);
+  await openDemoHub(page);
+  await page.getByTestId('demo-domain-card-api-mock').click();
+  await page.waitForSelector('.demo-lesson-list', { timeout: HUB_TIMEOUT });
+  await openLesson(page, lessonNameFragment);
+  await startLesson(page);
 }
 
 /** Wait for a Docker PrerequisiteGate to report the server is up (enables Start Demo). */
@@ -205,6 +231,7 @@ export async function waitForPrerequisiteGateUp(
       document
         .querySelector('[data-testid="prereq-status"]')
         ?.classList.contains('prereq-status--up') === true,
+    undefined,
     { timeout },
   );
 }
@@ -253,8 +280,9 @@ export async function waitForReadingPhase(
   timeout = STEP_TIMEOUT,
 ): Promise<void> {
   await page.waitForFunction(
-    () =>
-      document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase') === 'reading',
+    (sel) =>
+      document.querySelector(sel)?.getAttribute('data-step-phase') === 'reading',
+    '[data-testid="demo-live-panel"]',
     { timeout },
   );
 }
@@ -263,7 +291,9 @@ export async function waitForReadingPhase(
 export async function skipReadingPause(page: Page): Promise<void> {
   const badge = page.locator('.demo-live-phase-badge.skippable');
   if (await badge.isVisible({ timeout: 5_000 }).catch(() => false)) {
-    await badge.click();
+    // The reading phase may complete between visibility and click; a detached
+    // badge means there is nothing left to skip.
+    await badge.click({ timeout: 1_000 }).catch(() => undefined);
   }
 }
 
@@ -280,12 +310,11 @@ export async function waitForActionPhase(page: Page, timeout = 5_000): Promise<v
   }
 
   await page.waitForFunction(
-    () => {
-      const phase = document
-        .querySelector('[data-testid="demo-live-panel"]')
-        ?.getAttribute('data-step-phase');
+    (sel) => {
+      const phase = document.querySelector(sel)?.getAttribute('data-step-phase');
       return phase === 'action' || phase === 'verify' || phase === 'pre';
     },
+    '[data-testid="demo-live-panel"]',
     { timeout },
   ).catch(() => { /* zero-action observation step */ });
 }
@@ -301,16 +330,23 @@ export async function completeCurrentStepAction(
   page: Page,
   actionTimeoutMs = STEP_TIMEOUT,
 ): Promise<void> {
-  await waitForReadingPhase(page, actionTimeoutMs);
-  const phase = await page
-    .locator('[data-testid="demo-live-panel"]')
-    .getAttribute('data-step-phase');
+  const panelSel = '[data-testid="demo-live-panel"]';
+  // Fast mode can skip past `reading` before the waiter polls. Do not require it.
+  await page.waitForFunction(
+    (sel) => {
+      const phase = document.querySelector(sel)?.getAttribute('data-step-phase');
+      return phase === 'reading' || phase === 'action' || phase === 'verify' || phase === 'done';
+    },
+    panelSel,
+    { timeout: actionTimeoutMs },
+  );
+  const phase = await page.locator(panelSel).getAttribute('data-step-phase');
   if (phase === 'reading') {
     await skipReadingPause(page);
   }
   await page.waitForFunction(
-    () =>
-      document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase') === 'done',
+    (sel) => document.querySelector(sel)?.getAttribute('data-step-phase') === 'done',
+    panelSel,
     { timeout: actionTimeoutMs },
   );
 }

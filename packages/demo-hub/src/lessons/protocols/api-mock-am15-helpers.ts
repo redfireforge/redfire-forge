@@ -5,6 +5,7 @@
  * Every import is authored live. The listener stays down until the final proof.
  */
 import {
+  collapseAppSidebar,
   deleteCatalogEntryByName,
   deleteCollectionsByName,
   ensureBlankApiMockServer,
@@ -871,6 +872,7 @@ export async function runAm15PushFromClients(ctx: DemoActionContext): Promise<vo
   // ── Return to API Mock Studio and show the result ─────────────────────────
   ctx.navigateToTab('api-mock-studio');
   await ctx.waitFor(API_MOCK.ROUTE_EXPLORER, 8_000);
+  collapseAppSidebar();
   await ctx.delay(T.tabSwitch);
   await am15Payoff(ctx, API_MOCK.ROUTES_FOOTER);
 }

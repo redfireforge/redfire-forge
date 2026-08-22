@@ -11,6 +11,7 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import {
   clearDemoE2EStorage,
   installPhase8DemoGuardBypass,
+  installDemoFastMode,
   launchApiMockLesson,
   playThroughLesson,
 } from './demo-player-helpers';
@@ -101,6 +102,7 @@ export const AM_LESSON_NAMES: Record<string, string> = {
 export async function prepareApiMockLessonRun(page: Page, request: APIRequestContext): Promise<void> {
   await stopAllCompanionListeners(request);
   await installPhase8DemoGuardBypass(page);
+  await installDemoFastMode(page);
   await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
   await clearDemoE2EStorage(page);
 }
