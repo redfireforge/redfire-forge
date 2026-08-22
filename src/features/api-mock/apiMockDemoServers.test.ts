@@ -53,33 +53,39 @@ describe('apiMockDemoServers', () => {
     )).toBe(false);
   });
 
-  it('drops leftover untitled Mock Server N that were never in the user library', () => {
+  it('drops any server not in the user library and not in a sidebar folder', () => {
     const user = new Set(['srv-keep']);
+    // Server is in user library — keep regardless of name
     expect(isApiMockDemoLessonServer(
       { id: 'srv-keep', name: 'Mock Server 4' },
       new Set(),
       user,
     )).toBe(false);
+    // Not in user library, no folder — drop (covers gallery imports after reload)
     expect(isApiMockDemoLessonServer(
       { id: 'srv-tour', name: 'Mock Server 4' },
       new Set(),
       user,
     )).toBe(true);
+    // Not in user library but in a sidebar folder — keep (user organised it)
     expect(isApiMockDemoLessonServer(
       { id: 'srv-new', name: 'Mock Server 3', serverFolder: 'Folder' },
       new Set(),
       user,
     )).toBe(false);
+    // Not in user library, arbitrary name (e.g. gallery sample) — drop
     expect(isApiMockDemoLessonServer(
-      { id: 'srv-aaa', name: 'AAAaaa' },
+      { id: 'srv-aaa', name: 'Store API' },
       new Set(),
       user,
-    )).toBe(false);
+    )).toBe(true);
+    // Not in user library, no name — drop
     expect(isApiMockDemoLessonServer(
       { id: 'x' },
       new Set(),
       user,
-    )).toBe(false);
+    )).toBe(true);
+    // User library is empty — can't infer, keep
     expect(isApiMockDemoLessonServer(
       { id: 'srv-tour', name: 'Mock Server 4' },
       new Set(),

@@ -186,6 +186,10 @@ export function doubleClickFolder(header: HTMLElement): void {
 export function dragRowToFolder(row: HTMLElement, block: HTMLElement): boolean {
   if (typeof DataTransfer === 'undefined' || typeof DragEvent === 'undefined') return false;
   const dataTransfer = new DataTransfer();
+  const draggableRow = row.matches('[draggable="true"]')
+    ? row
+    : row.querySelector<HTMLElement>('[draggable="true"]');
+  if (!draggableRow) return false;
   const rect = block.getBoundingClientRect();
   const opts = {
     bubbles: true,
@@ -194,10 +198,10 @@ export function dragRowToFolder(row: HTMLElement, block: HTMLElement): boolean {
     clientX: Math.round(rect.left + rect.width / 2),
     clientY: Math.round(rect.top + rect.height / 2),
   };
-  row.dispatchEvent(new DragEvent('dragstart', opts));
+  draggableRow.dispatchEvent(new DragEvent('dragstart', opts));
   block.dispatchEvent(new DragEvent('dragover', opts));
   block.dispatchEvent(new DragEvent('drop', opts));
-  row.dispatchEvent(new DragEvent('dragend', opts));
+  draggableRow.dispatchEvent(new DragEvent('dragend', opts));
   return true;
 }
 

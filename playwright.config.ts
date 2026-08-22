@@ -1,4 +1,14 @@
+import { execSync } from 'node:child_process';
 import { defineConfig } from '@playwright/test';
+
+function isLocalPortListening(port: number): boolean {
+  try {
+    execSync(`lsof -nP -iTCP:${port} -sTCP:LISTEN`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Spec files that require Docker infrastructure to run.
@@ -179,8 +189,16 @@ const withGrpcServer = process.env.E2E_GRPC_SERVER === '1';
 const withWsServer = process.env.E2E_WS_SERVER === '1';
 const withGql5Docker = process.env.E2E_GQL5_DOCKER === '1';
 const withAnyDockerInfra = withDocker || withGraphqlServer || withGrpcServer || withWsServer || withGql5Docker;
-/** Reuse manually running dev servers only when explicitly requested. */
-const reuseExistingE2EServers = process.env.E2E_REUSE_SERVERS === '1';
+/** CI and `E2E_REUSE_SERVERS=0` always start (and tear down) fresh servers. */
+const forceFreshE2EServers =
+  process.env.CI === 'true' || process.env.E2E_REUSE_SERVERS === '0';
+/** Reuse a local `npm run dev` so Playwright does not kill a live demo tab. */
+const reuseExistingE2EServers =
+  !forceFreshE2EServers
+  && (process.env.E2E_REUSE_SERVERS === '1' || isLocalPortListening(5173));
+const reuseExistingCompanion =
+  !forceFreshE2EServers
+  && (process.env.E2E_REUSE_SERVERS === '1' || isLocalPortListening(3001));
 
 export default defineConfig({
   testDir: './e2e',
@@ -518,14 +536,15 @@ export default defineConfig({
     {
       command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run server',
       url: 'http://localhost:3001/health',
-      // Release gates must start a fresh companion; opt into reuse for local debugging.
-      reuseExistingServer: reuseExistingE2EServers,
+      // Release gates start a fresh companion; locally reuse :3001 if it is already up.
+      reuseExistingServer: reuseExistingCompanion,
       timeout: 30_000,
     },
     {
       command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run dev',
       url: 'http://localhost:5173',
-      // Release gates must start a fresh frontend; opt into reuse for local debugging.
+      // Release gates start a fresh frontend; locally reuse :5173 if it is already up
+      // so a finished E2E run does not tear down the Vite tab you are watching.
       reuseExistingServer: reuseExistingE2EServers,
       timeout: 30_000,
     },

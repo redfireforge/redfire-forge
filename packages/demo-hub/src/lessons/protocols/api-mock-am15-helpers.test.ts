@@ -14,6 +14,8 @@ const seedCatalogEntry = vi.fn(async () => 'cat-1');
 const seedRequestCollection = vi.fn(() => 'col-1');
 const deleteCatalogEntryByName = vi.fn();
 const deleteCollectionsByName = vi.fn(() => 1);
+const collapseAppSidebar = vi.fn();
+const expandAppSidebar = vi.fn();
 
 vi.mock('../../adapters', () => ({
   wipeApiMockWorkspace: (...a: unknown[]) => wipeApiMockWorkspace(...(a as [])),
@@ -25,6 +27,8 @@ vi.mock('../../adapters', () => ({
   seedRequestCollection: (...a: unknown[]) => seedRequestCollection(...(a as [])),
   deleteCatalogEntryByName: (...a: unknown[]) => deleteCatalogEntryByName(...(a as [])),
   deleteCollectionsByName: (...a: unknown[]) => deleteCollectionsByName(...(a as [])),
+  collapseAppSidebar: (...a: unknown[]) => collapseAppSidebar(...(a as [])),
+  expandAppSidebar: (...a: unknown[]) => expandAppSidebar(...(a as [])),
 }));
 
 import {
@@ -79,6 +83,7 @@ import {
   runAm15ImportPanel,
   runAm15InternalSources,
   runAm15OpenApi,
+  runAm15PushFromClients,
   runAm15ReplaceMode,
   runAm15WireMock,
   selectAm15Source,
@@ -464,6 +469,14 @@ describe('AM-15 import helpers', () => {
     expect(ctx.fill).toHaveBeenCalledWith(API_MOCK.IMPORT_PASTE, AM15_HAR);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_PRETTY);
     expect(ctx.click).toHaveBeenCalledWith(API_MOCK.IMPORT_CONFIRM);
+  });
+
+  it('runAm15PushFromClients collapses the sidebar after returning to API Mock Studio', async () => {
+    const ctx = makeCtx();
+    mountServerBar(false);
+    mountExplorer(14);
+    await runAm15PushFromClients(ctx);
+    expect(collapseAppSidebar).toHaveBeenCalled();
   });
 
   it('runAm15InternalSources promotes catalog then requests', async () => {

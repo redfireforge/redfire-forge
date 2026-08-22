@@ -7,6 +7,8 @@ import { mergeRuntimeInfo } from './apiMockPageHelpers';
 import type { RuntimeInfo } from './apiMockStudioFactory';
 import type { ApiMockWorkspaceSnapshot } from './useApiMockStudioPersistence';
 
+const JOURNAL_MAX_COMPANION_FAILURE_STREAK = 4;
+
 export function useApiMockStudioJournal(opts: {
   activeServerId?: string;
   activeStatus?: RuntimeInfo['status'];
@@ -30,6 +32,14 @@ export function useApiMockStudioJournal(opts: {
   useEffect(() => {
     if (!activeServerId || activeStatus !== 'running') return;
     let cancelled = false;
+    let failureStreak = 0;
+    let timer: number | null = null;
+
+    const stopInterval = () => {
+      cancelled = true;
+      if (timer !== null) { window.clearInterval(timer); timer = null; }
+    };
+
     const poll = async () => {
       // Probe `state` first. A missing/unreachable listener answers 404 for every
       // endpoint, so firing transactions + state + drafts in parallel sprays three
@@ -41,13 +51,18 @@ export function useApiMockStudioJournal(opts: {
       if (!stRes.ok) {
         // A hard failure (wipe, crash, companion restart) is terminal — flip the
         // badge so the effect tears the interval down. A retryable failure (the
-        // companion is briefly unreachable) keeps the badge and just skips this
-        // cycle's fetches; the next tick retries once the companion is back.
+        // companion is briefly unreachable) keeps the badge; after enough consecutive
+        // misses we stop polling to avoid flooding the console while companion is down.
         if (!stRes.error.retry) {
           setRuntime(prev => mergeRuntimeInfo(prev, activeServerId, { status: 'stopped', error: undefined }));
+          stopInterval();
+        } else {
+          failureStreak++;
+          if (failureStreak >= JOURNAL_MAX_COMPANION_FAILURE_STREAK) stopInterval();
         }
         return;
       }
+      failureStreak = 0;
       setScenarioState(stRes.data);
       const [txRes, draftRes] = await Promise.all([
         apiMockControlClient.transactions(activeServerId),
@@ -73,7 +88,7 @@ export function useApiMockStudioJournal(opts: {
       }
     };
     void poll();
-    const timer = window.setInterval(() => void poll(), 1500);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    timer = window.setInterval(() => void poll(), 1500);
+    return stopInterval;
   }, [activeServerId, activeStatus, latestRef, setTransactions, setScenarioState, setRuntime, setServers, setLiveMessage]);
 }

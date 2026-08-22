@@ -174,6 +174,8 @@ export const apiMockAm04Lesson: DemoLesson = {
       action: async (ctx) => {
         await runAm04ProveParam(ctx);
       },
+      // Two full Simulate cycles (save-sample + review + beforeRun each) take ~50s.
+      actionTimeoutMs: 65_000,
       verify: API_MOCK.PATH_KIND,
     },
     {
@@ -272,6 +274,8 @@ export const apiMockAm04Lesson: DemoLesson = {
       action: async (ctx) => {
         await runAm04ProveRegex(ctx);
       },
+      // Two Simulate cycles plus Rendered-response tab switch take ~55s.
+      actionTimeoutMs: 70_000,
       verify: API_MOCK.ROUTE_EXPLORER,
     },
   ],

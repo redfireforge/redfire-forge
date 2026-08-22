@@ -127,6 +127,22 @@ describe('useApiMockStudioJournal', () => {
     await waitFor(() => expect(transactions).toHaveBeenCalledWith('srv-1'));
   });
 
+  it('stops polling after consecutive retryable state failures (companion down)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    state.mockResolvedValue({ ok: false, error: { retry: true } });
+    render(<Probe />);
+    // Drive 4 consecutive retryable failures (initial call + 3 interval ticks).
+    await waitFor(() => expect(state).toHaveBeenCalledTimes(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500 * 3); });
+    const countAtMax = state.mock.calls.length;
+    expect(countAtMax).toBeGreaterThanOrEqual(4);
+    // After streak is saturated the interval is cleared — no more calls.
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500 * 10); });
+    expect(state.mock.calls.length).toBe(countAtMax);
+    // Badge is never reconciled to stopped for a retryable failure.
+    expect(screen.queryByTestId('rt-srv-1')).toBeNull();
+  });
+
   it('merges recorded drafts and acknowledges them', async () => {
     recordedDrafts.mockResolvedValue({
       ok: true,

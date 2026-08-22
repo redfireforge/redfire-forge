@@ -1017,12 +1017,17 @@ export async function runAm07XPath(ctx: DemoActionContext): Promise<void> {
     headers: AM07_XML_CONTENT_TYPE,
     body: AM07_XML_BODY,
     sampleName: AM07_XML_SAMPLE,
-    saveSample: false,
+    saveSample: true,
     fast: true,
     beforeRun: AM07_XML_TIMING.beforeRun,
     outcomeHold: AM07_XML_TIMING.outcome,
   });
   await am07Trace(ctx, am07TraceRowByText('xpath_equals'), AM07_XML_TIMING.outcome);
+  await clickBeat(ctx, API_MOCK.SIMULATE_TAB_RENDERED, {
+    look: AM07_XML_TIMING.look,
+    hold: AM07_XML_TIMING.tab,
+  });
+  await spotlightBeat(ctx, API_MOCK.SIMULATE_RENDERED_BODY, AM07_XML_TIMING.payoff);
   await closeAm07Simulate(ctx);
 }
 
