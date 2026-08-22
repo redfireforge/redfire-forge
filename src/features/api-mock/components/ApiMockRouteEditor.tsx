@@ -561,7 +561,12 @@ export function ApiMockRouteEditor({
           />
         )}
         {tab === 'behavior' && (
-          <>
+          <div className="am-behavior-panel">
+            <div className="am-behavior-section">
+              <div className="am-behavior-section-head">
+                <span className="am-behavior-section-icon" aria-hidden="true">&#9201;</span>
+                <span className="am-behavior-section-title">Timing</span>
+              </div>
             <div className="am-form-grid am-form-grid--aligned">
               <div className="am-form-row">
                 <div className="am-form-label">Latency</div>
@@ -574,20 +579,7 @@ export function ApiMockRouteEditor({
                     onChange={e => updateDefaultBehavior({ delayMs: parseInt(e.target.value, 10) || 0 })}
                     data-testid="api-mock-behavior-delay"
                   />
-                  <span className="am-hint">ms fixed delay</span>
-                </div>
-              </div>
-              <div className="am-form-row">
-                <div className="am-form-label">Fault injection</div>
-                <div className="am-form-control">
-                  <CustomSelect
-                    value={defaultVariant?.behavior.fault ?? 'none'}
-                    onChange={v => updateDefaultBehavior({ fault: v as ApiMockFaultKind })}
-                    options={FAULT_OPTIONS}
-                    className="am-cs"
-                    aria-label="Fault injection"
-                    data-testid="api-mock-fault-select"
-                  />
+                  <span className="am-hint">ms fixed delay before response</span>
                 </div>
               </div>
               <div className="am-form-row">
@@ -601,15 +593,77 @@ export function ApiMockRouteEditor({
                     onChange={e => updateDefaultBehavior({ jitterMs: parseInt(e.target.value, 10) || 0 })}
                     data-testid="api-mock-behavior-jitter"
                   />
+                  <span className="am-hint">random \u00b1 added to latency</span>
                 </div>
               </div>
             </div>
-            {defaultVariant?.behavior.fault && defaultVariant.behavior.fault !== 'none' && (
-              <div className="am-notice warning" style={{ marginTop: 12 }}>
-                <span>Fault “{defaultVariant.behavior.fault}” is injected before the normal response — use it to test client resilience.</span>
+              {(defaultVariant?.behavior.delayMs ?? 0) > 0 && (
+                <div className="am-behavior-timing-summary" data-testid="api-mock-behavior-timing-summary">
+                  Response will arrive in{' '}
+                  <strong>
+                    {(defaultVariant?.behavior.jitterMs ?? 0) > 0
+                      ? `${Math.max(0, (defaultVariant?.behavior.delayMs ?? 0) - (defaultVariant?.behavior.jitterMs ?? 0))}\u2013${(defaultVariant?.behavior.delayMs ?? 0) + (defaultVariant?.behavior.jitterMs ?? 0)} ms`
+                      : `${defaultVariant?.behavior.delayMs ?? 0} ms`}
+                  </strong>
+                </div>
+              )}
+            </div>
+
+            <div className={`am-behavior-section${defaultVariant?.behavior.fault && defaultVariant.behavior.fault !== 'none' ? ' am-behavior-section--active-fault' : ''}`}>
+              <div className="am-behavior-section-head">
+                <span className="am-behavior-section-icon" aria-hidden="true">&#9889;</span>
+                <span className="am-behavior-section-title">Fault injection</span>
+                {defaultVariant?.behavior.fault && defaultVariant.behavior.fault !== 'none' && (
+                  <span className="am-behavior-fault-badge">Active</span>
+                )}
               </div>
-            )}
-          </>
+              <div className="am-form-grid am-form-grid--aligned">
+                <div className="am-form-row">
+                  <div className="am-form-label">Fault type</div>
+                  <div className="am-form-control">
+                    <CustomSelect
+                      value={defaultVariant?.behavior.fault ?? 'none'}
+                      onChange={v => updateDefaultBehavior({ fault: v as ApiMockFaultKind })}
+                      options={FAULT_OPTIONS}
+                      className="am-cs"
+                      aria-label="Fault injection"
+                      data-testid="api-mock-fault-select"
+                    />
+                  </div>
+                </div>
+                {defaultVariant?.behavior.fault && defaultVariant.behavior.fault !== 'none' && (
+                  <div className="am-form-row">
+                    <div className="am-form-label">Probability</div>
+                    <div className="am-form-control">
+                      <input
+                        className="am-input num mono"
+                        type="number"
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        value={defaultVariant?.behavior.probability ?? 1}
+                        onChange={e => {
+                          const v = parseFloat(e.target.value);
+                          updateDefaultBehavior({ probability: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1 });
+                        }}
+                        data-testid="api-mock-behavior-probability"
+                      />
+                      <span className="am-hint">0\u20131; fraction of requests that trigger the fault</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {defaultVariant?.behavior.fault && defaultVariant.behavior.fault !== 'none' && (
+                <div className="am-behavior-fault-hint">
+                  {defaultVariant.behavior.fault === 'timeout' && 'The server will accept the connection but never send a response — the client sees a hang.'}
+                  {defaultVariant.behavior.fault === 'close' && 'The socket is closed abruptly before any response bytes are sent.'}
+                  {defaultVariant.behavior.fault === 'reset' && 'A TCP RST is sent, forcefully tearing down the connection.'}
+                  {defaultVariant.behavior.fault === 'malformed' && 'Garbage bytes are written instead of a valid HTTP response.'}
+                  {defaultVariant.behavior.fault === 'dribble' && 'The response body is streamed one byte at a time with long pauses between chunks.'}
+                </div>
+              )}
+            </div>
+          </div>
         )}
         {tab === 'examples' && (
           <ApiMockExamplesPanel
@@ -622,62 +676,87 @@ export function ApiMockRouteEditor({
           />
         )}
         {tab === 'docs' && (
-          <div className="am-form-grid am-docs-form-grid">
-            <div className="am-form-row am-form-row--tall">
-              <div className="am-form-label">Folder</div>
-              <div className="am-form-control am-form-control-stack">
-                <CustomSelect
-                  value={route.folderId ?? ''}
-                  onChange={v => onUpdate({ folderId: v || undefined })}
-                  options={[
-                    { value: '', label: 'Ungrouped' },
-                    ...folders.map(f => ({ value: f.id, label: f.name })),
-                  ]}
-                  className="am-cs wide"
-                  aria-label="Route folder"
-                  data-testid="api-mock-docs-folder"
-                />
-                <span className="am-hint">
-                  {folders.length === 0 ? 'Create a folder in the rules panel first.' : 'Groups this rule in the rules panel.'}
-                </span>
+          <div className="am-docs-panel">
+            <div className="am-docs-section">
+              <div className="am-docs-section-head">
+                <span className="am-docs-section-icon" aria-hidden="true">&#128196;</span>
+                <span className="am-docs-section-title">Description</span>
+              </div>
+              <div className="am-form-grid am-form-grid--aligned am-docs-form-grid">
+                <div className="am-form-row">
+                  <div className="am-form-label">Summary</div>
+                  <div className="am-form-control">
+                    <input
+                      className="am-input wide"
+                      value={route.name}
+                      placeholder="Return one user by numeric ID"
+                      onChange={e => onUpdate({ name: e.target.value })}
+                      data-testid="api-mock-docs-summary"
+                    />
+                  </div>
+                </div>
+                <div className="am-form-row">
+                  <div className="am-form-label">Operation ID</div>
+                  <div className="am-form-control">
+                    <input
+                      className="am-input wide mono"
+                      value={route.operationId ?? ''}
+                      placeholder="getUserById"
+                      onChange={e => onUpdate({ operationId: e.target.value || undefined })}
+                      data-testid="api-mock-docs-operation-id"
+                    />
+                    <span className="am-hint">Maps to the OpenAPI operationId field</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="am-form-row">
-              <div className="am-form-label">Summary</div>
-              <div className="am-form-control">
-                <input
-                  className="am-input wide"
-                  value={route.name}
-                  placeholder="Return one user by numeric ID"
-                  onChange={e => onUpdate({ name: e.target.value })}
-                  data-testid="api-mock-docs-summary"
-                />
+
+            <div className="am-docs-section">
+              <div className="am-docs-section-head">
+                <span className="am-docs-section-icon" aria-hidden="true">&#128193;</span>
+                <span className="am-docs-section-title">Organization</span>
               </div>
-            </div>
-            <div className="am-form-row">
-              <div className="am-form-label">Operation ID</div>
-              <div className="am-form-control">
-                <input
-                  className="am-input wide mono"
-                  value={route.operationId ?? ''}
-                  placeholder="getUserById"
-                  onChange={e => onUpdate({ operationId: e.target.value || undefined })}
-                  data-testid="api-mock-docs-operation-id"
-                />
+              <div className="am-form-grid am-form-grid--aligned am-docs-form-grid">
+                <div className="am-form-row">
+                  <div className="am-form-label">Folder</div>
+                  <div className="am-form-control">
+                    <CustomSelect
+                      value={route.folderId ?? ''}
+                      onChange={v => onUpdate({ folderId: v || undefined })}
+                      options={[
+                        { value: '', label: 'Ungrouped' },
+                        ...folders.map(f => ({ value: f.id, label: f.name })),
+                      ]}
+                      className="am-cs wide"
+                      aria-label="Route folder"
+                      data-testid="api-mock-docs-folder"
+                    />
+                    <span className="am-hint">
+                      {folders.length === 0 ? 'Create a folder in the rules panel first.' : 'Groups this rule in the rules panel.'}
+                    </span>
+                  </div>
+                </div>
+                <div className="am-form-row">
+                  <div className="am-form-label">Tags</div>
+                  <div className="am-form-control">
+                    <input
+                      className="am-input wide"
+                      value={route.tags.join(', ')}
+                      placeholder="users, public"
+                      onChange={e => onUpdate({ tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })}
+                      data-testid="api-mock-docs-tags"
+                    />
+                    <span className="am-hint">Comma-separated; used for filtering and export grouping</span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="am-form-row am-form-row--tall">
-              <div className="am-form-label">Tags</div>
-              <div className="am-form-control am-form-control-stack">
-                <input
-                  className="am-input wide"
-                  value={route.tags.join(', ')}
-                  placeholder="users, public"
-                  onChange={e => onUpdate({ tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })}
-                  data-testid="api-mock-docs-tags"
-                />
-                <span className="am-hint">Comma-separated.</span>
-              </div>
+              {route.tags.length > 0 && (
+                <div className="am-docs-tags-preview">
+                  {route.tags.map(tag => (
+                    <span key={tag} className="am-docs-tag-chip">{tag}</span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

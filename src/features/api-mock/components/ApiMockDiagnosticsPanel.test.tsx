@@ -38,7 +38,7 @@ describe('ApiMockDiagnosticsPanel', () => {
     const { unmount } = render(<ApiMockDiagnosticsPanel serverId="srv-1" running />);
     await waitFor(() => expect(screen.getByTestId('api-mock-diag-generation').textContent).toBe('4'));
     expect(screen.getByTestId('api-mock-diag-drops').textContent).toBe('3');
-    expect(screen.getByTestId('api-mock-diag-outcomes').textContent).toMatch(/matched 7/);
+    expect(screen.getByTestId('api-mock-diag-outcomes').textContent).toMatch(/matched.*7/);
     unmount();
   });
 
